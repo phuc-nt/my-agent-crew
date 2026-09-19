@@ -6,7 +6,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import httpx
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -77,6 +77,8 @@ def create_app(deps: AgentDeps | None = None) -> FastAPI:
 
         @app.get("/{path:path}", include_in_schema=False)
         def spa(path: str) -> FileResponse:
+            if path.startswith("api/"):
+                raise HTTPException(status_code=404)
             candidate = STATIC_DIR / path
             if path and candidate.is_file():
                 return FileResponse(candidate)
