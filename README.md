@@ -40,6 +40,44 @@ Bí mật **chỉ** đọc từ biến môi trường; `config.yaml` chỉ chứ
 `config.yaml` trong `MY_AGENT_HOME` nhận `routes`, `cost_cap_usd`, `max_steps`, `language`,
 `autonomous_default`. Kỹ năng tự viết: thêm tệp `.md` có frontmatter `name` vào `skills/`.
 
+## Nhiều agent có tên riêng
+
+Mỗi thư mục `MY_AGENT_HOME/agents/<id>/` chứa `agent.yaml` cùng các tệp nhân cách
+(`AGENTS.md`, `SOUL.md`, `IDENTITY.md`, `USER.md`) và trí nhớ (`MEMORY.md`, `memory/YYYY-MM-DD.md`)
+được nạp vào system prompt mỗi lượt. Ví dụ một huấn luyện viên sức khoẻ:
+
+```yaml
+name: HLV sức khoẻ
+description: Đọc dữ liệu Garmin, gửi bản tin sáng
+routes: [openrouter:z-ai/glm-5.3-flash, openrouter:z-ai/glm-5]
+workspace: ~/workspace/my-health-coach   # sandbox cho công cụ tệp + shell_run
+skills_dirs: [~/.openclaw/workspace-personal/skills]
+autonomous: true                          # job chạy không cần duyệt
+schedules:
+  - id: morning-brief
+    name: Bản tin sáng
+    cron: "0 7 * * *"                     # giờ máy, 5 trường
+    prompt: |
+      Chạy scripts/health-sync.py --json rồi viết bản tin 4-6 dòng…
+      Kèm ảnh bằng dòng `MEDIA: data/charts/sleep.png`.
+  - id: backup
+    name: Sao lưu Drive
+    cron: "20 2 * * *"
+    command: ./scripts/backup-to-drive.sh
+```
+
+Job `prompt` mở một cuộc trò chuyện mới và chạy như người dùng nhắn; job `command` chỉ chạy shell.
+Bí mật vẫn chỉ đến từ biến môi trường của tiến trình server. Thư mục `agents/` là dữ liệu cá nhân,
+không nằm trong repo này.
+
+## Theo dõi hoạt động
+
+Thanh **Hoạt động** bên phải web UI nhận SSE từ `/api/activity/stream`: mỗi lượt chat hay job
+hiện thành một thẻ với từng bước (gọi model, gọi công cụ, kết quả, thời gian, chi phí), mục
+**Cần chú ý** gom các lượt chờ duyệt / lỗi, tab **Lịch chạy** cho bấm *Chạy ngay*, tab **Chi phí**
+theo agent / model / ngày. Dòng `MEDIA: <đường dẫn trong workspace>` trong câu trả lời được hiển
+thị thành ảnh.
+
 ## Phát triển
 
 ```bash
