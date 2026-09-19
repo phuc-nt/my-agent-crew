@@ -147,6 +147,12 @@ def test_agent_files_are_served_only_from_the_workspace(two_agents):
     assert r.status_code == 200 and r.content == b"\x89PNG fake"
     absolute = str(workspace / "charts" / "sleep.png")
     assert client.get("/api/agents/coach/files", params={"path": absolute}).status_code == 200
+    linked = workspace.parent / "linked-charts"
+    linked.mkdir()
+    (linked / "hr.png").write_bytes(b"linked")
+    (workspace / "data").symlink_to(linked)
+    r = client.get("/api/agents/coach/files", params={"path": "data/hr.png"})
+    assert r.status_code == 200 and r.content == b"linked"
     assert (
         client.get("/api/agents/coach/files", params={"path": "../agent.yaml"}).status_code == 403
     )

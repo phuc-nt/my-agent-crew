@@ -30,6 +30,10 @@ from my_agent_crew.tools.workspace import build_workspace_tools
 
 logger = logging.getLogger(__name__)
 
+# Models can think for well over httpx's 5 s default before the first token arrives; the
+# shared client must wait as long as the provider itself would.
+PROVIDER_TIMEOUT_SECONDS = 120.0
+
 
 def build_providers(settings: Settings, client: httpx.AsyncClient) -> dict[str, Provider]:
     providers: dict[str, Provider] = {"fake": EchoProvider()}
@@ -124,7 +128,7 @@ class Runtime:
 
 def build_runtime(settings: Settings, client: httpx.AsyncClient | None = None) -> Runtime:
     settings = ensure_home(settings)
-    client = client or httpx.AsyncClient()
+    client = client or httpx.AsyncClient(timeout=httpx.Timeout(PROVIDER_TIMEOUT_SECONDS))
     store = Store(settings.db_path)
     providers = build_providers(settings, client)
     agents = {

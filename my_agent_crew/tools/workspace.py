@@ -3,6 +3,7 @@ not by the prompt; writing asks the user first."""
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 
@@ -12,15 +13,25 @@ from my_agent_crew.tools.registry import Tool, ToolError
 MAX_READ_CHARS = 20000
 
 
+def _within(root: Path, path: Path) -> bool:
+    return path == root or root in path.parents
+
+
 def resolve_inside(root: Path, relative: str) -> Path:
     """Absolute paths and `~` are fine as long as they land inside the workspace; personas
-    written for other runtimes quote absolute paths, and refusing them only wastes a step."""
+    written for other runtimes quote absolute paths, and refusing them only wastes a step.
+    Containment is checked on the lexical path, so `..` cannot walk out of the root while
+    symlinks the user placed inside the workspace (a chart folder linked from another tool's
+    workspace) are followed like any other entry."""
     root = root.resolve()
     candidate = Path(relative).expanduser()
-    resolved = (candidate if candidate.is_absolute() else root / candidate).resolve()
-    if resolved != root and root not in resolved.parents:
-        raise ToolError(WORKSPACE_ESCAPE)
-    return resolved
+    lexical = Path(os.path.normpath(root / candidate))
+    if _within(root, lexical):
+        return lexical
+    resolved = lexical.resolve()
+    if _within(root, resolved):
+        return resolved
+    raise ToolError(WORKSPACE_ESCAPE)
 
 
 def build_workspace_tools(root: Path) -> list[Tool]:

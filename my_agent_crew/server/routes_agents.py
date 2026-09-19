@@ -11,17 +11,18 @@ from fastapi.responses import FileResponse
 
 from my_agent_crew import texts
 from my_agent_crew.server.deps import Rt
+from my_agent_crew.tools.registry import ToolError
+from my_agent_crew.tools.workspace import resolve_inside
 
 router = APIRouter(tags=["agents"])
 
 
 def _inside_workspace(workspace: Path, path: str) -> Path:
-    root = workspace.resolve()
-    candidate = Path(path).expanduser()
-    resolved = (candidate if candidate.is_absolute() else root / candidate).resolve()
-    if resolved != root and root not in resolved.parents:
-        raise HTTPException(403, texts.FILE_OUTSIDE_WORKSPACE)
-    return resolved
+    """Same containment rule as the workspace tools, so what the model can read, the UI can show."""
+    try:
+        return resolve_inside(workspace, path)
+    except ToolError as exc:
+        raise HTTPException(403, texts.FILE_OUTSIDE_WORKSPACE) from exc
 
 
 @router.get("/agents")

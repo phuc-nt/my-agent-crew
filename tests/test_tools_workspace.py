@@ -30,12 +30,16 @@ def test_absolute_and_home_paths_inside_the_workspace_are_accepted(tmp_path: Pat
         resolve_inside(tmp_path, str(tmp_path.parent / "outside.txt"))
 
 
-def test_symlink_pointing_outside_is_refused(tmp_path: Path):
-    outside = tmp_path.parent / "outside.txt"
-    outside.write_text("secret")
-    (tmp_path / "link").symlink_to(outside)
+def test_symlinks_placed_inside_the_workspace_are_followed(tmp_path: Path):
+    """Real workspaces link chart folders in from elsewhere; the link is the user's choice."""
+    outside = tmp_path.parent / "charts-outside"
+    outside.mkdir(exist_ok=True)
+    (outside / "sleep.png").write_bytes(b"png")
+    (tmp_path / "charts").symlink_to(outside)
+    path = resolve_inside(tmp_path, "charts/sleep.png")
+    assert path == tmp_path / "charts" / "sleep.png" and path.read_bytes() == b"png"
     with pytest.raises(ToolError):
-        resolve_inside(tmp_path, "link")
+        resolve_inside(tmp_path, "charts/../../x")
 
 
 async def test_list_read_write_round_trip(reg: ToolRegistry, tmp_path: Path):

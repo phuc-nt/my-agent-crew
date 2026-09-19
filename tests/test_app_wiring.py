@@ -4,6 +4,7 @@ from pathlib import Path
 
 from my_agent_crew.config import load_settings
 from my_agent_crew.server import build_deps, build_runtime
+from my_agent_crew.server.runtime import PROVIDER_TIMEOUT_SECONDS
 
 
 def env_for(tmp_path: Path, **extra: str) -> dict[str, str]:
@@ -67,3 +68,10 @@ def test_profile_routes_without_a_key_fall_back_to_the_global_routes(tmp_path: P
     with_key = load_settings(env=env_for(tmp_path, OPENROUTER_API_KEY="k"))
     routes = build_runtime(with_key).deps_for("coach").chain.routes
     assert [f"{r.provider}:{r.model}" for r in routes] == ["openrouter:x", "fake:echo"]
+
+
+def test_default_http_client_waits_as_long_as_the_provider_would(tmp_path: Path):
+    deps = build_deps(load_settings(env=env_for(tmp_path, OPENROUTER_API_KEY="k")))
+    client = deps.chain.providers["openrouter"]._client
+    assert client.timeout.read == PROVIDER_TIMEOUT_SECONDS
+    assert client.timeout.connect == PROVIDER_TIMEOUT_SECONDS

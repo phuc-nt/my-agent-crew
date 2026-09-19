@@ -19,7 +19,7 @@ Guard tests: `tests/test_file_size_budget.py` (≤200 lines), `tests/test_static
 | Route fallback before first item; mid-stream failure surfaces | `test_provider_chain.py` | — | — |
 | OpenRouter streaming, error chunks, HTTP errors | `test_openrouter.py` | — | — |
 | Tool registry, JSON arg validation, output cap | `test_tools_registry.py` | — | — |
-| Workspace tools refuse escape (incl. symlinks) | `test_tools_workspace.py` | — | — |
+| Workspace tools refuse `..` escapes, follow symlinks inside | `test_tools_workspace.py` | — | — |
 | Web tools refuse private/loopback hosts; search only with a key | `test_tools_web.py`, `test_app_wiring.py` | — | — |
 | Memory save/search | `test_tools_memory.py` | — | — |
 | Shell tool: cwd, env allow-list, timeout, exit code, approval | `test_tools_shell.py` | — | — |
