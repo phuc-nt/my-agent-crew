@@ -13,11 +13,11 @@ MAX_READ_CHARS = 20000
 
 
 def resolve_inside(root: Path, relative: str) -> Path:
+    """Absolute paths and `~` are fine as long as they land inside the workspace; personas
+    written for other runtimes quote absolute paths, and refusing them only wastes a step."""
     root = root.resolve()
-    candidate = Path(relative)
-    if candidate.is_absolute():
-        raise ToolError(WORKSPACE_ESCAPE)
-    resolved = (root / candidate).resolve()
+    candidate = Path(relative).expanduser()
+    resolved = (candidate if candidate.is_absolute() else root / candidate).resolve()
     if resolved != root and root not in resolved.parents:
         raise ToolError(WORKSPACE_ESCAPE)
     return resolved

@@ -19,6 +19,17 @@ def test_escape_attempts_are_refused(tmp_path: Path, bad: str):
         resolve_inside(tmp_path, bad)
 
 
+def test_absolute_and_home_paths_inside_the_workspace_are_accepted(tmp_path: Path, monkeypatch):
+    assert (
+        resolve_inside(tmp_path, str(tmp_path / "notes" / "a.txt"))
+        == (tmp_path / "notes" / "a.txt").resolve()
+    )
+    monkeypatch.setenv("HOME", str(tmp_path))
+    assert resolve_inside(tmp_path, "~/notes") == (tmp_path / "notes").resolve()
+    with pytest.raises(ToolError):
+        resolve_inside(tmp_path, str(tmp_path.parent / "outside.txt"))
+
+
 def test_symlink_pointing_outside_is_refused(tmp_path: Path):
     outside = tmp_path.parent / "outside.txt"
     outside.write_text("secret")
