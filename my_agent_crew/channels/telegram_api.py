@@ -129,3 +129,8 @@ class TelegramApi:
     async def send_chat_action(self, chat_id: int, action: str = "typing") -> None:
         """Shows "typing…" in the chat; Telegram clears it after ~5 s or on the next message."""
         await self.call("sendChatAction", {"chat_id": chat_id, "action": action})
+
+    async def set_my_commands(self, commands: list[tuple[str, str]]) -> None:
+        """Replaces the bot's command menu (the list clients show after typing "/")."""
+        payload = [{"command": name, "description": description} for name, description in commands]
+        await self.call("setMyCommands", {"commands": json.dumps(payload)})

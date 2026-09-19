@@ -30,13 +30,20 @@ class TelegramOutbound:
         return self._deps.agent.id
 
     async def deliver(self, conv_id: str) -> bool:
-        """Sends the last final reply of a conversation; False when there is none yet."""
+        """Sends every assistant text of the conversation's last turn (the messages after
+        the last user message, in order); False when there is none yet. Text written next
+        to a tool call counts: a brief often ends with a bare `MEDIA:` message."""
+        parts: list[str] = []
         for stored in reversed(self._deps.store.history(conv_id)):
             message = stored.message
-            if message.role == "assistant" and not message.tool_calls:
-                await self.send(message.content)
-                return True
-        return False
+            if message.role == "user":
+                break
+            if message.role == "assistant" and message.content.strip():
+                parts.append(message.content.strip())
+        if not parts:
+            return False
+        await self.send("\n\n".join(reversed(parts)))
+        return True
 
     async def send(self, text: str) -> None:
         prose, media = split_reply(text)

@@ -97,15 +97,22 @@ returns 202. There is no timezone field: the machine clock is the schedule clock
 a profile with `telegram: {token_env, chat_id}` gets a `TelegramChannel` at startup when the
 named env var is set (otherwise a warning and no channel; the server still starts). The
 channel long-polls `getUpdates`, answers only the configured chat, and turns each text into a
-turn of a per-day conversation with `channel = "telegram:<chat_id>"` (`/new` or `/start`
-opens another). Turns run through the same `tracked` wrapper with source `telegram`, so the
-activity rail and the conversation list show them. While a turn runs the chat shows
-"typing…" (`sendChatAction` re-sent every 4 s by `TelegramOutbound.typing`; a failed action is
-only logged). Replies are sent as plain text in 4096-char
-chunks; `MEDIA:` lines become `sendPhoto` from the agent workspace. The scheduler calls
-`Runtime.deliver` after every prompt job, which forwards the conversation's last reply to the
-agent's channel when it has one. A conversation awaiting approval answers Telegram with a
-pointer to the web UI; approvals stay there. The update offset is persisted in
+turn of a per-day conversation with `channel = "telegram:<chat_id>"`. Turns run through the
+same `tracked` wrapper with source `telegram`, so the activity rail and the conversation list
+show them. While a turn runs the chat shows "typing…" (`sendChatAction` re-sent every 4 s by
+`TelegramOutbound.typing`; a failed action is only logged). The reply is every assistant text
+of the turn joined in order, including text the model wrote next to a tool call, because
+models often put the answer there and finish with a bare `MEDIA:` message. Replies are sent
+as plain text in 4096-char chunks; `MEDIA:` lines become `sendPhoto` from the agent
+workspace. Slash commands (`telegram_commands.py`) are answered by the channel without a
+model call: `/new`, `/reset` and `/start` open another conversation, `/help`, `/status`
+(turns, spend vs cap, routes, pending approval, last run) and `/tools` describe the agent,
+`/approve` and `/deny` resolve a pending approval through `resolve_approval` and stream the
+rest of the turn back to the chat. An unknown `/word` gets a pointer to `/help`; a path such
+as `/usr/bin` is not a command. The menu is registered with `setMyCommands` once per process
+when polling starts. The scheduler calls `Runtime.deliver` after every prompt job, which
+forwards the assistant text of the conversation's last turn to the agent's channel when it
+has one. The update offset is persisted in
 `agents/<id>/telegram.offset`; a 409 from Telegram means another process still polls the bot.
 The token never reaches logs: API errors are redacted before they are raised.
 

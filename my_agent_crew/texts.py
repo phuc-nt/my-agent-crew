@@ -45,6 +45,31 @@ TELEGRAM_CONVERSATION_TITLE = "Telegram · {date}"
 TELEGRAM_NEW_CONVERSATION = "Đã mở cuộc trò chuyện mới."
 TELEGRAM_HALTED = "Đã dừng ({reason}), đã chi ${spent:.4f}."
 TELEGRAM_ERROR = "Lỗi: {message}"
-TELEGRAM_APPROVAL = "Agent cần duyệt công cụ {name} — vào web UI để duyệt."
-TELEGRAM_BUSY = "Cuộc trò chuyện đang chờ bạn duyệt một công cụ trên web UI."
+TELEGRAM_APPROVAL = "Agent cần duyệt công cụ {name}: gửi /approve để duyệt, /deny để từ chối."
+TELEGRAM_BUSY = "Cuộc trò chuyện đang chờ bạn duyệt một công cụ: /approve hoặc /deny."
 TELEGRAM_MEDIA_MISSING = "(không gửi được ảnh: {path})"
+TELEGRAM_COMMANDS = {
+    "new": "Mở cuộc trò chuyện mới.",
+    "reset": "Mở cuộc trò chuyện mới (giống /new).",
+    "help": "Liệt kê các lệnh.",
+    "status": "Trạng thái cuộc trò chuyện hôm nay.",
+    "tools": "Các công cụ agent đang có.",
+    "approve": "Duyệt công cụ đang chờ.",
+    "deny": "Từ chối công cụ đang chờ.",
+}
+TELEGRAM_HELP_LINE = "/{command} — {description}"
+TELEGRAM_UNKNOWN_COMMAND = "Không có lệnh /{command}. Gửi /help để xem các lệnh."
+TELEGRAM_STATUS = (
+    "{title}\n"
+    "Lượt: {turns} · đã chi ${spent:.4f} / ${cap:.2f}\n"
+    "Model: {routes}\n"
+    "Trạng thái: {state}\n"
+    "Lần chạy gần nhất: {run}"
+)
+TELEGRAM_STATE_IDLE = "sẵn sàng"
+TELEGRAM_STATE_OVER_BUDGET = "hết ngân sách"
+TELEGRAM_STATE_AWAITING = "đang chờ duyệt {name} (/approve, /deny)"
+TELEGRAM_RUN_NONE = "chưa có"
+TELEGRAM_RUN = "{status}, {steps} bước, {started}"
+TELEGRAM_TOOLS = "Công cụ ({count}):\n{names}"
+TELEGRAM_NO_APPROVAL = "Không có công cụ nào đang chờ duyệt."

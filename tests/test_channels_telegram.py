@@ -3,6 +3,7 @@ a per-day conversation, replies and `MEDIA:` photos go back to the one allowed c
 scheduled results are delivered through the same path."""
 
 import asyncio
+import json
 import logging
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -20,9 +21,11 @@ from my_agent_crew.channels.telegram_api import (
     split_message,
     split_reply,
 )
+from my_agent_crew.channels.telegram_commands import MENU, parse_command
 from my_agent_crew.config import Route
+from my_agent_crew.llm.fake import completion
 from my_agent_crew.llm.provider import ProviderError
-from my_agent_crew.llm.types import Message
+from my_agent_crew.llm.types import Message, ToolCall
 from my_agent_crew.store.models import AWAITING_APPROVAL
 
 TOKEN = "123:secret-token"
@@ -35,6 +38,7 @@ class FakeTelegram:
         self.sent: list[str] = []
         self.photos: list[bytes] = []
         self.calls: list[str] = []
+        self.menu: list[dict] = []
         self.reject_actions = False
         self.status: int | None = None
         self.raise_connect = False
@@ -45,7 +49,7 @@ class FakeTelegram:
         self.calls.append(method)
         if self.raise_connect:
             raise httpx.ConnectError(f"cannot reach {request.url}", request=request)
-        if self.status:
+        if self.status and method == "getUpdates":
             return httpx.Response(self.status, json={"ok": False, "description": "Conflict"})
         if method == "getUpdates":
             form = dict(parse_qsl(request.content.decode()))
@@ -62,6 +66,9 @@ class FakeTelegram:
             assert form["chat_id"] == str(CHAT) and form["action"] == "typing"
             if self.reject_actions:
                 return httpx.Response(400, json={"ok": False, "description": "Bad Request"})
+        elif method == "setMyCommands":
+            form = dict(parse_qsl(request.content.decode()))
+            self.menu = json.loads(form["commands"])
         return httpx.Response(200, json={"ok": True, "result": {}})
 
 
@@ -91,10 +98,10 @@ async def test_inbound_message_runs_a_tracked_turn_and_replies(make_channel, fak
     fake.updates = [message(7, "xin chào")]
     assert await channel.poll_once() == 1
     assert fake.sent == ["(echo) xin chào"]
-    [conv] = channel._deps.store.list()
+    [conv] = channel.deps.store.list()
     assert conv.channel == f"telegram:{CHAT}" and conv.agent_id == "default"
     assert conv.title == texts.TELEGRAM_CONVERSATION_TITLE.format(date=datetime.now().date())
-    [run] = channel._hub.recent()
+    [run] = channel.hub.recent()
     assert run.source == "telegram" and run.conversation_id == conv.id and run.status == "done"
     assert (tmp_path / "telegram.offset").read_text() == "8"
     assert await channel.poll_once() == 0  # offset moved past the handled update
@@ -120,7 +127,7 @@ async def test_messages_from_other_chats_are_ignored(make_channel, fake):
     channel = make_channel()
     fake.updates = [message(1, "hi", chat=99), {"update_id": 2, "message": {"chat": {"id": CHAT}}}]
     assert await channel.poll_once() == 2
-    assert fake.sent == [] and channel._deps.store.list() == []
+    assert fake.sent == [] and channel.deps.store.list() == []
 
 
 async def test_same_day_messages_share_one_conversation_and_a_new_day_opens_another(
@@ -130,19 +137,94 @@ async def test_same_day_messages_share_one_conversation_and_a_new_day_opens_anot
     channel = make_channel(clock=lambda: clock[0])
     fake.updates = [message(1, "a"), message(2, "b")]
     await channel.poll_once()
-    assert len(channel._deps.store.list()) == 1
+    assert len(channel.deps.store.list()) == 1
     clock[0] += timedelta(days=1)
     fake.updates = [message(3, "c")]
     await channel.poll_once()
-    assert len(channel._deps.store.list()) == 2
+    assert len(channel.deps.store.list()) == 2
 
 
-async def test_new_command_opens_a_fresh_conversation(make_channel, fake):
+async def test_new_and_reset_commands_open_a_fresh_conversation(make_channel, fake):
     channel = make_channel()
-    fake.updates = [message(1, "a"), message(2, "/new"), message(3, "b")]
+    fake.updates = [message(1, "a"), message(2, "/new"), message(3, "b"), message(4, "/reset")]
     await channel.poll_once()
-    assert fake.sent == ["(echo) a", texts.TELEGRAM_NEW_CONVERSATION, "(echo) b"]
-    assert len(channel._deps.store.list()) == 2
+    assert fake.sent == [
+        "(echo) a",
+        texts.TELEGRAM_NEW_CONVERSATION,
+        "(echo) b",
+        texts.TELEGRAM_NEW_CONVERSATION,
+    ]
+    assert len(channel.deps.store.list()) == 3
+    [run] = channel.hub.recent(1)  # commands never reach the model
+    assert run.status == "done" and len(channel.hub.recent()) == 2
+
+
+async def test_help_status_tools_and_unknown_commands_are_answered_locally(make_channel, fake):
+    channel = make_channel()
+    fake.updates = [message(1, "xin chào"), message(2, "/help"), message(3, "/status@mybot")]
+    await channel.poll_once()
+    fake.updates = [message(4, "/tools"), message(5, "/loop 5m"), message(6, "/usr/bin/x")]
+    await channel.poll_once()
+    reply, help_text, status, tools, unknown, path = fake.sent
+    assert reply == "(echo) xin chào"
+    assert help_text.splitlines()[0] == "/new — " + texts.TELEGRAM_COMMANDS["new"]
+    assert all(f"/{name}" in help_text for name, _ in MENU)
+    conv = channel.conversation()
+    assert status.startswith(conv.title) and "Lượt: 1" in status and "fake:echo" in status
+    assert texts.TELEGRAM_STATE_IDLE in status and "done, " in status
+    assert tools.startswith("Công cụ (") and "workspace_read" in tools
+    assert unknown == texts.TELEGRAM_UNKNOWN_COMMAND.format(command="loop")
+    assert path == "(echo) /usr/bin/x"  # a path is not a command
+    assert parse_command("/status extra") == "status" and parse_command("hi /x") is None
+
+
+async def test_command_menu_is_registered_once_when_polling_starts(make_channel, fake):
+    channel = make_channel()
+    fake.status = 409  # getUpdates fails, so the loop backs off instead of spinning
+    channel.start()
+    await asyncio.sleep(0.02)
+    await channel.stop()
+    assert fake.calls.index("setMyCommands") < fake.calls.index("getUpdates")
+    assert fake.calls.count("setMyCommands") == 1
+    assert [(m["command"], m["description"]) for m in fake.menu] == list(MENU)
+    assert ("reset", texts.TELEGRAM_COMMANDS["reset"]) in MENU
+
+
+WRITE = ToolCall("c1", "workspace_write", {"path": "out.txt", "content": "ok"})
+
+
+async def test_approve_and_deny_commands_resolve_the_pending_tool(make_channel, fake, deps_factory):
+    deps = deps_factory(script=[completion(tool_calls=(WRITE,)), completion("đã ghi")])
+    channel = make_channel(deps)
+    fake.updates = [message(1, "/approve"), message(2, "ghi file"), message(3, "/approve")]
+    await channel.poll_once()
+    assert fake.sent == [
+        texts.TELEGRAM_NO_APPROVAL,
+        texts.TELEGRAM_APPROVAL.format(name="workspace_write"),
+        "đã ghi",
+    ]
+    assert (deps.settings.workspace_dir / "out.txt").read_text() == "ok"
+    assert channel.conversation().status != AWAITING_APPROVAL
+    again = ToolCall("c2", "workspace_write", {"path": "second.txt", "content": "no"})
+    deps = deps_factory(script=[completion(tool_calls=(again,)), completion("thôi vậy")])
+    channel = make_channel(deps)  # same store, same day: continues the conversation above
+    fake.sent.clear()
+    fake.updates = [message(4, "ghi file"), message(5, "/status"), message(6, "/deny")]
+    await channel.poll_once()
+    assert texts.TELEGRAM_STATE_AWAITING.format(name="workspace_write") in fake.sent[1]
+    assert fake.sent[2] == "thôi vậy"
+    assert not (deps.settings.workspace_dir / "second.txt").exists()
+
+
+async def test_text_written_next_to_a_tool_call_is_not_lost(make_channel, fake, deps_factory):
+    look = ToolCall("c1", "workspace_list", {"path": "."})
+    deps = deps_factory(
+        script=[completion("Phân tích dài.", tool_calls=(look,)), completion("MEDIA: x.png")]
+    )
+    channel = make_channel(deps)
+    fake.updates = [message(1, "hỏi")]
+    await channel.poll_once()
+    assert fake.sent == ["Phân tích dài.", texts.TELEGRAM_MEDIA_MISSING.format(path="x.png")]
 
 
 async def test_provider_failure_and_pending_approval_become_notices(
@@ -154,7 +236,7 @@ async def test_provider_failure_and_pending_approval_become_notices(
     [notice] = fake.sent
     assert notice.startswith(texts.TELEGRAM_ERROR.format(message="")) and "model down" in notice
     conv = channel.conversation()
-    channel._deps.store.update(conv.id, status=AWAITING_APPROVAL)
+    channel.deps.store.update(conv.id, status=AWAITING_APPROVAL)
     fake.updates = [message(2, "b")]
     await channel.poll_once()
     assert fake.sent[-1] == texts.TELEGRAM_BUSY
@@ -162,12 +244,12 @@ async def test_provider_failure_and_pending_approval_become_notices(
 
 async def test_deliver_sends_prose_and_media_lines_as_photos(make_channel, fake):
     channel = make_channel()
-    workspace = channel._deps.agent.workspace
+    workspace = channel.deps.agent.workspace
     (workspace / "charts").mkdir()
     (workspace / "charts" / "sleep.png").write_bytes(b"PNGDATA")
-    conv = channel._deps.store.create(agent_id="default")
+    conv = channel.deps.store.create(agent_id="default")
     assert await channel.deliver(conv.id) is False
-    channel._deps.store.append(
+    channel.deps.store.append(
         conv.id,
         Message(
             role="assistant",
@@ -177,6 +259,20 @@ async def test_deliver_sends_prose_and_media_lines_as_photos(make_channel, fake)
     assert await channel.deliver(conv.id) is True
     assert fake.sent == ["Ngủ 5.5h", texts.TELEGRAM_MEDIA_MISSING.format(path="charts/missing.png")]
     assert len(fake.photos) == 1 and b"PNGDATA" in fake.photos[0]
+
+
+async def test_deliver_joins_every_assistant_text_of_the_last_turn(make_channel, fake):
+    channel = make_channel()
+    store = channel.deps.store
+    conv = store.create(agent_id="default")
+    look = ToolCall("c1", "workspace_list", {"path": "."})
+    store.append(conv.id, Message(role="assistant", content="Bản tin cũ"))
+    store.append(conv.id, Message(role="user", content="hỏi"))
+    store.append(conv.id, Message(role="assistant", content="Kiểm tra đã.", tool_calls=(look,)))
+    store.append(conv.id, Message(role="tool", content="[]", tool_call_id="c1", name=look.name))
+    store.append(conv.id, Message(role="assistant", content="Kết luận."))
+    assert await channel.deliver(conv.id) is True
+    assert fake.sent == ["Kiểm tra đã.\n\nKết luận."]
 
 
 async def test_api_errors_and_httpx_request_logs_never_carry_the_token(fake, caplog):
