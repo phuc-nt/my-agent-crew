@@ -1,0 +1,46 @@
+# Testing
+
+Three tiers, one contract. Add a row whenever you add a feature.
+
+| Tier | Runs with | Scope |
+|---|---|---|
+| pytest (`tests/`) | `uv run pytest -q` | loop, tools, store, providers, HTTP + SSE |
+| vitest (`web/src/**/*.test.ts(x)`) | `cd web && npm test` | parser, reducer, client, components, full App against an in-memory fake server |
+| Playwright (`web/e2e/`) | `cd web && npm run e2e` | real browser + real Vite dev server, `/api` answered by `page.route` |
+
+Guard tests: `tests/test_file_size_budget.py` (≤200 lines), `tests/test_static_spa.py`
+(bundle present and served), CI `git diff --exit-code` on the bundle.
+
+## Feature → test map
+
+| Feature | pytest | vitest | Playwright |
+|---|---|---|---|
+| Config from env + whitelisted yaml, route parsing | `test_config.py` | — | — |
+| Route fallback before first item; mid-stream failure surfaces | `test_provider_chain.py` | — | — |
+| OpenRouter streaming, error chunks, HTTP errors | `test_openrouter.py` | — | — |
+| Tool registry, JSON arg validation, output cap | `test_tools_registry.py` | — | — |
+| Workspace tools refuse escape (incl. symlinks) | `test_tools_workspace.py` | — | — |
+| Web tools refuse private/loopback hosts; search only with a key | `test_tools_web.py`, `test_app_wiring.py` | — | — |
+| Memory save/search | `test_tools_memory.py` | — | — |
+| Store ordering, budgets, approvals | `test_store.py` | — | — |
+| Skills loading (builtin + home), `always` | `test_skills.py` | — | `settings drawer` (shown) |
+| Agent loop: text, tool round-trips, max steps, cost cap halt | `test_agent_loop.py` | reducer `halted`/`done` | — |
+| Approval pause / approve / deny / autonomous bypass | `test_agent_approval.py`, `test_server_api.py` | reducer, `ApprovalBar`, App approval flow | `approval bar pauses…` |
+| Crash-resume from unfinished tool calls | `test_agent_resume.py` | — | — |
+| HTTP API: CRUD, PATCH, 409 while awaiting approval, SSE framing | `test_server_api.py` | `client.test.ts`, App 409 notice | — |
+| SSE parsing (chunk boundaries, CRLF, flush, bad JSON) | `test_server_api.py` (`parse_sse`) | `sse.test.ts` | — |
+| History restore incl. denied tool + pending approval | — | reducer `loaded`, App restore test | — |
+| Streaming bubble → final assistant message | — | reducer, App first-send test | `send a message…` |
+| Budget display, unknown-cost badge, over-budget flag | — | `BudgetIndicator`, App | `send a message…` |
+| Composer keys (Enter / Shift+Enter), stop, disabled while pending | — | `Composer` | approval test (disabled) |
+| Rename / autonomous toggle / skills attach via PATCH | — | App header test | — |
+| Delete with confirmation | — | App delete test | — |
+| Settings drawer shows routes, key presence (never values), tools, paths | `test_server_api.py` | `SettingsPanel` via App | `settings drawer…` |
+| Echo provider + `/tool` directive | `test_agent_loop.py`, `test_server_api.py` | — | — |
+| Bundle served at `/`, SPA fallback, `/api/*` 404 stays JSON | `test_static_spa.py` | — | — |
+
+## Live smoke (manual)
+
+`MY_AGENT_ROUTES=fake:echo` against a throwaway `MY_AGENT_HOME`, then through the UI or curl:
+chat → `/tool workspace_list {"path":"."}` → `/tool workspace_write {...}` → approve → file exists
+in `MY_AGENT_HOME/workspace`. This is the check to repeat before tagging a release.
