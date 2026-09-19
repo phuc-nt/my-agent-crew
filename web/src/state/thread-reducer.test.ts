@@ -23,6 +23,7 @@ function message(partial: Partial<StoredMessage> & { role: StoredMessage["role"]
 function detail(partial: Partial<ConversationDetail> = {}): ConversationDetail {
   return {
     id: "c1",
+    agent_id: "default",
     title: "t",
     created_at: "",
     updated_at: "",

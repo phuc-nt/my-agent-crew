@@ -1,8 +1,69 @@
-import type { AgentEvent, Conversation, ConversationDetail, SettingsInfo, StoredMessage } from "../api/types";
+import type {
+  ActivityPayload,
+  AgentEvent,
+  AgentInfo,
+  Conversation,
+  ConversationDetail,
+  JobInfo,
+  RunInfo,
+  SettingsInfo,
+  StatsInfo,
+  StoredMessage,
+} from "../api/types";
+
+export const fakeAgent: AgentInfo = {
+  id: "default",
+  name: "Agent",
+  description: "",
+  dir: "/tmp/home",
+  workspace: "/tmp/home/workspace",
+  routes: [{ provider: "fake", model: "echo" }],
+  cost_cap_usd: 1,
+  max_steps: 20,
+  autonomous: false,
+  persona_files: [],
+  schedules: [],
+  tools: ["write_file"],
+  skills: ["core", "writer"],
+};
+
+export const coachAgent: AgentInfo = {
+  ...fakeAgent,
+  id: "coach",
+  name: "HLV sức khoẻ",
+  description: "Theo dõi sức khoẻ",
+  workspace: "/tmp/home/agents/coach/workspace",
+  autonomous: true,
+  schedules: [
+    { id: "brief", name: "Bản tin sáng", cron: "0 7 * * *", every: null, prompt: "Tóm tắt", command: null, enabled: true },
+  ],
+};
+
+export function fakeRun(overrides: Partial<RunInfo> = {}): RunInfo {
+  return {
+    id: "r1",
+    agent_id: "default",
+    conversation_id: "c1",
+    source: "chat",
+    title: "Việc",
+    status: "done",
+    started_at: "2026-09-19T08:00:00Z",
+    finished_at: "2026-09-19T08:00:05Z",
+    spent_usd: 0.01,
+    unknown_cost_calls: 0,
+    summary: "Xong.",
+    steps: [],
+    ...overrides,
+  };
+}
 
 /** In-memory stand-in for the FastAPI server, wired to `fetch` in component tests. */
 export class FakeBackend {
   conversations = new Map<string, ConversationDetail>();
+  agents: AgentInfo[] = [fakeAgent];
+  runs: RunInfo[] = [];
+  jobs: JobInfo[] = [];
+  stats: StatsInfo = { runs: 0, model_calls: 0, spent_usd: 0, unknown_cost_calls: 0, by_agent: {}, by_model: {}, by_day: {} };
   settings: SettingsInfo = {
     home: "/tmp/home",
     workspace_dir: "/tmp/home/workspace",
@@ -18,6 +79,7 @@ export class FakeBackend {
       { name: "core", description: "Luôn bật", always: true },
       { name: "writer", description: "Viết lách", always: false },
     ],
+    agents: [fakeAgent],
   };
   /** Events streamed by the next POST /messages or /approvals call. */
   nextTurn: AgentEvent[] = [];
@@ -25,14 +87,25 @@ export class FakeBackend {
   private counter = 0;
 
   fetch = async (input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> => {
-    const path = String(input).replace(/^\/api/, "");
+    const url = new URL(String(input), "http://fake");
+    const path = url.pathname.replace(/^\/api/, "");
     const method = init.method ?? "GET";
     const body = init.body ? JSON.parse(String(init.body)) : null;
-    this.requests.push({ method, path, body });
+    this.requests.push({ method, path: path + url.search, body });
     const conv = path.match(/^\/conversations\/([^/]+)/)?.[1];
 
     if (path === "/settings") return json(this.settings);
-    if (path === "/conversations" && method === "GET") return json([...this.conversations.values()].map(summary));
+    if (path === "/agents") return json(this.agents);
+    if (path === "/activity/runs") return json(this.runs);
+    if (path === "/stats") return json(this.stats);
+    if (path === "/jobs") return json(this.jobs);
+    const job = path.match(/^\/jobs\/(.+)\/run$/)?.[1];
+    if (job && method === "POST") return json({ job_id: decodeURIComponent(job), status: "started" }, 202);
+    if (path === "/conversations" && method === "GET") {
+      const agentId = url.searchParams.get("agent_id");
+      const all = [...this.conversations.values()].map(summary);
+      return json(agentId ? all.filter((c) => c.agent_id === agentId) : all);
+    }
     if (path === "/conversations" && method === "POST") return json(summary(this.create(body ?? {})), 201);
     if (conv && !this.conversations.has(conv)) return json({ detail: "not found" }, 404);
     if (conv && path.endsWith("/messages") && method === "POST") {
@@ -55,6 +128,7 @@ export class FakeBackend {
     const id = `c${++this.counter}`;
     const detail: ConversationDetail = {
       id,
+      agent_id: "default",
       title: "",
       created_at: "2026-09-19T00:00:00Z",
       updated_at: "2026-09-19T00:00:00Z",
@@ -84,6 +158,36 @@ export class FakeBackend {
       },
     });
     return new Response(stream, { status: 200, headers: { "content-type": "text/event-stream" } });
+  }
+}
+
+/** Minimal EventSource the activity hook can subscribe to; tests push payloads through `emit`. */
+export class FakeEventSource {
+  static instances: FakeEventSource[] = [];
+  listeners = new Map<string, ((event: MessageEvent<string>) => void)[]>();
+  onopen: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  closed = false;
+
+  constructor(public readonly url: string) {
+    FakeEventSource.instances.push(this);
+  }
+
+  addEventListener(name: string, handler: (event: MessageEvent<string>) => void): void {
+    this.listeners.set(name, [...(this.listeners.get(name) ?? []), handler]);
+  }
+
+  open(): void {
+    this.onopen?.();
+  }
+
+  emit(payload: ActivityPayload): void {
+    const event = { data: JSON.stringify(payload) } as MessageEvent<string>;
+    for (const handler of this.listeners.get(payload.type) ?? []) handler(event);
+  }
+
+  close(): void {
+    this.closed = true;
   }
 }
 

@@ -91,6 +91,7 @@ function describe(error: unknown): string {
 function blankDetail(id: string | null): ConversationDetail {
   return {
     id: id ?? "",
+    agent_id: "default",
     title: "",
     created_at: "",
     updated_at: "",

@@ -1,9 +1,11 @@
+import type { ReactNode } from "react";
 import type { Conversation, SkillInfo } from "../api/types";
 import { vi } from "../i18n/vi";
 import { BudgetIndicator } from "./budget-indicator";
 
 interface Props {
   conversation: Conversation;
+  agentName: string;
   spentUsd: number;
   unknownCostCalls: number;
   skills: SkillInfo[];
@@ -11,6 +13,8 @@ interface Props {
   onToggleAutonomous: (value: boolean) => void;
   onToggleSkill: (name: string, attached: boolean) => void;
   onOpenSettings: () => void;
+  /** Extra controls, e.g. the activity toggle. */
+  extra?: ReactNode;
 }
 
 export function ConversationHeader(props: Props) {
@@ -20,6 +24,9 @@ export function ConversationHeader(props: Props) {
     <header className="conversation-header">
       <div className="header-title">
         <h1>{c.title || vi.newConversation}</h1>
+        <span className="badge agent-badge" title={vi.agent}>
+          {props.agentName}
+        </span>
         <button type="button" className="link-button" onClick={props.onRename}>
           {vi.rename}
         </button>
@@ -34,7 +41,7 @@ export function ConversationHeader(props: Props) {
           <input
             type="checkbox"
             checked={c.autonomous}
-            onChange={(event) => props.onToggleAutonomous(event.target.checked)}
+            onChange={(event) => props.onToggleAutonomous(event.currentTarget.checked)}
           />
           {vi.autonomous}
         </label>
@@ -50,7 +57,7 @@ export function ConversationHeader(props: Props) {
                     <input
                       type="checkbox"
                       checked={c.skills.includes(skill.name)}
-                      onChange={(event) => props.onToggleSkill(skill.name, event.target.checked)}
+                      onChange={(event) => props.onToggleSkill(skill.name, event.currentTarget.checked)}
                     />
                     {skill.name}
                     <span className="muted"> — {skill.description}</span>
@@ -60,6 +67,7 @@ export function ConversationHeader(props: Props) {
             </ul>
           </details>
         )}
+        {props.extra}
         <button type="button" className="ghost" onClick={props.onOpenSettings}>
           ⚙ {vi.settings}
         </button>

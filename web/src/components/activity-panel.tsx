@@ -1,0 +1,125 @@
+import { useState } from "react";
+import type { JobInfo, RunInfo, StatsInfo } from "../api/types";
+import { vi } from "../i18n/vi";
+import { AttentionCenter } from "./attention-center";
+import { JobsPanel } from "./jobs-panel";
+import { RunCard } from "./run-timeline";
+import { StatsPanel } from "./stats-panel";
+
+type Tab = "activity" | "jobs" | "costs";
+
+interface Props {
+  runs: RunInfo[];
+  liveRuns: RunInfo[];
+  attention: RunInfo[];
+  conversationId: string | null;
+  jobs: JobInfo[] | null;
+  stats: StatsInfo | null;
+  agentName: (id: string) => string;
+  onOpenConversation: (conversationId: string) => void;
+  onRunJob: (jobId: string) => void;
+  onClose: () => void;
+}
+
+const TABS: { id: Tab; label: string }[] = [
+  { id: "activity", label: vi.activity },
+  { id: "jobs", label: vi.jobs },
+  { id: "costs", label: vi.costs },
+];
+
+/** Right rail: what needs you, what is running, what ran, the schedule and the bill. */
+export function ActivityPanel(props: Props) {
+  const [tab, setTab] = useState<Tab>("activity");
+  const [onlyThisConversation, setOnlyThisConversation] = useState(false);
+  const scoped =
+    onlyThisConversation && props.conversationId
+      ? props.runs.filter((r) => r.conversation_id === props.conversationId)
+      : props.runs;
+  const liveIds = new Set(props.liveRuns.map((r) => r.id));
+  const recent = scoped.filter((r) => !liveIds.has(r.id));
+  const live = scoped.filter((r) => liveIds.has(r.id));
+
+  return (
+    <aside className="activity-panel" aria-label={vi.activity} data-testid="activity-panel">
+      <header>
+        <div role="tablist" className="tabs">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              aria-selected={tab === t.id}
+              className={tab === t.id ? "active" : ""}
+              onClick={() => setTab(t.id)}
+            >
+              {t.label}
+              {t.id === "activity" && props.liveRuns.length > 0 && (
+                <span className="badge live"> {props.liveRuns.length}</span>
+              )}
+            </button>
+          ))}
+        </div>
+        <button type="button" className="icon-button" aria-label={vi.close} onClick={props.onClose}>
+          ×
+        </button>
+      </header>
+
+      {tab === "activity" && (
+        <div className="panel-body" role="tabpanel">
+          <AttentionCenter
+            runs={props.attention}
+            agentName={props.agentName}
+            onOpenConversation={props.onOpenConversation}
+          />
+          {props.conversationId && (
+            <label className="toggle">
+              <input
+                type="checkbox"
+                checked={onlyThisConversation}
+                onChange={(event) => setOnlyThisConversation(event.currentTarget.checked)}
+              />
+              {vi.timelineForConversation}
+            </label>
+          )}
+          <h3>{vi.liveNow}</h3>
+          {live.length === 0 ? (
+            <p className="muted">{vi.nothingLive}</p>
+          ) : (
+            live.map((run) => (
+              <RunCard
+                key={run.id}
+                run={run}
+                agentName={props.agentName(run.agent_id)}
+                expanded
+                onOpenConversation={props.onOpenConversation}
+              />
+            ))
+          )}
+          <h3>{vi.recentRuns}</h3>
+          {recent.length === 0 ? (
+            <p className="muted">{vi.noRuns}</p>
+          ) : (
+            recent.map((run) => (
+              <RunCard
+                key={run.id}
+                run={run}
+                agentName={props.agentName(run.agent_id)}
+                onOpenConversation={props.onOpenConversation}
+              />
+            ))
+          )}
+        </div>
+      )}
+      {tab === "jobs" && (
+        <div className="panel-body" role="tabpanel">
+          <JobsPanel jobs={props.jobs} agentName={props.agentName} onRunNow={props.onRunJob} />
+        </div>
+      )}
+      {tab === "costs" && (
+        <div className="panel-body" role="tabpanel">
+          <StatsPanel stats={props.stats} agentName={props.agentName} />
+        </div>
+      )}
+    </aside>
+  );
+}

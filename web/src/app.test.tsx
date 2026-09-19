@@ -100,11 +100,11 @@ describe("App", () => {
     render(<App />);
     await userEvent.click(await screen.findByRole("button", { name: /^A$/ }));
     await userEvent.type(screen.getByRole("textbox"), "x{Enter}");
-    expect(await screen.findByRole("status")).toHaveTextContent(vi.haltedBudget);
+    expect(await screen.findByTestId("notice")).toHaveTextContent(vi.haltedBudget);
 
     backend.conversations.get("c1")!.status = "awaiting_approval";
     await userEvent.type(screen.getByRole("textbox"), "y{Enter}");
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(vi.busyConflict));
+    await waitFor(() => expect(screen.getByTestId("notice")).toHaveTextContent(vi.busyConflict));
   });
 
   it("patches autonomous, skills and title from the header", async () => {

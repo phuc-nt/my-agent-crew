@@ -25,6 +25,7 @@ export interface StoredMessage {
 
 export interface Conversation {
   id: string;
+  agent_id: string;
   title: string;
   created_at: string;
   updated_at: string;
@@ -96,10 +97,47 @@ export interface SkillInfo {
   always: boolean;
 }
 
+export interface RouteInfo {
+  provider: string;
+  model: string;
+}
+
+export interface ScheduleInfo {
+  id: string;
+  name: string;
+  cron: string | null;
+  every: string | null;
+  prompt: string | null;
+  command: string | null;
+  enabled: boolean;
+}
+
+/** One agent profile as listed by GET /api/agents. */
+export interface AgentInfo {
+  id: string;
+  name: string;
+  description: string;
+  dir: string;
+  workspace: string;
+  routes: RouteInfo[];
+  cost_cap_usd: number;
+  max_steps: number;
+  autonomous: boolean;
+  persona_files: string[];
+  schedules: ScheduleInfo[];
+  tools: string[];
+  skills: string[];
+}
+
+export interface AgentDetail extends Omit<AgentInfo, "tools" | "skills"> {
+  tools: ToolInfo[];
+  skills: SkillInfo[];
+}
+
 export interface SettingsInfo {
   home: string;
   workspace_dir: string;
-  routes: { provider: string; model: string }[];
+  routes: RouteInfo[];
   providers: string[];
   language: string;
   cost_cap_usd: number;
@@ -108,4 +146,7 @@ export interface SettingsInfo {
   keys: { openrouter: boolean; brave: boolean; tavily: boolean };
   tools: ToolInfo[];
   skills: SkillInfo[];
+  agents: AgentInfo[];
 }
+
+export type * from "./activity-types";

@@ -1,0 +1,129 @@
+import type { ActivityPayload, AgentEvent, RunInfo, RunStep } from "../api/types";
+
+/** Runs by id, live ones updated step by step from the activity stream. */
+export interface ActivityState {
+  runs: Record<string, RunInfo>;
+  connected: boolean;
+}
+
+export type ActivityAction =
+  | { type: "payload"; payload: ActivityPayload }
+  | { type: "recent"; runs: RunInfo[] }
+  | { type: "connection"; connected: boolean };
+
+export const emptyActivity: ActivityState = { runs: {}, connected: false };
+
+const PREVIEW_CHARS = 160;
+const ACTIVE: RunInfo["status"][] = ["running", "awaiting_approval"];
+
+function preview(text: string): string {
+  return text.length > PREVIEW_CHARS ? `${text.slice(0, PREVIEW_CHARS)}…` : text;
+}
+
+/** Client-side twin of the server's step builder so live runs show steps before they finish. */
+export function applyRunEvent(run: RunInfo, e: AgentEvent): RunInfo {
+  const steps: RunStep[] = [...run.steps];
+  let { spent_usd, unknown_cost_calls, summary } = run;
+  switch (e.type) {
+    case "assistant_message":
+      steps.push({
+        kind: "model",
+        chars: e.content.length,
+        provider: e.provider,
+        model: e.model,
+        cost_usd: e.cost_usd,
+        tool_calls: e.tool_calls.map((c) => c.name),
+        preview: preview(e.content),
+        duration_ms: null,
+      });
+      if (e.cost_usd === null) unknown_cost_calls += 1;
+      else spent_usd += e.cost_usd;
+      if (e.content) summary = preview(e.content);
+      break;
+    case "tool_call":
+      steps.push({
+        kind: "tool",
+        name: e.name,
+        tool_call_id: e.tool_call_id,
+        arguments: e.arguments,
+        ok: null,
+        output: null,
+        duration_ms: null,
+      });
+      break;
+    case "tool_result": {
+      const at = steps.findIndex((s) => s.kind === "tool" && s.tool_call_id === e.tool_call_id);
+      const patch = { ok: e.ok, output: preview(e.output) };
+      if (at >= 0) steps[at] = { ...(steps[at] as Extract<RunStep, { kind: "tool" }>), ...patch };
+      break;
+    }
+    case "approval_required":
+      summary = e.name;
+      break;
+    case "halted":
+      summary = e.reason;
+      spent_usd = e.spent_usd;
+      break;
+    case "error":
+      summary = e.message;
+      break;
+    case "done":
+      spent_usd = e.spent_usd;
+      unknown_cost_calls = e.unknown_cost_calls;
+      break;
+    case "text_delta":
+      break;
+  }
+  return { ...run, steps, spent_usd, unknown_cost_calls, summary };
+}
+
+export function activityReducer(state: ActivityState, action: ActivityAction): ActivityState {
+  switch (action.type) {
+    case "connection":
+      return { ...state, connected: action.connected };
+    case "recent": {
+      const runs = { ...state.runs };
+      for (const run of action.runs) if (!ACTIVE.includes(runs[run.id]?.status)) runs[run.id] = run;
+      return { ...state, runs };
+    }
+    case "payload":
+      return applyPayload(state, action.payload);
+  }
+}
+
+function applyPayload(state: ActivityState, payload: ActivityPayload): ActivityState {
+  switch (payload.type) {
+    case "snapshot": {
+      const runs = { ...state.runs };
+      for (const run of payload.runs) runs[run.id] = run;
+      return { ...state, runs, connected: true };
+    }
+    case "run":
+      return { ...state, runs: { ...state.runs, [payload.run.id]: payload.run } };
+    case "event": {
+      const current = state.runs[payload.run_id];
+      if (!current) return state;
+      const next = { ...applyRunEvent(current, payload.event), status: payload.status };
+      return { ...state, runs: { ...state.runs, [payload.run_id]: next } };
+    }
+  }
+}
+
+export function sortedRuns(state: ActivityState): RunInfo[] {
+  return Object.values(state.runs).sort((a, b) => (a.started_at < b.started_at ? 1 : -1));
+}
+
+export function liveRuns(state: ActivityState): RunInfo[] {
+  return sortedRuns(state).filter((r) => ACTIVE.includes(r.status));
+}
+
+export function runsForConversation(state: ActivityState, conversationId: string): RunInfo[] {
+  return sortedRuns(state).filter((r) => r.conversation_id === conversationId);
+}
+
+/** What needs a human: approvals waiting anywhere, and runs that ended badly. */
+export function needsAttention(state: ActivityState): RunInfo[] {
+  return sortedRuns(state).filter(
+    (r) => r.status === "awaiting_approval" || r.status === "error" || r.status === "halted",
+  );
+}

@@ -1,10 +1,16 @@
 import { readSse } from "./sse";
 import type {
+  ActivityPayload,
+  AgentDetail,
   AgentEvent,
+  AgentInfo,
   Conversation,
   ConversationDetail,
   ConversationPatch,
+  JobInfo,
+  RunInfo,
   SettingsInfo,
+  StatsInfo,
 } from "./types";
 
 export class ApiError extends Error {
@@ -52,11 +58,45 @@ async function stream(
   await readSse(response.body, onEvent);
 }
 
+function query(params: Record<string, string | number | undefined>): string {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== "") search.set(key, String(value));
+  }
+  const text = search.toString();
+  return text ? `?${text}` : "";
+}
+
+/** URL of a file inside an agent's workspace, for images the agent produced. */
+export function agentFileUrl(agentId: string, path: string): string {
+  return `/api/agents/${encodeURIComponent(agentId)}/files${query({ path })}`;
+}
+
+/**
+ * Long-lived subscription to every agent's activity. Reconnects are left to the
+ * browser's EventSource; the server replays a snapshot of live runs on each connect.
+ */
+export function subscribeActivity(
+  onPayload: (payload: ActivityPayload) => void,
+  onStatus: (connected: boolean) => void = () => {},
+): () => void {
+  const source = new EventSource("/api/activity/stream");
+  const handle = (message: MessageEvent<string>) =>
+    onPayload(JSON.parse(message.data) as ActivityPayload);
+  for (const name of ["snapshot", "run", "event"]) source.addEventListener(name, handle);
+  source.onopen = () => onStatus(true);
+  source.onerror = () => onStatus(false);
+  return () => source.close();
+}
+
 export const api = {
   health: () => request<{ status: string; version: string }>("/health"),
   settings: () => request<SettingsInfo>("/settings"),
-  listConversations: () => request<Conversation[]>("/conversations"),
-  createConversation: (body: ConversationPatch = {}) =>
+  listAgents: () => request<AgentInfo[]>("/agents"),
+  getAgent: (id: string) => request<AgentDetail>(`/agents/${encodeURIComponent(id)}`),
+  listConversations: (agentId?: string) =>
+    request<Conversation[]>(`/conversations${query({ agent_id: agentId })}`),
+  createConversation: (body: ConversationPatch & { agent_id?: string } = {}) =>
     request<Conversation>("/conversations", { method: "POST", body: JSON.stringify(body) }),
   getConversation: (id: string) => request<ConversationDetail>(`/conversations/${id}`),
   patchConversation: (id: string, body: ConversationPatch) =>
@@ -71,6 +111,13 @@ export const api = {
     approve: boolean,
     onEvent: (e: AgentEvent) => void,
   ) => stream(`/conversations/${id}/approvals/${approvalId}`, { approve }, onEvent),
+  listRuns: (params: { limit?: number; agent_id?: string } = {}) =>
+    request<RunInfo[]>(`/activity/runs${query(params)}`),
+  getRun: (id: string) => request<RunInfo>(`/activity/runs/${id}`),
+  stats: () => request<StatsInfo>("/stats"),
+  listJobs: () => request<JobInfo[]>("/jobs"),
+  runJob: (jobId: string) =>
+    request<{ job_id: string; status: string }>(`/jobs/${jobId}/run`, { method: "POST" }),
 };
 
 export type Api = typeof api;

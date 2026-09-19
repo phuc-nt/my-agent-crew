@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { Conversation } from "../api/types";
 import { vi } from "../i18n/vi";
 
@@ -7,11 +8,14 @@ interface Props {
   onSelect: (id: string) => void;
   onCreate: () => void;
   onDelete: (id: string) => void;
+  /** Rendered above the list, e.g. the agent switcher. */
+  top?: ReactNode;
 }
 
-export function ConversationList({ conversations, activeId, onSelect, onCreate, onDelete }: Props) {
+export function ConversationList({ conversations, activeId, onSelect, onCreate, onDelete, top }: Props) {
   return (
     <nav className="sidebar" aria-label={vi.conversations}>
+      {top}
       <button type="button" className="primary new-conversation" onClick={onCreate}>
         + {vi.newConversation}
       </button>

@@ -88,3 +88,39 @@ describe("api", () => {
     await expect(api.sendMessage("c1", "x", () => undefined)).rejects.toMatchObject({ status: 409, message: "busy" });
   });
 });
+
+describe("activity api", () => {
+  it("builds query strings and file urls without empty params", async () => {
+    const { agentFileUrl } = await import("./client");
+    expect(agentFileUrl("health coach", "out/a b.png")).toBe("/api/agents/health%20coach/files?path=out%2Fa+b.png");
+    fetchMock.mockResolvedValueOnce(jsonResponse([]));
+    await api.listRuns({ limit: 5, agent_id: undefined });
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/activity/runs?limit=5");
+    fetchMock.mockResolvedValueOnce(jsonResponse([]));
+    await api.listConversations("coach");
+    expect(fetchMock.mock.calls[1][0]).toBe("/api/conversations?agent_id=coach");
+    fetchMock.mockResolvedValueOnce(jsonResponse({ job_id: "coach/brief", status: "started" }, 202));
+    await api.runJob("coach/brief");
+    expect(fetchMock.mock.calls[2][0]).toBe("/api/jobs/coach/brief/run");
+    expect(fetchMock.mock.calls[2][1]?.method).toBe("POST");
+  });
+
+  it("subscribes to the activity stream by event name and closes on unsubscribe", async () => {
+    const { subscribeActivity } = await import("./client");
+    const { FakeEventSource } = await import("../test/fake-backend");
+    vitest.stubGlobal("EventSource", FakeEventSource);
+    const seen: unknown[] = [];
+    const status: boolean[] = [];
+    const stop = subscribeActivity((p) => seen.push(p), (ok) => status.push(ok));
+    const source = FakeEventSource.instances.at(-1)!;
+    expect(source.url).toBe("/api/activity/stream");
+    source.open();
+    source.emit({ type: "snapshot", runs: [] });
+    source.emit({ type: "run", run: { id: "r" } as never });
+    source.onerror?.();
+    expect(seen.map((p) => (p as { type: string }).type)).toEqual(["snapshot", "run"]);
+    expect(status).toEqual([true, false]);
+    stop();
+    expect(source.closed).toBe(true);
+  });
+});
