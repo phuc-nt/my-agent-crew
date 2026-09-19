@@ -4,7 +4,9 @@ provider clients; each gets its own workspace, memory, skills, shell cwd and rou
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import logging
+from collections.abc import Sequence
+from dataclasses import dataclass, field, replace
 
 import httpx
 
@@ -13,7 +15,7 @@ from my_agent_crew.activity import ActivityHub
 from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.agents import DEFAULT_AGENT_ID, AgentProfile, load_profiles
 from my_agent_crew.agents.context import ensure_agent_dirs
-from my_agent_crew.config import Settings, ensure_home
+from my_agent_crew.config import Route, Settings, ensure_home
 from my_agent_crew.llm.fake import EchoProvider
 from my_agent_crew.llm.openrouter import OpenRouterProvider
 from my_agent_crew.llm.provider import Provider, ProviderChain
@@ -26,6 +28,8 @@ from my_agent_crew.tools.shell import build_shell_tool
 from my_agent_crew.tools.web import build_web_tools
 from my_agent_crew.tools.workspace import build_workspace_tools
 
+logger = logging.getLogger(__name__)
+
 
 def build_providers(settings: Settings, client: httpx.AsyncClient) -> dict[str, Provider]:
     providers: dict[str, Provider] = {"fake": EchoProvider()}
@@ -34,13 +38,33 @@ def build_providers(settings: Settings, client: httpx.AsyncClient) -> dict[str, 
     return providers
 
 
+def usable_routes(
+    routes: Sequence[Route], providers: dict[str, Provider], fallback: Sequence[Route]
+) -> list[Route]:
+    """Routes whose provider is actually built. A profile written for OpenRouter must
+    still load when the key is absent (echo runs, tests), so such routes are dropped and
+    the global routes take over; only when nothing usable remains is it an error."""
+    kept = [r for r in routes if r.provider in providers]
+    if kept:
+        return kept
+    kept = [r for r in fallback if r.provider in providers]
+    if kept:
+        logger.warning("no usable route among %s; using %s", list(routes), kept)
+        return kept
+    raise ValueError(texts.NO_USABLE_ROUTE.format(routes=list(routes)))
+
+
 def build_agent_deps(
     profile: AgentProfile,
     providers: dict[str, Provider],
     client: httpx.AsyncClient,
     store: Store,
+    fallback_routes: Sequence[Route] = (),
 ) -> AgentDeps:
     ensure_agent_dirs(profile)
+    routes = usable_routes(profile.settings.routes, providers, fallback_routes)
+    if routes != list(profile.settings.routes):
+        profile = replace(profile, settings=replace(profile.settings, routes=tuple(routes)))
     tools = ToolRegistry(
         [
             *build_workspace_tools(profile.workspace),
@@ -104,7 +128,7 @@ def build_runtime(settings: Settings, client: httpx.AsyncClient | None = None) -
     store = Store(settings.db_path)
     providers = build_providers(settings, client)
     agents = {
-        profile.id: build_agent_deps(profile, providers, client, store)
+        profile.id: build_agent_deps(profile, providers, client, store, settings.routes)
         for profile in load_profiles(settings)
     }
     return Runtime(settings=settings, store=store, agents=agents, hub=ActivityHub(store))

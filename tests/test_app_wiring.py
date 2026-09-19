@@ -52,3 +52,18 @@ def test_runtime_builds_one_deps_per_profile_with_own_workspace(tmp_path: Path):
     assert "plan" not in {s.name for s in rt.default.skills}
     assert [j.id for j in rt.scheduler.jobs()] == ["coach/brief"]
     assert rt.store is coach.store is rt.default.store
+
+
+def test_profile_routes_without_a_key_fall_back_to_the_global_routes(tmp_path: Path):
+    agent = tmp_path / "agents" / "coach"
+    agent.mkdir(parents=True)
+    (agent / "agent.yaml").write_text("name: Coach\nroutes: [openrouter:x, fake:echo]\n")
+    (tmp_path / "agents" / "pong").mkdir()
+    (tmp_path / "agents" / "pong" / "agent.yaml").write_text("name: Pong\nroutes: [openrouter:y]\n")
+    rt = build_runtime(load_settings(env=env_for(tmp_path)))
+    assert [f"{r.provider}:{r.model}" for r in rt.deps_for("coach").chain.routes] == ["fake:echo"]
+    assert [f"{r.provider}:{r.model}" for r in rt.deps_for("pong").chain.routes] == ["fake:echo"]
+    assert [f"{r.provider}:{r.model}" for r in rt.deps_for("pong").settings.routes] == ["fake:echo"]
+    with_key = load_settings(env=env_for(tmp_path, OPENROUTER_API_KEY="k"))
+    routes = build_runtime(with_key).deps_for("coach").chain.routes
+    assert [f"{r.provider}:{r.model}" for r in routes] == ["openrouter:x", "fake:echo"]
