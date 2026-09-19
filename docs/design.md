@@ -99,7 +99,9 @@ named env var is set (otherwise a warning and no channel; the server still start
 channel long-polls `getUpdates`, answers only the configured chat, and turns each text into a
 turn of a per-day conversation with `channel = "telegram:<chat_id>"` (`/new` or `/start`
 opens another). Turns run through the same `tracked` wrapper with source `telegram`, so the
-activity rail and the conversation list show them. Replies are sent as plain text in 4096-char
+activity rail and the conversation list show them. While a turn runs the chat shows
+"typing…" (`sendChatAction` re-sent every 4 s by `TelegramOutbound.typing`; a failed action is
+only logged). Replies are sent as plain text in 4096-char
 chunks; `MEDIA:` lines become `sendPhoto` from the agent workspace. The scheduler calls
 `Runtime.deliver` after every prompt job, which forwards the conversation's last reply to the
 agent's channel when it has one. A conversation awaiting approval answers Telegram with a

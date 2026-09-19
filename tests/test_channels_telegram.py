@@ -2,6 +2,7 @@
 a per-day conversation, replies and `MEDIA:` photos go back to the one allowed chat, and
 scheduled results are delivered through the same path."""
 
+import asyncio
 import logging
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -33,12 +34,15 @@ class FakeTelegram:
         self.updates: list[dict] = []
         self.sent: list[str] = []
         self.photos: list[bytes] = []
+        self.calls: list[str] = []
+        self.reject_actions = False
         self.status: int | None = None
         self.raise_connect = False
 
     def handler(self, request: httpx.Request) -> httpx.Response:
         assert f"/bot{TOKEN}/" in str(request.url)
         method = request.url.path.rsplit("/", 1)[-1]
+        self.calls.append(method)
         if self.raise_connect:
             raise httpx.ConnectError(f"cannot reach {request.url}", request=request)
         if self.status:
@@ -53,6 +57,11 @@ class FakeTelegram:
             self.sent.append(form["text"])
         elif method == "sendPhoto":
             self.photos.append(request.content)
+        elif method == "sendChatAction":
+            form = dict(parse_qsl(request.content.decode()))
+            assert form["chat_id"] == str(CHAT) and form["action"] == "typing"
+            if self.reject_actions:
+                return httpx.Response(400, json={"ok": False, "description": "Bad Request"})
         return httpx.Response(200, json={"ok": True, "result": {}})
 
 
@@ -89,6 +98,22 @@ async def test_inbound_message_runs_a_tracked_turn_and_replies(make_channel, fak
     assert run.source == "telegram" and run.conversation_id == conv.id and run.status == "done"
     assert (tmp_path / "telegram.offset").read_text() == "8"
     assert await channel.poll_once() == 0  # offset moved past the handled update
+    assert fake.calls.index("sendChatAction") < fake.calls.index("sendMessage")
+
+
+async def test_typing_indicator_is_kept_alive_and_never_breaks_the_turn(make_channel, fake, caplog):
+    channel = make_channel()
+    async with channel._outbound.typing(interval=0.01):
+        await asyncio.sleep(0.05)
+    assert fake.calls.count("sendChatAction") >= 3
+    assert "sendMessage" not in fake.calls
+    fake.calls.clear()
+    fake.reject_actions = True
+    fake.updates = [message(1, "a")]
+    with caplog.at_level(logging.WARNING, logger="my_agent_crew.channels"):
+        await channel.poll_once()
+    assert fake.sent == ["(echo) a"]
+    assert "typing indicator" in caplog.text and "sendChatAction" in caplog.text
 
 
 async def test_messages_from_other_chats_are_ignored(make_channel, fake):

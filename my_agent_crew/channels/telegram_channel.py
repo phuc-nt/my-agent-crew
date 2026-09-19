@@ -1,7 +1,8 @@
 """One agent's Telegram channel. Messages from the configured chat become turns of a
 per-day conversation (`channel = "telegram:<chat_id>"`), so the web UI shows them like
-any other run; `deliver` pushes the last reply of a conversation (a scheduled brief) to
-the same chat. Only one process may poll a bot: a 409 means another poller is alive."""
+any other run; the chat shows "typing…" while the turn runs. `deliver` pushes the last
+reply of a conversation (a scheduled brief) to the same chat. Only one process may poll a
+bot: a 409 means another poller is alive."""
 
 from __future__ import annotations
 
@@ -20,16 +21,10 @@ from my_agent_crew.agent.events import (
     HaltedEvent,
 )
 from my_agent_crew.agent.loop import AgentDeps, run_turn
-from my_agent_crew.channels.telegram_api import (
-    CONFLICT_STATUS,
-    TelegramApi,
-    TelegramError,
-    split_reply,
-)
+from my_agent_crew.channels.telegram_api import CONFLICT_STATUS, TelegramApi, TelegramError
+from my_agent_crew.channels.telegram_outbound import TelegramOutbound
 from my_agent_crew.store import Conversation
 from my_agent_crew.store.models import AWAITING_APPROVAL
-from my_agent_crew.tools.registry import ToolError
-from my_agent_crew.tools.workspace import resolve_inside
 
 logger = logging.getLogger(__name__)
 SOURCE = "telegram"
@@ -57,6 +52,7 @@ class TelegramChannel:
         self.chat_id = chat_id
         self._offset_path = offset_path
         self._clock = clock
+        self._outbound = TelegramOutbound(deps, api, chat_id)
         self._offset = self._load_offset()
         self._task: asyncio.Task[None] | None = None
 
@@ -127,7 +123,9 @@ class TelegramChannel:
         if conv.status == AWAITING_APPROVAL:
             await self._api.send_message(self.chat_id, texts.TELEGRAM_BUSY)
             return
-        await self._send(await self._run(conv, text))
+        async with self._outbound.typing():
+            reply = await self._run(conv, text)
+        await self._outbound.send(reply)
 
     def conversation(self) -> Conversation:
         """Today's conversation on this chat, opened on first use each day."""
@@ -167,27 +165,4 @@ class TelegramChannel:
 
     async def deliver(self, conv_id: str) -> bool:
         """Sends the last final reply of a conversation; False when there is none yet."""
-        for stored in reversed(self._deps.store.history(conv_id)):
-            message = stored.message
-            if message.role == "assistant" and not message.tool_calls:
-                await self._send(message.content)
-                return True
-        return False
-
-    async def _send(self, text: str) -> None:
-        prose, media = split_reply(text)
-        if prose:
-            await self._api.send_message(self.chat_id, prose)
-            logger.info("telegram %s: sent %d chars", self.agent_id, len(prose))
-        for relative in media:
-            try:
-                path = resolve_inside(self._deps.agent.workspace, relative)
-                if not path.is_file():
-                    raise ToolError(texts.WORKSPACE_NOT_FOUND.format(path=relative))
-                await self._api.send_photo(self.chat_id, path)
-                logger.info("telegram %s: sent photo %s", self.agent_id, relative)
-            except (ToolError, OSError, TelegramError) as exc:
-                logger.warning("telegram %s: photo %s: %s", self.agent_id, relative, exc)
-                await self._api.send_message(
-                    self.chat_id, texts.TELEGRAM_MEDIA_MISSING.format(path=relative)
-                )
+        return await self._outbound.deliver(conv_id)

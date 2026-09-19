@@ -125,3 +125,7 @@ class TelegramApi:
     async def send_photo(self, chat_id: int, path: Path) -> None:
         with path.open("rb") as handle:
             await self.call("sendPhoto", {"chat_id": chat_id}, files={"photo": (path.name, handle)})
+
+    async def send_chat_action(self, chat_id: int, action: str = "typing") -> None:
+        """Shows "typing…" in the chat; Telegram clears it after ~5 s or on the next message."""
+        await self.call("sendChatAction", {"chat_id": chat_id, "action": action})
