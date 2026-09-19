@@ -27,6 +27,7 @@ class Conversation:
     spent_usd: float
     unknown_cost_calls: int
     status: str
+    agent_id: str = "default"
 
     @property
     def over_budget(self) -> bool:
@@ -51,6 +52,7 @@ class Conversation:
             spent_usd=row["spent_usd"],
             unknown_cost_calls=row["unknown_cost_calls"],
             status=row["status"],
+            agent_id=row["agent_id"],
         )
 
 

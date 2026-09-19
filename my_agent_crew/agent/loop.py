@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
+from datetime import date
 
 from my_agent_crew.agent.events import (
     ApprovalRequiredEvent,
@@ -18,6 +19,8 @@ from my_agent_crew.agent.events import (
     ToolResultEvent,
 )
 from my_agent_crew.agent.prompt import active_skills, build_system_prompt
+from my_agent_crew.agents.context import bootstrap_sections
+from my_agent_crew.agents.profile import AgentProfile, default_profile
 from my_agent_crew.config import Settings
 from my_agent_crew.llm.provider import ProviderChain, ProviderError
 from my_agent_crew.llm.types import Completion, Message, TextDelta
@@ -35,11 +38,19 @@ class ConversationBusy(Exception):
 
 @dataclass
 class AgentDeps:
+    """Everything one agent needs for a turn. `settings` already carries the agent's own
+    routes, cost cap and step limit; `profile` supplies persona and memory files."""
+
     settings: Settings
     chain: ProviderChain
     tools: ToolRegistry
     store: Store
     skills: list[Skill]
+    profile: AgentProfile | None = None
+
+    @property
+    def agent(self) -> AgentProfile:
+        return self.profile or default_profile(self.settings)
 
 
 async def run_turn(deps: AgentDeps, conv_id: str, user_text: str | None) -> AsyncIterator[Event]:
@@ -135,8 +146,17 @@ async def _complete(
     deps: AgentDeps, conv: Conversation, history: Sequence[StoredMessage]
 ) -> AsyncIterator[Event]:
     skills = active_skills(deps.skills, conv.skills)
+    profile = deps.agent
     system = Message(
-        role="system", content=build_system_prompt(deps.settings, skills, deps.tools.names())
+        role="system",
+        content=build_system_prompt(
+            deps.settings,
+            skills,
+            deps.tools.names(),
+            sections=bootstrap_sections(profile),
+            name=profile.name,
+            today=date.today().isoformat(),
+        ),
     )
     messages = [system, *(m.message for m in history)]
     completion: Completion | None = None

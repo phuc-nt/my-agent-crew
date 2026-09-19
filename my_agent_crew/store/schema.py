@@ -1,0 +1,43 @@
+"""Tables and the additive migrations that keep an older `agent.sqlite3` usable."""
+
+from __future__ import annotations
+
+import sqlite3
+
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS conversations (
+    id TEXT PRIMARY KEY, title TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+    autonomous INTEGER NOT NULL DEFAULT 0, cost_cap_usd REAL NOT NULL, skills TEXT NOT NULL,
+    spent_usd REAL NOT NULL DEFAULT 0, unknown_cost_calls INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'idle', agent_id TEXT NOT NULL DEFAULT 'default'
+);
+CREATE TABLE IF NOT EXISTS messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, conversation_id TEXT NOT NULL, seq INTEGER NOT NULL,
+    role TEXT NOT NULL, content TEXT NOT NULL, tool_calls TEXT NOT NULL, tool_call_id TEXT,
+    name TEXT, provider TEXT, model TEXT, cost_usd REAL, created_at TEXT NOT NULL,
+    UNIQUE (conversation_id, seq)
+);
+CREATE TABLE IF NOT EXISTS approvals (
+    id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL, message_id INTEGER NOT NULL,
+    tool_call_id TEXT NOT NULL, tool_name TEXT NOT NULL, arguments TEXT NOT NULL,
+    status TEXT NOT NULL, created_at TEXT NOT NULL, UNIQUE (conversation_id, tool_call_id)
+);
+CREATE TABLE IF NOT EXISTS runs (
+    id TEXT PRIMARY KEY, agent_id TEXT NOT NULL, conversation_id TEXT, source TEXT NOT NULL,
+    title TEXT NOT NULL, status TEXT NOT NULL, started_at TEXT NOT NULL, finished_at TEXT,
+    steps TEXT NOT NULL DEFAULT '[]', spent_usd REAL NOT NULL DEFAULT 0,
+    unknown_cost_calls INTEGER NOT NULL DEFAULT 0, summary TEXT NOT NULL DEFAULT ''
+);
+"""
+
+# (table, column, definition) added after the table first shipped.
+ADDED_COLUMNS = (("conversations", "agent_id", "TEXT NOT NULL DEFAULT 'default'"),)
+
+
+def apply_schema(conn: sqlite3.Connection) -> None:
+    conn.executescript(SCHEMA)
+    for table, column, definition in ADDED_COLUMNS:
+        present = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
+        if column not in present:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+    conn.commit()

@@ -78,3 +78,50 @@ def test_data_persists_on_disk(tmp_path: Path):
     second = Store(path)
     assert second.get(conv.id).title == "kept"
     assert second.history(conv.id)[0].message.content == "hello"
+
+
+def test_conversations_carry_an_agent_id_and_filter_by_it(store: Store):
+    a = store.create(agent_id="coach")
+    b = store.create()
+    assert store.get(a.id).agent_id == "coach" and b.agent_id == "default"
+    assert [c.id for c in store.list("coach")] == [a.id]
+    assert [c.id for c in store.list()] == [b.id, a.id]
+    assert a.to_dict()["agent_id"] == "coach"
+
+
+def test_runs_store_round_trips_steps_and_marks_interrupted(store: Store):
+    from my_agent_crew.store.runs import FAILED, RUNNING, RunRecord
+
+    run = RunRecord("r1", "coach", None, "job:coach/x", "t", RUNNING, "2026-09-19T08:00:00")
+    run.steps.append({"kind": "tool", "name": "shell_run", "ok": True})
+    store.runs.save(run)
+    run.spent_usd = 0.01
+    store.runs.save(run)
+    loaded = store.runs.get("r1")
+    assert loaded.steps == run.steps and loaded.spent_usd == 0.01
+    assert [r.id for r in store.runs.recent(source_prefix="job:")] == ["r1"]
+    assert store.runs.recent(source_prefix="chat") == []
+    assert store.runs.mark_interrupted("2026-09-19T09:00:00") == 1
+    marked = store.runs.get("r1")
+    assert marked.status == FAILED and marked.finished_at == "2026-09-19T09:00:00"
+    with pytest.raises(KeyError):
+        store.runs.get("nope")
+
+
+def test_agent_id_column_is_added_to_an_older_database(tmp_path: Path):
+    import sqlite3
+
+    path = tmp_path / "old.sqlite3"
+    conn = sqlite3.connect(path)
+    conn.executescript(
+        "CREATE TABLE conversations (id TEXT PRIMARY KEY, title TEXT NOT NULL,"
+        " status TEXT NOT NULL,"
+        " autonomous INTEGER NOT NULL DEFAULT 0, cost_cap_usd REAL NOT NULL DEFAULT 0,"
+        " spent_usd REAL NOT NULL DEFAULT 0, unknown_cost_calls INTEGER NOT NULL DEFAULT 0,"
+        " skills TEXT NOT NULL DEFAULT '[]', created_at TEXT NOT NULL, updated_at TEXT NOT NULL);"
+        "INSERT INTO conversations VALUES ('c1','old','idle',0,0,0,0,'[]','t','t');"
+    )
+    conn.commit()
+    conn.close()
+    store = Store(path)
+    assert store.get("c1").agent_id == "default"

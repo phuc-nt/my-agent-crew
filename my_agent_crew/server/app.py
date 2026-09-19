@@ -1,71 +1,64 @@
-"""FastAPI application. `build_deps` wires settings → providers → tools → store once;
+"""FastAPI application. `build_runtime` wires settings → agents → tools → store once;
 `create_app` mounts the API and, when a bundle exists, the web UI."""
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 
-import httpx
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from my_agent_crew import __version__
 from my_agent_crew.agent.loop import AgentDeps
-from my_agent_crew.config import Settings, ensure_home, load_settings
-from my_agent_crew.llm.fake import EchoProvider
-from my_agent_crew.llm.openrouter import OpenRouterProvider
-from my_agent_crew.llm.provider import Provider, ProviderChain
+from my_agent_crew.config import load_settings
 from my_agent_crew.server import (
+    routes_activity,
+    routes_agents,
     routes_approvals,
     routes_chat,
     routes_conversations,
+    routes_jobs,
     routes_settings,
 )
-from my_agent_crew.skills import BUILTIN_DIR, load_skills
-from my_agent_crew.store import Store
-from my_agent_crew.tools import ToolRegistry
-from my_agent_crew.tools.memory import build_memory_tools
-from my_agent_crew.tools.web import build_web_tools
-from my_agent_crew.tools.workspace import build_workspace_tools
+from my_agent_crew.server.runtime import Runtime, build_deps, build_providers, build_runtime
+
+__all__ = ["build_deps", "build_providers", "build_runtime", "create_app"]
 
 STATIC_DIR = Path(__file__).parent / "static"
+ROUTERS = (
+    routes_conversations.router,
+    routes_chat.router,
+    routes_approvals.router,
+    routes_settings.router,
+    routes_agents.router,
+    routes_activity.router,
+    routes_jobs.router,
+)
 
 
-def build_providers(settings: Settings, client: httpx.AsyncClient) -> dict[str, Provider]:
-    providers: dict[str, Provider] = {"fake": EchoProvider()}
-    if settings.openrouter_api_key:
-        providers["openrouter"] = OpenRouterProvider(settings.openrouter_api_key, client)
-    return providers
+def create_app(runtime: Runtime | AgentDeps | None = None, schedule: bool = True) -> FastAPI:
+    if runtime is None:
+        runtime = build_runtime(load_settings())
+    elif isinstance(runtime, AgentDeps):
+        runtime = Runtime.single(runtime)
 
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        if schedule:
+            runtime.scheduler.start()
+        try:
+            yield
+        finally:
+            await runtime.scheduler.stop()
+            runtime.hub.close()
 
-def build_deps(settings: Settings, client: httpx.AsyncClient | None = None) -> AgentDeps:
-    ensure_home(settings)
-    client = client or httpx.AsyncClient()
-    store = Store(settings.db_path)
-    tools = ToolRegistry(
-        [
-            *build_workspace_tools(settings.workspace_dir),
-            *build_web_tools(settings, client),
-            *build_memory_tools(store),
-        ]
-    )
-    chain = ProviderChain(build_providers(settings, client), settings.routes)
-    skills = load_skills(BUILTIN_DIR, settings.skills_dir)
-    return AgentDeps(settings=settings, chain=chain, tools=tools, store=store, skills=skills)
+    app = FastAPI(title="my-agent-crew", version=__version__, lifespan=lifespan)
+    app.state.runtime = runtime
 
-
-def create_app(deps: AgentDeps | None = None) -> FastAPI:
-    deps = deps or build_deps(load_settings())
-    app = FastAPI(title="my-agent-crew", version=__version__)
-    app.state.deps = deps
-
-    for router in (
-        routes_conversations.router,
-        routes_chat.router,
-        routes_approvals.router,
-        routes_settings.router,
-    ):
+    for router in ROUTERS:
         app.include_router(router, prefix="/api")
 
     @app.get("/api/health")

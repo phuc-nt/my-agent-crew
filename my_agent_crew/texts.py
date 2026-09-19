@@ -27,3 +27,15 @@ MEMORY_SAVED = "Đã ghi nhớ ({count} ghi chú)."
 MEMORY_EMPTY = "Không có ghi chú nào khớp."
 
 CONVERSATION_TITLE_DEFAULT = "Cuộc trò chuyện mới"
+
+SKILL_LOCATION = "Thư mục kỹ năng (script, tài liệu kèm theo): {path}"
+
+SHELL_NO_CWD = "Thư mục làm việc không tồn tại: {path}"
+SHELL_TIMEOUT = "Lệnh vượt quá {seconds} giây và đã bị dừng."
+SHELL_FAILED = "Lệnh thoát với mã {code}.\n{output}"
+SHELL_NO_OUTPUT = "(lệnh chạy xong, không có đầu ra)"
+
+JOB_CONVERSATION_TITLE = "[lịch] {name} · {stamp}"
+JOB_UNKNOWN = "Không có lịch tên {job_id}."
+AGENT_UNKNOWN = "Không có agent tên {agent_id}."
+FILE_OUTSIDE_WORKSPACE = "Tệp nằm ngoài thư mục làm việc của agent."

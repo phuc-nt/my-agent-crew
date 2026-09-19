@@ -1,4 +1,5 @@
-"""SQLite store. One connection guarded by a lock; every write commits immediately."""
+"""SQLite store. One connection guarded by a lock; every write commits immediately.
+Tables live in `schema.py`; approvals and runs have their own small stores."""
 
 from __future__ import annotations
 
@@ -13,31 +14,9 @@ from pathlib import Path
 from my_agent_crew.llm.types import Message
 from my_agent_crew.store.approvals import ApprovalStore
 from my_agent_crew.store.models import Conversation, StoredMessage
-from my_agent_crew.store.notes import NoteStore
+from my_agent_crew.store.runs import RunStore
+from my_agent_crew.store.schema import apply_schema
 from my_agent_crew.texts import CONVERSATION_TITLE_DEFAULT
-
-SCHEMA = """
-CREATE TABLE IF NOT EXISTS conversations (
-    id TEXT PRIMARY KEY, title TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
-    autonomous INTEGER NOT NULL DEFAULT 0, cost_cap_usd REAL NOT NULL, skills TEXT NOT NULL,
-    spent_usd REAL NOT NULL DEFAULT 0, unknown_cost_calls INTEGER NOT NULL DEFAULT 0,
-    status TEXT NOT NULL DEFAULT 'idle'
-);
-CREATE TABLE IF NOT EXISTS messages (
-    id INTEGER PRIMARY KEY AUTOINCREMENT, conversation_id TEXT NOT NULL, seq INTEGER NOT NULL,
-    role TEXT NOT NULL, content TEXT NOT NULL, tool_calls TEXT NOT NULL, tool_call_id TEXT,
-    name TEXT, provider TEXT, model TEXT, cost_usd REAL, created_at TEXT NOT NULL,
-    UNIQUE (conversation_id, seq)
-);
-CREATE TABLE IF NOT EXISTS approvals (
-    id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL, message_id INTEGER NOT NULL,
-    tool_call_id TEXT NOT NULL, tool_name TEXT NOT NULL, arguments TEXT NOT NULL,
-    status TEXT NOT NULL, created_at TEXT NOT NULL, UNIQUE (conversation_id, tool_call_id)
-);
-CREATE TABLE IF NOT EXISTS notes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT NOT NULL, created_at TEXT NOT NULL
-);
-"""
 
 MUTABLE_FIELDS = {"title", "autonomous", "cost_cap_usd", "skills", "status"}
 
@@ -56,9 +35,9 @@ class Store:
         self._conn.row_factory = sqlite3.Row
         self._lock = threading.RLock()
         with self._lock:
-            self._conn.executescript(SCHEMA)
+            apply_schema(self._conn)
         self.approvals = ApprovalStore(self._conn, self._lock)
-        self.notes = NoteStore(self._conn, self._lock)
+        self.runs = RunStore(self._conn, self._lock)
 
     def close(self) -> None:
         self._conn.close()
@@ -71,13 +50,23 @@ class Store:
         autonomous: bool = False,
         cost_cap_usd: float = 0.5,
         skills: tuple[str, ...] = (),
+        agent_id: str = "default",
     ) -> Conversation:
         conv_id, stamp = new_id(), now_iso()
         with self._lock:
             self._conn.execute(
                 "INSERT INTO conversations (id, title, created_at, updated_at, autonomous,"
-                " cost_cap_usd, skills) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (conv_id, title, stamp, stamp, int(autonomous), cost_cap_usd, json.dumps(skills)),
+                " cost_cap_usd, skills, agent_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    conv_id,
+                    title,
+                    stamp,
+                    stamp,
+                    int(autonomous),
+                    cost_cap_usd,
+                    json.dumps(skills),
+                    agent_id,
+                ),
             )
             self._conn.commit()
         return self.get(conv_id)
@@ -91,10 +80,11 @@ class Store:
             raise KeyError(conv_id)
         return Conversation.from_row(row)
 
-    def list(self) -> list[Conversation]:
+    def list(self, agent_id: str | None = None) -> list[Conversation]:
+        where, params = ("", ()) if agent_id is None else (" WHERE agent_id = ?", (agent_id,))
         with self._lock:
             rows = self._conn.execute(
-                "SELECT * FROM conversations ORDER BY updated_at DESC, rowid DESC"
+                f"SELECT * FROM conversations{where} ORDER BY updated_at DESC, rowid DESC", params
             ).fetchall()
         return [Conversation.from_row(r) for r in rows]
 

@@ -1,4 +1,4 @@
-"""Read-only view of what the agent can do right now. Secrets are reported as present
+"""Read-only view of what the agents can do right now. Secrets are reported as present
 or absent, never echoed."""
 
 from __future__ import annotations
@@ -7,14 +7,15 @@ from typing import Any
 
 from fastapi import APIRouter
 
-from my_agent_crew.server.deps import Deps
+from my_agent_crew.server.deps import Rt
 
 router = APIRouter(tags=["settings"])
 
 
 @router.get("/settings")
-def get_settings(deps: Deps) -> dict[str, Any]:
-    s = deps.settings
+def get_settings(rt: Rt) -> dict[str, Any]:
+    s = rt.settings
+    deps = rt.default
     return {
         "home": str(s.home),
         "workspace_dir": str(s.workspace_dir),
@@ -31,4 +32,5 @@ def get_settings(deps: Deps) -> dict[str, Any]:
         },
         "tools": deps.tools.describe(),
         "skills": [sk.to_dict() for sk in deps.skills],
+        "agents": [p.to_dict() for p in rt.profiles()],
     }

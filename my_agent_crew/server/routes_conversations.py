@@ -5,7 +5,8 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from my_agent_crew.server.deps import Deps
+from my_agent_crew.agents import DEFAULT_AGENT_ID
+from my_agent_crew.server.deps import ConvDeps, Rt
 from my_agent_crew.texts import CONVERSATION_TITLE_DEFAULT
 
 router = APIRouter(tags=["conversations"])
@@ -13,6 +14,7 @@ router = APIRouter(tags=["conversations"])
 
 class ConversationCreate(BaseModel):
     title: str = CONVERSATION_TITLE_DEFAULT
+    agent_id: str = DEFAULT_AGENT_ID
     autonomous: bool | None = None
     cost_cap_usd: float | None = Field(default=None, ge=0)
     skills: list[str] = []
@@ -26,28 +28,30 @@ class ConversationPatch(BaseModel):
 
 
 @router.get("/conversations")
-def list_conversations(deps: Deps) -> list[dict[str, Any]]:
-    return [c.to_dict() for c in deps.store.list()]
+def list_conversations(rt: Rt, agent_id: str | None = None) -> list[dict[str, Any]]:
+    return [c.to_dict() for c in rt.store.list(agent_id)]
 
 
 @router.post("/conversations", status_code=201)
-def create_conversation(body: ConversationCreate, deps: Deps) -> dict[str, Any]:
+def create_conversation(body: ConversationCreate, rt: Rt) -> dict[str, Any]:
+    try:
+        deps = rt.deps_for(body.agent_id)
+    except KeyError as exc:
+        raise HTTPException(404, "agent not found") from exc
     settings = deps.settings
     conv = deps.store.create(
         title=body.title,
         autonomous=settings.autonomous_default if body.autonomous is None else body.autonomous,
         cost_cap_usd=settings.cost_cap_usd if body.cost_cap_usd is None else body.cost_cap_usd,
         skills=tuple(body.skills),
+        agent_id=body.agent_id,
     )
     return conv.to_dict()
 
 
 @router.get("/conversations/{conv_id}")
-def get_conversation(conv_id: str, deps: Deps) -> dict[str, Any]:
-    try:
-        conv = deps.store.get(conv_id)
-    except KeyError as exc:
-        raise HTTPException(404, "conversation not found") from exc
+def get_conversation(conv_id: str, deps: ConvDeps) -> dict[str, Any]:
+    conv = deps.store.get(conv_id)
     data = conv.to_dict()
     data["messages"] = [m.to_dict() for m in deps.store.history(conv_id)]
     pending = deps.store.approvals.pending(conv_id)
@@ -56,19 +60,13 @@ def get_conversation(conv_id: str, deps: Deps) -> dict[str, Any]:
 
 
 @router.patch("/conversations/{conv_id}")
-def patch_conversation(conv_id: str, body: ConversationPatch, deps: Deps) -> dict[str, Any]:
+def patch_conversation(conv_id: str, body: ConversationPatch, deps: ConvDeps) -> dict[str, Any]:
     fields = body.model_dump(exclude_none=True)
     if "skills" in fields:
         fields["skills"] = tuple(fields["skills"])
-    try:
-        return deps.store.update(conv_id, **fields).to_dict()
-    except KeyError as exc:
-        raise HTTPException(404, "conversation not found") from exc
+    return deps.store.update(conv_id, **fields).to_dict()
 
 
 @router.delete("/conversations/{conv_id}", status_code=204)
-def delete_conversation(conv_id: str, deps: Deps) -> None:
-    try:
-        deps.store.delete(conv_id)
-    except KeyError as exc:
-        raise HTTPException(404, "conversation not found") from exc
+def delete_conversation(conv_id: str, deps: ConvDeps) -> None:
+    deps.store.delete(conv_id)
