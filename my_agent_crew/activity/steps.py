@@ -12,6 +12,7 @@ from my_agent_crew.agent.events import (
     ErrorEvent,
     Event,
     HaltedEvent,
+    RouteFallbackEvent,
     TextDeltaEvent,
     ToolCallEvent,
     ToolResultEvent,
@@ -102,6 +103,16 @@ def apply_event(run: RunRecord, event: Event, clock: float) -> None:
     if isinstance(event, ErrorEvent):
         run.status = FAILED
         run.summary = event.message
+        return
+    if isinstance(event, RouteFallbackEvent):
+        step = {
+            "kind": "fallback",
+            "provider": event.provider,
+            "model": event.model,
+            "error": _preview(event.error),
+        }
+        _open_step(run, step, clock)
+        _close_step(step, clock)
 
 
 def _pending_model_step(run: RunRecord) -> dict[str, Any] | None:

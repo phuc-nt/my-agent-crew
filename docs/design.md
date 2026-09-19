@@ -39,6 +39,9 @@ browser ──/api (JSON + SSE)──▶ FastAPI ──▶ run_turn(deps, conver
   event and a stored `Approval`; the UI shows a bar, the decision endpoint resumes the same turn.
   A conversation marked `autonomous` skips the pause. Hard denials — path escape from the
   workspace, private/loopback network targets — are not approvable.
+- **Fallback is visible.** Each route that gives up is logged, streamed as a `route_fallback`
+  event and recorded as a `fallback` step on the run, so a model that keeps failing shows up in
+  the timeline instead of silently costing more on the next route.
 - **Fallback only before output.** The chain tries the next route only if the previous one failed
   before yielding anything; a failure mid-stream is surfaced, never hidden by a silent retry.
 - **Honest cost.** Each assistant message stores `cost_usd` or `None`. The conversation keeps

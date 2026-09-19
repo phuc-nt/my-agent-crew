@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import AsyncIterator, Sequence
 from typing import Protocol
 
 from my_agent_crew.config import Route
-from my_agent_crew.llm.types import Message, StreamItem, ToolSpec
+from my_agent_crew.llm.types import Message, RouteFailed, StreamItem, ToolSpec
+
+logger = logging.getLogger(__name__)
 
 
 class ProviderError(RuntimeError):
@@ -31,7 +34,8 @@ class AllRoutesFailed(ProviderError):
 class ProviderChain:
     """Tries routes in order. Falls back only before the first item has been streamed:
     a half-delivered answer cannot be restarted on another model without the reader
-    seeing the seam, so a mid-stream failure surfaces instead."""
+    seeing the seam, so a mid-stream failure surfaces instead. Each fallback is yielded
+    as a `RouteFailed` item and logged, so a route that keeps failing is never silent."""
 
     def __init__(self, providers: dict[str, Provider], routes: Sequence[Route]):
         missing = [r for r in routes if r.provider not in providers]
@@ -64,4 +68,8 @@ class ProviderChain:
                 if started:
                     raise
                 errors.append((route, exc))
+                logger.warning(
+                    "route %s:%s failed, trying next: %s", route.provider, route.model, exc
+                )
+                yield RouteFailed(provider=route.provider, model=route.model, error=str(exc))
         raise AllRoutesFailed(errors)

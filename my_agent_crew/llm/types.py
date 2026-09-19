@@ -53,4 +53,13 @@ class TextDelta:
     text: str
 
 
-StreamItem = TextDelta | Completion
+@dataclass(frozen=True)
+class RouteFailed:
+    """A route gave up before its first token and the chain moved on to the next one."""
+
+    provider: str
+    model: str
+    error: str
+
+
+StreamItem = TextDelta | Completion | RouteFailed

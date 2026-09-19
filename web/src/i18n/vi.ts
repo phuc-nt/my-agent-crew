@@ -91,6 +91,8 @@ export const vi = {
   runSource: (source: string) => (source === "chat" ? "trò chuyện" : source.replace(/^job:/, "lịch ")),
   runSteps: (n: number) => `${n} bước`,
   stepModel: "model",
+  stepFallback: "đổi tuyến",
+  routeFallback: (detail: string) => `Tuyến ${detail} không trả lời, đã chuyển sang tuyến dự phòng.`,
   stepTool: "công cụ",
   stepDuration: (ms: number) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)} giây` : `${ms} ms`),
   stepChars: (n: number) => `${n} ký tự`,

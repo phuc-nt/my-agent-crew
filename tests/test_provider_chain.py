@@ -3,7 +3,7 @@ import pytest
 from my_agent_crew.config import Route
 from my_agent_crew.llm.fake import ScriptedProvider, completion
 from my_agent_crew.llm.provider import AllRoutesFailed, ProviderChain, ProviderError
-from my_agent_crew.llm.types import Completion, Message, TextDelta
+from my_agent_crew.llm.types import Completion, Message, RouteFailed, TextDelta
 from tests.conftest import collect
 
 USER = [Message(role="user", content="hi")]
@@ -26,6 +26,16 @@ async def test_failure_before_first_item_falls_back_in_order():
     items = await collect(chain.stream(USER, []))
     assert isinstance(items[-1], Completion) and items[-1].provider == "b"
     assert len(a.requests) == 1 and len(b.requests) == 1
+    assert items[0] == RouteFailed(provider="a", model="m1", error="a down")
+
+
+async def test_every_fallback_is_logged_as_a_warning(caplog):
+    a = ScriptedProvider([ProviderError("a down")], name="a")
+    b = ScriptedProvider([completion("from b")], name="b")
+    chain = ProviderChain({"a": a, "b": b}, [Route("a", "m1"), Route("b", "m2")])
+    with caplog.at_level("WARNING", logger="my_agent_crew.llm.provider"):
+        await collect(chain.stream(USER, []))
+    assert any("a:m1" in r.message and "a down" in r.message for r in caplog.records)
 
 
 async def test_all_routes_failing_raises_with_every_error():

@@ -87,6 +87,16 @@ function StepRow({ step }: { step: RunStep }) {
       </li>
     );
   }
+  if (step.kind === "fallback") {
+    return (
+      <li className="step fallback" data-testid="run-step">
+        <span className="step-kind">↪ {vi.stepFallback}</span>
+        <span className="step-detail">
+          {step.provider}:{step.model} · {step.error}
+        </span>
+      </li>
+    );
+  }
   const state = step.ok === null ? "running" : step.ok ? "done" : "failed";
   return (
     <li className={`step tool ${state}`} data-testid="run-step">

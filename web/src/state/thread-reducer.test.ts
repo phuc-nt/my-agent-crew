@@ -156,6 +156,12 @@ describe("threadReducer streaming turn", () => {
     expect(errored.busy).toBe(false);
   });
 
+  it("shows a route fallback as a notice while the turn keeps running", () => {
+    const fell = run([{ type: "route_fallback", provider: "openrouter", model: "glm", error: "HTTP 429" }]);
+    expect(fell.notice).toEqual({ kind: "fallback", text: "openrouter:glm — HTTP 429" });
+    expect(fell.busy).toBe(true);
+  });
+
   it("user_sent appends locally and turn_started clears the previous notice", () => {
     const withNotice = threadReducer(emptyThread, { type: "failed", message: "x" });
     const sent = threadReducer(withNotice, { type: "user_sent", text: "hello" });

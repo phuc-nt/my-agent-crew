@@ -96,7 +96,7 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-si
 .approval-actions { display: flex; gap: 0.5rem; }
 .notice { padding: 0.5rem 1rem; font-size: 0.9rem; }
 .notice.error { background: #fee2e2; color: #991b1b; }
-.notice.halted { background: var(--warn-bg); color: var(--warn-text); }
+.notice.halted, .notice.fallback { background: var(--warn-bg); color: var(--warn-text); }
 
 .composer { display: flex; gap: 0.5rem; padding: 0.8rem 1rem; border-top: 1px solid var(--border); background: var(--panel); }
 .composer textarea { flex: 1; resize: vertical; font: inherit; padding: 0.5rem 0.7rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
@@ -153,6 +153,7 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-si
 .step { display: flex; flex-direction: column; gap: 0.1rem; font-size: 0.85rem; position: relative; padding-left: 0.4rem; }
 .step::before { content: ""; position: absolute; left: -0.95rem; top: 0.45rem; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
 .step.model::before { background: var(--accent); }
+.step.fallback::before { background: #f59e0b; }
 .step.tool.done::before { background: #10b981; }
 .step.tool.failed::before { background: var(--danger); }
 .step.tool.running::before { background: #f59e0b; animation: blink 1.2s infinite; }

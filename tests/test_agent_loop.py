@@ -7,12 +7,14 @@ from my_agent_crew.agent.events import (
     DoneEvent,
     ErrorEvent,
     HaltedEvent,
+    RouteFallbackEvent,
     TextDeltaEvent,
     ToolCallEvent,
     ToolResultEvent,
     to_dict,
 )
 from my_agent_crew.agent.loop import run_turn
+from my_agent_crew.config import Route
 from my_agent_crew.llm.fake import completion
 from my_agent_crew.llm.provider import ProviderError
 from my_agent_crew.llm.types import ToolCall
@@ -97,6 +99,16 @@ async def test_provider_failure_becomes_error_event_and_keeps_user_message(deps_
     events = await collect(run_turn(deps, conv.id, "hi"))
     assert isinstance(events[-1], ErrorEvent) and "all down" in events[-1].message
     assert [m.message.role for m in deps.store.history(conv.id)] == ["user"]
+
+
+async def test_route_fallback_is_an_event_before_the_next_route_answers(deps_factory):
+    routes = (Route("scripted", "m"), Route("scripted", "m2"))
+    deps = deps_factory(script=[ProviderError("m busy"), completion("ok")], routes=routes)
+    conv = deps.store.create()
+    events = await collect(run_turn(deps, conv.id, "hi"))
+    assert events[0] == RouteFallbackEvent(provider="scripted", model="m", error="m busy")
+    assert isinstance(events[-1], DoneEvent)
+    assert to_dict(events[0])["type"] == "route_fallback"
 
 
 async def test_unknown_tool_name_returns_error_to_model(deps_factory):

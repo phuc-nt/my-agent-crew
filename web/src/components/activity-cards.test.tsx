@@ -18,6 +18,7 @@ describe("RunCard", () => {
       spent_usd: 0.0042,
       unknown_cost_calls: 1,
       steps: [
+        { kind: "fallback", provider: "openrouter", model: "glm-5.3-flash", error: "HTTP 429 from glm-5.3-flash", duration_ms: null },
         { kind: "model", chars: 12, provider: "fake", model: "echo", cost_usd: null, tool_calls: ["shell_run"], preview: "chạy lệnh", duration_ms: 1500 },
         { kind: "tool", name: "shell_run", tool_call_id: "tc", arguments: { command: "ls" }, ok: false, output: "no such dir", duration_ms: 20 },
       ],
@@ -31,7 +32,9 @@ describe("RunCard", () => {
     expect(card).toHaveTextContent("? 1");
     expect(screen.queryAllByTestId("run-step")).toHaveLength(0);
     await userEvent.click(screen.getByRole("button", { expanded: false }));
-    const steps = screen.getAllByTestId("run-step");
+    const [fallback, ...steps] = screen.getAllByTestId("run-step");
+    expect(fallback).toHaveTextContent(vi.stepFallback);
+    expect(fallback).toHaveTextContent("openrouter:glm-5.3-flash · HTTP 429 from glm-5.3-flash");
     expect(steps[0]).toHaveTextContent("echo");
     expect(steps[0]).toHaveTextContent(vi.stepChars(12));
     expect(steps[0]).toHaveTextContent(vi.stepCostUnknown);

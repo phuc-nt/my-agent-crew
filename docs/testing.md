@@ -16,7 +16,8 @@ Guard tests: `tests/test_file_size_budget.py` (≤200 lines), `tests/test_static
 | Feature | pytest | vitest | Playwright |
 |---|---|---|---|
 | Config from env + whitelisted yaml, route parsing | `test_config.py` | — | — |
-| Route fallback before first item; mid-stream failure surfaces | `test_provider_chain.py` | — | — |
+| Route fallback before first item, logged and yielded as `RouteFailed`; mid-stream failure surfaces | `test_provider_chain.py` | — | — |
+| Fallback becomes a `route_fallback` event, a `fallback` run step and a chat notice | `test_agent_loop.py`, `test_activity.py` | `activity-reducer.test.ts`, `thread-reducer.test.ts`, `activity-cards.test.tsx` | — |
 | OpenRouter streaming, error chunks, HTTP errors | `test_openrouter.py` | — | — |
 | Tool registry, JSON arg validation, output cap | `test_tools_registry.py` | — | — |
 | Workspace tools refuse `..` escapes, follow symlinks inside | `test_tools_workspace.py` | — | — |

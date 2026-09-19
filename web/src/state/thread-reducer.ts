@@ -28,7 +28,7 @@ export interface ThreadState {
   pending: PendingApproval | null;
   spentUsd: number;
   unknownCostCalls: number;
-  notice: { kind: "error" | "halted"; text: string } | null;
+  notice: { kind: "error" | "halted" | "fallback"; text: string } | null;
 }
 
 export type ThreadAction =
@@ -154,5 +154,7 @@ function applyEvent(state: ThreadState, e: AgentEvent): ThreadState {
       return { ...state, busy: false, streaming: null, spentUsd: e.spent_usd, notice: { kind: "halted", text: e.reason } };
     case "error":
       return { ...state, busy: false, streaming: null, notice: { kind: "error", text: e.message } };
+    case "route_fallback":
+      return { ...state, notice: { kind: "fallback", text: `${e.provider}:${e.model} — ${e.error}` } };
   }
 }

@@ -71,6 +71,9 @@ export function applyRunEvent(run: RunInfo, e: AgentEvent): RunInfo {
       spent_usd = e.spent_usd;
       unknown_cost_calls = e.unknown_cost_calls;
       break;
+    case "route_fallback":
+      steps.push({ kind: "fallback", provider: e.provider, model: e.model, error: preview(e.error), duration_ms: null });
+      break;
     case "text_delta":
       break;
   }

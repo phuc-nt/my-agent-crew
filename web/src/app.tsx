@@ -85,7 +85,9 @@ export function App() {
         ? state.notice.text === "budget"
           ? vi.haltedBudget
           : vi.haltedMaxSteps
-        : vi.errorPrefix + state.notice.text}
+        : state.notice.kind === "fallback"
+          ? vi.routeFallback(state.notice.text)
+          : vi.errorPrefix + state.notice.text}
     </div>
   );
 

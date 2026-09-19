@@ -72,6 +72,12 @@ describe("applyRunEvent", () => {
     expect(applyRunEvent(run(), { type: "approval_required", approval_id: "a", tool_call_id: "t", name: "write_file", arguments: {} }).summary).toBe("write_file");
     expect(applyRunEvent(run(), { type: "text_delta", text: "…" }).steps).toEqual([]);
   });
+
+  it("records a route fallback as its own step so a failing route is visible", () => {
+    const fell = applyRunEvent(run(), { type: "route_fallback", provider: "openrouter", model: "glm", error: "HTTP 429 from glm" });
+    expect(fell.steps).toEqual([{ kind: "fallback", provider: "openrouter", model: "glm", error: "HTTP 429 from glm", duration_ms: null }]);
+    expect(fell.spent_usd).toBe(run().spent_usd);
+  });
 });
 
 describe("activityReducer", () => {

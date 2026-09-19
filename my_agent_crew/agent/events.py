@@ -61,6 +61,15 @@ class ErrorEvent:
     message: str
 
 
+@dataclass(frozen=True)
+class RouteFallbackEvent:
+    """One route failed before answering and the next one is being tried."""
+
+    provider: str
+    model: str
+    error: str
+
+
 Event = (
     TextDeltaEvent
     | AssistantMessageEvent
@@ -70,6 +79,7 @@ Event = (
     | DoneEvent
     | HaltedEvent
     | ErrorEvent
+    | RouteFallbackEvent
 )
 
 _KIND = {
@@ -81,6 +91,7 @@ _KIND = {
     DoneEvent: "done",
     HaltedEvent: "halted",
     ErrorEvent: "error",
+    RouteFallbackEvent: "route_fallback",
 }
 
 

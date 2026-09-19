@@ -22,6 +22,13 @@ export type RunStep =
       ok: boolean | null;
       output: string | null;
       duration_ms: number | null;
+    }
+  | {
+      kind: "fallback";
+      provider: string;
+      model: string;
+      error: string;
+      duration_ms: number | null;
     };
 
 /** A chat turn or job execution with its step timeline. */

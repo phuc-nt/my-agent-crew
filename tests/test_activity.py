@@ -12,6 +12,7 @@ from my_agent_crew.agent.events import (
     DoneEvent,
     ErrorEvent,
     HaltedEvent,
+    RouteFallbackEvent,
     TextDeltaEvent,
     ToolCallEvent,
     ToolResultEvent,
@@ -47,6 +48,22 @@ def test_model_and_tool_steps_get_cost_and_durations():
     assert last["duration_ms"] == 0 and last["cost_usd"] is None
     assert run.status == DONE and run.summary == "xong"
     assert run.spent_usd == pytest.approx(0.002) and run.unknown_cost_calls == 1
+
+
+def test_route_fallback_becomes_a_step_without_touching_cost():
+    run = fresh_run()
+    apply_event(run, RouteFallbackEvent("openrouter", "glm", "HTTP 429 from glm"), 10.0)
+    apply_event(run, AssistantMessageEvent(1, "ok", [], "openrouter", "glm-5", 0.001), 11.0)
+    fallback, model = run.steps
+    assert fallback == {
+        "kind": "fallback",
+        "provider": "openrouter",
+        "model": "glm",
+        "error": "HTTP 429 from glm",
+        "duration_ms": 0,
+    }
+    assert model["model"] == "glm-5" and run.spent_usd == pytest.approx(0.001)
+    assert run.status == RUNNING
 
 
 @pytest.mark.parametrize(

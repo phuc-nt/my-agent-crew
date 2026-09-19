@@ -14,6 +14,7 @@ from my_agent_crew.agent.events import (
     ErrorEvent,
     Event,
     HaltedEvent,
+    RouteFallbackEvent,
     TextDeltaEvent,
     ToolCallEvent,
     ToolResultEvent,
@@ -23,7 +24,7 @@ from my_agent_crew.agents.context import bootstrap_sections
 from my_agent_crew.agents.profile import AgentProfile, default_profile
 from my_agent_crew.config import Settings
 from my_agent_crew.llm.provider import ProviderChain, ProviderError
-from my_agent_crew.llm.types import Completion, Message, TextDelta
+from my_agent_crew.llm.types import Completion, Message, RouteFailed, TextDelta
 from my_agent_crew.skills import Skill
 from my_agent_crew.store import Conversation, Store, StoredMessage
 from my_agent_crew.store.approvals import DENIED, PENDING
@@ -163,6 +164,8 @@ async def _complete(
     async for item in deps.chain.stream(messages, deps.tools.specs()):
         if isinstance(item, TextDelta):
             yield TextDeltaEvent(text=item.text)
+        elif isinstance(item, RouteFailed):
+            yield RouteFallbackEvent(provider=item.provider, model=item.model, error=item.error)
         else:
             completion = item
     if completion is None:
