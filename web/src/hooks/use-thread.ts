@@ -92,6 +92,7 @@ function blankDetail(id: string | null): ConversationDetail {
   return {
     id: id ?? "",
     agent_id: "default",
+    channel: "",
     title: "",
     created_at: "",
     updated_at: "",

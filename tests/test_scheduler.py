@@ -110,3 +110,22 @@ def test_disabled_jobs_are_listed_but_never_due(settings, store):
     assert [j.id for j in sched.jobs()] == ["default/x"]
     assert sched.due(datetime(2026, 1, 2)) == []
     assert default_profile(settings).schedules == ()
+
+
+async def test_prompt_job_result_is_delivered_and_a_failing_delivery_keeps_the_run(deps_factory):
+    deps = with_schedules(
+        deps_factory(routes=(Route("fake", "echo"),)),
+        Schedule("brief", "Bản tin", every="10m", prompt="chào"),
+    )
+    delivered: list[tuple[str, str]] = []
+
+    async def deliver(agent_id: str, conv_id: str) -> None:
+        delivered.append((agent_id, conv_id))
+        if len(delivered) > 1:
+            raise RuntimeError("telegram down")
+
+    sched = Scheduler({"default": deps}, ActivityHub(deps.store), deliver=deliver)
+    first = await sched.run_job("default/brief")
+    second = await sched.run_job("default/brief")
+    assert first.status == DONE and second.status == DONE
+    assert delivered == [("default", first.conversation_id), ("default", second.conversation_id)]

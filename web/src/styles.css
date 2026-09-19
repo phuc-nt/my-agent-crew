@@ -47,6 +47,7 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-si
 .conversation-list li.active { background: var(--user-bubble); }
 .conversation-item { flex: 1; text-align: left; border: none; background: none; display: flex; gap: 0.5rem; align-items: center; min-width: 0; }
 .conversation-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.channel-tag { flex: none; font-size: 0.7rem; padding: 0 0.35rem; border-radius: 999px; background: var(--border); color: var(--muted); }
 .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
 .status-dot.awaiting_approval { background: #f59e0b; }
 

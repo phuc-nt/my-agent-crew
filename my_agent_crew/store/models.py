@@ -28,6 +28,7 @@ class Conversation:
     unknown_cost_calls: int
     status: str
     agent_id: str = "default"
+    channel: str = ""  # "" for the web UI, else e.g. "telegram:<chat_id>"
 
     @property
     def over_budget(self) -> bool:
@@ -53,6 +54,7 @@ class Conversation:
             unknown_cost_calls=row["unknown_cost_calls"],
             status=row["status"],
             agent_id=row["agent_id"],
+            channel=row["channel"],
         )
 
 

@@ -75,3 +75,19 @@ def test_default_http_client_waits_as_long_as_the_provider_would(tmp_path: Path)
     client = deps.chain.providers["openrouter"]._client
     assert client.timeout.read == PROVIDER_TIMEOUT_SECONDS
     assert client.timeout.connect == PROVIDER_TIMEOUT_SECONDS
+
+
+def test_telegram_channel_is_built_only_when_its_token_env_var_is_set(tmp_path: Path, caplog):
+    agent = tmp_path / "agents" / "coach"
+    agent.mkdir(parents=True)
+    (agent / "agent.yaml").write_text(
+        "name: Coach\nroutes: [fake:echo]\ntelegram:\n  token_env: COACH_BOT\n  chat_id: 42\n"
+    )
+    settings = load_settings(env=env_for(tmp_path))
+    with caplog.at_level("WARNING"):
+        without = build_runtime(settings, env=env_for(tmp_path))
+    assert without.channels == {} and "COACH_BOT" in caplog.text
+    rt = build_runtime(settings, env=env_for(tmp_path, COACH_BOT="1:abc"))
+    assert list(rt.channels) == ["coach"] and rt.channels["coach"].chat_id == 42
+    assert rt.deps_for("coach").agent.to_dict()["telegram"]["token_env"] == "COACH_BOT"
+    assert "1:abc" not in str(rt.deps_for("coach").agent.to_dict())

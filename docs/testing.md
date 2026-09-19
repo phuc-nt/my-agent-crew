@@ -32,7 +32,9 @@ Guard tests: `tests/test_file_size_budget.py` (≤200 lines), `tests/test_static
 | Approval pause / approve / deny / autonomous bypass | `test_agent_approval.py`, `test_server_api.py` | reducer, `ApprovalBar`, App approval flow | `approval bar pauses…` |
 | Crash-resume from unfinished tool calls | `test_agent_resume.py` | — | — |
 | Activity hub: run lifecycle, steps, spend, interrupted on restart, SSE fan-out | `test_activity.py` | `activity-reducer.test.ts` | — |
-| Scheduler: cron/every parsing, due detection, prompt vs command jobs, run-now | `test_scheduler.py` | — | — |
+| Scheduler: cron/every parsing, due detection, prompt vs command jobs, run-now, delivery hook | `test_scheduler.py` | — | — |
+| Telegram channel: inbound → tracked turn, chat filter, per-day conversation, `/new`, error/approval notices, `deliver` with `MEDIA:` photos, token redaction, 409 | `test_channels_telegram.py` | — | — |
+| `telegram:` profile block parsing; `channel` column + `latest_for_channel`; channel built only with its env var | `test_agent_profiles.py`, `test_store.py`, `test_app_wiring.py` | `ConversationList` tag, `vi` labels | — |
 | `/api/agents`, `/api/agents/{id}/files` (workspace only), `/api/activity/*`, `/api/stats`, `/api/jobs` | `test_server_agents_activity_jobs.py` | `client.test.ts` (activity api) | `jobs tab…` |
 | HTTP API: CRUD, PATCH, 409 while awaiting approval, SSE framing | `test_server_api.py` | `client.test.ts`, App 409 notice | — |
 | SSE parsing (chunk boundaries, CRLF, flush, bad JSON) | `test_server_api.py` (`parse_sse`) | `sse.test.ts` | — |

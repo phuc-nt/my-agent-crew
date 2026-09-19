@@ -51,12 +51,13 @@ class Store:
         cost_cap_usd: float = 0.5,
         skills: tuple[str, ...] = (),
         agent_id: str = "default",
+        channel: str = "",
     ) -> Conversation:
         conv_id, stamp = new_id(), now_iso()
         with self._lock:
             self._conn.execute(
                 "INSERT INTO conversations (id, title, created_at, updated_at, autonomous,"
-                " cost_cap_usd, skills, agent_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                " cost_cap_usd, skills, agent_id, channel) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     conv_id,
                     title,
@@ -66,6 +67,7 @@ class Store:
                     cost_cap_usd,
                     json.dumps(skills),
                     agent_id,
+                    channel,
                 ),
             )
             self._conn.commit()
@@ -87,6 +89,16 @@ class Store:
                 f"SELECT * FROM conversations{where} ORDER BY updated_at DESC, rowid DESC", params
             ).fetchall()
         return [Conversation.from_row(r) for r in rows]
+
+    def latest_for_channel(self, agent_id: str, channel: str) -> Conversation | None:
+        """The newest conversation an agent holds on a channel, by creation time."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT * FROM conversations WHERE agent_id = ? AND channel = ?"
+                " ORDER BY created_at DESC, rowid DESC LIMIT 1",
+                (agent_id, channel),
+            ).fetchone()
+        return Conversation.from_row(row) if row else None
 
     def update(self, conv_id: str, **fields: object) -> Conversation:
         unknown = set(fields) - MUTABLE_FIELDS

@@ -91,6 +91,22 @@ and runs a turn; a **command job** runs the string with `shell_run` in the agent
 records only that step. The tick is 20 s; `POST /api/jobs/{id}/run` starts a job immediately and
 returns 202. There is no timezone field: the machine clock is the schedule clock.
 
+## Channels
+
+`channels/` lets an agent talk on something other than the web UI. Today that is Telegram:
+a profile with `telegram: {token_env, chat_id}` gets a `TelegramChannel` at startup when the
+named env var is set (otherwise a warning and no channel; the server still starts). The
+channel long-polls `getUpdates`, answers only the configured chat, and turns each text into a
+turn of a per-day conversation with `channel = "telegram:<chat_id>"` (`/new` or `/start`
+opens another). Turns run through the same `tracked` wrapper with source `telegram`, so the
+activity rail and the conversation list show them. Replies are sent as plain text in 4096-char
+chunks; `MEDIA:` lines become `sendPhoto` from the agent workspace. The scheduler calls
+`Runtime.deliver` after every prompt job, which forwards the conversation's last reply to the
+agent's channel when it has one. A conversation awaiting approval answers Telegram with a
+pointer to the web UI; approvals stay there. The update offset is persisted in
+`agents/<id>/telegram.offset`; a 409 from Telegram means another process still polls the bot.
+The token never reaches logs: API errors are redacted before they are raised.
+
 ## Shell tool and agent files
 
 `shell_run` executes a command in the agent workspace with a minimal environment
@@ -123,3 +139,5 @@ chat down with it.
 - Skill: a Markdown file with `name` (and optional `always`, `description`) in `MY_AGENT_HOME/skills`
   or in an agent's `skills_dirs`.
 - Agent: a folder under `MY_AGENT_HOME/agents/` with `agent.yaml` and persona files.
+- Channel: a class with `start`/`stop`/`deliver(conv_id)` built in `channels/build_channels`
+  from a profile block; keep secrets as env-var names in the profile.

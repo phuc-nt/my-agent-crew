@@ -11,6 +11,7 @@ from typing import Any
 
 import yaml
 
+from my_agent_crew.agents.channels import TelegramConfig, parse_telegram
 from my_agent_crew.config import Settings, _parse_routes
 
 DEFAULT_AGENT_ID = "default"
@@ -26,6 +27,7 @@ PROFILE_KEYS = {
     "max_steps",
     "autonomous",
     "schedules",
+    "telegram",
 }
 SCHEDULE_KEYS = {"id", "name", "cron", "every", "prompt", "command", "enabled"}
 
@@ -63,6 +65,7 @@ class AgentProfile:
     persona_files: tuple[str, ...] = PERSONA_FILES
     skills_dirs: tuple[Path, ...] = ()
     schedules: tuple[Schedule, ...] = field(default_factory=tuple)
+    telegram: TelegramConfig | None = None
 
     @property
     def memory_dir(self) -> Path:
@@ -85,6 +88,7 @@ class AgentProfile:
             "autonomous": self.settings.autonomous_default,
             "persona_files": [f for f in self.persona_files if (self.dir / f).is_file()],
             "schedules": [s.to_dict() for s in self.schedules],
+            "telegram": self.telegram.to_dict() if self.telegram else None,
         }
 
 
@@ -141,6 +145,7 @@ def parse_profile(
         _resolve(agent_dir, str(d)) for d in raw.get("skills_dirs") or []
     ]
     schedules = [_schedule(s, agent_id, i) for i, s in enumerate(raw.get("schedules") or [])]
+    telegram = parse_telegram(raw["telegram"], agent_id) if raw.get("telegram") else None
     return AgentProfile(
         id=agent_id,
         name=str(raw.get("name") or agent_id),
@@ -151,6 +156,7 @@ def parse_profile(
         persona_files=tuple(raw.get("persona_files") or PERSONA_FILES),
         skills_dirs=tuple(skills_dirs),
         schedules=tuple(schedules),
+        telegram=telegram,
     )
 
 

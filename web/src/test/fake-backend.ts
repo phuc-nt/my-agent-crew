@@ -129,6 +129,7 @@ export class FakeBackend {
     const detail: ConversationDetail = {
       id,
       agent_id: "default",
+      channel: "",
       title: "",
       created_at: "2026-09-19T00:00:00Z",
       updated_at: "2026-09-19T00:00:00Z",

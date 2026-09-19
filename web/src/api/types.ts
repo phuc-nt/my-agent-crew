@@ -26,6 +26,8 @@ export interface StoredMessage {
 export interface Conversation {
   id: string;
   agent_id: string;
+  /** "" for the web UI, else the delivery channel, e.g. "telegram:<chat_id>". */
+  channel: string;
   title: string;
   created_at: string;
   updated_at: string;

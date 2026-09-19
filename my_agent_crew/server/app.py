@@ -49,9 +49,11 @@ def create_app(runtime: Runtime | AgentDeps | None = None, schedule: bool = True
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         if schedule:
             runtime.scheduler.start()
+            runtime.start_channels()
         try:
             yield
         finally:
+            await runtime.stop_channels()
             await runtime.scheduler.stop()
             runtime.hub.close()
 

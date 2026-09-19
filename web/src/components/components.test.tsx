@@ -5,6 +5,7 @@ import { vi } from "../i18n/vi";
 import { ApprovalBar } from "./approval-bar";
 import { BudgetIndicator, formatUsd } from "./budget-indicator";
 import { Composer } from "./composer";
+import { ConversationList } from "./conversation-list";
 import { ToolCallCard, summarizeArguments } from "./tool-call-card";
 
 describe("ToolCallCard", () => {
@@ -114,5 +115,37 @@ describe("Composer", () => {
   it("prefills the draft handed in from a suggestion", () => {
     render(<Composer disabled={false} busy={false} draft="gợi ý" onSend={() => undefined} onStop={() => undefined} />);
     expect(screen.getByRole("textbox")).toHaveValue("gợi ý");
+  });
+});
+
+describe("ConversationList", () => {
+  const base = {
+    id: "c1", agent_id: "default", channel: "", title: "Web", created_at: "", updated_at: "",
+    autonomous: false, cost_cap_usd: 1, skills: [], spent_usd: 0, unknown_cost_calls: 0,
+    status: "idle" as const, over_budget: false,
+  };
+
+  it("tags conversations that come from a channel and leaves web ones plain", () => {
+    render(
+      <ConversationList
+        conversations={[base, { ...base, id: "c2", channel: "telegram:42", title: "Telegram · 2026-09-19" }]}
+        activeId="c1"
+        onSelect={() => {}}
+        onCreate={() => {}}
+        onDelete={() => {}}
+      />,
+    );
+    expect(screen.getAllByText("Telegram")).toHaveLength(1);
+    expect(screen.getByText("Web").parentElement?.querySelector(".channel-tag")).toBeNull();
+  });
+});
+
+describe("vi labels", () => {
+  it("names run sources and channels in Vietnamese", () => {
+    expect(vi.runSource("chat")).toBe("trò chuyện");
+    expect(vi.runSource("telegram")).toBe("Telegram");
+    expect(vi.runSource("job:coach/brief")).toBe("lịch coach/brief");
+    expect(vi.channelName("telegram:42")).toBe("Telegram");
+    expect(vi.channelName("slack:x")).toBe("slack");
   });
 });

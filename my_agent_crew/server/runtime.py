@@ -5,7 +5,8 @@ provider clients; each gets its own workspace, memory, skills, shell cwd and rou
 from __future__ import annotations
 
 import logging
-from collections.abc import Sequence
+import os
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
 
 import httpx
@@ -15,6 +16,7 @@ from my_agent_crew.activity import ActivityHub
 from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.agents import DEFAULT_AGENT_ID, AgentProfile, load_profiles
 from my_agent_crew.agents.context import ensure_agent_dirs
+from my_agent_crew.channels import TelegramChannel, build_channels
 from my_agent_crew.config import Route, Settings, ensure_home
 from my_agent_crew.llm.fake import EchoProvider
 from my_agent_crew.llm.openrouter import OpenRouterProvider
@@ -95,10 +97,25 @@ class Runtime:
     store: Store
     agents: dict[str, AgentDeps]
     hub: ActivityHub
+    channels: dict[str, TelegramChannel] = field(default_factory=dict)
     scheduler: Scheduler = field(init=False)
 
     def __post_init__(self) -> None:
-        self.scheduler = Scheduler(self.agents, self.hub)
+        self.scheduler = Scheduler(self.agents, self.hub, deliver=self.deliver)
+
+    async def deliver(self, agent_id: str, conv_id: str) -> None:
+        """Pushes a conversation's last reply through the agent's channel, if it has one."""
+        channel = self.channels.get(agent_id)
+        if channel is not None:
+            await channel.deliver(conv_id)
+
+    def start_channels(self) -> None:
+        for channel in self.channels.values():
+            channel.start()
+
+    async def stop_channels(self) -> None:
+        for channel in self.channels.values():
+            await channel.stop()
 
     @property
     def default(self) -> AgentDeps:
@@ -126,7 +143,13 @@ class Runtime:
         return cls(settings=deps.settings, store=deps.store, agents={deps.agent.id: deps}, hub=hub)
 
 
-def build_runtime(settings: Settings, client: httpx.AsyncClient | None = None) -> Runtime:
+def build_runtime(
+    settings: Settings,
+    client: httpx.AsyncClient | None = None,
+    env: Mapping[str, str] | None = None,
+) -> Runtime:
+    """`env` is where channel tokens are read from (the process environment by default);
+    settings never hold them, so a profile can be committed while its token stays out."""
     settings = ensure_home(settings)
     client = client or httpx.AsyncClient(timeout=httpx.Timeout(PROVIDER_TIMEOUT_SECONDS))
     store = Store(settings.db_path)
@@ -135,7 +158,9 @@ def build_runtime(settings: Settings, client: httpx.AsyncClient | None = None) -
         profile.id: build_agent_deps(profile, providers, client, store, settings.routes)
         for profile in load_profiles(settings)
     }
-    return Runtime(settings=settings, store=store, agents=agents, hub=ActivityHub(store))
+    hub = ActivityHub(store)
+    channels = build_channels(agents, hub, client, os.environ if env is None else env)
+    return Runtime(settings=settings, store=store, agents=agents, hub=hub, channels=channels)
 
 
 def build_deps(settings: Settings, client: httpx.AsyncClient | None = None) -> AgentDeps:

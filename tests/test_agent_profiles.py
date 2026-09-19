@@ -86,3 +86,26 @@ def test_to_dict_reports_only_persona_files_present(settings: Settings, tmp_path
     assert data["persona_files"] == ["SOUL.md"]
     assert data["routes"] == [{"provider": "scripted", "model": "m"}]
     assert data["schedules"] == []
+
+
+def test_parse_profile_reads_a_telegram_block_and_reports_it(settings: Settings, tmp_path: Path):
+    raw = {"telegram": {"token_env": "COACH_BOT_TOKEN", "chat_id": "42"}}
+    profile = parse_profile("a", tmp_path, raw, settings)
+    assert profile.telegram is not None
+    assert (profile.telegram.token_env, profile.telegram.chat_id) == ("COACH_BOT_TOKEN", 42)
+    assert profile.to_dict()["telegram"] == {"token_env": "COACH_BOT_TOKEN", "chat_id": 42}
+    assert parse_profile("b", tmp_path, {}, settings).to_dict()["telegram"] is None
+
+
+@pytest.mark.parametrize(
+    "block",
+    [
+        "yes",
+        {"token_env": "T"},
+        {"token_env": "T", "chat_id": "abc"},
+        {"token_env": "T", "chat_id": 1, "token": "never-inline"},
+    ],
+)
+def test_parse_profile_rejects_malformed_telegram_blocks(settings, tmp_path, block):
+    with pytest.raises(ValueError):
+        parse_profile("a", tmp_path, {"telegram": block}, settings)

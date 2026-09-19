@@ -124,4 +124,14 @@ def test_agent_id_column_is_added_to_an_older_database(tmp_path: Path):
     conn.commit()
     conn.close()
     store = Store(path)
-    assert store.get("c1").agent_id == "default"
+    assert store.get("c1").agent_id == "default" and store.get("c1").channel == ""
+
+
+def test_conversations_carry_a_channel_and_the_latest_per_channel_is_found(store: Store):
+    web = store.create(agent_id="coach")
+    first = store.create(agent_id="coach", channel="telegram:42")
+    second = store.create(agent_id="coach", channel="telegram:42")
+    assert web.channel == "" and first.to_dict()["channel"] == "telegram:42"
+    assert store.latest_for_channel("coach", "telegram:42").id == second.id
+    assert store.latest_for_channel("coach", "telegram:1") is None
+    assert store.latest_for_channel("default", "telegram:42") is None

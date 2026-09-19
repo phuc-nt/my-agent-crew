@@ -36,6 +36,7 @@ Bí mật **chỉ** đọc từ biến môi trường; `config.yaml` chỉ chứ
 | `MY_AGENT_AUTONOMOUS` | `1` để công cụ ghi/thay đổi chạy không cần duyệt | tắt |
 | `OPENROUTER_API_KEY` | bật provider OpenRouter | — |
 | `TAVILY_API_KEY` / `BRAVE_API_KEY` | bật công cụ `web_search` | — |
+| tên do `telegram.token_env` chỉ định (vd `HEALTH_COACH_TELEGRAM_BOT_TOKEN`) | token bot Telegram của một agent; thiếu thì kênh đó tắt | — |
 
 `config.yaml` trong `MY_AGENT_HOME` nhận `routes`, `cost_cap_usd`, `max_steps`, `language`,
 `autonomous_default`. Kỹ năng tự viết: thêm tệp `.md` có frontmatter `name` vào `skills/`.
@@ -53,6 +54,9 @@ routes: [openrouter:z-ai/glm-5.3-flash, openrouter:z-ai/glm-5]
 workspace: ~/workspace/my-health-coach   # sandbox cho công cụ tệp + shell_run
 skills_dirs: [~/.openclaw/workspace-personal/skills]
 autonomous: true                          # job chạy không cần duyệt
+telegram:                                 # tuỳ chọn: một bot riêng cho agent này
+  token_env: HEALTH_COACH_TELEGRAM_BOT_TOKEN   # TÊN biến môi trường giữ token, không phải token
+  chat_id: 123456789                      # chat duy nhất được trả lời
 schedules:
   - id: morning-brief
     name: Bản tin sáng
@@ -67,6 +71,10 @@ schedules:
 ```
 
 Job `prompt` mở một cuộc trò chuyện mới và chạy như người dùng nhắn; job `command` chỉ chạy shell.
+Khi agent có khối `telegram`, server tự poll bot đó: tin nhắn từ `chat_id` trở thành lượt chat
+của một cuộc trò chuyện theo ngày (`/new` mở cuộc mới), câu trả lời và kết quả job `prompt`
+được gửi lại chat; dòng `MEDIA:` thành ảnh. Web UI vẫn thấy các lượt này (thẻ *Telegram*).
+Chỉ một tiến trình được poll một bot; nếu bot còn gắn với chương trình khác, log báo 409.
 Bí mật vẫn chỉ đến từ biến môi trường của tiến trình server. Thư mục `agents/` là dữ liệu cá nhân,
 không nằm trong repo này.
 

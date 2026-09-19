@@ -59,8 +59,8 @@ test("agent switcher scopes the list and new conversations to that agent", async
   const mock = await mockApi(page, {
     agents: [defaultAgent, coachAgent],
     conversations: [
-      { id: "c1", agent_id: "default", title: "Chung", created_at: "", updated_at: "", autonomous: false, cost_cap_usd: 1, skills: [], spent_usd: 0, unknown_cost_calls: 0, status: "idle", over_budget: false, messages: [], pending_approval: null },
-      { id: "c2", agent_id: "coach", title: "Sức khoẻ", created_at: "", updated_at: "", autonomous: true, cost_cap_usd: 1, skills: [], spent_usd: 0, unknown_cost_calls: 0, status: "idle", over_budget: false, messages: [], pending_approval: null },
+      { id: "c1", agent_id: "default", channel: "", title: "Chung", created_at: "", updated_at: "", autonomous: false, cost_cap_usd: 1, skills: [], spent_usd: 0, unknown_cost_calls: 0, status: "idle", over_budget: false, messages: [], pending_approval: null },
+      { id: "c2", agent_id: "coach", channel: "", title: "Sức khoẻ", created_at: "", updated_at: "", autonomous: true, cost_cap_usd: 1, skills: [], spent_usd: 0, unknown_cost_calls: 0, status: "idle", over_budget: false, messages: [], pending_approval: null },
     ],
   });
   await page.goto("/");

@@ -31,7 +31,10 @@ CREATE TABLE IF NOT EXISTS runs (
 """
 
 # (table, column, definition) added after the table first shipped.
-ADDED_COLUMNS = (("conversations", "agent_id", "TEXT NOT NULL DEFAULT 'default'"),)
+ADDED_COLUMNS = (
+    ("conversations", "agent_id", "TEXT NOT NULL DEFAULT 'default'"),
+    ("conversations", "channel", "TEXT NOT NULL DEFAULT ''"),
+)
 
 
 def apply_schema(conn: sqlite3.Connection) -> None:

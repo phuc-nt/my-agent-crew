@@ -88,7 +88,13 @@ export const vi = {
     halted: "đã dừng",
     error: "lỗi",
   } as Record<string, string>,
-  runSource: (source: string) => (source === "chat" ? "trò chuyện" : source.replace(/^job:/, "lịch ")),
+  runSource: (source: string) =>
+    source === "chat" ? "trò chuyện" : source === "telegram" ? "Telegram" : source.replace(/^job:/, "lịch "),
+  /** "telegram:123" → "Telegram"; an unknown channel shows its own name. */
+  channelName: (channel: string) => {
+    const kind = channel.split(":")[0];
+    return kind === "telegram" ? "Telegram" : kind;
+  },
   runSteps: (n: number) => `${n} bước`,
   stepModel: "model",
   stepFallback: "đổi tuyến",

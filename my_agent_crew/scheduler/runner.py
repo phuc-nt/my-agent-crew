@@ -7,7 +7,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -47,10 +47,12 @@ class Scheduler:
         agents: dict[str, AgentDeps],
         hub: ActivityHub,
         clock: Callable[[], datetime] = datetime.now,
+        deliver: Callable[[str, str], Awaitable[None]] | None = None,
     ):
         self._agents = agents
         self._hub = hub
         self._clock = clock
+        self._deliver = deliver
         self._jobs: dict[str, Job] = {}
         self._last: dict[str, datetime] = {}
         self._task: asyncio.Task[None] | None = None
@@ -170,6 +172,11 @@ class Scheduler:
                 run = candidate
                 break
         assert run is not None
+        if self._deliver is not None:
+            try:
+                await self._deliver(job.agent_id, conv.id)
+            except Exception:  # the run itself succeeded; only its delivery did not
+                logger.exception("job %s: delivery failed", job.id)
         return run
 
     async def _run_command(self, job: Job, deps: AgentDeps) -> RunRecord:

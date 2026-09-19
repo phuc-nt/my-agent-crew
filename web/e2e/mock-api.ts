@@ -106,7 +106,7 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
     }
     if (path === "/conversations" && method === "POST") {
       const conv: Conversation = {
-        id: `c${++created}`, agent_id: "default", title: "", created_at: "", updated_at: "", autonomous: false, cost_cap_usd: 1,
+        id: `c${++created}`, agent_id: "default", channel: "", title: "", created_at: "", updated_at: "", autonomous: false, cost_cap_usd: 1,
         skills: [], spent_usd: 0, unknown_cost_calls: 0, status: "idle", over_budget: false, messages: [], pending_approval: null,
         ...(route.request().postDataJSON() ?? {}),
       };
