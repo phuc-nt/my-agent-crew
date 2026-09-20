@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import os
+from dataclasses import replace
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
@@ -10,6 +12,7 @@ from fastapi.testclient import TestClient
 from my_agent_crew.config import Route
 from my_agent_crew.memory import agent_store, user_store
 from my_agent_crew.server import create_app
+from my_agent_crew.server.memory_search import search_all
 from my_agent_crew.store.memory_proposals import AGENT_MEMORY, USER_FACT, USER_FORGET
 
 FACT = {"description": "Ngủ trước 23h", "type": "preference", "body": "Ngủ sớm mỗi ngày."}
@@ -177,6 +180,25 @@ def test_searching_an_unknown_agent_is_a_404(client):
     assert (
         client.get("/api/memory/search", params={"q": "x", "agent_id": "nobody"}).status_code == 404
     )
+
+
+def test_a_search_over_every_agent_interleaves_their_hits_by_rank(client, deps, tmp_path):
+    """An agent with many notes must not push another agent's best hit below all of its own."""
+    many = replace(deps.profile, id="many", dir=tmp_path / "many")
+    few = replace(deps.profile, id="few", dir=tmp_path / "few")
+    for profile in (many, few):
+        profile.memory_dir.mkdir(parents=True)
+    agent_store.write_memory_md(many.memory_file, "- cà phê một\n- cà phê hai\n- cà phê ba")
+    agent_store.write_memory_md(few.memory_file, "- cà phê sữa")
+    rt = SimpleNamespace(
+        settings=deps.settings,
+        agents={"many": replace(deps, profile=many), "few": replace(deps, profile=few)},
+    )
+
+    hits = search_all(rt, "cà phê")
+    assert [h.agent_id for h in hits] == ["many", "few", "many", "many"]
+    assert [h.text for h in hits][:2] == ["- cà phê một", "- cà phê sữa"]
+    assert [h.agent_id for h in search_all(rt, "cà phê", agent_id="few")] == ["few"]
 
 
 # --- proposals ---------------------------------------------------------------------------

@@ -155,7 +155,7 @@ scope, search, proposals) and `server/routes_memory_agent.py` (one agent's files
 | `PUT/DELETE /api/memory/user/facts/{name}` | upsert or forget one fact; a non-slug name or unknown type is a 422 |
 | `GET/PUT /api/agents/{id}/memory` | read/write that agent's `MEMORY.md` |
 | `GET/PUT /api/agents/{id}/memory/notes/{day}` | read/write one dated note; a name that is not a day with an optional suffix is a 422 |
-| `GET /api/memory/search?q=&agent_id=` | hits across both scopes, each labelled with the scope it came from |
+| `GET /api/memory/search?q=&agent_id=` | hits across both scopes, each labelled with the scope it came from; without `agent_id` the agents' hits are interleaved by rank, so each agent's best entry comes before any agent's second one |
 | `GET /api/memory/proposals?status=` | pending by default; `status=all` includes decided ones |
 | `POST /api/memory/proposals/{id}` | `{approve: bool}`; deciding twice is a 409 |
 | `POST /api/agents/{id}/memory/consolidate` | starts a rewrite and answers 202; 409 while one is already running for that agent |
