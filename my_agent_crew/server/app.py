@@ -21,6 +21,8 @@ from my_agent_crew.server import (
     routes_chat,
     routes_conversations,
     routes_jobs,
+    routes_memory_agent,
+    routes_memory_user,
     routes_settings,
 )
 from my_agent_crew.server.runtime import Runtime, build_deps, build_providers, build_runtime
@@ -36,6 +38,8 @@ ROUTERS = (
     routes_agents.router,
     routes_activity.router,
     routes_jobs.router,
+    routes_memory_user.router,
+    routes_memory_agent.router,
 )
 
 

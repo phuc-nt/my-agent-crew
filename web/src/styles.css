@@ -139,6 +139,20 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-si
 .panel-body { overflow-y: auto; padding: 0.6rem 0.8rem 1rem; display: flex; flex-direction: column; gap: 0.5rem; }
 .panel-body h3 { margin-top: 0.6rem; }
 
+.tabs.sub { flex-wrap: wrap; border-bottom: 1px solid var(--border); margin-bottom: 0.4rem; }
+.memory-editor { display: flex; flex-direction: column; gap: 0.3rem; }
+.memory-editor label, .memory-fact-form label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem; }
+.memory-editor textarea, .memory-fact-form textarea, .memory-fact-form input, .memory-fact-form select { width: 100%; font: inherit; }
+.memory-editor-actions { display: flex; gap: 0.4rem; align-items: center; }
+.memory-fact-form { display: flex; flex-direction: column; gap: 0.4rem; border: 1px solid var(--border); border-radius: var(--radius); padding: 0.6rem; }
+.fact-list, .note-list, .hit-list, .proposal-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+.fact-list li, .hit-list li, .proposal-list li { border: 1px solid var(--border); border-radius: var(--radius); padding: 0.5rem 0.6rem; }
+.fact-head { display: flex; gap: 0.4rem; align-items: baseline; flex-wrap: wrap; }
+.fact-body { margin: 0.3rem 0 0; white-space: pre-wrap; }
+.note-list li { display: flex; gap: 0.4rem; align-items: baseline; }
+.diff { margin: 0.3rem 0 0; padding: 0.4rem 0.5rem; background: var(--bg); border-radius: var(--radius); overflow-x: auto; font-size: 0.8rem; }
+.diff .added { color: #10b981; font-weight: 600; }
+
 .attention { padding: 0.5rem 0.7rem; border-radius: var(--radius); background: var(--warn-bg); color: var(--warn-text); }
 .attention h3 { margin-top: 0; color: inherit; }
 .attention-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }

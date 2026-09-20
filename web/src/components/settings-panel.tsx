@@ -72,6 +72,10 @@ export function SettingsPanel({ settings, onClose }: Props) {
             <dd>
               <code>{settings.workspace_dir}</code>
             </dd>
+            <dt>{vi.usersDir}</dt>
+            <dd>
+              <code>{settings.users_dir}</code>
+            </dd>
             <dt>{vi.maxSteps}</dt>
             <dd>{settings.max_steps}</dd>
             <dt>{vi.defaultCap}</dt>

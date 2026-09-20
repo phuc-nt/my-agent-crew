@@ -74,4 +74,6 @@ def summarize(runs: list[RunRecord]) -> dict[str, Any]:
 
 @router.get("/stats")
 def stats(rt: Rt) -> dict[str, Any]:
-    return summarize(rt.hub.recent(STATS_RUNS))
+    data = summarize(rt.hub.recent(STATS_RUNS))
+    data["pending_proposals"] = len(rt.store.proposals.list())
+    return data

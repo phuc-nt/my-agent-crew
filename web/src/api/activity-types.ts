@@ -75,4 +75,6 @@ export interface StatsInfo {
   by_agent: Record<string, number>;
   by_model: Record<string, number>;
   by_day: Record<string, number>;
+  /** Memory writes waiting for a decision — the count on the "Ghi nhớ" tab. */
+  pending_proposals: number;
 }

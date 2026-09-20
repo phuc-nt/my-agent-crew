@@ -4,13 +4,19 @@ import type {
   AgentDetail,
   AgentEvent,
   AgentInfo,
+  AgentMemory,
   Conversation,
   ConversationDetail,
   ConversationPatch,
+  FactBody,
+  FactInfo,
   JobInfo,
+  MemoryHit,
+  MemoryProposal,
   RunInfo,
   SettingsInfo,
   StatsInfo,
+  UserMemory,
 } from "./types";
 
 export class ApiError extends Error {
@@ -120,6 +126,39 @@ export const api = {
   listJobs: () => request<JobInfo[]>("/jobs"),
   runJob: (jobId: string) =>
     request<{ job_id: string; status: string }>(`/jobs/${jobId}/run`, { method: "POST" }),
+  getUserMemory: () => request<UserMemory>("/memory/user"),
+  putUserMd: (userMd: string) =>
+    request<UserMemory>("/memory/user", { method: "PUT", body: JSON.stringify({ user_md: userMd }) }),
+  putFact: (name: string, body: FactBody) =>
+    request<FactInfo>(`/memory/user/facts/${encodeURIComponent(name)}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  deleteFact: (name: string) =>
+    request<void>(`/memory/user/facts/${encodeURIComponent(name)}`, { method: "DELETE" }),
+  getAgentMemory: (agentId: string) =>
+    request<AgentMemory>(`/agents/${encodeURIComponent(agentId)}/memory`),
+  putAgentMemory: (agentId: string, memoryMd: string) =>
+    request<AgentMemory>(`/agents/${encodeURIComponent(agentId)}/memory`, {
+      method: "PUT",
+      body: JSON.stringify({ memory_md: memoryMd }),
+    }),
+  getNote: (agentId: string, day: string) =>
+    request<{ day: string; body: string }>(`/agents/${encodeURIComponent(agentId)}/memory/notes/${day}`),
+  putNote: (agentId: string, day: string, body: string) =>
+    request<{ day: string; body: string }>(
+      `/agents/${encodeURIComponent(agentId)}/memory/notes/${day}`,
+      { method: "PUT", body: JSON.stringify({ body }) },
+    ),
+  searchMemory: (q: string, agentId?: string) =>
+    request<{ hits: MemoryHit[] }>(`/memory/search${query({ q, agent_id: agentId })}`),
+  listProposals: (status?: string) =>
+    request<{ proposals: MemoryProposal[] }>(`/memory/proposals${query({ status })}`),
+  decideProposal: (id: string, approve: boolean) =>
+    request<MemoryProposal>(`/memory/proposals/${encodeURIComponent(id)}`, {
+      method: "POST",
+      body: JSON.stringify({ approve }),
+    }),
 };
 
 export type Api = typeof api;

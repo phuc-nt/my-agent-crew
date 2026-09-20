@@ -11,7 +11,7 @@ contents instead of the facts themselves.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 
@@ -34,6 +34,9 @@ class Fact:
     source: str
     updated: str
     body: str
+
+    def to_dict(self) -> dict[str, str]:
+        return asdict(self)
 
 
 def check_name(name: str) -> str:
@@ -160,3 +163,8 @@ def read_index(user_dir: Path) -> str:
 def read_user_md(user_dir: Path) -> str:
     path = user_dir / "USER.md"
     return path.read_text(encoding="utf-8", errors="replace").strip() if path.is_file() else ""
+
+
+def write_user_md(user_dir: Path, text: str) -> None:
+    user_dir.mkdir(parents=True, exist_ok=True)
+    (user_dir / "USER.md").write_text(text, encoding="utf-8")

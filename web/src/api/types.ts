@@ -142,6 +142,7 @@ export interface AgentDetail extends Omit<AgentInfo, "tools" | "skills"> {
 export interface SettingsInfo {
   home: string;
   workspace_dir: string;
+  users_dir: string;
   routes: RouteInfo[];
   providers: string[];
   language: string;
@@ -152,6 +153,77 @@ export interface SettingsInfo {
   tools: ToolInfo[];
   skills: SkillInfo[];
   agents: AgentInfo[];
+}
+
+/** One remembered fact about the person, shared by every agent. */
+export interface FactInfo {
+  name: string;
+  description: string;
+  type: FactType;
+  written_by: string;
+  source: string;
+  updated: string;
+  body: string;
+}
+
+export type FactType = "profile" | "preference" | "feedback" | "project" | "reference";
+
+export const FACT_TYPES: FactType[] = [
+  "profile",
+  "preference",
+  "feedback",
+  "project",
+  "reference",
+];
+
+export interface UserMemory {
+  user_md: string;
+  facts: FactInfo[];
+  index_md: string;
+}
+
+/** A dated note beside one agent's MEMORY.md; the body is fetched on demand. */
+export interface MemoryNote {
+  day: string;
+  chars: number;
+}
+
+export interface AgentMemory {
+  memory_md: string;
+  notes: MemoryNote[];
+  note_count: number;
+}
+
+export interface MemoryHit {
+  scope: "user" | "agent";
+  /** "" for a shared fact, else the agent whose file matched. */
+  agent_id: string;
+  file: string;
+  text: string;
+}
+
+export type ProposalKind = "user_fact" | "user_forget" | "agent_memory";
+export type ProposalStatus = "pending" | "approved" | "rejected";
+
+/** A memory write a scheduled job asked for and cannot perform on its own. */
+export interface MemoryProposal {
+  id: string;
+  agent_id: string;
+  kind: ProposalKind;
+  name: string;
+  description: string;
+  type: string;
+  body: string;
+  status: ProposalStatus;
+  source: string;
+  created_at: string;
+  resolved_at: string | null;
+}
+
+export interface FactBody {
+  description: string;
+  type: FactType;
+  body: string;
 }
 
 export type * from "./activity-types";

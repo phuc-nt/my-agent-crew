@@ -1,8 +1,31 @@
 # Memory
 
-Memory is two kinds of Markdown in the agent dir, the same shape a person could keep by
-hand. Nothing is embedded or summarised behind the agent's back; what the model reads is
-what is on disk. Source of truth: `agents/context.py`, `tools/memory.py`.
+Memory is Markdown on disk, the same shape a person could keep by hand. Nothing is
+embedded or summarised behind the agent's back; what the model reads is what is on disk.
+Source of truth: `agents/context.py`, `memory/user_store.py`, `memory/agent_store.py`,
+`tools/memory.py`.
+
+It comes in two scopes:
+
+- **Shared** — what the crew knows about *the person*, under `<home>/users/owner/`. Every
+  agent reads the same files, so telling one agent something does not leave the others
+  guessing.
+- **Per agent** — what one agent knows about *its own work*, in its agent dir.
+
+## The shared scope
+
+| File | Role | Read into the prompt |
+|---|---|---|
+| `users/owner/USER.md` | who the person is, in their own words | every turn, every agent |
+| `users/owner/facts/<name>.md` | one remembered fact each: frontmatter + Markdown body | only its index line; the body through `memory_search` or `workspace_read` |
+| `users/owner/facts/INDEX.md` | generated table of contents, one line per fact | every turn, every agent |
+
+The user sections are capped at 4 000 characters (`MAX_USER_SECTION_CHARS`) because they
+ride along in every agent's prompt. A fact's frontmatter records `name`, `description`,
+`type` (one of `profile`, `preference`, `feedback`, `project`, `reference`), `written_by`,
+`source` and `updated`; `INDEX.md` is regenerated after every write.
+
+## One agent's own scope
 
 | File | Role | Read into the prompt |
 |---|---|---|
@@ -18,8 +41,13 @@ them in `MY_AGENT_HOME` itself.
 
 ## Writing memory
 
-Two ways, both visible in the activity rail:
+Several ways, all visible in the activity rail:
 
+- **`user_memory_save` / `user_memory_forget`** write a shared fact. Whether they write at
+  all depends on who is in the room: in a turn the person is present for (chat, Telegram)
+  the write lands immediately; in a scheduled job it becomes a **proposal** for review,
+  because nobody is there to correct a bad guess. Resuming a paused job keeps the job's
+  source, so an approval mid-job does not turn it into a chat turn.
 - **`memory_save`** appends one line `- HH:MM <text>` to today's note, creating it with a
   `# YYYY-MM-DD` header. No approval: a note is not a state change outside the
   conversation. Use it for things worth remembering tomorrow.
@@ -30,10 +58,11 @@ Two ways, both visible in the activity rail:
 
 ## Reading memory
 
-- **`memory_search <query>`** greps `MEMORY.md` and then every daily note, newest first,
-  and returns up to 12 lines (`MAX_HITS`) that contain **every** term of the query, case
-  insensitive, as `<file>: <line>`. Use it before answering "when did I…" or "what did we
-  decide about…".
+- **`memory_search <query>`** returns up to 12 hits (`MAX_HITS`) containing **every** term
+  of the query, case insensitive, as `<file>: <line>`. Shared facts come first — what the
+  crew knows about the person outranks one agent's notes — then `MEMORY.md` and every
+  daily note, newest first. A fact matches on its description and body together and
+  reports the whole fact, since a fact is one thought rather than a set of lines.
 - The prompt already holds `MEMORY.md` and the last two days, so the model should not
   search for those.
 
@@ -41,6 +70,8 @@ Two ways, both visible in the activity rail:
 
 | Write to | Examples |
 |---|---|
+| `USER.md` | name, work, how the person likes to be answered |
+| a fact | a standing preference, a goal, feedback the person gave, a project they are on |
 | `MEMORY.md` | user profile, goals, thresholds, tool locations, recurring schedule, rules the user gave |
 | today's note | a measurement, a decision made today, a question left open, a brief that was sent |
 | neither | anything the workspace files already hold (data files, scripts), transient tool output |
@@ -49,6 +80,34 @@ Persona files (`AGENTS.md` and friends, see [agents.md](agents.md)) are for *how
 behave*; memory is for *what is known*. Both are personal data and stay in
 `MY_AGENT_HOME`, never in this repo.
 
+## Proposals
+
+A job runs unattended, so a shared write it asks for is held in the `memory_proposals`
+table until someone decides. Approving applies the write; rejecting leaves nothing behind.
+Deciding the same proposal twice is a conflict, not a fresh write, so a double click
+cannot apply it again. `GET /api/stats` carries `pending_proposals` so the web UI can
+badge the tab. Source: `store/memory_proposals.py`, `memory/proposals_apply.py`.
+
+## Over HTTP and in the web UI
+
+Everything the agent sees in its prompt is editable by the person, so they are never
+arguing with a memory they cannot reach. Routers: `server/routes_memory_user.py` (shared
+scope, search, proposals) and `server/routes_memory_agent.py` (one agent's files).
+
+| Endpoint | Does |
+|---|---|
+| `GET/PUT /api/memory/user` | read/write `USER.md`, with the facts and the index |
+| `PUT/DELETE /api/memory/user/facts/{name}` | upsert or forget one fact; a non-slug name or unknown type is a 422 |
+| `GET/PUT /api/agents/{id}/memory` | read/write that agent's `MEMORY.md` |
+| `GET/PUT /api/agents/{id}/memory/notes/{day}` | read/write one dated note; a day that is not `YYYY-MM-DD` is a 422 |
+| `GET /api/memory/search?q=&agent_id=` | hits across both scopes, each labelled with the scope it came from |
+| `GET /api/memory/proposals?status=` | pending by default; `status=all` includes decided ones |
+| `POST /api/memory/proposals/{id}` | `{approve: bool}`; deciding twice is a 409 |
+
+The **Ghi nhớ** tab in the activity rail is these endpoints: edit `USER.md`, add or forget
+facts, edit each agent's `MEMORY.md` and notes, search every scope, and approve or reject
+what a job proposed — an `agent_memory` proposal shows which lines it would add.
+
 ## Compared with openclaw
 
 The file names and roles match openclaw's workspace memory (`MEMORY.md`,
@@ -56,5 +115,8 @@ The file names and roles match openclaw's workspace memory (`MEMORY.md`,
 index and a `memory_search` with semantic ranking; here search is a plain grep, ordered by
 file recency, which is enough for a single user's notes and keeps the result explainable.
 There is no automatic summarisation or pruning: when `MEMORY.md` nears the 24 000-char
-cap, the agent (or the user) rewrites it. Tests: `test_tools_memory.py`,
-`test_agent_context.py`.
+cap, the agent (or the user) rewrites it. The shared user scope has no openclaw
+equivalent: openclaw keeps one workspace per agent, so a fact about the person learned by
+one agent stays there. Tests: `test_tools_memory.py`, `test_tools_memory_user.py`,
+`test_agent_context.py`, `test_memory_user_store.py`, `test_memory_agent_store.py`,
+`test_memory_proposals_apply.py`, `test_server_memory_api.py`.

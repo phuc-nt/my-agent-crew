@@ -2,9 +2,13 @@ import type {
   ActivityPayload,
   AgentEvent,
   AgentInfo,
+  AgentMemory,
   Conversation,
   ConversationDetail,
+  FactInfo,
+  FactType,
   JobInfo,
+  MemoryProposal,
   RunInfo,
   SettingsInfo,
   StatsInfo,
@@ -63,10 +67,16 @@ export class FakeBackend {
   agents: AgentInfo[] = [fakeAgent];
   runs: RunInfo[] = [];
   jobs: JobInfo[] = [];
-  stats: StatsInfo = { runs: 0, model_calls: 0, spent_usd: 0, unknown_cost_calls: 0, by_agent: {}, by_model: {}, by_day: {} };
+  stats: StatsInfo = { runs: 0, model_calls: 0, spent_usd: 0, unknown_cost_calls: 0, by_agent: {}, by_model: {}, by_day: {}, pending_proposals: 0 };
+  userMd = "";
+  facts: FactInfo[] = [];
+  agentMemory = new Map<string, AgentMemory>();
+  notes = new Map<string, string>();
+  proposals: MemoryProposal[] = [];
   settings: SettingsInfo = {
     home: "/tmp/home",
     workspace_dir: "/tmp/home/workspace",
+    users_dir: "/tmp/home/users",
     routes: [{ provider: "fake", model: "echo" }],
     providers: ["fake"],
     language: "vi",
@@ -97,6 +107,8 @@ export class FakeBackend {
     this.requests.push({ method, path: path + url.search, body });
     const conv = path.match(/^\/conversations\/([^/]+)/)?.[1];
 
+    const memory = this.memoryRoute(path, method, body);
+    if (memory) return memory;
     if (path === "/settings") return json(this.settings);
     if (path === "/agents") return json(this.agents);
     if (path === "/activity/runs") return json(this.runs);
@@ -155,6 +167,127 @@ export class FakeBackend {
     };
     this.conversations.set(id, detail);
     return detail;
+  }
+
+  /** Every /memory and /agents/{id}/memory route; null when the path is not one of them. */
+  private memoryRoute(
+    path: string,
+    method: string,
+    // Parsed request body; each branch knows which fields its own request carries.
+    body: {
+      user_md: string;
+      memory_md: string;
+      description: string;
+      type: FactType;
+      body: string;
+      approve: boolean;
+    },
+  ): Response | null {
+    if (path === "/memory/user" && method === "GET") return json(this.userMemory());
+    if (path === "/memory/user" && method === "PUT") {
+      this.userMd = body.user_md;
+      return json(this.userMemory());
+    }
+    const factName = path.match(/^\/memory\/user\/facts\/(.+)$/)?.[1];
+    if (factName && method === "PUT") {
+      const fact: FactInfo = {
+        name: decodeURIComponent(factName),
+        description: body.description,
+        type: body.type,
+        written_by: "web",
+        source: "web",
+        updated: "2026-09-20T09:00:00",
+        body: body.body,
+      };
+      this.facts = [fact, ...this.facts.filter((f) => f.name !== fact.name)];
+      return json(fact);
+    }
+    if (factName && method === "DELETE") {
+      const name = decodeURIComponent(factName);
+      if (!this.facts.some((f) => f.name === name)) return json({ detail: "fact not found" }, 404);
+      this.facts = this.facts.filter((f) => f.name !== name);
+      return new Response(null, { status: 204 });
+    }
+    if (path.startsWith("/memory/search")) return json({ hits: this.hits });
+    if (path.startsWith("/memory/proposals/") && method === "POST") {
+      const id = path.slice("/memory/proposals/".length);
+      const found = this.proposals.find((p) => p.id === id);
+      if (!found) return json({ detail: "proposal not found" }, 404);
+      if (found.status !== "pending") return json({ detail: "already decided" }, 409);
+      found.status = body.approve ? "approved" : "rejected";
+      found.resolved_at = "2026-09-20T09:00:00";
+      this.stats = { ...this.stats, pending_proposals: this.pending().length };
+      return json(found);
+    }
+    if (path.startsWith("/memory/proposals")) {
+      const all = path.includes("status=all");
+      return json({ proposals: all ? this.proposals : this.pending() });
+    }
+    const agentMemory = path.match(/^\/agents\/([^/]+)\/memory$/)?.[1];
+    if (agentMemory) {
+      if (!this.agents.some((a) => a.id === agentMemory)) return json({ detail: "agent not found" }, 404);
+      if (method === "PUT") this.setAgentMemory(agentMemory, { memory_md: body.memory_md });
+      return json(this.readAgentMemory(agentMemory));
+    }
+    const note = path.match(/^\/agents\/([^/]+)\/memory\/notes\/(.+)$/);
+    if (note) {
+      const [, agentId, day] = note;
+      if (method === "PUT") {
+        this.notes.set(`${agentId}/${day}`, body.body);
+        const current = this.readAgentMemory(agentId);
+        if (!current.notes.some((n) => n.day === day)) {
+          this.setAgentMemory(agentId, {
+            notes: [{ day, chars: body.body.length }, ...current.notes],
+            note_count: current.note_count + 1,
+          });
+        }
+      }
+      return json({ day, body: this.notes.get(`${agentId}/${day}`) ?? "" });
+    }
+    return null;
+  }
+
+  /** Hits returned by the next GET /memory/search. */
+  hits: { scope: "user" | "agent"; agent_id: string; file: string; text: string }[] = [];
+
+  readAgentMemory(agentId: string): AgentMemory {
+    return this.agentMemory.get(agentId) ?? { memory_md: "", notes: [], note_count: 0 };
+  }
+
+  setAgentMemory(agentId: string, patch: Partial<AgentMemory>): void {
+    this.agentMemory.set(agentId, { ...this.readAgentMemory(agentId), ...patch });
+  }
+
+  addProposal(overrides: Partial<MemoryProposal> = {}): MemoryProposal {
+    const proposal: MemoryProposal = {
+      id: `p${++this.counter}`,
+      agent_id: "default",
+      kind: "user_fact",
+      name: "ngu-som",
+      description: "Ngủ trước 23h",
+      type: "preference",
+      body: "Ngủ sớm mỗi ngày.",
+      status: "pending",
+      source: "job",
+      created_at: "2026-09-20T07:00:00",
+      resolved_at: null,
+      ...overrides,
+    };
+    this.proposals.push(proposal);
+    this.stats = { ...this.stats, pending_proposals: this.pending().length };
+    return proposal;
+  }
+
+  private pending(): MemoryProposal[] {
+    return this.proposals.filter((p) => p.status === "pending");
+  }
+
+  private userMemory() {
+    return {
+      user_md: this.userMd,
+      facts: this.facts,
+      index_md: this.facts.map((f) => `- [${f.description}](${f.name}.md)`).join("\n"),
+    };
   }
 
   private streamTurn(): Response {

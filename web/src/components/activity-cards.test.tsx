@@ -119,7 +119,7 @@ describe("StatsPanel", () => {
     render(
       <StatsPanel
         agentName={name}
-        stats={{ runs: 3, model_calls: 7, spent_usd: 0.3, unknown_cost_calls: 2, by_agent: { coach: 0.2, default: 0.1 }, by_model: { "deepseek": 0.3 }, by_day: { "2026-09-19": 0.3 } }}
+        stats={{ runs: 3, model_calls: 7, spent_usd: 0.3, unknown_cost_calls: 2, by_agent: { coach: 0.2, default: 0.1 }, by_model: { "deepseek": 0.3 }, by_day: { "2026-09-19": 0.3 }, pending_proposals: 0 }}
       />,
     );
     const stats = screen.getByTestId("stats");
@@ -131,7 +131,7 @@ describe("StatsPanel", () => {
   });
 
   it("says when nothing has been spent", () => {
-    render(<StatsPanel agentName={name} stats={{ runs: 0, model_calls: 0, spent_usd: 0, unknown_cost_calls: 0, by_agent: {}, by_model: {}, by_day: {} }} />);
+    render(<StatsPanel agentName={name} stats={{ runs: 0, model_calls: 0, spent_usd: 0, unknown_cost_calls: 0, by_agent: {}, by_model: {}, by_day: {}, pending_proposals: 0 }} />);
     expect(screen.getByText(vi.costEmpty)).toBeInTheDocument();
   });
 });

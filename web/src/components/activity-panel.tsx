@@ -1,12 +1,13 @@
 import { useState } from "react";
-import type { JobInfo, RunInfo, StatsInfo } from "../api/types";
+import type { AgentInfo, JobInfo, RunInfo, StatsInfo } from "../api/types";
 import { vi } from "../i18n/vi";
 import { AttentionCenter } from "./attention-center";
 import { JobsPanel } from "./jobs-panel";
+import { MemoryPanel } from "./memory-panel";
 import { RunCard } from "./run-timeline";
 import { StatsPanel } from "./stats-panel";
 
-type Tab = "activity" | "jobs" | "costs";
+type Tab = "activity" | "jobs" | "memory" | "costs";
 
 interface Props {
   runs: RunInfo[];
@@ -15,6 +16,8 @@ interface Props {
   conversationId: string | null;
   jobs: JobInfo[] | null;
   stats: StatsInfo | null;
+  agents: AgentInfo[];
+  agentId: string;
   agentName: (id: string) => string;
   onOpenConversation: (conversationId: string) => void;
   onRunJob: (jobId: string) => void;
@@ -24,6 +27,7 @@ interface Props {
 const TABS: { id: Tab; label: string }[] = [
   { id: "activity", label: vi.activity },
   { id: "jobs", label: vi.jobs },
+  { id: "memory", label: vi.memory.tab },
   { id: "costs", label: vi.costs },
 ];
 
@@ -35,6 +39,7 @@ export function ActivityPanel(props: Props) {
     onlyThisConversation && props.conversationId
       ? props.runs.filter((r) => r.conversation_id === props.conversationId)
       : props.runs;
+  const pendingProposals = props.stats?.pending_proposals ?? 0;
   const liveIds = new Set(props.liveRuns.map((r) => r.id));
   const recent = scoped.filter((r) => !liveIds.has(r.id));
   const live = scoped.filter((r) => liveIds.has(r.id));
@@ -55,6 +60,9 @@ export function ActivityPanel(props: Props) {
               {t.label}
               {t.id === "activity" && props.liveRuns.length > 0 && (
                 <span className="badge live"> {props.liveRuns.length}</span>
+              )}
+              {t.id === "memory" && pendingProposals > 0 && (
+                <span className="badge warn"> {pendingProposals}</span>
               )}
             </button>
           ))}
@@ -113,6 +121,16 @@ export function ActivityPanel(props: Props) {
       {tab === "jobs" && (
         <div className="panel-body" role="tabpanel">
           <JobsPanel jobs={props.jobs} agentName={props.agentName} onRunNow={props.onRunJob} />
+        </div>
+      )}
+      {tab === "memory" && (
+        <div className="panel-body" role="tabpanel">
+          <MemoryPanel
+            agents={props.agents}
+            agentId={props.agentId}
+            pendingProposals={pendingProposals}
+            agentName={props.agentName}
+          />
         </div>
       )}
       {tab === "costs" && (

@@ -24,6 +24,8 @@ describe("ActivityPanel", () => {
         conversationId="c1"
         jobs={[]}
         stats={null}
+        agents={[fakeAgent]}
+        agentId="default"
         agentName={name}
         onOpenConversation={() => undefined}
         onRunJob={() => undefined}

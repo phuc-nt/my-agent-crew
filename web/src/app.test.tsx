@@ -160,4 +160,25 @@ describe("App", () => {
     await userEvent.click(within(drawer).getByRole("button", { name: vi.close }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
+
+  it("shows the shared user directory in settings", async () => {
+    render(<App />);
+    await screen.findByText(vi.welcomeTitle);
+    await userEvent.click(screen.getByRole("button", { name: /Cài đặt/ }));
+    expect(screen.getByRole("dialog")).toHaveTextContent("/tmp/home/users");
+  });
+
+  it("opens the memory tab and counts the proposals waiting for a decision", async () => {
+    backend.addProposal({ description: "Ngủ trước 23h" });
+    render(<App />);
+    await screen.findByText(vi.welcomeTitle);
+
+    const tab = await screen.findByRole("tab", { name: new RegExp(vi.memory.tab) });
+    await waitFor(() => expect(tab).toHaveTextContent("1"));
+
+    await userEvent.click(tab);
+    expect(await screen.findByTestId("memory-panel")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("tab", { name: new RegExp(vi.memory.proposals) }));
+    expect(await screen.findByText("Ngủ trước 23h")).toBeInTheDocument();
+  });
 });

@@ -189,6 +189,8 @@ export function App() {
             conversationId={list.activeId}
             jobs={crew.jobs}
             stats={crew.stats}
+            agents={crew.agents}
+            agentId={active?.agent_id ?? crew.agents[0]?.id ?? "default"}
             agentName={crew.agentName}
             onOpenConversation={list.select}
             onRunJob={(id) => void crew.runJob(id)}

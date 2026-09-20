@@ -19,6 +19,7 @@ def get_settings(rt: Rt) -> dict[str, Any]:
     return {
         "home": str(s.home),
         "workspace_dir": str(s.workspace_dir),
+        "users_dir": str(s.users_dir),
         "routes": [{"provider": r.provider, "model": r.model} for r in s.routes],
         "providers": sorted(deps.chain.providers),
         "language": s.language,
