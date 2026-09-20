@@ -88,7 +88,7 @@ describe("JobsPanel", () => {
         onRunNow={onRunNow}
         jobs={[
           { ...coachAgent.schedules[0], id: "coach/brief", schedule_id: "brief", agent_id: "coach", next_run: "2026-09-20T00:00:00Z", last_run: fakeRun({ status: "done" }), running: false },
-          { id: "default/sync", schedule_id: "sync", agent_id: "default", name: "Đồng bộ", kind: "command", cron: null, every: "30m", prompt: null, command: "git pull", enabled: false, next_run: null, last_run: null, running: true },
+          { id: "default/sync", schedule_id: "sync", agent_id: "default", name: "Đồng bộ", kind: "command", cron: null, every: "30m", prompt: null, command: "git pull", enabled: false, skills: [], next_run: null, last_run: null, running: true },
         ]}
       />,
     );
@@ -97,6 +97,8 @@ describe("JobsPanel", () => {
     expect(jobs[0]).toHaveTextContent("0 7 * * *");
     expect(jobs[0]).toHaveTextContent(vi.jobKindPrompt);
     expect(jobs[0]).toHaveTextContent(vi.runStatus.done);
+    expect(jobs[0]).toHaveTextContent(`${vi.jobSkills}: goodreads`);
+    expect(jobs[1]).not.toHaveTextContent(vi.jobSkills);
     expect(jobs[1]).toHaveTextContent("30m");
     expect(jobs[1]).toHaveTextContent(vi.jobKindCommand);
     expect(jobs[1]).toHaveTextContent(vi.jobNever);

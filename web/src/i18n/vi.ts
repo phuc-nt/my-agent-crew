@@ -132,6 +132,7 @@ export const vi = {
   jobKindPrompt: "nhắc agent",
   jobKindCommand: "lệnh shell",
   jobKindConsolidate: "cô đọng bộ nhớ",
+  jobSkills: "Kỹ năng gắn sẵn",
   timelineForConversation: "Lượt chạy của cuộc trò chuyện này",
   showTimeline: "Xem dòng thời gian",
   hideTimeline: "Ẩn dòng thời gian",

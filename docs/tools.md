@@ -36,6 +36,7 @@ The system prompt lists the available names; the model sees each tool's JSON sch
 | `user_memory_save` | no | — | remembers one thing about the person, shared by the whole crew, see [memory.md](memory.md) |
 | `user_memory_forget` | no | — | drops one remembered fact by name |
 | `shell_run` | **yes** | 120 s default, 900 s max | runs a command in the workspace, returns stdout+stderr |
+| `skill_read` | no | — | returns one skill's full text by name, see [agents.md](agents.md#skills) |
 
 ### Workspace tools
 

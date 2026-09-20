@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from my_agent_crew import texts
 from my_agent_crew.agent.prompt import active_skills, build_system_prompt
 from my_agent_crew.config import Route, Settings
 from my_agent_crew.skills import BUILTIN_DIR, load_skills
@@ -34,6 +35,39 @@ def test_active_skills_are_always_plus_attached():
     b = parse_skill("---\nname: b\n---\nB", "b")
     c = parse_skill("---\nname: c\n---\nC", "c")
     assert [s.name for s in active_skills([a, b, c], ["c"])] == ["a", "c"]
+
+
+def test_indexed_skills_are_named_with_a_description_but_not_pasted_in_full():
+    attached = parse_skill("---\nname: a\ndescription: Kỹ năng A\n---\nBody A", "a")
+    indexed = parse_skill("---\nname: b\ndescription: Kỹ năng B\n---\nBody B", "b")
+    settings = Settings(home="/tmp/x", routes=(Route("fake", "echo"),))
+    text = build_system_prompt(settings, [attached], ["workspace_read"], skill_index=[indexed])
+    assert "Body A" in text
+    assert "Body B" not in text
+    assert "- b: Kỹ năng B" in text
+    assert "skill_read" in text
+
+
+def test_no_index_section_when_every_skill_is_already_in_the_prompt():
+    skill = parse_skill("---\nname: a\ndescription: Kỹ năng A\n---\nBody A", "a")
+    settings = Settings(home="/tmp/x", routes=(Route("fake", "echo"),))
+    text = build_system_prompt(settings, [skill], ["workspace_read"], skill_index=[])
+    assert texts.SKILL_INDEX_HEADING not in text
+
+
+def test_a_long_description_is_cut_and_a_large_index_keeps_names_only():
+    long_one = parse_skill(f"---\nname: a\ndescription: {'x' * 300}\n---\nBody", "a")
+    settings = Settings(home="/tmp/x", routes=(Route("fake", "echo"),))
+    text = build_system_prompt(settings, [], ["t"], skill_index=[long_one])
+    line = next(ln for ln in text.splitlines() if ln.startswith("- a:"))
+    assert len(line) < 140 and line.endswith("…")
+
+    many = [
+        parse_skill(f"---\nname: s{i}\ndescription: mô tả {i}\n---\nBody", f"s{i}")
+        for i in range(45)
+    ]
+    big = build_system_prompt(settings, [], ["t"], skill_index=many)
+    assert "- s0" in big and "mô tả 0" not in big
 
 
 def test_system_prompt_lists_tools_and_skills_in_chosen_language():

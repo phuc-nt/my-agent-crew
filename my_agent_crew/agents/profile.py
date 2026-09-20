@@ -29,7 +29,7 @@ PROFILE_KEYS = {
     "telegram",
     "memory_consolidate",
 }
-SCHEDULE_KEYS = {"id", "name", "cron", "every", "prompt", "command", "enabled"}
+SCHEDULE_KEYS = {"id", "name", "cron", "every", "prompt", "command", "enabled", "skills"}
 CONSOLIDATE_JOB_ID = "memory-consolidate"
 PROMPT, COMMAND, CONSOLIDATE = "prompt", "command", "consolidate"
 
@@ -44,6 +44,8 @@ class Schedule:
     command: str | None = None
     enabled: bool = True
     consolidate: bool = False
+    # Skills attached in full to the conversation a prompt job opens, by name.
+    skills: tuple[str, ...] = ()
 
     @property
     def kind(self) -> str:
@@ -61,6 +63,7 @@ class Schedule:
             "prompt": self.prompt,
             "command": self.command,
             "enabled": self.enabled,
+            "skills": list(self.skills),
             "kind": self.kind,
         }
 

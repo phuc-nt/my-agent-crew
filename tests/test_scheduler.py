@@ -94,6 +94,31 @@ async def test_prompt_job_opens_autonomous_conversation_and_records_run(deps_fac
     assert described["last_run"]["id"] == run.id and described["next_run"] == "2026-09-20T07:00"
 
 
+async def test_a_schedule_attaches_its_skills_to_the_conversation_it_opens(settings, store):
+    from tests.conftest import make_deps
+
+    skills_dir = settings.home / "skills"
+    skills_dir.mkdir(parents=True, exist_ok=True)
+    (skills_dir / "weekly.md").write_text(
+        "---\nname: weekly\ndescription: Tổng kết tuần\n---\nĐọc kệ sách rồi tóm tắt.\n"
+    )
+    deps = with_schedules(
+        make_deps(settings, store, script=[completion("xong")]),
+        Schedule(
+            "review", "Tổng kết", cron="0 8 * * 1", prompt="Tổng kết tuần", skills=("weekly",)
+        ),
+    )
+    sched = Scheduler({"default": deps}, ActivityHub(store), clock=lambda: datetime(2026, 9, 21, 8))
+    run = await sched.run_job("default/review")
+
+    conv = store.get(run.conversation_id)
+    assert conv.skills == ("weekly",)
+    [request] = deps.chain.providers["scripted"].requests
+    system = request.messages[0].content
+    assert "Đọc kệ sách rồi tóm tắt." in system
+    assert "## Kỹ năng có sẵn" not in system  # the only skill is attached in full
+
+
 async def test_command_job_runs_shell_without_a_model(deps_factory):
     deps = with_schedules(
         deps_factory(),

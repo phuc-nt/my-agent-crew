@@ -119,6 +119,8 @@ export interface ScheduleInfo {
   prompt: string | null;
   command: string | null;
   enabled: boolean;
+  /** Skills attached in full to the conversation this schedule opens. */
+  skills: string[];
 }
 
 /** One agent profile as listed by GET /api/agents. */

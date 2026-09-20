@@ -18,6 +18,7 @@ from my_agent_crew.store import Store
 from my_agent_crew.tools import Tool, ToolRegistry
 from my_agent_crew.tools.memory import build_memory_tools
 from my_agent_crew.tools.shell import build_shell_tool
+from my_agent_crew.tools.skills import build_skill_tools
 from my_agent_crew.tools.workspace import build_workspace_tools
 
 
@@ -45,11 +46,13 @@ def make_deps(
     scripted = ScriptedProvider(script)
     all_providers: dict[str, Provider] = {"scripted": scripted, "fake": EchoProvider()}
     all_providers.update(providers or {})
+    skills = load_skills(BUILTIN_DIR, *profile.skills_dirs)
     tools = ToolRegistry(
         [
             *build_workspace_tools(profile.workspace),
             *build_memory_tools(profile.memory_dir, profile.memory_file, profile.settings.user_dir),
             build_shell_tool(profile.workspace),
+            *build_skill_tools(skills),
             *extra_tools,
         ]
     )
@@ -58,7 +61,7 @@ def make_deps(
         chain=ProviderChain(all_providers, settings.routes),
         tools=tools,
         store=store,
-        skills=load_skills(BUILTIN_DIR),
+        skills=skills,
         profile=profile,
     )
 

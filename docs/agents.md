@@ -107,9 +107,20 @@ A skill is a Markdown file with front matter (`name`, optional `description`, `a
 either `name.md` or a folder `name/SKILL.md` whose siblings (scripts, references) the
 model reaches by the absolute path given in a `SKILL_LOCATION` line. Skills load from the
 builtin dir (`cite-sources`), then `<agent dir>/skills`, then each `skills_dirs` entry;
-a later skill with the same name overrides an earlier one. `always: true` skills ride on
-every prompt; the others are attached per conversation from the settings drawer.
+a later skill with the same name overrides an earlier one.
 Skills are instructions for the model, [tools](tools.md) are functions it can call.
+
+A skill reaches a prompt by one of three routes:
+
+- `always: true` — its full text rides on every prompt.
+- attached to the conversation, from the settings drawer or a schedule's `skills:` list —
+  full text again, for the conversation the job opens.
+- neither — only its name and description appear under `## Kỹ năng có sẵn`, and the model
+  calls `skill_read` to pull the rest when it decides the work needs it. Above 40 indexed
+  skills the descriptions are dropped so the index stays scannable.
+
+This is why a scheduled job that needs a skill should name it in the schedule: without
+that, the job only sees the one-line index and has to ask for the body itself.
 
 ## Schedules
 
@@ -123,6 +134,7 @@ Each entry in `schedules` becomes a job `<agent id>/<schedule id>` in the schedu
 | `cron` **or** `every` | exactly one: five-field cron, or `30m` / `2h` / `1d` |
 | `prompt` **or** `command` | exactly one: a prompt opens a fresh autonomous conversation and runs a turn; a command runs through `shell_run` in the workspace and records only that step |
 | `enabled` | default `true` |
+| `skills` | list of skill names attached in full to the conversation a prompt job opens; default empty, and a name that no skill provides is logged as a warning at startup |
 
 A `memory_consolidate` cron becomes a job of the same shape, `<agent id>/memory-consolidate`,
 with no prompt or command of its own.

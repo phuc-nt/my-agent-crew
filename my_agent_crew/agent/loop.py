@@ -108,6 +108,8 @@ async def _complete(
     deps: AgentDeps, conv: Conversation, history: Sequence[StoredMessage]
 ) -> AsyncIterator[Event]:
     skills = active_skills(deps.skills, conv.skills)
+    active_names = {s.name for s in skills}
+    index = [s for s in deps.skills if s.name not in active_names]
     profile = deps.agent
     previous = deps.store.previous_for_channel(conv.agent_id, conv.channel, conv.id)
     today = date.today()
@@ -127,6 +129,7 @@ async def _complete(
             ),
             name=profile.name,
             today=today.isoformat(),
+            skill_index=index,
         ),
     )
     messages = [system, *(m.message for m in history)]

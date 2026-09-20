@@ -5,8 +5,14 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+from my_agent_crew import texts
 from my_agent_crew.config import Settings
 from my_agent_crew.skills import Skill
+
+# Above this many indexed skills the descriptions are dropped so the index stays a list
+# the model can scan, not a second prompt.
+INDEX_NAMES_ONLY_ABOVE = 40
+INDEX_DESCRIPTION_CHARS = 120
 
 _FRAME_VI = """Bạn là {name}, một trợ lý làm việc cho một người dùng duy nhất.
 
@@ -48,6 +54,22 @@ def active_skills(skills: Sequence[Skill], attached: Sequence[str]) -> list[Skil
     return [s for s in skills if s.always or s.name in wanted]
 
 
+def skill_index_section(skills: Sequence[Skill]) -> str:
+    """The skills that are loaded but not in the prompt, one line each, so the model knows
+    what `skill_read` can fetch. Empty when there is nothing to index."""
+    if not skills:
+        return ""
+    names_only = len(skills) > INDEX_NAMES_ONLY_ABOVE
+    lines = []
+    for skill in skills:
+        description = "" if names_only else skill.description.strip().replace("\n", " ")
+        if len(description) > INDEX_DESCRIPTION_CHARS:
+            description = description[: INDEX_DESCRIPTION_CHARS - 1].rstrip() + "…"
+        line = texts.SKILL_INDEX_LINE.format(name=skill.name, description=description)
+        lines.append(line.rstrip(": ") if not description else line)
+    return f"\n{texts.SKILL_INDEX_HEADING}\n{texts.SKILL_INDEX_INTRO}\n" + "\n".join(lines) + "\n"
+
+
 def build_system_prompt(
     settings: Settings,
     skills: Sequence[Skill],
@@ -55,11 +77,13 @@ def build_system_prompt(
     sections: Sequence[tuple[str, str]] = (),
     name: str = "trợ lý",
     today: str = "",
+    skill_index: Sequence[Skill] = (),
 ) -> str:
+    """`skills` ride in full; `skill_index` are only named, to be read on demand."""
     frame = _FRAME_VI if settings.language == "vi" else _FRAME_EN
     text = frame.format(name=name, tools=", ".join(tool_names) or "(không có)", today=today)
     for title, body in sections:
         text += f"\n## {title}\n{body}\n"
     for skill in skills:
         text += f"\n## Kỹ năng: {skill.name}\n{skill.body}\n"
-    return text
+    return text + skill_index_section(skill_index)

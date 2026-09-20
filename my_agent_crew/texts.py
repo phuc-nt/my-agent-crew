@@ -75,6 +75,16 @@ CONSOLIDATE_BUSY = "Agent này đang cô đọng bộ nhớ."
 CONVERSATION_TITLE_DEFAULT = "Cuộc trò chuyện mới"
 
 SKILL_LOCATION = "Thư mục kỹ năng (script, tài liệu kèm theo): {path}"
+SKILL_INDEX_HEADING = "## Kỹ năng có sẵn"
+SKILL_INDEX_INTRO = (
+    "Trước khi làm việc liên quan, gọi `skill_read` với tên kỹ năng để đọc hướng dẫn đầy đủ."
+)
+SKILL_INDEX_LINE = "- {name}: {description}"
+SKILL_READ_DESCRIPTION = (
+    "Đọc hướng dẫn đầy đủ của một kỹ năng trong danh sách 'Kỹ năng có sẵn'. "
+    "Gọi trước khi làm việc mà kỹ năng đó mô tả."
+)
+SKILL_UNKNOWN = "Không có kỹ năng tên {name}. Kỹ năng có sẵn: {names}"
 
 SHELL_NO_CWD = "Thư mục làm việc không tồn tại: {path}"
 SHELL_TIMEOUT = "Lệnh vượt quá {seconds} giây và đã bị dừng."

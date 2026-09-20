@@ -39,7 +39,7 @@ export const coachAgent: AgentInfo = {
   workspace: "/tmp/home/agents/coach/workspace",
   autonomous: true,
   schedules: [
-    { id: "brief", name: "Bản tin sáng", kind: "prompt", cron: "0 7 * * *", every: null, prompt: "Tóm tắt", command: null, enabled: true },
+    { id: "brief", name: "Bản tin sáng", kind: "prompt", cron: "0 7 * * *", every: null, prompt: "Tóm tắt", command: null, enabled: true, skills: ["goodreads"] },
   ],
 };
 

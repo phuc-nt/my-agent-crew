@@ -40,6 +40,7 @@ Bí mật **chỉ** đọc từ biến môi trường; `config.yaml` chỉ chứ
 
 `config.yaml` trong `MY_AGENT_HOME` nhận `routes`, `cost_cap_usd`, `max_steps`, `language`,
 `autonomous_default`. Kỹ năng tự viết: thêm tệp `.md` có frontmatter `name` vào `skills/`.
+Kỹ năng không gắn sẵn chỉ hiện tên + mô tả trong prompt; model gọi `skill_read` để đọc đủ.
 
 ## Nhiều agent có tên riêng
 
@@ -61,6 +62,7 @@ schedules:
   - id: morning-brief
     name: Bản tin sáng
     cron: "0 7 * * *"                     # giờ máy, 5 trường
+    skills: [garmin]                      # gắn sẵn kỹ năng cho lượt chạy này
     prompt: |
       Chạy scripts/health-sync.py --json rồi viết bản tin 4-6 dòng…
       Kèm ảnh bằng dòng `MEDIA: data/charts/sleep.png`.

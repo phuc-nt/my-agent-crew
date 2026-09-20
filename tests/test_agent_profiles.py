@@ -31,7 +31,7 @@ def test_parse_profile_overrides_routes_and_limits_only(settings: Settings, tmp_
         "persona_files": ["SOUL.md"],
         "schedules": [
             {"id": "sync", "cron": "0 2 * * *", "command": "echo hi"},
-            {"name": "brief", "every": "2h", "prompt": "tóm tắt"},
+            {"name": "brief", "every": "2h", "prompt": "tóm tắt", "skills": ["goodreads"]},
         ],
     }
     agent_dir = tmp_path / "agents" / "coach"
@@ -46,6 +46,8 @@ def test_parse_profile_overrides_routes_and_limits_only(settings: Settings, tmp_
     assert profile.persona_files == ("SOUL.md",)
     assert [s.id for s in profile.schedules] == ["sync", "job-1"]
     assert profile.schedules[1].name == "brief" and profile.schedules[1].every == "2h"
+    assert profile.schedules[0].skills == () and profile.schedules[1].skills == ("goodreads",)
+    assert profile.schedules[1].to_dict()["skills"] == ["goodreads"]
 
 
 @pytest.mark.parametrize(

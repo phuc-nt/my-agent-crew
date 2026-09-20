@@ -41,6 +41,11 @@ export function JobsPanel({ jobs, agentName, onRunNow }: Props) {
           <div className="job-meta muted">
             <code>{job.cron ?? job.every}</code> · {JOB_KINDS[job.kind]}
           </div>
+          {job.skills.length > 0 && (
+            <div className="job-meta muted">
+              {vi.jobSkills}: <code>{job.skills.join(", ")}</code>
+            </div>
+          )}
           <div className="job-meta muted">
             {vi.jobNext}: {job.next_run ? formatDateTime(job.next_run) : vi.jobDisabled} · {vi.jobLast}:{" "}
             {job.last_run

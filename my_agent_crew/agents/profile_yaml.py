@@ -44,6 +44,7 @@ def _schedule(raw: dict[str, Any], agent_id: str, index: int) -> Schedule:
         prompt=raw.get("prompt"),
         command=raw.get("command"),
         enabled=bool(raw.get("enabled", True)),
+        skills=tuple(str(s) for s in raw.get("skills") or []),
     )
 
 
