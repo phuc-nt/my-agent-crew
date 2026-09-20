@@ -32,7 +32,9 @@ The system prompt lists the available names; the model sees each tool's JSON sch
 | `fetch_url` | no | 6 000 chars (`MAX_PAGE_CHARS`), 20 s, no redirects | GET of a public http(s) page, HTML reduced to text |
 | `web_search` | no | 5 results | only with `BRAVE_API_KEY` or `TAVILY_API_KEY` (Brave preferred); returns title, URL, snippet |
 | `memory_save` | no | — | appends `- HH:MM text` to today's note, see [memory.md](memory.md) |
-| `memory_search` | no | 12 hits (`MAX_HITS`) | greps `MEMORY.md` and every daily note, newest first; every term must match |
+| `memory_search` | no | 12 hits (`MAX_HITS`) | searches the shared user facts, then `MEMORY.md` and every daily note, newest first; every term must match |
+| `user_memory_save` | no | — | remembers one thing about the person, shared by the whole crew, see [memory.md](memory.md) |
+| `user_memory_forget` | no | — | drops one remembered fact by name |
 | `shell_run` | **yes** | 120 s default, 900 s max | runs a command in the workspace, returns stdout+stderr |
 
 ### Workspace tools
@@ -41,6 +43,24 @@ Paths are resolved with `resolve_inside(root, relative)`: `..` and absolute path
 leave the workspace are refused, symlinks that stay inside are followed. The workspace is
 `agent.yaml: workspace`, default `<agent dir>/workspace`. Nothing outside it is reachable
 through these tools; `shell_run` is the escape hatch, and it needs approval.
+
+### Shared user memory
+
+`user_memory_save` and `user_memory_forget` write to `<home>/users/owner/`, one file per
+fact under `facts/` plus a regenerated `INDEX.md`. That directory is the same for every
+agent, so what one agent learns about the person, the whole crew sees on its next turn.
+
+Whether a write lands immediately depends on who asked for it. In a chat or Telegram turn
+the person is right there and can object, so the fact is written at once. In a scheduled
+job nobody is watching, so the same call becomes a row in `memory_proposals` with status
+`pending`, and nothing is written until someone approves it — an unattended agent cannot
+rewrite the person's profile on its own. A turn that resumes after an approval keeps the
+source of the turn that paused, so approving a tool on the web does not turn a job into a
+chat.
+
+Names are slugs (`a-z`, `0-9`, `-`, up to 60 characters); saving the same name again
+updates that fact rather than adding a second one. `type` is one of `profile`,
+`preference`, `feedback`, `project`, `reference`.
 
 ### Web tools
 

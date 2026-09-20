@@ -58,3 +58,15 @@ def test_ensure_home_creates_dirs(tmp_path: Path):
     s = load_settings(env={"MY_AGENT_HOME": str(tmp_path / "h")})
     ensure_home(s)
     assert s.workspace_dir.is_dir() and s.skills_dir.is_dir()
+
+
+def test_the_user_scope_is_one_directory_the_whole_crew_shares(tmp_path: Path):
+    s = load_settings(env={"MY_AGENT_HOME": str(tmp_path)})
+    assert s.users_dir == tmp_path / "users"
+    assert s.user_dir == tmp_path / "users" / "owner"
+
+
+def test_ensure_home_creates_the_facts_directory(tmp_path: Path):
+    s = load_settings(env={"MY_AGENT_HOME": str(tmp_path)})
+    ensure_home(s)
+    assert (s.user_dir / "facts").is_dir()

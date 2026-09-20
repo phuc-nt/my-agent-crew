@@ -32,6 +32,11 @@ CREATE TABLE IF NOT EXISTS runs (
 CREATE TABLE IF NOT EXISTS channel_state (
     channel TEXT PRIMARY KEY, agent_id TEXT NOT NULL, updated_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS memory_proposals (
+    id TEXT PRIMARY KEY, agent_id TEXT NOT NULL, kind TEXT NOT NULL, name TEXT NOT NULL,
+    description TEXT NOT NULL, type TEXT NOT NULL, body TEXT NOT NULL, status TEXT NOT NULL,
+    source TEXT NOT NULL, created_at TEXT NOT NULL, resolved_at TEXT
+);
 """
 
 # (table, column, definition) added after the table first shipped.

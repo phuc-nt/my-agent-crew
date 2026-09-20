@@ -53,6 +53,15 @@ class Settings:
         return self.home / "skills"
 
     @property
+    def users_dir(self) -> Path:
+        return self.home / "users"
+
+    @property
+    def user_dir(self) -> Path:
+        """What every agent knows about the person it works for, shared across the crew."""
+        return self.users_dir / "owner"
+
+    @property
     def db_path(self) -> Path:
         return self.home / "agent.sqlite3"
 
@@ -108,6 +117,7 @@ def _as_bool(value: object) -> bool:
 
 
 def ensure_home(settings: Settings) -> Settings:
-    for path in (settings.home, settings.workspace_dir, settings.skills_dir):
+    facts_dir = settings.user_dir / "facts"
+    for path in (settings.home, settings.workspace_dir, settings.skills_dir, facts_dir):
         path.mkdir(parents=True, exist_ok=True)
     return replace(settings, home=settings.home.resolve())

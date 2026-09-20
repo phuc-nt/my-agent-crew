@@ -48,7 +48,7 @@ def make_deps(
     tools = ToolRegistry(
         [
             *build_workspace_tools(profile.workspace),
-            *build_memory_tools(profile.memory_dir, profile.memory_file),
+            *build_memory_tools(profile.memory_dir, profile.memory_file, profile.settings.user_dir),
             build_shell_tool(profile.workspace),
             *extra_tools,
         ]

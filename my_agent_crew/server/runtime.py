@@ -27,6 +27,7 @@ from my_agent_crew.skills import BUILTIN_DIR, load_skills
 from my_agent_crew.store import Store
 from my_agent_crew.tools import ToolRegistry
 from my_agent_crew.tools.memory import build_memory_tools
+from my_agent_crew.tools.memory_user import build_user_memory_tools
 from my_agent_crew.tools.shell import build_shell_tool
 from my_agent_crew.tools.web import build_web_tools
 from my_agent_crew.tools.workspace import build_workspace_tools
@@ -76,7 +77,8 @@ def build_agent_deps(
         [
             *build_workspace_tools(profile.workspace),
             *build_web_tools(profile.settings, client),
-            *build_memory_tools(profile.memory_dir, profile.memory_file),
+            *build_memory_tools(profile.memory_dir, profile.memory_file, profile.settings.user_dir),
+            *build_user_memory_tools(profile.settings.user_dir, store, profile.id),
             build_shell_tool(profile.workspace),
         ]
     )

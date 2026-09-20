@@ -16,6 +16,7 @@ from my_agent_crew import texts
 from my_agent_crew.activity import ActivityHub, tracked
 from my_agent_crew.agent.events import ToolCallEvent, ToolResultEvent
 from my_agent_crew.agent.loop import AgentDeps, run_turn
+from my_agent_crew.agent.turn_context import JOB
 from my_agent_crew.agents.profile import Schedule
 from my_agent_crew.scheduler.cron import due_between, next_run
 from my_agent_crew.store.runs import DONE, FAILED, RunRecord
@@ -161,7 +162,7 @@ class Scheduler:
             cost_cap_usd=deps.settings.cost_cap_usd,
             agent_id=job.agent_id,
         )
-        events = run_turn(deps, conv.id, job.schedule.prompt)
+        events = run_turn(deps, conv.id, job.schedule.prompt, source=JOB)
         run: RunRecord | None = None
         async for _ in tracked(
             self._hub, events, job.agent_id, JOB_SOURCE + job.id, conv.title, conv.id

@@ -18,6 +18,7 @@ from my_agent_crew import texts
 from my_agent_crew.activity import ActivityHub
 from my_agent_crew.agent.events import Event
 from my_agent_crew.agent.loop import AgentDeps, run_turn
+from my_agent_crew.agent.turn_context import TELEGRAM
 from my_agent_crew.channels import telegram_conversations as conversations
 from my_agent_crew.channels.telegram_api import CONFLICT_STATUS, TelegramApi, TelegramError
 from my_agent_crew.channels.telegram_commands import (
@@ -156,7 +157,7 @@ class TelegramChannel:
         if conv.status == AWAITING_APPROVAL:
             await self.say(texts.TELEGRAM_BUSY)
             return
-        events = run_turn(self.agents[agent_id], conv.id, text)
+        events = run_turn(self.agents[agent_id], conv.id, text, source=TELEGRAM)
         await self._outbound[agent_id].send(await self.turn(agent_id, conv, events))
 
     async def say(self, text: str) -> None:

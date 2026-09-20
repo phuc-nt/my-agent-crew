@@ -8,10 +8,14 @@ from my_agent_crew.agent.events import (
     ToolResultEvent,
 )
 from my_agent_crew.agent.loop import ConversationBusy, resolve_approval, run_turn
+from my_agent_crew.agent.turn_context import JOB, WEB, set_turn_source, turn_source
 from my_agent_crew.llm.fake import completion
 from my_agent_crew.llm.types import ToolCall
+from my_agent_crew.store.db import now_iso
 from my_agent_crew.store.models import AWAITING_APPROVAL, IDLE
+from my_agent_crew.store.runs import AWAITING, RunRecord
 from my_agent_crew.texts import DENIED_TOOL
+from my_agent_crew.tools import Tool
 from tests.conftest import collect
 
 WRITE = ToolCall("c1", "workspace_write", {"path": "out.txt", "content": "xin chào"})
@@ -89,3 +93,39 @@ async def test_mixed_calls_run_safe_ones_before_pausing(deps_factory):
     assert isinstance(events[-1], ApprovalRequiredEvent)
     resumed = await collect(resolve_approval(deps, conv.id, events[-1].approval_id, True))
     assert [e.name for e in resumed if isinstance(e, ToolResultEvent)] == ["workspace_write"]
+
+
+async def test_resuming_after_approval_keeps_the_source_of_the_original_turn(deps_factory):
+    """The approval arrives from the web, but the turn is still the job that asked for it:
+    a memory write approved here must still be judged as unattended."""
+    seen: list[str] = []
+
+    async def spy(args):
+        seen.append(turn_source())
+        return "ok"
+
+    tool = Tool(
+        name="spy", description="", parameters={"type": "object"}, run=spy, requires_approval=True
+    )
+    deps = deps_factory(
+        script=[completion(tool_calls=(ToolCall("c1", "spy", {}),)), completion("xong")],
+        extra_tools=[tool],
+    )
+    conv = deps.store.create()
+    deps.store.runs.save(
+        RunRecord(
+            id="r1",
+            agent_id=deps.profile.id,
+            conversation_id=conv.id,
+            source="job:coach/brief",
+            title="brief",
+            status=AWAITING,
+            started_at=now_iso(),
+        )
+    )
+    paused = await collect(run_turn(deps, conv.id, "chạy", source="job:coach/brief"))
+    assert seen == []
+
+    set_turn_source(WEB)
+    await collect(resolve_approval(deps, conv.id, paused[-1].approval_id, approve=True))
+    assert seen == [JOB]

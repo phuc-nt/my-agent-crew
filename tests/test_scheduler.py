@@ -5,10 +5,13 @@ from datetime import datetime
 import pytest
 
 from my_agent_crew.activity import ActivityHub
+from my_agent_crew.agent.turn_context import JOB
 from my_agent_crew.agents.profile import AgentProfile, Schedule, default_profile
 from my_agent_crew.config import Route
+from my_agent_crew.memory import user_store
 from my_agent_crew.scheduler import CronSpec, Scheduler, due_between, next_run, parse_every
 from my_agent_crew.store.runs import DONE, FAILED
+from my_agent_crew.tools.memory_user import build_user_memory_tools
 
 
 def test_cron_fields_lists_ranges_steps_and_sunday_alias():
@@ -129,3 +132,24 @@ async def test_prompt_job_result_is_delivered_and_a_failing_delivery_keeps_the_r
     second = await sched.run_job("default/brief")
     assert first.status == DONE and second.status == DONE
     assert delivered == [("default", first.conversation_id), ("default", second.conversation_id)]
+
+
+async def test_a_job_turn_only_proposes_what_it_wants_to_remember(deps_factory, settings, store):
+    """End to end: nobody is watching a scheduled run, so a memory write waits for review."""
+    user_dir = settings.user_dir
+    tools = build_user_memory_tools(user_dir, store, "default")
+    deps = deps_factory(routes=(Route("fake", "echo"),), extra_tools=tools)
+    args = '{"name": "ngu-som", "description": "Ngủ sớm", "type": "preference", "body": "23h"}'
+    deps = with_schedules(
+        deps,
+        Schedule("brief", "Bản tin", cron="0 7 * * *", prompt=f"/tool user_memory_save {args}"),
+    )
+    sched = Scheduler(
+        {"default": deps}, ActivityHub(deps.store), clock=lambda: datetime(2026, 9, 19, 7, 0)
+    )
+    run = await sched.run_job("default/brief")
+
+    assert run.status == DONE
+    assert user_store.list_facts(user_dir) == []
+    (proposal,) = deps.store.proposals.list()
+    assert proposal.name == "ngu-som" and proposal.source == JOB

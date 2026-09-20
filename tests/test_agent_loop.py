@@ -14,10 +14,12 @@ from my_agent_crew.agent.events import (
     to_dict,
 )
 from my_agent_crew.agent.loop import run_turn
+from my_agent_crew.agent.turn_context import CHAT, JOB, set_turn_source, turn_source
 from my_agent_crew.config import Route
 from my_agent_crew.llm.fake import completion
 from my_agent_crew.llm.provider import ProviderError
 from my_agent_crew.llm.types import ToolCall
+from my_agent_crew.tools import Tool
 from tests.conftest import collect
 
 
@@ -149,3 +151,40 @@ async def test_echo_route_explains_bad_directives(deps_factory, text):
     events = await collect(run_turn(deps, conv.id, text))
     reply = next(e for e in events if isinstance(e, AssistantMessageEvent))
     assert reply.tool_calls == [] and reply.content
+
+
+async def test_the_turn_records_where_the_work_came_from(deps_factory):
+    """Tools that write memory ask who is at the other end, so the source must reach them."""
+    seen: list[str] = []
+
+    async def spy(args):
+        seen.append(turn_source())
+        return "ok"
+
+    tool = Tool(name="spy", description="", parameters={"type": "object"}, run=spy)
+    deps = deps_factory(
+        script=[completion(tool_calls=(ToolCall("c1", "spy", {}),)), completion("xong")],
+        extra_tools=[tool],
+    )
+    conv = deps.store.create()
+    set_turn_source(CHAT)
+    await collect(run_turn(deps, conv.id, "chạy", source="job:coach/brief"))
+    assert seen == [JOB]
+
+
+async def test_a_chat_turn_is_the_default_source(deps_factory):
+    seen: list[str] = []
+
+    async def spy(args):
+        seen.append(turn_source())
+        return "ok"
+
+    tool = Tool(name="spy", description="", parameters={"type": "object"}, run=spy)
+    deps = deps_factory(
+        script=[completion(tool_calls=(ToolCall("c1", "spy", {}),)), completion("xong")],
+        extra_tools=[tool],
+    )
+    conv = deps.store.create()
+    set_turn_source(JOB)
+    await collect(run_turn(deps, conv.id, "chạy"))
+    assert seen == [CHAT]

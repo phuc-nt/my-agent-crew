@@ -20,6 +20,7 @@ from my_agent_crew.agent.events import (
     ToolResultEvent,
 )
 from my_agent_crew.agent.prompt import active_skills, build_system_prompt
+from my_agent_crew.agent.turn_context import CHAT, conversation_source, set_turn_source
 from my_agent_crew.agents.context import bootstrap_sections
 from my_agent_crew.agents.profile import AgentProfile, default_profile
 from my_agent_crew.config import Settings
@@ -54,7 +55,10 @@ class AgentDeps:
         return self.profile or default_profile(self.settings)
 
 
-async def run_turn(deps: AgentDeps, conv_id: str, user_text: str | None) -> AsyncIterator[Event]:
+async def run_turn(
+    deps: AgentDeps, conv_id: str, user_text: str | None, source: str = CHAT
+) -> AsyncIterator[Event]:
+    set_turn_source(source)
     conv = deps.store.get(conv_id)
     if user_text is not None:
         if conv.status == AWAITING_APPROVAL:
@@ -94,7 +98,8 @@ async def resolve_approval(
         raise KeyError(approval_id)
     deps.store.approvals.resolve(approval_id, approve)
     deps.store.update(conv_id, status=IDLE)
-    async for event in run_turn(deps, conv_id, None):
+    source = conversation_source(deps.store, conv_id)
+    async for event in run_turn(deps, conv_id, None, source=source):
         yield event
 
 

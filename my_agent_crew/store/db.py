@@ -13,6 +13,7 @@ from pathlib import Path
 from my_agent_crew.llm.types import Message
 from my_agent_crew.store.approvals import ApprovalStore
 from my_agent_crew.store.channel_state import ChannelStateStore
+from my_agent_crew.store.memory_proposals import MemoryProposalStore
 from my_agent_crew.store.messages import MessageStore
 from my_agent_crew.store.models import Conversation, StoredMessage
 from my_agent_crew.store.runs import RunStore
@@ -41,6 +42,7 @@ class Store:
         self.runs = RunStore(self._conn, self._lock)
         self.channels = ChannelStateStore(self._conn, self._lock)
         self.messages = MessageStore(self._conn, self._lock)
+        self.proposals = MemoryProposalStore(self._conn, self._lock)
 
     def close(self) -> None:
         self._conn.close()

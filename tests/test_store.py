@@ -173,3 +173,35 @@ def test_a_channel_remembers_its_current_agent_across_reopen(tmp_path: Path):
     store = Store(path)
     assert store.channels.current_agent("telegram:1") == "pong"
     assert store.channels.current_agent("telegram:2") == "coach"
+
+
+def test_a_job_proposal_stays_pending_until_it_is_decided(store: Store):
+    proposal = store.proposals.create(
+        agent_id="coach",
+        kind="user_fact",
+        name="ngu-som",
+        description="Ngủ sớm",
+        type="preference",
+        body="Đi ngủ trước 23h.",
+    )
+    assert proposal.status == "pending" and proposal.resolved_at is None
+    assert [p.id for p in store.proposals.list()] == [proposal.id]
+    resolved = store.proposals.resolve(proposal.id, True)
+    assert resolved.status == "approved" and resolved.resolved_at
+    assert store.proposals.list() == []
+    assert [p.id for p in store.proposals.list(status=None)] == [proposal.id]
+
+
+def test_rejecting_a_proposal_keeps_it_for_the_record(store: Store):
+    proposal = store.proposals.create(agent_id="coach", kind="user_forget", name="cu")
+    assert store.proposals.resolve(proposal.id, False).status == "rejected"
+    assert [p.id for p in store.proposals.list(status="rejected")] == [proposal.id]
+
+
+def test_a_proposal_cannot_be_decided_twice(store: Store):
+    proposal = store.proposals.create(agent_id="coach", kind="user_fact", name="abc")
+    store.proposals.resolve(proposal.id, True)
+    with pytest.raises(KeyError):
+        store.proposals.resolve(proposal.id, True)
+    with pytest.raises(KeyError):
+        store.proposals.resolve("khong-co", True)

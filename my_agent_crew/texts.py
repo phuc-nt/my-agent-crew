@@ -25,6 +25,9 @@ SEARCH_EMPTY = "Không có kết quả cho: {query}"
 
 MEMORY_SAVED = "Đã ghi nhớ ({count} ghi chú)."
 MEMORY_EMPTY = "Không có ghi chú nào khớp."
+MEMORY_SEARCH_DESCRIPTION = (
+    "Tìm trong ghi nhớ chung về người dùng, MEMORY.md và các ghi chú hằng ngày."
+)
 
 PREVIOUS_SUMMARY_SECTION_TITLE = "Cuộc trước"
 SUMMARY_PROMPT = (
@@ -34,6 +37,22 @@ SUMMARY_PROMPT = (
     "--- nội dung ---\n{transcript}"
 )
 SUMMARY_TRANSCRIPT_LINE = "{role}: {text}"
+
+USER_MEMORY_SAVED = "Đã ghi nhớ về người dùng: {name}."
+USER_MEMORY_FORGOTTEN = "Đã xoá ghi nhớ: {name}."
+USER_MEMORY_NOT_FOUND = "Không có ghi nhớ nào tên {name}."
+USER_MEMORY_PROPOSED = "Đã đề xuất ghi nhớ {name}, chờ người dùng duyệt."
+USER_MEMORY_FORGET_PROPOSED = "Đã đề xuất xoá ghi nhớ {name}, chờ người dùng duyệt."
+USER_MD_SECTION_TITLE = "USER.md (chung)"
+USER_FACTS_SECTION_TITLE = "Ghi nhớ về người dùng"
+USER_MEMORY_SAVE_DESCRIPTION = (
+    "Ghi nhớ một điều về người dùng, dùng chung cho mọi agent. Mỗi lần gọi là một chủ đề:"
+    " tên dạng chu-de-ngan (a-z, 0-9, gạch nối), gọi lại cùng tên để cập nhật."
+    " Dùng cho sở thích, hoàn cảnh, cách làm việc — không dùng cho việc chỉ đúng hôm nay."
+)
+USER_MEMORY_FORGET_DESCRIPTION = (
+    "Xoá một điều đã ghi nhớ về người dùng, theo tên của nó trong danh mục ghi nhớ."
+)
 
 CONVERSATION_TITLE_DEFAULT = "Cuộc trò chuyện mới"
 
