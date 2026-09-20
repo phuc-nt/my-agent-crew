@@ -113,6 +113,15 @@ class RunStore:
             ).fetchall()
         return [RunRecord.from_row(r) for r in rows]
 
+    def latest_for_conversation(self, conv_id: str) -> RunRecord | None:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT * FROM runs WHERE conversation_id = ?"
+                " ORDER BY started_at DESC, rowid DESC LIMIT 1",
+                (conv_id,),
+            ).fetchone()
+        return RunRecord.from_row(row) if row else None
+
     def mark_interrupted(self, stamp: str) -> int:
         """Runs still 'running' at startup died with the previous process."""
         with self._lock:

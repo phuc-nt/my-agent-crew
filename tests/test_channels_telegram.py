@@ -27,6 +27,7 @@ from my_agent_crew.llm.fake import completion
 from my_agent_crew.llm.provider import ProviderError
 from my_agent_crew.llm.types import Message, ToolCall
 from my_agent_crew.store.models import AWAITING_APPROVAL
+from my_agent_crew.store.runs import DONE, HALTED, RunRecord
 
 TOKEN = "123:secret-token"
 CHAT = 42
@@ -300,3 +301,26 @@ def test_message_helpers_split_media_chunk_long_text_and_strip_markdown():
     assert split_message("y" * 5000, limit=4096) == ["y" * 4096, "y" * 904]
     assert split_message("") == [""]
     assert plain_text("## Tiêu đề\n**đậm** thường") == "Tiêu đề\nđậm thường"
+
+
+async def test_deliver_reports_a_run_that_stopped_without_a_reply(make_channel, fake):
+    """A scheduled job that hits max_steps leaves only tool calls behind; the chat must
+    still hear that it stopped instead of silence."""
+    channel = make_channel()
+    store = channel.deps.store
+    conv = store.create(agent_id="default")
+    store.append(conv.id, Message(role="user", content="tổng kết tuần"))
+    look = ToolCall("c1", "workspace_list", {"path": "."})
+    store.append(conv.id, Message(role="assistant", content="", tool_calls=(look,)))
+    store.append(conv.id, Message(role="tool", content="[]", tool_call_id="c1", name=look.name))
+    stamp = "2026-09-20T01:00:00"
+    store.runs.save(RunRecord("r1", "default", conv.id, "job:default/x", "t", DONE, stamp))
+    assert await channel.deliver(conv.id) is False and fake.sent == []
+    store.runs.save(
+        RunRecord(
+            "r2", "default", conv.id, "job:default/x", "t", HALTED, stamp, summary="max_steps"
+        )
+    )
+    assert store.runs.latest_for_conversation(conv.id).id == "r2"
+    assert await channel.deliver(conv.id) is True
+    assert fake.sent == [texts.TELEGRAM_RUN_UNFINISHED.format(reason="max_steps")]

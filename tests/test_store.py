@@ -90,7 +90,7 @@ def test_conversations_carry_an_agent_id_and_filter_by_it(store: Store):
 
 
 def test_runs_store_round_trips_steps_and_marks_interrupted(store: Store):
-    from my_agent_crew.store.runs import FAILED, RUNNING, RunRecord
+    from my_agent_crew.store.runs import DONE, FAILED, RUNNING, RunRecord
 
     run = RunRecord("r1", "coach", None, "job:coach/x", "t", RUNNING, "2026-09-19T08:00:00")
     run.steps.append({"kind": "tool", "name": "shell_run", "ok": True})
@@ -101,6 +101,11 @@ def test_runs_store_round_trips_steps_and_marks_interrupted(store: Store):
     assert loaded.steps == run.steps and loaded.spent_usd == 0.01
     assert [r.id for r in store.runs.recent(source_prefix="job:")] == ["r1"]
     assert store.runs.recent(source_prefix="chat") == []
+    assert store.runs.latest_for_conversation("c-none") is None
+    later = RunRecord("r2", "coach", "c1", "chat", "t", DONE, "2026-09-19T09:00:00")
+    store.runs.save(RunRecord("r1b", "coach", "c1", "chat", "t", DONE, "2026-09-19T08:30:00"))
+    store.runs.save(later)
+    assert store.runs.latest_for_conversation("c1").id == "r2"
     assert store.runs.mark_interrupted("2026-09-19T09:00:00") == 1
     marked = store.runs.get("r1")
     assert marked.status == FAILED and marked.finished_at == "2026-09-19T09:00:00"

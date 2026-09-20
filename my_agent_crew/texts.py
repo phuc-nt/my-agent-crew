@@ -48,6 +48,9 @@ TELEGRAM_ERROR = "Lỗi: {message}"
 TELEGRAM_APPROVAL = "Agent cần duyệt công cụ {name}: gửi /approve để duyệt, /deny để từ chối."
 TELEGRAM_BUSY = "Cuộc trò chuyện đang chờ bạn duyệt một công cụ: /approve hoặc /deny."
 TELEGRAM_MEDIA_MISSING = "(không gửi được ảnh: {path})"
+TELEGRAM_RUN_UNFINISHED = (
+    "Lượt chạy dừng mà chưa có câu trả lời ({reason}); xem chi tiết trên web UI."
+)
 TELEGRAM_COMMANDS = {
     "new": "Mở cuộc trò chuyện mới.",
     "reset": "Mở cuộc trò chuyện mới (giống /new).",

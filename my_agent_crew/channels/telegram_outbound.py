@@ -12,6 +12,7 @@ from contextlib import asynccontextmanager, suppress
 from my_agent_crew import texts
 from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.channels.telegram_api import TelegramApi, TelegramError, split_reply
+from my_agent_crew.store.runs import DONE
 from my_agent_crew.tools.registry import ToolError
 from my_agent_crew.tools.workspace import resolve_inside
 
@@ -42,9 +43,14 @@ class TelegramOutbound:
                 break
             if message.role == "assistant" and message.content.strip():
                 parts.append(message.content.strip())
-        if not parts:
+        if parts:
+            await self.send("\n\n".join(reversed(parts)))
+            return True
+        run = self._deps.store.runs.latest_for_conversation(conv_id)
+        if run is None or run.status == DONE:
+            logger.info("telegram %s: nothing to deliver for %s", self.agent_id, conv_id)
             return False
-        await self.send("\n\n".join(reversed(parts)))
+        await self.send(texts.TELEGRAM_RUN_UNFINISHED.format(reason=run.summary or run.status))
         return True
 
     async def send(self, text: str) -> None:

@@ -75,7 +75,10 @@ turn.
 After every prompt job the scheduler calls `Runtime.deliver(agent_id, conv_id)`, which
 forwards the assistant text of that conversation's last turn to the agent's channel when
 it has one. On a shared bot the delivery carries the agent's prefix and does not change the
-current agent. A failed delivery is logged, not retried.
+current agent. When the last turn ended without any assistant text (a run halted at
+`max_steps`, a provider error, an approval left pending) the channel sends
+`texts.TELEGRAM_RUN_UNFINISHED` with the run's summary instead of staying silent, so a
+scheduled job never disappears without a trace. A failed delivery is logged, not retried.
 
 ## Offsets and restarts
 
