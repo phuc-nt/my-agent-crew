@@ -80,7 +80,7 @@ describe("MemoryPanel", () => {
   it("edits one agent's MEMORY.md and opens a dated note", async () => {
     backend.setAgentMemory("default", {
       memory_md: "- Sếp thích trà.",
-      notes: [{ day: "2026-09-19", chars: 4 }],
+      notes: [{ day: "2026-09-19", chars: 4, date: "2026-09-19" }],
       note_count: 1,
     });
     backend.notes.set("default/2026-09-19", "Đã chạy bản tin.");
@@ -97,6 +97,26 @@ describe("MemoryPanel", () => {
     await userEvent.type(note, " Xong.");
     await userEvent.click(screen.getAllByRole("button", { name: vi.memory.save })[1]);
     await waitFor(() => expect(backend.notes.get("default/2026-09-19")).toContain("Xong."));
+  });
+
+  it("lists two notes of the same day as two entries", async () => {
+    backend.setAgentMemory("default", {
+      memory_md: "",
+      notes: [
+        { day: "2026-09-19-1030", chars: 9, date: "2026-09-19" },
+        { day: "2026-09-19", chars: 4, date: "2026-09-19" },
+      ],
+      note_count: 2,
+    });
+    backend.notes.set("default/2026-09-19-1030", "Giữa buổi.");
+    mount();
+
+    await open(vi.memory.agents);
+    await userEvent.click(await screen.findByRole("button", { name: "2026-09-19-1030" }));
+    expect(await screen.findByRole("textbox", { name: /2026-09-19-1030/ })).toHaveValue(
+      "Giữa buổi.",
+    );
+    expect(screen.getByRole("button", { name: "2026-09-19" })).toBeInTheDocument();
   });
 
   it("switching agent asks the server for that agent's memory", async () => {

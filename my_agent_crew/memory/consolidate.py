@@ -36,14 +36,20 @@ JOB_SOURCE = "memory:consolidate"
 
 
 def recent_notes(memory_dir: Path, limit: int = MAX_NOTES) -> list[tuple[str, str]]:
-    """The newest days first, as `(day, text)`. Empty notes are left out."""
+    """The newest days first, as `(day, text)`. Empty notes are left out.
+
+    The limit counts calendar days, not files: an agent that writes several notes a day
+    would otherwise get a handful of hours instead of a week of them.
+    """
     kept: list[tuple[str, str]] = []
+    days: set[str] = set()
     for note in agent_store.list_notes(memory_dir):
+        if note.date not in days and len(days) == limit:
+            break
         text = agent_store.read_note(memory_dir, note.day).strip()
         if text:
             kept.append((note.day, text))
-        if len(kept) == limit:
-            break
+            days.add(note.date)
     return kept
 
 

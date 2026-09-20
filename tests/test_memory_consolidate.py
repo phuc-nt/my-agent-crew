@@ -156,6 +156,35 @@ def test_only_the_newest_days_with_something_in_them_are_read(deps_factory):
     assert days == ["2026-09-18", "2026-09-17"]
 
 
+def test_several_notes_of_one_day_count_as_one_day(deps_factory):
+    """Counting files would give an hour of history where a week was meant."""
+    deps = deps_factory()
+    for day in ("2026-09-18", "2026-09-19", "2026-09-20"):
+        for hour in ("0800", "1200", "2000"):
+            agent_store.write_note(deps.agent.memory_dir, f"{day}-{hour}", f"note {day} {hour}")
+
+    kept = recent_notes(deps.agent.memory_dir, limit=7)
+    assert len(kept) == 9
+    two_days = [day for day, _ in recent_notes(deps.agent.memory_dir, limit=2)]
+    assert two_days == [
+        "2026-09-20-2000",
+        "2026-09-20-1200",
+        "2026-09-20-0800",
+        "2026-09-19-2000",
+        "2026-09-19-1200",
+        "2026-09-19-0800",
+    ]
+
+
+def test_more_days_than_the_limit_still_stops_at_the_limit(deps_factory):
+    deps = deps_factory()
+    for day in range(11, 20):
+        agent_store.write_note(deps.agent.memory_dir, f"2026-09-{day}", f"note {day}")
+
+    days = [day for day, _ in recent_notes(deps.agent.memory_dir)]
+    assert days == [f"2026-09-{day}" for day in range(19, 12, -1)]
+
+
 def test_an_agent_with_no_notes_at_all_has_nothing_to_fold_in(deps_factory):
     deps = deps_factory()
     assert not has_newer_notes(deps.agent.memory_file, deps.agent.memory_dir)

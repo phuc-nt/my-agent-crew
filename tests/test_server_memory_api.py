@@ -116,7 +116,21 @@ def test_notes_are_listed_newest_first_and_round_trip(client, deps):
     assert note == {"day": "2026-09-20", "body": "mới"}
 
 
-@pytest.mark.parametrize("day", ["hom-nay", "2026-9-20", "2026-09-20.md"])
+def test_a_note_written_several_times_a_day_round_trips_too(client, deps):
+    agent_id = deps.profile.id
+    day = "2026-09-19-1030"
+    put = client.put(f"/api/agents/{agent_id}/memory/notes/{day}", json={"body": "giữa buổi"})
+    assert put.status_code == 200
+
+    listed = client.get(f"/api/agents/{agent_id}/memory").json()
+    assert listed["notes"] == [{"day": day, "chars": len("giữa buổi"), "date": "2026-09-19"}]
+    assert client.get(f"/api/agents/{agent_id}/memory/notes/{day}").json() == {
+        "day": day,
+        "body": "giữa buổi",
+    }
+
+
+@pytest.mark.parametrize("day", ["hom-nay", "2026-9-20", "2026-09-20.md", "2026-09-20-.."])
 def test_a_day_that_is_not_a_date_is_refused(client, deps, day):
     agent_id = deps.profile.id
     assert client.get(f"/api/agents/{agent_id}/memory/notes/{day}").status_code == 422

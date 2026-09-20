@@ -244,7 +244,7 @@ export class FakeBackend {
         const current = this.readAgentMemory(agentId);
         if (!current.notes.some((n) => n.day === day)) {
           this.setAgentMemory(agentId, {
-            notes: [{ day, chars: body.body.length }, ...current.notes],
+            notes: [{ day, chars: body.body.length, date: day.slice(0, 10) }, ...current.notes],
             note_count: current.note_count + 1,
           });
         }

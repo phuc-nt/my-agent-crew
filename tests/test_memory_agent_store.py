@@ -23,7 +23,23 @@ def test_notes_are_listed_newest_day_first_with_their_size(tmp_path):
     notes = agent_store.list_notes(memory_dir)
     assert [n.day for n in notes] == ["2026-09-20", "2026-09-19", "2026-09-18"]
     assert notes[0].chars == len("mới nhất")
-    assert notes[0].to_dict() == {"day": "2026-09-20", "chars": len("mới nhất")}
+    assert notes[0].to_dict() == {
+        "day": "2026-09-20",
+        "chars": len("mới nhất"),
+        "date": "2026-09-20",
+    }
+
+
+def test_a_note_with_a_suffix_is_a_note_of_that_day(tmp_path):
+    """openclaw wrote several notes a day; dropping them loses most of the history."""
+    memory_dir = tmp_path / "memory"
+    for day, body in (("2026-09-19", "sáng"), ("2026-09-19-1030", "giữa buổi"), ("2026-09-20", "")):
+        agent_store.write_note(memory_dir, day, body)
+
+    notes = agent_store.list_notes(memory_dir)
+    assert [n.day for n in notes] == ["2026-09-20", "2026-09-19-1030", "2026-09-19"]
+    assert [n.date for n in notes] == ["2026-09-20", "2026-09-19", "2026-09-19"]
+    assert agent_store.read_note(memory_dir, "2026-09-19-1030") == "giữa buổi"
 
 
 def test_files_that_are_not_daily_notes_are_ignored(tmp_path):

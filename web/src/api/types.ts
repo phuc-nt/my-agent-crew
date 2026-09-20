@@ -191,8 +191,11 @@ export interface UserMemory {
 
 /** A dated note beside one agent's MEMORY.md; the body is fetched on demand. */
 export interface MemoryNote {
+  /** The file name without `.md`: a date, sometimes with a suffix (`2026-09-19-1030`). */
   day: string;
   chars: number;
+  /** The calendar day alone, shared by every note written that day. */
+  date: string;
 }
 
 export interface AgentMemory {

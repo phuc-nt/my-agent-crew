@@ -33,6 +33,13 @@ ride along in every agent's prompt. A fact's frontmatter records `name`, `descri
 | `memory/YYYY-MM-DD.md` | daily notes: what happened, measurements, what was said | today's and yesterday's file, every turn |
 | older `memory/*.md` | history | only through `memory_search` |
 
+A note is named after its day, with an optional suffix — `2026-09-19.md` and
+`2026-09-19-1030.md` are both notes of 19 September, which is how a workspace written by
+another tool keeps several notes a day. The suffix is lowercase letters, digits and
+hyphens, so a name can never point outside the folder. `memory_save` always writes the
+plain `YYYY-MM-DD.md`, and only that name is read into the prompt; a suffixed note is
+history, reached through `memory_search`, the Ghi nhớ tab and consolidation.
+
 Each file becomes a `## <file name>` section of the system prompt, capped at 24 000
 characters (`MAX_SECTION_CHARS`, cut with a trailing `…`). A missing file is simply
 skipped. Paths: `profile.memory_file = <agent dir>/MEMORY.md`,
@@ -99,7 +106,8 @@ text it replaces, so one step back is always possible from the history list.
 
 An agent opts in with a `memory_consolidate` cron in its profile, which becomes an
 ordinary schedule (kind `consolidate`) next to its prompt and command jobs. It reads up to
-7 days of notes (`MAX_NOTES`) within a 40 000-character budget, newest first, and does
+7 days of notes (`MAX_NOTES`, counted in days rather than files, so several notes of one
+day still count as that one day) within a 40 000-character budget, newest first, and does
 nothing at all when no note is newer than `MEMORY.md`. An agent marked `autonomous` applies
 the rewrite immediately; everyone else sees it in **Ghi nhớ → Đề xuất**. The run appears in
 Activity with its cost, and a failed rewrite leaves the file exactly as it was. Source:
@@ -128,7 +136,7 @@ scope, search, proposals) and `server/routes_memory_agent.py` (one agent's files
 | `GET/PUT /api/memory/user` | read/write `USER.md`, with the facts and the index |
 | `PUT/DELETE /api/memory/user/facts/{name}` | upsert or forget one fact; a non-slug name or unknown type is a 422 |
 | `GET/PUT /api/agents/{id}/memory` | read/write that agent's `MEMORY.md` |
-| `GET/PUT /api/agents/{id}/memory/notes/{day}` | read/write one dated note; a day that is not `YYYY-MM-DD` is a 422 |
+| `GET/PUT /api/agents/{id}/memory/notes/{day}` | read/write one dated note; a name that is not a day with an optional suffix is a 422 |
 | `GET /api/memory/search?q=&agent_id=` | hits across both scopes, each labelled with the scope it came from |
 | `GET /api/memory/proposals?status=` | pending by default; `status=all` includes decided ones |
 | `POST /api/memory/proposals/{id}` | `{approve: bool}`; deciding twice is a 409 |
