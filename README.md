@@ -86,6 +86,24 @@ các tin sau, `/agents` liệt kê agent đang có, mỗi câu trả lời mở 
 Mỗi agent còn đọc được 10 dòng gần nhất mà các agent khác trao đổi trong chat đó hôm nay,
 nên hỏi HLV về việc vừa nói với Pong không bị hỏi lại từ đầu.
 
+## Dùng như một đội dev
+
+Một agent `mode: work` có sẵn công cụ sửa mã, cap và số bước rộng hơn, tự chủ mặc định, và
+công cụ `delegate` để giao trọn một việc cho agent khác rồi chờ câu trả lời. Chín mẫu có
+sẵn: `dev` là đầu mối, tám vai còn lại là `scout`, `planner`, `coder`, `reviewer`,
+`tester`, `debugger`, `git`, `researcher`.
+
+```bash
+python -m my_agent_crew agent list-templates          # xem chín mẫu
+python -m my_agent_crew agent add dev                 # thêm dev kèm tám đồng đội
+# sửa agents/*/agent.yaml (workspace, routes) rồi khởi động lại máy chủ
+```
+
+Mở một cuộc với `dev` và giao việc như nói với người: *"Thêm lệnh `--version` in phiên bản
+từ pyproject, có test."* `dev` tự chia việc — scout đọc mã, planner vạch bước, coder sửa,
+reviewer và tester soát — mỗi lần giao là một cuộc con hiện ngay trong rail hoạt động,
+kèm chi phí và số bước. Uỷ quyền chỉ sâu một tầng: agent con không giao tiếp cho ai nữa.
+
 ## Trí nhớ
 
 Trí nhớ là Markdown trên đĩa, chia hai phạm vi: **chung về bạn** (`users/owner/USER.md` cùng

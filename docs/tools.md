@@ -147,8 +147,10 @@ and the browser tests drive tools without a key.
 
 ## Adding a tool
 
-Create a `Tool(name, description, parameters, run, requires_approval)` in a builder next
-to the existing ones and add it to the list in `server/runtime.py`. Description and parameter texts are shown to the model,
+Create a `Tool(name, description, parameters, run, requires_approval, parallel)` in a
+builder next to the existing ones and add it to the list in `server/runtime.py`. Set
+`parallel` only when two calls to the tool in one message may safely overlap — a read is
+fine, a write to the same file is not. Description and parameter texts are shown to the model,
 so write them in the prompt language (`texts.py` for Vietnamese). Set `requires_approval`
 whenever the tool changes state outside the conversation. Add a row to
 [testing.md](testing.md) and a test next to `test_tools_*.py`.

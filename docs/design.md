@@ -14,7 +14,7 @@ around it.
 
 | my-crew | Measured problem | Here |
 |---|---|---|
-| Team of role-agents, router, DAG task graph | Most value came from one capable agent; coordination code dominated the codebase and the bug list | One agent loop (`agent/loop.py`); profiles only vary its inputs |
+| Team of role-agents, router, DAG task graph | Most value came from one capable agent; coordination code dominated the codebase and the bug list | One agent loop (`agent/loop.py`); profiles only vary its inputs. No long-lived agents talking to each other: delegation is a tool call, one level deep, and a child conversation runs one turn and returns its answer |
 | Profiles + company YAML + per-agent settings | Config surface too large to keep tested; secrets could leak into YAML | Env vars + whitelisted `config.yaml` (`config.py`); `agent.yaml` has a fixed key set (`PROFILE_KEYS`) and no secrets |
 | Web UI added late, many pages | UI lagged features; tests were a separate world | UI is the primary surface; three test tiers share the same event contract |
 | Files grew past 1000 lines | Hard to review, hard for LLM tooling | 200-line budget enforced by a test |
@@ -68,6 +68,18 @@ always exists and is the top-level settings, so a fresh home needs no profile. P
 and memory are Markdown in the agent dir, read into the system prompt every turn. Key
 reference and folder layout: [agents.md](agents.md); memory files and tools:
 [memory.md](memory.md); the tool set and its limits: [tools.md](tools.md).
+
+**Work mode.** `mode: work` swaps the defaults for the ones a coding job needs — a higher
+spend cap, more steps, and autonomy on — because a person who asks for a refactor is not
+there to approve each file write. It is a different default, not a different rule: the
+tools that always ask still ask, and the cap still stops the turn. A work agent also
+gets `delegate` unless its `tools` allow-list leaves it out, so a specialist stays a
+specialist instead of quietly starting a crew of its own.
+
+**Templates.** Nine profiles ship with the app — a lead and eight roles — installed with
+`agent add <id>`, which brings the peers the lead hands work to and one shared set of
+skills. They are a starting point to edit, not a framework: each is an `agent.yaml` of
+the same fixed keys, so there is nothing to learn beyond the profile format.
 
 ## Memory
 
