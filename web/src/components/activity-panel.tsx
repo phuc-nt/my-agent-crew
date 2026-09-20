@@ -5,7 +5,8 @@ import { ApprovalHistory } from "./approval-history";
 import { AttentionCenter } from "./attention-center";
 import { JobsPanel } from "./jobs-panel";
 import { MemoryPanel } from "./memory-panel";
-import { RunCard } from "./run-timeline";
+import { parentConversationId, runGroups } from "../state/activity-reducer";
+import { RunGroupCard } from "./run-timeline";
 import { StatsPanel } from "./stats-panel";
 
 type Tab = "activity" | "jobs" | "approvals" | "memory" | "costs";
@@ -81,6 +82,12 @@ export function ActivityPanel(props: Props) {
         <div className="panel-body" role="tabpanel">
           <AttentionCenter
             runs={props.attention}
+            parentTitle={(run) => {
+              const parent = parentConversationId(run);
+              if (parent === null) return null;
+              const owner = props.runs.find((r) => r.conversation_id === parent);
+              return owner ? owner.title || props.agentName(owner.agent_id) : null;
+            }}
             agentName={props.agentName}
             onOpenConversation={props.onOpenConversation}
           />
@@ -98,11 +105,11 @@ export function ActivityPanel(props: Props) {
           {live.length === 0 ? (
             <p className="muted">{vi.nothingLive}</p>
           ) : (
-            live.map((run) => (
-              <RunCard
-                key={run.id}
-                run={run}
-                agentName={props.agentName(run.agent_id)}
+            runGroups(live).map((group) => (
+              <RunGroupCard
+                key={group.run.id}
+                group={group}
+                agentName={props.agentName}
                 expanded
                 onOpenConversation={props.onOpenConversation}
               />
@@ -112,11 +119,11 @@ export function ActivityPanel(props: Props) {
           {recent.length === 0 ? (
             <p className="muted">{vi.noRuns}</p>
           ) : (
-            recent.map((run) => (
-              <RunCard
-                key={run.id}
-                run={run}
-                agentName={props.agentName(run.agent_id)}
+            runGroups(recent).map((group) => (
+              <RunGroupCard
+                key={group.run.id}
+                group={group}
+                agentName={props.agentName}
                 onOpenConversation={props.onOpenConversation}
               />
             ))

@@ -6,6 +6,8 @@ interface Props {
   runs: RunInfo[];
   agentName: (id: string) => string;
   onOpenConversation: (conversationId: string) => void;
+  /** Names the run that handed out this work, when it is a delegated one. */
+  parentTitle?: (run: RunInfo) => string | null;
 }
 
 function label(run: RunInfo, agent: string): string {
@@ -14,8 +16,14 @@ function label(run: RunInfo, agent: string): string {
   return vi.attentionHalted(agent);
 }
 
+/** Says a run is work another conversation handed out, so the pause has a context. */
+function childNote(run: RunInfo, parentTitle?: (run: RunInfo) => string | null): string | null {
+  const parent = parentTitle?.(run);
+  return parent ? vi.delegateChildOf.replace("{parent}", parent) : null;
+}
+
 /** Approvals waiting anywhere plus runs that ended badly, one click from their conversation. */
-export function AttentionCenter({ runs, agentName, onOpenConversation }: Props) {
+export function AttentionCenter({ runs, agentName, onOpenConversation, parentTitle }: Props) {
   return (
     <section className="attention" aria-label={vi.attention} data-testid="attention">
       <h3>{vi.attention}</h3>
@@ -28,6 +36,12 @@ export function AttentionCenter({ runs, agentName, onOpenConversation }: Props) 
               <span className="attention-text">
                 {label(run, agentName(run.agent_id))}
                 <span className="muted"> · {formatClock(run.started_at)}</span>
+                {childNote(run, parentTitle) && (
+                  <span className="muted" data-testid="attention-child">
+                    {" · "}
+                    {childNote(run, parentTitle)}
+                  </span>
+                )}
                 {run.summary && <span className="run-preview muted">{run.summary}</span>}
               </span>
               {run.conversation_id && (

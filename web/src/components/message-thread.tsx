@@ -11,11 +11,24 @@ interface Props {
   onSuggestion: (text: string) => void;
   echoOnly: boolean;
   agentId: string;
+  /** Turns an agent id into its display name for the delegation cards. */
+  agentName?: (id: string) => string;
+  /** Opens the conversation a delegation created. */
+  onOpenConversation?: (conversationId: string) => void;
 }
 
 const MEDIA_PREFIX = "MEDIA:";
 
-export function MessageThread({ items, streaming, busy, onSuggestion, echoOnly, agentId }: Props) {
+export function MessageThread({
+  items,
+  streaming,
+  busy,
+  onSuggestion,
+  echoOnly,
+  agentId,
+  agentName,
+  onOpenConversation,
+}: Props) {
   const bottom = useRef<HTMLDivElement>(null);
   useEffect(() => {
     bottom.current?.scrollIntoView?.({ block: "end" });
@@ -41,7 +54,13 @@ export function MessageThread({ items, streaming, busy, onSuggestion, echoOnly, 
   return (
     <section className="thread" aria-live="polite">
       {items.map((item) => (
-        <Item key={item.id} item={item} agentId={agentId} />
+        <Item
+            key={item.id}
+            item={item}
+            agentId={agentId}
+            agentName={agentName}
+            onOpenConversation={onOpenConversation}
+          />
       ))}
       {streaming !== null && (
         <div className="bubble assistant streaming" data-testid="streaming">
@@ -80,8 +99,21 @@ export function splitMedia(text: string): { kind: "text" | "media"; value: strin
   return blocks;
 }
 
-function Item({ item, agentId }: { item: ThreadItem; agentId: string }) {
-  if (item.kind === "tool") return <ToolCallCard item={item} />;
+function Item({
+  item,
+  agentId,
+  agentName,
+  onOpenConversation,
+}: {
+  item: ThreadItem;
+  agentId: string;
+  agentName?: (id: string) => string;
+  onOpenConversation?: (conversationId: string) => void;
+}) {
+  if (item.kind === "tool")
+    return (
+      <ToolCallCard item={item} agentName={agentName} onOpenConversation={onOpenConversation} />
+    );
   const role = item.kind === "user" ? vi.you : vi.agent;
   const blocks = item.kind === "assistant" ? splitMedia(item.text) : [{ kind: "text" as const, value: item.text }];
   return (

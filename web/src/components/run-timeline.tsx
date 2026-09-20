@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { RunInfo, RunStep } from "../api/types";
 import { vi } from "../i18n/vi";
+import type { RunGroup } from "../state/activity-reducer";
 import { formatUsd } from "./budget-indicator";
 import { summarizeArguments } from "./tool-call-card";
 
@@ -115,5 +116,47 @@ function StepRow({ step }: { step: RunStep }) {
         </>
       )}
     </li>
+  );
+}
+
+/**
+ * A run with the work it handed out shown underneath it.
+ *
+ * One level only: a delegated agent cannot delegate on, so a child never has children.
+ * The children stay visible after the parent finishes, since that is usually the moment
+ * someone wants to see what each of them actually did.
+ */
+export function RunGroupCard({
+  group,
+  agentName,
+  expanded = false,
+  onOpenConversation,
+}: {
+  group: RunGroup;
+  agentName: (id: string) => string;
+  expanded?: boolean;
+  onOpenConversation?: (conversationId: string) => void;
+}) {
+  return (
+    <div className="run-group" data-testid="run-group">
+      <RunCard
+        run={group.run}
+        agentName={agentName(group.run.agent_id)}
+        expanded={expanded}
+        onOpenConversation={onOpenConversation}
+      />
+      {group.children.length > 0 && (
+        <div className="run-children" data-testid="run-children">
+          {group.children.map((child) => (
+            <RunCard
+              key={child.id}
+              run={child}
+              agentName={agentName(child.agent_id)}
+              onOpenConversation={onOpenConversation}
+            />
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

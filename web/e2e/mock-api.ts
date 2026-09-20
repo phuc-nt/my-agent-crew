@@ -15,8 +15,30 @@ export const defaultAgent = {
   autonomous: false,
   persona_files: [],
   schedules: [],
+  mode: "assistant",
+  delegates: [],
   tools: ["write_file"],
   skills: ["core"],
+};
+
+export const devAgent = {
+  ...defaultAgent,
+  id: "dev",
+  name: "Dev",
+  mode: "work",
+  cost_cap_usd: 5,
+  max_steps: 60,
+  delegates: ["coder"],
+  tools: [],
+};
+
+export const coderTemplate = {
+  id: "coder",
+  name: "Coder",
+  description: "Viết và sửa mã theo yêu cầu.",
+  mode: "work",
+  tools: ["shell_run", "workspace_write"],
+  delegates: [],
 };
 
 export const coachAgent = {
@@ -71,6 +93,7 @@ export interface MockOptions {
   /** Activity payloads delivered on the SSE stream right after it opens. */
   stream?: object[];
   conversations?: Conversation[];
+  templates?: object[];
 }
 
 export function sse(events: object[], retryMs = 60_000): string {
@@ -93,6 +116,7 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
     if (method === "POST") posted.push({ path: path + url.search, body: route.request().postDataJSON() });
     if (path === "/settings") return json({ ...settings, agents });
     if (path === "/agents") return json(agents);
+    if (path === "/templates") return json(options.templates ?? []);
     if (path === "/activity/runs") return json(options.runs ?? []);
     if (path === "/activity/stream")
       return route.fulfill({ status: 200, contentType: "text/event-stream", body: sse(options.stream ?? [{ type: "snapshot", runs: options.runs ?? [] }]) });

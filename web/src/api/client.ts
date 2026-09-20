@@ -17,6 +17,7 @@ import type {
   RunInfo,
   SettingsInfo,
   StatsInfo,
+  TemplateInfo,
   UserMemory,
 } from "./types";
 
@@ -99,6 +100,7 @@ export function subscribeActivity(
 export const api = {
   health: () => request<{ status: string; version: string }>("/health"),
   settings: () => request<SettingsInfo>("/settings"),
+  templates: () => request<TemplateInfo[]>("/templates"),
   listAgents: () => request<AgentInfo[]>("/agents"),
   getAgent: (id: string) => request<AgentDetail>(`/agents/${encodeURIComponent(id)}`),
   listConversations: (agentId?: string) =>

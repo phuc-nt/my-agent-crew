@@ -124,6 +124,56 @@ export function runsForConversation(state: ActivityState, conversationId: string
   return sortedRuns(state).filter((r) => r.conversation_id === conversationId);
 }
 
+const DELEGATE_SOURCE = "delegate";
+
+/** A delegated run names the conversation that handed out the work: `delegate:<id>`. */
+export function parentConversationId(run: RunInfo): string | null {
+  return run.source.startsWith(`${DELEGATE_SOURCE}:`)
+    ? run.source.slice(DELEGATE_SOURCE.length + 1) || null
+    : null;
+}
+
+export type RunGroup = { run: RunInfo; children: RunInfo[] };
+
+/**
+ * Runs for the rail, with delegated runs tucked under the run that asked for them.
+ *
+ * Nesting is one level deep because delegation is: a child cannot delegate on, so a
+ * child never has children of its own. A child whose parent is not in view stands on
+ * its own rather than disappearing.
+ */
+export function runGroups(runs: RunInfo[]): RunGroup[] {
+  const byConversation = new Map<string, RunInfo>();
+  for (const run of runs) {
+    // A run with no conversation (a scheduled job) can never be delegated to.
+    if (run.conversation_id !== null && parentConversationId(run) === null) {
+      byConversation.set(run.conversation_id, run);
+    }
+  }
+  const children = new Map<string, RunInfo[]>();
+  const orphans: RunInfo[] = [];
+  for (const run of runs) {
+    const parent = parentConversationId(run);
+    if (parent === null) continue;
+    if (!byConversation.has(parent)) {
+      orphans.push(run);
+      continue;
+    }
+    const known = children.get(parent);
+    if (known) known.push(run);
+    else children.set(parent, [run]);
+  }
+  const groups = runs
+    .filter((run) => parentConversationId(run) === null)
+    .map((run) => ({
+      run,
+      children: run.conversation_id === null ? [] : (children.get(run.conversation_id) ?? []),
+    }));
+  return [...groups, ...orphans.map((run) => ({ run, children: [] }))].sort((a, b) =>
+    a.run.started_at < b.run.started_at ? 1 : -1,
+  );
+}
+
 /** What needs a human: approvals waiting anywhere, and runs that ended badly. */
 export function needsAttention(state: ActivityState): RunInfo[] {
   return sortedRuns(state).filter(

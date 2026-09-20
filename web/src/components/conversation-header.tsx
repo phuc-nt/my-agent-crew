@@ -1,11 +1,15 @@
 import type { ReactNode } from "react";
-import type { Conversation, SkillInfo } from "../api/types";
+import type { AgentInfo, Conversation, SkillInfo } from "../api/types";
 import { vi } from "../i18n/vi";
 import { BudgetIndicator } from "./budget-indicator";
 
 interface Props {
   conversation: Conversation;
   agentName: string;
+  /** The agent's profile, when the crew is loaded: drives the work-mode badge. */
+  agent?: AgentInfo;
+  /** How many conversations this one delegated, for the budget tooltip. */
+  childCount?: number;
   spentUsd: number;
   unknownCostCalls: number;
   skills: SkillInfo[];
@@ -30,6 +34,17 @@ export function ConversationHeader(props: Props) {
         <span className="badge agent-badge" title={vi.agent}>
           {props.agentName}
         </span>
+        {props.agent?.mode === "work" && (
+          <span
+            className="badge work-badge"
+            data-testid="work-badge"
+            title={vi.modeWorkHint
+              .replace("{cap}", String(props.agent.cost_cap_usd))
+              .replace("{steps}", String(props.agent.max_steps))}
+          >
+            {vi.modeWork}
+          </span>
+        )}
         <button type="button" className="link-button" onClick={props.onRename}>
           {vi.rename}
         </button>
@@ -56,6 +71,7 @@ export function ConversationHeader(props: Props) {
           spentUsd={props.spentUsd}
           capUsd={c.cost_cap_usd}
           unknownCostCalls={props.unknownCostCalls}
+          childCount={props.childCount}
         />
         <label className="toggle" title={vi.autonomousHint}>
           <input

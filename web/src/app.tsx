@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "./api/client";
-import type { SettingsInfo } from "./api/types";
+import type { SettingsInfo, TemplateInfo } from "./api/types";
 import { ActivityPanel } from "./components/activity-panel";
 import { AgentSwitcher } from "./components/agent-switcher";
 import { ApprovalBar } from "./components/approval-bar";
@@ -24,6 +24,7 @@ export function App() {
   const crew = useCrew();
   const activity = useActivity();
   const [settings, setSettings] = useState<SettingsInfo | null>(null);
+  const [templates, setTemplates] = useState<TemplateInfo[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(true);
   const [draft, setDraft] = useState<string | undefined>(undefined);
@@ -31,6 +32,7 @@ export function App() {
 
   useEffect(() => {
     api.settings().then(setSettings, () => setSettings(null));
+    api.templates().then(setTemplates, () => setTemplates([]));
   }, []);
 
   // A message typed before any conversation exists waits until the new one has loaded.
@@ -126,6 +128,10 @@ export function App() {
           <ConversationHeader
             conversation={active}
             agentName={crew.agentName(active.agent_id)}
+            agent={crew.agents.find((a) => a.id === active.agent_id)}
+            childCount={
+              runs.filter((r) => r.source === `delegate:${active.id}`).length
+            }
             spentUsd={state.spentUsd}
             unknownCostCalls={state.unknownCostCalls}
             skills={settings?.skills ?? []}
@@ -164,6 +170,8 @@ export function App() {
             busy={state.busy}
             echoOnly={echoOnly}
             agentId={active?.agent_id ?? "default"}
+            agentName={crew.agentName}
+            onOpenConversation={list.select}
             onSuggestion={(text) => setDraft(text)}
           />
         </ErrorBoundary>
@@ -208,7 +216,14 @@ export function App() {
           />
         </ErrorBoundary>
       )}
-      {settingsOpen && <SettingsPanel settings={settings} onClose={() => setSettingsOpen(false)} />}
+      {settingsOpen && (
+        <SettingsPanel
+          settings={settings}
+          agents={crew.agents}
+          templates={templates}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
     </div>
   );
 }

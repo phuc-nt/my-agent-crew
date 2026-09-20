@@ -6,6 +6,8 @@ import {
   emptyActivity,
   liveRuns,
   needsAttention,
+  parentConversationId,
+  runGroups,
   runsForConversation,
   sortedRuns,
 } from "./activity-reducer";
@@ -120,5 +122,49 @@ describe("activityReducer", () => {
     expect(liveRuns(state).map((r) => r.id)).toEqual(["live", "wait"]);
     expect(runsForConversation(state, "c1").map((r) => r.id)).toEqual(["bad", "old"]);
     expect(needsAttention(state).map((r) => r.id)).toEqual(["wait", "bad"]);
+  });
+});
+
+describe("runGroups", () => {
+  it("tucks a delegated run under the run that asked for it", () => {
+    const parent = run({ id: "p", conversation_id: "c-parent", started_at: "2026-09-19T08:00:00Z" });
+    const child = run({
+      id: "k",
+      conversation_id: "c-child",
+      source: "delegate:c-parent",
+      started_at: "2026-09-19T08:01:00Z",
+    });
+
+    const groups = runGroups([child, parent]);
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].run.id).toBe("p");
+    expect(groups[0].children.map((c) => c.id)).toEqual(["k"]);
+  });
+
+  it("keeps a child visible when its parent run is not in view", () => {
+    const orphan = run({ id: "k", conversation_id: "c-child", source: "delegate:gone" });
+
+    const groups = runGroups([orphan]);
+
+    expect(groups.map((g) => g.run.id)).toEqual(["k"]);
+    expect(groups[0].children).toEqual([]);
+  });
+
+  it("nests only one level, because a child cannot delegate on", () => {
+    const parent = run({ id: "p", conversation_id: "c-parent" });
+    const a = run({ id: "a", conversation_id: "c-a", source: "delegate:c-parent" });
+    const b = run({ id: "b", conversation_id: "c-b", source: "delegate:c-parent" });
+
+    const groups = runGroups([parent, a, b]);
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].children.map((c) => c.id).sort()).toEqual(["a", "b"]);
+  });
+
+  it("reads the parent conversation out of the run source", () => {
+    expect(parentConversationId(run({ source: "delegate:c-9" }))).toBe("c-9");
+    expect(parentConversationId(run({ source: "chat" }))).toBeNull();
+    expect(parentConversationId(run({ source: "job:coach/brief" }))).toBeNull();
   });
 });
