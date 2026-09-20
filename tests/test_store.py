@@ -220,3 +220,24 @@ def test_recent_messages_on_a_channel_skip_the_asking_agent_and_old_days(store: 
     found = store.messages.recent_on_channel("telegram:1", today, "coach")
     assert found == [("pong", "user", "của họ")]
     assert store.messages.recent_on_channel("telegram:1", "2999-01-01", "coach") == []
+
+
+def test_a_conversation_remembers_the_tool_call_that_opened_it(store: Store):
+    """How a delegating turn finds the child it already started, instead of a second one."""
+    child = store.create(parent_call_id="call-1", agent_id="worker")
+    plain = store.create()
+
+    assert store.get(child.id).parent_call_id == "call-1"
+    assert plain.parent_call_id == ""
+    assert store.for_parent_call("call-1").id == child.id
+    assert store.for_parent_call("nobody") is None
+    assert store.for_parent_call("") is None
+
+
+def test_children_of_lists_what_a_turn_delegated_oldest_first(store: Store):
+    first = store.create(parent_call_id="call-1")
+    second = store.create(parent_call_id="call-2")
+    store.create(parent_call_id="other")
+
+    assert [c.id for c in store.children_of(("call-1", "call-2"))] == [first.id, second.id]
+    assert store.children_of(()) == []

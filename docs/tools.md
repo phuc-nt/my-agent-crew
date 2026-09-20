@@ -43,7 +43,7 @@ The system prompt lists the available names; the model sees each tool's JSON sch
 | `shell_run` | **yes** | 120 s default, 900 s max | runs a command in the workspace, returns stdout+stderr |
 | `skill_read` | no | — | returns one skill's full text by name, see [agents.md](agents.md#skills) |
 
-Three more come with `mode: work` only, because an assistant that chats has no use for
+Four more come with `mode: work` only, because an assistant that chats has no use for
 them and every extra tool spec costs prompt tokens:
 
 | Tool | Approval | Limits | What it does |
@@ -51,6 +51,25 @@ them and every extra tool spec costs prompt tokens:
 | `workspace_edit` | **yes** | 40 diff lines shown (`MAX_DIFF_LINES`) | replaces an exact snippet in one file; refuses when the snippet is missing or matches more than once, unless `replace_all` |
 | `workspace_grep` | no | 200 hits (`MAX_RESULTS`), 30 s | regex search over the workspace; uses `rg` when installed, otherwise walks the tree itself. Skips `.git`, `.venv`, `node_modules`, `__pycache__`, `dist`, `build` and binary files |
 | `workspace_glob` | no | 500 paths (`MAX_GLOB_RESULTS`) | lists files matching a glob, same skip list |
+| `delegate` | no | 8 per conversation (`MAX_DELEGATES`), 8 at once (`MAX_PARALLEL_CALLS`) | hands a whole task to another agent and waits for its answer, see below |
+
+### Delegation
+
+`delegate` opens a new conversation for the agent named in `agent` — one of the caller's
+`delegates`, or itself — runs the task there, and returns that conversation's last reply
+with a header line giving its id, status, cost and step count. The child starts empty: it
+never sees the parent's history, which is the point, so `task` has to carry everything it
+needs. The parent's own context grows by one tool result instead of by the whole job.
+
+Several `delegate` calls in one assistant message run at the same time; every other tool
+still runs one at a time, because the rest of them touch the workspace and would race.
+
+Depth stops at one. A delegated agent is handed its toolbox without `delegate` in it, and
+the tool refuses to run when the turn it is in is already a delegated one — two guards,
+because a fan-out that gets loose spends real money. The child inherits the parent's
+approval stance and whatever is left of its budget, and what the child spends is added to
+the parent, so a cap still means what it says. A turn interrupted mid-delegation finds its
+child again through the tool call id rather than starting a second one.
 
 ### Workspace tools
 

@@ -147,3 +147,54 @@ def test_runs_left_running_by_a_crash_are_marked_on_startup(tmp_path):
     store.runs.save(fresh_run())
     ActivityHub(store)
     assert store.runs.get("r1").status == FAILED
+
+
+async def test_waiting_on_a_conversation_returns_its_finished_run(deps_factory):
+    """What a delegating parent does: block on the child and read the run that ended."""
+    deps = deps_factory(script=[completion("xong")])
+    hub = ActivityHub(deps.store)
+    conv = deps.store.create()
+
+    async def child() -> None:
+        await collect(tracked(hub, run_turn(deps, conv.id, "hi"), "default", "chat", "t", conv.id))
+
+    task = asyncio.create_task(child())
+    run = await hub.wait_finished(conv.id, timeout=2.0)
+    await task
+
+    assert run is not None and run.status == DONE and run.conversation_id == conv.id
+
+
+async def test_waiting_gives_up_when_the_run_takes_too_long(deps_factory):
+    """A timeout returns nothing rather than hanging the caller forever."""
+    deps = deps_factory(script=[completion("x")])
+    hub = ActivityHub(deps.store)
+    conv = deps.store.create()
+    hub.start("default", "chat", "t", conv.id)
+
+    assert await hub.wait_finished(conv.id, timeout=0.01) is None
+
+
+async def test_a_run_paused_for_approval_is_not_finished(deps_factory):
+    """The parent keeps waiting while a person decides, and wakes when the resumed run
+    ends — not when it paused."""
+    deps = deps_factory(routes=(Route("fake", "echo"),))
+    hub = ActivityHub(deps.store)
+    conv = deps.store.create()
+    paused = await collect(
+        tracked(
+            hub,
+            run_turn(deps, conv.id, '/tool shell_run {"command": "echo 1"}'),
+            "default",
+            "chat",
+            "t",
+            conv.id,
+        )
+    )
+
+    assert await hub.wait_finished(conv.id, timeout=0.01) is None
+
+    resumed = resolve_approval(deps, conv.id, paused[-1].approval_id, True)
+    await collect(tracked(hub, resumed, "default", "chat", "t", conv.id))
+    run = await hub.wait_finished(conv.id, timeout=2.0)
+    assert run is not None and run.status == DONE

@@ -39,6 +39,12 @@ Guard tests: `tests/test_file_size_budget.py` (≤200 lines), `tests/test_static
 | Skill index in the system prompt: names only for unattached skills, description cut, names-only above 40, no section when empty | `test_skills.py` | — | — |
 | `skill_read` returns a body, names what exists on an unknown skill | `test_tools_skills.py` | — | — |
 | Agent profiles: key whitelist, workspace/skills resolution, schedule validation, default agent, per-agent shell ask list | `test_agent_profiles.py` | — | — |
+| Work mode: `mode` must be one of two words, `delegates` must name agents that exist, a `tools` allow-list keeps only what it names and an unknown name is refused, the coding tools reach a work agent and no other | `test_agent_profiles.py`, `test_tools_workspace_edit.py`, `test_tools_workspace_search.py` | — | — |
+| Trimming a long context: the oldest turns go first, the system frame and the newest turn always stay, a tool result never outlives the call it answers | `test_agent_context_trim.py` | — | — |
+| Delegation: the parent gets the child's answer and pays for it, the child starts with no history, an agent outside `delegates` is refused while an agent may always delegate to itself, a child's toolbox has no `delegate` and a delegated turn refuses to delegate anyway, resuming the same call reuses the child instead of opening a second one, the cap on how many one conversation may hand out, the child inherits what is left of the budget | `test_tools_delegate.py` | — | — |
+| `parent_call_id` on a conversation, `for_parent_call`, `children_of` ordering | `test_store.py` | — | — |
+| Batching: only tools marked parallel share a batch, the batch is capped, an unknown tool is left alone; batched calls really do overlap and their results come back in call order | `test_agent_tool_batches.py` | — | — |
+| Waiting on a conversation: the finished run comes back, a timeout returns nothing, a run paused for approval is not finished until it resumes | `test_activity.py` | — | — |
 | Persona + memory sections in the system prompt, size cap | `test_agent_context.py` | — | — |
 | Agent loop: text, tool round-trips, max steps, cost cap halt | `test_agent_loop.py` | reducer `halted`/`done` | — |
 | Approval pause / approve / deny / autonomous bypass | `test_agent_approval.py`, `test_server_api.py` | reducer, `ApprovalBar`, App approval flow | `approval bar pauses…` |

@@ -104,6 +104,7 @@ function blankDetail(id: string | null): ConversationDetail {
     summary: "",
     skills: [],
     auto_approve: [],
+    parent_call_id: "",
     spent_usd: 0,
     unknown_cost_calls: 0,
     status: "idle",

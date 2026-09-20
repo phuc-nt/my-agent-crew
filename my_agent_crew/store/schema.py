@@ -55,6 +55,10 @@ ADDED_COLUMNS = (
     ("approvals", "resolved_at", "TEXT"),
     ("messages", "prompt_tokens", "INTEGER"),
     ("messages", "completion_tokens", "INTEGER"),
+    # The parent's tool call that opened this conversation, when an agent delegated it.
+    # Lets a turn resumed after an interruption find the child it already started instead
+    # of opening a second one.
+    ("conversations", "parent_call_id", "TEXT NOT NULL DEFAULT ''"),
 )
 
 

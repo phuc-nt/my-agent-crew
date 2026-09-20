@@ -31,6 +31,8 @@ class Conversation:
     channel: str = ""  # "" for the web UI, else e.g. "telegram:<chat_id>"
     summary: str = ""  # short recap written when the next conversation opens
     auto_approve: tuple[str, ...] = ()  # tools the user chose to always allow here
+    # The parent's tool call id when another agent delegated this conversation, else "".
+    parent_call_id: str = ""
 
     @property
     def over_budget(self) -> bool:
@@ -60,6 +62,7 @@ class Conversation:
             channel=row["channel"],
             summary=row["summary"],
             auto_approve=tuple(json.loads(row["auto_approve"])),
+            parent_call_id=row["parent_call_id"],
         )
 
 

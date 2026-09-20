@@ -15,9 +15,14 @@ if TYPE_CHECKING:  # the store imports nothing from the agent package
     from my_agent_crew.store import Store
 
 CHAT, TELEGRAM, JOB, WEB = "chat", "telegram", "job", "web"
+# A turn another agent asked for; the rest of the source names the parent conversation.
+DELEGATE = "delegate"
 PRESENT_SOURCES = (CHAT, TELEGRAM)
 
 _turn_source: ContextVar[str] = ContextVar("turn_source", default=CHAT)
+_turn_conversation_id: ContextVar[str] = ContextVar("turn_conversation_id", default="")
+_turn_depth: ContextVar[int] = ContextVar("turn_depth", default=0)
+_tool_call_id: ContextVar[str] = ContextVar("tool_call_id", default="")
 
 
 def set_turn_source(source: str) -> None:
@@ -28,10 +33,40 @@ def turn_source() -> str:
     return _turn_source.get()
 
 
+def set_turn_conversation(conv_id: str, depth: int = 0) -> None:
+    """Which conversation this turn belongs to and how far it is from the person. A tool
+    that opens a conversation of its own needs both, and neither belongs in its arguments."""
+    _turn_conversation_id.set(conv_id)
+    _turn_depth.set(depth)
+
+
+def turn_conversation_id() -> str:
+    return _turn_conversation_id.get()
+
+
+def turn_depth() -> int:
+    return _turn_depth.get()
+
+
+def set_tool_call_id(call_id: str) -> None:
+    """The id of the call being carried out right now. A tool with a side effect outside
+    the store — opening a conversation, say — uses it to recognise its own earlier attempt
+    after an interruption, instead of doing the thing twice. It is deliberately not a tool
+    argument: the model must not be able to name it."""
+    _tool_call_id.set(call_id)
+
+
+def tool_call_id() -> str:
+    return _tool_call_id.get()
+
+
 def normalize_source(source: str) -> str:
-    """Run sources name the schedule they came from (`job:coach/brief`); memory only
-    cares that it was a job."""
-    return JOB if source.startswith(f"{JOB}:") else source
+    """Run sources name what they came from (`job:coach/brief`, `delegate:<conv>`); the
+    rest of the code only cares which kind it was."""
+    for prefix in (JOB, DELEGATE):
+        if source.startswith(f"{prefix}:"):
+            return prefix
+    return source
 
 
 def conversation_source(store: Store, conv_id: str) -> str:

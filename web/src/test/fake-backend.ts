@@ -177,6 +177,7 @@ export class FakeBackend {
       cost_cap_usd: 1,
       skills: [],
       auto_approve: [],
+      parent_call_id: "",
       spent_usd: 0,
       unknown_cost_calls: 0,
       status: "idle",

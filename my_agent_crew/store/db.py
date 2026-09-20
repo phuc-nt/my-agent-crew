@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from my_agent_crew.llm.types import Message
+from my_agent_crew.store import conversation_lookup as lookup
 from my_agent_crew.store.approvals import ApprovalStore
 from my_agent_crew.store.channel_state import ChannelStateStore
 from my_agent_crew.store.job_state import JobStateStore
@@ -63,12 +64,14 @@ class Store:
         skills: tuple[str, ...] = (),
         agent_id: str = "default",
         channel: str = "",
+        parent_call_id: str = "",
     ) -> Conversation:
         conv_id, stamp = new_id(), now_iso()
         with self._lock:
             self._conn.execute(
                 "INSERT INTO conversations (id, title, created_at, updated_at, autonomous,"
-                " cost_cap_usd, skills, agent_id, channel) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                " cost_cap_usd, skills, agent_id, channel, parent_call_id)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     conv_id,
                     title,
@@ -79,6 +82,7 @@ class Store:
                     json.dumps(skills),
                     agent_id,
                     channel,
+                    parent_call_id,
                 ),
             )
             self._conn.commit()
@@ -102,26 +106,16 @@ class Store:
         return [Conversation.from_row(r) for r in rows]
 
     def latest_for_channel(self, agent_id: str, channel: str) -> Conversation | None:
-        """The newest conversation an agent holds on a channel, by creation time."""
-        with self._lock:
-            row = self._conn.execute(
-                "SELECT * FROM conversations WHERE agent_id = ? AND channel = ?"
-                " ORDER BY created_at DESC, rowid DESC LIMIT 1",
-                (agent_id, channel),
-            ).fetchone()
-        return Conversation.from_row(row) if row else None
+        return lookup.latest_for_channel(self._conn, self._lock, agent_id, channel)
 
     def previous_for_channel(self, agent_id: str, channel: str, before: str) -> Conversation | None:
-        """The conversation this agent held on the channel right before `before`. Ordered by
-        rowid, not `created_at`: two opened in the same millisecond share a timestamp."""
-        with self._lock:
-            row = self._conn.execute(
-                "SELECT * FROM conversations WHERE agent_id = ? AND channel = ?"
-                " AND rowid < (SELECT rowid FROM conversations WHERE id = ?)"
-                " ORDER BY rowid DESC LIMIT 1",
-                (agent_id, channel, before),
-            ).fetchone()
-        return Conversation.from_row(row) if row else None
+        return lookup.previous_for_channel(self._conn, self._lock, agent_id, channel, before)
+
+    def for_parent_call(self, parent_call_id: str) -> Conversation | None:
+        return lookup.for_parent_call(self._conn, self._lock, parent_call_id)
+
+    def children_of(self, call_ids: tuple[str, ...]) -> list[Conversation]:
+        return lookup.children_of(self._conn, self._lock, call_ids)
 
     def set_current_agent(self, channel: str, agent_id: str) -> None:
         self.channels.set_current_agent(channel, agent_id, now_iso())

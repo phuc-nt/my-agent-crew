@@ -20,7 +20,12 @@ from my_agent_crew.agent.events import (
 )
 from my_agent_crew.agent.prompt import active_skills, build_system_prompt
 from my_agent_crew.agent.tool_calls import settle_tool_calls
-from my_agent_crew.agent.turn_context import CHAT, conversation_source, set_turn_source
+from my_agent_crew.agent.turn_context import (
+    CHAT,
+    conversation_source,
+    set_turn_conversation,
+    set_turn_source,
+)
 from my_agent_crew.agents.context import bootstrap_sections
 from my_agent_crew.agents.profile import AgentProfile, default_profile
 from my_agent_crew.config import Settings
@@ -58,9 +63,10 @@ class AgentDeps:
 
 
 async def run_turn(
-    deps: AgentDeps, conv_id: str, user_text: str | None, source: str = CHAT
+    deps: AgentDeps, conv_id: str, user_text: str | None, source: str = CHAT, depth: int = 0
 ) -> AsyncIterator[Event]:
     set_turn_source(source)
+    set_turn_conversation(conv_id, depth)
     conv = deps.store.get(conv_id)
     if user_text is not None:
         if conv.status == AWAITING_APPROVAL:

@@ -23,6 +23,9 @@ class ActivityHub:
         self._store = store
         self._live: dict[str, RunRecord] = {}
         self._subscribers: set[asyncio.Queue[dict[str, Any] | None]] = set()
+        # Set when a conversation's run reaches a terminal status, so a caller waiting on
+        # a delegated turn wakes up instead of polling.
+        self._finished: dict[str, asyncio.Event] = {}
         self._store.runs.mark_interrupted(now_iso())
 
     # --- runs ----------------------------------------------------------------------------
@@ -31,6 +34,8 @@ class ActivityHub:
         self, agent_id: str, source: str, title: str, conversation_id: str | None
     ) -> RunRecord:
         """A turn that resumes after an approval continues the run that paused."""
+        if conversation_id:
+            self._finished.setdefault(conversation_id, asyncio.Event()).clear()
         for live in self._live.values():
             if live.conversation_id == conversation_id and live.status == AWAITING:
                 live.status = RUNNING
@@ -75,6 +80,21 @@ class ActivityHub:
         self._live.pop(run.id, None)
         self._store.runs.save(run)
         self._broadcast({"type": "run", "run": run.to_dict()})
+        if run.conversation_id:
+            self._finished.setdefault(run.conversation_id, asyncio.Event()).set()
+
+    async def wait_finished(self, conversation_id: str, timeout: float) -> RunRecord | None:
+        """Blocks until this conversation's run reaches a terminal status, and returns it.
+
+        A run that pauses for an approval is not finished: the wait continues while the
+        person decides, and ends when the resumed run does. `None` means the timeout ran
+        out with the run still going, which the caller reports rather than hangs on."""
+        event = self._finished.setdefault(conversation_id, asyncio.Event())
+        try:
+            await asyncio.wait_for(event.wait(), timeout)
+        except TimeoutError:
+            return None
+        return self._store.runs.latest_for_conversation(conversation_id)
 
     def recent(self, limit: int = RECENT_LIMIT) -> list[RunRecord]:
         stored = self._store.runs.recent(limit)

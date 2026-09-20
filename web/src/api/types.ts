@@ -42,6 +42,8 @@ export interface Conversation {
   summary: string;
   /** Tools the person chose to always allow in this conversation. */
   auto_approve: string[];
+  /** The parent's tool call, when another agent delegated this conversation; "" otherwise. */
+  parent_call_id: string;
 }
 
 export type ApprovalStatus = "pending" | "approved" | "denied" | "expired";

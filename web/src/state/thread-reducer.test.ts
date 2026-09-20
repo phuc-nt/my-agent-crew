@@ -33,6 +33,7 @@ function detail(partial: Partial<ConversationDetail> = {}): ConversationDetail {
     summary: "",
     skills: [],
     auto_approve: [],
+    parent_call_id: "",
     spent_usd: 0.2,
     unknown_cost_calls: 1,
     status: "idle",

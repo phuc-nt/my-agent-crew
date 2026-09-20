@@ -29,6 +29,9 @@ class Tool:
     parameters: dict[str, Any]
     run: ToolRunner
     requires_approval: bool = False
+    # Safe to run at the same time as the other parallel calls in the same message. Only
+    # for tools that spend most of their time waiting and do not race each other.
+    parallel: bool = False
 
     @property
     def spec(self) -> ToolSpec:
@@ -70,6 +73,11 @@ class ToolRegistry:
 
     def names(self) -> list[str]:
         return list(self._tools)
+
+    def without(self, name: str) -> ToolRegistry:
+        """A copy missing one tool. How a delegated agent is handed the same toolbox minus
+        `delegate`, so the chain stops one level down."""
+        return ToolRegistry([t for t in self._tools.values() if t.name != name])
 
     def specs(self) -> list[ToolSpec]:
         return [t.spec for t in self._tools.values()]

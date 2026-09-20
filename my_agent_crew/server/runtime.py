@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 import httpx
 
@@ -25,6 +25,7 @@ from my_agent_crew.server.agent_assembly import (
     warn_unknown_schedule_skills,
 )
 from my_agent_crew.store import Store
+from my_agent_crew.tools.delegate import DELEGATE_TOOL_NAME, build_delegate_tool
 
 __all__ = [
     "PROVIDER_TIMEOUT_SECONDS",
@@ -96,6 +97,19 @@ class Runtime:
         except KeyError as exc:
             raise KeyError(texts.AGENT_UNKNOWN.format(agent_id=agent_id)) from exc
 
+    def deps_for_child(self, agent_id: str) -> AgentDeps:
+        """The same agent, minus `delegate`. A child that could delegate would make the
+        depth limit a matter of the model reading its instructions carefully."""
+        deps = self.deps_for(agent_id)
+        return replace(deps, tools=deps.tools.without(DELEGATE_TOOL_NAME))
+
+    def wire_delegation(self) -> None:
+        """Work agents get `delegate` once every agent exists — the tool holds the runtime,
+        so it cannot be built during assembly, when the runtime is still being made."""
+        for deps in self.agents.values():
+            if deps.agent.is_work and deps.tools.get(DELEGATE_TOOL_NAME) is None:
+                deps.tools.register(build_delegate_tool(self, deps.agent))
+
     def deps_for_conversation(self, conv_id: str) -> AgentDeps:
         """Raises KeyError for an unknown conversation; a conversation whose agent profile
         was removed from disk falls back to the default agent rather than 404."""
@@ -109,7 +123,11 @@ class Runtime:
     def single(cls, deps: AgentDeps) -> Runtime:
         """A runtime around one already-built default agent; what tests hand to the app."""
         hub = ActivityHub(deps.store)
-        return cls(settings=deps.settings, store=deps.store, agents={deps.agent.id: deps}, hub=hub)
+        runtime = cls(
+            settings=deps.settings, store=deps.store, agents={deps.agent.id: deps}, hub=hub
+        )
+        runtime.wire_delegation()
+        return runtime
 
 
 def check_delegates(profiles: Sequence[AgentProfile]) -> None:
@@ -146,7 +164,9 @@ def build_runtime(
         deps.peers = peers  # every agent can name the others sharing its channel
     hub = ActivityHub(store)
     channels = build_channels(agents, hub, client, os.environ if env is None else env)
-    return Runtime(settings=settings, store=store, agents=agents, hub=hub, channels=channels)
+    runtime = Runtime(settings=settings, store=store, agents=agents, hub=hub, channels=channels)
+    runtime.wire_delegation()
+    return runtime
 
 
 def build_deps(settings: Settings, client: httpx.AsyncClient | None = None) -> AgentDeps:

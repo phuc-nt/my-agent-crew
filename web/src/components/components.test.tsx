@@ -161,7 +161,7 @@ describe("Composer", () => {
 describe("ConversationList", () => {
   const base = {
     id: "c1", agent_id: "default", channel: "", title: "Web", created_at: "", updated_at: "",
-    autonomous: false, cost_cap_usd: 1, skills: [], auto_approve: [], spent_usd: 0, unknown_cost_calls: 0,
+    autonomous: false, cost_cap_usd: 1, skills: [], auto_approve: [], parent_call_id: "", spent_usd: 0, unknown_cost_calls: 0,
     status: "idle" as const, over_budget: false, summary: "",
   };
 
