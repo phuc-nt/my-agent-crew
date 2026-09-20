@@ -36,7 +36,7 @@ Bí mật **chỉ** đọc từ biến môi trường; `config.yaml` chỉ chứ
 | `MY_AGENT_AUTONOMOUS` | `1` để công cụ ghi/thay đổi chạy không cần duyệt | tắt |
 | `OPENROUTER_API_KEY` | bật provider OpenRouter | — |
 | `TAVILY_API_KEY` / `BRAVE_API_KEY` | bật công cụ `web_search` | — |
-| tên do `telegram.token_env` chỉ định (vd `HEALTH_COACH_TELEGRAM_BOT_TOKEN`) | token bot Telegram của một agent; thiếu thì kênh đó tắt | — |
+| tên do `telegram.token_env` chỉ định (vd `TELEGRAM_BOT_TOKEN`) | token bot Telegram của một agent; thiếu thì kênh đó tắt | — |
 
 `config.yaml` trong `MY_AGENT_HOME` nhận `routes`, `cost_cap_usd`, `max_steps`, `language`,
 `autonomous_default`. Kỹ năng tự viết: thêm tệp `.md` có frontmatter `name` vào `skills/`.
@@ -55,7 +55,7 @@ workspace: ~/workspace/my-health-coach   # sandbox cho công cụ tệp + shell_
 skills_dirs: [~/.openclaw/workspace-personal/skills]
 autonomous: true                          # job chạy không cần duyệt
 telegram:                                 # tuỳ chọn: một bot riêng cho agent này
-  token_env: HEALTH_COACH_TELEGRAM_BOT_TOKEN   # TÊN biến môi trường giữ token, không phải token
+  token_env: TELEGRAM_BOT_TOKEN   # TÊN biến môi trường giữ token, không phải token
   chat_id: 123456789                      # chat duy nhất được trả lời
 schedules:
   - id: morning-brief

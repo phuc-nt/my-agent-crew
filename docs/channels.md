@@ -9,7 +9,7 @@ list show them.
 
 ```yaml
 telegram:
-  token_env: HEALTH_COACH_TELEGRAM_BOT_TOKEN   # NAME of the env var holding the bot token
+  token_env: TELEGRAM_BOT_TOKEN   # NAME of the env var holding the bot token
   chat_id: 123456789                           # the only chat the bot answers
 ```
 

@@ -130,7 +130,7 @@ skills_dirs: [~/workspace/shared-skills]
 autonomous: true
 cost_cap_usd: 0.3
 telegram:
-  token_env: HEALTH_COACH_TELEGRAM_BOT_TOKEN
+  token_env: TELEGRAM_BOT_TOKEN
   chat_id: 123456789
 schedules:
   - id: morning-brief
