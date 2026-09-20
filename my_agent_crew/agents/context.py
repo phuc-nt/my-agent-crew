@@ -8,6 +8,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 from my_agent_crew.agents.profile import AgentProfile
+from my_agent_crew.texts import PREVIOUS_SUMMARY_SECTION_TITLE
 
 MAX_SECTION_CHARS = 24000
 DAILY_NOTE_FORMAT = "%Y-%m-%d"
@@ -28,7 +29,11 @@ def daily_note_path(memory_dir: Path, day: date) -> Path:
     return memory_dir / f"{day.strftime(DAILY_NOTE_FORMAT)}.md"
 
 
-def bootstrap_sections(profile: AgentProfile, today: date | None = None) -> list[tuple[str, str]]:
+def bootstrap_sections(
+    profile: AgentProfile,
+    today: date | None = None,
+    previous_summary: str = "",
+) -> list[tuple[str, str]]:
     """(title, body) pairs in the order they enter the system prompt."""
     today = today or date.today()
     sections: list[tuple[str, str]] = []
@@ -39,6 +44,8 @@ def bootstrap_sections(profile: AgentProfile, today: date | None = None) -> list
     memory = _read_capped(profile.memory_file)
     if memory:
         sections.append(("MEMORY.md", memory))
+    if previous_summary.strip():
+        sections.append((PREVIOUS_SUMMARY_SECTION_TITLE, previous_summary.strip()))
     for day in (today - timedelta(days=1), today):
         path = daily_note_path(profile.memory_dir, day)
         body = _read_capped(path)

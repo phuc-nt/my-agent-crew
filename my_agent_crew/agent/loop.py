@@ -148,13 +148,16 @@ async def _complete(
 ) -> AsyncIterator[Event]:
     skills = active_skills(deps.skills, conv.skills)
     profile = deps.agent
+    previous = deps.store.previous_for_channel(conv.agent_id, conv.channel, conv.id)
     system = Message(
         role="system",
         content=build_system_prompt(
             deps.settings,
             skills,
             deps.tools.names(),
-            sections=bootstrap_sections(profile),
+            sections=bootstrap_sections(
+                profile, previous_summary=previous.summary if previous else ""
+            ),
             name=profile.name,
             today=date.today().isoformat(),
         ),

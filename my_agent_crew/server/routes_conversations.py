@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from my_agent_crew.agents import DEFAULT_AGENT_ID
+from my_agent_crew.memory.session_summary import summarize_conversation
 from my_agent_crew.server.deps import ConvDeps, Rt
 from my_agent_crew.texts import CONVERSATION_TITLE_DEFAULT
 
@@ -33,12 +34,13 @@ def list_conversations(rt: Rt, agent_id: str | None = None) -> list[dict[str, An
 
 
 @router.post("/conversations", status_code=201)
-def create_conversation(body: ConversationCreate, rt: Rt) -> dict[str, Any]:
+async def create_conversation(body: ConversationCreate, rt: Rt) -> dict[str, Any]:
     try:
         deps = rt.deps_for(body.agent_id)
     except KeyError as exc:
         raise HTTPException(404, "agent not found") from exc
     settings = deps.settings
+    previous = deps.store.latest_for_channel(body.agent_id, "")
     conv = deps.store.create(
         title=body.title,
         autonomous=settings.autonomous_default if body.autonomous is None else body.autonomous,
@@ -46,7 +48,16 @@ def create_conversation(body: ConversationCreate, rt: Rt) -> dict[str, Any]:
         skills=tuple(body.skills),
         agent_id=body.agent_id,
     )
+    if previous is not None:
+        rt.summarize_replaced(deps, previous.id)
     return conv.to_dict()
+
+
+@router.post("/conversations/{conv_id}/summary", status_code=202)
+async def resummarize_conversation(conv_id: str, deps: ConvDeps) -> dict[str, Any]:
+    deps.store.get(conv_id)
+    summary = await summarize_conversation(deps, conv_id, force=True)
+    return {"id": conv_id, "summary": summary}
 
 
 @router.get("/conversations/{conv_id}")

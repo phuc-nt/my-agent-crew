@@ -26,6 +26,15 @@ SEARCH_EMPTY = "Không có kết quả cho: {query}"
 MEMORY_SAVED = "Đã ghi nhớ ({count} ghi chú)."
 MEMORY_EMPTY = "Không có ghi chú nào khớp."
 
+PREVIOUS_SUMMARY_SECTION_TITLE = "Cuộc trước"
+SUMMARY_PROMPT = (
+    "Tóm tắt cuộc trò chuyện dưới đây trong tối đa 3 câu tiếng Việt, dưới 600 ký tự. "
+    "Giữ lại việc người dùng nhờ làm, kết quả, và điều cần nhớ cho lần sau. "
+    "Chỉ trả lời bằng bản tóm tắt, không mở đầu, không gạch đầu dòng.\n\n"
+    "--- nội dung ---\n{transcript}"
+)
+SUMMARY_TRANSCRIPT_LINE = "{role}: {text}"
+
 CONVERSATION_TITLE_DEFAULT = "Cuộc trò chuyện mới"
 
 SKILL_LOCATION = "Thư mục kỹ năng (script, tài liệu kèm theo): {path}"

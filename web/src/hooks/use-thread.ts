@@ -98,6 +98,7 @@ function blankDetail(id: string | null): ConversationDetail {
     updated_at: "",
     autonomous: false,
     cost_cap_usd: 0,
+    summary: "",
     skills: [],
     spent_usd: 0,
     unknown_cost_calls: 0,

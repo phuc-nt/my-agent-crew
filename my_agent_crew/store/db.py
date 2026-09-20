@@ -7,19 +7,19 @@ import json
 import sqlite3
 import threading
 import uuid
-from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
 
 from my_agent_crew.llm.types import Message
 from my_agent_crew.store.approvals import ApprovalStore
 from my_agent_crew.store.channel_state import ChannelStateStore
+from my_agent_crew.store.messages import MessageStore
 from my_agent_crew.store.models import Conversation, StoredMessage
 from my_agent_crew.store.runs import RunStore
 from my_agent_crew.store.schema import apply_schema
 from my_agent_crew.texts import CONVERSATION_TITLE_DEFAULT
 
-MUTABLE_FIELDS = {"title", "autonomous", "cost_cap_usd", "skills", "status"}
+MUTABLE_FIELDS = {"title", "autonomous", "cost_cap_usd", "skills", "status", "summary"}
 
 
 def now_iso() -> str:
@@ -40,6 +40,7 @@ class Store:
         self.approvals = ApprovalStore(self._conn, self._lock)
         self.runs = RunStore(self._conn, self._lock)
         self.channels = ChannelStateStore(self._conn, self._lock)
+        self.messages = MessageStore(self._conn, self._lock)
 
     def close(self) -> None:
         self._conn.close()
@@ -102,6 +103,19 @@ class Store:
             ).fetchone()
         return Conversation.from_row(row) if row else None
 
+    def previous_for_channel(self, agent_id: str, channel: str, before: str) -> Conversation | None:
+        """The conversation this agent held on the channel right before `before`. Ordered
+        by rowid, not `created_at`: two conversations opened in the same millisecond carry
+        the same timestamp, and only insertion order tells them apart."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT * FROM conversations WHERE agent_id = ? AND channel = ?"
+                " AND rowid < (SELECT rowid FROM conversations WHERE id = ?)"
+                " ORDER BY rowid DESC LIMIT 1",
+                (agent_id, channel, before),
+            ).fetchone()
+        return Conversation.from_row(row) if row else None
+
     def set_current_agent(self, channel: str, agent_id: str) -> None:
         self.channels.set_current_agent(channel, agent_id, now_iso())
 
@@ -157,32 +171,8 @@ class Store:
         model: str | None = None,
         cost_usd: float | None = None,
     ) -> StoredMessage:
-        self.get(conv_id)
-        stamp = now_iso()
-        tool_calls = json.dumps([asdict(tc) for tc in message.tool_calls])
-        with self._lock:
-            seq = self._conn.execute(
-                "SELECT COALESCE(MAX(seq), 0) + 1 FROM messages WHERE conversation_id = ?",
-                (conv_id,),
-            ).fetchone()[0]
-            values = [conv_id, seq, message.role, message.content, tool_calls]
-            values += [message.tool_call_id, message.name, provider, model, cost_usd, stamp]
-            cur = self._conn.execute(
-                "INSERT INTO messages (conversation_id, seq, role, content, tool_calls,"
-                " tool_call_id, name, provider, model, cost_usd, created_at)"
-                " VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-                values,
-            )
-            self._conn.execute(
-                "UPDATE conversations SET updated_at = ? WHERE id = ?", (stamp, conv_id)
-            )
-            self._conn.commit()
-            row = self._conn.execute("SELECT * FROM messages WHERE id = ?", (cur.lastrowid,))
-        return StoredMessage.from_row(row.fetchone())
+        self.get(conv_id)  # an unknown conversation must raise before anything is written
+        return self.messages.append(conv_id, message, now_iso(), provider, model, cost_usd)
 
     def history(self, conv_id: str) -> list[StoredMessage]:
-        with self._lock:
-            rows = self._conn.execute(
-                "SELECT * FROM messages WHERE conversation_id = ? ORDER BY seq", (conv_id,)
-            ).fetchall()
-        return [StoredMessage.from_row(r) for r in rows]
+        return self.messages.history(conv_id)

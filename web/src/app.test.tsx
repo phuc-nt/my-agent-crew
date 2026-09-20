@@ -123,6 +123,25 @@ describe("App", () => {
     await waitFor(() => expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Tên mới"));
   });
 
+  it("shows the recap of a conversation and rewrites it on demand", async () => {
+    backend.create({ title: "C", summary: "Bản tóm tắt cũ." });
+    render(<App />);
+    await userEvent.click(await screen.findByRole("button", { name: /^C/ }));
+    expect(screen.getAllByText("Bản tóm tắt cũ.").length).toBeGreaterThan(0);
+
+    await userEvent.click(screen.getByRole("button", { name: vi.resummarize }));
+    expect(await screen.findAllByText(backend.nextSummary)).toHaveLength(2);
+    expect(backend.conversations.get("c1")!.summary).toBe(backend.nextSummary);
+    expect(backend.requests.some((r) => r.method === "POST" && r.path === "/conversations/c1/summary")).toBe(true);
+  });
+
+  it("says a conversation has no recap yet when none was written", async () => {
+    backend.create({ title: "D" });
+    render(<App />);
+    await userEvent.click(await screen.findByRole("button", { name: /^D$/ }));
+    expect(screen.getByText(vi.noSummary)).toBeInTheDocument();
+  });
+
   it("deletes after confirmation and opens the settings drawer without secrets", async () => {
     backend.create({ title: "Xoá tôi" });
     render(<App />);

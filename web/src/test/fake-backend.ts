@@ -81,6 +81,9 @@ export class FakeBackend {
     ],
     agents: [fakeAgent],
   };
+  /** What the next POST /summary writes onto the conversation. */
+  nextSummary = "Bản tóm tắt mới.";
+
   /** Events streamed by the next POST /messages or /approvals call. */
   nextTurn: AgentEvent[] = [];
   requests: { method: string; path: string; body: unknown }[] = [];
@@ -103,10 +106,10 @@ export class FakeBackend {
     if (job && method === "POST") return json({ job_id: decodeURIComponent(job), status: "started" }, 202);
     if (path === "/conversations" && method === "GET") {
       const agentId = url.searchParams.get("agent_id");
-      const all = [...this.conversations.values()].map(summary);
+      const all = [...this.conversations.values()].map(listItem);
       return json(agentId ? all.filter((c) => c.agent_id === agentId) : all);
     }
-    if (path === "/conversations" && method === "POST") return json(summary(this.create(body ?? {})), 201);
+    if (path === "/conversations" && method === "POST") return json(listItem(this.create(body ?? {})), 201);
     if (conv && !this.conversations.has(conv)) return json({ detail: "not found" }, 404);
     if (conv && path.endsWith("/messages") && method === "POST") {
       const c = this.conversations.get(conv)!;
@@ -114,9 +117,14 @@ export class FakeBackend {
       c.messages.push(storedMessage("user", body.text));
       return this.streamTurn();
     }
+    if (conv && path.endsWith("/summary") && method === "POST") {
+      const c = this.conversations.get(conv)!;
+      c.summary = this.nextSummary;
+      return json({ id: conv, summary: c.summary }, 202);
+    }
     if (conv && /\/approvals\//.test(path) && method === "POST") return this.streamTurn();
     if (conv && method === "GET") return json(this.conversations.get(conv));
-    if (conv && method === "PATCH") return json(summary(Object.assign(this.conversations.get(conv)!, body)));
+    if (conv && method === "PATCH") return json(listItem(Object.assign(this.conversations.get(conv)!, body)));
     if (conv && method === "DELETE") {
       this.conversations.delete(conv);
       return new Response(null, { status: 204 });
@@ -140,6 +148,7 @@ export class FakeBackend {
       unknown_cost_calls: 0,
       status: "idle",
       over_budget: false,
+      summary: "",
       messages: [],
       pending_approval: null,
       ...overrides,
@@ -209,7 +218,7 @@ export function storedMessage(role: StoredMessage["role"], content: string, extr
   };
 }
 
-function summary(detail: ConversationDetail): Conversation {
+function listItem(detail: ConversationDetail): Conversation {
   const { messages: _messages, pending_approval: _pending, ...rest } = detail;
   return rest;
 }

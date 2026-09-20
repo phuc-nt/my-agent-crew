@@ -34,6 +34,11 @@ export function ConversationList({ conversations, activeId, onSelect, onCreate, 
                 <span className={`status-dot ${c.status}`} title={c.status} />
                 <span className="conversation-title">{c.title || vi.newConversation}</span>
                 {c.channel && <span className="channel-tag">{vi.channelName(c.channel)}</span>}
+                {c.summary && (
+                  <span className="conversation-summary" title={c.summary}>
+                    {c.summary}
+                  </span>
+                )}
               </button>
               <button
                 type="button"

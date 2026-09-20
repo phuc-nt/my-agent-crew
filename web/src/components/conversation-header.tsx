@@ -10,6 +10,7 @@ interface Props {
   unknownCostCalls: number;
   skills: SkillInfo[];
   onRename: () => void;
+  onSummarize: () => void;
   onToggleAutonomous: (value: boolean) => void;
   onToggleSkill: (name: string, attached: boolean) => void;
   onOpenSettings: () => void;
@@ -29,6 +30,23 @@ export function ConversationHeader(props: Props) {
         </span>
         <button type="button" className="link-button" onClick={props.onRename}>
           {vi.rename}
+        </button>
+      </div>
+      <div className="header-summary">
+        {c.summary ? (
+          <p className="summary-text" title={c.summary}>
+            {c.summary}
+          </p>
+        ) : (
+          <p className="summary-text muted">{vi.noSummary}</p>
+        )}
+        <button
+          type="button"
+          className="link-button"
+          title={vi.resummarizeHint}
+          onClick={props.onSummarize}
+        >
+          {vi.resummarize}
         </button>
       </div>
       <div className="header-controls">

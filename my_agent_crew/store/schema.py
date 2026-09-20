@@ -9,7 +9,8 @@ CREATE TABLE IF NOT EXISTS conversations (
     id TEXT PRIMARY KEY, title TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
     autonomous INTEGER NOT NULL DEFAULT 0, cost_cap_usd REAL NOT NULL, skills TEXT NOT NULL,
     spent_usd REAL NOT NULL DEFAULT 0, unknown_cost_calls INTEGER NOT NULL DEFAULT 0,
-    status TEXT NOT NULL DEFAULT 'idle', agent_id TEXT NOT NULL DEFAULT 'default'
+    status TEXT NOT NULL DEFAULT 'idle', agent_id TEXT NOT NULL DEFAULT 'default',
+    summary TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT, conversation_id TEXT NOT NULL, seq INTEGER NOT NULL,
@@ -37,6 +38,7 @@ CREATE TABLE IF NOT EXISTS channel_state (
 ADDED_COLUMNS = (
     ("conversations", "agent_id", "TEXT NOT NULL DEFAULT 'default'"),
     ("conversations", "channel", "TEXT NOT NULL DEFAULT ''"),
+    ("conversations", "summary", "TEXT NOT NULL DEFAULT ''"),
 )
 
 

@@ -29,6 +29,7 @@ class Conversation:
     status: str
     agent_id: str = "default"
     channel: str = ""  # "" for the web UI, else e.g. "telegram:<chat_id>"
+    summary: str = ""  # short recap written when the next conversation opens
 
     @property
     def over_budget(self) -> bool:
@@ -55,6 +56,7 @@ class Conversation:
             status=row["status"],
             agent_id=row["agent_id"],
             channel=row["channel"],
+            summary=row["summary"],
         )
 
 

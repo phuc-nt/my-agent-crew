@@ -38,6 +38,8 @@ export interface Conversation {
   unknown_cost_calls: number;
   status: ConversationStatus;
   over_budget: boolean;
+  /** Short recap, written when the next conversation opens on the same channel. */
+  summary: string;
 }
 
 export interface Approval {

@@ -103,6 +103,8 @@ export const api = {
     request<Conversation>(`/conversations/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteConversation: (id: string) =>
     request<void>(`/conversations/${id}`, { method: "DELETE" }),
+  summarizeConversation: (id: string) =>
+    request<{ id: string; summary: string }>(`/conversations/${id}/summary`, { method: "POST" }),
   sendMessage: (id: string, text: string, onEvent: (e: AgentEvent) => void, signal?: AbortSignal) =>
     stream(`/conversations/${id}/messages`, { text }, onEvent, signal),
   resolveApproval: (

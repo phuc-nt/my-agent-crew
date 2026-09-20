@@ -130,6 +130,7 @@ def test_agent_id_column_is_added_to_an_older_database(tmp_path: Path):
     conn.close()
     store = Store(path)
     assert store.get("c1").agent_id == "default" and store.get("c1").channel == ""
+    assert store.get("c1").summary == ""
 
 
 def test_conversations_carry_a_channel_and_the_latest_per_channel_is_found(store: Store):
@@ -140,6 +141,25 @@ def test_conversations_carry_a_channel_and_the_latest_per_channel_is_found(store
     assert store.latest_for_channel("coach", "telegram:42").id == second.id
     assert store.latest_for_channel("coach", "telegram:1") is None
     assert store.latest_for_channel("default", "telegram:42") is None
+
+
+def test_a_summary_is_stored_on_the_conversation_it_recaps(store: Store):
+    conv = store.create(agent_id="coach")
+    assert conv.summary == ""
+    updated = store.update(conv.id, summary="Đã đặt lịch chạy bộ.")
+    assert updated.summary == "Đã đặt lịch chạy bộ."
+    assert store.get(conv.id).to_dict()["summary"] == "Đã đặt lịch chạy bộ."
+
+
+def test_the_conversation_before_another_is_found_per_agent_and_channel(store: Store):
+    first = store.create(agent_id="coach", channel="telegram:42")
+    second = store.create(agent_id="coach", channel="telegram:42")
+    third = store.create(agent_id="coach", channel="telegram:42")
+    other_agent = store.create(agent_id="pong", channel="telegram:42")
+    assert store.previous_for_channel("coach", "telegram:42", third.id).id == second.id
+    assert store.previous_for_channel("coach", "telegram:42", second.id).id == first.id
+    assert store.previous_for_channel("coach", "telegram:42", first.id) is None
+    assert store.previous_for_channel("pong", "telegram:42", other_agent.id) is None
 
 
 def test_a_channel_remembers_its_current_agent_across_reopen(tmp_path: Path):

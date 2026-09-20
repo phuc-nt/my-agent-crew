@@ -130,6 +130,7 @@ export function App() {
             unknownCostCalls={state.unknownCostCalls}
             skills={settings?.skills ?? []}
             onRename={rename}
+            onSummarize={() => void list.summarize(active.id)}
             onToggleAutonomous={(value) => void list.patch(active.id, { autonomous: value })}
             onToggleSkill={(name, attached) => {
               const next = attached

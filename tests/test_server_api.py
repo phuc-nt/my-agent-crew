@@ -136,3 +136,31 @@ def test_scripted_tool_round_trip_over_http(deps_factory):
             events = parse_sse("".join(r.iter_text()))
     kinds = [e["type"] for e in events if e["type"] != "text_delta"]
     assert kinds == ["assistant_message", "tool_call", "tool_result", "assistant_message", "done"]
+
+
+def test_a_new_conversation_recaps_the_web_one_it_replaces(client):
+    first = client.post("/api/conversations", json={}).json()
+    with client.stream(
+        "POST", f"/api/conversations/{first['id']}/messages", json={"text": "nhắc tôi chạy bộ"}
+    ) as r:
+        r.read()
+
+    client.post("/api/conversations", json={}).json()
+
+    assert client.get(f"/api/conversations/{first['id']}").json()["summary"] != ""
+
+
+def test_resummarizing_rewrites_the_recap_and_404s_for_an_unknown_conversation(client):
+    conv = client.post("/api/conversations", json={}).json()
+    with client.stream(
+        "POST", f"/api/conversations/{conv['id']}/messages", json={"text": "xin chào"}
+    ) as r:
+        r.read()
+
+    r = client.post(f"/api/conversations/{conv['id']}/summary")
+
+    assert r.status_code == 202
+    body = r.json()
+    assert body["id"] == conv["id"] and body["summary"] != ""
+    assert client.get(f"/api/conversations/{conv['id']}").json()["summary"] == body["summary"]
+    assert client.post("/api/conversations/nope/summary").status_code == 404

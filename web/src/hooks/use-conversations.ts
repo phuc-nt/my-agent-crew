@@ -11,6 +11,7 @@ export interface ConversationsController {
   selectAgent: (id: string | null) => void;
   create: () => Promise<Conversation | null>;
   patch: (id: string, body: ConversationPatch) => Promise<void>;
+  summarize: (id: string) => Promise<void>;
   remove: (id: string) => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -57,6 +58,17 @@ export function useConversations(): ConversationsController {
     setConversations((list) => list.map((c) => (c.id === id ? updated : c)));
   }, []);
 
+  /** Rewrites the recap of a conversation the user is looking at, on demand. */
+  const summarize = useCallback(async (id: string) => {
+    try {
+      const { summary } = await api.summarizeConversation(id);
+      setConversations((list) => list.map((c) => (c.id === id ? { ...c, summary } : c)));
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }, []);
+
   const remove = useCallback(async (id: string) => {
     await api.deleteConversation(id);
     setConversations((list) => list.filter((c) => c.id !== id));
@@ -81,6 +93,7 @@ export function useConversations(): ConversationsController {
     selectAgent,
     create,
     patch,
+    summarize,
     remove,
     refresh,
   };

@@ -41,6 +41,27 @@ def parse_mention(text: str) -> tuple[str | None, str]:
     return match.group(1).lower(), text.strip()[match.end() :].strip()
 
 
+async def route_mention(channel: TelegramChannel, text: str) -> tuple[str | None, str]:
+    """Resolves who a message is for. Returns the agent id and the text left after the
+    mention, or `(None, "")` when the channel already answered: an unknown agent id, or a
+    bare `@id` that only switches. The pick is remembered for the messages that follow."""
+    mention, text = parse_mention(text) if channel.shared else (None, text)
+    if mention is None:
+        return channel.current_agent(), text
+    if mention not in channel.agents:
+        unknown = texts.TELEGRAM_AGENT_UNKNOWN.format(
+            agent_id=mention, agents=channel.agents_text()
+        )
+        await channel.say(unknown)
+        return None, ""
+    channel.remember_agent(mention)
+    if not text:
+        name = channel.agents[mention].agent.name
+        await channel.say(texts.TELEGRAM_AGENT_SWITCHED.format(name=name, agent_id=mention))
+        return None, ""
+    return mention, text
+
+
 async def answer_command(channel: TelegramChannel, agent_id: str, command: str) -> str:
     if command in NEW_CONVERSATION:
         channel.open_conversation(agent_id)

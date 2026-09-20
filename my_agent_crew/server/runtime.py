@@ -21,6 +21,7 @@ from my_agent_crew.config import Route, Settings, ensure_home
 from my_agent_crew.llm.fake import EchoProvider
 from my_agent_crew.llm.openrouter import OpenRouterProvider
 from my_agent_crew.llm.provider import Provider, ProviderChain
+from my_agent_crew.memory.session_summary import schedule_summary
 from my_agent_crew.scheduler import Scheduler
 from my_agent_crew.skills import BUILTIN_DIR, load_skills
 from my_agent_crew.store import Store
@@ -102,6 +103,13 @@ class Runtime:
 
     def __post_init__(self) -> None:
         self.scheduler = Scheduler(self.agents, self.hub, deliver=self.deliver)
+        for channel in self.unique_channels():
+            channel.set_on_replaced(self.summarize_replaced)
+
+    def summarize_replaced(self, deps: AgentDeps, conv_id: str) -> None:
+        """A channel opened a new conversation; recap the one it replaced in the
+        background, held by the scheduler so the task is not collected mid-flight."""
+        schedule_summary(self.scheduler.keep, deps, conv_id)
 
     async def deliver(self, agent_id: str, conv_id: str) -> None:
         """Pushes a conversation's last reply through the agent's channel, if it has one."""

@@ -122,7 +122,7 @@ describe("ConversationList", () => {
   const base = {
     id: "c1", agent_id: "default", channel: "", title: "Web", created_at: "", updated_at: "",
     autonomous: false, cost_cap_usd: 1, skills: [], spent_usd: 0, unknown_cost_calls: 0,
-    status: "idle" as const, over_budget: false,
+    status: "idle" as const, over_budget: false, summary: "",
   };
 
   it("tags conversations that come from a channel and leaves web ones plain", () => {
@@ -137,6 +137,20 @@ describe("ConversationList", () => {
     );
     expect(screen.getAllByText("Telegram")).toHaveLength(1);
     expect(screen.getByText("Web").parentElement?.querySelector(".channel-tag")).toBeNull();
+  });
+
+  it("shows the recap under a conversation that has one and nothing under one that does not", () => {
+    render(
+      <ConversationList
+        conversations={[{ ...base, summary: "Đã dựng xong bản nháp." }, { ...base, id: "c2", title: "Trống" }]}
+        activeId="c1"
+        onSelect={() => {}}
+        onCreate={() => {}}
+        onDelete={() => {}}
+      />,
+    );
+    expect(screen.getByText("Đã dựng xong bản nháp.")).toBeInTheDocument();
+    expect(screen.getByText("Trống").parentElement?.querySelector(".conversation-summary")).toBeNull();
   });
 });
 

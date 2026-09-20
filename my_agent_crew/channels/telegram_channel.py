@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import AsyncIterator, Mapping
+from collections.abc import AsyncIterator, Callable, Mapping
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -25,7 +25,7 @@ from my_agent_crew.channels.telegram_commands import (
     MENU,
     answer_command,
     parse_command,
-    parse_mention,
+    route_mention,
 )
 from my_agent_crew.channels.telegram_offset import read_offset, write_offset
 from my_agent_crew.channels.telegram_outbound import TelegramOutbound
@@ -54,6 +54,7 @@ class TelegramChannel:
         self.chat_id = chat_id
         self._offset_path = offset_path
         self._clock = clock
+        self._on_replaced: Callable[[AgentDeps, str], None] | None = None
         self._outbound = {
             agent_id: TelegramOutbound(deps, api, chat_id, prefix=self._prefix(deps))
             for agent_id, deps in self.agents.items()
@@ -61,6 +62,11 @@ class TelegramChannel:
         self._offset = read_offset(offset_path)
         self._menu_registered = False
         self._task: asyncio.Task[None] | None = None
+
+    def set_on_replaced(self, callback: Callable[[AgentDeps, str], None]) -> None:
+        """Hands a replaced conversation to the runtime to summarise. Set after
+        construction: the scheduler holding that task is built after the channels."""
+        self._on_replaced = callback
 
     @property
     def shared(self) -> bool:
@@ -134,20 +140,9 @@ class TelegramChannel:
             logger.info("telegram %s: ignored update from chat %s", self.label, chat_id)
             return
         logger.info("telegram %s: message of %d chars", self.label, len(text))
-        mention, text = parse_mention(text) if self.shared else (None, text)
-        if mention is not None and mention not in self.agents:
-            unknown = texts.TELEGRAM_AGENT_UNKNOWN.format(
-                agent_id=mention, agents=self.agents_text()
-            )
-            await self.say(unknown)
+        agent_id, text = await route_mention(self, text)
+        if agent_id is None:
             return
-        agent_id = mention or self.current_agent()
-        if mention is not None:
-            self.store.set_current_agent(conversations.channel_key(self.chat_id), agent_id)
-            if not text:
-                name = self.agents[agent_id].agent.name
-                await self.say(texts.TELEGRAM_AGENT_SWITCHED.format(name=name, agent_id=agent_id))
-                return
         command = parse_command(text)
         if command in CHANNEL_COMMANDS:
             await self.say(await answer_command(self, agent_id, command))
@@ -171,16 +166,20 @@ class TelegramChannel:
     def current_agent(self) -> str:
         return conversations.current_agent(self.store, self.agents, self.chat_id)
 
+    def remember_agent(self, agent_id: str) -> None:
+        """The agent an `@id` picked, for the messages that follow it."""
+        self.store.set_current_agent(conversations.channel_key(self.chat_id), agent_id)
+
     def agents_text(self) -> str:
         return conversations.agents_text(self.agents, self.current_agent())
 
     def conversation(self, agent_id: str | None = None) -> Conversation:
         deps = self.agents[agent_id or self.current_agent()]
-        return conversations.today_conversation(deps, self.chat_id, self._clock)
+        return conversations.today_conversation(deps, self.chat_id, self._clock, self._on_replaced)
 
     def open_conversation(self, agent_id: str | None = None) -> Conversation:
         deps = self.agents[agent_id or self.current_agent()]
-        return conversations.open_conversation(deps, self.chat_id, self._clock)
+        return conversations.open_conversation(deps, self.chat_id, self._clock, self._on_replaced)
 
     async def turn(self, agent_id: str, conv: Conversation, events: AsyncIterator[Event]) -> str:
         outbound = self._outbound[agent_id]

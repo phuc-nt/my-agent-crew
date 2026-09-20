@@ -324,3 +324,45 @@ async def test_deliver_reports_a_run_that_stopped_without_a_reply(make_channel, 
     assert store.runs.latest_for_conversation(conv.id).id == "r2"
     assert await channel.deliver(conv.id) is True
     assert fake.sent == [texts.TELEGRAM_RUN_UNFINISHED.format(reason="max_steps")]
+
+
+async def test_opening_a_new_conversation_hands_the_replaced_one_to_the_runtime(make_channel, fake):
+    channel = make_channel()
+    replaced: list[str] = []
+    channel.set_on_replaced(lambda deps, conv_id: replaced.append(conv_id))
+    fake.updates = [message(1, "xin chào")]
+    await channel.poll_once()
+    first = channel.conversation()
+
+    fake.updates = [message(2, "/new")]
+    await channel.poll_once()
+
+    assert replaced == [first.id]
+    assert channel.conversation().id != first.id
+
+
+async def test_the_first_conversation_on_a_channel_replaces_nothing(make_channel, fake):
+    channel = make_channel()
+    replaced: list[str] = []
+    channel.set_on_replaced(lambda deps, conv_id: replaced.append(conv_id))
+    fake.updates = [message(1, "/new")]
+
+    await channel.poll_once()
+
+    assert replaced == []
+
+
+async def test_a_new_day_replaces_yesterdays_conversation(make_channel, fake):
+    clock = [datetime.now()]
+    channel = make_channel(clock=lambda: clock[0])
+    replaced: list[str] = []
+    channel.set_on_replaced(lambda deps, conv_id: replaced.append(conv_id))
+    fake.updates = [message(1, "xin chào")]
+    await channel.poll_once()
+    yesterday = channel.conversation()
+
+    clock[0] += timedelta(days=1)
+    fake.updates = [message(2, "chào buổi sáng")]
+    await channel.poll_once()
+
+    assert replaced == [yesterday.id] and channel.conversation().id != yesterday.id
