@@ -25,6 +25,11 @@ from my_agent_crew.tools.workspace_search import build_search_tools
 logger = logging.getLogger(__name__)
 
 
+# Real tools that are only built when their key is configured. Listing one is a choice
+# about the agent's role, not a mistake, so an unkeyed machine stays quiet about it.
+OPTIONAL_TOOLS = frozenset({"web_search"})
+
+
 def allowed(tools: Sequence[Tool], names: Sequence[str], agent_id: str) -> list[Tool]:
     """An empty allow-list means every tool. A name nobody built is a warning, not an
     error: a profile that lists a tool from a newer version should still start."""
@@ -32,7 +37,7 @@ def allowed(tools: Sequence[Tool], names: Sequence[str], agent_id: str) -> list[
         return list(tools)
     wanted = set(names)
     kept = [tool for tool in tools if tool.name in wanted]
-    for missing in sorted(wanted - {tool.name for tool in kept}):
+    for missing in sorted(wanted - {tool.name for tool in kept} - OPTIONAL_TOOLS):
         logger.warning("agent %s: tools lists unknown tool %s", agent_id, missing)
     return kept
 

@@ -1,0 +1,12 @@
+name: Git
+description: Xem diff rồi stage và commit theo conventional commits — không đụng lịch sử.
+mode: work
+# Only the shell: everything this role does is a git command.
+tools:
+  - shell_run
+workspace: .
+# A cheap model is enough for reading a diff and naming it.
+routes: []
+# The crew shares one set of skills, installed once at the top of the home directory.
+skills_dirs:
+  - ../../skills

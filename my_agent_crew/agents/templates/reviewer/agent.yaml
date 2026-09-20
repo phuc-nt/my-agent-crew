@@ -1,0 +1,19 @@
+name: Reviewer
+description: Đọc diff, chạy lint và test, xếp hạng vấn đề — chỉ viết báo cáo, không sửa mã.
+mode: work
+# No `workspace_edit`: a reviewer that can edit stops reviewing and starts rewriting.
+# `workspace_write` is here for the report alone; where it may write is a rule in the
+# persona, not a mechanism.
+tools:
+  - workspace_list
+  - workspace_read
+  - workspace_grep
+  - workspace_glob
+  - workspace_write
+  - shell_run
+  - skill_read
+workspace: .
+routes: []
+# The crew shares one set of skills, installed once at the top of the home directory.
+skills_dirs:
+  - ../../skills

@@ -1,0 +1,18 @@
+name: Tester
+description: Chọn test theo diff, viết test còn thiếu, chạy suite và báo pass/fail.
+mode: work
+# Writes tests, never source: which paths that means is a rule in the persona.
+tools:
+  - workspace_list
+  - workspace_read
+  - workspace_grep
+  - workspace_glob
+  - workspace_edit
+  - workspace_write
+  - shell_run
+  - skill_read
+workspace: .
+routes: []
+# The crew shares one set of skills, installed once at the top of the home directory.
+skills_dirs:
+  - ../../skills

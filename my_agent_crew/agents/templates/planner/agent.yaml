@@ -1,0 +1,16 @@
+name: Planner
+description: "Đọc mã rồi viết plan theo phase, dẫn chứng file:line — không viết mã."
+mode: work
+# No shell and no edit: planning that can run things turns into doing things.
+tools:
+  - workspace_list
+  - workspace_read
+  - workspace_grep
+  - workspace_glob
+  - workspace_write
+  - skill_read
+workspace: .
+routes: []
+# The crew shares one set of skills, installed once at the top of the home directory.
+skills_dirs:
+  - ../../skills

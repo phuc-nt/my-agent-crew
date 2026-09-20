@@ -1,0 +1,15 @@
+name: Researcher
+description: Tra cứu bên ngoài, đối chiếu nguồn, trả ma trận đánh đổi kèm URL.
+mode: assistant
+# Assistant mode: this role reads the web and writes a report, it never touches the repo.
+tools:
+  - web_search
+  - fetch_url
+  - workspace_read
+  - workspace_write
+  - skill_read
+workspace: .
+routes: []
+# The crew shares one set of skills, installed once at the top of the home directory.
+skills_dirs:
+  - ../../skills

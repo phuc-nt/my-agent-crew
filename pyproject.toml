@@ -25,6 +25,12 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["my_agent_crew"]
+# Skills and agent templates are markdown and yaml, not modules, so they have to be named
+# or a wheel build would quietly ship a package that cannot add an agent.
+artifacts = [
+    "my_agent_crew/skills/builtin/**",
+    "my_agent_crew/agents/templates/**",
+]
 
 [tool.ruff]
 line-length = 100

@@ -7,9 +7,17 @@ from typing import Any
 
 from fastapi import APIRouter
 
+from my_agent_crew.agents.templates_cli import list_templates
 from my_agent_crew.server.deps import Rt
 
 router = APIRouter(tags=["settings"])
+
+
+@router.get("/templates")
+def get_templates() -> list[dict[str, Any]]:
+    """The bundled agent templates. Read-only: installing one writes to the home directory
+    and needs a restart, so it stays a command rather than a button."""
+    return [t.to_dict() for t in list_templates()]
 
 
 @router.get("/settings")

@@ -124,6 +124,18 @@ export interface RouteInfo {
   model: string;
 }
 
+/** A bundled agent profile. Read-only here: installing one is a command, not a button,
+ *  because it writes to the home directory and the new agent is only read at startup. */
+export interface TemplateInfo {
+  id: string;
+  name: string;
+  description: string;
+  mode: string;
+  /** Empty means no allow-list: the role keeps every tool its mode grants. */
+  tools: string[];
+  delegates: string[];
+}
+
 /** What running a schedule does: ask the agent, run a shell command, or rewrite memory. */
 export type JobKind = "prompt" | "command" | "consolidate";
 

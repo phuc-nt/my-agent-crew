@@ -1,0 +1,17 @@
+name: Debugger
+description: Tìm nguyên nhân gốc bằng bằng chứng, loại trừ giả thuyết, sửa tối thiểu.
+mode: work
+# No `workspace_write`: a fix for a diagnosed bug is an edit to a file that exists.
+tools:
+  - workspace_list
+  - workspace_read
+  - workspace_grep
+  - workspace_glob
+  - workspace_edit
+  - shell_run
+  - skill_read
+workspace: .
+routes: []
+# The crew shares one set of skills, installed once at the top of the home directory.
+skills_dirs:
+  - ../../skills

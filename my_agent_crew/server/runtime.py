@@ -105,10 +105,15 @@ class Runtime:
 
     def wire_delegation(self) -> None:
         """Work agents get `delegate` once every agent exists — the tool holds the runtime,
-        so it cannot be built during assembly, when the runtime is still being made."""
+        so it cannot be built during assembly, when the runtime is still being made. A
+        profile that lists its tools is capping what it gets, and that cap covers this one
+        too, so a specialist stays a specialist instead of quietly becoming a lead."""
         for deps in self.agents.values():
-            if deps.agent.is_work and deps.tools.get(DELEGATE_TOOL_NAME) is None:
-                deps.tools.register(build_delegate_tool(self, deps.agent))
+            if not deps.agent.is_work or deps.tools.get(DELEGATE_TOOL_NAME) is not None:
+                continue
+            if deps.agent.tools and DELEGATE_TOOL_NAME not in deps.agent.tools:
+                continue
+            deps.tools.register(build_delegate_tool(self, deps.agent))
 
     def deps_for_conversation(self, conv_id: str) -> AgentDeps:
         """Raises KeyError for an unknown conversation; a conversation whose agent profile

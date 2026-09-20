@@ -64,6 +64,10 @@ needs. The parent's own context grows by one tool result instead of by the whole
 Several `delegate` calls in one assistant message run at the same time; every other tool
 still runs one at a time, because the rest of them touch the workspace and would race.
 
+Every `mode: work` agent gets `delegate` unless it states a `tools` allow-list that leaves
+it out. An allow-list caps what the agent gets, and that cap covers this tool too, so a
+specialist stays a specialist rather than quietly becoming a lead.
+
 Depth stops at one. A delegated agent is handed its toolbox without `delegate` in it, and
 the tool refuses to run when the turn it is in is already a delegated one — two guards,
 because a fan-out that gets loose spends real money. The child inherits the parent's

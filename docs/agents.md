@@ -94,6 +94,45 @@ pointed at a repository. It adds `workspace_edit`, `workspace_grep` and `workspa
 Anything the profile states itself still wins, so `mode: work` with `autonomous: false`
 is a work agent that asks. These are defaults, not a locked bundle.
 
+## Templates
+
+Nine profiles ship with the package so a working crew is a copy rather than nine files
+written by hand. A template is plain data — an `agent.yaml` and the persona files beside
+it — so anything it can express, a hand-written profile can too.
+
+```bash
+python -m my_agent_crew agent list-templates        # id, mode and description of each
+python -m my_agent_crew agent add dev               # the lead and the eight peers it names
+python -m my_agent_crew agent add coder --id backend  # same template under a different id
+```
+
+Adding a template brings the peers it delegates to, because the server refuses to start
+when a `delegates` entry names an agent that is not there — so `agent add dev` gives a
+whole crew in one command, while `agent add scout` gives one agent. A peer that already
+exists is left as it is.
+
+| id | mode | What it is for |
+|---|---|---|
+| `dev` | work | the lead: no tool allow-list, delegates to the other eight |
+| `scout` | work | finds the files and regions that matter; read-only, no shell |
+| `planner` | work | reads code and writes a plan; no shell, so planning cannot become doing |
+| `coder` | work | writes and edits code, runs the commands it needs |
+| `reviewer` | work | reads a diff and reports; no `workspace_edit`, so it cannot fix what it flags |
+| `tester` | work | writes and runs tests |
+| `debugger` | work | reproduces and diagnoses; edits but does not write new files |
+| `git` | work | `shell_run` alone: stage and commit, never rewrite history |
+| `researcher` | assistant | reads the web and writes a report; never touches the repo |
+
+Each manifest points `skills_dirs` at `../../skills`, so the six shared skills are
+installed once at the top of the home directory and every role reads the same copy.
+Adding a template twice refuses rather than overwriting, since by then the profile may be
+your edit and not ours; `--force` says you meant it. The new agent is read at startup, so
+the server has to be restarted before it appears.
+
+The allow-list in a template is the point of the role, and it caps `delegate` as well: a
+work agent that names its tools without naming `delegate` cannot hand work on, which is
+what stops a crew from growing a second layer behind the lead's back.
+
 ## The default agent
 
 The `default` agent always exists and is the top-level settings: dir = `MY_AGENT_HOME`,

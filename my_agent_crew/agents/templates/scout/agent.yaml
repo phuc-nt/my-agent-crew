@@ -1,0 +1,15 @@
+name: Scout
+description: Dò tìm tệp và vùng mã liên quan, trả về danh sách có mô tả — không sửa gì.
+mode: work
+# Read-only on purpose: a scout that can edit is a scout that starts fixing things.
+tools:
+  - workspace_list
+  - workspace_read
+  - workspace_grep
+  - workspace_glob
+workspace: .
+# A cheap, fast model is enough for grep-and-summarise work.
+routes: []
+# The crew shares one set of skills, installed once at the top of the home directory.
+skills_dirs:
+  - ../../skills

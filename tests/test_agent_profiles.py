@@ -177,3 +177,44 @@ def test_delegating_to_an_agent_that_does_not_exist_fails_at_startup(
     check_delegates([lead, coder])
     with pytest.raises(ValueError, match="coder"):
         check_delegates([lead])
+
+
+def test_an_allow_list_that_omits_delegate_keeps_a_work_agent_from_delegating(tmp_path: Path):
+    """A specialist that names its tools has capped itself; handing it `delegate` anyway
+    would let it start its own crew behind the lead's back."""
+    import yaml
+
+    from my_agent_crew.config import load_settings
+    from my_agent_crew.server import build_runtime
+
+    wanted = {
+        "capped": {"mode": "work", "tools": ["shell_run"]},
+        "asked": {"mode": "work", "tools": ["shell_run", "delegate"]},
+        "open_ended": {"mode": "work"},
+    }
+    for agent_id, raw in wanted.items():
+        directory = tmp_path / "agents" / agent_id
+        directory.mkdir(parents=True)
+        (directory / "agent.yaml").write_text(yaml.safe_dump(raw), encoding="utf-8")
+
+    runtime = build_runtime(
+        load_settings(env={"MY_AGENT_HOME": str(tmp_path), "MY_AGENT_ROUTES": "fake:echo"})
+    )
+    names = {a: set(runtime.deps_for(a).tools.names()) for a in wanted}
+
+    assert "delegate" not in names["capped"]
+    assert "delegate" in names["asked"] and "delegate" in names["open_ended"]
+
+
+def test_a_tool_that_needs_a_key_is_not_reported_as_an_unknown_name(caplog):
+    """`web_search` exists but is only built when a search key is set. A profile that
+    names it is making a choice about the role, so an unkeyed machine stays quiet."""
+    from my_agent_crew.server.tool_assembly import allowed
+
+    with caplog.at_level("WARNING"):
+        assert allowed([], ["web_search"], "researcher") == []
+    assert not caplog.records
+
+    with caplog.at_level("WARNING"):
+        assert allowed([], ["typo_tool"], "researcher") == []
+    assert "typo_tool" in caplog.text

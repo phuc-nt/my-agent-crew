@@ -1,0 +1,19 @@
+name: Dev
+description: Nhận một việc, khảo sát, lập plan, giao từng phần cho đội rồi ghép lại.
+mode: work
+# No `tools` key: the lead keeps everything its mode brings, `delegate` included.
+delegates:
+  - scout
+  - planner
+  - coder
+  - reviewer
+  - tester
+  - debugger
+  - researcher
+  - git
+workspace: .
+# A capable model earns its keep here: this one decides what the others are asked.
+routes: []
+# The crew shares one set of skills, installed once at the top of the home directory.
+skills_dirs:
+  - ../../skills
