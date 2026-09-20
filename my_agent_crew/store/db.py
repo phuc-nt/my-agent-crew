@@ -118,6 +118,25 @@ class Store:
             ).fetchone()
         return Conversation.from_row(row) if row else None
 
+    def recent_messages_on_channel(
+        self, channel: str, day: str, exclude_agent_id: str, limit: int = 10
+    ) -> list[tuple[str, str, str]]:
+        """What the other agents said on this channel today, as `(agent_id, role, text)`.
+
+        Oldest first, so it reads as a conversation. Tool traffic is left out: another
+        agent's tool calls say nothing a reader of the chat would have seen.
+        """
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT c.agent_id, m.role, m.content FROM messages m"
+                " JOIN conversations c ON c.id = m.conversation_id"
+                " WHERE c.channel = ? AND c.agent_id != ? AND m.created_at >= ?"
+                " AND m.role IN ('user', 'assistant') AND m.content != ''"
+                " ORDER BY m.id DESC LIMIT ?",
+                (channel, exclude_agent_id, day, limit),
+            ).fetchall()
+        return [(r["agent_id"], r["role"], r["content"]) for r in reversed(rows)]
+
     def set_current_agent(self, channel: str, agent_id: str) -> None:
         self.channels.set_current_agent(channel, agent_id, now_iso())
 

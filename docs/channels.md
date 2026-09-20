@@ -40,8 +40,13 @@ On a shared bot:
   Both are answered by the bot itself, without a prefix. The other commands apply to the
   mentioned or current agent: `@coach /new` opens a new conversation for the coach.
 - Each agent keeps **its own per-day conversation** on the chat, so histories do not mix.
+- **Each agent reads the last 10 lines the others exchanged in the chat today**, as a
+  read-only prompt section, so asking the coach about what Pong was just told does not
+  draw a blank. It is context, not history: the agent cannot reply into it and nothing is
+  written back. See [memory.md](memory.md).
 
-With a single agent on the bot none of this applies: no mention parsing, no prefix.
+With a single agent on the bot none of this applies: no mention parsing, no prefix, and
+nothing shared — a private bot has only one agent to read.
 
 ## Conversations
 
@@ -51,6 +56,11 @@ Each text message becomes a turn of the agent's conversation for today on the ch
 reply is every assistant text of the turn joined in order, including text written next to
 a tool call, plus halt, error and approval notices. Replies go out as plain text in
 4 096-char chunks; a `MEDIA:<path>` line becomes `sendPhoto` from the agent workspace.
+
+A new conversation does not start blank: the summary of that agent's previous conversation
+on the same channel is carried into the prompt as a **Cuộc trước** section
+(`previous_for_channel`), so `/new` and the first message of a new day pick up where the
+last one left off without replaying its messages.
 
 ## Commands
 

@@ -30,6 +30,7 @@ MEMORY_SEARCH_DESCRIPTION = (
 )
 
 PREVIOUS_SUMMARY_SECTION_TITLE = "Cuộc trước"
+SHARED_CHAT_SECTION_TITLE = "Trong chat này hôm nay, agent khác đã nói"
 SUMMARY_PROMPT = (
     "Tóm tắt cuộc trò chuyện dưới đây trong tối đa 3 câu tiếng Việt, dưới 600 ký tự. "
     "Giữ lại việc người dùng nhờ làm, kết quả, và điều cần nhớ cho lần sau. "

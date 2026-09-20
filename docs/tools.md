@@ -62,6 +62,10 @@ Names are slugs (`a-z`, `0-9`, `-`, up to 60 characters); saving the same name a
 updates that fact rather than adding a second one. `type` is one of `profile`,
 `preference`, `feedback`, `project`, `reference`.
 
+The per-agent side has no forget tool to match: `MEMORY.md` is rewritten deliberately, by
+the person or by the consolidation job in [memory.md](memory.md), never dropped a line at
+a time by a tool call.
+
 ### Web tools
 
 `fetch_url` resolves the host first and refuses private, loopback, link-local, reserved

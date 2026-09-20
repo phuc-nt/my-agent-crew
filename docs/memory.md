@@ -88,6 +88,35 @@ Deciding the same proposal twice is a conflict, not a fresh write, so a double c
 cannot apply it again. `GET /api/stats` carries `pending_proposals` so the web UI can
 badge the tab. Source: `store/memory_proposals.py`, `memory/proposals_apply.py`.
 
+## Consolidation
+
+Memory only grows: every turn can append, nothing removes, so `MEMORY.md` drifts towards a
+long list of things that were true once. Consolidation asks the model to rewrite the file
+from the recent daily notes — keep what still holds, merge repeats, drop what mattered for
+a day — and **proposes** the result rather than writing it, because a rewrite can lose
+something and nobody watches a scheduled job. The proposal carries `previous_body`, the
+text it replaces, so one step back is always possible from the history list.
+
+An agent opts in with a `memory_consolidate` cron in its profile, which becomes an
+ordinary schedule (kind `consolidate`) next to its prompt and command jobs. It reads up to
+7 days of notes (`MAX_NOTES`) within a 40 000-character budget, newest first, and does
+nothing at all when no note is newer than `MEMORY.md`. An agent marked `autonomous` applies
+the rewrite immediately; everyone else sees it in **Ghi nhớ → Đề xuất**. The run appears in
+Activity with its cost, and a failed rewrite leaves the file exactly as it was. Source:
+`memory/consolidate.py`, `scheduler/jobs.py`.
+
+## What one agent sees of another
+
+On a shared Telegram bot several agents answer in one thread, so a person can tell Pong
+something and then ask the coach about it. Each agent still holds its own conversation, so
+the coach would otherwise see none of that. Before a turn on a channel, the last 10 lines
+the *other* agents exchanged in that chat **today** are lifted into the prompt as a
+read-only section, one line each as `[Tên agent] role: text`, cut to 300 characters a line
+and 4 000 in total. Tool traffic is left out — it is not something a reader of the chat
+would have seen — and the agent's own lines are not repeated, since they are already in
+its history. A private channel has one agent and the web has no channel, so neither gets
+the section. Source: `memory/shared_chat.py`.
+
 ## Over HTTP and in the web UI
 
 Everything the agent sees in its prompt is editable by the person, so they are never
@@ -103,10 +132,13 @@ scope, search, proposals) and `server/routes_memory_agent.py` (one agent's files
 | `GET /api/memory/search?q=&agent_id=` | hits across both scopes, each labelled with the scope it came from |
 | `GET /api/memory/proposals?status=` | pending by default; `status=all` includes decided ones |
 | `POST /api/memory/proposals/{id}` | `{approve: bool}`; deciding twice is a 409 |
+| `POST /api/agents/{id}/memory/consolidate` | starts a rewrite and answers 202; 409 while one is already running for that agent |
 
 The **Ghi nhớ** tab in the activity rail is these endpoints: edit `USER.md`, add or forget
 facts, edit each agent's `MEMORY.md` and notes, search every scope, and approve or reject
-what a job proposed — an `agent_memory` proposal shows which lines it would add.
+what a job proposed — an `agent_memory` proposal shows which lines it would add, and a
+rewrite is shown against the text it replaces with an **Hoàn tác** button in the history.
+**Cô đọng ngay** asks for a rewrite without waiting for the cron.
 
 ## Compared with openclaw
 
@@ -114,9 +146,10 @@ The file names and roles match openclaw's workspace memory (`MEMORY.md`,
 `memory/YYYY-MM-DD.md`) so an existing workspace can be reused. openclaw adds a vector
 index and a `memory_search` with semantic ranking; here search is a plain grep, ordered by
 file recency, which is enough for a single user's notes and keeps the result explainable.
-There is no automatic summarisation or pruning: when `MEMORY.md` nears the 24 000-char
-cap, the agent (or the user) rewrites it. The shared user scope has no openclaw
-equivalent: openclaw keeps one workspace per agent, so a fact about the person learned by
-one agent stays there. Tests: `test_tools_memory.py`, `test_tools_memory_user.py`,
+Pruning here is the consolidation job above, which openclaw has no equivalent of: it
+proposes a rewrite on a schedule and keeps what it replaced. The shared user scope has no
+openclaw equivalent either: openclaw keeps one workspace per agent, so a fact about the
+person learned by one agent stays there. Tests: `test_tools_memory.py`, `test_tools_memory_user.py`,
 `test_agent_context.py`, `test_memory_user_store.py`, `test_memory_agent_store.py`,
-`test_memory_proposals_apply.py`, `test_server_memory_api.py`.
+`test_memory_proposals_apply.py`, `test_server_memory_api.py`,
+`test_memory_consolidate.py`, `test_memory_shared_chat.py`.

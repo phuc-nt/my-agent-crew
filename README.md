@@ -68,6 +68,7 @@ schedules:
     name: Sao lưu Drive
     cron: "20 2 * * *"
     command: ./scripts/backup-to-drive.sh
+memory_consolidate: "30 3 * * 1"            # mỗi thứ Hai, viết lại MEMORY.md từ nhật ký
 ```
 
 Job `prompt` mở một cuộc trò chuyện mới và chạy như người dùng nhắn; job `command` chỉ chạy shell.
@@ -79,6 +80,21 @@ dòng `MEDIA:` thành ảnh. Lệnh gạch chéo (`/new`, `/help`, `/status`, `/
 **Nhiều agent chung một bot:** các agent khai cùng `token_env` (và cùng `chat_id`) dùng chung
 một bot. Gõ `@pong …` để nói với Pong, `@health-coach …` để đổi sang HLV; lựa chọn được nhớ cho
 các tin sau, `/agents` liệt kê agent đang có, mỗi câu trả lời mở đầu bằng `[Tên agent]`.
+Mỗi agent còn đọc được 10 dòng gần nhất mà các agent khác trao đổi trong chat đó hôm nay,
+nên hỏi HLV về việc vừa nói với Pong không bị hỏi lại từ đầu.
+
+## Trí nhớ
+
+Trí nhớ là Markdown trên đĩa, chia hai phạm vi: **chung về bạn** (`users/owner/USER.md` cùng
+các tệp sự kiện trong `facts/`) — mọi agent đều đọc, nên nói với một agent là cả đội biết — và
+**riêng của từng agent** (`MEMORY.md` + nhật ký `memory/YYYY-MM-DD.md`) cho việc nó tự làm.
+
+Lượt có bạn ở đó thì ghi ngay; job chạy một mình thì đề nghị ghi và chờ duyệt. Khai
+`memory_consolidate` để agent định kỳ viết lại `MEMORY.md` từ nhật ký gần đây — cũng là một đề
+xuất, giữ nguyên bản cũ để **Hoàn tác** một bước. Tab **Ghi nhớ** trong web UI sửa được tất cả:
+`USER.md`, sự kiện, `MEMORY.md`, nhật ký từng ngày, tìm kiếm cả hai phạm vi, duyệt hoặc từ chối
+**Đề xuất**, và bấm *Cô đọng ngay* khi không muốn chờ lịch. Chi tiết:
+[docs/memory.md](docs/memory.md).
 
 Chi tiết cấu hình agent, công cụ, trí nhớ và kênh: [docs/agents.md](docs/agents.md),
 [docs/tools.md](docs/tools.md), [docs/memory.md](docs/memory.md),

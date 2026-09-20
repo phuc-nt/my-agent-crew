@@ -23,6 +23,13 @@ Guard tests: `tests/test_file_size_budget.py` (≤200 lines), `tests/test_static
 | Workspace tools refuse `..` escapes, follow symlinks inside | `test_tools_workspace.py` | — | — |
 | Web tools refuse private/loopback hosts; search only with a key | `test_tools_web.py`, `test_app_wiring.py` | — | — |
 | Memory save/search | `test_tools_memory.py` | — | — |
+| Shared user scope: `USER.md`, one file per fact, slug + type validation, regenerated `INDEX.md` | `test_memory_user_store.py`, `test_tools_memory_user.py` | — | — |
+| An agent's own `MEMORY.md` and dated notes: append, rewrite, list, read | `test_memory_agent_store.py` | — | — |
+| A job's shared write becomes a proposal; approve applies it, reject leaves nothing, deciding twice is a 409 | `test_memory_proposals_apply.py`, `test_server_memory_api.py` | `memory-panel.test.tsx` | — |
+| Consolidation: nothing newer than `MEMORY.md` never calls the model, a rewrite waits for approval, autonomous applies at once, an unchanged or empty rewrite is no proposal, a provider failure writes nothing, note budget and newest-first selection | `test_memory_consolidate.py` | — | — |
+| Consolidate as a job and over HTTP: `memory_consolidate` cron becomes a `consolidate` job with no conversation, 202 to start, 409 while one runs, 404 for an unknown agent | `test_scheduler.py`, `test_server_memory_api.py` | `memory-panel.test.tsx` (button, busy notice, undo a rewrite) | — |
+| Previous conversation's summary carried into a new one on the same channel | `test_memory_session_summary.py` | — | — |
+| Shared chat context: only other agents, only today, only this channel, last 10 lines, long lines cut, tool traffic excluded, unknown agent keeps its id | `test_memory_shared_chat.py`, `test_store.py`, `test_agent_loop.py`, `test_channels_telegram_shared.py` | — | — |
 | Shell tool: cwd, env allow-list, timeout, exit code, approval | `test_tools_shell.py` | — | — |
 | Store ordering, budgets, approvals, agent filter, runs round-trip | `test_store.py` | — | — |
 | Skills loading (builtin + home + `skills_dirs`, `SKILL.md` folders), `always` | `test_skills.py` | — | `settings drawer` (shown) |
@@ -32,7 +39,7 @@ Guard tests: `tests/test_file_size_budget.py` (≤200 lines), `tests/test_static
 | Approval pause / approve / deny / autonomous bypass | `test_agent_approval.py`, `test_server_api.py` | reducer, `ApprovalBar`, App approval flow | `approval bar pauses…` |
 | Crash-resume from unfinished tool calls | `test_agent_resume.py` | — | — |
 | Activity hub: run lifecycle, steps, spend, interrupted on restart, SSE fan-out | `test_activity.py` | `activity-reducer.test.ts` | — |
-| Scheduler: cron/every parsing, due detection, prompt vs command jobs, run-now, delivery hook | `test_scheduler.py` | — | — |
+| Scheduler: cron/every parsing, due detection, prompt vs command vs consolidate jobs, run-now, delivery hook | `test_scheduler.py` | `activity-cards.test.tsx` (job kind label) | `jobs tab…` |
 | Telegram channel: inbound → tracked turn, chat filter, per-day conversation, slash commands (`/new`, `/reset`, `/help`, `/status`, `/tools`, `/approve`, `/deny`, unknown, path is not a command), menu registered once at start, text next to a tool call kept, error/approval notices, typing indicator kept alive and tolerant of API errors, `deliver` joins the last turn's texts with `MEDIA:` photos or reports a run that stopped without a reply, token redaction, 409 | `test_channels_telegram.py` | — | — |
 | Shared Telegram bot: `@id` mention parsing, routing + sticky current agent, bare mention switch, unknown mention, `/help` + `/agents` unprefixed, agent commands on the mentioned agent, `deliver` prefix + stranger agent, `build_channels` grouping by `token_env` with shared offset seeding, differing `chat_id` rejected, menu registered once per shared channel | `test_channels_telegram_shared.py` | — | — |
 | `channel_state` table remembers the current agent per channel across reopen | `test_store.py` | — | — |

@@ -4,6 +4,7 @@ an edit on disk takes effect on the next message, no restart."""
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -54,8 +55,13 @@ def bootstrap_sections(
     profile: AgentProfile,
     today: date | None = None,
     previous_summary: str = "",
+    extra_sections: Sequence[tuple[str, str]] = (),
 ) -> list[tuple[str, str]]:
-    """(title, body) pairs in the order they enter the system prompt."""
+    """(title, body) pairs in the order they enter the system prompt.
+
+    `extra_sections` are context the caller assembled for this turn alone; they sit after
+    what the agent carries between turns and before today's notes.
+    """
     today = today or date.today()
     sections: list[tuple[str, str]] = []
     for name in profile.persona_files:
@@ -68,6 +74,7 @@ def bootstrap_sections(
         sections.append(("MEMORY.md", memory))
     if previous_summary.strip():
         sections.append((PREVIOUS_SUMMARY_SECTION_TITLE, previous_summary.strip()))
+    sections.extend(extra_sections)
     for day in (today - timedelta(days=1), today):
         path = daily_note_path(profile.memory_dir, day)
         body = _read_capped(path)

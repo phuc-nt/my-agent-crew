@@ -4,6 +4,7 @@ poller for the whole group."""
 
 import asyncio
 from dataclasses import replace
+from datetime import date
 from pathlib import Path
 
 import httpx
@@ -15,6 +16,7 @@ from my_agent_crew.agents.channels import TelegramConfig
 from my_agent_crew.channels import CHANNELS_DIR, TelegramApi, TelegramChannel, build_channels
 from my_agent_crew.channels.telegram_commands import parse_mention
 from my_agent_crew.config import Route, load_settings
+from my_agent_crew.memory.shared_chat import shared_chat_section
 from my_agent_crew.server import build_runtime
 from my_agent_crew.server.runtime import Runtime
 from tests.test_app_wiring import env_for
@@ -34,6 +36,9 @@ def fake() -> FakeTelegram:
 def shared(deps_factory, fake, tmp_path: Path) -> TelegramChannel:
     base = deps_factory(routes=(Route("fake", "echo"),))
     agents = {"coach": named(base, "coach", "Coach"), "pong": named(base, "pong", "Pong")}
+    peers = {agent_id: deps.agent for agent_id, deps in agents.items()}
+    for deps in agents.values():
+        deps.peers = peers
     api = TelegramApi(TOKEN, httpx.AsyncClient(transport=httpx.MockTransport(fake.handler)))
     return TelegramChannel(agents, ActivityHub(base.store), api, CHAT, tmp_path / "offset")
 
@@ -147,3 +152,24 @@ async def test_a_shared_channel_polls_and_registers_the_menu_once(shared, fake):
     await asyncio.sleep(0.02)
     await rt.stop_channels()
     assert fake.calls.count("setMyCommands") == 1
+
+
+async def test_the_second_agent_reads_what_the_first_one_was_told(shared, fake):
+    """The person asks Pong something, then turns to the coach: the coach sees the ask.
+
+    Both agents answer through the echo provider, which keeps no record of its prompts, so
+    this checks the section the coach's next turn would be given.
+    """
+    fake.updates = [message(1, "@pong sáng nay ăn phở"), message(2, "@coach vậy trưa ăn gì?")]
+    await shared.poll_once()
+
+    coach = shared.agents["coach"]
+    found = shared_chat_section(
+        shared.store, coach.peers, f"telegram:{CHAT}", "coach", date.today().isoformat()
+    )
+    assert found is not None
+    title, body = found
+    assert title == texts.SHARED_CHAT_SECTION_TITLE
+    assert "[Pong] user: sáng nay ăn phở" in body
+    # Its own question stays where it already is, in the conversation history.
+    assert "[Coach]" not in body

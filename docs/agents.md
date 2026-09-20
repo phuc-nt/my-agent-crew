@@ -14,6 +14,9 @@ MY_AGENT_HOME/                      ~/.my-agent-crew by default
 ├── workspace/                      sandbox of the default agent
 ├── skills/                         skills of the default agent
 ├── channels/                       offset files of bots shared by several agents
+├── users/owner/                    what the crew knows about the person (see memory.md)
+│   ├── USER.md                     read by every agent, every turn
+│   └── facts/<name>.md  INDEX.md   one fact each, plus the generated index
 └── agents/
     └── <id>/
         ├── agent.yaml              the profile (fixed key set, no secrets)
@@ -47,6 +50,7 @@ silently disables a setting.
 | `max_steps` | int ≥ 1 | global | model calls per turn before a `halted` |
 | `autonomous` | bool | global `autonomous_default` | new conversations skip tool approval |
 | `schedules` | list | `[]` | jobs, see [Schedules](#schedules) |
+| `memory_consolidate` | cron string | none | rewrite `MEMORY.md` from the daily notes on this schedule, see [memory.md](memory.md) |
 | `telegram` | map | none | `token_env` + `chat_id`, see [channels.md](channels.md) |
 
 Every value that is not set falls back to the global settings, which come from env vars
@@ -86,7 +90,12 @@ skills. Conventions that have worked:
 | `AGENTS.md` | how to work: what to do at the start of a turn, which scripts to run, how to write memory |
 | `SOUL.md` | tone, values, what the agent refuses |
 | `IDENTITY.md` | name, role, one-line self description |
-| `USER.md` | who the user is, preferences, timezone, recurring context |
+| `USER.md` | this agent's own angle on the person: what *it* needs to know to do its job |
+
+The shared `users/owner/USER.md` ([memory.md](memory.md)) is the one every agent reads and
+the place a general fact about the person belongs. An agent's own `USER.md` is a persona
+file: keep it to what only that agent cares about, and point at the shared one rather than
+copying it, or the two drift apart.
 
 Each section is capped at 24 000 characters (`MAX_SECTION_CHARS`); longer files are cut
 with a trailing `…`, so keep them short and move history into [memory](memory.md).
@@ -115,6 +124,9 @@ Each entry in `schedules` becomes a job `<agent id>/<schedule id>` in the schedu
 | `prompt` **or** `command` | exactly one: a prompt opens a fresh autonomous conversation and runs a turn; a command runs through `shell_run` in the workspace and records only that step |
 | `enabled` | default `true` |
 
+A `memory_consolidate` cron becomes a job of the same shape, `<agent id>/memory-consolidate`,
+with no prompt or command of its own.
+
 After a prompt job the scheduler calls `Runtime.deliver`, which pushes the last reply to
 the agent's channel when it has one (a morning brief lands in Telegram; see
 [channels.md](channels.md)). Delivery failure is logged, never retried.
@@ -142,6 +154,7 @@ schedules:
   - id: backup
     cron: "20 2 * * *"
     command: ./scripts/backup-to-drive.sh
+memory_consolidate: "30 3 * * 1"
 ```
 
 ## Compared with openclaw

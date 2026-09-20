@@ -61,6 +61,27 @@ and memory are Markdown in the agent dir, read into the system prompt every turn
 reference and folder layout: [agents.md](agents.md); memory files and tools:
 [memory.md](memory.md); the tool set and its limits: [tools.md](tools.md).
 
+## Memory
+
+Memory is Markdown on disk in two scopes: what the crew knows about **the person**
+(`users/owner/`, read by every agent) and what **one agent** knows about its own work
+(`MEMORY.md` plus dated notes in its dir). Full reference: [memory.md](memory.md).
+
+Two scopes rather than one, because the two have different readers. A fact about the
+person — how they like to be answered, what they are working on — is wrong to relearn per
+agent: telling the coach something and having the assistant not know it is the failure
+this fixes. Work notes are the opposite: the coach's measurements would be noise in the
+assistant's prompt, and every agent's notes in one file would blow the section cap.
+
+Writes the person is present for land immediately; writes from an unattended job become
+**proposals** in `memory_proposals`. The split is who can object, not how risky the write
+looks: a scheduled job that rewrites the person's profile with a bad guess has nobody to
+catch it. The same reasoning makes **consolidation** — the scheduled rewrite of `MEMORY.md`
+from recent notes — a proposal that keeps the text it replaced, so one step back is always
+possible. On a shared Telegram bot each agent also reads the last few lines the others
+exchanged in that chat today, read-only, so a person can carry a subject from one agent to
+the next without repeating themselves.
+
 ## Activity hub and runs
 
 Every model turn — chat, approval resume, scheduled prompt, scheduled command — is a **run**
@@ -77,7 +98,8 @@ Runs still marked running when the server starts are closed as `failed` with the
 exactly one of `cron` (five fields, local machine time) or `every` (`30m`, `2h`, `1d`) and exactly
 one of `prompt` or `command`. A **prompt job** opens a fresh autonomous conversation for the agent
 and runs a turn; a **command job** runs the string with `shell_run` in the agent workspace and
-records only that step. The tick is 20 s; `POST /api/jobs/{id}/run` starts a job immediately and
+records only that step; a **consolidate job**, added by a `memory_consolidate` cron, rewrites the
+agent's `MEMORY.md` with one model call and opens no conversation, so it delivers nothing. The tick is 20 s; `POST /api/jobs/{id}/run` starts a job immediately and
 returns 202. There is no timezone field: the machine clock is the schedule clock.
 
 ## Channels

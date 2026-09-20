@@ -4,6 +4,7 @@ import pytest
 
 from my_agent_crew.llm.types import Message, ToolCall
 from my_agent_crew.store import Store
+from my_agent_crew.store.db import now_iso
 from my_agent_crew.store.models import AWAITING_APPROVAL
 
 
@@ -205,3 +206,17 @@ def test_a_proposal_cannot_be_decided_twice(store: Store):
         store.proposals.resolve(proposal.id, True)
     with pytest.raises(KeyError):
         store.proposals.resolve("khong-co", True)
+
+
+def test_recent_messages_on_a_channel_skip_the_asking_agent_and_old_days(store: Store):
+    mine = store.create(agent_id="coach", channel="telegram:1")
+    theirs = store.create(agent_id="pong", channel="telegram:1")
+    elsewhere = store.create(agent_id="pong", channel="telegram:2")
+    store.append(mine.id, Message(role="user", content="của tôi"))
+    store.append(theirs.id, Message(role="user", content="của họ"))
+    store.append(elsewhere.id, Message(role="user", content="chat khác"))
+
+    today = now_iso()[:10]
+    found = store.recent_messages_on_channel("telegram:1", today, "coach")
+    assert found == [("pong", "user", "của họ")]
+    assert store.recent_messages_on_channel("telegram:1", "2999-01-01", "coach") == []

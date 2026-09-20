@@ -177,6 +177,9 @@ def build_runtime(
         profile.id: build_agent_deps(profile, providers, client, store, settings.routes)
         for profile in load_profiles(settings)
     }
+    peers = {agent_id: deps.agent for agent_id, deps in agents.items()}
+    for deps in agents.values():
+        deps.peers = peers  # every agent can name the others sharing its channel
     hub = ActivityHub(store)
     channels = build_channels(agents, hub, client, os.environ if env is None else env)
     return Runtime(settings=settings, store=store, agents=agents, hub=hub, channels=channels)

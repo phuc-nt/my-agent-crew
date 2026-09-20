@@ -3,8 +3,8 @@ function: settle unfinished tool calls, then either finish or ask the model agai
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Sequence
-from dataclasses import dataclass
+from collections.abc import AsyncIterator, Mapping, Sequence
+from dataclasses import dataclass, field
 from datetime import date
 
 from my_agent_crew.agent.events import (
@@ -16,21 +16,20 @@ from my_agent_crew.agent.events import (
     HaltedEvent,
     RouteFallbackEvent,
     TextDeltaEvent,
-    ToolCallEvent,
-    ToolResultEvent,
 )
 from my_agent_crew.agent.prompt import active_skills, build_system_prompt
+from my_agent_crew.agent.tool_calls import settle_tool_calls
 from my_agent_crew.agent.turn_context import CHAT, conversation_source, set_turn_source
 from my_agent_crew.agents.context import bootstrap_sections
 from my_agent_crew.agents.profile import AgentProfile, default_profile
 from my_agent_crew.config import Settings
 from my_agent_crew.llm.provider import ProviderChain, ProviderError
 from my_agent_crew.llm.types import Completion, Message, RouteFailed, TextDelta
+from my_agent_crew.memory.shared_chat import shared_chat_section
 from my_agent_crew.skills import Skill
 from my_agent_crew.store import Conversation, Store, StoredMessage
-from my_agent_crew.store.approvals import DENIED, PENDING
+from my_agent_crew.store.approvals import PENDING
 from my_agent_crew.store.models import AWAITING_APPROVAL, IDLE
-from my_agent_crew.texts import DENIED_TOOL
 from my_agent_crew.tools import ToolRegistry
 
 
@@ -49,6 +48,8 @@ class AgentDeps:
     store: Store
     skills: list[Skill]
     profile: AgentProfile | None = None
+    # The other agents on this machine, by id, so a shared channel can name who spoke.
+    peers: Mapping[str, AgentProfile] = field(default_factory=dict)
 
     @property
     def agent(self) -> AgentProfile:
@@ -66,7 +67,7 @@ async def run_turn(
         deps.store.append(conv_id, Message(role="user", content=user_text))
 
     for _ in range(deps.settings.max_steps):
-        async for event in _settle_tool_calls(deps, conv_id):
+        async for event in settle_tool_calls(deps, conv_id):
             yield event
             if isinstance(event, ApprovalRequiredEvent):
                 return
@@ -103,57 +104,16 @@ async def resolve_approval(
         yield event
 
 
-async def _settle_tool_calls(deps: AgentDeps, conv_id: str) -> AsyncIterator[Event]:
-    history = deps.store.history(conv_id)
-    assistants = [m for m in history if m.message.role == "assistant"]
-    if not assistants or not assistants[-1].message.tool_calls:
-        return
-    last = assistants[-1]
-    answered = {m.message.tool_call_id for m in history if m.seq > last.seq}
-    conv = deps.store.get(conv_id)
-    for call in last.message.tool_calls:
-        if call.id in answered:
-            continue
-        tool = deps.tools.get(call.name)
-        if tool is not None and tool.requires_approval and not conv.autonomous:
-            approval = deps.store.approvals.find_for_call(conv_id, call.id)
-            if approval is None:
-                approval = deps.store.approvals.create(conv_id, last.id, call)
-                deps.store.update(conv_id, status=AWAITING_APPROVAL)
-            if approval.status == PENDING:
-                yield ApprovalRequiredEvent(
-                    approval_id=approval.id,
-                    tool_call_id=call.id,
-                    name=call.name,
-                    arguments=call.arguments,
-                )
-                return
-            if approval.status == DENIED:
-                deps.store.append(
-                    conv_id,
-                    Message(role="tool", content=DENIED_TOOL, tool_call_id=call.id, name=call.name),
-                )
-                yield ToolResultEvent(
-                    tool_call_id=call.id, name=call.name, ok=False, output=DENIED_TOOL
-                )
-                continue
-        yield ToolCallEvent(tool_call_id=call.id, name=call.name, arguments=call.arguments)
-        result = await deps.tools.execute(call.name, call.arguments)
-        deps.store.append(
-            conv_id,
-            Message(role="tool", content=result.output, tool_call_id=call.id, name=call.name),
-        )
-        yield ToolResultEvent(
-            tool_call_id=call.id, name=call.name, ok=result.ok, output=result.output
-        )
-
-
 async def _complete(
     deps: AgentDeps, conv: Conversation, history: Sequence[StoredMessage]
 ) -> AsyncIterator[Event]:
     skills = active_skills(deps.skills, conv.skills)
     profile = deps.agent
     previous = deps.store.previous_for_channel(conv.agent_id, conv.channel, conv.id)
+    today = date.today()
+    shared = shared_chat_section(
+        deps.store, deps.peers, conv.channel, conv.agent_id, today.isoformat()
+    )
     system = Message(
         role="system",
         content=build_system_prompt(
@@ -161,10 +121,12 @@ async def _complete(
             skills,
             deps.tools.names(),
             sections=bootstrap_sections(
-                profile, previous_summary=previous.summary if previous else ""
+                profile,
+                previous_summary=previous.summary if previous else "",
+                extra_sections=[shared] if shared else [],
             ),
             name=profile.name,
-            today=date.today().isoformat(),
+            today=today.isoformat(),
         ),
     )
     messages = [system, *(m.message for m in history)]
