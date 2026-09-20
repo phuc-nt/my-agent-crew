@@ -51,6 +51,19 @@ async def test_list_read_write_round_trip(reg: ToolRegistry, tmp_path: Path):
     assert write.ok and (tmp_path / "new" / "b.txt").read_text() == "xin chào"
 
 
+async def test_reading_a_window_of_lines(reg: ToolRegistry, tmp_path: Path):
+    """Long files would swamp the context; the model asks for the slice it needs."""
+    (tmp_path / "long.txt").write_text("\n".join(f"line {i}" for i in range(1, 101)))
+    whole = await reg.execute("workspace_read", {"path": "long.txt"})
+    assert whole.output.startswith("line 1\n") and whole.output.endswith("line 100")
+    window = await reg.execute("workspace_read", {"path": "long.txt", "offset": 10, "limit": 3})
+    assert window.output == "line 10\nline 11\nline 12"
+    tail = await reg.execute("workspace_read", {"path": "long.txt", "offset": 99})
+    assert tail.output == "line 99\nline 100"
+    head = await reg.execute("workspace_read", {"path": "long.txt", "limit": 2})
+    assert head.output == "line 1\nline 2"
+
+
 async def test_missing_file_is_a_readable_error(reg: ToolRegistry):
     result = await reg.execute("workspace_read", {"path": "nope.txt"})
     assert result.ok is False and "nope.txt" in result.output

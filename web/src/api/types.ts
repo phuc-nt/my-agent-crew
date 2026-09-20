@@ -151,6 +151,9 @@ export interface AgentInfo {
   autonomous: boolean;
   persona_files: string[];
   schedules: ScheduleInfo[];
+  /** "assistant" chats; "work" carries the coding tools and can hand off to `delegates`. */
+  mode: string;
+  delegates: string[];
   tools: string[];
   skills: string[];
 }

@@ -42,6 +42,7 @@ silently disables a setting.
 |---|---|---|---|
 | `name` | string | the id | display name; also the `[Name]` prefix on a shared Telegram bot |
 | `description` | string | `""` | shown in the UI agent switcher |
+| `mode` | `assistant` or `work` | `assistant` | `work` adds the coding tools and moves three defaults, see [Work mode](#work-mode) |
 | `routes` | list or comma string of `provider:model` | global `routes` | tried in order; a route that fails before producing output falls through to the next |
 | `workspace` | path | `workspace` | sandbox for `workspace_*` and `shell_run`; relative paths resolve against the agent dir, `~` expands |
 | `persona_files` | list of file names | `AGENTS.md, SOUL.md, IDENTITY.md, USER.md` | read from the agent dir into the system prompt each turn; missing files are skipped |
@@ -53,6 +54,8 @@ silently disables a setting.
 | `schedules` | list | `[]` | jobs, see [Schedules](#schedules) |
 | `memory_consolidate` | cron string | none | rewrite `MEMORY.md` from the daily notes on this schedule, see [memory.md](memory.md) |
 | `telegram` | map | none | `token_env` + `chat_id`, see [channels.md](channels.md) |
+| `delegates` | list of agent ids | `[]` | agents this one may hand a task to; an id that names no agent is a startup error |
+| `tools` | list of tool names | `[]` | when set, the only tools this agent gets; empty means everything its mode brings. An unknown name is a warning, so a profile written for a newer version still starts |
 
 Every value that is not set falls back to the global settings, which come from env vars
 and `config.yaml`:
@@ -74,6 +77,22 @@ and `config.yaml`:
 Env wins over `config.yaml`; `config.yaml` accepts only the keys above. Secrets never
 go into YAML: profiles carry env-var **names**, and the settings drawer shows key presence,
 never values.
+
+## Work mode
+
+`mode: assistant` is the product's normal shape: one agent that chats, asks before it
+touches anything, and works within a chat-sized budget. `mode: work` is the same loop
+pointed at a repository. It adds `workspace_edit`, `workspace_grep` and `workspace_glob`
+(see [tools.md](tools.md#the-tools)) and moves three defaults:
+
+| Key | Assistant | Work | Why |
+|---|---|---|---|
+| `autonomous` | global default (off) | `true` | a coding agent that stops for approval on every file read never finishes a task |
+| `cost_cap_usd` | `0.5` | `20.0` | a real task runs dozens of steps; the chat cap would halt it halfway |
+| `max_steps` | `12` | `120` | read, edit, run tests, read the failure, edit again — that is already more than 12 |
+
+Anything the profile states itself still wins, so `mode: work` with `autonomous: false`
+is a work agent that asks. These are defaults, not a locked bundle.
 
 ## The default agent
 

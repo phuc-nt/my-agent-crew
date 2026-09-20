@@ -120,3 +120,60 @@ def test_parse_profile_reads_a_telegram_block_and_reports_it(settings: Settings,
 def test_parse_profile_rejects_malformed_telegram_blocks(settings, tmp_path, block):
     with pytest.raises(ValueError):
         parse_profile("a", tmp_path, {"telegram": block}, settings)
+
+
+def test_work_mode_raises_the_limits_and_turns_autonomy_on(settings: Settings, tmp_path: Path):
+    """A coding agent that stops to ask after every file read is useless, and a cap tuned
+    for chat would halt it mid-task."""
+    profile = parse_profile("dev", tmp_path, {"mode": "work"}, settings)
+    assert profile.is_work and profile.mode == "work"
+    assert profile.settings.autonomous_default is True
+    assert profile.settings.cost_cap_usd == 20.0 and profile.settings.max_steps == 120
+    assistant = parse_profile("chat", tmp_path, {}, settings)
+    assert assistant.mode == "assistant" and assistant.is_work is False
+    assert assistant.settings.cost_cap_usd == settings.cost_cap_usd
+
+
+def test_work_mode_defaults_give_way_to_explicit_keys(settings: Settings, tmp_path: Path):
+    raw = {"mode": "work", "cost_cap_usd": 2, "autonomous": False}
+    profile = parse_profile("dev", tmp_path, raw, settings)
+    assert profile.settings.cost_cap_usd == 2
+    assert profile.settings.autonomous_default is False
+    assert profile.settings.max_steps == 120  # untouched keys keep the work default
+
+
+def test_unknown_mode_is_rejected(settings: Settings, tmp_path: Path):
+    with pytest.raises(ValueError, match="mode"):
+        parse_profile("dev", tmp_path, {"mode": "turbo"}, settings)
+
+
+def test_delegates_and_tools_round_trip_and_reject_non_lists(settings: Settings, tmp_path: Path):
+    raw = {"delegates": ["coder", "tester"], "tools": ["workspace_read", "shell_run"]}
+    profile = parse_profile("dev", tmp_path, raw, settings)
+    assert profile.delegates == ("coder", "tester")
+    assert profile.tools == ("workspace_read", "shell_run")
+    assert profile.to_dict()["delegates"] == ["coder", "tester"]
+    # The allow-list is not published: the API reports the tools the agent ended up with.
+    assert "tools" not in profile.to_dict()
+    blank = parse_profile("d2", tmp_path, {}, settings)
+    assert blank.delegates == () and blank.tools == ()
+
+
+@pytest.mark.parametrize("raw", [{"delegates": "coder"}, {"tools": [1]}, {"delegates": [None]}])
+def test_delegates_and_tools_must_be_lists_of_names(settings: Settings, tmp_path: Path, raw: dict):
+    with pytest.raises(ValueError):
+        parse_profile("dev", tmp_path, raw, settings)
+
+
+def test_delegating_to_an_agent_that_does_not_exist_fails_at_startup(
+    settings: Settings, tmp_path: Path
+):
+    """Caught mid-task it would just look like a broken tool call, so the server refuses
+    to come up instead."""
+    from my_agent_crew.server.runtime import check_delegates
+
+    lead = parse_profile("lead", tmp_path, {"delegates": ["coder"]}, settings)
+    coder = parse_profile("coder", tmp_path, {}, settings)
+    check_delegates([lead, coder])
+    with pytest.raises(ValueError, match="coder"):
+        check_delegates([lead])

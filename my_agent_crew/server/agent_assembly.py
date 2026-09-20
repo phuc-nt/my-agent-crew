@@ -19,15 +19,10 @@ from my_agent_crew.config import Route, Settings
 from my_agent_crew.llm.fake import EchoProvider
 from my_agent_crew.llm.openrouter import OpenRouterProvider
 from my_agent_crew.llm.provider import Provider, ProviderChain
+from my_agent_crew.server.tool_assembly import build_tools
 from my_agent_crew.skills import BUILTIN_DIR, Skill, load_skills
 from my_agent_crew.store import Store
-from my_agent_crew.tools import ToolRegistry
-from my_agent_crew.tools.memory import build_memory_tools
-from my_agent_crew.tools.memory_user import build_user_memory_tools
-from my_agent_crew.tools.shell import build_shell_tool
-from my_agent_crew.tools.skills import build_skill_tools
-from my_agent_crew.tools.web import build_web_tools
-from my_agent_crew.tools.workspace import build_workspace_tools
+from my_agent_crew.tools import Tool
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +67,7 @@ def build_agent_deps(
     client: httpx.AsyncClient,
     store: Store,
     fallback_routes: Sequence[Route] = (),
+    extra_tools: Sequence[Tool] = (),
 ) -> AgentDeps:
     ensure_agent_dirs(profile)
     routes = usable_routes(profile.settings.routes, providers, fallback_routes)
@@ -79,16 +75,7 @@ def build_agent_deps(
         profile = replace(profile, settings=replace(profile.settings, routes=tuple(routes)))
     skills = load_skills(BUILTIN_DIR, *profile.skills_dirs)
     warn_unknown_schedule_skills(profile, skills)
-    tools = ToolRegistry(
-        [
-            *build_workspace_tools(profile.workspace),
-            *build_web_tools(profile.settings, client),
-            *build_memory_tools(profile.memory_dir, profile.memory_file, profile.settings.user_dir),
-            *build_user_memory_tools(profile.settings.user_dir, store, profile.id),
-            build_shell_tool(profile.workspace),
-            *build_skill_tools(skills),
-        ]
-    )
+    tools = build_tools(profile, client, store, skills, extra_tools)
     chain = ProviderChain(providers, profile.settings.routes)
     return AgentDeps(
         settings=profile.settings,

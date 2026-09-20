@@ -19,6 +19,30 @@ WORKSPACE_ESCAPE = "Đường dẫn nằm ngoài thư mục làm việc."
 WORKSPACE_NOT_FOUND = "Không có tệp hoặc thư mục: {path}"
 WORKSPACE_IS_DIR = "{path} là thư mục, không phải tệp."
 
+EDIT_DESCRIPTION = (
+    "Sửa một tệp bằng cách thay đúng một đoạn văn bản. Đoạn `old` phải khớp chính xác và"
+    " duy nhất trong tệp; muốn thay mọi chỗ thì đặt replace_all."
+)
+EDIT_PARAM_OLD = "Đoạn cần thay, chép nguyên văn từ tệp, đủ dài để chỉ khớp một chỗ."
+EDIT_PARAM_NEW = "Đoạn thay thế. Để chuỗi rỗng nghĩa là xoá."
+EDIT_EMPTY_OLD = "Đoạn cần thay không được rỗng."
+EDIT_NO_MATCH = "Không tìm thấy đoạn cần thay. Đọc lại tệp và chép đúng nguyên văn."
+EDIT_AMBIGUOUS = "Đoạn cần thay khớp {count} chỗ. Lấy thêm ngữ cảnh cho duy nhất, hoặc replace_all."
+EDIT_DONE = "Đã sửa {path} ({count} chỗ)."
+EDIT_DIFF_TRUNCATED = "…[còn {dropped} dòng]"
+
+GREP_DESCRIPTION = "Tìm chuỗi (biểu thức chính quy) trong các tệp của thư mục làm việc."
+GREP_PARAM_PATTERN = "Biểu thức chính quy."
+GREP_PARAM_GLOB = "Lọc theo tên tệp, ví dụ *.py."
+GREP_BAD_PATTERN = "Mẫu tìm kiếm sai: {error}"
+GREP_NO_MATCH = "Không có dòng nào khớp."
+GREP_TIMEOUT = "Tìm kiếm quá lâu, đã dừng. Thu hẹp phạm vi hoặc mẫu tìm."
+GLOB_DESCRIPTION = "Tìm tệp theo tên, ví dụ **/*.py, trong thư mục làm việc."
+GLOB_PARAM_PATTERN = "Mẫu tên tệp, ví dụ **/*.py."
+GLOB_NO_MATCH = "Không có tệp nào khớp."
+
+TOOL_OUTPUT_TRIMMED = "[kết quả cũ đã lược, {chars} ký tự — gọi lại công cụ nếu còn cần]"
+
 URL_SCHEME = "Chỉ hỗ trợ http và https."
 URL_PRIVATE = "Từ chối truy cập địa chỉ nội bộ."
 URL_REDIRECT = "Trang chuyển hướng tới: {location}"
@@ -100,6 +124,7 @@ SHELL_NO_OUTPUT = "(lệnh chạy xong, không có đầu ra)"
 JOB_CONVERSATION_TITLE = "[lịch] {name} · {stamp}"
 JOB_UNKNOWN = "Không có lịch tên {job_id}."
 AGENT_UNKNOWN = "Không có agent tên {agent_id}."
+DELEGATE_UNKNOWN_AGENT = "agent {agent_id}: delegates trỏ tới agent không có: {target}"
 NO_USABLE_ROUTE = "Không có tuyến nào dùng được (thiếu khoá API cho provider): {routes}"
 FILE_OUTSIDE_WORKSPACE = "Tệp nằm ngoài thư mục làm việc của agent."
 

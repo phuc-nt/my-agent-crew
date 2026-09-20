@@ -15,10 +15,14 @@ import yaml
 
 from my_agent_crew.agents.channels import parse_telegram
 from my_agent_crew.agents.profile import (
+    ASSISTANT,
     DEFAULT_AGENT_ID,
+    MODES,
     PERSONA_FILES,
     PROFILE_KEYS,
     SCHEDULE_KEYS,
+    WORK,
+    WORK_DEFAULTS,
     AgentProfile,
     Schedule,
     consolidate_schedule,
@@ -52,18 +56,43 @@ def _resolve(base: Path, value: str) -> Path:
     return (base / Path(value).expanduser()).resolve()
 
 
+def _mode(raw: dict[str, Any], agent_id: str) -> str:
+    mode = str(raw.get("mode") or ASSISTANT)
+    if mode not in MODES:
+        raise ValueError(f"agent {agent_id}: mode must be one of {list(MODES)}, got {mode!r}")
+    return mode
+
+
+def _names(raw: dict[str, Any], key: str, agent_id: str) -> tuple[str, ...]:
+    value = raw.get(key) or []
+    if isinstance(value, str) or not isinstance(value, list):
+        raise ValueError(f"agent {agent_id}: {key} must be a list of names")
+    # A non-string entry is a typo in the manifest; coercing it would invent a name that
+    # matches no agent and no tool, and the failure would only surface mid-task.
+    if any(not isinstance(v, str) or not v.strip() for v in value):
+        raise ValueError(f"agent {agent_id}: {key} must be a list of names")
+    return tuple(v.strip() for v in value)
+
+
 def parse_profile(
     agent_id: str, agent_dir: Path, raw: dict[str, Any], base: Settings
 ) -> AgentProfile:
     unknown = set(raw) - PROFILE_KEYS
     if unknown:
         raise ValueError(f"agent {agent_id}: unknown keys {sorted(unknown)}")
+    mode = _mode(raw, agent_id)
+    # Work mode moves the defaults; anything the profile states itself still wins.
+    defaults = WORK_DEFAULTS if mode == WORK else {}
     settings = replace(
         base,
         routes=_parse_routes(raw["routes"]) if raw.get("routes") else base.routes,
-        cost_cap_usd=float(raw.get("cost_cap_usd", base.cost_cap_usd)),
-        max_steps=int(raw.get("max_steps", base.max_steps)),
-        autonomous_default=bool(raw.get("autonomous", base.autonomous_default)),
+        cost_cap_usd=float(
+            raw.get("cost_cap_usd", defaults.get("cost_cap_usd", base.cost_cap_usd))
+        ),
+        max_steps=int(raw.get("max_steps", defaults.get("max_steps", base.max_steps))),
+        autonomous_default=bool(
+            raw.get("autonomous", defaults.get("autonomous", base.autonomous_default))
+        ),
         shell_ask_patterns=(
             tuple(str(p) for p in raw["shell_ask_patterns"])
             if "shell_ask_patterns" in raw
@@ -91,6 +120,9 @@ def parse_profile(
         schedules=tuple(schedules),
         telegram=telegram,
         memory_consolidate=consolidate_cron,
+        mode=mode,
+        delegates=_names(raw, "delegates", agent_id),
+        tools=_names(raw, "tools", agent_id),
     )
 
 

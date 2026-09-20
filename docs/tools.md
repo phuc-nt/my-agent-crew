@@ -32,7 +32,7 @@ The system prompt lists the available names; the model sees each tool's JSON sch
 | Tool | Approval | Limits | What it does |
 |---|---|---|---|
 | `workspace_list` | no | — | lists a directory inside the workspace |
-| `workspace_read` | no | 20 000 chars (`MAX_READ_CHARS`) | reads a text file inside the workspace |
+| `workspace_read` | no | 20 000 chars (`MAX_READ_CHARS`) | reads a text file inside the workspace; `offset` (1-based line) and `limit` read a window instead of the whole file |
 | `workspace_write` | **yes** | — | writes a text file inside the workspace, creating parents |
 | `fetch_url` | no | 6 000 chars (`MAX_PAGE_CHARS`), 20 s, no redirects | GET of a public http(s) page, HTML reduced to text |
 | `web_search` | no | 5 results | only with `BRAVE_API_KEY` or `TAVILY_API_KEY` (Brave preferred); returns title, URL, snippet |
@@ -42,6 +42,15 @@ The system prompt lists the available names; the model sees each tool's JSON sch
 | `user_memory_forget` | no | — | drops one remembered fact by name |
 | `shell_run` | **yes** | 120 s default, 900 s max | runs a command in the workspace, returns stdout+stderr |
 | `skill_read` | no | — | returns one skill's full text by name, see [agents.md](agents.md#skills) |
+
+Three more come with `mode: work` only, because an assistant that chats has no use for
+them and every extra tool spec costs prompt tokens:
+
+| Tool | Approval | Limits | What it does |
+|---|---|---|---|
+| `workspace_edit` | **yes** | 40 diff lines shown (`MAX_DIFF_LINES`) | replaces an exact snippet in one file; refuses when the snippet is missing or matches more than once, unless `replace_all` |
+| `workspace_grep` | no | 200 hits (`MAX_RESULTS`), 30 s | regex search over the workspace; uses `rg` when installed, otherwise walks the tree itself. Skips `.git`, `.venv`, `node_modules`, `__pycache__`, `dist`, `build` and binary files |
+| `workspace_glob` | no | 500 paths (`MAX_GLOB_RESULTS`) | lists files matching a glob, same skip list |
 
 ### Workspace tools
 

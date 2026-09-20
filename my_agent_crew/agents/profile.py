@@ -29,7 +29,16 @@ PROFILE_KEYS = {
     "schedules",
     "telegram",
     "memory_consolidate",
+    "mode",
+    "delegates",
+    "tools",
 }
+# An assistant answers a person; a work agent is pointed at a repository and left to
+# finish a job, so it gets the editing tools, a wider budget and no approval pauses.
+# The shell ask list still stops the destructive shapes — that guard is additive.
+ASSISTANT, WORK = "assistant", "work"
+MODES = (ASSISTANT, WORK)
+WORK_DEFAULTS = {"autonomous": True, "cost_cap_usd": 20.0, "max_steps": 120}
 SCHEDULE_KEYS = {"id", "name", "cron", "every", "prompt", "command", "enabled", "skills"}
 CONSOLIDATE_JOB_ID = "memory-consolidate"
 PROMPT, COMMAND, CONSOLIDATE = "prompt", "command", "consolidate"
@@ -82,6 +91,17 @@ class AgentProfile:
     schedules: tuple[Schedule, ...] = field(default_factory=tuple)
     telegram: TelegramConfig | None = None
     memory_consolidate: str = ""
+    mode: str = ASSISTANT
+    # Agents this one may hand a task to with `delegate`. Empty still allows delegating
+    # to itself, which is how a work agent gets a second, clean context.
+    delegates: tuple[str, ...] = ()
+    # When non-empty, the only tools this agent gets. Empty means every tool its mode
+    # brings.
+    tools: tuple[str, ...] = ()
+
+    @property
+    def is_work(self) -> bool:
+        return self.mode == WORK
 
     @property
     def memory_dir(self) -> Path:
@@ -107,6 +127,8 @@ class AgentProfile:
             "schedules": [s.to_dict() for s in self.schedules],
             "telegram": self.telegram.to_dict() if self.telegram else None,
             "memory_consolidate": self.memory_consolidate,
+            "mode": self.mode,
+            "delegates": list(self.delegates),
         }
 
 

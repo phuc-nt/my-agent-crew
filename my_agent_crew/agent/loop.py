@@ -7,6 +7,7 @@ from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 
+from my_agent_crew.agent.context_trim import trim_tool_outputs
 from my_agent_crew.agent.events import (
     ApprovalRequiredEvent,
     AssistantMessageEvent,
@@ -139,7 +140,7 @@ async def _complete(
             skill_index=index,
         ),
     )
-    messages = [system, *(m.message for m in history)]
+    messages = [system, *trim_tool_outputs([m.message for m in history])]
     completion: Completion | None = None
     async for item in deps.chain.stream(messages, deps.tools.specs()):
         if isinstance(item, TextDelta):

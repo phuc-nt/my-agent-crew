@@ -5,7 +5,7 @@ provider clients; each gets its own workspace, memory, skills, shell cwd and rou
 from __future__ import annotations
 
 import os
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 
 import httpx
@@ -112,6 +112,18 @@ class Runtime:
         return cls(settings=deps.settings, store=deps.store, agents={deps.agent.id: deps}, hub=hub)
 
 
+def check_delegates(profiles: Sequence[AgentProfile]) -> None:
+    """A profile pointing at an agent that does not exist would only fail mid-task, with
+    the model left guessing why; it is a startup error instead."""
+    known = {profile.id for profile in profiles}
+    for profile in profiles:
+        for name in profile.delegates:
+            if name not in known:
+                raise ValueError(
+                    texts.DELEGATE_UNKNOWN_AGENT.format(agent_id=profile.id, target=name)
+                )
+
+
 def build_runtime(
     settings: Settings,
     client: httpx.AsyncClient | None = None,
@@ -123,9 +135,11 @@ def build_runtime(
     client = client or httpx.AsyncClient(timeout=httpx.Timeout(PROVIDER_TIMEOUT_SECONDS))
     store = Store(settings.db_path)
     providers = build_providers(settings, client)
+    profiles = load_profiles(settings)
+    check_delegates(profiles)
     agents = {
         profile.id: build_agent_deps(profile, providers, client, store, settings.routes)
-        for profile in load_profiles(settings)
+        for profile in profiles
     }
     peers = {agent_id: deps.agent for agent_id, deps in agents.items()}
     for deps in agents.values():

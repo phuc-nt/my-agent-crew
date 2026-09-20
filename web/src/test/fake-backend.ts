@@ -27,6 +27,8 @@ export const fakeAgent: AgentInfo = {
   max_steps: 20,
   autonomous: false,
   persona_files: [],
+  mode: "assistant",
+  delegates: [],
   schedules: [],
   tools: ["write_file"],
   skills: ["core", "writer"],

@@ -53,7 +53,17 @@ def build_workspace_tools(root: Path) -> list[Tool]:
             raise ToolError(WORKSPACE_NOT_FOUND.format(path=args["path"]))
         if path.is_dir():
             raise ToolError(WORKSPACE_IS_DIR.format(path=args["path"]))
-        return path.read_text(encoding="utf-8", errors="replace")[:MAX_READ_CHARS]
+        text = path.read_text(encoding="utf-8", errors="replace")
+        offset, limit = args.get("offset"), args.get("limit")
+        if offset is None and limit is None:
+            return text[:MAX_READ_CHARS]
+        # 1-based like an editor's gutter, so a line number from a grep hit can be used
+        # here without arithmetic.
+        start = max(int(offset or 1), 1) - 1
+        lines = text.splitlines()[start:]
+        if limit is not None:
+            lines = lines[: max(int(limit), 0)]
+        return "\n".join(lines)[:MAX_READ_CHARS]
 
     async def write_file(args: dict[str, Any]) -> str:
         path = resolve_inside(root, args["path"])
@@ -77,7 +87,11 @@ def build_workspace_tools(root: Path) -> list[Tool]:
             description="Đọc nội dung một tệp văn bản trong thư mục làm việc.",
             parameters={
                 "type": "object",
-                "properties": {"path": {"type": "string"}},
+                "properties": {
+                    "path": {"type": "string"},
+                    "offset": {"type": "integer", "description": "Dòng bắt đầu, tính từ 1."},
+                    "limit": {"type": "integer", "description": "Số dòng tối đa đọc về."},
+                },
                 "required": ["path"],
             },
             run=read_file,
