@@ -1,8 +1,9 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi as vitest } from "vitest";
+import { afterEach, describe, expect, it, vi as vitest } from "vitest";
+import type { JobInfo } from "../api/activity-types";
 import { vi } from "../i18n/vi";
-import { coachAgent, fakeRun } from "../test/fake-backend";
+import { FakeBackend, coachAgent, fakeRun } from "../test/fake-backend";
 import { AttentionCenter } from "./attention-center";
 import { JobsPanel } from "./jobs-panel";
 import { RunCard } from "./run-timeline";
@@ -80,18 +81,14 @@ describe("AttentionCenter", () => {
 });
 
 describe("JobsPanel", () => {
+  const brief: JobInfo = { ...coachAgent.schedules[0], id: "coach/brief", schedule_id: "brief", agent_id: "coach", next_run: "2026-09-20T00:00:00Z", last_run: fakeRun({ status: "done" }), running: false, paused: false };
+  const sync: JobInfo = { id: "default/sync", schedule_id: "sync", agent_id: "default", name: "Đồng bộ", kind: "command", cron: null, every: "30m", prompt: null, command: "git pull", enabled: false, paused: false, skills: [], next_run: null, last_run: null, running: true };
+
+  afterEach(() => vitest.unstubAllGlobals());
+
   it("shows schedule, next and last run, and fires run-now", async () => {
     const onRunNow = vitest.fn();
-    render(
-      <JobsPanel
-        agentName={name}
-        onRunNow={onRunNow}
-        jobs={[
-          { ...coachAgent.schedules[0], id: "coach/brief", schedule_id: "brief", agent_id: "coach", next_run: "2026-09-20T00:00:00Z", last_run: fakeRun({ status: "done" }), running: false },
-          { id: "default/sync", schedule_id: "sync", agent_id: "default", name: "Đồng bộ", kind: "command", cron: null, every: "30m", prompt: null, command: "git pull", enabled: false, skills: [], next_run: null, last_run: null, running: true },
-        ]}
-      />,
-    );
+    render(<JobsPanel agentName={name} onRunNow={onRunNow} onToggle={() => undefined} jobs={[brief, sync]} />);
     const jobs = screen.getAllByTestId("job");
     expect(jobs[0]).toHaveTextContent("HLV · Bản tin sáng");
     expect(jobs[0]).toHaveTextContent("0 7 * * *");
@@ -103,37 +100,92 @@ describe("JobsPanel", () => {
     expect(jobs[1]).toHaveTextContent(vi.jobKindCommand);
     expect(jobs[1]).toHaveTextContent(vi.jobNever);
     expect(jobs[1]).toHaveTextContent(vi.jobDisabled);
-    expect(within(jobs[1]).getByRole("button")).toBeDisabled();
+    expect(within(jobs[1]).getByRole("button", { name: /Chạy ngay/ })).toBeDisabled();
     await userEvent.click(within(jobs[0]).getByRole("button", { name: /Chạy ngay/ }));
     expect(onRunNow).toHaveBeenCalledWith("coach/brief");
   });
 
+  it("pauses and resumes a schedule from its switch, but not one the profile turned off", async () => {
+    const onToggle = vitest.fn();
+    render(
+      <JobsPanel
+        agentName={name}
+        onRunNow={() => undefined}
+        onToggle={onToggle}
+        jobs={[brief, { ...brief, id: "coach/paused", name: "Tạm", enabled: false, paused: true }, sync]}
+      />,
+    );
+    const jobs = screen.getAllByTestId("job");
+    const live = within(jobs[0]).getByRole("checkbox", { name: /Bật lịch/ });
+    expect(live).toBeChecked();
+    await userEvent.click(live);
+    expect(onToggle).toHaveBeenCalledWith("coach/brief", false);
+
+    expect(jobs[1]).toHaveTextContent(vi.jobPaused);
+    const paused = within(jobs[1]).getByRole("checkbox", { name: /Bật lịch/ });
+    expect(paused).not.toBeChecked();
+    expect(paused).toBeEnabled();
+    await userEvent.click(paused);
+    expect(onToggle).toHaveBeenLastCalledWith("coach/paused", true);
+
+    // A schedule disabled in agent.yaml cannot be resumed from the UI.
+    expect(within(jobs[2]).getByRole("checkbox", { name: /Bật lịch/ })).toBeDisabled();
+    expect(jobs[2]).not.toHaveTextContent(vi.jobPaused);
+  });
+
+  it("loads the run history of a schedule on demand", async () => {
+    const backend = new FakeBackend();
+    backend.runs = [fakeRun({ id: "h1", source: "job:coach/brief", agent_id: "coach", summary: "Bản tin hôm qua" }), fakeRun({ id: "other", source: "chat" })];
+    vitest.stubGlobal("fetch", backend.fetch);
+    render(<JobsPanel agentName={name} onRunNow={() => undefined} onToggle={() => undefined} jobs={[brief]} />);
+    expect(screen.queryByTestId("job-runs")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: vi.showHistory }));
+    const history = await screen.findByTestId("job-runs");
+    expect(within(history).getAllByTestId("run-card")).toHaveLength(1);
+    expect(history).toHaveTextContent("Bản tin hôm qua");
+    expect(backend.requests.some((r) => r.path === "/jobs/coach/brief/runs")).toBe(true);
+    await userEvent.click(screen.getByRole("button", { name: vi.hideHistory }));
+    expect(screen.queryByTestId("job-runs")).not.toBeInTheDocument();
+  });
+
   it("explains an empty schedule and a failed load", () => {
-    const { rerender } = render(<JobsPanel agentName={name} onRunNow={() => undefined} jobs={[]} />);
+    const { rerender } = render(<JobsPanel agentName={name} onRunNow={() => undefined} onToggle={() => undefined} jobs={[]} />);
     expect(screen.getByText(vi.jobsEmpty)).toBeInTheDocument();
-    rerender(<JobsPanel agentName={name} onRunNow={() => undefined} jobs={null} />);
+    rerender(<JobsPanel agentName={name} onRunNow={() => undefined} onToggle={() => undefined} jobs={null} />);
     expect(screen.getByText(vi.loadFailed)).toBeInTheDocument();
   });
 });
 
 describe("StatsPanel", () => {
-  it("renders totals and per-agent, per-model, per-day bars", () => {
+  it("renders totals, per-agent bars, the recent days with tokens and the model table", () => {
+    const usage = { calls: 7, cost_usd: 0.3, prompt_tokens: 1200, completion_tokens: 300, unknown_cost_calls: 2 };
     render(
       <StatsPanel
         agentName={name}
-        stats={{ runs: 3, model_calls: 7, spent_usd: 0.3, unknown_cost_calls: 2, by_agent: { coach: 0.2, default: 0.1 }, by_model: { "deepseek": 0.3 }, by_day: { "2026-09-19": 0.3 }, pending_proposals: 0 }}
+        stats={{
+          runs: 3, model_calls: 7, spent_usd: 0.3, unknown_cost_calls: 2, by_agent: { coach: 0.2, default: 0.1 }, by_model: { deepseek: 0.3 }, by_day: { "2026-09-19": 0.3 },
+          days: [{ day: "2026-09-18", calls: 0, cost_usd: 0, prompt_tokens: 0, completion_tokens: 0, unknown_cost_calls: 0 }, { day: "2026-09-19", ...usage }],
+          models: [{ model: "openrouter:deepseek", ...usage }],
+          pending_proposals: 0,
+        }}
       />,
     );
     const stats = screen.getByTestId("stats");
     expect(stats).toHaveTextContent("$0.30");
     expect(stats).toHaveTextContent("? 2");
     expect(stats).toHaveTextContent("HLV");
-    expect(stats).toHaveTextContent("deepseek");
-    expect(stats).toHaveTextContent("2026-09-19");
+    const days = screen.getByTestId("stat-days");
+    expect(days).toHaveTextContent("2026-09-19");
+    expect(days).toHaveTextContent(vi.costCalls(7));
+    expect(days).toHaveTextContent(vi.tokens(1200, 300));
+    const models = screen.getByTestId("stat-models");
+    expect(models).toHaveTextContent("openrouter:deepseek");
+    expect(models).toHaveTextContent(vi.tokens(1200, 300));
+    expect(models).toHaveTextContent("$0.30");
   });
 
   it("says when nothing has been spent", () => {
-    render(<StatsPanel agentName={name} stats={{ runs: 0, model_calls: 0, spent_usd: 0, unknown_cost_calls: 0, by_agent: {}, by_model: {}, by_day: {}, pending_proposals: 0 }} />);
+    render(<StatsPanel agentName={name} stats={{ runs: 0, model_calls: 0, spent_usd: 0, unknown_cost_calls: 0, by_agent: {}, by_model: {}, by_day: {}, days: [], models: [], pending_proposals: 0 }} />);
     expect(screen.getByText(vi.costEmpty)).toBeInTheDocument();
   });
 });

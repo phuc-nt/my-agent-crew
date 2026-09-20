@@ -3,6 +3,7 @@ import type {
   AgentEvent,
   AgentInfo,
   AgentMemory,
+  ApprovalInfo,
   Conversation,
   ConversationDetail,
   FactInfo,
@@ -67,7 +68,9 @@ export class FakeBackend {
   agents: AgentInfo[] = [fakeAgent];
   runs: RunInfo[] = [];
   jobs: JobInfo[] = [];
-  stats: StatsInfo = { runs: 0, model_calls: 0, spent_usd: 0, unknown_cost_calls: 0, by_agent: {}, by_model: {}, by_day: {}, pending_proposals: 0 };
+  /** Rows answered by GET /approvals, newest first. */
+  approvals: ApprovalInfo[] = [];
+  stats: StatsInfo = { runs: 0, model_calls: 0, spent_usd: 0, unknown_cost_calls: 0, by_agent: {}, by_model: {}, by_day: {}, days: [], models: [], pending_proposals: 0 };
   userMd = "";
   facts: FactInfo[] = [];
   agentMemory = new Map<string, AgentMemory>();
@@ -114,8 +117,19 @@ export class FakeBackend {
     if (path === "/activity/runs") return json(this.runs);
     if (path === "/stats") return json(this.stats);
     if (path === "/jobs") return json(this.jobs);
+    if (path === "/approvals") return json(this.approvals);
     const job = path.match(/^\/jobs\/(.+)\/run$/)?.[1];
     if (job && method === "POST") return json({ job_id: decodeURIComponent(job), status: "started" }, 202);
+    const switched = path.match(/^\/jobs\/(.+)\/state$/)?.[1];
+    if (switched && method === "PATCH") {
+      const found = this.jobs.find((j) => j.id === decodeURIComponent(switched));
+      if (!found) return json({ detail: "job not found" }, 404);
+      found.paused = !body.enabled;
+      found.enabled = body.enabled;
+      return json(found);
+    }
+    const history = path.match(/^\/jobs\/(.+)\/runs$/)?.[1];
+    if (history) return json(this.runs.filter((r) => r.source === `job:${decodeURIComponent(history)}`));
     if (path === "/conversations" && method === "GET") {
       const agentId = url.searchParams.get("agent_id");
       const all = [...this.conversations.values()].map(listItem);
@@ -134,7 +148,11 @@ export class FakeBackend {
       c.summary = this.nextSummary;
       return json({ id: conv, summary: c.summary }, 202);
     }
-    if (conv && /\/approvals\//.test(path) && method === "POST") return this.streamTurn();
+    if (conv && /\/approvals\//.test(path) && method === "POST") {
+      const c = this.conversations.get(conv)!;
+      if (body?.always && c.pending_approval) c.auto_approve = [...c.auto_approve, c.pending_approval.tool_name];
+      return this.streamTurn();
+    }
     if (conv && method === "GET") return json(this.conversations.get(conv));
     if (conv && method === "PATCH") return json(listItem(Object.assign(this.conversations.get(conv)!, body)));
     if (conv && method === "DELETE") {
@@ -156,6 +174,7 @@ export class FakeBackend {
       autonomous: false,
       cost_cap_usd: 1,
       skills: [],
+      auto_approve: [],
       spent_usd: 0,
       unknown_cost_calls: 0,
       status: "idle",

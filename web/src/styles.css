@@ -98,7 +98,17 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-si
 .approval-text { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
 .approval-text code { overflow-wrap: anywhere; }
 .approval-reason { font-size: 0.85rem; color: var(--warn-text); }
-.approval-actions { display: flex; gap: 0.5rem; }
+.approval-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.approval-deadline { font-size: 0.8rem; color: var(--warn-text); opacity: 0.85; }
+.chip-list { list-style: none; margin: 0; padding: 0; display: flex; gap: 0.3rem; flex-wrap: wrap; align-items: center; font-size: 0.85rem; }
+.chip-list li { display: inline-flex; align-items: center; gap: 0.1rem; padding: 0.1rem 0.2rem 0.1rem 0.5rem; border-radius: 999px; background: var(--ok-bg); color: var(--ok-text); }
+.chip-list .icon-button { font-size: 0.95rem; padding: 0 0.3rem; color: inherit; }
+.approval-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+.approval-list li { border: 1px solid var(--border); border-radius: var(--radius); padding: 0.5rem 0.6rem; background: var(--bg); display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.9rem; }
+.approval-list li[data-status="denied"], .approval-list li[data-status="expired"] { border-color: var(--danger); }
+.approval-head { display: flex; justify-content: space-between; gap: 0.5rem; align-items: baseline; }
+.approval-meta { font-size: 0.78rem; }
+.approval-list .link-button { align-self: flex-start; }
 .notice { padding: 0.5rem 1rem; font-size: 0.9rem; }
 .notice.error { background: #fee2e2; color: #991b1b; }
 .notice.halted, .notice.fallback { background: var(--warn-bg); color: var(--warn-text); }
@@ -185,6 +195,9 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-si
 .job.disabled { opacity: 0.6; }
 .job-head { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
 .job-meta { font-size: 0.8rem; margin-top: 0.2rem; }
+.job-actions { display: flex; align-items: center; gap: 0.6rem; flex: none; }
+.job-actions .toggle { font-size: 0.8rem; }
+.job-runs { margin-top: 0.4rem; display: flex; flex-direction: column; gap: 0.4rem; }
 
 .stat-totals { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; margin: 0; }
 .stat-totals dt { color: var(--muted); font-size: 0.78rem; }
@@ -194,6 +207,12 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-si
 .stat-key { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .stat-bar { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
 .stat-bar span { display: block; height: 100%; background: var(--accent); }
+.stat-days li { grid-template-rows: auto auto; }
+.stat-detail { grid-column: 1 / -1; font-size: 0.75rem; margin-top: -0.15rem; }
+.stat-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.stat-table th, .stat-table td { text-align: left; padding: 0.25rem 0.3rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+.stat-table th { color: var(--muted); font-weight: 500; font-size: 0.75rem; }
+.stat-table td:nth-child(n+2), .stat-table th:nth-child(n+2) { text-align: right; white-space: nowrap; }
 
 .status-line { display: flex; justify-content: space-between; gap: 1rem; padding: 0.25rem 1rem; font-size: 0.78rem; color: var(--muted); border-top: 1px solid var(--border); background: var(--panel); }
 .stream-state.on::before { content: "● "; color: #10b981; }

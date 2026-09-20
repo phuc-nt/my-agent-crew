@@ -13,6 +13,8 @@ interface Props {
   onSummarize: () => void;
   onToggleAutonomous: (value: boolean) => void;
   onToggleSkill: (name: string, attached: boolean) => void;
+  /** Make the tool ask again: drop it from the conversation's always-allow list. */
+  onRevokeAutoApprove: (name: string) => void;
   onOpenSettings: () => void;
   /** Extra controls, e.g. the activity toggle. */
   extra?: ReactNode;
@@ -84,6 +86,23 @@ export function ConversationHeader(props: Props) {
               ))}
             </ul>
           </details>
+        )}
+        {c.auto_approve.length > 0 && (
+          <ul className="chip-list auto-approve" aria-label={vi.autoApproved} title={vi.autoApprovedHint}>
+            {c.auto_approve.map((name) => (
+              <li key={name}>
+                <code>{name}</code>
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label={vi.autoApprovedRevoke(name)}
+                  onClick={() => props.onRevokeAutoApprove(name)}
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
         )}
         {props.extra}
         <button type="button" className="ghost" onClick={props.onOpenSettings}>

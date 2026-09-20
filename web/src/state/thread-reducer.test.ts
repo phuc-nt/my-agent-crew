@@ -32,6 +32,7 @@ function detail(partial: Partial<ConversationDetail> = {}): ConversationDetail {
     cost_cap_usd: 1,
     summary: "",
     skills: [],
+    auto_approve: [],
     spent_usd: 0.2,
     unknown_cost_calls: 1,
     status: "idle",
@@ -95,13 +96,15 @@ describe("threadReducer loaded", () => {
             arguments: { path: "x" },
             status: "pending",
             created_at: "",
+            expires_at: "2026-09-20T03:10:00Z",
+            resolved_at: null,
           },
         }),
       },
     );
     expect(state.spentUsd).toBe(0.2);
     expect(state.unknownCostCalls).toBe(1);
-    expect(state.pending).toEqual({ approvalId: "ap1", toolCallId: "tc", name: "write_file", arguments: { path: "x" } });
+    expect(state.pending).toEqual({ approvalId: "ap1", toolCallId: "tc", name: "write_file", arguments: { path: "x" }, expiresAt: "2026-09-20T03:10:00Z" });
     expect(state.items[0]).toMatchObject({ kind: "tool", status: "awaiting" });
     expect(state.busy).toBe(false);
   });
@@ -140,11 +143,12 @@ describe("threadReducer streaming turn", () => {
   it("pauses on approval_required and resumes when the tool result arrives", () => {
     const paused = run([
       { type: "assistant_message", message_id: "a", content: "", tool_calls: [{ id: "tc", name: "write_file", arguments: {} }], provider: null, model: null, cost_usd: null },
-      { type: "approval_required", approval_id: "ap", tool_call_id: "tc", name: "write_file", arguments: {}, reason: "khớp mẫu cần duyệt: `sudo `" },
+      { type: "approval_required", approval_id: "ap", tool_call_id: "tc", name: "write_file", arguments: {}, reason: "khớp mẫu cần duyệt: `sudo `", expires_at: "2026-09-20T03:10:00Z" },
     ]);
     expect(paused.busy).toBe(false);
     expect(paused.pending?.approvalId).toBe("ap");
     expect(paused.pending?.reason).toBe("khớp mẫu cần duyệt: `sudo `");
+    expect(paused.pending?.expiresAt).toBe("2026-09-20T03:10:00Z");
     expect(paused.items[0]).toMatchObject({ status: "awaiting" });
     const resumed = run([{ type: "tool_result", tool_call_id: "tc", name: "write_file", ok: true, output: DENIED_TEXT }], paused);
     expect(resumed.pending).toBeNull();

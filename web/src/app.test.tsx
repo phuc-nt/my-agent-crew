@@ -45,7 +45,7 @@ describe("App", () => {
     const created = backend.create({ title: "Việc" });
     backend.nextTurn = [
       { type: "assistant_message", message_id: "a1", content: "", tool_calls: [{ id: "tc1", name: "write_file", arguments: { path: "notes.md" } }], provider: null, model: null, cost_usd: null },
-      { type: "approval_required", approval_id: "ap1", tool_call_id: "tc1", name: "write_file", arguments: { path: "notes.md" }, reason: "" },
+      { type: "approval_required", approval_id: "ap1", tool_call_id: "tc1", name: "write_file", arguments: { path: "notes.md" }, reason: "", expires_at: "2026-09-20T03:10:00Z" },
     ];
     render(<App />);
     await userEvent.click(await screen.findByRole("button", { name: /Việc/ }));
@@ -83,7 +83,7 @@ describe("App", () => {
         storedMessage("tool", DENIED_TEXT, { tool_call_id: "tc0" }),
         storedMessage("assistant", "", { tool_calls: [{ id: "tc1", name: "write_file", arguments: { path: "b" } }] }),
       ],
-      pending_approval: { id: "ap9", conversation_id: "c", message_id: "m", tool_call_id: "tc1", tool_name: "write_file", arguments: { path: "b" }, status: "pending", created_at: "" },
+      pending_approval: { id: "ap9", conversation_id: "c", message_id: "m", tool_call_id: "tc1", tool_name: "write_file", arguments: { path: "b" }, status: "pending", created_at: "", expires_at: null, resolved_at: null },
     });
     render(<App />);
     await userEvent.click(await screen.findByRole("button", { name: /Cũ/ }));
@@ -92,6 +92,35 @@ describe("App", () => {
     expect(cards[1]).toHaveTextContent(vi.toolAwaiting);
     expect(screen.getByRole("alertdialog")).toHaveTextContent("path=b");
     expect(backend.requests.some((r) => r.path === `/conversations/${c.id}`)).toBe(true);
+  });
+
+  it("always-allows a tool from the approval bar, shows it in the header and revokes it", async () => {
+    backend.create({
+      title: "Luôn",
+      status: "awaiting_approval",
+      messages: [storedMessage("assistant", "", { tool_calls: [{ id: "tc1", name: "write_file", arguments: { path: "b" } }] })],
+      pending_approval: { id: "ap1", conversation_id: "c1", message_id: "m", tool_call_id: "tc1", tool_name: "write_file", arguments: { path: "b" }, status: "pending", created_at: "", expires_at: "2026-09-20T03:10:00Z", resolved_at: null },
+    });
+    backend.nextTurn = [
+      { type: "tool_result", tool_call_id: "tc1", name: "write_file", ok: true, output: "đã ghi b" },
+      { type: "assistant_message", message_id: "a2", content: "Xong.", tool_calls: [], provider: null, model: null, cost_usd: null },
+      { type: "done", spent_usd: 0, unknown_cost_calls: 0 },
+    ];
+    render(<App />);
+    await userEvent.click(await screen.findByRole("button", { name: /Luôn/ }));
+    const bar = await screen.findByRole("alertdialog");
+    expect(bar).toHaveTextContent(/tự từ chối lúc/);
+    await userEvent.click(within(bar).getByRole("button", { name: vi.alwaysAllow }));
+
+    expect(await screen.findByText("Xong.")).toBeInTheDocument();
+    const approval = backend.requests.find((r) => r.path.includes("/approvals/"));
+    expect(approval).toMatchObject({ path: "/conversations/c1/approvals/ap1", body: { approve: true, always: true } });
+    const chips = await screen.findByRole("list", { name: vi.autoApproved });
+    expect(chips).toHaveTextContent("write_file");
+
+    await userEvent.click(within(chips).getByRole("button", { name: vi.autoApprovedRevoke("write_file") }));
+    await waitFor(() => expect(backend.conversations.get("c1")!.auto_approve).toEqual([]));
+    expect(screen.queryByRole("list", { name: vi.autoApproved })).not.toBeInTheDocument();
   });
 
   it("surfaces a halted turn and a 409 conflict as notices", async () => {

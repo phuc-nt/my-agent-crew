@@ -40,8 +40,12 @@ test("the activity rail shows a live job with its steps and the finished one aft
 test("jobs tab lists schedules and run-now posts to the server", async ({ page }) => {
   const mock = await mockApi(page, {
     agents: [defaultAgent, coachAgent],
-    jobs: [{ ...coachAgent.schedules[0], id: "coach/brief", schedule_id: "brief", agent_id: "coach", next_run: "2026-09-20T00:00:00Z", last_run: null, running: false }],
-    stats: { runs: 2, model_calls: 5, spent_usd: 0.25, unknown_cost_calls: 0, by_agent: { coach: 0.2, default: 0.05 }, by_model: { deepseek: 0.25 }, by_day: { "2026-09-19": 0.25 } },
+    jobs: [{ ...coachAgent.schedules[0], id: "coach/brief", schedule_id: "brief", agent_id: "coach", next_run: "2026-09-20T00:00:00Z", last_run: null, running: false, paused: false }],
+    stats: {
+      runs: 2, model_calls: 5, spent_usd: 0.25, unknown_cost_calls: 0, by_agent: { coach: 0.2, default: 0.05 }, by_model: { deepseek: 0.25 }, by_day: { "2026-09-19": 0.25 },
+      days: [{ day: "2026-09-19", calls: 5, cost_usd: 0.25, prompt_tokens: 900, completion_tokens: 120, unknown_cost_calls: 0 }],
+      models: [{ model: "openrouter:deepseek", calls: 5, cost_usd: 0.25, prompt_tokens: 900, completion_tokens: 120, unknown_cost_calls: 0 }],
+    },
   });
   await page.goto("/");
   await page.getByRole("tab", { name: "Lịch chạy" }).click();
@@ -50,17 +54,21 @@ test("jobs tab lists schedules and run-now posts to the server", async ({ page }
   await expect(job).toContainText("0 7 * * *");
   await job.getByRole("button", { name: /Chạy ngay/ }).click();
   await expect.poll(() => mock.posted.some((r) => r.path === "/jobs/coach/brief/run")).toBe(true);
+  await job.getByRole("checkbox", { name: /Bật lịch/ }).click();
+  await expect(job).toContainText("tạm dừng");
   await page.getByRole("tab", { name: "Chi phí" }).click();
   await expect(page.getByTestId("stats")).toContainText("$0.25");
   await expect(page.getByTestId("stats")).toContainText("HLV sức khoẻ");
+  await expect(page.getByTestId("stat-models")).toContainText("openrouter:deepseek");
+  await expect(page.getByTestId("stat-days")).toContainText("900 vào / 120 ra");
 });
 
 test("agent switcher scopes the list and new conversations to that agent", async ({ page }) => {
   const mock = await mockApi(page, {
     agents: [defaultAgent, coachAgent],
     conversations: [
-      { id: "c1", agent_id: "default", channel: "", title: "Chung", created_at: "", updated_at: "", autonomous: false, cost_cap_usd: 1, skills: [], spent_usd: 0, unknown_cost_calls: 0, status: "idle", over_budget: false, messages: [], pending_approval: null },
-      { id: "c2", agent_id: "coach", channel: "", title: "Sức khoẻ", created_at: "", updated_at: "", autonomous: true, cost_cap_usd: 1, skills: [], spent_usd: 0, unknown_cost_calls: 0, status: "idle", over_budget: false, messages: [], pending_approval: null },
+      { id: "c1", agent_id: "default", channel: "", title: "Chung", created_at: "", updated_at: "", autonomous: false, cost_cap_usd: 1, skills: [], auto_approve: [], spent_usd: 0, unknown_cost_calls: 0, status: "idle", over_budget: false, messages: [], pending_approval: null },
+      { id: "c2", agent_id: "coach", channel: "", title: "Sức khoẻ", created_at: "", updated_at: "", autonomous: true, cost_cap_usd: 1, skills: [], auto_approve: [], spent_usd: 0, unknown_cost_calls: 0, status: "idle", over_budget: false, messages: [], pending_approval: null },
     ],
   });
   await page.goto("/");

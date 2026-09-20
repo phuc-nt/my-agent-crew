@@ -79,7 +79,7 @@ describe("App activity rail", () => {
 
   it("filters conversations by agent, creates them for that agent and runs a job now", async () => {
     backend.agents = [fakeAgent, coachAgent];
-    backend.jobs = [{ ...coachAgent.schedules[0], id: "coach/brief", schedule_id: "brief", agent_id: "coach", next_run: null, last_run: null, running: false }];
+    backend.jobs = [{ ...coachAgent.schedules[0], id: "coach/brief", schedule_id: "brief", agent_id: "coach", next_run: null, last_run: null, running: false, paused: false }];
     backend.create({ title: "Chung" });
     backend.create({ title: "Sức khoẻ", agent_id: "coach" });
     render(<App />);
@@ -95,6 +95,35 @@ describe("App activity rail", () => {
     await userEvent.click(screen.getByRole("tab", { name: vi.jobs }));
     await userEvent.click(screen.getByRole("button", { name: `${vi.runNow}: Bản tin sáng` }));
     await waitFor(() => expect(backend.requests.some((r) => r.method === "POST" && r.path === "/jobs/coach/brief/run")).toBe(true));
+
+    // Pausing goes to the server and the badge reflects the answer it sent back.
+    await userEvent.click(screen.getByRole("checkbox", { name: `${vi.jobEnabled}: Bản tin sáng` }));
+    await waitFor(() => expect(backend.requests.find((r) => r.method === "PATCH" && r.path === "/jobs/coach/brief/state")?.body).toEqual({ enabled: false }));
+    expect(await within(screen.getByTestId("job")).findByText(vi.jobPaused)).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: `${vi.jobEnabled}: Bản tin sáng` })).not.toBeChecked();
+  });
+
+  it("lists past approval requests with their outcome in the approvals tab", async () => {
+    backend.agents = [fakeAgent, coachAgent];
+    backend.approvals = [
+      { id: "ap-old", conversation_id: "c1", message_id: "m", tool_call_id: "tc", tool_name: "write_file", arguments: { path: "x" }, status: "approved", created_at: "2026-09-20T01:00:00Z", expires_at: null, resolved_at: "2026-09-20T01:01:00Z", agent_id: "coach" },
+      { id: "ap-exp", conversation_id: "c1", message_id: "m", tool_call_id: "tc2", tool_name: "shell_run", arguments: { command: "rm x" }, status: "expired", created_at: "2026-09-20T00:00:00Z", expires_at: "2026-09-20T00:10:00Z", resolved_at: "2026-09-20T00:10:00Z", agent_id: "default" },
+    ];
+    backend.create({ title: "Việc" });
+    render(<App />);
+    await screen.findByText(vi.welcomeTitle);
+    await userEvent.click(screen.getByRole("tab", { name: vi.approvalsTab }));
+    const history = await screen.findByTestId("approval-history");
+    const items = within(history).getAllByRole("listitem");
+    expect(items).toHaveLength(2);
+    expect(items[0]).toHaveTextContent("HLV sức khoẻ");
+    expect(items[0]).toHaveTextContent("write_file");
+    expect(items[0]).toHaveTextContent(vi.approvalStatus.approved);
+    expect(items[0]).toHaveTextContent("path=x");
+    expect(items[1]).toHaveAttribute("data-status", "expired");
+    expect(items[1]).toHaveTextContent(vi.approvalStatus.expired);
+    await userEvent.click(within(items[0]).getByRole("button", { name: vi.openConversation }));
+    expect(await screen.findByRole("heading", { level: 1 })).toHaveTextContent("Việc");
   });
 
   it("renders MEDIA lines from the agent workspace as inline images", async () => {

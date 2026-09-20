@@ -5,6 +5,7 @@ import type {
   AgentEvent,
   AgentInfo,
   AgentMemory,
+  ApprovalInfo,
   Conversation,
   ConversationDetail,
   ConversationPatch,
@@ -118,7 +119,14 @@ export const api = {
     approvalId: string,
     approve: boolean,
     onEvent: (e: AgentEvent) => void,
-  ) => stream(`/conversations/${id}/approvals/${approvalId}`, { approve }, onEvent),
+    always = false,
+  ) =>
+    stream(
+      `/conversations/${id}/approvals/${approvalId}`,
+      always ? { approve, always: true } : { approve },
+      onEvent,
+    ),
+  listApprovals: (limit?: number) => request<ApprovalInfo[]>(`/approvals${query({ limit })}`),
   listRuns: (params: { limit?: number; agent_id?: string } = {}) =>
     request<RunInfo[]>(`/activity/runs${query(params)}`),
   getRun: (id: string) => request<RunInfo>(`/activity/runs/${id}`),
@@ -126,6 +134,10 @@ export const api = {
   listJobs: () => request<JobInfo[]>("/jobs"),
   runJob: (jobId: string) =>
     request<{ job_id: string; status: string }>(`/jobs/${jobId}/run`, { method: "POST" }),
+  setJobEnabled: (jobId: string, enabled: boolean) =>
+    request<JobInfo>(`/jobs/${jobId}/state`, { method: "PATCH", body: JSON.stringify({ enabled }) }),
+  listJobRuns: (jobId: string, limit?: number) =>
+    request<RunInfo[]>(`/jobs/${jobId}/runs${query({ limit })}`),
   getUserMemory: () => request<UserMemory>("/memory/user"),
   putUserMd: (userMd: string) =>
     request<UserMemory>("/memory/user", { method: "PUT", body: JSON.stringify({ user_md: userMd }) }),

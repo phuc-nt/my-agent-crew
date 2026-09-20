@@ -8,7 +8,8 @@ export interface ThreadController {
   state: ThreadState;
   detail: ConversationDetail | null;
   send: (text: string) => Promise<void>;
-  decide: (approve: boolean) => Promise<void>;
+  /** `always` also whitelists the tool for the rest of this conversation. */
+  decide: (approve: boolean, always?: boolean) => Promise<void>;
   stop: () => void;
   reload: () => Promise<void>;
 }
@@ -69,10 +70,12 @@ export function useThread(conversationId: string | null): ThreadController {
   );
 
   const decide = useCallback(
-    async (approve: boolean) => {
+    async (approve: boolean, always = false) => {
       const pending = state.pending;
       if (!conversationId || !pending) return;
-      await runTurn((emit) => api.resolveApproval(conversationId, pending.approvalId, approve, emit));
+      await runTurn((emit) =>
+        api.resolveApproval(conversationId, pending.approvalId, approve, emit, always && approve),
+      );
     },
     [conversationId, runTurn, state.pending],
   );
@@ -100,6 +103,7 @@ function blankDetail(id: string | null): ConversationDetail {
     cost_cap_usd: 0,
     summary: "",
     skills: [],
+    auto_approve: [],
     spent_usd: 0,
     unknown_cost_calls: 0,
     status: "idle",

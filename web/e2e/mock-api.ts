@@ -25,7 +25,7 @@ export const coachAgent = {
   name: "HLV sức khoẻ",
   workspace: "/h/agents/coach/workspace",
   autonomous: true,
-  schedules: [{ id: "brief", name: "Bản tin sáng", cron: "0 7 * * *", every: null, prompt: "Tóm tắt", command: null, enabled: true }],
+  schedules: [{ id: "brief", name: "Bản tin sáng", kind: "prompt", cron: "0 7 * * *", every: null, prompt: "Tóm tắt", command: null, enabled: true, skills: ["goodreads"] }],
 };
 
 export const settings = {
@@ -97,9 +97,16 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
     if (path === "/activity/stream")
       return route.fulfill({ status: 200, contentType: "text/event-stream", body: sse(options.stream ?? [{ type: "snapshot", runs: options.runs ?? [] }]) });
     if (path === "/stats")
-      return json(options.stats ?? { runs: 0, model_calls: 0, spent_usd: 0, unknown_cost_calls: 0, by_agent: {}, by_model: {}, by_day: {} });
+      return json(options.stats ?? { runs: 0, model_calls: 0, spent_usd: 0, unknown_cost_calls: 0, by_agent: {}, by_model: {}, by_day: {}, days: [], models: [] });
     if (path === "/jobs") return json(options.jobs ?? []);
+    if (path === "/approvals") return json([]);
     if (/^\/jobs\/.+\/run$/.test(path) && method === "POST") return json({ job_id: path.slice(6, -4), status: "started" }, 202);
+    if (/^\/jobs\/.+\/state$/.test(path) && method === "PATCH") {
+      const { enabled } = route.request().postDataJSON() as { enabled: boolean };
+      const job = (options.jobs ?? []).find((j) => (j as { id: string }).id === path.slice(6, -6));
+      return job ? json({ ...job, enabled, paused: !enabled }) : json({ detail: "job not found" }, 404);
+    }
+    if (/^\/jobs\/.+\/runs$/.test(path)) return json([]);
     if (path === "/conversations" && method === "GET") {
       const agentId = url.searchParams.get("agent_id");
       return json(agentId ? conversations.filter((c) => c.agent_id === agentId) : conversations);
@@ -107,7 +114,7 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
     if (path === "/conversations" && method === "POST") {
       const conv: Conversation = {
         id: `c${++created}`, agent_id: "default", channel: "", title: "", created_at: "", updated_at: "", autonomous: false, cost_cap_usd: 1,
-        skills: [], spent_usd: 0, unknown_cost_calls: 0, status: "idle", over_budget: false, messages: [], pending_approval: null,
+        skills: [], auto_approve: [], spent_usd: 0, unknown_cost_calls: 0, status: "idle", over_budget: false, messages: [], pending_approval: null,
         ...(route.request().postDataJSON() ?? {}),
       };
       conversations.push(conv);

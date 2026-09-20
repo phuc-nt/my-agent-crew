@@ -29,6 +29,7 @@ describe("ActivityPanel", () => {
         agentName={name}
         onOpenConversation={() => undefined}
         onRunJob={() => undefined}
+        onToggleJob={() => undefined}
         onClose={() => undefined}
       />,
     );

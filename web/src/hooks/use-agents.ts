@@ -10,6 +10,7 @@ export interface CrewController {
   refreshJobs: () => Promise<void>;
   refreshStats: () => Promise<void>;
   runJob: (jobId: string) => Promise<void>;
+  setJobEnabled: (jobId: string, enabled: boolean) => Promise<void>;
 }
 
 /** Agents, their schedules and the cost totals — the slow-moving side of the UI. */
@@ -48,10 +49,15 @@ export function useCrew(): CrewController {
     [refreshJobs],
   );
 
+  const setJobEnabled = useCallback(async (jobId: string, enabled: boolean) => {
+    const updated = await api.setJobEnabled(jobId, enabled);
+    setJobs((current) => current?.map((job) => (job.id === updated.id ? updated : job)) ?? null);
+  }, []);
+
   const agentName = useCallback(
     (id: string) => agents.find((a) => a.id === id)?.name ?? id,
     [agents],
   );
 
-  return { agents, jobs, stats, agentName, refreshJobs, refreshStats, runJob };
+  return { agents, jobs, stats, agentName, refreshJobs, refreshStats, runJob, setJobEnabled };
 }

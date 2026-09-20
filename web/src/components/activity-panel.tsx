@@ -1,13 +1,14 @@
 import { useState } from "react";
 import type { AgentInfo, JobInfo, RunInfo, StatsInfo } from "../api/types";
 import { vi } from "../i18n/vi";
+import { ApprovalHistory } from "./approval-history";
 import { AttentionCenter } from "./attention-center";
 import { JobsPanel } from "./jobs-panel";
 import { MemoryPanel } from "./memory-panel";
 import { RunCard } from "./run-timeline";
 import { StatsPanel } from "./stats-panel";
 
-type Tab = "activity" | "jobs" | "memory" | "costs";
+type Tab = "activity" | "jobs" | "approvals" | "memory" | "costs";
 
 interface Props {
   runs: RunInfo[];
@@ -21,12 +22,14 @@ interface Props {
   agentName: (id: string) => string;
   onOpenConversation: (conversationId: string) => void;
   onRunJob: (jobId: string) => void;
+  onToggleJob: (jobId: string, enabled: boolean) => void;
   onClose: () => void;
 }
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "activity", label: vi.activity },
   { id: "jobs", label: vi.jobs },
+  { id: "approvals", label: vi.approvalsTab },
   { id: "memory", label: vi.memory.tab },
   { id: "costs", label: vi.costs },
 ];
@@ -43,6 +46,8 @@ export function ActivityPanel(props: Props) {
   const liveIds = new Set(props.liveRuns.map((r) => r.id));
   const recent = scoped.filter((r) => !liveIds.has(r.id));
   const live = scoped.filter((r) => liveIds.has(r.id));
+  // Each settled run or new pause may have changed the approval ledger.
+  const approvalsVersion = props.runs.filter((r) => r.finished_at !== null).length + props.attention.length;
 
   return (
     <aside className="activity-panel" aria-label={vi.activity} data-testid="activity-panel">
@@ -120,7 +125,22 @@ export function ActivityPanel(props: Props) {
       )}
       {tab === "jobs" && (
         <div className="panel-body" role="tabpanel">
-          <JobsPanel jobs={props.jobs} agentName={props.agentName} onRunNow={props.onRunJob} />
+          <JobsPanel
+            jobs={props.jobs}
+            agentName={props.agentName}
+            onRunNow={props.onRunJob}
+            onToggle={props.onToggleJob}
+            onOpenConversation={props.onOpenConversation}
+          />
+        </div>
+      )}
+      {tab === "approvals" && (
+        <div className="panel-body" role="tabpanel">
+          <ApprovalHistory
+            agentName={props.agentName}
+            onOpenConversation={props.onOpenConversation}
+            refreshKey={approvalsVersion}
+          />
         </div>
       )}
       {tab === "memory" && (

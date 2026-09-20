@@ -34,7 +34,7 @@ test("approval bar pauses the turn and approving resumes it", async ({ page }) =
   const bar = page.getByRole("alertdialog");
   await expect(bar).toContainText("write_file");
   await expect(page.getByRole("textbox")).toBeDisabled();
-  await bar.getByRole("button", { name: "Cho phép" }).click();
+  await bar.getByRole("button", { name: "Cho phép", exact: true }).click();
   await expect(page.getByTestId("message-assistant")).toContainText("Đã ghi.");
   await expect(page.getByTestId("tool-card")).toContainText("xong");
   await expect(page.getByRole("textbox")).toBeEnabled();

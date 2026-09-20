@@ -21,6 +21,8 @@ export interface PendingApproval {
   arguments: Record<string, unknown>;
   /** Why an autonomous conversation stopped for this call; only on the live event. */
   reason?: string;
+  /** When the request closes as refused if nobody answers. */
+  expiresAt?: string;
 }
 
 export interface ThreadState {
@@ -97,6 +99,7 @@ export function threadReducer(state: ThreadState, action: ThreadAction): ThreadS
       if (d.pending_approval) {
         const a = d.pending_approval;
         pending = { approvalId: a.id, toolCallId: a.tool_call_id, name: a.tool_name, arguments: a.arguments };
+        if (a.expires_at) pending.expiresAt = a.expires_at;
         items = updateTool(items, a.tool_call_id, { status: "awaiting" });
       }
       return {
@@ -153,6 +156,7 @@ function applyEvent(state: ThreadState, e: AgentEvent): ThreadState {
           name: e.name,
           arguments: e.arguments,
           reason: e.reason,
+          ...(e.expires_at ? { expiresAt: e.expires_at } : {}),
         },
         items: updateTool(state.items, e.tool_call_id, { status: "awaiting" }),
       };

@@ -138,6 +138,9 @@ export function App() {
                 : active.skills.filter((s) => s !== name);
               void list.patch(active.id, { skills: next });
             }}
+            onRevokeAutoApprove={(name) =>
+              void list.patch(active.id, { auto_approve: active.auto_approve.filter((n) => n !== name) })
+            }
             onOpenSettings={() => setSettingsOpen(true)}
             extra={activityButton}
           />
@@ -165,7 +168,13 @@ export function App() {
           />
         </ErrorBoundary>
         {state.pending && (
-          <ApprovalBar pending={state.pending} busy={state.busy} onDecide={(ok) => void thread.decide(ok)} />
+          <ApprovalBar
+            pending={state.pending}
+            busy={state.busy}
+            onDecide={(ok) => void thread.decide(ok)}
+            // The header shows the always-allow list from the conversation list, so refresh it.
+            onAlways={() => void thread.decide(true, true).then(refreshList)}
+          />
         )}
         {active?.over_budget && !state.busy && <div className="notice halted">{vi.overBudget}</div>}
         <Composer
@@ -194,6 +203,7 @@ export function App() {
             agentName={crew.agentName}
             onOpenConversation={list.select}
             onRunJob={(id) => void crew.runJob(id)}
+            onToggleJob={(id, enabled) => void crew.setJobEnabled(id, enabled)}
             onClose={() => setActivityOpen(false)}
           />
         </ErrorBoundary>

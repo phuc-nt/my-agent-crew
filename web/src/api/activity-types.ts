@@ -65,6 +65,27 @@ export interface JobInfo extends ScheduleInfo {
   next_run: string | null;
   last_run: RunInfo | null;
   running: boolean;
+  /** Switched off at runtime; `enabled` is the effective value (profile AND not paused). */
+  paused: boolean;
+}
+
+/** Calls, tokens and cost added up from the message log for one bucket. */
+export interface UsageTotals {
+  calls: number;
+  cost_usd: number;
+  prompt_tokens: number;
+  completion_tokens: number;
+  unknown_cost_calls: number;
+}
+
+export interface DayUsage extends UsageTotals {
+  /** Calendar day (UTC), `YYYY-MM-DD`. */
+  day: string;
+}
+
+export interface ModelUsage extends UsageTotals {
+  /** `provider:model`. */
+  model: string;
 }
 
 export interface StatsInfo {
@@ -77,4 +98,8 @@ export interface StatsInfo {
   by_day: Record<string, number>;
   /** Memory writes waiting for a decision — the count on the "Ghi nhớ" tab. */
   pending_proposals: number;
+  /** The last seven days, oldest first, zeros kept so the chart holds its shape. */
+  days: DayUsage[];
+  /** Every model ever billed, biggest spender first. */
+  models: ModelUsage[];
 }

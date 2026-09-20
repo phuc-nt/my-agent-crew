@@ -6,6 +6,7 @@ import { ApprovalBar } from "./approval-bar";
 import { BudgetIndicator, formatUsd } from "./budget-indicator";
 import { Composer } from "./composer";
 import { ConversationList } from "./conversation-list";
+import { formatClock } from "./run-timeline";
 import { ToolCallCard, summarizeArguments } from "./tool-call-card";
 
 describe("ToolCallCard", () => {
@@ -88,10 +89,37 @@ describe("ApprovalBar", () => {
     expect(screen.queryByText(reason)).not.toBeInTheDocument();
   });
 
-  it("disables both buttons while the resumed turn is running", () => {
-    render(<ApprovalBar pending={{ approvalId: "ap", toolCallId: "tc", name: "x", arguments: {} }} busy onDecide={() => undefined} />);
+  it("disables every button while the resumed turn is running", () => {
+    render(
+      <ApprovalBar pending={{ approvalId: "ap", toolCallId: "tc", name: "x", arguments: {} }} busy onDecide={() => undefined} onAlways={() => undefined} />,
+    );
     expect(screen.getByRole("button", { name: vi.approve })).toBeDisabled();
+    expect(screen.getByRole("button", { name: vi.alwaysAllow })).toBeDisabled();
     expect(screen.getByRole("button", { name: vi.deny })).toBeDisabled();
+  });
+
+  it("shows the deadline of an unanswered request and offers to always allow the tool", async () => {
+    const onDecide = vitest.fn();
+    const onAlways = vitest.fn();
+    const expiresAt = "2026-09-20T03:10:00Z";
+    render(
+      <ApprovalBar
+        pending={{ approvalId: "ap", toolCallId: "tc", name: "write_file", arguments: {}, expiresAt }}
+        busy={false}
+        onDecide={onDecide}
+        onAlways={onAlways}
+      />,
+    );
+    expect(screen.getByText(vi.approvalDeadline(formatClock(expiresAt)))).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: vi.alwaysAllow }));
+    expect(onAlways).toHaveBeenCalledTimes(1);
+    expect(onDecide).not.toHaveBeenCalled();
+  });
+
+  it("hides the always-allow button and the deadline when neither is available", () => {
+    render(<ApprovalBar pending={{ approvalId: "ap", toolCallId: "tc", name: "x", arguments: {} }} busy={false} onDecide={() => undefined} />);
+    expect(screen.queryByRole("button", { name: vi.alwaysAllow })).not.toBeInTheDocument();
+    expect(screen.queryByText(/tự từ chối/)).not.toBeInTheDocument();
   });
 });
 
@@ -133,7 +161,7 @@ describe("Composer", () => {
 describe("ConversationList", () => {
   const base = {
     id: "c1", agent_id: "default", channel: "", title: "Web", created_at: "", updated_at: "",
-    autonomous: false, cost_cap_usd: 1, skills: [], spent_usd: 0, unknown_cost_calls: 0,
+    autonomous: false, cost_cap_usd: 1, skills: [], auto_approve: [], spent_usd: 0, unknown_cost_calls: 0,
     status: "idle" as const, over_budget: false, summary: "",
   };
 

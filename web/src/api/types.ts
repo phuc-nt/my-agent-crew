@@ -40,7 +40,11 @@ export interface Conversation {
   over_budget: boolean;
   /** Short recap, written when the next conversation opens on the same channel. */
   summary: string;
+  /** Tools the person chose to always allow in this conversation. */
+  auto_approve: string[];
 }
+
+export type ApprovalStatus = "pending" | "approved" | "denied" | "expired";
 
 export interface Approval {
   id: string;
@@ -49,8 +53,16 @@ export interface Approval {
   tool_call_id: string;
   tool_name: string;
   arguments: Record<string, unknown>;
-  status: "pending" | "approved" | "denied";
+  status: ApprovalStatus;
   created_at: string;
+  /** When a pending request closes as expired if nobody answers; null on old rows. */
+  expires_at: string | null;
+  resolved_at: string | null;
+}
+
+/** One row of GET /api/approvals: the request plus the agent it belonged to. */
+export interface ApprovalInfo extends Approval {
+  agent_id: string;
 }
 
 export interface ConversationDetail extends Conversation {
@@ -63,6 +75,7 @@ export interface ConversationPatch {
   autonomous?: boolean;
   cost_cap_usd?: number;
   skills?: string[];
+  auto_approve?: string[];
 }
 
 export type AgentEvent =
@@ -85,6 +98,7 @@ export type AgentEvent =
       name: string;
       arguments: Record<string, unknown>;
       reason: string;
+      expires_at: string;
     }
   | { type: "done"; spent_usd: number; unknown_cost_calls: number }
   | { type: "halted"; reason: "budget" | "max_steps"; spent_usd: number }
