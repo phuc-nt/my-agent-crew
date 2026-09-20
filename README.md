@@ -73,13 +73,17 @@ schedules:
 Job `prompt` mở một cuộc trò chuyện mới và chạy như người dùng nhắn; job `command` chỉ chạy shell.
 Khi agent có khối `telegram`, server tự poll bot đó: tin nhắn từ `chat_id` trở thành lượt chat
 của một cuộc trò chuyện theo ngày, câu trả lời và kết quả job `prompt` được gửi lại chat;
-dòng `MEDIA:` thành ảnh. Web UI vẫn thấy các lượt này (thẻ *Telegram*). Lệnh gạch chéo do
-kênh tự trả lời, không tốn lượt model: `/new` hoặc `/reset` mở cuộc mới, `/help`, `/status`,
-`/tools`, `/approve` và `/deny` duyệt công cụ đang chờ. Menu lệnh được đăng ký với Telegram
-mỗi lần server khởi động.
-Chỉ một tiến trình được poll một bot; nếu bot còn gắn với chương trình khác, log báo 409.
-Bí mật vẫn chỉ đến từ biến môi trường của tiến trình server. Thư mục `agents/` là dữ liệu cá nhân,
-không nằm trong repo này.
+dòng `MEDIA:` thành ảnh. Lệnh gạch chéo (`/new`, `/help`, `/status`, `/tools`, `/approve`,
+`/deny`, `/agents`) do kênh tự trả lời, không tốn lượt model.
+
+**Nhiều agent chung một bot:** các agent khai cùng `token_env` (và cùng `chat_id`) dùng chung
+một bot. Gõ `@pong …` để nói với Pong, `@health-coach …` để đổi sang HLV; lựa chọn được nhớ cho
+các tin sau, `/agents` liệt kê agent đang có, mỗi câu trả lời mở đầu bằng `[Tên agent]`.
+
+Chi tiết cấu hình agent, công cụ, trí nhớ và kênh: [docs/agents.md](docs/agents.md),
+[docs/tools.md](docs/tools.md), [docs/memory.md](docs/memory.md),
+[docs/channels.md](docs/channels.md). Thư mục `agents/` là dữ liệu cá nhân, không nằm trong
+repo này.
 
 ## Theo dõi hoạt động
 
@@ -99,5 +103,7 @@ npm run e2e                      # Playwright (mock /api trong trình duyệt)
 npm run bundle                   # dựng lại bundle vào my_agent_crew/server/static (đã commit)
 ```
 
-Đọc [docs/design.md](docs/design.md) để hiểu các quyết định thiết kế và
-[docs/testing.md](docs/testing.md) để biết tính năng nào được test ở tầng nào.
+Đọc [docs/design.md](docs/design.md) để hiểu các quyết định thiết kế,
+[docs/testing.md](docs/testing.md) để biết tính năng nào được test ở tầng nào, và bộ tài liệu
+tham chiếu [agents](docs/agents.md) · [tools](docs/tools.md) · [memory](docs/memory.md) ·
+[channels](docs/channels.md).
