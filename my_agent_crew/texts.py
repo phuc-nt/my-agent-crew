@@ -27,6 +27,7 @@ MEMORY_SAVED = "Đã ghi nhớ ({count} ghi chú)."
 MEMORY_EMPTY = "Không có ghi chú nào khớp."
 MEMORY_SEARCH_DESCRIPTION = (
     "Tìm trong ghi nhớ chung về người dùng, MEMORY.md và các ghi chú hằng ngày."
+    " Trả về từng mục (gạch đầu dòng hoặc đoạn), không phải từng dòng; gõ không dấu cũng khớp."
 )
 
 PREVIOUS_SUMMARY_SECTION_TITLE = "Cuộc trước"

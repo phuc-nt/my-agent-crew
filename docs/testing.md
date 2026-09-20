@@ -22,7 +22,8 @@ Guard tests: `tests/test_file_size_budget.py` (≤200 lines), `tests/test_static
 | Tool registry, JSON arg validation, output cap | `test_tools_registry.py` | — | — |
 | Workspace tools refuse `..` escapes, follow symlinks inside | `test_tools_workspace.py` | — | — |
 | Web tools refuse private/loopback hosts; search only with a key | `test_tools_web.py`, `test_app_wiring.py` | — | — |
-| Memory save/search | `test_tools_memory.py` | — | — |
+| Memory save/search: a note appended with a timestamp, a search covering the shared facts, `MEMORY.md` and the notes newest first | `test_tools_memory.py` | — | — |
+| Search ranking: a bullet keeps its continuation lines, a numbered item and a bare paragraph are entries too, accents dropped on both sides with `đ` its own letter, a word found whole outranks the same word inside another, a word of three characters or fewer must be found whole, full matches push out partial ones but partial ones show when nothing is complete, caller order breaks a tie, a long entry is cut | `test_memory_search.py` | — | — |
 | Shared user scope: `USER.md`, one file per fact, slug + type validation, regenerated `INDEX.md` | `test_memory_user_store.py`, `test_tools_memory_user.py` | — | — |
 | An agent's own `MEMORY.md` and dated notes: append, rewrite, list, read, a note named with a suffix listed and read as a note of its day while other files stay out, a name that is not a day refused | `test_memory_agent_store.py`, `test_server_memory_api.py` | `memory-panel.test.tsx` (two notes of one day are two entries) | — |
 | A job's shared write becomes a proposal; approve applies it, reject leaves nothing, deciding twice is a 409 | `test_memory_proposals_apply.py`, `test_server_memory_api.py` | `memory-panel.test.tsx` | — |

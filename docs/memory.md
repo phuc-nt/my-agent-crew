@@ -65,11 +65,29 @@ Several ways, all visible in the activity rail:
 
 ## Reading memory
 
-- **`memory_search <query>`** returns up to 12 hits (`MAX_HITS`) containing **every** term
-  of the query, case insensitive, as `<file>: <line>`. Shared facts come first — what the
-  crew knows about the person outranks one agent's notes — then `MEMORY.md` and every
-  daily note, newest first. A fact matches on its description and body together and
-  reports the whole fact, since a fact is one thought rather than a set of lines.
+- **`memory_search <query>`** returns up to 12 hits (`MAX_HITS`) as `[<file> › <heading>]
+  <entry>`. The unit is the **entry**, not the line: a bullet together with its indented
+  continuation lines, or a paragraph. A thought written over two lines — `- Jimny 5 cửa,` /
+  `  ngân sách 1.5 tỷ` — is one hit with both halves, which matching line by line loses.
+  The heading the entry sits under travels with it, both as context in the label and as
+  text that can be matched.
+- Matching ignores accents on both sides, so `sach dang doc` finds `sách đang đọc`: a
+  person searching their own notes from a phone rarely types the marks. `đ` is handled on
+  its own, since it is a letter of the Vietnamese alphabet rather than a `d` with a mark
+  and decomposition leaves it untouched.
+- Ranking prefers the entry that has the **word**: a word found whole scores double a word
+  found inside another, because without accents `doc` sits inside `docs` as surely as
+  inside `đọc`. A word of three characters or fewer only counts when found whole — `ô`
+  becomes `o`, which is inside nearly every Vietnamese entry. When some entry has every
+  word of the query, entries missing one are dropped; when none does, the partial matches
+  are still shown, since half an answer beats none.
+- The file order breaks ties: shared facts first — what the crew knows about the person
+  outranks one agent's notes — then `MEMORY.md` and every markdown file in the memory
+  folder, newest first, so a fresh note outranks an old one at the same score. Files that
+  are not dated notes are searched too, because a workspace written by hand keeps things
+  like `facebook-books.md` there and they are memory as well. A fact matches on its
+  description and body together and reports both, since a fact is one thought.
+- A hit longer than 300 characters (`MAX_CHARS`) is folded onto one line and cut with `…`.
 - The prompt already holds `MEMORY.md` and the last two days, so the model should not
   search for those.
 

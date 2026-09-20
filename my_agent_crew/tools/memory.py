@@ -1,6 +1,6 @@
 """File-based memory, the same shape a person could keep by hand: `MEMORY.md` for
 durable facts and `memory/YYYY-MM-DD.md` for daily notes. `memory_save` appends to
-today's note; `memory_search` greps all of them. Both files enter the prompt each turn."""
+today's note; `memory_search` looks through all of them. Both files enter the prompt each turn."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from typing import Any
 
 from my_agent_crew import texts
 from my_agent_crew.agents.context import daily_note_path
-from my_agent_crew.memory import user_store
+from my_agent_crew.memory import search, user_store
 from my_agent_crew.tools.registry import Tool, ToolError
 
 MAX_HITS = 12
@@ -29,44 +29,43 @@ def append_daily_note(memory_dir: Path, text: str, now: datetime | None = None) 
     return path
 
 
-def search_facts(user_dir: Path, terms: list[str]) -> list[tuple[str, str]]:
-    """Shared facts about the person, matched on description and body rather than line by
-    line: a fact is one thought, so a hit reports the whole thing, not the line it landed on."""
-    hits: list[tuple[str, str]] = []
-    for fact in user_store.list_facts(user_dir):
-        haystack = f"{fact.description}\n{fact.body}".lower()
-        if all(t in haystack for t in terms):
-            summary = fact.description or fact.body.strip().splitlines()[0]
-            hits.append((f"user/{fact.name}.md", summary.strip()))
-    return hits
+def _fact_files(user_dir: Path) -> list[tuple[str, str]]:
+    """A fact is one thought: its description and body search and report together."""
+    return [
+        (f"user/{fact.name}.md", f"{fact.description}\n{fact.body}")
+        for fact in user_store.list_facts(user_dir)
+    ]
+
+
+def search_facts(user_dir: Path, query: str) -> list[tuple[str, str]]:
+    """(source, entry) for the shared facts that match, best first."""
+    return [(hit.source, hit.text) for hit in search.search(_fact_files(user_dir), query, MAX_HITS)]
+
+
+def _memory_files(
+    memory_dir: Path, memory_file: Path, user_dir: Path | None
+) -> list[tuple[str, str]]:
+    """Every file worth searching, in the order that breaks ties between equal matches:
+    what the crew knows about the person outranks one agent's notes, and a fresh note
+    outranks an old one."""
+    files: list[tuple[str, str]] = _fact_files(user_dir) if user_dir is not None else []
+    if memory_file.is_file():
+        files.append((memory_file.name, memory_file.read_text(encoding="utf-8", errors="replace")))
+    if memory_dir.is_dir():
+        # Every markdown file in the folder, not only the dated notes: a workspace written
+        # by hand keeps things like `facebook-books.md` there, and they are memory too.
+        for path in sorted(memory_dir.glob("*.md"), reverse=True):
+            files.append((path.name, path.read_text(encoding="utf-8", errors="replace")))
+    return files
 
 
 def search_memory(
     memory_dir: Path, memory_file: Path, query: str, user_dir: Path | None = None
 ) -> list[tuple[str, str]]:
-    """(source, line) for every match, shared facts first and then the agent's own files,
-    newest first. What the crew knows about the person outranks one agent's notes."""
-    terms = [t for t in query.lower().split() if t]
-    if not terms:
-        return []
-    hits: list[tuple[str, str]] = []
-    if user_dir is not None:
-        hits.extend(search_facts(user_dir, terms)[:MAX_HITS])
-        if len(hits) >= MAX_HITS:
-            return hits[:MAX_HITS]
-    files: list[Path] = []
-    if memory_file.is_file():
-        files.append(memory_file)
-    if memory_dir.is_dir():
-        files.extend(sorted(memory_dir.glob("*.md"), reverse=True))
-    for path in files:
-        for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
-            stripped = line.strip()
-            if stripped and all(t in stripped.lower() for t in terms):
-                hits.append((path.name, stripped))
-                if len(hits) >= MAX_HITS:
-                    return hits
-    return hits
+    """(source, entry) for the best matches, shared facts first and then the agent's own
+    files, newest first. See `memory.search` for what counts as one entry."""
+    files = _memory_files(memory_dir, memory_file, user_dir)
+    return [(hit.source, hit.text) for hit in search.search(files, query, MAX_HITS)]
 
 
 def count_notes(memory_dir: Path) -> int:

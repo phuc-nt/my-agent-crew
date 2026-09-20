@@ -21,9 +21,13 @@ async def test_save_then_search_finds_by_every_term(tmp_path: Path):
     await reg.execute("memory_save", {"text": "Người dùng thích cà phê đen buổi sáng"})
     await reg.execute("memory_save", {"text": "Dự án my-crew dùng Python"})
     hit = await reg.execute("memory_search", {"query": "cà phê sáng"})
-    miss = await reg.execute("memory_search", {"query": "cà phê Python"})
+    miss = await reg.execute("memory_search", {"query": "bóng đá"})
     assert "cà phê đen" in hit.output and "my-crew" not in hit.output
     assert miss.output == texts.MEMORY_EMPTY
+
+    # No note holds both words, so both partial matches are worth showing.
+    both = await reg.execute("memory_search", {"query": "cà phê Python"})
+    assert "cà phê đen" in both.output and "my-crew" in both.output
 
 
 async def test_empty_note_is_rejected(tmp_path: Path):
@@ -50,7 +54,12 @@ def test_search_covers_memory_file_and_newest_day_first(tmp_path: Path):
     append_daily_note(memory, "uống trà đá", datetime(2026, 9, 1, 8, 0))
     append_daily_note(memory, "uống trà nóng", datetime(2026, 9, 2, 8, 0))
     hits = search_memory(memory, memory_file, "trà")
-    assert [src for src, _ in hits] == ["MEMORY.md", "2026-09-02.md", "2026-09-01.md"]
+    # The source carries the heading the entry sits under, so a hit says where it came from.
+    assert [src for src, _ in hits] == [
+        "MEMORY.md › Bền",
+        "2026-09-02.md › 2026-09-02",
+        "2026-09-01.md › 2026-09-01",
+    ]
     assert search_memory(memory, memory_file, "") == []
 
 
@@ -79,7 +88,9 @@ def test_a_fact_matches_on_its_body_too(tmp_path: Path):
     user_dir = tmp_path / "owner"
     fact(user_dir, "ca-phe", "Thói quen sáng", "Uống cà phê đen mỗi sáng.")
     [(source, line)] = search_memory(tmp_path / "memory", tmp_path / "MEMORY.md", "đen", user_dir)
-    assert source == "user/ca-phe.md" and line == "Thói quen sáng"
+    assert source == "user/ca-phe.md"
+    # The description and the body are one thought, so the hit shows both.
+    assert line == "Thói quen sáng Uống cà phê đen mỗi sáng."
 
 
 def test_shared_facts_come_before_the_agents_own_notes(tmp_path: Path):

@@ -31,12 +31,11 @@ class MemoryHit:
 
 def search_all(rt: Runtime, query: str, agent_id: str | None = None) -> list[MemoryHit]:
     """Shared facts first, then each agent's own files. Without an agent, every agent."""
-    terms = [t for t in query.lower().split() if t]
-    if not terms:
+    if not query.strip():
         return []
     hits = [
         MemoryHit(scope=USER, agent_id="", file=file, text=text)
-        for file, text in search_facts(rt.settings.user_dir, terms)
+        for file, text in search_facts(rt.settings.user_dir, query)
     ]
     wanted = [agent_id] if agent_id is not None else list(rt.agents)
     for one in wanted:
