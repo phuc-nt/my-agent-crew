@@ -141,14 +141,15 @@ class TelegramChannel:
             logger.info("telegram %s: ignored update from chat %s", self.label, chat_id)
             return
         logger.info("telegram %s: message of %d chars", self.label, len(text))
-        agent_id, text = await route_mention(self, text)
+        agent_id, text, addressed = await route_mention(self, text)
         if agent_id is None:
             return
         command = parse_command(text)
         if command in CHANNEL_COMMANDS:
-            await self.say(await answer_command(self, agent_id, command))
+            await self.say(await answer_command(self, agent_id, command, addressed))
         elif command is not None:
-            await self._outbound[agent_id].send(await answer_command(self, agent_id, command))
+            answer = await answer_command(self, agent_id, command, addressed)
+            await self._outbound[agent_id].send(answer)
         else:
             await self.chat(agent_id, text)
 

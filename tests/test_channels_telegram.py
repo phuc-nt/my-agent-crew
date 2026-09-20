@@ -315,7 +315,11 @@ async def test_deliver_reports_a_run_that_stopped_without_a_reply(make_channel, 
     store.append(conv.id, Message(role="tool", content="[]", tool_call_id="c1", name=look.name))
     stamp = "2026-09-20T01:00:00"
     store.runs.save(RunRecord("r1", "default", conv.id, "job:default/x", "t", DONE, stamp))
-    assert await channel.deliver(conv.id) is False and fake.sent == []
+    # A finished run with nothing to say still reaches the chat: a brief that never arrives
+    # is indistinguishable from a broken schedule.
+    assert await channel.deliver(conv.id) is True
+    assert fake.sent == [texts.TELEGRAM_TURN_EMPTY.format(steps=0)]
+    fake.sent.clear()
     store.runs.save(
         RunRecord(
             "r2", "default", conv.id, "job:default/x", "t", HALTED, stamp, summary="max_steps"
@@ -324,6 +328,17 @@ async def test_deliver_reports_a_run_that_stopped_without_a_reply(make_channel, 
     assert store.runs.latest_for_conversation(conv.id).id == "r2"
     assert await channel.deliver(conv.id) is True
     assert fake.sent == [texts.TELEGRAM_RUN_UNFINISHED.format(reason="max_steps")]
+
+
+async def test_a_turn_that_produces_no_text_says_so_instead_of_staying_silent(
+    make_channel, fake, deps_factory
+):
+    """A model that finishes with nothing to say must not read like a dead bot."""
+    deps = deps_factory(script=[completion("   ")])
+    channel = make_channel(deps)
+    fake.updates = [message(1, "tuần này sao rồi")]
+    await channel.poll_once()
+    assert fake.sent == [texts.TELEGRAM_TURN_EMPTY.format(steps=1)]
 
 
 async def test_an_approval_forced_by_the_ask_list_says_which_pattern_matched(

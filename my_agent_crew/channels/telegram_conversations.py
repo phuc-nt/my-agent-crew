@@ -100,9 +100,11 @@ async def collect_turn(
     often put the answer there and finish with a bare `MEDIA:` line), plus the
     halt/error/approval notices."""
     parts: list[str] = []
+    steps = 0
     async with outbound.typing():
         async for event in tracked(hub, events, agent_id, SOURCE, conv.title, conv.id):
             if isinstance(event, AssistantMessageEvent):
+                steps += 1
                 parts.append(event.content.strip())
             elif isinstance(event, HaltedEvent):
                 parts.append(
@@ -113,4 +115,7 @@ async def collect_turn(
             elif isinstance(event, ApprovalRequiredEvent):
                 reason = f" ({event.reason})" if event.reason else ""
                 parts.append(texts.TELEGRAM_APPROVAL.format(name=event.name, reason=reason))
-    return "\n\n".join(part for part in parts if part)
+    answer = "\n\n".join(part for part in parts if part)
+    # A turn that ends without a word is still a turn the person is waiting on: a model
+    # sometimes finishes with nothing to say, and silence reads exactly like a dead bot.
+    return answer or texts.TELEGRAM_TURN_EMPTY.format(steps=steps)

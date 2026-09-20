@@ -41,31 +41,34 @@ def parse_mention(text: str) -> tuple[str | None, str]:
     return match.group(1).lower(), text.strip()[match.end() :].strip()
 
 
-async def route_mention(channel: TelegramChannel, text: str) -> tuple[str | None, str]:
-    """Resolves who a message is for. Returns the agent id and the text left after the
-    mention, or `(None, "")` when the channel already answered: an unknown agent id, or a
-    bare `@id` that only switches. The pick is remembered for the messages that follow."""
+async def route_mention(channel: TelegramChannel, text: str) -> tuple[str | None, str, bool]:
+    """Resolves who a message is for. Returns the agent id, the text left after the
+    mention, and whether the message named that agent itself — `/new` needs to tell "cut
+    this agent" from "cut the whole chat". `(None, "", False)` means the channel already
+    answered: an unknown agent id, or a bare `@id` that only switches. The pick is
+    remembered for the messages that follow."""
     mention, text = parse_mention(text) if channel.shared else (None, text)
     if mention is None:
-        return channel.current_agent(), text
+        return channel.current_agent(), text, False
     if mention not in channel.agents:
         unknown = texts.TELEGRAM_AGENT_UNKNOWN.format(
             agent_id=mention, agents=channel.agents_text()
         )
         await channel.say(unknown)
-        return None, ""
+        return None, "", False
     channel.remember_agent(mention)
     if not text:
         name = channel.agents[mention].agent.name
         await channel.say(texts.TELEGRAM_AGENT_SWITCHED.format(name=name, agent_id=mention))
-        return None, ""
-    return mention, text
+        return None, "", False
+    return mention, text, True
 
 
-async def answer_command(channel: TelegramChannel, agent_id: str, command: str) -> str:
+async def answer_command(
+    channel: TelegramChannel, agent_id: str, command: str, addressed: bool = False
+) -> str:
     if command in NEW_CONVERSATION:
-        channel.open_conversation(agent_id)
-        return texts.TELEGRAM_NEW_CONVERSATION
+        return open_conversations(channel, agent_id, addressed)
     if command == "help":
         return help_text(channel)
     if command == "agents":
@@ -78,6 +81,22 @@ async def answer_command(channel: TelegramChannel, agent_id: str, command: str) 
     if command in ("approve", "deny"):
         return await decide(channel, agent_id, approve=command == "approve")
     return texts.TELEGRAM_UNKNOWN_COMMAND.format(command=command)
+
+
+def open_conversations(channel: TelegramChannel, agent_id: str, addressed: bool) -> str:
+    """A plain `/new` cuts every agent on the bot: the chat is one window, so a person who
+    asks for a fresh start means the window, not whichever agent happens to be current.
+    `@pong /new` names an agent and cuts only that one."""
+    if addressed or not channel.shared:
+        channel.open_conversation(agent_id)
+        if not channel.shared:
+            return texts.TELEGRAM_NEW_CONVERSATION
+        name = channel.agents[agent_id].agent.name
+        return texts.TELEGRAM_NEW_CONVERSATION_ONE.format(name=name)
+    for one in channel.agents:
+        channel.open_conversation(one)
+    names = ", ".join(deps.agent.name for deps in channel.agents.values())
+    return texts.TELEGRAM_NEW_CONVERSATION_ALL.format(agents=names)
 
 
 def help_text(channel: TelegramChannel | None = None) -> str:

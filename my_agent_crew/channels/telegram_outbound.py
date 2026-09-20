@@ -55,9 +55,15 @@ class TelegramOutbound:
                     )
                 )
             return True
-        if run is None or run.status == DONE:
+        if run is None:
             logger.info("telegram %s: nothing to deliver for %s", self.agent_id, conv_id)
             return False
+        if run.status == DONE:
+            # The job ran to the end and produced no text. Saying so beats a brief that
+            # simply never arrives, which looks the same as a broken schedule.
+            logger.info("telegram %s: run for %s finished empty", self.agent_id, conv_id)
+            await self.send(texts.TELEGRAM_TURN_EMPTY.format(steps=len(run.steps)))
+            return True
         await self.send(texts.TELEGRAM_RUN_UNFINISHED.format(reason=run.summary or run.status))
         return True
 

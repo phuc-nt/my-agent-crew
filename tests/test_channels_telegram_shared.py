@@ -97,9 +97,26 @@ async def test_help_and_agents_commands_come_from_the_bot_itself(shared, fake):
 async def test_agent_commands_apply_to_the_mentioned_or_current_agent(shared, fake):
     fake.updates = [message(1, "@pong hi"), message(2, "@coach /new"), message(3, "/status")]
     await shared.poll_once()
-    assert fake.sent[1] == f"[Coach]\n{texts.TELEGRAM_NEW_CONVERSATION}"
+    one = texts.TELEGRAM_NEW_CONVERSATION_ONE.format(name="Coach")
+    assert fake.sent[1] == f"[Coach]\n{one}"
     assert fake.sent[2].startswith("[Coach]\n")
     assert {c.agent_id for c in shared.store.list()} == {"coach", "pong"}
+
+
+async def test_a_new_without_a_mention_cuts_every_agent_on_the_bot(shared, fake):
+    """The chat is one window: asking for a fresh start means the window, not whichever
+    agent happens to be current. `@id /new` is how a single agent is cut."""
+    fake.updates = [message(1, "@pong hi"), message(2, "@coach hi"), message(3, "/new")]
+    await shared.poll_once()
+    every = texts.TELEGRAM_NEW_CONVERSATION_ALL.format(agents="Coach, Pong")
+    assert fake.sent[2] == f"[Coach]\n{every}"
+    assert len(shared.store.list("coach")) == 2 and len(shared.store.list("pong")) == 2
+
+
+async def test_a_mentioned_new_leaves_the_other_agents_alone(shared, fake):
+    fake.updates = [message(1, "@pong hi"), message(2, "@coach hi"), message(3, "@pong /new")]
+    await shared.poll_once()
+    assert len(shared.store.list("pong")) == 2 and len(shared.store.list("coach")) == 1
 
 
 async def test_deliver_uses_the_prefix_of_the_conversation_agent(shared, fake):

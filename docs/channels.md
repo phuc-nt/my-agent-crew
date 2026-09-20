@@ -38,7 +38,9 @@ On a shared bot:
   delivered briefs, so the chat always says who is talking.
 - **`/agents`** lists the agents with `▶` on the current one; `/help` includes that list.
   Both are answered by the bot itself, without a prefix. The other commands apply to the
-  mentioned or current agent: `@coach /new` opens a new conversation for the coach.
+  mentioned or current agent: `@coach /status` reports on the coach. `/new` is the one
+  exception — a bare `/new` cuts every agent on the bot, because the chat is one window
+  and a fresh start means the window; `@coach /new` cuts only the coach.
 - Each agent keeps **its own per-day conversation** on the chat, so histories do not mix.
 - **Each agent reads the last 10 lines the others exchanged in the chat today**, as a
   read-only prompt section, so asking the coach about what Pong was just told does not
@@ -54,7 +56,10 @@ Each text message becomes a turn of the agent's conversation for today on the ch
 `telegram:<chat_id>` (title `Telegram · YYYY-MM-DD`, opened on first use each day, or with
 `/new`). While the turn runs the chat shows "typing…" (`sendChatAction` every 4 s). The
 reply is every assistant text of the turn joined in order, including text written next to
-a tool call, plus halt, error and approval notices. Replies go out as plain text in
+a tool call, plus halt, error and approval notices. A turn that ends without a single word
+says so with the step count instead of sending nothing: silence is indistinguishable from
+a dead bot, and the same holds for a delivered brief whose run finished empty. Replies go
+out as plain text in
 4 096-char chunks; a `MEDIA:<path>` line becomes `sendPhoto` from the agent workspace.
 
 A new conversation does not start blank: the summary of that agent's previous conversation
@@ -69,7 +74,7 @@ process so the client shows them.
 
 | Command | Effect |
 |---|---|
-| `/new`, `/reset`, `/start` | open another conversation for the agent |
+| `/new`, `/reset`, `/start` | open another conversation — for every agent on the bot, or for one when addressed with `@id` |
 | `/help` | the command list (and the agent list on a shared bot) |
 | `/agents` | the agents on this bot, current one marked |
 | `/status` | turns, spend vs cap, routes, pending approval, last run |

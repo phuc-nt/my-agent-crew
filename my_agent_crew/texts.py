@@ -100,6 +100,13 @@ FILE_OUTSIDE_WORKSPACE = "Tệp nằm ngoài thư mục làm việc của agent.
 
 TELEGRAM_CONVERSATION_TITLE = "Telegram · {date}"
 TELEGRAM_NEW_CONVERSATION = "Đã mở cuộc trò chuyện mới."
+TELEGRAM_NEW_CONVERSATION_ALL = "Đã mở cuộc trò chuyện mới cho tất cả agent: {agents}."
+TELEGRAM_NEW_CONVERSATION_ONE = (
+    "Đã mở cuộc trò chuyện mới với {name}. Các agent khác giữ nguyên cuộc của họ."
+)
+TELEGRAM_TURN_EMPTY = (
+    "Lượt chạy xong nhưng không có nội dung trả lời ({steps} bước). Thử gửi lại câu hỏi."
+)
 TELEGRAM_HALTED = "Đã dừng ({reason}), đã chi ${spent:.4f}."
 TELEGRAM_ERROR = "Lỗi: {message}"
 TELEGRAM_APPROVAL = (
@@ -116,7 +123,7 @@ TELEGRAM_RUN_CUT_SHORT = (
     "câu trả lời trên có thể chưa đủ. Xem web UI."
 )
 TELEGRAM_COMMANDS = {
-    "new": "Mở cuộc trò chuyện mới.",
+    "new": "Mở cuộc trò chuyện mới cho mọi agent (@id trước /new để chỉ cắt một agent).",
     "reset": "Mở cuộc trò chuyện mới (giống /new).",
     "help": "Liệt kê các lệnh.",
     "status": "Trạng thái cuộc trò chuyện hôm nay.",
