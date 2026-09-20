@@ -244,6 +244,25 @@ async def test_provider_failure_and_pending_approval_become_notices(
     assert fake.sent[-1] == texts.TELEGRAM_BUSY
 
 
+async def test_deliver_announces_an_approval_that_expired_before_the_answer(make_channel, fake):
+    channel = make_channel()
+    store = channel.deps.store
+    conv = store.create(agent_id="default")
+    call = ToolCall("c1", "workspace_write", {"path": "x", "content": "y"})
+    store.append(conv.id, Message(role="user", content="ghi đi"))
+    store.append(conv.id, Message(role="assistant", content="", tool_calls=(call,)))
+    store.append(
+        conv.id,
+        Message(role="tool", content=texts.EXPIRED_TOOL, tool_call_id="c1", name=call.name),
+    )
+    store.append(conv.id, Message(role="assistant", content="Thôi, không ghi."))
+    assert await channel.deliver(conv.id) is True
+    assert fake.sent == [
+        texts.TELEGRAM_APPROVAL_EXPIRED.format(name="workspace_write"),
+        "Thôi, không ghi.",
+    ]
+
+
 async def test_deliver_sends_prose_and_media_lines_as_photos(make_channel, fake):
     channel = make_channel()
     workspace = channel.deps.agent.workspace

@@ -247,6 +247,28 @@ def test_a_consolidate_cron_in_the_profile_becomes_an_ordinary_job(settings, tmp
     assert coach.to_dict()["memory_consolidate"] == "0 3 * * *"
 
 
+def test_a_job_switched_off_at_runtime_is_not_due_until_switched_back(deps_factory):
+    deps = with_schedules(
+        deps_factory(routes=(Route("fake", "echo"),)),
+        Schedule("brief", "Bản tin", every="10m", prompt="chào"),
+    )
+    clock = [datetime(2026, 9, 19, 7, 0)]
+    sched = Scheduler({"default": deps}, ActivityHub(deps.store), clock=lambda: clock[0])
+    clock[0] = datetime(2026, 9, 19, 7, 11)
+    assert [j.id for j in sched.due()] == ["default/brief"]
+    assert sched.describe()[0]["enabled"] is True and sched.describe()[0]["paused"] is False
+
+    sched.set_enabled("default/brief", False)
+    assert sched.due() == []
+    assert sched.describe()[0]["enabled"] is False and sched.describe()[0]["paused"] is True
+    assert deps.store.jobs.enabled("default/brief") is False  # survives a restart
+
+    sched.set_enabled("default/brief", True)
+    assert [j.id for j in sched.due()] == ["default/brief"]
+    with pytest.raises(KeyError):
+        sched.set_enabled("default/nope", True)
+
+
 def test_a_profile_without_the_key_has_no_consolidate_job(settings):
     home = settings.home / "agents" / "pong"
     home.mkdir(parents=True)

@@ -30,6 +30,7 @@ class Conversation:
     agent_id: str = "default"
     channel: str = ""  # "" for the web UI, else e.g. "telegram:<chat_id>"
     summary: str = ""  # short recap written when the next conversation opens
+    auto_approve: tuple[str, ...] = ()  # tools the user chose to always allow here
 
     @property
     def over_budget(self) -> bool:
@@ -38,6 +39,7 @@ class Conversation:
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
         data["skills"] = list(self.skills)
+        data["auto_approve"] = list(self.auto_approve)
         data["over_budget"] = self.over_budget
         return data
 
@@ -57,6 +59,7 @@ class Conversation:
             agent_id=row["agent_id"],
             channel=row["channel"],
             summary=row["summary"],
+            auto_approve=tuple(json.loads(row["auto_approve"])),
         )
 
 
@@ -69,6 +72,8 @@ class StoredMessage:
     model: str | None
     cost_usd: float | None
     created_at: str
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         m = self.message
@@ -83,6 +88,8 @@ class StoredMessage:
             "provider": self.provider,
             "model": self.model,
             "cost_usd": self.cost_usd,
+            "prompt_tokens": self.prompt_tokens,
+            "completion_tokens": self.completion_tokens,
             "created_at": self.created_at,
         }
 
@@ -104,6 +111,8 @@ class StoredMessage:
             model=row["model"],
             cost_usd=row["cost_usd"],
             created_at=row["created_at"],
+            prompt_tokens=row["prompt_tokens"],
+            completion_tokens=row["completion_tokens"],
         )
 
 
@@ -117,6 +126,8 @@ class Approval:
     arguments: dict[str, Any]
     status: str
     created_at: str
+    expires_at: str | None = None  # None on rows older than the expiry rule
+    resolved_at: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -132,4 +143,6 @@ class Approval:
             arguments=json.loads(row["arguments"]),
             status=row["status"],
             created_at=row["created_at"],
+            expires_at=row["expires_at"],
+            resolved_at=row["resolved_at"],
         )

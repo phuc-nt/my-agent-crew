@@ -26,6 +26,8 @@ class ConversationPatch(BaseModel):
     autonomous: bool | None = None
     cost_cap_usd: float | None = Field(default=None, ge=0)
     skills: list[str] | None = None
+    # Tools that run without asking in this conversation; an empty list asks again.
+    auto_approve: list[str] | None = None
 
 
 @router.get("/conversations")
@@ -73,8 +75,9 @@ def get_conversation(conv_id: str, deps: ConvDeps) -> dict[str, Any]:
 @router.patch("/conversations/{conv_id}")
 def patch_conversation(conv_id: str, body: ConversationPatch, deps: ConvDeps) -> dict[str, Any]:
     fields = body.model_dump(exclude_none=True)
-    if "skills" in fields:
-        fields["skills"] = tuple(fields["skills"])
+    for key in ("skills", "auto_approve"):
+        if key in fields:
+            fields[key] = tuple(fields[key])
     return deps.store.update(conv_id, **fields).to_dict()
 
 

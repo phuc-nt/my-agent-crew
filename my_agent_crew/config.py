@@ -21,7 +21,11 @@ YAML_KEYS = (
     "max_steps",
     "autonomous_default",
     "shell_ask_patterns",
+    "approval_ttl_seconds",
 )
+# How long a tool call waits for a decision before it is treated as denied. A pause
+# nobody answers must not hold a conversation (and a job's channel) forever.
+DEFAULT_APPROVAL_TTL_SECONDS = 600
 # Commands that get an approval even in an autonomous conversation. This is a second,
 # additive guard, not a sandbox: it catches the obvious destructive shapes, and anyone
 # meaning to get around it can. Matched as case-insensitive substrings of the command.
@@ -67,6 +71,7 @@ class Settings:
     max_steps: int = 12
     autonomous_default: bool = False
     shell_ask_patterns: tuple[str, ...] = DEFAULT_SHELL_ASK_PATTERNS
+    approval_ttl_seconds: int = DEFAULT_APPROVAL_TTL_SECONDS
 
     @property
     def workspace_dir(self) -> Path:
@@ -131,9 +136,13 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         shell_ask_patterns=_ask_patterns(
             env.get("MY_AGENT_SHELL_ASK_PATTERNS"), file_values.get("shell_ask_patterns")
         ),
+        approval_ttl_seconds=int(
+            env.get("MY_AGENT_APPROVAL_TTL_SECONDS")
+            or file_values.get("approval_ttl_seconds", DEFAULT_APPROVAL_TTL_SECONDS)
+        ),
     )
-    if settings.max_steps < 1 or settings.cost_cap_usd < 0:
-        raise ValueError("max_steps must be >= 1 and cost_cap_usd >= 0")
+    if settings.max_steps < 1 or settings.cost_cap_usd < 0 or settings.approval_ttl_seconds < 1:
+        raise ValueError("max_steps and approval_ttl_seconds must be >= 1, cost_cap_usd >= 0")
     return settings
 
 

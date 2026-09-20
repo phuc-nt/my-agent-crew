@@ -217,6 +217,6 @@ def test_recent_messages_on_a_channel_skip_the_asking_agent_and_old_days(store: 
     store.append(elsewhere.id, Message(role="user", content="chat khác"))
 
     today = now_iso()[:10]
-    found = store.recent_messages_on_channel("telegram:1", today, "coach")
+    found = store.messages.recent_on_channel("telegram:1", today, "coach")
     assert found == [("pong", "user", "của họ")]
-    assert store.recent_messages_on_channel("telegram:1", "2999-01-01", "coach") == []
+    assert store.messages.recent_on_channel("telegram:1", "2999-01-01", "coach") == []

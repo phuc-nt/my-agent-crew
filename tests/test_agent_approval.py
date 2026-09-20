@@ -129,3 +129,44 @@ async def test_resuming_after_approval_keeps_the_source_of_the_original_turn(dep
     set_turn_source(WEB)
     await collect(resolve_approval(deps, conv.id, paused[-1].approval_id, approve=True))
     assert seen == [JOB]
+
+
+async def test_always_allow_lets_the_same_tool_run_without_asking_again(deps_factory):
+    script = [
+        completion(tool_calls=(WRITE,)),
+        completion("đã ghi"),
+        completion(tool_calls=(WRITE,)),
+        completion("ghi lại rồi"),
+    ]
+    deps = deps_factory(script=script)
+    conv = deps.store.create()
+    paused = await collect(run_turn(deps, conv.id, "ghi file"))
+    assert paused[-1].expires_at  # the request carries its deadline
+    events = await collect(
+        resolve_approval(deps, conv.id, paused[-1].approval_id, approve=True, always=True)
+    )
+    assert isinstance(events[-1], DoneEvent)
+    assert deps.store.get(conv.id).auto_approve == ("workspace_write",)
+
+    again = await collect(run_turn(deps, conv.id, "ghi nữa"))
+    assert not any(isinstance(e, ApprovalRequiredEvent) for e in again)
+    assert [e.name for e in again if isinstance(e, ToolResultEvent)] == ["workspace_write"]
+    assert isinstance(again[-1], DoneEvent)
+
+
+async def test_always_on_a_denial_allows_nothing(deps_factory):
+    deps = deps_factory(script=[completion(tool_calls=(WRITE,)), completion("thôi")])
+    conv = deps.store.create()
+    paused = await collect(run_turn(deps, conv.id, "ghi"))
+    await collect(resolve_approval(deps, conv.id, paused[-1].approval_id, False, always=True))
+    assert deps.store.get(conv.id).auto_approve == ()
+
+
+async def test_the_shell_ask_list_still_pauses_an_always_allowed_tool(deps_factory):
+    """Always-allow is the person's shortcut; the ask list is the guard above it."""
+    call = ToolCall("c1", "shell_run", {"command": "sudo rm -rf /tmp/x"})
+    deps = deps_factory(script=[completion(tool_calls=(call,))])
+    conv = deps.store.create()
+    deps.store.update(conv.id, auto_approve=("shell_run",))
+    events = await collect(run_turn(deps, conv.id, "dọn"))
+    assert isinstance(events[-1], ApprovalRequiredEvent) and events[-1].reason

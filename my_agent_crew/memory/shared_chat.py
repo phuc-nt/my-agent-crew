@@ -46,7 +46,7 @@ def shared_chat_section(
     """
     if not channel:
         return None
-    recent = store.recent_messages_on_channel(channel, today, agent_id, limit)
+    recent = store.messages.recent_on_channel(channel, today, agent_id, limit)
     if not recent:
         return None
 

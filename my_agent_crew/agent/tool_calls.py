@@ -17,13 +17,15 @@ from my_agent_crew.agent.events import (
     ToolResultEvent,
 )
 from my_agent_crew.llm.types import Message
-from my_agent_crew.store.approvals import DENIED, PENDING
-from my_agent_crew.store.models import AWAITING_APPROVAL
-from my_agent_crew.texts import DENIED_TOOL, SHELL_ASK_REASON
+from my_agent_crew.store.approvals import DENIED, EXPIRED, PENDING
+from my_agent_crew.store.models import AWAITING_APPROVAL, Conversation
+from my_agent_crew.texts import DENIED_TOOL, EXPIRED_TOOL, SHELL_ASK_REASON
 from my_agent_crew.tools.shell import SHELL_TOOL_NAME, ask_reason
 
 if TYPE_CHECKING:  # the loop owns the deps; importing it back would be a cycle
     from my_agent_crew.agent.loop import AgentDeps
+
+REFUSALS = {DENIED: DENIED_TOOL, EXPIRED: EXPIRED_TOOL}
 
 
 def _ask_reason(deps: AgentDeps, name: str, arguments: dict[str, Any]) -> str | None:
@@ -32,6 +34,14 @@ def _ask_reason(deps: AgentDeps, name: str, arguments: dict[str, Any]) -> str | 
     if name != SHELL_TOOL_NAME:
         return None
     return ask_reason(str(arguments.get("command", "")), deps.settings.shell_ask_patterns)
+
+
+def needs_decision(conv: Conversation, name: str, reason: str | None) -> bool:
+    """An autonomous conversation and a tool the person said to always allow both skip
+    the pause; a command on the ask list pauses regardless, that guard is additive."""
+    if reason:
+        return True
+    return not conv.autonomous and name not in conv.auto_approve
 
 
 async def settle_tool_calls(deps: AgentDeps, conv_id: str) -> AsyncIterator[Event]:
@@ -47,10 +57,12 @@ async def settle_tool_calls(deps: AgentDeps, conv_id: str) -> AsyncIterator[Even
             continue
         tool = deps.tools.get(call.name)
         reason = _ask_reason(deps, call.name, call.arguments)
-        if tool is not None and tool.requires_approval and (not conv.autonomous or reason):
+        if tool is not None and tool.requires_approval and needs_decision(conv, call.name, reason):
             approval = deps.store.approvals.find_for_call(conv_id, call.id)
             if approval is None:
-                approval = deps.store.approvals.create(conv_id, last.id, call)
+                approval = deps.store.approvals.create(
+                    conv_id, last.id, call, ttl_seconds=deps.settings.approval_ttl_seconds
+                )
                 deps.store.update(conv_id, status=AWAITING_APPROVAL)
             if approval.status == PENDING:
                 yield ApprovalRequiredEvent(
@@ -59,15 +71,17 @@ async def settle_tool_calls(deps: AgentDeps, conv_id: str) -> AsyncIterator[Even
                     name=call.name,
                     arguments=call.arguments,
                     reason=SHELL_ASK_REASON.format(pattern=reason) if reason else "",
+                    expires_at=approval.expires_at or "",
                 )
                 return
-            if approval.status == DENIED:
+            if approval.status in REFUSALS:
+                refusal = REFUSALS[approval.status]
                 deps.store.append(
                     conv_id,
-                    Message(role="tool", content=DENIED_TOOL, tool_call_id=call.id, name=call.name),
+                    Message(role="tool", content=refusal, tool_call_id=call.id, name=call.name),
                 )
                 yield ToolResultEvent(
-                    tool_call_id=call.id, name=call.name, ok=False, output=DENIED_TOOL
+                    tool_call_id=call.id, name=call.name, ok=False, output=refusal
                 )
                 continue
         yield ToolCallEvent(tool_call_id=call.id, name=call.name, arguments=call.arguments)

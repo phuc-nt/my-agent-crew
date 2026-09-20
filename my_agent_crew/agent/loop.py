@@ -92,13 +92,20 @@ async def run_turn(
 
 
 async def resolve_approval(
-    deps: AgentDeps, conv_id: str, approval_id: str, approve: bool
+    deps: AgentDeps, conv_id: str, approval_id: str, approve: bool, always: bool = False
 ) -> AsyncIterator[Event]:
+    """`always` approves and also lets this tool run without asking for the rest of the
+    conversation; the ask list for shell commands still applies on top."""
     approval = deps.store.approvals.get(approval_id)
     if approval.conversation_id != conv_id or approval.status != PENDING:
         raise KeyError(approval_id)
     deps.store.approvals.resolve(approval_id, approve)
-    deps.store.update(conv_id, status=IDLE)
+    fields: dict[str, object] = {"status": IDLE}
+    if approve and always:
+        allowed = deps.store.get(conv_id).auto_approve
+        if approval.tool_name not in allowed:
+            fields["auto_approve"] = (*allowed, approval.tool_name)
+    deps.store.update(conv_id, **fields)
     source = conversation_source(deps.store, conv_id)
     async for event in run_turn(deps, conv_id, None, source=source):
         yield event
@@ -149,6 +156,8 @@ async def _complete(
         provider=completion.provider,
         model=completion.model,
         cost_usd=completion.usage.cost_usd,
+        prompt_tokens=completion.usage.prompt_tokens,
+        completion_tokens=completion.usage.completion_tokens,
     )
     deps.store.add_spend(conv.id, completion.usage.cost_usd)
     yield AssistantMessageEvent(

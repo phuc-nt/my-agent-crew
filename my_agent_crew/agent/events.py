@@ -44,6 +44,8 @@ class ApprovalRequiredEvent:
     arguments: dict[str, Any]
     # Why this call is waiting although the conversation is autonomous; empty otherwise.
     reason: str = ""
+    # When an unanswered request closes as expired (ISO, UTC); empty for legacy rows.
+    expires_at: str = ""
 
 
 @dataclass(frozen=True)

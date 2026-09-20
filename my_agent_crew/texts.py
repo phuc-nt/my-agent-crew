@@ -5,6 +5,11 @@ DENIED_TOOL = (
     "Người dùng đã TỪ CHỐI hành động này. Không thử lại cùng hành động; nếu cần, hỏi lại "
     "người dùng cách khác."
 )
+# Keeps the DENIED_TOOL opening so every reader treating a denial the same way still does.
+EXPIRED_TOOL = (
+    "Người dùng đã TỪ CHỐI hành động này (hết hạn chờ duyệt, không ai trả lời). "
+    "Không thử lại cùng hành động; nếu cần, hỏi lại người dùng cách khác."
+)
 UNKNOWN_TOOL = "Không có công cụ tên {name}."
 TOOL_FAILED = "Công cụ lỗi: {error}"
 OUTPUT_TRUNCATED = "\n…[đã cắt bớt {dropped} ký tự]"
@@ -113,6 +118,9 @@ TELEGRAM_APPROVAL = (
     "Agent cần duyệt công cụ {name}{reason}: gửi /approve để duyệt, /deny để từ chối."
 )
 SHELL_ASK_REASON = "khớp mẫu cần duyệt: `{pattern}`"
+TELEGRAM_APPROVAL_EXPIRED = (
+    "Yêu cầu duyệt công cụ {name} đã hết hạn chờ, agent tiếp tục như bị từ chối."
+)
 TELEGRAM_BUSY = "Cuộc trò chuyện đang chờ bạn duyệt một công cụ: /approve hoặc /deny."
 TELEGRAM_MEDIA_MISSING = "(không gửi được ảnh: {path})"
 TELEGRAM_RUN_UNFINISHED = (

@@ -74,6 +74,10 @@ def summarize(runs: list[RunRecord]) -> dict[str, Any]:
 
 @router.get("/stats")
 def stats(rt: Rt) -> dict[str, Any]:
+    """Run totals for the rail, plus the message-log ledger (`days`, `models`), which is
+    the honest number: it counts what providers billed, with tokens, over every run."""
     data = summarize(rt.hub.recent(STATS_RUNS))
     data["pending_proposals"] = len(rt.store.proposals.list())
+    data["days"] = rt.store.usage.by_day()
+    data["models"] = rt.store.usage.by_model()
     return data

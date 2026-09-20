@@ -37,13 +37,20 @@ class TelegramOutbound:
         the last user message, in order); False when there is none yet. Text written next
         to a tool call counts: a brief often ends with a bare `MEDIA:` message."""
         parts: list[str] = []
+        expired: list[str] = []
         for stored in reversed(self._deps.store.history(conv_id)):
             message = stored.message
             if message.role == "user":
                 break
             if message.role == "assistant" and message.content.strip():
                 parts.append(message.content.strip())
+            elif message.role == "tool" and message.content == texts.EXPIRED_TOOL:
+                expired.append(message.name or "")
         run = self._deps.store.runs.latest_for_conversation(conv_id)
+        # A refusal nobody chose deserves a line of its own: the answer below was shaped
+        # by a guard that timed out, not by the person.
+        for name in reversed(expired):
+            await self.send(texts.TELEGRAM_APPROVAL_EXPIRED.format(name=name))
         if parts:
             await self.send("\n\n".join(reversed(parts)))
             # A run out of steps or budget still leaves text behind; without this the

@@ -11,6 +11,7 @@ from typing import Any
 
 from my_agent_crew import texts
 from my_agent_crew.activity import ActivityHub
+from my_agent_crew.agent.approval_expiry import expire_overdue
 from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.scheduler.cron import due_between, next_run
 from my_agent_crew.scheduler.jobs import (
@@ -20,6 +21,7 @@ from my_agent_crew.scheduler.jobs import (
     run_consolidate,
     run_prompt,
 )
+from my_agent_crew.store.db import now_iso
 from my_agent_crew.store.runs import RunRecord
 
 logger = logging.getLogger(__name__)
@@ -38,6 +40,7 @@ class Scheduler:
         self._hub = hub
         self._clock = clock
         self._deliver = deliver
+        self._store = next(iter(agents.values())).store if agents else None
         self._jobs: dict[str, Job] = {}
         self._last: dict[str, datetime] = {}
         self._task: asyncio.Task[None] | None = None
@@ -62,15 +65,33 @@ class Scheduler:
         for job in self._jobs.values():
             last_run = next((r for r in recent if r.source == JOB_SOURCE + job.id), None)
             nxt = next_run(job.schedule.cron, job.schedule.every, self._last[job.id], now)
+            override = self._override(job)
             out.append(
                 {
                     **job.to_dict(),
+                    "enabled": job.schedule.enabled if override is None else override,
+                    "paused": override is False,
                     "next_run": nxt.isoformat(timespec="minutes") if nxt else None,
                     "last_run": last_run.to_dict() if last_run else None,
                     "running": job.id in self._running,
                 }
             )
         return out
+
+    # --- switching -----------------------------------------------------------------------
+
+    def _override(self, job: Job) -> bool | None:
+        return self._store.jobs.enabled(job.id) if self._store else None
+
+    def enabled(self, job: Job) -> bool:
+        """The profile decides unless the person flipped the job from the UI."""
+        override = self._override(job)
+        return job.schedule.enabled if override is None else override
+
+    def set_enabled(self, job_id: str, enabled: bool) -> None:
+        job = self.get(job_id)
+        if self._store is not None:
+            self._store.jobs.set_enabled(job.id, enabled, now_iso())
 
     # --- ticking -------------------------------------------------------------------------
 
@@ -79,13 +100,14 @@ class Scheduler:
         return [
             job
             for job in self._jobs.values()
-            if job.schedule.enabled
+            if self.enabled(job)
             and job.id not in self._running
             and due_between(job.schedule.cron, job.schedule.every, self._last[job.id], now)
         ]
 
     async def tick(self, now: datetime | None = None) -> list[RunRecord]:
         now = now or self._clock()
+        await expire_overdue(self._agents, self._hub, self._deliver)
         results = []
         for job in self.due(now):
             self._last[job.id] = now

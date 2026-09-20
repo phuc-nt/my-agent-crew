@@ -2,6 +2,7 @@
 
 import json
 import time
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -136,6 +137,46 @@ def test_jobs_are_listed_and_can_run_now(two_agents):
     assert {r["source"] for r in runs} == {"job:coach/sync", "job:coach/brief"}
     assert runtime.store.list("coach")[0].title.startswith("[lịch] Bản tin")
     assert client.get("/api/jobs").json()[1]["last_run"]["source"] == "job:coach/sync"
+
+
+def test_a_job_can_be_paused_over_http_and_lists_its_own_runs(two_agents):
+    client, runtime = two_agents
+    far = datetime(2030, 1, 1)
+    assert client.patch("/api/jobs/coach/nope/state", json={"enabled": False}).status_code == 404
+    paused = client.patch("/api/jobs/coach/sync/state", json={"enabled": False}).json()
+    assert paused["id"] == "coach/sync" and paused["enabled"] is False and paused["paused"]
+    assert [j.id for j in runtime.scheduler.due(far)] == ["coach/brief"]
+    assert client.get("/api/jobs").json()[0]["paused"] is False
+
+    assert client.get("/api/jobs/coach/sync/runs").json() == []
+    assert client.post("/api/jobs/coach/sync/run").status_code == 202  # run-now ignores the pause
+    deadline = time.monotonic() + 10
+    while (
+        not (runs := client.get("/api/jobs/coach/sync/runs").json()) or runs[0]["status"] != "done"
+    ):
+        assert time.monotonic() < deadline
+        time.sleep(0.05)
+    assert [r["source"] for r in runs] == ["job:coach/sync"]
+    assert client.get("/api/jobs/coach/brief/runs").json() == []
+
+    back = client.patch("/api/jobs/coach/sync/state", json={"enabled": True}).json()
+    assert back["enabled"] is True and back["paused"] is False
+    assert [j.id for j in runtime.scheduler.due(far)] == ["coach/brief", "coach/sync"]
+
+
+def test_stats_carry_the_message_ledger_with_tokens(two_agents):
+    client, _ = two_agents
+    conv = client.post("/api/conversations", json={"agent_id": "coach"}).json()
+    with client.stream(
+        "POST", f"/api/conversations/{conv['id']}/messages", json={"text": "xin chào"}
+    ) as r:
+        r.read()
+    stats = client.get("/api/stats").json()
+    assert len(stats["days"]) == 7 and stats["days"][-1]["calls"] == 1
+    assert stats["days"][-1]["prompt_tokens"] > 0 and stats["days"][-1]["completion_tokens"] > 0
+    assert stats["days"][0]["calls"] == 0
+    (model,) = stats["models"]
+    assert model["model"] == "fake:echo" and model["calls"] == 1
 
 
 def test_agent_files_are_served_only_from_the_workspace(two_agents):

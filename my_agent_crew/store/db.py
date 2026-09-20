@@ -13,14 +13,18 @@ from pathlib import Path
 from my_agent_crew.llm.types import Message
 from my_agent_crew.store.approvals import ApprovalStore
 from my_agent_crew.store.channel_state import ChannelStateStore
+from my_agent_crew.store.job_state import JobStateStore
 from my_agent_crew.store.memory_proposals import MemoryProposalStore
 from my_agent_crew.store.messages import MessageStore
 from my_agent_crew.store.models import Conversation, StoredMessage
 from my_agent_crew.store.runs import RunStore
 from my_agent_crew.store.schema import apply_schema
+from my_agent_crew.store.usage import UsageStore
 from my_agent_crew.texts import CONVERSATION_TITLE_DEFAULT
 
 MUTABLE_FIELDS = {"title", "autonomous", "cost_cap_usd", "skills", "status", "summary"}
+MUTABLE_FIELDS |= {"auto_approve"}
+LIST_FIELDS = ("skills", "auto_approve")  # stored as JSON arrays
 
 
 def now_iso() -> str:
@@ -43,6 +47,8 @@ class Store:
         self.channels = ChannelStateStore(self._conn, self._lock)
         self.messages = MessageStore(self._conn, self._lock)
         self.proposals = MemoryProposalStore(self._conn, self._lock)
+        self.jobs = JobStateStore(self._conn, self._lock)
+        self.usage = UsageStore(self._conn, self._lock)
 
     def close(self) -> None:
         self._conn.close()
@@ -106,9 +112,8 @@ class Store:
         return Conversation.from_row(row) if row else None
 
     def previous_for_channel(self, agent_id: str, channel: str, before: str) -> Conversation | None:
-        """The conversation this agent held on the channel right before `before`. Ordered
-        by rowid, not `created_at`: two conversations opened in the same millisecond carry
-        the same timestamp, and only insertion order tells them apart."""
+        """The conversation this agent held on the channel right before `before`. Ordered by
+        rowid, not `created_at`: two opened in the same millisecond share a timestamp."""
         with self._lock:
             row = self._conn.execute(
                 "SELECT * FROM conversations WHERE agent_id = ? AND channel = ?"
@@ -118,25 +123,6 @@ class Store:
             ).fetchone()
         return Conversation.from_row(row) if row else None
 
-    def recent_messages_on_channel(
-        self, channel: str, day: str, exclude_agent_id: str, limit: int = 10
-    ) -> list[tuple[str, str, str]]:
-        """What the other agents said on this channel today, as `(agent_id, role, text)`.
-
-        Oldest first, so it reads as a conversation. Tool traffic is left out: another
-        agent's tool calls say nothing a reader of the chat would have seen.
-        """
-        with self._lock:
-            rows = self._conn.execute(
-                "SELECT c.agent_id, m.role, m.content FROM messages m"
-                " JOIN conversations c ON c.id = m.conversation_id"
-                " WHERE c.channel = ? AND c.agent_id != ? AND m.created_at >= ?"
-                " AND m.role IN ('user', 'assistant') AND m.content != ''"
-                " ORDER BY m.id DESC LIMIT ?",
-                (channel, exclude_agent_id, day, limit),
-            ).fetchall()
-        return [(r["agent_id"], r["role"], r["content"]) for r in reversed(rows)]
-
     def set_current_agent(self, channel: str, agent_id: str) -> None:
         self.channels.set_current_agent(channel, agent_id, now_iso())
 
@@ -144,8 +130,9 @@ class Store:
         unknown = set(fields) - MUTABLE_FIELDS
         if unknown:
             raise ValueError(f"not updatable: {sorted(unknown)}")
-        if "skills" in fields:
-            fields["skills"] = json.dumps(list(fields["skills"]))  # type: ignore[arg-type]
+        for key in LIST_FIELDS:
+            if key in fields:
+                fields[key] = json.dumps(list(fields[key]))  # type: ignore[arg-type]
         if "autonomous" in fields:
             fields["autonomous"] = int(bool(fields["autonomous"]))
         fields["updated_at"] = now_iso()
@@ -191,9 +178,13 @@ class Store:
         provider: str | None = None,
         model: str | None = None,
         cost_usd: float | None = None,
+        prompt_tokens: int | None = None,
+        completion_tokens: int | None = None,
     ) -> StoredMessage:
         self.get(conv_id)  # an unknown conversation must raise before anything is written
-        return self.messages.append(conv_id, message, now_iso(), provider, model, cost_usd)
+        return self.messages.append(
+            conv_id, message, now_iso(), provider, model, cost_usd, prompt_tokens, completion_tokens
+        )
 
     def history(self, conv_id: str) -> list[StoredMessage]:
         return self.messages.history(conv_id)

@@ -101,6 +101,34 @@ def test_approval_flow_over_http(client):
     assert again.status_code == 409
 
 
+def test_always_allow_skips_the_next_pause_and_lands_in_history(client):
+    conv = client.post("/api/conversations", json={}).json()
+    text = '/tool workspace_write {"path": "x.txt", "content": "1"}'
+    base = f"/api/conversations/{conv['id']}"
+
+    def turn(text: str) -> list[dict]:
+        with client.stream("POST", f"{base}/messages", json={"text": text}) as r:
+            return parse_sse("".join(r.iter_text()))
+
+    first = turn(text)
+    assert first[-1]["type"] == "approval_required" and first[-1]["expires_at"]
+    url = f"{base}/approvals/{first[-1]['approval_id']}"
+    with client.stream("POST", url, json={"approve": True, "always": True}) as r:
+        resumed = parse_sse("".join(r.iter_text()))
+    assert resumed[-1]["type"] == "done"
+    assert client.get(base).json()["auto_approve"] == ["workspace_write"]
+
+    kinds = [e["type"] for e in turn(text)]
+    assert "approval_required" not in kinds and "tool_result" in kinds and kinds[-1] == "done"
+
+    history = client.get("/api/approvals").json()
+    assert [(h["status"], h["agent_id"]) for h in history] == [("approved", conv["agent_id"])]
+    assert history[0]["resolved_at"] and history[0]["conversation_id"] == conv["id"]
+
+    assert client.patch(base, json={"auto_approve": []}).json()["auto_approve"] == []
+    assert turn(text)[-1]["type"] == "approval_required"
+
+
 def test_settings_never_echo_secrets(deps_factory):
     deps = deps_factory(routes=(Route("fake", "echo"),), openrouter_api_key="sk-secret")
     with TestClient(create_app(deps)) as c:

@@ -53,6 +53,17 @@ def test_the_shell_ask_list_comes_from_yaml_or_env_and_can_be_emptied(tmp_path: 
     assert load_settings(env={**home, "MY_AGENT_SHELL_ASK_PATTERNS": ""}).shell_ask_patterns == ()
 
 
+def test_the_approval_deadline_comes_from_yaml_or_env_and_must_be_positive(tmp_path: Path):
+    home = {"MY_AGENT_HOME": str(tmp_path)}
+    assert load_settings(env=home).approval_ttl_seconds == 600
+    (tmp_path / "config.yaml").write_text("approval_ttl_seconds: 120\n")
+    assert load_settings(env=home).approval_ttl_seconds == 120
+    env = {**home, "MY_AGENT_APPROVAL_TTL_SECONDS": "30"}
+    assert load_settings(env=env).approval_ttl_seconds == 30
+    with pytest.raises(ValueError):
+        load_settings(env={**home, "MY_AGENT_APPROVAL_TTL_SECONDS": "0"})
+
+
 def test_yaml_unknown_key_is_an_error(tmp_path: Path):
     (tmp_path / "config.yaml").write_text("openrouter_api_key: sk-nope\n")
     with pytest.raises(ValueError, match="openrouter_api_key"):

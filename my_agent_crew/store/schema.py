@@ -32,6 +32,9 @@ CREATE TABLE IF NOT EXISTS runs (
 CREATE TABLE IF NOT EXISTS channel_state (
     channel TEXT PRIMARY KEY, agent_id TEXT NOT NULL, updated_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS job_state (
+    job_id TEXT PRIMARY KEY, enabled INTEGER NOT NULL, updated_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS memory_proposals (
     id TEXT PRIMARY KEY, agent_id TEXT NOT NULL, kind TEXT NOT NULL, name TEXT NOT NULL,
     description TEXT NOT NULL, type TEXT NOT NULL, body TEXT NOT NULL, status TEXT NOT NULL,
@@ -45,6 +48,13 @@ ADDED_COLUMNS = (
     ("conversations", "channel", "TEXT NOT NULL DEFAULT ''"),
     ("conversations", "summary", "TEXT NOT NULL DEFAULT ''"),
     ("memory_proposals", "previous_body", "TEXT NOT NULL DEFAULT ''"),
+    # Tools this conversation lets through without asking, as a JSON list of names.
+    ("conversations", "auto_approve", "TEXT NOT NULL DEFAULT '[]'"),
+    # An approval nobody answers by `expires_at` is treated as denied.
+    ("approvals", "expires_at", "TEXT"),
+    ("approvals", "resolved_at", "TEXT"),
+    ("messages", "prompt_tokens", "INTEGER"),
+    ("messages", "completion_tokens", "INTEGER"),
 )
 
 
