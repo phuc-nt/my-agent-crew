@@ -1,70 +1,89 @@
-"""One agent's Telegram channel. Messages from the configured chat become turns of a
-per-day conversation (`channel = "telegram:<chat_id>"`), so the web UI shows them like
-any other run; the chat shows "typing…" while the turn runs. Slash commands are answered
-by `telegram_commands` without a model call. `deliver` pushes the last reply of a
-conversation (a scheduled brief) to the same chat. Only one process may poll a bot: a 409
-means another poller is alive."""
+"""One Telegram bot's channel: messages from the configured chat become turns of a
+per-day conversation of one agent (`telegram_conversations`). A bot may serve several
+agents: `@<agent id>` picks the agent for that message and the ones after it; a bare
+`@id` only switches. Slash commands are answered by `telegram_commands` without a model
+call. `deliver` pushes a conversation's last reply (a scheduled brief) to the chat. Only
+one process may poll a bot: a 409 means another poller is alive."""
 
 from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from my_agent_crew import texts
-from my_agent_crew.activity import ActivityHub, tracked
-from my_agent_crew.agent.events import (
-    ApprovalRequiredEvent,
-    AssistantMessageEvent,
-    ErrorEvent,
-    Event,
-    HaltedEvent,
-)
+from my_agent_crew.activity import ActivityHub
+from my_agent_crew.agent.events import Event
 from my_agent_crew.agent.loop import AgentDeps, run_turn
+from my_agent_crew.channels import telegram_conversations as conversations
 from my_agent_crew.channels.telegram_api import CONFLICT_STATUS, TelegramApi, TelegramError
-from my_agent_crew.channels.telegram_commands import MENU, answer_command, parse_command
+from my_agent_crew.channels.telegram_commands import (
+    CHANNEL_COMMANDS,
+    MENU,
+    answer_command,
+    parse_command,
+    parse_mention,
+)
+from my_agent_crew.channels.telegram_offset import read_offset, write_offset
 from my_agent_crew.channels.telegram_outbound import TelegramOutbound
-from my_agent_crew.store import Conversation
+from my_agent_crew.store import Conversation, Store
 from my_agent_crew.store.models import AWAITING_APPROVAL
 
 logger = logging.getLogger(__name__)
-SOURCE = "telegram"
 RETRY_SECONDS = 5
-
-
-def channel_key(chat_id: int) -> str:
-    return f"telegram:{chat_id}"
 
 
 class TelegramChannel:
     def __init__(
         self,
-        deps: AgentDeps,
+        agents: Mapping[str, AgentDeps],
         hub: ActivityHub,
         api: TelegramApi,
         chat_id: int,
         offset_path: Path,
         clock: Any = datetime.now,
     ):
-        self.deps = deps
+        if not agents:
+            raise ValueError("a telegram channel needs at least one agent")
+        self.agents: dict[str, AgentDeps] = dict(agents)
         self.hub = hub
         self._api = api
         self.chat_id = chat_id
         self._offset_path = offset_path
         self._clock = clock
-        self._outbound = TelegramOutbound(deps, api, chat_id)
-        self._offset = self._load_offset()
+        self._outbound = {
+            agent_id: TelegramOutbound(deps, api, chat_id, prefix=self._prefix(deps))
+            for agent_id, deps in self.agents.items()
+        }
+        self._offset = read_offset(offset_path)
         self._menu_registered = False
         self._task: asyncio.Task[None] | None = None
 
     @property
-    def agent_id(self) -> str:
-        return self.deps.agent.id
+    def shared(self) -> bool:
+        return len(self.agents) > 1
 
-    # --- polling -------------------------------------------------------------------------
+    @property
+    def label(self) -> str:
+        return "+".join(self.agents)
+
+    @property
+    def store(self) -> Store:
+        return next(iter(self.agents.values())).store
+
+    @property
+    def agent_id(self) -> str:  # the agent a message without a mention goes to
+        return self.current_agent()
+
+    @property
+    def deps(self) -> AgentDeps:
+        return self.agents[self.agent_id]
+
+    def _prefix(self, deps: AgentDeps) -> str:
+        return texts.TELEGRAM_AGENT_PREFIX.format(name=deps.agent.name) if self.shared else ""
 
     def start(self) -> None:
         if self._task is None:
@@ -83,11 +102,11 @@ class TelegramChannel:
                 continue
             except TelegramError as exc:
                 if exc.status == CONFLICT_STATUS:
-                    logger.warning("telegram %s: another poller holds this bot", self.agent_id)
+                    logger.warning("telegram %s: another poller holds this bot", self.label)
                 else:
-                    logger.warning("telegram %s: %s", self.agent_id, exc)
+                    logger.warning("telegram %s: %s", self.label, exc)
             except Exception:
-                logger.exception("telegram %s: update failed", self.agent_id)
+                logger.exception("telegram %s: update failed", self.label)
             await asyncio.sleep(RETRY_SECONDS)
 
     async def register_menu(self) -> None:
@@ -95,7 +114,7 @@ class TelegramChannel:
         if not self._menu_registered:
             await self._api.set_my_commands(list(MENU))
             self._menu_registered = True
-            logger.info("telegram %s: command menu registered", self.agent_id)
+            logger.info("telegram %s: command menu registered", self.label)
 
     async def poll_once(self) -> int:
         """Fetches pending updates and handles each; the offset moves before handling so a
@@ -103,82 +122,75 @@ class TelegramChannel:
         updates = await self._api.get_updates(self._offset)
         for update in updates:
             self._offset = int(update["update_id"]) + 1
-            self._save_offset()
+            write_offset(self._offset_path, self._offset)
             await self.handle(update)
         return len(updates)
-
-    def _load_offset(self) -> int:
-        try:
-            return int(self._offset_path.read_text().strip() or 0)
-        except (OSError, ValueError):
-            return 0
-
-    def _save_offset(self) -> None:
-        self._offset_path.parent.mkdir(parents=True, exist_ok=True)
-        self._offset_path.write_text(str(self._offset))
-
-    # --- inbound ---------------------------------------------------------------------------
 
     async def handle(self, update: dict[str, Any]) -> None:
         message = update.get("message") or {}
         chat_id = (message.get("chat") or {}).get("id")
         text = message.get("text")
         if chat_id != self.chat_id or not text:
-            logger.info("telegram %s: ignored update from chat %s", self.agent_id, chat_id)
+            logger.info("telegram %s: ignored update from chat %s", self.label, chat_id)
             return
-        logger.info("telegram %s: message of %d chars", self.agent_id, len(text))
+        logger.info("telegram %s: message of %d chars", self.label, len(text))
+        mention, text = parse_mention(text) if self.shared else (None, text)
+        if mention is not None and mention not in self.agents:
+            unknown = texts.TELEGRAM_AGENT_UNKNOWN.format(
+                agent_id=mention, agents=self.agents_text()
+            )
+            await self.say(unknown)
+            return
+        agent_id = mention or self.current_agent()
+        if mention is not None:
+            self.store.set_current_agent(conversations.channel_key(self.chat_id), agent_id)
+            if not text:
+                name = self.agents[agent_id].agent.name
+                await self.say(texts.TELEGRAM_AGENT_SWITCHED.format(name=name, agent_id=agent_id))
+                return
         command = parse_command(text)
-        if command is not None:
-            await self._outbound.send(await answer_command(self, command))
-            return
-        conv = self.conversation()
+        if command in CHANNEL_COMMANDS:
+            await self.say(await answer_command(self, agent_id, command))
+        elif command is not None:
+            await self._outbound[agent_id].send(await answer_command(self, agent_id, command))
+        else:
+            await self.chat(agent_id, text)
+
+    async def chat(self, agent_id: str, text: str) -> None:
+        conv = self.conversation(agent_id)
         if conv.status == AWAITING_APPROVAL:
-            await self._api.send_message(self.chat_id, texts.TELEGRAM_BUSY)
+            await self.say(texts.TELEGRAM_BUSY)
             return
-        await self._outbound.send(await self.turn(conv, run_turn(self.deps, conv.id, text)))
+        events = run_turn(self.agents[agent_id], conv.id, text)
+        await self._outbound[agent_id].send(await self.turn(agent_id, conv, events))
 
-    def conversation(self) -> Conversation:
-        """Today's conversation on this chat, opened on first use each day."""
-        latest = self.deps.store.latest_for_channel(self.agent_id, channel_key(self.chat_id))
-        today = self._clock().date()
-        if latest is None or datetime.fromisoformat(latest.created_at).astimezone().date() != today:
-            return self.open_conversation()
-        return latest
+    async def say(self, text: str) -> None:
+        """A message from the bot itself, not from an agent: no agent prefix."""
+        await self._api.send_message(self.chat_id, text)
 
-    def open_conversation(self) -> Conversation:
-        settings = self.deps.settings
-        return self.deps.store.create(
-            title=texts.TELEGRAM_CONVERSATION_TITLE.format(date=self._clock().date().isoformat()),
-            autonomous=settings.autonomous_default,
-            cost_cap_usd=settings.cost_cap_usd,
-            agent_id=self.agent_id,
-            channel=channel_key(self.chat_id),
-        )
+    def current_agent(self) -> str:
+        return conversations.current_agent(self.store, self.agents, self.chat_id)
 
-    async def turn(self, conv: Conversation, events: AsyncIterator[Event]) -> str:
-        """Runs a turn's events with "typing…" showing and returns what the user should
-        read: every piece of assistant text, including text written next to a tool call
-        (models often put the answer there and finish with a bare `MEDIA:` line), plus the
-        halt/error/approval notices."""
-        parts: list[str] = []
-        async with self._outbound.typing():
-            async for event in tracked(
-                self.hub, events, self.agent_id, SOURCE, conv.title, conv.id
-            ):
-                if isinstance(event, AssistantMessageEvent):
-                    parts.append(event.content.strip())
-                elif isinstance(event, HaltedEvent):
-                    parts.append(
-                        texts.TELEGRAM_HALTED.format(reason=event.reason, spent=event.spent_usd)
-                    )
-                elif isinstance(event, ErrorEvent):
-                    parts.append(texts.TELEGRAM_ERROR.format(message=event.message))
-                elif isinstance(event, ApprovalRequiredEvent):
-                    parts.append(texts.TELEGRAM_APPROVAL.format(name=event.name))
-        return "\n\n".join(part for part in parts if part)
+    def agents_text(self) -> str:
+        return conversations.agents_text(self.agents, self.current_agent())
 
-    # --- outbound --------------------------------------------------------------------------
+    def conversation(self, agent_id: str | None = None) -> Conversation:
+        deps = self.agents[agent_id or self.current_agent()]
+        return conversations.today_conversation(deps, self.chat_id, self._clock)
+
+    def open_conversation(self, agent_id: str | None = None) -> Conversation:
+        deps = self.agents[agent_id or self.current_agent()]
+        return conversations.open_conversation(deps, self.chat_id, self._clock)
+
+    async def turn(self, agent_id: str, conv: Conversation, events: AsyncIterator[Event]) -> str:
+        outbound = self._outbound[agent_id]
+        return await conversations.collect_turn(self.hub, outbound, agent_id, conv, events)
 
     async def deliver(self, conv_id: str) -> bool:
-        """Sends the assistant text of a conversation's last turn; False when there is none."""
-        return await self._outbound.deliver(conv_id)
+        """Sends a conversation's last reply through its agent's outbound; False when
+        there is none or the agent is not on this bot."""
+        outbound = self._outbound.get(self.store.get(conv_id).agent_id)
+        if outbound is None:
+            logger.warning("telegram %s: conversation %s is another agent's", self.label, conv_id)
+            return False
+        return await outbound.deliver(conv_id)

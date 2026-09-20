@@ -54,6 +54,7 @@ TELEGRAM_COMMANDS = {
     "help": "Liệt kê các lệnh.",
     "status": "Trạng thái cuộc trò chuyện hôm nay.",
     "tools": "Các công cụ agent đang có.",
+    "agents": "Các agent trên bot này; gửi @id để chuyển.",
     "approve": "Duyệt công cụ đang chờ.",
     "deny": "Từ chối công cụ đang chờ.",
 }
@@ -73,3 +74,12 @@ TELEGRAM_RUN_NONE = "chưa có"
 TELEGRAM_RUN = "{status}, {steps} bước, {started}"
 TELEGRAM_TOOLS = "Công cụ ({count}):\n{names}"
 TELEGRAM_NO_APPROVAL = "Không có công cụ nào đang chờ duyệt."
+TELEGRAM_AGENT_PREFIX = "[{name}]"
+TELEGRAM_AGENTS = (
+    "Các agent trên bot này (gửi @id để chuyển, ▶ là agent đang nói chuyện):\n{agents}"
+)
+TELEGRAM_AGENT_LINE = "{mark} @{agent_id} — {name}"
+TELEGRAM_AGENT_CURRENT = "▶"
+TELEGRAM_AGENT_OTHER = "•"
+TELEGRAM_AGENT_SWITCHED = "Đang nói chuyện với {name} (@{agent_id})."
+TELEGRAM_AGENT_UNKNOWN = "Không có agent @{agent_id}.\n{agents}"

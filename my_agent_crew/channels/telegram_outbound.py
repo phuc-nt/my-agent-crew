@@ -20,10 +20,12 @@ TYPING_INTERVAL_SECONDS = 4
 
 
 class TelegramOutbound:
-    def __init__(self, deps: AgentDeps, api: TelegramApi, chat_id: int):
+    def __init__(self, deps: AgentDeps, api: TelegramApi, chat_id: int, prefix: str = ""):
+        """`prefix` is a first line naming the agent, used when several share the bot."""
         self._deps = deps
         self._api = api
         self._chat_id = chat_id
+        self._prefix = prefix
 
     @property
     def agent_id(self) -> str:
@@ -48,6 +50,8 @@ class TelegramOutbound:
     async def send(self, text: str) -> None:
         prose, media = split_reply(text)
         if prose:
+            if self._prefix:
+                prose = f"{self._prefix}\n{prose}"
             await self._api.send_message(self._chat_id, prose)
             logger.info("telegram %s: sent %d chars", self.agent_id, len(prose))
         for relative in media:

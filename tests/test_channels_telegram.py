@@ -88,7 +88,8 @@ def make_channel(deps_factory, fake, tmp_path: Path):
         client = httpx.AsyncClient(transport=httpx.MockTransport(fake.handler))
         api = TelegramApi(TOKEN, client)
         hub = ActivityHub(deps.store)
-        return TelegramChannel(deps, hub, api, CHAT, tmp_path / "telegram.offset", clock=clock)
+        agents = {deps.agent.id: deps}
+        return TelegramChannel(agents, hub, api, CHAT, tmp_path / "telegram.offset", clock=clock)
 
     return factory
 
@@ -110,7 +111,7 @@ async def test_inbound_message_runs_a_tracked_turn_and_replies(make_channel, fak
 
 async def test_typing_indicator_is_kept_alive_and_never_breaks_the_turn(make_channel, fake, caplog):
     channel = make_channel()
-    async with channel._outbound.typing(interval=0.01):
+    async with channel._outbound[channel.agent_id].typing(interval=0.01):
         await asyncio.sleep(0.05)
     assert fake.calls.count("sendChatAction") >= 3
     assert "sendMessage" not in fake.calls

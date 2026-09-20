@@ -13,6 +13,7 @@ from pathlib import Path
 
 from my_agent_crew.llm.types import Message
 from my_agent_crew.store.approvals import ApprovalStore
+from my_agent_crew.store.channel_state import ChannelStateStore
 from my_agent_crew.store.models import Conversation, StoredMessage
 from my_agent_crew.store.runs import RunStore
 from my_agent_crew.store.schema import apply_schema
@@ -38,6 +39,7 @@ class Store:
             apply_schema(self._conn)
         self.approvals = ApprovalStore(self._conn, self._lock)
         self.runs = RunStore(self._conn, self._lock)
+        self.channels = ChannelStateStore(self._conn, self._lock)
 
     def close(self) -> None:
         self._conn.close()
@@ -100,6 +102,9 @@ class Store:
             ).fetchone()
         return Conversation.from_row(row) if row else None
 
+    def set_current_agent(self, channel: str, agent_id: str) -> None:
+        self.channels.set_current_agent(channel, agent_id, now_iso())
+
     def update(self, conv_id: str, **fields: object) -> Conversation:
         unknown = set(fields) - MUTABLE_FIELDS
         if unknown:
@@ -154,38 +159,26 @@ class Store:
     ) -> StoredMessage:
         self.get(conv_id)
         stamp = now_iso()
+        tool_calls = json.dumps([asdict(tc) for tc in message.tool_calls])
         with self._lock:
             seq = self._conn.execute(
                 "SELECT COALESCE(MAX(seq), 0) + 1 FROM messages WHERE conversation_id = ?",
                 (conv_id,),
             ).fetchone()[0]
+            values = [conv_id, seq, message.role, message.content, tool_calls]
+            values += [message.tool_call_id, message.name, provider, model, cost_usd, stamp]
             cur = self._conn.execute(
                 "INSERT INTO messages (conversation_id, seq, role, content, tool_calls,"
-                " tool_call_id,"
-                " name, provider, model, cost_usd, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-                (
-                    conv_id,
-                    seq,
-                    message.role,
-                    message.content,
-                    json.dumps([asdict(tc) for tc in message.tool_calls]),
-                    message.tool_call_id,
-                    message.name,
-                    provider,
-                    model,
-                    cost_usd,
-                    stamp,
-                ),
+                " tool_call_id, name, provider, model, cost_usd, created_at)"
+                " VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                values,
             )
             self._conn.execute(
-                "UPDATE conversations SET updated_at = ? WHERE id = ?",
-                (stamp, conv_id),
+                "UPDATE conversations SET updated_at = ? WHERE id = ?", (stamp, conv_id)
             )
             self._conn.commit()
-            row = self._conn.execute(
-                "SELECT * FROM messages WHERE id = ?", (cur.lastrowid,)
-            ).fetchone()
-        return StoredMessage.from_row(row)
+            row = self._conn.execute("SELECT * FROM messages WHERE id = ?", (cur.lastrowid,))
+        return StoredMessage.from_row(row.fetchone())
 
     def history(self, conv_id: str) -> list[StoredMessage]:
         with self._lock:

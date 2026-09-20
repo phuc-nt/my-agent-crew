@@ -135,3 +135,16 @@ def test_conversations_carry_a_channel_and_the_latest_per_channel_is_found(store
     assert store.latest_for_channel("coach", "telegram:42").id == second.id
     assert store.latest_for_channel("coach", "telegram:1") is None
     assert store.latest_for_channel("default", "telegram:42") is None
+
+
+def test_a_channel_remembers_its_current_agent_across_reopen(tmp_path: Path):
+    path = tmp_path / "agent.sqlite3"
+    store = Store(path)
+    assert store.channels.current_agent("telegram:1") is None
+    store.set_current_agent("telegram:1", "coach")
+    store.set_current_agent("telegram:1", "pong")
+    store.set_current_agent("telegram:2", "coach")
+    store.close()
+    store = Store(path)
+    assert store.channels.current_agent("telegram:1") == "pong"
+    assert store.channels.current_agent("telegram:2") == "coach"

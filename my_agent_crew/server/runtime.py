@@ -109,12 +109,19 @@ class Runtime:
         if channel is not None:
             await channel.deliver(conv_id)
 
-    def start_channels(self) -> None:
+    def unique_channels(self) -> list[TelegramChannel]:
+        """A bot shared by several agents is one object listed under each agent id."""
+        seen: dict[int, TelegramChannel] = {}
         for channel in self.channels.values():
+            seen.setdefault(id(channel), channel)
+        return list(seen.values())
+
+    def start_channels(self) -> None:
+        for channel in self.unique_channels():
             channel.start()
 
     async def stop_channels(self) -> None:
-        for channel in self.channels.values():
+        for channel in self.unique_channels():
             await channel.stop()
 
     @property
