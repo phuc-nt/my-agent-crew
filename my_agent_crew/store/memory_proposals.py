@@ -18,6 +18,8 @@ from datetime import UTC, datetime
 from typing import Any
 
 USER_FACT, USER_FORGET, AGENT_MEMORY = "user_fact", "user_forget", "agent_memory"
+# A whole rewritten MEMORY.md rather than one line to append; carries what it replaces.
+AGENT_MEMORY_REWRITE = "agent_memory_rewrite"
 PENDING, APPROVED, REJECTED = "pending", "approved", "rejected"
 
 
@@ -34,6 +36,8 @@ class MemoryProposal:
     source: str
     created_at: str
     resolved_at: str | None = None
+    # What the file held before an approval overwrote it, so one step back is possible.
+    previous_body: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -52,6 +56,7 @@ class MemoryProposal:
             source=row["source"],
             created_at=row["created_at"],
             resolved_at=row["resolved_at"],
+            previous_body=row["previous_body"],
         )
 
 
@@ -69,13 +74,14 @@ class MemoryProposalStore:
         type: str = "reference",
         body: str = "",
         source: str = "job",
+        previous_body: str = "",
     ) -> MemoryProposal:
         proposal_id = uuid.uuid4().hex[:12]
         stamp = datetime.now(UTC).isoformat(timespec="seconds")
         with self._lock:
             self._conn.execute(
                 "INSERT INTO memory_proposals (id, agent_id, kind, name, description, type, body,"
-                " status, source, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                " status, source, created_at, previous_body) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     proposal_id,
                     agent_id,
@@ -87,6 +93,7 @@ class MemoryProposalStore:
                     PENDING,
                     source,
                     stamp,
+                    previous_body,
                 ),
             )
             self._conn.commit()

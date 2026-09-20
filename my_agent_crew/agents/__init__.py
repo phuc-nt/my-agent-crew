@@ -4,8 +4,8 @@ from my_agent_crew.agents.profile import (
     AgentProfile,
     Schedule,
     default_profile,
-    load_profiles,
 )
+from my_agent_crew.agents.profile_yaml import load_profiles, parse_profile
 
 __all__ = [
     "DEFAULT_AGENT_ID",
@@ -14,4 +14,5 @@ __all__ = [
     "TelegramConfig",
     "default_profile",
     "load_profiles",
+    "parse_profile",
 ]

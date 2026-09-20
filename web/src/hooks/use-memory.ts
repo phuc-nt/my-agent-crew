@@ -22,6 +22,8 @@ export interface MemoryController {
   saveNote: (day: string, body: string) => Promise<void>;
   search: (query: string, onlyThisAgent: boolean) => Promise<void>;
   decide: (id: string, approve: boolean) => Promise<void>;
+  consolidate: () => Promise<void>;
+  undo: (proposal: MemoryProposal) => Promise<void>;
 }
 
 /**
@@ -121,6 +123,18 @@ export function useMemory(agentId: string, pendingCount: number): MemoryControll
     [reloadUser, reloadAgent],
   );
 
+  const consolidate = useCallback(async () => {
+    await api.consolidateMemory(agentId);
+  }, [agentId]);
+
+  const undo = useCallback(
+    async (proposal: MemoryProposal) => {
+      await api.putAgentMemory(proposal.agent_id, proposal.previous_body);
+      await reloadAgent();
+    },
+    [reloadAgent],
+  );
+
   return {
     user,
     agentMemory,
@@ -135,5 +149,7 @@ export function useMemory(agentId: string, pendingCount: number): MemoryControll
     saveNote,
     search,
     decide,
+    consolidate,
+    undo,
   };
 }

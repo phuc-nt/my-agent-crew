@@ -44,6 +44,7 @@ ADDED_COLUMNS = (
     ("conversations", "agent_id", "TEXT NOT NULL DEFAULT 'default'"),
     ("conversations", "channel", "TEXT NOT NULL DEFAULT ''"),
     ("conversations", "summary", "TEXT NOT NULL DEFAULT ''"),
+    ("memory_proposals", "previous_body", "TEXT NOT NULL DEFAULT ''"),
 )
 
 

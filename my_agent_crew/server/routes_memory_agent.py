@@ -6,13 +6,16 @@ effect on its next message with no restart and no separate copy.
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from my_agent_crew import texts
 from my_agent_crew.agents.profile import AgentProfile
 from my_agent_crew.memory import agent_store
+from my_agent_crew.memory.consolidate import JOB_SOURCE, consolidate_memory
 from my_agent_crew.server.deps import Rt
 
 router = APIRouter(tags=["memory"])
@@ -69,3 +72,22 @@ def put_note(agent_id: str, day: str, body: NoteBody, rt: Rt) -> dict[str, Any]:
     profile = _profile(rt, agent_id)
     agent_store.write_note(profile.memory_dir, _checked_day(day), body.body)
     return get_note(agent_id, day, rt)
+
+
+@router.post("/agents/{agent_id}/memory/consolidate", status_code=202)
+async def consolidate(agent_id: str, rt: Rt) -> dict[str, Any]:
+    """Starts the rewrite and returns at once; the run shows its progress in Activity."""
+    _profile(rt, agent_id)
+    if agent_id in rt.consolidating:
+        raise HTTPException(409, texts.CONSOLIDATE_BUSY)
+    deps = rt.deps_for(agent_id)
+    rt.consolidating.add(agent_id)
+
+    async def run() -> None:
+        try:
+            await consolidate_memory(deps, rt.hub)
+        finally:
+            rt.consolidating.discard(agent_id)
+
+    rt.scheduler.keep(asyncio.create_task(run()))
+    return {"agent_id": agent_id, "run_source": JOB_SOURCE}

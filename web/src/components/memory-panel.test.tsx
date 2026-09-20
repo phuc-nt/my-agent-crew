@@ -147,6 +147,54 @@ describe("MemoryPanel", () => {
     expect(proposal.resolved_at).not.toBeNull();
   });
 
+  it("asks the server to consolidate and says where to watch it", async () => {
+    backend.setAgentMemory("default", { memory_md: "- Sếp thích trà." });
+    mount();
+
+    await open(vi.memory.agents);
+    await userEvent.click(await screen.findByRole("button", { name: vi.memory.consolidate }));
+
+    await waitFor(() => expect(backend.consolidated).toEqual(["default"]));
+    expect(await screen.findByText(vi.memory.consolidateStarted)).toBeInTheDocument();
+  });
+
+  it("says so when a consolidation is already running", async () => {
+    backend.setAgentMemory("default", { memory_md: "- Sếp thích trà." });
+    backend.consolidateBusy = true;
+    mount();
+
+    await open(vi.memory.agents);
+    await userEvent.click(await screen.findByRole("button", { name: vi.memory.consolidate }));
+    expect(await screen.findByText(vi.memory.consolidateBusy)).toBeInTheDocument();
+  });
+
+  it("shows a rewrite against what it replaces and can put that back", async () => {
+    backend.setAgentMemory("default", { memory_md: "- Sếp thích trà.\n- Sếp ngủ sớm." });
+    backend.addProposal({
+      kind: "agent_memory_rewrite",
+      name: "MEMORY.md",
+      description: "Cô đọng bộ nhớ",
+      body: "- Sếp thích trà.\n- Sếp ngủ sớm.",
+      previous_body: "- Sếp thích trà.",
+      status: "approved",
+      resolved_at: "2026-09-20T09:00:00",
+    });
+    mount();
+
+    await open(vi.memory.proposals);
+    // The one proposal is already decided, so it only shows once the history is open.
+    await userEvent.click(await screen.findByRole("button", { name: `${vi.memory.history} (1)` }));
+    expect(
+      await screen.findByText(vi.memory.proposalKinds.agent_memory_rewrite),
+    ).toBeInTheDocument();
+
+    vitest.spyOn(window, "confirm").mockReturnValue(true);
+    await userEvent.click(screen.getByRole("button", { name: vi.memory.undo }));
+    await waitFor(() =>
+      expect(backend.readAgentMemory("default").memory_md).toBe("- Sếp thích trà."),
+    );
+  });
+
   it("shows an agent_memory proposal as the lines it would add", async () => {
     backend.setAgentMemory("default", { memory_md: "- Sếp thích trà." });
     backend.addProposal({

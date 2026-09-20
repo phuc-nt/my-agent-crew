@@ -9,7 +9,13 @@ interface Props {
   agentMemoryMd: string;
   agentName: (id: string) => string;
   onDecide: (id: string, approve: boolean) => Promise<void>;
+  /** Puts back what an approved rewrite replaced. */
+  onUndo: (proposal: MemoryProposal) => Promise<void>;
 }
+
+/** An approved rewrite is the only decision with something to put back. */
+const canUndo = (proposal: MemoryProposal) =>
+  proposal.status === "approved" && proposal.kind === "agent_memory_rewrite";
 
 /** What a scheduled job wanted to remember and could not write on its own. */
 export function MemoryProposalsSection(props: Props) {
@@ -34,9 +40,14 @@ export function MemoryProposalsSection(props: Props) {
               <div className="muted">
                 {props.agentName(proposal.agent_id)} · {proposal.created_at}
               </div>
-              {proposal.kind === "agent_memory" ? (
+              {proposal.kind === "agent_memory" || proposal.kind === "agent_memory_rewrite" ? (
                 <pre className="diff">
-                  {addedLines(props.agentMemoryMd, proposal.body).map((line, index) => (
+                  {addedLines(
+                    proposal.kind === "agent_memory_rewrite"
+                      ? proposal.previous_body
+                      : props.agentMemoryMd,
+                    proposal.body,
+                  ).map((line, index) => (
                     <div key={index} className={line.added ? "added" : ""}>
                       {line.added ? `+ ${line.text}` : `  ${line.text}`}
                     </div>
@@ -73,8 +84,22 @@ export function MemoryProposalsSection(props: Props) {
             {decided.map((proposal) => (
               <li key={proposal.id}>
                 <span className="badge">{vi.memory.proposalStatus[proposal.status] ?? proposal.status}</span>
+                <span className="badge">
+                  {vi.memory.proposalKinds[proposal.kind] ?? proposal.kind}
+                </span>
                 <strong>{proposal.description || proposal.name}</strong>
                 <div className="muted">{proposal.resolved_at}</div>
+                {canUndo(proposal) && (
+                  <button
+                    type="button"
+                    className="ghost"
+                    onClick={() => {
+                      if (window.confirm(vi.memory.confirmUndo)) void props.onUndo(proposal);
+                    }}
+                  >
+                    {vi.memory.undo}
+                  </button>
+                )}
               </li>
             ))}
           </ul>

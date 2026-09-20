@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from my_agent_crew.agents import DEFAULT_AGENT_ID, default_profile, load_profiles
-from my_agent_crew.agents.profile import parse_profile
+from my_agent_crew.agents.profile_yaml import parse_profile
 from my_agent_crew.config import Route, Settings
 
 

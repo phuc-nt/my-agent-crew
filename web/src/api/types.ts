@@ -107,9 +107,13 @@ export interface RouteInfo {
   model: string;
 }
 
+/** What running a schedule does: ask the agent, run a shell command, or rewrite memory. */
+export type JobKind = "prompt" | "command" | "consolidate";
+
 export interface ScheduleInfo {
   id: string;
   name: string;
+  kind: JobKind;
   cron: string | null;
   every: string | null;
   prompt: string | null;
@@ -202,7 +206,7 @@ export interface MemoryHit {
   text: string;
 }
 
-export type ProposalKind = "user_fact" | "user_forget" | "agent_memory";
+export type ProposalKind = "user_fact" | "user_forget" | "agent_memory" | "agent_memory_rewrite";
 export type ProposalStatus = "pending" | "approved" | "rejected";
 
 /** A memory write a scheduled job asked for and cannot perform on its own. */
@@ -214,6 +218,8 @@ export interface MemoryProposal {
   description: string;
   type: string;
   body: string;
+  /** What a rewrite replaces, kept so one step back is always possible. */
+  previous_body: string;
   status: ProposalStatus;
   source: string;
   created_at: string;

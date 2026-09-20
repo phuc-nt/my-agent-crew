@@ -150,6 +150,11 @@ export const api = {
       `/agents/${encodeURIComponent(agentId)}/memory/notes/${day}`,
       { method: "PUT", body: JSON.stringify({ body }) },
     ),
+  consolidateMemory: (agentId: string) =>
+    request<{ agent_id: string; run_source: string }>(
+      `/agents/${encodeURIComponent(agentId)}/memory/consolidate`,
+      { method: "POST" },
+    ),
   searchMemory: (q: string, agentId?: string) =>
     request<{ hits: MemoryHit[] }>(`/memory/search${query({ q, agent_id: agentId })}`),
   listProposals: (status?: string) =>

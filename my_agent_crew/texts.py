@@ -54,6 +54,23 @@ USER_MEMORY_FORGET_DESCRIPTION = (
     "Xoá một điều đã ghi nhớ về người dùng, theo tên của nó trong danh mục ghi nhớ."
 )
 
+CONSOLIDATE_PROMPT = (
+    "Dưới đây là bộ nhớ dài hạn của một trợ lý và các ghi chép hằng ngày gần đây. "
+    "Viết lại bộ nhớ dài hạn sao cho cô đọng hơn: giữ mọi điều còn đúng, gộp các mục "
+    "trùng nhau, bổ sung điều đáng nhớ từ ghi chép, bỏ những gì chỉ đúng trong một ngày. "
+    "Giữ nguyên tiếng Việt và dạng gạch đầu dòng Markdown, tối đa 24000 ký tự. "
+    "Chỉ trả về nội dung bộ nhớ mới, không mở đầu, không giải thích.\n\n"
+    "--- bộ nhớ hiện tại ---\n{memory}\n\n--- ghi chép gần đây ---\n{notes}"
+)
+CONSOLIDATE_JOB_NAME = "Cô đọng bộ nhớ"
+CONSOLIDATE_RUN_TITLE = "Cô đọng bộ nhớ · {agent}"
+CONSOLIDATE_NOTHING_NEW = "Không có ghi chép nào mới hơn bộ nhớ, bỏ qua."
+CONSOLIDATE_UNCHANGED = "Bộ nhớ cô đọng không khác bản hiện tại."
+CONSOLIDATE_PROPOSED = "Đã đề xuất bộ nhớ cô đọng, chờ duyệt."
+CONSOLIDATE_APPLIED = "Đã ghi bộ nhớ cô đọng."
+CONSOLIDATE_EMPTY = "Model không trả về nội dung nào."
+CONSOLIDATE_BUSY = "Agent này đang cô đọng bộ nhớ."
+
 CONVERSATION_TITLE_DEFAULT = "Cuộc trò chuyện mới"
 
 SKILL_LOCATION = "Thư mục kỹ năng (script, tài liệu kèm theo): {path}"

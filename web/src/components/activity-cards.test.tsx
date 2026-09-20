@@ -88,7 +88,7 @@ describe("JobsPanel", () => {
         onRunNow={onRunNow}
         jobs={[
           { ...coachAgent.schedules[0], id: "coach/brief", schedule_id: "brief", agent_id: "coach", next_run: "2026-09-20T00:00:00Z", last_run: fakeRun({ status: "done" }), running: false },
-          { id: "default/sync", schedule_id: "sync", agent_id: "default", name: "Đồng bộ", cron: null, every: "30m", prompt: null, command: "git pull", enabled: false, next_run: null, last_run: null, running: true },
+          { id: "default/sync", schedule_id: "sync", agent_id: "default", name: "Đồng bộ", kind: "command", cron: null, every: "30m", prompt: null, command: "git pull", enabled: false, next_run: null, last_run: null, running: true },
         ]}
       />,
     );

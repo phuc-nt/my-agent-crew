@@ -1,45 +1,29 @@
-"""Runs each agent's schedules. A prompt job opens a fresh autonomous conversation for
-that agent and runs one turn to completion; a command job runs a shell command with no
-model at all. Both appear as runs in the activity hub, which is how the UI shows them."""
+"""The clock over each agent's schedules: which job is due, what ran last, what runs
+next. Carrying a job out is `scheduler/jobs.py`; this module only decides when."""
 
 from __future__ import annotations
 
 import asyncio
 import logging
-import time
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
 from my_agent_crew import texts
-from my_agent_crew.activity import ActivityHub, tracked
-from my_agent_crew.agent.events import ToolCallEvent, ToolResultEvent
-from my_agent_crew.agent.loop import AgentDeps, run_turn
-from my_agent_crew.agent.turn_context import JOB
-from my_agent_crew.agents.profile import Schedule
+from my_agent_crew.activity import ActivityHub
+from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.scheduler.cron import due_between, next_run
-from my_agent_crew.store.runs import DONE, FAILED, RunRecord
-from my_agent_crew.tools.shell import run_shell
+from my_agent_crew.scheduler.jobs import (
+    JOB_SOURCE,
+    Job,
+    run_command,
+    run_consolidate,
+    run_prompt,
+)
+from my_agent_crew.store.runs import RunRecord
 
 logger = logging.getLogger(__name__)
 TICK_SECONDS = 20
-JOB_SOURCE = "job:"
-
-
-@dataclass(frozen=True)
-class Job:
-    id: str  # "<agent_id>/<schedule_id>"
-    agent_id: str
-    schedule: Schedule
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            **self.schedule.to_dict(),
-            "id": self.id,
-            "schedule_id": self.schedule.id,
-            "agent_id": self.agent_id,
-        }
 
 
 class Scheduler:
@@ -145,9 +129,13 @@ class Scheduler:
         deps = self._agents[job.agent_id]
         self._running.add(job.id)
         try:
+            if job.schedule.consolidate:
+                return await run_consolidate(job, deps, self._hub)
             if job.schedule.command:
-                return await self._run_command(job, deps)
-            return await self._run_prompt(job, deps)
+                return await run_command(job, deps, self._hub, self._title(job))
+            run = await run_prompt(job, deps, self._hub, self._title(job))
+            await self._deliver_run(job, run)
+            return run
         finally:
             self._running.discard(job.id)
 
@@ -155,40 +143,12 @@ class Scheduler:
         stamp = self._clock().strftime("%Y-%m-%d %H:%M")
         return texts.JOB_CONVERSATION_TITLE.format(name=job.schedule.name, stamp=stamp)
 
-    async def _run_prompt(self, job: Job, deps: AgentDeps) -> RunRecord:
-        conv = deps.store.create(
-            title=self._title(job),
-            autonomous=True,
-            cost_cap_usd=deps.settings.cost_cap_usd,
-            agent_id=job.agent_id,
-        )
-        events = run_turn(deps, conv.id, job.schedule.prompt, source=JOB)
-        run: RunRecord | None = None
-        async for _ in tracked(
-            self._hub, events, job.agent_id, JOB_SOURCE + job.id, conv.title, conv.id
-        ):
-            pass
-        for candidate in self._hub.recent(50):
-            if candidate.conversation_id == conv.id:
-                run = candidate
-                break
-        assert run is not None
-        if self._deliver is not None:
-            try:
-                await self._deliver(job.agent_id, conv.id)
-            except Exception:  # the run itself succeeded; only its delivery did not
-                logger.exception("job %s: delivery failed", job.id)
-        return run
-
-    async def _run_command(self, job: Job, deps: AgentDeps) -> RunRecord:
-        command = job.schedule.command or ""
-        run = self._hub.start(job.agent_id, JOB_SOURCE + job.id, self._title(job), None)
-        clock = time.monotonic()
-        self._hub.record(run, ToolCallEvent("cmd", "shell_run", {"command": command}), clock)
-        code, output = await run_shell(command, deps.agent.workspace, timeout_s=900)
-        ok = code == 0
-        self._hub.record(
-            run, ToolResultEvent("cmd", "shell_run", ok, output or f"exit {code}"), time.monotonic()
-        )
-        self._hub.finish(run, status=DONE if ok else FAILED, summary=(output or "").strip()[-160:])
-        return run
+    async def _deliver_run(self, job: Job, run: RunRecord) -> None:
+        """Pushes the job's answer to the agent's channel; a failed send is logged, not
+        raised, because the run itself already succeeded."""
+        if self._deliver is None or run.conversation_id is None:
+            return
+        try:
+            await self._deliver(job.agent_id, run.conversation_id)
+        except Exception:
+            logger.exception("job %s: delivery failed", job.id)

@@ -11,10 +11,11 @@ import logging
 from pathlib import Path
 
 from my_agent_crew.agent.turn_context import WEB
-from my_agent_crew.memory import user_store
+from my_agent_crew.memory import agent_store, user_store
 from my_agent_crew.store import Store
 from my_agent_crew.store.memory_proposals import (
     AGENT_MEMORY,
+    AGENT_MEMORY_REWRITE,
     USER_FACT,
     USER_FORGET,
     MemoryProposal,
@@ -54,11 +55,14 @@ def _write(proposal: MemoryProposal, user_dir: Path, memory_files: dict[str, Pat
         )
     elif proposal.kind == USER_FORGET:
         user_store.delete_fact(user_dir, proposal.name)
-    elif proposal.kind == AGENT_MEMORY:
+    elif proposal.kind in (AGENT_MEMORY, AGENT_MEMORY_REWRITE):
         path = memory_files.get(proposal.agent_id)
         if path is None:
             raise KeyError(proposal.agent_id)
-        _append_line(path, proposal.body)
+        if proposal.kind == AGENT_MEMORY_REWRITE:
+            agent_store.write_memory_md(path, proposal.body)
+        else:
+            _append_line(path, proposal.body)
     else:
         raise ValueError(f"unknown proposal kind {proposal.kind!r}")
 

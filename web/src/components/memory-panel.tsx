@@ -68,6 +68,7 @@ export function MemoryPanel(props: Props) {
           onSaveMemory={memory.saveAgentMemory}
           onReadNote={memory.readNote}
           onSaveNote={memory.saveNote}
+          onConsolidate={memory.consolidate}
         />
       )}
       {section === "search" && (
@@ -83,6 +84,7 @@ export function MemoryPanel(props: Props) {
           agentMemoryMd={memory.agentMemory?.memory_md ?? ""}
           agentName={props.agentName}
           onDecide={memory.decide}
+          onUndo={memory.undo}
         />
       )}
     </div>

@@ -39,7 +39,7 @@ export const coachAgent: AgentInfo = {
   workspace: "/tmp/home/agents/coach/workspace",
   autonomous: true,
   schedules: [
-    { id: "brief", name: "Bản tin sáng", cron: "0 7 * * *", every: null, prompt: "Tóm tắt", command: null, enabled: true },
+    { id: "brief", name: "Bản tin sáng", kind: "prompt", cron: "0 7 * * *", every: null, prompt: "Tóm tắt", command: null, enabled: true },
   ],
 };
 
@@ -107,7 +107,7 @@ export class FakeBackend {
     this.requests.push({ method, path: path + url.search, body });
     const conv = path.match(/^\/conversations\/([^/]+)/)?.[1];
 
-    const memory = this.memoryRoute(path, method, body);
+    const memory = this.memoryRoute(path, method, body, url.searchParams);
     if (memory) return memory;
     if (path === "/settings") return json(this.settings);
     if (path === "/agents") return json(this.agents);
@@ -182,6 +182,7 @@ export class FakeBackend {
       body: string;
       approve: boolean;
     },
+    params: URLSearchParams,
   ): Response | null {
     if (path === "/memory/user" && method === "GET") return json(this.userMemory());
     if (path === "/memory/user" && method === "PUT") {
@@ -220,8 +221,14 @@ export class FakeBackend {
       return json(found);
     }
     if (path.startsWith("/memory/proposals")) {
-      const all = path.includes("status=all");
+      const all = params.get("status") === "all";
       return json({ proposals: all ? this.proposals : this.pending() });
+    }
+    const consolidating = path.match(/^\/agents\/([^/]+)\/memory\/consolidate$/)?.[1];
+    if (consolidating && method === "POST") {
+      if (this.consolidateBusy) return json({ detail: "đang cô đọng" }, 409);
+      this.consolidated.push(consolidating);
+      return json({ agent_id: consolidating, run_source: "memory:consolidate" }, 202);
     }
     const agentMemory = path.match(/^\/agents\/([^/]+)\/memory$/)?.[1];
     if (agentMemory) {
@@ -247,6 +254,11 @@ export class FakeBackend {
     return null;
   }
 
+  /** Agents a consolidation was asked for, newest last. */
+  consolidated: string[] = [];
+  /** When true the next consolidation request answers 409, as a running one would. */
+  consolidateBusy = false;
+
   /** Hits returned by the next GET /memory/search. */
   hits: { scope: "user" | "agent"; agent_id: string; file: string; text: string }[] = [];
 
@@ -267,6 +279,7 @@ export class FakeBackend {
       description: "Ngủ trước 23h",
       type: "preference",
       body: "Ngủ sớm mỗi ngày.",
+      previous_body: "",
       status: "pending",
       source: "job",
       created_at: "2026-09-20T07:00:00",

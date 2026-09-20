@@ -2,6 +2,12 @@ import type { JobInfo } from "../api/types";
 import { vi } from "../i18n/vi";
 import { formatDateTime } from "./run-timeline";
 
+const JOB_KINDS: Record<string, string> = {
+  prompt: vi.jobKindPrompt,
+  command: vi.jobKindCommand,
+  consolidate: vi.jobKindConsolidate,
+};
+
 interface Props {
   jobs: JobInfo[] | null;
   agentName: (id: string) => string;
@@ -33,7 +39,7 @@ export function JobsPanel({ jobs, agentName, onRunNow }: Props) {
             </button>
           </div>
           <div className="job-meta muted">
-            <code>{job.cron ?? job.every}</code> · {job.prompt ? vi.jobKindPrompt : vi.jobKindCommand}
+            <code>{job.cron ?? job.every}</code> · {JOB_KINDS[job.kind]}
           </div>
           <div className="job-meta muted">
             {vi.jobNext}: {job.next_run ? formatDateTime(job.next_run) : vi.jobDisabled} · {vi.jobLast}:{" "}

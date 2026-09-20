@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import os
+
 import pytest
 from fastapi.testclient import TestClient
 
 from my_agent_crew.config import Route
-from my_agent_crew.memory import user_store
+from my_agent_crew.memory import agent_store, user_store
 from my_agent_crew.server import create_app
 from my_agent_crew.store.memory_proposals import AGENT_MEMORY, USER_FACT, USER_FORGET
 
@@ -248,3 +250,28 @@ def test_stats_carries_the_pending_count_for_the_tab_badge(client, deps):
 
 def test_settings_points_at_the_shared_user_directory(client, deps):
     assert client.get("/api/settings").json()["users_dir"] == str(deps.settings.users_dir)
+
+
+# --- consolidation over HTTP -------------------------------------------------------------
+
+
+def test_asking_for_a_consolidation_returns_at_once_and_runs_it(client, deps):
+    """The rewrite can take a model call, so the request does not wait for it."""
+    agent_store.write_memory_md(deps.agent.memory_file, "- Sep thich tra.")
+    agent_store.write_note(deps.agent.memory_dir, "2026-09-19", "Sep ngu truoc 23h.")
+    stamp = deps.agent.memory_file.stat().st_mtime + 10
+    os.utime(deps.agent.memory_dir / "2026-09-19.md", (stamp, stamp))
+
+    response = client.post(f"/api/agents/{deps.agent.id}/memory/consolidate")
+    assert response.status_code == 202
+    assert response.json()["agent_id"] == deps.agent.id
+
+
+def test_a_second_consolidation_while_one_runs_is_a_conflict(client, deps):
+    app_state = client.app.state.runtime
+    app_state.consolidating.add(deps.agent.id)
+    assert client.post(f"/api/agents/{deps.agent.id}/memory/consolidate").status_code == 409
+
+
+def test_consolidating_an_unknown_agent_is_a_404(client):
+    assert client.post("/api/agents/nobody/memory/consolidate").status_code == 404

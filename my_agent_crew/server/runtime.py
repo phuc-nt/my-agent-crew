@@ -101,6 +101,8 @@ class Runtime:
     agents: dict[str, AgentDeps]
     hub: ActivityHub
     channels: dict[str, TelegramChannel] = field(default_factory=dict)
+    # Agents whose MEMORY.md is being rewritten right now; a second request is a conflict.
+    consolidating: set[str] = field(default_factory=set)
     scheduler: Scheduler = field(init=False)
 
     def __post_init__(self) -> None:

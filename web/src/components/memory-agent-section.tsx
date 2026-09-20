@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ApiError } from "../api/client";
 import type { AgentInfo, AgentMemory } from "../api/types";
 import { vi } from "../i18n/vi";
 import { MemoryEditor } from "./memory-editor";
@@ -11,12 +12,30 @@ interface Props {
   onSaveMemory: (text: string) => Promise<void>;
   onReadNote: (day: string) => Promise<string>;
   onSaveNote: (day: string, body: string) => Promise<void>;
+  onConsolidate: () => Promise<void>;
 }
 
 /** One agent's own memory: the file it re-reads each turn, plus its dated notes. */
 export function MemoryAgentSection(props: Props) {
   const [day, setDay] = useState<string | null>(null);
   const [note, setNote] = useState("");
+  const [consolidating, setConsolidating] = useState(false);
+  const [message, setMessage] = useState("");
+
+  const { onConsolidate } = props;
+  const consolidate = async () => {
+    setConsolidating(true);
+    try {
+      await onConsolidate();
+      setMessage(vi.memory.consolidateStarted);
+    } catch (error) {
+      // 409 means one is already running; anything else is a plain failure.
+      const busy = error instanceof ApiError && error.status === 409;
+      setMessage(busy ? vi.memory.consolidateBusy : vi.memory.consolidateFailed);
+    } finally {
+      setConsolidating(false);
+    }
+  };
 
   const { onReadNote } = props;
   useEffect(() => {
@@ -50,9 +69,15 @@ export function MemoryAgentSection(props: Props) {
             value={props.memory.memory_md}
             onSave={props.onSaveMemory}
           />
-          <button type="button" disabled title={vi.memory.consolidateSoon}>
+          <button
+            type="button"
+            disabled={consolidating}
+            title={vi.memory.consolidateHint}
+            onClick={() => void consolidate()}
+          >
             {vi.memory.consolidate}
           </button>
+          {message && <p className="muted">{message}</p>}
 
           <h3>{vi.memory.notes}</h3>
           {props.memory.notes.length === 0 ? (

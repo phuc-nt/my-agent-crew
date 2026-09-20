@@ -1,15 +1,25 @@
-"""Cron parsing and the scheduler: due detection, prompt jobs, command jobs."""
+"""Cron parsing and the scheduler: due detection, prompt, command and consolidate jobs."""
 
+import os
 from datetime import datetime
 
 import pytest
 
 from my_agent_crew.activity import ActivityHub
 from my_agent_crew.agent.turn_context import JOB
-from my_agent_crew.agents.profile import AgentProfile, Schedule, default_profile
+from my_agent_crew.agents.profile import (
+    AgentProfile,
+    Schedule,
+    consolidate_schedule,
+    default_profile,
+)
+from my_agent_crew.agents.profile_yaml import load_profiles
 from my_agent_crew.config import Route
-from my_agent_crew.memory import user_store
+from my_agent_crew.llm.fake import completion
+from my_agent_crew.memory import agent_store, user_store
+from my_agent_crew.memory.consolidate import JOB_SOURCE as CONSOLIDATE_SOURCE
 from my_agent_crew.scheduler import CronSpec, Scheduler, due_between, next_run, parse_every
+from my_agent_crew.store.memory_proposals import AGENT_MEMORY_REWRITE
 from my_agent_crew.store.runs import DONE, FAILED
 from my_agent_crew.tools.memory_user import build_user_memory_tools
 
@@ -153,3 +163,57 @@ async def test_a_job_turn_only_proposes_what_it_wants_to_remember(deps_factory, 
     assert user_store.list_facts(user_dir) == []
     (proposal,) = deps.store.proposals.list()
     assert proposal.name == "ngu-som" and proposal.source == JOB
+
+
+async def test_a_consolidate_job_rewrites_memory_without_opening_a_conversation(deps_factory):
+    """The rewrite is a job like any other, but it answers nobody, so no thread is made."""
+    deps = deps_factory(script=[completion("- Sếp thích trà.")])
+    agent_store.write_memory_md(deps.agent.memory_file, "- Sếp thích trà buổi sáng.")
+    agent_store.write_note(deps.agent.memory_dir, "2026-09-19", "Sếp uống trà.")
+    stamp = deps.agent.memory_file.stat().st_mtime + 10
+    os.utime(deps.agent.memory_dir / "2026-09-19.md", (stamp, stamp))
+    deps = with_schedules(deps, consolidate_schedule("0 3 * * *"))
+
+    delivered: list[str] = []
+
+    async def deliver(agent_id: str, conv_id: str) -> None:
+        delivered.append(agent_id)
+
+    sched = Scheduler(
+        {"default": deps},
+        ActivityHub(deps.store),
+        clock=lambda: datetime(2026, 9, 19, 3, 0),
+        deliver=deliver,
+    )
+    job = sched.describe()[0]
+    assert job["kind"] == "consolidate" and job["id"] == "default/memory-consolidate"
+
+    run = await sched.run_job("default/memory-consolidate")
+    assert run.status == DONE and run.conversation_id is None
+    assert run.source == CONSOLIDATE_SOURCE
+    assert delivered == []  # nothing to deliver: a rewrite is not an answer
+    (proposal,) = deps.store.proposals.list()
+    assert proposal.kind == AGENT_MEMORY_REWRITE
+
+
+def test_a_consolidate_cron_in_the_profile_becomes_an_ordinary_job(settings, tmp_path):
+    home = settings.home / "agents" / "coach"
+    home.mkdir(parents=True)
+    (home / "agent.yaml").write_text(
+        "name: HLV\nmemory_consolidate: '0 3 * * *'\n", encoding="utf-8"
+    )
+    (coach,) = [p for p in load_profiles(settings) if p.id == "coach"]
+
+    assert coach.memory_consolidate == "0 3 * * *"
+    (schedule,) = coach.schedules
+    assert schedule.consolidate and schedule.cron == "0 3 * * *"
+    assert schedule.kind == "consolidate" and schedule.id == "memory-consolidate"
+    assert coach.to_dict()["memory_consolidate"] == "0 3 * * *"
+
+
+def test_a_profile_without_the_key_has_no_consolidate_job(settings):
+    home = settings.home / "agents" / "pong"
+    home.mkdir(parents=True)
+    (home / "agent.yaml").write_text("name: Pong\n", encoding="utf-8")
+    (pong,) = [p for p in load_profiles(settings) if p.id == "pong"]
+    assert pong.schedules == () and pong.memory_consolidate == ""
