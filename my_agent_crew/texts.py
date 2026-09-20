@@ -107,6 +107,10 @@ TELEGRAM_MEDIA_MISSING = "(không gửi được ảnh: {path})"
 TELEGRAM_RUN_UNFINISHED = (
     "Lượt chạy dừng mà chưa có câu trả lời ({reason}); xem chi tiết trên web UI."
 )
+TELEGRAM_RUN_CUT_SHORT = (
+    "Lượt chạy dừng sớm ({reason}), đã chi ${spent:.4f}; "
+    "câu trả lời trên có thể chưa đủ. Xem web UI."
+)
 TELEGRAM_COMMANDS = {
     "new": "Mở cuộc trò chuyện mới.",
     "reset": "Mở cuộc trò chuyện mới (giống /new).",

@@ -32,7 +32,7 @@ class Scheduler:
         agents: dict[str, AgentDeps],
         hub: ActivityHub,
         clock: Callable[[], datetime] = datetime.now,
-        deliver: Callable[[str, str], Awaitable[None]] | None = None,
+        deliver: Callable[[str, str], Awaitable[bool]] | None = None,
     ):
         self._agents = agents
         self._hub = hub
@@ -149,6 +149,16 @@ class Scheduler:
         if self._deliver is None or run.conversation_id is None:
             return
         try:
-            await self._deliver(job.agent_id, run.conversation_id)
+            delivered = await self._deliver(job.agent_id, run.conversation_id)
         except Exception:
             logger.exception("job %s: delivery failed", job.id)
+        else:
+            # Without this line a job that answered and a job that stayed silent look
+            # identical in the log.
+            logger.info(
+                "job %s: delivered=%s conv=%s status=%s",
+                job.id,
+                delivered,
+                run.conversation_id,
+                run.status,
+            )

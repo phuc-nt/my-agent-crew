@@ -88,7 +88,14 @@ it has one. On a shared bot the delivery carries the agent's prefix and does not
 current agent. When the last turn ended without any assistant text (a run halted at
 `max_steps`, a provider error, an approval left pending) the channel sends
 `texts.TELEGRAM_RUN_UNFINISHED` with the run's summary instead of staying silent, so a
-scheduled job never disappears without a trace. A failed delivery is logged, not retried.
+scheduled job never disappears without a trace.
+
+A run that stopped early but *did* leave text behind is the trickier case: the half-finished
+answer reads like a complete one. So after sending the text, a run whose status is `halted`
+or `error` gets a second message, `texts.TELEGRAM_RUN_CUT_SHORT`, naming the reason and what
+the run spent. Either way the scheduler logs one line per prompt job —
+`job <id>: delivered=<bool> conv=<id> status=<status>` — so the log distinguishes a job that
+answered from one that stayed quiet. A failed delivery is logged, not retried.
 
 ## Offsets and restarts
 

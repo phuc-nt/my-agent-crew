@@ -1,5 +1,6 @@
 """Cron parsing and the scheduler: due detection, prompt, command and consolidate jobs."""
 
+import logging
 import os
 from datetime import datetime
 
@@ -150,23 +151,32 @@ def test_disabled_jobs_are_listed_but_never_due(settings, store):
     assert default_profile(settings).schedules == ()
 
 
-async def test_prompt_job_result_is_delivered_and_a_failing_delivery_keeps_the_run(deps_factory):
+async def test_prompt_job_result_is_delivered_and_a_failing_delivery_keeps_the_run(
+    deps_factory, caplog
+):
     deps = with_schedules(
         deps_factory(routes=(Route("fake", "echo"),)),
         Schedule("brief", "Bản tin", every="10m", prompt="chào"),
     )
     delivered: list[tuple[str, str]] = []
 
-    async def deliver(agent_id: str, conv_id: str) -> None:
+    async def deliver(agent_id: str, conv_id: str) -> bool:
         delivered.append((agent_id, conv_id))
         if len(delivered) > 1:
             raise RuntimeError("telegram down")
+        return True
 
     sched = Scheduler({"default": deps}, ActivityHub(deps.store), deliver=deliver)
-    first = await sched.run_job("default/brief")
-    second = await sched.run_job("default/brief")
+    with caplog.at_level(logging.INFO, logger="my_agent_crew.scheduler.runner"):
+        first = await sched.run_job("default/brief")
+        second = await sched.run_job("default/brief")
     assert first.status == DONE and second.status == DONE
     assert delivered == [("default", first.conversation_id), ("default", second.conversation_id)]
+    # A silent job and an answering job have to be told apart in the log.
+    assert f"job default/brief: delivered=True conv={first.conversation_id} status=done" in (
+        caplog.text
+    )
+    assert "delivery failed" in caplog.text
 
 
 async def test_a_job_turn_only_proposes_what_it_wants_to_remember(deps_factory, settings, store):
@@ -201,8 +211,9 @@ async def test_a_consolidate_job_rewrites_memory_without_opening_a_conversation(
 
     delivered: list[str] = []
 
-    async def deliver(agent_id: str, conv_id: str) -> None:
+    async def deliver(agent_id: str, conv_id: str) -> bool:
         delivered.append(agent_id)
+        return True
 
     sched = Scheduler(
         {"default": deps},

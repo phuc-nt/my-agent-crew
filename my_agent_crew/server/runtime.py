@@ -63,11 +63,13 @@ class Runtime:
         background, held by the scheduler so the task is not collected mid-flight."""
         schedule_summary(self.scheduler.keep, deps, conv_id)
 
-    async def deliver(self, agent_id: str, conv_id: str) -> None:
-        """Pushes a conversation's last reply through the agent's channel, if it has one."""
+    async def deliver(self, agent_id: str, conv_id: str) -> bool:
+        """Pushes a conversation's last reply through the agent's channel, if it has one;
+        False when the agent has no channel or the channel found nothing to send."""
         channel = self.channels.get(agent_id)
-        if channel is not None:
-            await channel.deliver(conv_id)
+        if channel is None:
+            return False
+        return await channel.deliver(conv_id)
 
     def unique_channels(self) -> list[TelegramChannel]:
         """A bot shared by several agents is one object listed under each agent id."""

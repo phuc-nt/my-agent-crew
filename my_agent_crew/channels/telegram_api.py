@@ -106,10 +106,11 @@ class TelegramApi:
         except ValueError:
             body = {}
         if not response.is_success or not body.get("ok"):
-            detail = body.get("description") or self.redact(response.text[:200])
-            raise TelegramError(
-                f"{method}: HTTP {response.status_code} {detail}".strip(), response.status_code
-            )
+            # Both the description and the body can be empty; the status alone still has
+            # to reach the log, or the failure shows up as a bare method name.
+            detail = body.get("description") or self.redact(response.text[:200]).strip()
+            message = f"{method}: HTTP {response.status_code}"
+            raise TelegramError(f"{message} {detail}" if detail else message, response.status_code)
         return body["result"]
 
     async def get_updates(

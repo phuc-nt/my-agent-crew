@@ -326,6 +326,51 @@ async def test_deliver_reports_a_run_that_stopped_without_a_reply(make_channel, 
     assert fake.sent == [texts.TELEGRAM_RUN_UNFINISHED.format(reason="max_steps")]
 
 
+async def test_an_error_without_a_description_still_names_the_method_and_status():
+    """A gateway error answers with an empty body; the status has to survive into the log
+    or the failure reads as a bare method name."""
+
+    def empty(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(502, content=b"")
+
+    api = TelegramApi(TOKEN, httpx.AsyncClient(transport=httpx.MockTransport(empty)))
+    with pytest.raises(TelegramError) as failure:
+        await api.send_message(CHAT, "x")
+    assert str(failure.value) == "sendMessage: HTTP 502"
+
+
+async def test_a_reply_from_a_run_that_stopped_early_carries_a_notice(make_channel, fake):
+    channel = make_channel()
+    store = channel.deps.store
+    conv = store.create(agent_id="default")
+    store.append(conv.id, Message(role="user", content="tổng kết tuần"))
+    store.append(conv.id, Message(role="assistant", content="Mới được nửa chừng."))
+    stamp = "2026-09-20T01:00:00"
+    store.runs.save(RunRecord("r1", "default", conv.id, "job:default/x", "t", DONE, stamp))
+    assert await channel.deliver(conv.id) is True
+    assert fake.sent == ["Mới được nửa chừng."]
+
+    fake.sent.clear()
+    store.runs.save(
+        RunRecord(
+            "r2",
+            "default",
+            conv.id,
+            "job:default/x",
+            "t",
+            HALTED,
+            stamp,
+            summary="max_steps",
+            spent_usd=0.0123,
+        )
+    )
+    assert await channel.deliver(conv.id) is True
+    assert fake.sent == [
+        "Mới được nửa chừng.",
+        texts.TELEGRAM_RUN_CUT_SHORT.format(reason="max_steps", spent=0.0123),
+    ]
+
+
 async def test_opening_a_new_conversation_hands_the_replaced_one_to_the_runtime(make_channel, fake):
     channel = make_channel()
     replaced: list[str] = []

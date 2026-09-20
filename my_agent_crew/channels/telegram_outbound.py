@@ -12,7 +12,7 @@ from contextlib import asynccontextmanager, suppress
 from my_agent_crew import texts
 from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.channels.telegram_api import TelegramApi, TelegramError, split_reply
-from my_agent_crew.store.runs import DONE
+from my_agent_crew.store.runs import DONE, FAILED, HALTED
 from my_agent_crew.tools.registry import ToolError
 from my_agent_crew.tools.workspace import resolve_inside
 
@@ -43,10 +43,18 @@ class TelegramOutbound:
                 break
             if message.role == "assistant" and message.content.strip():
                 parts.append(message.content.strip())
+        run = self._deps.store.runs.latest_for_conversation(conv_id)
         if parts:
             await self.send("\n\n".join(reversed(parts)))
+            # A run out of steps or budget still leaves text behind; without this the
+            # half-finished answer reads like a complete one.
+            if run is not None and run.status in (HALTED, FAILED):
+                await self.send(
+                    texts.TELEGRAM_RUN_CUT_SHORT.format(
+                        reason=run.summary or run.status, spent=run.spent_usd
+                    )
+                )
             return True
-        run = self._deps.store.runs.latest_for_conversation(conv_id)
         if run is None or run.status == DONE:
             logger.info("telegram %s: nothing to deliver for %s", self.agent_id, conv_id)
             return False
