@@ -45,7 +45,7 @@ describe("App", () => {
     const created = backend.create({ title: "Việc" });
     backend.nextTurn = [
       { type: "assistant_message", message_id: "a1", content: "", tool_calls: [{ id: "tc1", name: "write_file", arguments: { path: "notes.md" } }], provider: null, model: null, cost_usd: null },
-      { type: "approval_required", approval_id: "ap1", tool_call_id: "tc1", name: "write_file", arguments: { path: "notes.md" } },
+      { type: "approval_required", approval_id: "ap1", tool_call_id: "tc1", name: "write_file", arguments: { path: "notes.md" }, reason: "" },
     ];
     render(<App />);
     await userEvent.click(await screen.findByRole("button", { name: /Việc/ }));

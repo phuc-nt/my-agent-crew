@@ -17,8 +17,10 @@ The system prompt lists the available names; the model sees each tool's JSON sch
 - **Approval.** A tool with `requires_approval` pauses the turn with an `approval_required`
   event and a stored `Approval`. The web UI shows a bar, Telegram shows `/approve` /
   `/deny`; the decision resumes the same turn. A conversation (or agent) marked
-  `autonomous` skips the pause. Hard denials, workspace escapes and private network
-  targets, are not approvable.
+  `autonomous` skips the pause — except for a `shell_run` command matching
+  `settings.shell_ask_patterns` (see [Shell](#shell)), which asks anyway and says which
+  pattern matched. Hard denials, workspace escapes and private network targets, are not
+  approvable.
 - **Content is data.** The frame tells the model that anything a tool returns is data,
   never instructions.
 
@@ -82,6 +84,19 @@ API keys. Timeout comes from the `timeout_s` argument, capped at 900 s. A non-ze
 a `ToolError` carrying the last 4 000 characters of output. A scheduled `command` job uses
 the same tool and records a single step.
 
+`autonomous` would otherwise let every command run unwatched, which is too much for the
+shapes that cannot be undone. So `shell_ask_patterns` lists command fragments that get an
+approval regardless — by default `rm -rf`, `rm -r `, `sudo `, `| sh`, `| bash`, `mkfs`,
+`git push --force`, `git reset --hard`, `> /dev/`, `chmod -R` and `launchctl`. Matching is
+a case-insensitive substring test and the approval names the pattern that matched, in the
+web bar, the Telegram notice and the run card. Set the list in `config.yaml`, per agent in
+`agent.yaml`, or through `MY_AGENT_SHELL_ASK_PATTERNS` (separated by `;`); declaring it
+replaces the defaults and an empty list turns the guard off.
+
+This is a soft second guard, not a sandbox: `rm  -rf` with two spaces, or the same command
+built inside `$(…)`, walks straight past it. It catches the obvious mistake, not a
+determined one.
+
 ### Media
 
 An assistant line `MEDIA:<path relative to the workspace>` is not a tool; it is a
@@ -107,5 +122,6 @@ whenever the tool changes state outside the conversation. Add a row to
 
 openclaw ships many more tools (browser, cron, messaging, sub-agents, canvas) and a
 per-agent allow/deny list. Here the set is fixed and small on purpose: file, web, memory,
-shell, with approval as the safety layer instead of allow-lists. Skills cover the rest:
+shell, with approval as the safety layer instead of allow-lists — and, once a conversation
+is autonomous, approval by command pattern. Skills cover the rest:
 a skill can describe a script in its folder and the model runs it with `shell_run`.

@@ -27,6 +27,7 @@ def test_parse_profile_overrides_routes_and_limits_only(settings: Settings, tmp_
         "cost_cap_usd": 3,
         "max_steps": 4,
         "autonomous": True,
+        "shell_ask_patterns": ["dd if="],
         "skills_dirs": ["../shared-skills"],
         "persona_files": ["SOUL.md"],
         "schedules": [
@@ -40,6 +41,14 @@ def test_parse_profile_overrides_routes_and_limits_only(settings: Settings, tmp_
     assert profile.settings.routes == (Route("fake", "echo"), Route("scripted", "m"))
     assert profile.settings.cost_cap_usd == 3 and profile.settings.max_steps == 4
     assert profile.settings.autonomous_default is True
+    # Declaring the list replaces the defaults rather than adding to them.
+    assert profile.settings.shell_ask_patterns == ("dd if=",)
+    assert profile.to_dict()["shell_ask_patterns"] == ["dd if="]
+    assert parse_profile("c2", agent_dir, {}, settings).settings.shell_ask_patterns == (
+        settings.shell_ask_patterns
+    )
+    off = parse_profile("c3", agent_dir, {"shell_ask_patterns": []}, settings)
+    assert off.settings.shell_ask_patterns == ()
     assert profile.settings.home == settings.home
     assert profile.workspace == Path("~/nonexistent-but-fine").expanduser().resolve()
     assert profile.skills_dirs == (agent_dir / "skills", (tmp_path / "agents" / "shared-skills"))

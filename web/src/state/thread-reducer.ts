@@ -19,6 +19,8 @@ export interface PendingApproval {
   toolCallId: string;
   name: string;
   arguments: Record<string, unknown>;
+  /** Why an autonomous conversation stopped for this call; only on the live event. */
+  reason?: string;
 }
 
 export interface ThreadState {
@@ -145,7 +147,13 @@ function applyEvent(state: ThreadState, e: AgentEvent): ThreadState {
       return {
         ...state,
         busy: false,
-        pending: { approvalId: e.approval_id, toolCallId: e.tool_call_id, name: e.name, arguments: e.arguments },
+        pending: {
+          approvalId: e.approval_id,
+          toolCallId: e.tool_call_id,
+          name: e.name,
+          arguments: e.arguments,
+          reason: e.reason,
+        },
         items: updateTool(state.items, e.tool_call_id, { status: "awaiting" }),
       };
     case "done":

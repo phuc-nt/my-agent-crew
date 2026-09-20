@@ -6,7 +6,7 @@ from my_agent_crew import texts
 from my_agent_crew.agent.events import ApprovalRequiredEvent, DoneEvent, ToolResultEvent
 from my_agent_crew.agent.loop import resolve_approval, run_turn
 from my_agent_crew.tools.registry import ToolRegistry
-from my_agent_crew.tools.shell import build_shell_tool, run_shell
+from my_agent_crew.tools.shell import ask_reason, build_shell_tool, run_shell
 from tests.conftest import collect
 
 
@@ -63,3 +63,50 @@ async def test_autonomous_conversation_runs_shell_without_asking(deps_factory):
     result = next(e for e in events if isinstance(e, ToolResultEvent))
     assert result.ok and result.output.strip() == str(deps.agent.workspace.resolve())
     assert not any(isinstance(e, ApprovalRequiredEvent) for e in events)
+
+
+def test_the_ask_list_matches_a_substring_whatever_the_case():
+    patterns = ("rm -rf", "sudo ")
+    assert ask_reason("cd /tmp && RM -rf build", patterns) == "rm -rf"
+    assert ask_reason("sudo  launchctl list", patterns) == "sudo "
+    assert ask_reason("ls -la ~/Downloads", patterns) is None
+    assert ask_reason("rm -rf /", ()) is None
+
+
+async def test_an_autonomous_shell_command_on_the_ask_list_still_waits(deps_factory):
+    """Autonomous is the user's choice and stays; this guard is added on top of it, for
+    the shapes where running first and asking later cannot be undone."""
+    from my_agent_crew.config import Route
+
+    deps = deps_factory(routes=(Route("fake", "echo"),))
+    conv = deps.store.create(autonomous=True)
+    events = await collect(
+        run_turn(deps, conv.id, '/tool shell_run {"command": "rm -rf ./scratch"}')
+    )
+    approval = events[-1]
+    assert isinstance(approval, ApprovalRequiredEvent) and approval.name == "shell_run"
+    assert approval.reason == texts.SHELL_ASK_REASON.format(pattern="rm -rf")
+    assert not any(isinstance(e, ToolResultEvent) for e in events)
+
+
+async def test_an_empty_ask_list_turns_the_extra_guard_off(deps_factory):
+    from my_agent_crew.config import Route
+
+    deps = deps_factory(routes=(Route("fake", "echo"),), shell_ask_patterns=())
+    conv = deps.store.create(autonomous=True)
+    events = await collect(
+        run_turn(deps, conv.id, '/tool shell_run {"command": "rm -rf ./scratch"}')
+    )
+    assert not any(isinstance(e, ApprovalRequiredEvent) for e in events)
+    assert next(e for e in events if isinstance(e, ToolResultEvent)).ok
+
+
+async def test_a_matching_command_asks_the_same_way_when_not_autonomous(deps_factory):
+    from my_agent_crew.config import Route
+
+    deps = deps_factory(routes=(Route("fake", "echo"),))
+    conv = deps.store.create()
+    events = await collect(run_turn(deps, conv.id, '/tool shell_run {"command": "sudo ls"}'))
+    approval = events[-1]
+    assert isinstance(approval, ApprovalRequiredEvent)
+    assert approval.reason == texts.SHELL_ASK_REASON.format(pattern="sudo ")

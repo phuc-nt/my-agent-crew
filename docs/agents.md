@@ -49,6 +49,7 @@ silently disables a setting.
 | `cost_cap_usd` | number ≥ 0 | global | budget per conversation, `0` = unlimited |
 | `max_steps` | int ≥ 1 | global | model calls per turn before a `halted` |
 | `autonomous` | bool | global `autonomous_default` | new conversations skip tool approval |
+| `shell_ask_patterns` | list of strings | global | shell commands that ask anyway when autonomous, see [tools.md](tools.md#shell); declaring it replaces the defaults, `[]` turns the guard off |
 | `schedules` | list | `[]` | jobs, see [Schedules](#schedules) |
 | `memory_consolidate` | cron string | none | rewrite `MEMORY.md` from the daily notes on this schedule, see [memory.md](memory.md) |
 | `telegram` | map | none | `token_env` + `chat_id`, see [channels.md](channels.md) |
@@ -63,6 +64,7 @@ and `config.yaml`:
 | `MY_AGENT_COST_CAP_USD` | `cost_cap_usd` | `0.5` |
 | `MY_AGENT_MAX_STEPS` | `max_steps` | `12` |
 | `MY_AGENT_AUTONOMOUS` | `autonomous_default` | off (`1`, `true`, `yes`, `on` turn it on) |
+| `MY_AGENT_SHELL_ASK_PATTERNS` | `shell_ask_patterns` | the list in [tools.md](tools.md#shell); the env value is `;`-separated and an empty one turns the guard off |
 | `MY_AGENT_LANGUAGE` | `language` | `vi` (prompt frame language; `en` is the other option) |
 | `OPENROUTER_API_KEY` | — | enables the OpenRouter provider |
 | `BRAVE_API_KEY` / `TAVILY_API_KEY` | — | enables `web_search` |

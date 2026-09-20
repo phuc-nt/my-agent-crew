@@ -14,7 +14,30 @@ from pathlib import Path
 import yaml
 
 DEFAULT_ROUTES = "openrouter:deepseek/deepseek-v4-flash"
-YAML_KEYS = ("routes", "cost_cap_usd", "language", "max_steps", "autonomous_default")
+YAML_KEYS = (
+    "routes",
+    "cost_cap_usd",
+    "language",
+    "max_steps",
+    "autonomous_default",
+    "shell_ask_patterns",
+)
+# Commands that get an approval even in an autonomous conversation. This is a second,
+# additive guard, not a sandbox: it catches the obvious destructive shapes, and anyone
+# meaning to get around it can. Matched as case-insensitive substrings of the command.
+DEFAULT_SHELL_ASK_PATTERNS = (
+    "rm -rf",
+    "rm -r ",
+    "sudo ",
+    "| sh",
+    "| bash",
+    "mkfs",
+    "git push --force",
+    "git reset --hard",
+    "> /dev/",
+    "chmod -R",
+    "launchctl",
+)
 
 
 @dataclass(frozen=True)
@@ -43,6 +66,7 @@ class Settings:
     language: str = "vi"
     max_steps: int = 12
     autonomous_default: bool = False
+    shell_ask_patterns: tuple[str, ...] = DEFAULT_SHELL_ASK_PATTERNS
 
     @property
     def workspace_dir(self) -> Path:
@@ -104,10 +128,23 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         autonomous_default=_as_bool(
             env.get("MY_AGENT_AUTONOMOUS", file_values.get("autonomous_default", False))
         ),
+        shell_ask_patterns=_ask_patterns(
+            env.get("MY_AGENT_SHELL_ASK_PATTERNS"), file_values.get("shell_ask_patterns")
+        ),
     )
     if settings.max_steps < 1 or settings.cost_cap_usd < 0:
         raise ValueError("max_steps must be >= 1 and cost_cap_usd >= 0")
     return settings
+
+
+def _ask_patterns(from_env: str | None, from_file: object) -> tuple[str, ...]:
+    """An empty env value or an empty yaml list turns the guard off on purpose; only an
+    absent setting falls back to the defaults."""
+    if from_env is not None:
+        return tuple(p.strip() for p in from_env.split(";") if p.strip())
+    if isinstance(from_file, Sequence) and not isinstance(from_file, str):
+        return tuple(str(p).strip() for p in from_file if str(p).strip())
+    return DEFAULT_SHELL_ASK_PATTERNS
 
 
 def _as_bool(value: object) -> bool:

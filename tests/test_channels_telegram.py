@@ -202,7 +202,7 @@ async def test_approve_and_deny_commands_resolve_the_pending_tool(make_channel, 
     await channel.poll_once()
     assert fake.sent == [
         texts.TELEGRAM_NO_APPROVAL,
-        texts.TELEGRAM_APPROVAL.format(name="workspace_write"),
+        texts.TELEGRAM_APPROVAL.format(name="workspace_write", reason=""),
         "đã ghi",
     ]
     assert (deps.settings.workspace_dir / "out.txt").read_text() == "ok"
@@ -324,6 +324,19 @@ async def test_deliver_reports_a_run_that_stopped_without_a_reply(make_channel, 
     assert store.runs.latest_for_conversation(conv.id).id == "r2"
     assert await channel.deliver(conv.id) is True
     assert fake.sent == [texts.TELEGRAM_RUN_UNFINISHED.format(reason="max_steps")]
+
+
+async def test_an_approval_forced_by_the_ask_list_says_which_pattern_matched(
+    make_channel, fake, deps_factory
+):
+    danger = ToolCall("c9", "shell_run", {"command": "sudo rm -rf /tmp/x"})
+    deps = deps_factory(script=[completion(tool_calls=(danger,))], autonomous_default=True)
+    channel = make_channel(deps)
+    channel.deps.store.update(channel.conversation().id, autonomous=True)
+    fake.updates = [message(1, "dọn tmp")]
+    await channel.poll_once()
+    reason = texts.SHELL_ASK_REASON.format(pattern="rm -rf")  # first match in list order
+    assert fake.sent == [texts.TELEGRAM_APPROVAL.format(name="shell_run", reason=f" ({reason})")]
 
 
 async def test_an_error_without_a_description_still_names_the_method_and_status():

@@ -42,6 +42,8 @@ class ApprovalRequiredEvent:
     tool_call_id: str
     name: str
     arguments: dict[str, Any]
+    # Why this call is waiting although the conversation is autonomous; empty otherwise.
+    reason: str = ""
 
 
 @dataclass(frozen=True)

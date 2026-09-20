@@ -13,6 +13,7 @@ export function ApprovalBar({ pending, busy, onDecide }: Props) {
     <div className="approval-bar" role="alertdialog" aria-label={vi.awaitingApproval}>
       <div className="approval-text">
         <strong>{vi.approvalTitle(pending.name)}</strong>
+        {pending.reason && <span className="approval-reason">{pending.reason}</span>}
         <code>{summarizeArguments(pending.arguments) || "—"}</code>
       </div>
       <div className="approval-actions">

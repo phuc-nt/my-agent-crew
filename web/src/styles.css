@@ -97,6 +97,7 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-si
 .approval-bar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 0.7rem 1rem; background: var(--warn-bg); color: var(--warn-text); border-top: 1px solid #f59e0b; flex-wrap: wrap; }
 .approval-text { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
 .approval-text code { overflow-wrap: anywhere; }
+.approval-reason { font-size: 0.85rem; color: var(--warn-text); }
 .approval-actions { display: flex; gap: 0.5rem; }
 .notice { padding: 0.5rem 1rem; font-size: 0.9rem; }
 .notice.error { background: #fee2e2; color: #991b1b; }

@@ -69,7 +69,8 @@ describe("applyRunEvent", () => {
     expect(applyRunEvent(run(), { type: "done", spent_usd: 0.5, unknown_cost_calls: 2 })).toMatchObject({ spent_usd: 0.5, unknown_cost_calls: 2 });
     expect(applyRunEvent(run(), { type: "halted", reason: "budget", spent_usd: 1 })).toMatchObject({ summary: "budget", spent_usd: 1 });
     expect(applyRunEvent(run(), { type: "error", message: "kaput" }).summary).toBe("kaput");
-    expect(applyRunEvent(run(), { type: "approval_required", approval_id: "a", tool_call_id: "t", name: "write_file", arguments: {} }).summary).toBe("write_file");
+    expect(applyRunEvent(run(), { type: "approval_required", approval_id: "a", tool_call_id: "t", name: "write_file", arguments: {}, reason: "" }).summary).toBe("write_file");
+    expect(applyRunEvent(run(), { type: "approval_required", approval_id: "a", tool_call_id: "t", name: "shell_run", arguments: {}, reason: "khớp mẫu cần duyệt: `sudo `" }).summary).toBe("shell_run (khớp mẫu cần duyệt: `sudo `)");
     expect(applyRunEvent(run(), { type: "text_delta", text: "…" }).steps).toEqual([]);
   });
 

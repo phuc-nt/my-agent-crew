@@ -15,7 +15,7 @@ Guard tests: `tests/test_file_size_budget.py` (≤200 lines), `tests/test_static
 
 | Feature | pytest | vitest | Playwright |
 |---|---|---|---|
-| Config from env + whitelisted yaml, route parsing | `test_config.py` | — | — |
+| Config from env + whitelisted yaml, route parsing, the shell ask list from yaml or env and emptied on purpose | `test_config.py` | — | — |
 | Route fallback before first item, logged and yielded as `RouteFailed`; mid-stream failure surfaces | `test_provider_chain.py` | — | — |
 | Fallback becomes a `route_fallback` event, a `fallback` run step and a chat notice | `test_agent_loop.py`, `test_activity.py` | `activity-reducer.test.ts`, `thread-reducer.test.ts`, `activity-cards.test.tsx` | — |
 | OpenRouter streaming, error chunks, HTTP errors | `test_openrouter.py` | — | — |
@@ -31,18 +31,19 @@ Guard tests: `tests/test_file_size_budget.py` (≤200 lines), `tests/test_static
 | Previous conversation's summary carried into a new one on the same channel | `test_memory_session_summary.py` | — | — |
 | Shared chat context: only other agents, only today, only this channel, last 10 lines, long lines cut, tool traffic excluded, unknown agent keeps its id | `test_memory_shared_chat.py`, `test_store.py`, `test_agent_loop.py`, `test_channels_telegram_shared.py` | — | — |
 | Shell tool: cwd, env allow-list, timeout, exit code, approval | `test_tools_shell.py` | — | — |
+| Shell ask list: case-insensitive substring match, an autonomous command on the list still waits and names the pattern, an empty list turns the guard off, the same command asks the same way when not autonomous | `test_tools_shell.py` | `thread-reducer.test.ts`, `activity-reducer.test.ts`, `components.test.tsx` (reason shown, and nothing when absent) | — |
 | Store ordering, budgets, approvals, agent filter, runs round-trip | `test_store.py` | — | — |
 | Skills loading (builtin + home + `skills_dirs`, `SKILL.md` folders), `always` | `test_skills.py` | — | `settings drawer` (shown) |
 | Skill index in the system prompt: names only for unattached skills, description cut, names-only above 40, no section when empty | `test_skills.py` | — | — |
 | `skill_read` returns a body, names what exists on an unknown skill | `test_tools_skills.py` | — | — |
-| Agent profiles: key whitelist, workspace/skills resolution, schedule validation, default agent | `test_agent_profiles.py` | — | — |
+| Agent profiles: key whitelist, workspace/skills resolution, schedule validation, default agent, per-agent shell ask list | `test_agent_profiles.py` | — | — |
 | Persona + memory sections in the system prompt, size cap | `test_agent_context.py` | — | — |
 | Agent loop: text, tool round-trips, max steps, cost cap halt | `test_agent_loop.py` | reducer `halted`/`done` | — |
 | Approval pause / approve / deny / autonomous bypass | `test_agent_approval.py`, `test_server_api.py` | reducer, `ApprovalBar`, App approval flow | `approval bar pauses…` |
 | Crash-resume from unfinished tool calls | `test_agent_resume.py` | — | — |
 | Activity hub: run lifecycle, steps, spend, interrupted on restart, SSE fan-out | `test_activity.py` | `activity-reducer.test.ts` | — |
 | Scheduler: cron/every parsing, due detection, prompt vs command vs consolidate jobs, run-now, delivery hook and its one-line result log, a schedule's `skills` reaching the conversation and the prompt | `test_scheduler.py` | `activity-cards.test.tsx` (job kind label, attached skills) | `jobs tab…` |
-| Telegram channel: inbound → tracked turn, chat filter, per-day conversation, slash commands (`/new`, `/reset`, `/help`, `/status`, `/tools`, `/approve`, `/deny`, unknown, path is not a command), menu registered once at start, text next to a tool call kept, error/approval notices, typing indicator kept alive and tolerant of API errors, `deliver` joins the last turn's texts with `MEDIA:` photos or reports a run that stopped without a reply, token redaction, 409 | `test_channels_telegram.py` | — | — |
+| Telegram channel: inbound → tracked turn, chat filter, per-day conversation, slash commands (`/new`, `/reset`, `/help`, `/status`, `/tools`, `/approve`, `/deny`, unknown, path is not a command), menu registered once at start, text next to a tool call kept, error/approval notices (an approval forced by the ask list says which pattern matched), typing indicator kept alive and tolerant of API errors, `deliver` joins the last turn's texts with `MEDIA:` photos or reports a run that stopped without a reply, token redaction, 409 | `test_channels_telegram.py` | — | — |
 | An API error with no description still names the method and status; a reply from a run that halted carries a cut-short notice, a done run does not | `test_channels_telegram.py` | — | — |
 | Shared Telegram bot: `@id` mention parsing, routing + sticky current agent, bare mention switch, unknown mention, `/help` + `/agents` unprefixed, agent commands on the mentioned agent, `deliver` prefix + stranger agent, `build_channels` grouping by `token_env` with shared offset seeding, differing `chat_id` rejected, menu registered once per shared channel | `test_channels_telegram_shared.py` | — | — |
 | `channel_state` table remembers the current agent per channel across reopen | `test_store.py` | — | — |

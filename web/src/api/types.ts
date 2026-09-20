@@ -84,6 +84,7 @@ export type AgentEvent =
       tool_call_id: string;
       name: string;
       arguments: Record<string, unknown>;
+      reason: string;
     }
   | { type: "done"; spent_usd: number; unknown_cost_calls: number }
   | { type: "halted"; reason: "budget" | "max_steps"; spent_usd: number }

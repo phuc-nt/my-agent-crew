@@ -90,7 +90,9 @@ def apply_event(run: RunRecord, event: Event, clock: float) -> None:
         return
     if isinstance(event, ApprovalRequiredEvent):
         run.status = AWAITING
-        run.summary = event.name
+        # The reason says why an autonomous run stopped anyway; without it the card only
+        # says "shell_run" and reads like a misconfiguration.
+        run.summary = f"{event.name} ({event.reason})" if event.reason else event.name
         return
     if isinstance(event, DoneEvent):
         run.status = DONE

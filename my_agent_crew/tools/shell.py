@@ -1,17 +1,23 @@
 """`shell_run`: execute a command in the agent's workspace. Every call goes through
 approval unless the conversation is autonomous — the model sees stdout and stderr,
-capped like any other tool output. There is no sandbox; the approval is the guard."""
+capped like any other tool output. There is no sandbox; the approval is the guard.
+
+An autonomous conversation drops that guard for every command, which is too much for the
+destructive shapes, so `ask_reason` names the ones that ask anyway. It is a coarse
+substring match, deliberately: a soft second guard, not a security boundary."""
 
 from __future__ import annotations
 
 import asyncio
 import os
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
 from my_agent_crew import texts
 from my_agent_crew.tools.registry import Tool, ToolError
 
+SHELL_TOOL_NAME = "shell_run"
 DEFAULT_TIMEOUT_S = 120
 MAX_TIMEOUT_S = 900
 PASSTHROUGH_ENV = ("PATH", "HOME", "LANG", "LC_ALL", "TERM", "TMPDIR", "USER", "SHELL")
@@ -43,6 +49,15 @@ async def run_shell(command: str, cwd: Path, timeout_s: float) -> tuple[int | No
     return proc.returncode, raw.decode("utf-8", errors="replace")
 
 
+def ask_reason(command: str, patterns: Sequence[str]) -> str | None:
+    """The first pattern the command matches, or None when it matches none."""
+    lowered = command.lower()
+    for pattern in patterns:
+        if pattern.lower() in lowered:
+            return pattern
+    return None
+
+
 def build_shell_tool(cwd: Path) -> Tool:
     async def run(args: dict[str, Any]) -> str:
         command = str(args.get("command", "")).strip()
@@ -59,7 +74,7 @@ def build_shell_tool(cwd: Path) -> Tool:
         return output if output.strip() else texts.SHELL_NO_OUTPUT
 
     return Tool(
-        name="shell_run",
+        name=SHELL_TOOL_NAME,
         description=(
             "Chạy một lệnh shell trong thư mục làm việc của agent và trả về stdout+stderr."
             " Dùng đường dẫn tuyệt đối cho tệp ngoài thư mục làm việc. Mỗi lệnh cần người"

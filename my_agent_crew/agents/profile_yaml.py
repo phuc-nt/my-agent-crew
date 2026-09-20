@@ -64,6 +64,11 @@ def parse_profile(
         cost_cap_usd=float(raw.get("cost_cap_usd", base.cost_cap_usd)),
         max_steps=int(raw.get("max_steps", base.max_steps)),
         autonomous_default=bool(raw.get("autonomous", base.autonomous_default)),
+        shell_ask_patterns=(
+            tuple(str(p) for p in raw["shell_ask_patterns"])
+            if "shell_ask_patterns" in raw
+            else base.shell_ask_patterns
+        ),
     )
     workspace = _resolve(agent_dir, str(raw.get("workspace") or "workspace"))
     skills_dirs = [agent_dir / "skills"] + [

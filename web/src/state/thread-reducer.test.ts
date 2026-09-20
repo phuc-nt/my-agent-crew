@@ -140,10 +140,11 @@ describe("threadReducer streaming turn", () => {
   it("pauses on approval_required and resumes when the tool result arrives", () => {
     const paused = run([
       { type: "assistant_message", message_id: "a", content: "", tool_calls: [{ id: "tc", name: "write_file", arguments: {} }], provider: null, model: null, cost_usd: null },
-      { type: "approval_required", approval_id: "ap", tool_call_id: "tc", name: "write_file", arguments: {} },
+      { type: "approval_required", approval_id: "ap", tool_call_id: "tc", name: "write_file", arguments: {}, reason: "khớp mẫu cần duyệt: `sudo `" },
     ]);
     expect(paused.busy).toBe(false);
     expect(paused.pending?.approvalId).toBe("ap");
+    expect(paused.pending?.reason).toBe("khớp mẫu cần duyệt: `sudo `");
     expect(paused.items[0]).toMatchObject({ status: "awaiting" });
     const resumed = run([{ type: "tool_result", tool_call_id: "tc", name: "write_file", ok: true, output: DENIED_TEXT }], paused);
     expect(resumed.pending).toBeNull();

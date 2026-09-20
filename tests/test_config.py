@@ -2,7 +2,13 @@ from pathlib import Path
 
 import pytest
 
-from my_agent_crew.config import DEFAULT_ROUTES, Route, ensure_home, load_settings
+from my_agent_crew.config import (
+    DEFAULT_ROUTES,
+    DEFAULT_SHELL_ASK_PATTERNS,
+    Route,
+    ensure_home,
+    load_settings,
+)
 
 
 def test_defaults_without_env(tmp_path: Path):
@@ -35,6 +41,16 @@ def test_yaml_overrides_defaults_but_env_wins(tmp_path: Path):
     assert s.cost_cap_usd == 9.0
     assert s.language == "en"
     assert s.max_steps == 3
+
+
+def test_the_shell_ask_list_comes_from_yaml_or_env_and_can_be_emptied(tmp_path: Path):
+    home = {"MY_AGENT_HOME": str(tmp_path)}
+    assert load_settings(env=home).shell_ask_patterns == DEFAULT_SHELL_ASK_PATTERNS
+    (tmp_path / "config.yaml").write_text("shell_ask_patterns: [dd if=, ' shutdown ']\n")
+    assert load_settings(env=home).shell_ask_patterns == ("dd if=", "shutdown")
+    env = {**home, "MY_AGENT_SHELL_ASK_PATTERNS": "rm -rf; sudo "}
+    assert load_settings(env=env).shell_ask_patterns == ("rm -rf", "sudo")
+    assert load_settings(env={**home, "MY_AGENT_SHELL_ASK_PATTERNS": ""}).shell_ask_patterns == ()
 
 
 def test_yaml_unknown_key_is_an_error(tmp_path: Path):

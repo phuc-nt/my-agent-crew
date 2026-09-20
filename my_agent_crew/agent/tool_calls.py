@@ -8,7 +8,7 @@ runs and its result is appended, so the next completion sees what happened.
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from my_agent_crew.agent.events import (
     ApprovalRequiredEvent,
@@ -19,10 +19,19 @@ from my_agent_crew.agent.events import (
 from my_agent_crew.llm.types import Message
 from my_agent_crew.store.approvals import DENIED, PENDING
 from my_agent_crew.store.models import AWAITING_APPROVAL
-from my_agent_crew.texts import DENIED_TOOL
+from my_agent_crew.texts import DENIED_TOOL, SHELL_ASK_REASON
+from my_agent_crew.tools.shell import SHELL_TOOL_NAME, ask_reason
 
 if TYPE_CHECKING:  # the loop owns the deps; importing it back would be a cycle
     from my_agent_crew.agent.loop import AgentDeps
+
+
+def _ask_reason(deps: AgentDeps, name: str, arguments: dict[str, Any]) -> str | None:
+    """A shell command whose shape is on the ask list is approved even when the
+    conversation is autonomous; every other call keeps the old rule."""
+    if name != SHELL_TOOL_NAME:
+        return None
+    return ask_reason(str(arguments.get("command", "")), deps.settings.shell_ask_patterns)
 
 
 async def settle_tool_calls(deps: AgentDeps, conv_id: str) -> AsyncIterator[Event]:
@@ -37,7 +46,8 @@ async def settle_tool_calls(deps: AgentDeps, conv_id: str) -> AsyncIterator[Even
         if call.id in answered:
             continue
         tool = deps.tools.get(call.name)
-        if tool is not None and tool.requires_approval and not conv.autonomous:
+        reason = _ask_reason(deps, call.name, call.arguments)
+        if tool is not None and tool.requires_approval and (not conv.autonomous or reason):
             approval = deps.store.approvals.find_for_call(conv_id, call.id)
             if approval is None:
                 approval = deps.store.approvals.create(conv_id, last.id, call)
@@ -48,6 +58,7 @@ async def settle_tool_calls(deps: AgentDeps, conv_id: str) -> AsyncIterator[Even
                     tool_call_id=call.id,
                     name=call.name,
                     arguments=call.arguments,
+                    reason=SHELL_ASK_REASON.format(pattern=reason) if reason else "",
                 )
                 return
             if approval.status == DENIED:

@@ -111,5 +111,6 @@ async def collect_turn(
             elif isinstance(event, ErrorEvent):
                 parts.append(texts.TELEGRAM_ERROR.format(message=event.message))
             elif isinstance(event, ApprovalRequiredEvent):
-                parts.append(texts.TELEGRAM_APPROVAL.format(name=event.name))
+                reason = f" ({event.reason})" if event.reason else ""
+                parts.append(texts.TELEGRAM_APPROVAL.format(name=event.name, reason=reason))
     return "\n\n".join(part for part in parts if part)

@@ -76,6 +76,18 @@ describe("ApprovalBar", () => {
     expect(onDecide.mock.calls).toEqual([[false], [true]]);
   });
 
+  it("shows why an autonomous conversation stopped, and nothing when it did not", () => {
+    const reason = "khớp mẫu cần duyệt: `rm -rf`";
+    const { rerender } = render(
+      <ApprovalBar pending={{ approvalId: "ap", toolCallId: "tc", name: "shell_run", arguments: {}, reason }} busy={false} onDecide={() => undefined} />,
+    );
+    expect(screen.getByText(reason)).toBeInTheDocument();
+    rerender(
+      <ApprovalBar pending={{ approvalId: "ap", toolCallId: "tc", name: "shell_run", arguments: {} }} busy={false} onDecide={() => undefined} />,
+    );
+    expect(screen.queryByText(reason)).not.toBeInTheDocument();
+  });
+
   it("disables both buttons while the resumed turn is running", () => {
     render(<ApprovalBar pending={{ approvalId: "ap", toolCallId: "tc", name: "x", arguments: {} }} busy onDecide={() => undefined} />);
     expect(screen.getByRole("button", { name: vi.approve })).toBeDisabled();

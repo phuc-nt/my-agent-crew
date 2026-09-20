@@ -101,7 +101,10 @@ TELEGRAM_CONVERSATION_TITLE = "Telegram · {date}"
 TELEGRAM_NEW_CONVERSATION = "Đã mở cuộc trò chuyện mới."
 TELEGRAM_HALTED = "Đã dừng ({reason}), đã chi ${spent:.4f}."
 TELEGRAM_ERROR = "Lỗi: {message}"
-TELEGRAM_APPROVAL = "Agent cần duyệt công cụ {name}: gửi /approve để duyệt, /deny để từ chối."
+TELEGRAM_APPROVAL = (
+    "Agent cần duyệt công cụ {name}{reason}: gửi /approve để duyệt, /deny để từ chối."
+)
+SHELL_ASK_REASON = "khớp mẫu cần duyệt: `{pattern}`"
 TELEGRAM_BUSY = "Cuộc trò chuyện đang chờ bạn duyệt một công cụ: /approve hoặc /deny."
 TELEGRAM_MEDIA_MISSING = "(không gửi được ảnh: {path})"
 TELEGRAM_RUN_UNFINISHED = (

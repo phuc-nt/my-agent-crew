@@ -58,7 +58,7 @@ export function applyRunEvent(run: RunInfo, e: AgentEvent): RunInfo {
       break;
     }
     case "approval_required":
-      summary = e.name;
+      summary = e.reason ? `${e.name} (${e.reason})` : e.name;
       break;
     case "halted":
       summary = e.reason;
