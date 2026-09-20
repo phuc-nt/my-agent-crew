@@ -22,9 +22,9 @@ from my_agent_crew.agent.turn_context import TELEGRAM
 from my_agent_crew.channels import telegram_conversations as conversations
 from my_agent_crew.channels.telegram_api import CONFLICT_STATUS, TelegramApi, TelegramError
 from my_agent_crew.channels.telegram_commands import (
-    CHANNEL_COMMANDS,
     MENU,
     answer_command,
+    bot_answers,
     parse_command,
     route_mention,
 )
@@ -145,13 +145,14 @@ class TelegramChannel:
         if agent_id is None:
             return
         command = parse_command(text)
-        if command in CHANNEL_COMMANDS:
-            await self.say(await answer_command(self, agent_id, command, addressed))
-        elif command is not None:
-            answer = await answer_command(self, agent_id, command, addressed)
-            await self._outbound[agent_id].send(answer)
-        else:
+        if command is None:
             await self.chat(agent_id, text)
+            return
+        answer = await answer_command(self, agent_id, command, addressed)
+        if bot_answers(self, command, addressed):
+            await self.say(answer)
+        else:
+            await self._outbound[agent_id].send(answer)
 
     async def chat(self, agent_id: str, text: str) -> None:
         conv = self.conversation(agent_id)

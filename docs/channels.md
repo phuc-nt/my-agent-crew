@@ -40,7 +40,8 @@ On a shared bot:
   Both are answered by the bot itself, without a prefix. The other commands apply to the
   mentioned or current agent: `@coach /status` reports on the coach. `/new` is the one
   exception — a bare `/new` cuts every agent on the bot, because the chat is one window
-  and a fresh start means the window; `@coach /new` cuts only the coach.
+  and a fresh start means the window, and the bot itself confirms it, unprefixed;
+  `@coach /new` cuts only the coach and the coach confirms.
 - Each agent keeps **its own per-day conversation** on the chat, so histories do not mix.
 - **Each agent reads the last 10 lines the others exchanged in the chat today**, as a
   read-only prompt section, so asking the coach about what Pong was just told does not

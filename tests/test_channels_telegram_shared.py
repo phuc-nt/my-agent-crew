@@ -108,8 +108,8 @@ async def test_a_new_without_a_mention_cuts_every_agent_on_the_bot(shared, fake)
     agent happens to be current. `@id /new` is how a single agent is cut."""
     fake.updates = [message(1, "@pong hi"), message(2, "@coach hi"), message(3, "/new")]
     await shared.poll_once()
-    every = texts.TELEGRAM_NEW_CONVERSATION_ALL.format(agents="Coach, Pong")
-    assert fake.sent[2] == f"[Coach]\n{every}"
+    # It acts on the whole bot, so the bot says it: no agent prefix.
+    assert fake.sent[2] == texts.TELEGRAM_NEW_CONVERSATION_ALL.format(agents="Coach, Pong")
     assert len(shared.store.list("coach")) == 2 and len(shared.store.list("pong")) == 2
 
 

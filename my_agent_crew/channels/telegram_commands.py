@@ -83,6 +83,14 @@ async def answer_command(
     return texts.TELEGRAM_UNKNOWN_COMMAND.format(command=command)
 
 
+def bot_answers(channel: TelegramChannel, command: str, addressed: bool) -> bool:
+    """Commands the bot answers in its own voice, with no agent prefix: the ones about the
+    bot itself, and a bare `/new` on a shared bot, which acts on every agent at once."""
+    return command in CHANNEL_COMMANDS or (
+        command in NEW_CONVERSATION and channel.shared and not addressed
+    )
+
+
 def open_conversations(channel: TelegramChannel, agent_id: str, addressed: bool) -> str:
     """A plain `/new` cuts every agent on the bot: the chat is one window, so a person who
     asks for a fresh start means the window, not whichever agent happens to be current.
