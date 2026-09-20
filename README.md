@@ -34,12 +34,13 @@ Bí mật **chỉ** đọc từ biến môi trường; `config.yaml` chỉ chứ
 | `MY_AGENT_COST_CAP_USD` | ngân sách mặc định mỗi cuộc trò chuyện (0 = không giới hạn) | `0.5` |
 | `MY_AGENT_MAX_STEPS` | số lượt gọi model tối đa trong một lượt | `12` |
 | `MY_AGENT_AUTONOMOUS` | `1` để công cụ ghi/thay đổi chạy không cần duyệt | tắt |
+| `MY_AGENT_APPROVAL_TTL_SECONDS` | yêu cầu duyệt không ai trả lời trong khoảng này thì tự từ chối, lượt chạy tiếp | `600` |
 | `OPENROUTER_API_KEY` | bật provider OpenRouter | — |
 | `TAVILY_API_KEY` / `BRAVE_API_KEY` | bật công cụ `web_search` | — |
 | tên do `telegram.token_env` chỉ định (vd `TELEGRAM_BOT_TOKEN`) | token bot Telegram của một agent; thiếu thì kênh đó tắt | — |
 
 `config.yaml` trong `MY_AGENT_HOME` nhận `routes`, `cost_cap_usd`, `max_steps`, `language`,
-`autonomous_default`. Kỹ năng tự viết: thêm tệp `.md` có frontmatter `name` vào `skills/`.
+`autonomous_default`, `approval_ttl_seconds`. Kỹ năng tự viết: thêm tệp `.md` có frontmatter `name` vào `skills/`.
 Kỹ năng không gắn sẵn chỉ hiện tên + mô tả trong prompt; model gọi `skill_read` để đọc đủ.
 
 ## Nhiều agent có tên riêng

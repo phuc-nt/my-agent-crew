@@ -64,13 +64,14 @@ and `config.yaml`:
 | `MY_AGENT_COST_CAP_USD` | `cost_cap_usd` | `0.5` |
 | `MY_AGENT_MAX_STEPS` | `max_steps` | `12` |
 | `MY_AGENT_AUTONOMOUS` | `autonomous_default` | off (`1`, `true`, `yes`, `on` turn it on) |
+| `MY_AGENT_APPROVAL_TTL_SECONDS` | `approval_ttl_seconds` | `600`; must be ≥ 1. An approval nobody answers within this window is refused and the turn goes on |
 | `MY_AGENT_SHELL_ASK_PATTERNS` | `shell_ask_patterns` | the list in [tools.md](tools.md#shell); the env value is `;`-separated and an empty one turns the guard off |
 | `MY_AGENT_LANGUAGE` | `language` | `vi` (prompt frame language; `en` is the other option) |
 | `OPENROUTER_API_KEY` | — | enables the OpenRouter provider |
 | `BRAVE_API_KEY` / `TAVILY_API_KEY` | — | enables `web_search` |
 | the name in `telegram.token_env` | — | the bot token; unset = that channel is disabled |
 
-Env wins over `config.yaml`; `config.yaml` accepts only the five keys above. Secrets never
+Env wins over `config.yaml`; `config.yaml` accepts only the keys above. Secrets never
 go into YAML: profiles carry env-var **names**, and the settings drawer shows key presence,
 never values.
 
@@ -135,7 +136,7 @@ Each entry in `schedules` becomes a job `<agent id>/<schedule id>` in the schedu
 | `name` | default the id; shown in the UI |
 | `cron` **or** `every` | exactly one: five-field cron, or `30m` / `2h` / `1d` |
 | `prompt` **or** `command` | exactly one: a prompt opens a fresh autonomous conversation and runs a turn; a command runs through `shell_run` in the workspace and records only that step |
-| `enabled` | default `true` |
+| `enabled` | default `true`. An enabled schedule can be paused and resumed from the jobs tab (`PATCH /api/jobs/{agent}/{id}/state`); that switch is stored in the `job_state` table and survives a restart. A schedule disabled here can only be turned on by editing the yaml |
 | `skills` | list of skill names attached in full to the conversation a prompt job opens; default empty, and a name that no skill provides is logged as a warning at startup |
 
 A `memory_consolidate` cron becomes a job of the same shape, `<agent id>/memory-consolidate`,

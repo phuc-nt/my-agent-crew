@@ -42,6 +42,11 @@ Guard tests: `tests/test_file_size_budget.py` (≤200 lines), `tests/test_static
 | Persona + memory sections in the system prompt, size cap | `test_agent_context.py` | — | — |
 | Agent loop: text, tool round-trips, max steps, cost cap halt | `test_agent_loop.py` | reducer `halted`/`done` | — |
 | Approval pause / approve / deny / autonomous bypass | `test_agent_approval.py`, `test_server_api.py` | reducer, `ApprovalBar`, App approval flow | `approval bar pauses…` |
+| Approval deadline: the TTL from yaml or env must be positive, an overdue request closes as `expired`, the turn resumes with the tool refused and is delivered, a failing delivery still counts it closed, the scheduler sweeps on every tick, a row written before deadlines existed never expires, Telegram announces the refusal before the reply | `test_config.py`, `test_store_approvals_jobs_usage.py`, `test_approval_expiry.py`, `test_channels_telegram.py` | reducer `expiresAt`, `ApprovalBar` deadline | — |
+| Always allow: approving with `always` lets the same tool run without asking again, `always` on a denial allows nothing, the shell ask list still pauses an always-allowed tool, `auto_approve` stored as a list and patched over HTTP | `test_agent_approval.py`, `test_server_api.py`, `test_store_approvals_jobs_usage.py` | App always-allow test (bar → header chips → revoke) | `approval bar pauses…` (button present) |
+| Approval history: decided requests newest first, pending skipped, `GET /api/approvals` carries the agent id | `test_store_approvals_jobs_usage.py`, `test_server_api.py` | `app-activity.test.tsx` approvals tab | — |
+| Job state: a pause survives reopen, `PATCH /api/jobs/{id}/state` and `GET /api/jobs/{id}/runs`, a profile-disabled schedule cannot be resumed | `test_store_approvals_jobs_usage.py`, `test_server_agents_activity_jobs.py` | `activity-cards.test.tsx` (switch, profile-off, run history), `app-activity.test.tsx` | `jobs tab…` |
+| Usage ledger: by day fills empty days and counts only model calls, by model sums tokens and orders by spend, token counts round-trip through the message log, `/api/stats` `days` + `models` | `test_store_approvals_jobs_usage.py`, `test_server_agents_activity_jobs.py` | `StatsPanel` (days, models) | `jobs tab…` |
 | Crash-resume from unfinished tool calls | `test_agent_resume.py` | — | — |
 | Activity hub: run lifecycle, steps, spend, interrupted on restart, SSE fan-out | `test_activity.py` | `activity-reducer.test.ts` | — |
 | Scheduler: cron/every parsing, due detection, prompt vs command vs consolidate jobs, run-now, delivery hook and its one-line result log, a schedule's `skills` reaching the conversation and the prompt | `test_scheduler.py` | `activity-cards.test.tsx` (job kind label, attached skills) | `jobs tab…` |
@@ -61,7 +66,7 @@ Guard tests: `tests/test_file_size_budget.py` (≤200 lines), `tests/test_static
 | Delete with confirmation | — | App delete test | — |
 | Settings drawer shows routes, key presence (never values), tools, paths | `test_server_api.py` | `SettingsPanel` via App | `settings drawer…` |
 | Run card: status, steps, tool args/output, cost, unknown-cost badge, open conversation | — | `activity-cards.test.tsx` | `the activity rail shows a live job…` |
-| Attention centre, jobs panel (run-now, disabled), stats panel | — | `activity-cards.test.tsx` | `jobs tab…` |
+| Attention centre, jobs panel (run-now, pause/resume, profile-off, run history), stats panel (totals, last days, per model) | — | `activity-cards.test.tsx` | `jobs tab…` |
 | Activity panel tabs + badge, "only this conversation", agent switcher, status line, error boundary | — | `activity-chrome.test.tsx` | — |
 | Live run arriving over SSE → done, stats refresh, stream loss notice | — | `app-activity.test.tsx` | `the activity rail shows a live job…` |
 | Agent switcher scopes list + new conversation; `MEDIA:` lines render from `/api/agents/{id}/files` | — | `app-activity.test.tsx` | `agent switcher scopes…` |

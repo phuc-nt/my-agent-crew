@@ -94,7 +94,10 @@ it has one. On a shared bot the delivery carries the agent's prefix and does not
 current agent. When the last turn ended without any assistant text (a run halted at
 `max_steps`, a provider error, an approval left pending) the channel sends
 `texts.TELEGRAM_RUN_UNFINISHED` with the run's summary instead of staying silent, so a
-scheduled job never disappears without a trace.
+scheduled job never disappears without a trace. When an approval in that turn timed out
+(`approval_ttl_seconds`), the delivery first sends `texts.TELEGRAM_APPROVAL_EXPIRED` naming
+the refused tool, so the reply that follows is read as one shaped by a guard, not by the
+person.
 
 A run that stopped early but *did* leave text behind is the trickier case: the half-finished
 answer reads like a complete one. So after sending the text, a run whose status is `halted`

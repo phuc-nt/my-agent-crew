@@ -39,6 +39,14 @@ browser ──/api (JSON + SSE)──▶ FastAPI ──▶ run_turn(deps, conver
   event and a stored `Approval`; the UI shows a bar, the decision endpoint resumes the same turn.
   A conversation marked `autonomous` skips the pause. Hard denials — path escape from the
   workspace, private/loopback network targets — are not approvable.
+- **An unanswered approval fails closed.** Every `Approval` carries a deadline
+  (`approval_ttl_seconds`, default 600); the scheduler tick sweeps overdue ones
+  (`agent/approval_expiry.py`), closes them as `expired`, resumes the turn with the tool refused
+  and delivers the reply like any other, so a request nobody saw never keeps a conversation
+  hanging. The decision endpoint also takes `always`: approving with it adds the tool to the
+  conversation's `auto_approve` list and later calls of that tool run without asking, until the
+  chip in the header revokes it. The shell ask list still pauses an always-allowed `shell_run`.
+  Decided requests stay readable in `GET /api/approvals`.
 - **Fallback is visible.** Each route that gives up is logged, streamed as a `route_fallback`
   event and recorded as a `fallback` step on the run, so a model that keeps failing shows up in
   the timeline instead of silently costing more on the next route.
@@ -101,6 +109,10 @@ and runs a turn; a **command job** runs the string with `shell_run` in the agent
 records only that step; a **consolidate job**, added by a `memory_consolidate` cron, rewrites the
 agent's `MEMORY.md` with one model call and opens no conversation, so it delivers nothing. The tick is 20 s; `POST /api/jobs/{id}/run` starts a job immediately and
 returns 202. There is no timezone field: the machine clock is the schedule clock.
+`PATCH /api/jobs/{id}/state` pauses or resumes a schedule at runtime; the override lives in
+the `job_state` table (`store/job_state.py`), survives a restart and only applies to a schedule
+the profile enables — one turned off in yaml is reported as `enabled: false, paused: false` and
+cannot be switched on from the UI. `GET /api/jobs/{id}/runs` lists that job's past runs.
 
 ## Channels
 
@@ -134,10 +146,15 @@ All strings come from `i18n/vi.ts`.
 
 The activity rail (ideas borrowed from openhuman's session view, no code) shows: live runs
 expanded step by step with tool arguments and output; an attention centre for runs that wait for
-approval, failed or were halted; a jobs tab with next/last run and a run-now button; a costs tab
-by agent, model and day; an agent switcher that scopes the conversation list and new conversations;
-a status line with stream connectivity. An error boundary keeps a rendering crash from taking the
-chat down with it.
+approval, failed or were halted; a jobs tab with next/last run, a run-now button, a pause/resume
+switch and the job's run history on demand; an approvals tab listing decided requests with their
+outcome (approved, denied, expired); a costs tab by agent, model and day, where the last seven
+days and the per-model table come from `store/usage.py`, a ledger read straight from the message
+log with token counts, so the figures are what was actually billed and not an estimate; an agent
+switcher that scopes the conversation list and new conversations; a status line with stream
+connectivity. The approval bar shows the deadline of the pending request and a "always allow"
+button next to approve/deny; the header lists the always-allowed tools as chips that revoke on
+click. An error boundary keeps a rendering crash from taking the chat down with it.
 
 ## Extension points
 

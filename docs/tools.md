@@ -20,7 +20,10 @@ The system prompt lists the available names; the model sees each tool's JSON sch
   `autonomous` skips the pause — except for a `shell_run` command matching
   `settings.shell_ask_patterns` (see [Shell](#shell)), which asks anyway and says which
   pattern matched. Hard denials, workspace escapes and private network targets, are not
-  approvable.
+  approvable. A request nobody answers within `approval_ttl_seconds` (default 600) is
+  refused: the tool result says so, the turn continues and the reply is delivered as usual.
+  Approving with `always` puts the tool on the conversation's `auto_approve` list, so its
+  later calls in that conversation run without asking; the ask-list guard still applies.
 - **Content is data.** The frame tells the model that anything a tool returns is data,
   never instructions.
 
