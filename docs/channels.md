@@ -1,10 +1,14 @@
 # Channels
 
-A channel lets an agent talk somewhere other than the web UI. Today that is Telegram
-(`channels/`). Every platform hands a message to the same gate, `Inbound` (`inbound.py`):
-it finds the agent, opens or reuses today's conversation on that channel, runs the turn
-under activity tracking and returns the reply. Turns from Telegram therefore run through
-the same loop as the web UI, with source `telegram`, so the rail shows them.
+A channel lets the person talk to the crew somewhere other than the web UI. Today that is
+Telegram (`channels/`). Every platform hands a message to the same gate, `Inbound`
+(`inbound.py`): it finds the agent, opens or reuses today's conversation on that channel,
+runs the turn under activity tracking and returns the reply. Turns from Telegram therefore
+run through the same loop as the web UI, with source `telegram`, so the rail shows them.
+
+Telegram works the way the web UI does: **the person talks to the master** and the master
+delegates to the crew (`delegate` tool, see [agents.md](agents.md#the-master-and-delegation)).
+There is no agent picker on the phone either, no `@id` mention and no per-agent bot.
 
 A platform without an adapter of its own talks to the gate over HTTP:
 
@@ -22,6 +26,8 @@ to test a feature end to end: one request, one reply, no browser.
 
 ## Configuration
 
+The block goes on the **master's** profile, `MY_AGENT_HOME/agent.yaml`:
+
 ```yaml
 telegram:
   token_env: TELEGRAM_BOT_TOKEN   # NAME of the env var holding the bot token
@@ -30,45 +36,37 @@ telegram:
 
 Both keys are required; `chat_id` is an int. The token itself lives in the server's
 environment (for launchd, a file sourced by the run script). When the env var is unset the
-server logs `agent <id>: env var <NAME> is not set; telegram channel disabled` and starts
-without that channel. Updates from any other chat are ignored and logged.
+server logs `agent default: env var <NAME> is not set; telegram channel disabled` and
+starts without the channel; otherwise `telegram channel enabled for default`. A
+`telegram:` block on a crew member's `agents/<id>/agent.yaml` is ignored with the warning
+`agent <id>: telegram belongs to the master; its block is ignored` — the person has one
+door to the crew, and a second bot would be a second door. Updates from any other chat are
+ignored and logged.
 
-## One bot, several agents
+## One bot, the master, the crew
 
-Telegram allows exactly one poller per bot token, so agents whose profiles name the same
-`token_env` are grouped into **one** `TelegramChannel` at startup (`build_channels`).
-They must also name the same `chat_id`; otherwise startup fails with
-`agents [...] share the bot <NAME> but not its chat_id`. The log shows
-`telegram channel enabled for health-coach, pong`.
+`build_channel` builds one `TelegramChannel` for the master. Everything typed in the chat
+is a turn of the master's conversation; when the answer belongs to Pong or the coach the
+master delegates and relays, exactly as in the web UI, and the delegate's run shows up in
+the activity rail under its own name.
 
-On a shared bot:
+The crew still reaches the chat in two ways:
 
-- **`@<agent id>` at the start of a message** picks the agent for that message and the
-  ones after it. `@pong` alone only switches and answers `Đang nói chuyện với Pong (@pong).`
-  without a model call. `@nobody` lists the agents. The id is matched case-insensitively.
-- **The pick is remembered per chat** in the `channel_state` table, so a restart keeps it
-  and a scheduled brief from another agent never switches the agent behind the user's
-  back. Before any pick, the first configured agent answers.
-- **Every agent reply is prefixed** with `[Agent name]` on its own line, including
-  delivered briefs, so the chat always says who is talking.
-- **`/agents`** lists the agents with `▶` on the current one; `/help` includes that list.
-  Both are answered by the bot itself, without a prefix. The other commands apply to the
-  mentioned or current agent: `@coach /status` reports on the coach. `/new` is the one
-  exception — a bare `/new` cuts every agent on the bot, because the chat is one window
-  and a fresh start means the window, and the bot itself confirms it, unprefixed;
-  `@coach /new` cuts only the coach and the coach confirms.
-- Each agent keeps **its own per-day conversation** on the chat, so histories do not mix.
-- **Each agent reads the last 10 lines the others exchanged in the chat today**, as a
-  read-only prompt section, so asking the coach about what Pong was just told does not
-  draw a blank. It is context, not history: the agent cannot reply into it and nothing is
-  written back. See [memory.md](memory.md).
+- **Scheduled briefs.** After a prompt job of any agent the scheduler calls
+  `Runtime.deliver`, and the channel sends that agent's reply under a first line
+  `[Agent name]` (`texts.TELEGRAM_AGENT_PREFIX`), with `MEDIA:` paths resolved in *that*
+  agent's workspace, so a coach's morning chart still arrives as a photo. The master's own
+  replies carry no prefix.
+- **Attachments.** A photo or document lands in the **master's** inbox; the master passes
+  the saved path along in the delegate task when a crew member should read it.
 
-With a single agent on the bot none of this applies: no mention parsing, no prefix, and
-nothing shared — a private bot has only one agent to read.
+Each turn's messages live in the master's conversation only: there is no per-agent
+history on the chat to keep apart and nothing to share between agents beyond what the
+master tells them in the task.
 
 ## Conversations
 
-Each text message becomes a turn of the agent's conversation for today on the channel
+Each text message becomes a turn of the master's conversation for today on the channel
 `telegram:<chat_id>` (title `Telegram · YYYY-MM-DD`, opened on first use each day, or with
 `/new`). While the turn runs the chat shows "typing…" (`sendChatAction` every 4 s). The
 reply is every assistant text of the turn joined in order, including text written next to
@@ -76,13 +74,14 @@ a tool call, plus halt, error and approval notices. A turn that ends without a s
 says so with the step count instead of sending nothing: silence is indistinguishable from
 a dead bot, and the same holds for a delivered brief whose run finished empty. Replies go
 out as plain text in
-4 096-char chunks; a `MEDIA:<path>` line becomes `sendPhoto` from the agent workspace.
+4 096-char chunks; a `MEDIA:<path>` line becomes `sendPhoto` from the workspace of the
+agent whose conversation is being sent.
 
 A photo or a document the person sends is downloaded (largest photo size, or the document
-under its own name reduced to a plain file name) into `<agent workspace>/inbox/` as
+under its own name reduced to a plain file name) into `<master workspace>/inbox/` as
 `<YYYYMMDD-HHMMSS>-<name>`, and the turn's text is `[Tệp đính kèm đã lưu: <path>]` with the
-caption after it (`telegram_inbound`). The model does not see the image; the agent's
-persona says what to do with the path, such as copying a paper into another tool's inbox.
+caption after it (`telegram_inbound`). The model does not see the image; the master's
+persona says what to do with the path, such as handing it to the agent that reads papers.
 A download that fails is reported to the chat without a model turn. Slash commands are not
 read from captions.
 
@@ -93,8 +92,8 @@ album asks Telegram again up to three times, one second apart, before handing th
 half album. The offset moves past the whole group at once, so a crash mid-album repeats
 the album rather than splitting it.
 
-A new conversation does not start blank: the summary of that agent's previous conversation
-on the same channel is carried into the prompt as a **Cuộc trước** section
+A new conversation does not start blank: the summary of the previous conversation on the
+same channel is carried into the prompt as a **Cuộc trước** section
 (`previous_for_channel`), so `/new` and the first message of a new day pick up where the
 last one left off without replaying its messages.
 
@@ -105,11 +104,10 @@ process so the client shows them.
 
 | Command | Effect |
 |---|---|
-| `/new`, `/reset`, `/start` | open another conversation — for every agent on the bot, or for one when addressed with `@id` |
-| `/help` | the command list (and the agent list on a shared bot) |
-| `/agents` | the agents on this bot, current one marked |
+| `/new`, `/reset`, `/start` | open another conversation |
+| `/help` | the command list |
 | `/status` | turns, spend vs cap, routes, pending approval, last run (start time in the person's zone, see `timezone` in [agents.md](agents.md#agentyaml); runs are stored in UTC) |
-| `/tools` | the agent's tool names |
+| `/tools` | the master's tool names |
 | `/approve`, `/deny` | resolve the pending approval and stream the rest of the turn back |
 
 `/status@botname` works; `/usr/bin` or a sentence starting with `/` is not a command and
@@ -119,9 +117,9 @@ turn.
 ## Scheduled delivery
 
 After every prompt job the scheduler calls `Runtime.deliver(agent_id, conv_id)`, which
-forwards the assistant text of that conversation's last turn to the agent's channel when
-it has one. On a shared bot the delivery carries the agent's prefix and does not change the
-current agent. When the last turn ended without any assistant text (a run halted at
+forwards the assistant text of that conversation's last turn to the chat when the master
+has a channel. A crew member's brief carries the `[Name]` prefix; a conversation of an
+agent the runtime does not know is logged and not sent. When the last turn ended without any assistant text (a run halted at
 `max_steps`, a provider error, an approval left pending) the channel sends
 `texts.TELEGRAM_RUN_UNFINISHED` with the run's summary instead of staying silent, so a
 scheduled job never disappears without a trace. When an approval in that turn timed out
@@ -138,15 +136,8 @@ answered from one that stayed quiet. A failed delivery is logged, not retried.
 
 ## Offsets and restarts
 
-The `getUpdates` offset is written to disk before each update is handled, so a message
-that crashes the handler is not replayed forever:
-
-| Bot | Offset file |
-|---|---|
-| one agent | `agents/<id>/telegram.offset` |
-| shared | `MY_AGENT_HOME/channels/telegram-<token_env lower-cased>.offset`, seeded once from the highest member offset so joining an existing bot replays nothing |
-
-A `409` from Telegram means another process still polls the bot (an old server, another
+The `getUpdates` offset is written to `MY_AGENT_HOME/telegram.offset` before each update is
+handled, so a message that crashes the handler is not replayed forever. A `409` from Telegram means another process still polls the bot (an old server, another
 tool); the channel logs `another poller holds this bot` and retries every 5 s.
 
 ## Secrets
@@ -159,18 +150,17 @@ this repo.
 ## Adding a channel
 
 A channel is a class with `start()`, `stop()` and `deliver(conv_id) -> bool`, built in
-`channels/build_channels` from a profile block and mapped from each agent id it serves
-(`Runtime.unique_channels` dedupes for start/stop). Inside, hand every message to
-`Inbound.conversation_for` + `Inbound.reply` (or `stream` when the platform can show
-events) rather than calling the loop: that is what keeps the agents unaware of platforms.
-Keep secrets as env-var names in the profile and add rows to [testing.md](testing.md).
-Tests: `test_channels_telegram.py`, `test_channels_telegram_shared.py`,
-`test_app_wiring.py`, `test_api_inbound.py`.
+`channels/build_channel` from the master's profile block and held as `Runtime.channel`.
+Inside, hand every message to `Inbound.conversation_for` + `Inbound.reply` (or `stream`
+when the platform can show events) rather than calling the loop: that is what keeps the
+agents unaware of platforms. Keep secrets as env-var names in the profile and add rows to
+[testing.md](testing.md). Tests: `test_channels_telegram.py`, `test_app_wiring.py`,
+`test_api_inbound.py`.
 
 ## Compared with openclaw
 
 openclaw's gateway supports many channels (Telegram, Discord, WhatsApp, …) with
 per-channel routing rules, group handling and mention gating. Here there is one channel
-type, one chat per bot and one user; the `@id` switch is the whole routing surface. That is
-enough for the case at hand (one person, a few agents, one phone) and keeps the code under
-four short modules.
+type, one chat, one user and one agent at the door; routing between agents is the master's
+delegation, not the channel's. That is enough for the case at hand (one person, a few
+agents, one phone) and keeps the channel code to a handful of short modules.

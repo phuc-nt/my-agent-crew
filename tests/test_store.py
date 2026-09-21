@@ -4,7 +4,6 @@ import pytest
 
 from my_agent_crew.llm.types import Message, ToolCall
 from my_agent_crew.store import Store
-from my_agent_crew.store.db import now_iso
 from my_agent_crew.store.models import AWAITING_APPROVAL
 
 
@@ -163,19 +162,6 @@ def test_the_conversation_before_another_is_found_per_agent_and_channel(store: S
     assert store.previous_for_channel("pong", "telegram:42", other_agent.id) is None
 
 
-def test_a_channel_remembers_its_current_agent_across_reopen(tmp_path: Path):
-    path = tmp_path / "agent.sqlite3"
-    store = Store(path)
-    assert store.channels.current_agent("telegram:1") is None
-    store.set_current_agent("telegram:1", "coach")
-    store.set_current_agent("telegram:1", "pong")
-    store.set_current_agent("telegram:2", "coach")
-    store.close()
-    store = Store(path)
-    assert store.channels.current_agent("telegram:1") == "pong"
-    assert store.channels.current_agent("telegram:2") == "coach"
-
-
 def test_a_job_proposal_stays_pending_until_it_is_decided(store: Store):
     proposal = store.proposals.create(
         agent_id="coach",
@@ -206,20 +192,6 @@ def test_a_proposal_cannot_be_decided_twice(store: Store):
         store.proposals.resolve(proposal.id, True)
     with pytest.raises(KeyError):
         store.proposals.resolve("khong-co", True)
-
-
-def test_recent_messages_on_a_channel_skip_the_asking_agent_and_old_days(store: Store):
-    mine = store.create(agent_id="coach", channel="telegram:1")
-    theirs = store.create(agent_id="pong", channel="telegram:1")
-    elsewhere = store.create(agent_id="pong", channel="telegram:2")
-    store.append(mine.id, Message(role="user", content="của tôi"))
-    store.append(theirs.id, Message(role="user", content="của họ"))
-    store.append(elsewhere.id, Message(role="user", content="chat khác"))
-
-    today = now_iso()[:10]
-    found = store.messages.recent_on_channel("telegram:1", today, "coach")
-    assert found == [("pong", "user", "của họ")]
-    assert store.messages.recent_on_channel("telegram:1", "2999-01-01", "coach") == []
 
 
 def test_a_conversation_remembers_the_tool_call_that_opened_it(store: Store):

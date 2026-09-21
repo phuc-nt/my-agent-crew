@@ -57,20 +57,3 @@ class MessageStore:
                 "SELECT * FROM messages WHERE conversation_id = ? ORDER BY seq", (conv_id,)
             ).fetchall()
         return [StoredMessage.from_row(r) for r in rows]
-
-    def recent_on_channel(
-        self, channel: str, day: str, exclude_agent_id: str, limit: int = 10
-    ) -> list[tuple[str, str, str]]:
-        """What the other agents said on this channel today, as `(agent_id, role, text)`,
-        oldest first so it reads as a conversation. Tool traffic is left out: another
-        agent's tool calls say nothing a reader of the chat would have seen."""
-        with self._lock:
-            rows = self._conn.execute(
-                "SELECT c.agent_id, m.role, m.content FROM messages m"
-                " JOIN conversations c ON c.id = m.conversation_id"
-                " WHERE c.channel = ? AND c.agent_id != ? AND m.created_at >= ?"
-                " AND m.role IN ('user', 'assistant') AND m.content != ''"
-                " ORDER BY m.id DESC LIMIT ?",
-                (channel, exclude_agent_id, day, limit),
-            ).fetchall()
-        return [(r["agent_id"], r["role"], r["content"]) for r in reversed(rows)]

@@ -74,8 +74,8 @@ def get_agent(agent_id: str, rt: Rt) -> dict[str, Any]:
 @router.post("/agents/install", status_code=201)
 def install_agent(body: InstallRequest, rt: Rt) -> dict[str, Any]:
     """Writes the template (and the peers it names) into the home, then loads the new
-    profiles into the running crew so the master can delegate to them at once. Channels
-    and schedules only start at boot, so an agent that has either reports `needs_restart`."""
+    profiles into the running crew so the master can delegate to them at once. Schedules
+    only start at boot, so an agent that has any reports `needs_restart`."""
     workspace = Path(body.workspace) if body.workspace else None
     try:
         agent_dir, peers = add_template(
@@ -94,9 +94,9 @@ def install_agent(body: InstallRequest, rt: Rt) -> dict[str, Any]:
     except RuntimeError:
         added = []
     live = [agent_id for agent_id in installed if agent_id in added]
-    needs_restart = any(
-        p.id in installed and (p.telegram is not None or p.schedules) for p in profiles
-    ) or set(installed) - set(live)
+    needs_restart = any(p.id in installed and p.schedules for p in profiles) or set(
+        installed
+    ) - set(live)
     return {"installed": installed, "live": live, "needs_restart": bool(needs_restart)}
 
 

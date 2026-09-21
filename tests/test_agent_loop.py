@@ -2,7 +2,6 @@
 
 import pytest
 
-from my_agent_crew import texts
 from my_agent_crew.agent.events import (
     AssistantMessageEvent,
     DoneEvent,
@@ -16,11 +15,10 @@ from my_agent_crew.agent.events import (
 )
 from my_agent_crew.agent.loop import run_turn
 from my_agent_crew.agent.turn_context import CHAT, JOB, set_turn_source, turn_source
-from my_agent_crew.agents.profile import AgentProfile
 from my_agent_crew.config import Route
 from my_agent_crew.llm.fake import completion
 from my_agent_crew.llm.provider import ProviderError
-from my_agent_crew.llm.types import Message, ToolCall
+from my_agent_crew.llm.types import ToolCall
 from my_agent_crew.tools import Tool
 from tests.conftest import collect
 
@@ -190,30 +188,3 @@ async def test_a_chat_turn_is_the_default_source(deps_factory):
     set_turn_source(JOB)
     await collect(run_turn(deps, conv.id, "chạy"))
     assert seen == [CHAT]
-
-
-async def test_a_turn_on_a_shared_channel_sees_what_the_other_agent_said(deps_factory):
-    deps = deps_factory(script=[completion("ok")])
-    peer = AgentProfile(**{**deps.agent.__dict__, "id": "pong", "name": "Pong"})
-    deps.peers = {"pong": peer, deps.agent.id: deps.agent}
-    other = deps.store.create(agent_id="pong", channel="telegram:42")
-    deps.store.append(other.id, Message(role="user", content="Sếp ăn sáng chưa?"))
-
-    conv = deps.store.create(channel="telegram:42")
-    await collect(run_turn(deps, conv.id, "hi"))
-
-    system = deps.chain.providers["scripted"].requests[0].messages[0].content
-    assert texts.SHARED_CHAT_SECTION_TITLE in system
-    assert "[Pong] user: Sếp ăn sáng chưa?" in system
-
-
-async def test_a_web_turn_carries_no_shared_section(deps_factory):
-    """A conversation with no channel is nobody else's thread."""
-    deps = deps_factory(script=[completion("ok")])
-    other = deps.store.create(agent_id="pong", channel="telegram:42")
-    deps.store.append(other.id, Message(role="user", content="Sếp ăn sáng chưa?"))
-
-    conv = deps.store.create()
-    await collect(run_turn(deps, conv.id, "hi"))
-    system = deps.chain.providers["scripted"].requests[0].messages[0].content
-    assert texts.SHARED_CHAT_SECTION_TITLE not in system

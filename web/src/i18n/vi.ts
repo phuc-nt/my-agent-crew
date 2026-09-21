@@ -81,7 +81,7 @@ export const vi = {
     install: "Cài",
     installing: "Đang cài…",
     installed: (ids: string[]) => `Đã cài ${ids.join(", ")}.`,
-    needsRestart: "Lịch chạy hoặc bot Telegram của agent mới chỉ bật sau khi khởi động lại máy chủ.",
+    needsRestart: "Lịch chạy của agent mới chỉ bật sau khi khởi động lại máy chủ.",
     installFailed: (message: string) => `Cài không thành công: ${message}`,
     alreadyInstalled: "đã có",
   },

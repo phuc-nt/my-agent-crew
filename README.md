@@ -38,7 +38,7 @@ Bí mật **chỉ** đọc từ biến môi trường; `config.yaml` chỉ chứ
 | `MY_AGENT_TIMEZONE` | múi giờ của bạn (tên IANA, vd `Asia/Ho_Chi_Minh`) cho lịch, "hôm nay" trong prompt và thống kê; DB vẫn lưu UTC | múi giờ máy |
 | `OPENROUTER_API_KEY` | bật provider OpenRouter | — |
 | `TAVILY_API_KEY` / `BRAVE_API_KEY` | bật công cụ `web_search` | — |
-| tên do `telegram.token_env` chỉ định (vd `TELEGRAM_BOT_TOKEN`) | token bot Telegram của một agent; thiếu thì kênh đó tắt | — |
+| tên do `telegram.token_env` chỉ định (vd `TELEGRAM_BOT_TOKEN`) | token bot Telegram của master; thiếu thì kênh tắt | — |
 
 `config.yaml` trong `MY_AGENT_HOME` nhận `routes`, `cost_cap_usd`, `max_steps`, `language`,
 `timezone`, `autonomous_default`, `approval_ttl_seconds`. Kỹ năng tự viết: thêm tệp `.md` có frontmatter `name` vào `skills/`.
@@ -57,9 +57,6 @@ routes: [openrouter:z-ai/glm-5.3-flash, openrouter:z-ai/glm-5]
 workspace: ~/workspace/my-health-coach   # sandbox cho công cụ tệp + shell_run
 skills_dirs: [~/.openclaw/workspace-personal/skills]
 autonomous: true                          # job chạy không cần duyệt
-telegram:                                 # tuỳ chọn: một bot riêng cho agent này
-  token_env: TELEGRAM_BOT_TOKEN   # TÊN biến môi trường giữ token, không phải token
-  chat_id: 123456789                      # chat duy nhất được trả lời
 schedules:
   - id: morning-brief
     name: Bản tin sáng
@@ -76,26 +73,31 @@ memory_consolidate: "30 3 * * 1"            # mỗi thứ Hai, viết lại MEMO
 ```
 
 Job `prompt` mở một cuộc trò chuyện mới và chạy như người dùng nhắn; job `command` chỉ chạy shell.
-Khi agent có khối `telegram`, server tự poll bot đó: tin nhắn từ `chat_id` trở thành lượt chat
-của một cuộc trò chuyện theo ngày, câu trả lời và kết quả job `prompt` được gửi lại chat;
-dòng `MEDIA:` thành ảnh; ảnh hay tệp bạn gửi được lưu vào `inbox/` của workspace agent và agent
-đọc đường dẫn kèm chú thích. Lệnh gạch chéo (`/new`, `/help`, `/status`, `/tools`, `/approve`,
-`/deny`, `/agents`) do kênh tự trả lời, không tốn lượt model.
-
-**Nhiều agent chung một bot:** các agent khai cùng `token_env` (và cùng `chat_id`) dùng chung
-một bot. Gõ `@pong …` để nói với Pong, `@health-coach …` để đổi sang HLV; lựa chọn được nhớ cho
-các tin sau, `/agents` liệt kê agent đang có, mỗi câu trả lời mở đầu bằng `[Tên agent]`.
-Mỗi agent còn đọc được 10 dòng gần nhất mà các agent khác trao đổi trong chat đó hôm nay,
-nên hỏi HLV về việc vừa nói với Pong không bị hỏi lại từ đầu.
+Kết quả job `prompt` được gửi vào chat Telegram (nếu có bot, xem dưới) với dòng đầu `[Tên agent]`;
+dòng `MEDIA:` thành ảnh lấy từ workspace của agent đó.
 
 ## Một trợ lý điều động cả đội
 
-Web UI chỉ có **một** chỗ chat: với agent chính (`default`, gọi là *master*). Nó tự làm việc
-nhỏ và giao việc lớn cho đúng người bằng công cụ `delegate`, rồi tổng hợp lại — bạn không
-phải chọn agent. Mọi agent khác trong home (kể cả agent Telegram như Pong hay HLV sức khoẻ)
-mặc định đều là người master giao được; tab **Đội** trong rail liệt kê cả đội và cài thêm
-vai mới từ mẫu bằng một cú bấm. Tuỳ chỉnh master bằng `~/.my-agent-crew/agent.yaml`
-(tên, mô tả, `autonomous`, `cost_cap_usd`, `max_steps`, hoặc `delegates` để thu hẹp đội).
+Web UI lẫn Telegram chỉ có **một** chỗ chat: với agent chính (`default`, gọi là *master*). Nó
+tự làm việc nhỏ và giao việc lớn cho đúng người bằng công cụ `delegate`, rồi tổng hợp lại — bạn
+không phải chọn agent. Mọi agent khác trong home (kể cả Pong hay HLV sức khoẻ) mặc định đều là
+người master giao được; tab **Đội** trong rail liệt kê cả đội và cài thêm vai mới từ mẫu bằng
+một cú bấm. Tuỳ chỉnh master bằng `~/.my-agent-crew/agent.yaml` (tên, mô tả, `autonomous`,
+`cost_cap_usd`, `max_steps`, hoặc `delegates` để thu hẹp đội).
+
+**Telegram** là cùng cơ chế trên điện thoại. Khai bot trong `agent.yaml` của master:
+
+```yaml
+telegram:
+  token_env: TELEGRAM_BOT_TOKEN   # TÊN biến môi trường giữ token, không phải token
+  chat_id: 123456789              # chat duy nhất được trả lời
+```
+
+Server poll bot đó: tin nhắn từ `chat_id` thành lượt chat của master theo ngày, master giao
+việc cho Pong/HLV khi cần và trả lời lại chat; ảnh hay tệp bạn gửi được lưu vào `inbox/` của
+workspace master và master chuyển đường dẫn cho agent cần đọc. Lệnh gạch chéo (`/new`, `/help`,
+`/status`, `/tools`, `/approve`, `/deny`) do kênh tự trả lời, không tốn lượt model. Khối
+`telegram` đặt ở agent khác bị bỏ qua kèm cảnh báo.
 
 Chín mẫu có sẵn: `dev` là đầu mối kiểu cũ, tám vai còn lại là `scout`, `planner`, `coder`,
 `reviewer`, `tester`, `debugger`, `git`, `researcher`. Mẫu dùng workspace chung của home;

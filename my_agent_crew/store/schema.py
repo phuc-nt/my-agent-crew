@@ -29,9 +29,6 @@ CREATE TABLE IF NOT EXISTS runs (
     steps TEXT NOT NULL DEFAULT '[]', spent_usd REAL NOT NULL DEFAULT 0,
     unknown_cost_calls INTEGER NOT NULL DEFAULT 0, summary TEXT NOT NULL DEFAULT ''
 );
-CREATE TABLE IF NOT EXISTS channel_state (
-    channel TEXT PRIMARY KEY, agent_id TEXT NOT NULL, updated_at TEXT NOT NULL
-);
 CREATE TABLE IF NOT EXISTS job_state (
     job_id TEXT PRIMARY KEY, enabled INTEGER NOT NULL, updated_at TEXT NOT NULL
 );

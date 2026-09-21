@@ -1,5 +1,5 @@
 """Making a `Runtime` out of a home directory: profiles read, deps built per agent, the
-peer map shared, channels attached, delegation wired."""
+peer map shared, the master's channel attached, delegation wired."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from my_agent_crew import texts
 from my_agent_crew.activity import ActivityHub
 from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.agents import AgentProfile, load_profiles
-from my_agent_crew.channels import build_channels
+from my_agent_crew.channels import build_channel
 from my_agent_crew.config import Settings, ensure_home
 from my_agent_crew.server.agent_assembly import build_agent_deps, build_providers
 from my_agent_crew.server.runtime import PROVIDER_TIMEOUT_SECONDS, Runtime
@@ -52,15 +52,15 @@ def build_runtime(
     }
     peers = {agent_id: deps.agent for agent_id, deps in agents.items()}
     for deps in agents.values():
-        deps.peers = peers  # every agent can name the others sharing its channel
+        deps.peers = peers  # the roster a delegating agent is shown
     hub = ActivityHub(store)
-    channels = build_channels(agents, hub, client, os.environ if env is None else env)
+    channel = build_channel(agents, hub, client, os.environ if env is None else env)
     runtime = Runtime(
         settings=settings,
         store=store,
         agents=agents,
         hub=hub,
-        channels=channels,
+        channel=channel,
         providers=providers,
         client=client,
     )

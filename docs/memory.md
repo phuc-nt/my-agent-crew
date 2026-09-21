@@ -133,15 +133,10 @@ Activity with its cost, and a failed rewrite leaves the file exactly as it was. 
 
 ## What one agent sees of another
 
-On a shared Telegram bot several agents answer in one thread, so a person can tell Pong
-something and then ask the coach about it. Each agent still holds its own conversation, so
-the coach would otherwise see none of that. Before a turn on a channel, the last 10 lines
-the *other* agents exchanged in that chat **today** are lifted into the prompt as a
-read-only section, one line each as `[Tên agent] role: text`, cut to 300 characters a line
-and 4 000 in total. Tool traffic is left out — it is not something a reader of the chat
-would have seen — and the agent's own lines are not repeated, since they are already in
-its history. A private channel has one agent and the web has no channel, so neither gets
-the section. Source: `memory/shared_chat.py`.
+Nothing, beyond the task it is handed. The person talks to the master on every platform
+(web, Telegram, the HTTP gate), so a subject carried from Pong to the coach travels inside
+the master's conversation and reaches the coach as part of the delegate task. The shared
+`users/owner/` scope above is the one place a fact learned by one agent is read by all.
 
 ## Over HTTP and in the web UI
 
@@ -178,4 +173,4 @@ openclaw equivalent either: openclaw keeps one workspace per agent, so a fact ab
 person learned by one agent stays there. Tests: `test_tools_memory.py`, `test_tools_memory_user.py`,
 `test_agent_context.py`, `test_memory_user_store.py`, `test_memory_agent_store.py`,
 `test_memory_proposals_apply.py`, `test_server_memory_api.py`,
-`test_memory_consolidate.py`, `test_memory_shared_chat.py`.
+`test_memory_consolidate.py`.

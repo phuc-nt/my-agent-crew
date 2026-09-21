@@ -35,7 +35,8 @@ class Runtime:
     store: Store
     agents: dict[str, AgentDeps]
     hub: ActivityHub
-    channels: dict[str, TelegramChannel] = field(default_factory=dict)
+    # The master's Telegram bot, when its profile names one and the token is set.
+    channel: TelegramChannel | None = None
     # What `add_agents` needs to build deps for an agent installed while running; a
     # runtime made without them (tests around one agent) cannot grow, and says so.
     providers: dict[str, Any] = field(default_factory=dict)
@@ -51,8 +52,8 @@ class Runtime:
             self.agents, self.hub, clock=self.settings.now, deliver=self.deliver
         )
         self.inbound = Inbound(self.agents, self.hub, self.summarize_replaced)
-        for channel in self.unique_channels():
-            channel.set_on_replaced(self.summarize_replaced)
+        if self.channel is not None:
+            self.channel.set_on_replaced(self.summarize_replaced)
 
     def summarize_replaced(self, deps: AgentDeps, conv_id: str) -> None:
         """A channel opened a new conversation; recap the one it replaced in the
@@ -60,27 +61,20 @@ class Runtime:
         schedule_summary(self.scheduler.keep, deps, conv_id)
 
     async def deliver(self, agent_id: str, conv_id: str) -> bool:
-        """Pushes a conversation's last reply through the agent's channel, if it has one;
-        False when the agent has no channel or the channel found nothing to send."""
-        channel = self.channels.get(agent_id)
-        if channel is None:
+        """Pushes a conversation's last reply to the chat: any agent's scheduled brief goes
+        out through the master's bot, under that agent's name. False when there is no
+        channel or it found nothing to send."""
+        if self.channel is None:
             return False
-        return await channel.deliver(conv_id)
+        return await self.channel.deliver(conv_id)
 
-    def unique_channels(self) -> list[TelegramChannel]:
-        """A bot shared by several agents is one object listed under each agent id."""
-        seen: dict[int, TelegramChannel] = {}
-        for channel in self.channels.values():
-            seen.setdefault(id(channel), channel)
-        return list(seen.values())
+    def start_channel(self) -> None:
+        if self.channel is not None:
+            self.channel.start()
 
-    def start_channels(self) -> None:
-        for channel in self.unique_channels():
-            channel.start()
-
-    async def stop_channels(self) -> None:
-        for channel in self.unique_channels():
-            await channel.stop()
+    async def stop_channel(self) -> None:
+        if self.channel is not None:
+            await self.channel.stop()
 
     @property
     def default(self) -> AgentDeps:

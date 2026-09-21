@@ -28,11 +28,9 @@ from my_agent_crew.agent.turn_context import (
 from my_agent_crew.agents.context import bootstrap_sections
 from my_agent_crew.agents.profile import AgentProfile, default_profile
 from my_agent_crew.agents.roster import DELEGATE_TOOL_NAME, crew_roster_section
-from my_agent_crew.clock import day_start_utc
 from my_agent_crew.config import Settings
 from my_agent_crew.llm.provider import ProviderChain, ProviderError
 from my_agent_crew.llm.types import Completion, Message, RouteFailed, TextDelta
-from my_agent_crew.memory.shared_chat import shared_chat_section
 from my_agent_crew.skills import Skill
 from my_agent_crew.store import Conversation, Store, StoredMessage
 from my_agent_crew.store.approvals import PENDING
@@ -55,7 +53,7 @@ class AgentDeps:
     store: Store
     skills: list[Skill]
     profile: AgentProfile | None = None
-    # The other agents on this machine, by id, so a shared channel can name who spoke.
+    # The other agents on this machine, by id: the roster a delegating agent is shown.
     peers: Mapping[str, AgentProfile] = field(default_factory=dict)
 
     @property
@@ -128,13 +126,6 @@ async def _complete(
     profile = deps.agent
     previous = deps.store.previous_for_channel(conv.agent_id, conv.channel, conv.id)
     today = deps.settings.today()
-    shared = shared_chat_section(
-        deps.store,
-        deps.peers,
-        conv.channel,
-        conv.agent_id,
-        day_start_utc(today, deps.settings.zone),
-    )
     tool_names = deps.tools.names()
     # An agent only hears about its crew when it holds the tool to reach them: a child
     # turn runs without `delegate`, and a roster it cannot act on would only mislead it.
@@ -149,7 +140,7 @@ async def _complete(
                 profile,
                 today=today,
                 previous_summary=previous.summary if previous else "",
-                extra_sections=[s for s in (shared, roster) if s],
+                extra_sections=[roster] if roster else [],
             ),
             name=profile.name,
             today=today.isoformat(),

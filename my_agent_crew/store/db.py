@@ -13,7 +13,6 @@ from pathlib import Path
 from my_agent_crew.llm.types import Message
 from my_agent_crew.store import conversation_lookup as lookup
 from my_agent_crew.store.approvals import ApprovalStore
-from my_agent_crew.store.channel_state import ChannelStateStore
 from my_agent_crew.store.job_state import JobStateStore
 from my_agent_crew.store.memory_proposals import MemoryProposalStore
 from my_agent_crew.store.messages import MessageStore
@@ -45,7 +44,6 @@ class Store:
             apply_schema(self._conn)
         self.approvals = ApprovalStore(self._conn, self._lock)
         self.runs = RunStore(self._conn, self._lock)
-        self.channels = ChannelStateStore(self._conn, self._lock)
         self.messages = MessageStore(self._conn, self._lock)
         self.proposals = MemoryProposalStore(self._conn, self._lock)
         self.jobs = JobStateStore(self._conn, self._lock)
@@ -116,9 +114,6 @@ class Store:
 
     def children_of(self, call_ids: tuple[str, ...]) -> list[Conversation]:
         return lookup.children_of(self._conn, self._lock, call_ids)
-
-    def set_current_agent(self, channel: str, agent_id: str) -> None:
-        self.channels.set_current_agent(channel, agent_id, now_iso())
 
     def update(self, conv_id: str, **fields: object) -> Conversation:
         unknown = set(fields) - MUTABLE_FIELDS

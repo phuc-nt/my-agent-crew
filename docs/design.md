@@ -90,15 +90,15 @@ specialist instead of quietly starting a crew of its own.
 and, unless its optional `MY_AGENT_HOME/agent.yaml` names a `delegates` list, may reach
 every other agent in the home; its system prompt lists that crew each turn. This keeps the
 product "one capable, autonomous agent" while letting it staff a job: the person does not
-pick an agent, the master does. Agents that talk on Telegram keep their channel and
+pick an agent, the master does — on the web and on Telegram alike. The crew keep their
 schedules and are simply also on the roster. Details: [agents.md](agents.md#the-master-agent).
 
 **Templates.** Nine profiles ship with the app — a lead and eight roles — installed with
 `agent add <id>` or `POST /api/agents/install` (what the crew tab calls), which brings
 the peers the role hands work to and one shared set of skills. Every manifest works as
 installed (the home's shared workspace, the global routes); `--workspace` pins a role to
-one repository. An install over the API joins the running crew at once, while channels and
-schedules start at boot. They are a starting point to edit, not a framework: each is an
+one repository. An install over the API joins the running crew at once, while schedules
+start at boot. They are a starting point to edit, not a framework: each is an
 `agent.yaml` of the same fixed keys, so there is nothing to learn beyond the profile format.
 
 ## Memory
@@ -118,9 +118,7 @@ Writes the person is present for land immediately; writes from an unattended job
 looks: a scheduled job that rewrites the person's profile with a bad guess has nobody to
 catch it. The same reasoning makes **consolidation** — the scheduled rewrite of `MEMORY.md`
 from recent notes — a proposal that keeps the text it replaced, so one step back is always
-possible. On a shared Telegram bot each agent also reads the last few lines the others
-exchanged in that chat today, read-only, so a person can carry a subject from one agent to
-the next without repeating themselves.
+possible.
 
 ## Activity hub and runs
 
@@ -151,15 +149,15 @@ cannot be switched on from the UI. `GET /api/jobs/{id}/runs` lists that job's pa
 
 ## Channels
 
-`channels/` lets an agent talk on something other than the web UI. Today that is Telegram:
-a profile with `telegram: {token_env, chat_id}` gets a `TelegramChannel` at startup when the
-named env var is set. Turns from the chat go through `Inbound` like every other platform,
-with source `telegram`, replies go back as text and `sendPhoto`, slash commands are answered without a
-model call, and the scheduler's `Runtime.deliver` pushes a prompt job's reply to the chat.
-Agents that name the same `token_env` share one poller: `@<agent id>` picks the agent, the
-pick is remembered per chat in the `channel_state` table (explicit, not derived from
-timestamps, so a delivered brief never switches the agent), and every reply carries a
-`[Name]` prefix. Full behaviour, commands, offsets and secrets: [channels.md](channels.md).
+`channels/` lets the person talk to the crew on something other than the web UI. Today
+that is Telegram: the master's `agent.yaml` with `telegram: {token_env, chat_id}` gets one
+`TelegramChannel` at startup when the named env var is set (`Runtime.channel`). The chat is
+the master's conversation, so the phone and the web UI are the same mechanism: one agent at
+the door, delegation behind it. Turns go through `Inbound` like every other platform, with
+source `telegram`, replies go back as text and `sendPhoto`, slash commands are answered
+without a model call, and the scheduler's `Runtime.deliver` pushes any agent's prompt-job
+reply to the chat under a `[Name]` prefix, with its `MEDIA:` read from that agent's
+workspace. Full behaviour, commands, offsets and secrets: [channels.md](channels.md).
 
 ## Shell tool and agent files
 
@@ -204,5 +202,5 @@ click. An error boundary keeps a rendering crash from taking the chat down with 
 - Skill: a Markdown file with `name` (and optional `always`, `description`) in `MY_AGENT_HOME/skills`
   or in an agent's `skills_dirs`.
 - Agent: a folder under `MY_AGENT_HOME/agents/` with `agent.yaml` and persona files.
-- Channel: a class with `start`/`stop`/`deliver(conv_id)` built in `channels/build_channels`
-  from a profile block; keep secrets as env-var names in the profile.
+- Channel: a class with `start`/`stop`/`deliver(conv_id)` built in `channels/build_channel`
+  from the master's profile block; keep secrets as env-var names in the profile.

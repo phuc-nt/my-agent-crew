@@ -2,18 +2,20 @@
 
 An **agent** is one folder under `MY_AGENT_HOME/agents/<id>/` with an `agent.yaml` and a
 few Markdown files. Every agent runs the same loop (`agent/loop.py`); the profile only
-changes its inputs: persona, memory, workspace, skills, model routes, budget, schedules and
-channels. Source of truth: `agents/profile.py`, `agents/channels.py`, `config.py`.
+changes its inputs: persona, memory, workspace, skills, model routes, budget and schedules.
+The Telegram channel belongs to the master alone. Source of truth: `agents/profile.py`,
+`agents/channels.py`, `config.py`.
 
 ## Folder layout
 
 ```
 MY_AGENT_HOME/                      ~/.my-agent-crew by default
 ├── config.yaml                     global, non-secret keys (see below)
-├── agent.sqlite3                   conversations, messages, runs, channel state
-├── workspace/                      sandbox of the default agent
-├── skills/                         skills of the default agent
-├── channels/                       offset files of bots shared by several agents
+├── agent.sqlite3                   conversations, messages, runs, job state
+├── agent.yaml                      the master's profile, incl. its `telegram` block (optional)
+├── workspace/                      sandbox of the master; `inbox/` takes Telegram attachments
+├── skills/                         skills of the master
+├── telegram.offset                 poll offset of the master's bot
 ├── users/owner/                    what the crew knows about the person (see memory.md)
 │   ├── USER.md                     read by every agent, every turn
 │   └── facts/<name>.md  INDEX.md   one fact each, plus the generated index
@@ -25,8 +27,7 @@ MY_AGENT_HOME/                      ~/.my-agent-crew by default
         ├── MEMORY.md               durable memory, read every turn
         ├── memory/YYYY-MM-DD.md    daily notes, today + yesterday read every turn
         ├── workspace/              default tool sandbox (overridable)
-        ├── skills/                 always on the skill path
-        └── telegram.offset         poll offset of a bot this agent has to itself
+        └── skills/                 always on the skill path
 ```
 
 `ensure_agent_dirs` creates the agent dir, workspace and `memory/` at startup, so a
@@ -40,7 +41,7 @@ silently disables a setting.
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `name` | string | the id | display name; also the `[Name]` prefix on a shared Telegram bot |
+| `name` | string | the id | display name; also the `[Name]` prefix on a brief delivered to Telegram |
 | `description` | string | `""` | shown on the agent's card in the crew tab and in the master's roster |
 | `mode` | `assistant` or `work` | `assistant` | `work` adds the coding tools and moves three defaults, see [Work mode](#work-mode) |
 | `routes` | list or comma string of `provider:model` | global `routes` | tried in order; a route that fails before producing output falls through to the next |
@@ -54,7 +55,7 @@ silently disables a setting.
 | `tool_output_chars` | int ≥ 1 | global | characters of one tool result the model sees before the cut; raise it for an agent whose scripts print long reports |
 | `schedules` | list | `[]` | jobs, see [Schedules](#schedules) |
 | `memory_consolidate` | cron string | none | rewrite `MEMORY.md` from the daily notes on this schedule, see [memory.md](memory.md) |
-| `telegram` | map | none | `token_env` + `chat_id`, see [channels.md](channels.md) |
+| `telegram` | map | none | `token_env` + `chat_id`; read on the master's `agent.yaml` only, ignored with a warning elsewhere, see [channels.md](channels.md) |
 | `delegates` | list of agent ids | `[]` | agents this one may hand a task to; an id that names no agent is a startup error. Empty on the master means every other agent, see [The master agent](#the-master-agent) |
 | `tools` | list of tool names | `[]` | when set, the only tools this agent gets; empty means everything its mode brings. An unknown name is a warning, so a profile written for a newer version still starts |
 
@@ -127,7 +128,7 @@ POST /api/agents/install {"template": "coder", "agent_id"?: "…", "workspace"?:
 
 `installed` is what was written, `live` what the running server loaded on the spot (the
 master can delegate to it at once), and `needs_restart` is true when an installed agent has
-a `telegram` block or `schedules`: channels and jobs only start at boot. 404 for an unknown
+`schedules`: jobs only start at boot. 404 for an unknown
 template, 409 when the id is taken (`force` overwrites).
 
 | id | mode | What it is for |
@@ -160,11 +161,12 @@ workspace = `MY_AGENT_HOME/workspace`, skills = `MY_AGENT_HOME/skills`, persona 
 files read from `MY_AGENT_HOME` itself. A fresh home therefore needs no profile at all.
 `load_profiles` returns it first, then `agents/<id>/agent.yaml` sorted by id.
 
-It is also the *master*: the one agent the web UI talks to, and the one that hands work to
-the rest. `AgentProfile.is_master` is true for it alone. An optional
-`MY_AGENT_HOME/agent.yaml` shapes it with the same keys as any profile (`name`,
-`description`, `autonomous`, `cost_cap_usd`, `max_steps`, `routes`, `delegates`, …);
-without the file it is the plain default agent. Two things set it apart from a work lead:
+It is also the *master*: the one agent the person talks to — in the web UI and on
+Telegram — and the one that hands work to the rest. `AgentProfile.is_master` is true for
+it alone. An optional `MY_AGENT_HOME/agent.yaml` shapes it with the same keys as any
+profile (`name`, `description`, `autonomous`, `cost_cap_usd`, `max_steps`, `routes`,
+`delegates`, `telegram`, …); without the file it is the plain default agent. Two things
+set it apart from a work lead:
 
 - **It reaches everyone.** With `delegates` empty, the master may hand a task to every
   other agent in the home, in id order (`agents/roster.py: delegate_targets`). Installing
@@ -178,9 +180,11 @@ line per agent it may reach, with id, name, mode, description and workspace, fol
 on when to do a thing itself and when to hand it off. An agent that can reach nobody gets
 no roster. A child turn opened by `delegate` never sees one, since it cannot delegate.
 
-The two assistant agents that talk on Telegram (`pong`, `health-coach` in the example
-home) lose nothing by this: their channels and schedules run as before, and they are simply
-also on the master's roster. Tests: `test_crew_roster.py`, `test_api_agents_install.py`.
+The assistant agents of the example home (`pong`, `health-coach`) are reached the same way
+from the phone as from the browser: the master's bot takes the message and the master
+delegates. Their schedules run as before and their briefs still land in the chat, under
+their name ([channels.md](channels.md#scheduled-delivery)). Tests: `test_crew_roster.py`,
+`test_api_agents_install.py`.
 
 ## Persona files
 
@@ -243,8 +247,8 @@ A `memory_consolidate` cron becomes a job of the same shape, `<agent id>/memory-
 with no prompt or command of its own.
 
 After a prompt job the scheduler calls `Runtime.deliver`, which pushes the last reply to
-the agent's channel when it has one (a morning brief lands in Telegram; see
-[channels.md](channels.md)). Delivery failure is logged, never retried.
+the master's Telegram chat when there is one, under the agent's name (a morning brief lands
+in Telegram; see [channels.md](channels.md)). Delivery failure is logged, never retried.
 
 ## Example
 

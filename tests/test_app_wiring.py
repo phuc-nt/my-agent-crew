@@ -77,7 +77,26 @@ def test_default_http_client_waits_as_long_as_the_provider_would(tmp_path: Path)
     assert client.timeout.connect == PROVIDER_TIMEOUT_SECONDS
 
 
-def test_telegram_channel_is_built_only_when_its_token_env_var_is_set(tmp_path: Path, caplog):
+def test_the_masters_telegram_channel_is_built_only_when_its_token_env_var_is_set(
+    tmp_path: Path, caplog
+):
+    (tmp_path / "agent.yaml").write_text(
+        "name: Trợ lý\ntelegram:\n  token_env: CREW_BOT\n  chat_id: 42\n"
+    )
+    settings = load_settings(env=env_for(tmp_path))
+    with caplog.at_level("WARNING"):
+        without = build_runtime(settings, env=env_for(tmp_path))
+    assert without.channel is None and "CREW_BOT" in caplog.text
+    rt = build_runtime(settings, env=env_for(tmp_path, CREW_BOT="1:abc"))
+    assert rt.channel is not None and rt.channel.chat_id == 42
+    assert rt.channel.agent_id == "default" and rt.channel.deps is rt.default
+    assert (tmp_path / "telegram.offset") == rt.channel._offset_path
+    assert rt.default.agent.to_dict()["telegram"]["token_env"] == "CREW_BOT"
+    assert "1:abc" not in str(rt.default.agent.to_dict())
+
+
+def test_a_telegram_block_on_a_crew_member_is_ignored_with_a_warning(tmp_path: Path, caplog):
+    """The person talks to the master everywhere; a member's bot would be a second door."""
     agent = tmp_path / "agents" / "coach"
     agent.mkdir(parents=True)
     (agent / "agent.yaml").write_text(
@@ -85,9 +104,7 @@ def test_telegram_channel_is_built_only_when_its_token_env_var_is_set(tmp_path: 
     )
     settings = load_settings(env=env_for(tmp_path))
     with caplog.at_level("WARNING"):
-        without = build_runtime(settings, env=env_for(tmp_path))
-    assert without.channels == {} and "COACH_BOT" in caplog.text
-    rt = build_runtime(settings, env=env_for(tmp_path, COACH_BOT="1:abc"))
-    assert list(rt.channels) == ["coach"] and rt.channels["coach"].chat_id == 42
-    assert rt.deps_for("coach").agent.to_dict()["telegram"]["token_env"] == "COACH_BOT"
-    assert "1:abc" not in str(rt.deps_for("coach").agent.to_dict())
+        rt = build_runtime(settings, env=env_for(tmp_path, COACH_BOT="1:abc"))
+    assert rt.channel is None
+    assert "coach" in caplog.text and "belongs to the master" in caplog.text
+    assert "1:abc" not in caplog.text

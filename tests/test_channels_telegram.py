@@ -5,6 +5,7 @@ scheduled results are delivered through the same path."""
 import asyncio
 import json
 import logging
+from dataclasses import replace
 from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import parse_qsl
@@ -122,7 +123,8 @@ def make_channel(deps_factory, fake, tmp_path: Path):
         api = TelegramApi(TOKEN, client)
         hub = ActivityHub(deps.store)
         agents = {deps.agent.id: deps}
-        return TelegramChannel(agents, hub, api, CHAT, tmp_path / "telegram.offset", clock=clock)
+        offset = tmp_path / "telegram.offset"
+        return TelegramChannel(agents, deps.agent.id, hub, api, CHAT, offset, clock=clock)
 
     return factory
 
@@ -144,7 +146,7 @@ async def test_inbound_message_runs_a_tracked_turn_and_replies(make_channel, fak
 
 async def test_typing_indicator_is_kept_alive_and_never_breaks_the_turn(make_channel, fake, caplog):
     channel = make_channel()
-    async with channel._outbound[channel.agent_id].typing(interval=0.01):
+    async with channel.outbound().typing(interval=0.01):
         await asyncio.sleep(0.05)
     assert fake.calls.count("sendChatAction") >= 3
     assert "sendMessage" not in fake.calls
@@ -412,6 +414,33 @@ async def test_deliver_sends_prose_and_media_lines_as_photos(make_channel, fake)
     assert await channel.deliver(conv.id) is True
     assert fake.sent == ["Ngủ 5.5h", texts.TELEGRAM_MEDIA_MISSING.format(path="charts/missing.png")]
     assert len(fake.photos) == 1 and b"PNGDATA" in fake.photos[0]
+
+
+async def test_a_crew_members_brief_is_delivered_under_its_name_from_its_own_workspace(
+    make_channel, fake, deps_factory, tmp_path
+):
+    """The chat talks to the master, but a member's scheduled brief still arrives there:
+    prefixed with the member's name, its `MEDIA:` charts read from the member's workspace."""
+    master = deps_factory(routes=(Route("fake", "echo"),))
+    coach = deps_factory(routes=(Route("fake", "echo"),), home=tmp_path / "coach-home")
+    coach.profile = replace(coach.agent, id="coach", name="HLV")
+    channel = make_channel(master)
+    channel.agents["coach"] = coach
+    (coach.agent.workspace / "charts").mkdir(parents=True)
+    (coach.agent.workspace / "charts" / "sleep.png").write_bytes(b"PNGDATA")
+    conv = master.store.create(agent_id="coach")
+    master.store.append(
+        conv.id, Message(role="assistant", content="Ngủ 6h.\nMEDIA: charts/sleep.png")
+    )
+    assert await channel.deliver(conv.id) is True
+    assert fake.sent == ["[HLV]\nNgủ 6h."] and len(fake.photos) == 1
+    assert channel.outbound("coach") is not channel.outbound()
+    stranger = master.store.create(agent_id="nobody")
+    master.store.append(stranger.id, Message(role="assistant", content="x"))
+    assert await channel.deliver(stranger.id) is False
+    fake.updates = [message(1, "hi")]
+    await channel.poll_once()  # the chat itself still goes to the master, unprefixed
+    assert fake.sent[-1] == "(echo) hi" and master.store.list(agent_id="default")
 
 
 async def test_deliver_joins_every_assistant_text_of_the_last_turn(make_channel, fake):

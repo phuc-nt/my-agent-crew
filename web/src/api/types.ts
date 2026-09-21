@@ -172,7 +172,7 @@ export interface AgentInfo {
   skills: string[];
   /** The one agent the person talks to; it does the work or delegates it. */
   is_master: boolean;
-  /** Set when a Telegram bot also talks to this agent; the token stays on the server. */
+  /** Set on the master when a Telegram bot also talks to it; the token stays on the server. */
   telegram: { token_env: string; chat_id: number } | null;
 }
 
@@ -187,7 +187,7 @@ export interface InstallRequest {
 export interface InstallResult {
   installed: string[];
   live: string[];
-  /** A schedule or a Telegram bot only starts at boot. */
+  /** A schedule only starts at boot. */
   needs_restart: boolean;
 }
 
