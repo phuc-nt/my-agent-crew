@@ -9,6 +9,7 @@ one bot serves several."""
 from __future__ import annotations
 
 import re
+from datetime import datetime, tzinfo
 from typing import TYPE_CHECKING
 
 from my_agent_crew import texts
@@ -117,6 +118,12 @@ def help_text(channel: TelegramChannel | None = None) -> str:
     return lines
 
 
+def local_clock(stamp: str, zone: tzinfo | None = None) -> str:
+    """Runs are stamped in UTC; the person reads the chat in their own zone, so the
+    status shows `HH:MM` local (the machine's zone unless one is given)."""
+    return datetime.fromisoformat(stamp).astimezone(zone).strftime("%H:%M")
+
+
 def status_text(channel: TelegramChannel, agent_id: str) -> str:
     conv = channel.conversation(agent_id)
     deps = channel.agents[agent_id]
@@ -133,7 +140,7 @@ def status_text(channel: TelegramChannel, agent_id: str) -> str:
     if runs:
         last = runs[0]
         run = texts.TELEGRAM_RUN.format(
-            status=last.status, steps=len(last.steps), started=last.started_at[11:16]
+            status=last.status, steps=len(last.steps), started=local_clock(last.started_at)
         )
     return texts.TELEGRAM_STATUS.format(
         title=conv.title,

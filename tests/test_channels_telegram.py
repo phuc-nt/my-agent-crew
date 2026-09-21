@@ -8,6 +8,7 @@ import logging
 from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import parse_qsl
+from zoneinfo import ZoneInfo
 
 import httpx
 import pytest
@@ -21,7 +22,7 @@ from my_agent_crew.channels.telegram_api import (
     split_message,
     split_reply,
 )
-from my_agent_crew.channels.telegram_commands import MENU, parse_command
+from my_agent_crew.channels.telegram_commands import MENU, local_clock, parse_command
 from my_agent_crew.config import Route
 from my_agent_crew.llm.fake import completion
 from my_agent_crew.llm.provider import ProviderError
@@ -242,6 +243,9 @@ async def test_help_status_tools_and_unknown_commands_are_answered_locally(make_
     conv = channel.conversation()
     assert status.startswith(conv.title) and "Lượt: 1" in status and "fake:echo" in status
     assert texts.TELEGRAM_STATE_IDLE in status and "done, " in status
+    [run] = channel.hub.recent(1)  # stamped in UTC, shown in the reader's zone
+    assert status.endswith(datetime.fromisoformat(run.started_at).astimezone().strftime("%H:%M"))
+    assert local_clock("2026-09-21T10:26:32+00:00", ZoneInfo("Asia/Ho_Chi_Minh")) == "17:26"
     assert tools.startswith("Công cụ (") and "workspace_read" in tools
     assert unknown == texts.TELEGRAM_UNKNOWN_COMMAND.format(command="loop")
     assert path == "(echo) /usr/bin/x"  # a path is not a command

@@ -101,7 +101,7 @@ process so the client shows them.
 | `/new`, `/reset`, `/start` | open another conversation — for every agent on the bot, or for one when addressed with `@id` |
 | `/help` | the command list (and the agent list on a shared bot) |
 | `/agents` | the agents on this bot, current one marked |
-| `/status` | turns, spend vs cap, routes, pending approval, last run |
+| `/status` | turns, spend vs cap, routes, pending approval, last run (start time in the machine's local zone; runs are stored in UTC) |
 | `/tools` | the agent's tool names |
 | `/approve`, `/deny` | resolve the pending approval and stream the rest of the turn back |
 
