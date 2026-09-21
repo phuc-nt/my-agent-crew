@@ -11,7 +11,6 @@ from my_agent_crew.agents.context import bootstrap_sections
 from my_agent_crew.agents.kit import (
     AGENT,
     HOME,
-    PROJECT,
     Kit,
     agent_kits,
     discover_kits,
@@ -68,9 +67,9 @@ def test_split_front_matter_handles_plain_and_fenced_text():
 def test_discover_kits_finds_every_harness_dir_in_order(tmp_path: Path):
     for name in (".opencode", ".claude", ".agents", ".other"):
         (tmp_path / name).mkdir()
-    kits = discover_kits(tmp_path, tmp_path, PROJECT)
+    kits = discover_kits(tmp_path, tmp_path, AGENT)
     assert [k.root.name for k in kits] == [".agents", ".claude", ".opencode"]
-    assert all(k.project == tmp_path and k.scope == PROJECT for k in kits)
+    assert all(k.project == tmp_path and k.scope == AGENT for k in kits)
 
 
 def test_kit_lists_skills_agents_and_namespaced_commands(tmp_path: Path):
@@ -81,12 +80,12 @@ def test_kit_lists_skills_agents_and_namespaced_commands(tmp_path: Path):
     )
     (root / "skills" / "s").mkdir(parents=True)
     (root / "settings.json").write_text("{}")
-    kit = Kit(root, tmp_path, PROJECT)
+    kit = Kit(root, tmp_path)
     assert [p.stem for p in kit.agent_files] == ["a", "b"]
     assert [kit.command_name(p) for p in kit.command_files] == ["mk:plan", "review"]
     assert kit.skills_dirs == (root / "skills",)
     assert kit.settings_file == root / "settings.json"
-    assert not kit.brings_agents and Kit(root, tmp_path, HOME).brings_agents
+    assert kit.scope == HOME
 
 
 def test_tool_names_maps_harness_aliases_and_keeps_implicit_tools():
@@ -100,7 +99,7 @@ def test_tool_names_maps_harness_aliases_and_keeps_implicit_tools():
 def test_parse_agent_md_builds_a_profile_from_front_matter(settings: Settings, tmp_path: Path):
     agents = {"reviewer": REVIEWER_MD, "coder": CODER_MD}
     root = kit_tree(tmp_path / "proj" / ".claude", agents=agents)
-    kit = Kit(root, tmp_path / "ws", PROJECT)
+    kit = Kit(root, tmp_path / "ws", AGENT)
     reviewer = parse_agent_md(root / "agents" / "reviewer.md", kit, settings)
     assert reviewer.id == "reviewer" and reviewer.name == "Reviewer"
     assert reviewer.description == "Reviews code. Never edits."
@@ -139,29 +138,30 @@ def test_load_profiles_adds_home_kit_agents_and_lets_yaml_win(settings: Settings
     assert profiles["default"].kits == (home / ".agents", home / ".claude")
 
 
-def test_workspace_kit_brings_skills_commands_hooks_and_instructions_not_agents(
-    settings: Settings, tmp_path: Path
-):
+def test_agent_kit_is_read_and_the_workspace_kit_is_ignored(settings: Settings, tmp_path: Path):
+    """The repository an agent works in is a data source: its `.claude/` (agents, commands,
+    skills, hooks) and its `AGENTS.md` are for whoever develops it, not for the crew."""
     project = tmp_path / "project"
     root = kit_tree(project / ".claude", agents={"helper": REVIEWER_MD}, commands={"review": "r"})
     (root / "skills").mkdir()
-    guard = {"matcher": "Bash", "hooks": [{"type": "command", "command": "true"}]}
+    guard = {"matcher": "Bash", "hooks": [{"type": "command", "command": "exit 2"}]}
     (root / "settings.json").write_text(json.dumps({"hooks": {"PreToolUse": [guard]}}))
     (project / "AGENTS.md").write_text("Project rules.")
     coach_dir = settings.home / "agents" / "coach"
-    kit_tree(coach_dir / ".agents", commands={"brief": "b"})
+    aide = REVIEWER_MD.replace("name: Reviewer", "name: Aide")
+    own = kit_tree(coach_dir / ".agents", agents={"aide": aide}, commands={"brief": "b"})
+    (own / "settings.json").write_text(json.dumps({"hooks": {"PostToolUse": [guard]}}))
     (coach_dir / "agent.yaml").write_text(f"name: Coach\nworkspace: {project}\n")
     profiles = {p.id: p for p in load_profiles(settings)}
-    assert list(profiles) == ["default", "coach"]
+    assert list(profiles) == ["default", "coach", "aide"]  # `helper` never joins
     coach = profiles["coach"]
-    kits = agent_kits(coach)
-    assert [(k.root, k.scope) for k in kits] == [(coach_dir / ".agents", AGENT), (root, PROJECT)]
-    assert coach.skills_dirs == (coach_dir / "skills", root / "skills")
-    assert [c.name for c in coach.commands] == ["brief", "review"]
-    assert len(coach.hooks) == 1 and coach.hooks[0].cwd == project
-    assert coach.persona_files[-1] == str(project / "AGENTS.md")
-    assert ("AGENTS.md", "Project rules.") in bootstrap_sections(coach)
+    assert [(k.root, k.scope) for k in agent_kits(coach)] == [(own, AGENT)]
+    assert coach.skills_dirs == (coach_dir / "skills",)
+    assert [c.name for c in coach.commands] == ["brief"]
+    assert len(coach.hooks) == 1 and coach.hooks[0].cwd == coach_dir
+    assert str(project / "AGENTS.md") not in coach.persona_files
+    assert ("AGENTS.md", "Project rules.") not in bootstrap_sections(coach)
     described = coach.to_dict()
     assert described["hooks"] == 1
-    assert [c["name"] for c in described["commands"]] == ["brief", "review"]
-    assert described["kits"] == [str(coach_dir / ".agents"), str(root)]
+    assert [c["name"] for c in described["commands"]] == ["brief"]
+    assert described["kits"] == [str(own)]

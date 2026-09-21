@@ -104,12 +104,12 @@ start at boot. They are a starting point to edit, not a framework: each is an
 **Kits.** A person who already runs Claude Code or opencode has a `.claude/` or
 `.opencode/` full of subagents, commands, skills and hooks. Rather than a migration tool,
 the crew reads those folders as they are (`agents/kit.py`): `.agents/`, `.claude/` and
-`.opencode/` under the home, under an agent dir, and under a workspace that is a project of
-its own. Markdown agents become crew members, command files become slash commands, hooks
-run with the same JSON contract and the same tool names through an alias table, and a
-project's `AGENTS.md` is read as persona. The yaml profile keeps the last word on any id
-both define, and a project kit brings no agents at all — a repository may shape how an
-agent works in it, not who is on the crew. Details: [agents.md](agents.md#kits).
+`.opencode/` under the home and under an agent dir. Markdown agents become crew members,
+command files become slash commands, hooks run with the same JSON contract and the same
+tool names through an alias table. The yaml profile keeps the last word on any id both
+define. A kit inside the workspace an agent works in is deliberately not read: that
+repository is a data source for the crew, and its `.claude/` belongs to whoever develops
+it. Details: [agents.md](agents.md#kits).
 
 ## Memory
 

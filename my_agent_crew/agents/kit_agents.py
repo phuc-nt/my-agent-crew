@@ -111,8 +111,6 @@ def load_kit_agents(
     """Kit agents whose id no yaml agent holds; a later kit shadows an earlier one."""
     found: dict[str, AgentProfile] = {}
     for kit in kits:
-        if not kit.brings_agents:
-            continue
         for path in kit.agent_files:
             try:
                 profile = parse_agent_md(path, kit, settings)
@@ -132,6 +130,6 @@ def load_profiles(settings: Settings) -> list[AgentProfile]:
     profiles = load_yaml_profiles(settings)
     kits = crew_kits(settings.home)
     for profile in profiles[1:]:
-        kits += [k for k in agent_kits(profile) if k.brings_agents and k not in kits]
+        kits += [k for k in agent_kits(profile) if k not in kits]
     profiles += load_kit_agents(kits, settings, [p.id for p in profiles])
     return [with_kits(profile) for profile in profiles]

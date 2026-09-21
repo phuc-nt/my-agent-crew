@@ -3,12 +3,13 @@ tools keep next to a project or in a home. One holds skills (`skills/<name>/SKIL
 agents (`agents/<id>.md`), commands (`commands/<name>.md`) and `settings.json` with
 hooks. The crew reads the same layout so a kit built for Claude Code, Codex or opencode
 works here without being rewritten: the home's kit is crew-wide, an agent's own kit is
-its, and the kit of the project an agent works in governs its work there.
+its alone.
 
-Where a kit sits decides what it may add. Home and agent kits bring everything, agents
-included. A project kit brings skills, commands, hooks and the project's `AGENTS.md`,
-not its agents: a repository's helper subagents are that repository's, and they would
-otherwise flood the crew roster of every project the crew touches.
+A kit inside the workspace an agent works in is never read. That repository's `.claude/`
+belongs to whoever develops the repository; to the crew the repository is a data source,
+scripts and files the agent uses, not configuration that shapes the agent. Hooks written
+for one harness would otherwise fire inside another, and the crew's own guard rails
+(shell guard, approvals, budgets) are what the owner configured here.
 """
 
 from __future__ import annotations
@@ -28,26 +29,20 @@ SKILL_DIRS = ("skills", "skill")
 AGENT_DIRS = ("agents", "agent")
 COMMAND_DIRS = ("commands", "command")
 SETTINGS_FILE = "settings.json"
-# The cross-harness instructions file a project keeps at its root.
-INSTRUCTIONS_FILE = "AGENTS.md"
-HOME, AGENT, PROJECT = "home", "agent", "project"
+HOME, AGENT = "home", "agent"
 
 
 @dataclass(frozen=True)
 class Kit:
     root: Path  # the `.agents` (or `.claude`, `.opencode`) directory itself
     workspace: Path  # what an agent read from this kit works in unless it says otherwise
-    scope: str = PROJECT
+    scope: str = HOME
 
     @property
     def project(self) -> Path:
         """The directory the kit belongs to: hook commands run from here, like the
         harnesses run them."""
         return self.root.parent
-
-    @property
-    def brings_agents(self) -> bool:
-        return self.scope in (HOME, AGENT)
 
     @property
     def skills_dirs(self) -> tuple[Path, ...]:
@@ -97,7 +92,7 @@ def split_front_matter(text: str) -> tuple[dict[str, Any], str]:
     return (meta if isinstance(meta, dict) else {}), body.strip()
 
 
-def discover_kits(project: Path, workspace: Path, scope: str = PROJECT) -> list[Kit]:
+def discover_kits(project: Path, workspace: Path, scope: str = HOME) -> list[Kit]:
     """The kits found directly under `project`, in `KIT_DIRS` order."""
     return [
         Kit(root=(project / name).resolve(), workspace=workspace, scope=scope)
@@ -111,13 +106,11 @@ def crew_kits(home: Path) -> list[Kit]:
 
 
 def agent_kits(profile: AgentProfile) -> list[Kit]:
-    """Every kit that speaks to one agent: the crew's, its own, then its project's, so a
-    later kit shadows an earlier one by name."""
+    """Every kit that speaks to one agent: the crew's, then its own, so a later kit
+    shadows an earlier one by name. The workspace is deliberately not searched."""
     kits = crew_kits(profile.settings.home)
     if profile.dir != profile.settings.home:
         kits += discover_kits(profile.dir, profile.workspace, AGENT)
-    if profile.workspace not in (profile.settings.home, profile.dir):
-        kits += discover_kits(profile.workspace, profile.workspace, PROJECT)
     seen: set[Path] = set()
     unique = []
     for kit in kits:
@@ -128,20 +121,14 @@ def agent_kits(profile: AgentProfile) -> list[Kit]:
 
 
 def with_kits(profile: AgentProfile) -> AgentProfile:
-    """The profile with what its kits add: skill directories after its own, the commands
-    and hooks they define, and the project's `AGENTS.md` read as one more persona file
-    when the agent works in a project of its own."""
+    """The profile with what its kits add: skill directories after its own, and the
+    commands and hooks they define."""
     from my_agent_crew.agents.kit_commands import load_commands
     from my_agent_crew.agents.kit_hooks import load_hooks
 
     kits = agent_kits(profile)
-    persona = list(profile.persona_files)
-    instructions = profile.workspace / INSTRUCTIONS_FILE
-    if profile.workspace != profile.dir and instructions.is_file():
-        persona.append(str(instructions))
     return replace(
         profile,
-        persona_files=tuple(persona),
         skills_dirs=profile.skills_dirs + tuple(d for kit in kits for d in kit.skills_dirs),
         commands=load_commands(kits),
         hooks=load_hooks(kits),

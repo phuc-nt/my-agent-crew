@@ -226,13 +226,18 @@ already has one can copy it in and keep their agents, commands, skills and hooks
 cp -r ~/.claude ~/.my-agent-crew/.agents      # or leave it named .claude, both are read
 ```
 
-Three places are searched, and a later kit shadows an earlier one by name:
+Two places are searched, and a later kit shadows an earlier one by name:
 
 | Kit | Where | Brings |
 |---|---|---|
 | home | `MY_AGENT_HOME/.agents` (`.claude`, `.opencode`) | agents, skills, commands, hooks — for the whole crew |
 | agent | `MY_AGENT_HOME/agents/<id>/.agents` | the same, for that agent only |
-| project | `<workspace>/.agents` when the workspace is a project of its own | skills, commands, hooks and the project's `AGENTS.md` as one more persona section; **no agents**, a repository does not get to add crew members |
+
+A kit inside an agent's **workspace** is never read, and neither is the `AGENTS.md` at its
+root. The repository an agent works in (a health database, a ledger, a codebase) is a data
+source: the agent runs its scripts and reads its files, but the `.claude/` there belongs to
+whoever develops that repository, and its hooks and subagents were written for another
+harness. What shapes a crew agent is only what sits in `MY_AGENT_HOME`.
 
 What each part maps to:
 
@@ -243,7 +248,6 @@ What each part maps to:
 | `commands/**/*.md` (front matter `description`, body the prompt) | a slash command `/name`, nested as `/dir:name`. `$ARGUMENTS` and `$1`…`$9` are filled from the message, otherwise the arguments are appended. Works in the web chat and on Telegram, where the built-in commands (`/new`, `/status`, …) keep their names; the master's prompt lists them |
 | `skills/` (or opencode's `skill/`) | one more skill directory after the agent's own |
 | `settings.json` → `hooks.PreToolUse` / `hooks.PostToolUse`, `type: command` entries | tool hooks, see below. Other hook kinds and events are skipped |
-| `AGENTS.md` at the project root | a persona section named after the file, front matter stripped |
 
 **Hooks** run the command with the same JSON on stdin the harnesses send:
 `hook_event_name`, `tool_name`, `tool_alias` (the harness name, `Bash` for `shell_run`),

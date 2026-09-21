@@ -91,8 +91,9 @@ cp -r ~/.claude ~/.my-agent-crew/.agents     # hoặc giữ tên .claude / .open
   `$1`…`$9`; dùng được trên web lẫn Telegram.
 - `skills/` → thêm vào đường kỹ năng; `settings.json` `hooks.PreToolUse/PostToolUse` → hook chạy
   trước/sau mỗi công cụ với JSON quen thuộc trên stdin (`Bash` khớp `shell_run`, exit 2 chặn).
-- Kit trong workspace của agent (một repo có `.claude/` và `AGENTS.md`) chỉ mang kỹ năng, lệnh,
-  hook và `AGENTS.md` làm nhân cách, không thêm agent.
+- Chỉ đọc kit ở home và ở thư mục agent. Repo mà agent làm việc trong đó (workspace) là nguồn
+  dữ liệu: `.claude/` và `AGENTS.md` của repo dành cho người phát triển repo, không ảnh hưởng
+  tới agent của đội.
 
 Chi tiết: [docs/agents.md](docs/agents.md#kits-agents-claude-opencode).
 
