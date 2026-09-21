@@ -1,4 +1,5 @@
-"""Reading `MY_AGENT_HOME/agents/<id>/agent.yaml` into an `AgentProfile`.
+"""Reading `MY_AGENT_HOME/agents/<id>/agent.yaml` (and the master's own
+`MY_AGENT_HOME/agent.yaml`) into an `AgentProfile`.
 
 Kept apart from the profile dataclasses so what an agent *is* stays readable without the
 validation that turns a hand-written file into one. Unknown keys are an error rather than
@@ -29,6 +30,8 @@ from my_agent_crew.agents.profile import (
     default_profile,
 )
 from my_agent_crew.config import Settings, _parse_routes
+
+MASTER_MANIFEST = "agent.yaml"
 
 
 def _schedule(raw: dict[str, Any], agent_id: str, index: int) -> Schedule:
@@ -126,9 +129,21 @@ def parse_profile(
     )
 
 
+def load_master_profile(settings: Settings) -> AgentProfile:
+    """The default agent, read from `MY_AGENT_HOME/agent.yaml` when the person wrote one.
+    Its workspace and skills default to the home's own, the same places the settings
+    describe, so writing the file changes only what it states."""
+    manifest = settings.home / MASTER_MANIFEST
+    if not manifest.is_file():
+        return default_profile(settings)
+    raw = yaml.safe_load(manifest.read_text(encoding="utf-8")) or {}
+    raw.setdefault("name", default_profile(settings).name)
+    return parse_profile(DEFAULT_AGENT_ID, settings.home, raw, settings)
+
+
 def load_profiles(settings: Settings) -> list[AgentProfile]:
     """The default agent first, then every `agents/<id>/agent.yaml`, sorted by id."""
-    profiles = [default_profile(settings)]
+    profiles = [load_master_profile(settings)]
     root = settings.home / "agents"
     if not root.is_dir():
         return profiles

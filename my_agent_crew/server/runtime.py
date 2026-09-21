@@ -1,42 +1,27 @@
 """Everything the server holds for its lifetime: one store, one activity hub, one
 scheduler, and one `AgentDeps` per agent profile. All agents share the store and the
-provider clients; each gets its own workspace, memory, skills, shell cwd and routes."""
+provider clients; each gets its own workspace, memory, skills, shell cwd and routes.
+Building a runtime from a home directory is `runtime_build`."""
 
 from __future__ import annotations
 
-import os
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable
 from dataclasses import dataclass, field, replace
+from typing import Any
 
 import httpx
 
 from my_agent_crew import texts
 from my_agent_crew.activity import ActivityHub
 from my_agent_crew.agent.loop import AgentDeps
-from my_agent_crew.agents import DEFAULT_AGENT_ID, AgentProfile, load_profiles
-from my_agent_crew.channels import TelegramChannel, build_channels
-from my_agent_crew.config import Settings, ensure_home
+from my_agent_crew.agents import DEFAULT_AGENT_ID, AgentProfile
+from my_agent_crew.channels import TelegramChannel
+from my_agent_crew.config import Route, Settings
 from my_agent_crew.memory.session_summary import schedule_summary
 from my_agent_crew.scheduler import Scheduler
-from my_agent_crew.server.agent_assembly import (
-    build_agent_deps,
-    build_providers,
-    usable_routes,
-    warn_unknown_schedule_skills,
-)
+from my_agent_crew.server.agent_assembly import build_agent_deps
 from my_agent_crew.store import Store
 from my_agent_crew.tools.delegate import DELEGATE_TOOL_NAME, build_delegate_tool
-
-__all__ = [
-    "PROVIDER_TIMEOUT_SECONDS",
-    "Runtime",
-    "build_agent_deps",
-    "build_deps",
-    "build_providers",
-    "build_runtime",
-    "usable_routes",
-    "warn_unknown_schedule_skills",
-]
 
 # Models can think for well over httpx's 5 s default before the first token arrives; the
 # shared client must wait as long as the provider itself would.
@@ -50,6 +35,10 @@ class Runtime:
     agents: dict[str, AgentDeps]
     hub: ActivityHub
     channels: dict[str, TelegramChannel] = field(default_factory=dict)
+    # What `add_agents` needs to build deps for an agent installed while running; a
+    # runtime made without them (tests around one agent) cannot grow, and says so.
+    providers: dict[str, Any] = field(default_factory=dict)
+    client: httpx.AsyncClient | None = None
     # Agents whose MEMORY.md is being rewritten right now; a second request is a conflict.
     consolidating: set[str] = field(default_factory=set)
     scheduler: Scheduler = field(init=False)
@@ -103,17 +92,54 @@ class Runtime:
         deps = self.deps_for(agent_id)
         return replace(deps, tools=deps.tools.without(DELEGATE_TOOL_NAME))
 
+    def delegates(self, deps: AgentDeps) -> bool:
+        """The master and every work agent hand work out, as does any agent whose profile
+        names delegates. A profile that lists its tools is capping what it gets, and that
+        cap covers this one too, so a specialist stays a specialist instead of quietly
+        becoming a lead."""
+        profile = deps.agent
+        if profile.tools and DELEGATE_TOOL_NAME not in profile.tools:
+            return False
+        return profile.is_master or profile.is_work or bool(profile.delegates)
+
     def wire_delegation(self) -> None:
-        """Work agents get `delegate` once every agent exists — the tool holds the runtime,
-        so it cannot be built during assembly, when the runtime is still being made. A
-        profile that lists its tools is capping what it gets, and that cap covers this one
-        too, so a specialist stays a specialist instead of quietly becoming a lead."""
+        """Agents that delegate get the tool once every agent exists — it holds the
+        runtime, so it cannot be built during assembly, when the runtime is still being
+        made. Called again after `add_agents`, it rebuilds every tool so the targets each
+        one offers include the newcomers."""
         for deps in self.agents.values():
-            if not deps.agent.is_work or deps.tools.get(DELEGATE_TOOL_NAME) is not None:
+            if not self.delegates(deps):
                 continue
-            if deps.agent.tools and DELEGATE_TOOL_NAME not in deps.agent.tools:
-                continue
+            if deps.tools.get(DELEGATE_TOOL_NAME) is not None:
+                deps.tools = deps.tools.without(DELEGATE_TOOL_NAME)
             deps.tools.register(build_delegate_tool(self, deps.agent))
+
+    def add_agents(self, profiles: Iterable[AgentProfile]) -> list[str]:
+        """Brings agents installed while the server runs into this runtime: deps built
+        the same way as at startup, the shared peer map extended, every delegating agent's
+        tool rebuilt. Channels and schedules are not started here; those need a restart.
+        Ids already present are skipped and not reported."""
+        if self.client is None:
+            raise RuntimeError(texts.RUNTIME_CANNOT_GROW)
+        added: list[str] = []
+        peers = self.default.peers if isinstance(self.default.peers, dict) else {}
+        for profile in profiles:
+            if profile.id in self.agents:
+                continue
+            deps = build_agent_deps(
+                profile, self.providers, self.client, self.store, self.fallback_routes
+            )
+            deps.peers = peers
+            self.agents[profile.id] = deps
+            peers[profile.id] = profile
+            added.append(profile.id)
+        if added:
+            self.wire_delegation()
+        return added
+
+    @property
+    def fallback_routes(self) -> tuple[Route, ...]:
+        return self.settings.routes
 
     def deps_for_conversation(self, conv_id: str) -> AgentDeps:
         """Raises KeyError for an unknown conversation; a conversation whose agent profile
@@ -133,47 +159,3 @@ class Runtime:
         )
         runtime.wire_delegation()
         return runtime
-
-
-def check_delegates(profiles: Sequence[AgentProfile]) -> None:
-    """A profile pointing at an agent that does not exist would only fail mid-task, with
-    the model left guessing why; it is a startup error instead."""
-    known = {profile.id for profile in profiles}
-    for profile in profiles:
-        for name in profile.delegates:
-            if name not in known:
-                raise ValueError(
-                    texts.DELEGATE_UNKNOWN_AGENT.format(agent_id=profile.id, target=name)
-                )
-
-
-def build_runtime(
-    settings: Settings,
-    client: httpx.AsyncClient | None = None,
-    env: Mapping[str, str] | None = None,
-) -> Runtime:
-    """`env` is where channel tokens are read from (the process environment by default);
-    settings never hold them, so a profile can be committed while its token stays out."""
-    settings = ensure_home(settings)
-    client = client or httpx.AsyncClient(timeout=httpx.Timeout(PROVIDER_TIMEOUT_SECONDS))
-    store = Store(settings.db_path)
-    providers = build_providers(settings, client)
-    profiles = load_profiles(settings)
-    check_delegates(profiles)
-    agents = {
-        profile.id: build_agent_deps(profile, providers, client, store, settings.routes)
-        for profile in profiles
-    }
-    peers = {agent_id: deps.agent for agent_id, deps in agents.items()}
-    for deps in agents.values():
-        deps.peers = peers  # every agent can name the others sharing its channel
-    hub = ActivityHub(store)
-    channels = build_channels(agents, hub, client, os.environ if env is None else env)
-    runtime = Runtime(settings=settings, store=store, agents=agents, hub=hub, channels=channels)
-    runtime.wire_delegation()
-    return runtime
-
-
-def build_deps(settings: Settings, client: httpx.AsyncClient | None = None) -> AgentDeps:
-    """The default agent's deps alone, for callers that only need one agent."""
-    return build_runtime(settings, client).default

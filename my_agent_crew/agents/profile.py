@@ -1,6 +1,8 @@
 """Agent profiles. `MY_AGENT_HOME/agents/<id>/agent.yaml` describes one agent: its
-persona files, workspace, model routes and schedules. The `default` agent always exists
-and is described by the top-level settings, so a fresh home works with no profile at all."""
+persona files, workspace, model routes and schedules. The `default` agent always exists:
+it is the master the person talks to, described by `MY_AGENT_HOME/agent.yaml` when that
+file exists and by the top-level settings otherwise, so a fresh home works with no
+profile at all."""
 
 from __future__ import annotations
 
@@ -104,6 +106,11 @@ class AgentProfile:
         return self.mode == WORK
 
     @property
+    def is_master(self) -> bool:
+        """The default agent is the one the person talks to; it hands work to the rest."""
+        return self.id == DEFAULT_AGENT_ID
+
+    @property
     def memory_dir(self) -> Path:
         return self.dir / "memory"
 
@@ -129,6 +136,7 @@ class AgentProfile:
             "memory_consolidate": self.memory_consolidate,
             "mode": self.mode,
             "delegates": list(self.delegates),
+            "is_master": self.is_master,
         }
 
 

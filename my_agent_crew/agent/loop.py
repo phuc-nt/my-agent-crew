@@ -28,6 +28,7 @@ from my_agent_crew.agent.turn_context import (
 )
 from my_agent_crew.agents.context import bootstrap_sections
 from my_agent_crew.agents.profile import AgentProfile, default_profile
+from my_agent_crew.agents.roster import DELEGATE_TOOL_NAME, crew_roster_section
 from my_agent_crew.config import Settings
 from my_agent_crew.llm.provider import ProviderChain, ProviderError
 from my_agent_crew.llm.types import Completion, Message, RouteFailed, TextDelta
@@ -130,16 +131,20 @@ async def _complete(
     shared = shared_chat_section(
         deps.store, deps.peers, conv.channel, conv.agent_id, today.isoformat()
     )
+    tool_names = deps.tools.names()
+    # An agent only hears about its crew when it holds the tool to reach them: a child
+    # turn runs without `delegate`, and a roster it cannot act on would only mislead it.
+    roster = crew_roster_section(profile, deps.peers) if DELEGATE_TOOL_NAME in tool_names else None
     system = Message(
         role="system",
         content=build_system_prompt(
             deps.settings,
             skills,
-            deps.tools.names(),
+            tool_names,
             sections=bootstrap_sections(
                 profile,
                 previous_summary=previous.summary if previous else "",
-                extra_sections=[shared] if shared else [],
+                extra_sections=[s for s in (shared, roster) if s],
             ),
             name=profile.name,
             today=today.isoformat(),

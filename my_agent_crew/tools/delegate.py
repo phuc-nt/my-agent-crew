@@ -25,13 +25,15 @@ from my_agent_crew.agent.turn_context import (
     turn_depth,
 )
 from my_agent_crew.agents import AgentProfile
+from my_agent_crew.agents.roster import DELEGATE_TOOL_NAME, delegate_targets
 from my_agent_crew.store.models import Conversation
 from my_agent_crew.tools.registry import Tool, ToolError
 
 if TYPE_CHECKING:  # the runtime builds this tool, so importing it back would be a cycle
     from my_agent_crew.server.runtime import Runtime
 
-DELEGATE_TOOL_NAME = "delegate"
+__all__ = ["DELEGATE_TOOL_NAME", "MAX_DELEGATES", "build_delegate_tool"]
+
 TITLE_TASK_CHARS = 60
 # How many tasks one conversation may hand out in total. The batch limit only caps a
 # single message; without this a model could keep delegating one call at a time until the
@@ -44,8 +46,10 @@ WAIT_MARGIN_SECONDS = 300.0
 
 def build_delegate_tool(runtime: Runtime, profile: AgentProfile) -> Tool:
     """Delegating to yourself is always allowed: it is how an agent gets a second, clean
-    context for a task that would otherwise bloat this one."""
-    allowed = (profile.id, *profile.delegates)
+    context for a task that would otherwise bloat this one. The targets are fixed when the
+    tool is built; the runtime rebuilds it when an agent joins."""
+    targets = delegate_targets(profile, {p.id: p for p in runtime.profiles()})
+    allowed = (profile.id, *targets)
 
     async def run(args: dict[str, Any]) -> str:
         if turn_depth() >= 1:
@@ -55,7 +59,7 @@ def build_delegate_tool(runtime: Runtime, profile: AgentProfile) -> Tool:
             raise ToolError(texts.DELEGATE_PARAM_TASK)
         target = str(args.get("agent") or profile.id)
         if target not in allowed:
-            peers = ", ".join(profile.delegates) or texts.DELEGATE_NO_PEERS
+            peers = ", ".join(targets) or texts.DELEGATE_NO_PEERS
             raise ToolError(texts.DELEGATE_NOT_ALLOWED.format(target=target, allowed=peers))
         return await _delegate(runtime, target, task, args)
 

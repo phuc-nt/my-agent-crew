@@ -25,7 +25,9 @@ from my_agent_crew.server import (
     routes_memory_user,
     routes_settings,
 )
-from my_agent_crew.server.runtime import Runtime, build_deps, build_providers, build_runtime
+from my_agent_crew.server.agent_assembly import build_providers
+from my_agent_crew.server.runtime import Runtime
+from my_agent_crew.server.runtime_build import build_deps, build_runtime
 
 __all__ = ["build_deps", "build_providers", "build_runtime", "create_app"]
 

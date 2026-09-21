@@ -170,7 +170,7 @@ def test_delegating_to_an_agent_that_does_not_exist_fails_at_startup(
 ):
     """Caught mid-task it would just look like a broken tool call, so the server refuses
     to come up instead."""
-    from my_agent_crew.server.runtime import check_delegates
+    from my_agent_crew.server.runtime_build import check_delegates
 
     lead = parse_profile("lead", tmp_path, {"delegates": ["coder"]}, settings)
     coder = parse_profile("coder", tmp_path, {}, settings)
