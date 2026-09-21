@@ -100,6 +100,8 @@ export class FakeBackend {
     routes: [{ provider: "fake", model: "echo" }],
     providers: ["fake"],
     language: "vi",
+    timezone: "Asia/Ho_Chi_Minh",
+    zone: "Asia/Ho_Chi_Minh",
     cost_cap_usd: 1,
     max_steps: 20,
     autonomous_default: false,

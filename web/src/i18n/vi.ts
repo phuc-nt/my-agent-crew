@@ -121,6 +121,8 @@ export const vi = {
   home: "Thư mục cấu hình",
   workspace: "Thư mục làm việc",
   usersDir: "Thư mục ghi nhớ chung",
+  timezone: "Múi giờ",
+  machineZone: "theo máy",
   maxSteps: "Số bước tối đa mỗi lượt",
   defaultCap: "Ngân sách mặc định",
   you: "Bạn",

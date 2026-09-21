@@ -52,7 +52,12 @@ def build_tools(
     tools: list[Tool] = [
         *build_workspace_tools(profile.workspace),
         *build_web_tools(profile.settings, client),
-        *build_memory_tools(profile.memory_dir, profile.memory_file, profile.settings.user_dir),
+        *build_memory_tools(
+            profile.memory_dir,
+            profile.memory_file,
+            profile.settings.user_dir,
+            clock=profile.settings.now,
+        ),
         *build_user_memory_tools(profile.settings.user_dir, store, profile.id),
         build_shell_tool(profile.workspace),
         *build_skill_tools(skills),

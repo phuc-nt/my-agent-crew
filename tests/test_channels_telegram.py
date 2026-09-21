@@ -174,9 +174,67 @@ async def test_a_photo_is_saved_to_the_inbox_and_the_agent_reads_its_path_with_t
     await channel.poll_once()
     saved = channel.deps.agent.workspace / "inbox" / "20260921-140509-file_7.jpg"
     assert saved.read_bytes() == b"BYTES:photos/file_7.jpg"
-    expected = texts.TELEGRAM_ATTACHMENT.format(path=saved, caption="sổ đỏ lô B")
-    assert fake.sent == [f"(echo) {expected}"]
+    assert fake.sent == [f"(echo) [Tệp đính kèm đã lưu: {saved}]\nsổ đỏ lô B"]
     assert fake.calls.count("getFile") == 1 and "small" not in fake.files.values()
+
+
+def album(update_id: int, file_id: str, group: str, caption: str = "") -> dict:
+    update = photo(update_id, file_id, caption=caption)
+    update["message"]["media_group_id"] = group
+    return update
+
+
+async def test_an_album_is_one_message_with_every_photo_and_the_caption(make_channel, fake):
+    """Telegram sends an album as one update per photo, the caption on the first only;
+    the agent reads all the saved paths together, in one turn."""
+    channel = make_channel(clock=lambda: datetime(2026, 9, 21, 14, 5, 9))
+    fake.files = {"p1": "photos/file_1.jpg", "p2": "photos/file_2.jpg", "p3": "photos/file_3.jpg"}
+    fake.updates = [
+        album(1, "p1", "g1", caption="hai mặt giấy tờ"),
+        album(2, "p2", "g1"),
+        album(3, "p3", "g1"),
+        message(4, "xong"),
+    ]
+    assert await channel.poll_once() == 4
+    inbox = channel.deps.agent.workspace / "inbox"
+    lines = "\n".join(
+        f"[Tệp đính kèm đã lưu: {inbox / f'20260921-140509-file_{n}.jpg'}]" for n in (1, 2, 3)
+    )
+    assert fake.sent == [f"(echo) {lines}\nhai mặt giấy tờ", "(echo) xong"]
+    assert len(list(inbox.iterdir())) == 3 and fake.calls.count("getFile") == 3
+    assert len(channel.hub.recent()) == 2  # one turn for the album, one for the text
+
+
+async def test_an_album_still_arriving_is_waited_for(make_channel, fake, monkeypatch):
+    """A poll may end in the middle of an album; the channel asks again, briefly, before
+    handing the agent half the photos."""
+    from my_agent_crew.channels import telegram_albums
+
+    naps: list[float] = []
+
+    async def nap(seconds: float) -> None:
+        naps.append(seconds)
+        fake.updates.append(album(2, "p2", "g1"))  # the second photo lands during the wait
+
+    monkeypatch.setattr(telegram_albums.asyncio, "sleep", nap)
+    channel = make_channel()
+    fake.files = {"p1": "photos/file_1.jpg", "p2": "photos/file_2.jpg"}
+    fake.updates = [album(1, "p1", "g1", caption="cả hai")]
+    assert await channel.poll_once() == 2
+    [sent] = fake.sent
+    assert "file_1.jpg" in sent and "file_2.jpg" in sent and sent.endswith("cả hai")
+    assert naps == [telegram_albums.ALBUM_SETTLE_SECONDS] * telegram_albums.ALBUM_SETTLE_ROUNDS
+    assert fake.calls.count("getUpdates") == 1 + telegram_albums.ALBUM_SETTLE_ROUNDS
+    assert await channel.poll_once() == 0  # the offset moved past the whole album
+
+
+def test_updates_of_one_album_are_grouped_and_everything_else_stands_alone():
+    from my_agent_crew.channels.telegram_albums import group_updates
+
+    updates = [message(1, "a"), album(2, "x", "g1"), album(3, "y", "g1"), album(4, "z", "g2")]
+    groups = group_updates(updates)
+    assert [[u["update_id"] for u in group] for group in groups] == [[1], [2, 3], [4]]
+    assert group_updates([]) == []
 
 
 async def test_a_document_keeps_the_senders_file_name_reduced_to_a_plain_name(make_channel, fake):

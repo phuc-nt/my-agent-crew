@@ -5,7 +5,7 @@ import type { Conversation } from "../api/types";
 import { vi } from "../i18n/vi";
 import { runGroups } from "../state/activity-reducer";
 import type { ThreadItem } from "../state/thread-reducer";
-import { coachAgent, fakeAgent, fakeRun } from "../test/fake-backend";
+import { FakeBackend, coachAgent, fakeAgent, fakeRun } from "../test/fake-backend";
 import { ConversationHeader } from "./conversation-header";
 import { ConversationList } from "./conversation-list";
 import { RunGroupCard } from "./run-timeline";
@@ -199,5 +199,15 @@ describe("the settings panel", () => {
     expect(rows[1]).toHaveTextContent("coder");
     expect(rows[1]).not.toHaveTextContent(vi.crew.master);
     expect(screen.queryByTestId("template-list")).not.toBeInTheDocument();
+  });
+
+  it("shows the zone the machine reads its days in, and says when it is only the machine's", () => {
+    const { settings } = new FakeBackend();
+    const { rerender } = render(<SettingsPanel settings={settings} onClose={() => {}} />);
+    expect(screen.getByText(vi.timezone).nextElementSibling).toHaveTextContent("Asia/Ho_Chi_Minh");
+    expect(screen.getByText(vi.timezone).nextElementSibling).not.toHaveTextContent(vi.machineZone);
+
+    rerender(<SettingsPanel settings={{ ...settings, timezone: "", zone: "UTC" }} onClose={() => {}} />);
+    expect(screen.getByText(vi.timezone).nextElementSibling).toHaveTextContent(`UTC (${vi.machineZone})`);
   });
 });

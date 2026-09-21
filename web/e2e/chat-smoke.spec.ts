@@ -47,6 +47,7 @@ test("settings drawer lists routes and key presence", async ({ page }) => {
   const drawer = page.getByRole("dialog");
   await expect(drawer).toContainText("fake:echo");
   await expect(drawer).toContainText("chưa có");
+  await expect(drawer).toContainText("Asia/Ho_Chi_Minh");
   await drawer.getByRole("button", { name: "Đóng" }).click();
   await expect(drawer).toHaveCount(0);
 });

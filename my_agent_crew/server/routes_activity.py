@@ -6,11 +6,13 @@ from __future__ import annotations
 import json
 from collections import defaultdict
 from collections.abc import AsyncIterator
+from datetime import tzinfo
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from sse_starlette.sse import EventSourceResponse
 
+from my_agent_crew.clock import local_day
 from my_agent_crew.server.deps import Rt
 from my_agent_crew.store.runs import RunRecord
 
@@ -46,7 +48,8 @@ async def stream(rt: Rt) -> EventSourceResponse:
     return EventSourceResponse(events())
 
 
-def summarize(runs: list[RunRecord]) -> dict[str, Any]:
+def summarize(runs: list[RunRecord], zone: tzinfo | None = None) -> dict[str, Any]:
+    """Days are the person's (`zone`), not the UTC the runs are stamped in."""
     by_agent: dict[str, float] = defaultdict(float)
     by_model: dict[str, float] = defaultdict(float)
     by_day: dict[str, float] = defaultdict(float)
@@ -54,7 +57,7 @@ def summarize(runs: list[RunRecord]) -> dict[str, Any]:
     calls = 0
     for run in runs:
         by_agent[run.agent_id] += run.spent_usd
-        by_day[run.started_at[:10]] += run.spent_usd
+        by_day[local_day(run.started_at, zone)] += run.spent_usd
         unknown += run.unknown_cost_calls
         for step in run.steps:
             if step.get("kind") == "model":
@@ -76,8 +79,8 @@ def summarize(runs: list[RunRecord]) -> dict[str, Any]:
 def stats(rt: Rt) -> dict[str, Any]:
     """Run totals for the rail, plus the message-log ledger (`days`, `models`), which is
     the honest number: it counts what providers billed, with tokens, over every run."""
-    data = summarize(rt.hub.recent(STATS_RUNS))
+    data = summarize(rt.hub.recent(STATS_RUNS), rt.settings.zone)
     data["pending_proposals"] = len(rt.store.proposals.list())
-    data["days"] = rt.store.usage.by_day()
+    data["days"] = rt.store.usage.by_day(zone=rt.settings.zone)
     data["models"] = rt.store.usage.by_model()
     return data

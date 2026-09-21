@@ -106,6 +106,11 @@ export function SettingsPanel({ settings, agents = [], onClose }: Props) {
             <dd>
               <code>{settings.users_dir}</code>
             </dd>
+            <dt>{vi.timezone}</dt>
+            <dd>
+              <code>{settings.zone}</code>
+              {settings.timezone ? "" : ` (${vi.machineZone})`}
+            </dd>
             <dt>{vi.maxSteps}</dt>
             <dd>{settings.max_steps}</dd>
             <dt>{vi.defaultCap}</dt>

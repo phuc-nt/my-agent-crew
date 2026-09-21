@@ -4,7 +4,6 @@ poller for the whole group."""
 
 import asyncio
 from dataclasses import replace
-from datetime import date
 from pathlib import Path
 
 import httpx
@@ -15,6 +14,7 @@ from my_agent_crew.activity import ActivityHub
 from my_agent_crew.agents.channels import TelegramConfig
 from my_agent_crew.channels import CHANNELS_DIR, TelegramApi, TelegramChannel, build_channels
 from my_agent_crew.channels.telegram_commands import parse_mention
+from my_agent_crew.clock import day_start_utc
 from my_agent_crew.config import Route, load_settings
 from my_agent_crew.memory.shared_chat import shared_chat_section
 from my_agent_crew.server import build_runtime
@@ -182,7 +182,11 @@ async def test_the_second_agent_reads_what_the_first_one_was_told(shared, fake):
 
     coach = shared.agents["coach"]
     found = shared_chat_section(
-        shared.store, coach.peers, f"telegram:{CHAT}", "coach", date.today().isoformat()
+        shared.store,
+        coach.peers,
+        f"telegram:{CHAT}",
+        "coach",
+        day_start_utc(coach.settings.today(), coach.settings.zone),
     )
     assert found is not None
     title, body = found

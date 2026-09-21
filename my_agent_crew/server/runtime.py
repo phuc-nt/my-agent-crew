@@ -47,7 +47,9 @@ class Runtime:
     inbound: Inbound = field(init=False)
 
     def __post_init__(self) -> None:
-        self.scheduler = Scheduler(self.agents, self.hub, deliver=self.deliver)
+        self.scheduler = Scheduler(
+            self.agents, self.hub, clock=self.settings.now, deliver=self.deliver
+        )
         self.inbound = Inbound(self.agents, self.hub, self.summarize_replaced)
         for channel in self.unique_channels():
             channel.set_on_replaced(self.summarize_replaced)

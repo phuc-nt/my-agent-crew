@@ -9,15 +9,19 @@ from __future__ import annotations
 import os
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
+from datetime import date, datetime, tzinfo
 from pathlib import Path
 
 import yaml
+
+from my_agent_crew.clock import zone_for
 
 DEFAULT_ROUTES = "openrouter:deepseek/deepseek-v4-flash"
 YAML_KEYS = (
     "routes",
     "cost_cap_usd",
     "language",
+    "timezone",
     "max_steps",
     "autonomous_default",
     "shell_ask_patterns",
@@ -71,11 +75,24 @@ class Settings:
     tavily_api_key: str | None = None
     cost_cap_usd: float = 0.50
     language: str = "vi"
+    # The person's IANA zone; empty means the machine's. See `clock.py`.
+    timezone: str = ""
     max_steps: int = 12
     autonomous_default: bool = False
     shell_ask_patterns: tuple[str, ...] = DEFAULT_SHELL_ASK_PATTERNS
     approval_ttl_seconds: int = DEFAULT_APPROVAL_TTL_SECONDS
     tool_output_chars: int = DEFAULT_TOOL_OUTPUT_CHARS
+
+    @property
+    def zone(self) -> tzinfo:
+        return zone_for(self.timezone)
+
+    def now(self) -> datetime:
+        """The clock every schedule, daily note and chat label reads: aware, in the zone."""
+        return datetime.now(self.zone)
+
+    def today(self) -> date:
+        return self.now().date()
 
     @property
     def workspace_dir(self) -> Path:
@@ -133,6 +150,7 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
             env.get("MY_AGENT_COST_CAP_USD") or file_values.get("cost_cap_usd", 0.50)
         ),
         language=env.get("MY_AGENT_LANGUAGE") or file_values.get("language", "vi"),
+        timezone=str(env.get("MY_AGENT_TIMEZONE") or file_values.get("timezone") or ""),
         max_steps=int(env.get("MY_AGENT_MAX_STEPS") or file_values.get("max_steps", 12)),
         autonomous_default=_as_bool(
             env.get("MY_AGENT_AUTONOMOUS", file_values.get("autonomous_default", False))
@@ -154,6 +172,7 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         raise ValueError(
             "max_steps, approval_ttl_seconds and tool_output_chars must be >= 1, cost_cap_usd >= 0"
         )
+    zone_for(settings.timezone)  # an unknown zone fails here, not in the first job
     return settings
 
 

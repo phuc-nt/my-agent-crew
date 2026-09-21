@@ -5,7 +5,6 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import date
 
 from my_agent_crew.agent.context_trim import trim_tool_outputs
 from my_agent_crew.agent.events import (
@@ -29,6 +28,7 @@ from my_agent_crew.agent.turn_context import (
 from my_agent_crew.agents.context import bootstrap_sections
 from my_agent_crew.agents.profile import AgentProfile, default_profile
 from my_agent_crew.agents.roster import DELEGATE_TOOL_NAME, crew_roster_section
+from my_agent_crew.clock import day_start_utc
 from my_agent_crew.config import Settings
 from my_agent_crew.llm.provider import ProviderChain, ProviderError
 from my_agent_crew.llm.types import Completion, Message, RouteFailed, TextDelta
@@ -127,9 +127,13 @@ async def _complete(
     index = [s for s in deps.skills if s.name not in active_names]
     profile = deps.agent
     previous = deps.store.previous_for_channel(conv.agent_id, conv.channel, conv.id)
-    today = date.today()
+    today = deps.settings.today()
     shared = shared_chat_section(
-        deps.store, deps.peers, conv.channel, conv.agent_id, today.isoformat()
+        deps.store,
+        deps.peers,
+        conv.channel,
+        conv.agent_id,
+        day_start_utc(today, deps.settings.zone),
     )
     tool_names = deps.tools.names()
     # An agent only hears about its crew when it holds the tool to reach them: a child
@@ -143,6 +147,7 @@ async def _complete(
             tool_names,
             sections=bootstrap_sections(
                 profile,
+                today=today,
                 previous_summary=previous.summary if previous else "",
                 extra_sections=[s for s in (shared, roster) if s],
             ),

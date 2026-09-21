@@ -140,6 +140,39 @@ def test_usage_by_day_fills_empty_days_and_counts_only_model_calls(ledger: Store
     assert days[2]["cost_usd"] == pytest.approx(0.05)
 
 
+def test_usage_by_day_buckets_by_the_persons_zone_not_the_utc_stamp(ledger: Store):
+    """A call at 18:30 UTC on the 18th is a call on the 19th in Vietnam."""
+    from zoneinfo import ZoneInfo
+
+    saigon = ZoneInfo("Asia/Ho_Chi_Minh")
+    ledger.messages.append(
+        ledger.list()[0].id,
+        Message(role="assistant", content="ok"),
+        "2026-09-18T18:30:00+00:00",
+        "openrouter",
+        "m1",
+        0.02,
+        10,
+        2,
+    )
+    days = ledger.usage.by_day(3, today=datetime(2026, 9, 20, 12, tzinfo=UTC), zone=saigon)
+    assert [d["day"] for d in days] == ["2026-09-18", "2026-09-19", "2026-09-20"]
+    assert days[0]["calls"] == 1 and days[1]["calls"] == 1 and days[2]["calls"] == 2
+    assert days[1]["cost_usd"] == pytest.approx(0.02)
+    # Just before midnight UTC on the 20th is already the 21st in Vietnam: out of range.
+    ledger.messages.append(
+        ledger.list()[0].id,
+        Message(role="assistant", content="ok"),
+        "2026-09-20T23:30:00+00:00",
+        "openrouter",
+        "m1",
+        0.5,
+        1,
+        1,
+    )
+    assert ledger.usage.by_day(3, today=datetime(2026, 9, 20, 12, tzinfo=UTC), zone=saigon) == days
+
+
 def test_usage_by_model_sums_tokens_and_orders_by_spend(ledger: Store):
     models = ledger.usage.by_model()
     assert [m["model"] for m in models] == ["openrouter:m1", "openrouter:m2"]

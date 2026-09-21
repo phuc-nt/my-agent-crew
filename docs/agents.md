@@ -72,6 +72,7 @@ and `config.yaml`:
 | `MY_AGENT_SHELL_ASK_PATTERNS` | `shell_ask_patterns` | the list in [tools.md](tools.md#shell); the env value is `;`-separated and an empty one turns the guard off |
 | `MY_AGENT_TOOL_OUTPUT_CHARS` | `tool_output_chars` | `8000`; must be ≥ 1 |
 | `MY_AGENT_LANGUAGE` | `language` | `vi` (prompt frame language; `en` is the other option) |
+| `MY_AGENT_TIMEZONE` | `timezone` | the machine zone; an IANA name (`Asia/Ho_Chi_Minh`) sets the zone that schedules, "today" in prompts and memory notes, `/status` and the stats are read in. An unknown name fails at start |
 | `OPENROUTER_API_KEY` | — | enables the OpenRouter provider |
 | `BRAVE_API_KEY` / `TAVILY_API_KEY` | — | enables `web_search` |
 | the name in `telegram.token_env` | — | the bot token; unset = that channel is disabled |
@@ -227,7 +228,7 @@ that, the job only sees the one-line index and has to ask for the body itself.
 ## Schedules
 
 Each entry in `schedules` becomes a job `<agent id>/<schedule id>` in the scheduler
-(20 s tick, machine local time, no timezone field).
+(20 s tick, cron fields read in the `timezone` of `config.yaml`, the machine zone by default).
 
 | Key | Meaning |
 |---|---|

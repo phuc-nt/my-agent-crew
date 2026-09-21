@@ -86,7 +86,9 @@ def test_runs_are_recorded_per_turn_and_summarised_in_stats(two_agents):
     stats = client.get("/api/stats").json()
     assert stats["runs"] == 1 and stats["by_agent"] == {"coach": 0.0}
     assert stats["model_calls"] >= 1 and "fake:echo" in stats["by_model"]
-    assert list(stats["by_day"]) == [runs[0]["started_at"][:10]]
+    # Runs are stamped in UTC; the day is the person's (here the machine's, no timezone set).
+    started = datetime.fromisoformat(runs[0]["started_at"]).astimezone()
+    assert list(stats["by_day"]) == [started.date().isoformat()]
 
 
 async def test_activity_stream_sends_snapshot_then_run_events(tmp_path: Path):
@@ -141,7 +143,7 @@ def test_jobs_are_listed_and_can_run_now(two_agents):
 
 def test_a_job_can_be_paused_over_http_and_lists_its_own_runs(two_agents):
     client, runtime = two_agents
-    far = datetime(2030, 1, 1)
+    far = datetime(2030, 1, 1, tzinfo=runtime.settings.zone)  # the scheduler's clock is aware
     assert client.patch("/api/jobs/coach/nope/state", json={"enabled": False}).status_code == 404
     paused = client.patch("/api/jobs/coach/sync/state", json={"enabled": False}).json()
     assert paused["id"] == "coach/sync" and paused["enabled"] is False and paused["paused"]

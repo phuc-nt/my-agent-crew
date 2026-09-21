@@ -135,12 +135,15 @@ Runs still marked running when the server starts are closed as `failed` with the
 ## Scheduler
 
 `scheduler/` turns each enabled schedule into a job `<agent_id>/<schedule_id>`. A schedule has
-exactly one of `cron` (five fields, local machine time) or `every` (`30m`, `2h`, `1d`) and exactly
+exactly one of `cron` (five fields, in the person's zone) or `every` (`30m`, `2h`, `1d`) and exactly
 one of `prompt` or `command`. A **prompt job** opens a fresh autonomous conversation for the agent
 and runs a turn; a **command job** runs the string with `shell_run` in the agent workspace and
 records only that step; a **consolidate job**, added by a `memory_consolidate` cron, rewrites the
 agent's `MEMORY.md` with one model call and opens no conversation, so it delivers nothing. The tick is 20 s; `POST /api/jobs/{id}/run` starts a job immediately and
-returns 202. There is no timezone field: the machine clock is the schedule clock.
+returns 202. The schedule clock is `Settings.now()`: the `timezone` key in `config.yaml` (or
+`MY_AGENT_TIMEZONE`), an IANA name such as `Asia/Ho_Chi_Minh`, and the machine zone when unset.
+Every stamp in the database stays UTC; `clock.py` turns them into the person's day for the
+prompt, `/status`, the activity stats and the usage ledger.
 `PATCH /api/jobs/{id}/state` pauses or resumes a schedule at runtime; the override lives in
 the `job_state` table (`store/job_state.py`), survives a restart and only applies to a schedule
 the profile enables — one turned off in yaml is reported as `enabled: false, paused: false` and

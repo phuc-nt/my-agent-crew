@@ -86,6 +86,13 @@ persona says what to do with the path, such as copying a paper into another tool
 A download that fails is reported to the chat without a model turn. Slash commands are not
 read from captions.
 
+Several photos sent at once arrive as one update per photo sharing a `media_group_id`, the
+caption on the first only. `telegram_albums` gathers consecutive updates of one album into
+one turn whose text lists every saved path, then the caption; a poll that ends inside an
+album asks Telegram again up to three times, one second apart, before handing the agent a
+half album. The offset moves past the whole group at once, so a crash mid-album repeats
+the album rather than splitting it.
+
 A new conversation does not start blank: the summary of that agent's previous conversation
 on the same channel is carried into the prompt as a **Cuộc trước** section
 (`previous_for_channel`), so `/new` and the first message of a new day pick up where the
@@ -101,7 +108,7 @@ process so the client shows them.
 | `/new`, `/reset`, `/start` | open another conversation — for every agent on the bot, or for one when addressed with `@id` |
 | `/help` | the command list (and the agent list on a shared bot) |
 | `/agents` | the agents on this bot, current one marked |
-| `/status` | turns, spend vs cap, routes, pending approval, last run (start time in the machine's local zone; runs are stored in UTC) |
+| `/status` | turns, spend vs cap, routes, pending approval, last run (start time in the person's zone, see `timezone` in [agents.md](agents.md#agentyaml); runs are stored in UTC) |
 | `/tools` | the agent's tool names |
 | `/approve`, `/deny` | resolve the pending approval and stream the rest of the turn back |
 

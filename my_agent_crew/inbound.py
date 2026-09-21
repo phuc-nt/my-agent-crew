@@ -93,8 +93,11 @@ class Inbound:
         day. A chat window is one thread; a day is a natural place to cut it."""
         deps = self.deps_for(agent_id)
         latest = deps.store.latest_for_channel(agent_id, channel)
-        today = clock().date()
-        if latest is None or datetime.fromisoformat(latest.created_at).astimezone().date() != today:
+        now = clock()  # the stored stamp is UTC; the day is read in the clock's own zone
+        if latest is None:
+            return self.open_conversation(agent_id, channel, clock, title)
+        opened = datetime.fromisoformat(latest.created_at).astimezone(now.tzinfo)
+        if opened.date() != now.date():
             return self.open_conversation(agent_id, channel, clock, title)
         return latest
 

@@ -1,8 +1,9 @@
-"""One Telegram update, from the wire to the agent: the chat filter, the `@id` mention,
+"""Telegram updates, from the wire to the agent: the chat filter, the `@id` mention,
 slash commands, and attachments. A photo or a document the person sends is downloaded
-into `<workspace>/inbox/` and the agent reads the saved path in place of the message, with
-the caption after it — the model has no eyes here, but a script or a `cp` can take it from
-there (a paper into the ledger's inbox, a receipt onto Drive)."""
+into `<workspace>/inbox/` and the agent reads the saved paths in place of the message, with
+the caption after them — the model has no eyes here, but a script or a `cp` can take it
+from there (a paper into the ledger's inbox, a receipt onto Drive). An album arrives as
+several updates handled together (see `telegram_albums`): one message, every photo."""
 
 from __future__ import annotations
 
@@ -71,18 +72,27 @@ async def save_attachment(
 
 
 async def handle_update(channel: TelegramChannel, update: dict[str, Any]) -> None:
-    message = update.get("message") or {}
-    chat_id = (message.get("chat") or {}).get("id")
-    text, attachment = message_text(message), find_attachment(message)
-    if chat_id != channel.chat_id or not (text or attachment):
-        logger.info("telegram %s: ignored update from chat %s", channel.label, chat_id)
+    await handle_updates(channel, [update])
+
+
+async def handle_updates(channel: TelegramChannel, updates: list[dict[str, Any]]) -> None:
+    """One message to the agent: a single update, or the updates of one album, whose
+    caption sits on whichever photo carried it."""
+    messages = [update.get("message") or {} for update in updates]
+    chat_ids = {(message.get("chat") or {}).get("id") for message in messages}
+    text = next((t for t in map(message_text, messages) if t), "")
+    attachments = [a for a in map(find_attachment, messages) if a is not None]
+    if chat_ids != {channel.chat_id} or not (text or attachments):
+        logger.info("telegram %s: ignored update from chat %s", channel.label, chat_ids)
         return
-    logger.info("telegram %s: message of %d chars", channel.label, len(text))
+    logger.info(
+        "telegram %s: message of %d chars, %d files", channel.label, len(text), len(attachments)
+    )
     agent_id, text, addressed = await route_mention(channel, text)
     if agent_id is None:
         return
-    if attachment is not None:
-        return await receive_attachment(channel, agent_id, attachment, text)
+    if attachments:
+        return await receive_attachments(channel, agent_id, attachments, text)
     command = parse_command(text)
     if command is None:
         await channel.chat(agent_id, text)
@@ -94,15 +104,23 @@ async def handle_update(channel: TelegramChannel, update: dict[str, Any]) -> Non
         await channel.outbound(agent_id).send(answer)
 
 
-async def receive_attachment(
-    channel: TelegramChannel, agent_id: str, attachment: Attachment, caption: str
+async def receive_attachments(
+    channel: TelegramChannel, agent_id: str, attachments: list[Attachment], caption: str
 ) -> None:
+    """Every file saved, then one turn naming them all. A download that fails stops the
+    whole message: half an album with no word about the rest would mislead the agent."""
     inbox = channel.agents[agent_id].agent.workspace / INBOX_DIR
-    try:
-        path = await save_attachment(channel.api, attachment, inbox, channel.now())
-    except TelegramError as exc:
-        logger.warning("telegram %s: %s download failed: %s", channel.label, attachment.kind, exc)
-        return await channel.say(texts.TELEGRAM_ATTACHMENT_FAILED.format(error=exc))
-    logger.info("telegram %s: %s saved as %s", channel.label, attachment.kind, path.name)
-    text = texts.TELEGRAM_ATTACHMENT.format(path=path, caption=caption).rstrip()
+    now = channel.now()  # one stamp for the album; the file names still differ
+    paths: list[Path] = []
+    for attachment in attachments:
+        try:
+            paths.append(await save_attachment(channel.api, attachment, inbox, now))
+        except TelegramError as exc:
+            logger.warning(
+                "telegram %s: %s download failed: %s", channel.label, attachment.kind, exc
+            )
+            return await channel.say(texts.TELEGRAM_ATTACHMENT_FAILED.format(error=exc))
+        logger.info("telegram %s: %s saved as %s", channel.label, attachment.kind, paths[-1].name)
+    files = "\n".join(texts.TELEGRAM_ATTACHMENT_LINE.format(path=path) for path in paths)
+    text = texts.TELEGRAM_ATTACHMENT.format(files=files, caption=caption).rstrip()
     await channel.chat(agent_id, text)

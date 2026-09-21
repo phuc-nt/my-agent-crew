@@ -61,7 +61,10 @@ them and every extra tool spec costs prompt tokens:
 `delegates`, or itself — runs the task there, and returns that conversation's last reply
 with a header line giving its id, status, cost and step count. The child starts empty: it
 never sees the parent's history, which is the point, so `task` has to carry everything it
-needs. The parent's own context grows by one tool result instead of by the whole job.
+needs. The parent's own context grows by one tool result instead of by the whole job, and
+that result is never stubbed by the old-tool-output trim (`PINNED_TOOLS` in
+`context_trim`): the master that asks Pong, then the coach, then comes back to Pong's
+topic still has Pong's answer in full.
 
 Several `delegate` calls in one assistant message run at the same time; every other tool
 still runs one at a time, because the rest of them touch the workspace and would race.

@@ -1,7 +1,10 @@
+from datetime import UTC, datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pytest
 
+from my_agent_crew.clock import day_start_utc, local_day, zone_for
 from my_agent_crew.config import (
     DEFAULT_ROUTES,
     DEFAULT_SHELL_ASK_PATTERNS,
@@ -73,6 +76,34 @@ def test_the_tool_output_cap_comes_from_yaml_or_env_and_must_be_positive(tmp_pat
     assert load_settings(env=env).tool_output_chars == 2000
     with pytest.raises(ValueError):
         load_settings(env={**home, "MY_AGENT_TOOL_OUTPUT_CHARS": "0"})
+
+
+def test_the_timezone_comes_from_yaml_or_env_and_defaults_to_the_machine(tmp_path: Path):
+    home = {"MY_AGENT_HOME": str(tmp_path)}
+    s = load_settings(env=home)
+    assert s.timezone == "" and s.zone == datetime.now().astimezone().tzinfo
+    (tmp_path / "config.yaml").write_text("timezone: Asia/Ho_Chi_Minh\n")
+    s = load_settings(env=home)
+    assert s.timezone == "Asia/Ho_Chi_Minh" and s.zone == ZoneInfo("Asia/Ho_Chi_Minh")
+    assert s.now().tzinfo == ZoneInfo("Asia/Ho_Chi_Minh") and s.today() == s.now().date()
+    s = load_settings(env={**home, "MY_AGENT_TIMEZONE": "Europe/Paris"})
+    assert s.zone == ZoneInfo("Europe/Paris")
+
+
+def test_an_unknown_timezone_fails_when_settings_load(tmp_path: Path):
+    (tmp_path / "config.yaml").write_text("timezone: Mars/Olympus\n")
+    with pytest.raises(ValueError, match="Mars/Olympus"):
+        load_settings(env={"MY_AGENT_HOME": str(tmp_path)})
+    with pytest.raises(ValueError):
+        zone_for("not a zone")
+
+
+def test_a_utc_stamp_is_read_as_the_persons_day():
+    """Late evening in Vietnam is still the same day there, though UTC has not reached it."""
+    saigon = ZoneInfo("Asia/Ho_Chi_Minh")
+    assert local_day("2026-09-21T18:30:00+00:00", saigon) == "2026-09-22"
+    assert local_day("2026-09-21T18:30:00+00:00", UTC) == "2026-09-21"
+    assert day_start_utc(datetime(2026, 9, 22).date(), saigon) == "2026-09-21T17:00:00+00:00"
 
 
 def test_yaml_unknown_key_is_an_error(tmp_path: Path):

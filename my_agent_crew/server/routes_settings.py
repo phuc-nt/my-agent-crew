@@ -31,6 +31,9 @@ def get_settings(rt: Rt) -> dict[str, Any]:
         "routes": [{"provider": r.provider, "model": r.model} for r in s.routes],
         "providers": sorted(deps.chain.providers),
         "language": s.language,
+        # `timezone` is what config.yaml says (empty = machine); `zone` is what that means.
+        "timezone": s.timezone,
+        "zone": str(s.zone),
         "cost_cap_usd": s.cost_cap_usd,
         "max_steps": s.max_steps,
         "autonomous_default": s.autonomous_default,

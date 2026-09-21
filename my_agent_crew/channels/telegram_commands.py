@@ -140,7 +140,9 @@ def status_text(channel: TelegramChannel, agent_id: str) -> str:
     if runs:
         last = runs[0]
         run = texts.TELEGRAM_RUN.format(
-            status=last.status, steps=len(last.steps), started=local_clock(last.started_at)
+            status=last.status,
+            steps=len(last.steps),
+            started=local_clock(last.started_at, deps.settings.zone),
         )
     return texts.TELEGRAM_STATUS.format(
         title=conv.title,

@@ -13,8 +13,13 @@ from my_agent_crew.memory.shared_chat import MAX_LINE_CHARS, shared_chat_section
 from my_agent_crew.store.db import Store
 
 CHANNEL = "telegram:42"
-# Messages are stamped in UTC when appended, so "today" is the UTC date, not a fixed one.
+# Messages are stamped in UTC when appended; the section takes the UTC stamp the person's
+# day began at, so here "today" starts at UTC midnight.
 TODAY = datetime.now(UTC).date().isoformat()
+
+
+def start_of(day: str) -> str:
+    return f"{day}T00:00:00+00:00"
 
 
 @pytest.fixture
@@ -32,7 +37,7 @@ def say(store: Store, agent_id: str, *texts_: str, channel: str = CHANNEL) -> No
 
 
 def section(store: Store, peers, agent_id: str = "coach", channel: str = CHANNEL, **kwargs):
-    return shared_chat_section(store, peers, channel, agent_id, TODAY, **kwargs)
+    return shared_chat_section(store, peers, channel, agent_id, start_of(TODAY), **kwargs)
 
 
 def test_an_agent_sees_what_the_other_said_but_not_its_own_lines(store, peers):
@@ -56,9 +61,9 @@ def test_a_turn_with_no_channel_has_no_shared_section(store, peers):
 
 def test_only_what_was_said_today_is_carried_over(store, peers):
     say(store, "pong", "Chuyện hôm nay.")
-    yesterday = (date.fromisoformat(TODAY) - timedelta(days=1)).isoformat()
+    yesterday = start_of((date.fromisoformat(TODAY) - timedelta(days=1)).isoformat())
     assert shared_chat_section(store, peers, CHANNEL, "coach", yesterday) is not None
-    tomorrow = (date.fromisoformat(TODAY) + timedelta(days=1)).isoformat()
+    tomorrow = start_of((date.fromisoformat(TODAY) + timedelta(days=1)).isoformat())
     assert shared_chat_section(store, peers, CHANNEL, "coach", tomorrow) is None
 
 

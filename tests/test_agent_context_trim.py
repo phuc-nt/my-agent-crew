@@ -1,9 +1,10 @@
-from my_agent_crew.agent.context_trim import KEEP_TOOL_OUTPUTS, trim_tool_outputs
+from my_agent_crew.agent.context_trim import KEEP_TOOL_OUTPUTS, PINNED_TOOLS, trim_tool_outputs
 from my_agent_crew.llm.types import Message
+from my_agent_crew.tools.delegate import DELEGATE_TOOL_NAME
 
 
-def tool_message(index: int, size: int = 500) -> Message:
-    return Message(role="tool", content=f"{index}" * size, tool_call_id=f"call-{index}")
+def tool_message(index: int, size: int = 500, name: str = "workspace_read") -> Message:
+    return Message(role="tool", content=f"{index}" * size, tool_call_id=f"call-{index}", name=name)
 
 
 def test_short_history_is_returned_unchanged():
@@ -33,3 +34,15 @@ def test_user_and_assistant_messages_are_never_trimmed():
 def test_a_small_tool_result_is_left_alone_because_the_stub_would_not_be_shorter():
     messages = [tool_message(i, size=1) for i in range(KEEP_TOOL_OUTPUTS + 3)]
     assert trim_tool_outputs(messages) == messages
+
+
+def test_a_delegate_result_stays_in_full_however_old_it_is():
+    """The master asks Pong, then the coach, then comes back to Pong's topic: the answer
+    Pong gave is what the master needs, and it must not have turned into a stub."""
+    assert DELEGATE_TOOL_NAME in PINNED_TOOLS
+    answer = tool_message(0, name=DELEGATE_TOOL_NAME)
+    messages = [answer, *[tool_message(i) for i in range(1, KEEP_TOOL_OUTPUTS + 6)]]
+    trimmed = trim_tool_outputs(messages)
+    assert trimmed[0] == answer
+    assert trimmed[1].content.startswith("[kết quả cũ")  # the window is not widened for it
+    assert trimmed[-KEEP_TOOL_OUTPUTS:] == messages[-KEEP_TOOL_OUTPUTS:]

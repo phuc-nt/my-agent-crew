@@ -54,7 +54,8 @@ def build_channels(
             )
         api = TelegramApi(env[token_env], client)
         offset_path = resolve_offset_path(members, token_env)
-        channel = TelegramChannel(members, hub, api, chat_ids.pop(), offset_path)
+        clock = next(iter(members.values())).settings.now  # the person's zone, not the box's
+        channel = TelegramChannel(members, hub, api, chat_ids.pop(), offset_path, clock=clock)
         logger.info("telegram channel enabled for %s", ", ".join(members))
         for agent_id in members:
             channels[agent_id] = channel

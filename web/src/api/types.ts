@@ -203,6 +203,9 @@ export interface SettingsInfo {
   routes: RouteInfo[];
   providers: string[];
   language: string;
+  /** IANA zone from config (`""` = machine zone) and the zone actually in use. */
+  timezone: string;
+  zone: string;
   cost_cap_usd: number;
   max_steps: number;
   autonomous_default: boolean;

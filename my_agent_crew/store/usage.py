@@ -8,8 +8,10 @@ from __future__ import annotations
 
 import sqlite3
 import threading
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, tzinfo
 from typing import Any
+
+from my_agent_crew.clock import day_start_utc, local_day
 
 BY_DAY_DEFAULT = 7
 
@@ -46,24 +48,33 @@ class UsageStore:
         self._lock = lock
 
     def by_day(
-        self, days: int = BY_DAY_DEFAULT, today: datetime | None = None
+        self,
+        days: int = BY_DAY_DEFAULT,
+        today: datetime | None = None,
+        zone: tzinfo = UTC,
     ) -> list[dict[str, Any]]:
-        """One entry per calendar day (UTC) ending today, oldest first, days with no
-        model call included as zeros so a chart keeps its shape."""
-        end = (today or datetime.now(UTC)).date()
+        """One entry per calendar day in `zone` ending today, oldest first, days with no
+        model call included as zeros so a chart keeps its shape. Stamps are UTC, so the
+        day a call belongs to is worked out here rather than by cutting the stamp."""
+        end = (today or datetime.now(UTC)).astimezone(zone).date()
         first = end - timedelta(days=days - 1)
         with self._lock:
             rows = self._conn.execute(
-                f"SELECT substr(created_at, 1, 10) AS day, {_TOTALS} FROM messages"
-                f" WHERE {_MODEL_CALLS} AND created_at >= ? GROUP BY day",
-                (first.isoformat(),),
+                "SELECT created_at, cost_usd, prompt_tokens, completion_tokens FROM messages"
+                f" WHERE {_MODEL_CALLS} AND created_at >= ?",
+                (day_start_utc(first, zone),),
             ).fetchall()
-        found = {r["day"]: r for r in rows}
-        return [
-            {"day": (first + timedelta(days=i)).isoformat()}
-            | _totals(found.get((first + timedelta(days=i)).isoformat()))
-            for i in range(days)
-        ]
+        buckets = {(first + timedelta(days=i)).isoformat(): _totals(None) for i in range(days)}
+        for row in rows:
+            bucket = buckets.get(local_day(row["created_at"], zone))
+            if bucket is None:
+                continue
+            bucket["calls"] += 1
+            bucket["cost_usd"] += row["cost_usd"] or 0.0
+            bucket["prompt_tokens"] += row["prompt_tokens"] or 0
+            bucket["completion_tokens"] += row["completion_tokens"] or 0
+            bucket["unknown_cost_calls"] += row["cost_usd"] is None
+        return [{"day": day} | totals for day, totals in buckets.items()]
 
     def by_model(self) -> list[dict[str, Any]]:
         """Totals per `provider:model` over the whole log, biggest spender first."""

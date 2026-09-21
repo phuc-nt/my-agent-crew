@@ -4,6 +4,7 @@ today's note; `memory_search` looks through all of them. Both files enter the pr
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
@@ -80,15 +81,19 @@ def count_notes(memory_dir: Path) -> int:
 
 
 def build_memory_tools(
-    memory_dir: Path, memory_file: Path | None = None, user_dir: Path | None = None
+    memory_dir: Path,
+    memory_file: Path | None = None,
+    user_dir: Path | None = None,
+    clock: Callable[[], datetime] = datetime.now,
 ) -> list[Tool]:
+    """`clock` decides which day a note lands on: the person's, via `Settings.now`."""
     memory_file = memory_file or memory_dir.parent / "MEMORY.md"
 
     async def save(args: dict[str, Any]) -> str:
         text = str(args.get("text", "")).strip()
         if not text:
             raise ToolError("ghi chú trống")
-        append_daily_note(memory_dir, text)
+        append_daily_note(memory_dir, text, clock())
         return texts.MEMORY_SAVED.format(count=count_notes(memory_dir))
 
     async def search(args: dict[str, Any]) -> str:
@@ -124,5 +129,5 @@ def build_memory_tools(
     ]
 
 
-def today_note(memory_dir: Path) -> Path:
-    return daily_note_path(memory_dir, date.today())
+def today_note(memory_dir: Path, today: date | None = None) -> Path:
+    return daily_note_path(memory_dir, today or date.today())

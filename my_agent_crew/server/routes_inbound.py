@@ -34,7 +34,7 @@ async def post_inbound(body: InboundBody, rt: Rt) -> dict[str, Any]:
         if body.conversation_id:
             conv = rt.store.get(body.conversation_id)
         else:
-            conv = rt.inbound.conversation_for(body.agent_id, body.channel)
+            conv = rt.inbound.conversation_for(body.agent_id, body.channel, rt.settings.now)
         reply = await rt.inbound.reply(conv.id, body.text, source=body.source)
     except KeyError as exc:
         raise HTTPException(404, str(exc.args[0]) if exc.args else "not found") from exc

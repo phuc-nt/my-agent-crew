@@ -20,9 +20,10 @@ from my_agent_crew.agent.events import Event
 from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.agent.turn_context import TELEGRAM
 from my_agent_crew.channels import telegram_conversations as conversations
+from my_agent_crew.channels.telegram_albums import complete_album, group_updates
 from my_agent_crew.channels.telegram_api import CONFLICT_STATUS, TelegramApi, TelegramError
 from my_agent_crew.channels.telegram_commands import MENU
-from my_agent_crew.channels.telegram_inbound import handle_update
+from my_agent_crew.channels.telegram_inbound import handle_updates
 from my_agent_crew.channels.telegram_offset import read_offset, write_offset
 from my_agent_crew.channels.telegram_outbound import TelegramOutbound
 from my_agent_crew.inbound import Inbound, InboundBusy, collect_reply
@@ -120,17 +121,18 @@ class TelegramChannel:
             logger.info("telegram %s: command menu registered", self.label)
 
     async def poll_once(self) -> int:
-        """Fetches pending updates and handles each; the offset moves before handling so a
-        message that crashes the handler is not replayed forever."""
-        updates = await self._api.get_updates(self._offset)
-        for update in updates:
-            self._offset = int(update["update_id"]) + 1
+        """Fetches pending updates and handles them, an album of photos as one message;
+        the offset moves before handling so a message that crashes the handler is not
+        replayed forever."""
+        updates = await complete_album(self._api, await self._api.get_updates(self._offset))
+        for group in group_updates(updates):
+            self._offset = int(group[-1]["update_id"]) + 1
             write_offset(self._offset_path, self._offset)
-            await self.handle(update)
+            await handle_updates(self, group)
         return len(updates)
 
     async def handle(self, update: dict[str, Any]) -> None:
-        await handle_update(self, update)
+        await handle_updates(self, [update])
 
     @property
     def api(self) -> TelegramApi:

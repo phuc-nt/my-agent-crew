@@ -36,17 +36,19 @@ def shared_chat_section(
     agents: Mapping[str, AgentProfile],
     channel: str,
     agent_id: str,
-    today: str,
+    since: str,
     limit: int = MAX_LINES,
 ) -> tuple[str, str] | None:
     """The `(title, body)` section for one agent's turn, or `None` when there is nothing.
 
-    `agents` maps an id to its profile so the lines carry names a person recognises;
-    an agent that has since been removed keeps its id rather than disappearing.
+    `since` is the UTC stamp the person's day began at (`clock.day_start_utc`): the store
+    keeps UTC, and "today" is the person's, not the server's. `agents` maps an id to its
+    profile so the lines carry names a person recognises; an agent that has since been
+    removed keeps its id rather than disappearing.
     """
     if not channel:
         return None
-    recent = store.messages.recent_on_channel(channel, today, agent_id, limit)
+    recent = store.messages.recent_on_channel(channel, since, agent_id, limit)
     if not recent:
         return None
 
