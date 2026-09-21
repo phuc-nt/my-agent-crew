@@ -9,11 +9,15 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from my_agent_crew import texts
 from my_agent_crew.agents.channels import TelegramConfig
 from my_agent_crew.config import Settings
+
+if TYPE_CHECKING:
+    from my_agent_crew.agents.kit_commands import Command
+    from my_agent_crew.agents.kit_hooks import Hook
 
 DEFAULT_AGENT_ID = "default"
 PERSONA_FILES = ("AGENTS.md", "SOUL.md", "IDENTITY.md", "USER.md")
@@ -101,6 +105,11 @@ class AgentProfile:
     # When non-empty, the only tools this agent gets. Empty means every tool its mode
     # brings.
     tools: tuple[str, ...] = ()
+    # What the agent's kits (`.agents/`, `.claude/`, `.opencode/`) add: slash commands the
+    # person types, hooks run around tool calls, and the kit roots they came from.
+    commands: tuple[Command, ...] = ()
+    hooks: tuple[Hook, ...] = ()
+    kits: tuple[Path, ...] = ()
 
     @property
     def is_work(self) -> bool:
@@ -139,6 +148,9 @@ class AgentProfile:
             "mode": self.mode,
             "delegates": list(self.delegates),
             "is_master": self.is_master,
+            "commands": [c.to_dict() for c in self.commands],
+            "hooks": len(self.hooks),
+            "kits": [str(k) for k in self.kits],
         }
 
 

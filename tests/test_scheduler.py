@@ -8,13 +8,13 @@ import pytest
 
 from my_agent_crew.activity import ActivityHub
 from my_agent_crew.agent.turn_context import JOB
+from my_agent_crew.agents import load_profiles
 from my_agent_crew.agents.profile import (
     AgentProfile,
     Schedule,
     consolidate_schedule,
     default_profile,
 )
-from my_agent_crew.agents.profile_yaml import load_profiles
 from my_agent_crew.config import Route
 from my_agent_crew.llm.fake import completion
 from my_agent_crew.memory import agent_store, user_store

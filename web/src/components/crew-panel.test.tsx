@@ -6,7 +6,13 @@ import { coachAgent, coderTemplate, fakeAgent } from "../test/fake-backend";
 import { CrewPanel } from "./crew-panel";
 
 const master = { ...fakeAgent, name: "Trợ lý", delegates: ["coach"] };
-const coach = { ...coachAgent, telegram: { token_env: "COACH_TOKEN", chat_id: 1 } };
+const coach = {
+  ...coachAgent,
+  telegram: { token_env: "COACH_TOKEN", chat_id: 1 },
+  commands: [{ name: "brief", description: "Bản tin sáng", path: "/h/agents/coach/.agents/commands/brief.md" }],
+  hooks: 2,
+  kits: ["/h/agents/coach/.agents"],
+};
 
 describe("CrewPanel", () => {
   it("shows the master first, then each member with what the master can hand it", () => {
@@ -30,6 +36,12 @@ describe("CrewPanel", () => {
     expect(cards[1]).toHaveTextContent(vi.agentSchedules(1));
     expect(cards[1]).toHaveTextContent(vi.crew.telegram);
     expect(cards[1]).not.toHaveTextContent("COACH_TOKEN");
+    expect(cards[1]).toHaveTextContent(vi.agentCommands(1));
+    expect(cards[1]).toHaveTextContent(vi.agentHooks(2));
+    expect(cards[1]).toHaveTextContent("/h/agents/coach/.agents");
+    expect(within(cards[1]).getByTitle(/\/brief — Bản tin sáng/)).toBeInTheDocument();
+    expect(cards[0]).not.toHaveTextContent(vi.agentHooks(0));
+    expect(cards[0]).not.toHaveTextContent(vi.agentKits);
     expect(screen.queryByTestId("template-list")).not.toBeInTheDocument();
   });
 

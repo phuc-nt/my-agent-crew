@@ -22,6 +22,9 @@ class Message:
     tool_calls: tuple[ToolCall, ...] = ()
     tool_call_id: str | None = None
     name: str | None = None
+    # Pictures shown with the text, as data URLs. Only a vision route ever gets them;
+    # they are not written to the store.
+    images: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

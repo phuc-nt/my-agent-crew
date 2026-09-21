@@ -16,8 +16,14 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from my_agent_crew import texts
+from my_agent_crew.agents.kit_commands import find_command
 from my_agent_crew.channels.telegram_api import TelegramApi, TelegramError
-from my_agent_crew.channels.telegram_commands import answer_command, bot_answers, parse_command
+from my_agent_crew.channels.telegram_commands import (
+    answer_command,
+    bot_answers,
+    is_builtin,
+    parse_command,
+)
 
 if TYPE_CHECKING:
     from my_agent_crew.channels.telegram_channel import TelegramChannel
@@ -85,7 +91,9 @@ async def handle_updates(channel: TelegramChannel, updates: list[dict[str, Any]]
     if attachments:
         return await receive_attachments(channel, attachments, text)
     command = parse_command(text)
-    if command is None:
+    # A kit command goes to the agent as a message: `Inbound` expands it there.
+    kit_command = command is not None and not is_builtin(command)
+    if command is None or (kit_command and find_command(channel.deps.agent.commands, command)):
         await channel.chat(text)
         return
     answer = await answer_command(channel, command)

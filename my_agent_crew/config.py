@@ -15,10 +15,17 @@ from pathlib import Path
 import yaml
 
 from my_agent_crew.clock import zone_for
+from my_agent_crew.config_parse import DEFAULT_SHELL_ASK_PATTERNS, as_bool, ask_patterns
 
 DEFAULT_ROUTES = "openrouter:deepseek/deepseek-v4-flash"
+# The chat model is not expected to see pictures; `image_read` sends them here instead.
+# An empty value turns the tool off.
+DEFAULT_VISION_ROUTES = (
+    "openrouter:google/gemini-2.5-flash-lite,openrouter:qwen/qwen3-vl-8b-instruct"
+)
 YAML_KEYS = (
     "routes",
+    "vision_routes",
     "cost_cap_usd",
     "language",
     "timezone",
@@ -33,22 +40,6 @@ DEFAULT_TOOL_OUTPUT_CHARS = 8000
 # How long a tool call waits for a decision before it is treated as denied. A pause
 # nobody answers must not hold a conversation (and a job's channel) forever.
 DEFAULT_APPROVAL_TTL_SECONDS = 600
-# Commands that get an approval even in an autonomous conversation. This is a second,
-# additive guard, not a sandbox: it catches the obvious destructive shapes, and anyone
-# meaning to get around it can. Matched as case-insensitive substrings of the command.
-DEFAULT_SHELL_ASK_PATTERNS = (
-    "rm -rf",
-    "rm -r ",
-    "sudo ",
-    "| sh",
-    "| bash",
-    "mkfs",
-    "git push --force",
-    "git reset --hard",
-    "> /dev/",
-    "chmod -R",
-    "launchctl",
-)
 
 
 @dataclass(frozen=True)
@@ -70,6 +61,8 @@ class Route:
 class Settings:
     home: Path
     routes: tuple[Route, ...]
+    # Routes a picture is sent to; empty means no agent can read images.
+    vision_routes: tuple[Route, ...] = ()
     openrouter_api_key: str | None = None
     brave_api_key: str | None = None
     tavily_api_key: str | None = None
@@ -116,12 +109,28 @@ class Settings:
         return self.home / "agent.sqlite3"
 
 
-def _parse_routes(value: str | Sequence[str]) -> tuple[Route, ...]:
+def _routes(value: str | Sequence[str] | None) -> tuple[Route, ...]:
+    """Comma-separated text or a yaml list; empty (or null) is an empty tuple."""
+    if not value:
+        return ()
     parts = value.split(",") if isinstance(value, str) else list(value)
-    routes = tuple(Route.parse(part) for part in parts if str(part).strip())
+    return tuple(Route.parse(part) for part in parts if str(part).strip())
+
+
+def _parse_routes(value: str | Sequence[str]) -> tuple[Route, ...]:
+    routes = _routes(value)
     if not routes:
         raise ValueError("at least one route is required")
     return routes
+
+
+def _vision_routes(env: Mapping[str, str], file_values: Mapping) -> tuple[Route, ...]:
+    """An empty env value or an empty yaml list turns image reading off on purpose; only
+    an absent setting takes the default."""
+    from_env = env.get("MY_AGENT_VISION_ROUTES")
+    if from_env is not None:
+        return _routes(from_env)
+    return _routes(file_values.get("vision_routes", DEFAULT_VISION_ROUTES))
 
 
 def _from_yaml(home: Path) -> dict:
@@ -143,6 +152,7 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
     settings = Settings(
         home=home,
         routes=_parse_routes(routes_text),
+        vision_routes=_vision_routes(env, file_values),
         openrouter_api_key=env.get("OPENROUTER_API_KEY") or None,
         brave_api_key=env.get("BRAVE_API_KEY") or None,
         tavily_api_key=env.get("TAVILY_API_KEY") or None,
@@ -152,10 +162,10 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         language=env.get("MY_AGENT_LANGUAGE") or file_values.get("language", "vi"),
         timezone=str(env.get("MY_AGENT_TIMEZONE") or file_values.get("timezone") or ""),
         max_steps=int(env.get("MY_AGENT_MAX_STEPS") or file_values.get("max_steps", 12)),
-        autonomous_default=_as_bool(
+        autonomous_default=as_bool(
             env.get("MY_AGENT_AUTONOMOUS", file_values.get("autonomous_default", False))
         ),
-        shell_ask_patterns=_ask_patterns(
+        shell_ask_patterns=ask_patterns(
             env.get("MY_AGENT_SHELL_ASK_PATTERNS"), file_values.get("shell_ask_patterns")
         ),
         approval_ttl_seconds=int(
@@ -174,22 +184,6 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         )
     zone_for(settings.timezone)  # an unknown zone fails here, not in the first job
     return settings
-
-
-def _ask_patterns(from_env: str | None, from_file: object) -> tuple[str, ...]:
-    """An empty env value or an empty yaml list turns the guard off on purpose; only an
-    absent setting falls back to the defaults."""
-    if from_env is not None:
-        return tuple(p.strip() for p in from_env.split(";") if p.strip())
-    if isinstance(from_file, Sequence) and not isinstance(from_file, str):
-        return tuple(str(p).strip() for p in from_file if str(p).strip())
-    return DEFAULT_SHELL_ASK_PATTERNS
-
-
-def _as_bool(value: object) -> bool:
-    if isinstance(value, bool):
-        return value
-    return str(value).strip().lower() in {"1", "true", "yes", "on"}
 
 
 def ensure_home(settings: Settings) -> Settings:

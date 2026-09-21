@@ -125,3 +125,21 @@ def test_wire_format_round_trips_tool_messages():
     }
     spec = ToolSpec("t", "desc", {"type": "object"})
     assert tools_to_wire([spec])[0]["function"]["parameters"] == {"type": "object"}
+
+
+def test_a_message_with_pictures_is_sent_as_text_and_image_parts():
+    wire = to_wire(
+        [
+            Message(role="user", content="Món gì?", images=("data:image/png;base64,AAAA",)),
+            Message(role="user", content="", images=("data:image/jpeg;base64,BBBB",)),
+            Message(role="user", content="chữ thường"),
+        ]
+    )
+    assert wire[0]["content"] == [
+        {"type": "text", "text": "Món gì?"},
+        {"type": "image_url", "image_url": {"url": "data:image/png;base64,AAAA"}},
+    ]
+    assert wire[1]["content"] == [
+        {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,BBBB"}}
+    ]
+    assert wire[2]["content"] == "chữ thường"

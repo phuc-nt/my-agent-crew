@@ -44,6 +44,7 @@ The system prompt lists the available names; the model sees each tool's JSON sch
 | `user_memory_forget` | no | — | drops one remembered fact by name |
 | `shell_run` | **yes** | 120 s default, 900 s max | runs a command in the workspace, returns stdout+stderr |
 | `skill_read` | no | — | returns one skill's full text by name, see [agents.md](agents.md#skills) |
+| `image_read` | no | 8 MB (`MAX_IMAGE_BYTES`); jpg, png, webp, gif | sends a picture from the workspace or the crew home (where `inbox/` keeps what Telegram delivered) to the `vision_routes` chain with a `question` and returns the answer, see [Images](#images); only present when a vision route is configured |
 
 Four more come with `mode: work` only, because an assistant that chats has no use for
 them and every extra tool spec costs prompt tokens:
@@ -143,6 +144,26 @@ An assistant line `MEDIA:<path relative to the workspace>` is not a tool; it is 
 convention the frame teaches. The web UI renders it through
 `GET /api/agents/{id}/files?path=`, which serves files from inside the workspace only;
 Telegram turns it into `sendPhoto`.
+
+### Images
+
+The chat model on an agent's `routes` is not expected to see pictures, so `image_read`
+sends the file down a chain of its own: `vision_routes` in `config.yaml` or
+`MY_AGENT_VISION_ROUTES`, by default two cheap OpenRouter vision models
+(`google/gemini-2.5-flash-lite`, then `qwen/qwen3-vl-8b-instruct`). An empty value turns the
+tool off for every agent; a route whose provider has no key is skipped with a warning.
+
+The path is resolved against the agent's workspace first, then the crew home, so the
+master's `workspace/inbox/<file>` that a Telegram photo lands in is readable by the master
+and by the agent it hands the task to. The `question` is what the vision model is asked;
+without one it describes the picture. Every agent gets the tool in every mode, and an
+agent's `tools` allow-list may name it without a warning when no vision route exists
+(`OPTIONAL_TOOLS`). What the call cost is added to the conversation like a completion.
+
+The master reads once to decide who the picture is for and passes the absolute path on
+in the task; the specialist reads again with its own question. That is cheaper than one
+long description travelling through the master's context, and the specialist gets to ask
+for the fields it needs rather than the ones the master guessed at.
 
 ## Echo provider and `/tool`
 

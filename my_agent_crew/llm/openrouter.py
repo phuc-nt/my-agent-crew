@@ -22,10 +22,20 @@ from my_agent_crew.llm.types import (
 BASE_URL = "https://openrouter.ai/api/v1"
 
 
+def _content(m: Message) -> str | list[dict[str, Any]]:
+    """Plain text unless the message carries pictures; then the OpenAI parts form, text
+    first so the model reads the question before the image."""
+    if not m.images:
+        return m.content
+    parts: list[dict[str, Any]] = [{"type": "text", "text": m.content}] if m.content else []
+    parts += [{"type": "image_url", "image_url": {"url": url}} for url in m.images]
+    return parts
+
+
 def to_wire(messages: Sequence[Message]) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     for m in messages:
-        item: dict[str, Any] = {"role": m.role, "content": m.content}
+        item: dict[str, Any] = {"role": m.role, "content": _content(m)}
         if m.tool_calls:
             item["tool_calls"] = [
                 {

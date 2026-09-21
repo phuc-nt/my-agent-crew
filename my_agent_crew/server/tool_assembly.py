@@ -10,9 +10,12 @@ from collections.abc import Sequence
 import httpx
 
 from my_agent_crew.agents import AgentProfile
+from my_agent_crew.llm.provider import ProviderChain
 from my_agent_crew.skills import Skill
 from my_agent_crew.store import Store
 from my_agent_crew.tools import Tool, ToolRegistry
+from my_agent_crew.tools.hooks import HookRunner
+from my_agent_crew.tools.image import build_image_tool
 from my_agent_crew.tools.memory import build_memory_tools
 from my_agent_crew.tools.memory_user import build_user_memory_tools
 from my_agent_crew.tools.shell import build_shell_tool
@@ -27,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 # Real tools that are only built when their key is configured. Listing one is a choice
 # about the agent's role, not a mistake, so an unkeyed machine stays quiet about it.
-OPTIONAL_TOOLS = frozenset({"web_search"})
+OPTIONAL_TOOLS = frozenset({"web_search", "image_read"})
 
 
 def allowed(tools: Sequence[Tool], names: Sequence[str], agent_id: str) -> list[Tool]:
@@ -48,7 +51,9 @@ def build_tools(
     store: Store,
     skills: Sequence[Skill],
     extra: Sequence[Tool] = (),
+    vision: ProviderChain | None = None,
 ) -> ToolRegistry:
+    """`vision` is the chain pictures go to; without one no agent can read images."""
     tools: list[Tool] = [
         *build_workspace_tools(profile.workspace),
         *build_web_tools(profile.settings, client),
@@ -64,6 +69,10 @@ def build_tools(
     ]
     if profile.is_work:
         tools += [build_edit_tool(profile.workspace), *build_search_tools(profile.workspace)]
+    if vision is not None:
+        # The crew home is a root too, so a delegate can read the master's inbox.
+        tools.append(build_image_tool((profile.workspace, profile.settings.home), vision))
     tools += list(extra)
     kept = allowed(tools, profile.tools, profile.id)
-    return ToolRegistry(kept, profile.settings.tool_output_chars)
+    hooks = HookRunner(profile.hooks, profile.id) if profile.hooks else None
+    return ToolRegistry(kept, profile.settings.tool_output_chars, hooks)

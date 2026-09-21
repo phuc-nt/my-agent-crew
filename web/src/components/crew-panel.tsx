@@ -64,11 +64,22 @@ export function CrewPanel({ agents, master, templates, liveByAgent, onInstall }:
             <div className="row muted">
               <span>{vi.toolCount.replace("{n}", String(agent.tools.length))}</span>
               {agent.schedules.length > 0 && <span>{vi.agentSchedules(agent.schedules.length)}</span>}
+              {agent.commands.length > 0 && (
+                <span title={agent.commands.map((c) => `/${c.name} — ${c.description}`).join("\n")}>
+                  {vi.agentCommands(agent.commands.length)}
+                </span>
+              )}
+              {agent.hooks > 0 && <span>{vi.agentHooks(agent.hooks)}</span>}
               {agent.telegram && <span className="badge">{vi.crew.telegram}</span>}
               {!agent.is_master && delegates.has(agent.id) && (
                 <span className="badge ok">{vi.crew.delegatable}</span>
               )}
             </div>
+            {agent.kits.length > 0 && (
+              <div className="muted kit-list">
+                {vi.agentKits}: {agent.kits.map((kit) => <code key={kit}>{kit}</code>)}
+              </div>
+            )}
           </li>
         ))}
       </ul>

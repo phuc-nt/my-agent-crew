@@ -8,6 +8,7 @@ from my_agent_crew.clock import day_start_utc, local_day, zone_for
 from my_agent_crew.config import (
     DEFAULT_ROUTES,
     DEFAULT_SHELL_ASK_PATTERNS,
+    DEFAULT_VISION_ROUTES,
     Route,
     ensure_home,
     load_settings,
@@ -139,3 +140,21 @@ def test_ensure_home_creates_the_facts_directory(tmp_path: Path):
     s = load_settings(env={"MY_AGENT_HOME": str(tmp_path)})
     ensure_home(s)
     assert (s.user_dir / "facts").is_dir()
+
+
+def test_vision_routes_default_to_two_openrouter_models_and_can_be_turned_off(tmp_path: Path):
+    home = {"MY_AGENT_HOME": str(tmp_path)}
+    assert load_settings(env=home).vision_routes == tuple(
+        Route.parse(r) for r in DEFAULT_VISION_ROUTES.split(",")
+    )
+    (tmp_path / "config.yaml").write_text("vision_routes: [fake:eyes]\n")
+    assert load_settings(env=home).vision_routes == (Route("fake", "eyes"),)
+    assert load_settings(env={**home, "MY_AGENT_VISION_ROUTES": "a:b,c:d"}).vision_routes == (
+        Route("a", "b"),
+        Route("c", "d"),
+    )
+    assert load_settings(env={**home, "MY_AGENT_VISION_ROUTES": ""}).vision_routes == ()
+    (tmp_path / "config.yaml").write_text("vision_routes: []\n")
+    assert load_settings(env=home).vision_routes == ()
+    (tmp_path / "config.yaml").write_text("vision_routes:\n")
+    assert load_settings(env=home).vision_routes == ()

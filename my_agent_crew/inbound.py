@@ -26,6 +26,7 @@ from my_agent_crew.agent.events import (
 from my_agent_crew.agent.loop import AgentDeps, resolve_approval, run_turn
 from my_agent_crew.agent.turn_context import CHAT
 from my_agent_crew.agents import DEFAULT_AGENT_ID
+from my_agent_crew.agents.kit_commands import expand
 from my_agent_crew.store import Conversation
 from my_agent_crew.store.models import AWAITING_APPROVAL
 
@@ -131,6 +132,9 @@ class Inbound:
         conv = deps.store.get(conv_id)
         if conv.status == AWAITING_APPROVAL or deps.store.approvals.pending(conv_id) is not None:
             raise InboundBusy(conv_id)
+        # `/name args` from the agent's kit becomes the command's prompt before the
+        # agent reads it, on every platform alike.
+        text = expand(text, deps.agent.commands)
         events = run_turn(deps, conv_id, text, source=source)
         return tracked(self.hub, events, deps.agent.id, source, conv.title, conv.id)
 

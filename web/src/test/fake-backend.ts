@@ -35,6 +35,9 @@ export const fakeAgent: AgentInfo = {
   skills: ["core", "writer"],
   is_master: true,
   telegram: null,
+  commands: [],
+  hooks: 0,
+  kits: [],
 };
 
 export const coderTemplate: TemplateInfo = {

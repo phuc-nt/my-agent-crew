@@ -151,6 +151,13 @@ export interface ScheduleInfo {
   skills: string[];
 }
 
+/** A slash command from a kit (`.agents/commands/*.md`): `/name` expands to its template. */
+export interface CommandInfo {
+  name: string;
+  description: string;
+  path: string;
+}
+
 /** One agent profile as listed by GET /api/agents. */
 export interface AgentInfo {
   id: string;
@@ -174,6 +181,11 @@ export interface AgentInfo {
   is_master: boolean;
   /** Set on the master when a Telegram bot also talks to it; the token stays on the server. */
   telegram: { token_env: string; chat_id: number } | null;
+  /** What the agent's kits (`.agents/`, `.claude/`, `.opencode/`) add: slash commands, the
+   * number of tool hooks, and the kit directories they came from. */
+  commands: CommandInfo[];
+  hooks: number;
+  kits: string[];
 }
 
 export interface InstallRequest {

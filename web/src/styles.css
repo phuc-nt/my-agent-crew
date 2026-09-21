@@ -138,6 +138,7 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-si
 .crew-card { display: flex; flex-direction: column; gap: 0.2rem; }
 .crew-card .row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
 .crew-card .row button { margin-left: auto; }
+.crew-card .kit-list { font-size: 0.8rem; display: flex; flex-wrap: wrap; gap: 0.3rem; }
 .badge.master { background: var(--accent); color: var(--accent-text); }
 .agent-badge { background: var(--ok-bg); color: var(--ok-text); }
 .badge.live { background: var(--accent); color: var(--accent-text); }

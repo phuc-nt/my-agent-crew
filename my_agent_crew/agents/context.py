@@ -8,6 +8,7 @@ from collections.abc import Sequence
 from datetime import date, timedelta
 from pathlib import Path
 
+from my_agent_crew.agents.kit import split_front_matter
 from my_agent_crew.agents.profile import AgentProfile
 from my_agent_crew.memory import user_store
 from my_agent_crew.texts import (
@@ -31,6 +32,15 @@ def _read_capped(path: Path) -> str | None:
         return None
     text = path.read_text(encoding="utf-8", errors="replace").strip()
     return _cap(text, MAX_SECTION_CHARS) if text else None
+
+
+def _persona(path: Path) -> str | None:
+    """A persona file's text; a kit's agent markdown carries a front matter the model
+    need not read, so only the body is kept."""
+    text = _read_capped(path)
+    if text and text.startswith("---"):
+        _, text = split_front_matter(text)
+    return text or None
 
 
 def daily_note_path(memory_dir: Path, day: date) -> Path:
@@ -65,9 +75,10 @@ def bootstrap_sections(
     today = today or date.today()
     sections: list[tuple[str, str]] = []
     for name in profile.persona_files:
-        body = _read_capped(profile.dir / name)
+        body = _persona(profile.dir / name)
         if body:
-            sections.append((name, body))
+            # A kit file is named by its absolute path; the section reads by its file name.
+            sections.append((Path(name).name if Path(name).is_absolute() else name, body))
     sections.extend(user_sections(profile.settings.user_dir))
     memory = _read_capped(profile.memory_file)
     if memory:

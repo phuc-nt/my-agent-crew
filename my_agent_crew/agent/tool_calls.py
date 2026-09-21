@@ -74,6 +74,8 @@ async def _execute(deps: AgentDeps, call: ToolCall) -> ToolResult:
 
 
 async def _record(deps: AgentDeps, conv_id: str, call: ToolCall, result: ToolResult) -> Event:
+    if result.metered:  # a tool that paid a model is charged like a completion
+        deps.store.add_spend(conv_id, result.cost_usd)
     deps.store.append(
         conv_id,
         Message(role="tool", content=result.output, tool_call_id=call.id, name=call.name),

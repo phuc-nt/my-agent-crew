@@ -21,7 +21,7 @@ from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.agent.turn_context import TELEGRAM
 from my_agent_crew.channels.telegram_albums import complete_album, group_updates
 from my_agent_crew.channels.telegram_api import CONFLICT_STATUS, TelegramApi, TelegramError
-from my_agent_crew.channels.telegram_commands import MENU
+from my_agent_crew.channels.telegram_commands import menu_for
 from my_agent_crew.channels.telegram_inbound import handle_updates
 from my_agent_crew.channels.telegram_offset import read_offset, write_offset
 from my_agent_crew.channels.telegram_outbound import TelegramOutbound
@@ -126,7 +126,7 @@ class TelegramChannel:
     async def register_menu(self) -> None:
         """Publishes the slash-command menu once per process; retried with the poll loop."""
         if not self._menu_registered:
-            await self._api.set_my_commands(list(MENU))
+            await self._api.set_my_commands(menu_for(self.deps.agent.commands))
             self._menu_registered = True
             logger.info("telegram %s: command menu registered", self.agent_id)
 

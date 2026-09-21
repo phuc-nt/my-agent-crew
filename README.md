@@ -76,6 +76,33 @@ Job `prompt` mở một cuộc trò chuyện mới và chạy như người dùn
 Kết quả job `prompt` được gửi vào chat Telegram (nếu có bot, xem dưới) với dòng đầu `[Tên agent]`;
 dòng `MEDIA:` thành ảnh lấy từ workspace của agent đó.
 
+## Mang kit `.claude/` / `.opencode/` sang
+
+Đã có sẵn subagent, lệnh, kỹ năng và hook từ Claude Code hay opencode? Chép nguyên thư mục vào
+home là dùng được, không cần viết lại:
+
+```
+cp -r ~/.claude ~/.my-agent-crew/.agents     # hoặc giữ tên .claude / .opencode, đọc như nhau
+```
+
+- `agents/<id>.md` (front matter `name`, `description`, `tools`, `model` + thân là nhân cách)
+  → một thành viên đội; `agent.yaml` cùng id luôn thắng.
+- `commands/**/*.md` → lệnh `/tên` (`commands/mk/plan.md` là `/mk:plan`), nhận `$ARGUMENTS`,
+  `$1`…`$9`; dùng được trên web lẫn Telegram.
+- `skills/` → thêm vào đường kỹ năng; `settings.json` `hooks.PreToolUse/PostToolUse` → hook chạy
+  trước/sau mỗi công cụ với JSON quen thuộc trên stdin (`Bash` khớp `shell_run`, exit 2 chặn).
+- Kit trong workspace của agent (một repo có `.claude/` và `AGENTS.md`) chỉ mang kỹ năng, lệnh,
+  hook và `AGENTS.md` làm nhân cách, không thêm agent.
+
+Chi tiết: [docs/agents.md](docs/agents.md#kits-agents-claude-opencode).
+
+## Đọc ảnh
+
+Ảnh gửi qua Telegram được lưu vào `workspace/inbox/`; mọi agent có công cụ `image_read`
+(đường dẫn + câu hỏi) gửi ảnh cho tuyến `vision_routes` (mặc định hai model vision rẻ trên
+OpenRouter) và nhận câu trả lời dạng chữ. Master xem qua một lần để biết giao cho ai, agent nhận
+việc tự xem lại với câu hỏi của mình. Đặt `vision_routes: []` để tắt.
+
 ## Một trợ lý điều động cả đội
 
 Web UI lẫn Telegram chỉ có **một** chỗ chat: với agent chính (`default`, gọi là *master*). Nó

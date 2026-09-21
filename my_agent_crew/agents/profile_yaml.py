@@ -144,8 +144,9 @@ def load_master_profile(settings: Settings) -> AgentProfile:
     return parse_profile(DEFAULT_AGENT_ID, settings.home, raw, settings)
 
 
-def load_profiles(settings: Settings) -> list[AgentProfile]:
-    """The default agent first, then every `agents/<id>/agent.yaml`, sorted by id."""
+def load_yaml_profiles(settings: Settings) -> list[AgentProfile]:
+    """The default agent first, then every `agents/<id>/agent.yaml`, sorted by id. The
+    whole crew, kits included, is `agents.load_profiles`."""
     profiles = [load_master_profile(settings)]
     root = settings.home / "agents"
     if not root.is_dir():

@@ -26,6 +26,7 @@ from my_agent_crew.agent.turn_context import (
     set_turn_source,
 )
 from my_agent_crew.agents.context import bootstrap_sections
+from my_agent_crew.agents.kit_commands import commands_section
 from my_agent_crew.agents.profile import AgentProfile, default_profile
 from my_agent_crew.agents.roster import DELEGATE_TOOL_NAME, crew_roster_section
 from my_agent_crew.config import Settings
@@ -130,6 +131,7 @@ async def _complete(
     # An agent only hears about its crew when it holds the tool to reach them: a child
     # turn runs without `delegate`, and a roster it cannot act on would only mislead it.
     roster = crew_roster_section(profile, deps.peers) if DELEGATE_TOOL_NAME in tool_names else None
+    extra = [s for s in (roster, commands_section(profile.commands)) if s]
     system = Message(
         role="system",
         content=build_system_prompt(
@@ -140,7 +142,7 @@ async def _complete(
                 profile,
                 today=today,
                 previous_summary=previous.summary if previous else "",
-                extra_sections=[roster] if roster else [],
+                extra_sections=extra,
             ),
             name=profile.name,
             today=today.isoformat(),

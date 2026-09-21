@@ -21,6 +21,9 @@ export const defaultAgent = {
   skills: ["core"],
   is_master: true,
   telegram: null,
+  commands: [],
+  hooks: 0,
+  kits: [],
 };
 
 export const devAgent = {

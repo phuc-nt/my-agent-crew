@@ -8,11 +8,13 @@ registered."""
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from datetime import datetime, tzinfo
 from typing import TYPE_CHECKING
 
 from my_agent_crew import texts
 from my_agent_crew.agent.turn_context import TELEGRAM
+from my_agent_crew.agents.kit_commands import Command
 from my_agent_crew.store.models import AWAITING_APPROVAL
 
 if TYPE_CHECKING:
@@ -21,7 +23,11 @@ if TYPE_CHECKING:
 NEW_CONVERSATION = ("new", "reset", "start")
 BOT_COMMANDS = ("help",)  # answered by the bot about itself, not about the conversation
 MENU = tuple((name, texts.TELEGRAM_COMMANDS[name]) for name in texts.TELEGRAM_COMMANDS)
-_COMMAND = re.compile(r"^/([a-z_]+)(?:@\w+)?(?:\s|$)")
+_COMMAND = re.compile(r"^/([a-z0-9_:.-]+)(?:@\w+)?(?:\s|$)")
+# What Telegram accepts in its command menu; a kit command outside this shape still works
+# when typed, it just is not listed.
+_MENU_NAME = re.compile(r"^[a-z0-9_]{1,32}$")
+MIN_MENU_DESCRIPTION_CHARS = 3
 
 
 def parse_command(text: str) -> str | None:
@@ -31,12 +37,28 @@ def parse_command(text: str) -> str | None:
     return match.group(1) if match else None
 
 
+def is_builtin(command: str) -> bool:
+    return command in texts.TELEGRAM_COMMANDS or command in NEW_CONVERSATION
+
+
+def menu_for(commands: Sequence[Command]) -> list[tuple[str, str]]:
+    """The built-in menu plus the kit commands Telegram can list."""
+    extra = [
+        (c.name, c.description)
+        for c in commands
+        if _MENU_NAME.match(c.name)
+        and len(c.description) >= MIN_MENU_DESCRIPTION_CHARS
+        and not is_builtin(c.name)
+    ]
+    return [*MENU, *extra]
+
+
 async def answer_command(channel: TelegramChannel, command: str) -> str:
     if command in NEW_CONVERSATION:
         channel.open_conversation()
         return texts.TELEGRAM_NEW_CONVERSATION
     if command == "help":
-        return help_text()
+        return help_text(channel.deps.agent.commands)
     if command == "status":
         return status_text(channel)
     if command == "tools":
@@ -52,10 +74,17 @@ def bot_answers(command: str) -> bool:
     return command in BOT_COMMANDS
 
 
-def help_text() -> str:
+def help_text(extra: Sequence[Command] = ()) -> str:
+    """The built-in commands, then every kit command the agent has, listed or not."""
+    lines = [*MENU]
+    lines += [
+        (c.name, c.description or texts.KIT_COMMAND_NO_DESCRIPTION)
+        for c in extra
+        if not is_builtin(c.name)
+    ]
     return "\n".join(
         texts.TELEGRAM_HELP_LINE.format(command=name, description=description)
-        for name, description in MENU
+        for name, description in lines
     )
 
 

@@ -19,6 +19,11 @@ MY_AGENT_HOME/                      ~/.my-agent-crew by default
 ├── users/owner/                    what the crew knows about the person (see memory.md)
 │   ├── USER.md                     read by every agent, every turn
 │   └── facts/<name>.md  INDEX.md   one fact each, plus the generated index
+├── .agents/                        a kit (also `.claude/`, `.opencode/`), see Kits below
+│   ├── agents/<id>.md              one crew member per file, front matter + persona
+│   ├── commands/**/*.md            slash commands, `commands/mk/plan.md` is `/mk:plan`
+│   ├── skills/                     skills for every agent
+│   └── settings.json               `hooks.PreToolUse` / `PostToolUse` command hooks
 └── agents/
     └── <id>/
         ├── agent.yaml              the profile (fixed key set, no secrets)
@@ -27,7 +32,8 @@ MY_AGENT_HOME/                      ~/.my-agent-crew by default
         ├── MEMORY.md               durable memory, read every turn
         ├── memory/YYYY-MM-DD.md    daily notes, today + yesterday read every turn
         ├── workspace/              default tool sandbox (overridable)
-        └── skills/                 always on the skill path
+        ├── skills/                 always on the skill path
+        └── .agents/                this agent's own kit (optional)
 ```
 
 `ensure_agent_dirs` creates the agent dir, workspace and `memory/` at startup, so a
@@ -74,6 +80,7 @@ and `config.yaml`:
 | `MY_AGENT_TOOL_OUTPUT_CHARS` | `tool_output_chars` | `8000`; must be ≥ 1 |
 | `MY_AGENT_LANGUAGE` | `language` | `vi` (prompt frame language; `en` is the other option) |
 | `MY_AGENT_TIMEZONE` | `timezone` | the machine zone; an IANA name (`Asia/Ho_Chi_Minh`) sets the zone that schedules, "today" in prompts and memory notes, `/status` and the stats are read in. An unknown name fails at start |
+| `MY_AGENT_VISION_ROUTES` | `vision_routes` | `openrouter:google/gemini-2.5-flash-lite, openrouter:qwen/qwen3-vl-8b-instruct`; the chain `image_read` sends pictures to, see [tools.md](tools.md#images). An empty value turns image reading off |
 | `OPENROUTER_API_KEY` | — | enables the OpenRouter provider |
 | `BRAVE_API_KEY` / `TAVILY_API_KEY` | — | enables `web_search` |
 | the name in `telegram.token_env` | — | the bot token; unset = that channel is disabled |
@@ -207,6 +214,50 @@ copying it, or the two drift apart.
 Each section is capped at 24 000 characters (`MAX_SECTION_CHARS`); longer files are cut
 with a trailing `…`, so keep them short and move history into [memory](memory.md).
 Persona files are personal data and live in `MY_AGENT_HOME`, never in this repo.
+
+## Kits (`.agents/`, `.claude/`, `.opencode/`)
+
+A **kit** is the folder the other harnesses keep their configuration in: Claude Code's
+`.claude/`, opencode's `.opencode/`, the cross-harness `.agents/` that Codex and others read.
+my-agent-crew reads all three (`agents/kit.py`, `KIT_DIRS`, in that order) so a person who
+already has one can copy it in and keep their agents, commands, skills and hooks:
+
+```
+cp -r ~/.claude ~/.my-agent-crew/.agents      # or leave it named .claude, both are read
+```
+
+Three places are searched, and a later kit shadows an earlier one by name:
+
+| Kit | Where | Brings |
+|---|---|---|
+| home | `MY_AGENT_HOME/.agents` (`.claude`, `.opencode`) | agents, skills, commands, hooks — for the whole crew |
+| agent | `MY_AGENT_HOME/agents/<id>/.agents` | the same, for that agent only |
+| project | `<workspace>/.agents` when the workspace is a project of its own | skills, commands, hooks and the project's `AGENTS.md` as one more persona section; **no agents**, a repository does not get to add crew members |
+
+What each part maps to:
+
+| In the kit | Here |
+|---|---|
+| `agents/<id>.md` — front matter `name`, `description`, `tools`, `model`, plus our `mode`, `delegates`, `workspace`; the body is the persona | a crew member with that id (slug of `name`, else the file stem). Its memory and workspace live under `MY_AGENT_HOME/agents/<id>/` like any other; only the persona is read from the kit. A `model` written as `provider:model` becomes its `routes`; harness aliases (`sonnet`, `inherit`) mean the crew's routes. An `agents/<id>/agent.yaml` with the same id wins, so a kit never replaces an agent configured by hand |
+| `tools:` in that front matter | mapped by name: `Bash`→`shell_run`, `Read`→`workspace_read`, `Write`, `Edit`/`MultiEdit`→`workspace_edit`, `Glob`, `Grep`, `LS`→`workspace_list`, `WebFetch`→`fetch_url`, `WebSearch`→`web_search`, `Task`/`Agent`→`delegate`; our own names pass through, harness-only names (`TaskCreate`, `NotebookEdit`) are dropped. Memory, `skill_read` and `image_read` are always kept. An agent that may edit is `mode: work` unless the front matter says otherwise |
+| `commands/**/*.md` (front matter `description`, body the prompt) | a slash command `/name`, nested as `/dir:name`. `$ARGUMENTS` and `$1`…`$9` are filled from the message, otherwise the arguments are appended. Works in the web chat and on Telegram, where the built-in commands (`/new`, `/status`, …) keep their names; the master's prompt lists them |
+| `skills/` (or opencode's `skill/`) | one more skill directory after the agent's own |
+| `settings.json` → `hooks.PreToolUse` / `hooks.PostToolUse`, `type: command` entries | tool hooks, see below. Other hook kinds and events are skipped |
+| `AGENTS.md` at the project root | a persona section named after the file, front matter stripped |
+
+**Hooks** run the command with the same JSON on stdin the harnesses send:
+`hook_event_name`, `tool_name`, `tool_alias` (the harness name, `Bash` for `shell_run`),
+`tool_input`, `agent_id`, `cwd`, and `tool_response` after the call. The matcher is a regex
+over both names, so a hook written for `Bash` fires for `shell_run`. Exit code 2, or JSON
+with `decision: block` / `permissionDecision: deny`, blocks the call and the model sees the
+reason; `additionalContext` is appended to the result; anything else — exit 1, a timeout
+(`timeout` seconds, default 30), a missing binary — passes, because a guard that fails
+must not take the agent's hands away. Commands run from the kit's parent directory with
+`CLAUDE_PROJECT_DIR` and `MY_AGENT_PROJECT_DIR` set to it. Scheduled `command` jobs go
+through the scheduler, not the tool registry, so hooks do not see them.
+
+The crew tab shows, per agent, how many commands and hooks it carries and which kit roots
+they came from; `GET /api/agents` returns `commands`, `hooks` and `kits`.
 
 ## Skills
 

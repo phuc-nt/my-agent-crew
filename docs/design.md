@@ -101,6 +101,16 @@ one repository. An install over the API joins the running crew at once, while sc
 start at boot. They are a starting point to edit, not a framework: each is an
 `agent.yaml` of the same fixed keys, so there is nothing to learn beyond the profile format.
 
+**Kits.** A person who already runs Claude Code or opencode has a `.claude/` or
+`.opencode/` full of subagents, commands, skills and hooks. Rather than a migration tool,
+the crew reads those folders as they are (`agents/kit.py`): `.agents/`, `.claude/` and
+`.opencode/` under the home, under an agent dir, and under a workspace that is a project of
+its own. Markdown agents become crew members, command files become slash commands, hooks
+run with the same JSON contract and the same tool names through an alias table, and a
+project's `AGENTS.md` is read as persona. The yaml profile keeps the last word on any id
+both define, and a project kit brings no agents at all — a repository may shape how an
+agent works in it, not who is on the crew. Details: [agents.md](agents.md#kits).
+
 ## Memory
 
 Memory is Markdown on disk in two scopes: what the crew knows about **the person**
@@ -166,6 +176,12 @@ workspace. Full behaviour, commands, offsets and secrets: [channels.md](channels
 unless the conversation or agent is autonomous. `GET /api/agents/{id}/files?path=` serves a file
 from inside that workspace only, which is how an assistant line `MEDIA: charts/sleep.png` is
 rendered inline by the UI.
+
+Pictures go the other way through `image_read`: the chat models on an agent's routes are
+picked for price and text, so the tool sends the file down a separate `vision_routes` chain
+with a question and returns the answer as text. Every agent has it, the master reads once
+to route the picture and the specialist reads again for the detail it needs, and the call
+is metered on the conversation like a completion. [tools.md](tools.md#images).
 
 ## Web UI
 

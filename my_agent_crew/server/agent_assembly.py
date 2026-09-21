@@ -50,6 +50,17 @@ def usable_routes(
     raise ValueError(texts.NO_USABLE_ROUTE.format(routes=list(routes)))
 
 
+def vision_chain(settings: Settings, providers: dict[str, Provider]) -> ProviderChain | None:
+    """The chain `image_read` sends pictures to, or None when no configured vision route
+    has its provider built (no key, or the setting was emptied on purpose)."""
+    routes = [r for r in settings.vision_routes if r.provider in providers]
+    if not routes:
+        if settings.vision_routes:
+            logger.warning("no usable vision route among %s", list(settings.vision_routes))
+        return None
+    return ProviderChain(providers, routes)
+
+
 def warn_unknown_schedule_skills(profile: AgentProfile, skills: Sequence[Skill]) -> None:
     """A schedule naming a skill that no longer loads would silently run without it."""
     known = {skill.name for skill in skills}
@@ -75,7 +86,8 @@ def build_agent_deps(
         profile = replace(profile, settings=replace(profile.settings, routes=tuple(routes)))
     skills = load_skills(BUILTIN_DIR, *profile.skills_dirs)
     warn_unknown_schedule_skills(profile, skills)
-    tools = build_tools(profile, client, store, skills, extra_tools)
+    vision = vision_chain(profile.settings, providers)
+    tools = build_tools(profile, client, store, skills, extra_tools, vision)
     chain = ProviderChain(providers, profile.settings.routes)
     return AgentDeps(
         settings=profile.settings,
