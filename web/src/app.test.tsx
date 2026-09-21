@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi as vitest } from "vitest";
 import { App } from "./app";
 import { vi } from "./i18n/vi";
-import { FakeBackend, storedMessage } from "./test/fake-backend";
+import { FakeBackend, coachAgent, coderTemplate, fakeAgent, storedMessage } from "./test/fake-backend";
 
 let backend: FakeBackend;
 
@@ -17,9 +17,34 @@ const DENIED_TEXT = "Người dùng đã TỪ CHỐI hành động này.";
 describe("App", () => {
   it("shows the welcome screen and echo hint when only the fake provider is configured", async () => {
     render(<App />);
-    expect(await screen.findByText(vi.welcomeTitle)).toBeInTheDocument();
+    expect(await screen.findByText(vi.welcomeTitleFor("Agent"))).toBeInTheDocument();
     expect(screen.getByText(vi.echoHint)).toBeInTheDocument();
     expect(screen.getByText(vi.noConversations)).toBeInTheDocument();
+    expect(screen.getByTestId("welcome-crew")).toHaveTextContent(vi.welcomeNoCrew);
+  });
+
+  it("speaks as the master, names the team and installs a template from the crew tab", async () => {
+    backend.agents = [fakeAgent, coachAgent];
+    backend.templates = [coderTemplate];
+    render(<App />);
+    await screen.findByText(vi.welcomeTitleFor("Agent"));
+    expect(screen.getByTestId("welcome-crew")).toHaveTextContent("HLV sức khoẻ");
+    expect(screen.getByText(vi.welcomeDelegateSuggestion("HLV sức khoẻ"))).toBeInTheDocument();
+
+    const chip = screen.getByRole("button", { name: /Đội/ });
+    expect(chip).toHaveTextContent(vi.crew.count(1));
+    await userEvent.click(chip);
+    expect(screen.getByRole("tab", { name: vi.crew.tab })).toHaveAttribute("aria-selected", "true");
+    const crew = screen.getByTestId("crew-list");
+    expect(within(crew).getAllByTestId("crew-agent")).toHaveLength(2);
+    expect(crew).toHaveTextContent(vi.crew.master);
+
+    await userEvent.click(within(screen.getByTestId("template-list")).getByRole("button", { name: vi.crew.install }));
+    expect(await within(screen.getByTestId("activity-panel")).findByRole("status")).toHaveTextContent(vi.crew.installed(["coder"]));
+    expect(backend.requests.find((r) => r.method === "POST" && r.path === "/agents/install")?.body).toEqual({ template: "coder" });
+    await waitFor(() => expect(within(screen.getByTestId("crew-list")).getAllByTestId("crew-agent")).toHaveLength(3));
+    expect(screen.getByRole("button", { name: /Đội/ })).toHaveTextContent(vi.crew.count(2));
+    expect(screen.getByTestId("template-list")).toHaveTextContent(vi.crew.alreadyInstalled);
   });
 
   it("creates a conversation on first send and renders the streamed reply", async () => {
@@ -30,7 +55,7 @@ describe("App", () => {
       { type: "done", spent_usd: 0.02, unknown_cost_calls: 0 },
     ];
     render(<App />);
-    await screen.findByText(vi.welcomeTitle);
+    await screen.findByText(vi.welcomeTitleFor("Agent"));
     await userEvent.type(screen.getByRole("textbox"), "hello{Enter}");
 
     expect(await screen.findByTestId("message-assistant")).toHaveTextContent("Xin chào");
@@ -192,7 +217,7 @@ describe("App", () => {
 
   it("shows the shared user directory in settings", async () => {
     render(<App />);
-    await screen.findByText(vi.welcomeTitle);
+    await screen.findByText(vi.welcomeTitleFor("Agent"));
     await userEvent.click(screen.getByRole("button", { name: /Cài đặt/ }));
     expect(screen.getByRole("dialog")).toHaveTextContent("/tmp/home/users");
   });
@@ -200,7 +225,7 @@ describe("App", () => {
   it("opens the memory tab and counts the proposals waiting for a decision", async () => {
     backend.addProposal({ description: "Ngủ trước 23h" });
     render(<App />);
-    await screen.findByText(vi.welcomeTitle);
+    await screen.findByText(vi.welcomeTitleFor("Agent"));
 
     const tab = await screen.findByRole("tab", { name: new RegExp(vi.memory.tab) });
     await waitFor(() => expect(tab).toHaveTextContent("1"));

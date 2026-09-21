@@ -132,10 +132,13 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-si
 
 /* Agents, activity rail, run timeline, jobs and costs */
 .layout.with-activity { grid-template-columns: 260px 1fr 380px; }
-.agent-switcher { display: flex; flex-direction: column; gap: 2px; padding-bottom: 0.4rem; border-bottom: 1px solid var(--border); }
-.agent-item { display: flex; align-items: center; gap: 0.4rem; text-align: left; border: none; background: none; padding: 0.35rem 0.5rem; border-radius: 6px; }
-.agent-item.active { background: var(--user-bubble); font-weight: 600; }
-.agent-meta { font-size: 0.75rem; margin-left: auto; }
+.master-card { padding: 0.35rem 0.5rem 0.6rem; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+.master-card .muted { font-size: 0.8rem; margin-top: 0.15rem; }
+.crew-panel h3 { margin-top: 1rem; }
+.crew-card { display: flex; flex-direction: column; gap: 0.2rem; }
+.crew-card .row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
+.crew-card .row button { margin-left: auto; }
+.badge.master { background: var(--accent); color: var(--accent-text); }
 .agent-badge { background: var(--ok-bg); color: var(--ok-text); }
 .badge.live { background: var(--accent); color: var(--accent-text); }
 .status-dot.running, .status-dot.awaiting_approval { background: #f59e0b; animation: blink 1.2s infinite; }
@@ -234,4 +237,3 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-si
 .run-group { display: flex; flex-direction: column; gap: 0.3rem; }
 .run-children { display: flex; flex-direction: column; gap: 0.3rem; margin-left: 1rem; padding-left: 0.5rem; border-left: 2px solid var(--border); }
 .attention-child { color: var(--muted); font-size: 0.85rem; }
-.template-install { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.2rem; }

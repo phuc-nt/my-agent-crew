@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "./api/client";
 import type { SettingsInfo, TemplateInfo } from "./api/types";
-import { ActivityPanel } from "./components/activity-panel";
-import { AgentSwitcher } from "./components/agent-switcher";
+import { ActivityPanel, type ActivityTab } from "./components/activity-panel";
 import { ApprovalBar } from "./components/approval-bar";
 import { Composer } from "./components/composer";
 import { ConversationHeader } from "./components/conversation-header";
@@ -27,6 +26,7 @@ export function App() {
   const [templates, setTemplates] = useState<TemplateInfo[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(true);
+  const [activityTab, setActivityTab] = useState<ActivityTab>("activity");
   const [draft, setDraft] = useState<string | undefined>(undefined);
   const [queued, setQueued] = useState<{ id: string; text: string } | null>(null);
 
@@ -61,8 +61,13 @@ export function App() {
   const liveByAgent: Record<string, number> = {};
   for (const run of live) liveByAgent[run.agent_id] = (liveByAgent[run.agent_id] ?? 0) + 1;
 
-  const active = list.conversations.find((c) => c.id === list.activeId) ?? null;
+  // A delegate's conversation is not in the master's list; the loaded thread stands in for it.
+  const active =
+    list.conversations.find((c) => c.id === list.activeId) ??
+    (thread.detail && thread.detail.id === list.activeId ? thread.detail : null);
   const echoOnly = settings !== null && settings.providers.every((p) => p === "fake");
+  const master = crew.master;
+  const crewNames = (master?.delegates ?? []).map(crew.agentName);
 
   const send = async (text: string) => {
     if (list.activeId) return thread.send(text);
@@ -94,16 +99,29 @@ export function App() {
   );
 
   const activityButton = (
-    <button
-      type="button"
-      className="ghost"
-      aria-pressed={activityOpen}
-      onClick={() => setActivityOpen((o) => !o)}
-    >
-      ◔ {vi.activity}
-      {attention.length > 0 && <span className="badge warn"> {attention.length}</span>}
-      {live.length > 0 && <span className="badge live"> {live.length}</span>}
-    </button>
+    <>
+      <button
+        type="button"
+        className="ghost"
+        aria-pressed={activityOpen && activityTab === "crew"}
+        onClick={() => {
+          setActivityTab("crew");
+          setActivityOpen(true);
+        }}
+      >
+        👥 {vi.crew.count(crewNames.length)}
+      </button>
+      <button
+        type="button"
+        className="ghost"
+        aria-pressed={activityOpen}
+        onClick={() => setActivityOpen((o) => !o)}
+      >
+        ◔ {vi.activity}
+        {attention.length > 0 && <span className="badge warn"> {attention.length}</span>}
+        {live.length > 0 && <span className="badge live"> {live.length}</span>}
+      </button>
+    </>
   );
 
   return (
@@ -115,12 +133,15 @@ export function App() {
         onCreate={() => void list.create()}
         onDelete={remove}
         top={
-          <AgentSwitcher
-            agents={crew.agents}
-            selectedId={list.agentId}
-            liveByAgent={liveByAgent}
-            onSelect={list.selectAgent}
-          />
+          master && (
+            <div className="master-card" data-testid="master-card">
+              <strong>{master.name}</strong>
+              {(liveByAgent[master.id] ?? 0) > 0 && (
+                <span className="badge live"> {liveByAgent[master.id]}</span>
+              )}
+              <div className="muted">{master.description || vi.crew.masterHint}</div>
+            </div>
+          )
         }
       />
       <main className="main">
@@ -173,6 +194,8 @@ export function App() {
             agentName={crew.agentName}
             onOpenConversation={list.select}
             onSuggestion={(text) => setDraft(text)}
+            masterName={master?.name}
+            crewNames={crewNames}
           />
         </ErrorBoundary>
         {state.pending && (
@@ -207,8 +230,14 @@ export function App() {
             jobs={crew.jobs}
             stats={crew.stats}
             agents={crew.agents}
-            agentId={active?.agent_id ?? crew.agents[0]?.id ?? "default"}
+            agentId={active?.agent_id ?? master?.id ?? "default"}
             agentName={crew.agentName}
+            master={master}
+            templates={templates}
+            liveByAgent={liveByAgent}
+            onInstall={crew.installTemplate}
+            tab={activityTab}
+            onTabChange={setActivityTab}
             onOpenConversation={list.select}
             onRunJob={(id) => void crew.runJob(id)}
             onToggleJob={(id, enabled) => void crew.setJobEnabled(id, enabled)}
@@ -217,12 +246,7 @@ export function App() {
         </ErrorBoundary>
       )}
       {settingsOpen && (
-        <SettingsPanel
-          settings={settings}
-          agents={crew.agents}
-          templates={templates}
-          onClose={() => setSettingsOpen(false)}
-        />
+        <SettingsPanel settings={settings} agents={crew.agents} onClose={() => setSettingsOpen(false)} />
       )}
     </div>
   );

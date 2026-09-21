@@ -63,7 +63,7 @@ test("jobs tab lists schedules and run-now posts to the server", async ({ page }
   await expect(page.getByTestId("stat-days")).toContainText("900 vào / 120 ra");
 });
 
-test("agent switcher scopes the list and new conversations to that agent", async ({ page }) => {
+test("the list holds only the master's conversations and new ones are created for it", async ({ page }) => {
   const mock = await mockApi(page, {
     agents: [defaultAgent, coachAgent],
     conversations: [
@@ -73,10 +73,10 @@ test("agent switcher scopes the list and new conversations to that agent", async
   });
   await page.goto("/");
   const nav = page.getByRole("navigation");
-  await expect(nav.getByRole("button", { name: /Chung|Sức khoẻ/ })).toHaveCount(2);
-  await nav.getByRole("radio", { name: /HLV sức khoẻ/ }).click();
-  await expect(nav.getByRole("button", { name: /Chung/ })).toHaveCount(0);
+  await expect(nav.getByRole("button", { name: /Chung/ })).toHaveCount(1);
+  await expect(nav.getByRole("button", { name: /Sức khoẻ/ })).toHaveCount(0);
+  await expect(nav.getByRole("radio")).toHaveCount(0);
   await nav.getByRole("button", { name: /Cuộc trò chuyện mới/ }).click();
-  await expect.poll(() => mock.posted.find((r) => r.path === "/conversations")?.body).toEqual({ agent_id: "coach" });
-  await expect(page.locator(".agent-badge")).toHaveText("HLV sức khoẻ");
+  await expect.poll(() => mock.posted.find((r) => r.path === "/conversations")?.body).toEqual({ agent_id: "default" });
+  await expect(page.locator(".agent-badge")).toHaveText("Agent");
 });

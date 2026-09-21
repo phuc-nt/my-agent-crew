@@ -3,9 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi as vitest } from "vitest";
 import { vi } from "../i18n/vi";
 import { emptyThread } from "../state/thread-reducer";
-import { coachAgent, fakeAgent, fakeRun } from "../test/fake-backend";
+import { fakeAgent, fakeRun } from "../test/fake-backend";
 import { ActivityPanel } from "./activity-panel";
-import { AgentSwitcher } from "./agent-switcher";
 import { ErrorBoundary } from "./error-boundary";
 import { splitMedia } from "./message-thread";
 import { StatusLine } from "./status-line";
@@ -42,22 +41,6 @@ describe("ActivityPanel", () => {
     expect(screen.getByText(vi.jobsEmpty)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("tab", { name: vi.costs }));
     expect(screen.getByText(vi.loadFailed)).toBeInTheDocument();
-  });
-});
-
-describe("AgentSwitcher", () => {
-  it("hides itself with one agent and otherwise offers all plus each agent with live badges", async () => {
-    const onSelect = vitest.fn();
-    const { rerender } = render(<AgentSwitcher agents={[fakeAgent]} selectedId={null} liveByAgent={{}} onSelect={onSelect} />);
-    expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
-    rerender(<AgentSwitcher agents={[fakeAgent, coachAgent]} selectedId="coach" liveByAgent={{ coach: 2 }} onSelect={onSelect} />);
-    const radios = screen.getAllByRole("radio");
-    expect(radios).toHaveLength(3);
-    expect(radios[2]).toHaveAttribute("aria-checked", "true");
-    expect(radios[2]).toHaveTextContent("2");
-    expect(radios[2]).toHaveTextContent(vi.agentSchedules(1));
-    await userEvent.click(radios[0]);
-    expect(onSelect).toHaveBeenCalledWith(null);
   });
 });
 

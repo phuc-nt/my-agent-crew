@@ -25,7 +25,7 @@ describe("App activity rail", () => {
   it("shows a job run arriving over the stream, step by step, until it finishes", async () => {
     backend.agents = [fakeAgent, coachAgent];
     render(<App />);
-    await screen.findByText(vi.welcomeTitle);
+    await screen.findByText(vi.welcomeTitleFor("Agent"));
     const panel = screen.getByTestId("activity-panel");
     expect(panel).toHaveTextContent(vi.noRuns);
 
@@ -68,7 +68,7 @@ describe("App activity rail", () => {
     backend.runs = [fakeRun({ id: "w", status: "awaiting_approval", conversation_id: "c1", summary: "write_file" })];
     backend.create({ title: "Chờ duyệt", status: "awaiting_approval", messages: [storedMessage("user", "ghi")] });
     render(<App />);
-    await screen.findByText(vi.welcomeTitle);
+    await screen.findByText(vi.welcomeTitleFor("Agent"));
     const attention = await screen.findByTestId("attention");
     expect(attention).toHaveTextContent(vi.attentionAwaiting("Agent"));
     act(() => stream().onerror?.());
@@ -77,20 +77,21 @@ describe("App activity rail", () => {
     expect(await screen.findByRole("heading", { level: 1 })).toHaveTextContent("Chờ duyệt");
   });
 
-  it("filters conversations by agent, creates them for that agent and runs a job now", async () => {
+  it("lists only the master's conversations, creates new ones for it and runs a job now", async () => {
     backend.agents = [fakeAgent, coachAgent];
     backend.jobs = [{ ...coachAgent.schedules[0], id: "coach/brief", schedule_id: "brief", agent_id: "coach", next_run: null, last_run: null, running: false, paused: false }];
     backend.create({ title: "Chung" });
     backend.create({ title: "Sức khoẻ", agent_id: "coach" });
     render(<App />);
     const nav = await screen.findByRole("navigation");
-    expect(within(nav).getAllByRole("button", { name: /Chung|Sức khoẻ/ })).toHaveLength(2);
-    await userEvent.click(within(nav).getByRole("radio", { name: /HLV sức khoẻ/ }));
-    await waitFor(() => expect(within(nav).queryByRole("button", { name: /Chung/ })).not.toBeInTheDocument());
-    expect(backend.requests.some((r) => r.path === "/conversations?agent_id=coach")).toBe(true);
+    expect(await within(nav).findByRole("button", { name: /Chung/ })).toBeInTheDocument();
+    expect(within(nav).queryByRole("button", { name: /Sức khoẻ/ })).not.toBeInTheDocument();
+    expect(within(nav).queryByRole("radiogroup")).not.toBeInTheDocument();
+    expect(backend.requests.some((r) => r.path === "/conversations?agent_id=default")).toBe(true);
+    expect(within(nav).getByTestId("master-card")).toHaveTextContent("Agent");
     await userEvent.click(within(nav).getByRole("button", { name: `+ ${vi.newConversation}` }));
-    await waitFor(() => expect(backend.requests.filter((r) => r.method === "POST" && r.path === "/conversations")[0].body).toEqual({ agent_id: "coach" }));
-    expect(screen.getByRole("heading", { level: 1 }).parentElement).toHaveTextContent("HLV sức khoẻ");
+    await waitFor(() => expect(backend.requests.filter((r) => r.method === "POST" && r.path === "/conversations")[0].body).toEqual({ agent_id: "default" }));
+    expect(screen.getByRole("heading", { level: 1 }).parentElement).toHaveTextContent("Agent");
 
     await userEvent.click(screen.getByRole("tab", { name: vi.jobs }));
     await userEvent.click(screen.getByRole("button", { name: `${vi.runNow}: Bản tin sáng` }));
@@ -103,6 +104,21 @@ describe("App activity rail", () => {
     expect(screen.getByRole("checkbox", { name: `${vi.jobEnabled}: Bản tin sáng` })).not.toBeChecked();
   });
 
+  it("opens a delegate's conversation from the attention center without listing it", async () => {
+    backend.agents = [fakeAgent, coachAgent];
+    backend.create({ title: "Chung" });
+    const child = backend.create({ title: "Việc của HLV", agent_id: "coach", parent_call_id: "tc1", status: "awaiting_approval", messages: [storedMessage("user", "ghi")] });
+    backend.runs = [fakeRun({ id: "w", agent_id: "coach", status: "awaiting_approval", conversation_id: child.id, source: "delegate:c1", summary: "write_file" })];
+    render(<App />);
+    const attention = await screen.findByTestId("attention");
+    expect(attention).toHaveTextContent(vi.attentionAwaiting("HLV sức khoẻ"));
+    await userEvent.click(within(attention).getByRole("button", { name: vi.openConversation }));
+    expect(await screen.findByRole("heading", { level: 1 })).toHaveTextContent("Việc của HLV");
+    expect(screen.getByRole("heading", { level: 1 }).parentElement).toHaveTextContent("HLV sức khoẻ");
+    const nav = screen.getByRole("navigation");
+    expect(within(nav).queryByRole("button", { name: /Việc của HLV/ })).not.toBeInTheDocument();
+  });
+
   it("lists past approval requests with their outcome in the approvals tab", async () => {
     backend.agents = [fakeAgent, coachAgent];
     backend.approvals = [
@@ -111,7 +127,7 @@ describe("App activity rail", () => {
     ];
     backend.create({ title: "Việc" });
     render(<App />);
-    await screen.findByText(vi.welcomeTitle);
+    await screen.findByText(vi.welcomeTitleFor("Agent"));
     await userEvent.click(screen.getByRole("tab", { name: vi.approvalsTab }));
     const history = await screen.findByTestId("approval-history");
     const items = within(history).getAllByRole("listitem");
@@ -127,16 +143,16 @@ describe("App activity rail", () => {
   });
 
   it("renders MEDIA lines from the agent workspace as inline images", async () => {
-    backend.create({ title: "Ảnh", agent_id: "coach", messages: [storedMessage("assistant", "Biểu đồ:\nMEDIA: out/chart.png")] });
+    backend.create({ title: "Ảnh", messages: [storedMessage("assistant", "Biểu đồ:\nMEDIA: out/chart.png")] });
     render(<App />);
     await userEvent.click(await screen.findByRole("button", { name: /Ảnh/ }));
     const img = await screen.findByRole("img", { name: vi.mediaAlt("out/chart.png") });
-    expect(img).toHaveAttribute("src", "/api/agents/coach/files?path=out%2Fchart.png");
+    expect(img).toHaveAttribute("src", "/api/agents/default/files?path=out%2Fchart.png");
   });
 
   it("can hide the activity rail", async () => {
     render(<App />);
-    await screen.findByText(vi.welcomeTitle);
+    await screen.findByText(vi.welcomeTitleFor("Agent"));
     await userEvent.click(screen.getByRole("button", { name: /Hoạt động/ }));
     expect(screen.queryByTestId("activity-panel")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Hoạt động/ })).toHaveAttribute("aria-pressed", "false");

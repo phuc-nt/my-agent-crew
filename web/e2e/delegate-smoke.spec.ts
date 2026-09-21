@@ -31,10 +31,11 @@ test("a handed-off task reads as a job, not as a tool call", async ({ page }) =>
 test("a work agent is badged, and its delegated run nests in the rail", async ({ page }) => {
   const parent = run({ id: "r1", conversation_id: "c1", source: "chat", title: "Dọn mã", status: "running", finished_at: null });
   const child = run({ id: "r2", agent_id: "coder", conversation_id: "c-child", source: "delegate:c1", title: "Sửa hai tệp", status: "running", finished_at: null });
+  // A work-mode master: its own conversations are the ones listed, so the badge is reachable.
   await mockApi(page, {
-    agents: [devAgent],
+    agents: [{ ...devAgent, id: "default", is_master: true }],
     runs: [parent, child],
-    conversations: [{ id: "c1", agent_id: "dev", channel: "", title: "Dọn mã", created_at: "", updated_at: "", autonomous: false, cost_cap_usd: 5, spent_usd: 0.1, unknown_cost_calls: 0, status: "idle", over_budget: false, summary: "", skills: [], auto_approve: [], parent_call_id: "", messages: [], pending_approval: null }],
+    conversations: [{ id: "c1", agent_id: "default", channel: "", title: "Dọn mã", created_at: "", updated_at: "", autonomous: false, cost_cap_usd: 5, spent_usd: 0.1, unknown_cost_calls: 0, status: "idle", over_budget: false, summary: "", skills: [], auto_approve: [], parent_call_id: "", messages: [], pending_approval: null }],
   });
   await page.goto("/");
 
@@ -44,14 +45,12 @@ test("a work agent is badged, and its delegated run nests in the rail", async ({
   await expect(page.getByTestId("work-badge")).toHaveAttribute("title", /cap \$5/);
 });
 
-test("settings shows the crew's roles and how to install a bundled one", async ({ page }) => {
+test("settings lists the crew's roles; installing lives in the crew tab", async ({ page }) => {
   await mockApi(page, { agents: [devAgent], templates: [coderTemplate] });
   await page.goto("/");
   await page.getByRole("button", { name: /Cài đặt/ }).click();
 
   const drawer = page.getByRole("dialog");
   await expect(drawer.getByTestId("crew-list")).toContainText("giao được cho: coder");
-  await expect(drawer.getByTestId("template-list")).toContainText(
-    "python -m my_agent_crew agent add coder",
-  );
+  await expect(drawer.getByTestId("template-list")).toHaveCount(0);
 });

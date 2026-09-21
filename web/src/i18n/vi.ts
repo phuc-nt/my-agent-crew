@@ -67,10 +67,24 @@ export const vi = {
   delegatesTo: "giao được cho",
   delegateChild: "cuộc do agent khác mở",
   modeWorkHint: "tự chủ · cap ${cap} · {steps} bước",
-  templates: "Mẫu agent",
-  templatesHint: "Chạy lệnh rồi khởi động lại máy chủ để agent mới xuất hiện.",
-  copyCommand: "Chép lệnh",
-  copied: "Đã chép",
+  crew: {
+    tab: "Đội",
+    count: (n: number) => `Đội: ${n}`,
+    intro: (master: string) =>
+      `Bạn chỉ trò chuyện với ${master}. Việc nào hợp thì ${master} tự làm, việc nào cần chuyên môn thì giao cho đúng người trong đội.`,
+    masterHint: "Tự làm hoặc giao việc cho đội.",
+    master: "điều phối",
+    delegatable: "master giao được",
+    telegram: "Telegram",
+    templates: "Mẫu có sẵn",
+    templatesHint: "Cài một mẫu là thêm ngay một thành viên mà master giao việc được.",
+    install: "Cài",
+    installing: "Đang cài…",
+    installed: (ids: string[]) => `Đã cài ${ids.join(", ")}.`,
+    needsRestart: "Lịch chạy hoặc bot Telegram của agent mới chỉ bật sau khi khởi động lại máy chủ.",
+    installFailed: (message: string) => `Cài không thành công: ${message}`,
+    alreadyInstalled: "đã có",
+  },
   haltedBudget: "Đã dừng vì chạm ngân sách của cuộc trò chuyện.",
   haltedMaxSteps: "Đã dừng vì vượt số bước tối đa trong một lượt.",
   errorPrefix: "Lỗi: ",
@@ -78,15 +92,19 @@ export const vi = {
   loadFailed: "Không tải được dữ liệu từ máy chủ.",
   loading: "Đang tải…",
   approvalsTab: "Duyệt",
-  welcomeTitle: "Xin chào! Tôi là agent vạn năng của bạn.",
+  welcomeTitleFor: (name: string) => `Xin chào! Tôi là ${name} — trợ lý đa năng của bạn.`,
   welcomeBody:
     "Tôi có thể đọc/ghi tệp trong thư mục làm việc, tải trang web, tìm kiếm, chạy lệnh và ghi nhớ. " +
     "Mọi thao tác thay đổi dữ liệu đều hỏi bạn trước.",
+  welcomeCrew: (names: string[]) =>
+    `Việc cần chuyên môn tôi sẽ giao cho đội: ${names.join(", ")}.`,
+  welcomeNoCrew: "Chưa có ai trong đội — mở tab Đội để cài thêm thành viên từ mẫu có sẵn.",
   welcomeSuggestions: [
     "Liệt kê các tệp trong thư mục làm việc",
     "Tóm tắt trang https://example.com",
     "Ghi nhớ: tôi thích trả lời ngắn gọn",
   ],
+  welcomeDelegateSuggestion: (name: string) => `Giao cho ${name}: rà soát thư mục làm việc và báo cáo`,
   echoHint: "Đang chạy tuyến fake:echo — gõ /tool <tên> {json} để gọi công cụ trực tiếp.",
   settingsSections: {
     routes: "Tuyến model (thứ tự dự phòng)",
@@ -96,7 +114,6 @@ export const vi = {
     paths: "Đường dẫn",
     agents: "Agent đã cấu hình",
     crew: "Đội agent",
-    templates: "Mẫu agent",
   },
   keyPresent: "đã có",
   keyMissing: "chưa có",
@@ -110,7 +127,6 @@ export const vi = {
   agent: "Agent",
 
   agents: "Agent",
-  allAgents: "Tất cả agent",
   agentPersona: (files: number) => `${files} tệp nhân cách`,
   agentSchedules: (n: number) => `${n} lịch`,
   activity: "Hoạt động",
@@ -128,8 +144,14 @@ export const vi = {
     halted: "đã dừng",
     error: "lỗi",
   } as Record<string, string>,
-  runSource: (source: string) =>
-    source === "chat" ? "trò chuyện" : source === "telegram" ? "Telegram" : source.replace(/^job:/, "lịch "),
+  /** "chat" / "telegram" / "api" / "job:<id>" / "delegate:<conversation>" → a label. */
+  runSource: (source: string) => {
+    if (source === "chat") return "trò chuyện";
+    if (source === "telegram") return "Telegram";
+    if (source === "api") return "API";
+    if (source.startsWith("delegate:")) return "giao việc";
+    return source.replace(/^job:/, "lịch ");
+  },
   /** "telegram:123" → "Telegram"; an unknown channel shows its own name. */
   channelName: (channel: string) => {
     const kind = channel.split(":")[0];

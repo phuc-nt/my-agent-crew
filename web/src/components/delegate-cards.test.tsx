@@ -1,7 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi as vitest } from "vitest";
-import type { Conversation, TemplateInfo } from "../api/types";
+import type { Conversation } from "../api/types";
 import { vi } from "../i18n/vi";
 import { runGroups } from "../state/activity-reducer";
 import type { ThreadItem } from "../state/thread-reducer";
@@ -180,35 +180,24 @@ describe("the run rail", () => {
 });
 
 describe("the settings panel", () => {
-  const template: TemplateInfo = {
-    id: "coder",
-    name: "Coder",
-    description: "Viết và sửa mã",
-    mode: "work",
-    tools: ["shell_run", "workspace_write"],
-    delegates: [],
-  };
-
-  it("lists the crew's roles and the command that installs a bundled one", async () => {
-    const write = vitest.fn().mockResolvedValue(undefined);
-    Object.assign(navigator, { clipboard: { writeText: write } });
+  it("lists the crew with the master first and what each role may hand off", () => {
     render(
       <SettingsPanel
         settings={null}
-        agents={[{ ...coachAgent, mode: "work", tools: ["shell_run"], delegates: ["coder"] }]}
-        templates={[template]}
+        agents={[{ ...coachAgent, mode: "work", tools: ["shell_run"], delegates: ["coder"] }, { ...fakeAgent, delegates: ["coach"] }]}
         onClose={() => {}}
       />,
     );
 
     // A failed settings load must not hide the crew: it is what the panel is for.
     const crew = screen.getByTestId("crew-list");
-    expect(crew).toHaveTextContent(vi.modeWork);
-    expect(crew).toHaveTextContent(vi.toolCount.replace("{n}", "1"));
-    expect(crew).toHaveTextContent("coder");
-
-    await userEvent.click(screen.getByRole("button", { name: vi.copyCommand }));
-    expect(write).toHaveBeenCalledWith("python -m my_agent_crew agent add coder");
-    expect(screen.getByRole("button", { name: vi.copied })).toBeInTheDocument();
+    const rows = within(crew).getAllByRole("listitem");
+    expect(rows[0]).toHaveTextContent("default");
+    expect(rows[0]).toHaveTextContent(vi.crew.master);
+    expect(rows[1]).toHaveTextContent(vi.modeWork);
+    expect(rows[1]).toHaveTextContent(vi.toolCount.replace("{n}", "1"));
+    expect(rows[1]).toHaveTextContent("coder");
+    expect(rows[1]).not.toHaveTextContent(vi.crew.master);
+    expect(screen.queryByTestId("template-list")).not.toBeInTheDocument();
   });
 });

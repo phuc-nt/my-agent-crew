@@ -124,8 +124,7 @@ export interface RouteInfo {
   model: string;
 }
 
-/** A bundled agent profile. Read-only here: installing one is a command, not a button,
- *  because it writes to the home directory and the new agent is only read at startup. */
+/** A bundled agent profile the crew tab can install in one click through the install API. */
 export interface TemplateInfo {
   id: string;
   name: string;
@@ -167,9 +166,29 @@ export interface AgentInfo {
   schedules: ScheduleInfo[];
   /** "assistant" chats; "work" carries the coding tools and can hand off to `delegates`. */
   mode: string;
+  /** Agents this one can hand work to; for the master that is everyone else. */
   delegates: string[];
   tools: string[];
   skills: string[];
+  /** The one agent the person talks to; it does the work or delegates it. */
+  is_master: boolean;
+  /** Set when a Telegram bot also talks to this agent; the token stays on the server. */
+  telegram: { token_env: string; chat_id: number } | null;
+}
+
+export interface InstallRequest {
+  template: string;
+  agent_id?: string;
+  workspace?: string;
+  force?: boolean;
+}
+
+/** What `POST /agents/install` did: which agents were written, which are already live. */
+export interface InstallResult {
+  installed: string[];
+  live: string[];
+  /** A schedule or a Telegram bot only starts at boot. */
+  needs_restart: boolean;
 }
 
 export interface AgentDetail extends Omit<AgentInfo, "tools" | "skills"> {

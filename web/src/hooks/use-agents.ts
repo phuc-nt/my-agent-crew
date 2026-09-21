@@ -1,14 +1,19 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api/client";
-import type { AgentInfo, JobInfo, StatsInfo } from "../api/types";
+import type { AgentInfo, InstallResult, JobInfo, StatsInfo } from "../api/types";
 
 export interface CrewController {
   agents: AgentInfo[];
+  /** The agent the person talks to; null until the crew has loaded. */
+  master: AgentInfo | null;
   jobs: JobInfo[] | null;
   stats: StatsInfo | null;
   agentName: (id: string) => string;
+  reload: () => Promise<void>;
   refreshJobs: () => Promise<void>;
   refreshStats: () => Promise<void>;
+  /** Installs a bundled template and reloads the crew so the master can reach it. */
+  installTemplate: (template: string) => Promise<InstallResult>;
   runJob: (jobId: string) => Promise<void>;
   setJobEnabled: (jobId: string, enabled: boolean) => Promise<void>;
 }
@@ -18,6 +23,14 @@ export function useCrew(): CrewController {
   const [agents, setAgents] = useState<AgentInfo[]>([]);
   const [jobs, setJobs] = useState<JobInfo[] | null>(null);
   const [stats, setStats] = useState<StatsInfo | null>(null);
+
+  const reload = useCallback(async () => {
+    try {
+      setAgents(await api.listAgents());
+    } catch {
+      setAgents([]);
+    }
+  }, []);
 
   const refreshJobs = useCallback(async () => {
     try {
@@ -36,10 +49,20 @@ export function useCrew(): CrewController {
   }, []);
 
   useEffect(() => {
-    api.listAgents().then(setAgents, () => setAgents([]));
+    void reload();
     void refreshJobs();
     void refreshStats();
-  }, [refreshJobs, refreshStats]);
+  }, [reload, refreshJobs, refreshStats]);
+
+  const installTemplate = useCallback(
+    async (template: string) => {
+      const result = await api.installTemplate({ template });
+      await reload();
+      await refreshJobs();
+      return result;
+    },
+    [reload, refreshJobs],
+  );
 
   const runJob = useCallback(
     async (jobId: string) => {
@@ -59,5 +82,19 @@ export function useCrew(): CrewController {
     [agents],
   );
 
-  return { agents, jobs, stats, agentName, refreshJobs, refreshStats, runJob, setJobEnabled };
+  const master = agents.find((a) => a.is_master) ?? agents[0] ?? null;
+
+  return {
+    agents,
+    master,
+    jobs,
+    stats,
+    agentName,
+    reload,
+    refreshJobs,
+    refreshStats,
+    installTemplate,
+    runJob,
+    setJobEnabled,
+  };
 }

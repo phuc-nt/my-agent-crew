@@ -19,10 +19,13 @@ export const defaultAgent = {
   delegates: [],
   tools: ["write_file"],
   skills: ["core"],
+  is_master: true,
+  telegram: null,
 };
 
 export const devAgent = {
   ...defaultAgent,
+  is_master: false,
   id: "dev",
   name: "Dev",
   mode: "work",
@@ -43,6 +46,7 @@ export const coderTemplate = {
 
 export const coachAgent = {
   ...defaultAgent,
+  is_master: false,
   id: "coach",
   name: "HLV sức khoẻ",
   workspace: "/h/agents/coach/workspace",
@@ -115,8 +119,20 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
       route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
     if (method === "POST") posted.push({ path: path + url.search, body: route.request().postDataJSON() });
     if (path === "/settings") return json({ ...settings, agents });
-    if (path === "/agents") return json(agents);
+    // Like the server, the master is reported as able to hand work to everyone else.
+    if (path === "/agents") {
+      const others = agents.filter((a) => !(a as { is_master?: boolean }).is_master).map((a) => (a as { id: string }).id);
+      return json(agents.map((a) => ((a as { is_master?: boolean }).is_master ? { ...a, delegates: others } : a)));
+    }
     if (path === "/templates") return json(options.templates ?? []);
+    if (path === "/agents/install" && method === "POST") {
+      const { template } = route.request().postDataJSON() as { template: string };
+      const found = (options.templates ?? []).find((t) => (t as { id: string }).id === template);
+      if (!found) return json({ detail: `unknown template ${template}` }, 404);
+      if (agents.some((a) => (a as { id: string }).id === template)) return json({ detail: `agent ${template} already exists` }, 409);
+      agents.push({ ...defaultAgent, ...found, is_master: false });
+      return json({ installed: [template], live: [template], needs_restart: false }, 201);
+    }
     if (path === "/activity/runs") return json(options.runs ?? []);
     if (path === "/activity/stream")
       return route.fulfill({ status: 200, contentType: "text/event-stream", body: sse(options.stream ?? [{ type: "snapshot", runs: options.runs ?? [] }]) });

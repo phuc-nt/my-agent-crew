@@ -15,6 +15,9 @@ interface Props {
   agentName?: (id: string) => string;
   /** Opens the conversation a delegation created. */
   onOpenConversation?: (conversationId: string) => void;
+  /** The master introduces itself by name and names the team it can hand work to. */
+  masterName?: string;
+  crewNames?: string[];
 }
 
 const MEDIA_PREFIX = "MEDIA:";
@@ -28,6 +31,8 @@ export function MessageThread({
   agentId,
   agentName,
   onOpenConversation,
+  masterName,
+  crewNames = [],
 }: Props) {
   const bottom = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -35,12 +40,19 @@ export function MessageThread({
   }, [items.length, streaming]);
 
   if (items.length === 0 && !streaming) {
+    const suggestions = [
+      ...vi.welcomeSuggestions,
+      ...(crewNames.length > 0 ? [vi.welcomeDelegateSuggestion(crewNames[0])] : []),
+    ];
     return (
       <section className="thread empty-state" aria-label={vi.agent}>
-        <h2>{vi.welcomeTitle}</h2>
+        <h2>{vi.welcomeTitleFor(masterName ?? vi.agent)}</h2>
         <p>{vi.welcomeBody}</p>
+        <p className="muted" data-testid="welcome-crew">
+          {crewNames.length > 0 ? vi.welcomeCrew(crewNames) : vi.welcomeNoCrew}
+        </p>
         <div className="suggestions">
-          {vi.welcomeSuggestions.map((s) => (
+          {suggestions.map((s) => (
             <button key={s} type="button" className="chip" onClick={() => onSuggestion(s)}>
               {s}
             </button>

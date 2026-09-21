@@ -2,13 +2,15 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "../api/client";
 import type { Conversation, ConversationPatch } from "../api/types";
 
+/** The sidebar is the person's chat with the master; the rest of the crew is reached through it. */
+export const MASTER_ID = "default";
+
 export interface ConversationsController {
   conversations: Conversation[];
   activeId: string | null;
-  agentId: string | null;
   error: string | null;
+  /** Opens a conversation; one outside the list (a delegate's) still opens, it is just not listed. */
   select: (id: string | null) => void;
-  selectAgent: (id: string | null) => void;
   create: () => Promise<Conversation | null>;
   patch: (id: string, body: ConversationPatch) => Promise<void>;
   summarize: (id: string) => Promise<void>;
@@ -16,34 +18,27 @@ export interface ConversationsController {
   refresh: () => Promise<void>;
 }
 
-/** The sidebar's list (optionally scoped to one agent) plus which conversation is open. */
 export function useConversations(): ConversationsController {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [agentId, setAgentId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
-      setConversations(await api.listConversations(agentId ?? undefined));
+      setConversations(await api.listConversations(MASTER_ID));
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
-  }, [agentId]);
+  }, []);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
-  const selectAgent = useCallback((id: string | null) => {
-    setAgentId(id);
-    setActiveId(null);
-  }, []);
-
   const create = useCallback(async () => {
     try {
-      const created = await api.createConversation(agentId ? { agent_id: agentId } : {});
+      const created = await api.createConversation({ agent_id: MASTER_ID });
       setConversations((list) => [created, ...list]);
       setActiveId(created.id);
       return created;
@@ -51,7 +46,7 @@ export function useConversations(): ConversationsController {
       setError(e instanceof Error ? e.message : String(e));
       return null;
     }
-  }, [agentId]);
+  }, []);
 
   const patch = useCallback(async (id: string, body: ConversationPatch) => {
     const updated = await api.patchConversation(id, body);
@@ -75,26 +70,7 @@ export function useConversations(): ConversationsController {
     setActiveId((current) => (current === id ? null : current));
   }, []);
 
-  /** Open a conversation that may belong to another agent (from the attention center). */
-  const select = useCallback(
-    (id: string | null) => {
-      if (id && !conversations.some((c) => c.id === id)) setAgentId(null);
-      setActiveId(id);
-    },
-    [conversations],
-  );
+  const select = useCallback((id: string | null) => setActiveId(id), []);
 
-  return {
-    conversations,
-    activeId,
-    agentId,
-    error,
-    select,
-    selectAgent,
-    create,
-    patch,
-    summarize,
-    remove,
-    refresh,
-  };
+  return { conversations, activeId, error, select, create, patch, summarize, remove, refresh };
 }

@@ -14,6 +14,7 @@ import type {
   SettingsInfo,
   StatsInfo,
   StoredMessage,
+  TemplateInfo,
 } from "../api/types";
 
 export const fakeAgent: AgentInfo = {
@@ -32,6 +33,17 @@ export const fakeAgent: AgentInfo = {
   schedules: [],
   tools: ["write_file"],
   skills: ["core", "writer"],
+  is_master: true,
+  telegram: null,
+};
+
+export const coderTemplate: TemplateInfo = {
+  id: "coder",
+  name: "Coder",
+  description: "Viết và sửa mã",
+  mode: "work",
+  tools: ["shell_run", "workspace_write"],
+  delegates: [],
 };
 
 export const coachAgent: AgentInfo = {
@@ -41,6 +53,7 @@ export const coachAgent: AgentInfo = {
   description: "Theo dõi sức khoẻ",
   workspace: "/tmp/home/agents/coach/workspace",
   autonomous: true,
+  is_master: false,
   schedules: [
     { id: "brief", name: "Bản tin sáng", kind: "prompt", cron: "0 7 * * *", every: null, prompt: "Tóm tắt", command: null, enabled: true, skills: ["goodreads"] },
   ],
@@ -68,6 +81,8 @@ export function fakeRun(overrides: Partial<RunInfo> = {}): RunInfo {
 export class FakeBackend {
   conversations = new Map<string, ConversationDetail>();
   agents: AgentInfo[] = [fakeAgent];
+  /** Bundled profiles answered by GET /templates; installing one appends to `agents`. */
+  templates: TemplateInfo[] = [];
   runs: RunInfo[] = [];
   jobs: JobInfo[] = [];
   /** Rows answered by GET /approvals, newest first. */
@@ -115,7 +130,9 @@ export class FakeBackend {
     const memory = this.memoryRoute(path, method, body, url.searchParams);
     if (memory) return memory;
     if (path === "/settings") return json(this.settings);
-    if (path === "/agents") return json(this.agents);
+    if (path === "/agents") return json(this.master());
+    if (path === "/templates") return json(this.templates);
+    if (path === "/agents/install" && method === "POST") return this.install(body.template, body.agent_id);
     if (path === "/activity/runs") return json(this.runs);
     if (path === "/stats") return json(this.stats);
     if (path === "/jobs") return json(this.jobs);
@@ -163,6 +180,24 @@ export class FakeBackend {
     }
     return json({ detail: `no route ${method} ${path}` }, 404);
   };
+
+  /** Like the server, the master's `delegates` is everyone else, whatever its profile says. */
+  private master(): AgentInfo[] {
+    const others = this.agents.filter((a) => !a.is_master).map((a) => a.id);
+    return this.agents.map((a) => (a.is_master ? { ...a, delegates: others } : a));
+  }
+
+  private install(template: string, agentId?: string): Response {
+    const found = this.templates.find((t) => t.id === template);
+    if (!found) return json({ detail: `unknown template ${template}` }, 404);
+    const id = agentId || found.id;
+    if (this.agents.some((a) => a.id === id)) return json({ detail: `agent ${id} already exists` }, 409);
+    this.agents = [
+      ...this.agents,
+      { ...fakeAgent, id, name: found.name, description: found.description, mode: found.mode, tools: found.tools, delegates: found.delegates, is_master: false },
+    ];
+    return json({ installed: [id], live: [id], needs_restart: false }, 201);
+  }
 
   create(overrides: Partial<ConversationDetail> = {}): ConversationDetail {
     const id = `c${++this.counter}`;

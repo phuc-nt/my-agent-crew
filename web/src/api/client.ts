@@ -11,6 +11,8 @@ import type {
   ConversationPatch,
   FactBody,
   FactInfo,
+  InstallRequest,
+  InstallResult,
   JobInfo,
   MemoryHit,
   MemoryProposal,
@@ -103,6 +105,8 @@ export const api = {
   templates: () => request<TemplateInfo[]>("/templates"),
   listAgents: () => request<AgentInfo[]>("/agents"),
   getAgent: (id: string) => request<AgentDetail>(`/agents/${encodeURIComponent(id)}`),
+  installTemplate: (body: InstallRequest) =>
+    request<InstallResult>("/agents/install", { method: "POST", body: JSON.stringify(body) }),
   listConversations: (agentId?: string) =>
     request<Conversation[]>(`/conversations${query({ agent_id: agentId })}`),
   createConversation: (body: ConversationPatch & { agent_id?: string } = {}) =>

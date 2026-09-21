@@ -1,15 +1,16 @@
 import { useState } from "react";
-import type { AgentInfo, JobInfo, RunInfo, StatsInfo } from "../api/types";
+import type { AgentInfo, InstallResult, JobInfo, RunInfo, StatsInfo, TemplateInfo } from "../api/types";
 import { vi } from "../i18n/vi";
 import { ApprovalHistory } from "./approval-history";
 import { AttentionCenter } from "./attention-center";
+import { CrewPanel } from "./crew-panel";
 import { JobsPanel } from "./jobs-panel";
 import { MemoryPanel } from "./memory-panel";
 import { parentConversationId, runGroups } from "../state/activity-reducer";
 import { RunGroupCard } from "./run-timeline";
 import { StatsPanel } from "./stats-panel";
 
-type Tab = "activity" | "jobs" | "approvals" | "memory" | "costs";
+export type ActivityTab = "activity" | "crew" | "jobs" | "approvals" | "memory" | "costs";
 
 interface Props {
   runs: RunInfo[];
@@ -21,23 +22,37 @@ interface Props {
   agents: AgentInfo[];
   agentId: string;
   agentName: (id: string) => string;
+  /** The crew tab: the master, the team and the bundled profiles that can join. */
+  master?: AgentInfo | null;
+  templates?: TemplateInfo[];
+  liveByAgent?: Record<string, number>;
+  onInstall?: (template: string) => Promise<InstallResult>;
+  /** Controlled tab, so a header chip can open the crew tab; uncontrolled when absent. */
+  tab?: ActivityTab;
+  onTabChange?: (tab: ActivityTab) => void;
   onOpenConversation: (conversationId: string) => void;
   onRunJob: (jobId: string) => void;
   onToggleJob: (jobId: string, enabled: boolean) => void;
   onClose: () => void;
 }
 
-const TABS: { id: Tab; label: string }[] = [
+const TABS: { id: ActivityTab; label: string }[] = [
   { id: "activity", label: vi.activity },
+  { id: "crew", label: vi.crew.tab },
   { id: "jobs", label: vi.jobs },
   { id: "approvals", label: vi.approvalsTab },
   { id: "memory", label: vi.memory.tab },
   { id: "costs", label: vi.costs },
 ];
 
-/** Right rail: what needs you, what is running, what ran, the schedule and the bill. */
+/** Right rail: what needs you, what is running, the team, the schedule and the bill. */
 export function ActivityPanel(props: Props) {
-  const [tab, setTab] = useState<Tab>("activity");
+  const [ownTab, setOwnTab] = useState<ActivityTab>("activity");
+  const tab = props.tab ?? ownTab;
+  const setTab = (next: ActivityTab) => {
+    setOwnTab(next);
+    props.onTabChange?.(next);
+  };
   const [onlyThisConversation, setOnlyThisConversation] = useState(false);
   const scoped =
     onlyThisConversation && props.conversationId
@@ -128,6 +143,17 @@ export function ActivityPanel(props: Props) {
               />
             ))
           )}
+        </div>
+      )}
+      {tab === "crew" && (
+        <div className="panel-body" role="tabpanel">
+          <CrewPanel
+            agents={props.agents}
+            master={props.master ?? null}
+            templates={props.templates ?? []}
+            liveByAgent={props.liveByAgent ?? {}}
+            onInstall={props.onInstall ?? (() => Promise.reject(new Error(vi.loadFailed)))}
+          />
         </div>
       )}
       {tab === "jobs" && (

@@ -1,5 +1,4 @@
-import { useState } from "react";
-import type { AgentInfo, SettingsInfo, TemplateInfo } from "../api/types";
+import type { AgentInfo, SettingsInfo } from "../api/types";
 import { vi } from "../i18n/vi";
 import { formatUsd } from "./budget-indicator";
 
@@ -7,45 +6,13 @@ interface Props {
   settings: SettingsInfo | null;
   /** The crew as loaded: which agent does what, and who it can hand work to. */
   agents?: AgentInfo[];
-  /** Profiles shipped with the app, installable by command. */
-  templates?: TemplateInfo[];
   onClose: () => void;
 }
 
-const INSTALL = "python -m my_agent_crew agent add";
-
-/**
- * A template is installed by a command rather than a button: it writes into the home
- * directory, and the server only reads agent profiles at startup, so a click would
- * leave the page showing an agent that is not running yet.
- */
-function TemplateRow({ template }: { template: TemplateInfo }) {
-  const [copied, setCopied] = useState(false);
-  const command = `${INSTALL} ${template.id}`;
-  return (
-    <li>
-      <code>{template.id}</code>
-      <span className="badge">{template.mode === "work" ? vi.modeWork : vi.modeAssistant}</span>
-      <div className="muted">{template.description}</div>
-      <div className="template-install">
-        <code>{command}</code>
-        <button
-          type="button"
-          className="link-button"
-          onClick={() => {
-            void navigator.clipboard?.writeText(command);
-            setCopied(true);
-          }}
-        >
-          {copied ? vi.copied : vi.copyCommand}
-        </button>
-      </div>
-    </li>
-  );
-}
-
-export function SettingsPanel({ settings, agents = [], templates = [], onClose }: Props) {
+/** Machine configuration, read-only. Installing templates lives in the crew tab. */
+export function SettingsPanel({ settings, agents = [], onClose }: Props) {
   const t = vi.settingsSections;
+  const crew = [...agents].sort((a, b) => Number(b.is_master) - Number(a.is_master));
   return (
     <aside className="settings-panel" role="dialog" aria-label={vi.settings}>
       <header>
@@ -54,16 +21,17 @@ export function SettingsPanel({ settings, agents = [], templates = [], onClose }
           ×
         </button>
       </header>
-      {/* The crew and the bundled profiles come from their own endpoints, so a settings
-          call that failed hides the machine's configuration and nothing else. */}
+      {/* The crew comes from its own endpoint, so a settings call that failed hides the
+          machine's configuration and nothing else. */}
       <div className="settings-body">
-        {agents.length > 0 && (
+        {crew.length > 0 && (
           <>
             <h3>{t.crew}</h3>
             <ul className="tool-list agent-list" data-testid="crew-list">
-              {agents.map((agent) => (
+              {crew.map((agent) => (
                 <li key={agent.id}>
                   <code>{agent.id}</code>
+                  {agent.is_master && <span className="badge master">{vi.crew.master}</span>}
                   <span className="badge">
                     {agent.mode === "work" ? vi.modeWork : vi.modeAssistant}
                   </span>
@@ -74,17 +42,6 @@ export function SettingsPanel({ settings, agents = [], templates = [], onClose }
                     </div>
                   )}
                 </li>
-              ))}
-            </ul>
-          </>
-        )}
-        {templates.length > 0 && (
-          <>
-            <h3>{t.templates}</h3>
-            <p className="muted">{vi.templatesHint}</p>
-            <ul className="tool-list template-list" data-testid="template-list">
-              {templates.map((template) => (
-                <TemplateRow key={template.id} template={template} />
               ))}
             </ul>
           </>
