@@ -24,14 +24,23 @@ around it.
 ## Runtime shape
 
 ```
-browser ──/api (JSON + SSE)──▶ FastAPI ──▶ run_turn(deps, conversation)
-                                 │           │  ProviderChain (ordered routes, fallback before first item)
-                                 │           │  ToolRegistry (workspace, web, memory, shell)
-                                 │           │  Skills + persona/memory sections (system prompt)
-                                 │           └─ Store (SQLite: conversations, messages, approvals, runs)
-                                 ├─ ActivityHub  (live runs → SSE /api/activity/stream)
-                                 └─ Scheduler    (cron/every jobs per agent, 20 s tick)
+browser ──/api/conversations/{id}/messages (SSE)──┐
+Telegram poller ──────────────────────────────────┤
+any platform ──POST /api/inbound (JSON, sync)─────┴─▶ Inbound ──▶ run_turn(deps, conversation)
+                                                        │           │  ProviderChain (ordered routes, fallback before first item)
+                                                        │           │  ToolRegistry (workspace, web, memory, shell, delegate)
+                                                        │           │  Skills + persona/memory + crew roster (system prompt)
+                                                        │           └─ Store (SQLite: conversations, messages, approvals, runs)
+                                                        ├─ ActivityHub  (live runs → SSE /api/activity/stream)
+                                                        └─ Scheduler    (cron/every jobs per agent, 20 s tick)
 ```
+
+- **One door for every platform.** `Inbound` (`inbound.py`) finds the agent, opens or
+  reuses the conversation (one per agent per channel per day), guards it while an approval
+  is pending, runs the turn under activity tracking and records the run's source. The web
+  reads the event stream; Telegram and `POST /api/inbound` take the collected `TurnReply`
+  (text, status, steps). No platform is special, so a backend change reaches all of them and
+  a feature is tested by posting to the API.
 
 - **Durable state is the message log.** A turn resumes from the last stored assistant message:
   unfinished tool calls are settled first, so a crash mid-turn is recoverable (`test_agent_resume.py`).
@@ -76,10 +85,20 @@ tools that always ask still ask, and the cap still stops the turn. A work agent 
 gets `delegate` unless its `tools` allow-list leaves it out, so a specialist stays a
 specialist instead of quietly starting a crew of its own.
 
+**The master.** The `default` agent is the one the person talks to. It carries `delegate`
+and, unless its optional `MY_AGENT_HOME/agent.yaml` names a `delegates` list, may reach
+every other agent in the home; its system prompt lists that crew each turn. This keeps the
+product "one capable, autonomous agent" while letting it staff a job: the person does not
+pick an agent, the master does. Agents that talk on Telegram keep their channel and
+schedules and are simply also on the roster. Details: [agents.md](agents.md#the-master-agent).
+
 **Templates.** Nine profiles ship with the app — a lead and eight roles — installed with
-`agent add <id>`, which brings the peers the lead hands work to and one shared set of
-skills. They are a starting point to edit, not a framework: each is an `agent.yaml` of
-the same fixed keys, so there is nothing to learn beyond the profile format.
+`agent add <id>` or `POST /api/agents/install` (what the crew tab calls), which brings
+the peers the role hands work to and one shared set of skills. Every manifest works as
+installed (the home's shared workspace, the global routes); `--workspace` pins a role to
+one repository. An install over the API joins the running crew at once, while channels and
+schedules start at boot. They are a starting point to edit, not a framework: each is an
+`agent.yaml` of the same fixed keys, so there is nothing to learn beyond the profile format.
 
 ## Memory
 
@@ -130,8 +149,8 @@ cannot be switched on from the UI. `GET /api/jobs/{id}/runs` lists that job's pa
 
 `channels/` lets an agent talk on something other than the web UI. Today that is Telegram:
 a profile with `telegram: {token_env, chat_id}` gets a `TelegramChannel` at startup when the
-named env var is set. Turns from the chat run through the same `tracked` wrapper with source
-`telegram`, replies go back as text and `sendPhoto`, slash commands are answered without a
+named env var is set. Turns from the chat go through `Inbound` like every other platform,
+with source `telegram`, replies go back as text and `sendPhoto`, slash commands are answered without a
 model call, and the scheduler's `Runtime.deliver` pushes a prompt job's reply to the chat.
 Agents that name the same `token_env` share one poller: `@<agent id>` picks the agent, the
 pick is remembered per chat in the `channel_state` table (explicit, not derived from
@@ -156,15 +175,21 @@ owns one conversation (load, stream, approve, abort); `use-conversations.ts` own
 `use-agents.ts` owns agents, jobs and stats and is refreshed from the same signal.
 All strings come from `i18n/vi.ts`.
 
+There is one chat, with the master: the conversation list holds the master's conversations
+and a new one is always opened for it. The welcome screen speaks as the master and names
+the crew; a header chip (`Đội: N`) opens the crew tab in the rail, which lists every agent
+(master first, with mode, live, schedule and Telegram badges) and installs a bundled
+template in one click. A delegate's conversation is not listed, but opens from a run card
+or the attention centre.
+
 The activity rail (ideas borrowed from openhuman's session view, no code) shows: live runs
 expanded step by step with tool arguments and output; an attention centre for runs that wait for
 approval, failed or were halted; a jobs tab with next/last run, a run-now button, a pause/resume
 switch and the job's run history on demand; an approvals tab listing decided requests with their
 outcome (approved, denied, expired); a costs tab by agent, model and day, where the last seven
 days and the per-model table come from `store/usage.py`, a ledger read straight from the message
-log with token counts, so the figures are what was actually billed and not an estimate; an agent
-switcher that scopes the conversation list and new conversations; a status line with stream
-connectivity. The approval bar shows the deadline of the pending request and a "always allow"
+log with token counts, so the figures are what was actually billed and not an estimate; the
+crew tab above; a status line with stream connectivity. The approval bar shows the deadline of the pending request and a "always allow"
 button next to approve/deny; the header lists the always-allowed tools as chips that revoke on
 click. An error boundary keeps a rendering crash from taking the chat down with it.
 

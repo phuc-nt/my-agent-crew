@@ -1,9 +1,24 @@
 # Channels
 
 A channel lets an agent talk somewhere other than the web UI. Today that is Telegram
-(`channels/`). Turns that come from a channel run through the same loop and the same
-activity tracking as the web UI, with source `telegram`, so the rail and the conversation
-list show them.
+(`channels/`). Every platform hands a message to the same gate, `Inbound` (`inbound.py`):
+it finds the agent, opens or reuses today's conversation on that channel, runs the turn
+under activity tracking and returns the reply. Turns from Telegram therefore run through
+the same loop as the web UI, with source `telegram`, so the rail shows them.
+
+A platform without an adapter of its own talks to the gate over HTTP:
+
+```
+POST /api/inbound {"text": "…", "agent_id"?: "default", "channel"?: "api", "conversation_id"?: "…", "source"?: "api"}
+→ 200 {"conversation_id": "…", "agent_id": "default", "text": "…", "status": "done", "steps": 2}
+```
+
+`channel` picks the per-day conversation (`api:<something>` keeps one relay apart from
+another), `conversation_id` continues a given one instead, and `source` is what the run
+shows in the activity view. 404 for an unknown agent or conversation, 409 while the
+conversation waits on an approval. `status` is `done`, `halted`, `error` or
+`approval_required`, and the text then ends with the matching notice. This is also the way
+to test a feature end to end: one request, one reply, no browser.
 
 ## Configuration
 
@@ -130,9 +145,12 @@ this repo.
 
 A channel is a class with `start()`, `stop()` and `deliver(conv_id) -> bool`, built in
 `channels/build_channels` from a profile block and mapped from each agent id it serves
-(`Runtime.unique_channels` dedupes for start/stop). Keep secrets as env-var names in the
-profile and add rows to [testing.md](testing.md). Tests: `test_channels_telegram.py`,
-`test_channels_telegram_shared.py`, `test_app_wiring.py`.
+(`Runtime.unique_channels` dedupes for start/stop). Inside, hand every message to
+`Inbound.conversation_for` + `Inbound.reply` (or `stream` when the platform can show
+events) rather than calling the loop: that is what keeps the agents unaware of platforms.
+Keep secrets as env-var names in the profile and add rows to [testing.md](testing.md).
+Tests: `test_channels_telegram.py`, `test_channels_telegram_shared.py`,
+`test_app_wiring.py`, `test_api_inbound.py`.
 
 ## Compared with openclaw
 

@@ -41,7 +41,7 @@ silently disables a setting.
 | Key | Type | Default | Meaning |
 |---|---|---|---|
 | `name` | string | the id | display name; also the `[Name]` prefix on a shared Telegram bot |
-| `description` | string | `""` | shown in the UI agent switcher |
+| `description` | string | `""` | shown on the agent's card in the crew tab and in the master's roster |
 | `mode` | `assistant` or `work` | `assistant` | `work` adds the coding tools and moves three defaults, see [Work mode](#work-mode) |
 | `routes` | list or comma string of `provider:model` | global `routes` | tried in order; a route that fails before producing output falls through to the next |
 | `workspace` | path | `workspace` | sandbox for `workspace_*` and `shell_run`; relative paths resolve against the agent dir, `~` expands |
@@ -54,7 +54,7 @@ silently disables a setting.
 | `schedules` | list | `[]` | jobs, see [Schedules](#schedules) |
 | `memory_consolidate` | cron string | none | rewrite `MEMORY.md` from the daily notes on this schedule, see [memory.md](memory.md) |
 | `telegram` | map | none | `token_env` + `chat_id`, see [channels.md](channels.md) |
-| `delegates` | list of agent ids | `[]` | agents this one may hand a task to; an id that names no agent is a startup error |
+| `delegates` | list of agent ids | `[]` | agents this one may hand a task to; an id that names no agent is a startup error. Empty on the master means every other agent, see [The master agent](#the-master-agent) |
 | `tools` | list of tool names | `[]` | when set, the only tools this agent gets; empty means everything its mode brings. An unknown name is a warning, so a profile written for a newer version still starts |
 
 Every value that is not set falls back to the global settings, which come from env vars
@@ -102,14 +102,30 @@ it — so anything it can express, a hand-written profile can too.
 
 ```bash
 python -m my_agent_crew agent list-templates        # id, mode and description of each
+python -m my_agent_crew agent add coder             # one role, at the master's disposal
 python -m my_agent_crew agent add dev               # the lead and the eight peers it names
 python -m my_agent_crew agent add coder --id backend  # same template under a different id
+python -m my_agent_crew agent add coder --workspace ~/src/app  # pinned to one repository
 ```
 
 Adding a template brings the peers it delegates to, because the server refuses to start
 when a `delegates` entry names an agent that is not there — so `agent add dev` gives a
 whole crew in one command, while `agent add scout` gives one agent. A peer that already
-exists is left as it is.
+exists is left as it is. Every manifest points `workspace` at `../../workspace`, the home's
+shared workspace, so a fresh install works without editing; `--workspace` writes an
+absolute path into the template and every peer it brings.
+
+The same install runs over HTTP, which is what the crew tab in the web UI calls:
+
+```
+POST /api/agents/install {"template": "coder", "agent_id"?: "…", "workspace"?: "…", "force"?: false}
+→ 201 {"installed": ["coder"], "live": ["coder"], "needs_restart": false}
+```
+
+`installed` is what was written, `live` what the running server loaded on the spot (the
+master can delegate to it at once), and `needs_restart` is true when an installed agent has
+a `telegram` block or `schedules`: channels and jobs only start at boot. 404 for an unknown
+template, 409 when the id is taken (`force` overwrites).
 
 | id | mode | What it is for |
 |---|---|---|
@@ -126,19 +142,42 @@ exists is left as it is.
 Each manifest points `skills_dirs` at `../../skills`, so the six shared skills are
 installed once at the top of the home directory and every role reads the same copy.
 Adding a template twice refuses rather than overwriting, since by then the profile may be
-your edit and not ours; `--force` says you meant it. The new agent is read at startup, so
-the server has to be restarted before it appears.
+your edit and not ours; `--force` says you meant it. An agent added with the CLI is read
+at the next start; one added through the install API or the crew tab joins the running
+crew at once.
 
 The allow-list in a template is the point of the role, and it caps `delegate` as well: a
 work agent that names its tools without naming `delegate` cannot hand work on, which is
 what stops a crew from growing a second layer behind the lead's back.
 
-## The default agent
+## The master agent
 
 The `default` agent always exists and is the top-level settings: dir = `MY_AGENT_HOME`,
 workspace = `MY_AGENT_HOME/workspace`, skills = `MY_AGENT_HOME/skills`, persona and memory
 files read from `MY_AGENT_HOME` itself. A fresh home therefore needs no profile at all.
 `load_profiles` returns it first, then `agents/<id>/agent.yaml` sorted by id.
+
+It is also the *master*: the one agent the web UI talks to, and the one that hands work to
+the rest. `AgentProfile.is_master` is true for it alone. An optional
+`MY_AGENT_HOME/agent.yaml` shapes it with the same keys as any profile (`name`,
+`description`, `autonomous`, `cost_cap_usd`, `max_steps`, `routes`, `delegates`, …);
+without the file it is the plain default agent. Two things set it apart from a work lead:
+
+- **It reaches everyone.** With `delegates` empty, the master may hand a task to every
+  other agent in the home, in id order (`agents/roster.py: delegate_targets`). Installing
+  an agent is enough to put it at the master's disposal; naming a `delegates` list narrows
+  that to the ids given. Any other agent reaches only what it lists.
+- **It always has `delegate`.** The tool is wired for the master, for work agents, and for
+  any profile with a `delegates` list; a `tools` allow-list still caps it.
+
+Each turn the master's system prompt carries a roster section (`crew_roster_section`): one
+line per agent it may reach, with id, name, mode, description and workspace, followed by the guidance
+on when to do a thing itself and when to hand it off. An agent that can reach nobody gets
+no roster. A child turn opened by `delegate` never sees one, since it cannot delegate.
+
+The two assistant agents that talk on Telegram (`pong`, `health-coach` in the example
+home) lose nothing by this: their channels and schedules run as before, and they are simply
+also on the master's roster. Tests: `test_crew_roster.py`, `test_api_agents_install.py`.
 
 ## Persona files
 

@@ -86,23 +86,40 @@ các tin sau, `/agents` liệt kê agent đang có, mỗi câu trả lời mở 
 Mỗi agent còn đọc được 10 dòng gần nhất mà các agent khác trao đổi trong chat đó hôm nay,
 nên hỏi HLV về việc vừa nói với Pong không bị hỏi lại từ đầu.
 
-## Dùng như một đội dev
+## Một trợ lý điều động cả đội
 
-Một agent `mode: work` có sẵn công cụ sửa mã, cap và số bước rộng hơn, tự chủ mặc định, và
-công cụ `delegate` để giao trọn một việc cho agent khác rồi chờ câu trả lời. Chín mẫu có
-sẵn: `dev` là đầu mối, tám vai còn lại là `scout`, `planner`, `coder`, `reviewer`,
-`tester`, `debugger`, `git`, `researcher`.
+Web UI chỉ có **một** chỗ chat: với agent chính (`default`, gọi là *master*). Nó tự làm việc
+nhỏ và giao việc lớn cho đúng người bằng công cụ `delegate`, rồi tổng hợp lại — bạn không
+phải chọn agent. Mọi agent khác trong home (kể cả agent Telegram như Pong hay HLV sức khoẻ)
+mặc định đều là người master giao được; tab **Đội** trong rail liệt kê cả đội và cài thêm
+vai mới từ mẫu bằng một cú bấm. Tuỳ chỉnh master bằng `~/.my-agent-crew/agent.yaml`
+(tên, mô tả, `autonomous`, `cost_cap_usd`, `max_steps`, hoặc `delegates` để thu hẹp đội).
+
+Chín mẫu có sẵn: `dev` là đầu mối kiểu cũ, tám vai còn lại là `scout`, `planner`, `coder`,
+`reviewer`, `tester`, `debugger`, `git`, `researcher`. Mẫu dùng workspace chung của home;
+`--workspace` trỏ vai đó (và các đồng đội nó kéo theo) vào một repo cụ thể.
 
 ```bash
-python -m my_agent_crew agent list-templates          # xem chín mẫu
-python -m my_agent_crew agent add dev                 # thêm dev kèm tám đồng đội
-# sửa agents/*/agent.yaml (workspace, routes) rồi khởi động lại máy chủ
+python -m my_agent_crew agent list-templates                 # xem chín mẫu
+python -m my_agent_crew agent add coder --workspace ~/src/app  # thêm coder, làm trong repo này
+python -m my_agent_crew agent add dev                        # thêm dev kèm tám đồng đội
+# cài qua CLI thì khởi động lại máy chủ để nạp; cài từ tab Đội thì dùng được ngay
 ```
 
-Mở một cuộc với `dev` và giao việc như nói với người: *"Thêm lệnh `--version` in phiên bản
-từ pyproject, có test."* `dev` tự chia việc — scout đọc mã, planner vạch bước, coder sửa,
-reviewer và tester soát — mỗi lần giao là một cuộc con hiện ngay trong rail hoạt động,
-kèm chi phí và số bước. Uỷ quyền chỉ sâu một tầng: agent con không giao tiếp cho ai nữa.
+Giao việc như nói với người: *"Nhờ coder thêm lệnh `--version` in phiên bản từ pyproject, có
+test."* Master tự chia việc — scout đọc mã, planner vạch bước, coder sửa, reviewer và tester
+soát — mỗi lần giao là một cuộc con hiện ngay trong rail hoạt động, kèm chi phí và số bước.
+Uỷ quyền chỉ sâu một tầng: agent con không giao tiếp cho ai nữa.
+
+Mọi nền tảng đi qua **một cổng backend**: web, Telegram và `POST /api/inbound` (JSON, trả lời
+đồng bộ) đều đưa tin nhắn vào cùng chỗ, nên nâng cấp backend là mọi nền tảng theo ngay, và
+test một tính năng chỉ cần gửi request:
+
+```bash
+curl -s http://127.0.0.1:8765/api/inbound -H 'content-type: application/json' \
+  -d '{"text":"Nhờ scout liệt kê thư mục làm việc rồi tóm tắt 2 câu."}'
+# → {"conversation_id":…,"agent_id":"default","text":"…","status":"done","steps":2}
+```
 
 ## Trí nhớ
 
