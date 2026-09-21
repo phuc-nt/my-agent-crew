@@ -8,7 +8,9 @@ tools:
   - workspace_read
   - workspace_write
   - skill_read
-workspace: .
+# The crew works in the master agent's workspace by default; `agent add --workspace` or
+# the install API pins a repository here instead.
+workspace: ../../workspace
 routes: []
 # The crew shares one set of skills, installed once at the top of the home directory.
 skills_dirs:

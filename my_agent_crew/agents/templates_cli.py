@@ -7,6 +7,7 @@ skills directory, where every agent can reach them.
 
 from __future__ import annotations
 
+import re
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
@@ -17,6 +18,7 @@ import yaml
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 SHARED_SKILLS = "_shared_skills"
 MANIFEST = "agent.yaml"
+_WORKSPACE_LINE = re.compile(r"^workspace:.*$", re.MULTILINE)
 
 
 @dataclass(frozen=True)
@@ -76,14 +78,32 @@ def _copy_tree(src: Path, dest: Path, force: bool) -> list[Path]:
     return written
 
 
+def pin_workspace(manifest: Path, workspace: Path) -> None:
+    """Rewrites only the `workspace:` line, so the comments a template ships with survive
+    the install. A manifest without one gets the line appended."""
+    text = manifest.read_text(encoding="utf-8")
+    line = f"workspace: {workspace.expanduser().resolve()}"
+    if _WORKSPACE_LINE.search(text):
+        text = _WORKSPACE_LINE.sub(line, text, count=1)
+    else:
+        text = text.rstrip("\n") + f"\n{line}\n"
+    manifest.write_text(text, encoding="utf-8")
+
+
 def add_template(
-    template: str, home: Path, agent_id: str = "", force: bool = False
+    template: str,
+    home: Path,
+    agent_id: str = "",
+    force: bool = False,
+    workspace: Path | None = None,
 ) -> tuple[Path, list[str]]:
     """Copies one template into `home/agents/<id>` and its shared skills into `home/skills`.
 
     A template that delegates brings the peers it names, under their own ids, because the
     server refuses to start when a `delegates` entry points at an agent that is not there
-    — adding a lead on its own would leave a home that cannot come up.
+    — adding a lead on its own would leave a home that cannot come up. `workspace` pins
+    the repository the agent (and every peer added with it) works in; without it they
+    share the master agent's workspace.
 
     Returns the agent directory and the ids of any peers added with it. Raises `KeyError`
     for a name that is not a template and `FileExistsError` when the id is taken, so a
@@ -106,4 +126,7 @@ def add_template(
             continue
         _copy_tree(TEMPLATES_DIR / peer, peer_dir, force=False)
         peers.append(peer)
+    if workspace is not None:
+        for directory in (agent_dir, *(home / "agents" / peer for peer in peers)):
+            pin_workspace(directory / MANIFEST, workspace)
     return agent_dir, peers

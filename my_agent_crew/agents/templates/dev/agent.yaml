@@ -11,7 +11,9 @@ delegates:
   - debugger
   - researcher
   - git
-workspace: .
+# The crew works in the master agent's workspace by default; `agent add --workspace` or
+# the install API pins a repository here instead.
+workspace: ../../workspace
 # A capable model earns its keep here: this one decides what the others are asked.
 routes: []
 # The crew shares one set of skills, installed once at the top of the home directory.

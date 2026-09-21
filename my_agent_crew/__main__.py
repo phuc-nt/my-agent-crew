@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+from pathlib import Path
 
 import uvicorn
 
@@ -27,6 +28,11 @@ def _parser() -> argparse.ArgumentParser:
     add.add_argument("template")
     add.add_argument("--id", default="", help="agent id, defaults to the template name")
     add.add_argument("--force", action="store_true", help="overwrite files that already exist")
+    add.add_argument(
+        "--workspace",
+        default="",
+        help="repository the agent works in; defaults to the master agent's workspace",
+    )
     return parser
 
 
@@ -38,8 +44,11 @@ def _list_templates() -> int:
 
 def _add(args: argparse.Namespace) -> int:
     settings = load_settings()
+    workspace = Path(args.workspace) if args.workspace else None
     try:
-        agent_dir, peers = add_template(args.template, settings.home, args.id, args.force)
+        agent_dir, peers = add_template(
+            args.template, settings.home, args.id, args.force, workspace=workspace
+        )
     except KeyError:
         names = ", ".join(t.id for t in list_templates())
         print(f"không có mẫu {args.template!r}. Có: {names}")
@@ -50,7 +59,7 @@ def _add(args: argparse.Namespace) -> int:
     print(f"đã tạo {agent_dir}")
     if peers:
         print(f"kèm theo đồng đội mà agent này giao việc: {', '.join(peers)}")
-    print("sửa agent.yaml (workspace, routes) rồi khởi động lại máy chủ.")
+    print("khởi động lại máy chủ để nạp, hoặc cài qua web UI để dùng ngay.")
     return 0
 
 

@@ -188,6 +188,19 @@ def test_an_installed_crew_starts_and_the_lead_can_reach_its_peers(tmp_path):
     # The allow-listed roles keep only what they asked for, and no peer may delegate on.
     assert set(rt.deps_for("scout").tools.names()) == set(rt.deps_for("scout").agent.tools)
     assert DELEGATE_TOOL_NAME not in rt.deps_for("scout").tools.names()
-    # Every role reads the one shared set, so a skill is installed once, not nine times.
+    # Every role reads the one shared set, so a skill is installed once, not nine times,
+    # and all of them work where the master does until a workspace is pinned.
     for agent_id in EXPECTED:
         assert "delegation" in {s.name for s in rt.deps_for(agent_id).skills}, agent_id
+        assert rt.deps_for(agent_id).agent.workspace == rt.default.agent.workspace, agent_id
+
+
+def test_a_pinned_workspace_reaches_the_lead_and_every_peer_it_brings(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    agent_dir, peers = add_template("dev", tmp_path / "home", workspace=repo)
+
+    for directory in (agent_dir, *(tmp_path / "home" / "agents" / p for p in peers)):
+        text = (directory / MANIFEST).read_text(encoding="utf-8")
+        assert f"workspace: {repo.resolve()}" in text, directory.name
+        assert "# The crew shares one set of skills" in text  # comments survive the rewrite
