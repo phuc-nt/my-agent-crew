@@ -101,6 +101,43 @@ async def test_an_empty_ask_list_turns_the_extra_guard_off(deps_factory):
     assert next(e for e in events if isinstance(e, ToolResultEvent)).ok
 
 
+async def test_an_autonomous_agent_clears_its_own_temp_sandbox_without_asking(deps_factory):
+    """The cleanup an agent does after itself is the one destructive shape that runs, so
+    an unattended turn is not stopped by work that deletes nothing of the person's."""
+    import tempfile
+
+    from my_agent_crew.config import Route
+
+    deps = deps_factory(routes=(Route("fake", "echo"),))
+    conv = deps.store.create(autonomous=True)
+    sandbox = Path(tempfile.gettempdir()) / "tmp.crew-cleanup-probe"
+    sandbox.mkdir(exist_ok=True)
+    events = await collect(
+        run_turn(deps, conv.id, f'/tool shell_run {{"command": "rm -rf {sandbox}"}}')
+    )
+    assert not any(isinstance(e, ApprovalRequiredEvent) for e in events)
+    assert next(e for e in events if isinstance(e, ToolResultEvent)).ok
+    assert not sandbox.exists()
+
+
+async def test_a_delete_reaching_outside_the_sandbox_still_waits(deps_factory):
+    """Same `rm -rf`, but the path leaves the temp root: the guard is back."""
+    import tempfile
+
+    from my_agent_crew.config import Route
+
+    deps = deps_factory(routes=(Route("fake", "echo"),))
+    conv = deps.store.create(autonomous=True)
+    escape = f"{tempfile.gettempdir()}/../../Users"
+    events = await collect(
+        run_turn(deps, conv.id, f'/tool shell_run {{"command": "rm -rf {escape}"}}')
+    )
+    approval = events[-1]
+    assert isinstance(approval, ApprovalRequiredEvent)
+    assert approval.reason == texts.SHELL_ASK_REASON.format(pattern="rm -rf")
+    assert not any(isinstance(e, ToolResultEvent) for e in events)
+
+
 async def test_a_matching_command_asks_the_same_way_when_not_autonomous(deps_factory):
     from my_agent_crew.config import Route
 

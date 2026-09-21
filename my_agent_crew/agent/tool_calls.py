@@ -25,6 +25,7 @@ from my_agent_crew.store.models import AWAITING_APPROVAL, Conversation
 from my_agent_crew.texts import DENIED_TOOL, EXPIRED_TOOL, SHELL_ASK_REASON
 from my_agent_crew.tools.registry import ToolResult
 from my_agent_crew.tools.shell import SHELL_TOOL_NAME, ask_reason
+from my_agent_crew.tools.shell_temp_paths import deletes_only_temp_paths
 
 if TYPE_CHECKING:  # the loop owns the deps; importing it back would be a cycle
     from my_agent_crew.agent.loop import AgentDeps
@@ -34,10 +35,20 @@ REFUSALS = {DENIED: DENIED_TOOL, EXPIRED: EXPIRED_TOOL}
 
 def _ask_reason(deps: AgentDeps, name: str, arguments: dict[str, Any]) -> str | None:
     """A shell command whose shape is on the ask list is approved even when the
-    conversation is autonomous; every other call keeps the old rule."""
+    conversation is autonomous; every other call keeps the old rule.
+
+    One shape is let through: an agent deleting a temp directory it made itself. That
+    tripped the list on every cleanup and stalled unattended runs, while deleting nothing
+    of the person's. The exemption only holds when every path the command names resolves
+    inside a system temp root — see `deletes_only_temp_paths`.
+    """
     if name != SHELL_TOOL_NAME:
         return None
-    return ask_reason(str(arguments.get("command", "")), deps.settings.shell_ask_patterns)
+    command = str(arguments.get("command", ""))
+    reason = ask_reason(command, deps.settings.shell_ask_patterns)
+    if reason and deletes_only_temp_paths(command):
+        return None
+    return reason
 
 
 def needs_decision(conv: Conversation, name: str, reason: str | None) -> bool:
