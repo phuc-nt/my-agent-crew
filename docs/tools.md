@@ -9,8 +9,10 @@ The system prompt lists the available names; the model sees each tool's JSON sch
 
 - **Arguments are validated** against the schema before the tool runs; a bad call is
   returned to the model as an error, not raised.
-- **Output is capped** at 8 000 characters (`MAX_OUTPUT_CHARS`) before it enters the
-  context; the cut is marked.
+- **Output is capped** before it enters the context; the cut is marked. The default is
+  8 000 characters (`tool_output_chars` in `config.yaml` or `MY_AGENT_TOOL_OUTPUT_CHARS`);
+  an agent whose scripts print more raises its own cap with `tool_output_chars` in its
+  profile without the rest of the crew paying for it.
 - **Errors are honest.** A `ToolError` is returned to the model as "Công cụ lỗi: …"; any
   other exception is logged with its traceback and returned by type name. The prompt frame
   tells the model to report a failed tool instead of pretending.

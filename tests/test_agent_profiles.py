@@ -28,6 +28,7 @@ def test_parse_profile_overrides_routes_and_limits_only(settings: Settings, tmp_
         "max_steps": 4,
         "autonomous": True,
         "shell_ask_patterns": ["dd if="],
+        "tool_output_chars": 16000,
         "skills_dirs": ["../shared-skills"],
         "persona_files": ["SOUL.md"],
         "schedules": [
@@ -49,6 +50,10 @@ def test_parse_profile_overrides_routes_and_limits_only(settings: Settings, tmp_
     )
     off = parse_profile("c3", agent_dir, {"shell_ask_patterns": []}, settings)
     assert off.settings.shell_ask_patterns == ()
+    # A ledger brief is longer than the default cap; one agent raises it without the rest.
+    assert profile.settings.tool_output_chars == 16000
+    assert profile.to_dict()["tool_output_chars"] == 16000
+    assert off.settings.tool_output_chars == settings.tool_output_chars
     assert profile.settings.home == settings.home
     assert profile.workspace == Path("~/nonexistent-but-fine").expanduser().resolve()
     assert profile.skills_dirs == (agent_dir / "skills", (tmp_path / "agents" / "shared-skills"))
@@ -67,6 +72,7 @@ def test_parse_profile_overrides_routes_and_limits_only(settings: Settings, tmp_
         {"schedules": [{"id": "x", "cron": "* * * * *", "every": "5m", "prompt": "p"}]},
         {"schedules": [{"id": "x", "cron": "* * * * *"}]},
         {"schedules": [{"id": "x", "cron": "* * * * *", "prompt": "p", "extra": 1}]},
+        {"tool_output_chars": 0},
     ],
 )
 def test_parse_profile_rejects_unknown_keys_and_ambiguous_schedules(settings, tmp_path, raw):

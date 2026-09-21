@@ -21,7 +21,9 @@ TOOL_FAILED = "Công cụ lỗi: {error}"
 OUTPUT_TRUNCATED = "\n…[đã cắt bớt {dropped} ký tự]"
 EMPTY_REPLY = "(không có nội dung)"
 
-WORKSPACE_ESCAPE = "Đường dẫn nằm ngoài thư mục làm việc."
+WORKSPACE_ESCAPE = (
+    "Đường dẫn nằm ngoài thư mục làm việc; tệp ngoài workspace đọc bằng shell_run (cat, sed -n)."
+)
 WORKSPACE_NOT_FOUND = "Không có tệp hoặc thư mục: {path}"
 WORKSPACE_IS_DIR = "{path} là thư mục, không phải tệp."
 

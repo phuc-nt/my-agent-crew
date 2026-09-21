@@ -64,6 +64,17 @@ def test_the_approval_deadline_comes_from_yaml_or_env_and_must_be_positive(tmp_p
         load_settings(env={**home, "MY_AGENT_APPROVAL_TTL_SECONDS": "0"})
 
 
+def test_the_tool_output_cap_comes_from_yaml_or_env_and_must_be_positive(tmp_path: Path):
+    home = {"MY_AGENT_HOME": str(tmp_path)}
+    assert load_settings(env=home).tool_output_chars == 8000
+    (tmp_path / "config.yaml").write_text("tool_output_chars: 16000\n")
+    assert load_settings(env=home).tool_output_chars == 16000
+    env = {**home, "MY_AGENT_TOOL_OUTPUT_CHARS": "2000"}
+    assert load_settings(env=env).tool_output_chars == 2000
+    with pytest.raises(ValueError):
+        load_settings(env={**home, "MY_AGENT_TOOL_OUTPUT_CHARS": "0"})
+
+
 def test_yaml_unknown_key_is_an_error(tmp_path: Path):
     (tmp_path / "config.yaml").write_text("openrouter_api_key: sk-nope\n")
     with pytest.raises(ValueError, match="openrouter_api_key"):

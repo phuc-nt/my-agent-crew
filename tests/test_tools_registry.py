@@ -46,6 +46,17 @@ async def test_long_output_is_truncated_with_notice():
     assert "500" in result.output
 
 
+async def test_a_registry_can_carry_its_own_output_cap_and_keeps_it_when_narrowed():
+    async def big(args):
+        return "x" * 12000
+
+    reg = ToolRegistry([tool(run=big), tool("other")], limit=16000)
+    assert len((await reg.execute("t", {})).output) == 12000
+    small = ToolRegistry([tool(run=big)], limit=100)
+    assert "11900" in (await small.execute("t", {})).output
+    assert reg.without("other").limit == 16000
+
+
 def test_duplicate_registration_rejected():
     reg = ToolRegistry([tool()])
     with pytest.raises(ValueError):

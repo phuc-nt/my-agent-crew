@@ -15,6 +15,10 @@ TELEGRAM_APPROVAL_EXPIRED = (
 )
 TELEGRAM_BUSY = "Cuộc trò chuyện đang chờ bạn duyệt một công cụ: /approve hoặc /deny."
 TELEGRAM_MEDIA_MISSING = "(không gửi được ảnh: {path})"
+# What the agent reads when the person sends a photo or a file: the saved path first, the
+# caption (if any) after it, so the model treats the attachment as part of the message.
+TELEGRAM_ATTACHMENT = "[Tệp đính kèm đã lưu: {path}]\n{caption}"
+TELEGRAM_ATTACHMENT_FAILED = "Không tải được tệp đính kèm từ Telegram ({error}); gửi lại giúp."
 TELEGRAM_RUN_UNFINISHED = (
     "Lượt chạy dừng mà chưa có câu trả lời ({reason}); xem chi tiết trên web UI."
 )

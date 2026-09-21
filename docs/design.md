@@ -67,7 +67,8 @@ any platform ──POST /api/inbound (JSON, sync)─────┴─▶ Inboun
 - **Echo provider is a product feature.** `MY_AGENT_ROUTES=fake:echo` runs the whole stack with no
   key; `/tool <name> {json}` drives real tools through the real approval path. It is also what the
   live smoke and the browser tests lean on.
-- **Tool output is capped** at 8000 characters before it enters the context.
+- **Tool output is capped** before it enters the context: 8000 characters by default, per
+  agent via `tool_output_chars`.
 
 ## Agent profiles
 

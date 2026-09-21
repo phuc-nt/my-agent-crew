@@ -77,7 +77,8 @@ memory_consolidate: "30 3 * * 1"            # mỗi thứ Hai, viết lại MEMO
 Job `prompt` mở một cuộc trò chuyện mới và chạy như người dùng nhắn; job `command` chỉ chạy shell.
 Khi agent có khối `telegram`, server tự poll bot đó: tin nhắn từ `chat_id` trở thành lượt chat
 của một cuộc trò chuyện theo ngày, câu trả lời và kết quả job `prompt` được gửi lại chat;
-dòng `MEDIA:` thành ảnh. Lệnh gạch chéo (`/new`, `/help`, `/status`, `/tools`, `/approve`,
+dòng `MEDIA:` thành ảnh; ảnh hay tệp bạn gửi được lưu vào `inbox/` của workspace agent và agent
+đọc đường dẫn kèm chú thích. Lệnh gạch chéo (`/new`, `/help`, `/status`, `/tools`, `/approve`,
 `/deny`, `/agents`) do kênh tự trả lời, không tốn lượt model.
 
 **Nhiều agent chung một bot:** các agent khai cùng `token_env` (và cùng `chat_id`) dùng chung

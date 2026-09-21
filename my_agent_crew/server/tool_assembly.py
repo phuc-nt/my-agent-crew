@@ -60,4 +60,5 @@ def build_tools(
     if profile.is_work:
         tools += [build_edit_tool(profile.workspace), *build_search_tools(profile.workspace)]
     tools += list(extra)
-    return ToolRegistry(allowed(tools, profile.tools, profile.id))
+    kept = allowed(tools, profile.tools, profile.id)
+    return ToolRegistry(kept, profile.settings.tool_output_chars)

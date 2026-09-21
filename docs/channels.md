@@ -78,6 +78,14 @@ a dead bot, and the same holds for a delivered brief whose run finished empty. R
 out as plain text in
 4 096-char chunks; a `MEDIA:<path>` line becomes `sendPhoto` from the agent workspace.
 
+A photo or a document the person sends is downloaded (largest photo size, or the document
+under its own name reduced to a plain file name) into `<agent workspace>/inbox/` as
+`<YYYYMMDD-HHMMSS>-<name>`, and the turn's text is `[Tệp đính kèm đã lưu: <path>]` with the
+caption after it (`telegram_inbound`). The model does not see the image; the agent's
+persona says what to do with the path, such as copying a paper into another tool's inbox.
+A download that fails is reported to the chat without a model turn. Slash commands are not
+read from captions.
+
 A new conversation does not start blank: the summary of that agent's previous conversation
 on the same channel is carried into the prompt as a **Cuộc trước** section
 (`previous_for_channel`), so `/new` and the first message of a new day pick up where the
@@ -136,8 +144,8 @@ tool); the channel logs `another poller holds this bot` and retries every 5 s.
 
 ## Secrets
 
-The token never reaches logs: API errors are redacted to `<token>` before they are raised,
-and a logging filter scrubs it from `httpx` request lines. Profiles hold env-var names
+The token never reaches logs: API errors are redacted to `<token>` before they are raised
+(the file-download URL included), and a logging filter scrubs it from `httpx` request lines. Profiles hold env-var names
 only, the settings drawer shows key presence only, and `agents/` is personal data outside
 this repo.
 

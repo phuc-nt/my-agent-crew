@@ -1,8 +1,9 @@
 """One Telegram bot's channel: messages from the configured chat become turns of a
 per-day conversation, run through the same `Inbound` gate as the web UI. A bot may serve
 several agents: `@<agent id>` picks the agent for that message and the ones after it.
-Slash commands are answered by `telegram_commands` without a model call. `deliver` pushes
-a scheduled brief to the chat. Only one process may poll a bot: a 409 means another is."""
+`telegram_inbound` reads each update (mentions, slash commands, attachments); `deliver`
+pushes a scheduled brief to the chat. Only one process may poll a bot: a 409 means another
+is."""
 
 from __future__ import annotations
 
@@ -20,13 +21,8 @@ from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.agent.turn_context import TELEGRAM
 from my_agent_crew.channels import telegram_conversations as conversations
 from my_agent_crew.channels.telegram_api import CONFLICT_STATUS, TelegramApi, TelegramError
-from my_agent_crew.channels.telegram_commands import (
-    MENU,
-    answer_command,
-    bot_answers,
-    parse_command,
-    route_mention,
-)
+from my_agent_crew.channels.telegram_commands import MENU
+from my_agent_crew.channels.telegram_inbound import handle_update
 from my_agent_crew.channels.telegram_offset import read_offset, write_offset
 from my_agent_crew.channels.telegram_outbound import TelegramOutbound
 from my_agent_crew.inbound import Inbound, InboundBusy, collect_reply
@@ -134,25 +130,17 @@ class TelegramChannel:
         return len(updates)
 
     async def handle(self, update: dict[str, Any]) -> None:
-        message = update.get("message") or {}
-        chat_id = (message.get("chat") or {}).get("id")
-        text = message.get("text")
-        if chat_id != self.chat_id or not text:
-            logger.info("telegram %s: ignored update from chat %s", self.label, chat_id)
-            return
-        logger.info("telegram %s: message of %d chars", self.label, len(text))
-        agent_id, text, addressed = await route_mention(self, text)
-        if agent_id is None:
-            return
-        command = parse_command(text)
-        if command is None:
-            await self.chat(agent_id, text)
-            return
-        answer = await answer_command(self, agent_id, command, addressed)
-        if bot_answers(self, command, addressed):
-            await self.say(answer)
-        else:
-            await self._outbound[agent_id].send(answer)
+        await handle_update(self, update)
+
+    @property
+    def api(self) -> TelegramApi:
+        return self._api
+
+    def now(self) -> datetime:
+        return self._clock()
+
+    def outbound(self, agent_id: str) -> TelegramOutbound:
+        return self._outbound[agent_id]
 
     async def chat(self, agent_id: str, text: str) -> None:
         conv = self.conversation(agent_id)

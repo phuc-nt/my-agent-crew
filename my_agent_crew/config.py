@@ -22,7 +22,10 @@ YAML_KEYS = (
     "autonomous_default",
     "shell_ask_patterns",
     "approval_ttl_seconds",
+    "tool_output_chars",
 )
+# Characters of one tool result the model gets to see; the rest is cut with a notice.
+DEFAULT_TOOL_OUTPUT_CHARS = 8000
 # How long a tool call waits for a decision before it is treated as denied. A pause
 # nobody answers must not hold a conversation (and a job's channel) forever.
 DEFAULT_APPROVAL_TTL_SECONDS = 600
@@ -72,6 +75,7 @@ class Settings:
     autonomous_default: bool = False
     shell_ask_patterns: tuple[str, ...] = DEFAULT_SHELL_ASK_PATTERNS
     approval_ttl_seconds: int = DEFAULT_APPROVAL_TTL_SECONDS
+    tool_output_chars: int = DEFAULT_TOOL_OUTPUT_CHARS
 
     @property
     def workspace_dir(self) -> Path:
@@ -140,9 +144,16 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
             env.get("MY_AGENT_APPROVAL_TTL_SECONDS")
             or file_values.get("approval_ttl_seconds", DEFAULT_APPROVAL_TTL_SECONDS)
         ),
+        tool_output_chars=int(
+            env.get("MY_AGENT_TOOL_OUTPUT_CHARS")
+            or file_values.get("tool_output_chars", DEFAULT_TOOL_OUTPUT_CHARS)
+        ),
     )
-    if settings.max_steps < 1 or settings.cost_cap_usd < 0 or settings.approval_ttl_seconds < 1:
-        raise ValueError("max_steps and approval_ttl_seconds must be >= 1, cost_cap_usd >= 0")
+    positive = (settings.max_steps, settings.approval_ttl_seconds, settings.tool_output_chars)
+    if min(positive) < 1 or settings.cost_cap_usd < 0:
+        raise ValueError(
+            "max_steps, approval_ttl_seconds and tool_output_chars must be >= 1, cost_cap_usd >= 0"
+        )
     return settings
 
 

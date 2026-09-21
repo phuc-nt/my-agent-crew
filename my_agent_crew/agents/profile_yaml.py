@@ -101,7 +101,10 @@ def parse_profile(
             if "shell_ask_patterns" in raw
             else base.shell_ask_patterns
         ),
+        tool_output_chars=int(raw.get("tool_output_chars", base.tool_output_chars)),
     )
+    if settings.tool_output_chars < 1:
+        raise ValueError(f"agent {agent_id}: tool_output_chars must be >= 1")
     workspace = _resolve(agent_dir, str(raw.get("workspace") or "workspace"))
     skills_dirs = [agent_dir / "skills"] + [
         _resolve(agent_dir, str(d)) for d in raw.get("skills_dirs") or []

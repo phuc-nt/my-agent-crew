@@ -127,6 +127,24 @@ class TelegramApi:
         with path.open("rb") as handle:
             await self.call("sendPhoto", {"chat_id": chat_id}, files={"photo": (path.name, handle)})
 
+    async def file_path(self, file_id: str) -> str:
+        """Where Telegram keeps a file the person sent, relative to the file endpoint."""
+        info = await self.call("getFile", {"file_id": file_id})
+        return str(info.get("file_path") or "")
+
+    async def download_file(self, remote: str, path: Path) -> Path:
+        """Saves the file at `remote` (from `file_path`) to `path`. The download URL carries
+        the token like every other call, so its errors are redacted."""
+        url = f"{self._base}/file/bot{self._token}/{remote}"
+        try:
+            response = await self._client.get(url)
+            response.raise_for_status()
+        except httpx.HTTPError as exc:
+            raise TelegramError(f"getFile: {self.redact(str(exc))}") from exc
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(response.content)
+        return path
+
     async def send_chat_action(self, chat_id: int, action: str = "typing") -> None:
         """Shows "typing…" in the chat; Telegram clears it after ~5 s or on the next message."""
         await self.call("sendChatAction", {"chat_id": chat_id, "action": action})

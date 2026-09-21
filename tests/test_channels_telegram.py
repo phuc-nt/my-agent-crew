@@ -40,16 +40,25 @@ class FakeTelegram:
         self.photos: list[bytes] = []
         self.calls: list[str] = []
         self.menu: list[dict] = []
+        self.files: dict[str, str] = {}  # file_id -> remote path Telegram serves it at
         self.reject_actions = False
         self.status: int | None = None
         self.raise_connect = False
 
     def handler(self, request: httpx.Request) -> httpx.Response:
         assert f"/bot{TOKEN}/" in str(request.url)
+        if request.url.path.startswith("/file/"):
+            return self.serve_file(request)
         method = request.url.path.rsplit("/", 1)[-1]
         self.calls.append(method)
         if self.raise_connect:
             raise httpx.ConnectError(f"cannot reach {request.url}", request=request)
+        if method == "getFile":
+            form = dict(parse_qsl(request.content.decode()))
+            remote = self.files.get(form["file_id"])
+            if remote is None:
+                return httpx.Response(400, json={"ok": False, "description": "file not found"})
+            return httpx.Response(200, json={"ok": True, "result": {"file_path": remote}})
         if self.status and method == "getUpdates":
             return httpx.Response(self.status, json={"ok": False, "description": "Conflict"})
         if method == "getUpdates":
@@ -72,9 +81,31 @@ class FakeTelegram:
             self.menu = json.loads(form["commands"])
         return httpx.Response(200, json={"ok": True, "result": {}})
 
+    def serve_file(self, request: httpx.Request) -> httpx.Response:
+        """`GET /file/bot<token>/<remote path>`: the bytes of a file the person sent."""
+        assert request.method == "GET"
+        self.calls.append("download")
+        remote = request.url.path.split(f"/file/bot{TOKEN}/", 1)[1]
+        if remote not in self.files.values():
+            return httpx.Response(404, text="Not Found")
+        return httpx.Response(200, content=b"BYTES:" + remote.encode())
+
 
 def message(update_id: int, text: str, chat: int = CHAT) -> dict:
     return {"update_id": update_id, "message": {"chat": {"id": chat}, "text": text}}
+
+
+def photo(update_id: int, file_id: str, caption: str = "", chat: int = CHAT) -> dict:
+    sizes = [{"file_id": "small", "width": 90}, {"file_id": file_id, "width": 1280}]
+    body = {"chat": {"id": chat}, "photo": sizes, **({"caption": caption} if caption else {})}
+    return {"update_id": update_id, "message": body}
+
+
+def document(update_id: int, file_id: str, name: str, caption: str = "") -> dict:
+    body = {"chat": {"id": CHAT}, "document": {"file_id": file_id, "file_name": name}}
+    if caption:
+        body["caption"] = caption
+    return {"update_id": update_id, "message": body}
 
 
 @pytest.fixture
@@ -130,6 +161,43 @@ async def test_messages_from_other_chats_are_ignored(make_channel, fake):
     fake.updates = [message(1, "hi", chat=99), {"update_id": 2, "message": {"chat": {"id": CHAT}}}]
     assert await channel.poll_once() == 2
     assert fake.sent == [] and channel.deps.store.list() == []
+
+
+async def test_a_photo_is_saved_to_the_inbox_and_the_agent_reads_its_path_with_the_caption(
+    make_channel, fake
+):
+    clock = datetime(2026, 9, 21, 14, 5, 9)
+    channel = make_channel(clock=lambda: clock)
+    fake.files = {"big": "photos/file_7.jpg"}
+    fake.updates = [photo(1, "big", caption="sổ đỏ lô B")]
+    await channel.poll_once()
+    saved = channel.deps.agent.workspace / "inbox" / "20260921-140509-file_7.jpg"
+    assert saved.read_bytes() == b"BYTES:photos/file_7.jpg"
+    expected = texts.TELEGRAM_ATTACHMENT.format(path=saved, caption="sổ đỏ lô B")
+    assert fake.sent == [f"(echo) {expected}"]
+    assert fake.calls.count("getFile") == 1 and "small" not in fake.files.values()
+
+
+async def test_a_document_keeps_the_senders_file_name_reduced_to_a_plain_name(make_channel, fake):
+    channel = make_channel(clock=lambda: datetime(2026, 9, 21, 8, 0, 0))
+    fake.files = {"doc": "documents/file_3.pdf"}
+    fake.updates = [document(1, "doc", "../../hợp đồng (bản 2).pdf")]
+    await channel.poll_once()
+    inbox = channel.deps.agent.workspace / "inbox"
+    [saved] = list(inbox.iterdir())
+    assert saved.name == "20260921-080000-hợp_đồng_bản_2_.pdf"
+    # No caption: the agent reads just the saved path, without a dangling blank line.
+    assert fake.sent == [f"(echo) [Tệp đính kèm đã lưu: {saved}]"]
+
+
+async def test_a_failed_download_is_reported_without_a_model_turn(make_channel, fake, caplog):
+    channel = make_channel()
+    fake.updates = [photo(1, "gone")]
+    with caplog.at_level(logging.WARNING, logger="my_agent_crew.channels"):
+        await channel.poll_once()
+    assert len(fake.sent) == 1 and fake.sent[0].startswith("Không tải được tệp đính kèm")
+    assert channel.deps.store.list() == [] and TOKEN not in caplog.text
+    assert not (channel.deps.agent.workspace / "inbox").exists()
 
 
 async def test_same_day_messages_share_one_conversation_and_a_new_day_opens_another(

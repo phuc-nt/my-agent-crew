@@ -8,12 +8,14 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
 
+from my_agent_crew.config import DEFAULT_TOOL_OUTPUT_CHARS
 from my_agent_crew.llm.types import ToolSpec
 from my_agent_crew.texts import OUTPUT_TRUNCATED, TOOL_FAILED, UNKNOWN_TOOL
 
 logger = logging.getLogger(__name__)
 
-MAX_OUTPUT_CHARS = 8000
+# The default cap; a profile's `tool_output_chars` sets its own registry's limit.
+MAX_OUTPUT_CHARS = DEFAULT_TOOL_OUTPUT_CHARS
 
 ToolRunner = Callable[[dict[str, Any]], Awaitable[str]]
 
@@ -58,7 +60,10 @@ def truncate(text: str, limit: int = MAX_OUTPUT_CHARS) -> str:
 
 
 class ToolRegistry:
-    def __init__(self, tools: list[Tool] | None = None):
+    def __init__(self, tools: list[Tool] | None = None, limit: int = MAX_OUTPUT_CHARS):
+        # The cap is per registry, so an agent whose scripts print long JSON can raise it
+        # in its profile without every other agent paying the context for it.
+        self.limit = limit
         self._tools: dict[str, Tool] = {}
         for tool in tools or []:
             self.register(tool)
@@ -77,7 +82,7 @@ class ToolRegistry:
     def without(self, name: str) -> ToolRegistry:
         """A copy missing one tool. How a delegated agent is handed the same toolbox minus
         `delegate`, so the chain stops one level down."""
-        return ToolRegistry([t for t in self._tools.values() if t.name != name])
+        return ToolRegistry([t for t in self._tools.values() if t.name != name], self.limit)
 
     def specs(self) -> list[ToolSpec]:
         return [t.spec for t in self._tools.values()]
@@ -96,4 +101,4 @@ class ToolRegistry:
         except Exception as exc:  # a bug in a tool must not take the turn down with it
             logger.exception("tool %s crashed", name)
             return ToolResult(ok=False, output=TOOL_FAILED.format(error=type(exc).__name__))
-        return ToolResult(ok=True, output=truncate(output))
+        return ToolResult(ok=True, output=truncate(output, self.limit))
