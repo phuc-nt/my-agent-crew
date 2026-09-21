@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+from my_agent_crew import texts
 from my_agent_crew.tools.registry import ToolError, ToolRegistry
 from my_agent_crew.tools.workspace import build_workspace_tools, resolve_inside
 
@@ -62,6 +63,17 @@ async def test_reading_a_window_of_lines(reg: ToolRegistry, tmp_path: Path):
     assert tail.output == "line 99\nline 100"
     head = await reg.execute("workspace_read", {"path": "long.txt", "limit": 2})
     assert head.output == "line 1\nline 2"
+
+
+async def test_a_long_file_is_cut_only_by_the_agents_output_cap_and_says_so(tmp_path: Path):
+    """The tool has no cap of its own: a 24k brief reaches an agent whose cap allows it,
+    and an agent with a smaller cap sees the marker instead of a file that just stops."""
+    (tmp_path / "brief.md").write_text("x" * 24000)
+    wide = ToolRegistry(build_workspace_tools(tmp_path), 32000)
+    assert len((await wide.execute("workspace_read", {"path": "brief.md"})).output) == 24000
+    narrow = ToolRegistry(build_workspace_tools(tmp_path), 20000)
+    cut = (await narrow.execute("workspace_read", {"path": "brief.md"})).output
+    assert cut.startswith("x" * 20000) and texts.OUTPUT_TRUNCATED.format(dropped=4000) in cut
 
 
 async def test_missing_file_is_a_readable_error(reg: ToolRegistry):

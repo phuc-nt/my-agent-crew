@@ -1,5 +1,7 @@
 """Files under the agent's workspace directory. Escaping the root is refused in code,
-not by the prompt; writing asks the user first."""
+not by the prompt; writing asks the user first. A read returns the whole file (or the
+requested window): the registry's per-agent output cap is the one place text is cut, and it
+says so, whereas a silent cap here left the model believing a 24k brief ended at 20k."""
 
 from __future__ import annotations
 
@@ -9,8 +11,6 @@ from typing import Any
 
 from my_agent_crew.texts import WORKSPACE_ESCAPE, WORKSPACE_IS_DIR, WORKSPACE_NOT_FOUND
 from my_agent_crew.tools.registry import Tool, ToolError
-
-MAX_READ_CHARS = 20000
 
 
 def _within(root: Path, path: Path) -> bool:
@@ -56,14 +56,14 @@ def build_workspace_tools(root: Path) -> list[Tool]:
         text = path.read_text(encoding="utf-8", errors="replace")
         offset, limit = args.get("offset"), args.get("limit")
         if offset is None and limit is None:
-            return text[:MAX_READ_CHARS]
+            return text
         # 1-based like an editor's gutter, so a line number from a grep hit can be used
         # here without arithmetic.
         start = max(int(offset or 1), 1) - 1
         lines = text.splitlines()[start:]
         if limit is not None:
             lines = lines[: max(int(limit), 0)]
-        return "\n".join(lines)[:MAX_READ_CHARS]
+        return "\n".join(lines)
 
     async def write_file(args: dict[str, Any]) -> str:
         path = resolve_inside(root, args["path"])

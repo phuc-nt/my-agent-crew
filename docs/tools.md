@@ -34,7 +34,7 @@ The system prompt lists the available names; the model sees each tool's JSON sch
 | Tool | Approval | Limits | What it does |
 |---|---|---|---|
 | `workspace_list` | no | — | lists a directory inside the workspace |
-| `workspace_read` | no | 20 000 chars (`MAX_READ_CHARS`) | reads a text file inside the workspace; `offset` (1-based line) and `limit` read a window instead of the whole file |
+| `workspace_read` | no | only the agent's output cap (`tool_output_chars`), which marks the cut | reads a text file inside the workspace; `offset` (1-based line) and `limit` read a window instead of the whole file |
 | `workspace_write` | **yes** | — | writes a text file inside the workspace, creating parents |
 | `fetch_url` | no | 6 000 chars (`MAX_PAGE_CHARS`), 20 s, no redirects | GET of a public http(s) page, HTML reduced to text |
 | `web_search` | no | 5 results | only with `BRAVE_API_KEY` or `TAVILY_API_KEY` (Brave preferred); returns title, URL, snippet |
