@@ -15,9 +15,11 @@ if TYPE_CHECKING:  # the store imports nothing from the agent package
     from my_agent_crew.store import Store
 
 CHAT, TELEGRAM, JOB, WEB = "chat", "telegram", "job", "web"
+# A message posted to the inbound API by a platform that relays a person's chat.
+API = "api"
 # A turn another agent asked for; the rest of the source names the parent conversation.
 DELEGATE = "delegate"
-PRESENT_SOURCES = (CHAT, TELEGRAM)
+PRESENT_SOURCES = (CHAT, TELEGRAM, API)
 
 _turn_source: ContextVar[str] = ContextVar("turn_source", default=CHAT)
 _turn_conversation_id: ContextVar[str] = ContextVar("turn_conversation_id", default="")

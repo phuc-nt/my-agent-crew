@@ -20,6 +20,7 @@ from my_agent_crew.server import (
     routes_approvals,
     routes_chat,
     routes_conversations,
+    routes_inbound,
     routes_jobs,
     routes_memory_agent,
     routes_memory_user,
@@ -35,6 +36,7 @@ STATIC_DIR = Path(__file__).parent / "static"
 ROUTERS = (
     routes_conversations.router,
     routes_chat.router,
+    routes_inbound.router,
     routes_approvals.router,
     routes_settings.router,
     routes_agents.router,

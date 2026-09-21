@@ -109,6 +109,14 @@ CONSOLIDATE_EMPTY = "Model không trả về nội dung nào."
 CONSOLIDATE_BUSY = "Agent này đang cô đọng bộ nhớ."
 
 CONVERSATION_TITLE_DEFAULT = "Cuộc trò chuyện mới"
+# One conversation per agent per day on a channel; `{channel}` is the channel's label.
+INBOUND_CONVERSATION_TITLE = "{channel} · {date}"
+# What a person reads back from a turn on any platform that shows one message per turn.
+REPLY_EMPTY = "Lượt chạy xong nhưng không có nội dung trả lời ({steps} bước). Thử gửi lại câu hỏi."
+REPLY_HALTED = "Đã dừng ({reason}), đã chi ${spent:.4f}."
+REPLY_ERROR = "Lỗi: {message}"
+REPLY_APPROVAL = "Agent cần duyệt công cụ {name}{reason}: {how}."
+REPLY_APPROVAL_HOW = "duyệt trên web UI hoặc qua API duyệt"
 
 SKILL_LOCATION = "Thư mục kỹ năng (script, tài liệu kèm theo): {path}"
 SKILL_INDEX_HEADING = "## Kỹ năng có sẵn"

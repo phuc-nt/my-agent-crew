@@ -7,14 +7,8 @@ TELEGRAM_NEW_CONVERSATION_ALL = "Đã mở cuộc trò chuyện mới cho tất 
 TELEGRAM_NEW_CONVERSATION_ONE = (
     "Đã mở cuộc trò chuyện mới với {name}. Các agent khác giữ nguyên cuộc của họ."
 )
-TELEGRAM_TURN_EMPTY = (
-    "Lượt chạy xong nhưng không có nội dung trả lời ({steps} bước). Thử gửi lại câu hỏi."
-)
-TELEGRAM_HALTED = "Đã dừng ({reason}), đã chi ${spent:.4f}."
-TELEGRAM_ERROR = "Lỗi: {message}"
-TELEGRAM_APPROVAL = (
-    "Agent cần duyệt công cụ {name}{reason}: gửi /approve để duyệt, /deny để từ chối."
-)
+# Fills `{how}` of REPLY_APPROVAL: on Telegram the decision is a slash command.
+TELEGRAM_APPROVAL_HOW = "gửi /approve để duyệt, /deny để từ chối"
 SHELL_ASK_REASON = "khớp mẫu cần duyệt: `{pattern}`"
 TELEGRAM_APPROVAL_EXPIRED = (
     "Yêu cầu duyệt công cụ {name} đã hết hạn chờ, agent tiếp tục như bị từ chối."

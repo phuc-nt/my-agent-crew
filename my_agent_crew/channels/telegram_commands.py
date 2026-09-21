@@ -12,7 +12,7 @@ import re
 from typing import TYPE_CHECKING
 
 from my_agent_crew import texts
-from my_agent_crew.agent.loop import resolve_approval
+from my_agent_crew.agent.turn_context import TELEGRAM
 from my_agent_crew.store.models import AWAITING_APPROVAL
 
 if TYPE_CHECKING:
@@ -154,5 +154,5 @@ async def decide(channel: TelegramChannel, agent_id: str, approve: bool) -> str:
     pending = deps.store.approvals.pending(conv.id)
     if conv.status != AWAITING_APPROVAL or pending is None:
         return texts.TELEGRAM_NO_APPROVAL
-    events = resolve_approval(deps, conv.id, pending.id, approve)
-    return await channel.turn(agent_id, conv, events)
+    events = channel.inbound.decide(conv.id, pending.id, approve, source=TELEGRAM)
+    return await channel.answer(agent_id, events)

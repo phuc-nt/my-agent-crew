@@ -9,9 +9,8 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
-from my_agent_crew.agent.loop import resolve_approval
 from my_agent_crew.server.deps import ConvDeps, Rt
-from my_agent_crew.server.routes_chat import sse_events, track_turn
+from my_agent_crew.server.routes_chat import sse_events
 
 router = APIRouter(tags=["approvals"])
 HISTORY_LIMIT = 50
@@ -45,5 +44,5 @@ async def decide(
         raise HTTPException(404, "approval not found") from exc
     if approval.conversation_id != conv_id or approval.status != "pending":
         raise HTTPException(409, "approval already resolved")
-    events = resolve_approval(deps, conv_id, approval_id, body.approve, always=body.always)
-    return EventSourceResponse(sse_events(track_turn(rt, deps, conv_id, events)))
+    events = rt.inbound.decide(conv_id, approval_id, body.approve, always=body.always)
+    return EventSourceResponse(sse_events(events))

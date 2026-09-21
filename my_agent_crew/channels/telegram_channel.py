@@ -1,9 +1,8 @@
 """One Telegram bot's channel: messages from the configured chat become turns of a
-per-day conversation of one agent (`telegram_conversations`). A bot may serve several
-agents: `@<agent id>` picks the agent for that message and the ones after it; a bare
-`@id` only switches. Slash commands are answered by `telegram_commands` without a model
-call. `deliver` pushes a conversation's last reply (a scheduled brief) to the chat. Only
-one process may poll a bot: a 409 means another poller is alive."""
+per-day conversation, run through the same `Inbound` gate as the web UI. A bot may serve
+several agents: `@<agent id>` picks the agent for that message and the ones after it.
+Slash commands are answered by `telegram_commands` without a model call. `deliver` pushes
+a scheduled brief to the chat. Only one process may poll a bot: a 409 means another is."""
 
 from __future__ import annotations
 
@@ -17,7 +16,7 @@ from typing import Any
 from my_agent_crew import texts
 from my_agent_crew.activity import ActivityHub
 from my_agent_crew.agent.events import Event
-from my_agent_crew.agent.loop import AgentDeps, run_turn
+from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.agent.turn_context import TELEGRAM
 from my_agent_crew.channels import telegram_conversations as conversations
 from my_agent_crew.channels.telegram_api import CONFLICT_STATUS, TelegramApi, TelegramError
@@ -30,11 +29,12 @@ from my_agent_crew.channels.telegram_commands import (
 )
 from my_agent_crew.channels.telegram_offset import read_offset, write_offset
 from my_agent_crew.channels.telegram_outbound import TelegramOutbound
+from my_agent_crew.inbound import Inbound, InboundBusy, collect_reply
 from my_agent_crew.store import Conversation, Store
-from my_agent_crew.store.models import AWAITING_APPROVAL
 
 logger = logging.getLogger(__name__)
 RETRY_SECONDS = 5
+TITLE = texts.TELEGRAM_CONVERSATION_TITLE
 
 
 class TelegramChannel:
@@ -50,12 +50,9 @@ class TelegramChannel:
         if not agents:
             raise ValueError("a telegram channel needs at least one agent")
         self.agents: dict[str, AgentDeps] = dict(agents)
-        self.hub = hub
-        self._api = api
-        self.chat_id = chat_id
-        self._offset_path = offset_path
-        self._clock = clock
-        self._on_replaced: Callable[[AgentDeps, str], None] | None = None
+        self.hub, self.inbound = hub, Inbound(self.agents, hub)
+        self._api, self.chat_id = api, chat_id
+        self._offset_path, self._clock = offset_path, clock
         self._outbound = {
             agent_id: TelegramOutbound(deps, api, chat_id, prefix=self._prefix(deps))
             for agent_id, deps in self.agents.items()
@@ -65,9 +62,8 @@ class TelegramChannel:
         self._task: asyncio.Task[None] | None = None
 
     def set_on_replaced(self, callback: Callable[[AgentDeps, str], None]) -> None:
-        """Hands a replaced conversation to the runtime to summarise. Set after
-        construction: the scheduler holding that task is built after the channels."""
-        self._on_replaced = callback
+        """Set after construction: the scheduler that recaps is built after the channels."""
+        self.inbound.on_replaced = callback
 
     @property
     def shared(self) -> bool:
@@ -82,8 +78,12 @@ class TelegramChannel:
         return next(iter(self.agents.values())).store
 
     @property
+    def channel_key(self) -> str:
+        return conversations.channel_key(self.chat_id)
+
+    @property
     def agent_id(self) -> str:  # the agent a message without a mention goes to
-        return self.current_agent()
+        return conversations.current_agent(self.store, self.agents, self.chat_id)
 
     @property
     def deps(self) -> AgentDeps:
@@ -156,41 +156,41 @@ class TelegramChannel:
 
     async def chat(self, agent_id: str, text: str) -> None:
         conv = self.conversation(agent_id)
-        if conv.status == AWAITING_APPROVAL:
-            await self.say(texts.TELEGRAM_BUSY)
-            return
-        events = run_turn(self.agents[agent_id], conv.id, text, source=TELEGRAM)
-        await self._outbound[agent_id].send(await self.turn(agent_id, conv, events))
+        try:
+            events = self.inbound.stream(conv.id, text, source=TELEGRAM)
+        except InboundBusy:
+            return await self.say(texts.TELEGRAM_BUSY)
+        await self._outbound[agent_id].send(await self.answer(agent_id, events))
+
+    async def answer(self, agent_id: str, events: AsyncIterator[Event]) -> str:
+        """The turn as one message, read with "typing…" showing."""
+        async with self._outbound[agent_id].typing():
+            reply = await collect_reply(events, texts.TELEGRAM_APPROVAL_HOW)
+        return reply.text
 
     async def say(self, text: str) -> None:
         """A message from the bot itself, not from an agent: no agent prefix."""
         await self._api.send_message(self.chat_id, text)
 
     def current_agent(self) -> str:
-        return conversations.current_agent(self.store, self.agents, self.chat_id)
+        return self.agent_id
 
-    def remember_agent(self, agent_id: str) -> None:
-        """The agent an `@id` picked, for the messages that follow it."""
-        self.store.set_current_agent(conversations.channel_key(self.chat_id), agent_id)
+    def remember_agent(self, agent_id: str) -> None:  # the agent an `@id` picked
+        self.store.set_current_agent(self.channel_key, agent_id)
 
     def agents_text(self) -> str:
         return conversations.agents_text(self.agents, self.current_agent())
 
     def conversation(self, agent_id: str | None = None) -> Conversation:
-        deps = self.agents[agent_id or self.current_agent()]
-        return conversations.today_conversation(deps, self.chat_id, self._clock, self._on_replaced)
+        key, clock = self.channel_key, self._clock
+        return self.inbound.conversation_for(agent_id or self.agent_id, key, clock, TITLE)
 
     def open_conversation(self, agent_id: str | None = None) -> Conversation:
-        deps = self.agents[agent_id or self.current_agent()]
-        return conversations.open_conversation(deps, self.chat_id, self._clock, self._on_replaced)
-
-    async def turn(self, agent_id: str, conv: Conversation, events: AsyncIterator[Event]) -> str:
-        outbound = self._outbound[agent_id]
-        return await conversations.collect_turn(self.hub, outbound, agent_id, conv, events)
+        key, clock = self.channel_key, self._clock
+        return self.inbound.open_conversation(agent_id or self.agent_id, key, clock, TITLE)
 
     async def deliver(self, conv_id: str) -> bool:
-        """Sends a conversation's last reply through its agent's outbound; False when
-        there is none or the agent is not on this bot."""
+        """A conversation's last reply to the chat; False when the agent is not on this bot."""
         outbound = self._outbound.get(self.store.get(conv_id).agent_id)
         if outbound is None:
             logger.warning("telegram %s: conversation %s is another agent's", self.label, conv_id)

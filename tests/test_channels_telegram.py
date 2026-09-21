@@ -202,7 +202,9 @@ async def test_approve_and_deny_commands_resolve_the_pending_tool(make_channel, 
     await channel.poll_once()
     assert fake.sent == [
         texts.TELEGRAM_NO_APPROVAL,
-        texts.TELEGRAM_APPROVAL.format(name="workspace_write", reason=""),
+        texts.REPLY_APPROVAL.format(
+            name="workspace_write", reason="", how=texts.TELEGRAM_APPROVAL_HOW
+        ),
         "đã ghi",
     ]
     assert (deps.settings.workspace_dir / "out.txt").read_text() == "ok"
@@ -236,7 +238,7 @@ async def test_provider_failure_and_pending_approval_become_notices(
     fake.updates = [message(1, "a")]
     await channel.poll_once()
     [notice] = fake.sent
-    assert notice.startswith(texts.TELEGRAM_ERROR.format(message="")) and "model down" in notice
+    assert notice.startswith(texts.REPLY_ERROR.format(message="")) and "model down" in notice
     conv = channel.conversation()
     channel.deps.store.update(conv.id, status=AWAITING_APPROVAL)
     fake.updates = [message(2, "b")]
@@ -337,7 +339,7 @@ async def test_deliver_reports_a_run_that_stopped_without_a_reply(make_channel, 
     # A finished run with nothing to say still reaches the chat: a brief that never arrives
     # is indistinguishable from a broken schedule.
     assert await channel.deliver(conv.id) is True
-    assert fake.sent == [texts.TELEGRAM_TURN_EMPTY.format(steps=0)]
+    assert fake.sent == [texts.REPLY_EMPTY.format(steps=0)]
     fake.sent.clear()
     store.runs.save(
         RunRecord(
@@ -357,7 +359,7 @@ async def test_a_turn_that_produces_no_text_says_so_instead_of_staying_silent(
     channel = make_channel(deps)
     fake.updates = [message(1, "tuần này sao rồi")]
     await channel.poll_once()
-    assert fake.sent == [texts.TELEGRAM_TURN_EMPTY.format(steps=1)]
+    assert fake.sent == [texts.REPLY_EMPTY.format(steps=1)]
 
 
 async def test_an_approval_forced_by_the_ask_list_says_which_pattern_matched(
@@ -370,7 +372,9 @@ async def test_an_approval_forced_by_the_ask_list_says_which_pattern_matched(
     fake.updates = [message(1, "dọn tmp")]
     await channel.poll_once()
     reason = texts.SHELL_ASK_REASON.format(pattern="rm -rf")  # first match in list order
-    assert fake.sent == [texts.TELEGRAM_APPROVAL.format(name="shell_run", reason=f" ({reason})")]
+    how = texts.TELEGRAM_APPROVAL_HOW
+    notice = texts.REPLY_APPROVAL.format(name="shell_run", reason=f" ({reason})", how=how)
+    assert fake.sent == [notice]
 
 
 async def test_an_error_without_a_description_still_names_the_method_and_status():

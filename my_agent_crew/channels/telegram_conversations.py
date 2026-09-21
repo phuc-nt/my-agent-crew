@@ -1,28 +1,15 @@
-"""What a Telegram chat maps to in the store: one conversation per agent per day on the
-channel `telegram:<chat_id>`, and, when several agents share a bot, the "current" agent
-(the one last picked with `@id`, remembered per channel). Also turns an agent turn's
-event stream into the text the chat should read."""
+"""What a Telegram chat maps to in the store: the channel key `telegram:<chat_id>` the
+per-day conversations of every agent on the bot are filed under (opened by `Inbound`),
+and, when several agents share a bot, the "current" agent (the one last picked with
+`@id`, remembered per channel)."""
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Callable, Mapping
-from datetime import datetime
-from typing import Any
+from collections.abc import Mapping
 
 from my_agent_crew import texts
-from my_agent_crew.activity import ActivityHub, tracked
-from my_agent_crew.agent.events import (
-    ApprovalRequiredEvent,
-    AssistantMessageEvent,
-    ErrorEvent,
-    Event,
-    HaltedEvent,
-)
 from my_agent_crew.agent.loop import AgentDeps
-from my_agent_crew.channels.telegram_outbound import TelegramOutbound
-from my_agent_crew.store import Conversation, Store
-
-SOURCE = "telegram"
+from my_agent_crew.store import Store
 
 
 def channel_key(chat_id: int) -> str:
@@ -51,71 +38,3 @@ def agents_text(agents: Mapping[str, AgentDeps], current: str) -> str:
         for agent_id, deps in agents.items()
     ]
     return texts.TELEGRAM_AGENTS.format(agents="\n".join(lines))
-
-
-def today_conversation(
-    deps: AgentDeps,
-    chat_id: int,
-    clock: Any,
-    on_replaced: Callable[[AgentDeps, str], None] | None = None,
-) -> Conversation:
-    """Today's conversation of the agent on this chat, opened on first use each day."""
-    latest = deps.store.latest_for_channel(deps.agent.id, channel_key(chat_id))
-    today = clock().date()
-    if latest is None or datetime.fromisoformat(latest.created_at).astimezone().date() != today:
-        return open_conversation(deps, chat_id, clock, on_replaced)
-    return latest
-
-
-def open_conversation(
-    deps: AgentDeps,
-    chat_id: int,
-    clock: Any,
-    on_replaced: Callable[[AgentDeps, str], None] | None = None,
-) -> Conversation:
-    """Opens a new conversation; the one it replaces is handed to `on_replaced` so the
-    caller can summarise it without this module importing the memory package."""
-    previous = deps.store.latest_for_channel(deps.agent.id, channel_key(chat_id))
-    conv = deps.store.create(
-        title=texts.TELEGRAM_CONVERSATION_TITLE.format(date=clock().date().isoformat()),
-        autonomous=deps.settings.autonomous_default,
-        cost_cap_usd=deps.settings.cost_cap_usd,
-        agent_id=deps.agent.id,
-        channel=channel_key(chat_id),
-    )
-    if previous is not None and on_replaced is not None:
-        on_replaced(deps, previous.id)
-    return conv
-
-
-async def collect_turn(
-    hub: ActivityHub,
-    outbound: TelegramOutbound,
-    agent_id: str,
-    conv: Conversation,
-    events: AsyncIterator[Event],
-) -> str:
-    """Runs a turn's events with "typing…" showing and returns what the user should read:
-    every piece of assistant text, including text written next to a tool call (models
-    often put the answer there and finish with a bare `MEDIA:` line), plus the
-    halt/error/approval notices."""
-    parts: list[str] = []
-    steps = 0
-    async with outbound.typing():
-        async for event in tracked(hub, events, agent_id, SOURCE, conv.title, conv.id):
-            if isinstance(event, AssistantMessageEvent):
-                steps += 1
-                parts.append(event.content.strip())
-            elif isinstance(event, HaltedEvent):
-                parts.append(
-                    texts.TELEGRAM_HALTED.format(reason=event.reason, spent=event.spent_usd)
-                )
-            elif isinstance(event, ErrorEvent):
-                parts.append(texts.TELEGRAM_ERROR.format(message=event.message))
-            elif isinstance(event, ApprovalRequiredEvent):
-                reason = f" ({event.reason})" if event.reason else ""
-                parts.append(texts.TELEGRAM_APPROVAL.format(name=event.name, reason=reason))
-    answer = "\n\n".join(part for part in parts if part)
-    # A turn that ends without a word is still a turn the person is waiting on: a model
-    # sometimes finishes with nothing to say, and silence reads exactly like a dead bot.
-    return answer or texts.TELEGRAM_TURN_EMPTY.format(steps=steps)

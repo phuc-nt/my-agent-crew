@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 
@@ -13,7 +13,8 @@ from my_agent_crew.memory.shared_chat import MAX_LINE_CHARS, shared_chat_section
 from my_agent_crew.store.db import Store
 
 CHANNEL = "telegram:42"
-TODAY = date(2026, 9, 20).isoformat()
+# Messages are stamped in UTC when appended, so "today" is the UTC date, not a fixed one.
+TODAY = datetime.now(UTC).date().isoformat()
 
 
 @pytest.fixture

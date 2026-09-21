@@ -17,6 +17,7 @@ from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.agents import DEFAULT_AGENT_ID, AgentProfile
 from my_agent_crew.channels import TelegramChannel
 from my_agent_crew.config import Route, Settings
+from my_agent_crew.inbound import Inbound
 from my_agent_crew.memory.session_summary import schedule_summary
 from my_agent_crew.scheduler import Scheduler
 from my_agent_crew.server.agent_assembly import build_agent_deps
@@ -42,9 +43,12 @@ class Runtime:
     # Agents whose MEMORY.md is being rewritten right now; a second request is a conflict.
     consolidating: set[str] = field(default_factory=set)
     scheduler: Scheduler = field(init=False)
+    # The gate every platform's messages pass through; it shares `agents`, so it grows too.
+    inbound: Inbound = field(init=False)
 
     def __post_init__(self) -> None:
         self.scheduler = Scheduler(self.agents, self.hub, deliver=self.deliver)
+        self.inbound = Inbound(self.agents, self.hub, self.summarize_replaced)
         for channel in self.unique_channels():
             channel.set_on_replaced(self.summarize_replaced)
 
