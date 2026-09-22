@@ -34,6 +34,9 @@ ngay trên web thay vì sửa YAML bằng tay.
 - **HTTP API quản lý agent**: `POST /api/agents`, `PATCH /api/agents/{id}`, `DELETE /api/agents/{id}`,
   `PUT /api/agents/{id}/files/{name}`, `GET /api/agents/{id}/prompt`, `POST /api/agents/reload`,
   `GET /api/tools`, `GET /api/connections`.
+- **`scripts/gates.sh`** — chạy cả chín cổng CI bằng một lệnh, theo đúng thứ tự `ci.yml`, dừng ở
+  cổng đỏ đầu tiên và gọi tên nó (~22 giây). Cùng với đó là một test giữ số hiệu phiên bản ở năm
+  chỗ khai báo không lệch nhau.
 
 ### Đổi
 

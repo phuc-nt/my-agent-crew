@@ -36,6 +36,15 @@ Chín cổng dưới đây **là chính xác những gì CI chạy**, theo đún
 [`.github/workflows/ci.yml`](../.github/workflows/ci.yml). Chạy đủ cả chín ở máy trước khi đẩy;
 cổng nào bỏ qua thì CI sẽ là nơi phát hiện, và đó là lúc đắt nhất.
 
+Một lệnh chạy hết, dừng ở cổng đỏ đầu tiên và gọi tên nó — **~22 giây**:
+
+```bash
+./scripts/gates.sh
+```
+
+Danh sách dưới đây là để biết mỗi cổng làm gì và vì sao nó tồn tại; muốn chạy thì dùng script,
+vì danh sách nằm trong tệp thì không bỏ sót được, còn nằm trong đầu thì có.
+
 ```bash
 uv sync
 uv run ruff check .
@@ -83,4 +92,4 @@ Sửa định dạng bằng `uv run ruff format .` rồi **chạy lại `pytest`
 
 ## Câu hỏi mở
 
-- Chưa có pre-commit hook; chín cổng ở §4 hiện dựa vào kỷ luật cá nhân, CI là lưới đỡ cuối. Một script `scripts/gates.sh` chạy cả chín bằng một lệnh sẽ bớt được chỗ quên — chưa làm.
+- Chưa có pre-commit hook: `scripts/gates.sh` vẫn phải tự gõ. Gắn vào hook thì mọi commit nhỏ cũng chờ ~22 giây, nên hiện để người chạy tự quyết lúc nào.

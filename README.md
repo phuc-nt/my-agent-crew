@@ -197,6 +197,12 @@ at the crew section. Lines like `MEDIA: <path in workspace>` in the reply are re
 ## Phát triển
 
 ```bash
+./scripts/gates.sh               # cả chín cổng CI, dừng ở cổng đỏ đầu tiên (~22 giây)
+```
+
+Hoặc chạy lẻ từng cổng:
+
+```bash
 uv run ruff check .              # lint
 uv run ruff format --check .     # định dạng — cổng riêng, `ruff check` xanh không thay được
 uv run pytest -q                 # backend
@@ -206,7 +212,7 @@ npm run e2e                      # Playwright (mock /api trong trình duyệt)
 npm run bundle                   # dựng lại bundle vào my_agent_crew/server/static (đã commit)
 ```
 
-Đủ bộ cổng CI và thứ tự chạy: [docs/code-standards.md §4](docs/code-standards.md#4-cổng-phải-chạy-trước-khi-commit).
+Mỗi cổng làm gì và vì sao: [docs/code-standards.md §4](docs/code-standards.md#4-cổng-phải-chạy-trước-khi-commit).
 Thay đổi từng bản: [CHANGELOG.md](CHANGELOG.md). Cách phát hành một phiên bản:
 [docs/deployment-guide.md §6b](docs/deployment-guide.md#6b-phát-hành-một-phiên-bản).
 
