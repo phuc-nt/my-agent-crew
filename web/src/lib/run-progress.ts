@@ -67,12 +67,19 @@ export function stepProgress(run: RunInfo): StepProgress {
  * Uses `finished_at` once it exists so a settled run shows a fixed duration
  * rather than a number that keeps climbing. `now` is injected so the caller
  * can drive the ticking, and so tests are not at the mercy of the clock.
+ *
+ * A settled run with no `finished_at` reports the time its steps took instead
+ * of counting on to now. The two are stamped by different things — the status
+ * by the run's own last event, `finished_at` by the hub that was watching — so
+ * a run recorded outside the hub arrives settled with the timestamp missing,
+ * and measuring that against the current clock turns an old run into hours.
  */
 export function runElapsedMs(run: RunInfo, now: number): number {
   const started = Date.parse(run.started_at);
   if (Number.isNaN(started)) return 0;
   const end = run.finished_at === null ? now : Date.parse(run.finished_at);
   if (Number.isNaN(end)) return 0;
+  if (run.finished_at === null && isSettled(run.status)) return measuredDurationMs(run);
   return Math.max(0, end - started);
 }
 

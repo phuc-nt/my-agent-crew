@@ -50,6 +50,25 @@ def test_model_and_tool_steps_get_cost_and_durations():
     assert run.spent_usd == pytest.approx(0.002) and run.unknown_cost_calls == 1
 
 
+def test_tool_arguments_stay_a_mapping_so_a_stored_run_reads_back_the_same():
+    # The web shows arguments as name/value pairs. Flattened to one string, it walks the
+    # characters instead and shows a row per character — which only ever happened to a run
+    # read back from the store, never to one watched live.
+    run = fresh_run()
+    apply_event(run, ToolCallEvent("c1", "read_file", {"path": "notes.md", "limit": 20}), 10.0)
+    arguments = run.steps[0]["arguments"]
+    assert arguments == {"path": "notes.md", "limit": 20}
+
+
+def test_a_long_tool_argument_is_cut_down_rather_than_stored_whole():
+    run = fresh_run()
+    apply_event(run, ToolCallEvent("c1", "write", {"text": "x" * 500, "n": 3}), 10.0)
+    arguments = run.steps[0]["arguments"]
+    assert len(arguments["text"]) <= 161 and arguments["text"].endswith("…")
+    # Only text is long enough to matter; other values keep their type.
+    assert arguments["n"] == 3
+
+
 def test_route_fallback_becomes_a_step_without_touching_cost():
     run = fresh_run()
     apply_event(run, RouteFallbackEvent("openrouter", "glm", "HTTP 429 from glm"), 10.0)

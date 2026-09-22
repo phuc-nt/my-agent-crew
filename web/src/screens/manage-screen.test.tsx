@@ -34,6 +34,7 @@ function show(section: ManageSection, overrides: Partial<Parameters<typeof Manag
       liveByAgent={{}}
       onInstall={() => Promise.reject(new Error("không cài"))}
       onEditAgent={() => undefined}
+      onReplayRun={() => undefined}
       onReloadCrew={() => undefined}
       onNavigate={onNavigate}
       onBackToChat={onBackToChat}
@@ -52,6 +53,25 @@ describe("the manage screen", () => {
     show("activity");
 
     expect(screen.getAllByTestId("run-card")).toHaveLength(2);
+  });
+
+  it("shows one run on its own instead of the list when the URL names one", () => {
+    show("activity", { replayRunId: "done" });
+
+    // The list, the attention centre and the headings all give way: the URL is asking
+    // about one run, and leaving the list underneath would bury it.
+    expect(screen.getByTestId("run-replay")).toBeInTheDocument();
+    expect(screen.getAllByTestId("run-card")).toHaveLength(1);
+    expect(screen.queryByText(vi.recentRuns)).not.toBeInTheDocument();
+  });
+
+  it("asks to open a run on its own when its link is used", async () => {
+    const onReplayRun = vitest.fn();
+    show("activity", { onReplayRun });
+
+    await userEvent.click(screen.getAllByRole("button", { name: vi.replay.openLink })[0]);
+
+    expect(onReplayRun).toHaveBeenCalledWith("live");
   });
 
   it("marks how many runs are live on the way into the activity section", () => {

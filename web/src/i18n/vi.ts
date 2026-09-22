@@ -61,6 +61,11 @@ export const vi = {
   // The live header, one line: what the agent is doing right now.
   runDoing: (label: string) => `Đang ${label}`,
   runThinking: "Đang suy nghĩ",
+  // And the same line once the run has settled. A finished run has no "right
+  // now", so it says how it ended rather than borrowing a present tense.
+  runEndedDone: "Đã xong",
+  runEndedHalted: "Đã dừng",
+  runEndedError: "Đã lỗi",
   runStepCount: (done: number, total: number) => `${done}/${total} bước`,
   runElapsed: (ms: number) =>
     ms >= 60_000
@@ -306,6 +311,13 @@ export const vi = {
   liveNow: "Đang chạy",
   recentRuns: "Gần đây",
   noRuns: "Chưa có lượt chạy nào.",
+  replay: {
+    back: "← Tất cả hoạt động",
+    loading: "Đang mở lượt chạy…",
+    notFound: (id: string) => `Không tìm thấy lượt chạy ${id}.`,
+    failed: "Không đọc được lượt chạy.",
+    openLink: "Xem riêng",
+  },
   nothingLive: "Không có agent nào đang chạy.",
   streamConnected: "đang theo dõi trực tiếp",
   streamDisconnected: "mất kết nối trực tiếp — đang thử lại",

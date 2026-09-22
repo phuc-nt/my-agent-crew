@@ -28,6 +28,20 @@ def _preview(text: str) -> str:
     return text if len(text) <= PREVIEW_CHARS else text[:PREVIEW_CHARS] + "…"
 
 
+def _argument_preview(arguments: dict[str, Any]) -> dict[str, Any]:
+    """Tool arguments kept as the mapping they are, with only long text cut down.
+
+    Stringifying the whole mapping would have been shorter to write, but the web reads
+    these as a mapping of name to value: given a string it walks the characters and shows
+    one row per character. Keeping the shape means a run read back from the store renders
+    the same way as one watched live.
+    """
+    return {
+        key: _preview(value) if isinstance(value, str) else value
+        for key, value in arguments.items()
+    }
+
+
 def _open_step(run: RunRecord, step: dict[str, Any], clock: float) -> None:
     step[CLOCK_KEY] = clock
     step["duration_ms"] = None
@@ -73,7 +87,7 @@ def apply_event(run: RunRecord, event: Event, clock: float) -> None:
                 "kind": "tool",
                 "name": event.name,
                 "tool_call_id": event.tool_call_id,
-                "arguments": _preview(str(event.arguments)),
+                "arguments": _argument_preview(event.arguments),
                 "ok": None,
             },
             clock,

@@ -200,6 +200,12 @@ export class FakeBackend {
       const found = this.agents.find((a) => a.id === decodeURIComponent(edited));
       return found ? json(found) : json({ detail: "agent not found" }, 404);
     }
+    // Ahead of the list route below, so a run id is not read as part of it.
+    const oneRun = path.match(/^\/activity\/runs\/([^/]+)$/);
+    if (oneRun) {
+      const found = this.runs.find((r) => r.id === decodeURIComponent(oneRun[1]));
+      return found ? json(found) : json({ detail: "run not found" }, 404);
+    }
     if (path === "/activity/runs") return json(this.runs);
     if (path === "/stats") return json(this.stats);
     if (path === "/jobs") return json(this.jobs);

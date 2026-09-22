@@ -55,8 +55,21 @@ describe("RunProgressHeader", () => {
     // The step is still open in the data, but the run is not: the header must
     // not keep announcing a tool that stopped when the run died.
     const { container } = render(<RunProgressHeader run={run([toolStep({ ok: null })], "error")} />);
-    expect(screen.getByTestId("run-progress")).toHaveTextContent(vi.runThinking);
+    expect(screen.getByTestId("run-progress")).toHaveTextContent(vi.runEndedError);
     expect(container.querySelector(".run-progress.live")).toBeNull();
+  });
+
+  // A finished run has no "right now". Borrowing the live wording made every
+  // run in the list read as still thinking, which looks like a hang.
+  it("says how the run ended rather than what it is doing, once it is over", () => {
+    render(<RunProgressHeader run={run([toolStep()], "done")} />);
+    expect(screen.getByTestId("run-progress")).toHaveTextContent(vi.runEndedDone);
+    expect(screen.getByTestId("run-progress")).not.toHaveTextContent(vi.runThinking);
+  });
+
+  it("names a halt as a halt, not as a failure", () => {
+    render(<RunProgressHeader run={run([toolStep()], "halted")} />);
+    expect(screen.getByTestId("run-progress")).toHaveTextContent(vi.runEndedHalted);
   });
 
   it("reports the bar as complete when every step is accounted for", () => {

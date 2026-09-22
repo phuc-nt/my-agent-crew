@@ -25,10 +25,12 @@ interface Props {
   agentName: string;
   expanded?: boolean;
   onOpenConversation?: (conversationId: string) => void;
+  /** Opens this run on its own page; absent means the link is hidden, as it is there. */
+  onOpenRun?: (runId: string) => void;
 }
 
 /** One run as a card: who, what, status, cost, then the step timeline when expanded. */
-export function RunCard({ run, agentName, expanded = false, onOpenConversation }: Props) {
+export function RunCard({ run, agentName, expanded = false, onOpenConversation, onOpenRun }: Props) {
   const [open, setOpen] = useState(expanded);
   const live = !isSettled(run.status);
   return (
@@ -63,15 +65,22 @@ export function RunCard({ run, agentName, expanded = false, onOpenConversation }
               ))}
             </ol>
           )}
-          {run.conversation_id && onOpenConversation && (
-            <button
-              type="button"
-              className="link-button"
-              onClick={() => onOpenConversation(run.conversation_id as string)}
-            >
-              {vi.openConversation}
-            </button>
-          )}
+          <div className="run-links">
+            {run.conversation_id && onOpenConversation && (
+              <button
+                type="button"
+                className="link-button"
+                onClick={() => onOpenConversation(run.conversation_id as string)}
+              >
+                {vi.openConversation}
+              </button>
+            )}
+            {onOpenRun && (
+              <button type="button" className="link-button" onClick={() => onOpenRun(run.id)}>
+                {vi.replay.openLink}
+              </button>
+            )}
+          </div>
         </div>
       )}
     </article>
@@ -175,11 +184,13 @@ export function RunGroupCard({
   agentName,
   expanded = false,
   onOpenConversation,
+  onOpenRun,
 }: {
   group: RunGroup;
   agentName: (id: string) => string;
   expanded?: boolean;
   onOpenConversation?: (conversationId: string) => void;
+  onOpenRun?: (runId: string) => void;
 }) {
   return (
     <div className="run-group" data-testid="run-group">
@@ -188,6 +199,7 @@ export function RunGroupCard({
         agentName={agentName(group.run.agent_id)}
         expanded={expanded}
         onOpenConversation={onOpenConversation}
+        onOpenRun={onOpenRun}
       />
       {group.children.length > 0 && (
         <div className="run-children" data-testid="run-children">
@@ -197,6 +209,7 @@ export function RunGroupCard({
               run={child}
               agentName={agentName(child.agent_id)}
               onOpenConversation={onOpenConversation}
+              onOpenRun={onOpenRun}
             />
           ))}
         </div>

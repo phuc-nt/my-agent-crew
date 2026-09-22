@@ -123,6 +123,15 @@ describe("runElapsedMs", () => {
     expect(runElapsedMs(settled, now + 60_000)).toBe(12_000);
   });
 
+  // Status and finished_at are stamped by different things, so a run recorded
+  // outside the hub arrives settled with no timestamp. Measuring that against
+  // the current clock reported hours for a run that took a moment.
+  it("falls back to what the steps took when a settled run has no finish time", () => {
+    const settled = run("done", [modelStep([], 100), toolStep(true, "x", 40)]);
+    expect(runElapsedMs(settled, now)).toBe(140);
+    expect(runElapsedMs(settled, now + 60_000)).toBe(140);
+  });
+
   it("returns zero rather than NaN on an unparseable timestamp", () => {
     expect(runElapsedMs(run("running", [], { started_at: "nonsense" }), now)).toBe(0);
   });

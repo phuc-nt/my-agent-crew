@@ -222,6 +222,12 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
       const found = agents.find((a) => (a as { id: string }).id === single[1]);
       return found ? json(found) : json({ detail: `unknown agent ${single[1]}` }, 404);
     }
+    // Ahead of the list route below, so a run id is not read as part of it.
+    const oneRun = path.match(/^\/activity\/runs\/([^/]+)$/);
+    if (oneRun) {
+      const found = (options.runs ?? []).find((r) => (r as { id: string }).id === oneRun[1]);
+      return found ? json(found) : json({ detail: "run not found" }, 404);
+    }
     if (path === "/activity/runs") return json(options.runs ?? []);
     if (path === "/activity/stream")
       return route.fulfill({ status: 200, contentType: "text/event-stream", body: sse(options.stream ?? [{ type: "snapshot", runs: options.runs ?? [] }]) });

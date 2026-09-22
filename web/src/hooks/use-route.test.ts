@@ -28,11 +28,40 @@ describe("reading a route from the address bar", () => {
     expect(parseRoute("#/nonsense/deep")).toEqual({ kind: "chat", conversationId: null });
   });
 
+  it("reads what a section is opened on out of the third segment", () => {
+    expect(parseRoute("#/manage/crew/default")).toEqual({
+      kind: "manage",
+      section: "crew",
+      param: "default",
+    });
+    expect(parseRoute("#/manage/activity/run-7")).toEqual({
+      kind: "manage",
+      section: "activity",
+      param: "run-7",
+    });
+  });
+
+  // An id that needs escaping still has to survive the round trip through the bar.
+  it("keeps an id that contains a slash intact", () => {
+    const route = { kind: "manage", section: "activity", param: "job/2" } as const;
+    expect(parseRoute(routeHash(route))).toEqual(route);
+  });
+
+  it("drops the id when the section is not one we have", () => {
+    // Landing on the default section still carrying someone else's id would open
+    // something nobody asked for.
+    expect(parseRoute("#/manage/nonsense/default")).toEqual({
+      kind: "manage",
+      section: "activity",
+    });
+  });
+
   it("writes a hash that reads back as the same route", () => {
     const routes = [
       { kind: "chat", conversationId: null },
       { kind: "chat", conversationId: "c1" },
       { kind: "manage", section: "costs" },
+      { kind: "manage", section: "activity", param: "r1" },
     ] as const;
 
     for (const route of routes) expect(parseRoute(routeHash(route))).toEqual(route);

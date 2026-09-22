@@ -17,7 +17,13 @@ export function RunProgressHeader({ run }: { run: RunInfo }) {
   const { done, total } = stepProgress(run);
   const active = activeStep(run);
 
-  const label = active === null ? vi.runThinking : vi.runDoing(labelFor(run, active));
+  // A settled run has no "right now" to report, so it says how it ended instead.
+  // Saying "Đang suy nghĩ" on a run that finished minutes ago reads as a hang.
+  const label = live
+    ? active === null
+      ? vi.runThinking
+      : vi.runDoing(labelFor(run, active))
+    : endedLabel(run.status);
   // The bar is a proportion of the steps that exist, not of a total it cannot
   // know, so a run that is still producing steps shows the bar creeping and
   // occasionally sliding back — which is the truth about the work.
@@ -43,6 +49,13 @@ export function RunProgressHeader({ run }: { run: RunInfo }) {
       </div>
     </div>
   );
+}
+
+/** How a run that is over ended, for the line that would otherwise say what it is doing. */
+function endedLabel(status: RunInfo["status"]): string {
+  if (status === "halted") return vi.runEndedHalted;
+  if (status === "error") return vi.runEndedError;
+  return vi.runEndedDone;
 }
 
 /** The name of the work in progress, as the timeline would have labelled it. */

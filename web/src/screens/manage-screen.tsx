@@ -7,6 +7,7 @@ import { ConnectionsPanel } from "../components/connections-panel";
 import { CrewPanel } from "../components/crew-panel";
 import { JobsPanel } from "../components/jobs-panel";
 import { MemoryPanel } from "../components/memory-panel";
+import { RunReplay } from "../components/run-replay";
 import { RunGroupCard } from "../components/run-timeline";
 import { SettingsPanel } from "../components/settings-panel";
 import { StatsPanel } from "../components/stats-panel";
@@ -34,8 +35,12 @@ interface Props {
   onInstall: (template: string) => Promise<InstallResult>;
   /** The agent whose editor is open, when the URL names one. */
   editingAgentId?: string;
+  /** The run shown on its own, when the URL names one. */
+  replayRunId?: string;
   /** Opens or closes the editor by rewriting the route, so Back leaves it. */
   onEditAgent: (agentId: string | null) => void;
+  /** Opens or closes a single run by rewriting the route, so Back leaves it. */
+  onReplayRun: (runId: string | null) => void;
   /** Re-reads the crew after a profile is written, created or removed. */
   onReloadCrew: () => void;
   onNavigate: (section: ManageSection) => void;
@@ -111,7 +116,16 @@ export function ManageScreen(props: Props) {
       </nav>
       <main className="manage-body" aria-label={vi.manage.label}>
         <h2>{LABELS[props.section]}</h2>
-        {props.section === "activity" && (
+        {props.section === "activity" && props.replayRunId !== undefined && (
+          <RunReplay
+            runId={props.replayRunId}
+            known={props.runs}
+            agentName={props.agentName}
+            onBack={() => props.onReplayRun(null)}
+            onOpenConversation={props.onOpenConversation}
+          />
+        )}
+        {props.section === "activity" && props.replayRunId === undefined && (
           <>
             <AttentionCenter
               runs={props.attention}
@@ -135,6 +149,7 @@ export function ManageScreen(props: Props) {
                   agentName={props.agentName}
                   expanded
                   onOpenConversation={props.onOpenConversation}
+                  onOpenRun={props.onReplayRun}
                 />
               ))
             )}
@@ -148,6 +163,7 @@ export function ManageScreen(props: Props) {
                   group={group}
                   agentName={props.agentName}
                   onOpenConversation={props.onOpenConversation}
+                  onOpenRun={props.onReplayRun}
                 />
               ))
             )}
