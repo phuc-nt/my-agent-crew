@@ -21,7 +21,7 @@ export function App() {
   const list = useConversations();
   const thread = useThread(list.activeId);
   const crew = useCrew();
-  const activity = useActivity();
+  const activity = useActivity(true, list.applyUpdate);
   const [settings, setSettings] = useState<SettingsInfo | null>(null);
   const [templates, setTemplates] = useState<TemplateInfo[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -78,10 +78,9 @@ export function App() {
     if (created) setQueued({ id: created.id, text });
   };
 
-  const rename = () => {
+  const rename = (title: string) => {
     if (!active) return;
-    const title = window.prompt(vi.renamePrompt, active.title);
-    if (title && title !== active.title) void list.patch(active.id, { title });
+    void list.patch(active.id, { title });
   };
 
   const remove = (id: string) => {

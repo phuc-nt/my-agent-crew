@@ -93,7 +93,11 @@ export function subscribeActivity(
   const source = new EventSource("/api/activity/stream");
   const handle = (message: MessageEvent<string>) =>
     onPayload(JSON.parse(message.data) as ActivityPayload);
-  for (const name of ["snapshot", "run", "event"]) source.addEventListener(name, handle);
+  // The server names each SSE event after its payload type; a type not listed here
+  // never reaches the app.
+  for (const name of ["snapshot", "run", "event", "conversation"]) {
+    source.addEventListener(name, handle);
+  }
   source.onopen = () => onStatus(true);
   source.onerror = () => onStatus(false);
   return () => source.close();

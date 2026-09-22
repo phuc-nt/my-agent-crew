@@ -112,6 +112,12 @@ CONSOLIDATE_EMPTY = "Model không trả về nội dung nào."
 CONSOLIDATE_BUSY = "Agent này đang cô đọng bộ nhớ."
 
 CONVERSATION_TITLE_DEFAULT = "Cuộc trò chuyện mới"
+TITLE_PROMPT = (
+    "Đặt tiêu đề ngắn cho cuộc trò chuyện, dựa trên tin nhắn đầu tiên của người dùng. "
+    "3–6 từ, tối đa 60 ký tự, cùng ngôn ngữ với tin nhắn, viết như một câu thường "
+    "(chỉ hoa chữ đầu), không dấu chấm cuối, không emoji, không dấu ngoặc kép. "
+    "Chỉ trả về tiêu đề.\n\n--- tin nhắn ---\n{message}"
+)
 # One conversation per agent per day on a channel; `{channel}` is the channel's label.
 INBOUND_CONVERSATION_TITLE = "{channel} · {date}"
 # What a person reads back from a turn on any platform that shows one message per turn.

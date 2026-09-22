@@ -7,7 +7,7 @@ export const vi = {
   deleteConversation: "Xoá cuộc trò chuyện",
   confirmDelete: "Xoá cuộc trò chuyện này? Không thể hoàn tác.",
   rename: "Đổi tên",
-  renamePrompt: "Tên mới cho cuộc trò chuyện:",
+  renameHint: "Bấm để đổi tên cuộc trò chuyện",
   resummarize: "Tóm tắt lại",
   resummarizeHint: "Viết lại bản tóm tắt cuộc trò chuyện này bằng một lượt gọi model",
   noSummary: "Chưa có tóm tắt",

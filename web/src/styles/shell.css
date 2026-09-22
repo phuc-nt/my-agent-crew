@@ -127,6 +127,52 @@
   min-width: 0;
 }
 
+/* The heading keeps its place while what sits inside it swaps between a button and
+   a field, so clicking to rename moves nothing on the page. */
+.title-heading {
+  display: flex;
+  min-width: 0;
+  /* The padding below belongs to the control, not to the heading around it. */
+  margin: calc(var(--space-1) * -1) calc(var(--space-2) * -1);
+}
+
+.editable-title,
+.title-input {
+  font: inherit;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  min-width: 0;
+  max-width: 42ch;
+  background: none;
+}
+
+.editable-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  color: inherit;
+  cursor: text;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.editable-title:hover {
+  background: var(--surface-sunken);
+}
+
+.title-input {
+  width: 42ch;
+  color: var(--text);
+  background: var(--bg);
+  border-color: var(--border-strong);
+  outline: none;
+}
+
+.title-input:focus {
+  border-color: var(--accent);
+}
+
 .header-controls {
   display: flex;
   align-items: center;

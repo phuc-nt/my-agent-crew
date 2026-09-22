@@ -51,7 +51,9 @@ class Runtime:
         self.scheduler = Scheduler(
             self.agents, self.hub, clock=self.settings.now, deliver=self.deliver
         )
-        self.inbound = Inbound(self.agents, self.hub, self.summarize_replaced)
+        self.inbound = Inbound(
+            self.agents, self.hub, self.summarize_replaced, keep=self.scheduler.keep
+        )
         if self.channel is not None:
             self.channel.set_on_replaced(self.summarize_replaced)
 

@@ -30,12 +30,21 @@ class ActivityHub:
 
     # --- runs ----------------------------------------------------------------------------
 
+    def turn_starting(self, conversation_id: str) -> None:
+        """Lowers the conversation's terminal signal before the turn produces anything.
+
+        `tracked` is a generator, so `start` does not run until the caller reads the first
+        event. A waiter created in between — naming, which must queue behind the answer —
+        would otherwise read the *previous* turn's raised signal and run straight away,
+        competing with the live turn for the same chain."""
+        self._finished.setdefault(conversation_id, asyncio.Event()).clear()
+
     def start(
         self, agent_id: str, source: str, title: str, conversation_id: str | None
     ) -> RunRecord:
         """A turn that resumes after an approval continues the run that paused."""
         if conversation_id:
-            self._finished.setdefault(conversation_id, asyncio.Event()).clear()
+            self.turn_starting(conversation_id)
         for live in self._live.values():
             if live.conversation_id == conversation_id and live.status == AWAITING:
                 live.status = RUNNING
@@ -95,6 +104,13 @@ class ActivityHub:
         except TimeoutError:
             return None
         return self._store.runs.latest_for_conversation(conversation_id)
+
+    def publish_conversation(self, conversation: dict[str, Any]) -> None:
+        """Tells watchers a conversation changed outside a run — a new title, so far.
+
+        The sidebar is built from a list fetched once, so a name written in the
+        background would otherwise not appear until something else forced a reload."""
+        self._broadcast({"type": "conversation", "conversation": conversation})
 
     def recent(self, limit: int = RECENT_LIMIT) -> list[RunRecord]:
         stored = self._store.runs.recent(limit)

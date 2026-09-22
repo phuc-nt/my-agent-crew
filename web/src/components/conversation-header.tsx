@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { AgentInfo, Conversation, SkillInfo } from "../api/types";
 import { vi } from "../i18n/vi";
 import { BudgetIndicator } from "./budget-indicator";
+import { EditableTitle } from "./editable-title";
 
 interface Props {
   conversation: Conversation;
@@ -13,7 +14,7 @@ interface Props {
   spentUsd: number;
   unknownCostCalls: number;
   skills: SkillInfo[];
-  onRename: () => void;
+  onRename: (title: string) => void;
   onSummarize: () => void;
   onToggleAutonomous: (value: boolean) => void;
   onToggleSkill: (name: string, attached: boolean) => void;
@@ -30,7 +31,7 @@ export function ConversationHeader(props: Props) {
   return (
     <header className="conversation-header">
       <div className="header-title">
-        <h1>{c.title || vi.newConversation}</h1>
+        <EditableTitle title={c.title} onRename={props.onRename} />
         <span className="badge agent-badge" title={vi.agent}>
           {props.agentName}
         </span>
@@ -45,9 +46,6 @@ export function ConversationHeader(props: Props) {
             {vi.modeWork}
           </span>
         )}
-        <button type="button" className="link-button" onClick={props.onRename}>
-          {vi.rename}
-        </button>
       </div>
       <div className="header-summary">
         {c.summary ? (

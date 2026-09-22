@@ -426,7 +426,9 @@ export function storedMessage(role: StoredMessage["role"], content: string, extr
   };
 }
 
-function listItem(detail: ConversationDetail): Conversation {
+/** The sidebar's view of a conversation: what the list endpoint and the activity
+ *  stream both send. */
+export function listItem(detail: ConversationDetail): Conversation {
   const { messages: _messages, pending_approval: _pending, ...rest } = detail;
   return rest;
 }

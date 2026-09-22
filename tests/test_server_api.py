@@ -9,6 +9,7 @@ from my_agent_crew.config import Route
 from my_agent_crew.llm.fake import completion
 from my_agent_crew.llm.types import ToolCall
 from my_agent_crew.server import create_app
+from my_agent_crew.texts import CONVERSATION_TITLE_DEFAULT
 
 
 @pytest.fixture
@@ -192,3 +193,30 @@ def test_resummarizing_rewrites_the_recap_and_404s_for_an_unknown_conversation(c
     assert body["id"] == conv["id"] and body["summary"] != ""
     assert client.get(f"/api/conversations/{conv['id']}").json()["summary"] == body["summary"]
     assert client.post("/api/conversations/nope/summary").status_code == 404
+
+
+def test_a_new_conversation_is_named_from_the_first_thing_the_person_says(client):
+    conv = client.post("/api/conversations", json={}).json()
+    assert conv["title"] == CONVERSATION_TITLE_DEFAULT
+
+    with client.stream(
+        "POST",
+        f"/api/conversations/{conv['id']}/messages",
+        json={"text": "Giúp tôi lập kế hoạch ôn thi. Còn ba tháng nữa."},
+    ) as r:
+        r.read()
+
+    assert client.get(f"/api/conversations/{conv['id']}").json()["title"] == (
+        "Giúp tôi lập kế hoạch ôn thi"
+    )
+
+
+def test_a_conversation_the_person_named_keeps_that_name_when_they_write(client):
+    conv = client.post("/api/conversations", json={"title": "Sổ tay của tôi"}).json()
+
+    with client.stream(
+        "POST", f"/api/conversations/{conv['id']}/messages", json={"text": "xin chào"}
+    ) as r:
+        r.read()
+
+    assert client.get(f"/api/conversations/{conv['id']}").json()["title"] == "Sổ tay của tôi"

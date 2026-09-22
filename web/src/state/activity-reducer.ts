@@ -1,4 +1,4 @@
-import type { ActivityPayload, AgentEvent, RunInfo, RunStep } from "../api/types";
+import type { AgentEvent, RunInfo, RunPayload, RunStep } from "../api/types";
 
 /** Runs by id, live ones updated step by step from the activity stream. */
 export interface ActivityState {
@@ -7,7 +7,7 @@ export interface ActivityState {
 }
 
 export type ActivityAction =
-  | { type: "payload"; payload: ActivityPayload }
+  | { type: "payload"; payload: RunPayload }
   | { type: "recent"; runs: RunInfo[] }
   | { type: "connection"; connected: boolean };
 
@@ -94,7 +94,7 @@ export function activityReducer(state: ActivityState, action: ActivityAction): A
   }
 }
 
-function applyPayload(state: ActivityState, payload: ActivityPayload): ActivityState {
+function applyPayload(state: ActivityState, payload: RunPayload): ActivityState {
   switch (payload.type) {
     case "snapshot": {
       const runs = { ...state.runs };

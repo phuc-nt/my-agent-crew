@@ -1,5 +1,5 @@
 // Shapes of the activity stream, the job list and the cost summary (GET /api/activity/*, /jobs, /stats).
-import type { AgentEvent, ScheduleInfo } from "./types";
+import type { AgentEvent, Conversation, ScheduleInfo } from "./types";
 
 export type RunStatus = "running" | "awaiting_approval" | "done" | "halted" | "error";
 
@@ -47,7 +47,8 @@ export interface RunInfo {
   steps: RunStep[];
 }
 
-export type ActivityPayload =
+/** The payloads that describe runs, and so change the activity state. */
+export type RunPayload =
   | { type: "snapshot"; runs: RunInfo[] }
   | { type: "run"; run: RunInfo }
   | {
@@ -58,6 +59,14 @@ export type ActivityPayload =
       status: RunStatus;
       event: AgentEvent;
     };
+
+/** Everything the stream carries. Payloads outside `RunPayload` are routed to their
+ *  own listener before the activity reducer sees them. */
+export type ActivityPayload =
+  | RunPayload
+  // A conversation changed outside a run — so far only its title, written in the
+  // background once the first message named it.
+  | { type: "conversation"; conversation: Conversation };
 
 export interface JobInfo extends ScheduleInfo {
   schedule_id: string;

@@ -8,46 +8,33 @@ called, so a new one needs an adapter and no change to the agents."""
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Callable, Mapping
-from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
 from my_agent_crew import texts
 from my_agent_crew.activity import ActivityHub, tracked
-from my_agent_crew.agent.events import (
-    ApprovalRequiredEvent,
-    AssistantMessageEvent,
-    DoneEvent,
-    ErrorEvent,
-    Event,
-    HaltedEvent,
-    kind_of,
-)
+from my_agent_crew.agent.events import Event
 from my_agent_crew.agent.loop import AgentDeps, resolve_approval, run_turn
 from my_agent_crew.agent.turn_context import CHAT
 from my_agent_crew.agents import DEFAULT_AGENT_ID
 from my_agent_crew.agents.kit_commands import expand
+from my_agent_crew.memory.conversation_title import title_on_first_message
 from my_agent_crew.store import Conversation
 from my_agent_crew.store.models import AWAITING_APPROVAL
 
+# Re-exported: a turn collapsed to one message lives in its own module now, but every
+# platform adapter reaches for it through this door.
+from my_agent_crew.turn_reply import TurnReply, collect_reply
+
+__all__ = ["Inbound", "InboundBusy", "TurnReply", "channel_label", "collect_reply"]
+
 OnReplaced = Callable[[AgentDeps, str], None]
+# How long naming waits for the turn it queued behind before giving up on a better title.
+TITLE_AFTER_TURN_TIMEOUT_S = 300.0
 
 
 class InboundBusy(Exception):
     """The conversation waits for a decision on a tool call; a new message must wait too."""
-
-
-@dataclass(frozen=True)
-class TurnReply:
-    """A whole turn as one message: the assistant's text with the halt, error or
-    approval notice appended, how many model steps it took, and how it ended."""
-
-    text: str
-    steps: int
-    status: str  # done | halted | error | approval_required
-
-    def to_dict(self) -> dict[str, Any]:
-        return {"text": self.text, "steps": self.steps, "status": self.status}
 
 
 def channel_label(channel: str) -> str:
@@ -61,12 +48,16 @@ class Inbound:
         agents: Mapping[str, AgentDeps],
         hub: ActivityHub,
         on_replaced: OnReplaced | None = None,
+        keep: Callable[[Any], None] | None = None,
     ):
         """`agents` is shared with the runtime, so an agent installed while running is
-        reachable here at once. `on_replaced` receives a conversation a new day closed."""
+        reachable here at once. `on_replaced` receives a conversation a new day closed.
+        `keep` holds background tasks — naming a conversation — so they are not collected
+        mid-flight; without one, a turn still runs and simply goes unnamed."""
         self.agents = agents
         self.hub = hub
         self.on_replaced = on_replaced
+        self.keep = keep
 
     def deps_for(self, agent_id: str) -> AgentDeps:
         try:
@@ -135,8 +126,32 @@ class Inbound:
         # `/name args` from the agent's kit becomes the command's prompt before the
         # agent reads it, on every platform alike.
         text = expand(text, deps.agent.commands)
+        # Before naming, which waits for this turn to end: the wait must not read the
+        # signal the previous turn left raised.
+        self.hub.turn_starting(conv_id)
+        title = self._name_conversation(deps, conv_id, text)
         events = run_turn(deps, conv_id, text, source=source)
-        return tracked(self.hub, events, deps.agent.id, source, conv.title, conv.id)
+        return tracked(self.hub, events, deps.agent.id, source, title, conv.id)
+
+    def _name_conversation(self, deps: AgentDeps, conv_id: str, text: str) -> str:
+        """Names a still-unnamed conversation from what was just said, and returns the
+        title the run should carry. The model's better name is written once this turn is
+        over, so naming never delays or competes with the answer."""
+
+        async def after_the_turn() -> None:
+            if await self.hub.wait_finished(conv_id, TITLE_AFTER_TURN_TIMEOUT_S) is None:
+                # Still running after the wait: the turn owns the chain, and a nicer name
+                # is not worth competing for it. The first sentence stays.
+                raise TimeoutError
+
+        return title_on_first_message(
+            self.keep,
+            deps,
+            conv_id,
+            text,
+            publish=self.hub.publish_conversation,
+            after=after_the_turn,
+        )
 
     def decide(
         self,
@@ -160,33 +175,3 @@ class Inbound:
         approval_how: str = texts.REPLY_APPROVAL_HOW,
     ) -> TurnReply:
         return await collect_reply(self.stream(conv_id, text, source), approval_how)
-
-
-async def collect_reply(
-    events: AsyncIterator[Event], approval_how: str = texts.REPLY_APPROVAL_HOW
-) -> TurnReply:
-    """Reads a turn to the end and returns what the person should see: every piece of
-    assistant text, including text written next to a tool call (models often put the
-    answer there and finish with a bare `MEDIA:` line), then the halt, error or approval
-    notice. A turn that ends without a word still gets a line: silence reads like a dead
-    bot."""
-    parts: list[str] = []
-    steps = 0
-    status = kind_of(DoneEvent(0.0, 0))
-    async for event in events:
-        if isinstance(event, AssistantMessageEvent):
-            steps += 1
-            parts.append(event.content.strip())
-        elif isinstance(event, HaltedEvent):
-            parts.append(texts.REPLY_HALTED.format(reason=event.reason, spent=event.spent_usd))
-            status = kind_of(event)
-        elif isinstance(event, ErrorEvent):
-            parts.append(texts.REPLY_ERROR.format(message=event.message))
-            status = kind_of(event)
-        elif isinstance(event, ApprovalRequiredEvent):
-            reason = f" ({event.reason})" if event.reason else ""
-            notice = texts.REPLY_APPROVAL.format(name=event.name, reason=reason, how=approval_how)
-            parts.append(notice)
-            status = kind_of(event)
-    answer = "\n\n".join(part for part in parts if part)
-    return TurnReply(answer or texts.REPLY_EMPTY.format(steps=steps), steps, status)

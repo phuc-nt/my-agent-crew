@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi as vitest } from "vitest";
 import { App } from "./app";
 import { vi } from "./i18n/vi";
-import { FakeBackend, FakeEventSource, coachAgent, fakeAgent, fakeRun, storedMessage } from "./test/fake-backend";
+import { FakeBackend, FakeEventSource, coachAgent, fakeAgent, fakeRun, listItem, storedMessage } from "./test/fake-backend";
 
 let backend: FakeBackend;
 
@@ -148,6 +148,40 @@ describe("App activity rail", () => {
     await userEvent.click(await screen.findByRole("button", { name: /Ảnh/ }));
     const img = await screen.findByRole("img", { name: vi.mediaAlt("out/chart.png") });
     expect(img).toHaveAttribute("src", "/api/agents/default/files?path=out%2Fchart.png");
+  });
+
+  it("takes a title the server wrote after the turn into the sidebar, without refetching", async () => {
+    // The first sentence named it; the model's better name lands over the stream.
+    const conversation = backend.create({ title: "Giúp tôi lập kế hoạch" });
+    render(<App />);
+    const nav = await screen.findByRole("navigation");
+    await userEvent.click(await within(nav).findByRole("button", { name: /Giúp tôi lập kế hoạch/ }));
+    const before = backend.requests.filter((r) => r.path.startsWith("/conversations?")).length;
+
+    act(() => {
+      stream().open();
+      stream().emit({ type: "conversation", conversation: listItem({ ...conversation, title: "Kế hoạch ôn thi" }) });
+    });
+
+    expect(within(nav).getByRole("button", { name: /Kế hoạch ôn thi/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Kế hoạch ôn thi");
+    expect(backend.requests.filter((r) => r.path.startsWith("/conversations?"))).toHaveLength(before);
+  });
+
+  it("ignores a renamed conversation belonging to a delegate, which the sidebar does not list", async () => {
+    backend.agents = [fakeAgent, coachAgent];
+    backend.create({ title: "Chung" });
+    const child = backend.create({ title: "Việc của HLV", agent_id: "coach", parent_call_id: "tc1" });
+    render(<App />);
+    const nav = await screen.findByRole("navigation");
+    await within(nav).findByRole("button", { name: /Chung/ });
+
+    act(() => {
+      stream().open();
+      stream().emit({ type: "conversation", conversation: listItem({ ...child, title: "Buổi tập tuần này" }) });
+    });
+
+    expect(within(nav).queryByRole("button", { name: /Buổi tập tuần này/ })).not.toBeInTheDocument();
   });
 
   it("can hide the activity rail", async () => {

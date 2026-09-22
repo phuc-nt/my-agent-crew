@@ -172,9 +172,10 @@ describe("App", () => {
     await userEvent.click(screen.getByRole("checkbox", { name: /writer/ }));
     await waitFor(() => expect(backend.conversations.get("c1")!.skills).toEqual(["writer"]));
 
-    vitest.spyOn(window, "prompt").mockReturnValue("Tên mới");
-    await userEvent.click(screen.getByRole("button", { name: vi.rename }));
-    await waitFor(() => expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Tên mới"));
+    await userEvent.click(within(screen.getByRole("heading", { level: 1 })).getByRole("button"));
+    await userEvent.keyboard("Tên mới{Enter}");
+    await waitFor(() => expect(backend.conversations.get("c1")!.title).toBe("Tên mới"));
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Tên mới");
   });
 
   it("shows the recap of a conversation and rewrites it on demand", async () => {
