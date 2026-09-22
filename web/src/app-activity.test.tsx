@@ -225,7 +225,7 @@ describe("App activity across the crew", () => {
     // Switch to second conversation
     await userEvent.click(screen.getByRole("button", { name: /Conv 2/ }));
     strip = screen.getByTestId("conversation-activity");
-    // Strip stays expanded (localStorage)
+    // Switching conversations re-fills the strip; it does not re-collapse it.
     expect(within(strip).getByTestId("run-card")).toHaveTextContent("Work in conv 2");
     expect(within(strip).queryByText("Work in conv 1")).not.toBeInTheDocument();
   });
