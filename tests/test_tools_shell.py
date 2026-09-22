@@ -6,7 +6,7 @@ from my_agent_crew import texts
 from my_agent_crew.agent.events import ApprovalRequiredEvent, DoneEvent, ToolResultEvent
 from my_agent_crew.agent.loop import resolve_approval, run_turn
 from my_agent_crew.tools.registry import ToolRegistry
-from my_agent_crew.tools.shell import ask_reason, build_shell_tool, run_shell
+from my_agent_crew.tools.shell import ask_reason, build_shell_tool, run_shell, shell_env
 from tests.conftest import collect
 
 
@@ -39,6 +39,37 @@ async def test_tool_reports_exit_code_and_requires_approval(tmp_path: Path):
     gone = ToolRegistry([build_shell_tool(tmp_path / "nope")])
     result = await gone.execute("shell_run", {"command": "true"})
     assert result.ok is False and "không tồn tại" in result.output
+
+
+async def test_a_secret_in_the_server_environment_never_reaches_the_command(
+    tmp_path: Path, monkeypatch
+):
+    """The command a model writes must not be able to read the server's API keys, so the
+    child environment is an allowlist rather than a copy of the parent."""
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-must-not-leak")
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "must-not-leak-either")
+    assert "OPENROUTER_API_KEY" not in shell_env()
+    assert "TELEGRAM_BOT_TOKEN" not in shell_env()
+    code, output = await run_shell("env", tmp_path, timeout_s=10)
+    assert code == 0
+    assert "must-not-leak" not in output
+
+
+async def test_the_command_still_gets_the_names_a_script_needs_to_run(tmp_path: Path, monkeypatch):
+    """PATH and HOME are the difference between a working script and one that cannot find
+    its own interpreter, so they cross the boundary that the secrets do not."""
+    monkeypatch.setenv("PATH", "/usr/bin:/bin")
+    monkeypatch.setenv("HOME", str(tmp_path))
+    env = shell_env()
+    assert env["PATH"] == "/usr/bin:/bin"
+    assert env["HOME"] == str(tmp_path)
+
+
+async def test_an_unset_path_still_leaves_the_command_able_to_find_binaries(monkeypatch):
+    monkeypatch.delenv("PATH", raising=False)
+    monkeypatch.delenv("LANG", raising=False)
+    env = shell_env()
+    assert env["PATH"] and env["LANG"]
 
 
 async def test_echo_provider_shell_call_pauses_then_runs_after_approval(deps_factory):

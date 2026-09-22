@@ -39,6 +39,11 @@ bản phát hành, `pyproject.toml` và `web/package.json` luôn cùng số.
 
 - `web_search` không còn nằm trong nhóm công cụ tuỳ chọn: nó luôn được dựng, nên một agent khai
   `web_search` trong `tools:` không còn im lặng mất công cụ.
+- **`docs/tools.md` nói rõ hệ quả của việc `shell_run` lọc biến môi trường**: script chạy được
+  ở terminal của bạn vẫn có thể hỏng khi job chạy, vì mọi biến ngoài danh sách cho phép đều
+  biến mất. Script cần một giá trị không phải bí mật thì tự đọc từ tệp, đừng trông vào biến
+  môi trường — nới danh sách cho phép là trao khoá API cho mọi lệnh do model viết. Hành vi lọc
+  không đổi; nay đã có test neo lại.
 
 ## [0.4.0] — 2026-09-22
 

@@ -137,6 +137,13 @@ API keys. Timeout comes from the `timeout_s` argument, capped at 900 s. A non-ze
 a `ToolError` carrying the last 4 000 characters of output. A scheduled `command` job uses
 the same tool and records a single step.
 
+The allowlist is the reason a script that works in your own terminal can still fail here:
+anything you exported, or put in the server's env file, is gone by the time the command
+runs. A script that needs a non-secret value should read it from a file itself rather than
+expect it in the environment, and a script that needs a real secret should read it from a
+file only it can read. Widening the allowlist is the wrong fix — it would hand every
+model-written command the server's API keys.
+
 `autonomous` would otherwise let every command run unwatched, which is too much for the
 shapes that cannot be undone. So `shell_ask_patterns` lists command fragments that get an
 approval regardless — by default `rm -rf`, `rm -r `, `sudo `, `| sh`, `| bash`, `mkfs`,
