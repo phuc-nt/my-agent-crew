@@ -24,6 +24,7 @@ from my_agent_crew.tools.pdf import build_pdf_tool
 from my_agent_crew.tools.shell import build_shell_tool
 from my_agent_crew.tools.skills import build_skill_tools
 from my_agent_crew.tools.web import build_web_tools
+from my_agent_crew.tools.wiki import build_wiki_tools
 from my_agent_crew.tools.workspace import build_workspace_tools
 from my_agent_crew.tools.workspace_edit import build_edit_tool
 from my_agent_crew.tools.workspace_search import build_search_tools
@@ -73,6 +74,10 @@ def build_tools(
             clock=profile.settings.now,
         ),
         *build_user_memory_tools(profile.settings.user_dir, store, profile.id),
+        # The vault lives beside the daily notes, so every agent that has memory has one.
+        # It stays empty until something compiles into it, and an empty vault costs one
+        # absent prompt section.
+        *build_wiki_tools(profile.memory_dir),
         build_shell_tool(profile.workspace),
         *build_skill_tools(skills),
         # Asking is not a capability an agent should have to be granted: an agent that may

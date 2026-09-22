@@ -61,7 +61,7 @@ silently disables a setting.
 | `shell_ask_patterns` | list of strings | global | shell commands that ask anyway when autonomous, see [tools.md](tools.md#shell); declaring it replaces the defaults, `[]` turns the guard off |
 | `tool_output_chars` | int ≥ 1 | global | characters of one tool result the model sees before the cut; raise it for an agent whose scripts print long reports |
 | `schedules` | list | `[]` | jobs, see [Schedules](#schedules) |
-| `memory_consolidate` | cron string | none | rewrite `MEMORY.md` from the daily notes on this schedule, see [memory.md](memory.md) |
+| `memory_consolidate` | cron string | none | on this schedule, rewrite `MEMORY.md` from the daily notes and then compile the wiki vault from the same notes, see [memory.md](memory.md) |
 | `telegram` | map | none | `token_env` + `chat_id`; read on the master's `agent.yaml` only, ignored with a warning elsewhere, see [channels.md](channels.md) |
 | `delegates` | list of agent ids | `[]` | agents this one may hand a task to; an id that names no agent is a startup error. Empty on the master means every other agent, see [The master agent](#the-master-agent) |
 | `tools` | list of tool names | `[]` | when set, the only tools this agent gets; empty means everything its mode brings. An unknown name is a warning, so a profile written for a newer version still starts |
@@ -410,7 +410,12 @@ carries account ids or paths. `docs/examples/job-data-script.sh` is the shape: e
 command guarded so one failure records an error and the rest of the data still arrives.
 
 A `memory_consolidate` cron becomes a job of the same shape, `<agent id>/memory-consolidate`,
-with no prompt or command of its own.
+with no prompt or command of its own. It does two things in a row: rewrite `MEMORY.md`, then
+compile the wiki vault from the same notes. The compile has no cron of its own because both
+halves read the same notes and the vault should settle from the same night's reading. Each
+gets its own run in Activity, and a failed compile does not fail the job — the rewrite has
+already landed by then, and reporting the whole job as failed would send someone looking for
+damage that is not there. See [memory.md](memory.md#compiling).
 
 After a prompt job the scheduler calls `Runtime.deliver`, which pushes the last reply to
 the master's Telegram chat when there is one, under the agent's name (a morning brief lands

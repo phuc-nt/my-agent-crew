@@ -1,5 +1,6 @@
 """Cron parsing and the scheduler: due detection, prompt, command and consolidate jobs."""
 
+import json
 import logging
 import os
 from datetime import datetime
@@ -19,10 +20,26 @@ from my_agent_crew.config import Route
 from my_agent_crew.llm.fake import completion
 from my_agent_crew.memory import agent_store, user_store
 from my_agent_crew.memory.consolidate import JOB_SOURCE as CONSOLIDATE_SOURCE
+from my_agent_crew.memory.wiki_apply import WIKI_COMPILE
 from my_agent_crew.scheduler import CronSpec, Scheduler, due_between, next_run, parse_every
 from my_agent_crew.store.memory_proposals import AGENT_MEMORY_REWRITE
 from my_agent_crew.store.runs import DONE, FAILED
 from my_agent_crew.tools.memory_user import build_user_memory_tools
+
+NIGHT = datetime(2026, 9, 19, 3, 0)
+WIKI = completion(
+    json.dumps(
+        [
+            {
+                "title": "Hạn Eco",
+                "kind": "entities",
+                "body": "Hạn nộp hồ sơ là thứ tư, đã dời một lần từ thứ hai tuần trước.",
+                "sources": ["note:2026-09-19"],
+            }
+        ],
+        ensure_ascii=False,
+    )
+)
 
 
 def test_cron_fields_lists_ranges_steps_and_sunday_alias():
@@ -230,6 +247,40 @@ async def test_a_consolidate_job_rewrites_memory_without_opening_a_conversation(
     assert delivered == []  # nothing to deliver: a rewrite is not an answer
     (proposal,) = deps.store.proposals.list()
     assert proposal.kind == AGENT_MEMORY_REWRITE
+
+
+def _consolidate_scheduler(deps):
+    """The nightly memory job, wired up and ready to run."""
+    deps = with_schedules(deps, consolidate_schedule("0 3 * * *"))
+    agent_store.write_memory_md(deps.agent.memory_file, "- Sếp thích trà buổi sáng.")
+    agent_store.write_note(deps.agent.memory_dir, "2026-09-19", "Hạn Eco dời sang thứ tư.")
+    stamp = deps.agent.memory_file.stat().st_mtime + 10
+    os.utime(deps.agent.memory_dir / "2026-09-19.md", (stamp, stamp))
+    return deps, Scheduler({"default": deps}, ActivityHub(deps.store), clock=lambda: NIGHT)
+
+
+async def test_the_wiki_is_compiled_after_the_nightly_rewrite(deps_factory):
+    """Both read the same notes, so the vault settles from the same night's reading."""
+    script = [completion("- Sếp thích trà."), WIKI]
+    deps, sched = _consolidate_scheduler(deps_factory(script=script))
+
+    run = await sched.run_job("default/memory-consolidate")
+
+    assert run.source == CONSOLIDATE_SOURCE  # the job the user asked for is what is returned
+    kinds = {p.kind for p in deps.store.proposals.list()}
+    assert kinds == {AGENT_MEMORY_REWRITE, WIKI_COMPILE}
+
+
+async def test_a_failed_compile_does_not_report_the_rewrite_as_failed(deps_factory, caplog):
+    """MEMORY.md is already rewritten by then; calling the job failed sends someone
+    looking for damage that is not there."""
+    deps, sched = _consolidate_scheduler(deps_factory(script=[completion("- Sếp thích trà.")]))
+
+    with caplog.at_level(logging.ERROR):
+        run = await sched.run_job("default/memory-consolidate")
+
+    assert run.status == DONE
+    assert [p.kind for p in deps.store.proposals.list()] == [AGENT_MEMORY_REWRITE]
 
 
 def test_a_consolidate_cron_in_the_profile_becomes_an_ordinary_job(settings, tmp_path):

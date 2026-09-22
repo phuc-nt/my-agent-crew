@@ -100,6 +100,7 @@ def list_proposals(rt: Rt, status: str = PENDING) -> dict[str, Any]:
 @router.post("/memory/proposals/{proposal_id}")
 def decide_proposal(proposal_id: str, body: DecisionBody, rt: Rt) -> dict[str, Any]:
     memory_files = {agent_id: d.profile.memory_file for agent_id, d in rt.agents.items()}
+    memory_dirs = {agent_id: d.profile.memory_dir for agent_id, d in rt.agents.items()}
     try:
         proposal = apply_proposal(
             rt.store,
@@ -107,6 +108,7 @@ def decide_proposal(proposal_id: str, body: DecisionBody, rt: Rt) -> dict[str, A
             approve=body.approve,
             user_dir=rt.settings.user_dir,
             memory_files=memory_files,
+            memory_dirs=memory_dirs,
         )
     except KeyError as exc:
         raise HTTPException(_missing_or_decided(rt, proposal_id), "proposal not decidable") from exc

@@ -64,6 +64,9 @@ The system prompt lists the available names; the model sees each tool's JSON sch
 | `memory_search` | no | 12 hits (`MAX_HITS`) | searches the shared user facts, then `MEMORY.md` and every daily note, newest first; every term must match |
 | `user_memory_save` | no | — | remembers one thing about the person, shared by the whole crew, see [memory.md](memory.md) |
 | `user_memory_forget` | no | — | drops one remembered fact by name |
+| `wiki_get` | no | — | one wiki page in full, looked up by its title, see [memory.md](memory.md#the-wiki-vault) |
+| `wiki_search` | no | 8 hits (`MAX_HITS`) | searches the vault's titles and bodies, best first, as `[slug] text` |
+| `wiki_apply` | no | — | writes or updates one page; refuses a page with no `sources`, and never touches the link block a compile owns |
 | `shell_run` | **yes** | 120 s default, 900 s max | runs a command in the workspace, returns stdout+stderr |
 | `skill_read` | no | — | returns one skill's full text by name, opening with a warning when the skill needs a command this machine lacks, see [agents.md](agents.md#skills) |
 | `image_read` | no | 8 MB (`MAX_IMAGE_BYTES`); jpg, png, webp, gif | sends a picture from the workspace or the crew home (where `inbox/` keeps what Telegram delivered) to the `vision_routes` chain with a `question` and returns the answer, see [Images](#images); only present when a vision route is configured |

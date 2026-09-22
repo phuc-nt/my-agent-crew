@@ -18,6 +18,7 @@ import type {
   StoredMessage,
   TemplateInfo,
 } from "../api/types";
+import { FakeWiki } from "./fake-wiki";
 
 export const fakeAgent: AgentInfo = {
   id: "default",
@@ -152,6 +153,8 @@ export class FakeBackend {
     ollama_base_url: "http://127.0.0.1:11434/v1",
     telegram: [],
   };
+  /** The wiki vault, empty until a test puts pages in it. */
+  wiki = new FakeWiki();
   /** Set to a message to make the next PATCH refuse, the way a bad field would. */
   refuseEdit: string | null = null;
   /** What the next POST /summary writes onto the conversation. */
@@ -170,6 +173,12 @@ export class FakeBackend {
     this.requests.push({ method, path: path + url.search, body });
     const conv = path.match(/^\/conversations\/([^/]+)/)?.[1];
 
+    // Before the rest of /memory: the wiki paths sit under it and would otherwise be
+    // swallowed by the note and fact matches.
+    const wiki = this.wiki.route(path, method, body ?? {}, url.searchParams, (id) =>
+      this.agents.some((a) => a.id === id),
+    );
+    if (wiki) return wiki;
     const memory = this.memoryRoute(path, method, body, url.searchParams);
     if (memory) return memory;
     if (path === "/settings") return json(this.settings);

@@ -13,6 +13,35 @@ bản phát hành, `pyproject.toml` và `web/package.json` luôn cùng số.
 
 ### Thêm
 
+- **Wiki bộ nhớ: mỗi agent một kho trang** ở `memory/wiki/`, chia ba thư mục `entities`,
+  `concepts`, `syntheses`. Ghi chú hằng ngày viết theo ngày — đúng cho lúc ghi, sai cho lúc
+  hỏi: "hạn Eco là khi nào" nằm rải trong mười một ghi chú. Một trang gom các mảnh đó lại
+  dưới tên của chính thứ đó, nên câu hỏi có một chỗ để được trả lời.
+- **Mỗi trang phải khai nguồn.** `sources` ghi `note:YYYY-MM-DD` hoặc `conv:<id>`;
+  `wiki_apply` từ chối trang không có nguồn. Đây không phải kiểm tra đầu vào mà là điểm
+  chính của kho: một trang không nói được nó từ đâu ra là một trang tự bịa, và cho lọt một
+  trang như vậy làm mọi trang còn lại bớt đáng tin.
+- **Chỉ một phần tệp thuộc về máy.** Khối liên kết giữa hai dấu mốc được viết lại sau mỗi
+  lần biên dịch; phần còn lại thuộc về người hoặc model đã viết nó và được trả về nguyên
+  vẹn. Không có ranh giới đó thì kho hoặc đóng băng, hoặc không tin được.
+- **Liên kết `[[Tên trang]]`** dựng thành đồ thị hai chiều, viết lại sau mỗi lần biên dịch
+  hoặc mỗi lần sửa trang qua web — sửa một liên kết làm đổi thứ *trang khác* nói là nó
+  được trỏ tới từ đâu.
+- **Biên dịch từ ghi chú** nối tiếp ngay sau `memory_consolidate`, không có cron riêng, vì
+  cả hai đọc cùng một tập ghi chú. Kết quả là một **đề xuất** mang cả lô trang kèm nội dung
+  cũ để hoàn tác một bước; agent `autonomous` tự áp dụng. Biên dịch hỏng không làm hỏng lượt
+  dọn bộ nhớ đã chạy xong trước đó.
+- **Lint và hai bảng theo dõi.** Kho xuống cấp lặng lẽ: một trang mất nguồn cuối cùng, một
+  liên kết trỏ tới trang chưa ai viết, một trang ngừng được cập nhật. Lint đọc cả kho một
+  lượt và báo bốn loại: `unsourced`, `dangling`, `review`, `stale` (quá 90 ngày, hoặc không
+  có ngày cập nhật — coi việc thiếu bằng chứng là còn mới là cách một kho bắt đầu nói dối).
+  Không xoá gì: một liên kết treo thường là trang *nên có*, tức là việc cần làm cho lần
+  biên dịch sau. Hai tệp `wiki/reports/open-questions.md` và `stale.md` được viết lại toàn
+  bộ mỗi lần, vì bảng mà cộng dồn sẽ báo mãi những lỗi đã sửa từ mấy tháng trước.
+- **Ba công cụ cho agent**: `wiki_get`, `wiki_search`, `wiki_apply`.
+- **Tab Wiki trong màn hình quản lý** và các endpoint
+  `GET/PUT/DELETE /api/agents/{id}/memory/wiki…`: xem kho theo nhóm, tìm, mở một trang, sửa,
+  xoá, xem báo cáo lint, và chạy biên dịch ngay mà không phải đợi job ban đêm.
 - **`web_search` chạy được trên mọi máy** — thêm nguồn DuckDuckGo không cần khoá, đứng cuối
   danh sách nên luôn có ít nhất một nguồn. Thứ tự thử: firecrawl → Brave → Tavily → DuckDuckGo;
   nguồn hỏng bị bỏ qua và ghi log, chỉ khi tất cả cùng hỏng thì công cụ mới báo không tới được

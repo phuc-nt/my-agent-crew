@@ -21,6 +21,7 @@ from my_agent_crew.agent.turn_context import JOB
 from my_agent_crew.agents.profile import Schedule
 from my_agent_crew.memory.consolidate import JOB_SOURCE as CONSOLIDATE_SOURCE
 from my_agent_crew.memory.consolidate import consolidate_memory
+from my_agent_crew.memory.wiki_compile import compile_wiki
 from my_agent_crew.skills import Skill, mentioned_skills
 from my_agent_crew.store.runs import DONE, FAILED, RunRecord
 from my_agent_crew.tools.shell import run_shell
@@ -88,8 +89,21 @@ async def run_command(job: Job, deps: AgentDeps, hub: ActivityHub, title: str) -
 
 async def run_consolidate(job: Job, deps: AgentDeps, hub: ActivityHub) -> RunRecord:
     """Rewriting MEMORY.md is its own kind of run: one model call and no conversation, so
-    nothing is delivered to a channel and no session summary is written."""
+    nothing is delivered to a channel and no session summary is written.
+
+    The wiki compile is chained on afterwards rather than given its own cron, because both
+    read the same notes and the vault should settle from the same night's reading. It gets
+    its own run in the hub, and the consolidation's run is what this returns: the job the
+    user asked for is the one whose outcome they are shown.
+    """
     await consolidate_memory(deps, hub)
     run = next((r for r in hub.recent(20) if r.source == CONSOLIDATE_SOURCE), None)
     assert run is not None
+    try:
+        await compile_wiki(deps, hub)
+    except Exception:
+        # A failed compile must not take the consolidation down with it: MEMORY.md has
+        # already been rewritten by this point, and reporting the whole job as failed
+        # would send someone looking for damage that is not there.
+        logger.exception("wiki compile failed for %s", job.id)
     return run

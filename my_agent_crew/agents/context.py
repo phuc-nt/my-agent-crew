@@ -11,6 +11,7 @@ from pathlib import Path
 from my_agent_crew.agents.kit import split_front_matter
 from my_agent_crew.agents.profile import AgentProfile
 from my_agent_crew.memory import user_store
+from my_agent_crew.memory.wiki_index import wiki_section
 from my_agent_crew.texts import (
     PREVIOUS_SUMMARY_SECTION_TITLE,
     USER_FACTS_SECTION_TITLE,
@@ -83,6 +84,12 @@ def bootstrap_sections(
     memory = _read_capped(profile.memory_file)
     if memory:
         sections.append(("MEMORY.md", memory))
+    # After the durable memory file and before today's notes: the vault is settled
+    # knowledge, so it should be read in the same frame of mind and not mistaken for
+    # something that happened today.
+    wiki = wiki_section(profile.memory_dir)
+    if wiki:
+        sections.append(wiki)
     if previous_summary.strip():
         sections.append((PREVIOUS_SUMMARY_SECTION_TITLE, previous_summary.strip()))
     sections.extend(extra_sections)

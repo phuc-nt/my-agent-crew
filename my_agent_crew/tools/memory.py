@@ -11,7 +11,7 @@ from typing import Any
 
 from my_agent_crew import texts
 from my_agent_crew.agents.context import daily_note_path
-from my_agent_crew.memory import search, user_store
+from my_agent_crew.memory import search, user_store, wiki_links, wiki_store
 from my_agent_crew.tools.registry import Tool, ToolError
 
 MAX_HITS = 12
@@ -43,13 +43,31 @@ def search_facts(user_dir: Path, query: str) -> list[tuple[str, str]]:
     return [(hit.source, hit.text) for hit in search.search(_fact_files(user_dir), query, MAX_HITS)]
 
 
+def _wiki_files(memory_dir: Path) -> list[tuple[str, str]]:
+    """Each wiki page as one searchable file, labelled so a hit says where it came from.
+
+    The title is searched along with the body: a page is *about* its title, and the word
+    a person types is usually the name of the thing rather than a phrase inside it.
+    """
+    return [
+        (f"wiki:{page.slug}", f"{page.title}\n{wiki_links.authored_body(page.body)}")
+        for page in wiki_store.list_pages(memory_dir)
+    ]
+
+
 def _memory_files(
     memory_dir: Path, memory_file: Path, user_dir: Path | None
 ) -> list[tuple[str, str]]:
     """Every file worth searching, in the order that breaks ties between equal matches:
     what the crew knows about the person outranks one agent's notes, and a fresh note
-    outranks an old one."""
+    outranks an old one.
+
+    Wiki pages sit between the two. A page is built *out of* the notes and says where it
+    came from, so at an equal score it is the better answer — but it is still one agent's
+    reading of events, and what the crew knows about the person outranks it.
+    """
     files: list[tuple[str, str]] = _fact_files(user_dir) if user_dir is not None else []
+    files.extend(_wiki_files(memory_dir))
     if memory_file.is_file():
         files.append((memory_file.name, memory_file.read_text(encoding="utf-8", errors="replace")))
     if memory_dir.is_dir():

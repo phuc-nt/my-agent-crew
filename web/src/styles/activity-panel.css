@@ -384,6 +384,107 @@
   font-weight: 600;
 }
 
+/* ── Wiki ───────────────────────────────────────────────────────────────── */
+.wiki-toolbar {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  margin: var(--space-2) 0;
+}
+
+.wiki-toolbar input[type="search"] {
+  flex: 1;
+}
+
+.wiki-page-head {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+/* A page title is the content of this screen; the folder heading above it and the
+   lint line beside it are labels for that content. `button.ghost` is shared with
+   toolbars, where secondary text is right, so the title is pulled back to primary
+   here — otherwise the vault reads as a list of captions with nothing under them. */
+.wiki-list > li > button.ghost {
+  color: var(--text);
+  font-size: var(--text-md);
+  font-weight: 500;
+  padding-inline: 0;
+  text-align: left;
+}
+
+/* The group heading names a folder, so it sits above the titles as a quiet label
+   rather than competing with them. */
+.wiki-section-kind {
+  margin: var(--space-4) 0 var(--space-1);
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* The open page's title is the subject of the whole screen. The base `h3` rule dresses
+   headings as small uppercase captions, which is right for a section label and wrong
+   here: it left the title quieter than the metadata line under it. Every property that
+   rule sets is restated, so the title does not inherit half a caption. */
+.wiki-page-title {
+  margin: var(--space-3) 0 var(--space-1);
+  color: var(--text);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+/* Sources and open questions label the evidence under the body, so they keep the quiet
+   caption weight the group headings use in the list. */
+.wiki-page-label {
+  margin: var(--space-4) 0 var(--space-1);
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* In the problem list the slug is the address of a fault, not a title: the sentence
+   after it carries the meaning, so the slug stays monospace and quiet. */
+.wiki-problems > li > button.ghost {
+  padding-inline: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+/* The vault's three lists read as one table of contents, so they share the row
+   rhythm of the fact and proposal lists rather than inventing a second one. */
+.wiki-list,
+.wiki-problems,
+.wiki-sources,
+.wiki-questions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.wiki-list li,
+.wiki-problems li {
+  display: flex;
+  gap: var(--space-1);
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
+.wiki-sources li,
+.wiki-questions li {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
 /* ── Costs ──────────────────────────────────────────────────────────────── */
 .stat-totals {
   display: grid;

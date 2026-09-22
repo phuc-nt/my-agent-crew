@@ -44,9 +44,21 @@ def normalize(text: str) -> str:
 
     `đ` needs its own line: it is a letter of the Vietnamese alphabet rather than a `d`
     with a mark, so decomposition leaves it alone and `doc` would never reach `đọc`.
+
+    A mark is dropped only from a Latin base letter. Decomposition calls the Japanese
+    dakuten a combining character too, and stripping it turns `ふびん` into `ふひん`: not
+    the same word written plainly, but a different word.
     """
-    decomposed = unicodedata.normalize("NFD", text.lower().replace("đ", "d"))
-    return "".join(ch for ch in decomposed if not unicodedata.combining(ch))
+    out: list[str] = []
+    latin_base = False
+    for ch in unicodedata.normalize("NFD", text.lower().replace("đ", "d")):
+        if unicodedata.combining(ch):
+            if not latin_base:
+                out.append(ch)
+            continue
+        latin_base = ch.isascii()
+        out.append(ch)
+    return unicodedata.normalize("NFC", "".join(out))
 
 
 def terms_of(query: str) -> list[str]:

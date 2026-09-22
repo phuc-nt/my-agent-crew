@@ -60,6 +60,14 @@ def test_the_vietnamese_d_is_not_an_accent():
     assert normalize("Đang đọc") == "dang doc"
 
 
+def test_the_japanese_voicing_mark_is_not_an_accent_either():
+    """`び` and `ひ` are different sounds, not one letter with a mark on it. Decomposition
+    calls the dakuten a combining character, so stripping every combining character would
+    quietly rewrite a Japanese title into a word that does not exist."""
+    assert normalize("ふびん") == "ふびん"
+    assert normalize("ふびん") != normalize("ふひん")
+
+
 def test_a_word_found_whole_outranks_the_same_word_inside_another():
     """Without accents `doc` is inside `docs`; the entry that has the word wins."""
     files = [("a.md", "- xem docs của thư viện"), ("b.md", "- đang đọc sách mới")]

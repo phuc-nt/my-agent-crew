@@ -398,7 +398,13 @@ export interface MemoryHit {
   text: string;
 }
 
-export type ProposalKind = "user_fact" | "user_forget" | "agent_memory" | "agent_memory_rewrite";
+export type ProposalKind =
+  | "user_fact"
+  | "user_forget"
+  | "agent_memory"
+  | "agent_memory_rewrite"
+  /** A whole batch of wiki pages, decided in one approval; the body is JSON. */
+  | "wiki_compile";
 export type ProposalStatus = "pending" | "approved" | "rejected";
 
 /** A memory write a scheduled job asked for and cannot perform on its own. */
@@ -422,6 +428,48 @@ export interface FactBody {
   description: string;
   type: FactType;
   body: string;
+}
+
+/** A page as the list shows it: enough to choose one, without its body. */
+export interface WikiPageSummary {
+  slug: string;
+  kind: string;
+  title: string;
+  status: string;
+  updated: string;
+  sources: string[];
+  question_count: number;
+}
+
+export interface WikiPage extends Omit<WikiPageSummary, "question_count"> {
+  body: string;
+  questions: string[];
+}
+
+/** Only the fields being changed; what is left out keeps its current value. */
+export interface WikiPageEdit {
+  title?: string;
+  body?: string;
+  sources?: string[];
+  questions?: string[];
+  status?: string;
+}
+
+export interface WikiList {
+  pages: WikiPageSummary[];
+  kinds: string[];
+  count: number;
+}
+
+export interface WikiProblem {
+  slug: string;
+  kind: string;
+  detail: string;
+}
+
+export interface WikiReport {
+  problems: WikiProblem[];
+  questions: { slug: string; question: string }[];
 }
 
 export type * from "./activity-types";

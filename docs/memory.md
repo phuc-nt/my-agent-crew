@@ -131,6 +131,102 @@ the rewrite immediately; everyone else sees it in **Ghi nhớ → Đề xuất**
 Activity with its cost, and a failed rewrite leaves the file exactly as it was. Source:
 `memory/consolidate.py`, `scheduler/jobs.py`.
 
+## The wiki vault
+
+A daily note is written by day, which is the right shape for writing and the wrong shape
+for asking. "What do I know about the Eco Retreat deadline" is spread over eleven notes,
+and the answer is whichever fragment the search happened to rank first. The vault gathers
+those fragments onto a page named after the thing itself, so the question has one place to
+be answered from. It lives at `memory/wiki/` inside the agent dir, alongside the notes it
+was built from. Source: `memory/wiki_store.py`, `wiki_compile.py`, `wiki_lint.py`,
+`tools/wiki.py`.
+
+Pages are filed in three folders: `entities` for things with names (a person, a place, a
+contract), `concepts` for ideas that recur, and `syntheses` for pages written across
+several others rather than out of notes directly. One page is one markdown file with
+frontmatter — `title`, `kind`, `sources`, `questions`, `status`, `updated` — and a body.
+
+Two rules make the vault safe to regenerate every night:
+
+- **A page records where it came from.** `sources` lists the notes or conversations it was
+  built out of, as `note:YYYY-MM-DD` or `conv:<id>`. `wiki_apply` refuses a page with no
+  sources, and the lint reports any that lost theirs. This looks like input validation and
+  is really the point: a page that cannot say where it came from is a page that made itself
+  up, and letting one in makes every other page less believable.
+- **Only part of the file is machine-owned.** Everything between the related markers is
+  rewritten on every compile; everything else belongs to whoever wrote it, model or person,
+  and a compile returns it unchanged. Without that split the vault would be either frozen
+  or untrustworthy.
+
+A page's file name is its identity, so `slugify` decides which writes land on the same
+page. It drops accents through the same `normalize` the search uses, so `Hạn Eco` and
+`han eco` are one page rather than two that each know half the story. It keeps letters and
+digits of **any** script: filing every non-Latin title under one fallback name would not be
+a bad name but a merge, with the next such page overwriting the last.
+
+### Links
+
+A body links with `[[Tên trang]]`. After every compile or edit the link graph is rebuilt,
+which writes each page's incoming and outgoing links into its machine-owned block. That is
+why editing a page over HTTP rebuilds the graph immediately: an edited link changes what
+*other* pages say they are linked from, and leaving it to the next compile would let the
+vault describe a graph that was true yesterday.
+
+### Compiling
+
+The compile reads the recent notes and asks the model for a batch of pages, then
+**proposes** them rather than writing, exactly as consolidation does. The proposal carries
+every page at once as JSON, with what those pages said before in `previous_body`, so an
+undo stays one step. An agent marked `autonomous` applies its own batch immediately. The
+model never decides whether a page may exist without sources; that check runs on the reply
+before anything is proposed.
+
+There is no separate cron. The compile is chained onto the `memory_consolidate` job,
+because both read the same notes and the vault should settle from the same night's reading.
+It gets its own run in Activity with its own cost, and a failed compile is logged without
+failing the consolidation, whose rewrite has already landed.
+
+### Lint and the two dashboards
+
+A vault degrades quietly: a page loses its last source in a rewrite, a link points at a
+page nobody wrote, a page stops being updated while the thing it describes moves on. None
+of that raises an error and none is visible from a single page, so the lint reads the whole
+vault at once and reports four sorts: `unsourced`, `dangling`, `review` (any page whose
+status is not `ok`), and `stale` — older than 90 days (`STALE_DAYS`) or carrying no date at
+all, since treating absence of evidence as freshness is how a vault starts lying. Nothing
+is deleted; a dangling link is usually a page that *should* exist, which makes it a to-do
+for the next compile rather than a fault to clean away.
+
+Two markdown dashboards are regenerated whole beside the pages, at
+`memory/wiki/reports/open-questions.md` and `stale.md`. They are files because the person
+reading them is as likely to be in their editor as in the web UI, and because a file can be
+opened next year. Regenerated whole, because a dashboard that accumulates keeps reporting
+problems that were fixed months ago, which is how a report stops being read.
+
+### The agent's own tools
+
+| Tool | Does |
+|---|---|
+| `wiki_get` | one page in full, by title; the title is slugged, so the agent does not need the file name |
+| `wiki_search` | up to 8 hits as `[slug] <matching text>`, title searched with the body, since someone looking for a page types the name of the thing |
+| `wiki_apply` | upsert one page: replaces what a writer owns, never the machine-written block, and refuses a page with no sources |
+
+`wiki_apply` keeps a page in whatever folder it already lives in. Moving it on a re-write
+would break every link that resolved to the old one.
+
+### Over HTTP and in the web UI
+
+| Endpoint | Does |
+|---|---|
+| `GET /api/agents/{id}/memory/wiki?q=` | the vault as a table of contents, bodies omitted; with `q` it is ranked by the same search `wiki_search` uses |
+| `GET/PUT/DELETE /api/agents/{id}/memory/wiki/pages/{slug}` | one page in full; a PUT changes only the fields sent, so a UI showing the body alone cannot silently drop the sources it never displayed |
+| `GET /api/agents/{id}/memory/wiki/report` | the lint problems and the open questions as data |
+| `POST /api/agents/{id}/memory/wiki/compile` | starts a compile and answers 202; 409 while a compile or consolidation is already running for that agent |
+
+The **Wiki** tab in the manage screen is these endpoints: the vault grouped by folder,
+search, one page open with its body and sources, edit and delete, the lint report, and a
+compile that can be started without waiting for the night's job.
+
 ## What one agent sees of another
 
 Nothing, beyond the task it is handed. The person talks to the master on every platform
@@ -170,7 +266,27 @@ file recency, which is enough for a single user's notes and keeps the result exp
 Pruning here is the consolidation job above, which openclaw has no equivalent of: it
 proposes a rewrite on a schedule and keeps what it replaced. The shared user scope has no
 openclaw equivalent either: openclaw keeps one workspace per agent, so a fact about the
-person learned by one agent stays there. Tests: `test_tools_memory.py`, `test_tools_memory_user.py`,
+person learned by one agent stays there.
+
+The wiki takes its shape from openclaw's memory-wiki — pages under `entities`, `concepts`
+and `syntheses`, `[[links]]`, a compile from the daily notes — and stops there. Three
+differences are deliberate:
+
+- **No Obsidian CLI and no bridge.** openclaw drives an external vault through Obsidian;
+  here the vault is plain files in the agent dir that the same `memory_search` and
+  `workspace_read` already reach. Nothing has to be installed, and a vault with no reader
+  attached still opens in any editor.
+- **No claims layer.** openclaw extracts individual claims and tracks them separately. Here
+  the page is the unit and `sources` is the whole provenance story. A claim graph is more
+  precise and more machinery than one person's notes repay; the lint catches the failure
+  that actually happens, which is a page losing its evidence.
+- **The lint and its two dashboards** have no openclaw equivalent. They exist because a
+  vault degrades silently and the damage is only visible across the whole vault at once.
+
+Tests: `test_tools_memory.py`, `test_tools_memory_user.py`,
 `test_agent_context.py`, `test_memory_user_store.py`, `test_memory_agent_store.py`,
 `test_memory_proposals_apply.py`, `test_server_memory_api.py`,
-`test_memory_consolidate.py`.
+`test_memory_consolidate.py`, and for the vault `test_wiki_store.py`,
+`test_wiki_links.py`, `test_wiki_apply.py`, `test_wiki_plan.py`, `test_wiki_index.py`,
+`test_wiki_lint.py`, `test_wiki_tools.py`, `test_memory_wiki_compile.py`,
+`test_server_wiki_api.py`.

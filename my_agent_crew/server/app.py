@@ -26,6 +26,7 @@ from my_agent_crew.server import (
     routes_jobs,
     routes_memory_agent,
     routes_memory_user,
+    routes_memory_wiki,
     routes_registry,
     routes_settings,
 )
@@ -50,6 +51,7 @@ ROUTERS = (
     routes_jobs.router,
     routes_memory_user.router,
     routes_memory_agent.router,
+    routes_memory_wiki.router,
 )
 
 

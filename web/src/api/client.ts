@@ -25,7 +25,13 @@ import type {
   StatsInfo,
   TemplateInfo,
   UserMemory,
+  WikiList,
+  WikiPage,
+  WikiPageEdit,
+  WikiReport,
 } from "./types";
+
+const wikiPath = (agentId: string) => `/agents/${encodeURIComponent(agentId)}/memory/wiki`;
 
 export class ApiError extends Error {
   constructor(
@@ -228,6 +234,25 @@ export const api = {
     request<MemoryProposal>(`/memory/proposals/${encodeURIComponent(id)}`, {
       method: "POST",
       body: JSON.stringify({ approve }),
+    }),
+  listWiki: (agentId: string, q?: string) =>
+    request<WikiList>(`${wikiPath(agentId)}${query({ q })}`),
+  getWikiPage: (agentId: string, slug: string) =>
+    request<WikiPage>(`${wikiPath(agentId)}/pages/${encodeURIComponent(slug)}`),
+  putWikiPage: (agentId: string, slug: string, body: WikiPageEdit) =>
+    request<WikiPage>(`${wikiPath(agentId)}/pages/${encodeURIComponent(slug)}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  deleteWikiPage: (agentId: string, slug: string) =>
+    request<{ slug: string; deleted: boolean }>(
+      `${wikiPath(agentId)}/pages/${encodeURIComponent(slug)}`,
+      { method: "DELETE" },
+    ),
+  getWikiReport: (agentId: string) => request<WikiReport>(`${wikiPath(agentId)}/report`),
+  compileWiki: (agentId: string) =>
+    request<{ agent_id: string; run_source: string }>(`${wikiPath(agentId)}/compile`, {
+      method: "POST",
     }),
 };
 

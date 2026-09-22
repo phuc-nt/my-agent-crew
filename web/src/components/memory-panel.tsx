@@ -6,8 +6,9 @@ import { MemoryAgentSection } from "./memory-agent-section";
 import { MemoryProposalsSection } from "./memory-proposals-section";
 import { MemorySearchSection } from "./memory-search-section";
 import { MemoryUserSection } from "./memory-user-section";
+import { WikiSection } from "./wiki-section";
 
-type Section = "user" | "agents" | "search" | "proposals";
+type Section = "user" | "agents" | "wiki" | "search" | "proposals";
 
 interface Props {
   agents: AgentInfo[];
@@ -20,6 +21,7 @@ interface Props {
 const SECTIONS: { id: Section; label: string }[] = [
   { id: "user", label: vi.memory.user },
   { id: "agents", label: vi.memory.agents },
+  { id: "wiki", label: vi.wiki.tab },
   { id: "search", label: vi.memory.search },
   { id: "proposals", label: vi.memory.proposals },
 ];
@@ -70,6 +72,9 @@ export function MemoryPanel(props: Props) {
           onSaveNote={memory.saveNote}
           onConsolidate={memory.consolidate}
         />
+      )}
+      {section === "wiki" && (
+        <WikiSection agents={props.agents} agentId={agentId} onSelectAgent={setAgentId} />
       )}
       {section === "search" && (
         <MemorySearchSection
