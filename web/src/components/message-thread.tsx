@@ -1,13 +1,17 @@
 import { useEffect, useRef } from "react";
 import { agentFileUrl } from "../api/client";
+import type { RunInfo } from "../api/types";
 import { vi } from "../i18n/vi";
 import type { ThreadItem } from "../state/thread-reducer";
+import { RunProgressHeader } from "./run-progress-header";
 import { ToolCallCard } from "./tool-call-card";
 
 interface Props {
   items: ThreadItem[];
   streaming: string | null;
   busy: boolean;
+  /** The run this conversation is waiting on, so the wait can say what it is waiting for. */
+  liveRun?: RunInfo | null;
   onSuggestion: (text: string) => void;
   echoOnly: boolean;
   agentId: string;
@@ -26,6 +30,7 @@ export function MessageThread({
   items,
   streaming,
   busy,
+  liveRun = null,
   onSuggestion,
   echoOnly,
   agentId,
@@ -80,9 +85,14 @@ export function MessageThread({
           <p>{streaming}</p>
         </div>
       )}
+      {/* While the turn is blocked, the thread says what it is blocked on. The
+          rail has this already; repeating it here means you do not have to open
+          a second panel to learn whether anything is still happening. Without a
+          run to read — the very first moment of a turn — it falls back to the
+          plain word, which is all that is true yet. */}
       {busy && streaming === null && (
         <div className="thinking" data-testid="thinking">
-          {vi.thinking}
+          {liveRun ? <RunProgressHeader run={liveRun} /> : vi.thinking}
         </div>
       )}
       <div ref={bottom} />

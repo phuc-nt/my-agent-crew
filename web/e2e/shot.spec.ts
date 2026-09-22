@@ -90,3 +90,24 @@ test("timeline screenshot", async ({ page }) => {
   await page.screenshot({ path: "test-results/timeline-dark.png", fullPage: false });
   await panel.screenshot({ path: "test-results/timeline-panel-dark.png" });
 });
+
+// The other half of the goal: while an agent works, the thread itself has to
+// say what it is doing. The first send creates conversation `c1`, so the run
+// below is the one the thread will find.
+test("busy thread screenshot", async ({ page }) => {
+  await mockApi(page, { runs: [{ ...liveRun, agent_id: "default", conversation_id: "c1" }] });
+  // The turn is left hanging on purpose: `busy` only holds while the POST is
+  // open, and the wait state is the thing being photographed.
+  await page.route(/\/api\/conversations\/[^/]+\/messages$/, () => {});
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.getByRole("textbox").fill("Tìm cho tôi vài đầu sách hay tuần này nhé");
+  await page.keyboard.press("Enter");
+  await expect(page.getByTestId("thinking")).toBeVisible();
+  await page.waitForTimeout(900);
+  await page.screenshot({ path: "test-results/thread-busy.png", fullPage: false });
+
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: "test-results/thread-busy-dark.png", fullPage: false });
+});

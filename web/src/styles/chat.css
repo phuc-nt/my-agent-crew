@@ -78,9 +78,24 @@
   }
 }
 
+/* Two shapes behind one class. With no run to read, this is a single italic
+   line — the old "đang suy nghĩ". With one, it holds the same progress header
+   the rail uses, and becomes a card so the bar has an edge to sit inside. The
+   italic is scoped out in that case: the header is data, not an aside. */
 .thinking {
   color: var(--muted);
   font-style: italic;
+}
+
+.thinking:has(.run-progress-wrap) {
+  /* Narrower than a bubble. The rail carries the full story; this is the
+     glance version, and at bubble width it would read as a message. */
+  max-width: 420px;
+  font-style: normal;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface);
 }
 
 /* ── Tool cards in the thread ───────────────────────────────────────────── */

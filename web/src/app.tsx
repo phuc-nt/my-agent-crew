@@ -65,6 +65,9 @@ export function App() {
   const active =
     list.conversations.find((c) => c.id === list.activeId) ??
     (thread.detail && thread.detail.id === list.activeId ? thread.detail : null);
+  // `live` is newest-first, so the first match is the turn being waited on even
+  // when an earlier run was left open.
+  const activeRun = list.activeId ? (live.find((r) => r.conversation_id === list.activeId) ?? null) : null;
   const echoOnly = settings !== null && settings.providers.every((p) => p === "fake");
   const master = crew.master;
   const crewNames = (master?.delegates ?? []).map(crew.agentName);
@@ -189,6 +192,7 @@ export function App() {
             items={state.items}
             streaming={state.streaming}
             busy={state.busy}
+            liveRun={activeRun}
             echoOnly={echoOnly}
             agentId={active?.agent_id ?? "default"}
             agentName={crew.agentName}
