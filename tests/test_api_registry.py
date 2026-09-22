@@ -28,9 +28,7 @@ def crew(tmp_path: Path):
 
 def test_the_tool_list_says_which_agents_hold_each_tool(crew) -> None:
     client, _, _ = crew
-    client.post(
-        "/api/agents", json={"agent_id": "coder", "profile": {"tools": ["workspace_read"]}}
-    )
+    client.post("/api/agents", json={"agent_id": "coder", "profile": {"tools": ["workspace_read"]}})
 
     tools = {t["name"]: t for t in client.get("/api/tools").json()}
 
@@ -41,9 +39,7 @@ def test_the_tool_list_says_which_agents_hold_each_tool(crew) -> None:
 
 def test_a_tool_only_one_agent_holds_still_appears(crew) -> None:
     client, _, _ = crew
-    client.post(
-        "/api/agents", json={"agent_id": "coder", "profile": {"tools": ["workspace_read"]}}
-    )
+    client.post("/api/agents", json={"agent_id": "coder", "profile": {"tools": ["workspace_read"]}})
 
     names = [t["name"] for t in client.get("/api/tools").json()]
 

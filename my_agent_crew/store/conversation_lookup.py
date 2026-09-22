@@ -80,9 +80,7 @@ def children_of(
     return [Conversation.from_row(r) for r in rows]
 
 
-def delegating_call_ids(
-    history: list[StoredMessage], tool_name: str
-) -> tuple[str, ...]:
+def delegating_call_ids(history: list[StoredMessage], tool_name: str) -> tuple[str, ...]:
     """The ids of the delegating tool calls in a conversation's history.
 
     A child is linked to the call that opened it, not to the conversation, so finding what

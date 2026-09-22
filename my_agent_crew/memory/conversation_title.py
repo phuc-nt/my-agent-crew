@@ -35,7 +35,7 @@ TITLE_TIMEOUT_S = 8.0
 
 _SENTENCE_END = re.compile(r"[.!?…]+(?:\s|$)")
 # What a model adds when it answers with a title instead of returning one.
-_WRAPPING = ' \t"\'`*_·—-–:'
+_WRAPPING = " \t\"'`*_·—-–:"
 
 _in_flight: dict[str, asyncio.Task[None]] = {}
 

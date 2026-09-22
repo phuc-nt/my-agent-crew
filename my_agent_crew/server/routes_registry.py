@@ -74,9 +74,7 @@ def _telegram(rt: Runtime) -> list[dict[str, Any]]:
 def list_connections(rt: Rt) -> dict[str, Any]:
     s = rt.settings
     return {
-        "providers": [
-            {"name": name, "built": True} for name in sorted(rt.default.chain.providers)
-        ],
+        "providers": [{"name": name, "built": True} for name in sorted(rt.default.chain.providers)],
         "routes": [{"provider": r.provider, "model": r.model} for r in s.routes],
         "vision_routes": [{"provider": r.provider, "model": r.model} for r in s.vision_routes],
         "keys": [

@@ -9,6 +9,7 @@ These tests probe gaps in the existing test suite:
 6. Malformed YAML manifest before PATCH
 7. DELETE of agent reached via implicit master delegation
 """
+
 from pathlib import Path
 
 import pytest
@@ -42,12 +43,8 @@ class TestConcurrentPatching:
         client.post("/api/agents", json={"agent_id": "coder", "profile": {"name": "Coder"}})
 
         # Simulate two patches: one sets description, another sets mode
-        reply1 = client.patch(
-            "/api/agents/coder", json={"profile": {"description": "First"}}
-        )
-        reply2 = client.patch(
-            "/api/agents/coder", json={"profile": {"description": "Second"}}
-        )
+        reply1 = client.patch("/api/agents/coder", json={"profile": {"description": "First"}})
+        reply2 = client.patch("/api/agents/coder", json={"profile": {"description": "Second"}})
 
         assert reply1.status_code == 200
         assert reply2.status_code == 200
@@ -66,18 +63,14 @@ class TestDelegationConflicts:
         """An agent can change its tool list; others delegating to it must still work."""
         client, runtime, _ = crew
         client.post(
-            "/api/agents",
-            json={"agent_id": "specialist", "profile": {"tools": ["workspace_read"]}}
+            "/api/agents", json={"agent_id": "specialist", "profile": {"tools": ["workspace_read"]}}
         )
         client.post(
-            "/api/agents",
-            json={"agent_id": "lead", "profile": {"delegates": ["specialist"]}}
+            "/api/agents", json={"agent_id": "lead", "profile": {"delegates": ["specialist"]}}
         )
 
         # Remove all tools from specialist
-        reply = client.patch(
-            "/api/agents/specialist", json={"profile": {"tools": None}}
-        )
+        reply = client.patch("/api/agents/specialist", json={"profile": {"tools": None}})
 
         assert reply.status_code == 200
         # Specialist now has default tools, not empty; that's fine for delegation
@@ -88,9 +81,7 @@ class TestDelegationConflicts:
         client, _, _ = crew
         client.post("/api/agents", json={"agent_id": "lead", "profile": {}})
 
-        reply = client.patch(
-            "/api/agents/lead", json={"profile": {"delegates": ["phantom"]}}
-        )
+        reply = client.patch("/api/agents/lead", json={"profile": {"delegates": ["phantom"]}})
 
         assert reply.status_code == 422
         assert "phantom" in reply.json()["detail"]
@@ -103,8 +94,7 @@ class TestToolsAndRegistryReflection:
         """Editing an agent's tools should update what get_tools returns for that agent."""
         client, runtime, _ = crew
         client.post(
-            "/api/agents",
-            json={"agent_id": "coder", "profile": {"tools": ["workspace_read"]}}
+            "/api/agents", json={"agent_id": "coder", "profile": {"tools": ["workspace_read"]}}
         )
 
         # Initially, coder holds only workspace_read
@@ -113,8 +103,7 @@ class TestToolsAndRegistryReflection:
 
         # Add more tools
         client.patch(
-            "/api/agents/coder",
-            json={"profile": {"tools": ["workspace_read", "shell_run"]}}
+            "/api/agents/coder", json={"profile": {"tools": ["workspace_read", "shell_run"]}}
         )
 
         # Runtime registry should reflect both
@@ -129,8 +118,7 @@ class TestToolsAndRegistryReflection:
         client, runtime, _ = crew
         # Create agent with restricted tools
         client.post(
-            "/api/agents",
-            json={"agent_id": "coder", "profile": {"tools": ["workspace_read"]}}
+            "/api/agents", json={"agent_id": "coder", "profile": {"tools": ["workspace_read"]}}
         )
 
         tools_before = {t["name"] for t in client.get("/api/tools").json()}
@@ -179,8 +167,7 @@ class TestAgentIdCollisionWithKit:
         # Create a kit agent first (kit agents live in .agents/agents/)
         (home / ".agents" / "agents").mkdir(parents=True)
         (home / ".agents" / "agents" / "reviewer.md").write_text(
-            "---\nname: Kit Reviewer\n---\nReviews code.",
-            encoding="utf-8"
+            "---\nname: Kit Reviewer\n---\nReviews code.", encoding="utf-8"
         )
 
         env = {"MY_AGENT_HOME": str(home), "MY_AGENT_ROUTES": "fake:echo"}
@@ -190,8 +177,7 @@ class TestAgentIdCollisionWithKit:
             # Only agents in agents/ (regular yaml files) are loaded
             # So creating "reviewer" should succeed (the kit agent isn't loaded yet)
             reply = client.post(
-                "/api/agents",
-                json={"agent_id": "reviewer", "profile": {"name": "Override"}}
+                "/api/agents", json={"agent_id": "reviewer", "profile": {"name": "Override"}}
             )
 
             # This should succeed because kit agents aren't auto-loaded
@@ -263,9 +249,7 @@ class TestPatchValidationBeforeWrite:
         client.post("/api/agents", json={"agent_id": "coder", "profile": {"mode": "assistant"}})
 
         # Try to patch with an invalid mode
-        reply = client.patch(
-            "/api/agents/coder", json={"profile": {"mode": "invalid_mode"}}
-        )
+        reply = client.patch("/api/agents/coder", json={"profile": {"mode": "invalid_mode"}})
 
         assert reply.status_code == 422
         # File should be unchanged
@@ -280,10 +264,7 @@ class TestPatchValidationBeforeWrite:
         client, runtime, _ = crew
         client.post("/api/agents", json={"agent_id": "coder", "profile": {}})
 
-        reply = client.patch(
-            "/api/agents/coder",
-            json={"profile": {"unknown_field_xyz": "value"}}
-        )
+        reply = client.patch("/api/agents/coder", json={"profile": {"unknown_field_xyz": "value"}})
 
         assert reply.status_code == 422
         assert "unknown_field_xyz" in reply.json()["detail"]
@@ -339,9 +320,7 @@ class TestPersonaFileOperations:
         client.post("/api/agents", json={"agent_id": "coder", "profile": {}})
 
         content = "Viết mã tốt với tiếng Việt: đặc biệt là ủ phúc."
-        reply = client.put(
-            "/api/agents/coder/files/SOUL.md", json={"content": content}
-        )
+        reply = client.put("/api/agents/coder/files/SOUL.md", json={"content": content})
 
         assert reply.status_code == 200
         written = (home / "agents" / "coder" / "SOUL.md").read_text(encoding="utf-8")
@@ -352,17 +331,13 @@ class TestPersonaFileOperations:
         home = tmp_path / "home"
         (home / ".agents" / "agents").mkdir(parents=True)
         (home / ".agents" / "agents" / "reviewer.md").write_text(
-            "---\nname: Reviewer\n---\nReviews.",
-            encoding="utf-8"
+            "---\nname: Reviewer\n---\nReviews.", encoding="utf-8"
         )
 
         env = {"MY_AGENT_HOME": str(home), "MY_AGENT_ROUTES": "fake:echo"}
         runtime = build_runtime(load_settings(env=env))
         with TestClient(create_app(runtime, schedule=False)) as client:
-            reply = client.put(
-                "/api/agents/reviewer/files/SOUL.md",
-                json={"content": "Modified"}
-            )
+            reply = client.put("/api/agents/reviewer/files/SOUL.md", json={"content": "Modified"})
 
             assert reply.status_code == 409
             assert "reviewer.md" in reply.json()["detail"]
@@ -375,8 +350,7 @@ class TestPersonaFileOperations:
         files = ["AGENTS.md", "SOUL.md", "IDENTITY.md", "USER.md"]
         for fname in files:
             reply = client.put(
-                f"/api/agents/agent/files/{fname}",
-                json={"content": f"Content of {fname}"}
+                f"/api/agents/agent/files/{fname}", json={"content": f"Content of {fname}"}
             )
             assert reply.status_code == 200
 
@@ -402,10 +376,7 @@ class TestCreateValidation:
         ]
 
         for bad_id in invalid_ids:
-            reply = client.post(
-                "/api/agents",
-                json={"agent_id": bad_id, "profile": {}}
-            )
+            reply = client.post("/api/agents", json={"agent_id": bad_id, "profile": {}})
             assert reply.status_code == 422, f"Expected 422 for id '{bad_id}'"
 
     def test_create_with_valid_id_formats_succeeds(self, crew) -> None:
@@ -423,10 +394,7 @@ class TestCreateValidation:
         ]
 
         for good_id in valid_ids:
-            reply = client.post(
-                "/api/agents",
-                json={"agent_id": good_id, "profile": {}}
-            )
+            reply = client.post("/api/agents", json={"agent_id": good_id, "profile": {}})
             assert reply.status_code == 201, f"Expected 201 for id '{good_id}'"
 
     def test_create_with_invalid_profile_is_rejected(self, crew) -> None:
@@ -434,8 +402,7 @@ class TestCreateValidation:
         client, _, _ = crew
 
         reply = client.post(
-            "/api/agents",
-            json={"agent_id": "coder", "profile": {"mode": "invalid_mode"}}
+            "/api/agents", json={"agent_id": "coder", "profile": {"mode": "invalid_mode"}}
         )
 
         assert reply.status_code == 422
@@ -450,10 +417,7 @@ class TestPatchDelegateValidation:
         client.post("/api/agents", json={"agent_id": "coder", "profile": {}})
 
         # Try to make coder delegate to itself
-        reply = client.patch(
-            "/api/agents/coder",
-            json={"profile": {"delegates": ["coder"]}}
-        )
+        reply = client.patch("/api/agents/coder", json={"profile": {"delegates": ["coder"]}})
 
         # Should fail because coder doesn't exist in the peers list for validation
         # OR if the check allows self-delegation, it will pass
@@ -475,8 +439,7 @@ class TestCreateAgentDirectoryStructure:
         client, _, home = crew
 
         reply = client.post(
-            "/api/agents",
-            json={"agent_id": "coder", "profile": {"name": "Code Writer"}}
+            "/api/agents", json={"agent_id": "coder", "profile": {"name": "Code Writer"}}
         )
 
         assert reply.status_code == 201

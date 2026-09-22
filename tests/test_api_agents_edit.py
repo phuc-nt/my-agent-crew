@@ -128,11 +128,7 @@ def test_only_a_schedule_or_a_channel_asks_for_a_restart(crew) -> None:
     renamed = client.patch("/api/agents/coder", json={"profile": {"name": "Thợ mã"}})
     scheduled = client.patch(
         "/api/agents/coder",
-        json={
-            "profile": {
-                "schedules": [{"id": "sáng", "cron": "0 7 * * *", "prompt": "chào"}]
-            }
-        },
+        json={"profile": {"schedules": [{"id": "sáng", "cron": "0 7 * * *", "prompt": "chào"}]}},
     )
 
     dropped = client.patch("/api/agents/coder", json={"profile": {"schedules": None}})
@@ -293,9 +289,7 @@ def test_a_workspace_outside_the_home_is_refused(crew) -> None:
     absolute = client.patch("/api/agents/coder", json={"profile": {"workspace": "~/escape"}})
     # Far enough up to leave the home: an agent lives at <home>/agents/<id>, so two
     # levels still lands inside it and only the third one gets out.
-    upward = client.patch(
-        "/api/agents/coder", json={"profile": {"workspace": "../../../escape"}}
-    )
+    upward = client.patch("/api/agents/coder", json={"profile": {"workspace": "../../../escape"}})
     sideways = client.patch("/api/agents/coder", json={"profile": {"workspace": "../shared"}})
 
     # The workspace is what every file tool is scoped to; pointing it at the source tree
