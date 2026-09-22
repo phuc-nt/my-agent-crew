@@ -43,7 +43,7 @@ The system prompt lists the available names; the model sees each tool's JSON sch
 | `user_memory_save` | no | — | remembers one thing about the person, shared by the whole crew, see [memory.md](memory.md) |
 | `user_memory_forget` | no | — | drops one remembered fact by name |
 | `shell_run` | **yes** | 120 s default, 900 s max | runs a command in the workspace, returns stdout+stderr |
-| `skill_read` | no | — | returns one skill's full text by name, see [agents.md](agents.md#skills) |
+| `skill_read` | no | — | returns one skill's full text by name, opening with a warning when the skill needs a command this machine lacks, see [agents.md](agents.md#skills) |
 | `image_read` | no | 8 MB (`MAX_IMAGE_BYTES`); jpg, png, webp, gif | sends a picture from the workspace or the crew home (where `inbox/` keeps what Telegram delivered) to the `vision_routes` chain with a `question` and returns the answer, see [Images](#images); only present when a vision route is configured |
 
 Four more come with `mode: work` only, because an assistant that chats has no use for

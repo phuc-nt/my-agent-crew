@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -20,6 +21,7 @@ from my_agent_crew.agent.turn_context import JOB
 from my_agent_crew.agents.profile import Schedule
 from my_agent_crew.memory.consolidate import JOB_SOURCE as CONSOLIDATE_SOURCE
 from my_agent_crew.memory.consolidate import consolidate_memory
+from my_agent_crew.skills import Skill, mentioned_skills
 from my_agent_crew.store.runs import DONE, FAILED, RunRecord
 from my_agent_crew.tools.shell import run_shell
 
@@ -43,13 +45,24 @@ class Job:
         }
 
 
+def prompt_skills(job: Job, skills: Sequence[Skill]) -> list[str]:
+    """A job runs with nobody watching, so a skill it names in the prompt is attached even
+    when the schedule forgot to list it: the alternative is a run that guesses syntax until
+    it hits the step cap."""
+    attached = list(job.schedule.skills)
+    for name in mentioned_skills(job.schedule.prompt, skills):
+        if name not in attached:
+            attached.append(name)
+    return attached
+
+
 async def run_prompt(job: Job, deps: AgentDeps, hub: ActivityHub, title: str) -> RunRecord:
     conv = deps.store.create(
         title=title,
         autonomous=True,
         cost_cap_usd=deps.settings.cost_cap_usd,
         agent_id=job.agent_id,
-        skills=job.schedule.skills,
+        skills=prompt_skills(job, deps.skills),
     )
     events = run_turn(deps, conv.id, job.schedule.prompt, source=JOB)
     async for _ in tracked(hub, events, job.agent_id, JOB_SOURCE + job.id, conv.title, conv.id):

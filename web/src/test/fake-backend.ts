@@ -122,6 +122,14 @@ export class FakeBackend {
     skills: [
       { name: "core", description: "Luôn bật", always: true },
       { name: "writer", description: "Viết lách", always: false },
+      {
+        name: "gws-shared",
+        description: "Google Workspace",
+        always: false,
+        requires_bins: ["gws"],
+        cli_help: "gws --help",
+        missing_bins: ["gws"],
+      },
     ],
     agents: [fakeAgent],
   };

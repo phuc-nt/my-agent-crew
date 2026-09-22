@@ -18,6 +18,8 @@ export const vi = {
   skills: "Kỹ năng",
   skillsHint: "Kỹ năng được gắn sẽ đưa vào lời nhắc hệ thống của cuộc trò chuyện này.",
   alwaysOn: "luôn bật",
+  missingBins: (bins: string) => `thiếu lệnh: ${bins}`,
+  cliHelp: (command: string) => `tra cú pháp: ${command}`,
   settings: "Cài đặt",
   close: "Đóng",
   budget: "Ngân sách",

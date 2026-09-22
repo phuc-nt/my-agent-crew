@@ -117,6 +117,12 @@ export interface SkillInfo {
   name: string;
   description: string;
   always: boolean;
+  /** Command-line programs the skill drives. */
+  requires_bins?: string[];
+  /** The one command that prints the real syntax, shown so a person can run it too. */
+  cli_help?: string;
+  /** Of `requires_bins`, the ones this machine cannot find. */
+  missing_bins?: string[];
 }
 
 export interface RouteInfo {

@@ -210,4 +210,23 @@ describe("the settings panel", () => {
     rerender(<SettingsPanel settings={{ ...settings, timezone: "", zone: "UTC" }} onClose={() => {}} />);
     expect(screen.getByText(vi.timezone).nextElementSibling).toHaveTextContent(`UTC (${vi.machineZone})`);
   });
+
+  it("says which skill needs a command this machine does not have", () => {
+    // Without this the skill looks available and the failure only shows up mid-run.
+    const { settings } = new FakeBackend();
+    render(<SettingsPanel settings={settings} onClose={() => {}} />);
+
+    const row = screen.getByTestId("skill-gws-shared");
+    expect(row).toHaveTextContent(vi.missingBins("gws"));
+    expect(row).toHaveTextContent(vi.cliHelp("gws --help"));
+  });
+
+  it("leaves a skill that drives no command unlabelled", () => {
+    const { settings } = new FakeBackend();
+    render(<SettingsPanel settings={settings} onClose={() => {}} />);
+
+    const row = screen.getByTestId("skill-writer");
+    expect(row).not.toHaveTextContent("thiếu lệnh");
+    expect(row).not.toHaveTextContent("tra cú pháp");
+  });
 });

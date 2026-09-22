@@ -90,10 +90,16 @@ export function SettingsPanel({ settings, agents = [], onClose }: Props) {
           <h3>{t.skills}</h3>
           <ul className="tool-list">
             {settings.skills.map((skill) => (
-              <li key={skill.name}>
+              <li key={skill.name} data-testid={`skill-${skill.name}`}>
                 <code>{skill.name}</code>
                 {skill.always && <span className="badge ok">{vi.alwaysOn}</span>}
+                {skill.missing_bins && skill.missing_bins.length > 0 && (
+                  <span className="badge warn">
+                    {vi.missingBins(skill.missing_bins.join(", "))}
+                  </span>
+                )}
                 <div className="muted">{skill.description}</div>
+                {skill.cli_help && <div className="muted">{vi.cliHelp(skill.cli_help)}</div>}
               </li>
             ))}
           </ul>

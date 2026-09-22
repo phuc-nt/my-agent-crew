@@ -23,6 +23,17 @@ bản phát hành, `pyproject.toml` và `web/package.json` luôn cùng số.
   có đặt, nên host tự dựng không cần khoá và một base url gõ nhầm không mang khoá đi đâu cả.
 - **Trang Kết nối hiện thứ tự nguồn tìm kiếm** và host firecrawl đang dùng, đủ để phân biệt
   "chưa bật" với "cấu hình sai".
+- **Kỹ năng khai báo được lệnh nó cần** — `requires.bins: [gws]` và `cliHelp: "gws --help"`
+  trong front matter. Máy thiếu lệnh thì kỹ năng vẫn nằm trong danh sách kèm nhãn
+  "thiếu: gws", và thân kỹ năng mở đầu bằng một dòng cảnh báo — agent biết vì sao không làm
+  được thay vì thất bại giữa chừng. Tab Cài đặt hiện cùng nhãn đó.
+- **Một quy tắc trong lời nhắc hệ thống**: lệnh chưa chắc cú pháp thì chạy `--help` một lần,
+  không thử quá hai cú pháp mới cho cùng một việc. Có vì một lượt chạy theo lịch đã đốt 16
+  bước đoán tham số của một chương trình nó chưa từng gặp.
+- **Job theo lịch tự gắn kỹ năng mà prompt gọi tên** — chỉ tên có gạch nối (`gws-shared`),
+  vì một tên một từ như `ledger` xuất hiện trong cả những prompt không liên quan.
+- **Mẫu script gom dữ liệu cho job** ở `docs/examples/job-data-script.sh`: một lệnh trả một
+  khối JSON, mỗi nguồn hỏng tự ghi lỗi của nó thay vì làm hỏng cả lượt chạy.
 
 ### Thay đổi
 

@@ -338,12 +338,39 @@ they came from; `GET /api/agents` returns `commands`, `hooks` and `kits`.
 
 ## Skills
 
-A skill is a Markdown file with front matter (`name`, optional `description`, `always`),
-either `name.md` or a folder `name/SKILL.md` whose siblings (scripts, references) the
-model reaches by the absolute path given in a `SKILL_LOCATION` line. Skills load from the
-builtin dir (`cite-sources`), then `<agent dir>/skills`, then each `skills_dirs` entry;
-a later skill with the same name overrides an earlier one.
+A skill is a Markdown file with front matter (`name`, optional `description`, `always`,
+`requires`, `cliHelp`), either `name.md` or a folder `name/SKILL.md` whose siblings
+(scripts, references) the model reaches by the absolute path given in a `SKILL_LOCATION`
+line. Skills load from the builtin dir (`cite-sources`), then `<agent dir>/skills`, then
+each `skills_dirs` entry; a later skill with the same name overrides an earlier one.
 Skills are instructions for the model, [tools](tools.md) are functions it can call.
+
+### Front matter
+
+| Key | Meaning |
+|---|---|
+| `name` | the name used everywhere; defaults to the file or folder name |
+| `description` | the one line shown in the index, so the model can tell whether to read the body |
+| `always` | `true` puts the whole body in every prompt |
+| `requires.bins` | command-line programs the skill drives, `[gws, jq]` or a single `jq` |
+| `cliHelp` | the one command that prints the real syntax, e.g. `gws --help` |
+
+`requires.bins` is checked against the machine at load. A skill whose program is missing
+is **kept**, not dropped: the index line carries `[thiếu: gws]` and the body opens with a
+warning, so an agent that cannot do the job knows why instead of failing halfway through.
+`cliHelp` is appended to the index line, and the system prompt carries one standing rule:
+read a command's `--help` once rather than trying a third syntax. Both exist because of a
+real run that burnt sixteen steps guessing flags for a program it had never seen.
+
+```yaml
+---
+name: gws-shared
+description: Đọc lịch và thư qua CLI gws
+requires:
+  bins: [gws]
+cliHelp: gws --help
+---
+```
 
 A skill reaches a prompt by one of three routes:
 
@@ -354,8 +381,10 @@ A skill reaches a prompt by one of three routes:
   calls `skill_read` to pull the rest when it decides the work needs it. Above 40 indexed
   skills the descriptions are dropped so the index stays scannable.
 
-This is why a scheduled job that needs a skill should name it in the schedule: without
-that, the job only sees the one-line index and has to ask for the body itself.
+A scheduled job that needs a skill should name it in the schedule. If it does not, one
+fallback applies: a prompt that spells out a skill's hyphenated name (`gws-shared`) gets
+that skill attached anyway. Only hyphenated names count, because a one-word name like
+`ledger` turns up in prompts that have nothing to do with the skill.
 
 ## Schedules
 
@@ -369,7 +398,16 @@ Each entry in `schedules` becomes a job `<agent id>/<schedule id>` in the schedu
 | `cron` **or** `every` | exactly one: five-field cron, or `30m` / `2h` / `1d` |
 | `prompt` **or** `command` | exactly one: a prompt opens a fresh autonomous conversation and runs a turn; a command runs through `shell_run` in the workspace and records only that step |
 | `enabled` | default `true`. An enabled schedule can be paused and resumed from the jobs tab (`PATCH /api/jobs/{agent}/{id}/state`); that switch is stored in the `job_state` table and survives a restart. A schedule disabled here can only be turned on by editing the yaml |
-| `skills` | list of skill names attached in full to the conversation a prompt job opens; default empty, and a name that no skill provides is logged as a warning at startup |
+| `skills` | list of skill names attached in full to the conversation a prompt job opens; default empty, and a name that no skill provides is logged as a warning at startup. A hyphenated skill name written in the `prompt` is attached too |
+
+### One script per job
+
+A prompt job that gathers data from several places should call **one** script that returns
+one JSON blob, not drive each command from the model. A job doing its own orchestration
+spends most of its step budget on shell syntax and can hit `max_steps` before it writes a
+word of the answer; a script spends one step. Keep the script outside the repo when it
+carries account ids or paths. `docs/examples/job-data-script.sh` is the shape: every
+command guarded so one failure records an error and the rest of the data still arrives.
 
 A `memory_consolidate` cron becomes a job of the same shape, `<agent id>/memory-consolidate`,
 with no prompt or command of its own.

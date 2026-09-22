@@ -133,11 +133,30 @@ SKILL_INDEX_INTRO = (
     "Trước khi làm việc liên quan, gọi `skill_read` với tên kỹ năng để đọc hướng dẫn đầy đủ."
 )
 SKILL_INDEX_LINE = "- {name}: {description}"
+SKILL_INDEX_MISSING_BINS = "[thiếu: {bins}]"
+SKILL_INDEX_CLI_HELP = "(tra `{command}` trước khi đoán)"
 SKILL_READ_DESCRIPTION = (
     "Đọc hướng dẫn đầy đủ của một kỹ năng trong danh sách 'Kỹ năng có sẵn'. "
     "Gọi trước khi làm việc mà kỹ năng đó mô tả."
 )
 SKILL_UNKNOWN = "Không có kỹ năng tên {name}. Kỹ năng có sẵn: {names}"
+# Sits at the top of the skill body, where the model reads it right before running the
+# command, not back in the index it skimmed several steps ago.
+SKILL_MISSING_BINS = (
+    "CẢNH BÁO: máy này không có lệnh {bins}. Đừng chạy các bước cần lệnh đó; "
+    "báo người dùng cài rồi dừng."
+)
+# The rule that stops a run from burning sixteen steps guessing flags.
+CLI_GUESS_RULE = (
+    "- Gặp lệnh dòng lệnh chưa chắc cú pháp: chạy `--help` của lệnh đó đúng một lần, và gọi "
+    "`skill_read` nếu có kỹ năng liên quan. Không thử quá hai cú pháp mới cho cùng một việc; "
+    "sai lần thứ hai thì dừng và báo người dùng."
+)
+CLI_GUESS_RULE_EN = (
+    "- Unsure of a command's syntax: run its `--help` once, and call `skill_read` if a skill "
+    "covers it. Never try more than two new syntaxes for the same job; after the second "
+    "failure, stop and tell the user."
+)
 
 SHELL_NO_CWD = "Thư mục làm việc không tồn tại: {path}"
 SHELL_TIMEOUT = "Lệnh vượt quá {seconds} giây và đã bị dừng."
