@@ -13,7 +13,7 @@ import { stepState, type StepState } from "./run-progress";
 import type { RunInfo, RunStep } from "../api/types";
 
 /** The visual family of a row, which decides its colour and glyph. */
-export type RowKind = "model" | "tool" | "delegate" | "fallback" | "question";
+export type RowKind = "model" | "tool" | "delegate" | "fallback" | "question" | "note";
 
 export interface RunRow {
   /** Stable within one run: the index of the first step this row covers. */
@@ -36,10 +36,40 @@ export interface RunRow {
  */
 const DELEGATE_TOOL = "delegate";
 
+/**
+ * A progress note also arrives as a tool call, but it is not one: it costs no time and
+ * cannot fail, so it becomes its own step kind instead of a tool row. The server does
+ * this conversion in `activity/steps.py`; the live reducer has to do the same, or a note
+ * would show as a spinning tool row until the run settles and the server's version
+ * replaced it. Must match `PROGRESS_NOTE_TOOL_NAME` in the backend.
+ */
+export const PROGRESS_NOTE_TOOL = "progress_note";
+
+/** Must match `MAX_NOTE_CHARS` in the backend, for the reason `noteText` explains. */
+const MAX_NOTE_CHARS = 200;
+
+/**
+ * The note text as the server will store it.
+ *
+ * Kept identical to the backend's `note_text` on purpose. The live row is drawn from the
+ * event and then replaced by the server's copy when the run settles; if the two shortened
+ * differently, a long note would visibly change under the reader at the moment the run
+ * finished, for no reason they could see.
+ */
+export function noteText(args: Record<string, unknown> | string): string {
+  const raw = typeof args === "string" ? args : args.text;
+  return String(raw ?? "")
+    .split(/\s+/)
+    .filter((word) => word !== "")
+    .join(" ")
+    .slice(0, MAX_NOTE_CHARS);
+}
+
 function rowKind(step: RunStep): RowKind {
   if (step.kind === "model") return "model";
   if (step.kind === "fallback") return "fallback";
   if (step.kind === "question") return "question";
+  if (step.kind === "note") return "note";
   return step.name === DELEGATE_TOOL ? "delegate" : "tool";
 }
 
@@ -48,6 +78,8 @@ function rowLabel(step: RunStep): string {
   if (step.kind === "fallback") return `${step.provider}:${step.model}`;
   // The question itself, not "ask_user": the label is what the row is about.
   if (step.kind === "question") return step.question;
+  // Likewise a note is its sentence; there is no other name it could go by.
+  if (step.kind === "note") return step.text;
   return step.name;
 }
 
@@ -71,8 +103,9 @@ function mergeable(prev: RunRow, next: RunRow): boolean {
 function hasBody(step: RunStep): boolean {
   if (step.kind === "tool") return step.output !== null && step.output !== "";
   if (step.kind === "model") return step.preview !== "";
-  // A fallback carries its error text and a question carries what was asked; both are
-  // always worth their own row.
+  // A fallback carries its error text, a question carries what was asked and a note
+  // carries its sentence; each is always worth its own row. Two notes in a row say
+  // different things even when they look alike to the merge rule.
   return true;
 }
 

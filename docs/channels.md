@@ -7,7 +7,7 @@ runs the turn under activity tracking and returns the reply. Turns from Telegram
 run through the same loop as the web UI, with source `telegram`, so the rail shows them.
 
 Telegram works the way the web UI does: **the person talks to the master** and the master
-delegates to the crew (`delegate` tool, see [agents.md](agents.md#the-master-and-delegation)).
+delegates to the crew (`delegate` tool, see [agents.md](agents.md#the-master-agent)).
 There is no agent picker on the phone either, no `@id` mention and no per-agent bot.
 
 A platform without an adapter of its own talks to the gate over HTTP:

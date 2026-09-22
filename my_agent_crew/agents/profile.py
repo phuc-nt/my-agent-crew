@@ -32,6 +32,7 @@ PROFILE_KEYS = {
     "max_steps",
     "autonomous",
     "shell_ask_patterns",
+    "shell_allow_patterns",
     "tool_output_chars",
     "schedules",
     "telegram",
@@ -140,6 +141,7 @@ class AgentProfile:
             "max_steps": self.settings.max_steps,
             "autonomous": self.settings.autonomous_default,
             "shell_ask_patterns": list(self.settings.shell_ask_patterns),
+            "shell_allow_patterns": list(self.settings.shell_allow_patterns),
             "tool_output_chars": self.settings.tool_output_chars,
             "persona_files": [f for f in self.persona_files if (self.dir / f).is_file()],
             # Every name this agent would read, written or not. An editor that offered

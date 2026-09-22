@@ -26,6 +26,7 @@ interface Props {
 }
 
 const MEDIA_PREFIX = "MEDIA:";
+const FILE_PREFIX = "FILE:";
 
 export function MessageThread({
   items,
@@ -111,9 +112,19 @@ export function MessageThread({
   );
 }
 
-/** Splits a reply into text blocks and `MEDIA:<path>` lines, which become inline images. */
-export function splitMedia(text: string): { kind: "text" | "media"; value: string }[] {
-  const blocks: { kind: "text" | "media"; value: string }[] = [];
+export type ReplyBlock = { kind: "text" | "media" | "file"; value: string };
+
+/**
+ * Splits a reply into text blocks, `MEDIA:<path>` lines, which become inline images, and
+ * `FILE:<path>` lines, which become download links.
+ *
+ * Both prefixes are handled here rather than only on the Telegram side, because the same
+ * reply text is what the web shows. Leaving `FILE:` unparsed would print the raw line in
+ * the chat, so the person on the web would read a path where the person on Telegram got
+ * the file itself.
+ */
+export function splitMedia(text: string): ReplyBlock[] {
+  const blocks: ReplyBlock[] = [];
   const pending: string[] = [];
   const flush = () => {
     if (pending.length > 0) blocks.push({ kind: "text", value: pending.join("\n") });
@@ -121,15 +132,26 @@ export function splitMedia(text: string): { kind: "text" | "media"; value: strin
   };
   for (const line of text.split("\n")) {
     const trimmed = line.trim();
+    // A bare prefix with nothing after it is not a path, so it stays prose rather than
+    // becoming a link to the workspace root.
     if (trimmed.startsWith(MEDIA_PREFIX) && trimmed.length > MEDIA_PREFIX.length) {
       flush();
       blocks.push({ kind: "media", value: trimmed.slice(MEDIA_PREFIX.length).trim() });
+    } else if (trimmed.startsWith(FILE_PREFIX) && trimmed.length > FILE_PREFIX.length) {
+      flush();
+      blocks.push({ kind: "file", value: trimmed.slice(FILE_PREFIX.length).trim() });
     } else {
       pending.push(line);
     }
   }
   flush();
   return blocks;
+}
+
+/** The last segment of a workspace path, which is what the link should read as. */
+function fileName(path: string): string {
+  const parts = path.split("/").filter((part) => part !== "");
+  return parts[parts.length - 1] ?? path;
 }
 
 function Item({
@@ -146,6 +168,14 @@ function Item({
   if (item.kind === "tool")
     return (
       <ToolCallCard item={item} agentName={agentName} onOpenConversation={onOpenConversation} />
+    );
+  // Not a bubble: a note is an aside about the work, not a turn in the conversation.
+  // Giving it a bubble would make the agent look like it had said two things.
+  if (item.kind === "note")
+    return (
+      <div className="thread-note" data-testid="message-note">
+        {item.text}
+      </div>
     );
   const role = item.kind === "user" ? vi.you : vi.agent;
   const assistant = item.kind === "assistant";
@@ -165,6 +195,19 @@ function Item({
             alt={vi.mediaAlt(block.value)}
             loading="lazy"
           />
+        ) : block.kind === "file" ? (
+          // `download` rather than a plain link: these are the formats a browser would
+          // otherwise try to open in place, and a CSV rendered as a wall of text in a new
+          // tab is not what "send me the file" meant.
+          <a
+            key={i}
+            className="attachment"
+            data-testid="message-file"
+            href={agentFileUrl(agentId, block.value)}
+            download={fileName(block.value)}
+          >
+            {vi.attachmentDownload(fileName(block.value))}
+          </a>
         ) : assistant ? (
           <MarkdownBody key={i} text={block.value} />
         ) : (

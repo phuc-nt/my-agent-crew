@@ -372,6 +372,9 @@ export const vi = {
   stepModel: "trả lời",
   stepFallback: "đổi tuyến",
   stepQuestion: "hỏi bạn",
+  // Not "ghi chú": that would suggest something was written down and kept. The note only
+  // reports what is happening right now, and disappears with the run.
+  stepNote: "đang làm",
   routeFallback: (detail: string) => `Tuyến ${detail} không trả lời, đã chuyển sang tuyến dự phòng.`,
   stepDuration: (ms: number) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)} giây` : `${ms} ms`),
   stepChars: (n: number) => `${n} ký tự`,
@@ -430,6 +433,9 @@ export const vi = {
   showTimeline: "Xem dòng thời gian",
   hideTimeline: "Ẩn dòng thời gian",
   mediaAlt: (path: string) => `Tệp do agent tạo: ${path}`,
+  // Says it is a download, since the link sits inside a reply where everything else is
+  // either prose or an image that is simply there.
+  attachmentDownload: (name: string) => `Tải tệp: ${name}`,
   crashed: "Giao diện gặp lỗi không mong đợi.",
   reload: "Tải lại",
   statusIdle: "Sẵn sàng",

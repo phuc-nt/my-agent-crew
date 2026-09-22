@@ -109,7 +109,7 @@ command files become slash commands, hooks run with the same JSON contract and t
 tool names through an alias table. The yaml profile keeps the last word on any id both
 define. A kit inside the workspace an agent works in is deliberately not read: that
 repository is a data source for the crew, and its `.claude/` belongs to whoever develops
-it. Details: [agents.md](agents.md#kits).
+it. Details: [agents.md](agents.md#kits-agents-claude-opencode).
 
 ## Memory
 

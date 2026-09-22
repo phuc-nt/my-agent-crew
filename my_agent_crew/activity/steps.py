@@ -20,6 +20,7 @@ from my_agent_crew.agent.events import (
 )
 from my_agent_crew.store.models import QUESTION
 from my_agent_crew.store.runs import AWAITING, DONE, FAILED, HALTED, RUNNING, RunRecord
+from my_agent_crew.tools.progress_note import PROGRESS_NOTE_TOOL_NAME, note_text
 
 PREVIEW_CHARS = 160
 CLOCK_KEY = "_clock"
@@ -96,6 +97,15 @@ def apply_event(run: RunRecord, event: Event, clock: float) -> None:
         run.status = RUNNING
         return
     if isinstance(event, ToolCallEvent):
+        if event.name == PROGRESS_NOTE_TOOL_NAME:
+            # A note is the agent saying what it is doing, so it belongs on the timeline
+            # the moment it is said — not when the call returns. It is opened and closed
+            # on the same clock because a sentence has no duration worth reading, and it
+            # carries no ok flag because it cannot fail.
+            step = {"kind": "note", "text": note_text(event.arguments)}
+            _open_step(run, step, clock)
+            _close_step(step, clock)
+            return
         _open_step(
             run,
             {
@@ -109,6 +119,10 @@ def apply_event(run: RunRecord, event: Event, clock: float) -> None:
         )
         return
     if isinstance(event, ToolResultEvent):
+        if event.name == PROGRESS_NOTE_TOOL_NAME:
+            # The note step was already written and closed by the call. Falling through
+            # would find no open tool step for this id and open a second, empty one.
+            return
         step = _find_tool_step(run, event.tool_call_id)
         if step is None:
             _open_step(run, {"kind": "tool", "name": event.name, "ok": None}, clock)

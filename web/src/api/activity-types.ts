@@ -49,6 +49,15 @@ export type RunStep =
       kind: "question";
       question: string;
       duration_ms: number | null;
+    }
+  | {
+      /** The agent saying what it is about to do, for whoever is watching. Written when
+       *  the call is made rather than when it returns, so it appears alongside the work
+       *  it describes. It has no `ok`, because a sentence cannot fail, and its duration
+       *  is always zero, because saying it took no time. */
+      kind: "note";
+      text: string;
+      duration_ms: number | null;
     };
 
 /** A chat turn or job execution with its step timeline. */

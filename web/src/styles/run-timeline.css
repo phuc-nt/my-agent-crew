@@ -82,6 +82,24 @@
   background: transparent;
   border: 2px solid var(--step-question);
 }
+.step.note::before {
+  /* Smaller than every other node and unrotated, so it reads as a bead on the rail
+     rather than a stop on it. No work happened at this point — the agent only said
+     what was coming — and a full-size marker would claim otherwise. */
+  background: var(--step-note);
+  width: 6px;
+  height: 6px;
+  transform: none;
+  border-radius: 50%;
+}
+
+/* A note is a sentence the agent wrote, not the name of a machine part, so it is set
+   apart from the tool and model names it sits between. Italic alone does that; settled
+   rows already recede to secondary text and the note recedes with them, so this changes
+   voice without touching contrast. */
+.step.note .step-kind {
+  font-style: italic;
+}
 
 /* ── State, drawn around the row and never on the node ──────────────────── */
 

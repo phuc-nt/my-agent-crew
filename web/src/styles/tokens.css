@@ -94,6 +94,10 @@
   /* A question turns to the person rather than to a provider, so it takes the accent
      hue and not the warn one: nothing has gone wrong, the agent simply cannot know. */
   --step-question: var(--accent);
+  /* A note is commentary beside the work, so it takes the muted grey rather than a hue
+     of its own. Giving it a colour would put it in competition with the rows that report
+     something actually happening. */
+  --step-note: var(--muted);
 
   --user-bubble: #e8f0fe;
 

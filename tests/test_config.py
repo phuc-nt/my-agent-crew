@@ -5,14 +5,8 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from my_agent_crew.clock import day_start_utc, local_day, zone_for
-from my_agent_crew.config import (
-    DEFAULT_ROUTES,
-    DEFAULT_SHELL_ASK_PATTERNS,
-    DEFAULT_VISION_ROUTES,
-    Route,
-    ensure_home,
-    load_settings,
-)
+from my_agent_crew.config import DEFAULT_ROUTES, Route, ensure_home, load_settings
+from my_agent_crew.config_parse import DEFAULT_SHELL_ASK_PATTERNS, DEFAULT_VISION_ROUTES
 
 
 def test_defaults_without_env(tmp_path: Path):

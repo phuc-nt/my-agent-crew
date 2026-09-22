@@ -61,25 +61,49 @@ def _ask_reason(deps: AgentDeps, name: str, arguments: dict[str, Any]) -> str | 
     return reason
 
 
-def needs_decision(conv: Conversation, name: str, reason: str | None) -> bool:
-    """An autonomous conversation and a tool the person said to always allow both skip
-    the pause; a command on the ask list pauses regardless, that guard is additive.
+def needs_decision(
+    conv: Conversation, name: str, reason: str | None, allowed: bool = False
+) -> bool:
+    """Whether this call stops the turn to ask a person, in strict order:
 
-    A question is not a tool authorisation and never skips. Autonomy means "do not ask me
-    to authorise your tools", not "never speak to me"; a question that approved itself
-    would be answered by nobody and tell the agent nothing."""
+    1. A question never skips. Autonomy means "do not ask me to authorise your tools",
+       not "never speak to me"; a question that approved itself would be answered by
+       nobody and tell the agent nothing.
+    2. A command matching the ask list pauses regardless. That guard is additive, and it
+       sits above the allow list on purpose: a person who names `rm -rf` as dangerous and
+       `git` as routine means `git reset --hard` to ask, not to run.
+    3. A command matching the allow list runs, autonomous or not. This is the point of
+       the list — it lets a supervised agent get on with the routine parts of its job.
+    4. Otherwise the old rule: autonomy, or a tool the person said to always allow.
+    """
     if name == ASK_USER_TOOL_NAME:
         return True
     if reason:
         return True
+    if allowed:
+        return False
     return not conv.autonomous and name not in conv.auto_approve
+
+
+def _allowed(deps: AgentDeps, name: str, arguments: dict[str, Any]) -> bool:
+    """A shell command whose shape the person marked routine. Only shell: every other
+    tool is allowed per tool, through `auto_approve`, not per argument."""
+    if name != SHELL_TOOL_NAME:
+        return False
+    command = str(arguments.get("command", ""))
+    return ask_reason(command, deps.settings.shell_allow_patterns) is not None
 
 
 def _pauses_for_a_person(deps: AgentDeps, conv: Conversation, call: ToolCall) -> bool:
     tool = deps.tools.get(call.name)
     if tool is None or not tool.requires_approval:
         return False
-    return needs_decision(conv, call.name, _ask_reason(deps, call.name, call.arguments))
+    return needs_decision(
+        conv,
+        call.name,
+        _ask_reason(deps, call.name, call.arguments),
+        _allowed(deps, call.name, call.arguments),
+    )
 
 
 async def _execute(deps: AgentDeps, call: ToolCall) -> ToolResult:

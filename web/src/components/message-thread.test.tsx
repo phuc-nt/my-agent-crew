@@ -4,7 +4,7 @@ import type { RunInfo, RunStep } from "../api/types";
 import { vi } from "../i18n/vi";
 import type { ThreadItem } from "../state/thread-reducer";
 import { fakeRun } from "../test/fake-backend";
-import { MessageThread } from "./message-thread";
+import { MessageThread, splitMedia } from "./message-thread";
 
 const userItem: ThreadItem = { id: "m1", kind: "user", text: "tìm sách đi" };
 
@@ -97,5 +97,55 @@ describe("who gets their text formatted", () => {
     expect(container.querySelector("img.media")?.getAttribute("src")).toContain(
       encodeURIComponent("out/chart.png"),
     );
+  });
+
+  it("turns a FILE line into a download link rather than printing the path", () => {
+    // The same reply text goes to Telegram, where the person receives the file itself.
+    // Leaving the line unparsed would show the web reader a path instead.
+    const { container } = thread([
+      { id: "a3", kind: "assistant", text: "Bảng đây:\nFILE: out/so-lieu.csv", model: null },
+    ]);
+    const link = screen.getByTestId("message-file");
+    expect(link.getAttribute("href")).toContain(encodeURIComponent("out/so-lieu.csv"));
+    expect(link.getAttribute("download")).toBe("so-lieu.csv");
+    expect(link.textContent).toBe(vi.attachmentDownload("so-lieu.csv"));
+    expect(container.textContent).not.toContain("FILE:");
+  });
+
+  it("shows a photo and a document in one reply as their own two things", () => {
+    thread([
+      {
+        id: "a4",
+        kind: "assistant",
+        text: "MEDIA: out/chart.png\nFILE: out/brief.pdf",
+        model: null,
+      },
+    ]);
+    expect(screen.getByTestId("message-file")).toBeInTheDocument();
+    expect(screen.getByRole("img")).toBeInTheDocument();
+  });
+});
+
+describe("splitMedia", () => {
+  it("keeps the order the reply named its attachments in", () => {
+    expect(splitMedia("a\nFILE: one.pdf\nb\nMEDIA: two.png\nc")).toEqual([
+      { kind: "text", value: "a" },
+      { kind: "file", value: "one.pdf" },
+      { kind: "text", value: "b" },
+      { kind: "media", value: "two.png" },
+      { kind: "text", value: "c" },
+    ]);
+  });
+
+  it("leaves a sentence that merely mentions the word as prose", () => {
+    // Only a line that starts with the prefix is an attachment, so an agent explaining
+    // the convention does not accidentally link to nothing.
+    const text = "Dùng FILE: ở đầu dòng để gửi tệp";
+    expect(splitMedia(`Mẹo: ${text}`)).toEqual([{ kind: "text", value: `Mẹo: ${text}` }]);
+  });
+
+  it("leaves a bare prefix with no path as prose", () => {
+    // Otherwise it would become a download link aimed at the workspace root.
+    expect(splitMedia("FILE:")).toEqual([{ kind: "text", value: "FILE:" }]);
   });
 });

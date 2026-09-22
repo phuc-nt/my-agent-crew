@@ -44,6 +44,8 @@ export function isSettled(status: RunStatus): status is SettledStatus {
 export function stepState(step: RunStep, runStatus: RunStatus): StepState {
   if (step.kind === "fallback") return "failed";
   if (step.kind === "model") return "done";
+  // A note is finished the instant it is written, and it can neither run nor fail.
+  if (step.kind === "note") return "done";
   // A question never closes on this run: the answer resumes the turn as a new one. So it
   // is "waiting" whatever the run went on to do, rather than stalling once the run ends.
   if (step.kind === "question") return "waiting";
@@ -90,11 +92,16 @@ export interface StepProgress {
 const OPEN_STATES: readonly StepState[] = ["running", "waiting"];
 
 export function stepProgress(run: RunInfo): StepProgress {
-  const total = run.steps.length;
+  // A note is commentary on the work, not a piece of it. Counted, it would land on both
+  // sides of the fraction and quietly deflate it: an agent that says what it is doing
+  // before each of three tool calls would read "6/8" where a silent one reads "3/4",
+  // making the more talkative agent look further behind for having explained itself.
+  const counted = run.steps.filter((step) => step.kind !== "note");
+  const total = counted.length;
   // A waiting step is not finished any more than a running one is. Counting it as done
   // would fill the bar on a run that is stopped, which is the one moment the bar is
   // being read to find out whether anything is still happening.
-  const done = run.steps.filter((step) => !OPEN_STATES.includes(stepState(step, run.status))).length;
+  const done = counted.filter((step) => !OPEN_STATES.includes(stepState(step, run.status))).length;
   return { done, total };
 }
 

@@ -20,6 +20,7 @@ class FakeTelegram:
         self.updates: list[dict] = []
         self.sent: list[str] = []
         self.photos: list[bytes] = []
+        self.documents: list[bytes] = []
         self.calls: list[str] = []
         self.menu: list[dict] = []
         self.files: dict[str, str] = {}  # file_id -> remote path Telegram serves it at
@@ -53,6 +54,8 @@ class FakeTelegram:
             self.sent.append(form["text"])
         elif method == "sendPhoto":
             self.photos.append(request.content)
+        elif method == "sendDocument":
+            self.documents.append(request.content)
         elif method == "sendChatAction":
             form = dict(parse_qsl(request.content.decode()))
             assert form["chat_id"] == str(CHAT) and form["action"] == "typing"

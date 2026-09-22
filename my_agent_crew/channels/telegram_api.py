@@ -1,6 +1,6 @@
 """Thin Telegram Bot API client: long-poll updates, send text (chunked to Telegram's
-limit) and photos. The token sits in the request URL, so every error string that could
-carry it is redacted before it reaches a log or an exception."""
+limit), photos and documents. The token sits in the request URL, so every error string
+that could carry it is redacted before it reaches a log or an exception."""
 
 from __future__ import annotations
 
@@ -12,11 +12,26 @@ from typing import Any
 
 import httpx
 
+from my_agent_crew.channels.telegram_attachments import (
+    FILE_PREFIX,
+    MEDIA_PREFIX,
+    split_reply,
+)
+
+__all__ = [
+    "FILE_PREFIX",
+    "MEDIA_PREFIX",
+    "TelegramApi",
+    "TelegramError",
+    "plain_text",
+    "split_message",
+    "split_reply",
+]
+
 API_BASE = "https://api.telegram.org"
 MESSAGE_LIMIT = 4096
 POLL_TIMEOUT_SECONDS = 25
 CONFLICT_STATUS = 409  # another process polls the same bot
-MEDIA_PREFIX = "MEDIA:"
 TOKEN_PLACEHOLDER = "<token>"
 
 _BOLD = re.compile(r"\*\*(.+?)\*\*", re.DOTALL)
@@ -33,18 +48,6 @@ def plain_text(text: str) -> str:
     """Telegram shows markdown markers literally without a parse mode; drop the two the
     models use most so the message reads naturally."""
     return _HEADING.sub("", _BOLD.sub(r"\1", text))
-
-
-def split_reply(text: str) -> tuple[str, list[str]]:
-    """Separates `MEDIA:<path>` lines from the prose; the paths become photo uploads."""
-    prose, media = [], []
-    for line in text.splitlines():
-        stripped = line.strip()
-        if stripped.startswith(MEDIA_PREFIX):
-            media.append(stripped[len(MEDIA_PREFIX) :].strip())
-        else:
-            prose.append(line)
-    return "\n".join(prose).strip(), media
 
 
 def split_message(text: str, limit: int = MESSAGE_LIMIT) -> list[str]:
@@ -126,6 +129,15 @@ class TelegramApi:
     async def send_photo(self, chat_id: int, path: Path) -> None:
         with path.open("rb") as handle:
             await self.call("sendPhoto", {"chat_id": chat_id}, files={"photo": (path.name, handle)})
+
+    async def send_document(self, chat_id: int, path: Path) -> None:
+        """Sent as a document rather than a photo so the bytes and the filename survive.
+        A CSV uploaded as a photo would be refused; a PDF would arrive as a picture of
+        its first page."""
+        with path.open("rb") as handle:
+            await self.call(
+                "sendDocument", {"chat_id": chat_id}, files={"document": (path.name, handle)}
+            )
 
     async def file_path(self, file_id: str) -> str:
         """Where Telegram keeps a file the person sent, relative to the file endpoint."""

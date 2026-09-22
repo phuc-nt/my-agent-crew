@@ -9,8 +9,15 @@ interface Props {
 
 function threadText(thread: ThreadState): string {
   if (thread.pending) return vi.statusAwaiting;
-  const running = [...thread.items].reverse().find((i) => i.kind === "tool" && i.status === "running");
-  if (running && running.kind === "tool") return vi.statusTool(running.name);
+  // The newest of either kind wins, so the line follows the turn rather than preferring
+  // one sort of item. A note that came after the tool call it introduces would otherwise
+  // be shadowed by it, and a note is the better status text: the agent wrote it to be
+  // read here, where a tool name is only the name of a mechanism.
+  const latest = [...thread.items]
+    .reverse()
+    .find((i) => i.kind === "note" || (i.kind === "tool" && i.status === "running"));
+  if (latest?.kind === "note") return latest.text;
+  if (latest?.kind === "tool") return vi.statusTool(latest.name);
   if (thread.busy) return vi.statusStreaming;
   return vi.statusIdle;
 }

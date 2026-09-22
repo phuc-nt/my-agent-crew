@@ -7,7 +7,7 @@ environment variable does not.
 from __future__ import annotations
 
 import os
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from datetime import date, datetime, tzinfo
 from pathlib import Path
@@ -15,14 +15,19 @@ from pathlib import Path
 import yaml
 
 from my_agent_crew.clock import zone_for
-from my_agent_crew.config_parse import DEFAULT_SHELL_ASK_PATTERNS, as_bool, ask_patterns
+from my_agent_crew.config_parse import (
+    DEFAULT_SHELL_ASK_PATTERNS,
+    Route,
+    allow_patterns,
+    as_bool,
+    ask_patterns,
+    required_routes,
+    vision_routes,
+)
+
+__all__ = ["Route", "Settings", "load_settings"]
 
 DEFAULT_ROUTES = "openrouter:deepseek/deepseek-v4-flash"
-# The chat model is not expected to see pictures; `image_read` sends them here instead.
-# An empty value turns the tool off.
-DEFAULT_VISION_ROUTES = (
-    "openrouter:google/gemini-2.5-flash-lite,openrouter:qwen/qwen3-vl-8b-instruct"
-)
 YAML_KEYS = (
     "routes",
     "vision_routes",
@@ -32,6 +37,7 @@ YAML_KEYS = (
     "max_steps",
     "autonomous_default",
     "shell_ask_patterns",
+    "shell_allow_patterns",
     "approval_ttl_seconds",
     "tool_output_chars",
 )
@@ -40,21 +46,6 @@ DEFAULT_TOOL_OUTPUT_CHARS = 8000
 # How long a tool call waits for a decision before it is treated as denied. A pause
 # nobody answers must not hold a conversation (and a job's channel) forever.
 DEFAULT_APPROVAL_TTL_SECONDS = 600
-
-
-@dataclass(frozen=True)
-class Route:
-    """One (provider, model) pair the chain may try; order in `Settings.routes` is priority."""
-
-    provider: str
-    model: str
-
-    @classmethod
-    def parse(cls, text: str) -> Route:
-        provider, sep, model = text.strip().partition(":")
-        if not sep or not provider or not model:
-            raise ValueError(f"route must look like provider:model, got {text!r}")
-        return cls(provider=provider, model=model)
 
 
 @dataclass(frozen=True)
@@ -78,6 +69,9 @@ class Settings:
     max_steps: int = 12
     autonomous_default: bool = False
     shell_ask_patterns: tuple[str, ...] = DEFAULT_SHELL_ASK_PATTERNS
+    # Commands routine enough to run without asking, even outside an autonomous
+    # conversation. Empty by default, and never above `shell_ask_patterns`.
+    shell_allow_patterns: tuple[str, ...] = ()
     approval_ttl_seconds: int = DEFAULT_APPROVAL_TTL_SECONDS
     tool_output_chars: int = DEFAULT_TOOL_OUTPUT_CHARS
 
@@ -114,30 +108,6 @@ class Settings:
         return self.home / "agent.sqlite3"
 
 
-def _routes(value: str | Sequence[str] | None) -> tuple[Route, ...]:
-    """Comma-separated text or a yaml list; empty (or null) is an empty tuple."""
-    if not value:
-        return ()
-    parts = value.split(",") if isinstance(value, str) else list(value)
-    return tuple(Route.parse(part) for part in parts if str(part).strip())
-
-
-def _parse_routes(value: str | Sequence[str]) -> tuple[Route, ...]:
-    routes = _routes(value)
-    if not routes:
-        raise ValueError("at least one route is required")
-    return routes
-
-
-def _vision_routes(env: Mapping[str, str], file_values: Mapping) -> tuple[Route, ...]:
-    """An empty env value or an empty yaml list turns image reading off on purpose; only
-    an absent setting takes the default."""
-    from_env = env.get("MY_AGENT_VISION_ROUTES")
-    if from_env is not None:
-        return _routes(from_env)
-    return _routes(file_values.get("vision_routes", DEFAULT_VISION_ROUTES))
-
-
 def _from_yaml(home: Path) -> dict:
     path = home / "config.yaml"
     if not path.exists():
@@ -156,8 +126,8 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
     routes_text = env.get("MY_AGENT_ROUTES") or file_values.get("routes") or DEFAULT_ROUTES
     settings = Settings(
         home=home,
-        routes=_parse_routes(routes_text),
-        vision_routes=_vision_routes(env, file_values),
+        routes=required_routes(routes_text),
+        vision_routes=vision_routes(env, file_values),
         openrouter_api_key=env.get("OPENROUTER_API_KEY") or None,
         brave_api_key=env.get("BRAVE_API_KEY") or None,
         tavily_api_key=env.get("TAVILY_API_KEY") or None,
@@ -174,6 +144,9 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         ),
         shell_ask_patterns=ask_patterns(
             env.get("MY_AGENT_SHELL_ASK_PATTERNS"), file_values.get("shell_ask_patterns")
+        ),
+        shell_allow_patterns=allow_patterns(
+            env.get("MY_AGENT_SHELL_ALLOW_PATTERNS"), file_values.get("shell_allow_patterns")
         ),
         approval_ttl_seconds=int(
             env.get("MY_AGENT_APPROVAL_TTL_SECONDS")

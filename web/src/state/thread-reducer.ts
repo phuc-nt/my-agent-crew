@@ -1,3 +1,4 @@
+import { noteText, PROGRESS_NOTE_TOOL } from "../lib/run-rows";
 import type { AgentEvent, ApprovalKind, ConversationDetail, StoredMessage, ToolCall } from "../api/types";
 
 export type ToolStatus = "running" | "done" | "failed" | "awaiting" | "denied";
@@ -12,7 +13,11 @@ export type ThreadItem =
       arguments: Record<string, unknown>;
       output: string | null;
       status: ToolStatus;
-    };
+    }
+  /** The agent saying what it is about to do. It arrives as a tool call but is not shown
+   *  as one: it has no output to wait for and no status to resolve, so a tool card would
+   *  sit spinning next to a sentence that had already finished being said. */
+  | { kind: "note"; id: string; text: string };
 
 export interface PendingApproval {
   approvalId: string;
@@ -93,6 +98,20 @@ function toolItem(call: ToolCall, status: ToolStatus): ThreadItem {
   return { kind: "tool", id: call.id, name: call.name, arguments: call.arguments, output: null, status };
 }
 
+/**
+ * The thread item one tool call becomes.
+ *
+ * Every call but one becomes a tool card. A progress note becomes a note, because it has
+ * already happened by the time it is seen: there is no output coming and no status to
+ * settle, so a tool card would spin beside a finished sentence for the rest of the turn.
+ */
+function threadItemFor(call: ToolCall): ThreadItem {
+  if (call.name === PROGRESS_NOTE_TOOL) {
+    return { kind: "note", id: call.id, text: noteText(call.arguments) };
+  }
+  return toolItem(call, "running");
+}
+
 function updateTool(
   items: ThreadItem[],
   toolCallId: string,
@@ -152,14 +171,23 @@ function applyEvent(state: ThreadState, e: AgentEvent): ThreadState {
     case "assistant_message": {
       const items = [...state.items];
       if (e.content) items.push({ kind: "assistant", id: e.message_id, text: e.content, model: e.model });
-      for (const call of e.tool_calls) items.push(toolItem(call, "running"));
+      for (const call of e.tool_calls) items.push(threadItemFor(call));
       return { ...state, items, streaming: null };
     }
     case "tool_call":
-      return state.items.some((it) => it.kind === "tool" && it.id === e.tool_call_id)
+      return state.items.some((it) => it.id === e.tool_call_id)
         ? { ...state, items: updateTool(state.items, e.tool_call_id, { status: "running" }) }
-        : { ...state, items: [...state.items, toolItem({ id: e.tool_call_id, name: e.name, arguments: e.arguments }, "running")] };
+        : {
+            ...state,
+            items: [
+              ...state.items,
+              threadItemFor({ id: e.tool_call_id, name: e.name, arguments: e.arguments }),
+            ],
+          };
     case "tool_result": {
+      // A note has no result to show: it was complete when it was written. Falling
+      // through would look for a tool item that is not there and drop `pending`.
+      if (e.name === PROGRESS_NOTE_TOOL) return state;
       const denied = e.output.startsWith(DENIED_MARKER);
       const status: ToolStatus = denied ? "denied" : e.ok ? "done" : "failed";
       return { ...state, items: updateTool(state.items, e.tool_call_id, { output: e.output, status }), pending: null };

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { RunInfo } from "../api/types";
 import { vi } from "../i18n/vi";
-import { isSettled } from "../lib/run-progress";
+import { isSettled, stepProgress } from "../lib/run-progress";
 import { runRows, type RunRow } from "../lib/run-rows";
 import type { RunGroup } from "../state/activity-reducer";
 import { formatUsd } from "./budget-indicator";
@@ -42,7 +42,10 @@ export function RunCard({ run, agentName, expanded = false, onOpenConversation, 
             <strong>{agentName}</strong> · {run.title || vi.runSource(run.source)}
           </span>
           <span className="run-meta muted">
-            {vi.runStatus[run.status]} · {formatClock(run.started_at)} · {vi.runSteps(run.steps.length)} ·{" "}
+            {/* The same total the progress header counts. Using the raw step count here
+                would let the card say "3 bước" while the bar under it reads "2/2", since
+                notes are commentary and not steps of the work. */}
+            {vi.runStatus[run.status]} · {formatClock(run.started_at)} · {vi.runSteps(stepProgress(run).total)} ·{" "}
             {formatUsd(run.spent_usd)}
             {run.unknown_cost_calls > 0 && ` · ? ${run.unknown_cost_calls}`}
             {live && <span className="badge live"> {vi.liveNow}</span>}
@@ -123,7 +126,10 @@ function showState(row: RunRow): boolean {
 function StepRow({ row }: { row: RunRow }) {
   const [showOutput, setShowOutput] = useState(false);
   const { step } = row;
-  const duration = row.durationMs !== null ? vi.stepDuration(row.durationMs) : null;
+  // A note's duration is always zero — it is stamped and closed on the same clock. "0 ms"
+  // on every note row is noise that says nothing about the work the note describes.
+  const duration =
+    row.durationMs !== null && row.kind !== "note" ? vi.stepDuration(row.durationMs) : null;
 
   return (
     <li className={`step ${row.kind} ${row.state}`} data-testid="run-step" data-state={row.state}>
@@ -140,6 +146,9 @@ function StepRow({ row }: { row: RunRow }) {
           {/* The label is the question itself, so without this the row reads as a
               statement the agent made rather than one it is waiting on. */}
           {row.kind === "question" && <span className="step-role muted">{vi.stepQuestion}</span>}
+          {/* Same reason: the label is a sentence the agent wrote, and without a word
+              naming it the row reads as the agent's answer rather than an aside. */}
+          {row.kind === "note" && <span className="step-role muted">{vi.stepNote}</span>}
           {row.repeat > 1 && (
             <span className="step-repeat tabular" title={vi.runStepCount(row.repeat, row.repeat)}>
               {vi.stepRepeat(row.repeat)}

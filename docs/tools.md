@@ -43,7 +43,10 @@ The system prompt lists the available names; the model sees each tool's JSON sch
   `/deny`; the decision resumes the same turn. A conversation (or agent) marked
   `autonomous` skips the pause — except for a `shell_run` command matching
   `settings.shell_ask_patterns` (see [Shell](#shell)), which asks anyway and says which
-  pattern matched. Hard denials, workspace escapes and private network targets, are not
+  pattern matched. The reverse also holds: a conversation that is *not* autonomous still
+  runs a `shell_run` command matching `settings.shell_allow_patterns` without asking, so a
+  supervised agent can get on with the routine parts of its job. The ask list is checked
+  first, so naming a command in both means it asks. Hard denials, workspace escapes and private network targets, are not
   approvable. A request nobody answers within `approval_ttl_seconds` (default 600) is
   refused: the tool result says so, the turn continues and the reply is delivered as usual.
   Approving with `always` puts the tool on the conversation's `auto_approve` list, so its
@@ -72,6 +75,7 @@ The system prompt lists the available names; the model sees each tool's JSON sch
 | `image_read` | no | 8 MB (`MAX_IMAGE_BYTES`); jpg, png, webp, gif | sends a picture from the workspace or the crew home (where `inbox/` keeps what Telegram delivered) to the `vision_routes` chain with a `question` and returns the answer, see [Images](#images); only present when a vision route is configured |
 | `pdf_read` | no | 50 pages (`MAX_PAGES`), `pages` picks a window; the agent's output cap applies | reads a PDF from the workspace or the crew home; typeset pages come back as text, scanned pages go through the vision chain, see [PDFs](#pdfs) |
 | `ask_user` | **yes, always** | one open question per conversation | asks the person one thing and pauses the turn until they answer, see [Asking the person](#asking-the-person) |
+| `progress_note` | no | 200 chars | says in one line what the agent is about to do; becomes a `note` step on the run, see [Saying what it is doing](#saying-what-it-is-doing) |
 
 Four more come with `mode: work` only, because an assistant that chats has no use for
 them and every extra tool spec costs prompt tokens:
@@ -184,12 +188,42 @@ This is a soft second guard, not a sandbox: `rm  -rf` with two spaces, or the sa
 built inside `$(…)`, walks straight past it. It catches the obvious mistake, not a
 determined one.
 
-### Media
+`shell_allow_patterns` is the mirror image, and it is empty by default. It names the
+command shapes routine enough to run without asking *even when the conversation is not
+autonomous*, which is what lets a supervised agent run its own tests or read its own git
+status without a pause for each one. Matching is the same case-insensitive substring test,
+and it is set the same three ways, with `MY_AGENT_SHELL_ALLOW_PATTERNS` as the env var.
+
+The order between the two lists is fixed: a question always asks, then the ask list, then
+the allow list, then autonomy. Naming a command in both means it asks, because someone who
+calls `rm -rf` dangerous and `git` routine means `git reset --hard` to stop.
+
+A pattern under two characters is dropped, as are the ones that look like wildcards but are
+not (`*`, `.*`, `.`, `-`, `--`, `/`, `&&`, `||`, `;`, `|`). Substring matching makes `.*`
+allow only a literal `.*` while reading to whoever wrote it as "allow everything", and that
+misunderstanding is the danger. A bad entry is dropped rather than refusing the whole list,
+so one typo cannot take an agent off the air; dropping fails safe, because the command then
+asks.
+
+### Media and files
 
 An assistant line `MEDIA:<path relative to the workspace>` is not a tool; it is a
 convention the frame teaches. The web UI renders it through
 `GET /api/agents/{id}/files?path=`, which serves files from inside the workspace only;
 Telegram turns it into `sendPhoto`.
+
+`FILE:<path>` is its sibling for documents, because Telegram treats the two differently: a
+photo is re-encoded, which is right for a chart and destroys a CSV. A `FILE:` line arrives
+as `sendDocument`, keeping the bytes and the filename; the web shows a download link
+instead of an inline image.
+
+A document is capped at 20 MB and must be one of `pdf`, `csv`, `md`, `txt`, `xlsx`, `json`
+or `zip`. The list is a guard on the reply, not on the workspace: an agent can write
+anything into its own directory, so containment alone would still let one sentence mail out
+a key file or an `.env` an earlier step copied in. A path outside the workspace, a missing
+file, a wrong format or an oversized one is reported into the chat rather than raised — the
+prose has already been sent by then, so an exception would leave an answer promising a file
+with no word about why none arrived.
 
 ### Images
 
@@ -258,11 +292,43 @@ the composer stays closed while one is: the server refuses a new message while a
 approval waits. The run's timeline shows the pause as its own waiting step rather than
 leaving a gap that reads as an agent thinking for an hour.
 
-## Echo provider and `/tool`
+### Saying what it is doing
 
-With `MY_AGENT_ROUTES=fake:echo` no model is called and a message `/tool <name> {json}`
-runs that tool through the real registry and approval path. This is how the live smoke
-and the browser tests drive tools without a key.
+`progress_note` is the opposite of `ask_user`: it never stops anything. An agent calls it
+with one short line before a long stretch of work, and the line appears on the run's
+timeline while that work is still happening, so someone watching sees "đang đọc lịch" rather
+than a spinner and a guess.
+
+It differs from every other tool in three ways:
+
+- **It never asks.** `requires_approval` is false and nothing consults the ask list. A note
+  that needed permission would arrive after the thing it was announcing.
+- **Its step has its own kind.** The step is written as `note`, not `tool`, because a note
+  has no duration and cannot fail — rendering it as a tool call would give the timeline a
+  row that is permanently mid-flight.
+- **Over-long text is shortened, not refused.** The cap is 200 characters and anything past
+  it is cut. An agent that writes a paragraph gets a shorter note; it does not get an error
+  in the middle of its turn.
+
+A note is not memory. It lives on the run and dies with it, so nothing written here reaches
+the next conversation — that is what `memory_write` is for.
+
+## Providers without a key
+
+Two of the providers need no credentials, and both exist so that something useful still
+works when there is no key and no network.
+
+`ollama` talks to a local OpenAI-compatible server at `OLLAMA_BASE_URL`, default
+`http://127.0.0.1:11434/v1`. Because it needs no key it is always built, so a route like
+`ollama:qwen3:8b` is available whenever ollama is actually running; nothing listening simply
+falls back like any other failing route. It is the natural home for the cheap, high-volume
+work — summarising long tool output, for instance, which would otherwise add a paid call to
+every large result. A local model reports no price, so the run card shows the cost as
+unknown rather than as zero, since those are different claims.
+
+With `MY_AGENT_ROUTES=fake:echo` no model is called at all and a message `/tool <name>
+{json}` runs that tool through the real registry and approval path. This is how the live
+smoke and the browser tests drive tools without a key.
 
 ## Ai đang dùng tool nào
 
@@ -312,8 +378,22 @@ whenever the tool changes state outside the conversation. Add a row to
 
 ## Compared with openclaw
 
-openclaw ships many more tools (browser, cron, messaging, sub-agents, canvas) and a
-per-agent allow/deny list. Here the set is fixed and small on purpose: file, web, memory,
-shell, with approval as the safety layer instead of allow-lists — and, once a conversation
-is autonomous, approval by command pattern. Skills cover the rest:
-a skill can describe a script in its folder and the model runs it with `shell_run`.
+openclaw ships more tools (browser, canvas, richer messaging). Here the catalogue is fixed
+and small on purpose: file, web, memory, shell. An agent's own set is narrower than the
+catalogue in three ways — `tools` in its profile is an allow-list, `workspace_edit` and the
+search tools only exist under `mode: work`, and `image_read` only when a vision chain was
+built. `delegate` is conditional too: the master has it, a work agent has it, any profile
+naming `delegates` has it, and a delegated child never does.
+
+So a per-agent allow-list over tool names exists here as well. The real difference is what
+carries the safety weight. openclaw leans on tool visibility; here that mostly separates
+roles — a reviewer that cannot write, a scout that cannot run a shell — while the guard
+against a dangerous call is approval, and the two pattern lists shape it from both sides.
+`shell_ask_patterns` pulls a command back into asking even in an autonomous conversation;
+`shell_allow_patterns` lets a routine one through even in a supervised one. Both match a
+command shape rather than a tool name, which is the distinction that matters: one
+`shell_run` can be anything from `ls` to `rm -rf`, so no list over tool names could ever
+express "yes to tests, no to deletions".
+
+Skills cover the rest: a skill can describe a script in its folder and the model runs it
+with `shell_run`.

@@ -11,6 +11,11 @@ TELEGRAM_APPROVAL_EXPIRED = (
 )
 TELEGRAM_BUSY = "Cuộc trò chuyện đang chờ bạn duyệt một công cụ: /approve hoặc /deny."
 TELEGRAM_MEDIA_MISSING = "(không gửi được ảnh: {path})"
+# Said in the chat when a `FILE:` line names something that cannot be sent. The reason
+# rides along because the person reading it is usually the one who asked for the file.
+TELEGRAM_FILE_MISSING = "(không gửi được tệp: {path})"
+TELEGRAM_FILE_SUFFIX = "định dạng không gửi qua chat được; chỉ nhận: {kinds}"
+TELEGRAM_FILE_TOO_BIG = "tệp {size:.1f} MB, quá mức {cap:.0f} MB cho chat"
 # What the agent reads when the person sends photos or a file: one line per saved path,
 # the caption (if any) after them, so the model treats the attachments as part of the message.
 TELEGRAM_ATTACHMENT_LINE = "[Tệp đính kèm đã lưu: {path}]"

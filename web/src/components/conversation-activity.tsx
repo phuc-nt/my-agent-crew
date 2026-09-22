@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { RunInfo } from "../api/types";
 import { vi } from "../i18n/vi";
 import { parentConversationId, runGroups } from "../state/activity-reducer";
-import { isSettled } from "../lib/run-progress";
+import { isSettled, stepProgress } from "../lib/run-progress";
 import { ApprovalHistory } from "./approval-history";
 import { RunProgressHeader } from "./run-progress-header";
 import { RunGroupCard, formatClock } from "./run-timeline";
@@ -79,7 +79,7 @@ export function ConversationActivity({
           // last?" — a bare label with no run behind it reads like a missing feature.
           <span className="muted">
             {vi.conversationActivity.lastRun}: {vi.runStatus[recent[0].status]} ·{" "}
-            {formatClock(recent[0].started_at)} · {vi.runSteps(recent[0].steps.length)}
+            {formatClock(recent[0].started_at)} · {vi.runSteps(stepProgress(recent[0]).total)}
           </span>
         )}
         <button
@@ -132,6 +132,10 @@ export function ConversationActivity({
  * delegated child's spend is already folded into the parent — so summing would count the
  * same money two ways over. Steps and models really are per-run, so those are summed.
  * Every figure is already in hand, so the row costs no request.
+ *
+ * "Steps" means steps of the work, the same total the progress bars count. An agent that
+ * says what it is doing before each call would otherwise report twice the work of a silent
+ * one that did exactly the same thing.
  */
 function CostRow({
   runs,
@@ -142,7 +146,7 @@ function CostRow({
   conversationId: string;
   spent: number;
 }) {
-  const steps = runs.reduce((total, r) => total + r.steps.length, 0);
+  const steps = runs.reduce((total, r) => total + stepProgress(r).total, 0);
   const delegated = runs.filter((r) => parentConversationId(r) === conversationId).length;
   const models = [
     ...new Set(

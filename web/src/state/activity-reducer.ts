@@ -1,3 +1,4 @@
+import { noteText, PROGRESS_NOTE_TOOL } from "../lib/run-rows";
 import type { AgentEvent, RunInfo, RunPayload, RunStep } from "../api/types";
 
 /** Runs by id, live ones updated step by step from the activity stream. */
@@ -41,6 +42,13 @@ export function applyRunEvent(run: RunInfo, e: AgentEvent): RunInfo {
       if (e.content) summary = preview(e.content);
       break;
     case "tool_call":
+      if (e.name === PROGRESS_NOTE_TOOL) {
+        // Closed the moment it is written, exactly as the server writes it: a note is
+        // finished as soon as it is said, and an open one would spin a spinner on a
+        // sentence for the rest of the run.
+        steps.push({ kind: "note", text: noteText(e.arguments), duration_ms: 0 });
+        break;
+      }
       steps.push({
         kind: "tool",
         name: e.name,
@@ -52,6 +60,10 @@ export function applyRunEvent(run: RunInfo, e: AgentEvent): RunInfo {
       });
       break;
     case "tool_result": {
+      // The note step was already written and closed by its call, and it carries no
+      // tool_call_id to find. Without this the search below would miss it, which is
+      // harmless — but the step must not be patched with an ok flag either way.
+      if (e.name === PROGRESS_NOTE_TOOL) break;
       const at = steps.findIndex((s) => s.kind === "tool" && s.tool_call_id === e.tool_call_id);
       const patch = { ok: e.ok, output: preview(e.output) };
       if (at >= 0) steps[at] = { ...(steps[at] as Extract<RunStep, { kind: "tool" }>), ...patch };

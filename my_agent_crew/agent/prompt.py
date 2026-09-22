@@ -39,6 +39,8 @@ Nguyên tắc:
 {cli_rule}
 - Khi trả lời có kèm ảnh/biểu đồ đã tạo trong thư mục làm việc, thêm dòng `MEDIA:<đường dẫn>`
   ở cuối câu trả lời để giao diện hiển thị.
+- Khi cần gửi tệp (pdf, csv, md, txt, xlsx, json, zip) đã có trong thư mục làm việc, thêm dòng
+  `FILE:<đường dẫn>`. Ảnh thì dùng `MEDIA:`, tệp tài liệu thì dùng `FILE:`.
 
 Công cụ hiện có: {tools}.
 Hôm nay: {today}.
@@ -55,6 +57,8 @@ Rules:
 {cli_rule}
 - When an answer comes with an image or chart created in the workspace, end with a line
   `MEDIA:<path>` so the UI can show it.
+- To send a document from the workspace (pdf, csv, md, txt, xlsx, json, zip), add a line
+  `FILE:<path>`. Images use `MEDIA:`, documents use `FILE:`.
 
 Available tools: {tools}.
 Today: {today}.

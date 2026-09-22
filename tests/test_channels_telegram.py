@@ -375,7 +375,7 @@ async def test_api_errors_and_httpx_request_logs_never_carry_the_token(fake, cap
 
 
 def test_message_helpers_split_media_chunk_long_text_and_strip_markdown():
-    assert split_reply("a\nMEDIA: x.png\n b \nMEDIA:y.png") == ("a\n b", ["x.png", "y.png"])
+    assert split_reply("a\nMEDIA: x.png\n b \nMEDIA:y.png") == ("a\n b", ["x.png", "y.png"], [])
     assert split_message("l1\n" + "x" * 4096) == ["l1", "x" * 4096]
     assert split_message("l1\n" + "x" * 4094 + "\nl3") == ["l1", "x" * 4094, "l3"]
     assert split_message("y" * 5000, limit=4096) == ["y" * 4096, "y" * 904]

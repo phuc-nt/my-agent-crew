@@ -93,6 +93,35 @@ bản phát hành, `pyproject.toml` và `web/package.json` luôn cùng số.
   như ảnh, mỗi trang một lượt gọi, nên đọc bản scan dài thì tốn. Mặc định 50 trang, `pages`
   chọn một khoảng (`'1-5'`, `'3'`). Máy không có tuyến vision vẫn dựng công cụ: trang chữ đọc
   bình thường, trang scan báo không đọc được thay vì làm hỏng cả lượt.
+- **`shell_allow_patterns`: agent có người giám sát vẫn tự chạy được việc thường ngày.**
+  `shell_ask_patterns` kéo một lệnh về phía hỏi ngay cả khi `autonomous`; danh sách mới làm
+  điều ngược lại, cho lệnh quen thuộc chạy thẳng ngay cả khi *không* `autonomous` — nhờ đó
+  một agent cẩn thận vẫn chạy được test hay `git status` của chính nó mà không dừng từng
+  lệnh. Thứ tự cố định: câu hỏi luôn hỏi, rồi danh sách hỏi, rồi danh sách cho phép, rồi
+  quyền tự chủ; khai một lệnh ở cả hai nghĩa là hỏi. Đặt được ở `config.yaml`, ở `agent.yaml`
+  từng agent, hoặc qua `MY_AGENT_SHELL_ALLOW_PATTERNS` (ngăn bằng dấu chấm phẩy). Mẫu dưới
+  hai ký tự, và những mẫu chỉ *trông* như ký tự đại diện (`*`, `.*`, `.`, `-`, `--`, `/`,
+  `&&`, `||`, `;`, `|`) bị bỏ đi: so khớp là so chuỗi con, nên `.*` chỉ khớp đúng chữ `.*`
+  trong khi người viết đọc nó thành "cho phép tất cả" — chính chỗ hiểu nhầm đó mới nguy
+  hiểm. Một mẫu hỏng bị bỏ riêng chứ không làm hỏng cả danh sách, và bỏ đi là hướng an
+  toàn vì lệnh khi đó quay về hỏi.
+- **Công cụ `progress_note`: thấy agent đang làm gì trong lúc nó còn đang làm.** Trước một
+  đoạn việc dài, agent nói một câu ngắn và câu đó hiện ngay trên dòng thời gian, nên người
+  xem đọc được "đang đọc lịch" thay vì nhìn một vòng xoay và tự đoán. Nó không bao giờ dừng
+  gì: không xin phép, không đụng danh sách hỏi — một lời báo cần duyệt sẽ tới sau chính việc
+  nó báo. Bước ghi ra mang kiểu riêng `note` chứ không phải `tool`, vì một lời báo không có
+  thời lượng và không thể thất bại; vẽ nó như một lượt gọi công cụ sẽ để lại một dòng vĩnh
+  viễn dở dang. Quá 200 ký tự thì bị cắt chứ không báo lỗi giữa lượt. Đây không phải trí
+  nhớ: lời báo sống theo lượt chạy và mất cùng nó.
+- **Dòng `FILE:` gửi tệp thật thay vì gửi đường dẫn.** Telegram nén lại ảnh, điều đúng với
+  một biểu đồ và huỷ hoại một CSV — nên `MEDIA:` vẫn là `sendPhoto`, còn `FILE:` đi bằng
+  `sendDocument`, giữ nguyên bytes và tên tệp; web hiện một liên kết tải về thay cho ảnh
+  nhúng. Giới hạn 20 MB và bảy định dạng (`pdf`, `csv`, `md`, `txt`, `xlsx`, `json`, `zip`).
+  Danh sách này canh câu trả lời chứ không canh workspace: agent ghi được gì tuỳ ý vào thư
+  mục của nó, nên chỉ giới hạn trong workspace thì một câu vẫn đủ để gửi ra ngoài một tệp
+  khoá hay một `.env` mà bước trước đã chép vào. Đường dẫn ra ngoài workspace, tệp không
+  tồn tại, sai định dạng hay quá cỡ đều được báo vào chat chứ không ném lỗi — phần chữ đã
+  gửi đi rồi, nên một exception chỉ để lại lời hứa có tệp mà không nói vì sao tệp không tới.
 
 ### Thay đổi
 

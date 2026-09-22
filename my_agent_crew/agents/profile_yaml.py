@@ -29,7 +29,8 @@ from my_agent_crew.agents.profile import (
     consolidate_schedule,
     default_profile,
 )
-from my_agent_crew.config import Settings, _parse_routes
+from my_agent_crew.config import Settings
+from my_agent_crew.config_parse import parse_routes
 
 MASTER_MANIFEST = "agent.yaml"
 
@@ -82,7 +83,7 @@ def _settings(
 ) -> Settings:
     return replace(
         base,
-        routes=_parse_routes(raw["routes"]) if raw.get("routes") else base.routes,
+        routes=parse_routes(raw["routes"]) if raw.get("routes") else base.routes,
         cost_cap_usd=float(
             raw.get("cost_cap_usd", defaults.get("cost_cap_usd", base.cost_cap_usd))
         ),
@@ -94,6 +95,11 @@ def _settings(
             tuple(_names(raw, "shell_ask_patterns", agent_id))
             if "shell_ask_patterns" in raw
             else base.shell_ask_patterns
+        ),
+        shell_allow_patterns=(
+            tuple(_names(raw, "shell_allow_patterns", agent_id))
+            if "shell_allow_patterns" in raw
+            else base.shell_allow_patterns
         ),
         tool_output_chars=int(raw.get("tool_output_chars", base.tool_output_chars)),
     )

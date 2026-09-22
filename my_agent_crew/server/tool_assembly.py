@@ -21,6 +21,7 @@ from my_agent_crew.tools.memory import build_memory_tools
 from my_agent_crew.tools.memory_user import build_user_memory_tools
 from my_agent_crew.tools.output_summary import chain_summariser
 from my_agent_crew.tools.pdf import build_pdf_tool
+from my_agent_crew.tools.progress_note import build_progress_note_tool
 from my_agent_crew.tools.shell import build_shell_tool
 from my_agent_crew.tools.skills import build_skill_tools
 from my_agent_crew.tools.web import build_web_tools
@@ -84,6 +85,10 @@ def build_tools(
         # act but may not ask would guess instead, which is worse. It stays out of
         # OPTIONAL_TOOLS so a profile that narrows `tools` and forgets it gets a warning.
         build_ask_user_tool(),
+        # Same reasoning as asking, one step milder: telling someone what you are doing is
+        # not a privilege either, and a run that goes quiet for ten minutes looks stuck
+        # whether or not it is.
+        build_progress_note_tool(),
         # Registered whether or not there is a vision chain: a typeset PDF reads fine
         # without one, and only a scanned page needs to say it could not.
         build_pdf_tool((profile.workspace, profile.settings.home), vision),
