@@ -6,6 +6,7 @@
  *   base    → the reset, typography and the primitives (button, badge, dot).
  *   shell   → the frame: layout grid, sidebar, header, drawer, status line.
  *   chat    → the conversation column: thread, bubbles, approvals, composer.
+ *   markdown → formatted prose inside an assistant bubble.
  *   activity-panel → the right-hand rail and its tabs, up to the run card border.
  *   run-timeline   → the process visualisation inside an open run card.
  *
@@ -16,5 +17,6 @@
 @import "./styles/base.css";
 @import "./styles/shell.css";
 @import "./styles/chat.css";
+@import "./styles/markdown.css";
 @import "./styles/activity-panel.css";
 @import "./styles/run-timeline.css";

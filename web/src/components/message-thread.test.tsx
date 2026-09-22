@@ -59,3 +59,43 @@ describe("MessageThread while the agent is working", () => {
     expect(screen.queryByRole("progressbar")).toBeNull();
   });
 });
+
+describe("who gets their text formatted", () => {
+  function thread(items: ThreadItem[]) {
+    return render(
+      <MessageThread
+        items={items}
+        streaming={null}
+        busy={false}
+        onSuggestion={() => {}}
+        echoOnly={false}
+        agentId="master"
+      />,
+    );
+  }
+
+  it("formats the agent's reply", () => {
+    const { container } = thread([
+      { id: "a1", kind: "assistant", text: "**ngủ đủ** giúp hồi phục", model: null },
+    ]);
+    expect(container.querySelector("strong")?.textContent).toBe("ngủ đủ");
+  });
+
+  it("leaves what the person typed exactly as they typed it", () => {
+    // Someone who writes an asterisk means an asterisk; their message is not a
+    // document the app gets to reinterpret.
+    const { container } = thread([{ id: "m2", kind: "user", text: "**giữ nguyên** nhé" }]);
+    expect(container.querySelector("strong")).toBeNull();
+    expect(screen.getByTestId("message-user").textContent).toContain("**giữ nguyên**");
+  });
+
+  it("keeps images inline when a reply mixes prose and a MEDIA line", () => {
+    const { container } = thread([
+      { id: "a2", kind: "assistant", text: "**Biểu đồ**\nMEDIA: out/chart.png\nXong.", model: null },
+    ]);
+    expect(container.querySelector("strong")?.textContent).toBe("Biểu đồ");
+    expect(container.querySelector("img.media")?.getAttribute("src")).toContain(
+      encodeURIComponent("out/chart.png"),
+    );
+  });
+});

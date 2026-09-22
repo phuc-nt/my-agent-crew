@@ -3,6 +3,7 @@ import { agentFileUrl } from "../api/client";
 import type { RunInfo } from "../api/types";
 import { vi } from "../i18n/vi";
 import type { ThreadItem } from "../state/thread-reducer";
+import { MarkdownBody } from "./markdown-body";
 import { RunProgressHeader } from "./run-progress-header";
 import { ToolCallCard } from "./tool-call-card";
 
@@ -82,7 +83,7 @@ export function MessageThread({
       {streaming !== null && (
         <div className="bubble assistant streaming" data-testid="streaming">
           <span className="bubble-role">{vi.agent}</span>
-          <p>{streaming}</p>
+          <MarkdownBody text={streaming} />
         </div>
       )}
       {/* While the turn is blocked, the thread says what it is blocked on. The
@@ -137,12 +138,13 @@ function Item({
       <ToolCallCard item={item} agentName={agentName} onOpenConversation={onOpenConversation} />
     );
   const role = item.kind === "user" ? vi.you : vi.agent;
-  const blocks = item.kind === "assistant" ? splitMedia(item.text) : [{ kind: "text" as const, value: item.text }];
+  const assistant = item.kind === "assistant";
+  const blocks = assistant ? splitMedia(item.text) : [{ kind: "text" as const, value: item.text }];
   return (
     <div className={`bubble ${item.kind}`} data-testid={`message-${item.kind}`}>
       <span className="bubble-role">
         {role}
-        {item.kind === "assistant" && item.model && <span className="muted"> · {item.model}</span>}
+        {assistant && item.model && <span className="muted"> · {item.model}</span>}
       </span>
       {blocks.map((block, i) =>
         block.kind === "media" ? (
@@ -153,6 +155,8 @@ function Item({
             alt={vi.mediaAlt(block.value)}
             loading="lazy"
           />
+        ) : assistant ? (
+          <MarkdownBody key={i} text={block.value} />
         ) : (
           <p key={i}>{block.value}</p>
         ),

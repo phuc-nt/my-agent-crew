@@ -66,8 +66,10 @@
 }
 
 /* The caret that marks a reply still arriving. It is the only thing in the
-   thread that moves, so it needs no label to be understood. */
-.bubble.streaming p::after {
+   thread that moves, so it needs no label to be understood. It rides the last
+   block of the reply, whatever markdown turned that block into, so a partial
+   answer ending in a list or a table still shows where the text stops. */
+.bubble.streaming .md > :last-child::after {
   content: "▍";
   animation: caret-blink 1s steps(2, start) infinite;
 }

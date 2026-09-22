@@ -16,6 +16,21 @@ test("send a message and read the streamed reply", async ({ page }) => {
   await expect(page.getByTestId("budget")).toContainText("$0.05 / $1.00");
 });
 
+test("a reply written in markdown arrives formatted, not as asterisks", async ({ page }) => {
+  const reply = "**Giấc ngủ** quan trọng\n\n- ngủ sớm\n- dậy đúng giờ";
+  await mockApi(page, { turns: [[
+    { type: "assistant_message", message_id: "a1", content: reply, tool_calls: [], provider: "fake", model: "echo", cost_usd: 0 },
+    { type: "done", spent_usd: 0, unknown_cost_calls: 0 },
+  ]] });
+  await page.goto("/");
+  await page.getByRole("textbox").fill("ngủ thế nào");
+  await page.keyboard.press("Enter");
+  const bubble = page.getByTestId("message-assistant");
+  await expect(bubble.locator("strong")).toHaveText("Giấc ngủ");
+  await expect(bubble.locator("li")).toHaveText(["ngủ sớm", "dậy đúng giờ"]);
+  await expect(bubble).not.toContainText("**");
+});
+
 test("approval bar pauses the turn and approving resumes it", async ({ page }) => {
   await mockApi(page, { turns: [
     [
