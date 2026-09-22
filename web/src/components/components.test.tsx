@@ -35,6 +35,13 @@ describe("ToolCallCard", () => {
     expect(summarizeArguments({ path: "a", n: 2 })).toBe("path=a, n=2");
     expect(summarizeArguments({ text: "x".repeat(80) })).toBe(`text=${"x".repeat(57)}…`);
   });
+
+  // Runs recorded before the store kept arguments as a mapping hold one string
+  // instead. Walking it by index showed a pair per character; the line itself is
+  // the closest thing to the truth those runs still have.
+  it("shows an argument line recorded as one string as it stands", () => {
+    expect(summarizeArguments("{'path': 'memory/note.md'}")).toBe("{'path': 'memory/note.md'}");
+  });
 });
 
 describe("BudgetIndicator", () => {

@@ -174,7 +174,7 @@ export const api = {
     request<ApprovalInfo[]>(`/approvals${query(params)}`),
   listRuns: (params: { limit?: number; agent_id?: string; conversation_id?: string } = {}) =>
     request<RunInfo[]>(`/activity/runs${query(params)}`),
-  getRun: (id: string) => request<RunInfo>(`/activity/runs/${id}`),
+  getRun: (id: string) => request<RunInfo>(`/activity/runs/${encodeURIComponent(id)}`),
   stats: () => request<StatsInfo>("/stats"),
   listJobs: () => request<JobInfo[]>("/jobs"),
   runJob: (jobId: string) =>

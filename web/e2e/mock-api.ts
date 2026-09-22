@@ -225,7 +225,9 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
     // Ahead of the list route below, so a run id is not read as part of it.
     const oneRun = path.match(/^\/activity\/runs\/([^/]+)$/);
     if (oneRun) {
-      const found = (options.runs ?? []).find((r) => (r as { id: string }).id === oneRun[1]);
+      // Decoded, as the real route does: the client encodes the id on its way out.
+      const wanted = decodeURIComponent(oneRun[1]);
+      const found = (options.runs ?? []).find((r) => (r as { id: string }).id === wanted);
       return found ? json(found) : json({ detail: "run not found" }, 404);
     }
     if (path === "/activity/runs") return json(options.runs ?? []);

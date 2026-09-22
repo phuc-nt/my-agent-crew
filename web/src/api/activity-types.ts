@@ -18,7 +18,12 @@ export type RunStep =
       kind: "tool";
       name: string;
       tool_call_id: string;
-      arguments: Record<string, unknown>;
+      /**
+       * A mapping of argument name to value — except on runs recorded before the
+       * store kept the shape, where the whole mapping was flattened to one string.
+       * Those rows are still in the database, so reading one back has to cope.
+       */
+      arguments: Record<string, unknown> | string;
       ok: boolean | null;
       output: string | null;
       duration_ms: number | null;

@@ -13,9 +13,20 @@ import type { RunInfo, RunStatus, RunStep } from "../api/types";
 /** What a step looks like now, as opposed to when it was written. */
 export type StepState = "running" | "done" | "failed" | "stalled";
 
+/**
+ * The statuses that mean nothing more will happen in this run.
+ *
+ * Named as a type so anything that has to say something per settled status — how the
+ * run ended, say — is checked against the whole set rather than falling back to one of
+ * them for a status added later.
+ */
+export type SettledStatus = "done" | "halted" | "error";
+
+const SETTLED: readonly RunStatus[] = ["done", "halted", "error"] satisfies SettledStatus[];
+
 /** A run status that means nothing more will happen in this run. */
-export function isSettled(status: RunStatus): boolean {
-  return status === "done" || status === "halted" || status === "error";
+export function isSettled(status: RunStatus): status is SettledStatus {
+  return SETTLED.includes(status);
 }
 
 /**

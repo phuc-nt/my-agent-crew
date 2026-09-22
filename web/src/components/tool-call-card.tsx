@@ -15,7 +15,16 @@ const STATUS_LABEL: Record<ToolStatus, string> = {
   denied: vi.toolDenied,
 };
 
-export function summarizeArguments(args: Record<string, unknown>): string {
+/**
+ * Tool arguments as one readable line of `name=value` pairs.
+ *
+ * Runs recorded before the store kept arguments as a mapping hold them as a
+ * single stringified line instead. `Object.entries` walks a string by index, so
+ * such a row came out as one pair per character; showing the line as it stands
+ * is the closest thing to the truth we still have about those runs.
+ */
+export function summarizeArguments(args: Record<string, unknown> | string): string {
+  if (typeof args === "string") return args;
   const parts = Object.entries(args).map(([key, value]) => {
     const text = typeof value === "string" ? value : JSON.stringify(value);
     return `${key}=${text.length > 60 ? `${text.slice(0, 57)}…` : text}`;

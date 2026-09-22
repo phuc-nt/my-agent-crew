@@ -311,6 +311,8 @@ export const vi = {
   liveNow: "Đang chạy",
   recentRuns: "Gần đây",
   noRuns: "Chưa có lượt chạy nào.",
+  // The way out of an empty section, so "chưa có gì" is not the whole answer.
+  noRunsAction: "Bắt đầu một cuộc trò chuyện",
   replay: {
     back: "← Tất cả hoạt động",
     loading: "Đang mở lượt chạy…",

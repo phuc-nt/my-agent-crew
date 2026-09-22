@@ -72,6 +72,29 @@ describe("RunReplay", () => {
     expect(fetched).not.toHaveBeenCalled();
   });
 
+  // The stream's last word about a run carries its final status but not its finish
+  // time, and a settled run is never refreshed from the list again — so the copy in
+  // memory keeps a finish time that never arrives, and only the fetch has the real one.
+  it("re-reads a run that has settled, whose copy on screen can be missing its finish time", async () => {
+    const settled = fakeRun({ id: "r1", status: "done", finished_at: null, title: "Đang làm" });
+    backend.runs = [fakeRun({ id: "r1", status: "done", title: "Đã xong" })];
+
+    show("r1", [settled]);
+
+    expect(await screen.findByTestId("run-card")).toHaveTextContent("Đã xong");
+  });
+
+  // The fetch is only after a better copy of something already on screen. Reporting a
+  // failure over a run the person can plainly see would be worse than showing it.
+  it("keeps showing the run it already has when re-reading it fails", async () => {
+    const settled = fakeRun({ id: "gone", status: "done", title: "Vẫn đây" });
+
+    show("gone", [settled]);
+
+    await waitFor(() => expect(screen.getByTestId("run-card")).toHaveTextContent("Vẫn đây"));
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
   it("says so when the run is not there any more", async () => {
     show("missing");
 

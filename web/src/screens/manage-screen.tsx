@@ -5,6 +5,7 @@ import { ApprovalHistory } from "../components/approval-history";
 import { AttentionCenter } from "../components/attention-center";
 import { ConnectionsPanel } from "../components/connections-panel";
 import { CrewPanel } from "../components/crew-panel";
+import { EmptyState } from "../components/empty-state";
 import { JobsPanel } from "../components/jobs-panel";
 import { MemoryPanel } from "../components/memory-panel";
 import { RunReplay } from "../components/run-replay";
@@ -155,7 +156,12 @@ export function ManageScreen(props: Props) {
             )}
             <h3>{vi.recentRuns}</h3>
             {recent.length === 0 ? (
-              <p className="muted">{vi.noRuns}</p>
+              // Nothing has run yet because nothing has been asked yet, so the way
+              // out of this screen is the answer rather than another sentence.
+              <EmptyState
+                says={vi.noRuns}
+                action={{ label: vi.noRunsAction, onClick: props.onBackToChat }}
+              />
             ) : (
               runGroups(recent).map((group) => (
                 <RunGroupCard

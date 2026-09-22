@@ -65,8 +65,19 @@ def test_a_long_tool_argument_is_cut_down_rather_than_stored_whole():
     apply_event(run, ToolCallEvent("c1", "write", {"text": "x" * 500, "n": 3}), 10.0)
     arguments = run.steps[0]["arguments"]
     assert len(arguments["text"]) <= 161 and arguments["text"].endswith("…")
-    # Only text is long enough to matter; other values keep their type.
+    # A small value keeps its own type: the web renders a number better than "3".
     assert arguments["n"] == 3
+
+
+def test_a_big_list_argument_is_cut_down_rather_than_stored_whole():
+    # A list has no length limit of its own, and this preview is written to the store and
+    # re-broadcast with every later step of the same run — so one big argument would be
+    # paid for again on each of them.
+    run = fresh_run()
+    apply_event(run, ToolCallEvent("c1", "delegate", {"skills": ["s" * 100] * 50}), 10.0)
+    skills = run.steps[0]["arguments"]["skills"]
+    assert isinstance(skills, str)
+    assert len(skills) <= 161 and skills.endswith("…")
 
 
 def test_route_fallback_becomes_a_step_without_touching_cost():

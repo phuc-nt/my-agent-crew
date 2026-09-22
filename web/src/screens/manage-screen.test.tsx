@@ -74,6 +74,16 @@ describe("the manage screen", () => {
     expect(onReplayRun).toHaveBeenCalledWith("live");
   });
 
+  // "Nothing has run yet" is only half an answer: nothing has run because nothing
+  // has been asked, and the way back to the chat is what actually unblocks it.
+  it("offers the way back to the chat when no run has happened yet", async () => {
+    const { onBackToChat } = show("activity", { runs: [], liveRuns: [] });
+
+    await userEvent.click(screen.getByRole("button", { name: vi.noRunsAction }));
+
+    expect(onBackToChat).toHaveBeenCalled();
+  });
+
   it("marks how many runs are live on the way into the activity section", () => {
     show("activity");
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { RunInfo } from "../api/types";
 import { vi } from "../i18n/vi";
+import type { SettledStatus } from "../lib/run-progress";
 import { activeStep, isSettled, stepProgress, runElapsedMs } from "../lib/run-progress";
 import { runRows } from "../lib/run-rows";
 
@@ -19,7 +20,7 @@ export function RunProgressHeader({ run }: { run: RunInfo }) {
 
   // A settled run has no "right now" to report, so it says how it ended instead.
   // Saying "Đang suy nghĩ" on a run that finished minutes ago reads as a hang.
-  const label = live
+  const label = !isSettled(run.status)
     ? active === null
       ? vi.runThinking
       : vi.runDoing(labelFor(run, active))
@@ -51,11 +52,21 @@ export function RunProgressHeader({ run }: { run: RunInfo }) {
   );
 }
 
-/** How a run that is over ended, for the line that would otherwise say what it is doing. */
-function endedLabel(status: RunInfo["status"]): string {
-  if (status === "halted") return vi.runEndedHalted;
-  if (status === "error") return vi.runEndedError;
-  return vi.runEndedDone;
+/**
+ * How a run that is over ended, for the line that would otherwise say what it is doing.
+ *
+ * Written as a mapping over every settled status rather than as a default, so a status
+ * that becomes settled later has to be given its own wording here instead of quietly
+ * arriving on screen as "Đã xong".
+ */
+const ENDED_LABELS: Record<SettledStatus, string> = {
+  done: vi.runEndedDone,
+  halted: vi.runEndedHalted,
+  error: vi.runEndedError,
+};
+
+function endedLabel(status: SettledStatus): string {
+  return ENDED_LABELS[status];
 }
 
 /** The name of the work in progress, as the timeline would have labelled it. */
