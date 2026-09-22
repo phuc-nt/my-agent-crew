@@ -1,0 +1,309 @@
+/*
+ * Editing the crew rather than watching it: the agent editor's form, the tools matrix
+ * and the connections page.
+ *
+ * These are the only screens in the app that write to an agent's configuration, and they
+ * are the only ones built out of form controls. Keeping their rules together is what lets
+ * `manage.css` stay a description of the frame the sections sit in.
+ */
+
+/* ── Shared row helpers ─────────────────────────────────────────────────── */
+.crew-panel .row,
+.agent-admin .row,
+.agent-editor .row,
+.connections .row,
+.editor-section .row,
+.add-agent .row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: nowrap;
+}
+
+.row.wrap {
+  flex-wrap: wrap;
+}
+
+/* Pushes whatever follows it to the far end of a row; how the Edit button lands
+   opposite the agent's name without a second container to hold it. */
+.spacer {
+  flex: 1 1 auto;
+}
+
+.notice.ok {
+  background: var(--ok-bg);
+  color: var(--ok-text);
+}
+
+.notice.warn {
+  background: var(--warn-bg);
+  color: var(--warn-text);
+}
+
+.warn-text {
+  color: var(--warn-text);
+}
+
+/* ── Form fields ────────────────────────────────────────────────────────── */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: var(--space-3);
+  min-width: 0;
+  flex: 1 1 12rem;
+}
+
+.field-label {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.field-hint {
+  font-size: var(--text-xs);
+}
+
+.field input[type="text"],
+.field input[type="number"],
+.field select,
+.field textarea,
+.add-agent input {
+  font: inherit;
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  min-width: 0;
+}
+
+.field textarea {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  resize: vertical;
+}
+
+.field input:disabled,
+.field select:disabled,
+.field textarea:disabled {
+  background: var(--surface-sunken);
+  color: var(--muted);
+}
+
+/* A checkbox reads as one line with its label, not as a label stacked above a box. */
+.check-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: var(--space-3);
+}
+
+.check-field label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+}
+
+/* ── The editor ─────────────────────────────────────────────────────────── */
+.agent-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* Sticky so the unsaved-changes count and the Save button stay reachable while the
+   person is still scrolling through nine sections of form. */
+.editor-bar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) 0;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.editor-section {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  background: var(--surface);
+}
+
+.editor-section > h3:first-child {
+  margin-top: 0;
+}
+
+.editor-section.danger {
+  border-color: var(--danger);
+}
+
+.restart-banner {
+  border-radius: var(--radius-sm);
+}
+
+.persona-tabs button.active {
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+
+.persona-body {
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  resize: vertical;
+  margin-bottom: var(--space-3);
+}
+
+.route-editor,
+.schedule-editor {
+  list-style: none;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* ── Pickers ────────────────────────────────────────────────────────────── */
+.tool-picker {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: var(--space-2);
+}
+
+.tool-picker li {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2);
+}
+
+.tool-picker label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+}
+
+/* ── The tools matrix ───────────────────────────────────────────────────── */
+/* The grid is wider than the body's reading measure by design — one column per agent —
+   so it opts out of the clamp every other section keeps. */
+.manage-body > .tools-matrix {
+  max-width: none;
+}
+
+.matrix-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.matrix {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: var(--text-sm);
+}
+
+.matrix th,
+.matrix td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.matrix thead th {
+  position: sticky;
+  top: 0;
+  background: var(--surface-sunken);
+  white-space: nowrap;
+}
+
+.matrix tbody th {
+  font-weight: 400;
+  max-width: 24rem;
+}
+
+.matrix td.cell {
+  text-align: center;
+  font-size: var(--text-lg);
+}
+
+.matrix td.cell.on {
+  color: var(--ok);
+}
+
+.matrix td.cell.excluded,
+.matrix td.cell.work-mode {
+  color: var(--muted);
+}
+
+.matrix td.cell.missing-key {
+  color: var(--warn);
+}
+
+.matrix-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.matrix-legend dt {
+  font-weight: 600;
+}
+
+.matrix-legend dd {
+  margin: 0;
+}
+
+/* ── Connections ────────────────────────────────────────────────────────── */
+.connections section {
+  margin-bottom: var(--space-5);
+}
+
+.connections h3 {
+  margin-bottom: var(--space-2);
+}
+
+.route-list,
+.key-list {
+  margin: 0;
+  padding-left: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.key-list {
+  list-style: none;
+  padding-left: 0;
+}
+
+.key-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+@media (max-width: 720px) {
+  .editor-section .row,
+  .add-agent .row {
+    flex-wrap: wrap;
+  }
+}

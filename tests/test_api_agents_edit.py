@@ -145,9 +145,14 @@ def test_only_a_schedule_or_a_channel_asks_for_a_restart(crew) -> None:
 
 def test_the_master_is_editable_and_its_file_lands_in_the_home(crew) -> None:
     client, runtime, home = crew
+    client.post("/api/agents", json={"agent_id": "coder", "profile": {}})
 
     reply = client.patch("/api/agents/default", json={"profile": {"name": "Thư ký"}})
 
+    # The master has no manifest until the first edit writes one, so it is editable on
+    # the strength of being the master; an agent the API created has the file itself.
+    assert client.get("/api/agents/default").json()["editable"] is True
+    assert client.get("/api/agents/coder").json()["editable"] is True
     assert reply.status_code == 200
     assert (home / "agent.yaml").is_file()
     assert runtime.default.agent.name == "Thư ký"
@@ -207,6 +212,27 @@ def test_a_persona_file_is_written_by_name_and_nothing_else_is(crew) -> None:
     assert not (home / "agents" / "agent.yaml").exists()
 
 
+def test_a_persona_file_reads_back_and_an_unwritten_one_reads_empty(crew) -> None:
+    client, _, _ = crew
+    client.post("/api/agents", json={"agent_id": "coder", "profile": {}})
+    client.put("/api/agents/coder/files/AGENTS.md", json={"content": "Luôn viết test trước."})
+
+    written = client.get("/api/agents/coder/files/AGENTS.md")
+    untouched = client.get("/api/agents/coder/files/SOUL.md")
+    unlisted = client.get("/api/agents/coder/files/NOTES.md")
+
+    assert written.json() == {
+        "name": "AGENTS.md",
+        "content": "Luôn viết test trước.",
+        "chars": len("Luôn viết test trước."),
+    }
+    # Every agent starts with none of these written; an editor that could not open one
+    # would leave no way to write its first line.
+    assert untouched.status_code == 200
+    assert untouched.json()["content"] == ""
+    assert unlisted.status_code == 404
+
+
 REVIEWER_MD = """---
 name: Reviewer
 description: Đọc mã và báo lại.
@@ -226,7 +252,11 @@ def test_an_agent_that_came_from_a_kit_is_read_only_and_says_where_it_lives(
     with TestClient(create_app(runtime, schedule=False)) as client:
         patched = client.patch("/api/agents/reviewer", json={"profile": {"name": "Khác"}})
         deleted = client.delete("/api/agents/reviewer")
+        described = client.get("/api/agents/reviewer").json()
 
+    # The listing says so too, so an editor can refuse the form rather than let someone
+    # fill one in and find out at the save.
+    assert described["editable"] is False
     assert patched.status_code == 409
     # The refusal names the markdown file, because that is the only place an edit works.
     assert "reviewer.md" in patched.json()["detail"]

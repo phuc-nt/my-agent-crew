@@ -4,12 +4,14 @@ import type {
   AgentInfo,
   AgentMemory,
   ApprovalInfo,
+  ConnectionsInfo,
   Conversation,
   ConversationDetail,
   FactInfo,
   FactType,
   JobInfo,
   MemoryProposal,
+  RegistryTool,
   RunInfo,
   SettingsInfo,
   StatsInfo,
@@ -27,6 +29,9 @@ export const fakeAgent: AgentInfo = {
   cost_cap_usd: 1,
   max_steps: 20,
   autonomous: false,
+  shell_ask_patterns: ["rm -rf"],
+  tool_output_chars: 4000,
+  memory_consolidate: "",
   persona_files: [],
   mode: "assistant",
   delegates: [],
@@ -34,6 +39,7 @@ export const fakeAgent: AgentInfo = {
   tools: ["write_file"],
   skills: ["core", "writer"],
   is_master: true,
+  editable: true,
   telegram: null,
   commands: [],
   hooks: 0,
@@ -116,6 +122,21 @@ export class FakeBackend {
     ],
     agents: [fakeAgent],
   };
+  /** Persona files written by PUT /agents/{id}/files/{name}, keyed "<agent>/<name>". */
+  personaFiles = new Map<string, string>();
+  connections: ConnectionsInfo = {
+    providers: [{ name: "fake", built: true }],
+    routes: [{ provider: "fake", model: "echo" }],
+    vision_routes: [],
+    keys: [
+      { name: "OPENROUTER_API_KEY", present: false },
+      { name: "BRAVE_API_KEY", present: false },
+      { name: "TAVILY_API_KEY", present: false },
+    ],
+    telegram: [],
+  };
+  /** Set to a message to make the next PATCH refuse, the way a bad field would. */
+  refuseEdit: string | null = null;
   /** What the next POST /summary writes onto the conversation. */
   nextSummary = "Bản tóm tắt mới.";
 
@@ -135,9 +156,33 @@ export class FakeBackend {
     const memory = this.memoryRoute(path, method, body, url.searchParams);
     if (memory) return memory;
     if (path === "/settings") return json(this.settings);
+    if (path === "/agents" && method === "POST") return this.createAgent(body.agent_id, body.profile);
     if (path === "/agents") return json(this.master());
     if (path === "/templates") return json(this.templates);
     if (path === "/agents/install" && method === "POST") return this.install(body.template, body.agent_id);
+    if (path === "/tools") return json(this.tools());
+    if (path === "/connections") return json(this.connections);
+    // Before the single-agent routes: `/agents/reload` would otherwise read as an agent
+    // whose id happens to be "reload".
+    if (path === "/agents/reload" && method === "POST") return json({ added: [] });
+    const persona = path.match(/^\/agents\/([^/]+)\/files\/([^/]+)$/);
+    if (persona && method === "PUT") {
+      this.personaFiles.set(`${decodeURIComponent(persona[1])}/${persona[2]}`, body.content);
+      return json({ name: persona[2], chars: String(body.content).length });
+    }
+    if (persona && method === "GET") {
+      // A file that was never written reads as empty, the way the server reports one an
+      // agent may have but has not created yet.
+      const content = this.personaFiles.get(`${decodeURIComponent(persona[1])}/${persona[2]}`) ?? "";
+      return json({ name: persona[2], content, chars: content.length });
+    }
+    const edited = path.match(/^\/agents\/([^/]+)$/)?.[1];
+    if (edited && method === "PATCH") return this.patchAgent(decodeURIComponent(edited), body.profile);
+    if (edited && method === "DELETE") return this.deleteAgent(decodeURIComponent(edited));
+    if (edited && method === "GET") {
+      const found = this.agents.find((a) => a.id === decodeURIComponent(edited));
+      return found ? json(found) : json({ detail: "agent not found" }, 404);
+    }
     if (path === "/activity/runs") return json(this.runs);
     if (path === "/stats") return json(this.stats);
     if (path === "/jobs") return json(this.jobs);
@@ -194,6 +239,47 @@ export class FakeBackend {
   private master(): AgentInfo[] {
     const others = this.agents.filter((a) => !a.is_master).map((a) => a.id);
     return this.agents.map((a) => (a.is_master ? { ...a, delegates: others } : a));
+  }
+
+  /** Like the server: the union over the crew, each tool naming the agents that hold it. */
+  private tools(): RegistryTool[] {
+    const names = [...new Set(this.agents.flatMap((a) => a.tools))].sort();
+    return names.map((name) => ({
+      name,
+      description: this.settings.tools.find((t) => t.name === name)?.description ?? "",
+      requires_approval: this.settings.tools.find((t) => t.name === name)?.requires_approval ?? false,
+      optional: name === "web_search" || name === "image_read",
+      agents: this.agents.filter((a) => a.tools.includes(name)).map((a) => a.id),
+    }));
+  }
+
+  private createAgent(agentId: string, profile: Record<string, unknown>): Response {
+    if (this.agents.some((a) => a.id === agentId))
+      return json({ detail: `agent ${agentId} already exists` }, 409);
+    const created: AgentInfo = { ...fakeAgent, ...profile, id: agentId, is_master: false };
+    this.agents = [...this.agents, created];
+    return json({ profile: created, restart_required: [] }, 201);
+  }
+
+  private patchAgent(agentId: string, profile: Record<string, unknown>): Response {
+    const found = this.agents.find((a) => a.id === agentId);
+    if (!found) return json({ detail: `agent ${agentId} not found` }, 404);
+    if (this.refuseEdit) return json({ detail: this.refuseEdit }, 422);
+    Object.assign(found, profile);
+    // Only these three are read at boot, so only these three ask for a restart.
+    const restart = ["schedules", "telegram", "memory_consolidate"].filter((k) => k in profile);
+    return json({ profile: found, restart_required: restart });
+  }
+
+  private deleteAgent(agentId: string): Response {
+    const found = this.agents.find((a) => a.id === agentId);
+    if (!found) return json({ detail: `agent ${agentId} not found` }, 404);
+    if (found.is_master) return json({ detail: "không xoá được agent điều phối" }, 409);
+    const users = this.agents.filter((a) => !a.is_master && a.delegates.includes(agentId));
+    if (users.length > 0)
+      return json({ detail: `${users.map((a) => a.id).join(", ")} đang giao việc cho ${agentId}` }, 409);
+    this.agents = this.agents.filter((a) => a.id !== agentId);
+    return json({ removed: agentId, kept_at: `/tmp/home/agents/.trash/${agentId}` });
   }
 
   private install(template: string, agentId?: string): Response {

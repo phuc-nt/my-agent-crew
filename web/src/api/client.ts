@@ -5,7 +5,10 @@ import type {
   AgentEvent,
   AgentInfo,
   AgentMemory,
+  AgentPatch,
+  AgentSaved,
   ApprovalInfo,
+  ConnectionsInfo,
   Conversation,
   ConversationDetail,
   ConversationPatch,
@@ -16,6 +19,7 @@ import type {
   JobInfo,
   MemoryHit,
   MemoryProposal,
+  RegistryTool,
   RunInfo,
   SettingsInfo,
   StatsInfo,
@@ -111,6 +115,32 @@ export const api = {
   getAgent: (id: string) => request<AgentDetail>(`/agents/${encodeURIComponent(id)}`),
   installTemplate: (body: InstallRequest) =>
     request<InstallResult>("/agents/install", { method: "POST", body: JSON.stringify(body) }),
+  createAgent: (agentId: string, profile: AgentPatch) =>
+    request<AgentSaved>("/agents", {
+      method: "POST",
+      body: JSON.stringify({ agent_id: agentId, profile }),
+    }),
+  patchAgent: (id: string, profile: AgentPatch) =>
+    request<AgentSaved>(`/agents/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ profile }),
+    }),
+  deleteAgent: (id: string) =>
+    request<{ removed: string; kept_at: string }>(`/agents/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    }),
+  personaFile: (agentId: string, name: string) =>
+    request<{ name: string; content: string; chars: number }>(
+      `/agents/${encodeURIComponent(agentId)}/files/${encodeURIComponent(name)}`,
+    ),
+  putPersonaFile: (agentId: string, name: string, content: string) =>
+    request<{ name: string; chars: number }>(
+      `/agents/${encodeURIComponent(agentId)}/files/${encodeURIComponent(name)}`,
+      { method: "PUT", body: JSON.stringify({ content }) },
+    ),
+  reloadAgents: () => request<{ added: string[] }>("/agents/reload", { method: "POST" }),
+  listTools: () => request<RegistryTool[]>("/tools"),
+  connections: () => request<ConnectionsInfo>("/connections"),
   listConversations: (agentId?: string) =>
     request<Conversation[]>(`/conversations${query({ agent_id: agentId })}`),
   createConversation: (body: ConversationPatch & { agent_id?: string } = {}) =>

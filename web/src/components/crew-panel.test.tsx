@@ -1,8 +1,8 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi as vitest } from "vitest";
 import { vi } from "../i18n/vi";
-import { coachAgent, coderTemplate, fakeAgent } from "../test/fake-backend";
+import { FakeBackend, coachAgent, coderTemplate, fakeAgent } from "../test/fake-backend";
 import { CrewPanel } from "./crew-panel";
 
 const master = { ...fakeAgent, name: "Trợ lý", delegates: ["coach"] };
@@ -14,6 +14,9 @@ const coach = {
   kits: ["/h/agents/coach/.agents"],
 };
 
+/** The two callbacks every case needs but only the editing cases care about. */
+const hooks = { onEdit: vitest.fn(), onCreated: vitest.fn() };
+
 describe("CrewPanel", () => {
   it("shows the master first, then each member with what the master can hand it", () => {
     render(
@@ -23,6 +26,7 @@ describe("CrewPanel", () => {
         templates={[]}
         liveByAgent={{ coach: 1 }}
         onInstall={() => Promise.reject(new Error("unused"))}
+        {...hooks}
       />,
     );
     expect(screen.getByText(vi.crew.intro("Trợ lý"))).toBeInTheDocument();
@@ -48,7 +52,7 @@ describe("CrewPanel", () => {
   it("installs a bundled template with one click and says when a restart is still needed", async () => {
     const onInstall = vitest.fn().mockResolvedValue({ installed: ["coder"], live: ["coder"], needs_restart: true });
     render(
-      <CrewPanel agents={[master]} master={master} templates={[coderTemplate]} liveByAgent={{}} onInstall={onInstall} />,
+      <CrewPanel agents={[master]} master={master} templates={[coderTemplate]} liveByAgent={{}} onInstall={onInstall} {...hooks} />,
     );
     const list = screen.getByTestId("template-list");
     expect(list).toHaveTextContent("Coder");
@@ -63,17 +67,47 @@ describe("CrewPanel", () => {
   it("reports a failed install and marks templates already in the crew", async () => {
     const onInstall = vitest.fn().mockRejectedValue(new Error("agent coder already exists"));
     const { rerender } = render(
-      <CrewPanel agents={[master]} master={master} templates={[coderTemplate]} liveByAgent={{}} onInstall={onInstall} />,
+      <CrewPanel agents={[master]} master={master} templates={[coderTemplate]} liveByAgent={{}} onInstall={onInstall} {...hooks} />,
     );
     await userEvent.click(screen.getByRole("button", { name: vi.crew.install }));
     expect(await screen.findByRole("status")).toHaveTextContent(vi.crew.installFailed("agent coder already exists"));
 
     const coder = { ...fakeAgent, id: "coder", name: "Coder", is_master: false };
     rerender(
-      <CrewPanel agents={[master, coder]} master={master} templates={[coderTemplate]} liveByAgent={{}} onInstall={onInstall} />,
+      <CrewPanel agents={[master, coder]} master={master} templates={[coderTemplate]} liveByAgent={{}} onInstall={onInstall} {...hooks} />,
     );
     const list = screen.getByTestId("template-list");
     expect(within(list).queryByRole("button", { name: vi.crew.install })).not.toBeInTheDocument();
     expect(list).toHaveTextContent(vi.crew.alreadyInstalled);
+  });
+
+  it("opens an agent's editor and creates a new one from the id alone", async () => {
+    const backend = new FakeBackend();
+    backend.agents = [master, coach];
+    vitest.stubGlobal("fetch", backend.fetch);
+    const onEdit = vitest.fn();
+    const onCreated = vitest.fn();
+    render(
+      <CrewPanel
+        agents={[master, coach]}
+        master={master}
+        templates={[]}
+        liveByAgent={{}}
+        onInstall={() => Promise.reject(new Error("unused"))}
+        onEdit={onEdit}
+        onCreated={onCreated}
+      />,
+    );
+    const cards = screen.getAllByTestId("crew-agent");
+    await userEvent.click(within(cards[1]).getByRole("button", { name: vi.crew.edit }));
+    expect(onEdit).toHaveBeenCalledWith("coach");
+
+    await userEvent.click(screen.getByRole("button", { name: vi.crew.add }));
+    const form = screen.getByTestId("add-agent");
+    await userEvent.type(within(form).getByLabelText(vi.crew.addId), "scribe");
+    await userEvent.type(within(form).getByLabelText(vi.crew.addName), "Thư ký");
+    await userEvent.click(within(form).getByRole("button", { name: vi.crew.create }));
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith("scribe"));
+    expect(backend.agents.map((a) => a.id)).toContain("scribe");
   });
 });

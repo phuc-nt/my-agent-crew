@@ -7,6 +7,7 @@ export const MANAGE_SECTIONS = [
   "activity",
   "approvals",
   "crew",
+  "tools",
   "jobs",
   "memory",
   "costs",
@@ -18,7 +19,16 @@ export type ManageSection = (typeof MANAGE_SECTIONS)[number];
 
 export type Route =
   | { kind: "chat"; conversationId: string | null }
-  | { kind: "manage"; section: ManageSection };
+  | {
+      kind: "manage";
+      section: ManageSection;
+      /**
+       * The agent an editable section is opened on, when there is one. It rides in the
+       * URL rather than in component state so an editor can be linked to, survives a
+       * reload, and leaves Back meaning "the list I came from".
+       */
+      agentId?: string;
+    };
 
 const DEFAULT_SECTION: ManageSection = "activity";
 
@@ -36,7 +46,12 @@ export function parseRoute(hash: string): Route {
   const parts = hash.replace(/^#\/?/, "").split("/").filter(Boolean);
   if (parts[0] === "manage") {
     const section = parts[1] ?? "";
-    return { kind: "manage", section: isSection(section) ? section : DEFAULT_SECTION };
+    // A third segment names an agent. An unknown section drops it too: landing on the
+    // default section with someone else's agent id still attached would open an editor
+    // the person did not ask for.
+    if (!isSection(section)) return { kind: "manage", section: DEFAULT_SECTION };
+    const agentId = parts[2] ? decodeURIComponent(parts[2]) : undefined;
+    return agentId ? { kind: "manage", section, agentId } : { kind: "manage", section };
   }
   if (parts[0] === "chat") return { kind: "chat", conversationId: parts[1] ?? null };
   return { kind: "chat", conversationId: null };
@@ -44,7 +59,10 @@ export function parseRoute(hash: string): Route {
 
 /** The hash a route is written as; the inverse of `parseRoute`. */
 export function routeHash(route: Route): string {
-  if (route.kind === "manage") return `#/manage/${route.section}`;
+  if (route.kind === "manage") {
+    const tail = route.agentId ? `/${encodeURIComponent(route.agentId)}` : "";
+    return `#/manage/${route.section}${tail}`;
+  }
   return route.conversationId ? `#/chat/${route.conversationId}` : "#/chat";
 }
 

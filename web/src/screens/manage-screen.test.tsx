@@ -33,6 +33,8 @@ function show(section: ManageSection, overrides: Partial<Parameters<typeof Manag
       templates={[]}
       liveByAgent={{}}
       onInstall={() => Promise.reject(new Error("không cài"))}
+      onEditAgent={() => undefined}
+      onReloadCrew={() => undefined}
       onNavigate={onNavigate}
       onBackToChat={onBackToChat}
       onOpenConversation={() => undefined}
@@ -101,5 +103,26 @@ describe("the manage screen", () => {
     show("activity", { attention: [fakeRun({ id: "waiting", status: "awaiting_approval" })] });
 
     expect(screen.getByRole("button", { name: new RegExp(vi.approvalsTab) })).toHaveTextContent("1");
+  });
+
+  it("opens the agent editor in place of the crew list when the route names one", async () => {
+    show("crew", { editingAgentId: "default" });
+
+    expect(await screen.findByTestId("agent-editor")).toBeInTheDocument();
+    expect(screen.queryByTestId("crew-list")).not.toBeInTheDocument();
+  });
+
+  // Following a link to an agent that has since been removed should say so rather than
+  // land on the list as though the URL had never named anything.
+  it("says so when the route names an agent the crew no longer has", async () => {
+    show("crew", { editingAgentId: "ghost" });
+
+    expect(await screen.findByTestId("agent-not-found")).toHaveTextContent(vi.editor.notFound("ghost"));
+    expect(screen.getByTestId("crew-list")).toBeInTheDocument();
+  });
+
+  it("lists every tool against every agent, and the connections with no secret among them", async () => {
+    show("tools");
+    expect(await screen.findByTestId("tools-matrix")).toBeInTheDocument();
   });
 });

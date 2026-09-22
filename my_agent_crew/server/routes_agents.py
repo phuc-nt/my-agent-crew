@@ -13,9 +13,10 @@ from pydantic import BaseModel
 
 from my_agent_crew import texts
 from my_agent_crew.agent.loop import AgentDeps
-from my_agent_crew.agents import load_profiles
+from my_agent_crew.agents import DEFAULT_AGENT_ID, load_profiles
 from my_agent_crew.agents.roster import delegate_targets
 from my_agent_crew.agents.templates_cli import add_template
+from my_agent_crew.server.agent_edit_common import manifest_path
 from my_agent_crew.server.deps import Rt
 from my_agent_crew.server.runtime import Runtime
 from my_agent_crew.server.runtime_build import check_delegates
@@ -45,6 +46,11 @@ def _describe(rt: Runtime, deps: AgentDeps) -> dict[str, Any]:
     the master names nobody and reaches everyone."""
     data = deps.agent.to_dict()
     data["delegates"] = list(delegate_targets(deps.agent, {p.id: p for p in rt.profiles()}))
+    # Whether an edit would be accepted, so a UI can say so before the person fills in a
+    # form the write route is going to refuse. It answers the same question
+    # `check_editable` does, from the same fact: a kit agent has no manifest to patch.
+    agent_id = deps.agent.id
+    data["editable"] = agent_id == DEFAULT_AGENT_ID or manifest_path(rt, agent_id).is_file()
     return data
 
 

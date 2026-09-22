@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { AgentInfo, InstallResult, TemplateInfo } from "../api/types";
 import { vi } from "../i18n/vi";
+import { AddAgentForm } from "./add-agent-form";
 
 interface Props {
   agents: AgentInfo[];
@@ -10,6 +11,10 @@ interface Props {
   templates: TemplateInfo[];
   liveByAgent: Record<string, number>;
   onInstall: (template: string) => Promise<InstallResult>;
+  /** Opens one agent's editor. */
+  onEdit: (agentId: string) => void;
+  /** Called after an agent is created, so the list picks it up. */
+  onCreated: (agentId: string) => void;
 }
 
 type Notice = { kind: "ok"; text: string; restart: boolean } | { kind: "error"; text: string };
@@ -20,9 +25,18 @@ type Notice = { kind: "ok"; text: string; restart: boolean } | { kind: "error"; 
  * directory and the server picks it up at once; only schedules wait for a restart,
  * which the notice says.
  */
-export function CrewPanel({ agents, master, templates, liveByAgent, onInstall }: Props) {
+export function CrewPanel({
+  agents,
+  master,
+  templates,
+  liveByAgent,
+  onInstall,
+  onEdit,
+  onCreated,
+}: Props) {
   const [installing, setInstalling] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
+  const [adding, setAdding] = useState(false);
   const installed = new Set(agents.map((a) => a.id));
   const masterName = master?.name ?? vi.agent;
   const delegates = new Set(master?.delegates ?? []);
@@ -47,7 +61,24 @@ export function CrewPanel({ agents, master, templates, liveByAgent, onInstall }:
 
   return (
     <div className="crew-panel">
-      <p className="muted">{vi.crew.intro(masterName)}</p>
+      <div className="row">
+        <p className="muted">{vi.crew.intro(masterName)}</p>
+        <span className="spacer" />
+        {!adding && (
+          <button type="button" className="ghost" onClick={() => setAdding(true)}>
+            {vi.crew.add}
+          </button>
+        )}
+      </div>
+      {adding && (
+        <AddAgentForm
+          onCancel={() => setAdding(false)}
+          onCreated={(id) => {
+            setAdding(false);
+            onCreated(id);
+          }}
+        />
+      )}
       <ul className="tool-list crew-list" data-testid="crew-list">
         {ordered.map((agent) => (
           <li key={agent.id} className="crew-card" data-testid="crew-agent">
@@ -59,6 +90,10 @@ export function CrewPanel({ agents, master, templates, liveByAgent, onInstall }:
               {(liveByAgent[agent.id] ?? 0) > 0 && (
                 <span className="badge live">{vi.runStatus.running}</span>
               )}
+              <span className="spacer" />
+              <button type="button" className="ghost" onClick={() => onEdit(agent.id)}>
+                {vi.crew.edit}
+              </button>
             </div>
             {agent.description && <div className="muted">{agent.description}</div>}
             <div className="row muted">

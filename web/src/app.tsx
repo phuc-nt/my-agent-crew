@@ -88,6 +88,17 @@ export function App() {
           templates={templates}
           liveByAgent={liveByAgent}
           onInstall={crew.installTemplate}
+          editingAgentId={route.agentId}
+          onEditAgent={(agentId) =>
+            navigate(
+              agentId
+                ? { kind: "manage", section: "crew", agentId }
+                : { kind: "manage", section: "crew" },
+            )
+          }
+          onReloadCrew={() => void crew.reload()}
+          // Changing section drops the agent in the URL: an id is only meaningful under
+          // the section that opened it.
           onNavigate={(section: ManageSection) => navigate({ kind: "manage", section })}
           onBackToChat={() => navigate({ kind: "chat", conversationId: list.activeId })}
           onOpenConversation={openConversation}

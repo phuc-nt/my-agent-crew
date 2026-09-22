@@ -1,13 +1,17 @@
 import type { AgentInfo, InstallResult, JobInfo, SettingsInfo, StatsInfo, TemplateInfo } from "../api/types";
 import type { RunInfo } from "../api/types";
+import { AgentEditor } from "../components/agent-editor/agent-editor";
 import { ApprovalHistory } from "../components/approval-history";
 import { AttentionCenter } from "../components/attention-center";
+import { ConnectionsPanel } from "../components/connections-panel";
 import { CrewPanel } from "../components/crew-panel";
 import { JobsPanel } from "../components/jobs-panel";
 import { MemoryPanel } from "../components/memory-panel";
 import { RunGroupCard } from "../components/run-timeline";
 import { SettingsPanel } from "../components/settings-panel";
 import { StatsPanel } from "../components/stats-panel";
+import { ToolsMatrix } from "../components/tools-matrix";
+import { useRegistry } from "../hooks/use-registry";
 import type { ManageSection } from "../hooks/use-route";
 import { MANAGE_SECTIONS } from "../hooks/use-route";
 import { vi } from "../i18n/vi";
@@ -28,6 +32,12 @@ interface Props {
   templates: TemplateInfo[];
   liveByAgent: Record<string, number>;
   onInstall: (template: string) => Promise<InstallResult>;
+  /** The agent whose editor is open, when the URL names one. */
+  editingAgentId?: string;
+  /** Opens or closes the editor by rewriting the route, so Back leaves it. */
+  onEditAgent: (agentId: string | null) => void;
+  /** Re-reads the crew after a profile is written, created or removed. */
+  onReloadCrew: () => void;
   onNavigate: (section: ManageSection) => void;
   /** Leaving the manage screen: back to the chat, opening a conversation if one is named. */
   onBackToChat: () => void;
@@ -40,6 +50,7 @@ const LABELS: Record<ManageSection, string> = {
   activity: vi.activity,
   approvals: vi.approvalsTab,
   crew: vi.crew.tab,
+  tools: vi.manage.tools,
   jobs: vi.jobs,
   memory: vi.memory.tab,
   costs: vi.costs,
@@ -56,6 +67,8 @@ const LABELS: Record<ManageSection, string> = {
  * work and the conversation's work look like the same thing.
  */
 export function ManageScreen(props: Props) {
+  const registry = useRegistry();
+  const editing = props.agents.find((a) => a.id === props.editingAgentId) ?? null;
   const pendingProposals = props.stats?.pending_proposals ?? 0;
   const liveIds = new Set(props.liveRuns.map((r) => r.id));
   const recent = props.runs.filter((r) => !liveIds.has(r.id));
@@ -147,15 +160,42 @@ export function ManageScreen(props: Props) {
             refreshKey={approvalsVersion}
           />
         )}
-        {props.section === "crew" && (
-          <CrewPanel
-            agents={props.agents}
-            master={props.master}
-            templates={props.templates}
-            liveByAgent={props.liveByAgent}
-            onInstall={props.onInstall}
-          />
-        )}
+        {/* A link to an agent that is gone says so rather than quietly showing the list:
+            the person followed a URL and deserves to know it no longer resolves. The crew
+            still has to have finished loading for "gone" to mean anything. */}
+        {props.section === "crew" &&
+          props.editingAgentId !== undefined &&
+          editing === null &&
+          props.agents.length > 0 && (
+            <div className="notice error" role="status" data-testid="agent-not-found">
+              {vi.editor.notFound(props.editingAgentId)}
+            </div>
+          )}
+        {props.section === "crew" &&
+          (editing ? (
+            <AgentEditor
+              agent={editing}
+              agents={props.agents}
+              tools={registry.tools}
+              providers={registry.connections?.providers.map((p) => p.name) ?? []}
+              onBack={() => props.onEditAgent(null)}
+              onChanged={props.onReloadCrew}
+            />
+          ) : (
+            <CrewPanel
+              agents={props.agents}
+              master={props.master}
+              templates={props.templates}
+              liveByAgent={props.liveByAgent}
+              onInstall={props.onInstall}
+              onEdit={(id) => props.onEditAgent(id)}
+              onCreated={(id) => {
+                props.onReloadCrew();
+                props.onEditAgent(id);
+              }}
+            />
+          ))}
+        {props.section === "tools" && <ToolsMatrix tools={registry.tools} agents={props.agents} />}
         {props.section === "jobs" && (
           <JobsPanel
             jobs={props.jobs}
@@ -176,11 +216,12 @@ export function ManageScreen(props: Props) {
         {props.section === "costs" && (
           <StatsPanel stats={props.stats} agentName={props.agentName} />
         )}
-        {props.section === "connections" && (
-          <p className="muted" data-testid="connections-placeholder">
-            {vi.manage.connectionsHint}
-          </p>
-        )}
+        {props.section === "connections" &&
+          (registry.connections ? (
+            <ConnectionsPanel connections={registry.connections} />
+          ) : (
+            <p className="muted">{registry.error ?? vi.manage.loading}</p>
+          ))}
         {props.section === "settings" && (
           <SettingsPanel settings={props.settings} agents={props.agents} />
         )}

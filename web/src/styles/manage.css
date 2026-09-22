@@ -103,8 +103,8 @@
   justify-content: flex-start;
 }
 
-/* On a phone the nav becomes a row above the body: eight sections scroll sideways in
-   far less space than eight stacked rows would take from the content. */
+/* On a phone the nav becomes a row above the body: the sections scroll sideways in far
+   less space than the same list stacked would take from the content. */
 @media (max-width: 720px) {
   .manage-layout {
     grid-template-columns: 1fr;

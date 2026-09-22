@@ -169,6 +169,11 @@ export interface AgentInfo {
   cost_cap_usd: number;
   max_steps: number;
   autonomous: boolean;
+  /** Command shapes that pause for approval even when the agent is autonomous. */
+  shell_ask_patterns: string[];
+  tool_output_chars: number;
+  /** Cron for the nightly memory pass; "" when the agent does not consolidate. */
+  memory_consolidate: string;
   persona_files: string[];
   schedules: ScheduleInfo[];
   /** "assistant" chats; "work" carries the coding tools and can hand off to `delegates`. */
@@ -179,6 +184,9 @@ export interface AgentInfo {
   skills: string[];
   /** The one agent the person talks to; it does the work or delegates it. */
   is_master: boolean;
+  /** False for an agent a kit defines: there is no manifest to patch, so a write to it
+   * is refused and the editor shows where the definition actually lives instead. */
+  editable: boolean;
   /** Set on the master when a Telegram bot also talks to it; the token stays on the server. */
   telegram: { token_env: string; chat_id: number } | null;
   /** What the agent's kits (`.agents/`, `.claude/`, `.opencode/`) add: slash commands, the
@@ -206,6 +214,74 @@ export interface InstallResult {
 export interface AgentDetail extends Omit<AgentInfo, "tools" | "skills"> {
   tools: ToolInfo[];
   skills: SkillInfo[];
+}
+
+/**
+ * The keys an edit may name. It is the same whitelist the server enforces, written out
+ * here so a typo is a type error rather than a 422 the person has to read.
+ *
+ * Everything is optional because a patch names only what changed; `null` on a key clears
+ * it back to the default rather than setting it to nothing.
+ */
+export interface AgentPatch {
+  name?: string;
+  description?: string;
+  routes?: RouteInfo[] | null;
+  workspace?: string | null;
+  persona_files?: string[] | null;
+  skills_dirs?: string[] | null;
+  cost_cap_usd?: number | null;
+  max_steps?: number | null;
+  autonomous?: boolean | null;
+  shell_ask_patterns?: string[] | null;
+  tool_output_chars?: number | null;
+  schedules?: unknown[] | null;
+  telegram?: { token_env: string; chat_id: number } | null;
+  memory_consolidate?: string | null;
+  mode?: string;
+  delegates?: string[] | null;
+  tools?: string[] | null;
+}
+
+/**
+ * What a write to an agent's profile produced: the agent as it is now, and the parts of
+ * the change that only take effect at the next boot. An empty `restart_required` means
+ * the edit is fully live already.
+ */
+export interface AgentSaved {
+  profile: AgentInfo;
+  restart_required: string[];
+}
+
+/** One tool in the crew's registry, with the agents whose toolbox actually holds it. */
+export interface RegistryTool extends ToolInfo {
+  agents: string[];
+  /** Needs an API key: absent without one, even for an agent that names it. */
+  optional: boolean;
+}
+
+/** An API key by the name of its environment variable. The value never leaves the server. */
+export interface KeyStatus {
+  name: string;
+  present: boolean;
+}
+
+/** One agent's Telegram block. `configured` is that agent's own token variable. */
+export interface TelegramConnection {
+  agent_id: string;
+  token_env: string;
+  configured: boolean;
+  /** Only the master's block opens a channel; anyone else's is read and skipped at boot. */
+  ignored: boolean;
+}
+
+/** Everything the crew talks to on the outside, with no secret among it. */
+export interface ConnectionsInfo {
+  providers: { name: string; built: boolean }[];
+  routes: RouteInfo[];
+  vision_routes: RouteInfo[];
+  keys: KeyStatus[];
+  telegram: TelegramConnection[];
 }
 
 export interface SettingsInfo {

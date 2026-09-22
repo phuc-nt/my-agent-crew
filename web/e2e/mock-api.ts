@@ -20,6 +20,7 @@ export const defaultAgent = {
   tools: ["write_file"],
   skills: ["core"],
   is_master: true,
+  editable: true,
   telegram: null,
   commands: [],
   hooks: 0,
@@ -55,6 +56,23 @@ export const coachAgent = {
   workspace: "/h/agents/coach/workspace",
   autonomous: true,
   schedules: [{ id: "brief", name: "Bản tin sáng", kind: "prompt", cron: "0 7 * * *", every: null, prompt: "Tóm tắt", command: null, enabled: true, skills: ["goodreads"] }],
+};
+
+/** The registry as the server reports it: one row per tool, naming the agents that have it. */
+export const registryTools = [
+  { name: "write_file", description: "Ghi tệp", requires_approval: true, agents: ["default"], optional: false },
+  { name: "web_search", description: "Tìm trên web", requires_approval: false, agents: [], optional: true },
+];
+
+export const connections = {
+  providers: [{ name: "fake", built: true }],
+  routes: [{ provider: "fake", model: "echo" }],
+  vision_routes: [],
+  keys: [
+    { name: "OPENROUTER_API_KEY", present: true },
+    { name: "BRAVE_API_KEY", present: false },
+  ],
+  telegram: [{ agent_id: "default", token_env: "TELEGRAM_BOT_TOKEN", configured: true, ignored: false }],
 };
 
 export const settings = {
@@ -103,6 +121,7 @@ export interface MockOptions {
   stream?: object[];
   conversations?: Conversation[];
   templates?: object[];
+  tools?: object[];
 }
 
 export function sse(events: object[], retryMs = 60_000): string {
@@ -115,6 +134,8 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
   const conversations = options.conversations ?? [];
   const agents = options.agents ?? [defaultAgent];
   const posted: { path: string; body: unknown }[] = [];
+  /** Persona bodies written by PUT, keyed "<agent>/<name>". */
+  const personaFiles = new Map<string, string>();
   let created = conversations.length;
   await page.route(/^https?:\/\/[^/]+\/api\//, async (route: Route) => {
     const url = new URL(route.request().url());
@@ -124,6 +145,15 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
       route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
     if (method === "POST") posted.push({ path: path + url.search, body: route.request().postDataJSON() });
     if (path === "/settings") return json({ ...settings, agents });
+    // Before the list route below, which matches on path alone: a POST to the same path
+    // would otherwise be answered with the crew and never create anything.
+    if (path === "/agents" && method === "POST") {
+      const { agent_id, profile } = route.request().postDataJSON() as { agent_id: string; profile: object };
+      if (agents.some((a) => (a as { id: string }).id === agent_id)) return json({ detail: `agent ${agent_id} already exists` }, 409);
+      const made = { ...defaultAgent, ...profile, id: agent_id, is_master: false };
+      agents.push(made);
+      return json({ profile: made, restart_required: [] }, 201);
+    }
     // Like the server, the master is reported as able to hand work to everyone else.
     if (path === "/agents") {
       const others = agents.filter((a) => !(a as { is_master?: boolean }).is_master).map((a) => (a as { id: string }).id);
@@ -137,6 +167,39 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
       if (agents.some((a) => (a as { id: string }).id === template)) return json({ detail: `agent ${template} already exists` }, 409);
       agents.push({ ...defaultAgent, ...found, is_master: false });
       return json({ installed: [template], live: [template], needs_restart: false }, 201);
+    }
+    if (path === "/tools") return json(options.tools ?? registryTools);
+    if (path === "/connections") return json(connections);
+    // Ahead of the single-agent routes, or the id reads as "reload".
+    if (path === "/agents/reload" && method === "POST") return json({ added: [] });
+    const persona = path.match(/^\/agents\/([^/]+)\/files\/([^/]+)$/);
+    if (persona) {
+      const key = `${decodeURIComponent(persona[1])}/${persona[2]}`;
+      if (method === "PUT") {
+        const { content } = route.request().postDataJSON() as { content: string };
+        personaFiles.set(key, content);
+        return json({ name: persona[2], chars: content.length });
+      }
+      // Never written reads as empty, the way the server reports a file an agent may
+      // have but has not created yet.
+      const content = personaFiles.get(key) ?? "";
+      return json({ name: persona[2], content, chars: content.length });
+    }
+    const single = path.match(/^\/agents\/([^/]+)$/);
+    if (single && (method === "PATCH" || method === "DELETE")) {
+      const at = agents.findIndex((a) => (a as { id: string }).id === single[1]);
+      if (at < 0) return json({ detail: `unknown agent ${single[1]}` }, 404);
+      if (method === "DELETE") {
+        const [gone] = agents.splice(at, 1);
+        return json({ kept_at: `/h/removed/${(gone as { id: string }).id}` });
+      }
+      const { profile } = route.request().postDataJSON() as { profile: object };
+      agents[at] = { ...agents[at], ...profile };
+      return json({ profile: agents[at], restart_required: [] });
+    }
+    if (single && method === "GET") {
+      const found = agents.find((a) => (a as { id: string }).id === single[1]);
+      return found ? json(found) : json({ detail: `unknown agent ${single[1]}` }, 404);
     }
     if (path === "/activity/runs") return json(options.runs ?? []);
     if (path === "/activity/stream")

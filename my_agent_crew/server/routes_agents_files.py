@@ -27,14 +27,30 @@ class FileRequest(BaseModel):
     content: str
 
 
-@router.put("/agents/{agent_id}/files/{name}")
-async def put_persona_file(agent_id: str, name: str, body: FileRequest, rt: Rt) -> dict[str, Any]:
-    """Only the persona files, by name. The path never comes from the request, so there
-    is nothing to escape out of."""
+def _checked(name: str) -> None:
     if name not in PERSONA_FILES:
         raise HTTPException(
             404, texts.PERSONA_FILE_UNKNOWN.format(name=name, names=", ".join(PERSONA_FILES))
         )
+
+
+@router.get("/agents/{agent_id}/files/{name}")
+def get_persona_file(agent_id: str, name: str, rt: Rt) -> dict[str, Any]:
+    """Read one persona file. A name the agent may have but has not written yet reads as
+    empty rather than as an error: that is the state every new agent starts in, and an
+    editor that refuses to open it would leave no way to write the first line."""
+    _checked(name)
+    profile = existing(rt, agent_id)
+    target = profile.dir / name
+    content = target.read_text(encoding="utf-8") if target.is_file() else ""
+    return {"name": name, "content": content, "chars": len(content)}
+
+
+@router.put("/agents/{agent_id}/files/{name}")
+async def put_persona_file(agent_id: str, name: str, body: FileRequest, rt: Rt) -> dict[str, Any]:
+    """Only the persona files, by name. The path never comes from the request, so there
+    is nothing to escape out of."""
+    _checked(name)
     async with write_lock:
         profile = existing(rt, agent_id)
         check_editable(rt, profile)
