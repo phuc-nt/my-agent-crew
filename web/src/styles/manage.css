@@ -1,0 +1,131 @@
+/*
+ * The manage screen: a nav of sections on the left, one section's body on the right.
+ *
+ * It takes the whole window rather than sitting beside the chat. Everything here is
+ * about the crew, not about the conversation, so overlapping the two would only invite
+ * reading one as context for the other.
+ */
+
+.manage-layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  height: 100vh;
+}
+
+.manage-nav {
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+  padding: var(--space-3);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.manage-nav ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.manage-nav li button {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  color: inherit;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.manage-nav li button:hover {
+  background: var(--surface-sunken);
+}
+
+.manage-nav li button.active {
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+
+.back-to-chat {
+  align-self: flex-start;
+}
+
+/* Capped rather than filling the window: a run card stretched across a wide monitor puts
+   its status and its cost so far apart that reading one line means crossing the screen. */
+.manage-body {
+  overflow-y: auto;
+  padding: var(--space-4) var(--space-5);
+  min-width: 0;
+}
+
+.manage-body > * {
+  max-width: 68rem;
+}
+
+.manage-body > h2 {
+  margin-top: 0;
+}
+
+/* The manage screen renders the settings body inline, so it must drop the drawer's
+   fixed position and shadow and simply flow down the page. */
+.manage-body .settings-panel {
+  position: static;
+  width: auto;
+  height: auto;
+  border-left: none;
+  box-shadow: none;
+  background: none;
+  padding: 0;
+  overflow: visible;
+}
+
+.manage-body .settings-panel > header h2 {
+  font-size: var(--text-lg);
+}
+
+/* The way out of the chat sits at the foot of the sidebar, below the list, so it stays
+   put while conversations come and go above it. */
+.sidebar-foot {
+  margin-top: auto;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+.manage-button {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+/* On a phone the nav becomes a row above the body: eight sections scroll sideways in
+   far less space than eight stacked rows would take from the content. */
+@media (max-width: 720px) {
+  .manage-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+
+  .manage-nav {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .manage-nav ul {
+    flex-direction: row;
+    overflow-x: auto;
+  }
+
+  .manage-nav li button {
+    white-space: nowrap;
+  }
+
+  .manage-body {
+    padding: var(--space-3);
+  }
+}

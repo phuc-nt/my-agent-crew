@@ -28,7 +28,7 @@ test("a handed-off task reads as a job, not as a tool call", async ({ page }) =>
   await expect(card).not.toContainText("conversation=c-child");
 });
 
-test("a work agent is badged, and its delegated run nests in the rail", async ({ page }) => {
+test("a work agent is badged, and its delegated run nests under the run that handed it out", async ({ page }) => {
   const parent = run({ id: "r1", conversation_id: "c1", source: "chat", title: "Dọn mã", status: "running", finished_at: null });
   const child = run({ id: "r2", agent_id: "coder", conversation_id: "c-child", source: "delegate:c1", title: "Sửa hai tệp", status: "running", finished_at: null });
   // A work-mode master: its own conversations are the ones listed, so the badge is reachable.
@@ -39,18 +39,21 @@ test("a work agent is badged, and its delegated run nests in the rail", async ({
   });
   await page.goto("/");
 
+  await page.getByRole("button", { name: /Quản lý/ }).click();
   const children = page.getByTestId("run-children").first();
   await expect(children.getByTestId("run-card")).toContainText("Sửa hai tệp");
+
+  await page.getByRole("button", { name: "← Chat" }).click();
   await page.getByRole("navigation").getByRole("button", { name: /Dọn mã/ }).click();
   await expect(page.getByTestId("work-badge")).toHaveAttribute("title", /cap \$5/);
 });
 
-test("settings lists the crew's roles; installing lives in the crew tab", async ({ page }) => {
+test("settings lists the crew's roles; installing lives in the crew section", async ({ page }) => {
   await mockApi(page, { agents: [devAgent], templates: [coderTemplate] });
-  await page.goto("/");
-  await page.getByRole("button", { name: /Cài đặt/ }).click();
+  await page.goto("/#/manage/settings");
 
-  const drawer = page.getByRole("dialog");
-  await expect(drawer.getByTestId("crew-list")).toContainText("giao được cho: coder");
-  await expect(drawer.getByTestId("template-list")).toHaveCount(0);
+  // Settings says how each agent is wired; the crew section is where the team changes.
+  const panel = page.getByTestId("manage-screen");
+  await expect(panel.getByTestId("settings-crew-list")).toContainText("giao được cho: coder");
+  await expect(panel.getByTestId("template-list")).toHaveCount(0);
 });

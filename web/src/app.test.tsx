@@ -10,6 +10,9 @@ let backend: FakeBackend;
 beforeEach(() => {
   backend = new FakeBackend();
   vitest.stubGlobal("fetch", backend.fetch);
+  // The app reads its screen from the address bar, and jsdom keeps one address for the
+  // whole file — so without this each test would start wherever the last one navigated.
+  window.location.hash = "";
 });
 
 const DENIED_TEXT = "Người dùng đã TỪ CHỐI hành động này.";
@@ -34,17 +37,20 @@ describe("App", () => {
     const chip = screen.getByRole("button", { name: /Đội/ });
     expect(chip).toHaveTextContent(vi.crew.count(1));
     await userEvent.click(chip);
-    expect(screen.getByRole("tab", { name: vi.crew.tab })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("button", { name: vi.crew.tab })).toHaveAttribute("aria-current", "page");
     const crew = screen.getByTestId("crew-list");
     expect(within(crew).getAllByTestId("crew-agent")).toHaveLength(2);
     expect(crew).toHaveTextContent(vi.crew.master);
 
     await userEvent.click(within(screen.getByTestId("template-list")).getByRole("button", { name: vi.crew.install }));
-    expect(await within(screen.getByTestId("activity-panel")).findByRole("status")).toHaveTextContent(vi.crew.installed(["coder"]));
+    expect(await within(screen.getByTestId("manage-screen")).findByRole("status")).toHaveTextContent(vi.crew.installed(["coder"]));
     expect(backend.requests.find((r) => r.method === "POST" && r.path === "/agents/install")?.body).toEqual({ template: "coder" });
     await waitFor(() => expect(within(screen.getByTestId("crew-list")).getAllByTestId("crew-agent")).toHaveLength(3));
-    expect(screen.getByRole("button", { name: /Đội/ })).toHaveTextContent(vi.crew.count(2));
     expect(screen.getByTestId("template-list")).toHaveTextContent(vi.crew.alreadyInstalled);
+
+    // Back in the chat, the chip counts the agent that was just installed.
+    await userEvent.click(screen.getByRole("button", { name: vi.manage.backToChat }));
+    expect(await screen.findByRole("button", { name: /Đội/ })).toHaveTextContent(vi.crew.count(2));
   });
 
   it("creates a conversation on first send and renders the streamed reply", async () => {
@@ -206,32 +212,38 @@ describe("App", () => {
     expect(await screen.findByText(vi.noConversations)).toBeInTheDocument();
     expect(backend.conversations.size).toBe(0);
 
-    await userEvent.click(screen.getByRole("button", { name: /Cài đặt/ }));
-    const drawer = screen.getByRole("dialog");
-    expect(drawer).toHaveTextContent("fake:echo");
-    expect(drawer).toHaveTextContent(vi.keyMissing);
-    expect(drawer).toHaveTextContent(vi.requiresApproval);
-    expect(drawer).toHaveTextContent("/tmp/home/workspace");
-    await userEvent.click(within(drawer).getByRole("button", { name: vi.close }));
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /Quản lý/ }));
+    await userEvent.click(screen.getByRole("button", { name: vi.settings }));
+    const body = screen.getByTestId("manage-screen");
+    expect(body).toHaveTextContent("fake:echo");
+    expect(body).toHaveTextContent(vi.keyMissing);
+    expect(body).toHaveTextContent(vi.requiresApproval);
+    expect(body).toHaveTextContent("/tmp/home/workspace");
+
+    // Settings is a place now rather than a layer over the chat, so leaving it is
+    // going back rather than dismissing something.
+    await userEvent.click(screen.getByRole("button", { name: vi.manage.backToChat }));
+    expect(screen.queryByTestId("manage-screen")).not.toBeInTheDocument();
   });
 
   it("shows the shared user directory in settings", async () => {
     render(<App />);
     await screen.findByText(vi.welcomeTitleFor("Agent"));
-    await userEvent.click(screen.getByRole("button", { name: /Cài đặt/ }));
-    expect(screen.getByRole("dialog")).toHaveTextContent("/tmp/home/users");
+    await userEvent.click(screen.getByRole("button", { name: /Quản lý/ }));
+    await userEvent.click(screen.getByRole("button", { name: vi.settings }));
+    expect(screen.getByTestId("manage-screen")).toHaveTextContent("/tmp/home/users");
   });
 
-  it("opens the memory tab and counts the proposals waiting for a decision", async () => {
+  it("opens the memory section and counts the proposals waiting for a decision", async () => {
     backend.addProposal({ description: "Ngủ trước 23h" });
     render(<App />);
     await screen.findByText(vi.welcomeTitleFor("Agent"));
 
-    const tab = await screen.findByRole("tab", { name: new RegExp(vi.memory.tab) });
-    await waitFor(() => expect(tab).toHaveTextContent("1"));
+    await userEvent.click(screen.getByRole("button", { name: /Quản lý/ }));
+    const link = await screen.findByRole("button", { name: new RegExp(vi.memory.tab) });
+    await waitFor(() => expect(link).toHaveTextContent("1"));
 
-    await userEvent.click(tab);
+    await userEvent.click(link);
     expect(await screen.findByTestId("memory-panel")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("tab", { name: new RegExp(vi.memory.proposals) }));
     expect(await screen.findByText("Ngủ trước 23h")).toBeInTheDocument();

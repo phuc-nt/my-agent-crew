@@ -133,8 +133,13 @@
   align-items: flex-start;
 }
 
+/* Takes the width the card gives it, so the title starts at the left edge whether the
+   card is in a narrow column or across the whole manage screen. Without this the row
+   shrinks to its content and the browser centres it, leaving a gutter that reads as a
+   mistake once the card is wide. */
 .run-main {
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: var(--space-1);
   min-width: 0;

@@ -73,13 +73,14 @@ test("timeline screenshot", async ({ page }) => {
     ],
   });
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto("/", { waitUntil: "domcontentloaded" });
+  // The crew's work is its own screen, so the timeline is photographed there.
+  await page.goto("/#/manage/activity", { waitUntil: "domcontentloaded" });
   await expect(page.getByTestId("run-card").first()).toBeVisible();
   // Give the shimmer and the breathing node a moment to be mid-cycle.
   await page.waitForTimeout(900);
   await page.screenshot({ path: "test-results/timeline.png", fullPage: false });
 
-  const panel = page.locator(".activity-panel");
+  const panel = page.locator(".manage-body");
   await panel.screenshot({ path: "test-results/timeline-panel.png" });
 
   // Dark mode is a separate palette, not an inverted one, so it has to be

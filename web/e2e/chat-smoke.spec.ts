@@ -55,14 +55,17 @@ test("approval bar pauses the turn and approving resumes it", async ({ page }) =
   await expect(page.getByRole("textbox")).toBeEnabled();
 });
 
-test("settings drawer lists routes and key presence", async ({ page }) => {
+test("the settings section lists routes and key presence", async ({ page }) => {
   await mockApi(page);
-  await page.goto("/");
-  await page.getByRole("button", { name: /Cài đặt/ }).click();
-  const drawer = page.getByRole("dialog");
-  await expect(drawer).toContainText("fake:echo");
-  await expect(drawer).toContainText("chưa có");
-  await expect(drawer).toContainText("Asia/Ho_Chi_Minh");
-  await drawer.getByRole("button", { name: "Đóng" }).click();
-  await expect(drawer).toHaveCount(0);
+  // Settings is a section of the crew's screen, reachable by link as well as by the
+  // header's button, which needs a conversation open to be on screen.
+  await page.goto("/#/manage/settings");
+  const panel = page.getByTestId("manage-screen");
+  await expect(panel).toContainText("fake:echo");
+  await expect(panel).toContainText("chưa có");
+  await expect(panel).toContainText("Asia/Ho_Chi_Minh");
+
+  // Settings is a place rather than a layer over the chat, so leaving it is going back.
+  await page.getByRole("button", { name: "← Chat" }).click();
+  await expect(panel).toHaveCount(0);
 });

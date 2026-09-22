@@ -10,6 +10,8 @@ interface Props {
   onDelete: (id: string) => void;
   /** Rendered above the list, e.g. the agent switcher. */
   top?: ReactNode;
+  /** Rendered at the foot, below the list, e.g. the way into the manage screen. */
+  bottom?: ReactNode;
 }
 
 /**
@@ -24,7 +26,15 @@ function ownFirst(conversations: Conversation[]): Conversation[] {
   ];
 }
 
-export function ConversationList({ conversations, activeId, onSelect, onCreate, onDelete, top }: Props) {
+export function ConversationList({
+  conversations,
+  activeId,
+  onSelect,
+  onCreate,
+  onDelete,
+  top,
+  bottom,
+}: Props) {
   return (
     <nav className="sidebar" aria-label={vi.conversations}>
       {top}
@@ -70,6 +80,7 @@ export function ConversationList({ conversations, activeId, onSelect, onCreate, 
           ))}
         </ul>
       )}
+      {bottom && <div className="sidebar-foot">{bottom}</div>}
     </nav>
   );
 }

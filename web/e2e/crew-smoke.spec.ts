@@ -14,10 +14,12 @@ test("one chat for the master: it names its team and there is no agent switcher"
   await expect(page.getByRole("button", { name: /Đội/ })).toContainText("Đội: 1");
 });
 
-test("the crew tab lists the team and installs a bundled template in one click", async ({ page }) => {
+test("the crew section lists the team and installs a bundled template in one click", async ({ page }) => {
   await mockApi(page, { agents: [master, coachAgent], templates: [coderTemplate] });
   await page.goto("/");
+  // The chip beside the thread counts the team; changing it happens in the manage screen.
   await page.getByRole("button", { name: /Đội/ }).click();
+  await expect(page).toHaveURL(/#\/manage\/crew$/);
 
   const crew = page.getByTestId("crew-list");
   await expect(crew.getByTestId("crew-agent")).toHaveCount(2);
@@ -27,9 +29,12 @@ test("the crew tab lists the team and installs a bundled template in one click",
   const templates = page.getByTestId("template-list");
   await expect(templates).toContainText("Coder");
   await templates.getByRole("button", { name: "Cài" }).click();
-  await expect(page.getByTestId("activity-panel").getByRole("status")).toContainText("Đã cài coder");
+  await expect(page.getByTestId("manage-screen").getByRole("status")).toContainText("Đã cài coder");
   await expect(crew.getByTestId("crew-agent")).toHaveCount(3);
   await expect(crew).toContainText("Coder");
   await expect(templates).toContainText("đã có");
+
+  // The count the chat shows has to catch up with the team that was just changed.
+  await page.getByRole("button", { name: "← Chat" }).click();
   await expect(page.getByRole("button", { name: /Đội/ })).toContainText("Đội: 2");
 });

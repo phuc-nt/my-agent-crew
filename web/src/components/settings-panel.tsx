@@ -6,7 +6,8 @@ interface Props {
   settings: SettingsInfo | null;
   /** The crew as loaded: which agent does what, and who it can hand work to. */
   agents?: AgentInfo[];
-  onClose: () => void;
+  /** Absent when the panel is a section of the manage screen rather than a drawer. */
+  onClose?: () => void;
 }
 
 /** Machine configuration, read-only. Installing templates lives in the crew tab. */
@@ -14,12 +15,14 @@ export function SettingsPanel({ settings, agents = [], onClose }: Props) {
   const t = vi.settingsSections;
   const crew = [...agents].sort((a, b) => Number(b.is_master) - Number(a.is_master));
   return (
-    <aside className="settings-panel" role="dialog" aria-label={vi.settings}>
+    <aside className="settings-panel" role={onClose ? "dialog" : undefined} aria-label={vi.settings}>
       <header>
         <h2>{vi.settings}</h2>
-        <button type="button" className="icon-button" aria-label={vi.close} onClick={onClose}>
-          ×
-        </button>
+        {onClose && (
+          <button type="button" className="icon-button" aria-label={vi.close} onClick={onClose}>
+            ×
+          </button>
+        )}
       </header>
       {/* The crew comes from its own endpoint, so a settings call that failed hides the
           machine's configuration and nothing else. */}
@@ -27,7 +30,9 @@ export function SettingsPanel({ settings, agents = [], onClose }: Props) {
         {crew.length > 0 && (
           <>
             <h3>{t.crew}</h3>
-            <ul className="tool-list agent-list" data-testid="crew-list">
+            {/* Not the crew section's list: this one is about how each agent is wired —
+                its mode, its tools, who it may hand work to. */}
+            <ul className="tool-list agent-list" data-testid="settings-crew-list">
               {crew.map((agent) => (
                 <li key={agent.id}>
                   <code>{agent.id}</code>

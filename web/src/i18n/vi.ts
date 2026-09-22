@@ -105,6 +105,15 @@ export const vi = {
   loadFailed: "Không tải được dữ liệu từ máy chủ.",
   loading: "Đang tải…",
   approvalsTab: "Duyệt",
+  manage: {
+    open: "Quản lý",
+    label: "Khu quản lý",
+    backToChat: "← Chat",
+    nav: "Mục quản lý",
+    connections: "Kết nối",
+    connectionsHint: "Phần kết nối dùng chung sẽ mở ở bước sau.",
+    waiting: (n: number) => `${n} việc đang chờ bạn`,
+  },
   welcomeTitleFor: (name: string) => `Xin chào! Tôi là ${name} — trợ lý đa năng của bạn.`,
   welcomeBody:
     "Tôi có thể đọc/ghi tệp trong thư mục làm việc, tải trang web, tìm kiếm, chạy lệnh và ghi nhớ. " +

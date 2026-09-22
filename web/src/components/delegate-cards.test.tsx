@@ -190,7 +190,7 @@ describe("the settings panel", () => {
     );
 
     // A failed settings load must not hide the crew: it is what the panel is for.
-    const crew = screen.getByTestId("crew-list");
+    const crew = screen.getByTestId("settings-crew-list");
     const rows = within(crew).getAllByRole("listitem");
     expect(rows[0]).toHaveTextContent("default");
     expect(rows[0]).toHaveTextContent(vi.crew.master);

@@ -13,6 +13,9 @@ beforeEach(() => {
   FakeEventSource.instances = [];
   vitest.stubGlobal("fetch", backend.fetch);
   vitest.stubGlobal("EventSource", FakeEventSource);
+  // The app reads its screen from the address bar, and jsdom keeps one address for the
+  // whole file — so without this each test would start wherever the last one navigated.
+  window.location.hash = "";
 });
 
 function stream(): FakeEventSource {
@@ -21,12 +24,18 @@ function stream(): FakeEventSource {
   return source;
 }
 
-describe("App activity rail", () => {
+/** The crew-wide view lives on its own screen now; most of these cases start there. */
+async function openManage() {
+  await userEvent.click(screen.getByRole("button", { name: /Quản lý/ }));
+  return screen.getByTestId("manage-screen");
+}
+
+describe("App activity across the crew", () => {
   it("shows a job run arriving over the stream, step by step, until it finishes", async () => {
     backend.agents = [fakeAgent, coachAgent];
     render(<App />);
     await screen.findByText(vi.welcomeTitleFor("Agent"));
-    const panel = screen.getByTestId("activity-panel");
+    const panel = await openManage();
     expect(panel).toHaveTextContent(vi.noRuns);
 
     act(() => {
@@ -36,8 +45,7 @@ describe("App activity rail", () => {
     const card = await within(panel).findByTestId("run-card");
     expect(card).toHaveAttribute("data-status", "running");
     expect(card).toHaveTextContent("HLV sức khoẻ");
-    expect(screen.getByTestId("status-line")).toHaveTextContent(`${vi.liveNow}: 1`);
-    expect(screen.getByRole("button", { name: /Hoạt động/, pressed: true })).toHaveTextContent("1");
+    expect(screen.getByRole("button", { name: /Hoạt động/ })).toHaveTextContent("1");
 
     expect(within(card).getByRole("button", { expanded: true })).toBeInTheDocument();
     act(() => {
@@ -60,8 +68,36 @@ describe("App activity rail", () => {
     expect(panel).toHaveTextContent(vi.nothingLive);
     // Finishing a run refreshes the bill and the schedule from the server.
     await waitFor(() => expect(backend.requests.filter((r) => r.path === "/stats")).toHaveLength(2));
-    await userEvent.click(screen.getByRole("tab", { name: vi.costs }));
+    await userEvent.click(screen.getByRole("button", { name: vi.costs }));
     expect(screen.getByTestId("stats")).toHaveTextContent("$0.001");
+  });
+
+  // The chat has no rail any more, so the count of what is running has to reach the
+  // person some other way while they are reading the thread.
+  it("counts live runs on the chat's status line and on the way into manage", async () => {
+    backend.agents = [fakeAgent, coachAgent];
+    render(<App />);
+    await screen.findByText(vi.welcomeTitleFor("Agent"));
+
+    act(() => {
+      stream().open();
+      stream().emit({
+        type: "snapshot",
+        runs: [
+          fakeRun({
+            id: "job1",
+            agent_id: "coach",
+            conversation_id: null,
+            source: "job:coach/brief",
+            status: "running",
+            finished_at: null,
+          }),
+        ],
+      });
+    });
+
+    expect(screen.getByTestId("status-line")).toHaveTextContent(`${vi.liveNow}: 1`);
+    expect(screen.getByRole("button", { name: /Quản lý/ })).toHaveTextContent("1");
   });
 
   it("marks stream loss on the status line and lists runs needing attention", async () => {
@@ -69,10 +105,13 @@ describe("App activity rail", () => {
     backend.create({ title: "Chờ duyệt", status: "awaiting_approval", messages: [storedMessage("user", "ghi")] });
     render(<App />);
     await screen.findByText(vi.welcomeTitleFor("Agent"));
-    const attention = await screen.findByTestId("attention");
-    expect(attention).toHaveTextContent(vi.attentionAwaiting("Agent"));
     act(() => stream().onerror?.());
     expect(screen.getByTestId("status-line")).toHaveTextContent(vi.streamDisconnected);
+
+    await openManage();
+    const attention = await screen.findByTestId("attention");
+    expect(attention).toHaveTextContent(vi.attentionAwaiting("Agent"));
+    // Opening the conversation from here leaves the manage screen for the chat it names.
     await userEvent.click(within(attention).getByRole("button", { name: vi.openConversation }));
     expect(await screen.findByRole("heading", { level: 1 })).toHaveTextContent("Chờ duyệt");
   });
@@ -93,7 +132,8 @@ describe("App activity rail", () => {
     await waitFor(() => expect(backend.requests.filter((r) => r.method === "POST" && r.path === "/conversations")[0].body).toEqual({ agent_id: "default" }));
     expect(screen.getByRole("heading", { level: 1 }).parentElement).toHaveTextContent("Agent");
 
-    await userEvent.click(screen.getByRole("tab", { name: vi.jobs }));
+    await openManage();
+    await userEvent.click(screen.getByRole("button", { name: vi.jobs }));
     await userEvent.click(screen.getByRole("button", { name: `${vi.runNow}: Bản tin sáng` }));
     await waitFor(() => expect(backend.requests.some((r) => r.method === "POST" && r.path === "/jobs/coach/brief/run")).toBe(true));
 
@@ -110,6 +150,8 @@ describe("App activity rail", () => {
     const child = backend.create({ title: "Việc của HLV", agent_id: "coach", parent_call_id: "tc1", status: "awaiting_approval", messages: [storedMessage("user", "ghi")] });
     backend.runs = [fakeRun({ id: "w", agent_id: "coach", status: "awaiting_approval", conversation_id: child.id, source: "delegate:c1", summary: "write_file" })];
     render(<App />);
+    await screen.findByRole("navigation");
+    await openManage();
     const attention = await screen.findByTestId("attention");
     expect(attention).toHaveTextContent(vi.attentionAwaiting("HLV sức khoẻ"));
     await userEvent.click(within(attention).getByRole("button", { name: vi.openConversation }));
@@ -119,7 +161,7 @@ describe("App activity rail", () => {
     expect(within(nav).queryByRole("button", { name: /Việc của HLV/ })).not.toBeInTheDocument();
   });
 
-  it("lists past approval requests with their outcome in the approvals tab", async () => {
+  it("lists past approval requests with their outcome in the approvals section", async () => {
     backend.agents = [fakeAgent, coachAgent];
     backend.approvals = [
       { id: "ap-old", conversation_id: "c1", message_id: "m", tool_call_id: "tc", tool_name: "write_file", arguments: { path: "x" }, status: "approved", created_at: "2026-09-20T01:00:00Z", expires_at: null, resolved_at: "2026-09-20T01:01:00Z", agent_id: "coach" },
@@ -128,7 +170,8 @@ describe("App activity rail", () => {
     backend.create({ title: "Việc" });
     render(<App />);
     await screen.findByText(vi.welcomeTitleFor("Agent"));
-    await userEvent.click(screen.getByRole("tab", { name: vi.approvalsTab }));
+    await openManage();
+    await userEvent.click(screen.getByRole("button", { name: new RegExp(vi.approvalsTab) }));
     const history = await screen.findByTestId("approval-history");
     const items = within(history).getAllByRole("listitem");
     expect(items).toHaveLength(2);
@@ -229,11 +272,16 @@ describe("App activity rail", () => {
     expect(within(nav).queryByRole("button", { name: /Buổi tập tuần này/ })).not.toBeInTheDocument();
   });
 
-  it("can hide the activity rail", async () => {
+  it("leaves the crew's work behind when it goes back to the chat", async () => {
     render(<App />);
     await screen.findByText(vi.welcomeTitleFor("Agent"));
-    await userEvent.click(screen.getByRole("button", { name: /Hoạt động/ }));
-    expect(screen.queryByTestId("activity-panel")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Hoạt động/ })).toHaveAttribute("aria-pressed", "false");
+
+    await openManage();
+    await userEvent.click(screen.getByRole("button", { name: vi.manage.backToChat }));
+
+    // The crew's work is a place of its own, so leaving it puts the whole thing away
+    // rather than collapsing a strip beside the thread.
+    expect(screen.queryByTestId("manage-screen")).not.toBeInTheDocument();
+    expect(screen.getByText(vi.welcomeTitleFor("Agent"))).toBeInTheDocument();
   });
 });
