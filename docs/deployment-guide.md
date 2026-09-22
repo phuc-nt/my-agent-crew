@@ -129,6 +129,7 @@ Trỏ thư mục publish vào `docs/`. Nếu site không render markdown, dùng 
 python3 -m http.server 8080 --directory docs
 # http://localhost:8080/diagrams/index.html
 ```
+Sơ đồ chạy đầy đủ, nhưng link `.md` giữa các tài liệu không mở được vì không có Jekyll rewrite `.md` → `.html`; dùng cách này để xem sơ đồ, cách A để đọc cả bộ.
 
 **Nhúng vào trang khác**: `<iframe src="diagrams/crew-architecture.html" width="100%" height="760"></iframe>`.
 

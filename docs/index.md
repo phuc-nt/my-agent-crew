@@ -43,6 +43,8 @@ export OPENROUTER_API_KEY=… && uv run python -m my_agent_crew
 
 ## Publish để sơ đồ chuyển động
 
+Bộ tài liệu này đã publish tại **<https://phuc-nt.github.io/my-agent-crew/>** (GitHub Pages, nguồn `main` / `/docs`) — mở link "HTML" ở bảng trên để xem sơ đồ chuyển động.
+
 Bản `.html` của sơ đồ là trang tự chứa; chỉ cần phục vụ `docs/` như site tĩnh. Nhanh nhất là GitHub Pages với nguồn `/docs`, hoặc `python3 -m http.server 8080 --directory docs` trên máy. Chi tiết và các cách khác ở [deployment-guide.md §9](deployment-guide.md#9-publish-bộ-doc-để-sơ-đồ-archify-chuyển-động).
 
 ## Quy ước
