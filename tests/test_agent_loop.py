@@ -188,3 +188,24 @@ async def test_a_chat_turn_is_the_default_source(deps_factory):
     set_turn_source(JOB)
     await collect(run_turn(deps, conv.id, "chạy"))
     assert seen == [CHAT]
+
+
+async def test_a_blank_reply_is_retried_rather_than_passed_off_as_a_finished_turn(deps_factory):
+    deps = deps_factory(script=[completion(""), completion("Xin lỗi, đây là câu trả lời.")])
+    conv = deps.store.create()
+    events = await collect(run_turn(deps, conv.id, "chào"))
+    assert isinstance(events[-1], DoneEvent)
+    assert events[-2].content == "Xin lỗi, đây là câu trả lời."
+    # The silence is not replayed to the model: continuing from its own blank
+    # tends to produce another blank.
+    retry = deps.chain.providers["scripted"].requests[1]
+    assert [m.role for m in retry.messages] == ["system", "user"]
+
+
+async def test_two_blank_replies_in_a_row_name_the_model_instead_of_going_quiet(deps_factory):
+    deps = deps_factory(script=[completion(""), completion("   ")])
+    conv = deps.store.create()
+    events = await collect(run_turn(deps, conv.id, "chào"))
+    assert isinstance(events[-1], ErrorEvent)
+    assert "scripted" in events[-1].message
+    assert len(deps.chain.providers["scripted"].requests) == 2

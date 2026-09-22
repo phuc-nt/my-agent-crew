@@ -117,10 +117,13 @@ def test_the_master_delegates_and_the_childs_answer_comes_back_over_http(crew):
 
 def test_how_a_turn_ended_is_reported_with_the_text(deps_factory):
     """Platforms without a stream still learn why the reply stopped short."""
-    deps = deps_factory(script=[ProviderError("model down"), completion("   ")])
+    # Two blanks, because the loop retries the first one rather than calling a silent
+    # turn finished.
+    deps = deps_factory(script=[ProviderError("model down"), completion("   "), completion("   ")])
     with TestClient(create_app(deps, schedule=False)) as client:
         failed = client.post("/api/inbound", json={"text": "a"}).json()
         assert failed["status"] == "error"
         assert failed["text"].startswith(texts.REPLY_ERROR.format(message=""))
         silent = client.post("/api/inbound", json={"text": "b"}).json()
-        assert silent["status"] == "done" and silent["text"] == texts.REPLY_EMPTY.format(steps=1)
+        assert silent["status"] == "error"
+        assert texts.BLANK_COMPLETION.format(provider="scripted", model="m") in silent["text"]

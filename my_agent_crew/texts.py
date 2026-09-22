@@ -147,3 +147,6 @@ AGENT_EXISTS = "Agent {agent_id} đã có rồi."
 DELEGATE_UNKNOWN_AGENT = "agent {agent_id}: delegates trỏ tới agent không có: {target}"
 NO_USABLE_ROUTE = "Không có tuyến nào dùng được (thiếu khoá API cho provider): {routes}"
 FILE_OUTSIDE_WORKSPACE = "Tệp nằm ngoài thư mục làm việc của agent."
+# Names the provider, because which model went quiet is the one thing that makes
+# this actionable — switching route is usually the fix.
+BLANK_COMPLETION = "{provider}:{model} trả lời rỗng hai lần liên tiếp. Thử lại hoặc đổi tuyến."

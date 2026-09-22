@@ -6,7 +6,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass, field
 
-from my_agent_crew.agent.context_trim import trim_tool_outputs
+from my_agent_crew import texts
 from my_agent_crew.agent.events import (
     ApprovalRequiredEvent,
     AssistantMessageEvent,
@@ -17,7 +17,7 @@ from my_agent_crew.agent.events import (
     RouteFallbackEvent,
     TextDeltaEvent,
 )
-from my_agent_crew.agent.prompt import active_skills, build_system_prompt
+from my_agent_crew.agent.prompt import turn_messages
 from my_agent_crew.agent.tool_calls import settle_tool_calls
 from my_agent_crew.agent.turn_context import (
     CHAT,
@@ -25,10 +25,7 @@ from my_agent_crew.agent.turn_context import (
     set_turn_conversation,
     set_turn_source,
 )
-from my_agent_crew.agents.context import bootstrap_sections
-from my_agent_crew.agents.kit_commands import commands_section
 from my_agent_crew.agents.profile import AgentProfile, default_profile
-from my_agent_crew.agents.roster import DELEGATE_TOOL_NAME, crew_roster_section
 from my_agent_crew.config import Settings
 from my_agent_crew.llm.provider import ProviderChain, ProviderError
 from my_agent_crew.llm.types import Completion, Message, RouteFailed, TextDelta
@@ -73,6 +70,7 @@ async def run_turn(
             raise ConversationBusy(conv_id)
         deps.store.append(conv_id, Message(role="user", content=user_text))
 
+    empty_replies = 0
     for _ in range(deps.settings.max_steps):
         async for event in settle_tool_calls(deps, conv_id):
             yield event
@@ -81,9 +79,20 @@ async def run_turn(
         history = deps.store.history(conv_id)
         last = history[-1].message
         if last.role == "assistant" and not last.tool_calls:
-            conv = deps.store.get(conv_id)
-            yield DoneEvent(spent_usd=conv.spent_usd, unknown_cost_calls=conv.unknown_cost_calls)
-            return
+            if last.content.strip():
+                conv = deps.store.get(conv_id)
+                yield DoneEvent(
+                    spent_usd=conv.spent_usd, unknown_cost_calls=conv.unknown_cost_calls
+                )
+                return
+            blank = _blank_reply_event(history[-1], empty_replies)
+            if blank is not None:
+                yield blank
+                return
+            empty_replies += 1
+            # The blank turn is dropped from what the model sees: asking it to
+            # continue from its own silence tends to produce more silence.
+            history = history[:-1]
         conv = deps.store.get(conv_id)
         if conv.over_budget:
             yield HaltedEvent(reason="budget", spent_usd=conv.spent_usd)
@@ -96,6 +105,21 @@ async def run_turn(
             return
     conv = deps.store.get(conv_id)
     yield HaltedEvent(reason="max_steps", spent_usd=conv.spent_usd)
+
+
+def _blank_reply_event(blank: StoredMessage, already_retried: int) -> ErrorEvent | None:
+    """A reply with neither text nor a tool call is not a finished turn, it is a
+    provider that returned nothing — ending there leaves the user looking at their own
+    message with no sign anything happened. One more attempt usually gets a real
+    answer; twice in a row is a fault worth naming, since the call was billed either
+    way. `None` means retry."""
+    if already_retried < 1:
+        return None
+    return ErrorEvent(
+        message=texts.BLANK_COMPLETION.format(
+            provider=blank.provider or "?", model=blank.model or "?"
+        )
+    )
 
 
 async def resolve_approval(
@@ -121,35 +145,7 @@ async def resolve_approval(
 async def _complete(
     deps: AgentDeps, conv: Conversation, history: Sequence[StoredMessage]
 ) -> AsyncIterator[Event]:
-    skills = active_skills(deps.skills, conv.skills)
-    active_names = {s.name for s in skills}
-    index = [s for s in deps.skills if s.name not in active_names]
-    profile = deps.agent
-    previous = deps.store.previous_for_channel(conv.agent_id, conv.channel, conv.id)
-    today = deps.settings.today()
-    tool_names = deps.tools.names()
-    # An agent only hears about its crew when it holds the tool to reach them: a child
-    # turn runs without `delegate`, and a roster it cannot act on would only mislead it.
-    roster = crew_roster_section(profile, deps.peers) if DELEGATE_TOOL_NAME in tool_names else None
-    extra = [s for s in (roster, commands_section(profile.commands)) if s]
-    system = Message(
-        role="system",
-        content=build_system_prompt(
-            deps.settings,
-            skills,
-            tool_names,
-            sections=bootstrap_sections(
-                profile,
-                today=today,
-                previous_summary=previous.summary if previous else "",
-                extra_sections=extra,
-            ),
-            name=profile.name,
-            today=today.isoformat(),
-            skill_index=index,
-        ),
-    )
-    messages = [system, *trim_tool_outputs([m.message for m in history])]
+    messages = turn_messages(deps, conv, history)
     completion: Completion | None = None
     async for item in deps.chain.stream(messages, deps.tools.specs()):
         if isinstance(item, TextDelta):

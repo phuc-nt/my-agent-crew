@@ -4,10 +4,20 @@ skills; this is the frame that carries them."""
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 from my_agent_crew import texts
+from my_agent_crew.agent.context_trim import trim_tool_outputs
+from my_agent_crew.agents.context import bootstrap_sections
+from my_agent_crew.agents.kit_commands import commands_section
+from my_agent_crew.agents.roster import DELEGATE_TOOL_NAME, crew_roster_section
 from my_agent_crew.config import Settings
+from my_agent_crew.llm.types import Message
 from my_agent_crew.skills import Skill
+from my_agent_crew.store import Conversation, StoredMessage
+
+if TYPE_CHECKING:
+    from my_agent_crew.agent.loop import AgentDeps
 
 # Above this many indexed skills the descriptions are dropped so the index stays a list
 # the model can scan, not a second prompt.
@@ -87,3 +97,39 @@ def build_system_prompt(
     for skill in skills:
         text += f"\n## Kỹ năng: {skill.name}\n{skill.body}\n"
     return text + skill_index_section(skill_index)
+
+
+def turn_messages(
+    deps: AgentDeps, conv: Conversation, history: Sequence[StoredMessage]
+) -> list[Message]:
+    """The exact message list one model call is given: the system frame this module
+    builds, then the conversation so far with old tool output trimmed out."""
+    skills = active_skills(deps.skills, conv.skills)
+    active_names = {s.name for s in skills}
+    index = [s for s in deps.skills if s.name not in active_names]
+    profile = deps.agent
+    previous = deps.store.previous_for_channel(conv.agent_id, conv.channel, conv.id)
+    today = deps.settings.today()
+    tool_names = deps.tools.names()
+    # An agent only hears about its crew when it holds the tool to reach them: a child
+    # turn runs without `delegate`, and a roster it cannot act on would only mislead it.
+    roster = crew_roster_section(profile, deps.peers) if DELEGATE_TOOL_NAME in tool_names else None
+    extra = [s for s in (roster, commands_section(profile.commands)) if s]
+    system = Message(
+        role="system",
+        content=build_system_prompt(
+            deps.settings,
+            skills,
+            tool_names,
+            sections=bootstrap_sections(
+                profile,
+                today=today,
+                previous_summary=previous.summary if previous else "",
+                extra_sections=extra,
+            ),
+            name=profile.name,
+            today=today.isoformat(),
+            skill_index=index,
+        ),
+    )
+    return [system, *trim_tool_outputs([m.message for m in history])]

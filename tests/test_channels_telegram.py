@@ -513,12 +513,14 @@ async def test_deliver_reports_a_run_that_stopped_without_a_reply(make_channel, 
 async def test_a_turn_that_produces_no_text_says_so_instead_of_staying_silent(
     make_channel, fake, deps_factory
 ):
-    """A model that finishes with nothing to say must not read like a dead bot."""
-    deps = deps_factory(script=[completion("   ")])
+    """A model that finishes with nothing to say must not read like a dead bot. The loop
+    retries a blank once, so it takes two to reach the end of a turn."""
+    deps = deps_factory(script=[completion("   "), completion("   ")])
     channel = make_channel(deps)
     fake.updates = [message(1, "tuần này sao rồi")]
     await channel.poll_once()
-    assert fake.sent == [texts.REPLY_EMPTY.format(steps=1)]
+    blank = texts.BLANK_COMPLETION.format(provider="scripted", model="m")
+    assert fake.sent == [texts.REPLY_ERROR.format(message=blank)]
 
 
 async def test_an_approval_forced_by_the_ask_list_says_which_pattern_matched(
