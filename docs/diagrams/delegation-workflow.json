@@ -1,0 +1,55 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Master giao việc cho đội",
+    "output": "delegation-workflow.html",
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "views": [
+      { "id": "happy-path", "label": "Từ yêu cầu đến trả lời", "focus": ["ask", "roster", "decide", "brief", "child", "work", "merge", "done"], "note": "Một yêu cầu đi qua master, được giao cho đúng thành viên, chạy tool trong workspace của người đó rồi quay về master tổng hợp." },
+      { "id": "who", "label": "Ai làm gì", "focus": ["roster", "decide", "brief", "merge", "child", "work"], "note": "Master giữ cuộc trò chuyện và roster; thành viên đội chạy lượt riêng với persona, workspace và tool của mình." },
+      { "id": "gates", "label": "Cổng và giới hạn", "focus": ["budget", "approve", "work", "child"], "note": "Tool cần duyệt dừng lượt chờ người; cost_cap và max_steps dừng lượt chạy quá tay. Cả hai nằm ngoài model." }
+    ]
+  },
+  "lanes": [
+    { "id": "person", "label": "Người dùng" },
+    { "id": "master", "label": "Master «Trợ lý»" },
+    { "id": "crew", "label": "Thành viên đội (Pong, HLV, Scout…)" },
+    { "id": "gate", "label": "Cổng duyệt và giới hạn", "variant": "exception" }
+  ],
+  "phases": [
+    { "id": "intake", "label": "Nhận việc", "fromCol": 0, "toCol": 1 },
+    { "id": "delegate", "label": "Giao việc", "fromCol": 2, "toCol": 3, "variant": "emphasis" },
+    { "id": "wrap", "label": "Làm và tổng hợp", "fromCol": 4, "toCol": 5, "variant": "dashed" }
+  ],
+  "mainPath": ["ask", "roster", "decide", "brief", "child", "work", "merge", "done"],
+  "nodes": [
+    { "id": "ask", "lane": "person", "col": 0, "type": "external", "label": "Yêu cầu", "sublabel": "web UI hoặc Telegram", "width": 132 },
+    { "id": "done", "lane": "person", "col": 5, "type": "external", "label": "Trả lời", "sublabel": "SSE web / sendMessage", "width": 132 },
+    { "id": "roster", "lane": "master", "col": 1, "type": "backend", "label": "Đọc roster", "sublabel": "ai trong đội làm được gì", "width": 132 },
+    { "id": "decide", "lane": "master", "col": 2, "type": "backend", "label": "Tự làm hay giao?", "sublabel": "việc nhỏ: tự làm", "tag": "model", "width": 132 },
+    { "id": "brief", "lane": "master", "col": 3, "type": "backend", "label": "delegate(task)", "sublabel": "brief tự đủ", "width": 132 },
+    { "id": "merge", "lane": "master", "col": 5, "type": "backend", "label": "Tổng hợp", "sublabel": "câu trả lời cuối", "width": 132 },
+    { "id": "child", "lane": "crew", "col": 3, "type": "backend", "label": "Lượt con", "sublabel": "conv riêng, depth 1", "tag": "persona riêng", "width": 132 },
+    { "id": "work", "lane": "crew", "col": 4, "type": "backend", "label": "Tool trong workspace", "sublabel": "shell, đọc/ghi, ảnh", "width": 140 },
+    { "id": "budget", "lane": "gate", "col": 0, "type": "messagebus", "label": "Giới hạn", "sublabel": "cost_cap_usd, max_steps", "width": 140 },
+    { "id": "approve", "lane": "gate", "col": 4, "type": "security", "label": "Duyệt tool", "sublabel": "requires_approval / autonomous", "width": 156 }
+  ],
+  "edges": [
+    { "id": "ask-roster", "from": "ask", "to": "roster", "variant": "default", "fromSide": "right", "toSide": "top" },
+    { "id": "roster-decide", "from": "roster", "to": "decide", "label": "roster + skills", "variant": "emphasis" },
+    { "id": "decide-brief", "from": "decide", "to": "brief", "label": "giao", "variant": "emphasis" },
+    { "id": "brief-child", "from": "brief", "to": "child", "label": "task", "variant": "emphasis" },
+    { "id": "child-work", "from": "child", "to": "work", "label": "tool_calls", "variant": "emphasis" },
+    { "id": "work-approve", "from": "work", "to": "approve", "label": "cần duyệt?", "variant": "security", "role": "branch" },
+    { "id": "work-merge", "from": "work", "to": "merge", "label": "[Tên] kết quả", "variant": "default", "role": "return", "fromSide": "right", "toSide": "bottom" },
+    { "id": "merge-done", "from": "merge", "to": "done", "label": "trả lời", "variant": "emphasis", "role": "return" },
+    { "id": "budget-roster", "from": "budget", "to": "roster", "label": "Halted khi vượt", "variant": "security", "role": "branch", "fromSide": "left", "toSide": "left" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Master", "items": ["Giữ cuộc trò chuyện và roster; delegates liệt kê ai được giao", "Brief phải tự đủ: mục tiêu, tệp, tiêu chí, ràng buộc", "Gọi delegate nhiều lần trong một lượt để chạy song song"] },
+    { "dot": "rose", "title": "Cổng", "items": ["Tool requires_approval dừng lượt chờ người duyệt, trừ khi conversation autonomous", "cost_cap_usd và max_steps → Halted, không phải lỗi", "Agent con không có delegate: chuỗi giao việc dừng ở depth 1"] },
+    { "dot": "emerald", "title": "Kết quả", "items": ["Kết quả con về dưới dạng tool result có tiền tố [Tên agent]", "Web UI ghim kết quả delegate như một thẻ riêng", "Telegram nhận câu trả lời cuối của master"] }
+  ]
+}

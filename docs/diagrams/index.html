@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crew Diagrams</title>
+<meta name="description" content="Năm sơ đồ động của my-agent-crew: giải phẫu harness, một lượt chat, giao việc cho đội, vòng đời duyệt tool, ngữ cảnh và trí nhớ.">
+<style>
+  :root {
+    --bg: #f7f8fa; --card: #ffffff; --ink: #1c1f26; --muted: #5a6170;
+    --line: #e3e6eb; --accent: #0e7c86; --accent-ink: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12151a; --card: #1a1e25; --ink: #e8eaee; --muted: #9aa3b2;
+      --line: #2a2f38; --accent: #4fc3cf; --accent-ink: #0d1116;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12151a; --card: #1a1e25; --ink: #e8eaee; --muted: #9aa3b2;
+    --line: #2a2f38; --accent: #4fc3cf; --accent-ink: #0d1116;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.55 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  main { max-width: 1080px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; }
+  .lead { color: var(--muted); margin: 0 0 24px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .card h2 { font-size: 1.05rem; margin: 0; }
+  .kind { font-size: 0.75rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .card p { margin: 0; color: var(--muted); font-size: 0.93rem; }
+  .thumb { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #fff; aspect-ratio: 16 / 10; }
+  .thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .links { display: flex; gap: 8px; flex-wrap: wrap; margin-top: auto; }
+  .links a { text-decoration: none; font-size: 0.88rem; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); color: var(--ink); }
+  .links a.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .views { font-size: 0.82rem; color: var(--muted); }
+  footer { margin-top: 32px; color: var(--muted); font-size: 0.88rem; }
+  footer a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Sơ đồ harness: my-agent-crew</h1>
+  <p class="lead">Bản HTML có animation trace và chuyển view. Bản SVG là ảnh tĩnh dùng trong markdown. Bản JSON là spec nguồn.</p>
+
+  <div class="grid">
+    <article class="card">
+      <span class="kind">architecture</span>
+      <h2>Giải phẫu harness</h2>
+      <div class="thumb"><img src="crew-architecture.svg" alt="Giải phẫu harness my-agent-crew" loading="lazy"></div>
+      <p>Kênh giao tiếp, runtime một tiến trình (Inbound, run_turn, ToolRegistry, Scheduler), và home trên đĩa: agent.yaml, persona, skills, trí nhớ, SQLite, workspace.</p>
+      <span class="views">Views: Một cổng vào · Vòng lặp agent · Ngữ cảnh từ đĩa · Quan sát và lưu</span>
+      <div class="links"><a class="primary" href="crew-architecture.html">Mở bản động</a><a href="crew-architecture.svg">SVG</a><a href="crew-architecture.json">JSON</a></div>
+    </article>
+
+    <article class="card">
+      <span class="kind">sequence</span>
+      <h2>Một lượt qua Telegram</h2>
+      <div class="thumb"><img src="turn-sequence.svg" alt="Một lượt chat qua Telegram" loading="lazy"></div>
+      <p>Từ tin nhắn Telegram đến câu trả lời: Inbound tìm cuộc trò chuyện, master gọi model, giao việc cho HLV sức khoẻ, tổng hợp và gửi lại.</p>
+      <span class="views">Views: Nhận tin · Lượt của master · Giao việc cho HLV · Trả lời</span>
+      <div class="links"><a class="primary" href="turn-sequence.html">Mở bản động</a><a href="turn-sequence.svg">SVG</a><a href="turn-sequence.json">JSON</a></div>
+    </article>
+
+    <article class="card">
+      <span class="kind">workflow</span>
+      <h2>Master giao việc cho đội</h2>
+      <div class="thumb"><img src="delegation-workflow.svg" alt="Master giao việc cho đội" loading="lazy"></div>
+      <p>Yêu cầu → roster → quyết định tự làm hay giao → delegate → lượt con chạy tool trong workspace riêng → tổng hợp. Cổng duyệt và giới hạn nằm ngoài model.</p>
+      <span class="views">Views: Từ yêu cầu đến trả lời · Ai làm gì · Cổng và giới hạn</span>
+      <div class="links"><a class="primary" href="delegation-workflow.html">Mở bản động</a><a href="delegation-workflow.svg">SVG</a><a href="delegation-workflow.json">JSON</a></div>
+    </article>
+
+    <article class="card">
+      <span class="kind">lifecycle</span>
+      <h2>Vòng đời duyệt tool</h2>
+      <div class="thumb"><img src="approval-lifecycle.svg" alt="Vòng đời một yêu cầu duyệt tool" loading="lazy"></div>
+      <p>Tool cần duyệt → chờ → duyệt / luôn cho phép / autonomous → chạy tool → lượt tiếp; từ chối và hết hạn kết thúc mà không làm lượt hỏng.</p>
+      <span class="views">Views: Cổng duyệt · Đường tắt · Kết thúc</span>
+      <div class="links"><a class="primary" href="approval-lifecycle.html">Mở bản động</a><a href="approval-lifecycle.svg">SVG</a><a href="approval-lifecycle.json">JSON</a></div>
+    </article>
+
+    <article class="card">
+      <span class="kind">dataflow</span>
+      <h2>Ngữ cảnh và trí nhớ</h2>
+      <div class="thumb"><img src="context-dataflow.svg" alt="Ngữ cảnh đi vào model và trí nhớ đi ra đĩa" loading="lazy"></div>
+      <p>Tệp trong home lắp thành system prompt mỗi lượt; lượt để lại messages trong SQLite, ghi chú ngày, facts về người dùng và tệp trong workspace; job consolidate cô đọng thành đề xuất.</p>
+      <span class="views">Views: Vào system prompt · Theo yêu cầu · Ra đĩa · Cô đọng</span>
+      <div class="links"><a class="primary" href="context-dataflow.html">Mở bản động</a><a href="context-dataflow.svg">SVG</a><a href="context-dataflow.json">JSON</a></div>
+    </article>
+  </div>
+
+  <footer>
+    Sơ đồ vẽ bằng archify từ spec JSON cùng thư mục. Tài liệu đi kèm: <a href="../system-architecture.md">system-architecture.md</a> · <a href="../index.md">index.md</a>.
+  </footer>
+</main>
+</body>
+</html>

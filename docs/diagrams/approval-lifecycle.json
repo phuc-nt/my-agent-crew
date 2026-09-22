@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "Vòng đời một yêu cầu duyệt tool",
+    "output": "approval-lifecycle.html",
+    "viewBox": [1040, 660],
+    "animation": "trace",
+    "visual_preset": "signal-flow",
+    "quality_profile": "showcase",
+    "views": [
+      { "id": "gate", "label": "Cổng duyệt", "focus": ["requested", "pending", "approved", "resumed", "continued"], "note": "Tool có requires_approval tạo một approval và dừng lượt. Người dùng duyệt trên web; tool chạy rồi lượt tiếp tục như thường." },
+      { "id": "shortcuts", "label": "Đường tắt", "focus": ["always", "autonomous", "resumed"], "note": "«Luôn cho phép» ghi tool vào auto_approve của cuộc trò chuyện. Cuộc trò chuyện autonomous (job lịch, delegate) bỏ qua cổng." },
+      { "id": "exits", "label": "Kết thúc", "focus": ["pending", "denied", "expired"], "note": "Từ chối hoặc hết hạn (TTL 600 s, quét định kỳ) không làm lượt hỏng: model nhận tool result báo lỗi và tự quyết bước tiếp." }
+    ]
+  },
+  "lanes": [
+    { "id": "main", "label": "Trạng thái approval (bảng approvals)" },
+    { "id": "branch", "label": "Đường tắt qua cổng" },
+    { "id": "terminal", "label": "Kết thúc không chạy tool" }
+  ],
+  "states": [
+    { "id": "requested", "type": "start", "label": "Tool cần duyệt", "sublabel": "requires_approval", "lane": "main", "col": 0, "step": "01", "tag": "gate" },
+    { "id": "pending", "type": "waiting", "label": "Chờ duyệt", "sublabel": "ApprovalRequiredEvent", "lane": "main", "col": 1, "step": "02", "tag": "pending" },
+    { "id": "approved", "type": "success", "label": "Đã duyệt", "sublabel": "POST approvals/{id}", "lane": "main", "col": 2, "step": "03", "tag": "approved" },
+    { "id": "resumed", "type": "active", "label": "Chạy tool", "sublabel": "settle_tool_calls", "lane": "main", "col": 3, "step": "04", "tag": "resume" },
+    { "id": "continued", "type": "success", "label": "Lượt tiếp tục", "sublabel": "tool result về model", "lane": "main", "col": 4, "step": "05", "tag": "done" },
+    { "id": "always", "type": "decision", "label": "Luôn cho phép", "sublabel": "always → auto_approve", "lane": "branch", "col": 0, "tag": "auto" },
+    { "id": "autonomous", "type": "active", "label": "Autonomous", "sublabel": "conversation autonomous", "lane": "branch", "col": 1, "tag": "autonomous: true" },
+    { "id": "denied", "type": "failure", "label": "Từ chối", "sublabel": "DENIED_TOOL về model", "lane": "terminal", "col": 0, "tag": "denied" },
+    { "id": "expired", "type": "failure", "label": "Hết hạn", "sublabel": "TTL 600 s, expire_overdue", "lane": "terminal", "col": 1, "tag": "expired" }
+  ],
+  "transitions": [
+    { "from": "approved", "to": "always", "variant": "default", "route": "straight", "fromSide": "bottom", "toSide": "top" },
+    { "from": "autonomous", "to": "resumed", "variant": "emphasis", "route": "straight", "fromSide": "top", "toSide": "bottom" },
+    { "from": "pending", "to": "denied", "variant": "security", "fromSide": "left", "toSide": "left", "via": [[180, 157], [180, 479]] },
+    { "from": "pending", "to": "expired", "variant": "security", "fromSide": "bottom", "toSide": "top", "via": [[248, 400], [556, 400]] }
+  ],
+  "cards": [
+    { "dot": "amber", "title": "Khi nào có cổng", "items": ["Tool khai requires_approval: shell_run, workspace_write, workspace_edit", "shell_ask_patterns buộc hỏi cả khi autonomous cho lệnh nguy hiểm", "Conversation autonomous (job lịch, delegate, agent autonomous: true) bỏ qua cổng"] },
+    { "dot": "emerald", "title": "Quyết định", "items": ["Duyệt / từ chối trên thanh duyệt của web UI", "always=true thêm tool vào auto_approve của cuộc trò chuyện đó", "Khi đang chờ, /inbound trả 409 InboundBusy"] },
+    { "dot": "violet", "title": "Kết thúc", "items": ["Từ chối và hết hạn đều thành tool result báo lỗi, lượt vẫn tiếp", "Quét hết hạn chạy định kỳ trong runtime", "Lịch sử duyệt xem ở GET /api/approvals"] }
+  ]
+}

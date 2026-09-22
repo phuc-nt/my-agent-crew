@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Giải phẫu harness my-agent-crew",
+    "output": "crew-architecture.html",
+    "viewBox": [1100, 720],
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "views": [
+      { "id": "one-door", "label": "Một cổng vào", "focus": ["person", "web", "telegram", "inbound", "loop"], "note": "Web UI và Telegram đi qua Inbound; job lịch gọi thẳng run_turn. Mọi đường đều đổ vào cùng một vòng lặp, không có ngoại lệ." },
+      { "id": "the-loop", "label": "Vòng lặp agent", "focus": ["loop", "llm", "tools", "scheduler"], "note": "run_turn gửi messages + tool specs lên model, chạy tool model gọi, gửi kết quả lại, lặp tới khi model trả lời mà không gọi tool." },
+      { "id": "context", "label": "Ngữ cảnh từ đĩa", "focus": ["profile", "skills", "memory", "loop"], "note": "Mọi thứ làm nên một agent là tệp văn bản trong home: agent.yaml, persona, MEMORY.md, skills. Model không nhớ gì giữa các lượt." },
+      { "id": "observe", "label": "Quan sát và lưu", "focus": ["hub", "store", "workspace", "web"], "note": "Mỗi lượt là một run có steps; ActivityHub phát qua SSE cho web, SQLite giữ lịch sử, workspace giữ tệp agent tạo ra." }
+    ]
+  },
+  "components": [
+    { "id": "person", "type": "external", "label": "Người dùng", "sublabel": "trình duyệt / Telegram", "pos": [30, 330], "size": [120, 64] },
+    { "id": "web", "type": "frontend", "label": "Web UI", "sublabel": "SPA React, SSE", "pos": [200, 180], "size": [140, 60] },
+    { "id": "hub", "type": "messagebus", "label": "ActivityHub", "sublabel": "runs, steps, SSE", "pos": [200, 330], "size": [140, 64] },
+    { "id": "telegram", "type": "cloud", "label": "Telegram", "sublabel": "bot của master", "pos": [200, 480], "size": [140, 60] },
+    { "id": "scheduler", "type": "messagebus", "label": "Scheduler", "sublabel": "cron → job run", "pos": [400, 120], "size": [140, 60] },
+    { "id": "inbound", "type": "backend", "label": "Inbound", "sublabel": "một cổng vào, 1 conv/ngày", "pos": [400, 330], "size": [140, 64] },
+    { "id": "llm", "type": "cloud", "label": "OpenRouter", "sublabel": "ProviderChain + fallback", "pos": [900, 20], "size": [160, 60] },
+    { "id": "loop", "type": "backend", "label": "run_turn", "sublabel": "model → tool → model", "pos": [580, 322], "size": [150, 80], "tag": "runtime" },
+    { "id": "tools", "type": "backend", "label": "ToolRegistry", "sublabel": "workspace, shell, delegate", "pos": [580, 500], "size": [150, 60], "tag": "gate" },
+    { "id": "profile", "type": "security", "label": "agent.yaml + persona", "sublabel": "AGENTS.md, SOUL.md", "pos": [900, 120], "size": [160, 60] },
+    { "id": "skills", "type": "database", "label": "Skills + kit", "sublabel": "skills/*.md, .agents/", "pos": [900, 230], "size": [160, 60] },
+    { "id": "memory", "type": "database", "label": "Trí nhớ", "sublabel": "MEMORY.md, memory/, users/", "pos": [900, 340], "size": [160, 60] },
+    { "id": "store", "type": "database", "label": "agent.sqlite3", "sublabel": "conversations, runs, approvals", "pos": [900, 450], "size": [160, 60] },
+    { "id": "workspace", "type": "frontend", "label": "Workspace", "sublabel": "thư mục làm việc của agent", "pos": [900, 560], "size": [160, 60] }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "Kênh giao tiếp", "wraps": ["web", "hub", "telegram"] },
+    { "kind": "region", "label": "Runtime (một tiến trình Python)", "wraps": ["scheduler", "inbound", "loop", "tools"] },
+    { "kind": "region", "label": "Home ~/.my-agent-crew (tệp trên đĩa)", "wraps": ["profile", "skills", "memory", "store", "workspace"] },
+    { "kind": "security-group", "label": "Cổng duyệt tool", "wraps": ["tools"], "pad": 10 }
+  ],
+  "connections": [
+    { "id": "person-web", "from": "person", "to": "web", "label": "chat, duyệt tool", "variant": "emphasis", "fromSide": "top", "toSide": "left", "via": [[90, 210]] },
+    { "id": "person-telegram", "from": "person", "to": "telegram", "label": "nhắn bot", "fromSide": "bottom", "toSide": "left", "via": [[90, 510]] },
+    { "id": "web-inbound", "from": "web", "to": "inbound", "label": "POST /messages", "variant": "emphasis", "fromSide": "right", "toSide": "top", "via": [[470, 210]] },
+    { "id": "telegram-inbound", "from": "telegram", "to": "inbound", "label": "getUpdates → /inbound", "fromSide": "right", "toSide": "bottom", "via": [[470, 510]] },
+    { "id": "inbound-hub", "from": "inbound", "to": "hub", "label": "tracked(run)", "variant": "dashed", "fromSide": "left", "toSide": "right", "labelAt": [370, 412] },
+    { "id": "hub-web", "from": "hub", "to": "web", "label": "SSE /activity/stream", "variant": "dashed", "fromSide": "top", "toSide": "bottom" },
+    { "id": "inbound-loop", "from": "inbound", "to": "loop", "label": "run_turn()", "variant": "emphasis", "fromSide": "right", "toSide": "left", "labelAt": [560, 420] },
+    { "id": "scheduler-loop", "from": "scheduler", "to": "loop", "label": "job đến hạn (source=JOB)", "variant": "dashed" },
+    { "id": "loop-llm", "from": "loop", "to": "llm", "label": "messages + tool specs", "labelAt": [745, 36] },
+    { "id": "loop-tools", "from": "loop", "to": "tools", "label": "tool_calls", "variant": "security", "fromSide": "bottom", "toSide": "top", "labelAt": [655, 450] },
+    { "id": "profile-loop", "from": "profile", "to": "loop", "label": "persona", "variant": "security", "fromSide": "left", "toSide": "right", "labelAt": [770, 296] },
+    { "id": "skills-loop", "from": "skills", "to": "loop", "label": "kỹ năng", "variant": "dashed", "fromSide": "left", "toSide": "right", "labelAt": [770, 314] },
+    { "id": "memory-loop", "from": "memory", "to": "loop", "label": "MEMORY.md", "fromSide": "left", "toSide": "right", "labelAt": [770, 418] },
+    { "id": "loop-store", "from": "loop", "to": "store", "label": "ghi run", "fromSide": "right", "toSide": "left", "labelAt": [770, 445] },
+    { "id": "tools-workspace", "from": "tools", "to": "workspace", "label": "đọc/ghi/shell", "fromSide": "right", "toSide": "left", "labelAt": [772, 510] }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Runtime", "items": ["Một tiến trình Python: FastAPI + vòng lặp agent + scheduler + poller Telegram", "Web và Telegram vào qua Inbound; job lịch gọi thẳng run_turn — cùng một vòng lặp", "Model là dịch vụ ngoài; harness là phần bao quanh nó"] },
+    { "dot": "emerald", "title": "Agent = tệp", "items": ["agent.yaml: model, tool, giới hạn, lịch", "AGENTS.md + SOUL.md: vai trò và giọng, nạp mỗi lượt", "MEMORY.md + memory/: điều agent tự ghi lại"] },
+    { "dot": "rose", "title": "Kiểm soát", "items": ["Tool requires_approval dừng lượt chờ người duyệt, trừ khi autonomous", "cost_cap_usd và max_steps chặn lượt chạy quá tay", "Mọi lượt là một run có steps xem được trên web"] }
+  ]
+}

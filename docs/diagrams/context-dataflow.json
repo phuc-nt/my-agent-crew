@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "Ngữ cảnh đi vào model và trí nhớ đi ra đĩa",
+    "output": "context-dataflow.html",
+    "viewBox": [1080, 780],
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "views": [
+      { "id": "into-prompt", "label": "Vào system prompt", "focus": ["yaml", "persona", "user", "memory", "prompt", "turn"], "note": "Mỗi lượt lắp lại system prompt từ tệp: persona, USER.md + facts, MEMORY.md, tóm tắt cuộc trước, roster, ghi chú hôm qua và hôm nay." },
+      { "id": "on-demand", "label": "Theo yêu cầu", "focus": ["skills", "turn", "child"], "note": "Skill chỉ vào bằng chỉ mục; agent gọi skill_read khi cần. Agent con chỉ nhận brief, không nhận lịch sử." },
+      { "id": "out-to-disk", "label": "Ra đĩa", "focus": ["turn", "child", "db", "notes", "facts", "ws"], "note": "Lượt để lại messages, runs, usage trong SQLite; memory_save ghi chú ngày; user_memory_save ghi facts chung; tool ghi tệp vào workspace." },
+      { "id": "consolidate", "label": "Cô đọng", "focus": ["notes", "proposal", "next"], "note": "Job consolidate đọc 7 ngày ghi chú gần nhất, đề xuất viết lại MEMORY.md; agent autonomous áp ngay, còn lại chờ duyệt trên web." }
+    ]
+  },
+  "stages": [
+    { "label": "Tệp trong home" },
+    { "label": "Lắp ráp ngữ cảnh" },
+    { "label": "Lượt agent" },
+    { "label": "Ghi ra đĩa" },
+    { "label": "Lượt sau" }
+  ],
+  "nodes": [
+    { "id": "yaml", "type": "security", "label": "agent.yaml", "sublabel": "routes, tools, autonomous", "stage": 0, "row": 0, "tag": "cấu hình", "width": 130 },
+    { "id": "persona", "type": "database", "label": "AGENTS.md + SOUL.md", "sublabel": "vai trò, giọng", "stage": 0, "row": 1, "tag": "luôn nạp", "width": 130 },
+    { "id": "memory", "type": "database", "label": "MEMORY.md + memory/", "sublabel": "ghi chú theo ngày", "stage": 0, "row": 2, "tag": "riêng agent", "width": 130 },
+    { "id": "user", "type": "database", "label": "users/owner", "sublabel": "USER.md + facts/", "stage": 0, "row": 3, "tag": "dùng chung", "width": 130 },
+    { "id": "skills", "type": "database", "label": "skills/ + .agents/", "sublabel": "chỉ mục, lệnh kit", "stage": 0, "row": 4, "tag": "theo yêu cầu", "width": 130 },
+    { "id": "prompt", "type": "messagebus", "label": "build_system_prompt", "sublabel": "bootstrap_sections + roster", "stage": 1, "row": 1, "tag": "mỗi lượt", "width": 130 },
+    { "id": "turn", "type": "backend", "label": "run_turn", "sublabel": "model ↔ tool", "stage": 2, "row": 1, "tag": "master", "width": 130 },
+    { "id": "child", "type": "backend", "label": "Agent con", "sublabel": "chỉ nhận brief", "stage": 2, "row": 3, "tag": "delegate", "width": 130 },
+    { "id": "db", "type": "database", "label": "agent.sqlite3", "sublabel": "messages, runs, usage", "stage": 3, "row": 0, "tag": "lịch sử", "width": 130 },
+    { "id": "notes", "type": "database", "label": "memory/YYYY-MM-DD.md", "sublabel": "memory_save", "stage": 3, "row": 1, "tag": "ghi chú", "width": 130 },
+    { "id": "proposal", "type": "security", "label": "Đề xuất ghi nhớ", "sublabel": "consolidate → duyệt", "stage": 3, "row": 2, "tag": "proposal", "width": 130 },
+    { "id": "facts", "type": "database", "label": "users/owner/facts/", "sublabel": "user_memory_save", "stage": 3, "row": 3, "tag": "về người dùng", "width": 130 },
+    { "id": "ws", "type": "frontend", "label": "Workspace", "sublabel": "tệp, inbox ảnh", "stage": 3, "row": 4, "tag": "tool", "width": 130 },
+    { "id": "next", "type": "external", "label": "Lượt sau", "sublabel": "đọc lại từ đĩa", "stage": 4, "row": 1, "tag": "resume", "width": 130 }
+  ],
+  "flows": [
+    { "id": "yaml-prompt", "from": "yaml", "to": "prompt", "label": "routes, tools", "classification": "cấu hình", "variant": "emphasis", "fromSide": "right", "toSide": "top", "via": [[315, 157]], "labelSegment": 0 },
+    { "id": "persona-prompt", "from": "persona", "to": "prompt", "label": "persona", "classification": "luôn", "variant": "emphasis", "route": "straight" },
+    { "id": "memory-prompt", "from": "memory", "to": "prompt", "label": "MEMORY.md + 2 ngày", "classification": "riêng agent", "variant": "default", "fromSide": "right", "toSide": "bottom", "via": [[315, 385]], "labelSegment": 0 },
+    { "id": "user-prompt", "from": "user", "to": "prompt", "label": "USER.md, facts", "classification": "dùng chung", "variant": "default", "fromSide": "right", "toSide": "bottom", "via": [[315, 499]], "labelSegment": 0 },
+    { "id": "prompt-turn", "from": "prompt", "to": "turn", "label": "system prompt", "classification": "mỗi lượt", "variant": "emphasis", "route": "straight" },
+    { "id": "skills-child", "from": "skills", "to": "child", "label": "skill_read", "classification": "theo yêu cầu", "variant": "dashed", "fromSide": "right", "toSide": "left", "via": [[420, 613], [420, 499]], "labelSegment": 0 },
+    { "id": "turn-child", "from": "turn", "to": "child", "label": "brief", "classification": "delegate", "variant": "emphasis", "route": "straight", "fromSide": "bottom", "toSide": "top", "labelAt": [530, 385] },
+    { "id": "turn-db", "from": "turn", "to": "db", "label": "messages, usage", "classification": "lịch sử", "variant": "default", "fromSide": "top", "toSide": "left", "via": [[530, 157]], "labelSegment": 1 },
+    { "id": "turn-notes", "from": "turn", "to": "notes", "label": "memory_save", "classification": "ghi chú", "variant": "default", "route": "straight" },
+    { "id": "child-facts", "from": "child", "to": "facts", "label": "user_memory_save", "classification": "về người dùng", "variant": "default", "route": "straight", "labelAt": [638, 542] },
+    { "id": "child-ws", "from": "child", "to": "ws", "label": "ghi tệp", "classification": "workspace", "variant": "default", "fromSide": "bottom", "toSide": "left", "via": [[530, 613]], "labelSegment": 1 },
+    { "id": "notes-proposal", "from": "notes", "to": "proposal", "label": "consolidate", "classification": "cron", "variant": "security", "route": "straight", "fromSide": "bottom", "toSide": "top", "labelAt": [800, 328] },
+    { "id": "db-next", "from": "db", "to": "next", "label": "tóm tắt cuộc trước", "classification": "Cuộc trước", "variant": "dashed", "fromSide": "right", "toSide": "top", "via": [[960, 157]], "labelSegment": 0 },
+    { "id": "notes-next", "from": "notes", "to": "next", "label": "hôm qua", "classification": "bootstrap", "variant": "emphasis", "route": "straight" },
+    { "id": "proposal-next", "from": "proposal", "to": "next", "label": "MEMORY.md mới", "classification": "sau duyệt", "variant": "default", "fromSide": "right", "toSide": "bottom", "via": [[960, 385]], "labelSegment": 0 }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Vào", "items": ["System prompt lắp lại mỗi lượt từ tệp, không có trạng thái ẩn trong model", "Thứ tự: persona → USER.md + facts → MEMORY.md → Cuộc trước → roster, lệnh kit → ghi chú hôm qua, hôm nay", "Skill vào bằng chỉ mục; đọc đầy đủ qua skill_read"] },
+    { "dot": "emerald", "title": "Ra", "items": ["memory_save: ghi chú ngày của riêng agent", "user_memory_save: sự thật về người dùng, mọi agent cùng thấy", "Tệp agent tạo ra nằm trong workspace, ảnh gửi qua Telegram vào inbox"] },
+    { "dot": "rose", "title": "Quy tắc", "items": ["Điều gì cần nhớ sang lượt sau phải là tệp hoặc dòng trong SQLite", "Cô đọng là đề xuất, không phải ghi đè: giữ bản cũ để lùi một bước", "Agent autonomous áp đề xuất ngay; agent khác chờ duyệt trên web"] }
+  ]
+}

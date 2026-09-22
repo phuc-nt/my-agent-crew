@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Một tin nhắn Telegram đi qua master và đội",
+    "output": "turn-sequence.html",
+    "viewBox": [1000, 960],
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "views": [
+      { "id": "intake", "label": "Nhận tin", "focus": ["person", "telegram", "inbound", "store"], "note": "Poller Telegram gọi POST /inbound; Inbound chọn cuộc trò chuyện của master cho ngày hôm nay (telegram:<chat_id>)." },
+      { "id": "master-turn", "label": "Lượt của master", "focus": ["inbound", "master", "llm"], "note": "Master «Trợ lý» nhận system prompt gồm persona, roster của đội, trí nhớ; model quyết định tự trả lời hay gọi delegate." },
+      { "id": "delegate", "label": "Giao việc", "focus": ["master", "child", "llm", "store"], "note": "delegate mở một cuộc trò chuyện con cho HLV sức khoẻ và chạy run_turn ở depth+1. Agent con không thấy lịch sử của master, chỉ thấy brief." },
+      { "id": "reply", "label": "Trả lời", "focus": ["child", "master", "telegram", "person"], "note": "Kết quả con quay về như một tool result; master viết câu trả lời cuối; Inbound trả TurnReply cho kênh Telegram gửi đi." }
+    ]
+  },
+  "participants": [
+    { "id": "person", "type": "external", "label": "Người dùng", "sublabel": "Telegram" },
+    { "id": "telegram", "type": "cloud", "label": "TelegramChannel", "sublabel": "poller + sender" },
+    { "id": "inbound", "type": "backend", "label": "Inbound", "sublabel": "một cổng vào" },
+    { "id": "master", "type": "backend", "label": "Master «Trợ lý»", "sublabel": "run_turn depth 0" },
+    { "id": "child", "type": "backend", "label": "HLV sức khoẻ", "sublabel": "run_turn depth 1" },
+    { "id": "llm", "type": "cloud", "label": "OpenRouter", "sublabel": "ProviderChain" },
+    { "id": "store", "type": "database", "label": "Store + Hub", "sublabel": "SQLite, SSE" }
+  ],
+  "segments": [
+    { "from": 150, "to": 300, "label": "Nhận tin" },
+    { "from": 320, "to": 430, "label": "Lượt của master" },
+    { "from": 450, "to": 640, "label": "Giao việc cho HLV" },
+    { "from": 660, "to": 860, "label": "Trả lời" }
+  ],
+  "messages": [
+    { "id": "send", "from": "person", "to": "telegram", "y": 185, "label": "\"hôm qua tôi ngủ thế nào?\"", "variant": "emphasis" },
+    { "id": "post-inbound", "from": "telegram", "to": "inbound", "y": 225, "label": "POST /inbound {text, channel}", "variant": "default" },
+    { "id": "conv-for", "from": "inbound", "to": "store", "y": 265, "label": "conversation_for(master, telegram:<chat>, hôm nay)", "variant": "dashed" },
+    { "id": "run-master", "from": "inbound", "to": "master", "y": 345, "label": "run_turn(conv, text, source=CHAT)", "variant": "emphasis" },
+    { "id": "master-llm", "from": "master", "to": "llm", "y": 380, "label": "system prompt + messages + tool specs", "variant": "default" },
+    { "id": "llm-delegate", "from": "llm", "to": "master", "y": 415, "label": "tool_call delegate(health-coach, task)", "variant": "return" },
+    { "id": "open-child", "from": "master", "to": "child", "y": 475, "label": "delegate: mở conv con, run_turn(depth 1)", "variant": "emphasis" },
+    { "id": "child-llm", "from": "child", "to": "llm", "y": 512, "label": "persona HLV + brief", "variant": "default" },
+    { "id": "llm-tool", "from": "llm", "to": "child", "y": 546, "label": "tool_call shell_run (autonomous)", "variant": "return" },
+    { "id": "child-steps", "from": "child", "to": "store", "y": 582, "label": "steps → run, SSE", "variant": "dashed" },
+    { "id": "child-answer", "from": "child", "to": "master", "y": 620, "label": "[HLV sức khoẻ] kết quả", "variant": "return" },
+    { "id": "master-llm-2", "from": "master", "to": "llm", "y": 690, "label": "tool result delegate", "variant": "default" },
+    { "id": "llm-done", "from": "llm", "to": "master", "y": 725, "label": "assistant text, không tool_calls → Done", "variant": "return" },
+    { "id": "save", "from": "master", "to": "store", "y": 760, "label": "messages + usage + cost", "variant": "dashed" },
+    { "id": "turn-reply", "from": "inbound", "to": "telegram", "y": 800, "label": "TurnReply(text, steps, status)", "variant": "return" },
+    { "id": "send-back", "from": "telegram", "to": "person", "y": 838, "label": "sendMessage", "variant": "return" }
+  ],
+  "activations": [
+    { "participant": "telegram", "from": 180, "to": 230, "type": "cloud" },
+    { "participant": "inbound", "from": 220, "to": 805, "type": "backend" },
+    { "participant": "master", "from": 340, "to": 765, "type": "backend" },
+    { "participant": "child", "from": 470, "to": 625, "type": "backend" },
+    { "participant": "llm", "from": 375, "to": 420, "type": "cloud" },
+    { "participant": "llm", "from": 507, "to": 551, "type": "cloud" },
+    { "participant": "llm", "from": 685, "to": 730, "type": "cloud" },
+    { "participant": "store", "from": 260, "to": 270, "type": "database" },
+    { "participant": "store", "from": 577, "to": 587, "type": "database" },
+    { "participant": "store", "from": 755, "to": 765, "type": "database" },
+    { "participant": "telegram", "from": 795, "to": 843, "type": "cloud" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Một cổng vào", "items": ["Telegram không gọi thẳng agent; poller POST /inbound như web UI", "Mỗi kênh có một cuộc trò chuyện mỗi ngày: telegram:<chat_id>", "Đang chờ duyệt tool thì tin mới bị từ chối 409 (InboundBusy)"] },
+    { "dot": "rose", "title": "Delegate", "items": ["Agent con chạy trong cuộc trò chuyện riêng, không thấy lịch sử cha", "Con không có tool delegate: không đệ quy", "Kết quả về dưới dạng tool result có tiền tố [Tên agent]"] },
+    { "dot": "emerald", "title": "Kết thúc lượt", "items": ["Done khi model trả lời không kèm tool_calls", "Halted khi vượt cost_cap_usd hoặc max_steps", "Tóm tắt cuộc trò chuyện ghi lại làm «Cuộc trước» cho lượt sau"] }
+  ]
+}
