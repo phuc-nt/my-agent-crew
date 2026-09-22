@@ -56,6 +56,12 @@ ADDED_COLUMNS = (
     # Lets a turn resumed after an interruption find the child it already started instead
     # of opening a second one.
     ("conversations", "parent_call_id", "TEXT NOT NULL DEFAULT ''"),
+    # An approval row is either a tool waiting to run ('tool') or the agent asking the
+    # person something ('question'). A question carries the choices it offered, as a JSON
+    # list, and the answer it got back. Rows written before questions existed are tools.
+    ("approvals", "kind", "TEXT NOT NULL DEFAULT 'tool'"),
+    ("approvals", "options", "TEXT NOT NULL DEFAULT '[]'"),
+    ("approvals", "answer", "TEXT"),
 )
 
 

@@ -7,7 +7,8 @@ from my_agent_crew.agent.events import (
     DoneEvent,
     ToolResultEvent,
 )
-from my_agent_crew.agent.loop import ConversationBusy, resolve_approval, run_turn
+from my_agent_crew.agent.loop import ConversationBusy, run_turn
+from my_agent_crew.agent.resume import resolve_approval
 from my_agent_crew.agent.turn_context import JOB, WEB, set_turn_source, turn_source
 from my_agent_crew.llm.fake import completion
 from my_agent_crew.llm.types import ToolCall

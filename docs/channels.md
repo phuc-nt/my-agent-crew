@@ -114,6 +114,16 @@ process so the client shows them.
 goes to the model. A message while a tool waits for approval gets a reminder instead of a
 turn.
 
+A question the agent asked with `ask_user` is the one pause that does not work this way.
+`/approve` and `/deny` are refused on it, because there is nothing to authorise: what is
+missing is a sentence only the person can write. So while a question is open the next
+ordinary message from the owner is read as the answer rather than as a new request. A bare
+number picks that choice out of the numbered list the question was sent with — `2` on a
+`1. có / 2. không` question answers `không` — and anything else is passed through as words,
+including a number the list has no entry for and a sentence that merely begins with one.
+This is how a chat stands in for the web's question card; see
+[Asking the person](tools.md#asking-the-person).
+
 ## Scheduled delivery
 
 After every prompt job the scheduler calls `Runtime.deliver(agent_id, conv_id)`, which

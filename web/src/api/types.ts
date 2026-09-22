@@ -46,7 +46,11 @@ export interface Conversation {
   parent_call_id: string;
 }
 
-export type ApprovalStatus = "pending" | "approved" | "denied" | "expired";
+export type ApprovalStatus = "pending" | "approved" | "denied" | "expired" | "answered";
+
+/** "question" is the agent asking the person something; "tool" is a call waiting to run.
+ *  They close by different routes, so a card that confuses them cannot be resolved. */
+export type ApprovalKind = "tool" | "question";
 
 export interface Approval {
   id: string;
@@ -60,6 +64,12 @@ export interface Approval {
   /** When a pending request closes as expired if nobody answers; null on old rows. */
   expires_at: string | null;
   resolved_at: string | null;
+  /** Rows written before questions existed have no kind; they are tools. */
+  kind?: ApprovalKind;
+  /** The choices a question offered, if any. Never set for a tool. */
+  options?: string[];
+  /** What the person replied, once a question is answered. */
+  answer?: string | null;
 }
 
 /** One row of GET /api/approvals: the request plus the agent it belonged to. */
@@ -101,6 +111,8 @@ export type AgentEvent =
       arguments: Record<string, unknown>;
       reason: string;
       expires_at: string;
+      kind?: ApprovalKind;
+      options?: string[];
     }
   | { type: "done"; spent_usd: number; unknown_cost_calls: number }
   | { type: "halted"; reason: "budget" | "max_steps"; spent_usd: number }

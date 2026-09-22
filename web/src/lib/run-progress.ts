@@ -10,8 +10,12 @@
 // state of the run that owns it.
 import type { RunInfo, RunStatus, RunStep } from "../api/types";
 
-/** What a step looks like now, as opposed to when it was written. */
-export type StepState = "running" | "done" | "failed" | "stalled";
+/** What a step looks like now, as opposed to when it was written.
+ *
+ * "waiting" is its own state and not a kind of "running": nothing is being computed and
+ * no time is being bought, the run is stopped until a person types. Painting it as
+ * running would show effort where there is none, and as stalled would suggest a fault. */
+export type StepState = "running" | "done" | "failed" | "stalled" | "waiting";
 
 /**
  * The statuses that mean nothing more will happen in this run.
@@ -40,6 +44,9 @@ export function isSettled(status: RunStatus): status is SettledStatus {
 export function stepState(step: RunStep, runStatus: RunStatus): StepState {
   if (step.kind === "fallback") return "failed";
   if (step.kind === "model") return "done";
+  // A question never closes on this run: the answer resumes the turn as a new one. So it
+  // is "waiting" whatever the run went on to do, rather than stalling once the run ends.
+  if (step.kind === "question") return "waiting";
   if (step.ok === null) return isSettled(runStatus) ? "stalled" : "running";
   return step.ok ? "done" : "failed";
 }
@@ -60,15 +67,34 @@ export function activeStep(run: RunInfo): RunStep | null {
   return open.length > 0 ? open[open.length - 1] : null;
 }
 
+/**
+ * The step the run is stopped on, waiting for a person.
+ *
+ * Kept apart from `activeStep` because the two answer different questions. A waiting
+ * step is not work in progress, so counting it as active would put it in the running
+ * total and show a spinner; leaving it out of both would let the header claim the agent
+ * is thinking while it is in fact blocked on an unanswered question.
+ */
+export function waitingStep(run: RunInfo): RunStep | null {
+  const waiting = run.steps.filter((step) => stepState(step, run.status) === "waiting");
+  return waiting.length > 0 ? waiting[waiting.length - 1] : null;
+}
+
 /** Progress as finished-of-total, for a compact "3/7" counter. */
 export interface StepProgress {
   done: number;
   total: number;
 }
 
+/** The states that mean the step is no longer waiting on anything. */
+const OPEN_STATES: readonly StepState[] = ["running", "waiting"];
+
 export function stepProgress(run: RunInfo): StepProgress {
   const total = run.steps.length;
-  const done = run.steps.filter((step) => stepState(step, run.status) !== "running").length;
+  // A waiting step is not finished any more than a running one is. Counting it as done
+  // would fill the bar on a run that is stopped, which is the one moment the bar is
+  // being read to find out whether anything is still happening.
+  const done = run.steps.filter((step) => !OPEN_STATES.includes(stepState(step, run.status))).length;
   return { done, total };
 }
 

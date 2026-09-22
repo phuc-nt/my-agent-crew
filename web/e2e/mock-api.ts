@@ -259,7 +259,10 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
       conversations.push(conv);
       return json(conv, 201);
     }
-    if (/\/(messages|approvals\/[^/]+)$/.test(path) && method === "POST") {
+    // A question closes by its own `/answer` route, not by the approve/deny one, so the
+    // pattern has to reach it — otherwise answering in the browser 404s here and the
+    // test passes for a card that would never work against the real server.
+    if (/\/(messages|approvals\/[^/]+(\/answer)?)$/.test(path) && method === "POST") {
       const events = turns.shift() ?? [];
       return route.fulfill({ status: 200, contentType: "text/event-stream", body: sse(events) });
     }

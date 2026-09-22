@@ -13,9 +13,10 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 from my_agent_crew.llm.types import ToolCall
-from my_agent_crew.store.models import Approval
+from my_agent_crew.store.models import QUESTION, TOOL, Approval
 
 PENDING, APPROVED, DENIED, EXPIRED = "pending", "approved", "denied", "expired"
+ANSWERED = "answered"
 DEFAULT_TTL_SECONDS = 600
 
 
@@ -29,14 +30,21 @@ class ApprovalStore:
         self._lock = lock
 
     def create(
-        self, conv_id: str, message_id: int, call: ToolCall, ttl_seconds: int = DEFAULT_TTL_SECONDS
+        self,
+        conv_id: str,
+        message_id: int,
+        call: ToolCall,
+        ttl_seconds: int = DEFAULT_TTL_SECONDS,
+        kind: str = TOOL,
+        options: list[str] | None = None,
     ) -> Approval:
         approval_id = uuid.uuid4().hex[:12]
         now = datetime.now(UTC)
         with self._lock:
             self._conn.execute(
                 "INSERT INTO approvals (id, conversation_id, message_id, tool_call_id, tool_name,"
-                " arguments, status, created_at, expires_at) VALUES (?,?,?,?,?,?,?,?,?)",
+                " arguments, status, created_at, expires_at, kind, options)"
+                " VALUES (?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     approval_id,
                     conv_id,
@@ -47,10 +55,41 @@ class ApprovalStore:
                     PENDING,
                     _stamp(now),
                     _stamp(now + timedelta(seconds=ttl_seconds)),
+                    kind,
+                    json.dumps(options or []),
                 ),
             )
             self._conn.commit()
         return self.get(approval_id)
+
+    def answer(self, approval_id: str, answer: str) -> Approval:
+        """Close a pending question with what the person said.
+
+        A question has no approve/deny axis, so it gets its own closing status: the loop
+        must be able to tell "they answered" from "they allowed the tool to run"."""
+        with self._lock:
+            cursor = self._conn.execute(
+                "UPDATE approvals SET status = ?, answer = ?, resolved_at = ?"
+                " WHERE id = ? AND status = ? AND kind = ?",
+                (ANSWERED, answer, _stamp(datetime.now(UTC)), approval_id, PENDING, QUESTION),
+            )
+            self._conn.commit()
+        if cursor.rowcount == 0:
+            raise KeyError(approval_id)
+        return self.get(approval_id)
+
+    def pending_question(self, conv_id: str) -> Approval | None:
+        """The open question of a conversation, if it has one.
+
+        Telegram needs this to tell an answer from an ordinary message: a reply only counts
+        as an answer while a question is actually waiting."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT * FROM approvals WHERE conversation_id = ? AND status = ? AND kind = ?"
+                " ORDER BY created_at LIMIT 1",
+                (conv_id, PENDING, QUESTION),
+            ).fetchone()
+        return Approval.from_row(row) if row else None
 
     def get(self, approval_id: str) -> Approval:
         with self._lock:

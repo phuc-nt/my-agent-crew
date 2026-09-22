@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AgentInfo, Conversation, SettingsInfo } from "../api/types";
 import { ApprovalBar } from "../components/approval-bar";
+import { QuestionCard } from "../components/question-card";
 import { Composer } from "../components/composer";
 import { ConversationActivity } from "../components/conversation-activity";
 import { ConversationHeader } from "../components/conversation-header";
@@ -220,7 +221,14 @@ export function ChatScreen({
             />
           </ErrorBoundary>
         )}
-        {state.pending && (
+        {state.pending?.kind === "question" && (
+          <QuestionCard
+            pending={state.pending}
+            busy={state.busy}
+            onAnswer={(text) => void thread.answer(text)}
+          />
+        )}
+        {state.pending && state.pending.kind !== "question" && (
           <ApprovalBar
             pending={state.pending}
             busy={state.busy}
@@ -231,6 +239,9 @@ export function ChatScreen({
         )}
         {active?.over_budget && !state.busy && <div className="notice halted">{vi.overBudget}</div>}
         <Composer
+          // Anything pending blocks the composer, question included: the server refuses a
+          // new message while an approval waits, so an enabled box would only collect text
+          // and then 409. The question card carries its own input for the reply.
           disabled={state.pending !== null}
           busy={state.busy}
           draft={draft}

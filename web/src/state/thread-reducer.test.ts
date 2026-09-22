@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AgentEvent, ConversationDetail, StoredMessage } from "../api/types";
-import { emptyThread, itemsFromMessages, threadReducer, type ThreadState } from "./thread-reducer";
+import { emptyThread, itemsFromMessages, questionText, threadReducer, type ThreadState } from "./thread-reducer";
 
 const DENIED_TEXT = "Người dùng đã TỪ CHỐI hành động này. Không thử lại cùng hành động.";
 
@@ -105,9 +105,63 @@ describe("threadReducer loaded", () => {
     );
     expect(state.spentUsd).toBe(0.2);
     expect(state.unknownCostCalls).toBe(1);
-    expect(state.pending).toEqual({ approvalId: "ap1", toolCallId: "tc", name: "write_file", arguments: { path: "x" }, expiresAt: "2026-09-20T03:10:00Z" });
+    // No `kind` on the row: written before questions existed, so it is a tool call. Read
+    // as a question it would get a card whose only route the server refuses.
+    expect(state.pending).toEqual({
+      approvalId: "ap1",
+      toolCallId: "tc",
+      name: "write_file",
+      arguments: { path: "x" },
+      expiresAt: "2026-09-20T03:10:00Z",
+      kind: "tool",
+      options: [],
+    });
     expect(state.items[0]).toMatchObject({ kind: "tool", status: "awaiting" });
     expect(state.busy).toBe(false);
+  });
+
+  it("carries the kind and the choices of a question through the live event", () => {
+    // Without these the card cannot tell a question from a tool call, and the person is
+    // offered Allow/Refuse for a row the server will only accept an answer on.
+    const event: AgentEvent = {
+      type: "approval_required",
+      approval_id: "ap2",
+      tool_call_id: "tc2",
+      name: "ask_user",
+      arguments: { question: "Dời hạn sang thứ sáu?" },
+      reason: "",
+      expires_at: "",
+      kind: "question",
+      options: ["có", "không"],
+    };
+    const state = threadReducer(emptyThread, { type: "event", event });
+    expect(state.pending?.kind).toBe("question");
+    expect(state.pending?.options).toEqual(["có", "không"]);
+    expect(questionText(state.pending!)).toBe("Dời hạn sang thứ sáu?");
+  });
+
+  it("reads a question waiting on a reloaded conversation", () => {
+    const state = threadReducer(emptyThread, {
+      type: "loaded",
+      detail: detail({
+        pending_approval: {
+          id: "ap3",
+          conversation_id: "c1",
+          message_id: "m",
+          tool_call_id: "tc3",
+          tool_name: "ask_user",
+          arguments: { question: "Đặt tên gì?" },
+          status: "pending",
+          created_at: "",
+          expires_at: null,
+          resolved_at: null,
+          kind: "question",
+          options: [],
+        },
+      }),
+    });
+    expect(state.pending?.kind).toBe("question");
+    expect(questionText(state.pending!)).toBe("Đặt tên gì?");
   });
 });
 

@@ -13,7 +13,7 @@ import { stepState, type StepState } from "./run-progress";
 import type { RunInfo, RunStep } from "../api/types";
 
 /** The visual family of a row, which decides its colour and glyph. */
-export type RowKind = "model" | "tool" | "delegate" | "fallback";
+export type RowKind = "model" | "tool" | "delegate" | "fallback" | "question";
 
 export interface RunRow {
   /** Stable within one run: the index of the first step this row covers. */
@@ -39,12 +39,15 @@ const DELEGATE_TOOL = "delegate";
 function rowKind(step: RunStep): RowKind {
   if (step.kind === "model") return "model";
   if (step.kind === "fallback") return "fallback";
+  if (step.kind === "question") return "question";
   return step.name === DELEGATE_TOOL ? "delegate" : "tool";
 }
 
 function rowLabel(step: RunStep): string {
   if (step.kind === "model") return step.model ?? "?";
   if (step.kind === "fallback") return `${step.provider}:${step.model}`;
+  // The question itself, not "ask_user": the label is what the row is about.
+  if (step.kind === "question") return step.question;
   return step.name;
 }
 
@@ -68,7 +71,9 @@ function mergeable(prev: RunRow, next: RunRow): boolean {
 function hasBody(step: RunStep): boolean {
   if (step.kind === "tool") return step.output !== null && step.output !== "";
   if (step.kind === "model") return step.preview !== "";
-  return true; // A fallback carries its error text, which is always worth its own row.
+  // A fallback carries its error text and a question carries what was asked; both are
+  // always worth their own row.
+  return true;
 }
 
 export function runRows(run: RunInfo): RunRow[] {

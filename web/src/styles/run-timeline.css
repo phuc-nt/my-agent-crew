@@ -76,6 +76,12 @@
 .step.fallback::before {
   background: var(--step-fallback);
 }
+.step.question::before {
+  /* Hollow, like delegate: the run does not end here, it hands the next move to
+     someone else and the line carries on through the node. */
+  background: transparent;
+  border: 2px solid var(--step-question);
+}
 
 /* ── State, drawn around the row and never on the node ──────────────────── */
 
@@ -110,6 +116,20 @@
       0 0 0 3px var(--surface),
       0 0 0 7px color-mix(in srgb, currentcolor 0%, transparent);
   }
+}
+
+/* Waiting is the one open state that is not moving, so it reads at full strength like
+   a running row but without the breathing halo — the row is the thing to act on, and
+   animating it would promise progress that only a person can supply. */
+.step.waiting {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.step.waiting::before {
+  box-shadow:
+    0 0 0 3px var(--surface),
+    0 0 0 3px color-mix(in srgb, var(--step-question) 45%, transparent);
 }
 
 .step.failed::before {
@@ -267,6 +287,13 @@
   background-clip: text;
   color: transparent;
   animation: label-shimmer 2.4s linear infinite;
+}
+
+/* Still the loudest line in the card, but by colour rather than by motion: it is a
+   thing to act on, not a thing to watch. */
+.run-progress.waiting .run-progress-label {
+  color: var(--accent);
+  font-weight: 600;
 }
 
 @keyframes label-shimmer {

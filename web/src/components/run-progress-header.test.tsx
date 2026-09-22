@@ -41,6 +41,21 @@ describe("RunProgressHeader", () => {
     expect(screen.getByTestId("run-progress")).toHaveTextContent(vi.runDoing("shell_run"));
   });
 
+  it("says it is waiting on the person rather than claiming to be thinking", () => {
+    // Before this, a run stopped on a question reported "Đang suy nghĩ" and kept the
+    // shimmer running, so the person sat watching for work that only their answer starts.
+    const asked: RunStep = { kind: "question", question: "Dời hạn?", duration_ms: null };
+    const { container } = render(<RunProgressHeader run={run([toolStep(), asked], "awaiting_approval")} />);
+    expect(screen.getByTestId("run-progress")).toHaveTextContent(vi.runWaitingAnswer);
+    expect(container.querySelector(".run-progress.live")).toBeNull();
+  });
+
+  it("keeps a waiting question out of the finished count", () => {
+    const asked: RunStep = { kind: "question", question: "Dời hạn?", duration_ms: null };
+    render(<RunProgressHeader run={run([toolStep(), asked], "awaiting_approval")} />);
+    expect(screen.getByTestId("run-progress")).toHaveTextContent(vi.runStepCount(1, 2));
+  });
+
   it("falls back to thinking when no step is open yet", () => {
     render(<RunProgressHeader run={run([], "running")} />);
     expect(screen.getByTestId("run-progress")).toHaveTextContent(vi.runThinking);

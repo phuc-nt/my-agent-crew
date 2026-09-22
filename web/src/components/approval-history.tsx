@@ -10,6 +10,8 @@ const STATUS_CLASS: Record<ApprovalStatus, string> = {
   approved: "ok",
   denied: "warn",
   expired: "warn",
+  // An answered question is a settled request, not a refused one.
+  answered: "ok",
 };
 
 interface Props {

@@ -42,6 +42,13 @@ export type RunStep =
       model: string;
       error: string;
       duration_ms: number | null;
+    }
+  | {
+      /** The run stopped to ask the person something. It stays open: the answer arrives
+       *  on a new run, so this step has no end and its duration is never filled in. */
+      kind: "question";
+      question: string;
+      duration_ms: number | null;
     };
 
 /** A chat turn or job execution with its step timeline. */

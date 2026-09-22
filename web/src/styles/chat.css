@@ -228,6 +228,47 @@
   opacity: 0.85;
 }
 
+/* A question is not a warning. The tool bar is amber because something is about to run
+   that the person may not want; here the agent is only stuck on something it cannot know,
+   so it reads as a prompt in the accent colour and not as caution. */
+.question-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--accent-soft);
+  border-top: 1px solid var(--accent);
+}
+
+.question-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.question-asked {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.question-options {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.question-form {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.question-form input {
+  flex: 1;
+  min-width: 0;
+}
+
 .approval-list {
   list-style: none;
   margin: 0;

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { RunInfo } from "../api/types";
 import { vi } from "../i18n/vi";
 import type { SettledStatus } from "../lib/run-progress";
-import { activeStep, isSettled, stepProgress, runElapsedMs } from "../lib/run-progress";
+import { activeStep, isSettled, stepProgress, runElapsedMs, waitingStep } from "../lib/run-progress";
 import { runRows } from "../lib/run-rows";
 
 /**
@@ -17,13 +17,18 @@ export function RunProgressHeader({ run }: { run: RunInfo }) {
   const elapsed = useElapsed(run, live);
   const { done, total } = stepProgress(run);
   const active = activeStep(run);
+  // A question outranks anything still open: it is the only thing that will move the run
+  // on, and reporting a half-finished tool call instead would hide the ask.
+  const waiting = waitingStep(run);
 
   // A settled run has no "right now" to report, so it says how it ended instead.
   // Saying "Đang suy nghĩ" on a run that finished minutes ago reads as a hang.
   const label = !isSettled(run.status)
-    ? active === null
-      ? vi.runThinking
-      : vi.runDoing(labelFor(run, active))
+    ? waiting !== null
+      ? vi.runWaitingAnswer
+      : active === null
+        ? vi.runThinking
+        : vi.runDoing(labelFor(run, active))
     : endedLabel(run.status);
   // The bar is a proportion of the steps that exist, not of a total it cannot
   // know, so a run that is still producing steps shows the bar creeping and
@@ -32,7 +37,10 @@ export function RunProgressHeader({ run }: { run: RunInfo }) {
 
   return (
     <div className="run-progress-wrap" data-testid="run-progress">
-      <div className={`run-progress${live ? " live" : ""}`}>
+      {/* A waiting run is live but not moving. The shimmer means work is under way, so
+          leaving it on would tell the person to sit and wait for the very thing that
+          only starts once they answer. */}
+      <div className={`run-progress${live && waiting === null ? " live" : ""}${waiting !== null ? " waiting" : ""}`}>
         <span className="run-progress-label">{label}</span>
         <span className="run-progress-count tabular">
           {vi.runStepCount(done, total)} · {vi.runElapsed(elapsed)}

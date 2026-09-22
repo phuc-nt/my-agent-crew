@@ -2,10 +2,12 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi as vitest } from "vitest";
 import { vi } from "../i18n/vi";
+import { questionPending, toolPending } from "../test/pending";
 import { ApprovalBar } from "./approval-bar";
 import { BudgetIndicator, formatUsd } from "./budget-indicator";
 import { Composer } from "./composer";
 import { ConversationList } from "./conversation-list";
+import { QuestionCard } from "./question-card";
 import { formatClock } from "./run-timeline";
 import { ToolCallCard, summarizeArguments } from "./tool-call-card";
 
@@ -75,7 +77,7 @@ describe("ApprovalBar", () => {
   it("names the tool and reports the decision", async () => {
     const onDecide = vitest.fn();
     render(
-      <ApprovalBar pending={{ approvalId: "ap", toolCallId: "tc", name: "write_file", arguments: { path: "x" } }} busy={false} onDecide={onDecide} />,
+      <ApprovalBar pending={toolPending({ name: "write_file", arguments: { path: "x" } })} busy={false} onDecide={onDecide} />,
     );
     expect(screen.getByText(vi.approvalTitle("write_file"))).toBeInTheDocument();
     expect(screen.getByText("path=x")).toBeInTheDocument();
@@ -87,18 +89,18 @@ describe("ApprovalBar", () => {
   it("shows why an autonomous conversation stopped, and nothing when it did not", () => {
     const reason = "khớp mẫu cần duyệt: `rm -rf`";
     const { rerender } = render(
-      <ApprovalBar pending={{ approvalId: "ap", toolCallId: "tc", name: "shell_run", arguments: {}, reason }} busy={false} onDecide={() => undefined} />,
+      <ApprovalBar pending={toolPending({ name: "shell_run", reason })} busy={false} onDecide={() => undefined} />,
     );
     expect(screen.getByText(reason)).toBeInTheDocument();
     rerender(
-      <ApprovalBar pending={{ approvalId: "ap", toolCallId: "tc", name: "shell_run", arguments: {} }} busy={false} onDecide={() => undefined} />,
+      <ApprovalBar pending={toolPending({ name: "shell_run" })} busy={false} onDecide={() => undefined} />,
     );
     expect(screen.queryByText(reason)).not.toBeInTheDocument();
   });
 
   it("disables every button while the resumed turn is running", () => {
     render(
-      <ApprovalBar pending={{ approvalId: "ap", toolCallId: "tc", name: "x", arguments: {} }} busy onDecide={() => undefined} onAlways={() => undefined} />,
+      <ApprovalBar pending={toolPending({ name: "x" })} busy onDecide={() => undefined} onAlways={() => undefined} />,
     );
     expect(screen.getByRole("button", { name: vi.approve })).toBeDisabled();
     expect(screen.getByRole("button", { name: vi.alwaysAllow })).toBeDisabled();
@@ -111,7 +113,7 @@ describe("ApprovalBar", () => {
     const expiresAt = "2026-09-20T03:10:00Z";
     render(
       <ApprovalBar
-        pending={{ approvalId: "ap", toolCallId: "tc", name: "write_file", arguments: {}, expiresAt }}
+        pending={toolPending({ name: "write_file", expiresAt })}
         busy={false}
         onDecide={onDecide}
         onAlways={onAlways}
@@ -124,9 +126,62 @@ describe("ApprovalBar", () => {
   });
 
   it("hides the always-allow button and the deadline when neither is available", () => {
-    render(<ApprovalBar pending={{ approvalId: "ap", toolCallId: "tc", name: "x", arguments: {} }} busy={false} onDecide={() => undefined} />);
+    render(<ApprovalBar pending={toolPending({ name: "x" })} busy={false} onDecide={() => undefined} />);
     expect(screen.queryByRole("button", { name: vi.alwaysAllow })).not.toBeInTheDocument();
     expect(screen.queryByText(/tự từ chối/)).not.toBeInTheDocument();
+  });
+});
+
+describe("QuestionCard", () => {
+  it("shows what was asked and sends typed words as the answer", async () => {
+    const onAnswer = vitest.fn();
+    render(<QuestionCard pending={questionPending()} busy={false} onAnswer={onAnswer} />);
+    expect(screen.getByText("Dời hạn sang thứ sáu?")).toBeInTheDocument();
+    await userEvent.type(screen.getByRole("textbox"), "  dời sang thứ bảy  ");
+    await userEvent.click(screen.getByRole("button", { name: vi.questionSend }));
+    expect(onAnswer).toHaveBeenCalledWith("dời sang thứ bảy");
+  });
+
+  it("offers each choice as a button that answers with its own words", async () => {
+    const onAnswer = vitest.fn();
+    const pending = questionPending({ options: ["có", "không"] });
+    render(<QuestionCard pending={pending} busy={false} onAnswer={onAnswer} />);
+    await userEvent.click(screen.getByRole("button", { name: "không" }));
+    expect(onAnswer).toHaveBeenCalledWith("không");
+  });
+
+  it("keeps the text box even when choices are offered", () => {
+    // The server takes any wording, and the answer worth giving is often not on the list.
+    render(
+      <QuestionCard pending={questionPending({ options: ["có"] })} busy={false} onAnswer={() => undefined} />,
+    );
+    expect(screen.getByRole("textbox")).toBeInTheDocument();
+  });
+
+  it("refuses to send an empty answer", async () => {
+    const onAnswer = vitest.fn();
+    render(<QuestionCard pending={questionPending()} busy={false} onAnswer={onAnswer} />);
+    expect(screen.getByRole("button", { name: vi.questionSend })).toBeDisabled();
+    await userEvent.type(screen.getByRole("textbox"), "   ");
+    expect(onAnswer).not.toHaveBeenCalled();
+  });
+
+  it("says the deadline means a default, not a refusal", () => {
+    // A tool nobody answers is refused; a question nobody answers returns its default and
+    // the agent carries on. Telling the person the wrong one would misdirect their urgency.
+    const expiresAt = "2026-09-23T03:10:00Z";
+    render(
+      <QuestionCard pending={questionPending({ expiresAt })} busy={false} onAnswer={() => undefined} />,
+    );
+    expect(screen.getByText(vi.questionDeadline(formatClock(expiresAt)))).toBeInTheDocument();
+  });
+
+  it("disables every way of answering while the resumed turn runs", () => {
+    render(
+      <QuestionCard pending={questionPending({ options: ["có"] })} busy onAnswer={() => undefined} />,
+    );
+    expect(screen.getByRole("button", { name: "có" })).toBeDisabled();
+    expect(screen.getByRole("textbox")).toBeDisabled();
   });
 });
 

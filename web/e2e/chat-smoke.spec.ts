@@ -55,6 +55,39 @@ test("approval bar pauses the turn and approving resumes it", async ({ page }) =
   await expect(page.getByRole("textbox")).toBeEnabled();
 });
 
+// A question pauses the turn the same way a tool approval does, but it closes by a
+// different route. Before the question card, this row rendered as "Cho phép chạy
+// ask_user?" with three buttons the server refuses, so a question asked in the browser
+// was a dead end until it expired.
+test("a question the agent asks is answered in the browser and resumes the turn", async ({ page }) => {
+  const mock = await mockApi(page, { turns: [
+    [
+      { type: "assistant_message", message_id: "a1", content: "", tool_calls: [{ id: "tc", name: "ask_user", arguments: { question: "Dời hạn sang thứ sáu?" } }], provider: null, model: null, cost_usd: null },
+      { type: "approval_required", approval_id: "aq", tool_call_id: "tc", name: "ask_user", arguments: { question: "Dời hạn sang thứ sáu?" }, kind: "question", options: ["có", "không"] },
+    ],
+    [
+      { type: "tool_result", tool_call_id: "tc", name: "ask_user", ok: true, output: "{\"answered\": true}" },
+      { type: "assistant_message", message_id: "a2", content: "Giữ nguyên hạn.", tool_calls: [], provider: null, model: null, cost_usd: null },
+      { type: "done", spent_usd: 0, unknown_cost_calls: 0 },
+    ],
+  ] });
+  await page.goto("/");
+  await page.getByRole("textbox").fill("xem hạn");
+  await page.keyboard.press("Enter");
+
+  const card = page.getByRole("alertdialog");
+  await expect(card).toContainText("Dời hạn sang thứ sáu?");
+  // The approve/deny wording belongs to a tool call; the server 409s it on this row.
+  await expect(card.getByRole("button", { name: "Cho phép", exact: true })).toHaveCount(0);
+  await expect(page.getByPlaceholder("Trả lời…")).toBeVisible();
+
+  await card.getByRole("button", { name: "không", exact: true }).click();
+  await expect(page.getByTestId("message-assistant")).toContainText("Giữ nguyên hạn.");
+  const sent = mock.posted.find((r) => r.path.includes("/approvals/"));
+  expect(sent?.path).toBe("/conversations/c1/approvals/aq/answer");
+  expect(sent?.body).toEqual({ answer: "không" });
+});
+
 test("the settings section lists routes and key presence", async ({ page }) => {
   await mockApi(page);
   // Settings is a section of the crew's screen, reachable by link as well as by the

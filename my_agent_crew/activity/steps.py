@@ -18,6 +18,7 @@ from my_agent_crew.agent.events import (
     ToolCallEvent,
     ToolResultEvent,
 )
+from my_agent_crew.store.models import QUESTION
 from my_agent_crew.store.runs import AWAITING, DONE, FAILED, HALTED, RUNNING, RunRecord
 
 PREVIEW_CHARS = 160
@@ -120,6 +121,15 @@ def apply_event(run: RunRecord, event: Event, clock: float) -> None:
         return
     if isinstance(event, ApprovalRequiredEvent):
         run.status = AWAITING
+        # A question is summarised by what it asked. "ask_user" on the card would tell the
+        # person a tool is waiting, when what is waiting is a sentence only they can finish.
+        asked = str(event.arguments.get("question", "")) if event.kind == QUESTION else ""
+        if asked:
+            # The step stays open: a timeline that showed no pause would make the gap
+            # before the answer look like the agent thinking for an hour.
+            _open_step(run, {"kind": "question", "question": _preview(asked)}, clock)
+            run.summary = asked
+            return
         # The reason says why an autonomous run stopped anyway; without it the card only
         # says "shell_run" and reads like a misconfiguration.
         run.summary = f"{event.name} ({event.reason})" if event.reason else event.name

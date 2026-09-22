@@ -6,13 +6,29 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from typing import Any
 
 from my_agent_crew.llm.types import Message, ToolCall
 
 IDLE = "idle"
 AWAITING_APPROVAL = "awaiting_approval"
+
+# What an approval row is waiting for.
+TOOL, QUESTION = "tool", "question"
+
+
+def _column(row: sqlite3.Row, name: str, fallback: Any) -> Any:
+    """A column that may not exist yet on this connection.
+
+    Migrations add columns to the live file, but a row read through a connection opened
+    against an older database, or a test fixture built by hand, may not carry them. Asking
+    for the fallback is better than failing to read a row that is otherwise complete."""
+    try:
+        value = row[name]
+    except (IndexError, KeyError):
+        return fallback
+    return fallback if value is None and fallback is not None else value
 
 
 @dataclass(frozen=True)
@@ -121,6 +137,10 @@ class StoredMessage:
 
 @dataclass(frozen=True)
 class Approval:
+    """A turn waiting on a person: either a tool asking to run, or the agent asking a
+    question. Both pause the same way and are answered through the same endpoint; what
+    differs is that a question carries choices and comes back with an answer."""
+
     id: str
     conversation_id: str
     message_id: int
@@ -131,6 +151,14 @@ class Approval:
     created_at: str
     expires_at: str | None = None  # None on rows older than the expiry rule
     resolved_at: str | None = None
+    kind: str = "tool"  # "tool" | "question"; rows older than questions are tools
+    options: list[str] = field(default_factory=list)
+    answer: str | None = None
+
+    @property
+    def question(self) -> str:
+        """What was asked, for a question row. Empty for a tool row."""
+        return str(self.arguments.get("question", "")) if self.kind == QUESTION else ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -148,4 +176,7 @@ class Approval:
             created_at=row["created_at"],
             expires_at=row["expires_at"],
             resolved_at=row["resolved_at"],
+            kind=_column(row, "kind", "tool"),
+            options=json.loads(_column(row, "options", "[]")),
+            answer=_column(row, "answer", None),
         )

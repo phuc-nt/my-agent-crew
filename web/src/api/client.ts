@@ -170,6 +170,14 @@ export const api = {
       always ? { approve, always: true } : { approve },
       onEvent,
     ),
+  /** A question closes by its own route. The approve/deny route refuses a question row,
+   *  so answering through it would leave the agent waiting until the deadline. */
+  answerApproval: (
+    id: string,
+    approvalId: string,
+    answer: string,
+    onEvent: (e: AgentEvent) => void,
+  ) => stream(`/conversations/${id}/approvals/${approvalId}/answer`, { answer }, onEvent),
   listApprovals: (params: { limit?: number; conversation_id?: string } = {}) =>
     request<ApprovalInfo[]>(`/approvals${query(params)}`),
   listRuns: (params: { limit?: number; agent_id?: string; conversation_id?: string } = {}) =>

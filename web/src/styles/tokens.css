@@ -91,6 +91,9 @@
   --step-tool: var(--info);
   --step-delegate: #8b5cf6;
   --step-fallback: var(--warn);
+  /* A question turns to the person rather than to a provider, so it takes the accent
+     hue and not the warn one: nothing has gone wrong, the agent simply cannot know. */
+  --step-question: var(--accent);
 
   --user-bubble: #e8f0fe;
 

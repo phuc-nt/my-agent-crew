@@ -10,6 +10,8 @@ export interface ThreadController {
   send: (text: string) => Promise<void>;
   /** `always` also whitelists the tool for the rest of this conversation. */
   decide: (approve: boolean, always?: boolean) => Promise<void>;
+  /** Reply to a question the agent asked. Only a question row accepts this. */
+  answer: (text: string) => Promise<void>;
   stop: () => void;
   reload: () => Promise<void>;
 }
@@ -80,9 +82,18 @@ export function useThread(conversationId: string | null): ThreadController {
     [conversationId, runTurn, state.pending],
   );
 
+  const answer = useCallback(
+    async (text: string) => {
+      const pending = state.pending;
+      if (!conversationId || !pending || pending.kind !== "question") return;
+      await runTurn((emit) => api.answerApproval(conversationId, pending.approvalId, text, emit));
+    },
+    [conversationId, runTurn, state.pending],
+  );
+
   const stop = useCallback(() => abortRef.current?.abort(), []);
 
-  return { state, detail, send, decide, stop, reload };
+  return { state, detail, send, decide, answer, stop, reload };
 }
 
 function describe(error: unknown): string {

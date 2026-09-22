@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from typing import Any
 
 
@@ -50,6 +50,11 @@ class ApprovalRequiredEvent:
     reason: str = ""
     # When an unanswered request closes as expired (ISO, UTC); empty for legacy rows.
     expires_at: str = ""
+    # "tool" when a call is waiting to be authorised, "question" when the agent is asking
+    # the person something. The UI shows a different card for each.
+    kind: str = "tool"
+    # The choices a question offered, if it offered any. Never set for a tool.
+    options: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)

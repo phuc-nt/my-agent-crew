@@ -154,6 +154,34 @@ describe("App", () => {
     expect(screen.queryByRole("list", { name: vi.autoApproved })).not.toBeInTheDocument();
   });
 
+  it("answers a question the agent asked and resumes the turn", async () => {
+    // The whole point of the question card: before it, this row offered only Allow and
+    // Refuse, and the server 409s both, so the agent waited out its deadline.
+    backend.create({
+      title: "Hỏi",
+      status: "awaiting_approval",
+      messages: [storedMessage("assistant", "", { tool_calls: [{ id: "tq", name: "ask_user", arguments: { question: "Dời hạn sang thứ sáu?" } }] })],
+      pending_approval: { id: "aq1", conversation_id: "c1", message_id: "m", tool_call_id: "tq", tool_name: "ask_user", arguments: { question: "Dời hạn sang thứ sáu?" }, status: "pending", created_at: "", expires_at: null, resolved_at: null, kind: "question", options: ["có", "không"] },
+    });
+    backend.nextTurn = [
+      { type: "tool_result", tool_call_id: "tq", name: "ask_user", ok: true, output: "không" },
+      { type: "assistant_message", message_id: "a2", content: "Giữ nguyên hạn.", tool_calls: [], provider: null, model: null, cost_usd: null },
+      { type: "done", spent_usd: 0, unknown_cost_calls: 0 },
+    ];
+    render(<App />);
+    await userEvent.click(await screen.findByRole("button", { name: /Hỏi/ }));
+    const card = await screen.findByRole("alertdialog");
+    expect(card).toHaveTextContent("Dời hạn sang thứ sáu?");
+    expect(within(card).queryByRole("button", { name: vi.approve })).not.toBeInTheDocument();
+
+    await userEvent.click(within(card).getByRole("button", { name: "không" }));
+
+    expect(await screen.findByText("Giữ nguyên hạn.")).toBeInTheDocument();
+    expect(backend.lastAnswer).toBe("không");
+    const sent = backend.requests.find((r) => r.path.includes("/approvals/"));
+    expect(sent).toMatchObject({ path: "/conversations/c1/approvals/aq1/answer", body: { answer: "không" } });
+  });
+
   it("surfaces a halted turn and a 409 conflict as notices", async () => {
     backend.create({ title: "A" });
     backend.nextTurn = [{ type: "halted", reason: "budget", spent_usd: 1 }];

@@ -4,6 +4,12 @@ A paused turn holds its conversation, and for a job its channel, until someone d
 When the deadline passes the request is closed as expired, the loop resumes with the
 tool refused (the model reads it as a denial) and the answer is delivered as usual, so
 a night job that hit a guard still reports in the morning instead of waiting silently.
+
+A question expires the same way but does not resume the same way. Nobody authorising a
+tool means the tool must not run; nobody answering a question means only that the agent
+decides for itself. The loop hands it the question's default and it carries on — see the
+question branch in `settle_tool_calls`. The sweep itself does not need to tell the two
+apart, because both end as one closed row and one resumed turn.
 """
 
 from __future__ import annotations

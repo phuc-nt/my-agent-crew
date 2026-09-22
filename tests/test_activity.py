@@ -17,7 +17,8 @@ from my_agent_crew.agent.events import (
     ToolCallEvent,
     ToolResultEvent,
 )
-from my_agent_crew.agent.loop import resolve_approval, run_turn
+from my_agent_crew.agent.loop import run_turn
+from my_agent_crew.agent.resume import resolve_approval
 from my_agent_crew.config import Route
 from my_agent_crew.llm.fake import completion
 from my_agent_crew.llm.types import ToolCall
@@ -130,6 +131,23 @@ def test_terminal_events_set_status(event, status, summary):
     assert (run.status, run.summary) == (status, summary)
 
 
+def test_a_waiting_question_is_summarised_by_what_it_asked():
+    """ "ask_user" on the card would say a tool is waiting. What waits is a sentence only
+    the person can finish, so the card has to show the sentence."""
+    run = fresh_run()
+    event = ApprovalRequiredEvent(
+        "a1",
+        "c1",
+        "ask_user",
+        {"question": "Dời hạn sang thứ sáu?"},
+        kind="question",
+        options=["có", "không"],
+    )
+    apply_event(run, event, 0.0)
+    assert run.status == AWAITING
+    assert run.summary == "Dời hạn sang thứ sáu?"
+
+
 async def test_tracked_turn_is_stored_and_streamed(deps_factory):
     deps = deps_factory(
         script=[completion(tool_calls=(ToolCall("c1", "workspace_list", {}),)), completion("ok")]
@@ -179,6 +197,25 @@ async def test_approval_pause_keeps_one_run_across_resume(deps_factory):
     await collect(tracked(hub, resumed, "default", "chat", "t", conv.id))
     assert hub.live() == [] and [r.id for r in hub.recent()] == [run.id]
     assert hub.recent()[0].status == DONE
+
+
+async def test_a_question_leaves_an_open_step_on_the_stored_run(deps_factory):
+    """The web draws the pause from this step. Without it the gap between the question
+    and the answer shows as nothing at all, and reads as an agent thinking for an hour."""
+    asking = ToolCall("q1", "ask_user", {"question": "Dời hạn sang thứ sáu?"})
+    deps = deps_factory(script=[completion(tool_calls=(asking,)), completion("xong")])
+    hub = ActivityHub(deps.store)
+    conv = deps.store.create()
+    await collect(tracked(hub, run_turn(deps, conv.id, "xem hạn"), "default", "chat", "t", conv.id))
+
+    [run] = hub.live()
+    assert run.status == AWAITING
+    asked = run.steps[-1]
+    assert asked["kind"] == "question" and asked["question"] == "Dời hạn sang thứ sáu?"
+    # Never closed: the answer resumes the turn as a different run, so a duration here
+    # would be a measurement of nothing.
+    assert asked["duration_ms"] is None
+    assert deps.store.runs.get(run.id).steps[-1]["kind"] == "question"
 
 
 async def test_abandoned_consumer_marks_run_as_error(deps_factory):

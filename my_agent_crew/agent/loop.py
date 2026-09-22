@@ -21,7 +21,6 @@ from my_agent_crew.agent.prompt import turn_messages
 from my_agent_crew.agent.tool_calls import settle_tool_calls
 from my_agent_crew.agent.turn_context import (
     CHAT,
-    conversation_source,
     set_turn_conversation,
     set_turn_source,
 )
@@ -31,8 +30,7 @@ from my_agent_crew.llm.provider import ProviderChain, ProviderError
 from my_agent_crew.llm.types import Completion, Message, RouteFailed, TextDelta
 from my_agent_crew.skills import Skill
 from my_agent_crew.store import Conversation, Store, StoredMessage
-from my_agent_crew.store.approvals import PENDING
-from my_agent_crew.store.models import AWAITING_APPROVAL, IDLE
+from my_agent_crew.store.models import AWAITING_APPROVAL
 from my_agent_crew.tools import ToolRegistry
 
 
@@ -120,26 +118,6 @@ def _blank_reply_event(blank: StoredMessage, already_retried: int) -> ErrorEvent
             provider=blank.provider or "?", model=blank.model or "?"
         )
     )
-
-
-async def resolve_approval(
-    deps: AgentDeps, conv_id: str, approval_id: str, approve: bool, always: bool = False
-) -> AsyncIterator[Event]:
-    """`always` approves and also lets this tool run without asking for the rest of the
-    conversation; the ask list for shell commands still applies on top."""
-    approval = deps.store.approvals.get(approval_id)
-    if approval.conversation_id != conv_id or approval.status != PENDING:
-        raise KeyError(approval_id)
-    deps.store.approvals.resolve(approval_id, approve)
-    fields: dict[str, object] = {"status": IDLE}
-    if approve and always:
-        allowed = deps.store.get(conv_id).auto_approve
-        if approval.tool_name not in allowed:
-            fields["auto_approve"] = (*allowed, approval.tool_name)
-    deps.store.update(conv_id, **fields)
-    source = conversation_source(deps.store, conv_id)
-    async for event in run_turn(deps, conv_id, None, source=source):
-        yield event
 
 
 async def _complete(

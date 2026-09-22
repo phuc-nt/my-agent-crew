@@ -21,6 +21,24 @@ from my_agent_crew.agent.events import (
     HaltedEvent,
     kind_of,
 )
+from my_agent_crew.store.models import QUESTION
+
+# How a question with choices is shown where there is no radio button to click: the
+# choices numbered, and a line saying a number or a sentence will both do.
+QUESTION_WITH_OPTIONS = "{question}\n\n{choices}\n\nTrả lời bằng số hoặc viết câu trả lời."
+CHOICE_LINE = "{number}. {option}"
+
+
+def question_notice(event: ApprovalRequiredEvent) -> str:
+    """A question the agent asked, as the one message a chat can show."""
+    question = str(event.arguments.get("question", "")).strip() or event.name
+    if not event.options:
+        return question
+    choices = "\n".join(
+        CHOICE_LINE.format(number=i, option=option)
+        for i, option in enumerate(event.options, start=1)
+    )
+    return QUESTION_WITH_OPTIONS.format(question=question, choices=choices)
 
 
 @dataclass(frozen=True)
@@ -58,9 +76,15 @@ async def collect_reply(
             parts.append(texts.REPLY_ERROR.format(message=event.message))
             status = kind_of(event)
         elif isinstance(event, ApprovalRequiredEvent):
-            reason = f" ({event.reason})" if event.reason else ""
-            notice = texts.REPLY_APPROVAL.format(name=event.name, reason=reason, how=approval_how)
-            parts.append(notice)
+            if event.kind == QUESTION:
+                # A question is shown as itself. "The tool ask_user needs your approval"
+                # would hide the actual question behind the machinery that carried it.
+                parts.append(question_notice(event))
+            else:
+                reason = f" ({event.reason})" if event.reason else ""
+                parts.append(
+                    texts.REPLY_APPROVAL.format(name=event.name, reason=reason, how=approval_how)
+                )
             status = kind_of(event)
     answer = "\n\n".join(part for part in parts if part)
     return TurnReply(answer or texts.REPLY_EMPTY.format(steps=steps), steps, status)

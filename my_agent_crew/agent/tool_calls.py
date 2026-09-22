@@ -1,8 +1,12 @@
 """Carrying out the tool calls the model asked for, before the next completion.
 
 A call the agent may not make on its own stops the turn: an approval is recorded and the
-turn ends, to be resumed by `resolve_approval` once the person decides. Everything else
+turn ends, to be resumed from `agent.resume` once the person decides. Everything else
 runs and its result is appended, so the next completion sees what happened.
+
+A question the agent asked with `ask_user` pauses the same way and is resumed the same
+way, but it closes with the person's words rather than a yes or no, and running out of
+time hands it a default instead of a refusal.
 """
 
 from __future__ import annotations
@@ -20,9 +24,15 @@ from my_agent_crew.agent.events import (
 from my_agent_crew.agent.tool_batches import split_batches
 from my_agent_crew.agent.turn_context import set_tool_call_id
 from my_agent_crew.llm.types import Message, ToolCall
-from my_agent_crew.store.approvals import DENIED, EXPIRED, PENDING
-from my_agent_crew.store.models import AWAITING_APPROVAL, Conversation
+from my_agent_crew.store.approvals import ANSWERED, DENIED, EXPIRED, PENDING
+from my_agent_crew.store.models import AWAITING_APPROVAL, QUESTION, TOOL, Conversation
 from my_agent_crew.texts import DENIED_TOOL, EXPIRED_TOOL, SHELL_ASK_REASON
+from my_agent_crew.tools.ask_user import (
+    ASK_USER_TOOL_NAME,
+    answer_result,
+    options_of,
+    unanswered_result,
+)
 from my_agent_crew.tools.registry import ToolResult
 from my_agent_crew.tools.shell import SHELL_TOOL_NAME, ask_reason
 from my_agent_crew.tools.shell_temp_paths import deletes_only_temp_paths
@@ -53,7 +63,13 @@ def _ask_reason(deps: AgentDeps, name: str, arguments: dict[str, Any]) -> str | 
 
 def needs_decision(conv: Conversation, name: str, reason: str | None) -> bool:
     """An autonomous conversation and a tool the person said to always allow both skip
-    the pause; a command on the ask list pauses regardless, that guard is additive."""
+    the pause; a command on the ask list pauses regardless, that guard is additive.
+
+    A question is not a tool authorisation and never skips. Autonomy means "do not ask me
+    to authorise your tools", not "never speak to me"; a question that approved itself
+    would be answered by nobody and tell the agent nothing."""
+    if name == ASK_USER_TOOL_NAME:
+        return True
     if reason:
         return True
     return not conv.autonomous and name not in conv.auto_approve
@@ -112,10 +128,16 @@ async def settle_tool_calls(deps: AgentDeps, conv_id: str) -> AsyncIterator[Even
             continue
         call = batch[0]
         if _pauses_for_a_person(deps, conv, call):
+            asking = call.name == ASK_USER_TOOL_NAME
             approval = deps.store.approvals.find_for_call(conv_id, call.id)
             if approval is None:
                 approval = deps.store.approvals.create(
-                    conv_id, last.id, call, ttl_seconds=deps.settings.approval_ttl_seconds
+                    conv_id,
+                    last.id,
+                    call,
+                    ttl_seconds=deps.settings.approval_ttl_seconds,
+                    kind=QUESTION if asking else TOOL,
+                    options=options_of(call.arguments) if asking else [],
                 )
                 deps.store.update(conv_id, status=AWAITING_APPROVAL)
             if approval.status == PENDING:
@@ -127,8 +149,22 @@ async def settle_tool_calls(deps: AgentDeps, conv_id: str) -> AsyncIterator[Even
                     arguments=call.arguments,
                     reason=SHELL_ASK_REASON.format(pattern=reason) if reason else "",
                     expires_at=approval.expires_at or "",
+                    kind=approval.kind,
+                    options=list(approval.options),
                 )
                 return
+            if approval.kind == QUESTION:
+                # An answered question hands over the person's words; an expired one hands
+                # over its default. Neither is a refusal: the turn carries on either way.
+                answered = approval.status == ANSWERED and approval.answer is not None
+                output = (
+                    answer_result(approval.answer)
+                    if answered
+                    else unanswered_result(call.arguments)
+                )
+                yield ToolCallEvent(tool_call_id=call.id, name=call.name, arguments=call.arguments)
+                yield await _record(deps, conv_id, call, ToolResult(ok=True, output=output))
+                continue
             if approval.status in REFUSALS:
                 refusal = REFUSALS[approval.status]
                 yield await _record(deps, conv_id, call, ToolResult(ok=False, output=refusal))

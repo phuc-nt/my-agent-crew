@@ -14,11 +14,13 @@ from my_agent_crew.llm.provider import ProviderChain
 from my_agent_crew.skills import Skill
 from my_agent_crew.store import Store
 from my_agent_crew.tools import Tool, ToolRegistry
+from my_agent_crew.tools.ask_user import build_ask_user_tool
 from my_agent_crew.tools.hooks import HookRunner
 from my_agent_crew.tools.image import build_image_tool
 from my_agent_crew.tools.memory import build_memory_tools
 from my_agent_crew.tools.memory_user import build_user_memory_tools
 from my_agent_crew.tools.output_summary import chain_summariser
+from my_agent_crew.tools.pdf import build_pdf_tool
 from my_agent_crew.tools.shell import build_shell_tool
 from my_agent_crew.tools.skills import build_skill_tools
 from my_agent_crew.tools.web import build_web_tools
@@ -73,6 +75,13 @@ def build_tools(
         *build_user_memory_tools(profile.settings.user_dir, store, profile.id),
         build_shell_tool(profile.workspace),
         *build_skill_tools(skills),
+        # Asking is not a capability an agent should have to be granted: an agent that may
+        # act but may not ask would guess instead, which is worse. It stays out of
+        # OPTIONAL_TOOLS so a profile that narrows `tools` and forgets it gets a warning.
+        build_ask_user_tool(),
+        # Registered whether or not there is a vision chain: a typeset PDF reads fine
+        # without one, and only a scanned page needs to say it could not.
+        build_pdf_tool((profile.workspace, profile.settings.home), vision),
     ]
     if profile.is_work:
         tools += [build_edit_tool(profile.workspace), *build_search_tools(profile.workspace)]

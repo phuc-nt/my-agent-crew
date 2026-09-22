@@ -51,6 +51,23 @@ describe("RunCard", () => {
     expect(open).toHaveBeenCalledWith("c1");
   });
 
+  it("draws a question as a row that is waiting, not one that is working", async () => {
+    const run = fakeRun({
+      status: "awaiting_approval",
+      finished_at: null,
+      steps: [
+        { kind: "model", chars: 5, provider: "fake", model: "echo", cost_usd: null, tool_calls: [], preview: "", duration_ms: 10 },
+        { kind: "question", question: "Dời hạn sang thứ sáu?", duration_ms: null },
+      ],
+    });
+    render(<RunCard run={run} agentName="HLV" expanded />);
+    const asked = screen.getAllByTestId("run-step")[1];
+    expect(asked).toHaveTextContent("Dời hạn sang thứ sáu?");
+    expect(asked).toHaveTextContent(vi.stepQuestion);
+    expect(asked).toHaveTextContent(vi.toolWaiting);
+    expect(asked).toHaveAttribute("data-state", "waiting");
+  });
+
   it("says when the model read a shortened tool output, and how it was shortened", async () => {
     const run = fakeRun({
       steps: [
@@ -149,6 +166,31 @@ describe("AttentionCenter", () => {
     expect(within(items[1]).queryByRole("button")).not.toBeInTheDocument();
     await userEvent.click(within(items[2]).getByRole("button", { name: vi.openConversation }));
     expect(open).toHaveBeenCalledWith("c9");
+  });
+
+  it("tells a question apart from a permission request", async () => {
+    // Both pause the run the same way, but only one has Cho phép / Từ chối. Labelling a
+    // question "đang chờ bạn duyệt" sends the person looking for buttons that are not
+    // there, and that the server would refuse anyway.
+    render(
+      <AttentionCenter
+        agentName={name}
+        onOpenConversation={() => undefined}
+        runs={[
+          fakeRun({
+            id: "q",
+            status: "awaiting_approval",
+            agent_id: "coach",
+            summary: "Dời hạn sang thứ sáu?",
+            steps: [{ kind: "question", question: "Dời hạn sang thứ sáu?", duration_ms: null }],
+          }),
+          fakeRun({ id: "t", status: "awaiting_approval", summary: "write_file" }),
+        ]}
+      />,
+    );
+    const items = screen.getAllByRole("listitem");
+    expect(items[0]).toHaveTextContent(vi.attentionAsking("HLV"));
+    expect(items[1]).toHaveTextContent(vi.attentionAwaiting("Agent"));
   });
 
   it("says when nothing needs a human", () => {

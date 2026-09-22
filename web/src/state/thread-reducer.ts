@@ -1,4 +1,4 @@
-import type { AgentEvent, ConversationDetail, StoredMessage, ToolCall } from "../api/types";
+import type { AgentEvent, ApprovalKind, ConversationDetail, StoredMessage, ToolCall } from "../api/types";
 
 export type ToolStatus = "running" | "done" | "failed" | "awaiting" | "denied";
 
@@ -23,6 +23,17 @@ export interface PendingApproval {
   reason?: string;
   /** When the request closes as refused if nobody answers. */
   expiresAt?: string;
+  /** A question is answered, not approved. The two close by different routes, so a card
+   *  that shows the wrong one gives the person only buttons the server refuses. */
+  kind: ApprovalKind;
+  /** The choices the question offered. Empty means any words will do. */
+  options: string[];
+}
+
+/** What the agent asked, for a question. Empty for a tool call. */
+export function questionText(pending: PendingApproval): string {
+  const asked = pending.arguments.question;
+  return typeof asked === "string" ? asked : "";
 }
 
 export interface ThreadState {
@@ -98,7 +109,14 @@ export function threadReducer(state: ThreadState, action: ThreadAction): ThreadS
       let pending: PendingApproval | null = null;
       if (d.pending_approval) {
         const a = d.pending_approval;
-        pending = { approvalId: a.id, toolCallId: a.tool_call_id, name: a.tool_name, arguments: a.arguments };
+        pending = {
+          approvalId: a.id,
+          toolCallId: a.tool_call_id,
+          name: a.tool_name,
+          arguments: a.arguments,
+          kind: a.kind ?? "tool",
+          options: a.options ?? [],
+        };
         if (a.expires_at) pending.expiresAt = a.expires_at;
         items = updateTool(items, a.tool_call_id, { status: "awaiting" });
       }
@@ -156,6 +174,8 @@ function applyEvent(state: ThreadState, e: AgentEvent): ThreadState {
           name: e.name,
           arguments: e.arguments,
           reason: e.reason,
+          kind: e.kind ?? "tool",
+          options: e.options ?? [],
           ...(e.expires_at ? { expiresAt: e.expires_at } : {}),
         },
         items: updateTool(state.items, e.tool_call_id, { status: "awaiting" }),

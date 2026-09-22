@@ -49,7 +49,17 @@ export const vi = {
     approved: "đã cho phép",
     denied: "đã từ chối",
     expired: "hết hạn",
+    answered: "đã trả lời",
   } as Record<string, string>,
+  // A question is not a permission request: the agent is stuck on something only the
+  // person knows, and an unanswered one falls back to its default instead of refusing.
+  awaitingAnswer: "Agent đang hỏi bạn một câu.",
+  questionTitle: "Agent hỏi",
+  questionPlaceholder: "Trả lời…",
+  questionSend: "Gửi trả lời",
+  questionEmpty: "Hãy nhập câu trả lời.",
+  questionDeadline: (time: string) => `Không trả lời thì agent tự dùng mặc định lúc ${time}.`,
+  questionAsked: (asked: string) => `Câu hỏi: ${asked}`,
   toolRunning: "đang chạy",
   toolDone: "xong",
   toolFailed: "lỗi",
@@ -58,11 +68,17 @@ export const vi = {
   // A step left open when its run ended: it neither succeeded nor reported a
   // failure, and saying so is more honest than picking one of the two.
   toolStalled: "dở dang",
+  // Nothing is being computed and no time is being bought: the run is stopped until a
+  // person types. "đang chạy" would show effort that is not happening.
+  toolWaiting: "đang chờ trả lời",
   stepDelegate: "giao việc",
   stepRepeat: (n: number) => `×${n}`,
   // The live header, one line: what the agent is doing right now.
   runDoing: (label: string) => `Đang ${label}`,
   runThinking: "Đang suy nghĩ",
+  // Not "Đang suy nghĩ": the agent is not working on anything, it is stopped until the
+  // person answers, and the header is where someone looks to find out why nothing moves.
+  runWaitingAnswer: "Đang chờ bạn trả lời",
   // And the same line once the run has settled. A finished run has no "right
   // now", so it says how it ended rather than borrowing a present tense.
   runEndedDone: "Đã xong",
@@ -355,6 +371,7 @@ export const vi = {
   runSteps: (n: number) => `${n} bước`,
   stepModel: "trả lời",
   stepFallback: "đổi tuyến",
+  stepQuestion: "hỏi bạn",
   routeFallback: (detail: string) => `Tuyến ${detail} không trả lời, đã chuyển sang tuyến dự phòng.`,
   stepDuration: (ms: number) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)} giây` : `${ms} ms`),
   stepChars: (n: number) => `${n} ký tự`,
@@ -373,6 +390,9 @@ export const vi = {
   attention: "Cần bạn xử lý",
   attentionEmpty: "Không có gì cần xử lý.",
   attentionAwaiting: (agent: string) => `${agent} đang chờ bạn duyệt`,
+  // A question is not a permission request. "chờ bạn duyệt" would send the person looking
+  // for Cho phép / Từ chối, which the server refuses on a question row.
+  attentionAsking: (agent: string) => `${agent} đang hỏi bạn`,
   attentionFailed: (agent: string) => `${agent} gặp lỗi`,
   attentionHalted: (agent: string) => `${agent} đã dừng giữa chừng`,
   costs: "Chi phí",

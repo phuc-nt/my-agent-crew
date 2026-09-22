@@ -103,6 +103,24 @@ describe("runRows", () => {
     ]);
   });
 
+  it("labels a question row with what was asked, not with the tool that asked it", () => {
+    // "ask_user" on the row would tell the reader a tool is waiting. What waits is a
+    // sentence only they can finish, so the sentence is the label.
+    const rows = runRows(
+      run([{ kind: "question", question: "Dời hạn sang thứ sáu?", duration_ms: null }], "awaiting_approval"),
+    );
+    expect(rows.map((r) => [r.kind, r.label, r.state])).toEqual([
+      ["question", "Dời hạn sang thứ sáu?", "waiting"],
+    ]);
+  });
+
+  it("never folds two questions together however alike they read", () => {
+    // Each question is its own ask with its own answer; a "×2" would hide one of them.
+    const asked: RunStep = { kind: "question", question: "Tiếp chứ?", duration_ms: null };
+    const rows = runRows(run([asked, { ...asked }], "awaiting_approval"));
+    expect(rows).toHaveLength(2);
+  });
+
   it("gives each row a key that stays put as later rows collapse", () => {
     const rows = runRows(run([toolStep({ name: "a" }), toolStep({ name: "b" }), toolStep({ name: "b" })]));
     expect(rows.map((r) => r.key)).toEqual([0, 1]);

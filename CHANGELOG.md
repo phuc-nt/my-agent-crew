@@ -46,6 +46,22 @@ bản phát hành, `pyproject.toml` và `web/package.json` luôn cùng số.
   với "sai host".
 - **Thẻ lượt chạy nói rõ model đã đọc bản rút gọn** — nhãn ghi kiểu rút gọn và độ dài gốc, để
   một câu trả lời ngắn dựng trên nguồn đã bị tỉa không bị đọc nhầm thành bức tranh đầy đủ.
+- **Công cụ `ask_user`: agent hỏi lại thay vì đoán.** Gặp chỗ không thể tự biết — hạn nào,
+  tài khoản nào, có làm tiếp không — agent dừng lượt và hỏi một câu, kèm danh sách lựa chọn
+  nếu có. Khác một lần xin phép công cụ ở ba điểm, nên đừng đọc nó như xin phép: agent đặt
+  `autonomous: true` vẫn dừng, vì câu hỏi tồn tại đúng để không tự quyết; câu hỏi đóng bằng
+  đường riêng, `/approve` và `/deny` bị từ chối trên nó; và hết hạn chờ không phải là từ
+  chối — agent nhận giá trị `default` rồi đi tiếp, im lặng được hiểu là "cứ theo mặc định".
+  Mỗi cuộc trò chuyện chỉ mở một câu hỏi. Trả lời ở web bằng thẻ câu hỏi, hoặc ở Telegram
+  bằng chính tin nhắn kế tiếp — gõ số để chọn, gõ chữ thì được nhận nguyên văn.
+- **Dòng thời gian lượt chạy có trạng thái chờ riêng.** Chỗ dừng vì câu hỏi trước đây hiện
+  ra như không có gì, đọc thành một agent suy nghĩ hàng giờ. Nay nó là một bước riêng mang
+  nội dung câu hỏi, tiêu đề thẻ ghi "Đang chờ bạn trả lời" và tắt hiệu ứng chạy — việc chỉ
+  nhúc nhích khi có người gõ, nên không hứa hẹn tiến triển nào khác.
+- **Công cụ `pdf_read`.** Trang chữ được đọc thẳng thành text; trang scan đi qua tuyến vision
+  như ảnh, mỗi trang một lượt gọi, nên đọc bản scan dài thì tốn. Mặc định 50 trang, `pages`
+  chọn một khoảng (`'1-5'`, `'3'`). Máy không có tuyến vision vẫn dựng công cụ: trang chữ đọc
+  bình thường, trang scan báo không đọc được thay vì làm hỏng cả lượt.
 
 ### Thay đổi
 

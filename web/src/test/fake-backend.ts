@@ -99,6 +99,8 @@ export class FakeBackend {
   jobs: JobInfo[] = [];
   /** Rows answered by GET /approvals, newest first. */
   approvals: ApprovalInfo[] = [];
+  /** What the last answered question was replied with, so a test can assert the words. */
+  lastAnswer: string | null = null;
   stats: StatsInfo = { runs: 0, model_calls: 0, spent_usd: 0, unknown_cost_calls: 0, by_agent: {}, by_model: {}, by_day: {}, days: [], models: [], pending_proposals: 0 };
   userMd = "";
   facts: FactInfo[] = [];
@@ -256,9 +258,19 @@ export class FakeBackend {
       c.summary = this.nextSummary;
       return json({ id: conv, summary: c.summary }, 202);
     }
+    // The real server keeps the two closing paths apart and 409s each other's rows, so
+    // the fake does too: a card wired to the wrong route must fail here, not in the wild.
     if (conv && /\/approvals\//.test(path) && method === "POST") {
       const c = this.conversations.get(conv)!;
+      const answering = path.endsWith("/answer");
+      const isQuestion = c.pending_approval?.kind === "question";
+      if (answering !== isQuestion) {
+        return json({ detail: answering ? "this is a tool call" : "this is a question" }, 409);
+      }
+      if (answering && !String(body?.answer ?? "").trim()) return json({ detail: "answer is empty" }, 422);
+      if (answering) this.lastAnswer = String(body.answer);
       if (body?.always && c.pending_approval) c.auto_approve = [...c.auto_approve, c.pending_approval.tool_name];
+      c.pending_approval = null;
       return this.streamTurn();
     }
     if (conv && method === "GET") return json(this.conversations.get(conv));

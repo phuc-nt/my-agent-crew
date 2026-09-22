@@ -4,7 +4,8 @@ from pathlib import Path
 
 from my_agent_crew import texts
 from my_agent_crew.agent.events import ApprovalRequiredEvent, DoneEvent, ToolResultEvent
-from my_agent_crew.agent.loop import resolve_approval, run_turn
+from my_agent_crew.agent.loop import run_turn
+from my_agent_crew.agent.resume import resolve_approval
 from my_agent_crew.tools.registry import ToolRegistry
 from my_agent_crew.tools.shell import ask_reason, build_shell_tool, run_shell, shell_env
 from tests.conftest import collect

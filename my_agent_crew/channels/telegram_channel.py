@@ -20,6 +20,7 @@ from my_agent_crew.agent.events import Event
 from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.agent.turn_context import TELEGRAM
 from my_agent_crew.channels.telegram_albums import complete_album, group_updates
+from my_agent_crew.channels.telegram_answers import answer_text
 from my_agent_crew.channels.telegram_api import CONFLICT_STATUS, TelegramApi, TelegramError
 from my_agent_crew.channels.telegram_commands import menu_for
 from my_agent_crew.channels.telegram_inbound import handle_updates
@@ -146,6 +147,16 @@ class TelegramChannel:
 
     async def chat(self, text: str) -> None:
         conv = self.conversation()
+        question = self.store.approvals.pending_question(conv.id)
+        # A slash command is a new instruction, never an answer. Someone who types `/brief`
+        # while a question is open wants the brief, and storing "/brief" as the answer would
+        # both lose the command and close the question with a word the agent cannot use.
+        if question is not None and not text.startswith("/"):
+            # The agent asked something and this is the reply. In a chat there is nowhere
+            # else to put it: telling the person the conversation is busy when it is busy
+            # waiting on them is the one answer that cannot be right.
+            events = self.inbound.answer(conv.id, question.id, answer_text(text, question))
+            return await self.outbound().send(await self.answer(events))
         try:
             events = self.inbound.stream(conv.id, text, source=TELEGRAM)
         except InboundBusy:

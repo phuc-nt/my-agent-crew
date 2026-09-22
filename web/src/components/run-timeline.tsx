@@ -92,6 +92,7 @@ const STATE_LABEL: Record<RunRow["state"], string> = {
   done: vi.toolDone,
   failed: vi.toolFailed,
   stalled: vi.toolStalled,
+  waiting: vi.toolWaiting,
 };
 
 /**
@@ -136,6 +137,9 @@ function StepRow({ row }: { row: RunRow }) {
           {row.kind === "model" && <span className="step-role muted">{vi.stepModel}</span>}
           {row.kind === "fallback" && <span className="step-role muted">{vi.stepFallback}</span>}
           {row.kind === "delegate" && <span className="step-role muted">{vi.stepDelegate}</span>}
+          {/* The label is the question itself, so without this the row reads as a
+              statement the agent made rather than one it is waiting on. */}
+          {row.kind === "question" && <span className="step-role muted">{vi.stepQuestion}</span>}
           {row.repeat > 1 && (
             <span className="step-repeat tabular" title={vi.runStepCount(row.repeat, row.repeat)}>
               {vi.stepRepeat(row.repeat)}

@@ -7,6 +7,7 @@ import {
   runElapsedMs,
   stepProgress,
   stepState,
+  waitingStep,
 } from "./run-progress";
 
 function toolStep(ok: boolean | null, name = "shell_run", duration: number | null = 40): RunStep {
@@ -24,6 +25,10 @@ function modelStep(tool_calls: string[] = [], duration: number | null = 100): Ru
     preview: "…",
     duration_ms: duration,
   };
+}
+
+function questionStep(question = "Dời hạn sang thứ sáu?"): RunStep {
+  return { kind: "question", question, duration_ms: null };
 }
 
 function run(status: RunStatus, steps: RunStep[], overrides: Partial<RunInfo> = {}): RunInfo {
@@ -82,6 +87,26 @@ describe("stepState", () => {
       stepState({ kind: "fallback", provider: "p", model: "m", error: "e", duration_ms: 5 }, "running"),
     ).toBe("failed");
   });
+
+  it("keeps a question waiting whatever the run went on to do", () => {
+    // The answer resumes the turn as a new run, so this step never closes. Read as
+    // running it would show effort nobody is spending; read as stalled it would
+    // suggest a fault, when the only thing missing is a person.
+    expect(stepState(questionStep(), "awaiting_approval")).toBe("waiting");
+    expect(stepState(questionStep(), "done")).toBe("waiting");
+    expect(stepState(questionStep(), "error")).toBe("waiting");
+  });
+});
+
+describe("waitingStep", () => {
+  it("names the question the run is stopped on", () => {
+    const asked = questionStep();
+    expect(waitingStep(run("awaiting_approval", [modelStep(), asked]))).toBe(asked);
+  });
+
+  it("has nothing to name when the run is merely working", () => {
+    expect(waitingStep(run("running", [modelStep(), toolStep(null)]))).toBeNull();
+  });
 });
 
 describe("activeStep", () => {
@@ -106,6 +131,15 @@ describe("stepProgress", () => {
 
   it("reports a settled run as fully accounted for even with an unclosed step", () => {
     expect(stepProgress(run("error", [modelStep(), toolStep(null)]))).toEqual({ done: 2, total: 2 });
+  });
+
+  it("does not count a waiting question as finished work", () => {
+    // Counted as done, the bar would fill on a run that is stopped — at exactly the
+    // moment someone is reading the bar to find out whether anything is still moving.
+    expect(stepProgress(run("awaiting_approval", [modelStep(), questionStep()]))).toEqual({
+      done: 1,
+      total: 2,
+    });
   });
 });
 

@@ -14,7 +14,8 @@ from typing import Any
 from my_agent_crew import texts
 from my_agent_crew.activity import ActivityHub, tracked
 from my_agent_crew.agent.events import Event
-from my_agent_crew.agent.loop import AgentDeps, resolve_approval, run_turn
+from my_agent_crew.agent.loop import AgentDeps, run_turn
+from my_agent_crew.agent.resume import answer_question, resolve_approval
 from my_agent_crew.agent.turn_context import CHAT
 from my_agent_crew.agents import DEFAULT_AGENT_ID
 from my_agent_crew.agents.kit_commands import expand
@@ -165,6 +166,16 @@ class Inbound:
         deps = self.deps_for_conversation(conv_id)
         conv = deps.store.get(conv_id)
         events = resolve_approval(deps, conv_id, approval_id, approve, always=always)
+        return tracked(self.hub, events, deps.agent.id, source, conv.title, conv.id)
+
+    def answer(
+        self, conv_id: str, approval_id: str, answer: str, source: str = CHAT
+    ) -> AsyncIterator[Event]:
+        """Answers a waiting question and streams the rest of the turn. The sibling of
+        `decide`: same pause, same resume, but the outcome is text rather than a yes."""
+        deps = self.deps_for_conversation(conv_id)
+        conv = deps.store.get(conv_id)
+        events = answer_question(deps, conv_id, approval_id, answer)
         return tracked(self.hub, events, deps.agent.id, source, conv.title, conv.id)
 
     async def reply(

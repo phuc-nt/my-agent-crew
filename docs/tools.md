@@ -67,6 +67,8 @@ The system prompt lists the available names; the model sees each tool's JSON sch
 | `shell_run` | **yes** | 120 s default, 900 s max | runs a command in the workspace, returns stdout+stderr |
 | `skill_read` | no | — | returns one skill's full text by name, opening with a warning when the skill needs a command this machine lacks, see [agents.md](agents.md#skills) |
 | `image_read` | no | 8 MB (`MAX_IMAGE_BYTES`); jpg, png, webp, gif | sends a picture from the workspace or the crew home (where `inbox/` keeps what Telegram delivered) to the `vision_routes` chain with a `question` and returns the answer, see [Images](#images); only present when a vision route is configured |
+| `pdf_read` | no | 50 pages (`MAX_PAGES`), `pages` picks a window; the agent's output cap applies | reads a PDF from the workspace or the crew home; typeset pages come back as text, scanned pages go through the vision chain, see [PDFs](#pdfs) |
+| `ask_user` | **yes, always** | one open question per conversation | asks the person one thing and pauses the turn until they answer, see [Asking the person](#asking-the-person) |
 
 Four more come with `mode: work` only, because an assistant that chats has no use for
 them and every extra tool spec costs prompt tokens:
@@ -205,6 +207,53 @@ The master reads once to decide who the picture is for and passes the absolute p
 in the task; the specialist reads again with its own question. That is cheaper than one
 long description travelling through the master's context, and the specialist gets to ask
 for the fields it needs rather than the ones the master guessed at.
+
+### PDFs
+
+`pdf_read` resolves its path the same way `image_read` does: the agent's workspace first,
+then the crew home, so a document Telegram dropped in `workspace/inbox/` is readable by
+the master and by whoever it hands the task to.
+
+A PDF holds two different kinds of page and the tool treats them differently. A typeset
+page already contains its text, and pypdf hands it over for nothing. A photographed page
+contains only a picture, so that page is rendered with pypdfium2 and sent down the same
+`vision_routes` chain `image_read` uses, one page at a time and only for the pages that
+need it. So a mixed document costs a model call per scanned page and nothing for the rest.
+
+Pages come back under `--- Trang N ---` headings. A page that could not be read gets a
+bracketed line in place of its text rather than an error, so one unreadable page never
+costs you the pages that did read. With no vision route configured the tool is still
+registered and typeset PDFs still work; each scanned page says it needs `vision_routes`
+instead.
+
+`pages` takes `"1-5"` or `"3"`. Leaving it out reads from the start, up to `MAX_PAGES`
+(50). The text then passes through the agent's output cap like any other tool result.
+
+### Asking the person
+
+`ask_user` is how an agent that has hit a genuine fork gets an answer instead of guessing.
+It takes a `question`, optional `options` to choose from, and a `default` to fall back on.
+
+It reuses the approval machinery for the pause and the resume, but it is not an approval
+and differs from one in three ways that matter:
+
+- **An autonomous conversation still stops.** Autonomy means "do not ask me to authorise
+  your tools", not "never speak to me". A question that auto-approved itself would be
+  answered by nobody and mean nothing.
+- **It closes by its own route.** A question is *answered*, not approved or denied, and
+  the server refuses each route the other's rows. In the web that is the question card
+  with its choices and its text box; in Telegram it is a reply to the question message,
+  by number or in words.
+- **Running out of time is not a refusal.** A tool nobody authorised must not run, but a
+  question nobody answered still has a `default`: the agent is handed it, carries on, and
+  is told to say in its reply that it decided for itself. The deadline is the shared
+  `approval_ttl_seconds` (default 600), so a job that may ask while nobody is watching
+  should always pass a `default`.
+
+Because it pauses the turn, only one question can be open per conversation at a time, and
+the composer stays closed while one is: the server refuses a new message while any
+approval waits. The run's timeline shows the pause as its own waiting step rather than
+leaving a gap that reads as an agent thinking for an hour.
 
 ## Echo provider and `/tool`
 
