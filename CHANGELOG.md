@@ -16,7 +16,9 @@ bản phát hành, `pyproject.toml` và `web/package.json` luôn cùng số.
 - **Wiki bộ nhớ: mỗi agent một kho trang** ở `memory/wiki/`, chia ba thư mục `entities`,
   `concepts`, `syntheses`. Ghi chú hằng ngày viết theo ngày — đúng cho lúc ghi, sai cho lúc
   hỏi: "hạn Eco là khi nào" nằm rải trong mười một ghi chú. Một trang gom các mảnh đó lại
-  dưới tên của chính thứ đó, nên câu hỏi có một chỗ để được trả lời.
+  dưới tên của chính thứ đó, nên câu hỏi có một chỗ để được trả lời. Lời nhắc biên dịch nói
+  rõ ba thư mục khác nhau ở chỗ nào — có tên riêng, ý niệm lặp lại, hay kết luận bắc qua
+  nhiều thứ — vì chỉ liệt kê tên chúng trong mẫu JSON thì model dồn hết vào `entities`.
 - **Mỗi trang phải khai nguồn.** `sources` ghi `note:YYYY-MM-DD` hoặc `conv:<id>`;
   `wiki_apply` từ chối trang không có nguồn. Đây không phải kiểm tra đầu vào mà là điểm
   chính của kho: một trang không nói được nó từ đâu ra là một trang tự bịa, và cho lọt một

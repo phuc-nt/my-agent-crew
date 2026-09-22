@@ -48,9 +48,13 @@ WIKI_PROMPT_COUNT = "{count} trang, quá nhiều để liệt kê. Dùng `wiki_s
 # pages to point at, so the model has to be told that the batch links to itself.
 WIKI_COMPILE_PROMPT = (
     "Dưới đây là các ghi chép hằng ngày của một trợ lý, và danh sách trang wiki đã có.\n"
-    "Hãy rút ra các trang wiki: mỗi trang nói về MỘT thứ có tên (người, nơi chốn, hợp"
-    " đồng, dự án) hoặc một ý niệm lặp lại. Không tạo trang đặt tên theo ngày.\n\n"
+    "Hãy rút ra các trang wiki: mỗi trang nói về MỘT thứ — một thứ có tên, một ý niệm"
+    " lặp lại, hoặc một kết luận rút từ nhiều thứ. Không tạo trang đặt tên theo ngày.\n\n"
     "Quy tắc:\n"
+    "- 'kind' chọn đúng một trong ba: 'entities' cho một thứ có tên (người, nơi chốn,"
+    " hợp đồng, dự án, cuốn sách); 'concepts' cho một ý niệm hay thói quen lặp lại,"
+    " không có tên riêng; 'syntheses' cho trang rút ra từ nhiều thứ khác, nói về xu"
+    " hướng hoặc kết luận bắc qua chúng. Không chắc thì để 'entities'.\n"
     "- 'sources' bắt buộc, ghi 'note:YYYY-MM-DD' của những ghi chép đã dùng. Không có"
     " nguồn thì không viết trang đó.\n"
     "- Chỉ viết điều ghi chép thực sự nói. Không suy diễn, không bịa chi tiết.\n"
