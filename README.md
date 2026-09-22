@@ -109,7 +109,7 @@ việc tự xem lại với câu hỏi của mình. Đặt `vision_routes: []` �
 Web UI lẫn Telegram chỉ có **một** chỗ chat: với agent chính (`default`, gọi là *master*). Nó
 tự làm việc nhỏ và giao việc lớn cho đúng người bằng công cụ `delegate`, rồi tổng hợp lại — bạn
 không phải chọn agent. Mọi agent khác trong home (kể cả Pong hay HLV sức khoẻ) mặc định đều là
-người master giao được; tab **Đội** trong rail liệt kê cả đội và cài thêm vai mới từ mẫu bằng
+người master giao được; tab **Đội** trong khu quản lý liệt kê cả đội và cài thêm vai mới từ mẫu bằng
 một cú bấm. Tuỳ chỉnh master bằng `~/.my-agent-crew/agent.yaml` (tên, mô tả, `autonomous`,
 `cost_cap_usd`, `max_steps`, hoặc `delegates` để thu hẹp đội).
 
@@ -127,20 +127,25 @@ workspace master và master chuyển đường dẫn cho agent cần đọc. L�
 `/status`, `/tools`, `/approve`, `/deny`) do kênh tự trả lời, không tốn lượt model. Khối
 `telegram` đặt ở agent khác bị bỏ qua kèm cảnh báo.
 
-Chín mẫu có sẵn: `dev` là đầu mối kiểu cũ, tám vai còn lại là `scout`, `planner`, `coder`,
-`reviewer`, `tester`, `debugger`, `git`, `researcher`. Mẫu dùng workspace chung của home;
-`--workspace` trỏ vai đó (và các đồng đội nó kéo theo) vào một repo cụ thể.
+Nine templates available: `dev` is the old-style lead, eight others are `scout`, `planner`, `coder`,
+`reviewer`, `tester`, `debugger`, `git`, `researcher`. Templates use the home's shared workspace;
+`--workspace` pins that role (and the peers it brings) to one repository. Install via CLI or the
+**Đội** tab in the manage screen — web installs join the running crew immediately; CLI installs
+need a server restart.
 
 ```bash
-python -m my_agent_crew agent list-templates                 # xem chín mẫu
-python -m my_agent_crew agent add coder --workspace ~/src/app  # thêm coder, làm trong repo này
-python -m my_agent_crew agent add dev                        # thêm dev kèm tám đồng đội
-# cài qua CLI thì khởi động lại máy chủ để nạp; cài từ tab Đội thì dùng được ngay
+python -m my_agent_crew agent list-templates                 # see nine templates
+python -m my_agent_crew agent add coder --workspace ~/src/app  # add coder, work in this repo
+python -m my_agent_crew agent add dev                        # add dev plus eight peers
 ```
+
+Edit an agent's profile (name, description, routes, tools, budget, schedules) from the **Đội** tab.
+Tools across the whole crew, and who uses which, are in **Công cụ**. Connections (API keys,
+Telegram, vision routes) are in **Kết nối**.
 
 Giao việc như nói với người: *"Nhờ coder thêm lệnh `--version` in phiên bản từ pyproject, có
 test."* Master tự chia việc — scout đọc mã, planner vạch bước, coder sửa, reviewer và tester
-soát — mỗi lần giao là một cuộc con hiện ngay trong rail hoạt động, kèm chi phí và số bước.
+soát — mỗi lần giao là một cuộc con hiện ngay trong manage screen, kèm chi phí và số bước.
 Uỷ quyền chỉ sâu một tầng: agent con không giao tiếp cho ai nữa.
 
 Mọi nền tảng đi qua **một cổng backend**: web, Telegram và `POST /api/inbound` (JSON, trả lời
@@ -159,11 +164,11 @@ Trí nhớ là Markdown trên đĩa, chia hai phạm vi: **chung về bạn** (`
 các tệp sự kiện trong `facts/`) — mọi agent đều đọc, nên nói với một agent là cả đội biết — và
 **riêng của từng agent** (`MEMORY.md` + nhật ký `memory/YYYY-MM-DD.md`) cho việc nó tự làm.
 
-Lượt có bạn ở đó thì ghi ngay; job chạy một mình thì đề nghị ghi và chờ duyệt. Khai
-`memory_consolidate` để agent định kỳ viết lại `MEMORY.md` từ nhật ký gần đây — cũng là một đề
-xuất, giữ nguyên bản cũ để **Hoàn tác** một bước. Tab **Ghi nhớ** trong web UI sửa được tất cả:
-`USER.md`, sự kiện, `MEMORY.md`, nhật ký từng ngày, tìm kiếm cả hai phạm vi, duyệt hoặc từ chối
-**Đề xuất**, và bấm *Cô đọng ngay* khi không muốn chờ lịch. Chi tiết:
+Writes the person is present for land immediately; writes from unattended jobs become
+proposals and wait for approval. Set `memory_consolidate` to have an agent periodically rewrite
+its `MEMORY.md` from recent notes — also a proposal, keeping the old text for undo. The **Ghi nhớ**
+tab in the manage screen edits everything: `USER.md`, facts, agent `MEMORY.md`, daily notes,
+search both scopes, approve/deny proposals, and trigger consolidation immediately. Details:
 [docs/memory.md](docs/memory.md).
 
 Chi tiết cấu hình agent, công cụ, trí nhớ và kênh: [docs/agents.md](docs/agents.md),
@@ -173,11 +178,21 @@ repo này.
 
 ## Theo dõi hoạt động
 
-Thanh **Hoạt động** bên phải web UI nhận SSE từ `/api/activity/stream`: mỗi lượt chat hay job
-hiện thành một thẻ với từng bước (gọi model, gọi công cụ, kết quả, thời gian, chi phí), mục
-**Cần chú ý** gom các lượt chờ duyệt / lỗi, tab **Lịch chạy** cho bấm *Chạy ngay*, tab **Chi phí**
-theo agent / model / ngày. Dòng `MEDIA: <đường dẫn trong workspace>` trong câu trả lời được hiển
-thị thành ảnh.
+Web UI split into two: chat with the master on the left, and a **manage screen** on the right
+accessible via `#/manage/<section>`. The manage screen shows:
+
+The UI is in Vietnamese, so the tabs are named below as they appear on screen:
+
+- **Hoạt động** (activity): live runs with steps (model call, tool call, result, time, cost), an
+  attention centre for runs waiting for approval or that failed, and a link to a run's own timeline.
+- **Duyệt** (approvals): decided tool requests with their outcome (approved, denied, expired).
+- **Đội** (crew), **Công cụ** (tools), **Lịch chạy** (jobs — next/last run, run-now button,
+  pause/resume), **Ghi nhớ** (memory), **Chi phí** (costs, by agent / model / day),
+  **Kết nối** (connections), **Cài đặt** (settings).
+
+Inside the chat, `ConversationActivity` shows only that conversation's own runs, step by step.
+The master's avatar in the header opens the crew tab; a chip `Crew: N` opens the manage screen
+at the crew section. Lines like `MEDIA: <path in workspace>` in the reply are rendered as images.
 
 ## Phát triển
 

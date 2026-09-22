@@ -53,6 +53,7 @@ silently disables a setting.
 | `routes` | list or comma string of `provider:model` | global `routes` | tried in order; a route that fails before producing output falls through to the next |
 | `workspace` | path | `workspace` | sandbox for `workspace_*` and `shell_run`; relative paths resolve against the agent dir, `~` expands |
 | `persona_files` | list of file names | `AGENTS.md, SOUL.md, IDENTITY.md, USER.md` | read from the agent dir into the system prompt each turn; missing files are skipped |
+| `persona_names` | read-only | — | list of persona file names actually present (returned by `GET /api/agents/{id}` and `GET /api/agents/{id}/prompt`) |
 | `skills_dirs` | list of paths | `[]` | extra skill folders; `<agent dir>/skills` is always first |
 | `cost_cap_usd` | number ≥ 0 | global | budget per conversation, `0` = unlimited |
 | `max_steps` | int ≥ 1 | global | model calls per turn before a `halted` |
@@ -172,6 +173,7 @@ POST   /api/agents           {"agent_id": "coder", "profile": {…}}
 PATCH  /api/agents/{id}      {"profile": {…}}   → {"profile": {…}, "restart_required": […]}
 DELETE /api/agents/{id}                         → {"removed": "coder", "kept_at": "…"}
 PUT    /api/agents/{id}/files/{name}  {"content": "…"}
+GET    /api/agents/{id}/prompt                  → system prompt assembled this turn
 POST   /api/agents/reload                       → {"added": ["…"]}
 ```
 

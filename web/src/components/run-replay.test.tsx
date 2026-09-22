@@ -13,16 +13,24 @@ describe("RunReplay", () => {
     vitest.stubGlobal("fetch", backend.fetch);
   });
 
-  const show = (runId: string, known = [] as ReturnType<typeof fakeRun>[]) =>
-    render(
-      <RunReplay
-        runId={runId}
-        known={known}
-        agentName={() => "Trợ lý"}
-        onBack={() => undefined}
-        onOpenConversation={() => undefined}
-      />,
-    );
+  let runId = "";
+
+  // Split from `show` so a test can hand over a later frame of the same run — which is
+  // what the stream does — without rebuilding the component around it.
+  const replay = (known: ReturnType<typeof fakeRun>[]) => (
+    <RunReplay
+      runId={runId}
+      known={known}
+      agentName={() => "Trợ lý"}
+      onBack={() => undefined}
+      onOpenConversation={() => undefined}
+    />
+  );
+
+  const show = (id: string, known = [] as ReturnType<typeof fakeRun>[]) => {
+    runId = id;
+    return render(replay(known));
+  };
 
   it("fetches a run the list never loaded, and shows its steps", async () => {
     // The point of the page: the activity list reaches back only so far, so a link to an
@@ -82,6 +90,31 @@ describe("RunReplay", () => {
     show("r1", [settled]);
 
     expect(await screen.findByTestId("run-card")).toHaveTextContent("Đã xong");
+  });
+
+  // The ordinary way a run settles is while someone is watching it, and the stream hands
+  // over a new object for the same run on every frame. The re-read has to happen once, on
+  // the one frame the status changes — not on each of the frames before or after it.
+  it("re-reads a run once when it settles under the eye, not on every frame", async () => {
+    const fetched = vitest.fn(backend.fetch);
+    vitest.stubGlobal("fetch", fetched);
+    backend.runs = [fakeRun({ id: "r1", status: "done", title: "Đã xong" })];
+    const frame = (status: "running" | "done") =>
+      fakeRun({ id: "r1", status, finished_at: null, title: "Đang làm" });
+
+    const view = show("r1", [frame("running")]);
+    // Two more frames of the same unsettled run: a new object each time, no new fetch.
+    view.rerender(replay([frame("running")]));
+    view.rerender(replay([frame("running")]));
+    expect(fetched).not.toHaveBeenCalled();
+
+    view.rerender(replay([frame("done")]));
+    expect(await screen.findByTestId("run-card")).toHaveTextContent("Đã xong");
+
+    // And it stays at one: the stream goes on handing over frames of the settled run.
+    view.rerender(replay([frame("done")]));
+    view.rerender(replay([frame("done")]));
+    await waitFor(() => expect(fetched).toHaveBeenCalledTimes(1));
   });
 
   // The fetch is only after a better copy of something already on screen. Reporting a

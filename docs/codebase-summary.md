@@ -70,14 +70,21 @@ my-agent-crew/
 | Run | `GET /api/activity/runs`, `GET …/runs/{id}`, `GET …/stream` (SSE), `GET /api/stats` |
 | Agent | `GET /api/agents`, `GET …/{id}`, `GET …/{id}/files`, `POST /api/agents/install`, `GET /api/templates` |
 | Sửa agent | `POST /api/agents`, `PATCH …/{id}`, `DELETE …/{id}` |
-| Tệp tính cách | `PUT /api/agents/{id}/files/{name}`, `POST /api/agents/reload` |
+| Tệp tính cách | `PUT /api/agents/{id}/files/{name}`, `GET …/{id}/prompt` (lời nhắc hệ thống đã ghép), `POST /api/agents/reload` |
 | Tool & kết nối | `GET /api/tools`, `GET /api/connections` |
 | Trí nhớ agent | `GET /api/agents/{id}/memory`, `…/memory/notes/{day}`, `POST …/memory/consolidate` |
 | Trí nhớ người dùng | `GET/PUT /api/memory/user`, `…/user/facts/{name}`, `GET /api/memory/proposals[/{id}]`, `GET /api/memory/search` |
 | Job | `GET /api/jobs`, `GET …/{id}/runs`, `GET …/{id}/state`, `POST …/{id}/run` |
 | Cài đặt | `GET /api/settings` |
 
-Mọi đường không phải `/api/*` trả SPA.
+Mọi đường không phải `/api/*` trả SPA. Web định tuyến bằng hash, nên một lượt chạy có đường
+riêng: `#/manage/activity/<run_id>` mở đúng lượt đó, tải lại vẫn ở đó, và chia sẻ được.
+
+**Hình dạng `arguments` của một bước tool.** Là mapping tên → giá trị; chuỗi dài và giá trị
+dạng list/dict bị cắt còn 160 ký tự trước khi ghi (`activity/steps.py`), vì bản xem trước này
+được phát lại kèm mọi bước sau của cùng lượt chạy. Các lượt chạy ghi trước khi store giữ
+mapping lưu cả cụm thành **một chuỗi**; những hàng đó vẫn nằm trong DB, nên phía đọc phải
+chịu được cả hai hình dạng — duyệt một chuỗi theo chỉ số sẽ cho một hàng mỗi ký tự.
 
 ## 4. Web `web/src/`
 
@@ -86,10 +93,10 @@ Mọi đường không phải `/api/*` trả SPA.
 | `api/` | `client.ts`, `sse.ts`, `types.ts`, `activity-types.ts` |
 | `hooks/` | `use-activity`, `use-agents`, `use-conversations`, `use-memory`, `use-thread` |
 | `state/` | reducer cho thread và activity |
-| `components/` | 31 tệp: `message-thread`, `composer`, `approval-bar`, `approval-history`, `run-timeline`, `tool-call-card`, `activity-panel`, `crew-panel`, `jobs-panel`, `job-run-history`, `memory-*`, `settings-panel`, `stats-panel`, `budget-indicator`, `status-line`, `attention-center`, `error-boundary` |
-| `lib/` | `delegate-result.ts`, `line-diff.ts` |
+| `components/` | 34 tệp: `message-thread`, `composer`, `approval-bar`, `approval-history`, `run-timeline`, `run-progress-header`, `run-replay`, `tool-call-card`, `empty-state`, `activity-panel`, `crew-panel`, `jobs-panel`, `job-run-history`, `memory-*`, `settings-panel`, `stats-panel`, `budget-indicator`, `status-line`, `attention-center`, `error-boundary` |
+| `lib/` | `delegate-result.ts`, `line-diff.ts`, `run-progress.ts`, `run-rows.ts` |
 | `i18n/vi.ts` | mọi chuỗi tiếng Việt của web |
-| `e2e/` | 4 spec Playwright + `mock-api.ts` |
+| `e2e/` | 11 spec Playwright + `mock-api.ts` |
 
 Script: `dev`, `typecheck`, `test` (vitest), `bundle` (vite build → `my_agent_crew/server/static`), `e2e`.
 
@@ -97,9 +104,9 @@ Script: `dev`, `typecheck`, `test` (vitest), `bundle` (vite build → `my_agent_
 
 | Bộ | Lệnh | Hiện tại |
 |---|---|---|
-| Backend | `uv run pytest -q` | 54 tệp, 582 passed |
-| Web unit | `cd web && npm test` | 13 tệp, 117 passed |
-| Web e2e | `cd web && npm run e2e` | 4 spec, 11 test, mock toàn bộ `/api` |
+| Backend | `uv run pytest -q` | 56 tệp, 597 passed |
+| Web unit | `cd web && npm test` | 36 tệp, 354 passed |
+| Web e2e | `cd web && npm run e2e` | 11 spec, 36 test, mock toàn bộ `/api` |
 | Lint | `uv run ruff check . && uv run ruff format --check .` | sạch |
 
 Provider giả `MY_AGENT_ROUTES=fake:echo` cho phép chạy cả harness trong test không cần mạng; xem [testing.md](testing.md).

@@ -200,16 +200,30 @@ the crew; a header chip (`Đội: N`) opens the crew tab in the rail, which list
 template in one click. A delegate's conversation is not listed, but opens from a run card
 or the attention centre.
 
-The activity rail (ideas borrowed from openhuman's session view, no code) shows: live runs
-expanded step by step with tool arguments and output; an attention centre for runs that wait for
-approval, failed or were halted; a jobs tab with next/last run, a run-now button, a pause/resume
-switch and the job's run history on demand; an approvals tab listing decided requests with their
-outcome (approved, denied, expired); a costs tab by agent, model and day, where the last seven
+The screen is split by who the work belongs to. What the conversation you are in is doing sits
+inside the chat frame: `ConversationActivity` between the thread and the composer shows that
+conversation's own runs, step by step with tool arguments and output. What belongs to the whole
+crew lives on a manage screen of its own (`#/manage/<section>`) rather than in a rail beside the
+thread — keeping them side by side made the crew's work and the conversation's work look like
+the same thing. Its sections: activity (live runs, and an attention centre for runs that wait for
+approval, failed or were halted), approvals (decided requests with their outcome — approved,
+denied, expired), crew, tools, jobs (next/last run, a run-now button, a pause/resume switch and
+the job's run history on demand), memory, costs by agent, model and day — where the last seven
 days and the per-model table come from `store/usage.py`, a ledger read straight from the message
-log with token counts, so the figures are what was actually billed and not an estimate; the
-crew tab above; a status line with stream connectivity. The approval bar shows the deadline of the pending request and a "always allow"
-button next to approve/deny; the header lists the always-allowed tools as chips that revoke on
-click. An error boundary keeps a rendering crash from taking the chat down with it.
+log with token counts, so the figures are what was actually billed and not an estimate —
+connections, and settings.
+
+A run can be opened on its own at `#/manage/activity/<run_id>`: fetched by id, so a link to a run
+the list never loaded still works, and reloading the page stays on it. Above each timeline, one
+line says what the run is doing right now — a sentence and a count (`3/7 bước`) rather than a
+percentage, because nothing in the run data says how many steps are still to come, so a
+percentage would be invented. A run that has settled says how it ended instead; a finished run
+claiming to be thinking reads as a hang.
+
+The approval bar shows the deadline of the pending request and an "always allow" button next to
+approve/deny; the header lists the always-allowed tools as chips that revoke on click. An error
+boundary keeps a rendering crash from taking the chat down with it. (Ideas for the run view were
+borrowed from openhuman's session view — no code.)
 
 ## Extension points
 

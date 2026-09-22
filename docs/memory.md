@@ -48,7 +48,7 @@ them in `MY_AGENT_HOME` itself.
 
 ## Writing memory
 
-Several ways, all visible in the activity rail:
+Several ways, all visible in the manage screen's Memory tab:
 
 - **`user_memory_save` / `user_memory_forget`** write a shared fact. Whether they write at
   all depends on who is in the room: in a turn the person is present for (chat, Telegram)
@@ -155,11 +155,11 @@ scope, search, proposals) and `server/routes_memory_agent.py` (one agent's files
 | `POST /api/memory/proposals/{id}` | `{approve: bool}`; deciding twice is a 409 |
 | `POST /api/agents/{id}/memory/consolidate` | starts a rewrite and answers 202; 409 while one is already running for that agent |
 
-The **Ghi nhớ** tab in the activity rail is these endpoints: edit `USER.md`, add or forget
-facts, edit each agent's `MEMORY.md` and notes, search every scope, and approve or reject
-what a job proposed — an `agent_memory` proposal shows which lines it would add, and a
-rewrite is shown against the text it replaces with an **Hoàn tác** button in the history.
-**Cô đọng ngay** asks for a rewrite without waiting for the cron.
+The **Ghi nhớ** tab in the manage screen (`#/manage/memory`) is these endpoints: edit
+`USER.md`, add or forget facts, edit each agent's `MEMORY.md` and notes, search every scope, and
+approve or reject what a job proposed — an `agent_memory` proposal shows which lines it would add,
+and a rewrite is shown against the text it replaces with an undo button in the history.
+A consolidation can be triggered immediately without waiting for the cron.
 
 ## Compared with openclaw
 

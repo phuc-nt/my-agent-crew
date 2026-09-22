@@ -175,13 +175,17 @@ and the browser tests drive tools without a key.
 
 ```
 GET /api/tools → [{"name": "workspace_read", …, "agents": ["coder", "default"], "optional": false}]
+GET /api/agents/{id}/prompt → assembled system prompt this turn (includes persona, memory, skills, roster)
 ```
 
-The union of every agent's registry, not the master's own set — a profile with a `tools`
+The tools union is every agent's registry, not the master's own set — a profile with a `tools`
 allow-list holds fewer tools than the master, and reading one agent's registry would hide
 tools the rest of the crew still uses. `agents` is who holds it, which is the answer to
 "can the reviewer actually edit files"; `optional` marks the tools that only exist when
 their key or route is configured (`web_search`, `image_read`).
+
+The `/prompt` endpoint returns the complete system prompt as assembled for the agent (useful for
+debugging what the agent sees, or showing a user what the agent knows).
 
 ```
 GET /api/connections → {"providers": […], "routes": […], "vision_routes": […],

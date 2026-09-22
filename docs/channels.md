@@ -48,7 +48,7 @@ ignored and logged.
 `build_channel` builds one `TelegramChannel` for the master. Everything typed in the chat
 is a turn of the master's conversation; when the answer belongs to Pong or the coach the
 master delegates and relays, exactly as in the web UI, and the delegate's run shows up in
-the activity rail under its own name.
+the manage screen's activity section under its own name.
 
 The crew still reaches the chat in two ways:
 
