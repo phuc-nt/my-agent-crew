@@ -1,3 +1,8 @@
+---
+layout: default
+title: Sơ đồ harness
+---
+
 # Sơ đồ harness
 
 Năm sơ đồ vẽ bằng archify, mỗi sơ đồ ba file cùng tên:
