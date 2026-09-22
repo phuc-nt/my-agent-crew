@@ -116,7 +116,7 @@ Sau đó sửa `agents/<id>/agent.yaml` (`routes`, `tools`, `schedules`, `autono
 
 ## 9. Publish bộ doc để sơ đồ archify chuyển động
 
-Sơ đồ `.html` trong `docs/diagrams/` là trang tự chứa: script, style, animation đều inline. Markdown không nhúng được HTML có script, nên bộ doc dùng hai lớp: SVG tĩnh nhúng trong `.md`, và link "bản động" tới `.html`. Bản động chỉ chạy khi `docs/` được phục vụ như **site tĩnh** — mọi cách dưới đây đều làm được vì không cần build gì.
+Sơ đồ `.html` trong `docs/diagrams/` là trang tự chứa: script, style, animation đều inline. Không dán nội dung đó vào `.md`; thay vào đó `.md` nhúng bằng `<iframe src="diagrams/<tên>.html">` — Jekyll giữ nguyên HTML thô trong markdown, nên sơ đồ chạy ngay trong trang tài liệu. Mỗi sơ đồ kèm link "Mở riêng" và "ảnh tĩnh" (SVG) để trang vẫn đọc được ở nơi iframe bị chặn (GitHub blob view, trình đọc markdown). Bản động chỉ chạy khi `docs/` được phục vụ như **site tĩnh** — mọi cách dưới đây đều làm được vì không cần build gì.
 
 **Cách A — GitHub Pages từ `/docs`** (khuyến nghị)
 Settings → Pages → Source: `main` / `/docs`. Front matter `layout: default` để Jekyll render `.md`; các `.html` và `.svg` được phục vụ nguyên vẹn. Link `diagrams/index.html` mở gallery với animation.
@@ -131,7 +131,7 @@ python3 -m http.server 8080 --directory docs
 ```
 Sơ đồ chạy đầy đủ, nhưng link `.md` giữa các tài liệu không mở được vì không có Jekyll rewrite `.md` → `.html`; dùng cách này để xem sơ đồ, cách A để đọc cả bộ.
 
-**Nhúng vào trang khác**: `<iframe src="diagrams/crew-architecture.html" width="100%" height="760"></iframe>`.
+**Chiều cao iframe**: trang sơ đồ cao hơn viewBox vì có tiêu đề, thanh view, chú giải và thẻ; đo thật bằng `document.documentElement.scrollHeight` rồi đặt `height` hơn số đo một chút. Bộ doc này dùng 1090–1390 px tuỳ sơ đồ.
 
 **Không nên**: mở `.html` bằng `file://` từ một số trình duyệt chặn script cục bộ; dán nội dung `.html` vào `.md`; đổi tên `.svg` mà không sửa link trong `.md` và `index.html`.
 

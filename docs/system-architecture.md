@@ -9,7 +9,7 @@ title: Kiến trúc hệ thống — giải phẫu một agent harness
 
 Tài liệu này dành cho người chưa từng xây agent harness. Nó trả lời ba câu hỏi: harness gồm những gì, mỗi phần làm việc gì, và chúng khớp với nhau ra sao khi một tin nhắn đi qua. Mọi ví dụ lấy từ một bộ cài thật của my-agent-crew: một master "Trợ lý", hai agent việc thật (Pong, HLV sức khoẻ) và tám agent vai trò kỹ thuật, tất cả chạy trong một tiến trình trên máy cá nhân, nói chuyện qua web UI và một bot Telegram.
 
-Năm sơ đồ trong tài liệu là ảnh tĩnh (SVG). Bản động có animation và chuyển view nằm ở [diagrams/index.html](diagrams/index.html); cách publish để bản động chạy được ở [deployment-guide.md §9](deployment-guide.md#9-publish-bộ-doc-để-sơ-đồ-archify-chuyển-động).
+Năm sơ đồ trong tài liệu là **bản động**: nhúng thẳng vào trang, có animation và thanh chuyển view — bấm tên view để xem từng lớp. Nếu trang được đọc ở nơi không chạy được HTML nhúng (GitHub, trình đọc markdown), dùng link "Mở riêng" hoặc ảnh tĩnh SVG ngay dưới mỗi sơ đồ. Gallery cả năm: [diagrams/index.html](diagrams/index.html); cách publish ở [deployment-guide.md §9](deployment-guide.md#9-publish-bộ-doc-để-sơ-đồ-archify-chuyển-động).
 
 ## 1. Harness là gì
 
@@ -28,9 +28,9 @@ my-agent-crew thêm hai tầng lên trên: **nhiều agent** (mỗi agent là m�
 
 ## 2. Giải phẫu harness
 
-![Giải phẫu harness my-agent-crew](diagrams/crew-architecture.svg)
+<iframe src="diagrams/crew-architecture.html" title="Giải phẫu harness my-agent-crew" loading="lazy" style="width:100%;height:1140px;border:1px solid #d0d7de;border-radius:8px;background:#fff"></iframe>
 
-*Bản động: [crew-architecture.html](diagrams/crew-architecture.html) — bốn view: Một cổng vào, Vòng lặp agent, Ngữ cảnh từ đĩa, Quan sát và lưu.*
+*Bốn view: Một cổng vào, Vòng lặp agent, Ngữ cảnh từ đĩa, Quan sát và lưu. [Mở riêng](diagrams/crew-architecture.html) · [ảnh tĩnh](diagrams/crew-architecture.svg).*
 
 Sơ đồ chia làm ba vùng. Đọc từ trái sang phải: người dùng đi vào qua **kênh giao tiếp**, mọi việc xảy ra trong **runtime** (một tiến trình Python), và mọi thứ tồn tại lâu dài nằm trong **home** trên đĩa.
 
@@ -112,9 +112,9 @@ Dùng chung cho mọi agent: `config.yaml`, `agent.sqlite3`, `users/owner/` (USE
 
 ## 3. Một lượt chat: từ Telegram đến câu trả lời
 
-![Một lượt chat qua Telegram](diagrams/turn-sequence.svg)
+<iframe src="diagrams/turn-sequence.html" title="Một lượt chat qua Telegram" loading="lazy" style="width:100%;height:1390px;border:1px solid #d0d7de;border-radius:8px;background:#fff"></iframe>
 
-*Bản động: [turn-sequence.html](diagrams/turn-sequence.html) — bốn view: Nhận tin, Lượt của master, Giao việc cho HLV, Trả lời.*
+*Bốn view: Nhận tin, Lượt của master, Giao việc cho HLV, Trả lời. [Mở riêng](diagrams/turn-sequence.html) · [ảnh tĩnh](diagrams/turn-sequence.svg).*
 
 Ví dụ thật: người dùng nhắn bot "hôm nay ăn thế nào cho hợp lịch tập?".
 
@@ -128,9 +128,9 @@ Trên web UI, toàn bộ chuỗi này hiện thành một run với các step l�
 
 ## 4. Master giao việc cho đội
 
-![Master giao việc cho đội](diagrams/delegation-workflow.svg)
+<iframe src="diagrams/delegation-workflow.html" title="Master giao việc cho đội" loading="lazy" style="width:100%;height:1090px;border:1px solid #d0d7de;border-radius:8px;background:#fff"></iframe>
 
-*Bản động: [delegation-workflow.html](diagrams/delegation-workflow.html) — ba view: Từ yêu cầu đến trả lời, Ai làm gì, Cổng và giới hạn.*
+*Ba view: Từ yêu cầu đến trả lời, Ai làm gì, Cổng và giới hạn. [Mở riêng](diagrams/delegation-workflow.html) · [ảnh tĩnh](diagrams/delegation-workflow.svg).*
 
 Trong bộ cài thật, master "Trợ lý" có `delegates:` gồm 10 agent:
 
@@ -150,9 +150,9 @@ Web UI ghim kết quả delegate vào thread của master để người đọc 
 
 ## 5. Cổng duyệt tool
 
-![Vòng đời một yêu cầu duyệt tool](diagrams/approval-lifecycle.svg)
+<iframe src="diagrams/approval-lifecycle.html" title="Vòng đời một yêu cầu duyệt tool" loading="lazy" style="width:100%;height:1120px;border:1px solid #d0d7de;border-radius:8px;background:#fff"></iframe>
 
-*Bản động: [approval-lifecycle.html](diagrams/approval-lifecycle.html) — ba view: Cổng duyệt, Đường tắt, Kết thúc.*
+*Ba view: Cổng duyệt, Đường tắt, Kết thúc. [Mở riêng](diagrams/approval-lifecycle.html) · [ảnh tĩnh](diagrams/approval-lifecycle.svg).*
 
 Đây là cơ chế khiến harness khác một script gọi API. Khi model gọi `shell_run`, `workspace_write` hoặc `workspace_edit`:
 
@@ -171,9 +171,9 @@ Khi một approval đang chờ, `/api/inbound` trả 409 để người dùng kh
 
 ## 6. Ngữ cảnh đi vào, trí nhớ đi ra
 
-![Ngữ cảnh đi vào model và trí nhớ đi ra đĩa](diagrams/context-dataflow.svg)
+<iframe src="diagrams/context-dataflow.html" title="Ngữ cảnh đi vào model và trí nhớ đi ra đĩa" loading="lazy" style="width:100%;height:1230px;border:1px solid #d0d7de;border-radius:8px;background:#fff"></iframe>
 
-*Bản động: [context-dataflow.html](diagrams/context-dataflow.html) — bốn view: Vào system prompt, Theo yêu cầu, Ra đĩa, Cô đọng.*
+*Bốn view: Vào system prompt, Theo yêu cầu, Ra đĩa, Cô đọng. [Mở riêng](diagrams/context-dataflow.html) · [ảnh tĩnh](diagrams/context-dataflow.svg).*
 
 Quy tắc duy nhất: **model không có trạng thái ẩn**. Điều gì cần nhớ sang lượt sau phải là tệp hoặc dòng trong SQLite. Vì vậy có hai chiều:
 
