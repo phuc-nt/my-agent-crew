@@ -396,6 +396,37 @@ fallback applies: a prompt that spells out a skill's hyphenated name (`gws-share
 that skill attached anyway. Only hyphenated names count, because a one-word name like
 `ledger` turns up in prompts that have nothing to do with the skill.
 
+### A worked sample: `gws`
+
+`docs/examples/skills/gws/` is a complete CLI bundle to copy into a `skills_dirs` and fill
+in. It covers Gmail, Calendar, Tasks, Sheets, Drive and Docs in **one** skill rather than
+fifteen, because fifteen index lines that all say "Google Workspace" cost the model a
+choice it cannot make well, while one body it reads once carries the syntax it was going
+to guess at.
+
+Two things in it are worth copying even for a different program.
+
+**Everything goes through a wrapper**, `scripts/gws-run.sh`, and nothing calls the binary
+directly. The wrapper does two jobs and no more. It refuses the calls that would break the
+shared credentials for everyone — `auth login`, which opens a browser nobody is there to
+click and so hangs until the run times out, and any attempt to point the CLI at a different
+credentials file, whose symptom is a 401 somewhere else entirely. Then it turns a non-zero
+exit into one JSON line naming the fix, because a model that only sees "exit 1" retries the
+same command until its steps run out. That line goes to **stderr**: a read command's stdout
+is piped into `jq` by the data scripts, and a JSON object appended to a table of calendar
+events is a parse error, not a diagnosis.
+
+**The write guard is `shell_ask_patterns`, not the skill text.** The body saying "ask first"
+is a hint the model may drop under pressure; the pattern list is enforcement. The patterns
+match the shape of a write — `+send`, `+reply`, `+insert`, `+append`, `+upload`, `+write`,
+`tasks insert` — and never the program name, because matching is substring and a bare `gws`
+would stop the read-only briefing scripts too. Sent mail is worth an interruption even when
+the agent is `autonomous: true`, which is exactly the case this list exists for.
+
+The sample carries `<EMAIL>`, `<SPREADSHEET_ID>` and `<DRIVE_FOLDER_ID>` instead of real
+values, and a test rejects the bundle if an address or a long mixed-character id ever
+appears in it. An account id belongs in the copy under your own home directory.
+
 ## Schedules
 
 Each entry in `schedules` becomes a job `<agent id>/<schedule id>` in the scheduler

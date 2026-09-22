@@ -205,6 +205,15 @@ misunderstanding is the danger. A bad entry is dropped rather than refusing the 
 so one typo cannot take an agent off the air; dropping fails safe, because the command then
 asks.
 
+Because the test is a substring and not a parse, a useful pattern names the *shape of the
+operation*, never the program. A command-line tool that both reads and writes — a mail
+client, a spreadsheet client, anything with subcommands — is one binary doing two very
+different things, and putting the binary's name in `shell_ask_patterns` stops the reads too.
+An agent whose scheduled job only ever reads then pauses every morning waiting for an
+approval nobody meant to require. List the subcommands or flags that write instead, one
+entry each, and check the result the only way that proves anything: run the real read
+commands and the real write commands through `ask_reason` and count.
+
 ### Media and files
 
 An assistant line `MEDIA:<path relative to the workspace>` is not a tool; it is a

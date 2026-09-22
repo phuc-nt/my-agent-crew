@@ -122,6 +122,12 @@ bản phát hành, `pyproject.toml` và `web/package.json` luôn cùng số.
   khoá hay một `.env` mà bước trước đã chép vào. Đường dẫn ra ngoài workspace, tệp không
   tồn tại, sai định dạng hay quá cỡ đều được báo vào chat chứ không ném lỗi — phần chữ đã
   gửi đi rồi, nên một exception chỉ để lại lời hứa có tệp mà không nói vì sao tệp không tới.
+- **Mẫu skill chạy được trong `docs/examples/skills/`**, kèm test giữ cho chúng thật. Một
+  skill gói một chương trình dòng lệnh thì hai trường quyết định nó sống hay chết:
+  `requires.bins` để thiếu chương trình thì được dán nhãn thay vì hỏng giữa lượt, và
+  `cliHelp` để model đọc cú pháp thật thay vì đoán tên cờ. Test bắt buộc cả hai với mọi
+  bundle có thư mục `scripts/`, và quét mọi tệp tìm địa chỉ thư và chuỗi id dài — một mẫu
+  mang id thật ra khỏi máy người viết còn tệ hơn không có mẫu nào.
 
 ### Thay đổi
 

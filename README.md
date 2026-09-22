@@ -57,6 +57,7 @@ Kỹ năng không gắn sẵn chỉ hiện tên + mô tả trong prompt; model g
 Kỹ năng gọi chương trình ngoài thì khai `requires.bins: [gws]` và `cliHelp: gws --help`:
 thiếu chương trình thì kỹ năng vẫn được giữ nhưng mở đầu bằng cảnh báo, còn `cliHelp` nhắc
 model đọc `--help` một lần thay vì đoán cú pháp lần thứ ba.
+Mẫu chép được: [docs/examples/skills/](docs/examples/skills/) — chép vào `skills/` rồi điền chỗ trống.
 
 ## Nhiều agent có tên riêng
 
