@@ -55,7 +55,7 @@ name: HLV sức khoẻ
 description: Đọc dữ liệu Garmin, gửi bản tin sáng
 routes: [openrouter:z-ai/glm-5.3-flash, openrouter:z-ai/glm-5]
 workspace: ~/workspace/my-health-coach   # sandbox cho công cụ tệp + shell_run
-skills_dirs: [~/.openclaw/workspace-personal/skills]
+skills_dirs: [~/workspace/shared-skills]  # kỹ năng dùng chung ngoài home
 autonomous: true                          # job chạy không cần duyệt
 schedules:
   - id: morning-brief
