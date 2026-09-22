@@ -139,6 +139,37 @@ class Runtime:
             self.wire_delegation()
         return added
 
+    def replace_agent(self, profile: AgentProfile) -> None:
+        """Swap in an edited profile without a restart.
+
+        The deps are rebuilt rather than patched: routes, skills and the tool set are all
+        derived from the profile at assembly, so editing the profile in place would leave
+        an agent whose description no longer matches what it can do. The peer map is
+        shared by identity, so updating the entry is what makes the new name and the new
+        delegate list visible to everyone else.
+        """
+        if self.client is None:
+            raise RuntimeError(texts.RUNTIME_CANNOT_GROW)
+        deps = build_agent_deps(
+            profile, self.providers, self.client, self.store, self.fallback_routes
+        )
+        peers = self.default.peers if isinstance(self.default.peers, dict) else {}
+        deps.peers = peers
+        self.agents[profile.id] = deps
+        peers[profile.id] = profile
+        self.wire_delegation()
+
+    def remove_agent(self, agent_id: str) -> None:
+        """Drop an agent from the running crew. Conversations that named it stay put and
+        fall back to the default agent, which is why this does not touch the store."""
+        # The peer map is reached through the default agent, so it is taken before the
+        # pop rather than after: dropping the default first would leave nothing to read
+        # it from.
+        peers = self.default.peers if isinstance(self.default.peers, dict) else {}
+        self.agents.pop(agent_id, None)
+        peers.pop(agent_id, None)
+        self.wire_delegation()
+
     @property
     def fallback_routes(self) -> tuple[Route, ...]:
         return self.settings.routes

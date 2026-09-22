@@ -161,6 +161,76 @@ The allow-list in a template is the point of the role, and it caps `delegate` as
 work agent that names its tools without naming `delegate` cannot hand work on, which is
 what stops a crew from growing a second layer behind the lead's back.
 
+## Sửa agent từ web/API
+
+A crew that can only be changed by editing files and restarting is a crew most people
+never change. These endpoints write the same `agent.yaml` a person would write by hand,
+and bring the result into the running server.
+
+```
+POST   /api/agents           {"agent_id": "coder", "profile": {…}}
+PATCH  /api/agents/{id}      {"profile": {…}}   → {"profile": {…}, "restart_required": […]}
+DELETE /api/agents/{id}                         → {"removed": "coder", "kept_at": "…"}
+PUT    /api/agents/{id}/files/{name}  {"content": "…"}
+POST   /api/agents/reload                       → {"added": ["…"]}
+```
+
+**A patch names only what it changes.** A key left out keeps its value; clearing one is
+asked for with an explicit `null`. This matters because the web sends one section at a
+time — a form that posted its whole model would erase every key the form has no field for.
+
+**The file keeps its shape.** Writes are round-trip (ruamel), so comments, key order and
+keys this version of the server does not know about all survive an edit made from a
+browser. The manifest is written through a temp file and moved into place, so a crash
+mid-write cannot leave a profile that no longer parses.
+
+**Validation is the same code that reads a hand-written file** (`parse_profile`), run
+*before* anything is written. A profile the server would refuse to start with is a 422 and
+changes nothing — not the file, not the running agent. `delegates` is checked against the
+crew as it would be after the edit, so you cannot point at an agent that is not there.
+
+The order is validate, then wire, then write. Building the agent is the last step that can
+fail on a profile that parsed cleanly, and a file written before that point would claim a
+change the answer had refused — then apply it at the next restart. The write comes last so
+the refusal is the whole story. A write that fails after a successful wire leaves the crew
+briefly ahead of the file; the file is what boot reads, so that direction corrects itself.
+
+**Paths in an edit stay under the crew home.** `workspace`, `skills_dirs` and
+`persona_files` are checked after they resolve, so `~`, an absolute path or enough `..` to
+leave the home is a 422. A persona file is read into the system prompt and travels to the
+model on the next turn, and the workspace is what every file tool is scoped to — neither
+is something a request should be able to aim anywhere on the machine. The check is on this
+edit path only: a kit names its markdown by absolute path, and `agent add --workspace`
+points an agent at a repo elsewhere on purpose, both of which still work.
+
+`shell_ask_patterns` must be a list. A bare string is iterable, so `"rm"` would otherwise
+become the patterns `r` and `m` and the guard that asks before a destructive command would
+quietly stop meaning anything. An empty list still turns the guard off, as documented in
+[tools.md](tools.md#shell) — that is a choice someone can make, silently shredding the list
+is not.
+
+**A manifest that no longer parses is reported, not overwritten** (422, naming the parse
+error). A patch names a few keys; writing it over a file that broke would drop everything
+else the person still had in there.
+
+**Removing keeps the files.** `DELETE` moves `agents/<id>` to `agents/.trash/<id>-<stamp>`
+and reports where it went; nothing is deleted. Conversations that agent held stay put and
+fall back to the master. It refuses (409) for the master, and for an agent another agent
+still names in `delegates` — removing it would leave that profile invalid and the server
+unable to start next time.
+
+**`restart_required` is only ever about schedules and Telegram.** Routes, tools, persona,
+name, budget and delegation are all rebuilt live. The clock and the channel are built once
+at boot, so changing `schedules`, `memory_consolidate` or `telegram` needs a restart and
+says so. Nothing else does, which is what keeps the notice worth reading.
+
+**Agents from a kit are read-only here** (409, naming the markdown file they came from):
+their profile lives in a project someone else maintains, and writing an `agent.yaml` beside
+it would shadow the kit rather than edit it.
+
+`PUT …/files/{name}` writes persona files by name, and the name is matched against
+`AGENTS.md`, `SOUL.md`, `IDENTITY.md`, `USER.md` — the path never comes from the request.
+
 ## The master agent
 
 The `default` agent always exists and is the top-level settings: dir = `MY_AGENT_HOME`,
@@ -172,8 +242,9 @@ It is also the *master*: the one agent the person talks to — in the web UI and
 Telegram — and the one that hands work to the rest. `AgentProfile.is_master` is true for
 it alone. An optional `MY_AGENT_HOME/agent.yaml` shapes it with the same keys as any
 profile (`name`, `description`, `autonomous`, `cost_cap_usd`, `max_steps`, `routes`,
-`delegates`, `telegram`, …); without the file it is the plain default agent. Two things
-set it apart from a work lead:
+`delegates`, `telegram`, …); without the file it is the plain default agent, and
+`PATCH /api/agents/default` writes that file, creating it on the first edit. It cannot be
+deleted. Two things set it apart from a work lead:
 
 - **It reaches everyone.** With `delegates` empty, the master may hand a task to every
   other agent in the home, in id order (`agents/roster.py: delegate_targets`). Installing

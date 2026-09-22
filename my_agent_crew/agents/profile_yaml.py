@@ -77,16 +77,10 @@ def _names(raw: dict[str, Any], key: str, agent_id: str) -> tuple[str, ...]:
     return tuple(v.strip() for v in value)
 
 
-def parse_profile(
-    agent_id: str, agent_dir: Path, raw: dict[str, Any], base: Settings
-) -> AgentProfile:
-    unknown = set(raw) - PROFILE_KEYS
-    if unknown:
-        raise ValueError(f"agent {agent_id}: unknown keys {sorted(unknown)}")
-    mode = _mode(raw, agent_id)
-    # Work mode moves the defaults; anything the profile states itself still wins.
-    defaults = WORK_DEFAULTS if mode == WORK else {}
-    settings = replace(
+def _settings(
+    raw: dict[str, Any], agent_id: str, base: Settings, defaults: dict[str, Any]
+) -> Settings:
+    return replace(
         base,
         routes=_parse_routes(raw["routes"]) if raw.get("routes") else base.routes,
         cost_cap_usd=float(
@@ -97,12 +91,30 @@ def parse_profile(
             raw.get("autonomous", defaults.get("autonomous", base.autonomous_default))
         ),
         shell_ask_patterns=(
-            tuple(str(p) for p in raw["shell_ask_patterns"])
+            tuple(_names(raw, "shell_ask_patterns", agent_id))
             if "shell_ask_patterns" in raw
             else base.shell_ask_patterns
         ),
         tool_output_chars=int(raw.get("tool_output_chars", base.tool_output_chars)),
     )
+
+
+def parse_profile(
+    agent_id: str, agent_dir: Path, raw: dict[str, Any], base: Settings
+) -> AgentProfile:
+    unknown = set(raw) - PROFILE_KEYS
+    if unknown:
+        raise ValueError(f"agent {agent_id}: unknown keys {sorted(unknown)}")
+    mode = _mode(raw, agent_id)
+    # Work mode moves the defaults; anything the profile states itself still wins.
+    defaults = WORK_DEFAULTS if mode == WORK else {}
+    try:
+        settings = _settings(raw, agent_id, base, defaults)
+    except TypeError as exc:
+        # float({}) and int([]) raise TypeError, not ValueError. Both mean the same thing
+        # here — a number was written as something that is not one — and the caller
+        # reports a bad profile by catching ValueError.
+        raise ValueError(f"agent {agent_id}: {exc}") from exc
     if settings.tool_output_chars < 1:
         raise ValueError(f"agent {agent_id}: tool_output_chars must be >= 1")
     workspace = _resolve(agent_dir, str(raw.get("workspace") or "workspace"))
@@ -151,7 +163,10 @@ def load_yaml_profiles(settings: Settings) -> list[AgentProfile]:
     root = settings.home / "agents"
     if not root.is_dir():
         return profiles
-    for agent_dir in sorted(p for p in root.iterdir() if p.is_dir()):
+    # A removed agent is moved aside rather than deleted, and it keeps its manifest.
+    # Skipping the whole dot-prefixed set keeps those out and leaves room for other
+    # bookkeeping folders without every one of them resurrecting an agent.
+    for agent_dir in sorted(p for p in root.iterdir() if p.is_dir() and p.name[:1] != "."):
         manifest = agent_dir / "agent.yaml"
         if not manifest.is_file():
             continue

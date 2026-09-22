@@ -18,7 +18,7 @@ my-agent-crew/
 │   ├── skills/builtin/   # skill có sẵn (cite-sources)
 │   └── agents/templates/ # mẫu agent cho `agent add`
 ├── web/                  # SPA React 19 + Vite + vitest + Playwright
-├── tests/                # pytest, 50 tệp
+├── tests/                # pytest, 54 tệp
 ├── docs/                 # tài liệu này + diagrams/
 ├── pyproject.toml        # uv, ruff
 └── .github/workflows/ci.yml
@@ -29,14 +29,14 @@ my-agent-crew/
 | Gói | Vai trò | Tệp chính |
 |---|---|---|
 | `agent/` | vòng lặp một lượt | `loop.py` (`run_turn`), `prompt.py` (`build_system_prompt`), `tool_calls.py` (`settle_tool_calls`), `tool_batches.py`, `approval_expiry.py` (`expire_overdue`), `context_trim.py`, `events.py`, `turn_context.py` |
-| `agents/` | hồ sơ agent từ đĩa | `profile.py` (`AgentProfile`), `profile_yaml.py`, `roster.py`, `context.py` (`bootstrap_sections`), `kit*.py` (đọc `.agents/`), `channels.py`, `templates_cli.py` |
+| `agents/` | hồ sơ agent từ đĩa | `profile.py` (`AgentProfile`), `profile_yaml.py` (đọc), `profile_write.py` (ghi round-trip), `profile_edit.py` (vá + validate), `roster.py`, `context.py` (`bootstrap_sections`), `kit*.py` (đọc `.agents/`), `channels.py`, `templates_cli.py` |
 | `activity/` | run và step cho web | `hub.py` (`ActivityHub`), `steps.py` |
 | `channels/` | Telegram | `telegram_channel.py` (start/stop), `telegram_inbound.py` (tin, ảnh, `inbox/`), `telegram_albums.py`, `telegram_outbound.py`, `telegram_commands.py`, `telegram_api.py` (redact token), `telegram_offset.py` |
 | `inbound.py` | một cổng vào, `InboundBusy` | — |
 | `llm/` | provider | `provider.py` (`Provider`, `ProviderChain`), `openrouter.py`, `fake.py`, `types.py` |
 | `memory/` | trí nhớ | `agent_store.py` (ghi chú ngày), `user_store.py` (facts), `consolidate.py` (7 ngày → đề xuất), `proposals_apply.py`, `search.py`, `session_summary.py` |
 | `scheduler/` | cron | `cron.py`, `jobs.py`, `runner.py` |
-| `server/` | FastAPI | `app.py`, `runtime.py`, `runtime_build.py`, `agent_assembly.py` (`build_providers`), `tool_assembly.py`, `deps.py`, `routes_*.py` |
+| `server/` | FastAPI | `app.py`, `runtime.py`, `runtime_build.py`, `agent_assembly.py` (`build_providers`), `tool_assembly.py`, `deps.py`, `agent_edit_common.py` (khoá ghi + helper dùng chung), `routes_*.py` |
 | `skills/` | skill md | `loader.py` (`always`, chỉ mục) |
 | `store/` | SQLite | `db.py`, `schema.py`, `models.py`, `messages.py`, `runs.py`, `approvals.py`, `usage.py`, `job_state.py`, `memory_proposals.py`, `conversation_lookup.py` |
 | `tools/` | tool | `registry.py` (`ToolRegistry`), `workspace*.py`, `shell.py`, `web.py`, `memory.py`, `memory_user.py`, `delegate.py`, `image.py`, `skills.py`, `hooks.py` |
@@ -69,6 +69,9 @@ my-agent-crew/
 | Duyệt | `GET /api/approvals`, `POST /api/approvals/{id}` |
 | Run | `GET /api/activity/runs`, `GET …/runs/{id}`, `GET …/stream` (SSE), `GET /api/stats` |
 | Agent | `GET /api/agents`, `GET …/{id}`, `GET …/{id}/files`, `POST /api/agents/install`, `GET /api/templates` |
+| Sửa agent | `POST /api/agents`, `PATCH …/{id}`, `DELETE …/{id}` |
+| Tệp tính cách | `PUT /api/agents/{id}/files/{name}`, `POST /api/agents/reload` |
+| Tool & kết nối | `GET /api/tools`, `GET /api/connections` |
 | Trí nhớ agent | `GET /api/agents/{id}/memory`, `…/memory/notes/{day}`, `POST …/memory/consolidate` |
 | Trí nhớ người dùng | `GET/PUT /api/memory/user`, `…/user/facts/{name}`, `GET /api/memory/proposals[/{id}]`, `GET /api/memory/search` |
 | Job | `GET /api/jobs`, `GET …/{id}/runs`, `GET …/{id}/state`, `POST …/{id}/run` |
@@ -94,7 +97,7 @@ Script: `dev`, `typecheck`, `test` (vitest), `bundle` (vite build → `my_agent_
 
 | Bộ | Lệnh | Hiện tại |
 |---|---|---|
-| Backend | `uv run pytest -q` | 50 tệp, 498 passed |
+| Backend | `uv run pytest -q` | 54 tệp, 582 passed |
 | Web unit | `cd web && npm test` | 13 tệp, 117 passed |
 | Web e2e | `cd web && npm run e2e` | 4 spec, 11 test, mock toàn bộ `/api` |
 | Lint | `uv run ruff check . && uv run ruff format --check .` | sạch |

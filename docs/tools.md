@@ -171,6 +171,38 @@ With `MY_AGENT_ROUTES=fake:echo` no model is called and a message `/tool <name> 
 runs that tool through the real registry and approval path. This is how the live smoke
 and the browser tests drive tools without a key.
 
+## Ai đang dùng tool nào
+
+```
+GET /api/tools → [{"name": "workspace_read", …, "agents": ["coder", "default"], "optional": false}]
+```
+
+The union of every agent's registry, not the master's own set — a profile with a `tools`
+allow-list holds fewer tools than the master, and reading one agent's registry would hide
+tools the rest of the crew still uses. `agents` is who holds it, which is the answer to
+"can the reviewer actually edit files"; `optional` marks the tools that only exist when
+their key or route is configured (`web_search`, `image_read`).
+
+```
+GET /api/connections → {"providers": […], "routes": […], "vision_routes": […],
+                        "keys": [{"name": "OPENROUTER_API_KEY", "present": true}],
+                        "telegram": [{"agent_id": "…", "token_env": "…",
+                                      "configured": false, "ignored": false}]}
+```
+
+No secret's value appears in either response. A key is present or absent; a Telegram
+channel is named by the *environment variable* holding its token, and the chat id is not
+reported at all — enough to tell a missing key from a wrong one without putting either
+into a browser tab or a screenshot. A test asserts the whole serialized body contains no
+configured secret, so the property survives new fields being added. (The agent editor does
+return `chat_id`, because a field nobody can see is a field nobody can edit; this view is
+the one people screenshot, so it stays down to what diagnoses a connection.)
+
+`configured` is that row's own environment variable, not whether the crew has a channel at
+all — otherwise an agent whose token was never set would read as working. `ignored` marks
+a `telegram` block on a non-master profile: only the master's builds a channel, so the page
+says so rather than showing one that never runs.
+
 ## Adding a tool
 
 Create a `Tool(name, description, parameters, run, requires_approval, parallel)` in a

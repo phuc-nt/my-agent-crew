@@ -17,6 +17,8 @@ from my_agent_crew.config import load_settings
 from my_agent_crew.server import (
     routes_activity,
     routes_agents,
+    routes_agents_edit,
+    routes_agents_files,
     routes_approvals,
     routes_chat,
     routes_conversations,
@@ -24,6 +26,7 @@ from my_agent_crew.server import (
     routes_jobs,
     routes_memory_agent,
     routes_memory_user,
+    routes_registry,
     routes_settings,
 )
 from my_agent_crew.server.agent_assembly import build_providers
@@ -40,6 +43,9 @@ ROUTERS = (
     routes_approvals.router,
     routes_settings.router,
     routes_agents.router,
+    routes_agents_edit.router,
+    routes_agents_files.router,
+    routes_registry.router,
     routes_activity.router,
     routes_jobs.router,
     routes_memory_user.router,
