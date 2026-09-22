@@ -1,0 +1,309 @@
+/*
+ * The app shell: the three-column frame, the conversation sidebar, the header
+ * above the thread, and the status line at the foot.
+ *
+ * The frame is a grid, not nested flex columns, so a column can be added or
+ * dropped (the activity rail) by changing one declaration rather than by
+ * restructuring the DOM. The breakpoints below drop columns in order of how
+ * much the user needs them: the rail floats first, the sidebar collapses last.
+ */
+
+.layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  height: 100vh;
+}
+
+.layout.with-activity {
+  grid-template-columns: 260px 1fr 380px;
+}
+
+/* ── Sidebar: the conversation list ─────────────────────────────────────── */
+.sidebar {
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+  padding: var(--space-3);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.new-conversation {
+  width: 100%;
+}
+
+.conversation-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.conversation-list li {
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-sm);
+}
+
+.conversation-list li.active {
+  background: var(--accent-soft);
+}
+
+.conversation-item {
+  flex: 1;
+  text-align: left;
+  border: none;
+  background: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  align-items: center;
+  min-width: 0;
+}
+
+.conversation-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conversation-summary {
+  flex-basis: 100%;
+  font-size: var(--text-xs);
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.channel-tag {
+  flex: none;
+  font-size: var(--text-xs);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-full);
+  background: var(--surface-sunken);
+  color: var(--muted);
+}
+
+/* The master agent, pinned above the list: it is the one you always have. */
+.master-card {
+  padding: var(--space-1) var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--text-md);
+}
+
+.master-card .muted {
+  font-size: var(--text-sm);
+  margin-top: var(--space-1);
+}
+
+/* ── Main column header ─────────────────────────────────────────────────── */
+.main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: 100vh;
+}
+
+.conversation-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-wrap: wrap;
+}
+
+.header-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.header-summary {
+  flex-basis: 100%;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.summary-text {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.skills-picker {
+  position: relative;
+  font-size: var(--text-md);
+}
+
+.skills-picker summary {
+  cursor: pointer;
+}
+
+.skills-picker ul {
+  position: absolute;
+  right: 0;
+  z-index: 5;
+  list-style: none;
+  margin: var(--space-1) 0 0;
+  padding: var(--space-3);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  min-width: 260px;
+  box-shadow: var(--shadow-2);
+}
+
+.skills-picker label {
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+  padding: var(--space-1) 0;
+}
+
+.budget {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.budget progress {
+  width: 90px;
+  height: 8px;
+}
+
+.budget.over .budget-label {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+/* ── Settings drawer ────────────────────────────────────────────────────── */
+.settings-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  width: min(420px, 100vw);
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  box-shadow: var(--shadow-3);
+  overflow-y: auto;
+  padding: var(--space-4);
+  z-index: 10;
+}
+
+.settings-panel header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.settings-panel ul,
+.settings-panel ol {
+  padding-left: var(--space-5);
+  margin: var(--space-1) 0;
+}
+
+.tool-list li,
+.key-list li {
+  margin: var(--space-1) 0;
+}
+
+.tool-list .badge,
+.key-list .badge {
+  margin-left: var(--space-2);
+}
+
+.path-list dt {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  margin-top: var(--space-2);
+}
+
+.path-list dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ── Status line ────────────────────────────────────────────────────────── */
+.status-line {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-1) var(--space-4);
+  font-size: var(--text-xs);
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.stream-state.on::before {
+  content: "● ";
+  color: var(--ok);
+}
+
+.stream-state.off::before {
+  content: "● ";
+  color: var(--danger);
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+/* The rail floats over the thread before anything else gives way: it is a
+   side-channel, and losing the thread underneath it costs more than overlap. */
+@media (max-width: 1100px) {
+  .layout.with-activity {
+    grid-template-columns: 260px 1fr;
+  }
+
+  .activity-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: min(400px, 100vw);
+    z-index: 9;
+    box-shadow: var(--shadow-3);
+  }
+}
+
+/* At phone width the sidebar becomes a short scrollable strip on top rather
+   than a drawer: one tap fewer to switch conversation, which is the thing you
+   actually do on a phone. */
+@media (max-width: 720px) {
+  .layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+
+  .sidebar {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    max-height: 30vh;
+  }
+
+  .main {
+    height: auto;
+    min-height: 0;
+  }
+}

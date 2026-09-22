@@ -1,0 +1,482 @@
+/*
+ * The activity rail: the right-hand column and everything that lives in its
+ * tabs — the crew, running and finished jobs, the schedule list, memory and
+ * the cost tables.
+ *
+ * The step timeline inside a run card is its own stylesheet; this file stops
+ * at the card border. See run-timeline.css.
+ */
+
+/* The rail is a sunken tray so the cards inside it can be plain `--surface` and
+   still read as objects sitting on it. Making the tray `--surface` and the
+   cards lighter does not work: in light mode there is nothing above white. */
+.activity-panel {
+  border-left: 1px solid var(--border);
+  background: var(--surface-sunken);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.activity-panel > header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.tabs {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.tabs button {
+  border: none;
+  background: none;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+}
+
+.tabs button.active {
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+
+.tabs.sub {
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--space-2);
+}
+
+.panel-body {
+  overflow-y: auto;
+  padding: var(--space-3) var(--space-3) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.panel-body h3 {
+  margin-top: var(--space-3);
+}
+
+/* ── Attention: what is blocked on a human ──────────────────────────────── */
+.attention {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius);
+  background: var(--warn-bg);
+  color: var(--warn-text);
+}
+
+.attention h3 {
+  margin-top: 0;
+  color: inherit;
+}
+
+.attention-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.attention-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  align-items: baseline;
+}
+
+.attention-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.attention-child {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+/* ── Run cards ──────────────────────────────────────────────────────────── */
+/* Status is drawn on the card's outline, never on its fill: a rail of finished
+   jobs should read as a list, not as a stack of coloured alerts. */
+.run-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.run-card.running,
+.run-card.awaiting_approval {
+  border-color: var(--warn);
+}
+
+.run-card.error,
+.run-card.halted {
+  border-color: var(--danger);
+}
+
+.run-summary {
+  display: flex;
+  gap: var(--space-2);
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  padding: var(--space-2) var(--space-3);
+  align-items: flex-start;
+}
+
+.run-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  font-size: var(--text-md);
+}
+
+/* Wraps rather than truncates: every field on this line — status, time, step
+   count, spend — is one someone scans for, so none of them may be the one that
+   silently falls off the end. The live badge is taller than the text it sits
+   among, so the line box has to be able to grow around it. */
+.run-meta {
+  font-size: var(--text-xs);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--space-1);
+}
+
+.run-preview {
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 320px;
+}
+
+.run-body {
+  padding: 0 var(--space-3) var(--space-3);
+}
+
+/* A run and the work it handed out. The children indent under a rule, so the
+   parent stays scannable even when it opened several jobs. */
+.run-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.run-children {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-left: var(--space-4);
+  padding-left: var(--space-2);
+  border-left: 2px solid var(--border);
+}
+
+/* ── Crew ───────────────────────────────────────────────────────────────── */
+.crew-panel h3 {
+  margin-top: var(--space-4);
+}
+
+.crew-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.crew-card .row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.crew-card .row button {
+  margin-left: auto;
+}
+
+.crew-card .kit-list {
+  font-size: var(--text-sm);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.agent-badge,
+.work-badge {
+  background: var(--ok-bg);
+  color: var(--ok-text);
+}
+
+/* ── Jobs and schedules ─────────────────────────────────────────────────── */
+.job-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.job {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface);
+}
+
+/* Dim, not hidden: a disabled schedule is still something you need to find. */
+.job.disabled {
+  opacity: 0.6;
+}
+
+.job-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.job-meta {
+  font-size: var(--text-sm);
+  margin-top: var(--space-1);
+}
+
+.job-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: none;
+}
+
+.job-actions .toggle {
+  font-size: var(--text-sm);
+}
+
+.job-runs {
+  margin-top: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* ── Memory ─────────────────────────────────────────────────────────────── */
+.memory-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.memory-editor label,
+.memory-fact-form label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+}
+
+.memory-editor textarea,
+.memory-fact-form textarea,
+.memory-fact-form input,
+.memory-fact-form select {
+  width: 100%;
+}
+
+.memory-editor-actions {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.memory-fact-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-3);
+}
+
+.fact-list,
+.note-list,
+.hit-list,
+.proposal-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.fact-list li,
+.hit-list li,
+.proposal-list li {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-2) var(--space-3);
+}
+
+.fact-head {
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
+.fact-body {
+  margin: var(--space-1) 0 0;
+  white-space: pre-wrap;
+}
+
+.note-list li {
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+}
+
+.diff {
+  margin: var(--space-1) 0 0;
+  padding: var(--space-2);
+  background: var(--surface-sunken);
+  border-radius: var(--radius);
+  overflow-x: auto;
+  font-size: var(--text-sm);
+}
+
+.diff .added {
+  color: var(--ok);
+  font-weight: 600;
+}
+
+/* ── Costs ──────────────────────────────────────────────────────────────── */
+.stat-totals {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.stat-totals dt {
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+.stat-totals dd {
+  margin: 0;
+  font-size: var(--text-xl);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-bars {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+}
+
+.stat-bars li {
+  display: grid;
+  grid-template-columns: 1fr 100px auto;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.stat-key {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stat-bar {
+  height: 8px;
+  background: var(--border);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.stat-bar span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+.stat-days li {
+  grid-template-rows: auto auto;
+}
+
+.stat-detail {
+  grid-column: 1 / -1;
+  font-size: var(--text-xs);
+  margin-top: -0.15rem;
+}
+
+.stat-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.stat-table th,
+.stat-table td {
+  text-align: left;
+  padding: var(--space-1);
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.stat-table th {
+  color: var(--muted);
+  font-weight: 500;
+  font-size: var(--text-xs);
+}
+
+/* Numbers right-align and share a column width, so a total is comparable down
+   the column without reading any of the digits. */
+.stat-table td:nth-child(n + 2),
+.stat-table th:nth-child(n + 2) {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Shared small pieces ────────────────────────────────────────────────── */
+.chip-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+  align-items: center;
+  font-size: var(--text-sm);
+}
+
+.chip-list li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.1rem;
+  padding: 0.1rem 0.2rem 0.1rem var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--ok-bg);
+  color: var(--ok-text);
+}
+
+.chip-list .icon-button {
+  font-size: var(--text-lg);
+  padding: 0 var(--space-1);
+  color: inherit;
+}

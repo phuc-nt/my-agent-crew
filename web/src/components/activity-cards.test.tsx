@@ -35,7 +35,8 @@ describe("RunCard", () => {
     await userEvent.click(screen.getByRole("button", { expanded: false }));
     const [fallback, ...steps] = screen.getAllByTestId("run-step");
     expect(fallback).toHaveTextContent(vi.stepFallback);
-    expect(fallback).toHaveTextContent("openrouter:glm-5.3-flash · HTTP 429 from glm-5.3-flash");
+    expect(fallback).toHaveTextContent("openrouter:glm-5.3-flash");
+    expect(fallback).toHaveTextContent("HTTP 429 from glm-5.3-flash");
     expect(steps[0]).toHaveTextContent("echo");
     expect(steps[0]).toHaveTextContent(vi.stepChars(12));
     expect(steps[0]).toHaveTextContent(vi.stepCostUnknown);
@@ -48,6 +49,66 @@ describe("RunCard", () => {
     expect(steps[1]).toHaveTextContent("no such dir");
     await userEvent.click(screen.getByRole("button", { name: vi.openConversation }));
     expect(open).toHaveBeenCalledWith("c1");
+  });
+
+  it("stops showing a step as running once its run has died under it", async () => {
+    // The step is recorded open (`ok: null`) because it was open when the row
+    // was written. The run then errored without ever closing it. Painting that
+    // as "running" leaves a spinner turning on work that stopped long ago.
+    const run = fakeRun({
+      status: "error",
+      steps: [{ kind: "tool", name: "shell_run", tool_call_id: "tc", arguments: {}, ok: null, output: null, duration_ms: null }],
+    });
+    render(<RunCard run={run} agentName="HLV" expanded />);
+    const [step] = screen.getAllByTestId("run-step");
+    expect(step).toHaveAttribute("data-state", "stalled");
+    expect(step).toHaveTextContent(vi.toolStalled);
+    expect(step).not.toHaveTextContent(vi.toolRunning);
+  });
+
+  it("folds a retry loop into one row with its count and total time", async () => {
+    const search = {
+      kind: "tool" as const,
+      name: "web_search",
+      tool_call_id: "tc",
+      arguments: {},
+      ok: true,
+      output: null,
+      duration_ms: 100,
+    };
+    const run = fakeRun({ status: "done", steps: [search, search, search] });
+    render(<RunCard run={run} agentName="HLV" expanded />);
+    const steps = screen.getAllByTestId("run-step");
+    expect(steps).toHaveLength(1);
+    expect(steps[0]).toHaveTextContent(vi.stepRepeat(3));
+    expect(steps[0]).toHaveTextContent(vi.stepDuration(300));
+  });
+
+  it("spends no width on a state word the row already implies, but still says it", async () => {
+    // A plain success and a fallback both know their outcome without a label:
+    // the first from its node colour, the second from the word "đổi tuyến". The
+    // word still has to reach a screen reader, which only reads text.
+    const run = fakeRun({
+      status: "done",
+      steps: [
+        { kind: "tool", name: "read_file", tool_call_id: "tc", arguments: {}, ok: true, output: null, duration_ms: 10 },
+        { kind: "fallback", provider: "openrouter", model: "glm", error: "429", duration_ms: 5 },
+      ],
+    });
+    const { container } = render(<RunCard run={run} agentName="HLV" expanded />);
+    expect(container.querySelectorAll(".step-state")).toHaveLength(0);
+    const [ok, fallback] = screen.getAllByTestId("run-step");
+    expect(ok).toHaveTextContent(vi.toolDone);
+    expect(fallback).toHaveTextContent(vi.toolFailed);
+  });
+
+  it("gives an unfinished row its state in words, since no colour says it alone", async () => {
+    const run = fakeRun({
+      status: "running",
+      steps: [{ kind: "tool", name: "shell_run", tool_call_id: "tc", arguments: {}, ok: null, output: null, duration_ms: null }],
+    });
+    const { container } = render(<RunCard run={run} agentName="HLV" expanded />);
+    expect(container.querySelector(".step-state")).toHaveTextContent(vi.toolRunning);
   });
 });
 

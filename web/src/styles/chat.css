@@ -1,0 +1,297 @@
+/*
+ * The conversation column: the thread, the bubbles, the tool cards that appear
+ * between them, the approval bar and the composer.
+ *
+ * The thread is the one surface where the agent's prose is the content, so it
+ * is the one place that gets generous line length and spacing. Everything
+ * around it — tool cards, approvals — is deliberately denser, so a wall of tool
+ * traffic never reads as the conversation itself.
+ */
+
+.thread {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.empty-state {
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-3);
+}
+
+.suggestions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* 780px is roughly 90 characters at this size: long enough that code and
+   command output do not wrap constantly, short enough to still be read. */
+.bubble {
+  max-width: 780px;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.bubble.user {
+  align-self: flex-end;
+  background: var(--user-bubble);
+  border-color: transparent;
+}
+
+.bubble p {
+  margin: var(--space-1) 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.bubble-role {
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+.bubble img.media {
+  max-width: 100%;
+  border-radius: var(--radius-sm);
+  margin-top: var(--space-2);
+  display: block;
+}
+
+/* The caret that marks a reply still arriving. It is the only thing in the
+   thread that moves, so it needs no label to be understood. */
+.bubble.streaming p::after {
+  content: "▍";
+  animation: caret-blink 1s steps(2, start) infinite;
+}
+
+@keyframes caret-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.thinking {
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* ── Tool cards in the thread ───────────────────────────────────────────── */
+/* Dashed, unlike every other card on the surface: a tool call is machinery
+   showing through the conversation, not a message in it. */
+.tool-card {
+  max-width: 780px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface);
+  font-size: var(--text-md);
+}
+
+.tool-card.awaiting {
+  border-color: var(--warn);
+}
+
+.tool-card.failed,
+.tool-card.denied {
+  border-color: var(--danger);
+}
+
+.tool-header {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+/* A tool card has no coloured node beside it the way a timeline row does, so
+   here the glyph is the fastest read of the state. The rail uses `.step-state`
+   for the same words without a glyph — see run-timeline.css. */
+.tool-status {
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+.tool-status.running::before {
+  content: "⏳ ";
+}
+.tool-status.done::before {
+  content: "✓ ";
+}
+.tool-status.failed::before,
+.tool-status.denied::before {
+  content: "✗ ";
+}
+.tool-status.awaiting::before {
+  content: "⏸ ";
+}
+
+.tool-arguments {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
+.tool-output {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-2);
+  background: var(--surface-sunken);
+  border-radius: var(--radius-sm);
+  max-height: 300px;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+/* ── Approvals ──────────────────────────────────────────────────────────── */
+/* The bar sits between the thread and the composer because that is where the
+   turn is actually blocked: you cannot type past it without deciding. */
+.approval-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: var(--warn-bg);
+  color: var(--warn-text);
+  border-top: 1px solid var(--warn);
+  flex-wrap: wrap;
+}
+
+.approval-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.approval-text code {
+  overflow-wrap: anywhere;
+}
+
+.approval-reason {
+  font-size: var(--text-sm);
+  color: var(--warn-text);
+}
+
+.approval-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.approval-deadline {
+  font-size: var(--text-sm);
+  color: var(--warn-text);
+  opacity: 0.85;
+}
+
+.approval-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.approval-list li {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-sunken);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--text-md);
+}
+
+.approval-list li[data-status="denied"],
+.approval-list li[data-status="expired"] {
+  border-color: var(--danger);
+}
+
+.approval-head {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  align-items: baseline;
+}
+
+.approval-meta {
+  font-size: var(--text-xs);
+}
+
+.approval-list .link-button {
+  align-self: flex-start;
+}
+
+/* ── Notices ────────────────────────────────────────────────────────────── */
+.notice {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-md);
+}
+
+.notice.error {
+  background: var(--danger-bg);
+  color: var(--danger-text);
+}
+
+.notice.halted,
+.notice.fallback {
+  background: var(--warn-bg);
+  color: var(--warn-text);
+}
+
+.notice.crash {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+
+/* ── Composer ───────────────────────────────────────────────────────────── */
+.composer {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.composer textarea {
+  flex: 1;
+  resize: vertical;
+}
+
+/* ── Delegation in the thread ───────────────────────────────────────────── */
+/* A handed-off task is solid-bordered and accent-coloured, because it is a job
+   someone else ran — not a tool this agent called. */
+.delegate-card {
+  border-style: solid;
+  border-color: var(--accent);
+}
+
+.delegate-result {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  font-size: var(--text-sm);
+}
+
+.delegate-chip {
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--ok-bg);
+  color: var(--ok-text);
+}
+
+.child-marker {
+  color: var(--muted);
+}

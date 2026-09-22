@@ -1,8 +1,11 @@
 import { useState } from "react";
-import type { RunInfo, RunStep } from "../api/types";
+import type { RunInfo } from "../api/types";
 import { vi } from "../i18n/vi";
+import { isSettled } from "../lib/run-progress";
+import { runRows, type RunRow } from "../lib/run-rows";
 import type { RunGroup } from "../state/activity-reducer";
 import { formatUsd } from "./budget-indicator";
+import { RunProgressHeader } from "./run-progress-header";
 import { summarizeArguments } from "./tool-call-card";
 
 export function formatClock(iso: string): string {
@@ -27,7 +30,7 @@ interface Props {
 /** One run as a card: who, what, status, cost, then the step timeline when expanded. */
 export function RunCard({ run, agentName, expanded = false, onOpenConversation }: Props) {
   const [open, setOpen] = useState(expanded);
-  const live = run.status === "running" || run.status === "awaiting_approval";
+  const live = !isSettled(run.status);
   return (
     <article className={`run-card ${run.status}`} data-testid="run-card" data-status={run.status}>
       <button type="button" className="run-summary" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
@@ -47,12 +50,16 @@ export function RunCard({ run, agentName, expanded = false, onOpenConversation }
       </button>
       {open && (
         <div className="run-body">
+          {/* The live header sits above the steps, so the answer to "what is it
+              doing" is in one fixed place rather than at the bottom of a list
+              that grows while you read it. */}
+          {(live || run.steps.length > 0) && <RunProgressHeader run={run} />}
           {run.steps.length === 0 ? (
             <p className="muted">{vi.thinking}</p>
           ) : (
             <ol className="run-steps">
-              {run.steps.map((step, i) => (
-                <StepRow key={i} step={step} />
+              {runRows(run).map((row) => (
+                <StepRow key={row.key} row={row} />
               ))}
             </ol>
           )}
@@ -71,43 +78,80 @@ export function RunCard({ run, agentName, expanded = false, onOpenConversation }
   );
 }
 
-function StepRow({ step }: { step: RunStep }) {
+const STATE_LABEL: Record<RunRow["state"], string> = {
+  running: vi.toolRunning,
+  done: vi.toolDone,
+  failed: vi.toolFailed,
+  stalled: vi.toolStalled,
+};
+
+/**
+ * Whether the state deserves its own word on the row.
+ *
+ * A plain success does not: a settled row that says nothing is a row that went
+ * fine, which is what the eye is looking to skip past. Neither does a fallback,
+ * which is a failure by definition — "đổi tuyến" already says a route gave up,
+ * and adding "lỗi" beside it only costs the row the width it needs to stay on
+ * one line.
+ */
+function showState(row: RunRow): boolean {
+  if (row.state === "done") return false;
+  if (row.kind === "fallback") return false;
+  return true;
+}
+
+/**
+ * One node on the rail.
+ *
+ * The class list carries both axes the stylesheet needs: the kind, which
+ * colours the node and never changes, and the state, which the row around it
+ * expresses. They are kept separate on purpose — see run-timeline.css.
+ *
+ * No glyph sits next to the label. The node is already coloured by kind, and a
+ * second symbol saying the same thing only competes with it.
+ */
+function StepRow({ row }: { row: RunRow }) {
   const [showOutput, setShowOutput] = useState(false);
-  const duration = step.duration_ms !== null ? vi.stepDuration(step.duration_ms) : null;
-  if (step.kind === "model") {
-    return (
-      <li className="step model" data-testid="run-step">
-        <span className="step-kind">🧠 {vi.stepModel}</span>
+  const { step } = row;
+  const duration = row.durationMs !== null ? vi.stepDuration(row.durationMs) : null;
+
+  return (
+    <li className={`step ${row.kind} ${row.state}`} data-testid="run-step" data-state={row.state}>
+      <span className="step-head">
+        <span className="step-name">
+          <span className="step-kind">{row.label}</span>
+          {/* The kind in words. A label on its own is ambiguous — "sonnet" and
+              "openrouter:glm" both read as names until something says which one
+              answered and which one was abandoned. A tool row is the exception:
+              its name is a verb already. */}
+          {row.kind === "model" && <span className="step-role muted">{vi.stepModel}</span>}
+          {row.kind === "fallback" && <span className="step-role muted">{vi.stepFallback}</span>}
+          {row.kind === "delegate" && <span className="step-role muted">{vi.stepDelegate}</span>}
+          {row.repeat > 1 && (
+            <span className="step-repeat tabular" title={vi.runStepCount(row.repeat, row.repeat)}>
+              {vi.stepRepeat(row.repeat)}
+            </span>
+          )}
+          {showState(row) ? (
+            <span className={`step-state ${row.state}`}>{STATE_LABEL[row.state]}</span>
+          ) : (
+            /* Still spoken, since on these rows the state is carried only by
+               colour or by a word that implies it. */
+            <span className="sr-only">{STATE_LABEL[row.state]}</span>
+          )}
+        </span>
+        {duration && <span className="step-time tabular">{duration}</span>}
+      </span>
+      {step.kind === "model" && (
         <span className="step-detail">
-          {step.model ?? "?"} · {vi.stepChars(step.chars)} ·{" "}
-          {step.cost_usd === null ? vi.stepCostUnknown : formatUsd(step.cost_usd)}
-          {duration && ` · ${duration}`}
+          {vi.stepChars(step.chars)} · {step.cost_usd === null ? vi.stepCostUnknown : formatUsd(step.cost_usd)}
           {step.tool_calls.length > 0 && ` · → ${step.tool_calls.join(", ")}`}
         </span>
-        {step.preview && <span className="step-preview muted">{step.preview}</span>}
-      </li>
-    );
-  }
-  if (step.kind === "fallback") {
-    return (
-      <li className="step fallback" data-testid="run-step">
-        <span className="step-kind">↪ {vi.stepFallback}</span>
-        <span className="step-detail">
-          {step.provider}:{step.model} · {step.error}
-        </span>
-      </li>
-    );
-  }
-  const state = step.ok === null ? "running" : step.ok ? "done" : "failed";
-  return (
-    <li className={`step tool ${state}`} data-testid="run-step">
-      <span className="step-kind">🔧 {step.name}</span>
-      <span className={`tool-status ${state}`}>
-        {state === "running" ? vi.toolRunning : state === "done" ? vi.toolDone : vi.toolFailed}
-        {duration && ` · ${duration}`}
-      </span>
-      <span className="tool-arguments">{summarizeArguments(step.arguments) || "—"}</span>
-      {step.output && (
+      )}
+      {step.kind === "model" && step.preview && <span className="step-preview muted">{step.preview}</span>}
+      {step.kind === "fallback" && <span className="step-detail">{step.error}</span>}
+      {step.kind === "tool" && <span className="tool-arguments">{summarizeArguments(step.arguments) || "—"}</span>}
+      {step.kind === "tool" && step.output && (
         <>
           <button type="button" className="link-button" onClick={() => setShowOutput((s) => !s)}>
             {showOutput ? vi.hideOutput : vi.showOutput}

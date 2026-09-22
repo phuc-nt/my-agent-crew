@@ -50,6 +50,19 @@ export const vi = {
   toolFailed: "lỗi",
   toolAwaiting: "chờ duyệt",
   toolDenied: "đã từ chối",
+  // A step left open when its run ended: it neither succeeded nor reported a
+  // failure, and saying so is more honest than picking one of the two.
+  toolStalled: "dở dang",
+  stepDelegate: "giao việc",
+  stepRepeat: (n: number) => `×${n}`,
+  // The live header, one line: what the agent is doing right now.
+  runDoing: (label: string) => `Đang ${label}`,
+  runThinking: "Đang suy nghĩ",
+  runStepCount: (done: number, total: number) => `${done}/${total} bước`,
+  runElapsed: (ms: number) =>
+    ms >= 60_000
+      ? `${Math.floor(ms / 60_000)} phút ${Math.floor((ms % 60_000) / 1000)} giây`
+      : `${(ms / 1000).toFixed(1)} giây`,
   showOutput: "Xem kết quả",
   hideOutput: "Ẩn kết quả",
   arguments: "Tham số",
@@ -163,10 +176,9 @@ export const vi = {
     return kind === "telegram" ? "Telegram" : kind;
   },
   runSteps: (n: number) => `${n} bước`,
-  stepModel: "model",
+  stepModel: "trả lời",
   stepFallback: "đổi tuyến",
   routeFallback: (detail: string) => `Tuyến ${detail} không trả lời, đã chuyển sang tuyến dự phòng.`,
-  stepTool: "công cụ",
   stepDuration: (ms: number) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)} giây` : `${ms} ms`),
   stepChars: (n: number) => `${n} ký tự`,
   stepCostUnknown: "không rõ giá",
