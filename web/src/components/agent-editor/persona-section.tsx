@@ -16,7 +16,10 @@ interface Props {
  * be written out because the person changed the cost cap.
  */
 export function PersonaSection({ agent, readOnly }: Props) {
-  const names = agent.persona_files;
+  // Every file the agent would read, not only the ones already written: a new agent has
+  // written none, and a tab strip built from what exists would offer nothing to edit.
+  const names = agent.persona_names;
+  const written = new Set(agent.persona_files);
   const [open, setOpen] = useState(names[0] ?? "");
   const [body, setBody] = useState("");
   const [loading, setLoading] = useState(false);
@@ -68,6 +71,9 @@ export function PersonaSection({ agent, readOnly }: Props) {
             onClick={() => setOpen(name)}
           >
             {name}
+            {/* Which files actually say something, so an empty one reads as "not written
+                yet" rather than as a file that failed to load. */}
+            {!written.has(name) && <span className="muted"> {vi.editor.personaEmpty}</span>}
           </button>
         ))}
       </div>

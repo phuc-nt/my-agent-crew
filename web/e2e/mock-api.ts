@@ -1,9 +1,13 @@
 import type { Page, Route } from "@playwright/test";
+import type { AgentInfo } from "../src/api/types";
 
 // Every /api call is answered in-browser so the smoke tests measure the real DOM without a backend.
 export type Conversation = Record<string, unknown> & { id: string; messages: unknown[]; pending_approval: unknown };
 
-export const defaultAgent = {
+// Annotated rather than inferred: a fixture the compiler does not check against the real
+// type drifts silently, and the screens then render fields in a state the backend can
+// never produce — a smoke test that passes while proving nothing about them.
+export const defaultAgent: AgentInfo = {
   id: "default",
   name: "Agent",
   description: "",
@@ -13,7 +17,12 @@ export const defaultAgent = {
   cost_cap_usd: 1,
   max_steps: 20,
   autonomous: false,
+  shell_ask_patterns: [],
+  tool_output_chars: 2000,
+  memory_consolidate: "",
   persona_files: [],
+  persona_names: ["AGENTS.md", "SOUL.md", "IDENTITY.md", "USER.md"],
+  skills_dirs: ["/h/skills"],
   schedules: [],
   mode: "assistant",
   delegates: [],
@@ -22,6 +31,7 @@ export const defaultAgent = {
   is_master: true,
   editable: true,
   telegram: null,
+  declared: { delegates: [], schedules: [] },
   commands: [],
   hooks: 0,
   kits: [],
@@ -185,13 +195,24 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
       const content = personaFiles.get(key) ?? "";
       return json({ name: persona[2], content, chars: content.length });
     }
+    const prompted = path.match(/^\/agents\/([^/]+)\/prompt$/);
+    if (prompted) {
+      const agentId = decodeURIComponent(prompted[1]);
+      // Assembled from what was written, the way the server rebuilds it every turn.
+      const sections = [...personaFiles]
+        .filter(([key]) => key.startsWith(`${agentId}/`))
+        .map(([key, content]) => `\n## ${key.split("/")[1]}\n${content}\n`);
+      const prompt = `Bạn là một trợ lý.\n${sections.join("")}`;
+      return json({ prompt, chars: prompt.length });
+    }
     const single = path.match(/^\/agents\/([^/]+)$/);
     if (single && (method === "PATCH" || method === "DELETE")) {
       const at = agents.findIndex((a) => (a as { id: string }).id === single[1]);
       if (at < 0) return json({ detail: `unknown agent ${single[1]}` }, 404);
       if (method === "DELETE") {
         const [gone] = agents.splice(at, 1);
-        return json({ kept_at: `/h/removed/${(gone as { id: string }).id}` });
+        const id = (gone as { id: string }).id;
+        return json({ removed: id, kept_at: `/h/removed/${id}` });
       }
       const { profile } = route.request().postDataJSON() as { profile: object };
       agents[at] = { ...agents[at], ...profile };

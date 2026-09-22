@@ -107,23 +107,32 @@ interface LinesProps {
   onChange: (value: string[]) => void;
 }
 
+/** The list a given buffer of text stands for: blank lines are spacing, not entries. */
+function linesOf(text: string): string[] {
+  return text.split("\n").filter((line) => line.trim() !== "");
+}
+
+function sameLines(a: string[], b: string[]): boolean {
+  return a.length === b.length && a.every((line, i) => line === b[i]);
+}
+
 /**
  * A list of short strings edited as one textarea, one per line.
  *
  * The text being typed lives here rather than in the draft, because the draft holds a
- * list: round-tripping through `split`/`join` would drop the empty line the moment the
- * person presses Enter to start the next entry, pulling the cursor back up a row. The
- * buffer resets whenever the list changes from the outside — a save, a revert, or another
- * agent — which `join` detects without needing a second piece of state to compare.
+ * list and a blank line is not an entry. Round-tripping every keystroke through
+ * `split`/`join` would delete the empty line the moment the person presses Enter —
+ * whether at the end of the list or between two existing entries — and drag the cursor
+ * with it.
+ *
+ * So the buffer is authoritative while it still means the same list the parent holds,
+ * and is replaced only when the parent's value says something the buffer does not: a
+ * save, a revert, or a different agent. Comparing lists rather than text is what makes
+ * the in-progress blank line survive a re-render it did not cause.
  */
 export function LinesField({ label, hint, value, rows = 4, disabled, onChange }: LinesProps) {
-  const joined = value.join("\n");
-  const [text, setText] = useState(joined);
-  const [last, setLast] = useState(joined);
-  if (joined !== last) {
-    setLast(joined);
-    setText(joined);
-  }
+  const [text, setText] = useState(() => value.join("\n"));
+  if (!sameLines(linesOf(text), value)) setText(value.join("\n"));
 
   return (
     <Field label={label} hint={hint}>
@@ -134,9 +143,7 @@ export function LinesField({ label, hint, value, rows = 4, disabled, onChange }:
         disabled={disabled}
         onChange={(e) => {
           setText(e.target.value);
-          const lines = e.target.value.split("\n").filter((line) => line.trim() !== "");
-          setLast(lines.join("\n"));
-          onChange(lines);
+          onChange(linesOf(e.target.value));
         }}
       />
     </Field>

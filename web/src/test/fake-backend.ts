@@ -33,6 +33,8 @@ export const fakeAgent: AgentInfo = {
   tool_output_chars: 4000,
   memory_consolidate: "",
   persona_files: [],
+  persona_names: ["AGENTS.md", "SOUL.md", "IDENTITY.md", "USER.md"],
+  skills_dirs: ["/h/skills"],
   mode: "assistant",
   delegates: [],
   schedules: [],
@@ -44,6 +46,7 @@ export const fakeAgent: AgentInfo = {
   commands: [],
   hooks: 0,
   kits: [],
+  declared: { delegates: [], schedules: [] },
 };
 
 export const coderTemplate: TemplateInfo = {
@@ -175,6 +178,20 @@ export class FakeBackend {
       // agent may have but has not created yet.
       const content = this.personaFiles.get(`${decodeURIComponent(persona[1])}/${persona[2]}`) ?? "";
       return json({ name: persona[2], content, chars: content.length });
+    }
+    const prompted = path.match(/^\/agents\/([^/]+)\/prompt$/)?.[1];
+    if (prompted && method === "GET") {
+      const agentId = decodeURIComponent(prompted);
+      if (!this.agents.some((a) => a.id === agentId)) {
+        return json({ detail: "agent not found" }, 404);
+      }
+      // Assembled from what was written, the way the server rebuilds it every turn: a
+      // persona saved a moment ago has to show up in the very next read.
+      const sections = [...this.personaFiles]
+        .filter(([key]) => key.startsWith(`${agentId}/`))
+        .map(([key, content]) => `\n## ${key.split("/")[1]}\n${content}\n`);
+      const prompt = `Bạn là một trợ lý.\n${sections.join("")}`;
+      return json({ prompt, chars: prompt.length });
     }
     const edited = path.match(/^\/agents\/([^/]+)$/)?.[1];
     if (edited && method === "PATCH") return this.patchAgent(decodeURIComponent(edited), body.profile);

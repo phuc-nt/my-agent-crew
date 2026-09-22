@@ -164,6 +164,24 @@
   margin-bottom: var(--space-3);
 }
 
+/* The assembled prompt: long, wrapped, and capped so it scrolls inside the section
+   rather than pushing every other control off the screen. */
+.prompt-preview {
+  max-height: 28rem;
+  overflow: auto;
+  margin: var(--space-3) 0 0;
+  padding: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  color: var(--text);
+}
+
 .route-editor,
 .schedule-editor {
   list-style: none;

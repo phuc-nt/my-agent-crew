@@ -33,6 +33,17 @@
   width: 100%;
 }
 
+.conversation-search input {
+  width: 100%;
+  font: inherit;
+  font-size: var(--text-sm);
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+}
+
 .conversation-list {
   list-style: none;
   margin: 0;

@@ -1,6 +1,6 @@
-import { useEffect, useRef } from "react";
 import { agentFileUrl } from "../api/client";
 import type { RunInfo } from "../api/types";
+import { useAutoScroll } from "../hooks/use-auto-scroll";
 import { vi } from "../i18n/vi";
 import type { ThreadItem } from "../state/thread-reducer";
 import { MarkdownBody } from "./markdown-body";
@@ -40,10 +40,7 @@ export function MessageThread({
   masterName,
   crewNames = [],
 }: Props) {
-  const bottom = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    bottom.current?.scrollIntoView?.({ block: "end" });
-  }, [items.length, streaming]);
+  const scroll = useAutoScroll<HTMLElement>();
 
   if (items.length === 0 && !streaming) {
     const suggestions = [
@@ -70,7 +67,8 @@ export function MessageThread({
   }
 
   return (
-    <section className="thread" aria-live="polite">
+    <div className="thread-frame">
+      <section className="thread" aria-live="polite" ref={scroll.ref} onScroll={scroll.onScroll}>
       {items.map((item) => (
         <Item
             key={item.id}
@@ -96,8 +94,20 @@ export function MessageThread({
           {liveRun ? <RunProgressHeader run={liveRun} /> : vi.thinking}
         </div>
       )}
-      <div ref={bottom} />
-    </section>
+      </section>
+      {/* Only worth offering once the tail is actually out of view: shown while the
+          thread is already at the bottom it would be a button that does nothing. */}
+      {!scroll.atBottom && (
+        <button
+          type="button"
+          className="jump-newest"
+          data-testid="jump-newest"
+          onClick={scroll.scrollToBottom}
+        >
+          {vi.jumpToNewest}
+        </button>
+      )}
+    </div>
   );
 }
 

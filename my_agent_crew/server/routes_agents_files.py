@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from ruamel.yaml import YAMLError
 
 from my_agent_crew import texts
+from my_agent_crew.agent.prompt import system_prompt_for
 from my_agent_crew.agents import load_profiles
 from my_agent_crew.agents.profile import PERSONA_FILES
 from my_agent_crew.server.agent_edit_common import check_editable, existing, write_lock
@@ -32,6 +33,23 @@ def _checked(name: str) -> None:
         raise HTTPException(
             404, texts.PERSONA_FILE_UNKNOWN.format(name=name, names=", ".join(PERSONA_FILES))
         )
+
+
+@router.get("/agents/{agent_id}/prompt")
+def get_prompt(agent_id: str, rt: Rt) -> dict[str, Any]:
+    """The system prompt this agent would be given for a fresh conversation.
+
+    Built by the same function the turn uses, so what the person reads here is what the
+    model is told — not a rendering of the profile that happens to look similar. It is
+    "as of now": the persona files and daily notes are re-read on every turn, so a prompt
+    shown for a past turn would be a guess.
+    """
+    try:
+        deps = rt.deps_for(agent_id)
+    except KeyError as exc:
+        raise HTTPException(404, "agent not found") from exc
+    text = system_prompt_for(deps)
+    return {"prompt": text, "chars": len(text)}
 
 
 @router.get("/agents/{agent_id}/files/{name}")

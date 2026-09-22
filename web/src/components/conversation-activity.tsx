@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { RunInfo } from "../api/types";
 import { vi } from "../i18n/vi";
 import { parentConversationId, runGroups } from "../state/activity-reducer";
@@ -20,6 +20,9 @@ interface Props {
   spentUsd: number;
   agentName: (id: string) => string;
   onOpenConversation: (conversationId: string) => void;
+  /** Bumped from outside to collapse the strip, which is what Escape does. A counter
+   * rather than a boolean: the same request has to work twice in a row. */
+  collapseSignal?: number;
 }
 
 /**
@@ -35,8 +38,16 @@ export function ConversationActivity({
   spentUsd,
   agentName,
   onOpenConversation,
+  collapseSignal = 0,
 }: Props) {
   const [expanded, setExpanded] = useState(readExpanded);
+
+  // Skipped on the first render: the strip opens in whatever state was remembered, and
+  // an effect that ran on mount would slam it shut before the person touched anything.
+  const firstSignal = useRef(collapseSignal);
+  useEffect(() => {
+    if (collapseSignal !== firstSignal.current) setExpanded(false);
+  }, [collapseSignal]);
 
   useEffect(() => {
     try {

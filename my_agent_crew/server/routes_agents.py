@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from my_agent_crew import texts
 from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.agents import DEFAULT_AGENT_ID, load_profiles
+from my_agent_crew.agents.profile import Schedule
 from my_agent_crew.agents.roster import delegate_targets
 from my_agent_crew.agents.templates_cli import add_template
 from my_agent_crew.server.agent_edit_common import manifest_path
@@ -41,11 +42,30 @@ def _inside_workspace(workspace: Path, path: str) -> Path:
         raise HTTPException(403, texts.FILE_OUTSIDE_WORKSPACE) from exc
 
 
+def _sendable(schedule: Schedule) -> dict[str, Any]:
+    """A schedule row shaped so it can be written straight back.
+
+    `kind` is derived from the other keys, and the parser refuses any key it does not
+    recognise — so a row reported with it cannot be returned unchanged, and an editor
+    that tries takes every other pending edit down with the rejection.
+    """
+    return {k: v for k, v in schedule.to_dict().items() if k != "kind"}
+
+
 def _describe(rt: Runtime, deps: AgentDeps) -> dict[str, Any]:
     """`delegates` is what the agent can actually reach, not only what its file lists:
     the master names nobody and reaches everyone."""
     data = deps.agent.to_dict()
     data["delegates"] = list(delegate_targets(deps.agent, {p.id: p for p in rt.profiles()}))
+    # What the agent's own file says, next to what the crew computed from it. An editor
+    # has to diff against this: writing back a computed value turns "names nobody, so
+    # reaches everyone" into a fixed list that silently stops growing with the crew, and
+    # turns a consolidation job generated from `memory_consolidate` into a second real
+    # schedule on the same cron.
+    data["declared"] = {
+        "delegates": list(deps.agent.delegates),
+        "schedules": [_sendable(s) for s in deps.agent.schedules if not s.consolidate],
+    }
     # Whether an edit would be accepted, so a UI can say so before the person fills in a
     # form the write route is going to refuse. It answers the same question
     # `check_editable` does, from the same fact: a kit agent has no manifest to patch.

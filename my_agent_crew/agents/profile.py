@@ -142,6 +142,11 @@ class AgentProfile:
             "shell_ask_patterns": list(self.settings.shell_ask_patterns),
             "tool_output_chars": self.settings.tool_output_chars,
             "persona_files": [f for f in self.persona_files if (self.dir / f).is_file()],
+            # Every name this agent would read, written or not. An editor that offered
+            # only the files that already exist could never create the first one, which
+            # is the state every new agent starts in.
+            "persona_names": list(self.persona_files),
+            "skills_dirs": [str(d) for d in self.skills_dirs],
             "schedules": [s.to_dict() for s in self.schedules],
             "telegram": self.telegram.to_dict() if self.telegram else None,
             "memory_consolidate": self.memory_consolidate,

@@ -82,3 +82,25 @@ test("the tools section says which agent has what, and connections names keys wi
   await expect(panel.getByTestId("routes")).toContainText("echo");
   await expect(panel.getByTestId("telegram-list")).toContainText("TELEGRAM_BOT_TOKEN");
 });
+
+test("the editor shows what the agent is actually told, including a persona just written", async ({ page }) => {
+  await mockApi(page, { agents: [master, coachAgent] });
+  await page.goto("/#/manage/crew/coach");
+  const editor = page.getByTestId("agent-editor");
+
+  // A fresh agent has written no persona file, yet every one it could have is offered —
+  // otherwise there is no way to write the first line from the web at all.
+  const persona = editor.getByTestId("section-persona");
+  await expect(persona.getByRole("tab", { name: /AGENTS\.md/ })).toBeVisible();
+  await persona.getByRole("tab", { name: /AGENTS\.md/ }).click();
+  await persona.getByRole("textbox").fill("Luôn trả lời ngắn.");
+  await persona.getByRole("button", { name: "Ghi tệp" }).click();
+  await expect(persona.getByRole("status")).toContainText("AGENTS.md");
+
+  const prompt = editor.getByTestId("section-prompt");
+  await prompt.getByRole("button", { name: "Xem lời nhắc" }).click();
+
+  // The prompt is assembled server-side from the same code a turn uses, so the line that
+  // was just saved is in it — which is how the person confirms the edit took effect.
+  await expect(prompt.getByTestId("prompt-preview")).toContainText("Luôn trả lời ngắn.");
+});

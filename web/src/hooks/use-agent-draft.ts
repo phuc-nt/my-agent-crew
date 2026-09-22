@@ -30,6 +30,9 @@ const EDITABLE: DraftKey[] = [
   "telegram",
 ];
 
+/** The keys `mode: work` supplies a default for when the manifest stays silent. */
+const MODE_DEFAULTED: DraftKey[] = ["cost_cap_usd", "max_steps", "autonomous"];
+
 export interface AgentDraft {
   /** The profile as the server last reported it; the baseline every diff is taken from. */
   original: AgentInfo | null;
@@ -51,6 +54,15 @@ function same(a: unknown, b: unknown): boolean {
   return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 }
 
+/**
+ * The form's starting point.
+ *
+ * `delegates` and `schedules` come from `declared` rather than from the effective
+ * profile: the master with no delegates of its own reaches every agent, and writing that
+ * computed list back would pin it to today's crew, leaving agents added later
+ * unreachable. The consolidation job is likewise generated from `memory_consolidate`,
+ * and saving it as an ordinary schedule would run it twice.
+ */
 function toDraft(agent: AgentInfo): AgentPatch {
   return {
     name: agent.name,
@@ -64,9 +76,9 @@ function toDraft(agent: AgentInfo): AgentPatch {
     shell_ask_patterns: agent.shell_ask_patterns,
     tool_output_chars: agent.tool_output_chars,
     memory_consolidate: agent.memory_consolidate,
-    delegates: agent.delegates,
+    delegates: agent.declared.delegates,
     tools: agent.tools,
-    schedules: agent.schedules,
+    schedules: agent.declared.schedules,
     telegram: agent.telegram,
   };
 }
@@ -100,11 +112,31 @@ export function useAgentDraft(
   const dirty = useMemo(() => {
     if (!original) return [];
     const base = toDraft(original);
-    return EDITABLE.filter((key) => !same(draft[key], base[key]));
+    const changed = EDITABLE.filter((key) => !same(draft[key], base[key]));
+    // The limits ride along with a mode change even when their values match the
+    // baseline. A patch that omits them lets the new mode's defaults apply instead, and
+    // those defaults are not what the form is showing.
+    if (changed.includes("mode")) {
+      for (const key of MODE_DEFAULTED) if (!changed.includes(key)) changed.push(key);
+    }
+    return changed;
   }, [draft, original]);
 
+  // Changing the mode moves three limits behind the form's back: a work agent that does
+  // not state them gets a wider budget, more steps and autonomy turned on. The fields
+  // stay on screen showing the old numbers, so saving only `mode` would grant a 40x cost
+  // cap and unattended running that nobody typed. Pinning the displayed values makes the
+  // form honest — the person can then raise them deliberately.
   const set = useCallback(<K extends DraftKey>(key: K, value: AgentPatch[K]) => {
-    setDraft((current) => ({ ...current, [key]: value }));
+    setDraft((current) => {
+      const next = { ...current, [key]: value };
+      if (key === "mode" && value !== current.mode) {
+        next.cost_cap_usd = current.cost_cap_usd;
+        next.max_steps = current.max_steps;
+        next.autonomous = current.autonomous;
+      }
+      return next;
+    });
   }, []);
 
   const reset = useCallback(() => {

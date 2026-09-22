@@ -138,6 +138,10 @@ export const api = {
       `/agents/${encodeURIComponent(agentId)}/files/${encodeURIComponent(name)}`,
       { method: "PUT", body: JSON.stringify({ content }) },
     ),
+  agentPrompt: (agentId: string) =>
+    request<{ prompt: string; chars: number }>(
+      `/agents/${encodeURIComponent(agentId)}/prompt`,
+    ),
   reloadAgents: () => request<{ added: string[] }>("/agents/reload", { method: "POST" }),
   listTools: () => request<RegistryTool[]>("/tools"),
   connections: () => request<ConnectionsInfo>("/connections"),

@@ -1,6 +1,7 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode, type RefObject } from "react";
 import type { Conversation } from "../api/types";
 import { vi } from "../i18n/vi";
+import { ConversationSearch, matching } from "./conversation-search";
 
 interface Props {
   conversations: Conversation[];
@@ -12,7 +13,12 @@ interface Props {
   top?: ReactNode;
   /** Rendered at the foot, below the list, e.g. the way into the manage screen. */
   bottom?: ReactNode;
+  /** Held by the shell so ⌘K can put the cursor in the search box. */
+  searchRef?: RefObject<HTMLInputElement | null>;
 }
+
+/** How many threads it takes before scanning the list beats reading it. */
+const SEARCH_FROM = 8;
 
 /**
  * Conversations the user started, then the ones an agent opened on their behalf. A
@@ -34,18 +40,32 @@ export function ConversationList({
   onDelete,
   top,
   bottom,
+  searchRef,
 }: Props) {
+  const [query, setQuery] = useState("");
+  // Below a handful of threads the eye is faster than the box, and a control that is
+  // never the quickest way to do the thing is just something else to look past.
+  const searchable = conversations.length >= SEARCH_FROM;
+  const shown = searchable ? matching(conversations, query) : conversations;
+
   return (
     <nav className="sidebar" aria-label={vi.conversations}>
       {top}
       <button type="button" className="primary new-conversation" onClick={onCreate}>
         + {vi.newConversation}
       </button>
+      {searchable && (
+        <ConversationSearch value={query} onChange={setQuery} inputRef={searchRef} />
+      )}
       {conversations.length === 0 ? (
         <p className="muted">{vi.noConversations}</p>
+      ) : shown.length === 0 ? (
+        <p className="muted" data-testid="no-matches">
+          {vi.noMatchingConversations}
+        </p>
       ) : (
         <ul className="conversation-list">
-          {ownFirst(conversations).map((c) => (
+          {ownFirst(shown).map((c) => (
             <li key={c.id} className={c.id === activeId ? "active" : ""}>
               <button
                 type="button"

@@ -7,6 +7,7 @@ import { IdentitySection } from "./identity-section";
 import { LimitsSection } from "./limits-section";
 import { ModelSection } from "./model-section";
 import { PersonaSection } from "./persona-section";
+import { PromptSection } from "./prompt-section";
 import { SchedulesSection } from "./schedules-section";
 import { ToolsSection } from "./tools-section";
 
@@ -92,6 +93,8 @@ export function AgentEditor({ agent, agents, tools, providers, onBack, onChanged
       />
       <SchedulesSection form={form} readOnly={readOnly} />
       <ChannelSection form={form} agent={agent} readOnly={readOnly} />
+      {/* Last, because it is the sum of every section above it. */}
+      <PromptSection agentId={agent.id} />
       {!agent.is_master && agent.editable && (
         <DeleteAgent
           agentId={agent.id}

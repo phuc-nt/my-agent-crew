@@ -342,3 +342,24 @@ def test_an_edit_the_crew_refuses_does_not_reach_the_file(crew) -> None:
     written = (home / "agents" / "coder" / "agent.yaml").read_text(encoding="utf-8")
     assert "Không được ghi" not in written
     assert runtime.deps_for("coder").agent.name == "Thợ mã"
+
+
+def test_the_skills_folders_are_reported_and_survive_an_unrelated_edit(crew) -> None:
+    client, runtime, home = crew
+    skills_dir = home / "agents" / "coder" / "skills"
+    skills_dir.mkdir(parents=True)
+    client.post(
+        "/api/agents",
+        json={"agent_id": "coder", "profile": {"skills_dirs": [str(skills_dir)]}},
+    )
+
+    described = client.get("/api/agents/coder").json()
+    reply = client.patch("/api/agents/coder", json={"profile": {"name": "Coder mới"}})
+
+    # Reported, so an editor can show where an agent's skills come from rather than
+    # leaving a configured folder invisible to the only screen that edits the profile.
+    assert str(skills_dir) in described["skills_dirs"]
+    # A patch names the keys it changes, so one it leaves out keeps whatever the
+    # hand-written file said — which is what lets an editor save a single field safely.
+    assert reply.status_code == 200
+    assert skills_dir in runtime.deps_for("coder").agent.skills_dirs

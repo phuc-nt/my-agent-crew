@@ -158,6 +158,19 @@ export interface CommandInfo {
   path: string;
 }
 
+/**
+ * The subset of a profile where what the file says and what the crew runs differ.
+ *
+ * `delegates` is empty on the master that reaches everyone, and `schedules` omits the
+ * consolidation job, which is generated from `memory_consolidate` rather than written
+ * out. Both are what an edit has to start from.
+ */
+export interface DeclaredProfile {
+  delegates: string[];
+  /** Without `kind`, which is derived — the parser refuses a row that carries it back. */
+  schedules: Omit<ScheduleInfo, "kind">[];
+}
+
 /** One agent profile as listed by GET /api/agents. */
 export interface AgentInfo {
   id: string;
@@ -174,7 +187,13 @@ export interface AgentInfo {
   tool_output_chars: number;
   /** Cron for the nightly memory pass; "" when the agent does not consolidate. */
   memory_consolidate: string;
+  /** The persona files that exist on disk, so the editor can mark which have content. */
   persona_files: string[];
+  /** Every persona file this agent would read, written or not. An editor offers all of
+   * them: a new agent has none, and listing only what exists could never create one. */
+  persona_names: string[];
+  /** Folders the agent's skills are loaded from, its own first then the shared one. */
+  skills_dirs: string[];
   schedules: ScheduleInfo[];
   /** "assistant" chats; "work" carries the coding tools and can hand off to `delegates`. */
   mode: string;
@@ -189,6 +208,10 @@ export interface AgentInfo {
   editable: boolean;
   /** Set on the master when a Telegram bot also talks to it; the token stays on the server. */
   telegram: { token_env: string; chat_id: number } | null;
+  /** What the agent's own file says, where that differs from what the crew computed.
+   * An editor diffs against these: saving a computed value back would write the
+   * computation into the file and freeze it there. */
+  declared: DeclaredProfile;
   /** What the agent's kits (`.agents/`, `.claude/`, `.opencode/`) add: slash commands, the
    * number of tool hooks, and the kit directories they came from. */
   commands: CommandInfo[];

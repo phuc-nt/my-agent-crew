@@ -31,4 +31,12 @@ def parse_telegram(raw: Any, agent_id: str) -> TelegramConfig:
         chat_id = int(raw["chat_id"])
     except (TypeError, ValueError) as exc:
         raise ValueError(f"agent {agent_id}: telegram chat_id must be an integer") from exc
-    return TelegramConfig(token_env=str(raw["token_env"]), chat_id=chat_id)
+    # A blank env name or an unset chat is a bot that can never start, and nothing
+    # downstream reports it: the channel simply stays silent. Refusing here is the only
+    # place the person still has the form open to fix it.
+    token_env = str(raw["token_env"]).strip()
+    if not token_env:
+        raise ValueError(f"agent {agent_id}: telegram needs a token_env")
+    if chat_id == 0:
+        raise ValueError(f"agent {agent_id}: telegram needs a chat_id")
+    return TelegramConfig(token_env=token_env, chat_id=chat_id)

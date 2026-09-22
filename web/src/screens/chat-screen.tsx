@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { AgentInfo, Conversation, SettingsInfo } from "../api/types";
 import { ApprovalBar } from "../components/approval-bar";
 import { Composer } from "../components/composer";
@@ -12,6 +12,7 @@ import type { useActivity } from "../hooks/use-activity";
 import type { useCrew } from "../hooks/use-agents";
 import type { useConversations } from "../hooks/use-conversations";
 import type { ManageSection } from "../hooks/use-route";
+import { useShortcuts } from "../hooks/use-shortcuts";
 import type { useThread } from "../hooks/use-thread";
 import { vi } from "../i18n/vi";
 import { conversationFamilyRuns, liveRuns, sortedRuns } from "../state/activity-reducer";
@@ -44,6 +45,8 @@ export function ChatScreen({
 }: Props) {
   const [draft, setDraft] = useState<string | undefined>(undefined);
   const [queued, setQueued] = useState<{ id: string; text: string } | null>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const [collapseSignal, setCollapseSignal] = useState(0);
 
   // A message typed before any conversation exists waits until the new one has loaded.
   const { send: threadSend, detail } = thread;
@@ -75,17 +78,26 @@ export function ChatScreen({
 
   // A new conversation is somewhere the person now is, so it belongs in the address bar
   // as much as one they picked from the list.
-  const create = async () => {
-    const created = await list.create();
+  const { create: listCreate } = list;
+  const create = useCallback(async () => {
+    const created = await listCreate();
     if (created) onSelectConversation(created.id);
     return created;
-  };
+  }, [listCreate, onSelectConversation]);
 
   const send = async (text: string) => {
     if (list.activeId) return thread.send(text);
     const created = await create();
     if (created) setQueued({ id: created.id, text });
   };
+
+  // The search box only exists once the list is long enough to need it, so focusing it is
+  // a request that can go unanswered — hence a ref that may hold nothing.
+  useShortcuts({
+    onSearch: useCallback(() => searchRef.current?.focus(), []),
+    onNew: useCallback(() => void create(), [create]),
+    onEscape: useCallback(() => setCollapseSignal((n) => n + 1), []),
+  });
 
   const remove = (id: string) => {
     if (window.confirm(vi.confirmDelete)) void list.remove(id);
@@ -130,6 +142,7 @@ export function ChatScreen({
         onSelect={onSelectConversation}
         onCreate={() => void create()}
         onDelete={remove}
+        searchRef={searchRef}
         top={
           master && (
             <div className="master-card" data-testid="master-card">
@@ -203,6 +216,7 @@ export function ChatScreen({
               spentUsd={active.spent_usd}
               agentName={crew.agentName}
               onOpenConversation={onSelectConversation}
+              collapseSignal={collapseSignal}
             />
           </ErrorBoundary>
         )}
