@@ -34,6 +34,18 @@ bản phát hành, `pyproject.toml` và `web/package.json` luôn cùng số.
   vì một tên một từ như `ledger` xuất hiện trong cả những prompt không liên quan.
 - **Mẫu script gom dữ liệu cho job** ở `docs/examples/job-data-script.sh`: một lệnh trả một
   khối JSON, mỗi nguồn hỏng tự ghi lỗi của nó thay vì làm hỏng cả lượt chạy.
+- **Kết quả công cụ quá dài được rút gọn thông minh thay vì cắt cụt.** JSON rút theo cấu
+  trúc: mọi key top-level còn nguyên, mảng mất đuôi, chuỗi dài mất khúc giữa, và chuỗi trả
+  về vẫn parse được. Con số, boolean và null không bao giờ bị viết lại — số liệu sổ sách và
+  sức khoẻ đi qua đường này. Văn bản thường thì giữ nguyên văn 40% đầu và 20% cuối, khúc
+  giữa nhờ chính tuyến của agent tóm tắt, kèm nhãn nói rõ đoạn nào là tóm tắt. Tóm tắt lỗi,
+  chậm hay rỗng đều rơi về cắt thường; công cụ luôn trả lời.
+- **Provider `ollama`** (OpenAI-compatible, `OLLAMA_BASE_URL`, mặc định
+  `http://127.0.0.1:11434/v1`). Không cần khoá nên luôn được dựng; máy không chạy ollama thì
+  tuyến rơi xuống tuyến kế. Trang Kết nối hiện địa chỉ đang dò, đủ để phân biệt "chưa chạy"
+  với "sai host".
+- **Thẻ lượt chạy nói rõ model đã đọc bản rút gọn** — nhãn ghi kiểu rút gọn và độ dài gốc, để
+  một câu trả lời ngắn dựng trên nguồn đã bị tỉa không bị đọc nhầm thành bức tranh đầy đủ.
 
 ### Thay đổi
 
@@ -44,6 +56,13 @@ bản phát hành, `pyproject.toml` và `web/package.json` luôn cùng số.
   biến mất. Script cần một giá trị không phải bí mật thì tự đọc từ tệp, đừng trông vào biến
   môi trường — nới danh sách cho phép là trao khoá API cho mọi lệnh do model viết. Hành vi lọc
   không đổi; nay đã có test neo lại.
+
+### Sửa
+
+- **Kết quả công cụ bị cắt không còn vượt trần `tool_output_chars`.** Dòng nhãn "đã cắt bớt"
+  trước đây được cộng thêm vào sau khi đã cắt đủ trần, nên bản trả về luôn dài hơn trần vài
+  chục ký tự. Nay nhãn được trả bằng chính ngân sách đó. Test cũ đo bằng biên `+ 40` nên
+  không thấy; nay có một test quét nhiều trần và nhiều dạng dữ liệu để neo đúng bất biến này.
 
 ## [0.4.0] — 2026-09-22
 

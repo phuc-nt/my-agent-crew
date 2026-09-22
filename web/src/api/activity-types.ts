@@ -26,6 +26,14 @@ export type RunStep =
       arguments: Record<string, unknown> | string;
       ok: boolean | null;
       output: string | null;
+      /**
+       * Present only when the output was too long for the agent's cap and had to be
+       * brought under it. `kind` says how: "json" kept the structure, "summary" had a
+       * model rewrite the middle, "cut" dropped the tail. `original_chars` is the size
+       * before that happened, so a short answer built on a shortened tool output is not
+       * mistaken for one built on the whole thing.
+       */
+      shaped?: { kind: "json" | "summary" | "cut"; original_chars: number };
       duration_ms: number | null;
     }
   | {

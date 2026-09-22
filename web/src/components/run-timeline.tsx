@@ -160,6 +160,13 @@ function StepRow({ row }: { row: RunRow }) {
       {step.kind === "model" && step.preview && <span className="step-preview muted">{step.preview}</span>}
       {step.kind === "fallback" && <span className="step-detail">{step.error}</span>}
       {step.kind === "tool" && <span className="tool-arguments">{summarizeArguments(step.arguments) || "—"}</span>}
+      {/* The model read a shortened output. Saying so here is what stops a thin answer
+          from being read as the whole picture when it was built on a thinned source. */}
+      {step.kind === "tool" && step.shaped && (
+        <span className="step-detail muted" data-testid="step-shaped">
+          {vi.stepShaped(step.shaped.kind, step.shaped.original_chars)}
+        </span>
+      )}
       {step.kind === "tool" && step.output && (
         <>
           <button type="button" className="link-button" onClick={() => setShowOutput((s) => !s)}>

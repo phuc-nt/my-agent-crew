@@ -13,6 +13,7 @@ from typing import Any
 
 from fastapi import APIRouter
 
+from my_agent_crew.llm.ollama import base_url as ollama_base_url
 from my_agent_crew.server.deps import Rt
 from my_agent_crew.server.runtime import Runtime
 from my_agent_crew.server.tool_assembly import OPTIONAL_TOOLS
@@ -88,5 +89,8 @@ def list_connections(rt: Rt) -> dict[str, Any]:
         # key, so the page can say "search works" on a machine with no keys at all.
         "search_backends": search_backends(s),
         "firecrawl_base_url": s.firecrawl_base_url,
+        # Ollama is always built because it needs no key, so the useful thing to show is
+        # where it is being looked for — that separates "not running" from "wrong host".
+        "ollama_base_url": ollama_base_url(),
         "telegram": _telegram(rt),
     }

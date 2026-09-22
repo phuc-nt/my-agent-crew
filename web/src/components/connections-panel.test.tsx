@@ -25,6 +25,37 @@ describe("ConnectionsPanel", () => {
     expect(screen.getByText("anthropic")).toBeInTheDocument();
   });
 
+  it("says where ollama is looked for so a dead one is told from a wrong host", () => {
+    const connections: ConnectionsInfo = {
+      providers: [{ name: "ollama", built: true }],
+      routes: [],
+      vision_routes: [],
+      keys: [],
+      search_backends: ["duckduckgo"],
+      firecrawl_base_url: "",
+      ollama_base_url: "http://127.0.0.1:11434/v1",
+      telegram: [],
+    };
+    render(<ConnectionsPanel connections={connections} />);
+
+    expect(screen.getByTestId("ollama-base-url")).toHaveTextContent("http://127.0.0.1:11434/v1");
+  });
+
+  it("leaves the ollama line out when the server did not report an address", () => {
+    const connections: ConnectionsInfo = {
+      providers: [],
+      routes: [],
+      vision_routes: [],
+      keys: [],
+      search_backends: ["duckduckgo"],
+      firecrawl_base_url: "",
+      telegram: [],
+    };
+    render(<ConnectionsPanel connections={connections} />);
+
+    expect(screen.queryByTestId("ollama-base-url")).toBeNull();
+  });
+
   it("renders the routes section with model routes", () => {
     const connections: ConnectionsInfo = {
       providers: [],

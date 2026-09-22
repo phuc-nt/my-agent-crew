@@ -21,6 +21,14 @@ EXPIRED_TOOL = (
 UNKNOWN_TOOL = "Không có công cụ tên {name}."
 TOOL_FAILED = "Công cụ lỗi: {error}"
 OUTPUT_TRUNCATED = "\n…[đã cắt bớt {dropped} ký tự]"
+# Shaping keeps the JSON parseable, so these markers sit inside string values and array
+# slots where a reader looking for the missing part will actually be looking.
+OUTPUT_SHAPED_STRING = "…[bớt {dropped} ký tự]…"
+OUTPUT_SHAPED_ARRAY = "…[còn {dropped} phần tử nữa]"
+OUTPUT_SHAPED_NOTE = (
+    "\n[đã rút gọn theo cấu trúc: giữ đủ key, mảng và chuỗi dài bị cắt bớt. "
+    "Cần đủ thì đọc thẳng nguồn.]"
+)
 EMPTY_REPLY = "(không có nội dung)"
 
 WORKSPACE_ESCAPE = (

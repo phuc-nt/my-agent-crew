@@ -28,6 +28,11 @@ export function ConnectionsPanel({ connections }: Props) {
             </span>
           ))}
         </div>
+        {connections.ollama_base_url && (
+          <p className="muted" data-testid="ollama-base-url">
+            {vi.connectionsPage.ollamaAt(connections.ollama_base_url)}
+          </p>
+        )}
       </section>
 
       <section>

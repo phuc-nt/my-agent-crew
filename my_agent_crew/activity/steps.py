@@ -114,6 +114,8 @@ def apply_event(run: RunRecord, event: Event, clock: float) -> None:
             step = run.steps[-1]
         step["ok"] = event.ok
         step["output"] = _preview(event.output)
+        if event.shaped_kind != "none":
+            step["shaped"] = {"kind": event.shaped_kind, "original_chars": event.original_chars}
         _close_step(step, clock)
         return
     if isinstance(event, ApprovalRequiredEvent):

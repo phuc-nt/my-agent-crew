@@ -34,6 +34,10 @@ class ToolResultEvent:
     name: str
     ok: bool
     output: str
+    # How the output was brought under the cap ("none", "json" or "cut") and how long it
+    # was first. Carried so a run card can say the model answered from a shortened output.
+    shaped_kind: str = "none"
+    original_chars: int = 0
 
 
 @dataclass(frozen=True)

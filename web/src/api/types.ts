@@ -313,6 +313,7 @@ export interface ConnectionsInfo {
   /** Search backends in priority order, best first. Never empty. */
   search_backends: string[];
   firecrawl_base_url: string;
+  ollama_base_url?: string;
   telegram: TelegramConnection[];
 }
 

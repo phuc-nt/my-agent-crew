@@ -73,7 +73,10 @@ async def test_a_long_file_is_cut_only_by_the_agents_output_cap_and_says_so(tmp_
     assert len((await wide.execute("workspace_read", {"path": "brief.md"})).output) == 24000
     narrow = ToolRegistry(build_workspace_tools(tmp_path), 20000)
     cut = (await narrow.execute("workspace_read", {"path": "brief.md"})).output
-    assert cut.startswith("x" * 20000) and texts.OUTPUT_TRUNCATED.format(dropped=4000) in cut
+    # The marker is inside the cap, not added to it, so the kept text is a little short of
+    # the cap rather than the cap plus an apology.
+    assert len(cut) <= 20000 and cut.startswith("x" * 19900)
+    assert texts.OUTPUT_TRUNCATED.format(dropped=24000 - len(cut.split("\n…")[0])) in cut
 
 
 async def test_missing_file_is_a_readable_error(reg: ToolRegistry):

@@ -80,7 +80,14 @@ async def _record(deps: AgentDeps, conv_id: str, call: ToolCall, result: ToolRes
         conv_id,
         Message(role="tool", content=result.output, tool_call_id=call.id, name=call.name),
     )
-    return ToolResultEvent(tool_call_id=call.id, name=call.name, ok=result.ok, output=result.output)
+    return ToolResultEvent(
+        tool_call_id=call.id,
+        name=call.name,
+        ok=result.ok,
+        output=result.output,
+        shaped_kind=result.shaped_kind,
+        original_chars=result.original_chars,
+    )
 
 
 async def settle_tool_calls(deps: AgentDeps, conv_id: str) -> AsyncIterator[Event]:

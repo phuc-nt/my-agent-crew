@@ -51,6 +51,22 @@ describe("RunCard", () => {
     expect(open).toHaveBeenCalledWith("c1");
   });
 
+  it("says when the model read a shortened tool output, and how it was shortened", async () => {
+    const run = fakeRun({
+      steps: [
+        { kind: "tool", name: "shell_run", tool_call_id: "a", arguments: {}, ok: true, output: "{…}", shaped: { kind: "json", original_chars: 41000 }, duration_ms: 10 },
+        { kind: "tool", name: "web_fetch", tool_call_id: "b", arguments: {}, ok: true, output: "…", shaped: { kind: "summary", original_chars: 90000 }, duration_ms: 10 },
+        { kind: "tool", name: "workspace_read", tool_call_id: "c", arguments: {}, ok: true, output: "vừa", duration_ms: 10 },
+      ],
+    });
+    render(<RunCard run={run} agentName="HLV" onOpenConversation={vitest.fn()} />);
+    await userEvent.click(screen.getByRole("button", { expanded: false }));
+    const steps = screen.getAllByTestId("run-step");
+    expect(steps[0]).toHaveTextContent(vi.stepShaped("json", 41000));
+    expect(steps[1]).toHaveTextContent(vi.stepShaped("summary", 90000));
+    expect(within(steps[2]).queryByTestId("step-shaped")).toBeNull();
+  });
+
   it("stops showing a step as running once its run has died under it", async () => {
     // The step is recorded open (`ok: null`) because it was open when the row
     // was written. The run then errored without ever closing it. Painting that

@@ -170,6 +170,8 @@ export const vi = {
       "Thứ tự thử khi agent gọi web_search. DuckDuckGo không cần khoá nên luôn có ít nhất một nguồn.",
     firecrawlOff: "Firecrawl chưa bật — đặt FIRECRAWL_BASE_URL để dùng scrape markdown.",
     firecrawlAt: (url: string) => `Firecrawl tại ${url}`,
+    ollamaAt: (url: string) =>
+      `Ollama tìm ở ${url} — không cần khoá. Máy không chạy ollama thì route sẽ rơi xuống route kế.`,
     telegram: "Kênh Telegram",
     noTelegram: "Chưa agent nào bật kênh Telegram.",
     configured: "đã cấu hình",
@@ -357,6 +359,16 @@ export const vi = {
   stepDuration: (ms: number) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)} giây` : `${ms} ms`),
   stepChars: (n: number) => `${n} ký tự`,
   stepCostUnknown: "không rõ giá",
+  // Says what the model actually read, not what the tool actually printed.
+  stepShaped: (kind: string, originalChars: number) => {
+    const how =
+      kind === "json"
+        ? "rút gọn theo cấu trúc, giữ đủ key"
+        : kind === "summary"
+          ? "phần giữa được tóm tắt, đầu và cuối nguyên văn"
+          : "cắt bớt phần cuối";
+    return `Kết quả dài ${originalChars} ký tự — ${how}.`;
+  },
   openConversation: "Mở cuộc trò chuyện",
   attention: "Cần bạn xử lý",
   attentionEmpty: "Không có gì cần xử lý.",

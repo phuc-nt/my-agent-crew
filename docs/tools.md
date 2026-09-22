@@ -9,10 +9,32 @@ The system prompt lists the available names; the model sees each tool's JSON sch
 
 - **Arguments are validated** against the schema before the tool runs; a bad call is
   returned to the model as an error, not raised.
-- **Output is capped** before it enters the context; the cut is marked. The default is
-  8 000 characters (`tool_output_chars` in `config.yaml` or `MY_AGENT_TOOL_OUTPUT_CHARS`);
-  an agent whose scripts print more raises its own cap with `tool_output_chars` in its
-  profile without the rest of the crew paying for it.
+- **Output is capped** before it enters the context; how it was brought under the cap is
+  marked. The default is 8 000 characters (`tool_output_chars` in `config.yaml` or
+  `MY_AGENT_TOOL_OUTPUT_CHARS`); an agent whose scripts print more raises its own cap with
+  `tool_output_chars` in its profile without the rest of the crew paying for it.
+
+  An over-cap output is shortened in one of three ways, and the run card says which:
+
+  | How | When | What survives |
+  | --- | --- | --- |
+  | structure | the output parses as JSON | every key; arrays lose their tail, long strings lose their middle, and the result still parses |
+  | summary | anything else long enough to split | the opening and the ending word for word, with a model's summary of the middle between two labels saying so |
+  | cut | everything else, and whenever a summary fails | the opening, with the number of dropped characters |
+
+  Numbers are never rewritten by the structural path: ledger figures and health readings
+  travel through it, and a summary that rounds a number is worse than one that omits a row.
+  The summary path asks the agent's own routes and is charged to the run like any other
+  model call. It is an improvement on a cut, never a precondition for one — no route, a
+  failing route, a slow one or an empty answer all fall back to the plain cut, and the tool
+  answers either way.
+
+  This is why a raised cap is still the right answer for one kind of file: a long document
+  the agent must copy out of, such as a schema note holding the exact column names and the
+  SQL a scheduled job runs. Shortening it goes down the summary path, and a summary rewrites
+  the middle — which is where the query usually is. A paraphrased column name is a query
+  that fails. Keep the cap above the size of such a document rather than trusting a summary
+  of it. JSON has no such problem, because the structural path never asks a model anything.
 - **Errors are honest.** A `ToolError` is returned to the model as "Công cụ lỗi: …"; any
   other exception is logged with its traceback and returned by type name. The prompt frame
   tells the model to report a failed tool instead of pretending.

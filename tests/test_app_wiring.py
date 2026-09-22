@@ -12,10 +12,12 @@ def env_for(tmp_path: Path, **extra: str) -> dict[str, str]:
 
 
 def test_fake_provider_always_registered_and_openrouter_only_with_key(tmp_path: Path):
+    """Ollama needs no key so it is always there, like `web_search` below; OpenRouter is
+    the one that appears only once a key is set."""
     without = build_deps(load_settings(env=env_for(tmp_path)))
     with_key = build_deps(load_settings(env=env_for(tmp_path, OPENROUTER_API_KEY="k")))
-    assert set(without.chain.providers) == {"fake"}
-    assert set(with_key.chain.providers) == {"fake", "openrouter"}
+    assert set(without.chain.providers) == {"fake", "ollama"}
+    assert set(with_key.chain.providers) == {"fake", "ollama", "openrouter"}
 
 
 def test_web_search_tool_exists_with_or_without_a_key(tmp_path: Path):
@@ -28,6 +30,13 @@ def test_web_search_tool_exists_with_or_without_a_key(tmp_path: Path):
     assert "web_search" in bare.tools.names() and "web_search" in with_key.tools.names()
     assert search_backends(bare.settings) == ["duckduckgo"]
     assert search_backends(with_key.settings) == ["tavily", "duckduckgo"]
+
+
+def test_an_agents_toolbox_can_summarise_its_own_over_cap_output(tmp_path: Path):
+    """The summariser is the agent's own chain, so a shortened output is rewritten by the
+    model the agent already trusts rather than by a weaker one picked for price."""
+    deps = build_deps(load_settings(env=env_for(tmp_path)))
+    assert deps.tools.summariser is not None
 
 
 def test_home_skills_dir_is_loaded_and_shell_tool_present(tmp_path: Path):

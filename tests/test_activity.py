@@ -50,6 +50,26 @@ def test_model_and_tool_steps_get_cost_and_durations():
     assert run.spent_usd == pytest.approx(0.002) and run.unknown_cost_calls == 1
 
 
+def test_a_shortened_tool_output_says_so_on_its_step():
+    """The card shows a 161-character preview whatever happened, so without this the reader
+    cannot tell an answer built on the whole output from one built on a shortened it."""
+    run = fresh_run()
+    apply_event(run, ToolCallEvent("c1", "shell_run", {}), 10.0)
+    apply_event(
+        run,
+        ToolResultEvent("c1", "shell_run", True, "{}", shaped_kind="json", original_chars=41000),
+        10.5,
+    )
+    assert run.steps[-1]["shaped"] == {"kind": "json", "original_chars": 41000}
+
+
+def test_an_output_that_fitted_carries_no_shaping_note():
+    run = fresh_run()
+    apply_event(run, ToolCallEvent("c1", "shell_run", {}), 10.0)
+    apply_event(run, ToolResultEvent("c1", "shell_run", True, "ngắn"), 10.5)
+    assert "shaped" not in run.steps[-1]
+
+
 def test_tool_arguments_stay_a_mapping_so_a_stored_run_reads_back_the_same():
     # The web shows arguments as name/value pairs. Flattened to one string, it walks the
     # characters instead and shows a row per character — which only ever happened to a run

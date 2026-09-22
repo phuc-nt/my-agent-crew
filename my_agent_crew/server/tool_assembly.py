@@ -18,6 +18,7 @@ from my_agent_crew.tools.hooks import HookRunner
 from my_agent_crew.tools.image import build_image_tool
 from my_agent_crew.tools.memory import build_memory_tools
 from my_agent_crew.tools.memory_user import build_user_memory_tools
+from my_agent_crew.tools.output_summary import chain_summariser
 from my_agent_crew.tools.shell import build_shell_tool
 from my_agent_crew.tools.skills import build_skill_tools
 from my_agent_crew.tools.web import build_web_tools
@@ -53,8 +54,13 @@ def build_tools(
     skills: Sequence[Skill],
     extra: Sequence[Tool] = (),
     vision: ProviderChain | None = None,
+    chain: ProviderChain | None = None,
 ) -> ToolRegistry:
-    """`vision` is the chain pictures go to; without one no agent can read images."""
+    """`vision` is the chain pictures go to; without one no agent can read images.
+
+    `chain` is the agent's own route chain, used to summarise the middle of an over-cap
+    text output. Without one the output is cut instead, which is what every caller that
+    does not pass a chain gets."""
     tools: list[Tool] = [
         *build_workspace_tools(profile.workspace),
         *build_web_tools(profile.settings, client),
@@ -76,4 +82,5 @@ def build_tools(
     tools += list(extra)
     kept = allowed(tools, profile.tools, profile.id)
     hooks = HookRunner(profile.hooks, profile.id) if profile.hooks else None
-    return ToolRegistry(kept, profile.settings.tool_output_chars, hooks)
+    summariser = chain_summariser(chain) if chain is not None else None
+    return ToolRegistry(kept, profile.settings.tool_output_chars, hooks, summariser)

@@ -17,6 +17,7 @@ from my_agent_crew.agents import AgentProfile
 from my_agent_crew.agents.context import ensure_agent_dirs
 from my_agent_crew.config import Route, Settings
 from my_agent_crew.llm.fake import EchoProvider
+from my_agent_crew.llm.ollama import OllamaProvider
 from my_agent_crew.llm.openrouter import OpenRouterProvider
 from my_agent_crew.llm.provider import Provider, ProviderChain
 from my_agent_crew.server.tool_assembly import build_tools
@@ -31,6 +32,10 @@ def build_providers(settings: Settings, client: httpx.AsyncClient) -> dict[str, 
     providers: dict[str, Provider] = {"fake": EchoProvider()}
     if settings.openrouter_api_key:
         providers["openrouter"] = OpenRouterProvider(settings.openrouter_api_key, client)
+    # Ollama needs no key, so it is always built rather than gated on configuration. If
+    # nothing is listening the route fails at call time and the chain falls through to the
+    # next one, which is the same handling as any other provider being down.
+    providers["ollama"] = OllamaProvider()
     return providers
 
 
@@ -87,8 +92,11 @@ def build_agent_deps(
     skills = load_skills(BUILTIN_DIR, *profile.skills_dirs)
     warn_unknown_schedule_skills(profile, skills)
     vision = vision_chain(profile.settings, providers)
-    tools = build_tools(profile, client, store, skills, extra_tools, vision)
     chain = ProviderChain(providers, profile.settings.routes)
+    # The agent's own routes summarise its own over-cap text output. A separate cheap route
+    # would be tempting, but the summary is read as if it were the tool's answer, so it is
+    # written by the model the agent is already trusting rather than by a weaker one.
+    tools = build_tools(profile, client, store, skills, extra_tools, vision, chain)
     return AgentDeps(
         settings=profile.settings,
         chain=chain,
