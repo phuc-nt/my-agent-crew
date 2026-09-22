@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Sample Reader's bookshelf: currently-reading</title>
+    <link>https://www.goodreads.com/review/list_rss/00000000</link>
+    <description>Sample Reader's bookshelf: currently-reading</description>
+    <language>en-US</language>
+    <ttl>60</ttl>
+    <item>
+      <guid>https://www.goodreads.com/review/show/1111</guid>
+      <pubDate>Mon, 01 Sep 2026 09:15:00 -0700</pubDate>
+      <title>The Cartographer's Dilemma</title>
+      <link>https://www.goodreads.com/review/show/1111</link>
+      <book_id>1000001</book_id>
+      <book_image_url>https://images.gr-assets.com/books/1.jpg</book_image_url>
+      <book_description>&lt;p&gt;A surveyor discovers the coastline has &lt;b&gt;moved&lt;/b&gt;.&lt;/p&gt;</book_description>
+      <book_published>2019</book_published>
+      <author_name>Ada Merrow</author_name>
+      <isbn>9780000000001</isbn>
+      <user_name>Sample Reader</user_name>
+      <user_rating>0</user_rating>
+      <user_read_at></user_read_at>
+      <user_date_added>Mon, 01 Sep 2026 09:15:00 -0700</user_date_added>
+      <user_date_created>Mon, 01 Sep 2026 09:15:00 -0700</user_date_created>
+      <user_shelves>currently-reading</user_shelves>
+      <user_review></user_review>
+      <average_rating>4.05</average_rating>
+      <description>placeholder</description>
+    </item>
+    <item>
+      <guid>https://www.goodreads.com/review/show/2222</guid>
+      <pubDate>Tue, 12 Aug 2026 20:40:00 -0700</pubDate>
+      <title>Notes on Slow Water</title>
+      <link>https://www.goodreads.com/review/show/2222</link>
+      <book_id>1000002</book_id>
+      <book_description>Essays about rivers that change their minds.</book_description>
+      <book_published>2022</book_published>
+      <author_name>Ines Halloran</author_name>
+      <isbn>9780000000002</isbn>
+      <user_name>Sample Reader</user_name>
+      <user_rating>4</user_rating>
+      <user_read_at>Sun, 07 Sep 2026 11:00:00 -0700</user_read_at>
+      <user_date_added>Tue, 12 Aug 2026 20:40:00 -0700</user_date_added>
+      <user_date_created>Tue, 12 Aug 2026 20:40:00 -0700</user_date_created>
+      <user_shelves>currently-reading</user_shelves>
+      <user_review>&lt;i&gt;Patient&lt;/i&gt; and worth the wait.</user_review>
+      <average_rating>3.88</average_rating>
+      <description>placeholder</description>
+    </item>
+  </channel>
+</rss>

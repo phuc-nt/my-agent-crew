@@ -128,6 +128,12 @@ bản phát hành, `pyproject.toml` và `web/package.json` luôn cùng số.
   `cliHelp` để model đọc cú pháp thật thay vì đoán tên cờ. Test bắt buộc cả hai với mọi
   bundle có thư mục `scripts/`, và quét mọi tệp tìm địa chỉ thư và chuỗi id dài — một mẫu
   mang id thật ra khỏi máy người viết còn tệ hơn không có mẫu nào.
+- **Mẫu skill thứ hai, `goodreads`**, cho một dịch vụ không còn API. Đọc qua RSS công khai,
+  ghi qua một phiên trình duyệt riêng. Hai điều đáng chép sang chỗ khác: id tài khoản nằm
+  trong `scripts/goodreads.json` cạnh script chứ không phải tham số, nên lệnh đọc không có
+  chỗ nào để model điền sai; và một phản hồi **rỗng bị coi là lỗi**, vì Goodreads chặn
+  scrape bằng cách trả 202 với thân rỗng thay vì báo lỗi — client không ném gì, và bản ghi
+  toàn `null` sinh ra từ đó đọc y như một câu trả lời thật. Đó mới là kiểu hỏng nguy hiểm.
 
 ### Thay đổi
 

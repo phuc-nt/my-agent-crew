@@ -1,0 +1,5 @@
+# The browser profile holds a live Goodreads session cookie, and the environment is a
+# few hundred megabytes of Chromium. Neither belongs anywhere but this machine.
+.venv/
+.browser-data/
+goodreads.json

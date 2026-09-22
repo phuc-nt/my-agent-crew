@@ -427,6 +427,32 @@ The sample carries `<EMAIL>`, `<SPREADSHEET_ID>` and `<DRIVE_FOLDER_ID>` instead
 values, and a test rejects the bundle if an address or a long mixed-character id ever
 appears in it. An account id belongs in the copy under your own home directory.
 
+### A second sample: `goodreads`
+
+`docs/examples/skills/goodreads/` is the same bundle shape against a service with no API.
+It adds two things the `gws` sample has no reason to show.
+
+**The bundle carries its own config.** The reading script takes its account id from
+`scripts/goodreads.json` next to itself, not from an argument and not from the agent's
+environment, so `shelf --shelf currently-reading` is the whole command and there is no id
+for a model to get wrong or to repeat into a log. The bundle ships
+`goodreads.json.example` and gitignores the real one. A skill that drives an account is
+easier to copy when the account lives in one file the copier edits once.
+
+**A call that returns nothing is a failure, not an empty answer.** Goodreads answers a
+blocked page request with a 202 and an empty body rather than an error status, so the HTTP
+client raises nothing and a parser turns that silence into a record of nulls that reads
+exactly like a real answer. The script checks for an empty body and raises instead, and
+the skill body tells the agent to report the block rather than scrape around it. This is
+worth copying for any scraped source: the dangerous failure is not the one that throws,
+it is the one that returns a well-formed object full of nothing.
+
+The write half goes through one wrapper, so unlike `gws` the wrapper's **own name** is the
+shape of a write and `goodreads-write` is a sufficient `shell_ask_patterns` entry. That
+only holds because the reading script has a different name. Check it the way the shape of
+any pattern list gets checked — run the real read commands and the real write commands
+through `ask_reason` and count.
+
 ## Schedules
 
 Each entry in `schedules` becomes a job `<agent id>/<schedule id>` in the scheduler

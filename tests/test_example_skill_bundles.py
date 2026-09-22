@@ -55,8 +55,14 @@ def test_cli_sample_declares_its_program(bundle: Path) -> None:
 @pytest.mark.parametrize("bundle", BUNDLES, ids=lambda p: p.name)
 def test_sample_carries_no_real_account(bundle: Path) -> None:
     for path in sorted(p for p in bundle.rglob("*") if p.is_file()):
-        text = path.read_text(encoding="utf-8")
         where = path.relative_to(EXAMPLES)
+        # A sample is text a person copies and edits. Anything that will not decode is
+        # something nobody reviewed, so refuse it rather than skipping past it — a scan
+        # that raises on a stray file is a scan that stops checking the rest.
+        try:
+            text = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            pytest.fail(f"{where}: not UTF-8 text; a skill sample should be readable source")
         assert not EMAIL.search(text), f"{where}: an email address reached the repo"
         found = LONG_ID.search(text)
         assert found is None, f"{where}: {found.group()[:8] if found else ''}… looks like a real id"
