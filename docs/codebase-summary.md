@@ -5,7 +5,7 @@ title: Bản đồ mã nguồn
 
 # Bản đồ mã nguồn
 
-**Phiên bản**: 0.3.0 · **Cập nhật**: 2026-09-22
+**Phiên bản**: 0.4.0 · **Cập nhật**: 2026-09-22
 
 Đọc [system-architecture.md](system-architecture.md) trước để biết các khối là gì; tài liệu này chỉ nói khối nào nằm ở tệp nào.
 
@@ -91,9 +91,10 @@ chịu được cả hai hình dạng — duyệt một chuỗi theo chỉ số 
 | Thư mục | Nội dung |
 |---|---|
 | `api/` | `client.ts`, `sse.ts`, `types.ts`, `activity-types.ts` |
-| `hooks/` | `use-activity`, `use-agents`, `use-conversations`, `use-memory`, `use-thread` |
+| `screens/` | `chat-screen.tsx` (khung chat), `manage-screen.tsx` (khu quản lý, `LABELS` là tên chín tab) |
+| `hooks/` | `use-activity`, `use-agents`, `use-agent-draft`, `use-auto-scroll`, `use-conversations`, `use-memory`, `use-registry`, `use-route` (hash route + `MANAGE_SECTIONS`), `use-shortcuts`, `use-thread` |
 | `state/` | reducer cho thread và activity |
-| `components/` | 34 tệp: `message-thread`, `composer`, `approval-bar`, `approval-history`, `run-timeline`, `run-progress-header`, `run-replay`, `tool-call-card`, `empty-state`, `activity-panel`, `crew-panel`, `jobs-panel`, `job-run-history`, `memory-*`, `settings-panel`, `stats-panel`, `budget-indicator`, `status-line`, `attention-center`, `error-boundary` |
+| `components/` | `message-thread`, `markdown-body`, `composer`, `conversation-list`, `conversation-header`, `conversation-search`, `editable-title`, `conversation-activity`, `approval-bar`, `approval-history`, `run-timeline`, `run-progress-header`, `run-replay`, `tool-call-card`, `empty-state`, `crew-panel`, `add-agent-form`, `agent-editor/`, `tools-matrix`, `connections-panel`, `jobs-panel`, `job-run-history`, `memory-*`, `settings-panel`, `stats-panel`, `budget-indicator`, `status-line`, `attention-center`, `error-boundary` |
 | `lib/` | `delegate-result.ts`, `line-diff.ts`, `run-progress.ts`, `run-rows.ts` |
 | `i18n/vi.ts` | mọi chuỗi tiếng Việt của web |
 | `e2e/` | 11 spec Playwright + `mock-api.ts` |
@@ -105,7 +106,7 @@ Script: `dev`, `typecheck`, `test` (vitest), `bundle` (vite build → `my_agent_
 | Bộ | Lệnh | Hiện tại |
 |---|---|---|
 | Backend | `uv run pytest -q` | 56 tệp, 597 passed |
-| Web unit | `cd web && npm test` | 36 tệp, 354 passed |
+| Web unit | `cd web && npm test` | 36 tệp, 355 passed |
 | Web e2e | `cd web && npm run e2e` | 11 spec, 36 test, mock toàn bộ `/api` |
 | Lint | `uv run ruff check . && uv run ruff format --check .` | sạch |
 
@@ -128,6 +129,7 @@ Cài bằng `python -m my_agent_crew agent add <template> [--id <id>] [--force] 
 | [deployment-guide.md](deployment-guide.md) | người cài và vận hành, cách publish doc |
 | [project-overview-pdr.md](project-overview-pdr.md) | vấn đề, phạm vi, tiêu chí |
 | [code-standards.md](code-standards.md) | quy ước code, test, commit, bí mật |
+| [CHANGELOG.md](../CHANGELOG.md) | thay đổi của từng bản phát hành |
 | [design.md](design.md), [agents.md](agents.md), [tools.md](tools.md), [memory.md](memory.md), [channels.md](channels.md), [testing.md](testing.md) | tham chiếu từng mảng, có từ trước |
 | [diagrams/](diagrams/README.md) | spec, HTML, SVG của 5 sơ đồ |
 

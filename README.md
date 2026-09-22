@@ -197,12 +197,18 @@ at the crew section. Lines like `MEDIA: <path in workspace>` in the reply are re
 ## Phát triển
 
 ```bash
+uv run ruff check .              # lint
+uv run ruff format --check .     # định dạng — cổng riêng, `ruff check` xanh không thay được
 uv run pytest -q                 # backend
 cd web && npm ci
 npm run typecheck && npm test    # frontend unit
 npm run e2e                      # Playwright (mock /api trong trình duyệt)
 npm run bundle                   # dựng lại bundle vào my_agent_crew/server/static (đã commit)
 ```
+
+Đủ bộ cổng CI và thứ tự chạy: [docs/code-standards.md §4](docs/code-standards.md#4-cổng-phải-chạy-trước-khi-commit).
+Thay đổi từng bản: [CHANGELOG.md](CHANGELOG.md). Cách phát hành một phiên bản:
+[docs/deployment-guide.md §6b](docs/deployment-guide.md#6b-phát-hành-một-phiên-bản).
 
 Đọc [docs/design.md](docs/design.md) để hiểu các quyết định thiết kế,
 [docs/testing.md](docs/testing.md) để biết tính năng nào được test ở tầng nào, và bộ tài liệu

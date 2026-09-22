@@ -5,7 +5,7 @@ title: Tài liệu my-agent-crew
 
 # Tài liệu my-agent-crew
 
-**Phiên bản**: 0.3.0 · **Cập nhật**: 2026-09-22
+**Phiên bản**: 0.4.0 · **Cập nhật**: 2026-09-22
 
 my-agent-crew là một agent harness nhỏ chạy trên máy cá nhân: nhiều agent, mỗi agent là một thư mục tệp, một vòng lặp chung có cổng duyệt tool, trí nhớ trên đĩa, web UI và Telegram. Bộ tài liệu này viết cho người chưa từng xây harness, minh hoạ bằng một bộ cài thật.
 
@@ -19,6 +19,7 @@ my-agent-crew là một agent harness nhỏ chạy trên máy cá nhân: nhiều
 | 4 | [Bản đồ mã nguồn](codebase-summary.md) | sắp sửa code, cần biết khối nào ở tệp nào |
 | 5 | [Chuẩn viết code](code-standards.md) | sắp commit |
 | — | [Thiết kế](design.md) · [Agent](agents.md) · [Tool](tools.md) · [Trí nhớ](memory.md) · [Kênh](channels.md) · [Kiểm thử](testing.md) | tham chiếu sâu từng mảng |
+| — | [Nhật ký thay đổi](../CHANGELOG.md) | muốn biết bản này khác bản trước ở đâu |
 
 ## Năm sơ đồ động
 

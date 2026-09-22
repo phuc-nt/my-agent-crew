@@ -5,7 +5,7 @@ title: Cài đặt, vận hành và publish tài liệu
 
 # Cài đặt, vận hành và publish tài liệu
 
-**Phiên bản**: 0.3.0 · **Cập nhật**: 2026-09-22
+**Phiên bản**: 0.4.0 · **Cập nhật**: 2026-09-22
 
 ## 1. Yêu cầu
 
@@ -92,6 +92,51 @@ launchctl kickstart -k gui/$(id -u)/com.my-agent-crew.server
 ```
 
 Schema SQLite tự thêm cột/bảng khi khởi động; không có bước migrate tay. Đọc `docs/agents.md` khi nâng phiên bản lớn vì bố cục persona có thể đổi.
+
+Bản này khác bản trước ở đâu: [CHANGELOG.md](../CHANGELOG.md).
+
+## 6b. Phát hành một phiên bản
+
+Dự án phát hành bằng **tag git có chú thích**, không dựng GitHub Release và không đẩy lên PyPI —
+người dùng cài bằng cách clone rồi `uv sync`, nên tag là đủ để trỏ tới một trạng thái code.
+
+**Số hiệu** theo SemVer, và **một số dùng chung cho cả backend lẫn web**:
+
+| Loại | Khi nào | Ví dụ ở dự án này |
+|---|---|---|
+| major | đổi vỡ: lược đồ cần migrate tay, bỏ endpoint, đổi hình dạng `config.yaml`/`agent.yaml` | chưa có |
+| minor | thêm tính năng, thêm endpoint, đổi lớn ở UI mà dữ liệu cũ vẫn chạy | v0.4.0 — web UI dựng lại, 8 endpoint mới, bảng mới đều `IF NOT EXISTS` |
+| patch | chỉ sửa lỗi và tài liệu | — |
+
+### Các bước
+
+```bash
+# 1. Cổng: chạy đủ chín cổng ở code-standards §4. Không tag khi còn một cổng đỏ.
+
+# 2. Nâng số ở năm chỗ — phải khớp nhau
+#    pyproject.toml · my_agent_crew/__init__.py · web/package.json
+#    + dòng "**Phiên bản**" ở sáu tài liệu chuẩn trong docs/
+grep -rn '"\?version"\?[ =:]' pyproject.toml my_agent_crew/__init__.py web/package.json
+grep -rn '^\*\*Phiên bản\*\*' docs/*.md
+
+# 3. Viết mục mới trong CHANGELOG.md: Thêm / Đổi / Sửa / Lưu ý khi nâng cấp
+#    Nguồn là `git log --oneline vX.Y.Z..HEAD`, nhưng viết theo giá trị cho người dùng,
+#    không chép nguyên commit message.
+
+# 4. Commit rồi đẩy — để CI chạy thật trước khi tag
+git add -A && git commit -m "chore(release): v0.4.0"
+git push origin main
+
+# 5. Đợi CI xanh. Chỉ tag khi đã xanh: tag trỏ vào commit đỏ là thứ khó gỡ.
+gh run watch
+
+# 6. Tag có chú thích (ba tag cũ đều là annotated — giữ cho đồng nhất)
+git tag -a v0.4.0 -m "v0.4.0 — web UI dựng lại quanh việc nhìn thấy agent đang làm gì"
+git push origin v0.4.0
+```
+
+**Không nên**: tag trước khi push (tag trỏ tới commit chưa ai thấy); tag khi CI đang đỏ; nâng số
+ở `pyproject.toml` mà quên `web/package.json` (hai bên lệch nhau là thứ không có test nào bắt được).
 
 ## 7. Thêm agent
 

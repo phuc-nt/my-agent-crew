@@ -5,7 +5,7 @@ title: Tổng quan sản phẩm và yêu cầu
 
 # Tổng quan sản phẩm và yêu cầu (PDR)
 
-**Phiên bản**: 0.3.0 · **Cập nhật**: 2026-09-22
+**Phiên bản**: 0.4.0 · **Cập nhật**: 2026-09-22
 
 ## 1. Vấn đề
 
@@ -23,10 +23,14 @@ my-agent-crew: một tiến trình Python, một tệp SQLite, một thư mục 
 | Người tự xây agent | thêm agent bằng thư mục, thêm tool bằng một hàm, thêm skill bằng markdown |
 | Người học harness | đọc code và tài liệu hiểu được cấu thành, không cần biết trước |
 
-## 4. Tính năng (v0.3.0)
+## 4. Tính năng (v0.4.0)
 
 - Nhiều agent với persona, tool, model, lịch riêng; master giao việc qua `delegate`.
-- Web UI: chat SSE, thanh duyệt, timeline run, panel đội, job, trí nhớ, thống kê chi phí.
+- Web UI hai khu: **khung chat** (chat SSE có markdown, tiêu đề tự đặt, tiến trình lượt chạy và
+  hoạt động của riêng cuộc đang mở) và **khu quản lý** chín tab định tuyến bằng hash — Hoạt động,
+  Duyệt, Đội, Công cụ, Lịch chạy, Ghi nhớ, Chi phí, Kết nối, Cài đặt.
+- Quản lý đội ngay trên web: thêm/sửa/xoá agent, sửa tệp tính cách, xem lời nhắc hệ thống đã ghép,
+  ma trận ai dùng tool nào, trang kết nối.
 - Telegram cho master: tin, ảnh, album; đội trả lời qua master.
 - Scheduler cron trong tiến trình; job là cuộc trò chuyện autonomous.
 - Trí nhớ: ghi chú ngày, `MEMORY.md`, facts người dùng dùng chung, consolidate thành đề xuất có duyệt.
@@ -73,8 +77,11 @@ my-agent-crew: một tiến trình Python, một tệp SQLite, một thư mục 
 
 ## 9. Lộ trình
 
-- Đã: v0.1 một agent + web; v0.2 nhiều agent, delegate, Telegram; v0.3 kit `.agents/`, ảnh qua vision route, album, múi giờ, persona ba tệp, bộ tài liệu này.
-- Cân nhắc: Telegram cho từng agent; TTL cho lượt delegate; Dockerfile; tìm kiếm trí nhớ tốt hơn.
+- Đã: v0.1 một agent + web; v0.2 nhiều agent, delegate, Telegram; v0.3 kit `.agents/`, ảnh qua
+  vision route, album, múi giờ, persona ba tệp, bộ tài liệu này; v0.4 web UI dựng lại quanh việc
+  nhìn thấy agent đang làm gì, và quản lý cả đội trên web. Chi tiết: [CHANGELOG](../CHANGELOG.md).
+- Cân nhắc: Telegram cho từng agent; TTL cho lượt delegate; Dockerfile; tìm kiếm trí nhớ tốt hơn;
+  trang xem lại lượt chạy hiện cả lượt con được `delegate`.
 
 ## 10. Thuật ngữ
 
