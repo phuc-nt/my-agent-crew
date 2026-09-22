@@ -14,6 +14,8 @@ describe("ConnectionsPanel", () => {
       routes: [],
       vision_routes: [],
       keys: [],
+      search_backends: ["duckduckgo"],
+      firecrawl_base_url: "",
       telegram: [],
     };
     render(<ConnectionsPanel connections={connections} />);
@@ -32,6 +34,8 @@ describe("ConnectionsPanel", () => {
       ],
       vision_routes: [],
       keys: [],
+      search_backends: ["duckduckgo"],
+      firecrawl_base_url: "",
       telegram: [],
     };
     render(<ConnectionsPanel connections={connections} />);
@@ -50,6 +54,8 @@ describe("ConnectionsPanel", () => {
         { provider: "openai", model: "gpt-4-vision" },
       ],
       keys: [],
+      search_backends: ["duckduckgo"],
+      firecrawl_base_url: "",
       telegram: [],
     };
     render(<ConnectionsPanel connections={connections} />);
@@ -64,6 +70,8 @@ describe("ConnectionsPanel", () => {
       routes: [],
       vision_routes: [],
       keys: [],
+      search_backends: ["duckduckgo"],
+      firecrawl_base_url: "",
       telegram: [],
     };
     render(<ConnectionsPanel connections={connections} />);
@@ -80,6 +88,8 @@ describe("ConnectionsPanel", () => {
         { name: "OPENAI_API_KEY", present: true },
         { name: "BRAVE_API_KEY", present: false },
       ],
+      search_backends: ["duckduckgo"],
+      firecrawl_base_url: "",
       telegram: [],
     };
     render(<ConnectionsPanel connections={connections} />);
@@ -99,6 +109,8 @@ describe("ConnectionsPanel", () => {
       keys: [
         { name: "OPENAI_API_KEY", present: true },
       ],
+      search_backends: ["duckduckgo"],
+      firecrawl_base_url: "",
       telegram: [],
     };
     render(<ConnectionsPanel connections={connections} />);
@@ -116,6 +128,8 @@ describe("ConnectionsPanel", () => {
       routes: [],
       vision_routes: [],
       keys: [],
+      search_backends: ["duckduckgo"],
+      firecrawl_base_url: "",
       telegram: [
         { agent_id: "coach", token_env: "COACH_TOKEN", configured: true, ignored: false },
       ],
@@ -133,6 +147,8 @@ describe("ConnectionsPanel", () => {
       routes: [],
       vision_routes: [],
       keys: [],
+      search_backends: ["duckduckgo"],
+      firecrawl_base_url: "",
       telegram: [],
     };
     render(<ConnectionsPanel connections={connections} />);
@@ -146,6 +162,8 @@ describe("ConnectionsPanel", () => {
       routes: [],
       vision_routes: [],
       keys: [],
+      search_backends: ["duckduckgo"],
+      firecrawl_base_url: "",
       telegram: [
         { agent_id: "coach", token_env: "COACH_TOKEN", configured: true, ignored: false },
       ],
@@ -167,6 +185,8 @@ describe("ConnectionsPanel", () => {
       routes: [],
       vision_routes: [],
       keys: [],
+      search_backends: ["duckduckgo"],
+      firecrawl_base_url: "",
       telegram: [
         { agent_id: "coach", token_env: "COACH_TOKEN", configured: true, ignored: false },
         { agent_id: "coder", token_env: "CODER_TOKEN", configured: false, ignored: false },
@@ -185,6 +205,8 @@ describe("ConnectionsPanel", () => {
       routes: [],
       vision_routes: [],
       keys: [],
+      search_backends: ["duckduckgo"],
+      firecrawl_base_url: "",
       telegram: [
         { agent_id: "coach", token_env: "COACH_TOKEN", configured: true, ignored: true },
       ],
@@ -194,12 +216,49 @@ describe("ConnectionsPanel", () => {
     expect(screen.getByText(vi.connectionsPage.ignored)).toBeInTheDocument();
   });
 
+  it("lists search backends in priority order and says firecrawl is off", () => {
+    const connections: ConnectionsInfo = {
+      providers: [],
+      routes: [],
+      vision_routes: [],
+      keys: [],
+      search_backends: ["duckduckgo"],
+      firecrawl_base_url: "",
+      telegram: [],
+    };
+    render(<ConnectionsPanel connections={connections} />);
+
+    expect(screen.getByTestId("search-backends").textContent).toContain("duckduckgo");
+    expect(screen.getByText(vi.connectionsPage.firecrawlOff)).toBeInTheDocument();
+  });
+
+  it("names the firecrawl host when one is configured", () => {
+    const connections: ConnectionsInfo = {
+      providers: [],
+      routes: [],
+      vision_routes: [],
+      keys: [],
+      search_backends: ["firecrawl", "duckduckgo"],
+      firecrawl_base_url: "http://127.0.0.1:3002",
+      telegram: [],
+    };
+    render(<ConnectionsPanel connections={connections} />);
+
+    const list = screen.getByTestId("search-backends");
+    expect(list.textContent).toContain("firecrawl");
+    expect(
+      screen.getByText(vi.connectionsPage.firecrawlAt("http://127.0.0.1:3002")),
+    ).toBeInTheDocument();
+  });
+
   it("shows the hint text for the keys section", () => {
     const connections: ConnectionsInfo = {
       providers: [],
       routes: [],
       vision_routes: [],
       keys: [],
+      search_backends: ["duckduckgo"],
+      firecrawl_base_url: "",
       telegram: [],
     };
     render(<ConnectionsPanel connections={connections} />);
@@ -213,6 +272,8 @@ describe("ConnectionsPanel", () => {
       routes: [],
       vision_routes: [],
       keys: [],
+      search_backends: ["duckduckgo"],
+      firecrawl_base_url: "",
       telegram: [],
     };
     render(<ConnectionsPanel connections={connections} />);
@@ -226,6 +287,8 @@ describe("ConnectionsPanel", () => {
       routes: [{ provider: "test", model: "model" }],
       vision_routes: [{ provider: "test", model: "vision" }],
       keys: [{ name: "KEY", present: true }],
+      search_backends: ["duckduckgo"],
+      firecrawl_base_url: "",
       telegram: [],
     };
     render(<ConnectionsPanel connections={connections} />);
@@ -245,6 +308,8 @@ describe("ConnectionsPanel", () => {
       keys: [
         { name: "TEST_KEY", present: true },
       ],
+      search_backends: ["duckduckgo"],
+      firecrawl_base_url: "",
       telegram: [],
     };
     render(<ConnectionsPanel connections={connections} />);
@@ -266,6 +331,8 @@ describe("ConnectionsPanel", () => {
       keys: [
         { name: "MISSING_KEY", present: false },
       ],
+      search_backends: ["duckduckgo"],
+      firecrawl_base_url: "",
       telegram: [],
     };
     render(<ConnectionsPanel connections={connections} />);

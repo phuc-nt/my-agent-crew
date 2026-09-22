@@ -36,8 +36,8 @@ The system prompt lists the available names; the model sees each tool's JSON sch
 | `workspace_list` | no | — | lists a directory inside the workspace |
 | `workspace_read` | no | only the agent's output cap (`tool_output_chars`), which marks the cut | reads a text file inside the workspace; `offset` (1-based line) and `limit` read a window instead of the whole file |
 | `workspace_write` | **yes** | — | writes a text file inside the workspace, creating parents |
-| `fetch_url` | no | 6 000 chars (`MAX_PAGE_CHARS`), 20 s, no redirects | GET of a public http(s) page, HTML reduced to text |
-| `web_search` | no | 5 results | only with `BRAVE_API_KEY` or `TAVILY_API_KEY` (Brave preferred); returns title, URL, snippet |
+| `fetch_url` | no | 20 000 chars via firecrawl markdown, else 6 000 (`MAX_PAGE_CHARS`), 20 s, no redirects | GET of a public http(s) page; firecrawl returns markdown, otherwise HTML is reduced to text |
+| `web_search` | no | 5 results | always available; backends tried in order firecrawl → brave → tavily → duckduckgo; returns title, URL, snippet |
 | `memory_save` | no | — | appends `- HH:MM text` to today's note, see [memory.md](memory.md) |
 | `memory_search` | no | 12 hits (`MAX_HITS`) | searches the shared user facts, then `MEMORY.md` and every daily note, newest first; every term must match |
 | `user_memory_save` | no | — | remembers one thing about the person, shared by the whole crew, see [memory.md](memory.md) |
@@ -114,8 +114,20 @@ a time by a tool call.
 
 `fetch_url` resolves the host first and refuses private, loopback, link-local, reserved
 and multicast addresses; it does not follow redirects, so a public URL that bounces to an
-internal one fails closed. Only `http` and `https`. `web_search` picks Brave when both keys
-are present.
+internal one fails closed. Only `http` and `https`. The address guard runs before any
+request, including the one to firecrawl, so a private URL never reaches a scraper either.
+
+With `FIRECRAWL_BASE_URL` set, `fetch_url` asks firecrawl for the main content as markdown
+and keeps 20 000 characters of it; headings and lists survive, which raw stripped text loses.
+A firecrawl that is down or slow is not an error — the tool falls back to plain text.
+
+`web_search` tries its backends in order and stops at the first one with results:
+firecrawl, then Brave, then Tavily, then DuckDuckGo. DuckDuckGo needs no key and closes
+the list, so the tool exists on every machine and an agent that lists it in `tools:` can
+always use it. A backend that fails is logged and skipped; only when every backend fails
+does the tool report the search service as unreachable, which keeps "no results" and
+"search is broken" separate answers. `FIRECRAWL_API_KEY` is optional and only sent when
+set, so a self-hosted host needs no key and a mistyped base url cannot leak one.
 
 ### Shell
 
@@ -182,7 +194,7 @@ The tools union is every agent's registry, not the master's own set — a profil
 allow-list holds fewer tools than the master, and reading one agent's registry would hide
 tools the rest of the crew still uses. `agents` is who holds it, which is the answer to
 "can the reviewer actually edit files"; `optional` marks the tools that only exist when
-their key or route is configured (`web_search`, `image_read`).
+their key or route is configured (`image_read`).
 
 The `/prompt` endpoint returns the complete system prompt as assembled for the agent (useful for
 debugging what the agent sees, or showing a user what the agent knows).

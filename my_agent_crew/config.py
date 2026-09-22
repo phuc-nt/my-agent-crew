@@ -66,6 +66,11 @@ class Settings:
     openrouter_api_key: str | None = None
     brave_api_key: str | None = None
     tavily_api_key: str | None = None
+    # A firecrawl host (self-hosted or cloud); empty turns search-and-scrape through it off.
+    firecrawl_base_url: str = ""
+    # Only sent when set: a self-hosted firecrawl needs no key, and a wrong base url
+    # must not carry a token to a stranger.
+    firecrawl_api_key: str | None = None
     cost_cap_usd: float = 0.50
     language: str = "vi"
     # The person's IANA zone; empty means the machine's. See `clock.py`.
@@ -156,6 +161,8 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         openrouter_api_key=env.get("OPENROUTER_API_KEY") or None,
         brave_api_key=env.get("BRAVE_API_KEY") or None,
         tavily_api_key=env.get("TAVILY_API_KEY") or None,
+        firecrawl_base_url=str(env.get("FIRECRAWL_BASE_URL") or "").rstrip("/"),
+        firecrawl_api_key=env.get("FIRECRAWL_API_KEY") or None,
         cost_cap_usd=float(
             env.get("MY_AGENT_COST_CAP_USD") or file_values.get("cost_cap_usd", 0.50)
         ),

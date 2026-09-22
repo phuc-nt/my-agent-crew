@@ -16,6 +16,7 @@ from fastapi import APIRouter
 from my_agent_crew.server.deps import Rt
 from my_agent_crew.server.runtime import Runtime
 from my_agent_crew.server.tool_assembly import OPTIONAL_TOOLS
+from my_agent_crew.tools.web import search_backends
 
 router = APIRouter(tags=["registry"])
 
@@ -81,6 +82,11 @@ def list_connections(rt: Rt) -> dict[str, Any]:
             {"name": "OPENROUTER_API_KEY", "present": bool(s.openrouter_api_key)},
             {"name": "BRAVE_API_KEY", "present": bool(s.brave_api_key)},
             {"name": "TAVILY_API_KEY", "present": bool(s.tavily_api_key)},
+            {"name": "FIRECRAWL_API_KEY", "present": bool(s.firecrawl_api_key)},
         ],
+        # Which backend answers a search, best first. Never empty: DuckDuckGo needs no
+        # key, so the page can say "search works" on a machine with no keys at all.
+        "search_backends": search_backends(s),
+        "firecrawl_base_url": s.firecrawl_base_url,
         "telegram": _telegram(rt),
     }

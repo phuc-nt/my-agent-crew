@@ -71,19 +71,18 @@ async def test_http_error_and_unreachable_are_distinct_messages():
     assert texts.URL_UNREACHABLE.split("{")[0] in b.output
 
 
-def test_web_search_registered_only_with_a_key():
-    without = registry(lambda r: httpx.Response(200)).names()
-    with_key = registry(
-        lambda r: httpx.Response(200),
-        Settings(home="/tmp/x", routes=(Route("fake", "echo"),), brave_api_key="k"),
-    ).names()
-    assert "web_search" not in without and "web_search" in with_key
+def test_web_search_exists_without_any_key():
+    """DuckDuckGo closes the backend list, so a machine with no search key still has
+    the tool rather than an agent that silently lost it."""
+    assert "web_search" in registry(lambda r: httpx.Response(200)).names()
 
 
 async def test_search_empty_vs_unreachable_never_conflated():
     settings = Settings(home="/tmp/x", routes=(Route("fake", "echo"),), brave_api_key="k")
 
     def empty(request):
+        if "duckduckgo" in request.url.host:
+            return httpx.Response(200, text="<div>nothing</div>")
         return httpx.Response(200, json={"web": {"results": []}})
 
     def down(request):

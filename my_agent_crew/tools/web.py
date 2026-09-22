@@ -1,13 +1,15 @@
 """Web tools. `fetch_url` refuses private addresses and does not follow redirects on
-its own (the model sees the hop and may ask again). `web_search` is registered only
-when a search key exists, so "no key" and "no results" can never be confused."""
+its own (the model sees the hop and may ask again). `web_search` always exists because
+DuckDuckGo needs no key; keys and a firecrawl host only change which backend answers
+first."""
 
 from __future__ import annotations
 
 import asyncio
 import ipaddress
+import logging
 import socket
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from html.parser import HTMLParser
 from typing import Any
 from urllib.parse import urlsplit
@@ -17,9 +19,21 @@ import httpx
 from my_agent_crew import texts
 from my_agent_crew.config import Settings
 from my_agent_crew.tools.registry import Tool, ToolError
+from my_agent_crew.tools.web_providers import (
+    SearchHit,
+    brave_search,
+    duckduckgo_search,
+    firecrawl_scrape,
+    firecrawl_search,
+    tavily_search,
+)
 
 MAX_PAGE_CHARS = 6000
+# Markdown from a scrape is already the main content, so it earns a longer budget than
+# a whole HTML page stripped of tags.
+MAX_MARKDOWN_CHARS = 20000
 Resolver = Callable[[str], list[str]]
+logger = logging.getLogger(__name__)
 
 
 def resolve_host(host: str) -> list[str]:
@@ -74,6 +88,10 @@ def build_web_tools(
     async def fetch_url(args: dict[str, Any]) -> str:
         url = str(args["url"])
         await _guard_url(url, resolver)
+        if settings.firecrawl_base_url:
+            markdown = await _scrape(settings, client, url)
+            if markdown:
+                return markdown[:MAX_MARKDOWN_CHARS]
         try:
             resp = await client.get(url, follow_redirects=False, timeout=20.0)
         except httpx.HTTPError as exc:
@@ -89,13 +107,12 @@ def build_web_tools(
 
     async def web_search(args: dict[str, Any]) -> str:
         query = str(args["query"])
-        try:
-            results = await _search(settings, client, query)
-        except httpx.HTTPError as exc:
-            raise ToolError(texts.SEARCH_UNREACHABLE.format(error=exc)) from exc
+        results, error = await _search(settings, client, query)
+        if error is not None and not results:
+            raise ToolError(texts.SEARCH_UNREACHABLE.format(error=error))
         if not results:
             return texts.SEARCH_EMPTY.format(query=query)
-        return "\n\n".join(f"{t}\n{u}\n{s}" for t, u, s in results)
+        return "\n\n".join(hit.render() for hit in results)
 
     tools = [
         Tool(
@@ -107,42 +124,71 @@ def build_web_tools(
                 "required": ["url"],
             },
             run=fetch_url,
-        )
+        ),
+        Tool(
+            name="web_search",
+            description="Tìm kiếm web, trả về tiêu đề, URL và trích đoạn.",
+            parameters={
+                "type": "object",
+                "properties": {"query": {"type": "string"}},
+                "required": ["query"],
+            },
+            run=web_search,
+        ),
     ]
-    if settings.brave_api_key or settings.tavily_api_key:
-        tools.append(
-            Tool(
-                name="web_search",
-                description="Tìm kiếm web, trả về tiêu đề, URL và trích đoạn.",
-                parameters={
-                    "type": "object",
-                    "properties": {"query": {"type": "string"}},
-                    "required": ["query"],
-                },
-                run=web_search,
-            )
-        )
     return tools
+
+
+def search_backends(settings: Settings) -> list[str]:
+    """Priority order, best first. DuckDuckGo closes the list, so it is never empty."""
+    names = []
+    if settings.firecrawl_base_url:
+        names.append("firecrawl")
+    if settings.brave_api_key:
+        names.append("brave")
+    if settings.tavily_api_key:
+        names.append("tavily")
+    names.append("duckduckgo")
+    return names
+
+
+def _provider(
+    name: str, settings: Settings, client: httpx.AsyncClient, query: str
+) -> Awaitable[list[SearchHit]]:
+    if name == "firecrawl":
+        base, key = settings.firecrawl_base_url, settings.firecrawl_api_key
+        return firecrawl_search(client, base, key, query)
+    if name == "brave":
+        return brave_search(client, settings.brave_api_key or "", query)
+    if name == "tavily":
+        return tavily_search(client, settings.tavily_api_key or "", query)
+    return duckduckgo_search(client, query)
 
 
 async def _search(
     settings: Settings, client: httpx.AsyncClient, query: str
-) -> list[tuple[str, str, str]]:
-    if settings.brave_api_key:
-        resp = await client.get(
-            "https://api.search.brave.com/res/v1/web/search",
-            params={"q": query, "count": 5},
-            headers={"X-Subscription-Token": settings.brave_api_key, "Accept": "application/json"},
-            timeout=20.0,
+) -> tuple[list[SearchHit], Exception | None]:
+    """Try each backend in turn. A backend that fails is logged and skipped; only when
+    every one of them failed does the tool report the search service as unreachable."""
+    last: Exception | None = None
+    for name in search_backends(settings):
+        try:
+            hits = await _provider(name, settings, client, query)
+        except (httpx.HTTPError, ValueError, KeyError) as exc:
+            logger.warning("web_search: %s failed (%s), trying the next backend", name, exc)
+            last = exc
+            continue
+        if hits:
+            return hits, None
+    return [], last
+
+
+async def _scrape(settings: Settings, client: httpx.AsyncClient, url: str) -> str:
+    """A scrape that fails is not an error: `fetch_url` just falls back to raw text."""
+    try:
+        return await firecrawl_scrape(
+            client, settings.firecrawl_base_url, settings.firecrawl_api_key, url
         )
-        resp.raise_for_status()
-        items = (resp.json().get("web") or {}).get("results") or []
-        return [(i.get("title", ""), i.get("url", ""), i.get("description", "")) for i in items]
-    resp = await client.post(
-        "https://api.tavily.com/search",
-        json={"api_key": settings.tavily_api_key, "query": query, "max_results": 5},
-        timeout=20.0,
-    )
-    resp.raise_for_status()
-    items = resp.json().get("results") or []
-    return [(i.get("title", ""), i.get("url", ""), i.get("content", "")) for i in items]
+    except (httpx.HTTPError, ValueError, KeyError) as exc:
+        logger.warning("fetch_url: firecrawl scrape failed (%s), using plain text", exc)
+        return ""

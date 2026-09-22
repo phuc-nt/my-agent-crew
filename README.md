@@ -37,7 +37,9 @@ Bí mật **chỉ** đọc từ biến môi trường; `config.yaml` chỉ chứ
 | `MY_AGENT_APPROVAL_TTL_SECONDS` | yêu cầu duyệt không ai trả lời trong khoảng này thì tự từ chối, lượt chạy tiếp | `600` |
 | `MY_AGENT_TIMEZONE` | múi giờ của bạn (tên IANA, vd `Asia/Ho_Chi_Minh`) cho lịch, "hôm nay" trong prompt và thống kê; DB vẫn lưu UTC | múi giờ máy |
 | `OPENROUTER_API_KEY` | bật provider OpenRouter | — |
-| `TAVILY_API_KEY` / `BRAVE_API_KEY` | bật công cụ `web_search` | — |
+| `TAVILY_API_KEY` / `BRAVE_API_KEY` | nguồn tìm kiếm trả phí; không đặt thì `web_search` vẫn chạy bằng DuckDuckGo | — |
+| `FIRECRAWL_BASE_URL` | host firecrawl cho tìm kiếm và đọc trang dạng markdown | — |
+| `FIRECRAWL_API_KEY` | chỉ cần với firecrawl cloud | — |
 | tên do `telegram.token_env` chỉ định (vd `TELEGRAM_BOT_TOKEN`) | token bot Telegram của master; thiếu thì kênh tắt | — |
 
 `config.yaml` trong `MY_AGENT_HOME` nhận `routes`, `cost_cap_usd`, `max_steps`, `language`,

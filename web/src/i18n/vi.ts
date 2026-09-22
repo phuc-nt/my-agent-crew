@@ -163,6 +163,11 @@ export const vi = {
     present: "đã có",
     absent: "chưa đặt",
     keysHint: "Đặt giá trị trong ~/.my-agent-crew/env rồi khởi động lại dịch vụ.",
+    search: "Tìm kiếm web",
+    searchHint:
+      "Thứ tự thử khi agent gọi web_search. DuckDuckGo không cần khoá nên luôn có ít nhất một nguồn.",
+    firecrawlOff: "Firecrawl chưa bật — đặt FIRECRAWL_BASE_URL để dùng scrape markdown.",
+    firecrawlAt: (url: string) => `Firecrawl tại ${url}`,
     telegram: "Kênh Telegram",
     noTelegram: "Chưa agent nào bật kênh Telegram.",
     configured: "đã cấu hình",

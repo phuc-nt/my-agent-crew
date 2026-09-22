@@ -304,6 +304,9 @@ export interface ConnectionsInfo {
   routes: RouteInfo[];
   vision_routes: RouteInfo[];
   keys: KeyStatus[];
+  /** Search backends in priority order, best first. Never empty. */
+  search_backends: string[];
+  firecrawl_base_url: string;
   telegram: TelegramConnection[];
 }
 

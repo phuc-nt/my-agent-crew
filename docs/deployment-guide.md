@@ -11,7 +11,8 @@ title: Cài đặt, vận hành và publish tài liệu
 
 - macOS hoặc Linux, Python 3.12+, [uv](https://docs.astral.sh/uv/).
 - Node 20+ chỉ khi sửa web (bundle đã commit sẵn).
-- Một API key OpenRouter. Tuỳ chọn: token bot Telegram, key Tavily hoặc Brave cho `web_search`.
+- Một API key OpenRouter. Tuỳ chọn: token bot Telegram, một host firecrawl, hoặc key Tavily/Brave
+  để `web_search` chạy nhanh hơn — không có gì thêm thì vẫn tìm được qua DuckDuckGo.
 
 ## 2. Cài và chạy lần đầu
 
@@ -51,7 +52,9 @@ Thử không tốn tiền: `MY_AGENT_ROUTES=fake:echo uv run python -m my_agent_
 | `MY_AGENT_ROUTES` | danh sách model, ví dụ `openrouter:a,openrouter:b` hoặc `fake:echo` |
 | `MY_AGENT_COST_CAP_USD`, `MY_AGENT_MAX_STEPS`, `MY_AGENT_AUTONOMOUS`, `MY_AGENT_APPROVAL_TTL_SECONDS`, `MY_AGENT_TIMEZONE` | ghi đè `config.yaml` |
 | `OPENROUTER_API_KEY` | bắt buộc trừ khi dùng `fake:` |
-| `TAVILY_API_KEY` / `BRAVE_API_KEY` | `web_search` |
+| `TAVILY_API_KEY` / `BRAVE_API_KEY` | nguồn tìm kiếm trả phí cho `web_search` (không có vẫn chạy bằng DuckDuckGo) |
+| `FIRECRAWL_BASE_URL` | host firecrawl, ví dụ `http://127.0.0.1:3002`; bật tìm kiếm + scrape markdown |
+| `FIRECRAWL_API_KEY` | chỉ cần cho firecrawl cloud; host tự dựng để trống |
 | tên do `telegram.token_env` trong `agent.yaml` chỉ định | token bot |
 
 Quy tắc: bí mật chỉ nằm trong tệp env ngoài repo; `agent.yaml` chỉ ghi **tên** biến (`token_env: TELEGRAM_BOT_TOKEN`), không ghi giá trị. Log server đi qua bộ lọc redact nên token không xuất hiện trong `logs/`.

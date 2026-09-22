@@ -9,6 +9,7 @@ from fastapi import APIRouter
 
 from my_agent_crew.agents.templates_cli import list_templates
 from my_agent_crew.server.deps import Rt
+from my_agent_crew.tools.web import search_backends
 
 router = APIRouter(tags=["settings"])
 
@@ -41,7 +42,11 @@ def get_settings(rt: Rt) -> dict[str, Any]:
             "openrouter": bool(s.openrouter_api_key),
             "brave": bool(s.brave_api_key),
             "tavily": bool(s.tavily_api_key),
+            "firecrawl": bool(s.firecrawl_api_key),
         },
+        # The host is not a secret and the page needs it to tell "off" from "misconfigured".
+        "firecrawl_base_url": s.firecrawl_base_url,
+        "search_backends": search_backends(s),
         "tools": deps.tools.describe(),
         "skills": [sk.to_dict() for sk in deps.skills],
         "agents": [p.to_dict() for p in rt.profiles()],

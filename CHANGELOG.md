@@ -9,6 +9,26 @@ Mọi thay đổi đáng kể của my-agent-crew. Định dạng theo [Keep a C
 số hiệu theo [SemVer](https://semver.org/lang/vi/). Số hiệu chung cho cả backend và web: cùng một
 bản phát hành, `pyproject.toml` và `web/package.json` luôn cùng số.
 
+## [Chưa phát hành]
+
+### Thêm
+
+- **`web_search` chạy được trên mọi máy** — thêm nguồn DuckDuckGo không cần khoá, đứng cuối
+  danh sách nên luôn có ít nhất một nguồn. Thứ tự thử: firecrawl → Brave → Tavily → DuckDuckGo;
+  nguồn hỏng bị bỏ qua và ghi log, chỉ khi tất cả cùng hỏng thì công cụ mới báo không tới được
+  dịch vụ. Trước đây cả đội không có công cụ này vì không máy nào đặt khoá tìm kiếm.
+- **`fetch_url` đọc trang dạng markdown qua firecrawl** — giữ tiêu đề, danh sách và bảng thay vì
+  chữ thô, hạn mức nâng từ 6 000 lên 20 000 ký tự. Firecrawl hỏng thì tự quay về chữ thô.
+- **Hai biến môi trường mới** `FIRECRAWL_BASE_URL` và `FIRECRAWL_API_KEY`. Khoá chỉ được gửi khi
+  có đặt, nên host tự dựng không cần khoá và một base url gõ nhầm không mang khoá đi đâu cả.
+- **Trang Kết nối hiện thứ tự nguồn tìm kiếm** và host firecrawl đang dùng, đủ để phân biệt
+  "chưa bật" với "cấu hình sai".
+
+### Thay đổi
+
+- `web_search` không còn nằm trong nhóm công cụ tuỳ chọn: nó luôn được dựng, nên một agent khai
+  `web_search` trong `tools:` không còn im lặng mất công cụ.
+
 ## [0.4.0] — 2026-09-22
 
 Bản này dựng lại web UI quanh một ý: **nhìn thấy agent đang làm gì**, và quản lý được cả đội

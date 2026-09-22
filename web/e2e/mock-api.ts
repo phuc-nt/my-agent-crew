@@ -82,6 +82,8 @@ export const connections = {
     { name: "OPENROUTER_API_KEY", present: true },
     { name: "BRAVE_API_KEY", present: false },
   ],
+  search_backends: ["firecrawl", "duckduckgo"],
+  firecrawl_base_url: "http://127.0.0.1:3002",
   telegram: [{ agent_id: "default", token_env: "TELEGRAM_BOT_TOKEN", configured: true, ignored: false }],
 };
 

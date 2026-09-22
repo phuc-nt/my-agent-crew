@@ -28,9 +28,10 @@ from my_agent_crew.tools.workspace_search import build_search_tools
 logger = logging.getLogger(__name__)
 
 
-# Real tools that are only built when their key is configured. Listing one is a choice
-# about the agent's role, not a mistake, so an unkeyed machine stays quiet about it.
-OPTIONAL_TOOLS = frozenset({"web_search", "image_read"})
+# Real tools that are only built when their backing service is configured. Listing one
+# is a choice about the agent's role, not a mistake, so a bare machine stays quiet about
+# it. `web_search` is not here: it always builds, because DuckDuckGo needs no key.
+OPTIONAL_TOOLS = frozenset({"image_read"})
 
 
 def allowed(tools: Sequence[Tool], names: Sequence[str], agent_id: str) -> list[Tool]:

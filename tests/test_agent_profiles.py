@@ -213,12 +213,12 @@ def test_an_allow_list_that_omits_delegate_keeps_a_work_agent_from_delegating(tm
 
 
 def test_a_tool_that_needs_a_key_is_not_reported_as_an_unknown_name(caplog):
-    """`web_search` exists but is only built when a search key is set. A profile that
-    names it is making a choice about the role, so an unkeyed machine stays quiet."""
+    """`image_read` is only built when a vision chain exists. A profile that names it
+    is making a choice about the role, so a machine without one stays quiet."""
     from my_agent_crew.server.tool_assembly import allowed
 
     with caplog.at_level("WARNING"):
-        assert allowed([], ["web_search"], "researcher") == []
+        assert allowed([], ["image_read"], "researcher") == []
     assert not caplog.records
 
     with caplog.at_level("WARNING"):

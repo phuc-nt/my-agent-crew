@@ -135,7 +135,10 @@ export class FakeBackend {
       { name: "OPENROUTER_API_KEY", present: false },
       { name: "BRAVE_API_KEY", present: false },
       { name: "TAVILY_API_KEY", present: false },
+      { name: "FIRECRAWL_API_KEY", present: false },
     ],
+    search_backends: ["duckduckgo"],
+    firecrawl_base_url: "",
     telegram: [],
   };
   /** Set to a message to make the next PATCH refuse, the way a bad field would. */

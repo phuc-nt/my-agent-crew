@@ -18,10 +18,16 @@ def test_fake_provider_always_registered_and_openrouter_only_with_key(tmp_path: 
     assert set(with_key.chain.providers) == {"fake", "openrouter"}
 
 
-def test_web_search_tool_follows_search_key(tmp_path: Path):
-    assert "web_search" not in build_deps(load_settings(env=env_for(tmp_path))).tools.names()
+def test_web_search_tool_exists_with_or_without_a_key(tmp_path: Path):
+    """DuckDuckGo needs no key, so the tool is always built; a key only changes which
+    backend answers first."""
+    from my_agent_crew.tools.web import search_backends
+
+    bare = build_deps(load_settings(env=env_for(tmp_path)))
     with_key = build_deps(load_settings(env=env_for(tmp_path, TAVILY_API_KEY="k")))
-    assert "web_search" in with_key.tools.names()
+    assert "web_search" in bare.tools.names() and "web_search" in with_key.tools.names()
+    assert search_backends(bare.settings) == ["duckduckgo"]
+    assert search_backends(with_key.settings) == ["tavily", "duckduckgo"]
 
 
 def test_home_skills_dir_is_loaded_and_shell_tool_present(tmp_path: Path):

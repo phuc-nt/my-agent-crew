@@ -57,6 +57,24 @@ export function ConnectionsPanel({ connections }: Props) {
       </section>
 
       <section>
+        <h3>{vi.connectionsPage.search}</h3>
+        <ol className="route-list" data-testid="search-backends">
+          {connections.search_backends.map((backend, i) => (
+            <li key={backend}>
+              <code>{backend}</code>
+              {i === 0 && <span className="badge ok">1</span>}
+            </li>
+          ))}
+        </ol>
+        <p className="muted">
+          {connections.firecrawl_base_url
+            ? vi.connectionsPage.firecrawlAt(connections.firecrawl_base_url)
+            : vi.connectionsPage.firecrawlOff}
+        </p>
+        <p className="muted">{vi.connectionsPage.searchHint}</p>
+      </section>
+
+      <section>
         <h3>{vi.connectionsPage.keys}</h3>
         <ul className="key-list" data-testid="keys">
           {connections.keys.map((key) => (

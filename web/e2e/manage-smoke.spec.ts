@@ -80,6 +80,8 @@ test("the tools section says which agent has what, and connections names keys wi
   await expect(panel.getByTestId("keys")).toContainText("OPENROUTER_API_KEY");
   await expect(panel.getByTestId("keys")).toContainText("BRAVE_API_KEY");
   await expect(panel.getByTestId("routes")).toContainText("echo");
+  await expect(panel.getByTestId("search-backends")).toContainText("firecrawl");
+  await expect(panel.getByTestId("search-backends")).toContainText("duckduckgo");
   await expect(panel.getByTestId("telegram-list")).toContainText("TELEGRAM_BOT_TOKEN");
 });
 
