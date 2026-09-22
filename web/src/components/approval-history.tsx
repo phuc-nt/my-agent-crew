@@ -17,22 +17,32 @@ interface Props {
   onOpenConversation: (conversationId: string) => void;
   /** Bumped by the caller whenever a run finishes, so resolved requests show up. */
   refreshKey: number;
+  /** Narrows the list to one conversation; every agent's requests when absent. */
+  conversationId?: string;
 }
 
 /** Every approval request across agents, newest first, with how and when it was settled. */
-export function ApprovalHistory({ agentName, onOpenConversation, refreshKey }: Props) {
+export function ApprovalHistory({
+  agentName,
+  onOpenConversation,
+  refreshKey,
+  conversationId,
+}: Props) {
   const [approvals, setApprovals] = useState<ApprovalInfo[] | null | undefined>(undefined);
 
+  // The server narrows, not this component: its page is the newest N across the crew, so a
+  // filter here would hide a quiet conversation's history behind a busy one's.
   useEffect(() => {
     let cancelled = false;
-    api.listApprovals().then(
+    setApprovals(undefined);
+    api.listApprovals({ conversation_id: conversationId }).then(
       (loaded) => !cancelled && setApprovals(loaded),
       () => !cancelled && setApprovals(null),
     );
     return () => {
       cancelled = true;
     };
-  }, [refreshKey]);
+  }, [refreshKey, conversationId]);
 
   if (approvals === undefined) return <p className="muted">{vi.loading}</p>;
   if (approvals === null) return <p className="muted">{vi.loadFailed}</p>;

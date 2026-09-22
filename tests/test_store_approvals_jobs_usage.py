@@ -54,6 +54,21 @@ def test_history_lists_decided_approvals_newest_first_and_skips_pending(store: S
     assert store.approvals.recent(limit=1)[0].id == second.id
 
 
+def test_one_conversations_history_is_not_crowded_out_by_a_busier_one(store: Store):
+    """The limit must count the conversation's own rows, or a quiet chat looks like it
+    never asked for anything once other chats fill the page."""
+    quiet = store.create()
+    busy = store.create()
+    for n, conv in enumerate((quiet, busy, busy, busy)):
+        msg = store.append(conv.id, Message(role="assistant", content=""))
+        approval = store.approvals.create(conv.id, msg.id, ToolCall(f"call{n}", "t", {}))
+        store.approvals.resolve(approval.id, approve=True)
+
+    history = store.approvals.recent(limit=2, conversation_id=quiet.id)
+
+    assert [a.conversation_id for a in history] == [quiet.id]
+
+
 def test_auto_approve_is_stored_as_a_list_and_defaults_empty(store: Store):
     conv = store.create()
     assert conv.auto_approve == () and conv.to_dict()["auto_approve"] == []

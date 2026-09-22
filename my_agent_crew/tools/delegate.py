@@ -114,17 +114,10 @@ async def _delegate(runtime: Runtime, target: str, task: str, args: dict[str, An
 
 
 def _children(runtime: Runtime, parent: Conversation | None) -> list[Conversation]:
-    """Everything this conversation has already delegated, found through the ids of its own
-    tool calls — the store links a child to the call, not to the conversation."""
+    """Everything this conversation has already delegated."""
     if parent is None:
         return []
-    calls = tuple(
-        call.id
-        for stored in runtime.store.history(parent.id)
-        for call in stored.message.tool_calls
-        if call.name == DELEGATE_TOOL_NAME
-    )
-    return runtime.store.children_of(calls)
+    return runtime.store.delegated_children(parent.id, DELEGATE_TOOL_NAME)
 
 
 async def _run_child(runtime: Runtime, child: Conversation, task: str, agent_id: str) -> None:

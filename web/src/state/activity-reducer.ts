@@ -124,6 +124,21 @@ export function runsForConversation(state: ActivityState, conversationId: string
   return sortedRuns(state).filter((r) => r.conversation_id === conversationId);
 }
 
+/**
+ * A conversation's own runs together with those of the work it delegated.
+ *
+ * The delegated run says whose behalf it acts on in its `source`, so the family is read
+ * from the runs already in hand — opening the activity strip asks the server for nothing.
+ */
+export function conversationFamilyRuns(
+  state: ActivityState,
+  conversationId: string,
+): RunInfo[] {
+  return sortedRuns(state).filter(
+    (r) => r.conversation_id === conversationId || parentConversationId(r) === conversationId,
+  );
+}
+
 const DELEGATE_SOURCE = "delegate";
 
 /** A delegated run names the conversation that handed out the work: `delegate:<id>`. */

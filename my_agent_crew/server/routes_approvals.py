@@ -23,9 +23,14 @@ class Decision(BaseModel):
 
 
 @router.get("/approvals")
-def list_approvals(rt: Rt, limit: int = Query(HISTORY_LIMIT, ge=1, le=500)) -> list[dict[str, Any]]:
+def list_approvals(
+    rt: Rt,
+    limit: int = Query(HISTORY_LIMIT, ge=1, le=500),
+    conversation_id: str | None = None,
+) -> list[dict[str, Any]]:
+    """Settled approval requests, newest first, optionally only one conversation's."""
     out = []
-    for approval in rt.store.approvals.recent(limit):
+    for approval in rt.store.approvals.recent(limit, conversation_id):
         try:
             agent_id = rt.store.get(approval.conversation_id).agent_id
         except KeyError:

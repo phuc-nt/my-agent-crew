@@ -102,12 +102,19 @@ class ApprovalStore:
             raise KeyError(approval_id)
         return self.get(approval_id)
 
-    def recent(self, limit: int = 50) -> list[Approval]:
-        """Decided approvals, newest decision first — the history a user reviews."""
+    def recent(self, limit: int = 50, conversation_id: str | None = None) -> list[Approval]:
+        """Decided approvals, newest decision first — the history a user reviews.
+
+        Narrowing here rather than in the caller is what makes `limit` mean "the last N of
+        this conversation": filtering an already-truncated crew-wide page would quietly show
+        nothing for a quiet conversation on a busy crew."""
+        narrowed = conversation_id is not None
+        clause = " AND conversation_id = ?" if narrowed else ""
+        scope = (conversation_id,) if narrowed else ()
         with self._lock:
             rows = self._conn.execute(
-                "SELECT * FROM approvals WHERE status != ?"
+                f"SELECT * FROM approvals WHERE status != ?{clause}"
                 " ORDER BY resolved_at DESC, created_at DESC, rowid DESC LIMIT ?",
-                (PENDING, limit),
+                (PENDING, *scope, limit),
             ).fetchall()
         return [Approval.from_row(r) for r in rows]

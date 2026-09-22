@@ -142,6 +142,51 @@ describe("App activity rail", () => {
     expect(await screen.findByRole("heading", { level: 1 })).toHaveTextContent("Việc");
   });
 
+  // The chat's own strip answers "what was approved here", not "what was approved anywhere".
+  it("keeps another conversation's approvals out of the chat's activity strip", async () => {
+    const mine = backend.create({ title: "Của tôi" });
+    const approval = (id: string, conversationId: string, toolName: string) => ({
+      id, conversation_id: conversationId, message_id: "m", tool_call_id: id, tool_name: toolName,
+      arguments: {}, status: "approved" as const, created_at: "2026-09-20T01:00:00Z",
+      expires_at: null, resolved_at: "2026-09-20T01:01:00Z", agent_id: "default",
+    });
+    backend.approvals = [approval("a1", mine.id, "write_file"), approval("a2", "other", "shell_run")];
+    backend.runs = [fakeRun({ conversation_id: mine.id })];
+    render(<App />);
+    await userEvent.click(await screen.findByRole("button", { name: /Của tôi/ }));
+
+    const strip = await screen.findByTestId("conversation-activity");
+    await userEvent.click(within(strip).getByRole("button", { name: vi.conversationActivity.expand }));
+
+    const history = await within(strip).findByTestId("approval-history");
+    expect(history).toHaveTextContent("write_file");
+    expect(history).not.toHaveTextContent("shell_run");
+  });
+
+  it("updates the conversation activity strip when switching between conversations with different runs", async () => {
+    const c1 = backend.create({ title: "Conv 1" });
+    const c2 = backend.create({ title: "Conv 2" });
+    backend.runs = [
+      fakeRun({ id: "r1", conversation_id: c1.id, summary: "Work in conv 1" }),
+      fakeRun({ id: "r2", conversation_id: c2.id, summary: "Work in conv 2" }),
+    ];
+    render(<App />);
+
+    // Open first conversation
+    await userEvent.click(await screen.findByRole("button", { name: /Conv 1/ }));
+    let strip = await screen.findByTestId("conversation-activity");
+    await userEvent.click(within(strip).getByRole("button", { name: vi.conversationActivity.expand }));
+    expect(within(strip).getByTestId("run-card")).toHaveTextContent("Work in conv 1");
+    expect(within(strip).queryByText("Work in conv 2")).not.toBeInTheDocument();
+
+    // Switch to second conversation
+    await userEvent.click(screen.getByRole("button", { name: /Conv 2/ }));
+    strip = screen.getByTestId("conversation-activity");
+    // Strip stays expanded (localStorage)
+    expect(within(strip).getByTestId("run-card")).toHaveTextContent("Work in conv 2");
+    expect(within(strip).queryByText("Work in conv 1")).not.toBeInTheDocument();
+  });
+
   it("renders MEDIA lines from the agent workspace as inline images", async () => {
     backend.create({ title: "Ảnh", messages: [storedMessage("assistant", "Biểu đồ:\nMEDIA: out/chart.png")] });
     render(<App />);

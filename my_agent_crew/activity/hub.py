@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from typing import Any
 
 from my_agent_crew.activity.steps import apply_event
@@ -112,10 +112,19 @@ class ActivityHub:
         background would otherwise not appear until something else forced a reload."""
         self._broadcast({"type": "conversation", "conversation": conversation})
 
-    def recent(self, limit: int = RECENT_LIMIT) -> list[RunRecord]:
-        stored = self._store.runs.recent(limit)
+    def recent(
+        self, limit: int = RECENT_LIMIT, conversation_ids: Sequence[str] | None = None
+    ) -> list[RunRecord]:
+        """Newest runs first, optionally only those of some conversations.
+
+        The narrowing reaches the query and the live runs alike, so `limit` counts the rows
+        actually asked for instead of whatever a busy crew left over."""
+        stored = self._store.runs.recent(limit, conversation_ids=conversation_ids)
         by_id = {r.id: r for r in stored}
-        by_id.update(self._live)
+        wanted = None if conversation_ids is None else set(conversation_ids)
+        for run in self._live.values():
+            if wanted is None or run.conversation_id in wanted:
+                by_id[run.id] = run
         return sorted(by_id.values(), key=lambda r: r.started_at, reverse=True)[:limit]
 
     def live(self) -> list[RunRecord]:

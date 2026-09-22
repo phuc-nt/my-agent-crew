@@ -4,6 +4,7 @@ import type { SettingsInfo, TemplateInfo } from "./api/types";
 import { ActivityPanel, type ActivityTab } from "./components/activity-panel";
 import { ApprovalBar } from "./components/approval-bar";
 import { Composer } from "./components/composer";
+import { ConversationActivity } from "./components/conversation-activity";
 import { ConversationHeader } from "./components/conversation-header";
 import { ConversationList } from "./components/conversation-list";
 import { ErrorBoundary } from "./components/error-boundary";
@@ -15,7 +16,12 @@ import { useCrew } from "./hooks/use-agents";
 import { useConversations } from "./hooks/use-conversations";
 import { useThread } from "./hooks/use-thread";
 import { vi } from "./i18n/vi";
-import { liveRuns, needsAttention, sortedRuns } from "./state/activity-reducer";
+import {
+  conversationFamilyRuns,
+  liveRuns,
+  needsAttention,
+  sortedRuns,
+} from "./state/activity-reducer";
 
 export function App() {
   const list = useConversations();
@@ -68,6 +74,10 @@ export function App() {
   // `live` is newest-first, so the first match is the turn being waited on even
   // when an earlier run was left open.
   const activeRun = list.activeId ? (live.find((r) => r.conversation_id === list.activeId) ?? null) : null;
+  // The chat's own activity: this conversation and whatever it handed to a delegate.
+  const conversationRuns = list.activeId
+    ? conversationFamilyRuns(activity.state, list.activeId)
+    : [];
   const echoOnly = settings !== null && settings.providers.every((p) => p === "fake");
   const master = crew.master;
   const crewNames = (master?.delegates ?? []).map(crew.agentName);
@@ -201,6 +211,17 @@ export function App() {
             crewNames={crewNames}
           />
         </ErrorBoundary>
+        {active && (
+          <ErrorBoundary>
+            <ConversationActivity
+              runs={conversationRuns}
+              conversationId={active.id}
+              spentUsd={active.spent_usd}
+              agentName={crew.agentName}
+              onOpenConversation={list.select}
+            />
+          </ErrorBoundary>
+        )}
         {state.pending && (
           <ApprovalBar
             pending={state.pending}
@@ -229,7 +250,6 @@ export function App() {
             runs={runs}
             liveRuns={live}
             attention={attention}
-            conversationId={list.activeId}
             jobs={crew.jobs}
             stats={crew.stats}
             agents={crew.agents}

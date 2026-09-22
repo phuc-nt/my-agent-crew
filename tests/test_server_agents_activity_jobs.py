@@ -91,6 +91,57 @@ def test_runs_are_recorded_per_turn_and_summarised_in_stats(two_agents):
     assert list(stats["by_day"]) == [started.date().isoformat()]
 
 
+def test_a_conversation_sees_its_own_runs_and_not_another_conversations(two_agents):
+    client, _ = two_agents
+    mine = client.post("/api/conversations", json={"agent_id": "coach"}).json()
+    theirs = client.post("/api/conversations", json={"agent_id": "coach"}).json()
+    for conv in (mine, theirs):
+        with client.stream(
+            "POST", f"/api/conversations/{conv['id']}/messages", json={"text": "xin chào"}
+        ) as r:
+            r.read()
+
+    runs = client.get(f"/api/activity/runs?conversation_id={mine['id']}").json()
+
+    assert [r["conversation_id"] for r in runs] == [mine["id"]]
+
+
+def test_a_quiet_conversations_runs_are_not_crowded_out_by_a_busier_one(two_agents):
+    """The limit must count the conversation's own runs, or a chat that ran once looks
+    like it never ran at all once other chats fill the page."""
+    client, _ = two_agents
+    quiet = client.post("/api/conversations", json={"agent_id": "coach"}).json()
+    busy = client.post("/api/conversations", json={"agent_id": "coach"}).json()
+    for conv in (quiet, busy, busy, busy):
+        with client.stream(
+            "POST", f"/api/conversations/{conv['id']}/messages", json={"text": "xin chào"}
+        ) as r:
+            r.read()
+
+    runs = client.get(f"/api/activity/runs?conversation_id={quiet['id']}&limit=2").json()
+
+    assert [r["conversation_id"] for r in runs] == [quiet["id"]]
+
+
+def test_what_a_conversation_delegated_counts_as_its_own_activity(two_agents):
+    """The work runs on the child's run; without it the parent looks idle while a
+    delegate is busy on its behalf."""
+    client, runtime = two_agents
+    parent = client.post("/api/conversations", json={"agent_id": "default"}).json()
+    with client.stream(
+        "POST",
+        f"/api/conversations/{parent['id']}/messages",
+        json={"text": '/tool delegate {"agent_id": "coach", "task": "xin chào"}'},
+    ) as r:
+        r.read()
+    children = runtime.store.delegated_children(parent["id"], "delegate")
+    assert children, "the delegate tool did not open a child conversation"
+
+    runs = client.get(f"/api/activity/runs?conversation_id={parent['id']}").json()
+
+    assert {r["conversation_id"] for r in runs} == {parent["id"], children[0].id}
+
+
 async def test_activity_stream_sends_snapshot_then_run_events(tmp_path: Path):
     # The test client buffers whole responses, so the endless SSE body is read directly.
     from my_agent_crew.activity import tracked

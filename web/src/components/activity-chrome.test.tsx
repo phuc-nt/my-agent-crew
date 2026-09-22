@@ -12,7 +12,7 @@ import { StatusLine } from "./status-line";
 const name = (id: string) => (id === "coach" ? "HLV" : "Agent");
 
 describe("ActivityPanel", () => {
-  it("splits live from recent, scopes to the open conversation and switches tabs", async () => {
+  it("splits live from recent and switches tabs", async () => {
     const live = fakeRun({ id: "live", status: "running", finished_at: null, conversation_id: "c2" });
     const done = fakeRun({ id: "done" });
     render(
@@ -20,7 +20,6 @@ describe("ActivityPanel", () => {
         runs={[live, done]}
         liveRuns={[live]}
         attention={[]}
-        conversationId="c1"
         jobs={[]}
         stats={null}
         agents={[fakeAgent]}
@@ -32,11 +31,9 @@ describe("ActivityPanel", () => {
         onClose={() => undefined}
       />,
     );
+    // This rail is the whole crew's: both runs show, whichever conversation is open.
     expect(screen.getAllByTestId("run-card")).toHaveLength(2);
     expect(screen.getByRole("tab", { name: /Hoạt động/ })).toHaveTextContent("1");
-    await userEvent.click(screen.getByRole("checkbox", { name: vi.timelineForConversation }));
-    expect(screen.getAllByTestId("run-card")).toHaveLength(1);
-    expect(screen.getByText(vi.nothingLive)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("tab", { name: vi.jobs }));
     expect(screen.getByText(vi.jobsEmpty)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("tab", { name: vi.costs }));

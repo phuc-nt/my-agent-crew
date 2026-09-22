@@ -141,7 +141,11 @@ export class FakeBackend {
     if (path === "/activity/runs") return json(this.runs);
     if (path === "/stats") return json(this.stats);
     if (path === "/jobs") return json(this.jobs);
-    if (path === "/approvals") return json(this.approvals);
+    if (path === "/approvals") {
+      // Like the server: narrowing happens here, so the page belongs to the conversation.
+      const only = url.searchParams.get("conversation_id");
+      return json(only ? this.approvals.filter((a) => a.conversation_id === only) : this.approvals);
+    }
     const job = path.match(/^\/jobs\/(.+)\/run$/)?.[1];
     if (job && method === "POST") return json({ job_id: decodeURIComponent(job), status: "started" }, 202);
     const switched = path.match(/^\/jobs\/(.+)\/state$/)?.[1];

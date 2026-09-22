@@ -16,7 +16,6 @@ interface Props {
   runs: RunInfo[];
   liveRuns: RunInfo[];
   attention: RunInfo[];
-  conversationId: string | null;
   jobs: JobInfo[] | null;
   stats: StatsInfo | null;
   agents: AgentInfo[];
@@ -53,15 +52,11 @@ export function ActivityPanel(props: Props) {
     setOwnTab(next);
     props.onTabChange?.(next);
   };
-  const [onlyThisConversation, setOnlyThisConversation] = useState(false);
-  const scoped =
-    onlyThisConversation && props.conversationId
-      ? props.runs.filter((r) => r.conversation_id === props.conversationId)
-      : props.runs;
   const pendingProposals = props.stats?.pending_proposals ?? 0;
   const liveIds = new Set(props.liveRuns.map((r) => r.id));
-  const recent = scoped.filter((r) => !liveIds.has(r.id));
-  const live = scoped.filter((r) => liveIds.has(r.id));
+  // This rail is the whole crew's; one conversation's own activity lives in its chat frame.
+  const recent = props.runs.filter((r) => !liveIds.has(r.id));
+  const live = props.runs.filter((r) => liveIds.has(r.id));
   // Each settled run or new pause may have changed the approval ledger.
   const approvalsVersion = props.runs.filter((r) => r.finished_at !== null).length + props.attention.length;
 
@@ -106,16 +101,6 @@ export function ActivityPanel(props: Props) {
             agentName={props.agentName}
             onOpenConversation={props.onOpenConversation}
           />
-          {props.conversationId && (
-            <label className="toggle">
-              <input
-                type="checkbox"
-                checked={onlyThisConversation}
-                onChange={(event) => setOnlyThisConversation(event.currentTarget.checked)}
-              />
-              {vi.timelineForConversation}
-            </label>
-          )}
           <h3>{vi.liveNow}</h3>
           {live.length === 0 ? (
             <p className="muted">{vi.nothingLive}</p>

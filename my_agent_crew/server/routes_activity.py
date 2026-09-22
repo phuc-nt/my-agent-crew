@@ -12,6 +12,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from sse_starlette.sse import EventSourceResponse
 
+from my_agent_crew.agents.roster import DELEGATE_TOOL_NAME
 from my_agent_crew.clock import local_day
 from my_agent_crew.server.deps import Rt
 from my_agent_crew.store.runs import RunRecord
@@ -21,11 +22,30 @@ STATS_RUNS = 500
 
 
 @router.get("/activity/runs")
-def list_runs(rt: Rt, limit: int = 50, agent_id: str | None = None) -> list[dict[str, Any]]:
-    runs = rt.hub.recent(min(max(limit, 1), 500))
+def list_runs(
+    rt: Rt,
+    limit: int = 50,
+    agent_id: str | None = None,
+    conversation_id: str | None = None,
+) -> list[dict[str, Any]]:
+    """Recent runs, narrowed to one agent or to one conversation.
+
+    A conversation's activity includes what it delegated: the work happened on the child's
+    own run, and hiding it would leave the parent looking idle while a delegate works."""
+    family = conversation_family(rt, conversation_id) if conversation_id else None
+    runs = rt.hub.recent(min(max(limit, 1), 500), conversation_ids=family)
     if agent_id:
         runs = [r for r in runs if r.agent_id == agent_id]
     return [r.to_dict() for r in runs]
+
+
+def conversation_family(rt: Rt, conversation_id: str) -> set[str]:
+    """A conversation's id together with those of the conversations it delegated.
+
+    One level deep: a delegate may not delegate again (`depth=1` in `delegate.py`), so
+    there is no deeper tree to walk."""
+    children = rt.store.delegated_children(conversation_id, DELEGATE_TOOL_NAME)
+    return {conversation_id, *(child.id for child in children)}
 
 
 @router.get("/activity/runs/{run_id}")

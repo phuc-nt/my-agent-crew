@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import threading
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -101,11 +102,28 @@ class RunStore:
             raise KeyError(run_id)
         return RunRecord.from_row(row)
 
-    def recent(self, limit: int = 50, source_prefix: str | None = None) -> list[RunRecord]:
-        where = ""
+    def recent(
+        self,
+        limit: int = 50,
+        source_prefix: str | None = None,
+        conversation_ids: Sequence[str] | None = None,
+    ) -> list[RunRecord]:
+        """Newest runs first, optionally only one source or one set of conversations.
+
+        Narrowing belongs here rather than in the caller: filtering an already-truncated
+        crew-wide page would hide a quiet conversation's runs behind a busy crew's."""
+        clauses: list[str] = []
         params: tuple[Any, ...] = ()
         if source_prefix:
-            where, params = " WHERE source LIKE ?", (f"{source_prefix}%",)
+            clauses.append("source LIKE ?")
+            params += (f"{source_prefix}%",)
+        if conversation_ids is not None:
+            ids = tuple(conversation_ids)
+            if not ids:
+                return []
+            clauses.append(f"conversation_id IN ({','.join('?' * len(ids))})")
+            params += ids
+        where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
         with self._lock:
             rows = self._conn.execute(
                 f"SELECT * FROM runs{where} ORDER BY started_at DESC, rowid DESC LIMIT ?",

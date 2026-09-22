@@ -10,7 +10,7 @@ from __future__ import annotations
 import sqlite3
 import threading
 
-from my_agent_crew.store.models import Conversation
+from my_agent_crew.store.models import Conversation, StoredMessage
 
 
 def _one(
@@ -78,3 +78,19 @@ def children_of(
             call_ids,
         ).fetchall()
     return [Conversation.from_row(r) for r in rows]
+
+
+def delegating_call_ids(
+    history: list[StoredMessage], tool_name: str
+) -> tuple[str, ...]:
+    """The ids of the delegating tool calls in a conversation's history.
+
+    A child is linked to the call that opened it, not to the conversation, so finding what
+    a conversation delegated is always these two steps. `tool_name` is passed in rather
+    than imported: the store does not know what the agents package calls its tools."""
+    return tuple(
+        call.id
+        for stored in history
+        for call in stored.message.tool_calls
+        if call.name == tool_name
+    )

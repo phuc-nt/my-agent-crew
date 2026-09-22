@@ -115,6 +115,11 @@ class Store:
     def children_of(self, call_ids: tuple[str, ...]) -> list[Conversation]:
         return lookup.children_of(self._conn, self._lock, call_ids)
 
+    def delegated_children(self, conv_id: str, tool_name: str) -> list[Conversation]:
+        """What this conversation delegated, oldest first, found through its own tool calls."""
+        calls = lookup.delegating_call_ids(self.history(conv_id), tool_name)
+        return self.children_of(calls)
+
     def update(self, conv_id: str, **fields: object) -> Conversation:
         unknown = set(fields) - MUTABLE_FIELDS
         if unknown:

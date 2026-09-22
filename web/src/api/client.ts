@@ -136,8 +136,9 @@ export const api = {
       always ? { approve, always: true } : { approve },
       onEvent,
     ),
-  listApprovals: (limit?: number) => request<ApprovalInfo[]>(`/approvals${query({ limit })}`),
-  listRuns: (params: { limit?: number; agent_id?: string } = {}) =>
+  listApprovals: (params: { limit?: number; conversation_id?: string } = {}) =>
+    request<ApprovalInfo[]>(`/approvals${query(params)}`),
+  listRuns: (params: { limit?: number; agent_id?: string; conversation_id?: string } = {}) =>
     request<RunInfo[]>(`/activity/runs${query(params)}`),
   getRun: (id: string) => request<RunInfo>(`/activity/runs/${id}`),
   stats: () => request<StatsInfo>("/stats"),
