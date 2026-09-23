@@ -12,3 +12,7 @@ web/playwright-report/
 .env
 .env.*
 .data/
+.claude/
+AGENTS.md
+plans/
+CLAUDE.local.md
