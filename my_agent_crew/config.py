@@ -77,6 +77,9 @@ class Settings:
     # False runs every `shell_run` command with outbound connections denied. Set per agent
     # only: it is for the one agent whose data must not leave the machine.
     shell_network: bool = True
+    # With the network off, the only places a command may write besides the temp
+    # directories: paths inside the workspace, as the profile wrote them.
+    shell_write_paths: tuple[str, ...] = ()
 
     @property
     def zone(self) -> tzinfo:

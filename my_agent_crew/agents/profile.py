@@ -35,6 +35,7 @@ PROFILE_KEYS = {
     "shell_allow_patterns",
     "tool_output_chars",
     "shell_network",
+    "shell_write_paths",
     "schedules",
     "telegram",
     "memory_consolidate",
@@ -123,6 +124,10 @@ class AgentProfile:
         return self.id == DEFAULT_AGENT_ID
 
     @property
+    def shell_write_dirs(self) -> tuple[Path, ...]:
+        return tuple((self.workspace / p).resolve() for p in self.settings.shell_write_paths)
+
+    @property
     def memory_dir(self) -> Path:
         return self.dir / "memory"
 
@@ -145,6 +150,7 @@ class AgentProfile:
             "shell_allow_patterns": list(self.settings.shell_allow_patterns),
             "tool_output_chars": self.settings.tool_output_chars,
             "shell_network": self.settings.shell_network,
+            "shell_write_paths": list(self.settings.shell_write_paths),
             "persona_files": [f for f in self.persona_files if (self.dir / f).is_file()],
             # Every name this agent would read, written or not. An editor that offered
             # only the files that already exist could never create the first one, which

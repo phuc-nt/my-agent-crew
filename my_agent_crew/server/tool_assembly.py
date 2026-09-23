@@ -79,7 +79,11 @@ def build_tools(
         # It stays empty until something compiles into it, and an empty vault costs one
         # absent prompt section.
         *build_wiki_tools(profile.memory_dir),
-        build_shell_tool(profile.workspace, network=profile.settings.shell_network),
+        build_shell_tool(
+            profile.workspace,
+            network=profile.settings.shell_network,
+            write_paths=profile.shell_write_dirs,
+        ),
         *build_skill_tools(skills),
         # Asking is not a capability an agent should have to be granted: an agent that may
         # act but may not ask would guess instead, which is worse. It stays out of

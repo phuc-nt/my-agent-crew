@@ -189,18 +189,33 @@ built inside `$(…)`, walks straight past it. It catches the obvious mistake, n
 determined one.
 
 The one real boundary is `shell_network: false` in an agent's profile. Every `shell_run`
-command of that agent then runs under `sandbox-exec -p '(version 1)(allow default)(deny
-network-outbound)'`: files, subprocesses and the agent's own scripts work as before, but no
-connection leaves the process — not to the internet, not to `127.0.0.1` (the crew's own
-API is there), and not to the resolver's Unix socket, because looking up a made-up host
-name carries data out as well as a request does. The OS enforces it, so `$(…)` or a script
-the model just wrote gets no further than a plain `curl`. It is for the agent whose data
-must not leave the machine, such as one that keeps personal finances. Where
-`/usr/bin/sandbox-exec` does not exist (anything but macOS) the command is refused rather
-than run without the sandbox. Scheduled `command` jobs call the shell directly and keep the
-network: a person wrote those lines, and a price fetch needs it. `sandbox-exec` is marked
-deprecated in its man page but still ships with macOS; the tests that prove the block run
-wherever it exists.
+command of that agent then runs under macOS `sandbox-exec` with a profile built in
+`tools/shell_sandbox.py`. Blocking the socket alone would not keep the data on the machine,
+so the profile closes each route a command could use instead:
+
+- **Network, both ways.** No outbound connection: not to the internet, not to `127.0.0.1`
+  (the crew's own API is there), and not to the resolver, because looking up a made-up
+  host name carries data out as well as a request does. No listening either, since a
+  server left behind would hand files to anyone who connects.
+- **Helpers that act for the command.** `open`, `launchctl`, `osascript`, `shortcuts` and
+  `pbcopy` are denied, along with the LaunchServices and pasteboard services behind them.
+  `open <url>` would otherwise have the browser, which is not sandboxed, make the request.
+- **Writes, except where the profile says.** A file write is a delayed command: a line added
+  to a script a scheduled job runs, a git hook, `~/.zshrc` or a LaunchAgent runs later,
+  outside the sandbox and with the network. Commands may write only under
+  `shell_write_paths` (paths inside the workspace) and the temp directories. An empty list
+  makes the workspace read-only to the shell.
+
+Reading files and running local programs still work, so an agent's own scripts do. The OS
+enforces all of this, so `$(…)` or a script the model just wrote gets no further than a
+plain `curl`. It is for the agent whose data must not leave the machine, such as one that
+keeps personal finances. It does not cover what the agent itself says: its replies go to
+the model provider and to whoever it answers, so a delegating agent with a network still
+sees them. Where `/usr/bin/sandbox-exec` does not exist (anything but macOS) the command
+is refused rather than run without the sandbox. Scheduled `command` jobs call the shell
+directly and keep the network: a person wrote those lines, and a price fetch needs it. That
+is why the write rule matters. `sandbox-exec` is marked deprecated in its man page but
+still ships with macOS; the tests that prove the block run wherever it exists.
 
 `shell_allow_patterns` is the mirror image, and it is empty by default. It names the
 command shapes routine enough to run without asking *even when the conversation is not
