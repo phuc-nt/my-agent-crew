@@ -1,10 +1,19 @@
 """`shell_run`: execute a command in the agent's workspace. Every call goes through
 approval unless the conversation is autonomous — the model sees stdout and stderr,
-capped like any other tool output. There is no sandbox; the approval is the guard.
+capped like any other tool output. The approval is the guard; the one sandbox is the
+network switch below.
 
 An autonomous conversation drops that guard for every command, which is too much for the
 destructive shapes, so `ask_reason` names the ones that ask anyway. It is a coarse
-substring match, deliberately: a soft second guard, not a security boundary."""
+substring match, deliberately: a soft second guard, not a security boundary.
+
+An agent whose profile sets `shell_network: false` runs every command under macOS
+`sandbox-exec` with all outbound connections denied — IP, localhost, and the Unix socket
+DNS goes through, since a lookup of a made-up host name carries data out as surely as a
+request does. That is a real boundary, unlike the patterns: it holds for `$(…)` and for a
+script the model wrote a moment ago. Where `sandbox-exec` is missing the command is
+refused rather than run unconfined. Scheduled `command` jobs call `run_shell` directly
+and keep the network; a person wrote those, and some need it."""
 
 from __future__ import annotations
 
@@ -21,6 +30,10 @@ SHELL_TOOL_NAME = "shell_run"
 DEFAULT_TIMEOUT_S = 120
 MAX_TIMEOUT_S = 900
 PASSTHROUGH_ENV = ("PATH", "HOME", "LANG", "LC_ALL", "TERM", "TMPDIR", "USER", "SHELL")
+SANDBOX_EXEC = Path("/usr/bin/sandbox-exec")
+# Everything is allowed except opening a connection. Files, subprocesses and inbound
+# stay open, so the scripts an offline agent exists to run keep working.
+NO_NETWORK_PROFILE = "(version 1)(allow default)(deny network-outbound)"
 
 
 def shell_env() -> dict[str, str]:
@@ -30,10 +43,18 @@ def shell_env() -> dict[str, str]:
     return env
 
 
-async def run_shell(command: str, cwd: Path, timeout_s: float) -> tuple[int | None, str]:
-    """(exit code, combined output). A timeout kills the process and returns None."""
-    proc = await asyncio.create_subprocess_shell(
-        command,
+async def run_shell(
+    command: str, cwd: Path, timeout_s: float, *, network: bool = True
+) -> tuple[int | None, str]:
+    """(exit code, combined output). A timeout kills the process and returns None.
+
+    `network=False` runs the command inside the no-network sandbox; the caller checks
+    that `SANDBOX_EXEC` exists first, because a missing one must refuse, not fall open."""
+    argv = ["/bin/sh", "-c", command]
+    if not network:
+        argv = [str(SANDBOX_EXEC), "-p", NO_NETWORK_PROFILE, *argv]
+    proc = await asyncio.create_subprocess_exec(
+        *argv,
         cwd=str(cwd),
         env=shell_env(),
         stdout=asyncio.subprocess.PIPE,
@@ -58,7 +79,7 @@ def ask_reason(command: str, patterns: Sequence[str]) -> str | None:
     return None
 
 
-def build_shell_tool(cwd: Path) -> Tool:
+def build_shell_tool(cwd: Path, *, network: bool = True) -> Tool:
     async def run(args: dict[str, Any]) -> str:
         command = str(args.get("command", "")).strip()
         if not command:
@@ -66,7 +87,9 @@ def build_shell_tool(cwd: Path) -> Tool:
         timeout_s = min(float(args.get("timeout_s") or DEFAULT_TIMEOUT_S), MAX_TIMEOUT_S)
         if not cwd.is_dir():
             raise ToolError(texts.SHELL_NO_CWD.format(path=cwd))
-        code, output = await run_shell(command, cwd, timeout_s)
+        if not network and not SANDBOX_EXEC.is_file():
+            raise ToolError(texts.SHELL_NO_SANDBOX)
+        code, output = await run_shell(command, cwd, timeout_s, network=network)
         if code is None:
             raise ToolError(texts.SHELL_TIMEOUT.format(seconds=int(timeout_s)))
         if code != 0:

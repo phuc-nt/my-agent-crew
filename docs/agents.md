@@ -61,6 +61,7 @@ silently disables a setting.
 | `shell_ask_patterns` | list of strings | global | shell commands that ask anyway when autonomous, see [tools.md](tools.md#shell); declaring it replaces the defaults, `[]` turns the guard off |
 | `shell_allow_patterns` | list of strings | global (empty) | shell commands routine enough to run without asking even when *not* autonomous, see [tools.md](tools.md#shell). The ask list is checked first, so a command in both asks |
 | `tool_output_chars` | int ≥ 1 | global | characters of one tool result the model sees before the cut; raise it for an agent whose scripts print long reports |
+| `shell_network` | bool | `true` | `false` runs every `shell_run` command with outbound connections denied by macOS `sandbox-exec`, see [tools.md](tools.md#shell). Per agent only; a quoted `"false"` is a startup error |
 | `schedules` | list | `[]` | jobs, see [Schedules](#schedules) |
 | `memory_consolidate` | cron string | none | on this schedule, rewrite `MEMORY.md` from the daily notes and then compile the wiki vault from the same notes, see [memory.md](memory.md) |
 | `telegram` | map | none | `token_env` + `chat_id`; read on the master's `agent.yaml` only, ignored with a warning elsewhere, see [channels.md](channels.md) |

@@ -188,6 +188,20 @@ This is a soft second guard, not a sandbox: `rm  -rf` with two spaces, or the sa
 built inside `$(…)`, walks straight past it. It catches the obvious mistake, not a
 determined one.
 
+The one real boundary is `shell_network: false` in an agent's profile. Every `shell_run`
+command of that agent then runs under `sandbox-exec -p '(version 1)(allow default)(deny
+network-outbound)'`: files, subprocesses and the agent's own scripts work as before, but no
+connection leaves the process — not to the internet, not to `127.0.0.1` (the crew's own
+API is there), and not to the resolver's Unix socket, because looking up a made-up host
+name carries data out as well as a request does. The OS enforces it, so `$(…)` or a script
+the model just wrote gets no further than a plain `curl`. It is for the agent whose data
+must not leave the machine, such as one that keeps personal finances. Where
+`/usr/bin/sandbox-exec` does not exist (anything but macOS) the command is refused rather
+than run without the sandbox. Scheduled `command` jobs call the shell directly and keep the
+network: a person wrote those lines, and a price fetch needs it. `sandbox-exec` is marked
+deprecated in its man page but still ships with macOS; the tests that prove the block run
+wherever it exists.
+
 `shell_allow_patterns` is the mirror image, and it is empty by default. It names the
 command shapes routine enough to run without asking *even when the conversation is not
 autonomous*, which is what lets a supervised agent run its own tests or read its own git

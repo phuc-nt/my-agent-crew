@@ -34,6 +34,7 @@ PROFILE_KEYS = {
     "shell_ask_patterns",
     "shell_allow_patterns",
     "tool_output_chars",
+    "shell_network",
     "schedules",
     "telegram",
     "memory_consolidate",
@@ -143,6 +144,7 @@ class AgentProfile:
             "shell_ask_patterns": list(self.settings.shell_ask_patterns),
             "shell_allow_patterns": list(self.settings.shell_allow_patterns),
             "tool_output_chars": self.settings.tool_output_chars,
+            "shell_network": self.settings.shell_network,
             "persona_files": [f for f in self.persona_files if (self.dir / f).is_file()],
             # Every name this agent would read, written or not. An editor that offered
             # only the files that already exist could never create the first one, which

@@ -102,7 +102,17 @@ def _settings(
             else base.shell_allow_patterns
         ),
         tool_output_chars=int(raw.get("tool_output_chars", base.tool_output_chars)),
+        shell_network=_shell_network(raw, agent_id),
     )
+
+
+def _shell_network(raw: dict[str, Any], agent_id: str) -> bool:
+    value = raw.get("shell_network", True)
+    # Only a real YAML bool: `"false"` read as truthy would leave the network open on
+    # exactly the agent someone meant to close it for.
+    if not isinstance(value, bool):
+        raise ValueError(f"agent {agent_id}: shell_network must be true or false")
+    return value
 
 
 def parse_profile(

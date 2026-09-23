@@ -74,6 +74,9 @@ class Settings:
     shell_allow_patterns: tuple[str, ...] = ()
     approval_ttl_seconds: int = DEFAULT_APPROVAL_TTL_SECONDS
     tool_output_chars: int = DEFAULT_TOOL_OUTPUT_CHARS
+    # False runs every `shell_run` command with outbound connections denied. Set per agent
+    # only: it is for the one agent whose data must not leave the machine.
+    shell_network: bool = True
 
     @property
     def zone(self) -> tzinfo:
