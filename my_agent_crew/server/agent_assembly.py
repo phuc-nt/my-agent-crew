@@ -56,7 +56,10 @@ def usable_routes(
     if kept:
         logger.warning("no usable route among %s; using %s", list(routes), kept)
         return kept
-    raise ValueError(texts.NO_USABLE_ROUTE.format(routes=list(routes)))
+    tried = dict.fromkeys([*routes, *fallback])  # both lists, in order, each route once
+    raise ValueError(
+        texts.NO_USABLE_ROUTE.format(routes=", ".join(f"{r.provider}:{r.model}" for r in tried))
+    )
 
 
 def vision_chain(settings: Settings, providers: dict[str, Provider]) -> ProviderChain | None:

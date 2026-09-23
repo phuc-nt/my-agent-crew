@@ -8,12 +8,15 @@ import type { CredentialsController } from "../hooks/use-credentials";
 const base: ConnectionsInfo = {
   providers: [],
   routes: [],
+  routes_source: "config",
   vision_routes: [],
   keys: [],
   search_backends: ["duckduckgo"],
   firecrawl_base_url: "",
   telegram: [],
 };
+
+const noop = () => undefined;
 
 const item = (overrides: Partial<CredentialInfo>): CredentialInfo => ({
   name: "OPENROUTER_API_KEY",
@@ -52,11 +55,12 @@ describe("ConnectionsPanel", () => {
         { provider: "ollama", model: "qwen" },
       ],
     };
-    render(<ConnectionsPanel connections={connections} credentials={controller([])} />);
+    render(<ConnectionsPanel connections={connections} credentials={controller([])} onChanged={noop} />);
 
     expect(screen.getByTestId("providers")).toHaveTextContent("openrouter");
     expect(screen.getByTestId("providers")).toHaveTextContent("ollama");
-    expect(screen.getByTestId("routes")).toHaveTextContent("gpt-4");
+    const models = within(screen.getByTestId("routes")).getAllByLabelText(vi.editor.model);
+    expect(models.map((field) => (field as HTMLInputElement).value)).toEqual(["gpt-4", "qwen"]);
     expect(screen.getByText(vi.connectionsPage.noVisionRoutes)).toBeInTheDocument();
   });
 
@@ -66,7 +70,7 @@ describe("ConnectionsPanel", () => {
       item({ name: "BRAVE_API_KEY", group: "search" }),
       item({ name: "GOODREADS_ID", group: "other", present: true, source: "file" }),
     ]);
-    render(<ConnectionsPanel connections={base} credentials={credentials} />);
+    render(<ConnectionsPanel connections={base} credentials={credentials} onChanged={noop} />);
 
     expect(screen.getByText(vi.connectionsPage.hint("/h/env"))).toBeInTheDocument();
     expect(screen.getByTestId("credentials-model")).toHaveTextContent("OPENROUTER_API_KEY");
@@ -79,7 +83,7 @@ describe("ConnectionsPanel", () => {
 
   it("saves a key through a password field that is empty again afterwards", async () => {
     const credentials = controller([item({})]);
-    render(<ConnectionsPanel connections={base} credentials={credentials} />);
+    render(<ConnectionsPanel connections={base} credentials={credentials} onChanged={noop} />);
     const row = within(screen.getByTestId("credential-OPENROUTER_API_KEY"));
 
     fireEvent.click(row.getByRole("button", { name: vi.connectionsPage.set }));
@@ -100,7 +104,7 @@ describe("ConnectionsPanel", () => {
         throw new Error("Giá trị không được xuống dòng.");
       }),
     });
-    render(<ConnectionsPanel connections={base} credentials={credentials} />);
+    render(<ConnectionsPanel connections={base} credentials={credentials} onChanged={noop} />);
     const row = within(screen.getByTestId("credential-OPENROUTER_API_KEY"));
 
     fireEvent.click(row.getByRole("button", { name: vi.connectionsPage.set }));
@@ -112,11 +116,21 @@ describe("ConnectionsPanel", () => {
     await waitFor(() => expect(row.getByRole("status")).toHaveTextContent("xuống dòng"));
   });
 
+  it("says a check that runs a real search costs one", () => {
+    const credentials = controller([
+      item({ name: "BRAVE_API_KEY", group: "search", present: true, source: "file", checkable: true, check_spends: true }),
+    ]);
+    render(<ConnectionsPanel connections={base} credentials={credentials} onChanged={noop} />);
+    const row = within(screen.getByTestId("credential-BRAVE_API_KEY"));
+
+    expect(row.getByRole("button", { name: vi.connectionsPage.checkSpends })).toBeInTheDocument();
+  });
+
   it("checks a key and removes one only after confirming", async () => {
     const credentials = controller([
       item({ present: true, source: "file", checkable: true }),
     ]);
-    render(<ConnectionsPanel connections={base} credentials={credentials} />);
+    render(<ConnectionsPanel connections={base} credentials={credentials} onChanged={noop} />);
     const row = within(screen.getByTestId("credential-OPENROUTER_API_KEY"));
 
     fireEvent.click(row.getByRole("button", { name: vi.connectionsPage.check }));
@@ -133,7 +147,7 @@ describe("ConnectionsPanel", () => {
 
   it("offers no removal for a key the server was started with", () => {
     const credentials = controller([item({ present: true, source: "process" })]);
-    render(<ConnectionsPanel connections={base} credentials={credentials} />);
+    render(<ConnectionsPanel connections={base} credentials={credentials} onChanged={noop} />);
     const row = within(screen.getByTestId("credential-OPENROUTER_API_KEY"));
 
     expect(row.queryByRole("button", { name: vi.connectionsPage.remove })).toBeNull();
@@ -144,7 +158,7 @@ describe("ConnectionsPanel", () => {
     const credentials = controller([
       item({ name: "lower_case", group: "other", present: true, source: "file", editable: false }),
     ]);
-    render(<ConnectionsPanel connections={base} credentials={credentials} />);
+    render(<ConnectionsPanel connections={base} credentials={credentials} onChanged={noop} />);
     const row = within(screen.getByTestId("credential-lower_case"));
 
     expect(row.queryByRole("button")).toBeNull();
@@ -156,7 +170,7 @@ describe("ConnectionsPanel", () => {
       item({ name: "OLLAMA_BASE_URL", secret: false, url: true, value: "", default: "http://127.0.0.1:11434/v1" }),
       item({ name: "FIRECRAWL_BASE_URL", group: "search", secret: false, url: true, present: true, source: "file", value: "http://127.0.0.1:3002" }),
     ]);
-    render(<ConnectionsPanel connections={base} credentials={credentials} />);
+    render(<ConnectionsPanel connections={base} credentials={credentials} onChanged={noop} />);
 
     expect(screen.getByTestId("credential-OLLAMA_BASE_URL")).toHaveTextContent("Mặc định: http://127.0.0.1:11434/v1");
     expect(screen.getByTestId("credential-FIRECRAWL_BASE_URL")).toHaveTextContent("http://127.0.0.1:3002");
@@ -164,7 +178,7 @@ describe("ConnectionsPanel", () => {
 
   it("adds a variable of the person's own, upper-casing the name as it is typed", async () => {
     const credentials = controller([]);
-    render(<ConnectionsPanel connections={base} credentials={credentials} />);
+    render(<ConnectionsPanel connections={base} credentials={credentials} onChanged={noop} />);
     const form = within(screen.getByTestId("credential-add"));
     const add = form.getByRole("button", { name: vi.connectionsPage.add });
 
@@ -186,21 +200,21 @@ describe("ConnectionsPanel", () => {
     const credentials = controller([
       item({ name: "CREW_BOT", group: "telegram", present: true, source: "file", agents: ["default"] }),
     ]);
-    render(<ConnectionsPanel connections={connections} credentials={credentials} />);
+    render(<ConnectionsPanel connections={connections} credentials={credentials} onChanged={noop} />);
 
     expect(screen.getByTestId("telegram-list")).toHaveTextContent("CREW_BOT");
     expect(screen.getByTestId("credentials-telegram")).toHaveTextContent(vi.connectionsPage.usedBy("default"));
   });
 
   it("explains how to turn Telegram on when no agent has it", () => {
-    render(<ConnectionsPanel connections={base} credentials={controller([])} />);
+    render(<ConnectionsPanel connections={base} credentials={controller([])} onChanged={noop} />);
 
     expect(screen.getByText(vi.connectionsPage.noTelegram)).toBeInTheDocument();
   });
 
   it("says the list could not load instead of showing no keys", () => {
     const credentials = { ...controller([]), info: null, error: "HTTP 403" };
-    render(<ConnectionsPanel connections={base} credentials={credentials} />);
+    render(<ConnectionsPanel connections={base} credentials={credentials} onChanged={noop} />);
 
     expect(screen.getByText("HTTP 403")).toBeInTheDocument();
     expect(screen.queryByTestId("credential-add")).toBeNull();

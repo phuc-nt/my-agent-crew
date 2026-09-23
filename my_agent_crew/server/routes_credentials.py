@@ -15,18 +15,14 @@ and a server that will not start. Requests from other sites are turned away app-
 
 from __future__ import annotations
 
-import logging
 import os
-from collections.abc import Mapping
 from typing import Any
 from urllib.parse import urlsplit
 
 import httpx
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from ruamel.yaml import YAMLError
 
-from my_agent_crew import texts
 from my_agent_crew import texts_credentials as t
 from my_agent_crew.env_file import (
     MAX_VALUE_CHARS,
@@ -38,6 +34,7 @@ from my_agent_crew.env_file import (
 )
 from my_agent_crew.env_file import set_env as write_env
 from my_agent_crew.server.agent_edit_common import write_lock
+from my_agent_crew.server.connection_apply import apply, prepared_or_refused
 from my_agent_crew.server.credential_catalog import catalog, describe, name_allowed
 from my_agent_crew.server.credential_checks import (
     CHECK_TIMEOUT_SECONDS,
@@ -46,16 +43,7 @@ from my_agent_crew.server.credential_checks import (
 )
 from my_agent_crew.server.deps import Rt
 from my_agent_crew.server.runtime import Runtime
-from my_agent_crew.server.runtime_connections import (
-    ChannelKey,
-    Prepared,
-    channel_key,
-    commit,
-    prepare,
-)
-
-logger = logging.getLogger(__name__)
-
+from my_agent_crew.server.runtime_connections import channel_key
 
 router = APIRouter(tags=["credentials"])
 
@@ -88,30 +76,6 @@ def _checked_value(rt: Runtime, name: str, raw: str) -> str:
     return value.rstrip("/") if known is not None and known.url else value
 
 
-def _prepared(rt: Runtime, env: Mapping[str, str]) -> Prepared | None:
-    """The crew rebuilt from `env`, a 409 naming why it cannot be, or None for a runtime
-    that is never rebuilt live (a test app with no HTTP client)."""
-    if rt.client is None:
-        return None
-    try:
-        return prepare(rt, env)
-    except (ValueError, OSError, YAMLError) as exc:
-        raise HTTPException(409, t.NOT_APPLICABLE.format(error=str(exc))) from None
-
-
-async def _apply(rt: Runtime, prepared: Prepared | None, before: ChannelKey) -> str | None:
-    """Swap the prepared crew in; the reason it could not be, when it could not. The file
-    is written by then, so a failure here costs a restart, not the key."""
-    if prepared is None:
-        return t.APPLY_FAILED.format(error=texts.RUNTIME_CANNOT_GROW)
-    try:
-        await commit(rt, prepared, before)
-    except (RuntimeError, ValueError, OSError) as exc:
-        logger.warning("credentials saved but not applied: %s", type(exc).__name__)
-        return t.APPLY_FAILED.format(error=str(exc))
-    return None
-
-
 def _answer(rt: Runtime, problem: str | None) -> dict[str, Any]:
     return {**describe(rt), "restart_required": problem}
 
@@ -126,11 +90,11 @@ async def put_credential(name: str, body: ValueRequest, rt: Rt) -> dict[str, Any
     _checked_name(name)
     value = _checked_value(rt, name, body.value)
     async with write_lock:
-        prepared = _prepared(rt, {**os.environ, name: value})
+        prepared = prepared_or_refused(rt, {**os.environ, name: value})
         before = channel_key(rt.agents, os.environ)
         write_env(env_path(rt.settings.home), name, value)
         os.environ[name] = value
-        problem = await _apply(rt, prepared, before)
+        problem = await apply(rt, prepared, before)
     return _answer(rt, problem)
 
 
@@ -148,12 +112,12 @@ async def delete_credential(name: str, rt: Rt) -> dict[str, Any]:
         # the person's own override and stays.
         unset = os.environ.get(name) == stored
         after = {k: v for k, v in os.environ.items() if not (unset and k == name)}
-        prepared = _prepared(rt, after)
+        prepared = prepared_or_refused(rt, after, refusal=t.NOT_REMOVABLE, name=name)
         before = channel_key(rt.agents, os.environ)
         remove_env(path, name)
         if unset:
             os.environ.pop(name, None)
-        problem = await _apply(rt, prepared, before)
+        problem = await apply(rt, prepared, before)
     return _answer(rt, problem)
 
 

@@ -3,11 +3,14 @@ import type { CredentialsController } from "../hooks/use-credentials";
 import { vi } from "../i18n/vi";
 import { CredentialAddForm } from "./credential-add-form";
 import { CredentialRow } from "./credential-row";
+import { GlobalRoutesEditor } from "./global-routes-editor";
 import { MetricCard } from "./ui/metric-card";
 
 interface Props {
   connections: ConnectionsInfo;
   credentials: CredentialsController;
+  /** Reload the registry after the page changes the crew: new routes, a new provider. */
+  onChanged: () => Promise<void> | void;
 }
 
 /**
@@ -18,7 +21,7 @@ interface Props {
  * Values go one way. A key is typed into a password field, saved to the env file and
  * applied to the running crew; the page is only ever told whether it is set.
  */
-export function ConnectionsPanel({ connections, credentials }: Props) {
+export function ConnectionsPanel({ connections, credentials, onChanged }: Props) {
   const t = vi.connectionsPage;
   const rows = (group: CredentialGroup) => {
     const items = credentials.info?.items.filter((item) => item.group === group) ?? [];
@@ -52,13 +55,8 @@ export function ConnectionsPanel({ connections, credentials }: Props) {
       </MetricCard>
 
       <MetricCard title={t.routes}>
-        <ol className="route-list" data-testid="routes">
-          {connections.routes.map((route, i) => (
-            <li key={`${route.provider}/${route.model}/${i}`}>
-              <code>{route.provider}</code> <span className="muted">{route.model}</span>
-            </li>
-          ))}
-        </ol>
+        <p className="muted">{t.routesHint}</p>
+        <GlobalRoutesEditor connections={connections} onSaved={onChanged} />
         <h4 className="connections-subtitle">{t.visionRoutes}</h4>
         {connections.vision_routes.length === 0 ? (
           <p className="muted">{t.noVisionRoutes}</p>
@@ -71,7 +69,6 @@ export function ConnectionsPanel({ connections, credentials }: Props) {
             ))}
           </ol>
         )}
-        <p className="muted">{t.routesHint}</p>
       </MetricCard>
 
       <MetricCard title={t.search}>

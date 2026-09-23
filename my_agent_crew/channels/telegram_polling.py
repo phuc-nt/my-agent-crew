@@ -6,6 +6,8 @@ the message is handled, so a stop that cut a turn off would lose that message fo
 and a successor that began polling before this loop ended would share the bot with it,
 which Telegram answers with a 409 on both. So a stop lets the message in hand finish
 (for a while — a turn is not waited on forever) and returns only once the loop is over.
+A turn that outlives the wait is cut off, and the chat is told so the person can send it
+again: its offset is already written, so no later poll would bring it back.
 """
 
 from __future__ import annotations
@@ -15,6 +17,7 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from my_agent_crew import texts_telegram as tt
 from my_agent_crew.channels.telegram_albums import complete_album, group_updates
 from my_agent_crew.channels.telegram_api import CONFLICT_STATUS, TelegramApi, TelegramError
 from my_agent_crew.channels.telegram_commands import menu_for
@@ -28,10 +31,13 @@ logger = logging.getLogger(__name__)
 RETRY_SECONDS = 5
 # How long a stop waits for a message being handled before cutting it off.
 STOP_GRACE_SECONDS = 30.0
+# How long telling the chat about a cut-off turn may hold up the stop.
+CUT_OFF_NOTICE_SECONDS = 5.0
 
 
 class TelegramPolling:
     agent_id: str
+    chat_id: int
     _api: TelegramApi
     _offset: int
     _offset_path: Path
@@ -54,8 +60,10 @@ class TelegramPolling:
         if task is None:
             return
         self._stopping = True
+        cut_off = False
         if self._handling:
-            await asyncio.wait({task}, timeout=STOP_GRACE_SECONDS)
+            done, _ = await asyncio.wait({task}, timeout=STOP_GRACE_SECONDS)
+            cut_off = not done and self._handling
         task.cancel()
         try:
             await task
@@ -63,6 +71,20 @@ class TelegramPolling:
             current = asyncio.current_task()
             if current is not None and current.cancelling():
                 raise  # the stop itself was cancelled, not only the loop
+        if cut_off:
+            await self._say_cut_off()
+
+    async def _say_cut_off(self) -> None:
+        """Tell the chat its message was dropped. Best effort and short: the bot being
+        stopped may have a token that no longer works, and the stop must still end."""
+        logger.warning("telegram %s: a message was cut off by a stop", self.agent_id)
+        try:
+            notice = self._api.send_message(self.chat_id, tt.TELEGRAM_CUT_OFF)
+            await asyncio.wait_for(notice, CUT_OFF_NOTICE_SECONDS)
+        except Exception as exc:
+            # A TelegramError is already redacted; anything else is named, not quoted.
+            reason = exc if isinstance(exc, TelegramError) else type(exc).__name__
+            logger.warning("telegram %s: cut-off notice not sent: %s", self.agent_id, reason)
 
     async def _loop(self) -> None:
         while not self._stopping:

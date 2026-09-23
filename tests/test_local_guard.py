@@ -68,3 +68,22 @@ def test_the_page_route_never_serves_a_file_outside_the_bundle(tmp_path: Path) -
         for depth in range(1, 6):
             reply = local.get("/" + "..%2F" * depth + "pyproject.toml")
             assert "[project]" not in reply.text
+
+
+def test_a_refused_name_is_told_how_to_allow_it_and_logged_once(tmp_path: Path, caplog) -> None:
+    settings = load_settings(env={"MY_AGENT_HOME": str(tmp_path), "MY_AGENT_ROUTES": "fake:echo"})
+    app = create_app(build_runtime(settings), schedule=False)
+    by_name = TestClient(app, base_url="http://mac.tail-net.ts.net:8765")
+    with by_name, caplog.at_level("WARNING", logger="my_agent_crew.server.local_guard"):
+        first = by_name.get("/api/agents")
+        by_name.get("/api/agents")
+        foreign = TestClient(app, base_url="http://127.0.0.1:8765").get(
+            "/api/agents", headers={"Origin": "http://evil.example"}
+        )
+
+    detail = first.json()["detail"]
+    assert "mac.tail-net.ts.net" in detail and "MY_AGENT_ALLOWED_HOSTS" in detail
+    # A wrong Origin is not a name to allow, so it gets no such advice.
+    assert "MY_AGENT_ALLOWED_HOSTS" not in foreign.json()["detail"]
+    refusals = [r for r in caplog.records if "mac.tail-net.ts.net" in r.getMessage()]
+    assert len(refusals) == 1

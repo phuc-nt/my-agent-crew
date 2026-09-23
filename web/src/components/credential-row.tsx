@@ -132,7 +132,7 @@ export function CredentialRow({ item, credentials }: Props) {
           )}
           {item.checkable && (
             <button type="button" className="ghost" disabled={busy} onClick={check}>
-              {pending === "check" ? t.checking : t.check}
+              {pending === "check" ? t.checking : item.check_spends ? t.checkSpends : t.check}
             </button>
           )}
           {item.editable && item.present && item.source === "file" && (

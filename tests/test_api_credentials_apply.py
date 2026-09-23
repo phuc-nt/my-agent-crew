@@ -48,6 +48,10 @@ def test_removing_the_key_the_only_route_needs_is_refused_and_nothing_changes(
 
     assert reply.status_code == 409
     assert SECRET not in reply.text
+    # Says which route needs the key, readably, and what to do first.
+    detail = reply.json()["detail"]
+    assert "openrouter:some/model" in detail and "Route(" not in detail
+    assert "Đổi tuyến" in detail
     assert read_env(home / "env") == {"OPENROUTER_API_KEY": SECRET}
     assert environ["OPENROUTER_API_KEY"] == SECRET
     assert "openrouter" in runtime.providers

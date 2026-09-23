@@ -181,8 +181,12 @@ Tools across the whole crew, and who uses which, are in **Công cụ**. Connecti
 set, check or remove API keys, host addresses and the Telegram bot token there — they are
 written to `~/.my-agent-crew/env` and take effect without a restart. A change the crew
 could not run with (removing the only model key) is refused before anything is written.
+The model routes every agent falls back on are edited on the same page and saved to
+`config.yaml` (read-only there while `MY_AGENT_ROUTES` is set).
 The server only answers requests addressed to `localhost` or an IP, from its own page; to open the UI by a host
-name (Tailscale MagicDNS, say), list it in `MY_AGENT_ALLOWED_HOSTS`.
+name (Tailscale MagicDNS, say), list it in `MY_AGENT_ALLOWED_HOSTS` — the 403 names the host to add.
+There is no login: whoever reaches the port drives the crew, `POST /api/inbound` included.
+Keep it on the machine or a private tailnet, never behind a public tunnel.
 
 Giao việc như nói với người: *"Nhờ fullstack-developer thêm lệnh `--version` in phiên bản từ
 pyproject, có test."* Master giao việc, fullstack-developer tự khảo sát, viết, test và soát, hỏi

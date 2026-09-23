@@ -160,7 +160,11 @@ tool); the channel logs `another poller holds this bot` and retries every 5 s.
 Stopping the bot while the server runs (a rebuild after its token or chat changed) lets the
 message in hand finish, for up to 30 s, leaves messages queued behind it unconfirmed for the
 next bot, and returns only once the poll loop has ended, so the
-new bot never polls alongside the old one. An idle long poll is cut off at once. The loop and
+new bot never polls alongside the old one. An idle long poll is cut off at once. A turn
+still running after the 30 s is cancelled, and the chat is told so ("…bị ngắt giữa chừng…
+gửi lại giúp mình nhé") so the person resends rather than waits for an answer that will
+not come; that notice is best effort, capped at 5 s, and a failure to send it is logged
+without the token. The loop and
 its stop live in `channels/telegram_polling.py`.
 
 ## Secrets

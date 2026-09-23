@@ -91,7 +91,9 @@ and `config.yaml`:
 | `BRAVE_API_KEY` / `TAVILY_API_KEY` | — | enables `web_search` |
 | the name in `telegram.token_env` | — | the bot token; unset = that channel is disabled |
 
-Env wins over `config.yaml`; `config.yaml` accepts only the keys above. Secrets never
+Env wins over `config.yaml`; `config.yaml` accepts only the keys above. `routes` is also
+edited from Quản lý → Kết nối, which rewrites just that key and keeps the file's comments;
+while `MY_AGENT_ROUTES` is set the page shows the routes read-only. Secrets never
 go into YAML: profiles carry env-var **names**, and the settings drawer shows key presence,
 never values.
 

@@ -215,10 +215,10 @@ def test_a_check_reports_what_the_service_said(crew) -> None:
     assert seen == [f"Bearer {SECRET}"]
 
 
-def test_a_key_with_no_free_check_says_so(crew) -> None:
+def test_a_key_with_no_check_says_so(crew) -> None:
     client, _, _ = crew
 
-    assert client.post("/api/credentials/BRAVE_API_KEY/check").status_code == 404
+    assert client.post("/api/credentials/FIRECRAWL_API_KEY/check").status_code == 404
     assert client.post("/api/credentials/OPENROUTER_API_KEY/check").status_code == 409
 
 
@@ -255,3 +255,16 @@ def test_ollama_can_be_checked_at_its_default_host_before_anything_is_set(crew) 
     assert ollama["default"].startswith("http://")
     assert _item(reply, "FIRECRAWL_BASE_URL")["checkable"] is False
     assert _item(reply, "OPENROUTER_API_KEY")["checkable"] is False
+
+
+def test_only_the_check_that_spends_a_search_says_so(crew, environ) -> None:
+    client, _, _ = crew
+    environ["BRAVE_API_KEY"] = "brave"
+    environ["TAVILY_API_KEY"] = "tavily"
+
+    reply = client.get("/api/credentials")
+
+    brave, tavily = _item(reply, "BRAVE_API_KEY"), _item(reply, "TAVILY_API_KEY")
+    assert brave["checkable"] is True and brave["check_spends"] is True
+    assert tavily["checkable"] is True and tavily["check_spends"] is False
+    assert _item(reply, "OPENROUTER_API_KEY")["check_spends"] is False

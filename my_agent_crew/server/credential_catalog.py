@@ -16,7 +16,7 @@ from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
 from my_agent_crew.env_file import NAME_RE, env_path, read_env
-from my_agent_crew.server.credential_checks import default_value
+from my_agent_crew.server.credential_checks import SPENDING_KINDS, default_value
 from my_agent_crew.server.runtime import Runtime
 
 
@@ -32,8 +32,8 @@ class Known:
 KNOWN = (
     Known("OPENROUTER_API_KEY", "model", check="openrouter"),
     Known("OLLAMA_BASE_URL", "model", secret=False, url=True, check="ollama"),
-    Known("BRAVE_API_KEY", "search"),
-    Known("TAVILY_API_KEY", "search"),
+    Known("BRAVE_API_KEY", "search", check="brave"),
+    Known("TAVILY_API_KEY", "search", check="tavily"),
     Known("FIRECRAWL_BASE_URL", "search", secret=False, url=True, check="firecrawl"),
     Known("FIRECRAWL_API_KEY", "search"),
 )
@@ -124,6 +124,8 @@ def describe(rt: Runtime) -> dict[str, Any]:
             "editable": name_allowed(known.name),
             # Whether a check can run now: a value to check, or a default to fall back on.
             "checkable": known.check is not None and (present or bool(default)),
+            # A check that spends a query of the plan it proves, so the button says so.
+            "check_spends": known.check in SPENDING_KINDS,
         }
         if not known.secret:
             item["value"] = shown_url(live or stored or "")

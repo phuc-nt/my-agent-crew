@@ -22,6 +22,7 @@ import type {
   MemoryHit,
   MemoryProposal,
   RegistryTool,
+  RouteInfo,
   RunInfo,
   SettingsInfo,
   StatsInfo,
@@ -153,6 +154,11 @@ export const api = {
   reloadAgents: () => request<{ added: string[] }>("/agents/reload", { method: "POST" }),
   listTools: () => request<RegistryTool[]>("/tools"),
   connections: () => request<ConnectionsInfo>("/connections"),
+  setRoutes: (routes: RouteInfo[]) =>
+    request<ConnectionsInfo & { restart_required: string | null }>("/connections/routes", {
+      method: "PUT",
+      body: JSON.stringify({ routes }),
+    }),
   credentials: () => request<CredentialsInfo>("/credentials"),
   setCredential: (name: string, value: string) =>
     request<CredentialsInfo>(`/credentials/${encodeURIComponent(name)}`, {

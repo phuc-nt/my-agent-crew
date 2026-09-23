@@ -141,6 +141,7 @@ export class FakeBackend {
   connections: ConnectionsInfo = {
     providers: [{ name: "fake", built: true }],
     routes: [{ provider: "fake", model: "echo" }],
+    routes_source: "config",
     vision_routes: [],
     keys: [
       { name: "OPENROUTER_API_KEY", present: false },
@@ -188,6 +189,10 @@ export class FakeBackend {
     if (path === "/agents/install" && method === "POST") return this.install(body.template, body.agent_id);
     if (path === "/tools") return json(this.tools());
     if (path === "/connections") return json(this.connections);
+    if (path === "/connections/routes" && method === "PUT") {
+      this.connections = { ...this.connections, routes: body.routes, routes_source: "config" };
+      return json({ ...this.connections, restart_required: null });
+    }
     // Before the single-agent routes: `/agents/reload` would otherwise read as an agent
     // whose id happens to be "reload".
     if (path === "/agents/reload" && method === "POST") return json({ added: [] });

@@ -320,6 +320,9 @@ export interface TelegramConnection {
 export interface ConnectionsInfo {
   providers: { name: string; built: boolean }[];
   routes: RouteInfo[];
+  /** Where `routes` come from: the MY_AGENT_ROUTES variable (read-only here), `routes`
+   * in config.yaml, or the built-in default. The page saves to config.yaml. */
+  routes_source: "env" | "config" | "default";
   vision_routes: RouteInfo[];
   keys: KeyStatus[];
   /** Search backends in priority order, best first. Never empty. */
@@ -348,6 +351,8 @@ export interface CredentialInfo {
   source: "file" | "process" | null;
   /** A free check can run now: there is a value, or a default to try. */
   checkable: boolean;
+  /** The check spends from the key's own quota (a real search), so the button says so. */
+  check_spends?: boolean;
   /** False for a name read from the file that the API will not write (lower-case or
    * reserved): it is shown, and edited in the file itself. */
   editable: boolean;

@@ -21,6 +21,52 @@ async def test_a_reply_that_is_not_an_object_is_reported_not_raised() -> None:
     assert bot["ok"] is True
 
 
+async def test_a_tavily_key_is_checked_on_its_usage_without_spending_a_search() -> None:
+    seen = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append((request.url.path, request.headers["Authorization"]))
+        return httpx.Response(200, json={"key": {"usage": 12, "limit": 1000}})
+
+    async with _client(handler) as client:
+        result = await run_check("tavily", "tvly-secret", client)
+    assert result == {"ok": True, "detail": "Hoạt động — đã dùng 12/1000 lượt"}
+    assert seen == [("/usage", "Bearer tvly-secret")]
+
+
+async def test_a_brave_key_is_checked_with_one_single_result_search() -> None:
+    seen = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append((request.url.params["count"], request.headers["X-Subscription-Token"]))
+        return httpx.Response(200, json={"web": {"results": []}})
+
+    async with _client(handler) as client:
+        result = await run_check("brave", "brave-secret", client)
+    assert result["ok"] is True
+    assert seen == [("1", "brave-secret")]
+
+
+async def test_a_search_key_refused_is_named_so_and_never_echoed() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        # A service that repeats the key it refused must not get it onto the page.
+        return httpx.Response(422, text="bad token brave-secret")
+
+    async with _client(handler) as client:
+        brave = await run_check("brave", "brave-secret", client)
+        tavily = await run_check("tavily", "brave-secret", client)
+    assert brave["ok"] is False and "khoá sai" in brave["detail"]
+    assert tavily["ok"] is False and "422" in tavily["detail"]
+    assert "brave-secret" not in brave["detail"] + tavily["detail"]
+
+
+async def test_a_search_key_out_of_quota_is_told_apart_from_a_wrong_one() -> None:
+    async with _client(lambda request: httpx.Response(429)) as client:
+        result = await run_check("tavily", "tvly-secret", client)
+    assert result["ok"] is False and "429" in result["detail"]
+    assert "khoá sai" not in result["detail"]
+
+
 async def test_a_reply_that_is_not_json_is_a_failed_check() -> None:
     async with _client(lambda request: httpx.Response(200, text="<html>")) as client:
         result = await run_check("ollama", "http://127.0.0.1:11434/v1", client)

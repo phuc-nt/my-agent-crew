@@ -77,6 +77,7 @@ export const registryTools = [
 export const connections = {
   providers: [{ name: "fake", built: true }],
   routes: [{ provider: "fake", model: "echo" }],
+  routes_source: "config",
   vision_routes: [],
   keys: [
     { name: "OPENROUTER_API_KEY", present: true },
@@ -153,6 +154,8 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
   const turns = options.turns ?? [];
   const conversations = options.conversations ?? [];
   const agents = options.agents ?? [defaultAgent];
+  // Saved routes live per page, so one test's save never shows in the next.
+  let routes = connections.routes;
   const posted: { path: string; body: unknown }[] = [];
   /** Persona bodies written by PUT, keyed "<agent>/<name>". */
   const personaFiles = new Map<string, string>();
@@ -191,7 +194,14 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
       return json({ installed: [template], live: [template], needs_restart: false }, 201);
     }
     if (path === "/tools") return json(options.tools ?? registryTools);
-    if (path === "/connections") return json(connections);
+    if (path === "/connections") return json({ ...connections, routes });
+    if (path === "/connections/routes" && method === "PUT") {
+      const body = route.request().postDataJSON() as { routes: typeof routes };
+      const unknown = body.routes.find((r) => !connections.providers.some((p) => p.name === r.provider));
+      if (unknown) return json({ detail: `Chưa lưu: chưa có nhà cung cấp ${unknown.provider}.` }, 409);
+      routes = body.routes;
+      return json({ ...connections, routes, restart_required: null });
+    }
     const credential = path.match(/^\/credentials(?:\/([^/]+))?(\/check)?$/);
     if (credential) {
       const name = credential[1] && decodeURIComponent(credential[1]);

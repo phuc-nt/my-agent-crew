@@ -9,10 +9,13 @@ without putting either into a browser tab, a screenshot or a bug report.
 from __future__ import annotations
 
 import os
-from typing import Any
+from pathlib import Path
+from typing import Any, Literal
 
 from fastapi import APIRouter
+from ruamel.yaml import YAMLError
 
+from my_agent_crew.agents.profile_write import read_raw
 from my_agent_crew.llm.ollama import base_url as ollama_base_url
 from my_agent_crew.server.deps import Rt
 from my_agent_crew.server.runtime import Runtime
@@ -20,6 +23,7 @@ from my_agent_crew.server.tool_assembly import OPTIONAL_TOOLS
 from my_agent_crew.tools.web import search_backends
 
 router = APIRouter(tags=["registry"])
+ROUTES_ENV = "MY_AGENT_ROUTES"
 
 
 def _holders(rt: Runtime, name: str) -> list[str]:
@@ -72,12 +76,28 @@ def _telegram(rt: Runtime) -> list[dict[str, Any]]:
     return out
 
 
+def config_path(home: Path) -> Path:
+    return home / "config.yaml"
+
+
+def routes_source(home: Path) -> Literal["env", "config", "default"]:
+    """Where the routes in force were read from — the variable, `config.yaml` or the
+    default — so the page knows whether saving them from the web changes anything."""
+    if os.environ.get(ROUTES_ENV):
+        return "env"
+    try:
+        return "config" if read_raw(config_path(home)).get("routes") else "default"
+    except (OSError, ValueError, YAMLError):
+        return "default"
+
+
 @router.get("/connections")
 def list_connections(rt: Rt) -> dict[str, Any]:
     s = rt.settings
     return {
         "providers": [{"name": name, "built": True} for name in sorted(rt.default.chain.providers)],
         "routes": [{"provider": r.provider, "model": r.model} for r in s.routes],
+        "routes_source": routes_source(s.home),
         "vision_routes": [{"provider": r.provider, "model": r.model} for r in s.vision_routes],
         "keys": [
             {"name": "OPENROUTER_API_KEY", "present": bool(s.openrouter_api_key)},

@@ -13,8 +13,8 @@ it started with instead of losing one halfway.
 from __future__ import annotations
 
 import os
-from collections.abc import Mapping
-from dataclasses import dataclass
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, replace
 from typing import Any
 
 from my_agent_crew import texts
@@ -22,6 +22,7 @@ from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.agents import load_profiles
 from my_agent_crew.channels import build_channel
 from my_agent_crew.config import Settings, with_secrets
+from my_agent_crew.config_parse import Route
 from my_agent_crew.server.agent_assembly import build_agent_deps, build_providers
 from my_agent_crew.server.runtime import Runtime
 
@@ -44,12 +45,15 @@ def channel_key(agents: Mapping[str, AgentDeps], env: Mapping[str, str]) -> Chan
     return None
 
 
-def prepare(rt: Runtime, env: Mapping[str, str]) -> Prepared:
-    """The crew rebuilt from `env`, or the error that stops it being built. Only agents
+def prepare(rt: Runtime, env: Mapping[str, str], routes: Sequence[Route] | None = None) -> Prepared:
+    """The crew rebuilt from `env` — and from `routes`, when the routes every agent falls
+    back on are what changed — or the error that stops it being built. Only agents
     already running are rebuilt; installing new ones is not this path's business."""
     if rt.client is None:
         raise RuntimeError(texts.RUNTIME_CANNOT_GROW)
     settings = with_secrets(rt.settings, env)
+    if routes is not None:
+        settings = replace(settings, routes=tuple(routes))
     providers = build_providers(settings, rt.client, env)
     agents = {
         profile.id: build_agent_deps(profile, providers, rt.client, rt.store, settings.routes)

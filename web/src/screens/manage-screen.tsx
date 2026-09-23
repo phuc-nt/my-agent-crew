@@ -277,7 +277,11 @@ export function ManageScreen(props: Props) {
         )}
         {props.section === "connections" &&
           (registry.connections ? (
-            <ConnectionsPanel connections={registry.connections} credentials={credentials} />
+            <ConnectionsPanel
+              connections={registry.connections}
+              credentials={credentials}
+              onChanged={registry.refresh}
+            />
           ) : (
             <p className="muted">{registry.error ?? vi.manage.loading}</p>
           ))}

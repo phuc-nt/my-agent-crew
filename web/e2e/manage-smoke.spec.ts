@@ -79,7 +79,7 @@ test("the tools section says which agent has what, and connections names keys wi
   const panel = page.getByTestId("connections");
   await expect(panel.getByTestId("credentials-model")).toContainText("OPENROUTER_API_KEY");
   await expect(panel.getByTestId("credentials-search")).toContainText("BRAVE_API_KEY");
-  await expect(panel.getByTestId("routes")).toContainText("echo");
+  await expect(panel.getByTestId("routes").getByLabel("Mô hình")).toHaveValue("echo");
   await expect(panel.getByTestId("search-backends")).toContainText("firecrawl");
   await expect(panel.getByTestId("search-backends")).toContainText("duckduckgo");
   await expect(panel.getByTestId("telegram-list")).toContainText("TELEGRAM_BOT_TOKEN");
@@ -135,4 +135,24 @@ test("the editor shows what the agent is actually told, including a persona just
   // The prompt is assembled server-side from the same code a turn uses, so the line that
   // was just saved is in it — which is how the person confirms the edit took effect.
   await expect(prompt.getByTestId("prompt-preview")).toContainText("Luôn trả lời ngắn.");
+});
+
+test("the routes every agent falls back on are edited and saved", async ({ page }) => {
+  await mockApi(page, { agents: [master] });
+  await page.goto("/#/manage/connections");
+  const routes = page.getByTestId("routes");
+  const save = routes.getByRole("button", { name: "Lưu tuyến" });
+  await expect(routes.getByTestId("routes-source")).toContainText("config.yaml");
+  await expect(save).toBeDisabled();
+
+  await routes.getByRole("button", { name: "+ Thêm tuyến" }).click();
+  await routes.getByLabel("Mô hình").nth(1).fill("second");
+  await save.click();
+  await expect(routes.getByRole("status")).toContainText("Đã lưu");
+  await expect(routes.getByLabel("Mô hình")).toHaveCount(2);
+  await expect(save).toBeDisabled();
+
+  // Reloading shows what the server kept, not what the page last had in memory.
+  await page.reload();
+  await expect(page.getByTestId("routes").getByLabel("Mô hình").nth(1)).toHaveValue("second");
 });
