@@ -17,7 +17,8 @@ bản phát hành, `pyproject.toml` và `web/package.json` luôn cùng số.
   chỉ host và token bot Telegram; ghi vào `<home>/env` và áp dụng ngay, không khởi động lại.
   Thay đổi đội không chạy được bị từ chối trước khi ghi.
 - **Sửa tuyến mô hình chung trên trang Kết nối**, lưu vào `config.yaml` giữ nguyên chú
-  thích. Chỉ xem được khi `MY_AGENT_ROUTES` đang đặt, vì biến thắng tệp.
+  thích. Chỉ xem được khi `MY_AGENT_ROUTES` đang đặt, vì biến thắng tệp. `fake` không được
+  thêm vào đội chưa dùng nó; dòng mới mặc định nhà cung cấp thật đầu tiên.
 - **Kiểm tra khoá Tavily và Brave.** Tavily hỏi `/usage` (miễn phí, kèm số lượt đã dùng);
   Brave chạy một lượt tìm 1 kết quả, và nút nói rõ là tốn một lượt. Hết lượt (429) được
   báo khác với khoá sai.
@@ -27,7 +28,7 @@ bản phát hành, `pyproject.toml` và `web/package.json` luôn cùng số.
 - **Bot Telegram báo khi tin nhắn bị ngắt** vì bot khởi động lại quá 30 giây, để người
   gửi lại thay vì chờ câu trả lời không bao giờ tới.
 - **403 của hàng rào host nêu tên host** và biến `MY_AGENT_ALLOWED_HOSTS` cần thêm; log ghi
-  một lần mỗi tên. Tài liệu nói rõ server không có đăng nhập — đừng mở qua đường hầm công khai.
+  một lần mỗi tên (Origin sai không ghi). Tài liệu nói rõ server không có đăng nhập — đừng mở qua đường hầm công khai.
 - **Từ chối xoá khoá cuối cùng** nêu tuyến dạng `provider:model` và cách gỡ.
 
 ## [0.5.0] — 2026-09-23

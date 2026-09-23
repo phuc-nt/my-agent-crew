@@ -77,6 +77,7 @@ def test_a_refused_name_is_told_how_to_allow_it_and_logged_once(tmp_path: Path, 
     with by_name, caplog.at_level("WARNING", logger="my_agent_crew.server.local_guard"):
         first = by_name.get("/api/agents")
         by_name.get("/api/agents")
+        TestClient(app, base_url="http://mac.tail-net.ts.net:9999").get("/api/agents")
         foreign = TestClient(app, base_url="http://127.0.0.1:8765").get(
             "/api/agents", headers={"Origin": "http://evil.example"}
         )
@@ -85,5 +86,6 @@ def test_a_refused_name_is_told_how_to_allow_it_and_logged_once(tmp_path: Path, 
     assert "mac.tail-net.ts.net" in detail and "MY_AGENT_ALLOWED_HOSTS" in detail
     # A wrong Origin is not a name to allow, so it gets no such advice.
     assert "MY_AGENT_ALLOWED_HOSTS" not in foreign.json()["detail"]
-    refusals = [r for r in caplog.records if "mac.tail-net.ts.net" in r.getMessage()]
-    assert len(refusals) == 1
+    # Once per name, whatever the port; a wrong Origin is not logged as a name to allow.
+    refusals = [r for r in caplog.records if "refused a request" in r.getMessage()]
+    assert [r.getMessage().count("mac.tail-net.ts.net") for r in refusals] == [1]

@@ -10,6 +10,9 @@ interface Props {
   testId?: string;
 }
 
+/** A new row starts on a real provider: `fake` only echoes the prompt back, and sorts first. */
+const firstReal = (providers: string[]) => providers.find((name) => name !== "fake") ?? providers[0] ?? "";
+
 /**
  * An ordered list of provider + model pairs, tried top to bottom: an agent's own routes,
  * or the ones every agent falls back on. The last row cannot be removed — a list with no
@@ -61,7 +64,7 @@ export function RouteListEditor({ routes, providers, readOnly, onChange, testId 
         type="button"
         className="ghost"
         disabled={readOnly}
-        onClick={() => onChange([...routes, { provider: providers[0] ?? "", model: "" }])}
+        onClick={() => onChange([...routes, { provider: firstReal(providers), model: "" }])}
       >
         {vi.editor.addRoute}
       </button>

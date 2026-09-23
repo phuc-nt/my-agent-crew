@@ -46,6 +46,9 @@ export function GlobalRoutesEditor({ connections, onSaved }: Props) {
       const answer = await api.setRoutes(
         draft.map((r) => ({ provider: r.provider, model: r.model.trim() })),
       );
+      // What the server kept, trimmed and de-duplicated: a list it normalised to the saved
+      // one would otherwise leave Save lit with nothing to change.
+      setDraft(answer.routes);
       setNote(
         answer.restart_required
           ? { tone: "warn", text: answer.restart_required }

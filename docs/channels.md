@@ -157,13 +157,14 @@ bot it belongs to (`<bot id> <offset>`); after the token is swapped for another 
 new bot starts from 0 rather than skipping its messages under the old bot's numbering. A `409` from Telegram means another process still polls the bot (an old server, another
 tool); the channel logs `another poller holds this bot` and retries every 5 s.
 
-Stopping the bot while the server runs (a rebuild after its token or chat changed) lets the
+Stopping the bot (a rebuild after its token or chat changed, or the server shutting down) lets the
 message in hand finish, for up to 30 s, leaves messages queued behind it unconfirmed for the
 next bot, and returns only once the poll loop has ended, so the
 new bot never polls alongside the old one. An idle long poll is cut off at once. A turn
-still running after the 30 s is cancelled, and the chat is told so ("…bị ngắt giữa chừng…
-gửi lại giúp mình nhé") so the person resends rather than waits for an answer that will
-not come; that notice is best effort, capped at 5 s, and a failure to send it is logged
+still running after the 30 s is cancelled, and the chat is told so ("…có thể chưa được trả
+lời trọn vẹn… gửi lại giúp mình nhé") so the person resends rather than waits for an answer
+that will not come. It says "may": the cut can land after the reply's text went out, while
+its attachments were still uploading. The notice is best effort, capped at 5 s, and a failure to send it is logged
 without the token. The loop and
 its stop live in `channels/telegram_polling.py`.
 

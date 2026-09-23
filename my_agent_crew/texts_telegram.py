@@ -56,7 +56,9 @@ TELEGRAM_NO_APPROVAL = "Không có công cụ nào đang chờ duyệt."
 # The first line of a crew member's brief delivered to the master's chat.
 TELEGRAM_AGENT_PREFIX = "[{name}]"
 # Sent when a stop (the bot's token or chat changed from the web) cut off a turn.
+# Said whether the stop came from a connection change or the server shutting down, and
+# whether or not part of the reply had already gone out — hence "may" and "if".
 TELEGRAM_CUT_OFF = (
-    "Tin nhắn vừa rồi bị ngắt giữa chừng vì bot được khởi động lại (đổi kết nối từ trang web). "
-    "Bạn gửi lại giúp mình nhé."
+    "Tin nhắn vừa rồi có thể chưa được trả lời trọn vẹn vì bot vừa khởi động lại. "
+    "Nếu bạn chưa nhận đủ câu trả lời, gửi lại giúp mình nhé."
 )

@@ -77,6 +77,33 @@ describe("GlobalRoutesEditor", () => {
     expect(screen.getByTestId("routes-source")).toHaveTextContent("MY_AGENT_ROUTES");
   });
 
+  it("starts an added row on a real provider, not the echo one that sorts first", () => {
+    const withFake = {
+      ...connections,
+      providers: [{ name: "fake", built: true }, ...connections.providers],
+    };
+    render(<GlobalRoutesEditor connections={withFake} onSaved={mock.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: vi.editor.addRoute }));
+
+    const [, added] = screen.getAllByLabelText(vi.editor.provider);
+    expect(added).toHaveValue("openrouter");
+  });
+
+  it("takes the list the server kept, so a save that changed nothing leaves nothing to save", async () => {
+    // The server drops the duplicate; the page, still showing the old routes, must not
+    // keep offering Save for a list that is already what is saved.
+    mock.spyOn(api, "setRoutes").mockResolvedValue({ ...connections, restart_required: null });
+    render(<GlobalRoutesEditor connections={connections} onSaved={mock.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: vi.editor.addRoute }));
+    const [, added] = within(screen.getByTestId("global-route-editor")).getAllByLabelText(vi.editor.model);
+    fireEvent.change(added, { target: { value: "deepseek/v4" } });
+    fireEvent.click(screen.getByRole("button", { name: t.routesSave }));
+
+    await waitFor(() => expect(models()).toEqual(["deepseek/v4"]));
+    expect(screen.getByRole("button", { name: t.routesSave })).toBeDisabled();
+  });
+
   it("starts the draft again when the saved routes change", () => {
     const { rerender } = render(<GlobalRoutesEditor connections={connections} onSaved={mock.fn()} />);
     rerender(

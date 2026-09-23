@@ -125,8 +125,43 @@ def test_a_home_with_no_config_file_gets_one_with_just_the_routes(tmp_path: Path
     with client:
         assert client.get("/api/connections").json()["routes_source"] == "default"
         reply = client.put(
-            "/api/connections/routes", json={"routes": [{"provider": "fake", "model": "echo"}]}
+            "/api/connections/routes", json={"routes": [{"provider": "ollama", "model": "qwen"}]}
         )
 
     assert reply.status_code == 200
-    assert load_settings(env={"MY_AGENT_HOME": str(home)}).routes == (Route("fake", "echo"),)
+    assert load_settings(env={"MY_AGENT_HOME": str(home)}).routes == (Route("ollama", "qwen"),)
+
+
+def test_a_real_crew_does_not_gain_the_echo_provider(tmp_path: Path, environ) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    (home / "config.yaml").write_text("routes:\n  - ollama:qwen\n")
+    client, runtime = _crew(home)
+    with client:
+        reply = client.put(
+            "/api/connections/routes",
+            json={
+                "routes": [
+                    {"provider": "ollama", "model": "qwen"},
+                    {"provider": "fake", "model": "x"},
+                ]
+            },
+        )
+
+    assert reply.status_code == 409 and "fake" in reply.json()["detail"]
+    assert runtime.settings.routes == (Route("ollama", "qwen"),)
+
+
+def test_a_config_file_that_cannot_be_written_is_said_not_raised(home: Path) -> None:
+    client, runtime = _crew(home)
+    with client:
+        home.chmod(0o500)  # the file is replaced through a sibling, so the folder must be writable
+        try:
+            reply = client.put(
+                "/api/connections/routes", json={"routes": [{"provider": "fake", "model": "two"}]}
+            )
+        finally:
+            home.chmod(0o700)
+
+    assert reply.status_code == 409 and "config.yaml" in reply.json()["detail"]
+    assert runtime.settings.routes == (Route("fake", "echo"),)

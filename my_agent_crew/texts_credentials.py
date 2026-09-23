@@ -44,3 +44,7 @@ ROUTES_FROM_ENV = (
     "Bỏ biến đó khỏi tệp env (hoặc môi trường khởi động máy chủ) rồi khởi động lại."
 )
 ROUTES_NO_PROVIDER = "Chưa lưu: chưa có nhà cung cấp {providers} — đặt khoá API của nó trước."
+ROUTES_FAKE = (
+    "Chưa lưu: fake chỉ lặp lại tin nhắn, không phải mô hình thật — chọn nhà cung cấp khác."
+)
+CONFIG_UNWRITABLE = "Chưa lưu: không ghi được config.yaml — {error}"

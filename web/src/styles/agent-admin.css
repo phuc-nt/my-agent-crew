@@ -192,6 +192,13 @@
   gap: var(--space-2);
 }
 
+/* The model id takes what the row has left, so a narrow card shrinks the field instead
+   of pushing the remove button past its edge. */
+.route-editor .row input[type="text"] {
+  flex: 1 1 6rem;
+  min-width: 0;
+}
+
 /* ── Pickers ────────────────────────────────────────────────────────────── */
 .tool-picker {
   list-style: none;

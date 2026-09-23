@@ -209,7 +209,7 @@ export const vi = {
     providersBuilt: "Đã dựng",
     routes: "Tuyến mô hình",
     routesHint:
-      "Tuyến chung: agent không có tuyến riêng dùng các tuyến này, thử lần lượt từ trên xuống; agent có tuyến riêng quay về đây khi tuyến của nó không dùng được. Tuyến riêng sửa trong mục Đội.",
+      "Tuyến chung: agent không có tuyến riêng dùng các tuyến này, thử lần lượt từ trên xuống; agent có tuyến riêng chỉ quay về đây khi không tuyến nào của nó có khoá. Tuyến riêng sửa trong mục Đội.",
     routesSourceEnv:
       "Đang lấy từ biến MY_AGENT_ROUTES nên chỉ xem được ở đây. Bỏ biến đó khỏi tệp env hoặc môi trường khởi động rồi khởi động lại để sửa từ trang này.",
     routesSourceConfig: "Lưu trong config.yaml.",

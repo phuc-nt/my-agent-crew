@@ -31,6 +31,7 @@ from my_agent_crew.server.routes_registry import ROUTES_ENV, config_path, list_c
 from my_agent_crew.server.runtime_connections import channel_key
 
 MAX_ROUTES = 10
+FAKE = "fake"
 # A provider is a plain name; a model id may carry `/`, `:`, `.` or `@` (an Ollama tag,
 # an OpenRouter variant) but never a space or a comma, which the env form splits on.
 PROVIDER_RE = re.compile(r"^[a-z0-9_-]{1,40}$")
@@ -62,6 +63,10 @@ def _checked(body: RoutesRequest) -> list[Route]:
     return list(dict.fromkeys(routes))
 
 
+def _adds_fake(routes: list[Route], saved: tuple[Route, ...]) -> bool:
+    return any(r.provider == FAKE for r in routes) and all(r.provider != FAKE for r in saved)
+
+
 @router.put("/connections/routes")
 async def set_routes(body: RoutesRequest, rt: Rt) -> dict[str, Any]:
     routes = _checked(body)
@@ -73,14 +78,21 @@ async def set_routes(body: RoutesRequest, rt: Rt) -> dict[str, Any]:
         missing = sorted({r.provider for r in routes} - set(rt.providers))
         if missing:
             raise HTTPException(409, t.ROUTES_NO_PROVIDER.format(providers=", ".join(missing)))
+        # `fake` echoes the prompt back: a crew that already runs on it (a demo, a test
+        # home) may keep it, but a real crew does not gain it from one wrong pick.
+        if _adds_fake(routes, rt.settings.routes):
+            raise HTTPException(409, t.ROUTES_FAKE)
         prepared = prepared_or_refused(rt, os.environ, routes)
         path = config_path(rt.settings.home)
         try:
             data = read_raw(path)
-        except (ValueError, YAMLError) as exc:
+        except (OSError, ValueError, YAMLError) as exc:
             raise HTTPException(409, t.NOT_APPLICABLE.format(error=str(exc))) from None
         data["routes"] = [f"{r.provider}:{r.model}" for r in routes]
         before = channel_key(rt.agents, os.environ)
-        write_raw(path, data)
+        try:
+            write_raw(path, data)
+        except OSError as exc:
+            raise HTTPException(409, t.CONFIG_UNWRITABLE.format(error=str(exc))) from None
         problem = await apply(rt, prepared, before)
     return {**list_connections(rt), "restart_required": problem}

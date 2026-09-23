@@ -93,11 +93,12 @@ def install_local_guard(app: FastAPI, extra: frozenset[str]) -> None:
         reason = refusal(host_header, request.headers.get("origin"), extra)
         if reason is None:
             return await call_next(request)
-        if host_header not in logged and len(logged) < MAX_LOGGED_HOSTS:
-            logged.add(host_header)
+        # Only a refused name is worth the advice; a wrong Origin is not fixed by listing
+        # anything. Keyed by the name, so one host on many ports is logged once.
+        host = _hostname(f"//{host_header}") if reason != FOREIGN_ORIGIN else None
+        if host and host not in logged and len(logged) < MAX_LOGGED_HOSTS:
+            logged.add(host)
             logger.warning(
-                "refused a request for host %r (%s)",
-                host_header[:SHOWN_HOST_CHARS],
-                ALLOWED_HOSTS_ENV,
+                "refused a request for host %r (%s)", host[:SHOWN_HOST_CHARS], ALLOWED_HOSTS_ENV
             )
         return JSONResponse({"detail": reason}, status_code=403)

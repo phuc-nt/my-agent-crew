@@ -10,17 +10,22 @@ from my_agent_crew.channels.telegram_polling import TelegramPolling
 from my_agent_crew.texts_telegram import TELEGRAM_CUT_OFF
 from tests.telegram_fake import message
 
+TOKEN = "123456:secret-token-value"
+
 
 class Chat:
-    """The bot's side of the chat: what it sent, or a failure to send."""
+    """The bot's side of the chat: what it sent, a failure to send, or no answer at all."""
 
-    def __init__(self, fails: bool = False) -> None:
+    def __init__(self, error: Exception | None = None, hangs: bool = False) -> None:
         self.sent: list[tuple[int, str]] = []
-        self.fails = fails
+        self.error = error
+        self.hangs = hangs
 
     async def send_message(self, chat_id: int, text: str) -> None:
-        if self.fails:
-            raise TelegramError("sendMessage: HTTP 401 Unauthorized", 401)
+        if self.hangs:
+            await asyncio.sleep(3600)
+        if self.error is not None:
+            raise self.error
         self.sent.append((chat_id, text))
 
 
@@ -93,7 +98,7 @@ async def test_a_turn_that_never_ends_is_cut_off_after_the_grace(monkeypatch) ->
 
 async def test_a_cut_off_notice_that_fails_still_lets_the_stop_end(monkeypatch, caplog) -> None:
     monkeypatch.setattr(telegram_polling, "STOP_GRACE_SECONDS", 0.05)
-    poller = Poller(Chat(fails=True))
+    poller = Poller(Chat(TelegramError("sendMessage: HTTP 401 Unauthorized", 401)))
     poller.start()
     await poller.started.wait()
 
@@ -101,6 +106,31 @@ async def test_a_cut_off_notice_that_fails_still_lets_the_stop_end(monkeypatch, 
 
     assert poller._task is None
     assert "cut-off notice not sent" in caplog.text
+
+
+async def test_a_notice_telegram_never_answers_does_not_hold_the_stop(monkeypatch) -> None:
+    monkeypatch.setattr(telegram_polling, "STOP_GRACE_SECONDS", 0.05)
+    monkeypatch.setattr(telegram_polling, "CUT_OFF_NOTICE_SECONDS", 0.05)
+    poller = Poller(Chat(hangs=True))
+    poller.start()
+    await poller.started.wait()
+
+    await asyncio.wait_for(poller.stop(), timeout=1)
+
+    assert poller._task is None
+
+
+async def test_a_notice_that_fails_names_the_error_without_its_text(monkeypatch, caplog) -> None:
+    monkeypatch.setattr(telegram_polling, "STOP_GRACE_SECONDS", 0.05)
+    # An error that is not a TelegramError was not redacted, and may quote the bot's URL.
+    poller = Poller(Chat(RuntimeError(f"https://api.telegram.org/bot{TOKEN}/sendMessage")))
+    poller.start()
+    await poller.started.wait()
+
+    await asyncio.wait_for(poller.stop(), timeout=1)
+
+    assert "RuntimeError" in caplog.text
+    assert TOKEN not in caplog.text
 
 
 async def test_a_finished_turn_sends_no_notice() -> None:
