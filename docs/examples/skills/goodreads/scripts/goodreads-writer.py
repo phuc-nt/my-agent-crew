@@ -29,12 +29,13 @@ BASE = "https://www.goodreads.com"
 PROFILE = Path(__file__).resolve().parent.parent / ".browser-data"
 TIMEOUT_MS = 20_000
 
-# Goodreads labels its shelf buttons with these exact strings.
+# Goodreads labels its shelf buttons with these exact strings, capitals included. The
+# shelf already chosen reads "<label>, selected", so an exact match never picks it.
 SHELVES = {
     "read": "Read",
-    "currently-reading": "Currently reading",
-    "to-read": "Want to read",
-    "want-to-read": "Want to read",
+    "currently-reading": "Currently Reading",
+    "to-read": "Want to Read",
+    "want-to-read": "Want to Read",
 }
 
 RELOGIN = "run goodreads-write.sh login in a terminal, then retry"
@@ -96,6 +97,16 @@ def open_book(page, book_id: str) -> str:
             f"book {book_id} did not load a title",
             "check the book id, or Goodreads may be blocking this session",
         )
+    # The HTML arrives with the title but without the controls: the rating stars and
+    # the shelving menu appear only once the page's scripts have run. Looking for them
+    # at domcontentloaded finds nothing, and a button clicked before then does nothing.
+    try:
+        page.wait_for_selector('button[aria-label="Rate 1 out of 5"]', timeout=TIMEOUT_MS)
+    except Exception:
+        fail(
+            f"book {book_id} never finished rendering its controls",
+            "retry once; if it repeats, Goodreads may have changed the book page",
+        )
     return title.strip()
 
 
@@ -137,8 +148,10 @@ def cmd_rate(args, playwright) -> None:
         fail(f"rating {stars} is outside 1-5", "pass a whole number from 1 to 5")
     context, page = _with_session(playwright)
     title = open_book(page, args.book_id)
-    button = page.query_selector(f'button[aria-label="Rate {stars} out of 5"]')
-    if not button:
+    # The header and the review section each carry a row of stars, and the header is
+    # rendered twice for narrow and wide layouts; the first visible row is the reader's.
+    button = page.locator(f'button[aria-label="Rate {stars} out of 5"]:visible').first
+    if not button.count():
         context.close()
         fail(
             "no rating control on the page",
@@ -157,12 +170,20 @@ def cmd_shelf(args, playwright) -> None:
         fail(f"unknown shelf {args.shelf!r}", f"one of: {', '.join(sorted(SHELVES))}")
     context, page = _with_session(playwright)
     title = open_book(page, args.book_id)
-    trigger = page.query_selector('button[aria-label*="shelve" i], button.WantToReadButton')
-    if trigger:
-        trigger.click()
-        page.wait_for_timeout(1500)
-    button = page.query_selector(f'button[aria-label="{label}"]')
-    if not button:
+    # Only the "edit shelf" control is safe to press blind: on a book not yet shelved
+    # the main button shelves it as Want to Read the moment it is clicked.
+    trigger = page.locator('button[aria-label*="edit shelf" i]:visible').first
+    if not trigger.count():
+        context.close()
+        fail(
+            "no edit-shelf control; the book may not be on any shelf yet",
+            "shelve it once on the site, or report this if it is already shelved",
+        )
+    trigger.click()
+    button = page.locator(f'.Overlay button[aria-label="{label}"]:visible').first
+    try:
+        button.wait_for(timeout=TIMEOUT_MS)
+    except Exception:
         context.close()
         fail(
             f"no control for shelf {label!r}",
