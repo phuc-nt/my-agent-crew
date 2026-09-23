@@ -38,6 +38,7 @@ from my_agent_crew.server.agent_edit_common import (
 from my_agent_crew.server.deps import Rt
 from my_agent_crew.server.runtime import Runtime
 from my_agent_crew.server.runtime_build import check_delegates
+from my_agent_crew.server.runtime_connections import restart_channel
 
 router = APIRouter(tags=["agents"])
 
@@ -92,6 +93,8 @@ async def create_agent(body: CreateRequest, rt: Rt) -> dict[str, Any]:
         agent_dir = create_agent_dir(rt.settings.home, body.agent_id)
         raw = patched(rt, body.agent_id, body.profile)
         profile = save(rt, body.agent_id, raw, agent_dir)
+        if profile.telegram is not None:
+            await restart_channel(rt)
     return {"profile": profile.to_dict(), "restart_required": restart_reasons(None, profile)}
 
 
@@ -102,6 +105,10 @@ async def patch_agent(agent_id: str, body: PatchRequest, rt: Rt) -> dict[str, An
         check_editable(rt, old)
         raw = patched(rt, agent_id, body.profile)
         profile = save(rt, agent_id, raw, old.dir)
+        # The bot is built from the master's block; a changed chat or token name takes
+        # effect now rather than after a restart nobody remembers to do.
+        if profile.telegram != old.telegram:
+            await restart_channel(rt)
     return {"profile": profile.to_dict(), "restart_required": restart_reasons(old, profile)}
 
 

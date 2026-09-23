@@ -11,6 +11,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from datetime import date, datetime, tzinfo
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -25,7 +26,7 @@ from my_agent_crew.config_parse import (
     vision_routes,
 )
 
-__all__ = ["Route", "Settings", "load_settings"]
+__all__ = ["Route", "Settings", "home_from", "load_settings", "with_secrets"]
 
 DEFAULT_ROUTES = "openrouter:deepseek/deepseek-v4-flash"
 YAML_KEYS = (
@@ -125,20 +126,36 @@ def _from_yaml(home: Path) -> dict:
     return data
 
 
+def home_from(env: Mapping[str, str]) -> Path:
+    return Path(env.get("MY_AGENT_HOME") or Path.home() / ".my-agent-crew").expanduser()
+
+
+def secrets_from(env: Mapping[str, str]) -> dict[str, Any]:
+    """The `Settings` fields that come from the environment alone. Kept as one place so
+    a key saved from the web lands in the same fields a restart would fill."""
+    return {
+        "openrouter_api_key": env.get("OPENROUTER_API_KEY") or None,
+        "brave_api_key": env.get("BRAVE_API_KEY") or None,
+        "tavily_api_key": env.get("TAVILY_API_KEY") or None,
+        "firecrawl_base_url": str(env.get("FIRECRAWL_BASE_URL") or "").rstrip("/"),
+        "firecrawl_api_key": env.get("FIRECRAWL_API_KEY") or None,
+    }
+
+
+def with_secrets(settings: Settings, env: Mapping[str, str]) -> Settings:
+    return replace(settings, **secrets_from(env))
+
+
 def load_settings(env: Mapping[str, str] | None = None) -> Settings:
     env = os.environ if env is None else env
-    home = Path(env.get("MY_AGENT_HOME") or Path.home() / ".my-agent-crew").expanduser()
+    home = home_from(env)
     file_values = _from_yaml(home)
     routes_text = env.get("MY_AGENT_ROUTES") or file_values.get("routes") or DEFAULT_ROUTES
     settings = Settings(
         home=home,
         routes=required_routes(routes_text),
         vision_routes=vision_routes(env, file_values),
-        openrouter_api_key=env.get("OPENROUTER_API_KEY") or None,
-        brave_api_key=env.get("BRAVE_API_KEY") or None,
-        tavily_api_key=env.get("TAVILY_API_KEY") or None,
-        firecrawl_base_url=str(env.get("FIRECRAWL_BASE_URL") or "").rstrip("/"),
-        firecrawl_api_key=env.get("FIRECRAWL_API_KEY") or None,
+        **secrets_from(env),
         cost_cap_usd=float(
             env.get("MY_AGENT_COST_CAP_USD") or file_values.get("cost_cap_usd", 0.50)
         ),

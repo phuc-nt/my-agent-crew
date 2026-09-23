@@ -329,6 +329,45 @@ export interface ConnectionsInfo {
   telegram: TelegramConnection[];
 }
 
+/** Which card of the connections page an environment variable sits on. */
+export type CredentialGroup = "model" | "search" | "telegram" | "other";
+
+/**
+ * One environment variable the connections page can set. A secret's value never comes
+ * back from the server: only whether one is set and where from. A host address does.
+ */
+export interface CredentialInfo {
+  name: string;
+  group: CredentialGroup;
+  secret: boolean;
+  /** Must be an http(s) address. */
+  url: boolean;
+  present: boolean;
+  /** "file": saved in the env file. "process": given to the server when it started, so
+   * removing it from here is not possible and a restart may bring the old value back. */
+  source: "file" | "process" | null;
+  /** A free check can run now: there is a value, or a default to try. */
+  checkable: boolean;
+  /** Non-secrets only: the value in use and what applies when none is set. */
+  value?: string;
+  default?: string;
+  /** Telegram only: the agents whose profile names this token. */
+  agents?: string[];
+}
+
+export interface CredentialsInfo {
+  /** Where the values are kept, for the person who wants to look at it themselves. */
+  file: string;
+  items: CredentialInfo[];
+  /** Saved, but the crew could not be rebuilt from it: why, and a restart will apply it. */
+  restart_required: string | null;
+}
+
+export interface CredentialCheck {
+  ok: boolean;
+  detail: string;
+}
+
 export interface SettingsInfo {
   home: string;
   workspace_dir: string;

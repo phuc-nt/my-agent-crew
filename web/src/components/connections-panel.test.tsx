@@ -1,378 +1,196 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { describe, expect, it, vi as mock } from "vitest";
 import { vi } from "../i18n/vi";
 import { ConnectionsPanel } from "./connections-panel";
-import type { ConnectionsInfo } from "../api/types";
+import type { ConnectionsInfo, CredentialInfo, CredentialsInfo } from "../api/types";
+import type { CredentialsController } from "../hooks/use-credentials";
+
+const base: ConnectionsInfo = {
+  providers: [],
+  routes: [],
+  vision_routes: [],
+  keys: [],
+  search_backends: ["duckduckgo"],
+  firecrawl_base_url: "",
+  telegram: [],
+};
+
+const item = (overrides: Partial<CredentialInfo>): CredentialInfo => ({
+  name: "OPENROUTER_API_KEY",
+  group: "model",
+  secret: true,
+  url: false,
+  present: false,
+  source: null,
+  checkable: false,
+  ...overrides,
+});
+
+function controller(items: CredentialInfo[], overrides: Partial<CredentialsController> = {}) {
+  const info: CredentialsInfo = { file: "/h/env", items, restart_required: null };
+  return {
+    info,
+    error: null,
+    save: mock.fn(async () => info),
+    remove: mock.fn(async () => info),
+    check: mock.fn(async () => ({ ok: true, detail: "khoá hợp lệ" })),
+    ...overrides,
+  } satisfies CredentialsController;
+}
 
 describe("ConnectionsPanel", () => {
-  it("renders the providers section with all providers", () => {
-    const connections: ConnectionsInfo = {
+  it("shows the providers that were built and the routes in order", () => {
+    const connections = {
+      ...base,
       providers: [
-        { name: "openai", built: true },
-        { name: "anthropic", built: true },
+        { name: "openrouter", built: true },
+        { name: "ollama", built: true },
       ],
-      routes: [],
-      vision_routes: [],
-      keys: [],
-      search_backends: ["duckduckgo"],
-      firecrawl_base_url: "",
-      telegram: [],
-    };
-    render(<ConnectionsPanel connections={connections} />);
-
-    expect(screen.getByText(vi.connectionsPage.providers)).toBeInTheDocument();
-    expect(screen.getByText("openai")).toBeInTheDocument();
-    expect(screen.getByText("anthropic")).toBeInTheDocument();
-  });
-
-  it("says where ollama is looked for so a dead one is told from a wrong host", () => {
-    const connections: ConnectionsInfo = {
-      providers: [{ name: "ollama", built: true }],
-      routes: [],
-      vision_routes: [],
-      keys: [],
-      search_backends: ["duckduckgo"],
-      firecrawl_base_url: "",
-      ollama_base_url: "http://127.0.0.1:11434/v1",
-      telegram: [],
-    };
-    render(<ConnectionsPanel connections={connections} />);
-
-    expect(screen.getByTestId("ollama-base-url")).toHaveTextContent("http://127.0.0.1:11434/v1");
-  });
-
-  it("leaves the ollama line out when the server did not report an address", () => {
-    const connections: ConnectionsInfo = {
-      providers: [],
-      routes: [],
-      vision_routes: [],
-      keys: [],
-      search_backends: ["duckduckgo"],
-      firecrawl_base_url: "",
-      telegram: [],
-    };
-    render(<ConnectionsPanel connections={connections} />);
-
-    expect(screen.queryByTestId("ollama-base-url")).toBeNull();
-  });
-
-  it("renders the routes section with model routes", () => {
-    const connections: ConnectionsInfo = {
-      providers: [],
       routes: [
-        { provider: "openai", model: "gpt-4" },
-        { provider: "anthropic", model: "claude-3-opus" },
+        { provider: "openrouter", model: "gpt-4" },
+        { provider: "ollama", model: "qwen" },
       ],
-      vision_routes: [],
-      keys: [],
-      search_backends: ["duckduckgo"],
-      firecrawl_base_url: "",
-      telegram: [],
     };
-    render(<ConnectionsPanel connections={connections} />);
+    render(<ConnectionsPanel connections={connections} credentials={controller([])} />);
 
-    expect(screen.getByText(vi.connectionsPage.routes)).toBeInTheDocument();
-    expect(screen.getByText("openai")).toBeInTheDocument();
-    expect(screen.getByText("gpt-4")).toBeInTheDocument();
-    expect(screen.getByText("claude-3-opus")).toBeInTheDocument();
-  });
-
-  it("renders the vision routes section when routes are present", () => {
-    const connections: ConnectionsInfo = {
-      providers: [],
-      routes: [],
-      vision_routes: [
-        { provider: "openai", model: "gpt-4-vision" },
-      ],
-      keys: [],
-      search_backends: ["duckduckgo"],
-      firecrawl_base_url: "",
-      telegram: [],
-    };
-    render(<ConnectionsPanel connections={connections} />);
-
-    expect(screen.getByText(vi.connectionsPage.visionRoutes)).toBeInTheDocument();
-    expect(screen.getByText("gpt-4-vision")).toBeInTheDocument();
-  });
-
-  it("shows the no vision routes message when there are none", () => {
-    const connections: ConnectionsInfo = {
-      providers: [],
-      routes: [],
-      vision_routes: [],
-      keys: [],
-      search_backends: ["duckduckgo"],
-      firecrawl_base_url: "",
-      telegram: [],
-    };
-    render(<ConnectionsPanel connections={connections} />);
-
+    expect(screen.getByTestId("providers")).toHaveTextContent("openrouter");
+    expect(screen.getByTestId("providers")).toHaveTextContent("ollama");
+    expect(screen.getByTestId("routes")).toHaveTextContent("gpt-4");
     expect(screen.getByText(vi.connectionsPage.noVisionRoutes)).toBeInTheDocument();
   });
 
-  it("renders the keys section showing present and absent keys", () => {
-    const connections: ConnectionsInfo = {
-      providers: [],
-      routes: [],
-      vision_routes: [],
-      keys: [
-        { name: "OPENAI_API_KEY", present: true },
-        { name: "BRAVE_API_KEY", present: false },
-      ],
-      search_backends: ["duckduckgo"],
-      firecrawl_base_url: "",
-      telegram: [],
-    };
-    render(<ConnectionsPanel connections={connections} />);
+  it("puts each key on the card of what it connects, with where it is kept", () => {
+    const credentials = controller([
+      item({ name: "OPENROUTER_API_KEY", present: true, source: "file" }),
+      item({ name: "BRAVE_API_KEY", group: "search" }),
+      item({ name: "GOODREADS_ID", group: "other", present: true, source: "file" }),
+    ]);
+    render(<ConnectionsPanel connections={base} credentials={credentials} />);
 
-    expect(screen.getByText(vi.connectionsPage.keys)).toBeInTheDocument();
-    expect(screen.getByText("OPENAI_API_KEY")).toBeInTheDocument();
-    expect(screen.getByText("BRAVE_API_KEY")).toBeInTheDocument();
-    expect(screen.getByText(vi.connectionsPage.present)).toBeInTheDocument();
-    expect(screen.getByText(vi.connectionsPage.absent)).toBeInTheDocument();
+    expect(screen.getByText(vi.connectionsPage.hint("/h/env"))).toBeInTheDocument();
+    expect(screen.getByTestId("credentials-model")).toHaveTextContent("OPENROUTER_API_KEY");
+    expect(screen.getByTestId("credentials-search")).toHaveTextContent("BRAVE_API_KEY");
+    expect(screen.getByTestId("credentials-other")).toHaveTextContent("GOODREADS_ID");
+    const set = within(screen.getByTestId("credential-BRAVE_API_KEY"));
+    expect(set.getByText(vi.connectionsPage.absent)).toBeInTheDocument();
+    expect(set.getByRole("button", { name: vi.connectionsPage.set })).toBeInTheDocument();
   });
 
-  it("PRIVACY: does NOT render the actual API key value", () => {
-    const connections: ConnectionsInfo = {
-      providers: [],
-      routes: [],
-      vision_routes: [],
-      keys: [
-        { name: "OPENAI_API_KEY", present: true },
-      ],
-      search_backends: ["duckduckgo"],
-      firecrawl_base_url: "",
-      telegram: [],
-    };
-    render(<ConnectionsPanel connections={connections} />);
+  it("saves a key through a password field that is empty again afterwards", async () => {
+    const credentials = controller([item({})]);
+    render(<ConnectionsPanel connections={base} credentials={credentials} />);
+    const row = within(screen.getByTestId("credential-OPENROUTER_API_KEY"));
 
-    // The env var NAME should be shown
-    expect(screen.getByText("OPENAI_API_KEY")).toBeInTheDocument();
-    // But never the actual secret value
-    const text = screen.getByTestId("keys").textContent;
-    expect(text).not.toMatch(/sk-[a-zA-Z0-9]/);
+    fireEvent.click(row.getByRole("button", { name: vi.connectionsPage.set }));
+    const field = row.getByLabelText(vi.connectionsPage.valueFor("OPENROUTER_API_KEY"));
+    expect(field).toHaveAttribute("type", "password");
+    fireEvent.change(field, { target: { value: "sk-or-v1-abc" } });
+    fireEvent.click(row.getByRole("button", { name: vi.connectionsPage.save }));
+
+    await waitFor(() => expect(row.getByRole("status")).toHaveTextContent(vi.connectionsPage.saved));
+    expect(credentials.save).toHaveBeenCalledWith("OPENROUTER_API_KEY", "sk-or-v1-abc");
+    expect(row.queryByLabelText(vi.connectionsPage.valueFor("OPENROUTER_API_KEY"))).toBeNull();
+    expect(screen.getByTestId("connections").innerHTML).not.toContain("sk-or-v1-abc");
   });
 
-  it("shows the Telegram section when channels are configured", () => {
-    const connections: ConnectionsInfo = {
-      providers: [],
-      routes: [],
-      vision_routes: [],
-      keys: [],
-      search_backends: ["duckduckgo"],
-      firecrawl_base_url: "",
-      telegram: [
-        { agent_id: "coach", token_env: "COACH_TOKEN", configured: true, ignored: false },
-      ],
-    };
-    render(<ConnectionsPanel connections={connections} />);
+  it("says why a save was refused", async () => {
+    const credentials = controller([item({})], {
+      save: mock.fn(async () => {
+        throw new Error("Giá trị không được xuống dòng.");
+      }),
+    });
+    render(<ConnectionsPanel connections={base} credentials={credentials} />);
+    const row = within(screen.getByTestId("credential-OPENROUTER_API_KEY"));
 
-    expect(screen.getByText(vi.connectionsPage.telegram)).toBeInTheDocument();
-    expect(screen.getByText("coach")).toBeInTheDocument();
-    expect(screen.getByText("COACH_TOKEN")).toBeInTheDocument();
+    fireEvent.click(row.getByRole("button", { name: vi.connectionsPage.set }));
+    fireEvent.change(row.getByLabelText(vi.connectionsPage.valueFor("OPENROUTER_API_KEY")), {
+      target: { value: "x" },
+    });
+    fireEvent.click(row.getByRole("button", { name: vi.connectionsPage.save }));
+
+    await waitFor(() => expect(row.getByRole("status")).toHaveTextContent("xuống dòng"));
   });
 
-  it("shows the no telegram message when no channels are configured", () => {
-    const connections: ConnectionsInfo = {
-      providers: [],
-      routes: [],
-      vision_routes: [],
-      keys: [],
-      search_backends: ["duckduckgo"],
-      firecrawl_base_url: "",
-      telegram: [],
+  it("checks a key and removes one only after confirming", async () => {
+    const credentials = controller([
+      item({ present: true, source: "file", checkable: true }),
+    ]);
+    render(<ConnectionsPanel connections={base} credentials={credentials} />);
+    const row = within(screen.getByTestId("credential-OPENROUTER_API_KEY"));
+
+    fireEvent.click(row.getByRole("button", { name: vi.connectionsPage.check }));
+    await waitFor(() => expect(row.getByRole("status")).toHaveTextContent("khoá hợp lệ"));
+
+    const confirm = mock.spyOn(window, "confirm").mockReturnValueOnce(false);
+    fireEvent.click(row.getByRole("button", { name: vi.connectionsPage.remove }));
+    expect(credentials.remove).not.toHaveBeenCalled();
+    confirm.mockReturnValueOnce(true);
+    fireEvent.click(row.getByRole("button", { name: vi.connectionsPage.remove }));
+    await waitFor(() => expect(credentials.remove).toHaveBeenCalledWith("OPENROUTER_API_KEY"));
+    confirm.mockRestore();
+  });
+
+  it("offers no removal for a key the server was started with", () => {
+    const credentials = controller([item({ present: true, source: "process" })]);
+    render(<ConnectionsPanel connections={base} credentials={credentials} />);
+    const row = within(screen.getByTestId("credential-OPENROUTER_API_KEY"));
+
+    expect(row.queryByRole("button", { name: vi.connectionsPage.remove })).toBeNull();
+    expect(row.getByText(vi.connectionsPage.fromProcess)).toBeInTheDocument();
+  });
+
+  it("shows a host address and its default, since they are not secrets", () => {
+    const credentials = controller([
+      item({ name: "OLLAMA_BASE_URL", secret: false, url: true, value: "", default: "http://127.0.0.1:11434/v1" }),
+      item({ name: "FIRECRAWL_BASE_URL", group: "search", secret: false, url: true, present: true, source: "file", value: "http://127.0.0.1:3002" }),
+    ]);
+    render(<ConnectionsPanel connections={base} credentials={credentials} />);
+
+    expect(screen.getByTestId("credential-OLLAMA_BASE_URL")).toHaveTextContent("Mặc định: http://127.0.0.1:11434/v1");
+    expect(screen.getByTestId("credential-FIRECRAWL_BASE_URL")).toHaveTextContent("http://127.0.0.1:3002");
+  });
+
+  it("adds a variable of the person's own, upper-casing the name as it is typed", async () => {
+    const credentials = controller([]);
+    render(<ConnectionsPanel connections={base} credentials={credentials} />);
+    const form = within(screen.getByTestId("credential-add"));
+    const add = form.getByRole("button", { name: vi.connectionsPage.add });
+
+    fireEvent.change(form.getByLabelText(vi.connectionsPage.newName), { target: { value: "1bad" } });
+    expect(form.getByText(vi.connectionsPage.nameRule)).toBeInTheDocument();
+    fireEvent.change(form.getByLabelText(vi.connectionsPage.newName), { target: { value: "goodreads_id" } });
+    fireEvent.change(form.getByLabelText(vi.connectionsPage.valueFor("GOODREADS_ID")), { target: { value: "42" } });
+    expect(add).toBeEnabled();
+    fireEvent.click(add);
+
+    await waitFor(() => expect(credentials.save).toHaveBeenCalledWith("GOODREADS_ID", "42"));
+  });
+
+  it("names the bot token under Telegram with the agent that uses it", () => {
+    const connections = {
+      ...base,
+      telegram: [{ agent_id: "default", token_env: "CREW_BOT", configured: true, ignored: false }],
     };
-    render(<ConnectionsPanel connections={connections} />);
+    const credentials = controller([
+      item({ name: "CREW_BOT", group: "telegram", present: true, source: "file", agents: ["default"] }),
+    ]);
+    render(<ConnectionsPanel connections={connections} credentials={credentials} />);
+
+    expect(screen.getByTestId("telegram-list")).toHaveTextContent("CREW_BOT");
+    expect(screen.getByTestId("credentials-telegram")).toHaveTextContent(vi.connectionsPage.usedBy("default"));
+  });
+
+  it("explains how to turn Telegram on when no agent has it", () => {
+    render(<ConnectionsPanel connections={base} credentials={controller([])} />);
 
     expect(screen.getByText(vi.connectionsPage.noTelegram)).toBeInTheDocument();
   });
 
-  it("PRIVACY: shows only the token env NAME, never the token value for Telegram", () => {
-    const connections: ConnectionsInfo = {
-      providers: [],
-      routes: [],
-      vision_routes: [],
-      keys: [],
-      search_backends: ["duckduckgo"],
-      firecrawl_base_url: "",
-      telegram: [
-        { agent_id: "coach", token_env: "COACH_TOKEN", configured: true, ignored: false },
-      ],
-    };
-    render(<ConnectionsPanel connections={connections} />);
+  it("says the list could not load instead of showing no keys", () => {
+    const credentials = { ...controller([]), info: null, error: "HTTP 403" };
+    render(<ConnectionsPanel connections={base} credentials={credentials} />);
 
-    const telegramList = screen.getByTestId("telegram-list");
-    const text = telegramList.textContent;
-
-    // The env var NAME should be shown
-    expect(text).toContain("COACH_TOKEN");
-    // But never an actual token value
-    expect(text).not.toMatch(/\d{10,}/);
-  });
-
-  it("marks configured Telegram channels with ok badge", () => {
-    const connections: ConnectionsInfo = {
-      providers: [],
-      routes: [],
-      vision_routes: [],
-      keys: [],
-      search_backends: ["duckduckgo"],
-      firecrawl_base_url: "",
-      telegram: [
-        { agent_id: "coach", token_env: "COACH_TOKEN", configured: true, ignored: false },
-        { agent_id: "coder", token_env: "CODER_TOKEN", configured: false, ignored: false },
-      ],
-    };
-    render(<ConnectionsPanel connections={connections} />);
-
-    const badges = screen.getAllByText(vi.connectionsPage.configured);
-    expect(badges.length).toBe(1);
-    expect(screen.getByText(vi.connectionsPage.notConfigured)).toBeInTheDocument();
-  });
-
-  it("shows the ignored badge for ignored Telegram channels", () => {
-    const connections: ConnectionsInfo = {
-      providers: [],
-      routes: [],
-      vision_routes: [],
-      keys: [],
-      search_backends: ["duckduckgo"],
-      firecrawl_base_url: "",
-      telegram: [
-        { agent_id: "coach", token_env: "COACH_TOKEN", configured: true, ignored: true },
-      ],
-    };
-    render(<ConnectionsPanel connections={connections} />);
-
-    expect(screen.getByText(vi.connectionsPage.ignored)).toBeInTheDocument();
-  });
-
-  it("lists search backends in priority order and says firecrawl is off", () => {
-    const connections: ConnectionsInfo = {
-      providers: [],
-      routes: [],
-      vision_routes: [],
-      keys: [],
-      search_backends: ["duckduckgo"],
-      firecrawl_base_url: "",
-      telegram: [],
-    };
-    render(<ConnectionsPanel connections={connections} />);
-
-    expect(screen.getByTestId("search-backends").textContent).toContain("duckduckgo");
-    expect(screen.getByText(vi.connectionsPage.firecrawlOff)).toBeInTheDocument();
-  });
-
-  it("names the firecrawl host when one is configured", () => {
-    const connections: ConnectionsInfo = {
-      providers: [],
-      routes: [],
-      vision_routes: [],
-      keys: [],
-      search_backends: ["firecrawl", "duckduckgo"],
-      firecrawl_base_url: "http://127.0.0.1:3002",
-      telegram: [],
-    };
-    render(<ConnectionsPanel connections={connections} />);
-
-    const list = screen.getByTestId("search-backends");
-    expect(list.textContent).toContain("firecrawl");
-    expect(
-      screen.getByText(vi.connectionsPage.firecrawlAt("http://127.0.0.1:3002")),
-    ).toBeInTheDocument();
-  });
-
-  it("shows the hint text for the keys section", () => {
-    const connections: ConnectionsInfo = {
-      providers: [],
-      routes: [],
-      vision_routes: [],
-      keys: [],
-      search_backends: ["duckduckgo"],
-      firecrawl_base_url: "",
-      telegram: [],
-    };
-    render(<ConnectionsPanel connections={connections} />);
-
-    expect(screen.getByText(vi.connectionsPage.keysHint)).toBeInTheDocument();
-  });
-
-  it("shows the page hint at the top", () => {
-    const connections: ConnectionsInfo = {
-      providers: [],
-      routes: [],
-      vision_routes: [],
-      keys: [],
-      search_backends: ["duckduckgo"],
-      firecrawl_base_url: "",
-      telegram: [],
-    };
-    render(<ConnectionsPanel connections={connections} />);
-
-    expect(screen.getByText(vi.connectionsPage.hint)).toBeInTheDocument();
-  });
-
-  it("renders all sections with correct data testids", () => {
-    const connections: ConnectionsInfo = {
-      providers: [{ name: "test", built: true }],
-      routes: [{ provider: "test", model: "model" }],
-      vision_routes: [{ provider: "test", model: "vision" }],
-      keys: [{ name: "KEY", present: true }],
-      search_backends: ["duckduckgo"],
-      firecrawl_base_url: "",
-      telegram: [],
-    };
-    render(<ConnectionsPanel connections={connections} />);
-
-    expect(screen.getByTestId("providers")).toBeInTheDocument();
-    expect(screen.getByTestId("routes")).toBeInTheDocument();
-    expect(screen.getByTestId("vision-routes")).toBeInTheDocument();
-    expect(screen.getByTestId("keys")).toBeInTheDocument();
-    expect(screen.queryByTestId("telegram-list")).not.toBeInTheDocument(); // No channels
-  });
-
-  it("PRIVACY: shows correct badge for present key", () => {
-    const connections: ConnectionsInfo = {
-      providers: [],
-      routes: [],
-      vision_routes: [],
-      keys: [
-        { name: "TEST_KEY", present: true },
-      ],
-      search_backends: ["duckduckgo"],
-      firecrawl_base_url: "",
-      telegram: [],
-    };
-    render(<ConnectionsPanel connections={connections} />);
-
-    const keysList = screen.getByTestId("keys");
-    const badges = keysList.querySelectorAll(".badge");
-    expect(badges.length).toBeGreaterThan(0);
-    const presentBadge = Array.from(badges).find((b) =>
-      b.textContent?.includes(vi.connectionsPage.present),
-    );
-    expect(presentBadge).toHaveClass("ok");
-  });
-
-  it("PRIVACY: does not show empty/missing badge with ok class", () => {
-    const connections: ConnectionsInfo = {
-      providers: [],
-      routes: [],
-      vision_routes: [],
-      keys: [
-        { name: "MISSING_KEY", present: false },
-      ],
-      search_backends: ["duckduckgo"],
-      firecrawl_base_url: "",
-      telegram: [],
-    };
-    render(<ConnectionsPanel connections={connections} />);
-
-    const keysList = screen.getByTestId("keys");
-    const badges = keysList.querySelectorAll(".badge.ok");
-    const hasAbsentBadge = Array.from(badges).some((b) =>
-      b.textContent?.includes(vi.connectionsPage.absent),
-    );
-    expect(hasAbsentBadge).toBe(false);
+    expect(screen.getByText("HTTP 403")).toBeInTheDocument();
+    expect(screen.queryByTestId("credential-add")).toBeNull();
   });
 });

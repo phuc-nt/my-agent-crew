@@ -9,6 +9,8 @@ import type {
   AgentSaved,
   ApprovalInfo,
   ConnectionsInfo,
+  CredentialCheck,
+  CredentialsInfo,
   Conversation,
   ConversationDetail,
   ConversationPatch,
@@ -151,6 +153,16 @@ export const api = {
   reloadAgents: () => request<{ added: string[] }>("/agents/reload", { method: "POST" }),
   listTools: () => request<RegistryTool[]>("/tools"),
   connections: () => request<ConnectionsInfo>("/connections"),
+  credentials: () => request<CredentialsInfo>("/credentials"),
+  setCredential: (name: string, value: string) =>
+    request<CredentialsInfo>(`/credentials/${encodeURIComponent(name)}`, {
+      method: "PUT",
+      body: JSON.stringify({ value }),
+    }),
+  removeCredential: (name: string) =>
+    request<CredentialsInfo>(`/credentials/${encodeURIComponent(name)}`, { method: "DELETE" }),
+  checkCredential: (name: string) =>
+    request<CredentialCheck>(`/credentials/${encodeURIComponent(name)}/check`, { method: "POST" }),
   listConversations: (agentId?: string) =>
     request<Conversation[]>(`/conversations${query({ agent_id: agentId })}`),
   createConversation: (body: ConversationPatch & { agent_id?: string } = {}) =>

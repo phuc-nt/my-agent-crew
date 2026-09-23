@@ -121,7 +121,7 @@ def test_a_plain_new_agent_does_not_ask_for_a_restart(crew) -> None:
     assert reply.json()["restart_required"] == []
 
 
-def test_only_a_schedule_or_a_channel_asks_for_a_restart(crew) -> None:
+def test_only_a_schedule_asks_for_a_restart(crew) -> None:
     client, _, _ = crew
     client.post("/api/agents", json={"agent_id": "coder", "profile": {}})
 
@@ -357,3 +357,23 @@ def test_the_skills_folders_are_reported_and_survive_an_unrelated_edit(crew) -> 
     # hand-written file said — which is what lets an editor save a single field safely.
     assert reply.status_code == 200
     assert skills_dir in runtime.deps_for("coder").agent.skills_dirs
+
+
+def test_giving_the_master_a_bot_starts_it_without_a_restart(crew, monkeypatch) -> None:
+    client, runtime, _ = crew
+    monkeypatch.setenv("CREW_BOT_TOKEN", "123:test-token")
+
+    reply = client.patch(
+        "/api/agents/default",
+        json={"profile": {"telegram": {"token_env": "CREW_BOT_TOKEN", "chat_id": 7}}},
+    )
+
+    assert reply.status_code == 200
+    assert reply.json()["restart_required"] == []
+    assert runtime.channel is not None
+    # A test app never polls; the rebuilt bot follows the one it replaced.
+    assert runtime.channel_live is False
+
+    client.patch("/api/agents/default", json={"profile": {"telegram": None}})
+
+    assert runtime.channel is None

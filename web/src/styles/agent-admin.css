@@ -290,8 +290,52 @@
 }
 
 /* ── Connections ────────────────────────────────────────────────────────── */
-.connections h3 {
-  margin-bottom: var(--space-2);
+.connections-subtitle {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+/* A credential's controls sit under its name, indented to the label like a row's note. */
+.credential-actions,
+.credential-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.credential-actions button,
+.credential-form button {
+  padding: 0.25rem 0.6rem;
+  font-size: var(--text-sm);
+}
+
+/* Sized to the small buttons beside it, so a field and its Lưu read as one line. */
+.credential-form input {
+  flex: 1 1 12rem;
+  min-width: 0;
+  padding: 0.3rem 0.5rem;
+  font-size: var(--text-sm);
+  font-family: var(--font-mono);
+}
+
+.connections .credential-note {
+  flex-basis: 100%;
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+}
+.credential-note.ok {
+  color: var(--ok-text);
+}
+.credential-note.warn {
+  color: var(--warn-text);
+}
+.credential-note.danger {
+  color: var(--danger-text);
 }
 
 .route-list,

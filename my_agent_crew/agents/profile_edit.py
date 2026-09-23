@@ -20,11 +20,11 @@ from my_agent_crew.agents.profile_yaml import parse_profile
 from my_agent_crew.config import Settings
 
 AGENT_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
-# What the scheduler and the Telegram bridge read once at startup and never again.
+# What the scheduler reads once at startup and never again. The Telegram bridge is not
+# here: an edited `telegram` block rebuilds the bot on the spot.
 RESTART_KEYS = {
     "schedules": texts.RESTART_REASON_SCHEDULES,
     "memory_consolidate": texts.RESTART_REASON_SCHEDULES,
-    "telegram": texts.RESTART_REASON_TELEGRAM,
 }
 # Keys naming a path on disk. A profile read from a file may point anywhere — a kit
 # names its markdown by absolute path, and `agent add --workspace` aims an agent at a

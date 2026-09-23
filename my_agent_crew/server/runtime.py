@@ -43,6 +43,9 @@ class Runtime:
     client: httpx.AsyncClient | None = None
     # Agents whose MEMORY.md is being rewritten right now; a second request is a conflict.
     consolidating: set[str] = field(default_factory=set)
+    # Whether the channel was started by the app's lifespan; a rebuilt one follows suit
+    # (`runtime_connections`).
+    channel_live: bool = False
     scheduler: Scheduler = field(init=False)
     # The gate every platform's messages pass through; it shares `agents`, so it grows too.
     inbound: Inbound = field(init=False)
@@ -71,10 +74,12 @@ class Runtime:
         return await self.channel.deliver(conv_id)
 
     def start_channel(self) -> None:
+        self.channel_live = True
         if self.channel is not None:
             self.channel.start()
 
     async def stop_channel(self) -> None:
+        self.channel_live = False
         if self.channel is not None:
             await self.channel.stop()
 

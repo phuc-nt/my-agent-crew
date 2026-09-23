@@ -77,12 +77,42 @@ test("the tools section says which agent has what, and connections names keys wi
 
   await page.getByRole("button", { name: "Kết nối" }).click();
   const panel = page.getByTestId("connections");
-  await expect(panel.getByTestId("keys")).toContainText("OPENROUTER_API_KEY");
-  await expect(panel.getByTestId("keys")).toContainText("BRAVE_API_KEY");
+  await expect(panel.getByTestId("credentials-model")).toContainText("OPENROUTER_API_KEY");
+  await expect(panel.getByTestId("credentials-search")).toContainText("BRAVE_API_KEY");
   await expect(panel.getByTestId("routes")).toContainText("echo");
   await expect(panel.getByTestId("search-backends")).toContainText("firecrawl");
   await expect(panel.getByTestId("search-backends")).toContainText("duckduckgo");
   await expect(panel.getByTestId("telegram-list")).toContainText("TELEGRAM_BOT_TOKEN");
+});
+
+test("a key is set, checked and removed from Connections without its value ever showing", async ({ page }) => {
+  await mockApi(page, { agents: [master] });
+  await page.goto("/#/manage/connections");
+  const brave = page.getByTestId("credential-BRAVE_API_KEY");
+  await expect(brave).toContainText("chưa đặt");
+
+  await brave.getByRole("button", { name: "Đặt" }).click();
+  const field = brave.getByLabel("Giá trị cho BRAVE_API_KEY");
+  await expect(field).toHaveAttribute("type", "password");
+  await field.fill("brave-secret-123");
+  await brave.getByRole("button", { name: "Lưu" }).click();
+  await expect(brave).toContainText("đã đặt");
+  await expect(brave.getByRole("status")).toBeVisible();
+  await expect(page.getByTestId("connections")).not.toContainText("brave-secret-123");
+
+  const router = page.getByTestId("credential-OPENROUTER_API_KEY");
+  await router.getByRole("button", { name: "Kiểm tra" }).click();
+  await expect(router.getByRole("status")).toContainText("Khoá hợp lệ.");
+
+  page.once("dialog", (dialog) => dialog.accept());
+  await brave.getByRole("button", { name: "Xoá" }).click();
+  await expect(brave).toContainText("chưa đặt");
+
+  const add = page.getByTestId("credential-add");
+  await add.getByLabel("Tên biến mới", { exact: true }).fill("goodreads_id");
+  await add.getByLabel("Giá trị cho GOODREADS_ID").fill("42");
+  await add.getByRole("button", { name: "Thêm" }).click();
+  await expect(page.getByTestId("credentials-other")).toContainText("GOODREADS_ID");
 });
 
 test("the editor shows what the agent is actually told, including a persona just written", async ({ page }) => {

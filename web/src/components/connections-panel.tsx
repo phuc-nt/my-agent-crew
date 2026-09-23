@@ -1,42 +1,57 @@
-import type { ConnectionsInfo } from "../api/types";
+import type { ConnectionsInfo, CredentialGroup } from "../api/types";
+import type { CredentialsController } from "../hooks/use-credentials";
 import { vi } from "../i18n/vi";
+import { CredentialAddForm } from "./credential-add-form";
+import { CredentialRow } from "./credential-row";
+import { MetricCard } from "./ui/metric-card";
 
 interface Props {
   connections: ConnectionsInfo;
+  credentials: CredentialsController;
 }
 
 /**
- * What the crew talks to outside itself: the providers it built, the model routes it
- * tries in order, the API keys it found, and the Telegram channels.
+ * What the crew talks to outside itself, one card per kind: model providers, the routes
+ * tried in order, web search, Telegram, and whatever other variables skills read. Each
+ * card carries the keys and hosts that kind needs, set and checked where they are used.
  *
- * Everything here is read-only by design. A key is shown by the name of its environment
- * variable and whether a value was found — never the value, and there is no field to type
- * one into, because a secret typed into a browser would end up in the request log, the
- * profile file and the person's password manager all at once.
+ * Values go one way. A key is typed into a password field, saved to the env file and
+ * applied to the running crew; the page is only ever told whether it is set.
  */
-export function ConnectionsPanel({ connections }: Props) {
+export function ConnectionsPanel({ connections, credentials }: Props) {
+  const t = vi.connectionsPage;
+  const rows = (group: CredentialGroup) => {
+    const items = credentials.info?.items.filter((item) => item.group === group) ?? [];
+    if (items.length === 0) return null;
+    return (
+      <ul className="metric-list" data-testid={`credentials-${group}`}>
+        {items.map((item) => (
+          <CredentialRow key={item.name} item={item} credentials={credentials} />
+        ))}
+      </ul>
+    );
+  };
+  const listNote =
+    !credentials.info && <p className="muted">{credentials.error ?? t.loading}</p>;
+
   return (
     <div className="connections" data-testid="connections">
-      <p className="muted">{vi.connectionsPage.hint}</p>
+      {credentials.info && <p className="muted">{t.hint(credentials.info.file)}</p>}
+      {listNote}
 
-      <section>
-        <h3>{vi.connectionsPage.providers}</h3>
+      <MetricCard title={t.providers}>
         <div className="row wrap" data-testid="providers">
+          <span className="muted">{t.providersBuilt}:</span>
           {connections.providers.map((provider) => (
             <span key={provider.name} className="badge ok">
               {provider.name}
             </span>
           ))}
         </div>
-        {connections.ollama_base_url && (
-          <p className="muted" data-testid="ollama-base-url">
-            {vi.connectionsPage.ollamaAt(connections.ollama_base_url)}
-          </p>
-        )}
-      </section>
+        {rows("model")}
+      </MetricCard>
 
-      <section>
-        <h3>{vi.connectionsPage.routes}</h3>
+      <MetricCard title={t.routes}>
         <ol className="route-list" data-testid="routes">
           {connections.routes.map((route, i) => (
             <li key={`${route.provider}/${route.model}/${i}`}>
@@ -44,12 +59,9 @@ export function ConnectionsPanel({ connections }: Props) {
             </li>
           ))}
         </ol>
-      </section>
-
-      <section>
-        <h3>{vi.connectionsPage.visionRoutes}</h3>
+        <h4 className="connections-subtitle">{t.visionRoutes}</h4>
         {connections.vision_routes.length === 0 ? (
-          <p className="muted">{vi.connectionsPage.noVisionRoutes}</p>
+          <p className="muted">{t.noVisionRoutes}</p>
         ) : (
           <ol className="route-list" data-testid="vision-routes">
             {connections.vision_routes.map((route, i) => (
@@ -59,64 +71,54 @@ export function ConnectionsPanel({ connections }: Props) {
             ))}
           </ol>
         )}
-      </section>
+        <p className="muted">{t.routesHint}</p>
+      </MetricCard>
 
-      <section>
-        <h3>{vi.connectionsPage.search}</h3>
-        <ol className="route-list" data-testid="search-backends">
+      <MetricCard title={t.search}>
+        <div className="row wrap" data-testid="search-backends">
+          <span className="muted">{t.searchOrder}:</span>
           {connections.search_backends.map((backend, i) => (
-            <li key={backend}>
-              <code>{backend}</code>
-              {i === 0 && <span className="badge ok">1</span>}
-            </li>
+            <span key={backend} className={`badge${i === 0 ? " ok" : ""}`}>
+              {i + 1}. {backend}
+            </span>
           ))}
-        </ol>
-        <p className="muted">
-          {connections.firecrawl_base_url
-            ? vi.connectionsPage.firecrawlAt(connections.firecrawl_base_url)
-            : vi.connectionsPage.firecrawlOff}
-        </p>
-        <p className="muted">{vi.connectionsPage.searchHint}</p>
-      </section>
+        </div>
+        {rows("search")}
+        <p className="muted">{t.searchHint}</p>
+      </MetricCard>
 
-      <section>
-        <h3>{vi.connectionsPage.keys}</h3>
-        <ul className="key-list" data-testid="keys">
-          {connections.keys.map((key) => (
-            <li key={key.name}>
-              <code>{key.name}</code>
-              <span className={`badge ${key.present ? "ok" : ""}`}>
-                {key.present ? vi.connectionsPage.present : vi.connectionsPage.absent}
-              </span>
-            </li>
-          ))}
-        </ul>
-        <p className="muted">{vi.connectionsPage.keysHint}</p>
-      </section>
-
-      <section>
-        <h3>{vi.connectionsPage.telegram}</h3>
+      <MetricCard title={t.telegram}>
         {connections.telegram.length === 0 ? (
-          <p className="muted">{vi.connectionsPage.noTelegram}</p>
+          <p className="muted">{t.noTelegram}</p>
         ) : (
-          <ul className="key-list" data-testid="telegram-list">
-            {connections.telegram.map((channel) => (
-              <li key={channel.agent_id}>
-                <code>{channel.agent_id}</code>
-                <span className="muted">
-                  {vi.connectionsPage.tokenEnv}: <code>{channel.token_env}</code>
-                </span>
-                <span className={`badge ${channel.configured ? "ok" : ""}`}>
-                  {channel.configured
-                    ? vi.connectionsPage.configured
-                    : vi.connectionsPage.notConfigured}
-                </span>
-                {channel.ignored && <span className="badge warn">{vi.connectionsPage.ignored}</span>}
-              </li>
-            ))}
-          </ul>
+          <>
+            <ul className="key-list" data-testid="telegram-list">
+              {connections.telegram.map((channel) => (
+                <li key={channel.agent_id}>
+                  <code>{channel.agent_id}</code>
+                  <span className="muted">
+                    → <code>{channel.token_env}</code>
+                  </span>
+                  <span className={`badge ${channel.configured ? "ok" : "warn"}`}>
+                    {channel.configured ? t.configured : t.notConfigured}
+                  </span>
+                  {channel.ignored && <span className="badge warn">{t.ignored}</span>}
+                </li>
+              ))}
+            </ul>
+            {rows("telegram")}
+            <p className="muted">{t.telegramHint}</p>
+          </>
         )}
-      </section>
+      </MetricCard>
+
+      {credentials.info && (
+        <MetricCard title={t.other}>
+          <p className="muted">{t.otherHint}</p>
+          {rows("other") ?? <p className="muted">{t.noOther}</p>}
+          <CredentialAddForm credentials={credentials} />
+        </MetricCard>
+      )}
     </div>
   );
 }

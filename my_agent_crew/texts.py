@@ -189,10 +189,9 @@ PROFILE_KEY_NEEDS_LIST = "Khoá {key} phải là một danh sách."
 PATH_OUTSIDE_HOME = "Đường dẫn {path} nằm ngoài thư mục nhà của đội."
 MANIFEST_BROKEN = "Tệp agent.yaml hỏng, sửa thẳng tệp rồi thử lại: {error}"
 MANIFEST_NOT_A_MAPPING = "Tệp {path} phải là một ánh xạ khoá–giá trị."
-# Xếp lịch và kênh Telegram chỉ dựng một lần lúc khởi động, nên sửa xong vẫn phải
+# Xếp lịch chỉ dựng một lần lúc khởi động, nên sửa xong vẫn phải
 # khởi động lại mới có hiệu lực — nói rõ thay vì để người dùng chờ một việc không chạy.
 RESTART_REASON_SCHEDULES = "Lịch chạy mới cần khởi động lại máy chủ."
-RESTART_REASON_TELEGRAM = "Kênh Telegram cần khởi động lại máy chủ."
 NO_USABLE_ROUTE = "Không có tuyến nào dùng được (thiếu khoá API cho provider): {routes}"
 FILE_OUTSIDE_WORKSPACE = "Tệp nằm ngoài thư mục làm việc của agent."
 # Names the provider, because which model went quiet is the one thing that makes

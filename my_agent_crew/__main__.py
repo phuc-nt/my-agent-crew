@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 from pathlib import Path
 
 import uvicorn
 
 from my_agent_crew.agents.templates_cli import add_template, list_templates
-from my_agent_crew.config import load_settings
+from my_agent_crew.config import home_from, load_settings
+from my_agent_crew.env_file import load_env_file
 from my_agent_crew.server import build_runtime, create_app
 
 
@@ -64,6 +66,9 @@ def _add(args: argparse.Namespace) -> int:
 
 
 def _serve(args: argparse.Namespace) -> None:
+    # Keys saved from the web live in the home's env file; read it here too, so a server
+    # started by hand sees them the same as one started by the launchd script.
+    load_env_file(home_from(os.environ), os.environ)
     settings = load_settings()
     runtime = build_runtime(settings)
     app = create_app(runtime)

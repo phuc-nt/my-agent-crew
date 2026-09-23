@@ -15,7 +15,7 @@ interface Props {
 }
 
 /**
- * Machine configuration, read-only, as a grid of summary cards: how the install is wired,
+ * Machine configuration, read-only here, as a grid of summary cards: how the install is wired,
  * which models answer, which keys are present, who is on the crew, and what the tools and
  * skills are. Each card answers one question at a glance; where a thing is changed
  * elsewhere, the card says so with a link instead of repeating that section's list.
@@ -139,6 +139,7 @@ export function SettingsPanel({ settings, agents = [], onClose, onNavigate }: Pr
                   </li>
                 ))}
               </ul>
+              {link("connections", t.openConnections)}
             </MetricCard>
             <MetricCard title={t.tools}>
               <MetricRow

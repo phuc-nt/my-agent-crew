@@ -73,3 +73,18 @@ test("a run opened on its own still fits, timeline and all", async ({ page }) =>
   expect(overflow.offenders).toEqual([]);
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.width);
 });
+
+test("connections fit, keys, host defaults and an open key field included", async ({ page }) => {
+  await mockApi(page, { agents: [defaultAgent, coachAgent] });
+  await page.goto("/#/manage/connections");
+
+  // Opened, a row is at its widest: the field and its two buttons share one line.
+  const router = page.getByTestId("credential-OPENROUTER_API_KEY");
+  await router.getByRole("button", { name: "Thay" }).click();
+  await expect(router.getByLabel("Giá trị cho OPENROUTER_API_KEY")).toBeVisible();
+  await expect(page.getByTestId("credential-OLLAMA_BASE_URL")).toContainText("11434");
+
+  const overflow = await widestOverflow(page);
+  expect(overflow.offenders).toEqual([]);
+  expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.width);
+});

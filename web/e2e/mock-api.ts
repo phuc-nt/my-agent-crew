@@ -87,6 +87,14 @@ export const connections = {
   telegram: [{ agent_id: "default", token_env: "TELEGRAM_BOT_TOKEN", configured: true, ignored: false }],
 };
 
+/** The keys the Connections page lists, as the server describes them: never a secret's value. */
+export const credentialItems = [
+  { name: "OPENROUTER_API_KEY", group: "model", secret: true, url: false, present: true, source: "file", checkable: true },
+  { name: "OLLAMA_BASE_URL", group: "model", secret: false, url: true, present: false, source: null, checkable: true, value: "", default: "http://127.0.0.1:11434/v1" },
+  { name: "BRAVE_API_KEY", group: "search", secret: true, url: false, present: false, source: null, checkable: false },
+  { name: "TELEGRAM_BOT_TOKEN", group: "telegram", secret: true, url: false, present: true, source: "file", checkable: true, agents: ["default"] },
+];
+
 export const settings = {
   home: "/h",
   workspace_dir: "/h/workspace",
@@ -148,6 +156,8 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
   const posted: { path: string; body: unknown }[] = [];
   /** Persona bodies written by PUT, keyed "<agent>/<name>". */
   const personaFiles = new Map<string, string>();
+  const credentials: Array<Record<string, unknown> & { name: string; present: boolean; secret: boolean; group: string }> =
+    credentialItems.map((c) => ({ ...c }));
   let created = conversations.length;
   await page.route(/^https?:\/\/[^/]+\/api\//, async (route: Route) => {
     const url = new URL(route.request().url());
@@ -182,6 +192,33 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
     }
     if (path === "/tools") return json(options.tools ?? registryTools);
     if (path === "/connections") return json(connections);
+    const credential = path.match(/^\/credentials(?:\/([^/]+))?(\/check)?$/);
+    if (credential) {
+      const name = credential[1] && decodeURIComponent(credential[1]);
+      const answer = () => json({ file: "/h/env", items: credentials, restart_required: null });
+      if (!name) return answer();
+      const at = credentials.findIndex((c) => c.name === name);
+      if (credential[2]) {
+        if (at < 0 || !credentials[at].present) return json({ detail: `${name} chưa được đặt.` }, 409);
+        return json({ ok: true, detail: "Khoá hợp lệ." });
+      }
+      if (method === "PUT") {
+        const { value } = route.request().postDataJSON() as { value: string };
+        const known = at >= 0 ? credentials[at] : undefined;
+        const next = { ...(known ?? { name, group: "other", secret: true, url: false, checkable: false }), present: true, source: "file" };
+        // Only what is not a secret comes back, as on the server.
+        if (!next.secret) Object.assign(next, { value });
+        if (known) credentials[at] = next;
+        else credentials.push(next);
+        return answer();
+      }
+      if (method === "DELETE") {
+        if (at < 0 || !credentials[at].present) return json({ detail: `${name} chưa được đặt.` }, 404);
+        if (credentials[at].group === "other") credentials.splice(at, 1);
+        else credentials[at] = { ...credentials[at], present: false, source: null, ...(credentials[at].secret ? {} : { value: "" }) };
+        return answer();
+      }
+    }
     // Ahead of the single-agent routes, or the id reads as "reload".
     if (path === "/agents/reload" && method === "POST") return json({ added: [] });
     const persona = path.match(/^\/agents\/([^/]+)\/files\/([^/]+)$/);

@@ -13,6 +13,7 @@ import { RunGroupCard } from "../components/run-timeline";
 import { SettingsPanel } from "../components/settings-panel";
 import { StatsPanel } from "../components/stats-panel";
 import { ToolsMatrix } from "../components/tools-matrix";
+import { useCredentials } from "../hooks/use-credentials";
 import { useRegistry } from "../hooks/use-registry";
 import type { ManageSection } from "../hooks/use-route";
 import { vi } from "../i18n/vi";
@@ -98,6 +99,8 @@ export const NAV_GROUPS: { key: keyof typeof vi.manage.groups; sections: ManageS
  */
 export function ManageScreen(props: Props) {
   const registry = useRegistry();
+  // A saved key can build a provider or a search backend; the registry shows which.
+  const credentials = useCredentials(registry.refresh);
   const editing = props.agents.find((a) => a.id === props.editingAgentId) ?? null;
   const pendingProposals = props.stats?.pending_proposals ?? 0;
   const liveIds = new Set(props.liveRuns.map((r) => r.id));
@@ -274,7 +277,7 @@ export function ManageScreen(props: Props) {
         )}
         {props.section === "connections" &&
           (registry.connections ? (
-            <ConnectionsPanel connections={registry.connections} />
+            <ConnectionsPanel connections={registry.connections} credentials={credentials} />
           ) : (
             <p className="muted">{registry.error ?? vi.manage.loading}</p>
           ))}
