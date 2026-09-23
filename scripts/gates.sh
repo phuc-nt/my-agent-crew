@@ -54,4 +54,4 @@ if ! git diff --exit-code --stat -- my_agent_crew/server/static; then
   exit 1
 fi
 
-printf '\n\033[32m✓ Cả chín cổng xanh. Đẩy được.\033[0m\n'
+printf '\n\033[32m✓ Cả tám cổng xanh. Đẩy được.\033[0m\n'
