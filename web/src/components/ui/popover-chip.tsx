@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { Tone } from "./metric-card";
 
 interface Props {
@@ -23,10 +23,23 @@ interface Props {
  * holds three short pills instead of every control in a row. The card closes on Escape,
  * on a click outside and on a second click of the pill; clicks inside it (a switch
  * being flipped) leave it open so several settings can be changed in one visit.
+ *
+ * Escape is the card's alone while it is open: it is caught before the app's own Escape
+ * shortcut (which folds the activity panel) and hands focus back to the pill, so a
+ * keyboard user closing the card lands where they opened it.
  */
 export function PopoverChip({ label, popoverLabel, tone, dot = false, title, testId, className = "", children }: Props) {
   const [open, setOpen] = useState(false);
   const anchor = useRef<HTMLDivElement>(null);
+  const pill = useRef<HTMLButtonElement>(null);
+  const cardId = useId();
+  const card = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    if (!open || !card.current || !pill.current) return;
+    const room = window.innerHeight - pill.current.getBoundingClientRect().bottom - 24;
+    card.current.style.setProperty("--popover-room", `${Math.max(160, room)}px`);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -34,13 +47,17 @@ export function PopoverChip({ label, popoverLabel, tone, dot = false, title, tes
       if (anchor.current && !anchor.current.contains(event.target as Node)) setOpen(false);
     };
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key !== "Escape") return;
+      event.stopPropagation();
+      setOpen(false);
+      pill.current?.focus();
     };
     document.addEventListener("mousedown", onPointer);
-    document.addEventListener("keydown", onKey);
+    // Capture on the window, so the app's own Escape listener never sees this key.
+    window.addEventListener("keydown", onKey, true);
     return () => {
       document.removeEventListener("mousedown", onPointer);
-      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("keydown", onKey, true);
     };
   }, [open]);
 
@@ -51,6 +68,8 @@ export function PopoverChip({ label, popoverLabel, tone, dot = false, title, tes
         className={`pill${tone ? ` ${tone}` : ""}${open ? " open" : ""} ${className}`.trim()}
         aria-expanded={open}
         aria-haspopup="dialog"
+        aria-controls={open ? cardId : undefined}
+        ref={pill}
         title={title}
         data-testid={testId}
         onClick={() => setOpen((value) => !value)}
@@ -62,7 +81,7 @@ export function PopoverChip({ label, popoverLabel, tone, dot = false, title, tes
         </span>
       </button>
       {open && (
-        <div className="popover" role="dialog" aria-label={popoverLabel}>
+        <div className="popover" id={cardId} ref={card} role="dialog" aria-label={popoverLabel}>
           {children}
         </div>
       )}

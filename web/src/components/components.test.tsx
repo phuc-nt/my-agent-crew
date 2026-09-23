@@ -69,6 +69,23 @@ describe("BudgetIndicator", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
+  // The app folds its activity panel on Escape too; closing a card must not do that as
+  // well, and the keyboard user lands back on the pill they opened it from.
+  it("keeps Escape to itself and hands focus back to the pill", async () => {
+    const appEscape = vitest.fn();
+    window.addEventListener("keydown", appEscape);
+    render(<BudgetIndicator spentUsd={0.25} capUsd={1} unknownCostCalls={0} />);
+    const pill = screen.getByTestId("budget");
+    await userEvent.click(pill);
+    expect(pill).toHaveAttribute("aria-controls", screen.getByRole("dialog").id);
+
+    await userEvent.keyboard("{Escape}");
+    window.removeEventListener("keydown", appEscape);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(appEscape).not.toHaveBeenCalled();
+    expect(pill).toHaveFocus();
+  });
+
   it("marks unlimited caps and unknown-cost calls", async () => {
     render(<BudgetIndicator spentUsd={0} capUsd={0} unknownCostCalls={3} />);
     expect(screen.getByTestId("budget")).toHaveTextContent(vi.unlimited);

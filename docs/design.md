@@ -209,7 +209,9 @@ when work starts. Narrower, it folds into a one-line strip between the thread an
 `matchMedia` (jsdom) it answers `false`, so unit tests see the strip. What belongs to the whole
 crew lives on a manage screen of its own (`#/manage/<section>`) rather than in a rail beside the
 thread — keeping them side by side made the crew's work and the conversation's work look like
-the same thing. Its sections: activity (live runs, and an attention centre for runs that wait for
+the same thing. Its nav groups the sections into watch (activity, approvals, costs), crew
+(crew, tools, jobs, memory) and system (connections, settings); on a phone the groups flatten
+into one sideways-scrolling row. Its sections: activity (live runs, and an attention centre for runs that wait for
 approval, failed or were halted), approvals (decided requests with their outcome — approved,
 denied, expired), crew, tools, jobs (next/last run, a run-now button, a pause/resume switch and
 the job's run history on demand), memory, costs by agent, model and day — where the last seven
@@ -224,8 +226,19 @@ percentage, because nothing in the run data says how many steps are still to com
 percentage would be invented. A run that has settled says how it ended instead; a finished run
 claiming to be thinking reads as a hang.
 
+The chat header is the title and three pills: spend against the cap, options, and the crew
+count. A pill carries the headline and opens a card with the detail (`PopoverChip`): the spend
+card has the bar, what is left and the delegated share; the options card holds the autonomous
+switch, the optional skills as switches and the always-allowed tools, each with a revoke link.
+The card closes on Escape (caught before the app's own Escape shortcut, focus back on the pill)
+or a click outside; clicks inside keep it open. Cards everywhere share one vocabulary from
+`components/ui/metric-card.tsx` — a row is icon, label, ⓘ hint, a right-aligned mono value, an
+optional thin bar and a coloured subline — so the activity column opens on a summary card
+(spend, steps, delegated runs, models) and settings is a set of read-only summary cards that
+link to the section where a thing is changed instead of repeating its list.
+
 The approval bar shows the deadline of the pending request and an "always allow" button next to
-approve/deny; the header lists the always-allowed tools as chips that revoke on click. An error
+approve/deny. An error
 boundary keeps a rendering crash from taking the chat down with it. (Ideas for the run view were
 borrowed from openhuman's session view — no code.)
 

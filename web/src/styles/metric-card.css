@@ -316,7 +316,9 @@ button.pill.accent {
   right: 0;
   z-index: 20;
   width: min(22rem, calc(100vw - 2 * var(--space-4)));
-  max-height: min(70vh, 32rem);
+  /* --popover-room is the height left under the pill, measured on opening: a pill low on
+     a phone (the sidebar strip sits above it) must not push the card's end off-screen. */
+  max-height: min(70vh, 32rem, var(--popover-room, 100vh));
   overflow-y: auto;
   display: flex;
   flex-direction: column;

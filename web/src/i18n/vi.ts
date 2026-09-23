@@ -1,4 +1,7 @@
 // Every user-facing string lives here; identifiers stay English.
+/** Said of a tool that asks before it runs; used on its own and inside the tools summary. */
+const requiresApproval = "cần duyệt";
+
 export const vi = {
   appName: "My Agent Crew",
   newConversation: "Cuộc trò chuyện mới",
@@ -31,8 +34,6 @@ export const vi = {
     title: "Chi phí cuộc trò chuyện",
     spent: "Đã tiêu",
     spentHint: "Chi phí model của cuộc này, đã gồm mọi việc nó giao cho đồng đội.",
-    cap: "Ngân sách",
-    capHint: "Chạm mức này thì agent dừng trước lượt gọi model kế tiếp.",
     left: (usd: string) => `còn ${usd}`,
     reached: "đã chạm ngân sách",
     delegated: "Việc đã giao",
@@ -327,11 +328,9 @@ export const vi = {
     keys: "Khoá API (chỉ đọc từ biến môi trường)",
     tools: "Công cụ",
     skills: "Kỹ năng có sẵn",
-    paths: "Đường dẫn",
-    agents: "Agent đã cấu hình",
     crew: "Đội agent",
     system: "Hệ thống",
-    toolsSummary: (total: number, gated: number) => `${total} · ${gated} cần duyệt`,
+    toolsSummary: (total: number, gated: number) => `${total} · ${gated} ${requiresApproval}`,
     toolsHint: "Công cụ nào agent nào dùng được: xem ở mục Công cụ.",
     openTools: "Xem theo agent →",
     openCrew: "Sửa đội →",
@@ -340,7 +339,7 @@ export const vi = {
   },
   keyPresent: "đã có",
   keyMissing: "chưa có",
-  requiresApproval: "cần duyệt",
+  requiresApproval,
   home: "Thư mục cấu hình",
   workspace: "Thư mục làm việc",
   usersDir: "Thư mục ghi nhớ chung",

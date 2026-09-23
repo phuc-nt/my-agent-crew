@@ -3,8 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi as vitest } from "vitest";
 import { vi } from "../i18n/vi";
 import { FakeBackend, fakeAgent, fakeRun } from "../test/fake-backend";
-import { ManageScreen } from "./manage-screen";
-import type { ManageSection } from "../hooks/use-route";
+import { ManageScreen, NAV_GROUPS } from "./manage-screen";
+import { MANAGE_SECTIONS, type ManageSection } from "../hooks/use-route";
 
 const name = (id: string) => (id === "coach" ? "HLV" : "Agent");
 
@@ -155,4 +155,10 @@ describe("the manage screen", () => {
     show("tools");
     expect(await screen.findByTestId("tools-matrix")).toBeInTheDocument();
   });
+});
+
+// A section reachable by URL but missing from the grouped nav would be one nobody finds.
+it("puts every manage section in exactly one nav group", () => {
+  const grouped = NAV_GROUPS.flatMap((group) => group.sections);
+  expect([...grouped].sort()).toEqual([...MANAGE_SECTIONS].sort());
 });
