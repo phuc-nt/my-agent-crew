@@ -1,9 +1,11 @@
 # Memory
 
+**Phiên bản**: 0.5.0 (+ chưa phát hành) · **Cập nhật**: 2026-09-24
+
 Memory is Markdown on disk, the same shape a person could keep by hand. Nothing is
 embedded or summarised behind the agent's back; what the model reads is what is on disk.
 Source of truth: `agents/context.py`, `memory/user_store.py`, `memory/agent_store.py`,
-`tools/memory.py`.
+`tools/memory.py`, and for the wiki `memory/wiki_store.py`, `memory/wiki_links.py`, `memory/wiki_lint.py`.
 
 It comes in two scopes:
 
@@ -286,7 +288,8 @@ differences are deliberate:
 Tests: `test_tools_memory.py`, `test_tools_memory_user.py`,
 `test_agent_context.py`, `test_memory_user_store.py`, `test_memory_agent_store.py`,
 `test_memory_proposals_apply.py`, `test_server_memory_api.py`,
-`test_memory_consolidate.py`, and for the vault `test_wiki_store.py`,
+`test_memory_consolidate.py`, `test_memory_conversation_title.py`, `test_memory_session_summary.py`,
+`test_memory_search.py`, and for the wiki `test_wiki_store.py`,
 `test_wiki_links.py`, `test_wiki_apply.py`, `test_wiki_plan.py`, `test_wiki_index.py`,
 `test_wiki_lint.py`, `test_wiki_tools.py`, `test_memory_wiki_compile.py`,
 `test_server_wiki_api.py`.

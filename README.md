@@ -255,7 +255,7 @@ xem thấy tiến trình thay vì một vòng xoay.
 ## Phát triển
 
 ```bash
-./scripts/gates.sh               # cả chín cổng CI, dừng ở cổng đỏ đầu tiên (~22 giây)
+./scripts/gates.sh               # mọi cổng CI, dừng ở cổng đỏ đầu tiên (~26 giây)
 ```
 
 Hoặc chạy lẻ từng cổng:

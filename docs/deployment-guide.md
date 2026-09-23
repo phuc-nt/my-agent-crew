@@ -5,7 +5,7 @@ title: Cài đặt, vận hành và publish tài liệu
 
 # Cài đặt, vận hành và publish tài liệu
 
-**Phiên bản**: 0.5.0 · **Cập nhật**: 2026-09-23
+**Phiên bản**: 0.5.0 (+ chưa phát hành) · **Cập nhật**: 2026-09-24
 
 ## 1. Yêu cầu
 
@@ -84,8 +84,13 @@ exec uv run python -m my_agent_crew --host 127.0.0.1 --port 8765
 <!-- ~/Library/LaunchAgents/com.my-agent-crew.server.plist -->
 <key>ProgramArguments</key><array><string>/bin/zsh</string><string>…/run-server.zsh</string></array>
 <key>KeepAlive</key><true/>
+<key>ExitTimeOut</key><integer>45</integer>
 <key>StandardOutPath</key><string>…/logs/server.log</string>
 ```
+
+`ExitTimeOut` phải dài hơn thời gian bot chờ khi dừng (30 s cho lượt đang chạy + 5 s cho lời
+báo "tin bị ngắt"). Mặc định của launchd là 20 s, nên thiếu khoá này thì một lần `kickstart -k`
+giữa lượt dài sẽ SIGKILL trước khi người gửi được báo.
 
 Lệnh hay dùng:
 
@@ -124,11 +129,11 @@ người dùng cài bằng cách clone rồi `uv sync`, nên tag là đủ để
 ### Các bước
 
 ```bash
-# 1. Cổng: chạy đủ chín cổng ở code-standards §4. Không tag khi còn một cổng đỏ.
+# 1. Cổng: chạy mọi cổng CI ở code-standards §4. Không tag khi còn một cổng đỏ.
 
 # 2. Nâng số ở năm chỗ — phải khớp nhau
 #    pyproject.toml · my_agent_crew/__init__.py · web/package.json
-#    + dòng "**Phiên bản**" ở sáu tài liệu chuẩn trong docs/
+#    + dòng "**Phiên bản**" ở mọi tài liệu trong docs/ có dòng này
 grep -rn '"\?version"\?[ =:]' pyproject.toml my_agent_crew/__init__.py web/package.json
 grep -rn '^\*\*Phiên bản\*\*' docs/*.md
 

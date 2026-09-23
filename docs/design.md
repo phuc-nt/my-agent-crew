@@ -1,5 +1,7 @@
 # Design
 
+**Phiên bản**: 0.5.0 (+ chưa phát hành) · **Cập nhật**: 2026-09-24
+
 ## Goal
 
 A single general-purpose agent that a person uses daily through a web UI: chat, let it use tools,
@@ -254,4 +256,7 @@ borrowed from openhuman's session view — no code.)
   from the master's profile block; keep secrets as env-var names in the profile.
 - Credential: a known env var is a row in `server/credential_catalog.py` (group, secret or URL,
   optional check in `server/credential_checks.py`); anything else a skill reads can still be set
-  from Kết nối under "Biến khác".
+  from Kết nối under "Biến khác". Changes are applied instantly: `connection_apply` rebuilds the
+  crew from the new environment and refuses breaking changes (e.g., removing the only key a route
+  needs). `server/local_guard.py` guards every path: `Host` must be an IP, `localhost` or a name in
+  `MY_AGENT_ALLOWED_HOSTS`, and `Origin` must match host:port exactly; the 403 names the host.

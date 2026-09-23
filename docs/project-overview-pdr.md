@@ -5,7 +5,7 @@ title: Tổng quan sản phẩm và yêu cầu
 
 # Tổng quan sản phẩm và yêu cầu (PDR)
 
-**Phiên bản**: 0.5.0 · **Cập nhật**: 2026-09-23
+**Phiên bản**: 0.5.0 (+ chưa phát hành) · **Cập nhật**: 2026-09-24
 
 ## 1. Vấn đề
 
@@ -79,14 +79,37 @@ my-agent-crew: một tiến trình Python, một tệp SQLite, một thư mục 
 | Lộ bí mật qua log hoặc doc | redact, tệp env ngoài repo, quy tắc placeholder trong doc |
 | Một cuộc trò chuyện chạy song song hai lượt | `InboundBusy` 409 |
 
-## 9. Lộ trình
+## 9. Lộ trình và việc còn mở
 
-- Đã: v0.1 một agent + web; v0.2 nhiều agent, delegate, Telegram; v0.3 kit `.agents/`, ảnh qua
-  vision route, album, múi giờ, persona ba tệp, bộ tài liệu này; v0.4 web UI dựng lại quanh việc
-  nhìn thấy agent đang làm gì, và quản lý cả đội trên web; v0.5 hỏi lại, báo tiến độ, gửi tệp,
-  wiki trí nhớ, sandbox ngoại tuyến. Chi tiết: [CHANGELOG](../CHANGELOG.md).
-- Cân nhắc: Telegram cho từng agent; TTL cho lượt delegate; Dockerfile; tìm kiếm trí nhớ tốt hơn;
-  trang xem lại lượt chạy hiện cả lượt con được `delegate`.
+**Hoàn thành**
+
+- v0.1 một agent + web
+- v0.2 nhiều agent, delegate, Telegram
+- v0.3 kit `.agents/`, ảnh qua vision route, album, múi giờ, persona ba tệp, bộ tài liệu
+- v0.4 web UI dựng lại quanh việc nhìn thấy agent đang làm gì, quản lý cả đội trên web
+- v0.5 hỏi lại, báo tiến độ, gửi tệp, wiki trí nhớ, sandbox ngoại tuyến
+
+Chi tiết mỗi bản: [CHANGELOG](../CHANGELOG.md).
+
+**Việc còn mở**
+
+- **Provider `fake` (echo) trong đội thật.** Trình sửa tuyến không cho thêm `fake` vào đội chưa
+  dùng nó, nhưng `config.yaml` sửa tay vẫn nhận, và đội đó sẽ trả lời bằng tiếng vọng. Chưa
+  quyết: giữ `fake` cho demo/test, hay chỉ bật nó khi không có provider thật nào.
+- **Báo "tin bị ngắt" có thể không kịp gửi dưới launchd.** Khi dừng, bot chờ lượt đang chạy tới
+  30 s (`STOP_GRACE_SECONDS`) rồi mới báo (tối đa 5 s). launchd mặc định chỉ đợi 20 s sau
+  SIGTERM rồi SIGKILL, nên plist cần `ExitTimeOut` ≥ 40, xem
+  [deployment-guide §5](deployment-guide.md).
+- **Trình sửa tuyến chưa có nút đổi thứ tự.** Muốn đưa tuyến lên trước thì phải xoá rồi thêm lại.
+- **Server không có đăng nhập.** Chỉ hàng rào Host/Origin chặn trang lạ; ai tới được cổng là
+  điều khiển được đội. Chỉ dùng cục bộ hoặc trong tailnet riêng (`MY_AGENT_ALLOWED_HOSTS`).
+- **Tài liệu chỉ có tiếng Việt.**
+- **Cân nhắc:**
+  - Telegram riêng cho từng agent; hiện chỉ master có bot.
+  - TTL cho lượt `delegate`.
+  - Dockerfile.
+  - Tìm kiếm trí nhớ tốt hơn so khớp từ.
+  - Trang xem lại lượt chạy hiện cả lượt con được `delegate`.
 
 ## 10. Thuật ngữ
 

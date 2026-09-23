@@ -1,5 +1,7 @@
 # Agents
 
+**Phiên bản**: 0.5.0 (+ chưa phát hành) · **Cập nhật**: 2026-09-24
+
 An **agent** is one folder under `MY_AGENT_HOME/agents/<id>/` with an `agent.yaml` and a
 few Markdown files. Every agent runs the same loop (`agent/loop.py`); the profile only
 changes its inputs: persona, memory, workspace, skills, model routes, budget and schedules.

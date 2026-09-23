@@ -1,5 +1,7 @@
 # Channels
 
+**Phiên bản**: 0.5.0 (+ chưa phát hành) · **Cập nhật**: 2026-09-24
+
 A channel lets the person talk to the crew somewhere other than the web UI. Today that is
 Telegram (`channels/`). Every platform hands a message to the same gate, `Inbound`
 (`inbound.py`): it finds the agent, opens or reuses today's conversation on that channel,

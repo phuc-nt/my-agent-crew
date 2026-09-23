@@ -5,7 +5,7 @@ title: Quy ước code
 
 # Quy ước code
 
-**Phiên bản**: 0.5.0 · **Cập nhật**: 2026-09-23
+**Phiên bản**: 0.5.0 (+ chưa phát hành) · **Cập nhật**: 2026-09-24
 
 ## 1. Python
 
@@ -32,11 +32,11 @@ title: Quy ước code
 
 ## 4. Cổng phải chạy trước khi commit
 
-Chín cổng dưới đây **là chính xác những gì CI chạy**, theo đúng thứ tự trong
-[`.github/workflows/ci.yml`](../.github/workflows/ci.yml). Chạy đủ cả chín ở máy trước khi đẩy;
+Tám cổng dưới đây **là chính xác những gì CI chạy**, theo đúng thứ tự trong
+[`.github/workflows/ci.yml`](../.github/workflows/ci.yml). Chạy đủ cả tám ở máy trước khi đẩy;
 cổng nào bỏ qua thì CI sẽ là nơi phát hiện, và đó là lúc đắt nhất.
 
-Một lệnh chạy hết, dừng ở cổng đỏ đầu tiên và gọi tên nó — **~22 giây**:
+Một lệnh chạy hết, dừng ở cổng đỏ đầu tiên và gọi tên nó — **~26 giây**:
 
 ```bash
 ./scripts/gates.sh
@@ -92,4 +92,4 @@ Sửa định dạng bằng `uv run ruff format .` rồi **chạy lại `pytest`
 
 ## Câu hỏi mở
 
-- Chưa có pre-commit hook: `scripts/gates.sh` vẫn phải tự gõ. Gắn vào hook thì mọi commit nhỏ cũng chờ ~22 giây, nên hiện để người chạy tự quyết lúc nào.
+- Chưa có pre-commit hook: `scripts/gates.sh` vẫn phải tự gõ. Gắn vào hook thì mọi commit nhỏ cũng chờ ~26 giây, nên hiện để người chạy tự quyết lúc nào.

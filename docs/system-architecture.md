@@ -5,9 +5,9 @@ title: Kiến trúc hệ thống — giải phẫu một agent harness
 
 # Kiến trúc hệ thống: giải phẫu một agent harness
 
-**Phiên bản**: 0.5.0 · **Cập nhật**: 2026-09-23
+**Phiên bản**: 0.5.0 (+ chưa phát hành) · **Cập nhật**: 2026-09-24
 
-Tài liệu này dành cho người chưa từng xây agent harness. Nó trả lời ba câu hỏi: harness gồm những gì, mỗi phần làm việc gì, và chúng khớp với nhau ra sao khi một tin nhắn đi qua. Mọi ví dụ lấy từ một bộ cài thật của my-agent-crew: một master "Trợ lý", hai agent việc thật (Pong, HLV sức khoẻ) và tám agent vai trò kỹ thuật, tất cả chạy trong một tiến trình trên máy cá nhân, nói chuyện qua web UI và một bot Telegram.
+Tài liệu này dành cho người chưa từng xây agent harness. Nó trả lời ba câu hỏi: harness gồm những gì, mỗi phần làm việc gì, và chúng khớp với nhau ra sao khi một tin nhắn đi qua. Mọi ví dụ lấy từ một bộ cài thật của my-agent-crew: một master "Trợ lý", ba agent việc cá nhân (Pong, HLV sức khoẻ, sổ cái) và ba agent kỹ thuật (lập trình, cố vấn, nghiên cứu), tất cả chạy trong một tiến trình trên máy cá nhân, nói chuyện qua web UI và một bot Telegram.
 
 Năm sơ đồ trong tài liệu là **bản động**: nhúng thẳng vào trang, có animation và thanh chuyển view — bấm tên view để xem từng lớp. Nếu trang được đọc ở nơi không chạy được HTML nhúng (GitHub, trình đọc markdown), dùng link "Mở riêng" hoặc ảnh tĩnh SVG ngay dưới mỗi sơ đồ. Gallery cả năm: [diagrams/index.html](diagrams/index.html); cách publish ở [deployment-guide.md §9](deployment-guide.md#9-publish-bộ-doc-để-sơ-đồ-archify-chuyển-động).
 
@@ -36,8 +36,8 @@ Sơ đồ chia làm ba vùng. Đọc từ trái sang phải: người dùng đi 
 
 ### 2.1 Kênh giao tiếp
 
-- **Web UI** (`web/`, React, được đóng gói vào `my_agent_crew/server/static`): chat, xem run, duyệt tool, sửa trí nhớ, xem job. Nói chuyện với server qua REST + SSE.
-- **Telegram** (`channels/telegram_*`): một poller `getUpdates` cho bot của master. Tin nhắn, ảnh, album được đưa về cùng cổng `/api/inbound` như web. Người dùng chỉ chat với master; đội trả lời qua master.
+- **Web UI** (`web/`, React, được đóng gói vào `my_agent_crew/server/static`): chat, xem run, duyệt tool, sửa trí nhớ, xem job, quản lý kết nối (khoá API, Telegram, host). Nói chuyện với server qua REST + SSE. Mọi path đi qua `local_guard`: `Host` phải là IP, `localhost` hoặc tên trong `MY_AGENT_ALLOWED_HOSTS`, `Origin` (nếu có) phải khớp đúng host:port; 403 nêu tên host bị từ chối. Server không có đăng nhập.
+- **Telegram** (`channels/telegram_*`): một poller `getUpdates` cho bot của master. Tin nhắn, ảnh, album được đưa về cùng cổng `/api/inbound` như web. Người dùng chỉ chat với master; đội trả lời qua master. Khi bot dừng (đổi token, tắt server), lượt đang chạy được chờ tới 30 s; quá hạn thì bị cắt và chat được báo để người gửi lại.
 - **ActivityHub** (`activity/hub.py`): không phải kênh vào mà là kênh ra. Mỗi lượt là một *run* gồm các *step* (model call, tool call, approval…); hub phát chúng qua SSE `/api/activity/stream` để web hiển thị đúng lúc.
 
 ### 2.2 Inbound: một cổng vào
@@ -133,7 +133,7 @@ Trên web UI, toàn bộ chuỗi này hiện thành một run với các step l�
 
 *Ba view: Từ yêu cầu đến trả lời, Ai làm gì, Cổng và giới hạn. [Mở riêng](diagrams/delegation-workflow.html) · [ảnh tĩnh](diagrams/delegation-workflow.svg).*
 
-Trong bộ cài thật, master "Trợ lý" có `delegates:` gồm 10 agent:
+Trong bộ cài thật, master "Trợ lý" để trống `delegates:`, nghĩa là giao được cho cả sáu agent còn lại:
 
 | Agent | Vai trò | Nguồn |
 |---|---|---|

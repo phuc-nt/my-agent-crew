@@ -5,7 +5,7 @@ title: Bản đồ mã nguồn
 
 # Bản đồ mã nguồn
 
-**Phiên bản**: 0.5.0 · **Cập nhật**: 2026-09-23
+**Phiên bản**: 0.5.0 (+ chưa phát hành) · **Cập nhật**: 2026-09-24
 
 Đọc [system-architecture.md](system-architecture.md) trước để biết các khối là gì; tài liệu này chỉ nói khối nào nằm ở tệp nào.
 
@@ -36,13 +36,13 @@ my-agent-crew/
 | `llm/` | provider | `provider.py` (`Provider`, `ProviderChain`), `openai_compat.py` (lõi chung), `openrouter.py`, `ollama.py`, `fake.py`, `types.py` |
 | `memory/` | trí nhớ | `agent_store.py` (ghi chú ngày), `user_store.py` (facts), `consolidate.py` (7 ngày → đề xuất), `proposals_apply.py`, `search.py`, `session_summary.py`, `conversation_title.py`; vault wiki: `wiki_store.py`, `wiki_slug.py`, `wiki_links.py`, `wiki_index.py`, `wiki_plan.py`, `wiki_compile.py` (dựng từ ghi chú), `wiki_apply.py`, `wiki_lint.py`, `wiki_reports.py` |
 | `scheduler/` | cron | `cron.py`, `jobs.py`, `runner.py` |
-| `server/` | FastAPI | `app.py`, `runtime.py`, `runtime_build.py`, `agent_assembly.py` (`build_providers`), `tool_assembly.py`, `deps.py`, `agent_edit_common.py` (khoá ghi + helper dùng chung), `routes_*.py` |
+| `server/` | FastAPI | `app.py`, `runtime.py`, `runtime_build.py`, `runtime_connections.py`, `agent_assembly.py` (`build_providers`), `tool_assembly.py`, `deps.py`, `agent_edit_common.py` (khoá ghi + helper dùng chung), `connection_apply.py` (dựng thử cả đội rồi mới ghi thay đổi kết nối), `credential_catalog.py` (danh mục credential đã biết), `credential_checks.py` (kiểm tra Tavily/Brave/Ollama), `env_file.py` (ghi `<home>/env`), `local_guard.py` (hàng rào Host/Origin cho mọi path), `routes_model_routes.py` (tuyến chung ↔ `config.yaml`), `routes_*.py` |
 | `skills/` | skill md | `loader.py` (`always`, chỉ mục) |
 | `store/` | SQLite | `db.py`, `schema.py`, `models.py`, `messages.py`, `runs.py`, `approvals.py`, `usage.py`, `job_state.py`, `memory_proposals.py`, `conversation_lookup.py` |
 | `tools/` | tool | `registry.py` (`ToolRegistry`), `workspace*.py`, `shell.py`, `shell_sandbox.py` (profile `sandbox-exec` khi `shell_network: false`), `shell_temp_paths.py`, `web.py`, `web_providers.py` (firecrawl → Brave → Tavily → DuckDuckGo), `output_shaping.py` + `output_summary.py` (rút gọn kết quả dài), `memory.py`, `memory_user.py`, `wiki.py`, `delegate.py`, `ask_user.py`, `progress_note.py`, `pdf.py`, `image.py`, `skills.py`, `hooks.py` |
 | `config.py`, `config_parse.py` | `Settings` từ env + `config.yaml` | — |
 | `clock.py` | giờ và múi giờ | — |
-| `texts.py`, `texts_*.py` | mọi chuỗi tiếng Việt của backend | `texts_delegate.py`, `texts_image.py`, `texts_kit.py`, `texts_telegram.py` |
+| `texts.py`, `texts_*.py` | mọi chuỗi tiếng Việt của backend | `texts_credentials.py`, `texts_delegate.py`, `texts_image.py`, `texts_kit.py`, `texts_telegram.py` |
 | `__main__.py` | CLI | `python -m my_agent_crew`, `agent list-templates`, `agent add` |
 
 ### Event của một lượt (`agent/events.py`)
@@ -73,6 +73,7 @@ my-agent-crew/
 | Tệp tính cách | `PUT /api/agents/{id}/files/{name}`, `GET …/{id}/prompt` (lời nhắc hệ thống đã ghép), `POST /api/agents/reload` |
 | Tool & kết nối | `GET /api/tools`, `GET /api/connections` |
 | Khoá & biến môi trường | `GET /api/credentials`, `PUT/DELETE …/{name}` (ghi `<home>/env`, áp dụng ngay), `POST …/{name}/check`; không trả giá trị bí mật; thay đổi làm đội không chạy được (vd. gỡ khoá duy nhất của route) bị từ chối 409, không ghi gì |
+| Tuyến mô hình chung | `PUT /api/connections/routes` (lưu vào `config.yaml` giữ chú thích; khi `MY_AGENT_ROUTES` đặt thì chỉ xem, không sửa) |
 | Trí nhớ agent | `GET/PUT /api/agents/{id}/memory`, `GET/PUT …/memory/notes/{day}`, `POST …/memory/consolidate` |
 | Wiki | `GET /api/agents/{id}/memory/wiki`, `GET/PUT/DELETE …/wiki/pages/{slug}`, `GET …/wiki/report`, `POST …/wiki/compile` |
 | Trí nhớ người dùng | `GET/PUT /api/memory/user`, `…/user/facts/{name}`, `GET /api/memory/proposals[/{id}]`, `GET /api/memory/search` |
@@ -94,9 +95,9 @@ chịu được cả hai hình dạng — duyệt một chuỗi theo chỉ số 
 |---|---|
 | `api/` | `client.ts`, `sse.ts`, `types.ts`, `activity-types.ts` |
 | `screens/` | `chat-screen.tsx` (khung chat), `manage-screen.tsx` (khu quản lý, `LABELS` là tên chín tab) |
-| `hooks/` | `use-activity`, `use-agents`, `use-agent-draft`, `use-auto-scroll`, `use-conversations`, `use-media-query` (cột hoạt động hay dải một dòng), `use-memory`, `use-wiki`, `use-registry`, `use-route` (hash route + `MANAGE_SECTIONS`), `use-shortcuts`, `use-thread` |
+| `hooks/` | `use-activity`, `use-agents`, `use-agent-draft`, `use-auto-scroll`, `use-conversations`, `use-credentials`, `use-media-query` (cột hoạt động hay dải một dòng), `use-memory`, `use-wiki`, `use-registry`, `use-route` (hash route + `MANAGE_SECTIONS`), `use-shortcuts`, `use-thread` |
 | `state/` | reducer cho thread và activity |
-| `components/` | `message-thread`, `markdown-body`, `composer`, `conversation-list`, `conversation-header`, `conversation-search`, `editable-title`, `conversation-activity`, `approval-bar`, `approval-history`, `run-timeline`, `run-progress-header`, `run-replay`, `tool-call-card`, `empty-state`, `crew-panel`, `add-agent-form`, `agent-editor/`, `tools-matrix`, `connections-panel`, `jobs-panel`, `job-run-history`, `memory-*`, `wiki-section`, `wiki-page-view`, `question-card`, `settings-panel`, `stats-panel`, `budget-indicator`, `status-line`, `attention-center`, `error-boundary` |
+| `components/` | `message-thread`, `markdown-body`, `composer`, `conversation-list`, `conversation-header`, `conversation-options`, `conversation-search`, `editable-title`, `conversation-activity`, `conversation-activity-summary`, `approval-bar`, `approval-history`, `run-timeline`, `run-progress-header`, `run-replay`, `tool-call-card`, `empty-state`, `crew-panel`, `add-agent-form`, `agent-editor/`, `tools-matrix`, `connections-panel` (đặt/kiểm tra/xoá khoá API, host, Telegram), `credential-row` (một khoá trong danh sách), `credential-add-form` (thêm khoá mới), `global-routes-editor` (sửa tuyến mô hình chung), `route-list-editor` (danh sách tuyến dùng chung với trình sửa agent), `jobs-panel`, `job-run-history`, `memory-*`, `wiki-section`, `wiki-page-view`, `question-card`, `settings-panel`, `stats-panel`, `budget-indicator`, `status-line`, `attention-center`, `error-boundary`, `ui/` (`metric-card`, `popover-chip`: thẻ số liệu và pill mở thẻ) |
 | `lib/` | `delegate-result.ts`, `line-diff.ts`, `run-progress.ts`, `run-rows.ts` |
 | `i18n/vi.ts` | mọi chuỗi tiếng Việt của web |
 | `e2e/` | 11 spec Playwright + `mock-api.ts` |

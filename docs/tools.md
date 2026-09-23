@@ -1,8 +1,11 @@
 # Tools
 
-A tool is a function the model can call during a turn (`tools/registry.py`). Every agent
-gets the same set, assembled in `server/runtime.py` from the `build_*_tools` helpers
-with the agent's workspace and memory paths.
+**Phiên bản**: 0.5.0 (+ chưa phát hành) · **Cập nhật**: 2026-09-24
+
+A tool is a function the model can call during a turn (`tools/registry.py`). Each agent's
+set is assembled in `server/runtime.py` from the `build_*_tools` helpers with the agent's
+workspace and memory paths, then shaped by its profile: `mode: work` adds four tools, a
+vision route adds `image_read`, and a `tools` allow-list caps the result.
 The system prompt lists the available names; the model sees each tool's JSON schema.
 
 ## Common rules

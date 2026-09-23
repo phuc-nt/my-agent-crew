@@ -1,12 +1,14 @@
 # Testing
 
+**Phiên bản**: 0.5.0 (+ chưa phát hành) · **Cập nhật**: 2026-09-24
+
 Three tiers, one contract. Add a row whenever you add a feature.
 
-| Tier | Runs with | Scope |
-|---|---|---|
-| pytest (`tests/`) | `uv run pytest -q` | loop, tools, store, providers, profiles, scheduler, HTTP + SSE |
-| vitest (`web/src/**/*.test.ts(x)`) | `cd web && npm test` | parser, reducers, client, components, full App against an in-memory fake server |
-| Playwright (`web/e2e/`) | `cd web && npm run e2e` | real browser + real Vite dev server, `/api` answered by `page.route` (`e2e/mock-api.ts`) |
+| Tier | Runs with | Scope | Count (2026-09-24) |
+|---|---|---|---|
+| pytest (`tests/`) | `uv run pytest -q` | loop, tools, store, providers, profiles, scheduler, HTTP + SSE | 1084 |
+| vitest (`web/src/**/*.test.ts(x)`) | `cd web && npm test` | parser, reducers, client, components, full App against an in-memory fake server | 418 |
+| Playwright (`web/e2e/`, 11 spec files) | `cd web && npm run e2e` | real browser + real Vite dev server, `/api` answered by `page.route` (`e2e/mock-api.ts`) | 42 |
 
 Guard tests: `tests/test_file_size_budget.py` (≤200 lines), `tests/test_static_spa.py`
 (bundle present and served), CI `git diff --exit-code` on the bundle.
@@ -96,6 +98,19 @@ Guard tests: `tests/test_file_size_budget.py` (≤200 lines), `tests/test_static
 | One chat with the master: the list holds only its conversations and new ones are created for it, a delegate's conversation opens from the attention centre without being listed; `MEDIA:` lines render from `/api/agents/{id}/files` | — | `app-activity.test.tsx` | `the list holds only the master's conversations…` |
 | Echo provider + `/tool` directive | `test_agent_loop.py`, `test_server_api.py` | — | — |
 | Bundle served at `/`, SPA fallback, `/api/*` 404 stays JSON | `test_static_spa.py` | — | — |
+| Wiki vault: store and slugs, `[[links]]` and backlinks, index, compile plan from notes, apply (refuses a page without `sources`, keeps the human part), lint, tools, HTTP | `test_wiki_store.py`, `test_wiki_links.py`, `test_wiki_index.py`, `test_wiki_plan.py`, `test_memory_wiki_compile.py`, `test_wiki_apply.py`, `test_wiki_lint.py`, `test_wiki_tools.py`, `test_server_wiki_api.py` | `wiki-section.test.tsx` | — |
+| `ask_user`: one open question per conversation, answered from web or Telegram, the turn resumes | `test_agent_questions.py`, `test_store_questions.py`, `test_server_questions.py`, `test_channels_telegram_questions.py` | — | `a question the agent asks is answered in the browser…` |
+| `progress_note`: a `note` step without approval, capped at 200 chars | `test_progress_note.py` | `lib/progress-note.test.ts` | — |
+| `pdf_read` and `image_read` | `test_tools_pdf.py`, `test_tools_image.py` | — | — |
+| `FILE:` line sends a document: size cap, allowed suffixes, a bad line is reported in chat | `test_reply_file_line.py` | — | — |
+| `shell_allow_patterns` (order ask → allow → autonomous, wildcard-looking patterns refused) and `shell_network: false` (`sandbox-exec`, writes only under `shell_write_paths` + temp) | `test_shell_allow_patterns.py`, `test_shell_network_sandbox.py`, `test_tools_shell_temp_paths.py` | — | — |
+| Tool output shaping: JSON by structure, text summarised, the run card says which | `test_tool_output_shaping.py`, `test_tool_output_summary.py` | — | — |
+| `web_search` backends firecrawl → Brave → Tavily → DuckDuckGo, `fetch_url` | `test_web_providers.py`, `test_tools_web.py` | — | — |
+| Connections: keys set/replaced/removed in `<home>/env` without values ever returned, applied without restart, a change that breaks the crew refused with 409 before writing | `test_api_credentials.py`, `test_api_credentials_apply.py` | `connections-panel.test.tsx` | `a key is set, checked and removed from Connections…` |
+| Key checks: Tavily `/usage`, Brave one search, 429 told apart from a bad key | `test_credential_checks.py` | `connections-panel.test.tsx` | — |
+| Global routes: `PUT /api/connections/routes` round-trips `config.yaml` with comments, read-only under `MY_AGENT_ROUTES`, `fake` refused for a crew not using it | `test_api_model_routes.py` | `global-routes-editor.test.tsx` | `the routes every agent falls back on are edited and saved` |
+| Host/Origin guard on every path; the 403 names the host and `MY_AGENT_ALLOWED_HOSTS` | `test_local_guard.py` | — | — |
+| Telegram stop: the message in hand gets 30 s, queued ones stay for the next bot, a cut-off turn is told to the chat | `test_telegram_polling.py` | — | — |
 
 ## Live smoke (manual)
 

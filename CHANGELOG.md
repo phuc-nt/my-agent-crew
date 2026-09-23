@@ -31,6 +31,12 @@ bản phát hành, `pyproject.toml` và `web/package.json` luôn cùng số.
   một lần mỗi tên (Origin sai không ghi). Tài liệu nói rõ server không có đăng nhập — đừng mở qua đường hầm công khai.
 - **Từ chối xoá khoá cuối cùng** nêu tuyến dạng `provider:model` và cách gỡ.
 
+### Lưu ý khi nâng cấp
+
+- **Đặt `ExitTimeOut` trong plist launchd** (mẫu trong `docs/deployment-guide.md` dùng 45).
+  Bot chờ lượt đang chạy 30 s rồi mới báo "tin bị ngắt", mà mặc định của launchd chỉ 20 s,
+  nên thiếu khoá này thì `kickstart -k` giữa lượt dài sẽ SIGKILL trước khi kịp báo.
+
 ## [0.5.0] — 2026-09-23
 
 Bản này cho agent thêm cách làm việc với người — hỏi lại, báo đang làm gì, gửi tệp — thêm
