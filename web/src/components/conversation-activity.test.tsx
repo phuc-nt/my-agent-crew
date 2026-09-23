@@ -177,3 +177,45 @@ describe("which runs belong to a chat", () => {
     expect(ids.sort()).toEqual(["child", "parent"]);
   });
 });
+
+describe("the activity column beside a chat on a wide screen", () => {
+  function dock(runs = [fakeRun()]) {
+    return render(
+      <ConversationActivity
+        runs={runs}
+        conversationId="c1"
+        spentUsd={0}
+        agentName={name}
+        onOpenConversation={() => undefined}
+        docked
+      />,
+    );
+  }
+
+  it("is open from the start, with nothing to collapse", () => {
+    dock([fakeRun({ status: "running", finished_at: null })]);
+
+    const column = screen.getByTestId("conversation-activity");
+    expect(column.tagName).toBe("ASIDE");
+    expect(column).toHaveTextContent(vi.conversationActivity.title);
+    expect(screen.getByTestId("run-card")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: vi.conversationActivity.collapse })).not.toBeInTheDocument();
+  });
+
+  // The column holds its place so the chat does not jump sideways on the first run.
+  it("stays in place for a conversation that has never run, saying so", () => {
+    dock([]);
+
+    expect(screen.getByTestId("conversation-activity")).toHaveTextContent(vi.noRuns);
+  });
+
+  // Open by design is not a choice the person made; the strip must not inherit it.
+  it("leaves the strip's remembered open state alone", () => {
+    const { unmount } = dock();
+    unmount();
+
+    show([fakeRun()]);
+
+    expect(screen.queryByTestId("run-card")).not.toBeInTheDocument();
+  });
+});

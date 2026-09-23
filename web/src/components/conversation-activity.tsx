@@ -23,14 +23,17 @@ interface Props {
   /** Bumped from outside to collapse the strip, which is what Escape does. A counter
    * rather than a boolean: the same request has to work twice in a row. */
   collapseSignal?: number;
+  /** Rendered as the right-hand column of a wide screen: always open, with no toggle and
+   * no remembered choice, and present even before the first run so the layout holds still. */
+  docked?: boolean;
 }
 
 /**
- * The activity strip inside the chat frame: what this conversation is doing, and nothing
- * about any other one.
+ * This conversation's activity: what it is doing, and nothing about any other one.
  *
- * Collapsed it is a single progress line, and a conversation that has never run shows
- * nothing at all — an empty panel next to an empty thread is just furniture.
+ * On a wide screen it is a column beside the chat that is always open. Below that it is a
+ * strip under the thread: collapsed to a single progress line, and absent for a
+ * conversation that has never run — an empty strip under an empty thread is just furniture.
  */
 export function ConversationActivity({
   runs,
@@ -39,6 +42,7 @@ export function ConversationActivity({
   agentName,
   onOpenConversation,
   collapseSignal = 0,
+  docked = false,
 }: Props) {
   const [expanded, setExpanded] = useState(readExpanded);
 
@@ -50,20 +54,81 @@ export function ConversationActivity({
   }, [collapseSignal]);
 
   useEffect(() => {
+    // The column is open by design, not by choice; it must not overwrite the strip's memory.
+    if (docked) return;
     try {
       window.localStorage.setItem(EXPANDED_KEY, expanded ? "1" : "0");
     } catch {
       // A browser that refuses storage still gets the strip; it just forgets the choice.
     }
-  }, [expanded]);
+  }, [expanded, docked]);
 
-  if (runs.length === 0) return null;
+  if (runs.length === 0 && !docked) return null;
 
   const live = runs.filter((r) => !isSettled(r.status));
   const recent = runs.filter((r) => isSettled(r.status));
   // The newest live run is the turn being waited on; an older one left open is not
   // what the person is watching.
   const current = live[0] ?? null;
+
+  const status = current ? (
+    <RunProgressHeader run={current} />
+  ) : recent.length > 0 ? (
+    // With nothing live the bar still has to answer "what happened last?" — a bare
+    // label with no run behind it reads like a missing feature.
+    <span className="muted">
+      {vi.conversationActivity.lastRun}: {vi.runStatus[recent[0].status]} ·{" "}
+      {formatClock(recent[0].started_at)} · {vi.runSteps(stepProgress(recent[0]).total)}
+    </span>
+  ) : (
+    <span className="muted">{vi.noRuns}</span>
+  );
+
+  const body = (
+    <div className="conversation-activity-body">
+      {runGroups(live).map((group) => (
+        <RunGroupCard
+          key={group.run.id}
+          group={group}
+          agentName={agentName}
+          expanded
+          onOpenConversation={onOpenConversation}
+        />
+      ))}
+      {runGroups(recent).map((group) => (
+        <RunGroupCard
+          key={group.run.id}
+          group={group}
+          agentName={agentName}
+          onOpenConversation={onOpenConversation}
+        />
+      ))}
+      <CostRow runs={runs} conversationId={conversationId} spent={spentUsd} />
+      <h4>{vi.conversationActivity.approvals}</h4>
+      <ApprovalHistory
+        agentName={agentName}
+        onOpenConversation={onOpenConversation}
+        refreshKey={recent.length}
+        conversationId={conversationId}
+      />
+    </div>
+  );
+
+  if (docked) {
+    return (
+      <aside
+        className="conversation-activity docked"
+        aria-label={vi.conversationActivity.label}
+        data-testid="conversation-activity"
+      >
+        <div className="conversation-activity-bar">
+          <h2>{vi.conversationActivity.title}</h2>
+          {status}
+        </div>
+        {runs.length > 0 && body}
+      </aside>
+    );
+  }
 
   return (
     <section
@@ -72,16 +137,7 @@ export function ConversationActivity({
       data-testid="conversation-activity"
     >
       <div className="conversation-activity-bar">
-        {current ? (
-          <RunProgressHeader run={current} />
-        ) : (
-          // Collapsed with nothing live, the bar still has to answer "what happened
-          // last?" — a bare label with no run behind it reads like a missing feature.
-          <span className="muted">
-            {vi.conversationActivity.lastRun}: {vi.runStatus[recent[0].status]} ·{" "}
-            {formatClock(recent[0].started_at)} · {vi.runSteps(stepProgress(recent[0]).total)}
-          </span>
-        )}
+        {status}
         <button
           type="button"
           className="ghost"
@@ -91,35 +147,7 @@ export function ConversationActivity({
           {expanded ? vi.conversationActivity.collapse : vi.conversationActivity.expand}
         </button>
       </div>
-      {expanded && (
-        <div className="conversation-activity-body">
-          {runGroups(live).map((group) => (
-            <RunGroupCard
-              key={group.run.id}
-              group={group}
-              agentName={agentName}
-              expanded
-              onOpenConversation={onOpenConversation}
-            />
-          ))}
-          {runGroups(recent).map((group) => (
-            <RunGroupCard
-              key={group.run.id}
-              group={group}
-              agentName={agentName}
-              onOpenConversation={onOpenConversation}
-            />
-          ))}
-          <CostRow runs={runs} conversationId={conversationId} spent={spentUsd} />
-          <h4>{vi.conversationActivity.approvals}</h4>
-          <ApprovalHistory
-            agentName={agentName}
-            onOpenConversation={onOpenConversation}
-            refreshKey={recent.length}
-            conversationId={conversationId}
-          />
-        </div>
-      )}
+      {expanded && body}
     </section>
   );
 }

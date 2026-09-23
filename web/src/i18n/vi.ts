@@ -324,6 +324,7 @@ export const vi = {
   activity: "Hoạt động",
   activityHint: "Mọi lượt chạy của tất cả agent, kể cả việc chạy theo lịch.",
   conversationActivity: {
+    title: "Chi tiết hoạt động",
     label: "Hoạt động của cuộc trò chuyện này",
     expand: "Xem chi tiết hoạt động",
     collapse: "Thu gọn hoạt động",

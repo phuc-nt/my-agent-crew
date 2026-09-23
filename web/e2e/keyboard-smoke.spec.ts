@@ -52,27 +52,32 @@ test("the new-conversation shortcut opens one and the browser does not get the k
   await expect.poll(() => conversations.length).toBe(2);
 });
 
-test("escape closes the activity strip, and typing in a field keeps it open", async ({ page }) => {
-  await mockApi(page, {
-    conversations: [conversation("c1", "Có hoạt động")],
-    runs: [run({ conversation_id: "c1", status: "done" })],
+// The strip only exists below the breakpoint where the activity folds under the thread.
+test.describe("on a narrow screen", () => {
+  test.use({ viewport: { width: 1024, height: 768 } });
+
+  test("escape closes the activity strip, and typing in a field keeps it open", async ({ page }) => {
+    await mockApi(page, {
+      conversations: [conversation("c1", "Có hoạt động")],
+      runs: [run({ conversation_id: "c1", status: "done" })],
+    });
+    await page.goto("/");
+    await page.getByRole("navigation").getByRole("button", { name: /Có hoạt động/ }).click();
+
+    const strip = page.getByTestId("conversation-activity");
+    const toggle = strip.getByRole("button", { expanded: false });
+    await toggle.click();
+    const opened = strip.getByRole("button", { expanded: true });
+    await expect(opened).toBeVisible();
+
+    // Escape with the cursor in the composer belongs to the composer: a half-typed message
+    // is not a reason to rearrange the screen around it.
+    await page.getByRole("textbox", { name: /Nhắn cho agent/ }).click();
+    await page.keyboard.press("Escape");
+    await expect(opened).toBeVisible();
+
+    await page.getByRole("heading").first().click();
+    await page.keyboard.press("Escape");
+    await expect(strip.getByRole("button", { expanded: false })).toBeVisible();
   });
-  await page.goto("/");
-  await page.getByRole("navigation").getByRole("button", { name: /Có hoạt động/ }).click();
-
-  const strip = page.getByTestId("conversation-activity");
-  const toggle = strip.getByRole("button", { expanded: false });
-  await toggle.click();
-  const opened = strip.getByRole("button", { expanded: true });
-  await expect(opened).toBeVisible();
-
-  // Escape with the cursor in the composer belongs to the composer: a half-typed message
-  // is not a reason to rearrange the screen around it.
-  await page.getByRole("textbox", { name: /Nhắn cho agent/ }).click();
-  await page.keyboard.press("Escape");
-  await expect(opened).toBeVisible();
-
-  await page.getByRole("heading").first().click();
-  await page.keyboard.press("Escape");
-  await expect(strip.getByRole("button", { expanded: false })).toBeVisible();
 });

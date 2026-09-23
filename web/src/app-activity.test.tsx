@@ -1,7 +1,7 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { beforeEach, describe, expect, it, vi as vitest } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
 import { App } from "./app";
 import { vi } from "./i18n/vi";
 import { FakeBackend, FakeEventSource, coachAgent, fakeAgent, fakeRun, listItem, storedMessage } from "./test/fake-backend";
@@ -18,10 +18,33 @@ beforeEach(() => {
   window.location.hash = "";
 });
 
+// A test that widens the screen must not leave the rest of the file wide.
+afterEach(() => vitest.unstubAllGlobals());
+
 function stream(): FakeEventSource {
   const source = FakeEventSource.instances.at(-1);
   if (!source) throw new Error("the app has not subscribed to the activity stream");
   return source;
+}
+
+/** jsdom has no `matchMedia`; this one answers every query alike and can be flipped live. */
+function wideScreen(initial: boolean) {
+  let matches = initial;
+  const listeners = new Set<() => void>();
+  vitest.stubGlobal("matchMedia", (media: string) => ({
+    get matches() {
+      return matches;
+    },
+    media,
+    addEventListener: (_: string, fn: () => void) => listeners.add(fn),
+    removeEventListener: (_: string, fn: () => void) => listeners.delete(fn),
+  }));
+  return {
+    set(next: boolean) {
+      matches = next;
+      listeners.forEach((fn) => fn());
+    },
+  };
 }
 
 /** The crew-wide view lives on its own screen now; most of these cases start there. */
@@ -228,6 +251,25 @@ describe("App activity across the crew", () => {
     // Switching conversations re-fills the strip; it does not re-collapse it.
     expect(within(strip).getByTestId("run-card")).toHaveTextContent("Work in conv 2");
     expect(within(strip).queryByText("Work in conv 1")).not.toBeInTheDocument();
+  });
+
+  it("keeps the activity open beside the chat on a wide screen and folds it under the thread when narrowed", async () => {
+    const screenWidth = wideScreen(true);
+    const mine = backend.create({ title: "Rộng" });
+    backend.runs = [fakeRun({ conversation_id: mine.id, summary: "Việc đã xong" })];
+    render(<App />);
+    await userEvent.click(await screen.findByRole("button", { name: /Rộng/ }));
+
+    const column = await screen.findByTestId("conversation-activity");
+    expect(column.closest("main")).toBeNull();
+    expect(within(column).getByTestId("run-card")).toHaveTextContent("Việc đã xong");
+    expect(within(column).queryByRole("button", { name: vi.conversationActivity.expand })).not.toBeInTheDocument();
+
+    act(() => screenWidth.set(false));
+
+    const strip = screen.getByTestId("conversation-activity");
+    expect(strip.closest("main")).not.toBeNull();
+    expect(within(strip).getByRole("button", { name: vi.conversationActivity.expand })).toBeInTheDocument();
   });
 
   it("renders MEDIA lines from the agent workspace as inline images", async () => {

@@ -1,9 +1,10 @@
 /*
- * The activity strip inside the chat frame.
+ * The conversation's activity, in one of two places.
  *
- * It belongs to the conversation, not to the app, so it sits between the thread and the
- * composer rather than in the right-hand rail. Collapsed it is one line; expanded it grows
- * a scrolling body that is capped so the thread above it never disappears.
+ * On a wide screen it is the right-hand column of the layout, always open and scrolling on
+ * its own. Below the 1100px breakpoint it becomes a strip between the thread and the
+ * composer: one line collapsed, and a capped scrolling body when expanded so the thread
+ * above it never disappears.
  */
 
 .conversation-activity {
@@ -81,4 +82,37 @@
   .conversation-activity-body {
     max-height: 30vh;
   }
+}
+
+/* ── Docked: the right-hand column ─────────────────────────────────────── */
+.conversation-activity.docked {
+  border-top: none;
+  border-left: 1px solid var(--border);
+  height: 100vh;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The title on its own line, the progress (or last run) under it. */
+.conversation-activity.docked .conversation-activity-bar {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+}
+
+.conversation-activity.docked .conversation-activity-bar h2 {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+/* The column has the full height to itself, so the strip's cap would only waste it. The
+   selector outweighs the max-height rule above for short screens as well. */
+.conversation-activity.docked .conversation-activity-body {
+  max-height: none;
+  flex: 1;
+  min-height: 0;
+  padding-top: var(--space-3);
 }

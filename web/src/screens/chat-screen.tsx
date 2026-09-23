@@ -12,6 +12,7 @@ import { StatusLine } from "../components/status-line";
 import type { useActivity } from "../hooks/use-activity";
 import type { useCrew } from "../hooks/use-agents";
 import type { useConversations } from "../hooks/use-conversations";
+import { useMediaQuery } from "../hooks/use-media-query";
 import type { ManageSection } from "../hooks/use-route";
 import { useShortcuts } from "../hooks/use-shortcuts";
 import type { useThread } from "../hooks/use-thread";
@@ -33,6 +34,10 @@ interface Props {
 }
 
 /** The whole conversation: who you are talking to, what was said, what the agent is doing. */
+// Wide enough to keep the conversation's activity open beside the chat. Matches the
+// breakpoint in shell.css where the three-column layout folds back to two.
+const DOCKED_ACTIVITY_QUERY = "(min-width: 1101px)";
+
 export function ChatScreen({
   list,
   thread,
@@ -135,8 +140,25 @@ export function ChatScreen({
     </button>
   );
 
+  // A narrow screen keeps the one-line strip under the thread instead of the column.
+  const wide = useMediaQuery(DOCKED_ACTIVITY_QUERY);
+  const docked = wide && Boolean(active);
+  const activityPane = active && (
+    <ErrorBoundary>
+      <ConversationActivity
+        runs={conversationRuns}
+        conversationId={active.id}
+        spentUsd={active.spent_usd}
+        agentName={crew.agentName}
+        onOpenConversation={onSelectConversation}
+        collapseSignal={collapseSignal}
+        docked={docked}
+      />
+    </ErrorBoundary>
+  );
+
   return (
-    <div className="layout">
+    <div className={`layout${docked ? " with-activity" : ""}`}>
       <ConversationList
         conversations={list.conversations}
         activeId={list.activeId}
@@ -209,18 +231,7 @@ export function ChatScreen({
             crewNames={crewNames}
           />
         </ErrorBoundary>
-        {active && (
-          <ErrorBoundary>
-            <ConversationActivity
-              runs={conversationRuns}
-              conversationId={active.id}
-              spentUsd={active.spent_usd}
-              agentName={crew.agentName}
-              onOpenConversation={onSelectConversation}
-              collapseSignal={collapseSignal}
-            />
-          </ErrorBoundary>
-        )}
+        {!docked && activityPane}
         {state.pending?.kind === "question" && (
           <QuestionCard
             pending={state.pending}
@@ -253,6 +264,7 @@ export function ChatScreen({
         />
         <StatusLine thread={state} connected={activity.state.connected} liveCount={live.length} />
       </main>
+      {docked && activityPane}
     </div>
   );
 }
