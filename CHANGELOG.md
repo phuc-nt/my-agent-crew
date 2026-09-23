@@ -139,6 +139,13 @@ bản phát hành, `pyproject.toml` và `web/package.json` luôn cùng số.
 
 ### Thay đổi
 
+- **Chín template lập trình gộp lại thành ba**: `fullstack-developer` làm trọn một việc phần mềm
+  (khảo sát, plan, viết, test, tự soát, commit theo các kỹ năng dùng chung), `kongming` là cố vấn
+  chỉ đọc cho quyết định khó — không tool ghi, không `delegate`, trần chi phí riêng — và
+  `researcher` tra cứu mọi chủ đề, có `pdf_read` và checklist ≥ 3 nguồn. Bỏ `dev`, `scout`,
+  `planner`, `coder`, `reviewer`, `tester`, `debugger`, `git`: mỗi lần giao việc là một ngữ cảnh
+  trống chỉ biết đúng đoạn brief, và với một đội cá nhân không chuyên code, ngữ cảnh mất đi tốn
+  hơn phần song song thu về. Agent đã cài từ template cũ vẫn chạy nguyên; chỉ `agent add` đổi.
 - `web_search` không còn nằm trong nhóm công cụ tuỳ chọn: nó luôn được dựng, nên một agent khai
   `web_search` trong `tools:` không còn im lặng mất công cụ.
 - **`docs/tools.md` nói rõ hệ quả của việc `shell_run` lọc biến môi trường**: script chạy được

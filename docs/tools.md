@@ -342,14 +342,14 @@ smoke and the browser tests drive tools without a key.
 ## Ai đang dùng tool nào
 
 ```
-GET /api/tools → [{"name": "workspace_read", …, "agents": ["coder", "default"], "optional": false}]
+GET /api/tools → [{"name": "workspace_read", …, "agents": ["fullstack-developer", "default"], "optional": false}]
 GET /api/agents/{id}/prompt → assembled system prompt this turn (includes persona, memory, skills, roster)
 ```
 
 The tools union is every agent's registry, not the master's own set — a profile with a `tools`
 allow-list holds fewer tools than the master, and reading one agent's registry would hide
 tools the rest of the crew still uses. `agents` is who holds it, which is the answer to
-"can the reviewer actually edit files"; `optional` marks the tools that only exist when
+"can the adviser actually edit files"; `optional` marks the tools that only exist when
 their key or route is configured (`image_read`).
 
 The `/prompt` endpoint returns the complete system prompt as assembled for the agent (useful for
@@ -396,7 +396,7 @@ naming `delegates` has it, and a delegated child never does.
 
 So a per-agent allow-list over tool names exists here as well. The real difference is what
 carries the safety weight. openclaw leans on tool visibility; here that mostly separates
-roles — a reviewer that cannot write, a scout that cannot run a shell — while the guard
+roles — an adviser that cannot write, a researcher that cannot run a shell — while the guard
 against a dangerous call is approval, and the two pattern lists shape it from both sides.
 `shell_ask_patterns` pulls a command back into asking even in an autonomous conversation;
 `shell_allow_patterns` lets a routine one through even in a supervised one. Both match a

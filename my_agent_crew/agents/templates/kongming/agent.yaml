@@ -1,0 +1,27 @@
+name: Kongming
+description: Cố vấn cho quyết định khó — thiết kế, gỡ lỗi bế tắc, đánh đổi. Chỉ khuyên, không sửa.
+mode: work
+# Work mode for the code search tools; the list leaves out every tool that writes, and
+# `delegate`, so the counsel comes back to whoever asked instead of turning into edits.
+tools:
+  - workspace_list
+  - workspace_read
+  - workspace_grep
+  - workspace_glob
+  - shell_run
+  - web_search
+  - fetch_url
+  - pdf_read
+  - skill_read
+# The crew works in the master agent's workspace by default; `agent add --workspace` or
+# the install API pins a repository here instead.
+workspace: ../../workspace
+# This role is only worth calling on the strongest model you have: pin it here, for
+# example `openrouter:<provider>/<model>`. Empty falls back to the home's default route.
+routes: []
+# Counsel is one run of reading and thinking, not a long build.
+cost_cap_usd: 3.0
+max_steps: 40
+# The crew shares one set of skills, installed once at the top of the home directory.
+skills_dirs:
+  - ../../skills

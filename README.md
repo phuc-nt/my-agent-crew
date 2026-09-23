@@ -158,25 +158,28 @@ workspace master và master chuyển đường dẫn cho agent cần đọc. L�
 `/status`, `/tools`, `/approve`, `/deny`) do kênh tự trả lời, không tốn lượt model. Khối
 `telegram` đặt ở agent khác bị bỏ qua kèm cảnh báo.
 
-Nine templates available: `dev` is the old-style lead, eight others are `scout`, `planner`, `coder`,
-`reviewer`, `tester`, `debugger`, `git`, `researcher`. Templates use the home's shared workspace;
-`--workspace` pins that role (and the peers it brings) to one repository. Install via CLI or the
-**Đội** tab in the manage screen — web installs join the running crew immediately; CLI installs
-need a server restart.
+Three templates available: `fullstack-developer` takes a software task end to end (scout, plan,
+code, test, self-review, commit) and may consult the other two; `kongming` is a read-only adviser
+for hard design or debugging calls — pin your strongest model in its `routes`; `researcher`
+researches any topic on the web and returns a ranked recommendation with sources. Templates use
+the home's shared workspace; `--workspace` pins that role (and the peers it brings) to one
+repository. Install via CLI or the **Đội** tab in the manage screen — web installs join the
+running crew immediately; CLI installs need a server restart.
 
 ```bash
-python -m my_agent_crew agent list-templates                 # see nine templates
-python -m my_agent_crew agent add coder --workspace ~/src/app  # add coder, work in this repo
-python -m my_agent_crew agent add dev                        # add dev plus eight peers
+python -m my_agent_crew agent list-templates                                  # see the three templates
+python -m my_agent_crew agent add fullstack-developer --workspace ~/src/app   # plus kongming and researcher
+python -m my_agent_crew agent add researcher                                  # just the researcher
 ```
 
 Edit an agent's profile (name, description, routes, tools, budget, schedules) from the **Đội** tab.
 Tools across the whole crew, and who uses which, are in **Công cụ**. Connections (API keys,
 Telegram, vision routes) are in **Kết nối**.
 
-Giao việc như nói với người: *"Nhờ coder thêm lệnh `--version` in phiên bản từ pyproject, có
-test."* Master tự chia việc — scout đọc mã, planner vạch bước, coder sửa, reviewer và tester
-soát — mỗi lần giao là một cuộc con hiện ngay trong manage screen, kèm chi phí và số bước.
+Giao việc như nói với người: *"Nhờ fullstack-developer thêm lệnh `--version` in phiên bản từ
+pyproject, có test."* Master giao việc, fullstack-developer tự khảo sát, viết, test và soát, hỏi
+kongming khi bế tắc — mỗi lần giao là một cuộc con hiện ngay trong manage screen, kèm chi phí và
+số bước.
 Uỷ quyền chỉ sâu một tầng: agent con không giao tiếp cho ai nữa.
 
 Mọi nền tảng đi qua **một cổng backend**: web, Telegram và `POST /api/inbound` (JSON, trả lời
@@ -185,7 +188,7 @@ test một tính năng chỉ cần gửi request:
 
 ```bash
 curl -s http://127.0.0.1:8765/api/inbound -H 'content-type: application/json' \
-  -d '{"text":"Nhờ scout liệt kê thư mục làm việc rồi tóm tắt 2 câu."}'
+  -d '{"text":"Nhờ kongming liệt kê thư mục làm việc rồi tóm tắt 2 câu."}'
 # → {"conversation_id":…,"agent_id":"default","text":"…","status":"done","steps":2}
 ```
 

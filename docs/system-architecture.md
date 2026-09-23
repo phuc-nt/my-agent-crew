@@ -136,9 +136,10 @@ Trong bộ cài thật, master "Trợ lý" có `delegates:` gồm 10 agent:
 
 | Agent | Vai trò | Nguồn |
 |---|---|---|
-| pong | thư ký cá nhân: bản tin sáng, sổ cái, nhắc hạn | viết tay, chuyển từ openclaw |
+| pong | thư ký cá nhân: bản tin sáng, mail, lịch, tasks, Goodreads | viết tay, chuyển từ openclaw |
+| ledger | sổ cái tài chính, nhắc hạn, giá vàng; không tool mạng, không ghi trí nhớ dùng chung | viết tay, tách khỏi pong |
 | health-coach | HLV sức khoẻ: ăn, tập, Garmin, sách | viết tay, chuyển từ openclaw |
-| coder, debugger, git, planner, researcher, reviewer, scout, tester | vai trò kỹ thuật cho việc lập trình | `agent add <template>` |
+| fullstack-developer, kongming, researcher | làm phần mềm trọn gói · cố vấn chỉ đọc · tra cứu mọi chủ đề | `agent add <template>` |
 
 Cách quyết định giao hay tự làm nằm ở model của master, nhưng harness bảo đảm ba điều:
 
@@ -218,18 +219,21 @@ Bộ cài dùng để viết tài liệu này (đã bỏ số liệu và định
 └── agents/
     ├── pong/              # AGENTS.md, SOUL.md, MEMORY.md, memory/, agent.yaml
     ├── health-coach/      # như trên
-    └── coder, debugger, git, planner, researcher, reviewer, scout, tester
+    ├── ledger/            # như trên, workspace = repo sổ cái
+    └── fullstack-developer, kongming, researcher
 ```
 
-Ba agent đáng xem kỹ:
+Bốn agent đáng xem kỹ:
 
 **Master "Trợ lý"** — không có persona dày; việc của nó là hiểu người dùng và chọn người làm. `routes` một model rẻ, `max_steps` cao hơn mặc định để đủ chỗ cho vài lần delegate trong một lượt. Là agent duy nhất có `telegram:`.
 
-**Pong** — thư ký. `routes` hai model rẻ theo thứ tự fallback. Sáu lịch: bản tin sáng, tổng kết tuần, hai job bảo trì sổ cái (một là lệnh kit, một là prompt), cập nhật giá vàng, và `memory_consolidate` hàng tuần. Pong dùng `shell_run` để gọi script của một repo riêng trong workspace — harness không biết gì về repo đó, chỉ biết cwd và lệnh.
+**Pong** — thư ký, chỉ Google Workspace và Goodreads. `routes` hai model rẻ theo thứ tự fallback. Ba lịch: bản tin sáng, tổng kết tuần, `memory_consolidate` hàng tuần. Lệnh ghi (gửi mail, ghi sheet, ghi Goodreads) nằm trong `shell_ask_patterns` nên luôn hỏi.
+
+**Ledger** — sổ cái tài chính, tách khỏi Pong để agent cầm dữ liệu tiền bạc không có đường nào đưa nó ra ngoài: `tools` bỏ `web_search`, `fetch_url`, `delegate`, `user_memory_save`, `wiki_*`; `shell_ask_patterns` bắt `curl`, `gws`, `ssh`… Ba lịch: bảo trì đêm (lệnh), nhắc hạn (prompt), giá vàng (lệnh). Gọi script của repo sổ cái bằng `shell_run` — harness chỉ biết cwd và lệnh.
 
 **HLV sức khoẻ** — `routes` ba model, tăng dần từ rẻ đến mạnh. Ba lịch: bảo trì đêm, sao lưu, bản tin sáng có gắn skill Garmin. Đọc ảnh bữa ăn qua `image_read` (tuyến `vision_routes`). Là ví dụ điển hình của agent "một người dùng, một lĩnh vực, nhớ dài".
 
-Tám agent vai trò còn lại đến từ `agent add <template>`: cùng persona mẫu, khác mô tả và tool. Chúng không có lịch, chỉ được gọi qua delegate.
+Ba agent còn lại đến từ `agent add <template>`: fullstack-developer làm trọn việc phần mềm, hỏi kongming (cố vấn chỉ đọc, model mạnh nhất) khi bế tắc và researcher khi cần tra ngoài. Không có lịch, chỉ được gọi qua delegate.
 
 Kit `.agents/` cấp home cho master lệnh `/tongket` — ví dụ về việc harness nạp lệnh kiểu Claude Code làm "prompt có tên" mà không cần code thêm.
 

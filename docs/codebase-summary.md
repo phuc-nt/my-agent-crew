@@ -114,7 +114,7 @@ Provider giả `MY_AGENT_ROUTES=fake:echo` cho phép chạy cả harness trong t
 
 ## 6. Mẫu agent và skill có sẵn
 
-- `agents/templates/`: `dev`, `coder`, `debugger`, `git`, `planner`, `researcher`, `reviewer`, `scout`, `tester`, và `_shared_skills/` dùng chung.
+- `agents/templates/`: `fullstack-developer`, `kongming`, `researcher`, và `_shared_skills/` dùng chung.
 - `skills/builtin/cite-sources.md`.
 
 Cài bằng `python -m my_agent_crew agent add <template> [--id <id>] [--force] [--workspace <dir>]` hoặc `POST /api/agents/install`.

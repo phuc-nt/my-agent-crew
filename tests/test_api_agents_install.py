@@ -32,17 +32,17 @@ def test_installing_a_template_makes_it_live_for_the_master(crew):
     client, runtime, home = crew
     assert _enum(runtime) == ["default"]
 
-    res = client.post("/api/agents/install", json={"template": "scout"})
+    res = client.post("/api/agents/install", json={"template": "kongming"})
 
     assert res.status_code == 201, res.text
-    assert res.json() == {"installed": ["scout"], "live": ["scout"], "needs_restart": False}
-    assert (home / "agents" / "scout" / "agent.yaml").is_file()
-    assert _enum(runtime) == ["default", "scout"]
+    assert res.json() == {"installed": ["kongming"], "live": ["kongming"], "needs_restart": False}
+    assert (home / "agents" / "kongming" / "agent.yaml").is_file()
+    assert _enum(runtime) == ["default", "kongming"]
     listed = {a["id"]: a for a in client.get("/api/agents").json()}
-    assert listed["default"]["is_master"] and listed["default"]["delegates"] == ["scout"]
-    assert listed["scout"]["delegates"] == [] and not listed["scout"]["is_master"]
+    assert listed["default"]["is_master"] and listed["default"]["delegates"] == ["kongming"]
+    assert listed["kongming"]["delegates"] == [] and not listed["kongming"]["is_master"]
     # Without a workspace of its own the newcomer works where the master does.
-    assert Path(listed["scout"]["workspace"]) == runtime.default.agent.workspace
+    assert Path(listed["kongming"]["workspace"]) == runtime.default.agent.workspace
 
 
 def test_a_workspace_is_pinned_into_the_agent_and_the_peers_it_brings(crew, tmp_path):
@@ -50,23 +50,25 @@ def test_a_workspace_is_pinned_into_the_agent_and_the_peers_it_brings(crew, tmp_
     repo = tmp_path / "repo"
     repo.mkdir()
 
-    res = client.post("/api/agents/install", json={"template": "dev", "workspace": str(repo)})
+    res = client.post(
+        "/api/agents/install", json={"template": "fullstack-developer", "workspace": str(repo)}
+    )
 
     body = res.json()
-    assert res.status_code == 201 and body["installed"][0] == "dev"
+    assert res.status_code == 201 and body["installed"][0] == "fullstack-developer"
     assert set(body["live"]) == set(body["installed"]) and body["needs_restart"] is False
     for agent_id in body["installed"]:
         assert runtime.deps_for(agent_id).agent.workspace == repo.resolve(), agent_id
-    text = (home / "agents" / "coder" / "agent.yaml").read_text(encoding="utf-8")
+    text = (home / "agents" / "kongming" / "agent.yaml").read_text(encoding="utf-8")
     assert f"workspace: {repo.resolve()}" in text and "skills_dirs" in text
 
 
 def test_unknown_templates_and_taken_ids_are_refused(crew):
     client, _, _ = crew
     assert client.post("/api/agents/install", json={"template": "architect"}).status_code == 404
-    assert client.post("/api/agents/install", json={"template": "scout"}).status_code == 201
-    res = client.post("/api/agents/install", json={"template": "scout"})
-    assert res.status_code == 409 and "scout" in res.json()["detail"]
+    assert client.post("/api/agents/install", json={"template": "kongming"}).status_code == 201
+    res = client.post("/api/agents/install", json={"template": "kongming"})
+    assert res.status_code == 409 and "kongming" in res.json()["detail"]
 
 
 def test_the_master_can_delegate_to_an_agent_installed_moments_ago(crew):

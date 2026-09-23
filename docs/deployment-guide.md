@@ -145,8 +145,8 @@ git push origin v0.4.0
 
 ```bash
 uv run python -m my_agent_crew agent list-templates
-uv run python -m my_agent_crew agent add reviewer            # → agents/reviewer/
-uv run python -m my_agent_crew agent add dev --id pong --workspace ~/workspace/x
+uv run python -m my_agent_crew agent add researcher          # → agents/researcher/
+uv run python -m my_agent_crew agent add fullstack-developer --workspace ~/workspace/x
 ```
 
 Sau đó sửa `agents/<id>/agent.yaml` (`routes`, `tools`, `schedules`, `autonomous`) và persona (`AGENTS.md`, `SOUL.md`). Thêm id vào `delegates:` của master để master thấy trong roster. Khởi động lại server.

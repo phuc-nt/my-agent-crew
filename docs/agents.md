@@ -117,21 +117,21 @@ ability to speak.
 
 ## Templates
 
-Nine profiles ship with the package so a working crew is a copy rather than nine files
+Three profiles ship with the package so a working crew is a copy rather than files
 written by hand. A template is plain data — an `agent.yaml` and the persona files beside
 it — so anything it can express, a hand-written profile can too.
 
 ```bash
 python -m my_agent_crew agent list-templates        # id, mode and description of each
-python -m my_agent_crew agent add coder             # one role, at the master's disposal
-python -m my_agent_crew agent add dev               # the lead and the eight peers it names
-python -m my_agent_crew agent add coder --id backend  # same template under a different id
-python -m my_agent_crew agent add coder --workspace ~/src/app  # pinned to one repository
+python -m my_agent_crew agent add researcher        # one role, at the master's disposal
+python -m my_agent_crew agent add fullstack-developer  # the developer and the two peers it names
+python -m my_agent_crew agent add kongming --id advisor  # same template under a different id
+python -m my_agent_crew agent add fullstack-developer --workspace ~/src/app  # pinned to one repository
 ```
 
 Adding a template brings the peers it delegates to, because the server refuses to start
-when a `delegates` entry names an agent that is not there — so `agent add dev` gives a
-whole crew in one command, while `agent add scout` gives one agent. A peer that already
+when a `delegates` entry names an agent that is not there — so `agent add fullstack-developer`
+brings kongming and researcher too, while `agent add researcher` gives one agent. A peer that already
 exists is left as it is. Every manifest points `workspace` at `../../workspace`, the home's
 shared workspace, so a fresh install works without editing; `--workspace` writes an
 absolute path into the template and every peer it brings.
@@ -139,8 +139,8 @@ absolute path into the template and every peer it brings.
 The same install runs over HTTP, which is what the crew tab in the web UI calls:
 
 ```
-POST /api/agents/install {"template": "coder", "agent_id"?: "…", "workspace"?: "…", "force"?: false}
-→ 201 {"installed": ["coder"], "live": ["coder"], "needs_restart": false}
+POST /api/agents/install {"template": "researcher", "agent_id"?: "…", "workspace"?: "…", "force"?: false}
+→ 201 {"installed": ["researcher"], "live": ["researcher"], "needs_restart": false}
 ```
 
 `installed` is what was written, `live` what the running server loaded on the spot (the
@@ -150,15 +150,13 @@ template, 409 when the id is taken (`force` overwrites).
 
 | id | mode | What it is for |
 |---|---|---|
-| `dev` | work | the lead: no tool allow-list, delegates to the other eight |
-| `scout` | work | finds the files and regions that matter; read-only, no shell |
-| `planner` | work | reads code and writes a plan; no shell, so planning cannot become doing |
-| `coder` | work | writes and edits code, runs the commands it needs |
-| `reviewer` | work | reads a diff and reports; no `workspace_edit`, so it cannot fix what it flags |
-| `tester` | work | writes and runs tests |
-| `debugger` | work | reproduces and diagnoses; edits but does not write new files |
-| `git` | work | `shell_run` alone: stage and commit, never rewrite history |
-| `researcher` | assistant | reads the web and writes a report; never touches the repo |
+| `fullstack-developer` | work | takes a software task end to end — scout, plan, code, test, self-review, commit — following the shared skills; no tool allow-list, delegates only to the other two, for counsel or research, never to hand code off |
+| `kongming` | work | advisory only: reads code and the web, answers with a structured recommendation, never asks back; no write tools and no `delegate`; pin the strongest model in `routes`, capped at `cost_cap_usd: 3.0` |
+| `researcher` | assistant | researches any topic on the web or in PDFs and writes a ranked recommendation with sources; never touches code |
+
+A software team is one developer rather than a pipeline of roles: every hand-off costs a
+fresh context that knows only what the brief said, and for a personal crew that mostly
+codes on the side, the lost context costs more than the parallelism buys.
 
 Each manifest points `skills_dirs` at `../../skills`, so the six shared skills are
 installed once at the top of the home directory and every role reads the same copy.

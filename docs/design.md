@@ -93,7 +93,7 @@ product "one capable, autonomous agent" while letting it staff a job: the person
 pick an agent, the master does — on the web and on Telegram alike. The crew keep their
 schedules and are simply also on the roster. Details: [agents.md](agents.md#the-master-agent).
 
-**Templates.** Nine profiles ship with the app — a lead and eight roles — installed with
+**Templates.** Three profiles ship with the app — a developer, an adviser and a researcher — installed with
 `agent add <id>` or `POST /api/agents/install` (what the crew tab calls), which brings
 the peers the role hands work to and one shared set of skills. Every manifest works as
 installed (the home's shared workspace, the global routes); `--workspace` pins a role to

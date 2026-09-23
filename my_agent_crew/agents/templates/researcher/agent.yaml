@@ -1,13 +1,15 @@
 name: Researcher
-description: Tra cứu bên ngoài, đối chiếu nguồn, trả ma trận đánh đổi kèm URL.
+description: Tra cứu bên ngoài bất kỳ chủ đề nào, đối chiếu nguồn, trả khuyến nghị có xếp hạng kèm URL.
 mode: assistant
-# Assistant mode: this role reads the web and writes a report, it never touches the repo.
+# Assistant mode: this role reads the web and writes a report, it never touches code.
 tools:
   - web_search
   - fetch_url
+  - pdf_read
   - workspace_read
   - workspace_write
   - skill_read
+  - progress_note
 # The crew works in the master agent's workspace by default; `agent add --workspace` or
 # the install API pins a repository here instead.
 workspace: ../../workspace

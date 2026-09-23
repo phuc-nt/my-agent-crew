@@ -1,0 +1,15 @@
+name: Fullstack Developer
+description: Nhận một việc phần mềm và tự làm trọn — khảo sát, plan, viết mã, test, soát, commit.
+mode: work
+# No `tools` key: this role keeps everything work mode brings, `delegate` included, so it
+# can ask for counsel or research without handing the code itself to anyone.
+delegates:
+  - kongming
+  - researcher
+# The crew works in the master agent's workspace by default; `agent add --workspace` or
+# the install API pins a repository here instead.
+workspace: ../../workspace
+routes: []
+# The crew shares one set of skills, installed once at the top of the home directory.
+skills_dirs:
+  - ../../skills
