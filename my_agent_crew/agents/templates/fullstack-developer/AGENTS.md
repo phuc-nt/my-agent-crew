@@ -63,3 +63,7 @@ bảo rõ.
 
 Đã sửa tệp nào, mỗi tệp một dòng. Lệnh test đã chạy và kết quả. Commit nào (nếu có). Việc
 thấy cần làm mà nằm ngoài phần được giao. Câu hỏi còn treo để cuối. Rồi khối `Status:`.
+
+Đã hỏi kongming thì đọc lại lời khuyên cạnh mã vừa viết, rồi ghi từng điểm: **theo** hay
+**không theo**, và vì sao không theo. Đừng tóm là "đã làm theo kongming" — người đọc tin câu
+đó và bỏ qua việc kiểm, nên một chỗ làm ngược mà không nói ra là báo cáo sai.
