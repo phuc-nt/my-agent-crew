@@ -8,12 +8,13 @@ Two headers give that away, and a browser does not let a page forge either:
 - `Host` carries the name the page was loaded under. The server is reached by an IP or
   by `localhost`; any other name is what a rebinding attack arrives under, unless the
   person listed it in `MY_AGENT_ALLOWED_HOSTS` (a Tailscale name, say).
-- `Origin`, when sent, must be a loopback address or the same host, so a page on another
-  site cannot post here even when the Host looks right.
+- `Origin`, when sent, must be exactly the host and port asked for, so a page on another
+  site — or another local port, a dev server an agent started — cannot post here even
+  when the Host looks right. The Vite dev proxy passes `localhost:5173` as both.
 
-Everything under `/api` is guarded, not only the keys: a rebound page that could patch
-the master's Telegram chat, or start a turn with tools, would be as bad as one that could
-write the env file.
+Every path is guarded, not only the keys: a rebound page that could patch the master's
+Telegram chat, start a turn with tools, or fetch a file would be as bad as one that could
+write the env file, and the page itself has nothing to show a stranger.
 """
 
 from __future__ import annotations
@@ -28,7 +29,6 @@ from fastapi.responses import JSONResponse
 from my_agent_crew.texts_credentials import FOREIGN_ORIGIN
 
 ALLOWED_HOSTS_ENV = "MY_AGENT_ALLOWED_HOSTS"
-GUARDED_PREFIX = "/api/"
 
 
 def allowed_hosts(env: Mapping[str, str]) -> frozenset[str]:
@@ -57,11 +57,12 @@ def is_local_request(host_header: str, origin: str | None, extra: frozenset[str]
         return False
     if origin is None:
         return True  # not a browser, or a same-origin GET
-    origin_host = _hostname(origin)
-    if origin_host is None:
-        return False  # `Origin: null` comes from sandboxed and file pages
-    loopback = origin_host == "localhost" or bool((ip := _ip(origin_host)) and ip.is_loopback)
-    return loopback or origin_host == host
+    try:
+        origin_at = urlsplit(origin).netloc.lower()
+    except ValueError:
+        return False
+    # `Origin: null` (sandboxed and file pages) has no host and never matches.
+    return bool(origin_at) and origin_at == host_header.lower()
 
 
 def install_local_guard(app: FastAPI, extra: frozenset[str]) -> None:
@@ -69,7 +70,7 @@ def install_local_guard(app: FastAPI, extra: frozenset[str]) -> None:
     async def local_only(
         request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
-        if request.url.path.startswith(GUARDED_PREFIX) and not is_local_request(
+        if not is_local_request(
             request.headers.get("host", ""), request.headers.get("origin"), extra
         ):
             return JSONResponse({"detail": FOREIGN_ORIGIN}, status_code=403)

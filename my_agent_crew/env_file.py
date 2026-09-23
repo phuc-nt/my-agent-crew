@@ -74,7 +74,7 @@ def check_value(value: str) -> str:
     value = value.strip()
     if not value:
         raise ValueError("empty")
-    if any(unicodedata.category(ch) in ("Cc", "Zl", "Zp") for ch in value):
+    if any(unicodedata.category(ch) in ("Cc", "Cs", "Zl", "Zp") for ch in value):
         raise ValueError("multiline")
     if len(value) > MAX_VALUE_CHARS:
         raise ValueError("too long")

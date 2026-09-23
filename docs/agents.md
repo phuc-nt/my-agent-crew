@@ -15,7 +15,7 @@ MY_AGENT_HOME/                      ~/.my-agent-crew by default
 ├── agent.yaml                      the master's profile, incl. its `telegram` block (optional)
 ├── workspace/                      sandbox of the master; `inbox/` takes Telegram attachments
 ├── skills/                         skills of the master
-├── telegram.offset                 poll offset of the master's bot
+├── telegram.offset                 poll offset of the master's bot, with the bot's id
 ├── users/owner/                    what the crew knows about the person (see memory.md)
 │   ├── USER.md                     read by every agent, every turn
 │   └── facts/<name>.md  INDEX.md   one fact each, plus the generated index

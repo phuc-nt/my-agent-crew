@@ -73,6 +73,7 @@ def test_removing_drops_only_that_name(tmp_path: Path) -> None:
         ("a\x0cb", "multiline"),
         ("a\x85b", "multiline"),
         ("a\x01b", "multiline"),
+        ("a\ud800b", "multiline"),  # a lone surrogate cannot even be written as UTF-8
         ("x" * 5000, "too long"),
     ],
 )

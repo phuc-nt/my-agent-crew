@@ -4,7 +4,9 @@ finish, and an idle poll is cut off at once."""
 import asyncio
 
 from my_agent_crew.channels import telegram_polling
+from my_agent_crew.channels.telegram_offset import read_offset, write_offset
 from my_agent_crew.channels.telegram_polling import TelegramPolling
+from tests.telegram_fake import message
 
 
 class Poller(TelegramPolling):
@@ -81,3 +83,31 @@ async def test_a_stopped_bot_can_be_started_again() -> None:
     poller.start()  # idle this time: nothing more to answer
     await asyncio.wait_for(poller.started.wait(), timeout=1)
     await poller.stop()
+
+
+async def test_a_stop_leaves_the_queued_messages_for_the_next_bot(
+    make_channel, fake, tmp_path, monkeypatch
+) -> None:
+    channel = make_channel()
+    fake.updates = [message(7, "một"), message(8, "hai")]
+    handled = []
+
+    async def handle(ch, group) -> None:
+        handled.append(group[0]["update_id"])
+        ch._stopping = True  # the stop arrives while the first is being answered
+
+    monkeypatch.setattr(telegram_polling, "handle_updates", handle)
+    await channel.poll_once()
+
+    assert handled == [7]
+    assert (tmp_path / "telegram.offset").read_text() == "123 8"  # 8 stays unconfirmed
+
+
+def test_an_offset_belongs_to_the_bot_that_confirmed_it(tmp_path) -> None:
+    path = tmp_path / "telegram.offset"
+    write_offset(path, 42, "111")
+    assert read_offset(path, "111") == 42
+    assert read_offset(path, "222") == 0  # a new bot starts from what Telegram still holds
+    path.write_text("42")  # written before the bot was recorded
+    assert read_offset(path, "222") == 42
+    assert read_offset(tmp_path / "missing", "111") == 0

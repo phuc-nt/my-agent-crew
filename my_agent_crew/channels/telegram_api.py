@@ -105,6 +105,11 @@ class TelegramApi:
         self._base = base
         hide_token(token)
 
+    @property
+    def bot(self) -> str:
+        """The bot's own id, the part of the token before `:`."""
+        return self._token.split(":", 1)[0]
+
     def redact(self, text: str) -> str:
         return text.replace(self._token, TOKEN_PLACEHOLDER)
 

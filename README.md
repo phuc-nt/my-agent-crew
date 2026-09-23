@@ -181,7 +181,7 @@ Tools across the whole crew, and who uses which, are in **Công cụ**. Connecti
 set, check or remove API keys, host addresses and the Telegram bot token there — they are
 written to `~/.my-agent-crew/env` and take effect without a restart. A change the crew
 could not run with (removing the only model key) is refused before anything is written.
-The API only answers requests addressed to `localhost` or an IP; to open the UI by a host
+The server only answers requests addressed to `localhost` or an IP, from its own page; to open the UI by a host
 name (Tailscale MagicDNS, say), list it in `MY_AGENT_ALLOWED_HOSTS`.
 
 Giao việc như nói với người: *"Nhờ fullstack-developer thêm lệnh `--version` in phiên bản từ

@@ -152,11 +152,14 @@ answered from one that stayed quiet. A failed delivery is logged, not retried.
 ## Offsets and restarts
 
 The `getUpdates` offset is written to `MY_AGENT_HOME/telegram.offset` before each update is
-handled, so a message that crashes the handler is not replayed forever. A `409` from Telegram means another process still polls the bot (an old server, another
+handled, so a message that crashes the handler is not replayed forever. The file names the
+bot it belongs to (`<bot id> <offset>`); after the token is swapped for another bot's, the
+new bot starts from 0 rather than skipping its messages under the old bot's numbering. A `409` from Telegram means another process still polls the bot (an old server, another
 tool); the channel logs `another poller holds this bot` and retries every 5 s.
 
 Stopping the bot while the server runs (a rebuild after its token or chat changed) lets the
-message in hand finish, for up to 30 s, and returns only once the poll loop has ended, so the
+message in hand finish, for up to 30 s, leaves messages queued behind it unconfirmed for the
+next bot, and returns only once the poll loop has ended, so the
 new bot never polls alongside the old one. An idle long poll is cut off at once. The loop and
 its stop live in `channels/telegram_polling.py`.
 

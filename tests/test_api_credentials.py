@@ -171,10 +171,14 @@ def test_a_request_from_another_site_is_refused(crew, headers) -> None:
     assert not (home / "env").exists()
 
 
-def test_a_local_origin_is_accepted(crew) -> None:
+def test_the_dev_server_proxy_is_accepted(crew) -> None:
     client, _, _ = crew
 
-    reply = client.get("/api/credentials", headers={"origin": "http://localhost:5173"})
+    # Vite's proxy passes the page's own host through, so Host and Origin agree.
+    reply = client.get(
+        "/api/credentials",
+        headers={"host": "localhost:5173", "origin": "http://localhost:5173"},
+    )
 
     assert reply.status_code == 200
 

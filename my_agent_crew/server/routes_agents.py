@@ -17,7 +17,7 @@ from my_agent_crew.agents import DEFAULT_AGENT_ID, load_profiles
 from my_agent_crew.agents.profile import Schedule
 from my_agent_crew.agents.roster import delegate_targets
 from my_agent_crew.agents.templates_cli import add_template
-from my_agent_crew.server.agent_edit_common import manifest_path
+from my_agent_crew.server.agent_edit_common import manifest_path, write_lock
 from my_agent_crew.server.deps import Rt
 from my_agent_crew.server.runtime import Runtime
 from my_agent_crew.server.runtime_build import check_delegates
@@ -98,10 +98,16 @@ def get_agent(agent_id: str, rt: Rt) -> dict[str, Any]:
 
 
 @router.post("/agents/install", status_code=201)
-def install_agent(body: InstallRequest, rt: Rt) -> dict[str, Any]:
+async def install_agent(body: InstallRequest, rt: Rt) -> dict[str, Any]:
     """Writes the template (and the peers it names) into the home, then loads the new
     profiles into the running crew so the master can delegate to them at once. Schedules
-    only start at boot, so an agent that has any reports `needs_restart`."""
+    only start at boot, so an agent that has any reports `needs_restart`. Held under the
+    write lock, so a key saved at the same moment cannot swap the providers mid-build."""
+    async with write_lock:
+        return _install(body, rt)
+
+
+def _install(body: InstallRequest, rt: Rt) -> dict[str, Any]:
     workspace = Path(body.workspace) if body.workspace else None
     try:
         agent_dir, peers = add_template(
@@ -119,6 +125,8 @@ def install_agent(body: InstallRequest, rt: Rt) -> dict[str, Any]:
         added = rt.add_agents(profiles)
     except RuntimeError:
         added = []
+    if added and rt.channel is not None:
+        rt.channel.use_agents(rt.agents)
     live = [agent_id for agent_id in installed if agent_id in added]
     needs_restart = any(p.id in installed and p.schedules for p in profiles) or set(
         installed

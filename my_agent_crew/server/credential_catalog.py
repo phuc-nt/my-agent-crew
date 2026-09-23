@@ -92,11 +92,10 @@ def shown_url(value: str) -> str:
         parts = urlsplit(value)
         if parts.username is None and parts.password is None:
             return value
-        host = parts.hostname or ""
-        port = f":{parts.port}" if parts.port else ""
     except ValueError:
         return ""
-    return urlunsplit(parts._replace(netloc=f"…@{host}{port}"))
+    # What follows the last `@` is host and port exactly as written, IPv6 brackets kept.
+    return urlunsplit(parts._replace(netloc="…@" + parts.netloc.rsplit("@", 1)[1]))
 
 
 def describe(rt: Runtime) -> dict[str, Any]:

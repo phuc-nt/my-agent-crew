@@ -95,8 +95,9 @@ def create_app(runtime: Runtime | AgentDeps | None = None, schedule: bool = True
         def spa(path: str) -> FileResponse:
             if path.startswith("api/"):
                 raise HTTPException(status_code=404)
-            candidate = STATIC_DIR / path
-            if path and candidate.is_file():
+            # A `..` decoded from `%2F` would otherwise walk out of the bundle to any file.
+            candidate = (STATIC_DIR / path).resolve()
+            if path and candidate.is_relative_to(STATIC_DIR.resolve()) and candidate.is_file():
                 return FileResponse(candidate)
             return FileResponse(STATIC_DIR / "index.html")
 

@@ -117,6 +117,13 @@ def test_a_host_with_a_password_in_it_is_shown_without_the_password(
     assert "hunter2" not in reply.text
 
 
+def test_a_password_in_an_ipv6_host_is_masked_and_the_brackets_kept() -> None:
+    from my_agent_crew.server.credential_catalog import shown_url
+
+    assert shown_url("http://u:p@[::1]:11434/v1") == "http://…@[::1]:11434/v1"
+    assert shown_url("http://127.0.0.1:11434/v1") == "http://127.0.0.1:11434/v1"
+
+
 def test_a_name_the_routes_refuse_is_listed_without_controls(tmp_path: Path, environ) -> None:
     home = tmp_path / "home"
     home.mkdir()

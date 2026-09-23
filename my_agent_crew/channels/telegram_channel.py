@@ -56,7 +56,7 @@ class TelegramChannel(TelegramPolling):
         self._api, self.chat_id = api, chat_id
         self._offset_path, self._clock = offset_path, clock
         self._outbound: dict[str, TelegramOutbound] = {}
-        self._offset = read_offset(offset_path)
+        self._offset = read_offset(offset_path, api.bot)
 
     def use_agents(self, agents: Mapping[str, AgentDeps]) -> None:
         """Take the crew as it is after agents were rebuilt, keeping the bot as it is: a

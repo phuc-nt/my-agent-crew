@@ -89,8 +89,8 @@ async def restart_channel(rt: Runtime) -> None:
     new bot only polls if the old one was allowed to (a test app never polls), and that
     holds even when building it fails: the crew keeps whichever bot it has."""
     live = rt.channel_live
-    await rt.stop_channel()
     try:
+        await rt.stop_channel()
         if rt.client is None:
             rt.channel = None
             return

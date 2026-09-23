@@ -11,7 +11,6 @@ which Telegram answers with a 409 on both. So a stop lets the message in hand fi
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -58,8 +57,12 @@ class TelegramPolling:
         if self._handling:
             await asyncio.wait({task}, timeout=STOP_GRACE_SECONDS)
         task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
+        try:
             await task
+        except asyncio.CancelledError:
+            current = asyncio.current_task()
+            if current is not None and current.cancelling():
+                raise  # the stop itself was cancelled, not only the loop
 
     async def _loop(self) -> None:
         while not self._stopping:
@@ -91,8 +94,10 @@ class TelegramPolling:
         self._handling = True
         try:
             for group in group_updates(updates):
+                if self._stopping:
+                    break  # left unconfirmed, so the next poller gets it
                 self._offset = int(group[-1]["update_id"]) + 1
-                write_offset(self._offset_path, self._offset)
+                write_offset(self._offset_path, self._offset, self._api.bot)
                 await handle_updates(self, group)  # type: ignore[arg-type]
         finally:
             self._handling = False

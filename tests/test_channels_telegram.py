@@ -39,7 +39,7 @@ async def test_inbound_message_runs_a_tracked_turn_and_replies(make_channel, fak
     assert conv.title == texts.TELEGRAM_CONVERSATION_TITLE.format(date=datetime.now().date())
     [run] = channel.hub.recent()
     assert run.source == "telegram" and run.conversation_id == conv.id and run.status == "done"
-    assert (tmp_path / "telegram.offset").read_text() == "8"
+    assert (tmp_path / "telegram.offset").read_text() == "123 8"
     assert await channel.poll_once() == 0  # offset moved past the handled update
     assert fake.calls.index("sendChatAction") < fake.calls.index("sendMessage")
 
