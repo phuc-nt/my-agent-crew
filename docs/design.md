@@ -201,8 +201,12 @@ template in one click. A delegate's conversation is not listed, but opens from a
 or the attention centre.
 
 The screen is split by who the work belongs to. What the conversation you are in is doing sits
-inside the chat frame: `ConversationActivity` between the thread and the composer shows that
-conversation's own runs, step by step with tool arguments and output. What belongs to the whole
+inside the chat frame: `ConversationActivity` shows that conversation's own runs, step by step
+with tool arguments and output. From 1101px it is a 380px column docked to the right of the
+thread, always open and holding its place even before the first run, so the chat does not jump
+when work starts. Narrower, it folds into a one-line strip between the thread and the composer.
+`useMediaQuery` picks which one is rendered rather than CSS hiding one of two copies; without
+`matchMedia` (jsdom) it answers `false`, so unit tests see the strip. What belongs to the whole
 crew lives on a manage screen of its own (`#/manage/<section>`) rather than in a rail beside the
 thread — keeping them side by side made the crew's work and the conversation's work look like
 the same thing. Its sections: activity (live runs, and an attention centre for runs that wait for

@@ -5,7 +5,7 @@ title: Kiến trúc hệ thống — giải phẫu một agent harness
 
 # Kiến trúc hệ thống: giải phẫu một agent harness
 
-**Phiên bản**: 0.4.0 · **Cập nhật**: 2026-09-22
+**Phiên bản**: 0.5.0 · **Cập nhật**: 2026-09-23
 
 Tài liệu này dành cho người chưa từng xây agent harness. Nó trả lời ba câu hỏi: harness gồm những gì, mỗi phần làm việc gì, và chúng khớp với nhau ra sao khi một tin nhắn đi qua. Mọi ví dụ lấy từ một bộ cài thật của my-agent-crew: một master "Trợ lý", hai agent việc thật (Pong, HLV sức khoẻ) và tám agent vai trò kỹ thuật, tất cả chạy trong một tiến trình trên máy cá nhân, nói chuyện qua web UI và một bot Telegram.
 
@@ -77,11 +77,12 @@ lặp tối đa max_steps:
 |---|---|---|
 | Workspace | `workspace_list`, `workspace_read`, `workspace_glob`, `workspace_grep` | không |
 | Workspace | `workspace_write`, `workspace_edit` | có |
-| Shell | `shell_run` (cwd = workspace, có `shell_ask_patterns`) | có |
+| Shell | `shell_run` (cwd = workspace, có `shell_ask_patterns`; `shell_network: false` thì chạy trong `sandbox-exec` không mạng) | có |
 | Web | `fetch_url`, `web_search` | không |
-| Trí nhớ | `memory_save`, `memory_search`, `user_memory_save`, `user_memory_forget` | không |
+| Trí nhớ | `memory_save`, `memory_search`, `user_memory_save`, `user_memory_forget`, `wiki_get`, `wiki_search`, `wiki_apply` | không |
 | Đội | `delegate` | không |
-| Khác | `image_read`, `skill_read` | không |
+| Với người | `ask_user` (dừng lượt, chờ câu trả lời), `progress_note` (một câu "đang làm gì" lên timeline) | không |
+| Khác | `image_read`, `pdf_read`, `skill_read` | không |
 
 Chi tiết từng tool ở [tools.md](tools.md).
 
@@ -229,7 +230,7 @@ Bốn agent đáng xem kỹ:
 
 **Pong** — thư ký, chỉ Google Workspace và Goodreads. `routes` hai model rẻ theo thứ tự fallback. Ba lịch: bản tin sáng, tổng kết tuần, `memory_consolidate` hàng tuần. Lệnh ghi (gửi mail, ghi sheet, ghi Goodreads) nằm trong `shell_ask_patterns` nên luôn hỏi.
 
-**Ledger** — sổ cái tài chính, tách khỏi Pong để agent cầm dữ liệu tiền bạc không có đường nào đưa nó ra ngoài: `tools` bỏ `web_search`, `fetch_url`, `delegate`, `user_memory_save`, `wiki_*`; `shell_ask_patterns` bắt `curl`, `gws`, `ssh`… Ba lịch: bảo trì đêm (lệnh), nhắc hạn (prompt), giá vàng (lệnh). Gọi script của repo sổ cái bằng `shell_run` — harness chỉ biết cwd và lệnh.
+**Ledger** — sổ cái tài chính, tách khỏi Pong để agent cầm dữ liệu tiền bạc không có đường nào đưa nó ra ngoài: `tools` bỏ `web_search`, `fetch_url`, `delegate`, `user_memory_save`, `wiki_*`; `shell_network: false` nên mọi `shell_run` chạy trong sandbox của macOS: không mạng, không `open`/`osascript`, chỉ ghi được dưới `shell_write_paths` và thư mục temp (`tools/shell_sandbox.py`); `shell_ask_patterns` chỉ còn là lớp phụ. Ba lịch: bảo trì đêm (lệnh), nhắc hạn (prompt), giá vàng (lệnh). Gọi script của repo sổ cái bằng `shell_run` — harness chỉ biết cwd và lệnh.
 
 **HLV sức khoẻ** — `routes` ba model, tăng dần từ rẻ đến mạnh. Ba lịch: bảo trì đêm, sao lưu, bản tin sáng có gắn skill Garmin. Đọc ảnh bữa ăn qua `image_read` (tuyến `vision_routes`). Là ví dụ điển hình của agent "một người dùng, một lĩnh vực, nhớ dài".
 

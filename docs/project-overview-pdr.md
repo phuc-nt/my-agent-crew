@@ -5,7 +5,7 @@ title: Tổng quan sản phẩm và yêu cầu
 
 # Tổng quan sản phẩm và yêu cầu (PDR)
 
-**Phiên bản**: 0.4.0 · **Cập nhật**: 2026-09-22
+**Phiên bản**: 0.5.0 · **Cập nhật**: 2026-09-23
 
 ## 1. Vấn đề
 
@@ -23,7 +23,7 @@ my-agent-crew: một tiến trình Python, một tệp SQLite, một thư mục 
 | Người tự xây agent | thêm agent bằng thư mục, thêm tool bằng một hàm, thêm skill bằng markdown |
 | Người học harness | đọc code và tài liệu hiểu được cấu thành, không cần biết trước |
 
-## 4. Tính năng (v0.4.0)
+## 4. Tính năng (v0.5.0)
 
 - Nhiều agent với persona, tool, model, lịch riêng; master giao việc qua `delegate`.
 - Web UI hai khu: **khung chat** (chat SSE có markdown, tiêu đề tự đặt, tiến trình lượt chạy và
@@ -34,6 +34,10 @@ my-agent-crew: một tiến trình Python, một tệp SQLite, một thư mục 
 - Telegram cho master: tin, ảnh, album; đội trả lời qua master.
 - Scheduler cron trong tiến trình; job là cuộc trò chuyện autonomous.
 - Trí nhớ: ghi chú ngày, `MEMORY.md`, facts người dùng dùng chung, consolidate thành đề xuất có duyệt.
+- Agent làm việc với người: `ask_user` hỏi lại ở ngã ba thật (web và Telegram đều trả lời được),
+  `progress_note` báo đang làm gì, dòng `FILE:` gửi tệp đính kèm, `pdf_read` đọc tài liệu.
+- Vault wiki trong trí nhớ agent: trang theo chủ đề có nguồn và liên kết `[[...]]`, dựng lại từ ghi chú.
+- `shell_network: false`: sandbox hệ điều hành cho agent giữ dữ liệu không được rời máy.
 - Kit `.agents/` kiểu Claude Code: lệnh, agent, skill, hook.
 - Provider chain có fallback nhìn thấy; provider giả cho test.
 - Mẫu agent và CLI `agent add`.
@@ -79,7 +83,8 @@ my-agent-crew: một tiến trình Python, một tệp SQLite, một thư mục 
 
 - Đã: v0.1 một agent + web; v0.2 nhiều agent, delegate, Telegram; v0.3 kit `.agents/`, ảnh qua
   vision route, album, múi giờ, persona ba tệp, bộ tài liệu này; v0.4 web UI dựng lại quanh việc
-  nhìn thấy agent đang làm gì, và quản lý cả đội trên web. Chi tiết: [CHANGELOG](../CHANGELOG.md).
+  nhìn thấy agent đang làm gì, và quản lý cả đội trên web; v0.5 hỏi lại, báo tiến độ, gửi tệp,
+  wiki trí nhớ, sandbox ngoại tuyến. Chi tiết: [CHANGELOG](../CHANGELOG.md).
 - Cân nhắc: Telegram cho từng agent; TTL cho lượt delegate; Dockerfile; tìm kiếm trí nhớ tốt hơn;
   trang xem lại lượt chạy hiện cả lượt con được `delegate`.
 

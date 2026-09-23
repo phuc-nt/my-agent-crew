@@ -11,6 +11,12 @@ bản phát hành, `pyproject.toml` và `web/package.json` luôn cùng số.
 
 ## [Chưa phát hành]
 
+## [0.5.0] — 2026-09-23
+
+Bản này cho agent thêm cách làm việc với người — hỏi lại, báo đang làm gì, gửi tệp — thêm
+bộ nhớ dạng wiki, và một hàng rào thật ở tầng hệ điều hành cho agent giữ dữ liệu không được
+rời máy.
+
 ### Thêm
 
 - **Wiki bộ nhớ: mỗi agent một kho trang** ở `memory/wiki/`, chia ba thư mục `entities`,
@@ -137,7 +143,18 @@ bản phát hành, `pyproject.toml` và `web/package.json` luôn cùng số.
   Lệnh ghi: `rate`, `shelf`, `progress`, `review`. Nút trên trang sách chỉ hiện sau khi
   JavaScript chạy xong, nên writer chờ chúng thay vì tìm ngay lúc HTML vừa về.
 
-### Thay đổi
+- **`shell_network: false`: cắt mạng lệnh shell của một agent ở tầng hệ điều hành.** Mọi
+  `shell_run` của agent đó chạy trong `sandbox-exec` của macOS: không kết nối ra ngoài, kể cả
+  `127.0.0.1` và DNS, không mở cổng nghe; `open`, `launchctl`, `osascript`, `shortcuts`,
+  `pbcopy` bị chặn vì chúng nhờ một tiến trình ngoài sandbox làm hộ. Ghi tệp chỉ được dưới
+  `shell_write_paths` và thư mục temp — một dòng chèn vào script mà job có mạng sẽ chạy là
+  một lệnh hẹn giờ, nên chặn mạng mà để ghi tự do thì chưa chặn gì. Khác với danh sách
+  pattern, hàng rào này giữ được cả `$(…)` lẫn script model vừa tự viết. Máy không có
+  `sandbox-exec` thì lệnh bị từ chối chứ không chạy trần. Dành cho agent giữ dữ liệu riêng
+  như sổ tài chính; nó chỉ giới hạn *lệnh*, còn câu trả lời của agent vẫn tới provider và
+  tới người nhận.
+
+### Đổi
 
 - **Chín template lập trình gộp lại thành ba**: `fullstack-developer` làm trọn một việc phần mềm
   (khảo sát, plan, viết, test, tự soát, commit theo các kỹ năng dùng chung), `kongming` là cố vấn
@@ -154,12 +171,32 @@ bản phát hành, `pyproject.toml` và `web/package.json` luôn cùng số.
   môi trường — nới danh sách cho phép là trao khoá API cho mọi lệnh do model viết. Hành vi lọc
   không đổi; nay đã có test neo lại.
 
+- **Chi tiết hoạt động thành cột bên phải khung chat trên màn rộng.** Từ 1101px, các lượt
+  chạy của cuộc trò chuyện đang mở nằm trong một cột 380px luôn mở, giữ chỗ cả khi chưa có
+  lượt nào để khung chat không nhảy khi việc bắt đầu. Màn hẹp hơn vẫn là dải một dòng dưới
+  luồng tin như trước.
+
 ### Sửa
 
 - **Kết quả công cụ bị cắt không còn vượt trần `tool_output_chars`.** Dòng nhãn "đã cắt bớt"
   trước đây được cộng thêm vào sau khi đã cắt đủ trần, nên bản trả về luôn dài hơn trần vài
   chục ký tự. Nay nhãn được trả bằng chính ngân sách đó. Test cũ đo bằng biên `+ 40` nên
   không thấy; nay có một test quét nhiều trần và nhiều dạng dữ liệu để neo đúng bất biến này.
+- **Template `researcher` tôn trọng trần tìm kiếm người hỏi đặt** ("tối đa 2 lần tìm") và
+  bắt buộc mục **Nguồn** có URL. Trước đó báo cáo có thể không dẫn một nguồn nào dù persona
+  dặn phải ghi.
+- **Template `fullstack-developer` báo từng điểm theo hay không theo lời `kongming`**, kèm lý
+  do. Trước đó nó có thể nói "đã làm theo lời khuyên" trong khi code làm ngược lại.
+- **Goodreads writer chờ trang vẽ xong nút** trước khi bấm, và dùng đúng nhãn kệ; lần ghi thật
+  đầu tiên hỏng ở cả hai chỗ.
+
+### Lưu ý khi nâng cấp
+
+Không cần migration tay. Bảng `approvals` có thêm ba cột (`kind`, `options`, `answer`), được
+thêm tự động khi khởi động và có giá trị mặc định cho các hàng cũ. Mọi key mới trong
+`agent.yaml` (`shell_network`, `shell_write_paths`, `shell_allow_patterns`) đều tuỳ chọn và mặc
+định giữ nguyên hành vi cũ. Agent đã cài từ chín template lập trình cũ vẫn chạy; chỉ
+`agent add` đổi sang ba template mới.
 
 ## [0.4.0] — 2026-09-22
 
@@ -229,6 +266,7 @@ khởi động lại tiến trình.
 
 - Một agent, vòng lặp `run_turn` có cổng duyệt tool, web UI, trí nhớ trên đĩa.
 
+[0.5.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.5.0
 [0.4.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.4.0
 [0.3.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.3.0
 [0.2.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.2.0

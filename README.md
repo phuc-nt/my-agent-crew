@@ -88,6 +88,9 @@ schedules:
 memory_consolidate: "30 3 * * 1"            # mỗi thứ Hai, viết lại MEMORY.md từ nhật ký
 ```
 
+Agent giữ dữ liệu không được rời máy (ví dụ sổ cái) đặt `shell_network: false`: mọi `shell_run`
+chạy trong `sandbox-exec` không mạng, chỉ ghi được dưới `shell_write_paths` — xem [agents.md](docs/agents.md).
+
 Job `prompt` mở một cuộc trò chuyện mới và chạy như người dùng nhắn; job `command` chỉ chạy shell.
 Kết quả job `prompt` được gửi vào chat Telegram (nếu có bot, xem dưới) với dòng đầu `[Tên agent]`;
 dòng `MEDIA:` thành ảnh lấy từ workspace của agent đó, dòng `FILE:` thành tệp đính kèm
