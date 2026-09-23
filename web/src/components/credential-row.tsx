@@ -71,7 +71,11 @@ export function CredentialRow({ item, credentials }: Props) {
     });
 
   const shown = !item.secret && (item.value || (item.default && t.defaultValue(item.default)));
-  const sub = item.source === "process" ? t.fromProcess : shown || undefined;
+  const sub = !item.editable
+    ? t.fileOnly
+    : item.source === "process"
+      ? t.fromProcess
+      : shown || undefined;
 
   return (
     <li data-testid={`credential-${item.name}`}>
@@ -121,15 +125,17 @@ export function CredentialRow({ item, credentials }: Props) {
         </form>
       ) : (
         <div className="credential-actions">
-          <button type="button" disabled={busy} onClick={() => setEditing(true)}>
-            {item.present ? t.replace : t.set}
-          </button>
+          {item.editable && (
+            <button type="button" disabled={busy} onClick={() => setEditing(true)}>
+              {item.present ? t.replace : t.set}
+            </button>
+          )}
           {item.checkable && (
             <button type="button" className="ghost" disabled={busy} onClick={check}>
               {pending === "check" ? t.checking : t.check}
             </button>
           )}
-          {item.present && item.source === "file" && (
+          {item.editable && item.present && item.source === "file" && (
             <button type="button" className="danger" disabled={busy} onClick={remove}>
               {t.remove}
             </button>

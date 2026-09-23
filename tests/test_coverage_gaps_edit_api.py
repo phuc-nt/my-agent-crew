@@ -26,7 +26,7 @@ def crew(tmp_path: Path):
     home.mkdir()
     env = {"MY_AGENT_HOME": str(home), "MY_AGENT_ROUTES": "fake:echo"}
     runtime = build_runtime(load_settings(env=env))
-    with TestClient(create_app(runtime, schedule=False)) as client:
+    with TestClient(create_app(runtime, schedule=False), base_url="http://127.0.0.1") as client:
         yield client, runtime, home
 
 
@@ -172,7 +172,7 @@ class TestAgentIdCollisionWithKit:
 
         env = {"MY_AGENT_HOME": str(home), "MY_AGENT_ROUTES": "fake:echo"}
         runtime = build_runtime(load_settings(env=env))
-        with TestClient(create_app(runtime, schedule=False)) as client:
+        with TestClient(create_app(runtime, schedule=False), base_url="http://127.0.0.1") as client:
             # Kit agents are NOT automatically loaded from .agents/ at startup
             # Only agents in agents/ (regular yaml files) are loaded
             # So creating "reviewer" should succeed (the kit agent isn't loaded yet)
@@ -336,7 +336,7 @@ class TestPersonaFileOperations:
 
         env = {"MY_AGENT_HOME": str(home), "MY_AGENT_ROUTES": "fake:echo"}
         runtime = build_runtime(load_settings(env=env))
-        with TestClient(create_app(runtime, schedule=False)) as client:
+        with TestClient(create_app(runtime, schedule=False), base_url="http://127.0.0.1") as client:
             reply = client.put("/api/agents/reviewer/files/SOUL.md", json={"content": "Modified"})
 
             assert reply.status_code == 409

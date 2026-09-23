@@ -6,24 +6,27 @@ echoed. The value goes to `<home>/env`, owner-only, and into this process's envi
 then the crew is rebuilt from it so the new key works on the next message rather than
 after a restart.
 
-Every route here sits behind `local_origin`: the file written is sourced by a shell at
-the next start, so a page on another site that reached this port through DNS rebinding
-must not be able to write to it.
+A change is tried before it is kept: the crew is rebuilt from the environment as it
+would be, and only when that works is the file written. Removing the one key the routes
+need is refused with the reason, rather than saved and leaving a crew that cannot answer
+and a server that will not start. Requests from other sites are turned away app-wide by
+`local_guard`; the file written here is sourced by a shell at the next start.
 """
 
 from __future__ import annotations
 
-import ipaddress
 import logging
 import os
+from collections.abc import Mapping
 from typing import Any
 from urllib.parse import urlsplit
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from ruamel.yaml import YAMLError
 
+from my_agent_crew import texts
 from my_agent_crew import texts_credentials as t
 from my_agent_crew.env_file import (
     MAX_VALUE_CHARS,
@@ -43,35 +46,18 @@ from my_agent_crew.server.credential_checks import (
 )
 from my_agent_crew.server.deps import Rt
 from my_agent_crew.server.runtime import Runtime
-from my_agent_crew.server.runtime_connections import reload_connections
+from my_agent_crew.server.runtime_connections import (
+    ChannelKey,
+    Prepared,
+    channel_key,
+    commit,
+    prepare,
+)
 
 logger = logging.getLogger(__name__)
 
 
-def _is_local(host: str) -> bool:
-    """A loopback name or any IP literal. A DNS name other than localhost is what a
-    rebinding attack arrives under, so it is refused; an IP cannot be rebound."""
-    if host == "localhost":
-        return True
-    try:
-        ipaddress.ip_address(host)
-    except ValueError:
-        return False
-    return True
-
-
-def _hostname(netloc: str) -> str:
-    return urlsplit(f"//{netloc}").hostname or ""
-
-
-def local_origin(request: Request) -> None:
-    host = _hostname(request.headers.get("host", ""))
-    origin = request.headers.get("origin")
-    if not _is_local(host) or (origin and not _is_local(urlsplit(origin).hostname or "")):
-        raise HTTPException(403, t.FOREIGN_ORIGIN)
-
-
-router = APIRouter(tags=["credentials"], dependencies=[Depends(local_origin)])
+router = APIRouter(tags=["credentials"])
 
 
 class ValueRequest(BaseModel):
@@ -102,12 +88,25 @@ def _checked_value(rt: Runtime, name: str, raw: str) -> str:
     return value.rstrip("/") if known is not None and known.url else value
 
 
-async def _apply(rt: Runtime) -> str | None:
-    """Rebuild the crew from the environment; the reason it could not, if it could not.
-    The file is already written by then, so a failure here costs a restart, not the key."""
+def _prepared(rt: Runtime, env: Mapping[str, str]) -> Prepared | None:
+    """The crew rebuilt from `env`, a 409 naming why it cannot be, or None for a runtime
+    that is never rebuilt live (a test app with no HTTP client)."""
+    if rt.client is None:
+        return None
     try:
-        await reload_connections(rt)
-    except (RuntimeError, ValueError, OSError, YAMLError) as exc:
+        return prepare(rt, env)
+    except (ValueError, OSError, YAMLError) as exc:
+        raise HTTPException(409, t.NOT_APPLICABLE.format(error=str(exc))) from None
+
+
+async def _apply(rt: Runtime, prepared: Prepared | None, before: ChannelKey) -> str | None:
+    """Swap the prepared crew in; the reason it could not be, when it could not. The file
+    is written by then, so a failure here costs a restart, not the key."""
+    if prepared is None:
+        return t.APPLY_FAILED.format(error=texts.RUNTIME_CANNOT_GROW)
+    try:
+        await commit(rt, prepared, before)
+    except (RuntimeError, ValueError, OSError) as exc:
         logger.warning("credentials saved but not applied: %s", type(exc).__name__)
         return t.APPLY_FAILED.format(error=str(exc))
     return None
@@ -127,9 +126,11 @@ async def put_credential(name: str, body: ValueRequest, rt: Rt) -> dict[str, Any
     _checked_name(name)
     value = _checked_value(rt, name, body.value)
     async with write_lock:
+        prepared = _prepared(rt, {**os.environ, name: value})
+        before = channel_key(rt.agents, os.environ)
         write_env(env_path(rt.settings.home), name, value)
         os.environ[name] = value
-        problem = await _apply(rt)
+        problem = await _apply(rt, prepared, before)
     return _answer(rt, problem)
 
 
@@ -143,12 +144,16 @@ async def delete_credential(name: str, rt: Rt) -> dict[str, Any]:
             if os.environ.get(name):
                 raise HTTPException(409, t.NOT_IN_FILE.format(name=name))
             raise HTTPException(404, t.NOT_SET.format(name=name))
-        remove_env(path, name)
         # Only unset what the file put there; a value the process was started with is
         # the person's own override and stays.
-        if os.environ.get(name) == stored:
+        unset = os.environ.get(name) == stored
+        after = {k: v for k, v in os.environ.items() if not (unset and k == name)}
+        prepared = _prepared(rt, after)
+        before = channel_key(rt.agents, os.environ)
+        remove_env(path, name)
+        if unset:
             os.environ.pop(name, None)
-        problem = await _apply(rt)
+        problem = await _apply(rt, prepared, before)
     return _answer(rt, problem)
 
 

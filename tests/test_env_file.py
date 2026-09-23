@@ -64,7 +64,17 @@ def test_removing_drops_only_that_name(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize(
     ("raw", "reason"),
-    [("   ", "empty"), ("a\nB=2", "multiline"), ("a\rb", "multiline"), ("x" * 5000, "too long")],
+    [
+        ("   ", "empty"),
+        ("a\nB=2", "multiline"),
+        ("a\rb", "multiline"),
+        ("a\u2028B=2", "multiline"),
+        ("a\x0bb", "multiline"),
+        ("a\x0cb", "multiline"),
+        ("a\x85b", "multiline"),
+        ("a\x01b", "multiline"),
+        ("x" * 5000, "too long"),
+    ],
 )
 def test_a_value_that_could_become_a_second_line_of_shell_is_refused(raw, reason) -> None:
     with pytest.raises(ValueError, match=reason):
@@ -88,3 +98,31 @@ def test_the_process_environment_wins_over_the_file(tmp_path: Path) -> None:
 
 def test_a_home_without_the_file_loads_nothing(tmp_path: Path) -> None:
     assert load_env_file(tmp_path, {}) == []
+
+
+def test_a_form_feed_in_a_hand_written_line_does_not_split_it_in_two(tmp_path: Path) -> None:
+    path = env_path(tmp_path)
+    # The shell reads this as one assignment to A; so must we, or a rewrite would
+    # turn the second half into a real line the shell runs at the next restart.
+    path.write_bytes(b"A=x\x0cDYLD_X=1\n")
+
+    environ: dict[str, str] = {}
+    load_env_file(tmp_path, environ)
+    set_env(path, "OTHER", "y")
+
+    assert "DYLD_X" not in read_env(path) and "DYLD_X" not in environ
+    assert path.read_bytes() == b"A=x\x0cDYLD_X=1\nOTHER='y'\n"
+
+
+def test_an_env_file_that_is_a_link_stays_a_link(tmp_path: Path) -> None:
+    real = tmp_path / "secrets" / "env"
+    real.parent.mkdir()
+    real.write_text("KEEP=1\n", encoding="utf-8")
+    home = tmp_path / "home"
+    home.mkdir()
+    env_path(home).symlink_to(real)
+
+    set_env(env_path(home), "NEW", "2")
+
+    assert env_path(home).is_symlink()
+    assert read_env(real) == {"KEEP": "1", "NEW": "2"}

@@ -12,6 +12,7 @@ kit rather than edit it — a surprise worth refusing instead of performing.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 
@@ -38,7 +39,7 @@ from my_agent_crew.server.agent_edit_common import (
 from my_agent_crew.server.deps import Rt
 from my_agent_crew.server.runtime import Runtime
 from my_agent_crew.server.runtime_build import check_delegates
-from my_agent_crew.server.runtime_connections import restart_channel
+from my_agent_crew.server.runtime_connections import channel_key, sync_channel
 
 router = APIRouter(tags=["agents"])
 
@@ -92,9 +93,9 @@ async def create_agent(body: CreateRequest, rt: Rt) -> dict[str, Any]:
             raise HTTPException(409, texts.AGENT_EXISTS.format(agent_id=body.agent_id))
         agent_dir = create_agent_dir(rt.settings.home, body.agent_id)
         raw = patched(rt, body.agent_id, body.profile)
+        before = channel_key(rt.agents, os.environ)
         profile = save(rt, body.agent_id, raw, agent_dir)
-        if profile.telegram is not None:
-            await restart_channel(rt)
+        await sync_channel(rt, before)
     return {"profile": profile.to_dict(), "restart_required": restart_reasons(None, profile)}
 
 
@@ -104,11 +105,12 @@ async def patch_agent(agent_id: str, body: PatchRequest, rt: Rt) -> dict[str, An
         old = existing(rt, agent_id)
         check_editable(rt, old)
         raw = patched(rt, agent_id, body.profile)
+        before = channel_key(rt.agents, os.environ)
         profile = save(rt, agent_id, raw, old.dir)
-        # The bot is built from the master's block; a changed chat or token name takes
-        # effect now rather than after a restart nobody remembers to do.
-        if profile.telegram != old.telegram:
-            await restart_channel(rt)
+        # The bot is built from the master's block; a changed chat or token takes effect
+        # now rather than after a restart nobody remembers to do. Any other edit only
+        # hands the running bot the rebuilt agent, without cutting off its poll.
+        await sync_channel(rt, before)
     return {"profile": profile.to_dict(), "restart_required": restart_reasons(old, profile)}
 
 
@@ -132,4 +134,6 @@ async def delete_agent(agent_id: str, rt: Rt) -> dict[str, Any]:
         except OSError as exc:
             raise HTTPException(409, str(exc)) from exc
         rt.remove_agent(agent_id)
+        if rt.channel is not None:
+            rt.channel.use_agents(rt.agents)
     return {"removed": agent_id, "kept_at": str(trashed)}

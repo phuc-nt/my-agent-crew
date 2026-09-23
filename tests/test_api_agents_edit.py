@@ -14,7 +14,7 @@ def crew(tmp_path: Path):
     home.mkdir()
     env = {"MY_AGENT_HOME": str(home), "MY_AGENT_ROUTES": "fake:echo"}
     runtime = build_runtime(load_settings(env=env))
-    with TestClient(create_app(runtime, schedule=False)) as client:
+    with TestClient(create_app(runtime, schedule=False), base_url="http://127.0.0.1") as client:
         yield client, runtime, home
 
 
@@ -245,7 +245,7 @@ def test_an_agent_that_came_from_a_kit_is_read_only_and_says_where_it_lives(
     (home / ".agents" / "agents" / "reviewer.md").write_text(REVIEWER_MD, encoding="utf-8")
     env = {"MY_AGENT_HOME": str(home), "MY_AGENT_ROUTES": "fake:echo"}
     runtime = build_runtime(load_settings(env=env))
-    with TestClient(create_app(runtime, schedule=False)) as client:
+    with TestClient(create_app(runtime, schedule=False), base_url="http://127.0.0.1") as client:
         patched = client.patch("/api/agents/reviewer", json={"profile": {"name": "Khác"}})
         deleted = client.delete("/api/agents/reviewer")
         described = client.get("/api/agents/reviewer").json()

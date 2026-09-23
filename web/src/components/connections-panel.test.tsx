@@ -23,6 +23,7 @@ const item = (overrides: Partial<CredentialInfo>): CredentialInfo => ({
   present: false,
   source: null,
   checkable: false,
+  editable: true,
   ...overrides,
 });
 
@@ -137,6 +138,17 @@ describe("ConnectionsPanel", () => {
 
     expect(row.queryByRole("button", { name: vi.connectionsPage.remove })).toBeNull();
     expect(row.getByText(vi.connectionsPage.fromProcess)).toBeInTheDocument();
+  });
+
+  it("offers no controls for a name only the file itself can change", () => {
+    const credentials = controller([
+      item({ name: "lower_case", group: "other", present: true, source: "file", editable: false }),
+    ]);
+    render(<ConnectionsPanel connections={base} credentials={credentials} />);
+    const row = within(screen.getByTestId("credential-lower_case"));
+
+    expect(row.queryByRole("button")).toBeNull();
+    expect(row.getByText(vi.connectionsPage.fileOnly)).toBeInTheDocument();
   });
 
   it("shows a host address and its default, since they are not secrets", () => {

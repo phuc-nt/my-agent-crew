@@ -246,6 +246,7 @@ export const vi = {
     saved: "Đã lưu và áp dụng.",
     removed: "Đã xoá.",
     confirmRemove: (name: string) => `Xoá ${name} khỏi tệp env? Kết nối dùng nó sẽ ngừng ngay.`,
+    fileOnly: "Tên này chỉ sửa được trực tiếp trong tệp env.",
     fromProcess: "Đặt từ môi trường lúc khởi động máy chủ — không xoá được ở đây; lưu từ đây sẽ ghi vào tệp env.",
     defaultValue: (url: string) => `Mặc định: ${url}`,
     failed: (message: string) => `Không được: ${message}`,

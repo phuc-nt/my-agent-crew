@@ -16,7 +16,7 @@ WRITE = '/tool workspace_write {"path": "x.txt", "content": "1"}'
 @pytest.fixture
 def client(deps_factory):
     deps = deps_factory(routes=(Route("fake", "echo"),))
-    with TestClient(create_app(deps)) as c:
+    with TestClient(create_app(deps), base_url="http://127.0.0.1") as c:
         yield c
 
 

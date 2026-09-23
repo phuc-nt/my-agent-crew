@@ -19,7 +19,7 @@ title: Cài đặt, vận hành và publish tài liệu
 ```bash
 git clone <repo> my-agent-crew && cd my-agent-crew
 uv sync
-export OPENROUTER_API_KEY=…      # hoặc để trong tệp env, xem §4
+export OPENROUTER_API_KEY=…      # hoặc đặt sau trong web: Quản lý → Kết nối, xem §4
 uv run python -m my_agent_crew   # http://127.0.0.1:8765
 ```
 
@@ -56,6 +56,12 @@ Thử không tốn tiền: `MY_AGENT_ROUTES=fake:echo uv run python -m my_agent_
 | `FIRECRAWL_BASE_URL` | host firecrawl, ví dụ `http://127.0.0.1:3002`; bật tìm kiếm + scrape markdown |
 | `FIRECRAWL_API_KEY` | chỉ cần cho firecrawl cloud; host tự dựng để trống |
 | tên do `telegram.token_env` trong `agent.yaml` chỉ định | token bot |
+
+Server tự nạp `<home>/env` lúc khởi động; biến đã có sẵn trong môi trường tiến trình thắng giá trị trong tệp.
+
+**Quản lý từ web.** Quản lý → **Kết nối** liệt kê các khoá theo việc chúng phục vụ (mô hình, tìm kiếm, Telegram, biến khác): đã đặt hay chưa, đặt từ tệp hay từ môi trường tiến trình. Đặt/Thay ghi vào `<home>/env` (chmod 600, giá trị bọc nháy đơn nên `source` an toàn, không nhận xuống dòng) rồi dựng lại provider, nguồn tìm kiếm và kênh Telegram ngay — không cần khởi động lại. **Kiểm tra** gọi thử OpenRouter, Telegram `getMe`, Ollama, Firecrawl. **Xoá** chỉ gỡ được giá trị nằm trong tệp; giá trị do môi trường tiến trình cấp phải gỡ ở nơi khởi động server. Trước khi ghi, server dựng thử cả đội với giá trị mới; nếu đội không chạy được (vd. xoá khoá duy nhất mà route cần) thì từ chối (409) và tệp giữ nguyên. Bot Telegram chỉ dựng lại khi token hay `chat_id` của nó đổi; đổi khoá khác không cắt tin đang trả lời. Giá trị chỉ đi một chiều: API (`/api/credentials`) không bao giờ trả khoá bí mật về, chỉ trả địa chỉ host (mật khẩu trong URL bị che).
+
+**Chỉ nhận request cục bộ.** Mọi route `/api/` từ chối (403) request có `Host` không phải `localhost` hay địa chỉ IP, hoặc `Origin` là site khác — để trang web lạ trỏ tên miền về 127.0.0.1 (DNS rebinding) không đọc hay sửa được đội. Mở UI qua tên máy (vd. Tailscale MagicDNS) thì thêm tên đó vào `MY_AGENT_ALLOWED_HOSTS` (phân cách dấu phẩy) trong môi trường khởi động server; truy cập bằng IP không cần.
 
 Quy tắc: bí mật chỉ nằm trong tệp env ngoài repo; `agent.yaml` chỉ ghi **tên** biến (`token_env: TELEGRAM_BOT_TOKEN`), không ghi giá trị. Log server đi qua bộ lọc redact nên token không xuất hiện trong `logs/`.
 
@@ -153,14 +159,14 @@ Sau đó sửa `agents/<id>/agent.yaml` (`routes`, `tools`, `schedules`, `autono
 
 ## 8. Telegram
 
-1. Tạo bot với BotFather, ghi token vào tệp env dưới tên tuỳ chọn.
+1. Tạo bot với BotFather, ghi token vào tệp env dưới tên tuỳ chọn (hoặc đặt ở Kết nối sau bước 2).
 2. Trong `agent.yaml` của master:
    ```yaml
    telegram:
      token_env: TELEGRAM_BOT_TOKEN
      chat_id: <id chat của bạn>
    ```
-3. Khởi động lại; poller bắt đầu. Chỉ chat từ `chat_id` được nhận. Xem [channels.md](channels.md).
+3. Sửa từ web (Đội → agent chính → Telegram) thì kênh bật ngay; sửa tay `agent.yaml` thì khởi động lại. Poller bắt đầu. Chỉ chat từ `chat_id` được nhận. Xem [channels.md](channels.md).
 
 ## 9. Publish bộ doc để sơ đồ archify chuyển động
 

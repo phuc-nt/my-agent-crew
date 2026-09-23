@@ -40,6 +40,7 @@ Bí mật **chỉ** đọc từ biến môi trường; `config.yaml` chỉ chứ
 | `MY_AGENT_AUTONOMOUS` | `1` để công cụ ghi/thay đổi chạy không cần duyệt | tắt |
 | `MY_AGENT_APPROVAL_TTL_SECONDS` | yêu cầu duyệt không ai trả lời trong khoảng này thì tự từ chối, lượt chạy tiếp | `600` |
 | `MY_AGENT_TIMEZONE` | múi giờ của bạn (tên IANA, vd `Asia/Ho_Chi_Minh`) cho lịch, "hôm nay" trong prompt và thống kê; DB vẫn lưu UTC | múi giờ máy |
+| `MY_AGENT_ALLOWED_HOSTS` | tên máy (ngoài `localhost` và IP) được phép gọi API, cách nhau dấu phẩy — vd tên Tailscale MagicDNS | trống |
 | `OLLAMA_BASE_URL` | nơi ollama local lắng nghe; không cần khoá nên provider này luôn sẵn sàng | `http://127.0.0.1:11434/v1` |
 | `OPENROUTER_API_KEY` | bật provider OpenRouter | — |
 | `TAVILY_API_KEY` / `BRAVE_API_KEY` | nguồn tìm kiếm trả phí; không đặt thì `web_search` vẫn chạy bằng DuckDuckGo | — |
@@ -176,8 +177,12 @@ python -m my_agent_crew agent add researcher                                  # 
 ```
 
 Edit an agent's profile (name, description, routes, tools, budget, schedules) from the **Đội** tab.
-Tools across the whole crew, and who uses which, are in **Công cụ**. Connections (API keys,
-Telegram, vision routes) are in **Kết nối**.
+Tools across the whole crew, and who uses which, are in **Công cụ**. Connections are in **Kết nối**:
+set, check or remove API keys, host addresses and the Telegram bot token there — they are
+written to `~/.my-agent-crew/env` and take effect without a restart. A change the crew
+could not run with (removing the only model key) is refused before anything is written.
+The API only answers requests addressed to `localhost` or an IP; to open the UI by a host
+name (Tailscale MagicDNS, say), list it in `MY_AGENT_ALLOWED_HOSTS`.
 
 Giao việc như nói với người: *"Nhờ fullstack-developer thêm lệnh `--version` in phiên bản từ
 pyproject, có test."* Master giao việc, fullstack-developer tự khảo sát, viết, test và soát, hỏi

@@ -25,7 +25,7 @@ def deps(deps_factory):
 
 @pytest.fixture
 def client(deps):
-    with TestClient(create_app(deps, schedule=False)) as c:
+    with TestClient(create_app(deps, schedule=False), base_url="http://127.0.0.1") as c:
         yield c
 
 

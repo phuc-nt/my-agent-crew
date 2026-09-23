@@ -31,7 +31,7 @@ my-agent-crew/
 | `agent/` | vòng lặp một lượt | `loop.py` (`run_turn`), `prompt.py` (`build_system_prompt`), `tool_calls.py` (`settle_tool_calls`), `tool_batches.py`, `approval_expiry.py` (`expire_overdue`), `resume.py` (chạy tiếp lượt sau khi duyệt hoặc trả lời), `context_trim.py`, `events.py`, `turn_context.py` |
 | `agents/` | hồ sơ agent từ đĩa | `profile.py` (`AgentProfile`), `profile_yaml.py` (đọc), `profile_write.py` (ghi round-trip), `profile_edit.py` (vá + validate), `roster.py`, `context.py` (`bootstrap_sections`), `kit*.py` (đọc `.agents/`), `channels.py`, `templates_cli.py` |
 | `activity/` | run và step cho web | `hub.py` (`ActivityHub`), `steps.py` |
-| `channels/` | Telegram | `telegram_channel.py` (start/stop), `telegram_inbound.py` (tin, ảnh, `inbox/`), `telegram_albums.py`, `telegram_outbound.py` (kể cả dòng `FILE:` → `sendDocument`), `telegram_attachments.py`, `telegram_answers.py` (tin kế tiếp là câu trả lời cho `ask_user`), `telegram_commands.py`, `telegram_api.py` (redact token), `telegram_offset.py` |
+| `channels/` | Telegram | `telegram_channel.py`, `telegram_polling.py` (vòng poll, dừng êm), `telegram_inbound.py` (tin, ảnh, `inbox/`), `telegram_albums.py`, `telegram_outbound.py` (kể cả dòng `FILE:` → `sendDocument`), `telegram_attachments.py`, `telegram_answers.py` (tin kế tiếp là câu trả lời cho `ask_user`), `telegram_commands.py`, `telegram_api.py` (redact token), `telegram_offset.py` |
 | `inbound.py` | một cổng vào, `InboundBusy` | — |
 | `llm/` | provider | `provider.py` (`Provider`, `ProviderChain`), `openai_compat.py` (lõi chung), `openrouter.py`, `ollama.py`, `fake.py`, `types.py` |
 | `memory/` | trí nhớ | `agent_store.py` (ghi chú ngày), `user_store.py` (facts), `consolidate.py` (7 ngày → đề xuất), `proposals_apply.py`, `search.py`, `session_summary.py`, `conversation_title.py`; vault wiki: `wiki_store.py`, `wiki_slug.py`, `wiki_links.py`, `wiki_index.py`, `wiki_plan.py`, `wiki_compile.py` (dựng từ ghi chú), `wiki_apply.py`, `wiki_lint.py`, `wiki_reports.py` |
@@ -72,6 +72,7 @@ my-agent-crew/
 | Sửa agent | `POST /api/agents`, `PATCH …/{id}`, `DELETE …/{id}` |
 | Tệp tính cách | `PUT /api/agents/{id}/files/{name}`, `GET …/{id}/prompt` (lời nhắc hệ thống đã ghép), `POST /api/agents/reload` |
 | Tool & kết nối | `GET /api/tools`, `GET /api/connections` |
+| Khoá & biến môi trường | `GET /api/credentials`, `PUT/DELETE …/{name}` (ghi `<home>/env`, áp dụng ngay), `POST …/{name}/check`; không trả giá trị bí mật; thay đổi làm đội không chạy được (vd. gỡ khoá duy nhất của route) bị từ chối 409, không ghi gì |
 | Trí nhớ agent | `GET/PUT /api/agents/{id}/memory`, `GET/PUT …/memory/notes/{day}`, `POST …/memory/consolidate` |
 | Wiki | `GET /api/agents/{id}/memory/wiki`, `GET/PUT/DELETE …/wiki/pages/{slug}`, `GET …/wiki/report`, `POST …/wiki/compile` |
 | Trí nhớ người dùng | `GET/PUT /api/memory/user`, `…/user/facts/{name}`, `GET /api/memory/proposals[/{id}]`, `GET /api/memory/search` |

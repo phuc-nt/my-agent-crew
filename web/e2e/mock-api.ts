@@ -89,10 +89,10 @@ export const connections = {
 
 /** The keys the Connections page lists, as the server describes them: never a secret's value. */
 export const credentialItems = [
-  { name: "OPENROUTER_API_KEY", group: "model", secret: true, url: false, present: true, source: "file", checkable: true },
-  { name: "OLLAMA_BASE_URL", group: "model", secret: false, url: true, present: false, source: null, checkable: true, value: "", default: "http://127.0.0.1:11434/v1" },
-  { name: "BRAVE_API_KEY", group: "search", secret: true, url: false, present: false, source: null, checkable: false },
-  { name: "TELEGRAM_BOT_TOKEN", group: "telegram", secret: true, url: false, present: true, source: "file", checkable: true, agents: ["default"] },
+  { name: "OPENROUTER_API_KEY", group: "model", secret: true, url: false, present: true, source: "file", checkable: true, editable: true },
+  { name: "OLLAMA_BASE_URL", group: "model", secret: false, url: true, present: false, source: null, checkable: true, editable: true, value: "", default: "http://127.0.0.1:11434/v1" },
+  { name: "BRAVE_API_KEY", group: "search", secret: true, url: false, present: false, source: null, checkable: false, editable: true },
+  { name: "TELEGRAM_BOT_TOKEN", group: "telegram", secret: true, url: false, present: true, source: "file", checkable: true, editable: true, agents: ["default"] },
 ];
 
 export const settings = {
@@ -205,7 +205,7 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
       if (method === "PUT") {
         const { value } = route.request().postDataJSON() as { value: string };
         const known = at >= 0 ? credentials[at] : undefined;
-        const next = { ...(known ?? { name, group: "other", secret: true, url: false, checkable: false }), present: true, source: "file" };
+        const next = { ...(known ?? { name, group: "other", secret: true, url: false, checkable: false, editable: true }), present: true, source: "file" };
         // Only what is not a secret comes back, as on the server.
         if (!next.secret) Object.assign(next, { value });
         if (known) credentials[at] = next;

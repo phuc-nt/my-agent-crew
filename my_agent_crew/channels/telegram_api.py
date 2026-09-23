@@ -66,20 +66,36 @@ def split_message(text: str, limit: int = MESSAGE_LIMIT) -> list[str]:
 
 
 class RedactingFilter(logging.Filter):
-    """httpx logs every request URL at INFO, and Telegram URLs carry the bot token."""
+    """httpx logs every request URL at INFO, and Telegram URLs carry the bot token. One
+    filter holds every token this process has used, so a bot rebuilt after its token
+    changed, or a token only checked from the web, adds a word to it rather than
+    stacking another filter on the logger."""
 
-    def __init__(self, token: str):
+    def __init__(self) -> None:
         super().__init__()
-        self._token = token
+        self.tokens: set[str] = set()
+
+    def _clean(self, value: Any) -> Any:
+        text = str(value)
+        hits = [token for token in self.tokens if token in text]
+        for token in hits:
+            text = text.replace(token, TOKEN_PLACEHOLDER)
+        return text if hits else value
 
     def filter(self, record: logging.LogRecord) -> bool:
-        record.msg = str(record.msg).replace(self._token, TOKEN_PLACEHOLDER)
+        record.msg = str(self._clean(record.msg))
         if isinstance(record.args, tuple):
-            record.args = tuple(
-                str(arg).replace(self._token, TOKEN_PLACEHOLDER) if self._token in str(arg) else arg
-                for arg in record.args
-            )
+            record.args = tuple(self._clean(arg) for arg in record.args)
         return True
+
+
+_REDACT = RedactingFilter()
+logging.getLogger("httpx").addFilter(_REDACT)
+
+
+def hide_token(token: str) -> None:
+    """Keep `token` out of httpx's request log from now on."""
+    _REDACT.tokens.add(token)
 
 
 class TelegramApi:
@@ -87,7 +103,7 @@ class TelegramApi:
         self._token = token
         self._client = client
         self._base = base
-        logging.getLogger("httpx").addFilter(RedactingFilter(token))
+        hide_token(token)
 
     def redact(self, text: str) -> str:
         return text.replace(self._token, TOKEN_PLACEHOLDER)

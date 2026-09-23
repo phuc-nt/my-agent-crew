@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -32,6 +33,7 @@ from my_agent_crew.server import (
     routes_settings,
 )
 from my_agent_crew.server.agent_assembly import build_providers
+from my_agent_crew.server.local_guard import allowed_hosts, install_local_guard
 from my_agent_crew.server.runtime import Runtime
 from my_agent_crew.server.runtime_build import build_deps, build_runtime
 
@@ -77,6 +79,7 @@ def create_app(runtime: Runtime | AgentDeps | None = None, schedule: bool = True
 
     app = FastAPI(title="my-agent-crew", version=__version__, lifespan=lifespan)
     app.state.runtime = runtime
+    install_local_guard(app, allowed_hosts(os.environ))
 
     for router in ROUTERS:
         app.include_router(router, prefix="/api")

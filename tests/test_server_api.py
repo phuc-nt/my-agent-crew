@@ -15,7 +15,7 @@ from my_agent_crew.texts import CONVERSATION_TITLE_DEFAULT
 @pytest.fixture
 def client(deps_factory):
     deps = deps_factory(routes=(Route("fake", "echo"),))
-    with TestClient(create_app(deps)) as c:
+    with TestClient(create_app(deps), base_url="http://127.0.0.1") as c:
         yield c
 
 
@@ -132,7 +132,7 @@ def test_always_allow_skips_the_next_pause_and_lands_in_history(client):
 
 def test_settings_never_echo_secrets(deps_factory):
     deps = deps_factory(routes=(Route("fake", "echo"),), openrouter_api_key="sk-secret")
-    with TestClient(create_app(deps)) as c:
+    with TestClient(create_app(deps), base_url="http://127.0.0.1") as c:
         body = c.get("/api/settings").json()
     assert body["keys"]["openrouter"] is True
     assert "sk-secret" not in json.dumps(body)
@@ -144,7 +144,7 @@ def test_error_event_when_every_route_fails(deps_factory):
     from my_agent_crew.llm.provider import ProviderError
 
     deps = deps_factory(script=[ProviderError("down")])
-    with TestClient(create_app(deps)) as c:
+    with TestClient(create_app(deps), base_url="http://127.0.0.1") as c:
         conv = c.post("/api/conversations", json={}).json()
         with c.stream(
             "POST", f"/api/conversations/{conv['id']}/messages", json={"text": "hi"}
@@ -157,7 +157,7 @@ def test_scripted_tool_round_trip_over_http(deps_factory):
     deps = deps_factory(
         script=[completion(tool_calls=(ToolCall("c1", "workspace_list", {}),)), completion("ok")]
     )
-    with TestClient(create_app(deps)) as c:
+    with TestClient(create_app(deps), base_url="http://127.0.0.1") as c:
         conv = c.post("/api/conversations", json={}).json()
         with c.stream(
             "POST", f"/api/conversations/{conv['id']}/messages", json={"text": "ls"}

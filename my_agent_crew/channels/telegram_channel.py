@@ -7,7 +7,6 @@ attachments). Only one process may poll a bot: a 409 means another is."""
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from collections.abc import AsyncIterator, Callable, Mapping
 from datetime import datetime
@@ -19,18 +18,15 @@ from my_agent_crew.activity import ActivityHub
 from my_agent_crew.agent.events import Event
 from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.agent.turn_context import TELEGRAM
-from my_agent_crew.channels.telegram_albums import complete_album, group_updates
 from my_agent_crew.channels.telegram_answers import answer_text
-from my_agent_crew.channels.telegram_api import CONFLICT_STATUS, TelegramApi, TelegramError
-from my_agent_crew.channels.telegram_commands import menu_for
-from my_agent_crew.channels.telegram_inbound import handle_updates
-from my_agent_crew.channels.telegram_offset import read_offset, write_offset
+from my_agent_crew.channels.telegram_api import TelegramApi
+from my_agent_crew.channels.telegram_offset import read_offset
 from my_agent_crew.channels.telegram_outbound import TelegramOutbound
+from my_agent_crew.channels.telegram_polling import TelegramPolling
 from my_agent_crew.inbound import Inbound, InboundBusy, collect_reply
 from my_agent_crew.store import Conversation, Store
 
 logger = logging.getLogger(__name__)
-RETRY_SECONDS = 5
 TITLE = texts.TELEGRAM_CONVERSATION_TITLE
 
 
@@ -39,7 +35,7 @@ def channel_key(chat_id: int) -> str:
     return f"telegram:{chat_id}"
 
 
-class TelegramChannel:
+class TelegramChannel(TelegramPolling):
     def __init__(
         self,
         agents: Mapping[str, AgentDeps],
@@ -61,8 +57,14 @@ class TelegramChannel:
         self._offset_path, self._clock = offset_path, clock
         self._outbound: dict[str, TelegramOutbound] = {}
         self._offset = read_offset(offset_path)
-        self._menu_registered = False
-        self._task: asyncio.Task[None] | None = None
+
+    def use_agents(self, agents: Mapping[str, AgentDeps]) -> None:
+        """Take the crew as it is after agents were rebuilt, keeping the bot as it is: a
+        new key reaches the chat without the poll being interrupted. Senders are made
+        again on next use, since each holds the deps it was made for."""
+        self.agents.clear()
+        self.agents.update(agents)
+        self._outbound.clear()
 
     def set_on_replaced(self, callback: Callable[[AgentDeps, str], None]) -> None:
         """Set after construction: the scheduler that recaps is built after the channel."""
@@ -99,51 +101,6 @@ class TelegramChannel:
                 prefix = texts.TELEGRAM_AGENT_PREFIX.format(name=deps.agent.name)
             self._outbound[agent_id] = TelegramOutbound(deps, self._api, self.chat_id, prefix)
         return self._outbound[agent_id]
-
-    def start(self) -> None:
-        if self._task is None:
-            self._task = asyncio.create_task(self._loop())
-
-    async def stop(self) -> None:
-        if self._task is not None:
-            self._task.cancel()
-            self._task = None
-
-    async def _loop(self) -> None:
-        while True:
-            try:
-                await self.register_menu()
-                await self.poll_once()
-                continue
-            except TelegramError as exc:
-                if exc.status == CONFLICT_STATUS:
-                    logger.warning("telegram %s: another poller holds this bot", self.agent_id)
-                else:
-                    logger.warning("telegram %s: %s", self.agent_id, exc)
-            except Exception:
-                logger.exception("telegram %s: update failed", self.agent_id)
-            await asyncio.sleep(RETRY_SECONDS)
-
-    async def register_menu(self) -> None:
-        """Publishes the slash-command menu once per process; retried with the poll loop."""
-        if not self._menu_registered:
-            await self._api.set_my_commands(menu_for(self.deps.agent.commands))
-            self._menu_registered = True
-            logger.info("telegram %s: command menu registered", self.agent_id)
-
-    async def poll_once(self) -> int:
-        """Fetches pending updates and handles them, an album of photos as one message;
-        the offset moves before handling so a message that crashes the handler is not
-        replayed forever."""
-        updates = await complete_album(self._api, await self._api.get_updates(self._offset))
-        for group in group_updates(updates):
-            self._offset = int(group[-1]["update_id"]) + 1
-            write_offset(self._offset_path, self._offset)
-            await handle_updates(self, group)
-        return len(updates)
-
-    async def handle(self, update: dict[str, Any]) -> None:
-        await handle_updates(self, [update])
 
     async def chat(self, text: str) -> None:
         conv = self.conversation()

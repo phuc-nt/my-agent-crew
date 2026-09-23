@@ -11,7 +11,7 @@ unknown are different claims and the run card distinguishes them.
 from __future__ import annotations
 
 import os
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator, Mapping, Sequence
 from typing import Any
 
 import httpx
@@ -23,7 +23,7 @@ DEFAULT_BASE_URL = "http://127.0.0.1:11434/v1"
 ENV_BASE_URL = "OLLAMA_BASE_URL"
 
 
-def base_url(env: dict[str, str] | None = None) -> str:
+def base_url(env: Mapping[str, str] | None = None) -> str:
     """Where ollama listens. The default is the port ollama uses out of the box, so a
     standard install needs no configuration at all."""
     source = os.environ if env is None else env

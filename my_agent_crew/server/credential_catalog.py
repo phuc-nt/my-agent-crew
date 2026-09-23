@@ -13,6 +13,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 from my_agent_crew.env_file import NAME_RE, env_path, read_env
 from my_agent_crew.server.credential_checks import default_value
@@ -84,6 +85,20 @@ def catalog(rt: Runtime) -> dict[str, Known]:
     return entries
 
 
+def shown_url(value: str) -> str:
+    """A host address as the page may show it: a `user:password@` inside is cut, since
+    a firecrawl or ollama behind basic auth carries its secret there."""
+    try:
+        parts = urlsplit(value)
+        if parts.username is None and parts.password is None:
+            return value
+        host = parts.hostname or ""
+        port = f":{parts.port}" if parts.port else ""
+    except ValueError:
+        return ""
+    return urlunsplit(parts._replace(netloc=f"…@{host}{port}"))
+
+
 def describe(rt: Runtime) -> dict[str, Any]:
     file_values = read_env(env_path(rt.settings.home))
     items = []
@@ -105,11 +120,14 @@ def describe(rt: Runtime) -> dict[str, Any]:
             "url": known.url,
             "present": present,
             "source": source,
+            # A name read from the file that the routes refuse (lower-case, reserved) is
+            # shown but offered no controls; it is edited in the file itself.
+            "editable": name_allowed(known.name),
             # Whether a check can run now: a value to check, or a default to fall back on.
             "checkable": known.check is not None and (present or bool(default)),
         }
         if not known.secret:
-            item["value"] = live or stored or ""
+            item["value"] = shown_url(live or stored or "")
             item["default"] = default
         if known.group == "telegram":
             item["agents"] = [

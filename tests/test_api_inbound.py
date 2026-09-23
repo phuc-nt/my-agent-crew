@@ -25,7 +25,7 @@ def crew(tmp_path: Path):
     home.mkdir()
     env = {"MY_AGENT_HOME": str(home), "MY_AGENT_ROUTES": "fake:echo", "MY_AGENT_AUTONOMOUS": "1"}
     runtime = build_runtime(load_settings(env=env))
-    with TestClient(create_app(runtime, schedule=False)) as client:
+    with TestClient(create_app(runtime, schedule=False), base_url="http://127.0.0.1") as client:
         yield client, runtime
 
 
@@ -120,7 +120,7 @@ def test_how_a_turn_ended_is_reported_with_the_text(deps_factory):
     # Two blanks, because the loop retries the first one rather than calling a silent
     # turn finished.
     deps = deps_factory(script=[ProviderError("model down"), completion("   "), completion("   ")])
-    with TestClient(create_app(deps, schedule=False)) as client:
+    with TestClient(create_app(deps, schedule=False), base_url="http://127.0.0.1") as client:
         failed = client.post("/api/inbound", json={"text": "a"}).json()
         assert failed["status"] == "error"
         assert failed["text"].startswith(texts.REPLY_ERROR.format(message=""))

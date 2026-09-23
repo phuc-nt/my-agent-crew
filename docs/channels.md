@@ -35,7 +35,12 @@ telegram:
 ```
 
 Both keys are required; `chat_id` is an int. The token itself lives in the server's
-environment (for launchd, a file sourced by the run script). When the env var is unset the
+environment — `<home>/env`, which the server loads at startup and the web UI's **Kết nối**
+page writes. Setting the block from the agent editor, or saving its token on Kết nối, rebuilds
+the channel in place (`server/runtime_connections.py`); a hand edit of `agent.yaml` still
+needs a restart. Only a change to the master, its token's value or its `chat_id` rebuilds
+the bot; any other edit (a search key, a member's profile) hands the running bot the new
+agents without stopping it. When the env var is unset the
 server logs `agent default: env var <NAME> is not set; telegram channel disabled` and
 starts without the channel; otherwise `telegram channel enabled for default`. A
 `telegram:` block on a crew member's `agents/<id>/agent.yaml` is ignored with the warning
@@ -150,10 +155,16 @@ The `getUpdates` offset is written to `MY_AGENT_HOME/telegram.offset` before eac
 handled, so a message that crashes the handler is not replayed forever. A `409` from Telegram means another process still polls the bot (an old server, another
 tool); the channel logs `another poller holds this bot` and retries every 5 s.
 
+Stopping the bot while the server runs (a rebuild after its token or chat changed) lets the
+message in hand finish, for up to 30 s, and returns only once the poll loop has ended, so the
+new bot never polls alongside the old one. An idle long poll is cut off at once. The loop and
+its stop live in `channels/telegram_polling.py`.
+
 ## Secrets
 
 The token never reaches logs: API errors are redacted to `<token>` before they are raised
-(the file-download URL included), and a logging filter scrubs it from `httpx` request lines. Profiles hold env-var names
+(the file-download URL included), and one logging filter scrubs every token the process has used — the bot's, a replaced one,
+one only checked from Kết nối — from `httpx` request lines. Profiles hold env-var names
 only, the settings drawer shows key presence only, and `agents/` is personal data outside
 this repo.
 

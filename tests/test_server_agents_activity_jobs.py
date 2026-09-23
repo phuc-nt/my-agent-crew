@@ -34,7 +34,7 @@ def two_agents(tmp_path: Path):
     (coach / "agent.yaml").write_text(MANIFEST)
     env = {"MY_AGENT_HOME": str(tmp_path), "MY_AGENT_ROUTES": "fake:echo"}
     runtime = build_runtime(load_settings(env=env))
-    with TestClient(create_app(runtime, schedule=False)) as client:
+    with TestClient(create_app(runtime, schedule=False), base_url="http://127.0.0.1") as client:
         yield client, runtime
 
 

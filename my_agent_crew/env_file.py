@@ -2,8 +2,11 @@
 
 The launchd script sources it with `set -a; source env`, so whatever is written here is
 read by a shell before it is read by Python. That is why a value is always written inside
-single quotes and a value holding a newline or a NUL is refused outright: a line break in
-a key would otherwise become a second line of shell, run at the next restart.
+single quotes and a value holding any control character or line separator is refused
+outright: a line break in a key would otherwise become a second line of shell, run at the
+next restart. The file is split on `\n` only, as the shell splits it — Python's
+`splitlines` also breaks on form feeds and U+2028, which would let one shell line read as
+two here, and a rewrite turn the second into a real one.
 
 Only the lines for the name being changed are rewritten. Comments, blank lines and every
 other entry stay byte for byte, so a file the person wrote by hand keeps its shape.
@@ -14,6 +17,7 @@ from __future__ import annotations
 import os
 import re
 import tempfile
+import unicodedata
 from collections.abc import MutableMapping
 from pathlib import Path
 
@@ -45,12 +49,17 @@ def _quote(value: str) -> str:
     return "'" + value.replace("'", "'\\''") + "'"
 
 
+def _read_lines(path: Path) -> list[str]:
+    if not path.is_file():
+        return []
+    lines = path.read_text(encoding="utf-8").split("\n")
+    return lines[:-1] if lines and lines[-1] == "" else lines
+
+
 def read_env(path: Path) -> dict[str, str]:
     """Every `NAME=value` in the file, later lines winning like they do in a shell."""
-    if not path.is_file():
-        return {}
     values: dict[str, str] = {}
-    for line in path.read_text(encoding="utf-8").splitlines():
+    for line in _read_lines(path):
         if line.lstrip().startswith("#"):
             continue
         match = _LINE_RE.match(line)
@@ -65,7 +74,7 @@ def check_value(value: str) -> str:
     value = value.strip()
     if not value:
         raise ValueError("empty")
-    if any(ch in value for ch in "\n\r\0"):
+    if any(unicodedata.category(ch) in ("Cc", "Zl", "Zp") for ch in value):
         raise ValueError("multiline")
     if len(value) > MAX_VALUE_CHARS:
         raise ValueError("too long")
@@ -74,13 +83,17 @@ def check_value(value: str) -> str:
 
 def _write(path: Path, lines: list[str]) -> None:
     """Replace the file in one step, owner-only from the first byte: a crash mid-write
-    leaves the old file, and there is no moment the secrets sit world-readable."""
+    leaves the old file, and there is no moment the secrets sit world-readable. A symlink
+    (an env kept in a dotfiles repo) is followed, so the link stays a link."""
+    path = path.resolve()
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp = tempfile.mkstemp(prefix=".env-", dir=path.parent)
     try:
         os.fchmod(fd, 0o600)
         with os.fdopen(fd, "w", encoding="utf-8") as handle:
             handle.write("".join(f"{line}\n" for line in lines))
+            handle.flush()
+            os.fsync(handle.fileno())
         os.replace(tmp, path)
     except BaseException:
         Path(tmp).unlink(missing_ok=True)
@@ -89,7 +102,7 @@ def _write(path: Path, lines: list[str]) -> None:
 
 def _lines_without(path: Path, name: str) -> tuple[list[str], int | None]:
     """The file's lines minus every assignment to `name`, and where the first one was."""
-    lines = path.read_text(encoding="utf-8").splitlines() if path.is_file() else []
+    lines = _read_lines(path)
     kept: list[str] = []
     first: int | None = None
     for line in lines:

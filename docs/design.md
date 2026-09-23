@@ -161,7 +161,8 @@ cannot be switched on from the UI. `GET /api/jobs/{id}/runs` lists that job's pa
 
 `channels/` lets the person talk to the crew on something other than the web UI. Today
 that is Telegram: the master's `agent.yaml` with `telegram: {token_env, chat_id}` gets one
-`TelegramChannel` at startup when the named env var is set (`Runtime.channel`). The chat is
+`TelegramChannel` at startup when the named env var is set (`Runtime.channel`), rebuilt in
+place when the profile's block or its token changes from the web UI. The chat is
 the master's conversation, so the phone and the web UI are the same mechanism: one agent at
 the door, delegation behind it. Turns go through `Inbound` like every other platform, with
 source `telegram`, replies go back as text and `sendPhoto`, slash commands are answered
@@ -251,3 +252,6 @@ borrowed from openhuman's session view — no code.)
 - Agent: a folder under `MY_AGENT_HOME/agents/` with `agent.yaml` and persona files.
 - Channel: a class with `start`/`stop`/`deliver(conv_id)` built in `channels/build_channel`
   from the master's profile block; keep secrets as env-var names in the profile.
+- Credential: a known env var is a row in `server/credential_catalog.py` (group, secret or URL,
+  optional check in `server/credential_checks.py`); anything else a skill reads can still be set
+  from Kết nối under "Biến khác".

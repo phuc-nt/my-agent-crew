@@ -12,7 +12,7 @@ def test_bundle_is_present_so_the_server_works_out_of_the_box():
 
 
 def test_root_and_unknown_paths_serve_the_spa_while_api_404s_stay_json(deps_factory):
-    client = TestClient(create_app(deps_factory()))
+    client = TestClient(create_app(deps_factory()), base_url="http://127.0.0.1")
     root = client.get("/")
     assert root.status_code == 200
     assert 'id="root"' in root.text
@@ -24,7 +24,7 @@ def test_root_and_unknown_paths_serve_the_spa_while_api_404s_stay_json(deps_fact
 
 
 def test_bundled_assets_are_served_with_their_real_content(deps_factory):
-    client = TestClient(create_app(deps_factory()))
+    client = TestClient(create_app(deps_factory()), base_url="http://127.0.0.1")
     script = next((STATIC_DIR / "assets").glob("*.js"))
     response = client.get(f"/assets/{script.name}")
     assert response.status_code == 200

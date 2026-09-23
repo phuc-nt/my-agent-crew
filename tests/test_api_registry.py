@@ -22,7 +22,7 @@ def crew(tmp_path: Path):
         "TELEGRAM_BOT_TOKEN": FAKE_KEY,
     }
     runtime = build_runtime(load_settings(env=env), env=env)
-    with TestClient(create_app(runtime, schedule=False)) as client:
+    with TestClient(create_app(runtime, schedule=False), base_url="http://127.0.0.1") as client:
         yield client, runtime, home
 
 

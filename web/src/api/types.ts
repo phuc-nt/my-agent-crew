@@ -348,6 +348,9 @@ export interface CredentialInfo {
   source: "file" | "process" | null;
   /** A free check can run now: there is a value, or a default to try. */
   checkable: boolean;
+  /** False for a name read from the file that the API will not write (lower-case or
+   * reserved): it is shown, and edited in the file itself. */
+  editable: boolean;
   /** Non-secrets only: the value in use and what applies when none is set. */
   value?: string;
   default?: string;
