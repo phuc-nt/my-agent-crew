@@ -1,0 +1,113 @@
+/*
+ * The manage sections drawn in the metric-card look: raised cards on the page, a figure
+ * per tile, and the same rounded, shadowed surface the chat's popovers and activity column
+ * use. The markup of each section stays its own; only its surface is shared here.
+ */
+
+/* ── Crew and templates: a grid of cards ───────────────────────────────── */
+.crew-list,
+.template-list,
+.job-list {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
+  gap: var(--space-3);
+}
+
+.crew-card,
+.job-list > .job {
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+  min-width: 0;
+}
+
+.crew-card .row {
+  font-size: var(--text-sm);
+}
+
+.crew-card .kit-list {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+/* ── Connections: one card per kind of wiring ──────────────────────────── */
+/* Columns, like the settings cards: the sections differ in height, and grid rows would
+   leave a hole under every short one. */
+.connections {
+  columns: 22rem;
+  column-gap: var(--space-3);
+}
+
+/* The page hint spans the columns; every section below it is a card. */
+.connections > p {
+  column-span: all;
+  margin: 0 0 var(--space-3);
+}
+
+.connections > section {
+  break-inside: avoid;
+  margin: 0 0 var(--space-3);
+}
+
+.connections > section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+  min-width: 0;
+}
+
+.connections > section h3 {
+  margin: 0;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.connections > section p {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.connections code {
+  font-size: var(--text-sm);
+}
+
+/* ── Costs: totals as tiles, each breakdown a card ─────────────────────── */
+.stats {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.stats .stat-totals {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 10rem), 1fr));
+  gap: var(--space-3);
+}
+
+.stats .stat-totals > div {
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+}
+
+.stats .stat-totals dd {
+  font-family: var(--font-mono);
+}
+
+.stats .stat-bar {
+  height: 4px;
+}

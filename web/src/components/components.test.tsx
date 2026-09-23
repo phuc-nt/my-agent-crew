@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi as vitest } from "vitest";
 import { vi } from "../i18n/vi";
@@ -47,18 +47,37 @@ describe("ToolCallCard", () => {
 });
 
 describe("BudgetIndicator", () => {
-  it("renders spent against the cap with a progress bar", () => {
+  it("shows spent against the cap on the pill and the bar in the card it opens", async () => {
     render(<BudgetIndicator spentUsd={0.25} capUsd={1} unknownCostCalls={0} />);
-    expect(screen.getByText(`${vi.budget}: ${vi.spent("$0.25", "$1.00")}`)).toBeInTheDocument();
-    expect(screen.getByRole("progressbar")).toHaveValue(0.25);
+    const pill = screen.getByTestId("budget");
+    expect(pill).toHaveTextContent(`${vi.spent("$0.25", "$1.00")} (25%)`);
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+
+    await userEvent.click(pill);
+    const card = screen.getByRole("dialog", { name: vi.budgetCard.title });
+    expect(within(card).getByRole("progressbar")).toHaveAttribute("aria-valuenow", "25");
+    expect(card).toHaveTextContent(vi.budgetCard.left("$0.75"));
     expect(screen.queryByText(/\? \d/)).not.toBeInTheDocument();
+
+    // Escape and a click outside both put the card away; a click inside does not.
+    await userEvent.click(within(card).getByText(vi.budgetCard.spent));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await userEvent.click(pill);
+    await userEvent.click(document.body);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("marks unlimited caps and unknown-cost calls", () => {
+  it("marks unlimited caps and unknown-cost calls", async () => {
     render(<BudgetIndicator spentUsd={0} capUsd={0} unknownCostCalls={3} />);
-    expect(screen.getByText(new RegExp(vi.unlimited))).toBeInTheDocument();
-    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+    expect(screen.getByTestId("budget")).toHaveTextContent(vi.unlimited);
     expect(screen.getByTitle(vi.unknownCost(3))).toHaveTextContent("? 3");
+
+    await userEvent.click(screen.getByTestId("budget"));
+    const card = screen.getByRole("dialog");
+    expect(within(card).queryByRole("progressbar")).not.toBeInTheDocument();
+    expect(card).toHaveTextContent(vi.budgetCard.unknownValue(3));
   });
 
   it("flags an exhausted budget", () => {

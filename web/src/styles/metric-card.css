@@ -1,0 +1,380 @@
+/*
+ * The summary look shared by every surface that reports figures: the metric card and
+ * its rows, the thin bar, the switch, and the header pill that opens a card as a popover.
+ *
+ * A row is an icon and a label on the left and a monospace value on the right, with an
+ * optional coloured note underneath. Dense on purpose: these cards answer "how is it
+ * going" at a glance, and white space between rows would only push the answer apart.
+ */
+
+/* ── Card ──────────────────────────────────────────────────────────────── */
+.metric-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+  min-width: 0;
+}
+
+/* A card nested in a popover or another card: the outer surface already frames it. */
+.metric-card.flat {
+  padding: 0;
+  background: none;
+  border: none;
+  box-shadow: none;
+}
+
+/* A link at the foot of a card to where its subject is changed. */
+.card-link {
+  align-self: flex-start;
+  font-size: var(--text-sm);
+}
+
+.metric-card-title {
+  margin: 0;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Cards laid side by side where the page has the width, stacked where it does not. */
+/* Columns rather than a grid: cards differ a lot in height, and a grid row is as tall as its
+   tallest card, which leaves holes under the short ones. */
+.metric-grid {
+  columns: 20rem;
+  column-gap: var(--space-3);
+}
+.metric-grid > * {
+  break-inside: avoid;
+  margin-bottom: var(--space-3);
+}
+
+/* ── Row ───────────────────────────────────────────────────────────────── */
+.metric-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.metric-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.metric-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text);
+  overflow-wrap: anywhere;
+  flex-wrap: wrap;
+}
+
+.metric-icon {
+  flex: none;
+  width: 1.2em;
+  text-align: center;
+}
+
+.metric-hint {
+  flex: none;
+  font-size: var(--text-xs);
+  font-weight: 400;
+  color: var(--muted);
+  cursor: help;
+}
+
+.metric-value {
+  flex: none;
+  max-width: 60%;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.metric-sub {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  padding-left: calc(1.2em + var(--space-2));
+  overflow-wrap: anywhere;
+}
+.metric-sub.muted {
+  color: var(--muted);
+}
+.metric-sub.ok {
+  color: var(--ok-text);
+}
+.metric-sub.warn {
+  color: var(--warn-text);
+}
+.metric-sub.danger {
+  color: var(--danger-text);
+}
+.metric-sub.accent {
+  color: var(--accent);
+}
+
+.metric-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: var(--space-1) 0;
+  width: 100%;
+}
+
+/* A list of rows inside a card: no bullets, a hairline between entries. */
+.metric-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.metric-list > li {
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--border);
+}
+.metric-list > li:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+.metric-list > li:last-child {
+  padding-bottom: 0;
+}
+
+/* Label-value pairs as rows: the name on the left, the value in monospace on the right. */
+.metric-dl {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-2) var(--space-3);
+  margin: 0;
+  font-size: var(--text-sm);
+}
+.metric-dl dt {
+  font-weight: 600;
+}
+.metric-dl dd {
+  margin: 0;
+  text-align: right;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+/* A path breaks evenly wherever the line ends, not raggedly at each hyphen. */
+.metric-dl dd code {
+  word-break: break-all;
+}
+
+/* ── Bar ───────────────────────────────────────────────────────────────── */
+.metric-bar {
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: var(--surface-sunken);
+  overflow: hidden;
+}
+.metric-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width var(--duration-base) var(--ease-out);
+}
+.metric-bar.ok > span {
+  background: var(--ok);
+}
+.metric-bar.warn > span {
+  background: var(--warn);
+}
+.metric-bar.danger > span {
+  background: var(--danger);
+}
+
+/* ── Switch ────────────────────────────────────────────────────────────── */
+/* A checkbox drawn as a switch: the native control stays, only its face changes. */
+input.switch {
+  appearance: none;
+  flex: none;
+  position: relative;
+  width: 2.1rem;
+  height: 1.2rem;
+  margin: 0;
+  border-radius: var(--radius-full);
+  background: var(--border-strong);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+input.switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: calc(1.2rem - 4px);
+  height: calc(1.2rem - 4px);
+  border-radius: 50%;
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-1);
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+input.switch:checked {
+  background: var(--ok);
+}
+input.switch:checked::after {
+  transform: translateX(0.9rem);
+}
+input.switch:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.switch-row {
+  cursor: pointer;
+}
+.switch-row.indent {
+  padding-left: var(--space-5);
+}
+
+/* ── Pill and its popover ──────────────────────────────────────────────── */
+.popover-anchor {
+  position: relative;
+  display: inline-flex;
+}
+
+button.pill {
+  border-radius: var(--radius-full);
+  padding: 0.25rem 0.7rem;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  gap: var(--space-2);
+  white-space: nowrap;
+}
+button.pill.open {
+  background: var(--surface-sunken);
+}
+button.pill.ok {
+  border-color: var(--ok);
+}
+button.pill.warn {
+  border-color: var(--warn);
+  color: var(--warn-text);
+}
+button.pill.danger {
+  border-color: var(--danger);
+  color: var(--danger-text);
+}
+button.pill.accent {
+  border-color: var(--accent);
+}
+
+.pill-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex: none;
+}
+.pill.ok .pill-dot {
+  background: var(--ok);
+}
+.pill.warn .pill-dot {
+  background: var(--warn);
+  animation: pulse-soft 1.6s var(--ease-in-out) infinite;
+}
+.pill.danger .pill-dot {
+  background: var(--danger);
+}
+.pill.accent .pill-dot {
+  background: var(--accent);
+}
+
+.pill-caret {
+  font-size: var(--text-xs);
+  color: var(--muted);
+  line-height: 1;
+  margin-top: -0.3em;
+}
+
+.popover {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  right: 0;
+  z-index: 20;
+  width: min(22rem, calc(100vw - 2 * var(--space-4)));
+  max-height: min(70vh, 32rem);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-3);
+  text-align: left;
+  white-space: normal;
+}
+
+/* A status pill that reports without opening anything: the same shape, no caret. */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  align-self: flex-start;
+  padding: 0.15rem 0.6rem;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-strong);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.status-pill.ok {
+  border-color: var(--ok);
+}
+.status-pill.warn {
+  border-color: var(--warn);
+  color: var(--warn-text);
+}
+.status-pill.danger {
+  border-color: var(--danger);
+  color: var(--danger-text);
+}
+.status-pill.ok .pill-dot {
+  background: var(--ok);
+}
+.status-pill.warn .pill-dot {
+  background: var(--warn);
+  animation: pulse-soft 1.6s var(--ease-in-out) infinite;
+}
+.status-pill.danger .pill-dot {
+  background: var(--danger);
+}
+
+@media (max-width: 720px) {
+  /* Anchored to the pill's right edge a card can run off the left of a phone; pinned
+     to the viewport instead it always fits. */
+  .popover {
+    position: fixed;
+    top: auto;
+    left: var(--space-3);
+    right: var(--space-3);
+    width: auto;
+    margin-top: var(--space-2);
+  }
+}

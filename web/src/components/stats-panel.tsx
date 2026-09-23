@@ -12,8 +12,8 @@ function Breakdown({ title, rows, name }: { title: string; rows: Record<string, 
   if (entries.length === 0) return null;
   const max = Math.max(...entries.map(([, v]) => v), 0.000001);
   return (
-    <>
-      <h3>{title}</h3>
+    <section className="metric-card">
+      <h3 className="metric-card-title">{title}</h3>
       <ul className="stat-bars">
         {entries.map(([key, value]) => (
           <li key={key}>
@@ -25,7 +25,7 @@ function Breakdown({ title, rows, name }: { title: string; rows: Record<string, 
           </li>
         ))}
       </ul>
-    </>
+    </section>
   );
 }
 
@@ -34,8 +34,8 @@ function RecentDays({ days }: { days: DayUsage[] }) {
   if (days.length === 0) return null;
   const max = Math.max(...days.map((d) => d.cost_usd), 0.000001);
   return (
-    <>
-      <h3>{vi.costLastDays}</h3>
+    <section className="metric-card">
+      <h3 className="metric-card-title">{vi.costLastDays}</h3>
       <ul className="stat-bars stat-days" data-testid="stat-days">
         {days.map((d) => (
           <li key={d.day}>
@@ -51,15 +51,15 @@ function RecentDays({ days }: { days: DayUsage[] }) {
           </li>
         ))}
       </ul>
-    </>
+    </section>
   );
 }
 
 function ModelTable({ models }: { models: ModelUsage[] }) {
   if (models.length === 0) return null;
   return (
-    <>
-      <h3>{vi.costModels}</h3>
+    <section className="metric-card">
+      <h3 className="metric-card-title">{vi.costModels}</h3>
       <table className="stat-table" data-testid="stat-models">
         <thead>
           <tr>
@@ -85,7 +85,7 @@ function ModelTable({ models }: { models: ModelUsage[] }) {
           ))}
         </tbody>
       </table>
-    </>
+    </section>
   );
 }
 

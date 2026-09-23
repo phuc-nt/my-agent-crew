@@ -4,11 +4,13 @@
  *
  *   tokens  → the values every other file reads. No raw colour lives elsewhere.
  *   base    → the reset, typography and the primitives (button, badge, dot).
+ *   metric-card → the shared summary look: metric cards, bars, switches, pills, popovers.
  *   shell   → the frame: layout grid, sidebar, header, drawer, status line.
  *   chat    → the conversation column: thread, bubbles, approvals, composer.
  *   markdown → formatted prose inside an assistant bubble.
  *   activity-panel → the panels the manage sections are built from, up to the run card border.
  *   manage  → the manage screen's own frame: its nav, its body, the way back to chat.
+ *   manage-cards → the manage sections' lists drawn as the metric-card surface.
  *   agent-admin → editing the crew: the agent editor's form, the tools matrix, connections.
  *   conversation-activity → the activity strip belonging to the open chat.
  *   run-timeline   → the process visualisation inside an open run card.
@@ -18,11 +20,13 @@
  */
 @import "./styles/tokens.css";
 @import "./styles/base.css";
+@import "./styles/metric-card.css";
 @import "./styles/shell.css";
 @import "./styles/chat.css";
 @import "./styles/markdown.css";
 @import "./styles/activity-panel.css";
 @import "./styles/manage.css";
+@import "./styles/manage-cards.css";
 @import "./styles/agent-admin.css";
 @import "./styles/conversation-activity.css";
 @import "./styles/run-timeline.css";

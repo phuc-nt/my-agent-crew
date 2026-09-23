@@ -290,10 +290,6 @@
 }
 
 /* ── Connections ────────────────────────────────────────────────────────── */
-.connections section {
-  margin-bottom: var(--space-5);
-}
-
 .connections h3 {
   margin-bottom: var(--space-2);
 }

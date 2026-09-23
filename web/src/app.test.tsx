@@ -146,6 +146,10 @@ describe("App", () => {
     expect(await screen.findByText("Xong.")).toBeInTheDocument();
     const approval = backend.requests.find((r) => r.path.includes("/approvals/"));
     expect(approval).toMatchObject({ path: "/conversations/c1/approvals/ap1", body: { approve: true, always: true } });
+    // The always-allowed tool is counted on the options pill and listed in its card.
+    const options = await screen.findByTestId("conversation-options");
+    await waitFor(() => expect(options).toHaveTextContent("✓ 1"));
+    await userEvent.click(options);
     const chips = await screen.findByRole("list", { name: vi.autoApproved });
     expect(chips).toHaveTextContent("write_file");
 
@@ -199,12 +203,17 @@ describe("App", () => {
     backend.create({ title: "B" });
     render(<App />);
     await userEvent.click(await screen.findByRole("button", { name: /^B$/ }));
-    await userEvent.click(screen.getByRole("checkbox", { name: vi.autonomous }));
+    // Both switches live in the options card; it stays open while they are flipped.
+    await userEvent.click(screen.getByTestId("conversation-options"));
+    const card = screen.getByRole("dialog", { name: vi.options.title });
+    expect(within(card).getByRole("heading", { name: `${vi.skills} (0)` })).toBeInTheDocument();
+    await userEvent.click(within(card).getByRole("checkbox", { name: vi.autonomous }));
     await waitFor(() => expect(backend.conversations.get("c1")!.autonomous).toBe(true));
 
-    await userEvent.click(screen.getByText(/Kỹ năng \(0\)/));
-    await userEvent.click(screen.getByRole("checkbox", { name: /writer/ }));
+    await userEvent.click(within(card).getByRole("checkbox", { name: /writer/ }));
     await waitFor(() => expect(backend.conversations.get("c1")!.skills).toEqual(["writer"]));
+    expect(screen.getByTestId("conversation-options")).toHaveTextContent(vi.autonomous);
+    await userEvent.keyboard("{Escape}");
 
     await userEvent.click(within(screen.getByRole("heading", { level: 1 })).getByRole("button"));
     await userEvent.keyboard("Tên mới{Enter}");

@@ -15,7 +15,6 @@ import { StatsPanel } from "../components/stats-panel";
 import { ToolsMatrix } from "../components/tools-matrix";
 import { useRegistry } from "../hooks/use-registry";
 import type { ManageSection } from "../hooks/use-route";
-import { MANAGE_SECTIONS } from "../hooks/use-route";
 import { vi } from "../i18n/vi";
 import { parentConversationId, runGroups } from "../state/activity-reducer";
 
@@ -64,6 +63,31 @@ const LABELS: Record<ManageSection, string> = {
   settings: vi.settings,
 };
 
+/** An icon per section, so the list can be scanned by shape before it is read. */
+const ICONS: Record<ManageSection, string> = {
+  activity: "📈",
+  approvals: "✋",
+  costs: "💰",
+  crew: "👥",
+  tools: "🔧",
+  jobs: "⏰",
+  memory: "🧠",
+  connections: "🔌",
+  settings: "⚙",
+};
+
+/**
+ * The sections in three groups rather than one list of nine: what to keep an eye on,
+ * who is on the team and what they can do, and how the install is wired. Grouped, the
+ * section a person wants is found by its kind first — "is this about the team?" — which
+ * is how the question arrives, instead of by reading the list top to bottom.
+ */
+export const NAV_GROUPS: { key: keyof typeof vi.manage.groups; sections: ManageSection[] }[] = [
+  { key: "watch", sections: ["activity", "approvals", "costs"] },
+  { key: "crew", sections: ["crew", "tools", "jobs", "memory"] },
+  { key: "system", sections: ["connections", "settings"] },
+];
+
 /**
  * Everything about the crew rather than about one conversation: what is running, what
  * needs a decision, who is on the team, the schedule, what was remembered and the bill.
@@ -99,21 +123,31 @@ export function ManageScreen(props: Props) {
         <button type="button" className="ghost back-to-chat" onClick={props.onBackToChat}>
           {vi.manage.backToChat}
         </button>
-        <ul>
-          {MANAGE_SECTIONS.map((section) => (
-            <li key={section}>
-              <button
-                type="button"
-                className={section === props.section ? "active" : ""}
-                aria-current={section === props.section ? "page" : undefined}
-                onClick={() => props.onNavigate(section)}
-              >
-                {LABELS[section]}
-                {badge(section)}
-              </button>
-            </li>
+        <div className="manage-nav-groups">
+          {NAV_GROUPS.map((group) => (
+            <div className="manage-nav-group" key={group.key}>
+              <p className="manage-nav-label">{vi.manage.groups[group.key]}</p>
+              <ul>
+                {group.sections.map((section) => (
+                  <li key={section}>
+                    <button
+                      type="button"
+                      className={section === props.section ? "active" : ""}
+                      aria-current={section === props.section ? "page" : undefined}
+                      onClick={() => props.onNavigate(section)}
+                    >
+                      <span className="manage-nav-icon" aria-hidden="true">
+                        {ICONS[section]}
+                      </span>
+                      {LABELS[section]}
+                      {badge(section)}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
           ))}
-        </ul>
+        </div>
       </nav>
       <main className="manage-body" aria-label={vi.manage.label}>
         <h2>{LABELS[props.section]}</h2>
@@ -245,7 +279,11 @@ export function ManageScreen(props: Props) {
             <p className="muted">{registry.error ?? vi.manage.loading}</p>
           ))}
         {props.section === "settings" && (
-          <SettingsPanel settings={props.settings} agents={props.agents} />
+          <SettingsPanel
+            settings={props.settings}
+            agents={props.agents}
+            onNavigate={props.onNavigate}
+          />
         )}
       </main>
     </div>

@@ -99,7 +99,6 @@ describe("the conversation a work agent is in", () => {
         onToggleAutonomous={() => {}}
         onToggleSkill={() => {}}
         onRevokeAutoApprove={() => {}}
-        onOpenSettings={() => {}}
       />,
     );
 
@@ -128,7 +127,6 @@ describe("the conversation a work agent is in", () => {
         onToggleAutonomous={() => {}}
         onToggleSkill={() => {}}
         onRevokeAutoApprove={() => {}}
-        onOpenSettings={() => {}}
       />,
     );
 

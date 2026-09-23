@@ -42,6 +42,7 @@ export function JobsPanel({ jobs, agentName, onRunNow, onToggle, onOpenConversat
                 <label className="toggle" title={offInProfile ? vi.jobDisabledInProfile : undefined}>
                   <input
                     type="checkbox"
+                    className="switch"
                     checked={!job.paused}
                     disabled={offInProfile}
                     aria-label={`${vi.jobEnabled}: ${job.name}`}

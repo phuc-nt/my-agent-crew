@@ -126,7 +126,8 @@ export function ChatScreen({
   // a rail to be visible: work waiting on a person, and work under way.
   const manageButton = (
     <button type="button" className="ghost manage-button" onClick={() => onOpenManage()}>
-      ⚙ {vi.manage.open}
+      <span aria-hidden="true">⚙</span>
+      {vi.manage.open}
       {attentionCount > 0 && <span className="badge warn"> {attentionCount}</span>}
       {live.length > 0 && <span className="badge live"> {live.length}</span>}
     </button>
@@ -135,8 +136,9 @@ export function ChatScreen({
   // Who is available to take work on, right where the person decides whether to ask for
   // it. It only counts them; changing the team is the manage screen's job.
   const crewChip = (
-    <button type="button" className="ghost" onClick={() => onOpenManage("crew")}>
-      👥 {vi.crew.count(crewNames.length)}
+    <button type="button" className="pill" onClick={() => onOpenManage("crew")}>
+      <span aria-hidden="true">👥</span>
+      {vi.crew.count(crewNames.length)}
     </button>
   );
 
@@ -149,6 +151,7 @@ export function ChatScreen({
         runs={conversationRuns}
         conversationId={active.id}
         spentUsd={active.spent_usd}
+        capUsd={active.cost_cap_usd}
         agentName={crew.agentName}
         onOpenConversation={onSelectConversation}
         collapseSignal={collapseSignal}
@@ -203,7 +206,6 @@ export function ChatScreen({
                 auto_approve: active.auto_approve.filter((n) => n !== name),
               })
             }
-            onOpenSettings={() => onOpenManage("settings")}
             extra={crewChip}
           />
         ) : (

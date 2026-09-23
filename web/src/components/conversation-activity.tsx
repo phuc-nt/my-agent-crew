@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import type { RunInfo } from "../api/types";
 import { vi } from "../i18n/vi";
-import { parentConversationId, runGroups } from "../state/activity-reducer";
+import { runGroups } from "../state/activity-reducer";
 import { isSettled, stepProgress } from "../lib/run-progress";
 import { ApprovalHistory } from "./approval-history";
+import { ConversationActivitySummary } from "./conversation-activity-summary";
 import { RunProgressHeader } from "./run-progress-header";
 import { RunGroupCard, formatClock } from "./run-timeline";
 
@@ -18,6 +19,8 @@ interface Props {
   conversationId: string;
   /** The conversation's own running total, which already includes what it delegated. */
   spentUsd: number;
+  /** The conversation's cap, for the bar under the spend; zero means no cap. */
+  capUsd?: number;
   agentName: (id: string) => string;
   onOpenConversation: (conversationId: string) => void;
   /** Bumped from outside to collapse the strip, which is what Escape does. A counter
@@ -39,6 +42,7 @@ export function ConversationActivity({
   runs,
   conversationId,
   spentUsd,
+  capUsd,
   agentName,
   onOpenConversation,
   collapseSignal = 0,
@@ -86,6 +90,13 @@ export function ConversationActivity({
 
   const body = (
     <div className="conversation-activity-body">
+      <ConversationActivitySummary
+        runs={runs}
+        conversationId={conversationId}
+        spent={spentUsd}
+        cap={capUsd}
+      />
+      {live.length > 0 && <h4>{vi.conversationActivity.live}</h4>}
       {runGroups(live).map((group) => (
         <RunGroupCard
           key={group.run.id}
@@ -95,6 +106,7 @@ export function ConversationActivity({
           onOpenConversation={onOpenConversation}
         />
       ))}
+      {recent.length > 0 && <h4>{vi.recentRuns}</h4>}
       {runGroups(recent).map((group) => (
         <RunGroupCard
           key={group.run.id}
@@ -103,7 +115,6 @@ export function ConversationActivity({
           onOpenConversation={onOpenConversation}
         />
       ))}
-      <CostRow runs={runs} conversationId={conversationId} spent={spentUsd} />
       <h4>{vi.conversationActivity.approvals}</h4>
       <ApprovalHistory
         agentName={agentName}
@@ -114,6 +125,19 @@ export function ConversationActivity({
     </div>
   );
 
+  // The column's headline state, in the same pill shape as the chat header's.
+  const waiting = current?.status === "awaiting_approval";
+  const pill = (
+    <span className={`status-pill${current ? (waiting ? " warn" : " ok") : ""}`}>
+      <span className="pill-dot" aria-hidden="true" />
+      {current
+        ? waiting
+          ? vi.conversationActivity.waiting
+          : vi.conversationActivity.live
+        : vi.conversationActivity.idle}
+    </span>
+  );
+
   if (docked) {
     return (
       <aside
@@ -122,7 +146,10 @@ export function ConversationActivity({
         data-testid="conversation-activity"
       >
         <div className="conversation-activity-bar">
-          <h2>{vi.conversationActivity.title}</h2>
+          <div className="conversation-activity-title">
+            <h2>{vi.conversationActivity.title}</h2>
+            {pill}
+          </div>
           {status}
         </div>
         {runs.length > 0 && body}
@@ -149,61 +176,6 @@ export function ConversationActivity({
       </div>
       {expanded && body}
     </section>
-  );
-}
-
-/**
- * What this conversation has cost so far: the spend, the work done and the models behind it.
- *
- * The spend comes from the conversation itself, never from adding up its runs. A run's
- * `spent_usd` arrives as the conversation's running total, not that run's own cost, and a
- * delegated child's spend is already folded into the parent — so summing would count the
- * same money two ways over. Steps and models really are per-run, so those are summed.
- * Every figure is already in hand, so the row costs no request.
- *
- * "Steps" means steps of the work, the same total the progress bars count. An agent that
- * says what it is doing before each call would otherwise report twice the work of a silent
- * one that did exactly the same thing.
- */
-function CostRow({
-  runs,
-  conversationId,
-  spent,
-}: {
-  runs: RunInfo[];
-  conversationId: string;
-  spent: number;
-}) {
-  const steps = runs.reduce((total, r) => total + stepProgress(r).total, 0);
-  const delegated = runs.filter((r) => parentConversationId(r) === conversationId).length;
-  const models = [
-    ...new Set(
-      runs.flatMap((r) =>
-        r.steps.flatMap((s) => (s.kind === "model" && s.model ? [s.model] : [])),
-      ),
-    ),
-  ];
-
-  return (
-    <dl className="conversation-cost" data-testid="conversation-cost">
-      <div>
-        <dt>{vi.costs}</dt>
-        <dd>{vi.conversationActivity.spent(spent)}</dd>
-      </div>
-      <div>
-        <dt>{vi.activity}</dt>
-        <dd>
-          {vi.conversationActivity.steps(steps)}
-          {delegated > 0 && ` · ${vi.conversationActivity.delegated(delegated)}`}
-        </dd>
-      </div>
-      {models.length > 0 && (
-        <div>
-          <dt>{vi.costByModel}</dt>
-          <dd>{models.join(", ")}</dd>
-        </div>
-      )}
-    </dl>
   );
 }
 
