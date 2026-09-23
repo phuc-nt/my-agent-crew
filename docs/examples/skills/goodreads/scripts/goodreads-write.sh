@@ -20,7 +20,7 @@ json_fail() {
 }
 
 if [ $# -eq 0 ]; then
-  json_fail "no command" "one of: login, rate <book_id> <1-5>, shelf <book_id> <shelf>, progress <book_id> <percent>"
+  json_fail "no command" "one of: login, rate <book_id> <1-5>, shelf <book_id> <shelf>, progress <book_id> <percent>, review <book_id> <text>"
 fi
 
 if [ ! -x "$PYTHON" ]; then

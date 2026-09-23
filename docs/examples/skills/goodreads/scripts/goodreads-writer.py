@@ -16,6 +16,7 @@ Usage:
   goodreads-writer.py rate <book_id> <1-5>
   goodreads-writer.py shelf <book_id> <read|currently-reading|to-read>
   goodreads-writer.py progress <book_id> <percent>
+  goodreads-writer.py review <book_id> <text>
 """
 
 from __future__ import annotations
@@ -228,6 +229,37 @@ def cmd_progress(args, playwright) -> None:
     emit({"action": "progress", "book_id": args.book_id, "title": title, "percent": percent})
 
 
+def cmd_review(args, playwright) -> None:
+    text = args.text.strip()
+    if not text:
+        fail("the review text is empty", "pass the review as one quoted argument")
+    context, page = _with_session(playwright)
+    # The editor carries the rating, shelf and read dates already set, so posting it
+    # changes only the text. An existing review is replaced, not appended to.
+    page.goto(f"{BASE}/review/edit/{args.book_id}", wait_until="domcontentloaded")
+    box = page.locator("textarea.FormControl__textarea:visible").first
+    try:
+        box.wait_for(timeout=TIMEOUT_MS)
+    except Exception:
+        context.close()
+        fail(
+            "no review box on the editor page",
+            "check the book id, or Goodreads may have changed the editor; report this",
+        )
+    box.fill(text)
+    page.get_by_role("button", name="Post your review").first.click()
+    try:
+        page.wait_for_url(lambda url: "/review/edit/" not in url, timeout=TIMEOUT_MS)
+    except Exception:
+        context.close()
+        fail(
+            "the editor stayed open after posting",
+            "report this rather than posting again; the review may already be up",
+        )
+    context.close()
+    emit({"action": "review", "book_id": args.book_id, "chars": len(text)})
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Write to Goodreads through a saved session.")
     sub = parser.add_subparsers(dest="cmd")
@@ -252,6 +284,11 @@ def build_parser() -> argparse.ArgumentParser:
     progress.add_argument("book_id")
     progress.add_argument("percent")
     progress.set_defaults(func=cmd_progress)
+
+    review = sub.add_parser("review", help="post or replace the review text for a book")
+    review.add_argument("book_id")
+    review.add_argument("text", help="the whole review, as one quoted argument")
+    review.set_defaults(func=cmd_review)
     return parser
 
 

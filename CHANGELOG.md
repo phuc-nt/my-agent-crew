@@ -134,6 +134,8 @@ bản phát hành, `pyproject.toml` và `web/package.json` luôn cùng số.
   chỗ nào để model điền sai; và một phản hồi **rỗng bị coi là lỗi**, vì Goodreads chặn
   scrape bằng cách trả 202 với thân rỗng thay vì báo lỗi — client không ném gì, và bản ghi
   toàn `null` sinh ra từ đó đọc y như một câu trả lời thật. Đó mới là kiểu hỏng nguy hiểm.
+  Lệnh ghi: `rate`, `shelf`, `progress`, `review`. Nút trên trang sách chỉ hiện sau khi
+  JavaScript chạy xong, nên writer chờ chúng thay vì tìm ngay lúc HTML vừa về.
 
 ### Thay đổi
 

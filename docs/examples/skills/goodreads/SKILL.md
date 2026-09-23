@@ -1,6 +1,6 @@
 ---
 name: goodreads
-description: "Goodreads: đọc kệ sách và hoạt động qua RSS công khai, ghi (rate, đổi kệ, tiến độ) qua phiên trình duyệt riêng. Không cần API key."
+description: "Goodreads: đọc kệ sách và hoạt động qua RSS công khai, ghi (rate, đổi kệ, tiến độ, review) qua phiên trình duyệt riêng. Không cần API key."
 requires:
   bins: [python3]
 cliHelp: "python3 <skills_dir>/goodreads/scripts/goodreads-rss.py --help"
@@ -46,7 +46,11 @@ $W status                          # phiên còn sống không
 $W rate <book_id> <1-5>
 $W shelf <book_id> <read|currently-reading|to-read>
 $W progress <book_id> <percent>
+$W review <book_id> "<cả bài review>"   # thay bài cũ nếu đã có
 ```
+
+Review đăng công khai dưới tên người dùng: chỉ đăng **đúng lời người dùng viết**,
+không tự thêm, bớt hay dịch.
 
 `book_id` lấy từ kết quả `shelf` (khoá `book_id`).
 
