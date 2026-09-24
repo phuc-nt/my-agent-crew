@@ -22,8 +22,16 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 - **Test Tavily and Brave keys.** Tavily asks `/usage` (free, and reports the number of calls used);
   Brave runs one search for 1 result, and the button says plainly that it costs one call. Quota exhausted (429) is
   reported differently from a wrong key.
+- **`write_paths` in an agent profile** confines `workspace_write` and `workspace_edit` to the listed
+  paths inside the workspace. A write elsewhere is refused with an error naming the allowed paths, and no
+  directory is created. Meant for autonomous agents whose workspace is a git repo.
 
 ### Changed
+
+- **Delegation hands over intent, not method.** The `delegate` tool and the master's crew roster ask for the
+  person's words and today's date, never an invented file, folder or table; the roster no longer lists each
+  agent's workspace. A delegated turn's system prompt says the task was written by the coordinating agent
+  and that the agent's own conventions win, so a path named in the task is not a file to create.
 
 - **The Telegram bot reports when a message was cut off** because the bot restarted for more than 30 seconds, so the
   person resends instead of waiting for an answer that never arrives.

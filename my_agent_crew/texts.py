@@ -1,13 +1,14 @@
 """Every string the model or the user reads, in one place. Identifiers stay English;
 the language of the text follows the product's default (Vietnamese)."""
 
-# The delegation and Telegram strings live in their own modules so no one file outgrows
+# The delegation, Telegram and workspace strings live in their own modules so no one file outgrows
 # the line budget, and are pulled in here so every caller keeps writing `texts.<NAME>`
 # whichever module a string ended up in.
 from my_agent_crew.texts_delegate import *  # noqa: F403
 from my_agent_crew.texts_image import *  # noqa: F403
 from my_agent_crew.texts_kit import *  # noqa: F403
 from my_agent_crew.texts_telegram import *  # noqa: F403
+from my_agent_crew.texts_workspace import *  # noqa: F403
 
 DENIED_TOOL = (
     "Người dùng đã TỪ CHỐI hành động này. Không thử lại cùng hành động; nếu cần, hỏi lại "
@@ -30,24 +31,6 @@ OUTPUT_SHAPED_NOTE = (
     "Cần đủ thì đọc thẳng nguồn.]"
 )
 EMPTY_REPLY = "(không có nội dung)"
-
-WORKSPACE_ESCAPE = (
-    "Đường dẫn nằm ngoài thư mục làm việc; tệp ngoài workspace đọc bằng shell_run (cat, sed -n)."
-)
-WORKSPACE_NOT_FOUND = "Không có tệp hoặc thư mục: {path}"
-WORKSPACE_IS_DIR = "{path} là thư mục, không phải tệp."
-
-EDIT_DESCRIPTION = (
-    "Sửa một tệp bằng cách thay đúng một đoạn văn bản. Đoạn `old` phải khớp chính xác và"
-    " duy nhất trong tệp; muốn thay mọi chỗ thì đặt replace_all."
-)
-EDIT_PARAM_OLD = "Đoạn cần thay, chép nguyên văn từ tệp, đủ dài để chỉ khớp một chỗ."
-EDIT_PARAM_NEW = "Đoạn thay thế. Để chuỗi rỗng nghĩa là xoá."
-EDIT_EMPTY_OLD = "Đoạn cần thay không được rỗng."
-EDIT_NO_MATCH = "Không tìm thấy đoạn cần thay. Đọc lại tệp và chép đúng nguyên văn."
-EDIT_AMBIGUOUS = "Đoạn cần thay khớp {count} chỗ. Lấy thêm ngữ cảnh cho duy nhất, hoặc replace_all."
-EDIT_DONE = "Đã sửa {path} ({count} chỗ)."
-EDIT_DIFF_TRUNCATED = "…[còn {dropped} dòng]"
 
 GREP_DESCRIPTION = "Tìm chuỗi (biểu thức chính quy) trong các tệp của thư mục làm việc."
 GREP_PARAM_PATTERN = "Biểu thức chính quy."

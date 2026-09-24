@@ -7,8 +7,10 @@ from dataclasses import replace
 
 import pytest
 
+from my_agent_crew import texts
 from my_agent_crew.activity import ActivityHub
 from my_agent_crew.agent.loop import AgentDeps, run_turn
+from my_agent_crew.agent.prompt import system_prompt_for
 from my_agent_crew.agent.turn_context import set_tool_call_id, set_turn_conversation
 from my_agent_crew.agents.profile import WORK
 from my_agent_crew.config import Route
@@ -167,3 +169,18 @@ def _assistant_call(call_id: str) -> Message:
         role="assistant",
         tool_calls=(ToolCall(id=call_id, name=DELEGATE_TOOL_NAME, arguments={}),),
     )
+
+
+async def test_the_child_is_told_its_task_was_written_by_another_agent(runtime: Runtime):
+    """The task is the coordinator's guess at how, not the person's words; the child's own
+    conventions win, so a path the task invents is not a file to create."""
+    parent = runtime.store.create(agent_id="boss", autonomous=True)
+    await delegate(
+        runtime, parent.id, "call-f", task="ghi RPE 4 vào 2026/boxing.md", agent="worker"
+    )
+    worker = runtime.deps_for("worker")
+
+    child = runtime.store.for_parent_call("call-f")
+    assert texts.DELEGATED_TURN_BODY in system_prompt_for(worker, child)
+    direct = runtime.store.create(agent_id="worker")
+    assert texts.DELEGATED_TURN_TITLE not in system_prompt_for(worker, direct)

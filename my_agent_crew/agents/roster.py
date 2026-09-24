@@ -42,7 +42,6 @@ def crew_roster_section(
             name=peer.name,
             mode=peer.mode,
             description=peer.description or texts.CREW_ROSTER_NO_DESCRIPTION,
-            workspace=peer.workspace,
         )
         for peer in targets
     ]

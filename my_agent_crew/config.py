@@ -81,6 +81,9 @@ class Settings:
     # With the network off, the only places a command may write besides the temp
     # directories: paths inside the workspace, as the profile wrote them.
     shell_write_paths: tuple[str, ...] = ()
+    # Where `workspace_write` and `workspace_edit` may write, inside the workspace. Empty
+    # means anywhere in it; set, a guessed path cannot scatter files through a repo.
+    write_paths: tuple[str, ...] = ()
 
     @property
     def zone(self) -> tzinfo:

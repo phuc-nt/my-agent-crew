@@ -80,6 +80,15 @@ def test_the_roster_names_each_delegate_with_what_it_does(settings: Settings):
     assert crew_roster_section(coder, {"coder": coder, "pong": pong}) is None
 
 
+def test_the_roster_keeps_each_peer_workspace_to_itself(settings: Settings):
+    """A master that knows where a peer keeps its files starts telling it which file to
+    write, and invents the ones it does not know."""
+    master = default_profile(settings)
+    coach = replace(master, id="coach", name="Coach", workspace=Path("/srv/my-health-coach"))
+    _, body = crew_roster_section(master, {"default": master, "coach": coach})
+    assert "- coach — Coach" in body and "my-health-coach" not in body
+
+
 def _crew(deps_factory, store: Store) -> Runtime:
     base = deps_factory([completion("ok"), completion("ok")])
     master = replace(base, tools=ToolRegistry([base.tools.get(n) for n in base.tools.names()]))

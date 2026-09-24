@@ -63,7 +63,7 @@ System prompt liệt kê tên các tool có sẵn; model thấy JSON schema củ
 |---|---|---|---|
 | `workspace_list` | không | — | liệt kê một thư mục trong workspace |
 | `workspace_read` | không | chỉ trần đầu ra của agent (`tool_output_chars`), có đánh dấu chỗ cắt | đọc một tệp văn bản trong workspace; `offset` (dòng, tính từ 1) và `limit` đọc một cửa sổ thay vì cả tệp |
-| `workspace_write` | **có** | — | ghi một tệp văn bản trong workspace, tạo thư mục cha |
+| `workspace_write` | **có** | — | ghi một tệp văn bản trong workspace, tạo thư mục cha; chỉ dưới `write_paths` nếu profile đặt khoá này |
 | `fetch_url` | không | 20 000 ký tự qua markdown của firecrawl, nếu không thì 6 000, 20 s, không theo redirect | GET một trang http(s) công khai; firecrawl trả về markdown, nếu không thì HTML được rút thành văn bản |
 | `web_search` | không | 5 kết quả | luôn có sẵn; các backend được thử theo thứ tự firecrawl → brave → tavily → duckduckgo; trả về tiêu đề, URL, đoạn trích |
 | `memory_save` | không | — | nối `- HH:MM text` vào ghi chú hôm nay, xem [memory.md](memory.md) |
@@ -96,7 +96,13 @@ chúng và mỗi spec tool thêm vào đều tốn token prompt:
 `delegates` của bên gọi, hoặc chính nó — chạy việc ở đó, và trả về câu trả lời cuối của cuộc trò chuyện đó
 kèm một dòng đầu ghi id, trạng thái, chi phí và số step. Agent con bắt đầu trống: nó
 không bao giờ thấy lịch sử của cha, và đó là mục đích, nên `task` phải mang theo mọi thứ nó
-cần. Ngữ cảnh của cha chỉ lớn thêm một kết quả tool thay vì cả công việc, và
+cần: ý định của người dùng (lời nguyên văn, ngày hôm nay), không phải cách làm. Mô tả của
+tool và danh sách đội trong prompt của master nói rõ điều này, và danh sách đội không nêu
+workspace của từng agent, vì master biết agent khác lưu tệp ở đâu thì bắt đầu chỉ tệp để ghi
+và bịa ra những tệp nó không biết. Phía nhận, prompt của agent con có mục "Việc được giao":
+task do agent điều phối viết chứ không phải người dùng, hướng dẫn và quy ước workspace của
+agent con thắng mọi gợi ý về chỗ lưu, và một đường dẫn chưa có không phải lý do để tạo tệp.
+Ngữ cảnh của cha chỉ lớn thêm một kết quả tool thay vì cả công việc, và
 kết quả đó không bao giờ bị cắt gọn bởi cơ chế tỉa đầu ra tool cũ: master hỏi Pong,
 rồi hỏi HLV, rồi quay lại chủ đề của Pong
 vẫn còn nguyên câu trả lời của Pong.
@@ -121,6 +127,12 @@ con của nó qua id của tool call thay vì mở một con thứ hai.
 thoát ra ngoài bị từ chối, symlink ở lại bên trong được đi theo. Workspace là
 `agent.yaml: workspace`, mặc định `<agent dir>/workspace`. Không gì bên ngoài nó chạm tới được
 qua các tool này; `shell_run` là lối thoát, và nó cần duyệt.
+
+`write_paths` thu hẹp thêm chỗ `workspace_write` và `workspace_edit` được ghi. Cuộc trò
+chuyện autonomous (và mọi cuộc được giao việc từ một master autonomous) không dừng để duyệt,
+nên với một workspace là repo git, đây là rào duy nhất giữa một đường dẫn đoán sai và một
+thư mục dữ liệu cá nhân mới nằm ngoài `.gitignore`. Đường dẫn so theo dạng chữ, nên
+`data/../x` là `x` và bị từ chối.
 
 ### Trí nhớ người dùng dùng chung
 

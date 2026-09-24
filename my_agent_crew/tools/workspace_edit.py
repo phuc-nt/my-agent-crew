@@ -4,12 +4,13 @@ it did not remember; replacing a unique snippet keeps the rest of the file untou
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
 from my_agent_crew import texts
 from my_agent_crew.tools.registry import Tool, ToolError
-from my_agent_crew.tools.workspace import resolve_inside
+from my_agent_crew.tools.workspace import resolve_writable
 
 # How much of the changed region comes back so the model can see what it did without the
 # result filling the context.
@@ -53,9 +54,9 @@ def changed_region(before: str, after: str) -> str:
     return "\n".join(lines)
 
 
-def build_edit_tool(root: Path) -> Tool:
+def build_edit_tool(root: Path, write_paths: Sequence[str] = ()) -> Tool:
     async def edit_file(args: dict[str, Any]) -> str:
-        path = resolve_inside(root, args["path"])
+        path = resolve_writable(root, args["path"], write_paths)
         if not path.is_file():
             raise ToolError(texts.WORKSPACE_NOT_FOUND.format(path=args["path"]))
         before = path.read_text(encoding="utf-8")

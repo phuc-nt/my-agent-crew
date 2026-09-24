@@ -104,6 +104,7 @@ def _settings(
         tool_output_chars=int(raw.get("tool_output_chars", base.tool_output_chars)),
         shell_network=_shell_network(raw, agent_id),
         shell_write_paths=_names(raw, "shell_write_paths", agent_id),
+        write_paths=_names(raw, "write_paths", agent_id),
     )
 
 
@@ -136,9 +137,10 @@ def parse_profile(
         raise ValueError(f"agent {agent_id}: tool_output_chars must be >= 1")
     workspace = _resolve(agent_dir, str(raw.get("workspace") or "workspace"))
     # A writable path outside the workspace could be ~/.zshrc or a LaunchAgent plist.
-    for path in settings.shell_write_paths:
-        if not (workspace / path).resolve().is_relative_to(workspace.resolve()):
-            raise ValueError(f"agent {agent_id}: shell_write_paths {path!r} leaves the workspace")
+    for key in ("shell_write_paths", "write_paths"):
+        for path in getattr(settings, key):
+            if not (workspace / path).resolve().is_relative_to(workspace.resolve()):
+                raise ValueError(f"agent {agent_id}: {key} {path!r} leaves the workspace")
     skills_dirs = [agent_dir / "skills"] + [
         _resolve(agent_dir, str(d)) for d in raw.get("skills_dirs") or []
     ]

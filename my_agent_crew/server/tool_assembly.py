@@ -66,7 +66,7 @@ def build_tools(
     text output. Without one the output is cut instead, which is what every caller that
     does not pass a chain gets."""
     tools: list[Tool] = [
-        *build_workspace_tools(profile.workspace),
+        *build_workspace_tools(profile.workspace, profile.settings.write_paths),
         *build_web_tools(profile.settings, client),
         *build_memory_tools(
             profile.memory_dir,
@@ -98,7 +98,10 @@ def build_tools(
         build_pdf_tool((profile.workspace, profile.settings.home), vision),
     ]
     if profile.is_work:
-        tools += [build_edit_tool(profile.workspace), *build_search_tools(profile.workspace)]
+        tools += [
+            build_edit_tool(profile.workspace, profile.settings.write_paths),
+            *build_search_tools(profile.workspace),
+        ]
     if vision is not None:
         # The crew home is a root too, so a delegate can read the master's inbox.
         tools.append(build_image_tool((profile.workspace, profile.settings.home), vision))

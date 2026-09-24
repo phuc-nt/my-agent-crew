@@ -6,10 +6,16 @@ says so, whereas a silent cap here left the model believing a 24k brief ended at
 from __future__ import annotations
 
 import os
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
-from my_agent_crew.texts import WORKSPACE_ESCAPE, WORKSPACE_IS_DIR, WORKSPACE_NOT_FOUND
+from my_agent_crew.texts import (
+    WORKSPACE_ESCAPE,
+    WORKSPACE_IS_DIR,
+    WORKSPACE_NOT_FOUND,
+    WORKSPACE_WRITE_OUTSIDE,
+)
 from my_agent_crew.tools.registry import Tool, ToolError
 
 
@@ -34,7 +40,21 @@ def resolve_inside(root: Path, relative: str) -> Path:
     raise ToolError(WORKSPACE_ESCAPE)
 
 
-def build_workspace_tools(root: Path) -> list[Tool]:
+def resolve_writable(root: Path, relative: str, write_paths: Sequence[str] = ()) -> Path:
+    """A path the file tools may write. With `write_paths` set, only under one of them:
+    an autonomous agent never stops for approval, so a path guessed by whoever wrote its
+    task would otherwise become a new folder of personal data in a git repo. Compared on
+    the lexical path, like containment, so `data/../x` is `x` and refused."""
+    path = resolve_inside(root, relative)
+    if not write_paths:
+        return path
+    base = root.resolve()
+    if any(_within(Path(os.path.normpath(base / p)), path) for p in write_paths):
+        return path
+    raise ToolError(WORKSPACE_WRITE_OUTSIDE.format(paths=", ".join(write_paths), path=relative))
+
+
+def build_workspace_tools(root: Path, write_paths: Sequence[str] = ()) -> list[Tool]:
     async def list_dir(args: dict[str, Any]) -> str:
         path = resolve_inside(root, args.get("path") or ".")
         if not path.exists():
@@ -66,7 +86,7 @@ def build_workspace_tools(root: Path) -> list[Tool]:
         return "\n".join(lines)
 
     async def write_file(args: dict[str, Any]) -> str:
-        path = resolve_inside(root, args["path"])
+        path = resolve_writable(root, args["path"], write_paths)
         path.parent.mkdir(parents=True, exist_ok=True)
         content = str(args.get("content", ""))
         path.write_text(content, encoding="utf-8")
