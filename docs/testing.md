@@ -1,43 +1,43 @@
-# Testing
+# Kiểm thử
 
 **Phiên bản**: 0.5.0 (+ chưa phát hành) · **Cập nhật**: 2026-09-24
 
-Three tiers, one rule: **every feature ships with a test in the lowest tier that can see it.**
-The test files themselves are the inventory; this page only says what each tier is for and
-how to run it. Counts and file names are not kept here — run the commands.
+Ba tầng, một quy tắc: **mỗi tính năng ra kèm một test ở tầng thấp nhất có thể thấy nó.**
+Bản thân các tệp test là bản kiểm kê; trang này chỉ nói mỗi tầng dùng để làm gì và
+chạy ra sao. Số lượng và tên tệp không giữ ở đây — chạy lệnh.
 
-| Tier | Runs with | What it can see |
+| Tầng | Chạy bằng | Thấy được gì |
 |---|---|---|
-| pytest (`tests/`) | `uv run pytest -q` | the loop, tools, store, providers, profiles, scheduler, channels, the HTTP API and its SSE streams — everything the server does, with the model replaced by `MY_AGENT_ROUTES=fake:echo` |
-| vitest (`web/`) | `cd web && npm test` | parsers, reducers, the API client, single components, and the whole App against an in-memory fake server |
-| Playwright (`web/e2e/`) | `cd web && npm run e2e` | a real browser on a real Vite dev server, `/api` answered by a mock in the test; used for flows that only break in a browser (SSE reconnect, layout at phone width, keyboard) |
+| pytest (`tests/`) | `uv run pytest -q` | vòng lặp, tool, store, provider, profile, scheduler, kênh, HTTP API và các stream SSE của nó — mọi thứ server làm, với model thay bằng `MY_AGENT_ROUTES=fake:echo` |
+| vitest (`web/`) | `cd web && npm test` | parser, reducer, API client, từng component, và cả App chạy trên một fake server trong bộ nhớ |
+| Playwright (`web/e2e/`) | `cd web && npm run e2e` | trình duyệt thật trên Vite dev server thật, `/api` do một mock trong test trả lời; dùng cho các luồng chỉ hỏng trong trình duyệt (SSE reconnect, layout ở bề rộng điện thoại, bàn phím) |
 
-Prefer the lowest tier: a rule of the loop belongs in pytest, a reducer in vitest, and
-Playwright only for what the DOM alone can show. A behaviour that crosses tiers (an approval
-pauses the loop *and* the bar appears) gets one test on each side of the boundary.
+Ưu tiên tầng thấp nhất: một quy tắc của vòng lặp thuộc về pytest, một reducer thuộc về vitest, và
+Playwright chỉ cho những gì chỉ DOM mới cho thấy. Hành vi vắt qua nhiều tầng (một duyệt
+tạm dừng vòng lặp *và* thanh hiện ra) có một test ở mỗi bên ranh giới.
 
-## Guard tests
+## Test bảo vệ
 
-A few tests protect the repo rather than a feature:
+Vài test bảo vệ repo chứ không phải một tính năng:
 
-- a **file-size budget**: no source file over 200 lines, so modules stay readable in one screen;
-- the **bundle** in `my_agent_crew/server/static` is present and served at `/`, with `/api/*`
-  404s staying JSON;
-- CI rebuilds the bundle and fails on `git diff --exit-code`, so a web change is never
-  committed without its bundle.
+- **ngân sách kích thước tệp**: không tệp nguồn nào quá 200 dòng, để module đọc gọn trong một màn hình;
+- **bundle** trong `my_agent_crew/server/static` có mặt và được phục vụ ở `/`, với 404 của `/api/*`
+  vẫn là JSON;
+- CI dựng lại bundle và fail khi `git diff --exit-code`, nên thay đổi web không bao giờ
+  được commit mà thiếu bundle của nó.
 
-## Running the gates
+## Chạy các cổng
 
-`./scripts/gates.sh` runs every CI gate in order and stops at the first red one; see
-[code-standards.md](code-standards.md#4-cổng-phải-chạy-trước-khi-commit). The list of gates
-is `.github/workflows/ci.yml`.
+`./scripts/gates.sh` chạy mọi cổng CI theo thứ tự và dừng ở cổng đỏ đầu tiên; xem
+[code-standards.md](code-standards.md#4-cổng-phải-chạy-trước-khi-commit). Danh sách cổng
+là `.github/workflows/ci.yml`.
 
-## Live smoke (manual)
+## Smoke trực tiếp (thủ công)
 
-`MY_AGENT_ROUTES=fake:echo` against a throwaway `MY_AGENT_HOME`, then through the UI or curl:
-chat → `/tool workspace_list {"path":"."}` → `/tool workspace_write {...}` → approve → file exists
-in `MY_AGENT_HOME/workspace`. With an agent profile that has a schedule: `POST /api/jobs/<agent>/<schedule>/run`
-must produce a run on `/api/activity/runs` and a card in the rail. With at least one other
-agent installed: `POST /api/inbound {"text": "Nhờ kongming …"}` must answer with the master's
-summary and leave a child run whose `source` is `delegate:<conversation id>` on
-`/api/activity/runs`. This is the check to repeat before tagging a release.
+`MY_AGENT_ROUTES=fake:echo` trên một `MY_AGENT_HOME` tạm, rồi qua UI hoặc curl:
+chat → `/tool workspace_list {"path":"."}` → `/tool workspace_write {...}` → duyệt → tệp tồn tại
+trong `MY_AGENT_HOME/workspace`. Với profile agent có lịch: `POST /api/jobs/<agent>/<schedule>/run`
+phải tạo ra một run trên `/api/activity/runs` và một thẻ trong rail. Với ít nhất một agent
+khác đã cài: `POST /api/inbound {"text": "Nhờ kongming …"}` phải trả lời bằng tóm tắt của
+master và để lại một run con có `source` là `delegate:<conversation id>` trên
+`/api/activity/runs`. Đây là bước kiểm tra cần lặp lại trước khi gắn tag phát hành.

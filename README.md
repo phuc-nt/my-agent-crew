@@ -1,83 +1,83 @@
 # my-agent-crew
 
-Một đội agent chạy local, có web UI thân thiện và một chỗ chat duy nhất. Agent đọc/ghi tệp
-trong thư mục làm việc, chạy shell, tải trang web, tìm kiếm, đọc ảnh và PDF, ghi nhớ lâu dài —
-và **hỏi bạn trước** mọi thao tác thay đổi dữ liệu, trừ những lệnh bạn đã nói là quen thuộc.
+A crew of agents running locally, with a friendly web UI and a single place to chat. Agents read/write files
+in the working directory, run shell, fetch web pages, search, read images and PDFs, remember long term —
+and **ask you first** before every operation that changes data, except the commands you have said are familiar.
 
-Bạn chỉ nói chuyện với một agent chính; nó tự làm việc nhỏ và giao việc lớn cho đúng người
-trong đội. Việc đang chạy hiện thành timeline từng bước, nên lúc nào cũng thấy agent đang làm gì.
+You only talk to one master agent; it does the small work itself and delegates the big work to the right person
+in the crew. Running work shows as a step-by-step timeline, so you always see what the agent is doing.
 
-Đây là bản viết lại tinh gọn của [my-crew](https://github.com/phuc-nt/my-crew): bỏ router và DAG,
-giữ agent + công cụ + kỹ năng + trí nhớ, đặt web UI làm mặt tiền chính.
+This is a lean rewrite of [my-crew](https://github.com/phuc-nt/my-crew): drops the router and the DAG,
+keeps agents + tools + skills + memory, and puts the web UI up front.
 
-## Chạy
+## Run
 
 ```bash
 uv sync
 OPENROUTER_API_KEY=... uv run python -m my_agent_crew
-# mở http://127.0.0.1:8765
+# open http://127.0.0.1:8765
 ```
 
-Không có khoá? Chạy thử với provider echo (không gọi model thật):
+No key? Try it with the echo provider (no real model calls):
 
 ```bash
 MY_AGENT_ROUTES=fake:echo uv run python -m my_agent_crew
 ```
 
-Trong chế độ echo, gõ `/tool <tên> {json}` để gọi công cụ trực tiếp, ví dụ
+In echo mode, type `/tool <name> {json}` to call a tool directly, for example
 `/tool workspace_list {"path":"."}`.
 
-## Cấu hình
+## Configuration
 
-Bí mật **chỉ** đọc từ biến môi trường; `config.yaml` chỉ chứa các khoá không nhạy cảm.
+Secrets are read **only** from environment variables; `config.yaml` holds only non-sensitive keys.
 
-| Biến môi trường | Ý nghĩa | Mặc định |
+| Environment variable | Meaning | Default |
 |---|---|---|
-| `MY_AGENT_HOME` | thư mục dữ liệu (db, workspace/, skills/, config.yaml) | `~/.my-agent-crew` |
-| `MY_AGENT_ROUTES` | chuỗi tuyến `provider:model`, cách nhau bởi dấu phẩy, thử theo thứ tự | `openrouter:deepseek/deepseek-v4-flash` |
-| `MY_AGENT_COST_CAP_USD` | ngân sách mặc định mỗi cuộc trò chuyện (0 = không giới hạn) | `0.5` |
-| `MY_AGENT_MAX_STEPS` | số lượt gọi model tối đa trong một lượt | `12` |
-| `MY_AGENT_AUTONOMOUS` | `1` để công cụ ghi/thay đổi chạy không cần duyệt | tắt |
-| `MY_AGENT_APPROVAL_TTL_SECONDS` | yêu cầu duyệt không ai trả lời trong khoảng này thì tự từ chối, lượt chạy tiếp | `600` |
-| `MY_AGENT_TIMEZONE` | múi giờ của bạn (tên IANA, vd `Asia/Ho_Chi_Minh`) cho lịch, "hôm nay" trong prompt và thống kê; DB vẫn lưu UTC | múi giờ máy |
-| `MY_AGENT_ALLOWED_HOSTS` | tên máy (ngoài `localhost` và IP) được phép gọi API, cách nhau dấu phẩy — vd tên Tailscale MagicDNS | trống |
-| `OLLAMA_BASE_URL` | nơi ollama local lắng nghe; không cần khoá nên provider này luôn sẵn sàng | `http://127.0.0.1:11434/v1` |
-| `OPENROUTER_API_KEY` | bật provider OpenRouter | — |
-| `TAVILY_API_KEY` / `BRAVE_API_KEY` | nguồn tìm kiếm trả phí; không đặt thì `web_search` vẫn chạy bằng DuckDuckGo | — |
-| `FIRECRAWL_BASE_URL` | host firecrawl cho tìm kiếm và đọc trang dạng markdown | — |
-| `FIRECRAWL_API_KEY` | chỉ cần với firecrawl cloud | — |
-| tên do `telegram.token_env` chỉ định (vd `TELEGRAM_BOT_TOKEN`) | token bot Telegram của master; thiếu thì kênh tắt | — |
+| `MY_AGENT_HOME` | data directory (db, workspace/, skills/, config.yaml) | `~/.my-agent-crew` |
+| `MY_AGENT_ROUTES` | route chain of `provider:model`, comma-separated, tried in order | `openrouter:deepseek/deepseek-v4-flash` |
+| `MY_AGENT_COST_CAP_USD` | default budget per conversation (0 = unlimited) | `0.5` |
+| `MY_AGENT_MAX_STEPS` | maximum number of model calls in one turn | `12` |
+| `MY_AGENT_AUTONOMOUS` | `1` to let write/mutating tools run without approval | off |
+| `MY_AGENT_APPROVAL_TTL_SECONDS` | an approval request nobody answers within this window is auto-denied and the turn continues | `600` |
+| `MY_AGENT_TIMEZONE` | your timezone (IANA name, e.g. `Asia/Ho_Chi_Minh`) for schedules, "today" in the prompt and statistics; the DB still stores UTC | machine timezone |
+| `MY_AGENT_ALLOWED_HOSTS` | host names (besides `localhost` and IPs) allowed to call the API, comma-separated — e.g. a Tailscale MagicDNS name | empty |
+| `OLLAMA_BASE_URL` | where local ollama listens; no key needed, so this provider is always available | `http://127.0.0.1:11434/v1` |
+| `OPENROUTER_API_KEY` | enables the OpenRouter provider | — |
+| `TAVILY_API_KEY` / `BRAVE_API_KEY` | paid search sources; if unset, `web_search` still runs via DuckDuckGo | — |
+| `FIRECRAWL_BASE_URL` | firecrawl host for search and for reading pages as markdown | — |
+| `FIRECRAWL_API_KEY` | only needed with firecrawl cloud | — |
+| the name given by `telegram.token_env` (e.g. `TELEGRAM_BOT_TOKEN`) | the master's Telegram bot token; missing means the channel is off | — |
 
-`config.yaml` trong `MY_AGENT_HOME` nhận đúng các khoá: `routes`, `vision_routes`,
+`config.yaml` in `MY_AGENT_HOME` accepts exactly these keys: `routes`, `vision_routes`,
 `cost_cap_usd`, `max_steps`, `language`, `timezone`, `autonomous_default`,
 `approval_ttl_seconds`, `tool_output_chars`, `shell_ask_patterns`, `shell_allow_patterns`.
-Khoá lạ làm server báo lỗi lúc khởi động, để một chữ gõ sai không âm thầm vô hiệu hoá thiết lập.
-Chi tiết từng khoá: [docs/agents.md](docs/agents.md#agentyaml).
-Kỹ năng tự viết: thêm tệp `.md` có frontmatter `name` vào `skills/`.
-Kỹ năng không gắn sẵn chỉ hiện tên + mô tả trong prompt; model gọi `skill_read` để đọc đủ.
-Kỹ năng gọi chương trình ngoài thì khai `requires.bins: [gws]` và `cliHelp: gws --help`:
-thiếu chương trình thì kỹ năng vẫn được giữ nhưng mở đầu bằng cảnh báo, còn `cliHelp` nhắc
-model đọc `--help` một lần thay vì đoán cú pháp lần thứ ba.
-Mẫu chép được: [docs/examples/skills/](docs/examples/skills/) — chép vào `skills/` rồi điền chỗ trống.
+An unknown key makes the server fail at startup, so one typo does not silently disable a setting.
+Details of each key: [docs/agents.md](docs/agents.md#agentyaml).
+Your own skills: add a `.md` file with `name` in its frontmatter to `skills/`.
+Skills that are not pinned only show their name + description in the prompt; the model calls `skill_read` to read the full text.
+A skill that calls an external program declares `requires.bins: [gws]` and `cliHelp: gws --help`:
+if the program is missing the skill is still kept but opens with a warning, and `cliHelp` reminds the
+model to read `--help` once instead of guessing the syntax a third time.
+Copyable samples: [docs/examples/skills/](docs/examples/skills/) — copy into `skills/` and fill in the blanks.
 
-## Nhiều agent có tên riêng
+## Multiple named agents
 
-Mỗi thư mục `MY_AGENT_HOME/agents/<id>/` chứa `agent.yaml` cùng các tệp nhân cách
-(`AGENTS.md`, `SOUL.md`, `IDENTITY.md`, `USER.md`) và trí nhớ (`MEMORY.md`, `memory/YYYY-MM-DD.md`)
-được nạp vào system prompt mỗi lượt. Ví dụ một huấn luyện viên sức khoẻ:
+Each directory `MY_AGENT_HOME/agents/<id>/` holds an `agent.yaml` together with the persona files
+(`AGENTS.md`, `SOUL.md`, `IDENTITY.md`, `USER.md`) and memory (`MEMORY.md`, `memory/YYYY-MM-DD.md`)
+that are loaded into the system prompt every turn. Example of a health coach:
 
 ```yaml
 name: HLV sức khoẻ
 description: Đọc dữ liệu Garmin, gửi bản tin sáng
 routes: [openrouter:z-ai/glm-5.3-flash, openrouter:z-ai/glm-5]
-workspace: ~/workspace/my-health-coach   # sandbox cho công cụ tệp + shell_run
-skills_dirs: [~/workspace/shared-skills]  # kỹ năng dùng chung ngoài home
-autonomous: true                          # job chạy không cần duyệt
+workspace: ~/workspace/my-health-coach   # sandbox for file tools + shell_run
+skills_dirs: [~/workspace/shared-skills]  # shared skills outside the home
+autonomous: true                          # jobs run without approval
 schedules:
   - id: morning-brief
     name: Bản tin sáng
-    cron: "0 7 * * *"                     # giờ máy, 5 trường
-    skills: [garmin]                      # gắn sẵn kỹ năng cho lượt chạy này
+    cron: "0 7 * * *"                     # machine time, 5 fields
+    skills: [garmin]                      # pin skills for this run
     prompt: |
       Chạy scripts/health-sync.py --json rồi viết bản tin 4-6 dòng…
       Kèm ảnh bằng dòng `MEDIA: data/charts/sleep.png`,
@@ -86,81 +86,81 @@ schedules:
     name: Sao lưu Drive
     cron: "20 2 * * *"
     command: ./scripts/backup-to-drive.sh
-memory_consolidate: "30 3 * * 1"            # mỗi thứ Hai, viết lại MEMORY.md từ nhật ký
+memory_consolidate: "30 3 * * 1"            # every Monday, rewrite MEMORY.md from the daily notes
 ```
 
-Agent giữ dữ liệu không được rời máy (ví dụ sổ cái) đặt `shell_network: false`: mọi `shell_run`
-chạy trong `sandbox-exec` không mạng, chỉ ghi được dưới `shell_write_paths` — xem [agents.md](docs/agents.md).
+An agent holding data that must not leave the machine (a ledger, say) sets `shell_network: false`: every `shell_run`
+runs inside `sandbox-exec` with no network and can only write under `shell_write_paths` — see [agents.md](docs/agents.md).
 
-Job `prompt` mở một cuộc trò chuyện mới và chạy như người dùng nhắn; job `command` chỉ chạy shell.
-Kết quả job `prompt` được gửi vào chat Telegram (nếu có bot, xem dưới) với dòng đầu `[Tên agent]`;
-dòng `MEDIA:` thành ảnh lấy từ workspace của agent đó, dòng `FILE:` thành tệp đính kèm
-(`pdf`, `csv`, `md`, `txt`, `xlsx`, `json`, `zip`, tối đa 20 MB) — ảnh bị nén lại nên biểu đồ
-gửi bằng `MEDIA:`, còn bảng số liệu phải gửi bằng `FILE:` mới giữ nguyên bytes.
+A `prompt` job opens a new conversation and runs as if the user had sent a message; a `command` job only runs the shell.
+The result of a `prompt` job is sent to the Telegram chat (if there is a bot, see below) with a first line `[Agent name]`;
+a `MEDIA:` line becomes an image taken from that agent's workspace, a `FILE:` line becomes an attached file
+(`pdf`, `csv`, `md`, `txt`, `xlsx`, `json`, `zip`, up to 20 MB) — images get recompressed, so charts are
+sent with `MEDIA:`, while tables of numbers must be sent with `FILE:` to keep the bytes intact.
 
-## Mang kit `.claude/` / `.opencode/` sang
+## Bring your `.claude/` / `.opencode/` kit over
 
-Đã có sẵn subagent, lệnh, kỹ năng và hook từ Claude Code hay opencode? Chép nguyên thư mục vào
-home là dùng được, không cần viết lại:
+Already have subagents, commands, skills and hooks from Claude Code or opencode? Copy the directory as is into
+the home and it just works, no rewrite needed:
 
 ```
-cp -r ~/.claude ~/.my-agent-crew/.agents     # hoặc giữ tên .claude / .opencode, đọc như nhau
+cp -r ~/.claude ~/.my-agent-crew/.agents     # or keep the name .claude / .opencode, read the same way
 ```
 
-- `agents/<id>.md` (front matter `name`, `description`, `tools`, `model` + thân là nhân cách)
-  → một thành viên đội; `agent.yaml` cùng id luôn thắng.
-- `commands/**/*.md` → lệnh `/tên` (`commands/mk/plan.md` là `/mk:plan`), nhận `$ARGUMENTS`,
-  `$1`…`$9`; dùng được trên web lẫn Telegram.
-- `skills/` → thêm vào đường kỹ năng; `settings.json` `hooks.PreToolUse/PostToolUse` → hook chạy
-  trước/sau mỗi công cụ với JSON quen thuộc trên stdin (`Bash` khớp `shell_run`, exit 2 chặn).
-- Chỉ đọc kit ở home và ở thư mục agent. Repo mà agent làm việc trong đó (workspace) là nguồn
-  dữ liệu: `.claude/` và `AGENTS.md` của repo dành cho người phát triển repo, không ảnh hưởng
-  tới agent của đội.
+- `agents/<id>.md` (front matter `name`, `description`, `tools`, `model` + the body as the persona)
+  → one crew member; an `agent.yaml` with the same id always wins.
+- `commands/**/*.md` → `/name` commands (`commands/mk/plan.md` is `/mk:plan`), taking `$ARGUMENTS`,
+  `$1`…`$9`; usable on the web and on Telegram alike.
+- `skills/` → added to the skill path; `settings.json` `hooks.PreToolUse/PostToolUse` → hooks run
+  before/after every tool with the familiar JSON on stdin (`Bash` maps to `shell_run`, exit 2 blocks).
+- Kits are read only from the home and from the agent directory. The repo the agent works in (the workspace) is a
+  data source: the repo's `.claude/` and `AGENTS.md` are for the repo's developers and do not affect
+  the crew's agents.
 
-Chi tiết: [docs/agents.md](docs/agents.md#kits-agents-claude-opencode).
+Details: [docs/agents.md](docs/agents.md#kit-agents-claude-opencode).
 
-## Đọc ảnh và PDF
+## Reading images and PDFs
 
-Ảnh gửi qua Telegram được lưu vào `workspace/inbox/`; mọi agent có công cụ `image_read`
-(đường dẫn + câu hỏi) gửi ảnh cho tuyến `vision_routes` (mặc định hai model vision rẻ trên
-OpenRouter) và nhận câu trả lời dạng chữ. Master xem qua một lần để biết giao cho ai, agent nhận
-việc tự xem lại với câu hỏi của mình. Đặt `vision_routes: []` để tắt.
+Images sent via Telegram are saved to `workspace/inbox/`; every agent has the `image_read` tool
+(path + question), which sends the image to the `vision_routes` chain (by default two cheap vision models on
+OpenRouter) and gets a text answer back. The master looks once to know whom to hand it to; the agent taking
+the job looks again with its own question. Set `vision_routes: []` to turn it off.
 
-`pdf_read` đọc tài liệu theo cùng đường dẫn đó. Trang đã typeset thì lấy chữ ra miễn phí;
-trang chụp ảnh mới được render rồi gửi qua `vision_routes`, mỗi trang một lần — nên tài liệu
-trộn hai loại chỉ tốn tiền đúng những trang scan. Không cấu hình `vision_routes` thì PDF
-typeset vẫn đọc được.
+`pdf_read` reads documents by the same path. Typeset pages have their text extracted for free;
+only scanned pages are rendered and sent through `vision_routes`, once per page — so a document
+mixing both kinds only costs money for exactly the scanned pages. Without `vision_routes` configured, typeset
+PDFs are still readable.
 
-## Hỏi lại thay vì đoán
+## Ask instead of guessing
 
-Gặp ngã ba thật sự, agent gọi `ask_user` để hỏi thay vì tự chọn — kể cả khi `autonomous` đang
-bật, vì tự duyệt một câu hỏi thì chẳng ai trả lời. Câu hỏi hiện thành thẻ có sẵn lựa chọn trên
-web, và trên Telegram thì trả lời theo số hoặc bằng lời. Hết giờ chờ không phải là từ chối:
-agent nhận `default` đã khai rồi đi tiếp và nói rõ trong câu trả lời là nó tự quyết, nên một
-job chạy lúc không ai xem vẫn nên luôn kèm `default`.
+At a real fork in the road, the agent calls `ask_user` to ask rather than choosing on its own — even when `autonomous` is
+on, because auto-approving a question means nobody answers it. The question shows as a card with ready-made choices on the
+web, and on Telegram you answer by number or in words. A timeout is not a denial:
+the agent receives the declared `default`, moves on, and states in its reply that it decided on its own, so a
+job running while nobody is watching should always include a `default`.
 
-## Một trợ lý điều động cả đội
+## One assistant directs the whole crew
 
-Web UI lẫn Telegram chỉ có **một** chỗ chat: với agent chính (`default`, gọi là *master*). Nó
-tự làm việc nhỏ và giao việc lớn cho đúng người bằng công cụ `delegate`, rồi tổng hợp lại — bạn
-không phải chọn agent. Mọi agent khác trong home (kể cả Pong hay HLV sức khoẻ) mặc định đều là
-người master giao được; tab **Đội** trong khu quản lý liệt kê cả đội và cài thêm vai mới từ mẫu bằng
-một cú bấm. Tuỳ chỉnh master bằng `~/.my-agent-crew/agent.yaml` (tên, mô tả, `autonomous`,
-`cost_cap_usd`, `max_steps`, hoặc `delegates` để thu hẹp đội).
+The web UI and Telegram have only **one** place to chat: with the main agent (`default`, called the *master*). It
+does the small work itself and delegates the big work to the right person with the `delegate` tool, then puts it together — you
+do not have to pick an agent. Every other agent in the home (including Pong or the health coach) is by default
+someone the master can delegate to; the **Đội** tab in the manage screen lists the whole crew and installs new roles from templates with
+one click. Customize the master via `~/.my-agent-crew/agent.yaml` (name, description, `autonomous`,
+`cost_cap_usd`, `max_steps`, or `delegates` to narrow the crew).
 
-**Telegram** là cùng cơ chế trên điện thoại. Khai bot trong `agent.yaml` của master:
+**Telegram** is the same mechanism on your phone. Declare the bot in the master's `agent.yaml`:
 
 ```yaml
 telegram:
-  token_env: TELEGRAM_BOT_TOKEN   # TÊN biến môi trường giữ token, không phải token
-  chat_id: 123456789              # chat duy nhất được trả lời
+  token_env: TELEGRAM_BOT_TOKEN   # the NAME of the env var holding the token, not the token
+  chat_id: 123456789              # the only chat that gets replies
 ```
 
-Server poll bot đó: tin nhắn từ `chat_id` thành lượt chat của master theo ngày, master giao
-việc cho Pong/HLV khi cần và trả lời lại chat; ảnh hay tệp bạn gửi được lưu vào `inbox/` của
-workspace master và master chuyển đường dẫn cho agent cần đọc. Lệnh gạch chéo (`/new`, `/help`,
-`/status`, `/tools`, `/approve`, `/deny`) do kênh tự trả lời, không tốn lượt model. Khối
-`telegram` đặt ở agent khác bị bỏ qua kèm cảnh báo.
+The server polls that bot: messages from `chat_id` become the master's chat turns by day, the master delegates
+work to Pong/the coach when needed and replies back to the chat; images or files you send are saved to the `inbox/` of the
+master's workspace and the master passes the path to the agent that needs to read it. Slash commands (`/new`, `/help`,
+`/status`, `/tools`, `/approve`, `/deny`) are answered by the channel itself, costing no model turn. A
+`telegram` block placed on another agent is ignored with a warning.
 
 Three templates available: `fullstack-developer` takes a software task end to end (scout, plan,
 code, test, self-review, commit) and may consult the other two; `kongming` is a read-only adviser
@@ -177,7 +177,7 @@ python -m my_agent_crew agent add researcher                                  # 
 ```
 
 Edit an agent's profile (name, description, routes, tools, budget, schedules) from the **Đội** tab.
-Tools across the whole crew, and who uses which, are in **Công cụ**. Connections are in **Kết nối**:
+Tools across the whole crew, and who uses which, are in **Công cụ** (tools). Connections are in **Kết nối** (connections):
 set, check or remove API keys, host addresses and the Telegram bot token there — they are
 written to `~/.my-agent-crew/env` and take effect without a restart. A change the crew
 could not run with (removing the only model key) is refused before anything is written.
@@ -188,15 +188,15 @@ name (Tailscale MagicDNS, say), list it in `MY_AGENT_ALLOWED_HOSTS` — the 403 
 There is no login: whoever reaches the port drives the crew, `POST /api/inbound` included.
 Keep it on the machine or a private tailnet, never behind a public tunnel.
 
-Giao việc như nói với người: *"Nhờ fullstack-developer thêm lệnh `--version` in phiên bản từ
-pyproject, có test."* Master giao việc, fullstack-developer tự khảo sát, viết, test và soát, hỏi
-kongming khi bế tắc — mỗi lần giao là một cuộc con hiện ngay trong manage screen, kèm chi phí và
-số bước.
-Uỷ quyền chỉ sâu một tầng: agent con không giao tiếp cho ai nữa.
+Delegate as you would to a person: *"Ask fullstack-developer to add a `--version` command that prints the version from
+pyproject, with tests."* The master delegates, fullstack-developer scouts, writes, tests and reviews on its own, asking
+kongming when stuck — every delegation is a child conversation that shows right away in the manage screen, with its cost and
+step count.
+Delegation is only one level deep: a child agent does not delegate further to anyone.
 
-Mọi nền tảng đi qua **một cổng backend**: web, Telegram và `POST /api/inbound` (JSON, trả lời
-đồng bộ) đều đưa tin nhắn vào cùng chỗ, nên nâng cấp backend là mọi nền tảng theo ngay, và
-test một tính năng chỉ cần gửi request:
+Every platform goes through **one backend entry point**: the web, Telegram and `POST /api/inbound` (JSON, synchronous
+reply) all feed messages into the same place, so a backend upgrade reaches every platform at once, and
+testing a feature only takes sending a request:
 
 ```bash
 curl -s http://127.0.0.1:8765/api/inbound -H 'content-type: application/json' \
@@ -204,11 +204,11 @@ curl -s http://127.0.0.1:8765/api/inbound -H 'content-type: application/json' \
 # → {"conversation_id":…,"agent_id":"default","text":"…","status":"done","steps":2}
 ```
 
-## Trí nhớ
+## Memory
 
-Trí nhớ là Markdown trên đĩa, chia hai phạm vi: **chung về bạn** (`users/owner/USER.md` cùng
-các tệp sự kiện trong `facts/`) — mọi agent đều đọc, nên nói với một agent là cả đội biết — và
-**riêng của từng agent** (`MEMORY.md` + nhật ký `memory/YYYY-MM-DD.md`) cho việc nó tự làm.
+Memory is Markdown on disk, split into two scopes: **shared, about you** (`users/owner/USER.md` plus
+the event files in `facts/`) — every agent reads it, so telling one agent means the whole crew knows — and
+**private to each agent** (`MEMORY.md` + the `memory/YYYY-MM-DD.md` daily notes) for the work it does itself.
 
 Writes the person is present for land immediately; writes from unattended jobs become
 proposals and wait for approval. Set `memory_consolidate` to have an agent periodically rewrite
@@ -216,21 +216,21 @@ its `MEMORY.md` from recent notes — also a proposal, keeping the old text for 
 tab in the manage screen edits everything: `USER.md`, facts, agent `MEMORY.md`, daily notes,
 search both scopes, approve/deny proposals, and trigger consolidation immediately.
 
-Cùng lúc đó, agent gom nhật ký hằng ngày thành một **vault wiki** (`memory/wiki/`): mỗi chủ đề
-một trang Markdown, xếp vào `entities` / `concepts` / `syntheses` và liên kết nhau bằng
-`[[tên trang]]` — thay cho tìm kiếm vector. Nhật ký trả lời "hôm đó xảy ra gì", wiki trả lời
-"ta biết gì về chủ đề này". `wiki_apply` từ chối trang không khai `sources`, nên không trang
-nào tự bịa ra mà lọt được; lint còn điểm mặt những trang đã mất nguồn. Mỗi lần dựng lại chỉ
-phần máy viết được thay, phần người viết giữ nguyên. Xem, sửa và dựng lại ở tab **Wiki**
-trong **Ghi nhớ**. Chi tiết:
+At the same time, the agent gathers the daily notes into a **wiki vault** (`memory/wiki/`): one Markdown page per
+topic, sorted into `entities` / `concepts` / `syntheses` and linked to each other with
+`[[page name]]` — in place of vector search. The daily notes answer "what happened that day", the wiki answers
+"what do we know about this topic". `wiki_apply` refuses pages that do not declare `sources`, so no
+made-up page can slip through; lint also calls out pages whose sources have gone missing. On each rebuild only
+the machine-written part is replaced, the human-written part stays. View, edit and rebuild in the **Wiki** tab
+under **Ghi nhớ**. Details:
 [docs/memory.md](docs/memory.md).
 
-Chi tiết cấu hình agent, công cụ, trí nhớ và kênh: [docs/agents.md](docs/agents.md),
+Details on agent configuration, tools, memory and channels: [docs/agents.md](docs/agents.md),
 [docs/tools.md](docs/tools.md), [docs/memory.md](docs/memory.md),
-[docs/channels.md](docs/channels.md). Thư mục `agents/` là dữ liệu cá nhân, không nằm trong
-repo này.
+[docs/channels.md](docs/channels.md). The `agents/` directory is personal data and is not part of
+this repo.
 
-## Theo dõi hoạt động
+## Activity tracking
 
 Web UI split into two: chat with the master on the left, and a **manage screen** on the right
 accessible via `#/manage/<section>`. The manage screen shows:
@@ -241,40 +241,40 @@ The UI is in Vietnamese, so the tabs are named below as they appear on screen:
   attention centre for runs waiting for approval or that failed, and a link to a run's own timeline.
 - **Duyệt** (approvals): decided tool requests with their outcome (approved, denied, expired).
 - **Đội** (crew), **Công cụ** (tools), **Lịch chạy** (jobs — next/last run, run-now button,
-  pause/resume), **Ghi nhớ** (memory — chia tiếp thành **Về bạn**, **Của agent**, **Wiki**,
-  **Tìm** và **Đề xuất**), **Chi phí** (costs, by agent / model / day),
+  pause/resume), **Ghi nhớ** (memory — split further into **Về bạn**, **Của agent**, **Wiki**,
+  **Tìm** and **Đề xuất**), **Chi phí** (costs, by agent / model / day),
   **Kết nối** (connections), **Cài đặt** (settings).
 
 Inside the chat, a conversation-activity view shows only that conversation's own runs, step by step.
 The master's avatar in the header opens the crew tab; a chip `Crew: N` opens the manage screen
 at the crew section. A line `MEDIA: <path in workspace>` in the reply is rendered as an image,
-and `FILE: <path>` as a download link. Khi agent chuẩn bị làm một việc dài, nó gọi
-`progress_note` để nói một câu ngắn đang làm gì, và câu đó hiện ngay trên timeline nên người
-xem thấy tiến trình thay vì một vòng xoay.
+and `FILE: <path>` as a download link. When the agent is about to do a long task, it calls
+`progress_note` to say in one short sentence what it is doing, and that sentence shows right away on the timeline so the
+viewer sees progress instead of a spinner.
 
-## Phát triển
+## Development
 
 ```bash
-./scripts/gates.sh               # mọi cổng CI, dừng ở cổng đỏ đầu tiên
+./scripts/gates.sh               # every CI gate, stops at the first red gate
 ```
 
-Hoặc chạy lẻ từng cổng:
+Or run each gate on its own:
 
 ```bash
 uv run ruff check .              # lint
-uv run ruff format --check .     # định dạng — cổng riêng, `ruff check` xanh không thay được
+uv run ruff format --check .     # formatting — a separate gate, a green `ruff check` does not replace it
 uv run pytest -q                 # backend
 cd web && npm ci
 npm run typecheck && npm test    # frontend unit
-npm run e2e                      # Playwright (mock /api trong trình duyệt)
-npm run bundle                   # dựng lại bundle vào my_agent_crew/server/static (đã commit)
+npm run e2e                      # Playwright (mocks /api in the browser)
+npm run bundle                   # rebuild the bundle into my_agent_crew/server/static (committed)
 ```
 
-Mỗi cổng làm gì và vì sao: [docs/code-standards.md §4](docs/code-standards.md#4-cổng-phải-chạy-trước-khi-commit).
-Thay đổi từng bản: [CHANGELOG.md](CHANGELOG.md). Cách phát hành một phiên bản:
+What each gate does and why: [docs/code-standards.md §4](docs/code-standards.md#4-cổng-phải-chạy-trước-khi-commit).
+Changes per release: [CHANGELOG.md](CHANGELOG.md). How to release a version:
 [docs/deployment-guide.md §6b](docs/deployment-guide.md#6b-phát-hành-một-phiên-bản).
 
-Đọc [docs/design.md](docs/design.md) để hiểu các quyết định thiết kế,
-[docs/testing.md](docs/testing.md) để biết tính năng nào được test ở tầng nào, và bộ tài liệu
-tham chiếu [agents](docs/agents.md) · [tools](docs/tools.md) · [memory](docs/memory.md) ·
+Read [docs/design.md](docs/design.md) to understand the design decisions,
+[docs/testing.md](docs/testing.md) to know which feature is tested at which layer, and the reference
+set [agents](docs/agents.md) · [tools](docs/tools.md) · [memory](docs/memory.md) ·
 [channels](docs/channels.md).

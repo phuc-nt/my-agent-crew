@@ -13,8 +13,10 @@ earn their complexity. Read [docs/design.md](docs/design.md) before changing arc
 - **Tests track features.** Every behaviour change ships with its test in the same commit; never
   loosen an assertion to make a suite pass. [docs/testing.md](docs/testing.md) maps features to
   tests — update it when you add one.
-- **English identifiers everywhere.** Vietnamese (or any user language) appears only in
-  `my_agent_crew/texts.py` and `web/src/i18n/vi.ts`.
+- **English everywhere except `docs/`.** Identifiers, comments, scripts, README, CHANGELOG and
+  commit messages are English. Vietnamese (or any user language) appears only in user-facing
+  strings (`my_agent_crew/texts*.py`, `web/src/i18n/vi.ts`, agent prompts and personas) and in
+  `docs/`, which is written in Vietnamese for the maintainer team.
 - **≤200 lines per source file**, enforced by `tests/test_file_size_budget.py`. Split by concern
   rather than raising the limit.
 - **Secrets only from environment variables.** `config.yaml` is whitelisted non-secret keys; never

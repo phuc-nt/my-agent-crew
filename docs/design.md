@@ -1,29 +1,29 @@
-# Design
+# Thiết kế
 
 **Phiên bản**: 0.5.0 (+ chưa phát hành) · **Cập nhật**: 2026-09-24
 
-## Goal
+## Mục tiêu
 
-A single general-purpose agent that a person uses daily through a web UI: chat, let it use tools,
-approve the risky ones, see what it cost. Everything else is subordinate to that loop.
+Một agent đa năng duy nhất mà một người dùng hằng ngày qua web UI: chat, cho nó dùng tool,
+duyệt những tool rủi ro, xem nó tốn bao nhiêu. Mọi thứ khác đều phụ thuộc vào vòng lặp đó.
 
-Since 0.2.0 the same loop can be instantiated several times as **named agents** (a health coach,
-a personal assistant) that keep their own persona, memory, workspace and schedules, and the UI shows
-every run of every agent live. The loop itself did not change; profiles and the scheduler sit
-around it.
+Từ 0.2.0, cùng vòng lặp đó có thể được khởi tạo nhiều lần thành các **agent có tên** (một HLV
+sức khoẻ, một trợ lý cá nhân) giữ persona, trí nhớ, workspace và lịch riêng, và UI hiển thị
+trực tiếp mọi run của mọi agent. Bản thân vòng lặp không đổi; profile và scheduler nằm
+quanh nó.
 
-## What is deliberately not repeated from my-crew
+## Những gì cố ý không lặp lại từ my-crew
 
-| my-crew | Measured problem | Here |
+| my-crew | Vấn đề đã đo được | Ở đây |
 |---|---|---|
-| Team of role-agents, router, DAG task graph | Most value came from one capable agent; coordination code dominated the codebase and the bug list | One agent loop; profiles only vary its inputs. No long-lived agents talking to each other: delegation is a tool call, one level deep, and a child conversation runs one turn and returns its answer |
-| Profiles + company YAML + per-agent settings | Config surface too large to keep tested; secrets could leak into YAML | Env vars + whitelisted `config.yaml`; `agent.yaml` has a fixed key set and no secrets |
-| Web UI added late, many pages | UI lagged features; tests were a separate world | UI is the primary surface; three test tiers share the same event contract |
-| Files grew past 1000 lines | Hard to review, hard for LLM tooling | 200-line budget enforced by a test |
-| Cost tracking optimistic | Unknown prices silently counted as 0 | `cost_usd=None` counts as `unknown_cost_calls` and is shown in the UI |
-| Vietnamese strings scattered | Identifier drift, hard to localise | `texts.py` and `i18n/vi.ts` only |
+| Đội agent theo vai, router, đồ thị task DAG | Phần lớn giá trị đến từ một agent giỏi; code điều phối chiếm phần lớn codebase và danh sách bug | Một vòng lặp agent; profile chỉ thay đổi đầu vào của nó. Không có agent sống lâu nói chuyện với nhau: giao việc là một tool call, sâu một cấp, và cuộc trò chuyện con chạy một lượt rồi trả câu trả lời |
+| Profile + YAML công ty + cài đặt theo từng agent | Bề mặt cấu hình quá lớn để giữ được test; secret có thể lọt vào YAML | Biến môi trường + `config.yaml` theo whitelist; `agent.yaml` có bộ key cố định và không có secret |
+| Web UI thêm muộn, nhiều trang | UI chạy sau tính năng; test là một thế giới riêng | UI là bề mặt chính; ba tầng test dùng chung một hợp đồng event |
+| Tệp phình quá 1000 dòng | Khó review, khó cho công cụ LLM | Ngân sách 200 dòng được một test ép buộc |
+| Theo dõi chi phí lạc quan | Giá chưa biết bị âm thầm tính là 0 | `cost_usd=None` được tính vào `unknown_cost_calls` và hiển thị trên UI |
+| Chuỗi tiếng Việt rải rác | Định danh trôi dạt, khó bản địa hoá | Chỉ `texts.py` và `i18n/vi.ts` |
 
-## Runtime shape
+## Hình dạng runtime
 
 ```
 browser ──/api/conversations/{id}/messages (SSE)──┐
@@ -37,224 +37,223 @@ any platform ──POST /api/inbound (JSON, sync)─────┴─▶ Inboun
                                                         └─ Scheduler    (cron/every jobs per agent, 20 s tick)
 ```
 
-- **One door for every platform.** The inbound gate finds the agent, opens or
-  reuses the conversation (one per agent per channel per day), guards it while an approval
-  is pending, runs the turn under activity tracking and records the run's source. The web
-  reads the event stream; Telegram and `POST /api/inbound` take the collected `TurnReply`
-  (text, status, steps). No platform is special, so a backend change reaches all of them and
-  a feature is tested by posting to the API.
+- **Một cửa cho mọi nền tảng.** Cổng inbound tìm agent, mở hoặc dùng lại cuộc trò chuyện
+  (một cuộc mỗi agent mỗi kênh mỗi ngày), canh giữ nó khi có approval đang chờ, chạy lượt
+  dưới sự theo dõi của activity và ghi lại nguồn của run. Web đọc luồng event; Telegram và
+  `POST /api/inbound` nhận `TurnReply` đã gom (text, status, steps). Không nền tảng nào đặc
+  biệt, nên một thay đổi ở backend tới được tất cả và một tính năng được test bằng cách post
+  vào API.
 
-- **Durable state is the message log.** A turn resumes from the last stored assistant message:
-  unfinished tool calls are settled first, so a crash mid-turn is recoverable.
-- **Approval is first-class.** A `requires_approval` tool pauses the turn with an `approval_required`
-  event and a stored `Approval`; the UI shows a bar, the decision endpoint resumes the same turn.
-  A conversation marked `autonomous` skips the pause. Hard denials — path escape from the
-  workspace, private/loopback network targets — are not approvable.
-- **An unanswered approval fails closed.** Every `Approval` carries a deadline
-  (`approval_ttl_seconds`, default 600); the scheduler tick sweeps overdue ones,
-  closes them as `expired`, resumes the turn with the tool refused
-  and delivers the reply like any other, so a request nobody saw never keeps a conversation
-  hanging. The decision endpoint also takes `always`: approving with it adds the tool to the
-  conversation's `auto_approve` list and later calls of that tool run without asking, until the
-  chip in the header revokes it. The shell ask list still pauses an always-allowed `shell_run`.
-  Decided requests stay readable in `GET /api/approvals`.
-- **Fallback is visible.** Each route that gives up is logged, streamed as a `route_fallback`
-  event and recorded as a `fallback` step on the run, so a model that keeps failing shows up in
-  the timeline instead of silently costing more on the next route.
-- **Fallback only before output.** The chain tries the next route only if the previous one failed
-  before yielding anything; a failure mid-stream is surfaced, never hidden by a silent retry.
-- **Honest cost.** Each assistant message stores `cost_usd` or `None`. The conversation keeps
-  `spent_usd` and `unknown_cost_calls`; `cost_cap_usd` halts before the next model call
-  (0 = unlimited).
-- **Echo provider is a product feature.** `MY_AGENT_ROUTES=fake:echo` runs the whole stack with no
-  key; `/tool <name> {json}` drives real tools through the real approval path. It is also what the
-  live smoke and the browser tests lean on.
-- **Tool output is capped** before it enters the context: 8000 characters by default, per
-  agent via `tool_output_chars`.
+- **Trạng thái bền là nhật ký message.** Một lượt tiếp tục từ message assistant cuối cùng đã lưu:
+  các tool call chưa xong được giải quyết trước, nên crash giữa lượt là khôi phục được.
+- **Duyệt là hạng nhất.** Một tool `requires_approval` tạm dừng lượt với một event `approval_required`
+  và một `Approval` được lưu; UI hiện một thanh, endpoint quyết định tiếp tục đúng lượt đó.
+  Cuộc trò chuyện đánh dấu `autonomous` bỏ qua chỗ dừng. Các từ chối cứng — path thoát khỏi
+  workspace, đích mạng private/loopback — không duyệt được.
+- **Approval không ai trả lời thì đóng lại an toàn.** Mỗi `Approval` mang một hạn chót
+  (`approval_ttl_seconds`, mặc định 600); tick của scheduler quét những cái quá hạn,
+  đóng chúng là `expired`, tiếp tục lượt với tool bị từ chối
+  và gửi câu trả lời như mọi lượt khác, nên một yêu cầu không ai thấy không bao giờ treo
+  cuộc trò chuyện. Endpoint quyết định cũng nhận `always`: duyệt kèm nó thì tool được thêm vào
+  danh sách `auto_approve` của cuộc trò chuyện và các lần gọi tool đó về sau chạy không cần hỏi,
+  cho tới khi chip trên header thu hồi. Danh sách hỏi của shell vẫn tạm dừng một `shell_run`
+  đã được cho phép luôn. Các yêu cầu đã quyết vẫn đọc được ở `GET /api/approvals`.
+- **Fallback nhìn thấy được.** Mỗi tuyến bỏ cuộc đều được log, phát thành event `route_fallback`
+  và ghi thành step `fallback` trên run, nên một model cứ lỗi mãi sẽ hiện trên timeline
+  thay vì âm thầm tốn thêm ở tuyến kế tiếp.
+- **Chỉ fallback trước khi có output.** Chuỗi chỉ thử tuyến kế tiếp nếu tuyến trước lỗi trước
+  khi trả ra bất cứ gì; lỗi giữa stream được đưa lên bề mặt, không bao giờ bị che bằng một lần thử lại âm thầm.
+- **Chi phí trung thực.** Mỗi message assistant lưu `cost_usd` hoặc `None`. Cuộc trò chuyện giữ
+  `spent_usd` và `unknown_cost_calls`; `cost_cap_usd` dừng trước lần gọi model kế tiếp
+  (0 = không giới hạn).
+- **Provider echo là một tính năng sản phẩm.** `MY_AGENT_ROUTES=fake:echo` chạy cả stack mà không cần
+  key; `/tool <name> {json}` điều khiển tool thật qua đường duyệt thật. Đó cũng là thứ
+  live smoke và test trình duyệt dựa vào.
+- **Output của tool bị cắt** trước khi vào ngữ cảnh: mặc định 8000 ký tự, theo từng
+  agent qua `tool_output_chars`.
 
-## Agent profiles
+## Profile agent
 
-`MY_AGENT_HOME/agents/<id>/agent.yaml` describes one agent: a fixed key
-set, no secrets, every unset value inherited from the global settings. The `default` agent
-always exists and is the top-level settings, so a fresh home needs no profile. Persona files
-and memory are Markdown in the agent dir, read into the system prompt every turn. Key
-reference and folder layout: [agents.md](agents.md); memory files and tools:
-[memory.md](memory.md); the tool set and its limits: [tools.md](tools.md).
+`MY_AGENT_HOME/agents/<id>/agent.yaml` mô tả một agent: bộ key cố định, không có secret,
+mọi giá trị chưa đặt kế thừa từ cài đặt toàn cục. Agent `default` luôn tồn tại và chính là
+cài đặt cấp cao nhất, nên một home mới không cần profile. Tệp persona và trí nhớ là Markdown
+trong thư mục agent, được đọc vào system prompt mỗi lượt. Tham chiếu key và bố cục thư mục:
+[agents.md](agents.md); tệp trí nhớ và tool: [memory.md](memory.md); bộ tool và giới hạn
+của nó: [tools.md](tools.md).
 
-**Work mode.** `mode: work` swaps the defaults for the ones a coding job needs — a higher
-spend cap, more steps, and autonomy on — because a person who asks for a refactor is not
-there to approve each file write. It is a different default, not a different rule: the
-tools that always ask still ask, and the cap still stops the turn. A work agent also
-gets `delegate` unless its `tools` allow-list leaves it out, so a specialist stays a
-specialist instead of quietly starting a crew of its own.
+**Chế độ work.** `mode: work` đổi các mặc định sang những gì một job lập trình cần — trần chi
+tiêu cao hơn, nhiều step hơn, và bật autonomous — vì người yêu cầu refactor không ngồi đó để
+duyệt từng lần ghi tệp. Đó là một mặc định khác, không phải một luật khác: các tool luôn hỏi
+vẫn hỏi, và trần vẫn dừng lượt. Agent work cũng nhận `delegate` trừ khi danh sách cho phép
+`tools` của nó bỏ tool này ra, nên một chuyên gia vẫn là chuyên gia thay vì âm thầm lập một
+đội riêng.
 
-**The master.** The `default` agent is the one the person talks to. It carries `delegate`
-and, unless its optional `MY_AGENT_HOME/agent.yaml` names a `delegates` list, may reach
-every other agent in the home; its system prompt lists that crew each turn. This keeps the
-product "one capable, autonomous agent" while letting it staff a job: the person does not
-pick an agent, the master does — on the web and on Telegram alike. The crew keep their
-schedules and are simply also on the roster. Details: [agents.md](agents.md#the-master-agent).
+**Master.** Agent `default` là agent mà người dùng nói chuyện. Nó mang `delegate` và, trừ khi
+`MY_AGENT_HOME/agent.yaml` tuỳ chọn của nó nêu một danh sách `delegates`, có thể gọi tới mọi
+agent khác trong home; system prompt của nó liệt kê đội đó mỗi lượt. Điều này giữ sản phẩm là
+"một agent giỏi, tự chủ" trong khi vẫn cho nó bố trí người cho một job: người dùng không chọn
+agent, master chọn — trên web cũng như trên Telegram. Đội giữ lịch của mình và đơn giản là
+cũng có tên trong danh sách. Chi tiết: [agents.md](agents.md#agent-master).
 
-**Templates.** Three profiles ship with the app — a developer, an adviser and a researcher — installed with
-`agent add <id>` or `POST /api/agents/install` (what the crew tab calls), which brings
-the peers the role hands work to and one shared set of skills. Every manifest works as
-installed (the home's shared workspace, the global routes); `--workspace` pins a role to
-one repository. An install over the API joins the running crew at once, while schedules
-start at boot. They are a starting point to edit, not a framework: each is an
-`agent.yaml` of the same fixed keys, so there is nothing to learn beyond the profile format.
+**Mẫu.** Ba profile đi kèm ứng dụng — một lập trình viên, một cố vấn và một nghiên cứu viên — cài bằng
+`agent add <id>` hoặc `POST /api/agents/install` (thứ mà tab đội gọi), kéo theo các agent
+đồng cấp mà vai đó giao việc cho và một bộ skill dùng chung. Mọi manifest đều chạy được ngay
+như khi cài (workspace chung của home, các tuyến toàn cục); `--workspace` ghim một vai vào
+một repository. Cài qua API thì gia nhập đội đang chạy ngay lập tức, còn lịch thì khởi động
+lúc boot. Chúng là điểm xuất phát để sửa, không phải framework: mỗi cái là một
+`agent.yaml` với cùng bộ key cố định, nên không có gì phải học ngoài định dạng profile.
 
-**Kits.** A person who already runs Claude Code or opencode has a `.claude/` or
-`.opencode/` full of subagents, commands, skills and hooks. Rather than a migration tool,
-the crew reads those folders as they are: `.agents/`, `.claude/` and
-`.opencode/` under the home and under an agent dir. Markdown agents become crew members,
-command files become slash commands, hooks run with the same JSON contract and the same
-tool names through an alias table. The yaml profile keeps the last word on any id both
-define. A kit inside the workspace an agent works in is deliberately not read: that
-repository is a data source for the crew, and its `.claude/` belongs to whoever develops
-it. Details: [agents.md](agents.md#kits-agents-claude-opencode).
+**Kit.** Người đã dùng Claude Code hoặc opencode có sẵn một `.claude/` hoặc
+`.opencode/` đầy subagent, command, skill và hook. Thay vì một công cụ di trú,
+đội đọc nguyên các thư mục đó: `.agents/`, `.claude/` và
+`.opencode/` dưới home và dưới thư mục agent. Agent Markdown thành thành viên đội,
+tệp command thành slash command, hook chạy với cùng hợp đồng JSON và cùng tên tool qua một
+bảng alias. Profile yaml giữ tiếng nói cuối với bất kỳ id nào cả hai cùng định nghĩa. Kit nằm
+trong workspace mà agent làm việc thì cố ý không được đọc: repository đó là nguồn dữ liệu cho
+đội, và `.claude/` của nó thuộc về người phát triển nó. Chi tiết:
+[agents.md](agents.md#kit-agents-claude-opencode).
 
-## Memory
+## Trí nhớ
 
-Memory is Markdown on disk in two scopes: what the crew knows about **the person**
-(`users/owner/`, read by every agent) and what **one agent** knows about its own work
-(`MEMORY.md` plus dated notes in its dir). Full reference: [memory.md](memory.md).
+Trí nhớ là Markdown trên đĩa ở hai phạm vi: những gì đội biết về **người dùng**
+(`users/owner/`, mọi agent đều đọc) và những gì **một agent** biết về công việc của chính nó
+(`MEMORY.md` cùng ghi chú theo ngày trong thư mục của nó). Tham chiếu đầy đủ: [memory.md](memory.md).
 
-Two scopes rather than one, because the two have different readers. A fact about the
-person — how they like to be answered, what they are working on — is wrong to relearn per
-agent: telling the coach something and having the assistant not know it is the failure
-this fixes. Work notes are the opposite: the coach's measurements would be noise in the
-assistant's prompt, and every agent's notes in one file would blow the section cap.
+Hai phạm vi thay vì một, vì hai bên có người đọc khác nhau. Một sự thật về người dùng — họ
+thích được trả lời thế nào, họ đang làm gì — mà phải học lại ở từng agent là sai: nói với HLV
+một điều mà trợ lý không biết chính là lỗi mà cách này sửa. Ghi chú công việc thì ngược lại:
+số đo của HLV sẽ là nhiễu trong prompt của trợ lý, và ghi chú của mọi agent dồn vào một tệp
+sẽ vỡ trần của section.
 
-Writes the person is present for land immediately; writes from an unattended job become
-**proposals** in `memory_proposals`. The split is who can object, not how risky the write
-looks: a scheduled job that rewrites the person's profile with a bad guess has nobody to
-catch it. The same reasoning makes **consolidation** — the scheduled rewrite of `MEMORY.md`
-from recent notes — a proposal that keeps the text it replaced, so one step back is always
-possible.
+Ghi khi người dùng có mặt thì vào ngay; ghi từ một job không ai trông thành **đề xuất** trong
+`memory_proposals`. Ranh giới là ai có thể phản đối, không phải lần ghi trông rủi ro tới đâu:
+một job theo lịch ghi đè profile của người dùng bằng một phỏng đoán sai thì không ai bắt được.
+Cùng lý lẽ đó khiến **hợp nhất** — lần ghi lại `MEMORY.md` theo lịch từ các ghi chú gần đây —
+là một đề xuất giữ lại văn bản nó thay thế, nên lùi một bước luôn khả thi.
 
-## Activity hub and runs
+## Activity hub và run
 
-Every model turn — chat, approval resume, scheduled prompt, scheduled command — is a **run**.
-A run records its agent, source (`chat`, `job:<id>`),
-conversation, status, steps (model calls with cost, tool calls with result and duration), spend
-and a summary. Live runs are kept in memory and broadcast as SSE on `/api/activity/stream`
-(`snapshot` on connect, then `run` and `event` frames); finished runs are read from SQLite.
-Runs still marked running when the server starts are closed as `failed` with the summary
+Mọi lượt model — chat, tiếp tục sau duyệt, prompt theo lịch, command theo lịch — là một **run**.
+Run ghi agent của nó, nguồn (`chat`, `job:<id>`),
+cuộc trò chuyện, trạng thái, các step (lần gọi model kèm chi phí, tool call kèm kết quả và thời lượng), chi tiêu
+và một tóm tắt. Run đang chạy được giữ trong bộ nhớ và phát dạng SSE trên `/api/activity/stream`
+(`snapshot` khi kết nối, rồi các frame `run` và `event`); run đã xong được đọc từ SQLite.
+Run còn đánh dấu đang chạy khi server khởi động sẽ bị đóng là `failed` với tóm tắt
 `interrupted`.
 
 ## Scheduler
 
-`scheduler/` turns each enabled schedule into a job `<agent_id>/<schedule_id>`. A schedule has
-exactly one of `cron` (five fields, in the person's zone) or `every` (`30m`, `2h`, `1d`) and exactly
-one of `prompt` or `command`. A **prompt job** opens a fresh autonomous conversation for the agent
-and runs a turn; a **command job** runs the string with `shell_run` in the agent workspace and
-records only that step; a **consolidate job**, added by a `memory_consolidate` cron, rewrites the
-agent's `MEMORY.md` with one model call and opens no conversation, so it delivers nothing. The tick is 20 s; `POST /api/jobs/{id}/run` starts a job immediately and
-returns 202. The schedule clock is the person's zone: the `timezone` key in `config.yaml` (or
-`MY_AGENT_TIMEZONE`), an IANA name such as `Asia/Ho_Chi_Minh`, and the machine zone when unset.
-Every stamp in the database stays UTC and is turned into the person's day for the
-prompt, `/status`, the activity stats and the usage ledger.
-`PATCH /api/jobs/{id}/state` pauses or resumes a schedule at runtime; the override is stored
-in the database, survives a restart and only applies to a schedule
-the profile enables — one turned off in yaml is reported as `enabled: false, paused: false` and
-cannot be switched on from the UI. `GET /api/jobs/{id}/runs` lists that job's past runs.
+`scheduler/` biến mỗi lịch được bật thành một job `<agent_id>/<schedule_id>`. Một lịch có
+đúng một trong `cron` (năm trường, theo múi giờ của người dùng) hoặc `every` (`30m`, `2h`, `1d`) và đúng
+một trong `prompt` hoặc `command`. **Job prompt** mở một cuộc trò chuyện autonomous mới cho agent
+và chạy một lượt; **job command** chạy chuỗi lệnh bằng `shell_run` trong workspace của agent và
+chỉ ghi step đó; **job consolidate**, thêm bởi một cron `memory_consolidate`, ghi lại
+`MEMORY.md` của agent bằng một lần gọi model và không mở cuộc trò chuyện nào, nên không gửi gì cả. Tick là 20 s; `POST /api/jobs/{id}/run` khởi động một job ngay lập tức và
+trả 202. Đồng hồ của lịch là múi giờ của người dùng: key `timezone` trong `config.yaml` (hoặc
+`MY_AGENT_TIMEZONE`), một tên IANA như `Asia/Ho_Chi_Minh`, và múi giờ của máy khi chưa đặt.
+Mọi dấu thời gian trong database vẫn là UTC và được đổi sang ngày của người dùng cho
+prompt, `/status`, thống kê activity và sổ cái sử dụng.
+`PATCH /api/jobs/{id}/state` tạm dừng hoặc tiếp tục một lịch lúc chạy; ghi đè này được lưu
+trong database, sống qua restart và chỉ áp dụng với lịch
+mà profile bật — lịch tắt trong yaml được báo là `enabled: false, paused: false` và
+không bật được từ UI. `GET /api/jobs/{id}/runs` liệt kê các run đã qua của job đó.
 
-## Channels
+## Kênh
 
-`channels/` lets the person talk to the crew on something other than the web UI. Today
-that is Telegram: the master's `agent.yaml` with `telegram: {token_env, chat_id}` gets one
-bot at startup when the named env var is set, rebuilt in
-place when the profile's block or its token changes from the web UI. The chat is
-the master's conversation, so the phone and the web UI are the same mechanism: one agent at
-the door, delegation behind it. Turns go through the inbound gate like every other platform, with
-source `telegram`, replies go back as text and `sendPhoto`, slash commands are answered
-without a model call, and the scheduler pushes any agent's prompt-job
-reply to the chat under a `[Name]` prefix, with its `MEDIA:` read from that agent's
-workspace. Full behaviour, commands, offsets and secrets: [channels.md](channels.md).
+`channels/` cho người dùng nói chuyện với đội trên thứ khác ngoài web UI. Hiện nay
+đó là Telegram: `agent.yaml` của master có `telegram: {token_env, chat_id}` được một
+bot lúc khởi động khi biến môi trường được nêu tên đã đặt, dựng lại tại chỗ
+khi khối trong profile hoặc token của nó đổi từ web UI. Chat đó là
+cuộc trò chuyện của master, nên điện thoại và web UI là cùng một cơ chế: một agent đứng ở
+cửa, giao việc phía sau. Lượt đi qua cổng inbound như mọi nền tảng khác, với
+nguồn `telegram`, câu trả lời gửi về dạng text và `sendPhoto`, slash command được trả lời
+không cần gọi model, và scheduler đẩy câu trả lời của job prompt của bất kỳ agent nào
+tới chat dưới tiền tố `[Name]`, với `MEDIA:` của nó đọc từ workspace của agent đó.
+Hành vi đầy đủ, lệnh, offset và secret: [channels.md](channels.md).
 
-## Shell tool and agent files
+## Tool shell và tệp của agent
 
-`shell_run` executes a command in the agent workspace with a minimal environment
-(PATH, HOME, LANG, TERM, TMPDIR, USER, SHELL) and a bounded timeout; it always requires approval
-unless the conversation or agent is autonomous. `GET /api/agents/{id}/files?path=` serves a file
-from inside that workspace only, which is how an assistant line `MEDIA: charts/sleep.png` is
-rendered inline by the UI.
+`shell_run` thực thi một lệnh trong workspace của agent với môi trường tối thiểu
+(PATH, HOME, LANG, TERM, TMPDIR, USER, SHELL) và timeout có giới hạn; nó luôn cần duyệt
+trừ khi cuộc trò chuyện hoặc agent là autonomous. `GET /api/agents/{id}/files?path=` chỉ phục vụ tệp
+từ bên trong workspace đó, và đó là cách một dòng `MEDIA: charts/sleep.png` của assistant được
+UI hiển thị inline.
 
-Pictures go the other way through `image_read`: the chat models on an agent's routes are
-picked for price and text, so the tool sends the file down a separate `vision_routes` chain
-with a question and returns the answer as text. Every agent has it, the master reads once
-to route the picture and the specialist reads again for the detail it needs, and the call
-is metered on the conversation like a completion. [tools.md](tools.md#images).
+Ảnh đi chiều ngược lại qua `image_read`: model chat trên các tuyến của agent được
+chọn vì giá và văn bản, nên tool gửi tệp xuống một chuỗi `vision_routes` riêng
+kèm một câu hỏi và trả câu trả lời dạng text. Agent nào cũng có nó, master đọc một lần
+để định tuyến bức ảnh và chuyên gia đọc lại để lấy chi tiết mình cần, và lần gọi
+được tính vào cuộc trò chuyện như một completion. [tools.md](tools.md#ảnh).
 
 ## Web UI
 
-React + Vite, no state library. Two pure reducers pin the server contract from both sides:
-one over the event stream of a conversation, one over the activity stream of the rail. Each
-area (one conversation, the list, the activity subscription, agents and jobs and stats) is
-owned by one hook, and a finished run is the one signal that refreshes the others.
-All strings come from one Vietnamese strings file.
+React + Vite, không có thư viện state. Hai reducer thuần ghim hợp đồng server từ cả hai phía:
+một trên luồng event của một cuộc trò chuyện, một trên luồng activity của rail. Mỗi
+vùng (một cuộc trò chuyện, danh sách, subscription activity, agent cùng job cùng stats) do
+một hook sở hữu, và một run kết thúc là tín hiệu duy nhất làm mới các vùng còn lại.
+Mọi chuỗi đều lấy từ một tệp chuỗi tiếng Việt.
 
-There is one chat, with the master: the conversation list holds the master's conversations
-and a new one is always opened for it. The welcome screen speaks as the master and names
-the crew; a header chip (`Đội: N`) opens the crew tab in the rail, which lists every agent
-(master first, with mode, live, schedule and Telegram badges) and installs a bundled
-template in one click. A delegate's conversation is not listed, but opens from a run card
-or the attention centre.
+Chỉ có một chat, với master: danh sách cuộc trò chuyện chứa các cuộc trò chuyện của master
+và cuộc mới luôn được mở cho nó. Màn hình chào nói với tư cách master và nêu tên
+đội; một chip trên header (`Đội: N`) mở tab đội trong rail, liệt kê mọi agent
+(master trước, kèm huy hiệu mode, live, lịch và Telegram) và cài một mẫu đi kèm
+bằng một cú bấm. Cuộc trò chuyện của agent được giao việc không nằm trong danh sách, nhưng mở được từ thẻ run
+hoặc mục **Cần bạn xử lý**.
 
-The screen is split by who the work belongs to. What the conversation you are in is doing sits
-inside the chat frame: a conversation-activity view shows that conversation's own runs, step by
-step with tool arguments and output. On a wide screen it is a column docked to the right of the
-thread, always open and holding its place even before the first run, so the chat does not jump
-when work starts. Narrower, it folds into a one-line strip between the thread and the composer;
-one of the two is rendered, never both hidden by CSS. What belongs to the whole
-crew lives on a manage screen of its own (`#/manage/<section>`) rather than in a rail beside the
-thread — keeping them side by side made the crew's work and the conversation's work look like
-the same thing. Its nav groups the sections into watch (activity, approvals, costs), crew
-(crew, tools, jobs, memory) and system (connections, settings); on a phone the groups flatten
-into one sideways-scrolling row. Its sections: activity (live runs, and an attention centre for runs that wait for
-approval, failed or were halted), approvals (decided requests with their outcome — approved,
-denied, expired), crew, tools, jobs (next/last run, a run-now button, a pause/resume switch and
-the job's run history on demand), memory, costs by agent, model and day — where the last seven
-days and the per-model table are read straight from the message log with its token counts, so
-the figures are what was actually billed and not an estimate — connections, and settings.
+Màn hình chia theo việc thuộc về ai. Những gì cuộc trò chuyện bạn đang ở trong đó đang làm nằm
+trong khung chat: một view activity của cuộc trò chuyện hiện các run của chính cuộc đó, từng step
+kèm tham số và output của tool. Trên màn hình rộng, nó là một cột neo bên phải luồng
+tin, luôn mở và giữ chỗ ngay cả trước run đầu tiên, nên chat không nhảy
+khi việc bắt đầu. Hẹp hơn, nó gập thành một dải một dòng giữa luồng tin và ô soạn;
+một trong hai được render, không bao giờ cả hai bị CSS ẩn. Những gì thuộc về cả
+đội nằm trên một màn hình quản lý riêng (`#/manage/<section>`) thay vì trong một rail cạnh
+luồng tin — để chúng cạnh nhau khiến việc của đội và việc của cuộc trò chuyện trông như
+cùng một thứ. Nav của nó gom các mục thành theo dõi (activity, duyệt, chi phí), đội
+(đội, tool, job, trí nhớ) và hệ thống (kết nối, cài đặt); trên điện thoại các nhóm dàn phẳng
+thành một hàng cuộn ngang. Các mục của nó: activity (run đang chạy, và một mục **Cần bạn xử lý** cho các run đang chờ
+duyệt, đã lỗi hoặc bị dừng), duyệt (các yêu cầu đã quyết kèm kết quả — đã duyệt,
+bị từ chối, hết hạn), đội, tool, job (run kế/run trước, nút chạy ngay, công tắc tạm dừng/tiếp tục và
+lịch sử run của job khi cần), trí nhớ, chi phí theo agent, model và ngày — trong đó bảy ngày
+gần nhất và bảng theo model được đọc thẳng từ nhật ký message với số token của nó, nên
+con số là thứ thực sự được tính tiền chứ không phải ước lượng — kết nối, và cài đặt.
 
-A run can be opened on its own at `#/manage/activity/<run_id>`: fetched by id, so a link to a run
-the list never loaded still works, and reloading the page stays on it. Above each timeline, one
-line says what the run is doing right now — a sentence and a count (`3/7 bước`) rather than a
-percentage, because nothing in the run data says how many steps are still to come, so a
-percentage would be invented. A run that has settled says how it ended instead; a finished run
-claiming to be thinking reads as a hang.
+Một run có thể mở riêng ở `#/manage/activity/<run_id>`: lấy theo id, nên link tới một run
+mà danh sách chưa từng tải vẫn hoạt động, và tải lại trang vẫn ở đó. Phía trên mỗi timeline, một
+dòng nói run đang làm gì lúc này — một câu và một số đếm (`3/7 bước`) thay vì
+phần trăm, vì không có gì trong dữ liệu run nói còn bao nhiêu step nữa, nên
+phần trăm sẽ là bịa. Run đã kết thúc thì thay vào đó nói nó kết thúc ra sao; một run đã xong
+mà bảo đang suy nghĩ thì đọc như bị treo.
 
-The chat header is the title and three pills: spend against the cap, options, and the crew
-count. A pill carries the headline and opens a card with the detail: the spend
-card has the bar, what is left and the delegated share; the options card holds the autonomous
-switch, the optional skills as switches and the always-allowed tools, each with a revoke link.
-The card closes on Escape (caught before the app's own Escape shortcut, focus back on the pill)
-or a click outside; clicks inside keep it open. Cards everywhere share one vocabulary —
-a row is icon, label, ⓘ hint, a right-aligned mono value, an
-optional thin bar and a coloured subline — so the activity column opens on a summary card
-(spend, steps, delegated runs, models) and settings is a set of read-only summary cards that
-link to the section where a thing is changed instead of repeating its list.
+Header chat là tiêu đề và ba pill: chi tiêu so với trần, tuỳ chọn, và số thành viên
+đội. Pill mang dòng tóm tắt và mở một thẻ với chi tiết: thẻ chi tiêu
+có thanh, phần còn lại và phần đã giao việc; thẻ tuỳ chọn giữ công tắc autonomous,
+các skill tuỳ chọn dạng công tắc và các tool được cho phép luôn, mỗi cái kèm link thu hồi.
+Thẻ đóng khi Escape (bắt trước phím tắt Escape của chính app, focus trả về pill)
+hoặc bấm ra ngoài; bấm bên trong giữ thẻ mở. Thẻ ở mọi nơi dùng chung một từ vựng —
+một hàng là icon, nhãn, gợi ý ⓘ, giá trị mono căn phải, một
+thanh mỏng tuỳ chọn và một dòng phụ có màu — nên cột activity mở bằng một thẻ tóm tắt
+(chi tiêu, step, run được giao việc, model) và cài đặt là một bộ thẻ tóm tắt chỉ đọc
+dẫn tới mục nơi một thứ được thay đổi thay vì lặp lại danh sách của nó.
 
-The approval bar shows the deadline of the pending request and an "always allow" button next to
-approve/deny. An error
-boundary keeps a rendering crash from taking the chat down with it. (Ideas for the run view were
-borrowed from openhuman's session view — no code.)
+Thanh duyệt hiện hạn chót của yêu cầu đang chờ và một nút "luôn cho phép" cạnh
+duyệt/từ chối. Một error
+boundary giữ cho crash khi render không kéo sập cả chat theo. (Ý tưởng cho view run
+mượn từ view session của openhuman — không mượn code.)
 
-## Extension points
+## Điểm mở rộng
 
-- Provider (`llm/`): something that streams a reply, wired in where the server builds each
-  agent's providers.
-- Tool (`tools/`): a spec for the model plus a run function; mark it as needing approval when
-  it changes state, and wire it in where the server builds each agent's tool set.
-- Skill: a Markdown file with `name` (and optional `always`, `description`) in `MY_AGENT_HOME/skills`
-  or in an agent's `skills_dirs`.
-- Agent: a folder under `MY_AGENT_HOME/agents/` with `agent.yaml` and persona files.
-- Channel (`channels/`): start, stop and deliver, built from the master's profile block; keep
-  secrets as env-var names in the profile.
-- Credential (`server/`): a known env var is a row in a catalogue (group, secret or URL, optional
-  live check); anything else a skill reads can still be set from Kết nối under "Biến khác".
-  Changes are applied instantly: the crew is rebuilt from the new environment and a breaking
-  change (e.g., removing the only key a route needs) is refused before anything is written.
-  A local guard covers every path: `Host` must be an IP, `localhost` or a name in
-  `MY_AGENT_ALLOWED_HOSTS`, and `Origin` must match host:port exactly; the 403 names the host.
+- Provider (`llm/`): thứ stream ra một câu trả lời, nối vào nơi server dựng provider cho mỗi
+  agent.
+- Tool (`tools/`): một spec cho model cộng một hàm chạy; đánh dấu cần duyệt khi
+  nó thay đổi trạng thái, và nối vào nơi server dựng bộ tool cho mỗi agent.
+- Skill: một tệp Markdown có `name` (và tuỳ chọn `always`, `description`) trong `MY_AGENT_HOME/skills`
+  hoặc trong `skills_dirs` của một agent.
+- Agent: một thư mục dưới `MY_AGENT_HOME/agents/` với `agent.yaml` và các tệp persona.
+- Kênh (`channels/`): start, stop và deliver, dựng từ khối profile của master; giữ
+  secret dưới dạng tên biến môi trường trong profile.
+- Credential (`server/`): một biến môi trường đã biết là một hàng trong catalogue (nhóm, secret hay URL, kiểm tra
+  trực tiếp tuỳ chọn); bất cứ thứ gì khác mà một skill đọc vẫn đặt được từ Kết nối dưới mục "Biến khác".
+  Thay đổi được áp dụng ngay: đội được dựng lại từ môi trường mới và một thay đổi gây hỏng
+  (ví dụ xoá key duy nhất mà một tuyến cần) bị từ chối trước khi ghi bất cứ gì.
+  Một hàng rào cục bộ phủ mọi path: `Host` phải là IP, `localhost` hoặc tên trong
+  `MY_AGENT_ALLOWED_HOSTS`, và `Origin` phải khớp đúng host:port; 403 nêu tên host.

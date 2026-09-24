@@ -1,280 +1,279 @@
-# Memory
+# Trí nhớ
 
 **Phiên bản**: 0.5.0 (+ chưa phát hành) · **Cập nhật**: 2026-09-24
 
-Memory is Markdown on disk, the same shape a person could keep by hand. Nothing is
-embedded or summarised behind the agent's back; what the model reads is what is on disk.
+Trí nhớ là Markdown trên đĩa, cùng hình dạng với thứ một người có thể tự ghi tay. Không có
+gì được embed hay tóm tắt sau lưng agent; model đọc gì thì trên đĩa có đúng thứ đó.
 
-It comes in two scopes:
+Trí nhớ có hai phạm vi:
 
-- **Shared** — what the crew knows about *the person*, under `<home>/users/owner/`. Every
-  agent reads the same files, so telling one agent something does not leave the others
-  guessing.
-- **Per agent** — what one agent knows about *its own work*, in its agent dir.
+- **Dùng chung** — điều cả đội biết về *người dùng*, dưới `<home>/users/owner/`. Mọi agent
+  đọc cùng một bộ tệp, nên nói cho một agent điều gì không khiến các agent còn lại phải
+  đoán.
+- **Theo agent** — điều một agent biết về *việc của chính nó*, trong thư mục agent.
 
-## The shared scope
+## Phạm vi dùng chung
 
-| File | Role | Read into the prompt |
+| Tệp | Vai trò | Đọc vào prompt |
 |---|---|---|
-| `users/owner/USER.md` | who the person is, in their own words | every turn, every agent |
-| `users/owner/facts/<name>.md` | one remembered fact each: frontmatter + Markdown body | only its index line; the body through `memory_search` or `workspace_read` |
-| `users/owner/facts/INDEX.md` | generated table of contents, one line per fact | every turn, every agent |
+| `users/owner/USER.md` | người dùng là ai, bằng lời của chính họ | mỗi lượt, mọi agent |
+| `users/owner/facts/<name>.md` | mỗi tệp một điều đã ghi nhớ: frontmatter + thân Markdown | chỉ dòng index của nó; thân qua `memory_search` hoặc `workspace_read` |
+| `users/owner/facts/INDEX.md` | mục lục sinh tự động, mỗi fact một dòng | mỗi lượt, mọi agent |
 
-The user sections are capped at 4 000 characters because they
-ride along in every agent's prompt. A fact's frontmatter records `name`, `description`,
-`type` (one of `profile`, `preference`, `feedback`, `project`, `reference`), `written_by`,
-`source` and `updated`; `INDEX.md` is regenerated after every write.
+Các phần về người dùng bị giới hạn 4 000 ký tự vì chúng đi kèm trong prompt của mọi agent.
+Frontmatter của một fact ghi `name`, `description`, `type` (một trong `profile`,
+`preference`, `feedback`, `project`, `reference`), `written_by`, `source` và `updated`;
+`INDEX.md` được sinh lại sau mỗi lần ghi.
 
-## One agent's own scope
+## Phạm vi riêng của một agent
 
-| File | Role | Read into the prompt |
+| Tệp | Vai trò | Đọc vào prompt |
 |---|---|---|
-| `MEMORY.md` | durable facts: who the user is, standing preferences, decisions, how things are set up | every turn |
-| `memory/YYYY-MM-DD.md` | daily notes: what happened, measurements, what was said | today's and yesterday's file, every turn |
-| older `memory/*.md` | history | only through `memory_search` |
+| `MEMORY.md` | sự thật bền: người dùng là ai, sở thích lâu dài, quyết định, mọi thứ được cài đặt ra sao | mỗi lượt |
+| `memory/YYYY-MM-DD.md` | ghi chú ngày: chuyện gì đã xảy ra, số đo, ai đã nói gì | tệp hôm nay và hôm qua, mỗi lượt |
+| `memory/*.md` cũ hơn | lịch sử | chỉ qua `memory_search` |
 
-A note is named after its day, with an optional suffix — `2026-09-19.md` and
-`2026-09-19-1030.md` are both notes of 19 September, which is how a workspace written by
-another tool keeps several notes a day. The suffix is lowercase letters, digits and
-hyphens, so a name can never point outside the folder. `memory_save` always writes the
-plain `YYYY-MM-DD.md`, and only that name is read into the prompt; a suffixed note is
-history, reached through `memory_search`, the Ghi nhớ tab and consolidation.
+Một ghi chú được đặt tên theo ngày của nó, kèm hậu tố tuỳ chọn — `2026-09-19.md` và
+`2026-09-19-1030.md` đều là ghi chú của ngày 19 tháng 9; đó là cách một workspace do tool
+khác viết giữ nhiều ghi chú trong một ngày. Hậu tố gồm chữ thường, chữ số và gạch nối, nên
+một tên không bao giờ trỏ được ra ngoài thư mục. `memory_save` luôn ghi vào tệp
+`YYYY-MM-DD.md` trơn, và chỉ tên đó được đọc vào prompt; ghi chú có hậu tố là lịch sử, tới
+được qua `memory_search`, tab Ghi nhớ và cô đọng.
 
-Each file becomes a `## <file name>` section of the system prompt, capped at 24 000
-characters (cut with a trailing `…`). A missing file is simply skipped. The files live at
-`<agent dir>/MEMORY.md` and `<agent dir>/memory/` (created at startup); the default agent
-keeps them in `MY_AGENT_HOME` itself.
+Mỗi tệp trở thành một mục `## <file name>` trong system prompt, giới hạn 24 000 ký tự (cắt
+kèm dấu `…` ở cuối). Tệp thiếu thì đơn giản là bỏ qua. Các tệp nằm ở
+`<agent dir>/MEMORY.md` và `<agent dir>/memory/` (tạo lúc khởi động); agent mặc định giữ
+chúng ngay trong `MY_AGENT_HOME`.
 
-## Writing memory
+## Ghi trí nhớ
 
-Several ways, all visible in the manage screen's Memory tab:
+Có vài cách, tất cả đều thấy được trong tab **Ghi nhớ** của màn hình quản lý:
 
-- **`user_memory_save` / `user_memory_forget`** write a shared fact. Whether they write at
-  all depends on who is in the room: in a turn the person is present for (chat, Telegram)
-  the write lands immediately; in a scheduled job it becomes a **proposal** for review,
-  because nobody is there to correct a bad guess. Resuming a paused job keeps the job's
-  source, so an approval mid-job does not turn it into a chat turn.
-- **`memory_save`** appends one line `- HH:MM <text>` to today's note, creating it with a
-  `# YYYY-MM-DD` header. No approval: a note is not a state change outside the
-  conversation. Use it for things worth remembering tomorrow.
-- **`workspace_write` / `shell_run`** for `MEMORY.md` and for rewriting a note, because
-  durable memory should be edited deliberately. `workspace_write` reaches these files only
-  when the workspace is the agent dir; otherwise the persona file (`AGENTS.md`) should say
-  how the agent maintains `MEMORY.md`, for example with a `shell_run` heredoc or a script.
+- **`user_memory_save` / `user_memory_forget`** ghi một fact dùng chung. Có ghi hay không
+  tuỳ vào ai đang có mặt: trong một lượt có người ở đó (chat, Telegram) thì ghi ngay; trong
+  một job theo lịch thì nó trở thành **đề xuất** chờ xem xét, vì không có ai ở đó để sửa một
+  phán đoán sai. Tiếp tục một job đang tạm dừng vẫn giữ nguồn của job, nên một lần duyệt
+  giữa chừng không biến nó thành lượt chat.
+- **`memory_save`** nối thêm một dòng `- HH:MM <text>` vào ghi chú hôm nay, tạo tệp với
+  tiêu đề `# YYYY-MM-DD` nếu chưa có. Không cần duyệt: một ghi chú không phải thay đổi
+  trạng thái bên ngoài cuộc trò chuyện. Dùng nó cho những điều đáng nhớ tới ngày mai.
+- **`workspace_write` / `shell_run`** cho `MEMORY.md` và để viết lại một ghi chú, vì trí
+  nhớ bền nên được sửa một cách có chủ đích. `workspace_write` chỉ chạm tới các tệp này khi
+  workspace là thư mục agent; nếu không, tệp persona (`AGENTS.md`) nên nói rõ agent duy trì
+  `MEMORY.md` bằng cách nào, ví dụ bằng heredoc qua `shell_run` hoặc một script.
 
-## Reading memory
+## Đọc trí nhớ
 
-- **`memory_search <query>`** returns up to 12 hits as `[<file> › <heading>]
-  <entry>`. The unit is the **entry**, not the line: a bullet together with its indented
-  continuation lines, or a paragraph. A thought written over two lines — `- Jimny 5 cửa,` /
-  `  ngân sách 1.5 tỷ` — is one hit with both halves, which matching line by line loses.
-  The heading the entry sits under travels with it, both as context in the label and as
-  text that can be matched.
-- Matching ignores accents on both sides, so `sach dang doc` finds `sách đang đọc`: a
-  person searching their own notes from a phone rarely types the marks. `đ` is handled on
-  its own, since it is a letter of the Vietnamese alphabet rather than a `d` with a mark
-  and decomposition leaves it untouched.
-- Ranking prefers the entry that has the **word**: a word found whole scores double a word
-  found inside another, because without accents `doc` sits inside `docs` as surely as
-  inside `đọc`. A word of three characters or fewer only counts when found whole — `ô`
-  becomes `o`, which is inside nearly every Vietnamese entry. When some entry has every
-  word of the query, entries missing one are dropped; when none does, the partial matches
-  are still shown, since half an answer beats none.
-- The file order breaks ties: shared facts first — what the crew knows about the person
-  outranks one agent's notes — then `MEMORY.md` and every markdown file in the memory
-  folder, newest first, so a fresh note outranks an old one at the same score. Files that
-  are not dated notes are searched too, because a workspace written by hand keeps things
-  like `facebook-books.md` there and they are memory as well. A fact matches on its
-  description and body together and reports both, since a fact is one thought.
-- A hit longer than 300 characters is folded onto one line and cut with `…`.
-- The prompt already holds `MEMORY.md` and the last two days, so the model should not
-  search for those.
+- **`memory_search <query>`** trả về tối đa 12 kết quả dạng `[<file> › <heading>]
+  <entry>`. Đơn vị là **entry**, không phải dòng: một bullet cùng các dòng tiếp nối thụt
+  lề của nó, hoặc một đoạn văn. Một ý viết trên hai dòng — `- Jimny 5 cửa,` /
+  `  ngân sách 1.5 tỷ` — là một kết quả có cả hai nửa, điều mà so khớp từng dòng sẽ đánh
+  mất. Heading mà entry nằm dưới đi cùng với nó, vừa làm ngữ cảnh trong nhãn vừa là văn bản
+  có thể so khớp.
+- So khớp bỏ qua dấu ở cả hai phía, nên `sach dang doc` tìm được `sách đang đọc`: một người
+  tìm trong ghi chú của mình từ điện thoại hiếm khi gõ dấu. `đ` được xử lý riêng, vì nó là
+  một chữ cái của bảng chữ cái tiếng Việt chứ không phải `d` mang dấu, và phép phân rã để
+  nó nguyên như cũ.
+- Xếp hạng ưu tiên entry có đúng **từ**: một từ tìm thấy nguyên vẹn được tính gấp đôi một
+  từ tìm thấy bên trong từ khác, vì khi bỏ dấu, `doc` nằm trong `docs` cũng chắc chắn như
+  nằm trong `đọc`. Một từ từ ba ký tự trở xuống chỉ được tính khi tìm thấy nguyên vẹn — `ô`
+  thành `o`, thứ có trong gần như mọi entry tiếng Việt. Khi có entry nào đó chứa đủ mọi từ
+  của truy vấn, các entry thiếu một từ bị loại; khi không entry nào đủ, các kết quả khớp
+  một phần vẫn được hiển thị, vì nửa câu trả lời còn hơn không.
+- Thứ tự tệp phân định khi bằng điểm: facts dùng chung trước — điều cả đội biết về người
+  dùng xếp trên ghi chú của một agent — rồi đến `MEMORY.md` và mọi tệp markdown trong thư
+  mục memory, mới nhất trước, nên một ghi chú mới xếp trên một ghi chú cũ cùng điểm. Các tệp
+  không phải ghi chú ngày cũng được tìm, vì một workspace viết tay giữ những thứ như
+  `facebook-books.md` ở đó và chúng cũng là trí nhớ. Một fact so khớp trên cả description
+  lẫn thân và trả về cả hai, vì một fact là một ý.
+- Kết quả dài hơn 300 ký tự được gập về một dòng và cắt kèm `…`.
+- Prompt đã chứa sẵn `MEMORY.md` và hai ngày gần nhất, nên model không nên tìm những thứ
+  đó.
 
-## What goes where
+## Cái gì ghi vào đâu
 
-| Write to | Examples |
+| Ghi vào | Ví dụ |
 |---|---|
-| `USER.md` | name, work, how the person likes to be answered |
-| a fact | a standing preference, a goal, feedback the person gave, a project they are on |
-| `MEMORY.md` | user profile, goals, thresholds, tool locations, recurring schedule, rules the user gave |
-| today's note | a measurement, a decision made today, a question left open, a brief that was sent |
-| neither | anything the workspace files already hold (data files, scripts), transient tool output |
+| `USER.md` | tên, công việc, người dùng thích được trả lời thế nào |
+| một fact | một sở thích lâu dài, một mục tiêu, phản hồi người dùng đã đưa, một dự án họ đang tham gia |
+| `MEMORY.md` | hồ sơ người dùng, mục tiêu, ngưỡng, vị trí tool, lịch lặp lại, quy tắc người dùng đã đặt |
+| ghi chú hôm nay | một số đo, một quyết định đưa ra hôm nay, một câu hỏi còn bỏ ngỏ, một bản tin đã gửi |
+| không ghi đâu cả | bất cứ thứ gì các tệp workspace đã giữ sẵn (tệp dữ liệu, script), output tạm của tool |
 
-Persona files (`AGENTS.md` and friends, see [agents.md](agents.md)) are for *how to
-behave*; memory is for *what is known*. Both are personal data and stay in
-`MY_AGENT_HOME`, never in this repo.
+Tệp persona (`AGENTS.md` và các tệp cùng nhóm, xem [agents.md](agents.md)) dành cho *cách
+hành xử*; trí nhớ dành cho *điều đã biết*. Cả hai đều là dữ liệu cá nhân và ở trong
+`MY_AGENT_HOME`, không bao giờ trong repo này.
 
-## Proposals
+## Đề xuất
 
-A job runs unattended, so a shared write it asks for is held in the `memory_proposals`
-table until someone decides. Approving applies the write; rejecting leaves nothing behind.
-Deciding the same proposal twice is a conflict, not a fresh write, so a double click
-cannot apply it again. `GET /api/stats` carries `pending_proposals` so the web UI can
-badge the tab.
+Một job chạy không có người trông, nên lần ghi dùng chung mà nó yêu cầu được giữ trong bảng
+`memory_proposals` cho tới khi có người quyết định. Duyệt thì áp dụng lần ghi; từ chối thì
+không để lại gì. Quyết định cùng một đề xuất hai lần là xung đột, không phải một lần ghi
+mới, nên bấm đúp không thể áp dụng nó lần nữa. `GET /api/stats` mang theo `pending_proposals`
+để web UI gắn badge lên tab.
 
-## Consolidation
+## Cô đọng
 
-Memory only grows: every turn can append, nothing removes, so `MEMORY.md` drifts towards a
-long list of things that were true once. Consolidation asks the model to rewrite the file
-from the recent daily notes — keep what still holds, merge repeats, drop what mattered for
-a day — and **proposes** the result rather than writing it, because a rewrite can lose
-something and nobody watches a scheduled job. The proposal carries `previous_body`, the
-text it replaces, so one step back is always possible from the history list.
+Trí nhớ chỉ phình ra: lượt nào cũng có thể nối thêm, không gì xoá bớt, nên `MEMORY.md` trôi
+dần thành một danh sách dài những điều từng đúng. Cô đọng nhờ model viết lại tệp từ các ghi
+chú ngày gần đây — giữ cái còn đúng, gộp cái trùng, bỏ cái chỉ quan trọng trong một ngày —
+và **đề xuất** kết quả thay vì ghi thẳng, vì một lần viết lại có thể làm mất thứ gì đó và
+không ai trông job theo lịch. Đề xuất mang theo `previous_body`, văn bản mà nó thay thế,
+nên luôn lùi lại được một bước từ danh sách lịch sử.
 
-An agent opts in with a `memory_consolidate` cron in its profile, which becomes an
-ordinary schedule (kind `consolidate`) next to its prompt and command jobs. It reads up to
-7 days of notes (counted in days rather than files, so several notes of one
-day still count as that one day) within a 40 000-character budget, newest first, and does
-nothing at all when no note is newer than `MEMORY.md`. An agent marked `autonomous` applies
-the rewrite immediately; everyone else sees it in **Ghi nhớ → Đề xuất**. The run appears in
-Activity with its cost, and a failed rewrite leaves the file exactly as it was.
+Một agent tham gia bằng cron `memory_consolidate` trong profile của nó, cron này trở thành
+một lịch bình thường (kind `consolidate`) bên cạnh các job prompt và command của nó. Nó đọc
+tối đa 7 ngày ghi chú (đếm theo ngày chứ không theo tệp, nên nhiều ghi chú của một ngày vẫn
+tính là một ngày đó) trong ngân sách 40 000 ký tự, mới nhất trước, và không làm gì cả khi
+không có ghi chú nào mới hơn `MEMORY.md`. Agent được đánh dấu `autonomous` áp dụng bản viết
+lại ngay; mọi agent khác thấy nó ở **Ghi nhớ → Đề xuất**. Run xuất hiện trong Activity kèm
+chi phí của nó, và một lần viết lại thất bại để tệp y nguyên như cũ.
 
-## The wiki vault
+## Vault wiki
 
-A daily note is written by day, which is the right shape for writing and the wrong shape
-for asking. "What do I know about the Eco Retreat deadline" is spread over eleven notes,
-and the answer is whichever fragment the search happened to rank first. The vault gathers
-those fragments onto a page named after the thing itself, so the question has one place to
-be answered from. It lives at `memory/wiki/` inside the agent dir, alongside the notes it
-was built from.
+Ghi chú ngày được viết theo ngày, hình dạng đúng để viết nhưng sai để hỏi. "Tôi biết gì về
+hạn chót Eco Retreat" rải trên mười một ghi chú, và câu trả lời là mảnh nào tình cờ được
+tìm kiếm xếp lên đầu. Vault gom các mảnh đó lên một trang mang tên chính sự vật đó, nên câu
+hỏi có một chỗ duy nhất để được trả lời. Nó nằm ở `memory/wiki/` bên trong thư mục agent,
+cạnh những ghi chú mà nó được dựng từ đó.
 
-Pages are filed in three folders: `entities` for things with names (a person, a place, a
-contract), `concepts` for ideas that recur, and `syntheses` for pages written across
-several others rather than out of notes directly. One page is one markdown file with
-frontmatter — `title`, `kind`, `sources`, `questions`, `status`, `updated` — and a body.
+Trang được xếp vào ba thư mục: `entities` cho những thứ có tên (một người, một nơi, một hợp
+đồng), `concepts` cho những ý tưởng lặp lại, và `syntheses` cho những trang viết từ nhiều
+trang khác chứ không trực tiếp từ ghi chú. Một trang là một tệp markdown có frontmatter —
+`title`, `kind`, `sources`, `questions`, `status`, `updated` — và một thân.
 
-Two rules make the vault safe to regenerate every night:
+Hai quy tắc khiến vault an toàn để dựng lại mỗi đêm:
 
-- **A page records where it came from.** `sources` lists the notes or conversations it was
-  built out of, as `note:YYYY-MM-DD` or `conv:<id>`. `wiki_apply` refuses a page with no
-  sources, and the lint reports any that lost theirs. This looks like input validation and
-  is really the point: a page that cannot say where it came from is a page that made itself
-  up, and letting one in makes every other page less believable.
-- **Only part of the file is machine-owned.** Everything between the related markers is
-  rewritten on every compile; everything else belongs to whoever wrote it, model or person,
-  and a compile returns it unchanged. Without that split the vault would be either frozen
-  or untrustworthy.
+- **Một trang ghi lại nó đến từ đâu.** `sources` liệt kê các ghi chú hoặc cuộc trò chuyện
+  mà nó được dựng từ đó, dạng `note:YYYY-MM-DD` hoặc `conv:<id>`. `wiki_apply` từ chối trang
+  không có sources, và lint báo mọi trang đã mất nguồn. Việc này trông như kiểm tra đầu vào
+  nhưng thực ra là điểm cốt lõi: một trang không nói được nó đến từ đâu là một trang tự bịa
+  ra, và để lọt một trang như thế khiến mọi trang khác kém đáng tin hơn.
+- **Chỉ một phần của tệp thuộc về máy.** Mọi thứ giữa cặp marker `wiki:related` được viết lại ở
+  mỗi lần compile; mọi thứ còn lại thuộc về người đã viết nó, model hay người, và một lần
+  compile trả nó về nguyên vẹn. Không có sự tách bạch đó, vault sẽ hoặc đóng băng hoặc không
+  đáng tin.
 
-A page's file name is its identity, so the slug decides which writes land on the same
-page. It drops accents the same way the search does, so `Hạn Eco` and
-`han eco` are one page rather than two that each know half the story. It keeps letters and
-digits of **any** script: filing every non-Latin title under one fallback name would not be
-a bad name but a merge, with the next such page overwriting the last.
+Tên tệp của một trang là định danh của nó, nên slug quyết định lần ghi nào rơi vào cùng một
+trang. Nó bỏ dấu theo đúng cách tìm kiếm làm, nên `Hạn Eco` và `han eco` là một trang chứ
+không phải hai trang mỗi trang biết một nửa câu chuyện. Nó giữ chữ cái và chữ số của **mọi**
+hệ chữ viết: xếp mọi tiêu đề không phải Latin dưới một tên dự phòng duy nhất không phải là
+một cái tên xấu mà là một lần gộp, với trang tiếp theo như thế ghi đè lên trang trước.
 
-### Links
+### Liên kết
 
-A body links with `[[Tên trang]]`. After every compile or edit the link graph is rebuilt,
-which writes each page's incoming and outgoing links into its machine-owned block. That is
-why editing a page over HTTP rebuilds the graph immediately: an edited link changes what
-*other* pages say they are linked from, and leaving it to the next compile would let the
-vault describe a graph that was true yesterday.
+Thân trang liên kết bằng `[[Tên trang]]`. Sau mỗi lần compile hoặc sửa, đồ thị liên kết
+được dựng lại, việc này ghi các liên kết vào và ra của mỗi trang vào khối thuộc về máy của
+nó. Đó là lý do sửa một trang qua HTTP dựng lại đồ thị ngay lập tức: một liên kết đã sửa
+thay đổi điều các trang *khác* nói về nơi chúng được liên kết từ, và để đến lần compile sau
+sẽ khiến vault mô tả một đồ thị đúng của ngày hôm qua.
 
-### Compiling
+### Compile
 
-The compile reads the recent notes and asks the model for a batch of pages, then
-**proposes** them rather than writing, exactly as consolidation does. The proposal carries
-every page at once as JSON, with what those pages said before in `previous_body`, so an
-undo stays one step. An agent marked `autonomous` applies its own batch immediately. The
-model never decides whether a page may exist without sources; that check runs on the reply
-before anything is proposed.
+Compile đọc các ghi chú gần đây và nhờ model đưa ra một loạt trang, rồi **đề xuất** chúng
+thay vì ghi thẳng, đúng như cô đọng làm. Đề xuất mang theo mọi trang cùng lúc dưới dạng
+JSON, kèm nội dung trước đó của các trang ấy trong `previous_body`, nên hoàn tác vẫn chỉ
+một bước. Agent được đánh dấu `autonomous` áp dụng loạt của chính nó ngay. Model không bao
+giờ quyết định một trang có được tồn tại mà không có sources hay không; kiểm tra đó chạy
+trên câu trả lời trước khi bất cứ thứ gì được đề xuất.
 
-There is no separate cron. The compile is chained onto the `memory_consolidate` job,
-because both read the same notes and the vault should settle from the same night's reading.
-It gets its own run in Activity with its own cost, and a failed compile is logged without
-failing the consolidation, whose rewrite has already landed.
+Không có cron riêng. Compile được nối tiếp vào job `memory_consolidate`, vì cả hai đọc cùng
+bộ ghi chú và vault nên ổn định từ cùng một lần đọc trong đêm. Nó có run riêng trong
+Activity với chi phí riêng, và một lần compile thất bại được ghi log mà không làm hỏng cô
+đọng, vì bản viết lại của cô đọng đã ghi xong rồi.
 
-### Lint and the two dashboards
+### Lint và hai bảng tổng hợp
 
-A vault degrades quietly: a page loses its last source in a rewrite, a link points at a
-page nobody wrote, a page stops being updated while the thing it describes moves on. None
-of that raises an error and none is visible from a single page, so the lint reads the whole
-vault at once and reports four sorts: `unsourced`, `dangling`, `review` (any page whose
-status is not `ok`), and `stale` — older than 90 days or carrying no date at
-all, since treating absence of evidence as freshness is how a vault starts lying. Nothing
-is deleted; a dangling link is usually a page that *should* exist, which makes it a to-do
-for the next compile rather than a fault to clean away.
+Vault xuống cấp một cách âm thầm: một trang mất nguồn cuối cùng trong một lần viết lại, một
+liên kết trỏ tới trang không ai viết, một trang ngừng được cập nhật trong khi thứ nó mô tả
+vẫn tiếp tục thay đổi. Không cái nào trong số đó gây lỗi và không cái nào nhìn thấy được từ
+một trang đơn lẻ, nên lint đọc cả vault một lượt và báo bốn loại: `unsourced`, `dangling`,
+`review` (trang nào có status khác `ok`), và `stale` — cũ hơn 90 ngày hoặc không mang ngày
+nào cả, vì coi việc thiếu bằng chứng là còn mới chính là cách một vault bắt đầu nói dối.
+Không gì bị xoá; một liên kết dangling thường là một trang *nên* tồn tại, khiến nó là việc
+cần làm cho lần compile sau chứ không phải một lỗi để dọn đi.
 
-Two markdown dashboards are regenerated whole beside the pages, at
-`memory/wiki/reports/open-questions.md` and `stale.md`. They are files because the person
-reading them is as likely to be in their editor as in the web UI, and because a file can be
-opened next year. Regenerated whole, because a dashboard that accumulates keeps reporting
-problems that were fixed months ago, which is how a report stops being read.
+Hai bảng tổng hợp markdown được sinh lại toàn bộ bên cạnh các trang, ở
+`memory/wiki/reports/open-questions.md` và `stale.md`. Chúng là tệp vì người đọc chúng có
+thể đang ở trong editor nhiều như ở trong web UI, và vì một tệp có thể mở lại vào năm sau.
+Sinh lại toàn bộ, vì một bảng tổng hợp tích luỹ sẽ cứ báo những vấn đề đã sửa từ nhiều
+tháng trước, và đó là cách một báo cáo không còn được đọc nữa.
 
-### The agent's own tools
+### Tool của chính agent
 
-| Tool | Does |
+| Tool | Làm gì |
 |---|---|
-| `wiki_get` | one page in full, by title; the title is slugged, so the agent does not need the file name |
-| `wiki_search` | up to 8 hits as `[slug] <matching text>`, title searched with the body, since someone looking for a page types the name of the thing |
-| `wiki_apply` | upsert one page: replaces what a writer owns, never the machine-written block, and refuses a page with no sources |
+| `wiki_get` | một trang đầy đủ, theo title; title được slug hoá, nên agent không cần biết tên tệp |
+| `wiki_search` | tối đa 8 kết quả dạng `[slug] <matching text>`, tìm trên title cùng với thân, vì người tìm một trang gõ tên của sự vật đó |
+| `wiki_apply` | upsert một trang: thay phần người viết sở hữu, không bao giờ thay khối máy viết, và từ chối trang không có sources |
 
-`wiki_apply` keeps a page in whatever folder it already lives in. Moving it on a re-write
-would break every link that resolved to the old one.
+`wiki_apply` giữ trang ở đúng thư mục nó đang nằm. Chuyển nó đi khi viết lại sẽ làm hỏng
+mọi liên kết từng trỏ về trang cũ.
 
-### Over HTTP and in the web UI
+### Qua HTTP và trong web UI
 
-| Endpoint | Does |
+| Endpoint | Làm gì |
 |---|---|
-| `GET /api/agents/{id}/memory/wiki?q=` | the vault as a table of contents, bodies omitted; with `q` it is ranked by the same search `wiki_search` uses |
-| `GET/PUT/DELETE /api/agents/{id}/memory/wiki/pages/{slug}` | one page in full; a PUT changes only the fields sent, so a UI showing the body alone cannot silently drop the sources it never displayed |
-| `GET /api/agents/{id}/memory/wiki/report` | the lint problems and the open questions as data |
-| `POST /api/agents/{id}/memory/wiki/compile` | starts a compile and answers 202; 409 while a compile or consolidation is already running for that agent |
+| `GET /api/agents/{id}/memory/wiki?q=` | vault dưới dạng mục lục, bỏ thân; có `q` thì xếp hạng bằng đúng phép tìm `wiki_search` dùng |
+| `GET/PUT/DELETE /api/agents/{id}/memory/wiki/pages/{slug}` | một trang đầy đủ; PUT chỉ đổi các trường được gửi, nên một UI chỉ hiện thân không thể âm thầm làm rơi sources mà nó chưa từng hiển thị |
+| `GET /api/agents/{id}/memory/wiki/report` | các vấn đề lint và các câu hỏi mở dưới dạng dữ liệu |
+| `POST /api/agents/{id}/memory/wiki/compile` | khởi động một lần compile và trả 202; 409 khi một compile hoặc cô đọng đang chạy cho agent đó |
 
-The **Wiki** tab in the manage screen is these endpoints: the vault grouped by folder,
-search, one page open with its body and sources, edit and delete, the lint report, and a
-compile that can be started without waiting for the night's job.
+Tab **Wiki** trong màn hình quản lý chính là các endpoint này: vault nhóm theo thư mục, tìm
+kiếm, một trang mở kèm thân và sources, sửa và xoá, báo cáo lint, và một lần compile có thể
+khởi động không cần chờ job ban đêm.
 
-## What one agent sees of another
+## Một agent thấy gì của agent khác
 
-Nothing, beyond the task it is handed. The person talks to the master on every platform
-(web, Telegram, the HTTP gate), so a subject carried from Pong to the coach travels inside
-the master's conversation and reaches the coach as part of the delegate task. The shared
-`users/owner/` scope above is the one place a fact learned by one agent is read by all.
+Không gì cả, ngoài task được giao. Người dùng nói chuyện với master trên mọi nền tảng (web,
+Telegram, cổng HTTP), nên một chủ đề mang từ Pong sang HLV đi bên trong cuộc trò chuyện của
+master và tới HLV như một phần của task giao việc. Phạm vi `users/owner/` dùng chung ở trên
+là nơi duy nhất một fact do một agent học được được mọi agent đọc.
 
-## Over HTTP and in the web UI
+## Qua HTTP và trong web UI
 
-Everything the agent sees in its prompt is editable by the person, so they are never
-arguing with a memory they cannot reach.
+Mọi thứ agent thấy trong prompt của nó đều sửa được bởi người dùng, nên họ không bao giờ
+phải tranh cãi với một trí nhớ mà họ không chạm tới được.
 
-| Endpoint | Does |
+| Endpoint | Làm gì |
 |---|---|
-| `GET/PUT /api/memory/user` | read/write `USER.md`, with the facts and the index |
-| `PUT/DELETE /api/memory/user/facts/{name}` | upsert or forget one fact; a non-slug name or unknown type is a 422 |
-| `GET/PUT /api/agents/{id}/memory` | read/write that agent's `MEMORY.md` |
-| `GET/PUT /api/agents/{id}/memory/notes/{day}` | read/write one dated note; a name that is not a day with an optional suffix is a 422 |
-| `GET /api/memory/search?q=&agent_id=` | hits across both scopes, each labelled with the scope it came from; without `agent_id` the agents' hits are interleaved by rank, so each agent's best entry comes before any agent's second one |
-| `GET /api/memory/proposals?status=` | pending by default; `status=all` includes decided ones |
-| `POST /api/memory/proposals/{id}` | `{approve: bool}`; deciding twice is a 409 |
-| `POST /api/agents/{id}/memory/consolidate` | starts a rewrite and answers 202; 409 while one is already running for that agent |
+| `GET/PUT /api/memory/user` | đọc/ghi `USER.md`, kèm facts và index |
+| `PUT/DELETE /api/memory/user/facts/{name}` | upsert hoặc quên một fact; tên không phải slug hoặc type lạ là 422 |
+| `GET/PUT /api/agents/{id}/memory` | đọc/ghi `MEMORY.md` của agent đó |
+| `GET/PUT /api/agents/{id}/memory/notes/{day}` | đọc/ghi một ghi chú ngày; tên không phải một ngày kèm hậu tố tuỳ chọn là 422 |
+| `GET /api/memory/search?q=&agent_id=` | kết quả trên cả hai phạm vi, mỗi kết quả gắn nhãn phạm vi nó đến từ; không có `agent_id` thì kết quả của các agent được xen kẽ theo hạng, nên entry tốt nhất của mỗi agent đứng trước entry thứ hai của bất kỳ agent nào |
+| `GET /api/memory/proposals?status=` | mặc định là đang chờ; `status=all` gồm cả đã quyết định |
+| `POST /api/memory/proposals/{id}` | `{approve: bool}`; quyết định hai lần là 409 |
+| `POST /api/agents/{id}/memory/consolidate` | khởi động một lần viết lại và trả 202; 409 khi đã có một lần đang chạy cho agent đó |
 
-The **Ghi nhớ** tab in the manage screen (`#/manage/memory`) is these endpoints: edit
-`USER.md`, add or forget facts, edit each agent's `MEMORY.md` and notes, search every scope, and
-approve or reject what a job proposed — an `agent_memory` proposal shows which lines it would add,
-and a rewrite is shown against the text it replaces with an undo button in the history.
-A consolidation can be triggered immediately without waiting for the cron.
+Tab **Ghi nhớ** trong màn hình quản lý (`#/manage/memory`) chính là các endpoint này: sửa
+`USER.md`, thêm hoặc quên facts, sửa `MEMORY.md` và ghi chú của từng agent, tìm trên mọi
+phạm vi, và duyệt hoặc từ chối điều một job đã đề xuất — đề xuất `agent_memory` hiện những
+dòng nó sẽ thêm, và một bản viết lại được hiện đối chiếu với văn bản nó thay thế kèm nút
+hoàn tác trong lịch sử. Có thể kích hoạt cô đọng ngay không cần chờ cron.
 
-## Compared with openclaw
+## So với openclaw
 
-The file names and roles match openclaw's workspace memory (`MEMORY.md`,
-`memory/YYYY-MM-DD.md`) so an existing workspace can be reused. openclaw adds a vector
-index and a `memory_search` with semantic ranking; here search is a plain grep, ordered by
-file recency, which is enough for a single user's notes and keeps the result explainable.
-Pruning here is the consolidation job above, which openclaw has no equivalent of: it
-proposes a rewrite on a schedule and keeps what it replaced. The shared user scope has no
-openclaw equivalent either: openclaw keeps one workspace per agent, so a fact about the
-person learned by one agent stays there.
+Tên tệp và vai trò khớp với workspace memory của openclaw (`MEMORY.md`,
+`memory/YYYY-MM-DD.md`) nên workspace có sẵn dùng lại được. openclaw thêm một chỉ mục vector
+và một `memory_search` xếp hạng theo ngữ nghĩa; ở đây tìm kiếm là grep thuần, sắp theo độ
+mới của tệp, đủ cho ghi chú của một người dùng và giữ kết quả giải thích được. Việc tỉa bớt
+ở đây là job cô đọng ở trên, thứ openclaw không có tương đương: nó đề xuất một bản viết lại
+theo lịch và giữ lại cái nó thay thế. Phạm vi người dùng dùng chung cũng không có tương
+đương ở openclaw: openclaw giữ một workspace cho mỗi agent, nên một fact về người dùng do
+một agent học được ở lại đó.
 
-The wiki takes its shape from openclaw's memory-wiki — pages under `entities`, `concepts`
-and `syntheses`, `[[links]]`, a compile from the daily notes — and stops there. Three
-differences are deliberate:
+Wiki lấy hình dạng từ memory-wiki của openclaw — trang dưới `entities`, `concepts` và
+`syntheses`, `[[links]]`, một lần compile từ ghi chú ngày — và dừng ở đó. Ba khác biệt là có
+chủ đích:
 
-- **No Obsidian CLI and no bridge.** openclaw drives an external vault through Obsidian;
-  here the vault is plain files in the agent dir that the same `memory_search` and
-  `workspace_read` already reach. Nothing has to be installed, and a vault with no reader
-  attached still opens in any editor.
-- **No claims layer.** openclaw extracts individual claims and tracks them separately. Here
-  the page is the unit and `sources` is the whole provenance story. A claim graph is more
-  precise and more machinery than one person's notes repay; the lint catches the failure
-  that actually happens, which is a page losing its evidence.
-- **The lint and its two dashboards** have no openclaw equivalent. They exist because a
-  vault degrades silently and the damage is only visible across the whole vault at once.
+- **Không Obsidian CLI và không cầu nối.** openclaw điều khiển một vault bên ngoài qua
+  Obsidian; ở đây vault là tệp thường trong thư mục agent mà cùng `memory_search` và
+  `workspace_read` đã chạm tới được. Không phải cài gì, và một vault không có trình đọc nào
+  gắn vào vẫn mở được trong bất kỳ editor nào.
+- **Không có lớp claim.** openclaw trích từng claim riêng lẻ và theo dõi chúng tách biệt. Ở
+  đây trang là đơn vị và `sources` là toàn bộ câu chuyện về nguồn gốc. Một đồ thị claim
+  chính xác hơn và cũng nhiều máy móc hơn mức ghi chú của một người đáng để đánh đổi; lint
+  bắt được lỗi thực sự xảy ra, tức là một trang mất bằng chứng của nó.
+- **Lint và hai bảng tổng hợp của nó** không có tương đương ở openclaw. Chúng tồn tại vì
+  vault xuống cấp âm thầm và hư hại chỉ nhìn thấy được khi xem cả vault một lượt.

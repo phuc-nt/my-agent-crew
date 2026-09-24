@@ -1,13 +1,13 @@
-# Agents
+# Agent
 
 **Phiên bản**: 0.5.0 (+ chưa phát hành) · **Cập nhật**: 2026-09-24
 
-An **agent** is one folder under `MY_AGENT_HOME/agents/<id>/` with an `agent.yaml` and a
-few Markdown files. Every agent runs the same loop; the profile only
-changes its inputs: persona, memory, workspace, skills, model routes, budget and schedules.
-The Telegram channel belongs to the master alone.
+Một **agent** là một thư mục dưới `MY_AGENT_HOME/agents/<id>/` gồm một `agent.yaml` và
+vài tệp Markdown. Mọi agent chạy cùng một vòng lặp; profile chỉ
+thay đổi đầu vào của nó: persona, trí nhớ, workspace, skill, tuyến model, ngân sách và lịch.
+Kênh Telegram thuộc về riêng master.
 
-## Folder layout
+## Bố cục thư mục
 
 ```
 MY_AGENT_HOME/                      ~/.my-agent-crew by default
@@ -37,94 +37,94 @@ MY_AGENT_HOME/                      ~/.my-agent-crew by default
         └── .agents/                this agent's own kit (optional)
 ```
 
-The agent dir, workspace and `memory/` are created at startup, so a
-profile plus persona files is enough. The agent id is the folder name; `default` is
-reserved for the top-level settings (see below).
+Thư mục agent, workspace và `memory/` được tạo lúc khởi động, nên chỉ cần một
+profile cộng các tệp persona là đủ. Id của agent là tên thư mục; `default` được
+dành riêng cho cài đặt cấp cao nhất (xem bên dưới).
 
 ## `agent.yaml`
 
-Only these keys are accepted; anything else raises `ValueError` at startup so a typo never
-silently disables a setting.
+Chỉ những khoá này được chấp nhận; khoá nào khác sẽ ném `ValueError` lúc khởi động, nên một lỗi gõ
+không bao giờ âm thầm vô hiệu một cài đặt.
 
-| Key | Type | Default | Meaning |
+| Khoá | Kiểu | Mặc định | Ý nghĩa |
 |---|---|---|---|
-| `name` | string | the id | display name; also the `[Name]` prefix on a brief delivered to Telegram |
-| `description` | string | `""` | shown on the agent's card in the crew tab and in the master's roster |
-| `mode` | `assistant` or `work` | `assistant` | `work` adds the coding tools and moves three defaults, see [Work mode](#work-mode) |
-| `routes` | list or comma string of `provider:model` | global `routes` | tried in order; a route that fails before producing output falls through to the next |
-| `workspace` | path | `workspace` | sandbox for `workspace_*` and `shell_run`; relative paths resolve against the agent dir, `~` expands |
-| `persona_files` | list of file names | `AGENTS.md, SOUL.md, IDENTITY.md, USER.md` | read from the agent dir into the system prompt each turn; missing files are skipped |
-| `persona_names` | read-only | — | list of persona file names actually present (returned by `GET /api/agents/{id}` and `GET /api/agents/{id}/prompt`) |
-| `skills_dirs` | list of paths | `[]` | extra skill folders; `<agent dir>/skills` is always first |
-| `cost_cap_usd` | number ≥ 0 | global | budget per conversation, `0` = unlimited |
-| `max_steps` | int ≥ 1 | global | model calls per turn before a `halted` |
-| `autonomous` | bool | global `autonomous_default` | new conversations skip tool approval |
-| `shell_ask_patterns` | list of strings | global | shell commands that ask anyway when autonomous, see [tools.md](tools.md#shell); declaring it replaces the defaults, `[]` turns the guard off |
-| `shell_allow_patterns` | list of strings | global (empty) | shell commands routine enough to run without asking even when *not* autonomous, see [tools.md](tools.md#shell). The ask list is checked first, so a command in both asks |
-| `tool_output_chars` | int ≥ 1 | global | characters of one tool result the model sees before the cut; raise it for an agent whose scripts print long reports |
-| `shell_network` | bool | `true` | `false` runs every `shell_run` command in a macOS `sandbox-exec` profile: no network either way, no `open`/`launchctl`-style helpers, writes only under `shell_write_paths` and temp, see [tools.md](tools.md#shell). Per agent only; a quoted `"false"` is a startup error |
-| `shell_write_paths` | list | `[]` | paths inside the workspace where a sandboxed command may write; read only when `shell_network` is `false`. Empty leaves the workspace read-only to the shell; a path leaving the workspace is a startup error |
-| `schedules` | list | `[]` | jobs, see [Schedules](#schedules) |
-| `memory_consolidate` | cron string | none | on this schedule, rewrite `MEMORY.md` from the daily notes and then compile the wiki vault from the same notes, see [memory.md](memory.md) |
-| `telegram` | map | none | `token_env` + `chat_id`; read on the master's `agent.yaml` only, ignored with a warning elsewhere, see [channels.md](channels.md) |
-| `delegates` | list of agent ids | `[]` | agents this one may hand a task to; an id that names no agent is a startup error. Empty on the master means every other agent, see [The master agent](#the-master-agent) |
-| `tools` | list of tool names | `[]` | when set, the only tools this agent gets; empty means everything its mode brings. An unknown name is a warning, so a profile written for a newer version still starts |
+| `name` | chuỗi | id | tên hiển thị; cũng là tiền tố `[Name]` trên bản tin gửi tới Telegram |
+| `description` | chuỗi | `""` | hiện trên card của agent trong tab **Đội** và trong roster của master |
+| `mode` | `assistant` hoặc `work` | `assistant` | `work` thêm các tool lập trình và đổi ba mặc định, xem [Chế độ work](#chế-độ-work) |
+| `routes` | danh sách hoặc chuỗi phân cách bằng dấu phẩy dạng `provider:model` | `routes` toàn cục | thử theo thứ tự; tuyến nào hỏng trước khi sinh ra output thì rơi xuống tuyến kế tiếp |
+| `workspace` | đường dẫn | `workspace` | sandbox cho `workspace_*` và `shell_run`; đường dẫn tương đối tính từ thư mục agent, `~` được mở rộng |
+| `persona_files` | danh sách tên tệp | `AGENTS.md, SOUL.md, IDENTITY.md, USER.md` | đọc từ thư mục agent vào system prompt mỗi lượt; tệp thiếu thì bỏ qua |
+| `persona_names` | chỉ đọc | — | danh sách tên tệp persona thực sự có mặt (trả về bởi `GET /api/agents/{id}` và `GET /api/agents/{id}/prompt`) |
+| `skills_dirs` | danh sách đường dẫn | `[]` | thư mục skill bổ sung; `<agent dir>/skills` luôn đứng đầu |
+| `cost_cap_usd` | số ≥ 0 | toàn cục | ngân sách mỗi cuộc trò chuyện, `0` = không giới hạn |
+| `max_steps` | int ≥ 1 | toàn cục | số lần gọi model mỗi lượt trước khi `halted` |
+| `autonomous` | bool | `autonomous_default` toàn cục | cuộc trò chuyện mới bỏ qua cổng duyệt tool |
+| `shell_ask_patterns` | danh sách chuỗi | toàn cục | lệnh shell vẫn hỏi ngay cả khi autonomous, xem [tools.md](tools.md#shell); khai báo nó sẽ thay thế mặc định, `[]` tắt hàng rào |
+| `shell_allow_patterns` | danh sách chuỗi | toàn cục (rỗng) | lệnh shell đủ thường lệ để chạy không cần hỏi ngay cả khi *không* autonomous, xem [tools.md](tools.md#shell). Danh sách hỏi được kiểm tra trước, nên lệnh nằm trong cả hai thì vẫn hỏi |
+| `tool_output_chars` | int ≥ 1 | toàn cục | số ký tự của một kết quả tool mà model thấy trước khi bị cắt; tăng lên cho agent có script in báo cáo dài |
+| `shell_network` | bool | `true` | `false` chạy mọi lệnh `shell_run` trong một profile `sandbox-exec` của macOS: không mạng theo mọi hướng, không có các helper kiểu `open`/`launchctl`, chỉ ghi được dưới `shell_write_paths` và thư mục tạm, xem [tools.md](tools.md#shell). Chỉ đặt theo từng agent; `"false"` trong dấu nháy là lỗi khởi động |
+| `shell_write_paths` | danh sách | `[]` | đường dẫn bên trong workspace mà lệnh chạy trong sandbox được ghi; chỉ đọc khi `shell_network` là `false`. Rỗng thì workspace chỉ đọc với shell; đường dẫn ra ngoài workspace là lỗi khởi động |
+| `schedules` | danh sách | `[]` | job, xem [Lịch](#lịch) |
+| `memory_consolidate` | chuỗi cron | không có | theo lịch này, viết lại `MEMORY.md` từ ghi chú ngày rồi biên dịch wiki vault từ chính các ghi chú đó, xem [memory.md](memory.md) |
+| `telegram` | map | không có | `token_env` + `chat_id`; chỉ đọc trên `agent.yaml` của master, ở nơi khác bị bỏ qua kèm cảnh báo, xem [channels.md](channels.md) |
+| `delegates` | danh sách id agent | `[]` | agent mà agent này được giao việc cho; id không trỏ tới agent nào là lỗi khởi động. Rỗng trên master nghĩa là mọi agent khác, xem [Agent master](#agent-master) |
+| `tools` | danh sách tên tool | `[]` | khi đặt, là những tool duy nhất agent này có; rỗng nghĩa là mọi thứ mode của nó mang lại. Tên lạ là cảnh báo, nên profile viết cho phiên bản mới hơn vẫn khởi động được |
 
-Every value that is not set falls back to the global settings, which come from env vars
-and `config.yaml`:
+Mọi giá trị không đặt sẽ rơi về cài đặt toàn cục, lấy từ biến môi trường
+và `config.yaml`:
 
-| Env var | `config.yaml` key | Default |
+| Biến môi trường | Khoá `config.yaml` | Mặc định |
 |---|---|---|
 | `MY_AGENT_HOME` | — | `~/.my-agent-crew` |
 | `MY_AGENT_ROUTES` | `routes` | `openrouter:deepseek/deepseek-v4-flash` |
 | `MY_AGENT_COST_CAP_USD` | `cost_cap_usd` | `0.5` |
 | `MY_AGENT_MAX_STEPS` | `max_steps` | `12` |
-| `MY_AGENT_AUTONOMOUS` | `autonomous_default` | off (`1`, `true`, `yes`, `on` turn it on) |
-| `MY_AGENT_APPROVAL_TTL_SECONDS` | `approval_ttl_seconds` | `600`; must be ≥ 1. An approval nobody answers within this window is refused and the turn goes on |
-| `MY_AGENT_SHELL_ASK_PATTERNS` | `shell_ask_patterns` | the list in [tools.md](tools.md#shell); the env value is `;`-separated and an empty one turns the guard off |
-| `MY_AGENT_SHELL_ALLOW_PATTERNS` | `shell_allow_patterns` | empty; `;`-separated like the ask list. A pattern under two characters, or one that only looks like a wildcard, is dropped rather than honoured |
-| `MY_AGENT_TOOL_OUTPUT_CHARS` | `tool_output_chars` | `8000`; must be ≥ 1 |
-| `MY_AGENT_LANGUAGE` | `language` | `vi` (prompt frame language; `en` is the other option) |
-| `MY_AGENT_TIMEZONE` | `timezone` | the machine zone; an IANA name (`Asia/Ho_Chi_Minh`) sets the zone that schedules, "today" in prompts and memory notes, `/status` and the stats are read in. An unknown name fails at start |
-| `MY_AGENT_VISION_ROUTES` | `vision_routes` | `openrouter:google/gemini-2.5-flash-lite, openrouter:qwen/qwen3-vl-8b-instruct`; the chain `image_read` sends pictures to, see [tools.md](tools.md#images). An empty value turns image reading off |
-| `OLLAMA_BASE_URL` | — | `http://127.0.0.1:11434/v1`; where a local ollama listens. It needs no key, so that provider is always built, see [tools.md](tools.md#providers-without-a-key) |
-| `OPENROUTER_API_KEY` | — | enables the OpenRouter provider |
-| `BRAVE_API_KEY` / `TAVILY_API_KEY` | — | enables `web_search` |
-| the name in `telegram.token_env` | — | the bot token; unset = that channel is disabled |
+| `MY_AGENT_AUTONOMOUS` | `autonomous_default` | tắt (`1`, `true`, `yes`, `on` bật lên) |
+| `MY_AGENT_APPROVAL_TTL_SECONDS` | `approval_ttl_seconds` | `600`; phải ≥ 1. Yêu cầu duyệt không ai trả lời trong khoảng này bị từ chối và lượt đi tiếp |
+| `MY_AGENT_SHELL_ASK_PATTERNS` | `shell_ask_patterns` | danh sách trong [tools.md](tools.md#shell); giá trị env phân cách bằng `;` và giá trị rỗng tắt hàng rào |
+| `MY_AGENT_SHELL_ALLOW_PATTERNS` | `shell_allow_patterns` | rỗng; phân cách bằng `;` như danh sách hỏi. Mẫu dưới hai ký tự, hoặc mẫu chỉ trông như ký tự đại diện, bị loại thay vì được chấp nhận |
+| `MY_AGENT_TOOL_OUTPUT_CHARS` | `tool_output_chars` | `8000`; phải ≥ 1 |
+| `MY_AGENT_LANGUAGE` | `language` | `vi` (ngôn ngữ khung prompt; `en` là lựa chọn còn lại) |
+| `MY_AGENT_TIMEZONE` | `timezone` | múi giờ của máy; một tên IANA (`Asia/Ho_Chi_Minh`) đặt múi giờ mà lịch, "hôm nay" trong prompt và ghi chú trí nhớ, `/status` và thống kê được đọc theo. Tên lạ thì hỏng lúc khởi động |
+| `MY_AGENT_VISION_ROUTES` | `vision_routes` | `openrouter:google/gemini-2.5-flash-lite, openrouter:qwen/qwen3-vl-8b-instruct`; chuỗi tuyến mà `image_read` gửi ảnh tới, xem [tools.md](tools.md#ảnh). Giá trị rỗng tắt đọc ảnh |
+| `OLLAMA_BASE_URL` | — | `http://127.0.0.1:11434/v1`; nơi ollama cục bộ lắng nghe. Nó không cần khoá, nên provider này luôn được dựng, xem [tools.md](tools.md#provider-không-cần-khoá) |
+| `OPENROUTER_API_KEY` | — | bật provider OpenRouter |
+| `BRAVE_API_KEY` / `TAVILY_API_KEY` | — | bật `web_search` |
+| tên trong `telegram.token_env` | — | token của bot; không đặt = kênh đó bị tắt |
 
-Env wins over `config.yaml`; `config.yaml` accepts only the keys above. `routes` is also
-edited from Quản lý → Kết nối, which rewrites just that key and keeps the file's comments;
-while `MY_AGENT_ROUTES` is set the page shows the routes read-only. Secrets never
-go into YAML: profiles carry env-var **names**, and the settings drawer shows key presence,
-never values.
+Env thắng `config.yaml`; `config.yaml` chỉ chấp nhận các khoá ở trên. `routes` cũng được
+sửa từ Quản lý → Kết nối, chỗ đó ghi lại đúng khoá này và giữ chú thích của tệp;
+khi `MY_AGENT_ROUTES` đang đặt thì trang hiện tuyến ở dạng chỉ đọc. Bí mật không bao giờ
+đi vào YAML: profile mang **tên** biến môi trường, và ngăn cài đặt chỉ hiện khoá có hay không,
+không bao giờ hiện giá trị.
 
-## Work mode
+## Chế độ work
 
-`mode: assistant` is the product's normal shape: one agent that chats, asks before it
-touches anything, and works within a chat-sized budget. `mode: work` is the same loop
-pointed at a repository. It adds `workspace_edit`, `workspace_grep` and `workspace_glob`
-(see [tools.md](tools.md#the-tools)) and moves three defaults:
+`mode: assistant` là hình dạng bình thường của sản phẩm: một agent trò chuyện, hỏi trước khi
+chạm vào bất cứ thứ gì, và làm việc trong ngân sách cỡ một cuộc chat. `mode: work` là cùng vòng lặp đó
+hướng vào một repository. Nó thêm `workspace_edit`, `workspace_grep` và `workspace_glob`
+(xem [tools.md](tools.md#các-tool)) và đổi ba mặc định:
 
-| Key | Assistant | Work | Why |
+| Khoá | Assistant | Work | Vì sao |
 |---|---|---|---|
-| `autonomous` | global default (off) | `true` | a coding agent that stops for approval on every file read never finishes a task |
-| `cost_cap_usd` | `0.5` | `20.0` | a real task runs dozens of steps; the chat cap would halt it halfway |
-| `max_steps` | `12` | `120` | read, edit, run tests, read the failure, edit again — that is already more than 12 |
+| `autonomous` | mặc định toàn cục (tắt) | `true` | agent lập trình mà dừng chờ duyệt ở mỗi lần đọc tệp thì không bao giờ xong việc |
+| `cost_cap_usd` | `0.5` | `20.0` | một việc thật chạy hàng chục bước; trần của chat sẽ chặn nó giữa chừng |
+| `max_steps` | `12` | `120` | đọc, sửa, chạy test, đọc lỗi, sửa lại — thế đã hơn 12 rồi |
 
-Anything the profile states itself still wins, so `mode: work` with `autonomous: false`
-is a work agent that asks. These are defaults, not a locked bundle.
+Bất cứ thứ gì profile tự khai vẫn thắng, nên `mode: work` với `autonomous: false`
+là một agent work biết hỏi. Đây là mặc định, không phải một gói khoá cứng.
 
-Autonomy is about approval, not about silence. An autonomous agent that hits a genuine fork
-still stops and asks through `ask_user` (see
-[tools.md](tools.md#asking-the-person)), because a question that auto-approved itself would
-be answered by nobody. What autonomy removes is the pause before each tool, not the agent's
-ability to speak.
+Tự chủ là chuyện duyệt, không phải chuyện im lặng. Một agent autonomous gặp ngã rẽ thật sự
+vẫn dừng lại và hỏi qua `ask_user` (xem
+[tools.md](tools.md#hỏi-người-dùng)), vì một câu hỏi tự duyệt cho chính nó thì
+sẽ không ai trả lời. Thứ tự chủ bỏ đi là khoảng dừng trước mỗi tool, không phải khả năng
+lên tiếng của agent.
 
-## Templates
+## Template
 
-Three profiles ship with the package so a working crew is a copy rather than files
-written by hand. A template is plain data — an `agent.yaml` and the persona files beside
-it — so anything it can express, a hand-written profile can too.
+Ba profile đi kèm gói phần mềm để một đội chạy được là một bản sao chứ không phải các tệp
+viết tay. Template là dữ liệu thuần — một `agent.yaml` và các tệp persona bên cạnh
+nó — nên bất cứ thứ gì nó diễn đạt được, một profile viết tay cũng làm được.
 
 ```bash
 python -m my_agent_crew agent list-templates        # id, mode and description of each
@@ -134,51 +134,51 @@ python -m my_agent_crew agent add kongming --id advisor  # same template under a
 python -m my_agent_crew agent add fullstack-developer --workspace ~/src/app  # pinned to one repository
 ```
 
-Adding a template brings the peers it delegates to, because the server refuses to start
-when a `delegates` entry names an agent that is not there — so `agent add fullstack-developer`
-brings kongming and researcher too, while `agent add researcher` gives one agent. A peer that already
-exists is left as it is. Every manifest points `workspace` at `../../workspace`, the home's
-shared workspace, so a fresh install works without editing; `--workspace` writes an
-absolute path into the template and every peer it brings.
+Thêm một template sẽ kéo theo các đồng đội nó giao việc cho, vì server từ chối khởi động
+khi một mục `delegates` trỏ tới agent không có mặt — nên `agent add fullstack-developer`
+kéo theo cả kongming và researcher, còn `agent add researcher` chỉ cho một agent. Đồng đội đã
+tồn tại thì giữ nguyên. Mọi manifest trỏ `workspace` tới `../../workspace`, workspace
+dùng chung của home, nên bản cài mới chạy được mà không cần sửa; `--workspace` ghi một
+đường dẫn tuyệt đối vào template và mọi đồng đội nó kéo theo.
 
-The same install runs over HTTP, which is what the crew tab in the web UI calls:
+Cùng thao tác cài này chạy qua HTTP, và đó là thứ tab **Đội** trong web UI gọi:
 
 ```
 POST /api/agents/install {"template": "researcher", "agent_id"?: "…", "workspace"?: "…", "force"?: false}
 → 201 {"installed": ["researcher"], "live": ["researcher"], "needs_restart": false}
 ```
 
-`installed` is what was written, `live` what the running server loaded on the spot (the
-master can delegate to it at once), and `needs_restart` is true when an installed agent has
-`schedules`: jobs only start at boot. 404 for an unknown
-template, 409 when the id is taken (`force` overwrites).
+`installed` là những gì đã được ghi, `live` là những gì server đang chạy nạp ngay tại chỗ (master
+có thể giao việc cho nó ngay), và `needs_restart` là true khi một agent vừa cài có
+`schedules`: job chỉ khởi động lúc boot. 404 cho template
+lạ, 409 khi id đã có người dùng (`force` ghi đè).
 
-| id | mode | What it is for |
+| id | mode | Dùng để làm gì |
 |---|---|---|
-| `fullstack-developer` | work | takes a software task end to end — scout, plan, code, test, self-review, commit — following the shared skills; no tool allow-list, delegates only to the other two, for counsel or research, never to hand code off |
-| `kongming` | work | advisory only: reads code and the web, answers with a structured recommendation, never asks back; no write tools and no `delegate`; pin the strongest model in `routes`, capped at `cost_cap_usd: 3.0` |
-| `researcher` | assistant | researches any topic on the web or in PDFs and writes a ranked recommendation with sources; never touches code |
+| `fullstack-developer` | work | nhận một việc phần mềm từ đầu đến cuối — scout, lập kế hoạch, code, test, tự review, commit — theo các skill dùng chung; không có danh sách tool cho phép, chỉ giao việc cho hai agent còn lại, để xin tư vấn hoặc nghiên cứu, không bao giờ để đẩy code sang |
+| `kongming` | work | chỉ tư vấn: đọc code và web, trả lời bằng một khuyến nghị có cấu trúc, không bao giờ hỏi ngược lại; không có tool ghi và không có `delegate`; ghim model mạnh nhất trong `routes`, trần ở `cost_cap_usd: 3.0` |
+| `researcher` | assistant | nghiên cứu bất kỳ chủ đề nào trên web hoặc trong PDF và viết một khuyến nghị xếp hạng kèm nguồn; không bao giờ chạm vào code |
 
-A software team is one developer rather than a pipeline of roles: every hand-off costs a
-fresh context that knows only what the brief said, and for a personal crew that mostly
-codes on the side, the lost context costs more than the parallelism buys.
+Một đội phần mềm là một developer chứ không phải một dây chuyền vai trò: mỗi lần chuyển giao tốn một
+ngữ cảnh mới chỉ biết những gì brief đã nói, và với một đội cá nhân chủ yếu
+code bên lề, ngữ cảnh mất đi tốn nhiều hơn cái song song mua được.
 
-Each manifest points `skills_dirs` at `../../skills`, so the six shared skills are
-installed once at the top of the home directory and every role reads the same copy.
-Adding a template twice refuses rather than overwriting, since by then the profile may be
-your edit and not ours; `--force` says you meant it. An agent added with the CLI is read
-at the next start; one added through the install API or the crew tab joins the running
-crew at once.
+Mỗi manifest trỏ `skills_dirs` tới `../../skills`, nên sáu skill dùng chung được
+cài một lần ở đầu thư mục home và mọi vai trò đọc cùng một bản.
+Thêm một template hai lần sẽ bị từ chối thay vì ghi đè, vì đến lúc đó profile có thể
+là bản sửa của bạn chứ không phải của chúng tôi; `--force` nói rằng bạn cố ý. Agent thêm bằng CLI được đọc
+ở lần khởi động kế tiếp; agent thêm qua API cài hoặc tab **Đội** gia nhập đội đang
+chạy ngay lập tức.
 
-The allow-list in a template is the point of the role, and it caps `delegate` as well: a
-work agent that names its tools without naming `delegate` cannot hand work on, which is
-what stops a crew from growing a second layer behind the lead's back.
+Danh sách cho phép trong template chính là ý nghĩa của vai trò, và nó cũng chặn cả `delegate`: một
+agent work khai tên tool của mình mà không khai `delegate` thì không thể chuyển việc đi, đó là
+thứ ngăn một đội mọc thêm tầng thứ hai sau lưng người dẫn đầu.
 
 ## Sửa agent từ web/API
 
-A crew that can only be changed by editing files and restarting is a crew most people
-never change. These endpoints write the same `agent.yaml` a person would write by hand,
-and bring the result into the running server.
+Một đội chỉ đổi được bằng cách sửa tệp và khởi động lại là một đội hầu hết mọi người
+không bao giờ đổi. Các endpoint này ghi cùng một `agent.yaml` mà một người sẽ viết tay,
+và đưa kết quả vào server đang chạy.
 
 ```
 POST   /api/agents           {"agent_id": "coder", "profile": {…}}
@@ -189,189 +189,189 @@ GET    /api/agents/{id}/prompt                  → system prompt assembled this
 POST   /api/agents/reload                       → {"added": ["…"]}
 ```
 
-**A patch names only what it changes.** A key left out keeps its value; clearing one is
-asked for with an explicit `null`. This matters because the web sends one section at a
-time — a form that posted its whole model would erase every key the form has no field for.
+**Một patch chỉ nêu những gì nó thay đổi.** Khoá bỏ ngoài giữ nguyên giá trị; muốn xoá một khoá thì
+phải nói rõ bằng `null`. Điều này quan trọng vì web gửi từng mục một —
+một form gửi cả model của nó sẽ xoá sạch mọi khoá mà form không có ô nhập.
 
-**The file keeps its shape.** Writes are round-trip (ruamel), so comments, key order and
-keys this version of the server does not know about all survive an edit made from a
-browser. The manifest is written through a temp file and moved into place, so a crash
-mid-write cannot leave a profile that no longer parses.
+**Tệp giữ nguyên hình dạng.** Ghi là round-trip (ruamel), nên chú thích, thứ tự khoá và
+những khoá mà phiên bản server này không biết đều sống sót qua một lần sửa từ
+trình duyệt. Manifest được ghi qua tệp tạm rồi chuyển vào chỗ, nên sập
+giữa lúc ghi không thể để lại một profile không còn parse được.
 
-**Validation is the same code that reads a hand-written file**, run
-*before* anything is written. A profile the server would refuse to start with is a 422 and
-changes nothing — not the file, not the running agent. `delegates` is checked against the
-crew as it would be after the edit, so you cannot point at an agent that is not there.
+**Kiểm tra hợp lệ là cùng đoạn code đọc tệp viết tay**, chạy
+*trước* khi ghi bất cứ gì. Profile mà server sẽ từ chối khởi động là 422 và
+không đổi gì — không đổi tệp, không đổi agent đang chạy. `delegates` được đối chiếu với
+đội như nó sẽ là sau lần sửa, nên bạn không thể trỏ tới một agent không có mặt.
 
-The order is validate, then wire, then write. Building the agent is the last step that can
-fail on a profile that parsed cleanly, and a file written before that point would claim a
-change the answer had refused — then apply it at the next restart. The write comes last so
-the refusal is the whole story. A write that fails after a successful wire leaves the crew
-briefly ahead of the file; the file is what boot reads, so that direction corrects itself.
+Thứ tự là kiểm tra, rồi nối, rồi ghi. Dựng agent là bước cuối có thể
+hỏng trên một profile đã parse sạch, và một tệp ghi trước điểm đó sẽ tuyên bố một
+thay đổi mà câu trả lời đã từ chối — rồi áp dụng nó ở lần khởi động lại kế tiếp. Ghi đến sau cùng để
+lời từ chối là toàn bộ câu chuyện. Lần ghi hỏng sau khi nối thành công để đội
+đi trước tệp trong chốc lát; tệp là thứ boot đọc, nên hướng đó tự sửa lấy.
 
-**Paths in an edit stay under the crew home.** `workspace`, `skills_dirs` and
-`persona_files` are checked after they resolve, so `~`, an absolute path or enough `..` to
-leave the home is a 422. A persona file is read into the system prompt and travels to the
-model on the next turn, and the workspace is what every file tool is scoped to — neither
-is something a request should be able to aim anywhere on the machine. The check is on this
-edit path only: a kit names its markdown by absolute path, and `agent add --workspace`
-points an agent at a repo elsewhere on purpose, both of which still work.
+**Đường dẫn trong một lần sửa phải nằm dưới home của đội.** `workspace`, `skills_dirs` và
+`persona_files` được kiểm tra sau khi phân giải, nên `~`, đường dẫn tuyệt đối hoặc đủ `..` để
+ra khỏi home là 422. Tệp persona được đọc vào system prompt và đi tới
+model ở lượt kế tiếp, còn workspace là phạm vi của mọi tool tệp — không cái nào
+nên là thứ mà một request có thể nhắm tới bất cứ đâu trên máy. Kiểm tra này chỉ áp cho
+đường sửa này: kit gọi tên markdown của nó bằng đường dẫn tuyệt đối, và `agent add --workspace`
+cố ý trỏ một agent tới repo ở nơi khác, cả hai vẫn hoạt động.
 
-**Both shell pattern lists must be lists.** A bare string is iterable, so
-`shell_ask_patterns: "rm"` would otherwise become the patterns `r` and `m` and the guard
-that asks before a destructive command would quietly stop meaning anything; the same string
-in `shell_allow_patterns` would wave through every command containing an `r`. An empty list
-still turns either list off, as documented in [tools.md](tools.md#shell) — that is a choice
-someone can make, silently shredding the list is not.
+**Cả hai danh sách mẫu shell phải là danh sách.** Một chuỗi trần thì duyệt qua được, nên
+`shell_ask_patterns: "rm"` nếu không sẽ thành các mẫu `r` và `m` và hàng rào
+hỏi trước lệnh phá hoại sẽ âm thầm mất hết ý nghĩa; cùng chuỗi đó
+trong `shell_allow_patterns` sẽ cho qua mọi lệnh có chứa chữ `r`. Danh sách rỗng
+vẫn tắt danh sách đó, như ghi trong [tools.md](tools.md#shell) — đó là lựa chọn
+ai đó có thể đưa ra, còn âm thầm xé nát danh sách thì không.
 
-**A manifest that no longer parses is reported, not overwritten** (422, naming the parse
-error). A patch names a few keys; writing it over a file that broke would drop everything
-else the person still had in there.
+**Manifest không còn parse được thì được báo, không bị ghi đè** (422, nêu lỗi
+parse). Một patch chỉ nêu vài khoá; ghi nó đè lên tệp đã hỏng sẽ làm rơi mọi thứ
+khác mà người đó vẫn còn trong đó.
 
-**Removing keeps the files.** `DELETE` moves `agents/<id>` to `agents/.trash/<id>-<stamp>`
-and reports where it went; nothing is deleted. Conversations that agent held stay put and
-fall back to the master. It refuses (409) for the master, and for an agent another agent
-still names in `delegates` — removing it would leave that profile invalid and the server
-unable to start next time.
+**Xoá vẫn giữ tệp.** `DELETE` chuyển `agents/<id>` sang `agents/.trash/<id>-<stamp>`
+và báo nó đã đi đâu; không gì bị xoá. Các cuộc trò chuyện agent đó từng giữ vẫn ở nguyên và
+rơi về master. Nó từ chối (409) với master, và với agent mà một agent khác
+vẫn nêu tên trong `delegates` — xoá nó sẽ để profile kia không hợp lệ và server
+không khởi động được lần sau.
 
-**`restart_required` is only ever about schedules and Telegram.** Routes, tools, persona,
-name, budget and delegation are all rebuilt live. The clock and the channel are built once
-at boot, so changing `schedules`, `memory_consolidate` or `telegram` needs a restart and
-says so. Nothing else does, which is what keeps the notice worth reading.
+**`restart_required` chỉ bao giờ nói về lịch và Telegram.** Tuyến, tool, persona,
+tên, ngân sách và giao việc đều được dựng lại trực tiếp. Đồng hồ và kênh được dựng một lần
+lúc boot, nên đổi `schedules`, `memory_consolidate` hoặc `telegram` cần khởi động lại và
+nói ra như vậy. Không gì khác cần, và đó là thứ giữ cho thông báo này đáng đọc.
 
-**Agents from a kit are read-only here** (409, naming the markdown file they came from):
-their profile lives in a project someone else maintains, and writing an `agent.yaml` beside
-it would shadow the kit rather than edit it.
+**Agent từ kit là chỉ đọc ở đây** (409, nêu tên tệp markdown chúng đến từ):
+profile của chúng sống trong một dự án do người khác bảo trì, và ghi một `agent.yaml` bên cạnh
+sẽ che kit chứ không sửa nó.
 
-`PUT …/files/{name}` writes persona files by name, and the name is matched against
-`AGENTS.md`, `SOUL.md`, `IDENTITY.md`, `USER.md` — the path never comes from the request.
+`PUT …/files/{name}` ghi tệp persona theo tên, và tên được đối chiếu với
+`AGENTS.md`, `SOUL.md`, `IDENTITY.md`, `USER.md` — đường dẫn không bao giờ đến từ request.
 
-## The master agent
+## Agent master
 
-The `default` agent always exists and is the top-level settings: dir = `MY_AGENT_HOME`,
-workspace = `MY_AGENT_HOME/workspace`, skills = `MY_AGENT_HOME/skills`, persona and memory
-files read from `MY_AGENT_HOME` itself. A fresh home therefore needs no profile at all.
-It is loaded first, then `agents/<id>/agent.yaml` sorted by id.
+Agent `default` luôn tồn tại và là cài đặt cấp cao nhất: dir = `MY_AGENT_HOME`,
+workspace = `MY_AGENT_HOME/workspace`, skills = `MY_AGENT_HOME/skills`, tệp persona và trí nhớ
+đọc từ chính `MY_AGENT_HOME`. Vì thế một home mới không cần profile nào cả.
+Nó được nạp trước, rồi tới `agents/<id>/agent.yaml` xếp theo id.
 
-It is also the *master*: the one agent the person talks to — in the web UI and on
-Telegram — and the one that hands work to the rest. An optional `MY_AGENT_HOME/agent.yaml` shapes it with the same keys as any
+Nó cũng là *master*: agent duy nhất mà người dùng nói chuyện — trong web UI và trên
+Telegram — và là agent chuyển việc cho những agent còn lại. Một `MY_AGENT_HOME/agent.yaml` tuỳ chọn định hình nó bằng cùng các khoá như mọi
 profile (`name`, `description`, `autonomous`, `cost_cap_usd`, `max_steps`, `routes`,
-`delegates`, `telegram`, …); without the file it is the plain default agent, and
-`PATCH /api/agents/default` writes that file, creating it on the first edit. It cannot be
-deleted. Two things set it apart from a work lead:
+`delegates`, `telegram`, …); không có tệp thì nó là agent default thuần, và
+`PATCH /api/agents/default` ghi tệp đó, tạo mới ở lần sửa đầu tiên. Nó không thể
+bị xoá. Hai điều khiến nó khác một người dẫn đầu work:
 
-- **It reaches everyone.** With `delegates` empty, the master may hand a task to every
-  other agent in the home, in id order. Installing
-  an agent is enough to put it at the master's disposal; naming a `delegates` list narrows
-  that to the ids given. Any other agent reaches only what it lists.
-- **It always has `delegate`.** The tool is wired for the master, for work agents, and for
-  any profile with a `delegates` list; a `tools` allow-list still caps it.
+- **Nó với tới mọi người.** Với `delegates` rỗng, master được giao việc cho mọi
+  agent khác trong home, theo thứ tự id. Cài
+  một agent là đủ để đặt nó dưới quyền master; nêu một danh sách `delegates` thu hẹp
+  về các id đã cho. Bất kỳ agent nào khác chỉ với tới những gì nó liệt kê.
+- **Nó luôn có `delegate`.** Tool này được nối cho master, cho agent work, và cho
+  bất kỳ profile nào có danh sách `delegates`; danh sách cho phép `tools` vẫn chặn được nó.
 
-Each turn the master's system prompt carries a roster section: one
-line per agent it may reach, with id, name, mode, description and workspace, followed by the guidance
-on when to do a thing itself and when to hand it off. An agent that can reach nobody gets
-no roster. A child turn opened by `delegate` never sees one, since it cannot delegate.
+Mỗi lượt, system prompt của master mang một mục roster: một
+dòng cho mỗi agent nó với tới được, gồm id, tên, mode, mô tả và workspace, theo sau là hướng dẫn
+khi nào tự làm và khi nào chuyển đi. Agent không với tới ai thì
+không có roster. Lượt con mở bởi `delegate` không bao giờ thấy roster, vì nó không thể giao việc.
 
-The assistant agents of the example home (`pong`, `health-coach`) are reached the same way
-from the phone as from the browser: the master's bot takes the message and the master
-delegates. Their schedules run as before and their briefs still land in the chat, under
-their name ([channels.md](channels.md#scheduled-delivery)).
+Các agent assistant của home ví dụ (`pong`, `health-coach`) được với tới cùng một cách
+từ điện thoại như từ trình duyệt: bot của master nhận tin và master
+giao việc. Lịch của chúng chạy như trước và bản tin của chúng vẫn về chat, dưới
+tên của chúng ([channels.md](channels.md#giao-theo-lịch)).
 
-## Persona files
+## Tệp persona
 
-Persona files are plain Markdown; the loop concatenates each one as a `## <file name>`
-section of the system prompt, after the fixed frame and before the
-skills. Conventions that have worked:
+Tệp persona là Markdown thuần; vòng lặp nối mỗi tệp thành một mục `## <tên tệp>`
+của system prompt, sau khung cố định và trước
+các skill. Quy ước đã dùng tốt:
 
-| File | Put here |
+| Tệp | Đặt gì ở đây |
 |---|---|
-| `AGENTS.md` | how to work: what to do at the start of a turn, which scripts to run, how to write memory |
-| `SOUL.md` | tone, values, what the agent refuses |
-| `IDENTITY.md` | name, role, one-line self description |
-| `USER.md` | this agent's own angle on the person: what *it* needs to know to do its job |
+| `AGENTS.md` | cách làm việc: làm gì ở đầu lượt, chạy script nào, viết trí nhớ ra sao |
+| `SOUL.md` | giọng điệu, giá trị, những gì agent từ chối |
+| `IDENTITY.md` | tên, vai trò, một dòng tự mô tả |
+| `USER.md` | góc nhìn riêng của agent này về người dùng: *nó* cần biết gì để làm việc của mình |
 
-The shared `users/owner/USER.md` ([memory.md](memory.md)) is the one every agent reads and
-the place a general fact about the person belongs. An agent's own `USER.md` is a persona
-file: keep it to what only that agent cares about, and point at the shared one rather than
-copying it, or the two drift apart.
+`users/owner/USER.md` dùng chung ([memory.md](memory.md)) là tệp mọi agent đều đọc và
+là chỗ cho một sự thật chung về người dùng. `USER.md` riêng của agent là tệp
+persona: giữ nó ở những gì chỉ agent đó quan tâm, và trỏ tới tệp dùng chung thay vì
+sao chép, nếu không hai bản sẽ lệch nhau.
 
-Each section is capped at 24 000 characters; longer files are cut
-with a trailing `…`, so keep them short and move history into [memory](memory.md).
-Persona files are personal data and live in `MY_AGENT_HOME`, never in this repo.
+Mỗi mục bị cắt ở 24 000 ký tự; tệp dài hơn bị cắt
+kèm dấu `…` ở cuối, nên hãy giữ ngắn và chuyển lịch sử sang [memory](memory.md).
+Tệp persona là dữ liệu cá nhân và sống trong `MY_AGENT_HOME`, không bao giờ trong repo này.
 
-## Kits (`.agents/`, `.claude/`, `.opencode/`)
+## Kit (`.agents/`, `.claude/`, `.opencode/`)
 
-A **kit** is the folder the other harnesses keep their configuration in: Claude Code's
-`.claude/`, opencode's `.opencode/`, the cross-harness `.agents/` that Codex and others read.
-my-agent-crew reads all three, in that order, so a person who
-already has one can copy it in and keep their agents, commands, skills and hooks:
+**Kit** là thư mục mà các harness khác giữ cấu hình của chúng: `.claude/` của Claude Code,
+`.opencode/` của opencode, `.agents/` liên harness mà Codex và các harness khác đọc.
+my-agent-crew đọc cả ba, theo thứ tự đó, nên người
+đã có sẵn một kit có thể chép vào và giữ nguyên agent, command, skill và hook của mình:
 
 ```
 cp -r ~/.claude ~/.my-agent-crew/.agents      # or leave it named .claude, both are read
 ```
 
-Two places are searched, and a later kit shadows an earlier one by name:
+Hai chỗ được tìm, và kit sau che kit trước theo tên:
 
-| Kit | Where | Brings |
+| Kit | Ở đâu | Mang gì |
 |---|---|---|
-| home | `MY_AGENT_HOME/.agents` (`.claude`, `.opencode`) | agents, skills, commands, hooks — for the whole crew |
-| agent | `MY_AGENT_HOME/agents/<id>/.agents` | the same, for that agent only |
+| home | `MY_AGENT_HOME/.agents` (`.claude`, `.opencode`) | agent, skill, command, hook — cho cả đội |
+| agent | `MY_AGENT_HOME/agents/<id>/.agents` | như trên, chỉ cho agent đó |
 
-A kit inside an agent's **workspace** is never read, and neither is the `AGENTS.md` at its
-root. The repository an agent works in (a health database, a ledger, a codebase) is a data
-source: the agent runs its scripts and reads its files, but the `.claude/` there belongs to
-whoever develops that repository, and its hooks and subagents were written for another
-harness. What shapes a crew agent is only what sits in `MY_AGENT_HOME`.
+Kit nằm trong **workspace** của agent không bao giờ được đọc, và `AGENTS.md` ở gốc
+workspace cũng vậy. Repository mà agent làm việc trong đó (một cơ sở dữ liệu sức khoẻ, một sổ cái, một codebase) là nguồn
+dữ liệu: agent chạy script và đọc tệp của nó, nhưng `.claude/` ở đó thuộc về
+người phát triển repository đó, và hook cùng subagent của nó được viết cho một
+harness khác. Thứ định hình một agent của đội chỉ là những gì nằm trong `MY_AGENT_HOME`.
 
-What each part maps to:
+Mỗi phần ánh xạ sang gì:
 
-| In the kit | Here |
+| Trong kit | Ở đây |
 |---|---|
-| `agents/<id>.md` — front matter `name`, `description`, `tools`, `model`, plus our `mode`, `delegates`, `workspace`; the body is the persona | a crew member with that id (slug of `name`, else the file stem). Its memory and workspace live under `MY_AGENT_HOME/agents/<id>/` like any other; only the persona is read from the kit. A `model` written as `provider:model` becomes its `routes`; harness aliases (`sonnet`, `inherit`) mean the crew's routes. An `agents/<id>/agent.yaml` with the same id wins, so a kit never replaces an agent configured by hand |
-| `tools:` in that front matter | mapped by name: `Bash`→`shell_run`, `Read`→`workspace_read`, `Write`, `Edit`/`MultiEdit`→`workspace_edit`, `Glob`, `Grep`, `LS`→`workspace_list`, `WebFetch`→`fetch_url`, `WebSearch`→`web_search`, `Task`/`Agent`→`delegate`; our own names pass through, harness-only names (`TaskCreate`, `NotebookEdit`) are dropped. Memory, `skill_read` and `image_read` are always kept. An agent that may edit is `mode: work` unless the front matter says otherwise |
-| `commands/**/*.md` (front matter `description`, body the prompt) | a slash command `/name`, nested as `/dir:name`. `$ARGUMENTS` and `$1`…`$9` are filled from the message, otherwise the arguments are appended. Works in the web chat and on Telegram, where the built-in commands (`/new`, `/status`, …) keep their names; the master's prompt lists them |
-| `skills/` (or opencode's `skill/`) | one more skill directory after the agent's own |
-| `settings.json` → `hooks.PreToolUse` / `hooks.PostToolUse`, `type: command` entries | tool hooks, see below. Other hook kinds and events are skipped |
+| `agents/<id>.md` — front matter `name`, `description`, `tools`, `model`, cộng `mode`, `delegates`, `workspace` của chúng tôi; phần thân là persona | một thành viên đội với id đó (slug của `name`, nếu không thì tên tệp bỏ đuôi). Trí nhớ và workspace của nó sống dưới `MY_AGENT_HOME/agents/<id>/` như mọi agent khác; chỉ persona được đọc từ kit. `model` viết dạng `provider:model` thành `routes` của nó; alias của harness (`sonnet`, `inherit`) nghĩa là tuyến của đội. `agents/<id>/agent.yaml` cùng id sẽ thắng, nên kit không bao giờ thay thế agent cấu hình bằng tay |
+| `tools:` trong front matter đó | ánh xạ theo tên: `Bash`→`shell_run`, `Read`→`workspace_read`, `Write`, `Edit`/`MultiEdit`→`workspace_edit`, `Glob`, `Grep`, `LS`→`workspace_list`, `WebFetch`→`fetch_url`, `WebSearch`→`web_search`, `Task`/`Agent`→`delegate`; tên riêng của chúng tôi đi thẳng qua, tên chỉ có ở harness (`TaskCreate`, `NotebookEdit`) bị bỏ. Memory, `skill_read` và `image_read` luôn được giữ. Agent được phép sửa là `mode: work` trừ khi front matter nói khác |
+| `commands/**/*.md` (front matter `description`, thân là prompt) | một slash command `/name`, lồng thư mục thành `/dir:name`. `$ARGUMENTS` và `$1`…`$9` được điền từ tin nhắn, nếu không thì đối số được nối vào cuối. Chạy trong web chat và trên Telegram, nơi các lệnh có sẵn (`/new`, `/status`, …) giữ nguyên tên; prompt của master liệt kê chúng |
+| `skills/` (hoặc `skill/` của opencode) | thêm một thư mục skill sau thư mục riêng của agent |
+| `settings.json` → `hooks.PreToolUse` / `hooks.PostToolUse`, các mục `type: command` | hook tool, xem bên dưới. Các loại hook và sự kiện khác bị bỏ qua |
 
-**Hooks** run the command with the same JSON on stdin the harnesses send:
-`hook_event_name`, `tool_name`, `tool_alias` (the harness name, `Bash` for `shell_run`),
-`tool_input`, `agent_id`, `cwd`, and `tool_response` after the call. The matcher is a regex
-over both names, so a hook written for `Bash` fires for `shell_run`. Exit code 2, or JSON
-with `decision: block` / `permissionDecision: deny`, blocks the call and the model sees the
-reason; `additionalContext` is appended to the result; anything else — exit 1, a timeout
-(`timeout` seconds, default 30), a missing binary — passes, because a guard that fails
-must not take the agent's hands away. Commands run from the kit's parent directory with
-`CLAUDE_PROJECT_DIR` and `MY_AGENT_PROJECT_DIR` set to it. Scheduled `command` jobs go
-through the scheduler, not the tool registry, so hooks do not see them.
+**Hook** chạy lệnh với cùng JSON trên stdin mà các harness gửi:
+`hook_event_name`, `tool_name`, `tool_alias` (tên bên harness, `Bash` cho `shell_run`),
+`tool_input`, `agent_id`, `cwd`, và `tool_response` sau lời gọi. Matcher là regex
+trên cả hai tên, nên hook viết cho `Bash` sẽ kích hoạt với `shell_run`. Mã thoát 2, hoặc JSON
+với `decision: block` / `permissionDecision: deny`, chặn lời gọi và model thấy
+lý do; `additionalContext` được nối vào kết quả; mọi thứ khác — thoát 1, hết giờ
+(`timeout` giây, mặc định 30), thiếu binary — cho qua, vì hàng rào mà hỏng
+thì không được tước tay chân của agent. Lệnh chạy từ thư mục cha của kit với
+`CLAUDE_PROJECT_DIR` và `MY_AGENT_PROJECT_DIR` đặt về đó. Job `command` theo lịch đi
+qua scheduler, không qua sổ đăng ký tool, nên hook không thấy chúng.
 
-The crew tab shows, per agent, how many commands and hooks it carries and which kit roots
-they came from; `GET /api/agents` returns `commands`, `hooks` and `kits`.
+Thẻ đội hiện, theo từng agent, nó mang bao nhiêu command và hook và chúng đến từ gốc kit
+nào; `GET /api/agents` trả về `commands`, `hooks` và `kits`.
 
-## Skills
+## Skill
 
-A skill is a Markdown file with front matter (`name`, optional `description`, `always`,
-`requires`, `cliHelp`), either `name.md` or a folder `name/SKILL.md` whose siblings
-(scripts, references) the model reaches by the absolute path given in a `SKILL_LOCATION`
-line. Skills load from the builtin dir (`cite-sources`), then `<agent dir>/skills`, then
-each `skills_dirs` entry; a later skill with the same name overrides an earlier one.
-Skills are instructions for the model, [tools](tools.md) are functions it can call.
+Skill là một tệp Markdown có front matter (`name`, tuỳ chọn `description`, `always`,
+`requires`, `cliHelp`), hoặc là `name.md` hoặc là thư mục `name/SKILL.md` mà các tệp anh em
+(script, tài liệu tham khảo) được model với tới qua đường dẫn tuyệt đối ghi trong dòng `SKILL_LOCATION`.
+Skill nạp từ thư mục builtin (`cite-sources`), rồi `<agent dir>/skills`, rồi
+từng mục `skills_dirs`; skill sau cùng tên ghi đè skill trước.
+Skill là chỉ dẫn cho model, [tool](tools.md) là hàm nó gọi được.
 
 ### Front matter
 
-| Key | Meaning |
+| Khoá | Ý nghĩa |
 |---|---|
-| `name` | the name used everywhere; defaults to the file or folder name |
-| `description` | the one line shown in the index, so the model can tell whether to read the body |
-| `always` | `true` puts the whole body in every prompt |
-| `requires.bins` | command-line programs the skill drives, `[gws, jq]` or a single `jq` |
-| `cliHelp` | the one command that prints the real syntax, e.g. `gws --help` |
+| `name` | tên dùng ở mọi nơi; mặc định là tên tệp hoặc thư mục |
+| `description` | một dòng hiện trong chỉ mục, để model biết có nên đọc phần thân không |
+| `always` | `true` đưa toàn bộ phần thân vào mọi prompt |
+| `requires.bins` | chương trình dòng lệnh mà skill điều khiển, `[gws, jq]` hoặc một `jq` đơn |
+| `cliHelp` | một lệnh in ra cú pháp thật, ví dụ `gws --help` |
 
-`requires.bins` is checked against the machine at load. A skill whose program is missing
-is **kept**, not dropped: the index line carries `[thiếu: gws]` and the body opens with a
-warning, so an agent that cannot do the job knows why instead of failing halfway through.
-`cliHelp` is appended to the index line, and the system prompt carries one standing rule:
-read a command's `--help` once rather than trying a third syntax. Both exist because of a
-real run that burnt sixteen steps guessing flags for a program it had never seen.
+`requires.bins` được đối chiếu với máy lúc nạp. Skill thiếu chương trình
+được **giữ**, không bị bỏ: dòng chỉ mục mang `[thiếu: gws]` và phần thân mở đầu bằng một
+cảnh báo, nên agent không làm được việc biết vì sao thay vì hỏng giữa chừng.
+`cliHelp` được nối vào dòng chỉ mục, và system prompt mang một quy tắc thường trực:
+đọc `--help` của lệnh một lần thay vì thử cú pháp thứ ba. Cả hai tồn tại vì một
+lần chạy thật đã đốt mười sáu bước đoán cờ cho một chương trình nó chưa từng thấy.
 
 ```yaml
 ---
@@ -383,113 +383,113 @@ cliHelp: gws --help
 ---
 ```
 
-A skill reaches a prompt by one of three routes:
+Skill đến được prompt theo một trong ba đường:
 
-- `always: true` — its full text rides on every prompt.
-- attached to the conversation, from the settings drawer or a schedule's `skills:` list —
-  full text again, for the conversation the job opens.
-- neither — only its name and description appear under `## Kỹ năng có sẵn`, and the model
-  calls `skill_read` to pull the rest when it decides the work needs it. Above 40 indexed
-  skills the descriptions are dropped so the index stays scannable.
+- `always: true` — toàn văn của nó đi kèm mọi prompt.
+- gắn vào cuộc trò chuyện, từ ngăn cài đặt hoặc danh sách `skills:` của một lịch —
+  lại là toàn văn, cho cuộc trò chuyện job mở ra.
+- không cái nào — chỉ tên và mô tả hiện dưới `## Kỹ năng có sẵn`, và model
+  gọi `skill_read` để kéo phần còn lại khi nó quyết định việc cần đến. Trên 40 skill
+  trong chỉ mục thì mô tả bị bỏ để chỉ mục còn lướt được.
 
-A scheduled job that needs a skill should name it in the schedule. If it does not, one
-fallback applies: a prompt that spells out a skill's hyphenated name (`gws-shared`) gets
-that skill attached anyway. Only hyphenated names count, because a one-word name like
-`ledger` turns up in prompts that have nothing to do with the skill.
+Job theo lịch cần skill nên nêu tên skill trong lịch. Nếu không, có một
+fallback: prompt viết rõ tên có gạch nối của skill (`gws-shared`) vẫn được gắn
+skill đó. Chỉ tên có gạch nối được tính, vì tên một chữ như
+`ledger` xuất hiện trong những prompt chẳng liên quan gì đến skill.
 
-### A worked sample: `gws`
+### Mẫu hoàn chỉnh: `gws`
 
-`docs/examples/skills/gws/` is a complete CLI bundle to copy into a `skills_dirs` and fill
-in. It covers Gmail, Calendar, Tasks, Sheets, Drive and Docs in **one** skill rather than
-fifteen, because fifteen index lines that all say "Google Workspace" cost the model a
-choice it cannot make well, while one body it reads once carries the syntax it was going
-to guess at.
+`docs/examples/skills/gws/` là một gói CLI trọn vẹn để chép vào một `skills_dirs` rồi điền
+vào. Nó bao Gmail, Calendar, Tasks, Sheets, Drive và Docs trong **một** skill thay vì
+mười lăm, vì mười lăm dòng chỉ mục đều nói "Google Workspace" bắt model
+chọn một thứ nó không chọn tốt được, còn một phần thân đọc một lần mang sẵn cú pháp nó sắp
+phải đoán.
 
-Two things in it are worth copying even for a different program.
+Hai thứ trong đó đáng chép lại kể cả cho một chương trình khác.
 
-**Everything goes through a wrapper**, `scripts/gws-run.sh`, and nothing calls the binary
-directly. The wrapper does two jobs and no more. It refuses the calls that would break the
-shared credentials for everyone — `auth login`, which opens a browser nobody is there to
-click and so hangs until the run times out, and any attempt to point the CLI at a different
-credentials file, whose symptom is a 401 somewhere else entirely. Then it turns a non-zero
-exit into one JSON line naming the fix, because a model that only sees "exit 1" retries the
-same command until its steps run out. That line goes to **stderr**: a read command's stdout
-is piped into `jq` by the data scripts, and a JSON object appended to a table of calendar
-events is a parse error, not a diagnosis.
+**Mọi thứ đi qua một wrapper**, `scripts/gws-run.sh`, và không gì gọi binary
+trực tiếp. Wrapper làm hai việc và không hơn. Nó từ chối những lời gọi sẽ làm hỏng
+thông tin đăng nhập dùng chung của mọi người — `auth login`, mở trình duyệt mà không ai ở đó để
+bấm nên treo tới khi run hết giờ, và mọi cố gắng trỏ CLI tới tệp
+thông tin đăng nhập khác, triệu chứng của nó là một 401 ở nơi hoàn toàn khác. Rồi nó biến mã thoát khác không
+thành một dòng JSON nêu cách sửa, vì model chỉ thấy "exit 1" sẽ thử lại
+đúng lệnh đó tới khi hết bước. Dòng đó đi ra **stderr**: stdout của lệnh đọc
+được các script dữ liệu pipe vào `jq`, và một object JSON nối vào cuối bảng sự kiện
+lịch là lỗi parse, không phải chẩn đoán.
 
-**The write guard is `shell_ask_patterns`, not the skill text.** The body saying "ask first"
-is a hint the model may drop under pressure; the pattern list is enforcement. The patterns
-match the shape of a write — `+send`, `+reply`, `+insert`, `+append`, `+upload`, `+write`,
-`tasks insert` — and never the program name, because matching is substring and a bare `gws`
-would stop the read-only briefing scripts too. Sent mail is worth an interruption even when
-the agent is `autonomous: true`, which is exactly the case this list exists for.
+**Hàng rào ghi là `shell_ask_patterns`, không phải văn bản skill.** Phần thân nói "hỏi trước"
+là gợi ý model có thể bỏ khi bị ép; danh sách mẫu là cưỡng chế. Các mẫu
+khớp hình dạng của một lần ghi — `+send`, `+reply`, `+insert`, `+append`, `+upload`, `+write`,
+`tasks insert` — và không bao giờ khớp tên chương trình, vì so khớp là chuỗi con và một `gws` trần
+sẽ chặn luôn cả các script bản tin chỉ đọc. Thư đã gửi đáng để ngắt ngay cả khi
+agent là `autonomous: true`, và đó chính là trường hợp danh sách này tồn tại.
 
-The sample carries `<EMAIL>`, `<SPREADSHEET_ID>` and `<DRIVE_FOLDER_ID>` instead of real
-values, and a test rejects the bundle if an address or a long mixed-character id ever
-appears in it. An account id belongs in the copy under your own home directory.
+Mẫu mang `<EMAIL>`, `<SPREADSHEET_ID>` và `<DRIVE_FOLDER_ID>` thay vì giá trị
+thật, và một test từ chối gói nếu có một địa chỉ hay một id dài lẫn ký tự
+xuất hiện trong đó. Id tài khoản thuộc về bản sao dưới thư mục home của riêng bạn.
 
-### A second sample: `goodreads`
+### Mẫu thứ hai: `goodreads`
 
-`docs/examples/skills/goodreads/` is the same bundle shape against a service with no API.
-It adds two things the `gws` sample has no reason to show.
+`docs/examples/skills/goodreads/` là cùng hình dạng gói nhưng với một dịch vụ không có API.
+Nó thêm hai thứ mà mẫu `gws` không có lý do để cho thấy.
 
-**The bundle carries its own config.** The reading script takes its account id from
-`scripts/goodreads.json` next to itself, not from an argument and not from the agent's
-environment, so `shelf --shelf currently-reading` is the whole command and there is no id
-for a model to get wrong or to repeat into a log. The bundle ships
-`goodreads.json.example` and gitignores the real one. A skill that drives an account is
-easier to copy when the account lives in one file the copier edits once.
+**Gói mang cấu hình của riêng nó.** Script đọc lấy id tài khoản từ
+`scripts/goodreads.json` nằm cạnh nó, không từ đối số và không từ môi trường
+của agent, nên `shelf --shelf currently-reading` là toàn bộ lệnh và không có id nào
+để model ghi sai hay lặp vào log. Gói đi kèm
+`goodreads.json.example` và gitignore tệp thật. Skill điều khiển một tài khoản
+dễ chép hơn khi tài khoản nằm trong một tệp người chép sửa một lần.
 
-**A call that returns nothing is a failure, not an empty answer.** Goodreads answers a
-blocked page request with a 202 and an empty body rather than an error status, so the HTTP
-client raises nothing and a parser turns that silence into a record of nulls that reads
-exactly like a real answer. The script checks for an empty body and raises instead, and
-the skill body tells the agent to report the block rather than scrape around it. This is
-worth copying for any scraped source: the dangerous failure is not the one that throws,
-it is the one that returns a well-formed object full of nothing.
+**Lời gọi trả về rỗng là thất bại, không phải câu trả lời rỗng.** Goodreads trả lời
+request trang bị chặn bằng 202 và thân rỗng thay vì mã lỗi, nên HTTP
+client không ném gì và parser biến sự im lặng đó thành một bản ghi toàn null đọc
+y hệt câu trả lời thật. Script kiểm tra thân rỗng và ném lỗi thay vào đó, và
+phần thân skill bảo agent báo bị chặn thay vì lách qua. Điều này
+đáng chép cho mọi nguồn scrape: thất bại nguy hiểm không phải cái ném lỗi,
+mà là cái trả về một object đúng dạng nhưng rỗng ruột.
 
-The write half goes through one wrapper, so unlike `gws` the wrapper's **own name** is the
-shape of a write and `goodreads-write` is a sufficient `shell_ask_patterns` entry. That
-only holds because the reading script has a different name. Check it the way the shape of
-any pattern list gets checked — run the real read commands and the real write commands
-through `ask_reason` and count.
+Nửa ghi đi qua một wrapper, nên khác với `gws`, **chính tên** của wrapper là
+hình dạng của một lần ghi và `goodreads-write` là một mục `shell_ask_patterns` đủ dùng. Điều đó
+chỉ đúng vì script đọc có tên khác. Kiểm tra nó theo cách kiểm tra hình dạng
+của bất kỳ danh sách mẫu nào — chạy các lệnh đọc thật và các lệnh ghi thật
+qua `ask_reason` rồi đếm.
 
-## Schedules
+## Lịch
 
-Each entry in `schedules` becomes a job `<agent id>/<schedule id>` in the scheduler
-(20 s tick, cron fields read in the `timezone` of `config.yaml`, the machine zone by default).
+Mỗi mục trong `schedules` thành một job `<agent id>/<schedule id>` trong scheduler
+(tick 20 s, trường cron đọc theo `timezone` của `config.yaml`, mặc định là múi giờ của máy).
 
-| Key | Meaning |
+| Khoá | Ý nghĩa |
 |---|---|
-| `id` | default `job-<index>`; used in the job name and in `POST /api/jobs/{agent}/{id}/run` |
-| `name` | default the id; shown in the UI |
-| `cron` **or** `every` | exactly one: five-field cron, or `30m` / `2h` / `1d` |
-| `prompt` **or** `command` | exactly one: a prompt opens a fresh autonomous conversation and runs a turn; a command runs through `shell_run` in the workspace and records only that step |
-| `enabled` | default `true`. An enabled schedule can be paused and resumed from the jobs tab (`PATCH /api/jobs/{agent}/{id}/state`); that switch is stored in the `job_state` table and survives a restart. A schedule disabled here can only be turned on by editing the yaml |
-| `skills` | list of skill names attached in full to the conversation a prompt job opens; default empty, and a name that no skill provides is logged as a warning at startup. A hyphenated skill name written in the `prompt` is attached too |
+| `id` | mặc định `job-<index>`; dùng trong tên job và trong `POST /api/jobs/{agent}/{id}/run` |
+| `name` | mặc định là id; hiện trong UI |
+| `cron` **hoặc** `every` | đúng một trong hai: cron năm trường, hoặc `30m` / `2h` / `1d` |
+| `prompt` **hoặc** `command` | đúng một trong hai: prompt mở một cuộc trò chuyện autonomous mới và chạy một lượt; command chạy qua `shell_run` trong workspace và chỉ ghi lại bước đó |
+| `enabled` | mặc định `true`. Lịch đang bật có thể tạm dừng và tiếp tục từ thẻ job (`PATCH /api/jobs/{agent}/{id}/state`); công tắc đó lưu trong bảng `job_state` và sống qua khởi động lại. Lịch tắt ở đây chỉ bật lại được bằng cách sửa yaml |
+| `skills` | danh sách tên skill gắn toàn văn vào cuộc trò chuyện mà job prompt mở ra; mặc định rỗng, và tên không skill nào cung cấp được ghi log cảnh báo lúc khởi động. Tên skill có gạch nối viết trong `prompt` cũng được gắn |
 
-### One script per job
+### Một script mỗi job
 
-A prompt job that gathers data from several places should call **one** script that returns
-one JSON blob, not drive each command from the model. A job doing its own orchestration
-spends most of its step budget on shell syntax and can hit `max_steps` before it writes a
-word of the answer; a script spends one step. Keep the script outside the repo when it
-carries account ids or paths. `docs/examples/job-data-script.sh` is the shape: every
-command guarded so one failure records an error and the rest of the data still arrives.
+Job prompt gom dữ liệu từ nhiều nơi nên gọi **một** script trả về
+một khối JSON, chứ không để model điều khiển từng lệnh. Job tự điều phối
+tiêu phần lớn ngân sách bước vào cú pháp shell và có thể chạm `max_steps` trước khi viết một
+chữ của câu trả lời; script chỉ tốn một bước. Giữ script ngoài repo khi nó
+mang id tài khoản hoặc đường dẫn. `docs/examples/job-data-script.sh` là hình mẫu: mọi
+lệnh đều được rào để một thất bại ghi lại lỗi và phần dữ liệu còn lại vẫn về.
 
-A `memory_consolidate` cron becomes a job of the same shape, `<agent id>/memory-consolidate`,
-with no prompt or command of its own. It does two things in a row: rewrite `MEMORY.md`, then
-compile the wiki vault from the same notes. The compile has no cron of its own because both
-halves read the same notes and the vault should settle from the same night's reading. Each
-gets its own run in Activity, and a failed compile does not fail the job — the rewrite has
-already landed by then, and reporting the whole job as failed would send someone looking for
-damage that is not there. See [memory.md](memory.md#compiling).
+Cron `memory_consolidate` thành một job cùng hình dạng, `<agent id>/memory-consolidate`,
+không có prompt hay command riêng. Nó làm hai việc liên tiếp: viết lại `MEMORY.md`, rồi
+biên dịch wiki vault từ chính các ghi chú đó. Việc biên dịch không có cron riêng vì cả hai
+nửa đọc cùng ghi chú và vault nên lắng từ cùng một đêm đọc. Mỗi nửa
+có run riêng trong Activity, và biên dịch hỏng không làm job hỏng — lúc đó bản viết lại
+đã xong rồi, và báo cả job thất bại sẽ khiến ai đó đi tìm
+hư hại không có ở đó. Xem [memory.md](memory.md#compile).
 
-After a prompt job the scheduler pushes the last reply to
-the master's Telegram chat when there is one, under the agent's name (a morning brief lands
-in Telegram; see [channels.md](channels.md)). Delivery failure is logged, never retried.
+Sau một job prompt, scheduler đẩy câu trả lời cuối tới
+chat Telegram của master khi có, dưới tên của agent (bản tin sáng về
+Telegram; xem [channels.md](channels.md)). Gửi thất bại được ghi log, không bao giờ thử lại.
 
-## Example
+## Ví dụ
 
 ```yaml
 name: HLV sức khoẻ
@@ -515,11 +515,11 @@ schedules:
 memory_consolidate: "30 3 * * 1"
 ```
 
-## Compared with openclaw
+## So với openclaw
 
-openclaw keeps agents in one JSON config with per-agent overrides; here each agent is a
-folder, so copying an agent is copying a directory. openclaw's workspace files
-(`AGENTS.md`, `SOUL.md`, `IDENTITY.md`, `USER.md`, `MEMORY.md`, `memory/`) have the same
-names and roles, which is deliberate: an openclaw workspace can be dropped into
-`agents/<id>/` and used as is. Not carried over: per-agent model parameters beyond the
-route list, sandboxing modes, and multi-user identity.
+openclaw giữ agent trong một tệp cấu hình JSON với override theo từng agent; ở đây mỗi agent là một
+thư mục, nên chép một agent là chép một thư mục. Các tệp workspace của openclaw
+(`AGENTS.md`, `SOUL.md`, `IDENTITY.md`, `USER.md`, `MEMORY.md`, `memory/`) có cùng
+tên và vai trò, và đó là cố ý: một workspace openclaw có thể thả vào
+`agents/<id>/` và dùng ngay. Không mang sang: tham số model theo từng agent ngoài
+danh sách tuyến, các chế độ sandbox, và định danh nhiều người dùng.

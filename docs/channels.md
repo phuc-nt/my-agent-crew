@@ -1,34 +1,34 @@
-# Channels
+# Kênh
 
 **Phiên bản**: 0.5.0 (+ chưa phát hành) · **Cập nhật**: 2026-09-24
 
-A channel lets the person talk to the crew somewhere other than the web UI. Today that is
-Telegram. Every platform hands a message to the same inbound gate: it finds the agent,
-opens or reuses today's conversation on that channel,
-runs the turn under activity tracking and returns the reply. Turns from Telegram therefore
-run through the same loop as the web UI, with source `telegram`, so the rail shows them.
+Kênh cho phép người dùng nói chuyện với đội ở nơi khác ngoài web UI. Hiện nay đó là
+Telegram. Mọi nền tảng đều đưa tin nhắn tới cùng một cổng inbound: cổng tìm agent,
+mở hoặc dùng lại cuộc trò chuyện hôm nay trên kênh đó,
+chạy lượt dưới theo dõi hoạt động và trả lời. Vì vậy lượt từ Telegram
+chạy qua cùng vòng lặp với web UI, với nguồn `telegram`, nên rail hiển thị chúng.
 
-Telegram works the way the web UI does: **the person talks to the master** and the master
-delegates to the crew (`delegate` tool, see [agents.md](agents.md#the-master-agent)).
-There is no agent picker on the phone either, no `@id` mention and no per-agent bot.
+Telegram hoạt động như web UI: **người dùng nói chuyện với master** và master
+giao việc cho đội (tool `delegate`, xem [agents.md](agents.md#agent-master)).
+Trên điện thoại cũng không có bộ chọn agent, không có nhắc `@id` và không có bot riêng cho từng agent.
 
-A platform without an adapter of its own talks to the gate over HTTP:
+Nền tảng chưa có adapter riêng nói chuyện với cổng qua HTTP:
 
 ```
 POST /api/inbound {"text": "…", "agent_id"?: "default", "channel"?: "api", "conversation_id"?: "…", "source"?: "api"}
 → 200 {"conversation_id": "…", "agent_id": "default", "text": "…", "status": "done", "steps": 2}
 ```
 
-`channel` picks the per-day conversation (`api:<something>` keeps one relay apart from
-another), `conversation_id` continues a given one instead, and `source` is what the run
-shows in the activity view. 404 for an unknown agent or conversation, 409 while the
-conversation waits on an approval. `status` is `done`, `halted`, `error` or
-`approval_required`, and the text then ends with the matching notice. This is also the way
-to test a feature end to end: one request, one reply, no browser.
+`channel` chọn cuộc trò chuyện theo ngày (`api:<something>` tách một relay khỏi
+relay khác), `conversation_id` thì tiếp tục một cuộc cụ thể thay vào đó, và `source` là thứ run
+hiển thị trong view hoạt động. 404 khi agent hoặc cuộc trò chuyện không tồn tại, 409 khi
+cuộc trò chuyện đang chờ duyệt. `status` là `done`, `halted`, `error` hoặc
+`approval_required`, và khi đó text kết thúc bằng thông báo tương ứng. Đây cũng là cách
+test một tính năng đầu-cuối: một request, một câu trả lời, không cần trình duyệt.
 
-## Configuration
+## Cấu hình
 
-The block goes on the **master's** profile, `MY_AGENT_HOME/agent.yaml`:
+Khối này đặt trên profile của **master**, `MY_AGENT_HOME/agent.yaml`:
 
 ```yaml
 telegram:
@@ -36,157 +36,157 @@ telegram:
   chat_id: 123456789                           # the only chat the bot answers
 ```
 
-Both keys are required; `chat_id` is an int. The token itself lives in the server's
-environment — `<home>/env`, which the server loads at startup and the web UI's **Kết nối**
-page writes. Setting the block from the agent editor, or saving its token on Kết nối, rebuilds
-the channel in place; a hand edit of `agent.yaml` still
-needs a restart. Only a change to the master, its token's value or its `chat_id` rebuilds
-the bot; any other edit (a search key, a member's profile) hands the running bot the new
-agents without stopping it. When the env var is unset the
-server logs `agent default: env var <NAME> is not set; telegram channel disabled` and
-starts without the channel; otherwise `telegram channel enabled for default`. A
-`telegram:` block on a crew member's `agents/<id>/agent.yaml` is ignored with the warning
-`agent <id>: telegram belongs to the master; its block is ignored` — the person has one
-door to the crew, and a second bot would be a second door. Updates from any other chat are
-ignored and logged.
+Cả hai key đều bắt buộc; `chat_id` là int. Bản thân token nằm trong môi trường của
+server — `<home>/env`, được server nạp lúc khởi động và trang **Kết nối** của web UI
+ghi vào. Đặt khối này từ trình sửa agent, hoặc lưu token của nó ở Kết nối, sẽ dựng lại
+kênh tại chỗ; sửa tay `agent.yaml` vẫn
+cần restart. Chỉ thay đổi ở master, giá trị token của nó hoặc `chat_id` mới dựng lại
+bot; mọi sửa đổi khác (khoá tìm kiếm, profile của một thành viên) đưa danh sách agent mới cho
+bot đang chạy mà không dừng nó. Khi env var chưa đặt,
+server ghi log `agent default: env var <NAME> is not set; telegram channel disabled` và
+khởi động không có kênh; ngược lại thì `telegram channel enabled for default`. Khối
+`telegram:` trên `agents/<id>/agent.yaml` của một thành viên đội bị bỏ qua kèm cảnh báo
+`agent <id>: telegram belongs to the master; its block is ignored` — người dùng có một
+cửa vào đội, và bot thứ hai sẽ là cửa thứ hai. Update từ bất kỳ chat nào khác bị
+bỏ qua và ghi log.
 
-## One bot, the master, the crew
+## Một bot, master, đội
 
-One bot is built, for the master. Everything typed in the chat
-is a turn of the master's conversation; when the answer belongs to Pong or the coach the
-master delegates and relays, exactly as in the web UI, and the delegate's run shows up in
-the manage screen's activity section under its own name.
+Chỉ một bot được dựng, cho master. Mọi thứ gõ trong chat
+là một lượt của cuộc trò chuyện với master; khi câu trả lời thuộc về Pong hay HLV thì
+master giao việc và chuyển tiếp, đúng như trong web UI, và run của agent được giao xuất hiện
+trong phần hoạt động của màn hình quản lý dưới tên riêng của nó.
 
-The crew still reaches the chat in two ways:
+Đội vẫn tới được chat theo hai cách:
 
-- **Scheduled briefs.** After a prompt job of any agent the scheduler hands the reply to
-  the channel, which sends it under a first line
-  `[Agent name]`, with `MEDIA:` paths resolved in *that*
-  agent's workspace, so a coach's morning chart still arrives as a photo. The master's own
-  replies carry no prefix.
-- **Attachments.** A photo or document lands in the **master's** inbox; the master passes
-  the saved path along in the delegate task when a crew member should read it.
+- **Bản tin theo lịch.** Sau một prompt job của bất kỳ agent nào, scheduler đưa câu trả lời cho
+  kênh, kênh gửi nó với dòng đầu
+  `[Agent name]`, các đường dẫn `MEDIA:` được giải trong workspace của *chính*
+  agent đó, nên biểu đồ buổi sáng của HLV vẫn tới dưới dạng ảnh. Câu trả lời của chính master
+  không có tiền tố.
+- **Tệp đính kèm.** Ảnh hoặc tài liệu rơi vào inbox của **master**; master chuyển
+  đường dẫn đã lưu vào task giao việc khi một thành viên đội cần đọc nó.
 
-Each turn's messages live in the master's conversation only: there is no per-agent
-history on the chat to keep apart and nothing to share between agents beyond what the
-master tells them in the task.
+Message của mỗi lượt chỉ nằm trong cuộc trò chuyện của master: không có lịch sử
+riêng theo agent trên chat cần tách bạch và không có gì cần chia sẻ giữa các agent ngoài những gì
+master nói với chúng trong task.
 
-## Conversations
+## Cuộc trò chuyện
 
-Each text message becomes a turn of the master's conversation for today on the channel
-`telegram:<chat_id>` (title `Telegram · YYYY-MM-DD`, opened on first use each day, or with
-`/new`). While the turn runs the chat shows "typing…" (`sendChatAction` every 4 s). The
-reply is every assistant text of the turn joined in order, including text written next to
-a tool call, plus halt, error and approval notices. A turn that ends without a single word
-says so with the step count instead of sending nothing: silence is indistinguishable from
-a dead bot, and the same holds for a delivered brief whose run finished empty. Replies go
-out as plain text in
-4 096-char chunks; a `MEDIA:<path>` line becomes `sendPhoto` from the workspace of the
-agent whose conversation is being sent.
+Mỗi tin nhắn văn bản trở thành một lượt của cuộc trò chuyện với master cho hôm nay trên kênh
+`telegram:<chat_id>` (tiêu đề `Telegram · YYYY-MM-DD`, mở khi dùng lần đầu mỗi ngày, hoặc bằng
+`/new`). Trong lúc lượt chạy, chat hiện "đang gõ…" (`sendChatAction` mỗi 4 s). Câu
+trả lời là mọi text của assistant trong lượt ghép theo thứ tự, gồm cả text viết cạnh
+một tool call, cộng các thông báo dừng, lỗi và duyệt. Lượt kết thúc mà không có một chữ nào
+sẽ nói vậy kèm số bước thay vì không gửi gì: im lặng không phân biệt được với
+bot chết, và bản tin được giao mà run kết thúc rỗng cũng vậy. Câu trả lời gửi
+đi dưới dạng plain text theo
+khúc 4 096 ký tự; dòng `MEDIA:<path>` trở thành `sendPhoto` từ workspace của
+agent có cuộc trò chuyện đang được gửi.
 
-A photo or a document the person sends is downloaded (largest photo size, or the document
-under its own name reduced to a plain file name) into `<master workspace>/inbox/` as
-`<YYYYMMDD-HHMMSS>-<name>`, and the turn's text is `[Tệp đính kèm đã lưu: <path>]` with the
-caption after it. The model does not see the image; the master's
-persona says what to do with the path, such as handing it to the agent that reads papers.
-A download that fails is reported to the chat without a model turn. Slash commands are not
-read from captions.
+Ảnh hoặc tài liệu người dùng gửi được tải về (cỡ ảnh lớn nhất, hoặc tài liệu
+dưới tên của nó rút gọn thành tên tệp thường) vào `<master workspace>/inbox/` dưới dạng
+`<YYYYMMDD-HHMMSS>-<name>`, và text của lượt là `[Tệp đính kèm đã lưu: <path>]` với
+caption đi sau. Model không thấy ảnh; persona của master
+nói phải làm gì với đường dẫn, chẳng hạn đưa nó cho agent đọc bài báo.
+Tải về thất bại được báo vào chat mà không có lượt model. Lệnh slash không được
+đọc từ caption.
 
-Several photos sent at once arrive as one update per photo sharing a `media_group_id`, the
-caption on the first only. The channel gathers consecutive updates of one album into
-one turn whose text lists every saved path, then the caption; a poll that ends inside an
-album asks Telegram again up to three times, one second apart, before handing the agent a
-half album. The offset moves past the whole group at once, so a crash mid-album repeats
-the album rather than splitting it.
+Nhiều ảnh gửi cùng lúc tới dưới dạng mỗi ảnh một update cùng chung `media_group_id`,
+caption chỉ ở ảnh đầu. Kênh gom các update liên tiếp của một album thành
+một lượt mà text liệt kê mọi đường dẫn đã lưu, rồi tới caption; một poll kết thúc giữa
+album sẽ hỏi lại Telegram tối đa ba lần, cách nhau một giây, trước khi đưa cho agent
+nửa album. Offset nhảy qua cả nhóm một lần, nên crash giữa album sẽ lặp lại
+album thay vì tách nó.
 
-A new conversation does not start blank: the summary of the previous conversation on the
-same channel is carried into the prompt as a **Cuộc trước** section, so `/new` and the
-first message of a new day pick up where the
-last one left off without replaying its messages.
+Cuộc trò chuyện mới không bắt đầu trống: tóm tắt của cuộc trò chuyện trước trên
+cùng kênh được đưa vào prompt dưới mục **Cuộc trước**, nên `/new` và
+tin nhắn đầu tiên của ngày mới tiếp nối chỗ
+cuộc trước dừng lại mà không phát lại các message của nó.
 
-## Commands
+## Lệnh
 
-Answered by the channel without a model call, and registered with `setMyCommands` once per
-process so the client shows them.
+Được kênh trả lời không cần gọi model, và đăng ký bằng `setMyCommands` một lần mỗi
+tiến trình để client hiển thị chúng.
 
-| Command | Effect |
+| Lệnh | Tác dụng |
 |---|---|
-| `/new`, `/reset`, `/start` | open another conversation |
-| `/help` | the command list |
-| `/status` | turns, spend vs cap, routes, pending approval, last run (start time in the person's zone, see `timezone` in [agents.md](agents.md#agentyaml); runs are stored in UTC) |
-| `/tools` | the master's tool names |
-| `/approve`, `/deny` | resolve the pending approval and stream the rest of the turn back |
+| `/new`, `/reset`, `/start` | mở cuộc trò chuyện khác |
+| `/help` | danh sách lệnh |
+| `/status` | số lượt, chi tiêu so với trần, tuyến, duyệt đang chờ, run gần nhất (giờ bắt đầu theo múi giờ của người dùng, xem `timezone` trong [agents.md](agents.md#agentyaml); run được lưu theo UTC) |
+| `/tools` | tên các tool của master |
+| `/approve`, `/deny` | giải quyết duyệt đang chờ và stream phần còn lại của lượt về |
 
-`/status@botname` works; `/usr/bin` or a sentence starting with `/` is not a command and
-goes to the model. A message while a tool waits for approval gets a reminder instead of a
-turn.
+`/status@botname` dùng được; `/usr/bin` hoặc câu bắt đầu bằng `/` không phải lệnh và
+đi tới model. Tin nhắn trong lúc một tool đang chờ duyệt nhận được lời nhắc thay vì một
+lượt.
 
-A question the agent asked with `ask_user` is the one pause that does not work this way.
-`/approve` and `/deny` are refused on it, because there is nothing to authorise: what is
-missing is a sentence only the person can write. So while a question is open the next
-ordinary message from the owner is read as the answer rather than as a new request. A bare
-number picks that choice out of the numbered list the question was sent with — `2` on a
-`1. có / 2. không` question answers `không` — and anything else is passed through as words,
-including a number the list has no entry for and a sentence that merely begins with one.
-This is how a chat stands in for the web's question card; see
-[Asking the person](tools.md#asking-the-person).
+Câu hỏi agent đặt bằng `ask_user` là chỗ dừng duy nhất không hoạt động theo cách này.
+`/approve` và `/deny` bị từ chối ở đó, vì không có gì để cho phép: thứ còn
+thiếu là một câu chỉ người dùng mới viết được. Nên khi một câu hỏi đang mở, tin nhắn
+thường tiếp theo từ chủ được đọc là câu trả lời chứ không phải yêu cầu mới. Một
+số trơn chọn lựa chọn đó trong danh sách đánh số mà câu hỏi gửi kèm — `2` trên câu hỏi
+`1. có / 2. không` trả lời `không` — còn mọi thứ khác được chuyển nguyên dạng chữ,
+kể cả số mà danh sách không có mục tương ứng và câu chỉ mới bắt đầu bằng một số.
+Đây là cách chat thay cho thẻ câu hỏi của web; xem
+[Hỏi người dùng](tools.md#hỏi-người-dùng).
 
-## Scheduled delivery
+## Giao theo lịch
 
-After every prompt job the scheduler asks the runtime to deliver that conversation, which
-forwards the assistant text of its last turn to the chat when the master
-has a channel. A crew member's brief carries the `[Name]` prefix; a conversation of an
-agent the runtime does not know is logged and not sent. When the last turn ended without any assistant text (a run halted at
-`max_steps`, a provider error, an approval left pending) the channel sends a
-"run unfinished" notice with the run's summary instead of staying silent, so a
-scheduled job never disappears without a trace. When an approval in that turn timed out
-(`approval_ttl_seconds`), the delivery first says which tool was refused by the deadline,
-so the reply that follows is read as one shaped by a guard, not by the person.
+Sau mỗi prompt job, scheduler yêu cầu runtime giao cuộc trò chuyện đó, tức là
+chuyển tiếp text của assistant ở lượt cuối tới chat khi master
+có kênh. Bản tin của thành viên đội mang tiền tố `[Name]`; cuộc trò chuyện của
+agent mà runtime không biết được ghi log và không gửi. Khi lượt cuối kết thúc mà không có text nào của assistant (run dừng ở
+`max_steps`, lỗi provider, một duyệt còn treo) kênh gửi
+thông báo "run chưa xong" kèm tóm tắt của run thay vì im lặng, nên
+job theo lịch không bao giờ biến mất không dấu vết. Khi một duyệt trong lượt đó hết hạn
+(`approval_ttl_seconds`), phần giao nói trước tool nào bị từ chối vì quá hạn,
+để câu trả lời theo sau được đọc là do hàng rào tạo hình, không phải do người.
 
-A run that stopped early but *did* leave text behind is the trickier case: the half-finished
-answer reads like a complete one. So after sending the text, a run whose status is `halted`
-or `error` gets a second "cut short" message naming the reason and what the run spent. Either way the scheduler logs one line per prompt job —
-`job <id>: delivered=<bool> conv=<id> status=<status>` — so the log distinguishes a job that
-answered from one that stayed quiet. A failed delivery is logged, not retried.
+Run dừng sớm nhưng *có* để lại text là trường hợp khó hơn: câu trả lời
+nửa chừng đọc như một câu trả lời hoàn chỉnh. Nên sau khi gửi text, run có status `halted`
+hoặc `error` nhận thêm tin nhắn thứ hai "bị cắt ngắn" nêu lý do và run đã tiêu bao nhiêu. Dù thế nào scheduler cũng ghi một dòng log cho mỗi prompt job —
+`job <id>: delivered=<bool> conv=<id> status=<status>` — để log phân biệt job đã
+trả lời với job im lặng. Giao thất bại được ghi log, không thử lại.
 
-## Offsets and restarts
+## Offset và restart
 
-The `getUpdates` offset is written to `MY_AGENT_HOME/telegram.offset` before each update is
-handled, so a message that crashes the handler is not replayed forever. The file names the
-bot it belongs to (`<bot id> <offset>`); after the token is swapped for another bot's, the
-new bot starts from 0 rather than skipping its messages under the old bot's numbering. A `409` from Telegram means another process still polls the bot (an old server, another
-tool); the channel logs `another poller holds this bot` and retries every 5 s.
+Offset của `getUpdates` được ghi vào `MY_AGENT_HOME/telegram.offset` trước khi mỗi update được
+xử lý, nên tin nhắn làm handler crash không bị phát lại mãi. Tệp ghi tên
+bot mà nó thuộc về (`<bot id> <offset>`); sau khi token được đổi sang bot khác,
+bot mới bắt đầu từ 0 thay vì bỏ qua tin nhắn của nó theo cách đánh số của bot cũ. `409` từ Telegram nghĩa là tiến trình khác vẫn đang poll bot (server cũ, tool
+khác); kênh ghi log `another poller holds this bot` và thử lại mỗi 5 s.
 
-Stopping the bot (a rebuild after its token or chat changed, or the server shutting down) lets the
-message in hand finish, for up to 30 s, leaves messages queued behind it unconfirmed for the
-next bot, and returns only once the poll loop has ended, so the
-new bot never polls alongside the old one. An idle long poll is cut off at once. A turn
-still running after the 30 s is cancelled, and the chat is told so ("…có thể chưa được trả
-lời trọn vẹn… gửi lại giúp mình nhé") so the person resends rather than waits for an answer
-that will not come. It says "may": the cut can land after the reply's text went out, while
-its attachments were still uploading. The notice is best effort, capped at 5 s, and a failure to send it is logged
-without the token.
+Dừng bot (dựng lại sau khi token hoặc chat đổi, hoặc server tắt) để
+tin nhắn đang xử lý chạy xong, tối đa 30 s, để các tin nhắn xếp sau nó chưa xác nhận cho
+bot tiếp theo, và chỉ trả về khi vòng poll đã kết thúc, nên
+bot mới không bao giờ poll song song với bot cũ. Long poll đang rảnh bị cắt ngay. Lượt
+vẫn chạy sau 30 s bị huỷ, và chat được báo ("…có thể chưa được trả
+lời trọn vẹn… gửi lại giúp mình nhé") để người dùng gửi lại thay vì chờ câu trả lời
+sẽ không tới. Nó nói "có thể": nhát cắt có thể rơi sau khi text của câu trả lời đã đi, trong lúc
+tệp đính kèm vẫn đang tải lên. Thông báo là best effort, giới hạn 5 s, và gửi thất bại được ghi log
+không kèm token.
 
-## Secrets
+## Bí mật
 
-The token never reaches logs: API errors are redacted to `<token>` before they are raised
-(the file-download URL included), and one logging filter scrubs every token the process has used — the bot's, a replaced one,
-one only checked from Kết nối — from `httpx` request lines. Profiles hold env-var names
-only, the settings drawer shows key presence only, and `agents/` is personal data outside
-this repo.
+Token không bao giờ tới log: lỗi API được redact thành `<token>` trước khi raise
+(kể cả URL tải tệp), và một logging filter xoá mọi token tiến trình đã dùng — của bot, token đã thay,
+token chỉ kiểm tra từ Kết nối — khỏi các dòng request của `httpx`. Profile chỉ giữ tên env var,
+ngăn cài đặt chỉ hiện có khoá hay không, và `agents/` là dữ liệu cá nhân nằm ngoài
+repo này.
 
-## Adding a channel
+## Thêm kênh
 
-A channel lives under `channels/`, is built from a block on the master's profile, and does
-three things: start, stop, and deliver a conversation's last reply. Inside, hand every
-message to the inbound gate rather than calling the loop: that is what keeps the agents
-unaware of platforms. Keep secrets as env-var names in the profile, and test the channel in
-the tier that can see it ([testing.md](testing.md)).
+Kênh nằm dưới `channels/`, được dựng từ một khối trên profile của master, và làm
+ba việc: start, stop, và giao câu trả lời cuối của một cuộc trò chuyện. Bên trong, đưa mọi
+tin nhắn tới cổng inbound thay vì gọi vòng lặp: đó là điều giữ cho agent
+không biết tới nền tảng. Giữ bí mật dưới dạng tên env var trong profile, và test kênh ở
+tầng có thể thấy nó ([testing.md](testing.md)).
 
-## Compared with openclaw
+## So với openclaw
 
-openclaw's gateway supports many channels (Telegram, Discord, WhatsApp, …) with
-per-channel routing rules, group handling and mention gating. Here there is one channel
-type, one chat, one user and one agent at the door; routing between agents is the master's
-delegation, not the channel's. That is enough for the case at hand (one person, a few
-agents, one phone) and keeps the channel code to a handful of short modules.
+Gateway của openclaw hỗ trợ nhiều kênh (Telegram, Discord, WhatsApp, …) với
+quy tắc tuyến theo từng kênh, xử lý group và chặn theo mention. Ở đây có một loại kênh,
+một chat, một người dùng và một agent ở cửa; tuyến giữa các agent là việc master
+giao việc, không phải của kênh. Vậy là đủ cho trường hợp đang có (một người, vài
+agent, một điện thoại) và giữ code kênh trong vài module ngắn.

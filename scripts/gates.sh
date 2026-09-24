@@ -23,7 +23,7 @@ run() {
   gate=$((gate + 1))
   printf '\n\033[1m[%d/7] %s\033[0m\n' "$gate" "$name"
   if ! "$@"; then
-    printf '\n\033[31m✗ Cổng "%s" đỏ. Sửa rồi chạy lại.\033[0m\n' "$name" >&2
+    printf '\n\033[31m✗ Gate "%s" is red. Fix it and run again.\033[0m\n' "$name" >&2
     exit 1
   fi
 }
@@ -48,10 +48,10 @@ run "bundle"                npm run bundle
 cd "$root"
 # The bundle is committed so `python -m my_agent_crew` works from a clone. Rebuilding it above
 # and finding a diff here means the committed copy is stale — CI fails on exactly this.
-printf '\n\033[1m[bundle đã commit khớp source?]\033[0m\n'
+printf '\n\033[1m[committed bundle matches source?]\033[0m\n'
 if ! git diff --exit-code --stat -- my_agent_crew/server/static; then
-  printf '\n\033[31m✗ my_agent_crew/server/static lệch so với web/src. Commit bundle vừa dựng lại.\033[0m\n' >&2
+  printf '\n\033[31m✗ my_agent_crew/server/static differs from web/src. Commit the bundle just rebuilt.\033[0m\n' >&2
   exit 1
 fi
 
-printf '\n\033[32m✓ Cả tám cổng xanh. Đẩy được.\033[0m\n'
+printf '\n\033[32m✓ All eight gates green. Safe to push.\033[0m\n'

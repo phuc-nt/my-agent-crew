@@ -58,9 +58,9 @@ Bản `.html` của sơ đồ là trang tự chứa; chỉ cần phục vụ `do
 
 - Mỗi tài liệu chuẩn có front matter, dòng phiên bản, và mục "Câu hỏi mở" ở cuối.
 - Ví dụ lấy từ bộ cài thật nhưng đã bỏ định danh, số liệu và đường dẫn cá nhân.
-- Định danh trong code là tiếng Anh; tài liệu là tiếng Việt.
+- Tiếng Anh ở mọi nơi (code, README, CHANGELOG, commit); tiếng Việt chỉ ở `docs/` và chuỗi hiển thị cho người dùng — xem [code-standards.md §1](code-standards.md#1-python).
 - Code là nguồn sự thật. Tài liệu mô tả khái niệm, luồng và hợp đồng người dùng thấy; không ghi tên tệp, hàm, tệp test hay số liệu — xem [code-standards.md §7](code-standards.md#7-tài-liệu).
 
 ## Câu hỏi mở
 
-- Chưa có bản tiếng Anh của bộ tài liệu.
+- `docs/` cố ý chỉ có tiếng Việt (viết cho đội maintain người Việt); chưa quyết có bản tiếng Anh cho người ngoài không.

@@ -1,296 +1,296 @@
 ---
 layout: default
-title: Nhật ký thay đổi
+title: Changelog
 ---
 
-# Nhật ký thay đổi
+# Changelog
 
-Mọi thay đổi đáng kể của my-agent-crew. Định dạng theo [Keep a Changelog](https://keepachangelog.com/vi/1.1.0/),
-số hiệu theo [SemVer](https://semver.org/lang/vi/). Số hiệu chung cho cả backend và web: cùng một
-bản phát hành, `pyproject.toml` và `web/package.json` luôn cùng số.
+All notable changes to my-agent-crew. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+versioning follows [SemVer](https://semver.org/). One version number for both backend and web: within a
+single release, `pyproject.toml` and `web/package.json` always carry the same number.
 
-## [Chưa phát hành]
+## [Unreleased]
 
-### Thêm
+### Added
 
-- **Quản lý kết nối từ web.** Quản lý → Kết nối đặt, thay, kiểm tra và xoá khoá API, địa
-  chỉ host và token bot Telegram; ghi vào `<home>/env` và áp dụng ngay, không khởi động lại.
-  Thay đổi đội không chạy được bị từ chối trước khi ghi.
-- **Sửa tuyến mô hình chung trên trang Kết nối**, lưu vào `config.yaml` giữ nguyên chú
-  thích. Chỉ xem được khi `MY_AGENT_ROUTES` đang đặt, vì biến thắng tệp. `fake` không được
-  thêm vào đội chưa dùng nó; dòng mới mặc định nhà cung cấp thật đầu tiên.
-- **Kiểm tra khoá Tavily và Brave.** Tavily hỏi `/usage` (miễn phí, kèm số lượt đã dùng);
-  Brave chạy một lượt tìm 1 kết quả, và nút nói rõ là tốn một lượt. Hết lượt (429) được
-  báo khác với khoá sai.
+- **Manage connections from the web.** Manage → Connections sets, replaces, tests and removes API keys, host
+  addresses and the Telegram bot token; written to `<home>/env` and applied immediately, no restart.
+  A change that would leave the crew unable to run is rejected before it is written.
+- **Edit the shared model route on the Connections page**, saved to `config.yaml` with comments
+  preserved. Read-only while `MY_AGENT_ROUTES` is set, because the variable wins over the file. `fake` is not
+  added to a crew that does not already use it; a new row defaults to the first real provider.
+- **Test Tavily and Brave keys.** Tavily asks `/usage` (free, and reports the number of calls used);
+  Brave runs one search for 1 result, and the button says plainly that it costs one call. Quota exhausted (429) is
+  reported differently from a wrong key.
 
-### Đổi
+### Changed
 
-- **Bot Telegram báo khi tin nhắn bị ngắt** vì bot khởi động lại quá 30 giây, để người
-  gửi lại thay vì chờ câu trả lời không bao giờ tới.
-- **403 của hàng rào host nêu tên host** và biến `MY_AGENT_ALLOWED_HOSTS` cần thêm; log ghi
-  một lần mỗi tên (Origin sai không ghi). Tài liệu nói rõ server không có đăng nhập — đừng mở qua đường hầm công khai.
-- **Từ chối xoá khoá cuối cùng** nêu tuyến dạng `provider:model` và cách gỡ.
+- **The Telegram bot reports when a message was cut off** because the bot restarted for more than 30 seconds, so the
+  person resends instead of waiting for an answer that never arrives.
+- **The host guard's 403 names the host** and the `MY_AGENT_ALLOWED_HOSTS` variable that needs it added; the log records
+  it once per name (a wrong Origin is not logged). The docs state plainly that the server has no login — do not expose it through a public tunnel.
+- **Refusing to remove the last key** names the route in `provider:model` form and how to detach it.
 
-### Lưu ý khi nâng cấp
+### Upgrade notes
 
-- **Đặt `ExitTimeOut` trong plist launchd** (mẫu trong `docs/deployment-guide.md` dùng 45).
-  Bot chờ lượt đang chạy 30 s rồi mới báo "tin bị ngắt", mà mặc định của launchd chỉ 20 s,
-  nên thiếu khoá này thì `kickstart -k` giữa lượt dài sẽ SIGKILL trước khi kịp báo.
+- **Set `ExitTimeOut` in the launchd plist** (the template in `docs/deployment-guide.md` uses 45).
+  The bot waits 30 s for the running turn before reporting "message cut off", but launchd's default is only 20 s,
+  so without this key a `kickstart -k` in the middle of a long turn will SIGKILL before it can report.
 
 ## [0.5.0] — 2026-09-23
 
-Bản này cho agent thêm cách làm việc với người — hỏi lại, báo đang làm gì, gửi tệp — thêm
-bộ nhớ dạng wiki, và một hàng rào thật ở tầng hệ điều hành cho agent giữ dữ liệu không được
-rời máy.
+This release gives agents more ways to work with people — ask back, say what they are doing, send files — adds
+wiki-style memory, and a real guard at the operating-system layer for agents holding data that must not
+leave the machine.
 
-### Thêm
+### Added
 
-- **Wiki bộ nhớ: mỗi agent một kho trang** ở `memory/wiki/`, chia ba thư mục `entities`,
-  `concepts`, `syntheses`. Ghi chú hằng ngày viết theo ngày — đúng cho lúc ghi, sai cho lúc
-  hỏi: "hạn Eco là khi nào" nằm rải trong mười một ghi chú. Một trang gom các mảnh đó lại
-  dưới tên của chính thứ đó, nên câu hỏi có một chỗ để được trả lời. Lời nhắc biên dịch nói
-  rõ ba thư mục khác nhau ở chỗ nào — có tên riêng, ý niệm lặp lại, hay kết luận bắc qua
-  nhiều thứ — vì chỉ liệt kê tên chúng trong mẫu JSON thì model dồn hết vào `entities`.
-- **Mỗi trang phải khai nguồn.** `sources` ghi `note:YYYY-MM-DD` hoặc `conv:<id>`;
-  `wiki_apply` từ chối trang không có nguồn. Đây không phải kiểm tra đầu vào mà là điểm
-  chính của kho: một trang không nói được nó từ đâu ra là một trang tự bịa, và cho lọt một
-  trang như vậy làm mọi trang còn lại bớt đáng tin.
-- **Chỉ một phần tệp thuộc về máy.** Khối liên kết giữa hai dấu mốc được viết lại sau mỗi
-  lần biên dịch; phần còn lại thuộc về người hoặc model đã viết nó và được trả về nguyên
-  vẹn. Không có ranh giới đó thì kho hoặc đóng băng, hoặc không tin được.
-- **Liên kết `[[Tên trang]]`** dựng thành đồ thị hai chiều, viết lại sau mỗi lần biên dịch
-  hoặc mỗi lần sửa trang qua web — sửa một liên kết làm đổi thứ *trang khác* nói là nó
-  được trỏ tới từ đâu.
-- **Biên dịch từ ghi chú** nối tiếp ngay sau `memory_consolidate`, không có cron riêng, vì
-  cả hai đọc cùng một tập ghi chú. Kết quả là một **đề xuất** mang cả lô trang kèm nội dung
-  cũ để hoàn tác một bước; agent `autonomous` tự áp dụng. Biên dịch hỏng không làm hỏng lượt
-  dọn bộ nhớ đã chạy xong trước đó.
-- **Lint và hai bảng theo dõi.** Kho xuống cấp lặng lẽ: một trang mất nguồn cuối cùng, một
-  liên kết trỏ tới trang chưa ai viết, một trang ngừng được cập nhật. Lint đọc cả kho một
-  lượt và báo bốn loại: `unsourced`, `dangling`, `review`, `stale` (quá 90 ngày, hoặc không
-  có ngày cập nhật — coi việc thiếu bằng chứng là còn mới là cách một kho bắt đầu nói dối).
-  Không xoá gì: một liên kết treo thường là trang *nên có*, tức là việc cần làm cho lần
-  biên dịch sau. Hai tệp `wiki/reports/open-questions.md` và `stale.md` được viết lại toàn
-  bộ mỗi lần, vì bảng mà cộng dồn sẽ báo mãi những lỗi đã sửa từ mấy tháng trước.
-- **Ba công cụ cho agent**: `wiki_get`, `wiki_search`, `wiki_apply`.
-- **Tab Wiki trong màn hình quản lý** và các endpoint
-  `GET/PUT/DELETE /api/agents/{id}/memory/wiki…`: xem kho theo nhóm, tìm, mở một trang, sửa,
-  xoá, xem báo cáo lint, và chạy biên dịch ngay mà không phải đợi job ban đêm.
-- **`web_search` chạy được trên mọi máy** — thêm nguồn DuckDuckGo không cần khoá, đứng cuối
-  danh sách nên luôn có ít nhất một nguồn. Thứ tự thử: firecrawl → Brave → Tavily → DuckDuckGo;
-  nguồn hỏng bị bỏ qua và ghi log, chỉ khi tất cả cùng hỏng thì công cụ mới báo không tới được
-  dịch vụ. Trước đây cả đội không có công cụ này vì không máy nào đặt khoá tìm kiếm.
-- **`fetch_url` đọc trang dạng markdown qua firecrawl** — giữ tiêu đề, danh sách và bảng thay vì
-  chữ thô, hạn mức nâng từ 6 000 lên 20 000 ký tự. Firecrawl hỏng thì tự quay về chữ thô.
-- **Hai biến môi trường mới** `FIRECRAWL_BASE_URL` và `FIRECRAWL_API_KEY`. Khoá chỉ được gửi khi
-  có đặt, nên host tự dựng không cần khoá và một base url gõ nhầm không mang khoá đi đâu cả.
-- **Trang Kết nối hiện thứ tự nguồn tìm kiếm** và host firecrawl đang dùng, đủ để phân biệt
-  "chưa bật" với "cấu hình sai".
-- **Kỹ năng khai báo được lệnh nó cần** — `requires.bins: [gws]` và `cliHelp: "gws --help"`
-  trong front matter. Máy thiếu lệnh thì kỹ năng vẫn nằm trong danh sách kèm nhãn
-  "thiếu: gws", và thân kỹ năng mở đầu bằng một dòng cảnh báo — agent biết vì sao không làm
-  được thay vì thất bại giữa chừng. Tab Cài đặt hiện cùng nhãn đó.
-- **Một quy tắc trong lời nhắc hệ thống**: lệnh chưa chắc cú pháp thì chạy `--help` một lần,
-  không thử quá hai cú pháp mới cho cùng một việc. Có vì một lượt chạy theo lịch đã đốt 16
-  bước đoán tham số của một chương trình nó chưa từng gặp.
-- **Job theo lịch tự gắn kỹ năng mà prompt gọi tên** — chỉ tên có gạch nối (`gws-shared`),
-  vì một tên một từ như `ledger` xuất hiện trong cả những prompt không liên quan.
-- **Mẫu script gom dữ liệu cho job** ở `docs/examples/job-data-script.sh`: một lệnh trả một
-  khối JSON, mỗi nguồn hỏng tự ghi lỗi của nó thay vì làm hỏng cả lượt chạy.
-- **Kết quả công cụ quá dài được rút gọn thông minh thay vì cắt cụt.** JSON rút theo cấu
-  trúc: mọi key top-level còn nguyên, mảng mất đuôi, chuỗi dài mất khúc giữa, và chuỗi trả
-  về vẫn parse được. Con số, boolean và null không bao giờ bị viết lại — số liệu sổ sách và
-  sức khoẻ đi qua đường này. Văn bản thường thì giữ nguyên văn 40% đầu và 20% cuối, khúc
-  giữa nhờ chính tuyến của agent tóm tắt, kèm nhãn nói rõ đoạn nào là tóm tắt. Tóm tắt lỗi,
-  chậm hay rỗng đều rơi về cắt thường; công cụ luôn trả lời.
-- **Provider `ollama`** (OpenAI-compatible, `OLLAMA_BASE_URL`, mặc định
-  `http://127.0.0.1:11434/v1`). Không cần khoá nên luôn được dựng; máy không chạy ollama thì
-  tuyến rơi xuống tuyến kế. Trang Kết nối hiện địa chỉ đang dò, đủ để phân biệt "chưa chạy"
-  với "sai host".
-- **Thẻ lượt chạy nói rõ model đã đọc bản rút gọn** — nhãn ghi kiểu rút gọn và độ dài gốc, để
-  một câu trả lời ngắn dựng trên nguồn đã bị tỉa không bị đọc nhầm thành bức tranh đầy đủ.
-- **Công cụ `ask_user`: agent hỏi lại thay vì đoán.** Gặp chỗ không thể tự biết — hạn nào,
-  tài khoản nào, có làm tiếp không — agent dừng lượt và hỏi một câu, kèm danh sách lựa chọn
-  nếu có. Khác một lần xin phép công cụ ở ba điểm, nên đừng đọc nó như xin phép: agent đặt
-  `autonomous: true` vẫn dừng, vì câu hỏi tồn tại đúng để không tự quyết; câu hỏi đóng bằng
-  đường riêng, `/approve` và `/deny` bị từ chối trên nó; và hết hạn chờ không phải là từ
-  chối — agent nhận giá trị `default` rồi đi tiếp, im lặng được hiểu là "cứ theo mặc định".
-  Mỗi cuộc trò chuyện chỉ mở một câu hỏi. Trả lời ở web bằng thẻ câu hỏi, hoặc ở Telegram
-  bằng chính tin nhắn kế tiếp — gõ số để chọn, gõ chữ thì được nhận nguyên văn.
-- **Dòng thời gian lượt chạy có trạng thái chờ riêng.** Chỗ dừng vì câu hỏi trước đây hiện
-  ra như không có gì, đọc thành một agent suy nghĩ hàng giờ. Nay nó là một bước riêng mang
-  nội dung câu hỏi, tiêu đề thẻ ghi "Đang chờ bạn trả lời" và tắt hiệu ứng chạy — việc chỉ
-  nhúc nhích khi có người gõ, nên không hứa hẹn tiến triển nào khác.
-- **Công cụ `pdf_read`.** Trang chữ được đọc thẳng thành text; trang scan đi qua tuyến vision
-  như ảnh, mỗi trang một lượt gọi, nên đọc bản scan dài thì tốn. Mặc định 50 trang, `pages`
-  chọn một khoảng (`'1-5'`, `'3'`). Máy không có tuyến vision vẫn dựng công cụ: trang chữ đọc
-  bình thường, trang scan báo không đọc được thay vì làm hỏng cả lượt.
-- **`shell_allow_patterns`: agent có người giám sát vẫn tự chạy được việc thường ngày.**
-  `shell_ask_patterns` kéo một lệnh về phía hỏi ngay cả khi `autonomous`; danh sách mới làm
-  điều ngược lại, cho lệnh quen thuộc chạy thẳng ngay cả khi *không* `autonomous` — nhờ đó
-  một agent cẩn thận vẫn chạy được test hay `git status` của chính nó mà không dừng từng
-  lệnh. Thứ tự cố định: câu hỏi luôn hỏi, rồi danh sách hỏi, rồi danh sách cho phép, rồi
-  quyền tự chủ; khai một lệnh ở cả hai nghĩa là hỏi. Đặt được ở `config.yaml`, ở `agent.yaml`
-  từng agent, hoặc qua `MY_AGENT_SHELL_ALLOW_PATTERNS` (ngăn bằng dấu chấm phẩy). Mẫu dưới
-  hai ký tự, và những mẫu chỉ *trông* như ký tự đại diện (`*`, `.*`, `.`, `-`, `--`, `/`,
-  `&&`, `||`, `;`, `|`) bị bỏ đi: so khớp là so chuỗi con, nên `.*` chỉ khớp đúng chữ `.*`
-  trong khi người viết đọc nó thành "cho phép tất cả" — chính chỗ hiểu nhầm đó mới nguy
-  hiểm. Một mẫu hỏng bị bỏ riêng chứ không làm hỏng cả danh sách, và bỏ đi là hướng an
-  toàn vì lệnh khi đó quay về hỏi.
-- **Công cụ `progress_note`: thấy agent đang làm gì trong lúc nó còn đang làm.** Trước một
-  đoạn việc dài, agent nói một câu ngắn và câu đó hiện ngay trên dòng thời gian, nên người
-  xem đọc được "đang đọc lịch" thay vì nhìn một vòng xoay và tự đoán. Nó không bao giờ dừng
-  gì: không xin phép, không đụng danh sách hỏi — một lời báo cần duyệt sẽ tới sau chính việc
-  nó báo. Bước ghi ra mang kiểu riêng `note` chứ không phải `tool`, vì một lời báo không có
-  thời lượng và không thể thất bại; vẽ nó như một lượt gọi công cụ sẽ để lại một dòng vĩnh
-  viễn dở dang. Quá 200 ký tự thì bị cắt chứ không báo lỗi giữa lượt. Đây không phải trí
-  nhớ: lời báo sống theo lượt chạy và mất cùng nó.
-- **Dòng `FILE:` gửi tệp thật thay vì gửi đường dẫn.** Telegram nén lại ảnh, điều đúng với
-  một biểu đồ và huỷ hoại một CSV — nên `MEDIA:` vẫn là `sendPhoto`, còn `FILE:` đi bằng
-  `sendDocument`, giữ nguyên bytes và tên tệp; web hiện một liên kết tải về thay cho ảnh
-  nhúng. Giới hạn 20 MB và bảy định dạng (`pdf`, `csv`, `md`, `txt`, `xlsx`, `json`, `zip`).
-  Danh sách này canh câu trả lời chứ không canh workspace: agent ghi được gì tuỳ ý vào thư
-  mục của nó, nên chỉ giới hạn trong workspace thì một câu vẫn đủ để gửi ra ngoài một tệp
-  khoá hay một `.env` mà bước trước đã chép vào. Đường dẫn ra ngoài workspace, tệp không
-  tồn tại, sai định dạng hay quá cỡ đều được báo vào chat chứ không ném lỗi — phần chữ đã
-  gửi đi rồi, nên một exception chỉ để lại lời hứa có tệp mà không nói vì sao tệp không tới.
-- **Mẫu skill chạy được trong `docs/examples/skills/`**, kèm test giữ cho chúng thật. Một
-  skill gói một chương trình dòng lệnh thì hai trường quyết định nó sống hay chết:
-  `requires.bins` để thiếu chương trình thì được dán nhãn thay vì hỏng giữa lượt, và
-  `cliHelp` để model đọc cú pháp thật thay vì đoán tên cờ. Test bắt buộc cả hai với mọi
-  bundle có thư mục `scripts/`, và quét mọi tệp tìm địa chỉ thư và chuỗi id dài — một mẫu
-  mang id thật ra khỏi máy người viết còn tệ hơn không có mẫu nào.
-- **Mẫu skill thứ hai, `goodreads`**, cho một dịch vụ không còn API. Đọc qua RSS công khai,
-  ghi qua một phiên trình duyệt riêng. Hai điều đáng chép sang chỗ khác: id tài khoản nằm
-  trong `scripts/goodreads.json` cạnh script chứ không phải tham số, nên lệnh đọc không có
-  chỗ nào để model điền sai; và một phản hồi **rỗng bị coi là lỗi**, vì Goodreads chặn
-  scrape bằng cách trả 202 với thân rỗng thay vì báo lỗi — client không ném gì, và bản ghi
-  toàn `null` sinh ra từ đó đọc y như một câu trả lời thật. Đó mới là kiểu hỏng nguy hiểm.
-  Lệnh ghi: `rate`, `shelf`, `progress`, `review`. Nút trên trang sách chỉ hiện sau khi
-  JavaScript chạy xong, nên writer chờ chúng thay vì tìm ngay lúc HTML vừa về.
+- **Memory wiki: one page store per agent** at `memory/wiki/`, split into three directories `entities`,
+  `concepts`, `syntheses`. Daily notes are written by date — right at the time of writing, wrong at the time of
+  asking: "when is the Eco deadline" is scattered across eleven notes. A page gathers those fragments
+  under the name of the thing itself, so the question has one place to be answered. The compile prompt spells
+  out how the three directories differ — has a proper name, a recurring concept, or a conclusion that spans
+  many things — because merely listing their names in the JSON template makes the model dump everything into `entities`.
+- **Every page must declare its sources.** `sources` records `note:YYYY-MM-DD` or `conv:<id>`;
+  `wiki_apply` rejects a page without sources. This is not input validation but the whole point of
+  the store: a page that cannot say where it came from is a made-up page, and letting one such page
+  through makes every remaining page less trustworthy.
+- **Only part of the file belongs to the machine.** The link block between two markers is rewritten after each
+  compile; the rest belongs to whoever — person or model — wrote it and is returned
+  intact. Without that boundary the store either freezes or cannot be trusted.
+- **`[[Page name]]` links** build a bidirectional graph, rewritten after each compile
+  or each page edit via the web — editing one link changes what *other pages* say about
+  where they are pointed to from.
+- **Compile from notes** runs right after `memory_consolidate`, with no separate cron, because
+  both read the same set of notes. The result is a **proposal** carrying the whole batch of pages together with the
+  old content for one-step undo; `autonomous` agents apply it themselves. A broken compile does not break the memory
+  cleanup turn that already finished before it.
+- **Lint and two tracking tables.** A store degrades quietly: a page loses its last source, a
+  link points to a page nobody has written, a page stops being updated. Lint reads the whole store in one
+  pass and reports four kinds: `unsourced`, `dangling`, `review`, `stale` (over 90 days, or no
+  updated date — treating missing evidence as fresh is how a store starts lying).
+  Nothing is deleted: a dangling link is usually a page that *should* exist, i.e. work for the next
+  compile. The two files `wiki/reports/open-questions.md` and `stale.md` are rewritten in full
+  each time, because a table that accumulates keeps reporting errors fixed months ago.
+- **Three tools for agents**: `wiki_get`, `wiki_search`, `wiki_apply`.
+- **Wiki tab in the manage screen** and the endpoints
+  `GET/PUT/DELETE /api/agents/{id}/memory/wiki…`: browse the store by group, search, open a page, edit,
+  delete, view the lint report, and run a compile right away without waiting for the nightly job.
+- **`web_search` runs on every machine** — added a DuckDuckGo source that needs no key, last in the
+  list so there is always at least one source. Order of attempts: firecrawl → Brave → Tavily → DuckDuckGo;
+  a broken source is skipped and logged, and only when all of them fail does the tool report that the service
+  could not be reached. Previously the whole crew lacked this tool because no machine had a search key set.
+- **`fetch_url` reads pages as markdown via firecrawl** — keeps headings, lists and tables instead of
+  raw text, limit raised from 6,000 to 20,000 characters. If firecrawl fails it falls back to raw text.
+- **Two new environment variables** `FIRECRAWL_BASE_URL` and `FIRECRAWL_API_KEY`. The key is only sent when
+  set, so a self-hosted host needs no key and a mistyped base url does not carry the key anywhere.
+- **The Connections page shows the search source order** and the firecrawl host in use, enough to tell
+  "not enabled" from "misconfigured".
+- **A skill can declare the commands it needs** — `requires.bins: [gws]` and `cliHelp: "gws --help"`
+  in the front matter. On a machine missing the command, the skill stays in the list with the label
+  "missing: gws", and the skill body opens with a warning line — the agent knows why it cannot do the
+  job instead of failing midway. The Settings tab shows the same label.
+- **One rule in the system prompt**: for a command whose syntax is uncertain, run `--help` once,
+  and do not try more than two new syntaxes for the same job. Added because one scheduled run burned 16
+  steps guessing the parameters of a program it had never seen.
+- **Scheduled jobs auto-attach skills the prompt names** — hyphenated names only (`gws-shared`),
+  because a one-word name like `ledger` shows up in prompts that have nothing to do with it.
+- **Data-gathering script template for jobs** at `docs/examples/job-data-script.sh`: one command returns one
+  JSON block, and each failing source records its own error instead of breaking the whole run.
+- **Overlong tool results are condensed intelligently instead of truncated.** JSON is reduced by
+  structure: every top-level key stays, arrays lose their tail, long strings lose their middle, and the returned
+  string still parses. Numbers, booleans and null are never rewritten — ledger figures and
+  health data travel this path. Plain text keeps the first 40% and last 20% verbatim, the
+  middle is summarised by the agent's own route, with a label saying plainly which part is a summary. A summary that fails,
+  is slow or comes back empty falls back to plain truncation; the tool always answers.
+- **Provider `ollama`** (OpenAI-compatible, `OLLAMA_BASE_URL`, default
+  `http://127.0.0.1:11434/v1`). Needs no key so it is always built; on a machine not running ollama the
+  route falls through to the next one. The Connections page shows the address being probed, enough to tell "not running"
+  from "wrong host".
+- **The run card says plainly that the model read a condensed version** — the label records the condensing kind and the original length, so
+  a short answer built on a pruned source is not misread as the full picture.
+- **`ask_user` tool: the agent asks back instead of guessing.** At a point it cannot know on its own — which deadline,
+  which account, whether to continue — the agent stops the turn and asks one question, with a list of options
+  if there are any. It differs from a tool approval in three ways, so do not read it as an approval: an agent with
+  `autonomous: true` still stops, because the question exists precisely so it does not decide alone; the question closes through
+  its own path, and `/approve` and `/deny` are rejected on it; and a timeout is not a
+  refusal — the agent receives the `default` value and moves on, silence is read as "go with the default".
+  Each conversation has at most one open question. Answer on the web with the question card, or on Telegram
+  with the very next message — type a number to pick, type text and it is taken verbatim.
+- **The run timeline has its own waiting state.** A stop for a question used to show
+  as nothing at all, reading like an agent thinking for hours. Now it is a separate step carrying the
+  question text, the card title reads "Waiting for your answer" and the running animation is off — the job only
+  moves when someone types, so it promises no other progress.
+- **`pdf_read` tool.** Text pages are read straight to text; scanned pages go through the vision route
+  like images, one call per page, so reading a long scan is expensive. Default 50 pages, `pages`
+  picks a range (`'1-5'`, `'3'`). A machine without a vision route still builds the tool: text pages read
+  normally, scanned pages report as unreadable instead of breaking the whole turn.
+- **`shell_allow_patterns`: a supervised agent can still run everyday work on its own.**
+  `shell_ask_patterns` pulls a command toward asking even when `autonomous`; the new list does the
+  opposite, letting familiar commands run straight through even when *not* `autonomous` — so
+  a careful agent can still run its own tests or `git status` without stopping at every
+  command. The order is fixed: questions always ask, then the ask list, then the allow list, then
+  autonomy; declaring a command in both means ask. Settable in `config.yaml`, in each agent's `agent.yaml`,
+  or via `MY_AGENT_SHELL_ALLOW_PATTERNS` (semicolon-separated). Patterns under
+  two characters, and patterns that merely *look* like wildcards (`*`, `.*`, `.`, `-`, `--`, `/`,
+  `&&`, `||`, `;`, `|`) are dropped: matching is substring matching, so `.*` matches only the literal `.*`
+  while the author reads it as "allow everything" — that very misreading is what is
+  dangerous. A broken pattern is dropped on its own rather than breaking the whole list, and dropping is the safe
+  direction because the command then falls back to asking.
+- **`progress_note` tool: see what the agent is doing while it is still doing it.** Before a
+  long stretch of work, the agent says one short sentence and it appears immediately on the timeline, so the
+  viewer reads "reading the calendar" instead of watching a spinner and guessing. It never stops
+  anything: no approval, no touching the ask list — a note that needs approval would arrive after the very work
+  it announces. The step written out has its own kind `note` rather than `tool`, because a note has no
+  duration and cannot fail; drawing it as a tool call would leave a line forever
+  unfinished. Over 200 characters it is cut rather than erroring mid-turn. This is not
+  memory: the note lives with the run and dies with it.
+- **The `FILE:` line sends the real file instead of a path.** Telegram recompresses images, which is right for
+  a chart and ruinous for a CSV — so `MEDIA:` remains `sendPhoto`, while `FILE:` goes through
+  `sendDocument`, preserving bytes and file name; the web shows a download link instead of an embedded
+  image. Limit 20 MB and seven formats (`pdf`, `csv`, `md`, `txt`, `xlsx`, `json`, `zip`).
+  This list guards the answer, not the workspace: the agent can write whatever it likes into its own
+  directory, so restricting to the workspace alone still leaves one sentence enough to send out a key
+  file or a `.env` that an earlier step copied in. A path outside the workspace, a file that does not
+  exist, a wrong format or an oversized file are all reported into the chat rather than thrown — the text part has
+  already gone out, so an exception only leaves a promise of a file with no word on why the file never arrived.
+- **Runnable skill examples in `docs/examples/skills/`**, with tests keeping them real. When a
+  skill wraps a command-line program, two fields decide whether it lives or dies:
+  `requires.bins` so a missing program gets labelled instead of breaking mid-turn, and
+  `cliHelp` so the model reads the real syntax instead of guessing flag names. The test requires both for every
+  bundle with a `scripts/` directory, and scans every file for email addresses and long id strings — an example
+  that carries a real id off its author's machine is worse than no example at all.
+- **A second skill example, `goodreads`**, for a service that no longer has an API. Reads via the public RSS,
+  writes via its own browser session. Two things worth copying elsewhere: the account id lives
+  in `scripts/goodreads.json` next to the script rather than as a parameter, so the read command has
+  nowhere for the model to fill in wrongly; and an **empty response is treated as an error**, because Goodreads blocks
+  scraping by returning 202 with an empty body instead of an error — the client throws nothing, and the
+  all-`null` record produced from that reads exactly like a real answer. That is the dangerous kind of failure.
+  Write commands: `rate`, `shelf`, `progress`, `review`. The buttons on the book page only appear after
+  JavaScript has finished running, so the writer waits for them instead of looking as soon as the HTML arrives.
 
-- **`shell_network: false`: cắt mạng lệnh shell của một agent ở tầng hệ điều hành.** Mọi
-  `shell_run` của agent đó chạy trong `sandbox-exec` của macOS: không kết nối ra ngoài, kể cả
-  `127.0.0.1` và DNS, không mở cổng nghe; `open`, `launchctl`, `osascript`, `shortcuts`,
-  `pbcopy` bị chặn vì chúng nhờ một tiến trình ngoài sandbox làm hộ. Ghi tệp chỉ được dưới
-  `shell_write_paths` và thư mục temp — một dòng chèn vào script mà job có mạng sẽ chạy là
-  một lệnh hẹn giờ, nên chặn mạng mà để ghi tự do thì chưa chặn gì. Khác với danh sách
-  pattern, hàng rào này giữ được cả `$(…)` lẫn script model vừa tự viết. Máy không có
-  `sandbox-exec` thì lệnh bị từ chối chứ không chạy trần. Dành cho agent giữ dữ liệu riêng
-  như sổ tài chính; nó chỉ giới hạn *lệnh*, còn câu trả lời của agent vẫn tới provider và
-  tới người nhận.
+- **`shell_network: false`: cut an agent's shell commands off from the network at the operating-system layer.** Every
+  `shell_run` of that agent runs inside macOS `sandbox-exec`: no outbound connections, including
+  `127.0.0.1` and DNS, no listening ports; `open`, `launchctl`, `osascript`, `shortcuts`,
+  `pbcopy` are blocked because they ask a process outside the sandbox to do the work. File writes are only allowed under
+  `shell_write_paths` and the temp directory — a line inserted into a script that a networked job will run is
+  a scheduled command, so blocking the network while leaving writes free blocks nothing. Unlike pattern
+  lists, this guard holds for both `$(…)` and a script the model just wrote itself. On a machine without
+  `sandbox-exec` the command is refused rather than run bare. Meant for agents holding private data
+  such as a financial ledger; it only restricts *commands*, while the agent's answer still goes to the provider and
+  to the recipient.
 
-### Đổi
+### Changed
 
-- **Chín template lập trình gộp lại thành ba**: `fullstack-developer` làm trọn một việc phần mềm
-  (khảo sát, plan, viết, test, tự soát, commit theo các kỹ năng dùng chung), `kongming` là cố vấn
-  chỉ đọc cho quyết định khó — không tool ghi, không `delegate`, trần chi phí riêng — và
-  `researcher` tra cứu mọi chủ đề, có `pdf_read` và checklist ≥ 3 nguồn. Bỏ `dev`, `scout`,
-  `planner`, `coder`, `reviewer`, `tester`, `debugger`, `git`: mỗi lần giao việc là một ngữ cảnh
-  trống chỉ biết đúng đoạn brief, và với một đội cá nhân không chuyên code, ngữ cảnh mất đi tốn
-  hơn phần song song thu về. Agent đã cài từ template cũ vẫn chạy nguyên; chỉ `agent add` đổi.
-- `web_search` không còn nằm trong nhóm công cụ tuỳ chọn: nó luôn được dựng, nên một agent khai
-  `web_search` trong `tools:` không còn im lặng mất công cụ.
-- **`docs/tools.md` nói rõ hệ quả của việc `shell_run` lọc biến môi trường**: script chạy được
-  ở terminal của bạn vẫn có thể hỏng khi job chạy, vì mọi biến ngoài danh sách cho phép đều
-  biến mất. Script cần một giá trị không phải bí mật thì tự đọc từ tệp, đừng trông vào biến
-  môi trường — nới danh sách cho phép là trao khoá API cho mọi lệnh do model viết. Hành vi lọc
-  không đổi; nay đã có test neo lại.
+- **Nine coding templates merged into three**: `fullstack-developer` does a whole software job
+  (survey, plan, write, test, self-review, commit following the shared skills), `kongming` is a read-only
+  advisor for hard decisions — no write tools, no `delegate`, its own cost ceiling — and
+  `researcher` looks up any topic, has `pdf_read` and a ≥ 3 sources checklist. Removed `dev`, `scout`,
+  `planner`, `coder`, `reviewer`, `tester`, `debugger`, `git`: every delegation is an empty context
+  that knows only the brief, and for a personal crew that is not code-focused, the lost context costs
+  more than the parallelism gains. Agents already installed from the old templates keep running unchanged; only `agent add` changes.
+- `web_search` is no longer in the optional tool group: it is always built, so an agent declaring
+  `web_search` in `tools:` no longer silently loses the tool.
+- **`docs/tools.md` spells out the consequence of `shell_run` filtering environment variables**: a script that runs
+  in your terminal can still break when the job runs, because every variable outside the allowlist
+  disappears. A script that needs a non-secret value should read it from a file, not rely on environment
+  variables — widening the allowlist hands the API keys to every command the model writes. The filtering behaviour
+  is unchanged; it is now pinned by a test.
 
-- **Chi tiết hoạt động thành cột bên phải khung chat trên màn rộng.** Từ 1101px, các lượt
-  chạy của cuộc trò chuyện đang mở nằm trong một cột 380px luôn mở, giữ chỗ cả khi chưa có
-  lượt nào để khung chat không nhảy khi việc bắt đầu. Màn hẹp hơn vẫn là dải một dòng dưới
-  luồng tin như trước.
+- **Activity details become a right-hand column of the chat pane on wide screens.** From 1101px, the runs
+  of the open conversation live in an always-open 380px column, which keeps its space even when there are no
+  runs yet so the chat pane does not jump when work starts. Narrower screens keep the one-line strip below
+  the message stream as before.
 
-### Sửa
+### Fixed
 
-- **Kết quả công cụ bị cắt không còn vượt trần `tool_output_chars`.** Dòng nhãn "đã cắt bớt"
-  trước đây được cộng thêm vào sau khi đã cắt đủ trần, nên bản trả về luôn dài hơn trần vài
-  chục ký tự. Nay nhãn được trả bằng chính ngân sách đó. Test cũ đo bằng biên `+ 40` nên
-  không thấy; nay có một test quét nhiều trần và nhiều dạng dữ liệu để neo đúng bất biến này.
-- **Template `researcher` tôn trọng trần tìm kiếm người hỏi đặt** ("tối đa 2 lần tìm") và
-  bắt buộc mục **Nguồn** có URL. Trước đó báo cáo có thể không dẫn một nguồn nào dù persona
-  dặn phải ghi.
-- **Template `fullstack-developer` báo từng điểm theo hay không theo lời `kongming`**, kèm lý
-  do. Trước đó nó có thể nói "đã làm theo lời khuyên" trong khi code làm ngược lại.
-- **Goodreads writer chờ trang vẽ xong nút** trước khi bấm, và dùng đúng nhãn kệ; lần ghi thật
-  đầu tiên hỏng ở cả hai chỗ.
+- **Truncated tool results no longer exceed the `tool_output_chars` ceiling.** The "truncated" label line
+  used to be appended after the ceiling was already spent, so the returned version was always a few
+  dozen characters over the ceiling. Now the label is paid for out of that same budget. The old test measured with a `+ 40` margin so
+  it did not see it; there is now a test sweeping several ceilings and several data shapes to pin this invariant.
+- **The `researcher` template respects the search ceiling the asker sets** ("at most 2 searches") and
+  requires a **Sources** section with URLs. Before this, a report could cite no source at all even though the persona
+  said to record them.
+- **The `fullstack-developer` template reports point by point whether it followed `kongming`'s advice**, with
+  reasons. Before this, it could say "followed the advice" while the code did the opposite.
+- **The Goodreads writer waits for the page to render the buttons** before clicking, and uses the right shelf labels; the first
+  real write failed at both spots.
 
-### Lưu ý khi nâng cấp
+### Upgrade notes
 
-Không cần migration tay. Bảng `approvals` có thêm ba cột (`kind`, `options`, `answer`), được
-thêm tự động khi khởi động và có giá trị mặc định cho các hàng cũ. Mọi key mới trong
-`agent.yaml` (`shell_network`, `shell_write_paths`, `shell_allow_patterns`) đều tuỳ chọn và mặc
-định giữ nguyên hành vi cũ. Agent đã cài từ chín template lập trình cũ vẫn chạy; chỉ
-`agent add` đổi sang ba template mới.
+No manual migration needed. The `approvals` table gains three columns (`kind`, `options`, `answer`), added
+automatically on startup with default values for old rows. All new keys in
+`agent.yaml` (`shell_network`, `shell_write_paths`, `shell_allow_patterns`) are optional and default
+to the old behaviour. Agents already installed from the nine old coding templates keep running; only
+`agent add` switches to the three new templates.
 
 ## [0.4.0] — 2026-09-22
 
-Bản này dựng lại web UI quanh một ý: **nhìn thấy agent đang làm gì**, và quản lý được cả đội
-ngay trên web thay vì sửa YAML bằng tay.
+This release rebuilds the web UI around one idea: **see what the agent is doing**, and manage the whole crew
+right on the web instead of editing YAML by hand.
 
-### Thêm
+### Added
 
-- **Reply hiển thị dạng markdown** — tiêu đề, danh sách, bảng, khối code có tô màu, thay cho một
-  khối chữ thô. Liên kết mở tab mới; HTML thô không được render.
-- **Tự đặt tiêu đề cuộc trò chuyện** từ câu đầu tiên của người dùng, chạy nền sau khi lượt kết
-  thúc nên không làm chậm câu trả lời. Đổi tên tay vẫn được và luôn thắng tiêu đề tự đặt.
-- **Tiến trình chạy ngay trong khung chat**: đang gọi model hay đang chạy tool, bước thứ mấy,
-  đã tiêu bao nhiêu — thấy ngay lúc đang chờ, không phải mở tab khác.
-- **Khu quản lý tách khỏi chat**, điều hướng bằng hash route `#/manage/<section>` với chín tab:
-  Hoạt động, Duyệt, Đội, Công cụ, Lịch chạy, Ghi nhớ, Chi phí, Kết nối, Cài đặt. Tải lại trang
-  vẫn ở đúng tab.
-- **Mở riêng một lượt chạy** bằng `#/manage/activity/<run_id>` — chia sẻ được, tải lại vẫn ở đó,
-  và mở được cả lượt cũ mà danh sách hoạt động không còn giữ.
-- **Quản lý agent trên web**: thêm, sửa, xoá agent (cả master lẫn agent con), sửa tệp tính cách
-  (`AGENTS.md`, `SOUL.md`), xem lời nhắc hệ thống đã ghép để biết model thật sự đọc gì.
-- **Ma trận công cụ** — cả đội dùng những tool nào, agent nào dùng cái gì, trong một bảng.
-- **Trang kết nối** — khoá API, Telegram, vision route, xem chỗ nào đã cấu hình chỗ nào chưa.
-- **HTTP API quản lý agent**: `POST /api/agents`, `PATCH /api/agents/{id}`, `DELETE /api/agents/{id}`,
+- **Replies render as markdown** — headings, lists, tables, syntax-highlighted code blocks, replacing a
+  block of raw text. Links open in a new tab; raw HTML is not rendered.
+- **Conversation titles set automatically** from the user's first message, running in the background after the turn
+  ends so it does not slow the answer. Manual renaming still works and always wins over the automatic title.
+- **Run progress right inside the chat pane**: calling the model or running a tool, which step, how much
+  spent so far — visible while waiting, no need to open another tab.
+- **Manage area separated from chat**, navigated by hash route `#/manage/<section>` with nine tabs:
+  Activity, Approvals, Crew, Tools, Schedule, Memory, Costs, Connections, Settings. Reloading the page
+  stays on the same tab.
+- **Open a single run** with `#/manage/activity/<run_id>` — shareable, survives reload,
+  and also opens old runs the activity list no longer keeps.
+- **Manage agents on the web**: add, edit, delete agents (master and child agents alike), edit the persona files
+  (`AGENTS.md`, `SOUL.md`), view the assembled system prompt to know what the model actually reads.
+- **Tool matrix** — which tools the whole crew uses, which agent uses what, in one table.
+- **Connections page** — API keys, Telegram, vision route, see what is configured and what is not.
+- **Agent management HTTP API**: `POST /api/agents`, `PATCH /api/agents/{id}`, `DELETE /api/agents/{id}`,
   `PUT /api/agents/{id}/files/{name}`, `GET /api/agents/{id}/prompt`, `POST /api/agents/reload`,
   `GET /api/tools`, `GET /api/connections`.
-- **`scripts/gates.sh`** — chạy cả chín cổng CI bằng một lệnh, theo đúng thứ tự `ci.yml`, dừng ở
-  cổng đỏ đầu tiên và gọi tên nó (~22 giây). Cùng với đó là một test giữ số hiệu phiên bản ở năm
-  chỗ khai báo không lệch nhau.
+- **`scripts/gates.sh`** — runs all nine CI gates with one command, in the exact order of `ci.yml`, stopping at
+  the first red gate and naming it (~22 seconds). Alongside it, a test keeps the version number in its five
+  declared places from drifting apart.
 
-### Đổi
+### Changed
 
-- **Cột "Hoạt động" giờ thuộc về cuộc trò chuyện đang mở**, nằm trong khung chat, thay vì một
-  thanh chung hiện hoạt động của mọi cuộc. Hoạt động toàn đội chuyển sang tab Hoạt động của khu
-  quản lý.
-- Các tab Đội, Lịch chạy, Duyệt, Ghi nhớ, Chi phí được phân loại lại theo phạm vi: cái nào chung
-  cả đội thì nằm ở khu quản lý, cái nào thuộc một cuộc trò chuyện thì nằm trong khung chat.
-- Ghi `arguments` của một bước tool dưới dạng mapping tên → giá trị (trước đây cả cụm bị ép thành
-  một chuỗi, hiển thị thành một hàng mỗi ký tự). Phía đọc chịu được cả hai hình dạng nên các lượt
-  chạy ghi trước bản này vẫn xem được.
+- **The "Activity" column now belongs to the open conversation**, inside the chat pane, instead of a
+  shared bar showing activity from every conversation. Crew-wide activity moves to the Activity tab of the
+  manage area.
+- The Crew, Schedule, Approvals, Memory, Costs tabs are reclassified by scope: what is shared
+  across the crew lives in the manage area, what belongs to one conversation lives inside the chat pane.
+- A tool step's `arguments` are recorded as a name → value mapping (previously the whole thing was forced into
+  one string, displayed as one row per character). The reading side tolerates both shapes so runs
+  recorded before this release can still be viewed.
 
-### Sửa
+### Fixed
 
-- Lượt trả lời rỗng không còn bị coi là lượt đã xong — web UI im lặng không báo gì.
-- Lượt chạy vừa kết thúc khi đang xem giờ hiện đúng trạng thái và thời điểm kết thúc: bản trong
-  bộ nhớ của trang thiếu thời điểm đó, nên trang đọc lại đúng một lần vào khung mà trạng thái đổi.
-- Sáu tệp Python được đưa về đúng định dạng `ruff format`; cổng `ruff format --check` trong CI
-  từ nay được chạy ở mọi vòng phát triển, không chỉ `ruff check`.
+- An empty reply turn is no longer treated as a finished turn — the web UI stayed silent with no report.
+- A run that ends while being viewed now shows the right status and end time: the page's in-memory
+  copy lacked that timestamp, so the page re-reads exactly once on the frame where the status changes.
+- Six Python files brought back to proper `ruff format` formatting; the `ruff format --check` gate in CI
+  now runs in every development cycle, not just `ruff check`.
 
-### Lưu ý khi nâng cấp
+### Upgrade notes
 
-Không cần migration. Lược đồ SQLite chỉ thêm bảng, đều `CREATE TABLE IF NOT EXISTS`; tệp
-`config.yaml`, `agent.yaml` và thư mục home giữ nguyên hình dạng. Nâng cấp là kéo code mới rồi
-khởi động lại tiến trình.
+No migration needed. The SQLite schema only adds tables, all `CREATE TABLE IF NOT EXISTS`; the
+`config.yaml`, `agent.yaml` files and the home directory keep their shape. Upgrading is pulling the new code and
+restarting the process.
 
 ## [0.3.0] — 2026-09-21
 
-- Kit `.agents/` kiểu Claude Code: lệnh, agent, skill, hook.
-- Đọc ảnh qua vision route; album Telegram gộp trong một lượt; múi giờ của người dùng.
-- Persona ba tệp; bộ tài liệu tiếng Việt với năm sơ đồ động, publish lên GitHub Pages.
+- Claude Code-style `.agents/` kit: commands, agents, skills, hooks.
+- Image reading via vision route; Telegram albums merged into one turn; the user's time zone.
+- Three-file persona; Vietnamese documentation set with five animated diagrams, published to GitHub Pages.
 
 ## [0.2.0]
 
-- Nhiều agent, `delegate` để master giao việc cho agent khác, kênh Telegram.
+- Multiple agents, `delegate` for the master to hand work to other agents, Telegram channel.
 
 ## [0.1.0]
 
-- Một agent, vòng lặp `run_turn` có cổng duyệt tool, web UI, trí nhớ trên đĩa.
+- One agent, `run_turn` loop with a tool approval gate, web UI, memory on disk.
 
 [0.5.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.5.0
 [0.4.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.4.0

@@ -11,7 +11,7 @@ title: Quy ước code
 
 - Python 3.12+, `uv` quản lý môi trường. `uv sync` rồi `uv run …`.
 - `ruff` với `line-length = 100`, rule `E, F, I, UP, B`. Trong lúc làm: `uv run ruff check --fix . && uv run ruff format .`. Trước khi commit thì chạy đủ bộ cổng ở [§4](#4-cổng-phải-chạy-trước-khi-commit).
-- Định danh (module, hàm, biến, key YAML, cột DB, tên event, id agent) **100% tiếng Anh**. Tiếng Việt chỉ xuất hiện trong `texts.py` / `texts_*.py` (backend) và `web/src/i18n/vi.ts` (web). Không viết chuỗi hiển thị trực tiếp trong code logic.
+- **Ngôn ngữ: tiếng Anh ở mọi nơi, trừ `docs/`.** Định danh (module, hàm, biến, key YAML, cột DB, tên event, id agent), comment, docstring, thông báo script, README, CHANGELOG, commit message đều tiếng Anh. Tiếng Việt chỉ ở hai chỗ: chuỗi hiển thị cho người dùng (`texts.py` / `texts_*.py`, `web/src/i18n/vi.ts`, prompt và persona của agent) và bộ tài liệu `docs/` — viết cho đội maintain người Việt. Không viết chuỗi hiển thị trực tiếp trong code logic.
 - Mỗi tệp một mối quan tâm; tệp trên ~200 dòng thì cân nhắc tách theo ranh giới có sẵn (`routes_*.py`, `telegram_*.py`, `texts_*.py` là ví dụ).
 - Docstring đầu module nói *vì sao* module tồn tại, không lặp lại tên hàm.
 - Không đưa id plan, số phase, nhãn audit vào comment, tên test, hay commit message.
@@ -72,7 +72,7 @@ Sửa định dạng bằng `uv run ruff format .` rồi **chạy lại `pytest`
 
 ## 5. Commit
 
-- Conventional commits: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`. Tiếng Việt hay tiếng Anh đều được, ngắn gọn, nói việc gì và vì sao.
+- Conventional commits: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`. Viết tiếng Anh, ngắn gọn, nói việc gì và vì sao.
 - Một commit một việc. Không commit `node_modules/`, tệp env, DB, log.
 - Không thêm dòng attribution.
 
@@ -89,7 +89,7 @@ Sửa định dạng bằng `uv run ruff format .` rồi **chạy lại `pytest`
 - **Code là nguồn sự thật; tài liệu chỉ mô tả khái niệm, luồng và hợp đồng người dùng thấy** (khoá YAML, tên tool, lệnh CLI, biến môi trường, endpoint, tên tab). Không ghi tên tệp, hàm, hằng, component hay tệp test, không ghi số test hay số dòng, không ghi thời gian chạy: những thứ đó đổi theo mỗi commit và chỉ có `ls`/`grep` mới nói đúng. Tên gói (`agent/`, `tools/`, `channels/`…) là mức chi tiết tối đa. Viết cho người mới vào và người quyết định, không phải để thay việc đọc code.
 - Đầu mỗi tài liệu chuẩn: front matter `layout: default` + `title`, dòng **Phiên bản** · **Cập nhật**. Cuối: `## Câu hỏi mở`.
 - Sơ đồ: spec `.json` là nguồn; `.html` và `.svg` là sản phẩm sinh ra, commit cả ba. Nhúng SVG trong markdown, link HTML cho bản động. Không commit `*.visual-check.*`.
-- Kiểm tra link và số liệu trước khi commit ([deployment-guide.md §10](deployment-guide.md#10-kiểm-tra-bộ-doc)).
+- Kiểm tra link trước khi commit ([deployment-guide.md §10](deployment-guide.md#10-kiểm-tra-bộ-doc)).
 
 ## Câu hỏi mở
 

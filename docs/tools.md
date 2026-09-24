@@ -1,375 +1,374 @@
-# Tools
+# Tool
 
 **Phiên bản**: 0.5.0 (+ chưa phát hành) · **Cập nhật**: 2026-09-24
 
-A tool is a function the model can call during a turn. Each agent's
-set is assembled at startup from the agent's workspace and memory paths, then shaped by
-its profile: `mode: work` adds four tools, a vision route adds `image_read`, and a `tools`
-allow-list caps the result.
-The system prompt lists the available names; the model sees each tool's JSON schema.
+Tool là một hàm mà model có thể gọi trong một lượt. Bộ tool của mỗi agent
+được lắp lúc khởi động từ đường dẫn workspace và memory của agent, rồi được định hình bởi
+profile của nó: `mode: work` thêm bốn tool, một vision route thêm `image_read`, và danh sách
+cho phép `tools` giới hạn kết quả.
+System prompt liệt kê tên các tool có sẵn; model thấy JSON schema của từng tool.
 
-## Common rules
+## Quy tắc chung
 
-- **Arguments are validated** against the schema before the tool runs; a bad call is
-  returned to the model as an error, not raised.
-- **Output is capped** before it enters the context; how it was brought under the cap is
-  marked. The default is 8 000 characters (`tool_output_chars` in `config.yaml` or
-  `MY_AGENT_TOOL_OUTPUT_CHARS`); an agent whose scripts print more raises its own cap with
-  `tool_output_chars` in its profile without the rest of the crew paying for it.
+- **Tham số được kiểm tra** theo schema trước khi tool chạy; một lời gọi sai được
+  trả về cho model dưới dạng lỗi, không raise.
+- **Đầu ra bị giới hạn** trước khi đi vào ngữ cảnh; cách nó được đưa xuống dưới trần được
+  đánh dấu. Mặc định là 8 000 ký tự (`tool_output_chars` trong `config.yaml` hoặc
+  `MY_AGENT_TOOL_OUTPUT_CHARS`); agent có script in nhiều hơn tự nâng trần của mình bằng
+  `tool_output_chars` trong profile mà không bắt phần còn lại của đội trả giá.
 
-  An over-cap output is shortened in one of three ways, and the run card says which:
+  Đầu ra vượt trần được rút ngắn theo một trong ba cách, và thẻ run nói rõ cách nào:
 
-  | How | When | What survives |
+  | Cách | Khi nào | Cái gì còn lại |
   | --- | --- | --- |
-  | structure | the output parses as JSON | every key; arrays lose their tail, long strings lose their middle, and the result still parses |
-  | summary | anything else long enough to split | the opening and the ending word for word, with a model's summary of the middle between two labels saying so |
-  | cut | everything else, and whenever a summary fails | the opening, with the number of dropped characters |
+  | structure | đầu ra parse được thành JSON | mọi key; mảng mất phần đuôi, chuỗi dài mất phần giữa, và kết quả vẫn parse được |
+  | summary | mọi thứ khác đủ dài để tách | phần mở đầu và phần kết giữ nguyên từng chữ, cùng bản tóm tắt phần giữa do model làm, kẹp giữa hai nhãn nói rõ điều đó |
+  | cut | mọi thứ còn lại, và bất cứ khi nào tóm tắt thất bại | phần mở đầu, cùng số ký tự đã bỏ |
 
-  Numbers are never rewritten by the structural path: ledger figures and health readings
-  travel through it, and a summary that rounds a number is worse than one that omits a row.
-  The summary path asks the agent's own routes and is charged to the run like any other
-  model call. It is an improvement on a cut, never a precondition for one — no route, a
-  failing route, a slow one or an empty answer all fall back to the plain cut, and the tool
-  answers either way.
+  Đường structure không bao giờ viết lại con số: số liệu sổ cái và chỉ số sức khoẻ
+  đi qua đường này, và một bản tóm tắt làm tròn con số thì tệ hơn một bản bỏ sót một dòng.
+  Đường summary hỏi chính các tuyến của agent và được tính vào run như mọi
+  lời gọi model khác. Nó là một cải tiến so với cut, không bao giờ là điều kiện tiên quyết cho cut — không có tuyến, tuyến
+  hỏng, tuyến chậm hay câu trả lời rỗng đều rơi về cut thuần, và tool
+  vẫn trả lời dù thế nào.
 
-  This is why a raised cap is still the right answer for one kind of file: a long document
-  the agent must copy out of, such as a schema note holding the exact column names and the
-  SQL a scheduled job runs. Shortening it goes down the summary path, and a summary rewrites
-  the middle — which is where the query usually is. A paraphrased column name is a query
-  that fails. Keep the cap above the size of such a document rather than trusting a summary
-  of it. JSON has no such problem, because the structural path never asks a model anything.
-- **Errors are honest.** A tool's own error is returned to the model as "Công cụ lỗi: …";
-  any other exception is logged with its traceback and returned by type name. The prompt frame
-  tells the model to report a failed tool instead of pretending.
-- **Approval.** A tool that needs approval pauses the turn with an `approval_required`
-  event and a stored `Approval`. The web UI shows a bar, Telegram shows `/approve` /
-  `/deny`; the decision resumes the same turn. A conversation (or agent) marked
-  `autonomous` skips the pause — except for a `shell_run` command matching
-  `settings.shell_ask_patterns` (see [Shell](#shell)), which asks anyway and says which
-  pattern matched. The reverse also holds: a conversation that is *not* autonomous still
-  runs a `shell_run` command matching `settings.shell_allow_patterns` without asking, so a
-  supervised agent can get on with the routine parts of its job. The ask list is checked
-  first, so naming a command in both means it asks. Hard denials, workspace escapes and private network targets, are not
-  approvable. A request nobody answers within `approval_ttl_seconds` (default 600) is
-  refused: the tool result says so, the turn continues and the reply is delivered as usual.
-  Approving with `always` puts the tool on the conversation's `auto_approve` list, so its
-  later calls in that conversation run without asking; the ask-list guard still applies.
-- **Content is data.** The frame tells the model that anything a tool returns is data,
-  never instructions.
+  Đây là lý do nâng trần vẫn là câu trả lời đúng cho một loại tệp: một tài liệu dài
+  mà agent phải chép ra từ đó, chẳng hạn một ghi chú schema chứa tên cột chính xác và
+  câu SQL mà một job lịch chạy. Rút ngắn nó đi theo đường summary, và tóm tắt viết lại
+  phần giữa — là chỗ câu query thường nằm. Một tên cột bị diễn giải lại là một query
+  thất bại. Giữ trần cao hơn kích thước của tài liệu như vậy thay vì tin vào bản tóm tắt
+  của nó. JSON không gặp vấn đề này, vì đường structure không bao giờ hỏi model điều gì.
+- **Lỗi được báo thật.** Lỗi của chính tool được trả về cho model dưới dạng "Công cụ lỗi: …";
+  mọi exception khác được ghi log kèm traceback và trả về theo tên kiểu. Khung prompt
+  bảo model báo cáo tool thất bại thay vì giả vờ.
+- **Duyệt.** Tool cần duyệt sẽ tạm dừng lượt bằng một sự kiện `approval_required`
+  và một `Approval` được lưu. Web UI hiện một thanh, Telegram hiện `/approve` /
+  `/deny`; quyết định tiếp tục đúng lượt đó. Cuộc trò chuyện (hoặc agent) đánh dấu
+  `autonomous` bỏ qua bước dừng — trừ lệnh `shell_run` khớp
+  `settings.shell_ask_patterns` (xem [Shell](#shell)), lệnh này vẫn hỏi và nói rõ
+  pattern nào khớp. Chiều ngược lại cũng đúng: cuộc trò chuyện *không* autonomous vẫn
+  chạy lệnh `shell_run` khớp `settings.shell_allow_patterns` mà không hỏi, để
+  agent được giám sát vẫn làm được phần việc thường ngày của mình. Danh sách hỏi được kiểm tra
+  trước, nên nêu một lệnh ở cả hai danh sách nghĩa là nó hỏi. Từ chối cứng, thoát khỏi workspace và đích mạng riêng, không
+  thể duyệt. Yêu cầu không ai trả lời trong `approval_ttl_seconds` (mặc định 600) bị
+  từ chối: kết quả tool nói vậy, lượt tiếp tục và câu trả lời được gửi như thường.
+  Duyệt bằng `always` đưa tool vào danh sách `auto_approve` của cuộc trò chuyện, nên các
+  lời gọi sau trong cuộc trò chuyện đó chạy không hỏi; rào danh sách hỏi vẫn áp dụng.
+- **Nội dung là dữ liệu.** Khung prompt bảo model rằng bất cứ thứ gì tool trả về là dữ liệu,
+  không bao giờ là chỉ thị.
 
-## The tools
+## Các tool
 
-| Tool | Approval | Limits | What it does |
+| Tool | Duyệt | Giới hạn | Việc nó làm |
 |---|---|---|---|
-| `workspace_list` | no | — | lists a directory inside the workspace |
-| `workspace_read` | no | only the agent's output cap (`tool_output_chars`), which marks the cut | reads a text file inside the workspace; `offset` (1-based line) and `limit` read a window instead of the whole file |
-| `workspace_write` | **yes** | — | writes a text file inside the workspace, creating parents |
-| `fetch_url` | no | 20 000 chars via firecrawl markdown, else 6 000, 20 s, no redirects | GET of a public http(s) page; firecrawl returns markdown, otherwise HTML is reduced to text |
-| `web_search` | no | 5 results | always available; backends tried in order firecrawl → brave → tavily → duckduckgo; returns title, URL, snippet |
-| `memory_save` | no | — | appends `- HH:MM text` to today's note, see [memory.md](memory.md) |
-| `memory_search` | no | 12 hits | searches the shared user facts, then `MEMORY.md` and every daily note, newest first; every term must match |
-| `user_memory_save` | no | — | remembers one thing about the person, shared by the whole crew, see [memory.md](memory.md) |
-| `user_memory_forget` | no | — | drops one remembered fact by name |
-| `wiki_get` | no | — | one wiki page in full, looked up by its title, see [memory.md](memory.md#the-wiki-vault) |
-| `wiki_search` | no | 8 hits | searches the vault's titles and bodies, best first, as `[slug] text` |
-| `wiki_apply` | no | — | writes or updates one page; refuses a page with no `sources`, and never touches the link block a compile owns |
-| `shell_run` | **yes** | 120 s default, 900 s max | runs a command in the workspace, returns stdout+stderr |
-| `skill_read` | no | — | returns one skill's full text by name, opening with a warning when the skill needs a command this machine lacks, see [agents.md](agents.md#skills) |
-| `image_read` | no | 8 MB; jpg, png, webp, gif | sends a picture from the workspace or the crew home (where `inbox/` keeps what Telegram delivered) to the `vision_routes` chain with a `question` and returns the answer, see [Images](#images); only present when a vision route is configured |
-| `pdf_read` | no | 50 pages, `pages` picks a window; the agent's output cap applies | reads a PDF from the workspace or the crew home; typeset pages come back as text, scanned pages go through the vision chain, see [PDFs](#pdfs) |
-| `ask_user` | **yes, always** | one open question per conversation | asks the person one thing and pauses the turn until they answer, see [Asking the person](#asking-the-person) |
-| `progress_note` | no | 200 chars | says in one line what the agent is about to do; becomes a `note` step on the run, see [Saying what it is doing](#saying-what-it-is-doing) |
+| `workspace_list` | không | — | liệt kê một thư mục trong workspace |
+| `workspace_read` | không | chỉ trần đầu ra của agent (`tool_output_chars`), có đánh dấu chỗ cắt | đọc một tệp văn bản trong workspace; `offset` (dòng, tính từ 1) và `limit` đọc một cửa sổ thay vì cả tệp |
+| `workspace_write` | **có** | — | ghi một tệp văn bản trong workspace, tạo thư mục cha |
+| `fetch_url` | không | 20 000 ký tự qua markdown của firecrawl, nếu không thì 6 000, 20 s, không theo redirect | GET một trang http(s) công khai; firecrawl trả về markdown, nếu không thì HTML được rút thành văn bản |
+| `web_search` | không | 5 kết quả | luôn có sẵn; các backend được thử theo thứ tự firecrawl → brave → tavily → duckduckgo; trả về tiêu đề, URL, đoạn trích |
+| `memory_save` | không | — | nối `- HH:MM text` vào ghi chú hôm nay, xem [memory.md](memory.md) |
+| `memory_search` | không | 12 kết quả | tìm trong facts người dùng dùng chung, rồi `MEMORY.md` và mọi ghi chú ngày, mới nhất trước; mọi từ khoá đều phải khớp |
+| `user_memory_save` | không | — | ghi nhớ một điều về người dùng, cả đội dùng chung, xem [memory.md](memory.md) |
+| `user_memory_forget` | không | — | bỏ một fact đã nhớ theo tên |
+| `wiki_get` | không | — | một trang wiki đầy đủ, tra theo tiêu đề, xem [memory.md](memory.md#vault-wiki) |
+| `wiki_search` | không | 8 kết quả | tìm trong tiêu đề và nội dung của vault, khớp nhất trước, dạng `[slug] text` |
+| `wiki_apply` | không | — | ghi hoặc cập nhật một trang; từ chối trang không có `sources`, và không bao giờ chạm vào khối link do compile sở hữu |
+| `shell_run` | **có** | mặc định 120 s, tối đa 900 s | chạy một lệnh trong workspace, trả về stdout+stderr |
+| `skill_read` | không | — | trả về toàn văn một skill theo tên, mở đầu bằng cảnh báo khi skill cần một lệnh máy này không có, xem [agents.md](agents.md#skill) |
+| `image_read` | không | 8 MB; jpg, png, webp, gif | gửi một ảnh từ workspace hoặc home của đội (nơi `inbox/` giữ những gì Telegram chuyển tới) vào chuỗi `vision_routes` kèm một `question` và trả về câu trả lời, xem [Ảnh](#ảnh); chỉ có khi đã cấu hình vision route |
+| `pdf_read` | không | 50 trang, `pages` chọn một cửa sổ; áp dụng trần đầu ra của agent | đọc một PDF từ workspace hoặc home của đội; trang có chữ sắp sẵn trả về dạng văn bản, trang scan đi qua chuỗi vision, xem [PDF](#pdf) |
+| `ask_user` | **có, luôn luôn** | một câu hỏi mở mỗi cuộc trò chuyện | hỏi người dùng một điều và tạm dừng lượt cho tới khi họ trả lời, xem [Hỏi người dùng](#hỏi-người-dùng) |
+| `progress_note` | không | 200 ký tự | nói trong một dòng agent sắp làm gì; trở thành một step `note` trên run, xem [Nói mình đang làm gì](#nói-mình-đang-làm-gì) |
 
-Four more come with `mode: work` only, because an assistant that chats has no use for
-them and every extra tool spec costs prompt tokens:
+Bốn tool nữa chỉ đi kèm `mode: work`, vì trợ lý chỉ trò chuyện không cần
+chúng và mỗi spec tool thêm vào đều tốn token prompt:
 
-| Tool | Approval | Limits | What it does |
+| Tool | Duyệt | Giới hạn | Việc nó làm |
 |---|---|---|---|
-| `workspace_edit` | **yes** | 40 diff lines shown | replaces an exact snippet in one file; refuses when the snippet is missing or matches more than once, unless `replace_all` |
-| `workspace_grep` | no | 200 hits, 30 s | regex search over the workspace; uses `rg` when installed, otherwise walks the tree itself. Skips `.git`, `.venv`, `node_modules`, `__pycache__`, `dist`, `build` and binary files |
-| `workspace_glob` | no | 500 paths | lists files matching a glob, same skip list |
-| `delegate` | no | 8 per conversation, 8 at once | hands a whole task to another agent and waits for its answer, see below |
+| `workspace_edit` | **có** | hiện 40 dòng diff | thay một đoạn chính xác trong một tệp; từ chối khi đoạn không có hoặc khớp nhiều hơn một lần, trừ khi `replace_all` |
+| `workspace_grep` | không | 200 kết quả, 30 s | tìm regex trên workspace; dùng `rg` khi đã cài, nếu không tự duyệt cây. Bỏ qua `.git`, `.venv`, `node_modules`, `__pycache__`, `dist`, `build` và tệp nhị phân |
+| `workspace_glob` | không | 500 đường dẫn | liệt kê tệp khớp một glob, cùng danh sách bỏ qua |
+| `delegate` | không | 8 mỗi cuộc trò chuyện, 8 cùng lúc | giao trọn một việc cho agent khác và chờ câu trả lời, xem bên dưới |
 
-### Delegation
+### Giao việc
 
-`delegate` opens a new conversation for the agent named in `agent` — one of the caller's
-`delegates`, or itself — runs the task there, and returns that conversation's last reply
-with a header line giving its id, status, cost and step count. The child starts empty: it
-never sees the parent's history, which is the point, so `task` has to carry everything it
-needs. The parent's own context grows by one tool result instead of by the whole job, and
-that result is never stubbed by the old-tool-output trim: the master that asks Pong,
-then the coach, then comes back to Pong's
-topic still has Pong's answer in full.
+`delegate` mở một cuộc trò chuyện mới cho agent nêu trong `agent` — một trong các
+`delegates` của bên gọi, hoặc chính nó — chạy việc ở đó, và trả về câu trả lời cuối của cuộc trò chuyện đó
+kèm một dòng đầu ghi id, trạng thái, chi phí và số step. Agent con bắt đầu trống: nó
+không bao giờ thấy lịch sử của cha, và đó là mục đích, nên `task` phải mang theo mọi thứ nó
+cần. Ngữ cảnh của cha chỉ lớn thêm một kết quả tool thay vì cả công việc, và
+kết quả đó không bao giờ bị cắt gọn bởi cơ chế tỉa đầu ra tool cũ: master hỏi Pong,
+rồi hỏi HLV, rồi quay lại chủ đề của Pong
+vẫn còn nguyên câu trả lời của Pong.
 
-Several `delegate` calls in one assistant message run at the same time; every other tool
-still runs one at a time, because the rest of them touch the workspace and would race.
+Nhiều lời gọi `delegate` trong cùng một message của assistant chạy cùng lúc; mọi tool khác
+vẫn chạy từng cái một, vì chúng chạm vào workspace và sẽ tranh chấp.
 
-Every `mode: work` agent gets `delegate` unless it states a `tools` allow-list that leaves
-it out. An allow-list caps what the agent gets, and that cap covers this tool too, so a
-specialist stays a specialist rather than quietly becoming a lead.
+Mọi agent `mode: work` đều có `delegate` trừ khi nó khai một danh sách cho phép `tools` bỏ
+tool này ra. Danh sách cho phép giới hạn những gì agent nhận, và giới hạn đó bao gồm cả tool này, nên
+một chuyên gia vẫn là chuyên gia thay vì lặng lẽ thành người dẫn dắt.
 
-Depth stops at one. A delegated agent is handed its toolbox without `delegate` in it, and
-the tool refuses to run when the turn it is in is already a delegated one — two guards,
-because a fan-out that gets loose spends real money. The child inherits the parent's
-approval stance and whatever is left of its budget, and what the child spends is added to
-the parent, so a cap still means what it says. A turn interrupted mid-delegation finds its
-child again through the tool call id rather than starting a second one.
+Độ sâu dừng ở một. Agent được giao việc nhận hộp tool không có `delegate` trong đó, và
+tool từ chối chạy khi lượt nó đang ở trong đã là một lượt được giao — hai rào,
+vì một fan-out xổng ra tiêu tiền thật. Con thừa kế lập trường duyệt của cha
+và phần ngân sách còn lại của cha, và những gì con tiêu được cộng vào
+cha, nên trần vẫn đúng nghĩa của nó. Lượt bị ngắt giữa chừng khi đang giao việc tìm lại
+con của nó qua id của tool call thay vì mở một con thứ hai.
 
-### Workspace tools
+### Tool workspace
 
-Paths are resolved inside the workspace: `..` and absolute paths that
-leave it are refused, symlinks that stay inside are followed. The workspace is
-`agent.yaml: workspace`, default `<agent dir>/workspace`. Nothing outside it is reachable
-through these tools; `shell_run` is the escape hatch, and it needs approval.
+Đường dẫn được phân giải bên trong workspace: `..` và đường dẫn tuyệt đối
+thoát ra ngoài bị từ chối, symlink ở lại bên trong được đi theo. Workspace là
+`agent.yaml: workspace`, mặc định `<agent dir>/workspace`. Không gì bên ngoài nó chạm tới được
+qua các tool này; `shell_run` là lối thoát, và nó cần duyệt.
 
-### Shared user memory
+### Trí nhớ người dùng dùng chung
 
-`user_memory_save` and `user_memory_forget` write to `<home>/users/owner/`, one file per
-fact under `facts/` plus a regenerated `INDEX.md`. That directory is the same for every
-agent, so what one agent learns about the person, the whole crew sees on its next turn.
+`user_memory_save` và `user_memory_forget` ghi vào `<home>/users/owner/`, mỗi fact một tệp
+dưới `facts/` cùng một `INDEX.md` được tạo lại. Thư mục đó giống nhau cho mọi
+agent, nên điều một agent học được về người dùng, cả đội thấy ở lượt kế tiếp.
 
-Whether a write lands immediately depends on who asked for it. In a chat or Telegram turn
-the person is right there and can object, so the fact is written at once. In a scheduled
-job nobody is watching, so the same call becomes a row in `memory_proposals` with status
-`pending`, and nothing is written until someone approves it — an unattended agent cannot
-rewrite the person's profile on its own. A turn that resumes after an approval keeps the
-source of the turn that paused, so approving a tool on the web does not turn a job into a
+Ghi có được thực hiện ngay hay không tuỳ ai yêu cầu. Trong lượt chat hoặc Telegram
+người dùng đang ở đó và có thể phản đối, nên fact được ghi ngay. Trong job lịch
+không ai theo dõi, nên cùng lời gọi đó trở thành một dòng trong `memory_proposals` với trạng thái
+`pending`, và không gì được ghi cho tới khi có người duyệt — agent chạy không người trông không thể
+tự viết lại hồ sơ của người dùng. Lượt tiếp tục sau khi duyệt giữ nguyên
+nguồn của lượt đã dừng, nên duyệt một tool trên web không biến job thành
 chat.
 
-Names are slugs (`a-z`, `0-9`, `-`, up to 60 characters); saving the same name again
-updates that fact rather than adding a second one. `type` is one of `profile`,
+Tên là slug (`a-z`, `0-9`, `-`, tối đa 60 ký tự); lưu lại cùng tên
+sẽ cập nhật fact đó thay vì thêm cái thứ hai. `type` là một trong `profile`,
 `preference`, `feedback`, `project`, `reference`.
 
-The per-agent side has no forget tool to match: `MEMORY.md` is rewritten deliberately, by
-the person or by the consolidation job in [memory.md](memory.md), never dropped a line at
-a time by a tool call.
+Phía per-agent không có tool quên tương ứng: `MEMORY.md` được viết lại có chủ đích, bởi
+người dùng hoặc bởi job consolidate trong [memory.md](memory.md), không bao giờ bị bỏ từng dòng
+bởi một tool call.
 
-### Web tools
+### Tool web
 
-`fetch_url` resolves the host first and refuses private, loopback, link-local, reserved
-and multicast addresses; it does not follow redirects, so a public URL that bounces to an
-internal one fails closed. Only `http` and `https`. The address guard runs before any
-request, including the one to firecrawl, so a private URL never reaches a scraper either.
+`fetch_url` phân giải host trước và từ chối địa chỉ riêng, loopback, link-local, dành riêng
+và multicast; nó không theo redirect, nên URL công khai nảy sang một
+địa chỉ nội bộ sẽ thất bại an toàn. Chỉ `http` và `https`. Rào địa chỉ chạy trước mọi
+request, kể cả request tới firecrawl, nên URL riêng không bao giờ tới được scraper.
 
-With `FIRECRAWL_BASE_URL` set, `fetch_url` asks firecrawl for the main content as markdown
-and keeps 20 000 characters of it; headings and lists survive, which raw stripped text loses.
-A firecrawl that is down or slow is not an error — the tool falls back to plain text.
+Khi đặt `FIRECRAWL_BASE_URL`, `fetch_url` nhờ firecrawl lấy nội dung chính dạng markdown
+và giữ 20 000 ký tự của nó; tiêu đề và danh sách còn nguyên, điều mà văn bản thô đã lột mất.
+Firecrawl bị sập hay chậm không phải lỗi — tool rơi về văn bản thuần.
 
-`web_search` tries its backends in order and stops at the first one with results:
-firecrawl, then Brave, then Tavily, then DuckDuckGo. DuckDuckGo needs no key and closes
-the list, so the tool exists on every machine and an agent that lists it in `tools:` can
-always use it. A backend that fails is logged and skipped; only when every backend fails
-does the tool report the search service as unreachable, which keeps "no results" and
-"search is broken" separate answers. `FIRECRAWL_API_KEY` is optional and only sent when
-set, so a self-hosted host needs no key and a mistyped base url cannot leak one.
+`web_search` thử các backend theo thứ tự và dừng ở cái đầu tiên có kết quả:
+firecrawl, rồi Brave, rồi Tavily, rồi DuckDuckGo. DuckDuckGo không cần khoá và đóng
+danh sách, nên tool tồn tại trên mọi máy và agent liệt kê nó trong `tools:` luôn
+dùng được. Backend thất bại được ghi log và bỏ qua; chỉ khi mọi backend đều thất bại
+tool mới báo dịch vụ tìm kiếm không tới được, nhờ đó "không có kết quả" và
+"tìm kiếm hỏng" là hai câu trả lời tách biệt. `FIRECRAWL_API_KEY` là tuỳ chọn và chỉ gửi khi
+được đặt, nên host tự dựng không cần khoá và một base url gõ sai không thể làm lộ khoá.
 
 ### Shell
 
-`shell_run` executes in the agent workspace with a minimal environment (`PATH`, `HOME`,
-`LANG`, `LC_ALL`, `TERM`, `TMPDIR`, `USER`, `SHELL`), so the model never sees the server's
-API keys. Timeout comes from the `timeout_s` argument, capped at 900 s. A non-zero exit is
-a tool error carrying the last 4 000 characters of output. A scheduled `command` job uses
-the same tool and records a single step.
+`shell_run` chạy trong workspace của agent với môi trường tối thiểu (`PATH`, `HOME`,
+`LANG`, `LC_ALL`, `TERM`, `TMPDIR`, `USER`, `SHELL`), nên model không bao giờ thấy khoá
+API của server. Timeout lấy từ tham số `timeout_s`, trần 900 s. Exit khác không là
+lỗi tool mang theo 4 000 ký tự đầu ra cuối cùng. Job lịch dạng `command` dùng
+cùng tool này và ghi một step duy nhất.
 
-The allowlist is the reason a script that works in your own terminal can still fail here:
-anything you exported, or put in the server's env file, is gone by the time the command
-runs. A script that needs a non-secret value should read it from a file itself rather than
-expect it in the environment, and a script that needs a real secret should read it from a
-file only it can read. Widening the allowlist is the wrong fix — it would hand every
-model-written command the server's API keys.
+Danh sách cho phép là lý do một script chạy được trong terminal của bạn vẫn có thể thất bại ở đây:
+bất cứ thứ gì bạn export, hoặc đặt trong tệp env của server, đã mất khi lệnh
+chạy. Script cần một giá trị không bí mật nên tự đọc nó từ tệp thay vì
+trông đợi nó trong môi trường, và script cần bí mật thật nên đọc nó từ
+tệp chỉ mình nó đọc được. Nới rộng danh sách cho phép là cách sửa sai — nó sẽ trao khoá API của server
+cho mọi lệnh do model viết.
 
-`autonomous` would otherwise let every command run unwatched, which is too much for the
-shapes that cannot be undone. So `shell_ask_patterns` lists command fragments that get an
-approval regardless — by default `rm -rf`, `rm -r `, `sudo `, `| sh`, `| bash`, `mkfs`,
-`git push --force`, `git reset --hard`, `> /dev/`, `chmod -R` and `launchctl`. Matching is
-a case-insensitive substring test and the approval names the pattern that matched, in the
-web bar, the Telegram notice and the run card. Set the list in `config.yaml`, per agent in
-`agent.yaml`, or through `MY_AGENT_SHELL_ASK_PATTERNS` (separated by `;`); declaring it
-replaces the defaults and an empty list turns the guard off.
+`autonomous` nếu không sẽ để mọi lệnh chạy không ai trông, quá nhiều với
+những dạng lệnh không thể hoàn tác. Nên `shell_ask_patterns` liệt kê các mảnh lệnh luôn phải
+duyệt bất kể — mặc định là `rm -rf`, `rm -r `, `sudo `, `| sh`, `| bash`, `mkfs`,
+`git push --force`, `git reset --hard`, `> /dev/`, `chmod -R` và `launchctl`. So khớp là
+kiểm tra chuỗi con không phân biệt hoa thường và yêu cầu duyệt nêu tên pattern đã khớp, ở
+thanh web, thông báo Telegram và thẻ run. Đặt danh sách trong `config.yaml`, theo từng agent trong
+`agent.yaml`, hoặc qua `MY_AGENT_SHELL_ASK_PATTERNS` (phân cách bằng `;`); khai báo nó
+thay thế mặc định và danh sách rỗng tắt rào.
 
-This is a soft second guard, not a sandbox: `rm  -rf` with two spaces, or the same command
-built inside `$(…)`, walks straight past it. It catches the obvious mistake, not a
-determined one.
+Đây là rào mềm thứ hai, không phải sandbox: `rm  -rf` với hai dấu cách, hoặc cùng lệnh
+đó dựng bên trong `$(…)`, đi thẳng qua nó. Nó bắt lỗi hiển nhiên, không bắt
+kẻ cố tình.
 
-The one real boundary is `shell_network: false` in an agent's profile. Every `shell_run`
-command of that agent then runs under macOS `sandbox-exec` with a profile the harness
-builds. Blocking the socket alone would not keep the data on the machine,
-so the profile closes each route a command could use instead:
+Ranh giới thật duy nhất là `shell_network: false` trong profile của agent. Mọi lệnh `shell_run`
+của agent đó khi ấy chạy dưới `sandbox-exec` của macOS với một profile do harness
+dựng. Chỉ chặn socket thì không giữ được dữ liệu ở lại máy,
+nên profile đóng từng đường mà một lệnh có thể dùng thay thế:
 
-- **Network, both ways.** No outbound connection: not to the internet, not to `127.0.0.1`
-  (the crew's own API is there), and not to the resolver, because looking up a made-up
-  host name carries data out as well as a request does. No listening either, since a
-  server left behind would hand files to anyone who connects.
-- **Helpers that act for the command.** `open`, `launchctl`, `osascript`, `shortcuts` and
-  `pbcopy` are denied, along with the LaunchServices and pasteboard services behind them.
-  `open <url>` would otherwise have the browser, which is not sandboxed, make the request.
-- **Writes, except where the profile says.** A file write is a delayed command: a line added
-  to a script a scheduled job runs, a git hook, `~/.zshrc` or a LaunchAgent runs later,
-  outside the sandbox and with the network. Commands may write only under
-  `shell_write_paths` (paths inside the workspace) and the temp directories. An empty list
-  makes the workspace read-only to the shell.
+- **Mạng, cả hai chiều.** Không kết nối ra ngoài: không ra internet, không tới `127.0.0.1`
+  (API của chính đội ở đó), và không tới resolver, vì tra một tên host
+  bịa ra cũng mang dữ liệu ra ngoài như một request. Cũng không lắng nghe, vì một
+  server để lại sẽ trao tệp cho bất kỳ ai kết nối.
+- **Trợ thủ làm thay lệnh.** `open`, `launchctl`, `osascript`, `shortcuts` và
+  `pbcopy` bị cấm, cùng các dịch vụ LaunchServices và pasteboard đằng sau chúng.
+  `open <url>` nếu không sẽ để trình duyệt, vốn không bị sandbox, thực hiện request.
+- **Ghi, trừ nơi profile cho phép.** Một lần ghi tệp là một lệnh bị trì hoãn: một dòng thêm vào
+  script mà job lịch chạy, một git hook, `~/.zshrc` hay một LaunchAgent sẽ chạy sau,
+  ngoài sandbox và có mạng. Lệnh chỉ được ghi dưới
+  `shell_write_paths` (đường dẫn trong workspace) và các thư mục tạm. Danh sách rỗng
+  làm workspace chỉ đọc đối với shell.
 
-Reading files and running local programs still work, so an agent's own scripts do. The OS
-enforces all of this, so `$(…)` or a script the model just wrote gets no further than a
-plain `curl`. It is for the agent whose data must not leave the machine, such as one that
-keeps personal finances. It does not cover what the agent itself says: its replies go to
-the model provider and to whoever it answers, so a delegating agent with a network still
-sees them. Where `/usr/bin/sandbox-exec` does not exist (anything but macOS) the command
-is refused rather than run without the sandbox. Scheduled `command` jobs call the shell
-directly and keep the network: a person wrote those lines, and a price fetch needs it. That
-is why the write rule matters. `sandbox-exec` is marked deprecated in its man page but
-still ships with macOS; the tests that prove the block run wherever it exists.
+Đọc tệp và chạy chương trình cục bộ vẫn hoạt động, nên script của chính agent vẫn chạy. Hệ điều hành
+thực thi toàn bộ điều này, nên `$(…)` hay script model vừa viết cũng không đi xa hơn
+một lệnh `curl` thường. Nó dành cho agent mà dữ liệu không được rời khỏi máy, chẳng hạn agent
+giữ tài chính cá nhân. Nó không bao phủ những gì agent tự nói ra: câu trả lời của nó đi tới
+provider model và tới bất kỳ ai nó trả lời, nên agent giao việc có mạng vẫn
+thấy chúng. Nơi `/usr/bin/sandbox-exec` không tồn tại (mọi thứ ngoài macOS) lệnh
+bị từ chối thay vì chạy không sandbox. Job lịch dạng `command` gọi shell
+trực tiếp và giữ mạng: những dòng đó do người viết, và lấy giá cần mạng. Đó
+là lý do quy tắc ghi quan trọng. `sandbox-exec` được đánh dấu deprecated trong man page nhưng
+vẫn đi kèm macOS; các test chứng minh việc chặn chạy ở bất cứ đâu nó tồn tại.
 
-`shell_allow_patterns` is the mirror image, and it is empty by default. It names the
-command shapes routine enough to run without asking *even when the conversation is not
-autonomous*, which is what lets a supervised agent run its own tests or read its own git
-status without a pause for each one. Matching is the same case-insensitive substring test,
-and it is set the same three ways, with `MY_AGENT_SHELL_ALLOW_PATTERNS` as the env var.
+`shell_allow_patterns` là hình ảnh phản chiếu, và mặc định rỗng. Nó nêu các
+dạng lệnh đủ thường ngày để chạy không hỏi *ngay cả khi cuộc trò chuyện không
+autonomous*, chính là thứ cho phép agent được giám sát chạy test của mình hay đọc git
+status của mình mà không phải dừng cho từng lệnh. So khớp là cùng kiểm tra chuỗi con không phân biệt hoa thường,
+và nó được đặt theo cùng ba cách, với `MY_AGENT_SHELL_ALLOW_PATTERNS` là biến môi trường.
 
-The order between the two lists is fixed: a question always asks, then the ask list, then
-the allow list, then autonomy. Naming a command in both means it asks, because someone who
-calls `rm -rf` dangerous and `git` routine means `git reset --hard` to stop.
+Thứ tự giữa hai danh sách là cố định: câu hỏi luôn hỏi, rồi danh sách hỏi, rồi
+danh sách cho phép, rồi autonomy. Nêu một lệnh ở cả hai nghĩa là nó hỏi, vì người
+gọi `rm -rf` là nguy hiểm và `git` là thường ngày muốn `git reset --hard` phải dừng.
 
-A pattern under two characters is dropped, as are the ones that look like wildcards but are
-not (`*`, `.*`, `.`, `-`, `--`, `/`, `&&`, `||`, `;`, `|`). Substring matching makes `.*`
-allow only a literal `.*` while reading to whoever wrote it as "allow everything", and that
-misunderstanding is the danger. A bad entry is dropped rather than refusing the whole list,
-so one typo cannot take an agent off the air; dropping fails safe, because the command then
-asks.
+Pattern dưới hai ký tự bị bỏ, cũng như những cái trông giống wildcard mà
+không phải (`*`, `.*`, `.`, `-`, `--`, `/`, `&&`, `||`, `;`, `|`). So khớp chuỗi con khiến `.*`
+chỉ cho phép đúng chuỗi `.*` trong khi người viết nó đọc thành "cho phép tất cả", và
+hiểu lầm đó là mối nguy. Mục sai bị bỏ thay vì từ chối cả danh sách,
+nên một lỗi gõ không thể đánh bật agent khỏi hoạt động; bỏ đi là thất bại an toàn, vì khi đó lệnh
+sẽ hỏi.
 
-Because the test is a substring and not a parse, a useful pattern names the *shape of the
-operation*, never the program. A command-line tool that both reads and writes — a mail
-client, a spreadsheet client, anything with subcommands — is one binary doing two very
-different things, and putting the binary's name in `shell_ask_patterns` stops the reads too.
-An agent whose scheduled job only ever reads then pauses every morning waiting for an
-approval nobody meant to require. List the subcommands or flags that write instead, one
-entry each, and check the result the only way that proves anything: run the real read
-commands and the real write commands through `ask_reason` and count.
+Vì phép kiểm tra là chuỗi con chứ không phải parse, một pattern hữu ích nêu *dạng của
+thao tác*, không bao giờ nêu chương trình. Một công cụ dòng lệnh vừa đọc vừa ghi — một mail
+client, một spreadsheet client, bất cứ thứ gì có subcommand — là một binary làm hai việc rất
+khác nhau, và đặt tên binary vào `shell_ask_patterns` chặn cả các lần đọc.
+Agent có job lịch chỉ đọc khi ấy dừng mỗi sáng chờ một
+lượt duyệt không ai định yêu cầu. Thay vào đó liệt kê các subcommand hoặc cờ thực hiện ghi, mỗi
+mục một dòng, và kiểm tra kết quả theo cách duy nhất chứng minh được điều gì: chạy các lệnh đọc
+thật và các lệnh ghi thật qua `ask_reason` rồi đếm.
 
-### Media and files
+### Media và tệp
 
-An assistant line `MEDIA:<path relative to the workspace>` is not a tool; it is a
-convention the frame teaches. The web UI renders it through
-`GET /api/agents/{id}/files?path=`, which serves files from inside the workspace only;
-Telegram turns it into `sendPhoto`.
+Dòng `MEDIA:<path relative to the workspace>` của assistant không phải tool; nó là
+quy ước mà khung prompt dạy. Web UI hiển thị nó qua
+`GET /api/agents/{id}/files?path=`, chỉ phục vụ tệp bên trong workspace;
+Telegram biến nó thành `sendPhoto`.
 
-`FILE:<path>` is its sibling for documents, because Telegram treats the two differently: a
-photo is re-encoded, which is right for a chart and destroys a CSV. A `FILE:` line arrives
-as `sendDocument`, keeping the bytes and the filename; the web shows a download link
-instead of an inline image.
+`FILE:<path>` là anh em của nó dành cho tài liệu, vì Telegram xử lý hai loại khác nhau: ảnh
+được mã hoá lại, đúng với biểu đồ nhưng phá hỏng CSV. Dòng `FILE:` tới
+dưới dạng `sendDocument`, giữ nguyên byte và tên tệp; web hiện link tải xuống
+thay vì ảnh nhúng.
 
-A document is capped at 20 MB and must be one of `pdf`, `csv`, `md`, `txt`, `xlsx`, `json`
-or `zip`. The list is a guard on the reply, not on the workspace: an agent can write
-anything into its own directory, so containment alone would still let one sentence mail out
-a key file or an `.env` an earlier step copied in. A path outside the workspace, a missing
-file, a wrong format or an oversized one is reported into the chat rather than raised — the
-prose has already been sent by then, so an exception would leave an answer promising a file
-with no word about why none arrived.
+Tài liệu bị giới hạn 20 MB và phải là một trong `pdf`, `csv`, `md`, `txt`, `xlsx`, `json`
+hoặc `zip`. Danh sách là rào trên câu trả lời, không phải trên workspace: agent có thể ghi
+bất cứ thứ gì vào thư mục của mình, nên chỉ nhốt trong workspace vẫn để một câu gửi đi
+một tệp khoá hay một `.env` mà bước trước đã chép vào. Đường dẫn ngoài workspace, tệp không
+có, sai định dạng hay quá cỡ được báo vào chat thay vì raise — phần
+văn bản đã được gửi đi rồi, nên một exception sẽ để lại câu trả lời hứa có tệp
+mà không một lời về lý do không có tệp nào tới.
 
-### Images
+### Ảnh
 
-The chat model on an agent's `routes` is not expected to see pictures, so `image_read`
-sends the file down a chain of its own: `vision_routes` in `config.yaml` or
-`MY_AGENT_VISION_ROUTES`, by default two cheap OpenRouter vision models
-(`google/gemini-2.5-flash-lite`, then `qwen/qwen3-vl-8b-instruct`). An empty value turns the
-tool off for every agent; a route whose provider has no key is skipped with a warning.
+Model chat trên `routes` của agent không được kỳ vọng nhìn thấy ảnh, nên `image_read`
+gửi tệp xuống một chuỗi riêng: `vision_routes` trong `config.yaml` hoặc
+`MY_AGENT_VISION_ROUTES`, mặc định là hai model vision rẻ của OpenRouter
+(`google/gemini-2.5-flash-lite`, rồi `qwen/qwen3-vl-8b-instruct`). Giá trị rỗng tắt
+tool cho mọi agent; tuyến mà provider không có khoá bị bỏ qua kèm cảnh báo.
 
-The path is resolved against the agent's workspace first, then the crew home, so the
-master's `workspace/inbox/<file>` that a Telegram photo lands in is readable by the master
-and by the agent it hands the task to. The `question` is what the vision model is asked;
-without one it describes the picture. Every agent gets the tool in every mode, and an
-agent's `tools` allow-list may name it without a warning when no vision route exists.
-What the call cost is added to the conversation like a completion.
+Đường dẫn được phân giải theo workspace của agent trước, rồi tới home của đội, nên
+`workspace/inbox/<file>` của master nơi ảnh Telegram rơi vào đọc được bởi master
+và bởi agent mà nó giao việc. `question` là điều model vision được hỏi;
+không có thì nó mô tả ảnh. Mọi agent đều có tool này ở mọi mode, và
+danh sách cho phép `tools` của agent có thể nêu nó mà không bị cảnh báo khi không có vision route.
+Chi phí của lời gọi được cộng vào cuộc trò chuyện như một completion.
 
-The master reads once to decide who the picture is for and passes the absolute path on
-in the task; the specialist reads again with its own question. That is cheaper than one
-long description travelling through the master's context, and the specialist gets to ask
-for the fields it needs rather than the ones the master guessed at.
+Master đọc một lần để quyết định ảnh dành cho ai và chuyển đường dẫn tuyệt đối
+trong task; chuyên gia đọc lại với câu hỏi của riêng mình. Cách đó rẻ hơn một
+mô tả dài đi qua ngữ cảnh của master, và chuyên gia được hỏi
+đúng các trường nó cần thay vì những gì master đoán.
 
-### PDFs
+### PDF
 
-`pdf_read` resolves its path the same way `image_read` does: the agent's workspace first,
-then the crew home, so a document Telegram dropped in `workspace/inbox/` is readable by
-the master and by whoever it hands the task to.
+`pdf_read` phân giải đường dẫn giống `image_read`: workspace của agent trước,
+rồi home của đội, nên tài liệu Telegram thả vào `workspace/inbox/` đọc được bởi
+master và bởi bất kỳ ai nó giao việc.
 
-A PDF holds two different kinds of page and the tool treats them differently. A typeset
-page already contains its text, and pypdf hands it over for nothing. A photographed page
-contains only a picture, so that page is rendered with pypdfium2 and sent down the same
-`vision_routes` chain `image_read` uses, one page at a time and only for the pages that
-need it. So a mixed document costs a model call per scanned page and nothing for the rest.
+Một PDF chứa hai loại trang khác nhau và tool xử lý chúng khác nhau. Trang có chữ sắp sẵn
+đã chứa văn bản, và pypdf trao nó miễn phí. Trang chụp ảnh
+chỉ chứa một bức hình, nên trang đó được render bằng pypdfium2 và gửi xuống cùng
+chuỗi `vision_routes` mà `image_read` dùng, từng trang một và chỉ với những trang
+cần. Nên tài liệu trộn tốn một lời gọi model mỗi trang scan và không tốn gì cho phần còn lại.
 
-Pages come back under `--- Trang N ---` headings. A page that could not be read gets a
-bracketed line in place of its text rather than an error, so one unreadable page never
-costs you the pages that did read. With no vision route configured the tool is still
-registered and typeset PDFs still work; each scanned page says it needs `vision_routes`
-instead.
+Các trang trả về dưới tiêu đề `--- Trang N ---`. Trang không đọc được nhận một
+dòng trong ngoặc vuông thay cho văn bản chứ không phải lỗi, nên một trang không đọc được không bao giờ
+làm bạn mất những trang đã đọc được. Khi không cấu hình vision route, tool vẫn
+được đăng ký và PDF chữ sắp sẵn vẫn đọc được; mỗi trang scan thay vào đó nói nó cần `vision_routes`.
 
-`pages` takes `"1-5"` or `"3"`. Leaving it out reads from the start, up to 50 pages.
-The text then passes through the agent's output cap like any other tool result.
+`pages` nhận `"1-5"` hoặc `"3"`. Bỏ trống thì đọc từ đầu, tối đa 50 trang.
+Văn bản sau đó đi qua trần đầu ra của agent như mọi kết quả tool khác.
 
-### Asking the person
+### Hỏi người dùng
 
-`ask_user` is how an agent that has hit a genuine fork gets an answer instead of guessing.
-It takes a `question`, optional `options` to choose from, and a `default` to fall back on.
+`ask_user` là cách agent gặp ngã rẽ thật sự lấy được câu trả lời thay vì đoán.
+Nó nhận một `question`, `options` tuỳ chọn để chọn, và một `default` để rơi về.
 
-It reuses the approval machinery for the pause and the resume, but it is not an approval
-and differs from one in three ways that matter:
+Nó dùng lại bộ máy duyệt cho việc dừng và tiếp tục, nhưng nó không phải một lượt duyệt
+và khác ở ba điểm quan trọng:
 
-- **An autonomous conversation still stops.** Autonomy means "do not ask me to authorise
-  your tools", not "never speak to me". A question that auto-approved itself would be
-  answered by nobody and mean nothing.
-- **It closes by its own route.** A question is *answered*, not approved or denied, and
-  the server refuses each route the other's rows. In the web that is the question card
-  with its choices and its text box; in Telegram it is a reply to the question message,
-  by number or in words.
-- **Running out of time is not a refusal.** A tool nobody authorised must not run, but a
-  question nobody answered still has a `default`: the agent is handed it, carries on, and
-  is told to say in its reply that it decided for itself. The deadline is the shared
-  `approval_ttl_seconds` (default 600), so a job that may ask while nobody is watching
-  should always pass a `default`.
+- **Cuộc trò chuyện autonomous vẫn dừng.** Autonomy nghĩa là "đừng hỏi tôi cho phép
+  tool của bạn", không phải "đừng bao giờ nói với tôi". Một câu hỏi tự duyệt chính nó sẽ
+  không ai trả lời và vô nghĩa.
+- **Nó đóng theo đường riêng.** Câu hỏi được *trả lời*, không phải được duyệt hay từ chối, và
+  server từ chối các dòng của bên kia trên mỗi đường. Trên web đó là thẻ câu hỏi
+  với các lựa chọn và ô nhập; trên Telegram đó là reply vào tin nhắn câu hỏi,
+  bằng số hoặc bằng chữ.
+- **Hết giờ không phải từ chối.** Tool không ai cho phép thì không được chạy, nhưng
+  câu hỏi không ai trả lời vẫn có `default`: agent được trao nó, đi tiếp, và
+  được bảo nói trong câu trả lời rằng nó đã tự quyết. Hạn là
+  `approval_ttl_seconds` dùng chung (mặc định 600), nên job có thể hỏi khi không ai theo dõi
+  nên luôn truyền `default`.
 
-Because it pauses the turn, only one question can be open per conversation at a time, and
-the composer stays closed while one is: the server refuses a new message while any
-approval waits. The run's timeline shows the pause as its own waiting step rather than
-leaving a gap that reads as an agent thinking for an hour.
+Vì nó tạm dừng lượt, mỗi cuộc trò chuyện chỉ có thể mở một câu hỏi tại một thời điểm, và
+ô soạn tin đóng khi đang có một câu: server từ chối tin mới khi bất kỳ
+lượt duyệt nào đang chờ. Timeline của run hiện chỗ dừng như một step chờ riêng thay vì
+để một khoảng trống đọc như agent đang nghĩ suốt một giờ.
 
-### Saying what it is doing
+### Nói mình đang làm gì
 
-`progress_note` is the opposite of `ask_user`: it never stops anything. An agent calls it
-with one short line before a long stretch of work, and the line appears on the run's
-timeline while that work is still happening, so someone watching sees "đang đọc lịch" rather
-than a spinner and a guess.
+`progress_note` là đối lập của `ask_user`: nó không bao giờ dừng gì cả. Agent gọi nó
+với một dòng ngắn trước một đoạn việc dài, và dòng đó hiện trên timeline của run
+trong khi việc còn đang diễn ra, nên người theo dõi thấy "đang đọc lịch" thay vì
+một spinner và một phỏng đoán.
 
-It differs from every other tool in three ways:
+Nó khác mọi tool khác ở ba điểm:
 
-- **It never asks.** It needs no approval and nothing consults the ask list. A note
-  that needed permission would arrive after the thing it was announcing.
-- **Its step has its own kind.** The step is written as `note`, not `tool`, because a note
-  has no duration and cannot fail — rendering it as a tool call would give the timeline a
-  row that is permanently mid-flight.
-- **Over-long text is shortened, not refused.** The cap is 200 characters and anything past
-  it is cut. An agent that writes a paragraph gets a shorter note; it does not get an error
-  in the middle of its turn.
+- **Nó không bao giờ hỏi.** Không cần duyệt và không gì tra danh sách hỏi. Một ghi chú
+  cần xin phép sẽ tới sau cái việc nó đang báo.
+- **Step của nó có kiểu riêng.** Step được ghi là `note`, không phải `tool`, vì ghi chú
+  không có thời lượng và không thể thất bại — hiển thị nó như tool call sẽ cho timeline một
+  dòng mãi mãi đang chạy dở.
+- **Chữ quá dài bị cắt ngắn, không bị từ chối.** Trần là 200 ký tự và phần vượt
+  bị cắt. Agent viết cả đoạn nhận được ghi chú ngắn hơn; nó không nhận lỗi
+  giữa lượt.
 
-A note is not memory. It lives on the run and dies with it, so nothing written here reaches
-the next conversation — that is what `memory_save` is for.
+Ghi chú không phải trí nhớ. Nó sống trên run và chết cùng run, nên không gì viết ở đây tới được
+cuộc trò chuyện kế tiếp — đó là việc của `memory_save`.
 
-## Providers without a key
+## Provider không cần khoá
 
-Two of the providers need no credentials, and both exist so that something useful still
-works when there is no key and no network.
+Hai trong số các provider không cần thông tin xác thực, và cả hai tồn tại để vẫn có thứ hữu ích
+chạy được khi không có khoá và không có mạng.
 
-`ollama` talks to a local OpenAI-compatible server at `OLLAMA_BASE_URL`, default
-`http://127.0.0.1:11434/v1`. Because it needs no key it is always built, so a route like
-`ollama:qwen3:8b` is available whenever ollama is actually running; nothing listening simply
-falls back like any other failing route. It is the natural home for the cheap, high-volume
-work — summarising long tool output, for instance, which would otherwise add a paid call to
-every large result. A local model reports no price, so the run card shows the cost as
-unknown rather than as zero, since those are different claims.
+`ollama` nói chuyện với server tương thích OpenAI cục bộ tại `OLLAMA_BASE_URL`, mặc định
+`http://127.0.0.1:11434/v1`. Vì không cần khoá nên nó luôn được dựng, nên tuyến như
+`ollama:qwen3:8b` có sẵn bất cứ khi nào ollama thực sự đang chạy; không có gì lắng nghe thì chỉ
+rơi về như mọi tuyến hỏng khác. Nó là nhà tự nhiên cho việc rẻ, khối lượng lớn —
+chẳng hạn tóm tắt đầu ra tool dài, việc nếu không sẽ thêm một lời gọi trả phí vào
+mỗi kết quả lớn. Model cục bộ không báo giá, nên thẻ run hiện chi phí là
+không rõ thay vì bằng không, vì đó là hai khẳng định khác nhau.
 
-With `MY_AGENT_ROUTES=fake:echo` no model is called at all and a message `/tool <name>
-{json}` runs that tool through the real registry and approval path. This is how the live
-smoke and the browser tests drive tools without a key.
+Với `MY_AGENT_ROUTES=fake:echo` không model nào được gọi và một tin nhắn `/tool <name>
+{json}` chạy tool đó qua registry thật và đường duyệt thật. Đây là cách live
+smoke và test trình duyệt điều khiển tool mà không cần khoá.
 
 ## Ai đang dùng tool nào
 
@@ -378,14 +377,14 @@ GET /api/tools → [{"name": "workspace_read", …, "agents": ["fullstack-develo
 GET /api/agents/{id}/prompt → assembled system prompt this turn (includes persona, memory, skills, roster)
 ```
 
-The tools union is every agent's registry, not the master's own set — a profile with a `tools`
-allow-list holds fewer tools than the master, and reading one agent's registry would hide
-tools the rest of the crew still uses. `agents` is who holds it, which is the answer to
-"can the adviser actually edit files"; `optional` marks the tools that only exist when
-their key or route is configured (`image_read`).
+Hợp của các tool là registry của mọi agent, không phải bộ riêng của master — profile có danh sách
+cho phép `tools` giữ ít tool hơn master, và đọc registry của một agent sẽ giấu
+những tool phần còn lại của đội vẫn dùng. `agents` là ai giữ nó, tức câu trả lời cho
+"cố vấn có thực sự sửa được tệp không"; `optional` đánh dấu tool chỉ tồn tại khi
+khoá hoặc tuyến của nó được cấu hình (`image_read`).
 
-The `/prompt` endpoint returns the complete system prompt as assembled for the agent (useful for
-debugging what the agent sees, or showing a user what the agent knows).
+Endpoint `/prompt` trả về system prompt đầy đủ như đã lắp cho agent (hữu ích để
+debug agent thấy gì, hoặc cho người dùng xem agent biết gì).
 
 ```
 GET /api/connections → {"providers": […], "routes": […], "vision_routes": […],
@@ -394,48 +393,48 @@ GET /api/connections → {"providers": […], "routes": […], "vision_routes": 
                                       "configured": false, "ignored": false}]}
 ```
 
-No secret's value appears in either response. A key is present or absent; a Telegram
-channel is named by the *environment variable* holding its token, and the chat id is not
-reported at all — enough to tell a missing key from a wrong one without putting either
-into a browser tab or a screenshot. A test asserts the whole serialized body contains no
-configured secret, so the property survives new fields being added. (The agent editor does
-return `chat_id`, because a field nobody can see is a field nobody can edit; this view is
-the one people screenshot, so it stays down to what diagnoses a connection.)
+Không giá trị bí mật nào xuất hiện trong cả hai phản hồi. Khoá là có hoặc không; kênh
+Telegram được nêu bằng *biến môi trường* giữ token của nó, và chat id không được
+báo cáo chút nào — đủ để phân biệt khoá thiếu với khoá sai mà không đưa cái nào
+vào tab trình duyệt hay ảnh chụp màn hình. Một test khẳng định toàn bộ body đã serialize không chứa
+bí mật nào đã cấu hình, nên tính chất này vẫn giữ khi thêm trường mới. (Trình sửa agent có
+trả về `chat_id`, vì trường không ai thấy là trường không ai sửa được; view này là
+view người ta chụp màn hình, nên nó chỉ giữ những gì chẩn đoán được kết nối.)
 
-`configured` is that row's own environment variable, not whether the crew has a channel at
-all — otherwise an agent whose token was never set would read as working. `ignored` marks
-a `telegram` block on a non-master profile: only the master's builds a channel, so the page
-says so rather than showing one that never runs.
+`configured` là biến môi trường của chính dòng đó, không phải đội có kênh hay
+không — nếu không agent có token chưa bao giờ đặt sẽ đọc như đang chạy. `ignored` đánh dấu
+khối `telegram` trên profile không phải master: chỉ khối của master dựng kênh, nên trang
+nói vậy thay vì hiện một kênh không bao giờ chạy.
 
-## Adding a tool
+## Thêm tool
 
-A tool lives under `tools/` and is a name, a description and a JSON schema for the model,
-a run function, and two flags: whether it needs approval and whether two calls in one
-message may safely overlap (a read may, a write to the same file may not). It is wired
-into each agent's set where the server assembles tools. Description and parameter texts
-are shown to the model, so they live with the other prompt strings, not in the code. Mark
-the tool as needing approval whenever it changes state outside the conversation, add a row
-to [The tools](#the-tools) above, and test it in the tier that can see it
+Tool nằm dưới `tools/` và gồm tên, mô tả và JSON schema cho model,
+một hàm run, và hai cờ: có cần duyệt không và hai lời gọi trong cùng một
+message có được chồng lên nhau an toàn không (đọc thì được, ghi vào cùng tệp thì không). Nó được nối
+vào bộ tool của từng agent ở chỗ server lắp tool. Chữ mô tả và tham số
+được đưa cho model, nên chúng nằm cùng các chuỗi prompt khác, không nằm trong code. Đánh dấu
+tool cần duyệt bất cứ khi nào nó thay đổi trạng thái bên ngoài cuộc trò chuyện, thêm một dòng
+vào [Các tool](#các-tool) ở trên, và test nó ở tầng thấy được nó
 ([testing.md](testing.md)).
 
-## Compared with openclaw
+## So với openclaw
 
-openclaw ships more tools (browser, canvas, richer messaging). Here the catalogue is fixed
-and small on purpose: file, web, memory, shell. An agent's own set is narrower than the
-catalogue in three ways — `tools` in its profile is an allow-list, `workspace_edit` and the
-search tools only exist under `mode: work`, and `image_read` only when a vision chain was
-built. `delegate` is conditional too: the master has it, a work agent has it, any profile
-naming `delegates` has it, and a delegated child never does.
+openclaw đi kèm nhiều tool hơn (browser, canvas, nhắn tin phong phú hơn). Ở đây danh mục cố định
+và nhỏ có chủ đích: tệp, web, memory, shell. Bộ riêng của agent hẹp hơn
+danh mục theo ba cách — `tools` trong profile là danh sách cho phép, `workspace_edit` và các
+tool tìm kiếm chỉ tồn tại dưới `mode: work`, và `image_read` chỉ khi chuỗi vision đã
+được dựng. `delegate` cũng có điều kiện: master có, agent work có, profile nào
+nêu `delegates` có, và agent con được giao việc không bao giờ có.
 
-So a per-agent allow-list over tool names exists here as well. The real difference is what
-carries the safety weight. openclaw leans on tool visibility; here that mostly separates
-roles — an adviser that cannot write, a researcher that cannot run a shell — while the guard
-against a dangerous call is approval, and the two pattern lists shape it from both sides.
-`shell_ask_patterns` pulls a command back into asking even in an autonomous conversation;
-`shell_allow_patterns` lets a routine one through even in a supervised one. Both match a
-command shape rather than a tool name, which is the distinction that matters: one
-`shell_run` can be anything from `ls` to `rm -rf`, so no list over tool names could ever
-express "yes to tests, no to deletions".
+Vậy danh sách cho phép theo từng agent trên tên tool cũng tồn tại ở đây. Khác biệt thật là thứ
+gánh trọng lượng an toàn. openclaw dựa vào tính hiển thị của tool; ở đây điều đó chủ yếu tách
+vai trò — cố vấn không ghi được, nghiên cứu không chạy được shell — còn rào
+chống lời gọi nguy hiểm là duyệt, và hai danh sách pattern định hình nó từ hai phía.
+`shell_ask_patterns` kéo một lệnh về lại chỗ hỏi ngay cả trong cuộc trò chuyện autonomous;
+`shell_allow_patterns` cho một lệnh thường ngày đi qua ngay cả trong cuộc trò chuyện được giám sát. Cả hai khớp
+dạng lệnh thay vì tên tool, và đó là khác biệt quan trọng: một
+`shell_run` có thể là bất cứ gì từ `ls` tới `rm -rf`, nên không danh sách nào trên tên tool có thể
+diễn đạt "được chạy test, không được xoá".
 
-Skills cover the rest: a skill can describe a script in its folder and the model runs it
-with `shell_run`.
+Skill lo phần còn lại: skill có thể mô tả một script trong thư mục của nó và model chạy nó
+bằng `shell_run`.
