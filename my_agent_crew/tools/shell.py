@@ -1,19 +1,21 @@
 """`shell_run`: execute a command in the agent's workspace. Every call goes through
 approval unless the conversation is autonomous — the model sees stdout and stderr,
-capped like any other tool output. The approval is the guard; the one sandbox is the
-offline switch below.
+capped like any other tool output. The approval is the guard; the one boundary is the
+sandbox below.
 
 An autonomous conversation drops that guard for every command, which is too much for the
 destructive shapes, so `ask_reason` names the ones that ask anyway. It is a coarse
-substring match, deliberately: a soft second guard, not a security boundary.
+substring match, deliberately: a soft second guard, not a security boundary. The same
+match against `shell_deny_patterns` refuses a command outright and tells the model to
+report back instead: an agent kept to a job has nobody to approve the step outside it.
 
-An agent whose profile sets `shell_network: false` runs every command under macOS
-`sandbox-exec` with no network and writes only where its profile says, see
-`shell_sandbox.py`. That is a real boundary, unlike the patterns: it holds for `$(…)` and
-for a script the model wrote a moment ago. Where `sandbox-exec` is missing the command is
-refused rather than run unconfined. Scheduled `command` jobs call `run_shell` directly
-and keep the network; a person wrote those, and some need it — which is why the sandbox
-keeps an offline agent from editing what they run."""
+An agent whose profile sets `shell_network: false` or `shell_write_paths` runs every
+command under macOS `sandbox-exec`, writing only where its profile says, and offline too
+for the former, see `shell_sandbox.py`. That is a real boundary, unlike the patterns: it
+holds for `$(…)` and for a script the model wrote a moment ago. Where `sandbox-exec` is
+missing the command is refused rather than run unconfined. Scheduled `command` jobs call
+`run_shell` directly, unsandboxed and with the network; a person wrote those, and some
+need it — which is why the sandbox keeps an agent from editing what they run."""
 
 from __future__ import annotations
 
@@ -25,7 +27,7 @@ from typing import Any
 
 from my_agent_crew import texts
 from my_agent_crew.tools.registry import Tool, ToolError
-from my_agent_crew.tools.shell_sandbox import SANDBOX_EXEC, offline_profile
+from my_agent_crew.tools.shell_sandbox import SANDBOX_EXEC, sandbox_profile
 
 SHELL_TOOL_NAME = "shell_run"
 DEFAULT_TIMEOUT_S = 120
@@ -76,15 +78,38 @@ def ask_reason(command: str, patterns: Sequence[str]) -> str | None:
     return None
 
 
-def build_shell_tool(cwd: Path, *, network: bool = True, write_paths: Sequence[Path] = ()) -> Tool:
-    """`network=False` is the offline sandbox; `write_paths` are then the only places
-    outside the temp directories a command may write, and are ignored otherwise."""
-    sandbox = None if network else offline_profile([p.resolve() for p in write_paths])
+def deny_reason(arguments: dict[str, Any], patterns: Sequence[str]) -> str | None:
+    """The deny pattern a `shell_run` call matches. The tool refuses it whatever the
+    approval says, so the turn does not pause to offer a yes that would change nothing."""
+    return ask_reason(str(arguments.get("command", "")), patterns)
+
+
+def _sandbox_denied(output: str) -> bool:
+    """A write the sandbox refused surfaces as EPERM, whichever program tried it."""
+    return "operation not permitted" in output.lower()
+
+
+def build_shell_tool(
+    cwd: Path,
+    *,
+    network: bool = True,
+    write_paths: Sequence[Path] = (),
+    deny_patterns: Sequence[str] = (),
+) -> Tool:
+    """Sandboxed when `network` is False or `write_paths` is set: the paths are then the
+    only places outside the temp directories a command may write. Offline with no paths
+    leaves the workspace read-only to the shell."""
+    confined = not network or bool(write_paths)
+    resolved = [p.resolve() for p in write_paths]
+    sandbox = sandbox_profile(resolved, network=network) if confined else None
+    writable = ", ".join(str(p) for p in resolved) or texts.SHELL_WRITES_NOWHERE
 
     async def run(args: dict[str, Any]) -> str:
         command = str(args.get("command", "")).strip()
         if not command:
             raise ToolError("lệnh trống")
+        if pattern := deny_reason(args, deny_patterns):
+            raise ToolError(texts.SHELL_DENIED.format(pattern=pattern))
         timeout_s = min(float(args.get("timeout_s") or DEFAULT_TIMEOUT_S), MAX_TIMEOUT_S)
         if not cwd.is_dir():
             raise ToolError(texts.SHELL_NO_CWD.format(path=cwd))
@@ -94,7 +119,10 @@ def build_shell_tool(cwd: Path, *, network: bool = True, write_paths: Sequence[P
         if code is None:
             raise ToolError(texts.SHELL_TIMEOUT.format(seconds=int(timeout_s)))
         if code != 0:
-            raise ToolError(texts.SHELL_FAILED.format(code=code, output=output.strip()[-4000:]))
+            failed = texts.SHELL_FAILED.format(code=code, output=output.strip()[-4000:])
+            if sandbox is not None and _sandbox_denied(output):
+                failed += "\n\n" + texts.SHELL_WRITE_DENIED.format(paths=writable)
+            raise ToolError(failed)
         return output if output.strip() else texts.SHELL_NO_OUTPUT
 
     return Tool(

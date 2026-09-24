@@ -34,7 +34,7 @@ from my_agent_crew.tools.ask_user import (
     unanswered_result,
 )
 from my_agent_crew.tools.registry import ToolResult
-from my_agent_crew.tools.shell import SHELL_TOOL_NAME, ask_reason
+from my_agent_crew.tools.shell import SHELL_TOOL_NAME, ask_reason, deny_reason
 from my_agent_crew.tools.shell_temp_paths import deletes_only_temp_paths
 
 if TYPE_CHECKING:  # the loop owns the deps; importing it back would be a cycle
@@ -96,7 +96,8 @@ def _allowed(deps: AgentDeps, name: str, arguments: dict[str, Any]) -> bool:
 
 def _pauses_for_a_person(deps: AgentDeps, conv: Conversation, call: ToolCall) -> bool:
     tool = deps.tools.get(call.name)
-    if tool is None or not tool.requires_approval:
+    denied = deny_reason(call.arguments, deps.settings.shell_deny_patterns)
+    if tool is None or not tool.requires_approval or (call.name == SHELL_TOOL_NAME and denied):
         return False
     return needs_decision(
         conv,

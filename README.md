@@ -91,6 +91,8 @@ memory_consolidate: "30 3 * * 1"            # every Monday, rewrite MEMORY.md fr
 
 An agent holding data that must not leave the machine (a ledger, say) sets `shell_network: false`: every `shell_run`
 runs inside `sandbox-exec` with no network and can only write under `shell_write_paths` — see [agents.md](docs/agents.md).
+`shell_write_paths` alone keeps the network but still confines writes, for an agent that works inside a repo it
+must not edit; `shell_deny_patterns` refuses command shapes outright.
 
 A `prompt` job opens a new conversation and runs as if the user had sent a message; a `command` job only runs the shell.
 The result of a `prompt` job is sent to the Telegram chat (if there is a bot, see below) with a first line `[Agent name]`;

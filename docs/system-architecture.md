@@ -77,7 +77,7 @@ Gói `tools/` giữ danh sách tool mà agent được dùng (`tools:` trong `ag
 |---|---|---|
 | Workspace | `workspace_list`, `workspace_read`, `workspace_glob`, `workspace_grep` | không |
 | Workspace | `workspace_write`, `workspace_edit` | có |
-| Shell | `shell_run` (cwd = workspace, có `shell_ask_patterns`; `shell_network: false` thì chạy trong `sandbox-exec` không mạng) | có |
+| Shell | `shell_run` (cwd = workspace, có `shell_ask_patterns` và `shell_deny_patterns`; `shell_network: false` hoặc `shell_write_paths` thì chạy trong `sandbox-exec`, chỉ ghi dưới các đường dẫn đó, không mạng nếu `shell_network: false`) | có |
 | Web | `fetch_url`, `web_search` | không |
 | Trí nhớ | `memory_save`, `memory_search`, `user_memory_save`, `user_memory_forget`, `wiki_get`, `wiki_search`, `wiki_apply` | không |
 | Đội | `delegate` | không |

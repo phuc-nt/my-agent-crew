@@ -75,12 +75,12 @@ class Settings:
     shell_allow_patterns: tuple[str, ...] = ()
     approval_ttl_seconds: int = DEFAULT_APPROVAL_TTL_SECONDS
     tool_output_chars: int = DEFAULT_TOOL_OUTPUT_CHARS
-    # False runs every `shell_run` command with outbound connections denied. Set per agent
-    # only: it is for the one agent whose data must not leave the machine.
+    # The shell sandbox, per agent only. False denies every connection; write paths
+    # (inside the workspace, as written) are then, or whenever set, the only places a
+    # command may write besides temp. Commands matching a deny pattern never run.
     shell_network: bool = True
-    # With the network off, the only places a command may write besides the temp
-    # directories: paths inside the workspace, as the profile wrote them.
     shell_write_paths: tuple[str, ...] = ()
+    shell_deny_patterns: tuple[str, ...] = ()
     # Where `workspace_write` and `workspace_edit` may write, inside the workspace. Empty
     # means anywhere in it; set, a guessed path cannot scatter files through a repo.
     write_paths: tuple[str, ...] = ()

@@ -60,7 +60,13 @@ def apply_patch(raw: Any, patch: dict[str, Any]) -> Any:
         raise ValueError(texts.PROFILE_KEY_UNKNOWN.format(keys=", ".join(unknown)))
     # A string is iterable, so the parser would turn "rm" into the patterns "r" and "m"
     # and the guard that asks before a destructive command would quietly stop matching.
-    list_keys = ("shell_ask_patterns", "shell_allow_patterns", "shell_write_paths", "write_paths")
+    list_keys = (
+        "shell_ask_patterns",
+        "shell_allow_patterns",
+        "shell_deny_patterns",
+        "shell_write_paths",
+        "write_paths",
+    )
     for key in (*list_keys, *PATH_KEYS):
         value = patch.get(key)
         if key != "workspace" and value is not None and not isinstance(value, list):

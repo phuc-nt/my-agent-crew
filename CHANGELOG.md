@@ -25,6 +25,10 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 - **`write_paths` in an agent profile** confines `workspace_write` and `workspace_edit` to the listed
   paths inside the workspace. A write elsewhere is refused with an error naming the allowed paths, and no
   directory is created. Meant for autonomous agents whose workspace is a git repo.
+- **`shell_deny_patterns` in an agent profile**: commands containing one of the listed fragments (case-insensitive
+  substring, like `shell_ask_patterns`) are refused outright, with no approval asked, since nobody may be there to
+  grant one in a delegated or scheduled turn. Meant for keeping an agent that works in someone's repo away from
+  DDL, raw SQL writes and inline interpreters (`create table`, `python3 -c`). A soft guard like the ask list.
 
 ### Changed
 
@@ -36,6 +40,14 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   all say a question is asked and answered, not acted on, and that a new table, a schema change, code or
   config needs the person's explicit consent — a permission the task grants itself is not theirs. The
   always-on `delegation` skill now teaches the same contract; its per-file split applies only to coding work.
+- **`shell_write_paths` confines an agent with the network on, too.** Set, every `shell_run` command runs under
+  `sandbox-exec` writing only there and in temp, and without `open`/`launchctl`/`osascript`, so an agent can fetch
+  and record data but cannot edit the code, scripts or config around it. `shell_network: false` still adds the
+  network denial; without either key nothing changes.
+- **Refusals tell the agent to report back.** A sandbox-denied write, a denied command and a `write_paths`
+  refusal all say the change needs the person's consent: stop, say what is needed and why, and end a delegated
+  turn with `Status: BLOCKED`. The master's roster and the `delegation` skill say a consent block goes to the
+  person — never done by the master itself or handed to another agent.
 - **An unfinished delegate reports what it already did.** When the child halts, errors or is interrupted,
   the result says so and lists its successful tool calls, so the delegator does not redo or escalate work
   that already landed.
@@ -48,6 +60,8 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ### Upgrade notes
 
+- **An agent with `shell_write_paths` and the network on is now sandboxed.** Before, the key was ignored unless
+  `shell_network: false`; check that such an agent's commands only write where the list says.
 - **Refresh `<home>/skills/delegation.md`.** Installing a template does not overwrite shared skills, so an
   existing home keeps the old file-list version; copy `my_agent_crew/agents/templates/_shared_skills/delegation.md`
   over it.

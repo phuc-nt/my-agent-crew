@@ -73,3 +73,19 @@ def test_a_delegated_agent_is_told_to_refuse_structural_changes_and_report_parti
 
     assert "tạo bảng" in receiving and "cần người dùng đồng ý" in receiving
     assert "phần nào đã làm xong" in receiving
+
+
+async def test_a_consent_block_goes_to_the_person_not_round_the_crew(runtime: Runtime):
+    """The receiving agent stops with BLOCKED when a change needs the person's yes; a
+    coordinator taught only "on BLOCKED, change the context" would hand the same change to
+    someone less constrained, or make it itself."""
+    boss = runtime.deps_for("boss")
+    _, roster = crew_roster_section(boss.profile, {p.id: p for p in runtime.profiles()})
+    parent = runtime.store.create(agent_id="boss", autonomous=True)
+    await delegate(runtime, parent.id, "call-b", task="thêm tính năng", agent="worker")
+    child = runtime.store.for_parent_call("call-b")
+    general = _sections(SKILL.read_text(encoding="utf-8"))["Quy tắc chung"]
+
+    assert "BLOCKED" in roster and "đừng tự làm thay hay giao cho agent khác" in roster
+    assert "BLOCKED" in system_prompt_for(runtime.deps_for("worker"), child)
+    assert "cần người dùng đồng ý" in general and "đừng giao cho agent khác" in general

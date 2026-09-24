@@ -106,6 +106,8 @@ Task cũng không cấp quyền: câu hỏi của người dùng ("được khô
 lời, chưa làm; tạo bảng, sửa schema, sửa code hay cấu hình chỉ khi người dùng đồng ý rõ. Mô tả
 tool, danh sách đội, mục "Việc được giao" và skill luôn bật `delegation` cùng nói một hợp đồng —
 phần chia việc theo tệp của skill chỉ áp cho việc lập trình.
+Agent con gặp việc cần người dùng đồng ý thì dừng, nói cần làm gì và vì sao, kết thúc
+`Status: BLOCKED`; master kể lại và hỏi người dùng, không tự làm thay, không giao cho agent khác.
 Con dừng giữa chừng (`halted`, `error`, bị ngắt) thì kết quả ghi rõ là chưa xong và liệt kê
 các tool call đã thành công của nó, để bên giao không làm lại hay giao lại với quyền rộng hơn.
 Ngữ cảnh của cha chỉ lớn thêm một kết quả tool thay vì cả công việc, và
@@ -205,14 +207,20 @@ thanh web, thông báo Telegram và thẻ run. Đặt danh sách trong `config.y
 `agent.yaml`, hoặc qua `MY_AGENT_SHELL_ASK_PATTERNS` (phân cách bằng `;`); khai báo nó
 thay thế mặc định và danh sách rỗng tắt rào.
 
+`shell_deny_patterns` (chỉ theo từng agent) so khớp cùng kiểu nhưng từ chối thẳng, không hỏi
+duyệt — cuộc được giao hay job lịch có thể không có ai để duyệt. Lời từ chối dặn model dừng lại,
+nói cần làm gì và vì sao để người dùng quyết, thay vì tìm đường khác.
+
 Đây là rào mềm thứ hai, không phải sandbox: `rm  -rf` với hai dấu cách, hoặc cùng lệnh
 đó dựng bên trong `$(…)`, đi thẳng qua nó. Nó bắt lỗi hiển nhiên, không bắt
 kẻ cố tình.
 
-Ranh giới thật duy nhất là `shell_network: false` trong profile của agent. Mọi lệnh `shell_run`
-của agent đó khi ấy chạy dưới `sandbox-exec` của macOS với một profile do harness
-dựng. Chỉ chặn socket thì không giữ được dữ liệu ở lại máy,
-nên profile đóng từng đường mà một lệnh có thể dùng thay thế:
+Ranh giới thật là sandbox, bật khi profile đặt `shell_network: false` hoặc `shell_write_paths`.
+Mọi lệnh `shell_run` của agent đó khi ấy chạy dưới `sandbox-exec` của macOS với một profile do
+harness dựng. Chỉ có `shell_write_paths` thì còn mạng, còn lại như dưới: agent lấy và ghi dữ
+liệu được nhưng không sửa được code, script hay cấu hình quanh nó; lần ghi bị chặn trả kèm lời
+dặn báo lại như trên. Với `shell_network: false`, chỉ chặn socket thì không giữ được dữ liệu ở
+lại máy, nên profile đóng từng đường mà một lệnh có thể dùng thay thế:
 
 - **Mạng, cả hai chiều.** Không kết nối ra ngoài: không ra internet, không tới `127.0.0.1`
   (API của chính đội ở đó), và không tới resolver, vì tra một tên host
@@ -237,6 +245,9 @@ bị từ chối thay vì chạy không sandbox. Job lịch dạng `command` g�
 trực tiếp và giữ mạng: những dòng đó do người viết, và lấy giá cần mạng. Đó
 là lý do quy tắc ghi quan trọng. `sandbox-exec` được đánh dấu deprecated trong man page nhưng
 vẫn đi kèm macOS; các test chứng minh việc chặn chạy ở bất cứ đâu nó tồn tại.
+Chương trình giữ cache trong thư mục nhà (matplotlib ở `~/.matplotlib`) không ghi được cache
+đó trong sandbox và dựng lại mỗi lần chạy (matplotlib mất ~9 giây); trỏ biến cache của nó vào
+thư mục tạm trong lệnh, ví dụ `MPLCONFIGDIR=/tmp/<agent>-mpl`.
 
 `shell_allow_patterns` là hình ảnh phản chiếu, và mặc định rỗng. Nó nêu các
 dạng lệnh đủ thường ngày để chạy không hỏi *ngay cả khi cuộc trò chuyện không

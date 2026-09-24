@@ -1,6 +1,7 @@
-"""The macOS sandbox an offline agent's `shell_run` commands run in (`shell_network: false`).
+"""The macOS sandbox an agent's `shell_run` commands run in, when its profile sets
+`shell_network: false` or `shell_write_paths`.
 
-Denying sockets alone is not enough to keep data on the machine, because a sandboxed
+Offline, denying sockets alone is not enough to keep data on the machine, because a sandboxed
 process can still ask something unsandboxed to do the talking or the running for it:
 
 - `open <url>` hands the URL to LaunchServices, and the browser it starts is not
@@ -14,7 +15,11 @@ process can still ask something unsandboxed to do the talking or the running for
   binding and inbound are denied along with outbound.
 
 What is left open is reading, running local programs and writing data where the profile
-says, which is what an agent that keeps a ledger needs."""
+says, which is what an agent that keeps a ledger needs.
+
+With the network on, the same write rules keep an agent that works inside someone's repo
+to its data: it can fetch and record, but it cannot edit the code, the scripts or the
+config, and it cannot get `launchctl` or `osascript` to do that for it."""
 
 from __future__ import annotations
 
@@ -51,14 +56,14 @@ def _quoted(path: Path) -> str:
     return '"' + str(path).replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
-def offline_profile(write_paths: Sequence[Path]) -> str:
+def sandbox_profile(write_paths: Sequence[Path], *, network: bool = False) -> str:
     """The sandbox profile text. `write_paths` must already be resolved."""
     writable = " ".join(f"(subpath {_quoted(p)})" for p in (*write_paths, *temp_dirs()))
     programs = " ".join(f'(literal "{p}")' for p in DENIED_PROGRAMS)
     services = " ".join(f'(global-name "{s}")' for s in DENIED_SERVICES)
+    offline = "" if network else "(deny network*)"
     return (
-        "(version 1)(allow default)"
-        "(deny network*)"
+        f"(version 1)(allow default){offline}"
         # Later rules win, so the allow carves the writable paths out of the deny.
         f"(deny file-write*)(allow file-write* {writable} {DEVICE_RULES})"
         f"(deny process-exec {programs})"

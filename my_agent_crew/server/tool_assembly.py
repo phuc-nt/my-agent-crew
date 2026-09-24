@@ -83,6 +83,7 @@ def build_tools(
             profile.workspace,
             network=profile.settings.shell_network,
             write_paths=profile.shell_write_dirs,
+            deny_patterns=profile.settings.shell_deny_patterns,
         ),
         *build_skill_tools(skills),
         # Asking is not a capability an agent should have to be granted: an agent that may
