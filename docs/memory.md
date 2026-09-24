@@ -57,6 +57,9 @@ Có vài cách, tất cả đều thấy được trong tab **Ghi nhớ** của 
 - **`memory_save`** nối thêm một dòng `- HH:MM <text>` vào ghi chú hôm nay, tạo tệp với
   tiêu đề `# YYYY-MM-DD` nếu chưa có. Không cần duyệt: một ghi chú không phải thay đổi
   trạng thái bên ngoài cuộc trò chuyện. Dùng nó cho những điều đáng nhớ tới ngày mai.
+- Cả hai tool đều không thay sổ ghi dữ liệu: bữa ăn, lần uống bia, khoản chi, giấy tờ thuộc
+  sổ của agent giữ lĩnh vực đó. Một ghi nhớ không agent nào trong lĩnh vực đó đọc tới thì
+  không so sánh được về sau.
 - **`workspace_write` / `shell_run`** cho `MEMORY.md` và để viết lại một ghi chú, vì trí
   nhớ bền nên được sửa một cách có chủ đích. `workspace_write` chỉ chạm tới các tệp này khi
   workspace là thư mục agent; nếu không, tệp persona (`AGENTS.md`) nên nói rõ agent duy trì

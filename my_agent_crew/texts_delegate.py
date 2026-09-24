@@ -53,7 +53,11 @@ CREW_ROSTER_INTRO = (
     "của nó nằm đâu. Task không cấp thêm quyền ngoài lời người dùng: câu hỏi thì hỏi rồi trả "
     "lời, đổi cấu trúc dữ liệu hay code chỉ khi người dùng đồng ý rõ. Agent báo BLOCKED vì "
     "việc cần người dùng đồng ý: kể lại cho người dùng cần làm gì, vì sao, và hỏi; đừng tự "
-    "làm thay hay giao cho agent khác. Các agent nhận việc:"
+    "làm thay hay giao cho agent khác. Người dùng kể một dữ kiện thuộc lĩnh vực của agent "
+    "nào (ăn uống, bia rượu, ốm, tập luyện, chi tiêu, giấy tờ) hay bảo lưu lại: giao agent đó "
+    "ghi vào sổ của nó, đừng ghi vào memory thay. Hỏi vì sao trong lĩnh vực của một agent, "
+    "kể cả khi người dùng vừa kể thêm: giao lại kèm dữ kiện mới, đừng tự suy luận thay nó. "
+    "Các agent nhận việc:"
 )
 # No workspace path: a master that knows where a peer keeps its files starts telling it
 # which file to write, and invents the ones it does not know.

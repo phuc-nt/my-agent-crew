@@ -5,8 +5,11 @@ person's intent, and never grant through a task what the person did not."""
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
+from my_agent_crew import texts
 from my_agent_crew.activity import ActivityHub
 from my_agent_crew.agent.prompt import system_prompt_for
 from my_agent_crew.agents.roster import crew_roster_section
@@ -16,6 +19,8 @@ from my_agent_crew.server.runtime import Runtime
 from my_agent_crew.skills.loader import parse_skill
 from my_agent_crew.store import Store
 from my_agent_crew.tools.delegate import DELEGATE_TOOL_NAME
+from my_agent_crew.tools.memory import build_memory_tools
+from my_agent_crew.tools.memory_user import build_user_memory_tools
 from tests.test_tools_delegate import agent, delegate
 
 # The phrase all three model-facing texts share: consent comes from the person, not a task.
@@ -89,3 +94,20 @@ async def test_a_consent_block_goes_to_the_person_not_round_the_crew(runtime: Ru
     assert "BLOCKED" in roster and "đừng tự làm thay hay giao cho agent khác" in roster
     assert "BLOCKED" in system_prompt_for(runtime.deps_for("worker"), child)
     assert "cần người dùng đồng ý" in general and "đừng giao cho agent khác" in general
+
+
+def test_a_domain_record_goes_to_the_agent_that_keeps_it_not_to_memory(
+    runtime: Runtime, tmp_path: Path
+):
+    """Told "remember I had two beers, to compare later", a coordinator saved it with the
+    first tool called save: a note the health agent never reads, and a guess at the cause
+    made up on the spot instead of asking the agent that holds the data."""
+    boss = runtime.deps_for("boss")
+    _, roster = crew_roster_section(boss.profile, {p.id: p for p in runtime.profiles()})
+    memory = build_memory_tools(tmp_path / "memory", tmp_path / "MEMORY.md", tmp_path / "user")
+    facts = build_user_memory_tools(tmp_path / "user", runtime.store, "boss")
+    saves = [t for t in (*memory, *facts) if t.name in ("memory_save", "user_memory_save")]
+
+    assert "đừng ghi vào memory thay" in roster and "đừng tự suy luận" in roster
+    assert len(saves) == 2
+    assert all(texts.MEMORY_IS_NOT_A_LEDGER in t.description for t in saves)

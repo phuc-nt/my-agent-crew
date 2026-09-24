@@ -32,6 +32,11 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ### Changed
 
+- **Domain records go to the agent that keeps them.** The master's crew roster says a fact the person
+  reports in a crew agent's domain (a meal, a drink, an illness, a payment, a document), or asks to be saved,
+  is handed to that agent to record, and a question about its cause is handed back with the new fact rather
+  than answered by guesswork. `memory_save` and `user_memory_save` say they are not a substitute for that
+  agent's records.
 - **Delegation hands over intent, not method.** The `delegate` tool and the master's crew roster ask for the
   person's words and today's date, never an invented file, folder or table; the roster no longer lists each
   agent's workspace. A delegated turn's system prompt says the task was written by the coordinating agent

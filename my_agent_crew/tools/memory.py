@@ -126,6 +126,7 @@ def build_memory_tools(
             description=(
                 "Ghi một ghi chú vào nhật ký hôm nay (memory/YYYY-MM-DD.md) để dùng lại ở các"
                 " cuộc trò chuyện sau. Sự thật lâu dài thì ghi vào MEMORY.md bằng workspace_write."
+                + texts.MEMORY_IS_NOT_A_LEDGER
             ),
             parameters={
                 "type": "object",

@@ -108,6 +108,9 @@ tool, danh sách đội, mục "Việc được giao" và skill luôn bật `del
 phần chia việc theo tệp của skill chỉ áp cho việc lập trình.
 Agent con gặp việc cần người dùng đồng ý thì dừng, nói cần làm gì và vì sao, kết thúc
 `Status: BLOCKED`; master kể lại và hỏi người dùng, không tự làm thay, không giao cho agent khác.
+Người dùng kể một dữ kiện thuộc lĩnh vực của agent nào (ăn uống, bia rượu, chi tiêu, giấy tờ)
+hay bảo lưu lại thì master giao agent đó ghi vào sổ của nó, không ghi vào memory thay; hỏi vì
+sao trong lĩnh vực đó thì giao lại kèm dữ kiện mới, không tự suy luận.
 Con dừng giữa chừng (`halted`, `error`, bị ngắt) thì kết quả ghi rõ là chưa xong và liệt kê
 các tool call đã thành công của nó, để bên giao không làm lại hay giao lại với quyền rộng hơn.
 Ngữ cảnh của cha chỉ lớn thêm một kết quả tool thay vì cả công việc, và

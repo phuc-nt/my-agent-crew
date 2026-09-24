@@ -74,7 +74,7 @@ def build_user_memory_tools(user_dir: Path, store: Store, agent_id: str) -> list
     return [
         Tool(
             name="user_memory_save",
-            description=texts.USER_MEMORY_SAVE_DESCRIPTION,
+            description=texts.USER_MEMORY_SAVE_DESCRIPTION + texts.MEMORY_IS_NOT_A_LEDGER,
             parameters={
                 "type": "object",
                 "properties": {

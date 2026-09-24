@@ -81,6 +81,12 @@ USER_MEMORY_SAVE_DESCRIPTION = (
     " tên dạng chu-de-ngan (a-z, 0-9, gạch nối), gọi lại cùng tên để cập nhật."
     " Dùng cho sở thích, hoàn cảnh, cách làm việc — không dùng cho việc chỉ đúng hôm nay."
 )
+# A coordinator told "save this" reaches for whichever tool is called save; the record
+# then lives in a note no domain agent reads instead of in that agent's own ledger.
+MEMORY_IS_NOT_A_LEDGER = (
+    " Không dùng thay sổ ghi dữ liệu (ăn uống, bia rượu, ốm, tập luyện, chi tiêu, giấy tờ):"
+    " dữ kiện thuộc lĩnh vực của agent nào thì ghi vào sổ của agent đó, hoặc giao cho nó."
+)
 USER_MEMORY_FORGET_DESCRIPTION = (
     "Xoá một điều đã ghi nhớ về người dùng, theo tên của nó trong danh mục ghi nhớ."
 )
