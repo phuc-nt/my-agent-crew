@@ -4,7 +4,7 @@ function: settle unfinished tool calls, then either finish or ask the model agai
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from my_agent_crew import texts
 from my_agent_crew.agent.events import (
@@ -32,6 +32,7 @@ from my_agent_crew.skills import Skill
 from my_agent_crew.store import Conversation, Store, StoredMessage
 from my_agent_crew.store.models import AWAITING_APPROVAL
 from my_agent_crew.tools import ToolRegistry
+from my_agent_crew.tools.delegate_attachments import dropped_attachments
 
 
 class ConversationBusy(Exception):
@@ -134,6 +135,7 @@ async def _complete(
             completion = item
     if completion is None:
         raise ProviderError("stream ended without a completion")
+    completion = _with_dropped_attachments(completion, history)
     stored = deps.store.append(
         conv.id,
         completion.message,
@@ -155,3 +157,18 @@ async def _complete(
         model=completion.model,
         cost_usd=completion.usage.cost_usd,
     )
+
+
+def _with_dropped_attachments(
+    completion: Completion, history: Sequence[StoredMessage]
+) -> Completion:
+    """A final reply that retold a delegated answer gets back the charts and files the
+    retelling left out, so they reach the person on the web and on Telegram alike."""
+    message = completion.message
+    if message.tool_calls or not message.content.strip():
+        return completion
+    missing = dropped_attachments(history, message.content)
+    if not missing:
+        return completion
+    content = message.content.rstrip() + "\n\n" + "\n".join(missing)
+    return replace(completion, message=replace(message, content=content))

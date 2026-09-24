@@ -16,13 +16,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
-MEDIA_PREFIX = "MEDIA:"
-FILE_PREFIX = "FILE:"
+from my_agent_crew.reply_attachments import FILE_PREFIX, MAX_DOCUMENT_BYTES, MEDIA_PREFIX
 
-# Telegram refuses a document over 50 MB, but the cap here is lower on purpose: it is a
-# chat, and a file this size is one a person would rather fetch from the workspace page
-# than receive twice on a phone.
-MAX_DOCUMENT_BYTES = 20 * 1024 * 1024
+__all__ = [
+    "FILE_PREFIX",
+    "MAX_DOCUMENT_BYTES",
+    "MEDIA_PREFIX",
+    "allowed_suffix_list",
+    "document_suffix_allowed",
+    "split_reply",
+]
 
 DOCUMENT_SUFFIXES = frozenset(
     {".pdf", ".csv", ".md", ".txt", ".xlsx", ".json", ".zip"},

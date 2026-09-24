@@ -12,7 +12,8 @@ DELEGATE_DESCRIPTION = (
     "lời người dùng, chưa làm; tạo bảng, sửa schema, sửa code hay cấu hình chỉ khi người dùng "
     "đã đồng ý rõ đúng việc đó. Viết với tư cách người giao việc, không nhập vai agent nhận. "
     "Gọi nhiều lần trong cùng một lượt để chạy song song. Dùng cho việc lớn, độc lập; việc "
-    "nhỏ thì tự làm nhanh hơn."
+    "nhỏ thì tự làm nhanh hơn. Dòng `MEDIA:`/`FILE:` trong kết quả là ảnh, tệp agent con gửi "
+    "người dùng: chép nguyên dòng vào cuối câu trả lời."
 )
 DELEGATE_PARAM_TASK = (
     "Ý định của người dùng cùng ngữ cảnh chỉ cuộc này biết. Không bịa đường dẫn hay chỗ lưu."
@@ -41,6 +42,7 @@ DELEGATE_UNFINISHED_DONE = "Những lệnh nó đã chạy thành công (đã c�
 DELEGATE_UNFINISHED_NOTHING = "Nó chưa chạy thành công lệnh nào."
 DELEGATE_UNFINISHED_EARLIER = "- …và {count} lệnh trước đó"
 DELEGATE_UNFINISHED_LINE = "- {name} {arguments} → {output}"
+DELEGATE_ATTACHMENT_LOST = "(agent con có đính kèm {path} nhưng không chuyển được tệp)"
 DELEGATE_TIMEOUT = "Hết thời gian chờ agent con. Xem cuộc {conv_id} để biết nó đang ở đâu."
 
 CREW_ROSTER_TITLE = "Đội của bạn"

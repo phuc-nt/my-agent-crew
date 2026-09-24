@@ -27,6 +27,7 @@ from my_agent_crew.agent.turn_context import (
 from my_agent_crew.agents import AgentProfile
 from my_agent_crew.agents.roster import DELEGATE_TOOL_NAME, delegate_targets
 from my_agent_crew.store.models import Conversation
+from my_agent_crew.tools.delegate_attachments import relay_attachments
 from my_agent_crew.tools.delegate_report import unfinished_note
 from my_agent_crew.tools.registry import Tool, ToolError
 
@@ -62,7 +63,7 @@ def build_delegate_tool(runtime: Runtime, profile: AgentProfile) -> Tool:
         if target not in allowed:
             peers = ", ".join(targets) or texts.DELEGATE_NO_PEERS
             raise ToolError(texts.DELEGATE_NOT_ALLOWED.format(target=target, allowed=peers))
-        return await _delegate(runtime, target, task, args)
+        return await _delegate(runtime, profile, target, task, args)
 
     return Tool(
         name=DELEGATE_TOOL_NAME,
@@ -89,7 +90,9 @@ def build_delegate_tool(runtime: Runtime, profile: AgentProfile) -> Tool:
     )
 
 
-async def _delegate(runtime: Runtime, target: str, task: str, args: dict[str, Any]) -> str:
+async def _delegate(
+    runtime: Runtime, profile: AgentProfile, target: str, task: str, args: dict[str, Any]
+) -> str:
     """Opens (or re-finds) the child conversation, runs it, and reports what came back."""
     parent_id = turn_conversation_id()
     parent = runtime.store.get(parent_id) if parent_id else None
@@ -112,7 +115,13 @@ async def _delegate(runtime: Runtime, target: str, task: str, args: dict[str, An
         conv_id=child.id, status=run.status, spent=run.spent_usd or 0.0, steps=len(run.steps)
     )
     note = unfinished_note(run)
-    body = f"{note}\n\n{_answer(runtime, child.id)}" if note else _answer(runtime, child.id)
+    answer = relay_attachments(
+        _answer(runtime, child.id),
+        runtime.deps_for(target).agent.workspace,
+        profile.workspace,
+        child.id,
+    )
+    body = f"{note}\n\n{answer}" if note else answer
     return f"{header}\n{body}"
 
 
