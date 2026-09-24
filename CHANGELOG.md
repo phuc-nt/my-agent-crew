@@ -32,6 +32,13 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   person's words and today's date, never an invented file, folder or table; the roster no longer lists each
   agent's workspace. A delegated turn's system prompt says the task was written by the coordinating agent
   and that the agent's own conventions win, so a path named in the task is not a file to create.
+- **A delegated task grants no permissions.** The tool description, the roster and the delegated turn's prompt
+  all say a question is asked and answered, not acted on, and that a new table, a schema change, code or
+  config needs the person's explicit consent — a permission the task grants itself is not theirs. The
+  always-on `delegation` skill now teaches the same contract; its per-file split applies only to coding work.
+- **An unfinished delegate reports what it already did.** When the child halts, errors or is interrupted,
+  the result says so and lists its successful tool calls, so the delegator does not redo or escalate work
+  that already landed.
 
 - **The Telegram bot reports when a message was cut off** because the bot restarted for more than 30 seconds, so the
   person resends instead of waiting for an answer that never arrives.
@@ -41,6 +48,9 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ### Upgrade notes
 
+- **Refresh `<home>/skills/delegation.md`.** Installing a template does not overwrite shared skills, so an
+  existing home keeps the old file-list version; copy `my_agent_crew/agents/templates/_shared_skills/delegation.md`
+  over it.
 - **Set `ExitTimeOut` in the launchd plist** (the template in `docs/deployment-guide.md` uses 45).
   The bot waits 30 s for the running turn before reporting "message cut off", but launchd's default is only 20 s,
   so without this key a `kickstart -k` in the middle of a long turn will SIGKILL before it can report.

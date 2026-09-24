@@ -102,6 +102,12 @@ workspace của từng agent, vì master biết agent khác lưu tệp ở đâu
 và bịa ra những tệp nó không biết. Phía nhận, prompt của agent con có mục "Việc được giao":
 task do agent điều phối viết chứ không phải người dùng, hướng dẫn và quy ước workspace của
 agent con thắng mọi gợi ý về chỗ lưu, và một đường dẫn chưa có không phải lý do để tạo tệp.
+Task cũng không cấp quyền: câu hỏi của người dùng ("được không?") được giao để hỏi rồi trả
+lời, chưa làm; tạo bảng, sửa schema, sửa code hay cấu hình chỉ khi người dùng đồng ý rõ. Mô tả
+tool, danh sách đội, mục "Việc được giao" và skill luôn bật `delegation` cùng nói một hợp đồng —
+phần chia việc theo tệp của skill chỉ áp cho việc lập trình.
+Con dừng giữa chừng (`halted`, `error`, bị ngắt) thì kết quả ghi rõ là chưa xong và liệt kê
+các tool call đã thành công của nó, để bên giao không làm lại hay giao lại với quyền rộng hơn.
 Ngữ cảnh của cha chỉ lớn thêm một kết quả tool thay vì cả công việc, và
 kết quả đó không bao giờ bị cắt gọn bởi cơ chế tỉa đầu ra tool cũ: master hỏi Pong,
 rồi hỏi HLV, rồi quay lại chủ đề của Pong

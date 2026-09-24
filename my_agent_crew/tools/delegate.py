@@ -27,6 +27,7 @@ from my_agent_crew.agent.turn_context import (
 from my_agent_crew.agents import AgentProfile
 from my_agent_crew.agents.roster import DELEGATE_TOOL_NAME, delegate_targets
 from my_agent_crew.store.models import Conversation
+from my_agent_crew.tools.delegate_report import unfinished_note
 from my_agent_crew.tools.registry import Tool, ToolError
 
 if TYPE_CHECKING:  # the runtime builds this tool, so importing it back would be a cycle
@@ -110,7 +111,9 @@ async def _delegate(runtime: Runtime, target: str, task: str, args: dict[str, An
     header = texts.DELEGATE_RESULT_HEADER.format(
         conv_id=child.id, status=run.status, spent=run.spent_usd or 0.0, steps=len(run.steps)
     )
-    return f"{header}\n{_answer(runtime, child.id)}"
+    note = unfinished_note(run)
+    body = f"{note}\n\n{_answer(runtime, child.id)}" if note else _answer(runtime, child.id)
+    return f"{header}\n{body}"
 
 
 def _children(runtime: Runtime, parent: Conversation | None) -> list[Conversation]:
