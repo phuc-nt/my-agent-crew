@@ -2,10 +2,10 @@
 
 **Phiên bản**: 0.5.0 (+ chưa phát hành) · **Cập nhật**: 2026-09-24
 
-A tool is a function the model can call during a turn (`tools/registry.py`). Each agent's
-set is assembled in `server/runtime.py` from the `build_*_tools` helpers with the agent's
-workspace and memory paths, then shaped by its profile: `mode: work` adds four tools, a
-vision route adds `image_read`, and a `tools` allow-list caps the result.
+A tool is a function the model can call during a turn. Each agent's
+set is assembled at startup from the agent's workspace and memory paths, then shaped by
+its profile: `mode: work` adds four tools, a vision route adds `image_read`, and a `tools`
+allow-list caps the result.
 The system prompt lists the available names; the model sees each tool's JSON schema.
 
 ## Common rules
@@ -38,10 +38,10 @@ The system prompt lists the available names; the model sees each tool's JSON sch
   the middle — which is where the query usually is. A paraphrased column name is a query
   that fails. Keep the cap above the size of such a document rather than trusting a summary
   of it. JSON has no such problem, because the structural path never asks a model anything.
-- **Errors are honest.** A `ToolError` is returned to the model as "Công cụ lỗi: …"; any
-  other exception is logged with its traceback and returned by type name. The prompt frame
+- **Errors are honest.** A tool's own error is returned to the model as "Công cụ lỗi: …";
+  any other exception is logged with its traceback and returned by type name. The prompt frame
   tells the model to report a failed tool instead of pretending.
-- **Approval.** A tool with `requires_approval` pauses the turn with an `approval_required`
+- **Approval.** A tool that needs approval pauses the turn with an `approval_required`
   event and a stored `Approval`. The web UI shows a bar, Telegram shows `/approve` /
   `/deny`; the decision resumes the same turn. A conversation (or agent) marked
   `autonomous` skips the pause — except for a `shell_run` command matching
@@ -64,19 +64,19 @@ The system prompt lists the available names; the model sees each tool's JSON sch
 | `workspace_list` | no | — | lists a directory inside the workspace |
 | `workspace_read` | no | only the agent's output cap (`tool_output_chars`), which marks the cut | reads a text file inside the workspace; `offset` (1-based line) and `limit` read a window instead of the whole file |
 | `workspace_write` | **yes** | — | writes a text file inside the workspace, creating parents |
-| `fetch_url` | no | 20 000 chars via firecrawl markdown, else 6 000 (`MAX_PAGE_CHARS`), 20 s, no redirects | GET of a public http(s) page; firecrawl returns markdown, otherwise HTML is reduced to text |
+| `fetch_url` | no | 20 000 chars via firecrawl markdown, else 6 000, 20 s, no redirects | GET of a public http(s) page; firecrawl returns markdown, otherwise HTML is reduced to text |
 | `web_search` | no | 5 results | always available; backends tried in order firecrawl → brave → tavily → duckduckgo; returns title, URL, snippet |
 | `memory_save` | no | — | appends `- HH:MM text` to today's note, see [memory.md](memory.md) |
-| `memory_search` | no | 12 hits (`MAX_HITS`) | searches the shared user facts, then `MEMORY.md` and every daily note, newest first; every term must match |
+| `memory_search` | no | 12 hits | searches the shared user facts, then `MEMORY.md` and every daily note, newest first; every term must match |
 | `user_memory_save` | no | — | remembers one thing about the person, shared by the whole crew, see [memory.md](memory.md) |
 | `user_memory_forget` | no | — | drops one remembered fact by name |
 | `wiki_get` | no | — | one wiki page in full, looked up by its title, see [memory.md](memory.md#the-wiki-vault) |
-| `wiki_search` | no | 8 hits (`MAX_HITS`) | searches the vault's titles and bodies, best first, as `[slug] text` |
+| `wiki_search` | no | 8 hits | searches the vault's titles and bodies, best first, as `[slug] text` |
 | `wiki_apply` | no | — | writes or updates one page; refuses a page with no `sources`, and never touches the link block a compile owns |
 | `shell_run` | **yes** | 120 s default, 900 s max | runs a command in the workspace, returns stdout+stderr |
 | `skill_read` | no | — | returns one skill's full text by name, opening with a warning when the skill needs a command this machine lacks, see [agents.md](agents.md#skills) |
-| `image_read` | no | 8 MB (`MAX_IMAGE_BYTES`); jpg, png, webp, gif | sends a picture from the workspace or the crew home (where `inbox/` keeps what Telegram delivered) to the `vision_routes` chain with a `question` and returns the answer, see [Images](#images); only present when a vision route is configured |
-| `pdf_read` | no | 50 pages (`MAX_PAGES`), `pages` picks a window; the agent's output cap applies | reads a PDF from the workspace or the crew home; typeset pages come back as text, scanned pages go through the vision chain, see [PDFs](#pdfs) |
+| `image_read` | no | 8 MB; jpg, png, webp, gif | sends a picture from the workspace or the crew home (where `inbox/` keeps what Telegram delivered) to the `vision_routes` chain with a `question` and returns the answer, see [Images](#images); only present when a vision route is configured |
+| `pdf_read` | no | 50 pages, `pages` picks a window; the agent's output cap applies | reads a PDF from the workspace or the crew home; typeset pages come back as text, scanned pages go through the vision chain, see [PDFs](#pdfs) |
 | `ask_user` | **yes, always** | one open question per conversation | asks the person one thing and pauses the turn until they answer, see [Asking the person](#asking-the-person) |
 | `progress_note` | no | 200 chars | says in one line what the agent is about to do; becomes a `note` step on the run, see [Saying what it is doing](#saying-what-it-is-doing) |
 
@@ -85,10 +85,10 @@ them and every extra tool spec costs prompt tokens:
 
 | Tool | Approval | Limits | What it does |
 |---|---|---|---|
-| `workspace_edit` | **yes** | 40 diff lines shown (`MAX_DIFF_LINES`) | replaces an exact snippet in one file; refuses when the snippet is missing or matches more than once, unless `replace_all` |
-| `workspace_grep` | no | 200 hits (`MAX_RESULTS`), 30 s | regex search over the workspace; uses `rg` when installed, otherwise walks the tree itself. Skips `.git`, `.venv`, `node_modules`, `__pycache__`, `dist`, `build` and binary files |
-| `workspace_glob` | no | 500 paths (`MAX_GLOB_RESULTS`) | lists files matching a glob, same skip list |
-| `delegate` | no | 8 per conversation (`MAX_DELEGATES`), 8 at once (`MAX_PARALLEL_CALLS`) | hands a whole task to another agent and waits for its answer, see below |
+| `workspace_edit` | **yes** | 40 diff lines shown | replaces an exact snippet in one file; refuses when the snippet is missing or matches more than once, unless `replace_all` |
+| `workspace_grep` | no | 200 hits, 30 s | regex search over the workspace; uses `rg` when installed, otherwise walks the tree itself. Skips `.git`, `.venv`, `node_modules`, `__pycache__`, `dist`, `build` and binary files |
+| `workspace_glob` | no | 500 paths | lists files matching a glob, same skip list |
+| `delegate` | no | 8 per conversation, 8 at once | hands a whole task to another agent and waits for its answer, see below |
 
 ### Delegation
 
@@ -97,8 +97,8 @@ them and every extra tool spec costs prompt tokens:
 with a header line giving its id, status, cost and step count. The child starts empty: it
 never sees the parent's history, which is the point, so `task` has to carry everything it
 needs. The parent's own context grows by one tool result instead of by the whole job, and
-that result is never stubbed by the old-tool-output trim (`PINNED_TOOLS` in
-`context_trim`): the master that asks Pong, then the coach, then comes back to Pong's
+that result is never stubbed by the old-tool-output trim: the master that asks Pong,
+then the coach, then comes back to Pong's
 topic still has Pong's answer in full.
 
 Several `delegate` calls in one assistant message run at the same time; every other tool
@@ -117,8 +117,8 @@ child again through the tool call id rather than starting a second one.
 
 ### Workspace tools
 
-Paths are resolved with `resolve_inside(root, relative)`: `..` and absolute paths that
-leave the workspace are refused, symlinks that stay inside are followed. The workspace is
+Paths are resolved inside the workspace: `..` and absolute paths that
+leave it are refused, symlinks that stay inside are followed. The workspace is
 `agent.yaml: workspace`, default `<agent dir>/workspace`. Nothing outside it is reachable
 through these tools; `shell_run` is the escape hatch, and it needs approval.
 
@@ -168,7 +168,7 @@ set, so a self-hosted host needs no key and a mistyped base url cannot leak one.
 `shell_run` executes in the agent workspace with a minimal environment (`PATH`, `HOME`,
 `LANG`, `LC_ALL`, `TERM`, `TMPDIR`, `USER`, `SHELL`), so the model never sees the server's
 API keys. Timeout comes from the `timeout_s` argument, capped at 900 s. A non-zero exit is
-a `ToolError` carrying the last 4 000 characters of output. A scheduled `command` job uses
+a tool error carrying the last 4 000 characters of output. A scheduled `command` job uses
 the same tool and records a single step.
 
 The allowlist is the reason a script that works in your own terminal can still fail here:
@@ -192,8 +192,8 @@ built inside `$(…)`, walks straight past it. It catches the obvious mistake, n
 determined one.
 
 The one real boundary is `shell_network: false` in an agent's profile. Every `shell_run`
-command of that agent then runs under macOS `sandbox-exec` with a profile built in
-`tools/shell_sandbox.py`. Blocking the socket alone would not keep the data on the machine,
+command of that agent then runs under macOS `sandbox-exec` with a profile the harness
+builds. Blocking the socket alone would not keep the data on the machine,
 so the profile closes each route a command could use instead:
 
 - **Network, both ways.** No outbound connection: not to the internet, not to `127.0.0.1`
@@ -278,8 +278,8 @@ The path is resolved against the agent's workspace first, then the crew home, so
 master's `workspace/inbox/<file>` that a Telegram photo lands in is readable by the master
 and by the agent it hands the task to. The `question` is what the vision model is asked;
 without one it describes the picture. Every agent gets the tool in every mode, and an
-agent's `tools` allow-list may name it without a warning when no vision route exists
-(`OPTIONAL_TOOLS`). What the call cost is added to the conversation like a completion.
+agent's `tools` allow-list may name it without a warning when no vision route exists.
+What the call cost is added to the conversation like a completion.
 
 The master reads once to decide who the picture is for and passes the absolute path on
 in the task; the specialist reads again with its own question. That is cheaper than one
@@ -304,8 +304,8 @@ costs you the pages that did read. With no vision route configured the tool is s
 registered and typeset PDFs still work; each scanned page says it needs `vision_routes`
 instead.
 
-`pages` takes `"1-5"` or `"3"`. Leaving it out reads from the start, up to `MAX_PAGES`
-(50). The text then passes through the agent's output cap like any other tool result.
+`pages` takes `"1-5"` or `"3"`. Leaving it out reads from the start, up to 50 pages.
+The text then passes through the agent's output cap like any other tool result.
 
 ### Asking the person
 
@@ -342,7 +342,7 @@ than a spinner and a guess.
 
 It differs from every other tool in three ways:
 
-- **It never asks.** `requires_approval` is false and nothing consults the ask list. A note
+- **It never asks.** It needs no approval and nothing consults the ask list. A note
   that needed permission would arrive after the thing it was announcing.
 - **Its step has its own kind.** The step is written as `note`, not `tool`, because a note
   has no duration and cannot fail — rendering it as a tool call would give the timeline a
@@ -352,7 +352,7 @@ It differs from every other tool in three ways:
   in the middle of its turn.
 
 A note is not memory. It lives on the run and dies with it, so nothing written here reaches
-the next conversation — that is what `memory_write` is for.
+the next conversation — that is what `memory_save` is for.
 
 ## Providers without a key
 
@@ -409,13 +409,14 @@ says so rather than showing one that never runs.
 
 ## Adding a tool
 
-Create a `Tool(name, description, parameters, run, requires_approval, parallel)` in a
-builder next to the existing ones and add it to the list in `server/runtime.py`. Set
-`parallel` only when two calls to the tool in one message may safely overlap — a read is
-fine, a write to the same file is not. Description and parameter texts are shown to the model,
-so write them in the prompt language (`texts.py` for Vietnamese). Set `requires_approval`
-whenever the tool changes state outside the conversation. Add a row to
-[testing.md](testing.md) and a test next to `test_tools_*.py`.
+A tool lives under `tools/` and is a name, a description and a JSON schema for the model,
+a run function, and two flags: whether it needs approval and whether two calls in one
+message may safely overlap (a read may, a write to the same file may not). It is wired
+into each agent's set where the server assembles tools. Description and parameter texts
+are shown to the model, so they live with the other prompt strings, not in the code. Mark
+the tool as needing approval whenever it changes state outside the conversation, add a row
+to [The tools](#the-tools) above, and test it in the tier that can see it
+([testing.md](testing.md)).
 
 ## Compared with openclaw
 

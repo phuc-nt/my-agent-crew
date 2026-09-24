@@ -19,8 +19,8 @@ Một harness tối thiểu có bốn việc:
 
 | Việc | Câu hỏi nó trả lời | Ở my-agent-crew |
 |---|---|---|
-| Lắp ngữ cảnh | Model cần biết gì trước khi đọc tin nhắn? | `build_system_prompt` đọc tệp trong home |
-| Vòng lặp tool | Model muốn làm gì, ai làm, kết quả về đâu? | `run_turn` + `ToolRegistry` |
+| Lắp ngữ cảnh | Model cần biết gì trước khi đọc tin nhắn? | system prompt lắp lại từ tệp trong home mỗi vòng |
+| Vòng lặp tool | Model muốn làm gì, ai làm, kết quả về đâu? | một vòng lặp lượt + một sổ đăng ký tool |
 | Lưu và tiếp tục | Lượt sau biết gì về lượt trước? | SQLite + `MEMORY.md` + ghi chú ngày |
 | Kiểm soát | Khi nào dừng, khi nào hỏi người? | approval, `cost_cap_usd`, `max_steps` |
 
@@ -36,42 +36,42 @@ Sơ đồ chia làm ba vùng. Đọc từ trái sang phải: người dùng đi 
 
 ### 2.1 Kênh giao tiếp
 
-- **Web UI** (`web/`, React, được đóng gói vào `my_agent_crew/server/static`): chat, xem run, duyệt tool, sửa trí nhớ, xem job, quản lý kết nối (khoá API, Telegram, host). Nói chuyện với server qua REST + SSE. Mọi path đi qua `local_guard`: `Host` phải là IP, `localhost` hoặc tên trong `MY_AGENT_ALLOWED_HOSTS`, `Origin` (nếu có) phải khớp đúng host:port; 403 nêu tên host bị từ chối. Server không có đăng nhập.
-- **Telegram** (`channels/telegram_*`): một poller `getUpdates` cho bot của master. Tin nhắn, ảnh, album được đưa về cùng cổng `/api/inbound` như web. Người dùng chỉ chat với master; đội trả lời qua master. Khi bot dừng (đổi token, tắt server), lượt đang chạy được chờ tới 30 s; quá hạn thì bị cắt và chat được báo để người gửi lại.
-- **ActivityHub** (`activity/hub.py`): không phải kênh vào mà là kênh ra. Mỗi lượt là một *run* gồm các *step* (model call, tool call, approval…); hub phát chúng qua SSE `/api/activity/stream` để web hiển thị đúng lúc.
+- **Web UI** (`web/`, React, được đóng gói vào `my_agent_crew/server/static`): chat, xem run, duyệt tool, sửa trí nhớ, xem job, quản lý kết nối (khoá API, Telegram, host). Nói chuyện với server qua REST + SSE. Mọi path đi qua một hàng rào cục bộ: `Host` phải là IP, `localhost` hoặc tên trong `MY_AGENT_ALLOWED_HOSTS`, `Origin` (nếu có) phải khớp đúng host:port; 403 nêu tên host bị từ chối. Server không có đăng nhập.
+- **Telegram** (`channels/`): một poller `getUpdates` cho bot của master. Tin nhắn, ảnh, album được đưa về cùng cổng `/api/inbound` như web. Người dùng chỉ chat với master; đội trả lời qua master. Khi bot dừng (đổi token, tắt server), lượt đang chạy được chờ tới 30 s; quá hạn thì bị cắt và chat được báo để người gửi lại.
+- **Activity hub** (`activity/`): không phải kênh vào mà là kênh ra. Mỗi lượt là một *run* gồm các *step* (model call, tool call, approval…); hub phát chúng qua SSE `/api/activity/stream` để web hiển thị đúng lúc.
 
 ### 2.2 Inbound: một cổng vào
 
-`inbound.py` là cổng duy nhất cho tin nhắn từ người. Nó làm ba việc nhỏ nhưng quan trọng:
+Inbound là cổng duy nhất cho tin nhắn từ người. Nó làm ba việc nhỏ nhưng quan trọng:
 
 1. Tìm hoặc tạo cuộc trò chuyện theo kênh và ngày (một cuộc trò chuyện mỗi ngày mỗi kênh cho master).
-2. Từ chối với `InboundBusy` (HTTP 409) nếu lượt trước còn đang chạy hoặc đang chờ duyệt — không xếp hàng, không chạy song song trên cùng cuộc trò chuyện.
-3. Gọi `run_turn` và đăng ký run với ActivityHub.
+2. Từ chối (HTTP 409) nếu lượt trước còn đang chạy hoặc đang chờ duyệt — không xếp hàng, không chạy song song trên cùng cuộc trò chuyện.
+3. Chạy lượt và đăng ký run với activity hub.
 
-Job lịch không đi qua Inbound: scheduler gọi thẳng `run_turn` với `source=JOB` trên cuộc trò chuyện riêng của job. Hai đường, một vòng lặp.
+Job lịch không đi qua Inbound: scheduler chạy thẳng một lượt với nguồn `job` trên cuộc trò chuyện riêng của job. Hai đường, một vòng lặp.
 
-### 2.3 run_turn: vòng lặp agent
+### 2.3 Vòng lặp agent
 
-`agent/loop.py` là trái tim. Một lượt:
+Gói `agent/` là trái tim. Một lượt:
 
 ```
 messages = lịch sử cuộc trò chuyện + tin mới
 lặp tối đa max_steps:
-    system = build_system_prompt(agent)          # lắp lại từ tệp mỗi vòng
-    reply  = provider.stream(system, messages, tool specs)
+    system = lắp system prompt từ tệp của agent   # lắp lại mỗi vòng
+    reply  = model(system, messages, mô tả tool)
     nếu reply không gọi tool: kết thúc, lưu, trả lời
     với mỗi tool_call:
-        nếu tool.requires_approval và cuộc trò chuyện không autonomous:
+        nếu tool cần duyệt và cuộc trò chuyện không autonomous:
             tạo approval, phát ApprovalRequired, dừng lượt (tiếp tục sau khi duyệt)
-        result = registry.run(tool_call)          # cắt còn tool_output_chars
+        result = chạy tool                          # cắt còn tool_output_chars
     messages += reply + results
 ```
 
 Điểm cần nhớ với người mới: **model không "chạy" gì cả**. Nó chỉ trả về JSON nói "tôi muốn gọi `workspace_read` với path này". Harness quyết định có chạy không, chạy rồi đưa kết quả vào message tiếp theo. Mọi cổng kiểm soát nằm ở chỗ này.
 
-### 2.4 ToolRegistry: tay chân của agent
+### 2.4 Sổ đăng ký tool: tay chân của agent
 
-`tools/registry.py` giữ danh sách tool mà agent được dùng (`tools:` trong `agent.yaml`). Mỗi tool có `spec` (tên, mô tả, tham số JSON — đưa cho model) và `run` (hàm Python thật). Bộ tool có sẵn:
+Gói `tools/` giữ danh sách tool mà agent được dùng (`tools:` trong `agent.yaml`). Mỗi tool có phần mô tả (tên, mô tả, tham số JSON — đưa cho model) và phần chạy (hàm Python thật). Bộ tool có sẵn:
 
 | Nhóm | Tool | Cần duyệt |
 |---|---|---|
@@ -88,7 +88,7 @@ Chi tiết từng tool ở [tools.md](tools.md).
 
 ### 2.5 Provider: model là dịch vụ ngoài
 
-`llm/openrouter.py` nói chuyện với OpenRouter; `llm/provider.py` bọc thành `ProviderChain`: một danh sách model theo thứ tự (`routes:` trong `agent.yaml`), model đầu lỗi hoặc quá tải thì thử model tiếp và phát `RouteFallback` để người dùng thấy. `llm/fake.py` là provider giả (`MY_AGENT_ROUTES=fake:echo`) để chạy test và thử harness không tốn tiền.
+Gói `llm/` nói chuyện với OpenRouter (và Ollama) và bọc thành một chuỗi tuyến: một danh sách model theo thứ tự (`routes:` trong `agent.yaml`), model đầu lỗi hoặc quá tải thì thử model tiếp và phát `RouteFallback` để người dùng thấy. Provider giả (`MY_AGENT_ROUTES=fake:echo`) để chạy test và thử harness không tốn tiền.
 
 ### 2.6 Scheduler
 
@@ -120,8 +120,8 @@ Dùng chung cho mọi agent: `config.yaml`, `agent.sqlite3`, `users/owner/` (USE
 Ví dụ thật: người dùng nhắn bot "hôm nay ăn thế nào cho hợp lịch tập?".
 
 1. **Poller Telegram** nhận update, chuyển thành `POST /api/inbound {text}`. Ảnh (nếu có) được tải về `workspace/inbox/` và đưa vào tin nhắn dưới dạng đường dẫn.
-2. **Inbound** tìm cuộc trò chuyện `telegram:<chat>` của hôm nay, thấy rảnh, gọi `run_turn` cho master.
-3. **Master** lắp system prompt: persona của "Trợ lý", `USER.md` + facts, `MEMORY.md`, tóm tắt cuộc hôm qua, roster (10 agent, mỗi agent một dòng mô tả), lệnh kit, ghi chú ngày. Model thấy trong roster có "HLV sức khoẻ" và gọi tool `delegate(agent="health-coach", task=…)`.
+2. **Inbound** tìm cuộc trò chuyện `telegram:<chat>` của hôm nay, thấy rảnh, chạy một lượt cho master.
+3. **Master** lắp system prompt: persona của "Trợ lý", `USER.md` + facts, `MEMORY.md`, tóm tắt cuộc hôm qua, roster (sáu agent, mỗi agent một dòng mô tả), lệnh kit, ghi chú ngày. Model thấy trong roster có "HLV sức khoẻ" và gọi tool `delegate(agent="health-coach", task=…)`.
 4. **Delegate** chạy một lượt con: agent con có persona riêng, tool riêng, workspace riêng, và *chỉ nhận brief* — không thấy lịch sử chat của master. Lượt con là cuộc trò chuyện autonomous nên tool cần duyệt không dừng.
 5. Kết quả lượt con quay về master dưới dạng tool result. Master viết câu trả lời cuối, harness lưu message, phát `Done`, poller gửi về Telegram.
 
@@ -160,9 +160,9 @@ Web UI ghim kết quả delegate vào thread của master để người đọc 
 
 1. Harness tạo một dòng trong bảng `approvals`, phát `ApprovalRequired`, và **dừng lượt**. Không có gì chạy.
 2. Người dùng thấy thanh duyệt trên web UI. `POST /api/approvals/{id}` với `approve`, `deny`, hoặc `approve + always`.
-3. Duyệt: `settle_tool_calls` chạy tool, kết quả về model, lượt tiếp tục như chưa từng dừng. `always` ghi tên tool vào `auto_approve` của cuộc trò chuyện đó.
+3. Duyệt: harness chạy tool, kết quả về model, lượt tiếp tục như chưa từng dừng. `always` ghi tên tool vào `auto_approve` của cuộc trò chuyện đó.
 4. Từ chối: model nhận tool result `DENIED_TOOL` và tự quyết bước tiếp — lượt không hỏng.
-5. Hết hạn: `expire_overdue` quét định kỳ; approval quá `approval_ttl_seconds` (600 s) bị đánh dấu expired và xử lý như từ chối. Fail-closed: không ai trả lời thì không chạy.
+5. Hết hạn: scheduler quét định kỳ; approval quá `approval_ttl_seconds` (600 s) bị đánh dấu expired và xử lý như từ chối. Fail-closed: không ai trả lời thì không chạy.
 
 Hai đường tắt có chủ đích:
 
@@ -179,7 +179,7 @@ Khi một approval đang chờ, `/api/inbound` trả 409 để người dùng kh
 
 Quy tắc duy nhất: **model không có trạng thái ẩn**. Điều gì cần nhớ sang lượt sau phải là tệp hoặc dòng trong SQLite. Vì vậy có hai chiều:
 
-**Vào** — `build_system_prompt` lắp lại mỗi lượt, theo thứ tự cố định (`agents/context.py`, `bootstrap_sections`):
+**Vào** — system prompt lắp lại mỗi lượt, theo thứ tự cố định:
 
 1. persona: `AGENTS.md`, `SOUL.md`
 2. người dùng: `users/owner/USER.md` + `facts/*.md`
@@ -230,7 +230,7 @@ Bốn agent đáng xem kỹ:
 
 **Pong** — thư ký, chỉ Google Workspace và Goodreads. `routes` hai model rẻ theo thứ tự fallback. Ba lịch: bản tin sáng, tổng kết tuần, `memory_consolidate` hàng tuần. Lệnh ghi (gửi mail, ghi sheet, ghi Goodreads) nằm trong `shell_ask_patterns` nên luôn hỏi.
 
-**Ledger** — sổ cái tài chính, tách khỏi Pong để agent cầm dữ liệu tiền bạc không có đường nào đưa nó ra ngoài: `tools` bỏ `web_search`, `fetch_url`, `delegate`, `user_memory_save`, `wiki_*`; `shell_network: false` nên mọi `shell_run` chạy trong sandbox của macOS: không mạng, không `open`/`osascript`, chỉ ghi được dưới `shell_write_paths` và thư mục temp (`tools/shell_sandbox.py`); `shell_ask_patterns` chỉ còn là lớp phụ. Ba lịch: bảo trì đêm (lệnh), nhắc hạn (prompt), giá vàng (lệnh). Gọi script của repo sổ cái bằng `shell_run` — harness chỉ biết cwd và lệnh.
+**Ledger** — sổ cái tài chính, tách khỏi Pong để agent cầm dữ liệu tiền bạc không có đường nào đưa nó ra ngoài: `tools` bỏ `web_search`, `fetch_url`, `delegate`, `user_memory_save`, `wiki_*`; `shell_network: false` nên mọi `shell_run` chạy trong sandbox của macOS: không mạng, không `open`/`osascript`, chỉ ghi được dưới `shell_write_paths` và thư mục temp; `shell_ask_patterns` chỉ còn là lớp phụ. Ba lịch: bảo trì đêm (lệnh), nhắc hạn (prompt), giá vàng (lệnh). Gọi script của repo sổ cái bằng `shell_run` — harness chỉ biết cwd và lệnh.
 
 **HLV sức khoẻ** — `routes` ba model, tăng dần từ rẻ đến mạnh. Ba lịch: bảo trì đêm, sao lưu, bản tin sáng có gắn skill Garmin. Đọc ảnh bữa ăn qua `image_read` (tuyến `vision_routes`). Là ví dụ điển hình của agent "một người dùng, một lĩnh vực, nhớ dài".
 
@@ -243,7 +243,7 @@ Kit `.agents/` cấp home cho master lệnh `/tongket` — ví dụ về việc 
 | Hiểu lầm | Thực tế trong harness này |
 |---|---|
 | "Agent nhớ chuyện hôm qua" | Chỉ nhớ nếu có trong `MEMORY.md`, ghi chú ngày, facts, hay tóm tắt cuộc trước. Không có tệp, không có ký ức. |
-| "Model chạy lệnh shell" | Model chỉ xin. `ToolRegistry` chạy, và chỉ khi có duyệt hoặc autonomous. |
+| "Model chạy lệnh shell" | Model chỉ xin. Harness chạy, và chỉ khi có duyệt hoặc autonomous. |
 | "Agent con thấy cả cuộc chat" | Không. Nó chỉ thấy brief trong `delegate`. Muốn nó biết gì, master phải viết vào brief. |
 | "Tăng `max_steps` là agent thông minh hơn" | Chỉ cho nó nhiều vòng hơn. Vòng lặp vô tận tốn tiền nhanh; `cost_cap_usd` là phanh thứ hai. |
 | "Fallback model là im lặng" | `RouteFallback` là event nhìn thấy trên web; run ghi model nào thực sự trả lời. |
@@ -256,13 +256,13 @@ Năm điểm cắm, theo [design.md](design.md) "Extension points":
 
 | Muốn thêm | Làm gì | Ở đâu |
 |---|---|---|
-| Model/provider mới | class có `stream()`; đăng ký trong `build_providers` | `llm/`, `server/agent_assembly.py` |
-| Tool mới | `ToolSpec` + hàm `run`; thêm vào registry | `tools/`, `server/tool_assembly.py` |
+| Model/provider mới | một provider biết stream; lắp vào chỗ server dựng provider cho từng agent | `llm/`, `server/` |
+| Tool mới | mô tả cho model + hàm chạy; lắp vào chỗ server dựng bộ tool cho từng agent | `tools/`, `server/` |
 | Kỹ năng | tệp `.md` có front matter `name`, `description`, `always` | `skills/` của home hoặc agent |
 | Agent mới | một thư mục có `agent.yaml` + persona | `agents/<id>/`, hoặc `agent add` |
-| Kênh mới | `start/stop/deliver`; đăng ký trong `build_channel` | `channels/` |
+| Kênh mới | start / stop / deliver; dựng từ khối trên hồ sơ master | `channels/` |
 
-Không có điểm cắm cho "thay vòng lặp": `run_turn` là bất biến có chủ ý, để mọi kênh, mọi agent, mọi job đi qua cùng một cổng kiểm soát.
+Không có điểm cắm cho "thay vòng lặp": vòng lặp lượt là bất biến có chủ ý, để mọi kênh, mọi agent, mọi job đi qua cùng một cổng kiểm soát.
 
 ## Tham chiếu
 

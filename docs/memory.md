@@ -4,8 +4,6 @@
 
 Memory is Markdown on disk, the same shape a person could keep by hand. Nothing is
 embedded or summarised behind the agent's back; what the model reads is what is on disk.
-Source of truth: `agents/context.py`, `memory/user_store.py`, `memory/agent_store.py`,
-`tools/memory.py`, and for the wiki `memory/wiki_store.py`, `memory/wiki_links.py`, `memory/wiki_lint.py`.
 
 It comes in two scopes:
 
@@ -22,7 +20,7 @@ It comes in two scopes:
 | `users/owner/facts/<name>.md` | one remembered fact each: frontmatter + Markdown body | only its index line; the body through `memory_search` or `workspace_read` |
 | `users/owner/facts/INDEX.md` | generated table of contents, one line per fact | every turn, every agent |
 
-The user sections are capped at 4 000 characters (`MAX_USER_SECTION_CHARS`) because they
+The user sections are capped at 4 000 characters because they
 ride along in every agent's prompt. A fact's frontmatter records `name`, `description`,
 `type` (one of `profile`, `preference`, `feedback`, `project`, `reference`), `written_by`,
 `source` and `updated`; `INDEX.md` is regenerated after every write.
@@ -43,10 +41,9 @@ plain `YYYY-MM-DD.md`, and only that name is read into the prompt; a suffixed no
 history, reached through `memory_search`, the Ghi nhớ tab and consolidation.
 
 Each file becomes a `## <file name>` section of the system prompt, capped at 24 000
-characters (`MAX_SECTION_CHARS`, cut with a trailing `…`). A missing file is simply
-skipped. Paths: `profile.memory_file = <agent dir>/MEMORY.md`,
-`profile.memory_dir = <agent dir>/memory` (created at startup). The default agent keeps
-them in `MY_AGENT_HOME` itself.
+characters (cut with a trailing `…`). A missing file is simply skipped. The files live at
+`<agent dir>/MEMORY.md` and `<agent dir>/memory/` (created at startup); the default agent
+keeps them in `MY_AGENT_HOME` itself.
 
 ## Writing memory
 
@@ -67,7 +64,7 @@ Several ways, all visible in the manage screen's Memory tab:
 
 ## Reading memory
 
-- **`memory_search <query>`** returns up to 12 hits (`MAX_HITS`) as `[<file> › <heading>]
+- **`memory_search <query>`** returns up to 12 hits as `[<file> › <heading>]
   <entry>`. The unit is the **entry**, not the line: a bullet together with its indented
   continuation lines, or a paragraph. A thought written over two lines — `- Jimny 5 cửa,` /
   `  ngân sách 1.5 tỷ` — is one hit with both halves, which matching line by line loses.
@@ -89,7 +86,7 @@ Several ways, all visible in the manage screen's Memory tab:
   are not dated notes are searched too, because a workspace written by hand keeps things
   like `facebook-books.md` there and they are memory as well. A fact matches on its
   description and body together and reports both, since a fact is one thought.
-- A hit longer than 300 characters (`MAX_CHARS`) is folded onto one line and cut with `…`.
+- A hit longer than 300 characters is folded onto one line and cut with `…`.
 - The prompt already holds `MEMORY.md` and the last two days, so the model should not
   search for those.
 
@@ -113,7 +110,7 @@ A job runs unattended, so a shared write it asks for is held in the `memory_prop
 table until someone decides. Approving applies the write; rejecting leaves nothing behind.
 Deciding the same proposal twice is a conflict, not a fresh write, so a double click
 cannot apply it again. `GET /api/stats` carries `pending_proposals` so the web UI can
-badge the tab. Source: `store/memory_proposals.py`, `memory/proposals_apply.py`.
+badge the tab.
 
 ## Consolidation
 
@@ -126,12 +123,11 @@ text it replaces, so one step back is always possible from the history list.
 
 An agent opts in with a `memory_consolidate` cron in its profile, which becomes an
 ordinary schedule (kind `consolidate`) next to its prompt and command jobs. It reads up to
-7 days of notes (`MAX_NOTES`, counted in days rather than files, so several notes of one
+7 days of notes (counted in days rather than files, so several notes of one
 day still count as that one day) within a 40 000-character budget, newest first, and does
 nothing at all when no note is newer than `MEMORY.md`. An agent marked `autonomous` applies
 the rewrite immediately; everyone else sees it in **Ghi nhớ → Đề xuất**. The run appears in
-Activity with its cost, and a failed rewrite leaves the file exactly as it was. Source:
-`memory/consolidate.py`, `scheduler/jobs.py`.
+Activity with its cost, and a failed rewrite leaves the file exactly as it was.
 
 ## The wiki vault
 
@@ -140,8 +136,7 @@ for asking. "What do I know about the Eco Retreat deadline" is spread over eleve
 and the answer is whichever fragment the search happened to rank first. The vault gathers
 those fragments onto a page named after the thing itself, so the question has one place to
 be answered from. It lives at `memory/wiki/` inside the agent dir, alongside the notes it
-was built from. Source: `memory/wiki_store.py`, `wiki_compile.py`, `wiki_lint.py`,
-`tools/wiki.py`.
+was built from.
 
 Pages are filed in three folders: `entities` for things with names (a person, a place, a
 contract), `concepts` for ideas that recur, and `syntheses` for pages written across
@@ -160,8 +155,8 @@ Two rules make the vault safe to regenerate every night:
   and a compile returns it unchanged. Without that split the vault would be either frozen
   or untrustworthy.
 
-A page's file name is its identity, so `slugify` decides which writes land on the same
-page. It drops accents through the same `normalize` the search uses, so `Hạn Eco` and
+A page's file name is its identity, so the slug decides which writes land on the same
+page. It drops accents the same way the search does, so `Hạn Eco` and
 `han eco` are one page rather than two that each know half the story. It keeps letters and
 digits of **any** script: filing every non-Latin title under one fallback name would not be
 a bad name but a merge, with the next such page overwriting the last.
@@ -194,7 +189,7 @@ A vault degrades quietly: a page loses its last source in a rewrite, a link poin
 page nobody wrote, a page stops being updated while the thing it describes moves on. None
 of that raises an error and none is visible from a single page, so the lint reads the whole
 vault at once and reports four sorts: `unsourced`, `dangling`, `review` (any page whose
-status is not `ok`), and `stale` — older than 90 days (`STALE_DAYS`) or carrying no date at
+status is not `ok`), and `stale` — older than 90 days or carrying no date at
 all, since treating absence of evidence as freshness is how a vault starts lying. Nothing
 is deleted; a dangling link is usually a page that *should* exist, which makes it a to-do
 for the next compile rather than a fault to clean away.
@@ -239,8 +234,7 @@ the master's conversation and reaches the coach as part of the delegate task. Th
 ## Over HTTP and in the web UI
 
 Everything the agent sees in its prompt is editable by the person, so they are never
-arguing with a memory they cannot reach. Routers: `server/routes_memory_user.py` (shared
-scope, search, proposals) and `server/routes_memory_agent.py` (one agent's files).
+arguing with a memory they cannot reach.
 
 | Endpoint | Does |
 |---|---|
@@ -284,12 +278,3 @@ differences are deliberate:
   that actually happens, which is a page losing its evidence.
 - **The lint and its two dashboards** have no openclaw equivalent. They exist because a
   vault degrades silently and the damage is only visible across the whole vault at once.
-
-Tests: `test_tools_memory.py`, `test_tools_memory_user.py`,
-`test_agent_context.py`, `test_memory_user_store.py`, `test_memory_agent_store.py`,
-`test_memory_proposals_apply.py`, `test_server_memory_api.py`,
-`test_memory_consolidate.py`, `test_memory_conversation_title.py`, `test_memory_session_summary.py`,
-`test_memory_search.py`, and for the wiki `test_wiki_store.py`,
-`test_wiki_links.py`, `test_wiki_apply.py`, `test_wiki_plan.py`, `test_wiki_index.py`,
-`test_wiki_lint.py`, `test_wiki_tools.py`, `test_memory_wiki_compile.py`,
-`test_server_wiki_api.py`.

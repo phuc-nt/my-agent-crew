@@ -3,8 +3,8 @@
 **Phiên bản**: 0.5.0 (+ chưa phát hành) · **Cập nhật**: 2026-09-24
 
 A channel lets the person talk to the crew somewhere other than the web UI. Today that is
-Telegram (`channels/`). Every platform hands a message to the same gate, `Inbound`
-(`inbound.py`): it finds the agent, opens or reuses today's conversation on that channel,
+Telegram. Every platform hands a message to the same inbound gate: it finds the agent,
+opens or reuses today's conversation on that channel,
 runs the turn under activity tracking and returns the reply. Turns from Telegram therefore
 run through the same loop as the web UI, with source `telegram`, so the rail shows them.
 
@@ -39,7 +39,7 @@ telegram:
 Both keys are required; `chat_id` is an int. The token itself lives in the server's
 environment — `<home>/env`, which the server loads at startup and the web UI's **Kết nối**
 page writes. Setting the block from the agent editor, or saving its token on Kết nối, rebuilds
-the channel in place (`server/runtime_connections.py`); a hand edit of `agent.yaml` still
+the channel in place; a hand edit of `agent.yaml` still
 needs a restart. Only a change to the master, its token's value or its `chat_id` rebuilds
 the bot; any other edit (a search key, a member's profile) hands the running bot the new
 agents without stopping it. When the env var is unset the
@@ -52,16 +52,16 @@ ignored and logged.
 
 ## One bot, the master, the crew
 
-`build_channel` builds one `TelegramChannel` for the master. Everything typed in the chat
+One bot is built, for the master. Everything typed in the chat
 is a turn of the master's conversation; when the answer belongs to Pong or the coach the
 master delegates and relays, exactly as in the web UI, and the delegate's run shows up in
 the manage screen's activity section under its own name.
 
 The crew still reaches the chat in two ways:
 
-- **Scheduled briefs.** After a prompt job of any agent the scheduler calls
-  `Runtime.deliver`, and the channel sends that agent's reply under a first line
-  `[Agent name]` (`texts.TELEGRAM_AGENT_PREFIX`), with `MEDIA:` paths resolved in *that*
+- **Scheduled briefs.** After a prompt job of any agent the scheduler hands the reply to
+  the channel, which sends it under a first line
+  `[Agent name]`, with `MEDIA:` paths resolved in *that*
   agent's workspace, so a coach's morning chart still arrives as a photo. The master's own
   replies carry no prefix.
 - **Attachments.** A photo or document lands in the **master's** inbox; the master passes
@@ -87,21 +87,21 @@ agent whose conversation is being sent.
 A photo or a document the person sends is downloaded (largest photo size, or the document
 under its own name reduced to a plain file name) into `<master workspace>/inbox/` as
 `<YYYYMMDD-HHMMSS>-<name>`, and the turn's text is `[Tệp đính kèm đã lưu: <path>]` with the
-caption after it (`telegram_inbound`). The model does not see the image; the master's
+caption after it. The model does not see the image; the master's
 persona says what to do with the path, such as handing it to the agent that reads papers.
 A download that fails is reported to the chat without a model turn. Slash commands are not
 read from captions.
 
 Several photos sent at once arrive as one update per photo sharing a `media_group_id`, the
-caption on the first only. `telegram_albums` gathers consecutive updates of one album into
+caption on the first only. The channel gathers consecutive updates of one album into
 one turn whose text lists every saved path, then the caption; a poll that ends inside an
 album asks Telegram again up to three times, one second apart, before handing the agent a
 half album. The offset moves past the whole group at once, so a crash mid-album repeats
 the album rather than splitting it.
 
 A new conversation does not start blank: the summary of the previous conversation on the
-same channel is carried into the prompt as a **Cuộc trước** section
-(`previous_for_channel`), so `/new` and the first message of a new day pick up where the
+same channel is carried into the prompt as a **Cuộc trước** section, so `/new` and the
+first message of a new day pick up where the
 last one left off without replaying its messages.
 
 ## Commands
@@ -133,21 +133,19 @@ This is how a chat stands in for the web's question card; see
 
 ## Scheduled delivery
 
-After every prompt job the scheduler calls `Runtime.deliver(agent_id, conv_id)`, which
-forwards the assistant text of that conversation's last turn to the chat when the master
+After every prompt job the scheduler asks the runtime to deliver that conversation, which
+forwards the assistant text of its last turn to the chat when the master
 has a channel. A crew member's brief carries the `[Name]` prefix; a conversation of an
 agent the runtime does not know is logged and not sent. When the last turn ended without any assistant text (a run halted at
-`max_steps`, a provider error, an approval left pending) the channel sends
-`texts.TELEGRAM_RUN_UNFINISHED` with the run's summary instead of staying silent, so a
+`max_steps`, a provider error, an approval left pending) the channel sends a
+"run unfinished" notice with the run's summary instead of staying silent, so a
 scheduled job never disappears without a trace. When an approval in that turn timed out
-(`approval_ttl_seconds`), the delivery first sends `texts.TELEGRAM_APPROVAL_EXPIRED` naming
-the refused tool, so the reply that follows is read as one shaped by a guard, not by the
-person.
+(`approval_ttl_seconds`), the delivery first says which tool was refused by the deadline,
+so the reply that follows is read as one shaped by a guard, not by the person.
 
 A run that stopped early but *did* leave text behind is the trickier case: the half-finished
 answer reads like a complete one. So after sending the text, a run whose status is `halted`
-or `error` gets a second message, `texts.TELEGRAM_RUN_CUT_SHORT`, naming the reason and what
-the run spent. Either way the scheduler logs one line per prompt job —
+or `error` gets a second "cut short" message naming the reason and what the run spent. Either way the scheduler logs one line per prompt job —
 `job <id>: delivered=<bool> conv=<id> status=<status>` — so the log distinguishes a job that
 answered from one that stayed quiet. A failed delivery is logged, not retried.
 
@@ -167,8 +165,7 @@ still running after the 30 s is cancelled, and the chat is told so ("…có th�
 lời trọn vẹn… gửi lại giúp mình nhé") so the person resends rather than waits for an answer
 that will not come. It says "may": the cut can land after the reply's text went out, while
 its attachments were still uploading. The notice is best effort, capped at 5 s, and a failure to send it is logged
-without the token. The loop and
-its stop live in `channels/telegram_polling.py`.
+without the token.
 
 ## Secrets
 
@@ -180,13 +177,11 @@ this repo.
 
 ## Adding a channel
 
-A channel is a class with `start()`, `stop()` and `deliver(conv_id) -> bool`, built in
-`channels/build_channel` from the master's profile block and held as `Runtime.channel`.
-Inside, hand every message to `Inbound.conversation_for` + `Inbound.reply` (or `stream`
-when the platform can show events) rather than calling the loop: that is what keeps the
-agents unaware of platforms. Keep secrets as env-var names in the profile and add rows to
-[testing.md](testing.md). Tests: `test_channels_telegram.py`, `test_app_wiring.py`,
-`test_api_inbound.py`.
+A channel lives under `channels/`, is built from a block on the master's profile, and does
+three things: start, stop, and deliver a conversation's last reply. Inside, hand every
+message to the inbound gate rather than calling the loop: that is what keeps the agents
+unaware of platforms. Keep secrets as env-var names in the profile, and test the channel in
+the tier that can see it ([testing.md](testing.md)).
 
 ## Compared with openclaw
 

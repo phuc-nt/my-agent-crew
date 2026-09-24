@@ -13,7 +13,7 @@ Một người muốn có vài trợ lý AI làm việc thật cho mình — th�
 
 ## 2. Giải pháp
 
-my-agent-crew: một tiến trình Python, một tệp SQLite, một thư mục home. Nhiều agent, mỗi agent là một thư mục tệp văn bản. Một vòng lặp `run_turn` cho mọi kênh và mọi job, với cổng duyệt tool, trần chi phí, và trí nhớ trên đĩa mà người dùng đọc và sửa được.
+my-agent-crew: một tiến trình Python, một tệp SQLite, một thư mục home. Nhiều agent, mỗi agent là một thư mục tệp văn bản. Một vòng lặp lượt chung cho mọi kênh và mọi job, với cổng duyệt tool, trần chi phí, và trí nhớ trên đĩa mà người dùng đọc và sửa được.
 
 ## 3. Người dùng
 
@@ -45,8 +45,8 @@ my-agent-crew: một tiến trình Python, một tệp SQLite, một thư mục 
 ## 5. Yêu cầu
 
 **Chức năng**
-- Mọi tin từ người đi qua `POST /api/inbound`; job đi thẳng `run_turn`. Không có đường nào khác tới model.
-- Tool có `requires_approval` phải dừng lượt cho tới khi có quyết định, trừ cuộc trò chuyện autonomous; `shell_ask_patterns` hỏi cả khi autonomous.
+- Mọi tin từ người đi qua `POST /api/inbound`; job đi thẳng vào cùng vòng lặp lượt. Không có đường nào khác tới model.
+- Tool cần duyệt phải dừng lượt cho tới khi có quyết định, trừ cuộc trò chuyện autonomous; `shell_ask_patterns` hỏi cả khi autonomous.
 - Approval không được trả lời sau `approval_ttl_seconds` coi như từ chối.
 - Mỗi lượt là một run có step, xem được sau khi kết thúc.
 - Chi phí lượt con cộng vào lượt cha; trần chi phí của con không vượt phần còn lại của cha.
@@ -65,7 +65,7 @@ my-agent-crew: một tiến trình Python, một tệp SQLite, một thư mục 
 
 ## 7. Tiêu chí thành công
 
-- Bộ cài thật (master + Pong + HLV + 8 vai trò) chạy liên tục qua launchd, lịch nổ đúng giờ địa phương, Telegram trả lời.
+- Bộ cài thật (master + ba agent cá nhân + ba agent kỹ thuật) chạy liên tục qua launchd, lịch nổ đúng giờ địa phương, Telegram trả lời.
 - Người chưa từng xây harness đọc [system-architecture.md](system-architecture.md) và trả lời được: tin nhắn đi qua những khối nào, tool được duyệt ở đâu, agent nhớ bằng gì.
 - `pytest`, `vitest`, Playwright xanh trong CI.
 
@@ -97,9 +97,8 @@ Chi tiết mỗi bản: [CHANGELOG](../CHANGELOG.md).
   dùng nó, nhưng `config.yaml` sửa tay vẫn nhận, và đội đó sẽ trả lời bằng tiếng vọng. Chưa
   quyết: giữ `fake` cho demo/test, hay chỉ bật nó khi không có provider thật nào.
 - **Báo "tin bị ngắt" có thể không kịp gửi dưới launchd.** Khi dừng, bot chờ lượt đang chạy tới
-  30 s (`STOP_GRACE_SECONDS`) rồi mới báo (tối đa 5 s). launchd mặc định chỉ đợi 20 s sau
-  SIGTERM rồi SIGKILL, nên plist cần `ExitTimeOut` ≥ 40, xem
-  [deployment-guide §5](deployment-guide.md).
+  30 s rồi mới báo (tối đa 5 s). launchd mặc định chỉ đợi 20 s sau SIGTERM rồi SIGKILL, nên
+  plist cần `ExitTimeOut` 45 như mẫu ở [deployment-guide §5](deployment-guide.md).
 - **Trình sửa tuyến chưa có nút đổi thứ tự.** Muốn đưa tuyến lên trước thì phải xoá rồi thêm lại.
 - **Server không có đăng nhập.** Chỉ hàng rào Host/Origin chặn trang lạ; ai tới được cổng là
   điều khiển được đội. Chỉ dùng cục bộ hoặc trong tailnet riêng (`MY_AGENT_ALLOWED_HOSTS`).
@@ -117,7 +116,7 @@ Chi tiết mỗi bản: [CHANGELOG](../CHANGELOG.md).
 |---|---|
 | harness | phần mềm bao quanh model: ngữ cảnh, tool, trí nhớ, kiểm soát |
 | master | agent nhận tin từ người và giao việc |
-| lượt (turn) | một lần `run_turn`: từ tin mới đến câu trả lời cuối |
+| lượt (turn) | một vòng của vòng lặp agent: từ tin mới đến câu trả lời cuối |
 | run / step | bản ghi một lượt và các bước trong nó |
 | approval | yêu cầu duyệt một tool call |
 | autonomous | cuộc trò chuyện bỏ qua cổng duyệt |

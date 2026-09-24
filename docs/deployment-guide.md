@@ -204,7 +204,7 @@ Sơ đồ chạy đầy đủ, nhưng link `.md` giữa các tài liệu không 
 
 - Link nội bộ: mở `docs/diagrams/index.html` qua http.server, bấm cả 5 "Mở bản động".
 - Không có bí mật hoặc dữ liệu cá nhân trong `docs/`: grep theo tiền tố key OpenRouter, dạng token bot Telegram, chat id, đường dẫn home cá nhân phải rỗng.
-- Số liệu test trong [codebase-summary.md](codebase-summary.md) khớp `uv run pytest -q` và `npm test`.
+- Tài liệu không kể tên tệp, hàm, hằng hay tệp test của mã nguồn (xem [code-standards.md §7](code-standards.md#7-tài-liệu)): grep `\.py\b`, `\.tsx?\b`, `test_`, `MAX_[A-Z_]+` trong `docs/*.md` chỉ được trả về lệnh chạy, đường dẫn cấu hình và ví dụ người dùng.
 
 ## Câu hỏi mở
 

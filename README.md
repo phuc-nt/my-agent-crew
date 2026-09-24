@@ -245,7 +245,7 @@ The UI is in Vietnamese, so the tabs are named below as they appear on screen:
   **Tìm** và **Đề xuất**), **Chi phí** (costs, by agent / model / day),
   **Kết nối** (connections), **Cài đặt** (settings).
 
-Inside the chat, `ConversationActivity` shows only that conversation's own runs, step by step.
+Inside the chat, a conversation-activity view shows only that conversation's own runs, step by step.
 The master's avatar in the header opens the crew tab; a chip `Crew: N` opens the manage screen
 at the crew section. A line `MEDIA: <path in workspace>` in the reply is rendered as an image,
 and `FILE: <path>` as a download link. Khi agent chuẩn bị làm một việc dài, nó gọi
@@ -255,7 +255,7 @@ xem thấy tiến trình thay vì một vòng xoay.
 ## Phát triển
 
 ```bash
-./scripts/gates.sh               # mọi cổng CI, dừng ở cổng đỏ đầu tiên (~26 giây)
+./scripts/gates.sh               # mọi cổng CI, dừng ở cổng đỏ đầu tiên
 ```
 
 Hoặc chạy lẻ từng cổng:

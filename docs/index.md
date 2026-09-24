@@ -16,7 +16,7 @@ my-agent-crew là một agent harness nhỏ chạy trên máy cá nhân: nhiều
 | 1 | [Kiến trúc hệ thống](system-architecture.md) | muốn hiểu harness gồm gì, mỗi phần làm gì, khớp nhau ra sao (5 sơ đồ động) |
 | 2 | [Tổng quan sản phẩm](project-overview-pdr.md) | muốn biết vì sao nó tồn tại và nó cam kết gì |
 | 3 | [Cài đặt và vận hành](deployment-guide.md) | muốn cài, chạy thường trực, thêm agent, publish doc |
-| 4 | [Bản đồ mã nguồn](codebase-summary.md) | sắp sửa code, cần biết khối nào ở tệp nào |
+| 4 | [Bản đồ mã nguồn](codebase-summary.md) | sắp mở code, cần định hướng theo gói và bảng API (không phải bản đồ từng tệp) |
 | 5 | [Chuẩn viết code](code-standards.md) | sắp commit |
 | — | [Thiết kế](design.md) · [Agent](agents.md) · [Tool](tools.md) · [Trí nhớ](memory.md) · [Kênh](channels.md) · [Kiểm thử](testing.md) | tham chiếu sâu từng mảng |
 | — | [Nhật ký thay đổi](../CHANGELOG.md) | muốn biết bản này khác bản trước ở đâu |
@@ -59,6 +59,7 @@ Bản `.html` của sơ đồ là trang tự chứa; chỉ cần phục vụ `do
 - Mỗi tài liệu chuẩn có front matter, dòng phiên bản, và mục "Câu hỏi mở" ở cuối.
 - Ví dụ lấy từ bộ cài thật nhưng đã bỏ định danh, số liệu và đường dẫn cá nhân.
 - Định danh trong code là tiếng Anh; tài liệu là tiếng Việt.
+- Code là nguồn sự thật. Tài liệu mô tả khái niệm, luồng và hợp đồng người dùng thấy; không ghi tên tệp, hàm, tệp test hay số liệu — xem [code-standards.md §7](code-standards.md#7-tài-liệu).
 
 ## Câu hỏi mở
 

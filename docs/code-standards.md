@@ -36,7 +36,7 @@ Tám cổng dưới đây **là chính xác những gì CI chạy**, theo đúng
 [`.github/workflows/ci.yml`](../.github/workflows/ci.yml). Chạy đủ cả tám ở máy trước khi đẩy;
 cổng nào bỏ qua thì CI sẽ là nơi phát hiện, và đó là lúc đắt nhất.
 
-Một lệnh chạy hết, dừng ở cổng đỏ đầu tiên và gọi tên nó — **~26 giây**:
+Một lệnh chạy hết, dừng ở cổng đỏ đầu tiên và gọi tên nó:
 
 ```bash
 ./scripts/gates.sh
@@ -80,16 +80,17 @@ Sửa định dạng bằng `uv run ruff format .` rồi **chạy lại `pytest`
 
 - Token, API key, chat id, dữ liệu người dùng (persona thật, `MEMORY.md`, facts, workspace) sống trong `~/.my-agent-crew/` — **ngoài repo**. Repo chỉ chứa mẫu (`agents/templates/`) và tài liệu.
 - Cấu hình chỉ ghi tên biến môi trường (`token_env`), không ghi giá trị.
-- Log đi qua redact (`TelegramApi.redact`, filter trên logger `httpx`). Khi thêm client HTTP mới có secret, thêm redact tương ứng và một test khẳng định secret không xuất hiện trong log.
+- Log đi qua redact: lỗi API Telegram bị che token trước khi ném, và một filter trên logger HTTP che mọi token tiến trình từng dùng. Khi thêm client HTTP mới có secret, thêm redact tương ứng và một test khẳng định secret không xuất hiện trong log.
 - Tài liệu và ví dụ dùng placeholder (`<chat>`, `<token>`), không dùng giá trị thật kể cả đã thu hồi.
 
 ## 7. Tài liệu
 
 - `docs/` giữ sáu tài liệu chuẩn (index, system-architecture, codebase-summary, deployment-guide, project-overview-pdr, code-standards) và các tài liệu tham chiếu theo mảng. Cập nhật khi hành vi người dùng thấy, lệnh, cấu trúc, hay hợp đồng API đổi; không ghi lại thay đổi nội bộ thuần tuý.
+- **Code là nguồn sự thật; tài liệu chỉ mô tả khái niệm, luồng và hợp đồng người dùng thấy** (khoá YAML, tên tool, lệnh CLI, biến môi trường, endpoint, tên tab). Không ghi tên tệp, hàm, hằng, component hay tệp test, không ghi số test hay số dòng, không ghi thời gian chạy: những thứ đó đổi theo mỗi commit và chỉ có `ls`/`grep` mới nói đúng. Tên gói (`agent/`, `tools/`, `channels/`…) là mức chi tiết tối đa. Viết cho người mới vào và người quyết định, không phải để thay việc đọc code.
 - Đầu mỗi tài liệu chuẩn: front matter `layout: default` + `title`, dòng **Phiên bản** · **Cập nhật**. Cuối: `## Câu hỏi mở`.
 - Sơ đồ: spec `.json` là nguồn; `.html` và `.svg` là sản phẩm sinh ra, commit cả ba. Nhúng SVG trong markdown, link HTML cho bản động. Không commit `*.visual-check.*`.
 - Kiểm tra link và số liệu trước khi commit ([deployment-guide.md §10](deployment-guide.md#10-kiểm-tra-bộ-doc)).
 
 ## Câu hỏi mở
 
-- Chưa có pre-commit hook: `scripts/gates.sh` vẫn phải tự gõ. Gắn vào hook thì mọi commit nhỏ cũng chờ ~26 giây, nên hiện để người chạy tự quyết lúc nào.
+- Chưa có pre-commit hook: `scripts/gates.sh` vẫn phải tự gõ. Gắn vào hook thì mọi commit nhỏ cũng chờ cả bộ cổng, nên hiện để người chạy tự quyết lúc nào.

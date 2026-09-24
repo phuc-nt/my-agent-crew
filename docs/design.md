@@ -16,8 +16,8 @@ around it.
 
 | my-crew | Measured problem | Here |
 |---|---|---|
-| Team of role-agents, router, DAG task graph | Most value came from one capable agent; coordination code dominated the codebase and the bug list | One agent loop (`agent/loop.py`); profiles only vary its inputs. No long-lived agents talking to each other: delegation is a tool call, one level deep, and a child conversation runs one turn and returns its answer |
-| Profiles + company YAML + per-agent settings | Config surface too large to keep tested; secrets could leak into YAML | Env vars + whitelisted `config.yaml` (`config.py`); `agent.yaml` has a fixed key set (`PROFILE_KEYS`) and no secrets |
+| Team of role-agents, router, DAG task graph | Most value came from one capable agent; coordination code dominated the codebase and the bug list | One agent loop; profiles only vary its inputs. No long-lived agents talking to each other: delegation is a tool call, one level deep, and a child conversation runs one turn and returns its answer |
+| Profiles + company YAML + per-agent settings | Config surface too large to keep tested; secrets could leak into YAML | Env vars + whitelisted `config.yaml`; `agent.yaml` has a fixed key set and no secrets |
 | Web UI added late, many pages | UI lagged features; tests were a separate world | UI is the primary surface; three test tiers share the same event contract |
 | Files grew past 1000 lines | Hard to review, hard for LLM tooling | 200-line budget enforced by a test |
 | Cost tracking optimistic | Unknown prices silently counted as 0 | `cost_usd=None` counts as `unknown_cost_calls` and is shown in the UI |
@@ -28,16 +28,16 @@ around it.
 ```
 browser ──/api/conversations/{id}/messages (SSE)──┐
 Telegram poller ──────────────────────────────────┤
-any platform ──POST /api/inbound (JSON, sync)─────┴─▶ Inbound ──▶ run_turn(deps, conversation)
-                                                        │           │  ProviderChain (ordered routes, fallback before first item)
-                                                        │           │  ToolRegistry (workspace, web, memory, shell, delegate)
-                                                        │           │  Skills + persona/memory + crew roster (system prompt)
-                                                        │           └─ Store (SQLite: conversations, messages, approvals, runs)
-                                                        ├─ ActivityHub  (live runs → SSE /api/activity/stream)
+any platform ──POST /api/inbound (JSON, sync)─────┴─▶ Inbound ──▶ agent loop (one turn on one conversation)
+                                                        │           │  provider chain (ordered routes, fallback before first item)
+                                                        │           │  tool registry (workspace, web, memory, shell, delegate)
+                                                        │           │  skills + persona/memory + crew roster (system prompt)
+                                                        │           └─ store (SQLite: conversations, messages, approvals, runs)
+                                                        ├─ activity hub (live runs → SSE /api/activity/stream)
                                                         └─ Scheduler    (cron/every jobs per agent, 20 s tick)
 ```
 
-- **One door for every platform.** `Inbound` (`inbound.py`) finds the agent, opens or
+- **One door for every platform.** The inbound gate finds the agent, opens or
   reuses the conversation (one per agent per channel per day), guards it while an approval
   is pending, runs the turn under activity tracking and records the run's source. The web
   reads the event stream; Telegram and `POST /api/inbound` take the collected `TurnReply`
@@ -45,14 +45,14 @@ any platform ──POST /api/inbound (JSON, sync)─────┴─▶ Inboun
   a feature is tested by posting to the API.
 
 - **Durable state is the message log.** A turn resumes from the last stored assistant message:
-  unfinished tool calls are settled first, so a crash mid-turn is recoverable (`test_agent_resume.py`).
+  unfinished tool calls are settled first, so a crash mid-turn is recoverable.
 - **Approval is first-class.** A `requires_approval` tool pauses the turn with an `approval_required`
   event and a stored `Approval`; the UI shows a bar, the decision endpoint resumes the same turn.
   A conversation marked `autonomous` skips the pause. Hard denials — path escape from the
   workspace, private/loopback network targets — are not approvable.
 - **An unanswered approval fails closed.** Every `Approval` carries a deadline
-  (`approval_ttl_seconds`, default 600); the scheduler tick sweeps overdue ones
-  (`agent/approval_expiry.py`), closes them as `expired`, resumes the turn with the tool refused
+  (`approval_ttl_seconds`, default 600); the scheduler tick sweeps overdue ones,
+  closes them as `expired`, resumes the turn with the tool refused
   and delivers the reply like any other, so a request nobody saw never keeps a conversation
   hanging. The decision endpoint also takes `always`: approving with it adds the tool to the
   conversation's `auto_approve` list and later calls of that tool run without asking, until the
@@ -74,7 +74,7 @@ any platform ──POST /api/inbound (JSON, sync)─────┴─▶ Inboun
 
 ## Agent profiles
 
-`MY_AGENT_HOME/agents/<id>/agent.yaml` describes one agent (`agents/profile.py`): a fixed key
+`MY_AGENT_HOME/agents/<id>/agent.yaml` describes one agent: a fixed key
 set, no secrets, every unset value inherited from the global settings. The `default` agent
 always exists and is the top-level settings, so a fresh home needs no profile. Persona files
 and memory are Markdown in the agent dir, read into the system prompt every turn. Key
@@ -105,7 +105,7 @@ start at boot. They are a starting point to edit, not a framework: each is an
 
 **Kits.** A person who already runs Claude Code or opencode has a `.claude/` or
 `.opencode/` full of subagents, commands, skills and hooks. Rather than a migration tool,
-the crew reads those folders as they are (`agents/kit.py`): `.agents/`, `.claude/` and
+the crew reads those folders as they are: `.agents/`, `.claude/` and
 `.opencode/` under the home and under an agent dir. Markdown agents become crew members,
 command files become slash commands, hooks run with the same JSON contract and the same
 tool names through an alias table. The yaml profile keeps the last word on any id both
@@ -134,8 +134,8 @@ possible.
 
 ## Activity hub and runs
 
-Every model turn — chat, approval resume, scheduled prompt, scheduled command — is a **run**
-(`store/runs.py`, `activity/hub.py`). A run records its agent, source (`chat`, `job:<id>`),
+Every model turn — chat, approval resume, scheduled prompt, scheduled command — is a **run**.
+A run records its agent, source (`chat`, `job:<id>`),
 conversation, status, steps (model calls with cost, tool calls with result and duration), spend
 and a summary. Live runs are kept in memory and broadcast as SSE on `/api/activity/stream`
 (`snapshot` on connect, then `run` and `event` frames); finished runs are read from SQLite.
@@ -150,12 +150,12 @@ one of `prompt` or `command`. A **prompt job** opens a fresh autonomous conversa
 and runs a turn; a **command job** runs the string with `shell_run` in the agent workspace and
 records only that step; a **consolidate job**, added by a `memory_consolidate` cron, rewrites the
 agent's `MEMORY.md` with one model call and opens no conversation, so it delivers nothing. The tick is 20 s; `POST /api/jobs/{id}/run` starts a job immediately and
-returns 202. The schedule clock is `Settings.now()`: the `timezone` key in `config.yaml` (or
+returns 202. The schedule clock is the person's zone: the `timezone` key in `config.yaml` (or
 `MY_AGENT_TIMEZONE`), an IANA name such as `Asia/Ho_Chi_Minh`, and the machine zone when unset.
-Every stamp in the database stays UTC; `clock.py` turns them into the person's day for the
+Every stamp in the database stays UTC and is turned into the person's day for the
 prompt, `/status`, the activity stats and the usage ledger.
-`PATCH /api/jobs/{id}/state` pauses or resumes a schedule at runtime; the override lives in
-the `job_state` table (`store/job_state.py`), survives a restart and only applies to a schedule
+`PATCH /api/jobs/{id}/state` pauses or resumes a schedule at runtime; the override is stored
+in the database, survives a restart and only applies to a schedule
 the profile enables — one turned off in yaml is reported as `enabled: false, paused: false` and
 cannot be switched on from the UI. `GET /api/jobs/{id}/runs` lists that job's past runs.
 
@@ -163,12 +163,12 @@ cannot be switched on from the UI. `GET /api/jobs/{id}/runs` lists that job's pa
 
 `channels/` lets the person talk to the crew on something other than the web UI. Today
 that is Telegram: the master's `agent.yaml` with `telegram: {token_env, chat_id}` gets one
-`TelegramChannel` at startup when the named env var is set (`Runtime.channel`), rebuilt in
+bot at startup when the named env var is set, rebuilt in
 place when the profile's block or its token changes from the web UI. The chat is
 the master's conversation, so the phone and the web UI are the same mechanism: one agent at
-the door, delegation behind it. Turns go through `Inbound` like every other platform, with
+the door, delegation behind it. Turns go through the inbound gate like every other platform, with
 source `telegram`, replies go back as text and `sendPhoto`, slash commands are answered
-without a model call, and the scheduler's `Runtime.deliver` pushes any agent's prompt-job
+without a model call, and the scheduler pushes any agent's prompt-job
 reply to the chat under a `[Name]` prefix, with its `MEDIA:` read from that agent's
 workspace. Full behaviour, commands, offsets and secrets: [channels.md](channels.md).
 
@@ -189,12 +189,10 @@ is metered on the conversation like a completion. [tools.md](tools.md#images).
 ## Web UI
 
 React + Vite, no state library. Two pure reducers pin the server contract from both sides:
-`thread-reducer.ts` over the `AgentEvent` union for one conversation, and
-`activity-reducer.ts` over the `ActivityPayload` union for the activity rail. `use-thread.ts`
-owns one conversation (load, stream, approve, abort); `use-conversations.ts` owns the list;
-`use-activity.ts` owns the SSE subscription and reloads the run list when a run finishes;
-`use-agents.ts` owns agents, jobs and stats and is refreshed from the same signal.
-All strings come from `i18n/vi.ts`.
+one over the event stream of a conversation, one over the activity stream of the rail. Each
+area (one conversation, the list, the activity subscription, agents and jobs and stats) is
+owned by one hook, and a finished run is the one signal that refreshes the others.
+All strings come from one Vietnamese strings file.
 
 There is one chat, with the master: the conversation list holds the master's conversations
 and a new one is always opened for it. The welcome screen speaks as the master and names
@@ -204,12 +202,11 @@ template in one click. A delegate's conversation is not listed, but opens from a
 or the attention centre.
 
 The screen is split by who the work belongs to. What the conversation you are in is doing sits
-inside the chat frame: `ConversationActivity` shows that conversation's own runs, step by step
-with tool arguments and output. From 1101px it is a 380px column docked to the right of the
+inside the chat frame: a conversation-activity view shows that conversation's own runs, step by
+step with tool arguments and output. On a wide screen it is a column docked to the right of the
 thread, always open and holding its place even before the first run, so the chat does not jump
-when work starts. Narrower, it folds into a one-line strip between the thread and the composer.
-`useMediaQuery` picks which one is rendered rather than CSS hiding one of two copies; without
-`matchMedia` (jsdom) it answers `false`, so unit tests see the strip. What belongs to the whole
+when work starts. Narrower, it folds into a one-line strip between the thread and the composer;
+one of the two is rendered, never both hidden by CSS. What belongs to the whole
 crew lives on a manage screen of its own (`#/manage/<section>`) rather than in a rail beside the
 thread — keeping them side by side made the crew's work and the conversation's work look like
 the same thing. Its nav groups the sections into watch (activity, approvals, costs), crew
@@ -218,9 +215,8 @@ into one sideways-scrolling row. Its sections: activity (live runs, and an atten
 approval, failed or were halted), approvals (decided requests with their outcome — approved,
 denied, expired), crew, tools, jobs (next/last run, a run-now button, a pause/resume switch and
 the job's run history on demand), memory, costs by agent, model and day — where the last seven
-days and the per-model table come from `store/usage.py`, a ledger read straight from the message
-log with token counts, so the figures are what was actually billed and not an estimate —
-connections, and settings.
+days and the per-model table are read straight from the message log with its token counts, so
+the figures are what was actually billed and not an estimate — connections, and settings.
 
 A run can be opened on its own at `#/manage/activity/<run_id>`: fetched by id, so a link to a run
 the list never loaded still works, and reloading the page stays on it. Above each timeline, one
@@ -230,12 +226,12 @@ percentage would be invented. A run that has settled says how it ended instead; 
 claiming to be thinking reads as a hang.
 
 The chat header is the title and three pills: spend against the cap, options, and the crew
-count. A pill carries the headline and opens a card with the detail (`PopoverChip`): the spend
+count. A pill carries the headline and opens a card with the detail: the spend
 card has the bar, what is left and the delegated share; the options card holds the autonomous
 switch, the optional skills as switches and the always-allowed tools, each with a revoke link.
 The card closes on Escape (caught before the app's own Escape shortcut, focus back on the pill)
-or a click outside; clicks inside keep it open. Cards everywhere share one vocabulary from
-`components/ui/metric-card.tsx` — a row is icon, label, ⓘ hint, a right-aligned mono value, an
+or a click outside; clicks inside keep it open. Cards everywhere share one vocabulary —
+a row is icon, label, ⓘ hint, a right-aligned mono value, an
 optional thin bar and a coloured subline — so the activity column opens on a summary card
 (spend, steps, delegated runs, models) and settings is a set of read-only summary cards that
 link to the section where a thing is changed instead of repeating its list.
@@ -247,16 +243,18 @@ borrowed from openhuman's session view — no code.)
 
 ## Extension points
 
-- Provider: implement `Provider.stream` (`llm/provider.py`) and register it in `build_providers`.
-- Tool: a `Tool` with `spec` + `run`; set `requires_approval` when it changes state.
+- Provider (`llm/`): something that streams a reply, wired in where the server builds each
+  agent's providers.
+- Tool (`tools/`): a spec for the model plus a run function; mark it as needing approval when
+  it changes state, and wire it in where the server builds each agent's tool set.
 - Skill: a Markdown file with `name` (and optional `always`, `description`) in `MY_AGENT_HOME/skills`
   or in an agent's `skills_dirs`.
 - Agent: a folder under `MY_AGENT_HOME/agents/` with `agent.yaml` and persona files.
-- Channel: a class with `start`/`stop`/`deliver(conv_id)` built in `channels/build_channel`
-  from the master's profile block; keep secrets as env-var names in the profile.
-- Credential: a known env var is a row in `server/credential_catalog.py` (group, secret or URL,
-  optional check in `server/credential_checks.py`); anything else a skill reads can still be set
-  from Kết nối under "Biến khác". Changes are applied instantly: `connection_apply` rebuilds the
-  crew from the new environment and refuses breaking changes (e.g., removing the only key a route
-  needs). `server/local_guard.py` guards every path: `Host` must be an IP, `localhost` or a name in
+- Channel (`channels/`): start, stop and deliver, built from the master's profile block; keep
+  secrets as env-var names in the profile.
+- Credential (`server/`): a known env var is a row in a catalogue (group, secret or URL, optional
+  live check); anything else a skill reads can still be set from Kết nối under "Biến khác".
+  Changes are applied instantly: the crew is rebuilt from the new environment and a breaking
+  change (e.g., removing the only key a route needs) is refused before anything is written.
+  A local guard covers every path: `Host` must be an IP, `localhost` or a name in
   `MY_AGENT_ALLOWED_HOSTS`, and `Origin` must match host:port exactly; the 403 names the host.

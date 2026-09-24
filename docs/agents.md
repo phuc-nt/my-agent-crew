@@ -3,10 +3,9 @@
 **Phiên bản**: 0.5.0 (+ chưa phát hành) · **Cập nhật**: 2026-09-24
 
 An **agent** is one folder under `MY_AGENT_HOME/agents/<id>/` with an `agent.yaml` and a
-few Markdown files. Every agent runs the same loop (`agent/loop.py`); the profile only
+few Markdown files. Every agent runs the same loop; the profile only
 changes its inputs: persona, memory, workspace, skills, model routes, budget and schedules.
-The Telegram channel belongs to the master alone. Source of truth: `agents/profile.py`,
-`agents/channels.py`, `config.py`.
+The Telegram channel belongs to the master alone.
 
 ## Folder layout
 
@@ -38,7 +37,7 @@ MY_AGENT_HOME/                      ~/.my-agent-crew by default
         └── .agents/                this agent's own kit (optional)
 ```
 
-`ensure_agent_dirs` creates the agent dir, workspace and `memory/` at startup, so a
+The agent dir, workspace and `memory/` are created at startup, so a
 profile plus persona files is enough. The agent id is the folder name; `default` is
 reserved for the top-level settings (see below).
 
@@ -199,7 +198,7 @@ keys this version of the server does not know about all survive an edit made fro
 browser. The manifest is written through a temp file and moved into place, so a crash
 mid-write cannot leave a profile that no longer parses.
 
-**Validation is the same code that reads a hand-written file** (`parse_profile`), run
+**Validation is the same code that reads a hand-written file**, run
 *before* anything is written. A profile the server would refuse to start with is a 422 and
 changes nothing — not the file, not the running agent. `delegates` is checked against the
 crew as it would be after the edit, so you cannot point at an agent that is not there.
@@ -252,24 +251,23 @@ it would shadow the kit rather than edit it.
 The `default` agent always exists and is the top-level settings: dir = `MY_AGENT_HOME`,
 workspace = `MY_AGENT_HOME/workspace`, skills = `MY_AGENT_HOME/skills`, persona and memory
 files read from `MY_AGENT_HOME` itself. A fresh home therefore needs no profile at all.
-`load_profiles` returns it first, then `agents/<id>/agent.yaml` sorted by id.
+It is loaded first, then `agents/<id>/agent.yaml` sorted by id.
 
 It is also the *master*: the one agent the person talks to — in the web UI and on
-Telegram — and the one that hands work to the rest. `AgentProfile.is_master` is true for
-it alone. An optional `MY_AGENT_HOME/agent.yaml` shapes it with the same keys as any
+Telegram — and the one that hands work to the rest. An optional `MY_AGENT_HOME/agent.yaml` shapes it with the same keys as any
 profile (`name`, `description`, `autonomous`, `cost_cap_usd`, `max_steps`, `routes`,
 `delegates`, `telegram`, …); without the file it is the plain default agent, and
 `PATCH /api/agents/default` writes that file, creating it on the first edit. It cannot be
 deleted. Two things set it apart from a work lead:
 
 - **It reaches everyone.** With `delegates` empty, the master may hand a task to every
-  other agent in the home, in id order (`agents/roster.py: delegate_targets`). Installing
+  other agent in the home, in id order. Installing
   an agent is enough to put it at the master's disposal; naming a `delegates` list narrows
   that to the ids given. Any other agent reaches only what it lists.
 - **It always has `delegate`.** The tool is wired for the master, for work agents, and for
   any profile with a `delegates` list; a `tools` allow-list still caps it.
 
-Each turn the master's system prompt carries a roster section (`crew_roster_section`): one
+Each turn the master's system prompt carries a roster section: one
 line per agent it may reach, with id, name, mode, description and workspace, followed by the guidance
 on when to do a thing itself and when to hand it off. An agent that can reach nobody gets
 no roster. A child turn opened by `delegate` never sees one, since it cannot delegate.
@@ -277,13 +275,12 @@ no roster. A child turn opened by `delegate` never sees one, since it cannot del
 The assistant agents of the example home (`pong`, `health-coach`) are reached the same way
 from the phone as from the browser: the master's bot takes the message and the master
 delegates. Their schedules run as before and their briefs still land in the chat, under
-their name ([channels.md](channels.md#scheduled-delivery)). Tests: `test_crew_roster.py`,
-`test_api_agents_install.py`.
+their name ([channels.md](channels.md#scheduled-delivery)).
 
 ## Persona files
 
 Persona files are plain Markdown; the loop concatenates each one as a `## <file name>`
-section of the system prompt, after the fixed frame (`agent/prompt.py`) and before the
+section of the system prompt, after the fixed frame and before the
 skills. Conventions that have worked:
 
 | File | Put here |
@@ -298,7 +295,7 @@ the place a general fact about the person belongs. An agent's own `USER.md` is a
 file: keep it to what only that agent cares about, and point at the shared one rather than
 copying it, or the two drift apart.
 
-Each section is capped at 24 000 characters (`MAX_SECTION_CHARS`); longer files are cut
+Each section is capped at 24 000 characters; longer files are cut
 with a trailing `…`, so keep them short and move history into [memory](memory.md).
 Persona files are personal data and live in `MY_AGENT_HOME`, never in this repo.
 
@@ -306,7 +303,7 @@ Persona files are personal data and live in `MY_AGENT_HOME`, never in this repo.
 
 A **kit** is the folder the other harnesses keep their configuration in: Claude Code's
 `.claude/`, opencode's `.opencode/`, the cross-harness `.agents/` that Codex and others read.
-my-agent-crew reads all three (`agents/kit.py`, `KIT_DIRS`, in that order) so a person who
+my-agent-crew reads all three, in that order, so a person who
 already has one can copy it in and keep their agents, commands, skills and hooks:
 
 ```
@@ -488,7 +485,7 @@ gets its own run in Activity, and a failed compile does not fail the job — the
 already landed by then, and reporting the whole job as failed would send someone looking for
 damage that is not there. See [memory.md](memory.md#compiling).
 
-After a prompt job the scheduler calls `Runtime.deliver`, which pushes the last reply to
+After a prompt job the scheduler pushes the last reply to
 the master's Telegram chat when there is one, under the agent's name (a morning brief lands
 in Telegram; see [channels.md](channels.md)). Delivery failure is logged, never retried.
 
@@ -525,5 +522,4 @@ folder, so copying an agent is copying a directory. openclaw's workspace files
 (`AGENTS.md`, `SOUL.md`, `IDENTITY.md`, `USER.md`, `MEMORY.md`, `memory/`) have the same
 names and roles, which is deliberate: an openclaw workspace can be dropped into
 `agents/<id>/` and used as is. Not carried over: per-agent model parameters beyond the
-route list, sandboxing modes, and multi-user identity. Tests: `test_agent_profiles.py`,
-`test_agent_context.py`, `test_skills.py`, `test_config.py` (map in [testing.md](testing.md)).
+route list, sandboxing modes, and multi-user identity.

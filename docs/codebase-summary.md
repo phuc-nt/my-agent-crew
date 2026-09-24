@@ -7,59 +7,50 @@ title: Bản đồ mã nguồn
 
 **Phiên bản**: 0.5.0 (+ chưa phát hành) · **Cập nhật**: 2026-09-24
 
-Đọc [system-architecture.md](system-architecture.md) trước để biết các khối là gì; tài liệu này chỉ nói khối nào nằm ở tệp nào.
+Đọc [system-architecture.md](system-architecture.md) trước để biết các khối là gì; tài liệu này
+chỉ nói khối nào nằm ở **gói** nào. Tên tệp, hàm và số liệu không ghi ở đây: mã nguồn là nguồn
+sự thật, mở thư mục là thấy.
 
 ## 1. Bố cục repo
 
 ```
 my-agent-crew/
-├── my_agent_crew/        # backend Python (~13.7k dòng)
+├── my_agent_crew/        # backend Python
 │   ├── server/static/    # bundle web đã build, commit cùng repo
-│   ├── skills/builtin/   # skill có sẵn (cite-sources)
+│   ├── skills/builtin/   # skill có sẵn
 │   └── agents/templates/ # mẫu agent cho `agent add`
-├── web/                  # SPA React 19 + Vite + vitest + Playwright
-├── tests/                # pytest, 82 tệp
+├── web/                  # SPA React + Vite; vitest + Playwright
+├── tests/                # pytest
 ├── docs/                 # tài liệu này + diagrams/
+├── scripts/gates.sh      # mọi cổng CI, chạy trước khi commit
 ├── pyproject.toml        # uv, ruff
 └── .github/workflows/ci.yml
 ```
 
 ## 2. Backend `my_agent_crew/`
 
-| Gói | Vai trò | Tệp chính |
-|---|---|---|
-| `agent/` | vòng lặp một lượt | `loop.py` (`run_turn`), `prompt.py` (`build_system_prompt`), `tool_calls.py` (`settle_tool_calls`), `tool_batches.py`, `approval_expiry.py` (`expire_overdue`), `resume.py` (chạy tiếp lượt sau khi duyệt hoặc trả lời), `context_trim.py`, `events.py`, `turn_context.py` |
-| `agents/` | hồ sơ agent từ đĩa | `profile.py` (`AgentProfile`), `profile_yaml.py` (đọc), `profile_write.py` (ghi round-trip), `profile_edit.py` (vá + validate), `roster.py`, `context.py` (`bootstrap_sections`), `kit*.py` (đọc `.agents/`), `channels.py`, `templates_cli.py` |
-| `activity/` | run và step cho web | `hub.py` (`ActivityHub`), `steps.py` |
-| `channels/` | Telegram | `telegram_channel.py`, `telegram_polling.py` (vòng poll, dừng êm), `telegram_inbound.py` (tin, ảnh, `inbox/`), `telegram_albums.py`, `telegram_outbound.py` (kể cả dòng `FILE:` → `sendDocument`), `telegram_attachments.py`, `telegram_answers.py` (tin kế tiếp là câu trả lời cho `ask_user`), `telegram_commands.py`, `telegram_api.py` (redact token), `telegram_offset.py` |
-| `inbound.py` | một cổng vào, `InboundBusy` | — |
-| `llm/` | provider | `provider.py` (`Provider`, `ProviderChain`), `openai_compat.py` (lõi chung), `openrouter.py`, `ollama.py`, `fake.py`, `types.py` |
-| `memory/` | trí nhớ | `agent_store.py` (ghi chú ngày), `user_store.py` (facts), `consolidate.py` (7 ngày → đề xuất), `proposals_apply.py`, `search.py`, `session_summary.py`, `conversation_title.py`; vault wiki: `wiki_store.py`, `wiki_slug.py`, `wiki_links.py`, `wiki_index.py`, `wiki_plan.py`, `wiki_compile.py` (dựng từ ghi chú), `wiki_apply.py`, `wiki_lint.py`, `wiki_reports.py` |
-| `scheduler/` | cron | `cron.py`, `jobs.py`, `runner.py` |
-| `server/` | FastAPI | `app.py`, `runtime.py`, `runtime_build.py`, `runtime_connections.py`, `agent_assembly.py` (`build_providers`), `tool_assembly.py`, `deps.py`, `agent_edit_common.py` (khoá ghi + helper dùng chung), `connection_apply.py` (dựng thử cả đội rồi mới ghi thay đổi kết nối), `credential_catalog.py` (danh mục credential đã biết), `credential_checks.py` (kiểm tra Tavily/Brave/Ollama), `env_file.py` (ghi `<home>/env`), `local_guard.py` (hàng rào Host/Origin cho mọi path), `routes_model_routes.py` (tuyến chung ↔ `config.yaml`), `routes_*.py` |
-| `skills/` | skill md | `loader.py` (`always`, chỉ mục) |
-| `store/` | SQLite | `db.py`, `schema.py`, `models.py`, `messages.py`, `runs.py`, `approvals.py`, `usage.py`, `job_state.py`, `memory_proposals.py`, `conversation_lookup.py` |
-| `tools/` | tool | `registry.py` (`ToolRegistry`), `workspace*.py`, `shell.py`, `shell_sandbox.py` (profile `sandbox-exec` khi `shell_network: false`), `shell_temp_paths.py`, `web.py`, `web_providers.py` (firecrawl → Brave → Tavily → DuckDuckGo), `output_shaping.py` + `output_summary.py` (rút gọn kết quả dài), `memory.py`, `memory_user.py`, `wiki.py`, `delegate.py`, `ask_user.py`, `progress_note.py`, `pdf.py`, `image.py`, `skills.py`, `hooks.py` |
-| `config.py`, `config_parse.py` | `Settings` từ env + `config.yaml` | — |
-| `clock.py` | giờ và múi giờ | — |
-| `texts.py`, `texts_*.py` | mọi chuỗi tiếng Việt của backend | `texts_credentials.py`, `texts_delegate.py`, `texts_image.py`, `texts_kit.py`, `texts_telegram.py` |
-| `__main__.py` | CLI | `python -m my_agent_crew`, `agent list-templates`, `agent add` |
+| Gói | Chịu trách nhiệm |
+|---|---|
+| `agent/` | vòng lặp một lượt: ghép lời nhắc, gọi mô hình, chạy tool, dừng chờ duyệt, chạy tiếp, cắt ngữ cảnh dài, sự kiện của lượt |
+| `agents/` | hồ sơ agent từ đĩa: đọc/ghi `agent.yaml` giữ chú thích, vá và kiểm tra, roster cho master, đọc kit `.agents/`, mẫu agent |
+| `activity/` | run và step của mọi lượt, phát cho web qua SSE |
+| `channels/` | Telegram: poll, tin vào, ảnh và album, tin ra, lệnh `/…`, câu trả lời cho `ask_user`, offset, che token |
+| `inbound.py` | một cổng vào chung cho mọi nền tảng |
+| `llm/` | provider: OpenRouter, Ollama, provider giả; chuỗi tuyến và fallback |
+| `memory/` | ghi chú ngày, facts chung, gom 7 ngày thành đề xuất, tìm kiếm, tóm tắt cuộc trước, vault wiki |
+| `scheduler/` | cron: phân tích lịch, job đến hạn, chạy job, giao kết quả ra kênh |
+| `server/` | FastAPI: dựng runtime, lắp provider và tool cho từng agent, áp dụng kết nối không cần restart, kiểm tra khoá, ghi `<home>/env`, hàng rào Host/Origin, các nhóm route |
+| `skills/` | nạp skill markdown, chỉ mục trong lời nhắc |
+| `store/` | SQLite: cuộc trò chuyện, tin, duyệt, run, trạng thái job, đề xuất trí nhớ, sổ chi tiêu |
+| `tools/` | mọi tool: workspace, shell và sandbox, web, trí nhớ, wiki, giao việc, hỏi người dùng, PDF, ảnh, skill, hook |
+| `config*.py` | cài đặt từ env + `config.yaml` |
+| `texts*.py` | mọi chuỗi tiếng Việt của backend |
+| `__main__.py` | CLI: `python -m my_agent_crew`, `agent list-templates`, `agent add` |
 
-### Event của một lượt (`agent/events.py`)
+Một lượt phát ra một chuỗi sự kiện (chữ, tin trợ lý, gọi tool, kết quả tool, cần duyệt, xong,
+dừng, lỗi, đổi tuyến). Cùng một chuỗi vừa là SSE cho web, vừa là step ghi vào run.
 
-`TextDelta`, `AssistantMessage`, `ToolCall`, `ToolResult`, `ApprovalRequired`, `Done`, `Halted`, `Error`, `RouteFallback`. Chúng vừa là SSE cho `/api/conversations/{id}/messages`, vừa là step trong run.
-
-### Bảng SQLite (`store/schema.py`)
-
-`conversations`, `messages`, `approvals`, `runs`, `job_state`, `memory_proposals`. Timestamp lưu UTC. Cột thêm sau được nạp tự động qua `ADDED_COLUMNS` — ví dụ `approvals.kind` (`tool`/`question`), `options`, `answer` cho `ask_user`.
-
-### Cấu hình
-
-`Settings` (`config.py`): `home`, `routes`, `vision_routes`, `openrouter_api_key`, `brave_api_key`, `tavily_api_key`, `firecrawl_base_url`, `firecrawl_api_key`, `cost_cap_usd`, `language`, `timezone`, `max_steps`, `autonomous_default`, `shell_ask_patterns`, `shell_allow_patterns`, `approval_ttl_seconds`, `tool_output_chars`, `shell_network`, `shell_write_paths`.
-
-`AgentProfile` (`agents/profile.py`): `id`, `name`, `dir`, `workspace`, `settings`, `description`, `persona_files`, `skills_dirs`, `schedules`, `telegram`, `memory_consolidate`, `mode`, `delegates`, `tools`, `commands`, `hooks`, `kits`.
-
-## 3. API (`server/routes_*.py`)
+## 3. API
 
 | Nhóm | Đường |
 |---|---|
@@ -72,7 +63,7 @@ my-agent-crew/
 | Sửa agent | `POST /api/agents`, `PATCH …/{id}`, `DELETE …/{id}` |
 | Tệp tính cách | `PUT /api/agents/{id}/files/{name}`, `GET …/{id}/prompt` (lời nhắc hệ thống đã ghép), `POST /api/agents/reload` |
 | Tool & kết nối | `GET /api/tools`, `GET /api/connections` |
-| Khoá & biến môi trường | `GET /api/credentials`, `PUT/DELETE …/{name}` (ghi `<home>/env`, áp dụng ngay), `POST …/{name}/check`; không trả giá trị bí mật; thay đổi làm đội không chạy được (vd. gỡ khoá duy nhất của route) bị từ chối 409, không ghi gì |
+| Khoá & biến môi trường | `GET /api/credentials`, `PUT/DELETE …/{name}` (ghi `<home>/env`, áp dụng ngay), `POST …/{name}/check`; không trả giá trị bí mật; thay đổi làm đội không chạy được bị từ chối 409, không ghi gì |
 | Tuyến mô hình chung | `PUT /api/connections/routes` (lưu vào `config.yaml` giữ chú thích; khi `MY_AGENT_ROUTES` đặt thì chỉ xem, không sửa) |
 | Trí nhớ agent | `GET/PUT /api/agents/{id}/memory`, `GET/PUT …/memory/notes/{day}`, `POST …/memory/consolidate` |
 | Wiki | `GET /api/agents/{id}/memory/wiki`, `GET/PUT/DELETE …/wiki/pages/{slug}`, `GET …/wiki/report`, `POST …/wiki/compile` |
@@ -83,42 +74,30 @@ my-agent-crew/
 Mọi đường không phải `/api/*` trả SPA. Web định tuyến bằng hash, nên một lượt chạy có đường
 riêng: `#/manage/activity/<run_id>` mở đúng lượt đó, tải lại vẫn ở đó, và chia sẻ được.
 
-**Hình dạng `arguments` của một bước tool.** Là mapping tên → giá trị; chuỗi dài và giá trị
-dạng list/dict bị cắt còn 160 ký tự trước khi ghi (`activity/steps.py`), vì bản xem trước này
-được phát lại kèm mọi bước sau của cùng lượt chạy. Các lượt chạy ghi trước khi store giữ
-mapping lưu cả cụm thành **một chuỗi**; những hàng đó vẫn nằm trong DB, nên phía đọc phải
-chịu được cả hai hình dạng — duyệt một chuỗi theo chỉ số sẽ cho một hàng mỗi ký tự.
-
-## 4. Web `web/src/`
+## 4. Web `web/`
 
 | Thư mục | Nội dung |
 |---|---|
-| `api/` | `client.ts`, `sse.ts`, `types.ts`, `activity-types.ts` |
-| `screens/` | `chat-screen.tsx` (khung chat), `manage-screen.tsx` (khu quản lý, `LABELS` là tên chín tab) |
-| `hooks/` | `use-activity`, `use-agents`, `use-agent-draft`, `use-auto-scroll`, `use-conversations`, `use-credentials`, `use-media-query` (cột hoạt động hay dải một dòng), `use-memory`, `use-wiki`, `use-registry`, `use-route` (hash route + `MANAGE_SECTIONS`), `use-shortcuts`, `use-thread` |
-| `state/` | reducer cho thread và activity |
-| `components/` | `message-thread`, `markdown-body`, `composer`, `conversation-list`, `conversation-header`, `conversation-options`, `conversation-search`, `editable-title`, `conversation-activity`, `conversation-activity-summary`, `approval-bar`, `approval-history`, `run-timeline`, `run-progress-header`, `run-replay`, `tool-call-card`, `empty-state`, `crew-panel`, `add-agent-form`, `agent-editor/`, `tools-matrix`, `connections-panel` (đặt/kiểm tra/xoá khoá API, host, Telegram), `credential-row` (một khoá trong danh sách), `credential-add-form` (thêm khoá mới), `global-routes-editor` (sửa tuyến mô hình chung), `route-list-editor` (danh sách tuyến dùng chung với trình sửa agent), `jobs-panel`, `job-run-history`, `memory-*`, `wiki-section`, `wiki-page-view`, `question-card`, `settings-panel`, `stats-panel`, `budget-indicator`, `status-line`, `attention-center`, `error-boundary`, `ui/` (`metric-card`, `popover-chip`: thẻ số liệu và pill mở thẻ) |
-| `lib/` | `delegate-result.ts`, `line-diff.ts`, `run-progress.ts`, `run-rows.ts` |
-| `i18n/vi.ts` | mọi chuỗi tiếng Việt của web |
-| `e2e/` | 11 spec Playwright + `mock-api.ts` |
+| `src/api/` | client HTTP, đọc SSE, kiểu dữ liệu |
+| `src/screens/` | hai màn: chat và quản lý (chín tab) |
+| `src/hooks/` | tải và giữ trạng thái từng mảng: hội thoại, hoạt động, agent, trí nhớ, wiki, kết nối, route hash, phím tắt |
+| `src/state/` | reducer cho luồng chat và hoạt động |
+| `src/components/` | mọi thành phần giao diện, mỗi mảng quản lý một nhóm |
+| `src/lib/` | hàm thuần dùng chung (diff, tiến độ run, kết quả giao việc) |
+| `src/i18n/` | mọi chuỗi tiếng Việt của web |
+| `e2e/` | spec Playwright + mock `/api` |
 
-Script: `dev`, `typecheck`, `test` (vitest), `bundle` (vite build → `my_agent_crew/server/static`), `e2e`.
+Script: `dev`, `typecheck`, `test` (vitest), `bundle` (build → `my_agent_crew/server/static`), `e2e`.
 
 ## 5. Test
 
-| Bộ | Lệnh | Hiện tại |
-|---|---|---|
-| Backend | `uv run pytest -q` | 82 tệp, 985 passed |
-| Web unit | `cd web && npm test` | 38 tệp, 417 passed |
-| Web e2e | `cd web && npm run e2e` | 11 spec, 39 test, mock toàn bộ `/api` |
-| Lint | `uv run ruff check . && uv run ruff format --check .` | sạch |
-
-Provider giả `MY_AGENT_ROUTES=fake:echo` cho phép chạy cả harness trong test không cần mạng; xem [testing.md](testing.md).
+Ba tầng (pytest, vitest, Playwright) và cách chạy ở [testing.md](testing.md). Provider giả
+`MY_AGENT_ROUTES=fake:echo` cho phép chạy cả harness không cần mạng.
 
 ## 6. Mẫu agent và skill có sẵn
 
 - `agents/templates/`: `fullstack-developer`, `kongming`, `researcher`, và `_shared_skills/` dùng chung.
-- `skills/builtin/cite-sources.md`.
+- `skills/builtin/`: `cite-sources`.
 
 Cài bằng `python -m my_agent_crew agent add <template> [--id <id>] [--force] [--workspace <dir>]` hoặc `POST /api/agents/install`.
 
@@ -128,12 +107,12 @@ Cài bằng `python -m my_agent_crew agent add <template> [--id <id>] [--force] 
 |---|---|
 | [index.md](index.md) | điểm vào, thứ tự đọc |
 | [system-architecture.md](system-architecture.md) | người mới, giải phẫu harness với 5 sơ đồ |
-| [codebase-summary.md](codebase-summary.md) | người sắp sửa code |
+| [codebase-summary.md](codebase-summary.md) | định hướng theo gói trước khi mở code |
 | [deployment-guide.md](deployment-guide.md) | người cài và vận hành, cách publish doc |
 | [project-overview-pdr.md](project-overview-pdr.md) | vấn đề, phạm vi, tiêu chí |
-| [code-standards.md](code-standards.md) | quy ước code, test, commit, bí mật |
+| [code-standards.md](code-standards.md) | quy ước code, test, commit, bí mật, tài liệu |
 | [CHANGELOG.md](../CHANGELOG.md) | thay đổi của từng bản phát hành |
-| [design.md](design.md), [agents.md](agents.md), [tools.md](tools.md), [memory.md](memory.md), [channels.md](channels.md), [testing.md](testing.md) | tham chiếu từng mảng, có từ trước |
+| [design.md](design.md), [agents.md](agents.md), [tools.md](tools.md), [memory.md](memory.md), [channels.md](channels.md), [testing.md](testing.md) | tham chiếu từng mảng |
 | [diagrams/](diagrams/README.md) | spec, HTML, SVG của 5 sơ đồ |
 
 ## Câu hỏi mở
