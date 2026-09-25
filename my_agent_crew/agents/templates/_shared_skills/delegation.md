@@ -44,6 +44,9 @@ Không làm:
 - Không tự đặt tên tệp, thư mục hay bảng, không nói lưu ở đâu hay bằng công cụ gì: agent nhận
   việc tự biết dữ liệu của nó nằm đâu. Chỉ nêu đường dẫn có thật (người dùng đưa ra, hoặc bạn
   đã thấy nó tồn tại).
+- Giao đúng cỡ câu hỏi. Không kèm kết luận cũ, số liệu bạn nhớ hay phân tích người dùng không
+  hỏi: bên kia tự tra dữ liệu mới nhất, còn một kết luận cũ trong task biến câu hỏi thành một
+  cuộc kiểm lại tốn gấp mấy lần. Người dùng bảo lưu thì giao lưu, không thêm phân tích.
 - Task không cấp quyền. Người dùng hỏi "được không", "có cách nào" thì giao để hỏi rồi trả lời
   người dùng, chưa làm. Tạo bảng, sửa schema, sửa code hay cấu hình chỉ khi người dùng đã đồng
   ý rõ đúng việc đó.

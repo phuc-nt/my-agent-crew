@@ -26,6 +26,8 @@ from tests.test_tools_delegate import agent, delegate
 # The phrase all three model-facing texts share: consent comes from the person, not a task.
 CONSENT = "người dùng đồng ý rõ"
 SKILL = TEMPLATES_DIR / SHARED_SKILLS / "delegation.md"
+# The phrase they share for handing over only what was asked, not the coordinator's own take.
+SIZED = "giao đúng cỡ câu hỏi"
 
 
 @pytest.fixture
@@ -111,3 +113,16 @@ def test_a_domain_record_goes_to_the_agent_that_keeps_it_not_to_memory(
     assert "đừng ghi vào memory thay" in roster and "đừng tự suy luận" in roster
     assert len(saves) == 2
     assert all(texts.MEMORY_IS_NOT_A_LEDGER in t.description for t in saves)
+
+
+def test_a_task_is_sized_to_the_question_everywhere_the_model_reads_it(runtime: Runtime):
+    """Handed "old conclusion: beer with a hard session is the forbidden combo" along with a
+    plain question, the health agent spent five times the steps re-checking that conclusion."""
+    boss = runtime.deps_for("boss")
+    description = boss.tools.get(DELEGATE_TOOL_NAME).description.lower()
+    _, roster = crew_roster_section(boss.profile, {p.id: p for p in runtime.profiles()})
+    handing_out = _sections(SKILL.read_text(encoding="utf-8"))["Khi giao việc"]
+
+    for text in (description, roster.lower(), handing_out):
+        assert SIZED in text and "kết luận cũ" in text
+    assert "bảo lưu thì giao lưu" in roster and "bảo lưu thì giao lưu" in handing_out
