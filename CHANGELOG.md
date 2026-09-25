@@ -11,8 +11,19 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-09-25
+
+This release lets an agent work unattended inside someone's repository without being able to change it, makes
+the master hand work to the crew the way one would to a person — the question as asked, no invented paths, no
+borrowed permissions, and the result (charts included) carried back whole — and moves connection keys and the
+model route into the web UI.
+
 ### Added
 
+- **Per-agent reasoning effort.** `reasoning: minimal | low | medium | high` in an agent profile goes to
+  every route the agent may fall back to and reaches OpenRouter as `reasoning.effort`. While the model thinks,
+  the web status says so, the run's model step counts the silent part, and messages keep the reasoning token
+  count without the thoughts themselves.
 - **Manage connections from the web.** Manage → Connections sets, replaces, tests and removes API keys, host
   addresses and the Telegram bot token; written to `<home>/env` and applied immediately, no restart.
   A change that would leave the crew unable to run is rejected before it is written.
@@ -56,12 +67,30 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 - **An unfinished delegate reports what it already did.** When the child halts, errors or is interrupted,
   the result says so and lists its successful tool calls, so the delegator does not redo or escalate work
   that already landed.
-
+- **A task is sized to the question asked.** The `delegate` tool, the roster and the `delegation` skill say to
+  pass only what the person asked, and to pass a record-this request as just that; a master that put its
+  remembered conclusions into the task turned a one-line question into a re-audit several times as expensive.
 - **The Telegram bot reports when a message was cut off** because the bot restarted for more than 30 seconds, so the
   person resends instead of waiting for an answer that never arrives.
 - **The host guard's 403 names the host** and the `MY_AGENT_ALLOWED_HOSTS` variable that needs it added; the log records
   it once per name (a wrong Origin is not logged). The docs state plainly that the server has no login — do not expose it through a public tunnel.
 - **Refusing to remove the last key** names the route in `provider:model` form and how to detach it.
+
+### Fixed
+
+- **Charts a delegated agent attaches reach the person.** A child's `MEDIA:`/`FILE:` lines named paths in the
+  child's workspace and the parent's retelling dropped them, so a coach's charts never arrived. The delegate
+  tool now copies each attachment into the parent's workspace under `delegated/<child>/` and rewrites the line;
+  a file that cannot be carried over becomes a sentence, and any relayed line the retelling left out is appended
+  to the final reply.
+- **Scheduled jobs are quieter and report correctly.** A check job told to answer OK when nothing is due no
+  longer pushes that OK to the chat (the run still shows in the UI); each job's last run is looked up by its
+  own source instead of inside the two hundred newest runs; a scheduled memory consolidation records its run
+  under the job; and Telegram messages drop table dividers and join table cells on one line per row, so a
+  table the model writes stays readable as plain text.
+- **Conversation recaps carry absolute dates.** A recap written at night said "tối nay" and was read the next
+  morning as the new day. Transcript lines now start with the day and time in the person's zone, the recap
+  prompt asks for concrete dates, and the next conversation's section title says when the previous one ended.
 
 ### Upgrade notes
 
@@ -329,6 +358,7 @@ restarting the process.
 
 - One agent, `run_turn` loop with a tool approval gate, web UI, memory on disk.
 
+[0.6.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.6.0
 [0.5.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.5.0
 [0.4.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.4.0
 [0.3.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.3.0

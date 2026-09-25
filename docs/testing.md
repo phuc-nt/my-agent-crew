@@ -1,6 +1,6 @@
 # Kiểm thử
 
-**Phiên bản**: 0.5.0 (+ chưa phát hành) · **Cập nhật**: 2026-09-24
+**Phiên bản**: 0.6.0 · **Cập nhật**: 2026-09-25
 
 Ba tầng, một quy tắc: **mỗi tính năng ra kèm một test ở tầng thấp nhất có thể thấy nó.**
 Bản thân các tệp test là bản kiểm kê; trang này chỉ nói mỗi tầng dùng để làm gì và
@@ -38,6 +38,9 @@ là `.github/workflows/ci.yml`.
 chat → `/tool workspace_list {"path":"."}` → `/tool workspace_write {...}` → duyệt → tệp tồn tại
 trong `MY_AGENT_HOME/workspace`. Với profile agent có lịch: `POST /api/jobs/<agent>/<schedule>/run`
 phải tạo ra một run trên `/api/activity/runs` và một thẻ trong rail. Với ít nhất một agent
-khác đã cài: `POST /api/inbound {"text": "Nhờ kongming …"}` phải trả lời bằng tóm tắt của
-master và để lại một run con có `source` là `delegate:<conversation id>` trên
-`/api/activity/runs`. Đây là bước kiểm tra cần lặp lại trước khi gắn tag phát hành.
+khác đã cài: `POST /api/inbound {"text": "Nhờ kongming …"}` (với `fake:echo`, viết thẳng
+`/tool delegate {"agent": "kongming", "task": "…"}` vì provider giả không tự chọn tool) phải trả
+lời bằng tóm tắt của master và để lại một run con có `source` là `delegate:<conversation id>` trên
+`/api/activity/runs`. Đây là bước kiểm tra cần lặp lại trước khi gắn tag phát hành. Duyệt tool
+qua API: id nằm trong sự kiện SSE `approval_required` của luồng tin nhắn, vì `GET /api/approvals`
+chỉ liệt kê các yêu cầu đã được quyết.

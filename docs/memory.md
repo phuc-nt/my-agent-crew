@@ -1,6 +1,6 @@
 # Trí nhớ
 
-**Phiên bản**: 0.5.0 (+ chưa phát hành) · **Cập nhật**: 2026-09-24
+**Phiên bản**: 0.6.0 · **Cập nhật**: 2026-09-25
 
 Trí nhớ là Markdown trên đĩa, cùng hình dạng với thứ một người có thể tự ghi tay. Không có
 gì được embed hay tóm tắt sau lưng agent; model đọc gì thì trên đĩa có đúng thứ đó.

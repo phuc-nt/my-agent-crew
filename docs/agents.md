@@ -1,6 +1,6 @@
 # Agent
 
-**Phiên bản**: 0.5.0 (+ chưa phát hành) · **Cập nhật**: 2026-09-24
+**Phiên bản**: 0.6.0 · **Cập nhật**: 2026-09-25
 
 Một **agent** là một thư mục dưới `MY_AGENT_HOME/agents/<id>/` gồm một `agent.yaml` và
 vài tệp Markdown. Mọi agent chạy cùng một vòng lặp; profile chỉ
@@ -479,6 +479,13 @@ tiêu phần lớn ngân sách bước vào cú pháp shell và có thể chạm
 chữ của câu trả lời; script chỉ tốn một bước. Giữ script ngoài repo khi nó
 mang id tài khoản hoặc đường dẫn. `docs/examples/job-data-script.sh` là hình mẫu: mọi
 lệnh đều được rào để một thất bại ghi lại lỗi và phần dữ liệu còn lại vẫn về.
+
+Cùng lý do, phần chuyên môn của một job prompt (câu truy vấn, tên cột, cách chọn biểu đồ, bố cục
+bản tin) nên nằm trong một tài liệu ở workspace mà prompt chỉ trỏ tới và bảo agent đọc bằng
+`workspace_read`. Profile nạp một lần lúc khởi động, còn tệp trong workspace được đọc lại mỗi lần
+job chạy: sửa tài liệu thì sáng hôm sau có hiệu lực, không cần khởi động lại, và nội dung đi cùng
+schema mà nó mô tả thay vì lệch dần với nó. Trong `agent.yaml` chỉ còn cron, lệnh script và vài
+dòng prompt.
 
 Cron `memory_consolidate` thành một job cùng hình dạng, `<agent id>/memory-consolidate`,
 không có prompt hay command riêng. Nó làm hai việc liên tiếp: viết lại `MEMORY.md`, rồi

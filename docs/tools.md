@@ -1,6 +1,6 @@
 # Tool
 
-**Phiên bản**: 0.5.0 (+ chưa phát hành) · **Cập nhật**: 2026-09-24
+**Phiên bản**: 0.6.0 · **Cập nhật**: 2026-09-25
 
 Tool là một hàm mà model có thể gọi trong một lượt. Bộ tool của mỗi agent
 được lắp lúc khởi động từ đường dẫn workspace và memory của agent, rồi được định hình bởi
