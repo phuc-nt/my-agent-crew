@@ -107,6 +107,7 @@ class RunStore:
         limit: int = 50,
         source_prefix: str | None = None,
         conversation_ids: Sequence[str] | None = None,
+        source: str | None = None,
     ) -> list[RunRecord]:
         """Newest runs first, optionally only one source or one set of conversations.
 
@@ -117,6 +118,9 @@ class RunStore:
         if source_prefix:
             clauses.append("source LIKE ?")
             params += (f"{source_prefix}%",)
+        if source is not None:
+            clauses.append("source = ?")
+            params += (source,)
         if conversation_ids is not None:
             ids = tuple(conversation_ids)
             if not ids:

@@ -19,7 +19,6 @@ from my_agent_crew.agent.events import ToolCallEvent, ToolResultEvent
 from my_agent_crew.agent.loop import AgentDeps, run_turn
 from my_agent_crew.agent.turn_context import JOB
 from my_agent_crew.agents.profile import Schedule
-from my_agent_crew.memory.consolidate import JOB_SOURCE as CONSOLIDATE_SOURCE
 from my_agent_crew.memory.consolidate import consolidate_memory
 from my_agent_crew.memory.wiki_compile import compile_wiki
 from my_agent_crew.skills import Skill, mentioned_skills
@@ -29,6 +28,8 @@ from my_agent_crew.tools.shell import run_shell
 logger = logging.getLogger(__name__)
 JOB_SOURCE = "job:"
 COMMAND_TIMEOUT_SECONDS = 900
+# What a job prompt asks for when there is nothing to tell; such a reply is not pushed.
+NOTHING_TO_REPORT = "OK"
 
 
 @dataclass(frozen=True)
@@ -55,6 +56,19 @@ def prompt_skills(job: Job, skills: Sequence[Skill]) -> list[str]:
         if name not in attached:
             attached.append(name)
     return attached
+
+
+def nothing_to_report(job: Job, run: RunRecord, deps: AgentDeps) -> bool:
+    """A check job told to say only `OK` when all is well has nothing for the person: a
+    bare "OK" in the chat every morning is noise that teaches them to skim past the one
+    day it says something. The run still shows in the UI; only the push is skipped."""
+    if run.status != DONE or run.conversation_id is None:
+        return False
+    history = deps.store.history(run.conversation_id)
+    reply = history[-1].message if history else None
+    if reply is None or reply.role != "assistant" or reply.tool_calls:
+        return False
+    return reply.content.strip().rstrip(".!").strip().upper() == NOTHING_TO_REPORT
 
 
 async def run_prompt(job: Job, deps: AgentDeps, hub: ActivityHub, title: str) -> RunRecord:
@@ -96,8 +110,9 @@ async def run_consolidate(job: Job, deps: AgentDeps, hub: ActivityHub) -> RunRec
     its own run in the hub, and the consolidation's run is what this returns: the job the
     user asked for is the one whose outcome they are shown.
     """
-    await consolidate_memory(deps, hub)
-    run = next((r for r in hub.recent(20) if r.source == CONSOLIDATE_SOURCE), None)
+    source = JOB_SOURCE + job.id
+    await consolidate_memory(deps, hub, source=source)
+    run = next(iter(hub.recent(1, source=source)), None)
     assert run is not None
     try:
         await compile_wiki(deps, hub)

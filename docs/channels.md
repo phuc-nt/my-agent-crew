@@ -1,6 +1,6 @@
 # Kênh
 
-**Phiên bản**: 0.5.0 (+ chưa phát hành) · **Cập nhật**: 2026-09-24
+**Phiên bản**: 0.5.0 (+ chưa phát hành) · **Cập nhật**: 2026-09-25
 
 Kênh cho phép người dùng nói chuyện với đội ở nơi khác ngoài web UI. Hiện nay đó là
 Telegram. Mọi nền tảng đều đưa tin nhắn tới cùng một cổng inbound: cổng tìm agent,
@@ -81,7 +81,9 @@ một tool call, cộng các thông báo dừng, lỗi và duyệt. Lượt kế
 sẽ nói vậy kèm số bước thay vì không gửi gì: im lặng không phân biệt được với
 bot chết, và bản tin được giao mà run kết thúc rỗng cũng vậy. Câu trả lời gửi
 đi dưới dạng plain text theo
-khúc 4 096 ký tự; dòng `MEDIA:<path>` trở thành `sendPhoto` từ workspace của
+khúc 4 096 ký tự, sau khi bỏ dấu markdown mà Telegram sẽ hiện nguyên: `**đậm**`, `*nghiêng*`,
+`#` tiêu đề, đường kẻ `---` (thành một dòng trống), và bảng (mỗi hàng một dòng, các ô nối
+bằng ` · `, bỏ dòng `|---|`); dòng `MEDIA:<path>` trở thành `sendPhoto` từ workspace của
 agent có cuộc trò chuyện đang được gửi.
 
 Ảnh hoặc tài liệu người dùng gửi được tải về (cỡ ảnh lớn nhất, hoặc tài liệu
@@ -148,6 +150,12 @@ nửa chừng đọc như một câu trả lời hoàn chỉnh. Nên sau khi g�
 hoặc `error` nhận thêm tin nhắn thứ hai "bị cắt ngắn" nêu lý do và run đã tiêu bao nhiêu. Dù thế nào scheduler cũng ghi một dòng log cho mỗi prompt job —
 `job <id>: delivered=<bool> conv=<id> status=<status>` — để log phân biệt job đã
 trả lời với job im lặng. Giao thất bại được ghi log, không thử lại.
+
+**Job không có gì để báo thì không gửi.** Một job kiểm tra (nhắc hạn, soát lỗi) có thể dặn
+model trả lời đúng `OK` khi mọi thứ ổn; câu trả lời chỉ gồm `OK` (không phân biệt hoa thường,
+bỏ qua dấu chấm/than cuối) thì không được đẩy lên chat, log ghi
+`job <id>: nothing to report, not delivered`. Run vẫn nằm trong trang Jobs và rail hoạt động,
+nên vẫn thấy job đã chạy. Câu trả lời dài hơn, kể cả bắt đầu bằng "OK, nhưng…", vẫn được gửi.
 
 ## Offset và restart
 

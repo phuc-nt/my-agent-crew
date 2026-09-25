@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +16,7 @@ from my_agent_crew.channels.telegram_attachments import (
     MEDIA_PREFIX,
     split_reply,
 )
+from my_agent_crew.channels.telegram_plain_text import plain_text
 
 __all__ = [
     "FILE_PREFIX",
@@ -34,20 +34,11 @@ POLL_TIMEOUT_SECONDS = 25
 CONFLICT_STATUS = 409  # another process polls the same bot
 TOKEN_PLACEHOLDER = "<token>"
 
-_BOLD = re.compile(r"\*\*(.+?)\*\*", re.DOTALL)
-_HEADING = re.compile(r"^#{1,6}\s+", re.MULTILINE)
-
 
 class TelegramError(Exception):
     def __init__(self, message: str, status: int | None = None):
         super().__init__(message)
         self.status = status
-
-
-def plain_text(text: str) -> str:
-    """Telegram shows markdown markers literally without a parse mode; drop the two the
-    models use most so the message reads naturally."""
-    return _HEADING.sub("", _BOLD.sub(r"\1", text))
 
 
 def split_message(text: str, limit: int = MESSAGE_LIMIT) -> list[str]:

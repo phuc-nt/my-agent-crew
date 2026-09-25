@@ -17,6 +17,7 @@ from my_agent_crew.scheduler.cron import due_between, next_run
 from my_agent_crew.scheduler.jobs import (
     JOB_SOURCE,
     Job,
+    nothing_to_report,
     run_command,
     run_consolidate,
     run_prompt,
@@ -60,10 +61,10 @@ class Scheduler:
 
     def describe(self) -> list[dict[str, Any]]:
         now = self._clock()
-        recent = self._hub.recent(200)
         out = []
         for job in self._jobs.values():
-            last_run = next((r for r in recent if r.source == JOB_SOURCE + job.id), None)
+            # Asked per job: a weekly job's last run sits far behind a busy crew's week.
+            last_run = next(iter(self._hub.recent(1, source=JOB_SOURCE + job.id)), None)
             nxt = next_run(job.schedule.cron, job.schedule.every, self._last[job.id], now)
             override = self._override(job)
             out.append(
@@ -169,6 +170,9 @@ class Scheduler:
         """Pushes the job's answer to the agent's channel; a failed send is logged, not
         raised, because the run itself already succeeded."""
         if self._deliver is None or run.conversation_id is None:
+            return
+        if nothing_to_report(job, run, self._agents[job.agent_id]):
+            logger.info("job %s: nothing to report, not delivered", job.id)
             return
         try:
             delivered = await self._deliver(job.agent_id, run.conversation_id)

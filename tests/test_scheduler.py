@@ -19,7 +19,6 @@ from my_agent_crew.agents.profile import (
 from my_agent_crew.config import Route
 from my_agent_crew.llm.fake import completion
 from my_agent_crew.memory import agent_store, user_store
-from my_agent_crew.memory.consolidate import JOB_SOURCE as CONSOLIDATE_SOURCE
 from my_agent_crew.memory.wiki_apply import WIKI_COMPILE
 from my_agent_crew.scheduler import CronSpec, Scheduler, due_between, next_run, parse_every
 from my_agent_crew.store.memory_proposals import AGENT_MEMORY_REWRITE
@@ -243,7 +242,9 @@ async def test_a_consolidate_job_rewrites_memory_without_opening_a_conversation(
 
     run = await sched.run_job("default/memory-consolidate")
     assert run.status == DONE and run.conversation_id is None
-    assert run.source == CONSOLIDATE_SOURCE
+    # Recorded under the job, so the Jobs page shows when memory was last consolidated.
+    assert run.source == "job:default/memory-consolidate"
+    assert sched.describe()[0]["last_run"]["id"] == run.id
     assert delivered == []  # nothing to deliver: a rewrite is not an answer
     (proposal,) = deps.store.proposals.list()
     assert proposal.kind == AGENT_MEMORY_REWRITE
@@ -266,7 +267,8 @@ async def test_the_wiki_is_compiled_after_the_nightly_rewrite(deps_factory):
 
     run = await sched.run_job("default/memory-consolidate")
 
-    assert run.source == CONSOLIDATE_SOURCE  # the job the user asked for is what is returned
+    # the job the user asked for is what is returned
+    assert run.source == "job:default/memory-consolidate"
     kinds = {p.kind for p in deps.store.proposals.list()}
     assert kinds == {AGENT_MEMORY_REWRITE, WIKI_COMPILE}
 

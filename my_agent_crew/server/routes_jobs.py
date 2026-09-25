@@ -43,8 +43,7 @@ def switch_job(job_id: str, body: JobPatch, rt: Rt) -> dict[str, Any]:
 def job_runs(job_id: str, rt: Rt, limit: int = Query(RUNS_LIMIT, ge=1, le=200)) -> list[dict]:
     job = _job(rt, job_id)
     source = JOB_SOURCE + job.id
-    runs = rt.store.runs.recent(limit, source_prefix=source)
-    return [r.to_dict() for r in runs if r.source == source]
+    return [r.to_dict() for r in rt.store.runs.recent(limit, source=source)]
 
 
 @router.post("/jobs/{job_id:path}/run", status_code=202)

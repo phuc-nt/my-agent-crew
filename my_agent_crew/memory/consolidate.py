@@ -88,14 +88,17 @@ async def _ask_model(deps: AgentDeps, memory: str, notes: str) -> Completion | N
     return completion
 
 
-async def consolidate_memory(deps: AgentDeps, hub: ActivityHub) -> MemoryProposal | None:
+async def consolidate_memory(
+    deps: AgentDeps, hub: ActivityHub, source: str = JOB_SOURCE
+) -> MemoryProposal | None:
     """Rewrite one agent's `MEMORY.md`, as a run so its cost and outcome are visible.
 
+    `source` is the scheduled job's own when a job asked, so the job shows its last run.
     Returns the proposal it created, or `None` when there was nothing worth rewriting.
     """
     profile = deps.agent
     run = hub.start(
-        profile.id, JOB_SOURCE, texts.CONSOLIDATE_RUN_TITLE.format(agent=profile.name), None
+        profile.id, source, texts.CONSOLIDATE_RUN_TITLE.format(agent=profile.name), None
     )
     try:
         return await _consolidate(deps, hub, run)
