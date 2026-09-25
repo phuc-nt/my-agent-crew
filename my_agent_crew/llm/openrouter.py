@@ -31,7 +31,11 @@ class OpenRouterProvider:
         self._client = client or httpx.AsyncClient(base_url=BASE_URL, timeout=httpx.Timeout(120.0))
 
     async def stream(
-        self, messages: Sequence[Message], tools: Sequence[ToolSpec], model: str
+        self,
+        messages: Sequence[Message],
+        tools: Sequence[ToolSpec],
+        model: str,
+        reasoning: str = "",
     ) -> AsyncIterator[StreamItem]:
         body: dict[str, Any] = {
             "model": model,
@@ -43,6 +47,8 @@ class OpenRouterProvider:
         }
         if tools:
             body["tools"] = tools_to_wire(tools)
+        if reasoning:
+            body["reasoning"] = {"effort": reasoning}
         async for item in stream_chat(
             self._client,
             f"{BASE_URL}/chat/completions",

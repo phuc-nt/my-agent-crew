@@ -44,6 +44,8 @@ export function questionText(pending: PendingApproval): string {
 export interface ThreadState {
   items: ThreadItem[];
   streaming: string | null;
+  /** The model is thinking before its first word: a long silence that is not a hang. */
+  thinking: boolean;
   busy: boolean;
   pending: PendingApproval | null;
   spentUsd: number;
@@ -62,6 +64,7 @@ export type ThreadAction =
 export const emptyThread: ThreadState = {
   items: [],
   streaming: null,
+  thinking: false,
   busy: false,
   pending: null,
   spentUsd: 0,
@@ -156,16 +159,19 @@ export function threadReducer(state: ThreadState, action: ThreadAction): ThreadS
     case "turn_started":
       return { ...state, busy: true, streaming: null, notice: null };
     case "turn_finished":
-      return { ...state, busy: false, streaming: null };
+      return { ...state, busy: false, streaming: null, thinking: false };
     case "failed":
-      return { ...state, busy: false, streaming: null, notice: { kind: "error", text: action.message } };
+      return { ...state, busy: false, streaming: null, thinking: false, notice: { kind: "error", text: action.message } };
     case "event":
-      return applyEvent(state, action.event);
+      // Whatever the model does next — words, a tool call, an end — ends its thinking.
+      return applyEvent(action.event.type === "thinking" ? state : { ...state, thinking: false }, action.event);
   }
 }
 
 function applyEvent(state: ThreadState, e: AgentEvent): ThreadState {
   switch (e.type) {
+    case "thinking":
+      return { ...state, thinking: true };
     case "text_delta":
       return { ...state, streaming: (state.streaming ?? "") + e.text };
     case "assistant_message": {

@@ -12,6 +12,12 @@ class TextDeltaEvent:
 
 
 @dataclass(frozen=True)
+class ThinkingEvent:
+    """The model started thinking before it answers. Sent once per model call, without the
+    thoughts themselves, so a slow first word does not look like a hung turn."""
+
+
+@dataclass(frozen=True)
 class AssistantMessageEvent:
     message_id: int
     content: str
@@ -85,6 +91,7 @@ class RouteFallbackEvent:
 
 Event = (
     TextDeltaEvent
+    | ThinkingEvent
     | AssistantMessageEvent
     | ToolCallEvent
     | ToolResultEvent
@@ -97,6 +104,7 @@ Event = (
 
 _KIND = {
     TextDeltaEvent: "text_delta",
+    ThinkingEvent: "thinking",
     AssistantMessageEvent: "assistant_message",
     ToolCallEvent: "tool_call",
     ToolResultEvent: "tool_result",

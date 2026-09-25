@@ -28,6 +28,7 @@ class MessageStore:
         cost_usd: float | None = None,
         prompt_tokens: int | None = None,
         completion_tokens: int | None = None,
+        reasoning_tokens: int | None = None,
     ) -> StoredMessage:
         tool_calls = json.dumps([asdict(tc) for tc in message.tool_calls])
         with self._lock:
@@ -37,11 +38,12 @@ class MessageStore:
             ).fetchone()[0]
             values = [conv_id, seq, message.role, message.content, tool_calls]
             values += [message.tool_call_id, message.name, provider, model, cost_usd, stamp]
-            values += [prompt_tokens, completion_tokens]
+            values += [prompt_tokens, completion_tokens, reasoning_tokens]
             cur = self._conn.execute(
                 "INSERT INTO messages (conversation_id, seq, role, content, tool_calls,"
                 " tool_call_id, name, provider, model, cost_usd, created_at,"
-                " prompt_tokens, completion_tokens) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                " prompt_tokens, completion_tokens, reasoning_tokens)"
+                " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 values,
             )
             self._conn.execute(

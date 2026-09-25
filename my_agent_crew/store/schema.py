@@ -52,6 +52,8 @@ ADDED_COLUMNS = (
     ("approvals", "resolved_at", "TEXT"),
     ("messages", "prompt_tokens", "INTEGER"),
     ("messages", "completion_tokens", "INTEGER"),
+    # The share of completion_tokens the model spent thinking, when the provider says.
+    ("messages", "reasoning_tokens", "INTEGER"),
     # The parent's tool call that opened this conversation, when an agent delegated it.
     # Lets a turn resumed after an interruption find the child it already started instead
     # of opening a second one.

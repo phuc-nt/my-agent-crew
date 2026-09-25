@@ -224,6 +224,17 @@ describe("threadReducer streaming turn", () => {
     expect(fell.busy).toBe(true);
   });
 
+  it("a thinking model shows as thinking until its first word, tool call or end", () => {
+    expect(run([{ type: "thinking" }]).thinking).toBe(true);
+    expect(run([{ type: "thinking" }, { type: "text_delta", text: "HRV" }]).thinking).toBe(false);
+    const called = run([
+      { type: "thinking" },
+      { type: "tool_call", tool_call_id: "t1", name: "shell_run", arguments: {} },
+    ]);
+    expect(called.thinking).toBe(false);
+    expect(run([{ type: "thinking" }, { type: "error", message: "x" }]).thinking).toBe(false);
+  });
+
   it("user_sent appends locally and turn_started clears the previous notice", () => {
     const withNotice = threadReducer(emptyThread, { type: "failed", message: "x" });
     const sent = threadReducer(withNotice, { type: "user_sent", text: "hello" });

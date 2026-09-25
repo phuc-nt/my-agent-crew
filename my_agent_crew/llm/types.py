@@ -40,6 +40,8 @@ class Usage:
     completion_tokens: int = 0
     # None means the upstream did not report a price; it is never guessed.
     cost_usd: float | None = None
+    # The part of completion_tokens the model spent thinking; None when not reported.
+    reasoning_tokens: int | None = None
 
 
 @dataclass(frozen=True)
@@ -57,6 +59,14 @@ class TextDelta:
 
 
 @dataclass(frozen=True)
+class ReasoningDelta:
+    """A piece of the model's thinking. Never shown or stored: it only tells the person
+    the model is working before its first word arrives."""
+
+    text: str
+
+
+@dataclass(frozen=True)
 class RouteFailed:
     """A route gave up before its first token and the chain moved on to the next one."""
 
@@ -65,4 +75,4 @@ class RouteFailed:
     error: str
 
 
-StreamItem = TextDelta | Completion | RouteFailed
+StreamItem = TextDelta | ReasoningDelta | Completion | RouteFailed

@@ -16,6 +16,7 @@ from my_agent_crew.agent.events import (
     HaltedEvent,
     RouteFallbackEvent,
     TextDeltaEvent,
+    ThinkingEvent,
 )
 from my_agent_crew.agent.prompt import turn_messages
 from my_agent_crew.agent.tool_calls import settle_tool_calls
@@ -27,7 +28,7 @@ from my_agent_crew.agent.turn_context import (
 from my_agent_crew.agents.profile import AgentProfile, default_profile
 from my_agent_crew.config import Settings
 from my_agent_crew.llm.provider import ProviderChain, ProviderError
-from my_agent_crew.llm.types import Completion, Message, RouteFailed, TextDelta
+from my_agent_crew.llm.types import Completion, Message, ReasoningDelta, RouteFailed, TextDelta
 from my_agent_crew.skills import Skill
 from my_agent_crew.store import Conversation, Store, StoredMessage
 from my_agent_crew.store.models import AWAITING_APPROVAL
@@ -126,9 +127,14 @@ async def _complete(
 ) -> AsyncIterator[Event]:
     messages = turn_messages(deps, conv, history)
     completion: Completion | None = None
+    thinking = False
     async for item in deps.chain.stream(messages, deps.tools.specs()):
         if isinstance(item, TextDelta):
             yield TextDeltaEvent(text=item.text)
+        elif isinstance(item, ReasoningDelta):
+            if not thinking:
+                thinking = True
+                yield ThinkingEvent()
         elif isinstance(item, RouteFailed):
             yield RouteFallbackEvent(provider=item.provider, model=item.model, error=item.error)
         else:
@@ -144,6 +150,7 @@ async def _complete(
         cost_usd=completion.usage.cost_usd,
         prompt_tokens=completion.usage.prompt_tokens,
         completion_tokens=completion.usage.completion_tokens,
+        reasoning_tokens=completion.usage.reasoning_tokens,
     )
     deps.store.add_spend(conv.id, completion.usage.cost_usd)
     yield AssistantMessageEvent(

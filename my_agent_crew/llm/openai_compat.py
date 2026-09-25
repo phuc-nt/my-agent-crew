@@ -18,6 +18,7 @@ from my_agent_crew.llm.provider import ProviderError
 from my_agent_crew.llm.types import (
     Completion,
     Message,
+    ReasoningDelta,
     StreamItem,
     TextDelta,
     ToolCall,
@@ -99,10 +100,12 @@ class ToolCallBuffer:
 
 def usage_from(raw: dict[str, Any]) -> Usage:
     cost = raw.get("cost")
+    thought = (raw.get("completion_tokens_details") or {}).get("reasoning_tokens")
     return Usage(
         prompt_tokens=int(raw.get("prompt_tokens") or 0),
         completion_tokens=int(raw.get("completion_tokens") or 0),
         cost_usd=float(cost) if cost is not None else None,
+        reasoning_tokens=int(thought) if thought is not None else None,
     )
 
 
@@ -136,6 +139,8 @@ async def stream_chat(
                     usage = usage_from(chunk["usage"])
                 for choice in chunk.get("choices") or []:
                     delta = choice.get("delta") or {}
+                    if delta.get("reasoning"):
+                        yield ReasoningDelta(delta["reasoning"])
                     if delta.get("content"):
                         text_parts.append(delta["content"])
                         yield TextDelta(delta["content"])

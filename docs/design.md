@@ -61,6 +61,10 @@ any platform ──POST /api/inbound (JSON, sync)─────┴─▶ Inboun
 - **Fallback nhìn thấy được.** Mỗi tuyến bỏ cuộc đều được log, phát thành event `route_fallback`
   và ghi thành step `fallback` trên run, nên một model cứ lỗi mãi sẽ hiện trên timeline
   thay vì âm thầm tốn thêm ở tuyến kế tiếp.
+- **Model đang nghĩ cũng là đang chạy.** Model có suy nghĩ có thể im lặng khá lâu trước chữ
+  đầu tiên, nên luồng stream đọc `delta.reasoning` và phát event `thinking` một lần mỗi lần
+  gọi model. Web hiện "Agent đang suy nghĩ…" còn step `model` trên run tính cả quãng im lặng
+  đó. Nội dung suy nghĩ không hiện và không lưu, chỉ lưu số `reasoning_tokens`.
 - **Chỉ fallback trước khi có output.** Chuỗi chỉ thử tuyến kế tiếp nếu tuyến trước lỗi trước
   khi trả ra bất cứ gì; lỗi giữa stream được đưa lên bề mặt, không bao giờ bị che bằng một lần thử lại âm thầm.
 - **Chi phí trung thực.** Mỗi message assistant lưu `cost_usd` hoặc `None`. Cuộc trò chuyện giữ

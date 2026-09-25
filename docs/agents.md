@@ -52,6 +52,7 @@ không bao giờ âm thầm vô hiệu một cài đặt.
 | `description` | chuỗi | `""` | hiện trên card của agent trong tab **Đội** và trong roster của master |
 | `mode` | `assistant` hoặc `work` | `assistant` | `work` thêm các tool lập trình và đổi ba mặc định, xem [Chế độ work](#chế-độ-work) |
 | `routes` | danh sách hoặc chuỗi phân cách bằng dấu phẩy dạng `provider:model` | `routes` toàn cục | thử theo thứ tự; tuyến nào hỏng trước khi sinh ra output thì rơi xuống tuyến kế tiếp |
+| `reasoning` | `minimal`, `low`, `medium` hoặc `high` | trống | model nghĩ kỹ đến đâu, gửi lên OpenRouter thành `reasoning.effort` cho mọi tuyến của agent (kể cả tuyến dự phòng); trống thì để provider tự quyết. Model đang nghĩ thì web hiện "Agent đang suy nghĩ…", số token dùng để nghĩ lưu ở cột `reasoning_tokens` của `messages`, còn nội dung suy nghĩ không lưu. Ollama bỏ qua khoá này |
 | `workspace` | đường dẫn | `workspace` | sandbox cho `workspace_*` và `shell_run`; đường dẫn tương đối tính từ thư mục agent, `~` được mở rộng |
 | `persona_files` | danh sách tên tệp | `AGENTS.md, SOUL.md, IDENTITY.md, USER.md` | đọc từ thư mục agent vào system prompt mỗi lượt; tệp thiếu thì bỏ qua |
 | `persona_names` | chỉ đọc | — | danh sách tên tệp persona thực sự có mặt (trả về bởi `GET /api/agents/{id}` và `GET /api/agents/{id}/prompt`) |

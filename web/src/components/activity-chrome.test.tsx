@@ -22,6 +22,12 @@ describe("StatusLine", () => {
     expect(line).toHaveTextContent(vi.statusTool("shell_run"));
     expect(line).toHaveTextContent(vi.streamDisconnected);
   });
+
+  it("says the agent is thinking over an earlier progress note", () => {
+    const thread = { ...emptyThread, busy: true, thinking: true, items: [{ kind: "note" as const, id: "n", text: "Đang đọc dữ liệu" }] };
+    render(<StatusLine thread={thread} connected liveCount={0} />);
+    expect(screen.getByRole("status")).toHaveTextContent(vi.statusThinking);
+  });
 });
 
 describe("splitMedia", () => {

@@ -8,7 +8,6 @@ a silent no-op: a typo in a profile should say so, not quietly change nothing.
 
 from __future__ import annotations
 
-from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -29,8 +28,8 @@ from my_agent_crew.agents.profile import (
     consolidate_schedule,
     default_profile,
 )
+from my_agent_crew.agents.profile_settings import names, settings_from
 from my_agent_crew.config import Settings
-from my_agent_crew.config_parse import parse_routes
 
 MASTER_MANIFEST = "agent.yaml"
 
@@ -67,57 +66,6 @@ def _mode(raw: dict[str, Any], agent_id: str) -> str:
     return mode
 
 
-def _names(raw: dict[str, Any], key: str, agent_id: str) -> tuple[str, ...]:
-    value = raw.get(key) or []
-    if isinstance(value, str) or not isinstance(value, list):
-        raise ValueError(f"agent {agent_id}: {key} must be a list of names")
-    # A non-string entry is a typo in the manifest; coercing it would invent a name that
-    # matches no agent and no tool, and the failure would only surface mid-task.
-    if any(not isinstance(v, str) or not v.strip() for v in value):
-        raise ValueError(f"agent {agent_id}: {key} must be a list of names")
-    return tuple(v.strip() for v in value)
-
-
-def _settings(
-    raw: dict[str, Any], agent_id: str, base: Settings, defaults: dict[str, Any]
-) -> Settings:
-    return replace(
-        base,
-        routes=parse_routes(raw["routes"]) if raw.get("routes") else base.routes,
-        cost_cap_usd=float(
-            raw.get("cost_cap_usd", defaults.get("cost_cap_usd", base.cost_cap_usd))
-        ),
-        max_steps=int(raw.get("max_steps", defaults.get("max_steps", base.max_steps))),
-        autonomous_default=bool(
-            raw.get("autonomous", defaults.get("autonomous", base.autonomous_default))
-        ),
-        shell_ask_patterns=(
-            tuple(_names(raw, "shell_ask_patterns", agent_id))
-            if "shell_ask_patterns" in raw
-            else base.shell_ask_patterns
-        ),
-        shell_allow_patterns=(
-            tuple(_names(raw, "shell_allow_patterns", agent_id))
-            if "shell_allow_patterns" in raw
-            else base.shell_allow_patterns
-        ),
-        tool_output_chars=int(raw.get("tool_output_chars", base.tool_output_chars)),
-        shell_network=_shell_network(raw, agent_id),
-        shell_write_paths=_names(raw, "shell_write_paths", agent_id),
-        shell_deny_patterns=_names(raw, "shell_deny_patterns", agent_id),
-        write_paths=_names(raw, "write_paths", agent_id),
-    )
-
-
-def _shell_network(raw: dict[str, Any], agent_id: str) -> bool:
-    value = raw.get("shell_network", True)
-    # Only a real YAML bool: `"false"` read as truthy would leave the network open on
-    # exactly the agent someone meant to close it for.
-    if not isinstance(value, bool):
-        raise ValueError(f"agent {agent_id}: shell_network must be true or false")
-    return value
-
-
 def parse_profile(
     agent_id: str, agent_dir: Path, raw: dict[str, Any], base: Settings
 ) -> AgentProfile:
@@ -128,7 +76,7 @@ def parse_profile(
     # Work mode moves the defaults; anything the profile states itself still wins.
     defaults = WORK_DEFAULTS if mode == WORK else {}
     try:
-        settings = _settings(raw, agent_id, base, defaults)
+        settings = settings_from(raw, agent_id, base, defaults)
     except TypeError as exc:
         # float({}) and int([]) raise TypeError: a number written as something else. The
         # caller reports a bad profile by catching ValueError.
@@ -162,8 +110,8 @@ def parse_profile(
         telegram=telegram,
         memory_consolidate=consolidate_cron,
         mode=mode,
-        delegates=_names(raw, "delegates", agent_id),
-        tools=_names(raw, "tools", agent_id),
+        delegates=names(raw, "delegates", agent_id),
+        tools=names(raw, "tools", agent_id),
     )
 
 

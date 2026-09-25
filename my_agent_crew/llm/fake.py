@@ -34,6 +34,7 @@ class Request:
     messages: tuple[Message, ...]
     tools: tuple[ToolSpec, ...]
     model: str
+    reasoning: str = ""
 
 
 class ScriptedProvider:
@@ -47,9 +48,13 @@ class ScriptedProvider:
         self.requests: list[Request] = []
 
     async def stream(
-        self, messages: Sequence[Message], tools: Sequence[ToolSpec], model: str
+        self,
+        messages: Sequence[Message],
+        tools: Sequence[ToolSpec],
+        model: str,
+        reasoning: str = "",
     ) -> AsyncIterator[StreamItem]:
-        self.requests.append(Request(tuple(messages), tuple(tools), model))
+        self.requests.append(Request(tuple(messages), tuple(tools), model, reasoning))
         if not self._script:
             raise ProviderError("script exhausted")
         item = self._script.pop(0)
@@ -82,7 +87,11 @@ class EchoProvider:
     name = "fake"
 
     async def stream(
-        self, messages: Sequence[Message], tools: Sequence[ToolSpec], model: str
+        self,
+        messages: Sequence[Message],
+        tools: Sequence[ToolSpec],
+        model: str,
+        reasoning: str = "",
     ) -> AsyncIterator[StreamItem]:
         last = messages[-1]
         if last.role == "tool":

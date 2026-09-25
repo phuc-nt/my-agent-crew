@@ -92,6 +92,7 @@ export interface ConversationPatch {
 
 export type AgentEvent =
   | { type: "text_delta"; text: string }
+  | { type: "thinking" }
   | {
       type: "assistant_message";
       message_id: string;

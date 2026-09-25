@@ -15,6 +15,7 @@ from my_agent_crew.agent.events import (
     HaltedEvent,
     RouteFallbackEvent,
     TextDeltaEvent,
+    ThinkingEvent,
     ToolCallEvent,
     ToolResultEvent,
 )
@@ -70,12 +71,16 @@ def _close_step(step: dict[str, Any], clock: float) -> None:
 
 
 def apply_event(run: RunRecord, event: Event, clock: float) -> None:
-    if isinstance(event, TextDeltaEvent):
+    if isinstance(event, TextDeltaEvent | ThinkingEvent):
+        # Thinking opens the model step too, so its duration counts the silent part.
         pending = _pending_model_step(run)
         if pending is None:
             _open_step(run, {"kind": "model", "chars": 0}, clock)
             pending = run.steps[-1]
-        pending["chars"] = int(pending.get("chars", 0)) + len(event.text)
+        if isinstance(event, ThinkingEvent):
+            pending["thinking"] = True
+        else:
+            pending["chars"] = int(pending.get("chars", 0)) + len(event.text)
         return
     if isinstance(event, AssistantMessageEvent):
         step = _pending_model_step(run)

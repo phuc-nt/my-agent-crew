@@ -41,6 +41,7 @@ PROFILE_KEYS = {
     "schedules",
     "telegram",
     "memory_consolidate",
+    "reasoning",
     "mode",
     "delegates",
     "tools",

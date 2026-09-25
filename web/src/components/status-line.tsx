@@ -9,6 +9,8 @@ interface Props {
 
 function threadText(thread: ThreadState): string {
   if (thread.pending) return vi.statusAwaiting;
+  // Thinking is always the newest thing happening, so it outranks an earlier note.
+  if (thread.busy && thread.thinking) return vi.statusThinking;
   // The newest of either kind wins, so the line follows the turn rather than preferring
   // one sort of item. A note that came after the tool call it introduces would otherwise
   // be shadowed by it, and a note is the better status text: the agent wrote it to be

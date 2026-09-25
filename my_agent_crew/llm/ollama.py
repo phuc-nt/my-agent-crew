@@ -40,7 +40,11 @@ class OllamaProvider:
         self._client = client or httpx.AsyncClient(timeout=httpx.Timeout(300.0))
 
     async def stream(
-        self, messages: Sequence[Message], tools: Sequence[ToolSpec], model: str
+        self,
+        messages: Sequence[Message],
+        tools: Sequence[ToolSpec],
+        model: str,
+        reasoning: str = "",
     ) -> AsyncIterator[StreamItem]:
         body: dict[str, Any] = {
             "model": model,
@@ -49,6 +53,7 @@ class OllamaProvider:
         }
         if tools:
             body["tools"] = tools_to_wire(tools)
+        # `reasoning` is ignored: ollama's thinking switch is per model, not an effort level.
         # No key: the server is on this machine, and ollama accepts none.
         async for item in stream_chat(
             self._client, f"{self._base}/chat/completions", body, {}, self.name, model

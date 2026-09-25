@@ -174,10 +174,19 @@ class Store:
         cost_usd: float | None = None,
         prompt_tokens: int | None = None,
         completion_tokens: int | None = None,
+        reasoning_tokens: int | None = None,
     ) -> StoredMessage:
         self.get(conv_id)  # an unknown conversation must raise before anything is written
         return self.messages.append(
-            conv_id, message, now_iso(), provider, model, cost_usd, prompt_tokens, completion_tokens
+            conv_id,
+            message,
+            now_iso(),
+            provider,
+            model,
+            cost_usd,
+            prompt_tokens,
+            completion_tokens,
+            reasoning_tokens,
         )
 
     def history(self, conv_id: str) -> list[StoredMessage]:

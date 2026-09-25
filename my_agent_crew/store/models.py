@@ -93,6 +93,7 @@ class StoredMessage:
     created_at: str
     prompt_tokens: int | None = None
     completion_tokens: int | None = None
+    reasoning_tokens: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         m = self.message
@@ -109,6 +110,7 @@ class StoredMessage:
             "cost_usd": self.cost_usd,
             "prompt_tokens": self.prompt_tokens,
             "completion_tokens": self.completion_tokens,
+            "reasoning_tokens": self.reasoning_tokens,
             "created_at": self.created_at,
         }
 
@@ -132,6 +134,7 @@ class StoredMessage:
             created_at=row["created_at"],
             prompt_tokens=row["prompt_tokens"],
             completion_tokens=row["completion_tokens"],
+            reasoning_tokens=row["reasoning_tokens"],
         )
 
 

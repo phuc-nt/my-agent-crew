@@ -24,6 +24,9 @@ class Route:
 
     provider: str
     model: str
+    # How hard the model thinks (`reasoning.effort` on OpenRouter); empty leaves it to the
+    # provider. Set per agent by the `reasoning` key, never written in a route string.
+    reasoning: str = ""
 
     @classmethod
     def parse(cls, text: str) -> Route:

@@ -20,7 +20,11 @@ class Provider(Protocol):
     name: str
 
     def stream(
-        self, messages: Sequence[Message], tools: Sequence[ToolSpec], model: str
+        self,
+        messages: Sequence[Message],
+        tools: Sequence[ToolSpec],
+        model: str,
+        reasoning: str = "",
     ) -> AsyncIterator[StreamItem]: ...
 
 
@@ -59,8 +63,11 @@ class ProviderChain:
         for route in self._routes:
             provider = self._providers[route.provider]
             started = False
+            # Only a route that states an effort passes one, so a provider written before
+            # the setting existed keeps working.
+            extra = {"reasoning": route.reasoning} if route.reasoning else {}
             try:
-                async for item in provider.stream(messages, tools, route.model):
+                async for item in provider.stream(messages, tools, route.model, **extra):
                     started = True
                     yield item
                 return

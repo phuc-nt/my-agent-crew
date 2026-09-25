@@ -521,6 +521,7 @@ export const vi = {
   reload: "Tải lại",
   statusIdle: "Sẵn sàng",
   statusStreaming: "Agent đang trả lời…",
+  statusThinking: "Agent đang suy nghĩ…",
   statusTool: (tool: string) => `Đang chạy công cụ ${tool}…`,
   statusAwaiting: "Đang chờ bạn duyệt",
 
