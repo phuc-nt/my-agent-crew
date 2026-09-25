@@ -26,6 +26,7 @@ from pathlib import Path
 
 import yaml
 
+from my_agent_crew.memory import file_cache
 from my_agent_crew.memory.wiki_slug import slugify
 
 __all__ = ["slugify"]  # re-exported: a page's slug is part of this module's surface
@@ -171,7 +172,8 @@ def find_page(memory_dir: Path, slug: str) -> Page | None:
 
 
 def list_pages(memory_dir: Path) -> list[Page]:
-    """Every page in the vault, ordered by kind then slug so the index is stable."""
+    """Every page in the vault, ordered by kind then slug so the index is stable. The index
+    rides in every system prompt, so a page is parsed again only when its file changed."""
     root = wiki_dir(memory_dir)
     pages: list[Page] = []
     for kind in KINDS:
@@ -179,7 +181,7 @@ def list_pages(memory_dir: Path) -> list[Page]:
         if not directory.is_dir():
             continue
         for path in sorted(directory.glob("*.md")):
-            page = parse_page(path, kind)
+            page = file_cache.cached(path, lambda p, kind=kind: parse_page(p, kind))
             if page is not None:
                 pages.append(page)
     return pages

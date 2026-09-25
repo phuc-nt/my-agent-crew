@@ -12,6 +12,17 @@ from dataclasses import asdict
 from my_agent_crew.llm.types import Message
 from my_agent_crew.store.models import StoredMessage
 
+# The next seq is read and the row written in the same statement, and the row comes
+# straight back: one round trip where there used to be three. Selecting from the
+# conversation row makes an unknown conversation insert nothing instead of failing later.
+_INSERT = (
+    "INSERT INTO messages (conversation_id, seq, role, content, tool_calls, tool_call_id,"
+    " name, provider, model, cost_usd, created_at, prompt_tokens, completion_tokens,"
+    " reasoning_tokens)"
+    " SELECT id, COALESCE((SELECT MAX(seq) FROM messages WHERE conversation_id = ?), 0) + 1,"
+    " ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? FROM conversations WHERE id = ? RETURNING *"
+)
+
 
 class MessageStore:
     def __init__(self, conn: sqlite3.Connection, lock: threading.RLock):
@@ -30,28 +41,20 @@ class MessageStore:
         completion_tokens: int | None = None,
         reasoning_tokens: int | None = None,
     ) -> StoredMessage:
+        """Raises KeyError for an unknown conversation, with nothing written."""
         tool_calls = json.dumps([asdict(tc) for tc in message.tool_calls])
+        values = [conv_id, message.role, message.content, tool_calls, message.tool_call_id]
+        values += [message.name, provider, model, cost_usd, stamp]
+        values += [prompt_tokens, completion_tokens, reasoning_tokens, conv_id]
         with self._lock:
-            seq = self._conn.execute(
-                "SELECT COALESCE(MAX(seq), 0) + 1 FROM messages WHERE conversation_id = ?",
-                (conv_id,),
-            ).fetchone()[0]
-            values = [conv_id, seq, message.role, message.content, tool_calls]
-            values += [message.tool_call_id, message.name, provider, model, cost_usd, stamp]
-            values += [prompt_tokens, completion_tokens, reasoning_tokens]
-            cur = self._conn.execute(
-                "INSERT INTO messages (conversation_id, seq, role, content, tool_calls,"
-                " tool_call_id, name, provider, model, cost_usd, created_at,"
-                " prompt_tokens, completion_tokens, reasoning_tokens)"
-                " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                values,
-            )
+            rows = self._conn.execute(_INSERT, values).fetchall()
+            if not rows:
+                raise KeyError(conv_id)
             self._conn.execute(
                 "UPDATE conversations SET updated_at = ? WHERE id = ?", (stamp, conv_id)
             )
             self._conn.commit()
-            row = self._conn.execute("SELECT * FROM messages WHERE id = ?", (cur.lastrowid,))
-        return StoredMessage.from_row(row.fetchone())
+        return StoredMessage.from_row(rows[0])
 
     def history(self, conv_id: str) -> list[StoredMessage]:
         with self._lock:

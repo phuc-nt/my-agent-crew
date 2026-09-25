@@ -1,6 +1,6 @@
 # Kiểm thử
 
-**Phiên bản**: 0.6.0 · **Cập nhật**: 2026-09-25
+**Phiên bản**: 0.6.0 · **Cập nhật**: 2026-09-26
 
 Ba tầng, một quy tắc: **mỗi tính năng ra kèm một test ở tầng thấp nhất có thể thấy nó.**
 Bản thân các tệp test là bản kiểm kê; trang này chỉ nói mỗi tầng dùng để làm gì và
@@ -23,6 +23,12 @@ Vài test bảo vệ repo chứ không phải một tính năng:
 - **ngân sách kích thước tệp**: không tệp nguồn nào quá 200 dòng, để module đọc gọn trong một màn hình;
 - **bundle** trong `my_agent_crew/server/static` có mặt và được phục vụ ở `/`, với 404 của `/api/*`
   vẫn là JSON;
+- **khởi động chỉ nạp thứ cần**: một tiến trình con import server rồi kiểm tra `pypdf` và
+  `pypdfium2` chưa được nạp — chúng chỉ nạp khi có PDF cần đọc;
+- **chi phí ngoài model** có test riêng: store mở ở chế độ WAL và có index cho các truy vấn
+  nóng, hub không ghi và không phát từng token, một watcher ngừng đọc bị cắt, trang wiki
+  chỉ parse lại khi tệp đổi, `/api/stats` không tính lại giữa hai lần ghi, tài sản có hash
+  được nén gzip và cache vĩnh viễn còn luồng SSE không bị nén;
 - CI dựng lại bundle và fail khi `git diff --exit-code`, nên thay đổi web không bao giờ
   được commit mà thiếu bundle của nó.
 

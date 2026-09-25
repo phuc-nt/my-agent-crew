@@ -1,10 +1,10 @@
-"""SQLite store. One connection guarded by a lock; every write commits immediately.
-Tables live in `schema.py`; approvals and runs have their own small stores."""
+"""SQLite store. One connection (`connection.py`) guarded by a lock; every write commits
+immediately and reads its own row back with RETURNING, so one statement does what used
+to take two. Tables live in `schema.py`; approvals and runs have their own small stores."""
 
 from __future__ import annotations
 
 import json
-import sqlite3
 import threading
 import uuid
 from datetime import UTC, datetime
@@ -13,6 +13,7 @@ from pathlib import Path
 from my_agent_crew.llm.types import Message
 from my_agent_crew.store import conversation_lookup as lookup
 from my_agent_crew.store.approvals import ApprovalStore
+from my_agent_crew.store.connection import connect
 from my_agent_crew.store.job_state import JobStateStore
 from my_agent_crew.store.memory_proposals import MemoryProposalStore
 from my_agent_crew.store.messages import MessageStore
@@ -37,8 +38,7 @@ def new_id() -> str:
 
 class Store:
     def __init__(self, path: Path | str = ":memory:"):
-        self._conn = sqlite3.connect(str(path), check_same_thread=False)
-        self._conn.row_factory = sqlite3.Row
+        self._conn = connect(path)
         self._lock = threading.RLock()
         with self._lock:
             apply_schema(self._conn)
@@ -51,6 +51,11 @@ class Store:
 
     def close(self) -> None:
         self._conn.close()
+
+    @property
+    def changes(self) -> int:
+        """Rows written so far: a version number for anything derived from the store."""
+        return self._conn.total_changes
 
     # --- conversations -------------------------------------------------------------------
 
@@ -66,10 +71,10 @@ class Store:
     ) -> Conversation:
         conv_id, stamp = new_id(), now_iso()
         with self._lock:
-            self._conn.execute(
+            [row] = self._conn.execute(
                 "INSERT INTO conversations (id, title, created_at, updated_at, autonomous,"
                 " cost_cap_usd, skills, agent_id, channel, parent_call_id)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *",
                 (
                     conv_id,
                     title,
@@ -82,9 +87,9 @@ class Store:
                     channel,
                     parent_call_id,
                 ),
-            )
+            ).fetchall()
             self._conn.commit()
-        return self.get(conv_id)
+        return Conversation.from_row(row)
 
     def get(self, conv_id: str) -> Conversation:
         with self._lock:
@@ -131,14 +136,19 @@ class Store:
             fields["autonomous"] = int(bool(fields["autonomous"]))
         fields["updated_at"] = now_iso()
         assignments = ", ".join(f"{k} = ?" for k in fields)
+        return self._update_returning(
+            f"UPDATE conversations SET {assignments} WHERE id = ? RETURNING *",
+            (*fields.values(), conv_id),
+        )
+
+    def _update_returning(self, sql: str, params: tuple) -> Conversation:
+        """One UPDATE of one conversation, handing back the row it left behind."""
         with self._lock:
-            cur = self._conn.execute(
-                f"UPDATE conversations SET {assignments} WHERE id = ?", (*fields.values(), conv_id)
-            )
+            rows = self._conn.execute(sql, params).fetchall()
             self._conn.commit()
-        if cur.rowcount == 0:
-            raise KeyError(conv_id)
-        return self.get(conv_id)
+        if not rows:
+            raise KeyError(params[-1])
+        return Conversation.from_row(rows[0])
 
     def delete(self, conv_id: str) -> None:
         with self._lock:
@@ -155,13 +165,10 @@ class Store:
             if cost_usd is not None
             else "unknown_cost_calls = unknown_cost_calls + ?"
         )
-        with self._lock:
-            self._conn.execute(
-                f"UPDATE conversations SET {column}, updated_at = ? WHERE id = ?",
-                (cost_usd if cost_usd is not None else 1, now_iso(), conv_id),
-            )
-            self._conn.commit()
-        return self.get(conv_id)
+        return self._update_returning(
+            f"UPDATE conversations SET {column}, updated_at = ? WHERE id = ? RETURNING *",
+            (cost_usd if cost_usd is not None else 1, now_iso(), conv_id),
+        )
 
     # --- messages ------------------------------------------------------------------------
 
@@ -176,7 +183,6 @@ class Store:
         completion_tokens: int | None = None,
         reasoning_tokens: int | None = None,
     ) -> StoredMessage:
-        self.get(conv_id)  # an unknown conversation must raise before anything is written
         return self.messages.append(
             conv_id,
             message,

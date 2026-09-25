@@ -10,12 +10,19 @@ from collections.abc import AsyncIterator, Sequence
 from typing import Any
 
 from my_agent_crew.activity.steps import apply_event
-from my_agent_crew.agent.events import Event, kind_of, to_dict
+from my_agent_crew.agent.events import Event, TextDeltaEvent, ThinkingEvent, kind_of, to_dict
 from my_agent_crew.store import Store
 from my_agent_crew.store.db import new_id, now_iso
 from my_agent_crew.store.runs import ACTIVE_STATUSES, AWAITING, RUNNING, RunRecord
 
 RECENT_LIMIT = 100
+# A watcher that falls this many payloads behind is cut off; its stream ends and the
+# browser reconnects to a fresh snapshot. One stalled tab must not hold every event of
+# every run in memory for as long as it stays open.
+SUBSCRIBER_QUEUE_SIZE = 256
+# Streamed tokens change the step under construction, not the timeline: the run is
+# written and announced at step boundaries, and a delta only moves a counter in memory.
+STREAMING_EVENTS = (TextDeltaEvent, ThinkingEvent)
 
 
 class ActivityHub:
@@ -67,6 +74,8 @@ class ActivityHub:
 
     def record(self, run: RunRecord, event: Event, clock: float) -> None:
         apply_event(run, event, clock)
+        if isinstance(event, STREAMING_EVENTS):
+            return
         self._store.runs.save(run)
         payload = {
             "type": "event",
@@ -139,10 +148,16 @@ class ActivityHub:
 
     def _broadcast(self, payload: dict[str, Any]) -> None:
         for queue in list(self._subscribers):
-            queue.put_nowait(payload)
+            try:
+                queue.put_nowait(payload)
+            except asyncio.QueueFull:
+                # Make room for the end marker, then drop the watcher.
+                self._subscribers.discard(queue)
+                queue.get_nowait()
+                queue.put_nowait(None)
 
     async def subscribe(self) -> AsyncIterator[dict[str, Any]]:
-        queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
+        queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue(SUBSCRIBER_QUEUE_SIZE)
         self._subscribers.add(queue)
         try:
             yield {"type": "snapshot", "runs": [r.to_dict() for r in self.live()]}

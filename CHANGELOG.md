@@ -11,6 +11,18 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+### Changed
+
+- **Everything but the model call got faster.** SQLite runs in WAL mode with `synchronous=NORMAL`, the
+  hot queries have indexes, and writes read their own row back in one statement, so appending a message
+  costs one commit instead of five statements and an fsync. The activity hub no longer writes the run and
+  wakes every watcher on each streamed token; runs are stored and broadcast at step boundaries, and a
+  watcher that stops reading is cut off instead of growing without bound. Wiki pages are parsed once per
+  change on disk rather than once per system prompt, `/api/stats` is recomputed only after a write, and
+  the PDF libraries load on first use instead of at start-up. The web bundle is split into React, vendor
+  and app chunks with content hashes, served gzipped with an immutable cache header, so a release that
+  only touches app code leaves the other two cached.
+
 ## [0.6.0] — 2026-09-25
 
 This release lets an agent work unattended inside someone's repository without being able to change it, makes

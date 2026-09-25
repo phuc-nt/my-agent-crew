@@ -1,6 +1,6 @@
 # Thiết kế
 
-**Phiên bản**: 0.6.0 · **Cập nhật**: 2026-09-25
+**Phiên bản**: 0.6.0 · **Cập nhật**: 2026-09-26
 
 ## Mục tiêu
 
@@ -46,6 +46,11 @@ any platform ──POST /api/inbound (JSON, sync)─────┴─▶ Inboun
 
 - **Trạng thái bền là nhật ký message.** Một lượt tiếp tục từ message assistant cuối cùng đã lưu:
   các tool call chưa xong được giải quyết trước, nên crash giữa lượt là khôi phục được.
+  SQLite mở ở chế độ WAL với `synchronous=NORMAL` (`store/connection.py`): mỗi commit chỉ
+  nối vào log thay vì ép tệp chính xuống đĩa, nên hàng chục lần ghi nhỏ của một lượt rẻ;
+  mất điện có thể mất vài commit cuối nhưng không hỏng tệp, crash tiến trình không mất gì.
+  Ghi rồi đọc lại dùng `RETURNING` trong một câu lệnh. Đọc tệp live từ ngoài thì mở bằng
+  `mode=ro` (không phải `immutable=1`, vì bản đó không thấy phần còn nằm trong log WAL).
 - **Duyệt là hạng nhất.** Một tool `requires_approval` tạm dừng lượt với một event `approval_required`
   và một `Approval` được lưu; UI hiện một thanh, endpoint quyết định tiếp tục đúng lượt đó.
   Cuộc trò chuyện đánh dấu `autonomous` bỏ qua chỗ dừng. Các từ chối cứng — path thoát khỏi
@@ -143,7 +148,12 @@ cuộc trò chuyện, trạng thái, các step (lần gọi model kèm chi phí,
 và một tóm tắt. Run đang chạy được giữ trong bộ nhớ và phát dạng SSE trên `/api/activity/stream`
 (`snapshot` khi kết nối, rồi các frame `run` và `event`); run đã xong được đọc từ SQLite.
 Run còn đánh dấu đang chạy khi server khởi động sẽ bị đóng là `failed` với tóm tắt
-`interrupted`.
+`interrupted`. Run được ghi và phát ở ranh giới step: token stream (`text_delta`,
+`thinking`) chỉ cộng dồn vào step đang dựng trong bộ nhớ, không ghi SQLite và không lên
+luồng activity (rail không hiện từng chữ). Mỗi watcher có hàng đợi 256 frame; một tab
+ngừng đọc bị cắt và trình duyệt kết nối lại với `snapshot` mới, thay vì giữ mọi event
+của mọi run trong bộ nhớ server. `/api/stats` giữ câu trả lời cuối cùng theo số lần ghi
+của store và chỉ tính lại khi có gì đó được ghi.
 
 ## Scheduler
 
@@ -196,6 +206,11 @@ một trên luồng event của một cuộc trò chuyện, một trên luồng 
 vùng (một cuộc trò chuyện, danh sách, subscription activity, agent cùng job cùng stats) do
 một hook sở hữu, và một run kết thúc là tín hiệu duy nhất làm mới các vùng còn lại.
 Mọi chuỗi đều lấy từ một tệp chuỗi tiếng Việt.
+
+Bundle tách thành ba phần (`react`, `vendor`, mã ứng dụng), tên tệp mang hash nội dung;
+server phục vụ `/assets/*` với `Cache-Control: immutable` và nén gzip mọi phản hồi trên
+1 KB trừ luồng SSE, nên một bản phát hành chỉ đổi mã ứng dụng để trình duyệt giữ nguyên
+hai phần kia, còn `index.html` luôn được hỏi lại.
 
 Chỉ có một chat, với master: danh sách cuộc trò chuyện chứa các cuộc trò chuyện của master
 và cuộc mới luôn được mở cho nó. Màn hình chào nói với tư cách master và nêu tên

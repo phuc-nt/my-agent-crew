@@ -67,10 +67,25 @@ ADDED_COLUMNS = (
 )
 
 
+# One index per query shape that would otherwise scan a whole table: the activity feed
+# and stats read runs newest first, a conversation's runs by its id, the sidebar reads an
+# agent's conversations by recency, a channel finds its latest conversation, and the loop
+# looks up a conversation's pending approvals on every step.
+INDEXES = """
+CREATE INDEX IF NOT EXISTS runs_by_started ON runs (started_at);
+CREATE INDEX IF NOT EXISTS runs_by_conversation ON runs (conversation_id, started_at);
+CREATE INDEX IF NOT EXISTS conversations_by_agent ON conversations (agent_id, updated_at);
+CREATE INDEX IF NOT EXISTS conversations_by_channel ON conversations (agent_id, channel);
+CREATE INDEX IF NOT EXISTS approvals_by_conversation ON approvals (conversation_id, status);
+"""
+
+
 def apply_schema(conn: sqlite3.Connection) -> None:
     conn.executescript(SCHEMA)
     for table, column, definition in ADDED_COLUMNS:
         present = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
         if column not in present:
             conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+    # After the columns: an index on a column an older file has not gained yet would fail.
+    conn.executescript(INDEXES)
     conn.commit()

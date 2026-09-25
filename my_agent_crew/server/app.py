@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -41,6 +42,13 @@ from my_agent_crew.server.runtime_build import build_deps, build_runtime
 __all__ = ["build_deps", "build_providers", "build_runtime", "create_app"]
 
 STATIC_DIR = Path(__file__).parent / "static"
+# Responses above this size go out gzipped when the client accepts it: the bundle, the
+# conversation list and the run feed shrink to a fraction. Event streams are exempt.
+GZIP_MIN_BYTES = 1024
+# The bundle's files carry a content hash in their name, so a browser may keep them for
+# as long as it likes; a new build is a new name. `index.html` is not under /assets and
+# is revalidated on every load, which is what makes the new name reach the browser.
+IMMUTABLE_CACHE = "public, max-age=31536000, immutable"
 ROUTERS = (
     routes_conversations.router,
     routes_chat.router,
@@ -59,6 +67,15 @@ ROUTERS = (
     routes_memory_agent.router,
     routes_memory_wiki.router,
 )
+
+
+class HashedAssets(StaticFiles):
+    """The bundle's hashed files, served as cacheable forever."""
+
+    def file_response(self, *args: object, **kwargs: object) -> FileResponse:
+        response = super().file_response(*args, **kwargs)  # type: ignore[arg-type]
+        response.headers["cache-control"] = IMMUTABLE_CACHE
+        return response
 
 
 def create_app(runtime: Runtime | AgentDeps | None = None, schedule: bool = True) -> FastAPI:
@@ -81,6 +98,7 @@ def create_app(runtime: Runtime | AgentDeps | None = None, schedule: bool = True
 
     app = FastAPI(title="my-agent-crew", version=__version__, lifespan=lifespan)
     app.state.runtime = runtime
+    app.add_middleware(GZipMiddleware, minimum_size=GZIP_MIN_BYTES)
     install_local_guard(app, allowed_hosts(os.environ))
 
     for router in ROUTERS:
@@ -91,7 +109,7 @@ def create_app(runtime: Runtime | AgentDeps | None = None, schedule: bool = True
         return {"status": "ok", "version": __version__}
 
     if (STATIC_DIR / "index.html").exists():
-        app.mount("/assets", StaticFiles(directory=STATIC_DIR / "assets"), name="assets")
+        app.mount("/assets", HashedAssets(directory=STATIC_DIR / "assets"), name="assets")
 
         @app.get("/{path:path}", include_in_schema=False)
         def spa(path: str) -> FileResponse:

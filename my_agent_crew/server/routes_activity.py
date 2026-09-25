@@ -8,6 +8,7 @@ from collections import defaultdict
 from collections.abc import AsyncIterator
 from datetime import tzinfo
 from typing import Any
+from weakref import WeakKeyDictionary
 
 from fastapi import APIRouter, HTTPException
 from sse_starlette.sse import EventSourceResponse
@@ -15,10 +16,15 @@ from sse_starlette.sse import EventSourceResponse
 from my_agent_crew.agents.roster import DELEGATE_TOOL_NAME
 from my_agent_crew.clock import local_day
 from my_agent_crew.server.deps import Rt
+from my_agent_crew.store import Store
 from my_agent_crew.store.runs import RunRecord
 
 router = APIRouter(tags=["activity"])
 STATS_RUNS = 500
+# The last stats answer per store, with the store's change count it was computed at. The
+# rail asks again after every finished run and on every page load; between two writes
+# the answer cannot differ, so it is not computed twice.
+_stats_memo: WeakKeyDictionary[Store, tuple[int, dict[str, Any]]] = WeakKeyDictionary()
 
 
 @router.get("/activity/runs")
@@ -99,8 +105,13 @@ def summarize(runs: list[RunRecord], zone: tzinfo | None = None) -> dict[str, An
 def stats(rt: Rt) -> dict[str, Any]:
     """Run totals for the rail, plus the message-log ledger (`days`, `models`), which is
     the honest number: it counts what providers billed, with tokens, over every run."""
+    version = rt.store.changes
+    memo = _stats_memo.get(rt.store)
+    if memo is not None and memo[0] == version:
+        return memo[1]
     data = summarize(rt.hub.recent(STATS_RUNS), rt.settings.zone)
     data["pending_proposals"] = len(rt.store.proposals.list())
     data["days"] = rt.store.usage.by_day(zone=rt.settings.zone)
     data["models"] = rt.store.usage.by_model()
+    _stats_memo[rt.store] = (version, data)
     return data

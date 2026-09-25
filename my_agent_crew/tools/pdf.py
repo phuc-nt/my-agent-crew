@@ -21,10 +21,7 @@ import base64
 from collections.abc import Sequence
 from io import BytesIO
 from pathlib import Path
-from typing import Any
-
-import pypdf
-import pypdfium2
+from typing import TYPE_CHECKING, Any
 
 from my_agent_crew.llm.provider import ProviderChain, ProviderError
 from my_agent_crew.tools.image import describe
@@ -43,6 +40,12 @@ from my_agent_crew.tools.pdf_texts import (
 )
 from my_agent_crew.tools.registry import Tool, ToolError, ToolResult
 from my_agent_crew.tools.workspace import resolve_inside
+
+if TYPE_CHECKING:
+    import pypdf
+
+# pypdf and pypdfium2 are imported where they are used: together they take a noticeable
+# slice of server start-up, and most sessions never open a PDF.
 
 PDF_TOOL_NAME = "pdf_read"
 MAX_PAGES = 50
@@ -82,6 +85,8 @@ def parse_pages(pages: str, count: int) -> list[int]:
 
 
 def open_pdf(path: Path) -> pypdf.PdfReader:
+    import pypdf
+
     if not path.is_file():
         raise ToolError(PDF_NOT_FOUND.format(path=path))
     if path.suffix.lower() != ".pdf":
@@ -94,6 +99,8 @@ def open_pdf(path: Path) -> pypdf.PdfReader:
 
 def page_image(path: Path, index: int) -> str:
     """One page as a PNG data URL, for a vision model to read."""
+    import pypdfium2
+
     document = pypdfium2.PdfDocument(str(path))
     try:
         buffer = BytesIO()
