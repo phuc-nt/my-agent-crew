@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC
 
 import pytest
 
 from my_agent_crew.agent.loop import AgentDeps
+from my_agent_crew.agent.prompt import system_prompt_for
 from my_agent_crew.llm.fake import completion
 from my_agent_crew.llm.types import Message
 from my_agent_crew.memory.session_summary import (
@@ -101,7 +103,42 @@ def test_only_spoken_turns_reach_the_transcript_and_the_tail_is_kept(store: Stor
     store.append(conv.id, Message(role="tool", content="kết quả công cụ", tool_call_id="t1"))
     store.append(conv.id, Message(role="assistant", content="   "))
 
-    text = transcript_text(store.history(conv.id))
+    at(store, "2026-09-24T16:30:00+00:00")
+    text = transcript_text(store.history(conv.id), UTC)
 
-    assert text == "user: đầu tiên\nassistant: trả lời"
-    assert transcript_text(store.history(conv.id), limit=8) == text[-8:]
+    assert text == "[24/9 16:30] user: đầu tiên\n[24/9 16:30] assistant: trả lời"
+    assert transcript_text(store.history(conv.id), UTC, limit=8) == text[-8:]
+
+
+def at(store: Store, stamp: str) -> None:
+    store._conn.execute("UPDATE messages SET created_at = ?", (stamp,))
+
+
+async def test_the_recap_is_asked_for_in_dates_of_the_persons_zone(deps_factory):
+    """A recap that says "tonight" is read the next day as a different night."""
+    deps = deps_factory(script=[completion("24/9: nhắc chạy bộ.")], timezone="Asia/Ho_Chi_Minh")
+    conv = deps.store.create()
+    talked(deps, conv.id, user="tối nay tôi uống 2 lon bia")
+    at(deps.store, "2026-09-24T16:30:00+00:00")
+
+    await summarize_conversation(deps, conv.id)
+
+    [request] = deps.chain.providers["scripted"].requests
+    asked = request.messages[0].content
+    assert "[24/9 23:30] user: tối nay tôi uống 2 lon bia" in asked
+    assert "không viết 'hôm nay', 'hôm qua', 'tối nay'" in asked
+
+
+def test_the_next_conversation_reads_when_the_previous_one_ended(deps_factory):
+    deps = deps_factory(timezone="Asia/Ho_Chi_Minh")
+    first = deps.store.create(agent_id="default", channel="telegram:42")
+    deps.store.update(first.id, summary="Người dùng ghi 2 lon bia ngày 24/9.")
+    deps.store._conn.execute(
+        "UPDATE conversations SET updated_at = ? WHERE id = ?",
+        ("2026-09-24T16:30:00+00:00", first.id),
+    )
+    second = deps.store.create(agent_id="default", channel="telegram:42")
+
+    prompt = system_prompt_for(deps, deps.store.get(second.id))
+
+    assert "## Cuộc trước (lần cuối 24/9 23:30)\nNgười dùng ghi 2 lon bia ngày 24/9." in prompt

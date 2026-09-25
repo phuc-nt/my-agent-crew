@@ -66,6 +66,7 @@ def bootstrap_sections(
     profile: AgentProfile,
     today: date | None = None,
     previous_summary: str = "",
+    previous_at: str = "",
     extra_sections: Sequence[tuple[str, str]] = (),
 ) -> list[tuple[str, str]]:
     """(title, body) pairs in the order they enter the system prompt.
@@ -91,7 +92,8 @@ def bootstrap_sections(
     if wiki:
         sections.append(wiki)
     if previous_summary.strip():
-        sections.append((PREVIOUS_SUMMARY_SECTION_TITLE, previous_summary.strip()))
+        title = PREVIOUS_SUMMARY_SECTION_TITLE.format(when=previous_at or "?")
+        sections.append((title, previous_summary.strip()))
     sections.extend(extra_sections)
     for day in (today - timedelta(days=1), today):
         path = daily_note_path(profile.memory_dir, day)

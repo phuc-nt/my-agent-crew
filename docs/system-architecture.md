@@ -184,7 +184,7 @@ Quy tắc duy nhất: **model không có trạng thái ẩn**. Điều gì cần
 1. persona: `AGENTS.md`, `SOUL.md`
 2. người dùng: `users/owner/USER.md` + `facts/*.md`
 3. `MEMORY.md` của agent
-4. "Cuộc trước": tóm tắt cuộc trò chuyện gần nhất (bảng `conversations`)
+4. "Cuộc trước (lần cuối 24/9 23:30)": tóm tắt cuộc trò chuyện gần nhất (bảng `conversations`). Mỗi dòng transcript đưa đi tóm tắt mở đầu bằng ngày giờ theo múi giờ người dùng, và bản tóm tắt ghi ngày cụ thể thay cho "hôm nay", "hôm qua": nó được đọc vào một ngày khác
 5. roster và lệnh kit (`.agents/commands/*.md`, ví dụ `/tongket` trong bộ cài thật)
 6. ghi chú `memory/<hôm qua>.md` và `memory/<hôm nay>.md`
 

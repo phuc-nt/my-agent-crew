@@ -60,14 +60,16 @@ MEMORY_SEARCH_DESCRIPTION = (
     " Trả về từng mục (gạch đầu dòng hoặc đoạn), không phải từng dòng; gõ không dấu cũng khớp."
 )
 
-PREVIOUS_SUMMARY_SECTION_TITLE = "Cuộc trước"
+PREVIOUS_SUMMARY_SECTION_TITLE = "Cuộc trước (lần cuối {when})"
 SUMMARY_PROMPT = (
     "Tóm tắt cuộc trò chuyện dưới đây trong tối đa 3 câu tiếng Việt, dưới 600 ký tự. "
     "Giữ lại việc người dùng nhờ làm, kết quả, và điều cần nhớ cho lần sau. "
+    "Mỗi dòng mở đầu bằng ngày giờ; nhắc thời điểm thì ghi ngày cụ thể (24/9), "
+    "không viết 'hôm nay', 'hôm qua', 'tối nay' vì bản tóm tắt được đọc vào ngày khác. "
     "Chỉ trả lời bằng bản tóm tắt, không mở đầu, không gạch đầu dòng.\n\n"
     "--- nội dung ---\n{transcript}"
 )
-SUMMARY_TRANSCRIPT_LINE = "{role}: {text}"
+SUMMARY_TRANSCRIPT_LINE = "[{when}] {role}: {text}"
 
 USER_MEMORY_SAVED = "Đã ghi nhớ về người dùng: {name}."
 USER_MEMORY_FORGOTTEN = "Đã xoá ghi nhớ: {name}."

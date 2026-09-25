@@ -25,6 +25,13 @@ def local_day(stamp: str, zone: tzinfo | None) -> str:
     return datetime.fromisoformat(stamp).astimezone(zone).date().isoformat()
 
 
+def day_and_time(stamp: str, zone: tzinfo | None) -> str:
+    """A stored UTC stamp as the person reads it, `24/9 23:15`: an absolute day, because a
+    "yesterday" written down is wrong by the next morning."""
+    moment = datetime.fromisoformat(stamp).astimezone(zone)
+    return f"{moment.day}/{moment.month} {moment:%H:%M}"
+
+
 def day_start_utc(day: date, zone: tzinfo) -> str:
     """Midnight of a local day as the UTC stamp the store compares against."""
     start = datetime.combine(day, time.min, tzinfo=zone).astimezone(UTC)

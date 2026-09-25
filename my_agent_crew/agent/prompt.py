@@ -11,6 +11,7 @@ from my_agent_crew.agent.context_trim import trim_tool_outputs
 from my_agent_crew.agents.context import bootstrap_sections
 from my_agent_crew.agents.kit_commands import commands_section
 from my_agent_crew.agents.roster import DELEGATE_TOOL_NAME, crew_roster_section
+from my_agent_crew.clock import day_and_time
 from my_agent_crew.config import Settings
 from my_agent_crew.llm.types import Message
 from my_agent_crew.skills import Skill
@@ -162,6 +163,7 @@ def system_prompt_for(deps: AgentDeps, conv: Conversation | None = None) -> str:
             profile,
             today=today,
             previous_summary=previous.summary if previous else "",
+            previous_at=day_and_time(previous.updated_at, deps.settings.zone) if previous else "",
             extra_sections=extra,
         ),
         name=profile.name,

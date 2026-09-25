@@ -9,8 +9,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import tzinfo
 from typing import TYPE_CHECKING
 
+from my_agent_crew.clock import day_and_time
 from my_agent_crew.llm.types import Completion, Message
 from my_agent_crew.store import Store, StoredMessage
 from my_agent_crew.texts import SUMMARY_PROMPT, SUMMARY_TRANSCRIPT_LINE
@@ -25,10 +27,17 @@ MAX_TRANSCRIPT_CHARS = 12000
 JOB_SOURCE_PREFIX = "job:"
 
 
-def transcript_text(history: list[StoredMessage], limit: int = MAX_TRANSCRIPT_CHARS) -> str:
-    """User and assistant text only, newest kept when the transcript is too long."""
+def transcript_text(
+    history: list[StoredMessage], zone: tzinfo | None = None, limit: int = MAX_TRANSCRIPT_CHARS
+) -> str:
+    """User and assistant text only, newest kept when the transcript is too long. Each line
+    carries its day and time in the person's zone, so "tonight" can be written as a date."""
     lines = [
-        SUMMARY_TRANSCRIPT_LINE.format(role=m.message.role, text=m.message.content.strip())
+        SUMMARY_TRANSCRIPT_LINE.format(
+            when=day_and_time(m.created_at, zone),
+            role=m.message.role,
+            text=m.message.content.strip(),
+        )
         for m in history
         if m.message.role in ("user", "assistant") and m.message.content.strip()
     ]
@@ -51,7 +60,7 @@ async def summarize_conversation(deps: AgentDeps, conv_id: str, force: bool = Fa
     history = deps.store.history(conv_id)
     if not any(m.message.role == "assistant" and m.message.content.strip() for m in history):
         return ""
-    transcript = transcript_text(history)
+    transcript = transcript_text(history, deps.settings.zone)
     if not transcript:
         return ""
     prompt = Message(role="user", content=SUMMARY_PROMPT.format(transcript=transcript))
