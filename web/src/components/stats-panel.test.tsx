@@ -73,6 +73,15 @@ describe("the costs page's usage figures", () => {
     expect(week).toHaveTextContent(`${vi.costCalls(5)} · ${vi.cacheShare(60)}`);
   });
 
+  // A bare "lượt" is how the page counts runs ("500 lượt gần nhất"); a tile's model
+  // calls written that way read as more runs today than the whole window holds.
+  it("names the tiles' model calls as calls, not runs", () => {
+    render(<StatsPanel stats={stats({ days: [day("2026-09-20", { calls: 1234 })] })} agentName={name} />);
+
+    const [today] = Array.from(screen.getByTestId("stat-periods").children);
+    expect(today).toHaveTextContent("1234 lượt gọi");
+  });
+
   it("says what each figure is counted over", () => {
     render(<StatsPanel stats={stats({ models: [{ model: "openrouter:deepseek", ...day("x") }] })} agentName={name} />);
 

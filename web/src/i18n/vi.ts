@@ -565,7 +565,8 @@ export const vi = {
   costByDay: "Theo ngày",
   costLastDays: "7 ngày gần đây",
   costModels: "Theo model",
-  costCalls: (n: number) => `${n} lượt`,
+  // Model calls, said as such: a bare "lượt" is how this page counts runs.
+  costCalls: (n: number) => `${n} lượt gọi`,
   tokens: (prompt: number, completion: number) => `${prompt} vào / ${completion} ra`,
   tokensHeader: "token vào / ra",
   // How much of the prompt the provider served from its cache: a drop after a persona
