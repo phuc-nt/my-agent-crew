@@ -397,6 +397,18 @@ export const vi = {
   agentKits: "Kit",
   activity: "Hoạt động",
   activityHint: "Mọi lượt chạy của tất cả agent, kể cả việc chạy theo lịch.",
+  // Relative time, short enough for a list row. Past values carry no "trước" — in a
+  // row that already sits under "Hôm nay" the unit alone reads as how long ago.
+  time: {
+    justNow: "vừa xong",
+    minutes: (n: number) => `${n} phút`,
+    hours: (n: number) => `${n} giờ`,
+    yesterday: "Hôm qua",
+    soon: "sắp tới",
+    inMinutes: (n: number) => `sau ${n} phút`,
+    inHours: (n: number) => `sau ${n} giờ`,
+    groups: { today: "Hôm nay", yesterday: "Hôm qua", older: "Cũ hơn" },
+  },
   conversationActivity: {
     title: "Chi tiết hoạt động",
     label: "Hoạt động của cuộc trò chuyện này",

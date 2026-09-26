@@ -21,6 +21,8 @@ export default defineConfig({
   },
   server: { proxy: { "/api": "http://127.0.0.1:8765" } },
   test: {
+    // The owner's calendar, so day boundaries test the same on a laptop here and on CI (UTC).
+    env: { TZ: "Asia/Ho_Chi_Minh" },
     environment: "jsdom",
     setupFiles: ["./src/test-setup.ts"],
     include: ["src/**/*.test.{ts,tsx}"],

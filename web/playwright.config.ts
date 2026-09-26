@@ -12,7 +12,8 @@ export default defineConfig({
   timeout: 30_000,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? "github" : "list",
-  use: { baseURL: origin, trace: "retain-on-failure" },
+  // The owner's calendar, as in vite.config.ts, so day headers render the same on CI.
+  use: { baseURL: origin, timezoneId: "Asia/Ho_Chi_Minh", trace: "retain-on-failure" },
   webServer: {
     command: `npx vite --host 127.0.0.1 --port ${port} --strictPort`,
     url: origin,
