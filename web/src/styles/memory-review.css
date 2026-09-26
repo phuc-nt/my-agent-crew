@@ -1,0 +1,80 @@
+/*
+ * Reviewing memory: the two-sided diff a proposal is judged by, the page cards a wiki
+ * compile proposes, and the wiki's read view. The panels' frames and lists live in
+ * activity-panel.css; this file only adds what a reviewer reads inside them.
+ */
+
+/* ── Diff ───────────────────────────────────────────────────────────────── */
+/* A removed line is the one a reviewer most needs to notice, so it is struck through as
+   well as red: the colour alone would vanish for anyone who cannot tell red from green. */
+.diff .removed {
+  color: var(--danger-text);
+  text-decoration: line-through;
+  text-decoration-color: var(--danger);
+}
+
+.diff > div {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.proposal-card .notice {
+  margin-top: var(--space-2);
+}
+
+.forget-preview {
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--danger);
+  background: var(--danger-bg);
+  border-radius: var(--radius-sm);
+}
+
+.forget-preview p:first-child {
+  margin: 0 0 var(--space-1);
+  color: var(--danger-text);
+  font-size: var(--text-sm);
+}
+
+/* ── Compile cards ──────────────────────────────────────────────────────── */
+.compile-pages {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* Nested inside a proposal card, so a flat sunken panel rather than a second raised card. */
+.proposal-list li.compile-page {
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-sunken);
+  border: 0;
+  box-shadow: none;
+  border-radius: var(--radius-md);
+}
+
+.compile-page summary {
+  margin-top: var(--space-1);
+  color: var(--accent-strong);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.compile-page .diff {
+  background: var(--surface);
+}
+
+@media (max-width: 720px) {
+  .proposal-card .memory-editor-actions button,
+  .proposal-list.history button {
+    min-height: var(--touch-target);
+  }
+
+  .compile-page summary {
+    display: flex;
+    align-items: center;
+    min-height: var(--touch-target);
+  }
+}

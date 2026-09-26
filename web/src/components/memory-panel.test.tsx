@@ -1,10 +1,12 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi as vitest } from "vitest";
+import type { FactInfo } from "../api/types";
 import { vi } from "../i18n/vi";
-import { addedLines } from "../lib/line-diff";
+import { lineDiff } from "../lib/line-diff";
 import { coachAgent, fakeAgent, FakeBackend } from "../test/fake-backend";
 import { MemoryPanel } from "./memory-panel";
+import { formatDateTime } from "./run-timeline";
 
 let backend: FakeBackend;
 
@@ -232,11 +234,193 @@ describe("MemoryPanel", () => {
   });
 });
 
-describe("addedLines", () => {
-  it("marks only lines the current file does not already have", () => {
-    expect(addedLines("a\n\nb", "a\nc")).toEqual([
-      { text: "a", added: false },
-      { text: "c", added: true },
+const savedFact = (overrides: Partial<FactInfo> = {}): FactInfo => ({
+  name: "ngu-som",
+  description: "Ngủ trước 23h",
+  type: "preference",
+  written_by: "coach",
+  source: "chat",
+  updated: "2026-09-20T08:00:00",
+  body: "Ngủ sớm mỗi ngày.",
+  ...overrides,
+});
+
+const decisionPosts = () =>
+  backend.requests.filter((r) => r.method === "POST" && r.path.startsWith("/memory/proposals/"));
+
+describe("MemoryPanel proposal review", () => {
+  it("shows a pending rewrite as removed and added lines, in order, with a local time", async () => {
+    backend.addProposal({
+      kind: "agent_memory_rewrite",
+      name: "MEMORY.md",
+      description: "Cô đọng bộ nhớ",
+      previous_body: "- Sếp thích trà.\n- Sếp dị ứng tôm.\n- Sếp ngủ sớm.",
+      body: "- Sếp thích trà.\n- Sếp ngủ sớm.\n- Sếp chạy bộ.",
+    });
+    mount(1);
+
+    await open(vi.memory.proposals);
+    const diff = (await screen.findByText("- - Sếp dị ứng tôm.")).closest("pre")!;
+    expect([...diff.children].map((row) => [row.className, row.textContent])).toEqual([
+      ["", "  - Sếp thích trà."],
+      ["removed", "- - Sếp dị ứng tôm."],
+      ["", "  - Sếp ngủ sớm."],
+      ["added", "+ - Sếp chạy bộ."],
+    ]);
+    expect(screen.getByText(`Agent · ${formatDateTime("2026-09-20T07:00:00")}`)).toBeInTheDocument();
+    expect(screen.queryByText(/2026-09-20T07:00:00/)).toBeNull();
+  });
+
+  it("shows the exact fact a forget drops and approves it only after a confirm", async () => {
+    backend.facts = [savedFact()];
+    backend.addProposal({ kind: "user_forget", description: "", body: "" });
+    mount(1);
+
+    await open(vi.memory.proposals);
+    const card = (await screen.findByText(vi.memory.forgetWhat)).closest("li")!;
+    expect(within(card).getByText("Ngủ trước 23h")).toBeInTheDocument();
+    expect(within(card).getByText("Ngủ sớm mỗi ngày.")).toBeInTheDocument();
+
+    const confirm = vitest.spyOn(window, "confirm").mockReturnValue(false);
+    await userEvent.click(within(card).getByRole("button", { name: vi.memory.approve }));
+    expect(confirm).toHaveBeenCalledWith(vi.memory.confirmForget("Ngủ trước 23h"));
+    expect(decisionPosts()).toHaveLength(0);
+
+    confirm.mockReturnValue(true);
+    await userEvent.click(within(card).getByRole("button", { name: vi.memory.approve }));
+    await waitFor(() => expect(backend.proposals[0].status).toBe("approved"));
+  });
+
+  it("says when a forget names a fact that is no longer there", async () => {
+    backend.addProposal({ kind: "user_forget", name: "da-xoa", description: "", body: "" });
+    mount(1);
+
+    await open(vi.memory.proposals);
+    expect(await screen.findByText(vi.memory.forgetMissing("da-xoa"))).toBeInTheDocument();
+  });
+
+  it("warns that a fact overwrites the saved one and shows what it replaces", async () => {
+    backend.facts = [savedFact({ description: "Ngủ trước 22h", body: "Ngủ trước 22h mỗi tối." })];
+    backend.addProposal();
+    mount(1);
+
+    await open(vi.memory.proposals);
+    expect(await screen.findByText(vi.memory.overwrite("Ngủ trước 22h"))).toBeInTheDocument();
+    expect(screen.getByText("- Ngủ trước 22h mỗi tối.")).toHaveClass("removed");
+    expect(screen.getByText("+ Ngủ sớm mỗi ngày.")).toHaveClass("added");
+  });
+
+  it("does not warn about an overwrite for a fact that is new", async () => {
+    backend.facts = [savedFact({ name: "ca-phe", description: "Thích cà phê" })];
+    backend.addProposal();
+    mount(1);
+
+    await open(vi.memory.proposals);
+    expect(await screen.findByText("Ngủ sớm mỗi ngày.")).toBeInTheDocument();
+    expect(screen.queryByText(vi.memory.overwrite("Thích cà phê"))).toBeNull();
+  });
+
+  it("disables both buttons while a decision is in flight and sends it once", async () => {
+    backend.addProposal();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    vitest.stubGlobal("fetch", async (input: RequestInfo | URL, init: RequestInit = {}) => {
+      if (init.method === "POST" && String(input).includes("/memory/proposals/")) await gate;
+      return backend.fetch(input, init);
+    });
+    mount(1);
+
+    await open(vi.memory.proposals);
+    const approve = await screen.findByRole("button", { name: vi.memory.approve });
+    const reject = screen.getByRole("button", { name: vi.memory.reject });
+    await userEvent.click(approve);
+    expect(approve).toBeDisabled();
+    expect(reject).toBeDisabled();
+    await userEvent.click(reject);
+
+    release();
+    await waitFor(() => expect(backend.proposals[0].status).toBe("approved"));
+    expect(decisionPosts()).toHaveLength(1);
+  });
+
+  it("says a proposal was decided elsewhere, inline, and refreshes the list", async () => {
+    backend.addProposal();
+    mount(1);
+
+    await open(vi.memory.proposals);
+    const approve = await screen.findByRole("button", { name: vi.memory.approve });
+    // Another tab rejects it after this one loaded the list.
+    backend.proposals[0].status = "rejected";
+    backend.proposals[0].resolved_at = "2026-09-20T08:30:00";
+    await userEvent.click(approve);
+
+    const notice = await screen.findByRole("status");
+    expect(notice).toHaveTextContent(vi.memory.alreadyDecided);
+    expect(screen.queryByRole("button", { name: vi.memory.approve })).toBeNull();
+    // The refreshed list knows it was rejected, so the history counts it.
+    expect(await screen.findByRole("button", { name: `${vi.memory.history} (1)` })).toBeInTheDocument();
+    expect(notice).toHaveTextContent(vi.memory.proposalStatus.rejected);
+    expect(screen.queryByText(vi.memory.decideFailed)).toBeNull();
+  });
+
+  it("shows a wiki compile as one card per page it would write", async () => {
+    const pages = [
+      { slug: "han-eco", kind: "entities", title: "Hạn Eco", body: "Hạn 30/9.", sources: ["2026-09-20"], questions: [], status: "ok" },
+      { slug: "da-lat", kind: "concepts", title: "Đà Lạt", body: "Tháng 10.", sources: ["2026-09-21"], questions: [], status: "ok" },
+    ];
+    backend.addProposal({
+      kind: "wiki_compile",
+      name: "wiki",
+      description: "2 trang",
+      body: JSON.stringify(pages),
+      previous_body: JSON.stringify([{ ...pages[0], body: "Hạn 25/9." }]),
+    });
+    mount(1);
+
+    await open(vi.memory.proposals);
+    const cards = within(await screen.findByRole("list", { name: vi.memory.compilePages(2) }));
+    expect(cards.getAllByRole("listitem")).toHaveLength(2);
+    expect(cards.getByText(vi.memory.compileUpdated)).toBeInTheDocument();
+    expect(cards.getByText(vi.memory.compileNew)).toBeInTheDocument();
+  });
+
+  it("says so when undoing a rewrite fails, and confirms when it works", async () => {
+    backend.setAgentMemory("default", { memory_md: "- b" });
+    const rewrite = {
+      kind: "agent_memory_rewrite",
+      name: "MEMORY.md",
+      description: "Cô đọng bộ nhớ",
+      body: "- b",
+      previous_body: "- a",
+      status: "approved",
+      resolved_at: "2026-09-20T09:00:00",
+    } as const;
+    // An agent that has since been removed: the server has nowhere to write the undo.
+    backend.addProposal({ ...rewrite, agent_id: "gone" });
+    backend.addProposal({ ...rewrite, description: "Cô đọng lần hai" });
+    mount();
+
+    await open(vi.memory.proposals);
+    await userEvent.click(await screen.findByRole("button", { name: `${vi.memory.history} (2)` }));
+    expect(screen.getAllByText(formatDateTime("2026-09-20T09:00:00"))).toHaveLength(2);
+    vitest.spyOn(window, "confirm").mockReturnValue(true);
+    const [gone, kept] = screen.getAllByRole("button", { name: vi.memory.undo });
+
+    await userEvent.click(gone);
+    expect(await screen.findByText(vi.memory.undoFailed)).toBeInTheDocument();
+
+    await userEvent.click(kept);
+    expect(await screen.findByText(vi.memory.undone)).toBeInTheDocument();
+    expect(backend.readAgentMemory("default").memory_md).toBe("- a");
+  });
+});
+
+describe("lineDiff", () => {
+  it("shows the line a rewrite drops as well as the one it adds", () => {
+    expect(lineDiff("a\n\nb", "a\nc")).toEqual([
+      { text: "a", op: "same" },
+      { text: "b", op: "remove" },
+      { text: "c", op: "add" },
     ]);
   });
 });

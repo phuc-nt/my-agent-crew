@@ -86,10 +86,13 @@ export function MemoryPanel(props: Props) {
       {section === "proposals" && (
         <MemoryProposalsSection
           proposals={memory.proposals}
+          agentId={agentId}
           agentMemoryMd={memory.agentMemory?.memory_md ?? ""}
+          facts={memory.user?.facts ?? []}
           agentName={props.agentName}
           onDecide={memory.decide}
           onUndo={memory.undo}
+          onRefresh={memory.refreshProposals}
         />
       )}
     </div>

@@ -24,6 +24,8 @@ export interface MemoryController {
   decide: (id: string, approve: boolean) => Promise<void>;
   consolidate: () => Promise<void>;
   undo: (proposal: MemoryProposal) => Promise<void>;
+  /** Re-reads every proposal, e.g. after finding one was decided elsewhere. */
+  refreshProposals: () => Promise<void>;
 }
 
 /**
@@ -59,6 +61,10 @@ export function useMemory(agentId: string, pendingCount: number): MemoryControll
       () => setProposals([]),
     );
   }, [pendingCount]);
+
+  const refreshProposals = useCallback(async () => {
+    setProposals((await api.listProposals("all")).proposals);
+  }, []);
 
   const reloadUser = useCallback(async () => {
     setUser(await api.getUserMemory());
@@ -151,5 +157,6 @@ export function useMemory(agentId: string, pendingCount: number): MemoryControll
     decide,
     consolidate,
     undo,
+    refreshProposals,
   };
 }
