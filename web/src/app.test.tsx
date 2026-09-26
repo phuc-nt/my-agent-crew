@@ -224,6 +224,44 @@ describe("App", () => {
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     expect(screen.getByText("Xong từ Telegram.")).toBeInTheDocument();
     expect(screen.getByRole("textbox")).toBeEnabled();
+});
+
+  it("raises a spent cap from the over-budget notice and lets the composer write again", async () => {
+    backend.create({ title: "A", cost_cap_usd: 1, spent_usd: 1.2, over_budget: true });
+    render(<App />);
+    await userEvent.click(await screen.findByRole("button", { name: /^A$/ }));
+    const notice = await screen.findByTestId("over-budget");
+    expect(screen.getByRole("textbox")).toBeDisabled();
+
+    await userEvent.click(within(notice).getByRole("button", { name: vi.budgetCard.raise }));
+    await userEvent.click(within(notice).getByRole("button", { name: "+$1.00" }));
+
+    expect(backend.requests.find((r) => r.method === "PATCH")?.body).toEqual({ cost_cap_usd: 2 });
+    await waitFor(() => expect(screen.queryByTestId("over-budget")).not.toBeInTheDocument());
+    expect(screen.getByRole("textbox")).toBeEnabled();
+    expect(screen.getByTestId("budget")).toHaveTextContent(`${vi.spent("$1.20", "$2.00")} (60%)`);
+  });
+
+  it("offers the cap on a budget halt and says when the server refused it", async () => {
+    backend.create({ title: "A" });
+    backend.nextTurn = [{ type: "halted", reason: "budget", spent_usd: 1 }];
+    render(<App />);
+    await userEvent.click(await screen.findByRole("button", { name: /^A$/ }));
+    await userEvent.type(screen.getByRole("textbox"), "x{Enter}");
+    const notice = await screen.findByTestId("notice");
+
+    backend.refuseEdit = "cost_cap_usd must be at least 0";
+    await userEvent.click(within(notice).getByRole("button", { name: vi.budgetCard.raise }));
+    await userEvent.type(within(notice).getByLabelText(vi.budgetCard.custom), "0{Enter}");
+    expect(await within(notice).findByRole("alert")).toHaveTextContent(
+      vi.budgetCard.saveFailed("cost_cap_usd must be at least 0"),
+    );
+    expect(screen.queryByText(vi.loadFailed)).not.toBeInTheDocument();
+
+    // Lifted instead, the pill says there is no cap left to reach.
+    backend.refuseEdit = null;
+    await userEvent.click(within(notice).getByRole("button", { name: vi.budgetCard.set }));
+    await waitFor(() => expect(screen.getByTestId("budget")).toHaveTextContent(vi.unlimited));
   });
 
   it("patches autonomous, skills and title from the header", async () => {

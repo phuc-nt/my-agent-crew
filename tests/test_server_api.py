@@ -54,6 +54,22 @@ def test_validation_rejects_negative_cap_and_empty_text(client):
     assert r.status_code == 422
 
 
+def test_raising_a_spent_cap_lifts_the_budget_block_and_a_negative_cap_is_refused(client, store):
+    conv = client.post("/api/conversations", json={"cost_cap_usd": 1}).json()
+    store.add_spend(conv["id"], 1.2)
+    listed = {c["id"]: c for c in client.get("/api/conversations").json()}
+    assert listed[conv["id"]]["over_budget"] is True
+
+    raised = client.patch(f"/api/conversations/{conv['id']}", json={"cost_cap_usd": 2})
+    assert raised.status_code == 200 and raised.json()["over_budget"] is False
+    listed = {c["id"]: c for c in client.get("/api/conversations").json()}
+    assert listed[conv["id"]]["cost_cap_usd"] == 2 and listed[conv["id"]]["over_budget"] is False
+
+    refused = client.patch(f"/api/conversations/{conv['id']}", json={"cost_cap_usd": -1})
+    assert refused.status_code == 422
+    assert client.get(f"/api/conversations/{conv['id']}").json()["cost_cap_usd"] == 2
+
+
 def test_chat_streams_events_and_persists(client):
     conv = client.post("/api/conversations", json={}).json()
     with client.stream(

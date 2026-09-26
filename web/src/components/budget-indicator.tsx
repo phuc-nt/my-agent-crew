@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { vi } from "../i18n/vi";
+import { CapEditor } from "./cap-editor";
 import { Icon } from "./ui/icon";
 import { MetricBar, MetricRow } from "./ui/metric-card";
 import { PopoverChip } from "./ui/popover-chip";
@@ -9,6 +11,8 @@ interface Props {
   unknownCostCalls: number;
   /** Conversations this one delegated: their spend is already inside `spentUsd`. */
   childCount?: number;
+  /** Stores a new cap for this conversation; absent, the card only reports. */
+  onSetCap?: (capUsd: number) => Promise<void>;
 }
 
 export function formatUsd(value: number): string {
@@ -19,9 +23,10 @@ export function formatUsd(value: number): string {
  * The conversation's spend as a header pill: the figure against the cap on the pill, and
  * the breakdown — what is left, what the delegated work is, which calls had no price —
  * in the card it opens. The pill turns amber near the cap and red at it, so the warning
- * is visible without opening anything.
+ * is visible without opening anything. The card ends on the cap's editor, so a spent
+ * budget is raised where it is read rather than by starting the conversation over.
  */
-export function BudgetIndicator({ spentUsd, capUsd, unknownCostCalls, childCount = 0 }: Props) {
+export function BudgetIndicator({ spentUsd, capUsd, unknownCostCalls, childCount = 0, onSetCap }: Props) {
   const unlimited = capUsd <= 0;
   const ratio = unlimited ? 0 : Math.min(1, spentUsd / capUsd);
   const over = !unlimited && spentUsd >= capUsd;
@@ -89,6 +94,24 @@ export function BudgetIndicator({ spentUsd, capUsd, unknownCostCalls, childCount
           subTone="warn"
         />
       )}
+      {onSetCap && <CapEditor capUsd={capUsd} onSave={onSetCap} />}
     </PopoverChip>
+  );
+}
+
+/** The budget notices' way out: the same editor behind one button, folded once it saved. */
+export function RaiseCapButton({ capUsd, onSave }: { capUsd: number; onSave: (capUsd: number) => Promise<void> }) {
+  const [open, setOpen] = useState(false);
+  const saveAndFold = async (cap: number) => {
+    await onSave(cap);
+    setOpen(false);
+  };
+  return (
+    <>
+      <button type="button" className="link-button" aria-expanded={open} onClick={() => setOpen(!open)}>
+        {vi.budgetCard.raise}
+      </button>
+      {open && <CapEditor capUsd={capUsd} onSave={saveAndFold} />}
+    </>
   );
 }

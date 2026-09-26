@@ -47,6 +47,13 @@ export const vi = {
     unknown: "Không rõ giá",
     unknownValue: (n: number) => `${n} lượt`,
     unknownHint: "Provider không báo giá cho các lượt này, nên chi phí thật có thể cao hơn.",
+    // The cap's editor, in this card and behind the budget notices.
+    cap: "Trần hiện tại:",
+    raise: "Nâng trần",
+    custom: "Trần mới (USD, 0 = không giới hạn)",
+    set: "Đặt",
+    capInvalid: "Trần phải là một số từ 0 trở lên.",
+    saveFailed: (message: string) => `Không lưu được: ${message}`,
   },
   // The header's options pill: how this conversation behaves.
   options: {
@@ -346,7 +353,7 @@ export const vi = {
     delegates: "Có thể giao việc cho",
     delegatesHint: "Chỉ agent chính mới nên giao việc; agent con giao chéo dễ thành vòng lặp.",
     delegatesEmpty: "Không giao cho ai.",
-    costCap: "Trần chi phí mỗi lượt (USD)",
+    costCap: "Trần chi phí mỗi cuộc trò chuyện (USD)",
     maxSteps: "Số bước tối đa",
     autonomous: "Tự chủ — không hỏi trước khi thay đổi dữ liệu",
     askPatterns: "Lệnh vẫn phải hỏi",

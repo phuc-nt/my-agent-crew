@@ -360,7 +360,13 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
     }
     const conv = conversations.find((c) => path.startsWith(`/conversations/${c.id}`));
     if (conv && method === "GET") return json(conv);
-    if (conv && method === "PATCH") return json(Object.assign(conv, route.request().postDataJSON()));
+    if (conv && method === "PATCH") {
+      Object.assign(conv, route.request().postDataJSON());
+      // Derived from the cap on the server, so a raised cap lifts the block here too.
+      const cap = Number(conv.cost_cap_usd);
+      conv.over_budget = cap > 0 && Number(conv.spent_usd) >= cap;
+      return json(conv);
+    }
     return json({ detail: "no route" }, 404);
   });
   return { posted, conversations };

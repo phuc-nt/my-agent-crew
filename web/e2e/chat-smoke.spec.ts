@@ -102,3 +102,30 @@ test("the settings section lists routes and key presence", async ({ page }) => {
   await page.getByRole("button", { name: "← Chat" }).click();
   await expect(panel).toHaveCount(0);
 });
+
+test.describe("on a phone", () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test("a spent cap is raised from the budget pill's card and the composer writes again", async ({ page }) => {
+    await mockApi(page, { conversations: [{
+      id: "c1", agent_id: "default", channel: "", title: "Chung", summary: "", created_at: "", updated_at: "",
+      autonomous: false, cost_cap_usd: 1, skills: [], auto_approve: [], spent_usd: 1.2, unknown_cost_calls: 0,
+      status: "idle", over_budget: true, parent_call_id: "", messages: [], pending_approval: null,
+    }] });
+    await page.goto("/#/chat/c1");
+    await expect(page.getByTestId("over-budget")).toBeVisible();
+    await expect(page.getByRole("textbox")).toBeDisabled();
+
+    await page.getByTestId("budget").click();
+    const card = page.getByRole("dialog", { name: "Chi phí cuộc trò chuyện" });
+    await expect(card.getByTestId("cap-editor")).toContainText("$1.00");
+    const step = card.getByRole("button", { name: "+$1.00" });
+    expect((await step.boundingBox())!.height).toBeGreaterThanOrEqual(40);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+    await step.click();
+
+    await expect(page.getByTestId("budget")).toContainText("$1.20 / $2.00");
+    await expect(page.getByTestId("over-budget")).toBeHidden();
+    await expect(page.getByRole("textbox")).toBeEnabled();
+  });
+});

@@ -312,7 +312,7 @@ export class FakeBackend {
       return this.streamTurn(c);
     }
     if (conv && method === "GET") return json(this.conversations.get(conv));
-    if (conv && method === "PATCH") return json(listItem(Object.assign(this.conversations.get(conv)!, body)));
+    if (conv && method === "PATCH") return this.patchConversation(conv, body);
     if (conv && method === "DELETE") {
       this.conversations.delete(conv);
       return new Response(null, { status: 204 });
@@ -344,6 +344,14 @@ export class FakeBackend {
     const created: AgentInfo = { ...fakeAgent, ...profile, id: agentId, is_master: false };
     this.agents = [...this.agents, created];
     return json({ profile: created, restart_required: [] }, 201);
+  }
+
+  /** Like the server, `over_budget` is derived from the cap, so a raised cap lifts it. */
+  private patchConversation(id: string, body: Partial<ConversationDetail>): Response {
+    if (this.refuseEdit) return json({ detail: this.refuseEdit }, 422);
+    const c = Object.assign(this.conversations.get(id)!, body);
+    c.over_budget = c.cost_cap_usd > 0 && c.spent_usd >= c.cost_cap_usd;
+    return json(listItem(c));
   }
 
   private patchAgent(agentId: string, profile: Record<string, unknown>): Response {

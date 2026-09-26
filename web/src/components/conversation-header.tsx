@@ -22,6 +22,8 @@ interface Props {
   onToggleSkill: (name: string, attached: boolean) => void;
   /** Make the tool ask again: drop it from the conversation's always-allow list. */
   onRevokeAutoApprove: (name: string) => void;
+  /** Stores a new cost cap from the budget card; 0 lifts it. */
+  onSetCap?: (capUsd: number) => Promise<void>;
   /** Extra pills at the end of the row, e.g. the crew count. */
   extra?: ReactNode;
   /** A control before the title, e.g. the button that opens the list on a phone. */
@@ -68,6 +70,7 @@ export function ConversationHeader(props: Props) {
             capUsd={c.cost_cap_usd}
             unknownCostCalls={props.unknownCostCalls}
             childCount={props.childCount}
+            onSetCap={props.onSetCap}
           />
           <ConversationOptions
             conversation={c}

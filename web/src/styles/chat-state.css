@@ -1,0 +1,74 @@
+/*
+ * What the chat says about its own state and how to get out of it: the cost cap's
+ * editor behind the budget pill and the budget notices.
+ */
+
+/* ── Cost cap editor ────────────────────────────────────────────────────── */
+.cap-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+  font-size: var(--text-sm);
+  color: var(--text);
+}
+
+.cap-editor p {
+  margin: 0;
+}
+
+.cap-editor-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.cap-editor-custom {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+.cap-editor-custom label {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--space-1);
+  color: var(--text-secondary);
+}
+
+.cap-editor-custom input {
+  width: 100%;
+  min-width: 0;
+}
+
+.cap-editor-error {
+  color: var(--danger-text);
+}
+
+/* Inside a notice the editor takes a row of its own under the sentence, on the
+   notice's own tint rather than a card's surface. A grid rather than a wrapping row:
+   the sentence is bare text, and wrapped it would drop below its own icon. */
+.main > .notice:has(> .cap-editor) {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.notice > .cap-editor {
+  grid-column: 1 / -1;
+  border-top-color: color-mix(in srgb, currentColor 25%, transparent);
+}
+
+.notice > .link-button {
+  margin-left: auto;
+}
+
+@media (max-width: 720px) {
+  .cap-editor button,
+  .cap-editor input,
+  .notice > .link-button {
+    min-height: var(--touch-target);
+  }
+}

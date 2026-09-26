@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AgentInfo, Conversation, SettingsInfo } from "../api/types";
 import { ApprovalBar } from "../components/approval-bar";
+import { RaiseCapButton } from "../components/budget-indicator";
 import { QuestionCard } from "../components/question-card";
 import { Composer } from "../components/composer";
 import { ConversationActivity } from "../components/conversation-activity";
@@ -130,6 +131,13 @@ export function ChatScreen({
   };
 
   const { state } = thread;
+  // One way to change the cap, shared by the budget card and both budget notices. A
+  // delegate's conversation is not in the list, so only its reloaded thread shows the cap.
+  const onRaiseCap = async (cost_cap_usd: number) => {
+    if (!active) return;
+    await list.patch(active.id, { cost_cap_usd });
+    if (active === thread.detail) await thread.reload();
+  };
   const notice = state.notice && (
     <div className={`notice ${state.notice.kind}`} role="status" data-testid="notice">
       <Icon name={NOTICE_ICON[state.notice.kind] ?? "alert"} />
@@ -140,6 +148,9 @@ export function ChatScreen({
         : state.notice.kind === "fallback"
           ? vi.routeFallback(state.notice.text)
           : vi.errorPrefix + state.notice.text}
+      {state.notice.kind === "halted" && state.notice.text === "budget" && active && (
+        <RaiseCapButton capUsd={active.cost_cap_usd} onSave={onRaiseCap} />
+      )}
     </div>
   );
 
@@ -258,6 +269,7 @@ export function ChatScreen({
                 auto_approve: active.auto_approve.filter((n) => n !== name),
               })
             }
+            onSetCap={onRaiseCap}
             extra={crewChip}
             lead={menuButton}
           />
@@ -312,16 +324,18 @@ export function ChatScreen({
           />
         )}
         {active?.over_budget && !state.busy && (
-          <div className="notice halted">
+          <div className="notice halted" data-testid="over-budget">
             <Icon name="coins" />
             {vi.overBudget}
+            <RaiseCapButton capUsd={active.cost_cap_usd} onSave={onRaiseCap} />
           </div>
         )}
         <Composer
           // Anything pending blocks the composer, question included: the server refuses a
           // new message while an approval waits, so an enabled box would only collect text
-          // and then 409. The question card carries its own input for the reply.
-          disabled={state.pending !== null}
+          // and then 409. The question card carries its own input for the reply. A spent
+          // budget blocks it too: the server would halt the turn before it started.
+          disabled={state.pending !== null || Boolean(active?.over_budget)}
           busy={state.busy}
           draft={draft}
           draftKey={list.activeId ?? "new"}
