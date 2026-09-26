@@ -16,10 +16,16 @@ function num(text: string, low: number, high: number): number | null {
   return n >= low && n <= high ? n : null;
 }
 
-/** The N of a `*` + `/N` step within `1..high`, or null. */
-function step(text: string, high: number): number | null {
+/**
+ * The N of a `*` + `/N` step that divides `cycle` (60 minutes, 24 hours), or null.
+ *
+ * The scheduler restarts a step at every hour or midnight, so `*` + `/7` fires at :56
+ * and again at :00. Only a divisor keeps every gap equal, which "every N" promises.
+ */
+function step(text: string, cycle: number): number | null {
   const match = /^\*\/(\d+)$/.exec(text);
-  return match ? num(match[1], 1, high) : null;
+  const n = match ? num(match[1], 1, cycle - 1) : null;
+  return n !== null && cycle % n === 0 ? n : null;
 }
 
 /** Plain numbers separated by commas, each in range, or null. */
@@ -55,10 +61,10 @@ function onDays(days: Set<number>, time: string): string {
 function repeating(minute: string, hour: string): string | null {
   if (hour === "*") {
     if (minute === "*") return words.every(1, words.units.m);
-    const minutes = step(minute, 59);
+    const minutes = step(minute, 60);
     if (minutes !== null) return words.every(minutes, words.units.m);
   }
-  const hours = hour === "*" ? 1 : step(hour, 23);
+  const hours = hour === "*" ? 1 : step(hour, 24);
   const at = num(minute, 0, 59);
   if (hours === null || at === null) return null;
   const every = words.every(hours, words.units.h);

@@ -41,6 +41,12 @@ describe("a schedule's timing in words", () => {
     "0 24 * * *",
     "0 7 32 * *",
     "*/0 * * * *",
+    // A step that does not divide the hour or the day restarts at :00 or at midnight, so
+    // the last gap is shorter: "every 7 minutes" would be wrong once an hour.
+    "*/7 * * * *",
+    "*/45 * * * *",
+    "0 */5 * * *",
+    "0 */7 * * *",
     "0 7 * *",
     "@daily",
     "",
