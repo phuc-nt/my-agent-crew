@@ -245,9 +245,14 @@ The UI is in Vietnamese, so the tabs are named below as they appear on screen:
 - **Hoạt động** (activity): live runs with steps (model call, tool call, result, time, cost), an
   attention centre for runs waiting for approval or that failed, and a link to a run's own timeline.
 - **Duyệt** (approvals): decided tool requests with their outcome (approved, denied, expired).
-- **Đội** (crew), **Công cụ** (tools), **Lịch chạy** (jobs — next/last run, run-now button,
-  pause/resume), **Ghi nhớ** (memory — split further into **Về bạn**, **Của agent**, **Wiki**,
-  **Tìm** and **Đề xuất**), **Chi phí** (costs, by agent / model / day),
+- **Lịch chạy** (jobs): each schedule's timing in words ("Mỗi ngày 07:00") beside its raw cron or
+  interval; the next and last run as relative times, with the exact local time on hover; how the
+  last run ended (a status badge, its summary and a link to that run); run-now and pause/resume
+  buttons; and **Sửa lịch** (edit schedule), which opens the agent's editor at its schedules, where
+  jobs are added, changed or turned on. The nav entry shows a red count of the jobs whose latest
+  run failed.
+- **Đội** (crew), **Công cụ** (tools), **Ghi nhớ** (memory — split further into **Về bạn**,
+  **Của agent**, **Wiki**, **Tìm** and **Đề xuất**), **Chi phí** (costs, by agent / model / day),
   **Kết nối** (connections), **Cài đặt** (settings).
 
 Inside the chat, a conversation-activity view shows only that conversation's own runs, step by step.
