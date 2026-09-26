@@ -123,6 +123,30 @@ describe("App activity across the crew", () => {
     expect(screen.getByRole("button", { name: /Quản lý/ })).toHaveTextContent("1");
   });
 
+  it("learns how a run ended while the stream was down once the stream reconnects", async () => {
+    backend.agents = [fakeAgent, coachAgent];
+    render(<App />);
+    await screen.findByText(vi.welcomeTitleFor("Agent"));
+    const panel = await openManage();
+    const job = fakeRun({ id: "job1", agent_id: "coach", conversation_id: null, source: "job:coach/brief", status: "running", finished_at: null });
+    act(() => {
+      stream().open();
+      stream().emit({ type: "snapshot", runs: [job] });
+    });
+    expect(await within(panel).findByTestId("run-card")).toHaveAttribute("data-status", "running");
+
+    // A locked phone drops the stream; the job ends meanwhile, so the reconnect's snapshot
+    // no longer lists it and no event about it will ever arrive.
+    backend.runs = [{ ...job, status: "done", finished_at: "2026-09-19T08:00:05Z", summary: "Xong." }];
+    act(() => {
+      stream().onerror?.();
+      stream().open();
+      stream().emit({ type: "snapshot", runs: [] });
+    });
+    await waitFor(() => expect(within(panel).getByTestId("run-card")).toHaveAttribute("data-status", "done"));
+    expect(panel).toHaveTextContent(vi.nothingLive);
+  });
+
   it("marks stream loss on the status line and lists runs needing attention", async () => {
     backend.runs = [fakeRun({ id: "w", status: "awaiting_approval", conversation_id: "c1", summary: "write_file" })];
     backend.create({ title: "Chờ duyệt", status: "awaiting_approval", messages: [storedMessage("user", "ghi")] });

@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { WikiPage } from "../src/api/types";
-import { coachAgent, defaultAgent, mockApi, run } from "./mock-api";
+import { coachAgent, defaultAgent, mockApi, run, sse } from "./mock-api";
 
 const master = { ...defaultAgent, name: "Trợ lý", delegates: ["coach"] };
 // A kit defines it, so there is no manifest to patch and the editor may only show it.
@@ -265,4 +265,43 @@ test("a wiki page reads as prose, its link leads to the next page, and one tap m
   expect((await put).postDataJSON()).toEqual({ status: "ok" });
   await expect(status).toHaveText("ổn");
   await expect(opened.getByRole("button", { name: "Đánh dấu ổn" })).toHaveCount(0);
+});
+
+test("a compile that ends while the stream is down lets go of its chip on the reconnect", async ({ page }) => {
+  await mockApi(page, { agents: [master], wiki: { default: [] } });
+  const compile = run({ id: "wiki-1", source: "memory:wiki", status: "running", finished_at: null, summary: "" });
+  let started = false;
+  let seen = false;
+  let ended = false;
+  const answer = (route: import("@playwright/test").Route, body: unknown, status = 200) =>
+    route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
+  // Registered after mockApi, so these routes answer first.
+  await page.route(/\/api\/agents\/default\/memory\/wiki\/compile$/, (route) => {
+    started = true;
+    return answer(route, { agent_id: "default", run_source: "memory:wiki" }, 202);
+  });
+  // Every answer ends the stream and the browser is back 100 ms later, as on a phone that
+  // keeps dropping it. The run is seen once, running, and no snapshot lists it after that.
+  await page.route(/\/api\/activity\/stream$/, (route) => {
+    const events: object[] = [{ type: "snapshot", runs: [] }];
+    if (started && !seen) events.push({ type: "run", run: compile });
+    seen ||= started;
+    return route.fulfill({ status: 200, contentType: "text/event-stream", body: sse(events, 100) });
+  });
+  const done = { ...compile, status: "done", finished_at: "2026-09-19T08:00:05Z", summary: "Đề xuất 1 trang." };
+  await page.route(/\/api\/activity\/runs(\?|$)/, (route) => answer(route, ended ? [done] : []));
+  await page.goto("/#/manage/memory");
+  await page.getByRole("tab", { name: "Wiki" }).click();
+
+  const section = page.getByTestId("wiki-section");
+  const button = section.getByRole("button", { name: "Dựng wiki" });
+  await button.click();
+  await expect(section.locator(".run-chip")).toContainText("đang chạy");
+  await expect(button).toBeDisabled();
+
+  // It ends between two connections: only the run list can say so now.
+  ended = true;
+  await expect(section.getByText("Đề xuất 1 trang.")).toBeVisible({ timeout: 5_000 });
+  await expect(section.locator(".run-chip")).toHaveCount(0);
+  await expect(button).toBeEnabled();
 });

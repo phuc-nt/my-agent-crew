@@ -120,7 +120,12 @@ export function activityReducer(state: ActivityState, action: ActivityAction): A
       return { ...state, connected: action.connected };
     case "recent": {
       const runs = { ...state.runs };
-      for (const run of action.runs) if (!ACTIVE.includes(runs[run.id]?.status)) runs[run.id] = run;
+      // A live copy is usually ahead of the list, which can predate its latest steps. But a
+      // run the list calls settled is over for good (only a paused run ever resumes), so
+      // that answer wins: a run that ended while the stream was down gets no other word.
+      for (const run of action.runs) {
+        if (!ACTIVE.includes(runs[run.id]?.status) || !ACTIVE.includes(run.status)) runs[run.id] = run;
+      }
       return { ...state, runs };
     }
     case "payload":

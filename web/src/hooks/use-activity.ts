@@ -35,6 +35,7 @@ export function useActivity(
   useEffect(() => {
     if (!enabled || typeof EventSource === "undefined") return;
     void refresh();
+    let seenSnapshot = false;
     return subscribeActivity(
       (payload) => {
         if (payload.type === "conversation") {
@@ -42,6 +43,10 @@ export function useActivity(
           return;
         }
         dispatch({ type: "payload", payload });
+        // Each connection opens with a snapshot of the live runs only. After a drop, a run
+        // that ended meanwhile is in neither that nor any event, so the list is read again.
+        if (payload.type === "snapshot" && seenSnapshot) void refresh();
+        if (payload.type === "snapshot") seenSnapshot = true;
         // A finished run carries server-side durations; pull the list so stats stay honest.
         if (payload.type === "run" && payload.run.finished_at) void refresh();
       },

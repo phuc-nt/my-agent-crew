@@ -160,6 +160,16 @@ describe("activityReducer", () => {
     expect(state.connected).toBe(false);
   });
 
+  it("takes a run the list calls settled over a live copy the stream stopped updating", () => {
+    // The stream dropped mid-run and the run ended before it came back: no event will ever
+    // say so, and the list is the only place that knows.
+    let state = activityReducer(emptyActivity, { type: "payload", payload: { type: "snapshot", runs: [run()] } });
+    state = activityReducer(state, { type: "recent", runs: [run({ status: "done", finished_at: "2026-09-19T08:01:00Z", summary: "Xong." })] });
+    expect(state.runs.r1.status).toBe("done");
+    expect(state.runs.r1.summary).toBe("Xong.");
+    expect(liveRuns(state)).toEqual([]);
+  });
+
   it("derives sorted, live, per-conversation and attention views", () => {
     const state = activityReducer(emptyActivity, {
       type: "recent",
