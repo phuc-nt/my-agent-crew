@@ -1,11 +1,16 @@
+import { useState } from "react";
+import { api } from "../api/client";
 import type { Conversation, SkillInfo } from "../api/types";
 import { vi } from "../i18n/vi";
+import { conversationMarkdown, downloadText, markdownFileName } from "../lib/conversation-markdown";
 import { Icon } from "./ui/icon";
 import { MetricCard, MetricDivider, MetricRow, SwitchRow } from "./ui/metric-card";
 import { PopoverChip } from "./ui/popover-chip";
 
 interface Props {
   conversation: Conversation;
+  /** Who the replies are from, for the headings of an exported file. */
+  agentName?: string;
   skills: SkillInfo[];
   onToggleAutonomous: (value: boolean) => void;
   onToggleSkill: (name: string, attached: boolean) => void;
@@ -21,6 +26,7 @@ interface Props {
  */
 export function ConversationOptions({
   conversation: c,
+  agentName = vi.agent,
   skills,
   onToggleAutonomous,
   onToggleSkill,
@@ -95,6 +101,43 @@ export function ConversationOptions({
           </ul>
         )}
       </MetricCard>
+      <MetricDivider />
+      <ExportButton conversationId={c.id} agentName={agentName} />
     </PopoverChip>
+  );
+}
+
+/**
+ * Downloads the whole conversation as markdown. It reads the stored messages rather than
+ * the thread on screen: those carry the time each turn was said, and the thread may still
+ * be loading or hold a reply that is only half streamed.
+ */
+function ExportButton({ conversationId, agentName }: { conversationId: string; agentName: string }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const run = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      const detail = await api.getConversation(conversationId);
+      downloadText(markdownFileName(detail.title), conversationMarkdown(detail, agentName));
+    } catch (err) {
+      setError(vi.options.exportFailed(err instanceof Error ? err.message : String(err)));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="export-row">
+      <button type="button" disabled={busy} title={vi.options.exportHint} onClick={() => void run()}>
+        <Icon name="download" />
+        {busy ? vi.options.exporting : vi.options.exportMarkdown}
+      </button>
+      {error && (
+        <p className="notice error" role="status">
+          {error}
+        </p>
+      )}
+    </div>
   );
 }

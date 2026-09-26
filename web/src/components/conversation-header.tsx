@@ -71,6 +71,7 @@ export function ConversationHeader(props: Props) {
           />
           <ConversationOptions
             conversation={c}
+            agentName={props.agentName}
             skills={props.skills}
             onToggleAutonomous={props.onToggleAutonomous}
             onToggleSkill={props.onToggleSkill}

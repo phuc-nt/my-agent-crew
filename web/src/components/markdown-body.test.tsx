@@ -1,5 +1,6 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi as vitest } from "vitest";
+import { vi } from "../i18n/vi";
 import { MarkdownBody } from "./markdown-body";
 
 describe("an agent reply carrying markdown", () => {
@@ -29,6 +30,12 @@ describe("an agent reply carrying markdown", () => {
     const pre = container.querySelector("pre.md-pre");
     expect(pre?.textContent?.trim()).toBe("uv run pytest -q");
     expect(pre?.querySelector("code")?.className).toContain("language-bash");
+  });
+
+  it("keeps a fence with no language a block, not a run of inline code", () => {
+    const { container } = render(<MarkdownBody text={"```\nnpm test\nnpm run e2e\n```"} />);
+    expect(container.querySelector("pre.md-pre code")?.textContent).toBe("npm test\nnpm run e2e\n");
+    expect(container.querySelector("code.md-inline")).toBeNull();
   });
 
   it("keeps inline code inline so a sentence does not break into a block", () => {
@@ -63,5 +70,32 @@ describe("an agent reply carrying markdown", () => {
     const { container } = render(<MarkdownBody text="**Giấc ng" />);
     expect(container.querySelector("strong")).toBeNull();
     expect(container.textContent).toContain("Giấc ng");
+  });
+
+  it("gives each fenced block a copy of its own that takes the code and nothing else", async () => {
+    const writeText = vitest.fn(() => Promise.resolve());
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    try {
+      render(
+        <MarkdownBody
+          text={"Chạy lệnh này:\n\n```bash\nuv run pytest -q\nnpm test\n```\n\nrồi:\n\n```\nnpm run e2e\n```"}
+        />,
+      );
+      const buttons = screen.getAllByRole("button", { name: vi.copy.code });
+      expect(buttons).toHaveLength(2);
+
+      fireEvent.click(buttons[0]);
+      await screen.findByRole("button", { name: vi.copy.copied });
+
+      // No prose around it and no newline the fence left behind.
+      expect(writeText).toHaveBeenCalledWith("uv run pytest -q\nnpm test");
+    } finally {
+      Reflect.deleteProperty(navigator, "clipboard");
+    }
+  });
+
+  it("puts no copy button on inline code", () => {
+    render(<MarkdownBody text="chạy `pytest` trước" />);
+    expect(screen.queryByRole("button")).toBeNull();
   });
 });

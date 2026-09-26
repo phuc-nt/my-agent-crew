@@ -1,0 +1,132 @@
+/*
+ * What the owner does with a message once it is in the thread — copy it, share it, open
+ * what he sent — and the conversation list and composer helpers around it.
+ *
+ * The actions stay out of the way on a pointer device (they appear on hover or focus)
+ * and are always shown where there is no hover: a phone has no way to discover a
+ * control that only exists under a cursor.
+ */
+
+/* ── Copy and share ─────────────────────────────────────────────────────── */
+button.copy-button {
+  min-height: 28px;
+  padding: var(--space-1) var(--space-2);
+  gap: var(--space-1);
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+button.copy-button:hover:not(:disabled) {
+  background: var(--surface-hover);
+  border-color: transparent;
+  color: var(--text);
+}
+button.copy-button[data-copied] {
+  color: var(--ok-text);
+}
+
+.bubble-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+.bubble:hover .bubble-actions,
+.bubble-actions:focus-within,
+.bubble-actions:has([data-copied], .copy-fallback) {
+  opacity: 1;
+}
+
+/* A code block's own copy sits in its corner; the pre makes room for it on the first line. */
+.md-code {
+  position: relative;
+}
+.md-code pre.md-pre {
+  padding-right: calc(var(--touch-target) + var(--space-3));
+}
+.md-code > button.copy-button {
+  position: absolute;
+  top: calc(var(--space-2) + 4px);
+  right: 4px;
+  background: var(--surface-sunken);
+  opacity: 0;
+}
+.md-code > button.copy-button:not([data-copied]) .copy-label {
+  display: none;
+}
+.md-code:hover > button.copy-button,
+.md-code > button.copy-button:focus-visible,
+.md-code > button.copy-button[data-copied] {
+  opacity: 1;
+}
+
+.copy-fallback {
+  flex-basis: 100%;
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-2) 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--warn-bg);
+  color: var(--warn-text);
+  font-size: var(--text-sm);
+}
+.copy-fallback p {
+  margin: 0;
+}
+.copy-fallback textarea {
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text);
+  background: var(--surface);
+}
+.copy-fallback button {
+  justify-self: start;
+}
+
+@media (hover: none) {
+  .bubble-actions,
+  .md-code > button.copy-button {
+    opacity: 1;
+  }
+}
+
+/* ── What the person sent ───────────────────────────────────────────────── */
+.bubble a.attachment-thumb {
+  display: block;
+  margin-top: var(--space-2);
+  border-radius: var(--radius-md);
+}
+.bubble a.attachment-thumb img {
+  display: block;
+  max-width: min(100%, 240px);
+  max-height: 240px;
+  border-radius: var(--radius-md);
+  object-fit: cover;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+/* ── Export in the conversation options ─────────────────────────────────── */
+.export-row {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+}
+.export-row .notice {
+  margin: 0;
+}
+
+/* ── Phone ──────────────────────────────────────────────────────────────── */
+@media (max-width: 720px) {
+  button.copy-button {
+    min-height: var(--touch-target);
+    min-width: var(--touch-target);
+  }
+}

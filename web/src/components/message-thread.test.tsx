@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { agentFileUrl } from "../api/client";
 import type { RunInfo, RunStep } from "../api/types";
 import { vi } from "../i18n/vi";
 import type { ThreadItem } from "../state/thread-reducer";
@@ -123,6 +124,70 @@ describe("who gets their text formatted", () => {
     ]);
     expect(screen.getByTestId("message-file")).toBeInTheDocument();
     expect(screen.getByRole("img")).toBeInTheDocument();
+  });
+});
+
+describe("what the person sent through Telegram", () => {
+  const inbox = "/home/owner/.my-agent-crew/agents/default/workspace/inbox";
+  function sent(text: string) {
+    return render(
+      <MessageThread
+        items={[{ id: "u1", kind: "user", text }]}
+        streaming={null}
+        busy={false}
+        onSuggestion={() => {}}
+        echoOnly={false}
+        agentId="default"
+      />,
+    );
+  }
+
+  it("turns a saved document line into a named download chip served from the agent's files", () => {
+    const path = `${inbox}/20260925-081500-bao-cao.pdf`;
+    const { container } = sent(`[Tệp đính kèm đã lưu: ${path}]\nxem giúp`);
+    const chip = screen.getByTestId("attachment-file");
+    expect(chip.getAttribute("href")).toBe(agentFileUrl("default", path));
+    // The arrival stamp the channel prefixed is dropped: the sender named it bao-cao.pdf.
+    expect(chip.getAttribute("download")).toBe("bao-cao.pdf");
+    expect(chip).toHaveTextContent(vi.attachmentDownload("bao-cao.pdf"));
+    expect(screen.getByTestId("message-user")).toHaveTextContent("xem giúp");
+    expect(container.textContent).not.toContain("Tệp đính kèm đã lưu");
+  });
+
+  it("shows a photo as a thumbnail that opens the full file", () => {
+    const path = `${inbox}/20260925-081500-file_12.jpg`;
+    sent(`[Tệp đính kèm đã lưu: ${path}]`);
+    const link = screen.getByTestId("attachment-image");
+    expect(link.getAttribute("href")).toBe(agentFileUrl("default", path));
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(screen.getByRole("img", { name: vi.attachmentImage("file_12.jpg") })).toHaveAttribute(
+      "src",
+      agentFileUrl("default", path),
+    );
+  });
+
+  it("leaves a sentence that only quotes the words as the person wrote it", () => {
+    sent("Bot hay ghi [Tệp đính kèm đã lưu: x] ở đầu tin");
+    expect(screen.queryByTestId("attachment-file")).toBeNull();
+    expect(screen.getByTestId("message-user")).toHaveTextContent("[Tệp đính kèm đã lưu: x]");
+  });
+});
+
+describe("the actions under a reply", () => {
+  it("sit under each finished agent reply but not under what the person typed", () => {
+    render(
+      <MessageThread
+        items={[userItem, { id: "a1", kind: "assistant", text: "**xong**", model: null }]}
+        streaming="đang viết"
+        busy
+        onSuggestion={() => {}}
+        echoOnly={false}
+        agentId="master"
+      />,
+    );
+    expect(screen.getAllByTestId("bubble-actions")).toHaveLength(1);
+    expect(screen.getByTestId("message-assistant")).toContainElement(screen.getByTestId("bubble-actions"));
+    expect(screen.getByTestId("streaming").querySelector(".bubble-actions")).toBeNull();
   });
 });
 

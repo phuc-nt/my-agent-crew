@@ -52,6 +52,10 @@ export const vi = {
     skillsNone: "Không có kỹ năng tuỳ chọn.",
     autoApproveNone: "Chưa có công cụ nào được luôn cho phép.",
     revoke: "Hỏi lại",
+    exportMarkdown: "Xuất Markdown",
+    exportHint: "Tải cả cuộc trò chuyện về một tệp .md, giờ theo lịch của máy này.",
+    exporting: "Đang xuất…",
+    exportFailed: (reason: string) => `Không xuất được: ${reason}`,
   },
   overBudget: "Đã vượt ngân sách — agent sẽ dừng trước lượt gọi model kế tiếp.",
   composerPlaceholder: "Nhắn cho agent… (Enter để gửi, Shift+Enter xuống dòng)",
@@ -658,6 +662,19 @@ export const vi = {
   // Says it is a download, since the link sits inside a reply where everything else is
   // either prose or an image that is simply there.
   attachmentDownload: (name: string) => `Tải tệp: ${name}`,
+  // A photo the person sent through Telegram, shown small in their own bubble.
+  attachmentImage: (name: string) => `Ảnh bạn gửi: ${name}`,
+  attachmentOpen: (name: string) => `Mở ảnh ${name}`,
+  // Copy and share on a reply and on each code block inside it.
+  copy: {
+    copy: "Sao chép",
+    copied: "Đã chép",
+    reply: "Sao chép câu trả lời",
+    code: "Sao chép mã",
+    share: "Chia sẻ",
+    failed: "Trình duyệt không cho chép tự động. Chọn đoạn dưới đây rồi chép tay.",
+    manual: "Nội dung để chép tay",
+  },
   crashed: "Giao diện gặp lỗi không mong đợi.",
   reload: "Tải lại",
   statusIdle: "Sẵn sàng",

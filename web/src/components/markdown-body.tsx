@@ -13,10 +13,12 @@
  * thread.
  */
 
-import { type ReactNode, useMemo } from "react";
+import { isValidElement, type ReactNode, useMemo } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { vi } from "../i18n/vi";
 import { remarkWikiLinks, wikiSlugFromHref } from "../lib/wiki-links";
+import { CopyButton } from "./copy-button";
 
 /** Links leave the app, so they open away from the conversation and cannot reach it. */
 function SafeLink({ href, children }: { href?: string; children?: React.ReactNode }) {
@@ -28,16 +30,29 @@ function SafeLink({ href, children }: { href?: string; children?: React.ReactNod
   );
 }
 
+/** The characters a rendered node spells, which is what copying a code block should take. */
+function plainText(node: ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(plainText).join("");
+  if (isValidElement<{ children?: ReactNode }>(node)) return plainText(node.props.children);
+  return "";
+}
+
 /**
- * Fenced blocks get a scrollable `<pre>`; an inline span stays inline.
+ * Fenced blocks get a scrollable `<pre>` with a copy corner of its own, so a command in
+ * a reply can be taken without the prose around it; an inline span stays inline.
  *
  * react-markdown marks the difference with a `language-*` class and the newline
- * the fence leaves behind, so a single-word fence is still treated as a block.
+ * the fence leaves behind, so a single-word fence is still treated as a block. Both are
+ * read: a fence with no language has no class, and an inline span never holds a newline
+ * (the parser turns one into a space).
  */
 const components: Components = {
   a: SafeLink,
   code({ className, children, ...props }) {
-    const fenced = typeof className === "string" && className.startsWith("language-");
+    const text = plainText(children);
+    const fenced =
+      (typeof className === "string" && className.startsWith("language-")) || text.includes("\n");
     if (!fenced) {
       return (
         <code className="md-inline" {...props}>
@@ -45,12 +60,17 @@ const components: Components = {
         </code>
       );
     }
+    // The fence leaves a trailing newline that nobody selecting the block by hand would take.
+    const code = text.replace(/\n$/, "");
     return (
-      <pre className="md-pre">
-        <code className={className} {...props}>
-          {children}
-        </code>
-      </pre>
+      <div className="md-code">
+        <pre className="md-pre">
+          <code className={className} {...props}>
+            {children}
+          </code>
+        </pre>
+        <CopyButton text={code} label={vi.copy.code} />
+      </div>
     );
   },
   // The default wraps a fenced block in another <pre>; the code renderer above

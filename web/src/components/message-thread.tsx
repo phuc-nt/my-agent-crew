@@ -3,6 +3,8 @@ import type { RunInfo } from "../api/types";
 import { useAutoScroll } from "../hooks/use-auto-scroll";
 import { vi } from "../i18n/vi";
 import type { ThreadItem } from "../state/thread-reducer";
+import { AttachmentChip, fileName, splitAttachments, type AttachmentBlock } from "./attachment-chip";
+import { BubbleActions } from "./copy-button";
 import { MarkdownBody } from "./markdown-body";
 import { RunProgressHeader } from "./run-progress-header";
 import { ToolCallCard } from "./tool-call-card";
@@ -170,12 +172,6 @@ function Speaker({ id, name, model }: { id: string; name: string; model?: string
   );
 }
 
-/** The last segment of a workspace path, which is what the link should read as. */
-function fileName(path: string): string {
-  const parts = path.split("/").filter((part) => part !== "");
-  return parts[parts.length - 1] ?? path;
-}
-
 function Item({
   item,
   agentId,
@@ -202,7 +198,11 @@ function Item({
       </div>
     );
   const assistant = item.kind === "assistant";
-  const blocks = assistant ? splitMedia(item.text) : [{ kind: "text" as const, value: item.text }];
+  // What a person sent through Telegram arrives as lines naming the saved files; those
+  // become the photo or the file again rather than a path in their own bubble.
+  const blocks: (ReplyBlock | AttachmentBlock)[] = assistant
+    ? splitMedia(item.text)
+    : splitAttachments(item.text);
   return (
     <div className={`bubble ${item.kind}`} data-testid={`message-${item.kind}`}>
       {/* Your own messages need no name on screen — the side they sit on says it — but a
@@ -213,7 +213,9 @@ function Item({
         <span className="sr-only">{vi.you}</span>
       )}
       {blocks.map((block, i) =>
-        block.kind === "media" ? (
+        block.kind === "attachment" ? (
+          <AttachmentChip key={i} agentId={agentId} path={block.value} />
+        ) : block.kind === "media" ? (
           <img
             key={i}
             className="media"
@@ -241,6 +243,7 @@ function Item({
           <p key={i}>{block.value}</p>
         ),
       )}
+      {assistant && item.text.trim() !== "" && <BubbleActions text={item.text} />}
     </div>
   );
 }
