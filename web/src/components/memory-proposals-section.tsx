@@ -9,8 +9,8 @@ interface Props {
   /** The agent whose MEMORY.md is loaded; an append is only previewed against its own file. */
   agentId: string;
   agentMemoryMd: string;
-  /** The person's facts, so a forget or an overwrite can show what it replaces. */
-  facts: FactInfo[];
+  /** The person's facts, so a forget or an overwrite can show what it replaces; null unread. */
+  facts: FactInfo[] | null;
   agentName: (id: string) => string;
   onDecide: (id: string, approve: boolean) => Promise<void>;
   /** Puts back what an approved rewrite replaced. */

@@ -9,14 +9,27 @@ import { formatDateTime } from "./run-timeline";
 interface Props {
   proposal: MemoryProposal;
   agentName: (id: string) => string;
-  /** The person's facts as they stand, so a forget or an overwrite shows what it replaces. */
-  facts: FactInfo[];
+  /**
+   * The person's facts as they stand, so a forget or an overwrite shows what it replaces;
+   * null while they have not been read (still loading, or the read failed).
+   */
+  facts: FactInfo[] | null;
   /** MEMORY.md of the proposal's agent when that is the one loaded, otherwise null. */
   agentMemoryMd: string | null;
   /** Someone decided it elsewhere first: the card stays, saying so, instead of vanishing. */
   conflicted: boolean;
   onDecide: (id: string, approve: boolean) => Promise<void>;
   onConflict: (id: string) => void;
+}
+
+/**
+ * The saved fact a proposal names. The server files a fact under its name trimmed and
+ * lowercased, while a proposal keeps the name as the agent wrote it, so "Ngu-Som" is the
+ * fact "ngu-som" and approving it overwrites or forgets that one.
+ */
+function namedFact(facts: FactInfo[], name: string): FactInfo | undefined {
+  const key = name.trim().toLowerCase();
+  return facts.find((fact) => fact.name === key);
 }
 
 /** What approving a legacy `agent_memory` proposal writes, mirroring the server's append. */
@@ -31,7 +44,17 @@ function appended(current: string, body: string): string {
  * name alone asked the person to approve something they could not read.
  */
 function ProposalBody({ proposal, facts, agentMemoryMd }: Omit<Props, "agentName" | "conflicted" | "onDecide" | "onConflict">) {
-  const existing = facts.find((fact) => fact.name === proposal.name);
+  // Unread facts are not "no facts": saying a forget drops nothing, or that a fact is new,
+  // would invite approving a loss nobody was shown.
+  if (facts === null && (proposal.kind === "user_forget" || proposal.kind === "user_fact")) {
+    return (
+      <>
+        <p className="notice warn">{vi.memory.factsUnknown}</p>
+        {proposal.body && <p className="fact-body">{proposal.body}</p>}
+      </>
+    );
+  }
+  const existing = facts && namedFact(facts, proposal.name);
   switch (proposal.kind) {
     case "agent_memory_rewrite":
       return <DiffView before={proposal.previous_body} after={proposal.body} />;
@@ -71,7 +94,7 @@ export function ProposalCard(props: Props) {
   const decide = async (approve: boolean) => {
     // A forget cannot be taken back from here, so it asks with the fact's own words.
     if (approve && proposal.kind === "user_forget") {
-      const fact = props.facts.find((f) => f.name === proposal.name);
+      const fact = props.facts && namedFact(props.facts, proposal.name);
       if (!window.confirm(vi.memory.confirmForget(fact?.description || proposal.name))) return;
     }
     setBusy(true);

@@ -351,6 +351,40 @@ describe("MemoryPanel proposal review", () => {
     expect(screen.queryByText(vi.memory.overwrite("Thích cà phê"))).toBeNull();
   });
 
+  it("matches a proposal to the saved fact whatever case the agent wrote its name in", async () => {
+    // The server files names trimmed and lowercased, so approving these touches "ngu-som".
+    backend.facts = [savedFact()];
+    backend.addProposal({ kind: "user_forget", name: "Ngu-Som", description: "", body: "" });
+    backend.addProposal({ name: " Ngu-Som", description: "Ngủ trước 22h", body: "Ngủ trước 22h mỗi tối." });
+    mount(2);
+
+    await open(vi.memory.proposals);
+    const forget = (await screen.findByText(vi.memory.forgetWhat)).closest("li")!;
+    expect(within(forget).getByText("Ngủ sớm mỗi ngày.")).toBeInTheDocument();
+    expect(screen.queryByText(vi.memory.forgetMissing("Ngu-Som"))).toBeNull();
+    expect(screen.getByText(vi.memory.overwrite("Ngủ trước 23h"))).toBeInTheDocument();
+    expect(screen.getByText("- Ngủ sớm mỗi ngày.")).toHaveClass("removed");
+  });
+
+  it("says the saved facts are unknown, rather than absent, when they could not be read", async () => {
+    backend.facts = [savedFact()];
+    backend.addProposal({ kind: "user_forget", description: "", body: "" });
+    backend.addProposal({ description: "Ngủ trước 22h", body: "Ngủ trước 22h mỗi tối." });
+    const fetchThrough = backend.fetch;
+    vitest.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) =>
+      String(input).endsWith("/memory/user")
+        ? Promise.resolve(new Response(JSON.stringify({ detail: "down" }), { status: 500 }))
+        : fetchThrough(input, init),
+    );
+    mount(2);
+
+    await open(vi.memory.proposals);
+    expect(await screen.findAllByText(vi.memory.factsUnknown)).toHaveLength(2);
+    expect(screen.queryByText(vi.memory.forgetMissing("ngu-som"))).toBeNull();
+    // The new fact's own text is still there to read; only the verdict is held back.
+    expect(screen.getByText("Ngủ trước 22h mỗi tối.")).toBeInTheDocument();
+  });
+
   it("disables both buttons while a decision is in flight and sends it once", async () => {
     backend.addProposal();
     let release!: () => void;

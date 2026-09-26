@@ -105,7 +105,7 @@ export function MemoryPanel(props: Props) {
           proposals={memory.proposals}
           agentId={agentId}
           agentMemoryMd={memory.agentMemory?.memory_md ?? ""}
-          facts={memory.user?.facts ?? []}
+          facts={memory.user?.facts ?? null}
           agentName={props.agentName}
           onDecide={memory.decide}
           onUndo={memory.undo}

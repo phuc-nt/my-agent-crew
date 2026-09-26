@@ -666,6 +666,7 @@ export const vi = {
     overwrite: (description: string) => `Ghi đè: ${description}`,
     forgetWhat: "Sẽ quên đúng điều này:",
     forgetMissing: (name: string) => `Không còn điều nào tên "${name}" để quên.`,
+    factsUnknown: "Chưa đọc được những điều đã nhớ về bạn, nên chưa biết đề xuất này thay hay xoá điều gì.",
     confirmForget: (description: string) => `Quên hẳn "${description}"? Không thể hoàn tác.`,
     compilePages: (n: number) => `${n} trang wiki`,
     compileNew: "mới",
