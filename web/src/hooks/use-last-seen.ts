@@ -13,14 +13,19 @@ interface Seen {
   seen: Record<string, string>;
 }
 
-function load(): Seen {
+function read(): Seen | null {
   try {
     const stored = JSON.parse(window.localStorage.getItem(KEY) ?? "null") as Seen | null;
     if (stored && typeof stored.since === "string" && stored.seen) return stored;
   } catch {
-    // Unreadable or refused: start over, the same as a first visit.
+    // Unreadable or refused: the same as nothing stored.
   }
-  return { since: new Date().toISOString(), seen: {} };
+  return null;
+}
+
+/** What was stored, or a first visit's baseline: nothing before now counts as unread. */
+function load(): Seen {
+  return read() ?? { since: new Date().toISOString(), seen: {} };
 }
 
 function save(value: Seen): void {
@@ -36,6 +41,10 @@ function after(a: string, b: string): boolean {
   const left = Date.parse(a);
   const right = Date.parse(b);
   return !Number.isNaN(left) && !Number.isNaN(right) && left > right;
+}
+
+function later(a: string | undefined, b: string | undefined): string | undefined {
+  return a && b && after(b, a) ? b : (a ?? b);
 }
 
 /**
@@ -54,11 +63,18 @@ export function useLastSeen(conversations: Conversation[], activeId: string | nu
     if (!activeId || !stamp) return;
     setState((previous) => {
       if (previous.seen[activeId] === stamp) return previous;
+      // Another tab of this browser may have written since this one loaded. Its marks are
+      // merged in, the later stamp winning, so what was read there is not unread again here.
+      const stored = read();
       // Rows that left the list were deleted; dropping them keeps the stored map the
       // size of the list rather than of every conversation ever opened.
-      const seen: Record<string, string> = { [activeId]: stamp };
-      for (const c of conversations) if (previous.seen[c.id]) seen[c.id] ??= previous.seen[c.id];
-      const next = { since: previous.since, seen };
+      const seen: Record<string, string> = {};
+      for (const c of conversations) {
+        const mark = later(previous.seen[c.id], stored?.seen[c.id]);
+        if (mark) seen[c.id] = mark;
+      }
+      seen[activeId] = later(seen[activeId], stamp) ?? stamp;
+      const next = { since: stored?.since ?? previous.since, seen };
       save(next);
       return next;
     });
@@ -66,8 +82,10 @@ export function useLastSeen(conversations: Conversation[], activeId: string | nu
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeId, stamp]);
 
-  // Written once so a first visit's baseline survives a reload.
-  useEffect(() => save(state), []); // eslint-disable-line react-hooks/exhaustive-deps
+  // Written once so a first visit's baseline survives a reload; never over another tab's map.
+  useEffect(() => {
+    if (read() === null) save(state);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (c: Conversation): boolean =>
     c.id !== activeId && after(c.updated_at, state.seen[c.id] ?? state.since);

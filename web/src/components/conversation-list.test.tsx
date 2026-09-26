@@ -139,6 +139,19 @@ describe("the unread dot", () => {
     expect(dots()).toEqual([]);
   });
 
+  it("keeps what one tab read when another tab of the same browser writes after it", () => {
+    const x = render(list([a(), b()], null));
+    const y = render(list([a(), b()], null));
+    // The owner reads the reply in one tab, then opens the other conversation in the second.
+    x.rerender(list([a("2026-09-26T05:01:00Z"), b()], "a"));
+    y.rerender(list([b("2026-09-26T05:02:00Z"), a("2026-09-26T05:01:00Z")], "b"));
+    x.unmount();
+    y.unmount();
+
+    render(list([b("2026-09-26T05:02:00Z"), a("2026-09-26T05:01:00Z")], null));
+    expect(dots()).toEqual([]);
+  });
+
   it("still lists everything, just without memory, where storage is refused", () => {
     refusingStorage();
     const view = render(list([a(), b()], "a"));
