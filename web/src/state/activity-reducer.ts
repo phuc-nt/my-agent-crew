@@ -1,3 +1,4 @@
+import { isAnswered } from "../lib/run-progress";
 import { noteText, PROGRESS_NOTE_TOOL } from "../lib/run-rows";
 import type { AgentEvent, RunInfo, RunPayload, RunStep } from "../api/types";
 
@@ -26,21 +27,32 @@ export function applyRunEvent(run: RunInfo, e: AgentEvent): RunInfo {
   const steps: RunStep[] = [...run.steps];
   let { spent_usd, unknown_cost_calls, summary } = run;
   switch (e.type) {
-    case "assistant_message":
-      steps.push({
+    case "assistant_message": {
+      // A child's answer handed on as this reply: no model spoke, so there is no step
+      // and no bill. The delegate step already shows the answer.
+      if (e.provider === null) break;
+      // A run read mid-call carries that call open; its answer closes it rather than
+      // standing beside it as a second call.
+      const last = steps[steps.length - 1];
+      const open = last?.kind === "model" && !isAnswered(last) ? last : null;
+      const answered: RunStep = {
         kind: "model",
-        chars: e.content.length,
+        first_token_ms: open?.first_token_ms,
+        chars: open?.chars || e.content.length,
         provider: e.provider,
         model: e.model,
         cost_usd: e.cost_usd,
         tool_calls: e.tool_calls.map((c) => c.name),
         preview: preview(e.content),
         duration_ms: null,
-      });
+      };
+      if (open) steps[steps.length - 1] = answered;
+      else steps.push(answered);
       if (e.cost_usd === null) unknown_cost_calls += 1;
       else spent_usd += e.cost_usd;
       if (e.content) summary = preview(e.content);
       break;
+    }
     case "tool_call":
       if (e.name === PROGRESS_NOTE_TOOL) {
         // Closed the moment it is written, exactly as the server writes it: a note is

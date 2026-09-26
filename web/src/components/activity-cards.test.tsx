@@ -51,6 +51,22 @@ describe("RunCard", () => {
     expect(open).toHaveBeenCalledWith("c1");
   });
 
+  it("draws a model call caught mid-answer as thinking, with no price it cannot know yet", async () => {
+    const run = fakeRun({
+      status: "running",
+      finished_at: null,
+      steps: [{ kind: "model", chars: 0, first_token_ms: null, duration_ms: null }],
+    });
+    render(<RunCard run={run} agentName="HLV" expanded />);
+    const [step] = screen.getAllByTestId("run-step");
+    expect(step).toHaveAttribute("data-state", "running");
+    expect(step).toHaveTextContent(vi.runThinking);
+    expect(step).not.toHaveTextContent("$");
+    const header = screen.getByTestId("run-progress");
+    expect(header).toHaveTextContent(vi.runThinking);
+    expect(header).not.toHaveTextContent(vi.runDoing(vi.runThinking));
+  });
+
   it("draws a question as a row that is waiting, not one that is working", async () => {
     const run = fakeRun({
       status: "awaiting_approval",

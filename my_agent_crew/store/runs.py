@@ -43,7 +43,13 @@ class RunRecord:
             "status": self.status,
             "started_at": self.started_at,
             "finished_at": self.finished_at,
-            "steps": self.steps,
+            # Copies, not the live list: a payload waits in a watcher's queue and is
+            # serialised later, by which time the run has moved on. Keys starting with
+            # "_" are the step builder's own bookkeeping and never leave the process.
+            "steps": [
+                {key: value for key, value in step.items() if not key.startswith("_")}
+                for step in self.steps
+            ],
             "spent_usd": self.spent_usd,
             "unknown_cost_calls": self.unknown_cost_calls,
             "summary": self.summary,

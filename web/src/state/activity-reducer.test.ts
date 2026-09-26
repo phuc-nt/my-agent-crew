@@ -45,17 +45,51 @@ describe("applyRunEvent", () => {
     expect(a.steps[0]).toMatchObject({ kind: "model", chars: 200, model: "deepseek", tool_calls: ["read_file"] });
     expect((a.steps[0] as { preview: string }).preview.endsWith("…")).toBe(true);
     expect(a.spent_usd).toBeCloseTo(0.002);
+    // A local model reports no price: counted as unknown, never as free.
     const b = applyRunEvent(a, {
       type: "assistant_message",
       message_id: "m2",
       content: "",
       tool_calls: [],
-      provider: null,
-      model: null,
+      provider: "ollama",
+      model: "llama3",
       cost_usd: null,
     });
     expect(b.unknown_cost_calls).toBe(1);
     expect(b.summary).toBe(a.summary);
+  });
+
+  it("completes the model step a snapshot caught mid-call instead of adding a second", () => {
+    // A tab that connects while the model is answering gets the run with that call open:
+    // no answer, no price, no tool calls yet. The answer closes that step, as on the server.
+    const midCall = run({ steps: [{ kind: "model", chars: 5, first_token_ms: 300, duration_ms: null }] });
+    const next = applyRunEvent(midCall, {
+      type: "assistant_message",
+      message_id: "m1",
+      content: "xin chào",
+      tool_calls: [],
+      provider: "openrouter",
+      model: "deepseek",
+      cost_usd: 0.001,
+    });
+    expect(next.steps).toHaveLength(1);
+    expect(next.steps[0]).toMatchObject({ kind: "model", chars: 5, first_token_ms: 300, model: "deepseek", cost_usd: 0.001 });
+    expect(next.spent_usd).toBeCloseTo(0.001);
+  });
+
+  it("adds no model step for a child's answer handed on whole, as the server does not", () => {
+    const relayed = applyRunEvent(run({ summary: "delegate" }), {
+      type: "assistant_message",
+      message_id: "m2",
+      content: "Có 3 tệp.",
+      tool_calls: [],
+      provider: null,
+      model: null,
+      cost_usd: 0,
+    });
+    expect(relayed.steps).toHaveLength(0);
+    expect(relayed.unknown_cost_calls).toBe(0);
+    expect(relayed.summary).toBe("delegate");
   });
 
   it("opens a tool step on tool_call and closes it with the matching tool_result", () => {

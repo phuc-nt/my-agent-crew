@@ -88,6 +88,13 @@ describe("stepState", () => {
     ).toBe("failed");
   });
 
+  it("reads a model step still waiting on its answer as running, then stalled", () => {
+    // What a snapshot taken mid-call carries: the answer fields land with the answer.
+    const open = { kind: "model" as const, chars: 0, first_token_ms: null, duration_ms: null };
+    expect(stepState(open, "running")).toBe("running");
+    expect(stepState(open, "error")).toBe("stalled");
+  });
+
   it("keeps a question waiting whatever the run went on to do", () => {
     // The answer resumes the turn as a new run, so this step never closes. Read as
     // running it would show effort nobody is spending; read as stalled it would

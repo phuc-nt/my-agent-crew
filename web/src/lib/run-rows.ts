@@ -9,8 +9,9 @@
 // Second, every row arrives already knowing its state, its kind and its label,
 // so a component only has to decide how to paint it — and so a compact
 // placement and the full timeline cannot disagree about what is happening.
-import { stepState, type StepState } from "./run-progress";
+import { isAnswered, stepState, type StepState } from "./run-progress";
 import type { RunInfo, RunStep } from "../api/types";
+import { vi } from "../i18n/vi";
 
 /** The visual family of a row, which decides its colour and glyph. */
 export type RowKind = "model" | "tool" | "delegate" | "fallback" | "question" | "note";
@@ -74,7 +75,8 @@ function rowKind(step: RunStep): RowKind {
 }
 
 function rowLabel(step: RunStep): string {
-  if (step.kind === "model") return step.model ?? "?";
+  // A call still answering has no model name yet; what it is doing is the better label.
+  if (step.kind === "model") return isAnswered(step) ? (step.model ?? "?") : vi.runThinking;
   if (step.kind === "fallback") return `${step.provider}:${step.model}`;
   // The question itself, not "ask_user": the label is what the row is about.
   if (step.kind === "question") return step.question;
@@ -102,7 +104,7 @@ function mergeable(prev: RunRow, next: RunRow): boolean {
 
 function hasBody(step: RunStep): boolean {
   if (step.kind === "tool") return step.output !== null && step.output !== "";
-  if (step.kind === "model") return step.preview !== "";
+  if (step.kind === "model") return Boolean(step.preview);
   // A fallback carries its error text, a question carries what was asked and a note
   // carries its sentence; each is always worth its own row. Two notes in a row say
   // different things even when they look alike to the merge rule.

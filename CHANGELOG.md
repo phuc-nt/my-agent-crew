@@ -11,6 +11,16 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+### Fixed
+
+- **The activity panel no longer crashes on a run that just started.** The "run started" payload
+  shared the run's live step list, so by the time a watcher serialised it the model call that opened
+  next was already in it: half-built, with an internal clock field and no cost. The page then added a
+  second model step when the answer landed, and drawing the first one failed on its missing cost. A
+  run is now sent as a copy without the builder's private keys. The page also completes a model call
+  that a snapshot caught mid-answer rather than duplicating it, shows it as "Đang suy nghĩ" until the
+  answer lands, and, like the server, adds no model step for a child's answer that was relayed whole.
+
 ## [0.7.0] — 2026-09-26
 
 This release is about the time between a question and its answer. Model calls are timed from the

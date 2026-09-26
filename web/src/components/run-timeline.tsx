@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { RunInfo } from "../api/types";
 import { vi } from "../i18n/vi";
-import { isSettled, stepProgress } from "../lib/run-progress";
+import { isAnswered, isSettled, stepProgress } from "../lib/run-progress";
 import { runRows, type RunRow } from "../lib/run-rows";
 import type { RunGroup } from "../state/activity-reducer";
 import { formatUsd } from "./budget-indicator";
@@ -109,6 +109,8 @@ const STATE_LABEL: Record<RunRow["state"], string> = {
  */
 function showState(row: RunRow): boolean {
   if (row.state === "done") return false;
+  // A call still answering is labelled by what it is doing, which already says so.
+  if (row.kind === "model" && row.state === "running") return false;
   if (row.kind === "fallback") return false;
   return true;
 }
@@ -140,7 +142,7 @@ function StepRow({ row }: { row: RunRow }) {
               "openrouter:glm" both read as names until something says which one
               answered and which one was abandoned. A tool row is the exception:
               its name is a verb already. */}
-          {row.kind === "model" && <span className="step-role muted">{vi.stepModel}</span>}
+          {row.kind === "model" && row.state !== "running" && <span className="step-role muted">{vi.stepModel}</span>}
           {row.kind === "fallback" && <span className="step-role muted">{vi.stepFallback}</span>}
           {row.kind === "delegate" && <span className="step-role muted">{vi.stepDelegate}</span>}
           {/* The label is the question itself, so without this the row reads as a
@@ -164,9 +166,9 @@ function StepRow({ row }: { row: RunRow }) {
         </span>
         {duration && <span className="step-time tabular">{duration}</span>}
       </span>
-      {step.kind === "model" && (
+      {step.kind === "model" && isAnswered(step) && (
         <span className="step-detail">
-          {vi.stepChars(step.chars)} · {step.cost_usd === null ? vi.stepCostUnknown : formatUsd(step.cost_usd)}
+          {vi.stepChars(step.chars)} · {step.cost_usd == null ? vi.stepCostUnknown : formatUsd(step.cost_usd)}
           {step.tool_calls.length > 0 && ` · → ${step.tool_calls.join(", ")}`}
         </span>
       )}

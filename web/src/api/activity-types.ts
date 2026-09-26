@@ -7,11 +7,13 @@ export type RunStep =
   | {
       kind: "model";
       chars: number;
-      provider: string | null;
-      model: string | null;
-      cost_usd: number | null;
-      tool_calls: string[];
-      preview: string;
+      // Written when the answer lands. A run read while its model is still answering
+      // carries the call open, with none of them yet — see `isAnswered`.
+      provider?: string | null;
+      model?: string | null;
+      cost_usd?: number | null;
+      tool_calls?: string[];
+      preview?: string;
       duration_ms: number | null;
       // Milliseconds from the request to the first chunk; absent on runs from before it was timed.
       first_token_ms?: number | null;

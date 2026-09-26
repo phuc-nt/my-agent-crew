@@ -21,12 +21,13 @@ export function RunProgressHeader({ run }: { run: RunInfo }) {
   // on, and reporting a half-finished tool call instead would hide the ask.
   const waiting = waitingStep(run);
 
+  // A model call that is still open is the model thinking, whatever its row is called.
   // A settled run has no "right now" to report, so it says how it ended instead.
   // Saying "Đang suy nghĩ" on a run that finished minutes ago reads as a hang.
   const label = !isSettled(run.status)
     ? waiting !== null
       ? vi.runWaitingAnswer
-      : active === null
+      : active === null || active.kind === "model"
         ? vi.runThinking
         : vi.runDoing(labelFor(run, active))
     : endedLabel(run.status);

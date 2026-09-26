@@ -7,6 +7,7 @@ from my_agent_crew.activity.hub import SUBSCRIBER_QUEUE_SIZE
 from my_agent_crew.agent.events import (
     AssistantMessageEvent,
     DoneEvent,
+    ModelCallEvent,
     TextDeltaEvent,
     ThinkingEvent,
     kind_of,
@@ -70,3 +71,22 @@ async def test_a_watcher_that_stops_reading_is_dropped_and_its_stream_ends(store
     hub.publish_conversation({"id": "new"})
     await asyncio.wait_for(watcher, 2)
     assert fresh[-1]["conversation"] == {"id": "new"}
+
+
+async def test_a_run_is_announced_as_it_was_not_as_it_is_when_the_watcher_reads_it(store: Store):
+    # Payloads wait in a queue and are serialised when the watcher gets to them. A payload
+    # that shared the run's step list would by then show a model step opened after it was
+    # sent: half-built, with the builder's private clock and no cost, which the page then
+    # doubled up when the answer landed.
+    hub = ActivityHub(store)
+    stream = hub.subscribe()
+    assert (await anext(stream))["type"] == "snapshot"
+    run = hub.start("default", "chat", "t", None)
+    hub.record(run, ModelCallEvent("sent"), 1.0)
+    announced = await asyncio.wait_for(anext(stream), 2)
+    assert announced["type"] == "run" and announced["run"]["steps"] == []
+
+    fresh = hub.subscribe()
+    [open_step] = (await anext(fresh))["runs"][0]["steps"]
+    assert open_step["kind"] == "model" and open_step["duration_ms"] is None
+    assert not [key for key in open_step if key.startswith("_")]

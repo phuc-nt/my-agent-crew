@@ -33,6 +33,14 @@ export function isSettled(status: RunStatus): status is SettledStatus {
   return SETTLED.includes(status);
 }
 
+type ModelStep = Extract<RunStep, { kind: "model" }>;
+
+/** Whether a model call has its answer. The answer, its price and its tool calls land
+ *  together, so a run read mid-call carries the step open with none of them. */
+export function isAnswered(step: ModelStep): step is ModelStep & { tool_calls: string[] } {
+  return step.tool_calls !== undefined;
+}
+
 /**
  * The state to paint for one step.
  *
@@ -43,7 +51,8 @@ export function isSettled(status: RunStatus): status is SettledStatus {
  */
 export function stepState(step: RunStep, runStatus: RunStatus): StepState {
   if (step.kind === "fallback") return "failed";
-  if (step.kind === "model") return "done";
+  if (step.kind === "model" && isAnswered(step)) return "done";
+  if (step.kind === "model") return isSettled(runStatus) ? "stalled" : "running";
   // A note is finished the instant it is written, and it can neither run nor fail.
   if (step.kind === "note") return "done";
   // A question never closes on this run: the answer resumes the turn as a new one. So it
