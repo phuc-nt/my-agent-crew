@@ -5,7 +5,7 @@ title: Kiến trúc hệ thống — giải phẫu một agent harness
 
 # Kiến trúc hệ thống: giải phẫu một agent harness
 
-**Phiên bản**: 0.6.0 · **Cập nhật**: 2026-09-25
+**Phiên bản**: 0.7.0 · **Cập nhật**: 2026-09-26
 
 Tài liệu này dành cho người chưa từng xây agent harness. Nó trả lời ba câu hỏi: harness gồm những gì, mỗi phần làm việc gì, và chúng khớp với nhau ra sao khi một tin nhắn đi qua. Mọi ví dụ lấy từ một bộ cài thật của my-agent-crew: một master "Trợ lý", ba agent việc cá nhân (Pong, HLV sức khoẻ, sổ cái) và ba agent kỹ thuật (lập trình, cố vấn, nghiên cứu), tất cả chạy trong một tiến trình trên máy cá nhân, nói chuyện qua web UI và một bot Telegram.
 

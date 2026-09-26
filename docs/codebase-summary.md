@@ -5,7 +5,7 @@ title: Bản đồ mã nguồn
 
 # Bản đồ mã nguồn
 
-**Phiên bản**: 0.6.0 · **Cập nhật**: 2026-09-25
+**Phiên bản**: 0.7.0 · **Cập nhật**: 2026-09-26
 
 Đọc [system-architecture.md](system-architecture.md) trước để biết các khối là gì; tài liệu này
 chỉ nói khối nào nằm ở **gói** nào. Tên tệp, hàm và số liệu không ghi ở đây: mã nguồn là nguồn

@@ -11,6 +11,14 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+## [0.7.0] — 2026-09-26
+
+This release is about the time between a question and its answer. Model calls are timed from the
+request and the prompt cache hit is visible per message and per day; the stable part of the system
+prompt stays stable so that cache holds; a delegated answer reaches the person in the child's own
+words without a model call to retell it, and a child is told to conclude before it runs out of
+steps. A benchmark script measures candidate models on the real agent loop, on an isolated server.
+
 ### Added
 
 - **Model calls are timed from the request, and the cache hit is visible.** A run's model step opens
@@ -59,6 +67,18 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   the PDF libraries load on first use instead of at start-up. The web bundle is split into React, vendor
   and app chunks with content hashes, served gzipped with an immutable cache header, so a release that
   only touches app code leaves the other two cached.
+
+### Upgrade notes
+
+- **`messages` gains a `cached_tokens` column**, added automatically at start-up like every schema
+  change so far. Back the database up before the restart that applies it, as usual.
+- **A single delegation now answers in the child's words.** A master persona that told the model to
+  "summarise what the specialist said" no longer gets that call; write the child's persona so its
+  last answer reads well for the person (the delegated-turn frame already says so), and use
+  `relay: false` on the call where the master must keep working after the child returns.
+- **A delegated child stops taking tools at its 25th model call** (or one before its own `max_steps`).
+  A child that legitimately needs more should get a higher cap only if its `max_steps` is above 26,
+  since the soft cap is the lower of the two.
 
 ## [0.6.0] — 2026-09-25
 
@@ -407,6 +427,7 @@ restarting the process.
 
 - One agent, `run_turn` loop with a tool approval gate, web UI, memory on disk.
 
+[0.7.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.7.0
 [0.6.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.6.0
 [0.5.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.5.0
 [0.4.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.4.0
