@@ -2,7 +2,7 @@
  * What a proposed memory write would change, line by line and in order.
  *
  * A rewrite can drop lines as well as add them, and a reviewer has to see both: a
- * consolidation that quietly loses "Sếp dị ứng tôm" looks harmless in a view that only
+ * consolidation that quietly loses "allergic to shrimp" looks harmless in a view that only
  * shows what is new. A longest-common-subsequence walk gives the classic two-sided diff
  * without a library, and memory files are small enough that the quadratic table is
  * nothing.
