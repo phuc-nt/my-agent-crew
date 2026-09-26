@@ -60,6 +60,20 @@ describe("the recent runs log", () => {
     expect(runsAsked()).toContain("/activity/runs?limit=100&agent_id=coach");
   });
 
+  // The server's page holds runs still going too; they belong to the live list above,
+  // and a copy here would show the same run twice on one screen.
+  it("lists only runs that have finished", async () => {
+    backend.runs = [
+      fakeRun({ id: "going", status: "running", finished_at: null, title: "Đang làm" }),
+      fakeRun({ id: "asking", status: "awaiting_approval", finished_at: null, title: "Chờ duyệt" }),
+      fakeRun({ id: "over", status: "done", title: "Đã xong" }),
+    ];
+    show();
+
+    expect(await screen.findByText(/Đã xong/)).toBeInTheDocument();
+    expect(screen.getAllByTestId("run-card")).toHaveLength(1);
+  });
+
   it("narrows by status and source together without asking again", async () => {
     backend.runs = [
       fakeRun({ id: "a", source: "chat", status: "error", title: "Lỗi web" }),
