@@ -1,11 +1,15 @@
 // The handful of input shapes the editor sections share. Keeping them here is what lets
 // each section file stay a description of one part of a profile rather than a pile of
 // label/input/hint markup repeated nine times.
-import { useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 
 interface FieldProps {
   label: string;
   hint?: string;
+  /** Why the value cannot be saved as it is; shown under the control, in the danger colour. */
+  error?: string;
+  /** The id the error is rendered under, so the control can point at it. */
+  errorId?: string;
   children: ReactNode;
 }
 
@@ -16,12 +20,17 @@ interface FieldProps {
  * the control's accessible name — so every control below carries its own `aria-label`
  * rather than inheriting the label element's whole text.
  */
-export function Field({ label, hint, children }: FieldProps) {
+export function Field({ label, hint, error, errorId, children }: FieldProps) {
   return (
     <label className="field">
       <span className="field-label">{label}</span>
       {children}
       {hint && <span className="muted field-hint">{hint}</span>}
+      {error && (
+        <span className="field-error" id={errorId}>
+          {error}
+        </span>
+      )}
     </label>
   );
 }
@@ -31,15 +40,22 @@ interface TextProps {
   hint?: string;
   value: string;
   disabled?: boolean;
+  error?: string;
+  /** For text that is code, such as a shell command, where every character counts. */
+  mono?: boolean;
   onChange: (value: string) => void;
 }
 
-export function TextField({ label, hint, value, disabled, onChange }: TextProps) {
+export function TextField({ label, hint, value, disabled, error, mono, onChange }: TextProps) {
+  const errorId = useId();
   return (
-    <Field label={label} hint={hint}>
+    <Field label={label} hint={hint} error={error} errorId={errorId}>
       <input
         type="text"
         aria-label={label}
+        className={mono ? "mono" : undefined}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? errorId : undefined}
         value={value}
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}

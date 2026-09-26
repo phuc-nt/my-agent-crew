@@ -1,0 +1,139 @@
+/*
+ * Schedules: the rows that edit them in the agent editor and the jobs list that shows
+ * them running. Every colour is a token, so the dark theme needs no block of its own.
+ */
+
+/* ── Editing a schedule ─────────────────────────────────────────────────── */
+.schedule-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* A field's flex basis is a width meant for a row of fields; stacked, it would read as
+   a height and open a gap under every box. */
+.schedule-row > .field {
+  flex: none;
+  margin-bottom: 0;
+}
+
+/* Name first and wide; the on-switch and the remove button keep their size beside it. */
+.schedule-row-head {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.schedule-row-head .field {
+  margin-bottom: 0;
+}
+
+.schedule-switch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--touch-target);
+  min-height: var(--touch-target);
+  cursor: pointer;
+}
+
+.schedule-row-head > button {
+  flex: none;
+  min-height: var(--touch-target);
+}
+
+input.mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+.field-error {
+  font-size: var(--text-xs);
+  color: var(--danger-text);
+}
+
+.field input[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+/* A choice of two, drawn like the sub-section tabs: one sunken track, the pressed
+   option lifted out of it in the accent fill so the chosen way reads at a glance. */
+.segmented {
+  display: inline-flex;
+  align-self: flex-start;
+  max-width: 100%;
+  gap: 2px;
+  padding: 3px;
+  background: var(--surface-sunken);
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.segmented button {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: var(--touch-target);
+  padding: 0 var(--space-3);
+  border: none;
+  border-radius: calc(var(--radius-md) - 3px);
+  box-shadow: none;
+  background: none;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+
+.segmented button[aria-pressed="true"] {
+  background: var(--accent-fill);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+.segmented button[aria-pressed="true"]:hover:not(:disabled) {
+  background: var(--accent-fill-strong);
+}
+
+.schedule-skills {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.schedule-skills button.chip {
+  min-height: var(--touch-target);
+}
+
+.schedule-skills button.chip[aria-pressed="true"] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+/* ── The jobs list ──────────────────────────────────────────────────────── */
+/* Three controls beside a name: each keeps its label on one line and the group wraps
+   as a whole, rather than every label breaking word by word on a phone. */
+.job-actions {
+  flex-wrap: wrap;
+}
+
+.job-actions button,
+.job-actions .toggle {
+  white-space: nowrap;
+  min-height: var(--touch-target);
+}
+
+@media (max-width: 480px) {
+  .schedule-row-head {
+    flex-wrap: wrap;
+  }
+
+  .schedule-row-head .field {
+    flex-basis: 100%;
+  }
+
+  .job-actions {
+    justify-content: flex-start;
+    gap: var(--space-2);
+  }
+}

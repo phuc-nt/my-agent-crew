@@ -37,6 +37,7 @@ from my_agent_crew.server.agent_edit_common import (
     write_lock,
 )
 from my_agent_crew.server.deps import Rt
+from my_agent_crew.server.routes_agents import describe_listed
 from my_agent_crew.server.runtime import Runtime
 from my_agent_crew.server.runtime_build import check_delegates
 from my_agent_crew.server.runtime_connections import channel_key, sync_channel
@@ -96,7 +97,10 @@ async def create_agent(body: CreateRequest, rt: Rt) -> dict[str, Any]:
         before = channel_key(rt.agents, os.environ)
         profile = save(rt, body.agent_id, raw, agent_dir)
         await sync_channel(rt, before)
-    return {"profile": profile.to_dict(), "restart_required": restart_reasons(None, profile)}
+    return {
+        "profile": describe_listed(rt, rt.deps_for(profile.id)),
+        "restart_required": restart_reasons(None, profile),
+    }
 
 
 @router.patch("/agents/{agent_id}")
@@ -111,7 +115,10 @@ async def patch_agent(agent_id: str, body: PatchRequest, rt: Rt) -> dict[str, An
         # now rather than after a restart nobody remembers to do. Any other edit only
         # hands the running bot the rebuilt agent, without cutting off its poll.
         await sync_channel(rt, before)
-    return {"profile": profile.to_dict(), "restart_required": restart_reasons(old, profile)}
+    return {
+        "profile": describe_listed(rt, rt.deps_for(profile.id)),
+        "restart_required": restart_reasons(old, profile),
+    }
 
 
 @router.delete("/agents/{agent_id}")

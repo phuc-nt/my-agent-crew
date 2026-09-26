@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
 import type { AgentInfo, AgentPatch } from "../api/types";
+import { type DraftProblems, draftProblems, hasProblems, toPatch } from "./agent-draft-checks";
 
 /** The keys the form can change. `id`, `dir` and everything derived stay out of it. */
 export type DraftKey = keyof AgentPatch;
@@ -39,6 +40,8 @@ export interface AgentDraft {
   draft: AgentPatch;
   /** Which keys the person actually changed. Empty means there is nothing to save. */
   dirty: DraftKey[];
+  /** What is wrong with the changed fields. Anything here holds the save. */
+  problems: DraftProblems;
   saving: boolean;
   error: string | null;
   /** Why the crew has to be restarted for the last save to fully take effect. */
@@ -122,6 +125,8 @@ export function useAgentDraft(
     return changed;
   }, [draft, original]);
 
+  const problems = useMemo(() => draftProblems(draft, dirty), [draft, dirty]);
+
   // Changing the mode moves three limits behind the form's back: a work agent that does
   // not state them gets a wider budget, more steps and autonomy turned on. The fields
   // stay on screen showing the old numbers, so saving only `mode` would grant a 40x cost
@@ -146,12 +151,13 @@ export function useAgentDraft(
 
   const save = useCallback(async () => {
     if (!original || dirty.length === 0) return true;
+    if (hasProblems(problems)) return false;
     setSaving(true);
     setError(null);
     try {
-      const patch: AgentPatch = {};
-      for (const key of dirty) Object.assign(patch, { [key]: draft[key] });
-      const saved = await api.patchAgent(original.id, patch);
+      const saved = await api.patchAgent(original.id, toPatch(draft, dirty));
+      // The answer is the agent as the list reports it, `declared` included, so the
+      // form restarts from what the file now says rather than from what was typed.
       setOriginal(saved.profile);
       setDraft(toDraft(saved.profile));
       setRestartRequired(saved.restart_required);
@@ -166,7 +172,7 @@ export function useAgentDraft(
     } finally {
       setSaving(false);
     }
-  }, [dirty, draft, onSaved, original]);
+  }, [dirty, draft, onSaved, original, problems]);
 
-  return { original, draft, dirty, saving, error, restartRequired, set, reset, save };
+  return { original, draft, dirty, problems, saving, error, restartRequired, set, reset, save };
 }

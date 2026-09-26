@@ -29,6 +29,9 @@ export type Route =
        * from". Which section it belongs to says how to read it.
        */
       param?: string;
+      /** A part of that thing to bring into view, such as "schedules" in an agent's
+       * editor. Only meaningful under a param, and dropped without one. */
+      focus?: string;
     };
 
 const DEFAULT_SECTION: ManageSection = "activity";
@@ -52,6 +55,8 @@ export function parseRoute(hash: string): Route {
     // open something the person did not ask for.
     if (!isSection(section)) return { kind: "manage", section: DEFAULT_SECTION };
     const param = parts[2] ? decodeURIComponent(parts[2]) : undefined;
+    const focus = parts[3] ? decodeURIComponent(parts[3]) : undefined;
+    if (param && focus) return { kind: "manage", section, param, focus };
     return param ? { kind: "manage", section, param } : { kind: "manage", section };
   }
   if (parts[0] === "chat") return { kind: "chat", conversationId: parts[1] ?? null };
@@ -61,7 +66,8 @@ export function parseRoute(hash: string): Route {
 /** The hash a route is written as; the inverse of `parseRoute`. */
 export function routeHash(route: Route): string {
   if (route.kind === "manage") {
-    const tail = route.param ? `/${encodeURIComponent(route.param)}` : "";
+    const focus = route.param && route.focus ? `/${encodeURIComponent(route.focus)}` : "";
+    const tail = route.param ? `/${encodeURIComponent(route.param)}${focus}` : "";
     return `#/manage/${route.section}${tail}`;
   }
   return route.conversationId ? `#/chat/${route.conversationId}` : "#/chat";

@@ -91,6 +91,10 @@ export function App() {
           // The one id in the URL, read as whatever the section it sits under means by it.
           editingAgentId={route.section === "crew" ? route.param : undefined}
           replayRunId={route.section === "activity" ? route.param : undefined}
+          editFocus={route.section === "crew" ? route.focus : undefined}
+          onEditSchedules={(agentId) =>
+            navigate({ kind: "manage", section: "crew", param: agentId, focus: "schedules" })
+          }
           onEditAgent={(agentId) =>
             navigate(
               agentId

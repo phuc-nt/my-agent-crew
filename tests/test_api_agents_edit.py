@@ -139,6 +139,75 @@ def test_only_a_schedule_asks_for_a_restart(crew) -> None:
     assert dropped.json()["restart_required"] == ["Lịch chạy mới cần khởi động lại máy chủ."]
 
 
+def test_a_saved_schedule_comes_back_in_the_shape_it_can_be_resent_in(crew) -> None:
+    client, _, _ = crew
+    created = client.post("/api/agents", json={"agent_id": "coder", "profile": {}})
+    row = {"id": "dọn", "name": "Dọn rác", "every": "30m", "command": "echo hi", "skills": []}
+
+    saved = client.patch("/api/agents/coder", json={"profile": {"schedules": [row]}})
+
+    assert saved.status_code == 200
+    profile = saved.json()["profile"]
+    # The editor rebuilds its form from this answer, so it carries what the list does:
+    # without `declared` the page that made the save had nothing left to diff against.
+    assert created.json()["profile"]["declared"] == {"delegates": [], "schedules": []}
+    # Names, as the list gives them, not the detail page's descriptions.
+    assert profile["tools"] and all(isinstance(n, str) for n in profile["tools"])
+    assert all(isinstance(n, str) for n in profile["skills"])
+    declared = profile["declared"]["schedules"]
+    assert declared == [{**row, "cron": None, "prompt": None, "enabled": True}]
+    again = client.patch("/api/agents/coder", json={"profile": {"schedules": declared}})
+    assert again.status_code == 200
+    assert again.json()["profile"]["declared"]["schedules"] == declared
+
+
+def test_a_schedule_carrying_its_derived_kind_is_refused(crew) -> None:
+    client, _, home = crew
+    client.post("/api/agents", json={"agent_id": "coder", "profile": {}})
+    row = {"id": "sáng", "cron": "0 7 * * *", "prompt": "chào", "kind": "prompt"}
+
+    reply = client.patch("/api/agents/coder", json={"profile": {"schedules": [row]}})
+
+    assert reply.status_code == 422
+    assert "kind" in reply.json()["detail"]
+    assert "schedules" not in (home / "agents" / "coder" / "agent.yaml").read_text("utf-8")
+
+
+@pytest.mark.parametrize(
+    "patch",
+    [
+        {"schedules": [{"id": "a", "cron": "0 7 * *", "prompt": "chào"}]},
+        {"schedules": [{"id": "a", "cron": "0 25 * * *", "prompt": "chào"}]},
+        {"schedules": [{"id": "a", "every": "10s", "prompt": "chào"}]},
+        {"memory_consolidate": "mỗi đêm"},
+    ],
+)
+def test_a_timing_the_clock_cannot_read_is_refused_before_it_is_written(crew, patch) -> None:
+    client, runtime, home = crew
+    client.post("/api/agents", json={"agent_id": "coder", "profile": {}})
+
+    reply = client.patch("/api/agents/coder", json={"profile": patch})
+
+    # Accepted, it would stop at the next boot's scheduler and take every job with it.
+    assert reply.status_code == 422
+    assert runtime.deps_for("coder").agent.schedules == ()
+    written = (home / "agents" / "coder" / "agent.yaml").read_text("utf-8")
+    assert "schedules" not in written and "memory_consolidate" not in written
+
+
+def test_clearing_memory_consolidation_removes_the_key(crew) -> None:
+    client, runtime, home = crew
+    client.post("/api/agents", json={"agent_id": "coder", "profile": {}})
+    client.patch("/api/agents/coder", json={"profile": {"memory_consolidate": "0 3 * * *"}})
+
+    reply = client.patch("/api/agents/coder", json={"profile": {"memory_consolidate": None}})
+
+    assert reply.status_code == 200
+    assert reply.json()["profile"]["memory_consolidate"] == ""
+    assert runtime.deps_for("coder").agent.schedules == ()
+    assert "memory_consolidate" not in (home / "agents" / "coder" / "agent.yaml").read_text("utf-8")
+
+
 def test_the_master_is_editable_and_its_file_lands_in_the_home(crew) -> None:
     client, runtime, home = crew
     client.post("/api/agents", json={"agent_id": "coder", "profile": {}})

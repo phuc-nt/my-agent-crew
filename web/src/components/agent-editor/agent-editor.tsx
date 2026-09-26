@@ -1,4 +1,5 @@
 import type { AgentInfo, RegistryTool } from "../../api/types";
+import { hasProblems } from "../../hooks/agent-draft-checks";
 import { useAgentDraft } from "../../hooks/use-agent-draft";
 import { vi } from "../../i18n/vi";
 import { AgentAvatar } from "../ui/agent-avatar";
@@ -20,6 +21,8 @@ interface Props {
   onBack: () => void;
   /** Called after a save or a delete so the crew list stops showing the old profile. */
   onChanged: () => void;
+  /** A section to bring into view on arrival, such as "schedules" from the jobs list. */
+  focus?: string;
 }
 
 /**
@@ -29,9 +32,10 @@ interface Props {
  * needs to know there is something unsaved while they are still scrolling through them,
  * not after they have left.
  */
-export function AgentEditor({ agent, agents, tools, providers, onBack, onChanged }: Props) {
+export function AgentEditor({ agent, agents, tools, providers, onBack, onChanged, focus }: Props) {
   const form = useAgentDraft(agent, onChanged);
   const readOnly = !agent.editable;
+  const blocked = hasProblems(form.problems);
   const others = agents.filter((a) => a.id !== agent.id);
 
   return (
@@ -64,7 +68,7 @@ export function AgentEditor({ agent, agents, tools, providers, onBack, onChanged
           <button
             type="button"
             className="primary"
-            disabled={readOnly || form.dirty.length === 0 || form.saving}
+            disabled={readOnly || form.dirty.length === 0 || form.saving || blocked}
             onClick={() => void form.save()}
           >
             {form.saving ? vi.editor.saving : vi.editor.save}
@@ -76,6 +80,11 @@ export function AgentEditor({ agent, agents, tools, providers, onBack, onChanged
         <div className="notice" role="status" data-testid="read-only">
           {vi.editor.readOnly}
           <div className="muted">{vi.editor.definedAt(agent.dir)}</div>
+        </div>
+      )}
+      {blocked && (
+        <div className="notice warn" role="status" data-testid="save-held">
+          {vi.editor.problemsHoldSave}
         </div>
       )}
       {form.error && (
@@ -100,7 +109,12 @@ export function AgentEditor({ agent, agents, tools, providers, onBack, onChanged
         others={others}
         isMaster={agent.is_master}
       />
-      <SchedulesSection form={form} readOnly={readOnly} />
+      <SchedulesSection
+        form={form}
+        readOnly={readOnly}
+        skills={agent.skills}
+        focused={focus === "schedules"}
+      />
       <ChannelSection form={form} agent={agent} readOnly={readOnly} />
       {/* Last, because it is the sum of every section above it. */}
       <PromptSection agentId={agent.id} />

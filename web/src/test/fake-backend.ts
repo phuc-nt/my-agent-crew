@@ -19,6 +19,7 @@ import type {
   TemplateInfo,
 } from "../api/types";
 import { FakeWiki } from "./fake-wiki";
+import { applyAgentPatch } from "./schedule-contract";
 
 export const fakeAgent: AgentInfo = {
   id: "default",
@@ -326,10 +327,12 @@ export class FakeBackend {
     const found = this.agents.find((a) => a.id === agentId);
     if (!found) return json({ detail: `agent ${agentId} not found` }, 404);
     if (this.refuseEdit) return json({ detail: this.refuseEdit }, 422);
-    Object.assign(found, profile);
+    const patched = applyAgentPatch(found, profile);
+    if ("error" in patched) return json({ detail: patched.error }, 422);
+    this.agents = this.agents.map((a) => (a.id === agentId ? patched.ok : a));
     // Only these three are read at boot, so only these three ask for a restart.
     const restart = ["schedules", "telegram", "memory_consolidate"].filter((k) => k in profile);
-    return json({ profile: found, restart_required: restart });
+    return json({ profile: patched.ok, restart_required: restart });
   }
 
   private deleteAgent(agentId: string): Response {

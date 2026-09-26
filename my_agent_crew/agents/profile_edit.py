@@ -18,6 +18,7 @@ from my_agent_crew import texts
 from my_agent_crew.agents.profile import PROFILE_KEYS, AgentProfile
 from my_agent_crew.agents.profile_yaml import parse_profile
 from my_agent_crew.config import Settings
+from my_agent_crew.scheduler.cron import CronSpec, parse_every
 
 AGENT_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 # What the scheduler reads once at startup and never again. The Telegram bridge is not
@@ -84,8 +85,21 @@ def validated(agent_id: str, agent_dir: Path, raw: Any, settings: Settings) -> A
 
     Plain dicts, not ruamel's: a profile holds what it parsed for the rest of the
     server's life, and a round-trip node carries the whole document along with it.
+
+    The timing of every schedule is read here too, which the parser leaves to the
+    scheduler. A file edited by hand fails loudly at boot; one saved from the web with a
+    typo in its cron would be accepted, then break the jobs list and every job beside it.
     """
-    return parse_profile(agent_id, agent_dir, dict(raw), settings)
+    profile = parse_profile(agent_id, agent_dir, dict(raw), settings)
+    for schedule in profile.schedules:
+        try:
+            if schedule.cron:
+                CronSpec.parse(str(schedule.cron))
+            else:
+                parse_every(str(schedule.every))
+        except ValueError as exc:
+            raise ValueError(f"agent {agent_id}: schedule {schedule.id}: {exc}") from exc
+    return profile
 
 
 def restart_reasons(old: AgentProfile | None, new: AgentProfile) -> list[str]:

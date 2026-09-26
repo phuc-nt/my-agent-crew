@@ -30,5 +30,6 @@
 @import "./styles/manage.css";
 @import "./styles/manage-cards.css";
 @import "./styles/agent-admin.css";
+@import "./styles/schedules.css";
 @import "./styles/conversation-activity.css";
 @import "./styles/run-timeline.css";

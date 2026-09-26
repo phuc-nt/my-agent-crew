@@ -53,6 +53,10 @@ interface Props {
   onOpenConversation: (conversationId: string) => void;
   onRunJob: (jobId: string) => void;
   onToggleJob: (jobId: string, enabled: boolean) => void;
+  /** The part of the open editor to bring into view, when the URL names one. */
+  editFocus?: string;
+  /** Opens an agent's editor on its schedules, from a row in the jobs list. */
+  onEditSchedules?: (agentId: string) => void;
 }
 
 const LABELS: Record<ManageSection, string> = {
@@ -258,6 +262,7 @@ export function ManageScreen(props: Props) {
                 providers={registry.connections?.providers.map((p) => p.name) ?? []}
                 onBack={() => props.onEditAgent(null)}
                 onChanged={props.onReloadCrew}
+                focus={props.editFocus}
               />
             ) : (
               <CrewPanel
@@ -281,6 +286,8 @@ export function ManageScreen(props: Props) {
               onRunNow={props.onRunJob}
               onToggle={props.onToggleJob}
               onOpenConversation={props.onOpenConversation}
+              onEditSchedules={props.onEditSchedules}
+              onOpenCrew={() => props.onNavigate("crew")}
             />
           )}
           {props.section === "memory" && (

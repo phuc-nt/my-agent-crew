@@ -20,13 +20,21 @@ interface Props {
   /** Pause or resume a schedule at runtime without editing its profile. */
   onToggle: (jobId: string, enabled: boolean) => void;
   onOpenConversation?: (conversationId: string) => void;
+  /** Opens the agent's editor on its schedules: where a job is added, changed or turned on. */
+  onEditSchedules?: (agentId: string) => void;
+  onOpenCrew?: () => void;
 }
 
 /** Every agent's schedules with their next and last run, a pause switch, run history and run-now. */
-export function JobsPanel({ jobs, agentName, onRunNow, onToggle, onOpenConversation }: Props) {
+export function JobsPanel(props: Props) {
+  const { jobs, agentName, onRunNow, onToggle, onOpenConversation, onEditSchedules, onOpenCrew } =
+    props;
   const [open, setOpen] = useState<string | null>(null);
   if (jobs === null) return <p className="muted">{vi.loadFailed}</p>;
-  if (jobs.length === 0) return <EmptyState icon="clock" says={vi.jobsEmpty} />;
+  if (jobs.length === 0) {
+    const action = onOpenCrew ? { label: vi.jobRow.openCrew, onClick: onOpenCrew } : undefined;
+    return <EmptyState icon="clock" says={vi.jobsEmpty} action={action} />;
+  }
   return (
     <ul className="job-list" data-testid="jobs">
       {jobs.map((job) => {
@@ -64,6 +72,16 @@ export function JobsPanel({ jobs, agentName, onRunNow, onToggle, onOpenConversat
                   <Icon name="play" />
                   {vi.runNow}
                 </button>
+                {onEditSchedules && (
+                  <button
+                    type="button"
+                    className="ghost"
+                    onClick={() => onEditSchedules(job.agent_id)}
+                    aria-label={vi.jobRow.editOf(job.name)}
+                  >
+                    {vi.jobRow.edit}
+                  </button>
+                )}
               </span>
             </div>
             <div className="job-meta muted">

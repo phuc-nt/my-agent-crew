@@ -74,15 +74,19 @@ def _describe(rt: Runtime, deps: AgentDeps) -> dict[str, Any]:
     return data
 
 
+def describe_listed(rt: Runtime, deps: AgentDeps) -> dict[str, Any]:
+    """One agent as the list shows it. A save answers with this same shape, because the
+    editor rebuilds its form from the answer: a reply missing `declared` left it nothing
+    to diff against, so the first successful save broke the page it was made from."""
+    data = _describe(rt, deps)
+    data["tools"] = deps.tools.names()
+    data["skills"] = [sk.name for sk in deps.skills]
+    return data
+
+
 @router.get("/agents")
 def list_agents(rt: Rt) -> list[dict[str, Any]]:
-    out = []
-    for deps in rt.agents.values():
-        data = _describe(rt, deps)
-        data["tools"] = deps.tools.names()
-        data["skills"] = [sk.name for sk in deps.skills]
-        out.append(data)
-    return out
+    return [describe_listed(rt, deps) for deps in rt.agents.values()]
 
 
 @router.get("/agents/{agent_id}")

@@ -352,6 +352,94 @@ describe("useAgentDraft", () => {
     expect(result.current.restartRequired.length).toBeGreaterThan(0);
   });
 
+  // The server answers a save with the agent as the list shows it, `declared` included,
+  // and the form starts over from that. An answer without it once left the form nothing
+  // to rebuild from, and the page that made the first successful save broke on it.
+  it("rebuilds the form from the rows the server declares back", async () => {
+    const backend = new FakeBackend();
+    backend.agents = [fakeAgent];
+    vitest.stubGlobal("fetch", backend.fetch);
+    const { result } = renderHook(() => useAgentDraft(fakeAgent));
+
+    act(() => {
+      result.current.set("schedules", [
+        { id: "", name: "", cron: null, every: "2h", prompt: "Nhắc", command: null, enabled: true, skills: [] },
+      ]);
+    });
+    await act(async () => {
+      await result.current.save();
+    });
+
+    const declared = { id: "job-0", name: "job-0", cron: null, every: "2h", prompt: "Nhắc", command: null, enabled: true, skills: [] };
+    expect(result.current.original?.declared.schedules).toEqual([declared]);
+    expect(result.current.original?.schedules).toEqual([{ ...declared, kind: "prompt" }]);
+    expect(result.current.draft.schedules).toEqual([declared]);
+    expect(result.current.dirty).toEqual([]);
+  });
+
+  it("never sends the derived kind, even on a row that still carries it", async () => {
+    const backend = new FakeBackend();
+    backend.agents = [fakeAgent];
+    vitest.stubGlobal("fetch", backend.fetch);
+    const { result } = renderHook(() => useAgentDraft(fakeAgent));
+
+    act(() => {
+      result.current.set("schedules", [
+        { id: "t", name: "T", kind: "command", cron: "0 0 * * *", every: null, prompt: null, command: "ls", enabled: false, skills: [] },
+      ]);
+    });
+    let saved: boolean | undefined;
+    await act(async () => {
+      saved = await result.current.save();
+    });
+
+    expect(saved).toBe(true);
+    const patch = backend.requests.find((r) => r.method === "PATCH");
+    expect((patch?.body as { profile: { schedules: unknown[] } }).profile.schedules).toEqual([
+      { id: "t", name: "T", cron: "0 0 * * *", command: "ls", enabled: false, skills: [] },
+    ]);
+  });
+
+  it("sends an emptied consolidation cron as null, which takes the key out of the file", async () => {
+    const agent = { ...fakeAgent, memory_consolidate: "0 3 * * *" };
+    const backend = new FakeBackend();
+    backend.agents = [agent];
+    vitest.stubGlobal("fetch", backend.fetch);
+    const { result } = renderHook(() => useAgentDraft(agent));
+
+    act(() => {
+      result.current.set("memory_consolidate", "  ");
+    });
+    await act(async () => {
+      await result.current.save();
+    });
+
+    const patch = backend.requests.find((r) => r.method === "PATCH");
+    expect(patch?.body).toEqual({ profile: { memory_consolidate: null } });
+    expect(result.current.draft.memory_consolidate).toBe("");
+  });
+
+  it("holds the save, without a request, while a changed field cannot be sent", async () => {
+    const agent = { ...fakeAgent, telegram: { token_env: "TG_TOKEN", chat_id: 42 } };
+    const backend = new FakeBackend();
+    backend.agents = [agent];
+    vitest.stubGlobal("fetch", backend.fetch);
+    const { result } = renderHook(() => useAgentDraft(agent));
+
+    act(() => {
+      result.current.set("telegram", { token_env: "TG_TOKEN", chat_id: Number.NaN });
+    });
+    expect(result.current.problems.chatId).toBeTruthy();
+
+    let saved: boolean | undefined;
+    await act(async () => {
+      saved = await result.current.save();
+    });
+
+    expect(saved).toBe(false);
+    expect(backend.requests.some((r) => r.method === "PATCH")).toBe(false);
+  });
+
   it("resets to a different agent when the agent id changes", () => {
     const agent1 = { ...fakeAgent, id: "agent1", name: "Agent 1" };
     const agent2 = { ...fakeAgent, id: "agent2", name: "Agent 2" };

@@ -47,6 +47,24 @@ describe("reading a route from the address bar", () => {
     expect(parseRoute(routeHash(route))).toEqual(route);
   });
 
+  // "Sửa lịch" in the jobs list lands in the agent's editor with its schedules in view,
+  // and the link has to say so after a reload as well as on the click.
+  it("reads the part of an agent to show out of a fourth segment", () => {
+    expect(parseRoute("#/manage/crew/coach/schedules")).toEqual({
+      kind: "manage",
+      section: "crew",
+      param: "coach",
+      focus: "schedules",
+    });
+    const route = { kind: "manage", section: "crew", param: "coach", focus: "schedules" } as const;
+    expect(routeHash(route)).toBe("#/manage/crew/coach/schedules");
+    expect(parseRoute(routeHash(route))).toEqual(route);
+  });
+
+  it("drops a focus that has no id to belong to", () => {
+    expect(routeHash({ kind: "manage", section: "crew", focus: "schedules" })).toBe("#/manage/crew");
+  });
+
   it("drops the id when the section is not one we have", () => {
     // Landing on the default section still carrying someone else's id would open
     // something nobody asked for.

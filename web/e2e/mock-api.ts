@@ -1,5 +1,6 @@
 import type { Page, Route } from "@playwright/test";
 import type { AgentInfo } from "../src/api/types";
+import { applyAgentPatch } from "../src/test/schedule-contract";
 
 // Every /api call is answered in-browser so the smoke tests measure the real DOM without a backend.
 export type Conversation = Record<string, unknown> & { id: string; messages: unknown[]; pending_approval: unknown };
@@ -263,9 +264,13 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
         const id = (gone as { id: string }).id;
         return json({ removed: id, kept_at: `/h/removed/${id}` });
       }
-      const { profile } = route.request().postDataJSON() as { profile: object };
-      agents[at] = { ...agents[at], ...profile };
-      return json({ profile: agents[at], restart_required: [] });
+      const { profile } = route.request().postDataJSON() as { profile: Record<string, unknown> };
+      const patched = applyAgentPatch(agents[at], profile);
+      if ("error" in patched) return json({ detail: patched.error }, 422);
+      agents[at] = patched.ok;
+      // The scheduler reads its table only at boot, as on the real server.
+      const restart = "schedules" in profile ? ["Lịch chạy mới cần khởi động lại máy chủ."] : [];
+      return json({ profile: agents[at], restart_required: restart });
     }
     if (single && method === "GET") {
       const found = agents.find((a) => (a as { id: string }).id === single[1]);

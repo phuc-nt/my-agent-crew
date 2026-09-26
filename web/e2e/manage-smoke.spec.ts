@@ -156,3 +156,42 @@ test("the routes every agent falls back on are edited and saved", async ({ page 
   await page.reload();
   await expect(page.getByTestId("routes").getByLabel("Mô hình").nth(1)).toHaveValue("second");
 });
+
+test("a schedule is added from the jobs list through the agent's editor", async ({ page }) => {
+  const { kind: _kind, ...briefRow } = coachAgent.schedules[0];
+  const coach = { ...coachAgent, declared: { delegates: [], schedules: [briefRow] } };
+  const briefJob = { ...coachAgent.schedules[0], id: "coach/brief", schedule_id: "brief", agent_id: "coach", next_run: null, last_run: null, running: false, paused: false };
+  // What the scheduler serves. It builds the list at boot, so it changes only on a restart.
+  const jobs: object[] = [briefJob];
+  await mockApi(page, { agents: [master, coach], jobs });
+  await page.goto("/#/manage/jobs");
+
+  await page.getByTestId("job").getByRole("button", { name: "Sửa lịch Bản tin sáng" }).click();
+  await expect(page).toHaveURL(/#\/manage\/crew\/coach\/schedules$/);
+  const editor = page.getByTestId("agent-editor");
+  await expect(editor.getByRole("heading", { name: "Lịch chạy" })).toBeFocused();
+
+  await editor.getByRole("button", { name: "+ Thêm lịch" }).click();
+  const row = editor.getByTestId("schedule-row").nth(1);
+  await row.getByLabel("Tên", { exact: true }).fill("Dọn rác");
+  await row.getByRole("button", { name: "Chu kỳ" }).click();
+  await row.getByLabel("Chu kỳ", { exact: true }).fill("30m");
+  await row.getByRole("button", { name: "Lệnh shell" }).click();
+  await row.getByLabel("Lệnh shell", { exact: true }).fill("echo dọn");
+
+  const patch = page.waitForRequest((r) => r.method() === "PATCH" && /\/api\/agents\/coach$/.test(r.url()));
+  await editor.getByRole("button", { name: "Lưu", exact: true }).click();
+  const sent = (await patch).postDataJSON() as { profile: { schedules: Record<string, unknown>[] } };
+  expect(sent.profile.schedules).toEqual([
+    { id: "brief", name: "Bản tin sáng", cron: "0 7 * * *", prompt: "Tóm tắt", enabled: true, skills: ["goodreads"] },
+    { name: "Dọn rác", every: "30m", command: "echo dọn", enabled: true, skills: [] },
+  ]);
+  await expect(editor.getByTestId("restart-banner")).toBeVisible();
+  await expect(editor.getByRole("button", { name: "Lưu", exact: true })).toBeDisabled();
+
+  // The restart the banner asks for: the scheduler comes back with the new row in its list.
+  jobs.push({ ...briefJob, id: "coach/job-1", schedule_id: "job-1", name: "Dọn rác", kind: "command", cron: null, every: "30m", prompt: null, command: "echo dọn", skills: [] });
+  await page.goto("/#/manage/jobs");
+  await page.reload();
+  await expect(page.getByTestId("job").filter({ hasText: "Dọn rác" })).toContainText("30m");
+});

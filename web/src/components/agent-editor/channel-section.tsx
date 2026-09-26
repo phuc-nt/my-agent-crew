@@ -2,6 +2,7 @@ import type { AgentInfo } from "../../api/types";
 import type { AgentDraft } from "../../hooks/use-agent-draft";
 import { vi } from "../../i18n/vi";
 import { CheckField, TextField } from "./fields";
+import { IntegerField } from "./integer-field";
 
 interface Props {
   form: AgentDraft;
@@ -32,8 +33,6 @@ export function ChannelSection({ form, agent, readOnly }: Props) {
         label={vi.editor.telegramEnabled}
         checked={telegram !== null}
         disabled={readOnly}
-        // The chat id is not editable here: it is written by the bot the first time the
-        // owner messages it, and a wrong one silently sends the crew's replies elsewhere.
         onChange={(on) =>
           set(
             "telegram",
@@ -53,6 +52,18 @@ export function ChannelSection({ form, agent, readOnly }: Props) {
           value={telegram.token_env}
           disabled={readOnly}
           onChange={(v) => set("telegram", { ...telegram, token_env: v })}
+        />
+      )}
+      {telegram && (
+        // Checked before the save rather than left to the server: the bot answers only
+        // this chat, and an id off by its sign sends the crew's replies nowhere.
+        <IntegerField
+          label={vi.editor.telegramChatId}
+          hint={vi.editor.telegramChatIdHint}
+          value={telegram.chat_id}
+          disabled={readOnly}
+          error={form.problems.chatId}
+          onChange={(v) => set("telegram", { ...telegram, chat_id: v })}
         />
       )}
 
