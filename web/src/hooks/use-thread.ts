@@ -62,6 +62,28 @@ export function useThread(conversationId: string | null): ThreadController {
     [onEvent],
   );
 
+  /** Carries out a decision. A 409 means someone got there first — another tab, Telegram
+   *  or the expiry sweep — which is not the conversation being busy: saying so would send
+   *  the person to wait for something already over. The thread is read again to show how
+   *  it ended, and then says the request was handled. */
+  const decisionTurn = useCallback(
+    async (run: (onEvent: (e: AgentEvent) => void, signal: AbortSignal) => Promise<void>) => {
+      let handledElsewhere = false;
+      await runTurn(async (emit, signal) => {
+        try {
+          await run(emit, signal);
+        } catch (error) {
+          if (!(error instanceof ApiError && error.status === 409)) throw error;
+          handledElsewhere = true;
+        }
+      });
+      if (!handledElsewhere) return;
+      await reload();
+      dispatch({ type: "failed", message: vi.attentionHandled });
+    },
+    [runTurn, reload],
+  );
+
   const send = useCallback(
     async (text: string) => {
       if (!conversationId) return;
@@ -75,20 +97,20 @@ export function useThread(conversationId: string | null): ThreadController {
     async (approve: boolean, always = false) => {
       const pending = state.pending;
       if (!conversationId || !pending) return;
-      await runTurn((emit) =>
+      await decisionTurn((emit) =>
         api.resolveApproval(conversationId, pending.approvalId, approve, emit, always && approve),
       );
     },
-    [conversationId, runTurn, state.pending],
+    [conversationId, decisionTurn, state.pending],
   );
 
   const answer = useCallback(
     async (text: string) => {
       const pending = state.pending;
       if (!conversationId || !pending || pending.kind !== "question") return;
-      await runTurn((emit) => api.answerApproval(conversationId, pending.approvalId, text, emit));
+      await decisionTurn((emit) => api.answerApproval(conversationId, pending.approvalId, text, emit));
     },
-    [conversationId, runTurn, state.pending],
+    [conversationId, decisionTurn, state.pending],
   );
 
   const stop = useCallback(() => abortRef.current?.abort(), []);

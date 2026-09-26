@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi as vitest } from "vitest";
 import { App } from "./app";
 import { vi } from "./i18n/vi";
-import { FakeBackend, coachAgent, coderTemplate, fakeAgent, storedMessage } from "./test/fake-backend";
+import { FakeBackend, coachAgent, coderTemplate, fakeAgent, fakeApproval, storedMessage } from "./test/fake-backend";
 
 let backend: FakeBackend;
 
@@ -197,6 +197,32 @@ describe("App", () => {
     backend.conversations.get("c1")!.status = "awaiting_approval";
     await userEvent.type(screen.getByRole("textbox"), "y{Enter}");
     await waitFor(() => expect(screen.getByTestId("notice")).toHaveTextContent(vi.busyConflict));
+  });
+
+  // Telegram, another tab or the expiry sweep can close a request while its bar is on screen.
+  // "Busy" would send the person to wait for a turn that has already ended.
+  it.each([
+    ["decide", { tool_name: "write_file", arguments: { path: "b" } }, vi.approve],
+    ["answer", { tool_name: "ask_user", arguments: { question: "Dời hạn?" }, kind: "question" as const, options: ["có"] }, "có"],
+  ])("says a request closed elsewhere was handled when a chat %s meets a 409", async (_, approval, button) => {
+    const pending_approval = fakeApproval({ status: "pending", resolved_at: null, conversation_id: "c1", ...approval });
+    const c = backend.create({ title: "Nơi khác", status: "awaiting_approval", pending_approval });
+    render(<App />);
+    await userEvent.click(await screen.findByRole("button", { name: /Nơi khác/ }));
+    const bar = await screen.findByRole("alertdialog");
+    Object.assign(backend.conversations.get(c.id)!, {
+      status: "idle",
+      pending_approval: null,
+      messages: [storedMessage("assistant", "Xong từ Telegram.")],
+    });
+
+    await userEvent.click(within(bar).getByRole("button", { name: button }));
+
+    await waitFor(() => expect(screen.getByTestId("notice")).toHaveTextContent(vi.attentionHandled));
+    expect(screen.getByTestId("notice")).not.toHaveTextContent(vi.busyConflict);
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(screen.getByText("Xong từ Telegram.")).toBeInTheDocument();
+    expect(screen.getByRole("textbox")).toBeEnabled();
   });
 
   it("patches autonomous, skills and title from the header", async () => {
