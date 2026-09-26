@@ -65,7 +65,9 @@ any platform ──POST /api/inbound (JSON, sync)─────┴─▶ Inboun
   đã được cho phép luôn. Các yêu cầu đã quyết vẫn đọc được ở `GET /api/approvals`.
 - **Fallback nhìn thấy được.** Mỗi tuyến bỏ cuộc đều được log, phát thành event `route_fallback`
   và ghi thành step `fallback` trên run, nên một model cứ lỗi mãi sẽ hiện trên timeline
-  thay vì âm thầm tốn thêm ở tuyến kế tiếp.
+  thay vì âm thầm tốn thêm ở tuyến kế tiếp. Step `fallback` mang thời gian của lần thử hỏng
+  đó; step `model` mà request đã mở dời ra sau nó để đo tuyến kế tiếp, nên run hồi phục không
+  để lại step model nào mở, còn khi mọi tuyến đều hỏng thì run chỉ còn các step `fallback`.
 - **Model đang nghĩ cũng là đang chạy.** Model có suy nghĩ có thể im lặng khá lâu trước chữ
   đầu tiên, nên luồng stream đọc `delta.reasoning` và phát event `thinking` một lần mỗi lần
   gọi model. Web hiện "Agent đang suy nghĩ…" còn step `model` trên run tính cả quãng im lặng

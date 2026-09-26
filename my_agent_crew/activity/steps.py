@@ -155,24 +155,39 @@ def apply_event(run: RunRecord, event: Event, clock: float) -> None:
         run.summary = event.reason
         return
     if isinstance(event, ErrorEvent):
+        if _unsent_after_fallback(run):
+            # The last route failed too: the step moved there for "the next route" waits
+            # on nothing, and left open it would read as a model that never answered.
+            run.steps.pop()
         run.status = FAILED
         run.summary = event.message
         return
     if isinstance(event, RouteFallbackEvent):
-        step = {
-            "kind": "fallback",
-            "provider": event.provider,
-            "model": event.model,
-            "error": preview(event.error),
-        }
-        _open_step(run, step, clock)
+        # The request's model step was timing the route that just failed. That wait is the
+        # fallback's, and the step moves after it to time the next route, so a run that
+        # recovered keeps one model step per call and none of them left open.
+        pending = _pending_model_step(run)
+        if pending is not None:
+            run.steps.pop()
+        step = {"kind": "fallback", "provider": event.provider, "model": event.model}
+        step["error"] = preview(event.error)
+        _open_step(run, step, pending[CLOCK_KEY] if pending is not None else clock)
         _close_step(step, clock)
+        if pending is not None:
+            _open_step(run, {"kind": "model", "chars": 0, "first_token_ms": None}, clock)
 
 
 def _pending_model_step(run: RunRecord) -> dict[str, Any] | None:
     if run.steps and run.steps[-1].get("kind") == "model" and CLOCK_KEY in run.steps[-1]:
         return run.steps[-1]
     return None
+
+
+def _unsent_after_fallback(run: RunRecord) -> bool:
+    pending = _pending_model_step(run)
+    if pending is None or len(run.steps) < 2 or run.steps[-2].get("kind") != "fallback":
+        return False
+    return pending.get("first_token_ms") is None and not pending.get("thinking")
 
 
 def _find_tool_step(run: RunRecord, tool_call_id: str) -> dict[str, Any] | None:

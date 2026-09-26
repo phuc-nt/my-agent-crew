@@ -5,7 +5,7 @@ import asyncio
 import pytest
 
 from my_agent_crew.activity import ActivityHub, tracked
-from my_agent_crew.activity.steps import apply_event
+from my_agent_crew.activity.steps import CLOCK_KEY, apply_event
 from my_agent_crew.agent.events import (
     ApprovalRequiredEvent,
     AssistantMessageEvent,
@@ -142,6 +142,48 @@ def test_route_fallback_becomes_a_step_without_touching_cost():
     }
     assert model["model"] == "glm-5" and run.spent_usd == pytest.approx(0.001)
     assert run.status == RUNNING
+
+
+def test_a_route_that_failed_after_the_request_left_leaves_no_step_open():
+    """The request opens the model step before any route is tried. Left where it was, a
+    fallback stranded it open ahead of the route that answered, and a run that succeeded
+    showed a model that never replied."""
+    run = fresh_run()
+    apply_event(run, ModelCallEvent("sent"), 10.0)
+    apply_event(run, RouteFallbackEvent("openrouter", "glm", "HTTP 429 from glm"), 12.0)
+    apply_event(run, ModelCallEvent("first_token"), 13.0)
+    apply_event(run, TextDeltaEvent("ok"), 13.0)
+    apply_event(run, AssistantMessageEvent(1, "ok", [], "openrouter", "glm-5", 0.001), 14.0)
+    apply_event(run, DoneEvent(0.001, 1), 14.0)
+    fallback, model = run.steps
+    assert fallback["kind"] == "fallback" and fallback["duration_ms"] == 2000
+    assert model["model"] == "glm-5" and model["duration_ms"] == 2000
+    assert model["first_token_ms"] == 1000 and model["chars"] == 2
+    assert all(CLOCK_KEY not in step for step in run.steps)
+
+
+def test_when_every_route_fails_no_model_step_is_left_waiting():
+    run = fresh_run()
+    apply_event(run, ModelCallEvent("sent"), 10.0)
+    apply_event(run, RouteFallbackEvent("openrouter", "glm", "429"), 11.0)
+    apply_event(run, RouteFallbackEvent("groq", "llama", "503"), 12.5)
+    apply_event(run, ErrorEvent("all routes failed"), 12.5)
+    assert [(s["kind"], s["duration_ms"]) for s in run.steps] == [
+        ("fallback", 1000),
+        ("fallback", 1500),
+    ]
+    assert run.status == FAILED
+
+
+def test_a_route_that_broke_mid_answer_keeps_its_step():
+    """Only the step no request reached is dropped; one that heard back stays unfinished."""
+    run = fresh_run()
+    apply_event(run, ModelCallEvent("sent"), 10.0)
+    apply_event(run, RouteFallbackEvent("openrouter", "glm", "429"), 11.0)
+    apply_event(run, ModelCallEvent("first_token"), 12.0)
+    apply_event(run, ErrorEvent("stream cut"), 13.0)
+    assert [s["kind"] for s in run.steps] == ["fallback", "model"]
+    assert run.steps[-1]["first_token_ms"] == 1000
 
 
 @pytest.mark.parametrize(
