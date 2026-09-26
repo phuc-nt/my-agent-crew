@@ -84,7 +84,7 @@ describe("the recent runs log", () => {
     await screen.findByText(/Lịch xong/);
     const asked = runsAsked().length;
 
-    await userEvent.click(chip(vi.runFilters.status, vi.runStatus.error));
+    await userEvent.click(chip(vi.runFilters.status, vi.runFilters.statuses.error));
     await userEvent.click(chip(vi.runFilters.source, "Lịch"));
 
     expect(screen.getAllByTestId("run-card")).toHaveLength(1);
@@ -97,7 +97,7 @@ describe("the recent runs log", () => {
     show();
     await screen.findByTestId("run-card");
 
-    await userEvent.click(chip(vi.runFilters.status, vi.runStatus.halted));
+    await userEvent.click(chip(vi.runFilters.status, vi.runFilters.statuses.halted));
     expect(screen.getByText(vi.runFilters.none)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: vi.runFilters.clear }));
 
@@ -107,12 +107,12 @@ describe("the recent runs log", () => {
   it("remembers the chips for the next visit", async () => {
     backend.runs = [fakeRun({ status: "error" })];
     const { unmount } = show();
-    await userEvent.click(await screen.findByRole("button", { name: vi.runStatus.error }));
+    await userEvent.click(await screen.findByRole("button", { name: vi.runFilters.statuses.error }));
     unmount();
 
     show();
 
-    expect(chip(vi.runFilters.status, vi.runStatus.error)).toHaveAttribute("aria-pressed", "true");
+    expect(chip(vi.runFilters.status, vi.runFilters.statuses.error)).toHaveAttribute("aria-pressed", "true");
   });
 
   // A private window, or a browser with site data blocked, has no storage to read.
@@ -122,7 +122,7 @@ describe("the recent runs log", () => {
     show();
     await waitFor(() => expect(screen.getAllByTestId("run-card")).toHaveLength(2));
 
-    await userEvent.click(chip(vi.runFilters.status, vi.runStatus.done));
+    await userEvent.click(chip(vi.runFilters.status, vi.runFilters.statuses.done));
 
     expect(screen.getAllByTestId("run-card")).toHaveLength(1);
   });

@@ -31,7 +31,7 @@ export function ActivityFilters({ filters, agents, sources, onChange }: Props) {
       <ChipGroup
         label={vi.runFilters.status}
         value={filters.status}
-        options={FILTER_STATUSES.map((s) => ({ value: s, label: vi.runStatus[s] }))}
+        options={FILTER_STATUSES.map((s) => ({ value: s, label: vi.runFilters.statuses[s] }))}
         onPick={(status) => onChange({ ...filters, status: FILTER_STATUSES.find((s) => s === status) ?? null })}
       />
       {sources.length > 0 && (

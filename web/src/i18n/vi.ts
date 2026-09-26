@@ -467,6 +467,9 @@ export const vi = {
     agent: "Agent",
     status: "Trạng thái",
     source: "Nguồn",
+    // Chip labels, capitalised like the chips beside them; runStatus is the lower-case
+    // word inside a card's line ("lỗi · 15:00").
+    statuses: { done: "Xong", error: "Lỗi", halted: "Đã dừng" },
     // Where a run came from, by the first part of its source.
     sources: {
       web: "Web",

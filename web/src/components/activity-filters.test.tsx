@@ -54,7 +54,7 @@ describe("the filter chips", () => {
   it("changes one group and leaves the others as they were", async () => {
     const { onChange, group } = show({ agent: "coach", status: null, source: "web" });
 
-    await userEvent.click(group(vi.runFilters.status).getByRole("button", { name: vi.runStatus.error }));
+    await userEvent.click(group(vi.runFilters.status).getByRole("button", { name: vi.runFilters.statuses.error }));
 
     expect(onChange).toHaveBeenCalledWith({ agent: "coach", status: "error", source: "web" });
   });
@@ -63,7 +63,7 @@ describe("the filter chips", () => {
     const { group } = show({ agent: "coach", status: "halted", source: null });
 
     expect(group(vi.runFilters.agent).getByRole("button", { name: coachAgent.name })).toHaveAttribute("aria-pressed", "true");
-    expect(group(vi.runFilters.status).getByRole("button", { name: vi.runStatus.halted })).toHaveAttribute("aria-pressed", "true");
+    expect(group(vi.runFilters.status).getByRole("button", { name: vi.runFilters.statuses.halted })).toHaveAttribute("aria-pressed", "true");
     expect(group(vi.runFilters.source).getByRole("button", { name: vi.runFilters.all })).toHaveAttribute("aria-pressed", "true");
     expect(group(vi.runFilters.source).getByRole("button", { name: "Lịch" })).toHaveAttribute("aria-pressed", "false");
   });
@@ -74,6 +74,16 @@ describe("the filter chips", () => {
     await userEvent.click(group(vi.runFilters.source).getByRole("button", { name: vi.runFilters.all }));
 
     expect(onChange).toHaveBeenCalledWith({ agent: "coach", status: "error", source: null });
+  });
+
+  // The run card's inline status words are lower case ("lỗi · 15:00"); as chips beside
+  // "Tất cả" and "Lịch" they read as a row left unfinished.
+  it("labels every chip in the same case, status chips included", () => {
+    show();
+
+    const labels = screen.getAllByRole("button").map((chip) => chip.textContent ?? "");
+    expect(labels.length).toBeGreaterThan(0);
+    for (const label of labels) expect(label[0]).toBe(label[0].toLocaleUpperCase("vi"));
   });
 
   it("offers no agent choice to a crew of one", () => {
