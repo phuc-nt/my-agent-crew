@@ -282,6 +282,9 @@ button.composer-action.slash[aria-expanded="true"] {
     min-height: var(--touch-target);
     min-width: var(--touch-target);
   }
+  .export-row button {
+    min-height: var(--touch-target);
+  }
   /* A one-line block is shorter than the thumb-sized button; it grows to hold it. */
   .md-code pre.md-pre {
     min-height: calc(var(--touch-target) + 2 * var(--space-1));

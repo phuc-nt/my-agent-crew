@@ -203,6 +203,21 @@ test("a code block's copy button stays in its corner, clear of the code", async 
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.width);
 });
 
+test("the export in a conversation's options is big enough for a thumb", async ({ page }) => {
+  await mockApi(page, { agents: [defaultAgent], runs: [], conversations: [conversation("c1", "Chung")] });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Mở danh sách cuộc trò chuyện" }).click();
+  await page.locator(".sidebar").getByRole("button", { name: /Chung/ }).click();
+  await page.locator(".conversation-header").getByRole("button", { name: /Tuỳ chọn/ }).click();
+
+  const exported = page.getByRole("button", { name: "Xuất Markdown" });
+  await expect(exported).toBeVisible();
+  expect((await exported.boundingBox())?.height).toBeGreaterThanOrEqual(40);
+  const overflow = await widestOverflow(page);
+  expect(overflow.offenders).toEqual([]);
+  expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.width);
+});
+
 // The search box lives in the drawer, and a closed drawer is inert: a browser refuses to
 // focus anything inside it, so the shortcut has to open the drawer around the box first.
 test("the search shortcut opens the list at the search box", async ({ page }) => {
