@@ -281,6 +281,38 @@ describe("ApprovalHistory", () => {
     expect(screen.queryByRole("button", { name: vi.approvalHistoryMore })).not.toBeInTheDocument();
   });
 
+  it("keeps the rows already read when a bigger page fails, says so and asks again", async () => {
+    const backend = new FakeBackend();
+    backend.approvals = Array.from({ length: 260 }, (_, i) => fakeApproval({ id: `a${i}` }));
+    let refuse = false;
+    const list = await history(backend);
+    vitest.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) =>
+      refuse ? Promise.resolve(new Response("{}", { status: 500 })) : backend.fetch(input, init),
+    );
+
+    refuse = true;
+    await userEvent.click(screen.getByRole("button", { name: vi.approvalHistoryMore }));
+    expect(await screen.findByText(vi.loadFailed)).toBeInTheDocument();
+    expect(within(list).getAllByRole("listitem")).toHaveLength(50);
+
+    refuse = false;
+    await userEvent.click(screen.getByRole("button", { name: vi.approvalHistoryMore }));
+    await vitest.waitFor(() => expect(within(list).getAllByRole("listitem")).toHaveLength(200));
+    expect(screen.queryByText(vi.loadFailed)).not.toBeInTheDocument();
+  });
+
+  it("hands focus to the first new row when the last page takes the button away", async () => {
+    const backend = new FakeBackend();
+    backend.approvals = Array.from({ length: 120 }, (_, i) => fakeApproval({ id: `a${i}` }));
+    const list = await history(backend);
+
+    await userEvent.click(screen.getByRole("button", { name: vi.approvalHistoryMore }));
+
+    await vitest.waitFor(() => expect(within(list).getAllByRole("listitem")).toHaveLength(120));
+    expect(screen.queryByRole("button", { name: vi.approvalHistoryMore })).not.toBeInTheDocument();
+    expect(within(list).getAllByRole("listitem")[50]).toHaveFocus();
+  });
+
   it("offers no more when the first page is already short", async () => {
     const backend = new FakeBackend();
     backend.approvals = [fakeApproval(), fakeApproval({ id: "ap2" })];

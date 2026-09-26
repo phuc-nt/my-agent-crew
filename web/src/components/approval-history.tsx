@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 import type { ApprovalInfo, ApprovalStatus } from "../api/types";
 import { vi } from "../i18n/vi";
@@ -44,15 +44,23 @@ export function ApprovalHistory({
   // The limit the rows on screen were fetched with; below `LIMITS[step]` a bigger page is
   // on its way, and the rows stay put meanwhile instead of blanking to "Đang tải…".
   const [loaded, setLoaded] = useState(0);
+  // A page that failed leaves the rows already read on screen; "Xem thêm" asks again.
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  // Where the new rows start, while a page asked for from the button is on its way.
+  const firstNew = useRef<number | null>(null);
+  const list = useRef<HTMLUListElement>(null);
   const [shownFor, setShownFor] = useState(conversationId);
   if (shownFor !== conversationId) {
     // Another conversation's history starts from its first page, not the last one read.
     setShownFor(conversationId);
     setStep(0);
     setLoaded(0);
+    setFailed(false);
     setApprovals(undefined);
   }
   const limit = LIMITS[step];
+  const fetching = loaded < limit && !failed;
 
   // The server narrows, not this component: its page is the newest N across the crew, so a
   // filter here would hide a quiet conversation's history behind a busy one's.
@@ -63,26 +71,51 @@ export function ApprovalHistory({
         if (cancelled) return;
         setApprovals(rows);
         setLoaded(limit);
+        setFailed(false);
       },
-      () => !cancelled && setApprovals(null),
+      () => {
+        if (cancelled) return;
+        // Only a first page that never arrived has nothing to show instead.
+        setApprovals((rows) => rows ?? null);
+        setFailed(true);
+      },
     );
     return () => {
       cancelled = true;
     };
-  }, [refreshKey, conversationId, limit]);
+  }, [refreshKey, conversationId, limit, attempt]);
+
+  // The last page takes the button with it, and focus would fall to the top of the page:
+  // it goes to the first row that page brought instead, where reading carries on.
+  useEffect(() => {
+    const from = firstNew.current;
+    if (from === null || fetching) return;
+    firstNew.current = null;
+    if (document.activeElement && document.activeElement !== document.body) return;
+    const rows = list.current?.querySelectorAll<HTMLElement>(":scope > li");
+    rows?.[Math.min(from, rows.length - 1)]?.focus();
+  });
 
   if (approvals === undefined) return <p className="muted">{vi.loading}</p>;
   if (approvals === null) return <p className="muted">{vi.loadFailed}</p>;
   if (approvals.length === 0) return <EmptyState icon="approvals" says={vi.approvalHistoryEmpty} />;
   // A short page is the whole history; a full one at the ceiling is as far as the server goes.
-  // While a bigger page loads the button stays, disabled, so the tap visibly did something.
-  const fetching = loaded < limit;
-  const more = fetching || (step < LIMITS.length - 1 && approvals.length >= loaded);
+  // While a bigger page loads the button stays and says so, so the tap visibly did something.
+  // It is busy rather than disabled: a disabled button drops the keyboard focus it holds.
+  const more = failed || fetching || (step < LIMITS.length - 1 && approvals.length >= loaded);
+  const askMore = () => {
+    if (fetching) return;
+    firstNew.current = approvals.length;
+    if (failed) {
+      setFailed(false);
+      setAttempt((n) => n + 1);
+    } else setStep((s) => s + 1);
+  };
   return (
     <>
-      <ul className="approval-list" data-testid="approval-history">
+      <ul className="approval-list" data-testid="approval-history" ref={list}>
         {approvals.map((a) => (
-          <li key={a.id} data-status={a.status}>
+          <li key={a.id} data-status={a.status} tabIndex={-1}>
             <div className="approval-head">
               <span>
                 <strong>{agentName(a.agent_id)}</strong> · <code>{a.tool_name}</code>
@@ -97,13 +130,13 @@ export function ApprovalHistory({
           </li>
         ))}
       </ul>
+      {failed && (
+        <p className="notice error" role="status">
+          {vi.loadFailed}
+        </p>
+      )}
       {more && (
-        <button
-          type="button"
-          className="approval-more"
-          disabled={fetching}
-          onClick={() => setStep((s) => s + 1)}
-        >
+        <button type="button" className="approval-more" aria-busy={fetching} onClick={askMore}>
           {fetching ? vi.loading : vi.approvalHistoryMore}
         </button>
       )}
