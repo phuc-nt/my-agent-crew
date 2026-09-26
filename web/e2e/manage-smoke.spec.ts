@@ -265,6 +265,8 @@ test("a wiki page reads as prose, its link leads to the next page, and one tap m
   expect((await put).postDataJSON()).toEqual({ status: "ok" });
   await expect(status).toHaveText("ổn");
   await expect(opened.getByRole("button", { name: "Đánh dấu ổn" })).toHaveCount(0);
+  // The button pressed is gone; the badge that now says so holds focus instead of <body>.
+  await expect(status).toBeFocused();
 });
 
 test("a compile that ends while the stream is down lets go of its chip on the reconnect", async ({ page }) => {

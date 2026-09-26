@@ -195,6 +195,23 @@ describe("WikiSection read mode", () => {
     expect(screen.getByTestId("wiki-page")).toHaveTextContent("Pha lúc 6h.");
   });
 
+  it("opens a page reached by a link at its top, with focus on its title", async () => {
+    backend.wiki.add({ title: "Hạn Eco", body: "Pha [[Trà sáng]] trước khi nộp." });
+    backend.wiki.add({ slug: "tra-sang", title: "Trà sáng", kind: "concepts", body: "Pha lúc 6h." });
+    // jsdom lays nothing out and has no scrollIntoView; record what asked to be shown.
+    const scrolled = vitest.fn();
+    Element.prototype.scrollIntoView = scrolled;
+    mount();
+    await userEvent.click(await screen.findByRole("button", { name: "Hạn Eco" }));
+    await userEvent.click(within(await screen.findByTestId("wiki-page")).getByRole("button", { name: "Trà sáng" }));
+
+    const title = await screen.findByRole("heading", { name: "Trà sáng" });
+    expect(title).toHaveFocus();
+    expect(scrolled).toHaveBeenLastCalledWith({ block: "start" });
+    expect(scrolled.mock.contexts.at(-1)).toBe(screen.getByTestId("wiki-page"));
+    delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+  });
+
   it("still follows a link to a page the search has left out of the list", async () => {
     backend.wiki.add({ title: "Hạn Eco", body: "Pha [[Trà sáng]] trước khi nộp." });
     backend.wiki.add({ slug: "tra-sang", title: "Trà sáng", kind: "concepts", body: "Pha lúc 6h." });
@@ -231,6 +248,8 @@ describe("WikiSection read mode", () => {
     await waitFor(() => expect(screen.getByTestId("wiki-status")).toHaveTextContent(vi.wiki.statusOk));
     expect(backend.wiki.edits).toEqual([{ slug: "han-eco", body: { status: "ok" } }]);
     expect(screen.queryByRole("button", { name: vi.wiki.markOk })).toBeNull();
+    // The pressed button is gone; focus goes to the badge that now says ok, not to <body>.
+    await waitFor(() => expect(screen.getByTestId("wiki-status")).toHaveFocus());
     expect(screen.getByTestId("wiki-page")).toBeInTheDocument();
   });
 

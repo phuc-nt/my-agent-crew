@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { WikiPage } from "../api/types";
 import { vi } from "../i18n/vi";
 import { MemoryEditor } from "./memory-editor";
@@ -25,12 +25,22 @@ interface Props {
  * the body now says, which is exactly backwards.
  *
  * The parent mounts one per page, so a page reached by a link opens for reading too,
- * without the last page's editor or error carried over.
+ * without the last page's editor or error carried over. Mounting is also when it moves
+ * the view to its top and focus to its title: the scroll offset belongs to the page that
+ * was being read, and the link that was pressed is gone, which would drop focus to <body>.
  */
 export function WikiPageView({ page, titles, onBack, onOpen, onSaveBody, onMarkOk, onRemove }: Props) {
   const [editing, setEditing] = useState(false);
   const [marking, setMarking] = useState(false);
   const [markFailed, setMarkFailed] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  const title = useRef<HTMLHeadingElement>(null);
+  const status = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    root.current?.scrollIntoView?.({ block: "start" });
+    title.current?.focus({ preventScroll: true });
+  }, []);
 
   const remove = () => {
     if (window.confirm(vi.wiki.confirmRemove(page.title))) void onRemove();
@@ -41,6 +51,8 @@ export function WikiPageView({ page, titles, onBack, onOpen, onSaveBody, onMarkO
     setMarkFailed(false);
     try {
       await onMarkOk();
+      // The button pressed is gone once the page is fine; the badge that says so takes focus.
+      status.current?.focus();
     } catch {
       setMarkFailed(true);
     } finally {
@@ -50,7 +62,7 @@ export function WikiPageView({ page, titles, onBack, onOpen, onSaveBody, onMarkO
 
   const ok = page.status === "ok";
   return (
-    <div data-testid="wiki-page">
+    <div data-testid="wiki-page" ref={root}>
       <div className="wiki-page-head">
         <button type="button" className="ghost" onClick={onBack}>
           ← {vi.wiki.back}
@@ -65,12 +77,14 @@ export function WikiPageView({ page, titles, onBack, onOpen, onSaveBody, onMarkO
         </span>
       </div>
 
-      <h3 className="wiki-page-title">{page.title}</h3>
+      <h3 className="wiki-page-title" ref={title} tabIndex={-1}>
+        {page.title}
+      </h3>
       <p className="muted wiki-page-meta">
         {vi.wiki.kinds[page.kind] ?? page.kind}
         {" · "}
         {page.updated ? vi.wiki.updated(page.updated) : vi.wiki.neverUpdated}{" "}
-        <span className={ok ? "badge ok" : "badge warn"} data-testid="wiki-status">
+        <span className={ok ? "badge ok" : "badge warn"} data-testid="wiki-status" ref={status} tabIndex={-1}>
           {ok ? vi.wiki.statusOk : vi.wiki.needsReview}
         </span>
         {!ok && (
