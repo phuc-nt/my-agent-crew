@@ -64,7 +64,14 @@ def _file_and_answer(answer: str, home: Path) -> bool:
 
 
 def _has_number(number: str) -> Callable[[str, Path], bool]:
-    return lambda answer, home: re.search(rf"(?<![\d.,]){number}(?![\d])", answer) is not None
+    """The number as a whole token; `1.587` and `1,587` (a thousands separator in either
+    convention) count as `1587`, `15870` and `0.1587` do not."""
+
+    def passed(answer: str, home: Path) -> bool:
+        plain = re.sub(r"(?<=\d)[.,](?=\d{3}(?!\d))", "", answer)
+        return re.search(rf"(?<![\d.,]){number}(?![\d])", plain) is not None
+
+    return passed
 
 
 TASKS: tuple[Task, ...] = (
