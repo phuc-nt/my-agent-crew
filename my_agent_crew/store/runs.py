@@ -114,8 +114,9 @@ class RunStore:
         source_prefix: str | None = None,
         conversation_ids: Sequence[str] | None = None,
         source: str | None = None,
+        agent_id: str | None = None,
     ) -> list[RunRecord]:
-        """Newest runs first, optionally only one source or one set of conversations.
+        """Newest runs first, optionally only one source, one agent or some conversations.
 
         Narrowing belongs here rather than in the caller: filtering an already-truncated
         crew-wide page would hide a quiet conversation's runs behind a busy crew's."""
@@ -127,6 +128,9 @@ class RunStore:
         if source is not None:
             clauses.append("source = ?")
             params += (source,)
+        if agent_id is not None:
+            clauses.append("agent_id = ?")
+            params += (agent_id,)
         if conversation_ids is not None:
             ids = tuple(conversation_ids)
             if not ids:

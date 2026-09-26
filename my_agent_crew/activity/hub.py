@@ -125,17 +125,22 @@ class ActivityHub:
         limit: int = RECENT_LIMIT,
         conversation_ids: Sequence[str] | None = None,
         source: str | None = None,
+        agent_id: str | None = None,
     ) -> list[RunRecord]:
-        """Newest runs first, optionally only those of some conversations or one source.
+        """Newest runs first, optionally only some conversations', one source's or one agent's.
 
         The narrowing reaches the query and the live runs alike, so `limit` counts the rows
         actually asked for instead of whatever a busy crew left over."""
-        stored = self._store.runs.recent(limit, conversation_ids=conversation_ids, source=source)
+        stored = self._store.runs.recent(
+            limit, conversation_ids=conversation_ids, source=source, agent_id=agent_id
+        )
         by_id = {r.id: r for r in stored}
         wanted = None if conversation_ids is None else set(conversation_ids)
         for run in self._live.values():
-            if (wanted is None or run.conversation_id in wanted) and (
-                source is None or run.source == source
+            if (
+                (wanted is None or run.conversation_id in wanted)
+                and (source is None or run.source == source)
+                and (agent_id is None or run.agent_id == agent_id)
             ):
                 by_id[run.id] = run
         return sorted(by_id.values(), key=lambda r: r.started_at, reverse=True)[:limit]

@@ -37,11 +37,12 @@ def list_runs(
     """Recent runs, narrowed to one agent or to one conversation.
 
     A conversation's activity includes what it delegated: the work happened on the child's
-    own run, and hiding it would leave the parent looking idle while a delegate works."""
+    own run, and hiding it would leave the parent looking idle while a delegate works. Both
+    narrowings reach the query, so `limit` counts the runs asked for."""
     family = conversation_family(rt, conversation_id) if conversation_id else None
-    runs = rt.hub.recent(min(max(limit, 1), 500), conversation_ids=family)
-    if agent_id:
-        runs = [r for r in runs if r.agent_id == agent_id]
+    runs = rt.hub.recent(
+        min(max(limit, 1), 500), conversation_ids=family, agent_id=agent_id or None
+    )
     return [r.to_dict() for r in runs]
 
 

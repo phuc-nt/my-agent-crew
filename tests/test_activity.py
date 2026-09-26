@@ -3,6 +3,7 @@
 import asyncio
 
 import pytest
+from fastapi.testclient import TestClient
 
 from my_agent_crew.activity import ActivityHub, tracked
 from my_agent_crew.activity.steps import CLOCK_KEY, apply_event
@@ -20,9 +21,10 @@ from my_agent_crew.agent.events import (
 )
 from my_agent_crew.agent.loop import run_turn
 from my_agent_crew.agent.resume import resolve_approval
-from my_agent_crew.config import Route
+from my_agent_crew.config import Route, load_settings
 from my_agent_crew.llm.fake import completion
 from my_agent_crew.llm.types import ToolCall
+from my_agent_crew.server import build_runtime, create_app
 from my_agent_crew.store import Store
 from my_agent_crew.store.runs import AWAITING, DONE, FAILED, HALTED, RUNNING, RunRecord
 from tests.conftest import collect
@@ -303,6 +305,20 @@ def test_runs_left_running_by_a_crash_are_marked_on_startup(tmp_path):
     store.runs.save(fresh_run())
     ActivityHub(store)
     assert store.runs.get("r1").status == FAILED
+
+
+def test_one_agents_runs_are_not_crowded_out_by_a_busier_agent(tmp_path):
+    """The limit must count the chosen agent's runs: narrowing a crew-wide page afterwards
+    showed nothing of an agent whose last run was older than the others' latest."""
+    env = {"MY_AGENT_HOME": str(tmp_path), "MY_AGENT_ROUTES": "fake:echo"}
+    runtime = build_runtime(load_settings(env=env))
+    for i, agent in enumerate(["quiet"] * 10 + ["busy"] * 10):
+        started = f"2026-09-19T08:{i:02d}:00+00:00"
+        runtime.store.runs.save(RunRecord(f"r{i}", agent, None, "chat", "t", DONE, started))
+    runtime.hub.start("busy", "chat", "live", None)
+    with TestClient(create_app(runtime, schedule=False), base_url="http://127.0.0.1") as client:
+        runs = client.get("/api/activity/runs?agent_id=quiet&limit=5").json()
+    assert [r["id"] for r in runs] == ["r9", "r8", "r7", "r6", "r5"]
 
 
 async def test_waiting_on_a_conversation_returns_its_finished_run(deps_factory):
