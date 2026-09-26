@@ -23,13 +23,18 @@ export type RunStep =
   | {
       kind: "tool";
       name: string;
-      tool_call_id: string;
+      /**
+       * Both absent when the result arrived without its call on this run — a turn that
+       * resumes after an approval gets the result, while the call was recorded on the
+       * run that paused. The server still opens a step for it, so the result is not lost.
+       */
+      tool_call_id?: string;
       /**
        * A mapping of argument name to value — except on runs recorded before the
        * store kept the shape, where the whole mapping was flattened to one string.
        * Those rows are still in the database, so reading one back has to cope.
        */
-      arguments: Record<string, unknown> | string;
+      arguments?: Record<string, unknown> | string;
       ok: boolean | null;
       output: string | null;
       /**

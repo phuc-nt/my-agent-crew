@@ -20,6 +20,11 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   run is now sent as a copy without the builder's private keys. The page also completes a model call
   that a snapshot caught mid-answer rather than duplicating it, shows it as "Đang suy nghĩ" until the
   answer lands, and, like the server, adds no model step for a child's answer that was relayed whole.
+- **Opening a run whose tool result arrived without its call no longer breaks the page.** A turn
+  that resumes after an approval receives the result while the call was recorded on the run that
+  paused, so the server opens that step with no arguments. Expanding such a run, on the activity
+  list or its own page, read the missing arguments and took the screen down; the step now shows "—"
+  where the arguments would be.
 
 ## [0.7.0] — 2026-09-26
 

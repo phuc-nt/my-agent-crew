@@ -68,6 +68,23 @@ describe("RunReplay", () => {
     expect(await screen.findByText("path=notes.md")).toBeInTheDocument();
   });
 
+  it("shows a tool result that arrived without its call, instead of breaking the page", async () => {
+    // A turn resumed after an approval gets the result while the call was written on the
+    // run that paused, so the server opens the step with no arguments and no call id.
+    backend.runs = [
+      fakeRun({
+        id: "resumed",
+        steps: [{ kind: "tool", name: "workspace_write", ok: false, output: "Bị từ chối", duration_ms: 0 }],
+      }),
+    ];
+
+    show("resumed");
+
+    const step = await screen.findByTestId("run-step");
+    expect(step).toHaveTextContent("workspace_write");
+    expect(step).toHaveTextContent("—");
+  });
+
   it("prefers the copy already on screen, so a run still working keeps ticking", async () => {
     const fetched = vitest.fn(backend.fetch);
     vitest.stubGlobal("fetch", fetched);
