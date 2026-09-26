@@ -636,7 +636,12 @@ export const vi = {
     consolidateStarted: "Đang cô đọng — xem tiến trình ở tab Hoạt động.",
     consolidateBusy: "Agent này đang cô đọng bộ nhớ.",
     consolidateFailed: "Không bắt đầu cô đọng được.",
-    runFinished: (status: string) => `Lượt chạy đã kết thúc: ${status}.`,
+    /** How a run started from this tab ended, each as a sentence of its own. */
+    runEnded: {
+      done: "Đã chạy xong.",
+      halted: "Đã dừng giữa chừng.",
+      error: "Chạy lỗi.",
+    } as Record<string, string>,
     searchPlaceholder: "Tìm trong mọi ghi nhớ…",
     scopeAll: "Mọi agent",
     scopeAgent: "Chỉ agent này",

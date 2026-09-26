@@ -42,6 +42,6 @@ export function RunStatus({ label, run, tracking, message }: RunStatusProps) {
 
 /** What to say once the run is over: how it ended, and its own summary when it left one. */
 export function runOutcome(run: RunInfo): string {
-  const status = vi.runStatus[run.status] ?? run.status;
-  return run.summary ? `${vi.memory.runFinished(status)} ${run.summary}` : vi.memory.runFinished(status);
+  const ended = vi.memory.runEnded[run.status] ?? vi.runStatus[run.status] ?? run.status;
+  return run.summary ? `${ended} ${run.summary}` : ended;
 }
