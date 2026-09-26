@@ -58,8 +58,11 @@
     min-width: 0;
   }
 
+  /* The empty box's button is the only way out of a filter that matches nothing, or of
+     a history that failed to load. */
   .run-filters button.chip,
   .run-log-more,
+  .run-log .empty button,
   button.history-retry {
     min-height: var(--touch-target);
   }

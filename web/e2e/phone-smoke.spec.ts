@@ -162,6 +162,12 @@ test("the activity log's chips wrap on a phone and stay big enough to tap", asyn
     expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(390);
   }
 
+  // Narrowed to nothing, the way out is the one button in the empty box.
+  await filters.getByRole("group", { name: "Agent" }).getByRole("button", { name: coachAgent.name }).click();
+  await filters.getByRole("group", { name: "Trạng thái" }).getByRole("button", { name: /^đã dừng$/i }).click();
+  const clear = page.getByTestId("run-log").getByRole("button", { name: "Bỏ lọc" });
+  expect((await clear.boundingBox())?.height).toBeGreaterThanOrEqual(40);
+
   const overflow = await widestOverflow(page);
   expect(overflow.offenders).toEqual([]);
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.width);
