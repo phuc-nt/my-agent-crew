@@ -52,6 +52,28 @@ describe("CopyButton", () => {
 
     fireEvent.click(screen.getByRole("button", { name: vi.close }));
     expect(screen.queryByTestId("copy-fallback")).toBeNull();
+    // The focus goes back where it came from, not to the top of the page.
+    expect(screen.getByRole("button", { name: vi.copy.reply })).toHaveFocus();
+  });
+
+  it("puts the hand-copy box away on Esc, keeps the Esc to itself, and returns the focus", async () => {
+    const onDocumentKey = vitest.fn();
+    document.addEventListener("keydown", onDocumentKey);
+    try {
+      installClipboard(undefined);
+      render(<CopyButton text="uv run pytest -q" label={vi.copy.code} />);
+      fireEvent.click(screen.getByRole("button", { name: vi.copy.code }));
+      const box = await screen.findByRole("textbox", { name: vi.copy.manual });
+
+      fireEvent.keyDown(box, { key: "Escape" });
+
+      expect(screen.queryByTestId("copy-fallback")).toBeNull();
+      expect(screen.getByRole("button", { name: vi.copy.code })).toHaveFocus();
+      // The drawer closes on Esc; that must not happen when the Esc only meant this box.
+      expect(onDocumentKey).not.toHaveBeenCalled();
+    } finally {
+      document.removeEventListener("keydown", onDocumentKey);
+    }
   });
 
   it("falls back the same way where there is no clipboard at all, as over plain http", async () => {

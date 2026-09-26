@@ -140,6 +140,37 @@ test("the '/' button offers the agent's commands to a thumb, and the list fits",
   await expect(page.getByRole("listbox")).toHaveCount(0);
 });
 
+/** Sends a message and waits for the agent's reply to be on screen. */
+async function replied(page: import("@playwright/test").Page, content: string) {
+  await mockApi(page, { turns: [[
+    { type: "assistant_message", message_id: "a1", content, tool_calls: [], provider: "fake", model: "echo", cost_usd: 0 },
+    { type: "done", spent_usd: 0, unknown_cost_calls: 0 },
+  ]] });
+  await page.goto("/");
+  await page.getByRole("textbox", { name: /^Nhắn cho agent/ }).fill("chạy gì");
+  await page.keyboard.press("Enter");
+  const bubble = page.getByTestId("message-assistant");
+  await expect(bubble).toBeVisible();
+  return bubble;
+}
+
+// Over plain http a phone has no clipboard API, so the box to copy by hand is what the
+// owner actually gets there, and he has to be able to put it away with a thumb.
+test("a copy the phone cannot make opens a box a thumb can close", async ({ page }) => {
+  await page.addInitScript(() => Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined }));
+  const bubble = await replied(page, "Chạy:\n\n```\nls\n```");
+  const copy = bubble.getByRole("button", { name: "Sao chép mã" });
+  await copy.click();
+
+  const close = page.getByTestId("copy-fallback").getByRole("button", { name: "Đóng" });
+  const size = await close.boundingBox();
+  expect(size?.width).toBeGreaterThanOrEqual(40);
+  expect(size?.height).toBeGreaterThanOrEqual(40);
+  await close.click();
+  await expect(page.getByTestId("copy-fallback")).toHaveCount(0);
+  await expect(copy).toBeFocused();
+});
+
 // The search box lives in the drawer, and a closed drawer is inert: a browser refuses to
 // focus anything inside it, so the shortcut has to open the drawer around the box first.
 test("the search shortcut opens the list at the search box", async ({ page }) => {

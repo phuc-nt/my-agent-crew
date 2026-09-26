@@ -19,6 +19,7 @@ type State = "idle" | "copied" | "failed";
 export function CopyButton({ text, label, className = "" }: { text: string; label: string; className?: string }) {
   const [state, setState] = useState<State>("idle");
   const timer = useRef<number | undefined>(undefined);
+  const trigger = useRef<HTMLButtonElement>(null);
   useEffect(() => () => window.clearTimeout(timer.current), []);
 
   const copy = async () => {
@@ -37,6 +38,7 @@ export function CopyButton({ text, label, className = "" }: { text: string; labe
   return (
     <>
       <button
+        ref={trigger}
         type="button"
         className={`copy-button ${className}`.trim()}
         data-copied={copied || undefined}
@@ -47,7 +49,16 @@ export function CopyButton({ text, label, className = "" }: { text: string; labe
         <Icon name={copied ? "check" : "copy"} />
         <span className="copy-label">{copied ? vi.copy.copied : vi.copy.copy}</span>
       </button>
-      {state === "failed" && <CopyFallback text={text} onClose={() => setState("idle")} />}
+      {state === "failed" && (
+        <CopyFallback
+          text={text}
+          onClose={() => {
+            setState("idle");
+            // The box that had the focus is gone; the button it came from keeps the place.
+            trigger.current?.focus();
+          }}
+        />
+      )}
     </>
   );
 }
@@ -60,7 +71,18 @@ function CopyFallback({ text, onClose }: { text: string; onClose: () => void }) 
     box.current?.select();
   }, []);
   return (
-    <div className="copy-fallback" role="status" data-testid="copy-fallback">
+    <div
+      className="copy-fallback"
+      role="status"
+      data-testid="copy-fallback"
+      onKeyDown={(event) => {
+        if (event.key !== "Escape") return;
+        event.preventDefault();
+        // The drawer and the activity strip listen for Esc too; this one only meant the box.
+        event.stopPropagation();
+        onClose();
+      }}
+    >
       <p>{vi.copy.failed}</p>
       <textarea
         ref={box}

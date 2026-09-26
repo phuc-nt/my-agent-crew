@@ -267,7 +267,8 @@ button.composer-action.slash[aria-expanded="true"] {
 
 /* ── Phone ──────────────────────────────────────────────────────────────── */
 @media (max-width: 720px) {
-  button.copy-button {
+  button.copy-button,
+  .copy-fallback button.link-button {
     min-height: var(--touch-target);
     min-width: var(--touch-target);
   }
