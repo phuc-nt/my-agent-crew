@@ -83,8 +83,9 @@ export function useWiki(agentId: string): WikiController {
     async (slug: string, body: WikiPageEdit) => {
       setPage(await api.putWikiPage(agentId, slug, body));
       // An edited link changes other pages' backlinks and can clear a lint problem, so
-      // the list and the report are both re-read rather than patched in place.
-      await reload(query);
+      // the list and the report are both re-read rather than patched in place. The edit
+      // has landed by now: a re-read that fails must not make it look as if it had not.
+      void reload(query).catch(() => undefined);
     },
     [agentId, query, reload],
   );

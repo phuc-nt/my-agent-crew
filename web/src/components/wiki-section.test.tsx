@@ -233,6 +233,28 @@ describe("WikiSection read mode", () => {
     expect(screen.getByTestId("wiki-page")).toBeInTheDocument();
   });
 
+  it("does not call a mark-ok failed when only the list re-read after it fails", async () => {
+    backend.wiki.add({ title: "Hạn Eco", status: "review" });
+    const fetchThrough = backend.fetch;
+    let listDown = false;
+    let refused = 0;
+    vitest.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) => {
+      const list = new URL(String(input), "http://fake").pathname.endsWith("/memory/wiki");
+      if (!listDown || !list) return fetchThrough(input, init);
+      refused += 1;
+      return Promise.resolve(new Response(JSON.stringify({ detail: "down" }), { status: 500 }));
+    });
+    mount();
+    await userEvent.click(await screen.findByRole("button", { name: "Hạn Eco" }));
+
+    listDown = true;
+    await userEvent.click(await screen.findByRole("button", { name: vi.wiki.markOk }));
+    await waitFor(() => expect(refused).toBe(1));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(screen.getByTestId("wiki-status")).toHaveTextContent(vi.wiki.statusOk);
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
   it("says a failed mark-ok did not land, and leaves that failure behind on the next page", async () => {
     backend.wiki.add({ title: "Hạn Eco", status: "review", body: "Xem [[Trà sáng]]." });
     backend.wiki.add({ slug: "tra-sang", title: "Trà sáng", kind: "concepts", status: "review" });
