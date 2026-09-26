@@ -58,4 +58,15 @@ describe("AttentionCenter failures", () => {
     await userEvent.click(screen.getByRole("button", { name: vi.attentionWaitingElsewhere(2) }));
     expect(onOpenWaiting).toHaveBeenCalled();
   });
+
+  // Duyệt lists only requests; the nav still counts unread failures on Hoạt động.
+  it("points to the failures listed in another section instead of saying nothing needs you", async () => {
+    const onOpenFailed = vitest.fn();
+    render(<AttentionCenter runs={[]} agentName={name} onOpenConversation={() => undefined} inline failedElsewhere={3} onOpenFailed={onOpenFailed} />);
+
+    expect(screen.queryByText(vi.attentionEmpty)).not.toBeInTheDocument();
+    expect(screen.getByTestId("attention")).not.toHaveClass("calm");
+    await userEvent.click(screen.getByRole("button", { name: vi.attentionFailedElsewhere(3) }));
+    expect(onOpenFailed).toHaveBeenCalled();
+  });
 });

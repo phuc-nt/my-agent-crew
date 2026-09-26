@@ -276,6 +276,8 @@ export function ManageScreen(props: Props) {
                 agentName={props.agentName}
                 onOpenConversation={props.onOpenConversation}
                 onReload={props.onReloadActivity}
+                failedElsewhere={failed.length}
+                onOpenFailed={() => props.onNavigate("activity")}
               />
               <h3>{vi.approvalHistory}</h3>
               <ApprovalHistory

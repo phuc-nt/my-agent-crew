@@ -211,6 +211,16 @@ describe("the manage screen", () => {
     expect(attention.compareDocumentPosition(history) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it("points from Duyệt to the unread failures on Hoạt động rather than saying nothing needs you", async () => {
+    const { onNavigate } = show("approvals", { attention: [fakeRun({ id: "broke", status: "error" })] });
+
+    const attention = screen.getByTestId("attention");
+    expect(within(attention).queryByText(vi.attentionEmpty)).not.toBeInTheDocument();
+    await userEvent.click(within(attention).getByRole("button", { name: vi.attentionFailedElsewhere(1) }));
+
+    expect(onNavigate).toHaveBeenCalledWith("activity");
+  });
+
   it("points from the activity page to the requests waiting on Duyệt", async () => {
     const waiting = fakeRun({ id: "waiting", status: "awaiting_approval", finished_at: null });
     const { onNavigate } = show("activity", { attention: [waiting] });

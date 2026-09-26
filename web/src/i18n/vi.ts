@@ -579,6 +579,7 @@ export const vi = {
   attentionExpiresIn: (clock: string) => `còn ${clock}`,
   attentionExpired: "Đã hết hạn",
   attentionWaitingElsewhere: (n: number) => `${n} việc đang chờ bạn ở mục Duyệt`,
+  attentionFailedElsewhere: (n: number) => `${n} lỗi hoặc dừng chưa xem ở mục Hoạt động`,
   costs: "Chi phí",
   costTotal: "Tổng chi",
   costRuns: "Lượt chạy",

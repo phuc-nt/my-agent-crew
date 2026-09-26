@@ -20,6 +20,9 @@ interface Props {
   /** Requests waiting in another section, so this card never says there is nothing. */
   waitingElsewhere?: number;
   onOpenWaiting?: () => void;
+  /** Failures not yet read, listed in another section — the same promise the other way. */
+  failedElsewhere?: number;
+  onOpenFailed?: () => void;
 }
 
 /** A run pauses for two unrelated reasons, and only one of them is a permission request.
@@ -48,10 +51,13 @@ const noop = () => undefined;
 export function AttentionCenter(props: Props) {
   const { runs, agentName, onOpenConversation, parentTitle, inline = false } = props;
   const waitingElsewhere = props.waitingElsewhere ?? 0;
+  const failedElsewhere = props.failedElsewhere ?? 0;
   // Rows settled from here leave at once, before the list is read again.
   const [settled, setSettled] = useState<string[]>([]);
   const shown = runs.filter((run) => !settled.includes(run.id));
-  const calm = shown.length === 0 && waitingElsewhere === 0;
+  // "Nothing needs you" must hold for the whole manage screen, not just this list: the
+  // nav still counts the work listed on the other page, and the two would contradict.
+  const calm = shown.length === 0 && waitingElsewhere === 0 && failedElsewhere === 0;
 
   const head = (run: RunInfo, preview: boolean) => {
     const parent = parentTitle?.(run);
@@ -135,6 +141,12 @@ export function AttentionCenter(props: Props) {
       {waitingElsewhere > 0 && (
         <button type="button" className="attention-elsewhere" onClick={props.onOpenWaiting}>
           {vi.attentionWaitingElsewhere(waitingElsewhere)}
+          <Icon name="arrow-right" />
+        </button>
+      )}
+      {failedElsewhere > 0 && (
+        <button type="button" className="attention-elsewhere" onClick={props.onOpenFailed}>
+          {vi.attentionFailedElsewhere(failedElsewhere)}
           <Icon name="arrow-right" />
         </button>
       )}
