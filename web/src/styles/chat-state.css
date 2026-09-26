@@ -74,6 +74,11 @@
 }
 
 /* ── Live stream pill ───────────────────────────────────────────────────── */
+/* The two sides of the line sit level whatever either one holds. */
+.status-line {
+  align-items: center;
+}
+
 .stream-state.connecting::before {
   background: var(--warn);
 }
@@ -136,5 +141,17 @@
   .notice > .link-button,
   .status-line button.stream-retry {
     min-height: var(--touch-target);
+  }
+
+  /* Thumb-sized, yet it takes no height in the line: its box hangs evenly over the
+     line's middle, so the line keeps one height whatever the stream says and the
+     composer above it never jumps when the retry comes and goes. The line's foot is
+     always deep enough to hold the lower half, which would otherwise scroll the page. */
+  .status-line button.stream-retry {
+    margin-block: calc(var(--touch-target) / -2);
+  }
+
+  .status-line {
+    padding-bottom: max(calc((var(--touch-target) - 1lh) / 2), env(safe-area-inset-bottom));
   }
 }
