@@ -44,7 +44,7 @@ export function JobLastRun({ job, onOpenRun }: Props) {
               aria-label={vi.jobRow.openRunOf(job.name)}
               onClick={() => onOpenRun(last.id)}
             >
-              {vi.jobRow.openRun}
+              {vi.replay.openLink}
             </button>
           )}
           {last.summary && <p className="job-last-summary">{last.summary}</p>}

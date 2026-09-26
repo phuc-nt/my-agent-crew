@@ -348,7 +348,6 @@ export const vi = {
     scheduleAction: "Làm gì",
     schedulePrompt: "Nhắc agent",
     scheduleCommand: "Lệnh shell",
-    scheduleSkills: "Kỹ năng gắn kèm",
     scheduleSkillsEmpty: "Agent này chưa có kỹ năng nào để gắn.",
     scheduleUnnamed: "lịch mới",
     scheduleRemove: (name: string) => `Xoá lịch ${name}`,
@@ -558,8 +557,8 @@ export const vi = {
     edit: "Sửa lịch",
     editOf: (job: string) => `Sửa lịch ${job}`,
     openCrew: "Mở mục Đội",
-    openRun: "Xem lượt chạy",
-    openRunOf: (job: string) => `Xem lượt chạy gần nhất của ${job}`,
+    // Visibly the run cards' own "Xem riêng", which opens the same page from the history.
+    openRunOf: (job: string) => `Xem riêng lượt chạy gần nhất của ${job}`,
     // Beside the Jobs entry in the nav: the count alone is red, this is what it counts.
     failing: (n: number) => `${n} lịch lỗi ở lần chạy gần nhất`,
     // A cron read aloud. The hour is the server's own clock, which is the owner's.
@@ -572,7 +571,7 @@ export const vi = {
       weekend: (time: string) => `Cuối tuần ${time}`,
       weekly: (days: string, time: string) => `${days} hằng tuần ${time}`,
       monthly: (day: number, time: string) => `Ngày ${day} hằng tháng ${time}`,
-      days: ["Chủ nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"],
+      days: ["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"],
     },
   },
   showTimeline: "Xem dòng thời gian",

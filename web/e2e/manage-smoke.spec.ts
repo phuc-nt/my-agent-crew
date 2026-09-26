@@ -221,7 +221,7 @@ test("a job reads its schedule in words, shows its last run, and a failure is co
   await expect(first).toContainText("Mỗi ngày 07:00");
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 
-  await first.getByRole("button", { name: "Xem lượt chạy gần nhất của Bản tin sáng" }).click();
+  await first.getByRole("button", { name: "Xem riêng lượt chạy gần nhất của Bản tin sáng" }).click();
   await expect(page).toHaveURL(/#\/manage\/activity\/r-err$/);
   await expect(page.getByTestId("run-replay")).toContainText("Không gọi được API");
 });

@@ -92,14 +92,14 @@ describe("the schedules part of the agent editor", () => {
     open();
     const row = await addRow();
     expect(row.getByLabelText(vi.editor.schedulePrompt)).not.toHaveClass("mono");
-    expect(row.getByRole("group", { name: vi.editor.scheduleSkills })).toBeInTheDocument();
+    expect(row.getByRole("group", { name: vi.jobSkills })).toBeInTheDocument();
 
     await userEvent.click(row.getByRole("button", { name: vi.editor.scheduleCommand }));
 
     expect(row.getByRole("button", { name: vi.editor.scheduleCommand })).toHaveAttribute("aria-pressed", "true");
     expect(row.queryByLabelText(vi.editor.schedulePrompt)).not.toBeInTheDocument();
     expect(row.getByLabelText(vi.editor.scheduleCommand)).toHaveClass("mono");
-    expect(row.queryByRole("group", { name: vi.editor.scheduleSkills })).not.toBeInTheDocument();
+    expect(row.queryByRole("group", { name: vi.jobSkills })).not.toBeInTheDocument();
 
     await userEvent.type(row.getByLabelText(vi.editor.scheduleCron), "0 3 * * *");
     await userEvent.type(row.getByLabelText(vi.editor.scheduleCommand), "echo hi");

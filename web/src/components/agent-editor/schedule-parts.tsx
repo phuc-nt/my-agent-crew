@@ -52,9 +52,10 @@ interface SkillProps {
 export function SkillPicker({ available, chosen, disabled, onChange }: SkillProps) {
   const names = [...available, ...chosen.filter((name) => !available.includes(name))];
   if (names.length === 0) return <p className="muted field-hint">{vi.editor.scheduleSkillsEmpty}</p>;
+  // Named as the jobs list names them, so one thing has one name on both pages.
   return (
-    <div className="schedule-skills" role="group" aria-label={vi.editor.scheduleSkills}>
-      <span className="field-label">{vi.editor.scheduleSkills}</span>
+    <div className="schedule-skills" role="group" aria-label={vi.jobSkills}>
+      <span className="field-label">{vi.jobSkills}</span>
       <div className="row wrap">
         {names.map((name) => {
           const on = chosen.includes(name);

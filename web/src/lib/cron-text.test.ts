@@ -13,8 +13,8 @@ describe("a schedule's timing in words", () => {
     ["0 10 * * 6,7", "Cuối tuần 10:00"],
     ["0 18 * * 5", "Thứ Sáu hằng tuần 18:00"],
     // Sunday written either way, and read last as a week is.
-    ["0 20 * * 7", "Chủ nhật hằng tuần 20:00"],
-    ["0 20 * * 0,1", "Thứ Hai, Chủ nhật hằng tuần 20:00"],
+    ["0 20 * * 7", "Chủ Nhật hằng tuần 20:00"],
+    ["0 20 * * 0,1", "Thứ Hai, Chủ Nhật hằng tuần 20:00"],
     ["0 * * * *", "Mỗi giờ"],
     ["15 * * * *", "Mỗi giờ vào phút 15"],
     ["0 */2 * * *", "Mỗi 2 giờ"],

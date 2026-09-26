@@ -106,7 +106,10 @@ describe("a job read at a glance", () => {
     expect(within(ran).getByText(vi.runStatus.error)).toHaveClass("badge", "danger");
     expect(ran).toHaveTextContent("Không gọi được API");
     expect(ran).toHaveTextContent(formatDateTime(failed.last_run.started_at));
-    await userEvent.click(within(ran).getByRole("button", { name: vi.jobRow.openRunOf(brief.name) }));
+    // The same words the run cards in the history use for the same page.
+    const open = within(ran).getByRole("button", { name: vi.jobRow.openRunOf(brief.name) });
+    expect(open).toHaveTextContent(vi.replay.openLink);
+    await userEvent.click(open);
     expect(onOpenRun).toHaveBeenCalledWith("r-err");
 
     expect(idle).toHaveTextContent(vi.jobNever);
