@@ -251,8 +251,8 @@ The UI is in Vietnamese, so the tabs are named below as they appear on screen:
   **Kết nối** (connections), **Cài đặt** (settings).
 
 Inside the chat, a conversation-activity view shows only that conversation's own runs, step by step.
-The master's avatar in the header opens the crew tab; a chip `Crew: N` opens the manage screen
-at the crew section. A line `MEDIA: <path in workspace>` in the reply is rendered as an image,
+The header shows the agent's avatar (its initial on its own colour) next to its name; the `Đội: N`
+(crew) chip opens the manage screen at the crew section. A line `MEDIA: <path in workspace>` in the reply is rendered as an image,
 and `FILE: <path>` as a download link. When the agent is about to do a long task, it calls
 `progress_note` to say in one short sentence what it is doing, and that sentence shows right away on the timeline so the
 viewer sees progress instead of a spinner.

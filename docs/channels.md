@@ -1,6 +1,6 @@
 # Kênh
 
-**Phiên bản**: 0.7.0 · **Cập nhật**: 2026-09-26
+**Phiên bản**: 0.8.0 · **Cập nhật**: 2026-09-26
 
 Kênh cho phép người dùng nói chuyện với đội ở nơi khác ngoài web UI. Hiện nay đó là
 Telegram. Mọi nền tảng đều đưa tin nhắn tới cùng một cổng inbound: cổng tìm agent,

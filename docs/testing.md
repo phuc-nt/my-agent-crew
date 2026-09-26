@@ -1,6 +1,6 @@
 # Kiểm thử
 
-**Phiên bản**: 0.7.0 · **Cập nhật**: 2026-09-26
+**Phiên bản**: 0.8.0 · **Cập nhật**: 2026-09-26
 
 Ba tầng, một quy tắc: **mỗi tính năng ra kèm một test ở tầng thấp nhất có thể thấy nó.**
 Bản thân các tệp test là bản kiểm kê; trang này chỉ nói mỗi tầng dùng để làm gì và
@@ -30,11 +30,11 @@ Vài test bảo vệ repo chứ không phải một tính năng:
   nóng, hub không ghi và không phát từng token, một watcher ngừng đọc bị cắt, trang wiki
   chỉ parse lại khi tệp đổi, `/api/stats` không tính lại giữa hai lần ghi, tài sản có hash
   được nén gzip và cache vĩnh viễn còn luồng SSE không bị nén;
-- **đọc được**: `web/e2e/legibility-smoke.spec.ts` đo trên pixel thật độ tương phản WCAG
-  (≥4.5:1) của chữ trên nền tô và nền trũng ở cả sáng lẫn tối, kể cả khi hover nút chính; vòng
-  focus của checkbox, công tắc và ô tìm kiếm; bố cục của notice ở chat và ở màn quản lý; và cỡ
-  chữ ô nhập ≥16px để iPhone không phóng to trang. jsdom không tính cascade, nên các thứ này
-  chỉ đo được ở đây;
+- **đọc được**: `web/e2e/legibility-smoke.spec.ts` đo trong trình duyệt thật, trên style đã
+  tính, độ tương phản WCAG (≥4.5:1) của chữ trên nền tô và nền trũng ở cả sáng lẫn tối, kể cả
+  khi hover nút chính; vòng focus của checkbox, công tắc và ô tìm kiếm; bố cục của notice ở chat
+  và ở màn quản lý; và cỡ chữ ô soạn trí nhớ ≥16px để iPhone không phóng to trang. jsdom không
+  tính cascade, nên các thứ này chỉ đo được ở đây;
 - CI dựng lại bundle và fail khi `git diff --exit-code`, nên thay đổi web không bao giờ
   được commit mà thiếu bundle của nó.
 

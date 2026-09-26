@@ -5,7 +5,7 @@ title: Cài đặt, vận hành và publish tài liệu
 
 # Cài đặt, vận hành và publish tài liệu
 
-**Phiên bản**: 0.7.0 · **Cập nhật**: 2026-09-26
+**Phiên bản**: 0.8.0 · **Cập nhật**: 2026-09-26
 
 ## 1. Yêu cầu
 

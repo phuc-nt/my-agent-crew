@@ -11,6 +11,15 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+## [0.8.0] — 2026-09-26
+
+This release is about the interface. The web UI is redesigned end to end on one scale of tokens,
+with bundled Inter, line icons and a brand mark that is also the installed app's icon; it installs
+as an app, and on a phone the conversation takes the whole screen with the list in a modal drawer.
+It also makes the activity view tell the truth about a run: a run that just started or resumed
+after an approval no longer crashes the page, a route that fails over leaves no model step open,
+and a run stopped for approval says it waits for the person.
+
 ### Added
 
 - **The web UI installs as an app.** The page links a web manifest, an SVG favicon and PNG icons
@@ -24,34 +33,42 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 - **The web UI is redesigned end to end, keeping its blue and its layout.** One scale of type,
   spacing, radius and shadow tokens replaces ad-hoc values; Inter is bundled (no CDN) with its
   Vietnamese subset; one set of line icons replaces emoji, which drew differently on every
-  platform. A brand mark heads the sidebar, and each agent has an initial on a tile of its own
-  stable hue in the conversation header, the welcome screen, the thread, delegate cards, the crew
-  and jobs lists and the agent editor. Dark mode follows the operating system on every surface.
+  platform. A brand mark heads the sidebar and the welcome screen, and each agent has an initial on
+  a tile of its own stable hue in the sidebar's master card, the conversation header, the thread,
+  delegate cards, the crew and jobs lists and the agent editor. Each reply in the thread is headed
+  by the agent's name and avatar instead of "Agent", and your own messages no longer carry a
+  visible "Bạn" label. Dark mode follows the operating system on every surface.
   Text on the primary button, filled badges, channel tags and sunken surfaces holds 4.5:1 in both
   modes, which is why the button and badges keep the brand blue as their fill in dark mode too;
-  checkboxes, switches and fields keep a visible focus ring. A browser test measures both. Fields
-  stay at 16px so an iPhone never zooms into one.
+  checkboxes, switches and fields keep a visible focus ring. A browser test measures both. Most
+  fields, the composer and the memory editor included, stay at 16px so an iPhone does not zoom
+  into them.
 - **On a phone the conversation takes the whole screen.** The conversation list slides in over it
   from a menu button and closes on Escape, on a tap outside or once a conversation is picked,
   handing focus back to the button. While open it is modal: the chat under it is inert, and
   Escape closes the list without also collapsing the activity strip beneath. ⌘K opens it at the
   search box, and the menu button's name says how many runs are waiting, as its dot does. The
-  manage screen's sections become a row of pills that brings the current one into view.
+  manage screen's sections become a row of pills that brings the current one into view. On a
+  touch screen, where nothing can hover, every conversation row shows its delete button.
 - **Empty and quiet states say where the person is.** Empty activity, approvals, costs and jobs
   sections show their own icon; the "Cần bạn xử lý" card stays grey until something waits; an
   expired approval is grey rather than amber, which is kept for a refusal and for a request still
   waiting.
-- **The agent editor keeps Save within reach.** Its bar, with the agent's avatar, the unsaved count
-  and the save controls, stays pinned while the sections scroll, and wraps to a second line on a
-  phone. The tools matrix is a card with two-line descriptions and a coloured legend.
+- **The agent editor's pinned bar now shows the agent's avatar** next to its name. The unsaved
+  count and the save controls sit together as one group, with Save styled as the primary button,
+  and the group moves onto a second line on a phone. The tools matrix is a card with two-line
+  descriptions and a coloured legend.
 - **A section that fails to render no longer takes the manage screen with it.** Each page has its
   own error boundary, so the navigation stays and moving to another page leaves the failure
   behind; the failure itself is a card with the error and a reload button. The chat screen has a
   boundary too, so a crash outside its thread and activity column shows that card instead of a
   blank page.
-- **The composer names the agent it writes to** and lets an input method commit a word with Enter
-  instead of sending half of it, including the Enter that Safari delivers just after the
-  composition has ended.
+- **The composer names the agent it writes to and grows with the message.** Once the agent is
+  known, the empty box reads "Nhắn cho <agent>…" and no longer spells out the Enter / Shift+Enter
+  keys. It starts at one line and grows to about ten lines before it scrolls. Send and Stop are
+  round icon buttons that keep their names for screen readers. An input method commits a word
+  with Enter instead of sending half of it, including the Enter that Safari delivers just after
+  the composition has ended.
 
 ### Fixed
 
@@ -59,8 +76,8 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   step the request opened stayed ahead of the fallback, so a finished run showed a model that
   never answered. The failed attempt's wait is now the fallback's duration, the model step times
   the next route, and when every route fails no model step is left waiting. A run stored before
-  this names such a step "Mô hình" rather than "Đang suy nghĩ". The live page keeps the same
-  order, and counts an answer a snapshot caught mid-call by the whole of its text.
+  this shows such a step as "Mô hình", where 0.7.0 labelled it "?". The live page keeps the same
+  order.
 - **The activity panel no longer crashes on a run that just started.** The "run started" payload
   shared the run's live step list, so by the time a watcher serialised it the model call that opened
   next was already in it: half-built, with an internal clock field and no cost. The page then added a
@@ -75,8 +92,17 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   where the arguments would be.
 - **A run stopped for approval says so in its progress header.** The model step before the pause
   had answered, so the header fell through to "Đang suy nghĩ" and kept its shimmer while nothing
-  was running; it now reads "Đang chờ bạn duyệt", as a run waiting on a child's approval already did.
-  Its card no longer wears the "Đang chạy" pill beside its own "chờ duyệt" either.
+  was running; it now reads "Đang chờ bạn duyệt" and drops the shimmer. Its card no longer wears
+  the "Đang chạy" pill beside its own "chờ duyệt" either.
+
+### Upgrade notes
+
+No migration needed. The SQLite schema, `config.yaml` and `agent.yaml` keep their shape, and no API
+route changes: upgrading is pulling the new code and restarting the process, which picks up the
+run-step fixes. Runs stored before the upgrade keep the steps they were recorded with (see Fixed).
+The web bundle is committed, so running the server needs no npm step. A contributor who rebuilds it
+runs `npm ci` in `web/` first, because the bundled Inter font comes from the new
+`@fontsource-variable/inter` dependency.
 
 ## [0.7.0] — 2026-09-26
 
@@ -494,6 +520,7 @@ restarting the process.
 
 - One agent, `run_turn` loop with a tool approval gate, web UI, memory on disk.
 
+[0.8.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.8.0
 [0.7.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.7.0
 [0.6.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.6.0
 [0.5.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.5.0

@@ -1,6 +1,6 @@
 # Thiết kế
 
-**Phiên bản**: 0.7.0 · **Cập nhật**: 2026-09-26
+**Phiên bản**: 0.8.0 · **Cập nhật**: 2026-09-26
 
 ## Mục tiêu
 
@@ -255,7 +255,7 @@ có thanh, phần còn lại và phần đã giao việc; thẻ tuỳ chọn gi�
 các skill tuỳ chọn dạng công tắc và các tool được cho phép luôn, mỗi cái kèm link thu hồi.
 Thẻ đóng khi Escape (bắt trước phím tắt Escape của chính app, focus trả về pill)
 hoặc bấm ra ngoài; bấm bên trong giữ thẻ mở. Thẻ ở mọi nơi dùng chung một từ vựng —
-một hàng là icon, nhãn, gợi ý ⓘ, giá trị mono căn phải, một
+một hàng là icon, nhãn, gợi ý ⓘ, giá trị căn phải bằng chữ số đều (tabular; chỉ id và đường dẫn dạng `code` mới giữ font mono), một
 thanh mỏng tuỳ chọn và một dòng phụ có màu — nên cột activity mở bằng một thẻ tóm tắt
 (chi tiêu, step, run được giao việc, model) và cài đặt là một bộ thẻ tóm tắt chỉ đọc
 dẫn tới mục nơi một thứ được thay đổi thay vì lặp lại danh sách của nó.
