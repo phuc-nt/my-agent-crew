@@ -73,8 +73,10 @@ async def summarize_conversation(deps: AgentDeps, conv_id: str, force: bool = Fa
     summary = " ".join(completion.message.content.split())[:MAX_SUMMARY_CHARS]
     if not summary:
         return ""
-    deps.store.update(conv_id, summary=summary)
-    deps.store.add_spend(conv_id, completion.usage.cost_usd)
+    # Written after the conversation ended: leaving `updated_at` keeps it where it was in the
+    # list, unread for no one, and still dated by when it was last spoken in.
+    deps.store.update(conv_id, touch=False, summary=summary)
+    deps.store.add_spend(conv_id, completion.usage.cost_usd, touch=False)
     return summary
 
 

@@ -151,6 +151,26 @@ async def test_naming_a_conversation_is_billed_like_every_other_model_call(deps_
     assert deps.store.get(conv.id).spent_usd == 0.02
 
 
+async def test_the_models_name_arrives_without_making_the_conversation_look_new(deps_factory):
+    # The name lands after the reply the person already read; a later `updated_at` would
+    # mark the conversation unread in the sidebar with nothing new said in it.
+    deps = deps_factory(script=[completion("Tiêu đề model", cost_usd=0.02)])
+    conv = deps.store.create()
+    kept: list[asyncio.Task[None]] = []
+
+    title_on_first_message(kept.append, deps, conv.id, "Câu hỏi đầu")
+    # When the reply landed, earlier than the name that is still to come.
+    replied = "2026-09-24T16:30:00+00:00"
+    deps.store._conn.execute(
+        "UPDATE conversations SET updated_at = ? WHERE id = ?", (replied, conv.id)
+    )
+    await settle(kept)
+
+    named = deps.store.get(conv.id)
+    assert (named.title, named.spent_usd) == ("Tiêu đề model", 0.02)
+    assert named.updated_at == replied
+
+
 async def test_deleting_a_conversation_while_it_is_being_named_is_not_an_error(
     deps_factory, caplog
 ):

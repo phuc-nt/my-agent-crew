@@ -40,6 +40,24 @@ async def test_a_finished_conversation_is_recapped_and_the_cost_is_charged_to_it
     assert deps.store.get(conv.id).spent_usd == pytest.approx(0.02)
 
 
+async def test_a_recap_leaves_the_conversation_dated_by_its_last_message(deps_factory):
+    # The recap is written when the next conversation opens; moving `updated_at` then would
+    # lift the old thread above the new one and mark it unread with nothing new said in it.
+    deps = deps_factory(script=[completion("Đã đặt lịch chạy bộ.", cost_usd=0.02)])
+    conv = deps.store.create()
+    talked(deps, conv.id)
+    last_spoken = "2026-09-24T16:30:00+00:00"
+    deps.store._conn.execute(
+        "UPDATE conversations SET updated_at = ? WHERE id = ?", (last_spoken, conv.id)
+    )
+
+    await summarize_conversation(deps, conv.id)
+
+    after = deps.store.get(conv.id)
+    assert (after.summary, after.spent_usd) == ("Đã đặt lịch chạy bộ.", pytest.approx(0.02))
+    assert after.updated_at == last_spoken
+
+
 async def test_an_existing_summary_is_reused_unless_the_caller_forces_a_new_one(deps_factory):
     deps = deps_factory(script=[completion("Bản đầu"), completion("Bản sau")])
     conv = deps.store.create()

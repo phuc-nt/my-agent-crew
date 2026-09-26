@@ -103,12 +103,13 @@ async def generate_title(deps: AgentDeps, text: str) -> tuple[str, float | None]
 async def _write_model_title(deps: AgentDeps, conv_id: str, text: str, heuristic: str) -> None:
     title, cost_usd = await asyncio.wait_for(generate_title(deps, text), TITLE_TIMEOUT_S)
     # Naming costs money like any other model call, so it is spent against the same cap.
-    deps.store.add_spend(conv_id, cost_usd)
+    # Like the name, it is bookkeeping the reply already dated, so neither moves `updated_at`.
+    deps.store.add_spend(conv_id, cost_usd, touch=False)
     if not title or title == heuristic:
         return
     if deps.store.get(conv_id).title != heuristic:
         return  # renamed by hand while the model was thinking; their name wins
-    deps.store.update(conv_id, title=title)
+    deps.store.update(conv_id, touch=False, title=title)
 
 
 def title_on_first_message(

@@ -125,7 +125,9 @@ class Store:
         calls = lookup.delegating_call_ids(self.history(conv_id), tool_name)
         return self.children_of(calls)
 
-    def update(self, conv_id: str, **fields: object) -> Conversation:
+    def update(self, conv_id: str, *, touch: bool = True, **fields: object) -> Conversation:
+        """`touch=False` leaves `updated_at` alone, for bookkeeping written in the background
+        (a recap, a title): the conversation has not moved, and must not read as new."""
         unknown = set(fields) - MUTABLE_FIELDS
         if unknown:
             raise ValueError(f"not updatable: {sorted(unknown)}")
@@ -134,7 +136,8 @@ class Store:
                 fields[key] = json.dumps(list(fields[key]))  # type: ignore[arg-type]
         if "autonomous" in fields:
             fields["autonomous"] = int(bool(fields["autonomous"]))
-        fields["updated_at"] = now_iso()
+        if touch:
+            fields["updated_at"] = now_iso()
         assignments = ", ".join(f"{k} = ?" for k in fields)
         return self._update_returning(
             f"UPDATE conversations SET {assignments} WHERE id = ? RETURNING *",
@@ -159,15 +162,19 @@ class Store:
         if cur.rowcount == 0:
             raise KeyError(conv_id)
 
-    def add_spend(self, conv_id: str, cost_usd: float | None) -> Conversation:
+    def add_spend(
+        self, conv_id: str, cost_usd: float | None, *, touch: bool = True
+    ) -> Conversation:
         column = (
             "spent_usd = spent_usd + ?"
             if cost_usd is not None
             else "unknown_cost_calls = unknown_cost_calls + ?"
         )
+        amount = cost_usd if cost_usd is not None else 1
+        stamp, params = (", updated_at = ?", (amount, now_iso())) if touch else ("", (amount,))
         return self._update_returning(
-            f"UPDATE conversations SET {column}, updated_at = ? WHERE id = ? RETURNING *",
-            (cost_usd if cost_usd is not None else 1, now_iso(), conv_id),
+            f"UPDATE conversations SET {column}{stamp} WHERE id = ? RETURNING *",
+            (*params, conv_id),
         )
 
     # --- messages ------------------------------------------------------------------------

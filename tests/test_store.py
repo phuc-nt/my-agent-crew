@@ -151,6 +151,29 @@ def test_a_summary_is_stored_on_the_conversation_it_recaps(store: Store):
     assert store.get(conv.id).to_dict()["summary"] == "Đã đặt lịch chạy bộ."
 
 
+def test_background_bookkeeping_can_leave_a_conversation_dated_where_it_was(store: Store):
+    conv = store.create()
+    last_spoken = "2026-09-24T16:30:00+00:00"
+    store._conn.execute(
+        "UPDATE conversations SET updated_at = ? WHERE id = ?", (last_spoken, conv.id)
+    )
+
+    store.update(conv.id, touch=False, summary="Đã đặt lịch chạy bộ.")
+    after = store.add_spend(conv.id, 0.02, touch=False)
+    assert (after.summary, after.spent_usd, after.updated_at) == (
+        "Đã đặt lịch chạy bộ.",
+        0.02,
+        last_spoken,
+    )
+    assert store.add_spend(conv.id, None, touch=False).updated_at == last_spoken
+    # Anything else still moves it: the list and the unread mark follow `updated_at`.
+    assert store.add_spend(conv.id, 0.01).updated_at > last_spoken
+    store._conn.execute(
+        "UPDATE conversations SET updated_at = ? WHERE id = ?", (last_spoken, conv.id)
+    )
+    assert store.update(conv.id, title="Chạy bộ").updated_at > last_spoken
+
+
 def test_the_conversation_before_another_is_found_per_agent_and_channel(store: Store):
     first = store.create(agent_id="coach", channel="telegram:42")
     second = store.create(agent_id="coach", channel="telegram:42")
