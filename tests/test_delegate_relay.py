@@ -136,3 +136,21 @@ def test_a_progress_note_beside_the_delegation_does_not_count_as_work(store: Sto
     store.append(other.id, Message(role="user", content="rồi sao"))
     store.append(other.id, Message(role="assistant", tool_calls=(delegation("d3", "hỏi"),)))
     assert turn_was_one_delegation(store.history(other.id), "d3")
+
+
+async def test_the_next_turn_still_sees_the_delegation_and_the_relayed_answer(crew):
+    """Handing the answer on skips a model call, not the record: the delegating call, the
+    child's full result and the relayed reply are all in the history the master's model
+    reads on the person's next message, so the conversation goes on as if it had said it."""
+    rt, parent_id = crew(completion(tool_calls=(delegation("d1", "đếm số tệp"),)))
+    events, requests, history = await run(rt, parent_id)
+    relayed = history[-1].message.content
+
+    await collect(run_turn(rt.deps_for("boss"), parent_id, "rồi sao nữa?"))
+
+    seen = requests[-1].messages
+    assert seen[-1].content == "rồi sao nữa?"
+    assert [m.role for m in seen[-5:]] == ["user", "assistant", "tool", "assistant", "user"]
+    assert seen[-3].role == "tool" and relayed in seen[-3].content
+    assert seen[-2].content == relayed
+    assert rt.store.history(parent_id)[-1].message.content == RETOLD
