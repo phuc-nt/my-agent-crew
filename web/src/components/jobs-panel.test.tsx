@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi as vitest } from "vitest";
 import type { JobInfo } from "../api/activity-types";
@@ -54,8 +54,11 @@ describe("where the jobs list sends a person to change a schedule", () => {
       />,
     );
 
-    const toggle = within(screen.getByTestId("job")).getByRole("checkbox").closest("label");
-    expect(toggle).toHaveAttribute("title", vi.jobDisabledInProfile);
+    // On the row and read out with the switch: a hover title is never shown on a phone
+    // and never reaches a screen reader.
+    const job = screen.getByTestId("job");
+    expect(within(job).getByText(vi.jobDisabledInProfile)).toBeVisible();
+    expect(within(job).getByRole("checkbox")).toHaveAccessibleDescription(vi.jobDisabledInProfile);
     expect(vi.jobDisabledInProfile).not.toContain("agent.yaml");
     expect(vi.jobDisabledInProfile).toContain(vi.jobRow.edit);
   });
@@ -81,31 +84,50 @@ describe("a job read at a glance", () => {
   });
 
   it("counts down to the next run on the viewer's clock and keeps the exact time on hover", () => {
-    vitest.useFakeTimers({ toFake: ["Date"] });
+    vitest.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"] });
+    // 04:00 on the 27th in Hanoi, where the suite runs.
     vitest.setSystemTime(new Date("2026-09-26T21:00:00Z"));
-    const soon = { ...brief, next_run: "2026-09-27T00:00:00Z" };
-    const later = { ...brief, id: "coach/later", next_run: "2026-09-29T00:00:00Z" };
-    render(<JobsPanel jobs={[soon, later]} agentName={name} onRunNow={() => {}} onToggle={() => {}} />);
+    // The scheduler writes its own clock, the owner's, to the minute and with no offset;
+    // read as UTC, 07:00 would move seven hours later.
+    const soon = { ...brief, next_run: "2026-09-27T07:00" };
+    const later = { ...brief, id: "coach/later", next_run: "2026-09-29T07:00" };
+    const panel = <JobsPanel jobs={[soon, later]} agentName={name} onRunNow={() => {}} onToggle={() => {}} />;
+    const { rerender } = render(panel);
 
     const [first, second] = screen.getAllByTestId("job");
     const next = within(first).getByText("sau 3 giờ");
     expect(next).toHaveAttribute("title", formatDateTime(soon.next_run));
-    // 00:00 UTC is 07:00 in Hanoi, where the suite runs.
     expect(second).toHaveTextContent("29/09 07:00");
+
+    // A list left open keeps counting, rather than promising three hours all morning.
+    act(() => vitest.advanceTimersByTime((2 * 60 + 1) * 60_000));
+    expect(within(first).getByText("sau 59 phút")).toBeInTheDocument();
+    rerender(<></>);
+    expect(vitest.getTimerCount()).toBe(0);
   });
 
   it("shows how the last run ended and what it said, and opens that run", async () => {
+    vitest.useFakeTimers({ toFake: ["Date"] });
+    vitest.setSystemTime(new Date("2026-09-26T21:00:00Z"));
     const onOpenRun = vitest.fn();
-    const failed = { ...brief, last_run: fakeRun({ id: "r-err", status: "error" as const, summary: "Không gọi được API" }) };
+    const lastRun = fakeRun({
+      id: "r-err",
+      status: "error",
+      summary: "Không gọi được API",
+      started_at: "2026-09-26T18:00:00Z",
+    });
+    const failed = { ...brief, last_run: lastRun };
+    const weekAgo = { ...brief, id: "coach/week", last_run: fakeRun({ started_at: "2026-09-19T08:00:00Z" }) };
     const never = { ...brief, id: "coach/never", last_run: null };
-    render(
-      <JobsPanel jobs={[failed, never]} agentName={name} onRunNow={() => {}} onToggle={() => {}} onOpenRun={onOpenRun} />,
-    );
+    const jobs = [failed, weekAgo, never];
+    render(<JobsPanel jobs={jobs} agentName={name} onRunNow={() => {}} onToggle={() => {}} onOpenRun={onOpenRun} />);
 
-    const [ran, idle] = screen.getAllByTestId("job-last");
+    const [ran, older, idle] = screen.getAllByTestId("job-last");
     expect(within(ran).getByText(vi.runStatus.error)).toHaveClass("badge", "danger");
     expect(ran).toHaveTextContent("Không gọi được API");
-    expect(ran).toHaveTextContent(formatDateTime(failed.last_run.started_at));
+    // Read the way the next run is, with the exact time one hover away.
+    expect(within(ran).getByText("3 giờ")).toHaveAttribute("title", formatDateTime(lastRun.started_at));
+    expect(within(older).getByText("19/09")).toHaveAttribute("dateTime", "2026-09-19T08:00:00Z");
     // The same words the run cards in the history use for the same page.
     const open = within(ran).getByRole("button", { name: vi.jobRow.openRunOf(brief.name) });
     expect(open).toHaveTextContent(vi.replay.openLink);

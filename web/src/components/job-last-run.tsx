@@ -1,5 +1,6 @@
 import type { JobInfo, RunStatus } from "../api/types";
 import { vi } from "../i18n/vi";
+import { timeAgo } from "../lib/relative-time";
 import { formatDateTime } from "./run-timeline";
 
 // The badge tones the rest of the page already reads: green for done, red for a
@@ -36,7 +37,11 @@ export function JobLastRun({ job, onOpenRun }: Props) {
       {last ? (
         <>
           <span className={`badge ${TONE[last.status]}`}>{vi.runStatus[last.status]}</span>
-          <time dateTime={last.started_at}>{formatDateTime(last.started_at)}</time>
+          {/* Read the way the next run is, relative and on the viewer's calendar, with the
+              exact time one hover away. */}
+          <time dateTime={last.started_at} title={formatDateTime(last.started_at)}>
+            {timeAgo(last.started_at)}
+          </time>
           {onOpenRun && (
             <button
               type="button"

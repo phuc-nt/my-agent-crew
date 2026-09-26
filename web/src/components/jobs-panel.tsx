@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { JobInfo } from "../api/types";
 import { vi } from "../i18n/vi";
 import { scheduleText } from "../lib/cron-text";
@@ -35,6 +35,13 @@ export function JobsPanel(props: Props) {
   const { jobs, agentName, onRunNow, onToggle, onOpenConversation, onOpenRun, onEditSchedules, onOpenCrew } =
     props;
   const [open, setOpen] = useState<string | null>(null);
+  // "sau 3 giờ" and "5 phút" are true for a minute; a list left open on a wall screen
+  // redraws once a minute so the countdowns keep moving.
+  const [, setMinute] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setMinute((n) => n + 1), 60_000);
+    return () => clearInterval(timer);
+  }, []);
   if (jobs === null) return <p className="muted">{vi.loadFailed}</p>;
   if (jobs.length === 0) {
     const action = onOpenCrew ? { label: vi.jobRow.openCrew, onClick: onOpenCrew } : undefined;
@@ -45,6 +52,7 @@ export function JobsPanel(props: Props) {
       {jobs.map((job) => {
         // A schedule switched off in agent.yaml cannot be resumed from here.
         const offInProfile = !job.enabled && !job.paused;
+        const offHint = `job-off-${job.id}`;
         return (
           <li key={job.id} className={`job ${job.enabled ? "" : "disabled"}`} data-testid="job">
             <div className="job-head">
@@ -56,13 +64,14 @@ export function JobsPanel(props: Props) {
                 {job.running && <span className="badge live"> {vi.jobRunning}</span>}
               </span>
               <span className="job-actions">
-                <label className="toggle" title={offInProfile ? vi.jobDisabledInProfile : undefined}>
+                <label className="toggle">
                   <input
                     type="checkbox"
                     className="switch"
                     checked={!job.paused}
                     disabled={offInProfile}
                     aria-label={`${vi.jobEnabled}: ${job.name}`}
+                    aria-describedby={offInProfile ? offHint : undefined}
                     onChange={(event) => onToggle(job.id, event.currentTarget.checked)}
                   />
                   {vi.jobEnabled}
@@ -89,6 +98,13 @@ export function JobsPanel(props: Props) {
                 )}
               </span>
             </div>
+            {/* Why the switch will not move, on the row: a hover title never shows on a
+                phone and is not read out with the switch. */}
+            {offInProfile && (
+              <p className="job-meta muted" id={offHint}>
+                {vi.jobDisabledInProfile}
+              </p>
+            )}
             <JobTiming job={job} />
             {job.skills.length > 0 && (
               <div className="job-meta muted">
