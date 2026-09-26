@@ -8,7 +8,8 @@ import { AgentCacheTable, CacheCell, CardTitle, PeriodTiles } from "./stats-usag
 interface Props {
   stats: StatsInfo | null;
   agentName: (id: string) => string;
-  /** The runs the page holds, for the per-agent cache the server does not total. */
+  /** The runs streamed to the page, laid over the stored window behind the per-agent
+   * cache the server does not total. Left out, that card is not shown. */
   runs?: RunInfo[];
 }
 
@@ -149,7 +150,7 @@ export function StatsPanel({ stats, agentName, runs }: Props) {
         )}
       </dl>
       <Breakdown title={vi.costByAgent} covers={recent} rows={stats.by_agent} name={agentName} />
-      {runs && <AgentCacheTable runs={runs} agentName={agentName} />}
+      {runs && <AgentCacheTable streamed={runs} agentName={agentName} />}
       <RecentDays days={stats.days} />
       <ModelTable models={stats.models} />
     </div>
