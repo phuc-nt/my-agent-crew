@@ -75,12 +75,15 @@ describe("the sidebar's day groups", () => {
       ),
     );
 
-    const groups = screen.getAllByRole("region");
-    expect(groups.map((g) => within(g).getByRole("heading").textContent)).toEqual([
+    const groups = screen.getAllByRole("group");
+    expect(groups.map((g) => within(g).getByRole("heading", { level: 2 }).textContent)).toEqual([
       vi.time.groups.today,
       vi.time.groups.yesterday,
       vi.time.groups.older,
     ]);
+    expect(screen.getByRole("group", { name: vi.time.groups.yesterday })).toBe(groups[1]);
+    // One landmark per day would crowd the landmark list beside the real navigation.
+    expect(screen.queryAllByRole("region")).toEqual([]);
     const titles = (g: HTMLElement) =>
       Array.from(g.querySelectorAll(".conversation-title"), (t) => t.textContent);
     expect(titles(groups[0])).toEqual(["Sáng nay", "Nửa đêm"]);

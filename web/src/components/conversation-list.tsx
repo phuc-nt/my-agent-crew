@@ -141,8 +141,15 @@ export function ConversationList({
       ) : (
         <div className="conversation-list">
           {byDay(shown).map(([group, rows]) => (
-            <section key={group} className="conversation-group" aria-labelledby={`group-${group}`}>
-              <h3 id={`group-${group}`}>{vi.time.groups[group]}</h3>
+            // A group, not a section: a labelled section is a landmark, and one per day
+            // would crowd the landmark list beside the navigation it sits in.
+            <div
+              key={group}
+              role="group"
+              className="conversation-group"
+              aria-labelledby={`group-${group}`}
+            >
+              <h2 id={`group-${group}`}>{vi.time.groups[group]}</h2>
               <ul>
                 {rows.map((c) => (
                   <ConversationRow
@@ -158,7 +165,7 @@ export function ConversationList({
                   />
                 ))}
               </ul>
-            </section>
+            </div>
           ))}
         </div>
       )}

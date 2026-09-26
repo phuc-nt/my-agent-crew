@@ -134,11 +134,16 @@ button.copy-button[data-copied] {
 }
 
 /* ── Sidebar rows: day groups, when, unread ─────────────────────────────── */
-/* The list stays the one scroll box; each day is a quiet header over its own rows. */
-.conversation-group h3 {
+/* The list stays the one scroll box; each day is a quiet header over its own rows. The
+   header is an h2 for the outline, under the page's h1, dressed as the house label. */
+.conversation-group h2 {
   margin: var(--space-3) var(--space-3) var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
 }
-.conversation-group:first-child h3 {
+.conversation-group:first-child h2 {
   margin-top: var(--space-1);
 }
 .conversation-list ul {
