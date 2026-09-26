@@ -142,3 +142,37 @@ def test_the_next_conversation_reads_when_the_previous_one_ended(deps_factory):
     prompt = system_prompt_for(deps, deps.store.get(second.id))
 
     assert "## Cuộc trước (lần cuối 24/9 23:30)\nNgười dùng ghi 2 lon bia ngày 24/9." in prompt
+
+
+def test_what_changes_between_turns_closes_the_prompt_so_the_prefix_stays_cacheable(deps_factory):
+    """Persona, memory and skills first; the previous summary, the daily notes and the date
+    last. A provider caches the prompt by prefix, so a new day or a new summary must not
+    invalidate everything after the first line."""
+    deps = deps_factory(timezone="Asia/Ho_Chi_Minh")
+    deps.agent.memory_dir.mkdir(parents=True, exist_ok=True)
+    (deps.agent.dir / "SOUL.md").write_text("Tôi kiên nhẫn.")
+    today = deps.settings.today()
+    (deps.agent.memory_dir / f"{today.isoformat()}.md").write_text("- 07:00 dậy sớm")
+    first = deps.store.create(agent_id="default", channel="telegram:42")
+    deps.store.update(first.id, summary="Đã bàn về giấc ngủ.")
+    second = deps.store.create(agent_id="default", channel="telegram:42")
+
+    prompt = system_prompt_for(deps, deps.store.get(second.id))
+
+    order = ["Tôi kiên nhẫn.", "## Cuộc trước", "- 07:00 dậy sớm", f"Hôm nay: {today.isoformat()}."]
+    positions = [prompt.index(part) for part in order]
+    assert positions == sorted(positions)
+    assert prompt.rstrip().endswith(f"Hôm nay: {today.isoformat()}.")
+
+
+def test_a_delegated_turn_is_not_told_about_the_previous_conversation(deps_factory):
+    """A child gets one job with a fresh brief; an earlier job's summary is noise to it
+    and gives every child a different prompt where they could share one."""
+    deps = deps_factory()
+    first = deps.store.create(agent_id="default", channel="")
+    deps.store.update(first.id, summary="Việc cũ đã xong.")
+    child = deps.store.create(agent_id="default", channel="", parent_call_id="call-1")
+    plain = deps.store.create(agent_id="default", channel="")
+
+    assert "Việc cũ đã xong." not in system_prompt_for(deps, deps.store.get(child.id))
+    assert "Việc cũ đã xong." in system_prompt_for(deps, deps.store.get(plain.id))

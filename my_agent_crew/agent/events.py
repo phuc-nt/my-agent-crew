@@ -18,6 +18,15 @@ class ThinkingEvent:
 
 
 @dataclass(frozen=True)
+class ModelCallEvent:
+    """Where a model call stands: "sent" when the request leaves, "first_token" when the
+    first chunk of any kind arrives. Without it a call that answers only with tool calls
+    has no first word to time, and its step would read as taking no time at all."""
+
+    stage: str
+
+
+@dataclass(frozen=True)
 class AssistantMessageEvent:
     message_id: int
     content: str
@@ -25,6 +34,8 @@ class AssistantMessageEvent:
     provider: str
     model: str
     cost_usd: float | None
+    prompt_tokens: int | None = None
+    cached_tokens: int | None = None
 
 
 @dataclass(frozen=True)
@@ -92,6 +103,7 @@ class RouteFallbackEvent:
 Event = (
     TextDeltaEvent
     | ThinkingEvent
+    | ModelCallEvent
     | AssistantMessageEvent
     | ToolCallEvent
     | ToolResultEvent
@@ -102,9 +114,14 @@ Event = (
     | RouteFallbackEvent
 )
 
+# Events that flow through a turn but are not worth a write or a broadcast on their own:
+# the run they belong to is stored and sent at the next step boundary.
+STREAMING_EVENTS = (TextDeltaEvent, ThinkingEvent, ModelCallEvent)
+
 _KIND = {
     TextDeltaEvent: "text_delta",
     ThinkingEvent: "thinking",
+    ModelCallEvent: "model_call",
     AssistantMessageEvent: "assistant_message",
     ToolCallEvent: "tool_call",
     ToolResultEvent: "tool_result",

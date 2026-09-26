@@ -235,6 +235,12 @@ describe("threadReducer streaming turn", () => {
     expect(run([{ type: "thinking" }, { type: "error", message: "x" }]).thinking).toBe(false);
   });
 
+  it("a model_call marker changes nothing in the thread: the step timing lives on the run", () => {
+    const before = run([{ type: "thinking" }]);
+    expect(threadReducer(before, { type: "event", event: { type: "model_call", stage: "first_token" } })).toBe(before);
+    expect(run([{ type: "model_call", stage: "sent" }]).busy).toBe(true);
+  });
+
   it("user_sent appends locally and turn_started clears the previous notice", () => {
     const withNotice = threadReducer(emptyThread, { type: "failed", message: "x" });
     const sent = threadReducer(withNotice, { type: "user_sent", text: "hello" });

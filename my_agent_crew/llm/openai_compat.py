@@ -20,6 +20,7 @@ from my_agent_crew.llm.types import (
     Message,
     ReasoningDelta,
     StreamItem,
+    StreamStarted,
     TextDelta,
     ToolCall,
     ToolSpec,
@@ -101,11 +102,13 @@ class ToolCallBuffer:
 def usage_from(raw: dict[str, Any]) -> Usage:
     cost = raw.get("cost")
     thought = (raw.get("completion_tokens_details") or {}).get("reasoning_tokens")
+    cached = (raw.get("prompt_tokens_details") or {}).get("cached_tokens")
     return Usage(
         prompt_tokens=int(raw.get("prompt_tokens") or 0),
         completion_tokens=int(raw.get("completion_tokens") or 0),
         cost_usd=float(cost) if cost is not None else None,
         reasoning_tokens=int(thought) if thought is not None else None,
+        cached_tokens=int(cached) if cached is not None else None,
     )
 
 
@@ -122,6 +125,7 @@ async def stream_chat(
     calls = ToolCallBuffer()
     usage = Usage()
     finish = "stop"
+    started = False
     try:
         async with client.stream("POST", url, json=body, headers=headers) as resp:
             if resp.status_code >= 400:
@@ -135,6 +139,9 @@ async def stream_chat(
                 chunk = json.loads(payload)
                 if "error" in chunk:
                     raise ProviderError(str(chunk["error"]))
+                if not started:
+                    started = True
+                    yield StreamStarted()
                 if chunk.get("usage"):
                     usage = usage_from(chunk["usage"])
                 for choice in chunk.get("choices") or []:

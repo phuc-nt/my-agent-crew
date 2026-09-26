@@ -35,7 +35,12 @@ def build_providers(
     default), so connections can be rebuilt from an environment not yet in force."""
     providers: dict[str, Provider] = {"fake": EchoProvider()}
     if settings.openrouter_api_key:
-        providers["openrouter"] = OpenRouterProvider(settings.openrouter_api_key, client)
+        providers["openrouter"] = OpenRouterProvider(
+            settings.openrouter_api_key,
+            client,
+            provider_order=settings.openrouter_providers,
+            allow_fallbacks=settings.openrouter_provider_fallbacks,
+        )
     # Ollama needs no key, so it is always built rather than gated on configuration. If
     # nothing is listening the route fails at call time and the chain falls through to the
     # next one, which is the same handling as any other provider being down.

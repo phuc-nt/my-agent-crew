@@ -13,6 +13,10 @@ export type RunStep =
       tool_calls: string[];
       preview: string;
       duration_ms: number | null;
+      // Milliseconds from the request to the first chunk; absent on runs from before it was timed.
+      first_token_ms?: number | null;
+      prompt_tokens?: number | null;
+      cached_tokens?: number | null;
     }
   | {
       kind: "tool";

@@ -179,20 +179,12 @@ class Store:
         provider: str | None = None,
         model: str | None = None,
         cost_usd: float | None = None,
-        prompt_tokens: int | None = None,
-        completion_tokens: int | None = None,
-        reasoning_tokens: int | None = None,
+        **tokens: int | None,
     ) -> StoredMessage:
+        """`tokens` are the message's prompt_tokens, completion_tokens, reasoning_tokens and
+        cached_tokens, each None when the provider did not report it."""
         return self.messages.append(
-            conv_id,
-            message,
-            now_iso(),
-            provider,
-            model,
-            cost_usd,
-            prompt_tokens,
-            completion_tokens,
-            reasoning_tokens,
+            conv_id, message, now_iso(), provider, model, cost_usd, **tokens
         )
 
     def history(self, conv_id: str) -> list[StoredMessage]:

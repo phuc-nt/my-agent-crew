@@ -10,7 +10,7 @@ from collections.abc import AsyncIterator, Sequence
 from typing import Any
 
 from my_agent_crew.activity.steps import apply_event
-from my_agent_crew.agent.events import Event, TextDeltaEvent, ThinkingEvent, kind_of, to_dict
+from my_agent_crew.agent.events import STREAMING_EVENTS, Event, kind_of, to_dict
 from my_agent_crew.store import Store
 from my_agent_crew.store.db import new_id, now_iso
 from my_agent_crew.store.runs import ACTIVE_STATUSES, AWAITING, RUNNING, RunRecord
@@ -22,7 +22,6 @@ RECENT_LIMIT = 100
 SUBSCRIBER_QUEUE_SIZE = 256
 # Streamed tokens change the step under construction, not the timeline: the run is
 # written and announced at step boundaries, and a delta only moves a counter in memory.
-STREAMING_EVENTS = (TextDeltaEvent, ThinkingEvent)
 
 
 class ActivityHub:

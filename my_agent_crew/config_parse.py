@@ -120,6 +120,19 @@ def allow_patterns(from_env: str | None, from_file: object) -> tuple[str, ...]:
     )
 
 
+def name_list(from_env: str | None, from_file: object) -> tuple[str, ...]:
+    """Plain names, comma-separated in the environment or a list in the file; env wins."""
+    if from_env is not None:
+        raw: Sequence[str] = from_env.split(",")
+    elif isinstance(from_file, Sequence) and not isinstance(from_file, str):
+        raw = [str(p) for p in from_file]
+    elif isinstance(from_file, str):
+        raw = from_file.split(",")
+    else:
+        return ()
+    return tuple(p.strip() for p in raw if p.strip())
+
+
 def as_bool(value: object) -> bool:
     if isinstance(value, bool):
         return value

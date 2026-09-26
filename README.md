@@ -50,7 +50,8 @@ Secrets are read **only** from environment variables; `config.yaml` holds only n
 
 `config.yaml` in `MY_AGENT_HOME` accepts exactly these keys: `routes`, `vision_routes`,
 `cost_cap_usd`, `max_steps`, `language`, `timezone`, `autonomous_default`,
-`approval_ttl_seconds`, `tool_output_chars`, `shell_ask_patterns`, `shell_allow_patterns`.
+`approval_ttl_seconds`, `tool_output_chars`, `shell_ask_patterns`, `shell_allow_patterns`,
+`openrouter_providers`, `openrouter_provider_fallbacks`.
 An unknown key makes the server fail at startup, so one typo does not silently disable a setting.
 Details of each key: [docs/agents.md](docs/agents.md#agentyaml).
 Your own skills: add a `.md` file with `name` in its frontmatter to `skills/`.

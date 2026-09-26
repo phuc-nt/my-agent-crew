@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 from my_agent_crew import texts
 from my_agent_crew.agent.context_trim import trim_tool_outputs
-from my_agent_crew.agents.context import bootstrap_sections
+from my_agent_crew.agents.context import bootstrap_sections, turn_tail_sections
 from my_agent_crew.agents.kit_commands import commands_section
 from my_agent_crew.agents.roster import DELEGATE_TOOL_NAME, crew_roster_section
 from my_agent_crew.clock import day_and_time
@@ -44,7 +44,6 @@ Nguyên tắc:
   `FILE:<đường dẫn>`. Ảnh thì dùng `MEDIA:`, tệp tài liệu thì dùng `FILE:`.
 
 Công cụ hiện có: {tools}.
-Hôm nay: {today}.
 """
 
 _FRAME_EN = """You are {name}, an assistant working for a single user.
@@ -62,8 +61,12 @@ Rules:
   `FILE:<path>`. Images use `MEDIA:`, documents use `FILE:`.
 
 Available tools: {tools}.
-Today: {today}.
 """
+
+# The date closes the prompt rather than opening it: everything before it is the same
+# from one day to the next, so a provider's prompt cache survives midnight.
+_TODAY_VI = "\nHôm nay: {today}.\n"
+_TODAY_EN = "\nToday: {today}.\n"
 
 
 def active_skills(skills: Sequence[Skill], attached: Sequence[str]) -> list[Skill]:
@@ -108,21 +111,26 @@ def build_system_prompt(
     name: str = "trợ lý",
     today: str = "",
     skill_index: Sequence[Skill] = (),
+    tail_sections: Sequence[tuple[str, str]] = (),
 ) -> str:
-    """`skills` ride in full; `skill_index` are only named, to be read on demand."""
+    """`skills` ride in full; `skill_index` are only named, to be read on demand.
+    `tail_sections` are the parts that change between turns; they and the date come last
+    so the long stable prefix before them stays cacheable."""
     vietnamese = settings.language == "vi"
     frame = _FRAME_VI if vietnamese else _FRAME_EN
     text = frame.format(
         name=name,
         tools=", ".join(tool_names) or "(không có)",
-        today=today,
         cli_rule=texts.CLI_GUESS_RULE if vietnamese else texts.CLI_GUESS_RULE_EN,
     )
     for title, body in sections:
         text += f"\n## {title}\n{body}\n"
     for skill in skills:
         text += f"\n## Kỹ năng: {skill.name}\n{skill.body}\n"
-    return text + skill_index_section(skill_index)
+    text += skill_index_section(skill_index)
+    for title, body in tail_sections:
+        text += f"\n## {title}\n{body}\n"
+    return text + (_TODAY_VI if vietnamese else _TODAY_EN).format(today=today)
 
 
 def system_prompt_for(deps: AgentDeps, conv: Conversation | None = None) -> str:
@@ -139,8 +147,13 @@ def system_prompt_for(deps: AgentDeps, conv: Conversation | None = None) -> str:
     active_names = {s.name for s in skills}
     index = [s for s in deps.skills if s.name not in active_names]
     profile = deps.agent
+    # A delegated turn is one job with a fresh brief; the summary of some earlier job on
+    # the same channel is noise to it, and a different one for every child breaks the
+    # prefix all the children of one master could otherwise share.
     previous = (
-        deps.store.previous_for_channel(conv.agent_id, conv.channel, conv.id) if conv else None
+        deps.store.previous_for_channel(conv.agent_id, conv.channel, conv.id)
+        if conv is not None and not conv.parent_call_id
+        else None
     )
     today = deps.settings.today()
     tool_names = deps.tools.names()
@@ -159,16 +172,16 @@ def system_prompt_for(deps: AgentDeps, conv: Conversation | None = None) -> str:
         deps.settings,
         skills,
         tool_names,
-        sections=bootstrap_sections(
+        sections=bootstrap_sections(profile, extra_sections=extra),
+        name=profile.name,
+        today=today.isoformat(),
+        skill_index=index,
+        tail_sections=turn_tail_sections(
             profile,
             today=today,
             previous_summary=previous.summary if previous else "",
             previous_at=day_and_time(previous.updated_at, deps.settings.zone) if previous else "",
-            extra_sections=extra,
         ),
-        name=profile.name,
-        today=today.isoformat(),
-        skill_index=index,
     )
 
 

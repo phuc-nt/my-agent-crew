@@ -162,9 +162,12 @@ export function threadReducer(state: ThreadState, action: ThreadAction): ThreadS
       return { ...state, busy: false, streaming: null, thinking: false };
     case "failed":
       return { ...state, busy: false, streaming: null, thinking: false, notice: { kind: "error", text: action.message } };
-    case "event":
-      // Whatever the model does next — words, a tool call, an end — ends its thinking.
-      return applyEvent(action.event.type === "thinking" ? state : { ...state, thinking: false }, action.event);
+    case "event": {
+      // Whatever the model does next — words, a tool call, an end — ends its thinking. A
+      // model_call marker is not something the model does; it only times the call.
+      const keeps = action.event.type === "thinking" || action.event.type === "model_call";
+      return applyEvent(keeps ? state : { ...state, thinking: false }, action.event);
+    }
   }
 }
 
@@ -172,6 +175,8 @@ function applyEvent(state: ThreadState, e: AgentEvent): ThreadState {
   switch (e.type) {
     case "thinking":
       return { ...state, thinking: true };
+    case "model_call":
+      return state;
     case "text_delta":
       return { ...state, streaming: (state.streaming ?? "") + e.text };
     case "assistant_message": {

@@ -64,17 +64,15 @@ def user_sections(user_dir: Path) -> list[tuple[str, str]]:
 
 def bootstrap_sections(
     profile: AgentProfile,
-    today: date | None = None,
-    previous_summary: str = "",
-    previous_at: str = "",
     extra_sections: Sequence[tuple[str, str]] = (),
 ) -> list[tuple[str, str]]:
-    """(title, body) pairs in the order they enter the system prompt.
+    """(title, body) pairs in the order they enter the system prompt: what the agent is,
+    what it knows and what it carries between turns. Nothing here changes from one turn
+    to the next unless a file does, which is what lets a provider's prompt cache hold.
 
-    `extra_sections` are context the caller assembled for this turn alone; they sit after
-    what the agent carries between turns and before today's notes.
+    `extra_sections` are context the caller assembled for this agent's kind of turn,
+    stable across the turns of one conversation; they close the list.
     """
-    today = today or date.today()
     sections: list[tuple[str, str]] = []
     for name in profile.persona_files:
         body = _persona(profile.dir / name)
@@ -91,10 +89,25 @@ def bootstrap_sections(
     wiki = wiki_section(profile.memory_dir)
     if wiki:
         sections.append(wiki)
+    sections.extend(extra_sections)
+    return sections
+
+
+def turn_tail_sections(
+    profile: AgentProfile,
+    today: date | None = None,
+    previous_summary: str = "",
+    previous_at: str = "",
+) -> list[tuple[str, str]]:
+    """What changes between turns: the summary of the previous conversation and the notes
+    of yesterday and today. They go at the end of the prompt so an edit to them, or the
+    turn of a day, invalidates only the tail of the cached prefix and not all of it.
+    """
+    today = today or date.today()
+    sections: list[tuple[str, str]] = []
     if previous_summary.strip():
         title = PREVIOUS_SUMMARY_SECTION_TITLE.format(when=previous_at or "?")
         sections.append((title, previous_summary.strip()))
-    sections.extend(extra_sections)
     for day in (today - timedelta(days=1), today):
         path = daily_note_path(profile.memory_dir, day)
         body = _read_capped(path)

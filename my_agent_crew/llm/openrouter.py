@@ -26,9 +26,20 @@ __all__ = ["BASE_URL", "OpenRouterProvider", "to_wire", "tools_to_wire"]
 class OpenRouterProvider:
     name = "openrouter"
 
-    def __init__(self, api_key: str, client: httpx.AsyncClient | None = None):
+    def __init__(
+        self,
+        api_key: str,
+        client: httpx.AsyncClient | None = None,
+        provider_order: Sequence[str] = (),
+        allow_fallbacks: bool = True,
+    ):
         self._api_key = api_key
         self._client = client or httpx.AsyncClient(base_url=BASE_URL, timeout=httpx.Timeout(120.0))
+        # OpenRouter picks the upstream serving a model per request, and each upstream
+        # keeps its own prompt cache: a turn that lands elsewhere pays the whole prompt
+        # again. Naming the upstreams keeps the cache on the one that holds it.
+        self._provider_order = tuple(provider_order)
+        self._allow_fallbacks = allow_fallbacks
 
     async def stream(
         self,
@@ -49,6 +60,11 @@ class OpenRouterProvider:
             body["tools"] = tools_to_wire(tools)
         if reasoning:
             body["reasoning"] = {"effort": reasoning}
+        if self._provider_order:
+            body["provider"] = {
+                "order": list(self._provider_order),
+                "allow_fallbacks": self._allow_fallbacks,
+            }
         async for item in stream_chat(
             self._client,
             f"{BASE_URL}/chat/completions",

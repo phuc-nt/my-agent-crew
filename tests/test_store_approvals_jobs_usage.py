@@ -147,6 +147,7 @@ def test_usage_by_day_fills_empty_days_and_counts_only_model_calls(ledger: Store
         "cost_usd": 0.10,
         "prompt_tokens": 100,
         "completion_tokens": 20,
+        "cached_tokens": 0,
         "unknown_cost_calls": 0,
     }
     assert days[1]["calls"] == 0 and days[1]["cost_usd"] == 0.0
@@ -199,6 +200,7 @@ def test_usage_by_model_sums_tokens_and_orders_by_spend(ledger: Store):
         "cost_usd": 0.0,
         "prompt_tokens": 30,
         "completion_tokens": 5,
+        "cached_tokens": 0,
         "unknown_cost_calls": 1,
     }
 
@@ -213,7 +215,10 @@ def test_token_counts_round_trip_through_the_message_log(store: Store):
         cost_usd=0.01,
         prompt_tokens=12,
         completion_tokens=3,
+        cached_tokens=9,
     )
-    assert (stored.prompt_tokens, stored.completion_tokens) == (12, 3)
+    assert (stored.prompt_tokens, stored.completion_tokens, stored.cached_tokens) == (12, 3, 9)
     payload = store.history(conv.id)[0].to_dict()
     assert payload["prompt_tokens"] == 12 and payload["completion_tokens"] == 3
+    assert payload["cached_tokens"] == 9
+    assert store.usage.by_model()[0]["cached_tokens"] == 9

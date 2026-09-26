@@ -24,11 +24,13 @@ def _one(
 def latest_for_channel(
     conn: sqlite3.Connection, lock: threading.Lock, agent_id: str, channel: str
 ) -> Conversation | None:
-    """The newest conversation an agent holds on a channel, by creation time."""
+    """The newest conversation an agent holds on a channel, by creation time. Delegated
+    children are skipped: they carry no channel of their own and are not the thread the
+    person is in."""
     return _one(
         conn,
         lock,
-        "SELECT * FROM conversations WHERE agent_id = ? AND channel = ?"
+        "SELECT * FROM conversations WHERE agent_id = ? AND channel = ? AND parent_call_id = ''"
         " ORDER BY created_at DESC, rowid DESC LIMIT 1",
         (agent_id, channel),
     )
@@ -38,11 +40,13 @@ def previous_for_channel(
     conn: sqlite3.Connection, lock: threading.Lock, agent_id: str, channel: str, before: str
 ) -> Conversation | None:
     """The conversation this agent held on the channel right before `before`. Ordered by
-    rowid, not `created_at`: two opened in the same millisecond share a timestamp."""
+    rowid, not `created_at`: two opened in the same millisecond share a timestamp. Delegated
+    children are skipped: they carry no channel of their own and are not what the person
+    said last."""
     return _one(
         conn,
         lock,
-        "SELECT * FROM conversations WHERE agent_id = ? AND channel = ?"
+        "SELECT * FROM conversations WHERE agent_id = ? AND channel = ? AND parent_call_id = ''"
         " AND rowid < (SELECT rowid FROM conversations WHERE id = ?)"
         " ORDER BY rowid DESC LIMIT 1",
         (agent_id, channel, before),

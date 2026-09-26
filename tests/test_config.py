@@ -101,6 +101,30 @@ def test_a_utc_stamp_is_read_as_the_persons_day():
     assert day_start_utc(datetime(2026, 9, 22).date(), saigon) == "2026-09-21T17:00:00+00:00"
 
 
+def test_the_openrouter_upstreams_come_from_yaml_or_env_and_default_to_none(tmp_path: Path):
+    home = {"MY_AGENT_HOME": str(tmp_path)}
+    s = load_settings(env=home)
+    assert s.openrouter_providers == () and s.openrouter_provider_fallbacks is True
+    (tmp_path / "config.yaml").write_text(
+        "openrouter_providers:\n  - OpenInference\n  - DeepSeek\n"
+        "openrouter_provider_fallbacks: false\n"
+    )
+    s = load_settings(env=home)
+    assert s.openrouter_providers == ("OpenInference", "DeepSeek")
+    assert s.openrouter_provider_fallbacks is False
+    s = load_settings(
+        env=home
+        | {
+            "MY_AGENT_OPENROUTER_PROVIDERS": " Venice ,Baidu",
+            "MY_AGENT_OPENROUTER_PROVIDER_FALLBACKS": "yes",
+        }
+    )
+    assert s.openrouter_providers == ("Venice", "Baidu") and s.openrouter_provider_fallbacks is True
+    assert (
+        load_settings(env=home | {"MY_AGENT_OPENROUTER_PROVIDERS": ""}).openrouter_providers == ()
+    )
+
+
 def test_yaml_unknown_key_is_an_error(tmp_path: Path):
     (tmp_path / "config.yaml").write_text("openrouter_api_key: sk-nope\n")
     with pytest.raises(ValueError, match="openrouter_api_key"):

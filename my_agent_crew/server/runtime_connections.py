@@ -21,8 +21,9 @@ from my_agent_crew import texts
 from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.agents import load_profiles
 from my_agent_crew.channels import build_channel
-from my_agent_crew.config import Settings, with_secrets
+from my_agent_crew.config import Settings
 from my_agent_crew.config_parse import Route
+from my_agent_crew.config_secrets import with_secrets
 from my_agent_crew.server.agent_assembly import build_agent_deps, build_providers
 from my_agent_crew.server.runtime import Runtime
 

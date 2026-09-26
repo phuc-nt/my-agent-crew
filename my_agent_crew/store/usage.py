@@ -19,6 +19,7 @@ _TOTALS = (
     "COUNT(*) AS calls, COALESCE(SUM(cost_usd), 0) AS cost_usd,"
     " COALESCE(SUM(prompt_tokens), 0) AS prompt_tokens,"
     " COALESCE(SUM(completion_tokens), 0) AS completion_tokens,"
+    " COALESCE(SUM(cached_tokens), 0) AS cached_tokens,"
     " SUM(CASE WHEN cost_usd IS NULL THEN 1 ELSE 0 END) AS unknown_cost_calls"
 )
 _MODEL_CALLS = "role = 'assistant' AND provider IS NOT NULL"
@@ -31,6 +32,7 @@ def _totals(row: sqlite3.Row | None) -> dict[str, Any]:
             "cost_usd": 0.0,
             "prompt_tokens": 0,
             "completion_tokens": 0,
+            "cached_tokens": 0,
             "unknown_cost_calls": 0,
         }
     return {
@@ -38,6 +40,7 @@ def _totals(row: sqlite3.Row | None) -> dict[str, Any]:
         "cost_usd": float(row["cost_usd"]),
         "prompt_tokens": int(row["prompt_tokens"]),
         "completion_tokens": int(row["completion_tokens"]),
+        "cached_tokens": int(row["cached_tokens"]),
         "unknown_cost_calls": int(row["unknown_cost_calls"] or 0),
     }
 
@@ -60,7 +63,8 @@ class UsageStore:
         first = end - timedelta(days=days - 1)
         with self._lock:
             rows = self._conn.execute(
-                "SELECT created_at, cost_usd, prompt_tokens, completion_tokens FROM messages"
+                "SELECT created_at, cost_usd, prompt_tokens, completion_tokens, cached_tokens"
+                " FROM messages"
                 f" WHERE {_MODEL_CALLS} AND created_at >= ?",
                 (day_start_utc(first, zone),),
             ).fetchall()
@@ -73,6 +77,7 @@ class UsageStore:
             bucket["cost_usd"] += row["cost_usd"] or 0.0
             bucket["prompt_tokens"] += row["prompt_tokens"] or 0
             bucket["completion_tokens"] += row["completion_tokens"] or 0
+            bucket["cached_tokens"] += row["cached_tokens"] or 0
             bucket["unknown_cost_calls"] += row["cost_usd"] is None
         return [{"day": day} | totals for day, totals in buckets.items()]
 

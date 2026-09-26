@@ -89,6 +89,8 @@ và `config.yaml`:
 | `MY_AGENT_TOOL_OUTPUT_CHARS` | `tool_output_chars` | `8000`; phải ≥ 1 |
 | `MY_AGENT_LANGUAGE` | `language` | `vi` (ngôn ngữ khung prompt; `en` là lựa chọn còn lại) |
 | `MY_AGENT_TIMEZONE` | `timezone` | múi giờ của máy; một tên IANA (`Asia/Ho_Chi_Minh`) đặt múi giờ mà lịch, "hôm nay" trong prompt và ghi chú trí nhớ, `/status` và thống kê được đọc theo. Tên lạ thì hỏng lúc khởi động |
+| `MY_AGENT_OPENROUTER_PROVIDERS` | `openrouter_providers` | rỗng; danh sách (hoặc chuỗi phân cách bằng dấu phẩy) tên provider phía sau OpenRouter (`DeepSeek`, `OpenInference`…) thử theo thứ tự, gửi đi dưới `provider.order`. Ghim một provider để cache prompt không mất mỗi khi OpenRouter đổi bên phục vụ |
+| `MY_AGENT_OPENROUTER_PROVIDER_FALLBACKS` | `openrouter_provider_fallbacks` | bật; `false` cấm OpenRouter rơi sang provider ngoài danh sách trên. Không có tác dụng khi danh sách rỗng |
 | `MY_AGENT_VISION_ROUTES` | `vision_routes` | `openrouter:google/gemini-2.5-flash-lite, openrouter:qwen/qwen3-vl-8b-instruct`; chuỗi tuyến mà `image_read` gửi ảnh tới, xem [tools.md](tools.md#ảnh). Giá trị rỗng tắt đọc ảnh |
 | `OLLAMA_BASE_URL` | — | `http://127.0.0.1:11434/v1`; nơi ollama cục bộ lắng nghe. Nó không cần khoá, nên provider này luôn được dựng, xem [tools.md](tools.md#provider-không-cần-khoá) |
 | `OPENROUTER_API_KEY` | — | bật provider OpenRouter |

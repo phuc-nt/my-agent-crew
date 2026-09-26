@@ -42,6 +42,9 @@ class Usage:
     cost_usd: float | None = None
     # The part of completion_tokens the model spent thinking; None when not reported.
     reasoning_tokens: int | None = None
+    # The part of prompt_tokens served from the provider's prompt cache; None when not
+    # reported. What tells a cheap turn from one that re-read the whole history.
+    cached_tokens: int | None = None
 
 
 @dataclass(frozen=True)
@@ -67,6 +70,12 @@ class ReasoningDelta:
 
 
 @dataclass(frozen=True)
+class StreamStarted:
+    """The first chunk of a streamed completion arrived. It carries nothing itself: it
+    marks the time to first token, which for a tool-only answer no delta would."""
+
+
+@dataclass(frozen=True)
 class RouteFailed:
     """A route gave up before its first token and the chain moved on to the next one."""
 
@@ -75,4 +84,4 @@ class RouteFailed:
     error: str
 
 
-StreamItem = TextDelta | ReasoningDelta | Completion | RouteFailed
+StreamItem = TextDelta | ReasoningDelta | StreamStarted | Completion | RouteFailed

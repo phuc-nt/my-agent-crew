@@ -17,7 +17,14 @@ from my_agent_crew.agent.loop import run_turn
 from my_agent_crew.agents.profile_yaml import parse_profile
 from my_agent_crew.config import Route, Settings
 from my_agent_crew.llm.fake import completion
-from my_agent_crew.llm.types import Completion, Message, ReasoningDelta, TextDelta, Usage
+from my_agent_crew.llm.types import (
+    Completion,
+    Message,
+    ReasoningDelta,
+    StreamStarted,
+    TextDelta,
+    Usage,
+)
 from tests.conftest import collect
 from tests.test_openrouter import delta, provider_with, sse
 
@@ -61,7 +68,7 @@ async def test_thoughts_stream_apart_from_the_answer_and_their_tokens_are_counte
             [Message(role="user", content="hi")], [], "x/y"
         )
     )
-    assert items[0] == ReasoningDelta("Row D+1 holds ")
+    assert items[:2] == [StreamStarted(), ReasoningDelta("Row D+1 holds ")]
     assert items[-1].message.content == "HRV 37"
     assert items[-1].usage.reasoning_tokens == 42
 

@@ -88,6 +88,7 @@ export function applyRunEvent(run: RunInfo, e: AgentEvent): RunInfo {
       break;
     case "text_delta":
     case "thinking":
+    case "model_call":
       break;
   }
   return { ...run, steps, spent_usd, unknown_cost_calls, summary };

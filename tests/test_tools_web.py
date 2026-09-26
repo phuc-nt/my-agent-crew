@@ -5,6 +5,7 @@ from my_agent_crew import texts
 from my_agent_crew.config import Route, Settings
 from my_agent_crew.tools.registry import ToolRegistry
 from my_agent_crew.tools.web import build_web_tools, html_to_text
+from my_agent_crew.tools.web_fetch import MAX_PAGE_BYTES
 
 PUBLIC = lambda host: ["93.184.216.34"]  # noqa: E731
 PRIVATE = lambda host: ["10.0.0.5"]  # noqa: E731
@@ -48,6 +49,44 @@ async def test_non_http_scheme_refused():
         "fetch_url", {"url": "file:///etc/passwd"}
     )
     assert result.ok is False and texts.URL_SCHEME in result.output
+
+
+async def test_a_page_is_fetched_with_a_short_connect_and_a_bounded_read_timeout():
+    """One slow host used to hold a turn for the full 20 seconds; the request now gives
+    up on a connection after 5 and on a silent read after 10."""
+    seen = {}
+
+    def handler(request):
+        seen.update(request.extensions["timeout"])
+        return httpx.Response(200, text="ok")
+
+    result = await registry(handler).execute("fetch_url", {"url": "https://example.com/"})
+    assert result.ok and seen["connect"] == 5.0 and seen["read"] == 10.0
+
+
+async def test_the_body_is_read_only_up_to_the_byte_cap_and_the_rest_is_never_pulled():
+    chunk = 64 * 1024
+    pulled = []
+
+    async def body():
+        for i in range(4 * MAX_PAGE_BYTES // chunk):
+            pulled.append(i)
+            yield b"a" * chunk
+
+    def handler(request):
+        return httpx.Response(200, content=body(), headers={"content-type": "text/plain"})
+
+    result = await registry(handler).execute("fetch_url", {"url": "https://example.com/big"})
+    assert result.ok and len(result.output) == 6000
+    assert len(pulled) == MAX_PAGE_BYTES // chunk
+
+
+async def test_a_read_timeout_is_reported_as_unreachable():
+    def handler(request):
+        raise httpx.ReadTimeout("slow")
+
+    result = await registry(handler).execute("fetch_url", {"url": "https://example.com/"})
+    assert result.ok is False and texts.URL_UNREACHABLE.split(":")[0] in result.output
 
 
 async def test_redirect_is_reported_not_followed():

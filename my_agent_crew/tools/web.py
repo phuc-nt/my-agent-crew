@@ -1,5 +1,6 @@
-"""Web tools. `fetch_url` refuses private addresses and does not follow redirects on
-its own (the model sees the hop and may ask again). `web_search` always exists because
+"""Web tools. `fetch_url` refuses private addresses, does not follow redirects on its
+own (the model sees the hop and may ask again) and reads a page only as far as
+`web_fetch` allows. `web_search` always exists because
 DuckDuckGo needs no key; keys and a firecrawl host only change which backend answers
 first."""
 
@@ -19,6 +20,7 @@ import httpx
 from my_agent_crew import texts
 from my_agent_crew.config import Settings
 from my_agent_crew.tools.registry import Tool, ToolError
+from my_agent_crew.tools.web_fetch import fetch_page
 from my_agent_crew.tools.web_providers import (
     SearchHit,
     brave_search,
@@ -92,16 +94,8 @@ def build_web_tools(
             markdown = await _scrape(settings, client, url)
             if markdown:
                 return markdown[:MAX_MARKDOWN_CHARS]
-        try:
-            resp = await client.get(url, follow_redirects=False, timeout=20.0)
-        except httpx.HTTPError as exc:
-            raise ToolError(texts.URL_UNREACHABLE.format(error=exc)) from exc
-        if 300 <= resp.status_code < 400:
-            return texts.URL_REDIRECT.format(location=resp.headers.get("location", "?"))
-        if resp.status_code >= 400:
-            raise ToolError(texts.URL_STATUS.format(status=resp.status_code))
-        body = resp.text
-        if "html" in resp.headers.get("content-type", ""):
+        body, content_type = await fetch_page(client, url)
+        if "html" in content_type:
             body = html_to_text(body)
         return body[:MAX_PAGE_CHARS]
 

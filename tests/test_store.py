@@ -162,6 +162,17 @@ def test_the_conversation_before_another_is_found_per_agent_and_channel(store: S
     assert store.previous_for_channel("pong", "telegram:42", other_agent.id) is None
 
 
+def test_a_delegated_child_is_not_the_conversation_before_the_next_web_chat(store: Store):
+    """Children open with an empty channel, like web chats; the chat after a delegation
+    must still be told about the previous chat, not about the child in between."""
+    chat = store.create(agent_id="coach", channel="")
+    store.create(agent_id="coach", channel="", parent_call_id="call-1")
+    later = store.create(agent_id="coach", channel="")
+    assert store.previous_for_channel("coach", "", later.id).id == chat.id
+    store.create(agent_id="coach", channel="", parent_call_id="call-2")
+    assert store.latest_for_channel("coach", "").id == later.id
+
+
 def test_a_job_proposal_stays_pending_until_it_is_decided(store: Store):
     proposal = store.proposals.create(
         agent_id="coach",

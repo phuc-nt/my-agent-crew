@@ -63,7 +63,7 @@ def test_chat_streams_events_and_persists(client):
         assert r.headers["content-type"].startswith("text/event-stream")
         events = parse_sse("".join(r.iter_text()))
     kinds = [e["type"] for e in events]
-    assert kinds[0] == "text_delta" and kinds[-2:] == ["assistant_message", "done"]
+    assert kinds[:2] == ["model_call", "text_delta"] and kinds[-2:] == ["assistant_message", "done"]
     assert events[-2]["content"] == "(echo) xin chào"
     stored = client.get(f"/api/conversations/{conv['id']}").json()["messages"]
     assert [m["role"] for m in stored] == ["user", "assistant"]
@@ -163,8 +163,9 @@ def test_scripted_tool_round_trip_over_http(deps_factory):
             "POST", f"/api/conversations/{conv['id']}/messages", json={"text": "ls"}
         ) as r:
             events = parse_sse("".join(r.iter_text()))
-    kinds = [e["type"] for e in events if e["type"] != "text_delta"]
+    kinds = [e["type"] for e in events if e["type"] not in {"text_delta", "model_call"}]
     assert kinds == ["assistant_message", "tool_call", "tool_result", "assistant_message", "done"]
+    assert [e["type"] for e in events].count("model_call") == 2
 
 
 def test_a_new_conversation_recaps_the_web_one_it_replaces(client):

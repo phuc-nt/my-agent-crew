@@ -7,6 +7,7 @@ from my_agent_crew.agent.events import (
     DoneEvent,
     ErrorEvent,
     HaltedEvent,
+    ModelCallEvent,
     RouteFallbackEvent,
     TextDeltaEvent,
     ToolCallEvent,
@@ -45,7 +46,15 @@ async def test_tool_call_executes_and_feeds_result_back(deps_factory):
     conv = deps.store.create()
     events = await collect(run_turn(deps, conv.id, "liệt kê"))
     kinds = [to_dict(e)["type"] for e in events if not isinstance(e, TextDeltaEvent)]
-    assert kinds == ["assistant_message", "tool_call", "tool_result", "assistant_message", "done"]
+    assert kinds == [
+        "model_call",
+        "assistant_message",
+        "tool_call",
+        "tool_result",
+        "model_call",
+        "assistant_message",
+        "done",
+    ]
     result = next(e for e in events if isinstance(e, ToolResultEvent))
     assert result.ok
     second_request = deps.chain.providers["scripted"].requests[1]
@@ -108,9 +117,10 @@ async def test_route_fallback_is_an_event_before_the_next_route_answers(deps_fac
     deps = deps_factory(script=[ProviderError("m busy"), completion("ok")], routes=routes)
     conv = deps.store.create()
     events = await collect(run_turn(deps, conv.id, "hi"))
-    assert events[0] == RouteFallbackEvent(provider="scripted", model="m", error="m busy")
+    assert events[0] == ModelCallEvent(stage="sent")
+    assert events[1] == RouteFallbackEvent(provider="scripted", model="m", error="m busy")
     assert isinstance(events[-1], DoneEvent)
-    assert to_dict(events[0])["type"] == "route_fallback"
+    assert to_dict(events[1])["type"] == "route_fallback"
 
 
 async def test_unknown_tool_name_returns_error_to_model(deps_factory):

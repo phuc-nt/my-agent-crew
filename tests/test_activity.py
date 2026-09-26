@@ -12,6 +12,7 @@ from my_agent_crew.agent.events import (
     DoneEvent,
     ErrorEvent,
     HaltedEvent,
+    ModelCallEvent,
     RouteFallbackEvent,
     TextDeltaEvent,
     ToolCallEvent,
@@ -49,6 +50,32 @@ def test_model_and_tool_steps_get_cost_and_durations():
     assert last["duration_ms"] == 0 and last["cost_usd"] is None
     assert run.status == DONE and run.summary == "xong"
     assert run.spent_usd == pytest.approx(0.002) and run.unknown_cost_calls == 1
+
+
+def test_a_tool_only_answer_is_timed_from_the_request_not_from_a_first_word():
+    """A call answered only with tool calls streams no word. Before the request opened the
+    step, such a call read as zero milliseconds and hid most of a run's waiting."""
+    run = fresh_run()
+    apply_event(run, ModelCallEvent("sent"), 10.0)
+    apply_event(run, ModelCallEvent("first_token"), 12.4)
+    call = {"id": "c1", "name": "workspace_list", "arguments": {}}
+    event = AssistantMessageEvent(
+        1, "", [call], "p", "m", 0.001, prompt_tokens=900, cached_tokens=600
+    )
+    apply_event(run, event, 13.0)
+    (model,) = run.steps
+    assert model["duration_ms"] == 3000 and model["first_token_ms"] == 2400
+    assert model["prompt_tokens"] == 900 and model["cached_tokens"] == 600
+    assert model["chars"] == 0 and model["tool_calls"] == ["workspace_list"]
+
+
+def test_the_first_word_marks_the_first_token_when_no_stream_marker_came():
+    run = fresh_run()
+    apply_event(run, ModelCallEvent("sent"), 10.0)
+    apply_event(run, TextDeltaEvent("a"), 11.5)
+    apply_event(run, TextDeltaEvent("b"), 12.0)
+    apply_event(run, AssistantMessageEvent(1, "ab", [], "p", "m", None), 12.5)
+    assert run.steps[0]["first_token_ms"] == 1500 and run.steps[0]["duration_ms"] == 2500
 
 
 def test_a_shortened_tool_output_says_so_on_its_step():

@@ -11,7 +11,6 @@ from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from datetime import date, datetime, tzinfo
 from pathlib import Path
-from typing import Any
 
 import yaml
 
@@ -22,11 +21,13 @@ from my_agent_crew.config_parse import (
     allow_patterns,
     as_bool,
     ask_patterns,
+    name_list,
     required_routes,
     vision_routes,
 )
+from my_agent_crew.config_secrets import secrets_from
 
-__all__ = ["Route", "Settings", "home_from", "load_settings", "with_secrets"]
+__all__ = ["Route", "Settings", "home_from", "load_settings"]
 
 DEFAULT_ROUTES = "openrouter:deepseek/deepseek-v4-flash"
 YAML_KEYS = (
@@ -41,6 +42,8 @@ YAML_KEYS = (
     "shell_allow_patterns",
     "approval_ttl_seconds",
     "tool_output_chars",
+    "openrouter_providers",
+    "openrouter_provider_fallbacks",
 )
 # Characters of one tool result the model gets to see; the rest is cut with a notice.
 DEFAULT_TOOL_OUTPUT_CHARS = 8000
@@ -75,6 +78,11 @@ class Settings:
     shell_allow_patterns: tuple[str, ...] = ()
     approval_ttl_seconds: int = DEFAULT_APPROVAL_TTL_SECONDS
     tool_output_chars: int = DEFAULT_TOOL_OUTPUT_CHARS
+    # The upstreams OpenRouter may serve a model from, best first; empty lets it choose.
+    # Naming them keeps a prompt cache on one upstream instead of losing it on each switch.
+    openrouter_providers: tuple[str, ...] = ()
+    # Whether OpenRouter may fall back to an upstream not in the list when those are down.
+    openrouter_provider_fallbacks: bool = True
     # The shell sandbox, per agent only. False denies every connection; write paths
     # (inside the workspace, as written) are then, or whenever set, the only places a
     # command may write besides temp. Commands matching a deny pattern never run.
@@ -133,22 +141,6 @@ def home_from(env: Mapping[str, str]) -> Path:
     return Path(env.get("MY_AGENT_HOME") or Path.home() / ".my-agent-crew").expanduser()
 
 
-def secrets_from(env: Mapping[str, str]) -> dict[str, Any]:
-    """The `Settings` fields that come from the environment alone. Kept as one place so
-    a key saved from the web lands in the same fields a restart would fill."""
-    return {
-        "openrouter_api_key": env.get("OPENROUTER_API_KEY") or None,
-        "brave_api_key": env.get("BRAVE_API_KEY") or None,
-        "tavily_api_key": env.get("TAVILY_API_KEY") or None,
-        "firecrawl_base_url": str(env.get("FIRECRAWL_BASE_URL") or "").rstrip("/"),
-        "firecrawl_api_key": env.get("FIRECRAWL_API_KEY") or None,
-    }
-
-
-def with_secrets(settings: Settings, env: Mapping[str, str]) -> Settings:
-    return replace(settings, **secrets_from(env))
-
-
 def load_settings(env: Mapping[str, str] | None = None) -> Settings:
     env = os.environ if env is None else env
     home = home_from(env)
@@ -181,6 +173,15 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         tool_output_chars=int(
             env.get("MY_AGENT_TOOL_OUTPUT_CHARS")
             or file_values.get("tool_output_chars", DEFAULT_TOOL_OUTPUT_CHARS)
+        ),
+        openrouter_providers=name_list(
+            env.get("MY_AGENT_OPENROUTER_PROVIDERS"), file_values.get("openrouter_providers")
+        ),
+        openrouter_provider_fallbacks=as_bool(
+            env.get(
+                "MY_AGENT_OPENROUTER_PROVIDER_FALLBACKS",
+                file_values.get("openrouter_provider_fallbacks", True),
+            )
         ),
     )
     positive = (settings.max_steps, settings.approval_ttl_seconds, settings.tool_output_chars)

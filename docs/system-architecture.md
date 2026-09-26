@@ -179,14 +179,16 @@ Khi một approval đang chờ, `/api/inbound` trả 409 để người dùng kh
 
 Quy tắc duy nhất: **model không có trạng thái ẩn**. Điều gì cần nhớ sang lượt sau phải là tệp hoặc dòng trong SQLite. Vì vậy có hai chiều:
 
-**Vào** — system prompt lắp lại mỗi lượt, theo thứ tự cố định:
+**Vào** — system prompt lắp lại mỗi lượt, theo thứ tự cố định. Phần ổn định đứng trước,
+phần đổi theo lượt đứng sau, để cache prompt của provider giữ được phần đầu:
 
 1. persona: `AGENTS.md`, `SOUL.md`
 2. người dùng: `users/owner/USER.md` + `facts/*.md`
 3. `MEMORY.md` của agent
-4. "Cuộc trước (lần cuối 24/9 23:30)": tóm tắt cuộc trò chuyện gần nhất (bảng `conversations`). Mỗi dòng transcript đưa đi tóm tắt mở đầu bằng ngày giờ theo múi giờ người dùng, và bản tóm tắt ghi ngày cụ thể thay cho "hôm nay", "hôm qua": nó được đọc vào một ngày khác
-5. roster và lệnh kit (`.agents/commands/*.md`, ví dụ `/tongket` trong bộ cài thật)
+4. roster và lệnh kit (`.agents/commands/*.md`, ví dụ `/tongket` trong bộ cài thật)
+5. "Cuộc trước (lần cuối 24/9 23:30)": tóm tắt cuộc trò chuyện gần nhất (bảng `conversations`). Mỗi dòng transcript đưa đi tóm tắt mở đầu bằng ngày giờ theo múi giờ người dùng, và bản tóm tắt ghi ngày cụ thể thay cho "hôm nay", "hôm qua": nó được đọc vào một ngày khác. Lượt được giao việc (con) không nhận mục này: nó làm một việc với đề bài mới, và mọi con của một master dùng chung một prefix
 6. ghi chú `memory/<hôm qua>.md` và `memory/<hôm nay>.md`
+7. dòng ngày: "Hôm nay: 2026-09-26." — dòng cuối cùng, vì nó đổi mỗi ngày
 
 Skill không vào toàn văn: chỉ chỉ mục tên + mô tả; agent gọi `skill_read` khi cần. Skill có `always: true` thì vào toàn văn.
 

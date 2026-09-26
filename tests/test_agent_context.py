@@ -10,6 +10,7 @@ from my_agent_crew.agents.context import (
     MAX_SECTION_CHARS,
     MAX_USER_SECTION_CHARS,
     bootstrap_sections,
+    turn_tail_sections,
 )
 from my_agent_crew.config import Settings
 from my_agent_crew.llm.fake import completion
@@ -28,14 +29,24 @@ def test_sections_follow_persona_memory_daily_order(settings: Settings):
     (home / "memory" / "2026-09-18.md").write_text("# 2026-09-18\n- 08:00 chạy bộ")
     (home / "memory" / "2026-09-19.md").write_text("# 2026-09-19\n- 07:00 dậy sớm")
     (home / "memory" / "2026-09-10.md").write_text("cũ, không đọc")
-    sections = bootstrap_sections(profile, today=date(2026, 9, 19))
-    assert [title for title, _ in sections] == [
-        "SOUL.md",
-        "MEMORY.md",
-        "memory/2026-09-18.md",
-        "memory/2026-09-19.md",
-    ]
+    sections = bootstrap_sections(profile)
+    assert [title for title, _ in sections] == ["SOUL.md", "MEMORY.md"]
     assert sections[0][1] == "Tôi kiên nhẫn."
+    # The notes of yesterday and today change daily, so they ride at the tail instead.
+    tail = turn_tail_sections(profile, today=date(2026, 9, 19))
+    assert [title for title, _ in tail] == ["memory/2026-09-18.md", "memory/2026-09-19.md"]
+
+
+def test_the_previous_summary_opens_the_tail_and_is_absent_when_empty(settings: Settings):
+    profile = default_profile(settings)
+    (settings.home / "memory").mkdir(parents=True)
+    (settings.home / "memory" / "2026-09-19.md").write_text("- 07:00 dậy sớm")
+    tail = turn_tail_sections(profile, date(2026, 9, 19), "Đã bàn về giấc ngủ.", "18/9 22:00")
+    assert tail[0] == ("Cuộc trước (lần cuối 18/9 22:00)", "Đã bàn về giấc ngủ.")
+    assert [title for title, _ in tail[1:]] == ["memory/2026-09-19.md"]
+    assert turn_tail_sections(profile, date(2026, 9, 19), "   ", "") == [
+        ("memory/2026-09-19.md", "- 07:00 dậy sớm")
+    ]
 
 
 def test_oversized_section_is_capped(settings: Settings):
@@ -80,7 +91,7 @@ def test_the_shared_user_sections_sit_between_persona_and_memory(settings: Setti
     (settings.user_dir / "USER.md").write_text("Phúc, làm sản phẩm.")
     _write_fact(settings, "ngu-som", "Ngủ trước 23h")
 
-    sections = bootstrap_sections(default_profile(settings), today=date(2026, 9, 19))
+    sections = bootstrap_sections(default_profile(settings))
     assert [title for title, _ in sections] == [
         "SOUL.md",
         USER_MD_SECTION_TITLE,

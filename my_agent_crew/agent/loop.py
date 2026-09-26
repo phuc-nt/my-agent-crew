@@ -14,6 +14,7 @@ from my_agent_crew.agent.events import (
     ErrorEvent,
     Event,
     HaltedEvent,
+    ModelCallEvent,
     RouteFallbackEvent,
     TextDeltaEvent,
     ThinkingEvent,
@@ -28,7 +29,14 @@ from my_agent_crew.agent.turn_context import (
 from my_agent_crew.agents.profile import AgentProfile, default_profile
 from my_agent_crew.config import Settings
 from my_agent_crew.llm.provider import ProviderChain, ProviderError
-from my_agent_crew.llm.types import Completion, Message, ReasoningDelta, RouteFailed, TextDelta
+from my_agent_crew.llm.types import (
+    Completion,
+    Message,
+    ReasoningDelta,
+    RouteFailed,
+    StreamStarted,
+    TextDelta,
+)
 from my_agent_crew.skills import Skill
 from my_agent_crew.store import Conversation, Store, StoredMessage
 from my_agent_crew.store.models import AWAITING_APPROVAL
@@ -128,6 +136,7 @@ async def _complete(
     messages = turn_messages(deps, conv, history)
     completion: Completion | None = None
     thinking = False
+    yield ModelCallEvent(stage="sent")
     async for item in deps.chain.stream(messages, deps.tools.specs()):
         if isinstance(item, TextDelta):
             yield TextDeltaEvent(text=item.text)
@@ -135,6 +144,8 @@ async def _complete(
             if not thinking:
                 thinking = True
                 yield ThinkingEvent()
+        elif isinstance(item, StreamStarted):
+            yield ModelCallEvent(stage="first_token")
         elif isinstance(item, RouteFailed):
             yield RouteFallbackEvent(provider=item.provider, model=item.model, error=item.error)
         else:
@@ -151,6 +162,7 @@ async def _complete(
         prompt_tokens=completion.usage.prompt_tokens,
         completion_tokens=completion.usage.completion_tokens,
         reasoning_tokens=completion.usage.reasoning_tokens,
+        cached_tokens=completion.usage.cached_tokens,
     )
     deps.store.add_spend(conv.id, completion.usage.cost_usd)
     yield AssistantMessageEvent(
@@ -163,6 +175,8 @@ async def _complete(
         provider=completion.provider,
         model=completion.model,
         cost_usd=completion.usage.cost_usd,
+        prompt_tokens=completion.usage.prompt_tokens,
+        cached_tokens=completion.usage.cached_tokens,
     )
 
 

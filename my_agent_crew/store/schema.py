@@ -49,6 +49,8 @@ ADDED_COLUMNS = (
     ("conversations", "auto_approve", "TEXT NOT NULL DEFAULT '[]'"),
     # An approval nobody answers by `expires_at` is treated as denied.
     ("approvals", "expires_at", "TEXT"),
+    # Prompt tokens the provider served from its cache; NULL when it did not say.
+    ("messages", "cached_tokens", "INTEGER"),
     ("approvals", "resolved_at", "TEXT"),
     ("messages", "prompt_tokens", "INTEGER"),
     ("messages", "completion_tokens", "INTEGER"),

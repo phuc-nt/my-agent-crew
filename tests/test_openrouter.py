@@ -5,7 +5,14 @@ import pytest
 
 from my_agent_crew.llm.openrouter import OpenRouterProvider, to_wire, tools_to_wire
 from my_agent_crew.llm.provider import ProviderError
-from my_agent_crew.llm.types import Completion, Message, TextDelta, ToolCall, ToolSpec
+from my_agent_crew.llm.types import (
+    Completion,
+    Message,
+    StreamStarted,
+    TextDelta,
+    ToolCall,
+    ToolSpec,
+)
 from tests.conftest import collect
 
 
@@ -53,10 +60,55 @@ async def test_text_stream_assembles_content_and_cost():
     assert captured[0].headers["authorization"] == "Bearer test-key"
 
 
+async def test_the_first_chunk_is_marked_and_cached_prompt_tokens_are_read():
+    """OpenRouter reports the cached part of the prompt under `prompt_tokens_details`; it
+    is what tells a cheap turn from one that re-read the whole history."""
+    usage = {
+        "prompt_tokens": 4986,
+        "completion_tokens": 7,
+        "cost": 0.0001,
+        "prompt_tokens_details": {"cached_tokens": 4438},
+    }
+    body = sse(
+        delta(tool_calls=[{"index": 0, "id": "c1", "function": {"name": "t", "arguments": "{}"}}]),
+        {"usage": usage},
+    )
+    items = await collect(provider_with(body).stream([Message(role="user", content="hi")], [], "m"))
+    assert items[0] == StreamStarted()
+    assert items[-1].usage.cached_tokens == 4438
+    assert items[-1].message.tool_calls[0].name == "t"
+
+
+async def test_a_named_upstream_order_is_sent_and_an_empty_one_is_not():
+    """Each upstream keeps its own prompt cache; naming them keeps the cache on the one
+    that holds it. Left empty, the request carries no provider block at all."""
+    captured: list[httpx.Request] = []
+    pinned = OpenRouterProvider(
+        "test-key",
+        httpx.AsyncClient(
+            transport=httpx.MockTransport(
+                lambda r: (captured.append(r), httpx.Response(200, text=sse(delta("ok"))))[1]
+            )
+        ),
+        provider_order=["OpenInference", "DeepSeek"],
+        allow_fallbacks=False,
+    )
+    await collect(pinned.stream([Message(role="user", content="hi")], [], "m"))
+    sent = json.loads(captured[0].content)
+    assert sent["provider"] == {"order": ["OpenInference", "DeepSeek"], "allow_fallbacks": False}
+    captured.clear()
+    await collect(
+        provider_with(sse(delta("ok")), capture=captured).stream(
+            [Message(role="user", content="hi")], [], "m"
+        )
+    )
+    assert "provider" not in json.loads(captured[0].content)
+
+
 async def test_missing_cost_is_reported_as_unknown_not_zero():
     body = sse(delta("ok"), {"usage": {"prompt_tokens": 1, "completion_tokens": 1}})
     items = await collect(provider_with(body).stream([Message(role="user", content="hi")], [], "m"))
-    assert items[-1].usage.cost_usd is None
+    assert items[-1].usage.cost_usd is None and items[-1].usage.cached_tokens is None
 
 
 async def test_fragmented_tool_call_arguments_are_reassembled():

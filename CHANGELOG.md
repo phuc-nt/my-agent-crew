@@ -11,7 +11,27 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+### Added
+
+- **Model calls are timed from the request, and the cache hit is visible.** A run's model step opens
+  when the request leaves and records `first_token_ms` when the first chunk of any kind arrives, so a
+  tool-only answer no longer shows as 0 ms. Each assistant message keeps the prompt tokens the provider
+  served from its cache (`cached_tokens`, a new column), and `/api/stats` sums them per day and per model.
+- **Pin the upstream behind OpenRouter.** `openrouter_providers` (or `MY_AGENT_OPENROUTER_PROVIDERS`)
+  names the providers to try in order and `openrouter_provider_fallbacks: false` forbids any other, so a
+  prompt cache built on one upstream is not lost to a silent switch.
+
 ### Changed
+
+- **The prompt prefix stays the same between turns.** Everything that changes from one turn to the
+  next — the previous conversation's summary, the daily notes and the date — now closes the system
+  prompt instead of sitting among the persona and memory sections, so a provider's prompt cache keeps
+  the stable part. A delegated child is not told about its master's previous conversation, and stale
+  tool outputs are stubbed a block of ten at a time rather than one per step, so the set of stubs
+  changes once per block instead of on every step. A new web chat looks past delegated children when
+  it picks the conversation to recap.
+- **`fetch_url` gives up sooner.** The connection gets 5 seconds and each read 10, and the body is read
+  only up to 512 KB before the socket closes, instead of one 20-second budget and a whole download.
 
 - **Everything but the model call got faster.** SQLite runs in WAL mode with `synchronous=NORMAL`, the
   hot queries have indexes, and writes read their own row back in one statement, so appending a message

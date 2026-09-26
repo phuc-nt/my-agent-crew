@@ -18,9 +18,9 @@ from my_agent_crew.store.models import StoredMessage
 _INSERT = (
     "INSERT INTO messages (conversation_id, seq, role, content, tool_calls, tool_call_id,"
     " name, provider, model, cost_usd, created_at, prompt_tokens, completion_tokens,"
-    " reasoning_tokens)"
+    " reasoning_tokens, cached_tokens)"
     " SELECT id, COALESCE((SELECT MAX(seq) FROM messages WHERE conversation_id = ?), 0) + 1,"
-    " ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? FROM conversations WHERE id = ? RETURNING *"
+    " ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? FROM conversations WHERE id = ? RETURNING *"
 )
 
 
@@ -40,12 +40,13 @@ class MessageStore:
         prompt_tokens: int | None = None,
         completion_tokens: int | None = None,
         reasoning_tokens: int | None = None,
+        cached_tokens: int | None = None,
     ) -> StoredMessage:
         """Raises KeyError for an unknown conversation, with nothing written."""
         tool_calls = json.dumps([asdict(tc) for tc in message.tool_calls])
         values = [conv_id, message.role, message.content, tool_calls, message.tool_call_id]
         values += [message.name, provider, model, cost_usd, stamp]
-        values += [prompt_tokens, completion_tokens, reasoning_tokens, conv_id]
+        values += [prompt_tokens, completion_tokens, reasoning_tokens, cached_tokens, conv_id]
         with self._lock:
             rows = self._conn.execute(_INSERT, values).fetchall()
             if not rows:

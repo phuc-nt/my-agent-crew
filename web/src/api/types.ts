@@ -93,6 +93,7 @@ export interface ConversationPatch {
 export type AgentEvent =
   | { type: "text_delta"; text: string }
   | { type: "thinking" }
+  | { type: "model_call"; stage: "sent" | "first_token" }
   | {
       type: "assistant_message";
       message_id: string;
@@ -101,6 +102,8 @@ export type AgentEvent =
       provider: string | null;
       model: string | null;
       cost_usd: number | null;
+      prompt_tokens?: number | null;
+      cached_tokens?: number | null;
     }
   | { type: "tool_call"; tool_call_id: string; name: string; arguments: Record<string, unknown> }
   | { type: "tool_result"; tool_call_id: string; name: string; ok: boolean; output: string }

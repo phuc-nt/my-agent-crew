@@ -74,6 +74,7 @@ describe("applyRunEvent", () => {
     expect(applyRunEvent(run(), { type: "approval_required", approval_id: "a", tool_call_id: "t", name: "write_file", arguments: {}, reason: "", expires_at: "" }).summary).toBe("write_file");
     expect(applyRunEvent(run(), { type: "approval_required", approval_id: "a", tool_call_id: "t", name: "shell_run", arguments: {}, reason: "khớp mẫu cần duyệt: `sudo `", expires_at: "" }).summary).toBe("shell_run (khớp mẫu cần duyệt: `sudo `)");
     expect(applyRunEvent(run(), { type: "text_delta", text: "…" }).steps).toEqual([]);
+    expect(applyRunEvent(run(), { type: "model_call", stage: "sent" }).steps).toEqual([]);
   });
 
   it("records a route fallback as its own step so a failing route is visible", () => {

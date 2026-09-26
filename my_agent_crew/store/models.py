@@ -94,6 +94,7 @@ class StoredMessage:
     prompt_tokens: int | None = None
     completion_tokens: int | None = None
     reasoning_tokens: int | None = None
+    cached_tokens: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         m = self.message
@@ -111,6 +112,7 @@ class StoredMessage:
             "prompt_tokens": self.prompt_tokens,
             "completion_tokens": self.completion_tokens,
             "reasoning_tokens": self.reasoning_tokens,
+            "cached_tokens": self.cached_tokens,
             "created_at": self.created_at,
         }
 
@@ -135,6 +137,7 @@ class StoredMessage:
             prompt_tokens=row["prompt_tokens"],
             completion_tokens=row["completion_tokens"],
             reasoning_tokens=row["reasoning_tokens"],
+            cached_tokens=row["cached_tokens"],
         )
 
 

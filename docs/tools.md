@@ -64,7 +64,7 @@ System prompt liệt kê tên các tool có sẵn; model thấy JSON schema củ
 | `workspace_list` | không | — | liệt kê một thư mục trong workspace |
 | `workspace_read` | không | chỉ trần đầu ra của agent (`tool_output_chars`), có đánh dấu chỗ cắt | đọc một tệp văn bản trong workspace; `offset` (dòng, tính từ 1) và `limit` đọc một cửa sổ thay vì cả tệp |
 | `workspace_write` | **có** | — | ghi một tệp văn bản trong workspace, tạo thư mục cha; chỉ dưới `write_paths` nếu profile đặt khoá này |
-| `fetch_url` | không | 20 000 ký tự qua markdown của firecrawl, nếu không thì 6 000, 20 s, không theo redirect | GET một trang http(s) công khai; firecrawl trả về markdown, nếu không thì HTML được rút thành văn bản |
+| `fetch_url` | không | 20 000 ký tự qua markdown của firecrawl, nếu không thì 6 000; kết nối 5 s, mỗi lần đọc 10 s, đọc tối đa 512 KB rồi đóng; không theo redirect | GET một trang http(s) công khai; firecrawl trả về markdown, nếu không thì HTML được rút thành văn bản |
 | `web_search` | không | 5 kết quả | luôn có sẵn; các backend được thử theo thứ tự firecrawl → brave → tavily → duckduckgo; trả về tiêu đề, URL, đoạn trích |
 | `memory_save` | không | — | nối `- HH:MM text` vào ghi chú hôm nay, xem [memory.md](memory.md) |
 | `memory_search` | không | 12 kết quả | tìm trong facts người dùng dùng chung, rồi `MEMORY.md` và mọi ghi chú ngày, mới nhất trước; mọi từ khoá đều phải khớp |
