@@ -103,6 +103,63 @@ test("the settings section lists routes and key presence", async ({ page }) => {
   await expect(panel).toHaveCount(0);
 });
 
+/** A conversation paused on one write, as the server reports it after a reload. */
+function pausedConversation() {
+  const call = { id: "tc", name: "write_file", arguments: { path: "a.md" } };
+  return {
+    id: "c1", agent_id: "default", channel: "", title: "Ghi tệp", summary: "", created_at: "", updated_at: "",
+    autonomous: false, cost_cap_usd: 1, skills: [], auto_approve: [], spent_usd: 0, unknown_cost_calls: 0,
+    status: "awaiting_approval", over_budget: false, parent_call_id: "",
+    messages: [{ id: "m1", seq: 1, role: "assistant", content: "", tool_calls: [call], tool_call_id: null, name: null, provider: null, model: null, cost_usd: null, created_at: "" }],
+    pending_approval: { id: "ap", conversation_id: "c1", message_id: "m1", tool_call_id: "tc", tool_name: "write_file", arguments: call.arguments, status: "pending", created_at: "", expires_at: null, resolved_at: null, kind: "tool" },
+  };
+}
+
+// Playwright answers a route with the whole body at once, so a stream that is still
+// going when Stop is pressed has to be made in the page: the approved call starts, then
+// the stream hangs the way a slow tool does, and says one more word later unless cut.
+test("Stop on an approved call cuts its stream and leaves nothing spinning", async ({ page }) => {
+  await page.addInitScript(() => {
+    const realFetch = window.fetch.bind(window);
+    const frame = (e: Record<string, unknown> & { type: string }) => new TextEncoder().encode(`event: ${e.type}\r\ndata: ${JSON.stringify(e)}\r\n\r\n`);
+    window.fetch = async (input, init) => {
+      if (!String(input).endsWith("/approvals/ap")) return realFetch(input, init);
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(frame({ type: "tool_call", tool_call_id: "tc", name: "write_file", arguments: { path: "a.md" } }));
+          init?.signal?.addEventListener("abort", () => {
+            (window as unknown as { streamCut: boolean }).streamCut = true;
+            controller.error(new DOMException("aborted", "AbortError"));
+          });
+          setTimeout(() => {
+            try {
+              controller.enqueue(frame({ type: "text_delta", text: "chữ đến muộn" }));
+            } catch {
+              // Cut already: nothing more can be said.
+            }
+          }, 1500);
+        },
+      });
+      return new Response(body, { status: 200, headers: { "content-type": "text/event-stream" } });
+    };
+  });
+  await mockApi(page, { conversations: [pausedConversation()] });
+  await page.goto("/#/chat/c1");
+
+  await page.getByRole("alertdialog").getByRole("button", { name: "Cho phép", exact: true }).click();
+  await expect(page.locator(".tool-status.running")).toHaveCount(1);
+  await page.getByRole("button", { name: "Dừng" }).click();
+
+  await expect(page.getByTestId("notice")).toContainText("Đã dừng lượt này.");
+  await expect(page.locator(".tool-status.running")).toHaveCount(0);
+  await expect(page.getByTestId("tool-card")).toContainText("đã dừng");
+  expect(await page.evaluate(() => (window as unknown as { streamCut?: boolean }).streamCut)).toBe(true);
+  // Past the moment the stream would have spoken again, had it not been cut.
+  await page.waitForTimeout(1800);
+  await expect(page.getByText("chữ đến muộn")).toHaveCount(0);
+  await expect(page.getByRole("textbox")).toBeEnabled();
+});
+
 test.describe("on a phone", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
@@ -127,5 +184,25 @@ test.describe("on a phone", () => {
     await expect(page.getByTestId("budget")).toContainText("$1.20 / $2.00");
     await expect(page.getByTestId("over-budget")).toBeHidden();
     await expect(page.getByRole("textbox")).toBeEnabled();
+  });
+
+  // The mocked stream ends after its snapshot and asks the browser to wait a minute, so
+  // the pill soon shows the loss — as the phone sees it when the server restarts.
+  test("a dropped live stream offers a thumb-sized retry that opens it again", async ({ page }) => {
+    await mockApi(page);
+    const opened: string[] = [];
+    page.on("request", (request) => {
+      if (new URL(request.url()).pathname === "/api/activity/stream") opened.push(request.url());
+    });
+    await page.goto("/");
+    const retry = page.getByTestId("status-line").getByRole("button", { name: "Thử lại kết nối trực tiếp" });
+    await expect(retry).toBeVisible();
+    await expect(page.getByTestId("stream-state")).toContainText("Mất kết nối");
+    expect((await retry.boundingBox())!.height).toBeGreaterThanOrEqual(40);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+
+    const before = opened.length;
+    await retry.click();
+    await expect.poll(() => opened.length).toBeGreaterThan(before);
   });
 });

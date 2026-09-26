@@ -117,6 +117,8 @@ export const vi = {
   toolFailed: "lỗi",
   toolAwaiting: "chờ duyệt",
   toolDenied: "đã từ chối",
+  // The turn ended before the call answered: nothing is running it any more.
+  toolStopped: "đã dừng",
   // A step left open when its run ended: it neither succeeded nor reported a
   // failure, and saying so is more honest than picking one of the two.
   toolStalled: "dở dang",
@@ -194,6 +196,7 @@ export const vi = {
   haltedMaxSteps: "Đã dừng vì vượt số bước tối đa trong một lượt.",
   runInterrupted: "Bị ngắt giữa chừng: máy chủ khởi động lại hoặc kết nối bị đóng.",
   errorPrefix: "Lỗi: ",
+  stopped: "Đã dừng lượt này.",
   busyConflict: "Cuộc trò chuyện đang chờ duyệt — hãy quyết định trước khi nhắn tiếp.",
   loadFailed: "Không tải được dữ liệu từ máy chủ.",
   loading: "Đang tải…",
@@ -529,7 +532,11 @@ export const vi = {
   },
   nothingLive: "Không có agent nào đang chạy.",
   streamConnected: "đang theo dõi trực tiếp",
-  streamDisconnected: "mất kết nối trực tiếp — đang thử lại",
+  streamDisconnected: "Mất kết nối",
+  streamConnecting: "đang kết nối…",
+  streamOffline: "Ngoại tuyến",
+  streamRetry: "Thử lại",
+  streamRetryLabel: "Thử lại kết nối trực tiếp",
   runStatus: {
     running: "đang chạy",
     awaiting_approval: "chờ duyệt",

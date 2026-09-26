@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { AgentInfo, Conversation, SettingsInfo } from "../api/types";
+import type { AgentInfo, Conversation, RunInfo, SettingsInfo } from "../api/types";
 import { ApprovalBar } from "../components/approval-bar";
 import { RaiseCapButton } from "../components/budget-indicator";
 import { QuestionCard } from "../components/question-card";
@@ -35,6 +35,8 @@ interface Props {
   onSelectConversation: (conversationId: string) => void;
   onOpenManage: (section?: ManageSection) => void;
   liveByAgent: Record<string, number>;
+  /** A run for this conversation that another channel started, while this tab streams nothing. */
+  externalRun?: RunInfo | null;
 }
 
 /** The whole conversation: who you are talking to, what was said, what the agent is doing. */
@@ -45,7 +47,7 @@ const DOCKED_ACTIVITY_QUERY = "(min-width: 1101px)";
 // Matches the breakpoint in shell.css.
 const PHONE_QUERY = "(max-width: 720px)";
 
-const NOTICE_ICON: Record<string, IconName> = { fallback: "refresh", halted: "pause" };
+const NOTICE_ICON: Record<string, IconName> = { fallback: "refresh", halted: "pause", stopped: "stop" };
 
 export function ChatScreen({
   list,
@@ -57,6 +59,7 @@ export function ChatScreen({
   onSelectConversation,
   onOpenManage,
   liveByAgent,
+  externalRun = null,
 }: Props) {
   const [draft, setDraft] = useState<string | undefined>(undefined);
   const [queued, setQueued] = useState<{ id: string; text: string } | null>(null);
@@ -147,7 +150,9 @@ export function ChatScreen({
           : vi.haltedMaxSteps
         : state.notice.kind === "fallback"
           ? vi.routeFallback(state.notice.text)
-          : vi.errorPrefix + state.notice.text}
+          : state.notice.kind === "stopped"
+            ? vi.stopped
+            : vi.errorPrefix + state.notice.text}
       {state.notice.kind === "halted" && state.notice.text === "budget" && active && (
         <RaiseCapButton capUsd={active.cost_cap_usd} onSave={onRaiseCap} />
       )}
@@ -295,7 +300,9 @@ export function ChatScreen({
           <MessageThread
             items={state.items}
             streaming={state.streaming}
-            busy={state.busy}
+            // A run started from another channel shows its progress the same way, so the
+            // thread does not look idle while an answer is on its way.
+            busy={state.busy || externalRun !== null}
             liveRun={activeRun}
             echoOnly={echoOnly}
             agentId={active?.agent_id ?? "default"}
@@ -347,7 +354,13 @@ export function ChatScreen({
           }}
           onStop={thread.stop}
         />
-        <StatusLine thread={state} connected={activity.state.connected} liveCount={live.length} />
+        <StatusLine
+          thread={state}
+          connected={activity.state.connected}
+          liveCount={live.length}
+          connecting={activity.connecting}
+          onReconnect={activity.reconnect}
+        />
       </main>
       {docked && activityPane}
     </div>

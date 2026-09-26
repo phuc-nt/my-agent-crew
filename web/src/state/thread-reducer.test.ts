@@ -249,3 +249,61 @@ describe("threadReducer streaming turn", () => {
     expect(threadReducer(sent, { type: "turn_started" })).toMatchObject({ busy: true, streaming: null });
   });
 });
+
+describe("threadReducer turn end", () => {
+  const twoCalls: AgentEvent = {
+    type: "assistant_message",
+    message_id: "a",
+    content: "",
+    tool_calls: [
+      { id: "tc1", name: "write_file", arguments: {} },
+      { id: "tc2", name: "read_file", arguments: {} },
+    ],
+    provider: null,
+    model: null,
+    cost_usd: null,
+  };
+  const approval: AgentEvent = {
+    type: "approval_required",
+    approval_id: "ap",
+    tool_call_id: "tc1",
+    name: "write_file",
+    arguments: {},
+    reason: "",
+    expires_at: "",
+  };
+  const statuses = (s: ThreadState) => s.items.map((it) => (it.kind === "tool" ? it.status : it.kind));
+
+  it("a turn that ends with a call still unanswered leaves it stopped, not spinning", () => {
+    const cut = run([twoCalls, { type: "tool_result", tool_call_id: "tc1", name: "write_file", ok: true, output: "ok" }]);
+    expect(statuses(cut)).toEqual(["done", "running"]);
+    expect(statuses(threadReducer(cut, { type: "turn_finished" }))).toEqual(["done", "stopped"]);
+    const failed = threadReducer(cut, { type: "failed", message: "net" });
+    expect(statuses(failed)).toEqual(["done", "stopped"]);
+    expect(failed.notice).toEqual({ kind: "error", text: "net" });
+  });
+
+  it("a turn paused on a person keeps the calls queued behind the one waiting", () => {
+    const ended = threadReducer(run([twoCalls, approval]), { type: "turn_finished" });
+    expect(statuses(ended)).toEqual(["awaiting", "running"]);
+    expect(threadReducer(ended, { type: "settled" })).toBe(ended);
+  });
+
+  it("stopping ends the turn at once, drops the spent decision and says it stopped", () => {
+    // Stop pressed while the approved call streams back, and while a call still waits.
+    const streaming = run([twoCalls, { type: "tool_call", tool_call_id: "tc1", name: "write_file", arguments: {} }, { type: "text_delta", text: "đang" }]);
+    for (const from of [streaming, { ...run([twoCalls, approval]), busy: true }]) {
+      const stopped = threadReducer(from, { type: "turn_stopped" });
+      expect(stopped).toMatchObject({ busy: false, streaming: null, pending: null, notice: { kind: "stopped", text: "" } });
+      expect(statuses(stopped)).toEqual(["stopped", "stopped"]);
+    }
+  });
+
+  it("settling stops leftover calls only when no turn is going", () => {
+    const busy = run([twoCalls]);
+    expect(threadReducer(busy, { type: "settled" })).toBe(busy);
+    const settled = threadReducer({ ...busy, busy: false }, { type: "settled" });
+    expect(statuses(settled)).toEqual(["stopped", "stopped"]);
+    expect(threadReducer(settled, { type: "settled" })).toBe(settled);
+  });
+});

@@ -1,7 +1,9 @@
 import { noteText, PROGRESS_NOTE_TOOL } from "../lib/run-rows";
 import type { AgentEvent, Approval, ApprovalKind, ConversationDetail, StoredMessage, ToolCall } from "../api/types";
 
-export type ToolStatus = "running" | "done" | "failed" | "awaiting" | "denied";
+/** `stopped`: the turn ended before the call answered — stopped here, cut off, or left
+ *  behind by a run that is no longer going. Nothing is running it any more. */
+export type ToolStatus = "running" | "done" | "failed" | "awaiting" | "denied" | "stopped";
 
 export type ThreadItem =
   | { kind: "user"; id: string; text: string }
@@ -64,7 +66,7 @@ export interface ThreadState {
   pending: PendingApproval | null;
   spentUsd: number;
   unknownCostCalls: number;
-  notice: { kind: "error" | "halted" | "fallback"; text: string } | null;
+  notice: { kind: "error" | "halted" | "fallback" | "stopped"; text: string } | null;
 }
 
 export type ThreadAction =
@@ -72,6 +74,10 @@ export type ThreadAction =
   | { type: "user_sent"; text: string }
   | { type: "turn_started" }
   | { type: "turn_finished" }
+  /** The person pressed Stop: whatever the stream still had to say is not coming. */
+  | { type: "turn_stopped" }
+  /** No run is going for this conversation, here or elsewhere, so nothing is running. */
+  | { type: "settled" }
   | { type: "failed"; message: string }
   | { type: "event"; event: AgentEvent };
 
@@ -129,6 +135,18 @@ function threadItemFor(call: ToolCall): ThreadItem {
   return toolItem(call, "running");
 }
 
+/**
+ * Calls that never answered, once no turn is going to answer them. A turn paused on a
+ * person is not over: the calls queued behind the one waiting still run once it is
+ * decided, so those keep their state.
+ */
+function settle(state: ThreadState): ThreadItem[] {
+  if (state.pending || !state.items.some((it) => it.kind === "tool" && it.status === "running")) {
+    return state.items;
+  }
+  return state.items.map((it) => (it.kind === "tool" && it.status === "running" ? { ...it, status: "stopped" } : it));
+}
+
 function updateTool(
   items: ThreadItem[],
   toolCallId: string,
@@ -164,9 +182,30 @@ export function threadReducer(state: ThreadState, action: ThreadAction): ThreadS
     case "turn_started":
       return { ...state, busy: true, streaming: null, notice: null };
     case "turn_finished":
-      return { ...state, busy: false, streaming: null, thinking: false };
+      return { ...state, busy: false, streaming: null, thinking: false, items: settle(state) };
+    case "turn_stopped": {
+      // Stopping cuts the stream, and the server gives up the turn with it: a decision
+      // already sent is spent, so its call stops with the rest instead of asking again.
+      const cut = { ...state, pending: null };
+      const items = settle(cut).map((it) =>
+        it.kind === "tool" && it.status === "awaiting" ? { ...it, status: "stopped" as const } : it,
+      );
+      return { ...cut, items, busy: false, streaming: null, thinking: false, notice: { kind: "stopped", text: "" } };
+    }
+    case "settled": {
+      if (state.busy) return state;
+      const items = settle(state);
+      return items === state.items ? state : { ...state, items };
+    }
     case "failed":
-      return { ...state, busy: false, streaming: null, thinking: false, notice: { kind: "error", text: action.message } };
+      return {
+        ...state,
+        busy: false,
+        streaming: null,
+        thinking: false,
+        items: settle(state),
+        notice: { kind: "error", text: action.message },
+      };
     case "event": {
       // Whatever the model does next — words, a tool call, an end — ends its thinking. A
       // model_call marker is not something the model does; it only times the call.

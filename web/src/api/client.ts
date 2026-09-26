@@ -188,11 +188,13 @@ export const api = {
     approve: boolean,
     onEvent: (e: AgentEvent) => void,
     always = false,
+    signal?: AbortSignal,
   ) =>
     stream(
       `/conversations/${id}/approvals/${approvalId}`,
       always ? { approve, always: true } : { approve },
       onEvent,
+      signal,
     ),
   /** A question closes by its own route. The approve/deny route refuses a question row,
    *  so answering through it would leave the agent waiting until the deadline. */
@@ -201,7 +203,8 @@ export const api = {
     approvalId: string,
     answer: string,
     onEvent: (e: AgentEvent) => void,
-  ) => stream(`/conversations/${id}/approvals/${approvalId}/answer`, { answer }, onEvent),
+    signal?: AbortSignal,
+  ) => stream(`/conversations/${id}/approvals/${approvalId}/answer`, { answer }, onEvent, signal),
   listApprovals: (params: { limit?: number; conversation_id?: string } = {}) =>
     request<ApprovalInfo[]>(`/approvals${query(params)}`),
   listRuns: (params: { limit?: number; agent_id?: string; conversation_id?: string } = {}) =>

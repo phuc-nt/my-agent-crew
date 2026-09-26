@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { vi } from "../i18n/vi";
 import type { ThreadState } from "../state/thread-reducer";
 
@@ -5,6 +6,10 @@ interface Props {
   thread: ThreadState;
   connected: boolean;
   liveCount: number;
+  /** The stream was just (re)opened: not yet live, but not lost either. */
+  connecting?: boolean;
+  /** Re-opens the activity stream; absent hides the retry. */
+  onReconnect?: () => void;
 }
 
 function threadText(thread: ThreadState): string {
@@ -24,14 +29,48 @@ function threadText(thread: ThreadState): string {
   return vi.statusIdle;
 }
 
+/** Whether the device has a network at all. Without one no retry can help, and saying
+ *  so beats a retry button that fails every time it is pressed. */
+function useOnline(): boolean {
+  const [online, setOnline] = useState(() => typeof navigator === "undefined" || navigator.onLine !== false);
+  useEffect(() => {
+    const update = () => setOnline(navigator.onLine !== false);
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    return () => {
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+    };
+  }, []);
+  return online;
+}
+
 /** Screen-reader friendly one-liner: what this thread is doing and whether live activity is flowing. */
-export function StatusLine({ thread, connected, liveCount }: Props) {
+export function StatusLine({ thread, connected, liveCount, connecting = false, onReconnect }: Props) {
+  const online = useOnline();
+  const [state, text] = !online
+    ? ["offline", vi.streamOffline]
+    : connected
+      ? ["on", vi.streamConnected]
+      : connecting
+        ? ["connecting", vi.streamConnecting]
+        : ["off", vi.streamDisconnected];
   return (
     <div className="status-line" role="status" aria-live="polite" data-testid="status-line">
       <span>{threadText(thread)}</span>
-      <span className={`stream-state ${connected ? "on" : "off"}`}>
-        {connected ? vi.streamConnected : vi.streamDisconnected}
+      <span className={`stream-state ${state}`} data-testid="stream-state">
+        {text}
         {liveCount > 0 && ` · ${vi.liveNow}: ${liveCount}`}
+        {state === "off" && onReconnect && (
+          <button
+            type="button"
+            className="link-button stream-retry"
+            aria-label={vi.streamRetryLabel}
+            onClick={onReconnect}
+          >
+            {vi.streamRetry}
+          </button>
+        )}
       </span>
     </div>
   );

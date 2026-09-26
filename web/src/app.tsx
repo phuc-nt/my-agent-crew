@@ -6,6 +6,7 @@ import { useActivity } from "./hooks/use-activity";
 import { useAttention } from "./hooks/use-attention-badge";
 import { useCrew } from "./hooks/use-agents";
 import { useConversations } from "./hooks/use-conversations";
+import { useExternalRunRefresh } from "./hooks/use-external-run-refresh";
 import { type ManageSection, type Route, useRoute } from "./hooks/use-route";
 import { useThread } from "./hooks/use-thread";
 import { ChatScreen } from "./screens/chat-screen";
@@ -26,6 +27,7 @@ export function App() {
   const thread = useThread(list.activeId);
   const crew = useCrew();
   const activity = useActivity(true, list.applyUpdate);
+  const externalRun = useExternalRunRefresh(list.activeId, thread, activity);
   const [settings, setSettings] = useState<SettingsInfo | null>(null);
   const [templates, setTemplates] = useState<TemplateInfo[]>([]);
 
@@ -139,6 +141,7 @@ export function App() {
         // A waiting request is settled on the approvals page, so the way in lands there.
         onOpenManage={(section = waiting ? "approvals" : "activity") => navigate({ kind: "manage", section })}
         liveByAgent={liveByAgent}
+        externalRun={externalRun}
       />
     </ErrorBoundary>
   );

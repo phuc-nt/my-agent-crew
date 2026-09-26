@@ -17,7 +17,10 @@ Playwright chỉ cho những gì chỉ DOM mới cho thấy. Hành vi vắt qua 
 tạm dừng vòng lặp *và* thanh hiện ra; nâng trần chi phí gỡ `over_budget` ở server *và* mở lại
 ô soạn) có một test ở mỗi bên ranh giới. Fake server của vitest và mock của Playwright tự tính
 lại những trường server suy ra (như `over_budget` từ trần), để test không tin vào một con số
-cũ.
+cũ. Route của Playwright trả cả thân một lần, nên một stream còn đang chạy khi bấm Dừng được
+dựng ngay trong trang bằng `addInitScript` (test Dừng trong `chat-smoke.spec.ts`); còn run do
+kênh khác chạy và nút Thử lại của luồng trực tiếp có test App riêng trong
+`app-thread-refresh.test.tsx`.
 
 Fake server của vitest giữ yêu cầu duyệt đang mở như server thật: một lượt dừng ở
 `approval_required` để lại yêu cầu trên cuộc trò chuyện, và quyết định cho một yêu cầu đã đóng

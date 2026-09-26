@@ -16,6 +16,7 @@ const STATUS_LABEL: Record<ToolStatus, string> = {
   failed: vi.toolFailed,
   awaiting: vi.toolAwaiting,
   denied: vi.toolDenied,
+  stopped: vi.toolStopped,
 };
 
 /** A card has no coloured node beside it the way a timeline row does, so the icon is the
@@ -26,6 +27,7 @@ const STATUS_ICON: Record<ToolStatus, IconName> = {
   failed: "alert",
   awaiting: "pause",
   denied: "close",
+  stopped: "stop",
 };
 
 function Status({ status, label }: { status: ToolStatus; label: string }) {

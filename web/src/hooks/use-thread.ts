@@ -12,8 +12,11 @@ export interface ThreadController {
   decide: (approve: boolean, always?: boolean) => Promise<void>;
   /** Reply to a question the agent asked. Only a question row accepts this. */
   answer: (text: string) => Promise<void>;
+  /** Cuts whichever stream is running — a message, a decision or an answer. */
   stop: () => void;
   reload: () => Promise<void>;
+  /** Marks calls no run will answer any more as stopped; a no-op while a turn runs. */
+  settle: () => void;
 }
 
 /** Owns one conversation: loads its history, streams turns, resolves approvals. */
@@ -49,12 +52,16 @@ export function useThread(conversationId: string | null): ThreadController {
       const controller = new AbortController();
       abortRef.current = controller;
       dispatch({ type: "turn_started" });
+      // An aborted turn has already been ended — by Stop, or by opening another
+      // conversation — so nothing it still delivers may land in the thread on screen.
+      const emit = (event: AgentEvent) => {
+        if (!controller.signal.aborted) onEvent(event);
+      };
       try {
-        await run(onEvent, controller.signal);
-        dispatch({ type: "turn_finished" });
+        await run(emit, controller.signal);
+        if (!controller.signal.aborted) dispatch({ type: "turn_finished" });
       } catch (error) {
-        if (controller.signal.aborted) dispatch({ type: "turn_finished" });
-        else dispatch({ type: "failed", message: describe(error) });
+        if (!controller.signal.aborted) dispatch({ type: "failed", message: describe(error) });
       } finally {
         if (abortRef.current === controller) abortRef.current = null;
       }
@@ -97,8 +104,8 @@ export function useThread(conversationId: string | null): ThreadController {
     async (approve: boolean, always = false) => {
       const pending = state.pending;
       if (!conversationId || !pending) return;
-      await decisionTurn((emit) =>
-        api.resolveApproval(conversationId, pending.approvalId, approve, emit, always && approve),
+      await decisionTurn((emit, signal) =>
+        api.resolveApproval(conversationId, pending.approvalId, approve, emit, always && approve, signal),
       );
     },
     [conversationId, decisionTurn, state.pending],
@@ -108,14 +115,25 @@ export function useThread(conversationId: string | null): ThreadController {
     async (text: string) => {
       const pending = state.pending;
       if (!conversationId || !pending || pending.kind !== "question") return;
-      await decisionTurn((emit) => api.answerApproval(conversationId, pending.approvalId, text, emit));
+      await decisionTurn((emit, signal) =>
+        api.answerApproval(conversationId, pending.approvalId, text, emit, signal),
+      );
     },
     [conversationId, decisionTurn, state.pending],
   );
 
-  const stop = useCallback(() => abortRef.current?.abort(), []);
+  // Ends the turn on screen at once rather than when the aborted fetch unwinds: a stream
+  // stuck on a dead connection may take its time to notice it was cut.
+  const stop = useCallback(() => {
+    const controller = abortRef.current;
+    if (!controller) return;
+    controller.abort();
+    dispatch({ type: "turn_stopped" });
+  }, []);
 
-  return { state, detail, send, decide, answer, stop, reload };
+  const settle = useCallback(() => dispatch({ type: "settled" }), []);
+
+  return { state, detail, send, decide, answer, stop, reload, settle };
 }
 
 function describe(error: unknown): string {

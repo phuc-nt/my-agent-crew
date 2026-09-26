@@ -1,6 +1,7 @@
 /*
  * What the chat says about its own state and how to get out of it: the cost cap's
- * editor behind the budget pill and the budget notices.
+ * editor behind the budget pill and the budget notices, a stopped turn, and the live
+ * stream's pill with its retry.
  */
 
 /* ── Cost cap editor ────────────────────────────────────────────────────── */
@@ -65,10 +66,37 @@
   margin-left: auto;
 }
 
+/* ── Stopped turn ───────────────────────────────────────────────────────── */
+/* Neutral: the person asked for it, so nothing went wrong. */
+.notice.stopped {
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
+}
+
+/* ── Live stream pill ───────────────────────────────────────────────────── */
+.stream-state.connecting::before {
+  background: var(--warn);
+}
+
+.stream-state.offline::before {
+  background: var(--muted);
+}
+
+.stream-state.off {
+  color: var(--danger-text);
+}
+
+.status-line button.stream-retry {
+  padding: 0 var(--space-2);
+  font-size: inherit;
+  font-weight: 600;
+}
+
 @media (max-width: 720px) {
   .cap-editor button,
   .cap-editor input,
-  .notice > .link-button {
+  .notice > .link-button,
+  .status-line button.stream-retry {
     min-height: var(--touch-target);
   }
 }
