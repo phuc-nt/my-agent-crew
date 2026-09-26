@@ -21,6 +21,10 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   names the providers to try in order and `openrouter_provider_fallbacks: false` forbids any other, so a
   prompt cache built on one upstream is not lost to a silent switch.
 
+- **`scripts/llm_bench.py`** benchmarks candidate models on the agent loop itself: each model gets a
+  throwaway home, its own server and port, no Telegram token and no live routes; five tasks (a bare
+  reply, write-then-read, a shell command, a delegation, a document summary) are scored and timed.
+
 ### Changed
 
 - **The prompt prefix stays the same between turns.** Everything that changes from one turn to the

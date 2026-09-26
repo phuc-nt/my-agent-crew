@@ -38,6 +38,25 @@ Vài test bảo vệ repo chứ không phải một tính năng:
 [code-standards.md](code-standards.md#4-cổng-phải-chạy-trước-khi-commit). Danh sách cổng
 là `.github/workflows/ci.yml`.
 
+## Benchmark model trên vòng lặp thật
+
+`scripts/llm_bench.py` đo các model ứng viên ngay trên vòng lặp agent, tách khỏi crew đang
+chạy: mỗi model một home tạm dưới `--out`, một server riêng trên `--port` (mặc định 8797,
+không bao giờ là cổng live), không có token Telegram, không có tuyến live; chỉ
+`OPENROUTER_API_KEY` được kế thừa. Năm việc trong `scripts/llm_bench_tasks.py` (trả lời
+suông, ghi rồi đọc tệp, lệnh shell, giao việc cho agent `helper`, tóm tắt tài liệu) được chấm
+đúng/sai và đo thời gian tường, số lần gọi model, thời gian tới token đầu (`first_token_ms`
+của bước model), phần prompt được cache và chi phí, đọc từ `/api/activity/runs`. Kết quả
+ghi ra `results.json` và `results.md` sau mỗi model:
+
+```bash
+uv run python scripts/llm_bench.py --models deepseek/deepseek-v4-flash,qwen/qwen3.7-flash --out /tmp/llm-bench
+```
+
+Một lượt hỏi người dùng (`ask_user`) tính là hỏng — bench không có ai trả lời; yêu cầu duyệt
+tool thì bench tự duyệt và tính vào thời gian lượt. Cổng bận thì script từ chối chạy thay vì
+giết chủ cổng.
+
 ## Smoke trực tiếp (thủ công)
 
 `MY_AGENT_ROUTES=fake:echo` trên một `MY_AGENT_HOME` tạm, rồi qua UI hoặc curl:
