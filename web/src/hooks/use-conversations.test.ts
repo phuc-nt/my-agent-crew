@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi as vitest } from "vitest";
 import type { Conversation } from "../api/types";
+import { memoryStorage } from "../test/memory-storage";
 import { useConversations } from "./use-conversations";
 
 function conversation(overrides: Partial<Conversation> = {}): Conversation {
@@ -161,5 +162,53 @@ describe("a title the server pushes while the list is still loading", () => {
     );
     expect(result.current.conversations).toHaveLength(1);
     expect(result.current.conversations[0].title).toBe("Giúp tôi lập kế hoạch");
+  });
+});
+
+describe("deleting a conversation", () => {
+  // Drafts are kept per conversation id; one whose conversation is gone can never be
+  // shown again, so leaving it would only grow storage for good.
+  it("takes its unsent draft with it, and only its own", async () => {
+    const store = memoryStorage();
+    store.set("composer-draft:c1", "nửa câu");
+    store.set("composer-draft:c2", "câu khác");
+    const deleted = vitest.fn();
+    vitest.stubGlobal(
+      "fetch",
+      vitest.fn(async (url: string, init?: RequestInit) => {
+        if (init?.method === "DELETE") {
+          deleted(url);
+          return new Response(null, { status: 204 });
+        }
+        return Response.json([conversation(), conversation({ id: "c2" })]);
+      }),
+    );
+    const { result } = renderHook(() => useConversations());
+    await waitFor(() => expect(result.current.conversations).toHaveLength(2));
+
+    await act(() => result.current.remove("c1"));
+
+    expect(deleted).toHaveBeenCalledWith("/api/conversations/c1");
+    expect(result.current.conversations.map((c) => c.id)).toEqual(["c2"]);
+    expect([...store.keys()]).toEqual(["composer-draft:c2"]);
+  });
+
+  it("keeps the draft when the server refuses, since the conversation is still there", async () => {
+    const store = memoryStorage();
+    store.set("composer-draft:c1", "nửa câu");
+    vitest.stubGlobal(
+      "fetch",
+      vitest.fn(async (_url: string, init?: RequestInit) =>
+        init?.method === "DELETE"
+          ? Response.json({ detail: "busy" }, { status: 409 })
+          : Response.json([conversation()]),
+      ),
+    );
+    const { result } = renderHook(() => useConversations());
+    await waitFor(() => expect(result.current.conversations).toHaveLength(1));
+
+    await act(() => expect(result.current.remove("c1")).rejects.toThrow());
+
+    expect(store.get("composer-draft:c1")).toBe("nửa câu");
   });
 });

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 import type { Conversation, ConversationPatch } from "../api/types";
+import { forgetDraft } from "./use-draft";
 
 /** The sidebar is the person's chat with the master; the rest of the crew is reached through it. */
 export const MASTER_ID = "default";
@@ -86,6 +87,7 @@ export function useConversations(): ConversationsController {
 
   const remove = useCallback(async (id: string) => {
     await api.deleteConversation(id);
+    forgetDraft(id);
     setConversations((list) => list.filter((c) => c.id !== id));
     setActiveId((current) => (current === id ? null : current));
   }, []);

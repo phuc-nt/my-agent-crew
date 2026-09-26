@@ -22,6 +22,11 @@ function write(key: string | null, text: string): void {
   }
 }
 
+/** Drops a conversation's draft once the conversation itself is gone: nothing can show it again. */
+export function forgetDraft(key: string): void {
+  write(key, "");
+}
+
 /**
  * The composer's text, kept per conversation so a half-written message survives switching
  * away and back — on a phone the drawer makes that switch constant — and a reload.
