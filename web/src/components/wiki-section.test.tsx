@@ -194,6 +194,20 @@ describe("WikiSection read mode", () => {
     expect(screen.getByTestId("wiki-page")).toHaveTextContent("Pha lúc 6h.");
   });
 
+  it("still follows a link to a page the search has left out of the list", async () => {
+    backend.wiki.add({ title: "Hạn Eco", body: "Pha [[Trà sáng]] trước khi nộp." });
+    backend.wiki.add({ slug: "tra-sang", title: "Trà sáng", kind: "concepts", body: "Pha lúc 6h." });
+    mount();
+    await screen.findByRole("button", { name: "Trà sáng" });
+    await userEvent.type(screen.getByRole("searchbox", { name: vi.wiki.searchPlaceholder }), "Eco");
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Trà sáng" })).toBeNull());
+
+    await userEvent.click(screen.getByRole("button", { name: "Hạn Eco" }));
+    const page = await screen.findByTestId("wiki-page");
+    await userEvent.click(within(page).getByRole("button", { name: "Trà sáng" }));
+    expect(await screen.findByRole("heading", { name: "Trà sáng" })).toBeInTheDocument();
+  });
+
   it("draws a link to a page nobody has written as missing, not as a way somewhere", async () => {
     backend.wiki.add({ title: "Hạn Eco", body: "Hỏi [[Đà Lạt]] sau." });
     mount();
