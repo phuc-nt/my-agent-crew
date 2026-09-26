@@ -213,6 +213,22 @@ describe("activityReducer", () => {
     expect(needsAttention(state)).toEqual([]);
   });
 
+  it("lets go of live runs a later snapshot leaves out, and takes a list's word that a run ended", () => {
+    let state = activityReducer(emptyActivity, {
+      type: "payload",
+      payload: { type: "snapshot", runs: [run(), run({ id: "wait", status: "awaiting_approval" })] },
+    });
+    state = activityReducer(state, { type: "recent", runs: [run({ id: "old", status: "done" })] });
+    // Back from a drop: nothing is live on the server any more.
+    state = activityReducer(state, { type: "payload", payload: { type: "snapshot", runs: [] } });
+    expect(Object.keys(state.runs)).toEqual(["old"]);
+
+    state = activityReducer(state, { type: "payload", payload: { type: "run", run: run({ id: "r2" }) } });
+    state = activityReducer(state, { type: "recent", runs: [run({ id: "r2", status: "halted", finished_at: "2026-09-19T08:02:00Z" })] });
+    expect(state.runs.r2.status).toBe("halted");
+    expect(liveRuns(state)).toEqual([]);
+  });
+
   it("derives sorted, live, per-conversation and attention views", () => {
     const state = activityReducer(emptyActivity, {
       type: "recent",

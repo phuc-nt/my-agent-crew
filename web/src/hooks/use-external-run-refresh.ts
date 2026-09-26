@@ -28,6 +28,7 @@ export function useExternalRunRefresh(
   const ours = useRef(new Set<string>());
   const busy = thread.state.busy;
   const { reload, settle } = thread;
+  const { synced } = activity;
   const runs = conversationId ? runsForConversation(activity.state, conversationId) : [];
   const key = runs.map((r) => `${r.id}:${r.status}`).join(",");
 
@@ -37,6 +38,24 @@ export function useExternalRunRefresh(
     seen.current = new Map();
     ours.current = new Set();
   }, [conversationId]);
+
+  // The stream says nothing of what happened while it was down: a run may have started
+  // and ended in the gap, or ended after it was last seen live. So once it is back in
+  // sync the thread is loaded again, and runs are measured against that load from then
+  // on, as after opening the conversation. A turn of this tab's own gets to end first.
+  const everSynced = useRef(false);
+  const behind = useRef(false);
+  useEffect(() => {
+    if (!synced) {
+      behind.current ||= everSynced.current;
+      return;
+    }
+    everSynced.current = true;
+    if (!behind.current || busy) return;
+    behind.current = false;
+    seen.current = new Map();
+    if (conversationId) void reload();
+  }, [synced, busy, conversationId, reload]);
 
   useEffect(() => {
     let changed = false;
@@ -52,7 +71,8 @@ export function useExternalRunRefresh(
       // Going back to running only matters when it took an approval with it.
       if (run.status !== "running" || prev === AWAITING) changed = true;
     }
-    if (changed) void reload();
+    // While the stream is behind, the reload on its return covers this change as well.
+    if (changed && !behind.current) void reload();
     // `key` stands for `runs`, which is a new array on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, busy, reload]);
@@ -60,7 +80,6 @@ export function useExternalRunRefresh(
   // Once the stream has said what is live, a call still spinning in a conversation with
   // nothing going is one no run will ever answer — a turn cut off before its result.
   const live = runs.some((r) => LIVE.includes(r.status));
-  const { synced } = activity;
   const { items } = thread.state;
   useEffect(() => {
     if (synced && !busy && !live) settle();

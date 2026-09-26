@@ -153,7 +153,11 @@ export function activityReducer(state: ActivityState, action: ActivityAction): A
 function applyPayload(state: ActivityState, payload: RunPayload): ActivityState {
   switch (payload.type) {
     case "snapshot": {
-      const runs = { ...state.runs };
+      // The snapshot is everything live on the server. A run held here as live that it
+      // leaves out ended while the stream was down, and kept, it would spin for good: it
+      // goes, and comes back finished with the next list.
+      const runs: Record<string, RunInfo> = {};
+      for (const run of Object.values(state.runs)) if (!ACTIVE.includes(run.status)) runs[run.id] = run;
       for (const run of payload.runs) runs[run.id] = run;
       return { ...state, runs, connected: true };
     }

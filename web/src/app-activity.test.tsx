@@ -95,6 +95,29 @@ describe("App activity across the crew", () => {
     expect(screen.getByTestId("stats")).toHaveTextContent("$0.001");
   });
 
+  it("shows a run that ended while the stream was down as ended once it is back", async () => {
+    backend.agents = [fakeAgent, coachAgent];
+    const job = { id: "job1", agent_id: "coach", conversation_id: null, source: "job:coach/brief" };
+    render(<App />);
+    await screen.findByText(vi.welcomeTitleFor("Agent"));
+    const panel = await openManage();
+    act(() => {
+      stream().open();
+      stream().emit({ type: "snapshot", runs: [fakeRun({ ...job, status: "running", finished_at: null })] });
+    });
+    expect(await within(panel).findByTestId("run-card")).toHaveAttribute("data-status", "running");
+
+    act(() => stream().onerror?.());
+    backend.runs = [fakeRun({ ...job, status: "done" })];
+    act(() => {
+      stream().open();
+      stream().emit({ type: "snapshot", runs: [] });
+    });
+
+    await waitFor(() => expect(within(panel).getByTestId("run-card")).toHaveAttribute("data-status", "done"));
+    expect(panel).toHaveTextContent(vi.nothingLive);
+  });
+
   // The chat has no rail any more, so the count of what is running has to reach the
   // person some other way while they are reading the thread.
   it("counts live runs on the chat's status line and on the way into manage", async () => {

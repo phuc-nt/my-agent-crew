@@ -75,6 +75,47 @@ describe("the open thread and runs this tab did not stream", () => {
     expect(await screen.findByRole("alertdialog", { name: vi.awaitingApproval })).toBeInTheDocument();
   });
 
+  it("reloads once the stream is back when a run started and ended while it was down", async () => {
+    const c = backend.create({ title: "Trong lúc mất", messages: [storedMessage("user", "chào")] });
+    await openConversation("Trong lúc mất");
+    act(() => stream().onerror?.());
+
+    c.messages.push(storedMessage("assistant", "Trả lời lúc mất kết nối"));
+    backend.runs = [telegramRun(c.id, "done")];
+    const before = threadLoads(c.id);
+    await userEvent.click(screen.getByRole("button", { name: vi.streamRetryLabel }));
+    act(() => {
+      stream().open();
+      stream().emit({ type: "snapshot", runs: [] });
+    });
+
+    expect(await screen.findByText("Trả lời lúc mất kết nối")).toBeInTheDocument();
+    await act(async () => {});
+    expect(threadLoads(c.id)).toBe(before + 1);
+  });
+
+  it("lets go of a run seen live that ended while the stream was down", async () => {
+    const c = backend.create({ title: "Kết thúc lúc mất", messages: [storedMessage("user", "chào")] });
+    await openConversation("Kết thúc lúc mất");
+    act(() => stream().emit({ type: "run", run: telegramRun(c.id, "running") }));
+    expect(screen.getByTestId("thinking")).toBeInTheDocument();
+    act(() => stream().onerror?.());
+
+    // The browser's own retry: the snapshot is all this page hears of the finish.
+    c.messages.push(storedMessage("assistant", "Xong khi đang mất"));
+    backend.runs = [telegramRun(c.id, "done")];
+    const before = threadLoads(c.id);
+    act(() => {
+      stream().open();
+      stream().emit({ type: "snapshot", runs: [] });
+    });
+
+    expect(await screen.findByText("Xong khi đang mất")).toBeInTheDocument();
+    expect(screen.queryByTestId("thinking")).not.toBeInTheDocument();
+    await act(async () => {});
+    expect(threadLoads(c.id)).toBe(before + 1);
+  });
+
   it("leaves this tab's own turn alone when its run finishes after the stream did", async () => {
     const c = backend.create({ title: "Của tab này" });
     let release = () => {};
