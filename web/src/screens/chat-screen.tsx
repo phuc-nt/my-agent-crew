@@ -214,7 +214,7 @@ export function ChatScreen({
         onDelete={remove}
         searchRef={searchRef}
         drawer={phone ? { open: drawer.open, close: drawer.hide, ref: drawer.panelRef } : undefined}
-        liveIds={live.flatMap((r) => r.conversation_id ?? [])}
+        liveRuns={live}
         top={
           master && (
             <div className="master-card" data-testid="master-card">

@@ -1,12 +1,14 @@
 import { useState, type ReactNode, type RefObject } from "react";
-import type { Conversation } from "../api/types";
+import type { Conversation, RunInfo } from "../api/types";
 import { useLastSeen } from "../hooks/use-last-seen";
 import { vi } from "../i18n/vi";
 import { dayGroup, type DayGroup } from "../lib/relative-time";
-import { ConversationRow } from "./conversation-row";
+import { ConversationRow, type LiveStatus } from "./conversation-row";
 import { ConversationSearch, matching } from "./conversation-search";
 import { Brand } from "./ui/brand-mark";
 import { Icon } from "./ui/icon";
+
+type LiveRun = Pick<RunInfo, "conversation_id" | "status">;
 
 interface Props {
   conversations: Conversation[];
@@ -22,8 +24,8 @@ interface Props {
   searchRef?: RefObject<HTMLInputElement | null>;
   /** Present on a phone, where the list slides over the chat instead of sitting beside it. */
   drawer?: { open: boolean; close: () => void; ref: RefObject<HTMLElement | null> };
-  /** Conversations a run is working in right now. */
-  liveIds?: string[];
+  /** The runs working right now; each row shows the state of the one in it. */
+  liveRuns?: LiveRun[];
 }
 
 /** How many threads it takes before scanning the list beats reading it. */
@@ -39,6 +41,19 @@ function ownFirst(conversations: Conversation[]): Conversation[] {
     ...conversations.filter((c) => !c.parent_call_id),
     ...conversations.filter((c) => c.parent_call_id),
   ];
+}
+
+/**
+ * Each conversation's live state. Two runs can be open in one conversation (an earlier
+ * turn left waiting); waiting on the owner wins, since that is the one he has to act on.
+ */
+function liveByConversation(runs: LiveRun[]): Map<string, LiveStatus> {
+  const live = new Map<string, LiveStatus>();
+  for (const { conversation_id: id, status } of runs) {
+    if (!id || (status !== "running" && status !== "awaiting_approval")) continue;
+    if (live.get(id) !== "awaiting_approval") live.set(id, status);
+  }
+  return live;
 }
 
 const GROUPS: DayGroup[] = ["today", "yesterday", "older"];
@@ -65,9 +80,10 @@ export function ConversationList({
   bottom,
   searchRef,
   drawer,
-  liveIds = [],
+  liveRuns = [],
 }: Props) {
   const [query, setQuery] = useState("");
+  const live = liveByConversation(liveRuns);
   const isUnread = useLastSeen(conversations, activeId);
   // Below a handful of threads the eye is faster than the box, and a control that is
   // never the quickest way to do the thing is just something else to look past.
@@ -133,7 +149,7 @@ export function ConversationList({
                     key={c.id}
                     conversation={c}
                     active={c.id === activeId}
-                    live={liveIds.includes(c.id)}
+                    live={live.get(c.id)}
                     // A delegated conversation is the agents' working, not a reply to the
                     // person, so it never asks for attention with a dot.
                     unread={!c.parent_call_id && isUnread(c)}

@@ -1,6 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
-import type { Conversation } from "../api/types";
+import type { Conversation, RunInfo } from "../api/types";
 import { vi } from "../i18n/vi";
 import { memoryStorage, refusingStorage } from "../test/memory-storage";
 import { ConversationList } from "./conversation-list";
@@ -30,12 +30,14 @@ function conversation(id: string, updated_at: string, overrides: Partial<Convers
   };
 }
 
-function list(conversations: Conversation[], activeId: string | null, liveIds?: string[]) {
+type LiveRun = Pick<RunInfo, "conversation_id" | "status">;
+
+function list(conversations: Conversation[], activeId: string | null, liveRuns?: LiveRun[]) {
   return (
     <ConversationList
       conversations={conversations}
       activeId={activeId}
-      liveIds={liveIds}
+      liveRuns={liveRuns}
       onSelect={() => {}}
       onCreate={() => {}}
       onDelete={() => {}}
@@ -148,6 +150,8 @@ describe("the unread dot", () => {
 });
 
 describe("the status dot", () => {
+  const dot = (title: string) => row(title).querySelector(".status-dot")!;
+
   it("names every state in Vietnamese, idle included, and pulses while a run is live", () => {
     render(
       list(
@@ -157,13 +161,39 @@ describe("the status dot", () => {
           conversation("chạy", "2026-09-26T02:00:00Z"),
         ],
         null,
-        ["chạy"],
+        [{ conversation_id: "chạy", status: "running" }],
       ),
     );
-    const dot = (title: string) => row(title).querySelector(".status-dot")!;
     expect(dot("rảnh")).toHaveAttribute("title", "Rảnh");
     expect(dot("chờ")).toHaveAttribute("title", "Chờ bạn duyệt");
     expect(dot("chạy")).toHaveAttribute("title", "Đang chạy");
     expect(dot("chạy")).toHaveClass("running");
+  });
+
+  // While an approval is pending its run is live too; the row must still say that it is
+  // the owner's turn, not the agent's.
+  it("says a live run waiting for approval is waiting, even where the row is a turn behind", () => {
+    render(
+      list(
+        [
+          conversation("chờ", "2026-09-26T04:00:00Z", { status: "awaiting_approval" }),
+          // Fetched before the tool asked: the row still reads idle.
+          conversation("vừa hỏi", "2026-09-26T03:00:00Z"),
+          conversation("hai lượt", "2026-09-26T02:00:00Z"),
+        ],
+        null,
+        [
+          { conversation_id: "chờ", status: "awaiting_approval" },
+          { conversation_id: "vừa hỏi", status: "awaiting_approval" },
+          { conversation_id: "hai lượt", status: "awaiting_approval" },
+          { conversation_id: "hai lượt", status: "running" },
+        ],
+      ),
+    );
+    for (const title of ["chờ", "vừa hỏi", "hai lượt"]) {
+      expect(dot(title)).toHaveAttribute("title", "Chờ bạn duyệt");
+      expect(dot(title)).toHaveClass("awaiting_approval");
+      expect(dot(title)).not.toHaveClass("running");
+    }
   });
 });

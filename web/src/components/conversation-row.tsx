@@ -1,13 +1,16 @@
-import type { Conversation } from "../api/types";
+import type { Conversation, RunStatus } from "../api/types";
 import { vi } from "../i18n/vi";
 import { timeAgo } from "../lib/relative-time";
 import { Icon } from "./ui/icon";
 
+/** The states in which a run is still going, and so pulses the row's dot. */
+export type LiveStatus = Extract<RunStatus, "running" | "awaiting_approval">;
+
 interface Props {
   conversation: Conversation;
   active: boolean;
-  /** A run is working in it right now, so the dot pulses. */
-  live: boolean;
+  /** The state of the run working in it right now, if one is. */
+  live?: LiveStatus;
   /** It changed since this viewer last had it open. */
   unread: boolean;
   onPick: () => void;
@@ -20,7 +23,9 @@ interface Props {
  * row reads to a screen reader the way it reads on screen.
  */
 export function ConversationRow({ conversation: c, active, live, unread, onPick, onDelete }: Props) {
-  const status = live ? "running" : c.status;
+  // The live run speaks for the row: the list is fetched as runs finish, so the row's own
+  // status can be a turn behind, and a run waiting on the owner must say so, not "running".
+  const status = live ?? c.status;
   return (
     <li className={`${active ? "active" : ""}${unread ? " unread" : ""}`.trim() || undefined}>
       <button
