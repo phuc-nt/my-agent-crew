@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi as vitest } from "vitest";
 import { vi } from "../i18n/vi";
@@ -151,6 +151,27 @@ describe("the manage screen", () => {
     show("activity", { attention: [fakeRun({ id: "waiting", status: "awaiting_approval" })] });
 
     expect(screen.getByRole("button", { name: new RegExp(vi.approvalsTab) })).toHaveTextContent("1");
+  });
+
+  // A red number beside the schedules is a claim that something broke; a job that ran
+  // fine, is still running or has never run makes no such claim.
+  it("counts the jobs whose last run failed beside the jobs entry, and nothing otherwise", () => {
+    const job = (id: string, last: ReturnType<typeof fakeRun> | null) => ({
+      id: `default/${id}`, schedule_id: id, agent_id: "default", name: id, kind: "prompt" as const,
+      cron: "0 7 * * *", every: null, prompt: "p", command: null, enabled: true, skills: [],
+      next_run: null, last_run: last, running: false, paused: false,
+    });
+    const fine = [job("a", fakeRun()), job("b", fakeRun({ status: "running" })), job("c", null)];
+    show("crew", { jobs: fine });
+    expect(screen.queryByTestId("jobs-failing")).not.toBeInTheDocument();
+    cleanup();
+
+    show("crew", { jobs: [...fine, job("d", fakeRun({ status: "error" })), job("e", fakeRun({ status: "error" }))] });
+    const entry = screen.getByRole("button", { name: new RegExp(`^${vi.jobs}`) });
+    expect(within(entry).getByTestId("jobs-failing")).toHaveTextContent("2");
+    // The number is hidden from assistive tech and the sentence stands in for it. jsdom
+    // lays nothing out, so the gap a flex row puts after the name is checked in e2e.
+    expect(entry).toHaveAccessibleName(new RegExp(`^${vi.jobs}\\s*${vi.jobRow.failing(2)}$`));
   });
 
   it("opens the agent editor in place of the crew list when the route names one", async () => {

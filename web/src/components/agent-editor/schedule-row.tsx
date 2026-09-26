@@ -1,5 +1,6 @@
 import { type RowProblems, type ScheduleRow, usesCommand, usesEvery } from "../../hooks/agent-draft-checks";
 import { vi } from "../../i18n/vi";
+import { cronText, everyText } from "../../lib/cron-text";
 import { TextField } from "./fields";
 import { Choice, SkillPicker } from "./schedule-parts";
 
@@ -35,6 +36,16 @@ export function ScheduleRowEditor({ row, problems, skills, readOnly, onChange, o
   const every = usesEvery(row);
   const command = usesCommand(row);
   const title = row.name || row.id || vi.editor.scheduleUnnamed;
+  const timing = (every ? row.every : row.cron) ?? "";
+  // The jobs list shows this same reading; seeing it here is how a swapped hour and
+  // minute gets caught before it is saved rather than at seven in the evening.
+  const words = every ? everyText(timing) : cronText(timing);
+  const timingHint =
+    timing.trim() && !problems?.timing && words !== timing
+      ? vi.editor.scheduleReads(words)
+      : every
+        ? vi.editor.scheduleEveryHint
+        : vi.editor.scheduleCronHint;
 
   return (
     <li className="crew-card schedule-row" data-testid="schedule-row">
@@ -86,8 +97,8 @@ export function ScheduleRowEditor({ row, problems, skills, readOnly, onChange, o
       />
       <TextField
         label={every ? vi.editor.scheduleEvery : vi.editor.scheduleCron}
-        hint={every ? vi.editor.scheduleEveryHint : vi.editor.scheduleCronHint}
-        value={(every ? row.every : row.cron) ?? ""}
+        hint={timingHint}
+        value={timing}
         error={problems?.timing}
         mono
         disabled={readOnly}

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { coachAgent, defaultAgent, mockApi } from "./mock-api";
+import { coachAgent, defaultAgent, mockApi, run } from "./mock-api";
 
 const master = { ...defaultAgent, name: "Trợ lý", delegates: ["coach"] };
 // A kit defines it, so there is no manifest to patch and the editor may only show it.
@@ -193,5 +193,35 @@ test("a schedule is added from the jobs list through the agent's editor", async 
   jobs.push({ ...briefJob, id: "coach/job-1", schedule_id: "job-1", name: "Dọn rác", kind: "command", cron: null, every: "30m", prompt: null, command: "echo dọn", skills: [] });
   await page.goto("/#/manage/jobs");
   await page.reload();
+  await expect(page.getByTestId("job").filter({ hasText: "Dọn rác" })).toContainText("Mỗi 30 phút");
   await expect(page.getByTestId("job").filter({ hasText: "Dọn rác" })).toContainText("30m");
+});
+
+test("a job reads its schedule in words, shows its last run, and a failure is counted on the nav", async ({ page }) => {
+  const failed = run({ id: "r-err", agent_id: "coach", source: "job:coach/brief", status: "error", summary: "Không gọi được API" });
+  const brief = { ...coachAgent.schedules[0], id: "coach/brief", schedule_id: "brief", agent_id: "coach", next_run: null, last_run: failed, running: false, paused: false };
+  const weekly = { ...brief, id: "coach/weekly", schedule_id: "weekly", name: "Tổng kết tuần", cron: "0 18 * * 5", last_run: null };
+  await mockApi(page, { agents: [master, coachAgent], jobs: [brief, weekly], runs: [failed] });
+  await page.goto("/#/manage/jobs");
+
+  const [first, second] = [page.getByTestId("job").nth(0), page.getByTestId("job").nth(1)];
+  await expect(first).toContainText("Mỗi ngày 07:00");
+  await expect(first.locator("code").first()).toHaveText("0 7 * * *");
+  await expect(second).toContainText("Thứ Sáu hằng tuần 18:00");
+  await expect(first.getByTestId("job-last")).toContainText("Không gọi được API");
+  await expect(second.getByTestId("job-last")).toContainText("chưa chạy");
+
+  // The count is drawn as a bare number and read out as the sentence it stands for.
+  const nav = page.getByRole("navigation");
+  await expect(nav.getByRole("button", { name: "Lịch chạy 1 lịch lỗi ở lần chạy gần nhất", exact: true })).toBeVisible();
+  await expect(nav.getByTestId("jobs-failing")).toHaveText("11 lịch lỗi ở lần chạy gần nhất");
+  // On a phone the nav is a sideways row with the jobs entry past its edge; the hidden
+  // sentence must stay inside that row rather than widen the page.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(first).toContainText("Mỗi ngày 07:00");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+
+  await first.getByRole("button", { name: "Xem lượt chạy gần nhất của Bản tin sáng" }).click();
+  await expect(page).toHaveURL(/#\/manage\/activity\/r-err$/);
+  await expect(page.getByTestId("run-replay")).toContainText("Không gọi được API");
 });

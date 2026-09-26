@@ -7,6 +7,7 @@ import { ConnectionsPanel } from "../components/connections-panel";
 import { CrewPanel } from "../components/crew-panel";
 import { EmptyState } from "../components/empty-state";
 import { ErrorBoundary } from "../components/error-boundary";
+import { failingJobs } from "../components/job-last-run";
 import { JobsPanel } from "../components/jobs-panel";
 import { MemoryPanel } from "../components/memory-panel";
 import { RunReplay } from "../components/run-replay";
@@ -120,6 +121,7 @@ export function ManageScreen(props: Props) {
   const credentials = useCredentials(registry.refresh);
   const editing = props.agents.find((a) => a.id === props.editingAgentId) ?? null;
   const pendingProposals = props.stats?.pending_proposals ?? 0;
+  const failing = failingJobs(props.jobs);
   const liveIds = new Set(props.liveRuns.map((r) => r.id));
   const recent = props.runs.filter((r) => !liveIds.has(r.id));
   const live = props.runs.filter((r) => liveIds.has(r.id));
@@ -134,6 +136,16 @@ export function ManageScreen(props: Props) {
       return <span className="badge warn"> {props.attention.length}</span>;
     if (section === "memory" && pendingProposals > 0)
       return <span className="badge warn"> {pendingProposals}</span>;
+    // Only a failure earns a count here: a schedule that ran fine or never ran yet is
+    // not something to go and look at.
+    if (section === "jobs" && failing > 0)
+      return (
+        <span className="badge danger" title={vi.jobRow.failing(failing)} data-testid="jobs-failing">
+          {/* A bare red number reads as "1" to a screen reader; the sentence says what of. */}
+          <span aria-hidden="true">{failing}</span>
+          <span className="sr-only">{vi.jobRow.failing(failing)}</span>
+        </span>
+      );
     return null;
   };
 
@@ -286,6 +298,7 @@ export function ManageScreen(props: Props) {
               onRunNow={props.onRunJob}
               onToggle={props.onToggleJob}
               onOpenConversation={props.onOpenConversation}
+              onOpenRun={props.onReplayRun}
               onEditSchedules={props.onEditSchedules}
               onOpenCrew={() => props.onNavigate("crew")}
             />

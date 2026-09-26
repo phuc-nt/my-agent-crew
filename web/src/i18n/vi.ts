@@ -342,6 +342,9 @@ export const vi = {
     scheduleEvery: "Chu kỳ",
     scheduleCronHint: "5 trường: phút giờ ngày tháng thứ, ví dụ 0 7 * * *.",
     scheduleEveryHint: "Ví dụ 30m, 2h hoặc 1d; tối thiểu 1 phút.",
+    // Replaces the format hint once what was typed reads as words, so the person checks
+    // the reading rather than counting fields.
+    scheduleReads: (words: string) => `Tức là: ${words}.`,
     scheduleAction: "Làm gì",
     schedulePrompt: "Nhắc agent",
     scheduleCommand: "Lệnh shell",
@@ -555,6 +558,22 @@ export const vi = {
     edit: "Sửa lịch",
     editOf: (job: string) => `Sửa lịch ${job}`,
     openCrew: "Mở mục Đội",
+    openRun: "Xem lượt chạy",
+    openRunOf: (job: string) => `Xem lượt chạy gần nhất của ${job}`,
+    // Beside the Jobs entry in the nav: the count alone is red, this is what it counts.
+    failing: (n: number) => `${n} lịch lỗi ở lần chạy gần nhất`,
+    // A cron read aloud. The hour is the server's own clock, which is the owner's.
+    cron: {
+      every: (n: number, unit: string) => (n === 1 ? `Mỗi ${unit}` : `Mỗi ${n} ${unit}`),
+      units: { s: "giây", m: "phút", h: "giờ", d: "ngày" } as Record<string, string>,
+      atMinute: (every: string, minute: number) => `${every} vào phút ${minute}`,
+      daily: (time: string) => `Mỗi ngày ${time}`,
+      weekdays: (time: string) => `Thứ Hai–Thứ Sáu ${time}`,
+      weekend: (time: string) => `Cuối tuần ${time}`,
+      weekly: (days: string, time: string) => `${days} hằng tuần ${time}`,
+      monthly: (day: number, time: string) => `Ngày ${day} hằng tháng ${time}`,
+      days: ["Chủ nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"],
+    },
   },
   showTimeline: "Xem dòng thời gian",
   hideTimeline: "Ẩn dòng thời gian",

@@ -123,6 +123,40 @@ input.mono {
   min-height: var(--touch-target);
 }
 
+/* The words lead and the cron trails them in the muted mono it already had. */
+.job-when {
+  color: var(--text);
+  font-weight: 500;
+}
+
+/* How the last run ended, when, and what it said, on the row. The badge, time and link
+   share a line that wraps as a whole; the summary takes a line of its own below. */
+.job-last {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  min-width: 0;
+}
+
+/* Two lines at most: a brief that ran long would otherwise turn one row of the list
+   into a page. The full text is one tap away, in the run itself. */
+.job-last-summary {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--text-secondary);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.job-meta time[title] {
+  cursor: help;
+}
+
 @media (max-width: 480px) {
   .schedule-row-head {
     flex-wrap: wrap;
@@ -135,5 +169,10 @@ input.mono {
   .job-actions {
     justify-content: flex-start;
     gap: var(--space-2);
+  }
+
+  /* The history toggle and the open-run link are the row's only other targets. */
+  .job-meta .link-button {
+    min-height: var(--touch-target);
   }
 }

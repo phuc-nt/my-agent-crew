@@ -120,6 +120,27 @@ describe("the schedules part of the agent editor", () => {
     expect(backend.requests.some((r) => r.method === "PATCH")).toBe(false);
   });
 
+  it("reads a timing back in words as it is typed, and only once it can be read", async () => {
+    open();
+    const row = await addRow();
+    const cron = row.getByLabelText(vi.editor.scheduleCron);
+    expect(row.getByText(vi.editor.scheduleCronHint)).toBeInTheDocument();
+
+    await userEvent.type(cron, "0 7 * *");
+    expect(row.queryByText(/^Tức là/)).not.toBeInTheDocument();
+    await userEvent.type(cron, " 1-5");
+    expect(row.getByText(vi.editor.scheduleReads("Thứ Hai–Thứ Sáu 07:00"))).toBeInTheDocument();
+
+    await userEvent.click(row.getByRole("button", { name: vi.editor.scheduleEvery }));
+    await userEvent.type(row.getByLabelText(vi.editor.scheduleEvery), "30s");
+    // Under the one-minute floor: the error speaks, and no reading contradicts it.
+    expect(row.getByText(vi.editor.everyInvalid)).toBeInTheDocument();
+    expect(row.queryByText(/^Tức là/)).not.toBeInTheDocument();
+    await userEvent.clear(row.getByLabelText(vi.editor.scheduleEvery));
+    await userEvent.type(row.getByLabelText(vi.editor.scheduleEvery), "2h");
+    expect(row.getByText(vi.editor.scheduleReads("Mỗi 2 giờ"))).toBeInTheDocument();
+  });
+
   it("removes the consolidation cron from the file when the box is emptied", async () => {
     open({ ...fakeAgent, memory_consolidate: "0 3 * * *" });
     await userEvent.clear(screen.getByLabelText(vi.editor.memoryConsolidate));

@@ -1,6 +1,9 @@
 import { useState } from "react";
 import type { JobInfo } from "../api/types";
 import { vi } from "../i18n/vi";
+import { scheduleText } from "../lib/cron-text";
+import { timeUntil } from "../lib/relative-time";
+import { JobLastRun } from "./job-last-run";
 import { JobRunHistory } from "./job-run-history";
 import { formatDateTime } from "./run-timeline";
 import { AgentAvatar } from "./ui/agent-avatar";
@@ -20,6 +23,8 @@ interface Props {
   /** Pause or resume a schedule at runtime without editing its profile. */
   onToggle: (jobId: string, enabled: boolean) => void;
   onOpenConversation?: (conversationId: string) => void;
+  /** Opens one run on its own page, from the row's last run or its history. */
+  onOpenRun?: (runId: string) => void;
   /** Opens the agent's editor on its schedules: where a job is added, changed or turned on. */
   onEditSchedules?: (agentId: string) => void;
   onOpenCrew?: () => void;
@@ -27,7 +32,7 @@ interface Props {
 
 /** Every agent's schedules with their next and last run, a pause switch, run history and run-now. */
 export function JobsPanel(props: Props) {
-  const { jobs, agentName, onRunNow, onToggle, onOpenConversation, onEditSchedules, onOpenCrew } =
+  const { jobs, agentName, onRunNow, onToggle, onOpenConversation, onOpenRun, onEditSchedules, onOpenCrew } =
     props;
   const [open, setOpen] = useState<string | null>(null);
   if (jobs === null) return <p className="muted">{vi.loadFailed}</p>;
@@ -84,19 +89,23 @@ export function JobsPanel(props: Props) {
                 )}
               </span>
             </div>
-            <div className="job-meta muted">
-              <code>{job.cron ?? job.every}</code> · {JOB_KINDS[job.kind]}
-            </div>
+            <JobTiming job={job} />
             {job.skills.length > 0 && (
               <div className="job-meta muted">
                 {vi.jobSkills}: <code>{job.skills.join(", ")}</code>
               </div>
             )}
             <div className="job-meta muted">
-              {vi.jobNext}: {job.next_run ? formatDateTime(job.next_run) : vi.jobDisabled} · {vi.jobLast}:{" "}
-              {job.last_run
-                ? `${formatDateTime(job.last_run.started_at)} (${vi.runStatus[job.last_run.status]})`
-                : vi.jobNever}
+              {vi.jobNext}:{" "}
+              {job.next_run ? (
+                // Relative while it is close, the date once it is not; the exact time is
+                // one hover away rather than a second line on every row.
+                <time dateTime={job.next_run} title={formatDateTime(job.next_run)}>
+                  {timeUntil(job.next_run)}
+                </time>
+              ) : (
+                vi.jobDisabled
+              )}
               {" · "}
               <button
                 type="button"
@@ -107,16 +116,31 @@ export function JobsPanel(props: Props) {
                 {open === job.id ? vi.hideHistory : vi.showHistory}
               </button>
             </div>
+            <JobLastRun job={job} onOpenRun={onOpenRun} />
             {open === job.id && (
               <JobRunHistory
                 jobId={job.id}
                 agentName={agentName(job.agent_id)}
                 onOpenConversation={onOpenConversation}
+                onOpenRun={onOpenRun}
               />
             )}
           </li>
         );
       })}
     </ul>
+  );
+}
+
+/** When a schedule runs, in words, with the cron or interval it was written as beside it
+ *  for whoever wants to check the reading; a shape with no words shows only once. */
+function JobTiming({ job }: { job: JobInfo }) {
+  const written = job.cron ?? job.every ?? "";
+  const words = scheduleText(job.cron, job.every);
+  return (
+    <div className="job-meta muted">
+      {words !== written && <span className="job-when">{words}</span>} <code>{written}</code> ·{" "}
+      {JOB_KINDS[job.kind]}
+    </div>
   );
 }

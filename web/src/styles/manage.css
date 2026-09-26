@@ -112,6 +112,9 @@
 
 .manage-nav li button .badge {
   margin-left: auto;
+  /* Holds a visually hidden label in place. Unanchored, it is positioned against the
+     page and, from a nav entry scrolled out of a phone's sideways row, widens the page. */
+  position: relative;
 }
 
 .back-to-chat {

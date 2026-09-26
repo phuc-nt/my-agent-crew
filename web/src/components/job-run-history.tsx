@@ -8,10 +8,11 @@ interface Props {
   jobId: string;
   agentName: string;
   onOpenConversation?: (conversationId: string) => void;
+  onOpenRun?: (runId: string) => void;
 }
 
 /** The past runs of one schedule, newest first, fetched when the section is opened. */
-export function JobRunHistory({ jobId, agentName, onOpenConversation }: Props) {
+export function JobRunHistory({ jobId, agentName, onOpenConversation, onOpenRun }: Props) {
   const [runs, setRuns] = useState<RunInfo[] | null | undefined>(undefined);
 
   useEffect(() => {
@@ -31,7 +32,13 @@ export function JobRunHistory({ jobId, agentName, onOpenConversation }: Props) {
   return (
     <div className="job-runs" data-testid="job-runs">
       {runs.map((run) => (
-        <RunCard key={run.id} run={run} agentName={agentName} onOpenConversation={onOpenConversation} />
+        <RunCard
+          key={run.id}
+          run={run}
+          agentName={agentName}
+          onOpenConversation={onOpenConversation}
+          onOpenRun={onOpenRun}
+        />
       ))}
     </div>
   );
