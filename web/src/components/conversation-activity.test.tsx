@@ -31,7 +31,11 @@ function useMemoryStorage() {
   });
 }
 
-beforeEach(useMemoryStorage);
+beforeEach(() => {
+  useMemoryStorage();
+  // The strip asks for its stored runs on mount; here there are none to find.
+  vitest.stubGlobal("fetch", new FakeBackend().fetch);
+});
 afterEach(() => vitest.unstubAllGlobals());
 
 describe("the activity strip inside a chat", () => {
@@ -204,10 +208,11 @@ describe("the activity column beside a chat on a wide screen", () => {
   });
 
   // The column holds its place so the chat does not jump sideways on the first run.
-  it("stays in place for a conversation that has never run, saying so", () => {
+  it("stays in place for a conversation that has never run, saying so", async () => {
     dock([]);
 
-    expect(screen.getByTestId("conversation-activity")).toHaveTextContent(vi.noRuns);
+    // Once the history has answered: until then it cannot know, and says it is loading.
+    await waitFor(() => expect(screen.getByTestId("conversation-activity")).toHaveTextContent(vi.noRuns));
   });
 
   // Open by design is not a choice the person made; the strip must not inherit it.
@@ -279,6 +284,45 @@ describe("a conversation's runs from before the page opened", () => {
     render(strip([stuck]));
 
     await waitFor(() => expect(screen.getByTestId("run-card")).toHaveAttribute("data-status", "error"));
+  });
+
+  // "Never ran" is only true once the store has said so.
+  it("says it is loading, not that the conversation never ran, while its history is on its way", () => {
+    vitest.stubGlobal("fetch", () => new Promise(() => undefined));
+
+    render(strip([]));
+
+    const column = screen.getByTestId("conversation-activity");
+    expect(column).toHaveTextContent(vi.runFilters.loading);
+    expect(column).not.toHaveTextContent(vi.noRuns);
+  });
+
+  it("says when its history cannot be read, and asks again on request", async () => {
+    backend.runs = [fakeRun({ id: "old", title: "Hôm qua" })];
+    let down = true;
+    vitest.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) =>
+      down ? Promise.reject(new Error("offline")) : backend.fetch(input, init),
+    );
+    render(strip([]));
+
+    const retry = await screen.findByRole("button", { name: vi.runFilters.retry });
+    expect(screen.getByTestId("conversation-activity")).toHaveTextContent(vi.runFilters.failed);
+    expect(screen.getByTestId("conversation-activity")).not.toHaveTextContent(vi.noRuns);
+    down = false;
+    await userEvent.click(retry);
+
+    expect(await screen.findByText(/Hôm qua/)).toBeInTheDocument();
+    expect(screen.queryByText(vi.runFilters.failed)).not.toBeInTheDocument();
+  });
+
+  // Hidden, the strip would pass for a conversation that never ran.
+  it("shows the strip on a phone when the history cannot be read", async () => {
+    vitest.stubGlobal("fetch", () => Promise.reject(new Error("offline")));
+
+    render(<ConversationActivity runs={[]} conversationId="c1" spentUsd={0} agentName={name} onOpenConversation={() => undefined} />);
+
+    expect(await screen.findByRole("button", { name: vi.runFilters.retry })).toBeInTheDocument();
+    expect(screen.getByTestId("conversation-activity")).toHaveTextContent(vi.runFilters.failed);
   });
 
   it("asks again when one of its runs settles", async () => {

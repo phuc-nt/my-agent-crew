@@ -77,13 +77,26 @@ export function ConversationActivity({
     }
   }, [expanded, docked]);
 
-  if (runs.length === 0 && !docked) return null;
+  // Below the column, a strip that came up for every chat while its history loads would
+  // flash under each new one, so it waits for the answer. Not for a failed one: hidden
+  // then, it would pass for a conversation that never ran.
+  if (runs.length === 0 && !docked && !history.failed) return null;
 
   const live = runs.filter((r) => !isSettled(r.status));
   const recent = runs.filter((r) => isSettled(r.status));
   // The newest live run is the turn being waited on; an older one left open is not
   // what the person is watching.
   const current = live[0] ?? null;
+
+  // Stored runs that could not be read are said so, with a way to ask again.
+  const trouble = history.failed && (
+    <span className="muted">
+      {vi.runFilters.failed}{" "}
+      <button type="button" className="link-button history-retry" onClick={history.reload}>
+        {vi.runFilters.retry}
+      </button>
+    </span>
+  );
 
   const status = current ? (
     <RunProgressHeader run={current} />
@@ -95,11 +108,17 @@ export function ConversationActivity({
       {formatClock(recent[0].started_at)} · {vi.runSteps(stepProgress(recent[0]).total)}
     </span>
   ) : (
-    <span className="muted">{vi.noRuns}</span>
+    // "Never ran" only once the store has said so; until then it cannot tell.
+    trouble || (
+      <span className="muted" role="status">
+        {history.loading ? vi.runFilters.loading : vi.noRuns}
+      </span>
+    )
   );
 
   const body = (
     <div className="conversation-activity-body">
+      {trouble}
       <ConversationActivitySummary
         runs={runs}
         conversationId={conversationId}
@@ -175,17 +194,20 @@ export function ConversationActivity({
     >
       <div className="conversation-activity-bar">
         {status}
-        <button
-          type="button"
-          className="ghost activity-toggle"
-          aria-expanded={expanded}
-          onClick={() => setExpanded((open) => !open)}
-        >
-          {expanded ? vi.conversationActivity.collapse : vi.conversationActivity.expand}
-          <Icon name="chevron-down" />
-        </button>
+        {/* With no run known there is nothing to open, only the failure to read them. */}
+        {runs.length > 0 && (
+          <button
+            type="button"
+            className="ghost activity-toggle"
+            aria-expanded={expanded}
+            onClick={() => setExpanded((open) => !open)}
+          >
+            {expanded ? vi.conversationActivity.collapse : vi.conversationActivity.expand}
+            <Icon name="chevron-down" />
+          </button>
+        )}
       </div>
-      {expanded && body}
+      {expanded && runs.length > 0 && body}
     </section>
   );
 }

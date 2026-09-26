@@ -228,3 +228,20 @@ test("the costs page fits, cache columns and today's tiles included", async ({ p
   expect(overflow.offenders).toEqual([]);
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.width);
 });
+
+// Hidden or saying "no runs", a chat whose stored runs could not be read would pass for
+// one that never ran.
+test("a chat whose run history cannot be read says so, with a retry big enough to tap", async ({ page }) => {
+  await mockApi(page, { agents: [defaultAgent, coachAgent], runs: [], conversations: [conversation("c1", "Chung")] });
+  await page.route(/\/api\/activity\/runs\?.*conversation_id=/, (route) => route.abort());
+  await page.goto("/#/chat/c1");
+
+  const strip = page.getByTestId("conversation-activity");
+  await expect(strip).toContainText("Không tải được lịch sử chạy.");
+  const box = await strip.getByRole("button", { name: "Thử lại" }).boundingBox();
+  expect(box?.height).toBeGreaterThanOrEqual(40);
+
+  const overflow = await widestOverflow(page);
+  expect(overflow.offenders).toEqual([]);
+  expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.width);
+});

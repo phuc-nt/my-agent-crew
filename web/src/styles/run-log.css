@@ -1,6 +1,7 @@
 /*
  * The recent-runs log on the activity page: the chips that narrow it, and the button
- * that reaches further back. The cards themselves are the run card's own rules.
+ * that reaches further back. The cards themselves are the run card's own rules. Also the
+ * retry wherever else stored run history failed to load, so it is sized the same way.
  */
 
 .run-filters {
@@ -58,7 +59,8 @@
   }
 
   .run-filters button.chip,
-  .run-log-more {
+  .run-log-more,
+  button.history-retry {
     min-height: var(--touch-target);
   }
 }
