@@ -110,6 +110,8 @@ export function useAgentDraft(
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [restartRequired, setRestartRequired] = useState<string[]>([]);
+  // Set by a save refused for a box still empty, so that box is named from then on.
+  const [reveal, setReveal] = useState(false);
 
   // A different agent means a different form. Reloading the same one mid-edit would
   // throw away what the person typed, so the id is the trigger, not the object.
@@ -120,9 +122,10 @@ export function useAgentDraft(
     setRestartRequired([]);
   }, [agent?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const base = useMemo(() => (original ? toDraft(original) : {}), [original]);
+
   const dirty = useMemo(() => {
     if (!original) return [];
-    const base = toDraft(original);
     const changed = EDITABLE.filter((key) => !same(draft[key], base[key]));
     // The limits ride along with a mode change even when their values match the
     // baseline. A patch that omits them lets the new mode's defaults apply instead, and
@@ -131,9 +134,11 @@ export function useAgentDraft(
       for (const key of MODE_DEFAULTED) if (!changed.includes(key)) changed.push(key);
     }
     return changed;
-  }, [draft, original]);
+  }, [base, draft, original]);
 
-  const problems = useMemo(() => draftProblems(draft, dirty), [draft, dirty]);
+  const problems = useMemo(() => draftProblems(draft, dirty, base, reveal), [base, draft, dirty, reveal]);
+  // Once nothing holds the save, a row added after it starts quiet again.
+  if (reveal && !hasProblems(problems)) setReveal(false);
 
   // Changing the mode moves three limits behind the form's back: a work agent that does
   // not state them gets a wider budget, more steps and autonomy turned on. The fields
@@ -153,13 +158,16 @@ export function useAgentDraft(
   }, []);
 
   const reset = useCallback(() => {
-    setDraft(original ? toDraft(original) : {});
+    setDraft(base);
     setError(null);
-  }, [original]);
+  }, [base]);
 
   const save = useCallback(async () => {
     if (!original || dirty.length === 0) return true;
-    if (hasProblems(problems)) return false;
+    if (hasProblems(problems)) {
+      setReveal(true);
+      return false;
+    }
     setSaving(true);
     setError(null);
     try {

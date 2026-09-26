@@ -43,23 +43,31 @@ interface TextProps {
   error?: string;
   /** For text that is code, such as a shell command, where every character counts. */
   mono?: boolean;
+  /**
+   * Lines shown at once. Given, the box is a textarea: a single-line input drops the line
+   * breaks of a value written as a YAML block, and saving it back would join the lines.
+   */
+  rows?: number;
   onChange: (value: string) => void;
 }
 
-export function TextField({ label, hint, value, disabled, error, mono, onChange }: TextProps) {
+export function TextField({ label, hint, value, disabled, error, mono, rows, onChange }: TextProps) {
   const errorId = useId();
+  const control = {
+    "aria-label": label,
+    className: mono ? "mono" : undefined,
+    "aria-invalid": error ? true : undefined,
+    "aria-describedby": error ? errorId : undefined,
+    value,
+    disabled,
+  };
   return (
     <Field label={label} hint={hint} error={error} errorId={errorId}>
-      <input
-        type="text"
-        aria-label={label}
-        className={mono ? "mono" : undefined}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={error ? errorId : undefined}
-        value={value}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.value)}
-      />
+      {rows ? (
+        <textarea rows={rows} {...control} onChange={(e) => onChange(e.target.value)} />
+      ) : (
+        <input type="text" {...control} onChange={(e) => onChange(e.target.value)} />
+      )}
     </Field>
   );
 }

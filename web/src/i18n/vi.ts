@@ -349,10 +349,11 @@ export const vi = {
     schedulePrompt: "Nhắc agent",
     scheduleCommand: "Lệnh shell",
     scheduleSkillsEmpty: "Agent này chưa có kỹ năng nào để gắn.",
-    scheduleUnnamed: "lịch mới",
+    // A row not named yet goes by its place in the list: "Xoá lịch số 2".
+    scheduleUnnamed: (position: number) => `số ${position}`,
     scheduleRemove: (name: string) => `Xoá lịch ${name}`,
     addSchedule: "+ Thêm lịch",
-    cronInvalid: "Cron cần đúng 5 trường, ví dụ 0 7 * * *.",
+    cronInvalid: "Cron cần 5 trường: phút 0–59, giờ 0–23, ngày 1–31, tháng 1–12, thứ 0–7. Ví dụ 0 7 * * *.",
     everyInvalid: "Chu kỳ dạng 30m, 2h hoặc 1d, tối thiểu 1 phút.",
     promptMissing: "Nhập lời nhắc cho agent.",
     commandMissing: "Nhập lệnh shell cần chạy.",

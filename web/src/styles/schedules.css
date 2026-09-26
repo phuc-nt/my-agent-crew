@@ -30,12 +30,16 @@
   margin-bottom: 0;
 }
 
+/* The switch carries its words, as in the jobs list, on one line beside it. */
 .schedule-switch {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: var(--space-2);
   min-width: var(--touch-target);
   min-height: var(--touch-target);
+  font-size: var(--text-sm);
+  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -49,12 +53,32 @@ input.mono {
   font-size: var(--text-sm);
 }
 
+/* Below 16px a phone zooms the page when the field takes focus, and the box drops under
+   the touch target; the smaller code size is for a mouse only. */
+@media (pointer: coarse) {
+  input.mono {
+    font-size: 16px;
+  }
+}
+
+/* A prompt is prose written over lines: the sentence face at the input size rather
+   than the code face every other editor textarea wears. */
+.schedule-row textarea:not(.mono) {
+  font-family: inherit;
+  font-size: max(16px, var(--text-md));
+}
+
+.schedule-add {
+  min-height: var(--touch-target);
+}
+
 .field-error {
   font-size: var(--text-xs);
   color: var(--danger-text);
 }
 
-.field input[aria-invalid="true"] {
+.field input[aria-invalid="true"],
+.field textarea[aria-invalid="true"] {
   border-color: var(--danger);
 }
 

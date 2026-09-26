@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi as vitest } from "vitest";
+import type { AgentInfo } from "../../api/types";
 import { vi } from "../../i18n/vi";
 import { FakeBackend, fakeAgent } from "../../test/fake-backend";
 import { AgentEditor } from "./agent-editor";
@@ -8,16 +9,18 @@ import { AgentEditor } from "./agent-editor";
 const agent = { ...fakeAgent, telegram: { token_env: "TG_TOKEN", chat_id: 42 } };
 let backend: FakeBackend;
 
-beforeEach(() => {
+function open(shown: AgentInfo) {
   backend = new FakeBackend();
-  backend.agents = [agent];
+  backend.agents = [shown];
   vitest.stubGlobal("fetch", backend.fetch);
   render(
-    <AgentEditor agent={agent} agents={[agent]} tools={[]} providers={[]} onBack={() => {}} onChanged={() => {}} />,
+    <AgentEditor agent={shown} agents={[shown]} tools={[]} providers={[]} onBack={() => {}} onChanged={() => {}} />,
   );
-});
+}
 
 describe("the Telegram chat id", () => {
+  beforeEach(() => open(agent));
+
   // The server reads chat_id as a number; a group id is negative, and a string or a
   // half-typed "-" once reached the file as something the bot could never match.
   it("is saved as a whole number, sign included", async () => {
@@ -44,5 +47,26 @@ describe("the Telegram chat id", () => {
     await userEvent.clear(box);
     expect(screen.getByText(vi.editor.chatIdInvalid)).toBeInTheDocument();
     expect(backend.requests.some((r) => r.method === "PATCH")).toBe(false);
+  });
+});
+
+describe("turning the Telegram channel on", () => {
+  // The box starts empty because nothing has been typed in it yet, which is not a mistake.
+  it("asks for the chat id when a save is tried, not the moment the channel is on", async () => {
+    open(fakeAgent);
+    await userEvent.click(screen.getByRole("checkbox", { name: vi.editor.telegramEnabled }));
+    await userEvent.type(screen.getByLabelText(vi.editor.telegramTokenEnv), "TG_TOKEN");
+    expect(screen.queryByText(vi.editor.chatIdInvalid)).not.toBeInTheDocument();
+    expect(screen.queryByTestId("save-held")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: vi.editor.save }));
+    expect(screen.getByText(vi.editor.chatIdInvalid)).toBeInTheDocument();
+    expect(screen.getByLabelText(vi.editor.telegramChatId)).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByRole("button", { name: vi.editor.save })).toBeDisabled();
+    expect(backend.requests.some((r) => r.method === "PATCH")).toBe(false);
+
+    await userEvent.type(screen.getByLabelText(vi.editor.telegramChatId), "-100123");
+    await userEvent.click(screen.getByRole("button", { name: vi.editor.save }));
+    await waitFor(() => expect(screen.getByText(vi.editor.clean)).toBeInTheDocument());
   });
 });

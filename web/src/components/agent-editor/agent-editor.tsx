@@ -1,5 +1,5 @@
 import type { AgentInfo, RegistryTool } from "../../api/types";
-import { hasProblems } from "../../hooks/agent-draft-checks";
+import { problemsShown } from "../../hooks/agent-draft-checks";
 import { useAgentDraft } from "../../hooks/use-agent-draft";
 import { vi } from "../../i18n/vi";
 import { AgentAvatar } from "../ui/agent-avatar";
@@ -35,7 +35,9 @@ interface Props {
 export function AgentEditor({ agent, agents, tools, providers, onBack, onChanged, focus }: Props) {
   const form = useAgentDraft(agent, onChanged);
   const readOnly = !agent.editable;
-  const blocked = hasProblems(form.problems);
+  // A box left empty holds the save without a banner until Lưu is pressed; pressing it
+  // then names the box instead of doing nothing silently.
+  const blocked = problemsShown(form.problems);
   const others = agents.filter((a) => a.id !== agent.id);
 
   return (
