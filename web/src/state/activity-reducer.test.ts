@@ -78,6 +78,24 @@ describe("applyRunEvent", () => {
     expect(next.spent_usd).toBeCloseTo(0.001);
   });
 
+  // The cache share is what tells a broken prompt cache from a working one; a live card
+  // that dropped these would show it only after the run was read back from the store.
+  it("keeps the prompt and cached tokens of a finished call, and that it thought first", () => {
+    const midCall = run({ steps: [{ kind: "model", chars: 0, first_token_ms: 900, thinking: true, duration_ms: null }] });
+    const next = applyRunEvent(midCall, {
+      type: "assistant_message",
+      message_id: "m1",
+      content: "xong",
+      tool_calls: [],
+      provider: "openrouter",
+      model: "deepseek",
+      cost_usd: 0.001,
+      prompt_tokens: 12_300,
+      cached_tokens: 8_100,
+    });
+    expect(next.steps[0]).toMatchObject({ prompt_tokens: 12_300, cached_tokens: 8_100, thinking: true, first_token_ms: 900 });
+  });
+
   it("puts a fallback ahead of the call a snapshot caught open, so the answer closes that call", () => {
     const midCall = run({ steps: [{ kind: "model", chars: 0, first_token_ms: null, duration_ms: null }] });
     const fellBack = applyRunEvent(midCall, { type: "route_fallback", provider: "openrouter", model: "glm", error: "429" });

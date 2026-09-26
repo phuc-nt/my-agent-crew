@@ -1,20 +1,31 @@
-import type { DayUsage, ModelUsage, StatsInfo } from "../api/types";
+import type { DayUsage, ModelUsage, RunInfo, StatsInfo } from "../api/types";
 import { vi } from "../i18n/vi";
+import { cacheShare } from "../lib/format-usage";
 import { EmptyState } from "./empty-state";
 import { formatUsd } from "./budget-indicator";
+import { AgentCacheTable, CacheCell, CardTitle, PeriodTiles } from "./stats-usage";
 
 interface Props {
   stats: StatsInfo | null;
   agentName: (id: string) => string;
+  /** The runs the page holds, for the per-agent cache the server does not total. */
+  runs?: RunInfo[];
 }
 
-function Breakdown({ title, rows, name }: { title: string; rows: Record<string, number>; name?: (k: string) => string }) {
+interface BreakdownProps {
+  title: string;
+  covers: string;
+  rows: Record<string, number>;
+  name?: (k: string) => string;
+}
+
+function Breakdown({ title, covers, rows, name }: BreakdownProps) {
   const entries = Object.entries(rows).sort((a, b) => b[1] - a[1]);
   if (entries.length === 0) return null;
   const max = Math.max(...entries.map(([, v]) => v), 0.000001);
   return (
     <section className="metric-card">
-      <h3 className="metric-card-title">{title}</h3>
+      <CardTitle title={title} covers={covers} />
       <ul className="stat-bars">
         {entries.map(([key, value]) => (
           <li key={key}>
@@ -30,7 +41,15 @@ function Breakdown({ title, rows, name }: { title: string; rows: Record<string, 
   );
 }
 
-/** The last days side by side: a cost bar plus the calls and tokens behind it. */
+function dayDetail(d: DayUsage): string {
+  const parts = [vi.costCalls(d.calls), vi.tokens(d.prompt_tokens, d.completion_tokens)];
+  const share = cacheShare(d.cached_tokens, d.prompt_tokens);
+  if (share !== null) parts.push(vi.cacheShare(share));
+  if (d.unknown_cost_calls > 0) parts.push(`? ${d.unknown_cost_calls}`);
+  return parts.join(" · ");
+}
+
+/** The last days side by side: a cost bar plus the calls, tokens and cache behind it. */
 function RecentDays({ days }: { days: DayUsage[] }) {
   if (days.length === 0) return null;
   const max = Math.max(...days.map((d) => d.cost_usd), 0.000001);
@@ -45,10 +64,7 @@ function RecentDays({ days }: { days: DayUsage[] }) {
               <span style={{ width: `${Math.max(2, (d.cost_usd / max) * 100)}%` }} />
             </span>
             <span className="stat-value">{formatUsd(d.cost_usd)}</span>
-            <span className="stat-detail muted">
-              {vi.costCalls(d.calls)} · {vi.tokens(d.prompt_tokens, d.completion_tokens)}
-              {d.unknown_cost_calls > 0 && ` · ? ${d.unknown_cost_calls}`}
-            </span>
+            <span className="stat-detail muted">{dayDetail(d)}</span>
           </li>
         ))}
       </ul>
@@ -60,13 +76,14 @@ function ModelTable({ models }: { models: ModelUsage[] }) {
   if (models.length === 0) return null;
   return (
     <section className="metric-card">
-      <h3 className="metric-card-title">{vi.costModels}</h3>
+      <CardTitle title={vi.costModels} covers={vi.costWindowAll} />
       <table className="stat-table" data-testid="stat-models">
         <thead>
           <tr>
             <th>{vi.costByModel}</th>
             <th>{vi.costModelCalls}</th>
             <th>{vi.tokensHeader}</th>
+            <th>{vi.cacheHeader}</th>
             <th>{vi.costTotal}</th>
           </tr>
         </thead>
@@ -79,6 +96,9 @@ function ModelTable({ models }: { models: ModelUsage[] }) {
               <td>{m.calls}</td>
               <td>{vi.tokens(m.prompt_tokens, m.completion_tokens)}</td>
               <td>
+                <CacheCell cached={m.cached_tokens} prompt={m.prompt_tokens} />
+              </td>
+              <td>
                 {formatUsd(m.cost_usd)}
                 {m.unknown_cost_calls > 0 && <span className="badge warn"> ? {m.unknown_cost_calls}</span>}
               </td>
@@ -90,13 +110,20 @@ function ModelTable({ models }: { models: ModelUsage[] }) {
   );
 }
 
-/** Honest cost dashboard: totals, spend by agent, the recent days with tokens, and each model. */
-export function StatsPanel({ stats, agentName }: Props) {
+/**
+ * Honest cost dashboard: today and the week, the recent runs' totals and spend by agent,
+ * the cache per agent, the recent days with tokens, and each model — each labelled with
+ * what it is counted over, since the run window and the message log are not the same.
+ */
+export function StatsPanel({ stats, agentName, runs }: Props) {
   if (stats === null) return <p className="muted">{vi.loadFailed}</p>;
   if (stats.runs === 0) return <EmptyState icon="coins" says={vi.costEmpty} />;
+  const recent = vi.costWindowRecent(stats.runs);
   return (
     <div className="stats" data-testid="stats">
-      <dl className="stat-totals">
+      <PeriodTiles days={stats.days} />
+      <p className="stat-caption">{recent}</p>
+      <dl className="stat-totals" data-testid="stat-totals">
         <div>
           <dt>{vi.costTotal}</dt>
           <dd>{formatUsd(stats.spent_usd)}</dd>
@@ -116,7 +143,8 @@ export function StatsPanel({ stats, agentName }: Props) {
           </div>
         )}
       </dl>
-      <Breakdown title={vi.costByAgent} rows={stats.by_agent} name={agentName} />
+      <Breakdown title={vi.costByAgent} covers={recent} rows={stats.by_agent} name={agentName} />
+      {runs && <AgentCacheTable runs={runs} agentName={agentName} />}
       <RecentDays days={stats.days} />
       <ModelTable models={stats.models} />
     </div>

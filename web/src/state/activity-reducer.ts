@@ -44,6 +44,11 @@ export function applyRunEvent(run: RunInfo, e: AgentEvent): RunInfo {
         provider: e.provider,
         model: e.model,
         cost_usd: e.cost_usd,
+        // Kept as the server keeps them, so a live card can show how much of the prompt the
+        // cache served without waiting for the run to finish and be read back.
+        prompt_tokens: e.prompt_tokens,
+        cached_tokens: e.cached_tokens,
+        thinking: open?.thinking,
         tool_calls: e.tool_calls.map((c) => c.name),
         preview: preview(e.content),
         duration_ms: null,

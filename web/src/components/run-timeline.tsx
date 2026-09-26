@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { RunInfo } from "../api/types";
 import { vi } from "../i18n/vi";
+import { modelUsageParts } from "../lib/format-usage";
 import { isAnswered, isSettled, stepProgress } from "../lib/run-progress";
 import { runRows, type RunRow } from "../lib/run-rows";
 import type { RunGroup } from "../state/activity-reducer";
@@ -170,7 +171,11 @@ function StepRow({ row }: { row: RunRow }) {
       </span>
       {step.kind === "model" && isAnswered(step) && (
         <span className="step-detail">
-          {vi.stepChars(step.chars)} · {step.cost_usd == null ? vi.stepCostUnknown : formatUsd(step.cost_usd)}
+          {[
+            ...modelUsageParts(step),
+            vi.stepChars(step.chars),
+            step.cost_usd == null ? vi.stepCostUnknown : formatUsd(step.cost_usd),
+          ].join(" · ")}
           {step.tool_calls.length > 0 && ` · → ${step.tool_calls.join(", ")}`}
         </span>
       )}

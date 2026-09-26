@@ -166,3 +166,65 @@ test("the activity log's chips wrap on a phone and stay big enough to tap", asyn
   expect(overflow.offenders).toEqual([]);
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.width);
 });
+
+// The widest the costs page gets: every figure in the millions, a long model id, the
+// cache columns and the tiles two to a row. None of it may push the page sideways.
+test("the costs page fits, cache columns and today's tiles included", async ({ page }) => {
+  const usage = {
+    calls: 1_234,
+    cost_usd: 12.3456,
+    prompt_tokens: 123_456_789,
+    completion_tokens: 9_876_543,
+    cached_tokens: 98_765_432,
+    unknown_cost_calls: 3,
+  };
+  const days = Array.from({ length: 7 }, (_, i) => ({ day: `2026-09-${20 + i}`, ...usage }));
+  const models = [
+    { model: "openrouter:deepseek/deepseek-v4-flash-preview-2026-09", ...usage },
+    { model: "ollama:qwen3", ...usage, cached_tokens: 0 },
+  ];
+  const call = {
+    kind: "model",
+    chars: 120,
+    provider: "openrouter",
+    model: "deepseek-v4-flash",
+    cost_usd: 0.0012,
+    tool_calls: ["read_file", "shell_run"],
+    first_token_ms: 1_234,
+    prompt_tokens: 45_678,
+    cached_tokens: 40_000,
+    thinking: true,
+    duration_ms: 3_000,
+  };
+  const runs = [run({ id: "a", agent_id: "coach", steps: [call] }), run({ id: "b", steps: [call, call] })];
+  const stats = {
+    runs: 500,
+    model_calls: 12_345,
+    spent_usd: 123.45,
+    unknown_cost_calls: 3,
+    by_agent: { coach: 100, default: 23.45 },
+    by_model: {},
+    by_day: {},
+    days,
+    models,
+    pending_proposals: 0,
+  };
+  await mockApi(page, { agents: [defaultAgent, coachAgent], runs, stats });
+  await page.goto("/#/manage/costs");
+
+  await expect(page.getByTestId("stat-periods")).toContainText("Hôm nay");
+  await expect(page.getByTestId("stat-periods")).toContainText("7 ngày");
+  await expect(page.getByTestId("stat-models")).toContainText("98.8M · 80%");
+  await expect(page.getByTestId("stat-agent-cache")).toContainText("40k · 88%");
+  await expect(page.getByTestId("stats")).toContainText("500 lượt gần nhất");
+  let overflow = await widestOverflow(page);
+  expect(overflow.offenders).toEqual([]);
+  expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.width);
+
+  // The step's usage line is the longest line a run card carries.
+  await page.goto("/#/manage/activity/a");
+  await expect(page.getByTestId("run-replay")).toContainText("TTFT 1.2s · 45.7k tok (40k cache) · suy nghĩ");
+  overflow = await widestOverflow(page);
+  expect(overflow.offenders).toEqual([]);
+  expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.width);
+});

@@ -17,8 +17,12 @@ export type RunStep =
       duration_ms: number | null;
       // Milliseconds from the request to the first chunk; absent on runs from before it was timed.
       first_token_ms?: number | null;
+      // The whole prompt the call sent, and the part of it the provider served from its
+      // cache. Null where the provider did not say.
       prompt_tokens?: number | null;
       cached_tokens?: number | null;
+      /** Set once the model streamed reasoning before (or instead of) its answer. */
+      thinking?: boolean;
     }
   | {
       kind: "tool";
@@ -124,11 +128,13 @@ export interface UsageTotals {
   cost_usd: number;
   prompt_tokens: number;
   completion_tokens: number;
+  /** The part of `prompt_tokens` the provider served from its prompt cache. */
+  cached_tokens: number;
   unknown_cost_calls: number;
 }
 
 export interface DayUsage extends UsageTotals {
-  /** Calendar day (UTC), `YYYY-MM-DD`. */
+  /** Calendar day in the server's configured zone (the owner's, UTC+7), `YYYY-MM-DD`. */
   day: string;
 }
 

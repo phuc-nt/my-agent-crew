@@ -527,6 +527,12 @@ export const vi = {
   stepDuration: (ms: number) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)} giây` : `${ms} ms`),
   stepChars: (n: number) => `${n} ký tự`,
   stepCostUnknown: "không rõ giá",
+  // The usage half of a model step's detail line: "openrouter:deepseek · TTFT 1.2s ·
+  // 12.3k tok (8.1k cache) · suy nghĩ". TTFT is the wait before the first word came back.
+  stepTtft: (ms: number) => `TTFT ${ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`}`,
+  stepTokens: (tokens: string) => `${tokens} tok`,
+  stepCached: (tokens: string) => `(${tokens} cache)`,
+  stepThinking: "suy nghĩ",
   // Says what the model actually read, not what the tool actually printed.
   stepShaped: (kind: string, originalChars: number) => {
     const how =
@@ -558,6 +564,18 @@ export const vi = {
   costCalls: (n: number) => `${n} lượt`,
   tokens: (prompt: number, completion: number) => `${prompt} vào / ${completion} ra`,
   tokensHeader: "token vào / ra",
+  // How much of the prompt the provider served from its cache: a drop after a persona
+  // edit is the sign the edit broke caching.
+  cacheHeader: "cache",
+  cacheShare: (percent: number) => `${percent}% cache`,
+  costToday: "Hôm nay",
+  costWeek: "7 ngày",
+  // What a figure is counted over, said beside it rather than left to guess.
+  costWindowRecent: (runs: number) => `${runs} lượt gần nhất`,
+  costWindowAll: "Toàn bộ",
+  costCacheByAgent: "Cache theo agent",
+  costPromptTokens: "token vào",
+  costNoTokens: "Chưa lượt gọi nào báo số token.",
   costEmpty: "Chưa có chi phí nào được ghi nhận.",
   jobs: "Lịch chạy",
   jobsEmpty: "Chưa agent nào có lịch chạy. Thêm lịch trong trang sửa agent, ở mục Đội.",

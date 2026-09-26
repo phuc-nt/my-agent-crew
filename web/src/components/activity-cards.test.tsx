@@ -325,13 +325,13 @@ describe("JobsPanel", () => {
 
 describe("StatsPanel", () => {
   it("renders totals, per-agent bars, the recent days with tokens and the model table", () => {
-    const usage = { calls: 7, cost_usd: 0.3, prompt_tokens: 1200, completion_tokens: 300, unknown_cost_calls: 2 };
+    const usage = { calls: 7, cost_usd: 0.3, prompt_tokens: 1200, completion_tokens: 300, cached_tokens: 600, unknown_cost_calls: 2 };
     render(
       <StatsPanel
         agentName={name}
         stats={{
           runs: 3, model_calls: 7, spent_usd: 0.3, unknown_cost_calls: 2, by_agent: { coach: 0.2, default: 0.1 }, by_model: { deepseek: 0.3 }, by_day: { "2026-09-19": 0.3 },
-          days: [{ day: "2026-09-18", calls: 0, cost_usd: 0, prompt_tokens: 0, completion_tokens: 0, unknown_cost_calls: 0 }, { day: "2026-09-19", ...usage }],
+          days: [{ day: "2026-09-18", calls: 0, cost_usd: 0, prompt_tokens: 0, completion_tokens: 0, cached_tokens: 0, unknown_cost_calls: 0 }, { day: "2026-09-19", ...usage }],
           models: [{ model: "openrouter:deepseek", ...usage }],
           pending_proposals: 0,
         }}
