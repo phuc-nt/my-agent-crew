@@ -316,6 +316,7 @@ export function ManageScreen(props: Props) {
               agentId={props.agentId}
               pendingProposals={pendingProposals}
               agentName={props.agentName}
+              runs={props.runs}
             />
           )}
           {props.section === "costs" && (

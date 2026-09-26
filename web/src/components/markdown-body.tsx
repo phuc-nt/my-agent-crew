@@ -13,8 +13,10 @@
  * thread.
  */
 
+import { type ReactNode, useMemo } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { remarkWikiLinks, wikiSlugFromHref } from "../lib/wiki-links";
 
 /** Links leave the app, so they open away from the conversation and cannot reach it. */
 function SafeLink({ href, children }: { href?: string; children?: React.ReactNode }) {
@@ -58,10 +60,37 @@ const components: Components = {
   },
 };
 
-export function MarkdownBody({ text }: { text: string }) {
+const wikiPlugins = [remarkGfm, remarkWikiLinks];
+
+interface Props {
+  text: string;
+  /**
+   * Given only for a wiki page: `[[Name]]` then becomes a link, and this draws it. The
+   * link must stay inside the app (open the page in place), so it never reaches SafeLink.
+   */
+  wikiLink?: (slug: string, label: ReactNode) => ReactNode;
+}
+
+export function MarkdownBody({ text, wikiLink }: Props) {
+  const withWiki = useMemo<Components | null>(
+    () =>
+      wikiLink
+        ? {
+            ...components,
+            a({ href, children }) {
+              const slug = wikiSlugFromHref(href);
+              return slug === null ? <SafeLink href={href}>{children}</SafeLink> : wikiLink(slug, children);
+            },
+          }
+        : null,
+    [wikiLink],
+  );
   return (
     <div className="md">
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+      <ReactMarkdown
+        remarkPlugins={withWiki ? wikiPlugins : [remarkGfm]}
+        components={withWiki ?? components}
+      >
         {text}
       </ReactMarkdown>
     </div>

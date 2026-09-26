@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import type { WikiPage } from "../src/api/types";
 import { coachAgent, defaultAgent, mockApi, run } from "./mock-api";
 
 const master = { ...defaultAgent, name: "Trợ lý", delegates: ["coach"] };
@@ -225,4 +226,43 @@ test("a job reads its schedule in words, shows its last run, and a failure is co
   await first.getByRole("button", { name: "Xem riêng lượt chạy gần nhất của Bản tin sáng" }).click();
   await expect(page).toHaveURL(/#\/manage\/activity\/r-err\?job=coach%2Fbrief$/);
   await expect(page.getByTestId("run-replay")).toContainText("Không gọi được API");
+});
+
+function wikiPage(over: Partial<WikiPage>): WikiPage {
+  return { slug: "han-eco", kind: "entities", title: "Hạn Eco", status: "review", updated: "2026-09-25", sources: ["notes/2026-09-25.md"], questions: [], body: "", ...over };
+}
+
+test("a wiki page reads as prose, its link leads to the next page, and one tap marks it fine", async ({ page }) => {
+  const vault = [
+    wikiPage({ body: "Nộp **thứ tư**. Pha [[Trà sáng]] trước, hỏi [[Đà Lạt]] sau.", questions: ["Dời được không?"] }),
+    wikiPage({ slug: "tra-sang", kind: "concepts", title: "Trà sáng", body: "Pha lúc 6h." }),
+  ];
+  await mockApi(page, { agents: [master], wiki: { default: vault } });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/#/manage/memory");
+  await page.getByRole("tab", { name: "Wiki" }).click();
+
+  const section = page.getByTestId("wiki-section");
+  await section.getByRole("button", { name: "Hạn Eco" }).click();
+  const opened = section.getByTestId("wiki-page");
+  await expect(opened.getByRole("heading", { name: "Hạn Eco" })).toBeVisible();
+  // Rendered, not the markdown source in a textarea.
+  await expect(opened.locator("strong")).toHaveText("thứ tư");
+  await expect(opened.getByRole("textbox")).toHaveCount(0);
+  await expect(opened.locator(".wiki-link.missing")).toContainText("Đà Lạt");
+
+  const fits = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
+  expect(fits).toBe(true);
+
+  await opened.getByRole("button", { name: "Trà sáng" }).click();
+  await expect(opened.getByRole("heading", { name: "Trà sáng" })).toBeVisible();
+  await expect(opened).toContainText("Pha lúc 6h.");
+
+  const status = opened.getByTestId("wiki-status");
+  await expect(status).toHaveText("cần xem lại");
+  const put = page.waitForRequest((request) => request.method() === "PUT" && /\/memory\/wiki\/pages\/tra-sang$/.test(request.url()));
+  await opened.getByRole("button", { name: "Đánh dấu ổn" }).click();
+  expect((await put).postDataJSON()).toEqual({ status: "ok" });
+  await expect(status).toHaveText("ổn");
+  await expect(opened.getByRole("button", { name: "Đánh dấu ổn" })).toHaveCount(0);
 });

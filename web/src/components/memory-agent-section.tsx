@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ApiError } from "../api/client";
-import type { AgentInfo, AgentMemory } from "../api/types";
+import type { AgentInfo, AgentMemory, RunInfo } from "../api/types";
+import { type RunStart, useStartedRun } from "../hooks/use-started-run";
 import { vi } from "../i18n/vi";
 import { MemoryEditor } from "./memory-editor";
+import { RunChip, runOutcome } from "./run-chip";
 
 interface Props {
   agents: AgentInfo[];
@@ -12,7 +14,11 @@ interface Props {
   onSaveMemory: (text: string) => Promise<void>;
   onReadNote: (day: string) => Promise<string>;
   onSaveNote: (day: string, body: string) => Promise<void>;
-  onConsolidate: () => Promise<void>;
+  onConsolidate: () => Promise<RunStart>;
+  /** Every run the activity stream knows, to follow the consolidation started from here. */
+  runs: RunInfo[];
+  /** Re-reads what a finished consolidation may have changed. */
+  onConsolidated: () => void;
 }
 
 /** One agent's own memory: the file it re-reads each turn, plus its dated notes. */
@@ -22,12 +28,22 @@ export function MemoryAgentSection(props: Props) {
   const [consolidating, setConsolidating] = useState(false);
   const [message, setMessage] = useState("");
 
-  const { onConsolidate } = props;
+  const { onConsolidate, onConsolidated } = props;
+  const onSettled = useCallback(
+    (run: RunInfo) => {
+      setMessage(runOutcome(run));
+      onConsolidated();
+    },
+    [onConsolidated],
+  );
+  const started = useStartedRun(props.runs, onSettled);
+  const tracking = started.tracking && started.agentId === props.agentId;
+
   const consolidate = async () => {
     setConsolidating(true);
+    setMessage("");
     try {
-      await onConsolidate();
-      setMessage(vi.memory.consolidateStarted);
+      await started.start(onConsolidate);
     } catch (error) {
       // 409 means one is already running; anything else is a plain failure.
       const busy = error instanceof ApiError && error.status === 409;
@@ -71,13 +87,17 @@ export function MemoryAgentSection(props: Props) {
           />
           <button
             type="button"
-            disabled={consolidating}
+            disabled={consolidating || tracking}
             title={vi.memory.consolidateHint}
             onClick={() => void consolidate()}
           >
             {vi.memory.consolidate}
           </button>
-          {message && <p className="muted">{message}</p>}
+          {tracking ? (
+            <RunChip label={vi.memory.consolidateStarted} run={started.run} />
+          ) : (
+            message && <p className="muted">{message}</p>
+          )}
 
           <h3>{vi.memory.notes}</h3>
           {props.memory.notes.length === 0 ? (

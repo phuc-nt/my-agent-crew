@@ -1,11 +1,12 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi as vitest } from "vitest";
-import type { FactInfo } from "../api/types";
+import type { FactInfo, RunInfo } from "../api/types";
 import { vi } from "../i18n/vi";
 import { lineDiff } from "../lib/line-diff";
-import { coachAgent, fakeAgent, FakeBackend } from "../test/fake-backend";
+import { coachAgent, fakeAgent, FakeBackend, fakeRun } from "../test/fake-backend";
 import { MemoryPanel } from "./memory-panel";
+import { runOutcome } from "./run-chip";
 import { formatDateTime } from "./run-timeline";
 
 let backend: FakeBackend;
@@ -18,15 +19,20 @@ beforeEach(() => {
 
 const name = (id: string) => (id === "coach" ? "HLV" : "Agent");
 
-function mount(pending = 0) {
-  return render(
+function panel(pending = 0, runs: RunInfo[] = []) {
+  return (
     <MemoryPanel
       agents={backend.agents}
       agentId="default"
       pendingProposals={pending}
       agentName={name}
-    />,
+      runs={runs}
+    />
   );
+}
+
+function mount(pending = 0, runs: RunInfo[] = []) {
+  return render(panel(pending, runs));
 }
 
 const open = (label: string) => userEvent.click(screen.getByRole("tab", { name: new RegExp(label) }));
@@ -188,6 +194,31 @@ describe("MemoryPanel", () => {
     await open(vi.memory.agents);
     await userEvent.click(await screen.findByRole("button", { name: vi.memory.consolidate }));
     expect(await screen.findByText(vi.memory.consolidateBusy)).toBeInTheDocument();
+  });
+
+  it("follows the consolidation it started, then re-reads the memory and the proposals", async () => {
+    backend.setAgentMemory("default", { memory_md: "- Sếp thích trà." });
+    const { rerender } = mount();
+    await open(vi.memory.agents);
+    await userEvent.click(await screen.findByRole("button", { name: vi.memory.consolidate }));
+    expect(await screen.findByText(vi.memory.consolidateStarted)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: vi.memory.consolidate })).toBeDisabled();
+
+    // The run wrote a note and left a rewrite to approve; neither was on screen before.
+    backend.setAgentMemory("default", {
+      memory_md: "- Sếp thích trà.",
+      notes: [{ day: "2026-09-26", chars: 12, date: "2026-09-26" }],
+      note_count: 1,
+    });
+    backend.addProposal({ kind: "agent_memory_rewrite", description: "Cô đọng bộ nhớ" });
+    const run = fakeRun({ id: "mem-1", source: "memory:consolidate", conversation_id: null, summary: "Đã đề xuất." });
+    rerender(panel(0, [run]));
+
+    expect(await screen.findByText(runOutcome(run))).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "2026-09-26" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: vi.memory.consolidate })).toBeEnabled();
+    await open(vi.memory.proposals);
+    expect(await screen.findByText("Cô đọng bộ nhớ")).toBeInTheDocument();
   });
 
   it("shows a rewrite against what it replaces and can put that back", async () => {

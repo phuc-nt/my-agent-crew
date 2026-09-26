@@ -1,5 +1,5 @@
 import type { Page, Route } from "@playwright/test";
-import type { AgentInfo } from "../src/api/types";
+import type { AgentInfo, WikiPage, WikiPageEdit } from "../src/api/types";
 import { applyAgentPatch } from "../src/test/schedule-contract";
 
 // Every /api call is answered in-browser so the smoke tests measure the real DOM without a backend.
@@ -144,6 +144,8 @@ export interface MockOptions {
   conversations?: Conversation[];
   templates?: object[];
   tools?: object[];
+  /** Each agent's wiki as whole pages; the list and the report are derived from them. */
+  wiki?: Record<string, WikiPage[]>;
 }
 
 export function sse(events: object[], retryMs = 60_000): string {
@@ -163,6 +165,8 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
   const credentials: Array<Record<string, unknown> & { name: string; present: boolean; secret: boolean; group: string }> =
     credentialItems.map((c) => ({ ...c }));
   let created = conversations.length;
+  // Copied, so a page marked ok in one test is not already ok in the next.
+  const wiki = new Map(Object.entries(options.wiki ?? {}).map(([id, pages]) => [id, pages.map((p) => ({ ...p }))]));
   await page.route(/^https?:\/\/[^/]+\/api\//, async (route: Route) => {
     const url = new URL(route.request().url());
     const path = url.pathname.replace(/^\/api/, "");
@@ -254,6 +258,27 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
         .map(([key, content]) => `\n## ${key.split("/")[1]}\n${content}\n`);
       const prompt = `Bạn là một trợ lý.\n${sections.join("")}`;
       return json({ prompt, chars: prompt.length });
+    }
+    const vault = path.match(/^\/agents\/([^/]+)\/memory\/wiki(?:\/(report)|\/pages\/([^/]+))?$/);
+    if (vault && (method === "GET" || method === "PUT")) {
+      const pages = wiki.get(decodeURIComponent(vault[1])) ?? [];
+      if (vault[2]) {
+        const questions = pages.flatMap((p) => p.questions.map((question) => ({ slug: p.slug, question })));
+        return json({ problems: [], questions });
+      }
+      if (vault[3]) {
+        const slug = decodeURIComponent(vault[3]);
+        const at = pages.findIndex((p) => p.slug === slug);
+        if (at < 0) return json({ detail: `unknown page ${slug}` }, 404);
+        // Only the fields sent change, as the server merges a partial edit.
+        if (method === "PUT") pages[at] = { ...pages[at], ...(route.request().postDataJSON() as WikiPageEdit) };
+        return json(pages[at]);
+      }
+      const q = (url.searchParams.get("q") ?? "").toLowerCase();
+      const summaries = pages
+        .filter((p) => `${p.title}\n${p.body}`.toLowerCase().includes(q))
+        .map((p) => ({ slug: p.slug, kind: p.kind, title: p.title, status: p.status, updated: p.updated, sources: p.sources, question_count: p.questions.length }));
+      return json({ pages: summaries, kinds: [...new Set(summaries.map((p) => p.kind))], count: summaries.length });
     }
     const single = path.match(/^\/agents\/([^/]+)$/);
     if (single && (method === "PATCH" || method === "DELETE")) {

@@ -34,6 +34,8 @@ export class FakeWiki {
   busy = false;
   /** Agents a compile was asked for, newest last. */
   compiled: string[] = [];
+  /** Every page PUT as sent, so a test can pin that only the changed field went out. */
+  edits: { slug: string; body: Partial<WikiPage> }[] = [];
 
   add(page: Partial<WikiPage> = {}): WikiPage {
     const full = wikiPage(page);
@@ -93,6 +95,7 @@ export class FakeWiki {
       return json({ slug, deleted: true });
     }
     if (method === "PUT") {
+      this.edits.push({ slug, body });
       // Only the fields actually sent, so the fake makes the same promise the server does.
       const sent = Object.fromEntries(Object.entries(body).filter(([, v]) => v !== undefined));
       const next = { ...page, ...sent };

@@ -1,8 +1,11 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi as vitest } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
+import { api } from "../api/client";
+import type { RunInfo } from "../api/types";
 import { vi } from "../i18n/vi";
-import { coachAgent, fakeAgent, FakeBackend } from "../test/fake-backend";
+import { coachAgent, fakeAgent, FakeBackend, fakeRun } from "../test/fake-backend";
+import { runOutcome } from "./run-chip";
 import { WikiSection } from "./wiki-section";
 
 let backend: FakeBackend;
@@ -13,12 +16,28 @@ beforeEach(() => {
   vitest.stubGlobal("fetch", backend.fetch);
 });
 
-function mount(agentId = "default") {
-  const onSelectAgent = vitest.fn();
-  render(
-    <WikiSection agents={backend.agents} agentId={agentId} onSelectAgent={onSelectAgent} />,
+afterEach(() => {
+  vitest.useRealTimers();
+});
+
+/** The section as the memory panel mounts it, with notes going through the real client. */
+function section(agentId = "default", runs: RunInfo[] = []) {
+  return (
+    <WikiSection
+      agents={backend.agents}
+      agentId={agentId}
+      runs={runs}
+      onSelectAgent={() => {}}
+      onReadNote={async (day) => (await api.getNote(agentId, day)).body}
+      onSaveNote={async (day, body) => {
+        await api.putNote(agentId, day, body);
+      }}
+    />
   );
-  return onSelectAgent;
+}
+
+function mount(agentId = "default", runs: RunInfo[] = []) {
+  return render(section(agentId, runs));
 }
 
 describe("WikiSection", () => {
@@ -73,10 +92,12 @@ describe("WikiSection", () => {
     expect(page).toHaveTextContent("note:2026-09-19");
   });
 
-  it("saves an edited body back to the page", async () => {
+  it("saves an edited body back to the page, once switched from reading to editing", async () => {
     backend.wiki.add({ title: "Hạn Eco", body: "Thứ tư." });
     mount();
     await userEvent.click(await screen.findByRole("button", { name: "Hạn Eco" }));
+    expect(screen.queryByRole("textbox", { name: new RegExp(vi.wiki.body) })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: vi.memory.edit }));
 
     const textarea = await screen.findByRole("textbox", { name: new RegExp(vi.wiki.body) });
     await userEvent.type(textarea, " Đã dời một lần.");
@@ -139,16 +160,181 @@ describe("WikiSection", () => {
 
   it("does not leave one agent's page on screen after switching to another", async () => {
     backend.wiki.add({ title: "Hạn Eco" });
-    const { rerender } = render(
-      <WikiSection agents={backend.agents} agentId="default" onSelectAgent={() => {}} />,
-    );
+    const { rerender } = mount("default");
     await userEvent.click(await screen.findByRole("button", { name: "Hạn Eco" }));
     await screen.findByTestId("wiki-page");
 
     backend.wiki.pages.clear();
-    rerender(
-      <WikiSection agents={backend.agents} agentId="coach" onSelectAgent={() => {}} />,
-    );
+    rerender(section("coach"));
     await waitFor(() => expect(screen.queryByTestId("wiki-page")).toBeNull());
+  });
+});
+
+describe("WikiSection read mode", () => {
+  it("opens a page rendered as prose rather than as the raw text box", async () => {
+    backend.wiki.add({ title: "Hạn Eco", body: "Hạn nộp là **thứ tư**." });
+    mount();
+    await userEvent.click(await screen.findByRole("button", { name: "Hạn Eco" }));
+
+    const page = await screen.findByTestId("wiki-page");
+    expect(within(page).getByText("thứ tư").tagName).toBe("STRONG");
+    expect(within(page).queryByRole("textbox")).toBeNull();
+    expect(page).not.toHaveTextContent("**");
+  });
+
+  it("follows a [[link]] to the page it names", async () => {
+    backend.wiki.add({ title: "Hạn Eco", body: "Pha [[Trà sáng]] trước khi nộp." });
+    backend.wiki.add({ slug: "tra-sang", title: "Trà sáng", kind: "concepts", body: "Pha lúc 6h." });
+    mount();
+    await userEvent.click(await screen.findByRole("button", { name: "Hạn Eco" }));
+
+    const page = await screen.findByTestId("wiki-page");
+    await userEvent.click(within(page).getByRole("button", { name: "Trà sáng" }));
+    expect(await screen.findByRole("heading", { name: "Trà sáng" })).toBeInTheDocument();
+    expect(screen.getByTestId("wiki-page")).toHaveTextContent("Pha lúc 6h.");
+  });
+
+  it("draws a link to a page nobody has written as missing, not as a way somewhere", async () => {
+    backend.wiki.add({ title: "Hạn Eco", body: "Hỏi [[Đà Lạt]] sau." });
+    mount();
+    await userEvent.click(await screen.findByRole("button", { name: "Hạn Eco" }));
+
+    const page = await screen.findByTestId("wiki-page");
+    expect(within(page).queryByRole("button", { name: /Đà Lạt/ })).toBeNull();
+    const missing = within(page).getByText("Đà Lạt");
+    expect(missing).toHaveClass("wiki-link", "missing");
+    expect(missing).toHaveTextContent(vi.wiki.missingLink);
+  });
+
+  it("marks a page as fine with a status-only PUT and updates the badge in place", async () => {
+    backend.wiki.add({ title: "Hạn Eco", status: "review" });
+    mount();
+    await userEvent.click(await screen.findByRole("button", { name: "Hạn Eco" }));
+    expect(await screen.findByTestId("wiki-status")).toHaveTextContent(vi.wiki.needsReview);
+
+    await userEvent.click(screen.getByRole("button", { name: vi.wiki.markOk }));
+    await waitFor(() => expect(screen.getByTestId("wiki-status")).toHaveTextContent(vi.wiki.statusOk));
+    expect(backend.wiki.edits).toEqual([{ slug: "han-eco", body: { status: "ok" } }]);
+    expect(screen.queryByRole("button", { name: vi.wiki.markOk })).toBeNull();
+    expect(screen.getByTestId("wiki-page")).toBeInTheDocument();
+  });
+
+  it("says a failed mark-ok did not land, and leaves that failure behind on the next page", async () => {
+    backend.wiki.add({ title: "Hạn Eco", status: "review", body: "Xem [[Trà sáng]]." });
+    backend.wiki.add({ slug: "tra-sang", title: "Trà sáng", kind: "concepts", status: "review" });
+    const fetchThrough = backend.fetch;
+    vitest.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) =>
+      init?.method === "PUT"
+        ? Promise.resolve(new Response(JSON.stringify({ detail: "down" }), { status: 500 }))
+        : fetchThrough(input, init),
+    );
+    mount();
+    await userEvent.click(await screen.findByRole("button", { name: "Hạn Eco" }));
+
+    await userEvent.click(await screen.findByRole("button", { name: vi.wiki.markOk }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(vi.wiki.markOkFailed);
+    expect(screen.getByTestId("wiki-status")).toHaveTextContent(vi.wiki.needsReview);
+    expect(screen.getByRole("button", { name: vi.wiki.markOk })).toBeEnabled();
+
+    await userEvent.click(within(screen.getByTestId("wiki-page")).getByRole("button", { name: "Trà sáng" }));
+    expect(await screen.findByRole("heading", { name: "Trà sáng" })).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("gathers every page's open questions and leads to the page that asked", async () => {
+    backend.wiki.add({ title: "Hạn Eco", questions: ["Dời sang thứ năm được không?"] });
+    backend.wiki.add({ slug: "tra-sang", title: "Trà sáng", kind: "concepts", questions: ["Mấy độ?"] });
+    mount();
+
+    const toggle = await screen.findByRole("button", { name: vi.wiki.openQuestions(2) });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await userEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    const list = screen.getByRole("region", { name: vi.wiki.openQuestions(2) });
+    expect(list).toHaveTextContent("Dời sang thứ năm được không?");
+    expect(list).toHaveTextContent("Mấy độ?");
+    await userEvent.click(within(list).getByRole("button", { name: "Trà sáng" }));
+    expect(await screen.findByRole("heading", { name: "Trà sáng" })).toBeInTheDocument();
+  });
+
+  it("offers no open-questions list when the vault has none", async () => {
+    backend.wiki.add({ title: "Hạn Eco" });
+    mount();
+    await screen.findByRole("button", { name: "Hạn Eco" });
+
+    expect(screen.queryByRole("button", { name: /Câu hỏi mở/ })).toBeNull();
+    expect(screen.getByRole("button", { name: vi.wiki.todayNote })).toBeInTheDocument();
+  });
+
+  it("writes today's note under the viewer's own date, not the UTC one", async () => {
+    // 01:30 on the 26th in Hà Nội is still the 25th in UTC.
+    vitest.useFakeTimers({ toFake: ["Date"] });
+    vitest.setSystemTime(new Date("2026-09-25T18:30:00Z"));
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: vi.wiki.todayNote }));
+    const note = await screen.findByRole("textbox", { name: vi.wiki.todayNoteLabel("2026-09-26") });
+    await userEvent.type(note, "Hỏi lại hạn Eco.");
+    await userEvent.click(screen.getByRole("button", { name: vi.memory.save }));
+
+    await waitFor(() => expect(backend.notes.get("default/2026-09-26")).toBe("Hỏi lại hạn Eco."));
+  });
+
+  it("says today's note could not be read instead of offering an empty one to overwrite", async () => {
+    render(
+      <WikiSection
+        agents={backend.agents}
+        agentId="default"
+        runs={[]}
+        onSelectAgent={() => {}}
+        onReadNote={() => Promise.reject(new Error("offline"))}
+        onSaveNote={async () => {}}
+      />,
+    );
+
+    await userEvent.click(await screen.findByRole("button", { name: vi.wiki.todayNote }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(vi.loadFailed);
+    expect(screen.queryByRole("textbox", { name: /Ghi chú/ })).toBeNull();
+  });
+});
+
+describe("WikiSection compile tracking", () => {
+  const compileRun = (over: Partial<RunInfo>) =>
+    fakeRun({ id: "wiki-1", source: "memory:wiki", conversation_id: null, status: "running", ...over });
+
+  it("follows the compile it started until the run ends, then reloads the list", async () => {
+    // A compile that finished earlier must not count as the one just started.
+    const earlier = compileRun({ id: "wiki-0", status: "done" });
+    const { rerender } = mount("default", [earlier]);
+    await screen.findByText(vi.wiki.empty);
+
+    await userEvent.click(screen.getByRole("button", { name: vi.wiki.compile }));
+    const chip = await screen.findByRole("status");
+    expect(chip).toHaveTextContent(vi.wiki.compileStarted);
+    expect(screen.getByRole("button", { name: vi.wiki.compile })).toBeDisabled();
+
+    rerender(section("default", [earlier, compileRun({})]));
+    expect(await screen.findByText(vi.runStatus.running)).toBeInTheDocument();
+
+    backend.wiki.add({ title: "Hạn Eco" });
+    const finished = compileRun({ status: "done", summary: "Đề xuất 1 trang." });
+    rerender(section("default", [earlier, finished]));
+
+    expect(await screen.findByRole("button", { name: "Hạn Eco" })).toBeInTheDocument();
+    expect(screen.getByText(runOutcome(finished))).toBeInTheDocument();
+    expect(screen.queryByText(vi.wiki.compileStarted)).toBeNull();
+    expect(screen.getByRole("button", { name: vi.wiki.compile })).toBeEnabled();
+  });
+
+  it("does not stop following for a finished run that is not the one it started", async () => {
+    const { rerender } = mount("default", []);
+    await screen.findByText(vi.wiki.empty);
+
+    await userEvent.click(screen.getByRole("button", { name: vi.wiki.compile }));
+    await screen.findByText(vi.wiki.compileStarted);
+    // Another agent's compile, and a chat run, finishing meanwhile are not this one either.
+    rerender(section("default", [compileRun({ id: "coach-1", agent_id: "coach", status: "done" }), fakeRun()]));
+    expect(await screen.findByText(vi.wiki.compileStarted)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: vi.wiki.compile })).toBeDisabled();
   });
 });

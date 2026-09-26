@@ -1,5 +1,5 @@
-import { useState } from "react";
-import type { AgentInfo } from "../api/types";
+import { useCallback, useState } from "react";
+import type { AgentInfo, RunInfo } from "../api/types";
 import { useMemory } from "../hooks/use-memory";
 import { vi } from "../i18n/vi";
 import { MemoryAgentSection } from "./memory-agent-section";
@@ -16,6 +16,8 @@ interface Props {
   agentId: string;
   pendingProposals: number;
   agentName: (id: string) => string;
+  /** The activity stream's runs, so a compile or consolidation started here can be followed. */
+  runs: RunInfo[];
 }
 
 const SECTIONS: { id: Section; label: string }[] = [
@@ -31,6 +33,12 @@ export function MemoryPanel(props: Props) {
   const [section, setSection] = useState<Section>("user");
   const [agentId, setAgentId] = useState(props.agentId);
   const memory = useMemory(agentId, props.pendingProposals);
+  const { refreshAgent, refreshProposals } = memory;
+  // A consolidation proposes a rewrite and may have written notes; both are re-read.
+  const onConsolidated = useCallback(() => {
+    void refreshAgent().catch(() => undefined);
+    void refreshProposals().catch(() => undefined);
+  }, [refreshAgent, refreshProposals]);
 
   return (
     <div data-testid="memory-panel">
@@ -71,10 +79,19 @@ export function MemoryPanel(props: Props) {
           onReadNote={memory.readNote}
           onSaveNote={memory.saveNote}
           onConsolidate={memory.consolidate}
+          runs={props.runs}
+          onConsolidated={onConsolidated}
         />
       )}
       {section === "wiki" && (
-        <WikiSection agents={props.agents} agentId={agentId} onSelectAgent={setAgentId} />
+        <WikiSection
+          agents={props.agents}
+          agentId={agentId}
+          runs={props.runs}
+          onSelectAgent={setAgentId}
+          onReadNote={memory.readNote}
+          onSaveNote={memory.saveNote}
+        />
       )}
       {section === "search" && (
         <MemorySearchSection

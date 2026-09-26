@@ -7,6 +7,7 @@ import type {
   MemoryProposal,
   UserMemory,
 } from "../api/types";
+import type { RunStart } from "./use-started-run";
 
 export interface MemoryController {
   user: UserMemory | null;
@@ -22,10 +23,12 @@ export interface MemoryController {
   saveNote: (day: string, body: string) => Promise<void>;
   search: (query: string, onlyThisAgent: boolean) => Promise<void>;
   decide: (id: string, approve: boolean) => Promise<void>;
-  consolidate: () => Promise<void>;
+  consolidate: () => Promise<RunStart>;
   undo: (proposal: MemoryProposal) => Promise<void>;
   /** Re-reads every proposal, e.g. after finding one was decided elsewhere. */
   refreshProposals: () => Promise<void>;
+  /** Re-reads the selected agent's MEMORY.md and notes, e.g. after a consolidation ran. */
+  refreshAgent: () => Promise<void>;
 }
 
 /**
@@ -129,9 +132,7 @@ export function useMemory(agentId: string, pendingCount: number): MemoryControll
     [reloadUser, reloadAgent],
   );
 
-  const consolidate = useCallback(async () => {
-    await api.consolidateMemory(agentId);
-  }, [agentId]);
+  const consolidate = useCallback(() => api.consolidateMemory(agentId), [agentId]);
 
   const undo = useCallback(
     async (proposal: MemoryProposal) => {
@@ -158,5 +159,6 @@ export function useMemory(agentId: string, pendingCount: number): MemoryControll
     consolidate,
     undo,
     refreshProposals,
+    refreshAgent: reloadAgent,
   };
 }

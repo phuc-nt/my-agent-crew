@@ -1,7 +1,8 @@
 /*
  * Reviewing memory: the two-sided diff a proposal is judged by, the page cards a wiki
- * compile proposes, and the wiki's read view. The panels' frames and lists live in
- * activity-panel.css; this file only adds what a reviewer reads inside them.
+ * compile proposes, the wiki's read view with its header row, and the chip that follows
+ * a compile or consolidation. The panels' frames and lists live in activity-panel.css;
+ * this file only adds what a reviewer reads inside them.
  */
 
 /* ── Diff ───────────────────────────────────────────────────────────────── */
@@ -66,9 +67,134 @@
   background: var(--surface);
 }
 
+/* ── Wiki read view ─────────────────────────────────────────────────────── */
+.wiki-page-actions,
+.wiki-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  align-items: center;
+}
+
+.wiki-header-actions {
+  margin: 0 0 var(--space-2);
+}
+
+/* The open panel's toggle stays lit, so it is clear which button closes what is below. */
+.wiki-header-actions button[aria-expanded="true"] {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+/* The badge and its one-tap fix sit on the metadata line, wrapping under it on a phone
+   rather than pushing the line past the screen edge. */
+.wiki-page-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  align-items: center;
+}
+
+.wiki-read {
+  margin-top: var(--space-2);
+  overflow-wrap: anywhere;
+}
+
+/* A link inside prose reads as a link, not as a button dropped into the sentence. */
+.wiki-read button.wiki-link {
+  display: inline;
+  padding: 0;
+  font: inherit;
+  line-height: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  vertical-align: baseline;
+}
+
+/* A page nobody has written: still legible, but plainly not a way anywhere. */
+.wiki-link.missing {
+  color: var(--muted);
+  text-decoration: underline dashed;
+  text-underline-offset: 2px;
+  cursor: help;
+}
+
+.wiki-related {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.wiki-open-questions {
+  list-style: none;
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  background: var(--surface-sunken);
+  border-radius: var(--radius-md);
+}
+
+.wiki-open-questions li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  align-items: baseline;
+  font-size: var(--text-sm);
+}
+
+.wiki-open-questions .link-button {
+  padding-inline: 0;
+  font-weight: 500;
+}
+
+.wiki-today-note {
+  margin: 0 0 var(--space-3);
+}
+
+/* ── Tracking chip ──────────────────────────────────────────────────────── */
+.run-chip {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  max-width: 100%;
+  margin: 0 0 var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--accent-soft);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+
+.run-chip-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  animation: pulse-soft 1.4s var(--ease-in-out) infinite;
+}
+
+/* Without the pulse the dot still says "in progress" by its ring. */
+@media (prefers-reduced-motion: reduce) {
+  .run-chip-dot {
+    box-shadow: 0 0 0 3px var(--accent-ring);
+  }
+}
+
 @media (max-width: 720px) {
   .proposal-card .memory-editor-actions button,
-  .proposal-list.history button {
+  .proposal-list.history button,
+  .wiki-header-actions button,
+  .wiki-page-actions button,
+  .wiki-page-meta button,
+  .wiki-open-questions .link-button,
+  .wiki-related button.chip {
     min-height: var(--touch-target);
   }
 
