@@ -1,16 +1,21 @@
 import process from "node:process";
 import { defineConfig } from "@playwright/test";
 
-// Every /api call is mocked inside the browser, so the dev server is enough.
+// Every /api call is mocked inside the browser, so the dev server is enough. E2E_PORT lets
+// two checkouts run the suite side by side: with a shared port the second run would reuse
+// the first one's server and quietly test the other checkout's sources.
+const port = Number(process.env.E2E_PORT ?? 4173);
+const origin = `http://127.0.0.1:${port}`;
+
 export default defineConfig({
   testDir: "./e2e",
   timeout: 30_000,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? "github" : "list",
-  use: { baseURL: "http://127.0.0.1:4173", trace: "retain-on-failure" },
+  use: { baseURL: origin, trace: "retain-on-failure" },
   webServer: {
-    command: "npx vite --host 127.0.0.1 --port 4173 --strictPort",
-    url: "http://127.0.0.1:4173",
+    command: `npx vite --host 127.0.0.1 --port ${port} --strictPort`,
+    url: origin,
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,
   },
