@@ -141,6 +141,11 @@ export function ChatScreen({
     await list.patch(active.id, { cost_cap_usd });
     if (active === thread.detail) await thread.reload();
   };
+  // One way out of a spent budget on screen at a time: the over-budget notice carries it
+  // while it shows, and the halt's notice until then — only while the cap still stands at
+  // what was spent, so a raise takes it away.
+  const overBudget = Boolean(active?.over_budget) && !state.busy;
+  const capReached = active !== null && active.cost_cap_usd > 0 && state.spentUsd >= active.cost_cap_usd;
   const notice = state.notice && (
     <div className={`notice ${state.notice.kind}`} role="status" data-testid="notice">
       <Icon name={NOTICE_ICON[state.notice.kind] ?? "alert"} />
@@ -153,7 +158,7 @@ export function ChatScreen({
           : state.notice.kind === "stopped"
             ? vi.stopped
             : vi.errorPrefix + state.notice.text}
-      {state.notice.kind === "halted" && state.notice.text === "budget" && active && (
+      {state.notice.kind === "halted" && state.notice.text === "budget" && active && !overBudget && capReached && (
         <RaiseCapButton capUsd={active.cost_cap_usd} onSave={onRaiseCap} />
       )}
     </div>
@@ -330,7 +335,7 @@ export function ChatScreen({
             onAlways={() => void thread.decide(true, true).then(list.refresh)}
           />
         )}
-        {active?.over_budget && !state.busy && (
+        {overBudget && active && (
           <div className="notice halted" data-testid="over-budget">
             <Icon name="coins" />
             {vi.overBudget}
