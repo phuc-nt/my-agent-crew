@@ -14,6 +14,9 @@ export interface SlashMenu {
   toggle: () => void;
   /** True when the key belonged to the list, so the composer must not also act on it. */
   onKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>, composing: boolean) => boolean;
+  /** The box's focus: the list belongs to someone typing, so it shows only while the box has it. */
+  onFocus: () => void;
+  onBlur: () => void;
 }
 
 /** What the person asked of the list for the text on screen: shut it, or browse it over that text. */
@@ -21,7 +24,9 @@ type Hold = { text: string; kind: "closed" | "browsing" };
 
 /**
  * The composer's command list: open while the box holds "/" and a name being typed, or
- * when the '/' button asked for it over text already written.
+ * when the '/' button asked for it over text already written, and only while the box has
+ * the focus. A click into the thread puts it away, and a draft brought back with a
+ * conversation does not open it over the messages until the box is used again.
  *
  * Esc and the button answer the text they were made on. The next keystroke is a new
  * question, so the hold is dropped as soon as the text changes and the list answers again.
@@ -35,12 +40,17 @@ export function useSlashMenu(
 ): SlashMenu {
   const listId = useId();
   const [hold, setHold] = useState<Hold | null>(null);
+  const [focused, setFocused] = useState(false);
   if (hold !== null && hold.text !== text) setHold(null);
   const held = hold?.text === text ? hold.kind : null;
   const query = slashQuery(text);
   // A disabled box (an approval waiting) takes no message, so it offers no command either.
   const open =
-    commands.length > 0 && !disabled && held !== "closed" && (query !== null || held === "browsing");
+    commands.length > 0 &&
+    !disabled &&
+    focused &&
+    held !== "closed" &&
+    (query !== null || held === "browsing");
   const shown = open ? filterCommands(commands, query ?? "") : [];
   // Each new list, and each narrower one, starts again from its best match.
   const listKey = open ? (query ?? "") : null;
@@ -92,7 +102,9 @@ export function useSlashMenu(
   };
 
   const optionId = (index: number) => `${listId}-option-${index}`;
-  return { open, shown, active: current, listId, optionId, pick, toggle, onKeyDown };
+  const onFocus = () => setFocused(true);
+  const onBlur = () => setFocused(false);
+  return { open, shown, active: current, listId, optionId, pick, toggle, onKeyDown, onFocus, onBlur };
 }
 
 /** The list itself, drawn above the composer box. */
@@ -105,7 +117,13 @@ export function SlashPopover({ menu }: { menu: SlashMenu }) {
 
   if (!menu.open) return null;
   return (
-    <div className="slash-popover" data-testid="slash-popover">
+    <div
+      className="slash-popover"
+      data-testid="slash-popover"
+      // A press anywhere in the list (an option, its scrollbar, the hint) keeps the focus, and
+      // with it the list and the phone's keyboard, in the composer.
+      onMouseDown={(event) => event.preventDefault()}
+    >
       {menu.shown.length === 0 ? (
         <p className="slash-empty" role="status">
           {vi.slash.empty}
@@ -120,8 +138,6 @@ export function SlashPopover({ menu }: { menu: SlashMenu }) {
                 id={menu.optionId(index)}
                 aria-selected={index === menu.active}
                 tabIndex={-1}
-                // Keeps the focus, and with it the phone's keyboard, in the composer.
-                onMouseDown={(event) => event.preventDefault()}
                 onClick={() => menu.pick(command)}
               >
                 <span className="slash-name">/{command.name}</span>

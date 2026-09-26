@@ -1,8 +1,9 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi as vitest } from "vitest";
+import { afterEach, describe, expect, it, vi as vitest } from "vitest";
 import type { CommandInfo } from "../api/types";
 import { vi } from "../i18n/vi";
+import { memoryStorage } from "../test/memory-storage";
 import { Composer } from "./composer";
 
 const commands: CommandInfo[] = [
@@ -24,6 +25,8 @@ function composer(extra: { commands?: CommandInfo[]; onSend?: (text: string) => 
   );
   return screen.getByRole("textbox", { name: vi.composerPlaceholder });
 }
+
+afterEach(() => vitest.unstubAllGlobals());
 
 const options = () => screen.queryAllByRole("option").map((o) => o.querySelector(".slash-name")?.textContent);
 const selected = () => screen.getByRole("option", { selected: true }).querySelector(".slash-name")?.textContent;
@@ -107,6 +110,42 @@ describe("the command list in the composer", () => {
     } finally {
       document.removeEventListener("keydown", onDocumentKey);
     }
+  });
+
+  it("puts the list away when the box loses the focus, and brings it back on return", async () => {
+    const box = composer();
+    await userEvent.type(box, "/re");
+    expect(options()).toEqual(["/review"]);
+
+    // A click into the thread: the list must not stay over the messages, unreachable by Esc.
+    await userEvent.click(document.body);
+    expect(box).not.toHaveFocus();
+    expect(screen.queryByTestId("slash-popover")).toBeNull();
+    expect(box).not.toHaveAttribute("aria-controls");
+    expect(screen.getByRole("button", { name: vi.slash.open })).toHaveAttribute("aria-expanded", "false");
+
+    await userEvent.click(box);
+    expect(options()).toEqual(["/review"]);
+  });
+
+  it("does not open over a '/' draft brought back with a conversation until the box is used", async () => {
+    memoryStorage().set("composer-draft:c1", "/re");
+    render(
+      <Composer
+        disabled={false}
+        busy={false}
+        draftKey="c1"
+        commands={commands}
+        onSend={() => undefined}
+        onStop={() => undefined}
+      />,
+    );
+    const box = screen.getByRole("textbox", { name: vi.composerPlaceholder });
+    expect(box).toHaveValue("/re");
+    expect(screen.queryByTestId("slash-popover")).toBeNull();
+
+    await userEvent.click(box);
+    expect(options()).toEqual(["/review"]);
   });
 
   it("sends a '/' text no command matches as it was written", async () => {

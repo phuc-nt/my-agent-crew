@@ -96,6 +96,8 @@ export function Composer({
           disabled={disabled}
           onChange={(event) => setText(event.target.value)}
           onKeyDown={onKeyDown}
+          onFocus={menu.onFocus}
+          onBlur={menu.onBlur}
         />
         {commands.length > 0 && (
           <button

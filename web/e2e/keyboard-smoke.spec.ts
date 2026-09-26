@@ -74,6 +74,26 @@ test("'/' lists the agent's commands and Enter puts the chosen one in the box", 
     .toEqual({ text: "/plan tuần này" });
 });
 
+// Esc only reaches the list from the box, so a list left open after a click elsewhere
+// would sit over the thread with no key to put it away.
+test("a click into the thread puts the command list away, and the box brings it back", async ({ page }) => {
+  const commands = [{ name: "plan", description: "Lập kế hoạch", path: "/h/workspace/.claude/commands/plan.md" }];
+  await mockApi(page, { agents: [{ ...defaultAgent, commands }], conversations: [conversation("c1", "Chung")] });
+  await page.goto("/");
+  await page.getByRole("navigation").getByRole("button", { name: /Chung/ }).click();
+  const box = page.getByRole("textbox", { name: /Nhắn cho agent/ });
+  await box.click();
+  await page.keyboard.type("/");
+  const list = page.getByRole("listbox", { name: "Lệnh của agent" });
+  await expect(list).toBeVisible();
+
+  await page.locator(".thread").first().click();
+  await expect(list).toHaveCount(0);
+
+  await box.click();
+  await expect(list).toBeVisible();
+});
+
 test("the new-conversation shortcut opens one and the browser does not get the key", async ({ page }) => {
   const { conversations } = await mockApi(page, { conversations: [conversation("c1", "Cũ")] });
   await page.goto("/");
