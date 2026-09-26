@@ -50,6 +50,24 @@ describe("RunProgressHeader", () => {
     expect(container.querySelector(".run-progress.live")).toBeNull();
   });
 
+  it("says a run stopped for approval is waiting on the person, not thinking", () => {
+    // The model has answered with the tool call; nothing moves until the person decides.
+    const asked: RunStep = {
+      kind: "model",
+      chars: 0,
+      provider: "openrouter",
+      model: "deepseek",
+      cost_usd: 0,
+      tool_calls: ["workspace_write"],
+      preview: "",
+      duration_ms: 900,
+    };
+    const { container } = render(<RunProgressHeader run={run([asked], "awaiting_approval")} />);
+    expect(screen.getByTestId("run-progress")).toHaveTextContent(vi.statusAwaiting);
+    expect(container.querySelector(".run-progress.live")).toBeNull();
+    expect(container.querySelector(".run-progress.waiting")).not.toBeNull();
+  });
+
   it("keeps a waiting question out of the finished count", () => {
     const asked: RunStep = { kind: "question", question: "Dời hạn?", duration_ms: null };
     render(<RunProgressHeader run={run([toolStep(), asked], "awaiting_approval")} />);

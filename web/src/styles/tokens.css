@@ -85,7 +85,8 @@
   /* Text, three weights of emphasis. */
   --text: #101828;
   --text-secondary: #475467;
-  --muted: #667085;
+  /* Dark enough to hold 4.5:1 at 12px on the sunken and hover surfaces, not just on white. */
+  --muted: #5f6b7d;
 
   /* Accent and the ink that stays legible on top of it. The brand blue is unchanged;
      the tints around it are what gained range. */
@@ -94,6 +95,11 @@
   --accent-soft: #eaf1fe;
   --accent-softer: #f4f8ff;
   --accent-text: #ffffff;
+  /* A fill with white ink on it (primary buttons, count badges). The brand blue in both
+     themes: the dark theme's lighter accent reads well as text on a dark surface, but
+     holds white ink at only 3.6:1. Hover darkens, so it never passes through that. */
+  --accent-fill: #2563eb;
+  --accent-fill-strong: #1d4ed8;
   --accent-ring: rgb(37 99 235 / 22%);
   /* The mark's two ends: the accent, and a lighter blue it rises from. */
   --brand-from: #4f8df7;

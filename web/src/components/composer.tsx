@@ -42,8 +42,11 @@ export function Composer({ disabled, busy, draft, agentName, onSend, onStop }: P
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     // A composition in progress (Vietnamese Telex, Japanese IME) uses Enter to commit the
-    // word; sending on that Enter would post half a word.
-    if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+    // word; sending on that Enter would post half a word. Safari ends the composition
+    // before the Enter that commits it arrives, so there `isComposing` is already false
+    // and only the IME's keyCode 229 gives that Enter away.
+    const composing = event.nativeEvent.isComposing || event.keyCode === 229;
+    if (event.key === "Enter" && !event.shiftKey && !composing) {
       event.preventDefault();
       submit();
     }

@@ -20,6 +20,10 @@ export function RunProgressHeader({ run }: { run: RunInfo }) {
   // A question outranks anything still open: it is the only thing that will move the run
   // on, and reporting a half-finished tool call instead would hide the ask.
   const waiting = waitingStep(run);
+  // A tool waiting on a yes or no is just as stopped: nothing moves until the person
+  // decides, so it must not read as the model thinking either.
+  const approving = waiting === null && run.status === "awaiting_approval";
+  const paused = waiting !== null || approving;
 
   // A model call that is still open is the model thinking, whatever its row is called.
   // A settled run has no "right now" to report, so it says how it ended instead.
@@ -27,7 +31,9 @@ export function RunProgressHeader({ run }: { run: RunInfo }) {
   const label = !isSettled(run.status)
     ? waiting !== null
       ? vi.runWaitingAnswer
-      : active === null || active.kind === "model"
+      : approving
+        ? vi.statusAwaiting
+        : active === null || active.kind === "model"
         ? vi.runThinking
         : vi.runDoing(labelFor(run, active))
     : endedLabel(run.status);
@@ -41,7 +47,7 @@ export function RunProgressHeader({ run }: { run: RunInfo }) {
       {/* A waiting run is live but not moving. The shimmer means work is under way, so
           leaving it on would tell the person to sit and wait for the very thing that
           only starts once they answer. */}
-      <div className={`run-progress${live && waiting === null ? " live" : ""}${waiting !== null ? " waiting" : ""}`}>
+      <div className={`run-progress${live && !paused ? " live" : ""}${paused ? " waiting" : ""}`}>
         <span className="run-progress-label">{label}</span>
         <span className="run-progress-count tabular">
           {vi.runStepCount(done, total)} · {vi.runElapsed(elapsed)}

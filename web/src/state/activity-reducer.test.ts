@@ -73,8 +73,25 @@ describe("applyRunEvent", () => {
       cost_usd: 0.001,
     });
     expect(next.steps).toHaveLength(1);
-    expect(next.steps[0]).toMatchObject({ kind: "model", chars: 5, first_token_ms: 300, model: "deepseek", cost_usd: 0.001 });
+    // Five characters had streamed when the snapshot was taken; the answer is all eight.
+    expect(next.steps[0]).toMatchObject({ kind: "model", chars: 8, first_token_ms: 300, model: "deepseek", cost_usd: 0.001 });
     expect(next.spent_usd).toBeCloseTo(0.001);
+  });
+
+  it("puts a fallback ahead of the call a snapshot caught open, so the answer closes that call", () => {
+    const midCall = run({ steps: [{ kind: "model", chars: 0, first_token_ms: null, duration_ms: null }] });
+    const fellBack = applyRunEvent(midCall, { type: "route_fallback", provider: "openrouter", model: "glm", error: "429" });
+    const next = applyRunEvent(fellBack, {
+      type: "assistant_message",
+      message_id: "m1",
+      content: "ok",
+      tool_calls: [],
+      provider: "openrouter",
+      model: "deepseek",
+      cost_usd: 0.001,
+    });
+    expect(next.steps.map((s) => s.kind)).toEqual(["fallback", "model"]);
+    expect(next.steps[1]).toMatchObject({ model: "deepseek", chars: 2 });
   });
 
   it("adds no model step for a child's answer handed on whole, as the server does not", () => {

@@ -86,6 +86,22 @@ test("the conversation takes the whole screen and the list slides in over it", a
   await expect(menu).toBeFocused();
 });
 
+// The search box lives in the drawer, and a closed drawer is inert: a browser refuses to
+// focus anything inside it, so the shortcut has to open the drawer around the box first.
+test("the search shortcut opens the list at the search box", async ({ page }) => {
+  const many = Array.from({ length: 9 }, (_, i) => conversation(`c${i}`, `Cuộc ${i}`));
+  await mockApi(page, { agents: [defaultAgent, coachAgent], runs: [], conversations: many });
+  await page.goto("/");
+  await expect(page.getByRole("textbox", { name: /^Nhắn cho agent/ })).toBeVisible();
+
+  await page.keyboard.press("ControlOrMeta+k");
+
+  await expect(page.locator(".sidebar")).toBeVisible();
+  await expect(page.getByRole("searchbox")).toBeFocused();
+  // While the list covers the chat, the chat takes no focus: Tab stays in the list.
+  await expect(page.locator("main")).toHaveAttribute("inert", "");
+});
+
 test("the manage sections stay reachable when the nav has no room to stack", async ({ page }) => {
   await mockApi(page, { agents: [defaultAgent, coachAgent], runs: [older] });
   await page.goto("/#/manage/activity");

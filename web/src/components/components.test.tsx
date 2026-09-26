@@ -261,6 +261,19 @@ describe("Composer", () => {
     expect(onSend).toHaveBeenCalledWith("Vieejt");
   });
 
+  // Safari ends the composition first and then delivers the committing Enter, marked
+  // only by the IME's keyCode.
+  it("does not send on the Enter that Safari delivers after the composition ends", async () => {
+    const onSend = vitest.fn();
+    render(<Composer disabled={false} busy={false} onSend={onSend} onStop={() => undefined} />);
+    const box = screen.getByRole("textbox");
+    await userEvent.type(box, "Vieejt");
+    fireEvent.keyDown(box, { key: "Enter", keyCode: 229, isComposing: false });
+    expect(onSend).not.toHaveBeenCalled();
+    fireEvent.keyDown(box, { key: "Enter", keyCode: 13 });
+    expect(onSend).toHaveBeenCalledWith("Vieejt");
+  });
+
   it("names the agent in the empty box but keeps one stable name for the field", () => {
     render(<Composer disabled={false} busy={false} agentName="Trợ lý" onSend={() => undefined} onStop={() => undefined} />);
     const box = screen.getByRole("textbox", { name: vi.composerPlaceholder });

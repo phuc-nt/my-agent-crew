@@ -118,17 +118,21 @@ export function App() {
     );
   }
 
+  // The thread and the activity column have boundaries of their own; this one catches
+  // the rest of the chat, which would otherwise leave a blank page.
   return (
-    <ChatScreen
-      list={list}
-      thread={thread}
-      crew={crew}
-      activity={activity}
-      settings={settings}
-      attentionCount={attention.length}
-      onSelectConversation={openConversation}
-      onOpenManage={(section = "activity") => navigate({ kind: "manage", section })}
-      liveByAgent={liveByAgent}
-    />
+    <ErrorBoundary>
+      <ChatScreen
+        list={list}
+        thread={thread}
+        crew={crew}
+        activity={activity}
+        settings={settings}
+        attentionCount={attention.length}
+        onSelectConversation={openConversation}
+        onOpenManage={(section = "activity") => navigate({ kind: "manage", section })}
+        liveByAgent={liveByAgent}
+      />
+    </ErrorBoundary>
   );
 }

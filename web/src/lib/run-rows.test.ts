@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { RunInfo, RunStatus, RunStep } from "../api/types";
 import { runRows } from "./run-rows";
+import { vi } from "../i18n/vi";
 
 function toolStep(overrides: Partial<Extract<RunStep, { kind: "tool" }>> = {}): RunStep {
   return {
@@ -101,6 +102,16 @@ describe("runRows", () => {
       ["model", "sonnet", "done"],
       ["fallback", "groq:llama", "failed"],
     ]);
+  });
+
+  // Runs stored before a route fallback moved the open model step kept it stranded ahead
+  // of the route that answered. On a finished run that row is not thinking.
+  it("names an unanswered model row by its role once the run has settled", () => {
+    const open: RunStep = { kind: "model", chars: 0, first_token_ms: null, duration_ms: null };
+    expect(runRows(run([open], "done")).map((r) => [r.label, r.state])).toEqual([
+      [vi.stepModelUnnamed, "stalled"],
+    ]);
+    expect(runRows(run([open], "running"))[0].label).toBe(vi.runThinking);
   });
 
   it("labels a question row with what was asked, not with the tool that asked it", () => {

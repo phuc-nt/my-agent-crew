@@ -454,6 +454,9 @@ export const vi = {
   },
   runSteps: (n: number) => `${n} bước`,
   stepModel: "trả lời",
+  // A call its run ended without: no model name came back, and "Đang suy nghĩ" would claim
+  // it is still going. Read with the role and state beside it: "Mô hình trả lời dở dang".
+  stepModelUnnamed: "Mô hình",
   stepFallback: "đổi tuyến",
   stepQuestion: "hỏi bạn",
   // Not "ghi chú": that would suggest something was written down and kept. The note only

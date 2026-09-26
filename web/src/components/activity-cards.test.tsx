@@ -159,6 +159,20 @@ describe("RunCard", () => {
     const { container } = render(<RunCard run={run} agentName="HLV" expanded />);
     expect(container.querySelector(".step-state")).toHaveTextContent(vi.toolRunning);
   });
+
+  // The pill says the run is doing something. One stopped for the person is not, and its
+  // status already says "chờ duyệt" right beside where the pill would be.
+  it("wears the running pill only while the run is working, not while it waits for approval", () => {
+    const pill = (status: "running" | "awaiting_approval") => {
+      const { container, unmount } = render(<RunCard run={fakeRun({ status, finished_at: null })} agentName="HLV" />);
+      const found = container.querySelector(".badge.live")?.textContent?.trim() ?? null;
+      unmount();
+      return found;
+    };
+
+    expect(pill("running")).toBe(vi.liveNow);
+    expect(pill("awaiting_approval")).toBeNull();
+  });
 });
 
 describe("AttentionCenter", () => {

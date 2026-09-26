@@ -38,7 +38,9 @@ export function applyRunEvent(run: RunInfo, e: AgentEvent): RunInfo {
       const answered: RunStep = {
         kind: "model",
         first_token_ms: open?.first_token_ms,
-        chars: open?.chars || e.content.length,
+        // This reducer skips deltas, so a snapshot's count stops where the snapshot was
+        // taken; the answer is the whole of what streamed.
+        chars: Math.max(open?.chars ?? 0, e.content.length),
         provider: e.provider,
         model: e.model,
         cost_usd: e.cost_usd,
@@ -95,9 +97,15 @@ export function applyRunEvent(run: RunInfo, e: AgentEvent): RunInfo {
       spent_usd = e.spent_usd;
       unknown_cost_calls = e.unknown_cost_calls;
       break;
-    case "route_fallback":
-      steps.push({ kind: "fallback", provider: e.provider, model: e.model, error: preview(e.error), duration_ms: null });
+    case "route_fallback": {
+      // As on the server, an open call moves after the fallback: it now waits on the next
+      // route, and left ahead of it the answer would open a second call instead.
+      const fallback: RunStep = { kind: "fallback", provider: e.provider, model: e.model, error: preview(e.error), duration_ms: null };
+      const last = steps[steps.length - 1];
+      if (last?.kind === "model" && !isAnswered(last)) steps.splice(steps.length - 1, 0, fallback);
+      else steps.push(fallback);
       break;
+    }
     case "text_delta":
     case "thinking":
     case "model_call":

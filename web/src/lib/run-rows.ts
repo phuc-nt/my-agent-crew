@@ -9,8 +9,8 @@
 // Second, every row arrives already knowing its state, its kind and its label,
 // so a component only has to decide how to paint it — and so a compact
 // placement and the full timeline cannot disagree about what is happening.
-import { isAnswered, stepState, type StepState } from "./run-progress";
-import type { RunInfo, RunStep } from "../api/types";
+import { isAnswered, isSettled, stepState, type StepState } from "./run-progress";
+import type { RunInfo, RunStatus, RunStep } from "../api/types";
 import { vi } from "../i18n/vi";
 
 /** The visual family of a row, which decides its colour and glyph. */
@@ -74,9 +74,13 @@ function rowKind(step: RunStep): RowKind {
   return step.name === DELEGATE_TOOL ? "delegate" : "tool";
 }
 
-function rowLabel(step: RunStep): string {
+function rowLabel(step: RunStep, status: RunStatus): string {
   // A call still answering has no model name yet; what it is doing is the better label.
-  if (step.kind === "model") return isAnswered(step) ? (step.model ?? "?") : vi.runThinking;
+  // Once the run has settled nothing is thinking any more, so the row names what it was.
+  if (step.kind === "model") {
+    if (isAnswered(step)) return step.model ?? "?";
+    return isSettled(status) ? vi.stepModelUnnamed : vi.runThinking;
+  }
   if (step.kind === "fallback") return `${step.provider}:${step.model}`;
   // The question itself, not "ask_user": the label is what the row is about.
   if (step.kind === "question") return step.question;
@@ -118,7 +122,7 @@ export function runRows(run: RunInfo): RunRow[] {
       key: index,
       kind: rowKind(step),
       state: stepState(step, run.status),
-      label: rowLabel(step),
+      label: rowLabel(step, run.status),
       repeat: 1,
       durationMs: step.duration_ms,
       step,

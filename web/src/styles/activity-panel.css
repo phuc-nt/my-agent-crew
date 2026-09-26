@@ -480,7 +480,8 @@
 /* The file is prose the agents read, so it is set like prose rather than like a form. */
 .memory-editor textarea {
   padding: var(--space-3) var(--space-4);
-  font-size: var(--text-md);
+  /* Keeps the 16px floor every field has, below which a phone zooms into the page. */
+  font-size: max(16px, var(--text-md));
   line-height: 1.6;
   color: var(--text);
   font-weight: 400;
@@ -565,7 +566,7 @@
 }
 
 .diff .added {
-  color: var(--ok);
+  color: var(--ok-text);
   font-weight: 600;
 }
 

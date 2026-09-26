@@ -10,7 +10,7 @@ chạy ra sao. Số lượng và tên tệp không giữ ở đây — chạy l�
 |---|---|---|
 | pytest (`tests/`) | `uv run pytest -q` | vòng lặp, tool, store, provider, profile, scheduler, kênh, HTTP API và các stream SSE của nó — mọi thứ server làm, với model thay bằng `MY_AGENT_ROUTES=fake:echo` |
 | vitest (`web/`) | `cd web && npm test` | parser, reducer, API client, từng component, và cả App chạy trên một fake server trong bộ nhớ |
-| Playwright (`web/e2e/`) | `cd web && npm run e2e` | trình duyệt thật trên Vite dev server thật, `/api` do một mock trong test trả lời; dùng cho các luồng chỉ hỏng trong trình duyệt (SSE reconnect, layout ở bề rộng điện thoại, bàn phím) |
+| Playwright (`web/e2e/`) | `cd web && npm run e2e` | trình duyệt thật trên Vite dev server thật, `/api` do một mock trong test trả lời; dùng cho các luồng chỉ hỏng trong trình duyệt (SSE reconnect, layout ở bề rộng điện thoại, drawer điện thoại là modal, bàn phím) |
 
 Ưu tiên tầng thấp nhất: một quy tắc của vòng lặp thuộc về pytest, một reducer thuộc về vitest, và
 Playwright chỉ cho những gì chỉ DOM mới cho thấy. Hành vi vắt qua nhiều tầng (một duyệt
@@ -30,6 +30,11 @@ Vài test bảo vệ repo chứ không phải một tính năng:
   nóng, hub không ghi và không phát từng token, một watcher ngừng đọc bị cắt, trang wiki
   chỉ parse lại khi tệp đổi, `/api/stats` không tính lại giữa hai lần ghi, tài sản có hash
   được nén gzip và cache vĩnh viễn còn luồng SSE không bị nén;
+- **đọc được**: `web/e2e/legibility-smoke.spec.ts` đo trên pixel thật độ tương phản WCAG
+  (≥4.5:1) của chữ trên nền tô và nền trũng ở cả sáng lẫn tối, kể cả khi hover nút chính; vòng
+  focus của checkbox, công tắc và ô tìm kiếm; bố cục của notice ở chat và ở màn quản lý; và cỡ
+  chữ ô nhập ≥16px để iPhone không phóng to trang. jsdom không tính cascade, nên các thứ này
+  chỉ đo được ở đây;
 - CI dựng lại bundle và fail khi `git diff --exit-code`, nên thay đổi web không bao giờ
   được commit mà thiếu bundle của nó.
 

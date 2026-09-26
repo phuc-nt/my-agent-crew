@@ -63,7 +63,7 @@ export function ChatScreen({
   const [collapseSignal, setCollapseSignal] = useState(0);
   const phone = useMediaQuery(PHONE_QUERY);
   const drawer = useDrawer(phone);
-  const { hide: hideDrawer } = drawer;
+  const { open: drawerOpen, show: showDrawer, hide: hideDrawer } = drawer;
 
   // A message typed before any conversation exists waits until the new one has loaded.
   const { send: threadSend, detail } = thread;
@@ -109,14 +109,20 @@ export function ChatScreen({
   };
 
   // The search box only exists once the list is long enough to need it, so focusing it is
-  // a request that can go unanswered — hence a ref that may hold nothing.
+  // a request that can go unanswered — hence a ref that may hold nothing. On a phone it
+  // lives in the drawer, which has to open around it first. Escape closes the topmost
+  // layer only: with the drawer open that is the drawer, not the strip under it.
   useShortcuts({
-    onSearch: useCallback(() => searchRef.current?.focus(), []),
+    onSearch: useCallback(() => {
+      const box = searchRef.current;
+      if (box && phone && !drawerOpen) showDrawer(box);
+      else box?.focus();
+    }, [phone, drawerOpen, showDrawer]),
     onNew: useCallback(() => void create(), [create]),
     onEscape: useCallback(() => {
-      setCollapseSignal((n) => n + 1);
-      hideDrawer();
-    }, [hideDrawer]),
+      if (drawerOpen) hideDrawer();
+      else setCollapseSignal((n) => n + 1);
+    }, [drawerOpen, hideDrawer]),
   });
 
   const remove = (id: string) => {
@@ -159,15 +165,20 @@ export function ChatScreen({
 
   // On a phone the list is a drawer, and this is the way to it. Work waiting on a person
   // lives behind the drawer too (on the manage button at its foot), so the button carries
-  // a dot for it rather than letting that count go out of sight.
+  // a dot for it rather than letting that count go out of sight — and says it in words,
+  // since a dot is only there for the eye.
   const menuButton = phone && (
     <button
       type="button"
       className="icon-button menu-button"
       ref={drawer.triggerRef}
-      aria-label={vi.openConversations}
+      aria-label={
+        attentionCount > 0
+          ? `${vi.openConversations} (${vi.manage.waiting(attentionCount)})`
+          : vi.openConversations
+      }
       aria-expanded={drawer.open}
-      onClick={drawer.show}
+      onClick={() => showDrawer()}
     >
       <Icon name="menu" />
       {attentionCount > 0 && <span className="menu-dot" aria-hidden="true" />}
@@ -221,7 +232,8 @@ export function ChatScreen({
         }
         bottom={manageButton}
       />
-      <main className="main">
+      {/* The open drawer is modal: what it covers takes no focus and reads as absent. */}
+      <main className="main" inert={drawer.open || undefined}>
         {active ? (
           <ConversationHeader
             conversation={active}

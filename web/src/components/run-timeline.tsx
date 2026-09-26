@@ -48,7 +48,9 @@ export function RunCard({ run, agentName, expanded = false, onOpenConversation, 
             {vi.runStatus[run.status]} · {formatClock(run.started_at)} · {vi.runSteps(stepProgress(run).total)} ·{" "}
             {formatUsd(run.spent_usd)}
             {run.unknown_cost_calls > 0 && ` · ? ${run.unknown_cost_calls}`}
-            {live && <span className="badge live"> {vi.liveNow}</span>}
+            {/* Unsettled is not the same as working: a run waiting on the person says
+                "chờ duyệt" just before this, and a pill saying it runs would contradict it. */}
+            {run.status === "running" && <span className="badge live"> {vi.liveNow}</span>}
           </span>
           {run.summary && <span className="run-preview muted">{run.summary}</span>}
         </span>

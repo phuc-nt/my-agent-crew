@@ -452,7 +452,7 @@ button.suggestion:hover:not(:disabled) {
    type past it without deciding. A floating card on the reading column rather than a
    full-width band, because it is one decision, not a change of mode for the page. */
 .callout,
-.notice {
+.main > .notice {
   width: min(var(--reading-width), 100% - 2 * var(--space-5));
   margin: 0 auto var(--space-2);
 }
@@ -618,15 +618,21 @@ button.suggestion:hover:not(:disabled) {
 }
 
 /* ── Notices ────────────────────────────────────────────────────────────── */
+/* Everywhere a notice is a block that stacks what it holds; the chat's own notices lead
+   with an icon, so there it is one row on the reading column. */
 .notice {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
   margin-top: var(--space-2);
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-md);
   font-size: var(--text-sm);
   animation: fade-in var(--duration-base) var(--ease-out);
+}
+
+.main > .notice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
 }
 
 .notice.error {
@@ -787,7 +793,7 @@ button.composer-action.stop:hover:not(:disabled) {
   }
 
   .callout,
-  .notice {
+  .main > .notice {
     width: calc(100% - 2 * var(--space-3));
   }
 

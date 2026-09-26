@@ -13,6 +13,9 @@ export function useDrawer(enabled: boolean) {
   const panelRef = useRef<HTMLElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const wasOpen = useRef(false);
+  // Opened for a purpose (⌘K opens it for the search box), the drawer hands focus to that
+  // control instead of to its first one.
+  const focusOnOpen = useRef<HTMLElement | null>(null);
 
   // Widening past the phone layout turns the drawer back into a column; it must not
   // reappear as an overlay if the window narrows again later.
@@ -21,14 +24,18 @@ export function useDrawer(enabled: boolean) {
   }, [enabled]);
 
   useEffect(() => {
-    if (open) panelRef.current?.querySelector<HTMLElement>("button, input")?.focus();
+    if (open) (focusOnOpen.current ?? panelRef.current?.querySelector<HTMLElement>("button, input"))?.focus();
     else if (wasOpen.current) triggerRef.current?.focus();
+    focusOnOpen.current = null;
     wasOpen.current = open;
   }, [open]);
 
   return {
     open: enabled && open,
-    show: useCallback(() => setOpen(true), []),
+    show: useCallback((focus?: HTMLElement | null) => {
+      focusOnOpen.current = focus ?? null;
+      setOpen(true);
+    }, []),
     hide: useCallback(() => setOpen(false), []),
     panelRef,
     triggerRef,

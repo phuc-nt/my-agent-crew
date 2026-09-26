@@ -25,26 +25,42 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   spacing, radius and shadow tokens replaces ad-hoc values; Inter is bundled (no CDN) with its
   Vietnamese subset; one set of line icons replaces emoji, which drew differently on every
   platform. A brand mark heads the sidebar, and each agent has an initial on a tile of its own
-  stable hue wherever its name appears. Dark mode follows the operating system on every surface.
+  stable hue in the conversation header, the welcome screen, the thread, delegate cards, the crew
+  and jobs lists and the agent editor. Dark mode follows the operating system on every surface.
+  Text on the primary button, filled badges, channel tags and sunken surfaces holds 4.5:1 in both
+  modes, which is why the button and badges keep the brand blue as their fill in dark mode too;
+  checkboxes, switches and fields keep a visible focus ring. A browser test measures both. Fields
+  stay at 16px so an iPhone never zooms into one.
 - **On a phone the conversation takes the whole screen.** The conversation list slides in over it
   from a menu button and closes on Escape, on a tap outside or once a conversation is picked,
-  handing focus back to the button. The manage screen's sections become a row of pills that brings
-  the current one into view.
-- **Empty and quiet states say where the person is.** Empty sections show their own icon; the
-  "Cần bạn xử lý" card stays grey until something waits; an expired approval is grey rather than
-  amber, which is kept for a refusal and for a request still waiting.
+  handing focus back to the button. While open it is modal: the chat under it is inert, and
+  Escape closes the list without also collapsing the activity strip beneath. ⌘K opens it at the
+  search box, and the menu button's name says how many runs are waiting, as its dot does. The
+  manage screen's sections become a row of pills that brings the current one into view.
+- **Empty and quiet states say where the person is.** Empty activity, approvals, costs and jobs
+  sections show their own icon; the "Cần bạn xử lý" card stays grey until something waits; an
+  expired approval is grey rather than amber, which is kept for a refusal and for a request still
+  waiting.
 - **The agent editor keeps Save within reach.** Its bar, with the agent's avatar, the unsaved count
   and the save controls, stays pinned while the sections scroll, and wraps to a second line on a
-  phone. The tools matrix is a card with a sticky header, two-line descriptions and a coloured
-  legend.
+  phone. The tools matrix is a card with two-line descriptions and a coloured legend.
 - **A section that fails to render no longer takes the manage screen with it.** Each page has its
   own error boundary, so the navigation stays and moving to another page leaves the failure
-  behind; the failure itself is a card with the error and a reload button.
+  behind; the failure itself is a card with the error and a reload button. The chat screen has a
+  boundary too, so a crash outside its thread and activity column shows that card instead of a
+  blank page.
 - **The composer names the agent it writes to** and lets an input method commit a word with Enter
-  instead of sending half of it.
+  instead of sending half of it, including the Enter that Safari delivers just after the
+  composition has ended.
 
 ### Fixed
 
+- **A route that fails over no longer leaves a model step open on a run that recovered.** The
+  step the request opened stayed ahead of the fallback, so a finished run showed a model that
+  never answered. The failed attempt's wait is now the fallback's duration, the model step times
+  the next route, and when every route fails no model step is left waiting. A run stored before
+  this names such a step "Mô hình" rather than "Đang suy nghĩ". The live page keeps the same
+  order, and counts an answer a snapshot caught mid-call by the whole of its text.
 - **The activity panel no longer crashes on a run that just started.** The "run started" payload
   shared the run's live step list, so by the time a watcher serialised it the model call that opened
   next was already in it: half-built, with an internal clock field and no cost. The page then added a
@@ -57,6 +73,10 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   paused, so the server opens that step with no arguments. Expanding such a run, on the activity
   list or its own page, read the missing arguments and took the screen down; the step now shows "—"
   where the arguments would be.
+- **A run stopped for approval says so in its progress header.** The model step before the pause
+  had answered, so the header fell through to "Đang suy nghĩ" and kept its shimmer while nothing
+  was running; it now reads "Đang chờ bạn duyệt", as a run waiting on a child's approval already did.
+  Its card no longer wears the "Đang chạy" pill beside its own "chờ duyệt" either.
 
 ## [0.7.0] — 2026-09-26
 
