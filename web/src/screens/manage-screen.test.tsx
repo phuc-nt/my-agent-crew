@@ -170,6 +170,25 @@ describe("the manage screen", () => {
     ).toBeInTheDocument();
   });
 
+  it("counts a request waiting on a decision on Duyệt only, not as running on Hoạt động", () => {
+    const live = fakeRun({ id: "live", status: "running", finished_at: null, conversation_id: "c2" });
+    const waiting = fakeRun({ id: "waiting", status: "awaiting_approval", finished_at: null });
+    show("crew", { liveRuns: [live, waiting], attention: [waiting] });
+
+    const named = (...parts: (string | number)[]) => new RegExp(`^${parts.join("\\s*")}$`);
+    const nav = within(screen.getByRole("navigation", { name: vi.manage.nav }));
+    expect(nav.getByRole("button", { name: named(vi.activity, 1, vi.manage.liveBadge) })).toBeInTheDocument();
+    expect(nav.getByRole("button", { name: named(vi.approvalsTab, 1, vi.manage.waitingBadge) })).toBeInTheDocument();
+  });
+
+  it("leaves Hoạt động unmarked when the only live run is waiting on a decision", () => {
+    const waiting = fakeRun({ id: "waiting", status: "awaiting_approval", finished_at: null });
+    show("crew", { liveRuns: [waiting], attention: [waiting] });
+
+    const nav = within(screen.getByRole("navigation", { name: vi.manage.nav }));
+    expect(nav.getByRole("button", { name: vi.activity })).not.toHaveTextContent(/\d/);
+  });
+
   it("leaves Duyệt unmarked when only a failure needs attention", () => {
     show("crew", { attention: [fakeRun({ id: "broke", status: "error" })] });
 

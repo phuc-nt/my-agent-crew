@@ -153,11 +153,14 @@ export function ManageScreen(props: Props) {
       <span className="sr-only"> {says}</span>
     </span>
   );
+  // A paused run is still live, but it is waiting on a person rather than running: it is
+  // counted on Duyệt, and counting it here too would call one request two things at once.
+  const running = props.liveRuns.filter((r) => r.status === "running").length;
   const badge = (section: ManageSection) => {
     if (section === "activity")
       return (
         <>
-          {props.liveRuns.length > 0 && count(props.liveRuns.length, "live", vi.manage.liveBadge)}
+          {running > 0 && count(running, "live", vi.manage.liveBadge)}
           {failed.length > 0 && count(failed.length, "warn", vi.manage.failedBadge)}
         </>
       );
