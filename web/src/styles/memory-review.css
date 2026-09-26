@@ -189,6 +189,7 @@
 
 @media (max-width: 720px) {
   .proposal-card .memory-editor-actions button,
+  .proposal-history-toggle,
   .proposal-list.history button,
   .wiki-header-actions button,
   .wiki-page-actions button,
@@ -198,9 +199,10 @@
     min-height: var(--touch-target);
   }
 
+  /* Height from padding rather than flex: a summary that stops being a list item loses
+     the disclosure triangle, the only sign that it opens. */
   .compile-page summary {
-    display: flex;
-    align-items: center;
     min-height: var(--touch-target);
+    padding-block: calc((var(--touch-target) - 1lh) / 2);
   }
 }

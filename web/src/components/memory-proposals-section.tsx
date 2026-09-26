@@ -74,7 +74,7 @@ export function MemoryProposalsSection(props: Props) {
 
       <button
         type="button"
-        className="ghost"
+        className="ghost proposal-history-toggle"
         aria-expanded={showHistory}
         onClick={() => setShowHistory((open) => !open)}
       >
