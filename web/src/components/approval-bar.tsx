@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { vi } from "../i18n/vi";
 import type { PendingApproval } from "../state/thread-reducer";
 import { formatClock } from "./run-timeline";
@@ -11,9 +12,11 @@ interface Props {
   onDecide: (approve: boolean) => void;
   /** Approve and stop asking for this tool in the rest of the conversation. */
   onAlways?: () => void;
+  /** Stands in for the deadline sentence, where the time left is counted down instead. */
+  deadline?: ReactNode;
 }
 
-export function ApprovalBar({ pending, busy, onDecide, onAlways }: Props) {
+export function ApprovalBar({ pending, busy, onDecide, onAlways, deadline }: Props) {
   return (
     <div className="approval-bar callout" role="alertdialog" aria-label={vi.awaitingApproval}>
       <span className="callout-icon">
@@ -24,9 +27,10 @@ export function ApprovalBar({ pending, busy, onDecide, onAlways }: Props) {
         {pending.reason && <span className="approval-reason">{pending.reason}</span>}
         <code>{summarizeArguments(pending.arguments) || "—"}</code>
         <ToolArgsDetail args={pending.arguments} />
-        {pending.expiresAt && (
-          <span className="approval-deadline">{vi.approvalDeadline(formatClock(pending.expiresAt))}</span>
-        )}
+        {deadline ??
+          (pending.expiresAt && (
+            <span className="approval-deadline">{vi.approvalDeadline(formatClock(pending.expiresAt))}</span>
+          ))}
       </div>
       <div className="approval-actions">
         <button type="button" className="primary" disabled={busy} onClick={() => onDecide(true)}>

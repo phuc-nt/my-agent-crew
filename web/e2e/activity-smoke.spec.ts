@@ -172,3 +172,41 @@ test("the activity log narrows to one agent on the server, then reaches further 
   await expect(log.getByTestId("run-card")).toHaveCount(500);
   await expect(more).toHaveCount(0);
 });
+
+test.describe("on a phone", () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  // The daily loop away from the desk: something waits, and it is decided where it is
+  // listed — reading the whole request first — without a detour through the chat.
+  test("a waiting request is approved from Quản lý without opening the chat", async ({ page }) => {
+    const expiresAt = new Date(Date.now() + 5 * 60_000).toISOString();
+    const pending = {
+      id: "ap1", conversation_id: "c2", message_id: "m", tool_call_id: "tc", tool_name: "write_file",
+      arguments: { path: "notes/ke-hoach-on-thi-tuan-nay.md" }, status: "pending", created_at: "", expires_at: expiresAt, resolved_at: null,
+    };
+    const mock = await mockApi(page, {
+      conversations: [conversation("c1", "Chung"), { ...conversation("c2", "Ôn thi"), status: "awaiting_approval", pending_approval: pending }],
+      runs: [run({ id: "waiting", conversation_id: "c2", status: "awaiting_approval", finished_at: null, summary: "" })],
+      turns: [[{ type: "done", spent_usd: 0, unknown_cost_calls: 0 }]],
+    });
+    await page.goto("/");
+
+    await page.getByRole("button", { name: /^Mở danh sách cuộc trò chuyện/ }).click();
+    await page.getByRole("button", { name: /Quản lý/ }).click();
+    await expect(page).toHaveURL(/#\/manage\/approvals$/);
+
+    const row = page.getByTestId("attention-row");
+    await expect(row).toContainText("write_file");
+    await expect(row.getByRole("timer")).toHaveText(/^còn \d:\d\d$/);
+    const approve = row.getByRole("button", { name: "Cho phép" });
+    expect((await approve.boundingBox())?.height).toBeGreaterThanOrEqual(40);
+    const [scrollWidth, width] = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
+    expect(scrollWidth).toBeLessThanOrEqual(width);
+
+    await approve.click();
+
+    await expect(row).toHaveCount(0);
+    expect(mock.posted).toContainEqual({ path: "/conversations/c2/approvals/ap1", body: { approve: true } });
+    await expect(page).toHaveURL(/#\/manage\/approvals$/);
+  });
+});

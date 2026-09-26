@@ -3,6 +3,7 @@ import { api } from "./api/client";
 import type { SettingsInfo, TemplateInfo } from "./api/types";
 import { ErrorBoundary } from "./components/error-boundary";
 import { useActivity } from "./hooks/use-activity";
+import { useAttention } from "./hooks/use-attention-badge";
 import { useCrew } from "./hooks/use-agents";
 import { useConversations } from "./hooks/use-conversations";
 import { type ManageSection, type Route, useRoute } from "./hooks/use-route";
@@ -55,7 +56,9 @@ export function App() {
   }, [finished, refreshJobs, refreshStats, refreshList]);
 
   const live = liveRuns(activity.state);
-  const attention = needsAttention(activity.state);
+  // Failures marked as read drop out here, so every count and list below agrees.
+  const attention = useAttention(needsAttention(activity.state));
+  const waiting = attention.some((r) => r.status === "awaiting_approval");
   const liveByAgent: Record<string, number> = {};
   for (const run of live) liveByAgent[run.agent_id] = (liveByAgent[run.agent_id] ?? 0) + 1;
 
@@ -108,6 +111,7 @@ export function App() {
             navigate(runId ? { kind: "manage", section: "activity", param: runId, fromJob: job } : close("activity"))
           }
           onReloadCrew={() => void crew.reload()}
+          onReloadActivity={() => void activity.refresh()}
           // Changing section drops the id in the URL: an id is only meaningful under
           // the section that opened it.
           onNavigate={(section: ManageSection) => navigate({ kind: "manage", section })}
@@ -132,7 +136,8 @@ export function App() {
         settings={settings}
         attentionCount={attention.length}
         onSelectConversation={openConversation}
-        onOpenManage={(section = "activity") => navigate({ kind: "manage", section })}
+        // A waiting request is settled on the approvals page, so the way in lands there.
+        onOpenManage={(section = waiting ? "approvals" : "activity") => navigate({ kind: "manage", section })}
         liveByAgent={liveByAgent}
       />
     </ErrorBoundary>

@@ -50,6 +50,8 @@ interface Props {
   /** Re-reads the crew after a profile is written, created or removed. */
   onReloadCrew: () => void;
   onNavigate: (section: ManageSection) => void;
+  /** Reads the activity list again after a request was settled from the approvals page. */
+  onReloadActivity?: () => void;
   /** Leaving the manage screen: back to the chat, opening a conversation if one is named. */
   onBackToChat: () => void;
   onOpenConversation: (conversationId: string) => void;
@@ -130,15 +132,36 @@ export function ManageScreen(props: Props) {
   const liveIds = new Set(props.liveRuns.map((r) => r.id));
   const recent = props.runs.filter((r) => !liveIds.has(r.id));
   const live = props.runs.filter((r) => liveIds.has(r.id));
+  // A request waits on a decision and is settled on the approvals page; a failure or a
+  // halt is read and dismissed with the rest of the activity. Counting them together
+  // sent the person to Duyệt for an error with nothing to decide.
+  const awaiting = props.attention.filter((r) => r.status === "awaiting_approval");
+  const failed = props.attention.filter((r) => r.status !== "awaiting_approval");
   // Each settled run or new pause may have changed the approval ledger.
-  const approvalsVersion =
-    props.runs.filter((r) => r.finished_at !== null).length + props.attention.length;
+  const approvalsVersion = props.runs.filter((r) => r.finished_at !== null).length + awaiting.length;
+  const parentTitle = (run: RunInfo) => {
+    const parent = parentConversationId(run);
+    if (parent === null) return null;
+    const owner = props.runs.find((r) => r.conversation_id === parent);
+    return owner ? owner.title || props.agentName(owner.agent_id) : null;
+  };
 
+  // The number alone is ambiguous once an entry can carry two, so each says what it counts.
+  const count = (n: number, tone: string, says: string) => (
+    <span className={`badge ${tone}`}>
+      {` ${n}`}
+      <span className="sr-only"> {says}</span>
+    </span>
+  );
   const badge = (section: ManageSection) => {
-    if (section === "activity" && props.liveRuns.length > 0)
-      return <span className="badge live"> {props.liveRuns.length}</span>;
-    if (section === "approvals" && props.attention.length > 0)
-      return <span className="badge warn"> {props.attention.length}</span>;
+    if (section === "activity")
+      return (
+        <>
+          {props.liveRuns.length > 0 && count(props.liveRuns.length, "live", vi.manage.liveBadge)}
+          {failed.length > 0 && count(failed.length, "warn", vi.manage.failedBadge)}
+        </>
+      );
+    if (section === "approvals" && awaiting.length > 0) return count(awaiting.length, "warn", vi.manage.waitingBadge);
     if (section === "memory" && pendingProposals > 0)
       return <span className="badge warn"> {pendingProposals}</span>;
     // Only a failure earns a count here: a schedule that ran fine or never ran yet is
@@ -206,15 +229,12 @@ export function ManageScreen(props: Props) {
           {props.section === "activity" && props.replayRunId === undefined && (
             <>
               <AttentionCenter
-                runs={props.attention}
-                parentTitle={(run) => {
-                  const parent = parentConversationId(run);
-                  if (parent === null) return null;
-                  const owner = props.runs.find((r) => r.conversation_id === parent);
-                  return owner ? owner.title || props.agentName(owner.agent_id) : null;
-                }}
+                runs={failed}
+                parentTitle={parentTitle}
                 agentName={props.agentName}
                 onOpenConversation={props.onOpenConversation}
+                waitingElsewhere={awaiting.length}
+                onOpenWaiting={() => props.onNavigate("approvals")}
               />
               <h3>{vi.liveNow}</h3>
               {live.length === 0 ? (
@@ -243,11 +263,24 @@ export function ManageScreen(props: Props) {
             </>
           )}
           {props.section === "approvals" && (
-            <ApprovalHistory
-              agentName={props.agentName}
-              onOpenConversation={props.onOpenConversation}
-              refreshKey={approvalsVersion}
-            />
+            <>
+              {/* What waits comes first and is decided here; the ledger of what was
+                  decided before sits under it. */}
+              <AttentionCenter
+                runs={awaiting}
+                inline
+                parentTitle={parentTitle}
+                agentName={props.agentName}
+                onOpenConversation={props.onOpenConversation}
+                onReload={props.onReloadActivity}
+              />
+              <h3>{vi.approvalHistory}</h3>
+              <ApprovalHistory
+                agentName={props.agentName}
+                onOpenConversation={props.onOpenConversation}
+                refreshKey={approvalsVersion}
+              />
+            </>
           )}
           {/* A link to an agent that is gone says so rather than quietly showing the list:
               the person followed a URL and deserves to know it no longer resolves. The crew

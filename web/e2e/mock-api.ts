@@ -351,6 +351,10 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
     // pattern has to reach it — otherwise answering in the browser 404s here and the
     // test passes for a card that would never work against the real server.
     if (/\/(messages|approvals\/[^/]+(\/answer)?)$/.test(path) && method === "POST") {
+      // A decided request is closed on the server, so a page that reads the conversation
+      // again (the attention list does, to see whether the turn paused anew) must not find it.
+      const decided = conversations.find((c) => path.startsWith(`/conversations/${c.id}/approvals/`));
+      if (decided) decided.pending_approval = null;
       const events = turns.shift() ?? [];
       return route.fulfill({ status: 200, contentType: "text/event-stream", body: sse(events) });
     }

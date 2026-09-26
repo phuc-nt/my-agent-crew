@@ -193,7 +193,10 @@ describe("AttentionCenter", () => {
     expect(items[0]).toHaveTextContent(vi.attentionAwaiting("HLV"));
     expect(items[1]).toHaveTextContent(vi.attentionFailed("Agent"));
     expect(items[2]).toHaveTextContent(vi.attentionHalted("Agent"));
-    expect(within(items[1]).queryByRole("button")).not.toBeInTheDocument();
+    // A failure with no conversation has nowhere to open; marking it read is all that is left.
+    expect(within(items[1]).queryByRole("button", { name: vi.openConversation })).not.toBeInTheDocument();
+    expect(within(items[1]).getAllByRole("button")).toHaveLength(1);
+    expect(within(items[1]).getByRole("button", { name: vi.attentionSeenLabel(vi.attentionFailed("Agent")) })).toBeInTheDocument();
     await userEvent.click(within(items[2]).getByRole("button", { name: vi.openConversation }));
     expect(open).toHaveBeenCalledWith("c9");
   });

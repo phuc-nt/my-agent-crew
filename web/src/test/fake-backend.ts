@@ -285,7 +285,7 @@ export class FakeBackend {
       const c = this.conversations.get(conv)!;
       if (c.status === "awaiting_approval") return json({ detail: "conversation is awaiting approval" }, 409);
       c.messages.push(storedMessage("user", body.text));
-      return this.streamTurn();
+      return this.streamTurn(c);
     }
     if (conv && path.endsWith("/summary") && method === "POST") {
       const c = this.conversations.get(conv)!;
@@ -297,6 +297,10 @@ export class FakeBackend {
     if (conv && /\/approvals\//.test(path) && method === "POST") {
       const c = this.conversations.get(conv)!;
       const answering = path.endsWith("/answer");
+      // Closed already, by another tab or by the expiry sweep: the server says so first.
+      if (!c.pending_approval || !path.includes(`/approvals/${c.pending_approval.id}`)) {
+        return json({ detail: "approval already resolved" }, 409);
+      }
       const isQuestion = c.pending_approval?.kind === "question";
       if (answering !== isQuestion) {
         return json({ detail: answering ? "this is a tool call" : "this is a question" }, 409);
@@ -305,7 +309,7 @@ export class FakeBackend {
       if (answering) this.lastAnswer = String(body.answer);
       if (body?.always && c.pending_approval) c.auto_approve = [...c.auto_approve, c.pending_approval.tool_name];
       c.pending_approval = null;
-      return this.streamTurn();
+      return this.streamTurn(c);
     }
     if (conv && method === "GET") return json(this.conversations.get(conv));
     if (conv && method === "PATCH") return json(listItem(Object.assign(this.conversations.get(conv)!, body)));
@@ -554,9 +558,16 @@ export class FakeBackend {
     };
   }
 
-  private streamTurn(): Response {
+  private streamTurn(c: ConversationDetail): Response {
     const events = this.nextTurn;
     this.nextTurn = [];
+    // A turn that pauses leaves its request open on the conversation, as the server's
+    // does: the decide that follows must find it there, and a stale one must not.
+    for (const e of events) {
+      if (e.type !== "approval_required") continue;
+      const { approval_id: id, tool_call_id, name: tool_name, arguments: args, expires_at, kind, options } = e;
+      c.pending_approval = { id, conversation_id: c.id, message_id: "", tool_call_id, tool_name, arguments: args, status: "pending", created_at: "", expires_at, resolved_at: null, kind, options };
+    }
     const encoder = new TextEncoder();
     const stream = new ReadableStream<Uint8Array>({
       start(controller) {

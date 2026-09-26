@@ -190,6 +190,10 @@ export const vi = {
     connections: "Kết nối",
     tools: "Công cụ",
     waiting: (n: number) => `${n} việc đang chờ bạn`,
+    // Read after the number on a section entry, since one entry can carry two counts.
+    liveBadge: "đang chạy",
+    waitingBadge: "đang chờ bạn",
+    failedBadge: "lỗi hoặc dừng chưa xem",
     loading: "Đang tải…",
     loadFailed: (message: string) => `Không tải được: ${message}`,
   },
@@ -564,6 +568,17 @@ export const vi = {
   attentionAsking: (agent: string) => `${agent} đang hỏi bạn`,
   attentionFailed: (agent: string) => `${agent} gặp lỗi`,
   attentionHalted: (agent: string) => `${agent} đã dừng giữa chừng`,
+  // A failure stays listed until the person says they have read it, not until it scrolls away.
+  attentionSeen: "Đã xem",
+  attentionSeenLabel: (what: string) => `Đã xem: ${what}`,
+  attentionLoading: "Đang tải yêu cầu…",
+  attentionResuming: "Đang chạy tiếp…",
+  // A 409 on decide or answer: another tab, Telegram or the expiry sweep closed it first.
+  // That is not the conversation being busy, which is what the chat's conflict text says.
+  attentionHandled: "Đã được xử lý hoặc đã hết hạn",
+  attentionExpiresIn: (clock: string) => `còn ${clock}`,
+  attentionExpired: "Đã hết hạn",
+  attentionWaitingElsewhere: (n: number) => `${n} việc đang chờ bạn ở mục Duyệt`,
   costs: "Chi phí",
   costTotal: "Tổng chi",
   costRuns: "Lượt chạy",

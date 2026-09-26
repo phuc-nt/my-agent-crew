@@ -2,7 +2,7 @@ import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi as vitest } from "vitest";
 import { vi } from "../i18n/vi";
-import { FakeBackend, fakeAgent, fakeRun } from "../test/fake-backend";
+import { FakeBackend, fakeAgent, fakeApproval, fakeRun } from "../test/fake-backend";
 import { ManageScreen, NAV_GROUPS } from "./manage-screen";
 import { MANAGE_SECTIONS, type ManageSection } from "../hooks/use-route";
 
@@ -150,7 +150,56 @@ describe("the manage screen", () => {
   it("counts the work waiting on a person next to the approvals section", () => {
     show("activity", { attention: [fakeRun({ id: "waiting", status: "awaiting_approval" })] });
 
-    expect(screen.getByRole("button", { name: new RegExp(vi.approvalsTab) })).toHaveTextContent("1");
+    // In the nav: the activity page now also points to Duyệt, by name, from its own card.
+    const nav = within(screen.getByRole("navigation", { name: vi.manage.nav }));
+    expect(nav.getByRole("button", { name: new RegExp(vi.approvalsTab) })).toHaveTextContent("1");
+  });
+
+  // Duyệt is where a decision is made; a failure has none to make, so it counts where
+  // it is read, and each number says what it counts once an entry carries two.
+  it("counts waiting requests on Duyệt and failures on Hoạt động, each named", () => {
+    const waiting = fakeRun({ id: "waiting", status: "awaiting_approval", finished_at: null });
+    show("crew", { attention: [waiting, fakeRun({ id: "broke", status: "error" }), fakeRun({ id: "cut", status: "halted" })] });
+
+    // jsdom joins inline text without the spaces a browser keeps, hence the \s*.
+    const named = (...parts: (string | number)[]) => new RegExp(`^${parts.join("\\s*")}$`);
+    const nav = within(screen.getByRole("navigation", { name: vi.manage.nav }));
+    expect(nav.getByRole("button", { name: named(vi.approvalsTab, 1, vi.manage.waitingBadge) })).toBeInTheDocument();
+    expect(
+      nav.getByRole("button", { name: named(vi.activity, 1, vi.manage.liveBadge, 2, vi.manage.failedBadge) }),
+    ).toBeInTheDocument();
+  });
+
+  it("leaves Duyệt unmarked when only a failure needs attention", () => {
+    show("crew", { attention: [fakeRun({ id: "broke", status: "error" })] });
+
+    const nav = within(screen.getByRole("navigation", { name: vi.manage.nav }));
+    expect(nav.getByRole("button", { name: vi.approvalsTab })).not.toHaveTextContent(/\d/);
+  });
+
+  it("puts the requests waiting on a decision above the approval history, ready to decide", async () => {
+    const backend = new FakeBackend();
+    const expires = new Date(Date.now() + 5 * 60_000).toISOString();
+    const c = backend.create({ status: "awaiting_approval", pending_approval: fakeApproval({ status: "pending", resolved_at: null, expires_at: expires }) });
+    vitest.stubGlobal("fetch", backend.fetch);
+    const waiting = fakeRun({ id: "waiting", status: "awaiting_approval", finished_at: null, conversation_id: c.id });
+    show("approvals", { attention: [waiting, fakeRun({ id: "broke", status: "error" })] });
+
+    const attention = screen.getByTestId("attention");
+    expect(await within(attention).findByRole("alertdialog", { name: vi.awaitingApproval })).toBeInTheDocument();
+    expect(within(attention).queryByText(vi.attentionFailed("Agent"))).not.toBeInTheDocument();
+    const history = screen.getByRole("heading", { name: vi.approvalHistory });
+    expect(attention.compareDocumentPosition(history) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("points from the activity page to the requests waiting on Duyệt", async () => {
+    const waiting = fakeRun({ id: "waiting", status: "awaiting_approval", finished_at: null });
+    const { onNavigate } = show("activity", { attention: [waiting] });
+
+    expect(screen.queryByText(vi.attentionAwaiting("Agent"))).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: vi.attentionWaitingElsewhere(1) }));
+
+    expect(onNavigate).toHaveBeenCalledWith("approvals");
   });
 
   // A red number beside the schedules is a claim that something broke; a job that ran

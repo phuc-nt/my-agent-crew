@@ -1,5 +1,5 @@
 import { noteText, PROGRESS_NOTE_TOOL } from "../lib/run-rows";
-import type { AgentEvent, ApprovalKind, ConversationDetail, StoredMessage, ToolCall } from "../api/types";
+import type { AgentEvent, Approval, ApprovalKind, ConversationDetail, StoredMessage, ToolCall } from "../api/types";
 
 export type ToolStatus = "running" | "done" | "failed" | "awaiting" | "denied";
 
@@ -33,6 +33,20 @@ export interface PendingApproval {
   kind: ApprovalKind;
   /** The choices the question offered. Empty means any words will do. */
   options: string[];
+}
+
+/** A stored pending request in the shape the cards take. Old rows carry no kind: tools. */
+export function pendingFromApproval(a: Approval): PendingApproval {
+  const pending: PendingApproval = {
+    approvalId: a.id,
+    toolCallId: a.tool_call_id,
+    name: a.tool_name,
+    arguments: a.arguments,
+    kind: a.kind ?? "tool",
+    options: a.options ?? [],
+  };
+  if (a.expires_at) pending.expiresAt = a.expires_at;
+  return pending;
 }
 
 /** What the agent asked, for a question. Empty for a tool call. */
@@ -130,17 +144,8 @@ export function threadReducer(state: ThreadState, action: ThreadAction): ThreadS
       let items = itemsFromMessages(d.messages);
       let pending: PendingApproval | null = null;
       if (d.pending_approval) {
-        const a = d.pending_approval;
-        pending = {
-          approvalId: a.id,
-          toolCallId: a.tool_call_id,
-          name: a.tool_name,
-          arguments: a.arguments,
-          kind: a.kind ?? "tool",
-          options: a.options ?? [],
-        };
-        if (a.expires_at) pending.expiresAt = a.expires_at;
-        items = updateTool(items, a.tool_call_id, { status: "awaiting" });
+        pending = pendingFromApproval(d.pending_approval);
+        items = updateTool(items, pending.toolCallId, { status: "awaiting" });
       }
       return {
         ...emptyThread,

@@ -1,6 +1,7 @@
 /*
  * approvals → deciding a request with enough in front of you: a tool call's full
- * arguments, and the approval history's paging.
+ * arguments, the approval history's paging, and waiting requests settled from the
+ * attention list with the time they have left.
  */
 
 /* ── Full tool arguments ────────────────────────────────────────────────── */
@@ -87,9 +88,109 @@
   margin-top: var(--space-2);
 }
 
+/* ── Waiting requests, settled in place ─────────────────────────────────── */
+.attention-actions {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.attention-actions:empty {
+  display: none;
+}
+
+.attention-seen {
+  font-size: var(--text-sm);
+}
+
+/* The request goes under its heading, the whole width of the row: a tool call's
+   arguments and a question's choices need the room more than the heading does. */
+.attention-list li.inline {
+  flex-wrap: wrap;
+}
+
+.attention-inline {
+  flex: 1 1 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* In the chat a callout floats over the thread; here it is part of a list already
+   on a card, so it takes the row's width and drops the lift. */
+.attention-inline .callout {
+  width: 100%;
+  margin: 0;
+  box-shadow: none;
+  animation: none;
+}
+
+.attention-note {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.attention-elsewhere {
+  margin-top: var(--space-3);
+  font-size: var(--text-sm);
+  border-color: color-mix(in srgb, var(--warn) 30%, var(--border));
+}
+
+/* A stopwatch, so its digits keep their width while they count down. */
+.expiry-chip {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.6;
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.expiry-chip.urgent {
+  background: var(--warn-bg);
+  color: var(--warn-text);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warn) 30%, transparent);
+}
+
+.expiry-chip.expired {
+  background: var(--danger-bg);
+  color: var(--danger-text);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--danger) 30%, transparent);
+}
+
+/* One section entry can carry two counts (live runs and unread failures). */
+.manage-nav li button .badge + .badge {
+  margin-left: 0;
+}
+
 @media (max-width: 720px) {
   .args-detail .args-detail-toggle,
-  .approval-more {
+  .approval-more,
+  .attention-actions button,
+  .attention-elsewhere,
+  .attention-inline button,
+  .attention-inline input {
     min-height: var(--touch-target);
+  }
+
+  /* Beside a two-line heading the buttons leave the text a sliver; under it they
+     sit where a thumb reaches. */
+  .attention-list li {
+    flex-wrap: wrap;
+  }
+
+  .attention-actions {
+    flex-basis: 100%;
   }
 }

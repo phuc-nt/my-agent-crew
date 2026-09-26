@@ -16,6 +16,13 @@ chạy ra sao. Số lượng và tên tệp không giữ ở đây — chạy l�
 Playwright chỉ cho những gì chỉ DOM mới cho thấy. Hành vi vắt qua nhiều tầng (một duyệt
 tạm dừng vòng lặp *và* thanh hiện ra) có một test ở mỗi bên ranh giới.
 
+Fake server của vitest giữ yêu cầu duyệt đang mở như server thật: một lượt dừng ở
+`approval_required` để lại yêu cầu trên cuộc trò chuyện, và quyết định cho một yêu cầu đã đóng
+nhận 409. Nhờ vậy việc duyệt ngay trong Quản lý › Duyệt được test ở vitest cả khi tab khác hay
+lượt quét hết hạn giành trước (báo "đã được xử lý", không báo bận), cả khi đồng hồ đếm về 0
+(nút khoá, danh sách tải lại), còn Playwright chỉ giữ phần chỉ trình duyệt thấy: bấm Cho phép
+trên bề rộng 390px mà trang không cuộn ngang.
+
 ## Test bảo vệ
 
 Vài test bảo vệ repo chứ không phải một tính năng:

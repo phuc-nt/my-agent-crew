@@ -204,6 +204,15 @@ describe("activityReducer", () => {
     expect(liveRuns(state)).toEqual([]);
   });
 
+  it("lets the list settle a live pause it reports finished, since a finished run never resumes", () => {
+    let state = activityReducer(emptyActivity, { type: "payload", payload: { type: "snapshot", runs: [run({ status: "awaiting_approval" })] } });
+    state = activityReducer(state, { type: "recent", runs: [run({ status: "awaiting_approval", summary: "cũ" })] });
+    expect(state.runs.r1.summary).toBe("");
+    state = activityReducer(state, { type: "recent", runs: [run({ status: "done", finished_at: "2026-09-19T08:05:00Z" })] });
+    expect(state.runs.r1.status).toBe("done");
+    expect(needsAttention(state)).toEqual([]);
+  });
+
   it("derives sorted, live, per-conversation and attention views", () => {
     const state = activityReducer(emptyActivity, {
       type: "recent",

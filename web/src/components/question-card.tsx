@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { vi } from "../i18n/vi";
 import { type PendingApproval, questionText } from "../state/thread-reducer";
 import { formatClock } from "./run-timeline";
@@ -8,6 +8,8 @@ interface Props {
   pending: PendingApproval;
   busy: boolean;
   onAnswer: (text: string) => void;
+  /** Stands in for the deadline sentence, where the time left is counted down instead. */
+  deadline?: ReactNode;
 }
 
 /** What the agent asked, and somewhere to reply.
@@ -17,7 +19,7 @@ interface Props {
  * out by itself. The offered choices are buttons because that is the fast path, but the
  * text box stays open: the server takes any wording, and a question worth asking often has
  * an answer nobody listed. */
-export function QuestionCard({ pending, busy, onAnswer }: Props) {
+export function QuestionCard({ pending, busy, onAnswer, deadline }: Props) {
   const [text, setText] = useState("");
   const asked = questionText(pending);
   const submit = () => {
@@ -33,9 +35,10 @@ export function QuestionCard({ pending, busy, onAnswer }: Props) {
           {vi.questionTitle}
         </strong>
         <p className="question-asked">{asked || pending.name}</p>
-        {pending.expiresAt && (
-          <span className="approval-deadline">{vi.questionDeadline(formatClock(pending.expiresAt))}</span>
-        )}
+        {deadline ??
+          (pending.expiresAt && (
+            <span className="approval-deadline">{vi.questionDeadline(formatClock(pending.expiresAt))}</span>
+          ))}
       </div>
       {pending.options.length > 0 && (
         <div className="question-options">
