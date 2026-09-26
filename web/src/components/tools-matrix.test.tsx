@@ -180,6 +180,20 @@ describe("ToolsMatrix", () => {
     expect(screen.getByText(vi.tools.legendWorkMode)).toBeInTheDocument();
   });
 
+  // The mark is drawn beside its meaning, and the meaning is also what a cell announces,
+  // so neither may carry the mark a second time.
+  it("draws each mark once, beside a meaning that is words only", () => {
+    const tools: RegistryTool[] = [
+      { name: "shell_run", description: "Run", requires_approval: false, optional: false, agents: ["default"] },
+    ];
+    const { container } = render(<ToolsMatrix tools={tools} agents={[fakeAgent]} />);
+    const marks = /[✓–○▫]/gu;
+
+    const entries = screen.getAllByRole("definition");
+    expect(entries.map((entry) => entry.textContent?.match(marks)?.length)).toEqual([1, 1, 1, 1]);
+    expect(container.querySelector("td.cell span")?.getAttribute("aria-label")).not.toMatch(marks);
+  });
+
   it("includes the tool description in the table", () => {
     const tools: RegistryTool[] = [
       { name: "shell_run", description: "Execute shell commands", requires_approval: false, optional: false, agents: [] },
