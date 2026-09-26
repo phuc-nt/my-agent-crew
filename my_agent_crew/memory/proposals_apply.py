@@ -17,6 +17,7 @@ from my_agent_crew.store import Store
 from my_agent_crew.store.memory_proposals import (
     AGENT_MEMORY,
     AGENT_MEMORY_REWRITE,
+    PENDING,
     USER_FACT,
     USER_FORGET,
     MemoryProposal,
@@ -41,8 +42,14 @@ def apply_proposal(
     `memory_dirs` is needed only by a wiki batch, which writes many files under the
     agent's memory folder rather than one named file. It is passed rather than derived
     from `memory_files` so the layout stays stated in one place.
+
+    A proposal already decided is refused before anything is written: an approval from a
+    stale tab would otherwise write a fact the person rejected, or append a line twice,
+    and only then learn from the store that it was too late.
     """
     proposal = store.proposals.get(proposal_id)
+    if proposal.status != PENDING:
+        raise KeyError(proposal_id)
     if approve:
         _write(proposal, user_dir, memory_files or {}, memory_dirs or {})
     return store.proposals.resolve(proposal_id, approve)

@@ -128,3 +128,28 @@ def test_deciding_twice_is_refused(tmp_path, store: Store):
 
     with pytest.raises(KeyError):
         apply_proposal(store, proposal.id, approve=True, user_dir=tmp_path / "owner")
+
+
+def test_a_late_approval_of_a_rejected_proposal_writes_nothing(tmp_path, store: Store):
+    """The stale-tab case: the fact the person rejected must not be written on the way
+    to finding out the proposal was already decided."""
+    user_dir = tmp_path / "owner"
+    proposal = propose_fact(store)
+    apply_proposal(store, proposal.id, approve=False, user_dir=user_dir)
+
+    with pytest.raises(KeyError):
+        apply_proposal(store, proposal.id, approve=True, user_dir=user_dir)
+
+    assert user_store.list_facts(user_dir) == []
+
+
+def test_approving_an_append_twice_writes_the_line_once(tmp_path, store: Store):
+    memory_file = tmp_path / "coach" / "MEMORY.md"
+    proposal = store.proposals.create(agent_id="coach", kind=AGENT_MEMORY, body="Một lần thôi.")
+    files = {"coach": memory_file}
+    apply_proposal(store, proposal.id, True, tmp_path / "owner", memory_files=files)
+
+    with pytest.raises(KeyError):
+        apply_proposal(store, proposal.id, True, tmp_path / "owner", memory_files=files)
+
+    assert memory_file.read_text(encoding="utf-8") == "- Một lần thôi.\n"

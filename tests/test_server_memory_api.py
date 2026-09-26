@@ -260,6 +260,17 @@ def test_deciding_the_same_proposal_twice_is_a_conflict(client, deps):
     assert again.status_code == 409
 
 
+def test_approving_from_a_stale_tab_after_a_reject_is_a_conflict_that_writes_nothing(client, deps):
+    proposal = deps.store.proposals.create(
+        agent_id=deps.profile.id, kind=USER_FACT, name="ngu-som", body="x", type="preference"
+    )
+    client.post(f"/api/memory/proposals/{proposal.id}", json={"approve": False})
+
+    stale = client.post(f"/api/memory/proposals/{proposal.id}", json={"approve": True})
+    assert stale.status_code == 409
+    assert client.get("/api/memory/user").json()["facts"] == []
+
+
 def test_deciding_a_proposal_that_does_not_exist_is_a_404(client):
     assert client.post("/api/memory/proposals/nope", json={"approve": True}).status_code == 404
 
