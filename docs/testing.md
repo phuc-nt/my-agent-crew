@@ -61,7 +61,11 @@ prompt được cache và chi phí, đọc từ `/api/activity/runs`. Kết qu�
 ```bash
 uv run python scripts/llm_bench.py --models deepseek/deepseek-v4-flash,qwen/qwen3.7-flash --out /tmp/llm-bench
 uv run python scripts/llm_bench.py --models deepseek/deepseek-v4-flash --tasks multi --out /tmp/llm-bench
+uv run python scripts/llm_bench.py --models deepseek/deepseek-v4-flash@deepinfra --out /tmp/llm-bench
 ```
+
+Dạng `model@provider` ghim một provider OpenRouter (`openrouter_providers`, không dự phòng) trong
+home tạm, để so cùng một model qua các bên khác nhau.
 
 Một lượt hỏi người dùng (`ask_user`) tính là hỏng — bench không có ai trả lời; yêu cầu duyệt
 tool thì bench tự duyệt và tính vào thời gian lượt. Cổng bận thì script từ chối chạy thay vì

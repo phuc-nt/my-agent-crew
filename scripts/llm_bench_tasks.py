@@ -115,8 +115,9 @@ TASKS: tuple[Task, ...] = (
 
 
 def seed_home(home: Path, model: str) -> None:
-    """A fresh home for one model: its route, autonomy so tools do not wait on a person,
-    two worker agents to delegate to, and the files the tasks read."""
+    """A fresh home for one model: its route (with the provider pinned when the name is
+    `model@provider`), autonomy so tools do not wait on a person, two worker agents to
+    delegate to, and the files the tasks read."""
     workspace = home / "workspace"
     (workspace / "data").mkdir(parents=True)
     (workspace / "docs").mkdir()
@@ -127,10 +128,12 @@ def seed_home(home: Path, model: str) -> None:
         (home / "agents" / agent_id / "agent.yaml").write_text(
             WORKER_AGENT_YAML.format(name=agent_id.capitalize(), description=description)
         )
+    model, _, provider = model.partition("@")
     route = model if ":" in model else f"openrouter:{model}"
-    (home / "config.yaml").write_text(
-        f"routes:\n  - {route}\nautonomous_default: true\ncost_cap_usd: 2.0\n"
-    )
+    config = f"routes:\n  - {route}\nautonomous_default: true\ncost_cap_usd: 2.0\n"
+    if provider:  # `model@provider` pins one OpenRouter provider, no fallback
+        config += f"openrouter_providers: [{provider}]\nopenrouter_provider_fallbacks: false\n"
+    (home / "config.yaml").write_text(config)
 
 
 def child_runs(runs: list[dict[str, Any]]) -> int:

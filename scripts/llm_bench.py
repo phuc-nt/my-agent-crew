@@ -63,7 +63,8 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--models",
         required=True,
-        help="comma-separated OpenRouter model ids; `provider:model` names another provider",
+        help="comma-separated OpenRouter model ids; `model@provider` pins an OpenRouter "
+        "provider, `provider:model` names another provider",
     )
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
