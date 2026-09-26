@@ -83,6 +83,22 @@ describe("api", () => {
     expect(JSON.parse(String(init?.body))).toEqual({ approve: false });
   });
 
+  // Stop can only cut a resumed turn if the signal reaches the fetch that streams it.
+  it("forwards the abort signal on a decision and on an answer", async () => {
+    const done = 'data: {"type":"done","spent_usd":0,"unknown_cost_calls":0}\n\n';
+    fetchMock.mockResolvedValueOnce(sseResponse(done)).mockResolvedValueOnce(sseResponse(done));
+    const decision = new AbortController();
+    const answer = new AbortController();
+    await api.resolveApproval("c1", "ap1", true, () => undefined, false, decision.signal);
+    await api.answerApproval("c1", "q1", "có", () => undefined, answer.signal);
+
+    const [[, decideInit], [answerUrl, answerInit]] = fetchMock.mock.calls;
+    expect(decideInit?.signal).toBe(decision.signal);
+    expect(answerUrl).toBe("/api/conversations/c1/approvals/q1/answer");
+    expect(JSON.parse(String(answerInit?.body))).toEqual({ answer: "có" });
+    expect(answerInit?.signal).toBe(answer.signal);
+  });
+
   it("rejects a streaming call whose response is an error", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ detail: "busy" }, 409));
     await expect(api.sendMessage("c1", "x", () => undefined)).rejects.toMatchObject({ status: 409, message: "busy" });
