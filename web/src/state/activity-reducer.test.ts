@@ -146,6 +146,22 @@ describe("applyRunEvent", () => {
     expect(applyRunEvent(run(), { type: "model_call", stage: "sent" }).steps).toEqual([]);
   });
 
+  it("labels a paused question by what it asked and leaves its step open, as the server does", () => {
+    const asked = applyRunEvent(run(), {
+      type: "approval_required",
+      approval_id: "a",
+      tool_call_id: "t",
+      name: "ask_user",
+      arguments: { question: "Dời hạn sang thứ sáu?" },
+      reason: "",
+      expires_at: "",
+      kind: "question",
+      options: ["có", "không"],
+    });
+    expect(asked.summary).toBe("Dời hạn sang thứ sáu?");
+    expect(asked.steps).toEqual([{ kind: "question", question: "Dời hạn sang thứ sáu?", duration_ms: null }]);
+  });
+
   it("records a route fallback as its own step so a failing route is visible", () => {
     const fell = applyRunEvent(run(), { type: "route_fallback", provider: "openrouter", model: "glm", error: "HTTP 429 from glm" });
     expect(fell.steps).toEqual([{ kind: "fallback", provider: "openrouter", model: "glm", error: "HTTP 429 from glm", duration_ms: null }]);

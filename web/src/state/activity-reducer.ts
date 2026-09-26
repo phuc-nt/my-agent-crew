@@ -88,9 +88,19 @@ export function applyRunEvent(run: RunInfo, e: AgentEvent): RunInfo {
       if (at >= 0) steps[at] = { ...(steps[at] as Extract<RunStep, { kind: "tool" }>), ...patch };
       break;
     }
-    case "approval_required":
+    case "approval_required": {
+      // As on the server, a question is summarised by what it asked and leaves its step
+      // open. The open step is what labels the pause "đang hỏi bạn": without it a run that
+      // paused on the live stream reads as a permission request until the list reloads.
+      const asked = e.kind === "question" && typeof e.arguments.question === "string" ? e.arguments.question : "";
+      if (asked) {
+        steps.push({ kind: "question", question: preview(asked), duration_ms: null });
+        summary = asked;
+        break;
+      }
       summary = e.reason ? `${e.name} (${e.reason})` : e.name;
       break;
+    }
     case "halted":
       summary = e.reason;
       spent_usd = e.spent_usd;
