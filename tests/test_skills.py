@@ -78,3 +78,12 @@ def test_system_prompt_lists_tools_and_skills_in_chosen_language():
     text_en = build_system_prompt(en, [skill], ["workspace_read"])
     assert "workspace_read" in text_vi and "Rule K" in text_vi and "tiếng Việt" in text_vi
     assert "Rule K" in text_en and "English" in text_en
+
+
+def test_the_frame_asks_for_independent_tool_calls_in_one_turn():
+    """Two lookups that do not depend on each other cost one model call, not two, when
+    the model batches them; the frame says so in the language it is written in."""
+    vi = Settings(home="/tmp/x", routes=(Route("fake", "echo"),))
+    assert "cùng một lượt" in build_system_prompt(vi, [], ["workspace_read"])
+    en = Settings(home="/tmp/x", routes=(Route("fake", "echo"),), language="en")
+    assert "in one turn" in build_system_prompt(en, [], ["workspace_read"])

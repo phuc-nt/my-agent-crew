@@ -24,6 +24,19 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 - **`scripts/llm_bench.py`** benchmarks candidate models on the agent loop itself: each model gets a
   throwaway home, its own server and port, no Telegram token and no live routes; five tasks (a bare
   reply, write-then-read, a shell command, a delegation, a document summary) are scored and timed.
+- **A delegated answer is handed on whole.** When a turn was one `delegate` call and nothing else and
+  the child finished, the child's answer becomes the reply, with its charts and files, instead of
+  costing one more model call to retell it. The relayed message carries no provider or model and adds
+  no model step to the run. The delegator can keep the last word with `relay: false` on the call; a
+  child that stopped short, answered nothing or reported `BLOCKED` still goes back through the
+  delegator, as do turns with more than one tool call.
+- **A delegated child is told to conclude before it runs out of steps.** From its 25th model call
+  (or one before its own `max_steps`, whichever is lower) the child gets a wrap-up note and no tools,
+  so what comes back is an answer rather than a halted fragment. The note is stored in the child's
+  conversation. A turn the person started keeps its tools to the hard cap as before.
+- **The frame asks for independent tool calls in one turn.** Two reads or two lookups that do not
+  depend on each other cost one model round-trip when the model batches them; the system prompt now
+  says so, in Vietnamese and English.
 
 ### Changed
 

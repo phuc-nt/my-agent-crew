@@ -312,3 +312,17 @@ async def test_a_run_paused_for_approval_is_not_finished(deps_factory):
     await collect(tracked(hub, resumed, "default", "chat", "t", conv.id))
     run = await hub.wait_finished(conv.id, timeout=2.0)
     assert run is not None and run.status == DONE
+
+
+def test_a_reply_handed_on_from_a_child_is_not_a_model_step():
+    """The delegator's model did not speak: the child's answer was relayed whole. The
+    run shows only the delegating call and the tool step, and stays counted right."""
+    run = fresh_run()
+    call = {"id": "d1", "name": "delegate", "arguments": {"task": "đếm", "agent": "w"}}
+    apply_event(run, AssistantMessageEvent(1, "", [call], "p", "m", 0.001), 10.0)
+    apply_event(run, ToolCallEvent("d1", "delegate", {"task": "đếm", "agent": "w"}), 10.1)
+    apply_event(run, ToolResultEvent("d1", "delegate", True, "Có 3 tệp."), 15.0)
+    apply_event(run, AssistantMessageEvent(2, "Có 3 tệp.", [], None, None, 0.0), 15.0)
+    apply_event(run, DoneEvent(0.001, 1), 15.0)
+    assert [s["kind"] for s in run.steps] == ["model", "tool"]
+    assert run.status == DONE

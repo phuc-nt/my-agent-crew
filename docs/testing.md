@@ -79,7 +79,7 @@ trong `MY_AGENT_HOME/workspace`. Với profile agent có lịch: `POST /api/jobs
 phải tạo ra một run trên `/api/activity/runs` và một thẻ trong rail. Với ít nhất một agent
 khác đã cài: `POST /api/inbound {"text": "Nhờ kongming …"}` (với `fake:echo`, viết thẳng
 `/tool delegate {"agent": "kongming", "task": "…"}` vì provider giả không tự chọn tool) phải trả
-lời bằng tóm tắt của master và để lại một run con có `source` là `delegate:<conversation id>` trên
-`/api/activity/runs`. Đây là bước kiểm tra cần lặp lại trước khi gắn tag phát hành. Duyệt tool
+lời bằng chính lời của agent con (lượt chỉ có một lần giao việc thì không kể lại) và để lại một
+run con có `source` là `delegate:<conversation id>` trên `/api/activity/runs`. Đây là bước kiểm tra cần lặp lại trước khi gắn tag phát hành. Duyệt tool
 qua API: id nằm trong sự kiện SSE `approval_required` của luồng tin nhắn, vì `GET /api/approvals`
 chỉ liệt kê các yêu cầu đã được quyết.

@@ -31,8 +31,9 @@ class AssistantMessageEvent:
     message_id: int
     content: str
     tool_calls: list[dict[str, Any]]
-    provider: str
-    model: str
+    # Both None when no model spoke: the reply was handed on whole from a delegated child.
+    provider: str | None
+    model: str | None
     cost_usd: float | None
     prompt_tokens: int | None = None
     cached_tokens: int | None = None

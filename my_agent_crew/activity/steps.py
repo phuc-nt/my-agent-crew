@@ -70,6 +70,11 @@ def apply_event(run: RunRecord, event: Event, clock: float) -> None:
             pending["chars"] = int(pending.get("chars", 0)) + len(event.text)
         return
     if isinstance(event, AssistantMessageEvent):
+        if event.provider is None:
+            # A child's answer handed on as this reply: no model spoke, so there is no
+            # step to time or bill. The delegate tool step already shows the answer.
+            run.status = RUNNING
+            return
         step = _model_step(run, clock)
         if not step.get("chars"):
             step["chars"] = len(event.content)

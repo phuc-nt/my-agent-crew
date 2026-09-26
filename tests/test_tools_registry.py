@@ -108,3 +108,17 @@ def test_specs_and_describe_expose_approval_flag():
     assert reg.names() == ["w", "r"]
     assert [s.name for s in reg.specs()] == ["w", "r"]
     assert reg.describe()[0]["requires_approval"] is True
+
+
+async def test_a_reply_a_tool_sets_survives_the_shaping_of_its_output():
+    """`delegate` sends the child's answer whole beside a tool output that may be cut;
+    the loop must be able to hand on the answer, not the cut."""
+    from my_agent_crew.tools.registry import ToolResult
+
+    answer = "y" * (MAX_OUTPUT_CHARS + 500)
+
+    async def relaying(args):
+        return ToolResult(ok=True, output="header\n" + answer, reply=answer)
+
+    result = await ToolRegistry([tool(run=relaying)]).execute("t", {})
+    assert len(result.output) <= MAX_OUTPUT_CHARS and result.reply == answer

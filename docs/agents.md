@@ -271,6 +271,16 @@ bị xoá. Hai điều khiến nó khác một người dẫn đầu work:
   về các id đã cho. Bất kỳ agent nào khác chỉ với tới những gì nó liệt kê.
 - **Nó luôn có `delegate`.** Tool này được nối cho master, cho agent work, và cho
   bất kỳ profile nào có danh sách `delegates`; danh sách cho phép `tools` vẫn chặn được nó.
+- **Câu trả lời của con đi thẳng khi lượt chỉ là một lần giao việc.** Nếu master (hay bất kỳ
+  agent nào giao việc) chỉ gọi `delegate` một lần trong lượt, không gọi tool nào khác, và agent
+  con làm xong, câu trả lời của con — kèm biểu đồ, tệp nó gửi — trở thành câu trả lời của lượt,
+  không qua một lần gọi model nữa để kể lại. Tin nhắn chuyển tiếp không ghi provider/model và
+  không tính là bước model. Đặt `relay: false` trên lệnh gọi khi còn phải làm tiếp với kết quả;
+  con dừng giữa chừng, trả lời rỗng hoặc báo `BLOCKED` thì vẫn về tay agent giao việc.
+- **Con được nhắc kết luận trước khi hết bước.** Từ lần gọi model thứ 25 (hoặc một lần trước
+  `max_steps` của chính nó, nếu thấp hơn) agent con nhận ghi chú kết luận và không còn tool, để
+  thứ trả về là một câu trả lời chứ không phải một mảnh bị trần bước cắt. Ghi chú nằm trong cuộc
+  trò chuyện của con. Lượt do người dùng mở giữ tool tới trần cứng như trước.
 
 Mỗi lượt, system prompt của master mang một mục roster: một
 dòng cho mỗi agent nó với tới được, gồm id, tên, mode, mô tả và workspace, theo sau là hướng dẫn

@@ -41,6 +41,10 @@ class ToolResult:
     # built on the whole thing.
     shaped_kind: str = "none"
     original_chars: int = 0
+    # Set by a tool whose output already is an answer for the person (`delegate`, when the
+    # child finished): the answer whole, untouched by shaping. When that call was the
+    # turn's only one, the loop hands it on instead of paying a model to retell it.
+    reply: str | None = None
 
 
 # A runner returns its text, or a `ToolResult` when it has more to say than text.

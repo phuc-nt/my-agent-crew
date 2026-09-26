@@ -11,6 +11,8 @@ import pytest
 from my_agent_crew import texts
 from my_agent_crew.activity import ActivityHub
 from my_agent_crew.config import Route
+from my_agent_crew.llm.fake import completion
+from my_agent_crew.llm.types import ToolCall
 from my_agent_crew.server.runtime import Runtime
 from my_agent_crew.store import Store
 from my_agent_crew.store.runs import DONE, HALTED, RunRecord
@@ -22,13 +24,16 @@ UNFINISHED = texts.DELEGATE_UNFINISHED.split("(")[0]
 
 @pytest.fixture
 def runtime(deps_factory, store: Store) -> Runtime:
-    """A worker allowed two steps: it asks for a tool, the tool runs, and it is stopped before
-    it can close the turn — the step cap a real child hit mid-verification."""
+    """A worker allowed three steps that asks for a tool on every one of them, wrap-up note
+    or not, and so is stopped before it can close the turn — the step cap a real child hit
+    mid-verification."""
     base = deps_factory(routes=(Route("fake", "echo"),))
-    worker = agent(base, "worker")
+    write = ToolCall("w", "workspace_write", {"path": "note.md", "content": "rpe 4"})
+    stubborn = deps_factory(script=[completion(tool_calls=(write,)) for _ in range(3)])
+    worker = agent(stubborn, "worker")
     agents = {
         "boss": agent(base, "boss", delegates=("worker",)),
-        "worker": replace(worker, settings=replace(worker.settings, max_steps=2)),
+        "worker": replace(worker, settings=replace(worker.settings, max_steps=3)),
     }
     rt = Runtime(base.settings, store, agents, ActivityHub(store))
     rt.wire_delegation()
@@ -37,8 +42,7 @@ def runtime(deps_factory, store: Store) -> Runtime:
 
 async def test_a_halted_child_reports_the_calls_that_went_through(runtime: Runtime):
     parent = runtime.store.create(agent_id="boss", autonomous=True)
-    task = '/tool workspace_write {"path": "note.md", "content": "rpe 4"}'
-    out = await delegate(runtime, parent.id, "call-1", task=task, agent="worker")
+    out = await delegate(runtime, parent.id, "call-1", task="ghi RPE 4", agent="worker")
 
     child = runtime.store.for_parent_call("call-1")
     assert (runtime.deps_for("worker").profile.workspace / "note.md").exists()

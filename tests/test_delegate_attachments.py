@@ -68,15 +68,31 @@ async def test_an_attachment_that_cannot_be_carried_over_is_said_in_words(
     assert "MEDIA:" not in out.replace(texts.DELEGATE_ATTACHMENT_LOST.format(path=path), "")
 
 
-def _boss_script(final: str):
-    call = ToolCall("c1", DELEGATE_TOOL_NAME, {"task": TASK, "agent": "worker"})
+def _boss_script(final: str, **args):
+    call = ToolCall("c1", DELEGATE_TOOL_NAME, {"task": TASK, "agent": "worker", **args})
     return [completion(tool_calls=(call,)), completion(final)]
+
+
+async def test_a_relayed_answer_carries_the_chart_at_its_new_path(
+    deps_factory, store: Store, tmp_path: Path
+):
+    """When the child's answer is handed on whole, the chart line it carries is already
+    the copied one, so the person gets the chart without a retelling at all."""
+    rt = _crew(deps_factory, store, tmp_path, _boss_script("không được gọi tới"))
+    conv = rt.store.create(agent_id="boss", autonomous=True)
+    await collect(run_turn(rt.deps_for("boss"), conv.id, "tôi ngủ thế nào?"))
+
+    child = rt.store.for_parent_call("c1")
+    final = rt.store.history(conv.id)[-1].message.content
+    assert final.startswith("(echo) Tình hình ngủ")
+    assert final.endswith(f"MEDIA: {RELAY_DIR}/{child.id}/sleep.png")
 
 
 async def test_the_final_reply_gets_back_charts_the_retelling_dropped(
     deps_factory, store: Store, tmp_path: Path
 ):
-    rt = _crew(deps_factory, store, tmp_path, _boss_script("Anh ngủ ổn."))
+    # `relay: false`: the boss keeps the last word, and its retelling drops the chart.
+    rt = _crew(deps_factory, store, tmp_path, _boss_script("Anh ngủ ổn.", relay=False))
     conv = rt.store.create(agent_id="boss", autonomous=True)
     await collect(run_turn(rt.deps_for("boss"), conv.id, "tôi ngủ thế nào?"))
 

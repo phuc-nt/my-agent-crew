@@ -102,7 +102,11 @@ vẫn hỏi, và trần vẫn dừng lượt. Agent work cũng nhận `delegate`
 agent khác trong home; system prompt của nó liệt kê đội đó mỗi lượt. Điều này giữ sản phẩm là
 "một agent giỏi, tự chủ" trong khi vẫn cho nó bố trí người cho một job: người dùng không chọn
 agent, master chọn — trên web cũng như trên Telegram. Đội giữ lịch của mình và đơn giản là
-cũng có tên trong danh sách. Chi tiết: [agents.md](agents.md#agent-master).
+cũng có tên trong danh sách. Khi một lượt của master chỉ là một lần `delegate` và agent con làm
+xong, câu trả lời của con được chuyển nguyên văn cho người dùng (`agent/delegate_relay.py`) thay
+vì tốn thêm một lần gọi model để kể lại; agent con, từ lần gọi thứ 25, được nhắc kết luận và
+không còn tool (`agent/child_wrap_up.py`) để không bị trần bước cắt giữa chừng. Chi tiết:
+[agents.md](agents.md#agent-master).
 
 **Mẫu.** Ba profile đi kèm ứng dụng — một lập trình viên, một cố vấn và một nghiên cứu viên — cài bằng
 `agent add <id>` hoặc `POST /api/agents/install` (thứ mà tab đội gọi), kéo theo các agent

@@ -12,7 +12,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from my_agent_crew.agent.tool_calls import _allowed, needs_decision
+from my_agent_crew.agent.tool_gate import allowed_by_pattern, needs_decision
 from my_agent_crew.agents.profile_edit import apply_patch
 from my_agent_crew.agents.profile_yaml import load_yaml_profiles
 from my_agent_crew.config import load_settings
@@ -138,7 +138,7 @@ def test_a_tool_the_person_always_allows_still_runs():
 
 
 class FakeDeps:
-    """`_allowed` reads nothing but the settings, so a real registry and store would only
+    """`allowed_by_pattern` reads nothing but the settings, so a real registry and store would only
     obscure what the test is about."""
 
     def __init__(self, patterns: tuple[str, ...]):
@@ -150,16 +150,16 @@ def test_only_a_shell_call_is_matched_against_the_allow_list():
     Matching a pattern against another tool's arguments would allow a whole tool because
     one field happened to contain the text."""
     deps = FakeDeps(("git status",))
-    assert _allowed(deps, SHELL_TOOL_NAME, {"command": "git status"}) is True
-    assert _allowed(deps, "shell_write", {"command": "git status"}) is False
+    assert allowed_by_pattern(deps, SHELL_TOOL_NAME, {"command": "git status"}) is True
+    assert allowed_by_pattern(deps, "shell_write", {"command": "git status"}) is False
 
 
 def test_a_shell_call_with_no_command_is_not_allowed():
-    assert _allowed(FakeDeps(("git status",)), SHELL_TOOL_NAME, {}) is False
+    assert allowed_by_pattern(FakeDeps(("git status",)), SHELL_TOOL_NAME, {}) is False
 
 
 def test_an_empty_allow_list_allows_nothing():
-    assert _allowed(FakeDeps(()), SHELL_TOOL_NAME, {"command": "git status"}) is False
+    assert allowed_by_pattern(FakeDeps(()), SHELL_TOOL_NAME, {"command": "git status"}) is False
 
 
 def test_the_two_real_agents_are_unchanged_by_default(tmp_path: Path):

@@ -27,9 +27,10 @@ from my_agent_crew.agent.turn_context import (
 from my_agent_crew.agents import AgentProfile
 from my_agent_crew.agents.roster import DELEGATE_TOOL_NAME, delegate_targets
 from my_agent_crew.store.models import Conversation
+from my_agent_crew.store.runs import DONE
 from my_agent_crew.tools.delegate_attachments import relay_attachments
 from my_agent_crew.tools.delegate_report import unfinished_note
-from my_agent_crew.tools.registry import Tool, ToolError
+from my_agent_crew.tools.registry import Tool, ToolError, ToolResult
 
 if TYPE_CHECKING:  # the runtime builds this tool, so importing it back would be a cycle
     from my_agent_crew.server.runtime import Runtime
@@ -53,7 +54,7 @@ def build_delegate_tool(runtime: Runtime, profile: AgentProfile) -> Tool:
     targets = delegate_targets(profile, {p.id: p for p in runtime.profiles()})
     allowed = (profile.id, *targets)
 
-    async def run(args: dict[str, Any]) -> str:
+    async def run(args: dict[str, Any]) -> ToolResult:
         if turn_depth() >= 1:
             raise ToolError(texts.DELEGATE_TOO_DEEP)
         task = str(args.get("task") or "").strip()
@@ -82,6 +83,7 @@ def build_delegate_tool(runtime: Runtime, profile: AgentProfile) -> Tool:
                     "items": {"type": "string"},
                     "description": texts.DELEGATE_PARAM_SKILLS,
                 },
+                "relay": {"type": "boolean", "description": texts.DELEGATE_PARAM_RELAY},
             },
             "required": ["task"],
         },
@@ -92,8 +94,10 @@ def build_delegate_tool(runtime: Runtime, profile: AgentProfile) -> Tool:
 
 async def _delegate(
     runtime: Runtime, profile: AgentProfile, target: str, task: str, args: dict[str, Any]
-) -> str:
-    """Opens (or re-finds) the child conversation, runs it, and reports what came back."""
+) -> ToolResult:
+    """Opens (or re-finds) the child conversation, runs it, and reports what came back.
+    A finished child's answer also rides along whole as `reply`, so the loop can hand it
+    to the person without another model call when nothing else happened this turn."""
     parent_id = turn_conversation_id()
     parent = runtime.store.get(parent_id) if parent_id else None
     call_id = tool_call_id()
@@ -122,7 +126,8 @@ async def _delegate(
         child.id,
     )
     body = f"{note}\n\n{answer}" if note else answer
-    return f"{header}\n{body}"
+    relay = run.status == DONE and args.get("relay", True) is not False
+    return ToolResult(ok=True, output=f"{header}\n{body}", reply=answer if relay else None)
 
 
 def _children(runtime: Runtime, parent: Conversation | None) -> list[Conversation]:

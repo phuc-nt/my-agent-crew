@@ -4,9 +4,9 @@ function: settle unfinished tool calls, then either finish or ask the model agai
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Mapping, Sequence
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 
-from my_agent_crew import texts
+from my_agent_crew.agent.child_wrap_up import nudge_to_conclude, wrap_up_due
 from my_agent_crew.agent.events import (
     ApprovalRequiredEvent,
     AssistantMessageEvent,
@@ -20,6 +20,7 @@ from my_agent_crew.agent.events import (
     ThinkingEvent,
 )
 from my_agent_crew.agent.prompt import turn_messages
+from my_agent_crew.agent.reply_checks import blank_reply_event, with_dropped_attachments
 from my_agent_crew.agent.tool_calls import settle_tool_calls
 from my_agent_crew.agent.turn_context import (
     CHAT,
@@ -36,12 +37,12 @@ from my_agent_crew.llm.types import (
     RouteFailed,
     StreamStarted,
     TextDelta,
+    ToolSpec,
 )
 from my_agent_crew.skills import Skill
 from my_agent_crew.store import Conversation, Store, StoredMessage
 from my_agent_crew.store.models import AWAITING_APPROVAL
 from my_agent_crew.tools import ToolRegistry
-from my_agent_crew.tools.delegate_attachments import dropped_attachments
 
 
 class ConversationBusy(Exception):
@@ -93,7 +94,7 @@ async def run_turn(
                     spent_usd=conv.spent_usd, unknown_cost_calls=conv.unknown_cost_calls
                 )
                 return
-            blank = _blank_reply_event(history[-1], empty_replies)
+            blank = blank_reply_event(history[-1], empty_replies)
             if blank is not None:
                 yield blank
                 return
@@ -105,8 +106,12 @@ async def run_turn(
         if conv.over_budget:
             yield HaltedEvent(reason="budget", spent_usd=conv.spent_usd)
             return
+        # A delegated child near its soft cap is told to conclude and given no tools.
+        tools: Sequence[ToolSpec] = deps.tools.specs()
+        if wrap_up_due(conv, history, deps.settings.max_steps):
+            history, tools = nudge_to_conclude(deps.store, conv, history), ()
         try:
-            async for event in _complete(deps, conv, history):
+            async for event in _complete(deps, conv, history, tools):
                 yield event
         except ProviderError as exc:
             yield ErrorEvent(message=str(exc))
@@ -115,29 +120,17 @@ async def run_turn(
     yield HaltedEvent(reason="max_steps", spent_usd=conv.spent_usd)
 
 
-def _blank_reply_event(blank: StoredMessage, already_retried: int) -> ErrorEvent | None:
-    """A reply with neither text nor a tool call is not a finished turn, it is a
-    provider that returned nothing — ending there leaves the user looking at their own
-    message with no sign anything happened. One more attempt usually gets a real
-    answer; twice in a row is a fault worth naming, since the call was billed either
-    way. `None` means retry."""
-    if already_retried < 1:
-        return None
-    return ErrorEvent(
-        message=texts.BLANK_COMPLETION.format(
-            provider=blank.provider or "?", model=blank.model or "?"
-        )
-    )
-
-
 async def _complete(
-    deps: AgentDeps, conv: Conversation, history: Sequence[StoredMessage]
+    deps: AgentDeps,
+    conv: Conversation,
+    history: Sequence[StoredMessage],
+    tools: Sequence[ToolSpec],
 ) -> AsyncIterator[Event]:
     messages = turn_messages(deps, conv, history)
     completion: Completion | None = None
     thinking = False
     yield ModelCallEvent(stage="sent")
-    async for item in deps.chain.stream(messages, deps.tools.specs()):
+    async for item in deps.chain.stream(messages, tools):
         if isinstance(item, TextDelta):
             yield TextDeltaEvent(text=item.text)
         elif isinstance(item, ReasoningDelta):
@@ -152,7 +145,7 @@ async def _complete(
             completion = item
     if completion is None:
         raise ProviderError("stream ended without a completion")
-    completion = _with_dropped_attachments(completion, history)
+    completion = with_dropped_attachments(completion, history)
     stored = deps.store.append(
         conv.id,
         completion.message,
@@ -178,18 +171,3 @@ async def _complete(
         prompt_tokens=completion.usage.prompt_tokens,
         cached_tokens=completion.usage.cached_tokens,
     )
-
-
-def _with_dropped_attachments(
-    completion: Completion, history: Sequence[StoredMessage]
-) -> Completion:
-    """A final reply that retold a delegated answer gets back the charts and files the
-    retelling left out, so they reach the person on the web and on Telegram alike."""
-    message = completion.message
-    if message.tool_calls or not message.content.strip():
-        return completion
-    missing = dropped_attachments(history, message.content)
-    if not missing:
-        return completion
-    content = message.content.rstrip() + "\n\n" + "\n".join(missing)
-    return replace(completion, message=replace(message, content=content))

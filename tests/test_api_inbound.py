@@ -110,7 +110,8 @@ def test_the_master_delegates_and_the_childs_answer_comes_back_over_http(crew):
     assert body["agent_id"] == "default" and body["steps"] == 2
     [child] = runtime.store.list("researcher")
     assert "sqlite" in child.title
-    assert "Kết quả công cụ delegate" in body["text"]
+    # One delegation and nothing else: the child's answer comes back in its own words.
+    assert body["text"] == "(echo) tìm ba nguồn về sqlite"
     sources = {r.source.split(":")[0] for r in runtime.hub.recent()}
     assert sources == {API, DELEGATE}
 
