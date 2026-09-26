@@ -32,6 +32,8 @@ interface Props {
   jobs: JobInfo[] | null;
   stats: StatsInfo | null;
   settings: SettingsInfo | null;
+  /** The build this page runs and the one the server runs, shown under Settings. */
+  versions?: { page: string | null; server: string | null };
   agents: AgentInfo[];
   agentId: string;
   agentName: (id: string) => string;
@@ -365,6 +367,7 @@ export function ManageScreen(props: Props) {
               settings={props.settings}
               agents={props.agents}
               onNavigate={props.onNavigate}
+              versions={props.versions}
             />
           )}
         </ErrorBoundary>

@@ -13,6 +13,8 @@ interface Props {
   onClose?: () => void;
   /** Jumps to the section where a summarised thing is actually changed. */
   onNavigate?: (section: ManageSection) => void;
+  /** The build this page runs and the one the server runs, as far as they are known. */
+  versions?: { page: string | null; server: string | null };
 }
 
 /**
@@ -21,8 +23,9 @@ interface Props {
  * skills are. Each card answers one question at a glance; where a thing is changed
  * elsewhere, the card says so with a link instead of repeating that section's list.
  */
-export function SettingsPanel({ settings, agents = [], onClose, onNavigate }: Props) {
+export function SettingsPanel({ settings, agents = [], onClose, onNavigate, versions }: Props) {
   const t = vi.settingsSections;
+  const versionLine = versions ? t.versions(versions.page, versions.server) : "";
   const crew = [...agents].sort((a, b) => Number(b.is_master) - Number(a.is_master));
   const link = (section: ManageSection, label: string) =>
     onNavigate && (
@@ -41,6 +44,12 @@ export function SettingsPanel({ settings, agents = [], onClose, onNavigate }: Pr
             <Icon name="close" />
           </button>
         </header>
+      )}
+      {/* Outside the cards, so it still shows when the settings call failed. */}
+      {versionLine && (
+        <p className="muted settings-versions" data-testid="settings-versions">
+          {versionLine}
+        </p>
       )}
       <div className="metric-grid">
         {!settings && <p className="muted">{vi.loadFailed}</p>}

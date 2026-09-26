@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "./api/client";
 import type { SettingsInfo, TemplateInfo } from "./api/types";
 import { ErrorBoundary } from "./components/error-boundary";
+import { UpdateBar } from "./components/update-bar";
 import { useActivity } from "./hooks/use-activity";
 import { useAttention } from "./hooks/use-attention-badge";
 import { useCrew } from "./hooks/use-agents";
@@ -9,6 +10,7 @@ import { useConversations } from "./hooks/use-conversations";
 import { useExternalRunRefresh } from "./hooks/use-external-run-refresh";
 import { type ManageSection, type Route, useRoute } from "./hooks/use-route";
 import { useThread } from "./hooks/use-thread";
+import { useVersionCheck } from "./hooks/use-version-check";
 import { ChatScreen } from "./screens/chat-screen";
 import { ManageScreen } from "./screens/manage-screen";
 import { liveRuns, needsAttention, sortedRuns } from "./state/activity-reducer";
@@ -28,6 +30,7 @@ export function App() {
   const crew = useCrew();
   const activity = useActivity(true, list.applyUpdate);
   const externalRun = useExternalRunRefresh(list.activeId, thread, activity);
+  const version = useVersionCheck(activity.state.connected);
   const [settings, setSettings] = useState<SettingsInfo | null>(null);
   const [templates, setTemplates] = useState<TemplateInfo[]>([]);
 
@@ -35,6 +38,17 @@ export function App() {
     api.settings().then(setSettings, () => setSettings(null));
     api.templates().then(setTemplates, () => setTemplates([]));
   }, []);
+
+  // Settings describe a server that may have restarted since the page loaded, so opening
+  // them asks again. A failed ask keeps what was shown rather than blanking it.
+  const settingsOpen = route.kind === "manage" && route.section === "settings";
+  const { check: checkVersion } = version;
+  useEffect(() => {
+    if (!settingsOpen) return;
+    api.settings().then(setSettings, () => {});
+    checkVersion();
+  }, [settingsOpen, checkVersion]);
+  const updateBar = version.stale && <UpdateBar />;
 
   // The address bar is what a shared or bookmarked link carries, so it opens the
   // conversation rather than the other way round. Back and Forward land here too, which
@@ -82,6 +96,7 @@ export function App() {
       fromJob ? { kind: "manage", section: "jobs", param: fromJob } : { kind: "manage", section };
     return (
       <ErrorBoundary>
+        {updateBar}
         <ManageScreen
           section={route.section}
           runs={runs}
@@ -90,6 +105,7 @@ export function App() {
           jobs={crew.jobs}
           stats={crew.stats}
           settings={settings}
+          versions={{ page: version.pageVersion, server: version.serverVersion }}
           agents={crew.agents}
           agentId={active?.agent_id ?? crew.master?.id ?? "default"}
           agentName={crew.agentName}
@@ -130,6 +146,7 @@ export function App() {
   // the rest of the chat, which would otherwise leave a blank page.
   return (
     <ErrorBoundary>
+      {updateBar}
       <ChatScreen
         list={list}
         thread={thread}

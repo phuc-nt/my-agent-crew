@@ -20,7 +20,9 @@ lại những trường server suy ra (như `over_budget` từ trần), để te
 cũ. Route của Playwright trả cả thân một lần, nên một stream còn đang chạy khi bấm Dừng được
 dựng ngay trong trang bằng `addInitScript` (test Dừng trong `chat-smoke.spec.ts`); còn run do
 kênh khác chạy và nút Thử lại của luồng trực tiếp có test App riêng trong
-`app-thread-refresh.test.tsx`.
+`app-thread-refresh.test.tsx`. Việc dò bản mới so entry có hash của trang với entry mà `/`
+đang phục vụ, nên nó im trên Vite dev server; `version-refresh.spec.ts` và test App của nó
+gắn một entry giả vào trang để trang trông như bản build.
 
 Fake server của vitest giữ yêu cầu duyệt đang mở như server thật: một lượt dừng ở
 `approval_required` để lại yêu cầu trên cuộc trò chuyện, và quyết định cho một yêu cầu đã đóng

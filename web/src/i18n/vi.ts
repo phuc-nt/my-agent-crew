@@ -429,6 +429,9 @@ export const vi = {
     skills: "Kỹ năng có sẵn",
     crew: "Đội agent",
     system: "Hệ thống",
+    // The page's build and the server's, which differ once the server restarts on a new one.
+    versions: (page: string | null, server: string | null) =>
+      [page && `Giao diện ${page}`, server && `Máy chủ ${server}`].filter(Boolean).join(" · "),
     toolsSummary: (total: number, gated: number) => `${total} · ${gated} ${requiresApproval}`,
     toolsHint: "Công cụ nào agent nào dùng được: xem ở mục Công cụ.",
     openTools: "Xem theo agent →",
@@ -705,6 +708,9 @@ export const vi = {
   },
   crashed: "Giao diện gặp lỗi không mong đợi.",
   reload: "Tải lại",
+  // The server runs a newer build than this page: loading again picks it up.
+  updateAvailable: "Có bản mới",
+  updateReloadLabel: "Tải lại để dùng bản mới",
   statusIdle: "Sẵn sàng",
   statusStreaming: "Agent đang trả lời…",
   statusThinking: "Agent đang suy nghĩ…",

@@ -1,7 +1,7 @@
 /*
  * What the chat says about its own state and how to get out of it: the cost cap's
- * editor behind the budget pill and the budget notices, a stopped turn, and the live
- * stream's pill with its retry.
+ * editor behind the budget pill and the budget notices, a stopped turn, the live
+ * stream's pill with its retry, and the bar offering a newer build.
  */
 
 /* ── Cost cap editor ────────────────────────────────────────────────────── */
@@ -92,7 +92,45 @@
   font-weight: 600;
 }
 
+/* ── Newer build ────────────────────────────────────────────────────────── */
+/* Floats over the top edge: every screen fills the viewport exactly, so a row pushed in
+   above it would make the page scroll. Under the phone drawer (30), over the rest. */
+.update-bar {
+  position: fixed;
+  top: max(var(--space-2), env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  max-width: calc(100vw - 2 * var(--space-4));
+  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-3);
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.update-bar .update-bar-reload {
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: inherit;
+}
+
+/* Settings names both builds, which is how a mismatch is told apart from a bug. */
+.settings-versions {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-sm);
+}
+
 @media (max-width: 720px) {
+  .update-bar .update-bar-reload,
   .cap-editor button,
   .cap-editor input,
   .notice > .link-button,

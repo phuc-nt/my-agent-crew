@@ -155,6 +155,10 @@ export class FakeBackend {
     ],
     agents: [fakeAgent],
   };
+  /** What GET /health reports and GET / serves; a test changes them to play a server
+   *  restarted on another build. */
+  version = "0.8.0";
+  indexHtml = '<script type="module" crossorigin src="/assets/index-first.js"></script>';
   /** Persona files written by PUT /agents/{id}/files/{name}, keyed "<agent>/<name>". */
   personaFiles = new Map<string, string>();
   connections: ConnectionsInfo = {
@@ -202,6 +206,8 @@ export class FakeBackend {
     const memory = this.memoryRoute(path, method, body, url.searchParams);
     if (memory) return memory;
     if (path === "/settings") return json(this.settings);
+    if (path === "/health") return json({ status: "ok", version: this.version });
+    if (path === "/" && method === "GET") return new Response(this.indexHtml, { headers: { "content-type": "text/html" } });
     if (path === "/agents" && method === "POST") return this.createAgent(body.agent_id, body.profile);
     if (path === "/agents") return json(this.master());
     if (path === "/templates") return json(this.templates);

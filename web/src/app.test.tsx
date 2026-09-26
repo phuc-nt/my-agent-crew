@@ -336,6 +336,46 @@ describe("App", () => {
     expect(screen.getByTestId("manage-screen")).toHaveTextContent("/tmp/home/users");
   });
 
+  it("offers a reload once the server runs a newer build than the page", async () => {
+    // A built page: the dev server's source modules carry no hash to compare.
+    const script = document.createElement("script");
+    script.setAttribute("type", "module");
+    script.setAttribute("src", "/assets/index-first.js");
+    document.head.append(script);
+    const clock = vitest.spyOn(Date, "now");
+    try {
+      render(<App />);
+      await screen.findByText(vi.welcomeTitleFor("Agent"));
+      await waitFor(() => expect(backend.requests.some((r) => r.path === "/")).toBe(true));
+      expect(screen.queryByTestId("update-bar")).not.toBeInTheDocument();
+
+      backend.version = "0.9.0";
+      clock.mockReturnValue(Date.now() + 60_000);
+      window.dispatchEvent(new Event("focus"));
+      const bar = await screen.findByTestId("update-bar");
+      expect(bar).toHaveTextContent(vi.updateAvailable);
+      expect(within(bar).getByRole("button", { name: vi.updateReloadLabel })).toHaveTextContent(vi.reload);
+    } finally {
+      clock.mockRestore();
+      script.remove();
+    }
+  });
+
+  it("asks the server again when settings open, and names both builds there", async () => {
+    render(<App />);
+    await screen.findByText(vi.welcomeTitleFor("Agent"));
+    await userEvent.click(screen.getByRole("button", { name: /Quản lý/ }));
+    const loads = () => backend.requests.filter((r) => r.path === "/settings").length;
+    const before = loads();
+
+    backend.version = "0.9.0";
+    await userEvent.click(screen.getByRole("button", { name: vi.settings }));
+    await waitFor(() => expect(loads()).toBe(before + 1));
+    await waitFor(() =>
+      expect(screen.getByTestId("settings-versions")).toHaveTextContent("Giao diện 0.8.0 · Máy chủ 0.9.0"),
+    );
+  });
+
   it("opens the memory section and counts the proposals waiting for a decision", async () => {
     backend.addProposal({ description: "Ngủ trước 23h" });
     render(<App />);

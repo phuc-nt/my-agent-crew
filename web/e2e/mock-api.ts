@@ -186,6 +186,7 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
       route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
     if (method === "POST") posted.push({ path: path + url.search, body: route.request().postDataJSON() });
     if (path === "/settings") return json({ ...settings, agents });
+    if (path === "/health") return json({ status: "ok", version: "0.8.0" });
     // Before the list route below, which matches on path alone: a POST to the same path
     // would otherwise be answered with the crew and never create anything.
     if (path === "/agents" && method === "POST") {
