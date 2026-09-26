@@ -150,4 +150,18 @@ describe("the recent runs log", () => {
     expect(screen.getByTestId("run-card")).toBeInTheDocument();
     expect(retry).toBeEnabled();
   });
+
+  // The failure belongs to the query that failed; filed under the previous one, the log
+  // waited on a load that had already given up.
+  it("offers a retry when another agent's history cannot be read", async () => {
+    backend.runs = many(2);
+    show();
+    await waitFor(() => expect(screen.getAllByTestId("run-card")).toHaveLength(2));
+    vitest.stubGlobal("fetch", () => Promise.reject(new Error("offline")));
+
+    await userEvent.click(chip(vi.runFilters.agent, coachAgent.name));
+
+    expect(await screen.findByRole("button", { name: vi.runFilters.retry })).toBeEnabled();
+    expect(screen.queryByText(vi.runFilters.loading)).not.toBeInTheDocument();
+  });
 });

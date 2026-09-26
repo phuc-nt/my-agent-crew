@@ -50,7 +50,18 @@ export function useRunHistory({
     api
       .listRuns({ limit, agent_id: agentId ?? undefined, conversation_id: conversationId ?? undefined })
       .then((runs) => current && setLoaded({ key, runs, loading: false, failed: false }))
-      .catch(() => current && setLoaded((prev) => ({ ...prev, loading: false, failed: true })));
+      // Filed under this query even when the last answer was another's: left under the
+      // old key, the failure would read as a load still waiting, with no way to retry.
+      .catch(
+        () =>
+          current &&
+          setLoaded((prev) => ({
+            key,
+            runs: prev.key === key ? prev.runs : [],
+            loading: false,
+            failed: true,
+          })),
+      );
     return () => {
       current = false;
     };
