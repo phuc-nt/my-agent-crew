@@ -166,6 +166,7 @@ export const vi = {
   },
   haltedBudget: "Đã dừng vì chạm ngân sách của cuộc trò chuyện.",
   haltedMaxSteps: "Đã dừng vì vượt số bước tối đa trong một lượt.",
+  runInterrupted: "Bị ngắt giữa chừng: máy chủ khởi động lại hoặc kết nối bị đóng.",
   errorPrefix: "Lỗi: ",
   busyConflict: "Cuộc trò chuyện đang chờ duyệt — hãy quyết định trước khi nhắn tiếp.",
   loadFailed: "Không tải được dữ liệu từ máy chủ.",

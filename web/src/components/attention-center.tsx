@@ -1,5 +1,6 @@
 import type { RunInfo } from "../api/types";
 import { vi } from "../i18n/vi";
+import { runSummaryText } from "../lib/run-summary";
 import { formatClock } from "./run-timeline";
 import { Icon, type IconName } from "./ui/icon";
 
@@ -70,7 +71,7 @@ export function AttentionCenter({ runs, agentName, onOpenConversation, parentTit
                     {childNote(run, parentTitle)}
                   </span>
                 )}
-                {run.summary && <span className="run-preview muted">{run.summary}</span>}
+                {run.summary && <span className="run-preview muted">{runSummaryText(run)}</span>}
               </span>
               {run.conversation_id && (
                 <button

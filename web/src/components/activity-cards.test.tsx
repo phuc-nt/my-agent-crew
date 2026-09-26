@@ -223,6 +223,19 @@ describe("AttentionCenter", () => {
     expect(items[1]).toHaveTextContent(vi.attentionAwaiting("Agent"));
   });
 
+  // The server writes some endings as codes. Both places a run is listed must read them
+  // as the same sentence, or the card and the attention row seem to describe two runs.
+  it("reads a halt or interruption code as the run card does", () => {
+    const halted = fakeRun({ id: "h", status: "halted", summary: "max_steps" });
+    const cut = fakeRun({ id: "x", status: "error", summary: "interrupted" });
+    render(<RunCard run={halted} agentName="Agent" />);
+    render(<AttentionCenter agentName={name} onOpenConversation={() => undefined} runs={[halted, cut]} />);
+
+    expect(screen.getAllByText(vi.haltedMaxSteps)).toHaveLength(2);
+    expect(screen.getByText(vi.runInterrupted)).toBeInTheDocument();
+    expect(screen.queryByText("max_steps")).not.toBeInTheDocument();
+  });
+
   it("says when nothing needs a human", () => {
     render(<AttentionCenter agentName={name} onOpenConversation={() => undefined} runs={[]} />);
     expect(screen.getByText(vi.attentionEmpty)).toBeInTheDocument();

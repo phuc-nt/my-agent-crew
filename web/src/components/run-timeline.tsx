@@ -4,6 +4,7 @@ import { vi } from "../i18n/vi";
 import { modelUsageParts } from "../lib/format-usage";
 import { isAnswered, isSettled, stepProgress } from "../lib/run-progress";
 import { runRows, type RunRow } from "../lib/run-rows";
+import { runSummaryText } from "../lib/run-summary";
 import type { RunGroup } from "../state/activity-reducer";
 import { formatUsd } from "./budget-indicator";
 import { RunProgressHeader } from "./run-progress-header";
@@ -53,7 +54,7 @@ export function RunCard({ run, agentName, expanded = false, onOpenConversation, 
                 "chờ duyệt" just before this, and a pill saying it runs would contradict it. */}
             {run.status === "running" && <span className="badge live"> {vi.liveNow}</span>}
           </span>
-          {run.summary && <span className="run-preview muted">{run.summary}</span>}
+          {run.summary && <span className="run-preview muted">{runSummaryText(run)}</span>}
         </span>
       </button>
       {open && (
