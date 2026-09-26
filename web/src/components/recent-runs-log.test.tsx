@@ -116,15 +116,21 @@ describe("the recent runs log", () => {
   it("reaches further back a step at a time and stops at the server's ceiling", async () => {
     backend.runs = many(600);
     show();
-    const more = await screen.findByRole("button", { name: vi.runFilters.more });
+    // Found by text: a role query weighs every one of the hundreds of cards on screen,
+    // which made this test slow enough to time out on a busy machine.
+    const more = () => screen.queryByText(vi.runFilters.more, { selector: "button" });
+    // The button is disabled while a step loads; a click then would ask for nothing.
+    const reach = async (limit: number) => {
+      await waitFor(() => expect(more()).toBeEnabled());
+      await userEvent.click(more() as HTMLElement);
+      await waitFor(() => expect(runsAsked()).toContain(`/activity/runs?limit=${limit}`));
+    };
 
-    await userEvent.click(more);
-    await waitFor(() => expect(runsAsked()).toContain("/activity/runs?limit=200"));
-    await userEvent.click(await screen.findByRole("button", { name: vi.runFilters.more }));
-    await waitFor(() => expect(runsAsked()).toContain("/activity/runs?limit=500"));
+    await reach(200);
+    await reach(500);
 
     await waitFor(() => expect(screen.getAllByTestId("run-card")).toHaveLength(500));
-    expect(screen.queryByRole("button", { name: vi.runFilters.more })).not.toBeInTheDocument();
+    expect(more()).not.toBeInTheDocument();
   });
 
   it("offers no further step when the history is shorter than a page", async () => {
