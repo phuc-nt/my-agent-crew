@@ -1,7 +1,8 @@
-"""What the bench asks of a model and how it scores the answer. Five turns that between
-them touch every part of a turn's cost: a bare reply, a write-then-read, a shell
-command, a delegation, and a read of a seeded document. Prompts are in Vietnamese
-because that is what the crew's agents are spoken to in."""
+"""What the bench asks of a model and how it scores the answer. Five short turns that
+between them touch every part of a turn's cost: a bare reply, a write-then-read, a shell
+command, a delegation, and a read of a seeded document. The longer chains live in
+`llm_bench_tasks_multi.py`. Prompts are in Vietnamese because that is what the crew's
+agents are spoken to in."""
 
 from __future__ import annotations
 
@@ -31,13 +32,18 @@ ngọt tự làm. Vốn ban đầu là 600 triệu đồng, trong đó 40% dành
 Mục tiêu năm đầu là hòa vốn vào tháng thứ 9, với 180 khách mỗi ngày và hoá đơn trung
 bình 65 nghìn đồng. Rủi ro lớn nhất là giá thuê mặt bằng tăng sau năm đầu.
 """
-HELPER_AGENT_YAML = """name: Helper
-description: Làm việc nhỏ được giao — đếm, đọc, tính trên tệp trong workspace.
+WORKER_AGENTS = {
+    "helper": "Làm việc nhỏ được giao — đếm, đọc, tính, ghi tệp trong workspace.",
+    "auditor": "Kiểm tra lại số liệu và tài liệu trong workspace khi được nhờ.",
+}
+WORKER_AGENT_YAML = """name: {name}
+description: {description}
 mode: work
 tools:
   - workspace_list
   - workspace_read
   - workspace_grep
+  - workspace_write
   - shell_run
 workspace: ../../workspace
 routes: []
@@ -51,7 +57,7 @@ class Task:
     id: str
     prompt: str
     passed: Callable[[str, Path], bool]
-    needs_child: bool = False
+    children: int = 0  # delegated runs the turn must have produced to count as passed
 
 
 def _contains(*needles: str) -> Callable[[str, Path], bool]:
@@ -97,7 +103,7 @@ TASKS: tuple[Task, ...] = (
         "Nhờ helper đếm số dòng dữ liệu (không tính dòng tiêu đề) trong data/sales.csv "
         "rồi báo lại cho tôi con số đó.",
         _has_number(SALES_ROWS),
-        needs_child=True,
+        children=1,
     ),
     Task(
         "summary",
@@ -110,23 +116,29 @@ TASKS: tuple[Task, ...] = (
 
 def seed_home(home: Path, model: str) -> None:
     """A fresh home for one model: its route, autonomy so tools do not wait on a person,
-    a helper agent to delegate to, and the files the tasks read."""
+    two worker agents to delegate to, and the files the tasks read."""
     workspace = home / "workspace"
     (workspace / "data").mkdir(parents=True)
     (workspace / "docs").mkdir()
     (workspace / "data" / "sales.csv").write_text(SALES_CSV)
     (workspace / "docs" / "brief.md").write_text(BRIEF_MD)
-    (home / "agents" / "helper").mkdir(parents=True)
-    (home / "agents" / "helper" / "agent.yaml").write_text(HELPER_AGENT_YAML)
+    for agent_id, description in WORKER_AGENTS.items():
+        (home / "agents" / agent_id).mkdir(parents=True)
+        (home / "agents" / agent_id / "agent.yaml").write_text(
+            WORKER_AGENT_YAML.format(name=agent_id.capitalize(), description=description)
+        )
     route = model if ":" in model else f"openrouter:{model}"
     (home / "config.yaml").write_text(
         f"routes:\n  - {route}\nautonomous_default: true\ncost_cap_usd: 2.0\n"
     )
 
 
+def child_runs(runs: list[dict[str, Any]]) -> int:
+    return sum(1 for r in runs if str(r.get("source", "")).startswith("delegate:"))
+
+
 def score(task: Task, answer: str, home: Path, runs: list[dict[str, Any]]) -> bool:
-    delegated = any(str(r.get("source", "")).startswith("delegate:") for r in runs)
-    return task.passed(answer, home) and (delegated or not task.needs_child)
+    return task.passed(answer, home) and child_runs(runs) >= task.children
 
 
 def metrics(runs: list[dict[str, Any]]) -> dict[str, Any]:
@@ -141,7 +153,7 @@ def metrics(runs: list[dict[str, Any]]) -> dict[str, Any]:
     return {
         "model_calls": len(model_steps),
         "tool_calls": sum(1 for s in steps if s.get("kind") == "tool"),
-        "child_runs": sum(1 for r in runs if str(r.get("source", "")).startswith("delegate:")),
+        "child_runs": child_runs(runs),
         "ttft_first_ms": ttfts[0] if ttfts else None,
         "ttft_median_ms": int(statistics.median(ttfts)) if ttfts else None,
         "model_ms": sum(s.get("duration_ms") or 0 for s in model_steps),

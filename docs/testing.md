@@ -43,14 +43,24 @@ là `.github/workflows/ci.yml`.
 `scripts/llm_bench.py` đo các model ứng viên ngay trên vòng lặp agent, tách khỏi crew đang
 chạy: mỗi model một home tạm dưới `--out`, một server riêng trên `--port` (mặc định 8797,
 không bao giờ là cổng live), không có token Telegram, không có tuyến live; chỉ
-`OPENROUTER_API_KEY` được kế thừa. Năm việc trong `scripts/llm_bench_tasks.py` (trả lời
-suông, ghi rồi đọc tệp, lệnh shell, giao việc cho agent `helper`, tóm tắt tài liệu) được chấm
-đúng/sai và đo thời gian tường, số lần gọi model, thời gian tới token đầu (`first_token_ms`
-của bước model), phần prompt được cache và chi phí, đọc từ `/api/activity/runs`. Kết quả
-ghi ra `results.json` và `results.md` sau mỗi model:
+`OPENROUTER_API_KEY` được kế thừa. Hai bộ việc, chọn bằng `--tasks short`, `--tasks multi`
+hoặc liệt kê id (mặc định chạy cả hai):
+
+- `scripts/llm_bench_tasks.py`, bộ ngắn: trả lời suông, ghi rồi đọc tệp, lệnh shell, giao
+  việc cho agent `helper`, tóm tắt tài liệu.
+- `scripts/llm_bench_tasks_multi.py`, bộ chuỗi: `pipeline` (tính, ghi, đọc lại), `revise`
+  (đọc, tạo bản sửa, grep kiểm tra, trả lời từ nguồn), `shell_chain` (ba lệnh shell nối
+  nhau), `delegate_write` (helper làm nhiều bước rồi master đọc lại), `delegate_twice` (hai
+  lần giao việc nối tiếp), `delegate_fanout` (giao cho `helper` và `auditor` cùng lúc).
+
+Mỗi việc được chấm đúng/sai (việc giao việc còn phải để lại đủ số run con) và đo thời gian
+tường, số lần gọi model, thời gian tới token đầu (`first_token_ms` của bước model), phần
+prompt được cache và chi phí, đọc từ `/api/activity/runs`. Kết quả ghi ra `results.json` và
+`results.md` sau mỗi model:
 
 ```bash
 uv run python scripts/llm_bench.py --models deepseek/deepseek-v4-flash,qwen/qwen3.7-flash --out /tmp/llm-bench
+uv run python scripts/llm_bench.py --models deepseek/deepseek-v4-flash --tasks multi --out /tmp/llm-bench
 ```
 
 Một lượt hỏi người dùng (`ask_user`) tính là hỏng — bench không có ai trả lời; yêu cầu duyệt

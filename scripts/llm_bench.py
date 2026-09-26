@@ -5,9 +5,11 @@
 
 Each model gets a throwaway home under `--out`, its own server on `--port` (never the
 live port), no Telegram token and no live routes; only `OPENROUTER_API_KEY` is inherited.
-The tasks are in `llm_bench_tasks.py`; per task the bench records wall time, model calls,
-time to first token, cached prompt tokens and cost, then writes `results.json` and
-`results.md` after every model so a run cut short still leaves its numbers."""
+The short tasks are in `llm_bench_tasks.py`, the multi-step and multi-delegate chains in
+`llm_bench_tasks_multi.py`; `--tasks` picks a subset. Per task the bench records wall
+time, model calls, time to first token, cached prompt tokens and cost, then writes
+`results.json` and `results.md` after every model so a run cut short still leaves its
+numbers."""
 
 from __future__ import annotations
 
@@ -23,7 +25,11 @@ from pathlib import Path
 from typing import Any
 
 from llm_bench_client import Api, Server
-from llm_bench_tasks import TASKS, metrics, score, seed_home
+from llm_bench_tasks import TASKS as SHORT_TASKS
+from llm_bench_tasks import metrics, score, seed_home
+from llm_bench_tasks_multi import TASKS as MULTI_TASKS
+
+TASKS = SHORT_TASKS + MULTI_TASKS
 
 REPO = Path(__file__).resolve().parent.parent
 DEFAULT_PORT = 8797
@@ -61,7 +67,11 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
-    parser.add_argument("--tasks", default=",".join(t.id for t in TASKS))
+    parser.add_argument(
+        "--tasks",
+        default=",".join(t.id for t in TASKS),
+        help="comma-separated task ids; `short` and `multi` name the two suites",
+    )
     parser.add_argument("--repeat", type=int, default=1, help="rounds per model")
     parser.add_argument("--timeout", type=float, default=240.0, help="seconds per turn")
     return parser
@@ -145,7 +155,12 @@ def write_results(out: Path, rows: list[dict[str, Any]]) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
-    wanted = args.tasks.split(",")
+    suites = {"short": SHORT_TASKS, "multi": MULTI_TASKS}
+    wanted = [
+        t.id
+        for name in args.tasks.split(",")
+        for t in suites.get(name, [t for t in TASKS if t.id == name])
+    ]
     tasks = [t for t in TASKS if t.id in wanted]
     if len(tasks) != len(wanted):
         raise SystemExit(f"unknown task in {wanted}; known: {[t.id for t in TASKS]}")
