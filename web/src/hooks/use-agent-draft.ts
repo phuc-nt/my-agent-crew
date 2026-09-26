@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
 import type { AgentInfo, AgentPatch } from "../api/types";
+import { vi } from "../i18n/vi";
 import { type DraftProblems, draftProblems, hasProblems, toPatch } from "./agent-draft-checks";
 
 /** The keys the form can change. `id`, `dir` and everything derived stay out of it. */
@@ -86,6 +87,13 @@ function toDraft(agent: AgentInfo): AgentPatch {
   };
 }
 
+/** The agent as the crew list reports it: the one read that always carries `declared`. */
+async function listed(agentId: string): Promise<AgentInfo> {
+  const found = (await api.listAgents()).find((a) => a.id === agentId);
+  if (!found) throw new Error(vi.editor.notFound(agentId));
+  return found;
+}
+
 /**
  * One agent's editing session.
  *
@@ -157,11 +165,14 @@ export function useAgentDraft(
     try {
       const saved = await api.patchAgent(original.id, toPatch(draft, dirty));
       // The answer is the agent as the list reports it, `declared` included, so the
-      // form restarts from what the file now says rather than from what was typed.
-      setOriginal(saved.profile);
-      setDraft(toDraft(saved.profile));
+      // form restarts from what the file now says rather than from what was typed. A
+      // server still running older code answers without it, which left the form nothing
+      // to diff against; the list is read again rather than the page breaking.
+      const profile = saved.profile.declared ? saved.profile : await listed(original.id);
+      setOriginal(profile);
+      setDraft(toDraft(profile));
       setRestartRequired(saved.restart_required);
-      onSaved?.(saved.profile);
+      onSaved?.(profile);
       return true;
     } catch (e) {
       // The draft is deliberately left alone: a refused edit is usually one bad field

@@ -377,6 +377,42 @@ describe("useAgentDraft", () => {
     expect(result.current.dirty).toEqual([]);
   });
 
+  // A server still on older code answers a save without `declared`. The form used to
+  // rebuild from that answer and threw on the missing block, blanking the editor.
+  it("reads the list again when the save's answer lacks `declared`", async () => {
+    const backend = new FakeBackend();
+    backend.agents = [fakeAgent];
+    vitest.stubGlobal("fetch", async (input: RequestInfo | URL, init: RequestInit = {}) => {
+      const answer = await backend.fetch(input, init);
+      if (init.method !== "PATCH") return answer;
+      const { profile, restart_required } = await answer.json();
+      const { declared: _declared, ...older } = profile;
+      return new Response(JSON.stringify({ profile: older, restart_required }), {
+        headers: { "content-type": "application/json" },
+      });
+    });
+    const { result } = renderHook(() => useAgentDraft(fakeAgent));
+
+    act(() => {
+      result.current.set("schedules", [
+        { id: "t", name: "T", cron: "0 7 * * *", every: null, prompt: "Nhắc", command: null, enabled: true, skills: [] },
+      ]);
+    });
+    let saved: boolean | undefined;
+    await act(async () => {
+      saved = await result.current.save();
+    });
+
+    expect(saved).toBe(true);
+    expect(result.current.error).toBeNull();
+    const reads = backend.requests.filter((r) => r.method === "GET" && r.path === "/agents");
+    expect(reads).toHaveLength(1);
+    expect(result.current.original?.declared.schedules).toEqual([
+      { id: "t", name: "T", cron: "0 7 * * *", every: null, prompt: "Nhắc", command: null, enabled: true, skills: [] },
+    ]);
+    expect(result.current.dirty).toEqual([]);
+  });
+
   it("never sends the derived kind, even on a row that still carries it", async () => {
     const backend = new FakeBackend();
     backend.agents = [fakeAgent];
