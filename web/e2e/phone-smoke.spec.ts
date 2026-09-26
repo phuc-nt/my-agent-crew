@@ -171,6 +171,38 @@ test("a copy the phone cannot make opens a box a thumb can close", async ({ page
   await expect(copy).toBeFocused();
 });
 
+// The copy button is always shown on a phone and sized for a thumb, so it must fit inside
+// even a one-line block, and a long command must not scroll underneath it.
+test("a code block's copy button stays in its corner, clear of the code", async ({ page }) => {
+  const long = "uv run python -m my_agent_crew --home /tmp/agent-home --port 9000 --log-level debug";
+  const bubble = await replied(page, `Xem:\n\n\`\`\`\nls\n\`\`\`\n\nRồi:\n\n\`\`\`sh\n${long}\n\`\`\``);
+  await expect(bubble.locator(".md-code")).toHaveCount(2);
+
+  const blocks = await bubble.locator(".md-code").evaluateAll((all) =>
+    all.map((block) => {
+      const pre = block.querySelector("pre")!.getBoundingClientRect();
+      const button = block.querySelector("button")!.getBoundingClientRect();
+      // Whichever element scrolls sideways shows its text up to its client area's edge.
+      const scroller = [block.querySelector("pre")!, block.querySelector("code")!].find(
+        (el) => el.scrollWidth > el.clientWidth,
+      );
+      const shown = scroller && scroller.getBoundingClientRect().left + scroller.clientLeft + scroller.clientWidth;
+      return { pre, button, scrolls: Boolean(scroller), shownRight: shown ?? 0 };
+    }),
+  );
+  for (const { pre, button } of blocks) {
+    expect(button.height).toBeGreaterThanOrEqual(40);
+    expect(button.top).toBeGreaterThanOrEqual(pre.top);
+    expect(button.bottom).toBeLessThanOrEqual(pre.bottom);
+    expect(button.right).toBeLessThanOrEqual(pre.right);
+  }
+  expect(blocks[1].scrolls).toBe(true);
+  expect(blocks[1].shownRight).toBeLessThanOrEqual(blocks[1].button.left);
+  const overflow = await widestOverflow(page);
+  expect(overflow.offenders).toEqual([]);
+  expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.width);
+});
+
 // The search box lives in the drawer, and a closed drawer is inert: a browser refuses to
 // focus anything inside it, so the shortcut has to open the drawer around the box first.
 test("the search shortcut opens the list at the search box", async ({ page }) => {

@@ -42,17 +42,27 @@ button.copy-button[data-copied] {
   opacity: 1;
 }
 
-/* A code block's own copy sits in its corner; the pre makes room for it on the first line. */
+/* A code block's own copy sits in its corner, in a gutter the code never enters: the
+   code scrolls sideways inside the block's padding rather than the block itself, so a
+   long command slides out of sight at the gutter's edge instead of under the button. */
 .md-code {
   position: relative;
+  margin: var(--space-2) 0;
 }
+/* The wrapper holds the block's spacing: a margin on the pre would collapse through it and
+   set the corner button that far below the block's top edge. */
 .md-code pre.md-pre {
+  margin: 0;
   padding-right: calc(var(--touch-target) + var(--space-3));
+}
+.md-code pre.md-pre code {
+  display: block;
+  overflow-x: auto;
 }
 .md-code > button.copy-button {
   position: absolute;
-  top: calc(var(--space-2) + 4px);
-  right: 4px;
+  top: var(--space-1);
+  right: var(--space-1);
   background: var(--surface-sunken);
   opacity: 0;
 }
@@ -271,6 +281,10 @@ button.composer-action.slash[aria-expanded="true"] {
   .copy-fallback button.link-button {
     min-height: var(--touch-target);
     min-width: var(--touch-target);
+  }
+  /* A one-line block is shorter than the thumb-sized button; it grows to hold it. */
+  .md-code pre.md-pre {
+    min-height: calc(var(--touch-target) + 2 * var(--space-1));
   }
   button.composer-action.slash {
     width: var(--touch-target);
