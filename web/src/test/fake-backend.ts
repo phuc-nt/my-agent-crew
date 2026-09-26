@@ -235,7 +235,7 @@ export class FakeBackend {
       const found = this.runs.find((r) => r.id === decodeURIComponent(oneRun[1]));
       return found ? json(found) : json({ detail: "run not found" }, 404);
     }
-    if (path === "/activity/runs") return json(this.runs);
+    if (path === "/activity/runs") return json(this.listRuns(url.searchParams));
     if (path === "/stats") return json(this.stats);
     if (path === "/jobs") return json(this.jobs);
     if (path === "/approvals") {
@@ -344,6 +344,17 @@ export class FakeBackend {
       return json({ detail: `${users.map((a) => a.id).join(", ")} đang giao việc cho ${agentId}` }, 409);
     this.agents = this.agents.filter((a) => a.id !== agentId);
     return json({ removed: agentId, kept_at: `/tmp/home/agents/.trash/${agentId}` });
+  }
+
+  /** Like the server: narrowed before the limit, a conversation with what it delegated. */
+  private listRuns(params: URLSearchParams): RunInfo[] {
+    const agent = params.get("agent_id");
+    const conv = params.get("conversation_id");
+    const limit = Number(params.get("limit") ?? this.runs.length);
+    return this.runs
+      .filter((r) => !agent || r.agent_id === agent)
+      .filter((r) => !conv || r.conversation_id === conv || r.source === `delegate:${conv}`)
+      .slice(0, limit);
   }
 
   private install(template: string, agentId?: string): Response {

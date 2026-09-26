@@ -10,6 +10,7 @@ import { ErrorBoundary } from "../components/error-boundary";
 import { failingJobs } from "../components/job-last-run";
 import { JobsPanel } from "../components/jobs-panel";
 import { MemoryPanel } from "../components/memory-panel";
+import { RecentRunsLog } from "../components/recent-runs-log";
 import { RunReplay } from "../components/run-replay";
 import { RunGroupCard } from "../components/run-timeline";
 import { SettingsPanel } from "../components/settings-panel";
@@ -231,25 +232,14 @@ export function ManageScreen(props: Props) {
                 ))
               )}
               <h3>{vi.recentRuns}</h3>
-              {recent.length === 0 ? (
-                // Nothing has run yet because nothing has been asked yet, so the way
-                // out of this screen is the answer rather than another sentence.
-                <EmptyState
-                  icon="steps"
-                  says={vi.noRuns}
-                  action={{ label: vi.noRunsAction, onClick: props.onBackToChat }}
-                />
-              ) : (
-                runGroups(recent).map((group) => (
-                  <RunGroupCard
-                    key={group.run.id}
-                    group={group}
-                    agentName={props.agentName}
-                    onOpenConversation={props.onOpenConversation}
-                    onOpenRun={props.onReplayRun}
-                  />
-                ))
-              )}
+              <RecentRunsLog
+                streamed={recent}
+                agents={props.agents}
+                agentName={props.agentName}
+                onOpenConversation={props.onOpenConversation}
+                onOpenRun={props.onReplayRun}
+                onBackToChat={props.onBackToChat}
+              />
             </>
           )}
           {props.section === "approvals" && (

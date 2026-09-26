@@ -461,6 +461,28 @@ export const vi = {
   noRuns: "Chưa có lượt chạy nào.",
   // The way out of an empty section, so "chưa có gì" is not the whole answer.
   noRunsAction: "Bắt đầu một cuộc trò chuyện",
+  runFilters: {
+    label: "Lọc lượt chạy",
+    all: "Tất cả",
+    agent: "Agent",
+    status: "Trạng thái",
+    source: "Nguồn",
+    // Where a run came from, by the first part of its source.
+    sources: {
+      web: "Web",
+      telegram: "Telegram",
+      schedule: "Lịch",
+      delegate: "Giao việc",
+      memory: "Bộ nhớ",
+      api: "API",
+    } as Record<string, string>,
+    more: "Xem thêm",
+    loading: "Đang tải lịch sử…",
+    failed: "Không tải được lịch sử chạy.",
+    retry: "Thử lại",
+    none: "Không có lượt chạy nào khớp bộ lọc.",
+    clear: "Bỏ lọc",
+  },
   replay: {
     back: "← Tất cả hoạt động",
     loading: "Đang mở lượt chạy…",

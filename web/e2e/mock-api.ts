@@ -132,6 +132,17 @@ export function run(overrides: Record<string, unknown> = {}) {
   };
 }
 
+/** Like the server: narrowed before the limit, a conversation with what it delegated. */
+function listRuns(runs: object[], params: URLSearchParams): object[] {
+  const agent = params.get("agent_id");
+  const conv = params.get("conversation_id");
+  const limit = Number(params.get("limit") ?? runs.length);
+  return (runs as { agent_id: string; conversation_id: string | null; source: string }[])
+    .filter((r) => !agent || r.agent_id === agent)
+    .filter((r) => !conv || r.conversation_id === conv || r.source === `delegate:${conv}`)
+    .slice(0, limit);
+}
+
 export interface MockOptions {
   /** Event lists streamed by successive POST /messages or /approvals calls. */
   turns?: object[][];
@@ -309,7 +320,7 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
       const found = (options.runs ?? []).find((r) => (r as { id: string }).id === wanted);
       return found ? json(found) : json({ detail: "run not found" }, 404);
     }
-    if (path === "/activity/runs") return json(options.runs ?? []);
+    if (path === "/activity/runs") return json(listRuns(options.runs ?? [], url.searchParams));
     if (path === "/activity/stream")
       return route.fulfill({ status: 200, contentType: "text/event-stream", body: sse(options.stream ?? [{ type: "snapshot", runs: options.runs ?? [] }]) });
     if (path === "/stats")

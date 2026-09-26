@@ -1,0 +1,56 @@
+/*
+ * The recent-runs log on the activity page: the chips that narrow it, and the button
+ * that reaches further back. The cards themselves are the run card's own rules.
+ */
+
+.run-filters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+/* One choice per row. Wrapping, not scrolling: a hidden chip is a choice nobody sees. */
+.run-filter-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.run-filter-label {
+  min-width: 6rem;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+/* The chosen chip is filled, so the narrowing in force reads before any label does. */
+.run-filters button.chip[aria-pressed="true"] {
+  background: var(--accent-fill);
+  color: var(--accent-text);
+  border-color: transparent;
+}
+
+.run-filters button.chip[aria-pressed="true"]:hover:not(:disabled) {
+  background: var(--accent-fill-strong);
+}
+
+.run-log > .empty {
+  margin-top: var(--space-2);
+}
+
+.run-log-more {
+  margin-top: var(--space-3);
+}
+
+@media (max-width: 720px) {
+  .run-filter-label {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .run-filters button.chip,
+  .run-log-more {
+    min-height: var(--touch-target);
+  }
+}

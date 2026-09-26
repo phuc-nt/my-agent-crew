@@ -3,6 +3,7 @@ import type { RunInfo } from "../api/types";
 import { vi } from "../i18n/vi";
 import { runGroups } from "../state/activity-reducer";
 import { isSettled, stepProgress } from "../lib/run-progress";
+import { mergeRuns, useRunHistory } from "../hooks/use-run-history";
 import { ApprovalHistory } from "./approval-history";
 import { ConversationActivitySummary } from "./conversation-activity-summary";
 import { RunProgressHeader } from "./run-progress-header";
@@ -12,9 +13,12 @@ import { Icon } from "./ui/icon";
 // Namespaced to this strip: a bare "activity.expanded" would collide with anything else
 // that later wants to remember an activity view's open state.
 const EXPANDED_KEY = "conversation-activity.expanded";
+// Far more turns than one conversation usually holds, and still one small request.
+const HISTORY_LIMIT = 100;
 
 interface Props {
-  /** This conversation's runs and those of the work it delegated, newest first. */
+  /** This conversation's runs and those of the work it delegated, as the live stream knows
+   * them; the stored ones from before the page opened are fetched here and merged in. */
   runs: RunInfo[];
   /** The open conversation, so the approval history can be narrowed to it. */
   conversationId: string;
@@ -40,7 +44,7 @@ interface Props {
  * conversation that has never run — an empty strip under an empty thread is just furniture.
  */
 export function ConversationActivity({
-  runs,
+  runs: streamed,
   conversationId,
   spentUsd,
   capUsd,
@@ -50,6 +54,11 @@ export function ConversationActivity({
   docked = false,
 }: Props) {
   const [expanded, setExpanded] = useState(readExpanded);
+  // Asked again whenever one of its runs settles, since that is when the store holds the
+  // whole of it — and a finished delegate is only known to the server's family query.
+  const settled = streamed.filter((r) => isSettled(r.status)).length;
+  const history = useRunHistory({ conversationId, limit: HISTORY_LIMIT, refreshKey: settled });
+  const runs = mergeRuns(history.runs, streamed);
 
   // Skipped on the first render: the strip opens in whatever state was remembered, and
   // an effect that ran on mount would slam it shut before the person touched anything.

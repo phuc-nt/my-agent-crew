@@ -140,3 +140,29 @@ test("connections fit, keys, host defaults and an open key field included", asyn
   expect(overflow.offenders).toEqual([]);
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.width);
 });
+
+test("the activity log's chips wrap on a phone and stay big enough to tap", async ({ page }) => {
+  const runs = [
+    older,
+    run({ id: "web", source: "chat", status: "error", title: "Trả lời" }),
+    run({ id: "tg", source: "telegram", status: "halted", title: "Nhắn Telegram" }),
+    run({ id: "wiki", agent_id: "coach", source: "memory:wiki", title: "Sổ tay" }),
+    run({ id: "sub", source: "delegate:c9", title: "Việc được giao" }),
+    run({ id: "api", source: "api", title: "Gọi API" }),
+  ];
+  await mockApi(page, { agents: [defaultAgent, coachAgent], runs });
+  await page.goto("/#/manage/activity");
+
+  // Every group is on screen at once; a row that scrolled sideways would hide choices.
+  const filters = page.getByTestId("run-filters");
+  await expect(filters.getByRole("button", { name: "Giao việc" })).toBeVisible();
+  for (const chip of await filters.getByRole("button").all()) {
+    const box = await chip.boundingBox();
+    expect(box?.height).toBeGreaterThanOrEqual(40);
+    expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(390);
+  }
+
+  const overflow = await widestOverflow(page);
+  expect(overflow.offenders).toEqual([]);
+  expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.width);
+});

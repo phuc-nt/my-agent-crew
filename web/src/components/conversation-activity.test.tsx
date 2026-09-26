@@ -1,9 +1,10 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
+import type { RunInfo } from "../api/types";
 import { vi } from "../i18n/vi";
 import { conversationFamilyRuns, emptyActivity } from "../state/activity-reducer";
-import { fakeRun } from "../test/fake-backend";
+import { FakeBackend, fakeRun } from "../test/fake-backend";
 import { ConversationActivity } from "./conversation-activity";
 
 const name = (id: string) => (id === "coach" ? "HLV" : "Agent");
@@ -217,5 +218,76 @@ describe("the activity column beside a chat on a wide screen", () => {
     show([fakeRun()]);
 
     expect(screen.queryByTestId("run-card")).not.toBeInTheDocument();
+  });
+});
+
+describe("a conversation's runs from before the page opened", () => {
+  let backend: FakeBackend;
+  beforeEach(() => {
+    backend = new FakeBackend();
+    vitest.stubGlobal("fetch", backend.fetch);
+  });
+
+  const strip = (runs: RunInfo[]) => (
+    <ConversationActivity
+      runs={runs}
+      conversationId="c1"
+      spentUsd={0}
+      agentName={name}
+      onOpenConversation={() => undefined}
+      docked
+    />
+  );
+  const historyAsked = () =>
+    backend.requests.filter((r) => r.path.startsWith("/activity/runs?") && r.path.includes("conversation_id=c1"))
+      .length;
+
+  // The stream only knows what happened since the page opened; reopening a chat from last
+  // week must still show what it did, delegated work included.
+  it("fetches its history on mount and merges it with live runs, each run once", async () => {
+    const live = fakeRun({ id: "now", status: "running", finished_at: null, started_at: "2026-09-19T09:00:00Z" });
+    backend.runs = [
+      { ...live, title: "Bản đã lưu" },
+      fakeRun({ id: "old", title: "Hôm qua", started_at: "2026-09-18T08:00:00Z" }),
+      fakeRun({ id: "kid", conversation_id: "w1", source: "delegate:c1", title: "Việc giao", started_at: "2026-09-18T08:01:00Z" }),
+      fakeRun({ id: "other", conversation_id: "c2", title: "Chuyện khác" }),
+    ];
+
+    render(strip([live]));
+
+    expect(await screen.findByText(/Hôm qua/)).toBeInTheDocument();
+    expect(screen.getByText(/Việc giao/)).toBeInTheDocument();
+    expect(screen.getAllByTestId("run-card")).toHaveLength(3);
+    // The streamed copy of a run still going is the fresher one.
+    expect(screen.queryByText(/Bản đã lưu/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Chuyện khác/)).not.toBeInTheDocument();
+  });
+
+  it("appears for a conversation with no run since the page opened", async () => {
+    backend.runs = [fakeRun({ id: "old", title: "Hôm qua" })];
+
+    render(<ConversationActivity runs={[]} conversationId="c1" spentUsd={0} agentName={name} onOpenConversation={() => undefined} />);
+
+    expect(await screen.findByTestId("conversation-activity")).toHaveTextContent(vi.conversationActivity.lastRun);
+  });
+
+  // A run that ended while the stream was down stays "running" in the page's memory.
+  it("trusts the store over a streamed copy that never heard the run end", async () => {
+    const stuck = fakeRun({ id: "r1", status: "running", finished_at: null });
+    backend.runs = [fakeRun({ id: "r1", status: "error" })];
+
+    render(strip([stuck]));
+
+    await waitFor(() => expect(screen.getByTestId("run-card")).toHaveAttribute("data-status", "error"));
+  });
+
+  it("asks again when one of its runs settles", async () => {
+    const running = fakeRun({ id: "r1", status: "running", finished_at: null });
+    const { rerender } = render(strip([running]));
+    await waitFor(() => expect(historyAsked()).toBe(1));
+
+    rerender(strip([{ ...running, status: "done" }]));
+
+    await waitFor(() => expect(historyAsked()).toBe(2));
   });
 });

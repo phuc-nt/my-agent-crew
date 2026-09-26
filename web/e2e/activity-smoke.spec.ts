@@ -129,3 +129,32 @@ test("the badge for work waiting on a person opens the conversation holding it",
   await expect(page).toHaveURL(/#\/chat\/c2$/);
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Ôn thi");
 });
+
+// A busy agent fills any crew-wide page; the chip must ask the server for the quiet one's.
+test("the activity log narrows to one agent on the server, then reaches further back", async ({ page }) => {
+  const at = (minutes: number) => new Date(Date.UTC(2026, 8, 19, 12) - minutes * 60_000).toISOString();
+  const busy = Array.from({ length: 60 }, (_, i) => run({ id: `d${i}`, title: `Việc bận ${i}`, started_at: at(i) }));
+  const quiet = Array.from({ length: 600 }, (_, i) =>
+    run({ id: `q${i}`, agent_id: "coach", source: "job:coach/brief", title: `Bản tin ${i}`, started_at: at(100 + i) }),
+  );
+  await mockApi(page, {
+    agents: [defaultAgent, coachAgent],
+    runs: [...busy, ...quiet],
+    // The live page, as the server sends it: fifty runs, all of the busy agent.
+    stream: [{ type: "snapshot", runs: busy.slice(0, 50) }],
+  });
+  await page.goto("/#/manage/activity");
+  const log = page.getByTestId("run-log");
+  await expect(log.getByTestId("run-card").first()).toContainText("Việc bận 0");
+
+  await log.getByRole("group", { name: "Agent" }).getByRole("button", { name: coachAgent.name }).click();
+
+  await expect(log.getByTestId("run-card")).toHaveCount(100);
+  await expect(log.getByTestId("run-card").filter({ hasText: "Việc bận" })).toHaveCount(0);
+  const more = log.getByRole("button", { name: "Xem thêm" });
+  await more.click();
+  await expect(log.getByTestId("run-card")).toHaveCount(200);
+  await more.click();
+  await expect(log.getByTestId("run-card")).toHaveCount(500);
+  await expect(more).toHaveCount(0);
+});
