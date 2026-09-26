@@ -190,7 +190,8 @@ describe("App", () => {
     backend.create({ title: "A" });
     backend.nextTurn = [{ type: "halted", reason: "budget", spent_usd: 1 }];
     render(<App />);
-    await userEvent.click(await screen.findByRole("button", { name: /^A$/ }));
+    // Picked by its title: the row's accessible name also says when it last changed.
+    await userEvent.click(await screen.findByText("A", { selector: ".conversation-title" }));
     await userEvent.type(screen.getByRole("textbox"), "x{Enter}");
     expect(await screen.findByTestId("notice")).toHaveTextContent(vi.haltedBudget);
 
@@ -228,7 +229,7 @@ describe("App", () => {
   it("patches autonomous, skills and title from the header", async () => {
     backend.create({ title: "B" });
     render(<App />);
-    await userEvent.click(await screen.findByRole("button", { name: /^B$/ }));
+    await userEvent.click(await screen.findByText("B", { selector: ".conversation-title" }));
     // Both switches live in the options card; it stays open while they are flipped.
     await userEvent.click(screen.getByTestId("conversation-options"));
     const card = screen.getByRole("dialog", { name: vi.options.title });
@@ -262,7 +263,7 @@ describe("App", () => {
   it("says a conversation has no recap yet when none was written", async () => {
     backend.create({ title: "D" });
     render(<App />);
-    await userEvent.click(await screen.findByRole("button", { name: /^D$/ }));
+    await userEvent.click(await screen.findByText("D", { selector: ".conversation-title" }));
     expect(screen.getByText(vi.noSummary)).toBeInTheDocument();
   });
 

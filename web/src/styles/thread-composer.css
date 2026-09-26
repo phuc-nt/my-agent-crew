@@ -1,6 +1,6 @@
 /*
  * What the owner does with a message once it is in the thread — copy it, share it, open
- * what he sent — and the conversation list and composer helpers around it.
+ * what he sent — and the conversation list rows and composer helpers around it.
  *
  * The actions stay out of the way on a pointer device (they appear on hover or focus)
  * and are always shown where there is no hover: a phone has no way to discover a
@@ -121,6 +121,54 @@ button.copy-button[data-copied] {
 }
 .export-row .notice {
   margin: 0;
+}
+
+/* ── Sidebar rows: day groups, when, unread ─────────────────────────────── */
+/* The list stays the one scroll box; each day is a quiet header over its own rows. */
+.conversation-group h3 {
+  margin: var(--space-3) var(--space-3) var(--space-1);
+}
+.conversation-group:first-child h3 {
+  margin-top: var(--space-1);
+}
+.conversation-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* When and the recap share the line under the title, indented to it past the dot. */
+.conversation-meta {
+  flex-basis: 100%;
+  display: flex;
+  gap: var(--space-2);
+  min-width: 0;
+  padding-left: calc(8px + var(--space-2));
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+.conversation-time {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+.conversation-meta .conversation-summary {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-left: 0;
+}
+
+.unread-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.conversation-list li.unread .conversation-title {
+  font-weight: 600;
 }
 
 /* ── Phone ──────────────────────────────────────────────────────────────── */

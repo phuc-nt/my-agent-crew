@@ -86,6 +86,32 @@ test("the conversation takes the whole screen and the list slides in over it", a
   await expect(menu).toBeFocused();
 });
 
+// On a phone every switch goes through the drawer, so a message started in one
+// conversation must still be there after a look at another.
+test("a half-written message waits in its conversation across drawer switches", async ({ page }) => {
+  await mockApi(page, {
+    agents: [defaultAgent, coachAgent],
+    runs: [],
+    conversations: [conversation("c1", "Chung"), conversation("c2", "Ôn thi")],
+  });
+  await page.goto("/");
+  const box = page.getByRole("textbox", { name: /^Nhắn cho agent/ });
+  const sidebar = page.locator(".sidebar");
+  const menu = page.getByRole("button", { name: "Mở danh sách cuộc trò chuyện" });
+  const open = async (title: string) => {
+    await menu.click();
+    await sidebar.getByRole("button", { name: new RegExp(title) }).click();
+    await expect(page.locator(".conversation-header")).toContainText(title);
+  };
+
+  await open("Chung");
+  await box.fill("Mai tập gì nhỉ");
+  await open("Ôn thi");
+  await expect(box).toHaveValue("");
+  await open("Chung");
+  await expect(box).toHaveValue("Mai tập gì nhỉ");
+});
+
 // The search box lives in the drawer, and a closed drawer is inert: a browser refuses to
 // focus anything inside it, so the shortcut has to open the drawer around the box first.
 test("the search shortcut opens the list at the search box", async ({ page }) => {

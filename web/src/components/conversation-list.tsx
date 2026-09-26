@@ -1,6 +1,9 @@
 import { useState, type ReactNode, type RefObject } from "react";
 import type { Conversation } from "../api/types";
+import { useLastSeen } from "../hooks/use-last-seen";
 import { vi } from "../i18n/vi";
+import { dayGroup, type DayGroup } from "../lib/relative-time";
+import { ConversationRow } from "./conversation-row";
 import { ConversationSearch, matching } from "./conversation-search";
 import { Brand } from "./ui/brand-mark";
 import { Icon } from "./ui/icon";
@@ -19,6 +22,8 @@ interface Props {
   searchRef?: RefObject<HTMLInputElement | null>;
   /** Present on a phone, where the list slides over the chat instead of sitting beside it. */
   drawer?: { open: boolean; close: () => void; ref: RefObject<HTMLElement | null> };
+  /** Conversations a run is working in right now. */
+  liveIds?: string[];
 }
 
 /** How many threads it takes before scanning the list beats reading it. */
@@ -36,6 +41,20 @@ function ownFirst(conversations: Conversation[]): Conversation[] {
   ];
 }
 
+const GROUPS: DayGroup[] = ["today", "yesterday", "older"];
+
+/**
+ * Rows under the viewer's own day they last changed on. The server already sends them
+ * newest first, so each group keeps that order and only the headers are added.
+ */
+function byDay(conversations: Conversation[]): [DayGroup, Conversation[]][] {
+  const now = new Date();
+  return GROUPS.map((group): [DayGroup, Conversation[]] => [
+    group,
+    ownFirst(conversations.filter((c) => dayGroup(c.updated_at, now) === group)),
+  ]).filter(([, rows]) => rows.length > 0);
+}
+
 export function ConversationList({
   conversations,
   activeId,
@@ -46,8 +65,10 @@ export function ConversationList({
   bottom,
   searchRef,
   drawer,
+  liveIds = [],
 }: Props) {
   const [query, setQuery] = useState("");
+  const isUnread = useLastSeen(conversations, activeId);
   // Below a handful of threads the eye is faster than the box, and a control that is
   // never the quickest way to do the thing is just something else to look past.
   const searchable = conversations.length >= SEARCH_FROM;
@@ -102,41 +123,28 @@ export function ConversationList({
           {vi.noMatchingConversations}
         </p>
       ) : (
-        <ul className="conversation-list">
-          {ownFirst(shown).map((c) => (
-            <li key={c.id} className={c.id === activeId ? "active" : ""}>
-              <button
-                type="button"
-                className="conversation-item"
-                onClick={() => pick(c.id)}
-                aria-current={c.id === activeId ? "page" : undefined}
-              >
-                <span className={`status-dot ${c.status}`} title={c.status} />
-                {c.parent_call_id && (
-                  <span className="child-marker" data-testid="child-marker" title={vi.delegateChild}>
-                    <Icon name="corner-down-right" />
-                  </span>
-                )}
-                <span className="conversation-title">{c.title || vi.newConversation}</span>
-                {c.channel && <span className="channel-tag">{vi.channelName(c.channel)}</span>}
-                {c.summary && (
-                  <span className="conversation-summary" title={c.summary}>
-                    {c.summary}
-                  </span>
-                )}
-              </button>
-              <button
-                type="button"
-                className="icon-button"
-                aria-label={vi.deleteConversation}
-                title={vi.deleteConversation}
-                onClick={() => onDelete(c.id)}
-              >
-                <Icon name="trash" />
-              </button>
-            </li>
+        <div className="conversation-list">
+          {byDay(shown).map(([group, rows]) => (
+            <section key={group} className="conversation-group" aria-labelledby={`group-${group}`}>
+              <h3 id={`group-${group}`}>{vi.time.groups[group]}</h3>
+              <ul>
+                {rows.map((c) => (
+                  <ConversationRow
+                    key={c.id}
+                    conversation={c}
+                    active={c.id === activeId}
+                    live={liveIds.includes(c.id)}
+                    // A delegated conversation is the agents' working, not a reply to the
+                    // person, so it never asks for attention with a dot.
+                    unread={!c.parent_call_id && isUnread(c)}
+                    onPick={() => pick(c.id)}
+                    onDelete={() => onDelete(c.id)}
+                  />
+                ))}
+              </ul>
+            </section>
           ))}
-        </ul>
+        </div>
       )}
       {bottom && <div className="sidebar-foot">{bottom}</div>}
     </nav>

@@ -1,4 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, type KeyboardEvent } from "react";
+import { useDraft } from "../hooks/use-draft";
 import { vi } from "../i18n/vi";
 import { Icon } from "./ui/icon";
 
@@ -6,6 +7,8 @@ interface Props {
   disabled: boolean;
   busy: boolean;
   draft?: string;
+  /** Where the unsent text is kept, one per conversation; absent keeps it in memory only. */
+  draftKey?: string;
   /** Who the message goes to, so the empty box says so. */
   agentName?: string;
   onSend: (text: string) => void;
@@ -15,11 +18,14 @@ interface Props {
 /** The box grows with what is typed up to this many pixels, then scrolls. */
 const MAX_HEIGHT = 240;
 
-export function Composer({ disabled, busy, draft, agentName, onSend, onStop }: Props) {
-  const [text, setText] = useState("");
+export function Composer({ disabled, busy, draft, draftKey, agentName, onSend, onStop }: Props) {
+  const [text, setText] = useDraft(draftKey ?? null);
   const box = useRef<HTMLTextAreaElement>(null);
+  // Keyed on the suggestion alone: re-running when the conversation changes would copy a
+  // suggestion picked in one conversation over the draft kept for the next.
   useEffect(() => {
     if (draft !== undefined) setText(draft);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft]);
 
   // One line when empty, as tall as the message while it is written: a fixed two-row box

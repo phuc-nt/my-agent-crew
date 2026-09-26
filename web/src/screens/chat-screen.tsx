@@ -214,6 +214,7 @@ export function ChatScreen({
         onDelete={remove}
         searchRef={searchRef}
         drawer={phone ? { open: drawer.open, close: drawer.hide, ref: drawer.panelRef } : undefined}
+        liveIds={live.flatMap((r) => r.conversation_id ?? [])}
         top={
           master && (
             <div className="master-card" data-testid="master-card">
@@ -323,6 +324,7 @@ export function ChatScreen({
           disabled={state.pending !== null}
           busy={state.busy}
           draft={draft}
+          draftKey={list.activeId ?? "new"}
           agentName={active ? crew.agentName(active.agent_id) : master?.name}
           onSend={(text) => {
             setDraft(undefined);

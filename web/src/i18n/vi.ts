@@ -13,6 +13,9 @@ export const vi = {
   noMatchingConversations: "Không có cuộc nào khớp.",
   deleteConversation: "Xoá cuộc trò chuyện",
   confirmDelete: "Xoá cuộc trò chuyện này? Không thể hoàn tác.",
+  // The dot before each sidebar row: what the conversation is doing right now.
+  conversationStatus: { idle: "Rảnh", awaiting_approval: "Chờ bạn duyệt", running: "Đang chạy" },
+  unread: "Có tin mới chưa xem",
   rename: "Đổi tên",
   renameHint: "Bấm để đổi tên cuộc trò chuyện",
   resummarize: "Tóm tắt lại",
