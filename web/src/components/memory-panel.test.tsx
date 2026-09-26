@@ -221,6 +221,48 @@ describe("MemoryPanel", () => {
     expect(await screen.findByText("Cô đọng bộ nhớ")).toBeInTheDocument();
   });
 
+  it("says how the consolidation ended in the live region that showed it running", async () => {
+    backend.setAgentMemory("default", { memory_md: "- Sếp thích trà." });
+    const { rerender } = mount();
+    await open(vi.memory.agents);
+    const button = await screen.findByRole("button", { name: vi.memory.consolidate });
+    // The memory editor has a status line of its own; this region sits under the button.
+    const region = button.nextElementSibling as HTMLElement;
+    expect(region).toHaveAttribute("role", "status");
+
+    await userEvent.click(button);
+    await waitFor(() => expect(region).toHaveTextContent(vi.memory.consolidateStarted));
+    const run = fakeRun({ id: "mem-1", source: "memory:consolidate", conversation_id: null, status: "halted" });
+    rerender(panel(0, [run]));
+
+    await waitFor(() => expect(region).toHaveTextContent(runOutcome(run)));
+    expect(region).toBeInTheDocument();
+  });
+
+  it("keeps a consolidation's outcome with its agent but still re-reads the crew's proposals", async () => {
+    backend.setAgentMemory("default", { memory_md: "- Sếp thích trà." });
+    backend.setAgentMemory("coach", { memory_md: "- HLV nhớ riêng." });
+    const { rerender } = mount();
+    await open(vi.memory.agents);
+    await userEvent.click(await screen.findByRole("button", { name: vi.memory.consolidate }));
+    await screen.findByText(vi.memory.consolidateStarted);
+    await userEvent.selectOptions(screen.getByRole("combobox"), "coach");
+    await waitFor(() =>
+      expect(screen.getByRole("textbox", { name: new RegExp(vi.memory.agentMemory) })).toHaveValue("- HLV nhớ riêng."),
+    );
+
+    backend.addProposal({ kind: "agent_memory_rewrite", description: "Cô đọng bộ nhớ" });
+    const run = fakeRun({ id: "mem-1", source: "memory:consolidate", conversation_id: null, summary: "Đã đề xuất." });
+    rerender(panel(0, [run]));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: vi.memory.consolidate })).toBeEnabled());
+    expect(screen.queryByText(runOutcome(run))).toBeNull();
+    await userEvent.selectOptions(screen.getByRole("combobox"), "default");
+    expect(await screen.findByText(runOutcome(run))).toBeInTheDocument();
+    await open(vi.memory.proposals);
+    expect(await screen.findByText("Cô đọng bộ nhớ")).toBeInTheDocument();
+  });
+
   it("shows a rewrite against what it replaces and can put that back", async () => {
     backend.setAgentMemory("default", { memory_md: "- Sếp thích trà.\n- Sếp ngủ sớm." });
     backend.addProposal({

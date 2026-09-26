@@ -337,4 +337,49 @@ describe("WikiSection compile tracking", () => {
     expect(await screen.findByText(vi.wiki.compileStarted)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: vi.wiki.compile })).toBeDisabled();
   });
+
+  it("says how the compile ended in the same live region that showed it running", async () => {
+    const { rerender } = mount("default", []);
+    await screen.findByText(vi.wiki.empty);
+    // A screen reader announces changes to a region it already knows, not a new one.
+    const region = screen.getByRole("status");
+
+    await userEvent.click(screen.getByRole("button", { name: vi.wiki.compile }));
+    await waitFor(() => expect(region).toHaveTextContent(vi.wiki.compileStarted));
+    const finished = compileRun({ status: "error", summary: "Hết hạn mức." });
+    rerender(section("default", [finished]));
+
+    await waitFor(() => expect(region).toHaveTextContent(runOutcome(finished)));
+    expect(screen.getByRole("status")).toBe(region);
+  });
+
+  it("says a compile is busy in the live region too", async () => {
+    backend.wiki.busy = true;
+    mount();
+    await screen.findByText(vi.wiki.empty);
+
+    await userEvent.click(screen.getByRole("button", { name: vi.wiki.compile }));
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(vi.wiki.compileBusy));
+  });
+
+  it("keeps a compile's outcome with the agent it ran for once the person has moved on", async () => {
+    const coachReads = () =>
+      backend.requests.filter((r) => r.method === "GET" && r.path.startsWith("/agents/coach/memory/wiki")).length;
+    const { rerender } = mount("default", []);
+    await screen.findByText(vi.wiki.empty);
+    await userEvent.click(screen.getByRole("button", { name: vi.wiki.compile }));
+    await screen.findByText(vi.wiki.compileStarted);
+
+    rerender(section("coach", []));
+    await waitFor(() => expect(coachReads()).toBe(2));
+    const finished = compileRun({ status: "done", summary: "Đề xuất 1 trang." });
+    rerender(section("coach", [finished]));
+
+    // The coach's vault did not change, so it is neither re-read nor captioned with this.
+    await waitFor(() => expect(screen.getByRole("button", { name: vi.wiki.compile })).toBeEnabled());
+    expect(screen.queryByText(runOutcome(finished))).toBeNull();
+    expect(coachReads()).toBe(2);
+    rerender(section("default", [finished]));
+    expect(await screen.findByText(runOutcome(finished))).toBeInTheDocument();
+  });
 });

@@ -4,7 +4,7 @@ import type { AgentInfo, RunInfo, WikiPageSummary } from "../api/types";
 import { useStartedRun } from "../hooks/use-started-run";
 import { useWiki } from "../hooks/use-wiki";
 import { vi } from "../i18n/vi";
-import { RunChip, runOutcome } from "./run-chip";
+import { RunStatus, runOutcome } from "./run-chip";
 import { WikiPageView } from "./wiki-page-view";
 import { WikiQuestions } from "./wiki-questions";
 import { WikiTodayNote } from "./wiki-today-note";
@@ -28,10 +28,13 @@ function byKind(pages: WikiPageSummary[]): [string, WikiPageSummary[]][] {
 /** What the header row has opened below it; tied to the agent it was opened for. */
 type Panel = { agentId: string; kind: "questions" | "note" };
 
+/** A line about a compile, tied to the agent whose vault it was about. */
+type Message = { agentId: string; text: string };
+
 /** One agent's vault: the pages it has settled on, grouped the way they are filed. */
 export function WikiSection(props: Props) {
   const wiki = useWiki(props.agentId);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState<Message | null>(null);
   const [panel, setPanel] = useState<Panel | null>(null);
   // Switching agent closes the panel rather than showing the new vault in the old one's place.
   const shown = panel?.agentId === props.agentId ? panel.kind : null;
@@ -41,24 +44,26 @@ export function WikiSection(props: Props) {
   const noteId = useId();
 
   const { refresh } = wiki;
+  const { agentId } = props;
   const onSettled = useCallback(
     (run: RunInfo) => {
-      setMessage(runOutcome(run));
-      void refresh().catch(() => undefined);
+      setMessage({ agentId: run.agent_id, text: runOutcome(run) });
+      // Another agent's vault is on screen now; the one that compiled is re-read on return.
+      if (run.agent_id === agentId) void refresh().catch(() => undefined);
     },
-    [refresh],
+    [agentId, refresh],
   );
   const started = useStartedRun(props.runs, onSettled);
   const compiling = started.tracking && started.agentId === props.agentId;
 
   const compile = async () => {
-    setMessage("");
+    setMessage(null);
     try {
       await started.start(wiki.compile);
     } catch (error) {
       // 409 means the nightly rewrite holds the memory folder; anything else just failed.
       const busy = error instanceof ApiError && error.status === 409;
-      setMessage(busy ? vi.wiki.compileBusy : vi.wiki.compileFailed);
+      setMessage({ agentId, text: busy ? vi.wiki.compileBusy : vi.wiki.compileFailed });
     }
   };
 
@@ -114,11 +119,12 @@ export function WikiSection(props: Props) {
               {vi.wiki.compile}
             </button>
           </div>
-          {compiling ? (
-            <RunChip label={vi.wiki.compileStarted} run={started.run} />
-          ) : (
-            message && <p className="muted">{message}</p>
-          )}
+          <RunStatus
+            label={vi.wiki.compileStarted}
+            run={started.run}
+            tracking={compiling}
+            message={message?.agentId === props.agentId ? message.text : ""}
+          />
           <div className="wiki-header-actions">
             {questions.length > 0 && (
               <button

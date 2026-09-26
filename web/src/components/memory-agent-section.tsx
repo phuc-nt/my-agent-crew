@@ -4,7 +4,7 @@ import type { AgentInfo, AgentMemory, RunInfo } from "../api/types";
 import { type RunStart, useStartedRun } from "../hooks/use-started-run";
 import { vi } from "../i18n/vi";
 import { MemoryEditor } from "./memory-editor";
-import { RunChip, runOutcome } from "./run-chip";
+import { RunStatus, runOutcome } from "./run-chip";
 
 interface Props {
   agents: AgentInfo[];
@@ -21,17 +21,21 @@ interface Props {
   onConsolidated: () => void;
 }
 
+/** A line about a consolidation, tied to the agent whose memory it was about. */
+type Message = { agentId: string; text: string };
+
 /** One agent's own memory: the file it re-reads each turn, plus its dated notes. */
 export function MemoryAgentSection(props: Props) {
   const [day, setDay] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [consolidating, setConsolidating] = useState(false);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState<Message | null>(null);
 
-  const { onConsolidate, onConsolidated } = props;
+  const { agentId, onConsolidate, onConsolidated } = props;
   const onSettled = useCallback(
     (run: RunInfo) => {
-      setMessage(runOutcome(run));
+      setMessage({ agentId: run.agent_id, text: runOutcome(run) });
+      // Re-read even when another agent is on screen: the proposals list is crew-wide.
       onConsolidated();
     },
     [onConsolidated],
@@ -41,13 +45,13 @@ export function MemoryAgentSection(props: Props) {
 
   const consolidate = async () => {
     setConsolidating(true);
-    setMessage("");
+    setMessage(null);
     try {
       await started.start(onConsolidate);
     } catch (error) {
       // 409 means one is already running; anything else is a plain failure.
       const busy = error instanceof ApiError && error.status === 409;
-      setMessage(busy ? vi.memory.consolidateBusy : vi.memory.consolidateFailed);
+      setMessage({ agentId, text: busy ? vi.memory.consolidateBusy : vi.memory.consolidateFailed });
     } finally {
       setConsolidating(false);
     }
@@ -93,11 +97,12 @@ export function MemoryAgentSection(props: Props) {
           >
             {vi.memory.consolidate}
           </button>
-          {tracking ? (
-            <RunChip label={vi.memory.consolidateStarted} run={started.run} />
-          ) : (
-            message && <p className="muted">{message}</p>
-          )}
+          <RunStatus
+            label={vi.memory.consolidateStarted}
+            run={started.run}
+            tracking={tracking}
+            message={message?.agentId === props.agentId ? message.text : ""}
+          />
 
           <h3>{vi.memory.notes}</h3>
           {props.memory.notes.length === 0 ? (
