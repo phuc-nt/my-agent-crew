@@ -1,9 +1,11 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi as vitest } from "vitest";
+import { afterEach, describe, expect, it, vi as vitest } from "vitest";
 import { vi } from "../i18n/vi";
+import { FakeBackend, fakeApproval } from "../test/fake-backend";
 import { questionPending, toolPending } from "../test/pending";
 import { ApprovalBar } from "./approval-bar";
+import { ApprovalHistory } from "./approval-history";
 import { BudgetIndicator, formatUsd } from "./budget-indicator";
 import { Composer } from "./composer";
 import { ConversationList } from "./conversation-list";
@@ -218,6 +220,82 @@ describe("QuestionCard", () => {
     );
     expect(screen.getByRole("button", { name: "có" })).toBeDisabled();
     expect(screen.getByRole("textbox")).toBeDisabled();
+  });
+});
+
+describe("ApprovalHistory", () => {
+  afterEach(() => vitest.unstubAllGlobals());
+
+  const history = (backend: FakeBackend) => {
+    vitest.stubGlobal("fetch", backend.fetch);
+    render(<ApprovalHistory agentName={() => "HLV"} onOpenConversation={() => undefined} refreshKey={0} />);
+    return screen.findByTestId("approval-history");
+  };
+  const limits = (backend: FakeBackend) =>
+    backend.requests.filter((r) => r.path.startsWith("/approvals")).map((r) => new URLSearchParams(r.path.split("?")[1]).get("limit"));
+
+  it("reads a question as what was asked, what it offered and what came back", async () => {
+    const backend = new FakeBackend();
+    backend.approvals = [
+      fakeApproval({
+        id: "q1",
+        tool_name: "ask_user",
+        kind: "question",
+        arguments: { question: "Dời hạn sang thứ sáu?", options: ["có", "không"] },
+        options: ["có", "không"],
+        status: "answered",
+        answer: "không",
+      }),
+    ];
+    const item = within(await history(backend)).getByRole("listitem");
+    expect(item).toHaveTextContent("Dời hạn sang thứ sáu?");
+    expect(within(item).getByText("có")).toBeInTheDocument();
+    expect(within(item).getByText("không", { selector: ".approval-option" })).toBeInTheDocument();
+    expect(item).toHaveTextContent(vi.approvalAnswer("không"));
+    expect(item).not.toHaveTextContent("question=");
+  });
+
+  it("fetches a bigger page on 'Xem thêm' until the server runs out or its ceiling is hit", async () => {
+    const backend = new FakeBackend();
+    backend.approvals = Array.from({ length: 260 }, (_, i) => fakeApproval({ id: `a${i}` }));
+    const list = await history(backend);
+    expect(within(list).getAllByRole("listitem")).toHaveLength(50);
+
+    await userEvent.click(screen.getByRole("button", { name: vi.approvalHistoryMore }));
+    await vitest.waitFor(() => expect(within(list).getAllByRole("listitem")).toHaveLength(200));
+    await userEvent.click(screen.getByRole("button", { name: vi.approvalHistoryMore }));
+    await vitest.waitFor(() => expect(within(list).getAllByRole("listitem")).toHaveLength(260));
+    // 260 of a possible 500: the whole history is on screen, so there is nothing more to ask for.
+    expect(screen.queryByRole("button", { name: vi.approvalHistoryMore })).not.toBeInTheDocument();
+    expect(limits(backend)).toEqual(["50", "200", "500"]);
+  });
+
+  it("stops offering more at the server's ceiling even when that page is full", async () => {
+    const backend = new FakeBackend();
+    backend.approvals = Array.from({ length: 520 }, (_, i) => fakeApproval({ id: `a${i}` }));
+    const list = await history(backend);
+    await userEvent.click(screen.getByRole("button", { name: vi.approvalHistoryMore }));
+    await vitest.waitFor(() => expect(within(list).getAllByRole("listitem")).toHaveLength(200));
+    await userEvent.click(screen.getByRole("button", { name: vi.approvalHistoryMore }));
+    await vitest.waitFor(() => expect(within(list).getAllByRole("listitem")).toHaveLength(500));
+    expect(screen.queryByRole("button", { name: vi.approvalHistoryMore })).not.toBeInTheDocument();
+  });
+
+  it("offers no more when the first page is already short", async () => {
+    const backend = new FakeBackend();
+    backend.approvals = [fakeApproval(), fakeApproval({ id: "ap2" })];
+    await history(backend);
+    expect(screen.queryByRole("button", { name: vi.approvalHistoryMore })).not.toBeInTheDocument();
+  });
+
+  it("opens a tool row's full arguments from under its summary", async () => {
+    const backend = new FakeBackend();
+    const command = `python scripts/migrate.py ${"--table events ".repeat(6)}--dry-run`;
+    backend.approvals = [fakeApproval({ tool_name: "shell_run", arguments: { command } })];
+    const item = within(await history(backend)).getByRole("listitem");
+    expect(item).not.toHaveTextContent("--dry-run");
+    await userEvent.click(within(item).getByRole("button", { name: vi.argumentsMore }));
+    expect(within(item).getByTestId("args-detail")).toHaveTextContent(command);
   });
 });
 

@@ -72,6 +72,9 @@ export const vi = {
   autoApprovedRevoke: (tool: string) => `Hỏi lại khi chạy ${tool}`,
   approvalHistory: "Lịch sử duyệt",
   approvalHistoryEmpty: "Chưa có yêu cầu duyệt nào.",
+  approvalHistoryMore: "Xem thêm",
+  approvalOptions: "Lựa chọn:",
+  approvalAnswer: (answer: string) => `Bạn đã trả lời: ${answer}`,
   approvalStatus: {
     pending: "chờ duyệt",
     approved: "đã cho phép",
@@ -120,6 +123,8 @@ export const vi = {
   showOutput: "Xem kết quả",
   hideOutput: "Ẩn kết quả",
   arguments: "Tham số",
+  argumentsMore: "Xem đầy đủ",
+  argumentsLess: "Thu gọn",
   delegateTo: "Giao cho {agent}",
   delegateTask: "Việc đã giao",
   delegateRunning: "đang làm",

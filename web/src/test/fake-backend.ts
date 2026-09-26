@@ -91,6 +91,24 @@ export function fakeRun(overrides: Partial<RunInfo> = {}): RunInfo {
   };
 }
 
+/** One row of GET /approvals: a settled tool request unless the test says otherwise. */
+export function fakeApproval(overrides: Partial<ApprovalInfo> = {}): ApprovalInfo {
+  return {
+    id: "ap1",
+    conversation_id: "c1",
+    message_id: "m",
+    tool_call_id: "tc",
+    tool_name: "write_file",
+    arguments: { path: "x" },
+    status: "approved",
+    created_at: "2026-09-20T01:00:00Z",
+    expires_at: "2026-09-20T01:10:00Z",
+    resolved_at: "2026-09-20T01:01:00Z",
+    agent_id: "default",
+    ...overrides,
+  };
+}
+
 /** In-memory stand-in for the FastAPI server, wired to `fetch` in component tests. */
 export class FakeBackend {
   conversations = new Map<string, ConversationDetail>();
@@ -241,7 +259,8 @@ export class FakeBackend {
     if (path === "/approvals") {
       // Like the server: narrowing happens here, so the page belongs to the conversation.
       const only = url.searchParams.get("conversation_id");
-      return json(only ? this.approvals.filter((a) => a.conversation_id === only) : this.approvals);
+      const rows = only ? this.approvals.filter((a) => a.conversation_id === only) : this.approvals;
+      return json(rows.slice(0, Number(url.searchParams.get("limit") ?? 50)));
     }
     const job = path.match(/^\/jobs\/(.+)\/run$/)?.[1];
     if (job && method === "POST") return json({ job_id: decodeURIComponent(job), status: "started" }, 202);

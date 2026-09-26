@@ -1,6 +1,7 @@
 import { vi } from "../i18n/vi";
 import type { PendingApproval } from "../state/thread-reducer";
 import { formatClock } from "./run-timeline";
+import { ToolArgsDetail } from "./tool-args-detail";
 import { summarizeArguments } from "./tool-call-card";
 import { Icon } from "./ui/icon";
 
@@ -22,6 +23,7 @@ export function ApprovalBar({ pending, busy, onDecide, onAlways }: Props) {
         <strong>{vi.approvalTitle(pending.name)}</strong>
         {pending.reason && <span className="approval-reason">{pending.reason}</span>}
         <code>{summarizeArguments(pending.arguments) || "—"}</code>
+        <ToolArgsDetail args={pending.arguments} />
         {pending.expiresAt && (
           <span className="approval-deadline">{vi.approvalDeadline(formatClock(pending.expiresAt))}</span>
         )}

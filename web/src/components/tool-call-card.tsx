@@ -2,6 +2,7 @@ import { useState } from "react";
 import { vi } from "../i18n/vi";
 import { delegateAgent, delegateTask, parseDelegateResult } from "../lib/delegate-result";
 import type { ThreadItem, ToolStatus } from "../state/thread-reducer";
+import { SUMMARY_CUT, ToolArgsDetail } from "./tool-args-detail";
 import { AgentAvatar } from "./ui/agent-avatar";
 import { Icon, type IconName } from "./ui/icon";
 
@@ -48,7 +49,7 @@ export function summarizeArguments(args: Record<string, unknown> | string): stri
   if (typeof args === "string") return args;
   const parts = Object.entries(args).map(([key, value]) => {
     const text = typeof value === "string" ? value : JSON.stringify(value);
-    return `${key}=${text.length > 60 ? `${text.slice(0, 57)}…` : text}`;
+    return `${key}=${text.length > SUMMARY_CUT ? `${text.slice(0, SUMMARY_CUT - 3)}…` : text}`;
   });
   return parts.join(", ");
 }
@@ -87,6 +88,7 @@ export function ToolCallCard({ item, agentName, onOpenConversation }: Props) {
       <div className="tool-arguments" title={vi.arguments}>
         {summarizeArguments(item.arguments) || "—"}
       </div>
+      <ToolArgsDetail args={item.arguments} />
       {hasOutput && (
         <>
           <button type="button" className="link-button" onClick={() => setOpen((o) => !o)}>

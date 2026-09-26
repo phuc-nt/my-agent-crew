@@ -1,0 +1,95 @@
+/*
+ * approvals → deciding a request with enough in front of you: a tool call's full
+ * arguments, and the approval history's paging.
+ */
+
+/* ── Full tool arguments ────────────────────────────────────────────────── */
+.args-detail {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.args-detail .args-detail-toggle {
+  margin: var(--space-1) 0 0 calc(var(--space-2) * -1);
+  font-size: var(--text-xs);
+}
+
+.args-detail-body {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  min-width: 0;
+}
+
+.args-detail-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.args-detail-key {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+/* A command or a file is read whole, so it wraps where the card ends rather than
+   scrolling sideways: on a phone a hidden tail is exactly the part nobody would see. */
+.args-detail-code {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  color: var(--text);
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+/* ── Approval history ───────────────────────────────────────────────────── */
+.approval-question {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.approval-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+}
+
+.approval-option {
+  padding: 2px var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.approval-answer {
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
+.approval-more {
+  align-self: center;
+  margin-top: var(--space-2);
+}
+
+@media (max-width: 720px) {
+  .args-detail .args-detail-toggle,
+  .approval-more {
+    min-height: var(--touch-target);
+  }
+}

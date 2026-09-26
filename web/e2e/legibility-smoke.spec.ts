@@ -133,3 +133,46 @@ test("the memory editor's text is large enough that a phone does not zoom into i
   const size = await page.locator(".probe textarea").evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
   expect(size).toBeGreaterThanOrEqual(16);
 });
+
+// Approving a command means reading all of it. On a phone the full view has to wrap where
+// the card ends: a block that scrolls sideways hides exactly the tail nobody then reads,
+// and one wider than the screen drags the whole page sideways with it.
+test("a tool call's full arguments wrap at phone width instead of widening the page", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const command = `find /h/workspace/logs -name '*.log' -mtime +30 -delete && echo ${"cleaned-".repeat(24)}done`;
+  await mockApi(page, {
+    conversations: [
+      {
+        id: "c1", agent_id: "default", channel: "", title: "Dọn log", summary: "", created_at: "", updated_at: "",
+        autonomous: false, cost_cap_usd: 1, skills: [], auto_approve: [], parent_call_id: "", spent_usd: 0,
+        unknown_cost_calls: 0, status: "awaiting_approval", over_budget: false, messages: [],
+        pending_approval: {
+          id: "ap", conversation_id: "c1", message_id: "m", tool_call_id: "tc", tool_name: "shell_run",
+          arguments: { command, timeout: 60 }, status: "pending", created_at: "2026-09-26T01:00:00Z",
+          expires_at: "2026-09-26T01:10:00Z", resolved_at: null, kind: "tool", options: [],
+        },
+      },
+    ],
+  });
+  await page.goto("/#/chat/c1");
+  const bar = page.getByRole("alertdialog");
+  const toggle = bar.getByRole("button", { name: "Xem đầy đủ" });
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  expect((await toggle.boundingBox())?.height).toBeGreaterThanOrEqual(40);
+  await toggle.click();
+
+  const block = bar.locator(".args-detail-code").first();
+  await expect(block).toHaveText(command);
+  const fit = await block.evaluate((el) => {
+    const box = el.getBoundingClientRect();
+    return {
+      page: document.documentElement.scrollWidth,
+      width: window.innerWidth,
+      right: box.right,
+      sideways: el.scrollWidth - el.clientWidth,
+    };
+  });
+  expect(fit.page).toBeLessThanOrEqual(fit.width);
+  expect(fit.right).toBeLessThanOrEqual(fit.width);
+  expect(fit.sideways).toBeLessThanOrEqual(0);
+});
