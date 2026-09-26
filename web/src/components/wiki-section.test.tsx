@@ -18,6 +18,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vitest.useRealTimers();
+  vitest.restoreAllMocks();
 });
 
 /** The section as the memory panel mounts it, with notes going through the real client. */
@@ -291,6 +292,21 @@ describe("WikiSection read mode", () => {
     expect(list).toHaveTextContent("Mấy độ?");
     await userEvent.click(within(list).getByRole("button", { name: "Trà sáng" }));
     expect(await screen.findByRole("heading", { name: "Trà sáng" })).toBeInTheDocument();
+  });
+
+  it("lists a question a page asked twice as two rows, in the vault list and on the page", async () => {
+    // Nothing on the server folds a repeated question, and a model does repeat itself.
+    backend.wiki.add({ title: "Hạn Eco", questions: ["Mấy giờ?", "Mấy giờ?"] });
+    const errors = vitest.spyOn(console, "error").mockImplementation(() => undefined);
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: vi.wiki.openQuestions(2) }));
+    const list = screen.getByRole("region", { name: vi.wiki.openQuestions(2) });
+    expect(within(list).getAllByText("Mấy giờ?")).toHaveLength(2);
+    await userEvent.click(within(list).getAllByRole("button", { name: "Hạn Eco" })[0]);
+    expect(within(await screen.findByTestId("wiki-page")).getAllByText("Mấy giờ?")).toHaveLength(2);
+    // React reports a repeated list key here; such a list can drop or repeat rows on update.
+    expect(errors).not.toHaveBeenCalled();
   });
 
   it("offers no open-questions list when the vault has none", async () => {

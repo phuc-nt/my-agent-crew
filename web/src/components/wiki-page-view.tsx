@@ -106,8 +106,9 @@ export function WikiPageView({ page, titles, onBack, onOpen, onSaveBody, onMarkO
         <>
           <h4 className="wiki-page-label">{vi.wiki.questions}</h4>
           <ul className="wiki-questions">
-            {page.questions.map((question) => (
-              <li key={question}>{question}</li>
+            {/* Repeats are possible, and the list is never reordered, so position is the key. */}
+            {page.questions.map((question, index) => (
+              <li key={index}>{question}</li>
             ))}
           </ul>
         </>

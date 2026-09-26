@@ -21,8 +21,9 @@ export function WikiQuestions({ id, questions, titles, onOpen }: Props) {
   return (
     <section id={id} aria-label={vi.wiki.openQuestions(questions.length)}>
       <ul className="wiki-open-questions">
-        {questions.map(({ slug, question }) => (
-          <li key={`${slug}:${question}`}>
+        {/* A page can ask the same question twice; the list is only ever replaced whole. */}
+        {questions.map(({ slug, question }, index) => (
+          <li key={index}>
             <button type="button" className="link-button" onClick={() => onOpen(slug)}>
               {titles.get(slug) ?? slug}
             </button>
