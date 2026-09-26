@@ -75,6 +75,18 @@ describe("the open thread and runs this tab did not stream", () => {
     expect(await screen.findByRole("alertdialog", { name: vi.awaitingApproval })).toBeInTheDocument();
   });
 
+  it("reloads when an approval waiting here is decided on another device", async () => {
+    const c = backend.create({ title: "Duyệt nơi khác", messages: [storedMessage("user", "ghi tệp")] });
+    await openConversation("Duyệt nơi khác");
+    act(() => stream().emit({ type: "run", run: telegramRun(c.id, "awaiting_approval") }));
+    await act(async () => {});
+
+    const before = threadLoads(c.id);
+    act(() => stream().emit({ type: "run", run: telegramRun(c.id, "running") }));
+    await act(async () => {});
+    expect(threadLoads(c.id)).toBe(before + 1);
+  });
+
   it("reloads once the stream is back when a run started and ended while it was down", async () => {
     const c = backend.create({ title: "Trong lúc mất", messages: [storedMessage("user", "chào")] });
     await openConversation("Trong lúc mất");
