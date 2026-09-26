@@ -26,12 +26,17 @@ export function useRemaining(expiresAt: string | undefined): number | null {
   return Number.isNaN(deadline) ? null : Math.max(0, deadline - now);
 }
 
+const pad = (n: number) => String(n).padStart(2, "0");
+
 /** "9:58" — a stopwatch reading, not a relative time: the last minute is counted in seconds
- *  because that is when the person decides whether there is still time to read the request. */
+ *  because that is when the person decides whether there is still time to read the request.
+ *  The time a request waits is configurable, and a day of it reads "24:00:00", not "1440:00". */
 function stopwatch(ms: number): string {
   // Rounded up, so the chip reads 0:01 until the moment it turns into "expired".
   const seconds = Math.ceil(ms / SECOND);
-  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  return hours > 0 ? `${hours}:${pad(minutes)}:${pad(seconds % 60)}` : `${minutes}:${pad(seconds % 60)}`;
 }
 
 /** How long a waiting request has before the server closes it on its own. */
