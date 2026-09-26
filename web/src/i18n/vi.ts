@@ -63,6 +63,13 @@ export const vi = {
   overBudget: "Đã vượt ngân sách — agent sẽ dừng trước lượt gọi model kế tiếp.",
   composerPlaceholder: "Nhắn cho agent… (Enter để gửi, Shift+Enter xuống dòng)",
   composerPlaceholderFor: (name: string) => `Nhắn cho ${name}…`,
+  // The list of the agent's commands above the composer, opened by "/" at the start.
+  slash: {
+    open: "Chọn lệnh",
+    list: "Lệnh của agent",
+    empty: "Không có lệnh nào khớp.",
+    hint: "↑↓ để chọn · Enter hoặc Tab để chèn · Esc để đóng",
+  },
   send: "Gửi",
   stop: "Dừng",
   thinking: "Đang suy nghĩ…",

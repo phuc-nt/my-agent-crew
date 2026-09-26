@@ -112,6 +112,34 @@ test("a half-written message waits in its conversation across drawer switches", 
   await expect(box).toHaveValue("Mai tập gì nhỉ");
 });
 
+// A phone keyboard has no arrows worth using, so the command list is reached and used by
+// thumb: a '/' button beside send and options big enough to tap.
+test("the '/' button offers the agent's commands to a thumb, and the list fits", async ({ page }) => {
+  const commands = [
+    { name: "tong-ket", description: "Tổng kết ngày hôm nay thành một bản tin ngắn gửi qua Telegram", path: "/h/c/tong-ket.md" },
+    { name: "plan", description: "Lập kế hoạch", path: "/h/c/plan.md" },
+  ];
+  await mockApi(page, { agents: [{ ...defaultAgent, commands }], conversations: [conversation("c1", "Chung")] });
+  await page.goto("/");
+  const box = page.getByRole("textbox", { name: /^Nhắn cho agent/ });
+  const slash = page.getByRole("button", { name: "Chọn lệnh" });
+  const size = await slash.boundingBox();
+  expect(size?.width).toBeGreaterThanOrEqual(40);
+  expect(size?.height).toBeGreaterThanOrEqual(40);
+
+  await slash.click();
+  const option = page.getByRole("option", { name: /tong-ket/ });
+  await expect(option).toBeVisible();
+  expect((await option.boundingBox())?.height).toBeGreaterThanOrEqual(40);
+  const overflow = await widestOverflow(page);
+  expect(overflow.offenders).toEqual([]);
+  expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.width);
+
+  await option.click();
+  await expect(box).toHaveValue("/tong-ket ");
+  await expect(page.getByRole("listbox")).toHaveCount(0);
+});
+
 // The search box lives in the drawer, and a closed drawer is inert: a browser refuses to
 // focus anything inside it, so the shortcut has to open the drawer around the box first.
 test("the search shortcut opens the list at the search box", async ({ page }) => {

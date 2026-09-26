@@ -171,10 +171,109 @@ button.copy-button[data-copied] {
   font-weight: 600;
 }
 
+/* ── Slash commands above the composer ──────────────────────────────────── */
+/* The list rises from the box, as wide as it, so the thread stays readable behind. */
+.composer-box {
+  position: relative;
+}
+.slash-popover {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + var(--space-2));
+  z-index: 20;
+  max-height: min(300px, 45dvh);
+  overflow-y: auto;
+  padding: var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-3);
+}
+/* One column that may shrink below its content: a long description is cut with an
+   ellipsis instead of widening the list past a phone's screen. */
+.slash-popover ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+}
+.slash-popover button[role="option"] {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--touch-target);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  box-shadow: none;
+  font-weight: 400;
+  text-align: left;
+}
+.slash-popover button[role="option"]:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+/* The option Enter would take: the keyboard's focus while the caret stays in the box. */
+.slash-popover button[role="option"][aria-selected="true"] {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.slash-name {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text);
+}
+.slash-description {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+.slash-empty,
+.slash-hint {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+.slash-hint {
+  border-top: 1px solid var(--border);
+  margin-top: var(--space-1);
+}
+@media (hover: none) {
+  .slash-hint {
+    display: none;
+  }
+}
+
+button.composer-action.slash {
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+button.composer-action.slash:hover:not(:disabled),
+button.composer-action.slash[aria-expanded="true"] {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
 /* ── Phone ──────────────────────────────────────────────────────────────── */
 @media (max-width: 720px) {
   button.copy-button {
     min-height: var(--touch-target);
     min-width: var(--touch-target);
+  }
+  button.composer-action.slash {
+    width: var(--touch-target);
+    height: var(--touch-target);
+    min-height: var(--touch-target);
   }
 }

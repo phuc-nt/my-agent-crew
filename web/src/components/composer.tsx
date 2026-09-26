@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, type KeyboardEvent } from "react";
+import type { CommandInfo } from "../api/types";
 import { useDraft } from "../hooks/use-draft";
 import { vi } from "../i18n/vi";
+import { SlashPopover, useSlashMenu } from "./slash-popover";
 import { Icon } from "./ui/icon";
 
 interface Props {
@@ -11,6 +13,8 @@ interface Props {
   draftKey?: string;
   /** Who the message goes to, so the empty box says so. */
   agentName?: string;
+  /** The agent's own commands, offered when the message starts with "/". */
+  commands?: CommandInfo[];
   onSend: (text: string) => void;
   onStop: () => void;
 }
@@ -18,9 +22,20 @@ interface Props {
 /** The box grows with what is typed up to this many pixels, then scrolls. */
 const MAX_HEIGHT = 240;
 
-export function Composer({ disabled, busy, draft, draftKey, agentName, onSend, onStop }: Props) {
+export function Composer({
+  disabled,
+  busy,
+  draft,
+  draftKey,
+  agentName,
+  commands = [],
+  onSend,
+  onStop,
+}: Props) {
   const [text, setText] = useDraft(draftKey ?? null);
   const box = useRef<HTMLTextAreaElement>(null);
+  const menu = useSlashMenu(commands, text, setText, box, disabled);
+  const listed = menu.open && menu.shown.length > 0;
   // Keyed on the suggestion alone: re-running when the conversation changes would copy a
   // suggestion picked in one conversation over the draft kept for the next.
   useEffect(() => {
@@ -52,6 +67,7 @@ export function Composer({ disabled, busy, draft, draftKey, agentName, onSend, o
     // before the Enter that commits it arrives, so there `isComposing` is already false
     // and only the IME's keyCode 229 gives that Enter away.
     const composing = event.nativeEvent.isComposing || event.keyCode === 229;
+    if (menu.onKeyDown(event, composing)) return;
     if (event.key === "Enter" && !event.shiftKey && !composing) {
       event.preventDefault();
       submit();
@@ -67,9 +83,13 @@ export function Composer({ disabled, busy, draft, draftKey, agentName, onSend, o
       }}
     >
       <div className={`composer-box${disabled ? " disabled" : ""}`}>
+        <SlashPopover menu={menu} />
         <textarea
           ref={box}
           aria-label={vi.composerPlaceholder}
+          aria-autocomplete={commands.length > 0 ? "list" : undefined}
+          aria-controls={listed ? menu.listId : undefined}
+          aria-activedescendant={listed ? menu.optionId(menu.active) : undefined}
           placeholder={agentName ? vi.composerPlaceholderFor(agentName) : vi.composerPlaceholder}
           value={text}
           rows={1}
@@ -77,6 +97,22 @@ export function Composer({ disabled, busy, draft, draftKey, agentName, onSend, o
           onChange={(event) => setText(event.target.value)}
           onKeyDown={onKeyDown}
         />
+        {commands.length > 0 && (
+          <button
+            type="button"
+            className="composer-action slash"
+            aria-label={vi.slash.open}
+            title={vi.slash.open}
+            aria-haspopup="listbox"
+            aria-expanded={menu.open}
+            disabled={disabled}
+            // Keeps the focus, and with it the phone's keyboard, in the box.
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={menu.toggle}
+          >
+            /
+          </button>
+        )}
         {busy ? (
           <button
             type="button"

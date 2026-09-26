@@ -326,6 +326,7 @@ export function ChatScreen({
           draft={draft}
           draftKey={list.activeId ?? "new"}
           agentName={active ? crew.agentName(active.agent_id) : master?.name}
+          commands={(active ? crew.agents.find((a) => a.id === active.agent_id) : master)?.commands ?? []}
           onSend={(text) => {
             setDraft(undefined);
             void send(text);
