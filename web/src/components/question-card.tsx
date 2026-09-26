@@ -2,6 +2,7 @@ import { useState } from "react";
 import { vi } from "../i18n/vi";
 import { type PendingApproval, questionText } from "../state/thread-reducer";
 import { formatClock } from "./run-timeline";
+import { Icon } from "./ui/icon";
 
 interface Props {
   pending: PendingApproval;
@@ -25,9 +26,12 @@ export function QuestionCard({ pending, busy, onAnswer }: Props) {
   };
 
   return (
-    <div className="question-card" role="alertdialog" aria-label={vi.awaitingAnswer}>
+    <div className="question-card callout" role="alertdialog" aria-label={vi.awaitingAnswer}>
       <div className="question-text">
-        <strong>{vi.questionTitle}</strong>
+        <strong>
+          <Icon name="help" className="callout-inline-icon" />
+          {vi.questionTitle}
+        </strong>
         <p className="question-asked">{asked || pending.name}</p>
         {pending.expiresAt && (
           <span className="approval-deadline">{vi.questionDeadline(formatClock(pending.expiresAt))}</span>

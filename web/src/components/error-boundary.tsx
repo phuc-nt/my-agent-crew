@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { vi } from "../i18n/vi";
+import { Icon } from "./ui/icon";
 
 interface Props {
   children: ReactNode;
@@ -24,11 +25,16 @@ export class ErrorBoundary extends Component<Props, State> {
   render(): ReactNode {
     if (!this.state.error) return this.props.children;
     return (
-      <div className="notice error crash" role="alert">
-        <p>
-          {vi.crashed} <code>{this.state.error.message}</code>
-        </p>
-        <button type="button" onClick={() => window.location.reload()}>
+      <div className="crash" role="alert">
+        <span className="crash-icon">
+          <Icon name="alert" />
+        </span>
+        <div className="crash-text">
+          <p className="crash-title">{vi.crashed}</p>
+          <code className="crash-detail">{this.state.error.message}</code>
+        </div>
+        <button type="button" className="primary" onClick={() => window.location.reload()}>
+          <Icon name="refresh" />
           {vi.reload}
         </button>
       </div>

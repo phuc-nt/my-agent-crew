@@ -2,6 +2,7 @@ import type { AgentInfo, SettingsInfo } from "../api/types";
 import type { ManageSection } from "../hooks/use-route";
 import { vi } from "../i18n/vi";
 import { formatUsd } from "./budget-indicator";
+import { Icon } from "./ui/icon";
 import { MetricCard, MetricRow } from "./ui/metric-card";
 
 interface Props {
@@ -37,7 +38,7 @@ export function SettingsPanel({ settings, agents = [], onClose, onNavigate }: Pr
         <header>
           <h2>{vi.settings}</h2>
           <button type="button" className="icon-button" aria-label={vi.close} onClick={onClose}>
-            ×
+            <Icon name="close" />
           </button>
         </header>
       )}
@@ -143,7 +144,7 @@ export function SettingsPanel({ settings, agents = [], onClose, onNavigate }: Pr
             </MetricCard>
             <MetricCard title={t.tools}>
               <MetricRow
-                icon="🔧"
+                icon="wrench"
                 label={t.tools}
                 hint={t.toolsHint}
                 value={t.toolsSummary(

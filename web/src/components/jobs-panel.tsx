@@ -3,6 +3,9 @@ import type { JobInfo } from "../api/types";
 import { vi } from "../i18n/vi";
 import { JobRunHistory } from "./job-run-history";
 import { formatDateTime } from "./run-timeline";
+import { AgentAvatar } from "./ui/agent-avatar";
+import { EmptyState } from "./empty-state";
+import { Icon } from "./ui/icon";
 
 const JOB_KINDS: Record<string, string> = {
   prompt: vi.jobKindPrompt,
@@ -23,7 +26,7 @@ interface Props {
 export function JobsPanel({ jobs, agentName, onRunNow, onToggle, onOpenConversation }: Props) {
   const [open, setOpen] = useState<string | null>(null);
   if (jobs === null) return <p className="muted">{vi.loadFailed}</p>;
-  if (jobs.length === 0) return <p className="muted">{vi.jobsEmpty}</p>;
+  if (jobs.length === 0) return <EmptyState icon="clock" says={vi.jobsEmpty} />;
   return (
     <ul className="job-list" data-testid="jobs">
       {jobs.map((job) => {
@@ -32,6 +35,7 @@ export function JobsPanel({ jobs, agentName, onRunNow, onToggle, onOpenConversat
         return (
           <li key={job.id} className={`job ${job.enabled ? "" : "disabled"}`} data-testid="job">
             <div className="job-head">
+              <AgentAvatar id={job.agent_id} name={agentName(job.agent_id)} />
               <span className="job-name">
                 <strong>{agentName(job.agent_id)}</strong> · {job.name}
                 {offInProfile && <span className="badge warn"> {vi.jobDisabled}</span>}
@@ -57,7 +61,8 @@ export function JobsPanel({ jobs, agentName, onRunNow, onToggle, onOpenConversat
                   onClick={() => onRunNow(job.id)}
                   aria-label={`${vi.runNow}: ${job.name}`}
                 >
-                  ▶ {vi.runNow}
+                  <Icon name="play" />
+                  {vi.runNow}
                 </button>
               </span>
             </div>

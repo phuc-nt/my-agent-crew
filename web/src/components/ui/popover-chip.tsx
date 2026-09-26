@@ -1,4 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { Icon } from "./icon";
 import type { Tone } from "./metric-card";
 
 interface Props {
@@ -77,7 +78,7 @@ export function PopoverChip({ label, popoverLabel, tone, dot = false, title, tes
         {dot && <span className="pill-dot" aria-hidden="true" />}
         {label}
         <span className="pill-caret" aria-hidden="true">
-          ⌄
+          <Icon name="chevron-down" />
         </span>
       </button>
       {open && (

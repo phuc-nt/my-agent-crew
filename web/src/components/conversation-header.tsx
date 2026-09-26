@@ -4,6 +4,7 @@ import { vi } from "../i18n/vi";
 import { BudgetIndicator } from "./budget-indicator";
 import { EditableTitle } from "./editable-title";
 import { ConversationOptions } from "./conversation-options";
+import { AgentAvatar } from "./ui/agent-avatar";
 
 interface Props {
   conversation: Conversation;
@@ -23,6 +24,8 @@ interface Props {
   onRevokeAutoApprove: (name: string) => void;
   /** Extra pills at the end of the row, e.g. the crew count. */
   extra?: ReactNode;
+  /** A control before the title, e.g. the button that opens the list on a phone. */
+  lead?: ReactNode;
 }
 
 /**
@@ -39,9 +42,13 @@ export function ConversationHeader(props: Props) {
     <header className="conversation-header">
       <div className="header-row">
         <div className="header-title">
+          {props.lead}
           <EditableTitle title={c.title} onRename={props.onRename} />
-          <span className="badge agent-badge" title={vi.agent}>
-            {props.agentName}
+          <span className="agent-tag">
+            <AgentAvatar id={c.agent_id} name={props.agentName} size="sm" />
+            <span className="badge agent-badge" title={vi.agent}>
+              {props.agentName}
+            </span>
           </span>
           {props.agent?.mode === "work" && (
             <span

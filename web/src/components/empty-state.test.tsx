@@ -20,4 +20,14 @@ describe("EmptyState", () => {
 
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
+
+  // The icon is the section's own, so it says where the person is; the sentence still
+  // carries the meaning, which is why the picture stays out of the accessibility tree.
+  it("shows the section's icon only when given one, hidden from assistive technology", () => {
+    const { container, rerender } = render(<EmptyState says="Chưa có gì." />);
+    expect(container.querySelector(".empty-icon")).toBeNull();
+
+    rerender(<EmptyState says="Chưa có gì." icon="clock" />);
+    expect(container.querySelector(".empty-icon svg")).toHaveAttribute("aria-hidden", "true");
+  });
 });

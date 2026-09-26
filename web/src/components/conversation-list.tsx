@@ -2,6 +2,8 @@ import { useState, type ReactNode, type RefObject } from "react";
 import type { Conversation } from "../api/types";
 import { vi } from "../i18n/vi";
 import { ConversationSearch, matching } from "./conversation-search";
+import { Brand } from "./ui/brand-mark";
+import { Icon } from "./ui/icon";
 
 interface Props {
   conversations: Conversation[];
@@ -15,6 +17,8 @@ interface Props {
   bottom?: ReactNode;
   /** Held by the shell so ⌘K can put the cursor in the search box. */
   searchRef?: RefObject<HTMLInputElement | null>;
+  /** Present on a phone, where the list slides over the chat instead of sitting beside it. */
+  drawer?: { open: boolean; close: () => void; ref: RefObject<HTMLElement | null> };
 }
 
 /** How many threads it takes before scanning the list beats reading it. */
@@ -41,18 +45,52 @@ export function ConversationList({
   top,
   bottom,
   searchRef,
+  drawer,
 }: Props) {
   const [query, setQuery] = useState("");
   // Below a handful of threads the eye is faster than the box, and a control that is
   // never the quickest way to do the thing is just something else to look past.
   const searchable = conversations.length >= SEARCH_FROM;
   const shown = searchable ? matching(conversations, query) : conversations;
+  // Choosing where to go is the drawer's whole job, so doing it also puts the drawer away.
+  const pick = (id: string) => {
+    onSelect(id);
+    drawer?.close();
+  };
 
   return (
-    <nav className="sidebar" aria-label={vi.conversations}>
+    <nav
+      className={`sidebar${drawer ? " drawer" : ""}${drawer?.open ? " open" : ""}`}
+      aria-label={vi.conversations}
+      ref={drawer?.ref}
+      // Closed, the drawer is off screen but still in the DOM; inert keeps Tab and screen
+      // readers from wandering into a panel nobody can see.
+      inert={drawer ? !drawer.open : undefined}
+    >
+      <div className="sidebar-head">
+        <Brand />
+        {drawer && (
+          <button
+            type="button"
+            className="icon-button"
+            aria-label={vi.closeConversations}
+            onClick={drawer.close}
+          >
+            <Icon name="close" />
+          </button>
+        )}
+      </div>
       {top}
-      <button type="button" className="primary new-conversation" onClick={onCreate}>
-        + {vi.newConversation}
+      <button
+        type="button"
+        className="primary new-conversation"
+        onClick={() => {
+          onCreate();
+          drawer?.close();
+        }}
+      >
+        <Icon name="plus" />
+        {vi.newConversation}
       </button>
       {searchable && (
         <ConversationSearch value={query} onChange={setQuery} inputRef={searchRef} />
@@ -70,13 +108,13 @@ export function ConversationList({
               <button
                 type="button"
                 className="conversation-item"
-                onClick={() => onSelect(c.id)}
+                onClick={() => pick(c.id)}
                 aria-current={c.id === activeId ? "page" : undefined}
               >
                 <span className={`status-dot ${c.status}`} title={c.status} />
                 {c.parent_call_id && (
                   <span className="child-marker" data-testid="child-marker" title={vi.delegateChild}>
-                    ↳
+                    <Icon name="corner-down-right" />
                   </span>
                 )}
                 <span className="conversation-title">{c.title || vi.newConversation}</span>
@@ -94,7 +132,7 @@ export function ConversationList({
                 title={vi.deleteConversation}
                 onClick={() => onDelete(c.id)}
               >
-                ×
+                <Icon name="trash" />
               </button>
             </li>
           ))}

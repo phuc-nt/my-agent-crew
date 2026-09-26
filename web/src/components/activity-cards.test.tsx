@@ -213,6 +213,24 @@ describe("AttentionCenter", () => {
     render(<AttentionCenter agentName={name} onOpenConversation={() => undefined} runs={[]} />);
     expect(screen.getByText(vi.attentionEmpty)).toBeInTheDocument();
   });
+
+  // The warning colour is kept for when there is something to act on, so it still
+  // means something on the day it appears.
+  it("is calm when empty and raises its colour only when something waits", () => {
+    const { rerender } = render(
+      <AttentionCenter agentName={name} onOpenConversation={() => undefined} runs={[]} />,
+    );
+    expect(screen.getByTestId("attention")).toHaveClass("calm");
+
+    rerender(
+      <AttentionCenter
+        agentName={name}
+        onOpenConversation={() => undefined}
+        runs={[fakeRun({ id: "t", status: "awaiting_approval" })]}
+      />,
+    );
+    expect(screen.getByTestId("attention")).not.toHaveClass("calm");
+  });
 });
 
 describe("JobsPanel", () => {

@@ -7,6 +7,7 @@ import { ApprovalHistory } from "./approval-history";
 import { ConversationActivitySummary } from "./conversation-activity-summary";
 import { RunProgressHeader } from "./run-progress-header";
 import { RunGroupCard, formatClock } from "./run-timeline";
+import { Icon } from "./ui/icon";
 
 // Namespaced to this strip: a bare "activity.expanded" would collide with anything else
 // that later wants to remember an activity view's open state.
@@ -167,11 +168,12 @@ export function ConversationActivity({
         {status}
         <button
           type="button"
-          className="ghost"
+          className="ghost activity-toggle"
           aria-expanded={expanded}
           onClick={() => setExpanded((open) => !open)}
         >
           {expanded ? vi.conversationActivity.collapse : vi.conversationActivity.expand}
+          <Icon name="chevron-down" />
         </button>
       </div>
       {expanded && body}

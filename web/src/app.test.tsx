@@ -224,7 +224,7 @@ describe("App", () => {
   it("shows the recap of a conversation and rewrites it on demand", async () => {
     backend.create({ title: "C", summary: "Bản tóm tắt cũ." });
     render(<App />);
-    await userEvent.click(await screen.findByRole("button", { name: /^C/ }));
+    await userEvent.click(await screen.findByRole("button", { name: /^C.*Bản tóm tắt cũ/ }));
     expect(screen.getAllByText("Bản tóm tắt cũ.").length).toBeGreaterThan(0);
 
     await userEvent.click(screen.getByRole("button", { name: vi.resummarize }));

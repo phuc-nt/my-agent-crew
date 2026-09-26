@@ -77,7 +77,10 @@ export function ToolsMatrix({ tools, agents }: Props) {
                 <th scope="row">
                   <code>{tool.name}</code>
                   {tool.optional && <span className="badge">{vi.tools.optional}</span>}
-                  <div className="muted">{tool.description}</div>
+                  {/* Held to two lines so the grid stays a grid; the whole text is on hover. */}
+                  <div className="muted tool-description" title={tool.description}>
+                    {tool.description}
+                  </div>
                 </th>
                 <td className="approval">{approval(tool)}</td>
                 {ordered.map((agent) => {
@@ -96,7 +99,12 @@ export function ToolsMatrix({ tools, agents }: Props) {
       <dl className="matrix-legend">
         <dt>{vi.tools.legend}</dt>
         {(Object.keys(MARK) as Cell[]).map((cell) => (
-          <dd key={cell}>{TITLE[cell]}</dd>
+          <dd key={cell}>
+            <span className={`legend-mark ${cell}`} aria-hidden="true">
+              {MARK[cell]}
+            </span>
+            {TITLE[cell]}
+          </dd>
         ))}
       </dl>
     </div>

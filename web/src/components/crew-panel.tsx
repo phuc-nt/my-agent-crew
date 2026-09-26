@@ -2,6 +2,8 @@ import { useState } from "react";
 import type { AgentInfo, InstallResult, TemplateInfo } from "../api/types";
 import { vi } from "../i18n/vi";
 import { AddAgentForm } from "./add-agent-form";
+import { AgentAvatar } from "./ui/agent-avatar";
+import { Icon } from "./ui/icon";
 
 interface Props {
   agents: AgentInfo[];
@@ -65,7 +67,7 @@ export function CrewPanel({
         <p className="muted">{vi.crew.intro(masterName)}</p>
         <span className="spacer" />
         {!adding && (
-          <button type="button" className="ghost" onClick={() => setAdding(true)}>
+          <button type="button" className="primary" onClick={() => setAdding(true)}>
             {vi.crew.add}
           </button>
         )}
@@ -82,21 +84,30 @@ export function CrewPanel({
       <ul className="tool-list crew-list" data-testid="crew-list">
         {ordered.map((agent) => (
           <li key={agent.id} className="crew-card" data-testid="crew-agent">
-            <div className="row">
-              <strong>{agent.name}</strong>
-              <code>{agent.id}</code>
+            <div className="crew-card-head">
+              <AgentAvatar id={agent.id} name={agent.name} size="lg" />
+              <div className="crew-card-name">
+                <strong>{agent.name}</strong>
+                <code>{agent.id}</code>
+              </div>
+              <button type="button" className="ghost crew-card-action" onClick={() => onEdit(agent.id)}>
+                <Icon name="edit" />
+                {vi.crew.edit}
+              </button>
+            </div>
+            <div className="crew-card-badges">
               {agent.is_master && <span className="badge master">{vi.crew.master}</span>}
               <span className="badge">{agent.mode === "work" ? vi.modeWork : vi.modeAssistant}</span>
               {(liveByAgent[agent.id] ?? 0) > 0 && (
                 <span className="badge live">{vi.runStatus.running}</span>
               )}
-              <span className="spacer" />
-              <button type="button" className="ghost" onClick={() => onEdit(agent.id)}>
-                {vi.crew.edit}
-              </button>
+              {agent.telegram && <span className="badge">{vi.crew.telegram}</span>}
+              {!agent.is_master && delegates.has(agent.id) && (
+                <span className="badge ok">{vi.crew.delegatable}</span>
+              )}
             </div>
-            {agent.description && <div className="muted">{agent.description}</div>}
-            <div className="row muted">
+            {agent.description && <p className="crew-card-text">{agent.description}</p>}
+            <div className="crew-card-facts">
               <span>{vi.toolCount.replace("{n}", String(agent.tools.length))}</span>
               {agent.schedules.length > 0 && <span>{vi.agentSchedules(agent.schedules.length)}</span>}
               {agent.commands.length > 0 && (
@@ -105,10 +116,6 @@ export function CrewPanel({
                 </span>
               )}
               {agent.hooks > 0 && <span>{vi.agentHooks(agent.hooks)}</span>}
-              {agent.telegram && <span className="badge">{vi.crew.telegram}</span>}
-              {!agent.is_master && delegates.has(agent.id) && (
-                <span className="badge ok">{vi.crew.delegatable}</span>
-              )}
             </div>
             {agent.kits.length > 0 && (
               <div className="muted kit-list">
@@ -132,26 +139,37 @@ export function CrewPanel({
           <ul className="tool-list template-list" data-testid="template-list">
             {templates.map((template) => (
               <li key={template.id} className="crew-card" data-testid="template">
-                <div className="row">
-                  <strong>{template.name}</strong>
-                  <code>{template.id}</code>
-                  <span className="badge">{template.mode === "work" ? vi.modeWork : vi.modeAssistant}</span>
+                <div className="crew-card-head">
+                  <AgentAvatar id={template.id} name={template.name} size="lg" />
+                  <div className="crew-card-name">
+                    <strong>{template.name}</strong>
+                    <code>{template.id}</code>
+                  </div>
                   {installed.has(template.id) ? (
-                    <span className="badge ok">{vi.crew.alreadyInstalled}</span>
+                    <span className="badge ok crew-card-action">
+                      <Icon name="check" />
+                      {vi.crew.alreadyInstalled}
+                    </span>
                   ) : (
                     <button
                       type="button"
-                      className="ghost"
+                      className="crew-card-action"
                       disabled={installing !== null}
                       onClick={() => void install(template.id)}
                     >
+                      {installing === template.id ? <Icon name="spinner" className="spinning" /> : <Icon name="download" />}
                       {installing === template.id ? vi.crew.installing : vi.crew.install}
                     </button>
                   )}
                 </div>
-                <div className="muted">{template.description}</div>
+                <div className="crew-card-badges">
+                  <span className="badge">{template.mode === "work" ? vi.modeWork : vi.modeAssistant}</span>
+                </div>
+                <p className="crew-card-text">{template.description}</p>
                 {template.tools.length > 0 && (
-                  <div className="muted">{vi.toolCount.replace("{n}", String(template.tools.length))}</div>
+                  <div className="crew-card-facts">
+                    <span>{vi.toolCount.replace("{n}", String(template.tools.length))}</span>
+                  </div>
                 )}
               </li>
             ))}

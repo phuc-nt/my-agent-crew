@@ -22,7 +22,8 @@ Vài test bảo vệ repo chứ không phải một tính năng:
 
 - **ngân sách kích thước tệp**: không tệp nguồn nào quá 200 dòng, để module đọc gọn trong một màn hình;
 - **bundle** trong `my_agent_crew/server/static` có mặt và được phục vụ ở `/`, với 404 của `/api/*`
-  vẫn là JSON;
+  vẫn là JSON; mọi icon và manifest mà trang và manifest trỏ tới đều có trong bundle và được
+  phục vụ đúng content-type;
 - **khởi động chỉ nạp thứ cần**: một tiến trình con import server rồi kiểm tra `pypdf` và
   `pypdfium2` chưa được nạp — chúng chỉ nạp khi có PDF cần đọc;
 - **chi phí ngoài model** có test riêng: store mở ở chế độ WAL và có index cho các truy vấn

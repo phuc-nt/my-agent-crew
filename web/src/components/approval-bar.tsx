@@ -2,6 +2,7 @@ import { vi } from "../i18n/vi";
 import type { PendingApproval } from "../state/thread-reducer";
 import { formatClock } from "./run-timeline";
 import { summarizeArguments } from "./tool-call-card";
+import { Icon } from "./ui/icon";
 
 interface Props {
   pending: PendingApproval;
@@ -13,7 +14,10 @@ interface Props {
 
 export function ApprovalBar({ pending, busy, onDecide, onAlways }: Props) {
   return (
-    <div className="approval-bar" role="alertdialog" aria-label={vi.awaitingApproval}>
+    <div className="approval-bar callout" role="alertdialog" aria-label={vi.awaitingApproval}>
+      <span className="callout-icon">
+        <Icon name="approvals" />
+      </span>
       <div className="approval-text">
         <strong>{vi.approvalTitle(pending.name)}</strong>
         {pending.reason && <span className="approval-reason">{pending.reason}</span>}

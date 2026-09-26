@@ -85,9 +85,13 @@ riêng: `#/manage/activity/<run_id>` mở đúng lượt đó, tải lại vẫn
 | `src/components/` | mọi thành phần giao diện, mỗi mảng quản lý một nhóm |
 | `src/lib/` | hàm thuần dùng chung (diff, tiến độ run, kết quả giao việc) |
 | `src/i18n/` | mọi chuỗi tiếng Việt của web |
+| `src/styles/` | CSS theo mảng; `tokens.css` giữ thang chữ, khoảng cách, màu sáng/tối |
+| `public/` | favicon, icon cài app và manifest, chép nguyên vào gốc bundle |
+| `scripts/` | `render-icons.mjs`: vẽ các PNG icon từ `public/favicon.svg` |
 | `e2e/` | spec Playwright + mock `/api` |
 
-Script: `dev`, `typecheck`, `test` (vitest), `bundle` (build → `my_agent_crew/server/static`), `e2e`.
+Script: `dev`, `typecheck`, `test` (vitest), `bundle` (build → `my_agent_crew/server/static`), `e2e`,
+`icons` (vẽ lại icon sau khi sửa logo).
 
 ## 5. Test
 

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Icon, type IconName } from "./ui/icon";
 
 interface Props {
   /** What is not here. One sentence, in the person's own terms. */
@@ -7,6 +8,8 @@ interface Props {
   action?: { label: string; onClick: () => void };
   /** Anything else worth saying under the action, such as where the data comes from. */
   children?: ReactNode;
+  /** The section's own nav icon, so an empty screen still reads as the place it is. */
+  icon?: IconName;
 }
 
 /**
@@ -18,9 +21,14 @@ interface Props {
  * the answer; where it does not, a plain sentence is still the honest version, so
  * the action is optional rather than invented for the sake of symmetry.
  */
-export function EmptyState({ says, action, children }: Props) {
+export function EmptyState({ says, action, children, icon }: Props) {
   return (
     <div className="empty" data-testid="empty-state">
+      {icon && (
+        <span className="empty-icon">
+          <Icon name={icon} />
+        </span>
+      )}
       <p className="muted">{says}</p>
       {action && (
         <button type="button" className="chip" onClick={action.onClick}>

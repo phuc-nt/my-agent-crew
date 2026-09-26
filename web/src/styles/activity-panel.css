@@ -45,10 +45,49 @@
   font-weight: 600;
 }
 
+/* Sub-sections of one page, as a segmented control: the choices sit in one sunken
+   track and the chosen one is lifted out of it, so which view is showing reads at a
+   glance. On a narrow screen the track scrolls sideways rather than wrapping. */
 .tabs.sub {
-  flex-wrap: wrap;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: var(--space-2);
+  display: inline-flex;
+  max-width: 100%;
+  gap: 2px;
+  padding: 3px;
+  margin-bottom: var(--space-4);
+  overflow-x: auto;
+  scrollbar-width: none;
+  background: var(--surface-sunken);
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.tabs.sub::-webkit-scrollbar {
+  display: none;
+}
+
+.tabs.sub button {
+  flex: none;
+  min-height: 2rem;
+  padding: 0 var(--space-3);
+  border: none;
+  border-radius: calc(var(--radius-md) - 3px);
+  box-shadow: none;
+  background: none;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.tabs.sub button:hover {
+  color: var(--text);
+}
+
+.tabs.sub button.active {
+  background: var(--surface-raised);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: var(--shadow-1), inset 0 0 0 1px var(--border);
 }
 
 .panel-body {
@@ -64,16 +103,49 @@
 }
 
 /* ── Attention: what is blocked on a human ──────────────────────────────── */
+/* The one warm surface on the page: everything else here is a record, this is a to-do. */
 .attention {
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-lg);
   background: var(--warn-bg);
+  border: 1px solid color-mix(in srgb, var(--warn) 28%, transparent);
   color: var(--warn-text);
 }
 
 .attention h3 {
-  margin-top: 0;
+  margin: 0 0 var(--space-3);
   color: inherit;
+}
+
+.attention > p {
+  color: inherit;
+  opacity: 0.8;
+}
+
+/* Nothing waiting: a quiet card with a tick, in the page's own colours. */
+.attention.calm {
+  background: var(--surface-raised);
+  border-color: var(--border);
+  color: var(--text-secondary);
+}
+
+.attention.calm h3 {
+  color: var(--muted);
+}
+
+.attention-calm {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.attention.calm > .attention-calm {
+  opacity: 1;
+}
+
+.attention-calm .icon {
+  color: var(--ok);
 }
 
 .attention-list {
@@ -82,55 +154,119 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-3);
 }
 
 .attention-list li {
   display: flex;
-  justify-content: space-between;
-  gap: var(--space-2);
-  align-items: baseline;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.attention-list li + li {
+  padding-top: var(--space-3);
+  border-top: 1px solid color-mix(in srgb, var(--warn) 20%, transparent);
+}
+
+.attention-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--warn) 16%, transparent);
+}
+
+.attention-list li.error .attention-icon,
+.attention-list li.halted .attention-icon {
+  color: var(--danger-text);
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
 }
 
 .attention-text {
   display: flex;
   flex-direction: column;
+  gap: 2px;
+  flex: 1;
   min-width: 0;
 }
 
+.attention-title {
+  font-weight: 600;
+  color: var(--text);
+}
+
 .attention-child {
-  color: var(--muted);
+  color: var(--text-secondary);
   font-size: var(--text-sm);
 }
 
+.attention .run-preview {
+  color: var(--text-secondary);
+}
+
+.attention-open {
+  flex: none;
+  font-size: var(--text-sm);
+  border-color: color-mix(in srgb, var(--warn) 30%, var(--border));
+}
+
 /* ── Run cards ──────────────────────────────────────────────────────────── */
-/* Status is drawn on the card's outline, never on its fill: a rail of finished
+/* Status is drawn on the card's outline, never on its fill: a list of finished
    jobs should read as a list, not as a stack of coloured alerts. */
 .run-card {
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-1);
+  transition:
+    border-color var(--duration-base) var(--ease-out),
+    box-shadow var(--duration-base) var(--ease-out);
+}
+
+.run-card:hover {
+  border-color: var(--border-strong);
 }
 
 .run-card.running,
 .run-card.awaiting_approval {
-  border-color: var(--warn);
+  border-color: color-mix(in srgb, var(--warn) 55%, var(--border));
+  box-shadow:
+    var(--shadow-1),
+    0 0 0 3px color-mix(in srgb, var(--warn) 10%, transparent);
 }
 
 .run-card.error,
 .run-card.halted {
-  border-color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
 }
 
 .run-summary {
   display: flex;
-  gap: var(--space-2);
+  gap: var(--space-3);
   width: 100%;
   text-align: left;
+  justify-content: flex-start;
   border: none;
+  border-radius: inherit;
+  box-shadow: none;
   background: none;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-4);
   align-items: flex-start;
+}
+
+.run-summary:hover:not(:disabled) {
+  background: none;
+}
+
+.run-summary:active:not(:disabled) {
+  transform: none;
+}
+
+/* The dot sits on the title's line, not at the top of the row's box. */
+.run-summary > .status-dot {
+  margin-top: 0.55em;
 }
 
 /* Takes the width the card gives it, so the title starts at the left edge whether the
@@ -141,9 +277,19 @@
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: 2px;
   min-width: 0;
   font-size: var(--text-md);
+}
+
+.run-title {
+  font-weight: 500;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.run-title strong {
+  font-weight: 650;
 }
 
 /* Wraps rather than truncates: every field on this line — status, time, step
@@ -152,10 +298,15 @@
    among, so the line box has to be able to grow around it. */
 .run-meta {
   font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0 var(--space-1);
+}
+
+.run-meta .badge {
+  margin-left: var(--space-1);
 }
 
 .run-preview {
@@ -163,11 +314,13 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 320px;
+  max-width: 100%;
 }
 
 .run-body {
-  padding: 0 var(--space-3) var(--space-3);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border-top: 1px solid var(--border);
+  animation: fade-in var(--duration-base) var(--ease-out);
 }
 
 /* The actions under a run's steps sit on one line rather than stacking, so the
@@ -175,7 +328,15 @@
 .run-links {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-3);
+  gap: var(--space-2);
+  /* The links carry their own hover padding; pulled back so their text starts on the
+     card's left edge like everything above it. */
+  margin: var(--space-3) 0 0 calc(var(--space-2) * -1);
+  font-size: var(--text-sm);
+}
+
+.run-links .link-button {
+  font-size: inherit;
 }
 
 /* One run opened on its own. The back link sits above the card, in the place the
@@ -196,47 +357,23 @@
 .run-group {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
+}
+
+.run-group + .run-group {
+  margin-top: var(--space-2);
 }
 
 .run-children {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
-  margin-left: var(--space-4);
-  padding-left: var(--space-2);
+  gap: var(--space-2);
+  margin-left: var(--space-5);
+  padding-left: var(--space-3);
   border-left: 2px solid var(--border);
 }
 
 /* ── Crew ───────────────────────────────────────────────────────────────── */
-.crew-panel h3 {
-  margin-top: var(--space-4);
-}
-
-.crew-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.crew-card .row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.crew-card .row button {
-  margin-left: auto;
-}
-
-.crew-card .kit-list {
-  font-size: var(--text-sm);
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-}
-
 .agent-badge,
 .work-badge {
   background: var(--ok-bg);
@@ -244,37 +381,45 @@
 }
 
 /* ── Jobs and schedules ─────────────────────────────────────────────────── */
+/* One schedule per row across the page: a job opens its run history underneath, and a
+   card in a grid would push its neighbours around when it did. */
 .job-list {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-}
-
-.job {
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: var(--space-2) var(--space-3);
-  background: var(--surface);
+  gap: var(--space-3);
 }
 
 /* Dim, not hidden: a disabled schedule is still something you need to find. */
-.job.disabled {
+.job.disabled .job-head,
+.job.disabled .job-meta {
   opacity: 0.6;
 }
 
 .job-head {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
+}
+
+.job-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  flex: 1;
+  min-width: 0;
 }
 
 .job-meta {
   font-size: var(--text-sm);
-  margin-top: var(--space-1);
+  padding-left: calc(28px + var(--space-3));
+}
+
+.job-meta code {
+  color: var(--text-secondary);
 }
 
 .job-actions {
@@ -285,7 +430,11 @@
 }
 
 .job-actions .toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
   font-size: var(--text-sm);
+  color: var(--text-secondary);
 }
 
 .job-runs {
@@ -295,19 +444,51 @@
   gap: var(--space-2);
 }
 
+@media (max-width: 720px) {
+  .job-head {
+    flex-wrap: wrap;
+  }
+
+  .job-actions {
+    width: 100%;
+    justify-content: space-between;
+    padding-left: calc(28px + var(--space-3));
+  }
+
+  .job-meta {
+    padding-left: 0;
+  }
+}
+
 /* ── Memory ─────────────────────────────────────────────────────────────── */
 .memory-editor {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-3);
 }
 
 .memory-editor label,
 .memory-fact-form label {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
   font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+/* The file is prose the agents read, so it is set like prose rather than like a form. */
+.memory-editor textarea {
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-md);
+  line-height: 1.6;
+  color: var(--text);
+  font-weight: 400;
+}
+
+[data-testid="memory-user"] > p.muted {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-xs);
 }
 
 .memory-editor textarea,
@@ -326,10 +507,12 @@
 .memory-fact-form {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-3);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-1);
 }
 
 .fact-list,
@@ -348,8 +531,10 @@
 .hit-list li,
 .proposal-list li {
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-1);
 }
 
 .fact-head {
@@ -372,9 +557,9 @@
 
 .diff {
   margin: var(--space-1) 0 0;
-  padding: var(--space-2);
+  padding: var(--space-2) var(--space-3);
   background: var(--surface-sunken);
-  border-radius: var(--radius);
+  border-radius: var(--radius-md);
   overflow-x: auto;
   font-size: var(--text-sm);
 }
@@ -483,99 +668,4 @@
 .wiki-questions li {
   color: var(--muted);
   font-size: var(--text-sm);
-}
-
-/* ── Costs ──────────────────────────────────────────────────────────────── */
-.stat-totals {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--space-2);
-  margin: 0;
-}
-
-.stat-totals dt {
-  color: var(--muted);
-  font-size: var(--text-xs);
-}
-
-.stat-totals dd {
-  margin: 0;
-  font-size: var(--text-xl);
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
-.stat-bars {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  font-size: var(--text-sm);
-}
-
-.stat-bars li {
-  display: grid;
-  grid-template-columns: 1fr 100px auto;
-  gap: var(--space-2);
-  align-items: center;
-}
-
-.stat-key {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.stat-bar {
-  height: 8px;
-  background: var(--border);
-  border-radius: var(--radius-full);
-  overflow: hidden;
-}
-
-.stat-bar span {
-  display: block;
-  height: 100%;
-  background: var(--accent);
-}
-
-.stat-days li {
-  grid-template-rows: auto auto;
-}
-
-.stat-detail {
-  grid-column: 1 / -1;
-  font-size: var(--text-xs);
-  margin-top: -0.15rem;
-}
-
-.stat-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: var(--text-sm);
-}
-
-.stat-table th,
-.stat-table td {
-  text-align: left;
-  padding: var(--space-1);
-  border-bottom: 1px solid var(--border);
-  vertical-align: top;
-}
-
-.stat-table th {
-  color: var(--muted);
-  font-weight: 500;
-  font-size: var(--text-xs);
-}
-
-/* Numbers right-align and share a column width, so a total is comparable down
-   the column without reading any of the digits. */
-.stat-table td:nth-child(n + 2),
-.stat-table th:nth-child(n + 2) {
-  text-align: right;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
 }

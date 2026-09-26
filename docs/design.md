@@ -259,9 +259,24 @@ thanh mỏng tuỳ chọn và một dòng phụ có màu — nên cột activity
 dẫn tới mục nơi một thứ được thay đổi thay vì lặp lại danh sách của nó.
 
 Thanh duyệt hiện hạn chót của yêu cầu đang chờ và một nút "luôn cho phép" cạnh
-duyệt/từ chối. Một error
-boundary giữ cho crash khi render không kéo sập cả chat theo. (Ý tưởng cho view run
-mượn từ view session của openhuman — không mượn code.)
+duyệt/từ chối. Một error boundary quanh cả app giữ cho crash khi render không kéo sập
+cả chat theo; màn hình quản lý còn có một boundary cho mỗi trang, nên một mục vỡ vẫn để
+lại nav, và chọn trang khác là thoát khỏi lỗi. (Ý tưởng cho view run mượn từ view session
+của openhuman — không mượn code.)
+
+Về thị giác, mọi giá trị đi qua một bộ token trong `web/src/styles/tokens.css`: thang chữ,
+khoảng cách, bo góc, bóng, bề mặt và các màu trạng thái, mỗi màu có bản sáng và tối. Chế độ
+tối theo hệ điều hành, không có công tắc riêng. Font Inter đóng gói kèm bundle, gồm cả bộ
+ký tự tiếng Việt, không tải từ CDN. Icon là một bộ nét SVG vẽ tay trong
+`components/ui/icon.tsx` thay cho emoji, vì emoji mỗi nền tảng vẽ một kiểu và theme không
+đổi được màu của nó. Mỗi agent có một avatar là chữ cái đầu trên nền màu riêng, băm từ id
+nên ở đâu cũng cùng một màu. Logo trên sidebar cũng là favicon và icon khi cài app:
+`npm run icons` vẽ các PNG từ `web/public/favicon.svg`. Màu cảnh báo chỉ dùng khi có việc
+cần làm: thẻ **Cần bạn xử lý** xám khi trống, và một yêu cầu duyệt hết hạn cũng xám.
+
+Trên điện thoại, cuộc trò chuyện chiếm cả màn hình. Danh sách trượt vào từ nút menu, đóng
+khi bấm Escape, chạm ra ngoài hoặc chọn một cuộc, và focus trả về nút đã mở nó. Nav của màn
+quản lý thành một hàng pill, tự cuộn tới mục đang mở.
 
 ## Điểm mở rộng
 

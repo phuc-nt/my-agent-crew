@@ -50,7 +50,7 @@ export function MemoryEditor({ label, value, placeholder, rows = 10, onSave }: P
         />
       </label>
       <div className="memory-editor-actions">
-        <button type="button" disabled={!dirty || state === "saving"} onClick={() => void save()}>
+        <button type="button" className="primary" disabled={!dirty || state === "saving"} onClick={() => void save()}>
           {state === "saving" ? vi.memory.saving : vi.memory.save}
         </button>
         <span role="status" aria-live="polite" className="muted">

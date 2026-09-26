@@ -100,6 +100,24 @@ describe("the manage screen", () => {
     expect(onNavigate).toHaveBeenCalledWith("jobs");
   });
 
+  // On a phone the sections are a sideways row, and the current one may sit past its edge.
+  it("brings the current section's entry into view", () => {
+    const scrolled: Element[] = [];
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = function (this: Element) {
+      scrolled.push(this);
+    };
+    try {
+      show("jobs");
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
+
+    const current = screen.getByRole("button", { current: "page" });
+    expect(current).toHaveTextContent(vi.jobs);
+    expect(scrolled).toEqual([current]);
+  });
+
   it("renders the schedule when that is the section asked for", () => {
     show("jobs");
 

@@ -1,5 +1,6 @@
 import type { Conversation, SkillInfo } from "../api/types";
 import { vi } from "../i18n/vi";
+import { Icon } from "./ui/icon";
 import { MetricCard, MetricDivider, MetricRow, SwitchRow } from "./ui/metric-card";
 import { PopoverChip } from "./ui/popover-chip";
 
@@ -33,7 +34,7 @@ export function ConversationOptions({
       popoverLabel={vi.options.title}
       label={
         <>
-          <span aria-hidden="true">⚙</span>
+          <Icon name="sliders" />
           {vi.options.chip}
           {c.autonomous && <span className="badge ok">{vi.autonomous}</span>}
           {c.skills.length > 0 && <span className="badge">{`${vi.skills} ${c.skills.length}`}</span>}
@@ -44,7 +45,7 @@ export function ConversationOptions({
       }
     >
       <SwitchRow
-        icon="⚡"
+        icon="bolt"
         label={vi.autonomous}
         hint={vi.autonomousHint}
         checked={c.autonomous}
@@ -76,7 +77,7 @@ export function ConversationOptions({
             {c.auto_approve.map((name) => (
               <li key={name}>
               <MetricRow
-                icon="✓"
+                icon="check"
                 label={<code>{name}</code>}
                 action={
                   <button

@@ -7,17 +7,43 @@
  * above it never disappears.
  */
 
+/* Collapsed, a quiet card on the reading column just above the composer, the same width
+   as the callouts that appear there, so the column keeps one edge. */
 .conversation-activity {
-  border-top: 1px solid var(--border);
-  background: var(--surface-sunken);
   flex-shrink: 0;
+  width: min(var(--reading-width), 100% - 2 * var(--space-5));
+  margin: 0 auto var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+  overflow: hidden;
 }
 
 .conversation-activity-bar {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-2) var(--space-4);
+  min-height: var(--touch-target);
+  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-4);
+}
+
+.conversation-activity-bar > button {
+  flex: none;
+  font-size: var(--text-sm);
+}
+
+.activity-toggle .icon {
+  transition: rotate var(--duration-base) var(--ease-out);
+}
+
+.conversation-activity.expanded .activity-toggle .icon {
+  rotate: 180deg;
+}
+
+@media (max-width: 720px) {
+  .conversation-activity {
+    width: calc(100% - 2 * var(--space-3));
+  }
 }
 
 /* The progress line takes the room; the toggle keeps its own width. */
@@ -66,9 +92,14 @@
 
 /* ── Docked: the right-hand column ─────────────────────────────────────── */
 .conversation-activity.docked {
-  border-top: none;
+  width: auto;
+  margin: 0;
+  border: none;
+  border-radius: 0;
   border-left: 1px solid var(--border);
+  overflow: visible;
   height: 100vh;
+  height: 100dvh;
   min-width: 0;
   display: flex;
   flex-direction: column;

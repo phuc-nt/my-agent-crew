@@ -6,6 +6,9 @@ import type { ThreadItem } from "../state/thread-reducer";
 import { MarkdownBody } from "./markdown-body";
 import { RunProgressHeader } from "./run-progress-header";
 import { ToolCallCard } from "./tool-call-card";
+import { AgentAvatar } from "./ui/agent-avatar";
+import { BrandMark } from "./ui/brand-mark";
+import { Icon } from "./ui/icon";
 
 interface Props {
   items: ThreadItem[];
@@ -42,6 +45,7 @@ export function MessageThread({
   crewNames = [],
 }: Props) {
   const scroll = useAutoScroll<HTMLElement>();
+  const speaker = agentName?.(agentId) ?? vi.agent;
 
   if (items.length === 0 && !streaming) {
     const suggestions = [
@@ -50,19 +54,23 @@ export function MessageThread({
     ];
     return (
       <section className="thread empty-state" aria-label={vi.agent}>
-        <h2>{vi.welcomeTitleFor(masterName ?? vi.agent)}</h2>
-        <p>{vi.welcomeBody}</p>
-        <p className="muted" data-testid="welcome-crew">
-          {crewNames.length > 0 ? vi.welcomeCrew(crewNames) : vi.welcomeNoCrew}
-        </p>
-        <div className="suggestions">
-          {suggestions.map((s) => (
-            <button key={s} type="button" className="chip" onClick={() => onSuggestion(s)}>
-              {s}
-            </button>
-          ))}
+        <div className="welcome">
+          <BrandMark size={56} />
+          <h2>{vi.welcomeTitleFor(masterName ?? vi.agent)}</h2>
+          <p className="welcome-body">{vi.welcomeBody}</p>
+          <p className="muted" data-testid="welcome-crew">
+            {crewNames.length > 0 ? vi.welcomeCrew(crewNames) : vi.welcomeNoCrew}
+          </p>
+          <div className="suggestions">
+            {suggestions.map((s) => (
+              <button key={s} type="button" className="suggestion" onClick={() => onSuggestion(s)}>
+                <span>{s}</span>
+                <Icon name="arrow-up" className="suggestion-go" />
+              </button>
+            ))}
+          </div>
+          {echoOnly && <p className="muted echo-hint">{vi.echoHint}</p>}
         </div>
-        {echoOnly && <p className="muted">{vi.echoHint}</p>}
       </section>
     );
   }
@@ -75,13 +83,14 @@ export function MessageThread({
             key={item.id}
             item={item}
             agentId={agentId}
+            speaker={speaker}
             agentName={agentName}
             onOpenConversation={onOpenConversation}
           />
       ))}
       {streaming !== null && (
         <div className="bubble assistant streaming" data-testid="streaming">
-          <span className="bubble-role">{vi.agent}</span>
+          <Speaker id={agentId} name={speaker} />
           <MarkdownBody text={streaming} />
         </div>
       )}
@@ -92,7 +101,8 @@ export function MessageThread({
           plain word, which is all that is true yet. */}
       {busy && streaming === null && (
         <div className="thinking" data-testid="thinking">
-          {liveRun ? <RunProgressHeader run={liveRun} /> : vi.thinking}
+          <AgentAvatar id={agentId} name={speaker} size="sm" />
+          {liveRun ? <RunProgressHeader run={liveRun} /> : <span className="thinking-text">{vi.thinking}</span>}
         </div>
       )}
       </section>
@@ -105,6 +115,7 @@ export function MessageThread({
           data-testid="jump-newest"
           onClick={scroll.scrollToBottom}
         >
+          <Icon name="arrow-down" />
           {vi.jumpToNewest}
         </button>
       )}
@@ -148,6 +159,17 @@ export function splitMedia(text: string): ReplyBlock[] {
   return blocks;
 }
 
+/** Who said the reply: the agent's tile and name, and the model that wrote it when known. */
+function Speaker({ id, name, model }: { id: string; name: string; model?: string | null }) {
+  return (
+    <span className="bubble-role">
+      <AgentAvatar id={id} name={name} size="sm" />
+      <span className="speaker-name">{name}</span>
+      {model && <span className="muted speaker-model"> · {model}</span>}
+    </span>
+  );
+}
+
 /** The last segment of a workspace path, which is what the link should read as. */
 function fileName(path: string): string {
   const parts = path.split("/").filter((part) => part !== "");
@@ -157,11 +179,13 @@ function fileName(path: string): string {
 function Item({
   item,
   agentId,
+  speaker,
   agentName,
   onOpenConversation,
 }: {
   item: ThreadItem;
   agentId: string;
+  speaker: string;
   agentName?: (id: string) => string;
   onOpenConversation?: (conversationId: string) => void;
 }) {
@@ -177,15 +201,17 @@ function Item({
         {item.text}
       </div>
     );
-  const role = item.kind === "user" ? vi.you : vi.agent;
   const assistant = item.kind === "assistant";
   const blocks = assistant ? splitMedia(item.text) : [{ kind: "text" as const, value: item.text }];
   return (
     <div className={`bubble ${item.kind}`} data-testid={`message-${item.kind}`}>
-      <span className="bubble-role">
-        {role}
-        {assistant && item.model && <span className="muted"> · {item.model}</span>}
-      </span>
+      {/* Your own messages need no name on screen — the side they sit on says it — but a
+          screen reader reading the thread in order still needs to hear who spoke. */}
+      {assistant ? (
+        <Speaker id={agentId} name={speaker} model={item.model} />
+      ) : (
+        <span className="sr-only">{vi.you}</span>
+      )}
       {blocks.map((block, i) =>
         block.kind === "media" ? (
           <img
@@ -206,6 +232,7 @@ function Item({
             href={agentFileUrl(agentId, block.value)}
             download={fileName(block.value)}
           >
+            <Icon name="download" />
             {vi.attachmentDownload(fileName(block.value))}
           </a>
         ) : assistant ? (

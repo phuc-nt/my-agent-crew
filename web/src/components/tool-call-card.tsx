@@ -2,6 +2,8 @@ import { useState } from "react";
 import { vi } from "../i18n/vi";
 import { delegateAgent, delegateTask, parseDelegateResult } from "../lib/delegate-result";
 import type { ThreadItem, ToolStatus } from "../state/thread-reducer";
+import { AgentAvatar } from "./ui/agent-avatar";
+import { Icon, type IconName } from "./ui/icon";
 
 type ToolItem = Extract<ThreadItem, { kind: "tool" }>;
 
@@ -14,6 +16,25 @@ const STATUS_LABEL: Record<ToolStatus, string> = {
   awaiting: vi.toolAwaiting,
   denied: vi.toolDenied,
 };
+
+/** A card has no coloured node beside it the way a timeline row does, so the icon is the
+ *  fastest read of the state; the word beside it says the same for anyone who needs it. */
+const STATUS_ICON: Record<ToolStatus, IconName> = {
+  running: "spinner",
+  done: "check",
+  failed: "alert",
+  awaiting: "pause",
+  denied: "close",
+};
+
+function Status({ status, label }: { status: ToolStatus; label: string }) {
+  return (
+    <span className={`tool-status ${status}`}>
+      <Icon name={STATUS_ICON[status]} />
+      {label}
+    </span>
+  );
+}
 
 /**
  * Tool arguments as one readable line of `name=value` pairs.
@@ -57,8 +78,11 @@ export function ToolCallCard({ item, agentName, onOpenConversation }: Props) {
   return (
     <div className={`tool-card ${item.status}`} data-testid="tool-card" data-tool={item.name}>
       <div className="tool-header">
-        <span className="tool-name">🔧 {item.name}</span>
-        <span className={`tool-status ${item.status}`}>{STATUS_LABEL[item.status]}</span>
+        <span className="tool-name">
+          <Icon name="wrench" className="tool-icon" />
+          {item.name}
+        </span>
+        <Status status={item.status} label={STATUS_LABEL[item.status]} />
       </div>
       <div className="tool-arguments" title={vi.arguments}>
         {summarizeArguments(item.arguments) || "—"}
@@ -94,10 +118,18 @@ function DelegateCard({
   return (
     <div className="tool-card delegate-card" data-testid="delegate-card" data-tool={DELEGATE}>
       <div className="tool-header">
-        <span className="tool-name">🤝 {vi.delegateTo.replace("{agent}", name)}</span>
-        <span className={`tool-status ${item.status}`}>
-          {item.status === "running" ? vi.delegateRunning : STATUS_LABEL[item.status]}
+        <span className="tool-name">
+          {target ? (
+            <AgentAvatar id={target} name={name} size="sm" />
+          ) : (
+            <Icon name="handoff" className="tool-icon" />
+          )}
+          {vi.delegateTo.replace("{agent}", name)}
         </span>
+        <Status
+          status={item.status}
+          label={item.status === "running" ? vi.delegateRunning : STATUS_LABEL[item.status]}
+        />
       </div>
       <div className="tool-arguments" title={vi.delegateTask}>
         {task || "—"}

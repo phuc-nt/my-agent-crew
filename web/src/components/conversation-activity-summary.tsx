@@ -46,7 +46,7 @@ export function ConversationActivitySummary({
   return (
     <MetricCard title={t.summary} testId="conversation-cost">
       <MetricRow
-        icon="💰"
+        icon="coins"
         label={vi.costs}
         hint={t.costHint}
         value={t.spent(spent)}
@@ -56,7 +56,7 @@ export function ConversationActivitySummary({
         {capped && <MetricBar ratio={ratio} label={vi.budget} />}
       </MetricRow>
       <MetricRow
-        icon="🧭"
+        icon="steps"
         label={vi.activity}
         hint={t.stepsHint}
         value={t.steps(steps)}
@@ -65,7 +65,7 @@ export function ConversationActivitySummary({
       />
       {models.length > 0 && (
         <MetricRow
-          icon="🧠"
+          icon="chip"
           label={t.models}
           value={t.modelsValue(models.length)}
           sub={models.join(", ")}

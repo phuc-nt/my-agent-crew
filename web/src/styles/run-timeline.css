@@ -256,6 +256,8 @@
 .step > .link-button {
   grid-column: 2;
   justify-self: start;
+  /* The padding is there for the hover fill; the text itself lines up with the row. */
+  margin-left: calc(var(--space-2) * -1);
   font-size: var(--text-xs);
 }
 

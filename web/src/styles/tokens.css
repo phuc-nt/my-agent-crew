@@ -20,30 +20,38 @@
   --space-6: 2rem;
   --space-7: 3rem;
 
-  /* Type scale. Body is 0.9rem: this is a dense operator console, not an
-     article. `--text-xs` is the floor — anything smaller stops being readable
-     on a laptop screen at arm's length. */
-  --text-xs: 0.72rem;
-  --text-sm: 0.8rem;
-  --text-md: 0.9rem;
-  --text-lg: 1rem;
-  --text-xl: 1.15rem;
-  --leading-tight: 1.3;
+  /* Type scale, set in Inter. Body is 15px: an operator console is read for hours, and
+     Inter at 15 is as compact as the old 14.4 system face while reading more calmly.
+     `--text-xs` (12px) is the floor for anything a person is meant to read. */
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-md: 0.9375rem;
+  --text-lg: 1.0625rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.875rem;
+  --leading-tight: 1.25;
   --leading-normal: 1.55;
+  --leading-prose: 1.65;
+  /* Inter is drawn for text sizes; larger settings tighten slightly so a heading reads
+     as one shape rather than a row of letters. */
+  --tracking-tight: -0.011em;
+  --tracking-display: -0.022em;
+  --tracking-label: 0.04em;
 
-  --font-ui: system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-ui: "Inter Variable", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
 
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
   --radius-full: 999px;
 
-  /* Elevation. Kept shallow on purpose: three levels, each one clearly a step
-     above the last, so a floating panel never competes with a modal. */
-  --shadow-1: 0 1px 2px rgb(15 23 42 / 6%);
-  --shadow-2: 0 4px 12px rgb(15 23 42 / 8%);
-  --shadow-3: 0 12px 32px rgb(15 23 42 / 14%);
+  /* Elevation. Each level is two soft layers — a tight contact shadow and a wide ambient
+     one — which reads as a surface lifting rather than a grey smudge under it. */
+  --shadow-1: 0 1px 2px rgb(16 24 40 / 5%);
+  --shadow-2: 0 1px 3px rgb(16 24 40 / 6%), 0 6px 16px rgb(16 24 40 / 6%);
+  --shadow-3: 0 4px 10px rgb(16 24 40 / 6%), 0 20px 48px rgb(16 24 40 / 14%);
 
   /* Motion. Anything longer than --duration-slow feels like lag rather than
      animation on a status surface that updates while you watch it. */
@@ -52,44 +60,66 @@
   --duration-slow: 320ms;
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+
+  /* Layout measures shared by the shell and the chat column. */
+  --sidebar-width: 272px;
+  --activity-width: 380px;
+  --reading-width: 760px;
+  --bar-height: 56px;
+  --touch-target: 40px;
 
   /* Surfaces, from the page backdrop up to the raised card. */
-  --bg: #f5f6f8;
+  --bg: #f6f7f9;
   --surface: #ffffff;
-  --surface-sunken: #eef0f3;
+  --surface-sunken: #f1f3f6;
   --surface-raised: #ffffff;
-  --border: #e2e5ea;
-  --border-strong: #cbd2db;
+  --surface-hover: #eceff3;
+  --border: #e4e7ec;
+  --border-strong: #d0d5dd;
+  /* Bars that sit over scrolling content: translucent, blurred, so the content keeps
+     its place in the eye while it passes underneath. */
+  --glass: rgb(255 255 255 / 78%);
+  --scrim: rgb(16 24 40 / 36%);
 
   /* Text, three weights of emphasis. */
-  --text: #16191d;
-  --text-secondary: #4b535d;
-  --muted: #6b7280;
+  --text: #101828;
+  --text-secondary: #475467;
+  --muted: #667085;
 
-  /* Accent and the ink that stays legible on top of it. */
+  /* Accent and the ink that stays legible on top of it. The brand blue is unchanged;
+     the tints around it are what gained range. */
   --accent: #2563eb;
   --accent-strong: #1d4ed8;
-  --accent-soft: #e8f0fe;
+  --accent-soft: #eaf1fe;
+  --accent-softer: #f4f8ff;
   --accent-text: #ffffff;
+  --accent-ring: rgb(37 99 235 / 22%);
+  /* The mark's two ends: the accent, and a lighter blue it rises from. */
+  --brand-from: #4f8df7;
+  --brand-to: #1d4ed8;
+  --brand-glow: rgb(29 78 216 / 25%);
+  /* The faint top edge on a filled button, catching light the way a pressed key does. */
+  --sheen: rgb(255 255 255 / 14%);
 
   /* Status. Each one carries a matching soft background and readable ink, so a
      badge, a border and a dot can all be tinted from the same triple. */
-  --ok: #10b981;
-  --ok-bg: #ecfdf5;
-  --ok-text: #065f46;
-  --warn: #f59e0b;
-  --warn-bg: #fff7e6;
-  --warn-text: #92400e;
-  --danger: #dc2626;
-  --danger-bg: #fee2e2;
-  --danger-text: #991b1b;
-  --info: #0ea5e9;
+  --ok: #12b76a;
+  --ok-bg: #ecfdf3;
+  --ok-text: #05603a;
+  --warn: #f79009;
+  --warn-bg: #fffaeb;
+  --warn-text: #93370d;
+  --danger: #d92d20;
+  --danger-bg: #fef3f2;
+  --danger-text: #912018;
+  --info: #0ba5ec;
 
   /* Per-role colours for the run timeline, so a step kind is recognisable by
      hue before any label is read. */
   --step-model: var(--accent);
   --step-tool: var(--info);
-  --step-delegate: #8b5cf6;
+  --step-delegate: #7a5af8;
   --step-fallback: var(--warn);
   /* A question turns to the person rather than to a provider, so it takes the accent
      hue and not the warn one: nothing has gone wrong, the agent simply cannot know. */
@@ -99,7 +129,19 @@
      something actually happening. */
   --step-note: var(--muted);
 
-  --user-bubble: #e8f0fe;
+  /* Agent identity hues. An agent keeps one of these for life (picked from its id), so
+     the same person on the crew wears the same colour on every screen. */
+  --hue-1: #2563eb;
+  --hue-2: #7a5af8;
+  --hue-3: #dd2590;
+  --hue-4: #e04f16;
+  --hue-5: #ca8504;
+  --hue-6: #099250;
+  --hue-7: #0e9384;
+  --hue-8: #0086c9;
+
+  --user-bubble: #eaf1fe;
+  --user-bubble-text: #0b2a66;
 
   /* Legacy alias: `--radius` predates the scale and is still referenced by a
      few rules. Kept pointing at the medium step rather than chased everywhere. */
@@ -114,42 +156,60 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0f1216;
-    --surface: #171b21;
-    --surface-sunken: #12161b;
-    --surface-raised: #1d222a;
-    --border: #272d36;
-    --border-strong: #39414d;
+    --bg: #0b0d12;
+    --surface: #12151c;
+    --surface-sunken: #0e1117;
+    --surface-raised: #181c25;
+    --surface-hover: #1c212b;
+    --border: #232834;
+    --border-strong: #343b4a;
+    --glass: rgb(18 21 28 / 76%);
+    --scrim: rgb(0 0 0 / 55%);
 
-    --text: #e7eaee;
-    --text-secondary: #b3bbc6;
-    --muted: #8b95a1;
+    --text: #eceef2;
+    --text-secondary: #b4bccb;
+    --muted: #8a93a5;
 
     --accent: #4b83f0;
     --accent-strong: #6b9bf5;
-    --accent-soft: #1b2942;
-    --accent-text: #0b1220;
+    --accent-soft: #172440;
+    --accent-softer: #121b2e;
+    --accent-text: #ffffff;
+    --accent-ring: rgb(75 131 240 / 35%);
+    --brand-from: #6b9bf5;
+    --brand-to: #2563eb;
+    --brand-glow: rgb(0 0 0 / 45%);
 
-    --ok: #34d399;
-    --ok-bg: #0e2d23;
-    --ok-text: #6ee7b7;
-    --warn: #fbbf24;
-    --warn-bg: #362713;
-    --warn-text: #fcd34d;
-    --danger: #f87171;
-    --danger-bg: #3a1a1a;
-    --danger-text: #fca5a5;
-    --info: #38bdf8;
+    --ok: #32d583;
+    --ok-bg: #0b2a1d;
+    --ok-text: #75e0a7;
+    --warn: #fdb022;
+    --warn-bg: #33230c;
+    --warn-text: #fec84b;
+    --danger: #f97066;
+    --danger-bg: #3a1614;
+    --danger-text: #fda29b;
+    --info: #36bffa;
 
-    --step-delegate: #a78bfa;
+    --step-delegate: #9b8afb;
 
-    --user-bubble: #1c2740;
+    --hue-1: #6b9bf5;
+    --hue-2: #9b8afb;
+    --hue-3: #f670c7;
+    --hue-4: #f38744;
+    --hue-5: #fac515;
+    --hue-6: #3ccb7f;
+    --hue-7: #2ed3b7;
+    --hue-8: #36bffa;
+
+    --user-bubble: #1a2a4a;
+    --user-bubble-text: #e3ecff;
 
     /* Shadows read as haze rather than depth on a dark backdrop, so they lean
        on black at higher opacity instead of the slate used in light mode. */
     --shadow-1: 0 1px 2px rgb(0 0 0 / 40%);
-    --shadow-2: 0 4px 12px rgb(0 0 0 / 45%);
-    --shadow-3: 0 12px 32px rgb(0 0 0 / 55%);
+    --shadow-2: 0 1px 3px rgb(0 0 0 / 40%), 0 6px 16px rgb(0 0 0 / 35%);
+    --shadow-3: 0 4px 10px rgb(0 0 0 / 40%), 0 20px 48px rgb(0 0 0 / 55%);
   }
 }
 

@@ -1,6 +1,7 @@
 import type { AgentInfo, RegistryTool } from "../../api/types";
 import { useAgentDraft } from "../../hooks/use-agent-draft";
 import { vi } from "../../i18n/vi";
+import { AgentAvatar } from "../ui/agent-avatar";
 import { ChannelSection } from "./channel-section";
 import { DeleteAgent } from "./delete-agent";
 import { IdentitySection } from "./identity-section";
@@ -39,28 +40,36 @@ export function AgentEditor({ agent, agents, tools, providers, onBack, onChanged
         <button type="button" className="ghost" onClick={onBack}>
           {vi.editor.back}
         </button>
-        <strong>{agent.name}</strong>
-        <code>{agent.id}</code>
+        <AgentAvatar id={agent.id} name={agent.name} />
+        <span className="editor-title">
+          <strong>{agent.name}</strong>
+          <code>{agent.id}</code>
+        </span>
         {agent.is_master && <span className="badge master">{vi.crew.master}</span>}
         <span className="spacer" />
-        <span className="muted">
-          {form.dirty.length > 0 ? vi.editor.dirty(form.dirty.length) : vi.editor.clean}
+        {/* One group, so on a phone the save controls wrap to a line of their own
+            together instead of splitting word by word around the name. */}
+        <span className="editor-actions">
+          <span className="muted editor-dirty">
+            {form.dirty.length > 0 ? vi.editor.dirty(form.dirty.length) : vi.editor.clean}
+          </span>
+          <button
+            type="button"
+            className="ghost"
+            disabled={readOnly || form.dirty.length === 0 || form.saving}
+            onClick={form.reset}
+          >
+            {vi.editor.revert}
+          </button>
+          <button
+            type="button"
+            className="primary"
+            disabled={readOnly || form.dirty.length === 0 || form.saving}
+            onClick={() => void form.save()}
+          >
+            {form.saving ? vi.editor.saving : vi.editor.save}
+          </button>
         </span>
-        <button
-          type="button"
-          className="ghost"
-          disabled={readOnly || form.dirty.length === 0 || form.saving}
-          onClick={form.reset}
-        >
-          {vi.editor.revert}
-        </button>
-        <button
-          type="button"
-          disabled={readOnly || form.dirty.length === 0 || form.saving}
-          onClick={() => void form.save()}
-        >
-          {form.saving ? vi.editor.saving : vi.editor.save}
-        </button>
       </div>
 
       {readOnly && (

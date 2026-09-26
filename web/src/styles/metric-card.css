@@ -2,8 +2,10 @@
  * The summary look shared by every surface that reports figures: the metric card and
  * its rows, the thin bar, the switch, and the header pill that opens a card as a popover.
  *
- * A row is an icon and a label on the left and a monospace value on the right, with an
- * optional coloured note underneath. Dense on purpose: these cards answer "how is it
+ * A row is an icon and a label on the left and a value in tabular figures on the right,
+ * with an optional coloured note underneath. Values are set in the text face, not in
+ * monospace: most of them are Vietnamese words and counts, and only ids and paths — which
+ * arrive as `code` — keep the fixed-width face. Dense on purpose: these cards answer "how is it
  * going" at a glance, and white space between rows would only push the answer apart.
  */
 
@@ -100,18 +102,21 @@
 .metric-value {
   flex: none;
   max-width: 60%;
-  font-family: var(--font-mono);
   font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
   color: var(--text-secondary);
   text-align: right;
   overflow-wrap: anywhere;
 }
 
 .metric-sub {
-  font-family: var(--font-mono);
   font-size: var(--text-xs);
-  padding-left: calc(1.2em + var(--space-2));
+  line-height: 1.5;
   overflow-wrap: anywhere;
+}
+/* The note lines up under the label's text, past the icon when there is one. */
+.metric-row:has(.metric-icon) > .metric-sub {
+  padding-left: calc(1.2em + var(--space-2));
 }
 .metric-sub.muted {
   color: var(--muted);
@@ -156,7 +161,7 @@
   padding-bottom: 0;
 }
 
-/* Label-value pairs as rows: the name on the left, the value in monospace on the right. */
+/* Label-value pairs as rows: the name on the left, the value on the right. */
 .metric-dl {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -165,18 +170,30 @@
   font-size: var(--text-sm);
 }
 .metric-dl dt {
-  font-weight: 600;
+  font-weight: 500;
+  color: var(--text-secondary);
 }
 .metric-dl dd {
   margin: 0;
   text-align: right;
-  font-family: var(--font-mono);
-  color: var(--text-secondary);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
-/* A path breaks evenly wherever the line ends, not raggedly at each hyphen. */
+/* A path or id takes the full width under its label: squeezed into the value column beside
+   the label it broke into a ragged column of fragments. It breaks evenly wherever the line
+   ends, not at each hyphen. */
+.metric-dl dd:has(> code) {
+  grid-column: 1 / -1;
+  margin-top: calc(var(--space-2) * -1 + 2px);
+  text-align: left;
+  color: var(--muted);
+}
 .metric-dl dd code {
   word-break: break-all;
+  font-size: var(--text-xs);
+  padding: 0;
+  background: none;
 }
 
 /* ── Bar ───────────────────────────────────────────────────────────────── */

@@ -3,12 +3,22 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- The browser chrome takes the page's own background in each scheme, so an
+         installed app or a phone's address bar never shows a band of another colour. -->
+    <meta name="theme-color" content="#f6f7f9" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0b0d12" media="(prefers-color-scheme: dark)" />
+    <!-- Paints the first frame in the right scheme, before the stylesheet arrives. -->
+    <meta name="color-scheme" content="light dark" />
+    <meta name="apple-mobile-web-app-title" content="Agent Crew" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
     <title>My Agent Crew</title>
-    <script type="module" crossorigin src="/assets/index-BR_W3jUi.js"></script>
+    <script type="module" crossorigin src="/assets/index-BHLm3pyu.js"></script>
     <link rel="modulepreload" crossorigin href="/assets/rolldown-runtime-hePW80VL.js">
     <link rel="modulepreload" crossorigin href="/assets/react-CyDUuctK.js">
     <link rel="modulepreload" crossorigin href="/assets/vendor-J5efkToZ.js">
-    <link rel="stylesheet" crossorigin href="/assets/index-DcorFkPr.css">
+    <link rel="stylesheet" crossorigin href="/assets/index-Bl48UOMF.css">
   </head>
   <body>
     <div id="root"></div>

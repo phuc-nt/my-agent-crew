@@ -10,6 +10,8 @@ in the crew. Running work shows as a step-by-step timeline, so you always see wh
 This is a lean rewrite of [my-crew](https://github.com/phuc-nt/my-crew): drops the router and the DAG,
 keeps agents + tools + skills + memory, and puts the web UI up front.
 
+![The web UI: a new conversation on a desktop, and a conversation with a refused approval on a phone in dark mode](docs/images/web-ui.png)
+
 ## Run
 
 ```bash

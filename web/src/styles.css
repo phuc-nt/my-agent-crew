@@ -2,6 +2,7 @@
  * The single stylesheet the app imports. It holds no rules of its own — only
  * the import order, which is the cascade order:
  *
+ *   fonts   → the bundled Inter faces the tokens name.
  *   tokens  → the values every other file reads. No raw colour lives elsewhere.
  *   base    → the reset, typography and the primitives (button, badge, dot).
  *   metric-card → the shared summary look: metric cards, bars, switches, pills, popovers.
@@ -18,6 +19,7 @@
  * A rule belongs to exactly one of these. If a new rule fits none of them, that
  * is the signal to add a region rather than to append it here.
  */
+@import "./styles/fonts.css";
 @import "./styles/tokens.css";
 @import "./styles/base.css";
 @import "./styles/metric-card.css";

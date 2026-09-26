@@ -9,9 +9,12 @@ import { ConversationList } from "../components/conversation-list";
 import { ErrorBoundary } from "../components/error-boundary";
 import { MessageThread } from "../components/message-thread";
 import { StatusLine } from "../components/status-line";
+import { AgentAvatar } from "../components/ui/agent-avatar";
+import { Icon, type IconName } from "../components/ui/icon";
 import type { useActivity } from "../hooks/use-activity";
 import type { useCrew } from "../hooks/use-agents";
 import type { useConversations } from "../hooks/use-conversations";
+import { useDrawer } from "../hooks/use-drawer";
 import { useMediaQuery } from "../hooks/use-media-query";
 import type { ManageSection } from "../hooks/use-route";
 import { useShortcuts } from "../hooks/use-shortcuts";
@@ -37,6 +40,11 @@ interface Props {
 // Wide enough to keep the conversation's activity open beside the chat. Matches the
 // breakpoint in shell.css where the three-column layout folds back to two.
 const DOCKED_ACTIVITY_QUERY = "(min-width: 1101px)";
+// A phone: the conversation list stops being a column and slides over the chat instead.
+// Matches the breakpoint in shell.css.
+const PHONE_QUERY = "(max-width: 720px)";
+
+const NOTICE_ICON: Record<string, IconName> = { fallback: "refresh", halted: "pause" };
 
 export function ChatScreen({
   list,
@@ -53,6 +61,9 @@ export function ChatScreen({
   const [queued, setQueued] = useState<{ id: string; text: string } | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const [collapseSignal, setCollapseSignal] = useState(0);
+  const phone = useMediaQuery(PHONE_QUERY);
+  const drawer = useDrawer(phone);
+  const { hide: hideDrawer } = drawer;
 
   // A message typed before any conversation exists waits until the new one has loaded.
   const { send: threadSend, detail } = thread;
@@ -102,7 +113,10 @@ export function ChatScreen({
   useShortcuts({
     onSearch: useCallback(() => searchRef.current?.focus(), []),
     onNew: useCallback(() => void create(), [create]),
-    onEscape: useCallback(() => setCollapseSignal((n) => n + 1), []),
+    onEscape: useCallback(() => {
+      setCollapseSignal((n) => n + 1);
+      hideDrawer();
+    }, [hideDrawer]),
   });
 
   const remove = (id: string) => {
@@ -112,6 +126,7 @@ export function ChatScreen({
   const { state } = thread;
   const notice = state.notice && (
     <div className={`notice ${state.notice.kind}`} role="status" data-testid="notice">
+      <Icon name={NOTICE_ICON[state.notice.kind] ?? "alert"} />
       {state.notice.kind === "halted"
         ? state.notice.text === "budget"
           ? vi.haltedBudget
@@ -126,7 +141,7 @@ export function ChatScreen({
   // a rail to be visible: work waiting on a person, and work under way.
   const manageButton = (
     <button type="button" className="ghost manage-button" onClick={() => onOpenManage()}>
-      <span aria-hidden="true">⚙</span>
+      <Icon name="grid" />
       {vi.manage.open}
       {attentionCount > 0 && <span className="badge warn"> {attentionCount}</span>}
       {live.length > 0 && <span className="badge live"> {live.length}</span>}
@@ -137,8 +152,25 @@ export function ChatScreen({
   // it. It only counts them; changing the team is the manage screen's job.
   const crewChip = (
     <button type="button" className="pill" onClick={() => onOpenManage("crew")}>
-      <span aria-hidden="true">👥</span>
+      <Icon name="users" />
       {vi.crew.count(crewNames.length)}
+    </button>
+  );
+
+  // On a phone the list is a drawer, and this is the way to it. Work waiting on a person
+  // lives behind the drawer too (on the manage button at its foot), so the button carries
+  // a dot for it rather than letting that count go out of sight.
+  const menuButton = phone && (
+    <button
+      type="button"
+      className="icon-button menu-button"
+      ref={drawer.triggerRef}
+      aria-label={vi.openConversations}
+      aria-expanded={drawer.open}
+      onClick={drawer.show}
+    >
+      <Icon name="menu" />
+      {attentionCount > 0 && <span className="menu-dot" aria-hidden="true" />}
     </button>
   );
 
@@ -162,6 +194,7 @@ export function ChatScreen({
 
   return (
     <div className={`layout${docked ? " with-activity" : ""}`}>
+      {drawer.open && <div className="scrim" aria-hidden="true" onClick={drawer.hide} />}
       <ConversationList
         conversations={list.conversations}
         activeId={list.activeId}
@@ -169,14 +202,20 @@ export function ChatScreen({
         onCreate={() => void create()}
         onDelete={remove}
         searchRef={searchRef}
+        drawer={phone ? { open: drawer.open, close: drawer.hide, ref: drawer.panelRef } : undefined}
         top={
           master && (
             <div className="master-card" data-testid="master-card">
-              <strong>{master.name}</strong>
-              {(liveByAgent[master.id] ?? 0) > 0 && (
-                <span className="badge live"> {liveByAgent[master.id]}</span>
-              )}
-              <div className="muted">{master.description || vi.crew.masterHint}</div>
+              <AgentAvatar id={master.id} name={master.name} size="lg" />
+              <div className="master-text">
+                <div className="master-name">
+                  <strong>{master.name}</strong>
+                  {(liveByAgent[master.id] ?? 0) > 0 && (
+                    <span className="badge live"> {liveByAgent[master.id]}</span>
+                  )}
+                </div>
+                <div className="muted">{master.description || vi.crew.masterHint}</div>
+              </div>
             </div>
           )
         }
@@ -207,16 +246,25 @@ export function ChatScreen({
               })
             }
             extra={crewChip}
+            lead={menuButton}
           />
         ) : (
           <header className="conversation-header">
-            <h1>{vi.appName}</h1>
-            {/* No manage button here: the sidebar's is always on screen, and two of them
-                would leave the person guessing whether they do the same thing. */}
-            <div className="header-controls">{crewChip}</div>
+            <div className="header-row">
+              <div className="header-title">
+                {menuButton}
+                <h1>{vi.appName}</h1>
+              </div>
+              <div className="header-controls">{crewChip}</div>
+            </div>
           </header>
         )}
-        {list.error && <div className="notice error">{vi.loadFailed}</div>}
+        {list.error && (
+          <div className="notice error">
+            <Icon name="alert" />
+            {vi.loadFailed}
+          </div>
+        )}
         {notice}
         <ErrorBoundary>
           <MessageThread
@@ -250,7 +298,12 @@ export function ChatScreen({
             onAlways={() => void thread.decide(true, true).then(list.refresh)}
           />
         )}
-        {active?.over_budget && !state.busy && <div className="notice halted">{vi.overBudget}</div>}
+        {active?.over_budget && !state.busy && (
+          <div className="notice halted">
+            <Icon name="coins" />
+            {vi.overBudget}
+          </div>
+        )}
         <Composer
           // Anything pending blocks the composer, question included: the server refuses a
           // new message while an approval waits, so an enabled box would only collect text
@@ -258,6 +311,7 @@ export function ChatScreen({
           disabled={state.pending !== null}
           busy={state.busy}
           draft={draft}
+          agentName={active ? crew.agentName(active.agent_id) : master?.name}
           onSend={(text) => {
             setDraft(undefined);
             void send(text);

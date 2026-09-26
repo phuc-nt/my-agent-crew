@@ -1,4 +1,5 @@
 import { vi } from "../i18n/vi";
+import { Icon } from "./ui/icon";
 import { MetricBar, MetricRow } from "./ui/metric-card";
 import { PopoverChip } from "./ui/popover-chip";
 
@@ -41,7 +42,7 @@ export function BudgetIndicator({ spentUsd, capUsd, unknownCostCalls, childCount
       }
       label={
         <>
-          <span aria-hidden="true">💰</span>
+          <Icon name="coins" />
           <span className="tabular">
             {figure}
             {!unlimited && ` (${percent}%)`}
@@ -55,7 +56,7 @@ export function BudgetIndicator({ spentUsd, capUsd, unknownCostCalls, childCount
       }
     >
       <MetricRow
-        icon="💰"
+        icon="coins"
         label={vi.budgetCard.spent}
         hint={vi.budgetCard.spentHint}
         value={figure}
@@ -72,7 +73,7 @@ export function BudgetIndicator({ spentUsd, capUsd, unknownCostCalls, childCount
       </MetricRow>
       {childCount > 0 && (
         <MetricRow
-          icon="🧩"
+          icon="handoff"
           label={vi.budgetCard.delegated}
           hint={vi.budgetCard.delegatedHint}
           value={vi.budgetCard.delegatedValue(childCount)}
@@ -80,7 +81,7 @@ export function BudgetIndicator({ spentUsd, capUsd, unknownCostCalls, childCount
       )}
       {unknownCostCalls > 0 && (
         <MetricRow
-          icon="❓"
+          icon="help"
           label={vi.budgetCard.unknown}
           hint={vi.budgetCard.unknownHint}
           value={vi.budgetCard.unknownValue(unknownCostCalls)}

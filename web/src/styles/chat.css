@@ -1,12 +1,25 @@
 /*
- * The conversation column: the thread, the bubbles, the tool cards that appear
- * between them, the approval bar and the composer.
+ * The conversation column: the welcome, the thread, the tool cards that appear between
+ * replies, the approval and question callouts, and the composer.
  *
- * The thread is the one surface where the agent's prose is the content, so it
- * is the one place that gets generous line length and spacing. Everything
- * around it — tool cards, approvals — is deliberately denser, so a wall of tool
- * traffic never reads as the conversation itself.
+ * Everything here hangs off one reading column (--reading-width), centred in whatever
+ * space the main pane has, so the thread, the callouts, the composer and the status line
+ * under it share one left edge however wide the window is.
+ *
+ * The agent's replies are prose on the page rather than boxes: in a long conversation the
+ * reply is the content, and a border around every one of them is noise the eye reads past
+ * hundreds of times. Your own messages are the tinted bubbles, which is enough to tell the
+ * two voices apart. Machinery — tool calls, handoffs — is denser and smaller, indented to
+ * the reply text, so a wall of tool traffic never reads as the conversation itself.
  */
+
+.main {
+  /* The gutter that centres the reading column; percentages here resolve against the
+     main pane, which is the width every child below is laid out in. */
+  --gutter: max(var(--space-5), (100% - var(--reading-width)) / 2);
+  /* How far reply text sits in from the speaker's tile: the tile plus the gap after it. */
+  --reply-indent: calc(22px + var(--space-2));
+}
 
 /* Holds the scrolling thread and the button that rides above it. The button cannot live
    inside the thread: it would scroll away with the content it is offering to reach. */
@@ -17,233 +30,471 @@
   min-height: 0;
 }
 
+/* The last line of the thread fades into the composer instead of being cut by an edge. */
+.thread-frame::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 12px;
+  bottom: 0;
+  height: var(--space-4);
+  background: linear-gradient(to bottom, transparent, var(--surface));
+  pointer-events: none;
+}
+
 .thread {
   flex: 1;
   overflow-y: auto;
-  padding: var(--space-4);
+  padding: var(--space-5) var(--gutter) var(--space-6);
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-4);
+  overscroll-behavior: contain;
 }
 
 .jump-newest {
   position: absolute;
   bottom: var(--space-4);
   left: 50%;
-  transform: translateX(-50%);
+  /* `translate`, not `transform`: the button's press scale is a transform, and sharing
+     the property would drop the centring for the length of the press. */
+  translate: -50% 0;
+  z-index: 2;
   box-shadow: var(--shadow-2);
   border-radius: var(--radius-full);
   font-size: var(--text-sm);
   padding: var(--space-2) var(--space-4);
+  background: var(--surface-raised);
+  animation: rise-in var(--duration-base) var(--ease-out);
 }
 
+/* ── Welcome ────────────────────────────────────────────────────────────── */
 .empty-state {
   justify-content: center;
   align-items: center;
-  text-align: center;
-  gap: var(--space-3);
 }
 
-.suggestions {
+.welcome {
   display: flex;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: 640px;
+  margin: auto;
+  text-align: center;
+  animation: rise-in var(--duration-slow) var(--ease-out);
 }
 
-/* 780px is roughly 90 characters at this size: long enough that code and
-   command output do not wrap constantly, short enough to still be read. */
-.bubble {
-  max-width: 780px;
+.welcome h2 {
+  margin-top: var(--space-2);
+  font-size: var(--text-2xl);
+  letter-spacing: var(--tracking-display);
+  text-wrap: balance;
+}
+
+.welcome-body {
+  max-width: 52ch;
+  color: var(--text-secondary);
+  text-wrap: pretty;
+}
+
+.welcome [data-testid="welcome-crew"] {
+  font-size: var(--text-sm);
+}
+
+/* Starters as a grid of cards: each is a whole sentence, and a sentence needs a block to
+   sit in, not a pill it overflows. */
+.suggestions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+  width: 100%;
+  margin-top: var(--space-3);
+}
+
+.suggestion:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
+button.suggestion {
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 56px;
   padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius);
+  text-align: left;
+  font-weight: 450;
+  color: var(--text-secondary);
   background: var(--surface);
-  border: 1px solid var(--border);
+  border-color: var(--border);
+  border-radius: var(--radius-lg);
+}
+
+button.suggestion:hover:not(:disabled) {
+  background: var(--surface);
+  border-color: var(--border-strong);
+  color: var(--text);
+  box-shadow: var(--shadow-2);
+  transform: translateY(-1px);
+}
+
+.suggestion-go {
+  color: var(--muted);
+  rotate: 45deg;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+.suggestion:hover .suggestion-go {
+  color: var(--accent);
+}
+
+.echo-hint {
+  font-size: var(--text-sm);
+}
+
+/* ── Messages ───────────────────────────────────────────────────────────── */
+.bubble {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.bubble p {
+  margin: var(--space-1) 0 0;
+  white-space: pre-wrap;
+}
+
+/* The agent's name over its reply, and the text indented to start under the name. */
+.bubble-role {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  font-size: var(--text-sm);
+}
+
+.speaker-name {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.speaker-model {
+  font-size: var(--text-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bubble.assistant > :not(.bubble-role) {
+  margin-left: var(--reply-indent);
+}
+
+.bubble.assistant > .md {
+  margin-top: var(--space-1);
 }
 
 .bubble.user {
   align-self: flex-end;
+  max-width: min(85%, 620px);
+  padding: var(--space-2) var(--space-4);
   background: var(--user-bubble);
-  border-color: transparent;
+  color: var(--user-bubble-text);
+  /* The corner nearest the composer stays tight: the message came from down there. */
+  border-radius: var(--radius-xl) var(--radius-xl) 6px var(--radius-xl);
+  animation: rise-in var(--duration-base) var(--ease-out);
 }
 
-/* A progress note. No bubble, no border and no background: it is the agent narrating
-   its own work, not a turn in the conversation, and anything enclosing it would read
-   as a second thing said. Indented and italic so the eye can skip the whole column of
-   them when reading back, and small enough to sit under a reply without competing. */
+.bubble.user p {
+  margin: 0;
+}
+
+/* A progress note. No bubble and no background: it is the agent narrating its own work,
+   not a turn in the conversation, and anything enclosing it would read as a second thing
+   said. Indented and italic so the eye can skip the whole column of them when reading
+   back, and small enough to sit under a reply without competing. */
 .thread-note {
-  max-width: 780px;
-  padding-left: var(--space-4);
+  margin-left: var(--reply-indent);
+  padding-left: var(--space-3);
   border-left: 2px solid var(--border);
   color: var(--text-secondary);
   font-size: var(--text-sm);
   font-style: italic;
 }
 
-.bubble p {
-  margin: var(--space-1) 0 0;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.bubble-role {
-  font-size: var(--text-xs);
-  color: var(--muted);
-}
-
 .bubble img.media {
-  max-width: 100%;
-  border-radius: var(--radius-sm);
-  margin-top: var(--space-2);
   display: block;
+  max-width: min(100%, 520px);
+  margin-top: var(--space-2);
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 0 0 1px var(--border);
 }
 
-/* A document the reply is handing over. Boxed rather than left as an inline link
-   because it is an object in the message, like the image above it, and a bare blue
-   word inside prose reads as a reference to something rather than the thing itself. */
+/* A document the reply is handing over. Boxed rather than left as an inline link because
+   it is an object in the message, like the image above it, and a bare blue word inside
+   prose reads as a reference to something rather than the thing itself. */
 .bubble a.attachment {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  align-self: flex-start;
   margin-top: var(--space-2);
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: var(--surface);
+  box-shadow: var(--shadow-1);
   color: var(--text);
   font-size: var(--text-sm);
+  font-weight: 500;
   text-decoration: none;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
 }
 
-.bubble a.attachment::before {
-  content: "↓";
-  color: var(--muted);
+.bubble a.attachment .icon {
+  color: var(--accent);
 }
 
 .bubble a.attachment:hover {
   border-color: var(--accent);
+  background: var(--accent-softer);
 }
 
-/* The caret that marks a reply still arriving. It is the only thing in the
-   thread that moves, so it needs no label to be understood. It rides the last
-   block of the reply, whatever markdown turned that block into, so a partial
-   answer ending in a list or a table still shows where the text stops. */
+/* The dot that marks a reply still arriving. It is the only thing in the thread that
+   moves, so it needs no label to be understood. It rides the last block of the reply,
+   whatever markdown turned that block into, so a partial answer ending in a list or a
+   table still shows where the text stops. */
 .bubble.streaming .md > :last-child::after {
-  content: "▍";
-  animation: caret-blink 1s steps(2, start) infinite;
+  content: "";
+  display: inline-block;
+  width: 0.55em;
+  height: 0.55em;
+  margin-left: 0.3em;
+  border-radius: 50%;
+  background: var(--accent);
+  vertical-align: 0.05em;
+  animation: pulse-soft 1s var(--ease-in-out) infinite;
 }
 
-@keyframes caret-blink {
-  50% {
-    opacity: 0;
+/* Two shapes behind one class. With no run to read, this is the agent's tile and a
+   single shimmering word. With one, it holds the same progress header the rail uses,
+   as a small card beside the tile: the glance version, narrower than a reply so it
+   does not read as one. */
+.thinking {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--muted);
+}
+
+.thinking-text {
+  font-size: var(--text-sm);
+  background: linear-gradient(
+      90deg,
+      var(--muted) 0%,
+      var(--muted) 40%,
+      var(--text) 50%,
+      var(--muted) 60%,
+      var(--muted) 100%
+    )
+    0 0 / 250% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: shimmer 1.8s linear infinite;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0 0;
   }
 }
 
-/* Two shapes behind one class. With no run to read, this is a single italic
-   line — the old "đang suy nghĩ". With one, it holds the same progress header
-   the rail uses, and becomes a card so the bar has an edge to sit inside. The
-   italic is scoped out in that case: the header is data, not an aside. */
-.thinking {
-  color: var(--muted);
-  font-style: italic;
-}
-
-.thinking:has(.run-progress-wrap) {
-  /* Narrower than a bubble. The rail carries the full story; this is the
-     glance version, and at bubble width it would read as a message. */
+.thinking > .run-progress-wrap {
+  flex: 1;
   max-width: 420px;
-  font-style: normal;
-  border: 1px dashed var(--border);
-  border-radius: var(--radius);
   padding: var(--space-2) var(--space-3);
-  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg);
 }
 
 /* ── Tool cards in the thread ───────────────────────────────────────────── */
-/* Dashed, unlike every other card on the surface: a tool call is machinery
-   showing through the conversation, not a message in it. */
+/* Smaller and on the backdrop tone rather than the page: a tool call is machinery showing
+   through the conversation, not a message in it. */
 .tool-card {
-  max-width: 780px;
-  border: 1px dashed var(--border);
-  border-radius: var(--radius);
+  margin-left: var(--reply-indent);
   padding: var(--space-2) var(--space-3);
-  background: var(--surface);
-  font-size: var(--text-md);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  font-size: var(--text-sm);
+  animation: fade-in var(--duration-base) var(--ease-out);
+}
+
+/* A run of calls reads as one block of work rather than as separate events. */
+.tool-card + .tool-card {
+  margin-top: calc(var(--space-2) - var(--space-4));
 }
 
 .tool-card.awaiting {
-  border-color: var(--warn);
+  border-color: color-mix(in srgb, var(--warn) 55%, var(--border));
 }
 
 .tool-card.failed,
 .tool-card.denied {
-  border-color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
 }
 
 .tool-header {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: var(--space-2);
+  min-width: 0;
 }
 
-/* A tool card has no coloured node beside it the way a timeline row does, so
-   here the glyph is the fastest read of the state. The rail uses `.step-state`
-   for the same words without a glyph — see run-timeline.css. */
+.tool-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-weight: 550;
+}
+
+.tool-icon {
+  color: var(--muted);
+}
+
+/* The icon is the fastest read of the state; the word beside it says the same for anyone
+   who needs it. The rail uses `.step-state` for the same words — see run-timeline.css. */
 .tool-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
   font-size: var(--text-xs);
   color: var(--muted);
 }
-.tool-status.running::before {
-  content: "⏳ ";
+.tool-status.done .icon {
+  color: var(--ok);
 }
-.tool-status.done::before {
-  content: "✓ ";
+.tool-status.failed,
+.tool-status.denied {
+  color: var(--danger-text);
 }
-.tool-status.failed::before,
-.tool-status.denied::before {
-  content: "✗ ";
+.tool-status.awaiting {
+  color: var(--warn-text);
 }
-.tool-status.awaiting::before {
-  content: "⏸ ";
+.tool-status.running .icon {
+  color: var(--accent);
+  animation: spin 0.9s linear infinite;
 }
 
 .tool-arguments {
+  margin-top: 2px;
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   overflow-wrap: anywhere;
 }
 
+.tool-card .link-button {
+  margin: var(--space-1) 0 0 calc(var(--space-2) * -1);
+  font-size: var(--text-xs);
+}
+
 .tool-output {
-  margin: var(--space-2) 0 0;
-  padding: var(--space-2);
-  background: var(--surface-sunken);
+  margin: var(--space-1) 0 0;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
   max-height: 300px;
   overflow: auto;
   white-space: pre-wrap;
 }
 
-/* ── Approvals ──────────────────────────────────────────────────────────── */
-/* The bar sits between the thread and the composer because that is where the
-   turn is actually blocked: you cannot type past it without deciding. */
-.approval-bar {
+/* ── Delegation in the thread ───────────────────────────────────────────── */
+/* A handed-off task wears the delegate hue, the one the rail gives a handoff step: it is
+   a job someone else ran, not a tool this agent called. */
+.delegate-card {
+  border-color: color-mix(in srgb, var(--step-delegate) 35%, var(--border));
+  background: color-mix(in srgb, var(--step-delegate) 5%, var(--surface));
+}
+
+.delegate-result {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-3) var(--space-4);
-  background: var(--warn-bg);
-  color: var(--warn-text);
-  border-top: 1px solid var(--warn);
   flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  margin-top: var(--space-2);
+  font-size: var(--text-xs);
+}
+
+.delegate-chip {
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--ok-bg);
+  color: var(--ok-text);
+  font-weight: 500;
+}
+
+.delegate-result .link-button {
+  margin: 0;
+}
+
+/* ── Callouts: approvals and questions ──────────────────────────────────── */
+/* Where the turn is actually blocked: between the thread and the composer, so you cannot
+   type past it without deciding. A floating card on the reading column rather than a
+   full-width band, because it is one decision, not a change of mode for the page. */
+.callout,
+.notice {
+  width: min(var(--reading-width), 100% - 2 * var(--space-5));
+  margin: 0 auto var(--space-2);
+}
+
+.callout {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-2);
+  animation: rise-in var(--duration-base) var(--ease-out);
+}
+
+.callout-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  font-size: 1.05rem;
+}
+
+.approval-bar {
+  border-color: color-mix(in srgb, var(--warn) 45%, var(--border));
+  background: color-mix(in srgb, var(--warn-bg) 70%, var(--surface-raised));
+}
+
+.approval-bar .callout-icon {
+  background: color-mix(in srgb, var(--warn) 20%, transparent);
+  color: var(--warn-text);
 }
 
 .approval-text {
+  flex: 1 1 240px;
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: 2px;
   min-width: 0;
 }
 
@@ -251,7 +502,8 @@
   overflow-wrap: anywhere;
 }
 
-.approval-reason {
+.approval-reason,
+.approval-deadline {
   font-size: var(--text-sm);
   color: var(--warn-text);
 }
@@ -260,24 +512,26 @@
   display: flex;
   gap: var(--space-2);
   flex-wrap: wrap;
-}
-
-.approval-deadline {
-  font-size: var(--text-sm);
-  color: var(--warn-text);
-  opacity: 0.85;
+  align-self: center;
 }
 
 /* A question is not a warning. The tool bar is amber because something is about to run
    that the person may not want; here the agent is only stuck on something it cannot know,
    so it reads as a prompt in the accent colour and not as caution. */
 .question-card {
-  display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  background: var(--accent-soft);
-  border-top: 1px solid var(--accent);
+  align-items: stretch;
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+  background: color-mix(in srgb, var(--accent-softer) 70%, var(--surface-raised));
+}
+
+.question-card .approval-deadline {
+  color: var(--muted);
+}
+
+.callout-inline-icon {
+  margin-right: 6px;
+  color: var(--accent);
 }
 
 .question-text {
@@ -309,6 +563,7 @@
   min-width: 0;
 }
 
+/* The decided approvals, listed on the manage screen. */
 .approval-list {
   list-style: none;
   margin: 0;
@@ -318,20 +573,31 @@
   gap: var(--space-2);
 }
 
+/* A decided request is history, not an alarm: the badge says how it went, and the card
+   stays in the page's own colours. Only a request still waiting is outlined. */
 .approval-list li {
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: var(--space-2) var(--space-3);
-  background: var(--surface-sunken);
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  font-size: var(--text-md);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-1);
 }
 
-.approval-list li[data-status="denied"],
-.approval-list li[data-status="expired"] {
-  border-color: var(--danger);
+.approval-list li[data-status="pending"] {
+  border-color: color-mix(in srgb, var(--warn) 55%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn) 10%, transparent);
+}
+
+.approval-list .tool-arguments {
+  margin-top: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
 }
 
 .approval-head {
@@ -347,12 +613,20 @@
 
 .approval-list .link-button {
   align-self: flex-start;
+  margin: var(--space-1) 0 0 calc(var(--space-2) * -1);
+  font-size: var(--text-sm);
 }
 
 /* ── Notices ────────────────────────────────────────────────────────────── */
 .notice {
-  padding: var(--space-2) var(--space-4);
-  font-size: var(--text-md);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  animation: fade-in var(--duration-base) var(--ease-out);
 }
 
 .notice.error {
@@ -366,50 +640,158 @@
   color: var(--warn-text);
 }
 
-.notice.crash {
+/* A calm card rather than a red wall: what broke, in the words the error used, and the
+   one action that fixes most of it. */
+.crash {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-3) var(--space-4);
+  max-width: 40rem;
+  margin: var(--space-5) auto;
+  padding: var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-2);
+}
+
+.crash-icon {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--radius-md);
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.crash-text {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  align-items: flex-start;
+  min-width: 0;
+}
+
+.crash-title {
+  margin: 0;
+  font-weight: 600;
+}
+
+.crash-detail {
+  display: block;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.crash > button {
+  grid-column: 2;
+  justify-self: start;
 }
 
 /* ── Composer ───────────────────────────────────────────────────────────── */
 .composer {
-  display: flex;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
-  border-top: 1px solid var(--border);
+  padding: var(--space-1) var(--gutter) var(--space-2);
   background: var(--surface);
 }
 
-.composer textarea {
-  flex: 1;
-  resize: vertical;
-}
-
-/* ── Delegation in the thread ───────────────────────────────────────────── */
-/* A handed-off task is solid-bordered and accent-coloured, because it is a job
-   someone else ran — not a tool this agent called. */
-.delegate-card {
-  border-style: solid;
-  border-color: var(--accent);
-}
-
-.delegate-result {
+/* One raised field with its send button inside it, the way a message box looks on every
+   device the person owns. The ring on focus belongs to the box, not the bare textarea. */
+.composer-box {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: var(--space-2);
-  margin-top: var(--space-1);
-  font-size: var(--text-sm);
+  padding: 6px 6px 6px var(--space-4);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-xl);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-2);
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
 }
 
-.delegate-chip {
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-full);
-  background: var(--ok-bg);
-  color: var(--ok-text);
+.composer-box:focus-within {
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 4px var(--accent-ring),
+    var(--shadow-2);
 }
 
-.child-marker {
+.composer-box.disabled {
+  background: var(--surface-sunken);
+  box-shadow: none;
+}
+
+.composer-box textarea,
+.composer-box textarea:focus {
+  flex: 1;
+  min-width: 0;
+  min-height: 36px;
+  max-height: 240px;
+  padding: 7px 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  line-height: 1.45;
+  resize: none;
+  outline: none;
+}
+
+button.composer-action {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  font-size: 1.1rem;
+}
+
+button.composer-action.primary:disabled {
+  opacity: 1;
+  background: var(--surface-hover);
   color: var(--muted);
+}
+
+button.composer-action.stop,
+button.composer-action.stop:hover:not(:disabled) {
+  background: var(--text);
+  color: var(--surface);
+}
+
+/* ── Phone ──────────────────────────────────────────────────────────────── */
+@media (max-width: 720px) {
+  .main {
+    --gutter: var(--space-4);
+    --reply-indent: 0px;
+  }
+
+  .thread {
+    padding-top: var(--space-4);
+  }
+
+  .welcome h2 {
+    font-size: var(--text-xl);
+  }
+
+  .suggestions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .callout,
+  .notice {
+    width: calc(100% - 2 * var(--space-3));
+  }
+
+  .composer {
+    padding: var(--space-1) var(--space-3) var(--space-2);
+  }
 }

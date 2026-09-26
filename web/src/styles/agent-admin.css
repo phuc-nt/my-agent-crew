@@ -64,24 +64,28 @@
   font-size: var(--text-xs);
 }
 
+/* The controls themselves come from base.css; a field only keeps them from pushing
+   its row wider than the section. */
 .field input[type="text"],
 .field input[type="number"],
 .field select,
 .field textarea,
 .add-agent input {
-  font: inherit;
-  padding: var(--space-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--text);
   min-width: 0;
 }
 
 .field textarea {
   font-family: var(--font-mono);
   font-size: var(--text-sm);
+  line-height: 1.55;
   resize: vertical;
+}
+
+/* Below 16px a phone zooms the page when the field takes focus. */
+@media (pointer: coarse) {
+  .field textarea {
+    font-size: 16px;
+  }
 }
 
 .field input:disabled,
@@ -89,6 +93,7 @@
 .field textarea:disabled {
   background: var(--surface-sunken);
   color: var(--muted);
+  box-shadow: none;
 }
 
 /* A checkbox reads as one line with its label, not as a label stacked above a box. */
@@ -107,10 +112,13 @@
 }
 
 /* ── The editor ─────────────────────────────────────────────────────────── */
+/* A measure, not the full width: a name field 1000px wide reads as a banner rather
+   than as something to type a name into. */
 .agent-editor {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  max-width: 56rem;
 }
 
 /* Sticky so the unsaved-changes count and the Save button stay reachable while the
@@ -118,28 +126,79 @@
 .editor-bar {
   position: sticky;
   top: 0;
-  z-index: 1;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3) 0;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  -webkit-backdrop-filter: saturate(1.6) blur(14px);
+  backdrop-filter: saturate(1.6) blur(14px);
+  border-bottom: 1px solid var(--border);
+}
+
+.editor-bar > .ghost:first-child {
+  margin-left: calc(var(--space-2) * -1);
+}
+
+.editor-title {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.editor-title strong {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-title code {
+  font-size: var(--text-xs);
+  color: var(--muted);
+  background: none;
+  padding: 0;
+}
+
+.editor-actions {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-3) 0;
-  background: var(--bg);
-  border-bottom: 1px solid var(--border);
+}
+
+.editor-dirty {
+  font-size: var(--text-sm);
+  margin-right: var(--space-1);
 }
 
 .editor-section {
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: var(--space-4);
-  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-1);
 }
 
 .editor-section > h3:first-child {
   margin-top: 0;
+  margin-bottom: var(--space-4);
+}
+
+/* A section's own explanation sits under its heading at hint size, not body size,
+   so it reads as a caption and the fields stay the first thing the eye lands on. */
+.editor-section > h3 + p.muted {
+  margin: calc(var(--space-2) * -1) 0 var(--space-4);
+  font-size: var(--text-sm);
+  max-width: 64ch;
 }
 
 .editor-section.danger {
-  border-color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 40%, var(--border));
 }
 
 .restart-banner {
@@ -229,10 +288,17 @@
   max-width: none;
 }
 
+.tools-matrix > p.muted {
+  margin: 0 0 var(--space-4);
+  max-width: 64ch;
+}
+
 .matrix-scroll {
   overflow-x: auto;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-1);
 }
 
 .matrix {
@@ -243,57 +309,114 @@
 
 .matrix th,
 .matrix td {
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--border);
   text-align: left;
   vertical-align: top;
+}
+
+.matrix tbody tr:last-child > * {
+  border-bottom: none;
+}
+
+.matrix tbody tr:hover > * {
+  background: var(--surface-hover);
 }
 
 .matrix thead th {
   position: sticky;
   top: 0;
   background: var(--surface-sunken);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 600;
   white-space: nowrap;
 }
 
 .matrix tbody th {
   font-weight: 400;
-  max-width: 24rem;
+  min-width: 16rem;
+  max-width: 26rem;
+}
+
+.matrix tbody th code {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text);
+  background: none;
+  padding: 0;
+}
+
+.matrix tbody th .badge {
+  margin-left: var(--space-2);
+}
+
+.tool-description {
+  display: -webkit-box;
+  margin-top: 2px;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  font-size: var(--text-xs);
+  line-height: 1.5;
+}
+
+.matrix td.approval {
+  color: var(--text-secondary);
+  white-space: nowrap;
 }
 
 .matrix td.cell {
   text-align: center;
   font-size: var(--text-lg);
+  line-height: 1.2;
 }
 
-.matrix td.cell.on {
+.matrix td.cell.on,
+.legend-mark.on {
   color: var(--ok);
 }
 
 .matrix td.cell.excluded,
-.matrix td.cell.work-mode {
+.matrix td.cell.work-mode,
+.legend-mark.excluded,
+.legend-mark.work-mode {
   color: var(--muted);
 }
 
-.matrix td.cell.missing-key {
+.matrix td.cell.missing-key,
+.legend-mark.missing-key {
   color: var(--warn);
 }
 
 .matrix-legend {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-3);
-  margin: var(--space-3) 0 0;
+  align-items: center;
+  gap: var(--space-2) var(--space-5);
+  margin: var(--space-4) 0 0;
   font-size: var(--text-sm);
-  color: var(--muted);
+  color: var(--text-secondary);
 }
 
 .matrix-legend dt {
   font-weight: 600;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
 }
 
 .matrix-legend dd {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
   margin: 0;
+}
+
+.legend-mark {
+  font-size: var(--text-md);
 }
 
 /* ── Connections ────────────────────────────────────────────────────────── */
@@ -370,5 +493,19 @@
   .editor-section .row,
   .add-agent .row {
     flex-wrap: wrap;
+  }
+
+  .editor-section {
+    padding: var(--space-4);
+  }
+
+  /* The save controls take the second line whole: count on the left, buttons under
+     the thumb on the right. */
+  .editor-actions {
+    flex: 1 0 100%;
+  }
+
+  .editor-dirty {
+    flex: 1 1 auto;
   }
 }

@@ -1,53 +1,113 @@
 /*
- * The app shell: the three-column frame, the conversation sidebar, the header
- * above the thread, and the status line at the foot.
+ * The app shell: the frame, the conversation sidebar, the header above the thread and the
+ * status line at the foot.
  *
- * The frame is a grid, not nested flex columns, so a column can be added or
- * dropped (the activity rail) by changing one declaration rather than by
- * restructuring the DOM. The breakpoints below drop columns in order of how
- * much the user needs them: the rail floats first, the sidebar collapses last.
+ * The frame is a grid, not nested flex columns, so a column can be added or dropped (the
+ * activity rail) by changing one declaration rather than by restructuring the DOM. The
+ * breakpoints drop columns in order of how much the person needs them: the rail floats
+ * first, and on a phone the sidebar leaves the grid to become a drawer.
+ *
+ * Two surfaces carry the frame: the sidebar sits on the page backdrop, the conversation on
+ * the brighter surface, so where you read and where you navigate differ by tone rather than
+ * by a line.
  */
 
 .layout {
   display: grid;
-  grid-template-columns: 260px 1fr;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
   height: 100vh;
+  height: 100dvh;
 }
 
 .layout.with-activity {
-  grid-template-columns: 260px 1fr 380px;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr) var(--activity-width);
 }
 
 /* ── Sidebar: the conversation list ─────────────────────────────────────── */
 .sidebar {
-  border-right: 1px solid var(--border);
-  background: var(--surface);
-  padding: var(--space-3);
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  min-height: 0;
+  padding: var(--space-3);
+  /* Only the list scrolls; the brand, the master and the way out stay where the hand
+     expects them. The sidebar itself scrolls only when even those do not fit. */
+  overflow-y: auto;
+  background: var(--bg);
+  border-right: 1px solid var(--border);
+}
+
+.sidebar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: var(--touch-target);
+  padding: 0 var(--space-1);
+}
+
+/* The master agent, pinned above the list: it is the one you always have. */
+.master-card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+}
+
+.master-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.master-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 600;
+  letter-spacing: var(--tracking-tight);
+}
+
+/* Two lines of who the master is; the rest is one hover away on the crew screen. */
+.master-card .muted {
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .new-conversation {
   width: 100%;
+  min-height: var(--touch-target);
+  border-radius: var(--radius-md);
 }
 
 .conversation-search input {
   width: 100%;
-  font: inherit;
   font-size: var(--text-sm);
-  padding: var(--space-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
   background: var(--surface);
-  color: var(--text);
+  box-shadow: none;
+  border-color: var(--border);
+  border-radius: var(--radius-md);
 }
 
 .conversation-list {
   list-style: none;
-  margin: 0;
-  padding: 0;
+  flex: 1 1 0;
+  min-height: 96px;
+  overflow-y: auto;
+  /* Room at the sides for the open row's shadow, which the scroll box would clip. */
+  margin: 0 calc(var(--space-1) * -1);
+  padding: 2px var(--space-1);
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -57,15 +117,22 @@
   display: flex;
   align-items: center;
   border-radius: var(--radius-md);
-  transition: background var(--duration-fast) var(--ease-out);
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
 }
 
 .conversation-list li:hover {
-  background: var(--surface-sunken);
+  background: var(--surface-hover);
 }
 
+/* The open conversation lifts off the sidebar as a card, the way a selected file does in a
+   Finder column: the same surface the conversation itself is drawn on. */
 .conversation-list li.active {
-  background: var(--accent-soft);
+  background: var(--surface);
+  box-shadow:
+    var(--shadow-1),
+    inset 0 0 0 1px var(--border);
 }
 
 /* Dot, title, channel on the first line; the recap under the title, indented to it. */
@@ -75,21 +142,34 @@
   text-align: left;
   border: none;
   background: none;
+  box-shadow: none;
   display: flex;
   flex-wrap: wrap;
   gap: 2px var(--space-2);
   align-items: center;
   min-width: 0;
-  padding: var(--space-2);
+  min-height: var(--touch-target);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
+  font-weight: 400;
 }
 
 .conversation-item:hover:not(:disabled) {
   background: none;
 }
 
-/* The delete button stays out of the way until the row is pointed at or focused. */
+.conversation-item:active:not(:disabled) {
+  transform: none;
+}
+
+.conversation-list li.active .conversation-title {
+  font-weight: 600;
+}
+
+/* The delete button stays out of the way until the row is pointed at or focused. A touch
+   screen has no pointing, so there it simply stays. */
 .conversation-list li > .icon-button {
   opacity: 0;
+  margin-right: var(--space-1);
   transition: opacity var(--duration-fast) var(--ease-out);
 }
 .conversation-list li:hover > .icon-button,
@@ -97,11 +177,15 @@
 .conversation-list li.active > .icon-button {
   opacity: 1;
 }
+@media (hover: none) {
+  .conversation-list li > .icon-button {
+    opacity: 1;
+  }
+}
 
 .conversation-title {
   flex: 1;
   min-width: 0;
-  font-size: var(--text-md);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -121,38 +205,35 @@
 .channel-tag {
   flex: none;
   font-size: var(--text-xs);
-  padding: 0 var(--space-1);
+  padding: 0 var(--space-2);
   border-radius: var(--radius-full);
   background: var(--surface-sunken);
   color: var(--muted);
+  box-shadow: inset 0 0 0 1px var(--border);
 }
 
-/* The master agent, pinned above the list: it is the one you always have. */
-.master-card {
-  padding: var(--space-1) var(--space-2) var(--space-3);
-  border-bottom: 1px solid var(--border);
-  font-size: var(--text-md);
+.child-marker {
+  display: inline-flex;
+  color: var(--muted);
 }
 
-.master-card .muted {
-  font-size: var(--text-sm);
-  margin-top: var(--space-1);
-}
-
-/* ── Main column header ─────────────────────────────────────────────────── */
+/* ── Main column and its header ─────────────────────────────────────────── */
 .main {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
   height: 100vh;
+  height: 100dvh;
+  background: var(--surface);
 }
 
 /* Two lines: the title with its pills, then the recap. */
 .conversation-header {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-3) var(--space-4);
+  gap: 2px;
+  padding: var(--space-3) var(--space-5);
   border-bottom: 1px solid var(--border);
   background: var(--surface);
 }
@@ -164,6 +245,7 @@
   gap: var(--space-2) var(--space-4);
   flex-wrap: wrap;
   min-width: 0;
+  min-height: var(--touch-target);
 }
 
 .header-title {
@@ -173,11 +255,16 @@
   min-width: 0;
 }
 
+.header-title h1 {
+  font-size: var(--text-lg);
+}
+
 /* The heading keeps its place while what sits inside it swaps between a button and
    a field, so clicking to rename moves nothing on the page. */
 .title-heading {
   display: flex;
   min-width: 0;
+  font-size: var(--text-lg);
   /* The padding below belongs to the control, not to the heading around it. */
   margin: calc(var(--space-1) * -1) calc(var(--space-2) * -1);
 }
@@ -185,38 +272,66 @@
 .editable-title,
 .title-input {
   font: inherit;
+  font-weight: 600;
+  letter-spacing: var(--tracking-tight);
   padding: var(--space-1) var(--space-2);
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   min-width: 0;
+  min-height: 0;
   max-width: 42ch;
   background: none;
+  box-shadow: none;
 }
 
 .editable-title {
+  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   text-align: left;
   color: inherit;
   cursor: text;
-  transition: background var(--duration-fast) var(--ease-out);
 }
 
-.editable-title:hover {
-  background: var(--surface-sunken);
+.editable-title:hover:not(:disabled) {
+  background: var(--surface-hover);
+  border-color: transparent;
+}
+
+.editable-title:active:not(:disabled) {
+  transform: none;
 }
 
 .title-input {
   width: 42ch;
   color: var(--text);
-  background: var(--bg);
-  border-color: var(--border-strong);
+  background: var(--surface);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-ring);
   outline: none;
 }
 
-.title-input:focus {
-  border-color: var(--accent);
+/* Who you are talking to: their tile and name as one quiet chip beside the title. */
+.agent-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  padding: 2px var(--space-2) 2px 2px;
+  border-radius: var(--radius-full);
+  background: var(--surface-sunken);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+.agent-tag .avatar {
+  border-radius: var(--radius-full);
+}
+.agent-tag .agent-badge {
+  padding: 0;
+  background: none;
+  box-shadow: none;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
 }
 
 .header-controls {
@@ -243,9 +358,33 @@
   min-width: 0;
 }
 
+.header-summary .link-button {
+  flex: none;
+  font-size: var(--text-sm);
+}
+
 /* The budget pill's figure, and its warning colour once the cap is reached. */
 .budget.over {
   font-weight: 600;
+}
+
+/* The phone's way into the drawer. The dot says something behind it is waiting on you. */
+.menu-button {
+  position: relative;
+  margin-left: calc(var(--space-2) * -1);
+  min-width: var(--touch-target);
+  min-height: var(--touch-target);
+  color: var(--text);
+}
+.menu-dot {
+  position: absolute;
+  top: 7px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--warn);
+  box-shadow: 0 0 0 2px var(--surface);
 }
 
 /* ── Settings drawer ────────────────────────────────────────────────────── */
@@ -254,22 +393,21 @@
   top: 0;
   right: 0;
   height: 100vh;
+  height: 100dvh;
   width: min(420px, 100vw);
-  background: var(--surface);
+  background: var(--surface-raised);
   border-left: 1px solid var(--border);
   box-shadow: var(--shadow-3);
   overflow-y: auto;
   padding: var(--space-4);
   z-index: 10;
+  animation: rise-in var(--duration-base) var(--ease-out);
 }
 
 .settings-panel header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-}
-
-.settings-panel header {
   margin-bottom: var(--space-3);
 }
 
@@ -282,25 +420,41 @@
 }
 
 /* ── Status line ────────────────────────────────────────────────────────── */
+/* A caption under the composer, set to the same column as the thread above it. */
 .status-line {
   display: flex;
   justify-content: space-between;
   gap: var(--space-4);
-  padding: var(--space-1) var(--space-4);
+  padding: 0 var(--gutter) var(--space-2);
   font-size: var(--text-xs);
   color: var(--muted);
-  border-top: 1px solid var(--border);
   background: var(--surface);
 }
 
-.stream-state.on::before {
-  content: "● ";
-  color: var(--ok);
+.status-line > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stream-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+
+.stream-state::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ok);
 }
 
 .stream-state.off::before {
-  content: "● ";
-  color: var(--danger);
+  background: var(--danger);
 }
 
 /* ── Responsive ─────────────────────────────────────────────────────────── */
@@ -308,7 +462,7 @@
    side-channel, and losing the thread underneath it costs more than overlap. */
 @media (max-width: 1100px) {
   .layout.with-activity {
-    grid-template-columns: 260px 1fr;
+    grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
   }
 
   .activity-panel {
@@ -321,23 +475,81 @@
   }
 }
 
-/* At phone width the sidebar becomes a short scrollable strip on top rather
-   than a drawer: one tap fewer to switch conversation, which is the thing you
-   actually do on a phone. */
+/* On a phone the chat takes the whole screen and the list slides over it from the left,
+   the way every messaging app on the device already works. */
 @media (max-width: 720px) {
-  .layout {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
+  .layout,
+  .layout.with-activity {
+    grid-template-columns: minmax(0, 1fr);
   }
 
-  .sidebar {
+  .sidebar.drawer {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 30;
+    width: min(86vw, 320px);
+    padding-top: max(var(--space-3), env(safe-area-inset-top));
+    padding-bottom: max(var(--space-3), env(safe-area-inset-bottom));
     border-right: none;
-    border-bottom: 1px solid var(--border);
-    max-height: 30vh;
+    box-shadow: var(--shadow-3);
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition:
+      transform var(--duration-slow) var(--ease-out),
+      visibility 0s linear var(--duration-slow);
   }
 
-  .main {
-    height: auto;
-    min-height: 0;
+  .sidebar.drawer.open {
+    transform: none;
+    visibility: visible;
+    transition: transform var(--duration-slow) var(--ease-out);
+  }
+
+  .scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 29;
+    background: var(--scrim);
+    animation: fade-in var(--duration-base) var(--ease-out);
+  }
+
+  .conversation-header {
+    padding: max(var(--space-2), env(safe-area-inset-top)) var(--space-3) var(--space-2);
+  }
+
+  /* The title takes the first line to itself; the pills wrap onto the next. */
+  .header-title {
+    flex: 1 1 100%;
+  }
+
+  .title-heading {
+    flex: 1;
+  }
+
+  /* The pills stay on one line and scroll sideways rather than stacking two rows deep
+     over the thread. Their cards are pinned to the viewport on a phone (metric-card.css),
+     so the scrolling row does not clip them. */
+  .header-controls {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin: 0 calc(var(--space-3) * -1);
+    padding: 2px var(--space-3);
+  }
+  .header-controls::-webkit-scrollbar {
+    display: none;
+  }
+  .header-controls > * {
+    flex: none;
+  }
+
+  .editable-title,
+  .title-input {
+    max-width: 100%;
+    width: auto;
+  }
+
+  .status-line {
+    padding: 0 var(--space-4) max(var(--space-2), env(safe-area-inset-bottom));
   }
 }

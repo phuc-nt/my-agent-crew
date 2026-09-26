@@ -1,5 +1,6 @@
 import type { DayUsage, ModelUsage, StatsInfo } from "../api/types";
 import { vi } from "../i18n/vi";
+import { EmptyState } from "./empty-state";
 import { formatUsd } from "./budget-indicator";
 
 interface Props {
@@ -92,7 +93,7 @@ function ModelTable({ models }: { models: ModelUsage[] }) {
 /** Honest cost dashboard: totals, spend by agent, the recent days with tokens, and each model. */
 export function StatsPanel({ stats, agentName }: Props) {
   if (stats === null) return <p className="muted">{vi.loadFailed}</p>;
-  if (stats.runs === 0) return <p className="muted">{vi.costEmpty}</p>;
+  if (stats.runs === 0) return <EmptyState icon="coins" says={vi.costEmpty} />;
   return (
     <div className="stats" data-testid="stats">
       <dl className="stat-totals">

@@ -6,6 +6,7 @@ import { AttentionCenter } from "../components/attention-center";
 import { ConnectionsPanel } from "../components/connections-panel";
 import { CrewPanel } from "../components/crew-panel";
 import { EmptyState } from "../components/empty-state";
+import { ErrorBoundary } from "../components/error-boundary";
 import { JobsPanel } from "../components/jobs-panel";
 import { MemoryPanel } from "../components/memory-panel";
 import { RunReplay } from "../components/run-replay";
@@ -13,6 +14,8 @@ import { RunGroupCard } from "../components/run-timeline";
 import { SettingsPanel } from "../components/settings-panel";
 import { StatsPanel } from "../components/stats-panel";
 import { ToolsMatrix } from "../components/tools-matrix";
+import { Brand } from "../components/ui/brand-mark";
+import { Icon, type IconName } from "../components/ui/icon";
 import { useCredentials } from "../hooks/use-credentials";
 import { useRegistry } from "../hooks/use-registry";
 import type { ManageSection } from "../hooks/use-route";
@@ -65,16 +68,16 @@ const LABELS: Record<ManageSection, string> = {
 };
 
 /** An icon per section, so the list can be scanned by shape before it is read. */
-const ICONS: Record<ManageSection, string> = {
-  activity: "📈",
-  approvals: "✋",
-  costs: "💰",
-  crew: "👥",
-  tools: "🔧",
-  jobs: "⏰",
-  memory: "🧠",
-  connections: "🔌",
-  settings: "⚙",
+const ICONS: Record<ManageSection, IconName> = {
+  activity: "activity",
+  approvals: "approvals",
+  costs: "coins",
+  crew: "users",
+  tools: "wrench",
+  jobs: "clock",
+  memory: "book",
+  connections: "plug",
+  settings: "sliders",
 };
 
 /**
@@ -97,6 +100,16 @@ export const NAV_GROUPS: { key: keyof typeof vi.manage.groups; sections: ManageS
  * about the conversation you are in — keeping it next to the thread made the crew's
  * work and the conversation's work look like the same thing.
  */
+/**
+ * Brings the current section's entry into view. On a phone the sections are one row of
+ * pills scrolled sideways, and arriving on a section whose pill sits past the edge would
+ * leave the person with no sign of where they are. "nearest" moves nothing that is
+ * already visible, so the sidebar on a wide screen never jumps.
+ */
+function revealActive(el: HTMLButtonElement | null) {
+  el?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+}
+
 export function ManageScreen(props: Props) {
   const registry = useRegistry();
   // A saved key can build a provider or a search backend; the registry shows which.
@@ -123,6 +136,9 @@ export function ManageScreen(props: Props) {
   return (
     <div className="manage-layout" data-testid="manage-screen">
       <nav className="manage-nav" aria-label={vi.manage.nav}>
+        <div className="manage-nav-head">
+          <Brand />
+        </div>
         <button type="button" className="ghost back-to-chat" onClick={props.onBackToChat}>
           {vi.manage.backToChat}
         </button>
@@ -137,12 +153,11 @@ export function ManageScreen(props: Props) {
                       type="button"
                       className={section === props.section ? "active" : ""}
                       aria-current={section === props.section ? "page" : undefined}
+                      ref={section === props.section ? revealActive : undefined}
                       onClick={() => props.onNavigate(section)}
                     >
-                      <span className="manage-nav-icon" aria-hidden="true">
-                        {ICONS[section]}
-                      </span>
-                      {LABELS[section]}
+                      <Icon name={ICONS[section]} />
+                      <span className="manage-nav-name">{LABELS[section]}</span>
                       {badge(section)}
                     </button>
                   </li>
@@ -153,145 +168,150 @@ export function ManageScreen(props: Props) {
         </div>
       </nav>
       <main className="manage-body" aria-label={vi.manage.label}>
-        <h2>{LABELS[props.section]}</h2>
-        {props.section === "activity" && props.replayRunId !== undefined && (
-          <RunReplay
-            runId={props.replayRunId}
-            known={props.runs}
-            agentName={props.agentName}
-            onBack={() => props.onReplayRun(null)}
-            onOpenConversation={props.onOpenConversation}
-          />
-        )}
-        {props.section === "activity" && props.replayRunId === undefined && (
-          <>
-            <AttentionCenter
-              runs={props.attention}
-              parentTitle={(run) => {
-                const parent = parentConversationId(run);
-                if (parent === null) return null;
-                const owner = props.runs.find((r) => r.conversation_id === parent);
-                return owner ? owner.title || props.agentName(owner.agent_id) : null;
-              }}
+        <h2 className="manage-title">{LABELS[props.section]}</h2>
+        {/* One boundary per page, keyed by it: a section that breaks leaves the nav
+            standing, and choosing any other page is enough to leave the failure behind. */}
+        <ErrorBoundary key={`${props.section}/${props.replayRunId ?? props.editingAgentId ?? ""}`}>
+          {props.section === "activity" && props.replayRunId !== undefined && (
+            <RunReplay
+              runId={props.replayRunId}
+              known={props.runs}
               agentName={props.agentName}
+              onBack={() => props.onReplayRun(null)}
               onOpenConversation={props.onOpenConversation}
             />
-            <h3>{vi.liveNow}</h3>
-            {live.length === 0 ? (
-              <p className="muted">{vi.nothingLive}</p>
-            ) : (
-              runGroups(live).map((group) => (
-                <RunGroupCard
-                  key={group.run.id}
-                  group={group}
-                  agentName={props.agentName}
-                  expanded
-                  onOpenConversation={props.onOpenConversation}
-                  onOpenRun={props.onReplayRun}
+          )}
+          {props.section === "activity" && props.replayRunId === undefined && (
+            <>
+              <AttentionCenter
+                runs={props.attention}
+                parentTitle={(run) => {
+                  const parent = parentConversationId(run);
+                  if (parent === null) return null;
+                  const owner = props.runs.find((r) => r.conversation_id === parent);
+                  return owner ? owner.title || props.agentName(owner.agent_id) : null;
+                }}
+                agentName={props.agentName}
+                onOpenConversation={props.onOpenConversation}
+              />
+              <h3>{vi.liveNow}</h3>
+              {live.length === 0 ? (
+                <EmptyState icon="activity" says={vi.nothingLive} />
+              ) : (
+                runGroups(live).map((group) => (
+                  <RunGroupCard
+                    key={group.run.id}
+                    group={group}
+                    agentName={props.agentName}
+                    expanded
+                    onOpenConversation={props.onOpenConversation}
+                    onOpenRun={props.onReplayRun}
+                  />
+                ))
+              )}
+              <h3>{vi.recentRuns}</h3>
+              {recent.length === 0 ? (
+                // Nothing has run yet because nothing has been asked yet, so the way
+                // out of this screen is the answer rather than another sentence.
+                <EmptyState
+                  icon="steps"
+                  says={vi.noRuns}
+                  action={{ label: vi.noRunsAction, onClick: props.onBackToChat }}
                 />
-              ))
+              ) : (
+                runGroups(recent).map((group) => (
+                  <RunGroupCard
+                    key={group.run.id}
+                    group={group}
+                    agentName={props.agentName}
+                    onOpenConversation={props.onOpenConversation}
+                    onOpenRun={props.onReplayRun}
+                  />
+                ))
+              )}
+            </>
+          )}
+          {props.section === "approvals" && (
+            <ApprovalHistory
+              agentName={props.agentName}
+              onOpenConversation={props.onOpenConversation}
+              refreshKey={approvalsVersion}
+            />
+          )}
+          {/* A link to an agent that is gone says so rather than quietly showing the list:
+              the person followed a URL and deserves to know it no longer resolves. The crew
+              still has to have finished loading for "gone" to mean anything. */}
+          {props.section === "crew" &&
+            props.editingAgentId !== undefined &&
+            editing === null &&
+            props.agents.length > 0 && (
+              <div className="notice error" role="status" data-testid="agent-not-found">
+                {vi.editor.notFound(props.editingAgentId)}
+              </div>
             )}
-            <h3>{vi.recentRuns}</h3>
-            {recent.length === 0 ? (
-              // Nothing has run yet because nothing has been asked yet, so the way
-              // out of this screen is the answer rather than another sentence.
-              <EmptyState
-                says={vi.noRuns}
-                action={{ label: vi.noRunsAction, onClick: props.onBackToChat }}
+          {props.section === "crew" &&
+            (editing ? (
+              <AgentEditor
+                agent={editing}
+                agents={props.agents}
+                tools={registry.tools}
+                providers={registry.connections?.providers.map((p) => p.name) ?? []}
+                onBack={() => props.onEditAgent(null)}
+                onChanged={props.onReloadCrew}
               />
             ) : (
-              runGroups(recent).map((group) => (
-                <RunGroupCard
-                  key={group.run.id}
-                  group={group}
-                  agentName={props.agentName}
-                  onOpenConversation={props.onOpenConversation}
-                  onOpenRun={props.onReplayRun}
-                />
-              ))
-            )}
-          </>
-        )}
-        {props.section === "approvals" && (
-          <ApprovalHistory
-            agentName={props.agentName}
-            onOpenConversation={props.onOpenConversation}
-            refreshKey={approvalsVersion}
-          />
-        )}
-        {/* A link to an agent that is gone says so rather than quietly showing the list:
-            the person followed a URL and deserves to know it no longer resolves. The crew
-            still has to have finished loading for "gone" to mean anything. */}
-        {props.section === "crew" &&
-          props.editingAgentId !== undefined &&
-          editing === null &&
-          props.agents.length > 0 && (
-            <div className="notice error" role="status" data-testid="agent-not-found">
-              {vi.editor.notFound(props.editingAgentId)}
-            </div>
+              <CrewPanel
+                agents={props.agents}
+                master={props.master}
+                templates={props.templates}
+                liveByAgent={props.liveByAgent}
+                onInstall={props.onInstall}
+                onEdit={(id) => props.onEditAgent(id)}
+                onCreated={(id) => {
+                  props.onReloadCrew();
+                  props.onEditAgent(id);
+                }}
+              />
+            ))}
+          {props.section === "tools" && <ToolsMatrix tools={registry.tools} agents={props.agents} />}
+          {props.section === "jobs" && (
+            <JobsPanel
+              jobs={props.jobs}
+              agentName={props.agentName}
+              onRunNow={props.onRunJob}
+              onToggle={props.onToggleJob}
+              onOpenConversation={props.onOpenConversation}
+            />
           )}
-        {props.section === "crew" &&
-          (editing ? (
-            <AgentEditor
-              agent={editing}
+          {props.section === "memory" && (
+            <MemoryPanel
               agents={props.agents}
-              tools={registry.tools}
-              providers={registry.connections?.providers.map((p) => p.name) ?? []}
-              onBack={() => props.onEditAgent(null)}
-              onChanged={props.onReloadCrew}
+              agentId={props.agentId}
+              pendingProposals={pendingProposals}
+              agentName={props.agentName}
             />
-          ) : (
-            <CrewPanel
+          )}
+          {props.section === "costs" && (
+            <StatsPanel stats={props.stats} agentName={props.agentName} />
+          )}
+          {props.section === "connections" &&
+            (registry.connections ? (
+              <ConnectionsPanel
+                connections={registry.connections}
+                credentials={credentials}
+                onChanged={registry.refresh}
+              />
+            ) : (
+              <p className="muted">{registry.error ?? vi.manage.loading}</p>
+            ))}
+          {props.section === "settings" && (
+            <SettingsPanel
+              settings={props.settings}
               agents={props.agents}
-              master={props.master}
-              templates={props.templates}
-              liveByAgent={props.liveByAgent}
-              onInstall={props.onInstall}
-              onEdit={(id) => props.onEditAgent(id)}
-              onCreated={(id) => {
-                props.onReloadCrew();
-                props.onEditAgent(id);
-              }}
+              onNavigate={props.onNavigate}
             />
-          ))}
-        {props.section === "tools" && <ToolsMatrix tools={registry.tools} agents={props.agents} />}
-        {props.section === "jobs" && (
-          <JobsPanel
-            jobs={props.jobs}
-            agentName={props.agentName}
-            onRunNow={props.onRunJob}
-            onToggle={props.onToggleJob}
-            onOpenConversation={props.onOpenConversation}
-          />
-        )}
-        {props.section === "memory" && (
-          <MemoryPanel
-            agents={props.agents}
-            agentId={props.agentId}
-            pendingProposals={pendingProposals}
-            agentName={props.agentName}
-          />
-        )}
-        {props.section === "costs" && (
-          <StatsPanel stats={props.stats} agentName={props.agentName} />
-        )}
-        {props.section === "connections" &&
-          (registry.connections ? (
-            <ConnectionsPanel
-              connections={registry.connections}
-              credentials={credentials}
-              onChanged={registry.refresh}
-            />
-          ) : (
-            <p className="muted">{registry.error ?? vi.manage.loading}</p>
-          ))}
-        {props.section === "settings" && (
-          <SettingsPanel
-            settings={props.settings}
-            agents={props.agents}
-            onNavigate={props.onNavigate}
-          />
-        )}
+          )}
+        </ErrorBoundary>
       </main>
     </div>
   );

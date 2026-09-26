@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi as vitest } from "vitest";
 import { vi } from "../i18n/vi";
@@ -248,6 +248,23 @@ describe("Composer", () => {
     expect(onStop).toHaveBeenCalled();
     rerender(<Composer disabled busy={false} onSend={() => undefined} onStop={onStop} />);
     expect(screen.getByRole("textbox")).toBeDisabled();
+  });
+
+  it("lets an input method commit a word with Enter instead of sending half of it", async () => {
+    const onSend = vitest.fn();
+    render(<Composer disabled={false} busy={false} onSend={onSend} onStop={() => undefined} />);
+    const box = screen.getByRole("textbox");
+    await userEvent.type(box, "Vieejt");
+    fireEvent.keyDown(box, { key: "Enter", isComposing: true });
+    expect(onSend).not.toHaveBeenCalled();
+    fireEvent.keyDown(box, { key: "Enter" });
+    expect(onSend).toHaveBeenCalledWith("Vieejt");
+  });
+
+  it("names the agent in the empty box but keeps one stable name for the field", () => {
+    render(<Composer disabled={false} busy={false} agentName="Trợ lý" onSend={() => undefined} onStop={() => undefined} />);
+    const box = screen.getByRole("textbox", { name: vi.composerPlaceholder });
+    expect(box).toHaveAttribute("placeholder", vi.composerPlaceholderFor("Trợ lý"));
   });
 
   it("prefills the draft handed in from a suggestion", () => {

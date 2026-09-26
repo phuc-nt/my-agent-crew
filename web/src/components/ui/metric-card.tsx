@@ -1,11 +1,12 @@
 import type { ReactNode } from "react";
+import { Icon, type IconName } from "./icon";
 
 /** The colour a figure or its note takes: the same triples the badges read. */
 export type Tone = "ok" | "warn" | "danger" | "accent" | "muted";
 
 /**
- * A dense card of labelled figures: an icon and a name on the left, the value in
- * monospace on the right, and an optional coloured note underneath.
+ * A dense card of labelled figures: an icon and a name on the left, the value on the
+ * right, and an optional coloured note underneath.
  *
  * Every summary surface — the chat's activity column, the header popovers, settings,
  * costs — is built from these rows, so a figure reads the same wherever it appears and
@@ -34,7 +35,7 @@ export function MetricCard({
 export function Hint({ text }: { text: string }) {
   return (
     <span className="metric-hint" title={text}>
-      ⓘ
+      <Icon name="info" />
     </span>
   );
 }
@@ -49,7 +50,7 @@ export function MetricRow({
   action,
   children,
 }: {
-  icon?: string;
+  icon?: IconName;
   label: ReactNode;
   hint?: string;
   value?: ReactNode;
@@ -64,11 +65,7 @@ export function MetricRow({
     <div className="metric-row">
       <div className="metric-head">
         <span className="metric-label">
-          {icon && (
-            <span className="metric-icon" aria-hidden="true">
-              {icon}
-            </span>
-          )}
+          {icon && <Icon name={icon} className="metric-icon" />}
           {label}
           {hint && <Hint text={hint} />}
         </span>
@@ -122,7 +119,7 @@ export function SwitchRow({
   sub,
   indent = false,
 }: {
-  icon?: string;
+  icon?: IconName;
   label: string;
   hint?: string;
   checked: boolean;
@@ -135,11 +132,7 @@ export function SwitchRow({
     <label className={`metric-row switch-row${indent ? " indent" : ""}`}>
       <span className="metric-head">
         <span className="metric-label">
-          {icon && (
-            <span className="metric-icon" aria-hidden="true">
-              {icon}
-            </span>
-          )}
+          {icon && <Icon name={icon} className="metric-icon" />}
           {label}
           {hint && <Hint text={hint} />}
         </span>

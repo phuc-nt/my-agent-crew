@@ -1,6 +1,7 @@
 import type { RunInfo } from "../api/types";
 import { vi } from "../i18n/vi";
 import { formatClock } from "./run-timeline";
+import { Icon, type IconName } from "./ui/icon";
 
 interface Props {
   runs: RunInfo[];
@@ -24,6 +25,12 @@ function label(run: RunInfo, agent: string): string {
   return vi.attentionHalted(agent);
 }
 
+/** The shape of the ask, so a question, a permission and a failure differ before they are read. */
+function icon(run: RunInfo): IconName {
+  if (run.status === "awaiting_approval") return isAsking(run) ? "help" : "approvals";
+  return "alert";
+}
+
 /** Says a run is work another conversation handed out, so the pause has a context. */
 function childNote(run: RunInfo, parentTitle?: (run: RunInfo) => string | null): string | null {
   const parent = parentTitle?.(run);
@@ -33,20 +40,33 @@ function childNote(run: RunInfo, parentTitle?: (run: RunInfo) => string | null):
 /** Approvals waiting anywhere plus runs that ended badly, one click from their conversation. */
 export function AttentionCenter({ runs, agentName, onOpenConversation, parentTitle }: Props) {
   return (
-    <section className="attention" aria-label={vi.attention} data-testid="attention">
+    // Amber only while something is waiting on a person. A card that stays amber on an
+    // empty list teaches the eye to skip it, which is the one thing it must not do.
+    <section
+      className={`attention${runs.length === 0 ? " calm" : ""}`}
+      aria-label={vi.attention}
+      data-testid="attention"
+    >
       <h3>{vi.attention}</h3>
       {runs.length === 0 ? (
-        <p className="muted">{vi.attentionEmpty}</p>
+        <p className="attention-calm">
+          <Icon name="check" />
+          {vi.attentionEmpty}
+        </p>
       ) : (
         <ul className="attention-list">
           {runs.map((run) => (
             <li key={run.id} className={run.status}>
+              <span className="attention-icon">
+                <Icon name={icon(run)} />
+              </span>
               <span className="attention-text">
-                {label(run, agentName(run.agent_id))}
-                <span className="muted"> · {formatClock(run.started_at)}</span>
+                <span className="attention-title">
+                  {label(run, agentName(run.agent_id))}
+                  <span className="muted tabular"> · {formatClock(run.started_at)}</span>
+                </span>
                 {childNote(run, parentTitle) && (
-                  <span className="muted" data-testid="attention-child">
-                    {" · "}
+                  <span className="attention-child" data-testid="attention-child">
                     {childNote(run, parentTitle)}
                   </span>
                 )}
@@ -55,10 +75,11 @@ export function AttentionCenter({ runs, agentName, onOpenConversation, parentTit
               {run.conversation_id && (
                 <button
                   type="button"
-                  className="link-button"
+                  className="attention-open"
                   onClick={() => onOpenConversation(run.conversation_id as string)}
                 >
                   {vi.openConversation}
+                  <Icon name="arrow-right" />
                 </button>
               )}
             </li>

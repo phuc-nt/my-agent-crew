@@ -11,6 +11,38 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+### Added
+
+- **The web UI installs as an app.** The page links a web manifest, an SVG favicon and PNG icons
+  (192, 512, a maskable 512 and an apple-touch icon), all drawn from the one brand mark by
+  `npm run icons`. The browser chrome takes the page's own background in light and in dark.
+- **The README opens with a picture of the interface**, a desktop conversation beside a phone in
+  dark mode (`docs/images/web-ui.png`).
+
+### Changed
+
+- **The web UI is redesigned end to end, keeping its blue and its layout.** One scale of type,
+  spacing, radius and shadow tokens replaces ad-hoc values; Inter is bundled (no CDN) with its
+  Vietnamese subset; one set of line icons replaces emoji, which drew differently on every
+  platform. A brand mark heads the sidebar, and each agent has an initial on a tile of its own
+  stable hue wherever its name appears. Dark mode follows the operating system on every surface.
+- **On a phone the conversation takes the whole screen.** The conversation list slides in over it
+  from a menu button and closes on Escape, on a tap outside or once a conversation is picked,
+  handing focus back to the button. The manage screen's sections become a row of pills that brings
+  the current one into view.
+- **Empty and quiet states say where the person is.** Empty sections show their own icon; the
+  "Cần bạn xử lý" card stays grey until something waits; an expired approval is grey rather than
+  amber, which is kept for a refusal and for a request still waiting.
+- **The agent editor keeps Save within reach.** Its bar, with the agent's avatar, the unsaved count
+  and the save controls, stays pinned while the sections scroll, and wraps to a second line on a
+  phone. The tools matrix is a card with a sticky header, two-line descriptions and a coloured
+  legend.
+- **A section that fails to render no longer takes the manage screen with it.** Each page has its
+  own error boundary, so the navigation stays and moving to another page leaves the failure
+  behind; the failure itself is a card with the error and a reload button.
+- **The composer names the agent it writes to** and lets an input method commit a word with Enter
+  instead of sending half of it.
+
 ### Fixed
 
 - **The activity panel no longer crashes on a run that just started.** The "run started" payload

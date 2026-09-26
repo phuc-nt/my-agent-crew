@@ -151,7 +151,7 @@ describe("App activity across the crew", () => {
     expect(within(nav).queryByRole("radiogroup")).not.toBeInTheDocument();
     expect(backend.requests.some((r) => r.path === "/conversations?agent_id=default")).toBe(true);
     expect(within(nav).getByTestId("master-card")).toHaveTextContent("Agent");
-    await userEvent.click(within(nav).getByRole("button", { name: `+ ${vi.newConversation}` }));
+    await userEvent.click(within(nav).getByRole("button", { name: vi.newConversation }));
     await waitFor(() => expect(backend.requests.filter((r) => r.method === "POST" && r.path === "/conversations")[0].body).toEqual({ agent_id: "default" }));
     expect(screen.getByRole("heading", { level: 1 }).parentElement).toHaveTextContent("Agent");
 
@@ -204,6 +204,7 @@ describe("App activity across the crew", () => {
     expect(items[0]).toHaveTextContent("path=x");
     expect(items[1]).toHaveAttribute("data-status", "expired");
     expect(items[1]).toHaveTextContent(vi.approvalStatus.expired);
+    expect(within(items[1]).getByText(vi.approvalStatus.expired)).not.toHaveClass("warn");
     await userEvent.click(within(items[0]).getByRole("button", { name: vi.openConversation }));
     expect(await screen.findByRole("heading", { level: 1 })).toHaveTextContent("Việc");
   });

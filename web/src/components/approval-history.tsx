@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import type { ApprovalInfo, ApprovalStatus } from "../api/types";
 import { vi } from "../i18n/vi";
+import { EmptyState } from "./empty-state";
 import { formatDateTime } from "./run-timeline";
 import { summarizeArguments } from "./tool-call-card";
 
@@ -9,7 +10,9 @@ const STATUS_CLASS: Record<ApprovalStatus, string> = {
   pending: "live",
   approved: "ok",
   denied: "warn",
-  expired: "warn",
+  // Nobody decided an expired request, so it is grey: amber is kept for a refusal,
+  // which someone did choose, and for a request still waiting.
+  expired: "",
   // An answered question is a settled request, not a refused one.
   answered: "ok",
 };
@@ -48,7 +51,7 @@ export function ApprovalHistory({
 
   if (approvals === undefined) return <p className="muted">{vi.loading}</p>;
   if (approvals === null) return <p className="muted">{vi.loadFailed}</p>;
-  if (approvals.length === 0) return <p className="muted">{vi.approvalHistoryEmpty}</p>;
+  if (approvals.length === 0) return <EmptyState icon="approvals" says={vi.approvalHistoryEmpty} />;
   return (
     <ul className="approval-list" data-testid="approval-history">
       {approvals.map((a) => (
