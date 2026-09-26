@@ -107,6 +107,19 @@ describe("the costs page's usage figures", () => {
     expect(gpt).toHaveTextContent("0 · 0%");
   });
 
+  // The cache is compared with the prompt on the same row; one in raw digits beside the
+  // other in "k" and "M" means converting in one's head.
+  it("writes the tokens as short as the cache beside them", () => {
+    const big = { prompt_tokens: 123_456_789, completion_tokens: 9_876_543, cached_tokens: 98_765_432 };
+    const days = [day("2026-09-20", big)];
+    render(<StatsPanel stats={stats({ days, models: [{ model: "openrouter:deepseek", ...day("x", big) }] })} agentName={name} />);
+
+    const [, model] = within(screen.getByTestId("stat-models")).getAllByRole("row");
+    expect(model).toHaveTextContent("123M vào / 9.9M ra");
+    expect(model).toHaveTextContent("98.8M · 80%");
+    expect(screen.getByTestId("stat-days")).toHaveTextContent("123M vào / 9.9M ra");
+  });
+
   it("adds up each agent's cache from the model calls on the page's runs", () => {
     const runs = [
       fakeRun({ id: "a", agent_id: "coach", steps: [call(10_000, 9_000), call(2_000, 1_000)] }),

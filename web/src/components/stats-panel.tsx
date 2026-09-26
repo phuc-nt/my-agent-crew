@@ -1,6 +1,6 @@
 import type { DayUsage, ModelUsage, RunInfo, StatsInfo } from "../api/types";
 import { vi } from "../i18n/vi";
-import { cacheShare } from "../lib/format-usage";
+import { cacheShare, compactNumber } from "../lib/format-usage";
 import { EmptyState } from "./empty-state";
 import { formatUsd } from "./budget-indicator";
 import { AgentCacheTable, CacheCell, CardTitle, PeriodTiles } from "./stats-usage";
@@ -41,8 +41,13 @@ function Breakdown({ title, covers, rows, name }: BreakdownProps) {
   );
 }
 
+/** "1.2M vào / 80k ra", written as short as the cache figure it is read against. */
+function tokens(u: { prompt_tokens: number; completion_tokens: number }): string {
+  return vi.tokens(compactNumber(u.prompt_tokens), compactNumber(u.completion_tokens));
+}
+
 function dayDetail(d: DayUsage): string {
-  const parts = [vi.costCalls(d.calls), vi.tokens(d.prompt_tokens, d.completion_tokens)];
+  const parts = [vi.costCalls(d.calls), tokens(d)];
   const share = cacheShare(d.cached_tokens, d.prompt_tokens);
   if (share !== null) parts.push(vi.cacheShare(share));
   if (d.unknown_cost_calls > 0) parts.push(`? ${d.unknown_cost_calls}`);
@@ -94,7 +99,7 @@ function ModelTable({ models }: { models: ModelUsage[] }) {
                 <code>{m.model}</code>
               </td>
               <td>{m.calls}</td>
-              <td>{vi.tokens(m.prompt_tokens, m.completion_tokens)}</td>
+              <td>{tokens(m)}</td>
               <td>
                 <CacheCell cached={m.cached_tokens} prompt={m.prompt_tokens} />
               </td>

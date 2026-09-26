@@ -344,10 +344,10 @@ describe("StatsPanel", () => {
     const days = screen.getByTestId("stat-days");
     expect(days).toHaveTextContent("2026-09-19");
     expect(days).toHaveTextContent(vi.costCalls(7));
-    expect(days).toHaveTextContent(vi.tokens(1200, 300));
+    expect(days).toHaveTextContent(vi.tokens("1.2k", "300"));
     const models = screen.getByTestId("stat-models");
     expect(models).toHaveTextContent("openrouter:deepseek");
-    expect(models).toHaveTextContent(vi.tokens(1200, 300));
+    expect(models).toHaveTextContent(vi.tokens("1.2k", "300"));
     expect(models).toHaveTextContent("$0.30");
   });
 
