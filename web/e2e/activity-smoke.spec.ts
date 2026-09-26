@@ -152,8 +152,22 @@ test("the activity log narrows to one agent on the server, then reaches further 
   await expect(log.getByTestId("run-card")).toHaveCount(100);
   await expect(log.getByTestId("run-card").filter({ hasText: "Việc bận" })).toHaveCount(0);
   const more = log.getByRole("button", { name: "Xem thêm" });
-  await more.click();
+  // The next page held back, so the button can be watched while it is on its way. A
+  // browser drops the focus of a control that becomes disabled; this one must keep it.
+  let release = () => {};
+  const held = new Promise<void>((resolve) => (release = resolve));
+  await page.route(/\/api\/activity\/runs\?limit=200\b/, async (route) => {
+    await held;
+    await route.fallback();
+  });
+  await more.focus();
+  await page.keyboard.press("Enter");
+  const loading = log.getByRole("button", { name: "Đang tải thêm…" });
+  await expect(loading).toBeFocused();
+  await expect(loading).toHaveAttribute("aria-disabled", "true");
+  release();
   await expect(log.getByTestId("run-card")).toHaveCount(200);
+  await expect(more).toBeFocused();
   await more.click();
   await expect(log.getByTestId("run-card")).toHaveCount(500);
   await expect(more).toHaveCount(0);

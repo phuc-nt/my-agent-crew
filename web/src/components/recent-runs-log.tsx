@@ -59,8 +59,11 @@ export function RecentRunsLog({
   const loaded = mergeRuns(history.runs, byAgent).filter((run) => isSettled(run.status));
   const shown = filterRuns(loaded, filters);
   const narrowed = filters.agent !== null || filters.status !== null || filters.source !== null;
-  // A full page means there may be more behind it; a short one was everything there is.
-  const more = step < HISTORY_STEPS.length - 1 && history.runs.length >= limit;
+  // Judged by the page on show, not the step just asked for: the button stays put while
+  // the next page loads, so the focus of whoever pressed it has somewhere to stay.
+  const ceiling = HISTORY_STEPS[HISTORY_STEPS.length - 1];
+  const more =
+    history.pageLimit > 0 && history.pageLimit < ceiling && history.runs.length >= history.pageLimit;
 
   const change = (next: RunFilters) => {
     // Another agent is another history, read again from its newest page.
@@ -112,13 +115,17 @@ export function RecentRunsLog({
         />
       )}
       {more && !history.failed && (
+        // aria-disabled rather than disabled: a browser moves the focus off a control
+        // that becomes disabled, and that is the focus this button is here to keep.
         <button
           type="button"
           className="run-log-more"
-          disabled={history.loading}
-          onClick={() => setStep((s) => Math.min(s + 1, HISTORY_STEPS.length - 1))}
+          aria-disabled={history.loading}
+          onClick={() => {
+            if (!history.loading) setStep((s) => Math.min(s + 1, HISTORY_STEPS.length - 1));
+          }}
         >
-          {vi.runFilters.more}
+          {history.loading ? vi.runFilters.loadingMore : vi.runFilters.more}
         </button>
       )}
     </div>

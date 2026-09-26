@@ -133,7 +133,7 @@ describe("the recent runs log", () => {
     // Found by text: a role query weighs every one of the hundreds of cards on screen,
     // which made this test slow enough to time out on a busy machine.
     const more = () => screen.queryByText(vi.runFilters.more, { selector: "button" });
-    // The button is disabled while a step loads; a click then would ask for nothing.
+    // While a step loads the button says so and ignores a click, which would ask for nothing.
     const reach = async (limit: number) => {
       await waitFor(() => expect(more()).toBeEnabled());
       await userEvent.click(more() as HTMLElement);
@@ -145,6 +145,32 @@ describe("the recent runs log", () => {
 
     await waitFor(() => expect(screen.getAllByTestId("run-card")).toHaveLength(500));
     expect(more()).not.toBeInTheDocument();
+  });
+
+  // Judged by the step asked for, the button vanished the moment it was pressed: nothing
+  // said a page was coming, and the focus of whoever pressed it fell to the page itself.
+  it("keeps 'Xem thêm' in place and focused while the next page loads", async () => {
+    backend.runs = many(250);
+    let release = () => undefined as void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    vitest.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).includes("limit=200")) await gate;
+      return backend.fetch(input, init);
+    });
+    show();
+    const more = await screen.findByText(vi.runFilters.more, { selector: "button" });
+
+    more.focus();
+    await userEvent.keyboard("{Enter}");
+
+    expect(more).toHaveFocus();
+    expect(more).toHaveAttribute("aria-disabled", "true");
+    expect(more).toHaveTextContent(vi.runFilters.loadingMore);
+    release();
+    await waitFor(() => expect(screen.getAllByTestId("run-card")).toHaveLength(200));
+    expect(more).toHaveFocus();
+    expect(more).not.toHaveAttribute("aria-disabled", "true");
+    expect(more).toHaveTextContent(vi.runFilters.more);
   });
 
   it("offers no further step when the history is shorter than a page", async () => {

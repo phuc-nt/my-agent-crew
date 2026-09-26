@@ -16,12 +16,16 @@ export interface RunHistory {
   runs: RunInfo[];
   loading: boolean;
   failed: boolean;
+  /** The limit the runs on show were asked with, zero before any came back. A page as
+   * long as this may have more behind it; a shorter one was everything there is. */
+  pageLimit: number;
   reload: () => void;
 }
 
 interface Loaded {
   key: string;
   runs: RunInfo[];
+  limit: number;
   loading: boolean;
   failed: boolean;
 }
@@ -40,7 +44,7 @@ export function useRunHistory({
   refreshKey,
 }: RunHistoryQuery): RunHistory {
   const key = `${agentId ?? ""}|${conversationId ?? ""}`;
-  const [loaded, setLoaded] = useState<Loaded>({ key, runs: [], loading: true, failed: false });
+  const [loaded, setLoaded] = useState<Loaded>({ key, runs: [], limit: 0, loading: true, failed: false });
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
@@ -49,18 +53,17 @@ export function useRunHistory({
     setLoaded((prev) => ({ ...prev, loading: true, failed: false }));
     api
       .listRuns({ limit, agent_id: agentId ?? undefined, conversation_id: conversationId ?? undefined })
-      .then((runs) => current && setLoaded({ key, runs, loading: false, failed: false }))
+      .then((runs) => current && setLoaded({ key, runs, limit, loading: false, failed: false }))
       // Filed under this query even when the last answer was another's: left under the
       // old key, the failure would read as a load still waiting, with no way to retry.
       .catch(
         () =>
           current &&
-          setLoaded((prev) => ({
-            key,
-            runs: prev.key === key ? prev.runs : [],
-            loading: false,
-            failed: true,
-          })),
+          setLoaded((prev) =>
+            prev.key === key
+              ? { ...prev, loading: false, failed: true }
+              : { key, runs: [], limit: 0, loading: false, failed: true },
+          ),
       );
     return () => {
       current = false;
@@ -74,6 +77,7 @@ export function useRunHistory({
     runs: same ? loaded.runs : [],
     loading: loaded.loading || !same,
     failed: same && loaded.failed,
+    pageLimit: same ? loaded.limit : 0,
     reload,
   };
 }

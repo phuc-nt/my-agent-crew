@@ -43,6 +43,14 @@
   margin-top: var(--space-3);
 }
 
+/* Loading the next page: it looks and acts disabled but stays focusable, so the focus of
+   whoever pressed it is still there when the page arrives. */
+.run-log-more[aria-disabled="true"] {
+  opacity: 0.6;
+  cursor: progress;
+  box-shadow: none;
+}
+
 @media (max-width: 720px) {
   .run-filter-label {
     width: 100%;

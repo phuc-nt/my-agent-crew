@@ -477,6 +477,7 @@ export const vi = {
       api: "API",
     } as Record<string, string>,
     more: "Xem thêm",
+    loadingMore: "Đang tải thêm…",
     loading: "Đang tải lịch sử…",
     failed: "Không tải được lịch sử chạy.",
     retry: "Thử lại",
