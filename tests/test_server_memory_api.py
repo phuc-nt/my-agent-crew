@@ -13,7 +13,12 @@ from my_agent_crew.config import Route
 from my_agent_crew.memory import agent_store, user_store
 from my_agent_crew.server import create_app
 from my_agent_crew.server.memory_search import search_all
-from my_agent_crew.store.memory_proposals import AGENT_MEMORY, USER_FACT, USER_FORGET
+from my_agent_crew.store.memory_proposals import (
+    AGENT_MEMORY,
+    AGENT_MEMORY_REWRITE,
+    USER_FACT,
+    USER_FORGET,
+)
 
 FACT = {"description": "Ngủ trước 23h", "type": "preference", "body": "Ngủ sớm mỗi ngày."}
 
@@ -269,6 +274,19 @@ def test_approving_from_a_stale_tab_after_a_reject_is_a_conflict_that_writes_not
     stale = client.post(f"/api/memory/proposals/{proposal.id}", json={"approve": True})
     assert stale.status_code == 409
     assert client.get("/api/memory/user").json()["facts"] == []
+
+
+def test_approving_for_an_agent_that_left_the_crew_is_not_a_conflict(client, deps):
+    """409 tells the UI someone decided it first; this one is still pending and rejectable."""
+    proposal = deps.store.proposals.create(
+        agent_id="gone", kind=AGENT_MEMORY_REWRITE, body="- Mới.", previous_body="- Cũ."
+    )
+
+    refused = client.post(f"/api/memory/proposals/{proposal.id}", json={"approve": True})
+    assert refused.status_code == 404
+    assert deps.store.proposals.get(proposal.id).status == "pending"
+    rejected = client.post(f"/api/memory/proposals/{proposal.id}", json={"approve": False})
+    assert rejected.status_code == 200 and rejected.json()["status"] == "rejected"
 
 
 def test_deciding_a_proposal_that_does_not_exist_is_a_404(client):

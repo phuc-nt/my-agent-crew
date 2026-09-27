@@ -111,14 +111,22 @@ def decide_proposal(proposal_id: str, body: DecisionBody, rt: Rt) -> dict[str, A
             memory_dirs=memory_dirs,
         )
     except KeyError as exc:
-        raise HTTPException(_missing_or_decided(rt, proposal_id), "proposal not decidable") from exc
+        raise HTTPException(*_not_decidable(rt, proposal_id)) from exc
     return proposal.to_dict()
 
 
-def _missing_or_decided(rt: Rt, proposal_id: str) -> int:
-    """Deciding twice is a conflict, not a missing row: the UI should say so, not 404."""
+def _not_decidable(rt: Rt, proposal_id: str) -> tuple[int, str]:
+    """Why a decision did not land, as the status the UI acts on.
+
+    Deciding twice is a conflict, not a missing row, and the UI answers 409 by saying the
+    proposal was handled elsewhere and taking its buttons away. So only a proposal that is
+    no longer pending gets it. One still pending failed on what it writes to, an agent that
+    has left the crew; it can still be rejected, so that is the agent missing, a 404.
+    """
     try:
-        rt.store.proposals.get(proposal_id)
+        proposal = rt.store.proposals.get(proposal_id)
     except KeyError:
-        return 404
-    return 409
+        return 404, "proposal not found"
+    if proposal.status != PENDING:
+        return 409, "proposal already decided"
+    return 404, "agent not found"

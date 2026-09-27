@@ -470,6 +470,20 @@ describe("MemoryPanel proposal review", () => {
     expect(screen.queryByText(vi.memory.decideFailed)).toBeNull();
   });
 
+  it("keeps a proposal whose agent has left the crew rejectable when approving it fails", async () => {
+    backend.addProposal({ kind: "agent_memory_rewrite", agent_id: "gone", description: "Cô đọng bộ nhớ", body: "- b", previous_body: "- a" });
+    mount(1);
+
+    await open(vi.memory.proposals);
+    await userEvent.click(await screen.findByRole("button", { name: vi.memory.approve }));
+
+    // Nobody decided it elsewhere: it failed, and it is still there to reject.
+    expect(await screen.findByText(vi.memory.decideFailed)).toBeInTheDocument();
+    expect(screen.queryByText(vi.memory.alreadyDecided)).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: vi.memory.reject }));
+    await waitFor(() => expect(backend.proposals[0].status).toBe("rejected"));
+  });
+
   it("shows a wiki compile as one card per page it would write", async () => {
     const pages = [
       { slug: "han-eco", kind: "entities", title: "Hạn Eco", body: "Hạn 30/9.", sources: ["2026-09-20"], questions: [], status: "ok" },

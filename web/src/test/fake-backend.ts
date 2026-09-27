@@ -431,6 +431,11 @@ export class FakeBackend {
       const found = this.proposals.find((p) => p.id === id);
       if (!found) return json({ detail: "proposal not found" }, 404);
       if (found.status !== "pending") return json({ detail: "already decided" }, 409);
+      // As on the server: approving writes to the agent's memory folder, which is gone.
+      const writesAgent = found.kind !== "user_fact" && found.kind !== "user_forget";
+      if (body.approve && writesAgent && !this.agents.some((a) => a.id === found.agent_id)) {
+        return json({ detail: "agent not found" }, 404);
+      }
       found.status = body.approve ? "approved" : "rejected";
       found.resolved_at = "2026-09-20T09:00:00";
       this.stats = { ...this.stats, pending_proposals: this.pending().length };
