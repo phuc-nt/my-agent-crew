@@ -13,7 +13,7 @@ import { useThread } from "./hooks/use-thread";
 import { useVersionCheck } from "./hooks/use-version-check";
 import { ChatScreen } from "./screens/chat-screen";
 import { ManageScreen } from "./screens/manage-screen";
-import { liveRuns, needsAttention, sortedRuns } from "./state/activity-reducer";
+import { liveRuns, needsAttention, runningRuns, sortedRuns } from "./state/activity-reducer";
 
 /**
  * The data every screen shares, and which screen is showing.
@@ -76,7 +76,7 @@ export function App() {
   const attention = useAttention(needsAttention(activity.state));
   const waiting = attention.some((r) => r.status === "awaiting_approval");
   const liveByAgent: Record<string, number> = {};
-  for (const run of live) liveByAgent[run.agent_id] = (liveByAgent[run.agent_id] ?? 0) + 1;
+  for (const run of runningRuns(activity.state)) liveByAgent[run.agent_id] = (liveByAgent[run.agent_id] ?? 0) + 1;
 
   const active =
     list.conversations.find((c) => c.id === list.activeId) ??

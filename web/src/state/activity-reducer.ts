@@ -180,6 +180,12 @@ export function liveRuns(state: ActivityState): RunInfo[] {
   return sortedRuns(state).filter((r) => ACTIVE.includes(r.status));
 }
 
+/** Live runs doing work. A paused run is live as well, but it waits on a person and is
+ *  counted with what waits on them: counting it here too would say one request twice. */
+export function runningRuns(state: ActivityState): RunInfo[] {
+  return liveRuns(state).filter((r) => r.status === "running");
+}
+
 export function runsForConversation(state: ActivityState, conversationId: string): RunInfo[] {
   return sortedRuns(state).filter((r) => r.conversation_id === conversationId);
 }

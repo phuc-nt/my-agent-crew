@@ -21,7 +21,7 @@ import type { ManageSection } from "../hooks/use-route";
 import { useShortcuts } from "../hooks/use-shortcuts";
 import type { useThread } from "../hooks/use-thread";
 import { vi } from "../i18n/vi";
-import { conversationFamilyRuns, liveRuns, sortedRuns } from "../state/activity-reducer";
+import { conversationFamilyRuns, liveRuns, runningRuns, sortedRuns } from "../state/activity-reducer";
 
 interface Props {
   list: ReturnType<typeof useConversations>;
@@ -80,6 +80,7 @@ export function ChatScreen({
 
   const runs = sortedRuns(activity.state);
   const live = liveRuns(activity.state);
+  const running = runningRuns(activity.state).length;
   // A delegate's conversation is not in the master's list; the loaded thread stands in for it.
   const active: Conversation | null =
     list.conversations.find((c) => c.id === list.activeId) ??
@@ -190,7 +191,7 @@ export function ChatScreen({
       <Icon name="grid" />
       {vi.manage.open}
       {attentionCount > 0 && <span className="badge warn"> {attentionCount}</span>}
-      {live.length > 0 && <span className="badge live"> {live.length}</span>}
+      {running > 0 && <span className="badge live"> {running}</span>}
     </button>
   );
 
@@ -381,7 +382,7 @@ export function ChatScreen({
         <StatusLine
           thread={state}
           connected={activity.state.connected}
-          liveCount={live.length}
+          liveCount={running}
           connecting={activity.connecting}
           onReconnect={activity.reconnect}
           overBudget={overBudget}

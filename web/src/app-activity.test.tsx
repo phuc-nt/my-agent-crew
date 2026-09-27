@@ -146,6 +146,34 @@ describe("App activity across the crew", () => {
     expect(screen.getByRole("button", { name: /Quản lý/ })).toHaveTextContent("1");
   });
 
+  // A paused run waits on the person and is counted where they decide, as the manage
+  // screen counts it: calling it running as well would count one request twice.
+  it("counts a run waiting for approval as waiting, not as running, on the chat and the crew", async () => {
+    backend.agents = [fakeAgent, coachAgent];
+    render(<App />);
+    await screen.findByText(vi.welcomeTitleFor("Agent"));
+    act(() => {
+      stream().open();
+      stream().emit({ type: "snapshot", runs: [fakeRun({ id: "p1", status: "awaiting_approval", finished_at: null })] });
+    });
+
+    const manage = screen.getByRole("button", { name: /Quản lý/ });
+    expect(manage.querySelector(".badge.warn")).toHaveTextContent("1");
+    expect(manage.querySelector(".badge.live")).toBeNull();
+    expect(screen.getByTestId("status-line")).not.toHaveTextContent(vi.liveNow);
+    expect(screen.getByTestId("master-card").querySelector(".badge.live")).toBeNull();
+
+    // A run that does work alongside it is the one counted as running.
+    const job = fakeRun({ id: "j1", agent_id: "coach", conversation_id: null, source: "job:coach/brief", status: "running", finished_at: null });
+    act(() => stream().emit({ type: "run", run: job }));
+    expect(manage.querySelector(".badge.live")).toHaveTextContent("1");
+    expect(screen.getByTestId("status-line")).toHaveTextContent(`${vi.liveNow}: 1`);
+    await userEvent.click(screen.getByRole("button", { name: /Đội/ }));
+    const [master, coach] = within(screen.getByTestId("crew-list")).getAllByTestId("crew-agent");
+    expect(master).not.toHaveTextContent(vi.runStatus.running);
+    expect(coach).toHaveTextContent(vi.runStatus.running);
+  });
+
   it("learns how a run ended while the stream was down once the stream reconnects", async () => {
     backend.agents = [fakeAgent, coachAgent];
     render(<App />);
