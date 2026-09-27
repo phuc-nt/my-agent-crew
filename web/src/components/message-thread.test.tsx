@@ -171,6 +171,19 @@ describe("what the person sent through Telegram", () => {
     expect(screen.queryByTestId("attachment-file")).toBeNull();
     expect(screen.getByTestId("message-user")).toHaveTextContent("[Tệp đính kèm đã lưu: x]");
   });
+
+  // Only the whole line is the channel's: words before the bracket, or after it, are the person's.
+  it("leaves a sentence that ends with the quoted words as written", () => {
+    sent("Bot ghi thế này: [Tệp đính kèm đã lưu: x]");
+    expect(screen.queryByTestId("attachment-file")).toBeNull();
+    expect(screen.getByTestId("message-user")).toHaveTextContent("Bot ghi thế này: [Tệp đính kèm đã lưu: x]");
+  });
+
+  it("leaves a sentence that starts with the quoted words as written", () => {
+    sent("[Tệp đính kèm đã lưu: x] là dòng bot ghi");
+    expect(screen.queryByTestId("attachment-file")).toBeNull();
+    expect(screen.getByTestId("message-user")).toHaveTextContent("[Tệp đính kèm đã lưu: x] là dòng bot ghi");
+  });
 });
 
 describe("the actions under a reply", () => {
