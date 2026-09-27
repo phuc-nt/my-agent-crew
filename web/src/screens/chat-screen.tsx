@@ -146,6 +146,21 @@ export function ChatScreen({
   // what was spent, so a raise takes it away.
   const overBudget = Boolean(active?.over_budget) && !state.busy;
   const capReached = active !== null && active.cost_cap_usd > 0 && state.spentUsd >= active.cost_cap_usd;
+  // A raise from a notice often takes the notice, or its button, away with the control
+  // the keyboard was on. Once the screen has caught up, the keyboard goes where the person
+  // carries on: the composer when the raise let it write, or the raise still on offer.
+  const mainRef = useRef<HTMLElement>(null);
+  const [afterRaise, setAfterRaise] = useState(0);
+  const raiseFromNotice = async (cost_cap_usd: number) => {
+    await onRaiseCap(cost_cap_usd);
+    setAfterRaise((n) => n + 1);
+  };
+  useEffect(() => {
+    if (afterRaise === 0) return;
+    mainRef.current
+      ?.querySelector<HTMLElement>(".composer textarea:not(:disabled), [data-testid=over-budget] > .link-button")
+      ?.focus();
+  }, [afterRaise]);
   const notice = state.notice && (
     <div className={`notice ${state.notice.kind}`} role="status" data-testid="notice">
       <Icon name={NOTICE_ICON[state.notice.kind] ?? "alert"} />
@@ -159,7 +174,7 @@ export function ChatScreen({
             ? vi.stopped
             : vi.errorPrefix + state.notice.text}
       {state.notice.kind === "halted" && state.notice.text === "budget" && active && !overBudget && capReached && (
-        <RaiseCapButton capUsd={active.cost_cap_usd} onSave={onRaiseCap} />
+        <RaiseCapButton capUsd={active.cost_cap_usd} onSave={raiseFromNotice} />
       )}
     </div>
   );
@@ -255,7 +270,7 @@ export function ChatScreen({
         bottom={manageButton}
       />
       {/* The open drawer is modal: what it covers takes no focus and reads as absent. */}
-      <main className="main" inert={drawer.open || undefined}>
+      <main className="main" ref={mainRef} inert={drawer.open || undefined}>
         {active ? (
           <ConversationHeader
             conversation={active}
@@ -339,7 +354,7 @@ export function ChatScreen({
           <div className="notice halted" data-testid="over-budget">
             <Icon name="coins" />
             {vi.overBudget}
-            <RaiseCapButton capUsd={active.cost_cap_usd} onSave={onRaiseCap} />
+            <RaiseCapButton capUsd={active.cost_cap_usd} onSave={raiseFromNotice} />
           </div>
         )}
         <Composer

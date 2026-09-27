@@ -45,6 +45,18 @@
   min-width: 0;
 }
 
+/* Held off while a save is on its way, yet still focusable: a disabled button would drop
+   the keyboard onto the page. */
+.cap-editor button[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.cap-editor button[aria-disabled="true"]:active {
+  transform: none;
+}
+
 .cap-editor-error {
   color: var(--danger-text);
 }

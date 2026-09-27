@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { vi } from "../i18n/vi";
 import { formatUsd } from "./budget-indicator";
 
@@ -21,11 +21,18 @@ export function CapEditor({ capUsd, onSave }: Props) {
   const [custom, setCustom] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // Controls are held off with aria-disabled rather than disabled: a disabled button
+  // drops the keyboard's focus onto the page. So the guard against a second press is
+  // here, synchronous, where two clicks in one frame cannot both slip past.
+  const inFlight = useRef(false);
   const unlimited = capUsd <= 0;
+  const empty = custom.trim() === "";
 
   const save = async (next: number) => {
+    if (inFlight.current) return;
     // The field's min is only a hint to the browser; a typed "-1" still arrives here.
     if (!Number.isFinite(next) || next < 0) return setError(vi.budgetCard.capInvalid);
+    inFlight.current = true;
     setSaving(true);
     setError(null);
     try {
@@ -34,6 +41,7 @@ export function CapEditor({ capUsd, onSave }: Props) {
     } catch (e) {
       setError(vi.budgetCard.saveFailed(e instanceof Error ? e.message : String(e)));
     } finally {
+      inFlight.current = false;
       setSaving(false);
     }
   };
@@ -51,7 +59,7 @@ export function CapEditor({ capUsd, onSave }: Props) {
             <button
               key={step}
               type="button"
-              disabled={saving}
+              aria-disabled={saving || undefined}
               onClick={() => void save(Math.round((capUsd + step) * 100) / 100)}
             >
               +{formatUsd(step)}
@@ -61,14 +69,14 @@ export function CapEditor({ capUsd, onSave }: Props) {
       )}
       <form className="cap-editor-custom" noValidate onSubmit={(event) => {
         event.preventDefault();
-        void save(Number(custom));
+        if (!empty) void save(Number(custom));
       }}>
         <label>
           {vi.budgetCard.custom}
           <input type="number" inputMode="decimal" min={0} step="0.01" value={custom}
             onChange={(event) => setCustom(event.target.value)} />
         </label>
-        <button type="submit" className="primary" disabled={saving || custom.trim() === ""}>
+        <button type="submit" className="primary" aria-disabled={saving || empty || undefined}>
           {vi.budgetCard.set}
         </button>
       </form>

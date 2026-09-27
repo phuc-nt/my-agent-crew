@@ -61,3 +61,37 @@ describe("the budget notices", () => {
     expect(raiseButtons()).toEqual([]);
   });
 });
+
+// A notice's raise folds its editor away, and a raise that ends the budget's hold takes
+// the notice or its button with it: the keyboard goes where the person carries on.
+describe("the keyboard after a raise from a budget notice", () => {
+  it("goes to the composer once the over-budget notice's raise lets it write", async () => {
+    await haltOnBudget();
+    act(() => stream().emit({ type: "run", run: fakeRun({ status: "halted" }) }));
+    const over = await screen.findByTestId("over-budget");
+
+    await userEvent.click(within(over).getByRole("button", { name: vi.budgetCard.raise }));
+    await userEvent.click(within(over).getByRole("button", { name: "+$1.00" }));
+    await waitFor(() => expect(screen.queryByTestId("over-budget")).not.toBeInTheDocument());
+    expect(screen.getByRole("textbox")).toHaveFocus();
+  });
+
+  it("goes to the composer once the halt's raise lifts the hold", async () => {
+    const halted = await haltOnBudget();
+    await userEvent.click(within(halted).getByRole("button", { name: vi.budgetCard.raise }));
+    await userEvent.click(within(halted).getByRole("button", { name: "+$1.00" }));
+    await waitFor(() => expect(raiseButtons()).toEqual([]));
+    expect(screen.getByRole("textbox")).toHaveFocus();
+  });
+
+  it("stays on a raise when the new cap still holds the budget", async () => {
+    const halted = await haltOnBudget();
+    await userEvent.click(within(halted).getByRole("button", { name: vi.budgetCard.raise }));
+    await userEvent.type(within(halted).getByLabelText(vi.budgetCard.custom), "0.5{Enter}");
+
+    const over = await screen.findByTestId("over-budget");
+    const raise = within(over).getByRole("button", { name: vi.budgetCard.raise });
+    await waitFor(() => expect(raise).toHaveFocus());
+    expect(screen.getByRole("textbox")).toBeDisabled();
+  });
+});

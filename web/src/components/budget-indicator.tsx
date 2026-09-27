@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { vi } from "../i18n/vi";
 import { CapEditor } from "./cap-editor";
 import { Icon } from "./ui/icon";
@@ -99,16 +99,19 @@ export function BudgetIndicator({ spentUsd, capUsd, unknownCostCalls, childCount
   );
 }
 
-/** The budget notices' way out: the same editor behind one button, folded once it saved. */
+/** The budget notices' way out: the same editor behind one button, folded once it saved.
+ *  Folding removes the control the keyboard was on, so it goes back to the button. */
 export function RaiseCapButton({ capUsd, onSave }: { capUsd: number; onSave: (capUsd: number) => Promise<void> }) {
   const [open, setOpen] = useState(false);
+  const toggle = useRef<HTMLButtonElement>(null);
   const saveAndFold = async (cap: number) => {
     await onSave(cap);
     setOpen(false);
+    toggle.current?.focus();
   };
   return (
     <>
-      <button type="button" className="link-button" aria-expanded={open} onClick={() => setOpen(!open)}>
+      <button ref={toggle} type="button" className="link-button" aria-expanded={open} onClick={() => setOpen(!open)}>
         {vi.budgetCard.raise}
       </button>
       {open && <CapEditor capUsd={capUsd} onSave={saveAndFold} />}
