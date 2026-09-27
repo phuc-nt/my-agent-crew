@@ -259,3 +259,42 @@ test("a chat whose run history cannot be read says so, with a retry big enough t
   expect(overflow.offenders).toEqual([]);
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.width);
 });
+
+// Reading a whole file before letting it be written must not cost the buttons that decide
+// it: the height a phone browser leaves under its own bars, a 120-line file opened in full,
+// and the page still one screen, decisions in reach, without scrolling the header away.
+test("a request's full arguments leave its buttons on screen in a short phone view", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 664 });
+  const content = Array.from({ length: 120 }, (_, i) => `dòng ${i + 1} của ghi chú`).join("\n");
+  await mockApi(page, {
+    agents: [defaultAgent, coachAgent],
+    runs: [],
+    conversations: [
+      {
+        ...conversation("c1", "Ghi chú"),
+        status: "awaiting_approval",
+        pending_approval: {
+          id: "ap", conversation_id: "c1", message_id: "m", tool_call_id: "tc", tool_name: "write_file",
+          arguments: { path: "notes/tuan-nay.md", content }, status: "pending", created_at: "2026-09-26T01:00:00Z",
+          expires_at: "2099-01-01T00:00:00Z", resolved_at: null, kind: "tool", options: [],
+        },
+      },
+    ],
+  });
+  await page.goto("/#/chat/c1");
+  const bar = page.getByRole("alertdialog");
+  await bar.getByRole("button", { name: "Xem đầy đủ" }).click();
+  await expect(bar.locator(".args-detail-code").first()).toContainText("dòng 120");
+
+  // Cho phép, Luôn cho phép and Từ chối, wherever the row wraps them.
+  const fit = await bar.locator(".approval-actions").evaluate((el) => ({
+    top: el.getBoundingClientRect().top,
+    bottom: el.getBoundingClientRect().bottom,
+    height: window.innerHeight,
+    page: document.documentElement.scrollHeight,
+  }));
+  expect(fit.top).toBeGreaterThanOrEqual(0);
+  expect(fit.bottom).toBeLessThanOrEqual(fit.height);
+  expect(fit.page).toBeLessThanOrEqual(fit.height);
+  await expect(page.locator(".conversation-header")).toBeInViewport();
+});

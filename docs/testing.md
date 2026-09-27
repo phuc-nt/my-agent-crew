@@ -21,7 +21,8 @@ Fake server của vitest giữ yêu cầu duyệt đang mở như server thật:
 nhận 409. Nhờ vậy việc duyệt ngay trong Quản lý › Duyệt được test ở vitest cả khi tab khác hay
 lượt quét hết hạn giành trước (báo "đã được xử lý", không báo bận), cả khi đồng hồ đếm về 0
 (nút khoá, danh sách tải lại), còn Playwright chỉ giữ phần chỉ trình duyệt thấy: bấm Cho phép
-trên bề rộng 390px mà trang không cuộn ngang.
+trên bề rộng 390px mà trang không cuộn ngang, và trên màn điện thoại thấp 390×664 mở đầy đủ một
+tệp 120 dòng mà các nút quyết định vẫn trên màn hình, trang không cuộn.
 
 ## Test bảo vệ
 

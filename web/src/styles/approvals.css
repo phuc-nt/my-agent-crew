@@ -56,6 +56,32 @@
   overflow-y: auto;
 }
 
+/* In the chat the request floats between the thread and the composer, on a screen whose
+   height is fixed: opened in full, the arguments scroll inside the card, with the buttons
+   that decide them held at its foot, instead of pushing both — and the page's own header —
+   off a phone's screen. One scroll for the whole card, not a second one for the block. */
+.main > .callout {
+  max-height: 55dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.main > .callout .args-detail-code {
+  max-height: none;
+}
+
+/* A footer band across the whole card, over its bottom padding: arguments scrolling
+   beside or under the buttons would otherwise read as part of them. */
+.main > .approval-bar .approval-actions {
+  position: sticky;
+  bottom: calc(var(--space-3) * -1);
+  flex: 1 1 100%;
+  margin: 0 calc(var(--space-4) * -1) calc(var(--space-3) * -1);
+  padding: var(--space-2) var(--space-4) var(--space-3);
+  border-top: 1px solid color-mix(in srgb, var(--warn) 25%, var(--border));
+  background: inherit;
+}
+
 /* ── Approval history ───────────────────────────────────────────────────── */
 .approval-question {
   margin: 0;
