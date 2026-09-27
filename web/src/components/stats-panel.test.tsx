@@ -161,6 +161,16 @@ describe("the costs page's usage figures", () => {
     expect(screen.queryByTestId("stat-agent-cache")).not.toBeInTheDocument();
   });
 
+  // A provider that reports the prompt but not the part it cached leaves no row either,
+  // while the days and models on the same page show those tokens.
+  it("says the cache went unreported when the calls did report their tokens", () => {
+    render(<StatsPanel stats={stats({ cache_by_agent: {}, unknown_cache_calls: 3 })} agentName={name} />);
+
+    expect(screen.getByText(vi.costNoCacheFigure)).toBeInTheDocument();
+    expect(screen.queryByText(vi.costNoTokens)).not.toBeInTheDocument();
+    expect(screen.queryByTestId("stat-agent-cache")).not.toBeInTheDocument();
+  });
+
   // The page's live runs are fifty of whoever was busiest, while the spend by agent beside
   // this card counts five hundred. Fetching those five hundred, steps and all, on every
   // visit to add up two figures per agent was the heaviest request the page made.

@@ -278,6 +278,32 @@ def test_stats_add_up_each_agents_cache_over_the_same_runs_as_its_spend():
     assert set(summary["by_agent"]) == {"coach", "default", "quiet"}
 
 
+def test_stats_count_apart_the_calls_that_gave_a_prompt_but_no_cache_figure():
+    silent = [model_call(0, None), model_call(None, None)]
+    runs = [
+        finished("a", "coach", model_call(1_000, None), *silent),
+        finished("b", "default", model_call(700, None), model_call(500, 100)),
+    ]
+    summary = summarize(runs)
+    # A call with no prompt figure said nothing at all, and is not one that hid its cache.
+    assert summary["unknown_cache_calls"] == 2
+    assert summary["cache_by_agent"] == {"default": {"prompt_tokens": 500, "cached_tokens": 100}}
+
+
+def test_stats_say_when_the_calls_gave_tokens_but_no_cache_figure(two_agents):
+    # The echo model reports its prompt and never the cached part, as a provider that does
+    # not say would: the window has tokens but no cache row, and the stats say why.
+    client, _ = two_agents
+    conv = client.post("/api/conversations", json={"agent_id": "coach"}).json()
+    with client.stream(
+        "POST", f"/api/conversations/{conv['id']}/messages", json={"text": "xin chào"}
+    ) as r:
+        r.read()
+    stats = client.get("/api/stats").json()
+    assert stats["cache_by_agent"] == {}
+    assert stats["unknown_cache_calls"] == 1
+
+
 def test_agent_files_are_served_only_from_the_workspace(two_agents):
     client, runtime = two_agents
     workspace = runtime.deps_for("coach").agent.workspace

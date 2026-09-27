@@ -65,6 +65,8 @@ export function PeriodTiles({ days }: { days: DayUsage[] }) {
 interface AgentCacheProps {
   /** The server's totals per agent id. */
   cache: Record<string, AgentCacheTotals>;
+  /** Calls on the same runs that reported a prompt but no cache figure. */
+  uncounted: number;
   /** The runs they are counted over, which are the spend by agent's. */
   covers: string;
   agentName: (id: string) => string;
@@ -78,13 +80,15 @@ interface AgentCacheProps {
  * Added up here, the page downloaded the whole window of runs, steps and all, on every
  * visit, for two sums per agent.
  */
-export function AgentCacheTable({ cache, covers, agentName }: AgentCacheProps) {
+export function AgentCacheTable({ cache, uncounted, covers, agentName }: AgentCacheProps) {
   const rows = Object.entries(cache).sort(([, a], [, b]) => b.prompt_tokens - a.prompt_tokens);
   return (
     <section className="metric-card">
       <CardTitle title={vi.costCacheByAgent} covers={covers} />
       {rows.length === 0 ? (
-        <p className="muted">{vi.costNoTokens}</p>
+        // Calls that reported their tokens but not the cached part leave no row either, and
+        // "no call reported its tokens" would contradict the tokens on the rest of the page.
+        <p className="muted">{uncounted > 0 ? vi.costNoCacheFigure : vi.costNoTokens}</p>
       ) : (
         <table className="stat-table" data-testid="stat-agent-cache">
           <thead>

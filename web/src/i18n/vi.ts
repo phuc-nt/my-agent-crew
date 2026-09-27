@@ -639,6 +639,8 @@ export const vi = {
   costCacheByAgent: "Cache theo agent",
   costPromptTokens: "token vào",
   costNoTokens: "Chưa lượt gọi nào báo số token.",
+  // The calls did report their tokens; only the cached part went unsaid.
+  costNoCacheFigure: "Chưa lượt gọi nào báo số token cache.",
   costEmpty: "Chưa có chi phí nào được ghi nhận.",
   jobs: "Lịch chạy",
   jobsEmpty: "Chưa agent nào có lịch chạy. Thêm lịch trong trang sửa agent, ở mục Đội.",

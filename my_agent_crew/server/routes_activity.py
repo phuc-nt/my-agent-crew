@@ -81,12 +81,14 @@ def summarize(runs: list[RunRecord], zone: tzinfo | None = None) -> dict[str, An
     The message log totals tokens per model and per day, not per agent, so each agent's
     prompt and cached tokens are added up here, over the same runs as its spend. Only calls
     that reported both count: a call with no cache figure would pull the share down for a
-    provider that simply does not say."""
+    provider that simply does not say. Those are counted apart, so a window where none said
+    is not read as one where no call reported its tokens."""
     by_agent: dict[str, float] = defaultdict(float)
     by_model: dict[str, float] = defaultdict(float)
     by_day: dict[str, float] = defaultdict(float)
     cache: dict[str, dict[str, int]] = {}
     unknown = 0
+    unknown_cache = 0
     calls = 0
     for run in runs:
         by_agent[run.agent_id] += run.spent_usd
@@ -98,7 +100,9 @@ def summarize(runs: list[RunRecord], zone: tzinfo | None = None) -> dict[str, An
                 model = f"{step.get('provider')}:{step.get('model')}"
                 by_model[model] += step.get("cost_usd") or 0.0
                 prompt, cached = step.get("prompt_tokens"), step.get("cached_tokens")
-                if prompt and cached is not None:
+                if prompt and cached is None:
+                    unknown_cache += 1
+                elif prompt:
                     tally = cache.setdefault(run.agent_id, {"prompt_tokens": 0, "cached_tokens": 0})
                     tally["prompt_tokens"] += prompt
                     tally["cached_tokens"] += cached
@@ -111,6 +115,7 @@ def summarize(runs: list[RunRecord], zone: tzinfo | None = None) -> dict[str, An
         "by_model": {k: round(v, 6) for k, v in sorted(by_model.items())},
         "by_day": {k: round(v, 6) for k, v in sorted(by_day.items())},
         "cache_by_agent": dict(sorted(cache.items())),
+        "unknown_cache_calls": unknown_cache,
     }
 
 

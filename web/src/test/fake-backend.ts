@@ -121,7 +121,7 @@ export class FakeBackend {
   approvals: ApprovalInfo[] = [];
   /** What the last answered question was replied with, so a test can assert the words. */
   lastAnswer: string | null = null;
-  stats: StatsInfo = { runs: 0, model_calls: 0, spent_usd: 0, unknown_cost_calls: 0, by_agent: {}, by_model: {}, by_day: {}, cache_by_agent: {}, days: [], models: [], pending_proposals: 0 };
+  stats: StatsInfo = { runs: 0, model_calls: 0, spent_usd: 0, unknown_cost_calls: 0, by_agent: {}, by_model: {}, by_day: {}, cache_by_agent: {}, unknown_cache_calls: 0, days: [], models: [], pending_proposals: 0 };
   userMd = "";
   facts: FactInfo[] = [];
   agentMemory = new Map<string, AgentMemory>();

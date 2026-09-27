@@ -160,6 +160,9 @@ export interface StatsInfo {
   /** Per agent over the same runs as `by_agent`, from the calls that reported both
    *  figures. A server from before it was counted leaves it out. */
   cache_by_agent?: Record<string, AgentCacheTotals>;
+  /** Calls on those runs that reported a prompt but no cache figure, which
+   *  `cache_by_agent` leaves out. A server from before it was counted leaves it out. */
+  unknown_cache_calls?: number;
   /** Memory writes waiting for a decision — the count on the "Ghi nhớ" tab. */
   pending_proposals: number;
   /** The last seven days, oldest first, zeros kept so the chart holds its shape. */

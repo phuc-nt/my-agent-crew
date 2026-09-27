@@ -148,7 +148,12 @@ export function StatsPanel({ stats, agentName }: Props) {
       </dl>
       <Breakdown title={vi.costByAgent} covers={recent} rows={stats.by_agent} name={agentName} />
       {stats.cache_by_agent && (
-        <AgentCacheTable cache={stats.cache_by_agent} covers={recent} agentName={agentName} />
+        <AgentCacheTable
+          cache={stats.cache_by_agent}
+          uncounted={stats.unknown_cache_calls ?? 0}
+          covers={recent}
+          agentName={agentName}
+        />
       )}
       <RecentDays days={stats.days} />
       <ModelTable models={stats.models} />
