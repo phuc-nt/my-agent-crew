@@ -152,6 +152,13 @@
   font-weight: 500;
 }
 
+/* A question can hold a link with nowhere to break; as a flex item it would keep its
+   full width and run off a phone's edge, so it may shrink and break anywhere. */
+.wiki-open-questions li > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .wiki-today-note {
   margin: 0 0 var(--space-3);
 }

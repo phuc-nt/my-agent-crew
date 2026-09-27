@@ -36,6 +36,34 @@ test("a page followed from the bottom of a long one opens at its title, with foc
   await expect(opened.getByRole("button", { name: /Về danh sách/ })).toBeInViewport();
 });
 
+/** Every element under `selector` whose right edge runs past the screen, i.e. text cut off. */
+async function cutOff(page: Page, selector: string) {
+  return page.evaluate((root) => {
+    const offenders: string[] = [];
+    for (const el of document.querySelectorAll(`${root}, ${root} *`)) {
+      if (el.getBoundingClientRect().right > window.innerWidth + 1) offenders.push(`${el.tagName.toLowerCase()}.${el.className}`);
+    }
+    return offenders;
+  }, selector);
+}
+
+test("an open question holding a long link wraps on a phone instead of running off the screen", async ({ page }) => {
+  // No hyphen or slash past the host, so the browser finds no place of its own to break it.
+  const question = "Link https://example.com/?token=Q2hlY2tUaGlzTGlua0lzU3RpbGxHb29kQmVmb3JlVXNpbmdJdEFnYWlu còn dùng được không?";
+  await mockApi(page, { agents: [defaultAgent], wiki: { default: [wikiPage({ body: "Pha lúc 6h.", questions: [question] })] } });
+  await openMemory(page, "Wiki");
+
+  const section = page.getByTestId("wiki-section");
+  await section.getByRole("button", { name: "Câu hỏi mở (1)" }).click();
+  await expect(section.getByText(question)).toBeVisible();
+  expect(await cutOff(page, ".wiki-open-questions")).toEqual([]);
+
+  // The same question on its own page.
+  await section.locator(".wiki-open-questions").getByRole("button", { name: "Hạn Eco" }).click();
+  await expect(section.getByTestId("wiki-page").getByText(question)).toBeVisible();
+  expect(await cutOff(page, "[data-testid=wiki-page]")).toEqual([]);
+});
+
 function proposal(over: Partial<MemoryProposal>): MemoryProposal {
   return {
     id: "p1",
