@@ -305,7 +305,7 @@ describe("a conversation's runs from before the page opened", () => {
     );
     render(strip([]));
 
-    const retry = await screen.findByRole("button", { name: vi.runFilters.retry });
+    const retry = await screen.findByRole("button", { name: vi.retry });
     expect(screen.getByTestId("conversation-activity")).toHaveTextContent(vi.runFilters.failed);
     expect(screen.getByTestId("conversation-activity")).not.toHaveTextContent(vi.noRuns);
     down = false;
@@ -321,7 +321,7 @@ describe("a conversation's runs from before the page opened", () => {
 
     render(<ConversationActivity runs={[]} conversationId="c1" spentUsd={0} agentName={name} onOpenConversation={() => undefined} />);
 
-    expect(await screen.findByRole("button", { name: vi.runFilters.retry })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: vi.retry })).toBeInTheDocument();
     expect(screen.getByTestId("conversation-activity")).toHaveTextContent(vi.runFilters.failed);
   });
 

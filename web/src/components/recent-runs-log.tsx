@@ -112,7 +112,7 @@ export function RecentRunsLog({
       {history.failed ? (
         <EmptyState
           says={vi.runFilters.failed}
-          action={{ label: vi.runFilters.retry, onClick: history.reload }}
+          action={{ label: vi.retry, onClick: history.reload }}
         />
       ) : shown.length > 0 ? null : history.loading && narrowed ? (
         <p className="muted" role="status">
@@ -146,7 +146,7 @@ export function RecentRunsLog({
             setStep((s) => Math.min(s + 1, HISTORY_STEPS.length - 1));
           }}
         >
-          {history.loading ? vi.runFilters.loadingMore : vi.runFilters.more}
+          {history.loading ? vi.runFilters.loadingMore : vi.showMore}
         </button>
       )}
     </div>

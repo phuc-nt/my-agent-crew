@@ -137,7 +137,7 @@ export function ApprovalHistory({
       )}
       {more && (
         <button type="button" className="approval-more" aria-busy={fetching} onClick={askMore}>
-          {fetching ? vi.loading : vi.approvalHistoryMore}
+          {fetching ? vi.loading : vi.showMore}
         </button>
       )}
     </>

@@ -91,7 +91,7 @@ export function ConversationActivity({
     <span className="muted">
       {vi.runFilters.failed}{" "}
       <button type="button" className="link-button history-retry" onClick={history.reload}>
-        {vi.runFilters.retry}
+        {vi.retry}
       </button>
     </span>
   );

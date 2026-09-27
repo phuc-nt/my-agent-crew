@@ -132,7 +132,7 @@ describe("the recent runs log", () => {
     show();
     // Found by text: a role query weighs every one of the hundreds of cards on screen,
     // which made this test slow enough to time out on a busy machine.
-    const more = () => screen.queryByText(vi.runFilters.more, { selector: "button" });
+    const more = () => screen.queryByText(vi.showMore, { selector: "button" });
     // While a step loads the button says so and ignores a click, which would ask for nothing.
     const reach = async (limit: number) => {
       await waitFor(() => expect(more()).toBeEnabled());
@@ -158,7 +158,7 @@ describe("the recent runs log", () => {
       return backend.fetch(input, init);
     });
     show();
-    const more = await screen.findByText(vi.runFilters.more, { selector: "button" });
+    const more = await screen.findByText(vi.showMore, { selector: "button" });
 
     more.focus();
     await userEvent.keyboard("{Enter}");
@@ -170,7 +170,7 @@ describe("the recent runs log", () => {
     await waitFor(() => expect(screen.getAllByTestId("run-card")).toHaveLength(200));
     expect(more).toHaveFocus();
     expect(more).not.toHaveAttribute("aria-disabled", "true");
-    expect(more).toHaveTextContent(vi.runFilters.more);
+    expect(more).toHaveTextContent(vi.showMore);
   });
 
   // The last page takes the button with it, and the focus of whoever pressed it fell to
@@ -178,7 +178,7 @@ describe("the recent runs log", () => {
   it("hands focus to the first run the last page brought", async () => {
     backend.runs = many(150);
     show();
-    const more = await screen.findByText(vi.runFilters.more, { selector: "button" });
+    const more = await screen.findByText(vi.showMore, { selector: "button" });
 
     more.focus();
     await userEvent.keyboard("{Enter}");
@@ -195,12 +195,12 @@ describe("the recent runs log", () => {
       String(input).includes("limit=200") ? Promise.reject(new Error("offline")) : backend.fetch(input, init),
     );
     show();
-    const more = await screen.findByText(vi.runFilters.more, { selector: "button" });
+    const more = await screen.findByText(vi.showMore, { selector: "button" });
 
     more.focus();
     await userEvent.keyboard("{Enter}");
 
-    const retry = await screen.findByText(vi.runFilters.retry, { selector: "button" });
+    const retry = await screen.findByText(vi.retry, { selector: "button" });
     expect(more).not.toBeInTheDocument();
     expect(screen.getAllByTestId("run-card")).toHaveLength(100);
     await waitFor(() => expect(retry).toHaveFocus());
@@ -211,14 +211,14 @@ describe("the recent runs log", () => {
     show();
     await waitFor(() => expect(screen.getAllByTestId("run-card")).toHaveLength(3));
 
-    expect(screen.queryByRole("button", { name: vi.runFilters.more })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: vi.showMore })).not.toBeInTheDocument();
   });
 
   it("offers a retry when the history cannot be read", async () => {
     vitest.stubGlobal("fetch", () => Promise.reject(new Error("offline")));
     show([fakeRun()]);
 
-    const retry = await screen.findByRole("button", { name: vi.runFilters.retry });
+    const retry = await screen.findByRole("button", { name: vi.retry });
 
     expect(screen.getByTestId("run-card")).toBeInTheDocument();
     expect(retry).toBeEnabled();
@@ -234,7 +234,7 @@ describe("the recent runs log", () => {
 
     await userEvent.click(chip(vi.runFilters.agent, coachAgent.name));
 
-    expect(await screen.findByRole("button", { name: vi.runFilters.retry })).toBeEnabled();
+    expect(await screen.findByRole("button", { name: vi.retry })).toBeEnabled();
     expect(screen.queryByText(vi.runFilters.loading)).not.toBeInTheDocument();
   });
 });

@@ -93,7 +93,6 @@ export const vi = {
   autoApprovedRevoke: (tool: string) => `Hỏi lại khi chạy ${tool}`,
   approvalHistory: "Lịch sử duyệt",
   approvalHistoryEmpty: "Chưa có yêu cầu duyệt nào.",
-  approvalHistoryMore: "Xem thêm",
   approvalOptions: "Lựa chọn:",
   approvalAnswer: (answer: string) => `Bạn đã trả lời: ${answer}`,
   approvalStatus: {
@@ -201,6 +200,10 @@ export const vi = {
   busyConflict: "Cuộc trò chuyện đang chờ duyệt — hãy quyết định trước khi nhắn tiếp.",
   loadFailed: "Không tải được dữ liệu từ máy chủ.",
   loading: "Đang tải…",
+  // One word per action wherever it is offered — asking again after a failure, the next
+  // page of a list — so rewording it cannot leave two screens saying it differently.
+  retry: "Thử lại",
+  showMore: "Xem thêm",
   approvalsTab: "Duyệt",
   manage: {
     open: "Quản lý",
@@ -517,11 +520,9 @@ export const vi = {
       memory: "Bộ nhớ",
       api: "API",
     } as Record<string, string>,
-    more: "Xem thêm",
     loadingMore: "Đang tải thêm…",
     loading: "Đang tải lịch sử…",
     failed: "Không tải được lịch sử chạy.",
-    retry: "Thử lại",
     none: "Không có lượt chạy nào khớp bộ lọc.",
     clear: "Bỏ lọc",
   },
@@ -537,7 +538,6 @@ export const vi = {
   streamDisconnected: "Mất kết nối",
   streamConnecting: "Đang kết nối…",
   streamOffline: "Ngoại tuyến",
-  streamRetry: "Thử lại",
   streamRetryLabel: "Thử lại kết nối trực tiếp",
   runStatus: {
     running: "đang chạy",
@@ -602,7 +602,6 @@ export const vi = {
   attentionSeen: "Đã xem",
   attentionSeenLabel: (what: string) => `Đã xem: ${what}`,
   attentionLoading: "Đang tải yêu cầu…",
-  attentionRetry: "Thử lại",
   attentionResuming: "Đang chạy tiếp…",
   // A 409 on decide or answer: another tab, Telegram or the expiry sweep closed it first.
   // That is not the conversation being busy, which is what the chat's conflict text says.

@@ -242,13 +242,13 @@ describe("AttentionCenter with requests settled in place", () => {
     );
 
     expect(await screen.findByText(vi.errorPrefix + "offline")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: vi.attentionRetry }));
+    await userEvent.click(screen.getByRole("button", { name: vi.retry }));
     expect(await screen.findByText(vi.errorPrefix + "offline")).toBeInTheDocument();
     expect(screen.queryByRole("group")).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: vi.attentionRetry }));
+    await userEvent.click(screen.getByRole("button", { name: vi.retry }));
     expect(within(await request()).getByRole("button", { name: vi.approve })).toBeEnabled();
-    expect(screen.queryByRole("button", { name: vi.attentionRetry })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: vi.retry })).not.toBeInTheDocument();
 
     // The same run again from the stream, now waiting on a newer request.
     backend.conversations.get(conversation.id)!.pending_approval = fakeApproval({ id: "ap2", conversation_id: conversation.id, tool_name: "shell_run", arguments: { command: "make" }, status: "pending", resolved_at: null, expires_at: inFiveMinutes() });

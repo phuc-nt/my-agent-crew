@@ -138,7 +138,7 @@ export function AttentionRow(props: Props) {
                 open();
               }}
             >
-              {vi.attentionRetry}
+              {vi.retry}
             </button>
           </>
         )}

@@ -267,12 +267,12 @@ describe("ApprovalHistory", () => {
     const list = await history(backend);
     expect(within(list).getAllByRole("listitem")).toHaveLength(50);
 
-    await userEvent.click(screen.getByRole("button", { name: vi.approvalHistoryMore }));
+    await userEvent.click(screen.getByRole("button", { name: vi.showMore }));
     await rowsReach(list, 200);
-    await userEvent.click(screen.getByRole("button", { name: vi.approvalHistoryMore }));
+    await userEvent.click(screen.getByRole("button", { name: vi.showMore }));
     await rowsReach(list, 260);
     // 260 of a possible 500: the whole history is on screen, so there is nothing more to ask for.
-    expect(screen.queryByRole("button", { name: vi.approvalHistoryMore })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: vi.showMore })).not.toBeInTheDocument();
     expect(limits(backend)).toEqual(["50", "200", "500"]);
   });
 
@@ -280,11 +280,11 @@ describe("ApprovalHistory", () => {
     const backend = new FakeBackend();
     backend.approvals = Array.from({ length: 520 }, (_, i) => fakeApproval({ id: `a${i}` }));
     const list = await history(backend);
-    await userEvent.click(screen.getByRole("button", { name: vi.approvalHistoryMore }));
+    await userEvent.click(screen.getByRole("button", { name: vi.showMore }));
     await rowsReach(list, 200);
-    await userEvent.click(screen.getByRole("button", { name: vi.approvalHistoryMore }));
+    await userEvent.click(screen.getByRole("button", { name: vi.showMore }));
     await rowsReach(list, 500);
-    expect(screen.queryByRole("button", { name: vi.approvalHistoryMore })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: vi.showMore })).not.toBeInTheDocument();
   });
 
   it("keeps the rows already read when a bigger page fails, says so and asks again", async () => {
@@ -297,12 +297,12 @@ describe("ApprovalHistory", () => {
     );
 
     refuse = true;
-    await userEvent.click(screen.getByRole("button", { name: vi.approvalHistoryMore }));
+    await userEvent.click(screen.getByRole("button", { name: vi.showMore }));
     expect(await screen.findByText(vi.loadFailed)).toBeInTheDocument();
     expect(within(list).getAllByRole("listitem")).toHaveLength(50);
 
     refuse = false;
-    await userEvent.click(screen.getByRole("button", { name: vi.approvalHistoryMore }));
+    await userEvent.click(screen.getByRole("button", { name: vi.showMore }));
     await rowsReach(list, 200);
     expect(screen.queryByText(vi.loadFailed)).not.toBeInTheDocument();
   });
@@ -312,10 +312,10 @@ describe("ApprovalHistory", () => {
     backend.approvals = Array.from({ length: 120 }, (_, i) => fakeApproval({ id: `a${i}` }));
     const list = await history(backend);
 
-    await userEvent.click(screen.getByRole("button", { name: vi.approvalHistoryMore }));
+    await userEvent.click(screen.getByRole("button", { name: vi.showMore }));
 
     await rowsReach(list, 120);
-    expect(screen.queryByRole("button", { name: vi.approvalHistoryMore })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: vi.showMore })).not.toBeInTheDocument();
     expect(within(list).getAllByRole("listitem")[50]).toHaveFocus();
   });
 
@@ -323,7 +323,7 @@ describe("ApprovalHistory", () => {
     const backend = new FakeBackend();
     backend.approvals = [fakeApproval(), fakeApproval({ id: "ap2" })];
     await history(backend);
-    expect(screen.queryByRole("button", { name: vi.approvalHistoryMore })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: vi.showMore })).not.toBeInTheDocument();
   });
 
   it("opens a tool row's full arguments from under its summary", async () => {

@@ -72,7 +72,7 @@ export function StatusLine({ thread, connected, liveCount, connecting = false, o
             aria-label={vi.streamRetryLabel}
             onClick={onReconnect}
           >
-            {vi.streamRetry}
+            {vi.retry}
           </button>
         )}
       </span>
