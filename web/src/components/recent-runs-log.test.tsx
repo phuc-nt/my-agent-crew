@@ -173,6 +173,39 @@ describe("the recent runs log", () => {
     expect(more).toHaveTextContent(vi.runFilters.more);
   });
 
+  // The last page takes the button with it, and the focus of whoever pressed it fell to
+  // the top of the page, a long way from the runs that page had just brought.
+  it("hands focus to the first run the last page brought", async () => {
+    backend.runs = many(150);
+    show();
+    const more = await screen.findByText(vi.runFilters.more, { selector: "button" });
+
+    more.focus();
+    await userEvent.keyboard("{Enter}");
+
+    await waitFor(() => expect(screen.getAllByTestId("run-card")).toHaveLength(150));
+    expect(more).not.toBeInTheDocument();
+    const firstNew = screen.getAllByTestId("run-card")[100];
+    await waitFor(() => expect(within(firstNew).getByRole("button")).toHaveFocus());
+  });
+
+  it("hands focus to the retry when the next page cannot be read", async () => {
+    backend.runs = many(150);
+    vitest.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) =>
+      String(input).includes("limit=200") ? Promise.reject(new Error("offline")) : backend.fetch(input, init),
+    );
+    show();
+    const more = await screen.findByText(vi.runFilters.more, { selector: "button" });
+
+    more.focus();
+    await userEvent.keyboard("{Enter}");
+
+    const retry = await screen.findByText(vi.runFilters.retry, { selector: "button" });
+    expect(more).not.toBeInTheDocument();
+    expect(screen.getAllByTestId("run-card")).toHaveLength(100);
+    await waitFor(() => expect(retry).toHaveFocus());
+  });
+
   it("offers no further step when the history is shorter than a page", async () => {
     backend.runs = many(3);
     show();

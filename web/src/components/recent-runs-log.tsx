@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { AgentInfo, RunInfo } from "../api/types";
 import { mergeRuns, useRunHistory } from "../hooks/use-run-history";
 import { vi } from "../i18n/vi";
@@ -64,6 +64,25 @@ export function RecentRunsLog({
   const ceiling = HISTORY_STEPS[HISTORY_STEPS.length - 1];
   const more =
     history.pageLimit > 0 && history.pageLimit < ceiling && history.runs.length >= history.pageLimit;
+  const groups = runGroups(shown);
+  // The step asked for is on its way until its page is the one on show, or has failed.
+  const waiting = history.loading || (history.pageLimit < limit && !history.failed);
+
+  // Where the runs a pressed "Xem thêm" asked for start, until that page settles.
+  const firstNew = useRef<number | null>(null);
+  const log = useRef<HTMLDivElement>(null);
+  // The last page takes the button with it, and a failed one swaps it for a retry: the
+  // focus of whoever pressed it would fall to the top of the page. It goes to the first
+  // run that page brought instead, where reading carries on, or to the retry.
+  useEffect(() => {
+    const from = firstNew.current;
+    if (from === null || waiting) return;
+    firstNew.current = null;
+    if (document.activeElement && document.activeElement !== document.body) return;
+    const cards = log.current?.querySelectorAll<HTMLElement>(":scope > .run-group > .run-card > .run-summary");
+    const card = history.failed ? undefined : cards?.[Math.min(from, cards.length - 1)];
+    (card ?? log.current?.querySelector<HTMLElement>(":scope > .empty > button"))?.focus();
+  });
 
   const change = (next: RunFilters) => {
     // Another agent is another history, read again from its newest page.
@@ -72,7 +91,7 @@ export function RecentRunsLog({
   };
 
   return (
-    <div className="run-log" data-testid="run-log">
+    <div className="run-log" data-testid="run-log" ref={log}>
       {(loaded.length > 0 || narrowed) && (
         <ActivityFilters
           filters={filters}
@@ -81,7 +100,7 @@ export function RecentRunsLog({
           onChange={change}
         />
       )}
-      {runGroups(shown).map((group) => (
+      {groups.map((group) => (
         <RunGroupCard
           key={group.run.id}
           group={group}
@@ -122,7 +141,9 @@ export function RecentRunsLog({
           className="run-log-more"
           aria-disabled={history.loading}
           onClick={() => {
-            if (!history.loading) setStep((s) => Math.min(s + 1, HISTORY_STEPS.length - 1));
+            if (history.loading) return;
+            firstNew.current = groups.length;
+            setStep((s) => Math.min(s + 1, HISTORY_STEPS.length - 1));
           }}
         >
           {history.loading ? vi.runFilters.loadingMore : vi.runFilters.more}
