@@ -334,4 +334,22 @@ describe("a conversation's runs from before the page opened", () => {
 
     await waitFor(() => expect(historyAsked()).toBe(2));
   });
+
+  // Keyed on the merged list, the stored runs arriving counted as a run settling: the
+  // approvals were asked for twice on every open, blinking back to "loading" in between.
+  it("asks for the approvals once on open, and again only when a run settles", async () => {
+    const approvalsAsked = () => backend.requests.filter((r) => r.path.startsWith("/approvals")).length;
+    const running = fakeRun({ id: "now", status: "running", finished_at: null, started_at: "2026-09-19T09:00:00Z" });
+    const done = fakeRun({ id: "earlier", status: "done", started_at: "2026-09-19T08:00:00Z" });
+    backend.runs = [fakeRun({ id: "old", title: "Hôm qua", started_at: "2026-09-18T08:00:00Z" })];
+    const { rerender } = render(strip([running, done]));
+
+    expect(await screen.findByText(/Hôm qua/)).toBeInTheDocument();
+    await waitFor(() => expect(historyAsked()).toBe(1));
+    expect(approvalsAsked()).toBe(1);
+
+    rerender(strip([{ ...running, status: "done" }, done]));
+
+    await waitFor(() => expect(approvalsAsked()).toBe(2));
+  });
 });

@@ -148,7 +148,9 @@ export function ConversationActivity({
       <ApprovalHistory
         agentName={agentName}
         onOpenConversation={onOpenConversation}
-        refreshKey={recent.length}
+        // The streamed count, not the merged list's: the stored runs arriving is not a run
+        // settling, and would ask for the approvals twice on every open.
+        refreshKey={settled}
         conversationId={conversationId}
       />
     </div>
