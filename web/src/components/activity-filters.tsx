@@ -1,6 +1,8 @@
+import { useState } from "react";
 import type { AgentInfo } from "../api/types";
 import { vi } from "../i18n/vi";
 import { FILTER_STATUSES, type RunFilters } from "../lib/run-filters";
+import { Icon } from "./ui/icon";
 
 interface Props {
   filters: RunFilters;
@@ -14,11 +16,35 @@ interface Props {
  * Chips that narrow the recent-runs log: one choice per group, "Tất cả" to undo it.
  *
  * Toggle buttons rather than a select, so the current narrowing is visible at a glance
- * and a phone needs one tap, not a picker, to change it.
+ * and changing it is one tap, not a picker.
+ *
+ * On a phone the groups stack a third of the screen tall and pushed every run below the
+ * fold, so there they fold behind one toggle that names the narrowing in force. Wider
+ * screens have room for both and never show it (run-log.css).
  */
 export function ActivityFilters({ filters, agents, sources, onChange }: Props) {
+  const [open, setOpen] = useState(false);
+  const picked = [
+    agents.find((a) => a.id === filters.agent)?.name,
+    filters.status && vi.runFilters.statuses[filters.status],
+    filters.source && (vi.runFilters.sources[filters.source] ?? filters.source),
+  ].filter((label): label is string => Boolean(label));
   return (
-    <div className="run-filters" role="group" aria-label={vi.runFilters.label} data-testid="run-filters">
+    <div
+      className={`run-filters${open ? " open" : ""}`}
+      role="group"
+      aria-label={vi.runFilters.label}
+      data-testid="run-filters"
+    >
+      <button
+        type="button"
+        className={`chip run-filters-fold${picked.length > 0 ? " narrowed" : ""}`}
+        aria-expanded={open}
+        onClick={() => setOpen((was) => !was)}
+      >
+        {[vi.runFilters.fold, ...picked].join(" · ")}
+        <Icon name="chevron-down" />
+      </button>
       {/* A crew of one has nothing to choose between. */}
       {agents.length > 1 && (
         <ChipGroup

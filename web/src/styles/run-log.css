@@ -25,15 +25,31 @@
   font-size: var(--text-sm);
 }
 
-/* The chosen chip is filled, so the narrowing in force reads before any label does. */
-.run-filters button.chip[aria-pressed="true"] {
+/* The chosen chip is filled, so the narrowing in force reads before any label does. The
+   phone's fold toggle likewise, while it names a narrowing. */
+.run-filters button.chip[aria-pressed="true"],
+.run-filters button.run-filters-fold.narrowed {
   background: var(--accent-fill);
   color: var(--accent-text);
   border-color: transparent;
 }
 
-.run-filters button.chip[aria-pressed="true"]:hover:not(:disabled) {
+.run-filters button.chip[aria-pressed="true"]:hover:not(:disabled),
+.run-filters button.run-filters-fold.narrowed:hover:not(:disabled) {
   background: var(--accent-fill-strong);
+}
+
+/* Only a phone folds the chips; a wider screen shows them all and needs no toggle. */
+.run-filters button.run-filters-fold {
+  display: none;
+}
+
+.run-filters-fold .icon {
+  transition: rotate var(--duration-base) var(--ease-out);
+}
+
+.run-filters.open .run-filters-fold .icon {
+  rotate: 180deg;
 }
 
 .run-log > .empty {
@@ -53,6 +69,17 @@
 }
 
 @media (max-width: 720px) {
+  /* Stacked, the groups stood a third of the screen tall and pushed every run below the
+     fold, so they wait behind the toggle until asked for. */
+  .run-filters button.run-filters-fold {
+    display: inline-flex;
+    align-self: flex-start;
+  }
+
+  .run-filters:not(.open) > .run-filter-group {
+    display: none;
+  }
+
   .run-filter-label {
     width: 100%;
     min-width: 0;

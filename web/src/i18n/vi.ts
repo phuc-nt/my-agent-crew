@@ -463,6 +463,8 @@ export const vi = {
   noRunsAction: "Bắt đầu một cuộc trò chuyện",
   runFilters: {
     label: "Lọc lượt chạy",
+    // The phone's one toggle for all the chips, followed by the narrowing in force.
+    fold: "Lọc",
     all: "Tất cả",
     agent: "Agent",
     status: "Trạng thái",

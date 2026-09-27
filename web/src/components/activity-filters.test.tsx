@@ -86,6 +86,26 @@ describe("the filter chips", () => {
     for (const label of labels) expect(label[0]).toBe(label[0].toLocaleUpperCase("vi"));
   });
 
+  // A phone folds the chips behind this toggle (run-log.css), so closed it still has to
+  // say which narrowing is in force.
+  it("folds behind one toggle that names the narrowing in force", async () => {
+    show({ agent: "coach", status: "error", source: "schedule" });
+
+    const toggle = screen.getByRole("button", { expanded: false });
+    expect(toggle).toHaveTextContent(
+      `${vi.runFilters.fold} · ${coachAgent.name} · ${vi.runFilters.statuses.error} · Lịch`,
+    );
+    await userEvent.click(toggle);
+
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("names nothing on the toggle when nothing is narrowed", () => {
+    show();
+
+    expect(screen.getByRole("button", { expanded: false })).toHaveTextContent(new RegExp(`^${vi.runFilters.fold}$`));
+  });
+
   it("offers no agent choice to a crew of one", () => {
     show(NO_FILTERS, [fakeAgent]);
 

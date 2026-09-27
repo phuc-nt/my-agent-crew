@@ -141,7 +141,7 @@ test("connections fit, keys, host defaults and an open key field included", asyn
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.width);
 });
 
-test("the activity log's chips wrap on a phone and stay big enough to tap", async ({ page }) => {
+test("the activity log's chips fold on a phone, then wrap and stay big enough to tap", async ({ page }) => {
   const runs = [
     older,
     run({ id: "web", source: "chat", status: "error", title: "Trả lời" }),
@@ -153,8 +153,16 @@ test("the activity log's chips wrap on a phone and stay big enough to tap", asyn
   await mockApi(page, { agents: [defaultAgent, coachAgent], runs });
   await page.goto("/#/manage/activity");
 
-  // Every group is on screen at once; a row that scrolled sideways would hide choices.
+  // Stacked, the three groups pushed every run below the fold of the page opened to see
+  // them. Folded, the newest run is on screen at once, behind a toggle as big as a chip.
   const filters = page.getByTestId("run-filters");
+  await expect(page.getByTestId("run-log").getByTestId("run-card").first()).toBeInViewport({ ratio: 1 });
+  const fold = filters.getByRole("button", { name: /^Lọc/ });
+  expect((await fold.boundingBox())?.height).toBeGreaterThanOrEqual(40);
+  await expect(filters.getByRole("group", { name: "Trạng thái" })).toBeHidden();
+  await fold.click();
+
+  // Every group is on screen at once; a row that scrolled sideways would hide choices.
   await expect(filters.getByRole("button", { name: "Giao việc" })).toBeVisible();
   for (const chip of await filters.getByRole("button").all()) {
     const box = await chip.boundingBox();
