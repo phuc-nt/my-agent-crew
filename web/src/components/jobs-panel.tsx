@@ -3,6 +3,7 @@ import type { JobInfo } from "../api/types";
 import { vi } from "../i18n/vi";
 import { scheduleText } from "../lib/cron-text";
 import { timeUntil } from "../lib/relative-time";
+import { AtClock } from "./job-clock";
 import { JobLastRun } from "./job-last-run";
 import { JobRunHistory } from "./job-run-history";
 import { formatDateTime } from "./run-timeline";
@@ -116,11 +117,14 @@ export function JobsPanel(props: Props) {
               {/* A job that will not run has no next time: an interval job's is its last run
                   plus the interval, long gone once it has been off for a while. */}
               {job.enabled && job.next_run ? (
-                // Relative while it is close, the date once it is not; the exact time is
-                // one hover away rather than a second line on every row.
-                <time dateTime={job.next_run} title={formatDateTime(job.next_run)}>
-                  {timeUntil(job.next_run)}
-                </time>
+                // Relative while it is close, the date once it is not; the clock time follows
+                // on the row, since a phone never shows the title.
+                <>
+                  <time dateTime={job.next_run} title={formatDateTime(job.next_run)}>
+                    {timeUntil(job.next_run)}
+                  </time>
+                  <AtClock iso={job.next_run} words={timeUntil(job.next_run)} />
+                </>
               ) : job.paused ? (
                 vi.jobPaused
               ) : (

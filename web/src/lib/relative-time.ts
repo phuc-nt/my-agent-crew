@@ -20,6 +20,10 @@ function shortDate(date: Date): string {
   return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}`;
 }
 
+function clock(date: Date): string {
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 function parse(iso: string): Date | null {
   const date = new Date(iso);
   return Number.isNaN(date.getTime()) ? null : date;
@@ -63,5 +67,11 @@ export function timeUntil(iso: string, now: Date = new Date()): string {
   if (ms < MINUTE) return vi.time.soon;
   if (ms < HOUR) return vi.time.inMinutes(Math.floor(ms / MINUTE));
   if (ms < DAY) return vi.time.inHours(Math.floor(ms / HOUR));
-  return `${shortDate(date)} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return `${shortDate(date)} ${clock(date)}`;
+}
+
+/** "07:00" on the viewer's clock, written the way timeUntil writes a later day's time. */
+export function clockTime(iso: string): string {
+  const date = parse(iso);
+  return date === null ? iso : clock(date);
 }

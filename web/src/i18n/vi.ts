@@ -560,6 +560,8 @@ export const vi = {
     edit: "Sửa lịch",
     editOf: (job: string) => `Sửa lịch ${job}`,
     openCrew: "Mở mục Đội",
+    // After a relative time on the row: "sau 3 giờ, lúc 07:00".
+    atClock: (clock: string) => `, lúc ${clock}`,
     // Visibly the run cards' own "Xem riêng", which opens the same page from the history.
     openRunOf: (job: string) => `Xem riêng lượt chạy gần nhất của ${job}`,
     // Beside the Jobs entry in the nav: the count alone is red, this is what it counts.

@@ -106,6 +106,25 @@ describe("a job read at a glance", () => {
     expect(vitest.getTimerCount()).toBe(0);
   });
 
+  // A title shows on hover, and a phone never hovers: "sau 3 giờ" alone left the sum to the
+  // person, and "Hôm qua" said nothing of when.
+  it("prints the clock time beside the next and the last run, once", () => {
+    vitest.useFakeTimers({ toFake: ["Date"] });
+    vitest.setSystemTime(new Date("2026-09-26T21:00:00Z"));
+    const ran = fakeRun({ started_at: "2026-09-26T18:00:00Z" });
+    const soon = { ...brief, next_run: "2026-09-27T07:00", last_run: ran };
+    const later = { ...brief, id: "coach/later", next_run: "2026-09-29T07:00" };
+    const yesterday = { ...brief, id: "coach/y", last_run: fakeRun({ started_at: "2026-09-26T01:30:00Z" }) };
+    render(<JobsPanel jobs={[soon, later, yesterday]} agentName={name} onRunNow={() => {}} onToggle={() => {}} />);
+
+    const [first, second, third] = screen.getAllByTestId("job");
+    expect(first).toHaveTextContent(`${vi.jobNext}: sau 3 giờ, lúc 07:00`);
+    expect(within(first).getByTestId("job-last")).toHaveTextContent("3 giờ, lúc 01:00");
+    // A later day's date already carries its time.
+    expect(second).toHaveTextContent(`${vi.jobNext}: 29/09 07:00 ·`);
+    expect(within(third).getByTestId("job-last")).toHaveTextContent("Hôm qua, lúc 08:30");
+  });
+
   // An interval job's next run is its last run plus the interval, so one switched off for
   // days reports a time long gone, which a countdown read as "sắp tới".
   it("gives a job that will not run no next time, however far behind its last it is", () => {
@@ -145,7 +164,7 @@ describe("a job read at a glance", () => {
     const [ran, older, idle] = screen.getAllByTestId("job-last");
     expect(within(ran).getByText(vi.runStatus.error)).toHaveClass("badge", "danger");
     expect(ran).toHaveTextContent("Không gọi được API");
-    // Read the way the next run is, with the exact time one hover away.
+    // Read the way the next run is, with the exact date and time in its title too.
     expect(within(ran).getByText("3 giờ")).toHaveAttribute("title", formatDateTime(lastRun.started_at));
     expect(within(older).getByText("19/09")).toHaveAttribute("dateTime", "2026-09-19T08:00:00Z");
     // The same words the run cards in the history use for the same page.
