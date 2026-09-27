@@ -1,9 +1,14 @@
 import { useId, useState } from "react";
 import { vi } from "../i18n/vi";
 
-/** The arguments a person reads as text, line by line: a shell command, a file body, a diff.
- *  Quoted inside JSON they would lose their line breaks to "\n" and become unreadable. */
-const TEXT_KEYS = ["command", "content", "patch"];
+/** The arguments a person reads as text, line by line: a shell command, a file body, the
+ *  text an edit replaces and what replaces it. Quoted inside JSON they would lose their line
+ *  breaks to "\n" and their quotes to backslashes, which is no way to judge a change. */
+const TEXT_KEYS = ["command", "content", "old", "new"];
+
+/** Any other string that spans lines is read the same way, whatever the tool calls it. */
+const isText = (key: string, value: unknown): value is string =>
+  typeof value === "string" && (TEXT_KEYS.includes(key) || value.includes("\n"));
 
 /** Past this length the one-line summary cuts a value, so the full view has more to say. */
 export const SUMMARY_CUT = 60;
@@ -28,7 +33,7 @@ function parts(args: Args): { text: [string, string][]; rest: Record<string, unk
   const text: [string, string][] = [];
   const rest: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(args)) {
-    if (TEXT_KEYS.includes(key) && typeof value === "string") text.push([key, value]);
+    if (isText(key, value)) text.push([key, value]);
     else rest[key] = value;
   }
   return { text, rest: Object.keys(rest).length > 0 ? rest : null };

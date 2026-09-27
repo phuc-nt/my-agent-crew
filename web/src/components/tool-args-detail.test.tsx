@@ -35,6 +35,32 @@ describe("ToolArgsDetail", () => {
     expect(pres[1].textContent).toBe(JSON.stringify({ path: "notes.md" }, null, 2));
   });
 
+  // An edit is decided on the text it replaces and what replaces it, both as written.
+  it("shows an edit's old and new text as written, with the rest as JSON", async () => {
+    const args = { path: "notes.md", old: 'dòng một\ndòng "hai"', new: "dòng một", replace_all: false };
+    render(<ToolArgsDetail args={args} />);
+    await userEvent.click(screen.getByRole("button", { name: vi.argumentsMore }));
+    const detail = screen.getByTestId("args-detail");
+    const fields = [...detail.querySelectorAll(".args-detail-field")].map((field) => [
+      field.querySelector(".args-detail-key")?.textContent,
+      field.querySelector("pre")?.textContent,
+    ]);
+    expect(fields).toEqual([
+      ["old", 'dòng một\ndòng "hai"'],
+      ["new", "dòng một"],
+    ]);
+    const pres = detail.querySelectorAll("pre");
+    expect(pres[pres.length - 1].textContent).toBe(JSON.stringify({ path: "notes.md", replace_all: false }, null, 2));
+  });
+
+  it("reads any argument that spans lines as text, whatever its name", async () => {
+    render(<ToolArgsDetail args={{ note: "một\nhai", n: 2 }} />);
+    await userEvent.click(screen.getByRole("button", { name: vi.argumentsMore }));
+    const pres = screen.getByTestId("args-detail").querySelectorAll("pre");
+    expect(pres[0].textContent).toBe("một\nhai");
+    expect(pres[1].textContent).toBe(JSON.stringify({ n: 2 }, null, 2));
+  });
+
   it("falls back to pretty JSON for nested arguments", async () => {
     const args = { query: { where: { tag: "sleep" }, limit: 5 }, fields: ["a", "b"] };
     render(<ToolArgsDetail args={args} />);
