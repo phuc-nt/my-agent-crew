@@ -221,6 +221,9 @@ describe("App", () => {
 
     await waitFor(() => expect(screen.getByTestId("notice")).toHaveTextContent(vi.attentionHandled));
     expect(screen.getByTestId("notice")).not.toHaveTextContent(vi.busyConflict);
+    // Nothing went wrong here: the request was simply answered first somewhere else.
+    expect(screen.getByTestId("notice").textContent).toBe(vi.attentionHandled);
+    expect(screen.getByTestId("notice")).not.toHaveClass("error");
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     expect(screen.getByText("Xong từ Telegram.")).toBeInTheDocument();
     expect(screen.getByRole("textbox")).toBeEnabled();

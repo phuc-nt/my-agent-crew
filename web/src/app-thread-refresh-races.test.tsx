@@ -1,10 +1,10 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
-import type { RunInfo } from "./api/types";
+import type { AgentEvent, RunInfo } from "./api/types";
 import { App } from "./app";
 import { vi } from "./i18n/vi";
-import { FakeBackend, FakeEventSource, fakeRun, storedMessage } from "./test/fake-backend";
+import { FakeBackend, FakeEventSource, fakeApproval, fakeRun, storedMessage } from "./test/fake-backend";
 
 let backend: FakeBackend;
 
@@ -24,9 +24,9 @@ function stream(): FakeEventSource {
   return source;
 }
 
-function run(conversationId: string, status: RunInfo["status"], source = "telegram"): RunInfo {
+function run(conversationId: string, status: RunInfo["status"], source = "telegram", id = "r1"): RunInfo {
   const live = status === "running" || status === "awaiting_approval";
-  return fakeRun({ id: "r1", conversation_id: conversationId, source, status, finished_at: live ? null : "2026-09-19T08:00:05Z" });
+  return fakeRun({ id, conversation_id: conversationId, source, status, finished_at: live ? null : "2026-09-19T08:00:05Z" });
 }
 
 /** A door the test opens by hand: the fetch behind it answers only then. */
@@ -127,5 +127,134 @@ describe("reloads of the open thread racing this tab's turns and other runs", ()
     act(() => stream().emit({ type: "run", run: run(c.id, "running", "chat") }));
     await act(async () => {});
     expect(threadLoads(c.id)).toBe(before + 1);
+  });
+});
+
+/** Holds every chat stream this tab opens until the test lets it through. */
+function holdTurns(): () => Promise<void> {
+  const turn = door();
+  vitest.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+    const response = await backend.fetch(input, init);
+    if (/\/(messages|approvals\/.*)$/.test(String(input))) await turn.shut;
+    return response;
+  });
+  return async () => act(async () => turn.open());
+}
+
+const webTurn: AgentEvent[] = [
+  { type: "assistant_message", message_id: "a1", content: "Đã nhận", tool_calls: [], provider: "fake", model: "echo", cost_usd: 0 },
+  { type: "done", spent_usd: 0, unknown_cost_calls: 0 },
+];
+
+describe("runs of other channels overlapping this tab's turns", () => {
+  it("reloads for a run another channel had going when this tab sent, once it ends after the turn", async () => {
+    const c = backend.create({ title: "Sau lượt", messages: [storedMessage("user", "chào")] });
+    const release = holdTurns();
+    backend.nextTurn = [...webTurn];
+    await openConversation("Sau lượt", [run(c.id, "running", "telegram", "tg")]);
+
+    await userEvent.type(screen.getByRole("textbox", { name: vi.composerPlaceholder }), "tin web{Enter}");
+    // The server announces this tab's own run while it streams, as the hub does.
+    act(() => stream().emit({ type: "run", run: run(c.id, "running", "chat", "web") }));
+    c.messages.push(storedMessage("assistant", "Đã nhận"));
+    await release();
+    await screen.findByText("Đã nhận");
+    act(() => stream().emit({ type: "run", run: run(c.id, "done", "chat", "web") }));
+    await act(async () => {});
+    // The turn is over and the Telegram run is not: the thread says something is going.
+    expect(screen.queryByRole("button", { name: vi.stop })).not.toBeInTheDocument();
+    expect(screen.getByTestId("thinking")).toBeInTheDocument();
+
+    c.messages.push(storedMessage("assistant", "Trả lời qua Telegram"));
+    const before = threadLoads(c.id);
+    act(() => stream().emit({ type: "run", run: run(c.id, "done", "telegram", "tg") }));
+    expect(await screen.findByText("Trả lời qua Telegram")).toBeInTheDocument();
+    expect(threadLoads(c.id)).toBe(before + 1);
+  });
+
+  it("still counts a run as going already after the stream came back, when this tab sends", async () => {
+    const c = backend.create({ title: "Nối lại", messages: [storedMessage("user", "chào")] });
+    const release = holdTurns();
+    backend.nextTurn = [...webTurn];
+    const telegram = run(c.id, "running", "telegram", "tg");
+    await openConversation("Nối lại", [telegram]);
+    // The browser's own retry: the snapshot says the Telegram run is still going.
+    act(() => stream().onerror?.());
+    act(() => {
+      stream().open();
+      stream().emit({ type: "snapshot", runs: [telegram] });
+    });
+    await act(async () => {});
+
+    await userEvent.type(screen.getByRole("textbox", { name: vi.composerPlaceholder }), "tin web{Enter}");
+    act(() => stream().emit({ type: "run", run: run(c.id, "running", "chat", "web") }));
+    c.messages.push(storedMessage("assistant", "Đã nhận"));
+    await release();
+    await screen.findByText("Đã nhận");
+    act(() => stream().emit({ type: "run", run: run(c.id, "done", "chat", "web") }));
+    await act(async () => {});
+
+    c.messages.push(storedMessage("assistant", "Trả lời qua Telegram"));
+    const before = threadLoads(c.id);
+    act(() => stream().emit({ type: "run", run: run(c.id, "done", "telegram", "tg") }));
+    expect(await screen.findByText("Trả lời qua Telegram")).toBeInTheDocument();
+    expect(threadLoads(c.id)).toBe(before + 1);
+  });
+
+  it("loads the reply of a run another channel ended during this tab's turn once the turn is over", async () => {
+    const c = backend.create({ title: "Giữa lượt", messages: [storedMessage("user", "chào")] });
+    const release = holdTurns();
+    backend.nextTurn = [...webTurn];
+    await openConversation("Giữa lượt", [run(c.id, "running", "telegram", "tg")]);
+
+    await userEvent.type(screen.getByRole("textbox", { name: vi.composerPlaceholder }), "tin web{Enter}");
+    act(() => stream().emit({ type: "run", run: run(c.id, "running", "chat", "web") }));
+    c.messages.push(storedMessage("assistant", "Trả lời qua Telegram"));
+    const during = threadLoads(c.id);
+    act(() => stream().emit({ type: "run", run: run(c.id, "done", "telegram", "tg") }));
+    await act(async () => {});
+    // A load now would wipe the turn this tab is streaming: it waits for the turn.
+    expect(threadLoads(c.id)).toBe(during);
+    expect(screen.getByRole("button", { name: vi.stop })).toBeInTheDocument();
+
+    c.messages.push(storedMessage("assistant", "Đã nhận"));
+    await release();
+    expect(await screen.findByText("Trả lời qua Telegram")).toBeInTheDocument();
+    expect(screen.getByText("Đã nhận")).toBeInTheDocument();
+    expect(threadLoads(c.id)).toBe(during + 1);
+  });
+
+  it("follows the run a decision taken elsewhere resumed, and says the request was handled", async () => {
+    const call = { id: "tc", name: "write_file", arguments: { path: "b" } };
+    const c = backend.create({
+      title: "Duyệt nơi khác",
+      status: "awaiting_approval",
+      pending_approval: fakeApproval({ status: "pending", resolved_at: null, arguments: { path: "b" } }),
+      messages: [storedMessage("user", "ghi b"), storedMessage("assistant", "", { tool_calls: [call] })],
+    });
+    const release = holdTurns();
+    await openConversation("Duyệt nơi khác", [run(c.id, "awaiting_approval")]);
+    const bar = await screen.findByRole("alertdialog");
+
+    // Telegram approves first: the request closes and its run resumes under the same id.
+    Object.assign(c, { status: "idle", pending_approval: null });
+    await userEvent.click(within(bar).getByRole("button", { name: vi.approve }));
+    act(() => stream().emit({ type: "run", run: run(c.id, "running") }));
+    await release();
+
+    const notice = await screen.findByTestId("notice");
+    expect(notice.textContent).toBe(vi.attentionHandled);
+    expect(notice).not.toHaveClass("error");
+    const card = screen.getByTestId("tool-card");
+    expect(card).toHaveTextContent(vi.toolRunning);
+    expect(screen.getByTestId("thinking")).toBeInTheDocument();
+
+    c.messages.push(
+      storedMessage("tool", "đã ghi", { tool_call_id: "tc", name: "write_file" }),
+      storedMessage("assistant", "Đã ghi tệp b qua Telegram."),
+    );
+    act(() => stream().emit({ type: "run", run: run(c.id, "done") }));
+    expect(await screen.findByText("Đã ghi tệp b qua Telegram.")).toBeInTheDocument();
+    expect(screen.getByTestId("tool-card")).toHaveTextContent(vi.toolDone);
   });
 });

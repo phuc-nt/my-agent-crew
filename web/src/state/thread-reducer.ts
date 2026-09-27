@@ -66,7 +66,7 @@ export interface ThreadState {
   pending: PendingApproval | null;
   spentUsd: number;
   unknownCostCalls: number;
-  notice: { kind: "error" | "halted" | "fallback" | "stopped"; text: string } | null;
+  notice: { kind: "error" | "halted" | "fallback" | "stopped" | "handled"; text: string } | null;
 }
 
 export type ThreadAction =
@@ -79,6 +79,9 @@ export type ThreadAction =
   /** No run is going for this conversation, here or elsewhere, so nothing is running. */
   | { type: "settled" }
   | { type: "failed"; message: string }
+  /** A decision met a request already closed elsewhere. Nothing failed, and the run that
+   *  other channel resumed may still be carrying out its calls: a note, not a settle. */
+  | { type: "handled" }
   | { type: "event"; event: AgentEvent };
 
 export const emptyThread: ThreadState = {
@@ -206,6 +209,9 @@ export function threadReducer(state: ThreadState, action: ThreadAction): ThreadS
         items: settle(state),
         notice: { kind: "error", text: action.message },
       };
+    case "handled":
+      // A turn begun since has the thread: a note about the earlier decision would be stale.
+      return state.busy ? state : { ...state, notice: { kind: "handled", text: "" } };
     case "event": {
       // Whatever the model does next — words, a tool call, an end — ends its thinking. A
       // model_call marker is not something the model does; it only times the call.

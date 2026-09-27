@@ -47,7 +47,7 @@ const DOCKED_ACTIVITY_QUERY = "(min-width: 1101px)";
 // Matches the breakpoint in shell.css.
 const PHONE_QUERY = "(max-width: 720px)";
 
-const NOTICE_ICON: Record<string, IconName> = { fallback: "refresh", halted: "pause", stopped: "stop" };
+const NOTICE_ICON: Record<string, IconName> = { fallback: "refresh", halted: "pause", stopped: "stop", handled: "info" };
 
 export function ChatScreen({
   list,
@@ -174,7 +174,9 @@ export function ChatScreen({
           ? vi.routeFallback(state.notice.text)
           : state.notice.kind === "stopped"
             ? vi.stopped
-            : vi.errorPrefix + state.notice.text}
+            : state.notice.kind === "handled"
+              ? vi.attentionHandled
+              : vi.errorPrefix + state.notice.text}
       {state.notice.kind === "halted" && state.notice.text === "budget" && active && !overBudget && capReached && (
         <RaiseCapButton capUsd={active.cost_cap_usd} onSave={raiseFromNotice} />
       )}

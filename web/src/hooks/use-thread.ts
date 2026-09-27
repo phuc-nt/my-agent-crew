@@ -15,8 +15,12 @@ export interface ThreadController {
   /** Cuts whichever stream is running — a message, a decision or an answer. */
   stop: () => void;
   reload: () => Promise<void>;
+  /** Loads again now, or once this tab's turn is over: a load mid-turn would drop it. */
+  reloadWhenIdle: () => void;
   /** Marks calls no run will answer any more as stopped; a no-op while a turn runs. */
   settle: () => void;
+  /** Counts decisions refused as already taken elsewhere: each resumed nothing here. */
+  handledElsewhere: number;
 }
 
 /** Owns one conversation: loads its history, streams turns, resolves approvals. */
@@ -26,6 +30,7 @@ export function useThread(conversationId: string | null): ThreadController {
   const abortRef = useRef<AbortController | null>(null);
   const turns = useRef(0);
   const [owed, setOwed] = useState(false);
+  const [handledElsewhere, setHandledElsewhere] = useState(0);
 
   const reload = useCallback(async () => {
     if (!conversationId) {
@@ -58,6 +63,7 @@ export function useThread(conversationId: string | null): ThreadController {
     setOwed(false);
     void reload();
   }, [owed, state.busy, reload]);
+  const reloadWhenIdle = useCallback(() => setOwed(true), []);
 
   const onEvent = useCallback((event: AgentEvent) => dispatch({ type: "event", event }), []);
 
@@ -87,21 +93,24 @@ export function useThread(conversationId: string | null): ThreadController {
   /** Carries out a decision. A 409 means someone got there first — another tab, Telegram
    *  or the expiry sweep — which is not the conversation being busy: saying so would send
    *  the person to wait for something already over. The thread is read again to show how
-   *  it ended, and then says the request was handled. */
+   *  far it has got, which also covers any load owed, and then says the request was
+   *  handled; a run resumed elsewhere may still be going, so nothing is settled. */
   const decisionTurn = useCallback(
     async (run: (onEvent: (e: AgentEvent) => void, signal: AbortSignal) => Promise<void>) => {
-      let handledElsewhere = false;
+      let handled = false;
       await runTurn(async (emit, signal) => {
         try {
           await run(emit, signal);
         } catch (error) {
           if (!(error instanceof ApiError && error.status === 409)) throw error;
-          handledElsewhere = true;
+          handled = true;
+          setOwed(false);
+          setHandledElsewhere((n) => n + 1);
         }
       });
-      if (!handledElsewhere) return;
+      if (!handled) return;
       await reload();
-      dispatch({ type: "failed", message: vi.attentionHandled });
+      dispatch({ type: "handled" });
     },
     [runTurn, reload],
   );
@@ -148,7 +157,7 @@ export function useThread(conversationId: string | null): ThreadController {
 
   const settle = useCallback(() => dispatch({ type: "settled" }), []);
 
-  return { state, detail, send, decide, answer, stop, reload, settle };
+  return { state, detail, send, decide, answer, stop, reload, reloadWhenIdle, settle, handledElsewhere };
 }
 
 function describe(error: unknown): string {

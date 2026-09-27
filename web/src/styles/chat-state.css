@@ -81,9 +81,10 @@
   white-space: nowrap;
 }
 
-/* ── Stopped turn ───────────────────────────────────────────────────────── */
-/* Neutral: the person asked for it, so nothing went wrong. */
-.notice.stopped {
+/* ── Stopped turn, request handled elsewhere ────────────────────────────── */
+/* Neutral: the person asked for it, or someone answered first, so nothing went wrong. */
+.notice.stopped,
+.notice.handled {
   background: var(--surface-sunken);
   color: var(--text-secondary);
 }

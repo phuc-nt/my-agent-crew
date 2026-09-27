@@ -283,6 +283,16 @@ describe("threadReducer turn end", () => {
     expect(failed.notice).toEqual({ kind: "error", text: "net" });
   });
 
+  it("a request answered elsewhere is a note that leaves the other run's calls going", () => {
+    const reloaded = { ...run([twoCalls]), busy: false };
+    const handled = threadReducer(reloaded, { type: "handled" });
+    expect(statuses(handled)).toEqual(["running", "running"]);
+    expect(handled.notice).toEqual({ kind: "handled", text: "" });
+    // A turn begun since has the thread: a note about the earlier decision would be stale.
+    const next = run([twoCalls]);
+    expect(threadReducer(next, { type: "handled" })).toBe(next);
+  });
+
   it("a turn paused on a person keeps the calls queued behind the one waiting", () => {
     const ended = threadReducer(run([twoCalls, approval]), { type: "turn_finished" });
     expect(statuses(ended)).toEqual(["awaiting", "running"]);
