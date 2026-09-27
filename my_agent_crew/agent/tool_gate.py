@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 from my_agent_crew.llm.types import ToolCall
 from my_agent_crew.store.models import Conversation
+from my_agent_crew.texts import SHELL_ASK_REASON
 from my_agent_crew.tools.ask_user import ASK_USER_TOOL_NAME
 from my_agent_crew.tools.shell import SHELL_TOOL_NAME, ask_reason, deny_reason
 from my_agent_crew.tools.shell_temp_paths import deletes_only_temp_paths
@@ -34,6 +35,14 @@ def ask_reason_for(deps: AgentDeps, name: str, arguments: dict[str, Any]) -> str
     if reason and deletes_only_temp_paths(command):
         return None
     return reason
+
+
+def ask_reason_text(deps: AgentDeps, name: str, arguments: dict[str, Any]) -> str:
+    """The line a person reads beside the request saying which ask pattern stopped it, or
+    "" when the ask list played no part. It follows from the call and the agent's list, so
+    a request read back later is given it again rather than it being stored."""
+    pattern = ask_reason_for(deps, name, arguments)
+    return SHELL_ASK_REASON.format(pattern=pattern) if pattern else ""
 
 
 def needs_decision(

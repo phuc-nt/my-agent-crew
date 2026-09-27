@@ -23,12 +23,12 @@ from my_agent_crew.agent.events import (
     ToolResultEvent,
 )
 from my_agent_crew.agent.tool_batches import split_batches
-from my_agent_crew.agent.tool_gate import ask_reason_for, pauses_for_a_person
+from my_agent_crew.agent.tool_gate import ask_reason_text, pauses_for_a_person
 from my_agent_crew.agent.turn_context import set_tool_call_id
 from my_agent_crew.llm.types import Message, ToolCall
 from my_agent_crew.store.approvals import ANSWERED, DENIED, EXPIRED, PENDING
 from my_agent_crew.store.models import AWAITING_APPROVAL, QUESTION, TOOL
-from my_agent_crew.texts import DENIED_TOOL, EXPIRED_TOOL, SHELL_ASK_REASON
+from my_agent_crew.texts import DENIED_TOOL, EXPIRED_TOOL
 from my_agent_crew.tools.ask_user import (
     ASK_USER_TOOL_NAME,
     answer_result,
@@ -102,13 +102,12 @@ async def settle_tool_calls(deps: AgentDeps, conv_id: str) -> AsyncIterator[Even
                 )
                 deps.store.update(conv_id, status=AWAITING_APPROVAL)
             if approval.status == PENDING:
-                reason = ask_reason_for(deps, call.name, call.arguments)
                 yield ApprovalRequiredEvent(
                     approval_id=approval.id,
                     tool_call_id=call.id,
                     name=call.name,
                     arguments=call.arguments,
-                    reason=SHELL_ASK_REASON.format(pattern=reason) if reason else "",
+                    reason=ask_reason_text(deps, call.name, call.arguments),
                     expires_at=approval.expires_at or "",
                     kind=approval.kind,
                     options=list(approval.options),

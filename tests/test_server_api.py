@@ -9,7 +9,7 @@ from my_agent_crew.config import Route
 from my_agent_crew.llm.fake import completion
 from my_agent_crew.llm.types import ToolCall
 from my_agent_crew.server import create_app
-from my_agent_crew.texts import CONVERSATION_TITLE_DEFAULT
+from my_agent_crew.texts import CONVERSATION_TITLE_DEFAULT, SHELL_ASK_REASON
 
 
 @pytest.fixture
@@ -116,6 +116,31 @@ def test_approval_flow_over_http(client):
         f"/api/conversations/{conv['id']}/approvals/{approval_id}", json={"approve": True}
     )
     assert again.status_code == 409
+
+
+def pause_on(client, text: str, autonomous: bool) -> tuple[dict, dict]:
+    """The event a turn paused with, and the open request as the conversation reads back."""
+    conv = client.post("/api/conversations", json={"autonomous": autonomous}).json()
+    base = f"/api/conversations/{conv['id']}"
+    with client.stream("POST", f"{base}/messages", json={"text": text}) as r:
+        live = parse_sse("".join(r.iter_text()))[-1]
+    assert live["type"] == "approval_required"
+    return live, client.get(base).json()["pending_approval"]
+
+
+def test_a_request_the_ask_list_stopped_still_says_why_when_read_back(client):
+    # Read after the pause — from the attention list, or a chat opened later — the request
+    # has to say which pattern stopped an autonomous run, as the live event did.
+    live, stored = pause_on(client, '/tool shell_run {"command": "rm -rf build"}', True)
+    reason = SHELL_ASK_REASON.format(pattern="rm -rf")
+    assert live["reason"] == reason
+    assert stored["id"] == live["approval_id"] and stored["reason"] == reason
+
+
+def test_a_request_no_ask_pattern_stopped_reads_back_without_a_reason(client):
+    write = '/tool workspace_write {"path": "x.txt", "content": "1"}'
+    live, stored = pause_on(client, write, False)
+    assert live["reason"] == "" and stored["reason"] == ""
 
 
 def test_always_allow_skips_the_next_pause_and_lands_in_history(client):

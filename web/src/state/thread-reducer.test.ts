@@ -163,6 +163,30 @@ describe("threadReducer loaded", () => {
     expect(state.pending?.kind).toBe("question");
     expect(questionText(state.pending!)).toBe("Đặt tên gì?");
   });
+
+  it("keeps which ask pattern stopped a command on a reloaded conversation", () => {
+    // Opened after an unattended run paused, the chat never saw the live event: the stored
+    // request is all there is to say why an autonomous conversation stopped.
+    const state = threadReducer(emptyThread, {
+      type: "loaded",
+      detail: detail({
+        pending_approval: {
+          id: "ap4",
+          conversation_id: "c1",
+          message_id: "m",
+          tool_call_id: "tc4",
+          tool_name: "shell_run",
+          arguments: { command: "rm -rf build" },
+          status: "pending",
+          created_at: "",
+          expires_at: null,
+          resolved_at: null,
+          reason: "khớp mẫu cần duyệt: `rm -rf`",
+        },
+      }),
+    });
+    expect(state.pending?.reason).toBe("khớp mẫu cần duyệt: `rm -rf`");
+  });
 });
 
 describe("threadReducer streaming turn", () => {

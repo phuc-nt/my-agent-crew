@@ -59,6 +59,18 @@ function inline(runs: RunInfo[], onReload = vitest.fn()) {
 }
 
 describe("AttentionCenter with requests settled in place", () => {
+  // Unattended runs are the ones decided here rather than in a chat that streamed the pause,
+  // so the row has only the stored request to say why an autonomous run stopped.
+  it("says which ask pattern stopped a command", async () => {
+    const reason = "khớp mẫu cần duyệt: `rm -rf`";
+    const { run } = waiting({ tool_name: "shell_run", arguments: { command: "rm -rf build" }, reason });
+    inline([run]);
+
+    const bar = await request();
+    expect(bar).toHaveTextContent("command=rm -rf build");
+    expect(bar).toHaveTextContent(reason);
+  });
+
   it("decides a waiting tool call where it is listed and lets the row go once the turn ends", async () => {
     const { conversation, run } = waiting();
     let endTurn = () => {};

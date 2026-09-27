@@ -26,7 +26,8 @@ export interface PendingApproval {
   toolCallId: string;
   name: string;
   arguments: Record<string, unknown>;
-  /** Why an autonomous conversation stopped for this call; only on the live event. */
+  /** Which ask pattern stopped the call, for a command that pauses even when the
+   *  conversation is autonomous. */
   reason?: string;
   /** When the request closes as refused if nobody answers. */
   expiresAt?: string;
@@ -48,6 +49,7 @@ export function pendingFromApproval(a: Approval): PendingApproval {
     options: a.options ?? [],
   };
   if (a.expires_at) pending.expiresAt = a.expires_at;
+  if (a.reason) pending.reason = a.reason;
   return pending;
 }
 

@@ -581,8 +581,8 @@ export class FakeBackend {
     // does: the decide that follows must find it there, and a stale one must not.
     for (const e of events) {
       if (e.type !== "approval_required") continue;
-      const { approval_id: id, tool_call_id, name: tool_name, arguments: args, expires_at, kind, options } = e;
-      c.pending_approval = { id, conversation_id: c.id, message_id: "", tool_call_id, tool_name, arguments: args, status: "pending", created_at: "", expires_at, resolved_at: null, kind, options };
+      const { approval_id: id, tool_call_id, name: tool_name, arguments: args, expires_at, kind, options, reason } = e;
+      c.pending_approval = { id, conversation_id: c.id, message_id: "", tool_call_id, tool_name, arguments: args, status: "pending", created_at: "", expires_at, resolved_at: null, kind, options, reason };
     }
     const encoder = new TextEncoder();
     const stream = new ReadableStream<Uint8Array>({

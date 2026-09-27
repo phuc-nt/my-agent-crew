@@ -70,6 +70,9 @@ export interface Approval {
   options?: string[];
   /** What the person replied, once a question is answered. */
   answer?: string | null;
+  /** Which ask pattern stopped the call, or empty. Only on a conversation's open request:
+   *  the server works it out again on each read rather than storing it. */
+  reason?: string;
 }
 
 /** One row of GET /api/approvals: the request plus the agent it belonged to. */

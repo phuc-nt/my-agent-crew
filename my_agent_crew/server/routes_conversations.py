@@ -5,6 +5,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from my_agent_crew.agent.tool_gate import ask_reason_text
 from my_agent_crew.agents import DEFAULT_AGENT_ID
 from my_agent_crew.memory.session_summary import summarize_conversation
 from my_agent_crew.server.deps import ConvDeps, Rt
@@ -69,7 +70,12 @@ def get_conversation(conv_id: str, deps: ConvDeps) -> dict[str, Any]:
     data = conv.to_dict()
     data["messages"] = [m.to_dict() for m in deps.store.history(conv_id)]
     pending = deps.store.approvals.pending(conv_id)
-    data["pending_approval"] = pending.to_dict() if pending else None
+    data["pending_approval"] = None
+    if pending:
+        # Why an ask pattern stopped the call is not stored: it is worked out again from the
+        # call, as it was for the live event, so a request read later still says it.
+        reason = ask_reason_text(deps, pending.tool_name, pending.arguments)
+        data["pending_approval"] = {**pending.to_dict(), "reason": reason}
     return data
 
 
