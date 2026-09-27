@@ -47,6 +47,7 @@ describe("a schedule's timing in words", () => {
     "*/45 * * * *",
     "0 */5 * * *",
     "0 */7 * * *",
+    "0 */10 * * *",
     "0 7 * *",
     "@daily",
     "",
