@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api } from "../../api/client";
 import { vi } from "../../i18n/vi";
+import { CopyButton } from "../copy-button";
 
 interface Props {
   agentId: string;
@@ -18,14 +19,10 @@ export function PromptSection({ agentId }: Props) {
   const [chars, setChars] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [copied, setCopied] = useState(false);
 
   const open = async () => {
     setLoading(true);
     setError("");
-    // A fresh read is fresh text, so a "copied" from the previous one no longer describes
-    // what is on screen.
-    setCopied(false);
     try {
       const got = await api.agentPrompt(agentId);
       setPrompt(got.prompt);
@@ -34,17 +31,6 @@ export function PromptSection({ agentId }: Props) {
       setError(vi.editor.promptFailed);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const copy = async () => {
-    if (prompt === null) return;
-    try {
-      await navigator.clipboard.writeText(prompt);
-      setCopied(true);
-    } catch {
-      // A browser that refuses the clipboard still shows the text to select by hand.
-      setError(vi.editor.promptFailed);
     }
   };
 
@@ -57,7 +43,8 @@ export function PromptSection({ agentId }: Props) {
           {error}
         </div>
       )}
-      <div className="row">
+      {/* Wraps, so the box a failed copy opens takes a line of its own under the buttons. */}
+      <div className="row wrap">
         <button
           type="button"
           className="ghost"
@@ -72,9 +59,8 @@ export function PromptSection({ agentId }: Props) {
         {prompt !== null && (
           <>
             <span className="muted">{vi.editor.promptChars(chars)}</span>
-            <button type="button" className="ghost" onClick={() => void copy()}>
-              {copied ? vi.editor.promptCopied : vi.editor.promptCopy}
-            </button>
+            {/* Mounted with each read, so a new read never starts out saying it was copied. */}
+            <CopyButton text={prompt} label={vi.copy.prompt} />
           </>
         )}
       </div>

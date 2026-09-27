@@ -1,9 +1,17 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi as vitest } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
 import { vi } from "../../i18n/vi";
 import { FakeBackend } from "../../test/fake-backend";
 import { PromptSection } from "./prompt-section";
+
+/** jsdom has no clipboard; a test that copies installs the one it needs. */
+function installClipboard(writeText: ((text: string) => Promise<void>) | undefined) {
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: writeText ? { writeText } : undefined,
+  });
+}
 
 describe("PromptSection", () => {
   let backend: FakeBackend;
@@ -11,6 +19,10 @@ describe("PromptSection", () => {
   beforeEach(() => {
     backend = new FakeBackend();
     vitest.stubGlobal("fetch", backend.fetch);
+  });
+
+  afterEach(() => {
+    Reflect.deleteProperty(navigator, "clipboard");
   });
 
   it("asks for nothing until the person opens it", () => {
@@ -68,5 +80,39 @@ describe("PromptSection", () => {
 
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(vi.editor.promptFailed));
     expect(screen.queryByTestId("prompt-preview")).not.toBeInTheDocument();
+  });
+
+  it("copies the prompt as shown, and a new read starts out uncopied", async () => {
+    const writeText = vitest.fn(() => Promise.resolve());
+    installClipboard(writeText);
+    render(<PromptSection agentId="default" />);
+    await userEvent.click(screen.getByRole("button", { name: vi.editor.promptShow }));
+    const preview = await screen.findByTestId("prompt-preview");
+
+    await userEvent.click(screen.getByRole("button", { name: vi.copy.prompt }));
+
+    expect(writeText).toHaveBeenCalledWith(preview.textContent);
+    expect(await screen.findByRole("button", { name: vi.copy.copied })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: vi.editor.promptHide }));
+    await userEvent.click(screen.getByRole("button", { name: vi.editor.promptShow }));
+    await screen.findByTestId("prompt-preview");
+    expect(screen.getByRole("button", { name: vi.copy.prompt })).toBeInTheDocument();
+  });
+
+  // A page reached by its LAN address over plain http has no clipboard at all. The prompt
+  // is still one gesture from copied: selected in a box that already has the focus.
+  it("hands the prompt over to copy by hand where the browser has no clipboard", async () => {
+    installClipboard(undefined);
+    render(<PromptSection agentId="default" />);
+    await userEvent.click(screen.getByRole("button", { name: vi.editor.promptShow }));
+    const preview = await screen.findByTestId("prompt-preview");
+
+    await userEvent.click(screen.getByRole("button", { name: vi.copy.prompt }));
+
+    const box = await screen.findByRole("textbox", { name: vi.copy.manual });
+    expect(box).toHaveValue(preview.textContent);
+    expect(box).toHaveFocus();
+    expect(screen.queryByText(vi.editor.promptFailed)).not.toBeInTheDocument();
   });
 });
