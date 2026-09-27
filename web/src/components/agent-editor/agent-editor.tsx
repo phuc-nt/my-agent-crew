@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from "react";
 import type { AgentInfo, RegistryTool } from "../../api/types";
 import { problemsShown } from "../../hooks/agent-draft-checks";
 import { useAgentDraft } from "../../hooks/use-agent-draft";
@@ -39,10 +40,25 @@ export function AgentEditor({ agent, agents, tools, providers, onBack, onChanged
   // then names the box instead of doing nothing silently.
   const blocked = problemsShown(form.problems);
   const others = agents.filter((a) => a.id !== agent.id);
+  const root = useRef<HTMLDivElement>(null);
+  const bar = useRef<HTMLDivElement>(null);
+
+  // The bar is sticky, so a section scrolled to the top of the page lands under it: from
+  // the jobs list the schedules' hint and first row were covered. Its height, one line on
+  // a wide screen and two on a phone, goes to the stylesheet for the headings' scroll
+  // margin, measured before any section's own effect scrolls it into view.
+  useLayoutEffect(() => {
+    const measure = () => root.current?.style.setProperty("--editor-bar-height", `${bar.current?.offsetHeight ?? 0}px`);
+    measure();
+    if (!bar.current || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(bar.current);
+    return () => observer.disconnect();
+  }, []);
 
   return (
-    <div className="agent-editor" data-testid="agent-editor">
-      <div className="editor-bar">
+    <div className="agent-editor" data-testid="agent-editor" ref={root}>
+      <div className="editor-bar" ref={bar}>
         <button type="button" className="ghost" onClick={onBack}>
           {vi.editor.back}
         </button>

@@ -4,6 +4,12 @@
  */
 
 /* ── Editing a schedule ─────────────────────────────────────────────────── */
+/* Brought into view from the jobs list, the heading stops below the sticky bar rather
+   than under it: the bar sticks at the page's top padding and measures its own height. */
+.agent-editor .editor-section > h3 {
+  scroll-margin-top: calc(var(--manage-pad-top, 0px) + var(--editor-bar-height, 0px) + var(--space-2));
+}
+
 .schedule-row {
   display: flex;
   flex-direction: column;
