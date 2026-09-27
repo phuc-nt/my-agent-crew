@@ -90,6 +90,27 @@ describe("the costs page's usage figures", () => {
     expect(today).toHaveTextContent("1234 lượt gọi");
   });
 
+  // The day rows below flag calls with no known price; a tile that left them out would
+  // pass for the whole of the day's spend.
+  it("flags the tiles' calls whose price is unknown, as the day rows do", () => {
+    const days = [
+      day("2026-09-19", { unknown_cost_calls: 2 }),
+      day("2026-09-20", { calls: 4, unknown_cost_calls: 3 }),
+    ];
+    render(<StatsPanel stats={stats({ days })} agentName={name} />);
+
+    const [today, week] = Array.from(screen.getByTestId("stat-periods").children);
+    expect(today).toHaveTextContent("? 3");
+    expect(week).toHaveTextContent("? 5");
+    expect(screen.getByTestId("stat-days")).toHaveTextContent("? 3");
+  });
+
+  it("adds no unknown-price flag to a tile whose calls were all priced", () => {
+    render(<StatsPanel stats={stats({ days: [day("2026-09-20", { unknown_cost_calls: 0 })] })} agentName={name} />);
+
+    expect(screen.getByTestId("stat-periods")).not.toHaveTextContent("?");
+  });
+
   it("says what each figure is counted over", () => {
     render(<StatsPanel stats={stats({ models: [{ model: "openrouter:deepseek", ...day("x") }] })} agentName={name} />);
 

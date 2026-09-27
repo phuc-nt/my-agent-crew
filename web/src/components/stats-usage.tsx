@@ -35,9 +35,12 @@ export function CacheCell({ cached, prompt }: { cached: number | null | undefine
 }
 
 function periodDetail(usage: UsageTotals): string {
+  const parts = [vi.costCalls(usage.calls)];
   const share = cacheShare(usage.cached_tokens, usage.prompt_tokens);
-  const calls = vi.costCalls(usage.calls);
-  return share === null ? calls : `${calls} · ${vi.cacheShare(share)}`;
+  if (share !== null) parts.push(vi.cacheShare(share));
+  // Flagged as the day rows flag it: without it the tile passes for the whole spend.
+  if (usage.unknown_cost_calls > 0) parts.push(`? ${usage.unknown_cost_calls}`);
+  return parts.join(" · ");
 }
 
 /** Today and the week, on the viewer's calendar, from the message log's day buckets. */
