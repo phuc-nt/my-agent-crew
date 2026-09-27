@@ -24,26 +24,40 @@ export function useThread(conversationId: string | null): ThreadController {
   const [state, dispatch] = useReducer(threadReducer, emptyThread);
   const [detail, setDetail] = useState<ConversationDetail | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const turns = useRef(0);
+  const [owed, setOwed] = useState(false);
 
   const reload = useCallback(async () => {
     if (!conversationId) {
       setDetail(null);
       return;
     }
+    // A turn begun while the load was on its way has put the person's message and its
+    // stream on screen, which this older copy lacks: it loads again once the turn is over.
+    const turn = turns.current;
     try {
       const loaded = await api.getConversation(conversationId);
+      if (turn !== turns.current) return setOwed(true);
       setDetail(loaded);
       dispatch({ type: "loaded", detail: loaded });
     } catch (error) {
+      if (turn !== turns.current) return setOwed(true);
       dispatch({ type: "failed", message: describe(error) });
     }
   }, [conversationId]);
 
   useEffect(() => {
     abortRef.current?.abort();
+    setOwed(false);
     dispatch({ type: "loaded", detail: blankDetail(conversationId) });
     void reload();
   }, [conversationId, reload]);
+
+  useEffect(() => {
+    if (!owed || state.busy) return;
+    setOwed(false);
+    void reload();
+  }, [owed, state.busy, reload]);
 
   const onEvent = useCallback((event: AgentEvent) => dispatch({ type: "event", event }), []);
 
@@ -51,6 +65,7 @@ export function useThread(conversationId: string | null): ThreadController {
     async (run: (onEvent: (e: AgentEvent) => void, signal: AbortSignal) => Promise<void>) => {
       const controller = new AbortController();
       abortRef.current = controller;
+      turns.current += 1;
       dispatch({ type: "turn_started" });
       // An aborted turn has already been ended — by Stop, or by opening another
       // conversation — so nothing it still delivers may land in the thread on screen.

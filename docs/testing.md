@@ -20,7 +20,9 @@ lại những trường server suy ra (như `over_budget` từ trần), để te
 cũ. Route của Playwright trả cả thân một lần, nên một stream còn đang chạy khi bấm Dừng được
 dựng ngay trong trang bằng `addInitScript` (test Dừng trong `chat-smoke.spec.ts`); còn run do
 kênh khác chạy và nút Thử lại của luồng trực tiếp có test App riêng trong
-`app-thread-refresh.test.tsx`. Việc dò bản mới so entry có hash của trang với entry mà `/`
+`app-thread-refresh.test.tsx`; những lần tải lại chạy đua với lượt của chính tab này (một tin
+gửi khi lần tải còn trên đường) nằm ở `app-thread-refresh-races.test.tsx`, nơi mỗi fetch lấy
+câu trả lời lúc gửi nhưng chỉ trao ra khi test mở "cửa" của nó. Việc dò bản mới so entry có hash của trang với entry mà `/`
 đang phục vụ, nên nó im trên Vite dev server; `version-refresh.spec.ts` và test App của nó
 gắn một entry giả vào trang để trang trông như bản build. Bố cục những gì chat nói về trạng
 thái của nó ở bề rộng điện thoại (dòng trạng thái giữ một chiều cao khi nút Thử lại hiện ra)

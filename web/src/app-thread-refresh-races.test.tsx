@@ -50,6 +50,44 @@ async function openConversation(title: string, runs: RunInfo[] = []) {
 }
 
 describe("reloads of the open thread racing this tab's turns and other runs", () => {
+  it("keeps a message sent while a reload was on its way, and loads what it missed after the turn", async () => {
+    const c = backend.create({ title: "Gửi giữa chừng", messages: [storedMessage("user", "chào")] });
+    const load = door();
+    const turn = door();
+    let holdLoads = false;
+    // Each answer is taken when the request arrives and handed over when its door opens,
+    // as a slow phone connection would: the reload carries the thread as it was then.
+    vitest.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+      const response = await backend.fetch(input, init);
+      const path = String(input);
+      if (path.endsWith("/messages")) await turn.shut;
+      else if (holdLoads && !init?.method && path.endsWith(`/conversations/${c.id}`)) await load.shut;
+      return response;
+    });
+    backend.nextTurn = [
+      { type: "assistant_message", message_id: "a1", content: "Đã nhận", tool_calls: [], provider: "fake", model: "echo", cost_usd: 0 },
+      { type: "done", spent_usd: 0, unknown_cost_calls: 0 },
+    ];
+    await openConversation("Gửi giữa chừng");
+
+    act(() => stream().emit({ type: "run", run: run(c.id, "running") }));
+    c.messages.push(storedMessage("assistant", "Trả lời qua Telegram"));
+    holdLoads = true;
+    act(() => stream().emit({ type: "run", run: run(c.id, "done") }));
+    await userEvent.type(screen.getByRole("textbox", { name: vi.composerPlaceholder }), "tin mới{Enter}");
+    expect(screen.getByText("tin mới")).toBeInTheDocument();
+
+    await act(async () => load.open());
+    expect(screen.getByText("tin mới")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: vi.stop })).toBeInTheDocument();
+
+    c.messages.push(storedMessage("assistant", "Đã nhận"));
+    await act(async () => turn.open());
+    expect(await screen.findByText("Trả lời qua Telegram")).toBeInTheDocument();
+    expect(screen.getByText("tin mới")).toBeInTheDocument();
+    expect(screen.getByText("Đã nhận")).toBeInTheDocument();
+  });
+
   it("leaves a call spinning while the stream says a run is still going here", async () => {
     const c = backend.create({
       title: "Đang chạy",
