@@ -203,7 +203,7 @@ những khoá mà phiên bản server này không biết đều sống sót qua 
 trình duyệt. Manifest được ghi qua tệp tạm rồi chuyển vào chỗ, nên sập
 giữa lúc ghi không thể để lại một profile không còn parse được.
 
-**Kiểm tra hợp lệ là cùng đoạn code đọc tệp viết tay**, chạy
+**Kiểm tra hợp lệ bắt đầu bằng cùng đoạn code đọc tệp viết tay**, chạy
 *trước* khi ghi bất cứ gì. Profile mà server sẽ từ chối khởi động là 422 và
 không đổi gì — không đổi tệp, không đổi agent đang chạy. `delegates` được đối chiếu với
 đội như nó sẽ là sau lần sửa, nên bạn không thể trỏ tới một agent không có mặt.
@@ -213,6 +213,14 @@ hỏng trên một profile đã parse sạch, và một tệp ghi trước đi�
 thay đổi mà câu trả lời đã từ chối — rồi áp dụng nó ở lần khởi động lại kế tiếp. Ghi đến sau cùng để
 lời từ chối là toàn bộ câu chuyện. Lần ghi hỏng sau khi nối thành công để đội
 đi trước tệp trong chốc lát; tệp là thứ boot đọc, nên hướng đó tự sửa lấy.
+
+**Với lịch, đường sửa đòi hỏi nhiều hơn lúc boot.** Mỗi lịch mà lần sửa thêm vào hay thay
+đổi phải có `cron`/`every` mà đồng hồ đọc được và một mã riêng — không trùng lịch nào khác,
+kể cả `memory-consolidate` khi bật `memory_consolidate` — nếu không là 422. Boot không kiểm
+tra hai điều này: tệp viết tay có `cron` gõ sai vẫn khởi động bình thường, rồi danh sách job
+trả 500 và, chừng nào lịch đó còn bật, tick nào của đồng hồ cũng hỏng, kéo theo mọi job khác;
+hai lịch trùng mã thì lịch sau âm thầm thay lịch trước. Lịch mà lần sửa không đụng tới thì
+không bị kiểm tra lại, nên một tệp viết tay như thế không chặn việc đổi tên, tuyến hay tool.
 
 **Đường dẫn trong một lần sửa phải nằm dưới home của đội.** `workspace`, `skills_dirs` và
 `persona_files` được kiểm tra sau khi phân giải, nên `~`, đường dẫn tuyệt đối hoặc đủ `..` để
