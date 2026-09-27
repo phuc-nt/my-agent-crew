@@ -33,6 +33,7 @@ export function WikiPageView({ page, titles, onBack, onOpen, onSaveBody, onMarkO
   const [editing, setEditing] = useState(false);
   const [marking, setMarking] = useState(false);
   const [markFailed, setMarkFailed] = useState(false);
+  const [dirty, setDirty] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const title = useRef<HTMLHeadingElement>(null);
   const status = useRef<HTMLSpanElement>(null);
@@ -41,6 +42,16 @@ export function WikiPageView({ page, titles, onBack, onOpen, onSaveBody, onMarkO
     root.current?.scrollIntoView?.({ block: "start" });
     title.current?.focus({ preventScroll: true });
   }, []);
+
+  // Reading and going back both unmount the editor and its draft, so an unsaved one is
+  // asked about first: "Xem" reads as a preview, and it was silently a discard.
+  const mayLeaveEditor = () => !editing || !dirty || window.confirm(vi.wiki.discardEdit);
+  const back = () => {
+    if (mayLeaveEditor()) onBack();
+  };
+  const toggleEditing = () => {
+    if (mayLeaveEditor()) setEditing(!editing);
+  };
 
   const remove = () => {
     if (window.confirm(vi.wiki.confirmRemove(page.title))) void onRemove();
@@ -64,11 +75,11 @@ export function WikiPageView({ page, titles, onBack, onOpen, onSaveBody, onMarkO
   return (
     <div data-testid="wiki-page" ref={root}>
       <div className="wiki-page-head">
-        <button type="button" className="ghost" onClick={onBack}>
+        <button type="button" className="ghost" onClick={back}>
           ← {vi.wiki.back}
         </button>
         <span className="wiki-page-actions">
-          <button type="button" className="ghost" onClick={() => setEditing((on) => !on)}>
+          <button type="button" className="ghost" onClick={toggleEditing}>
             {editing ? vi.wiki.read : vi.memory.edit}
           </button>
           <button type="button" className="ghost" onClick={remove}>
@@ -100,7 +111,7 @@ export function WikiPageView({ page, titles, onBack, onOpen, onSaveBody, onMarkO
       )}
 
       {editing ? (
-        <MemoryEditor label={vi.wiki.body} value={page.body} rows={14} onSave={onSaveBody} />
+        <MemoryEditor label={vi.wiki.body} value={page.body} rows={14} onSave={onSaveBody} onDirtyChange={setDirty} />
       ) : (
         <WikiReadView body={page.body} titles={titles} onOpen={onOpen} />
       )}

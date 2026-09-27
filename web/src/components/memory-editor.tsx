@@ -7,6 +7,8 @@ interface Props {
   placeholder?: string;
   rows?: number;
   onSave: (text: string) => Promise<void>;
+  /** Told whether there is a draft not yet saved, so whoever can close the editor asks first. */
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 type SaveState = "idle" | "saving" | "saved" | "failed";
@@ -18,7 +20,7 @@ type SaveState = "idle" | "saving" | "saved" | "failed";
  * file, press save, see whether it landed. The outer value reloads after a save, so the
  * draft follows it whenever the person is not mid-edit.
  */
-export function MemoryEditor({ label, value, placeholder, rows = 10, onSave }: Props) {
+export function MemoryEditor({ label, value, placeholder, rows = 10, onSave, onDirtyChange }: Props) {
   const [draft, setDraft] = useState(value);
   const [state, setState] = useState<SaveState>("idle");
 
@@ -28,6 +30,12 @@ export function MemoryEditor({ label, value, placeholder, rows = 10, onSave }: P
   }, [value]);
 
   const dirty = draft !== value;
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+    // An editor that is gone holds no draft, so it says so as it goes.
+    return () => onDirtyChange?.(false);
+  }, [dirty, onDirtyChange]);
+
   const save = async () => {
     setState("saving");
     try {

@@ -226,6 +226,48 @@ describe("WikiSection read mode", () => {
     expect(await screen.findByRole("heading", { name: "Trà sáng" })).toBeInTheDocument();
   });
 
+  it("asks before leaving an unsaved edit, for the read view or the list, and keeps it on a no", async () => {
+    backend.wiki.add({ title: "Hạn Eco", body: "Thứ tư." });
+    mount();
+    await userEvent.click(await screen.findByRole("button", { name: "Hạn Eco" }));
+    await userEvent.click(screen.getByRole("button", { name: vi.memory.edit }));
+    const body = () => screen.queryByRole("textbox", { name: new RegExp(vi.wiki.body) });
+    await userEvent.type(body()!, " Chưa lưu.");
+    const confirm = vitest.spyOn(window, "confirm").mockReturnValue(false);
+
+    await userEvent.click(screen.getByRole("button", { name: vi.wiki.read }));
+    expect(confirm).toHaveBeenLastCalledWith(vi.wiki.discardEdit);
+    expect(body()).toHaveValue("Thứ tư. Chưa lưu.");
+    await userEvent.click(screen.getByRole("button", { name: new RegExp(vi.wiki.back) }));
+    expect(confirm).toHaveBeenCalledTimes(2);
+    expect(body()).toHaveValue("Thứ tư. Chưa lưu.");
+
+    confirm.mockReturnValue(true);
+    await userEvent.click(screen.getByRole("button", { name: vi.wiki.read }));
+    expect(body()).toBeNull();
+    expect(screen.getByTestId("wiki-page")).toHaveTextContent("Thứ tư.");
+    expect(backend.wiki.pages.get("han-eco")?.body).toBe("Thứ tư.");
+  });
+
+  it("leaves the editor without asking once the edit is saved, or when nothing changed", async () => {
+    backend.wiki.add({ title: "Hạn Eco", body: "Thứ tư." });
+    const confirm = vitest.spyOn(window, "confirm");
+    mount();
+    await userEvent.click(await screen.findByRole("button", { name: "Hạn Eco" }));
+    await userEvent.click(screen.getByRole("button", { name: vi.memory.edit }));
+    await userEvent.click(screen.getByRole("button", { name: vi.wiki.read }));
+
+    await userEvent.click(screen.getByRole("button", { name: vi.memory.edit }));
+    await userEvent.type(await screen.findByRole("textbox", { name: new RegExp(vi.wiki.body) }), " Đã lưu.");
+    await userEvent.click(screen.getByRole("button", { name: vi.memory.save }));
+    await waitFor(() => expect(backend.wiki.pages.get("han-eco")?.body).toBe("Thứ tư. Đã lưu."));
+    await waitFor(() => expect(screen.getByRole("button", { name: vi.memory.save })).toBeDisabled());
+    await userEvent.click(screen.getByRole("button", { name: vi.wiki.read }));
+
+    expect(confirm).not.toHaveBeenCalled();
+    expect(screen.getByTestId("wiki-page")).toHaveTextContent("Thứ tư. Đã lưu.");
+  });
+
   it("draws a link to a page nobody has written as missing, not as a way somewhere", async () => {
     backend.wiki.add({ title: "Hạn Eco", body: "Hỏi [[Đà Lạt]] sau." });
     mount();
@@ -349,6 +391,30 @@ describe("WikiSection read mode", () => {
     await userEvent.click(screen.getByRole("button", { name: vi.memory.save }));
 
     await waitFor(() => expect(backend.notes.get("default/2026-09-26")).toBe("Hỏi lại hạn Eco."));
+  });
+
+  it("asks before closing today's note over a line not yet saved, and keeps it on a no", async () => {
+    backend.wiki.add({ title: "Hạn Eco", questions: ["Mấy giờ?"] });
+    mount();
+    const toggle = await screen.findByRole("button", { name: vi.wiki.todayNote });
+    await userEvent.click(toggle);
+    const note = () => screen.queryByRole("textbox", { name: /Ghi chú/ });
+    await userEvent.type(await screen.findByRole("textbox", { name: /Ghi chú/ }), "Hỏi lại hạn Eco.");
+    const confirm = vitest.spyOn(window, "confirm").mockReturnValue(false);
+
+    await userEvent.click(toggle);
+    expect(confirm).toHaveBeenLastCalledWith(vi.wiki.discardEdit);
+    // Opening the questions would take the note's place, so that asks too.
+    await userEvent.click(screen.getByRole("button", { name: vi.wiki.openQuestions(1) }));
+    expect(confirm).toHaveBeenCalledTimes(2);
+    expect(note()).toHaveValue("Hỏi lại hạn Eco.");
+
+    confirm.mockReturnValue(true);
+    await userEvent.click(toggle);
+    expect(note()).toBeNull();
+    await userEvent.click(toggle);
+    await userEvent.click(await screen.findByRole("button", { name: vi.wiki.todayNote, expanded: true }));
+    expect(confirm).toHaveBeenCalledTimes(3);
   });
 
   it("says today's note could not be read instead of offering an empty one to overwrite", async () => {

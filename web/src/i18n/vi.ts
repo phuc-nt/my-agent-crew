@@ -718,6 +718,7 @@ export const vi = {
     todayNote: "Ghi chú hôm nay",
     todayNoteLabel: (day: string) => `Ghi chú ${day}`,
     back: "Về danh sách",
+    discardEdit: "Bỏ những gì vừa viết mà chưa lưu?",
     problems: "Cần chú ý",
     problemsEmpty: "Vault sạch.",
     problemKinds: {

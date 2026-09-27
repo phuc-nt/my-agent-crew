@@ -5,6 +5,7 @@ import { MemoryEditor } from "./memory-editor";
 interface Props {
   onReadNote: (day: string) => Promise<string>;
   onSaveNote: (day: string, body: string) => Promise<void>;
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 /**
@@ -25,7 +26,7 @@ export function localDay(now: Date = new Date()): string {
  * It reads the note once, when it opens. The parent mounts one per agent, so a note read
  * for one vault is never saved into another.
  */
-export function WikiTodayNote({ onReadNote, onSaveNote }: Props) {
+export function WikiTodayNote({ onReadNote, onSaveNote, onDirtyChange }: Props) {
   // Fixed when the note opens, so a save just after midnight lands where it was read from.
   const [day] = useState(() => localDay());
   const [text, setText] = useState<string | null>(null);
@@ -60,6 +61,7 @@ export function WikiTodayNote({ onReadNote, onSaveNote }: Props) {
         label={vi.wiki.todayNoteLabel(day)}
         value={text}
         rows={6}
+        onDirtyChange={onDirtyChange}
         onSave={async (next) => {
           await onSaveNote(day, next);
           setText(next);

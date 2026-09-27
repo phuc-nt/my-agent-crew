@@ -1,13 +1,12 @@
-import { useCallback, useId, useState } from "react";
+import { useCallback, useState } from "react";
 import { ApiError } from "../api/client";
 import type { AgentInfo, RunInfo, WikiPageSummary } from "../api/types";
 import { useStartedRun } from "../hooks/use-started-run";
 import { useWiki } from "../hooks/use-wiki";
 import { vi } from "../i18n/vi";
 import { RunStatus, runOutcome } from "./run-chip";
+import { WikiHeaderPanels } from "./wiki-header-panels";
 import { WikiPageView } from "./wiki-page-view";
-import { WikiQuestions } from "./wiki-questions";
-import { WikiTodayNote } from "./wiki-today-note";
 
 interface Props {
   agents: AgentInfo[];
@@ -25,9 +24,6 @@ function byKind(pages: WikiPageSummary[]): [string, WikiPageSummary[]][] {
   return [...groups];
 }
 
-/** What the header row has opened below it; tied to the agent it was opened for. */
-type Panel = { agentId: string; kind: "questions" | "note" };
-
 /** A line about a compile, tied to the agent whose vault it was about. */
 type Message = { agentId: string; text: string };
 
@@ -35,13 +31,6 @@ type Message = { agentId: string; text: string };
 export function WikiSection(props: Props) {
   const wiki = useWiki(props.agentId);
   const [message, setMessage] = useState<Message | null>(null);
-  const [panel, setPanel] = useState<Panel | null>(null);
-  // Switching agent closes the panel rather than showing the new vault in the old one's place.
-  const shown = panel?.agentId === props.agentId ? panel.kind : null;
-  const toggle = (kind: Panel["kind"]) =>
-    setPanel(shown === kind ? null : { agentId: props.agentId, kind });
-  const questionsId = useId();
-  const noteId = useId();
 
   const { refresh } = wiki;
   const { agentId } = props;
@@ -125,41 +114,14 @@ export function WikiSection(props: Props) {
             tracking={compiling}
             message={message?.agentId === props.agentId ? message.text : ""}
           />
-          <div className="wiki-header-actions">
-            {questions.length > 0 && (
-              <button
-                type="button"
-                className="ghost"
-                aria-expanded={shown === "questions"}
-                aria-controls={shown === "questions" ? questionsId : undefined}
-                onClick={() => toggle("questions")}
-              >
-                {vi.wiki.openQuestions(questions.length)}
-              </button>
-            )}
-            <button
-              type="button"
-              className="ghost"
-              aria-expanded={shown === "note"}
-              aria-controls={shown === "note" ? noteId : undefined}
-              onClick={() => toggle("note")}
-            >
-              {vi.wiki.todayNote}
-            </button>
-          </div>
-          {shown === "questions" && (
-            <WikiQuestions id={questionsId} questions={questions} titles={wiki.titles} onOpen={open} />
-          )}
-          {shown === "note" && (
-            <div id={noteId}>
-              <WikiTodayNote
-                key={props.agentId}
-                onReadNote={props.onReadNote}
-                onSaveNote={props.onSaveNote}
-              />
-            </div>
-          )}
-
+          <WikiHeaderPanels
+            agentId={props.agentId}
+            questions={questions}
+            titles={wiki.titles}
+            onOpen={open}
+            onReadNote={props.onReadNote}
+            onSaveNote={props.onSaveNote}
+          />
           {!wiki.list || wiki.list.count === 0 ? (
             <p className="muted">{wiki.query ? vi.wiki.searchEmpty : vi.wiki.empty}</p>
           ) : (
