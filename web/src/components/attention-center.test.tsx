@@ -255,11 +255,15 @@ describe("AttentionCenter with requests settled in place", () => {
     expect(within(bar).getByRole("button", { name: vi.approve })).toBeEnabled();
     expect(onReload).not.toHaveBeenCalled();
 
-    act(() => vitest.advanceTimersByTime(66_000));
+    // The clock starts once the request has loaded, in an effect React may flush on a later
+    // task than the one that painted the row: advance, then wait for the row to catch up.
+    await act(async () => {
+      await vitest.advanceTimersByTimeAsync(66_000);
+    });
 
-    expect(within(bar).getByRole("timer")).toHaveTextContent(vi.attentionExpired);
+    await waitFor(() => expect(within(bar).getByRole("timer")).toHaveTextContent(vi.attentionExpired));
     expect(within(bar).getByRole("button", { name: vi.approve })).toBeDisabled();
     expect(within(bar).getByRole("button", { name: vi.deny })).toBeDisabled();
-    expect(onReload).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(onReload).toHaveBeenCalledTimes(1));
   });
 });
