@@ -335,6 +335,8 @@ export const vi = {
     schedulesEmpty: "Agent này chưa có lịch nào.",
     scheduleId: "Mã",
     scheduleIdHint: "Bỏ trống để tự đặt. Giữ nguyên mã thì lịch sử chạy không bị tách.",
+    scheduleIdTaken: "Mã này đã có ở lịch khác; mỗi lịch cần một mã riêng.",
+    scheduleIdReserved: "Mã memory-consolidate dành cho lịch gom ghi nhớ; đặt mã khác.",
     scheduleName: "Tên",
     scheduleEnabled: (name: string) => `Bật lịch ${name}`,
     scheduleTiming: "Chạy khi nào",

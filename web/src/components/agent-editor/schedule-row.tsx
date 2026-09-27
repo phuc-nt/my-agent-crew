@@ -114,6 +114,7 @@ export function ScheduleRowEditor(props: Props) {
         label={vi.editor.scheduleId}
         hint={vi.editor.scheduleIdHint}
         value={row.id}
+        error={problems?.id}
         mono
         disabled={readOnly}
         onChange={(id) => onChange({ id })}

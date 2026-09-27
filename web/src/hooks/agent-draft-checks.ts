@@ -1,16 +1,18 @@
 // What the agent form refuses to send, and how what it does send is shaped.
 //
-// The server is the authority on every rule here and refuses a bad profile whole. Checking
-// the few fields a person types free-hand before the request goes out is what turns
-// "Không lưu được: agent coach: schedule needs exactly one of cron / every" into a message
-// next to the box that caused it, with the save held until it is fixed.
+// The server is the authority on every rule here and refuses a bad profile whole, with one
+// line at the top of the form naming the agent and the rule in the parser's own words.
+// Checking the few fields a person types free-hand before the request goes out turns that
+// into a message next to the box that caused it, with the save held until it is fixed.
 import type { AgentPatch, DeclaredProfile } from "../api/types";
 import { vi } from "../i18n/vi";
+import { clashingIds, idsToSend } from "./schedule-ids";
 
 /** One schedule as the file declares it: `kind` is derived and never written back. */
 export type ScheduleRow = DeclaredProfile["schedules"][number];
 
 export interface RowProblems {
+  id?: string;
   timing?: string;
   action?: string;
 }
@@ -126,9 +128,12 @@ export function draftProblems(
   if (dirty.includes("schedules")) {
     const rows = (draft.schedules ?? []) as ScheduleRow[];
     const byRow: Record<number, RowProblems> = {};
+    const clashes = clashingIds(rows, consolidate !== "");
     rows.forEach((row, at) => {
       const found = rowProblems(row, reveal, unfilled);
-      if (found.timing || found.action) byRow[at] = found;
+      const clash = clashes.get(at);
+      if (clash) found.id = clash === "reserved" ? vi.editor.scheduleIdReserved : vi.editor.scheduleIdTaken;
+      if (found.id || found.timing || found.action) byRow[at] = found;
     });
     if (Object.keys(byRow).length > 0) problems.schedules = byRow;
   }
@@ -159,12 +164,16 @@ function sendableRow(row: ScheduleRow): Record<string, unknown> {
 }
 
 /** The PATCH body for the changed keys. An emptied consolidation cron is sent as null,
- * which removes the key, rather than as "" left sitting in the file. */
+ * which removes the key, rather than as "" left sitting in the file. A blank schedule id
+ * the server would number onto a kept row's is sent as a free one instead. */
 export function toPatch(draft: AgentPatch, dirty: (keyof AgentPatch)[]): AgentPatch {
   const patch: AgentPatch = {};
   for (const key of dirty) Object.assign(patch, { [key]: draft[key] });
   if ("memory_consolidate" in patch) patch.memory_consolidate = draft.memory_consolidate?.trim() || null;
-  if (Array.isArray(patch.schedules))
-    patch.schedules = (patch.schedules as ScheduleRow[]).map(sendableRow);
+  if (Array.isArray(patch.schedules)) {
+    const rows = patch.schedules as ScheduleRow[];
+    const ids = idsToSend(rows);
+    patch.schedules = rows.map((row, at) => sendableRow({ ...row, id: ids[at] }));
+  }
   return patch;
 }

@@ -28,6 +28,9 @@ export function readSchedules(value: unknown): Read<Declared[]> {
     if (Boolean(raw.prompt) === Boolean(raw.command))
       return { error: "schedule needs exactly one of prompt / command" };
     const id = String(raw.id || `job-${index}`);
+    // `profile_edit.validated`: the scheduler keys jobs by id, so a second one would
+    // replace the first without a word.
+    if (rows.some((row) => row.id === id)) return { error: `two schedules share the id ${id}` };
     rows.push({
       id,
       name: String(raw.name || id),
@@ -71,6 +74,10 @@ export function applyAgentPatch<T extends object>(agent: T, patch: Record<string
   }
   // A null clears the key, and a cleared consolidation reads back as no cron at all.
   if ("memory_consolidate" in patch) next.memory_consolidate = patch.memory_consolidate ?? "";
+  // While consolidation is on its job runs as `memory-consolidate` beside the rows.
+  const rows = (next.declared as { schedules?: Declared[] } | undefined)?.schedules ?? [];
+  if (next.memory_consolidate && rows.some((row) => row.id === "memory-consolidate"))
+    return { error: "two schedules share the id memory-consolidate" };
   if ("telegram" in patch) {
     const read = readTelegram(patch.telegram);
     if ("error" in read) return read;

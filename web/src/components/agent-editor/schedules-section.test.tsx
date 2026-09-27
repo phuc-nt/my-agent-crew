@@ -277,6 +277,51 @@ describe("the schedules part of the agent editor", () => {
     expect(row.getByText(vi.editor.scheduleReads("Mỗi 2 giờ"))).toBeInTheDocument();
   });
 
+  // The server numbers a row sent without an id by its place. With the first row gone the
+  // kept one still carries job-1, and a new row at index 1 would be job-1 as well: the
+  // scheduler keeps one job per id, so one of the two would never run.
+  it("gives a new row a free id when its place is one a kept row already carries", async () => {
+    const numbered = (at: number): ScheduleRow => ({ ...brief, id: `job-${at}`, name: `Lịch ${at}` });
+    open(declaring(numbered(0), numbered(1)));
+    await userEvent.click(screen.getByRole("button", { name: vi.editor.scheduleRemove("Lịch 0") }));
+    const row = await addRow();
+    await userEvent.type(row.getByLabelText(vi.editor.scheduleCron), "0 9 * * *");
+    await userEvent.type(row.getByLabelText(vi.editor.schedulePrompt), "Nhắc");
+    await save();
+
+    await waitFor(() => expect(screen.getByText(vi.editor.clean)).toBeInTheDocument());
+    const ids = (sentProfile().schedules as ScheduleRow[]).map((sent) => sent.id);
+    expect(ids).toEqual(["job-1", "job-2"]);
+    expect(screen.getAllByTestId("schedule-row")).toHaveLength(2);
+  });
+
+  it("holds the save and names the box while two rows are given the same id", async () => {
+    open(declaring(brief));
+    const row = await addRow();
+    await userEvent.type(row.getByLabelText(vi.editor.scheduleId), "brief");
+    await userEvent.type(row.getByLabelText(vi.editor.scheduleCron), "0 9 * * *");
+    await userEvent.type(row.getByLabelText(vi.editor.schedulePrompt), "Nhắc");
+
+    expect(row.getByText(vi.editor.scheduleIdTaken)).toBeInTheDocument();
+    expect(row.getByLabelText(vi.editor.scheduleId)).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByRole("button", { name: vi.editor.save })).toBeDisabled();
+    expect(backend.requests.some((r) => r.method === "PATCH")).toBe(false);
+  });
+
+  it("keeps the consolidation job's id for that job while consolidation is on", async () => {
+    open({ ...declaring(brief), memory_consolidate: "0 3 * * *" });
+    const row = within(screen.getByTestId("schedule-row"));
+    await userEvent.clear(row.getByLabelText(vi.editor.scheduleId));
+    await userEvent.type(row.getByLabelText(vi.editor.scheduleId), "memory-consolidate");
+    expect(row.getByText(vi.editor.scheduleIdReserved)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: vi.editor.save })).toBeDisabled();
+
+    // Consolidation off, the id is free to use.
+    await userEvent.clear(screen.getByLabelText(vi.editor.memoryConsolidate));
+    expect(row.queryByText(vi.editor.scheduleIdReserved)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: vi.editor.save })).toBeEnabled();
+  });
+
   it("removes the consolidation cron from the file when the box is emptied", async () => {
     open({ ...fakeAgent, memory_consolidate: "0 3 * * *" });
     await userEvent.clear(screen.getByLabelText(vi.editor.memoryConsolidate));
