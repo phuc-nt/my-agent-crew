@@ -56,7 +56,7 @@ export const vi = {
     autoApproveNone: "Chưa có công cụ nào được luôn cho phép.",
     revoke: "Hỏi lại",
     exportMarkdown: "Xuất Markdown",
-    exportHint: "Tải cả cuộc trò chuyện về một tệp .md, giờ theo lịch của máy này.",
+    exportHint: "Tải cả cuộc trò chuyện về một tệp .md, giờ theo múi giờ của máy này.",
     exporting: "Đang xuất…",
     exportFailed: (reason: string) => `Không xuất được: ${reason}`,
   },

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { api } from "../api/client";
 import type { Conversation, SkillInfo } from "../api/types";
 import { vi } from "../i18n/vi";
@@ -115,6 +115,7 @@ export function ConversationOptions({
 function ExportButton({ conversationId, agentName }: { conversationId: string; agentName: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const hintId = useId();
   const run = async () => {
     setBusy(true);
     setError("");
@@ -129,10 +130,14 @@ function ExportButton({ conversationId, agentName }: { conversationId: string; a
   };
   return (
     <div className="export-row">
-      <button type="button" disabled={busy} title={vi.options.exportHint} onClick={() => void run()}>
+      <button type="button" disabled={busy} aria-describedby={hintId} onClick={() => void run()}>
         <Icon name="download" />
         {busy ? vi.options.exporting : vi.options.exportMarkdown}
       </button>
+      {/* Written out rather than a tooltip, which a phone never shows. */}
+      <p id={hintId} className="export-hint">
+        {vi.options.exportHint}
+      </p>
       {error && (
         <p className="notice error" role="status">
           {error}

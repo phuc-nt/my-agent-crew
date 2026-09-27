@@ -58,6 +58,17 @@ describe("exporting a conversation as markdown", () => {
     expect(await saved!.blob.text()).toBe("# Kế hoạch ngủ\n\n## Bạn · 25/09/2026 08:00 (UTC+7)\n\nchào\n");
   });
 
+  // A tooltip never shows on a phone, where the owner exports most.
+  it("says in plain view that the file's times follow this device's time zone", () => {
+    const c = backend.create({ title: "x" });
+    options(c.id);
+
+    expect(screen.getByText(vi.options.exportHint)).toBeVisible();
+    expect(screen.getByRole("button", { name: vi.options.exportMarkdown })).toHaveAccessibleDescription(
+      vi.options.exportHint,
+    );
+  });
+
   it("says why when the conversation cannot be read, and lets the person try again", async () => {
     const c = backend.create({ title: "x" });
     options(c.id);
