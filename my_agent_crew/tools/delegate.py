@@ -111,10 +111,15 @@ async def _delegate(
     run = await runtime.hub.wait_finished(child.id, timeout)
     if run is None:
         raise ToolError(texts.DELEGATE_TIMEOUT.format(conv_id=child.id))
+    try:
+        spent = runtime.store.get(child.id).spent_usd
+    except KeyError:
+        # Deleted from the sidebar while this call waited, which also ends the child's run.
+        raise ToolError(texts.DELEGATE_CHILD_DELETED.format(conv_id=child.id)) from None
     if parent is not None:
         # What the child spent is the parent's spend too, or a fan-out would cost the
         # parent's budget nothing and its cap would stop meaning anything.
-        runtime.store.add_spend(parent.id, runtime.store.get(child.id).spent_usd)
+        runtime.store.add_spend(parent.id, spent)
     header = texts.DELEGATE_RESULT_HEADER.format(
         conv_id=child.id, status=run.status, spent=run.spent_usd or 0.0, steps=len(run.steps)
     )

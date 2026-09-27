@@ -55,6 +55,10 @@ DELEGATE_UNFINISHED_EARLIER = "- …và {count} lệnh trước đó"
 DELEGATE_UNFINISHED_LINE = "- {name} {arguments} → {output}"
 DELEGATE_ATTACHMENT_LOST = "(agent con có đính kèm {path} nhưng không chuyển được tệp)"
 DELEGATE_TIMEOUT = "Hết thời gian chờ agent con. Xem cuộc {conv_id} để biết nó đang ở đâu."
+DELEGATE_CHILD_DELETED = (
+    "Người dùng đã xoá cuộc {conv_id} của agent con trước khi nó làm xong, nên không có kết "
+    "quả. Báo lại cho người dùng; đừng tự giao lại việc này."
+)
 
 CREW_ROSTER_TITLE = "Đội của bạn"
 CREW_ROSTER_INTRO = (

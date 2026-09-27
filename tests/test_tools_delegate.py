@@ -3,6 +3,7 @@ keep one delegation from turning into a fan-out nobody asked for."""
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import replace
 
 import pytest
@@ -15,8 +16,10 @@ from my_agent_crew.agent.turn_context import set_tool_call_id, set_turn_conversa
 from my_agent_crew.agents.profile import WORK
 from my_agent_crew.config import Route
 from my_agent_crew.llm.types import Message, ToolCall
+from my_agent_crew.server.routes_conversations import delete_conversation
 from my_agent_crew.server.runtime import Runtime
 from my_agent_crew.store import Store
+from my_agent_crew.store.runs import AWAITING
 from my_agent_crew.tools.delegate import DELEGATE_TOOL_NAME, MAX_DELEGATES
 from my_agent_crew.tools.registry import ToolRegistry
 from tests.conftest import collect
@@ -144,6 +147,28 @@ async def test_the_child_inherits_what_is_left_of_the_parent_budget(runtime: Run
 
     child = runtime.store.for_parent_call("call-1")
     assert child.cost_cap_usd == pytest.approx(0.25)
+
+
+async def test_a_child_deleted_while_the_parent_waits_is_reported_in_words(runtime: Runtime):
+    """A child paused on an approval can be deleted from the sidebar, which wakes the parent
+    at once; it used to read a bare 'KeyError' there, logged as a crash of the tool."""
+    parent = runtime.store.create(agent_id="boss", autonomous=False)
+    write = '/tool workspace_write {"path": "x.txt", "content": "1"}'
+    waiting = asyncio.create_task(
+        delegate(runtime, parent.id, "call-1", task=write, agent="worker")
+    )
+    for _ in range(200):
+        if any(run.status == AWAITING for run in runtime.hub.live()):
+            break
+        await asyncio.sleep(0.01)
+    child = runtime.store.for_parent_call("call-1")
+
+    await delete_conversation(child.id, runtime.deps_for_conversation(child.id), runtime)
+
+    out = await asyncio.wait_for(waiting, 2)
+    assert out == texts.TOOL_FAILED.format(
+        error=texts.DELEGATE_CHILD_DELETED.format(conv_id=child.id)
+    )
 
 
 async def test_a_work_agent_can_reach_its_peer_through_a_whole_turn(runtime: Runtime):
