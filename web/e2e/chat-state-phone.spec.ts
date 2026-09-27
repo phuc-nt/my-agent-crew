@@ -29,7 +29,7 @@ test("the retry takes no room of its own, so the composer stays put when the str
   const line = page.getByTestId("status-line");
   const state = page.getByTestId("stream-state");
   const composer = page.getByRole("textbox");
-  await expect(state).toContainText("đang kết nối");
+  await expect(state).toContainText("Đang kết nối");
   const lineBefore = (await line.boundingBox())!;
   const composerBefore = (await composer.boundingBox())!;
 

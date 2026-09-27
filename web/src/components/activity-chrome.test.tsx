@@ -29,6 +29,12 @@ describe("StatusLine", () => {
     expect(screen.getByRole("status")).toHaveTextContent(vi.statusThinking);
   });
 
+  it("names the stream's four states in one case, as they take turns in one slot", () => {
+    for (const text of [vi.streamConnected, vi.streamConnecting, vi.streamDisconnected, vi.streamOffline]) {
+      expect(text[0]).toBe(text[0].toLocaleUpperCase("vi"));
+    }
+  });
+
   it("says a spent budget locks the thread over an earlier note, until a turn runs", () => {
     const thread = { ...emptyThread, items: [{ kind: "note" as const, id: "n", text: "Đang đọc dữ liệu" }] };
     const { rerender } = render(<StatusLine thread={thread} connected liveCount={0} overBudget />);
