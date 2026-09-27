@@ -175,7 +175,9 @@ def test_jobs_are_listed_and_can_run_now(two_agents):
     client, runtime = two_agents
     jobs = client.get("/api/jobs").json()
     assert [j["id"] for j in jobs] == ["coach/brief", "coach/sync"]
-    assert jobs[0]["next_run"] and jobs[0]["last_run"] is None and jobs[1]["every"] == "1h"
+    assert jobs[0]["last_run"] is None and jobs[1]["every"] == "1h"
+    # Written on the owner's clock with its offset, so the page reads it on the viewer's.
+    assert datetime.fromisoformat(jobs[0]["next_run"]).utcoffset() is not None
     assert client.post("/api/jobs/coach/nope/run").status_code == 404
     assert client.post("/api/jobs/coach/sync/run").status_code == 202
     assert client.post("/api/jobs/coach/brief/run").json() == {

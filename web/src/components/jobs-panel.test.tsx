@@ -106,17 +106,18 @@ describe("a job read at a glance", () => {
     vitest.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"] });
     // 04:00 on the 27th in Hanoi, where the suite runs.
     vitest.setSystemTime(new Date("2026-09-26T21:00:00Z"));
-    // The scheduler writes its own clock, the owner's, to the minute and with no offset;
-    // read as UTC, 07:00 would move seven hours later.
-    const soon = { ...brief, next_run: "2026-09-27T07:00" };
-    const later = { ...brief, id: "coach/later", next_run: "2026-09-29T07:00" };
+    // The scheduler writes its own clock to the minute, with that clock's offset: one kept
+    // on UTC says 00:00+00:00 for what is 07:00 here, and the row reads it on the viewer's.
+    const soon = { ...brief, next_run: "2026-09-27T00:00+00:00" };
+    const later = { ...brief, id: "coach/later", next_run: "2026-09-29T00:00+00:00" };
     const panel = <JobsPanel jobs={[soon, later]} agentName={name} onRunNow={() => {}} onToggle={() => {}} />;
     const { rerender } = render(panel);
 
     const [first, second] = screen.getAllByTestId("job");
     const next = within(first).getByText("sau 3 giờ");
     expect(next).toHaveAttribute("title", formatDateTime(soon.next_run));
-    expect(second).toHaveTextContent("29/09 07:00");
+    expect(first).toHaveTextContent(`${vi.jobNext}: sau 3 giờ, lúc 07:00`);
+    expect(second).toHaveTextContent(`${vi.jobNext}: 29/09 07:00 ·`);
 
     // A list left open keeps counting, rather than promising three hours all morning.
     act(() => vitest.advanceTimersByTime((2 * 60 + 1) * 60_000));
@@ -131,8 +132,8 @@ describe("a job read at a glance", () => {
     vitest.useFakeTimers({ toFake: ["Date"] });
     vitest.setSystemTime(new Date("2026-09-26T21:00:00Z"));
     const ran = fakeRun({ started_at: "2026-09-26T18:00:00Z" });
-    const soon = { ...brief, next_run: "2026-09-27T07:00", last_run: ran };
-    const later = { ...brief, id: "coach/later", next_run: "2026-09-29T07:00" };
+    const soon = { ...brief, next_run: "2026-09-27T07:00+07:00", last_run: ran };
+    const later = { ...brief, id: "coach/later", next_run: "2026-09-29T07:00+07:00" };
     const yesterday = { ...brief, id: "coach/y", last_run: fakeRun({ started_at: "2026-09-26T01:30:00Z" }) };
     render(<JobsPanel jobs={[soon, later, yesterday]} agentName={name} onRunNow={() => {}} onToggle={() => {}} />);
 
@@ -149,9 +150,9 @@ describe("a job read at a glance", () => {
   it("gives a job that will not run no next time, however far behind its last it is", () => {
     vitest.useFakeTimers({ toFake: ["Date"] });
     vitest.setSystemTime(new Date("2026-09-26T21:00:00Z"));
-    const stale = { ...brief, cron: null, every: "1h", next_run: "2026-09-24T07:00", enabled: false };
+    const stale = { ...brief, cron: null, every: "1h", next_run: "2026-09-24T07:00+07:00", enabled: false };
     const paused = { ...stale, id: "coach/paused", paused: true };
-    const soon = { ...brief, id: "coach/soon", next_run: "2026-09-27T07:00" };
+    const soon = { ...brief, id: "coach/soon", next_run: "2026-09-27T07:00+07:00" };
     render(<JobsPanel jobs={[stale, paused, soon]} agentName={name} onRunNow={() => {}} onToggle={() => {}} />);
 
     const [off, held, on] = screen.getAllByTestId("job");
