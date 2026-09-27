@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { vi } from "../i18n/vi";
 import { Icon } from "./ui/icon";
 
@@ -71,7 +71,9 @@ export function CopyButton({ text, label, className = "" }: { text: string; labe
 /** The text to copy by hand, already selected so the next gesture is the copy itself. */
 function CopyFallback({ text, onClose }: { text: string; onClose: () => void }) {
   const box = useRef<HTMLTextAreaElement>(null);
-  useEffect(() => {
+  // In the same commit that shows the box: a passive effect runs a moment later, and a key
+  // pressed in between would still go to the button the focus was leaving.
+  useLayoutEffect(() => {
     box.current?.focus();
     box.current?.select();
   }, []);
