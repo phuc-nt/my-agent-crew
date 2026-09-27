@@ -44,8 +44,19 @@ test.describe("on a phone", () => {
   });
 });
 
-test("settings name the page's build and the server's", async ({ page }) => {
+// The page is named only by a look that found the server serving it; one already on
+// another build leaves the page unnamed rather than lending it its own version. Loaded
+// again while the server serves the page's own entry, it is named.
+test("settings name the server's build, and the page's once the server serves it", async ({ page }) => {
   await mockApi(page);
   await page.goto("/#/manage/settings");
+  await expect(page.getByTestId("settings-versions")).toHaveText("Máy chủ 0.8.0");
+
+  await page.route(/^https?:\/\/[^/]+\/$/, (route) =>
+    route.request().resourceType() === "fetch"
+      ? route.fulfill({ body: '<script type="module" src="/assets/index-old.js"></script>', contentType: "text/html" })
+      : route.fallback(),
+  );
+  await page.reload();
   await expect(page.getByTestId("settings-versions")).toHaveText("Giao diện 0.8.0 · Máy chủ 0.8.0");
 });

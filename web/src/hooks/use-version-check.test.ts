@@ -75,14 +75,56 @@ describe("useVersionCheck", () => {
     expect(result.current.stale).toBe(false);
   });
 
-  it("counts a new server version as a new build and reports both", async () => {
+  // A bump alone, the bundle untouched: a reload would bring back the very same page.
+  it("takes a new version on the same build as that build's name, not as a new build", async () => {
     built();
     const { result } = await mount();
     server.version = "0.9.0";
     focusLater();
+    await waitFor(() => expect(result.current.serverVersion).toBe("0.9.0"));
+    await settle();
+    expect(result.current.stale).toBe(false);
+    expect(result.current.pageVersion).toBe("0.9.0");
+  });
+
+  it("does not take the version of another build the server was already on", async () => {
+    built();
+    server = { version: "0.9.0", entry: "/assets/index-second.js" };
+    const { result } = renderHook(() => useVersionCheck(true));
     await waitFor(() => expect(result.current.stale).toBe(true));
-    expect(result.current.pageVersion).toBe("0.8.0");
     expect(result.current.serverVersion).toBe("0.9.0");
+    expect(result.current.pageVersion).toBeNull();
+  });
+
+  // Down while the page loaded, the server may come back on another build; only a look
+  // that finds this page's own build again can name it, and then there is nothing to offer.
+  it("names the page only from a look that finds its own build", async () => {
+    built();
+    server = { version: null, entry: null };
+    const { result } = renderHook(() => useVersionCheck(true));
+    await settle();
+    expect(result.current.pageVersion).toBeNull();
+
+    server = { version: "0.9.0", entry: "/assets/index-second.js" };
+    focusLater();
+    await waitFor(() => expect(result.current.stale).toBe(true));
+    expect(result.current.pageVersion).toBeNull();
+
+    server = { version: "0.8.0", entry: "/assets/index-first.js" };
+    focusLater();
+    await waitFor(() => expect(result.current.pageVersion).toBe("0.8.0"));
+    expect(result.current.stale).toBe(false);
+  });
+
+  it("offers nothing when the version moves but the page it serves cannot be read", async () => {
+    built();
+    const { result } = await mount();
+    server = { version: "0.9.0", entry: null };
+    focusLater();
+    await waitFor(() => expect(result.current.serverVersion).toBe("0.9.0"));
+    await settle();
+    expect(result.current.stale).toBe(false);
+    expect(result.current.pageVersion).toBe("0.8.0");
   });
 
   it("says nothing when the server cannot be reached", async () => {
@@ -128,7 +170,8 @@ describe("useVersionCheck", () => {
     await settle();
     expect(indexLooks()).toBe(0);
     expect(result.current.stale).toBe(false);
-    // Settings still names the versions it saw.
+    // Settings still names the versions it saw: the page by the first, as nothing tells builds apart.
     expect(result.current.serverVersion).toBe("0.9.0");
+    expect(result.current.pageVersion).toBe("0.8.0");
   });
 });

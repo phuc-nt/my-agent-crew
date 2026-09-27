@@ -349,7 +349,8 @@ describe("App", () => {
       await waitFor(() => expect(backend.requests.some((r) => r.path === "/")).toBe(true));
       expect(screen.queryByTestId("update-bar")).not.toBeInTheDocument();
 
-      backend.version = "0.9.0";
+      // The server restarted on a new bundle: its page loads another entry.
+      backend.indexHtml = '<script type="module" crossorigin src="/assets/index-second.js"></script>';
       clock.mockReturnValue(Date.now() + 60_000);
       window.dispatchEvent(new Event("focus"));
       const bar = await screen.findByTestId("update-bar");

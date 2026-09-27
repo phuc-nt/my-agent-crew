@@ -19,7 +19,8 @@ export function entryScript(doc: Document): string | null {
 export interface VersionCheck {
   /** The server now serves another build than the one this page runs. */
   stale: boolean;
-  /** The server's version when this page loaded: the version of the build on screen. */
+  /** The version of the build on screen: the server's, from a look that found it serving
+   *  this very build. Null until such a look — never the version of another build. */
   pageVersion: string | null;
   /** The server's version at the last look; null when that look failed. */
   serverVersion: string | null;
@@ -38,38 +39,40 @@ async function servedEntry(): Promise<string | null> {
  *
  * An installed app on a phone can stay open for days, calling an API that has moved on
  * under it. The build is told by the hashed entry script, not the version number: the
- * server is often restarted from a working tree whose version was not bumped. Looks on
- * focus, when the tab comes back into view and when the live stream reconnects — a
- * dropped stream is what a restart looks like from here. A look that fails says nothing:
- * a server that is down is not a new build.
+ * server is often restarted from a working tree whose version was not bumped, and a bump
+ * alone changes nothing a reload would bring. Looks on focus, when the tab comes back
+ * into view and when the live stream reconnects — a dropped stream is what a restart
+ * looks like from here. A look that fails says nothing: a server that is down is not a
+ * new build.
  */
 export function useVersionCheck(connected: boolean): VersionCheck {
   const [entry] = useState(() => entryScript(document));
   const [pageVersion, setPageVersion] = useState<string | null>(null);
   const [serverVersion, setServerVersion] = useState<string | null>(null);
   const [stale, setStale] = useState(false);
-  const first = useRef<string | null>(null);
   const lastLook = useRef(0);
 
   const check = useCallback(() => {
     lastLook.current = Date.now();
-    void api.health().then(
-      ({ version }) => {
-        // A first look that failed leaves this to the next one; the entry still tells.
-        first.current ??= version;
-        setPageVersion(first.current);
-        setServerVersion(version);
-        if (entry && version !== first.current) setStale(true);
-      },
-      () => setServerVersion(null),
+    const version = api.health().then(
+      (health) => health.version,
+      () => null,
     );
-    if (!entry) return;
-    servedEntry().then(
-      (served) => {
-        if (served && served !== entry) setStale(true);
-      },
-      () => {},
-    );
+    void version.then(setServerVersion);
+    if (!entry) {
+      // The dev server has no build to tell apart, so the first version it gives will do.
+      void version.then((v) => v && setPageVersion((page) => page ?? v));
+      return;
+    }
+    const served = servedEntry().catch(() => null);
+    void Promise.all([version, served]).then(([v, s]) => {
+      if (!s) return;
+      setStale(s !== entry);
+      // A version names the build on screen only when this same look found the server
+      // serving it: a page loaded before a restart, or while the server was down, would
+      // otherwise take the name of a build it is not running.
+      if (s === entry && v) setPageVersion(v);
+    });
   }, [entry]);
 
   useEffect(() => check(), [check]);
