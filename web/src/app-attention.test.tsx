@@ -34,7 +34,7 @@ describe("App requests waiting on the person", () => {
     await waitFor(() => expect(window.location.hash).toBe("#/manage/approvals"));
 
     const attention = screen.getByTestId("attention");
-    const bar = await within(attention).findByRole("alertdialog", { name: vi.awaitingApproval });
+    const bar = await within(attention).findByRole("group", { name: new RegExp(`^${vi.attentionAwaiting("Agent")}`) });
     // What the server reports once the resumed turn is over.
     backend.nextTurn = [{ type: "done", spent_usd: 0, unknown_cost_calls: 0 }];
     backend.runs = [{ ...waitingRun, status: "done", finished_at: "2026-09-19T08:01:00Z" }];

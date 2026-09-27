@@ -13,6 +13,8 @@ interface Props {
   conversationId: string;
   /** Who is waiting, since when, and the way to their conversation. */
   children: ReactNode;
+  /** The row head's id: in a list the request is named by who asks, not by a shared title. */
+  labelledBy?: string;
   /** The request is closed and nothing else waits in its place: the row can go. */
   onSettled: () => void;
   /** The server changed under the list, so the activity it shows is read again. */
@@ -37,7 +39,7 @@ const ignoreEvent = () => undefined;
  * and waits for the resumed stream to end before the row decides whether it is done — a
  * turn can pause again on the next tool, and that new request belongs in the same row.
  */
-export function AttentionRow({ run, conversationId, children, onSettled, onReload }: Props) {
+export function AttentionRow({ run, conversationId, children, labelledBy, onSettled, onReload }: Props) {
   const [load, setLoad] = useState<Load>({ state: "loading" });
   const [working, setWorking] = useState(false);
   const [note, setNote] = useState<string | null>(null);
@@ -106,6 +108,7 @@ export function AttentionRow({ run, conversationId, children, onSettled, onReloa
         {pending?.kind === "question" && (
           <QuestionCard
             pending={pending}
+            labelledBy={labelledBy}
             busy={busy}
             deadline={deadline}
             onAnswer={(answer) =>
@@ -116,6 +119,7 @@ export function AttentionRow({ run, conversationId, children, onSettled, onReloa
         {pending && pending.kind !== "question" && (
           <ApprovalBar
             pending={pending}
+            labelledBy={labelledBy}
             busy={busy}
             deadline={deadline}
             onDecide={(approve) =>

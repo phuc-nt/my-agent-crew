@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import type { RunInfo } from "../api/types";
 import { vi } from "../i18n/vi";
 import { runSummaryText } from "../lib/run-summary";
@@ -52,6 +52,7 @@ export function AttentionCenter(props: Props) {
   const { runs, agentName, onOpenConversation, parentTitle, inline = false } = props;
   const waitingElsewhere = props.waitingElsewhere ?? 0;
   const failedElsewhere = props.failedElsewhere ?? 0;
+  const titles = useId();
   // Rows settled from here leave at once, before the list is read again.
   const [settled, setSettled] = useState<string[]>([]);
   const shown = runs.filter((run) => !settled.includes(run.id));
@@ -67,7 +68,7 @@ export function AttentionCenter(props: Props) {
           <Icon name={icon(run)} />
         </span>
         <span className="attention-text">
-          <span className="attention-title">
+          <span className="attention-title" id={`${titles}-${run.id}`}>
             {label(run, agentName(run.agent_id))}
             <span className="muted tabular"> · {formatClock(run.started_at)}</span>
           </span>
@@ -125,6 +126,7 @@ export function AttentionCenter(props: Props) {
                 key={run.id}
                 run={run}
                 conversationId={run.conversation_id}
+                labelledBy={`${titles}-${run.id}`}
                 onReload={props.onReload ?? noop}
                 onSettled={() => setSettled((ids) => [...ids, run.id])}
               >

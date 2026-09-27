@@ -14,11 +14,18 @@ interface Props {
   onAlways?: () => void;
   /** Stands in for the deadline sentence, where the time left is counted down instead. */
   deadline?: ReactNode;
+  /** In a list of requests: a group named by its row, not an alert breaking into the page. */
+  labelledBy?: string;
 }
 
-export function ApprovalBar({ pending, busy, onDecide, onAlways, deadline }: Props) {
+export function ApprovalBar({ pending, busy, onDecide, onAlways, deadline, labelledBy }: Props) {
   return (
-    <div className="approval-bar callout" role="alertdialog" aria-label={vi.awaitingApproval}>
+    <div
+      className="approval-bar callout"
+      role={labelledBy ? "group" : "alertdialog"}
+      aria-label={labelledBy ? undefined : vi.awaitingApproval}
+      aria-labelledby={labelledBy}
+    >
       <span className="callout-icon">
         <Icon name="approvals" />
       </span>

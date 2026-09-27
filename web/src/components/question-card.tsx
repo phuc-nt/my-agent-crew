@@ -10,6 +10,8 @@ interface Props {
   onAnswer: (text: string) => void;
   /** Stands in for the deadline sentence, where the time left is counted down instead. */
   deadline?: ReactNode;
+  /** In a list of requests: a group named by its row, not an alert breaking into the page. */
+  labelledBy?: string;
 }
 
 /** What the agent asked, and somewhere to reply.
@@ -19,7 +21,7 @@ interface Props {
  * out by itself. The offered choices are buttons because that is the fast path, but the
  * text box stays open: the server takes any wording, and a question worth asking often has
  * an answer nobody listed. */
-export function QuestionCard({ pending, busy, onAnswer, deadline }: Props) {
+export function QuestionCard({ pending, busy, onAnswer, deadline, labelledBy }: Props) {
   const [text, setText] = useState("");
   const asked = questionText(pending);
   const submit = () => {
@@ -28,7 +30,12 @@ export function QuestionCard({ pending, busy, onAnswer, deadline }: Props) {
   };
 
   return (
-    <div className="question-card callout" role="alertdialog" aria-label={vi.awaitingAnswer}>
+    <div
+      className="question-card callout"
+      role={labelledBy ? "group" : "alertdialog"}
+      aria-label={labelledBy ? undefined : vi.awaitingAnswer}
+      aria-labelledby={labelledBy}
+    >
       <div className="question-text">
         <strong>
           <Icon name="help" className="callout-inline-icon" />

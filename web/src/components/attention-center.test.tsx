@@ -50,6 +50,9 @@ function waiting(approval: Partial<ApprovalInfo> = {}) {
   return { conversation, run };
 }
 
+/** A request in the list is a group named by its row's head, not a page-wide alert. */
+const request = () => screen.findByRole("group", { name: new RegExp(`^${vi.attentionAwaiting("Agent")}`) });
+
 function inline(runs: RunInfo[], onReload = vitest.fn()) {
   render(<AttentionCenter runs={runs} inline agentName={name} onOpenConversation={() => undefined} onReload={onReload} />);
   return onReload;
@@ -62,7 +65,7 @@ describe("AttentionCenter with requests settled in place", () => {
     turnEnds = new Promise((resolve) => (endTurn = resolve));
     const onReload = inline([run]);
 
-    const bar = await screen.findByRole("alertdialog", { name: vi.awaitingApproval });
+    const bar = await request();
     expect(bar).toHaveTextContent(vi.approvalTitle("write_file"));
     expect(bar).toHaveTextContent("path=notes.md");
     expect(within(bar).getByRole("timer")).toHaveTextContent(/^còn \d:\d\d$/);
@@ -86,7 +89,7 @@ describe("AttentionCenter with requests settled in place", () => {
     const { conversation, run } = waiting({ id: "aq1", kind: "question", tool_name: "ask_user", arguments: { question: "Dời hạn?" }, options: ["Thứ sáu", "Thứ hai"] });
     inline([run]);
 
-    const card = await screen.findByRole("alertdialog", { name: vi.awaitingAnswer });
+    const card = await request();
     expect(card).toHaveTextContent("Dời hạn?");
     await userEvent.click(within(card).getByRole("button", { name: "Thứ sáu" }));
 
@@ -108,6 +111,26 @@ describe("AttentionCenter with requests settled in place", () => {
     expect(screen.getByRole("button", { name: vi.approve })).toBeEnabled();
   });
 
+  // Two requests on one page are two groups, each named by who asks: two identical alerts
+  // would leave a screen reader with two "Cho phép" buttons nobody can tell apart.
+  it("names each waiting request by its own row instead of one shared alert", async () => {
+    const first = waiting();
+    const second = waiting({ tool_name: "shell_run", arguments: { command: "make" } });
+    const runs = [
+      { ...first.run, agent_id: "mai" },
+      { ...second.run, agent_id: "lan" },
+    ];
+    const names = (id: string) => (id === "mai" ? "Mai" : "Lan");
+    render(<AttentionCenter runs={runs} inline agentName={names} onOpenConversation={() => undefined} />);
+
+    await waitFor(() => expect(screen.getAllByRole("group")).toHaveLength(2));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    const mai = screen.getByRole("group", { name: new RegExp(`^${vi.attentionAwaiting("Mai")}`) });
+    const lan = screen.getByRole("group", { name: new RegExp(`^${vi.attentionAwaiting("Lan")}`) });
+    expect(mai).toHaveTextContent(vi.approvalTitle("write_file"));
+    expect(lan).toHaveTextContent(vi.approvalTitle("shell_run"));
+  });
+
   // Another tab, Telegram or the expiry sweep can close the request first. The 409 must read
   // as "already handled", not as the chat's "busy", which would send the person to wait.
   it.each([
@@ -116,14 +139,14 @@ describe("AttentionCenter with requests settled in place", () => {
   ])("says a request closed elsewhere was handled when a %s meets a 409, and reloads", async (_, approval, button) => {
     const { conversation, run } = waiting(approval);
     const onReload = inline([run]);
-    const card = await screen.findByRole("alertdialog");
+    const card = await request();
     backend.conversations.get(conversation.id)!.pending_approval = null;
 
     await userEvent.click(within(card).getByRole("button", { name: button }));
 
     expect(await screen.findByText(vi.attentionHandled)).toBeInTheDocument();
     expect(screen.queryByText(vi.busyConflict)).not.toBeInTheDocument();
-    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(screen.queryByRole("group")).not.toBeInTheDocument();
     expect(onReload).toHaveBeenCalled();
     expect(drained).toEqual([]);
   });
@@ -134,7 +157,7 @@ describe("AttentionCenter with requests settled in place", () => {
     const { run } = waiting({ expires_at: "2026-09-26T10:01:05Z" });
     const onReload = inline([run]);
 
-    const bar = await screen.findByRole("alertdialog");
+    const bar = await request();
     expect(within(bar).getByRole("timer")).toHaveTextContent(/^còn 1:0\d$/);
     expect(within(bar).getByRole("button", { name: vi.approve })).toBeEnabled();
     expect(onReload).not.toHaveBeenCalled();

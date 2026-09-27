@@ -205,7 +205,7 @@ describe("the manage screen", () => {
     show("approvals", { attention: [waiting, fakeRun({ id: "broke", status: "error" })] });
 
     const attention = screen.getByTestId("attention");
-    expect(await within(attention).findByRole("alertdialog", { name: vi.awaitingApproval })).toBeInTheDocument();
+    expect(await within(attention).findByRole("group", { name: new RegExp(`^${vi.attentionAwaiting("Agent")}`) })).toBeInTheDocument();
     expect(within(attention).queryByText(vi.attentionFailed("Agent"))).not.toBeInTheDocument();
     const history = screen.getByRole("heading", { name: vi.approvalHistory });
     expect(attention.compareDocumentPosition(history) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
