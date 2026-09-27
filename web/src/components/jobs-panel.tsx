@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { JobInfo } from "../api/types";
+import { useNow } from "../hooks/use-now";
 import { vi } from "../i18n/vi";
 import { scheduleText } from "../lib/cron-text";
 import { timeUntil } from "../lib/relative-time";
@@ -42,12 +43,9 @@ export function JobsPanel(props: Props) {
   const target = useRef<HTMLLIElement>(null);
   const arrived = jobs?.some((job) => job.id === focusJob) ?? false;
   // "sau 3 giờ" and "5 phút" are true for a minute; a list left open on a wall screen
-  // redraws once a minute so the countdowns keep moving.
-  const [, setMinute] = useState(0);
-  useEffect(() => {
-    const timer = setInterval(() => setMinute((n) => n + 1), 60_000);
-    return () => clearInterval(timer);
-  }, []);
+  // reads the clock once a minute, and again on coming back into view, so the countdowns
+  // keep moving.
+  const now = useNow(60_000);
   // Back from a job's editor or run: on a long list the person was on one row, not at the
   // top. Waits for that row, since a reload reaches here before the jobs do.
   useEffect(() => {
@@ -140,9 +138,9 @@ export function JobsPanel(props: Props) {
                 // on the row, since a phone never shows the title.
                 <>
                   <time dateTime={job.next_run} title={formatDateTime(job.next_run)}>
-                    {timeUntil(job.next_run)}
+                    {timeUntil(job.next_run, now)}
                   </time>
-                  <AtClock iso={job.next_run} words={timeUntil(job.next_run)} />
+                  <AtClock iso={job.next_run} words={timeUntil(job.next_run, now)} />
                 </>
               ) : job.paused ? (
                 vi.jobPaused
@@ -159,7 +157,7 @@ export function JobsPanel(props: Props) {
                 {open === job.id ? vi.hideHistory : vi.showHistory}
               </button>
             </div>
-            <JobLastRun job={job} onOpenRun={openRun} />
+            <JobLastRun job={job} now={now} onOpenRun={openRun} />
             {open === job.id && (
               <JobRunHistory
                 jobId={job.id}

@@ -22,6 +22,8 @@ export function failingJobs(jobs: JobInfo[] | null): number {
 
 interface Props {
   job: JobInfo;
+  /** The time the row's other labels read against, so one frame tells one time. */
+  now: Date;
   onOpenRun?: (runId: string) => void;
 }
 
@@ -30,7 +32,7 @@ interface Props {
  * said. Whether this morning's brief went out is the question the jobs list is opened
  * for, and it used to take opening the history and a run card to answer.
  */
-export function JobLastRun({ job, onOpenRun }: Props) {
+export function JobLastRun({ job, now, onOpenRun }: Props) {
   const last = job.last_run;
   return (
     <div className="job-meta job-last muted" data-testid="job-last">
@@ -42,9 +44,9 @@ export function JobLastRun({ job, onOpenRun }: Props) {
               clock time after it. The span keeps the badge, time and link on one line. */}
           <span>
             <time dateTime={last.started_at} title={formatDateTime(last.started_at)}>
-              {timeAgo(last.started_at)}
+              {timeAgo(last.started_at, now)}
             </time>
-            <AtClock iso={last.started_at} words={timeAgo(last.started_at)} />
+            <AtClock iso={last.started_at} words={timeAgo(last.started_at, now)} />
           </span>
           {onOpenRun && (
             <button

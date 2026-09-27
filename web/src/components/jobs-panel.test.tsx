@@ -126,6 +126,33 @@ describe("a job read at a glance", () => {
     expect(vitest.getTimerCount()).toBe(0);
   });
 
+  // A hidden tab's timers slow down or stop, so a list looked at again after a while would
+  // still say what it said when the person looked away.
+  it("reads the clock again as the tab comes back into view", () => {
+    vitest.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"] });
+    vitest.setSystemTime(new Date("2026-09-26T21:00:00Z"));
+    const ran = fakeRun({ started_at: "2026-09-26T20:30:00Z" });
+    render(
+      <JobsPanel
+        jobs={[{ ...brief, next_run: "2026-09-27T07:00+07:00", last_run: ran }]}
+        agentName={name}
+        onRunNow={() => {}}
+        onToggle={() => {}}
+      />,
+    );
+    const row = screen.getByTestId("job");
+    expect(row).toHaveTextContent(`${vi.jobNext}: sau 3 giờ`);
+    expect(within(row).getByTestId("job-last")).toHaveTextContent("30 phút, lúc 03:30");
+
+    // Two and a half hours on, and no tick has fired in between.
+    vitest.setSystemTime(new Date("2026-09-26T23:30:00Z"));
+    act(() => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    expect(row).toHaveTextContent(`${vi.jobNext}: sau 30 phút`);
+    expect(within(row).getByTestId("job-last")).toHaveTextContent("3 giờ, lúc 03:30");
+  });
+
   // A title shows on hover, and a phone never hovers: "sau 3 giờ" alone left the sum to the
   // person, and "Hôm qua" said nothing of when.
   it("prints the clock time beside the next and the last run, once", () => {
