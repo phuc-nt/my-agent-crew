@@ -233,6 +233,61 @@ def test_a_schedule_cannot_take_the_consolidation_jobs_id(crew) -> None:
     assert runtime.deps_for("coder").agent.schedules == ()
 
 
+# Boots, but the edit path would not have written it: an hour the clock cannot read, and
+# two rows on one id.
+HAND_WRITTEN_SCHEDULES = """\
+name: Thợ mã
+schedules:
+  - id: sáng
+    cron: "0 25 * * *"
+    prompt: chào
+  - id: tối
+    cron: "0 21 * * *"
+    prompt: nghỉ
+  - id: tối
+    cron: "0 22 * * *"
+    prompt: ngủ
+"""
+
+
+def test_rows_an_edit_leaves_alone_do_not_hold_the_save(tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    (home / "agents" / "coder").mkdir(parents=True)
+    manifest = home / "agents" / "coder" / "agent.yaml"
+    manifest.write_text(HAND_WRITTEN_SCHEDULES, encoding="utf-8")
+    env = {"MY_AGENT_HOME": str(home), "MY_AGENT_ROUTES": "fake:echo"}
+    runtime = build_runtime(load_settings(env=env))
+    with TestClient(create_app(runtime, schedule=False), base_url="http://127.0.0.1") as client:
+        renamed = client.patch("/api/agents/coder", json={"profile": {"name": "Thợ mới"}})
+        consolidating = client.patch(
+            "/api/agents/coder", json={"profile": {"memory_consolidate": "0 3 * * *"}}
+        )
+        kept = client.get("/api/agents/coder").json()["declared"]["schedules"]
+
+        def saving(rows: list[dict]) -> int:
+            patch = {"profile": {"schedules": rows}}
+            return client.patch("/api/agents/coder", json=patch).status_code
+
+        retimed = saving([kept[0], {**kept[1], "cron": "0 24 * * *"}, kept[2]])
+        copied = saving([*kept, kept[1]])
+        added = saving([*kept, {"id": "trưa", "cron": "0 12 * * *", "prompt": "ăn"}])
+
+    # The file was taken as it is at boot; an edit to something else in it is no moment to
+    # refuse what it already held, and the editor does not re-check keys it did not change.
+    assert (renamed.status_code, consolidating.status_code) == (200, 200)
+    assert runtime.deps_for("coder").agent.name == "Thợ mới"
+    # A row the edit changes is read in full, whatever id it keeps; and a kept row sent a
+    # second time is one more job on its id, not a row left alone.
+    assert (retimed, copied) == (422, 422)
+    assert added == 200
+    assert [s.id for s in runtime.deps_for("coder").agent.schedules if not s.consolidate] == [
+        "sáng",
+        "tối",
+        "tối",
+        "trưa",
+    ]
+
+
 def test_clearing_memory_consolidation_removes_the_key(crew) -> None:
     client, runtime, home = crew
     client.post("/api/agents", json={"agent_id": "coder", "profile": {}})

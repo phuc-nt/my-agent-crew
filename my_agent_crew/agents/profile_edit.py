@@ -4,18 +4,21 @@ A patch names the keys it changes and nothing else, so leaving a key out means "
 it" rather than "clear it" — the web sends one section at a time and must not wipe the
 rest of the file by omission. Clearing a key is asked for explicitly, by sending null.
 
-Validation is `parse_profile`'s: the same code that reads a hand-written file reads
-this one, so the web cannot write a profile the server would refuse to start with.
+Validation starts with `parse_profile`, the same code that reads a hand-written file,
+so the web cannot write a profile the server would refuse to start with. It then asks
+more of the schedules an edit brings than boot asks of a file: see `check_schedules`.
 """
 
 from __future__ import annotations
 
 import re
+from collections import Counter
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
 from my_agent_crew import texts
-from my_agent_crew.agents.profile import PROFILE_KEYS, AgentProfile
+from my_agent_crew.agents.profile import PROFILE_KEYS, AgentProfile, Schedule
 from my_agent_crew.agents.profile_yaml import parse_profile
 from my_agent_crew.config import Settings
 from my_agent_crew.scheduler.cron import CronSpec, parse_every
@@ -80,27 +83,50 @@ def apply_patch(raw: Any, patch: dict[str, Any]) -> Any:
     return raw
 
 
-def validated(agent_id: str, agent_dir: Path, raw: Any, settings: Settings) -> AgentProfile:
+def validated(
+    agent_id: str,
+    agent_dir: Path,
+    raw: Any,
+    settings: Settings,
+    before: AgentProfile | None = None,
+) -> AgentProfile:
     """The patched manifest read as a profile, or a ValueError naming what is wrong.
 
     Plain dicts, not ruamel's: a profile holds what it parsed for the rest of the
     server's life, and a round-trip node carries the whole document along with it.
 
-    The timing of every schedule is read here too, which the parser leaves to the
-    scheduler. A file edited by hand fails loudly at boot; one saved from the web with a
-    typo in its cron would be accepted, then break the jobs list and every job beside it.
-
-    So is every schedule's id, the computed ones included. The scheduler keys its jobs by
-    id, so a second job on the same id — a blank row numbered by its place onto a kept
-    row's `job-1`, or a row named like the consolidation job — replaces the first without
-    a word, and the first never runs again.
+    `before` is the agent as it runs now. A new agent has none, so every schedule it
+    carries is the edit's.
     """
     profile = parse_profile(agent_id, agent_dir, dict(raw), settings)
-    seen: set[str] = set()
-    for schedule in profile.schedules:
-        if schedule.id in seen:
+    check_schedules(agent_id, profile.schedules, before.schedules if before else ())
+    return profile
+
+
+def check_schedules(agent_id: str, schedules: Sequence[Schedule], kept: Sequence[Schedule]) -> None:
+    """Each schedule the edit adds or changes has a timing the clock can read and an id
+    of its own.
+
+    Boot checks neither. The parser leaves timing to the scheduler, which first reads it
+    when the jobs list is asked for or the clock ticks: a hand-written file with a typo in
+    a cron starts fine, then answers the jobs list with a 500 and, while that job is on,
+    fails every tick for every job beside it. And the scheduler keys its jobs by id, so a
+    second job on the same id — a blank row numbered by its place onto a kept row's
+    `job-1`, or a row named like the consolidation job — replaces the first without a word.
+
+    The rows in `kept`, the schedules the agent runs with now, are not checked again: a
+    file edited by hand may already hold one this check would refuse, and holding an
+    unrelated save hostage to it helps nobody. They are matched one for one, and by
+    equality rather than in a set, because a hand-written cron can be any YAML value.
+    """
+    unchanged = list(kept)
+    taken = Counter(schedule.id for schedule in schedules)
+    for schedule in schedules:
+        if schedule in unchanged:
+            unchanged.remove(schedule)
+            continue
+        if taken[schedule.id] > 1:
             raise ValueError(texts.SCHEDULE_ID_TAKEN.format(id=schedule.id))
-        seen.add(schedule.id)
         try:
             if schedule.cron:
                 CronSpec.parse(str(schedule.cron))
@@ -108,7 +134,6 @@ def validated(agent_id: str, agent_dir: Path, raw: Any, settings: Settings) -> A
                 parse_every(str(schedule.every))
         except ValueError as exc:
             raise ValueError(f"agent {agent_id}: schedule {schedule.id}: {exc}") from exc
-    return profile
 
 
 def restart_reasons(old: AgentProfile | None, new: AgentProfile) -> list[str]:

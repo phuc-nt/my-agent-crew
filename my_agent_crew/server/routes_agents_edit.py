@@ -54,9 +54,12 @@ class PatchRequest(BaseModel):
     profile: dict[str, Any]
 
 
-def save(rt: Runtime, agent_id: str, raw: Any, agent_dir: Path) -> AgentProfile:
+def save(
+    rt: Runtime, agent_id: str, raw: Any, agent_dir: Path, before: AgentProfile | None = None
+) -> AgentProfile:
     """Validate, then wire, then write — in that order, so a refused edit leaves both the
-    file and the running crew as they were.
+    file and the running crew as they were. `before` is the agent as it runs now, which
+    an edit's schedules are measured against; a new agent has none.
 
     Wiring before writing is what makes that true. Building the agent is the step that
     can still fail on a profile that parsed cleanly — an unusable route, a directory that
@@ -64,7 +67,7 @@ def save(rt: Runtime, agent_id: str, raw: Any, agent_dir: Path) -> AgentProfile:
     while the answer said it did not, then take effect at the next restart.
     """
     try:
-        profile = validated(agent_id, agent_dir, raw, rt.settings)
+        profile = validated(agent_id, agent_dir, raw, rt.settings, before)
         check_inside_home(profile, rt.settings.home)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
@@ -110,7 +113,7 @@ async def patch_agent(agent_id: str, body: PatchRequest, rt: Rt) -> dict[str, An
         check_editable(rt, old)
         raw = patched(rt, agent_id, body.profile)
         before = channel_key(rt.agents, os.environ)
-        profile = save(rt, agent_id, raw, old.dir)
+        profile = save(rt, agent_id, raw, old.dir, old)
         # The bot is built from the master's block; a changed chat or token takes effect
         # now rather than after a restart nobody remembers to do. Any other edit only
         # hands the running bot the rebuilt agent, without cutting off its poll.
