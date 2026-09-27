@@ -172,7 +172,8 @@ export function runsForConversation(state: ActivityState, conversationId: string
  * A conversation's own runs together with those of the work it delegated.
  *
  * The delegated run says whose behalf it acts on in its `source`, so the family is read
- * from the runs already in hand — opening the activity strip asks the server for nothing.
+ * from the streamed runs alone. This narrows only that side: the activity strip lays them
+ * over the conversation's stored history, which it asks the server for (`mergeRuns`).
  */
 export function conversationFamilyRuns(
   state: ActivityState,
