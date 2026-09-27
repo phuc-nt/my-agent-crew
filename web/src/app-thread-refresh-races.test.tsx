@@ -258,3 +258,116 @@ describe("runs of other channels overlapping this tab's turns", () => {
     expect(screen.getByTestId("tool-card")).toHaveTextContent(vi.toolDone);
   });
 });
+
+/** Holds the next load of one conversation once armed; its answer is taken on arrival. */
+function holdNextLoad(id: string) {
+  const load = door();
+  let armed = false;
+  vitest.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+    const response = await backend.fetch(input, init);
+    if (armed && !init?.method && String(input).endsWith(`/conversations/${id}`)) {
+      armed = false;
+      await load.shut;
+    }
+    return response;
+  });
+  return { arm: () => (armed = true), open: () => act(async () => load.open()) };
+}
+
+describe("answers for the conversation left behind arriving late", () => {
+  async function switchToB() {
+    await userEvent.click(screen.getByRole("button", { name: /Hội thoại B/ }));
+    await screen.findByText("tin của B");
+  }
+
+  function expectB() {
+    expect(screen.getByRole("heading", { level: 1, name: "Hội thoại B" })).toBeInTheDocument();
+    expect(screen.getByText("tin của B")).toBeInTheDocument();
+    expect(screen.queryByText("tin của A")).not.toBeInTheDocument();
+  }
+
+  it("leaves the conversation opened since alone when it was the first load", async () => {
+    const a = backend.create({ title: "Hội thoại A", messages: [storedMessage("user", "tin của A")] });
+    backend.create({ title: "Hội thoại B", messages: [storedMessage("user", "tin của B")] });
+    const hold = holdNextLoad(a.id);
+    hold.arm();
+    render(<App />);
+    await userEvent.click(await screen.findByRole("button", { name: /Hội thoại A/ }));
+    await screen.findByRole("heading", { level: 1, name: "Hội thoại A" });
+
+    await switchToB();
+    await hold.open();
+    expectB();
+  });
+
+  it("leaves it alone when the load was for a run that ended there", async () => {
+    const a = backend.create({ title: "Hội thoại A", messages: [storedMessage("user", "tin của A")] });
+    backend.create({ title: "Hội thoại B", messages: [storedMessage("user", "tin của B")] });
+    const hold = holdNextLoad(a.id);
+    await openConversation("Hội thoại A", [run(a.id, "running")]);
+    await screen.findByText("tin của A");
+
+    a.messages.push(storedMessage("assistant", "Trả lời A qua Telegram"));
+    hold.arm();
+    act(() => stream().emit({ type: "run", run: run(a.id, "done") }));
+    await act(async () => {});
+    await switchToB();
+    await hold.open();
+    expectB();
+    expect(screen.queryByText("Trả lời A qua Telegram")).not.toBeInTheDocument();
+  });
+
+  it("says nothing there of a decision the conversation left had found taken", async () => {
+    const a = backend.create({
+      title: "Hội thoại A",
+      status: "awaiting_approval",
+      pending_approval: fakeApproval({ status: "pending", resolved_at: null }),
+      messages: [storedMessage("user", "tin của A"), storedMessage("assistant", "", { tool_calls: [{ id: "tc", name: "write_file", arguments: {} }] })],
+    });
+    backend.create({ title: "Hội thoại B", messages: [storedMessage("user", "tin của B")] });
+    const hold = holdNextLoad(a.id);
+    await openConversation("Hội thoại A", [run(a.id, "awaiting_approval")]);
+    const bar = await screen.findByRole("alertdialog");
+
+    // Decided on another device meanwhile: the decision here meets a 409 and loads A again.
+    Object.assign(a, { status: "idle", pending_approval: null });
+    hold.arm();
+    await userEvent.click(within(bar).getByRole("button", { name: vi.approve }));
+    await switchToB();
+    await hold.open();
+    expectB();
+    expect(screen.queryByTestId("notice")).not.toBeInTheDocument();
+  });
+
+  it("keeps a decision refused after the switch from taking this tab's run there for another's", async () => {
+    const a = backend.create({
+      title: "Hội thoại A",
+      status: "awaiting_approval",
+      pending_approval: fakeApproval({ status: "pending", resolved_at: null }),
+      messages: [storedMessage("user", "tin của A"), storedMessage("assistant", "", { tool_calls: [{ id: "tc", name: "write_file", arguments: {} }] })],
+    });
+    const b = backend.create({ title: "Hội thoại B", messages: [storedMessage("user", "tin của B")] });
+    const release = holdTurns();
+    await openConversation("Hội thoại A", [run(a.id, "awaiting_approval")]);
+    const bar = await screen.findByRole("alertdialog");
+
+    // Decided on another device meanwhile; the person moves on to B and writes there
+    // before the decision taken here hears back.
+    Object.assign(a, { status: "idle", pending_approval: null });
+    await userEvent.click(within(bar).getByRole("button", { name: vi.approve }));
+    await switchToB();
+    backend.nextTurn = [...webTurn];
+    await userEvent.type(screen.getByRole("textbox", { name: vi.composerPlaceholder }), "tin web{Enter}");
+    act(() => stream().emit({ type: "run", run: run(b.id, "running", "chat", "web") }));
+    b.messages.push(storedMessage("assistant", "Đã nhận"));
+    await release();
+    await screen.findByText("Đã nhận");
+    // The run is the one this tab streamed: nothing else is going there, nothing to load.
+    expect(screen.queryByTestId("thinking")).not.toBeInTheDocument();
+    const before = threadLoads(b.id);
+    act(() => stream().emit({ type: "run", run: run(b.id, "done", "chat", "web") }));
+    await act(async () => {});
+    expect(threadLoads(b.id)).toBe(before);
+    expectB();
+  });
+});

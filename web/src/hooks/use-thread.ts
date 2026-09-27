@@ -31,27 +31,35 @@ export function useThread(conversationId: string | null): ThreadController {
   const turns = useRef(0);
   const [owed, setOwed] = useState(false);
   const [handledElsewhere, setHandledElsewhere] = useState(0);
+  // A fresh object each time a conversation is opened: whatever answers for an opening
+  // that is no longer the one on screen belongs to a thread the person has left.
+  const opened = useRef<{ id: string | null }>({ id: null });
 
   const reload = useCallback(async () => {
     if (!conversationId) {
       setDetail(null);
       return;
     }
+    const opening = opened.current;
+    if (opening.id !== conversationId) return;
     // A turn begun while the load was on its way has put the person's message and its
     // stream on screen, which this older copy lacks: it loads again once the turn is over.
     const turn = turns.current;
     try {
       const loaded = await api.getConversation(conversationId);
+      if (opening !== opened.current) return;
       if (turn !== turns.current) return setOwed(true);
       setDetail(loaded);
       dispatch({ type: "loaded", detail: loaded });
     } catch (error) {
+      if (opening !== opened.current) return;
       if (turn !== turns.current) return setOwed(true);
       dispatch({ type: "failed", message: describe(error) });
     }
   }, [conversationId]);
 
   useEffect(() => {
+    opened.current = { id: conversationId };
     abortRef.current?.abort();
     setOwed(false);
     dispatch({ type: "loaded", detail: blankDetail(conversationId) });
@@ -97,12 +105,14 @@ export function useThread(conversationId: string | null): ThreadController {
    *  handled; a run resumed elsewhere may still be going, so nothing is settled. */
   const decisionTurn = useCallback(
     async (run: (onEvent: (e: AgentEvent) => void, signal: AbortSignal) => Promise<void>) => {
+      const opening = opened.current;
       let handled = false;
       await runTurn(async (emit, signal) => {
         try {
           await run(emit, signal);
         } catch (error) {
           if (!(error instanceof ApiError && error.status === 409)) throw error;
+          if (opening !== opened.current) return;
           handled = true;
           setOwed(false);
           setHandledElsewhere((n) => n + 1);
@@ -110,7 +120,7 @@ export function useThread(conversationId: string | null): ThreadController {
       });
       if (!handled) return;
       await reload();
-      dispatch({ type: "handled" });
+      if (opening === opened.current) dispatch({ type: "handled" });
     },
     [runTurn, reload],
   );

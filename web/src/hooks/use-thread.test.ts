@@ -130,3 +130,27 @@ describe("Stop on a stream that resumed after a person answered", () => {
     expect(statuses(result.current.state.items)).not.toContain("running");
   });
 });
+
+describe("a thread another conversation has replaced", () => {
+  it("is not loaded again by a caller still holding the reload it was opened with", async () => {
+    const opened = (id: string): ConversationDetail => ({
+      ...paused("tool"),
+      id,
+      title: `Hội thoại ${id}`,
+      status: "idle",
+      pending_approval: null,
+    });
+    const load = vitest.spyOn(api, "getConversation").mockImplementation(async (id) => opened(id));
+    const { result, rerender } = renderHook(({ id }) => useThread(id), { initialProps: { id: "c1" } });
+    await waitFor(() => expect(result.current.detail?.id).toBe("c1"));
+    // A raise of the cap, say, that went out from the first one and answers now.
+    const reloadLeft = result.current.reload;
+    rerender({ id: "c2" });
+    await waitFor(() => expect(result.current.detail?.id).toBe("c2"));
+
+    load.mockClear();
+    await act(() => reloadLeft());
+    expect(load).not.toHaveBeenCalled();
+    expect(result.current.detail?.title).toBe("Hội thoại c2");
+  });
+});
