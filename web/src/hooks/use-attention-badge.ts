@@ -1,6 +1,6 @@
 import { useEffect, useSyncExternalStore } from "react";
 import type { RunInfo } from "../api/types";
-import { seenRuns, subscribeSeen } from "../lib/seen-runs";
+import { seenKey, seenRuns, subscribeSeen } from "../lib/seen-runs";
 
 const COUNT_PREFIX = /^\(\d+\) /;
 
@@ -24,12 +24,13 @@ function setAppBadge(count: number) {
  * carried outside the page: in the tab title and on the installed app's icon.
  *
  * A failure the person marked as read stops asking; a request waiting on a decision
- * cannot be dismissed that way, only settled. Only waiting requests are counted outside,
- * because they are the ones with a deadline — a failure keeps until it is read.
+ * is settled instead, and can be marked read only once it turns out to be closed already.
+ * Only waiting requests are counted outside, because they are the ones with a deadline —
+ * a failure keeps until it is read.
  */
 export function useAttention(runs: RunInfo[]): RunInfo[] {
   const seen = useSyncExternalStore(subscribeSeen, seenRuns);
-  const asking = runs.filter((run) => run.status === "awaiting_approval" || !seen.includes(run.id));
+  const asking = runs.filter((run) => !seen.includes(seenKey(run)));
   const waiting = asking.filter((run) => run.status === "awaiting_approval").length;
 
   useEffect(() => {

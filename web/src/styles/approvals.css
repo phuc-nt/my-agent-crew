@@ -135,6 +135,11 @@
   overflow-wrap: anywhere;
 }
 
+/* Under a request found closed: sized to its words, not stretched across the row. */
+.attention-inline .attention-seen {
+  align-self: flex-start;
+}
+
 .attention-elsewhere {
   margin-top: var(--space-3);
   font-size: var(--text-sm);

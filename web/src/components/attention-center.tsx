@@ -2,7 +2,7 @@ import { useId, useState } from "react";
 import type { RunInfo } from "../api/types";
 import { vi } from "../i18n/vi";
 import { runSummaryText } from "../lib/run-summary";
-import { markSeen } from "../lib/seen-runs";
+import { markSeen, seenKey } from "../lib/seen-runs";
 import { AttentionRow } from "./attention-row";
 import { formatClock } from "./run-timeline";
 import { Icon, type IconName } from "./ui/icon";
@@ -47,18 +47,49 @@ function icon(run: RunInfo): IconName {
 
 const noop = () => undefined;
 
+/** Newest first, as the activity list is: a held row goes back where it was listed. */
+const byStart = (a: RunInfo, b: RunInfo) => b.started_at.localeCompare(a.started_at);
+
 /** Approvals waiting anywhere plus runs that ended badly, one click from their conversation. */
 export function AttentionCenter(props: Props) {
   const { runs, agentName, onOpenConversation, parentTitle, inline = false } = props;
   const waitingElsewhere = props.waitingElsewhere ?? 0;
   const failedElsewhere = props.failedElsewhere ?? 0;
   const titles = useId();
-  // Rows settled from here leave at once, before the list is read again.
+  // Rows settled or dismissed from here leave at once, before the list is read again.
   const [settled, setSettled] = useState<string[]>([]);
-  const shown = runs.filter((run) => !settled.includes(run.id));
+  // Rows whose decision is still resuming their run. The run stops waiting as soon as the
+  // server has the decision, and its row would leave with it — taking "Đang chạy tiếp…"
+  // and any error from the resumed turn along before either could be read.
+  const [held, setHeld] = useState<RunInfo[]>([]);
+  const extra = held.filter((h) => !runs.some((run) => run.id === h.id));
+  const listed = extra.length > 0 ? [...runs, ...extra].sort(byStart) : runs;
+  const shown = listed.filter((run) => !settled.includes(seenKey(run)));
   // "Nothing needs you" must hold for the whole manage screen, not just this list: the
   // nav still counts the work listed on the other page, and the two would contradict.
   const calm = shown.length === 0 && waitingElsewhere === 0 && failedElsewhere === 0;
+
+  const leave = (run: RunInfo) => {
+    setSettled((keys) => [...keys, seenKey(run)]);
+    setHeld((rows) => rows.filter((r) => r.id !== run.id));
+  };
+  const hold = (run: RunInfo) => setHeld((rows) => [...rows.filter((r) => r.id !== run.id), run]);
+
+  // Said of a failure once it is read, and of a request found closed with nothing to decide.
+  const seenButton = (run: RunInfo) => (
+    <button
+      type="button"
+      className="ghost attention-seen"
+      aria-label={vi.attentionSeenLabel(label(run, agentName(run.agent_id)))}
+      onClick={() => {
+        markSeen(seenKey(run));
+        leave(run);
+      }}
+    >
+      <Icon name="check" />
+      {vi.attentionSeen}
+    </button>
+  );
 
   const head = (run: RunInfo, preview: boolean) => {
     const parent = parentTitle?.(run);
@@ -91,17 +122,7 @@ export function AttentionCenter(props: Props) {
             </button>
           )}
           {/* A failure is read, not decided: saying so is the only thing left to do with it. */}
-          {run.status !== "awaiting_approval" && (
-            <button
-              type="button"
-              className="ghost attention-seen"
-              aria-label={vi.attentionSeenLabel(label(run, agentName(run.agent_id)))}
-              onClick={() => markSeen(run.id)}
-            >
-              <Icon name="check" />
-              {vi.attentionSeen}
-            </button>
-          )}
+          {run.status !== "awaiting_approval" && seenButton(run)}
         </span>
       </>
     );
@@ -127,8 +148,10 @@ export function AttentionCenter(props: Props) {
                 run={run}
                 conversationId={run.conversation_id}
                 labelledBy={`${titles}-${run.id}`}
+                dismiss={seenButton(run)}
                 onReload={props.onReload ?? noop}
-                onSettled={() => setSettled((ids) => [...ids, run.id])}
+                onHold={() => hold(run)}
+                onSettled={() => leave(run)}
               >
                 {head(run, false)}
               </AttentionRow>

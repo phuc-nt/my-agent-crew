@@ -1,6 +1,7 @@
 import { render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
 import type { RunInfo } from "../api/types";
+import { markSeen, seenKey } from "../lib/seen-runs";
 import { fakeRun } from "../test/fake-backend";
 import { useAttention } from "./use-attention-badge";
 
@@ -85,5 +86,18 @@ describe("the count carried outside the page", () => {
     expect(thrown).toHaveBeenCalled();
     expect(unhandled).not.toHaveBeenCalled();
     expect(document.title).toBe("Agent Crew");
+  });
+
+  // A request is marked read only once its row found it closed, as for a run a restart left
+  // listed as waiting. The mark must not hide a later, real pause of the same run.
+  it("stops counting a closed request marked read, and counts the same run's next pause", () => {
+    const left = waiting("left-behind");
+    markSeen(seenKey(left));
+    const { rerender } = render(<Counted runs={[left, waiting("b")]} />);
+    expect(document.title).toBe("(1) Agent Crew");
+
+    const pausedAgain = { ...left, steps: [...left.steps, { kind: "question" }] as RunInfo["steps"] };
+    rerender(<Counted runs={[pausedAgain, waiting("b")]} />);
+    expect(document.title).toBe("(2) Agent Crew");
   });
 });

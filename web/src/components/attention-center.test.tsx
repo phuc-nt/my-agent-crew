@@ -111,6 +111,25 @@ describe("AttentionCenter with requests settled in place", () => {
     expect(screen.getByRole("button", { name: vi.approve })).toBeEnabled();
   });
 
+  // The server takes the decision and resumes the run, then the stream carrying the turn is
+  // cut. The request shown is over, so its buttons must go; the error stays until it is read.
+  it("keeps a row whose resumed stream broke, with the error and no stale buttons, until read", async () => {
+    const { run } = waiting();
+    vitest.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+      const response = await backend.fetch(input, init);
+      if (!String(input).includes("/approvals/")) return response;
+      const cut = new ReadableStream<Uint8Array>({ pull: (controller) => controller.error(new TypeError("network error")) });
+      return new Response(cut, { status: 200, headers: response.headers });
+    });
+    inline([run]);
+    await userEvent.click(within(await request()).getByRole("button", { name: vi.approve }));
+
+    expect(await screen.findByText(vi.errorPrefix + "network error")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("group")).not.toBeInTheDocument());
+    await userEvent.click(screen.getByRole("button", { name: vi.attentionSeenLabel(vi.attentionAwaiting("Agent")) }));
+    expect(screen.queryByTestId("attention-row")).not.toBeInTheDocument();
+  });
+
   // Two requests on one page are two groups, each named by who asks: two identical alerts
   // would leave a screen reader with two "Cho phép" buttons nobody can tell apart.
   it("names each waiting request by its own row instead of one shared alert", async () => {

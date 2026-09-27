@@ -1,6 +1,6 @@
 /**
- * The failed and halted runs the person has marked as read, so they stop asking for
- * attention on this device.
+ * The runs the person has marked as read, so they stop asking for attention on this
+ * device: failures and halts, and requests found already closed.
  *
  * Kept per device in localStorage rather than on the server: "I have seen this" is about
  * one screen, not about the run. Storage can be refused outright (a private window, a
@@ -10,6 +10,16 @@
 const KEY = "attention.seen";
 /** Enough to cover every failure a busy week lists; older ids have long left the list. */
 const LIMIT = 100;
+
+/**
+ * What "seen" is recorded against. A failure is over, so its id is enough. A request that
+ * waits on a decision is marked only once its row finds it closed — a run a restart left
+ * listed as waiting, say — and the step count keeps that from hiding a later, real pause
+ * of the same run: pausing again adds a step.
+ */
+export function seenKey(run: { id: string; status: string; steps: unknown[] }): string {
+  return run.status === "awaiting_approval" ? `${run.id}@${run.steps.length}` : run.id;
+}
 
 const listeners = new Set<() => void>();
 /** Null until first read, and again when another tab wrote a newer list. */

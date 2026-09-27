@@ -15,6 +15,10 @@ interface Props {
   children: ReactNode;
   /** The row head's id: in a list the request is named by who asks, not by a shared title. */
   labelledBy?: string;
+  /** Offered once the request is closed and nothing waits in its place. */
+  dismiss?: ReactNode;
+  /** A decision is on its way: the row must outlive its run leaving the waiting list. */
+  onHold?: () => void;
   /** The request is closed and nothing else waits in its place: the row can go. */
   onSettled: () => void;
   /** The server changed under the list, so the activity it shows is read again. */
@@ -39,14 +43,15 @@ const ignoreEvent = () => undefined;
  * and waits for the resumed stream to end before the row decides whether it is done — a
  * turn can pause again on the next tool, and that new request belongs in the same row.
  */
-export function AttentionRow({ run, conversationId, children, labelledBy, onSettled, onReload }: Props) {
+export function AttentionRow(props: Props) {
+  const { run, conversationId, children, labelledBy, onSettled } = props;
   const [load, setLoad] = useState<Load>({ state: "loading" });
   const [working, setWorking] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   // Held in a ref: the parent hands a new callback each render, and the expiry effect
   // below must fire once per deadline, not once per render.
-  const reload = useRef(onReload);
-  reload.current = onReload;
+  const reload = useRef(props.onReload);
+  reload.current = props.onReload;
 
   const fetchPending = useCallback(async () => {
     const detail = await api.getConversation(conversationId);
@@ -56,7 +61,13 @@ export function AttentionRow({ run, conversationId, children, labelledBy, onSett
   useEffect(() => {
     let current = true;
     fetchPending().then(
-      (pending) => current && setLoad({ state: "ready", pending }),
+      (pending) => {
+        if (!current) return;
+        setLoad({ state: "ready", pending });
+        // Listed as waiting while nothing waits: a restart left the run behind, or it was
+        // settled elsewhere while the activity stream was down. The list may know better.
+        if (!pending) reload.current();
+      },
       (err) => current && setLoad({ state: "failed", message: messageOf(err) }),
     );
     return () => {
@@ -65,7 +76,9 @@ export function AttentionRow({ run, conversationId, children, labelledBy, onSett
   }, [fetchPending]);
 
   const pending = load.state === "ready" ? load.pending : null;
-  const remaining = useRemaining(pending?.expiresAt);
+  // Once a decision is sent the deadline no longer applies: counting on would turn the
+  // chip red and reload the list for a request that was answered, not one that expired.
+  const remaining = useRemaining(working ? undefined : pending?.expiresAt);
   const expired = remaining === 0;
 
   // The server closes an expired request on its own sweep and resumes the run with a
@@ -75,6 +88,7 @@ export function AttentionRow({ run, conversationId, children, labelledBy, onSett
   }, [expired]);
 
   const settle = async (send: () => Promise<void>) => {
+    props.onHold?.();
     setWorking(true);
     setNote(null);
     try {
@@ -85,12 +99,12 @@ export function AttentionRow({ run, conversationId, children, labelledBy, onSett
     } catch (err) {
       // Someone got there first: another tab, Telegram or the expiry sweep. Saying the
       // conversation is busy would send the person to wait for something already over.
-      if (err instanceof ApiError && err.status === 409) {
-        setNote(vi.attentionHandled);
-        setLoad({ state: "ready", pending: await fetchPending().catch(() => null) });
-      } else {
-        setNote(vi.errorPrefix + messageOf(err));
-      }
+      const handled = err instanceof ApiError && err.status === 409;
+      setNote(handled ? vi.attentionHandled : vi.errorPrefix + messageOf(err));
+      // Whatever failed, the request shown may be over: a stream cut after the server took
+      // the decision leaves nothing to decide, or the next request. A 409 is proof enough.
+      const now = await fetchPending().catch(() => (handled ? null : undefined));
+      if (now !== undefined) setLoad({ state: "ready", pending: now });
     } finally {
       setWorking(false);
       reload.current();
@@ -98,7 +112,9 @@ export function AttentionRow({ run, conversationId, children, labelledBy, onSett
   };
 
   const busy = working || expired;
-  const deadline = remaining !== null ? <ExpiryCountdown remaining={remaining} /> : undefined;
+  // False rather than undefined while the decision is on its way: no fallback deadline either.
+  const deadline = !working && remaining !== null && <ExpiryCountdown remaining={remaining} />;
+  const closed = load.state === "ready" && !pending && !working;
   return (
     <li className="awaiting_approval inline" data-testid="attention-row">
       {children}
@@ -106,7 +122,9 @@ export function AttentionRow({ run, conversationId, children, labelledBy, onSett
         {load.state === "loading" && <p className="muted">{vi.attentionLoading}</p>}
         {load.state === "failed" && <p className="attention-note">{vi.errorPrefix + load.message}</p>}
         {pending?.kind === "question" && (
+          // Keyed by the request: a follow-up must not inherit the reply typed to the last one.
           <QuestionCard
+            key={pending.approvalId}
             pending={pending}
             labelledBy={labelledBy}
             busy={busy}
@@ -118,6 +136,7 @@ export function AttentionRow({ run, conversationId, children, labelledBy, onSett
         )}
         {pending && pending.kind !== "question" && (
           <ApprovalBar
+            key={pending.approvalId}
             pending={pending}
             labelledBy={labelledBy}
             busy={busy}
@@ -131,8 +150,9 @@ export function AttentionRow({ run, conversationId, children, labelledBy, onSett
           <p className="run-preview muted">{runSummaryText(run)}</p>
         )}
         <p className="attention-note" role="status">
-          {working ? vi.attentionResuming : note}
+          {working ? vi.attentionResuming : (note ?? (closed ? vi.attentionHandled : null))}
         </p>
+        {closed && props.dismiss}
       </div>
     </li>
   );
