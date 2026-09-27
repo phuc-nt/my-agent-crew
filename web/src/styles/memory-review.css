@@ -163,6 +163,29 @@
   margin: 0 0 var(--space-3);
 }
 
+/* While a followed page loads, what is on screen is about to go; dimming it says the tap
+   took without hiding what the reader was on. */
+.wiki-opening {
+  cursor: progress;
+}
+
+.wiki-opening > :not(.wiki-open-state) {
+  opacity: 0.6;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+/* The link may sit far down a long page, so the word about it stays in view at the
+   bottom rather than landing below the fold. An error keeps its own colours. */
+.wiki-open-state {
+  position: sticky;
+  bottom: var(--space-3);
+  z-index: 1;
+  margin: var(--space-3) 0 0;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
+}
+
 /* ── Tracking chip ──────────────────────────────────────────────────────── */
 .run-chip {
   display: inline-flex;

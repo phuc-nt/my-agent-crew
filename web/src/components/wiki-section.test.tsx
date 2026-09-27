@@ -226,6 +226,35 @@ describe("WikiSection read mode", () => {
     expect(await screen.findByRole("heading", { name: "Trà sáng" })).toBeInTheDocument();
   });
 
+  it("shows a followed page is opening, and says so where the link was when it cannot open", async () => {
+    backend.wiki.add({ title: "Hạn Eco", body: "Pha [[Trà sáng]] trước khi nộp." });
+    backend.wiki.add({ slug: "tra-sang", title: "Trà sáng", kind: "concepts", body: "Pha lúc 6h." });
+    const fetchThrough = backend.fetch;
+    let answer!: (response: Response) => void;
+    vitest.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) =>
+      String(input).endsWith("/wiki/pages/tra-sang")
+        ? new Promise<Response>((resolve) => {
+            answer = resolve;
+          })
+        : fetchThrough(input, init),
+    );
+    mount();
+    await userEvent.click(await screen.findByRole("button", { name: "Hạn Eco" }));
+    await userEvent.click(within(await screen.findByTestId("wiki-page")).getByRole("button", { name: "Trà sáng" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent(vi.wiki.opening);
+    expect(screen.getByTestId("wiki-section")).toHaveAttribute("aria-busy", "true");
+    answer(new Response(JSON.stringify({ detail: "down" }), { status: 500 }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(vi.wiki.openFailed);
+    expect(screen.queryByText(vi.wiki.opening)).toBeNull();
+    expect(screen.getByTestId("wiki-section")).not.toHaveAttribute("aria-busy");
+    // Still on the page the link was on; the failure is about that tap and clears on moving on.
+    expect(screen.getByRole("heading", { name: "Hạn Eco" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: new RegExp(vi.wiki.back) }));
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
   it("asks before leaving an unsaved edit, for the read view or the list, and keeps it on a no", async () => {
     backend.wiki.add({ title: "Hạn Eco", body: "Thứ tư." });
     mount();

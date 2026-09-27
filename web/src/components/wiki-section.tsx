@@ -31,6 +31,10 @@ type Message = { agentId: string; text: string };
 export function WikiSection(props: Props) {
   const wiki = useWiki(props.agentId);
   const [message, setMessage] = useState<Message | null>(null);
+  const [opening, setOpening] = useState(false);
+  // Where a page failed to open from; the failure is said there and goes once they move on.
+  const [failedAt, setFailedAt] = useState<string | null>(null);
+  const here = `${props.agentId}/${wiki.page?.slug ?? ""}`;
 
   const { refresh } = wiki;
   const { agentId } = props;
@@ -57,13 +61,24 @@ export function WikiSection(props: Props) {
   };
 
   const { open: openPage } = wiki;
-  // Stable, so a rendered page does not rebuild its markdown on every parent render.
-  const open = useCallback((slug: string) => void openPage(slug).catch(() => undefined), [openPage]);
+  // A tap on a link shows that it took and says when it failed: on a weak signal a slow page
+  // and a dead one otherwise look the same. Stable while one page is open, so a rendered page
+  // does not rebuild its markdown on every parent render.
+  const open = useCallback(
+    (slug: string) => {
+      setOpening(true);
+      setFailedAt(null);
+      void openPage(slug)
+        .catch(() => setFailedAt(here))
+        .finally(() => setOpening(false));
+    },
+    [openPage, here],
+  );
   const problems = wiki.report?.problems ?? [];
   const questions = wiki.report?.questions ?? [];
 
   return (
-    <div data-testid="wiki-section">
+    <div data-testid="wiki-section" aria-busy={opening || undefined} className={opening ? "wiki-opening" : undefined}>
       <label>
         {vi.agents}
         <select
@@ -169,6 +184,13 @@ export function WikiSection(props: Props) {
             </ul>
           )}
         </>
+      )}
+
+      {opening && <p className="notice wiki-open-state" role="status">{vi.wiki.opening}</p>}
+      {failedAt === here && (
+        <p className="notice error wiki-open-state" role="alert">
+          {vi.wiki.openFailed}
+        </p>
       )}
     </div>
   );
