@@ -224,6 +224,33 @@ export function parentConversationId(run: RunInfo): string | null {
 
 export type RunGroup = { run: RunInfo; children: RunInfo[] };
 
+function push<K, V>(map: Map<K, V[]>, key: K, value: V): void {
+  const known = map.get(key);
+  if (known) known.push(value);
+  else map.set(key, [value]);
+}
+
+/**
+ * The turn that asked for a delegated run, among its parent conversation's turns.
+ *
+ * The source names only the conversation, and a conversation's history holds many turns.
+ * A conversation runs one turn at a time and the delegate tool starts its child from inside
+ * one, so the turn that asked is the one going when the child started: begun by then, and
+ * not yet over. Timestamps are whole seconds, so both ends count; of two turns that touch
+ * the same second, the later one is the one still going.
+ */
+function askingTurn(child: RunInfo, turns: RunInfo[]): RunInfo | null {
+  const start = Date.parse(child.started_at);
+  let asking: RunInfo | null = null;
+  for (const turn of turns) {
+    const began = Date.parse(turn.started_at);
+    const ended = turn.finished_at === null ? Infinity : Date.parse(turn.finished_at);
+    const going = began <= start && start <= ended;
+    if (going && (asking === null || began > Date.parse(asking.started_at))) asking = turn;
+  }
+  return asking;
+}
+
 /**
  * Runs for the rail, with delegated runs tucked under the run that asked for them.
  *
@@ -232,11 +259,11 @@ export type RunGroup = { run: RunInfo; children: RunInfo[] };
  * its own rather than disappearing.
  */
 export function runGroups(runs: RunInfo[]): RunGroup[] {
-  const byConversation = new Map<string, RunInfo>();
+  const turns = new Map<string, RunInfo[]>();
   for (const run of runs) {
     // A run with no conversation (a scheduled job) can never be delegated to.
     if (run.conversation_id !== null && parentConversationId(run) === null) {
-      byConversation.set(run.conversation_id, run);
+      push(turns, run.conversation_id, run);
     }
   }
   const children = new Map<string, RunInfo[]>();
@@ -244,20 +271,13 @@ export function runGroups(runs: RunInfo[]): RunGroup[] {
   for (const run of runs) {
     const parent = parentConversationId(run);
     if (parent === null) continue;
-    if (!byConversation.has(parent)) {
-      orphans.push(run);
-      continue;
-    }
-    const known = children.get(parent);
-    if (known) known.push(run);
-    else children.set(parent, [run]);
+    const asking = askingTurn(run, turns.get(parent) ?? []);
+    if (asking === null) orphans.push(run);
+    else push(children, asking.id, run);
   }
   const groups = runs
     .filter((run) => parentConversationId(run) === null)
-    .map((run) => ({
-      run,
-      children: run.conversation_id === null ? [] : (children.get(run.conversation_id) ?? []),
-    }));
+    .map((run) => ({ run, children: children.get(run.id) ?? [] }));
   return [...groups, ...orphans.map((run) => ({ run, children: [] }))].sort((a, b) =>
     a.run.started_at < b.run.started_at ? 1 : -1,
   );

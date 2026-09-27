@@ -305,6 +305,39 @@ describe("runGroups", () => {
     expect(groups[0].children).toEqual([]);
   });
 
+  // A conversation's stored history holds many turns, and the source only names the
+  // conversation. The turn that asked is the one going when the child started: a
+  // conversation runs one turn at a time, and the delegate tool starts its child inside one.
+  const turn = (id: string, from: string, to: string) =>
+    run({ id, status: "done", started_at: `2026-09-19T${from}Z`, finished_at: `2026-09-19T${to}Z` });
+  const turns = [turn("t3", "10:00:00", "10:05:00"), turn("t2", "09:00:00", "09:05:00"), turn("t1", "08:00:00", "08:05:00")];
+  const kid = run({
+    id: "kid",
+    conversation_id: "c-kid",
+    source: "delegate:c1",
+    status: "done",
+    started_at: "2026-09-19T09:00:30Z",
+    finished_at: "2026-09-19T09:01:30Z",
+  });
+  const shape = (runs: RunInfo[]) => runGroups(runs).map((g) => [g.run.id, g.children.map((c) => c.id)]);
+
+  it("tucks a delegated run under the one turn of its conversation that asked for it", () => {
+    expect(shape([...turns, kid])).toEqual([
+      ["t3", []],
+      ["t2", ["kid"]],
+      ["t1", []],
+    ]);
+  });
+
+  it("lets a delegated run stand alone when the turn that asked for it is out of view", () => {
+    // The turns either side of it are listed, and neither of them asked for it.
+    expect(shape([turns[0], turns[2], kid])).toEqual([
+      ["t3", []],
+      ["kid", []],
+      ["t1", []],
+    ]);
+  });
+
   it("nests only one level, because a child cannot delegate on", () => {
     const parent = run({ id: "p", conversation_id: "c-parent" });
     const a = run({ id: "a", conversation_id: "c-a", source: "delegate:c-parent" });
