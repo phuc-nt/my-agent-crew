@@ -197,6 +197,23 @@ describe("AttentionCenter with requests settled in place", () => {
     expect(drained).toEqual([]);
   });
 
+  // The request was closed first, but the turn that resumed has already paused on the next
+  // one. That new request is open: it must not read as "already handled".
+  it("does not call a newer request handled when a 409's re-read finds one", async () => {
+    const { conversation, run } = waiting();
+    inline([run]);
+    const bar = await request();
+    const next = { id: "ap2", conversation_id: conversation.id, tool_name: "shell_run", arguments: { command: "make" } };
+    backend.conversations.get(conversation.id)!.pending_approval = fakeApproval({ ...next, status: "pending", resolved_at: null, expires_at: inFiveMinutes() });
+
+    await userEvent.click(within(bar).getByRole("button", { name: vi.approve }));
+
+    expect(await screen.findByText(vi.approvalTitle("shell_run"))).toBeInTheDocument();
+    await waitFor(() => expect(within(screen.getByRole("group")).getByRole("button", { name: vi.approve })).toBeEnabled());
+    expect(screen.getByRole("group")).toHaveTextContent("command=make");
+    expect(screen.queryByText(vi.attentionHandled)).not.toBeInTheDocument();
+  });
+
   it("counts down to the deadline, then disables the buttons, says it expired and reloads", async () => {
     vitest.useFakeTimers({ shouldAdvanceTime: true });
     vitest.setSystemTime(new Date("2026-09-26T10:00:00Z"));
