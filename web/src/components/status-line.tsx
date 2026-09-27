@@ -10,10 +10,14 @@ interface Props {
   connecting?: boolean;
   /** Re-opens the activity stream; absent hides the retry. */
   onReconnect?: () => void;
+  /** The conversation's budget is spent, so nothing can be sent until the cap is raised. */
+  overBudget?: boolean;
 }
 
-function threadText(thread: ThreadState): string {
+function threadText(thread: ThreadState, overBudget: boolean): string {
   if (thread.pending) return vi.statusAwaiting;
+  // The composer above is locked, so an idle line would claim a readiness it lacks.
+  if (overBudget && !thread.busy) return vi.statusOverBudget;
   // Thinking is always the newest thing happening, so it outranks an earlier note.
   if (thread.busy && thread.thinking) return vi.statusThinking;
   // The newest of either kind wins, so the line follows the turn rather than preferring
@@ -46,7 +50,7 @@ function useOnline(): boolean {
 }
 
 /** Screen-reader friendly one-liner: what this thread is doing and whether live activity is flowing. */
-export function StatusLine({ thread, connected, liveCount, connecting = false, onReconnect }: Props) {
+export function StatusLine({ thread, connected, liveCount, connecting = false, onReconnect, overBudget = false }: Props) {
   const online = useOnline();
   const [state, text] = !online
     ? ["offline", vi.streamOffline]
@@ -57,7 +61,7 @@ export function StatusLine({ thread, connected, liveCount, connecting = false, o
         : ["off", vi.streamDisconnected];
   return (
     <div className="status-line" role="status" aria-live="polite" data-testid="status-line">
-      <span>{threadText(thread)}</span>
+      <span>{threadText(thread, overBudget)}</span>
       <span className={`stream-state ${state}`} data-testid="stream-state">
         {text}
         {liveCount > 0 && ` · ${vi.liveNow}: ${liveCount}`}

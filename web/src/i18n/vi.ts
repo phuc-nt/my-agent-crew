@@ -67,7 +67,7 @@ export const vi = {
     exporting: "Đang xuất…",
     exportFailed: (reason: string) => `Không xuất được: ${reason}`,
   },
-  overBudget: "Đã vượt ngân sách — agent sẽ dừng trước lượt gọi model kế tiếp.",
+  overBudget: "Đã hết ngân sách của cuộc trò chuyện — nâng trần để nhắn tiếp.",
   composerPlaceholder: "Nhắn cho agent… (Enter để gửi, Shift+Enter xuống dòng)",
   composerPlaceholderFor: (name: string) => `Nhắn cho ${name}…`,
   // The list of the agent's commands above the composer, opened by "/" at the start.
@@ -714,6 +714,7 @@ export const vi = {
   updateReloadLabel: "Tải lại để dùng bản mới",
   updateDismissLabel: "Để sau, ẩn thông báo bản mới",
   statusIdle: "Sẵn sàng",
+  statusOverBudget: "Đã khoá vì hết ngân sách",
   statusStreaming: "Agent đang trả lời…",
   statusThinking: "Agent đang suy nghĩ…",
   statusTool: (tool: string) => `Đang chạy công cụ ${tool}…`,

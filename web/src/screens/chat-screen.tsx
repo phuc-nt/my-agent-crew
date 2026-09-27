@@ -382,6 +382,7 @@ export function ChatScreen({
           liveCount={live.length}
           connecting={activity.connecting}
           onReconnect={activity.reconnect}
+          overBudget={overBudget}
         />
       </main>
       {docked && activityPane}

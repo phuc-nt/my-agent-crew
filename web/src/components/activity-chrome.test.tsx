@@ -28,6 +28,16 @@ describe("StatusLine", () => {
     render(<StatusLine thread={thread} connected liveCount={0} />);
     expect(screen.getByRole("status")).toHaveTextContent(vi.statusThinking);
   });
+
+  it("says a spent budget locks the thread over an earlier note, until a turn runs", () => {
+    const thread = { ...emptyThread, items: [{ kind: "note" as const, id: "n", text: "Đang đọc dữ liệu" }] };
+    const { rerender } = render(<StatusLine thread={thread} connected liveCount={0} overBudget />);
+    const line = screen.getByRole("status");
+    expect(line).toHaveTextContent(vi.statusOverBudget);
+    expect(line).not.toHaveTextContent("Đang đọc dữ liệu");
+    rerender(<StatusLine thread={{ ...thread, busy: true, thinking: true }} connected liveCount={0} overBudget />);
+    expect(line).toHaveTextContent(vi.statusThinking);
+  });
 });
 
 describe("splitMedia", () => {

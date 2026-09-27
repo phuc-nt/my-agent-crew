@@ -61,6 +61,20 @@ describe("the budget notices", () => {
     expect(raiseButtons()).toEqual([]);
   });
 
+  it("tell the status line the composer waits for a raise rather than that it is ready", async () => {
+    await haltOnBudget();
+    act(() => stream().emit({ type: "run", run: fakeRun({ status: "halted" }) }));
+    const over = await screen.findByTestId("over-budget");
+    const line = screen.getByTestId("status-line");
+    expect(line).toHaveTextContent(vi.statusOverBudget);
+    expect(line).not.toHaveTextContent(vi.statusIdle);
+
+    await userEvent.click(within(over).getByRole("button", { name: vi.budgetCard.raise }));
+    await userEvent.click(within(over).getByRole("button", { name: "+$1.00" }));
+    await waitFor(() => expect(line).toHaveTextContent(vi.statusIdle));
+    expect(line).not.toHaveTextContent(vi.statusOverBudget);
+  });
+
   it("let the halt's notice say the new cap is saved and the message wants sending again", async () => {
     const halted = await haltOnBudget();
     await userEvent.click(within(halted).getByRole("button", { name: vi.budgetCard.raise }));
