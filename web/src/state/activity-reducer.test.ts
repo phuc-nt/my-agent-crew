@@ -229,6 +229,39 @@ describe("activityReducer", () => {
     expect(liveRuns(state)).toEqual([]);
   });
 
+  it("keeps a run it saw finish finished when a list read before the finish lands after it", () => {
+    let state = activityReducer(emptyActivity, { type: "payload", payload: { type: "snapshot", runs: [run()] } });
+    state = activityReducer(state, {
+      type: "payload",
+      payload: { type: "run", run: run({ status: "done", finished_at: "2026-09-19T08:01:00Z", summary: "Xong." }) },
+    });
+    state = activityReducer(state, { type: "recent", runs: [run()] });
+    expect(state.runs.r1.status).toBe("done");
+    expect(state.runs.r1.summary).toBe("Xong.");
+    expect(liveRuns(state)).toEqual([]);
+    // Nor while the stream is down, when the list is otherwise the only word on a run.
+    state = activityReducer(state, { type: "connection", connected: false });
+    state = activityReducer(state, { type: "recent", runs: [run()] });
+    expect(state.runs.r1.status).toBe("done");
+  });
+
+  it("takes no list's word that a run is going once the stream has said what is live", () => {
+    // The stream names every run that starts after its snapshot: one it has not named was
+    // over before the snapshot, and the list saying it runs was read before that.
+    let state = activityReducer(emptyActivity, { type: "payload", payload: { type: "snapshot", runs: [] } });
+    expect(state.synced).toBe(true);
+    state = activityReducer(state, { type: "recent", runs: [run(), run({ id: "old", status: "done" })] });
+    expect(Object.keys(state.runs)).toEqual(["old"]);
+    // Opened again, the stream has said nothing yet, and while it is down it names nothing
+    // at all: the list is the only word on a run started meanwhile.
+    state = activityReducer(state, { type: "connection", connected: true });
+    expect(state.synced).toBe(false);
+    state = activityReducer(state, { type: "connection", connected: false });
+    expect(state.synced).toBe(false);
+    state = activityReducer(state, { type: "recent", runs: [run()] });
+    expect(liveRuns(state).map((r) => r.id)).toEqual(["r1"]);
+  });
+
   it("derives sorted, live, per-conversation and attention views", () => {
     const state = activityReducer(emptyActivity, {
       type: "recent",

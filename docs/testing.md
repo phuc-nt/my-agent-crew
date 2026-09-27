@@ -27,7 +27,9 @@ gửi khi lần tải còn trên đường; một run của kênh khác đã ch�
 quyết định ở nơi khác tiếp tục trong lúc quyết định ở đây nhận 409; một lần tải hay một 409 của
 cuộc trò chuyện vừa rời trả về khi cuộc khác đã mở) nằm ở
 `app-thread-refresh-races.test.tsx`, nơi mỗi fetch lấy
-câu trả lời lúc gửi nhưng chỉ trao ra khi test mở "cửa" của nó. Việc dò bản mới so entry có hash của trang với entry mà `/`
+câu trả lời lúc gửi nhưng chỉ trao ra khi test mở "cửa" của nó; các lần đọc danh sách run
+chồng lên nhau (câu trả lời đọc trước khi run kết thúc lại về sau cùng) được giữ cửa theo cùng
+cách trong `hooks/use-activity.test.ts`. Việc dò bản mới so entry có hash của trang với entry mà `/`
 đang phục vụ, nên nó im trên Vite dev server; `version-refresh.spec.ts` và test App của nó
 gắn một entry giả vào trang để trang trông như bản build. Bố cục những gì chat nói về trạng
 thái của nó ở bề rộng điện thoại (dòng trạng thái giữ một chiều cao khi nút Thử lại hiện ra)

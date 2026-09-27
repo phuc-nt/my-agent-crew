@@ -28,7 +28,7 @@ export function useActivity(
 ): ActivityController {
   const [state, dispatch] = useReducer(activityReducer, emptyActivity);
   const [attempt, setAttempt] = useState(0);
-  const [link, setLink] = useState({ connecting: true, synced: false });
+  const [connecting, setConnecting] = useState(true);
   // Held in a ref so a new callback identity does not tear down the subscription.
   const notify = useRef(onConversation);
   notify.current = onConversation;
@@ -46,8 +46,10 @@ export function useActivity(
 
   useEffect(() => {
     if (!enabled || typeof EventSource === "undefined") return;
-    setLink((l) => (l.connecting && !l.synced ? l : { connecting: true, synced: false }));
-    void refresh();
+    setConnecting(true);
+    // A stream opened again reads the list once its snapshot is in (below); a read now as
+    // well would race that one, and could land after it with older news.
+    if (!everSynced.current) void refresh();
     return subscribeActivity(
       (payload) => {
         if (payload.type === "conversation") {
@@ -56,7 +58,7 @@ export function useActivity(
         }
         dispatch({ type: "payload", payload });
         if (payload.type === "snapshot") {
-          setLink({ connecting: false, synced: true });
+          setConnecting(false);
           // Each connection opens with a snapshot of the live runs only. After a drop (or a
           // reconnect), a run that ended meanwhile is in neither that nor any event, so the
           // list is read again.
@@ -68,11 +70,10 @@ export function useActivity(
       },
       (connected) => {
         dispatch({ type: "connection", connected });
-        // Open is not synced yet: the snapshot of what is live follows the open.
-        setLink((l) => ({ connecting: false, synced: connected && l.synced }));
+        setConnecting(false);
       },
     );
   }, [enabled, refresh, attempt]);
 
-  return { state, refresh, connecting: link.connecting, synced: link.synced, reconnect };
+  return { state, refresh, connecting, synced: state.synced, reconnect };
 }

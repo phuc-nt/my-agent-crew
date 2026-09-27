@@ -6,6 +6,9 @@ import type { AgentEvent, RunInfo, RunPayload, RunStep } from "../api/types";
 export interface ActivityState {
   runs: Record<string, RunInfo>;
   connected: boolean;
+  /** This connection's snapshot has landed. From then on the stream names every run that
+   *  starts, so a run not live here is not going. */
+  synced: boolean;
 }
 
 export type ActivityAction =
@@ -13,7 +16,7 @@ export type ActivityAction =
   | { type: "recent"; runs: RunInfo[] }
   | { type: "connection"; connected: boolean };
 
-export const emptyActivity: ActivityState = { runs: {}, connected: false };
+export const emptyActivity: ActivityState = { runs: {}, connected: false, synced: false };
 
 const PREVIEW_CHARS = 160;
 const ACTIVE: RunInfo["status"][] = ["running", "awaiting_approval"];
@@ -132,16 +135,20 @@ export function applyRunEvent(run: RunInfo, e: AgentEvent): RunInfo {
 export function activityReducer(state: ActivityState, action: ActivityAction): ActivityState {
   switch (action.type) {
     case "connection":
-      return { ...state, connected: action.connected };
+      // Open is not synced yet: the snapshot of what is live follows the open.
+      return { ...state, connected: action.connected, synced: false };
     case "recent": {
       const runs = { ...state.runs };
-      // A live copy is usually ahead of the list, which can predate its latest steps. But a
-      // run the list calls settled is over for good (only a paused run ever resumes), so
+      // A run the list calls settled is over for good (only a paused run ever resumes), so
       // that answer wins: a run that ended while the stream was down gets no other word, and
       // a pause settled meanwhile would otherwise wait in "Cần bạn xử lý" until a reload.
+      // A run the list calls live is older news than the stream's. Reads overlap and land in
+      // any order, so one taken over a copy that has finished, or over the stream's word on
+      // what is live, would be an answer read before the run ended, showing it going for
+      // good: it only fills in a run not heard of while the stream has not said.
       for (const run of action.runs) {
         const settled = !ACTIVE.includes(run.status) || run.finished_at !== null;
-        if (!ACTIVE.includes(runs[run.id]?.status) || settled) runs[run.id] = run;
+        if (settled || (!state.synced && !(run.id in runs))) runs[run.id] = run;
       }
       return { ...state, runs };
     }
@@ -159,7 +166,7 @@ function applyPayload(state: ActivityState, payload: RunPayload): ActivityState 
       const runs: Record<string, RunInfo> = {};
       for (const run of Object.values(state.runs)) if (!ACTIVE.includes(run.status)) runs[run.id] = run;
       for (const run of payload.runs) runs[run.id] = run;
-      return { ...state, runs, connected: true };
+      return { ...state, runs, connected: true, synced: true };
     }
     case "run":
       return { ...state, runs: { ...state.runs, [payload.run.id]: payload.run } };
