@@ -54,6 +54,25 @@ for (const viewport of [
     expect(settled.name).toBeGreaterThanOrEqual(0);
     expect(settled.scrolled).toBe(true);
   });
+
+  // A sticky box stops at its scroller's padding, so the bar stuck that far down and the form
+  // scrolled past visibly in the strip above it.
+  test(`the editor's bar sticks flush to the top of the page at ${viewport.width}px`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await openJobs(page);
+    await page.getByTestId("job").getByRole("button", { name: "Sửa lịch Bản tin sáng" }).click();
+    await expect(page.getByTestId("agent-editor").getByRole("heading", { name: "Lịch chạy" })).toBeFocused();
+
+    const gap = () =>
+      page.evaluate(() => {
+        const bar = document.querySelector(".editor-bar")!;
+        let scroller = bar.parentElement!;
+        while (scroller.parentElement && !/auto|scroll/.test(getComputedStyle(scroller).overflowY))
+          scroller = scroller.parentElement;
+        return Math.round(bar.getBoundingClientRect().top - scroller.getBoundingClientRect().top - scroller.clientTop);
+      });
+    await expect.poll(gap).toBe(0);
+  });
 }
 
 // Sửa lịch is how a job switched off in its profile is turned back on, so it must not look

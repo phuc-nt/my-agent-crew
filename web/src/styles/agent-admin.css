@@ -122,10 +122,12 @@
 }
 
 /* Sticky so the unsaved-changes count and the Save button stay reachable while the
-   person is still scrolling through nine sections of form. */
+   person is still scrolling through nine sections of form. A sticky box stops at its
+   scroller's padding, so the bar rises over the page's top padding to meet its edge:
+   stopped short, it left a strip where the form scrolled past above it. */
 .editor-bar {
   position: sticky;
-  top: 0;
+  top: calc(var(--manage-pad-top, 0px) * -1);
   z-index: 2;
   display: flex;
   flex-wrap: wrap;
