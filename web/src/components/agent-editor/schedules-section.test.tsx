@@ -84,6 +84,21 @@ describe("the schedules part of the agent editor", () => {
     expect(screen.getByText(vi.editor.clean)).toBeInTheDocument();
   });
 
+  // The server says why in a whole sentence of its own. Taken for the name of a changed
+  // key, that sentence once landed in the middle of another one, full stop and all, which
+  // then asked for the restart a second time.
+  it("tells the person why a restart is needed in the server's own sentence", async () => {
+    open();
+    const row = await addRow();
+    await userEvent.type(row.getByLabelText(vi.editor.scheduleCron), "0 7 * * *");
+    await userEvent.type(row.getByLabelText(vi.editor.schedulePrompt), "Tóm tắt tin");
+    await save();
+
+    const banner = within(await screen.findByTestId("restart-banner"));
+    expect(banner.getByText("Cần khởi động lại")).toBeInTheDocument();
+    expect(banner.getByText("Đã lưu. Lịch chạy mới cần khởi động lại máy chủ.")).toBeInTheDocument();
+  });
+
   it("keeps only the timing last chosen when the person switches back and forth", async () => {
     open();
     const row = await addRow();

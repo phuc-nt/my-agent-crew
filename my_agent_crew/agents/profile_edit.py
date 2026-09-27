@@ -139,9 +139,10 @@ def check_schedules(agent_id: str, schedules: Sequence[Schedule], kept: Sequence
 def restart_reasons(old: AgentProfile | None, new: AgentProfile) -> list[str]:
     """What the person still has to restart for, in their own words.
 
-    Everything else about an agent — its routes, its tools, its persona, who it may
-    delegate to — is rebuilt live, so saying "restart" for those would train people to
-    ignore the one case where it is true.
+    Each reason is a whole sentence, and the agent editor shows it as it is, never as the
+    name of a key. Everything else about an agent — its routes, its tools, its persona,
+    who it may delegate to — is rebuilt live, so saying "restart" for those would train
+    people to ignore the one case where it is true.
     """
     reasons: list[str] = []
     for key, reason in RESTART_KEYS.items():

@@ -132,11 +132,17 @@ def test_only_a_schedule_asks_for_a_restart(crew) -> None:
     )
 
     dropped = client.patch("/api/agents/coder", json={"profile": {"schedules": None}})
+    consolidating = client.patch(
+        "/api/agents/coder", json={"profile": {"memory_consolidate": "0 3 * * *"}}
+    )
 
     assert renamed.json()["restart_required"] == []
     assert scheduled.json()["restart_required"] == ["Lịch chạy mới cần khởi động lại máy chủ."]
     # The clock keeps the job it started with, so taking one away needs the restart too.
     assert dropped.json()["restart_required"] == ["Lịch chạy mới cần khởi động lại máy chủ."]
+    # Consolidation is one more job on that clock. The editor shows each reason as the
+    # sentence it is, so it gets the same one, once, and not the name of the key.
+    assert consolidating.json()["restart_required"] == ["Lịch chạy mới cần khởi động lại máy chủ."]
 
 
 def test_a_saved_schedule_comes_back_in_the_shape_it_can_be_resent_in(crew) -> None:

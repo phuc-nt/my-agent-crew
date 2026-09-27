@@ -311,8 +311,8 @@ export const vi = {
     clean: "Chưa có thay đổi",
     saveFailed: (message: string) => `Không lưu được: ${message}`,
     restartTitle: "Cần khởi động lại",
-    restartBody: (keys: string[]) =>
-      `Đã lưu, nhưng ${keys.join(", ")} chỉ có hiệu lực sau khi khởi động lại dịch vụ.`,
+    // Each reason is a whole sentence the server wrote for the owner, shown as it is.
+    restartBody: (reasons: string[]) => `Đã lưu. ${reasons.join(" ")}`,
     sectionIdentity: "Nhận dạng",
     sectionModel: "Mô hình",
     sectionPersona: "Tính cách",

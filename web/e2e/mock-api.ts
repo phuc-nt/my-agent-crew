@@ -305,8 +305,10 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
       const patched = applyAgentPatch(agents[at], profile);
       if ("error" in patched) return json({ detail: patched.error }, 422);
       agents[at] = patched.ok;
-      // The scheduler reads its table only at boot, as on the real server.
-      const restart = "schedules" in profile ? ["Lịch chạy mới cần khởi động lại máy chủ."] : [];
+      // The scheduler reads its table only at boot, as on the real server, and consolidation
+      // is a job on it; the answer is the server's own sentence.
+      const scheduled = "schedules" in profile || "memory_consolidate" in profile;
+      const restart = scheduled ? ["Lịch chạy mới cần khởi động lại máy chủ."] : [];
       return json({ profile: agents[at], restart_required: restart });
     }
     if (single && method === "GET") {

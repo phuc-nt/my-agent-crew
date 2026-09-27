@@ -367,8 +367,10 @@ export class FakeBackend {
     const patched = applyAgentPatch(found, profile);
     if ("error" in patched) return json({ detail: patched.error }, 422);
     this.agents = this.agents.map((a) => (a.id === agentId ? patched.ok : a));
-    // Only these three are read at boot, so only these three ask for a restart.
-    const restart = ["schedules", "telegram", "memory_consolidate"].filter((k) => k in profile);
+    // As on the server: only the scheduler is built once at boot, so only the two keys it
+    // reads ask for a restart (a bot is rebuilt live), in the server's own sentence.
+    const scheduled = "schedules" in profile || "memory_consolidate" in profile;
+    const restart = scheduled ? ["Lịch chạy mới cần khởi động lại máy chủ."] : [];
     return json({ profile: patched.ok, restart_required: restart });
   }
 

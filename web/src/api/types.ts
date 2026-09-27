@@ -289,9 +289,10 @@ export interface AgentPatch {
 }
 
 /**
- * What a write to an agent's profile produced: the agent as it is now, and the parts of
- * the change that only take effect at the next boot. An empty `restart_required` means
- * the edit is fully live already.
+ * What a write to an agent's profile produced: the agent as it is now, and why the next
+ * boot still has something to pick up. Each entry of `restart_required` is a whole
+ * sentence the server wrote for the owner, to be shown as it is; an empty list means the
+ * edit is fully live already.
  */
 export interface AgentSaved {
   profile: AgentInfo;
