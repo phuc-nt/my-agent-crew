@@ -28,9 +28,11 @@ interface Props {
 /** The row does not replay the resumed turn; it only has to know when it has ended. */
 const ignoreEvent = () => undefined;
 
-/** The server closes expired requests on its scheduler's tick, every 20 seconds: by this
- *  long after the deadline the sweep has run, whatever the phase of the tick. */
-const AFTER_SWEEP_MS = 25_000;
+/** The server's scheduler sweeps expired requests every 20 seconds, but a tick first runs
+ *  the jobs due on it, and each request it closes resumes a turn that runs to its end before
+ *  the next is closed: the sweep can reach a request minutes after its deadline. An expired
+ *  request is read again this often until it has. */
+const SWEEP_POLL_MS = 25_000;
 
 /**
  * A run that waits on a person, with the request itself in place of a link to it.
@@ -63,17 +65,24 @@ export function AttentionRow(props: Props) {
   // chip red and reload the list for a request that was answered, not one that expired.
   const remaining = useRemaining(working ? undefined : pending?.expiresAt);
   const expired = remaining === 0;
+  const expiredId = expired ? pending?.approvalId : undefined;
 
   // The server closes an expired request on its own sweep and resumes the run with a
   // refusal or a default answer; reading the list again lets the row follow it. The read
-  // at the deadline usually beats the sweep, so both are read again once it has run —
-  // without that the row would wait, disabled, on the activity stream alone.
+  // at the deadline beats the sweep, so the request is read again until the sweep has
+  // closed it, and the list once it has — without that the row would wait, disabled, on
+  // the activity stream alone, and for good while the stream is down.
   useEffect(() => {
-    if (!expired) return;
+    if (!expiredId) return;
     reload.current();
-    const after = window.setTimeout(() => void refresh().then(() => reload.current()), AFTER_SWEEP_MS);
-    return () => window.clearTimeout(after);
-  }, [expired, refresh]);
+    const poll = window.setInterval(() => {
+      void refresh().then((now) => {
+        // Unread, or still the same open request: the sweep has not reached it yet.
+        if (now !== undefined && now?.approvalId !== expiredId) reload.current();
+      });
+    }, SWEEP_POLL_MS);
+    return () => window.clearInterval(poll);
+  }, [expiredId, refresh]);
 
   const settle = async (about: string, send: () => Promise<void>) => {
     // The buttons disable themselves next, which would drop a keyboard user's focus to the

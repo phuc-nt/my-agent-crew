@@ -291,4 +291,36 @@ describe("AttentionCenter with requests settled in place", () => {
     expect(screen.queryByRole("group")).not.toBeInTheDocument();
     await waitFor(() => expect(onReload).toHaveBeenCalledTimes(2));
   });
+
+  // A job due on the same tick, or a turn resumed by an earlier close, holds the sweep back
+  // for minutes. The row keeps reading until it has closed the request, and reads the list
+  // again only then: nothing in it has changed while the request is still open.
+  it("keeps reading an expired request until a late sweep closes it", async () => {
+    vitest.useFakeTimers({ shouldAdvanceTime: true });
+    vitest.setSystemTime(new Date("2026-09-26T10:00:00Z"));
+    const { conversation, run } = waiting({ expires_at: "2026-09-26T10:00:05Z" });
+    const onReload = inline([run]);
+    const bar = await request();
+
+    await act(async () => {
+      await vitest.advanceTimersByTimeAsync(6_000);
+    });
+    await waitFor(() => expect(onReload).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      await vitest.advanceTimersByTimeAsync(75_000);
+    });
+    expect(within(bar).getByRole("timer")).toHaveTextContent(vi.attentionExpired);
+    expect(within(bar).getByRole("button", { name: vi.approve })).toBeDisabled();
+    expect(onReload).toHaveBeenCalledTimes(1);
+
+    backend.conversations.get(conversation.id)!.pending_approval = null;
+    await act(async () => {
+      await vitest.advanceTimersByTimeAsync(25_000);
+    });
+
+    expect(await screen.findByText(vi.attentionHandled)).toBeInTheDocument();
+    expect(screen.queryByRole("group")).not.toBeInTheDocument();
+    await waitFor(() => expect(onReload).toHaveBeenCalledTimes(2));
+  });
 });
