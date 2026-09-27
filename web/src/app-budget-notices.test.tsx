@@ -57,7 +57,17 @@ describe("the budget notices", () => {
     await userEvent.click(within(over).getByRole("button", { name: vi.budgetCard.raise }));
     await userEvent.click(within(over).getByRole("button", { name: "+$1.00" }));
     await waitFor(() => expect(screen.queryByTestId("over-budget")).not.toBeInTheDocument());
-    expect(screen.getByTestId("notice")).toHaveTextContent(vi.haltedBudget);
+    expect(screen.getByTestId("notice")).toHaveTextContent(vi.haltedBudgetLifted);
+    expect(raiseButtons()).toEqual([]);
+  });
+
+  it("let the halt's notice say the new cap is saved and the message wants sending again", async () => {
+    const halted = await haltOnBudget();
+    await userEvent.click(within(halted).getByRole("button", { name: vi.budgetCard.raise }));
+    await userEvent.click(within(halted).getByRole("button", { name: "+$1.00" }));
+
+    await waitFor(() => expect(screen.getByTestId("notice")).toHaveTextContent(vi.haltedBudgetLifted));
+    expect(screen.getByTestId("notice")).not.toHaveTextContent(vi.haltedBudget);
     expect(raiseButtons()).toEqual([]);
   });
 });
@@ -93,5 +103,6 @@ describe("the keyboard after a raise from a budget notice", () => {
     const raise = within(over).getByRole("button", { name: vi.budgetCard.raise });
     await waitFor(() => expect(raise).toHaveFocus());
     expect(screen.getByRole("textbox")).toBeDisabled();
+    expect(screen.getByTestId("notice")).toHaveTextContent(vi.haltedBudget);
   });
 });

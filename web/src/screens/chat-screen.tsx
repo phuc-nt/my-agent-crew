@@ -143,7 +143,7 @@ export function ChatScreen({
   };
   // One way out of a spent budget on screen at a time: the over-budget notice carries it
   // while it shows, and the halt's notice until then — only while the cap still stands at
-  // what was spent, so a raise takes it away.
+  // what was spent, so a raise takes it away and the halt's notice says to send again.
   const overBudget = Boolean(active?.over_budget) && !state.busy;
   const capReached = active !== null && active.cost_cap_usd > 0 && state.spentUsd >= active.cost_cap_usd;
   // A raise from a notice often takes the notice, or its button, away with the control
@@ -166,7 +166,9 @@ export function ChatScreen({
       <Icon name={NOTICE_ICON[state.notice.kind] ?? "alert"} />
       {state.notice.kind === "halted"
         ? state.notice.text === "budget"
-          ? vi.haltedBudget
+          ? overBudget || capReached
+            ? vi.haltedBudget
+            : vi.haltedBudgetLifted
           : vi.haltedMaxSteps
         : state.notice.kind === "fallback"
           ? vi.routeFallback(state.notice.text)

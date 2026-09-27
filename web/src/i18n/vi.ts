@@ -193,6 +193,7 @@ export const vi = {
     cancel: "Huỷ",
   },
   haltedBudget: "Đã dừng vì chạm ngân sách của cuộc trò chuyện.",
+  haltedBudgetLifted: "Đã lưu trần mới — gửi lại tin nhắn để agent làm tiếp.",
   haltedMaxSteps: "Đã dừng vì vượt số bước tối đa trong một lượt.",
   runInterrupted: "Bị ngắt giữa chừng: máy chủ khởi động lại hoặc kết nối bị đóng.",
   errorPrefix: "Lỗi: ",
