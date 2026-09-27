@@ -16,8 +16,11 @@ async function contrast(page: Page, selector: string): Promise<number> {
   return page.locator(selector).first().evaluate((el) => {
     const parse = (value: string): Rgb | null => {
       const m = value.match(/rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\)/);
-      if (!m || (m[4] !== undefined && Number(m[4]) === 0)) return null;
-      return [Number(m[1]), Number(m[2]), Number(m[3])];
+      if (m) return m[4] !== undefined && Number(m[4]) === 0 ? null : [Number(m[1]), Number(m[2]), Number(m[3])];
+      // A tint mixed with color-mix() computes to color(srgb …), with channels from 0 to 1.
+      const mixed = value.match(/color\(srgb ([\d.]+) ([\d.]+) ([\d.]+)(?: \/ ([\d.]+))?\)/);
+      if (!mixed || (mixed[4] !== undefined && Number(mixed[4]) === 0)) return null;
+      return [Number(mixed[1]) * 255, Number(mixed[2]) * 255, Number(mixed[3]) * 255];
     };
     const luminance = ([r, g, b]: Rgb) =>
       [r, g, b]
@@ -58,10 +61,15 @@ for (const scheme of ["light", "dark"] as const) {
        <span class="badge live">3</span>
        <span class="channel-tag">Telegram</span>
        <span class="step-repeat">×4</span>
-       <pre class="diff"><div class="added">thêm</div></pre>`,
+       <pre class="diff"><div class="added">thêm</div></pre>
+       <div class="approval-bar callout"><div class="args-detail">
+         <button type="button" class="link-button args-detail-toggle">Xem đầy đủ</button>
+       </div></div>`,
     );
 
-    for (const selector of [".probe .primary", ".probe .badge.live", ".probe .channel-tag", ".probe .step-repeat", ".probe .diff .added"]) {
+    // The toggle to a tool call's full arguments is small text on the approval bar's tint.
+    const toggle = ".probe .approval-bar .args-detail-toggle";
+    for (const selector of [".probe .primary", ".probe .badge.live", ".probe .channel-tag", ".probe .step-repeat", ".probe .diff .added", toggle]) {
       expect(await contrast(page, selector), selector).toBeGreaterThanOrEqual(4.5);
     }
 

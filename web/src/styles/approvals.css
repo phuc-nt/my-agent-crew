@@ -12,9 +12,12 @@
   min-width: 0;
 }
 
+/* Small text, and often on the approval bar's amber tint: the plain accent falls under
+   4.5:1 there in dark mode, the stronger one holds in both. */
 .args-detail .args-detail-toggle {
   margin: var(--space-1) 0 0 calc(var(--space-2) * -1);
   font-size: var(--text-xs);
+  color: var(--accent-strong);
 }
 
 .args-detail-body {
