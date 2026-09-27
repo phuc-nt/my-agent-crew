@@ -74,8 +74,11 @@
   border-top-color: color-mix(in srgb, currentColor 25%, transparent);
 }
 
+/* The sentence beside it wraps instead: a label broken in two reads as two words. */
 .notice > .link-button {
   margin-left: auto;
+  flex: none;
+  white-space: nowrap;
 }
 
 /* ── Stopped turn ───────────────────────────────────────────────────────── */

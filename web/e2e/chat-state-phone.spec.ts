@@ -43,3 +43,22 @@ test("the retry takes no room of its own, so the composer stays put when the str
   expect(Math.abs((await textMiddle(line.locator("span").first())) - (await textMiddle(state)))).toBeLessThanOrEqual(1);
   expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeLessThanOrEqual(844);
 });
+
+// The raise sits beside a sentence that wraps, and a label broken in two reads as two words.
+test("a spent budget's notice keeps its raise on one line", async ({ page }) => {
+  await mockApi(page, { conversations: [{
+    id: "c1", agent_id: "default", channel: "", title: "Chung", summary: "", created_at: "", updated_at: "",
+    autonomous: false, cost_cap_usd: 1, skills: [], auto_approve: [], spent_usd: 1.2, unknown_cost_calls: 0,
+    status: "idle", over_budget: true, parent_call_id: "", messages: [], pending_approval: null,
+  }] });
+  await page.goto("/#/chat/c1");
+  const raise = page.getByTestId("over-budget").getByRole("button", { name: "Nâng trần" });
+  await expect(raise).toBeVisible();
+  const lines = await raise.evaluate((el) => {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    return new Set([...range.getClientRects()].map((r) => Math.round(r.top))).size;
+  });
+  expect(lines).toBe(1);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+});
