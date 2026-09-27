@@ -1,9 +1,9 @@
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, api } from "../api/client";
 import type { RunInfo } from "../api/types";
+import { messageOf, useOpenRequest } from "../hooks/use-open-request";
 import { vi } from "../i18n/vi";
 import { runSummaryText } from "../lib/run-summary";
-import { type PendingApproval, pendingFromApproval } from "../state/thread-reducer";
 import { ApprovalBar } from "./approval-bar";
 import { ExpiryCountdown, useRemaining } from "./expiry-countdown";
 import { QuestionCard } from "./question-card";
@@ -25,13 +25,6 @@ interface Props {
   onReload: () => void;
 }
 
-type Load =
-  | { state: "loading" }
-  | { state: "ready"; pending: PendingApproval | null }
-  | { state: "failed"; message: string };
-
-const messageOf = (err: unknown) => (err instanceof Error ? err.message : String(err));
-
 /** The row does not replay the resumed turn; it only has to know when it has ended. */
 const ignoreEvent = () => undefined;
 
@@ -45,8 +38,8 @@ const ignoreEvent = () => undefined;
  */
 export function AttentionRow(props: Props) {
   const { run, conversationId, children, labelledBy, onSettled } = props;
-  const [load, setLoad] = useState<Load>({ state: "loading" });
   const [working, setWorking] = useState(false);
+  const { load, setLoad, read, refresh } = useOpenRequest(conversationId, run, working);
   // What the last decision met, and on which request: once the row shows a newer one,
   // "already handled" or an error about the old one would read as being about it.
   const [note, setNote] = useState<{ text: string; about: string } | null>(null);
@@ -56,27 +49,10 @@ export function AttentionRow(props: Props) {
   reload.current = props.onReload;
   const row = useRef<HTMLLIElement>(null);
 
-  const fetchPending = useCallback(async () => {
-    const detail = await api.getConversation(conversationId);
-    return detail.pending_approval ? pendingFromApproval(detail.pending_approval) : null;
-  }, [conversationId]);
-
-  useEffect(() => {
-    let current = true;
-    fetchPending().then(
-      (pending) => {
-        if (!current) return;
-        setLoad({ state: "ready", pending });
-        // Listed as waiting while nothing waits: a restart left the run behind, or it was
-        // settled elsewhere while the activity stream was down. The list may know better.
-        if (!pending) reload.current();
-      },
-      (err) => current && setLoad({ state: "failed", message: messageOf(err) }),
-    );
-    return () => {
-      current = false;
-    };
-  }, [fetchPending]);
+  // Listed as waiting while nothing waits: a restart left the run behind, or it was settled
+  // elsewhere while the activity stream was down. The list may know better.
+  const open = useCallback(() => void refresh().then((pending) => pending === null && reload.current()), [refresh]);
+  useEffect(open, [open]);
 
   const pending = load.state === "ready" ? load.pending : null;
   // Once a decision is sent the deadline no longer applies: counting on would turn the
@@ -99,7 +75,7 @@ export function AttentionRow(props: Props) {
     setNote(null);
     try {
       await send();
-      const next = await fetchPending();
+      const next = await read();
       if (next) setLoad({ state: "ready", pending: next });
       else onSettled();
     } catch (err) {
@@ -109,7 +85,7 @@ export function AttentionRow(props: Props) {
       setNote({ text: handled ? vi.attentionHandled : vi.errorPrefix + messageOf(err), about });
       // Whatever failed, the request shown may be over: a stream cut after the server took
       // the decision leaves nothing to decide, or the next request. A 409 is proof enough.
-      const now = await fetchPending().catch(() => (handled ? null : undefined));
+      const now = await read().catch(() => (handled ? null : undefined));
       if (now !== undefined) setLoad({ state: "ready", pending: now });
     } finally {
       setWorking(false);
@@ -132,7 +108,22 @@ export function AttentionRow(props: Props) {
       {children}
       <div className="attention-inline">
         {load.state === "loading" && <p className="muted">{vi.attentionLoading}</p>}
-        {load.state === "failed" && <p className="attention-note">{vi.errorPrefix + load.message}</p>}
+        {load.state === "failed" && (
+          <>
+            <p className="attention-note">{vi.errorPrefix + load.message}</p>
+            <button
+              type="button"
+              className="attention-retry"
+              aria-describedby={labelledBy}
+              onClick={() => {
+                setLoad({ state: "loading" });
+                open();
+              }}
+            >
+              {vi.attentionRetry}
+            </button>
+          </>
+        )}
         {pending?.kind === "question" && (
           // Keyed by the request: a follow-up must not inherit the reply typed to the last one.
           <QuestionCard

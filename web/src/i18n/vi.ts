@@ -572,6 +572,7 @@ export const vi = {
   attentionSeen: "Đã xem",
   attentionSeenLabel: (what: string) => `Đã xem: ${what}`,
   attentionLoading: "Đang tải yêu cầu…",
+  attentionRetry: "Thử lại",
   attentionResuming: "Đang chạy tiếp…",
   // A 409 on decide or answer: another tab, Telegram or the expiry sweep closed it first.
   // That is not the conversation being busy, which is what the chat's conflict text says.

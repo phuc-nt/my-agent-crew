@@ -101,7 +101,8 @@
   display: none;
 }
 
-.attention-seen {
+.attention-seen,
+.attention-retry {
   font-size: var(--text-sm);
 }
 
@@ -135,8 +136,10 @@
   overflow-wrap: anywhere;
 }
 
-/* Under a request found closed: sized to its words, not stretched across the row. */
-.attention-inline .attention-seen {
+/* Under a request found closed or a read that failed: sized to its words, not stretched
+   across the row. */
+.attention-inline .attention-seen,
+.attention-inline .attention-retry {
   align-self: flex-start;
 }
 

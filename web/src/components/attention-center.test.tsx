@@ -214,6 +214,36 @@ describe("AttentionCenter with requests settled in place", () => {
     expect(screen.queryByText(vi.attentionHandled)).not.toBeInTheDocument();
   });
 
+  // A request whose first read failed is not lost: the row offers to read it again, and
+  // reads it on its own when the activity stream hands over the run again.
+  it("reads a request again after its first read failed, from its button or a new copy of the run", async () => {
+    const { conversation, run } = waiting();
+    const through = globalThis.fetch;
+    let failures = 2;
+    vitest.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) =>
+      String(input).endsWith(`/conversations/${conversation.id}`) && failures-- > 0
+        ? Promise.reject(new TypeError("offline"))
+        : through(input, init),
+    );
+    const { rerender } = render(
+      <AttentionCenter runs={[run]} inline agentName={name} onOpenConversation={() => undefined} />,
+    );
+
+    expect(await screen.findByText(vi.errorPrefix + "offline")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: vi.attentionRetry }));
+    expect(await screen.findByText(vi.errorPrefix + "offline")).toBeInTheDocument();
+    expect(screen.queryByRole("group")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: vi.attentionRetry }));
+    expect(within(await request()).getByRole("button", { name: vi.approve })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: vi.attentionRetry })).not.toBeInTheDocument();
+
+    // The same run again from the stream, now waiting on a newer request.
+    backend.conversations.get(conversation.id)!.pending_approval = fakeApproval({ id: "ap2", conversation_id: conversation.id, tool_name: "shell_run", arguments: { command: "make" }, status: "pending", resolved_at: null, expires_at: inFiveMinutes() });
+    rerender(<AttentionCenter runs={[{ ...run }]} inline agentName={name} onOpenConversation={() => undefined} />);
+    expect(await screen.findByText(vi.approvalTitle("shell_run"))).toBeInTheDocument();
+  });
+
   it("counts down to the deadline, then disables the buttons, says it expired and reloads", async () => {
     vitest.useFakeTimers({ shouldAdvanceTime: true });
     vitest.setSystemTime(new Date("2026-09-26T10:00:00Z"));
