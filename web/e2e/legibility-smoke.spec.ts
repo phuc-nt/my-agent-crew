@@ -83,6 +83,28 @@ for (const scheme of ["light", "dark"] as const) {
   });
 }
 
+// The attention card is amber so it is not skipped, and its text inherits that. A request
+// placed in its rows is still the thing to read, as it is in the chat, not more warning.
+test("a request in an attention row reads in body text, not the card's amber", async ({ page }) => {
+  await mockApi(page);
+  await page.goto("/");
+  await expect(page.getByRole("main")).toBeVisible();
+  await probe(
+    page,
+    `<section class="attention"><ul class="attention-list"><li class="awaiting_approval inline">
+       <div class="attention-inline">
+         <div class="approval-bar callout"><div class="approval-text"><strong>Chạy lệnh</strong></div></div>
+         <div class="question-card callout"><div class="question-text"><p class="question-asked">Chọn ngày nào?</p></div></div>
+       </div>
+     </li></ul></section>`,
+  );
+
+  const color = (selector: string) => page.locator(selector).evaluate((el) => getComputedStyle(el).color);
+  const body = await page.evaluate(() => getComputedStyle(document.body).color);
+  expect(await color(".probe .approval-text strong")).toBe(body);
+  expect(await color(".probe .question-asked")).toBe(body);
+});
+
 test("a keyboard-focused checkbox or switch keeps a visible ring, and so does the search box", async ({ page }) => {
   await mockApi(page);
   await page.goto("/");

@@ -150,12 +150,14 @@
 }
 
 /* In the chat a callout floats over the thread; here it is part of a list already
-   on a card, so it takes the row's width and drops the lift. */
+   on a card, so it takes the row's width and drops the lift. The card's amber ink marks
+   the card; the request inside it is read as in the chat, in body text. */
 .attention-inline .callout {
   width: 100%;
   margin: 0;
   box-shadow: none;
   animation: none;
+  color: var(--text);
 }
 
 .attention-note {

@@ -40,8 +40,9 @@ Vài test bảo vệ repo chứ không phải một tính năng:
   được nén gzip và cache vĩnh viễn còn luồng SSE không bị nén;
 - **đọc được**: `web/e2e/legibility-smoke.spec.ts` đo trong trình duyệt thật, trên style đã
   tính, độ tương phản WCAG (≥4.5:1) của chữ trên nền tô và nền trũng ở cả sáng lẫn tối, kể cả
-  khi hover nút chính và nút "Xem đầy đủ" cỡ nhỏ trên nền vàng của thanh duyệt; vòng focus của checkbox, công tắc và ô tìm kiếm; bố cục của notice ở chat
-  và ở màn quản lý; cỡ chữ ô soạn trí nhớ ≥16px để iPhone không phóng to trang; và khối tham số
+  khi hover nút chính và nút "Xem đầy đủ" cỡ nhỏ trên nền vàng của thanh duyệt; yêu cầu đặt
+  trong một dòng của thẻ "Cần bạn" mang màu chữ thường chứ không màu vàng của thẻ; vòng focus
+  của checkbox, công tắc và ô tìm kiếm; bố cục của notice ở chat và ở màn quản lý; cỡ chữ ô soạn trí nhớ ≥16px để iPhone không phóng to trang; và khối tham số
   đầy đủ của một tool call xuống dòng trong bề rộng 390px thay vì cuộn ngang. jsdom không
   tính cascade, nên các thứ này chỉ đo được ở đây;
 - CI dựng lại bundle và fail khi `git diff --exit-code`, nên thay đổi web không bao giờ
