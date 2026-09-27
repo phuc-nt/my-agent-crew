@@ -29,13 +29,16 @@ afterEach(() => {
   vitest.unstubAllGlobals();
 });
 
-/** Makes this page a built one, loaded with `entry`. */
-function built(entry = "/assets/index-first.js") {
+/** Adds a module script this page loads. */
+function loads(src: string) {
   const script = document.createElement("script");
   script.setAttribute("type", "module");
-  script.setAttribute("src", entry);
+  script.setAttribute("src", src);
   document.head.append(script);
 }
+
+/** Makes this page a built one, loaded with `entry`. */
+const built = (entry = "/assets/index-first.js") => loads(entry);
 
 async function mount() {
   const hook = renderHook(({ connected }) => useVersionCheck(connected), { initialProps: { connected: true } });
@@ -172,7 +175,30 @@ describe("useVersionCheck", () => {
     await settle();
   });
 
+  // A tab going out of view fires the same event as one coming back; a look then would be
+  // wasted on a page nobody sees and would hold back the look on the way back.
+  it("does not look as the tab goes out of view, and does when it comes back", async () => {
+    built();
+    await mount();
+    const visibility = vitest.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+    now += 31_000;
+    act(() => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    expect(indexLooks()).toBe(1);
+
+    visibility.mockReturnValue("visible");
+    act(() => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    expect(indexLooks()).toBe(2);
+    await settle();
+  });
+
   it("is inert on the dev server, which has no hashed entry to compare", async () => {
+    // The dev server's page loads source modules, none of them a hashed build.
+    loads("/@vite/client");
+    loads("/src/main.tsx");
     const { result, rerender } = await mount();
     server = { version: "0.9.0", entry: "/assets/index-second.js" };
     focusLater();
