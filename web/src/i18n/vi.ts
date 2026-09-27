@@ -675,6 +675,10 @@ export const vi = {
   // A photo the person sent through Telegram, shown small in their own bubble.
   attachmentImage: (name: string) => `Ảnh bạn gửi: ${name}`,
   attachmentOpen: (name: string) => `Mở ảnh ${name}`,
+  // The words the Telegram channel writes before each file it saved for the person
+  // (TELEGRAM_ATTACHMENT_LINE in my_agent_crew/texts_telegram.py). The thread finds those
+  // lines by them to draw the files, and a server test holds the two to the same words.
+  attachmentSaved: "Tệp đính kèm đã lưu",
   // Copy and share on a reply and on each code block inside it.
   copy: {
     copy: "Sao chép",

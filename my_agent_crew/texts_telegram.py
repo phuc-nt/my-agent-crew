@@ -18,6 +18,8 @@ TELEGRAM_FILE_SUFFIX = "định dạng không gửi qua chat được; chỉ nh�
 TELEGRAM_FILE_TOO_BIG = "tệp {size:.1f} MB, quá mức {cap:.0f} MB cho chat"
 # What the agent reads when the person sends photos or a file: one line per saved path,
 # the caption (if any) after them, so the model treats the attachments as part of the message.
+# The web thread finds these lines by their words (`attachmentSaved` in web/src/i18n/vi.ts)
+# to draw each file; reword both together.
 TELEGRAM_ATTACHMENT_LINE = "[Tệp đính kèm đã lưu: {path}]"
 TELEGRAM_ATTACHMENT = "{files}\n{caption}"
 TELEGRAM_ATTACHMENT_FAILED = "Không tải được tệp đính kèm từ Telegram ({error}); gửi lại giúp."

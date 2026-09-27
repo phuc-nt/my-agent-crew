@@ -4,8 +4,10 @@ scheduled results are delivered through the same path."""
 
 import asyncio
 import logging
+import re
 from dataclasses import replace
 from datetime import datetime, timedelta
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import httpx
@@ -78,6 +80,17 @@ async def test_a_photo_is_saved_to_the_inbox_and_the_agent_reads_its_path_with_t
     assert saved.read_bytes() == b"BYTES:photos/file_7.jpg"
     assert fake.sent == [f"(echo) [Tệp đính kèm đã lưu: {saved}]\nsổ đỏ lô B"]
     assert fake.calls.count("getFile") == 1 and "small" not in fake.files.values()
+
+
+def test_the_web_finds_saved_file_lines_by_the_words_the_channel_writes():
+    """The web thread turns each saved-file line back into a thumbnail or a download by
+    these words (`attachmentSaved` in web/src/i18n/vi.ts). Reworded on one side only, the
+    files there fall back to raw text and nothing else fails."""
+    vi_ts = Path(__file__).resolve().parents[1] / "web" / "src" / "i18n" / "vi.ts"
+    words = re.search(r'^\s*attachmentSaved: "([^"]+)",$', vi_ts.read_text("utf-8"), re.M)
+    assert words is not None
+    path = "/w/inbox/20260921-140509-file_7.jpg"
+    assert texts.TELEGRAM_ATTACHMENT_LINE.format(path=path) == f"[{words.group(1)}: {path}]"
 
 
 def album(update_id: int, file_id: str, group: str, caption: str = "") -> dict:

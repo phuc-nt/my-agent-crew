@@ -2,14 +2,17 @@ import { agentFileUrl } from "../api/client";
 import { vi } from "../i18n/vi";
 import { Icon } from "./ui/icon";
 
+/** `text` as a pattern that matches exactly it. */
+const literal = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 /**
  * The line the Telegram channel writes into a person's message for each file it saved to
- * the agent's inbox (`TELEGRAM_ATTACHMENT_LINE` in my_agent_crew/texts_telegram.py). It is
- * a wire format the server produces, not copy this UI shows, so it is matched here beside
- * its parser; only a whole line in exactly that shape counts, so a person typing the
+ * the agent's inbox, `[<words>: <path>]` (`TELEGRAM_ATTACHMENT_LINE` in
+ * my_agent_crew/texts_telegram.py). The words are Vietnamese copy, so they live in vi.ts
+ * with the rest; only a whole line in exactly that shape counts, so a person typing the
  * words in a sentence keeps their sentence.
  */
-const ATTACHMENT_LINE = /^\[Tệp đính kèm đã lưu: (.+)\]$/;
+const ATTACHMENT_LINE = new RegExp(`^\\[${literal(vi.attachmentSaved)}: (.+)\\]$`);
 /** What a browser shows inline everywhere; HEIC and the rest download instead. */
 const IMAGE = /\.(jpe?g|png|gif|webp)$/i;
 /** The saved name leads with the moment it arrived, which says nothing the thread does not. */
