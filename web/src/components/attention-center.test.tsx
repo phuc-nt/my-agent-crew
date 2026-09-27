@@ -266,4 +266,29 @@ describe("AttentionCenter with requests settled in place", () => {
     expect(within(bar).getByRole("button", { name: vi.deny })).toBeDisabled();
     await waitFor(() => expect(onReload).toHaveBeenCalledTimes(1));
   });
+
+  // The deadline passes before the server's sweep closes the request, so the read made then
+  // still finds it open. Once the sweep has run the row reads again and stops waiting.
+  it("reads the request and the list again once the expiry sweep has run", async () => {
+    vitest.useFakeTimers({ shouldAdvanceTime: true });
+    vitest.setSystemTime(new Date("2026-09-26T10:00:00Z"));
+    const { conversation, run } = waiting({ expires_at: "2026-09-26T10:00:05Z" });
+    const onReload = inline([run]);
+    const bar = await request();
+
+    await act(async () => {
+      await vitest.advanceTimersByTimeAsync(6_000);
+    });
+    await waitFor(() => expect(onReload).toHaveBeenCalledTimes(1));
+    expect(within(bar).getByRole("timer")).toHaveTextContent(vi.attentionExpired);
+
+    backend.conversations.get(conversation.id)!.pending_approval = null;
+    await act(async () => {
+      await vitest.advanceTimersByTimeAsync(25_000);
+    });
+
+    expect(await screen.findByText(vi.attentionHandled)).toBeInTheDocument();
+    expect(screen.queryByRole("group")).not.toBeInTheDocument();
+    await waitFor(() => expect(onReload).toHaveBeenCalledTimes(2));
+  });
 });

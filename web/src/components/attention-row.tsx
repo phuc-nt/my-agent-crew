@@ -28,6 +28,10 @@ interface Props {
 /** The row does not replay the resumed turn; it only has to know when it has ended. */
 const ignoreEvent = () => undefined;
 
+/** The server closes expired requests on its scheduler's tick, every 20 seconds: by this
+ *  long after the deadline the sweep has run, whatever the phase of the tick. */
+const AFTER_SWEEP_MS = 25_000;
+
 /**
  * A run that waits on a person, with the request itself in place of a link to it.
  *
@@ -61,10 +65,15 @@ export function AttentionRow(props: Props) {
   const expired = remaining === 0;
 
   // The server closes an expired request on its own sweep and resumes the run with a
-  // refusal or a default answer; reading the list again lets the row follow it.
+  // refusal or a default answer; reading the list again lets the row follow it. The read
+  // at the deadline usually beats the sweep, so both are read again once it has run —
+  // without that the row would wait, disabled, on the activity stream alone.
   useEffect(() => {
-    if (expired) reload.current();
-  }, [expired]);
+    if (!expired) return;
+    reload.current();
+    const after = window.setTimeout(() => void refresh().then(() => reload.current()), AFTER_SWEEP_MS);
+    return () => window.clearTimeout(after);
+  }, [expired, refresh]);
 
   const settle = async (about: string, send: () => Promise<void>) => {
     // The buttons disable themselves next, which would drop a keyboard user's focus to the
