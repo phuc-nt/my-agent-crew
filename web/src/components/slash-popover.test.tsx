@@ -12,12 +12,11 @@ const commands: CommandInfo[] = [
   { name: "ak:plan", description: "", path: "/kit/commands/ak/plan.md" },
 ];
 
-function composer(extra: { commands?: CommandInfo[]; onSend?: (text: string) => void; disabled?: boolean; draft?: string } = {}) {
+function composer(extra: { commands?: CommandInfo[]; onSend?: (text: string) => void } = {}) {
   render(
     <Composer
-      disabled={extra.disabled ?? false}
+      disabled={false}
       busy={false}
-      draft={extra.draft}
       commands={extra.commands ?? commands}
       onSend={extra.onSend ?? (() => undefined)}
       onStop={() => undefined}
@@ -86,6 +85,24 @@ describe("the command list in the composer", () => {
     await userEvent.keyboard("{Tab}");
     expect(box).toHaveValue("/review ");
     expect(box).toHaveFocus();
+  });
+
+  it("leaves the Enter that commits an input method's word to the word, not to the list", async () => {
+    const onSend = vitest.fn();
+    const box = composer({ onSend });
+    await userEvent.type(box, "/re");
+    expect(options()).toEqual(["/review"]);
+
+    // Telex commits a word with Enter; Safari sends that Enter after the composition ends,
+    // marked only by the IME's keyCode 229.
+    fireEvent.keyDown(box, { key: "Enter", isComposing: true });
+    fireEvent.keyDown(box, { key: "Enter", keyCode: 229, isComposing: false });
+    expect(box).toHaveValue("/re");
+    expect(options()).toEqual(["/review"]);
+    expect(onSend).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(box, { key: "Enter", keyCode: 13 });
+    expect(box).toHaveValue("/review ");
   });
 
   it("closes on Esc without inserting, keeps the Esc to itself, and the next key reopens it", async () => {
@@ -200,10 +217,20 @@ describe("an agent without commands", () => {
 });
 
 describe("a composer that takes no message", () => {
-  it("offers no commands while an approval waits, even over a '/' already in the box", () => {
-    composer({ disabled: true, draft: "/re" });
-    expect(screen.getByRole("textbox")).toHaveValue("/re");
+  it("offers no commands while an approval waits, even over a '/' already in the box", async () => {
+    const props = { busy: false, commands, onSend: () => undefined, onStop: () => undefined };
+    const { rerender } = render(<Composer disabled={false} {...props} />);
+    const box = screen.getByRole("textbox", { name: vi.composerPlaceholder });
+    await userEvent.type(box, "/re");
+    expect(options()).toEqual(["/review"]);
+
+    // The approval arrives while the list is open over the '/' being typed.
+    rerender(<Composer disabled {...props} />);
+    expect(box).toHaveValue("/re");
     expect(screen.queryByTestId("slash-popover")).toBeNull();
-    expect(screen.getByRole("button", { name: vi.slash.open })).toBeDisabled();
+    expect(box).not.toHaveAttribute("aria-controls");
+    const button = screen.getByRole("button", { name: vi.slash.open });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute("aria-expanded", "false");
   });
 });
