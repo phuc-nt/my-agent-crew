@@ -29,10 +29,14 @@ async def test_the_decision_after_a_restart_continues_the_run_that_paused(deps_f
     conv = deps.store.create()
     paused = await pause(deps, ActivityHub(deps.store), conv.id)
 
-    # What the next process builds on the same database.
+    # What the next process builds on the same database, twice: the pause may outlive more
+    # than one restart, so its stored row must stay open, not only the hub's copy of it.
+    ActivityHub(deps.store)
     hub = ActivityHub(deps.store)
     [held] = hub.live()
     assert held.status == AWAITING and held.conversation_id == conv.id
+    stored = deps.store.runs.get(held.id)
+    assert stored.status == AWAITING and stored.finished_at is None
 
     resumed = resolve_approval(deps, conv.id, paused[-1].approval_id, True)
     await collect(tracked(hub, resumed, "default", "chat", "t", conv.id))
@@ -80,6 +84,22 @@ async def test_only_the_newest_paused_run_of_a_conversation_is_held(deps_factory
     assert deps.store.runs.get("older").status == FAILED
 
 
+async def test_a_pending_request_holds_only_its_own_conversations_paused_run(deps_factory):
+    """A request waiting in one conversation says nothing about another one's stale pause,
+    which the next turn there would otherwise continue."""
+    deps = deps_factory(routes=(Route("fake", "echo"),))
+    waiting, stale = deps.store.create(), deps.store.create()
+    await pause(deps, ActivityHub(deps.store), waiting.id)
+    old = RunRecord("old", "default", stale.id, "chat", "t", AWAITING, "2026-09-01T08:00:00")
+    deps.store.runs.save(old)
+
+    hub = ActivityHub(deps.store)
+
+    assert [run.conversation_id for run in hub.live()] == [waiting.id]
+    closed = deps.store.runs.get("old")
+    assert closed.status == FAILED and closed.summary == "interrupted"
+
+
 def test_a_step_resumed_after_a_reboot_never_reads_a_negative_duration():
     """The step was opened on the previous boot's clock, which a reboot starts again."""
     run = RunRecord("r1", "default", "c1", "chat", "t", RUNNING, "2026-09-19T08:00:00")
@@ -89,16 +109,31 @@ def test_a_step_resumed_after_a_reboot_never_reads_a_negative_duration():
 
 
 def test_deleting_a_conversation_closes_the_run_paused_in_it(tmp_path):
-    """The delete takes the pending request with it, so the pause could never end."""
+    """The delete takes the pending request with it, so the pause could never end. Another
+    conversation's pause keeps waiting on its own request."""
+    env = {"MY_AGENT_HOME": str(tmp_path), "MY_AGENT_ROUTES": "fake:echo"}
+    runtime = build_runtime(load_settings(env=env))
+    text = '/tool workspace_write {"path": "x.txt", "content": "1"}'
+    with TestClient(create_app(runtime, schedule=False), base_url="http://127.0.0.1") as client:
+        gone, kept = (client.post("/api/conversations", json={}).json()["id"] for _ in range(2))
+        for conv_id in (gone, kept):
+            client.post(f"/api/conversations/{conv_id}/messages", json={"text": text})
+        paused = {run.conversation_id: run for run in runtime.hub.live()}
+        assert {run.status for run in paused.values()} == {AWAITING}
+        assert client.delete(f"/api/conversations/{gone}").status_code == 204
+    [waiting] = runtime.hub.live()
+    assert waiting.id == paused[kept].id and waiting.status == AWAITING
+    closed = runtime.store.runs.get(paused[gone].id)
+    assert closed.status == FAILED and closed.summary == "interrupted"
+
+
+def test_deleting_a_conversation_mid_turn_leaves_the_run_to_its_turn(tmp_path):
+    """A turn still streaming keeps recording on its run and closes it itself."""
     env = {"MY_AGENT_HOME": str(tmp_path), "MY_AGENT_ROUTES": "fake:echo"}
     runtime = build_runtime(load_settings(env=env))
     with TestClient(create_app(runtime, schedule=False), base_url="http://127.0.0.1") as client:
         conv = client.post("/api/conversations", json={}).json()
-        text = '/tool workspace_write {"path": "x.txt", "content": "1"}'
-        client.post(f"/api/conversations/{conv['id']}/messages", json={"text": text})
-        [paused] = runtime.hub.live()
-        assert paused.status == AWAITING
+        running = runtime.hub.start("default", "chat", "t", conv["id"])
         assert client.delete(f"/api/conversations/{conv['id']}").status_code == 204
-    assert runtime.hub.live() == []
-    closed = runtime.store.runs.get(paused.id)
-    assert closed.status == FAILED and closed.summary == "interrupted"
+    [live] = runtime.hub.live()
+    assert live.id == running.id and live.status == RUNNING and live.finished_at is None
