@@ -106,6 +106,26 @@ describe("a job read at a glance", () => {
     expect(vitest.getTimerCount()).toBe(0);
   });
 
+  // An interval job's next run is its last run plus the interval, so one switched off for
+  // days reports a time long gone, which a countdown read as "sắp tới".
+  it("gives a job that will not run no next time, however far behind its last it is", () => {
+    vitest.useFakeTimers({ toFake: ["Date"] });
+    vitest.setSystemTime(new Date("2026-09-26T21:00:00Z"));
+    const stale = { ...brief, cron: null, every: "1h", next_run: "2026-09-24T07:00", enabled: false };
+    const paused = { ...stale, id: "coach/paused", paused: true };
+    const soon = { ...brief, id: "coach/soon", next_run: "2026-09-27T07:00" };
+    render(<JobsPanel jobs={[stale, paused, soon]} agentName={name} onRunNow={() => {}} onToggle={() => {}} />);
+
+    const [off, held, on] = screen.getAllByTestId("job");
+    for (const row of [off, held]) {
+      expect(row).not.toHaveTextContent(vi.time.soon);
+      expect(within(row).queryByText(/\d\d:\d\d/)).not.toBeInTheDocument();
+    }
+    expect(off).toHaveTextContent(`${vi.jobNext}: ${vi.jobDisabled}`);
+    expect(held).toHaveTextContent(`${vi.jobNext}: ${vi.jobPaused}`);
+    expect(on).toHaveTextContent(`${vi.jobNext}: sau 3 giờ`);
+  });
+
   it("shows how the last run ended and what it said, and opens that run", async () => {
     vitest.useFakeTimers({ toFake: ["Date"] });
     vitest.setSystemTime(new Date("2026-09-26T21:00:00Z"));

@@ -113,12 +113,16 @@ export function JobsPanel(props: Props) {
             )}
             <div className="job-meta muted">
               {vi.jobNext}:{" "}
-              {job.next_run ? (
+              {/* A job that will not run has no next time: an interval job's is its last run
+                  plus the interval, long gone once it has been off for a while. */}
+              {job.enabled && job.next_run ? (
                 // Relative while it is close, the date once it is not; the exact time is
                 // one hover away rather than a second line on every row.
                 <time dateTime={job.next_run} title={formatDateTime(job.next_run)}>
                   {timeUntil(job.next_run)}
                 </time>
+              ) : job.paused ? (
+                vi.jobPaused
               ) : (
                 vi.jobDisabled
               )}
