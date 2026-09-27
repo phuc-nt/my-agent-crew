@@ -58,6 +58,15 @@ describe("WikiReadView links", () => {
     expect(link).toHaveAttribute("target", "_blank");
   });
 
+  it("keeps a [[Name]] written inside an ordinary link as that link's words", () => {
+    mount("Xem [bản cũ của [[Trà sáng]]](https://example.com) và [nháp [[Hạn Eco]]][nhap].\n\n[nhap]: https://example.org");
+
+    // A link cannot hold a link, inline or by reference: each keeps its words and address.
+    expect(screen.getByRole("link", { name: "bản cũ của [[Trà sáng]]" })).toHaveAttribute("href", "https://example.com");
+    expect(screen.getByRole("link", { name: "nháp [[Hạn Eco]]" })).toHaveAttribute("href", "https://example.org");
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+
   it("draws the machine's related block as chips, without its comment markers", async () => {
     const { onOpen, view } = mount(
       "Chữ của tác giả.\n\n<!-- wiki:related -->\n\n## Liên quan\n\n" +
