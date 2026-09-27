@@ -37,6 +37,24 @@ describe("CopyButton", () => {
     expect(screen.getByRole("button", { name: vi.copy.reply })).toHaveTextContent(vi.copy.copy);
   });
 
+  // A screen reader does not read out a changed button name, so without a live region a
+  // copy that worked would pass in silence.
+  it("says 'Đã chép' through a live region that is in the page before the copy", async () => {
+    vitest.useFakeTimers();
+    installClipboard(() => Promise.resolve());
+    const { container } = render(<CopyButton text={reply} label={vi.copy.reply} />);
+    const announcer = container.querySelector('[aria-live="polite"]');
+    expect(announcer).toBeEmptyDOMElement();
+
+    fireEvent.click(screen.getByRole("button", { name: vi.copy.reply }));
+    await act(async () => {});
+    expect(container.querySelector('[aria-live="polite"]')).toBe(announcer);
+    expect(announcer).toHaveTextContent(vi.copy.copied);
+
+    act(() => vitest.advanceTimersByTime(COPIED_MS));
+    expect(announcer).toBeEmptyDOMElement();
+  });
+
   it("shows the text to copy by hand when the browser refuses the write", async () => {
     installClipboard(() => Promise.reject(new DOMException("denied", "NotAllowedError")));
     render(<CopyButton text={reply} label={vi.copy.reply} />);

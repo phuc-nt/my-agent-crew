@@ -49,6 +49,11 @@ export function CopyButton({ text, label, className = "" }: { text: string; labe
         <Icon name={copied ? "check" : "copy"} />
         <span className="copy-label">{copied ? vi.copy.copied : vi.copy.copy}</span>
       </button>
+      {/* A changed button name is not announced, so the confirmation is also said here. The
+          region stays in the page empty: one that appears with its text is often missed. */}
+      <span className="sr-only" aria-live="polite">
+        {copied ? vi.copy.copied : ""}
+      </span>
       {state === "failed" && (
         <CopyFallback
           text={text}
