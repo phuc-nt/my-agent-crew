@@ -392,10 +392,13 @@
   gap: var(--space-3);
 }
 
-/* Dim, not hidden: a disabled schedule is still something you need to find. */
-.job.disabled .job-head,
-.job.disabled .job-meta {
-  opacity: 0.6;
+/* Dim, not hidden: a disabled schedule is still something you need to find. Its words are
+   dimmed by colour, not the row by opacity: that faded Sửa lịch too, the button that turns
+   the schedule back on. */
+.job.disabled .job-name,
+.job.disabled .job-when,
+.job.disabled .job-meta code {
+  color: var(--muted);
 }
 
 .job-head {

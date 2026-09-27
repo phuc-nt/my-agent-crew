@@ -55,3 +55,28 @@ for (const viewport of [
     expect(settled.scrolled).toBe(true);
   });
 }
+
+// Sửa lịch is how a job switched off in its profile is turned back on, so it must not look
+// switched off itself: the row's text is dimmed, never the row's buttons.
+test("a job off in its profile dims its text but not its buttons", async ({ page }) => {
+  const off = { ...briefJob, id: "coach/off", schedule_id: "off", name: "Tắt sẵn", enabled: false };
+  await openJobs(page, [briefJob, off]);
+  const row = page.getByTestId("job").filter({ hasText: "Tắt sẵn" });
+  await expect(row).toBeVisible();
+  // The list fades in; measure once it has.
+  await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)));
+  const shown = (selector: string) =>
+    row.locator(selector).first().evaluate((el) => {
+      let opacity = 1;
+      for (let at: Element | null = el; at; at = at.parentElement) opacity *= Number(getComputedStyle(at).opacity);
+      return { opacity, color: getComputedStyle(el).color };
+    });
+
+  for (const name of ["Sửa lịch Tắt sẵn", "Chạy ngay: Tắt sẵn"])
+    expect((await shown(`button[aria-label="${name}"]`)).opacity, name).toBe(1);
+  expect((await shown(".link-button")).opacity).toBe(1);
+  // Still dimmed, as the rows beside it are not.
+  const on = page.getByTestId("job").filter({ hasText: "Bản tin sáng" });
+  const bright = await on.locator(".job-name").evaluate((el) => getComputedStyle(el).color);
+  expect((await shown(".job-name")).color).not.toBe(bright);
+});
