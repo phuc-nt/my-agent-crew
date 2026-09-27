@@ -5,7 +5,7 @@ import { ErrorBoundary } from "./components/error-boundary";
 import { useActivity } from "./hooks/use-activity";
 import { useCrew } from "./hooks/use-agents";
 import { useConversations } from "./hooks/use-conversations";
-import { type ManageSection, useRoute } from "./hooks/use-route";
+import { type ManageSection, type Route, useRoute } from "./hooks/use-route";
 import { useThread } from "./hooks/use-thread";
 import { ChatScreen } from "./screens/chat-screen";
 import { ManageScreen } from "./screens/manage-screen";
@@ -71,6 +71,10 @@ export function App() {
   };
 
   if (route.kind === "manage") {
+    // Closing a page opened from a job's row goes back to that row, not the section's list.
+    const { fromJob } = route;
+    const close = (section: ManageSection): Route =>
+      fromJob ? { kind: "manage", section: "jobs", param: fromJob } : { kind: "manage", section };
     return (
       <ErrorBoundary>
         <ManageScreen
@@ -92,22 +96,16 @@ export function App() {
           editingAgentId={route.section === "crew" ? route.param : undefined}
           replayRunId={route.section === "activity" ? route.param : undefined}
           editFocus={route.section === "crew" ? route.focus : undefined}
-          onEditSchedules={(agentId) =>
-            navigate({ kind: "manage", section: "crew", param: agentId, focus: "schedules" })
+          focusJob={route.section === "jobs" ? route.param : undefined}
+          fromJob={fromJob !== undefined}
+          onEditSchedules={(agentId, job) =>
+            navigate({ kind: "manage", section: "crew", param: agentId, focus: "schedules", fromJob: job })
           }
           onEditAgent={(agentId) =>
-            navigate(
-              agentId
-                ? { kind: "manage", section: "crew", param: agentId }
-                : { kind: "manage", section: "crew" },
-            )
+            navigate(agentId ? { kind: "manage", section: "crew", param: agentId } : close("crew"))
           }
-          onReplayRun={(runId) =>
-            navigate(
-              runId
-                ? { kind: "manage", section: "activity", param: runId }
-                : { kind: "manage", section: "activity" },
-            )
+          onReplayRun={(runId, job) =>
+            navigate(runId ? { kind: "manage", section: "activity", param: runId, fromJob: job } : close("activity"))
           }
           onReloadCrew={() => void crew.reload()}
           // Changing section drops the id in the URL: an id is only meaningful under

@@ -560,6 +560,8 @@ export const vi = {
     edit: "Sửa lịch",
     editOf: (job: string) => `Sửa lịch ${job}`,
     openCrew: "Mở mục Đội",
+    // The back link of an editor or a run opened from a job's row, which it returns to.
+    back: "← Lịch chạy",
     // After a relative time on the row: "sau 3 giờ, lúc 07:00".
     atClock: (clock: string) => `, lúc ${clock}`,
     // Visibly the run cards' own "Xem riêng", which opens the same page from the history.

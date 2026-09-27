@@ -61,6 +61,20 @@ describe("reading a route from the address bar", () => {
     expect(parseRoute(routeHash(route))).toEqual(route);
   });
 
+  // A page opened from a row of the jobs list leads back to that row, after a reload as
+  // well as on the click, so the row it came from rides in the link.
+  it("reads the job a page was opened from out of the query", () => {
+    const replay = { kind: "manage", section: "activity", param: "r-1", fromJob: "coach/brief" } as const;
+    expect(routeHash(replay)).toBe("#/manage/activity/r-1?job=coach%2Fbrief");
+    expect(parseRoute(routeHash(replay))).toEqual(replay);
+    const editor = { ...replay, section: "crew", param: "coach", focus: "schedules" } as const;
+    expect(routeHash(editor)).toBe("#/manage/crew/coach/schedules?job=coach%2Fbrief");
+    expect(parseRoute(routeHash(editor))).toEqual(editor);
+    // The row to go back to belongs to the page, so a section with none open drops it.
+    expect(routeHash({ kind: "manage", section: "jobs", fromJob: "coach/brief" })).toBe("#/manage/jobs");
+    expect(parseRoute("#/manage/jobs?job=coach%2Fbrief")).toEqual({ kind: "manage", section: "jobs" });
+  });
+
   it("drops a focus that has no id to belong to", () => {
     expect(routeHash({ kind: "manage", section: "crew", focus: "schedules" })).toBe("#/manage/crew");
   });

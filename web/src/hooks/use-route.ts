@@ -24,14 +24,18 @@ export type Route =
       section: ManageSection;
       /**
        * The one thing the section is opened on, when there is one: an agent under `crew`,
-       * a run under `activity`. It rides in the URL rather than in component state so the
-       * view can be linked to, survives a reload, and leaves Back meaning "the list I came
-       * from". Which section it belongs to says how to read it.
+       * a run under `activity`, the row come back to under `jobs`. It rides in the URL
+       * rather than in component state so the view can be linked to, survives a reload,
+       * and leaves Back meaning "the list I came from". Which section it belongs to says
+       * how to read it.
        */
       param?: string;
       /** A part of that thing to bring into view, such as "schedules" in an agent's
        * editor. Only meaningful under a param, and dropped without one. */
       focus?: string;
+      /** The jobs-list row the page was opened from, which its back link returns to
+       * instead of the section's own list. Written as `?job=`, and only under a param. */
+      fromJob?: string;
     };
 
 const DEFAULT_SECTION: ManageSection = "activity";
@@ -47,7 +51,8 @@ function isSection(value: string): value is ManageSection {
  * hand-edited link lands somewhere usable instead of on a blank screen.
  */
 export function parseRoute(hash: string): Route {
-  const parts = hash.replace(/^#\/?/, "").split("/").filter(Boolean);
+  const [path, query = ""] = hash.replace(/^#\/?/, "").split("?");
+  const parts = path.split("/").filter(Boolean);
   if (parts[0] === "manage") {
     const section = parts[1] ?? "";
     // A third segment names what the section is opened on. An unknown section drops it
@@ -56,8 +61,9 @@ export function parseRoute(hash: string): Route {
     if (!isSection(section)) return { kind: "manage", section: DEFAULT_SECTION };
     const param = parts[2] ? decodeURIComponent(parts[2]) : undefined;
     const focus = parts[3] ? decodeURIComponent(parts[3]) : undefined;
-    if (param && focus) return { kind: "manage", section, param, focus };
-    return param ? { kind: "manage", section, param } : { kind: "manage", section };
+    const fromJob = new URLSearchParams(query).get("job") ?? undefined;
+    if (!param) return { kind: "manage", section };
+    return { kind: "manage", section, param, ...(focus && { focus }), ...(fromJob && { fromJob }) };
   }
   if (parts[0] === "chat") return { kind: "chat", conversationId: parts[1] ?? null };
   return { kind: "chat", conversationId: null };
@@ -67,7 +73,8 @@ export function parseRoute(hash: string): Route {
 export function routeHash(route: Route): string {
   if (route.kind === "manage") {
     const focus = route.param && route.focus ? `/${encodeURIComponent(route.focus)}` : "";
-    const tail = route.param ? `/${encodeURIComponent(route.param)}${focus}` : "";
+    const from = route.fromJob ? `?job=${encodeURIComponent(route.fromJob)}` : "";
+    const tail = route.param ? `/${encodeURIComponent(route.param)}${focus}${from}` : "";
     return `#/manage/${route.section}${tail}`;
   }
   return route.conversationId ? `#/chat/${route.conversationId}` : "#/chat";

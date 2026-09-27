@@ -167,7 +167,8 @@ test("a schedule is added from the jobs list through the agent's editor", async 
   await page.goto("/#/manage/jobs");
 
   await page.getByTestId("job").getByRole("button", { name: "Sửa lịch Bản tin sáng" }).click();
-  await expect(page).toHaveURL(/#\/manage\/crew\/coach\/schedules$/);
+  // The job rides along so the editor's back link returns to its row.
+  await expect(page).toHaveURL(/#\/manage\/crew\/coach\/schedules\?job=coach%2Fbrief$/);
   const editor = page.getByTestId("agent-editor");
   await expect(editor.getByRole("heading", { name: "Lịch chạy" })).toBeFocused();
 
@@ -222,6 +223,6 @@ test("a job reads its schedule in words, shows its last run, and a failure is co
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 
   await first.getByRole("button", { name: "Xem riêng lượt chạy gần nhất của Bản tin sáng" }).click();
-  await expect(page).toHaveURL(/#\/manage\/activity\/r-err$/);
+  await expect(page).toHaveURL(/#\/manage\/activity\/r-err\?job=coach%2Fbrief$/);
   await expect(page.getByTestId("run-replay")).toContainText("Không gọi được API");
 });

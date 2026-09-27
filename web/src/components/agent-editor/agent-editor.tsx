@@ -20,6 +20,8 @@ interface Props {
   tools: RegistryTool[];
   providers: string[];
   onBack: () => void;
+  /** What the back link says when it leads somewhere other than the crew list. */
+  backLabel?: string;
   /** Called after a save or a delete so the crew list stops showing the old profile. */
   onChanged: () => void;
   /** A section to bring into view on arrival, such as "schedules" from the jobs list. */
@@ -33,7 +35,7 @@ interface Props {
  * needs to know there is something unsaved while they are still scrolling through them,
  * not after they have left.
  */
-export function AgentEditor({ agent, agents, tools, providers, onBack, onChanged, focus }: Props) {
+export function AgentEditor({ agent, agents, tools, providers, onBack, backLabel, onChanged, focus }: Props) {
   const form = useAgentDraft(agent, onChanged);
   const readOnly = !agent.editable;
   // A box left empty holds the save without a banner until Lưu is pressed; pressing it
@@ -60,7 +62,7 @@ export function AgentEditor({ agent, agents, tools, providers, onBack, onChanged
     <div className="agent-editor" data-testid="agent-editor" ref={root}>
       <div className="editor-bar" ref={bar}>
         <button type="button" className="ghost" onClick={onBack}>
-          {vi.editor.back}
+          {backLabel ?? vi.editor.back}
         </button>
         <AgentAvatar id={agent.id} name={agent.name} />
         <span className="editor-title">

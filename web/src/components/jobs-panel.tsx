@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { JobInfo } from "../api/types";
 import { vi } from "../i18n/vi";
 import { scheduleText } from "../lib/cron-text";
@@ -24,18 +24,23 @@ interface Props {
   /** Pause or resume a schedule at runtime without editing its profile. */
   onToggle: (jobId: string, enabled: boolean) => void;
   onOpenConversation?: (conversationId: string) => void;
-  /** Opens one run on its own page, from the row's last run or its history. */
-  onOpenRun?: (runId: string) => void;
+  /** Opens one run on its own page, from the row's last run or its history. The job goes
+   *  along so that page's back link returns to this row. */
+  onOpenRun?: (runId: string, jobId: string) => void;
   /** Opens the agent's editor on its schedules: where a job is added, changed or turned on. */
-  onEditSchedules?: (agentId: string) => void;
+  onEditSchedules?: (agentId: string, jobId: string) => void;
   onOpenCrew?: () => void;
+  /** The row to bring into view and focus: the one a person came back to. */
+  focusJob?: string;
 }
 
 /** Every agent's schedules with their next and last run, a pause switch, run history and run-now. */
 export function JobsPanel(props: Props) {
-  const { jobs, agentName, onRunNow, onToggle, onOpenConversation, onOpenRun, onEditSchedules, onOpenCrew } =
+  const { jobs, agentName, onRunNow, onToggle, onOpenConversation, onOpenRun, onEditSchedules, onOpenCrew, focusJob } =
     props;
   const [open, setOpen] = useState<string | null>(null);
+  const target = useRef<HTMLLIElement>(null);
+  const arrived = jobs?.some((job) => job.id === focusJob) ?? false;
   // "sau 3 giờ" and "5 phút" are true for a minute; a list left open on a wall screen
   // redraws once a minute so the countdowns keep moving.
   const [, setMinute] = useState(0);
@@ -43,6 +48,13 @@ export function JobsPanel(props: Props) {
     const timer = setInterval(() => setMinute((n) => n + 1), 60_000);
     return () => clearInterval(timer);
   }, []);
+  // Back from a job's editor or run: on a long list the person was on one row, not at the
+  // top. Waits for that row, since a reload reaches here before the jobs do.
+  useEffect(() => {
+    if (!arrived) return;
+    target.current?.scrollIntoView?.({ block: "center" });
+    target.current?.focus({ preventScroll: true });
+  }, [arrived, focusJob]);
   if (jobs === null) return <p className="muted">{vi.loadFailed}</p>;
   if (jobs.length === 0) {
     const action = onOpenCrew ? { label: vi.jobRow.openCrew, onClick: onOpenCrew } : undefined;
@@ -54,8 +66,15 @@ export function JobsPanel(props: Props) {
         // A schedule switched off in agent.yaml cannot be resumed from here.
         const offInProfile = !job.enabled && !job.paused;
         const offHint = `job-off-${job.id}`;
+        const openRun = onOpenRun && ((runId: string) => onOpenRun(runId, job.id));
         return (
-          <li key={job.id} className={`job ${job.enabled ? "" : "disabled"}`} data-testid="job">
+          <li
+            key={job.id}
+            ref={job.id === focusJob ? target : undefined}
+            tabIndex={job.id === focusJob ? -1 : undefined}
+            className={`job ${job.enabled ? "" : "disabled"}`}
+            data-testid="job"
+          >
             <div className="job-head">
               <AgentAvatar id={job.agent_id} name={agentName(job.agent_id)} />
               <span className="job-name">
@@ -91,7 +110,7 @@ export function JobsPanel(props: Props) {
                   <button
                     type="button"
                     className="ghost"
-                    onClick={() => onEditSchedules(job.agent_id)}
+                    onClick={() => onEditSchedules(job.agent_id, job.id)}
                     aria-label={vi.jobRow.editOf(job.name)}
                   >
                     {vi.jobRow.edit}
@@ -140,13 +159,13 @@ export function JobsPanel(props: Props) {
                 {open === job.id ? vi.hideHistory : vi.showHistory}
               </button>
             </div>
-            <JobLastRun job={job} onOpenRun={onOpenRun} />
+            <JobLastRun job={job} onOpenRun={openRun} />
             {open === job.id && (
               <JobRunHistory
                 jobId={job.id}
                 agentName={agentName(job.agent_id)}
                 onOpenConversation={onOpenConversation}
-                onOpenRun={onOpenRun}
+                onOpenRun={openRun}
               />
             )}
           </li>

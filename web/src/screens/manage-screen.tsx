@@ -45,7 +45,7 @@ interface Props {
   /** Opens or closes the editor by rewriting the route, so Back leaves it. */
   onEditAgent: (agentId: string | null) => void;
   /** Opens or closes a single run by rewriting the route, so Back leaves it. */
-  onReplayRun: (runId: string | null) => void;
+  onReplayRun: (runId: string | null, fromJob?: string) => void;
   /** Re-reads the crew after a profile is written, created or removed. */
   onReloadCrew: () => void;
   onNavigate: (section: ManageSection) => void;
@@ -57,7 +57,11 @@ interface Props {
   /** The part of the open editor to bring into view, when the URL names one. */
   editFocus?: string;
   /** Opens an agent's editor on its schedules, from a row in the jobs list. */
-  onEditSchedules?: (agentId: string) => void;
+  onEditSchedules?: (agentId: string, fromJob: string) => void;
+  /** The row of the jobs list to bring into view, when the URL names one. */
+  focusJob?: string;
+  /** The open editor or run was reached from a job's row, and its back link returns there. */
+  fromJob?: boolean;
 }
 
 const LABELS: Record<ManageSection, string> = {
@@ -194,6 +198,7 @@ export function ManageScreen(props: Props) {
               known={props.runs}
               agentName={props.agentName}
               onBack={() => props.onReplayRun(null)}
+              backLabel={props.fromJob ? vi.jobRow.back : undefined}
               onOpenConversation={props.onOpenConversation}
             />
           )}
@@ -273,6 +278,7 @@ export function ManageScreen(props: Props) {
                 tools={registry.tools}
                 providers={registry.connections?.providers.map((p) => p.name) ?? []}
                 onBack={() => props.onEditAgent(null)}
+                backLabel={props.fromJob ? vi.jobRow.back : undefined}
                 onChanged={props.onReloadCrew}
                 focus={props.editFocus}
               />
@@ -300,6 +306,7 @@ export function ManageScreen(props: Props) {
               onOpenConversation={props.onOpenConversation}
               onOpenRun={props.onReplayRun}
               onEditSchedules={props.onEditSchedules}
+              focusJob={props.focusJob}
               onOpenCrew={() => props.onNavigate("crew")}
             />
           )}

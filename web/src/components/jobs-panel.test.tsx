@@ -29,7 +29,26 @@ describe("where the jobs list sends a person to change a schedule", () => {
 
     const job = screen.getByTestId("job");
     await userEvent.click(within(job).getByRole("button", { name: vi.jobRow.editOf(brief.name) }));
-    expect(onEdit).toHaveBeenCalledWith("coach");
+    // The job goes along, so the editor's back link can return to this row.
+    expect(onEdit).toHaveBeenCalledWith("coach", "coach/brief");
+  });
+
+  // Back from a job's editor or one of its runs: the list is long on a busy crew, and the
+  // person was checking one row, not the top of the list.
+  it("brings the row a person came back to into view and focus", () => {
+    const other = { ...brief, id: "coach/other", schedule_id: "other", name: "Khác" };
+    const scrolled = vitest.fn();
+    const before = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = scrolled;
+    try {
+      const jobs = [brief, other];
+      render(<JobsPanel jobs={jobs} agentName={name} onRunNow={() => {}} onToggle={() => {}} focusJob="coach/other" />);
+      const row = screen.getAllByTestId("job")[1];
+      expect(row).toHaveFocus();
+      expect(scrolled.mock.contexts).toEqual([row]);
+    } finally {
+      Element.prototype.scrollIntoView = before;
+    }
   });
 
   // Schedules used to be added by hand in agent.yaml, and the empty list said so; the
@@ -171,7 +190,7 @@ describe("a job read at a glance", () => {
     const open = within(ran).getByRole("button", { name: vi.jobRow.openRunOf(brief.name) });
     expect(open).toHaveTextContent(vi.replay.openLink);
     await userEvent.click(open);
-    expect(onOpenRun).toHaveBeenCalledWith("r-err");
+    expect(onOpenRun).toHaveBeenCalledWith("r-err", "coach/brief");
 
     expect(idle).toHaveTextContent(vi.jobNever);
     expect(within(idle).queryByRole("button")).not.toBeInTheDocument();
@@ -188,7 +207,7 @@ describe("a job read at a glance", () => {
     const history = await screen.findByTestId("job-runs");
     await userEvent.click(within(history).getByRole("button", { expanded: false }));
     await userEvent.click(within(history).getByRole("button", { name: vi.replay.openLink }));
-    expect(onOpenRun).toHaveBeenCalledWith("h1");
+    expect(onOpenRun).toHaveBeenCalledWith("h1", "coach/brief");
   });
 
   it("counts only the jobs whose latest run failed", () => {

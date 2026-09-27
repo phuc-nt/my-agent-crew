@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { coachAgent, defaultAgent, mockApi } from "./mock-api";
+import { coachAgent, defaultAgent, mockApi, run } from "./mock-api";
 
 const master = { ...defaultAgent, name: "Trợ lý", delegates: ["coach"] };
 const { kind: _kind, ...briefRow } = coachAgent.schedules[0];
@@ -79,4 +79,31 @@ test("a job off in its profile dims its text but not its buttons", async ({ page
   const on = page.getByTestId("job").filter({ hasText: "Bản tin sáng" });
   const bright = await on.locator(".job-name").evaluate((el) => getComputedStyle(el).color);
   expect((await shown(".job-name")).color).not.toBe(bright);
+});
+
+// Checking several failing jobs is Sửa lịch or Xem riêng on one row, then back to the next:
+// the back link returned to the crew or to all activity, and the row had to be found again.
+test("the back link of a job's editor or run returns to that job's row", async ({ page }) => {
+  const failed = run({ id: "r-err", agent_id: "coach", source: "job:coach/brief", status: "error" });
+  const jobs = [{ ...briefJob, id: "coach/first", name: "Trước" }, { ...briefJob, last_run: failed }];
+  await mockApi(page, { agents: [master, coach], jobs, runs: [failed] });
+  await page.goto("/#/manage/jobs");
+  const row = page.getByTestId("job").filter({ hasText: "Bản tin sáng" });
+
+  await row.getByRole("button", { name: "Sửa lịch Bản tin sáng" }).click();
+  await page.getByTestId("agent-editor").getByRole("button", { name: "← Lịch chạy" }).click();
+  await expect(page).toHaveURL(/#\/manage\/jobs\/coach%2Fbrief$/);
+  await expect(row).toBeFocused();
+
+  await row.getByRole("button", { name: "Xem riêng lượt chạy gần nhất của Bản tin sáng" }).click();
+  await expect(page.getByTestId("run-replay")).toBeVisible();
+  // A reload keeps where the page was opened from.
+  await page.reload();
+  await page.getByTestId("run-replay").getByRole("button", { name: "← Lịch chạy" }).click();
+  await expect(row).toBeFocused();
+
+  // Opened from anywhere else, the back links still lead to their own lists.
+  await page.goto("/#/manage/crew/coach");
+  await page.getByTestId("agent-editor").getByRole("button", { name: "← Đội" }).click();
+  await expect(page).toHaveURL(/#\/manage\/crew$/);
 });

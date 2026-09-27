@@ -11,6 +11,8 @@ interface Props {
   known: RunInfo[];
   agentName: (id: string) => string;
   onBack: () => void;
+  /** What the back link says when it leads somewhere other than all activity. */
+  backLabel?: string;
   onOpenConversation: (conversationId: string) => void;
 }
 
@@ -28,7 +30,7 @@ interface Props {
  * the event goes out — and a settled run is never refreshed from the list again, so the
  * copy in memory keeps a finish time that never arrives. The fetch has the real one.
  */
-export function RunReplay({ runId, known, agentName, onBack, onOpenConversation }: Props) {
+export function RunReplay({ runId, known, agentName, onBack, backLabel, onOpenConversation }: Props) {
   const inList = known.find((r) => r.id === runId) ?? null;
   const live = inList && !isSettled(inList.status) ? inList : null;
   // The effect turns on these two facts, not on the run objects themselves: the stream
@@ -77,7 +79,7 @@ export function RunReplay({ runId, known, agentName, onBack, onOpenConversation 
   return (
     <section className="run-replay" data-testid="run-replay">
       <button type="button" className="link-button" onClick={onBack}>
-        {vi.replay.back}
+        {backLabel ?? vi.replay.back}
       </button>
       {loading && <p className="muted">{vi.replay.loading}</p>}
       {error && (
