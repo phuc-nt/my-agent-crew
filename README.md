@@ -227,8 +227,9 @@ topic, sorted into `entities` / `concepts` / `syntheses` and linked to each othe
 "what do we know about this topic". `wiki_apply` refuses pages that do not declare `sources`, so no
 made-up page can slip through; lint also calls out pages whose sources have gone missing. On each rebuild only
 the machine-written part is replaced, the human-written part stays. View, edit and rebuild in the **Wiki** tab
-under **Ghi nhớ**. Details:
-[docs/memory.md](docs/memory.md).
+under **Ghi nhớ**, where a page reads as rendered prose whose `[[links]]` lead to their pages, one
+tap marks it fine, and the vault's open questions and today's note open from above the page list.
+Details: [docs/memory.md](docs/memory.md).
 
 Details on agent configuration, tools, memory and channels: [docs/agents.md](docs/agents.md),
 [docs/tools.md](docs/tools.md), [docs/memory.md](docs/memory.md),
@@ -238,29 +239,64 @@ this repo.
 ## Activity tracking
 
 Web UI split into two: chat with the master on the left, and a **manage screen** on the right
-accessible via `#/manage/<section>`. The manage screen shows:
+accessible via `#/manage/<section>`. The UI is in Vietnamese, so the sections are named below as
+they appear on screen:
 
-The UI is in Vietnamese, so the tabs are named below as they appear on screen:
-
-- **Hoạt động** (activity): live runs with steps (model call, tool call, result, time, cost), an
-  attention centre for runs waiting for approval or that failed, and a link to a run's own timeline.
-- **Duyệt** (approvals): decided tool requests with their outcome (approved, denied, expired).
+- **Hoạt động** (activity): **Cần bạn xử lý** (needs you) lists the runs that failed or halted,
+  each with **Đã xem** (seen) to put it away in this browser; **Đang chạy** (running) shows live
+  runs with their steps — model call, tool call, result, time, cost, and for a finished model call
+  its route, the wait for the first token and the prompt tokens with the part served from the
+  provider's cache; **Gần đây** (recent) is the stored run history, narrowed by agent on the
+  server and by status and source in the page, remembered in this browser, folded behind one
+  **Lọc** (filter) toggle on a phone, and reaching further back with **Xem thêm** (show more).
+  A run also opens on its own timeline. The nav entry counts the runs running and the failures
+  not yet seen.
+- **Duyệt** (approvals): the requests waiting on you come first and are decided in place —
+  approve, deny, or answer a question — with a countdown to their deadline and **Xem đầy đủ**
+  (show all) for a call's whole arguments; **Lịch sử duyệt** (approval history) below lists the
+  decided requests with their outcome (approved, denied, expired, answered). The nav entry, a
+  "(N)" before the tab title and the installed app's badge count the requests waiting, and
+  **Quản lý** (manage) opens here while one waits.
 - **Lịch chạy** (jobs): each schedule's timing in words ("Mỗi ngày 07:00") beside its raw cron or
-  interval; the next and last run as relative times, with the exact local time on hover; how the
-  last run ended (a status badge, its summary and a link to that run); run-now and pause/resume
-  buttons; and **Sửa lịch** (edit schedule), which opens the agent's editor at its schedules, where
-  jobs are added, changed or turned on. The nav entry shows a red count of the jobs whose latest
-  run failed.
-- **Đội** (crew), **Công cụ** (tools), **Ghi nhớ** (memory — split further into **Về bạn**,
-  **Của agent**, **Wiki**, **Tìm** and **Đề xuất**), **Chi phí** (costs, by agent / model / day),
-  **Kết nối** (connections), **Cài đặt** (settings).
+  interval; the next and last run as relative times, with the local clock time printed on the
+  row; how the last run ended (a status badge, its summary and a link to that run); run-now and
+  pause/resume buttons; and **Sửa lịch** (edit schedule), which opens the agent's editor at its
+  schedules, where jobs are added, changed or turned on. The nav entry shows a red count of the
+  jobs whose latest run failed.
+- **Chi phí** (costs): today and the last seven days on the viewer's calendar, then spend, tokens
+  and the share of the prompt served from cache, by agent / model / day.
+- **Ghi nhớ** (memory — split further into **Về bạn**, **Của agent**, **Wiki**, **Tìm** and
+  **Đề xuất**): a proposal shows the lines it drops beside those it adds, or the exact fact it
+  touches, before it is approved.
+- **Đội** (crew), **Công cụ** (tools), **Kết nối** (connections), **Cài đặt** (settings, which
+  also names the page's build and the server's).
 
-Inside the chat, a conversation-activity view shows only that conversation's own runs, step by step.
-The header shows the agent's avatar (its initial on its own colour) next to its name; the `Đội: N`
-(crew) chip opens the manage screen at the crew section. A line `MEDIA: <path in workspace>` in the reply is rendered as an image,
-and `FILE: <path>` as a download link. When the agent is about to do a long task, it calls
-`progress_note` to say in one short sentence what it is doing, and that sentence shows right away on the timeline so the
-viewer sees progress instead of a spinner.
+Inside the chat, a conversation-activity view shows only that conversation's own runs, step by
+step, runs from before the page opened included. The header shows the agent's avatar (its initial
+on its own colour) next to its name; the `Đội: N` (crew) chip opens the manage screen at the crew
+section. A line `MEDIA: <path in workspace>` in the reply is rendered as an image, and
+`FILE: <path>` as a download link; a file the person sent through Telegram shows in their message
+as a thumbnail or a download chip. When the agent is about to do a long task, it calls
+`progress_note` to say in one short sentence what it is doing, and that sentence shows right away
+on the timeline so the viewer sees progress instead of a spinner. Also in the chat:
+
+- The conversation list files its rows under **Hôm nay** / **Hôm qua** / **Cũ hơn** (today,
+  yesterday, older) on the viewer's own calendar, says how long ago each one changed, and puts an
+  unread dot on a conversation that changed since this browser last had it open. The composer
+  keeps each conversation's unsent draft across switches and reloads.
+- A `/` at the start of the composer lists the commands of the agent the conversation talks to,
+  narrowed as the name is typed.
+- Each agent reply can be copied, or shared where the device has a share sheet, and each code
+  block has its own copy button; where the browser refuses the clipboard, the text is shown to
+  copy by hand. The conversation's options export it as `<title>.md`.
+- The budget pill's card and the over-budget notices raise the conversation's cost cap by a step
+  or set a new one, 0 lifting it; a spent budget locks the composer until then.
+- **Dừng** (stop) cuts the turn's stream, a decision's or an answer's included, and says the turn
+  stopped. A run another channel starts in the open conversation shows in the thread, which
+  reloads once that run ends or pauses for approval. The status pill says when the live stream
+  is connecting, lost or offline, and offers **Thử lại** (retry).
+- When the server is restarted on a newer build, a **Có bản mới** (new version) bar offers a
+  reload.
 
 ## Development
 
@@ -279,6 +315,12 @@ npm run typecheck && npm test    # frontend unit
 npm run e2e                      # Playwright (mocks /api in the browser)
 npm run bundle                   # rebuild the bundle into my_agent_crew/server/static (committed)
 ```
+
+Playwright's dev server listens on 4173; `E2E_PORT=<port> npm run e2e` moves it when two
+checkouts run their browser tests at once, since on a shared port the second run would quietly
+test the first one's sources. Vitest and Playwright both run in the Asia/Ho_Chi_Minh time zone,
+so day boundaries ("today", "yesterday") fall in the same place on a laptop and on CI, which runs
+in UTC.
 
 What each gate does and why: [docs/code-standards.md §4](docs/code-standards.md#4-cổng-phải-chạy-trước-khi-commit).
 Changes per release: [CHANGELOG.md](CHANGELOG.md). How to release a version:
