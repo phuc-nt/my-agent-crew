@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Conversation } from "../api/types";
+import { readJson, writeJson } from "../lib/local-store";
 
 const KEY = "conversation-list.seen";
 
@@ -13,14 +14,10 @@ interface Seen {
   seen: Record<string, string>;
 }
 
+/** What is stored; unreadable or refused storage is the same as nothing stored. */
 function read(): Seen | null {
-  try {
-    const stored = JSON.parse(window.localStorage.getItem(KEY) ?? "null") as Seen | null;
-    if (stored && typeof stored.since === "string" && stored.seen) return stored;
-  } catch {
-    // Unreadable or refused: the same as nothing stored.
-  }
-  return null;
+  const stored = readJson(KEY) as Seen | null;
+  return stored && typeof stored.since === "string" && stored.seen ? stored : null;
 }
 
 /** What was stored, or a first visit's baseline: nothing before now counts as unread. */
@@ -28,12 +25,9 @@ function load(): Seen {
   return read() ?? { since: new Date().toISOString(), seen: {} };
 }
 
+/** Where storage is refused, the marks hold for this page and are forgotten on reload. */
 function save(value: Seen): void {
-  try {
-    window.localStorage.setItem(KEY, JSON.stringify(value));
-  } catch {
-    // Storage refused: the marks hold for this page and are forgotten on reload.
-  }
+  writeJson(KEY, value);
 }
 
 /** Compared as instants: the server writes `+00:00`, the browser `Z`, so strings would not order. */

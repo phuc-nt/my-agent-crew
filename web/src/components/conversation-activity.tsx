@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { RunInfo } from "../api/types";
 import { vi } from "../i18n/vi";
 import { runGroups } from "../state/activity-reducer";
+import { readText, writeText } from "../lib/local-store";
 import { isSettled, stepProgress } from "../lib/run-progress";
 import { mergeRuns, useRunHistory } from "../hooks/use-run-history";
 import { ApprovalHistory } from "./approval-history";
@@ -70,11 +71,8 @@ export function ConversationActivity({
   useEffect(() => {
     // The column is open by design, not by choice; it must not overwrite the strip's memory.
     if (docked) return;
-    try {
-      window.localStorage.setItem(EXPANDED_KEY, expanded ? "1" : "0");
-    } catch {
-      // A browser that refuses storage still gets the strip; it just forgets the choice.
-    }
+    // A browser that refuses storage still gets the strip; it just forgets the choice.
+    writeText(EXPANDED_KEY, expanded ? "1" : "0");
   }, [expanded, docked]);
 
   // Below the column, a strip that came up for every chat while its history loads would
@@ -216,9 +214,5 @@ export function ConversationActivity({
 
 /** Remembering the choice is a convenience; a browser that refuses storage collapses. */
 function readExpanded(): boolean {
-  try {
-    return window.localStorage.getItem(EXPANDED_KEY) === "1";
-  } catch {
-    return false;
-  }
+  return readText(EXPANDED_KEY) === "1";
 }

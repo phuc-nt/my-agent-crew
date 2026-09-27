@@ -1,25 +1,17 @@
 import { useCallback, useState } from "react";
+import { readText, writeText } from "../lib/local-store";
 
+// Kept as the text itself, not JSON: switching would lose every draft already saved.
 const PREFIX = "composer-draft:";
 
 function read(key: string | null): string {
-  if (key === null) return "";
-  try {
-    return window.localStorage.getItem(PREFIX + key) ?? "";
-  } catch {
-    return "";
-  }
+  return key === null ? "" : (readText(PREFIX + key) ?? "");
 }
 
+/** Where storage is refused, the text still lives while the page does. */
 function write(key: string | null, text: string): void {
-  if (key === null) return;
-  try {
-    // An empty box is no draft: removing the entry keeps storage to the texts worth keeping.
-    if (text) window.localStorage.setItem(PREFIX + key, text);
-    else window.localStorage.removeItem(PREFIX + key);
-  } catch {
-    // Storage refused (a private window, a full quota): the text still lives while the page does.
-  }
+  // An empty box is no draft: removing the entry keeps storage to the texts worth keeping.
+  if (key !== null) writeText(PREFIX + key, text || null);
 }
 
 /** Drops a conversation's draft once the conversation itself is gone: nothing can show it again. */

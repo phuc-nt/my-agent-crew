@@ -4,6 +4,7 @@
 // crew-wide page); status and source only narrow what has already been loaded, so they
 // cost no request and cannot hide a run the page has not fetched.
 import type { RunInfo } from "../api/types";
+import { readJson, writeJson } from "./local-store";
 import type { SettledStatus } from "./run-progress";
 
 export interface RunFilters {
@@ -58,21 +59,14 @@ const FILTERS_KEY = "activity-log.filters";
 
 /** The viewer's last choice; a browser that refuses storage starts unfiltered. */
 export function readFilters(): RunFilters {
-  try {
-    const saved = JSON.parse(window.localStorage.getItem(FILTERS_KEY) ?? "null");
-    if (!saved || typeof saved !== "object") return NO_FILTERS;
-    const text = (value: unknown) => (typeof value === "string" && value ? value : null);
-    const status = FILTER_STATUSES.find((s) => s === saved.status) ?? null;
-    return { agent: text(saved.agent), status, source: text(saved.source) };
-  } catch {
-    return NO_FILTERS;
-  }
+  const saved = readJson(FILTERS_KEY) as Record<string, unknown> | null;
+  if (!saved || typeof saved !== "object") return NO_FILTERS;
+  const text = (value: unknown) => (typeof value === "string" && value ? value : null);
+  const status = FILTER_STATUSES.find((s) => s === saved.status) ?? null;
+  return { agent: text(saved.agent), status, source: text(saved.source) };
 }
 
+/** Remembering is a convenience; where storage is refused the filters still work for this visit. */
 export function writeFilters(filters: RunFilters): void {
-  try {
-    window.localStorage.setItem(FILTERS_KEY, JSON.stringify(filters));
-  } catch {
-    // Remembering is a convenience; the filters still work for this visit.
-  }
+  writeJson(FILTERS_KEY, filters);
 }
