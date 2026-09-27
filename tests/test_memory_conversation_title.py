@@ -185,6 +185,29 @@ async def test_deleting_a_conversation_while_it_is_being_named_is_not_an_error(
     assert not [r for r in caplog.records if r.levelname == "ERROR"]
 
 
+async def test_a_conversation_deleted_or_renamed_while_naming_waited_costs_nothing(
+    deps_factory,
+):
+    """Naming waits for the answer, and deleting a conversation paused on an approval ends
+    that wait too: the model was then paid to name a conversation that no longer exists."""
+    deps = deps_factory(script=[completion("Tiêu đề model", cost_usd=0.02)] * 2)
+    deleted, renamed = deps.store.create(), deps.store.create()
+    kept: list[asyncio.Task[None]] = []
+
+    async def delete() -> None:
+        deps.store.delete(deleted.id)
+
+    async def rename() -> None:
+        deps.store.update(renamed.id, title="Tên tôi tự đặt")
+
+    title_on_first_message(kept.append, deps, deleted.id, "Câu hỏi đầu", after=delete)
+    title_on_first_message(kept.append, deps, renamed.id, "Câu hỏi khác", after=rename)
+    await settle(kept)
+
+    assert deps.chain.providers["scripted"].requests == []
+    assert deps.store.get(renamed.id).spent_usd == 0.0
+
+
 async def test_watchers_hear_about_the_name_twice_so_the_sidebar_never_needs_a_reload(
     deps_factory,
 ):
