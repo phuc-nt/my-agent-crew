@@ -89,9 +89,18 @@ def validated(agent_id: str, agent_dir: Path, raw: Any, settings: Settings) -> A
     The timing of every schedule is read here too, which the parser leaves to the
     scheduler. A file edited by hand fails loudly at boot; one saved from the web with a
     typo in its cron would be accepted, then break the jobs list and every job beside it.
+
+    So is every schedule's id, the computed ones included. The scheduler keys its jobs by
+    id, so a second job on the same id — a blank row numbered by its place onto a kept
+    row's `job-1`, or a row named like the consolidation job — replaces the first without
+    a word, and the first never runs again.
     """
     profile = parse_profile(agent_id, agent_dir, dict(raw), settings)
+    seen: set[str] = set()
     for schedule in profile.schedules:
+        if schedule.id in seen:
+            raise ValueError(texts.SCHEDULE_ID_TAKEN.format(id=schedule.id))
+        seen.add(schedule.id)
         try:
             if schedule.cron:
                 CronSpec.parse(str(schedule.cron))

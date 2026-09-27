@@ -195,6 +195,44 @@ def test_a_timing_the_clock_cannot_read_is_refused_before_it_is_written(crew, pa
     assert "schedules" not in written and "memory_consolidate" not in written
 
 
+def test_a_blank_row_that_lands_on_a_kept_rows_id_is_refused(crew) -> None:
+    client, runtime, home = crew
+    client.post("/api/agents", json={"agent_id": "coder", "profile": {}})
+    blank = {"cron": "0 7 * * *", "prompt": "chào"}
+    first = client.patch(
+        "/api/agents/coder",
+        json={"profile": {"schedules": [{**blank, "name": "A"}, {**blank, "name": "B"}]}},
+    )
+    kept_b = first.json()["profile"]["declared"]["schedules"][1]
+
+    # A removed and a blank C added: C is numbered by its place, job-1, which B carries.
+    reply = client.patch(
+        "/api/agents/coder",
+        json={"profile": {"schedules": [kept_b, {**blank, "name": "C"}]}},
+    )
+
+    # Accepted, the scheduler keys its jobs by id and B would silently never run again.
+    assert reply.status_code == 422
+    assert "job-1" in reply.json()["detail"]
+    assert [s.name for s in runtime.deps_for("coder").agent.schedules] == ["A", "B"]
+    assert "name: C" not in (home / "agents" / "coder" / "agent.yaml").read_text("utf-8")
+
+
+def test_a_schedule_cannot_take_the_consolidation_jobs_id(crew) -> None:
+    client, runtime, _ = crew
+    client.post("/api/agents", json={"agent_id": "coder", "profile": {}})
+    row = {"id": "memory-consolidate", "cron": "0 7 * * *", "prompt": "chào"}
+
+    reply = client.patch(
+        "/api/agents/coder",
+        json={"profile": {"schedules": [row], "memory_consolidate": "0 3 * * *"}},
+    )
+
+    assert reply.status_code == 422
+    assert "memory-consolidate" in reply.json()["detail"]
+    assert runtime.deps_for("coder").agent.schedules == ()
+
+
 def test_clearing_memory_consolidation_removes_the_key(crew) -> None:
     client, runtime, home = crew
     client.post("/api/agents", json={"agent_id": "coder", "profile": {}})
