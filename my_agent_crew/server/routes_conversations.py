@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from my_agent_crew.agents import DEFAULT_AGENT_ID
 from my_agent_crew.memory.session_summary import summarize_conversation
 from my_agent_crew.server.deps import ConvDeps, Rt
+from my_agent_crew.store.runs import AWAITING, FAILED
 from my_agent_crew.texts import CONVERSATION_TITLE_DEFAULT
 
 router = APIRouter(tags=["conversations"])
@@ -82,5 +83,9 @@ def patch_conversation(conv_id: str, body: ConversationPatch, deps: ConvDeps) ->
 
 
 @router.delete("/conversations/{conv_id}", status_code=204)
-def delete_conversation(conv_id: str, deps: ConvDeps) -> None:
+async def delete_conversation(conv_id: str, deps: ConvDeps, rt: Rt) -> None:
     deps.store.delete(conv_id)
+    # Its pending requests went with it, so a run paused on one can never be continued.
+    for run in rt.hub.live():
+        if run.conversation_id == conv_id and run.status == AWAITING:
+            rt.hub.finish(run, status=FAILED, summary="interrupted")

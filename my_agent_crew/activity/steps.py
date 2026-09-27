@@ -35,7 +35,8 @@ def _open_step(run: RunRecord, step: dict[str, Any], clock: float) -> None:
 
 def _close_step(step: dict[str, Any], clock: float) -> None:
     started = step.pop(CLOCK_KEY, clock)
-    step["duration_ms"] = int((clock - started) * 1000)
+    # A paused run outlives its process, and a reboot restarts the clock it was timed on.
+    step["duration_ms"] = max(0, int((clock - started) * 1000))
 
 
 def _model_step(run: RunRecord, clock: float) -> dict[str, Any]:

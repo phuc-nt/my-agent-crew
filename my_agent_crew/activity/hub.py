@@ -27,12 +27,13 @@ SUBSCRIBER_QUEUE_SIZE = 256
 class ActivityHub:
     def __init__(self, store: Store):
         self._store = store
-        self._live: dict[str, RunRecord] = {}
+        # A run paused on a request that still waits is held again, so the decision
+        # continues it; everything else the previous process left open is closed.
+        self._live = {run.id: run for run in store.runs.settle_after_restart(now_iso())}
         self._subscribers: set[asyncio.Queue[dict[str, Any] | None]] = set()
         # Set when a conversation's run reaches a terminal status, so a caller waiting on
         # a delegated turn wakes up instead of polling.
         self._finished: dict[str, asyncio.Event] = {}
-        self._store.runs.mark_interrupted(now_iso())
 
     # --- runs ----------------------------------------------------------------------------
 

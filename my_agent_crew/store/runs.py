@@ -10,6 +10,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
+from my_agent_crew.store.approvals import PENDING
+
 RUNNING = "running"
 AWAITING = "awaiting_approval"
 DONE = "done"
@@ -154,13 +156,30 @@ class RunStore:
             ).fetchone()
         return RunRecord.from_row(row) if row else None
 
-    def mark_interrupted(self, stamp: str) -> int:
-        """Runs still 'running' at startup died with the previous process."""
+    def settle_after_restart(self, stamp: str) -> list[RunRecord]:
+        """Closes the runs the previous process left open, and returns the paused ones a
+        decision can still continue.
+
+        A run still 'running' died with that process. A paused run outlives it only while
+        its conversation holds a pending request: the newest such run per conversation is
+        handed back for the hub to hold, and every other paused row, whose request was
+        settled while nothing held the run, is closed too instead of waiting forever."""
         with self._lock:
-            cur = self._conn.execute(
+            rows = self._conn.execute(
+                "SELECT * FROM runs WHERE status = ? AND conversation_id IN"
+                " (SELECT conversation_id FROM approvals WHERE status = ?)"
+                " ORDER BY started_at DESC, rowid DESC",
+                (AWAITING, PENDING),
+            ).fetchall()
+            paused: dict[str, RunRecord] = {}
+            for row in rows:
+                if row["conversation_id"] not in paused:
+                    paused[row["conversation_id"]] = RunRecord.from_row(row)
+            kept = [run.id for run in paused.values()]
+            self._conn.execute(
                 "UPDATE runs SET status = ?, finished_at = ?, summary = 'interrupted'"
-                " WHERE status = ?",
-                (FAILED, stamp, RUNNING),
+                f" WHERE status IN (?, ?) AND id NOT IN ({','.join('?' * len(kept))})",
+                (FAILED, stamp, RUNNING, AWAITING, *kept),
             )
             self._conn.commit()
-        return cur.rowcount
+        return list(paused.values())

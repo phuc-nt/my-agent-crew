@@ -106,9 +106,11 @@ def test_runs_store_round_trips_steps_and_marks_interrupted(store: Store):
     store.runs.save(RunRecord("r1b", "coach", "c1", "chat", "t", DONE, "2026-09-19T08:30:00"))
     store.runs.save(later)
     assert store.runs.latest_for_conversation("c1").id == "r2"
-    assert store.runs.mark_interrupted("2026-09-19T09:00:00") == 1
+    assert store.runs.settle_after_restart("2026-09-19T09:00:00") == []
     marked = store.runs.get("r1")
     assert marked.status == FAILED and marked.finished_at == "2026-09-19T09:00:00"
+    assert marked.summary == "interrupted"
+    assert {store.runs.get(i).status for i in ("r1b", "r2")} == {DONE}
     with pytest.raises(KeyError):
         store.runs.get("nope")
 
