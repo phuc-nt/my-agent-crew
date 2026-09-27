@@ -143,6 +143,12 @@ export interface ModelUsage extends UsageTotals {
   model: string;
 }
 
+/** One agent's prompt tokens and the part of them served from the provider's cache. */
+export interface AgentCacheTotals {
+  prompt_tokens: number;
+  cached_tokens: number;
+}
+
 export interface StatsInfo {
   runs: number;
   model_calls: number;
@@ -151,6 +157,9 @@ export interface StatsInfo {
   by_agent: Record<string, number>;
   by_model: Record<string, number>;
   by_day: Record<string, number>;
+  /** Per agent over the same runs as `by_agent`, from the calls that reported both
+   *  figures. A server from before it was counted leaves it out. */
+  cache_by_agent?: Record<string, AgentCacheTotals>;
   /** Memory writes waiting for a decision — the count on the "Ghi nhớ" tab. */
   pending_proposals: number;
   /** The last seven days, oldest first, zeros kept so the chart holds its shape. */

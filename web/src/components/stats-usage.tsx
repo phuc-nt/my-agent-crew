@@ -2,10 +2,9 @@
 // each prompt the provider served from its cache, today, over the week, per model and per
 // agent. The crew runs on a route where that share decides the bill, so a persona edit
 // that breaks caching shows here as a share that falls.
-import type { DayUsage, RunInfo, UsageTotals } from "../api/types";
-import { mergeRuns, useRunHistory } from "../hooks/use-run-history";
+import type { AgentCacheTotals, DayUsage, UsageTotals } from "../api/types";
 import { vi } from "../i18n/vi";
-import { cacheByAgent, cacheShare, compactNumber, dayWindows } from "../lib/format-usage";
+import { cacheShare, compactNumber, dayWindows } from "../lib/format-usage";
 import { formatUsd } from "./budget-indicator";
 
 /**
@@ -63,43 +62,28 @@ export function PeriodTiles({ days }: { days: DayUsage[] }) {
   );
 }
 
-// The runs the server's spend by agent is counted over (`STATS_RUNS` in routes_activity.py).
-const STATS_RUNS = 500;
-
 interface AgentCacheProps {
-  /** Runs streamed since the page opened, laid over the stored ones for their latest steps. */
-  streamed: RunInfo[];
+  /** The server's totals per agent id. */
+  cache: Record<string, AgentCacheTotals>;
+  /** The runs they are counted over, which are the spend by agent's. */
+  covers: string;
   agentName: (id: string) => string;
 }
 
 /**
- * Prompt tokens and the cached part per agent, over the same recent runs as the spend by
- * agent beside it.
+ * Prompt tokens and the cached part per agent, biggest prompt first, over the same recent
+ * runs as the spend by agent beside it.
  *
- * The server's totals are per model and per day, not per agent, so this one is added up
- * here from the runs' own model steps, and its title says how many runs that is. The
- * page's live list is fifty runs of whoever was busiest; counted over those, a quiet
- * agent had spend and no cache row, so the stored window is asked for once.
+ * The server adds them up from the runs' model steps along with the rest of the stats.
+ * Added up here, the page downloaded the whole window of runs, steps and all, on every
+ * visit, for two sums per agent.
  */
-export function AgentCacheTable({ streamed, agentName }: AgentCacheProps) {
-  const history = useRunHistory({ limit: STATS_RUNS });
-  const runs = mergeRuns(history.runs, streamed).slice(0, STATS_RUNS);
-  const rows = cacheByAgent(runs);
+export function AgentCacheTable({ cache, covers, agentName }: AgentCacheProps) {
+  const rows = Object.entries(cache).sort(([, a], [, b]) => b.prompt_tokens - a.prompt_tokens);
   return (
     <section className="metric-card">
-      <CardTitle title={vi.costCacheByAgent} covers={vi.costWindowRecent(runs.length)} />
-      {history.failed ? (
-        <p className="muted">
-          {vi.runFilters.failed}{" "}
-          <button type="button" className="link-button history-retry" onClick={history.reload}>
-            {vi.runFilters.retry}
-          </button>
-        </p>
-      ) : history.loading ? (
-        <p className="muted" role="status">
-          {vi.runFilters.loading}
-        </p>
-      ) : rows.length === 0 ? (
+      <CardTitle title={vi.costCacheByAgent} covers={covers} />
+      {rows.length === 0 ? (
         <p className="muted">{vi.costNoTokens}</p>
       ) : (
         <table className="stat-table" data-testid="stat-agent-cache">
@@ -111,12 +95,12 @@ export function AgentCacheTable({ streamed, agentName }: AgentCacheProps) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
-              <tr key={row.agentId}>
-                <td>{agentName(row.agentId)}</td>
-                <td>{compactNumber(row.promptTokens)}</td>
+            {rows.map(([agentId, totals]) => (
+              <tr key={agentId}>
+                <td>{agentName(agentId)}</td>
+                <td>{compactNumber(totals.prompt_tokens)}</td>
                 <td>
-                  <CacheCell cached={row.cachedTokens} prompt={row.promptTokens} />
+                  <CacheCell cached={totals.cached_tokens} prompt={totals.prompt_tokens} />
                 </td>
               </tr>
             ))}

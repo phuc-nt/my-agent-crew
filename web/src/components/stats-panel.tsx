@@ -1,4 +1,4 @@
-import type { DayUsage, ModelUsage, RunInfo, StatsInfo } from "../api/types";
+import type { DayUsage, ModelUsage, StatsInfo } from "../api/types";
 import { vi } from "../i18n/vi";
 import { cacheShare, compactNumber } from "../lib/format-usage";
 import { EmptyState } from "./empty-state";
@@ -8,9 +8,6 @@ import { AgentCacheTable, CacheCell, CardTitle, PeriodTiles } from "./stats-usag
 interface Props {
   stats: StatsInfo | null;
   agentName: (id: string) => string;
-  /** The runs streamed to the page, laid over the stored window behind the per-agent
-   * cache the server does not total. Left out, that card is not shown. */
-  runs?: RunInfo[];
 }
 
 interface BreakdownProps {
@@ -121,7 +118,7 @@ function ModelTable({ models }: { models: ModelUsage[] }) {
  * the cache per agent, the recent days with tokens, and each model — each labelled with
  * what it is counted over, since the run window and the message log are not the same.
  */
-export function StatsPanel({ stats, agentName, runs }: Props) {
+export function StatsPanel({ stats, agentName }: Props) {
   if (stats === null) return <p className="muted">{vi.loadFailed}</p>;
   if (stats.runs === 0) return <EmptyState icon="coins" says={vi.costEmpty} />;
   const recent = vi.costWindowRecent(stats.runs);
@@ -150,7 +147,9 @@ export function StatsPanel({ stats, agentName, runs }: Props) {
         )}
       </dl>
       <Breakdown title={vi.costByAgent} covers={recent} rows={stats.by_agent} name={agentName} />
-      {runs && <AgentCacheTable streamed={runs} agentName={agentName} />}
+      {stats.cache_by_agent && (
+        <AgentCacheTable cache={stats.cache_by_agent} covers={recent} agentName={agentName} />
+      )}
       <RecentDays days={stats.days} />
       <ModelTable models={stats.models} />
     </div>

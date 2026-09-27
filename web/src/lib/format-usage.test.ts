@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DayUsage, RunStep } from "../api/types";
-import { fakeRun } from "../test/fake-backend";
-import { cacheByAgent, cacheShare, compactNumber, dayWindows, modelUsageParts } from "./format-usage";
+import { cacheShare, compactNumber, dayWindows, modelUsageParts } from "./format-usage";
 
 type ModelStep = Extract<RunStep, { kind: "model" }>;
 const step = (overrides: Partial<ModelStep> = {}): ModelStep => ({
@@ -105,30 +104,5 @@ describe("today and the last seven days", () => {
   it("copes with a server that does not count the cache", () => {
     const older = { ...day("2026-09-20"), cached_tokens: undefined } as unknown as DayUsage;
     expect(dayWindows([older], now).today.cached_tokens).toBe(0);
-  });
-});
-
-describe("cache by agent", () => {
-  it("adds up the calls that reported both figures, biggest prompt first", () => {
-    const runs = [
-      fakeRun({ id: "a", agent_id: "coach", steps: [step({ prompt_tokens: 1_000, cached_tokens: 900 })] }),
-      fakeRun({
-        id: "b",
-        agent_id: "default",
-        steps: [
-          step({ prompt_tokens: 3_000, cached_tokens: 0 }),
-          step({ prompt_tokens: 2_000, cached_tokens: 1_000 }),
-          // No cache figure: left out, or the share would sink for a quiet provider.
-          step({ prompt_tokens: 9_000, cached_tokens: null }),
-          { kind: "tool", name: "read", ok: true, output: "x", duration_ms: 1 },
-        ],
-      }),
-      fakeRun({ id: "c", agent_id: "coach", steps: [step({ prompt_tokens: 500, cached_tokens: 500 })] }),
-    ];
-
-    expect(cacheByAgent(runs)).toEqual([
-      { agentId: "default", promptTokens: 5_000, cachedTokens: 1_000 },
-      { agentId: "coach", promptTokens: 1_500, cachedTokens: 1_400 },
-    ]);
   });
 });

@@ -10,6 +10,8 @@ from fastapi.testclient import TestClient
 
 from my_agent_crew.config import load_settings
 from my_agent_crew.server import build_runtime, create_app
+from my_agent_crew.server.routes_activity import summarize
+from my_agent_crew.store.runs import RunRecord
 from tests.test_server_api import parse_sse
 
 MANIFEST = """
@@ -230,6 +232,50 @@ def test_stats_carry_the_message_ledger_with_tokens(two_agents):
     assert stats["days"][0]["calls"] == 0
     (model,) = stats["models"]
     assert model["model"] == "fake:echo" and model["calls"] == 1
+
+
+def model_call(prompt: int | None, cached: int | None) -> dict:
+    """A model step as a run stores it, with the two figures the cache is read from."""
+    return {
+        "kind": "model",
+        "provider": "openrouter",
+        "model": "deepseek",
+        "cost_usd": 0.001,
+        "prompt_tokens": prompt,
+        "cached_tokens": cached,
+    }
+
+
+def finished(run_id: str, agent_id: str, *steps: dict) -> RunRecord:
+    started = "2026-09-19T08:00:00"
+    return RunRecord(run_id, agent_id, None, "chat", "t", "done", started, None, [*steps])
+
+
+def test_stats_add_up_each_agents_cache_over_the_same_runs_as_its_spend():
+    # Added up on the page instead, the costs page downloaded the whole window of runs,
+    # steps and all, on every visit, for two sums per agent.
+    tool = {"kind": "tool", "name": "workspace_read", "ok": True}
+    runs = [
+        finished("a", "coach", model_call(1_000, 900), tool),
+        finished(
+            "b",
+            "default",
+            model_call(3_000, 0),
+            model_call(2_000, 1_000),
+            # No cache figure: left out, or the share would sink for a provider that does not say.
+            model_call(9_000, None),
+            model_call(0, 0),
+        ),
+        finished("c", "coach", model_call(500, 500)),
+        # Spend but never a cache figure: no cache row, rather than a made-up 0%.
+        finished("d", "quiet", model_call(700, None)),
+    ]
+    summary = summarize(runs)
+    assert summary["cache_by_agent"] == {
+        "coach": {"prompt_tokens": 1_500, "cached_tokens": 1_400},
+        "default": {"prompt_tokens": 5_000, "cached_tokens": 1_000},
+    }
+    assert set(summary["by_agent"]) == {"coach", "default", "quiet"}
 
 
 def test_agent_files_are_served_only_from_the_workspace(two_agents):

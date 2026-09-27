@@ -61,8 +61,9 @@ Vài test bảo vệ repo chứ không phải một tính năng:
   `pypdfium2` chưa được nạp — chúng chỉ nạp khi có PDF cần đọc;
 - **chi phí ngoài model** có test riêng: store mở ở chế độ WAL và có index cho các truy vấn
   nóng, hub không ghi và không phát từng token, một watcher ngừng đọc bị cắt, trang wiki
-  chỉ parse lại khi tệp đổi, `/api/stats` không tính lại giữa hai lần ghi, tài sản có hash
-  được nén gzip và cache vĩnh viễn còn luồng SSE không bị nén;
+  chỉ parse lại khi tệp đổi, `/api/stats` không tính lại giữa hai lần ghi và mang sẵn cache
+  theo agent (trang Chi phí không tải lại 500 run kèm các bước của chúng chỉ để cộng hai con
+  số), tài sản có hash được nén gzip và cache vĩnh viễn còn luồng SSE không bị nén;
 - **đọc được**: `web/e2e/legibility-smoke.spec.ts` đo trong trình duyệt thật, trên style đã
   tính, độ tương phản WCAG (≥4.5:1) của chữ trên nền tô và nền trũng ở cả sáng lẫn tối, kể cả
   khi hover nút chính và nút "Xem đầy đủ" cỡ nhỏ trên nền vàng của thanh duyệt; yêu cầu đặt

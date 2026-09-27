@@ -363,7 +363,7 @@ export function ManageScreen(props: Props) {
             />
           )}
           {props.section === "costs" && (
-            <StatsPanel stats={props.stats} agentName={props.agentName} runs={props.runs} />
+            <StatsPanel stats={props.stats} agentName={props.agentName} />
           )}
           {props.section === "connections" &&
             (registry.connections ? (

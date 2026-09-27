@@ -1,9 +1,8 @@
 import { render, screen, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
-import type { DayUsage, RunStep, StatsInfo } from "../api/types";
+import type { DayUsage, StatsInfo } from "../api/types";
 import { vi } from "../i18n/vi";
-import { FakeBackend, fakeRun } from "../test/fake-backend";
+import { FakeBackend } from "../test/fake-backend";
 import { StatsPanel } from "./stats-panel";
 
 const name = (id: string) => (id === "coach" ? "HLV" : "Trợ lý");
@@ -35,25 +34,14 @@ function stats(overrides: Partial<StatsInfo> = {}): StatsInfo {
   };
 }
 
-const call = (prompt: number, cached: number | null): RunStep => ({
-  kind: "model",
-  chars: 10,
-  provider: "openrouter",
-  model: "deepseek",
-  cost_usd: 0.001,
-  tool_calls: [],
-  prompt_tokens: prompt,
-  cached_tokens: cached,
-  duration_ms: 1000,
-});
-
 // The suite runs at UTC+7, the owner's zone. 17:30Z on the 19th is 00:30 on the 20th
 // there: the UTC date says the 19th, the owner's calendar has already turned.
 let backend: FakeBackend;
 beforeEach(() => {
   vitest.useFakeTimers({ toFake: ["Date"] });
   vitest.setSystemTime(new Date("2026-09-19T17:30:00Z"));
-  // The per-agent cache reads its own window of stored runs.
+  // Every figure arrives with the stats, so the panel has nothing to fetch; a request it
+  // made anyway is recorded here rather than sent.
   backend = new FakeBackend();
   vitest.stubGlobal("fetch", backend.fetch);
 });
@@ -149,63 +137,49 @@ describe("the costs page's usage figures", () => {
     expect(screen.getByTestId("stat-days")).toHaveTextContent("123M vào / 9.9M ra");
   });
 
-  it("adds up each agent's cache from the model calls on the page's runs", async () => {
-    const runs = [
-      fakeRun({ id: "a", agent_id: "coach", steps: [call(10_000, 9_000), call(2_000, 1_000)] }),
-      fakeRun({ id: "b", agent_id: "default", steps: [call(3_000, 0)] }),
-      // No cache figure from this provider: left out rather than counted as a miss.
-      fakeRun({ id: "c", agent_id: "default", steps: [call(50_000, null)] }),
-    ];
-    render(<StatsPanel stats={stats()} agentName={name} runs={runs} />);
+  it("shows each agent's cache from the server's totals, biggest prompt first", () => {
+    const cache_by_agent = {
+      coach: { prompt_tokens: 12_000, cached_tokens: 10_000 },
+      default: { prompt_tokens: 30_000, cached_tokens: 0 },
+    };
+    render(<StatsPanel stats={stats({ cache_by_agent })} agentName={name} />);
 
-    const table = await screen.findByTestId("stat-agent-cache");
-    const [, coach, other] = within(table).getAllByRole("row");
-    expect(coach).toHaveTextContent("HLV");
-    expect(coach).toHaveTextContent("12k");
-    expect(coach).toHaveTextContent("10k · 83%");
-    expect(other).toHaveTextContent("Trợ lý");
-    expect(other).toHaveTextContent("0 · 0%");
-    const title = screen.getByRole("heading", { name: new RegExp(`^${vi.costCacheByAgent}`) });
-    expect(title).toHaveTextContent(vi.costWindowRecent(3));
+    const [, first, second] = within(screen.getByTestId("stat-agent-cache")).getAllByRole("row");
+    expect(first).toHaveTextContent("Trợ lý");
+    expect(first).toHaveTextContent("30k");
+    // A cache that served nothing is shown as such: that is what a broken cache looks like.
+    expect(first).toHaveTextContent("0 · 0%");
+    expect(second).toHaveTextContent("HLV");
+    expect(second).toHaveTextContent("12k");
+    expect(second).toHaveTextContent("10k · 83%");
   });
 
-  it("says so when no call on the page reported its tokens", async () => {
-    render(<StatsPanel stats={stats()} agentName={name} runs={[fakeRun({ steps: [call(0, null)] })]} />);
+  it("says so when no call in the window reported its tokens", () => {
+    render(<StatsPanel stats={stats({ cache_by_agent: {} })} agentName={name} />);
 
-    expect(await screen.findByText(vi.costNoTokens)).toBeInTheDocument();
+    expect(screen.getByText(vi.costNoTokens)).toBeInTheDocument();
     expect(screen.queryByTestId("stat-agent-cache")).not.toBeInTheDocument();
   });
 
   // The page's live runs are fifty of whoever was busiest, while the spend by agent beside
-  // this card counts five hundred: a quiet agent had spend and no cache row.
-  it("counts each agent's cache over the same window as its spend", async () => {
-    backend.runs = [fakeRun({ id: "quiet", agent_id: "coach", steps: [call(10_000, 8_000)] })];
-    const streamed = [fakeRun({ id: "busy", agent_id: "default", steps: [call(3_000, 3_000)] })];
-    render(<StatsPanel stats={stats()} agentName={name} runs={streamed} />);
+  // this card counts five hundred. Fetching those five hundred, steps and all, on every
+  // visit to add up two figures per agent was the heaviest request the page made.
+  it("counts each agent's cache over the same runs as its spend, without fetching them", () => {
+    const cache_by_agent = { coach: { prompt_tokens: 10_000, cached_tokens: 8_000 } };
+    render(<StatsPanel stats={stats({ cache_by_agent })} agentName={name} />);
 
-    const table = await screen.findByTestId("stat-agent-cache");
-    const [, coach, other] = within(table).getAllByRole("row");
-    expect(coach).toHaveTextContent("HLV");
-    expect(coach).toHaveTextContent("8k · 80%");
-    expect(other).toHaveTextContent("Trợ lý");
-    expect(backend.requests.map((r) => r.path)).toContain("/activity/runs?limit=500");
+    expect(screen.getByTestId("stat-agent-cache")).toHaveTextContent("8k · 80%");
     const title = screen.getByRole("heading", { name: new RegExp(`^${vi.costCacheByAgent}`) });
-    expect(title).toHaveTextContent(vi.costWindowRecent(2));
+    expect(title).toHaveTextContent(vi.costWindowRecent(500));
+    const byAgent = screen.getByRole("heading", { name: new RegExp(`^${vi.costByAgent}`) });
+    expect(byAgent).toHaveTextContent(vi.costWindowRecent(500));
+    expect(backend.requests).toEqual([]);
   });
 
-  it("says when the runs behind the cache cannot be read, and asks again on request", async () => {
-    backend.runs = [fakeRun({ id: "quiet", agent_id: "coach", steps: [call(10_000, 8_000)] })];
-    let down = true;
-    vitest.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) =>
-      down ? Promise.reject(new Error("offline")) : backend.fetch(input, init),
-    );
-    render(<StatsPanel stats={stats()} agentName={name} runs={[]} />);
+  it("leaves the card out when the server does not total the cache per agent", () => {
+    render(<StatsPanel stats={stats()} agentName={name} />);
 
-    const retry = await screen.findByRole("button", { name: vi.runFilters.retry });
-    expect(screen.getByText(new RegExp(vi.runFilters.failed))).toBeInTheDocument();
-    down = false;
-    await userEvent.click(retry);
-
-    expect(await screen.findByTestId("stat-agent-cache")).toHaveTextContent("8k · 80%");
+    expect(screen.queryByRole("heading", { name: new RegExp(`^${vi.costCacheByAgent}`) })).not.toBeInTheDocument();
+    expect(screen.queryByText(vi.costNoTokens)).not.toBeInTheDocument();
   });
 });

@@ -351,6 +351,11 @@ test("the costs page fits, cache columns and today's tiles included", async ({ p
     by_agent: { coach: 100, default: 23.45 },
     by_model: {},
     by_day: {},
+    // What the runs above add up to, one call for the coach and two for the other.
+    cache_by_agent: {
+      coach: { prompt_tokens: 45_678, cached_tokens: 40_000 },
+      default: { prompt_tokens: 91_356, cached_tokens: 80_000 },
+    },
     days,
     models,
     pending_proposals: 0,

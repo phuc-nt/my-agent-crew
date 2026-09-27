@@ -2,7 +2,7 @@
 //
 // The crew runs on a route where the prompt cache decides the bill, so these figures are
 // how the owner tells a persona edit that kept the cache from one that broke it.
-import type { DayUsage, RunInfo, RunStep, UsageTotals } from "../api/types";
+import type { DayUsage, RunStep, UsageTotals } from "../api/types";
 import { vi } from "../i18n/vi";
 import { dayOffset } from "./relative-time";
 
@@ -84,30 +84,4 @@ export function dayWindows(days: DayUsage[], now: Date = new Date()): { today: U
     if (offset === 0) today = add(today, day);
   }
   return { today, week };
-}
-
-export interface AgentCache {
-  agentId: string;
-  promptTokens: number;
-  cachedTokens: number;
-}
-
-/**
- * Prompt and cached tokens per agent, added up from the model calls on the given runs.
- *
- * Only calls that reported both count: a call with no cache figure would pull the share
- * down for a provider that simply does not say.
- */
-export function cacheByAgent(runs: RunInfo[]): AgentCache[] {
-  const totals = new Map<string, AgentCache>();
-  for (const run of runs) {
-    for (const step of run.steps) {
-      if (step.kind !== "model" || !step.prompt_tokens || step.cached_tokens == null) continue;
-      const entry = totals.get(run.agent_id) ?? { agentId: run.agent_id, promptTokens: 0, cachedTokens: 0 };
-      entry.promptTokens += step.prompt_tokens;
-      entry.cachedTokens += step.cached_tokens;
-      totals.set(run.agent_id, entry);
-    }
-  }
-  return [...totals.values()].sort((a, b) => b.promptTokens - a.promptTokens);
 }
