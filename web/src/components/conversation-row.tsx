@@ -13,6 +13,8 @@ interface Props {
   live?: LiveStatus;
   /** It changed since this viewer last had it open. */
   unread: boolean;
+  /** What "how long ago" is measured from; the list moves it on, so the label keeps up. */
+  now: Date;
   onPick: () => void;
   onDelete: () => void;
 }
@@ -22,7 +24,7 @@ interface Props {
  * changed and its recap on the line under the title. The DOM follows that order, so the
  * row reads to a screen reader the way it reads on screen.
  */
-export function ConversationRow({ conversation: c, active, live, unread, onPick, onDelete }: Props) {
+export function ConversationRow({ conversation: c, active, live, unread, now, onPick, onDelete }: Props) {
   // The live run speaks for the row: the list is fetched as runs finish, so the row's own
   // status can be a turn behind, and a run waiting on the owner must say so, not "running".
   const status = live ?? c.status;
@@ -51,7 +53,7 @@ export function ConversationRow({ conversation: c, active, live, unread, onPick,
           <span className="conversation-meta">
             {c.updated_at && (
               <time className="conversation-time" dateTime={c.updated_at}>
-                {timeAgo(c.updated_at)}
+                {timeAgo(c.updated_at, now)}
               </time>
             )}
             {c.summary && (

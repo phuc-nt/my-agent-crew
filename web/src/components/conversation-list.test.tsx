@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
 import type { Conversation, RunInfo } from "../api/types";
 import { vi } from "../i18n/vi";
@@ -93,6 +93,39 @@ describe("the sidebar's day groups", () => {
     expect(within(row("Sáng nay")).getByText("2 giờ")).toHaveAttribute("dateTime", "2026-09-26T03:00:00Z");
     expect(within(row("Rạng sáng qua")).getByText("Hôm qua")).toBeInTheDocument();
     expect(within(row("Tối hôm kia")).getByText("24/09")).toBeInTheDocument();
+  });
+
+  // Nothing arriving is the usual state of a tab left open; the labels must still keep up
+  // with the clock, across midnight too, instead of waiting for the next reply to redraw.
+  it("keeps 'how long ago' and the day headers true while the list sits idle", () => {
+    vitest.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"] });
+    // 23:50 on the 26th in Hanoi.
+    vitest.setSystemTime(new Date("2026-09-26T16:50:00Z"));
+    render(list([conversation("Tối nay", "2026-09-26T16:50:00Z")], null));
+    const when = () => within(row("Tối nay")).getByRole("time");
+    const headers = () => screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
+    expect(when()).toHaveTextContent(vi.time.justNow);
+    expect(headers()).toEqual([vi.time.groups.today]);
+
+    act(() => vitest.advanceTimersByTime(5 * 60_000));
+    expect(when()).toHaveTextContent(vi.time.minutes(5));
+
+    // 02:50 on the 27th: the evening before is yesterday now.
+    act(() => vitest.advanceTimersByTime(3 * 60 * 60_000 - 5 * 60_000));
+    expect(when()).toHaveTextContent(vi.time.yesterday);
+    expect(headers()).toEqual([vi.time.groups.yesterday]);
+  });
+
+  // A hidden tab's timers are slowed or stopped, so the return itself has to re-read the clock.
+  it("re-reads the clock when the page comes back into view", () => {
+    render(list([conversation("Sáng nay", "2026-09-26T04:58:00Z")], null));
+    expect(within(row("Sáng nay")).getByRole("time")).toHaveTextContent(vi.time.minutes(2));
+
+    vitest.setSystemTime(new Date("2026-09-26T07:30:00Z"));
+    act(() => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    expect(within(row("Sáng nay")).getByRole("time")).toHaveTextContent(vi.time.hours(2));
   });
 
   it("shows no header for a day with nothing in it", () => {

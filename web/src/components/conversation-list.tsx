@@ -1,6 +1,7 @@
 import { useState, type ReactNode, type RefObject } from "react";
 import type { Conversation, RunInfo } from "../api/types";
 import { useLastSeen } from "../hooks/use-last-seen";
+import { useNow } from "../hooks/use-now";
 import { vi } from "../i18n/vi";
 import { dayGroup, type DayGroup } from "../lib/relative-time";
 import { ConversationRow, type LiveStatus } from "./conversation-row";
@@ -58,12 +59,14 @@ function liveByConversation(runs: LiveRun[]): Map<string, LiveStatus> {
 
 const GROUPS: DayGroup[] = ["today", "yesterday", "older"];
 
+/** Relative times count in minutes, so the labels are re-read once a minute. */
+const TICK_MS = 60_000;
+
 /**
  * Rows under the viewer's own day they last changed on. The server already sends them
  * newest first, so each group keeps that order and only the headers are added.
  */
-function byDay(conversations: Conversation[]): [DayGroup, Conversation[]][] {
-  const now = new Date();
+function byDay(conversations: Conversation[], now: Date): [DayGroup, Conversation[]][] {
   return GROUPS.map((group): [DayGroup, Conversation[]] => [
     group,
     ownFirst(conversations.filter((c) => dayGroup(c.updated_at, now) === group)),
@@ -85,6 +88,7 @@ export function ConversationList({
   const [query, setQuery] = useState("");
   const live = liveByConversation(liveRuns);
   const isUnread = useLastSeen(conversations, activeId);
+  const now = useNow(TICK_MS);
   // Below a handful of threads the eye is faster than the box, and a control that is
   // never the quickest way to do the thing is just something else to look past.
   const searchable = conversations.length >= SEARCH_FROM;
@@ -140,7 +144,7 @@ export function ConversationList({
         </p>
       ) : (
         <div className="conversation-list">
-          {byDay(shown).map(([group, rows]) => (
+          {byDay(shown, now).map(([group, rows]) => (
             // A group, not a section: a labelled section is a landmark, and one per day
             // would crowd the landmark list beside the navigation it sits in.
             <div
@@ -157,6 +161,7 @@ export function ConversationList({
                     conversation={c}
                     active={c.id === activeId}
                     live={live.get(c.id)}
+                    now={now}
                     // A delegated conversation is the agents' working, not a reply to the
                     // person, so it never asks for attention with a dot.
                     unread={!c.parent_call_id && isUnread(c)}
