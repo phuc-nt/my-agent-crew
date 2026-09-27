@@ -52,6 +52,7 @@ export function AttentionRow(props: Props) {
   // below must fire once per deadline, not once per render.
   const reload = useRef(props.onReload);
   reload.current = props.onReload;
+  const row = useRef<HTMLLIElement>(null);
 
   const fetchPending = useCallback(async () => {
     const detail = await api.getConversation(conversationId);
@@ -88,6 +89,9 @@ export function AttentionRow(props: Props) {
   }, [expired]);
 
   const settle = async (send: () => Promise<void>) => {
+    // The buttons disable themselves next, which would drop a keyboard user's focus to the
+    // top of the page; the row keeps it until the request is settled.
+    if (row.current?.contains(document.activeElement)) row.current.focus();
     props.onHold?.();
     setWorking(true);
     setNote(null);
@@ -116,7 +120,7 @@ export function AttentionRow(props: Props) {
   const deadline = !working && remaining !== null && <ExpiryCountdown remaining={remaining} />;
   const closed = load.state === "ready" && !pending && !working;
   return (
-    <li className="awaiting_approval inline" data-testid="attention-row">
+    <li ref={row} tabIndex={-1} className="awaiting_approval inline" data-testid="attention-row">
       {children}
       <div className="attention-inline">
         {load.state === "loading" && <p className="muted">{vi.attentionLoading}</p>}

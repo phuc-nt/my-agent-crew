@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { RunInfo } from "../api/types";
 import { vi } from "../i18n/vi";
 import { runSummaryText } from "../lib/run-summary";
@@ -69,7 +69,24 @@ export function AttentionCenter(props: Props) {
   // nav still counts the work listed on the other page, and the two would contradict.
   const calm = shown.length === 0 && waitingElsewhere === 0 && failedElsewhere === 0;
 
+  // A row that leaves takes the focus inside it along, and the next Tab would start over
+  // from the top of the page: it goes to the row that took its place, or to the heading.
+  const heading = useRef<HTMLHeadingElement>(null);
+  const list = useRef<HTMLUListElement>(null);
+  const current = useRef(shown);
+  current.current = shown;
+  const leaving = useRef<number | null>(null);
+  useEffect(() => {
+    const at = leaving.current;
+    if (at === null) return;
+    leaving.current = null;
+    if (document.activeElement && document.activeElement !== document.body) return;
+    const rows = list.current?.querySelectorAll<HTMLElement>(":scope > li");
+    const next = rows?.[Math.min(at, rows.length - 1)];
+    (next?.querySelector<HTMLElement>("button:not(:disabled)") ?? heading.current)?.focus();
+  });
   const leave = (run: RunInfo) => {
+    leaving.current = current.current.findIndex((r) => r.id === run.id);
     setSettled((keys) => [...keys, seenKey(run)]);
     setHeld((rows) => rows.filter((r) => r.id !== run.id));
   };
@@ -132,7 +149,9 @@ export function AttentionCenter(props: Props) {
     // Amber only while something is waiting on a person. A card that stays amber on an
     // empty list teaches the eye to skip it, which is the one thing it must not do.
     <section className={`attention${calm ? " calm" : ""}`} aria-label={vi.attention} data-testid="attention">
-      <h3>{vi.attention}</h3>
+      <h3 ref={heading} tabIndex={-1}>
+        {vi.attention}
+      </h3>
       {calm && (
         <p className="attention-calm">
           <Icon name="check" />
@@ -140,7 +159,7 @@ export function AttentionCenter(props: Props) {
         </p>
       )}
       {shown.length > 0 && (
-        <ul className="attention-list">
+        <ul className="attention-list" ref={list}>
           {shown.map((run) =>
             inline && run.status === "awaiting_approval" && run.conversation_id ? (
               <AttentionRow

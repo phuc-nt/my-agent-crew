@@ -150,6 +150,33 @@ describe("AttentionCenter with requests settled in place", () => {
     expect(lan).toHaveTextContent(vi.approvalTitle("shell_run"));
   });
 
+  // Deciding from the keyboard must not drop focus to the top of the page when the row
+  // leaves: it goes on to the next request, and to the section's heading once none is left.
+  it("moves focus to the next request when a row decided from the keyboard leaves", async () => {
+    const first = waiting();
+    const second = waiting({ tool_name: "shell_run", arguments: { command: "make" } });
+    const runs = [
+      { ...first.run, agent_id: "mai" },
+      { ...second.run, agent_id: "lan" },
+    ];
+    const names = (id: string) => (id === "mai" ? "Mai" : "Lan");
+    render(<AttentionCenter runs={runs} inline agentName={names} onOpenConversation={() => undefined} />);
+    const mai = await screen.findByRole("group", { name: new RegExp(`^${vi.attentionAwaiting("Mai")}`) });
+    await screen.findByRole("group", { name: new RegExp(`^${vi.attentionAwaiting("Lan")}`) });
+
+    within(mai).getByRole("button", { name: vi.approve }).focus();
+    await userEvent.keyboard("{Enter}");
+    await waitFor(() => expect(screen.getAllByTestId("attention-row")).toHaveLength(1));
+    const next = screen.getByTestId("attention-row");
+    expect(next).toHaveTextContent(vi.attentionAwaiting("Lan"));
+    await waitFor(() => expect(next).toContainElement(document.activeElement as HTMLElement));
+
+    within(next).getByRole("button", { name: vi.approve }).focus();
+    await userEvent.keyboard("{Enter}");
+    await waitFor(() => expect(screen.queryByTestId("attention-row")).not.toBeInTheDocument());
+    expect(screen.getByRole("heading", { name: vi.attention })).toHaveFocus();
+  });
+
   // Another tab, Telegram or the expiry sweep can close the request first. The 409 must read
   // as "already handled", not as the chat's "busy", which would send the person to wait.
   it.each([
