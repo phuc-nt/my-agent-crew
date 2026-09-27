@@ -8,6 +8,7 @@ tested — and reasoned about — separately.
 from __future__ import annotations
 
 import logging
+import threading
 from pathlib import Path
 
 from my_agent_crew.agent.turn_context import WEB
@@ -24,6 +25,12 @@ from my_agent_crew.store.memory_proposals import (
 )
 
 logger = logging.getLogger(__name__)
+
+# One decision at a time, from the pending check to the resolve. The web decides in a
+# worker thread, so an approval on the phone and a rejection on the laptop can arrive
+# together; without it both see the proposal pending, and a rejection landing while the
+# approval is still writing leaves the fact on disk under a proposal marked rejected.
+_deciding = threading.Lock()
 
 
 def apply_proposal(
@@ -45,14 +52,16 @@ def apply_proposal(
 
     A proposal already decided is refused before anything is written: an approval from a
     stale tab would otherwise write a fact the person rejected, or append a line twice,
-    and only then learn from the store that it was too late.
+    and only then learn from the store that it was too late. Two decisions arriving
+    together are taken one after the other, so the second finds the first's answer.
     """
-    proposal = store.proposals.get(proposal_id)
-    if proposal.status != PENDING:
-        raise KeyError(proposal_id)
-    if approve:
-        _write(proposal, user_dir, memory_files or {}, memory_dirs or {})
-    return store.proposals.resolve(proposal_id, approve)
+    with _deciding:
+        proposal = store.proposals.get(proposal_id)
+        if proposal.status != PENDING:
+            raise KeyError(proposal_id)
+        if approve:
+            _write(proposal, user_dir, memory_files or {}, memory_dirs or {})
+        return store.proposals.resolve(proposal_id, approve)
 
 
 def _write(

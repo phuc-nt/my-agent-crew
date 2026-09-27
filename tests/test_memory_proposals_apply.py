@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import threading
+
 import pytest
 
 from my_agent_crew.memory import user_store
@@ -141,6 +143,46 @@ def test_a_late_approval_of_a_rejected_proposal_writes_nothing(tmp_path, store: 
         apply_proposal(store, proposal.id, approve=True, user_dir=user_dir)
 
     assert user_store.list_facts(user_dir) == []
+
+
+def test_a_decision_arriving_during_an_approval_waits_for_it_and_is_refused(
+    tmp_path, store: Store, monkeypatch
+):
+    """Approve on the phone, reject on the laptop a moment later. Let in while the approval
+    is still writing, the reject would land first: the fact written, the proposal marked
+    rejected, and the approval told only afterwards that it was too late."""
+    user_dir = tmp_path / "owner"
+    proposal = propose_fact(store)
+    writing, release = threading.Event(), threading.Event()
+    write_fact = user_store.write_fact
+
+    def slow_write(*args, **kwargs):
+        writing.set()
+        release.wait(5)
+        return write_fact(*args, **kwargs)
+
+    monkeypatch.setattr(user_store, "write_fact", slow_write)
+    outcomes: dict[str, str] = {}
+
+    def decide(label: str, approve: bool) -> None:
+        try:
+            outcomes[label] = apply_proposal(store, proposal.id, approve, user_dir).status
+        except KeyError:
+            outcomes[label] = "refused"
+
+    approving = threading.Thread(target=decide, args=("approve", True))
+    rejecting = threading.Thread(target=decide, args=("reject", False))
+    approving.start()
+    assert writing.wait(5)
+    rejecting.start()
+    rejecting.join(0.5)  # time enough for the reject to land mid-write, if it could
+    release.set()
+    approving.join(5)
+    rejecting.join(5)
+
+    assert outcomes == {"approve": APPROVED, "reject": "refused"}
+    assert store.proposals.get(proposal.id).status == APPROVED
+    assert [fact.name for fact in user_store.list_facts(user_dir)] == ["ngu-som"]
 
 
 def test_approving_an_append_twice_writes_the_line_once(tmp_path, store: Store):
