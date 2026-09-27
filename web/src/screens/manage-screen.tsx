@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { AgentInfo, InstallResult, JobInfo, SettingsInfo, StatsInfo, TemplateInfo } from "../api/types";
 import type { RunInfo } from "../api/types";
 import { AgentEditor } from "../components/agent-editor/agent-editor";
@@ -139,8 +140,18 @@ export function ManageScreen(props: Props) {
   // sent the person to Duyệt for an error with nothing to decide.
   const awaiting = props.attention.filter((r) => r.status === "awaiting_approval");
   const failed = props.attention.filter((r) => r.status !== "awaiting_approval");
-  // Each settled run or new pause may have changed the approval ledger.
-  const approvalsVersion = props.runs.filter((r) => r.finished_at !== null).length + awaiting.length;
+  // The ledger lists settled requests, and a request settles as its run leaves the pause.
+  // Its key changes with every sign of that here: a run ending, the runs waiting changing,
+  // and a row below changing something on the server. A sum of the first two stays put
+  // when a resume and its end land in one update, and a turn that stops again on its next
+  // tool leaves both as they were: only the row that decided knows then.
+  const [rowReloads, setRowReloads] = useState(0);
+  const finishedRuns = props.runs.filter((r) => r.finished_at !== null).length;
+  const approvalsKey = `${finishedRuns}|${awaiting.map((r) => r.id).join(",")}|${rowReloads}`;
+  const reloadAfterRow = () => {
+    setRowReloads((n) => n + 1);
+    props.onReloadActivity?.();
+  };
   const parentTitle = (run: RunInfo) => {
     const parent = parentConversationId(run);
     if (parent === null) return null;
@@ -277,7 +288,7 @@ export function ManageScreen(props: Props) {
                 parentTitle={parentTitle}
                 agentName={props.agentName}
                 onOpenConversation={props.onOpenConversation}
-                onReload={props.onReloadActivity}
+                onReload={reloadAfterRow}
                 failedElsewhere={failed.length}
                 onOpenFailed={() => props.onNavigate("activity")}
               />
@@ -285,7 +296,7 @@ export function ManageScreen(props: Props) {
               <ApprovalHistory
                 agentName={props.agentName}
                 onOpenConversation={props.onOpenConversation}
-                refreshKey={approvalsVersion}
+                refreshKey={approvalsKey}
               />
             </>
           )}

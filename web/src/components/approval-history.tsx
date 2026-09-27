@@ -25,8 +25,8 @@ const LIMITS = [50, 200, 500];
 interface Props {
   agentName: (id: string) => string;
   onOpenConversation: (conversationId: string) => void;
-  /** Bumped by the caller whenever a run finishes, so resolved requests show up. */
-  refreshKey: number;
+  /** Changed by the caller whenever a request may have settled, so the rows are read again. */
+  refreshKey: number | string;
   /** Narrows the list to one conversation; every agent's requests when absent. */
   conversationId?: string;
 }

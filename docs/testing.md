@@ -42,7 +42,11 @@ nhận 409. Nhờ vậy việc duyệt ngay trong Quản lý › Duyệt đượ
 lượt quét hết hạn giành trước (báo "đã được xử lý", không báo bận), cả khi đồng hồ đếm về 0
 (nút khoá, danh sách tải lại), còn Playwright chỉ giữ phần chỉ trình duyệt thấy: bấm Cho phép
 trên bề rộng 390px mà trang không cuộn ngang, và trên màn điện thoại thấp 390×664 mở đầy đủ một
-tệp 120 dòng mà các nút quyết định vẫn trên màn hình, trang không cuộn.
+tệp 120 dòng mà các nút quyết định vẫn trên màn hình, trang không cuộn. Lịch sử duyệt bên dưới
+được đọc lại mỗi khi một yêu cầu có thể vừa khép: run của nó chạy tiếp, run kết thúc (kể cả khi
+chạy tiếp và kết thúc đến trong cùng một lần cập nhật), một run trang chưa từng thấy chờ đến nơi
+đã xong, hay hàng vừa quyết định thấy run dừng chờ yêu cầu kế tiếp; mỗi đường có một ca trong
+`app-attention.test.tsx`.
 
 ## Test bảo vệ
 
