@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import type { AgentInfo, InstallResult, JobInfo, SettingsInfo, StatsInfo, TemplateInfo } from "../api/types";
 import type { RunInfo } from "../api/types";
 import { AgentEditor } from "../components/agent-editor/agent-editor";
@@ -115,16 +115,6 @@ export const NAV_GROUPS: { key: keyof typeof vi.manage.groups; sections: ManageS
  * about the conversation you are in — keeping it next to the thread made the crew's
  * work and the conversation's work look like the same thing.
  */
-/**
- * Brings the current section's entry into view. On a phone the sections are one row of
- * pills scrolled sideways, and arriving on a section whose pill sits past the edge would
- * leave the person with no sign of where they are. "nearest" moves nothing that is
- * already visible, so the sidebar on a wide screen never jumps.
- */
-function revealActive(el: HTMLButtonElement | null) {
-  el?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
-}
-
 export function ManageScreen(props: Props) {
   const registry = useRegistry();
   // A saved key can build a provider or a search backend; the registry shows which.
@@ -169,6 +159,18 @@ export function ManageScreen(props: Props) {
   // A paused run is still live, but it is waiting on a person rather than running: it is
   // counted on Duyệt, and counting it here too would call one request two things at once.
   const running = props.liveRuns.filter((r) => r.status === "running").length;
+
+  // Brings the current section's entry into view. On a phone the sections are one row of
+  // pills scrolled sideways, and arriving on a section whose pill sits past the edge would
+  // leave the person with no sign of where they are. The counts come after the first paint
+  // and widen the pills, and a browser does not hold a sideways scroll in place as they
+  // grow, so the entry is brought back whenever one changes. "nearest" moves nothing that
+  // is already visible, so neither the sidebar on a wide screen nor a pill in view jumps.
+  const active = useRef<HTMLButtonElement>(null);
+  const counts = [running, failed.length, awaiting.length, pendingProposals, failing].join();
+  useLayoutEffect(() => {
+    active.current?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+  }, [props.section, counts]);
   const badge = (section: ManageSection) => {
     if (section === "activity")
       return (
@@ -213,7 +215,7 @@ export function ManageScreen(props: Props) {
                       type="button"
                       className={section === props.section ? "active" : ""}
                       aria-current={section === props.section ? "page" : undefined}
-                      ref={section === props.section ? revealActive : undefined}
+                      ref={section === props.section ? active : undefined}
                       onClick={() => props.onNavigate(section)}
                     >
                       <Icon name={ICONS[section]} />

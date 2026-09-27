@@ -12,12 +12,14 @@ beforeEach(() => {
   vitest.stubGlobal("fetch", new FakeBackend().fetch);
 });
 
-function show(section: ManageSection, overrides: Partial<Parameters<typeof ManageScreen>[0]> = {}) {
+type ScreenProps = Partial<Parameters<typeof ManageScreen>[0]>;
+
+function show(section: ManageSection, overrides: ScreenProps = {}) {
   const live = fakeRun({ id: "live", status: "running", finished_at: null, conversation_id: "c2" });
   const done = fakeRun({ id: "done" });
   const onNavigate = vitest.fn();
   const onBackToChat = vitest.fn();
-  render(
+  const screenWith = (more: ScreenProps) => (
     <ManageScreen
       section={section}
       runs={[live, done]}
@@ -42,9 +44,11 @@ function show(section: ManageSection, overrides: Partial<Parameters<typeof Manag
       onRunJob={() => undefined}
       onToggleJob={() => undefined}
       {...overrides}
-    />,
+      {...more}
+    />
   );
-  return { onNavigate, onBackToChat };
+  const { rerender } = render(screenWith({}));
+  return { onNavigate, onBackToChat, rerender: (more: ScreenProps) => rerender(screenWith(more)) };
 }
 
 describe("the manage screen", () => {
@@ -116,6 +120,29 @@ describe("the manage screen", () => {
     const current = screen.getByRole("button", { current: "page" });
     expect(current).toHaveTextContent(vi.jobs);
     expect(scrolled).toEqual([current]);
+  });
+
+  // The counts come after the first paint and widen the pills before the current one, and
+  // a browser does not hold a sideways scroll in place as they grow.
+  it("brings the current section's entry back into view when a count changes", () => {
+    const scrolled: Element[] = [];
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = function (this: Element) {
+      scrolled.push(this);
+    };
+    const failed = () => [fakeRun({ id: "broke", status: "error" })];
+    try {
+      const { rerender } = show("jobs");
+      rerender({ attention: failed() });
+      // Drawn again with the same counts: nothing moved, so neither does the row.
+      rerender({ attention: failed() });
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
+
+    const current = screen.getByRole("button", { current: "page" });
+    expect(screen.getByRole("button", { name: /Hoạt động/ })).toHaveTextContent(vi.manage.failedBadge);
+    expect(scrolled).toEqual([current, current]);
   });
 
   it("renders the schedule when that is the section asked for", () => {
