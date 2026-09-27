@@ -15,7 +15,9 @@ chạy ra sao. Số lượng và tên tệp không giữ ở đây — chạy l�
 Ưu tiên tầng thấp nhất: một quy tắc của vòng lặp thuộc về pytest, một reducer thuộc về vitest, và
 Playwright chỉ cho những gì chỉ DOM mới cho thấy. Hành vi vắt qua nhiều tầng (một duyệt
 tạm dừng vòng lặp *và* thanh hiện ra; nâng trần chi phí gỡ `over_budget` ở server *và* mở lại
-ô soạn) có một test ở mỗi bên ranh giới. Fake server của vitest và mock của Playwright tự tính
+ô soạn; lưu lịch trả về lý do cần khởi động lại bằng một câu trọn vẹn ở server *và* trình sửa
+agent hiện nguyên câu đó) có một test ở mỗi bên ranh giới. Fake server của vitest và mock
+của Playwright tự tính
 lại những trường server suy ra (như `over_budget` từ trần), để test không tin vào một con số
 cũ. Route của Playwright trả cả thân một lần, nên một stream còn đang chạy khi bấm Dừng được
 dựng ngay trong trang bằng `addInitScript` (test Dừng trong `chat-smoke.spec.ts`); còn run do

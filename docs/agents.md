@@ -247,10 +247,12 @@ rơi về master. Nó từ chối (409) với master, và với agent mà một 
 vẫn nêu tên trong `delegates` — xoá nó sẽ để profile kia không hợp lệ và server
 không khởi động được lần sau.
 
-**`restart_required` chỉ bao giờ nói về lịch và Telegram.** Tuyến, tool, persona,
-tên, ngân sách và giao việc đều được dựng lại trực tiếp. Đồng hồ và kênh được dựng một lần
-lúc boot, nên đổi `schedules`, `memory_consolidate` hoặc `telegram` cần khởi động lại và
-nói ra như vậy. Không gì khác cần, và đó là thứ giữ cho thông báo này đáng đọc.
+**`restart_required` chỉ bao giờ nói về lịch.** Tuyến, tool, persona, tên, ngân sách,
+giao việc và cả khối `telegram` đều được dựng lại trực tiếp — bot được dựng lại ngay khi
+lưu. Chỉ đồng hồ được dựng một lần lúc boot, nên đổi `schedules` hoặc `memory_consolidate`
+cần khởi động lại và nói ra như vậy. Mỗi lý do là một câu trọn vẹn mà trình sửa agent hiện
+nguyên văn sau "Đã lưu.", không phải tên của khoá đã đổi. Không gì khác cần, và đó là thứ
+giữ cho thông báo này đáng đọc.
 
 **Agent từ kit là chỉ đọc ở đây** (409, nêu tên tệp markdown chúng đến từ):
 profile của chúng sống trong một dự án do người khác bảo trì, và ghi một `agent.yaml` bên cạnh
