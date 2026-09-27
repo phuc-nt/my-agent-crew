@@ -35,7 +35,9 @@ describe("WikiReadView links", () => {
   it("leaves brackets inside code alone, since there they are text about links", () => {
     const { view } = mount("Cú pháp là `[[Trà sáng]]`.\n\n```\n[[Hạn Eco]]\n```");
 
-    expect(screen.queryByRole("button")).toBeNull();
+    // A fenced block carries its own copy corner, as in a reply; that is the only button,
+    // so neither bracketed name became a link.
+    expect(screen.getAllByRole("button")).toEqual([screen.getByRole("button", { name: vi.copy.code })]);
     expect(view.container).toHaveTextContent("[[Trà sáng]]");
     expect(view.container).toHaveTextContent("[[Hạn Eco]]");
   });
