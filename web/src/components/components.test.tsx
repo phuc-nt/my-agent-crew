@@ -233,6 +233,12 @@ describe("ApprovalHistory", () => {
   };
   const limits = (backend: FakeBackend) =>
     backend.requests.filter((r) => r.path.startsWith("/approvals")).map((r) => new URLSearchParams(r.path.split("?")[1]).get("limit"));
+  /** Waits for the list to hold `count` rows, then checks them as list items once: a role
+   *  query over hundreds of rows on every poll outlasts the timeout on a busy machine. */
+  const rowsReach = async (list: HTMLElement, count: number) => {
+    await vitest.waitFor(() => expect(list.querySelectorAll(":scope > li")).toHaveLength(count));
+    expect(within(list).getAllByRole("listitem")).toHaveLength(count);
+  };
 
   it("reads a question as what was asked, what it offered and what came back", async () => {
     const backend = new FakeBackend();
@@ -262,9 +268,9 @@ describe("ApprovalHistory", () => {
     expect(within(list).getAllByRole("listitem")).toHaveLength(50);
 
     await userEvent.click(screen.getByRole("button", { name: vi.approvalHistoryMore }));
-    await vitest.waitFor(() => expect(within(list).getAllByRole("listitem")).toHaveLength(200));
+    await rowsReach(list, 200);
     await userEvent.click(screen.getByRole("button", { name: vi.approvalHistoryMore }));
-    await vitest.waitFor(() => expect(within(list).getAllByRole("listitem")).toHaveLength(260));
+    await rowsReach(list, 260);
     // 260 of a possible 500: the whole history is on screen, so there is nothing more to ask for.
     expect(screen.queryByRole("button", { name: vi.approvalHistoryMore })).not.toBeInTheDocument();
     expect(limits(backend)).toEqual(["50", "200", "500"]);
@@ -275,9 +281,9 @@ describe("ApprovalHistory", () => {
     backend.approvals = Array.from({ length: 520 }, (_, i) => fakeApproval({ id: `a${i}` }));
     const list = await history(backend);
     await userEvent.click(screen.getByRole("button", { name: vi.approvalHistoryMore }));
-    await vitest.waitFor(() => expect(within(list).getAllByRole("listitem")).toHaveLength(200));
+    await rowsReach(list, 200);
     await userEvent.click(screen.getByRole("button", { name: vi.approvalHistoryMore }));
-    await vitest.waitFor(() => expect(within(list).getAllByRole("listitem")).toHaveLength(500));
+    await rowsReach(list, 500);
     expect(screen.queryByRole("button", { name: vi.approvalHistoryMore })).not.toBeInTheDocument();
   });
 
@@ -297,7 +303,7 @@ describe("ApprovalHistory", () => {
 
     refuse = false;
     await userEvent.click(screen.getByRole("button", { name: vi.approvalHistoryMore }));
-    await vitest.waitFor(() => expect(within(list).getAllByRole("listitem")).toHaveLength(200));
+    await rowsReach(list, 200);
     expect(screen.queryByText(vi.loadFailed)).not.toBeInTheDocument();
   });
 
@@ -308,7 +314,7 @@ describe("ApprovalHistory", () => {
 
     await userEvent.click(screen.getByRole("button", { name: vi.approvalHistoryMore }));
 
-    await vitest.waitFor(() => expect(within(list).getAllByRole("listitem")).toHaveLength(120));
+    await rowsReach(list, 120);
     expect(screen.queryByRole("button", { name: vi.approvalHistoryMore })).not.toBeInTheDocument();
     expect(within(list).getAllByRole("listitem")[50]).toHaveFocus();
   });
