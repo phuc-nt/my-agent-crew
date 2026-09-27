@@ -153,8 +153,12 @@ Run ghi agent của nó, nguồn (`chat`, `job:<id>`),
 cuộc trò chuyện, trạng thái, các step (lần gọi model kèm chi phí, tool call kèm kết quả và thời lượng), chi tiêu
 và một tóm tắt. Run đang chạy được giữ trong bộ nhớ và phát dạng SSE trên `/api/activity/stream`
 (`snapshot` khi kết nối, rồi các frame `run` và `event`); run đã xong được đọc từ SQLite.
-Run còn đánh dấu đang chạy khi server khởi động sẽ bị đóng là `failed` với tóm tắt
-`interrupted`. Run được ghi và phát ở ranh giới step: token stream (`text_delta`,
+Khi server khởi động, run còn đánh dấu đang chạy bị đóng là `error` với tóm tắt
+`interrupted`. Run đang dừng chờ duyệt mà cuộc trò chuyện còn một yêu cầu chưa quyết thì
+được giữ lại trong bộ nhớ, nên quyết định đến sau lần khởi động lại chạy tiếp chính run đó
+thay vì mở run thứ hai; run chờ duyệt không còn yêu cầu nào để chờ (yêu cầu đã được quyết
+khi không tiến trình nào giữ run) bị đóng như trên, và xoá một cuộc trò chuyện cũng đóng
+ngay run đang chờ duyệt trong đó. Run được ghi và phát ở ranh giới step: token stream (`text_delta`,
 `thinking`) chỉ cộng dồn vào step đang dựng trong bộ nhớ, không ghi SQLite và không lên
 luồng activity (rail không hiện từng chữ). Mỗi watcher có hàng đợi 256 frame; một tab
 ngừng đọc bị cắt và trình duyệt kết nối lại với `snapshot` mới, thay vì giữ mọi event
