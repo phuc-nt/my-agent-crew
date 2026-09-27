@@ -356,6 +356,10 @@ describe("App", () => {
       const bar = await screen.findByTestId("update-bar");
       expect(bar).toHaveTextContent(vi.updateAvailable);
       expect(within(bar).getByRole("button", { name: vi.updateReloadLabel })).toHaveTextContent(vi.reload);
+
+      // It covers the top of the screen, so it can be put away to finish what is on it.
+      await userEvent.click(within(bar).getByRole("button", { name: vi.updateDismissLabel }));
+      expect(screen.queryByTestId("update-bar")).not.toBeInTheDocument();
     } finally {
       clock.mockRestore();
       script.remove();

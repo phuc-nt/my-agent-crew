@@ -140,6 +140,15 @@
   font-size: inherit;
 }
 
+/* The bar covers the top of the screen — the title, the header's pills — so it can be
+   put away while a reply is finished; a later look that still finds the new build brings
+   it back. */
+.update-bar .update-bar-dismiss {
+  margin-left: calc(-1 * var(--space-2));
+  border-radius: var(--radius-full);
+  font-size: var(--text-md);
+}
+
 /* Settings names both builds, which is how a mismatch is told apart from a bug. */
 .settings-versions {
   margin: 0 0 var(--space-3);
@@ -148,11 +157,16 @@
 
 @media (max-width: 720px) {
   .update-bar .update-bar-reload,
+  .update-bar .update-bar-dismiss,
   .cap-editor button,
   .cap-editor input,
   .notice > .link-button,
   .status-line button.stream-retry {
     min-height: var(--touch-target);
+  }
+
+  .update-bar .update-bar-dismiss {
+    min-width: var(--touch-target);
   }
 
   /* Thumb-sized, yet it takes no height in the line: its box hangs evenly over the

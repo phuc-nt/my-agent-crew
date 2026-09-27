@@ -127,6 +127,18 @@ describe("useVersionCheck", () => {
     expect(result.current.pageVersion).toBe("0.8.0");
   });
 
+  it("puts the offer away until a later look finds the other build still served", async () => {
+    built();
+    server.entry = "/assets/index-second.js";
+    const { result } = renderHook(() => useVersionCheck(true));
+    await waitFor(() => expect(result.current.stale).toBe(true));
+
+    act(() => result.current.dismiss());
+    expect(result.current.stale).toBe(false);
+    focusLater();
+    await waitFor(() => expect(result.current.stale).toBe(true));
+  });
+
   it("says nothing when the server cannot be reached", async () => {
     built();
     const { result } = await mount();

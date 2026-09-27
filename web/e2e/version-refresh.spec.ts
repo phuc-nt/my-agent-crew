@@ -42,6 +42,18 @@ test.describe("on a phone", () => {
       .poll(() => page.evaluate(() => (window as unknown as { beforeReload?: boolean }).beforeReload))
       .toBeUndefined();
   });
+
+  // It floats over the header, so it can be put away to reach what it covers.
+  test("the bar can be put away with a thumb-sized button", async ({ page }) => {
+    await mockApi(page);
+    await page.goto("/");
+    const bar = page.getByTestId("update-bar");
+    const dismiss = bar.getByRole("button", { name: "Để sau, ẩn thông báo bản mới" });
+    const box = (await dismiss.boundingBox())!;
+    expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(40);
+    await dismiss.click();
+    await expect(bar).toHaveCount(0);
+  });
 });
 
 // The page is named only by a look that found the server serving it; one already on

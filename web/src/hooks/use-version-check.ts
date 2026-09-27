@@ -26,6 +26,8 @@ export interface VersionCheck {
   serverVersion: string | null;
   /** Looks now, however recently the last look was. */
   check: () => void;
+  /** Puts the offer away until a later look finds the other build still served. */
+  dismiss: () => void;
 }
 
 async function servedEntry(): Promise<string | null> {
@@ -99,5 +101,7 @@ export function useVersionCheck(connected: boolean): VersionCheck {
     wasConnected.current = true;
   }, [connected, entry, check]);
 
-  return { stale, pageVersion, serverVersion, check };
+  const dismiss = useCallback(() => setStale(false), []);
+
+  return { stale, pageVersion, serverVersion, check, dismiss };
 }

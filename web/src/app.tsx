@@ -48,7 +48,7 @@ export function App() {
     api.settings().then(setSettings, () => {});
     checkVersion();
   }, [settingsOpen, checkVersion]);
-  const updateBar = version.stale && <UpdateBar />;
+  const updateBar = version.stale && <UpdateBar onDismiss={version.dismiss} />;
 
   // The address bar is what a shared or bookmarked link carries, so it opens the
   // conversation rather than the other way round. Back and Forward land here too, which

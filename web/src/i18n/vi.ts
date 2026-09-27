@@ -711,6 +711,7 @@ export const vi = {
   // The server runs a newer build than this page: loading again picks it up.
   updateAvailable: "Có bản mới",
   updateReloadLabel: "Tải lại để dùng bản mới",
+  updateDismissLabel: "Để sau, ẩn thông báo bản mới",
   statusIdle: "Sẵn sàng",
   statusStreaming: "Agent đang trả lời…",
   statusThinking: "Agent đang suy nghĩ…",
