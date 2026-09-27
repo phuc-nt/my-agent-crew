@@ -229,7 +229,7 @@ describe("App", () => {
   it("raises a spent cap from the over-budget notice and lets the composer write again", async () => {
     backend.create({ title: "A", cost_cap_usd: 1, spent_usd: 1.2, over_budget: true });
     render(<App />);
-    await userEvent.click(await screen.findByRole("button", { name: /^A$/ }));
+    await userEvent.click(await screen.findByText("A", { selector: ".conversation-title" }));
     const notice = await screen.findByTestId("over-budget");
     expect(screen.getByRole("textbox")).toBeDisabled();
 
@@ -246,7 +246,7 @@ describe("App", () => {
     backend.create({ title: "A" });
     backend.nextTurn = [{ type: "halted", reason: "budget", spent_usd: 1 }];
     render(<App />);
-    await userEvent.click(await screen.findByRole("button", { name: /^A$/ }));
+    await userEvent.click(await screen.findByText("A", { selector: ".conversation-title" }));
     await userEvent.type(screen.getByRole("textbox"), "x{Enter}");
     const notice = await screen.findByTestId("notice");
 
