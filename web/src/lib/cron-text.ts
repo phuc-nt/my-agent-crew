@@ -5,9 +5,9 @@
 // nearly right — "every day" for a cron that also names a month — is worse than the raw
 // string, because it is the one the person believes.
 import { vi } from "../i18n/vi";
+import { pad2 } from "./relative-time";
 
 const words = vi.jobRow.cron;
-const pad = (n: number) => String(n).padStart(2, "0");
 
 /** A plain number within `low..high`, or null. */
 function num(text: string, low: number, high: number): number | null {
@@ -84,7 +84,7 @@ export function cronText(cron: string): string {
   const at = num(minute, 0, 59);
   const hours = list(hour, 0, 23);
   if (at === null || hours === null) return cron;
-  const time = hours.map((h) => `${pad(h)}:${pad(at)}`).join(", ");
+  const time = hours.map((h) => `${pad2(h)}:${pad2(at)}`).join(", ");
   if (day === "*") {
     const days = weekday === "*" ? new Set([0, 1, 2, 3, 4, 5, 6]) : weekdays(weekday);
     return days ? onDays(days, time) : cron;

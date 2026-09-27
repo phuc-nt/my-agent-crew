@@ -1,7 +1,6 @@
 import type { ConversationDetail } from "../api/types";
 import { vi } from "../i18n/vi";
-
-const pad = (n: number) => String(n).padStart(2, "0");
+import { pad2 } from "./relative-time";
 
 /**
  * "UTC+7", "UTC+5:30", "UTC-3": the zone the export's clock readings are in.
@@ -15,15 +14,15 @@ function zoneLabel(date: Date): string {
   const sign = offset < 0 ? "-" : "+";
   const hours = Math.floor(Math.abs(offset) / 60);
   const minutes = Math.abs(offset) % 60;
-  return `UTC${sign}${hours}${minutes ? `:${pad(minutes)}` : ""}`;
+  return `UTC${sign}${hours}${minutes ? `:${pad2(minutes)}` : ""}`;
 }
 
 /** "26/09/2026 14:05 (UTC+7)", built by hand: Intl's vi-VN dates differ between ICU builds. */
 export function exportStamp(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
-  const day = `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()}`;
-  return `${day} ${pad(date.getHours())}:${pad(date.getMinutes())} (${zoneLabel(date)})`;
+  const day = `${pad2(date.getDate())}/${pad2(date.getMonth() + 1)}/${date.getFullYear()}`;
+  return `${day} ${pad2(date.getHours())}:${pad2(date.getMinutes())} (${zoneLabel(date)})`;
 }
 
 // CommonMark's line shapes: up to three spaces of indent, then the marks. A backtick

@@ -13,15 +13,16 @@ function startOfDay(date: Date): number {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
 }
 
-const pad = (n: number) => String(n).padStart(2, "0");
+/** "07", "24": a clock or calendar field as two digits, for the times the page writes by hand. */
+export const pad2 = (n: number) => String(n).padStart(2, "0");
 
 /** "24/09", built by hand: Intl's vi-VN date differs between ICU builds ("24-09" in Node). */
 function shortDate(date: Date): string {
-  return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}`;
+  return `${pad2(date.getDate())}/${pad2(date.getMonth() + 1)}`;
 }
 
 function clock(date: Date): string {
-  return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
 }
 
 function parse(iso: string): Date | null {

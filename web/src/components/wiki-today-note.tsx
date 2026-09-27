@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { vi } from "../i18n/vi";
+import { pad2 } from "../lib/relative-time";
 import { MemoryEditor } from "./memory-editor";
 
 interface Props {
@@ -15,8 +16,7 @@ interface Props {
  * over breakfast would land in the day before, where nobody would look for it.
  */
 export function localDay(now: Date = new Date()): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
 }
 
 /**
