@@ -26,6 +26,41 @@ export function exportStamp(iso: string): string {
   return `${day} ${pad(date.getHours())}:${pad(date.getMinutes())} (${zoneLabel(date)})`;
 }
 
+// CommonMark's line shapes: up to three spaces of indent, then the marks. A backtick
+// fence's info string holds no backtick, or the line is inline code, not a fence.
+const FENCE_OPEN = /^( {0,3})(`{3,}(?=[^`]*$)|~{3,})/;
+const FENCE_CLOSE = /^ {0,3}(`{3,}|~{3,})[ \t]*$/;
+const HEADING = /^( {0,3})(#{1,6})(?=[ \t]|$)/;
+const UNDERLINE = /^ {0,3}(?:=+|-+)[ \t]*$/;
+
+/**
+ * A message body that stays inside its turn.
+ *
+ * Only a turn heading may say who spoke: a reply's own headings are its sections, so they
+ * move two levels down, below the turns, and an underline that would make the line above it
+ * a heading is set apart from it. Code is left as written. A block the reply never closed —
+ * one cut off at the token limit — is closed, or it would swallow every turn after it.
+ */
+function nested(body: string): string {
+  const lines: string[] = [];
+  let fence: { indent: string; marks: string } | null = null;
+  for (const line of body.split(/\r\n|\r|\n/)) {
+    if (fence) {
+      const close = FENCE_CLOSE.exec(line)?.[1];
+      if (close && close[0] === fence.marks[0] && close.length >= fence.marks.length) fence = null;
+      lines.push(line);
+      continue;
+    }
+    const open = FENCE_OPEN.exec(line);
+    if (open) fence = { indent: open[1], marks: open[2] };
+    else if (UNDERLINE.test(line) && lines.length > 0 && lines[lines.length - 1].trim() !== "") lines.push("");
+    lines.push(line.replace(HEADING, (_, indent: string, marks: string) => indent + "#".repeat(Math.min(6, marks.length + 2))));
+  }
+  // Indented as it opened, so a block inside a list item closes there, not after the list.
+  if (fence) lines.push(fence.indent + fence.marks);
+  return lines.join("\n");
+}
+
 /**
  * The conversation as a markdown document: its title, then each turn under a heading that
  * says who spoke and when.
@@ -41,7 +76,7 @@ export function conversationMarkdown(detail: ConversationDetail, agentName: stri
     const body = message.content.trim();
     if (body === "") continue;
     const who = message.role === "user" ? vi.you : agentName;
-    parts.push(`## ${who} · ${exportStamp(message.created_at)}`, body);
+    parts.push(`## ${who} · ${exportStamp(message.created_at)}`, nested(body));
   }
   return `${parts.join("\n\n")}\n`;
 }

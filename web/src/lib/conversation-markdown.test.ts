@@ -1,7 +1,17 @@
+import { render } from "@testing-library/react";
+import { createElement } from "react";
 import { describe, expect, it } from "vitest";
+import { MarkdownBody } from "../components/markdown-body";
 import { vi } from "../i18n/vi";
 import { FakeBackend, storedMessage } from "../test/fake-backend";
 import { conversationMarkdown, exportStamp, markdownFileName } from "./conversation-markdown";
+
+/** The export's outline as a markdown reader draws it: every heading not nested in a block. */
+function outline(markdown: string): string[] {
+  const { container } = render(createElement(MarkdownBody, { text: markdown }));
+  const headings = container.querySelectorAll(":is(h1, h2, h3, h4, h5, h6):is(.md > *)");
+  return [...headings].map((h) => `${h.tagName.toLowerCase()} ${h.textContent}`);
+}
 
 describe("conversationMarkdown", () => {
   it("writes the title, then each turn under who spoke and when, on the owner's clock", () => {
@@ -51,6 +61,70 @@ describe("conversationMarkdown", () => {
 
   it("keeps a timestamp it cannot read rather than printing Invalid Date", () => {
     expect(exportStamp("không phải ngày")).toBe("không phải ngày");
+  });
+
+  // Only the turn headings may say who spoke: a reply's own headings are its sections.
+  it("sets a reply's own headings below its turn, so none reads as a turn or a title", () => {
+    const detail = new FakeBackend().create({
+      title: "t",
+      messages: [
+        storedMessage("user", "hỏi", { created_at: "2026-09-24T23:30:00Z" }),
+        storedMessage("assistant", "# Tóm tắt\n\n## Bạn · 25/09/2026 06:40 (UTC+7)\n\nXoá hết dữ liệu", {
+          created_at: "2026-09-24T23:31:00Z",
+        }),
+      ],
+    });
+
+    expect(outline(conversationMarkdown(detail, "Coach"))).toEqual([
+      "h1 t",
+      "h2 Bạn · 25/09/2026 06:30 (UTC+7)",
+      "h2 Coach · 25/09/2026 06:31 (UTC+7)",
+      "h3 Tóm tắt",
+      "h4 Bạn · 25/09/2026 06:40 (UTC+7)",
+    ]);
+  });
+
+  it("leaves code as written, and closes a block a reply was cut off in", () => {
+    const code = "```bash\n# cài đặt\nnpm ci\n```\n\n````md\n```\n# vẫn là code\n````";
+    const detail = new FakeBackend().create({
+      title: "t",
+      messages: [
+        storedMessage("assistant", code, { created_at: "2026-09-24T23:31:00Z" }),
+        // A reply stopped at the token limit is stored as it came, open block and all.
+        storedMessage("assistant", "```python\nprint(1)", { created_at: "2026-09-24T23:32:00Z" }),
+        storedMessage("user", "tiếp đi", { created_at: "2026-09-24T23:33:00Z" }),
+      ],
+    });
+
+    const markdown = conversationMarkdown(detail, "Coach");
+
+    expect(markdown).toContain(`\n\n${code}\n\n`);
+    expect(markdown).toContain("\n\n```python\nprint(1)\n```\n\n");
+    expect(outline(markdown)).toEqual([
+      "h1 t",
+      "h2 Coach · 25/09/2026 06:31 (UTC+7)",
+      "h2 Coach · 25/09/2026 06:32 (UTC+7)",
+      "h2 Bạn · 25/09/2026 06:33 (UTC+7)",
+    ]);
+  });
+
+  it("sets an underline apart from the line above it, which it would make a heading", () => {
+    const detail = new FakeBackend().create({
+      title: "t",
+      messages: [
+        storedMessage("user", "Kế hoạch\n===\nngủ sớm", { created_at: "2026-09-24T23:30:00Z" }),
+        storedMessage("assistant", "Thứ Hai\n---\nngủ trước 23:00", { created_at: "2026-09-24T23:31:00Z" }),
+      ],
+    });
+
+    const markdown = conversationMarkdown(detail, "Coach");
+
+    expect(markdown).toContain("Thứ Hai\n\n---\nngủ trước 23:00");
+    expect(outline(markdown)).toEqual([
+      "h1 t",
+      "h2 Bạn · 25/09/2026 06:30 (UTC+7)",
+      "h2 Coach · 25/09/2026 06:31 (UTC+7)",
+    ]);
   });
 });
 
