@@ -206,6 +206,35 @@ describe("the recent runs log", () => {
     await waitFor(() => expect(retry).toHaveFocus());
   });
 
+  // Pressing the retry takes it off the page, and the focus of whoever pressed it fell to
+  // the top of the page, whether the page then came or failed again.
+  it("keeps the focus through a retry that fails again, then hands it to the first run the page brought", async () => {
+    backend.runs = many(150);
+    let online = false;
+    let failed = 0;
+    vitest.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) => {
+      if (online || !String(input).includes("limit=200")) return backend.fetch(input, init);
+      failed += 1;
+      return Promise.reject(new Error("offline"));
+    });
+    show();
+    const more = await screen.findByText(vi.showMore, { selector: "button" });
+    more.focus();
+    await userEvent.keyboard("{Enter}");
+    const retry = () => screen.getByText(vi.retry, { selector: "button" });
+    await waitFor(() => expect(retry()).toHaveFocus());
+
+    await userEvent.keyboard("{Enter}");
+    await waitFor(() => expect(failed).toBe(2));
+    await waitFor(() => expect(retry()).toHaveFocus());
+
+    online = true;
+    await userEvent.keyboard("{Enter}");
+    await waitFor(() => expect(screen.getAllByTestId("run-card")).toHaveLength(150));
+    const firstNew = screen.getAllByTestId("run-card")[100];
+    await waitFor(() => expect(within(firstNew).getByRole("button")).toHaveFocus());
+  });
+
   it("offers no further step when the history is shorter than a page", async () => {
     backend.runs = many(3);
     show();

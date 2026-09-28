@@ -120,3 +120,23 @@ describe("a history whose query changes while a request is out", () => {
     expect(result.current.failed).toBe(false);
   });
 });
+
+describe("a reload after a failure", () => {
+  // One render on, the old failure read as the retried page having settled already, and
+  // a view that moves the focus once that page settles moved it too early.
+  it("lets the failure go in the render the reload asks in, until the answer lands", async () => {
+    const { result, frames } = mount({ agentId: "coach", limit: 200 });
+    await asked[0].fail();
+    expect(result.current).toMatchObject({ loading: false, failed: true });
+
+    const from = frames.length;
+    act(() => result.current.reload());
+    expect(asked).toHaveLength(2);
+    expect(frames.length).toBeGreaterThan(from);
+    for (const frame of frames.slice(from)) expect(frame).toMatchObject({ loading: true, failed: false });
+
+    await asked[1].answer([fakeRun({ id: "r1", agent_id: "coach" })]);
+    expect(ids(result.current)).toEqual(["r1"]);
+    expect(result.current).toMatchObject({ loading: false, failed: false, pageLimit: 200 });
+  });
+});

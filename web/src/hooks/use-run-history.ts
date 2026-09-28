@@ -70,7 +70,12 @@ export function useRunHistory({
     };
   }, [key, agentId, conversationId, limit, refreshKey, attempt]);
 
-  const reload = useCallback(() => setAttempt((n) => n + 1), []);
+  // The failure goes in the same render as the retry, not one later: a view that moves the
+  // focus once the page it waits for settles would take the old failure for that page.
+  const reload = useCallback(() => {
+    setLoaded((prev) => ({ ...prev, loading: true, failed: false }));
+    setAttempt((n) => n + 1);
+  }, []);
   // Another conversation's or agent's history is never shown while this one's loads.
   const same = loaded.key === key;
   return {

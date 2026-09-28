@@ -68,12 +68,13 @@ export function RecentRunsLog({
   // The step asked for is on its way until its page is the one on show, or has failed.
   const waiting = history.loading || (history.pageLimit < limit && !history.failed);
 
-  // Where the runs a pressed "Xem thêm" asked for start, until that page settles.
+  // Where the runs a pressed "Xem thêm", or its retry, asked for start, until that page settles.
   const firstNew = useRef<number | null>(null);
   const log = useRef<HTMLDivElement>(null);
   // The last page takes the button with it, and a failed one swaps it for a retry: the
   // focus of whoever pressed it would fall to the top of the page. It goes to the first
-  // run that page brought instead, where reading carries on, or to the retry.
+  // run that page brought instead, where reading carries on, or to the retry. Pressing the
+  // retry takes it away too, so it marks the same place again.
   useEffect(() => {
     const from = firstNew.current;
     if (from === null || waiting) return;
@@ -112,7 +113,13 @@ export function RecentRunsLog({
       {history.failed ? (
         <EmptyState
           says={vi.runFilters.failed}
-          action={{ label: vi.retry, onClick: history.reload }}
+          action={{
+            label: vi.retry,
+            onClick: () => {
+              firstNew.current = groups.length;
+              history.reload();
+            },
+          }}
         />
       ) : shown.length > 0 ? null : history.loading && narrowed ? (
         <p className="muted" role="status">
