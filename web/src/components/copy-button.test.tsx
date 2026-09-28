@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
+import { Profiler } from "react";
 import { afterEach, describe, expect, it, vi as vitest } from "vitest";
 import { vi } from "../i18n/vi";
 import { BubbleActions, COPIED_MS, CopyButton } from "./copy-button";
@@ -72,6 +73,27 @@ describe("CopyButton", () => {
     expect(screen.queryByTestId("copy-fallback")).toBeNull();
     // The focus goes back where it came from, not to the top of the page.
     expect(screen.getByRole("button", { name: vi.copy.reply })).toHaveFocus();
+  });
+
+  // A passive effect runs a task after the box shows, and a key pressed in that moment still
+  // goes to the button. A profiler hears of each commit after its layout effects and before
+  // any passive one, so what has the focus then is what that key would meet.
+  it("has the hand-copy box take the focus in the commit that shows it", async () => {
+    installClipboard(() => Promise.reject(new DOMException("denied", "NotAllowedError")));
+    let focusedWhenShown: Element | null | undefined;
+    const onCommit = () => {
+      if (focusedWhenShown === undefined && screen.queryByTestId("copy-fallback")) focusedWhenShown = document.activeElement;
+    };
+    render(
+      <Profiler id="copy" onRender={onCommit}>
+        <CopyButton text={reply} label={vi.copy.reply} />
+      </Profiler>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: vi.copy.reply }));
+
+    const box = await screen.findByRole("textbox", { name: vi.copy.manual });
+    expect(focusedWhenShown).toBe(box);
   });
 
   it("puts the hand-copy box away on Esc, keeps the Esc to itself, and returns the focus", async () => {

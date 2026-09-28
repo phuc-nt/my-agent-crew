@@ -250,7 +250,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "the retry takes no room of its own, so the composer stays put when the stream drops"
 - **Chép, chia sẻ, xuất Markdown, tệp gửi qua Telegram**
   - vitest: `components/copy-button.test.tsx`
-    ("shows the text to copy by hand when the browser refuses the write", "BubbleActions");
+    ("shows the text to copy by hand when the browser refuses the write",
+    "has the hand-copy box take the focus in the commit that shows it", "BubbleActions");
     `components/markdown-body.test.tsx`
     ("keeps a fence with no language a block, not a run of inline code",
     "gives each fenced block a copy of its own that takes the code and nothing else");
