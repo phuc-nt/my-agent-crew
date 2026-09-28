@@ -21,7 +21,9 @@ agent hiện nguyên câu đó) có một test ở mỗi bên ranh giới. Fake 
 của Playwright tự tính
 lại những trường server suy ra (như `over_budget` từ trần), để test không tin vào một con số
 cũ. Route của Playwright trả cả thân một lần, nên một stream còn đang chạy khi bấm Dừng được
-dựng ngay trong trang bằng `addInitScript` (test Dừng trong `chat-smoke.spec.ts`); còn run do
+dựng ngay trong trang bằng `addInitScript` (test Dừng trong `chat-smoke.spec.ts`), và luồng
+hoạt động cũng vậy khi một số đếm phải đổi sau khi trang đã mở (`manage-row-phone.spec.ts`, spec
+này còn chờ font tải xong rồi mới mở mục, vì font đến muộn làm mọi pill rộng ra); còn run do
 kênh khác chạy và nút Thử lại của luồng trực tiếp có test App riêng trong
 `app-thread-refresh.test.tsx`; những lần tải lại chạy đua với lượt của chính tab này (một tin
 gửi khi lần tải còn trên đường; một run của kênh khác đã chạy từ trước khi gửi, bắt đầu sau run
@@ -333,6 +335,14 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "a job reads its schedule in words, shows its last run, and a failure is counted on the nav";
     `jobs-list-smoke.spec.ts` ("a job off in its profile dims its text but not its buttons",
     "the back link of a job's editor or run returns to that job's row")
+- **Hàng mục Quản lý trên điện thoại: pill đang mở trong tầm nhìn, hàng người dùng đã cuộn thì
+  đứng yên**
+  - vitest: `screens/manage-screen.test.tsx` ("brings the current section's entry into view",
+    "brings the current section's entry back into view when a count changes",
+    "leaves the row where the person scrolled it when a count changes")
+  - Playwright: `manage-row-phone.spec.ts`
+    ("a count arriving leaves the row where the person scrolled it",
+    "the current pill stays in view as the counts before it widen the row")
 - **Thanh "Có bản mới" và phiên bản trong Cài đặt**
   - vitest: `hooks/use-version-check.test.ts`; `components/update-bar.test.tsx`; `app.test.tsx`
     ("offers a reload once the server runs a newer build than the page",

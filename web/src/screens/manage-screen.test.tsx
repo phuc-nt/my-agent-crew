@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi as vitest } from "vitest";
 import { vi } from "../i18n/vi";
@@ -143,6 +143,47 @@ describe("the manage screen", () => {
     const current = screen.getByRole("button", { current: "page" });
     expect(screen.getByRole("button", { name: /Hoạt động/ })).toHaveTextContent(vi.manage.failedBadge);
     expect(scrolled).toEqual([current, current]);
+  });
+
+  // Snapping a row the person scrolled back to the current pill as a count arrives slides the
+  // pill they were reaching for from under their finger, and the tap lands on another.
+  it("leaves the row where the person scrolled it when a count changes", () => {
+    const scrolled: Element[] = [];
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = function (this: Element) {
+      scrolled.push(this);
+    };
+    const failed = (n: number) => Array.from({ length: n }, (_, i) => fakeRun({ id: `broke-${i}`, status: "error" }));
+    const place = (element: Element, left: number, width: number) => {
+      const box = { left, right: left + width, width, x: left, top: 0, bottom: 40, height: 40, y: 0 };
+      element.getBoundingClientRect = () => ({ ...box, toJSON: () => box });
+    };
+    try {
+      const { rerender } = show("jobs");
+      const jobs = screen.getByRole("button", { current: "page" });
+      const row = jobs.closest(".manage-nav-groups")!;
+      place(row, 0, 390);
+      place(jobs, -240, 90);
+      fireEvent.scroll(row);
+      rerender({ attention: failed(1) });
+      expect(scrolled).toEqual([jobs]);
+      // Scrolled back with the pill in sight, the row is the page's to keep in order again.
+      place(jobs, 150, 90);
+      fireEvent.scroll(row);
+      rerender({ attention: failed(2) });
+      expect(scrolled).toEqual([jobs, jobs]);
+      // Out of sight again, and then another section is chosen: arriving there shows it, and
+      // the new pill is kept in view as the counts go on changing.
+      place(jobs, 420, 90);
+      fireEvent.scroll(row);
+      rerender({ attention: failed(2), section: "activity" });
+      const activity = screen.getByRole("button", { current: "page" });
+      expect(activity).toHaveTextContent(vi.activity);
+      rerender({ attention: failed(3), section: "activity" });
+      expect(scrolled).toEqual([jobs, jobs, activity, activity]);
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
   });
 
   it("renders the schedule when that is the section asked for", () => {

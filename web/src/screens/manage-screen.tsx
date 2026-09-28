@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState, type UIEvent } from "react";
 import type { AgentInfo, InstallResult, JobInfo, SettingsInfo, StatsInfo, TemplateInfo } from "../api/types";
 import type { RunInfo } from "../api/types";
 import { AgentEditor } from "../components/agent-editor/agent-editor";
@@ -164,13 +164,27 @@ export function ManageScreen(props: Props) {
   // pills scrolled sideways, and arriving on a section whose pill sits past the edge would
   // leave the person with no sign of where they are. The counts come after the first paint
   // and widen the pills, and a browser does not hold a sideways scroll in place as they
-  // grow, so the entry is brought back whenever one changes. "nearest" moves nothing that
-  // is already visible, so neither the sidebar on a wide screen nor a pill in view jumps.
+  // grow, so the entry is brought back when one changes — unless the person has scrolled
+  // it out of sight since: the row is theirs then, and snapping it back would slide the
+  // pill they were reaching for from under their finger. "nearest" moves nothing that is
+  // already visible, so neither the sidebar on a wide screen nor a pill in view jumps.
   const active = useRef<HTMLButtonElement>(null);
+  const shown = useRef<{ section: ManageSection | null; inView: boolean }>({ section: null, inView: true });
   const counts = [running, failed.length, awaiting.length, pendingProposals, failing].join();
   useLayoutEffect(() => {
+    if (shown.current.section === props.section && !shown.current.inView) return;
     active.current?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+    shown.current = { section: props.section, inView: true };
   }, [props.section, counts]);
+  // Where the person's scrolling left the current entry. A scroll event does not bubble in
+  // React, so the wide screen's column and the phone's row each report their own.
+  const onNavScroll = (event: UIEvent<HTMLElement>) => {
+    const pill = active.current?.getBoundingClientRect();
+    if (!pill) return;
+    const box = event.currentTarget.getBoundingClientRect();
+    shown.current.inView =
+      pill.left >= box.left - 1 && pill.right <= box.right + 1 && pill.top >= box.top - 1 && pill.bottom <= box.bottom + 1;
+  };
   const badge = (section: ManageSection) => {
     if (section === "activity")
       return (
@@ -197,14 +211,14 @@ export function ManageScreen(props: Props) {
 
   return (
     <div className="manage-layout" data-testid="manage-screen">
-      <nav className="manage-nav" aria-label={vi.manage.nav}>
+      <nav className="manage-nav" aria-label={vi.manage.nav} onScroll={onNavScroll}>
         <div className="manage-nav-head">
           <Brand />
         </div>
         <button type="button" className="ghost back-to-chat" onClick={props.onBackToChat}>
           {vi.manage.backToChat}
         </button>
-        <div className="manage-nav-groups">
+        <div className="manage-nav-groups" onScroll={onNavScroll}>
           {NAV_GROUPS.map((group) => (
             <div className="manage-nav-group" key={group.key}>
               <p className="manage-nav-label">{vi.manage.groups[group.key]}</p>

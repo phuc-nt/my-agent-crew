@@ -204,7 +204,9 @@ server runs a newer build, and a run paused for approval survives a server resta
 - **The agent editor shows the server's restart reasons as the sentences they are**, after the
   saved note, instead of setting each inside a sentence of its own as if it named a changed key.
 - **On a phone, the current manage section's pill stays in view** when the badge counts arrive
-  after the first paint and widen the row.
+  after the first paint and widen the row. A row the person has scrolled the pill out of stays
+  where they left it, so a count arriving mid-swipe no longer slides another section under their
+  finger.
 
 ### Upgrade notes
 
