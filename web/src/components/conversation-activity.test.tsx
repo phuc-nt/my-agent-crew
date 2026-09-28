@@ -401,7 +401,9 @@ describe("a conversation's runs from before the page opened", () => {
       release();
 
       await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(vi.noRuns));
-      expect(screen.getByRole("status")).toHaveFocus();
+      // The line is on the page as soon as the answer renders; the focus follows once the
+      // effects of that render have run, which a busy machine does a moment later.
+      await waitFor(() => expect(screen.getByRole("status")).toHaveFocus());
     });
 
     it("stays wherever the person has put it since", async () => {
