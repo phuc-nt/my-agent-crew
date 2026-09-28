@@ -253,11 +253,11 @@ describe("App", () => {
     await userEvent.type(screen.getByRole("textbox"), "x{Enter}");
     const notice = await screen.findByTestId("notice");
 
-    backend.refuseEdit = "cost_cap_usd must be at least 0";
+    backend.refuseEdit = "Trần chi phí vượt mức cho phép của máy chủ.";
     await userEvent.click(within(notice).getByRole("button", { name: vi.budgetCard.raise }));
     await userEvent.type(within(notice).getByLabelText(vi.budgetCard.custom), "0{Enter}");
     expect(await within(notice).findByRole("alert")).toHaveTextContent(
-      vi.budgetCard.saveFailed("cost_cap_usd must be at least 0"),
+      vi.budgetCard.saveFailed("Trần chi phí vượt mức cho phép của máy chủ."),
     );
     expect(screen.queryByText(vi.loadFailed)).not.toBeInTheDocument();
 

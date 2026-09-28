@@ -3,6 +3,7 @@ import type { CredentialInfo } from "../api/types";
 import type { CredentialsController } from "../hooks/use-credentials";
 import { vi } from "../i18n/vi";
 import { MetricRow, type Tone } from "./ui/metric-card";
+import { errorText as requestErrorText } from "../lib/error-text";
 
 interface Props {
   item: CredentialInfo;
@@ -14,7 +15,7 @@ interface Note {
   text: string;
 }
 
-const errorText = (e: unknown) => vi.connectionsPage.failed(e instanceof Error ? e.message : String(e));
+const errorText = (e: unknown) => vi.connectionsPage.failed(requestErrorText(e));
 
 /**
  * One environment variable: whether it is set, and the controls to set, replace, remove

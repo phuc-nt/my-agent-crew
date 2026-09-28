@@ -6,6 +6,7 @@ import { conversationMarkdown, downloadText, markdownFileName } from "../lib/con
 import { Icon } from "./ui/icon";
 import { MetricCard, MetricDivider, MetricRow, SwitchRow } from "./ui/metric-card";
 import { PopoverChip } from "./ui/popover-chip";
+import { errorText } from "../lib/error-text";
 
 interface Props {
   conversation: Conversation;
@@ -123,7 +124,7 @@ function ExportButton({ conversationId, agentName }: { conversationId: string; a
       const detail = await api.getConversation(conversationId);
       downloadText(markdownFileName(detail.title), conversationMarkdown(detail, agentName));
     } catch (err) {
-      setError(vi.options.exportFailed(err instanceof Error ? err.message : String(err)));
+      setError(vi.options.exportFailed(errorText(err)));
     } finally {
       setBusy(false);
     }

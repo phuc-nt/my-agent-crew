@@ -4,6 +4,7 @@ import { vi } from "../i18n/vi";
 import { AddAgentForm } from "./add-agent-form";
 import { AgentAvatar } from "./ui/agent-avatar";
 import { Icon } from "./ui/icon";
+import { errorText } from "../lib/error-text";
 
 interface Props {
   agents: AgentInfo[];
@@ -55,7 +56,7 @@ export function CrewPanel({
         restart: result.needs_restart,
       });
     } catch (e) {
-      setNotice({ kind: "error", text: vi.crew.installFailed(e instanceof Error ? e.message : String(e)) });
+      setNotice({ kind: "error", text: vi.crew.installFailed(errorText(e)) });
     } finally {
       setInstalling(null);
     }

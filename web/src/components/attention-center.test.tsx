@@ -168,7 +168,7 @@ describe("AttentionCenter with requests settled in place", () => {
     inline([run]);
     await userEvent.click(within(await request()).getByRole("button", { name: vi.approve }));
 
-    expect(await screen.findByText(vi.errorPrefix + "network error")).toBeInTheDocument();
+    expect(await screen.findByText(vi.errorPrefix + vi.requestErrors.network)).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByRole("group")).not.toBeInTheDocument());
     await userEvent.click(screen.getByRole("button", { name: vi.attentionSeenLabel(vi.attentionAwaiting("Agent")) }));
     expect(screen.queryByTestId("attention-row")).not.toBeInTheDocument();
@@ -273,9 +273,9 @@ describe("AttentionCenter with requests settled in place", () => {
       <AttentionCenter runs={[run]} inline agentName={name} onOpenConversation={() => undefined} />,
     );
 
-    expect(await screen.findByText(vi.errorPrefix + "offline")).toBeInTheDocument();
+    expect(await screen.findByText(vi.errorPrefix + vi.requestErrors.network)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: vi.retry }));
-    expect(await screen.findByText(vi.errorPrefix + "offline")).toBeInTheDocument();
+    expect(await screen.findByText(vi.errorPrefix + vi.requestErrors.network)).toBeInTheDocument();
     expect(screen.queryByRole("group")).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: vi.retry }));

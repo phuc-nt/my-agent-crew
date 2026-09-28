@@ -10,6 +10,7 @@ import { api } from "../api/client";
 import type { AgentInfo, AgentPatch } from "../api/types";
 import { vi } from "../i18n/vi";
 import { type DraftProblems, draftProblems, hasProblems, toPatch } from "./agent-draft-checks";
+import { errorText } from "../lib/error-text";
 
 /** The keys the form can change. `id`, `dir` and everything derived stay out of it. */
 export type DraftKey = keyof AgentPatch;
@@ -186,7 +187,7 @@ export function useAgentDraft(
       // The draft is deliberately left alone: a refused edit is usually one bad field
       // among several good ones, and clearing the form would make the person retype all
       // of them to find out which.
-      setError(e instanceof Error ? e.message : String(e));
+      setError(errorText(e));
       return false;
     } finally {
       setSaving(false);

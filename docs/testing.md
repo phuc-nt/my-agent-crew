@@ -175,6 +175,13 @@ tên một test thì sửa dòng của nó trong cùng commit.
   - Playwright: `chat-smoke.spec.ts`
     "a spent cap is raised from the budget pill's card and the composer writes again";
     `chat-state-phone.spec.ts` "a spent budget's notice keeps its raise on one line"
+- **Lỗi request nói bằng lời: giữ câu server viết, dịch dump kiểm tra, 404 soạn sẵn, lỗi 5xx và
+  lỗi mạng**
+  - vitest: `lib/error-text.test.ts`; `components/cap-editor.test.tsx`
+    ("says in words why the server refused a cap, not in its validation dump",
+    "keeps a refusal the server wrote as a sentence",
+    "says the conversation is gone when the server no longer has it",
+    "says the server could not be reached rather than the browser's own words")
   - pytest:
     `tests/test_server_api.py::test_raising_a_spent_cap_lifts_the_budget_block_and_a_negative_cap_is_refused`
 - **Duyệt, từ chối hay trả lời ngay trong Quản lý; "Đã xem" cho lỗi**

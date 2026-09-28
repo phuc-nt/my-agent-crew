@@ -2,13 +2,14 @@ import { type Dispatch, type SetStateAction, useCallback, useEffect, useRef, use
 import { api } from "../api/client";
 import type { RunInfo } from "../api/types";
 import { type PendingApproval, pendingFromApproval } from "../state/thread-reducer";
+import { errorText } from "../lib/error-text";
 
 export type OpenRequest =
   | { state: "loading" }
   | { state: "ready"; pending: PendingApproval | null }
   | { state: "failed"; message: string };
 
-export const messageOf = (err: unknown) => (err instanceof Error ? err.message : String(err));
+export const messageOf = (err: unknown) => errorText(err);
 
 interface Controller {
   load: OpenRequest;

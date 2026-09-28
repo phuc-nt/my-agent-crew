@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import type { CredentialsController } from "../hooks/use-credentials";
 import { vi } from "../i18n/vi";
+import { errorText } from "../lib/error-text";
 
 // The same rule the server enforces; checked here too so the button says no before a
 // round trip does. Names the server keeps for itself (PATH, MY_AGENT_*) still come back
@@ -25,7 +26,7 @@ export function CredentialAddForm({ credentials }: { credentials: CredentialsCon
       setName("");
       setValue("");
     } catch (e) {
-      setError(t.failed(e instanceof Error ? e.message : String(e)));
+      setError(t.failed(errorText(e)));
     } finally {
       setBusy(false);
     }

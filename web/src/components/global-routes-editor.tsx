@@ -3,6 +3,7 @@ import { api } from "../api/client";
 import type { ConnectionsInfo, RouteInfo } from "../api/types";
 import { vi } from "../i18n/vi";
 import { RouteListEditor } from "./route-list-editor";
+import { errorText } from "../lib/error-text";
 
 interface Props {
   connections: ConnectionsInfo;
@@ -56,7 +57,7 @@ export function GlobalRoutesEditor({ connections, onSaved }: Props) {
       );
       await onSaved();
     } catch (e) {
-      setNote({ tone: "danger", text: t.failed(e instanceof Error ? e.message : String(e)) });
+      setNote({ tone: "danger", text: t.failed(errorText(e)) });
     } finally {
       setSaving(false);
     }

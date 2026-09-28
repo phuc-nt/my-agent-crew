@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api } from "../api/client";
 import { vi } from "../i18n/vi";
+import { errorText } from "../lib/error-text";
 
 interface Props {
   /** Called with the new agent's id so the caller can open its editor straight away. */
@@ -29,7 +30,7 @@ export function AddAgentForm({ onCreated, onCancel }: Props) {
       await api.createAgent(agentId, { name: name || agentId, description });
       onCreated(agentId);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(errorText(e));
     } finally {
       setBusy(false);
     }

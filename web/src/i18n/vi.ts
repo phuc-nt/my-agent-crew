@@ -54,6 +54,7 @@ export const vi = {
     set: "Đặt",
     capInvalid: "Trần phải là một số từ 0 trở lên.",
     saveFailed: (message: string) => `Không lưu được: ${message}`,
+    gone: "Cuộc trò chuyện này không còn trên máy chủ.",
   },
   // The header's options pill: how this conversation behaves.
   options: {
@@ -205,6 +206,14 @@ export const vi = {
   retry: "Thử lại",
   showMore: "Xem thêm",
   approvalsTab: "Duyệt",
+  // A request that failed in a way the server did not put in words for people.
+  requestErrors: {
+    network: "Không gọi được máy chủ — kiểm tra kết nối rồi thử lại.",
+    server: (status: number) => `Máy chủ gặp lỗi (HTTP ${status}); thử lại sau.`,
+    notFound: "Máy chủ không còn thấy thứ này; tải lại trang để xem hiện giờ.",
+    invalid: "Máy chủ không nhận giá trị này.",
+    status: (status: number) => `Máy chủ từ chối (HTTP ${status}).`,
+  },
   manage: {
     open: "Quản lý",
     label: "Khu quản lý",

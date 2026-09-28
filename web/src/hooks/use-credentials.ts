@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api/client";
 import type { CredentialCheck, CredentialsInfo } from "../api/types";
+import { errorText } from "../lib/error-text";
 
 export interface CredentialsController {
   info: CredentialsInfo | null;
@@ -29,7 +30,7 @@ export function useCredentials(onChanged?: () => void): CredentialsController {
         setError(null);
       })
       .catch((e: unknown) => {
-        if (live) setError(e instanceof Error ? e.message : String(e));
+        if (live) setError(errorText(e));
       });
     return () => {
       live = false;

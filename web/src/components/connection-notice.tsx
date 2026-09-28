@@ -13,13 +13,14 @@ interface Props {
  * Says when the pages of the manage screen stopped following the server. Their lists and
  * counts come from the live stream, so once it drops they go stale with nothing to show
  * it; the chat has its status line for this, the manage screen has this notice. The live
- * region stays in place while empty, so a screen reader hears the sentence as it appears.
+ * region stays in place while empty, so a screen reader hears the sentence as it appears;
+ * it is no status role, which the pages keep for their own notices.
  */
 export function ConnectionNotice({ connected, connecting, onRetry }: Props) {
   const online = useOnline();
   const lost = !connected && !connecting;
   return (
-    <div className="connection-status" role="status" aria-live="polite">
+    <div className="connection-status" aria-live="polite" data-testid="connection-status">
       {!online ? (
         <p className="notice warn">{vi.manage.offline}</p>
       ) : (

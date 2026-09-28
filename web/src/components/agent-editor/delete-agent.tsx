@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api } from "../../api/client";
 import { vi } from "../../i18n/vi";
+import { errorText } from "../../lib/error-text";
 
 interface Props {
   agentId: string;
@@ -29,7 +30,7 @@ export function DeleteAgent({ agentId, onDeleted }: Props) {
     } catch (e) {
       // Usually a 409 naming the agents that delegate to this one, which is the whole
       // answer to "why not" — so it is shown as the server wrote it.
-      setError(vi.editor.deleteFailed(e instanceof Error ? e.message : String(e)));
+      setError(vi.editor.deleteFailed(errorText(e)));
     } finally {
       setBusy(false);
     }

@@ -52,13 +52,38 @@ describe("CapEditor", () => {
     expect(patches()).toEqual([]);
   });
 
-  it("says why a refused save did not go through", async () => {
-    backend.refuseEdit = "cost_cap_usd must be at least 0";
+  // What FastAPI sends for a value its model refuses: a list of failures, not a sentence.
+  const validationDump = JSON.stringify([
+    { type: "greater_than_equal", loc: ["body", "cost_cap_usd"], msg: "Input should be greater than or equal to 0" },
+  ]);
+
+  it("says in words why the server refused a cap, not in its validation dump", async () => {
+    backend.refuseEdit = validationDump;
+    render(<CapEditor capUsd={1} onSave={saveToServer} />);
+    await userEvent.click(screen.getByRole("button", { name: "+$1.00" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(vi.budgetCard.saveFailed(vi.requestErrors.invalid));
+  });
+
+  it("keeps a refusal the server wrote as a sentence", async () => {
+    backend.refuseEdit = "Trần chi phí vượt mức cho phép của máy chủ.";
     render(<CapEditor capUsd={1} onSave={saveToServer} />);
     await userEvent.click(screen.getByRole("button", { name: "+$1.00" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      vi.budgetCard.saveFailed("cost_cap_usd must be at least 0"),
+      vi.budgetCard.saveFailed("Trần chi phí vượt mức cho phép của máy chủ."),
     );
+  });
+
+  it("says the conversation is gone when the server no longer has it", async () => {
+    render(<CapEditor capUsd={1} onSave={(cap) => api.patchConversation("gone", { cost_cap_usd: cap }).then(() => {})} />);
+    await userEvent.click(screen.getByRole("button", { name: "+$1.00" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(vi.budgetCard.saveFailed(vi.budgetCard.gone));
+  });
+
+  it("says the server could not be reached rather than the browser's own words", async () => {
+    vitest.stubGlobal("fetch", () => Promise.reject(new TypeError("Failed to fetch")));
+    render(<CapEditor capUsd={1} onSave={saveToServer} />);
+    await userEvent.click(screen.getByRole("button", { name: "+$1.00" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(vi.budgetCard.saveFailed(vi.requestErrors.network));
   });
 
   // A disabled button drops the keyboard's focus onto the page, so a save on its way holds

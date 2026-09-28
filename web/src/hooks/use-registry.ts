@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api/client";
 import type { ConnectionsInfo, RegistryTool } from "../api/types";
+import { errorText } from "../lib/error-text";
 
 export interface RegistryController {
   tools: RegistryTool[];
@@ -30,7 +31,7 @@ export function useRegistry(): RegistryController {
       setConnections(nextConnections);
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(errorText(e));
     } finally {
       setLoading(false);
     }

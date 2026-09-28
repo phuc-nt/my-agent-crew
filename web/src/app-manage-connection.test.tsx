@@ -63,7 +63,7 @@ describe("the manage screen and the live stream", () => {
 
   it("says nothing while the stream first connects", async () => {
     const main = await openManage();
-    expect(within(main).getByRole("status")).toBeEmptyDOMElement();
+    expect(within(main).getByTestId("connection-status")).toBeEmptyDOMElement();
   });
 
   it("says the device is offline instead of offering a retry that cannot work", async () => {

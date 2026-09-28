@@ -3,6 +3,7 @@ import { api, ApiError } from "../api/client";
 import type { AgentEvent, ConversationDetail } from "../api/types";
 import { vi } from "../i18n/vi";
 import { emptyThread, threadReducer, type ThreadState } from "../state/thread-reducer";
+import { errorText } from "../lib/error-text";
 
 export interface ThreadController {
   state: ThreadState;
@@ -172,6 +173,5 @@ export function useThread(conversationId: string | null): ThreadController {
 
 function describe(error: unknown): string {
   if (error instanceof ApiError && error.status === 409) return vi.busyConflict;
-  if (error instanceof Error) return error.message;
-  return String(error);
+  return errorText(error);
 }

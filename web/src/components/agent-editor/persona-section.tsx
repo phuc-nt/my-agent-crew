@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../../api/client";
 import type { AgentInfo } from "../../api/types";
 import { vi } from "../../i18n/vi";
+import { errorText } from "../../lib/error-text";
 
 interface Props {
   agent: AgentInfo;
@@ -50,7 +51,7 @@ export function PersonaSection({ agent, readOnly }: Props) {
       await api.putPersonaFile(agent.id, open, body);
       setNotice({ kind: "ok", text: vi.editor.personaSaved(open) });
     } catch (e) {
-      setNotice({ kind: "error", text: e instanceof Error ? e.message : String(e) });
+      setNotice({ kind: "error", text: errorText(e) });
     } finally {
       setSaving(false);
     }

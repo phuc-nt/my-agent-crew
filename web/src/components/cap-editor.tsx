@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { vi } from "../i18n/vi";
 import { formatUsd } from "./budget-indicator";
+import { errorText } from "../lib/error-text";
 
 interface Props {
   capUsd: number;
@@ -39,7 +40,7 @@ export function CapEditor({ capUsd, onSave }: Props) {
       await onSave(next);
       setCustom("");
     } catch (e) {
-      setError(vi.budgetCard.saveFailed(e instanceof Error ? e.message : String(e)));
+      setError(vi.budgetCard.saveFailed(errorText(e, vi.budgetCard.gone)));
     } finally {
       inFlight.current = false;
       setSaving(false);

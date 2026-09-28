@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 import type { Conversation, ConversationPatch } from "../api/types";
 import { forgetDraft } from "./use-draft";
+import { errorText } from "../lib/error-text";
 
 /** The sidebar is the person's chat with the master; the rest of the crew is reached through it. */
 export const MASTER_ID = "default";
@@ -46,7 +47,7 @@ export function useConversations(): ConversationsController {
       setConversations(listed.map((c) => pushed.current.get(c.id)?.conversation ?? c));
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(errorText(e));
     }
   }, []);
 
@@ -61,7 +62,7 @@ export function useConversations(): ConversationsController {
       setActiveId(created.id);
       return created;
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(errorText(e));
       return null;
     }
   }, []);
@@ -81,7 +82,7 @@ export function useConversations(): ConversationsController {
       setConversations((list) => list.map((c) => (c.id === id ? { ...c, summary } : c)));
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(errorText(e));
     }
   }, []);
 
