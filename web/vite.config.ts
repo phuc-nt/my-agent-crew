@@ -28,6 +28,10 @@ export default defineConfig({
     // The owner's calendar, so day boundaries test the same on a laptop here and on CI (UTC).
     env: { TZ: "Asia/Ho_Chi_Minh" },
     environment: "jsdom",
+    // Node 25 and later put a localStorage of their own on the global object, and without
+    // --localstorage-file it is undefined, hiding jsdom's. Tests would then only ever see a
+    // browser that refuses storage here, and a working one on CI's Node 24.
+    execArgv: ["--no-experimental-webstorage"],
     setupFiles: ["./src/test-setup.ts"],
     include: ["src/**/*.test.{ts,tsx}"],
     exclude: ["e2e/**", "node_modules/**"],
