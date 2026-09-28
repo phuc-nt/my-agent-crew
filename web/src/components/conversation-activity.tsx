@@ -3,7 +3,7 @@ import type { RunInfo } from "../api/types";
 import { vi } from "../i18n/vi";
 import { runGroups } from "../state/activity-reducer";
 import { readText, writeText } from "../lib/local-store";
-import { isSettled, stepProgress } from "../lib/run-progress";
+import { isSettled, stepProgress, waitingKey } from "../lib/run-progress";
 import { mergeRuns, useRunHistory } from "../hooks/use-run-history";
 import { ApprovalHistory } from "./approval-history";
 import { ConversationActivitySummary } from "./conversation-activity-summary";
@@ -182,9 +182,10 @@ export function ConversationActivity({
       <ApprovalHistory
         agentName={agentName}
         onOpenConversation={onOpenConversation}
-        // The streamed count, not the merged list's: the stored runs arriving is not a run
-        // settling, and would ask for the approvals twice on every open.
-        refreshKey={settled}
+        // The streamed runs, not the merged list: the stored runs arriving is not a run
+        // settling, and would ask for the approvals twice on every open. A request decided
+        // while its turn goes on to wait again settles no run, so the wait is part of it.
+        refreshKey={`${settled}|${waitingKey(streamed)}`}
         conversationId={conversationId}
       />
     </div>

@@ -7,6 +7,7 @@ import {
   runElapsedMs,
   stepProgress,
   stepState,
+  waitingKey,
   waitingStep,
 } from "./run-progress";
 
@@ -113,6 +114,27 @@ describe("waitingStep", () => {
 
   it("has nothing to name when the run is merely working", () => {
     expect(waitingStep(run("running", [modelStep(), toolStep(null)]))).toBeNull();
+  });
+});
+
+describe("waitingKey", () => {
+  const paused = run("awaiting_approval", [modelStep(["shell_run"]), toolStep(null)]);
+
+  // Decided, the run goes on and stops on its next tool: the same id, the same status.
+  it("changes when a run that was decided waits again on its next tool", () => {
+    const again = run("awaiting_approval", [modelStep(["shell_run"]), toolStep(true), modelStep(["web_fetch"]), toolStep(null, "web_fetch")]);
+    expect(waitingKey([again])).not.toBe(waitingKey([paused]));
+  });
+
+  it("changes when another run starts waiting, or one stops", () => {
+    const other = run("awaiting_approval", [modelStep(["shell_run"]), toolStep(null)], { id: "r2" });
+    expect(waitingKey([paused, other])).not.toBe(waitingKey([paused]));
+    expect(waitingKey([{ ...paused, status: "running" }])).not.toBe(waitingKey([paused]));
+  });
+
+  it("stays put for runs that are only working", () => {
+    const working = run("running", [modelStep(["shell_run"]), toolStep(null)], { id: "r2" });
+    expect(waitingKey([paused, working, { ...working, steps: [...working.steps, modelStep()] }])).toBe(waitingKey([paused]));
   });
 });
 

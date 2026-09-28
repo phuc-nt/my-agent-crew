@@ -24,6 +24,7 @@ import { useCredentials } from "../hooks/use-credentials";
 import { useRegistry } from "../hooks/use-registry";
 import type { ManageSection } from "../hooks/use-route";
 import { vi } from "../i18n/vi";
+import { waitingKey } from "../lib/run-progress";
 import { parentConversationId, runGroups } from "../state/activity-reducer";
 
 interface Props {
@@ -134,13 +135,13 @@ export function ManageScreen(props: Props) {
   const awaiting = props.attention.filter((r) => r.status === "awaiting_approval");
   const failed = props.attention.filter((r) => r.status !== "awaiting_approval");
   // The ledger lists settled requests, and a request settles as its run leaves the pause.
-  // Its key changes with every sign of that here: a run ending, the runs waiting changing,
-  // and a row below changing something on the server. A sum of the first two stays put
-  // when a resume and its end land in one update, and a turn that stops again on its next
-  // tool leaves both as they were: only the row that decided knows then.
+  // Its key changes with every sign of that here: a run ending, the requests waiting
+  // changing, and a row below changing something on the server. A sum of the first two
+  // stays put when a resume and its end land in one update; and a turn that stops again on
+  // its next tool is the same run waiting once more, told apart only by what it waits on.
   const [rowReloads, setRowReloads] = useState(0);
   const finishedRuns = props.runs.filter((r) => r.finished_at !== null).length;
-  const approvalsKey = `${finishedRuns}|${awaiting.map((r) => r.id).join(",")}|${rowReloads}`;
+  const approvalsKey = `${finishedRuns}|${waitingKey(awaiting)}|${rowReloads}`;
   const reloadAfterRow = () => {
     setRowReloads((n) => n + 1);
     props.onReloadActivity?.();

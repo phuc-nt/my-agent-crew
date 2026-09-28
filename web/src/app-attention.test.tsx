@@ -158,6 +158,37 @@ describe("App requests waiting on the person", () => {
     expect(document.title).toBe("(1) My Agent Crew");
   });
 
+  // Decided in the chat, on Telegram or in another tab, a request can resume a turn that
+  // stops again on its next tool before the page hears of it: in one update, or in the
+  // snapshot after a dropped stream. Nothing has finished and the same run still waits.
+  it.each([
+    ["in one update", (again: RunInfo): ActivityPayload => ({ type: "run", run: again })],
+    ["in the snapshot after a dropped stream", (again: RunInfo): ActivityPayload => ({ type: "snapshot", runs: [again] })],
+  ])("lists a request settled elsewhere whose run waits again on its next tool, %s", async (_, news) => {
+    const { c, waitingRun } = waitingConversation();
+    const paused: RunInfo = {
+      ...waitingRun,
+      steps: [{ kind: "tool", name: "write_file", tool_call_id: "tc", arguments: {}, ok: null, output: null, duration_ms: null }],
+    };
+    backend.runs = [paused];
+    await openLedger();
+
+    const again: RunInfo = {
+      ...paused,
+      steps: [
+        { ...paused.steps[0], ok: true } as RunInfo["steps"][number],
+        { kind: "model", chars: 10, tool_calls: ["shell_run"], duration_ms: 90 },
+        { kind: "tool", name: "shell_run", tool_call_id: "tc2", arguments: {}, ok: null, output: null, duration_ms: null },
+      ],
+    };
+    backend.runs = [again];
+    backend.approvals = [fakeApproval({ conversation_id: c.id })];
+    act(() => FakeEventSource.instances.at(-1)!.emit(news(again)));
+
+    const history = await screen.findByTestId("approval-history");
+    await waitFor(() => expect(within(history).getAllByRole("listitem")).toHaveLength(1));
+  });
+
   // Deciding in a row settles its request even when the resumed turn stops on its next tool
   // at once: the same run waits again, and the list of runs reads as it did before.
   it("reads the history again after a decision made here, though the run waits again", async () => {

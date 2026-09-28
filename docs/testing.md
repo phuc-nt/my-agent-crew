@@ -202,7 +202,16 @@ tên một test thì sửa dòng của nó trong cùng commit.
     ("hides a failure once it is marked as read and keeps the others",
     "points to the requests waiting in another section instead of saying nothing waits");
     `lib/seen-runs.test.ts`; `app-attention.test.tsx`
-    "counts a waiting request in the title, lands on it and settles it in place";
+    "counts a waiting request in the title, lands on it and settles it in place",
+    "lists a request settled elsewhere %s",
+    "lists a request settled elsewhere as another run starts waiting, %s",
+    "lists a request settled elsewhere whose run waits again on its next tool, %s" (lịch sử duyệt
+    đọc lại cả khi yêu cầu được quyết ở chỗ khác và chính run đó dừng lại ở tool kế tiếp — cùng
+    id, cùng trạng thái, chỉ số bước tăng; khoá là `lib/run-progress.ts` `waitingKey`, test ở
+    `lib/run-progress.test.ts` "waitingKey");
+    `components/conversation-activity.test.tsx`
+    "asks for the approvals again when a decided turn waits on its next tool" (lịch sử duyệt
+    trong dải hoạt động của cuộc trò chuyện cũng vậy);
     `hooks/use-attention-badge.test.tsx`
     "prefixes the tab title with the requests waiting, not the failures";
     `screens/manage-screen.test.tsx`

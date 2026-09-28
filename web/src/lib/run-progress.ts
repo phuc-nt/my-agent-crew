@@ -91,6 +91,21 @@ export function waitingStep(run: RunInfo): RunStep | null {
   return waiting.length > 0 ? waiting[waiting.length - 1] : null;
 }
 
+/**
+ * Which request each waiting run waits on, as one string that changes when any of them does.
+ *
+ * A decided request resumes the same run, which may stop again on its next tool: its id and
+ * status are back where they were, and only its steps have grown — by the model call that
+ * asked for that tool at least. That holds when the resume and the new stop reach the page
+ * in one update, or in the snapshot after a dropped stream.
+ */
+export function waitingKey(runs: RunInfo[]): string {
+  return runs
+    .filter((run) => run.status === "awaiting_approval")
+    .map((run) => `${run.id}:${run.steps.length}`)
+    .join(",");
+}
+
 /** Progress as finished-of-total, for a compact "3/7" counter. */
 export interface StepProgress {
   done: number;

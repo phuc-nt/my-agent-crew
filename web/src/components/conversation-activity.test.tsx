@@ -543,4 +543,30 @@ describe("a conversation's runs from before the page opened", () => {
 
     await waitFor(() => expect(approvalsAsked()).toBe(2));
   });
+
+  // Approved in the chat, the turn went on and stopped at its next tool: no run settled, so
+  // the request just decided stayed out of the strip's history until the turn was over.
+  it("asks for the approvals again when a decided turn waits on its next tool", async () => {
+    const approvalsAsked = () => backend.requests.filter((r) => r.path.startsWith("/approvals")).length;
+    const open: RunInfo["steps"][number] = { kind: "tool", name: "write_file", tool_call_id: "tc", arguments: {}, ok: null, output: null, duration_ms: null };
+    const paused = fakeRun({ id: "now", status: "awaiting_approval", finished_at: null, steps: [open] });
+    const { rerender } = render(strip([paused]));
+    await waitFor(() => expect(approvalsAsked()).toBe(1));
+
+    // The resume and the next stop reach the page in one update.
+    rerender(
+      strip([
+        {
+          ...paused,
+          steps: [
+            { ...open, ok: true } as typeof open,
+            { kind: "model", chars: 10, tool_calls: ["shell_run"], duration_ms: 90 },
+            { kind: "tool", name: "shell_run", tool_call_id: "tc2", arguments: {}, ok: null, output: null, duration_ms: null },
+          ],
+        },
+      ]),
+    );
+
+    await waitFor(() => expect(approvalsAsked()).toBe(2));
+  });
 });
