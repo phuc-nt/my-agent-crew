@@ -27,7 +27,8 @@ kênh khác chạy và nút Thử lại của luồng trực tiếp có test App
 gửi khi lần tải còn trên đường; một run của kênh khác đã chạy từ trước khi gửi, bắt đầu sau run
 của tab, hay được một quyết định ở nơi khác tiếp tục trong lúc quyết định ở đây nhận 409; hai
 lượt liền nhau của tab, và run mà quyết định ở đây tiếp tục, vẫn là của tab nên không tải thêm
-lần nào; một lần tải hay một 409 của cuộc trò chuyện vừa rời trả về khi cuộc khác đã mở) nằm ở
+lần nào; một lần tải, một lần tải hỏng (500 hay mất mạng) hay một 409 của cuộc trò chuyện vừa
+rời trả về khi cuộc khác đã mở) nằm ở
 `app-thread-refresh-races.test.tsx`, nơi mỗi fetch lấy
 câu trả lời lúc gửi nhưng chỉ trao ra khi test mở "cửa" của nó; các lần đọc danh sách run
 chồng lên nhau (câu trả lời đọc trước khi run kết thúc lại về sau cùng) được giữ cửa theo cùng

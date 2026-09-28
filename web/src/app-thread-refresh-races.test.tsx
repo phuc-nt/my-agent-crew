@@ -378,6 +378,42 @@ describe("answers for the conversation left behind arriving late", () => {
     expectB();
   });
 
+  it.each([
+    ["the server refuses it", () => new Response(JSON.stringify({ detail: "máy chủ lỗi" }), { status: 500 })],
+    [
+      "the network drops it",
+      () => {
+        throw new TypeError("Failed to fetch");
+      },
+    ],
+  ])("says nothing there of a load of the conversation left that failed: %s", async (_, fail) => {
+    const a = backend.create({ title: "Hội thoại A", messages: [storedMessage("user", "tin của A")] });
+    const b = backend.create({
+      title: "Hội thoại B",
+      messages: [storedMessage("user", "tin của B"), storedMessage("assistant", "", { tool_calls: [{ id: "tc", name: "shell_run", arguments: {} }] })],
+    });
+    const load = door();
+    vitest.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method || !String(input).endsWith(`/conversations/${a.id}`)) return backend.fetch(input, init);
+      await load.shut;
+      return fail();
+    });
+    render(<App />);
+    await userEvent.click(await screen.findByRole("button", { name: /Hội thoại A/ }));
+    await screen.findByRole("heading", { level: 1, name: "Hội thoại A" });
+    // B's run is still carrying out the call it made: nothing on B has stopped.
+    act(() => {
+      stream().open();
+      stream().emit({ type: "snapshot", runs: [run(b.id, "running")] });
+    });
+
+    await switchToB();
+    await act(async () => load.open());
+    expectB();
+    expect(screen.queryByTestId("notice")).not.toBeInTheDocument();
+    expect(screen.getByTestId("tool-card")).toHaveTextContent(vi.toolRunning);
+  });
+
   it("leaves it alone when the load was for a run that ended there", async () => {
     const a = backend.create({ title: "Hội thoại A", messages: [storedMessage("user", "tin của A")] });
     backend.create({ title: "Hội thoại B", messages: [storedMessage("user", "tin của B")] });
