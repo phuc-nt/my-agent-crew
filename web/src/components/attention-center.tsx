@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { RunInfo } from "../api/types";
 import { vi } from "../i18n/vi";
-import { newestFirst } from "../lib/run-order";
+import { type HeldRun, heldAt, withHeld } from "../lib/run-order";
 import { runSummaryText } from "../lib/run-summary";
 import { markSeen, seenKey } from "../lib/seen-runs";
 import { AttentionRow } from "./attention-row";
@@ -58,11 +58,11 @@ export function AttentionCenter(props: Props) {
   const [settled, setSettled] = useState<string[]>([]);
   // Rows whose decision is still resuming their run. The run stops waiting as soon as the
   // server has the decision, and its row would leave with it — taking "Đang chạy tiếp…"
-  // and any error from the resumed turn along before either could be read.
-  const [held, setHeld] = useState<RunInfo[]>([]);
-  const extra = held.filter((h) => !runs.some((run) => run.id === h.id));
-  // Ordered as the activity list is, so a held row goes back where it was listed.
-  const listed = extra.length > 0 ? [...runs, ...extra].sort(newestFirst) : runs;
+  // and any error from the resumed turn along before either could be read. Each stays where
+  // it was listed, or the next request's buttons would slide under the pointer.
+  const [held, setHeld] = useState<HeldRun[]>([]);
+  const extra = held.filter((h) => !runs.some((run) => run.id === h.run.id));
+  const listed = extra.length > 0 ? withHeld(runs, extra) : runs;
   const shown = listed.filter((run) => !settled.includes(seenKey(run)));
   // "Nothing needs you" must hold for the whole manage screen, not just this list: the
   // nav still counts the work listed on the other page, and the two would contradict.
@@ -87,9 +87,12 @@ export function AttentionCenter(props: Props) {
   const leave = (run: RunInfo) => {
     leaving.current = current.current.findIndex((r) => r.id === run.id);
     setSettled((keys) => [...keys, seenKey(run)]);
-    setHeld((rows) => rows.filter((r) => r.id !== run.id));
+    setHeld((rows) => rows.filter((r) => r.run.id !== run.id));
   };
-  const hold = (run: RunInfo) => setHeld((rows) => [...rows.filter((r) => r.id !== run.id), run]);
+  const hold = (run: RunInfo) => {
+    const kept = heldAt(current.current, run);
+    setHeld((rows) => [...rows.filter((r) => r.run.id !== run.id), kept]);
+  };
 
   // Said of a failure once it is read, and of a request found closed with nothing to decide.
   const seenButton = (run: RunInfo) => (

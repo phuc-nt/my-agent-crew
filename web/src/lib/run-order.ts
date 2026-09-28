@@ -16,3 +16,30 @@ export function newestFirst(a: RunInfo, b: RunInfo): number {
   if (b.finished_at === null) return 1;
   return a.finished_at < b.finished_at ? 1 : -1;
 }
+
+/** A run kept on a list it has left, with the ids of the runs listed after it then. */
+export interface HeldRun {
+  run: RunInfo;
+  before: string[];
+}
+
+/** `run` held where `rows` list it. */
+export function heldAt(rows: RunInfo[], run: RunInfo): HeldRun {
+  const at = rows.findIndex((row) => row.id === run.id);
+  return { run, before: at < 0 ? [] : rows.slice(at + 1).map((row) => row.id) };
+}
+
+/**
+ * `runs` in `newestFirst` order with each held run back where it was listed: ahead of the
+ * first run still there that was listed after it, or last. Runs handed out together start in
+ * one second and tie, so a held run sorted in by its start alone would drop below all of them.
+ */
+export function withHeld(runs: RunInfo[], held: HeldRun[]): RunInfo[] {
+  const rows = [...runs];
+  for (const { run, before } of held) {
+    const at = rows.findIndex((row) => before.includes(row.id));
+    rows.splice(at < 0 ? rows.length : at, 0, run);
+  }
+  // A run of another second that came in meanwhile still goes where its start puts it.
+  return rows.sort(newestFirst);
+}

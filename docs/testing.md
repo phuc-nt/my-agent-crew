@@ -184,8 +184,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "counts down to the deadline, then disables the buttons, says it expired and reloads",
     "does not read the list again while an expired request cannot be read",
     "says which ask pattern stopped a command",
-    "keeps a decided row where it was listed while its turn resumes" — hàng vừa duyệt giữ đúng chỗ
-    trong lúc lượt chạy tiếp, không tụt xuống dưới một lỗi bắt đầu cùng giây);
+    "keeps the %s of two requests of one second where it was listed while its turn resumes", với
+    first và second — hàng vừa duyệt giữ đúng chỗ trong lúc lượt chạy tiếp, không tụt xuống dưới
+    một yêu cầu khác bắt đầu cùng giây, nên nút của yêu cầu kia không trượt vào dưới con trỏ);
     `components/expiry-countdown.test.tsx`;
     `components/attention-seen.test.tsx`
     ("hides a failure once it is marked as read and keeps the others",
@@ -301,8 +302,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
   - Các run bắt đầu cùng một giây (giờ bắt đầu chỉ đến giây): run còn chạy đứng trước, rồi run
     kết thúc muộn hơn, còn lại giữ thứ tự trang nghe thấy, mới nhất trước — mọi danh sách xếp
     như nhau: vitest `lib/run-order.test.ts` nhóm "newestFirst" (kể cả "gives the opposite answer
-    for a pair compared the other way round": mỗi quy tắc đúng cả khi so theo chiều ngược lại);
-    `state/activity-reducer.test.ts`
+    for a pair compared the other way round": mỗi quy tắc đúng cả khi so theo chiều ngược lại) và
+    nhóm "withHeld" (hàng đang giữ quay về chỗ cũ); `state/activity-reducer.test.ts`
     "keeps runs of the same second in the list's order, behind one it hears start" và trong
     "runGroups" "keeps runs that share their start and their end in the order given, a lone child
     included"; `hooks/use-run-history.test.ts` nhóm "mergeRuns" (run luồng trực tiếp đã biết giữ

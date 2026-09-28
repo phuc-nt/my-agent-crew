@@ -212,10 +212,11 @@ server runs a newer build, and a run paused for approval survives a server resta
   whole seconds, and each list put such runs in whatever order its sort happened to leave them,
   or in the order the store last saved them: the chat's activity line could name one run as the
   last while the card under it showed another, the chat's cards and line moved on to another run
-  once the stored history arrived, and a request just decided on Duyệt could drop below a
-  failure from the same second while its turn resumed. Of runs that share a second, one still
-  going now comes first, then the one that ended later; the rest keep the order the page heard
-  of them, newest first.
+  once the stored history arrived, and a request just decided on Duyệt dropped below another
+  request from the same second while its turn resumed, sliding that request's buttons under the
+  pointer. Of runs that share a second, one still going now comes first, then the one that ended
+  later; the rest keep the order the page heard of them, newest first, and a decided request
+  stays where it was listed.
 
 ### Upgrade notes
 

@@ -97,31 +97,36 @@ describe("AttentionCenter with requests settled in place", () => {
     expect(screen.getByText(vi.attentionEmpty)).toBeInTheDocument();
   });
 
-  // Start times are whole seconds. A row held while its turn resumes goes back among the
-  // others in the activity list's order, not below a failure that began in the same second.
-  it("keeps a decided row where it was listed while its turn resumes", async () => {
-    const { run } = waiting();
-    const failed = fakeRun({ id: "bad", status: "error", summary: "Hỏng." });
+  // Requests handed out together start in one second, and start times are whole seconds. A
+  // row held while its turn resumes stays where it was listed: the other request's buttons
+  // must not slide under the pointer that just decided.
+  it.each([
+    ["first", 0],
+    ["second", 1],
+  ])("keeps the %s of two requests of one second where it was listed while its turn resumes", async (_, at) => {
+    const pair = [waiting(), waiting({ tool_name: "shell_run", arguments: { command: "make" } })].map((w) => w.run);
     let endTurn = () => {};
     turnEnds = new Promise((resolve) => (endTurn = resolve));
     const center = (runs: RunInfo[]) => (
       <AttentionCenter runs={runs} inline agentName={name} onOpenConversation={() => undefined} onReload={() => undefined} />
     );
     const rows = () =>
-      [...screen.getByTestId("attention").querySelectorAll(".attention-list > li")].map((row) =>
-        row.getAttribute("data-testid") === "attention-row" ? "decided" : "failed",
+      [...screen.getByTestId("attention").querySelectorAll(".attention-list > li .attention-title")].map(
+        (title) => pair.find((run) => title.id.endsWith(run.id))?.id,
       );
-    const { rerender } = render(center([run, failed]));
-    expect(rows()).toEqual(["decided", "failed"]);
+    const { rerender } = render(center(pair));
+    await waitFor(() => expect(screen.getAllByRole("group")).toHaveLength(2));
+    const groups = screen.getAllByRole("group", { name: new RegExp(`^${vi.attentionAwaiting("Agent")}`) });
+    expect(rows()).toEqual(["run-c1", "run-c2"]);
 
-    await userEvent.click(within(await request()).getByRole("button", { name: vi.approve }));
+    await userEvent.click(within(groups[at]).getByRole("button", { name: vi.approve }));
     expect(await screen.findByText(vi.attentionResuming)).toBeInTheDocument();
     // The run waits no more, so the activity list leaves it out.
-    rerender(center([failed]));
+    rerender(center(pair.filter((_, i) => i !== at)));
 
-    expect(rows()).toEqual(["decided", "failed"]);
+    expect(rows()).toEqual(["run-c1", "run-c2"]);
     endTurn();
-    await waitFor(() => expect(rows()).toEqual(["failed"]));
+    await waitFor(() => expect(rows()).toEqual([pair[1 - at].id]));
   });
 
   it("answers a waiting question with one of its choices and lets the row go", async () => {

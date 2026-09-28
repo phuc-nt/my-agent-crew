@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { RunInfo } from "../api/types";
 import { fakeRun } from "../test/fake-backend";
-import { newestFirst } from "./run-order";
+import { heldAt, newestFirst, withHeld } from "./run-order";
 
 const order = (runs: RunInfo[]) => [...runs].sort(newestFirst).map((run) => run.id);
 
@@ -49,5 +49,37 @@ describe("newestFirst", () => {
 
     expect(order(runs)).toEqual(["a", "b", "c"]);
     expect(order([...runs].reverse())).toEqual(["c", "b", "a"]);
+  });
+});
+
+describe("withHeld", () => {
+  const live = { status: "awaiting_approval" as const, finished_at: null };
+  const [a, b, c] = ["a", "b", "c"].map((id) => fakeRun({ id, ...live }));
+  const ids = (runs: RunInfo[]) => runs.map((run) => run.id);
+
+  // Requests handed out together start in one second. Sorted in by its start alone, the one
+  // just decided would drop below the others, and the next one's buttons would take its place.
+  it("puts a held run back ahead of the one listed after it, of runs that started in the same second", () => {
+    expect(ids(withHeld([b], [heldAt([a, b], a)]))).toEqual(["a", "b"]);
+    expect(ids(withHeld([a], [heldAt([a, b], b)]))).toEqual(["a", "b"]);
+  });
+
+  it("lets a run of the same second heard meanwhile go ahead of it, as the activity list does", () => {
+    expect(ids(withHeld([c, b], [heldAt([a, b], a)]))).toEqual(["c", "a", "b"]);
+  });
+
+  it("puts each of several held runs back where it was listed, whichever was held first", () => {
+    const first = heldAt([a, b, c], a);
+    const second = heldAt([a, b, c], b);
+    expect(ids(withHeld([c], [first, second]))).toEqual(["a", "b", "c"]);
+    expect(ids(withHeld([c], [second, first]))).toEqual(["a", "b", "c"]);
+  });
+
+  it("still orders runs of other seconds by their start", () => {
+    const later = fakeRun({ id: "later", ...live, started_at: "2026-09-19T08:00:05Z" });
+    const earlier = fakeRun({ id: "earlier", ...live, started_at: "2026-09-19T07:59:00Z" });
+
+    expect(ids(withHeld([later, b], [heldAt([a, b], a)]))).toEqual(["later", "a", "b"]);
+    expect(ids(withHeld([earlier], [heldAt([a, b], a)]))).toEqual(["a", "earlier"]);
   });
 });
