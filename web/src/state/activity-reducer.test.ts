@@ -277,6 +277,20 @@ describe("activityReducer", () => {
     expect(runsForConversation(state, "c1").map((r) => r.id)).toEqual(["bad", "old"]);
     expect(needsAttention(state).map((r) => r.id)).toEqual(["wait", "bad"]);
   });
+
+  // Start times are whole seconds. Runs that share their start and their end stay in the
+  // list's order, and one the stream announces has just started: the newest of them.
+  it("keeps runs of the same second in the list's order, behind one it hears start", () => {
+    const second = { status: "done" as const, started_at: "2026-09-19T08:00:00Z", finished_at: "2026-09-19T08:00:01Z" };
+    let state = activityReducer(emptyActivity, { type: "recent", runs: [run({ id: "b", ...second }), run({ id: "a", ...second })] });
+    expect(sortedRuns(state).map((r) => r.id)).toEqual(["b", "a"]);
+
+    state = activityReducer(state, { type: "payload", payload: { type: "run", run: run({ id: "c", started_at: second.started_at }) } });
+    state = activityReducer(state, { type: "payload", payload: { type: "run", run: run({ id: "c", ...second }) } });
+
+    expect(sortedRuns(state).map((r) => r.id)).toEqual(["c", "b", "a"]);
+    expect(runsForConversation(state, "c1").map((r) => r.id)).toEqual(["c", "b", "a"]);
+  });
 });
 
 describe("runGroups", () => {
@@ -357,6 +371,15 @@ describe("runGroups", () => {
 
   it("tucks a child started in its turn's last second under that turn", () => {
     expect(shape([turn("t", "10:00:00", "10:00:05"), kidAt("10:00:05")])).toEqual([["t", ["kid"]]]);
+  });
+
+  it("keeps runs that share their start and their end in the order given, a lone child included", () => {
+    const a = turn("a", "10:00:00", "10:00:01");
+    const b = turn("b", "10:00:00", "10:00:01");
+    const lone = run({ ...kidAt("10:00:00"), id: "lone", source: "delegate:gone", finished_at: "2026-09-19T10:00:01Z" });
+
+    expect(shape([a, lone, b])).toEqual([["a", []], ["lone", []], ["b", []]]);
+    expect(shape([b, lone, a])).toEqual([["b", []], ["lone", []], ["a", []]]);
   });
 
   it("nests only one level, because a child cannot delegate on", () => {

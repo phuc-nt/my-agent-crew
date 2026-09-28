@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { RunInfo } from "../api/types";
 import { vi } from "../i18n/vi";
+import { newestFirst } from "../lib/run-order";
 import { runSummaryText } from "../lib/run-summary";
 import { markSeen, seenKey } from "../lib/seen-runs";
 import { AttentionRow } from "./attention-row";
@@ -47,9 +48,6 @@ function icon(run: RunInfo): IconName {
 
 const noop = () => undefined;
 
-/** Newest first, as the activity list is: a held row goes back where it was listed. */
-const byStart = (a: RunInfo, b: RunInfo) => b.started_at.localeCompare(a.started_at);
-
 /** Approvals waiting anywhere plus runs that ended badly, one click from their conversation. */
 export function AttentionCenter(props: Props) {
   const { runs, agentName, onOpenConversation, parentTitle, inline = false } = props;
@@ -63,7 +61,8 @@ export function AttentionCenter(props: Props) {
   // and any error from the resumed turn along before either could be read.
   const [held, setHeld] = useState<RunInfo[]>([]);
   const extra = held.filter((h) => !runs.some((run) => run.id === h.id));
-  const listed = extra.length > 0 ? [...runs, ...extra].sort(byStart) : runs;
+  // Ordered as the activity list is, so a held row goes back where it was listed.
+  const listed = extra.length > 0 ? [...runs, ...extra].sort(newestFirst) : runs;
   const shown = listed.filter((run) => !settled.includes(seenKey(run)));
   // "Nothing needs you" must hold for the whole manage screen, not just this list: the
   // nav still counts the work listed on the other page, and the two would contradict.

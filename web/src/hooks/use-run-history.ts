@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api/client";
 import type { RunInfo } from "../api/types";
+import { newestFirst } from "../lib/run-order";
 import { isSettled } from "../lib/run-progress";
 
 export interface RunHistoryQuery {
@@ -95,14 +96,15 @@ export function useRunHistory({
  * store, and the store's word wins over a copy that never heard the ending.
  */
 export function mergeRuns(history: RunInfo[], streamed: RunInfo[]): RunInfo[] {
-  const byId = new Map(history.map((run) => [run.id, run]));
+  const read = new Map(history.map((run) => [run.id, run]));
+  // A run the history lacks started after it was read, so those go ahead of it: of runs
+  // that tie in `newestFirst`, the one only the stream knows is the newer.
+  const byId = new Map(streamed.filter((run) => !read.has(run.id)).map((run) => [run.id, run]));
+  for (const run of history) byId.set(run.id, run);
   for (const run of streamed) {
-    const stored = byId.get(run.id);
+    const stored = read.get(run.id);
     if (stored && isSettled(stored.status) && !isSettled(run.status)) continue;
     byId.set(run.id, run);
   }
-  // Ties keep the order they came in, which is already newest first.
-  return [...byId.values()].sort((a, b) =>
-    a.started_at === b.started_at ? 0 : a.started_at < b.started_at ? 1 : -1,
-  );
+  return [...byId.values()].sort(newestFirst);
 }

@@ -1,9 +1,9 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
-import type { RunInfo } from "../api/types";
+import type { RunInfo, RunStep } from "../api/types";
 import { vi } from "../i18n/vi";
-import { conversationFamilyRuns, emptyActivity } from "../state/activity-reducer";
+import { activityReducer, conversationFamilyRuns, emptyActivity } from "../state/activity-reducer";
 import { FakeBackend, fakeRun } from "../test/fake-backend";
 import { ConversationActivity } from "./conversation-activity";
 
@@ -284,6 +284,34 @@ describe("a conversation's runs from before the page opened", () => {
     render(strip([stuck]));
 
     await waitFor(() => expect(screen.getByTestId("run-card")).toHaveAttribute("data-status", "error"));
+  });
+
+  // Start times are whole seconds. Two runs that shared their start and their end were
+  // ordered by chance: the line named one as the last run, the card under it the other,
+  // and the two swapped places once the history landed.
+  it("names the same run on its line and its first card when two ran in the same second", async () => {
+    const tool = (id: string): RunStep => ({ kind: "tool", name: "read_file", tool_call_id: id, arguments: {}, ok: true, output: "", duration_ms: 5 });
+    const three = fakeRun({ id: "three", title: "Ba bước", steps: [tool("1"), tool("2"), tool("3")] });
+    const one = fakeRun({ id: "one", title: "Một bước", steps: [tool("4")] });
+    backend.runs = [three, one, fakeRun({ id: "old", title: "Hôm qua", started_at: "2026-09-18T08:00:00Z" })];
+    let release = () => undefined as void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    vitest.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+      await gate;
+      return backend.fetch(input, init);
+    });
+    const listed = activityReducer(emptyActivity, { type: "recent", runs: [three, one] });
+    const agree = () => {
+      expect(screen.getByText(new RegExp(vi.conversationActivity.lastRun))).toHaveTextContent(vi.runSteps(3));
+      expect(screen.getAllByTestId("run-card")[0]).toHaveTextContent("Ba bước");
+    };
+
+    render(strip(conversationFamilyRuns(listed, "c1")));
+    agree();
+
+    release();
+    expect(await screen.findByText(/Hôm qua/)).toBeInTheDocument();
+    agree();
   });
 
   // "Never ran" is only true once the store has said so.

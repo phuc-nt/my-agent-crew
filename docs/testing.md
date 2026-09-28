@@ -183,7 +183,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "answers a waiting question with one of its choices and lets the row go",
     "counts down to the deadline, then disables the buttons, says it expired and reloads",
     "does not read the list again while an expired request cannot be read",
-    "says which ask pattern stopped a command"); `components/expiry-countdown.test.tsx`;
+    "says which ask pattern stopped a command",
+    "keeps a decided row where it was listed while its turn resumes" — hàng vừa duyệt giữ đúng chỗ
+    trong lúc lượt chạy tiếp, không tụt xuống dưới một lỗi bắt đầu cùng giây);
+    `components/expiry-countdown.test.tsx`;
     `components/attention-seen.test.tsx`
     ("hides a failure once it is marked as read and keeps the others",
     "points to the requests waiting in another section instead of saying nothing waits");
@@ -295,6 +298,15 @@ tên một test thì sửa dòng của nó trong cùng commit.
     không giành lại focus người dùng đã đặt chỗ khác, không kéo sang cuộc trò chuyện vừa mở);
     `state/activity-reducer.test.ts` "runGroups" (run con nằm dưới đúng lượt đã giao nó, kể cả
     khi hai lượt chạm cùng một giây hay run con bắt đầu ở giây cuối của lượt)
+  - Các run bắt đầu cùng một giây (giờ bắt đầu chỉ đến giây): run còn chạy đứng trước, rồi run
+    kết thúc muộn hơn, còn lại giữ thứ tự trang nghe thấy, mới nhất trước — mọi danh sách xếp
+    như nhau: vitest `lib/run-order.test.ts`; `state/activity-reducer.test.ts`
+    "keeps runs of the same second in the list's order, behind one it hears start" và trong
+    "runGroups" "keeps runs that share their start and their end in the order given, a lone child
+    included"; `hooks/use-run-history.test.ts` nhóm "mergeRuns";
+    `components/conversation-activity.test.tsx`
+    "names the same run on its line and its first card when two ran in the same second" (dòng
+    "Lượt chạy gần nhất" và thẻ đầu tiên nói cùng một run, trước và sau khi lịch sử về)
   - Playwright: `activity-smoke.spec.ts`
     "the activity log narrows to one agent on the server, then reaches further back";
     `phone-smoke.spec.ts`

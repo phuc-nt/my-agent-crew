@@ -1,3 +1,4 @@
+import { newestFirst } from "../lib/run-order";
 import { isAnswered } from "../lib/run-progress";
 import { noteText, PROGRESS_NOTE_TOOL } from "../lib/run-rows";
 import type { AgentEvent, RunInfo, RunPayload, RunStep } from "../api/types";
@@ -168,8 +169,13 @@ function applyPayload(state: ActivityState, payload: RunPayload): ActivityState 
       for (const run of payload.runs) runs[run.id] = run;
       return { ...state, runs, connected: true, synced: true };
     }
-    case "run":
-      return { ...state, runs: { ...state.runs, [payload.run.id]: payload.run } };
+    case "run": {
+      const { run } = payload;
+      // A run first heard of here has just started, after every run held: put ahead of
+      // them, it stays the newest of any that started in the same second (`newestFirst`).
+      const runs = run.id in state.runs ? { ...state.runs, [run.id]: run } : { [run.id]: run, ...state.runs };
+      return { ...state, runs };
+    }
     case "event": {
       const current = state.runs[payload.run_id];
       if (!current) return state;
@@ -180,7 +186,7 @@ function applyPayload(state: ActivityState, payload: RunPayload): ActivityState 
 }
 
 export function sortedRuns(state: ActivityState): RunInfo[] {
-  return Object.values(state.runs).sort((a, b) => (a.started_at < b.started_at ? 1 : -1));
+  return Object.values(state.runs).sort(newestFirst);
 }
 
 export function liveRuns(state: ActivityState): RunInfo[] {
@@ -267,20 +273,19 @@ export function runGroups(runs: RunInfo[]): RunGroup[] {
     }
   }
   const children = new Map<string, RunInfo[]>();
-  const orphans: RunInfo[] = [];
+  const orphans = new Set<RunInfo>();
   for (const run of runs) {
     const parent = parentConversationId(run);
     if (parent === null) continue;
     const asking = askingTurn(run, turns.get(parent) ?? []);
-    if (asking === null) orphans.push(run);
+    if (asking === null) orphans.add(run);
     else push(children, asking.id, run);
   }
-  const groups = runs
-    .filter((run) => parentConversationId(run) === null)
-    .map((run) => ({ run, children: children.get(run.id) ?? [] }));
-  return [...groups, ...orphans.map((run) => ({ run, children: [] }))].sort((a, b) =>
-    a.run.started_at < b.run.started_at ? 1 : -1,
-  );
+  // Kept in the order given, a child standing alone included, for runs that tie.
+  return runs
+    .filter((run) => parentConversationId(run) === null || orphans.has(run))
+    .map((run) => ({ run, children: children.get(run.id) ?? [] }))
+    .sort((a, b) => newestFirst(a.run, b.run));
 }
 
 /** What needs a human: approvals waiting anywhere, and runs that ended badly. */

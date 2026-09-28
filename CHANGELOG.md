@@ -208,6 +208,13 @@ server runs a newer build, and a run paused for approval survives a server resta
   after the first paint and widen the row. A row the person has scrolled the pill out of stays
   where they left it, so a count arriving mid-swipe no longer slides another section under their
   finger.
+- **Runs that started in the same second are listed the same way everywhere.** Start times are
+  whole seconds, and each list put such runs in whatever order its sort happened to leave them:
+  the chat's activity line could name one run as the last while the card under it showed another,
+  the two swapped once the stored history arrived, and a request just decided on Duyệt could drop
+  below a failure from the same second while its turn resumed. Of runs that share a second, one
+  still going now comes first, then the one that ended later; the rest keep the order the page
+  heard of them, newest first.
 
 ### Upgrade notes
 

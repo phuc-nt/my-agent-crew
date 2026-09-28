@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vites
 import { api } from "../api/client";
 import type { RunInfo } from "../api/types";
 import { fakeRun } from "../test/fake-backend";
-import { useRunHistory, type RunHistory, type RunHistoryQuery } from "./use-run-history";
+import { mergeRuns, useRunHistory, type RunHistory, type RunHistoryQuery } from "./use-run-history";
 
 /** One request for stored runs, held until the test answers it. */
 interface Asked {
@@ -138,5 +138,25 @@ describe("a reload after a failure", () => {
     await asked[1].answer([fakeRun({ id: "r1", agent_id: "coach" })]);
     expect(ids(result.current)).toEqual(["r1"]);
     expect(result.current).toMatchObject({ loading: false, failed: false, pageLimit: 200 });
+  });
+});
+
+describe("mergeRuns", () => {
+  const second = { started_at: "2026-09-19T08:00:00Z", finished_at: "2026-09-19T08:00:01Z" };
+
+  // Start times are whole seconds. The history lacks a run that started after it was read,
+  // so of runs that share their start and their end, that one is the newest.
+  it("puts a run only the stream knows ahead of stored runs of the same second", () => {
+    const history = [fakeRun({ id: "b", ...second }), fakeRun({ id: "a", ...second })];
+    const streamed = [fakeRun({ id: "c", ...second }), fakeRun({ id: "a", ...second })];
+
+    expect(mergeRuns(history, streamed).map((run) => run.id)).toEqual(["c", "b", "a"]);
+  });
+
+  it("keeps a stored copy that ended over a streamed one that never heard it end", () => {
+    const history = [fakeRun({ id: "r1", status: "error" })];
+    const streamed = [fakeRun({ id: "r1", status: "running", finished_at: null })];
+
+    expect(mergeRuns(history, streamed)).toEqual(history);
   });
 });
