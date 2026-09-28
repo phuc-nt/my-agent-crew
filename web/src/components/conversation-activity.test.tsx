@@ -92,12 +92,19 @@ describe("the activity strip inside a chat", () => {
     duration_ms: 100,
   });
 
+  // Each run starts a second after the one before, as delegated work does after the turn that
+  // asked for it: the models then read newest first, not in whichever order ties happen to fall.
+  const at = (second: number) => ({
+    started_at: `2026-09-19T08:00:0${second}Z`,
+    finished_at: `2026-09-19T08:00:1${second}Z`,
+  });
+
   it("counts the work and the models across the conversation's runs", async () => {
     show(
       [
-        fakeRun({ id: "a", steps: [step("deepseek"), step("deepseek")] }),
+        fakeRun({ id: "a", ...at(0), steps: [step("deepseek"), step("deepseek")] }),
         // Delegated work belongs to the conversation that asked for it.
-        fakeRun({ id: "b", conversation_id: "child", source: "delegate:c1", steps: [step("sonnet")] }),
+        fakeRun({ id: "b", ...at(1), conversation_id: "child", source: "delegate:c1", steps: [step("sonnet")] }),
       ],
       0.05,
     );
@@ -107,7 +114,7 @@ describe("the activity strip inside a chat", () => {
     const cost = screen.getByTestId("conversation-cost");
     expect(cost).toHaveTextContent(vi.conversationActivity.steps(3));
     expect(cost).toHaveTextContent(vi.conversationActivity.delegated(1));
-    expect(cost).toHaveTextContent("deepseek, sonnet");
+    expect(cost).toHaveTextContent("sonnet, deepseek");
   });
 
   // A run's own `spent_usd` is the conversation's running total, and a delegated child's
@@ -131,10 +138,10 @@ describe("the activity strip inside a chat", () => {
   it("counts multiple delegated runs separately in the cost row", async () => {
     show(
       [
-        fakeRun({ id: "parent", conversation_id: "c1", steps: [step("gpt-4")] }),
-        fakeRun({ id: "child1", conversation_id: "work-1", source: "delegate:c1", steps: [step("claude")] }),
-        fakeRun({ id: "child2", conversation_id: "work-2", source: "delegate:c1", steps: [step("llama")] }),
-        fakeRun({ id: "child3", conversation_id: "work-3", source: "delegate:c1", steps: [step("sonnet")] }),
+        fakeRun({ id: "parent", ...at(0), conversation_id: "c1", steps: [step("gpt-4")] }),
+        fakeRun({ id: "child1", ...at(1), conversation_id: "work-1", source: "delegate:c1", steps: [step("claude")] }),
+        fakeRun({ id: "child2", ...at(2), conversation_id: "work-2", source: "delegate:c1", steps: [step("llama")] }),
+        fakeRun({ id: "child3", ...at(3), conversation_id: "work-3", source: "delegate:c1", steps: [step("sonnet")] }),
       ],
       0.1,
     );
@@ -145,7 +152,7 @@ describe("the activity strip inside a chat", () => {
     expect(cost).toHaveTextContent(vi.conversationActivity.spent(0.1));
     expect(cost).toHaveTextContent(vi.conversationActivity.steps(4));
     expect(cost).toHaveTextContent(vi.conversationActivity.delegated(3));
-    expect(cost).toHaveTextContent("gpt-4, claude, llama, sonnet");
+    expect(cost).toHaveTextContent("sonnet, llama, claude, gpt-4");
   });
 
   // A private window, or a browser with site data blocked, has no storage to read.
