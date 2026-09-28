@@ -14,7 +14,7 @@ from my_agent_crew.memory.wiki_apply import WIKI_COMPILE
 from my_agent_crew.memory.wiki_compile import JOB_SOURCE, compile_wiki, existing_titles
 from my_agent_crew.memory.wiki_reports import STALE_NAME, reports_dir
 from my_agent_crew.memory.wiki_store import Page
-from my_agent_crew.store.memory_proposals import APPROVED, PENDING
+from my_agent_crew.store.memory_proposals import APPROVED, PENDING, REJECTED
 from my_agent_crew.store.runs import DONE
 from my_agent_crew.tools import wiki_texts as texts
 
@@ -98,6 +98,29 @@ async def test_an_autonomous_agent_writes_straight_away(deps_factory, hub):
     assert proposal.status == APPROVED
     assert wiki_store.find_page(deps.agent.memory_dir, "han-eco") is not None
     assert "1" in hub.recent(5)[0].summary
+
+
+async def test_an_autonomous_agent_leaves_a_decision_made_first_alone(
+    deps_factory, hub, monkeypatch
+):
+    """Listed, the proposal can be rejected before the compile writes it. The compile then
+    writes nothing, rather than pages on disk under a proposal marked rejected."""
+    deps = deps_factory(script=[completion(REPLY)], autonomous_default=True)
+    write_note(deps)
+    create = deps.store.proposals.create
+
+    def rejected_as_listed(**fields):
+        proposal = create(**fields)
+        apply_proposal(deps.store, proposal.id, approve=False, user_dir=deps.settings.user_dir)
+        return proposal
+
+    monkeypatch.setattr(deps.store.proposals, "create", rejected_as_listed)
+    proposal = await compile_wiki(deps, hub)
+
+    assert proposal.status == REJECTED
+    assert wiki_store.list_pages(deps.agent.memory_dir) == []
+    run = hub.recent(5)[0]
+    assert run.status == DONE and run.summary == texts.WIKI_COMPILE_DECIDED_FIRST
 
 
 async def test_approving_refreshes_the_dashboards(deps_factory, hub):

@@ -77,5 +77,6 @@ WIKI_COMPILE_NOTHING_NEW = "Không có ghi chép mới kể từ lần dựng tr
 WIKI_COMPILE_EMPTY = "Model không trả về trang nào dùng được."
 WIKI_COMPILE_PROPOSED = "Đã đề xuất {count} trang wiki, chờ duyệt."
 WIKI_COMPILE_APPLIED = "Đã ghi {count} trang wiki, cập nhật liên kết ở {linked} trang."
+WIKI_COMPILE_DECIDED_FIRST = "Đề xuất wiki đã được quyết trước khi kịp ghi; không ghi gì."
 #: The proposal's own description, shown in the approval list.
 WIKI_COMPILE_DESCRIPTION = "{count} trang: {titles}"

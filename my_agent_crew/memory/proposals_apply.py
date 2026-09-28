@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import logging
 import threading
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 from my_agent_crew.agent.turn_context import WEB
@@ -33,6 +35,17 @@ logger = logging.getLogger(__name__)
 _deciding = threading.Lock()
 
 
+@contextmanager
+def pending(store: Store, proposal_id: str) -> Iterator[MemoryProposal]:
+    """Hold the one decision at a time for a proposal still pending, refusing one already
+    decided with `KeyError`. Whatever writes a proposal's memory does it inside this."""
+    with _deciding:
+        proposal = store.proposals.get(proposal_id)
+        if proposal.status != PENDING:
+            raise KeyError(proposal_id)
+        yield proposal
+
+
 def apply_proposal(
     store: Store,
     proposal_id: str,
@@ -55,10 +68,7 @@ def apply_proposal(
     and only then learn from the store that it was too late. Two decisions arriving
     together are taken one after the other, so the second finds the first's answer.
     """
-    with _deciding:
-        proposal = store.proposals.get(proposal_id)
-        if proposal.status != PENDING:
-            raise KeyError(proposal_id)
+    with pending(store, proposal_id) as proposal:
         if approve:
             _write(proposal, user_dir, memory_files or {}, memory_dirs or {})
         return store.proposals.resolve(proposal_id, approve)

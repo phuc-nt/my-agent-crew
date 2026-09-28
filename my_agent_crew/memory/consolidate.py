@@ -10,6 +10,7 @@ one step back is always possible.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from pathlib import Path
@@ -148,7 +149,9 @@ async def _consolidate(deps: AgentDeps, hub: ActivityHub, run: RunRecord) -> Mem
         previous_body=current,
     )
     if profile.settings.autonomous_default:
-        proposal = apply_proposal(
+        # Off the event loop, as the web decides: the lock may be held by a decision there.
+        proposal = await asyncio.to_thread(
+            apply_proposal,
             deps.store,
             proposal.id,
             approve=True,

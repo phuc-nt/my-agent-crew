@@ -16,6 +16,7 @@ lives in `wiki_plan.plan_pages` and runs on the reply before anything is propose
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import time
@@ -27,14 +28,16 @@ from my_agent_crew.agent.events import AssistantMessageEvent
 from my_agent_crew.llm.types import Completion, Message
 from my_agent_crew.memory import wiki_store
 from my_agent_crew.memory.consolidate import MAX_INPUT_CHARS, notes_text, recent_notes
+from my_agent_crew.memory.proposals_apply import pending
 from my_agent_crew.memory.wiki_apply import WIKI_COMPILE, apply_wiki_proposal, capture_previous
 from my_agent_crew.memory.wiki_plan import Planned, plan_pages
-from my_agent_crew.store.memory_proposals import MemoryProposal
+from my_agent_crew.store.memory_proposals import PENDING, MemoryProposal
 from my_agent_crew.store.runs import DONE, FAILED, RunRecord
 from my_agent_crew.tools import wiki_texts as texts
 
 if TYPE_CHECKING:  # the loop imports memory, not the other way round
     from my_agent_crew.agent.loop import AgentDeps
+    from my_agent_crew.store import Store
 
 logger = logging.getLogger(__name__)
 
@@ -125,13 +128,30 @@ async def _compile(deps: AgentDeps, hub: ActivityHub, run: RunRecord) -> MemoryP
         previous_body=json.dumps(capture_previous(profile.memory_dir, planned), ensure_ascii=False),
     )
     if profile.settings.autonomous_default:
-        written, linked = apply_wiki_proposal(profile.memory_dir, proposal.body)
-        deps.store.proposals.resolve(proposal.id, True)
+        # Off the event loop, as the web decides: the lock may be held by a decision there.
+        try:
+            proposal, written, linked = await asyncio.to_thread(
+                _approve, deps.store, proposal.id, profile.memory_dir
+            )
+        except KeyError:
+            decided = deps.store.proposals.get(proposal.id)
+            if decided.status == PENDING:
+                raise
+            hub.finish(run, status=DONE, summary=texts.WIKI_COMPILE_DECIDED_FIRST)
+            return decided
         hub.finish(
             run,
             status=DONE,
             summary=texts.WIKI_COMPILE_APPLIED.format(count=written, linked=linked),
         )
-        return deps.store.proposals.get(proposal.id)
+        return proposal
     hub.finish(run, status=DONE, summary=texts.WIKI_COMPILE_PROPOSED.format(count=len(planned)))
     return proposal
+
+
+def _approve(store: Store, proposal_id: str, memory_dir: Path) -> tuple[MemoryProposal, int, int]:
+    """Write and approve a batch by the same one-at-a-time rule as a person deciding it, so
+    one they decided first is refused before a page is written."""
+    with pending(store, proposal_id) as proposal:
+        written, linked = apply_wiki_proposal(memory_dir, proposal.body)
+        return store.proposals.resolve(proposal_id, True), written, linked
