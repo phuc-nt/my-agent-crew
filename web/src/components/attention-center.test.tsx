@@ -335,4 +335,44 @@ describe("AttentionCenter with requests settled in place", () => {
     expect(screen.queryByRole("group")).not.toBeInTheDocument();
     await waitFor(() => expect(onReload).toHaveBeenCalledTimes(2));
   });
+
+  // Offline, a read that fails says nothing about the request: the list is read again once a
+  // read sees the request closed, not after every poll that could not look.
+  it("does not read the list again while an expired request cannot be read", async () => {
+    vitest.useFakeTimers({ shouldAdvanceTime: true });
+    vitest.setSystemTime(new Date("2026-09-26T10:00:00Z"));
+    const { conversation, run } = waiting({ expires_at: "2026-09-26T10:00:05Z" });
+    const onReload = inline([run]);
+    const bar = await request();
+
+    await act(async () => {
+      await vitest.advanceTimersByTimeAsync(6_000);
+    });
+    await waitFor(() => expect(onReload).toHaveBeenCalledTimes(1));
+
+    const reachable = globalThis.fetch;
+    let offline = true;
+    let unread = 0;
+    vitest.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) => {
+      if (!offline || !String(input).endsWith(`/conversations/${conversation.id}`)) return reachable(input, init);
+      unread += 1;
+      return Promise.reject(new TypeError("offline"));
+    });
+    await act(async () => {
+      await vitest.advanceTimersByTimeAsync(75_000);
+    });
+    expect(unread).toBe(3);
+    expect(within(bar).getByRole("timer")).toHaveTextContent(vi.attentionExpired);
+    expect(within(bar).getByRole("button", { name: vi.approve })).toBeDisabled();
+    expect(onReload).toHaveBeenCalledTimes(1);
+
+    offline = false;
+    backend.conversations.get(conversation.id)!.pending_approval = null;
+    await act(async () => {
+      await vitest.advanceTimersByTimeAsync(25_000);
+    });
+
+    expect(await screen.findByText(vi.attentionHandled)).toBeInTheDocument();
+    await waitFor(() => expect(onReload).toHaveBeenCalledTimes(2));
+  });
 });

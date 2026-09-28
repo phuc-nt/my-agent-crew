@@ -182,6 +182,7 @@ tên một test thì sửa dòng của nó trong cùng commit.
     ("decides a waiting tool call where it is listed and lets the row go once the turn ends",
     "answers a waiting question with one of its choices and lets the row go",
     "counts down to the deadline, then disables the buttons, says it expired and reloads",
+    "does not read the list again while an expired request cannot be read",
     "says which ask pattern stopped a command"); `components/expiry-countdown.test.tsx`;
     `components/attention-seen.test.tsx`
     ("hides a failure once it is marked as read and keeps the others",
