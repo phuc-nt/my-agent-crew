@@ -239,6 +239,10 @@ describe("ApprovalHistory", () => {
     await vitest.waitFor(() => expect(list.querySelectorAll(":scope > li")).toHaveLength(count));
     expect(within(list).getAllByRole("listitem")).toHaveLength(count);
   };
+  /** The "Xem thêm" button, found by its text, which is its name: a role query weighs the
+   *  name of every row's button, and past a few hundred rows outlasts the timeout on CI. */
+  const showMore = () => screen.getByText(vi.showMore, { selector: "button" });
+  const noShowMore = () => expect(screen.queryByText(vi.showMore, { selector: "button" })).not.toBeInTheDocument();
 
   it("reads a question as what was asked, what it offered and what came back", async () => {
     const backend = new FakeBackend();
@@ -267,12 +271,12 @@ describe("ApprovalHistory", () => {
     const list = await history(backend);
     expect(within(list).getAllByRole("listitem")).toHaveLength(50);
 
-    await userEvent.click(screen.getByRole("button", { name: vi.showMore }));
+    await userEvent.click(showMore());
     await rowsReach(list, 200);
-    await userEvent.click(screen.getByRole("button", { name: vi.showMore }));
+    await userEvent.click(showMore());
     await rowsReach(list, 260);
     // 260 of a possible 500: the whole history is on screen, so there is nothing more to ask for.
-    expect(screen.queryByRole("button", { name: vi.showMore })).not.toBeInTheDocument();
+    noShowMore();
     expect(limits(backend)).toEqual(["50", "200", "500"]);
   });
 
@@ -280,11 +284,11 @@ describe("ApprovalHistory", () => {
     const backend = new FakeBackend();
     backend.approvals = Array.from({ length: 520 }, (_, i) => fakeApproval({ id: `a${i}` }));
     const list = await history(backend);
-    await userEvent.click(screen.getByRole("button", { name: vi.showMore }));
+    await userEvent.click(showMore());
     await rowsReach(list, 200);
-    await userEvent.click(screen.getByRole("button", { name: vi.showMore }));
+    await userEvent.click(showMore());
     await rowsReach(list, 500);
-    expect(screen.queryByRole("button", { name: vi.showMore })).not.toBeInTheDocument();
+    noShowMore();
   });
 
   it("keeps the rows already read when a bigger page fails, says so and asks again", async () => {
@@ -297,12 +301,12 @@ describe("ApprovalHistory", () => {
     );
 
     refuse = true;
-    await userEvent.click(screen.getByRole("button", { name: vi.showMore }));
+    await userEvent.click(showMore());
     expect(await screen.findByText(vi.loadFailed)).toBeInTheDocument();
     expect(within(list).getAllByRole("listitem")).toHaveLength(50);
 
     refuse = false;
-    await userEvent.click(screen.getByRole("button", { name: vi.showMore }));
+    await userEvent.click(showMore());
     await rowsReach(list, 200);
     expect(screen.queryByText(vi.loadFailed)).not.toBeInTheDocument();
   });
