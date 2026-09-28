@@ -278,7 +278,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
 - **Lịch sử run đã lưu và bộ lọc**
   - vitest: `components/recent-runs-log.test.tsx`; `components/activity-filters.test.tsx`;
     `hooks/use-run-history.test.ts`; `components/conversation-activity.test.tsx`
-    "fetches its history on mount and merges it with live runs, each run once"
+    "fetches its history on mount and merges it with live runs, each run once";
+    `state/activity-reducer.test.ts` "runGroups" (run con nằm dưới đúng lượt đã giao nó, kể cả
+    khi hai lượt chạm cùng một giây hay run con bắt đầu ở giây cuối của lượt)
   - Playwright: `activity-smoke.spec.ts`
     "the activity log narrows to one agent on the server, then reaches further back";
     `phone-smoke.spec.ts`

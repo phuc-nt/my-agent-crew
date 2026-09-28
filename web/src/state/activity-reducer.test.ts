@@ -338,6 +338,27 @@ describe("runGroups", () => {
     ]);
   });
 
+  // Timestamps are whole seconds, so a turn that ends and the next that begins can share
+  // one, and a child started in it could belong to either.
+  const kidAt = (at: string) =>
+    run({ id: "kid", conversation_id: "c-kid", source: "delegate:c1", status: "done", started_at: `2026-09-19T${at}Z`, finished_at: `2026-09-19T${at}Z` });
+
+  it("gives a child started in the second two turns share to the later turn, however they are listed", () => {
+    const earlier = turn("a", "10:00:00", "10:00:05");
+    const later = turn("b", "10:00:05", "10:01:00");
+    const grouped = [
+      ["b", ["kid"]],
+      ["a", []],
+    ];
+
+    expect(shape([later, earlier, kidAt("10:00:05")])).toEqual(grouped);
+    expect(shape([earlier, later, kidAt("10:00:05")])).toEqual(grouped);
+  });
+
+  it("tucks a child started in its turn's last second under that turn", () => {
+    expect(shape([turn("t", "10:00:00", "10:00:05"), kidAt("10:00:05")])).toEqual([["t", ["kid"]]]);
+  });
+
   it("nests only one level, because a child cannot delegate on", () => {
     const parent = run({ id: "p", conversation_id: "c-parent" });
     const a = run({ id: "a", conversation_id: "c-a", source: "delegate:c-parent" });
