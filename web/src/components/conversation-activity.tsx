@@ -63,6 +63,9 @@ export function ConversationActivity({
   // The conversation whose history a pressed retry asked for again, until the answer is in.
   const [retryFor, setRetryFor] = useState<string | null>(null);
   const retrying = retryFor === conversationId;
+  // The conversation whose answered retry keeps a phone's strip up: one that turned out never
+  // to have run would otherwise vanish with the line the focus was just handed to.
+  const [answeredFor, setAnsweredFor] = useState<string | null>(null);
   const root = useRef<HTMLElement>(null);
 
   // Skipped on the first render: the strip opens in whatever state was remembered, and
@@ -87,6 +90,7 @@ export function ConversationActivity({
     if (retryFor === null || (retrying && history.loading)) return;
     setRetryFor(null);
     // Another conversation opened meanwhile: the answer it waited for is not on show.
+    if (retrying) setAnsweredFor(conversationId);
     if (!retrying || (document.activeElement && document.activeElement !== document.body)) return;
     const box = root.current;
     (
@@ -100,8 +104,9 @@ export function ConversationActivity({
   // Below the column, a strip that came up for every chat while its history loads would
   // flash under each new one, so it waits for the answer. Not for a failed one: hidden
   // then, it would pass for a conversation that never ran. Nor for a retry on its way: the
-  // strip would vanish from under the finger that pressed it.
-  if (runs.length === 0 && !docked && !history.failed && !retrying) return null;
+  // strip would vanish from under the finger that pressed it, nor once it has answered.
+  const pressed = retrying || answeredFor === conversationId;
+  if (runs.length === 0 && !docked && !history.failed && !pressed) return null;
 
   const live = runs.filter((r) => !isSettled(r.status));
   const recent = runs.filter((r) => isSettled(r.status));

@@ -470,6 +470,20 @@ describe("a conversation's runs from before the page opened", () => {
       await waitFor(() => expect(screen.getByRole("status")).toHaveFocus());
     });
 
+    // Below the column the strip hid itself once the answer said the conversation never
+    // ran, taking the line with the focus in it down with it.
+    it("keeps a phone's strip up with that line when the conversation never ran", async () => {
+      render(phone());
+
+      online = true;
+      await pressRetry();
+      release();
+
+      await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(vi.noRuns));
+      await waitFor(() => expect(screen.getByRole("status")).toHaveFocus());
+      expect(screen.getByTestId("conversation-activity")).toBeInTheDocument();
+    });
+
     it("stays wherever the person has put it since", async () => {
       render(
         <>
