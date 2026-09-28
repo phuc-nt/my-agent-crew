@@ -28,7 +28,9 @@ gửi khi lần tải còn trên đường; một run của kênh khác đã ch�
 của tab, hay được một quyết định ở nơi khác tiếp tục trong lúc quyết định ở đây nhận 409; hai
 lượt liền nhau của tab, và run mà quyết định ở đây tiếp tục, vẫn là của tab nên không tải thêm
 lần nào; một lần tải, một lần tải hỏng (500 hay mất mạng) hay một 409 của cuộc trò chuyện vừa
-rời trả về khi cuộc khác đã mở) nằm ở
+rời trả về khi cuộc khác đã mở; lời báo "đã được xử lý" còn nguyên qua lần tải do run được tiếp
+tục hay luồng kết nối lại, và chỉ mất khi lần tải mang về một yêu cầu mới hay khi mở cuộc khác)
+nằm ở
 `app-thread-refresh-races.test.tsx`, nơi mỗi fetch lấy
 câu trả lời lúc gửi nhưng chỉ trao ra khi test mở "cửa" của nó; các lần đọc danh sách run
 chồng lên nhau (câu trả lời đọc trước khi run kết thúc lại về sau cùng) được giữ cửa theo cùng
@@ -227,7 +229,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
 - **Dừng thật, thread tự làm mới, pill kết nối lại**
   - vitest: `hooks/use-thread.test.ts` "Stop on a stream that resumed after a person answered";
     `state/thread-reducer.test.ts`
-    "stopping ends the turn at once, drops the spent decision and says it stopped";
+    "stopping ends the turn at once, drops the spent decision and says it stopped",
+    "keeps that note through the loads that follow it, until one brings a new request",
+    "opening another conversation starts from nothing, not even that note";
     `api/client.test.ts` "forwards the abort signal on a decision and on an answer";
     `app-thread-refresh.test.tsx`; `app-thread-refresh-races.test.tsx`;
     `hooks/use-activity.test.ts`; `app-activity.test.tsx`

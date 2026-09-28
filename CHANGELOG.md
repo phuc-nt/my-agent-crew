@@ -184,7 +184,9 @@ server runs a newer build, and a run paused for approval survives a server resta
 - **A decision someone already took elsewhere reads as handled.** In the chat, a decide or answer
   that meets a 409, because another tab, Telegram or the expiry sweep settled the request first,
   reads the conversation again and says the request was handled, not that the agent is busy, and
-  no longer marks the resumed call as stopped.
+  no longer marks the resumed call as stopped. The note stays when the thread is read again for the
+  run that decision resumed or for a live stream that reconnects; a new turn, a new request or
+  opening another conversation clears it.
 - **A slow load of the conversation just left no longer lands on the one opened.** Its messages,
   approval bar and spend showed under the other conversation's heading; each opening now takes only
   the loads, refused decisions and notes made for it.

@@ -317,6 +317,39 @@ describe("threadReducer turn end", () => {
     expect(threadReducer(next, { type: "handled" })).toBe(next);
   });
 
+  it("keeps that note through the loads that follow it, until one brings a new request", () => {
+    // The run the decision resumed, or the stream coming back, reads the thread again:
+    // neither answers the person's click a second time.
+    const noted = threadReducer({ ...run([twoCalls]), busy: false }, { type: "handled" });
+    const calls = [message({ role: "assistant", tool_calls: [{ id: "tc3", name: "write_file", arguments: {} }] })];
+    const again = threadReducer(noted, { type: "loaded", detail: detail({ messages: calls }) });
+    expect(again.notice).toEqual({ kind: "handled", text: "" });
+    const asking = detail({
+      messages: calls,
+      pending_approval: {
+        id: "ap5",
+        conversation_id: "c1",
+        message_id: "m",
+        tool_call_id: "tc3",
+        tool_name: "write_file",
+        arguments: {},
+        status: "pending",
+        created_at: "",
+        expires_at: null,
+        resolved_at: null,
+      },
+    });
+    expect(threadReducer(again, { type: "loaded", detail: asking }).notice).toBeNull();
+    // Any other note still belongs to the thread as it was before the load.
+    const failed = threadReducer(noted, { type: "failed", message: "net" });
+    expect(threadReducer(failed, { type: "loaded", detail: detail() }).notice).toBeNull();
+  });
+
+  it("opening another conversation starts from nothing, not even that note", () => {
+    const noted = threadReducer({ ...run([twoCalls]), busy: false }, { type: "handled" });
+    expect(threadReducer(noted, { type: "opened" })).toEqual(emptyThread);
+  });
+
   it("a turn paused on a person keeps the calls queued behind the one waiting", () => {
     const ended = threadReducer(run([twoCalls, approval]), { type: "turn_finished" });
     expect(statuses(ended)).toEqual(["awaiting", "running"]);

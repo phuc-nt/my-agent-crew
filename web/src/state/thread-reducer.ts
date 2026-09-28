@@ -72,6 +72,8 @@ export interface ThreadState {
 }
 
 export type ThreadAction =
+  /** Another conversation was opened: nothing of the one before carries over. */
+  | { type: "opened" }
   | { type: "loaded"; detail: ConversationDetail }
   | { type: "user_sent"; text: string }
   | { type: "turn_started" }
@@ -162,6 +164,8 @@ function updateTool(
 
 export function threadReducer(state: ThreadState, action: ThreadAction): ThreadState {
   switch (action.type) {
+    case "opened":
+      return emptyThread;
     case "loaded": {
       const d = action.detail;
       let items = itemsFromMessages(d.messages);
@@ -170,12 +174,17 @@ export function threadReducer(state: ThreadState, action: ThreadAction): ThreadS
         pending = pendingFromApproval(d.pending_approval);
         items = updateTool(items, pending.toolCallId, { status: "awaiting" });
       }
+      // The note that a decision met a request already settled answers the person's own
+      // click, and the loads that follow it — the run it resumed, the stream coming back —
+      // do not answer it again. A load that brings a new request has moved past it.
+      const handled = state.notice?.kind === "handled" && pending === null ? state.notice : null;
       return {
         ...emptyThread,
         items,
         pending,
         spentUsd: d.spent_usd,
         unknownCostCalls: d.unknown_cost_calls,
+        notice: handled,
       };
     }
     case "user_sent":

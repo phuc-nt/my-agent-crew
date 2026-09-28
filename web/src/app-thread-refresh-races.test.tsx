@@ -485,3 +485,66 @@ describe("answers for the conversation left behind arriving late", () => {
     expectB();
   });
 });
+
+describe("the note that a request was already handled, as the thread is read again", () => {
+  /** A request Telegram settles first: the approve here meets a 409 and says so. */
+  async function approvedElsewhere() {
+    const c = backend.create({
+      title: "Duyệt nơi khác",
+      status: "awaiting_approval",
+      pending_approval: fakeApproval({ status: "pending", resolved_at: null, arguments: { path: "b" } }),
+      messages: [storedMessage("user", "ghi b"), storedMessage("assistant", "", { tool_calls: [{ id: "tc", name: "write_file", arguments: { path: "b" } }] })],
+    });
+    backend.create({ title: "Hội thoại B", messages: [storedMessage("user", "tin của B")] });
+    await openConversation("Duyệt nơi khác", [run(c.id, "awaiting_approval")]);
+    const bar = await screen.findByRole("alertdialog");
+    Object.assign(c, { status: "idle", pending_approval: null });
+    await userEvent.click(within(bar).getByRole("button", { name: vi.approve }));
+    expect((await screen.findByTestId("notice")).textContent).toBe(vi.attentionHandled);
+    // The resumed run has carried out the call by the time the thread is read again.
+    c.messages.push(storedMessage("tool", "đã ghi", { tool_call_id: "tc", name: "write_file" }));
+    return c;
+  }
+
+  const loadLanded = () => vitest.waitFor(() => expect(screen.getByTestId("tool-card")).toHaveTextContent(vi.toolDone));
+
+  it("keeps it when the stream then says the run resumed, which loads the thread", async () => {
+    const c = await approvedElsewhere();
+    act(() => stream().emit({ type: "run", run: run(c.id, "running") }));
+    await loadLanded();
+    expect(screen.getByTestId("notice").textContent).toBe(vi.attentionHandled);
+  });
+
+  it("keeps it when the stream comes back from a drop, which loads the thread", async () => {
+    const c = await approvedElsewhere();
+    act(() => stream().onerror?.());
+    act(() => {
+      stream().open();
+      stream().emit({ type: "snapshot", runs: [run(c.id, "running")] });
+    });
+    await loadLanded();
+    expect(screen.getByTestId("notice").textContent).toBe(vi.attentionHandled);
+  });
+
+  it("drops it once a load brings the next request to decide", async () => {
+    const c = await approvedElsewhere();
+    act(() => stream().emit({ type: "run", run: run(c.id, "running") }));
+    await loadLanded();
+    // The run Telegram resumed stops again, on its next call.
+    c.messages.push(storedMessage("assistant", "", { tool_calls: [{ id: "tc2", name: "write_file", arguments: { path: "c" } }] }));
+    Object.assign(c, {
+      status: "awaiting_approval",
+      pending_approval: fakeApproval({ id: "ap2", tool_call_id: "tc2", status: "pending", resolved_at: null, arguments: { path: "c" } }),
+    });
+    act(() => stream().emit({ type: "run", run: run(c.id, "awaiting_approval") }));
+    expect(await screen.findByRole("alertdialog")).toBeInTheDocument();
+    expect(screen.queryByTestId("notice")).not.toBeInTheDocument();
+  });
+
+  it("leaves it with its own conversation when another is opened", async () => {
+    await approvedElsewhere();
+    await userEvent.click(screen.getByRole("button", { name: /Hội thoại B/ }));
+    await screen.findByText("tin của B");
+    expect(screen.queryByTestId("notice")).not.toBeInTheDocument();
+  });
+});

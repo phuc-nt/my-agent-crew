@@ -62,7 +62,7 @@ export function useThread(conversationId: string | null): ThreadController {
     opened.current = { id: conversationId };
     abortRef.current?.abort();
     setOwed(false);
-    dispatch({ type: "loaded", detail: blankDetail(conversationId) });
+    dispatch({ type: "opened" });
     void reload();
   }, [conversationId, reload]);
 
@@ -174,27 +174,4 @@ function describe(error: unknown): string {
   if (error instanceof ApiError && error.status === 409) return vi.busyConflict;
   if (error instanceof Error) return error.message;
   return String(error);
-}
-
-function blankDetail(id: string | null): ConversationDetail {
-  return {
-    id: id ?? "",
-    agent_id: "default",
-    channel: "",
-    title: "",
-    created_at: "",
-    updated_at: "",
-    autonomous: false,
-    cost_cap_usd: 0,
-    summary: "",
-    skills: [],
-    auto_approve: [],
-    parent_call_id: "",
-    spent_usd: 0,
-    unknown_cost_calls: 0,
-    status: "idle",
-    over_budget: false,
-    messages: [],
-    pending_approval: null,
-  };
 }
