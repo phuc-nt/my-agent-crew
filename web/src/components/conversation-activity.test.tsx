@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
 import type { RunInfo, RunStep } from "../api/types";
@@ -414,6 +414,16 @@ describe("a conversation's runs from before the page opened", () => {
       retry.focus();
       await userEvent.keyboard("{Enter}");
     };
+    // Lets the answer in inside act, so the render it brings and that render's effects have
+    // run when this returns. Checked with waitFor instead, a focus that should not move reads
+    // as unmoved while the effect that would move it is still to come.
+    const answerAtOnce = async () => {
+      await act(async () => {
+        release();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+      expect(screen.getByRole("status")).toHaveTextContent(vi.noRuns);
+    };
 
     it("goes back to the retry when the history still cannot be read", async () => {
       render(strip([]));
@@ -495,9 +505,8 @@ describe("a conversation's runs from before the page opened", () => {
       online = true;
       await pressRetry();
       screen.getByRole("button", { name: "elsewhere" }).focus();
-      release();
+      await answerAtOnce();
 
-      await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(vi.noRuns));
       expect(screen.getByRole("button", { name: "elsewhere" })).toHaveFocus();
     });
 
@@ -509,9 +518,8 @@ describe("a conversation's runs from before the page opened", () => {
       view.rerender(
         <ConversationActivity runs={[]} conversationId="c2" spentUsd={0} agentName={name} onOpenConversation={() => undefined} docked />,
       );
-      release();
+      await answerAtOnce();
 
-      await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(vi.noRuns));
       expect(document.body).toHaveFocus();
     });
   });
