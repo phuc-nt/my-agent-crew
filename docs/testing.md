@@ -372,7 +372,7 @@ tên một test thì sửa dòng của nó trong cùng commit.
     ("a count arriving leaves the row where the person scrolled it",
     "the current pill stays in view as the counts before it widen the row")
 - **Thanh "Có bản mới" và phiên bản trong Cài đặt**
-  - vitest: `hooks/use-version-check.test.ts`; `components/update-bar.test.tsx`; `app.test.tsx`
+  - vitest: `hooks/use-version-check.test.ts` (kể cả "makes no look of its own on a reconnect when a look since the drop reached the server", "looks at most every half minute on a stream that keeps dropping, the last look made late"); `components/update-bar.test.tsx`; `app.test.tsx`
     ("offers a reload once the server runs a newer build than the page",
     "asks the server again when settings open, and names both builds there")
   - Playwright: `version-refresh.spec.ts`
@@ -383,6 +383,12 @@ tên một test thì sửa dòng của nó trong cùng commit.
   - pytest: `tests/test_activity_restart.py`;
     `tests/test_memory_conversation_title.py::test_a_conversation_deleted_or_renamed_while_naming_waited_costs_nothing`;
     `tests/test_tools_delegate.py::test_a_child_deleted_while_the_parent_waits_is_reported_in_words`
+- **Màn Quản lý báo mất kết nối, thử lại, và đọc lại đội khi nối lại**
+  - vitest: `app-manage-connection.test.tsx`
+    ("says the pages stopped following the server when the stream drops, and a retry opens a fresh one",
+    "says nothing while the stream first connects",
+    "says the device is offline instead of offering a retry that cannot work",
+    "reads the crew, the schedules and the totals again when the stream comes back, not when it first opens")
 - **Vùng chạm ≥40px trên điện thoại**
   - Playwright: `touch-targets-phone.spec.ts` — quét mọi nút, link, ô nhập, select, summary,
     công tắc và tab trên từng trang (chat, mười trang Quản lý) và trong drawer cuộc trò chuyện ở

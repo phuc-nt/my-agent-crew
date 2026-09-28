@@ -148,6 +148,14 @@
   text-transform: none;
 }
 
+/* A dropped stream is said under the title, the retry at the row's end. */
+.connection-status > .notice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-4);
+}
+
 /* Section headings inside a page are quiet labels over the cards they introduce. A card's
    own title sits inside its frame and keeps the card's spacing; `:where` keeps this rule
    weaker than any component's own heading rule. */

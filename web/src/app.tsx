@@ -8,6 +8,7 @@ import { useAttention } from "./hooks/use-attention-badge";
 import { useCrew } from "./hooks/use-agents";
 import { useConversations } from "./hooks/use-conversations";
 import { useExternalRunRefresh } from "./hooks/use-external-run-refresh";
+import { useReloadOnReconnect } from "./hooks/use-reload-on-reconnect";
 import { type ManageSection, type Route, useRoute } from "./hooks/use-route";
 import { useThread } from "./hooks/use-thread";
 import { useVersionCheck } from "./hooks/use-version-check";
@@ -31,6 +32,11 @@ export function App() {
   const activity = useActivity(true, list.applyUpdate);
   const externalRun = useExternalRunRefresh(list.activeId, thread, activity);
   const version = useVersionCheck(activity.state.connected);
+  useReloadOnReconnect(activity.state.connected, () => {
+    void crew.reload();
+    void crew.refreshJobs();
+    void crew.refreshStats();
+  });
   const [settings, setSettings] = useState<SettingsInfo | null>(null);
   const [templates, setTemplates] = useState<TemplateInfo[]>([]);
 
@@ -128,6 +134,11 @@ export function App() {
           onReplayRun={(runId, job) =>
             navigate(runId ? { kind: "manage", section: "activity", param: runId, fromJob: job } : close("activity"))
           }
+          connection={{
+            connected: activity.state.connected,
+            connecting: activity.connecting,
+            onRetry: activity.reconnect,
+          }}
           onReloadCrew={() => void crew.reload()}
           onReloadActivity={() => void activity.refresh()}
           // Changing section drops the id in the URL: an id is only meaningful under

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useOnline } from "../hooks/use-online";
 import { vi } from "../i18n/vi";
 import type { ThreadState } from "../state/thread-reducer";
 
@@ -31,22 +31,6 @@ function threadText(thread: ThreadState, overBudget: boolean): string {
   if (latest?.kind === "tool") return vi.statusTool(latest.name);
   if (thread.busy) return vi.statusStreaming;
   return vi.statusIdle;
-}
-
-/** Whether the device has a network at all. Without one no retry can help, and saying
- *  so beats a retry button that fails every time it is pressed. */
-function useOnline(): boolean {
-  const [online, setOnline] = useState(() => typeof navigator === "undefined" || navigator.onLine !== false);
-  useEffect(() => {
-    const update = () => setOnline(navigator.onLine !== false);
-    window.addEventListener("online", update);
-    window.addEventListener("offline", update);
-    return () => {
-      window.removeEventListener("online", update);
-      window.removeEventListener("offline", update);
-    };
-  }, []);
-  return online;
 }
 
 /** Screen-reader friendly one-liner: what this thread is doing and whether live activity is flowing. */

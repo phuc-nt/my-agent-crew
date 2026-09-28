@@ -4,6 +4,7 @@ import type { RunInfo } from "../api/types";
 import { AgentEditor } from "../components/agent-editor/agent-editor";
 import { ApprovalHistory } from "../components/approval-history";
 import { AttentionCenter } from "../components/attention-center";
+import { ConnectionNotice } from "../components/connection-notice";
 import { ConnectionsPanel } from "../components/connections-panel";
 import { CrewPanel } from "../components/crew-panel";
 import { EmptyState } from "../components/empty-state";
@@ -68,6 +69,8 @@ interface Props {
   focusJob?: string;
   /** The open editor or run was reached from a job's row, and its back link returns there. */
   fromJob?: boolean;
+  /** The live stream the pages follow; absent leaves out the notice of a drop. */
+  connection?: { connected: boolean; connecting: boolean; onRetry: () => void };
 }
 
 const LABELS: Record<ManageSection, string> = {
@@ -245,6 +248,7 @@ export function ManageScreen(props: Props) {
       </nav>
       <main className="manage-body" aria-label={vi.manage.label}>
         <h2 className="manage-title">{LABELS[props.section]}</h2>
+        {props.connection && <ConnectionNotice {...props.connection} />}
         {/* One boundary per page, keyed by it: a section that breaks leaves the nav
             standing, and choosing any other page is enough to leave the failure behind. */}
         <ErrorBoundary key={`${props.section}/${props.replayRunId ?? props.editingAgentId ?? ""}`}>

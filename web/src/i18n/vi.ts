@@ -224,6 +224,8 @@ export const vi = {
     failedBadge: "lỗi hoặc dừng chưa xem",
     loading: "Đang tải…",
     loadFailed: (message: string) => `Không tải được: ${message}`,
+    disconnected: "Mất kết nối với máy chủ, nên trang này không còn tự cập nhật.",
+    offline: "Máy đang ngoại tuyến, nên trang này dừng ở lúc mất mạng.",
   },
   tools: {
     title: "Công cụ toàn đội",
