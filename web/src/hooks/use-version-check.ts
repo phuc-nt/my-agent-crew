@@ -44,7 +44,7 @@ async function servedEntry(): Promise<string | null> {
  * server is often restarted from a working tree whose version was not bumped, and a bump
  * alone changes nothing a reload would bring. Looks on focus, when the tab comes back
  * into view and when the live stream reconnects — a dropped stream is what a restart
- * looks like from here. A look that fails says nothing: a server that is down is not a
+ * looks like from here — each of them at most once every half minute. A look that fails says nothing: a server that is down is not a
  * new build.
  */
 export function useVersionCheck(connected: boolean): VersionCheck {
@@ -53,9 +53,13 @@ export function useVersionCheck(connected: boolean): VersionCheck {
   const [serverVersion, setServerVersion] = useState<string | null>(null);
   const [stale, setStale] = useState(false);
   const lastLook = useRef(0);
+  // When the last look that reached the server began, and the look still under way.
+  const lastGoodLook = useRef(0);
+  const pending = useRef<{ began: number; done: Promise<boolean> } | null>(null);
 
-  const check = useCallback(() => {
-    lastLook.current = Date.now();
+  const look = useCallback((): Promise<boolean> => {
+    const began = Date.now();
+    lastLook.current = began;
     const version = api.health().then(
       (health) => health.version,
       () => null,
@@ -64,18 +68,27 @@ export function useVersionCheck(connected: boolean): VersionCheck {
     if (!entry) {
       // The dev server has no build to tell apart, so the first version it gives will do.
       void version.then((v) => v && setPageVersion((page) => page ?? v));
-      return;
+      return Promise.resolve(false);
     }
     const served = servedEntry().catch(() => null);
-    void Promise.all([version, served]).then(([v, s]) => {
-      if (!s) return;
+    const done = Promise.all([version, served]).then(([v, s]) => {
+      if (!s) return false;
+      lastGoodLook.current = Math.max(lastGoodLook.current, began);
       setStale(s !== entry);
       // A version names the build on screen only when this same look found the server
       // serving it: a page loaded before a restart, or while the server was down, would
       // otherwise take the name of a build it is not running.
       if (s === entry && v) setPageVersion(v);
+      return true;
     });
+    pending.current = { began, done };
+    void done.then(() => {
+      if (pending.current?.done === done) pending.current = null;
+    });
+    return done;
   }, [entry]);
+
+  const check = useCallback(() => void look(), [look]);
 
   useEffect(() => check(), [check]);
 
@@ -93,13 +106,39 @@ export function useVersionCheck(connected: boolean): VersionCheck {
     };
   }, [entry, check]);
 
-  // The first connection is the page loading; only a later one follows a drop.
+  // The first connection is the page loading; only a later one follows a drop. A look
+  // that reached the server after the drop already saw what the reconnect would, so the
+  // reconnect waits for one under way and needs none of its own after it. A stream that
+  // keeps dropping looks at most every half minute, the late look still made in the end
+  // so that a restart among the drops is not missed.
   const wasConnected = useRef(false);
+  const droppedAt = useRef(0);
   useEffect(() => {
-    if (!connected) return;
-    if (wasConnected.current && entry) check();
+    if (!connected) {
+      droppedAt.current = Date.now();
+      return;
+    }
+    const reconnected = wasConnected.current;
     wasConnected.current = true;
-  }, [connected, entry, check]);
+    if (!reconnected || !entry) return;
+    const drop = droppedAt.current;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let cancelled = false;
+    const seenSinceDrop = () => lastGoodLook.current >= drop;
+    const afterDrop = pending.current && pending.current.began >= drop ? pending.current.done : Promise.resolve(false);
+    void afterDrop.then(() => {
+      if (cancelled || seenSinceDrop()) return;
+      const wait = lastGoodLook.current + THROTTLE_MS - Date.now();
+      if (wait <= 0) return void look();
+      timer = setTimeout(() => {
+        if (!seenSinceDrop()) void look();
+      }, wait);
+    });
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [connected, entry, look]);
 
   const dismiss = useCallback(() => setStale(false), []);
 

@@ -153,9 +153,9 @@ describe("useVersionCheck", () => {
     expect(result.current.pageVersion).toBe("0.8.0");
   });
 
-  it("looks at most every half minute on focus, and always after the stream reconnects", async () => {
+  it("looks at most every half minute on focus", async () => {
     built();
-    const { rerender } = await mount();
+    await mount();
     expect(indexLooks()).toBe(1);
 
     act(() => {
@@ -163,16 +163,104 @@ describe("useVersionCheck", () => {
     });
     expect(indexLooks()).toBe(1);
 
-    rerender({ connected: false });
-    rerender({ connected: true });
-    expect(indexLooks()).toBe(2);
-
     now += 31_000;
     act(() => {
       document.dispatchEvent(new Event("visibilitychange"));
     });
-    expect(indexLooks()).toBe(3);
+    expect(indexLooks()).toBe(2);
     await settle();
+  });
+
+  it("looks when the stream reconnects after a drop, and finds a restart on a new build", async () => {
+    built();
+    const { result, rerender } = await mount();
+    now += 31_000;
+    rerender({ connected: false });
+    server.entry = "/assets/index-second.js";
+    rerender({ connected: true });
+    await waitFor(() => expect(result.current.stale).toBe(true));
+    expect(indexLooks()).toBe(2);
+  });
+
+  // Reopening the app on a phone brings the tab back into view and the stream back at once.
+  it("makes no look of its own on a reconnect when a look since the drop reached the server", async () => {
+    built();
+    const { rerender } = await mount();
+    now += 31_000;
+    rerender({ connected: false });
+    act(() => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await settle();
+    expect(indexLooks()).toBe(2);
+
+    rerender({ connected: true });
+    await settle();
+    expect(indexLooks()).toBe(2);
+  });
+
+  it("waits for a look under way since the drop rather than making another", async () => {
+    built();
+    const { rerender } = await mount();
+    now += 31_000;
+    rerender({ connected: false });
+    act(() => {
+      window.dispatchEvent(new Event("focus"));
+    });
+    rerender({ connected: true });
+    await settle();
+    expect(indexLooks()).toBe(2);
+  });
+
+  it("looks again on the reconnect when the look since the drop found the server down", async () => {
+    built();
+    const { result, rerender } = await mount();
+    now += 31_000;
+    rerender({ connected: false });
+    server = { version: null, entry: null };
+    act(() => {
+      window.dispatchEvent(new Event("focus"));
+    });
+    await settle();
+    server = { version: "0.9.0", entry: "/assets/index-second.js" };
+    rerender({ connected: true });
+    await waitFor(() => expect(result.current.stale).toBe(true));
+    expect(indexLooks()).toBe(3);
+  });
+
+  it("looks at most every half minute on a stream that keeps dropping, the last look made late", async () => {
+    built();
+    const { result, rerender } = await mount();
+    const later = vitest.spyOn(globalThis, "setTimeout");
+    now += 10_000;
+    rerender({ connected: false });
+    server.entry = "/assets/index-second.js";
+    rerender({ connected: true });
+    await settle();
+    expect(indexLooks()).toBe(1);
+    const deferred = later.mock.calls.find(([, ms]) => ms === 20_000);
+    expect(deferred).toBeDefined();
+
+    now += 20_000;
+    act(() => (deferred![0] as () => void)());
+    await waitFor(() => expect(result.current.stale).toBe(true));
+    expect(indexLooks()).toBe(2);
+  });
+
+  it("drops a late look when the stream drops again before it", async () => {
+    built();
+    const { rerender } = await mount();
+    const later = vitest.spyOn(globalThis, "setTimeout");
+    const cleared = vitest.spyOn(globalThis, "clearTimeout");
+    now += 10_000;
+    rerender({ connected: false });
+    rerender({ connected: true });
+    await settle();
+    const index = later.mock.calls.findIndex(([, ms]) => ms === 20_000);
+    expect(index).toBeGreaterThanOrEqual(0);
+    rerender({ connected: false });
+    expect(cleared).toHaveBeenCalledWith(later.mock.results[index].value);
+    expect(indexLooks()).toBe(1);
   });
 
   // A tab going out of view fires the same event as one coming back; a look then would be
