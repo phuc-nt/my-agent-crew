@@ -51,6 +51,13 @@ function show(section: ManageSection, overrides: ScreenProps = {}) {
   return { onNavigate, onBackToChat, rerender: (more: ScreenProps) => rerender(screenWith(more)) };
 }
 
+/** A daily job of the default agent, whose last run is `last`. */
+const job = (id: string, last: ReturnType<typeof fakeRun> | null) => ({
+  id: `default/${id}`, schedule_id: id, agent_id: "default", name: id, kind: "prompt" as const,
+  cron: "0 7 * * *", every: null, prompt: "p", command: null, enabled: true, skills: [],
+  next_run: null, last_run: last, running: false, paused: false,
+});
+
 describe("the manage screen", () => {
   // This screen is the whole crew's: a run belongs here whichever conversation is open.
   it("shows every run, live ones apart from the ones already finished", () => {
@@ -123,25 +130,40 @@ describe("the manage screen", () => {
   });
 
   // The counts come after the first paint and widen the pills before the current one, and
-  // a browser does not hold a sideways scroll in place as they grow.
-  it("brings the current section's entry back into view when a count changes", () => {
+  // a browser does not hold a sideways scroll in place as they grow. Any of them can.
+  it.each<[string, () => ScreenProps, string, string]>([
+    [
+      "the runs going",
+      () => ({ liveRuns: ["live", "live-2"].map((id) => fakeRun({ id, status: "running", finished_at: null })) }),
+      vi.activity,
+      `2 ${vi.manage.liveBadge}`,
+    ],
+    ["the failures", () => ({ attention: [fakeRun({ id: "broke", status: "error" })] }), vi.activity, vi.manage.failedBadge],
+    [
+      "the requests waiting",
+      () => ({ attention: [fakeRun({ id: "asks", status: "awaiting_approval", finished_at: null })] }),
+      vi.approvalsTab,
+      `1 ${vi.manage.waitingBadge}`,
+    ],
+    ["the memory proposals", () => ({ stats: { ...new FakeBackend().stats, pending_proposals: 1 } }), vi.memory.tab, "1"],
+    ["the failing jobs", () => ({ jobs: [job("d", fakeRun({ status: "error" }))] }), vi.jobs, vi.jobRow.failing(1)],
+  ])("brings the current section's entry back into view when %s change", (_, counted, entry, badge) => {
     const scrolled: Element[] = [];
     const original = Element.prototype.scrollIntoView;
     Element.prototype.scrollIntoView = function (this: Element) {
       scrolled.push(this);
     };
-    const failed = () => [fakeRun({ id: "broke", status: "error" })];
     try {
-      const { rerender } = show("jobs");
-      rerender({ attention: failed() });
+      const { rerender } = show("settings");
+      rerender(counted());
       // Drawn again with the same counts: nothing moved, so neither does the row.
-      rerender({ attention: failed() });
+      rerender(counted());
     } finally {
       Element.prototype.scrollIntoView = original;
     }
 
     const current = screen.getByRole("button", { current: "page" });
-    expect(screen.getByRole("button", { name: /Hoạt động/ })).toHaveTextContent(vi.manage.failedBadge);
+    expect(screen.getByRole("button", { name: new RegExp(`^${entry}`) })).toHaveTextContent(badge);
     expect(scrolled).toEqual([current, current]);
   });
 
@@ -302,11 +324,6 @@ describe("the manage screen", () => {
   // A red number beside the schedules is a claim that something broke; a job that ran
   // fine, is still running or has never run makes no such claim.
   it("counts the jobs whose last run failed beside the jobs entry, and nothing otherwise", () => {
-    const job = (id: string, last: ReturnType<typeof fakeRun> | null) => ({
-      id: `default/${id}`, schedule_id: id, agent_id: "default", name: id, kind: "prompt" as const,
-      cron: "0 7 * * *", every: null, prompt: "p", command: null, enabled: true, skills: [],
-      next_run: null, last_run: last, running: false, paused: false,
-    });
     const fine = [job("a", fakeRun()), job("b", fakeRun({ status: "running" })), job("c", null)];
     show("crew", { jobs: fine });
     expect(screen.queryByTestId("jobs-failing")).not.toBeInTheDocument();

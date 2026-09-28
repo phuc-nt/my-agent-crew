@@ -340,7 +340,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
 - **Hàng mục Quản lý trên điện thoại: pill đang mở trong tầm nhìn, hàng người dùng đã cuộn thì
   đứng yên**
   - vitest: `screens/manage-screen.test.tsx` ("brings the current section's entry into view",
-    "brings the current section's entry back into view when a count changes",
+    "brings the current section's entry back into view when %s change" — mỗi số đếm một ca: run
+    đang chạy, run lỗi, yêu cầu chờ duyệt, đề xuất bộ nhớ, lịch lỗi;
     "leaves the row where the person scrolled it when a count changes")
   - Playwright: `manage-row-phone.spec.ts`
     ("a count arriving leaves the row where the person scrolled it",
