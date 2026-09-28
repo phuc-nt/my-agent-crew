@@ -1,6 +1,6 @@
 # Thiết kế
 
-**Phiên bản**: 0.8.0 · **Cập nhật**: 2026-09-26
+**Phiên bản**: 0.8.0 · **Cập nhật**: 2026-09-28
 
 ## Mục tiêu
 
@@ -214,20 +214,36 @@ kèm một câu hỏi và trả câu trả lời dạng text. Agent nào cũng c
 React + Vite, không có thư viện state. Hai reducer thuần ghim hợp đồng server từ cả hai phía:
 một trên luồng event của một cuộc trò chuyện, một trên luồng activity của rail. Mỗi
 vùng (một cuộc trò chuyện, danh sách, subscription activity, agent cùng job cùng stats) do
-một hook sở hữu, và một run kết thúc là tín hiệu duy nhất làm mới các vùng còn lại.
-Mọi chuỗi đều lấy từ một tệp chuỗi tiếng Việt.
+một hook sở hữu, và một run kết thúc là tín hiệu làm mới các vùng còn lại. Cuộc trò chuyện
+đang mở còn tải lại khi một run mà tab này không stream (Telegram, một job, một quyết định
+trên máy khác) dừng chờ duyệt hay chạy tiếp sau quyết định, và một lần nữa khi luồng activity
+nối lại, vì trong lúc luồng đứt một run có thể đã chạy rồi xong; lịch sử duyệt đọc lại khi
+tập yêu cầu đang chờ đổi. Mọi chuỗi đều lấy từ một tệp chuỗi tiếng Việt.
 
 Bundle tách thành ba phần (`react`, `vendor`, mã ứng dụng), tên tệp mang hash nội dung;
 server phục vụ `/assets/*` với `Cache-Control: immutable` và nén gzip mọi phản hồi trên
 1 KB trừ luồng SSE, nên một bản phát hành chỉ đổi mã ứng dụng để trình duyệt giữ nguyên
 hai phần kia, còn `index.html` luôn được hỏi lại.
 
+Chính `index.html` cho trang biết server đã chạy bản build khác: trang so script entry có
+hash (`/assets/index-*.js`) nó đang chạy với entry mà `/` đang phục vụ. Không so số phiên
+bản, vì server hay được khởi động lại từ một working tree chưa bump phiên bản, và bump một
+mình không đổi gì mà một lần tải lại mang về. Một app đã cài trên điện thoại có thể mở nhiều
+ngày, nên trang nhìn lại khi được focus hay hiện lại (tối đa mỗi 30 giây, không bao giờ khi
+tab đang ẩn) và sau mỗi lần luồng activity nối lại, vì một luồng đứt là dáng của một lần
+khởi động lại khi nhìn từ trình duyệt. Entry khác thì thanh "Có bản mới" mời tải lại; một
+lần nhìn hỏng không nói gì, vì server đang tắt không phải bản mới, còn Vite dev server
+không có entry hash nên không bao giờ hiện thanh. Cài đặt ghi phiên bản của trang cạnh
+phiên bản của server, và chỉ lấy tên đó từ một lần nhìn thấy server phục vụ đúng entry của
+trang — trang tải trước một lần khởi động lại không được mang tên của bản nó không chạy.
+
 Chỉ có một chat, với master: danh sách cuộc trò chuyện chứa các cuộc trò chuyện của master
 và cuộc mới luôn được mở cho nó. Màn hình chào nói với tư cách master và nêu tên
 đội; một chip trên header (`Đội: N`) mở tab đội trong rail, liệt kê mọi agent
 (master trước, kèm huy hiệu mode, live, lịch và Telegram) và cài một mẫu đi kèm
 bằng một cú bấm. Cuộc trò chuyện của agent được giao việc không nằm trong danh sách, nhưng mở được từ thẻ run
-hoặc mục **Cần bạn xử lý**.
+hoặc mục **Cần bạn xử lý**. Danh sách xếp các cuộc dưới Hôm nay / Hôm qua / Cũ hơn theo lịch
+của chính người xem, không theo ngày UTC, và mỗi dòng nói nó đổi cách đây bao lâu.
 
 Màn hình chia theo việc thuộc về ai. Những gì cuộc trò chuyện bạn đang ở trong đó đang làm nằm
 trong khung chat: một view activity của cuộc trò chuyện hiện các run của chính cuộc đó, từng step
@@ -239,12 +255,23 @@ một trong hai được render, không bao giờ cả hai bị CSS ẩn. Nhữn
 luồng tin — để chúng cạnh nhau khiến việc của đội và việc của cuộc trò chuyện trông như
 cùng một thứ. Nav của nó gom các mục thành theo dõi (activity, duyệt, chi phí), đội
 (đội, tool, job, trí nhớ) và hệ thống (kết nối, cài đặt); trên điện thoại các nhóm dàn phẳng
-thành một hàng cuộn ngang. Các mục của nó: activity (run đang chạy, và một mục **Cần bạn xử lý** cho các run đang chờ
-duyệt, đã lỗi hoặc bị dừng), duyệt (các yêu cầu đã quyết kèm kết quả — đã duyệt,
-bị từ chối, hết hạn), đội, tool, job (run kế/run trước, nút chạy ngay, công tắc tạm dừng/tiếp tục và
-lịch sử run của job khi cần), trí nhớ, chi phí theo agent, model và ngày — trong đó bảy ngày
-gần nhất và bảng theo model được đọc thẳng từ nhật ký message với số token của nó, nên
-con số là thứ thực sự được tính tiền chứ không phải ước lượng — kết nối, và cài đặt.
+thành một hàng cuộn ngang. Các mục của nó: activity (một mục **Cần bạn xử lý** cho các run
+đã lỗi hoặc bị dừng, mỗi run một nút "Đã xem"; các run đang chạy; rồi lịch sử run đã lưu,
+lọc theo agent ngay ở server và theo trạng thái, nguồn trong trang, đọc lùi thêm bằng
+"Xem thêm"), duyệt (các yêu cầu đang chờ, quyết ngay tại chỗ — cho phép, từ chối hay trả lời
+câu hỏi — kèm đồng hồ đếm tới hạn chót; bên dưới là lịch sử các yêu cầu đã quyết kèm kết
+quả — đã duyệt, bị từ chối, hết hạn, đã trả lời), đội, tool, job (lịch đọc thành chữ cạnh
+cron gốc, run kế/run trước kèm giờ đồng hồ, run trước kết thúc ra sao, nút chạy ngay, công
+tắc tạm dừng/tiếp tục, nút sửa lịch mở trình sửa agent, và lịch sử run của job khi cần),
+trí nhớ, chi phí theo agent, model và ngày — trong đó bảy ngày gần nhất và bảng theo model
+được đọc thẳng từ nhật ký message với số token của nó, nên con số là thứ thực sự được tính
+tiền chứ không phải ước lượng — kết nối, và cài đặt. Yêu cầu chờ duyệt và run hỏng nằm ở hai
+trang vì việc làm với chúng khác nhau: yêu cầu thì quyết, lỗi thì đọc rồi cất đi. Mỗi mục
+trên nav đếm đúng thứ của nó (activity: run đang chạy và lỗi chưa xem; duyệt: yêu cầu đang
+chờ; job: job có run gần nhất hỏng; trí nhớ: đề xuất chờ), và mỗi trang chỉ sang trang kia
+khi bên đó có việc, nên "không có gì cần xử lý" chỉ hiện khi đúng cho cả màn quản lý. Số yêu
+cầu đang chờ còn đứng trước tiêu đề tab và lên badge của app đã cài, và nút Quản lý mở thẳng
+trang duyệt khi có yêu cầu chờ.
 
 Một run có thể mở riêng ở `#/manage/activity/<run_id>`: lấy theo id, nên link tới một run
 mà danh sách chưa từng tải vẫn hoạt động, và tải lại trang vẫn ở đó. Phía trên mỗi timeline, một
@@ -255,8 +282,11 @@ mà bảo đang suy nghĩ thì đọc như bị treo.
 
 Header chat là tiêu đề và ba pill: chi tiêu so với trần, tuỳ chọn, và số thành viên
 đội. Pill mang dòng tóm tắt và mở một thẻ với chi tiết: thẻ chi tiêu
-có thanh, phần còn lại và phần đã giao việc; thẻ tuỳ chọn giữ công tắc autonomous,
-các skill tuỳ chọn dạng công tắc và các tool được cho phép luôn, mỗi cái kèm link thu hồi.
+có thanh, phần còn lại, phần đã giao việc và chỗ nâng trần (thêm một bước, hoặc gõ trần mới
+mà 0 là bỏ trần) — cũng chỗ đó nằm trong thông báo hết ngân sách, và ô soạn khoá tới khi
+trần được nâng, vì server sẽ dừng lượt trước khi nó bắt đầu; thẻ tuỳ chọn giữ công tắc
+autonomous, các skill tuỳ chọn dạng công tắc và các tool được cho phép luôn, mỗi cái kèm link
+thu hồi, cùng nút xuất cả cuộc trò chuyện ra `<tiêu đề>.md`.
 Thẻ đóng khi Escape (bắt trước phím tắt Escape của chính app, focus trả về pill)
 hoặc bấm ra ngoài; bấm bên trong giữ thẻ mở. Thẻ ở mọi nơi dùng chung một từ vựng —
 một hàng là icon, nhãn, gợi ý ⓘ, giá trị căn phải bằng chữ số đều (tabular; chỉ id và đường dẫn dạng `code` mới giữ font mono), một
@@ -265,11 +295,31 @@ thanh mỏng tuỳ chọn và một dòng phụ có màu — nên cột activity
 dẫn tới mục nơi một thứ được thay đổi thay vì lặp lại danh sách của nó.
 
 Thanh duyệt hiện hạn chót của yêu cầu đang chờ và một nút "luôn cho phép" cạnh
-duyệt/từ chối. Màn chat và màn quản lý mỗi màn có một error boundary, nên một crash khi
+duyệt/từ chối; khi dòng tóm tắt tham số phải cắt bớt, "Xem đầy đủ" mở toàn bộ tham số
+nguyên văn, ở thanh duyệt, ở thẻ tool và trong lịch sử duyệt. Màn chat và màn quản lý mỗi
+màn có một error boundary, nên một crash khi
 render hiện thẻ lỗi có nút tải lại thay vì trang trắng. Bên trong chat, thread và cột activity
 có boundary riêng, nên một phần vỡ không kéo sập phần còn lại; màn quản lý có một boundary cho
 mỗi trang, nên một mục vỡ vẫn để lại nav, và chọn trang khác là thoát khỏi lỗi. (Ý tưởng cho view run mượn từ view session
 của openhuman — không mượn code.)
+
+Vài thứ chỉ thuộc về người đang nhìn màn hình này, nên sống trong `localStorage` của trình
+duyệt chứ không ở server: mỗi cuộc trò chuyện đã được xem tới đâu (chấm chưa đọc), bản nháp
+chưa gửi của từng cuộc, các chip lọc của lịch sử run, những lỗi đã bấm "Đã xem", và dải
+activity đang mở hay gập. Mọi lần đọc và ghi đi qua một helper bọc try/catch
+(`web/src/lib/local-store.ts`), vì trình duyệt có thể từ chối hẳn (cửa sổ riêng tư, chặn dữ
+liệu trang, đầy quota): khi đó không gì được lưu và trang chạy tiếp trên bản trong bộ nhớ của
+nó cho tới lần tải lại. Lần dùng đầu coi mọi cuộc có từ trước là đã đọc, dấu đã xem của các
+tab cùng một trình duyệt được gộp chứ không ghi đè nhau, và bản nháp của một cuộc bị xoá đi
+cùng cuộc đó. Trình duyệt khác, hay máy khác, bắt đầu lại từ đầu — đó là cái giá của việc
+không bắt server nhớ một điều chỉ đúng với một màn hình.
+
+Danh sách cuộc trò chuyện xếp theo `updated_at`, và chấm chưa đọc so với chính mốc đó, nên
+mốc chỉ được đẩy khi cuộc trò chuyện thật sự đổi: một tin nhắn, một lượt, một lần người dùng
+sửa nó. Việc ghi sổ chạy nền — bản tóm tắt phiên, tiêu đề do model đặt, và chi phí của
+chúng — gọi `Store.update` và `Store.add_spend` với `touch=False`. Thiếu nó, một bản tóm tắt
+viết xong sau khi người dùng đã rời đi sẽ đưa một cuộc cũ lên đầu danh sách và gắn chấm chưa
+đọc cho thứ không ai viết thêm.
 
 Về thị giác, mọi giá trị đi qua một bộ token trong `web/src/styles/tokens.css`: thang chữ,
 khoảng cách, bo góc, bóng, bề mặt và các màu trạng thái, mỗi màu có bản sáng và tối. Chế độ
@@ -278,8 +328,8 @@ ký tự tiếng Việt, không tải từ CDN. Icon là một bộ nét SVG v�
 `components/ui/icon.tsx` thay cho emoji, vì emoji mỗi nền tảng vẽ một kiểu và theme không
 đổi được màu của nó. Mỗi agent có một avatar là chữ cái đầu trên nền màu riêng, băm từ id
 nên ở đâu cũng cùng một màu. Logo trên sidebar cũng là favicon và icon khi cài app:
-`npm run icons` vẽ các PNG từ `web/public/favicon.svg`. Thẻ **Cần bạn xử lý** xám khi
-trống và chỉ chuyển màu cảnh báo khi có việc chờ; trong lịch sử duyệt, yêu cầu hết hạn mang
+`npm run icons` vẽ các PNG từ `web/public/favicon.svg`. Thẻ **Cần bạn xử lý** xám khi cả
+màn quản lý không còn gì chờ và chỉ chuyển màu cảnh báo khi có việc; trong lịch sử duyệt, yêu cầu hết hạn mang
 nhãn xám, còn màu cảnh báo giữ cho yêu cầu bị từ chối và yêu cầu đang chờ. Nền tô của nút chính
 và badge (`--accent-fill`) giữ màu xanh thương hiệu ở cả hai chế độ, vì bản xanh sáng hơn của
 chế độ tối chỉ dành cho chữ và viền: chữ trắng trên nó không đạt 4.5:1.

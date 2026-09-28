@@ -5,7 +5,7 @@ title: Bản đồ mã nguồn
 
 # Bản đồ mã nguồn
 
-**Phiên bản**: 0.8.0 · **Cập nhật**: 2026-09-26
+**Phiên bản**: 0.8.0 · **Cập nhật**: 2026-09-28
 
 Đọc [system-architecture.md](system-architecture.md) trước để biết các khối là gì; tài liệu này
 chỉ nói khối nào nằm ở **gói** nào. Tên tệp, hàm và số liệu không ghi ở đây: mã nguồn là nguồn
@@ -80,10 +80,10 @@ riêng: `#/manage/activity/<run_id>` mở đúng lượt đó, tải lại vẫn
 |---|---|
 | `src/api/` | client HTTP, đọc SSE, kiểu dữ liệu |
 | `src/screens/` | hai màn: chat và quản lý (chín tab) |
-| `src/hooks/` | tải và giữ trạng thái từng mảng: hội thoại, hoạt động, agent, trí nhớ, wiki, kết nối, route hash, phím tắt |
+| `src/hooks/` | tải và giữ trạng thái từng mảng: hội thoại, luồng chat của cuộc đang mở, hoạt động và lịch sử run đã lưu, agent và bản nháp của trình sửa agent (kèm các kiểm tra trước khi gửi và id của từng lịch), trí nhớ, wiki, kết nối, route hash, phím tắt; cùng những mảnh nhỏ của màn hình: cuộc nào đã xem tới đâu, bản nháp của từng cuộc, đồng hồ cho nhãn thời gian tương đối, số việc chờ trên tiêu đề tab và badge app, tải lại cuộc đang mở khi kênh khác chạy trong nó, yêu cầu mà một run chờ duyệt đang giữ, run do một nút trên màn vừa khởi chạy, và dò bản build mới |
 | `src/state/` | reducer cho luồng chat và hoạt động |
 | `src/components/` | mọi thành phần giao diện, mỗi mảng quản lý một nhóm |
-| `src/lib/` | hàm thuần dùng chung (diff, tiến độ run, kết quả giao việc) |
+| `src/lib/` | hàm thuần dùng chung: diff dòng, tiến độ run và câu tóm tắt vì sao run dừng, kết quả giao việc, lọc lịch sử run, các run đã bấm "Đã xem", thời gian tương đối theo lịch của người xem, cron đọc thành chữ, định dạng token và cache, xuất cuộc trò chuyện ra Markdown, lọc lệnh `/`, link `[[…]]` của wiki, và lớp bọc `localStorage` mà mọi thứ trình duyệt nhớ đều đi qua |
 | `src/i18n/` | mọi chuỗi tiếng Việt của web |
 | `src/styles/` | CSS theo mảng; `tokens.css` giữ thang chữ, khoảng cách, màu sáng/tối |
 | `public/` | favicon, icon cài app và manifest, chép nguyên vào gốc bundle |
