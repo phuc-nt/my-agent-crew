@@ -5,7 +5,7 @@ title: Quy ước code
 
 # Quy ước code
 
-**Phiên bản**: 0.8.0 · **Cập nhật**: 2026-09-26
+**Phiên bản**: 0.8.0 · **Cập nhật**: 2026-09-28
 
 ## 1. Python
 
@@ -56,7 +56,7 @@ npm ci                            # hoặc npm install khi đang phát triển
 npm run typecheck
 npm test
 npx playwright install --with-deps chromium   # lần đầu thôi
-npm run e2e
+npm run e2e                       # E2E_PORT=<cổng> npm run e2e khi checkout khác cũng đang chạy e2e
 npm run bundle
 git diff --exit-code --stat -- ../my_agent_crew/server/static
 ```
@@ -69,6 +69,12 @@ Hai cổng hay bị bỏ sót và vì sao:
 | `git diff` trên `server/static` | bundle được commit, nên quên `npm run bundle` là CI đỏ dù code đúng | diff khác rỗng ở `my_agent_crew/server/static` |
 
 Sửa định dạng bằng `uv run ruff format .` rồi **chạy lại `pytest`** — định dạng có đụng vào code.
+
+Dev server của Playwright nghe ở cổng 4173 và, ngoài CI, được dùng lại nếu đã có ai nghe ở
+đó, nên hai checkout cùng chạy e2e trên một cổng thì lần chạy sau lặng lẽ test mã nguồn của
+lần chạy trước; `E2E_PORT` dời nó sang cổng khác. Vitest và Playwright đều ghim múi giờ
+Asia/Ho_Chi_Minh trong cấu hình của mình, nên ranh giới ngày ("Hôm nay", "Hôm qua") rơi
+cùng một chỗ trên máy và trên CI (chạy UTC); một test về ngày không tự đặt `TZ`.
 
 ## 5. Commit
 
@@ -86,7 +92,7 @@ Sửa định dạng bằng `uv run ruff format .` rồi **chạy lại `pytest`
 ## 7. Tài liệu
 
 - `docs/` giữ sáu tài liệu chuẩn (index, system-architecture, codebase-summary, deployment-guide, project-overview-pdr, code-standards) và các tài liệu tham chiếu theo mảng. Cập nhật khi hành vi người dùng thấy, lệnh, cấu trúc, hay hợp đồng API đổi; không ghi lại thay đổi nội bộ thuần tuý.
-- **Code là nguồn sự thật; tài liệu chỉ mô tả khái niệm, luồng và hợp đồng người dùng thấy** (khoá YAML, tên tool, lệnh CLI, biến môi trường, endpoint, tên tab). Không ghi tên tệp, hàm, hằng, component hay tệp test, không ghi số test hay số dòng, không ghi thời gian chạy: những thứ đó đổi theo mỗi commit và chỉ có `ls`/`grep` mới nói đúng. Tên gói (`agent/`, `tools/`, `channels/`…) là mức chi tiết tối đa. Viết cho người mới vào và người quyết định, không phải để thay việc đọc code.
+- **Code là nguồn sự thật; tài liệu chỉ mô tả khái niệm, luồng và hợp đồng người dùng thấy** (khoá YAML, tên tool, lệnh CLI, biến môi trường, endpoint, tên tab). Không ghi tên tệp, hàm, hằng, component hay tệp test, không ghi số test hay số dòng, không ghi thời gian chạy: những thứ đó đổi theo mỗi commit và chỉ có `ls`/`grep` mới nói đúng. Tên gói (`agent/`, `tools/`, `channels/`…) là mức chi tiết tối đa. Viết cho người mới vào và người quyết định, không phải để thay việc đọc code. Bản đồ tính năng → test trong [testing.md](testing.md) là ngoại lệ mà CLAUDE.md đòi: nó ghi tên tệp test và tên test, và được sửa cùng commit khi một test đổi tên hay dời chỗ.
 - Đầu mỗi tài liệu chuẩn: front matter `layout: default` + `title`, dòng **Phiên bản** · **Cập nhật**. Cuối: `## Câu hỏi mở`.
 - Sơ đồ: spec `.json` là nguồn; `.html` và `.svg` là sản phẩm sinh ra, commit cả ba. Nhúng SVG trong markdown, link HTML cho bản động. Không commit `*.visual-check.*`.
 - Kiểm tra link trước khi commit ([deployment-guide.md §10](deployment-guide.md#10-kiểm-tra-bộ-doc)).
