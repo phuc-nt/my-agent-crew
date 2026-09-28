@@ -1,7 +1,7 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
-import type { RunInfo } from "./api/types";
+import type { ActivityPayload, RunInfo } from "./api/types";
 import { App } from "./app";
 import { vi } from "./i18n/vi";
 import { FakeBackend, FakeEventSource, fakeApproval, fakeRun } from "./test/fake-backend";
@@ -132,6 +132,30 @@ describe("App requests waiting on the person", () => {
 
     const history = await screen.findByTestId("approval-history");
     expect(within(history).getAllByRole("listitem")).toHaveLength(1);
+  });
+
+  // The request's run goes on in the same update in which another conversation's run starts
+  // waiting: a reconnect's snapshot, or two runs heard of at once. Nothing has finished and
+  // one run still waits, so only which run waits says a request has settled.
+  it.each([
+    ["in one snapshot", (resumed: RunInfo, next: RunInfo): ActivityPayload[] => [{ type: "snapshot", runs: [resumed, next] }]],
+    ["in two runs heard of at once", (resumed: RunInfo, next: RunInfo): ActivityPayload[] => [{ type: "run", run: resumed }, { type: "run", run: next }]],
+  ])("lists a request settled elsewhere as another run starts waiting, %s", async (_, news) => {
+    const { c, waitingRun, expires } = waitingConversation();
+    const pending_approval = fakeApproval({ id: "ap9", status: "pending", resolved_at: null, expires_at: expires });
+    const d = backend.create({ status: "awaiting_approval", pending_approval });
+    await openLedger();
+
+    const resumed: RunInfo = { ...waitingRun, status: "running" };
+    const next = fakeRun({ id: "v", status: "awaiting_approval", finished_at: null, conversation_id: d.id });
+    backend.runs = [resumed, next];
+    backend.approvals = [fakeApproval({ conversation_id: c.id })];
+    const stream = FakeEventSource.instances.at(-1)!;
+    act(() => news(resumed, next).forEach((payload) => stream.emit(payload)));
+
+    const history = await screen.findByTestId("approval-history");
+    expect(within(history).getAllByRole("listitem")).toHaveLength(1);
+    expect(document.title).toBe("(1) My Agent Crew");
   });
 
   // Deciding in a row settles its request even when the resumed turn stops on its next tool

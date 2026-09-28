@@ -52,9 +52,11 @@ phút sau hạn — khép nó), còn Playwright chỉ giữ phần chỉ trình 
 trên bề rộng 390px mà trang không cuộn ngang, và trên màn điện thoại thấp 390×664 mở đầy đủ một
 tệp 120 dòng mà các nút quyết định vẫn trên màn hình, trang không cuộn. Lịch sử duyệt bên dưới
 được đọc lại mỗi khi một yêu cầu có thể vừa khép: run của nó chạy tiếp, run kết thúc (kể cả khi
-chạy tiếp và kết thúc đến trong cùng một lần cập nhật), một run trang chưa từng thấy chờ đến nơi
-đã xong, hay hàng vừa quyết định thấy run dừng chờ yêu cầu kế tiếp; mỗi đường có một ca trong
-`app-attention.test.tsx`.
+chạy tiếp và kết thúc đến trong cùng một lần cập nhật), run của nó chạy tiếp đúng lúc run của một
+cuộc khác bắt đầu chờ (trong một snapshot khi luồng kết nối lại hay hai run đến cùng lúc: số run
+chờ và số run xong đều giữ nguyên, chỉ run nào đang chờ là đổi), một run trang chưa từng thấy chờ
+đến nơi đã xong, hay hàng vừa quyết định thấy run dừng chờ yêu cầu kế tiếp; mỗi đường có một ca
+trong `app-attention.test.tsx`.
 
 Run dừng chờ duyệt sống qua lần khởi động lại: `tests/test_activity_restart.py` dựng một
 `ActivityHub` thứ hai trên cùng store như một tiến trình mới sẽ dựng, rồi kiểm tra quyết định
