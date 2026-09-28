@@ -26,17 +26,19 @@ beforeEach(() => {
 });
 afterEach(() => vitest.unstubAllGlobals());
 
+const log = (streamed: RunInfo[] = []) => (
+  <RecentRunsLog
+    streamed={streamed}
+    agents={[fakeAgent, coachAgent]}
+    agentName={(id) => (id === "coach" ? "HLV" : "Agent")}
+    onOpenConversation={() => undefined}
+    onOpenRun={() => undefined}
+    onBackToChat={() => undefined}
+  />
+);
+
 function show(streamed: RunInfo[] = []) {
-  return render(
-    <RecentRunsLog
-      streamed={streamed}
-      agents={[fakeAgent, coachAgent]}
-      agentName={(id) => (id === "coach" ? "HLV" : "Agent")}
-      onOpenConversation={() => undefined}
-      onOpenRun={() => undefined}
-      onBackToChat={() => undefined}
-    />,
-  );
+  return render(log(streamed));
 }
 
 const chip = (group: string, name: string) =>
@@ -187,6 +189,42 @@ describe("the recent runs log", () => {
     expect(more).not.toBeInTheDocument();
     const firstNew = screen.getAllByTestId("run-card")[100];
     await waitFor(() => expect(within(firstNew).getByRole("button")).toHaveFocus());
+  });
+
+  // A history exactly a page long looks as if it has more: the next page brings no run
+  // that is not on show already, and there is no first new run to go to.
+  it("hands focus to the last run when the next page brings nothing new", async () => {
+    backend.runs = many(100);
+    show();
+    const more = await screen.findByText(vi.showMore, { selector: "button" });
+
+    more.focus();
+    await userEvent.keyboard("{Enter}");
+
+    await waitFor(() => expect(more).not.toBeInTheDocument());
+    const cards = screen.getAllByTestId("run-card");
+    expect(cards).toHaveLength(100);
+    await waitFor(() => expect(within(cards[99]).getByRole("button")).toHaveFocus());
+  });
+
+  // The hand-off is for the page that was asked for, once: a run streamed in later must
+  // not pull the focus back from wherever the person has since put it.
+  it("hands the focus on once, not again when a later run arrives", async () => {
+    backend.runs = many(150);
+    const view = show();
+    const more = await screen.findByText(vi.showMore, { selector: "button" });
+    more.focus();
+    await userEvent.keyboard("{Enter}");
+    await waitFor(() => expect(screen.getAllByTestId("run-card")).toHaveLength(150));
+    const firstNew = within(screen.getAllByTestId("run-card")[100]);
+    await waitFor(() => expect(firstNew.getByRole("button")).toHaveFocus());
+
+    firstNew.getByRole("button").blur();
+    const later = fakeRun({ id: "later", started_at: "2026-09-19T09:00:00Z", finished_at: "2026-09-19T09:00:05Z" });
+    view.rerender(log([later]));
+
+    await waitFor(() => expect(screen.getAllByTestId("run-card")).toHaveLength(151));
+    expect(document.body).toHaveFocus();
   });
 
   it("hands focus to the retry when the next page cannot be read", async () => {
