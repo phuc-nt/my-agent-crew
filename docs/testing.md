@@ -421,3 +421,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     390×844 cảm ứng; checkbox đo theo label bọc nó, link nằm trong câu được miễn như WCAG
     ("every control on %s is big enough for a finger",
     "every control in the phone's conversation drawer is big enough for a finger")
+- **Agent con kết lượt bằng một dòng `MEDIA:` trần vẫn đưa lời khuyên tới người dùng**
+  - pytest:
+    `tests/test_delegate_attachments.py::test_an_answer_written_beside_a_tool_call_is_not_lost_to_a_bare_chart_line`;
+    `tests/test_delegate_attachments.py::test_only_a_chart_only_ending_reaches_back_for_the_words`
+    (lời nháp trước một câu trả lời thật vẫn bị bỏ, dòng đính kèm không gửi hai lần);
+    `tests/test_delegate_attachments.py::test_the_words_are_looked_for_only_since_the_task_was_given`

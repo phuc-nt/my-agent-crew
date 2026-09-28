@@ -20,7 +20,7 @@ from my_agent_crew.llm.types import Message, ToolCall
 from my_agent_crew.server.runtime import Runtime
 from my_agent_crew.store import Store
 from my_agent_crew.tools.delegate import DELEGATE_TOOL_NAME
-from my_agent_crew.tools.delegate_attachments import RELAY_DIR, dropped_attachments
+from my_agent_crew.tools.delegate_attachments import RELAY_DIR, child_answer, dropped_attachments
 from tests.conftest import collect
 from tests.test_tools_delegate import agent, delegate
 
@@ -28,10 +28,16 @@ CHART = b"\x89PNG fake chart"
 TASK = "Tình hình ngủ\nMEDIA: charts/sleep.png"
 
 
-def _crew(deps_factory, store: Store, tmp_path: Path, boss_script=()) -> Runtime:
-    """A boss on a scripted model and a worker with its own workspace, echoing its task."""
+def _crew(deps_factory, store: Store, tmp_path: Path, boss_script=(), worker_script=()) -> Runtime:
+    """A boss on a scripted model and a worker with its own workspace, echoing its task
+    unless it is given a script."""
     base = deps_factory(script=boss_script)
-    worker = agent(deps_factory(routes=(Route("fake", "echo"),)), "worker")
+    worker_deps = (
+        deps_factory(script=worker_script)
+        if worker_script
+        else deps_factory(routes=(Route("fake", "echo"),))
+    )
+    worker = agent(worker_deps, "worker")
     coach_root = tmp_path / "coach"
     (coach_root / "charts").mkdir(parents=True)
     (coach_root / "charts" / "sleep.png").write_bytes(CHART)
@@ -128,3 +134,57 @@ def test_charts_from_an_earlier_turn_are_not_attached_again(store: Store):
     store.append(conv.id, Message(role="user", content="hôm nay"))
 
     assert dropped_attachments(store.history(conv.id), "câu trả lời mới") == []
+
+
+async def test_an_answer_written_beside_a_tool_call_is_not_lost_to_a_bare_chart_line(
+    deps_factory, store: Store, tmp_path: Path
+):
+    """Models often write the answer next to their last tool call and end the turn on a
+    bare `MEDIA:` line. Handed on alone, that line gave the person a chart and not a word
+    of the advice it illustrated."""
+    note = ToolCall("n", "workspace_write", {"path": "note.md", "content": "ngủ sớm"})
+    worker = [
+        completion("Tối nay ngủ trước 22:30.", tool_calls=(note,)),
+        completion("MEDIA: charts/sleep.png"),
+    ]
+    rt = _crew(deps_factory, store, tmp_path, _boss_script("không được gọi tới"), worker)
+    conv = rt.store.create(agent_id="boss", autonomous=True)
+    await collect(run_turn(rt.deps_for("boss"), conv.id, "tối nay làm gì?"))
+
+    child = rt.store.for_parent_call("c1")
+    final = rt.store.history(conv.id)[-1].message.content
+    assert final == f"Tối nay ngủ trước 22:30.\n\nMEDIA: {RELAY_DIR}/{child.id}/sleep.png"
+
+
+def _said(store: Store, *replies: str):
+    conv = store.create()
+    store.append(conv.id, Message(role="user", content="việc"))
+    for reply in replies:
+        store.append(conv.id, Message(role="assistant", content=reply))
+    return store.history(conv.id)
+
+
+def test_only_a_chart_only_ending_reaches_back_for_the_words(store: Store):
+    # Working-out before a real answer stays spared; the words are fetched only when the
+    # last message attaches and says nothing, and a chart line is never sent twice.
+    assert child_answer(_said(store, "Đọc brief trước.", "Ngủ sớm.")) == "Ngủ sớm."
+    assert child_answer(_said(store, "Đọc brief.", "Ngủ sớm.", "", "MEDIA: a.png")) == (
+        "Ngủ sớm.\n\nMEDIA: a.png"
+    )
+    assert child_answer(_said(store, "Ngủ sớm.\nMEDIA: a.png", "MEDIA: a.png\nFILE: b.csv")) == (
+        "Ngủ sớm.\nMEDIA: a.png\n\nFILE: b.csv"
+    )
+    assert child_answer(_said(store, "MEDIA: a.png")) == "MEDIA: a.png"
+    assert child_answer(_said(store)) == texts.EMPTY_REPLY
+
+
+def test_the_words_are_looked_for_only_since_the_task_was_given(store: Store):
+    conv = store.create()
+    for role, content in [
+        ("user", "việc cũ"),
+        ("assistant", "Câu trả lời cũ."),
+        ("user", "việc mới"),
+        ("assistant", "MEDIA: a.png"),
+    ]:
+        store.append(conv.id, Message(role=role, content=content))
+    assert child_answer(store.history(conv.id)) == "MEDIA: a.png"

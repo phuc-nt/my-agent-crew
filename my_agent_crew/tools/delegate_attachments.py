@@ -12,6 +12,10 @@ lines readily: a health coach drew two charts, the master summarised, and the pe
 neither. So the loop puts back, at the end of the final reply, any relayed line the reply
 left out. The charts were made for the person; whether they arrive should not depend on
 the model remembering to copy a path.
+
+Models also often write the answer next to their last tool call and end the turn on a
+bare `MEDIA:` line. The child's last words are then only the chart, and handed on alone
+they gave the person a picture and not a word of the advice it illustrated.
 """
 
 from __future__ import annotations
@@ -43,6 +47,32 @@ def attachment(line: str) -> tuple[str, str] | None:
         if stripped.startswith(prefix) and stripped[len(prefix) :].strip():
             return prefix, stripped[len(prefix) :].strip()
     return None
+
+
+def child_answer(history: Sequence[StoredMessage]) -> str:
+    """The child's last words, since its task was given. Everything before them is its own
+    working-out, which the parent asked to be spared, unless the last words only attach
+    files: then the last thing it said before them is the answer they go with."""
+    start = max((i for i, m in enumerate(history) if m.message.role == "user"), default=-1)
+    said = [
+        m.message.content.strip()
+        for m in history[start + 1 :]
+        if m.message.role == "assistant" and m.message.content.strip()
+    ]
+    if not said:
+        return texts.EMPTY_REPLY
+    last = said[-1]
+    words = next((text for text in reversed(said[:-1]) if not _only_attaches(text)), None)
+    if not _only_attaches(last) or words is None:
+        return last
+    already = {line.strip() for line in words.split("\n")}
+    extra = [line for line in last.split("\n") if line.strip() not in already]
+    return "\n\n".join([words, "\n".join(extra)]) if extra else words
+
+
+def _only_attaches(text: str) -> bool:
+    lines = [line for line in text.split("\n") if line.strip()]
+    return all(attachment(line) for line in lines)
 
 
 def relay_attachments(answer: str, child_root: Path, parent_root: Path, child_id: str) -> str:

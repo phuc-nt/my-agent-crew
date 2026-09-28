@@ -9,6 +9,14 @@ All notable changes to my-agent-crew. The format follows [Keep a Changelog](http
 versioning follows [SemVer](https://semver.org/). One version number for both backend and web: within a
 single release, `pyproject.toml` and `web/package.json` always carry the same number.
 
+## [Unreleased]
+
+### Fixed
+
+- A delegated agent that writes its answer next to a tool call and ends on a bare `MEDIA:` line no
+  longer hands on only the chart. The child's answer is the last thing it said before the
+  attachment lines, with them added, so a relayed reply carries the advice as well as the picture.
+
 ## [0.9.1] — 2026-09-28
 
 A follow-up to 0.9.0 that closes what its reviews left open: the manage screen says when it lost

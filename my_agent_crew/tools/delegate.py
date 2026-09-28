@@ -28,7 +28,7 @@ from my_agent_crew.agents import AgentProfile
 from my_agent_crew.agents.roster import DELEGATE_TOOL_NAME, delegate_targets
 from my_agent_crew.store.models import Conversation
 from my_agent_crew.store.runs import DONE
-from my_agent_crew.tools.delegate_attachments import relay_attachments
+from my_agent_crew.tools.delegate_attachments import child_answer, relay_attachments
 from my_agent_crew.tools.delegate_report import unfinished_note
 from my_agent_crew.tools.registry import Tool, ToolError, ToolResult
 
@@ -125,7 +125,7 @@ async def _delegate(
     )
     note = unfinished_note(run)
     answer = relay_attachments(
-        _answer(runtime, child.id),
+        child_answer(runtime.store.history(child.id)),
         runtime.deps_for(target).agent.workspace,
         profile.workspace,
         child.id,
@@ -178,12 +178,3 @@ def _open_child(
     if parent is not None and parent.auto_approve:
         child = runtime.store.update(child.id, auto_approve=list(parent.auto_approve))
     return child
-
-
-def _answer(runtime: Runtime, conv_id: str) -> str:
-    """The child's last words. Everything before them is its own working-out, which the
-    parent asked to be spared."""
-    history = runtime.store.history(conv_id)
-    replies = [m.message.content for m in history if m.message.role == "assistant"]
-    last = replies[-1].strip() if replies else ""
-    return last or texts.EMPTY_REPLY
