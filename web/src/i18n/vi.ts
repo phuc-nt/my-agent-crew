@@ -206,6 +206,10 @@ export const vi = {
   retry: "Thử lại",
   showMore: "Xem thêm",
   approvalsTab: "Duyệt",
+  markdownImage: {
+    // Said on the button that stands in for an image from another site until it is asked for.
+    show: (host: string) => `Hiện ảnh từ ${host}`,
+  },
   // A request that failed in a way the server did not put in words for people.
   requestErrors: {
     network: "Không gọi được máy chủ — kiểm tra kết nối rồi thử lại.",

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi as vitest } from "vitest";
 import { vi } from "../i18n/vi";
 import { MarkdownBody } from "./markdown-body";
@@ -99,3 +99,32 @@ describe("an agent reply carrying markdown", () => {
     expect(screen.queryByRole("button")).toBeNull();
   });
 });
+
+describe("an image in a reply", () => {
+  it("holds back an image from another site until asked, then loads it without a referrer", async () => {
+    render(<MarkdownBody text="Xem ![biểu đồ giấc ngủ](https://tracker.example/pixel.png) nhé" />);
+    expect(screen.queryByRole("img")).toBeNull();
+    const offer = screen.getByRole("button", { name: `${vi.markdownImage.show("tracker.example")} biểu đồ giấc ngủ` });
+
+    fireEvent.click(offer);
+    const image = screen.getByRole("img", { name: "biểu đồ giấc ngủ" });
+    expect(image).toHaveAttribute("src", "https://tracker.example/pixel.png");
+    expect(image).toHaveAttribute("referrerpolicy", "no-referrer");
+    // The button it replaced held the focus; the image takes it rather than the page.
+    await waitFor(() => expect(image).toHaveFocus());
+  });
+
+  it("shows the app's own images at once", () => {
+    const own = `${window.location.origin}/api/agents/coach/files/chart.png`;
+    render(<MarkdownBody text={`![của mình](${own}) ![tương đối](/files/a.png)`} />);
+    expect(screen.getAllByRole("img").map((img) => img.getAttribute("alt"))).toEqual(["của mình", "tương đối"]);
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+
+  it("holds back a remote image in a wiki page too", () => {
+    render(<MarkdownBody text="![ảnh](http://elsewhere.test/a.png)" wikiLink={(slug) => slug} />);
+    expect(screen.queryByRole("img")).toBeNull();
+    expect(screen.getByRole("button", { name: vi.markdownImage.show("elsewhere.test") + " ảnh" })).toBeInTheDocument();
+  });
+});
+

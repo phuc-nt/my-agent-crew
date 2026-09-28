@@ -142,3 +142,33 @@
   max-width: 100%;
   border-radius: var(--radius-sm);
 }
+
+/* An image from another site, held back until asked for: a quiet dashed box that reads
+   as a stand-in for the picture, with its description under the offer. */
+.md .md-image-hold {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  max-width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.md .md-image-hold:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.md-image-alt {
+  color: var(--muted);
+  font-style: italic;
+}

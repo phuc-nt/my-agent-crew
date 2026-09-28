@@ -10,7 +10,7 @@
  * Raw HTML in the source is escaped rather than rendered — `rehype-raw` is
  * deliberately absent. A reply is partly built from tool output and web pages,
  * so treating it as markup would let a fetched page put its own elements in the
- * thread.
+ * thread. For the same reason an image served from elsewhere loads only when asked.
  */
 
 import { isValidElement, type ReactNode, useMemo } from "react";
@@ -19,6 +19,7 @@ import remarkGfm from "remark-gfm";
 import { vi } from "../i18n/vi";
 import { remarkWikiLinks, wikiSlugFromHref } from "../lib/wiki-links";
 import { CopyButton } from "./copy-button";
+import { MarkdownImage } from "./markdown-image";
 
 /** Links leave the app, so they open away from the conversation and cannot reach it. */
 function SafeLink({ href, children }: { href?: string; children?: React.ReactNode }) {
@@ -49,6 +50,7 @@ function plainText(node: ReactNode): string {
  */
 const components: Components = {
   a: SafeLink,
+  img: ({ src, alt, title }) => <MarkdownImage src={typeof src === "string" ? src : undefined} alt={alt} title={title} />,
   code({ className, children, ...props }) {
     const text = plainText(children);
     const fenced =

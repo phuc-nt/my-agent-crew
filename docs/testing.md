@@ -348,6 +348,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `tests/test_memory_proposals_apply.py::test_approving_an_append_twice_writes_the_line_once`,
     `tests/test_server_memory_api.py::test_approving_from_a_stale_tab_after_a_reject_is_a_conflict_that_writes_nothing`,
     `tests/test_server_memory_api.py::test_approving_for_an_agent_that_left_the_crew_is_not_a_conflict`
+- **Ảnh từ trang khác trong câu trả lời và trang wiki chỉ tải khi bấm, không gửi referrer**
+  - vitest: `components/markdown-body.test.tsx` "an image in a reply"
 - **Wiki đọc được: link, đánh dấu ổn, câu hỏi mở, ghi chú hôm nay; theo dõi compile và consolidate**
   - vitest: `components/wiki-read-view.test.tsx`; `lib/wiki-links.test.ts`;
     `components/wiki-section.test.tsx` ("WikiSection read mode", "WikiSection compile tracking");
