@@ -9,7 +9,7 @@ All notable changes to my-agent-crew. The format follows [Keep a Changelog](http
 versioning follows [SemVer](https://semver.org/). One version number for both backend and web: within a
 single release, `pyproject.toml` and `web/package.json` always carry the same number.
 
-## [Unreleased]
+## [0.9.0] — 2026-09-28
 
 This release is about acting where the person already is. A waiting request is approved, denied
 or answered from the manage screen's Duyệt page, a spent cost cap is raised from the chat, the
@@ -746,6 +746,7 @@ restarting the process.
 
 - One agent, `run_turn` loop with a tool approval gate, web UI, memory on disk.
 
+[0.9.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.9.0
 [0.8.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.8.0
 [0.7.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.7.0
 [0.6.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.6.0
