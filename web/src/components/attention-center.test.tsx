@@ -368,6 +368,36 @@ describe("AttentionCenter with requests settled in place", () => {
     await waitFor(() => expect(onReload).toHaveBeenCalledTimes(2));
   });
 
+  // A sweep that has not come in the first minutes is held up for longer. Read every 25
+  // seconds for good, a request the sweep never reaches cost the server a read that often
+  // for as long as the page stayed open.
+  it("reads a request the sweep is late for less often as it waits, and never gives up", async () => {
+    vitest.useFakeTimers({ shouldAdvanceTime: true });
+    vitest.setSystemTime(new Date("2026-09-26T10:00:00Z"));
+    const { conversation, run } = waiting({ expires_at: "2026-09-26T10:00:05Z" });
+    const onReload = inline([run]);
+    await request();
+    await act(async () => {
+      await vitest.advanceTimersByTimeAsync(6_000);
+    });
+    await waitFor(() => expect(onReload).toHaveBeenCalledTimes(1));
+    const reads = () => backend.requests.filter((r) => r.path === `/conversations/${conversation.id}`).length;
+    const before = reads();
+
+    // Every 25 seconds for the first 100, then after 50, 100 and 200 more.
+    await act(async () => {
+      await vitest.advanceTimersByTimeAsync(460_000);
+    });
+    expect(reads() - before).toBe(7);
+
+    // Then every five minutes, however long it waits.
+    await act(async () => {
+      await vitest.advanceTimersByTimeAsync(600_000);
+    });
+    expect(reads() - before).toBe(9);
+    expect(onReload).toHaveBeenCalledTimes(1);
+  });
+
   // Offline, a read that fails says nothing about the request: the list is read again once a
   // read sees the request closed, not after every poll that could not look.
   it("does not read the list again while an expired request cannot be read", async () => {

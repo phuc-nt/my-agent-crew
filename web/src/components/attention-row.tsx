@@ -31,8 +31,17 @@ const ignoreEvent = () => undefined;
 /** The server's scheduler sweeps expired requests every 20 seconds, but a tick first runs
  *  the jobs due on it, and each request it closes resumes a turn that runs to its end before
  *  the next is closed: the sweep can reach a request minutes after its deadline. An expired
- *  request is read again this often until it has. */
+ *  request is read again this often until it has, for the first few reads; a sweep later than
+ *  that is held up for longer, so each wait after them doubles, up to a few minutes. */
 const SWEEP_POLL_MS = 25_000;
+const SWEEP_POLLS_AT_FULL_PACE = 4;
+const SWEEP_POLL_MAX_MS = 300_000;
+
+/** How long the row waits before its read number `n` (from 0) of an expired request. */
+function sweepPollDelay(n: number): number {
+  const doublings = Math.max(0, n - SWEEP_POLLS_AT_FULL_PACE + 1);
+  return Math.min(SWEEP_POLL_MS * 2 ** doublings, SWEEP_POLL_MAX_MS);
+}
 
 /**
  * A run that waits on a person, with the request itself in place of a link to it.
@@ -75,13 +84,18 @@ export function AttentionRow(props: Props) {
   useEffect(() => {
     if (!expiredId) return;
     reload.current();
-    const poll = window.setInterval(() => {
-      void refresh().then((now) => {
-        // Unread, or still the same open request: the sweep has not reached it yet.
-        if (now !== undefined && now?.approvalId !== expiredId) reload.current();
-      });
-    }, SWEEP_POLL_MS);
-    return () => window.clearInterval(poll);
+    let poll = 0;
+    const next = (n: number) => {
+      poll = window.setTimeout(() => {
+        void refresh().then((now) => {
+          // Unread, or still the same open request: the sweep has not reached it yet.
+          if (now !== undefined && now?.approvalId !== expiredId) reload.current();
+        });
+        next(n + 1);
+      }, sweepPollDelay(n));
+    };
+    next(0);
+    return () => window.clearTimeout(poll);
   }, [expiredId, refresh]);
 
   const settle = async (about: string, send: () => Promise<void>) => {

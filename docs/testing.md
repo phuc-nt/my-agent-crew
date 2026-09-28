@@ -190,6 +190,7 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "answers a waiting question with one of its choices and lets the row go",
     "counts down to the deadline, then disables the buttons, says it expired and reloads",
     "does not read the list again while an expired request cannot be read",
+    "reads a request the sweep is late for less often as it waits, and never gives up",
     "says which ask pattern stopped a command",
     "keeps the %s of two requests of one second where it was listed while its turn resumes", với
     first và second — hàng vừa duyệt giữ đúng chỗ trong lúc lượt chạy tiếp, không tụt xuống dưới
