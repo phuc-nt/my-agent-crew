@@ -14,6 +14,16 @@ const SCHEDULE_KEYS = new Set(["id", "name", "cron", "every", "prompt", "command
 
 type Read<T> = { ok: T } | { error: string };
 
+/** `texts.RESTART_REASON_SCHEDULES`, word for word: the server's reason for a restart. */
+export const SCHEDULES_RESTART_REASON = "Thay đổi lịch chạy chỉ có hiệu lực sau khi khởi động lại máy chủ.";
+
+/** What a save answers in `restart_required`. Only the scheduler is built once, at boot, so
+ *  only the two keys it reads ask for a restart — taking a job away as much as adding one,
+ *  since the clock keeps the jobs it started with. A bot is rebuilt live. */
+export function restartRequired(patch: Record<string, unknown>): string[] {
+  return "schedules" in patch || "memory_consolidate" in patch ? [SCHEDULES_RESTART_REASON] : [];
+}
+
 /** The rows a patch's `schedules` stands for, as `declared.schedules` reports them. */
 export function readSchedules(value: unknown): Read<Declared[]> {
   if (value === null || value === undefined) return { ok: [] };

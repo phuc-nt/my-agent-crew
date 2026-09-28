@@ -1,8 +1,10 @@
+import re
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
+from my_agent_crew import texts
 from my_agent_crew.config import load_settings
 from my_agent_crew.server.app import create_app
 from my_agent_crew.server.runtime_build import build_runtime
@@ -137,12 +139,24 @@ def test_only_a_schedule_asks_for_a_restart(crew) -> None:
     )
 
     assert renamed.json()["restart_required"] == []
-    assert scheduled.json()["restart_required"] == ["Lịch chạy mới cần khởi động lại máy chủ."]
+    assert scheduled.json()["restart_required"] == [texts.RESTART_REASON_SCHEDULES]
     # The clock keeps the job it started with, so taking one away needs the restart too.
-    assert dropped.json()["restart_required"] == ["Lịch chạy mới cần khởi động lại máy chủ."]
+    assert dropped.json()["restart_required"] == [texts.RESTART_REASON_SCHEDULES]
     # Consolidation is one more job on that clock. The editor shows each reason as the
     # sentence it is, so it gets the same one, once, and not the name of the key.
-    assert consolidating.json()["restart_required"] == ["Lịch chạy mới cần khởi động lại máy chủ."]
+    assert consolidating.json()["restart_required"] == [texts.RESTART_REASON_SCHEDULES]
+
+
+def test_the_web_fakes_answer_a_schedule_edit_with_the_servers_own_reason():
+    """The web's fakes answer a save with this sentence (`SCHEDULES_RESTART_REASON` in
+    web/src/test/schedule-contract.ts). Reworded on one side only, the editor's tests would
+    go on checking a banner the server no longer shows."""
+    contract = Path(__file__).resolve().parents[1] / "web" / "src" / "test" / "schedule-contract.ts"
+    mirrored = re.search(
+        r'^export const SCHEDULES_RESTART_REASON = "([^"]+)";$', contract.read_text("utf-8"), re.M
+    )
+    assert mirrored is not None
+    assert mirrored.group(1) == texts.RESTART_REASON_SCHEDULES
 
 
 def test_a_saved_schedule_comes_back_in_the_shape_it_can_be_resent_in(crew) -> None:

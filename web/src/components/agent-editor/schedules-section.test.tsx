@@ -5,6 +5,7 @@ import type { AgentInfo } from "../../api/types";
 import type { ScheduleRow } from "../../hooks/agent-draft-checks";
 import { vi } from "../../i18n/vi";
 import { FakeBackend, fakeAgent } from "../../test/fake-backend";
+import { SCHEDULES_RESTART_REASON } from "../../test/schedule-contract";
 import { AgentEditor } from "./agent-editor";
 
 let backend: FakeBackend;
@@ -96,7 +97,22 @@ describe("the schedules part of the agent editor", () => {
 
     const banner = within(await screen.findByTestId("restart-banner"));
     expect(banner.getByText("Cần khởi động lại")).toBeInTheDocument();
-    expect(banner.getByText("Đã lưu. Lịch chạy mới cần khởi động lại máy chủ.")).toBeInTheDocument();
+    expect(
+      banner.getByText("Đã lưu. Thay đổi lịch chạy chỉ có hiệu lực sau khi khởi động lại máy chủ."),
+    ).toBeInTheDocument();
+  });
+
+  // The clock keeps the jobs it started with, so a removed one runs on until the restart:
+  // the banner is as true for it, and its sentence once spoke of a "new" schedule.
+  it("asks for the restart after a schedule is removed, in words that fit a removal", async () => {
+    open(declaring(brief));
+    await userEvent.click(await screen.findByRole("button", { name: vi.editor.scheduleRemove("Bản tin sáng") }));
+    await save();
+
+    const banner = within(await screen.findByTestId("restart-banner"));
+    expect(banner.getByText(`Đã lưu. ${SCHEDULES_RESTART_REASON}`)).toBeInTheDocument();
+    expect(banner.queryByText(/mới/)).not.toBeInTheDocument();
+    expect(sentProfile().schedules).toEqual([]);
   });
 
   it("keeps only the timing last chosen when the person switches back and forth", async () => {

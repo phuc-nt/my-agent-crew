@@ -1,6 +1,6 @@
 import type { Page, Route } from "@playwright/test";
 import type { AgentInfo, WikiPage, WikiPageEdit } from "../src/api/types";
-import { applyAgentPatch } from "../src/test/schedule-contract";
+import { applyAgentPatch, restartRequired } from "../src/test/schedule-contract";
 
 // Every /api call is answered in-browser so the smoke tests measure the real DOM without a backend.
 export type Conversation = Record<string, unknown> & { id: string; messages: unknown[]; pending_approval: unknown };
@@ -305,11 +305,7 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
       const patched = applyAgentPatch(agents[at], profile);
       if ("error" in patched) return json({ detail: patched.error }, 422);
       agents[at] = patched.ok;
-      // The scheduler reads its table only at boot, as on the real server, and consolidation
-      // is a job on it; the answer is the server's own sentence.
-      const scheduled = "schedules" in profile || "memory_consolidate" in profile;
-      const restart = scheduled ? ["Lịch chạy mới cần khởi động lại máy chủ."] : [];
-      return json({ profile: agents[at], restart_required: restart });
+      return json({ profile: agents[at], restart_required: restartRequired(profile) });
     }
     if (single && method === "GET") {
       const found = agents.find((a) => (a as { id: string }).id === single[1]);

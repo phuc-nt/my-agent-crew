@@ -19,7 +19,7 @@ import type {
   TemplateInfo,
 } from "../api/types";
 import { FakeWiki } from "./fake-wiki";
-import { applyAgentPatch } from "./schedule-contract";
+import { applyAgentPatch, restartRequired } from "./schedule-contract";
 
 export const fakeAgent: AgentInfo = {
   id: "default",
@@ -367,11 +367,7 @@ export class FakeBackend {
     const patched = applyAgentPatch(found, profile);
     if ("error" in patched) return json({ detail: patched.error }, 422);
     this.agents = this.agents.map((a) => (a.id === agentId ? patched.ok : a));
-    // As on the server: only the scheduler is built once at boot, so only the two keys it
-    // reads ask for a restart (a bot is rebuilt live), in the server's own sentence.
-    const scheduled = "schedules" in profile || "memory_consolidate" in profile;
-    const restart = scheduled ? ["Lịch chạy mới cần khởi động lại máy chủ."] : [];
-    return json({ profile: patched.ok, restart_required: restart });
+    return json({ profile: patched.ok, restart_required: restartRequired(profile) });
   }
 
   private deleteAgent(agentId: string): Response {

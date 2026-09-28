@@ -182,7 +182,7 @@ MANIFEST_BROKEN = "Tệp agent.yaml hỏng, sửa thẳng tệp rồi thử lạ
 MANIFEST_NOT_A_MAPPING = "Tệp {path} phải là một ánh xạ khoá–giá trị."
 # Xếp lịch chỉ dựng một lần lúc khởi động, nên sửa xong vẫn phải
 # khởi động lại mới có hiệu lực — nói rõ thay vì để người dùng chờ một việc không chạy.
-RESTART_REASON_SCHEDULES = "Lịch chạy mới cần khởi động lại máy chủ."
+RESTART_REASON_SCHEDULES = "Thay đổi lịch chạy chỉ có hiệu lực sau khi khởi động lại máy chủ."
 SCHEDULE_ID_TAKEN = "Hai lịch cùng mã {id}; mỗi lịch cần một mã riêng."
 NO_USABLE_ROUTE = "Không có tuyến nào dùng được (thiếu khoá API cho provider): {routes}"
 FILE_OUTSIDE_WORKSPACE = "Tệp nằm ngoài thư mục làm việc của agent."
