@@ -34,7 +34,8 @@ for (const viewport of [
     const heading = editor.getByRole("heading", { name: "Lịch chạy" });
     await expect(heading).toBeFocused();
 
-    // Each box's top against the bar's bottom, read in one frame once the scroll settles.
+    // Each box's top against the bar's bottom, read in one frame once the scroll settles, and
+    // the gap the heading keeps below the bar, in pixels.
     const clearance = () =>
       page.evaluate(() => {
         const bottom = document.querySelector(".editor-bar")!.getBoundingClientRect().bottom;
@@ -42,15 +43,23 @@ for (const viewport of [
         const name = [...row.querySelectorAll(".field-label")].find((el) => el.textContent === "Tên")!;
         const heading = document.querySelector("[data-testid=section-schedules] h3")!;
         const editor = document.querySelector("[data-testid=agent-editor]")!;
+        const probe = document.body.appendChild(document.createElement("div"));
+        probe.style.height = "var(--space-2)";
+        const gap = probe.getBoundingClientRect().height;
+        probe.remove();
         return {
           heading: heading.getBoundingClientRect().top - bottom,
           name: name.getBoundingClientRect().top - bottom,
-          // Above the bar: the page did scroll, or the two checks above prove nothing.
+          gap,
+          // Above the bar: the page did scroll, or the checks below prove nothing.
           scrolled: editor.getBoundingClientRect().top < document.querySelector(".editor-bar")!.getBoundingClientRect().top,
         };
       });
     await expect.poll(async () => (await clearance()).heading).toBeGreaterThanOrEqual(0);
     const settled = await clearance();
+    // Below the bar by that gap and no more: a margin that also counted the page's top padding
+    // left the schedules a strip lower than the bar needs.
+    expect(settled.heading).toBeLessThanOrEqual(settled.gap + 1);
     expect(settled.name).toBeGreaterThanOrEqual(0);
     expect(settled.scrolled).toBe(true);
   });

@@ -215,7 +215,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     của vitest và mock của Playwright cùng kiểm lịch theo luật của server, lấy từ
     `test/schedule-contract.ts`
   - Playwright: `schedule-editor-smoke.spec.ts`; `jobs-list-smoke.spec.ts` (Sửa lịch mở đúng phần
-    lịch, thanh của trình sửa dính sát mép trên); `manage-smoke.spec.ts`
+    lịch, tiêu đề dừng ngay dưới thanh của trình sửa chứ không thấp hơn, thanh dính sát mép trên);
+    `manage-smoke.spec.ts`
     "a schedule is added from the jobs list through the agent's editor"
   - pytest: `tests/test_api_agents_edit.py::test_a_schedule_carrying_its_derived_kind_is_refused`,
     `tests/test_api_agents_edit.py::test_a_timing_the_clock_cannot_read_is_refused_before_it_is_written`,
