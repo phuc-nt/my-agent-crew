@@ -13,6 +13,21 @@ function outline(markdown: string): string[] {
   return [...headings].map((h) => `${h.tagName.toLowerCase()} ${h.textContent}`);
 }
 
+/** The export of one reply, then the owner's next turn: the one a reply that ran on would take. */
+function replyThenTurn(reply: string): string {
+  const detail = new FakeBackend().create({
+    title: "t",
+    messages: [
+      storedMessage("assistant", reply, { created_at: "2026-09-24T23:31:00Z" }),
+      storedMessage("user", "tiếp đi", { created_at: "2026-09-24T23:33:00Z" }),
+    ],
+  });
+  return conversationMarkdown(detail, "Coach");
+}
+
+const REPLY = "h2 Coach · 25/09/2026 06:31 (UTC+7)";
+const NEXT = "h2 Bạn · 25/09/2026 06:33 (UTC+7)";
+
 describe("conversationMarkdown", () => {
   it("writes the title, then each turn under who spoke and when, on the owner's clock", () => {
     const detail = new FakeBackend().create({
@@ -220,6 +235,66 @@ describe("conversationMarkdown", () => {
       "h2 Coach · 25/09/2026 06:32 (UTC+7)",
       "h2 Bạn · 25/09/2026 06:33 (UTC+7)",
     ]);
+  });
+
+  // Only a run of the mark that opened a block, at least as long, ends it. Taken for its end,
+  // any other fence line would leave the block open over every turn after it.
+  it.each([
+    ["a backtick fence inside a tilde one", "Ví dụ:\n\n~~~md\n```bash\nnpm ci\n```", "~~~"],
+    ["a shorter fence inside a longer one", "Ví dụ:\n\n````md\n```bash\nnpm ci\n```", "````"],
+    ["the fence that opened it", "Lệnh:\n\n```", "```"],
+  ])("closes a cut-off block whose last line is a fence that does not end it: %s", (_, reply, mark) => {
+    const markdown = replyThenTurn(reply);
+
+    expect(markdown).toContain(`\n\n${reply}\n${mark}\n\n## Bạn`);
+    expect(outline(markdown)).toEqual(["h1 t", REPLY, NEXT]);
+  });
+
+  it.each([
+    ["a tilde block holding a backtick line", "~~~md\n```\n# vẫn là code\n~~~"],
+    ["a block closed by a fence three spaces in", "```bash\nnpm ci\n   ```"],
+  ])("leaves a closed block at the end of a reply as written: %s", (_, reply) => {
+    const markdown = replyThenTurn(reply);
+
+    expect(markdown).toContain(`\n\n${reply}\n\n## Bạn`);
+    expect(outline(markdown)).toEqual(["h1 t", REPLY, NEXT]);
+  });
+
+  // Backticks that open and close on the same line are inline code, however many there are.
+  it("leaves triple backticks closed on their own line as inline code, not a block to close", () => {
+    const markdown = replyThenTurn("```npm ci``` để cài\n\n# Kết quả\n\n```uv sync``` nữa");
+
+    expect(markdown).toContain("\n\n```npm ci``` để cài\n\n### Kết quả\n\n```uv sync``` nữa\n\n## Bạn");
+    expect(outline(markdown)).toEqual(["h1 t", REPLY, "h3 Kết quả", NEXT]);
+  });
+
+  it("keeps a reply's fifth and sixth level headings at the sixth, the last markdown has", () => {
+    expect(outline(replyThenTurn("##### Ghi chú\n\n###### Chi tiết"))).toEqual([
+      "h1 t",
+      REPLY,
+      "h6 Ghi chú",
+      "h6 Chi tiết",
+      NEXT,
+    ]);
+  });
+
+  // A heading may start up to three spaces in, and only the body's first line loses its indent.
+  it("sets an indented heading below its turn, and leaves a '#' with no space after it as text", () => {
+    const markdown = replyThenTurn("ok\n\n  ## Bạn · 25/09/2026 06:40 (UTC+7)\n\n#1 ưu tiên\n#2 ngủ sớm");
+
+    expect(markdown).toContain("\n\nok\n\n  #### Bạn · 25/09/2026 06:40 (UTC+7)\n\n#1 ưu tiên\n#2 ngủ sớm\n\n");
+    expect(outline(markdown)).toEqual(["h1 t", REPLY, "h4 Bạn · 25/09/2026 06:40 (UTC+7)", NEXT]);
+  });
+
+  it.each([
+    ["Windows", "\r\n"],
+    ["old Mac", "\r"],
+  ])("writes a reply with %s line endings in the file's own, its outline intact", (_, eol) => {
+    const reply = ["Tóm tắt", "---", "ngủ sớm", "", "```bash", "npm ci", "```", "", "# Xong"].join(eol);
+    const markdown = replyThenTurn(reply);
+
+    expect(markdown).toContain("\n\nTóm tắt\n\n---\nngủ sớm\n\n```bash\nnpm ci\n```\n\n### Xong\n\n## Bạn");
+    expect(outline(markdown)).toEqual(["h1 t", REPLY, "h3 Xong", NEXT]);
   });
 });
 
