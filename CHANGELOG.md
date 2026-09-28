@@ -9,6 +9,37 @@ All notable changes to my-agent-crew. The format follows [Keep a Changelog](http
 versioning follows [SemVer](https://semver.org/). One version number for both backend and web: within a
 single release, `pyproject.toml` and `web/package.json` always carry the same number.
 
+## [Unreleased]
+
+### Added
+
+- **The manage screen says when it stopped following the server.** Its lists and counts come from
+  the live stream, so a dropped stream now puts a notice at the top of every section with a retry,
+  a browser gone offline says that instead, and the crew is read again once the stream is back.
+- **An image from another site loads only when asked.** A reply or wiki page that links one shows
+  a button naming the host in its place, so opening a conversation no longer tells a third party
+  it was read.
+
+### Fixed
+
+- Every control on a phone has a touch area of at least 40px.
+- A failed request is put in words (no network, a server error, gone, refused) instead of the
+  server's validation dump or the browser's own error.
+- A reconnect looks for a newer build only when no look since the drop has reached the server.
+- A phone's activity strip stays up when a retry finds the conversation never ran, so the focus
+  handed to its line does not vanish with it.
+- Exporting a conversation closes raw HTML a reply was cut off in, so it cannot swallow the turns
+  after it.
+- An expired request still open on the server is read less often the longer the server's sweep
+  keeps it.
+- The restart reason for a schedule reads right for a removed schedule too, and each side keeps
+  one copy of it.
+- The approval history is read again when a decided request's run goes on to wait on its next
+  tool, not only when a run settles.
+- An autonomous agent's wiki compile writes under the same one-decision-at-a-time rule as the web,
+  and leaves alone a proposal someone decided first; it and the memory rewrite wait for that rule
+  off the event loop, so a decision still writing no longer stalls the server.
+
 ## [0.9.0] — 2026-09-28
 
 This release is about acting where the person already is. A waiting request is approved, denied
