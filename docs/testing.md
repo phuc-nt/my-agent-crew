@@ -59,7 +59,7 @@ chờ và số run xong đều giữ nguyên, chỉ run nào đang chờ là đ�
 trong `app-attention.test.tsx`.
 
 Run dừng chờ duyệt sống qua lần khởi động lại: `tests/test_activity_restart.py` dựng một
-`ActivityHub` thứ hai trên cùng store như một tiến trình mới sẽ dựng, rồi kiểm tra quyết định
+activity hub thứ hai trên cùng store như một tiến trình mới sẽ dựng, rồi kiểm tra quyết định
 đến sau đó chạy tiếp chính run đã dừng (kể cả sau hai lần khởi động lại), còn run chờ duyệt
 không còn gì để chờ (yêu cầu đã được quyết khi không tiến trình nào giữ run, run không thuộc
 cuộc nào, một lần dừng cũ hơn của cùng cuộc, hay yêu cầu đang chờ thuộc cuộc khác) bị đóng là

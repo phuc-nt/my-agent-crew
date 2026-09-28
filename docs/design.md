@@ -306,18 +306,18 @@ của openhuman — không mượn code.)
 Vài thứ chỉ thuộc về người đang nhìn màn hình này, nên sống trong `localStorage` của trình
 duyệt chứ không ở server: mỗi cuộc trò chuyện đã được xem tới đâu (chấm chưa đọc), bản nháp
 chưa gửi của từng cuộc, các chip lọc của lịch sử run, những lỗi đã bấm "Đã xem", và dải
-activity đang mở hay gập. Mọi lần đọc và ghi đi qua một helper bọc try/catch
-(`web/src/lib/local-store.ts`), vì trình duyệt có thể từ chối hẳn (cửa sổ riêng tư, chặn dữ
-liệu trang, đầy quota): khi đó không gì được lưu và trang chạy tiếp trên bản trong bộ nhớ của
-nó cho tới lần tải lại. Lần dùng đầu coi mọi cuộc có từ trước là đã đọc, dấu đã xem của các
-tab cùng một trình duyệt được gộp chứ không ghi đè nhau, và bản nháp của một cuộc bị xoá đi
-cùng cuộc đó. Trình duyệt khác, hay máy khác, bắt đầu lại từ đầu — đó là cái giá của việc
-không bắt server nhớ một điều chỉ đúng với một màn hình.
+activity đang mở hay gập. Mọi lần đọc và ghi đi qua một helper lưu trữ cục bộ bọc try/catch,
+vì trình duyệt có thể từ chối hẳn (cửa sổ riêng tư, chặn dữ liệu trang, đầy quota): khi đó
+không gì được lưu và trang chạy tiếp trên bản trong bộ nhớ của nó cho tới lần tải lại. Lần
+dùng đầu coi mọi cuộc có từ trước là đã đọc, dấu đã xem của các tab cùng một trình duyệt
+được gộp chứ không ghi đè nhau, và bản nháp của một cuộc bị xoá đi cùng cuộc đó. Trình duyệt
+khác, hay máy khác, bắt đầu lại từ đầu — đó là cái giá của việc không bắt server nhớ một
+điều chỉ đúng với một màn hình.
 
 Danh sách cuộc trò chuyện xếp theo `updated_at`, và chấm chưa đọc so với chính mốc đó, nên
 mốc chỉ được đẩy khi cuộc trò chuyện thật sự đổi: một tin nhắn, một lượt, một lần người dùng
 sửa nó. Việc ghi sổ chạy nền — bản tóm tắt phiên, tiêu đề do model đặt, và chi phí của
-chúng — gọi `Store.update` và `Store.add_spend` với `touch=False`. Thiếu nó, một bản tóm tắt
+chúng — ghi vào cuộc trò chuyện mà không đẩy mốc `updated_at`. Nếu không, một bản tóm tắt
 viết xong sau khi người dùng đã rời đi sẽ đưa một cuộc cũ lên đầu danh sách và gắn chấm chưa
 đọc cho thứ không ai viết thêm.
 
