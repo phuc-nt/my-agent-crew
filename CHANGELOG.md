@@ -11,6 +11,218 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+This release is about acting where the person already is. A waiting request is approved, denied
+or answered from the manage screen's Duyệt page, a spent cost cap is raised from the chat, the
+agent editor saves schedules, and a tool call's arguments can be read whole before it is allowed.
+The chat stops a turn honestly, follows runs other channels start in it and says when its live
+stream is down; replies can be copied, shared and exported, and the conversation list groups by
+day with unread dots and drafts. Run history, jobs, memory proposals and wiki pages read as
+sentences, diffs and rendered pages instead of raw codes, an open page offers a reload once the
+server runs a newer build, and a run paused for approval survives a server restart.
+
+### Added
+
+- **Raise or lift a conversation's cost cap from the chat.** The budget pill's card and both
+  budget notices carry an editor for the cap: +$0.50 and +$1 steps, or a typed amount where 0
+  lifts the cap. A spent budget now locks the composer and says so, since the server would halt
+  the turn before it started; a raise unlocks it without a reload and puts the keyboard back on
+  the composer. Only one notice offers the raise at a time, a halted turn's notice then says the
+  new cap is saved and to send the message again, and a refused save says why.
+- **Approve, deny or answer waiting requests from Duyệt (approvals).** Every request waiting on
+  the person is listed above the approval history, with its approval bar or question card inline
+  and a "còn m:ss" countdown, so it is decided without opening the chat. Deciding reads the resumed
+  turn to its end; the row then leaves, or shows the next request when the turn pauses again, and
+  the history below reads again whenever a request may have settled. At the deadline the row
+  disables, says it expired and keeps reading the request until the scheduler's sweep closes it.
+  The tab title carries the number of waiting requests as "(N)", the installed app's badge shows
+  it where the browser allows, and the manage screen opens on Duyệt while one waits.
+- **The agent editor saves schedules.** A row is one timing (a cron or an interval) and one action
+  (a prompt or a command), and only the keys chosen are sent, so a new schedule is no longer
+  refused for the derived `kind` and empty keys it carried. A cron, interval, prompt or Telegram
+  chat id that cannot be sent is named beside its box and holds the save, a valid timing is read
+  back in words, and a new row takes an id no kept row carries. Memory consolidation's cron is
+  editable, and emptying it removes the key. The jobs list opens the editor on an agent's
+  schedules, and the way back returns to that job's row. A save no longer breaks the form it came
+  from, because the answer now carries `declared` (see Changed); against an older server that
+  leaves it out, the editor reads the crew again instead.
+- **A tool call's full arguments, before deciding it.** The one-line summary cuts every value at
+  sixty characters. A closed "Xem đầy đủ" under the approval bar, each tool card and each approval
+  history row now shows every argument whole: a command, file content, an edit's old and new text
+  and any other value spanning lines as wrapped text, the rest as JSON. It is offered only when the
+  summary hides something, and the chat's request card scrolls within 55% of the screen's height,
+  so its buttons stay in view on a phone. The approval history also reads a question as what was
+  asked, the options offered and the answer, and pages with "Xem thêm" from 50 to 200 to 500 rows.
+- **Stop is honest, the thread stays fresh and a dropped stream says so.** Stop also cuts the
+  stream of a decision or an answer, drops what the cut stream still delivers and says the turn
+  stopped; a call left spinning when a turn ends, or when the live stream reports nothing running,
+  reads as stopped. A run another channel such as Telegram starts in the open conversation,
+  including one already going when this tab sends, shows its progress in the thread, which reloads
+  once when that run ends or pauses; a message sent while the thread reloads is kept. The status
+  line says when the live stream is connecting, lost or offline and offers a retry once the browser
+  has given up, and runs that ended while the stream was down are caught up on when it returns.
+- **Copy, share and export replies; see the files sent through Telegram.** Each agent reply has a
+  copy button, and a share button where the platform has a share sheet, both taking its raw
+  markdown; each fenced code block has a copy corner that takes only the code. Where the clipboard
+  is missing or refuses, as on the LAN address over plain http, the text opens selected in a box to
+  copy by hand, and the agent editor's prompt copy now falls back the same way. The conversation
+  options export `<title>.md`: a heading per turn, times that name their time zone, and each
+  message kept inside its own turn. A file the person sent through Telegram shows in their bubble
+  as a thumbnail or a named download chip served from the agent's files route, and a fence with no
+  language renders as a code block.
+- **The conversation list groups by day, marks unread and keeps drafts.** Rows fall under Hôm nay,
+  Hôm qua and Cũ hơn on the viewer's calendar and say how long ago each changed, kept current while
+  the tab idles. A row that changed since this browser last had it open gets an unread dot: a first
+  visit counts everything as read, tabs merge what each has seen, and delegated conversations never
+  get one. The status dot's tooltip is Vietnamese, and the dot pulses while a run is live. The
+  composer keeps an unsent draft per conversation across switches and reloads; sending clears it
+  and deleting the conversation drops it. Refused storage leaves both working for the page's life.
+- **Slash commands from the composer.** A "/" at the start of the box lists the commands the
+  agent's kits declare, narrowed by prefix and then by substring as the name is typed; arrows with
+  Enter or Tab, or a tap, put "/name " in the box, and Esc closes the list. A "/" button beside Send
+  opens it too. The list shows only while the composer has the focus, and an agent without
+  commands shows neither.
+- **Stored run history with filters.** An open conversation's activity loads its stored runs,
+  delegated children included, under the live ones, so runs from before the page opened show, and
+  each delegate sits under the turn that asked for it. The activity log loads its own history: the
+  agent chip asks the server for that agent's runs, the status and source chips narrow what is
+  loaded and are remembered by the browser, and "Xem thêm" reaches back 100, 200 and then 500
+  runs. On a phone the chips fold behind one "Lọc" toggle. A history still loading, or one that
+  failed to load, says so, with a retry.
+- **Tokens, cache hits and time to first token.** A finished model step shows its route, the wait
+  for its first token, its prompt tokens with the part the provider served from its cache, and
+  whether it thought first. The costs page gains today and seven-day tiles on the viewer's calendar
+  that flag unpriced calls, a cache column with its share per model, a cache-by-agent card counted
+  over the same runs as the spend by agent, and a label on every card saying what it counts; it
+  fits a phone at 390px.
+- **Memory proposals are reviewed as diffs and exact facts.** A rewrite shows the lines it drops
+  beside the ones it adds; a forget names the fact it removes and asks before approving; a fact
+  that overwrites a saved one shows what it replaces, matched whatever case the agent wrote the name
+  in, and saved facts that could not be read are said to be unknown rather than absent. A wiki
+  compile shows one card per page, tagged new or updated. Both buttons disable while a decision is
+  in flight, a proposal decided elsewhere says so in place and the list reloads, and a failed undo
+  is reported.
+- **Wiki pages read as pages.** A page opens as rendered markdown. Each [[link]] is slugged as the
+  server slugs titles and opens its page at the title; a link to a page nobody has written is drawn
+  as missing, and related pages are chips. "Đánh dấu ổn" marks a page fine with a status-only PUT.
+  The vault header lists every page's open questions, each leading to the page that asked it, and
+  today's note on the viewer's own date. Leaving an unsaved edit, or closing today's note over an
+  unsaved line, asks first. Starting a compile or a consolidation shows a chip that follows its
+  run, across a dropped stream too, then says how it ended and reloads what it may have changed.
+- **Jobs read at a glance.** Common cron shapes (daily, weekdays, weekends, a set of weekdays,
+  hourly, every N minutes or hours, a day of the month) and the `every` shorthand read in
+  Vietnamese with the cron beside them. The next run counts down and the last run says how long
+  ago, each followed by its clock time on the viewer's clock and kept current, also when the tab
+  comes back; a paused or switched-off job says so where the next run goes. The last run shows its
+  status and summary with a link to its replay, and the Lịch chạy (jobs) entry in the nav carries a
+  red count, read out as a sentence, only while some job's last run failed.
+- **A reload is offered when the server runs a newer build.** An open page, an installed app above
+  all, compares the hashed entry script it runs with the one the server's index serves, on focus,
+  when the tab comes back and after the live stream reconnects. When they differ, a floating
+  "Có bản mới" bar offers a reload and can be put away until a later look still finds another
+  build; a failed look shows nothing, and the dev server never shows it. Settings names the
+  server's build and, once a look finds the server serving the page's own entry, the page's too,
+  asking again each time it opens.
+- **Why a run stopped reads as a sentence.** The server ends some runs with a code: `budget` or
+  `max_steps` on a halt, `interrupted` on a turn nobody kept reading. The timeline and the
+  attention center read each as a sentence, only under the status that writes it, so a reply that
+  happens to be the word "budget" still reads as the reply.
+
+### Changed
+
+- **Duyệt and Hoạt động split what needs the person.** Duyệt's badge counts only the requests
+  waiting on a decision. Hoạt động (activity) counts the failures and halts until each is marked
+  "Đã xem", which the browser remembers, and its live count leaves out runs that only wait. Each
+  page points to the other when that one has something for the person.
+- **Saving an agent answers with the agent as the crew list shows it.** `POST /api/agents` and
+  `PATCH /api/agents/{id}` return `profile` in the shape of a `GET /api/agents` entry: it gains
+  `declared`, `editable`, `tools` and `skills`, and its `delegates` is who the agent can reach,
+  with what its file names under `declared.delegates`.
+- **A profile edit's new or changed schedules must be ones the clock can run.** The edit routes
+  answer 422 when a schedule the edit adds or changes has a cron or interval the scheduler cannot
+  read, or shares its id with another schedule, the consolidation job's included; before, the
+  second job on an id silently replaced the first. Rows the agent already runs with are not checked
+  again, so a hand-written profile holding such a row still takes unrelated edits, and boot still
+  takes a file as it is.
+- **`/api/stats` totals each agent's prompt cache.** `cache_by_agent` gives each agent's
+  `prompt_tokens` and `cached_tokens` over the same runs as `by_agent`, from the calls that reported
+  both, and `unknown_cache_calls` counts the calls that reported prompt tokens but no cache figure.
+  The costs page's cache card reads them instead of fetching the 500 newest runs itself.
+- **A pending request read back says why it paused.** `pending_approval` in
+  `GET /api/conversations/{id}` carries `reason`, the line naming the ask pattern that stopped a
+  shell command, worked out again from the stored call and the agent's ask list as for the live
+  event; it is empty when no ask pattern played a part. The chat and the Duyệt row now show it for
+  a run that paused while nobody was watching.
+- **A memory proposal decision answers by what went wrong.** `POST /api/memory/proposals/{id}`
+  answers 409 "proposal already decided" only for a proposal no longer pending,
+  404 "proposal not found" for an unknown id, and 404 "agent not found" for a pending proposal
+  whose agent has left the crew, which used to be a 409 although the proposal can still be
+  rejected. Decisions are taken one at a time, so of two sent together the second gets the 409.
+
+### Fixed
+
+- **A run paused for approval survives a server restart.** Deciding its request after a restart
+  continues that same run instead of opening a second one beside it, while the old paused row
+  stayed waiting for good and every screen that counts runs kept counting it. A paused run nothing
+  can continue any more, because its request was settled while no process held it or its
+  conversation was deleted, is closed as interrupted, and a tool step resumed after a reboot never
+  reports a negative duration.
+- **Deleting a conversation paused on an approval ends its run at once.** Its request goes with it,
+  so `DELETE /api/conversations/{id}` closes that run as interrupted instead of leaving it waiting.
+  Naming a new conversation waits for its first turn to end, and one deleted or renamed by hand
+  meanwhile is no longer named by a paid model call; a delegating agent waiting on a deleted child
+  reads that the person deleted it, instead of a bare "KeyError".
+- **The agent editor's pinned bar sits flush against the top of the page.** It stopped at the
+  page's top padding, 32px down on a wide screen and 16px on a phone, and the form scrolled past
+  visibly in the strip above it.
+- **A run waiting for approval reads as waiting, not running.** The sidebar's status dot, the
+  chat's manage button, the status line, the master's card and the crew page each took a paused
+  run for a busy one, so the one state in which the person has to act read as the agent working.
+  When a conversation holds two open runs, the one waiting on the person sets its dot.
+- **A question that pauses while the page is open reads as a question.** The page's live copy of
+  the run called it a permission request named ask_user until the list was read again; it now says
+  the agent is asking, as the server does.
+- **A decision someone already took elsewhere reads as handled.** In the chat, a decide or answer
+  that meets a 409, because another tab, Telegram or the expiry sweep settled the request first,
+  reads the conversation again and says the request was handled, not that the agent is busy, and
+  no longer marks the resumed call as stopped.
+- **A slow load of the conversation just left no longer lands on the one opened.** Its messages,
+  approval bar and spend showed under the other conversation's heading; each opening now takes only
+  the loads, refused decisions and notes made for it.
+- **A memory proposal is decided once.** An approval arriving after the proposal was decided, from
+  a stale tab or a second click, wrote the memory before learning it was no longer pending, so a
+  rejected fact was written or an agent memory line appended twice, and an approval and a rejection
+  sent together from two devices could both find it pending. The status is now checked before
+  anything is written, and one lock holds the check, the write and the resolve together.
+- **An agent's runs are no longer crowded out by a busier agent's.** `GET /api/activity/runs` with
+  `agent_id` cut the whole crew's newest runs to `limit` before narrowing, so a quiet agent showed
+  few runs or none; the narrowing now happens in the query, and `limit` counts that agent's runs.
+- **Background bookkeeping no longer dates a conversation as new.** The recap written when the
+  next conversation opens, and the model's title with its cost, moved `updated_at`, so the old
+  thread jumped above the new one; they now leave it alone, and every other write still moves it.
+- **The agent editor shows the server's restart reasons as the sentences they are**, after the
+  saved note, instead of setting each inside a sentence of its own as if it named a changed key.
+- **On a phone, the current manage section's pill stays in view** when the badge counts arrive
+  after the first paint and widen the row.
+
+### Upgrade notes
+
+- **No migration needed.** The SQLite schema, `config.yaml` and `agent.yaml` keep their shape, and
+  no API route is added or removed; upgrading is pulling the new code and restarting the process.
+  The web bundle is committed, so running the server needs no npm step.
+- **The first start closes the paused runs nothing can continue.** Rows an earlier version left on
+  `awaiting_approval` across restarts are closed as failed with the summary `interrupted`, except
+  the newest paused run of each conversation whose request still waits, which a decision now
+  continues.
+- **Reload pages opened before the upgrade once.** A page or installed app from an earlier version
+  cannot notice a new build; after one reload it offers the next one itself.
+- **Check clients other than the bundled web against Changed.** A saved agent's `delegates` now
+  lists who it can reach, a proposal decision answers 404 "agent not found" where it answered 409,
+  and a profile edit can be refused with 422 over a schedule it adds or changes.
+- **Contributors running e2e from two checkouts** give each its own port with
+  `E2E_PORT=<port> npm run e2e`; on one port the second run reuses the first one's dev server and
+  quietly tests the other checkout's code. Vitest and Playwright both run in the Asia/Ho_Chi_Minh
+  time zone, so a test about days is written in that zone and sets no `TZ` of its own.
+
 ## [0.8.0] — 2026-09-26
 
 This release is about the interface. The web UI is redesigned end to end on one scale of tokens,
