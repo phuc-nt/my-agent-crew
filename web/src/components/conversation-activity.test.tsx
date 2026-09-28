@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
 import type { RunInfo } from "../api/types";
@@ -323,6 +323,117 @@ describe("a conversation's runs from before the page opened", () => {
 
     expect(await screen.findByRole("button", { name: vi.retry })).toBeInTheDocument();
     expect(screen.getByTestId("conversation-activity")).toHaveTextContent(vi.runFilters.failed);
+  });
+
+  describe("the focus of whoever pressed the retry", () => {
+    // Pressing the retry takes it off the page while the history loads again, and the focus
+    // fell to the top of the page, whatever the answer turned out to be.
+    let online: boolean;
+    let asked: number;
+    let release = () => undefined as void;
+    beforeEach(() => {
+      online = false;
+      asked = 0;
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      vitest.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+        asked += 1;
+        if (!online) throw new Error("offline");
+        await gate;
+        return backend.fetch(input, init);
+      });
+    });
+    const phone = (conversationId = "c1") => (
+      <ConversationActivity runs={[]} conversationId={conversationId} spentUsd={0} agentName={name} onOpenConversation={() => undefined} />
+    );
+    const pressRetry = async () => {
+      const retry = await screen.findByRole("button", { name: vi.retry });
+      retry.focus();
+      await userEvent.keyboard("{Enter}");
+    };
+
+    it("goes back to the retry when the history still cannot be read", async () => {
+      render(strip([]));
+
+      await pressRetry();
+
+      await waitFor(() => expect(asked).toBe(2));
+      await waitFor(() => expect(screen.getByRole("button", { name: vi.retry })).toHaveFocus());
+    });
+
+    it("goes to the first run the answer brought", async () => {
+      backend.runs = [
+        fakeRun({ id: "new", title: "Sáng nay", started_at: "2026-09-19T08:00:00Z" }),
+        fakeRun({ id: "old", title: "Hôm qua", started_at: "2026-09-18T08:00:00Z" }),
+      ];
+      render(strip([]));
+
+      online = true;
+      await pressRetry();
+      release();
+
+      await waitFor(() => expect(screen.getAllByTestId("run-card")).toHaveLength(2));
+      const first = screen.getAllByTestId("run-card")[0];
+      expect(first).toHaveTextContent("Sáng nay");
+      await waitFor(() => expect(within(first).getByRole("button")).toHaveFocus());
+    });
+
+    // On a phone the strip went away the moment its retry was pressed, as if the
+    // conversation had never run, and came back once the answer was in.
+    it("keeps a phone's strip up while it loads, then goes to the strip's toggle", async () => {
+      backend.runs = [fakeRun({ id: "old", title: "Hôm qua" })];
+      render(phone());
+
+      online = true;
+      await pressRetry();
+
+      expect(screen.getByTestId("conversation-activity")).toHaveTextContent(vi.runFilters.loading);
+      release();
+      await waitFor(() =>
+        expect(screen.getByRole("button", { name: vi.conversationActivity.expand })).toHaveFocus(),
+      );
+    });
+
+    it("goes to the line saying so when the conversation turns out never to have run", async () => {
+      render(strip([]));
+
+      online = true;
+      await pressRetry();
+      release();
+
+      await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(vi.noRuns));
+      expect(screen.getByRole("status")).toHaveFocus();
+    });
+
+    it("stays wherever the person has put it since", async () => {
+      render(
+        <>
+          {strip([])}
+          <button type="button">elsewhere</button>
+        </>,
+      );
+
+      online = true;
+      await pressRetry();
+      screen.getByRole("button", { name: "elsewhere" }).focus();
+      release();
+
+      await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(vi.noRuns));
+      expect(screen.getByRole("button", { name: "elsewhere" })).toHaveFocus();
+    });
+
+    it("is not pulled into another conversation opened while the answer was on its way", async () => {
+      const view = render(strip([]));
+
+      online = true;
+      await pressRetry();
+      view.rerender(
+        <ConversationActivity runs={[]} conversationId="c2" spentUsd={0} agentName={name} onOpenConversation={() => undefined} docked />,
+      );
+      release();
+
+      await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(vi.noRuns));
+      expect(document.body).toHaveFocus();
+    });
   });
 
   it("asks again when one of its runs settles", async () => {

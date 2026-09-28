@@ -60,6 +60,10 @@ export function ConversationActivity({
   const settled = streamed.filter((r) => isSettled(r.status)).length;
   const history = useRunHistory({ conversationId, limit: HISTORY_LIMIT, refreshKey: settled });
   const runs = mergeRuns(history.runs, streamed);
+  // The conversation whose history a pressed retry asked for again, until the answer is in.
+  const [retryFor, setRetryFor] = useState<string | null>(null);
+  const retrying = retryFor === conversationId;
+  const root = useRef<HTMLElement>(null);
 
   // Skipped on the first render: the strip opens in whatever state was remembered, and
   // an effect that ran on mount would slam it shut before the person touched anything.
@@ -75,10 +79,29 @@ export function ConversationActivity({
     writeText(EXPANDED_KEY, expanded ? "1" : "0");
   }, [expanded, docked]);
 
+  // Pressing the retry takes it off the page while the history loads again, and the focus
+  // of whoever pressed it would fall to the top of the page. Once the answer is in, it goes
+  // back to the retry, to the first run the answer brought, to a folded strip's toggle, or
+  // to the line saying the conversation never ran — unless it has found a place of its own.
+  useEffect(() => {
+    if (retryFor === null || (retrying && history.loading)) return;
+    setRetryFor(null);
+    // Another conversation opened meanwhile: the answer it waited for is not on show.
+    if (!retrying || (document.activeElement && document.activeElement !== document.body)) return;
+    const box = root.current;
+    (
+      box?.querySelector<HTMLElement>(".history-retry") ??
+      box?.querySelector<HTMLElement>(".run-summary") ??
+      box?.querySelector<HTMLElement>(".activity-toggle") ??
+      box?.querySelector<HTMLElement>(":scope > .conversation-activity-bar > [role=status]")
+    )?.focus();
+  });
+
   // Below the column, a strip that came up for every chat while its history loads would
   // flash under each new one, so it waits for the answer. Not for a failed one: hidden
-  // then, it would pass for a conversation that never ran.
-  if (runs.length === 0 && !docked && !history.failed) return null;
+  // then, it would pass for a conversation that never ran. Nor for a retry on its way: the
+  // strip would vanish from under the finger that pressed it.
+  if (runs.length === 0 && !docked && !history.failed && !retrying) return null;
 
   const live = runs.filter((r) => !isSettled(r.status));
   const recent = runs.filter((r) => isSettled(r.status));
@@ -90,7 +113,14 @@ export function ConversationActivity({
   const trouble = history.failed && (
     <span className="muted">
       {vi.runFilters.failed}{" "}
-      <button type="button" className="link-button history-retry" onClick={history.reload}>
+      <button
+        type="button"
+        className="link-button history-retry"
+        onClick={() => {
+          setRetryFor(conversationId);
+          history.reload();
+        }}
+      >
         {vi.retry}
       </button>
     </span>
@@ -106,9 +136,10 @@ export function ConversationActivity({
       {formatClock(recent[0].started_at)} · {vi.runSteps(stepProgress(recent[0]).total)}
     </span>
   ) : (
-    // "Never ran" only once the store has said so; until then it cannot tell.
+    // "Never ran" only once the store has said so; until then it cannot tell. Focusable
+    // from code alone, for a retry that finds no run and has nowhere else to leave the focus.
     trouble || (
-      <span className="muted" role="status">
+      <span className="muted" role="status" tabIndex={-1}>
         {history.loading ? vi.runFilters.loading : vi.noRuns}
       </span>
     )
@@ -170,6 +201,7 @@ export function ConversationActivity({
   if (docked) {
     return (
       <aside
+        ref={root}
         className="conversation-activity docked"
         aria-label={vi.conversationActivity.label}
         data-testid="conversation-activity"
@@ -188,6 +220,7 @@ export function ConversationActivity({
 
   return (
     <section
+      ref={root}
       className={`conversation-activity${expanded ? " expanded" : ""}`}
       aria-label={vi.conversationActivity.label}
       data-testid="conversation-activity"
