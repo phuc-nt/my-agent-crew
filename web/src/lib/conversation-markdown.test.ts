@@ -268,6 +268,33 @@ describe("conversationMarkdown", () => {
     expect(outline(markdown)).toEqual(["h1 t", REPLY, "h3 Kết quả", NEXT]);
   });
 
+  // Raw HTML of these kinds ends only on its closer, so one left open took every turn after it.
+  it.each([
+    ["a comment", "Ghi chú\n\n<!-- nháp", "\n-->"],
+    ["a pre block", "<pre>\nnpm ci", "\n</pre>"],
+    ["a script block, closed with its own tag", "<SCRIPT>\nlet a = 1", "\n</script>"],
+    ["a processing instruction", "<?xml version", "\n?>"],
+    ["a declaration", "<!DOCTYPE html", "\n>"],
+    ["a CDATA section", "<![CDATA[\nx < y", "\n]]>"],
+  ])("closes %s a reply was cut off in, so the next turn is its own", (_, reply, closer) => {
+    const markdown = replyThenTurn(reply);
+
+    expect(markdown).toContain(`\n\n${reply}${closer}\n\n## Bạn`);
+    expect(outline(markdown)).toEqual(["h1 t", REPLY, NEXT]);
+  });
+
+  it.each([
+    ["a closed comment", "<!-- nháp -->"],
+    ["a pre block closed by another of the four tags", "<pre>\nnpm ci\n</style>"],
+    ["a block that ends on an empty line", "<div>\nxin chào"],
+    ["raw HTML inside a list item, which ends with the item", "- <!-- nháp"],
+  ])("leaves %s as written", (_, reply) => {
+    const markdown = replyThenTurn(reply);
+
+    expect(markdown).toContain(`\n\n${reply}\n\n## Bạn`);
+    expect(outline(markdown)).toEqual(["h1 t", REPLY, NEXT]);
+  });
+
   it("keeps a reply's fifth and sixth level headings at the sixth, the last markdown has", () => {
     expect(outline(replyThenTurn("##### Ghi chú\n\n###### Chi tiết"))).toEqual([
       "h1 t",

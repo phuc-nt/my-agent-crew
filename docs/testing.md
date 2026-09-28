@@ -269,7 +269,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "gives each fenced block a copy of its own that takes the code and nothing else");
     `components/agent-editor/prompt-section.test.tsx`
     "hands the prompt over to copy by hand where the browser has no clipboard";
-    `components/conversation-options.test.tsx`; `lib/conversation-markdown.test.ts`;
+    `components/conversation-options.test.tsx`; `lib/conversation-markdown.test.ts` (khối code
+    hay HTML thô bị cắt giữa chừng được đóng lại để không nuốt các lượt sau);
     `components/message-thread.test.tsx` ("what the person sent through Telegram",
     "the actions under a reply")
   - Playwright: `phone-smoke.spec.ts` ("a copy the phone cannot make opens a box a thumb can close",

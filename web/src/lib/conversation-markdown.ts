@@ -42,6 +42,23 @@ const markdown = unified().use(remarkParse).use(remarkGfm);
 const FENCE_OPEN = /^(`{3,}|~{3,})/;
 const FENCE_CLOSE = /^ {0,3}(`{3,}|~{3,})[ \t]*$/;
 const UNDERLINE = /[=-]+[ \t]*$/;
+// The raw HTML blocks that end only on a closer, never on an empty line: how each opens, what
+// ends it (any of the four tags ends a "<pre"), and the closer to write when the reply never did.
+const RAW_HTML: {
+  open: RegExp;
+  closed: RegExp;
+  put: (opened: RegExpExecArray) => string;
+}[] = [
+  {
+    open: /^<(pre|script|style|textarea)(?=[\s>]|$)/i,
+    closed: /<\/(pre|script|style|textarea)>/i,
+    put: (m) => `</${m[1].toLowerCase()}>`,
+  },
+  { open: /^<!--/, closed: /-->/, put: () => "-->" },
+  { open: /^<\?/, closed: /\?>/, put: () => "?>" },
+  { open: /^<!\[CDATA\[/, closed: /\]\]>/, put: () => "]]>" },
+  { open: /^<![a-z]/i, closed: />/, put: () => ">" },
+];
 
 /**
  * A message body that stays inside its turn.
@@ -49,8 +66,9 @@ const UNDERLINE = /[=-]+[ \t]*$/;
  * Only a turn heading may say who spoke: a reply's own headings are its sections, so they
  * move two levels down, below the turns, in a quote or a list as much as at the top, and an
  * underline that would make the lines above it a heading is set apart from them. Code is left
- * as written. A block the reply never closed — one cut off at the token limit — is closed, or
- * it would swallow every turn after it; one inside a list or a quote ends where that does.
+ * as written. A code or raw HTML block the reply never closed — one cut off at the token
+ * limit — is closed, or it would swallow every turn after it; one inside a list or a quote ends
+ * where that does.
  */
 function nested(body: string): string {
   const text = body.replace(/\r\n?/g, "\n");
@@ -81,6 +99,17 @@ function nested(body: string): string {
   // Only a block at the top of the body runs on past its end into the turns after it.
   const last = tree.children?.at(-1);
   const from = last?.position?.start.offset;
+  if (last?.type === "html" && from !== undefined) {
+    const block = text.slice(from, last.position?.end.offset).trimStart();
+    for (const { open, closed, put } of RAW_HTML) {
+      const opened = open.exec(block);
+      if (!opened) continue;
+      if (!closed.test(block.slice(opened[0].length))) {
+        edits.push({ at: text.length, cut: 0, put: `\n${put(opened)}` });
+      }
+      break;
+    }
+  }
   if (last?.type === "code" && from !== undefined) {
     const lines = text.slice(from, last.position?.end.offset).split("\n");
     const marks = FENCE_OPEN.exec(lines[0])?.[1];
