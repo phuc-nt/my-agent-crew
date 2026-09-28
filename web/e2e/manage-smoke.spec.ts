@@ -76,7 +76,8 @@ test("the tools section says which agent has what, and connections names keys wi
   await expect(searchRow.locator("td.cell.excluded")).toHaveCount(2);
   await expect(searchRow.locator("td.cell.missing-key")).toHaveCount(1);
 
-  await page.getByRole("button", { name: "Kết nối" }).click();
+  // From the section list: the notice of a dropped stream offers a retry of the connection too.
+  await page.getByRole("navigation", { name: "Mục quản lý" }).getByRole("button", { name: "Kết nối" }).click();
   const panel = page.getByTestId("connections");
   await expect(panel.getByTestId("credentials-model")).toContainText("OPENROUTER_API_KEY");
   await expect(panel.getByTestId("credentials-search")).toContainText("BRAVE_API_KEY");
