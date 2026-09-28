@@ -144,13 +144,28 @@ describe("a reload after a failure", () => {
 describe("mergeRuns", () => {
   const second = { started_at: "2026-09-19T08:00:00Z", finished_at: "2026-09-19T08:00:01Z" };
 
-  // Start times are whole seconds. The history lacks a run that started after it was read,
-  // so of runs that share their start and their end, that one is the newest.
-  it("puts a run only the stream knows ahead of stored runs of the same second", () => {
+  // Start times are whole seconds. The store lists runs of one second last saved first, an
+  // order that moves while they run, and the lists the stream feeds alone keep the order it
+  // heard them in: this one agrees with those, before the history lands and after.
+  it("keeps the stream's order for runs of the same second it knows, whatever the store's", () => {
+    const live = { started_at: second.started_at, status: "running" as const, finished_at: null };
+    const going = [fakeRun({ id: "b", ...live }), fakeRun({ id: "a", ...live })];
+    const saved = [fakeRun({ id: "a", ...live }), fakeRun({ id: "b", ...live })];
+    expect(mergeRuns(saved, going).map((run) => run.id)).toEqual(["b", "a"]);
+
+    const ended = [fakeRun({ id: "b", ...second }), fakeRun({ id: "a", ...second })];
+    const stored = [fakeRun({ id: "a", ...second }), fakeRun({ id: "b", ...second })];
+    expect(mergeRuns(stored, ended).map((run) => run.id)).toEqual(["b", "a"]);
+  });
+
+  // The history lacks a run that started after it was read, so that one is the newest. It
+  // also holds runs the stream never heard of, and its order is all there is to go by for
+  // those: they go behind the ones the stream knows.
+  it("puts a run only the stream knows first and one only the store has last, of the same second", () => {
     const history = [fakeRun({ id: "b", ...second }), fakeRun({ id: "a", ...second })];
     const streamed = [fakeRun({ id: "c", ...second }), fakeRun({ id: "a", ...second })];
 
-    expect(mergeRuns(history, streamed).map((run) => run.id)).toEqual(["c", "b", "a"]);
+    expect(mergeRuns(history, streamed).map((run) => run.id)).toEqual(["c", "a", "b"]);
   });
 
   it("keeps a stored copy that ended over a streamed one that never heard it end", () => {

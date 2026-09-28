@@ -29,6 +29,21 @@ describe("newestFirst", () => {
     expect(order([first, last])).toEqual(["last", "first"]);
   });
 
+  // A sort compares a pair either way round, and which way depends on where the pair sits
+  // in the list, so each rule has to give the opposite answer when asked the other way.
+  it("gives the opposite answer for a pair compared the other way round", () => {
+    const going = fakeRun({ id: "going", status: "running", finished_at: null });
+    const ended = fakeRun({ id: "ended" });
+    const first = fakeRun({ id: "first", finished_at: "2026-09-19T08:00:02Z" });
+    const last = fakeRun({ id: "last", finished_at: "2026-09-19T08:00:09Z" });
+    const late = fakeRun({ id: "late", started_at: "2026-09-19T08:00:01Z" });
+
+    for (const [ahead, behind] of [[going, ended], [last, first], [late, going]]) {
+      expect(newestFirst(ahead, behind)).toBeLessThan(0);
+      expect(newestFirst(behind, ahead)).toBeGreaterThan(0);
+    }
+  });
+
   it("keeps runs that share their start and their end in the order given", () => {
     const runs = ["a", "b", "c"].map((id) => fakeRun({ id }));
 

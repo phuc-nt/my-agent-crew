@@ -314,6 +314,42 @@ describe("a conversation's runs from before the page opened", () => {
     agree();
   });
 
+  // Work handed out in one batch starts in one second. The store lists such runs last saved
+  // first, not in the order the page heard them start, and the strip took the store's order
+  // once the history landed while the activity page kept the page's: its cards changed places
+  // and its bar moved on to another run.
+  it.each([
+    ["still going", { status: "running" as const, finished_at: null }, () => screen.getAllByTestId("run-progress")[0]],
+    ["ended in one second", { status: "error" as const, finished_at: "2026-09-19T08:00:06Z" }, () => screen.getByText(new RegExp(vi.conversationActivity.lastRun))],
+  ])("keeps the order the page heard runs of the same second in once the history lands, %s", async (_, state, bar) => {
+    const tool = (id: string): RunStep => ({ kind: "tool", name: "read_file", tool_call_id: id, arguments: {}, ok: true, output: "", duration_ms: 5 });
+    const turn = fakeRun({ id: "p", title: "Cha", started_at: "2026-09-19T07:59:50Z", ...state });
+    const kid = (id: string, title: string, steps: RunStep[]) =>
+      fakeRun({ id, conversation_id: `w-${id}`, source: "delegate:c1", title, steps, ...state });
+    const [a, b] = [kid("a", "Con A", [tool("1")]), kid("b", "Con B", [tool("2"), tool("3")])];
+    // `a` was saved last, so the store lists it first.
+    backend.runs = [a, b, turn, fakeRun({ id: "old", title: "Hôm qua", started_at: "2026-09-18T08:00:00Z" })];
+    let release = () => undefined as void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    vitest.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+      await gate;
+      return backend.fetch(input, init);
+    });
+    let heard = activityReducer(emptyActivity, { type: "payload", payload: { type: "snapshot", runs: [] } });
+    for (const run of [turn, a, b]) heard = activityReducer(heard, { type: "payload", payload: { type: "run", run } });
+    const cards = () =>
+      screen.getAllByTestId("run-card").map((card) => /Cha|Con A|Con B|Hôm qua/.exec(card.textContent ?? "")?.[0]);
+
+    render(strip(conversationFamilyRuns(heard, "c1")));
+    expect(cards()).toEqual(["Cha", "Con B", "Con A"]);
+    expect(bar()).toHaveTextContent(vi.runSteps(2));
+
+    release();
+    expect(await screen.findByText(/Hôm qua/)).toBeInTheDocument();
+    expect(cards()).toEqual(["Cha", "Con B", "Con A", "Hôm qua"]);
+    expect(bar()).toHaveTextContent(vi.runSteps(2));
+  });
+
   // "Never ran" is only true once the store has said so.
   it("says it is loading, not that the conversation never ran, while its history is on its way", () => {
     vitest.stubGlobal("fetch", () => new Promise(() => undefined));

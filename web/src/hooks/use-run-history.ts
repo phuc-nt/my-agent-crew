@@ -97,14 +97,15 @@ export function useRunHistory({
  */
 export function mergeRuns(history: RunInfo[], streamed: RunInfo[]): RunInfo[] {
   const read = new Map(history.map((run) => [run.id, run]));
-  // A run the history lacks started after it was read, so those go ahead of it: of runs
-  // that tie in `newestFirst`, the one only the stream knows is the newer.
-  const byId = new Map(streamed.filter((run) => !read.has(run.id)).map((run) => [run.id, run]));
-  for (const run of history) byId.set(run.id, run);
+  // Of runs that tie in `newestFirst`, the ones the stream knows keep its order, the one
+  // every list fed by the stream alone shows. The store lists a tie last saved first, an
+  // order that moves with each save of a live run: it orders only the runs the stream
+  // never heard of, behind the others.
+  const byId = new Map<string, RunInfo>();
   for (const run of streamed) {
     const stored = read.get(run.id);
-    if (stored && isSettled(stored.status) && !isSettled(run.status)) continue;
-    byId.set(run.id, run);
+    byId.set(run.id, stored && isSettled(stored.status) && !isSettled(run.status) ? stored : run);
   }
+  for (const run of history) if (!byId.has(run.id)) byId.set(run.id, run);
   return [...byId.values()].sort(newestFirst);
 }

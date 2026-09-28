@@ -300,13 +300,19 @@ tên một test thì sửa dòng của nó trong cùng commit.
     khi hai lượt chạm cùng một giây hay run con bắt đầu ở giây cuối của lượt)
   - Các run bắt đầu cùng một giây (giờ bắt đầu chỉ đến giây): run còn chạy đứng trước, rồi run
     kết thúc muộn hơn, còn lại giữ thứ tự trang nghe thấy, mới nhất trước — mọi danh sách xếp
-    như nhau: vitest `lib/run-order.test.ts`; `state/activity-reducer.test.ts`
+    như nhau: vitest `lib/run-order.test.ts` nhóm "newestFirst" (kể cả "gives the opposite answer
+    for a pair compared the other way round": mỗi quy tắc đúng cả khi so theo chiều ngược lại);
+    `state/activity-reducer.test.ts`
     "keeps runs of the same second in the list's order, behind one it hears start" và trong
     "runGroups" "keeps runs that share their start and their end in the order given, a lone child
-    included"; `hooks/use-run-history.test.ts` nhóm "mergeRuns";
+    included"; `hooks/use-run-history.test.ts` nhóm "mergeRuns" (run luồng trực tiếp đã biết giữ
+    thứ tự trang nghe thấy, không theo thứ tự kho lưu lần cuối; run chỉ kho có xếp sau);
     `components/conversation-activity.test.tsx`
     "names the same run on its line and its first card when two ran in the same second" (dòng
-    "Lượt chạy gần nhất" và thẻ đầu tiên nói cùng một run, trước và sau khi lịch sử về)
+    "Lượt chạy gần nhất" và thẻ đầu tiên nói cùng một run, trước và sau khi lịch sử về) và
+    "keeps the order the page heard runs of the same second in once the history lands", với run
+    còn chạy và run đã kết thúc (thẻ và thanh trạng thái của dải không đổi sang run khác khi lịch
+    sử về theo thứ tự kho lưu)
   - Playwright: `activity-smoke.spec.ts`
     "the activity log narrows to one agent on the server, then reaches further back";
     `phone-smoke.spec.ts`
