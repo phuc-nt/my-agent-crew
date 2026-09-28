@@ -383,3 +383,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
   - pytest: `tests/test_activity_restart.py`;
     `tests/test_memory_conversation_title.py::test_a_conversation_deleted_or_renamed_while_naming_waited_costs_nothing`;
     `tests/test_tools_delegate.py::test_a_child_deleted_while_the_parent_waits_is_reported_in_words`
+- **Vùng chạm ≥40px trên điện thoại**
+  - Playwright: `touch-targets-phone.spec.ts` — quét mọi nút, link, ô nhập, select, summary,
+    công tắc và tab trên từng trang (chat, mười trang Quản lý) và trong drawer cuộc trò chuyện ở
+    390×844 cảm ứng; checkbox đo theo label bọc nó, link nằm trong câu được miễn như WCAG
+    ("every control on %s is big enough for a finger",
+    "every control in the phone's conversation drawer is big enough for a finger")

@@ -1,0 +1,42 @@
+/* A finger is wider than a cursor. On a touch screen or a phone-width window every control
+   gets the whole touch target, whatever its look. This sheet comes last so that a rule
+   sizing one control for a mouse cannot undercut it; the size is a floor, so a control
+   that is already bigger keeps its own. */
+@media (max-width: 720px), (pointer: coarse) {
+  button,
+  button.link-button,
+  button.icon-button,
+  select,
+  summary,
+  input[type="text"],
+  input[type="search"],
+  input[type="number"],
+  input[type="password"],
+  input[type="url"] {
+    min-height: var(--touch-target);
+  }
+
+  /* A checkbox or switch is tapped through its label, so the label is the target. */
+  label:has(> input[type="checkbox"]),
+  label:has(> input[type="radio"]) {
+    min-height: var(--touch-target);
+    align-items: center;
+  }
+
+  button.icon-button {
+    min-width: var(--touch-target);
+  }
+
+  /* Controls whose own rule sets a smaller floor, named here so this floor still wins. */
+  .tabs.sub button,
+  .editable-title,
+  .composer-box textarea,
+  .composer-box textarea:focus {
+    min-height: var(--touch-target);
+  }
+
+  button.composer-action {
+    min-width: var(--touch-target);
+    min-height: var(--touch-target);
+  }
+}
