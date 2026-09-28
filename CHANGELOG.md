@@ -66,7 +66,8 @@ server runs a newer build, and a run paused for approval survives a server resta
   is missing or refuses, as on the LAN address over plain http, the text opens selected in a box to
   copy by hand, and the agent editor's prompt copy now falls back the same way. The conversation
   options export `<title>.md`: a heading per turn, times that name their time zone, and each
-  message kept inside its own turn. A file the person sent through Telegram shows in their bubble
+  message kept inside its own turn, down to the headings and code blocks in its lists and quotes.
+  A file the person sent through Telegram shows in their bubble
   as a thumbnail or a named download chip served from the agent's files route, and a fence with no
   language renders as a code block.
 - **The conversation list groups by day, marks unread and keeps drafts.** Rows fall under Hôm nay,

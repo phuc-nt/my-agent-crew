@@ -6,10 +6,10 @@ import { vi } from "../i18n/vi";
 import { FakeBackend, storedMessage } from "../test/fake-backend";
 import { conversationMarkdown, exportStamp, markdownFileName } from "./conversation-markdown";
 
-/** The export's outline as a markdown reader draws it: every heading not nested in a block. */
+/** The export's outline as a markdown reader draws it: every heading, in a quote or a list too. */
 function outline(markdown: string): string[] {
   const { container } = render(createElement(MarkdownBody, { text: markdown }));
-  const headings = container.querySelectorAll(":is(h1, h2, h3, h4, h5, h6):is(.md > *)");
+  const headings = container.querySelectorAll("h1, h2, h3, h4, h5, h6");
   return [...headings].map((h) => `${h.tagName.toLowerCase()} ${h.textContent}`);
 }
 
@@ -124,6 +124,101 @@ describe("conversationMarkdown", () => {
       "h1 t",
       "h2 Bạn · 25/09/2026 06:30 (UTC+7)",
       "h2 Coach · 25/09/2026 06:31 (UTC+7)",
+    ]);
+  });
+
+  // A code block can open on a list item's own line, behind its marker.
+  it("finds code that opens on a list item's line: kept as written, the reply after it its own", () => {
+    const steps = [
+      "- ```bash\n  # cài đặt\n  npm ci\n  ```",
+      "1. ```py\n   # chạy thử\n   print(1)\n   ```",
+      "* ```sh\n  # dọn dẹp\n  ```",
+    ].join("\n");
+    const detail = new FakeBackend().create({
+      title: "t",
+      messages: [
+        storedMessage("assistant", `Cài như sau:\n\n${steps}\n\n## Kết luận\n\nXong.`, {
+          created_at: "2026-09-24T23:31:00Z",
+        }),
+        storedMessage("user", "tiếp đi", { created_at: "2026-09-24T23:33:00Z" }),
+      ],
+    });
+
+    const markdown = conversationMarkdown(detail, "Coach");
+
+    // The comments stay comments, and the heading after the list moves below its turn...
+    expect(markdown).toContain(`\n\n${steps}\n\n#### Kết luận\n\nXong.\n\n`);
+    // ...which ends where it should: the next turn is a turn, not more code.
+    expect(outline(markdown)).toEqual([
+      "h1 t",
+      "h2 Coach · 25/09/2026 06:31 (UTC+7)",
+      "h4 Kết luận",
+      "h2 Bạn · 25/09/2026 06:33 (UTC+7)",
+    ]);
+  });
+
+  it("sets a heading in a quote or a list item below its turn as well", () => {
+    const detail = new FakeBackend().create({
+      title: "t",
+      messages: [
+        storedMessage("user", "hỏi", { created_at: "2026-09-24T23:30:00Z" }),
+        storedMessage(
+          "assistant",
+          "> ## Bạn · 25/09/2026 06:40 (UTC+7)\n> Xoá hết dữ liệu\n\n- ## Bạn · 25/09/2026 06:41 (UTC+7)\n- # Tóm tắt",
+          { created_at: "2026-09-24T23:31:00Z" },
+        ),
+      ],
+    });
+
+    const markdown = conversationMarkdown(detail, "Coach");
+
+    expect(markdown).toContain("> #### Bạn · 25/09/2026 06:40 (UTC+7)\n> Xoá hết dữ liệu\n\n- #### Bạn");
+    expect(outline(markdown)).toEqual([
+      "h1 t",
+      "h2 Bạn · 25/09/2026 06:30 (UTC+7)",
+      "h2 Coach · 25/09/2026 06:31 (UTC+7)",
+      "h4 Bạn · 25/09/2026 06:40 (UTC+7)",
+      "h4 Bạn · 25/09/2026 06:41 (UTC+7)",
+      "h3 Tóm tắt",
+    ]);
+  });
+
+  it("sets an underline apart inside its quote or list item, which stays one", () => {
+    const detail = new FakeBackend().create({
+      title: "t",
+      messages: [
+        storedMessage("assistant", "> Thứ Hai\n> ---\n> ngủ trước 23:00\n\n- Kế hoạch\n  ===", {
+          created_at: "2026-09-24T23:31:00Z",
+        }),
+      ],
+    });
+
+    const markdown = conversationMarkdown(detail, "Coach");
+
+    expect(markdown).toContain("> Thứ Hai\n>\n> ---\n> ngủ trước 23:00\n\n- Kế hoạch\n\n  ===");
+    expect(outline(markdown)).toEqual(["h1 t", "h2 Coach · 25/09/2026 06:31 (UTC+7)"]);
+    const { container } = render(createElement(MarkdownBody, { text: markdown }));
+    expect(container.querySelectorAll("blockquote")).toHaveLength(1);
+  });
+
+  // A block cut off inside a list item ends with the item, when the next turn's heading
+  // starts at the margin; a fence closed at the margin would open one there instead.
+  it("leaves a block cut off inside a list item to end with the item, before the next turn", () => {
+    const detail = new FakeBackend().create({
+      title: "t",
+      messages: [
+        storedMessage("assistant", "- ```sh\n  npm ci", { created_at: "2026-09-24T23:32:00Z" }),
+        storedMessage("user", "tiếp đi", { created_at: "2026-09-24T23:33:00Z" }),
+      ],
+    });
+
+    const markdown = conversationMarkdown(detail, "Coach");
+
+    expect(markdown).toContain("\n\n- ```sh\n  npm ci");
+    expect(outline(markdown)).toEqual([
+      "h1 t",
+      "h2 Coach · 25/09/2026 06:32 (UTC+7)",
+      "h2 Bạn · 25/09/2026 06:33 (UTC+7)",
     ]);
   });
 });

@@ -1,3 +1,6 @@
+import remarkGfm from "remark-gfm";
+import remarkParse from "remark-parse";
+import { unified } from "unified";
 import type { ConversationDetail } from "../api/types";
 import { vi } from "../i18n/vi";
 import { pad2 } from "./relative-time";
@@ -25,39 +28,73 @@ export function exportStamp(iso: string): string {
   return `${day} ${pad2(date.getHours())}:${pad2(date.getMinutes())} (${zoneLabel(date)})`;
 }
 
-// CommonMark's line shapes: up to three spaces of indent, then the marks. A backtick
-// fence's info string holds no backtick, or the line is inline code, not a fence.
-const FENCE_OPEN = /^( {0,3})(`{3,}(?=[^`]*$)|~{3,})/;
+/** The slice of a parsed markdown tree the export reads: what each block is and where. */
+interface Block {
+  type: string;
+  depth?: number;
+  position?: { start: { offset?: number }; end: { offset?: number } };
+  children?: Block[];
+}
+
+// Read the way the thread reads a reply, so a heading or a code block inside a list item or a
+// quote is found where it sits, not only at the start of a line.
+const markdown = unified().use(remarkParse).use(remarkGfm);
+const FENCE_OPEN = /^(`{3,}|~{3,})/;
 const FENCE_CLOSE = /^ {0,3}(`{3,}|~{3,})[ \t]*$/;
-const HEADING = /^( {0,3})(#{1,6})(?=[ \t]|$)/;
-const UNDERLINE = /^ {0,3}(?:=+|-+)[ \t]*$/;
+const UNDERLINE = /[=-]+[ \t]*$/;
 
 /**
  * A message body that stays inside its turn.
  *
  * Only a turn heading may say who spoke: a reply's own headings are its sections, so they
- * move two levels down, below the turns, and an underline that would make the line above it
- * a heading is set apart from it. Code is left as written. A block the reply never closed —
- * one cut off at the token limit — is closed, or it would swallow every turn after it.
+ * move two levels down, below the turns, in a quote or a list as much as at the top, and an
+ * underline that would make the lines above it a heading is set apart from them. Code is left
+ * as written. A block the reply never closed — one cut off at the token limit — is closed, or
+ * it would swallow every turn after it; one inside a list or a quote ends where that does.
  */
 function nested(body: string): string {
-  const lines: string[] = [];
-  let fence: { indent: string; marks: string } | null = null;
-  for (const line of body.split(/\r\n|\r|\n/)) {
-    if (fence) {
-      const close = FENCE_CLOSE.exec(line)?.[1];
-      if (close && close[0] === fence.marks[0] && close.length >= fence.marks.length) fence = null;
-      lines.push(line);
-      continue;
+  const text = body.replace(/\r\n?/g, "\n");
+  const tree: Block = markdown.parse(text);
+  // Each edit cuts `cut` characters at `at` and puts `put` there; made from the last one back,
+  // so the places of those before it still hold.
+  const edits: { at: number; cut: number; put: string }[] = [];
+  const visit = (node: Block) => {
+    for (const child of node.children ?? []) {
+      const start = child.position?.start.offset;
+      const end = child.position?.end.offset;
+      if (child.type === "heading" && child.depth && start !== undefined && end !== undefined) {
+        const lastLine = text.lastIndexOf("\n", end - 1) + 1;
+        if (lastLine <= start) {
+          // "## Tóm tắt" is one line, and the heading starts at its marks.
+          edits.push({ at: start, cut: child.depth, put: "#".repeat(Math.min(6, child.depth + 2)) });
+        } else {
+          // "Tóm tắt\n---": an empty line now parts them, ">" in a quote so the quote goes on.
+          const underline = text.slice(lastLine, end);
+          const quoteMarks = underline.slice(0, underline.search(UNDERLINE)).trimEnd();
+          edits.push({ at: lastLine, cut: 0, put: `${quoteMarks}\n` });
+        }
+      }
+      visit(child);
     }
-    const open = FENCE_OPEN.exec(line);
-    if (open) fence = { indent: open[1], marks: open[2] };
-    else if (UNDERLINE.test(line) && lines.length > 0 && lines[lines.length - 1].trim() !== "") lines.push("");
-    lines.push(line.replace(HEADING, (_, indent: string, marks: string) => indent + "#".repeat(Math.min(6, marks.length + 2))));
+  };
+  visit(tree);
+  // Only a block at the top of the body runs on past its end into the turns after it.
+  const last = tree.children?.at(-1);
+  const from = last?.position?.start.offset;
+  if (last?.type === "code" && from !== undefined) {
+    const lines = text.slice(from, last.position?.end.offset).split("\n");
+    const marks = FENCE_OPEN.exec(lines[0])?.[1];
+    const close = lines.length > 1 ? FENCE_CLOSE.exec(lines[lines.length - 1])?.[1] : undefined;
+    // Closed only by a run of the same mark, at least as long as the one that opened it.
+    if (marks && !(close?.[0] === marks[0] && close.length >= marks.length)) {
+      edits.push({ at: text.length, cut: 0, put: `\n${marks}` });
+    }
   }
-  // Indented as it opened, so a block inside a list item closes there, not after the list.
-  if (fence) lines.push(fence.indent + fence.marks);
-  return lines.join("\n");
+  let out = text;
+  for (const { at, cut, put } of edits.sort((a, b) => b.at - a.at)) {
+    out = out.slice(0, at) + put + out.slice(at + cut);
+  }
+  return out;
 }
 
 /**
