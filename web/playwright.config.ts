@@ -17,6 +17,8 @@ export default defineConfig({
   webServer: {
     command: `npx vite --host 127.0.0.1 --port ${port} --strictPort`,
     url: origin,
+    // The discard port, which nothing serves: see vite.config.ts.
+    env: { API_ORIGIN: "http://127.0.0.1:9" },
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,
   },
