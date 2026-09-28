@@ -9,7 +9,12 @@ All notable changes to my-agent-crew. The format follows [Keep a Changelog](http
 versioning follows [SemVer](https://semver.org/). One version number for both backend and web: within a
 single release, `pyproject.toml` and `web/package.json` always carry the same number.
 
-## [Unreleased]
+## [0.9.1] — 2026-09-28
+
+A follow-up to 0.9.0 that closes what its reviews left open: the manage screen says when it lost
+the server, images from other sites wait for a tap, failed requests read as sentences, every phone
+control is big enough for a finger, and an autonomous wiki compile no longer races a decision made
+on the web.
 
 ### Added
 
@@ -39,6 +44,11 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 - An autonomous agent's wiki compile writes under the same one-decision-at-a-time rule as the web,
   and leaves alone a proposal someone decided first; it and the memory rewrite wait for that rule
   off the event loop, so a decision still writing no longer stalls the server.
+
+### Upgrade notes
+
+- No migration and no new configuration. Restart the server to serve the new bundle; an open
+  page offers the reload itself.
 
 ## [0.9.0] — 2026-09-28
 
@@ -777,6 +787,7 @@ restarting the process.
 
 - One agent, `run_turn` loop with a tool approval gate, web UI, memory on disk.
 
+[0.9.1]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.9.1
 [0.9.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.9.0
 [0.8.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.8.0
 [0.7.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.7.0
