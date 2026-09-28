@@ -9,13 +9,20 @@ All notable changes to my-agent-crew. The format follows [Keep a Changelog](http
 versioning follows [SemVer](https://semver.org/). One version number for both backend and web: within a
 single release, `pyproject.toml` and `web/package.json` always carry the same number.
 
-## [Unreleased]
+## [0.9.2] — 2026-09-28
+
+A one-fix release: a delegated answer that ended on a bare chart line reached the person as the
+chart alone. The advice it illustrated now arrives with it.
 
 ### Fixed
 
 - A delegated agent that writes its answer next to a tool call and ends on a bare `MEDIA:` line no
   longer hands on only the chart. The child's answer is the last thing it said before the
   attachment lines, with them added, so a relayed reply carries the advice as well as the picture.
+
+### Upgrade notes
+
+- No migration and no new configuration. Restart the server to load the fix.
 
 ## [0.9.1] — 2026-09-28
 
@@ -795,6 +802,7 @@ restarting the process.
 
 - One agent, `run_turn` loop with a tool approval gate, web UI, memory on disk.
 
+[0.9.2]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.9.2
 [0.9.1]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.9.1
 [0.9.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.9.0
 [0.8.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.8.0
