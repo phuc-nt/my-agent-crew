@@ -116,13 +116,19 @@ Agent con gặp việc cần người dùng đồng ý thì dừng, nói cần l
 Trạng thái run chỉ nói run kết thúc ra sao: con trả lời "không làm được vì thiếu quyền" vẫn kết
 thúc run là `done`. Dòng `outcome=` nói việc được giao ra sao, xét theo thứ tự. Run lỗi, dừng
 (`budget`, `max_steps`, `loop`) hay hết thời gian chờ là `failed`. Approval tool quyết định gần nhất
-của con bị từ chối hay hết hạn là `blocked`; câu hỏi `ask_user` không ai trả lời thì không tính, vì
-con làm tiếp với mặc định của nó. Còn lại theo dòng `Status:` cuối cùng con viết (`done`,
-`done_with_concerns`, `blocked`, `needs_context`), và con không khai gì là `done` như trước. Khác
+của con bị từ chối hay hết hạn là `blocked`. Câu hỏi `ask_user` không bao giờ tính: không ai trả
+lời thì con làm tiếp với mặc định của nó, còn trả lời sau một tool bị từ chối thì không xoá được lần
+từ chối đó. Còn lại theo dòng `Status:` cuối cùng con viết (`done`, `done_with_concerns`, `blocked`,
+`needs_context`), đọc theo mọi kiểu model hay viết: khoá in đậm, tiêu đề hay gạch đầu dòng phía
+trước, giá trị có dấu cách hay gạch nối thay gạch dưới, trong backtick hay sau một emoji; dòng không
+kèm lý do thì lý do lấy từ dòng `Summary:` ngay sau. Dòng `Status:` trong khối code là thứ con đang
+cho xem (bảng việc, phiếu, bản nháp), nên chỉ tính khi ngoài khối code không có dòng nào, và chỉ khi
+giá trị viết hoa như skill dạy. Con không khai gì là `done` như trước. Khác
 `done` thì dòng có thêm `reason=`, và mô tả tool dặn bên giao nói thẳng với người dùng là việc chưa
 xong và vì sao, không tóm thành đã xong. Hết thời gian chờ thì tool báo lỗi nhưng vẫn giữ dòng một,
 để thẻ giao việc trên web còn chỉ được tới cuộc trò chuyện của con; thẻ hiện outcome bằng chữ, và
-lý do ngay bên cạnh. Thời gian chờ là hạn duyệt của chính cuộc trò chuyện con cộng năm phút: con
+lý do ngay bên cạnh, cũng bằng chữ: `loop`, `timeout` hay `workspace_write denied` là mã cho model
+của bên giao đọc, trên thẻ thành câu. Thời gian chờ là hạn duyệt của chính cuộc trò chuyện con cộng năm phút: con
 chép hạn của cha lúc mở, không có thì theo `approval_ttl_seconds` của agent con, nên bên giao
 không bỏ cuộc trong khi yêu cầu duyệt của con còn đang chờ người.
 Người dùng kể một dữ kiện thuộc lĩnh vực của agent nào (ăn uống, bia rượu, chi tiêu, giấy tờ)

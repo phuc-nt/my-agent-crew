@@ -27,19 +27,26 @@ DONE, DONE_WITH_CONCERNS, BLOCKED = "done", "done_with_concerns", "blocked"
 NEEDS_CONTEXT, FAILED = "needs_context", "failed"
 TIMEOUT = "timeout"
 
-# What models put before a field name: a list bullet, a quote marker, bold.
-_PREFIX = r"^[ \t]*(?:[-*>][ \t]+)?\**[ \t]*"
-# DONE_WITH_CONCERNS comes first so it is never read as DONE; `\b` refuses DONE_FOO.
+# Markdown around a field name or value: bold, italics, code.
+_MARK = r"[*_`]*"
+# What models put before a field name: a heading, a list bullet, a quote marker.
+_PREFIX = r"^[ \t]*(?:#{1,6}[ \t]+)?(?:[-*>][ \t]+)?" + _MARK + r"[ \t]*"
+# The two-word values come first so neither is read as DONE; `\b` refuses DONE_FOO. Models
+# also write them with a space or a hyphen, and put an emoji or a backtick before them.
 _STATUS = re.compile(
-    _PREFIX + r"Status[ \t]*:[ \t]*\**[ \t]*"
-    r"(DONE_WITH_CONCERNS|DONE|BLOCKED|NEEDS_CONTEXT)\b(.*)$",
+    _PREFIX + r"Status" + _MARK + r"[ \t]*:[^\w\n]*"
+    r"(DONE[ _-]+WITH[ _-]+CONCERNS|NEEDS[ _-]+CONTEXT|DONE|BLOCKED)\b(.*)$",
     re.IGNORECASE | re.MULTILINE,
 )
-_SUMMARY = re.compile(_PREFIX + r"Summary[ \t]*:[ \t]*\**(.+)$", re.IGNORECASE | re.MULTILINE)
+_SUMMARY = re.compile(
+    _PREFIX + r"Summary" + _MARK + r"[ \t]*:[ \t]*" + _MARK + r"(.+)$",
+    re.IGNORECASE | re.MULTILINE,
+)
+_FENCE = re.compile(r"^[ \t]*```.*?^[ \t]*```[ \t]*$", re.MULTILINE | re.DOTALL)
 # The older contract, still taught where a child must stop for the person's consent: the
 # word alone, capitalised. `blocked` in prose, UNBLOCKED and BLOCKED_BY do not count.
 _BARE_BLOCKED = re.compile(r"\bBLOCKED\b(.*)$", re.MULTILINE)
-_LEAD = " \t*-—–:,.;"
+_LEAD = " \t*`-—–:,.;"
 
 
 @dataclass(frozen=True)
@@ -51,15 +58,22 @@ class Outcome:
 def declared_outcome(answer: str) -> Outcome | None:
     """What the child said about its task, or None when it said nothing. The last Status
     line counts: a child that was stuck and then got through writes both. A Status line
-    outranks the bare word BLOCKED anywhere in the prose."""
+    outranks the bare word BLOCKED anywhere in the prose.
+
+    A code block holds what the child is showing, such as a task list or a ticket, so its
+    Status lines count only when none stand outside one, and then only in capitals: that
+    is a closing block the child fenced the way the skill shows it, not a file's field."""
+    fences = [m.span() for m in _FENCE.finditer(answer)]
     found = list(_STATUS.finditer(answer))
+    outside = [m for m in found if not any(a <= m.start() < b for a, b in fences)]
+    found = outside or [m for m in found if m.group(1).isupper()]
     if found:
         last = found[-1]
         reason = _reason(last.group(2))
         if not reason:
             summary = _SUMMARY.search(answer, last.end())
             reason = _reason(summary.group(1)) if summary else ""
-        return Outcome(last.group(1).lower(), reason)
+        return Outcome(re.sub(r"[ _-]+", "_", last.group(1)).lower(), reason)
     bare = _BARE_BLOCKED.search(answer)
     return Outcome(BLOCKED, _reason(bare.group(1))) if bare else None
 
@@ -67,13 +81,14 @@ def declared_outcome(answer: str) -> Outcome | None:
 def _reason(text: str) -> str:
     """One line, as short as the unfinished note's fields, so a reason can never carry a
     newline that would read as a line of the result."""
-    return cut(text.lstrip(_LEAD).rstrip(" \t*"))
+    return cut(text.lstrip(_LEAD).rstrip(" \t*`"))
 
 
 def decide(run: RunRecord, declared: Outcome | None, latest: Approval | None) -> Outcome:
     """The runtime's facts outrank the child's claim. `latest` is the child's most recently
-    decided approval: one refused tool followed by an approved one is not blocked, and a
-    question nobody answered is not a refusal (the child carried on with its default)."""
+    decided tool approval: one refused tool followed by an approved one is not blocked. A
+    question is never it, answered or not: one nobody answered is not a refusal (the child
+    carried on with its default), and one decided after a refused tool does not undo it."""
     if run.status != RUN_DONE:
         return Outcome(FAILED, cut(run.summary or run.status))
     if latest is not None and latest.kind == TOOL and latest.status in (DENIED, EXPIRED):

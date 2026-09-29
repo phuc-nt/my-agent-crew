@@ -160,6 +160,12 @@ export const vi = {
     needs_context: "cần thêm thông tin",
     failed: "không xong",
   } as Record<string, string>,
+  delegateTimeout: "Hết thời gian chờ, agent con vẫn đang làm",
+  // A tool approval the child asked for, refused, or left unanswered until it lapsed.
+  delegateRefused: {
+    denied: (tool: string) => `${tool} bị từ chối`,
+    expired: (tool: string) => `${tool} hết hạn duyệt`,
+  } as Record<string, (tool: string) => string>,
   delegateOpenChild: "Mở cuộc con",
   delegateUnknownAgent: "agent khác",
   delegateChildOf: "cuộc con của {parent}",

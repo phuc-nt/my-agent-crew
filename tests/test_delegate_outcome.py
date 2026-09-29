@@ -37,10 +37,76 @@ from my_agent_crew.tools.delegate_outcome import FAILED as OUTCOME_FAILED
         ("- Status: BLOCKED — cần duyệt", Outcome(BLOCKED, "cần duyệt")),
         ("> Status: NEEDS_CONTEXT: thiếu ngày", Outcome(NEEDS_CONTEXT, "thiếu ngày")),
         ("* **Status:** BLOCKED, cần bạn đồng ý", Outcome(BLOCKED, "cần bạn đồng ý")),
+        (
+            "Chưa làm được.\n**Status**: NEEDS_CONTEXT\n**Summary**: thiếu ngày",
+            Outcome(NEEDS_CONTEXT, "thiếu ngày"),
+        ),
+        (
+            "Xong.\n**Status**: DONE_WITH_CONCERNS\n**Summary**: thiếu 2 ngày",
+            Outcome(DONE_WITH_CONCERNS, "thiếu 2 ngày"),
+        ),
+        (
+            "Xong.\nStatus: DONE WITH CONCERNS\nSummary: thiếu 2 ngày",
+            Outcome(DONE_WITH_CONCERNS, "thiếu 2 ngày"),
+        ),
+        ("Xong.\nStatus: DONE-WITH-CONCERNS", Outcome(DONE_WITH_CONCERNS)),
+        (
+            "Thiếu.\nStatus: NEEDS CONTEXT\nSummary: thiếu tài khoản",
+            Outcome(NEEDS_CONTEXT, "thiếu tài khoản"),
+        ),
+        ("Thiếu.\nStatus: `NEEDS_CONTEXT`", Outcome(NEEDS_CONTEXT)),
+        ("Thiếu.\nStatus: ⚠️ NEEDS_CONTEXT", Outcome(NEEDS_CONTEXT)),
+        ("Thiếu.\n## Status: NEEDS_CONTEXT", Outcome(NEEDS_CONTEXT)),
+        (
+            "Status: BLOCKED\n**Summary**: cần quyền tạo bảng",
+            Outcome(BLOCKED, "cần quyền tạo bảng"),
+        ),
+        ("Status: **DONE**", Outcome(OUTCOME_DONE)),
     ],
 )
 def test_the_status_line_is_read_in_every_way_a_model_writes_it(answer: str, expected: Outcome):
     assert declared_outcome(answer) == expected
+
+
+@pytest.mark.parametrize(
+    ("answer", "expected"),
+    [
+        (
+            "Bảng việc:\n```\nGọi điện\nStatus: done\n```\n"
+            "**Status**: BLOCKED\n**Summary**: cần quyền",
+            Outcome(BLOCKED, "cần quyền"),
+        ),
+        (
+            "Bảng việc:\n```\nStatus: done\n```\n**Status**: NEEDS_CONTEXT\n**Summary**: thiếu số",
+            Outcome(NEEDS_CONTEXT, "thiếu số"),
+        ),
+        (
+            "Status: BLOCKED\nSummary: cần quyền\n\nBản nháp:\n```\nStatus: DONE\n```",
+            Outcome(BLOCKED, "cần quyền"),
+        ),
+    ],
+)
+def test_a_status_line_in_a_code_block_does_not_speak_over_the_closing_one(
+    answer: str, expected: Outcome
+):
+    """What sits in a code block is what the child is showing, a task list or a draft; the
+    closing lines outside it are what the child says about its own task."""
+    assert declared_outcome(answer) == expected
+
+
+def test_a_closing_block_the_child_put_in_a_code_block_still_counts():
+    """The skill shows the closing block inside a fence, and a model copies that."""
+    answer = "Đã đọc xong.\n```\nStatus: BLOCKED\nSummary: cần quyền ghi\n```"
+
+    assert declared_outcome(answer) == Outcome(BLOCKED, "cần quyền ghi")
+
+
+def test_a_lowercase_status_in_a_code_block_is_content_not_a_declaration():
+    """A ticket or a YAML file the child wrote can have a `status:` field; the closing
+    block writes its value in capitals, as the skill does."""
+    answer = "Đã tạo phiếu:\n```yaml\ntitle: Đăng nhập lỗi\nstatus: blocked\n```"
+
+    assert declared_outcome(answer) is None
 
 
 def test_done_with_concerns_is_not_read_as_done():

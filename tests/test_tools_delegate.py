@@ -6,21 +6,25 @@ from __future__ import annotations
 import asyncio
 import re
 from dataclasses import replace
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
 
 from my_agent_crew import texts
 from my_agent_crew.activity import ActivityHub
+from my_agent_crew.agent.approval_expiry import expire_overdue
 from my_agent_crew.agent.loop import AgentDeps, run_turn
 from my_agent_crew.agent.prompt import system_prompt_for
 from my_agent_crew.agent.turn_context import set_tool_call_id, set_turn_conversation
 from my_agent_crew.agents.profile import WORK
 from my_agent_crew.config import Route
+from my_agent_crew.llm.fake import completion
 from my_agent_crew.llm.types import Message, ToolCall
 from my_agent_crew.server.routes_conversations import delete_conversation
 from my_agent_crew.server.runtime import Runtime
 from my_agent_crew.store import Store
+from my_agent_crew.store.models import QUESTION
 from my_agent_crew.store.runs import AWAITING
 from my_agent_crew.tools.delegate import DELEGATE_TOOL_NAME, MAX_DELEGATES
 from my_agent_crew.tools.registry import ToolRegistry, ToolResult
@@ -304,6 +308,40 @@ async def test_a_child_whose_last_approval_was_refused_is_blocked(runtime: Runti
     assert " status=done " in header
     assert outcome == "outcome=blocked reason=workspace_write denied"
     assert result.reply is None
+
+
+async def test_a_question_after_a_refused_tool_does_not_hide_the_refusal(
+    deps_factory, store: Store
+):
+    """The person said no to the write, then nobody answered the child's next question.
+    The question is decided last, but the write is still what the task is stuck on."""
+    write = ToolCall("w1", "workspace_write", {"path": "trua.md", "content": "cơm"})
+    ask = ToolCall("q1", "ask_user", {"question": "Lưu chỗ khác không?", "options": ["có"]})
+    said = "Mình không ghi được bữa trưa vì bạn không cho ghi tệp."
+    base = deps_factory(
+        script=[
+            completion(tool_calls=(write,)),
+            completion(tool_calls=(ask,)),
+            completion(content=said),
+        ]
+    )
+    agents = {"boss": agent(base, "boss", delegates=("worker",)), "worker": agent(base, "worker")}
+    rt = Runtime(base.settings, store, agents, ActivityHub(store))
+    rt.wire_delegation()
+    parent = store.create(agent_id="boss", autonomous=False)
+    waiting = asyncio.create_task(
+        delegation_result(rt, parent.id, "call-1", task="ghi bữa trưa", agent="worker")
+    )
+    await wait_until_paused(rt)
+    child = store.for_parent_call("call-1")
+    await collect(rt.inbound.decide(child.id, store.approvals.pending(child.id).id, False))
+    assert store.approvals.pending(child.id).kind == QUESTION
+
+    await expire_overdue(rt.agents, rt.hub, now=datetime.now(UTC) + timedelta(days=1))
+
+    result = await asyncio.wait_for(waiting, 2)
+    assert lines_of(result)[1] == "outcome=blocked reason=workspace_write denied"
+    assert lines_of(result)[2] == said and result.reply is None
 
 
 async def test_a_child_still_waiting_when_the_wait_runs_out_failed(runtime: Runtime, monkeypatch):

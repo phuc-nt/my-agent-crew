@@ -36,11 +36,15 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   the child's run ended: `outcome=done`, `done_with_concerns`, `blocked`, `needs_context` or
   `failed`, with a reason when it is not done. The runtime's facts come first: a run that
   errored, halted or outlasted the wait failed, and a child whose last tool approval was refused
-  or lapsed is blocked. Otherwise the child's closing `Status:` line decides, and a child that
-  declared nothing is done, as before. The tool tells the agent that delegated to say plainly
-  when a task is not done, and why.
+  or lapsed is blocked; a question answered after that does not lift it. Otherwise the child's
+  closing `Status:` line decides, however a model writes it (a bold key, a heading, a value with
+  spaces or hyphens, in backticks), and a child that declared nothing is done, as before. A
+  `Status:` line inside a code block is something the child is showing, such as a task list or
+  a ticket, and counts only when there is none outside one. The tool tells the agent that
+  delegated to say plainly when a task is not done, and why.
 - The delegation card on the web names the outcome in words, marks one that is not done, and
-  shows the reason beside it.
+  shows the reason beside it, in words too: how the child's run stopped, a wait that ran out, a
+  tool approval refused or lapsed.
 - An eval case can require what a delegation came to: `delegates_to: {agent, outcome}`.
 - A schedule, or the master's `telegram:` block, may say how long an approval in the
   conversation it opens waits for a person: `approval_ttl_seconds`, whole seconds from 60 to

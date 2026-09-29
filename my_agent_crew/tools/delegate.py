@@ -27,7 +27,7 @@ from my_agent_crew.agent.turn_context import (
 from my_agent_crew.agents import AgentProfile
 from my_agent_crew.agents.approval_ttl import effective_ttl
 from my_agent_crew.agents.roster import DELEGATE_TOOL_NAME, delegate_targets
-from my_agent_crew.store.models import Conversation
+from my_agent_crew.store.models import TOOL, Conversation
 from my_agent_crew.tools.delegate_attachments import child_answer, relay_attachments
 from my_agent_crew.tools.delegate_outcome import (
     decide,
@@ -131,7 +131,7 @@ async def _delegate(
         # parent's budget nothing and its cap would stop meaning anything.
         runtime.store.add_spend(parent.id, spent)
     said = child_answer(runtime.store.history(child.id))
-    decided = runtime.store.approvals.recent(limit=1, conversation_id=child.id)
+    decided = runtime.store.approvals.recent(limit=1, conversation_id=child.id, kind=TOOL)
     outcome = decide(run, declared_outcome(said), decided[0] if decided else None)
     note = unfinished_note(run)
     answer = relay_attachments(

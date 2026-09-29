@@ -11,6 +11,10 @@
  * may have failed before it opened a child, and showing the error beats showing nothing.
  */
 
+import type { RunStatus } from "../api/types";
+import { vi } from "../i18n/vi";
+import { runSummaryText } from "./run-summary";
+
 export type DelegateResult = {
   conversationId: string;
   status: string;
@@ -43,6 +47,27 @@ export function parseDelegateResult(output: string): DelegateResult | null {
     if (outcome[2]) result.outcomeReason = outcome[2];
   }
   return result;
+}
+
+const STILL_GOING = new Set(["running", "awaiting_approval"]);
+const ENDED: Record<string, string> = { error: vi.runEndedError, halted: vi.runEndedHalted };
+const REFUSED = /^(\S+) (denied|expired)$/;
+
+/**
+ * The reason in words. The server writes some as codes for the delegating model to read —
+ * how the child's run stopped, a wait that ran out while it was still going, a tool approval
+ * refused or left to lapse — and the child's own reasons as it wrote them.
+ */
+export function delegateReason(result: DelegateResult): string {
+  const reason = result.outcomeReason ?? "";
+  if (result.outcome === "failed") {
+    if (reason === "timeout" && STILL_GOING.has(result.status)) return vi.delegateTimeout;
+    // A run that stopped with nothing to say gets its status as the reason.
+    if (reason === result.status) return ENDED[reason] ?? reason;
+    return runSummaryText({ status: result.status as RunStatus, summary: reason });
+  }
+  const refused = result.outcome === "blocked" ? REFUSED.exec(reason) : null;
+  return refused ? vi.delegateRefused[refused[2]](refused[1]) : reason;
 }
 
 /** How the card colours a result: a run that did not finish, or an older result whose run

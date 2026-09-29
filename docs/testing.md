@@ -592,26 +592,32 @@ tên một test thì sửa dòng của nó trong cùng commit.
   - pytest: `tests/test_delegate_outcome.py` (dòng `Status:` theo mọi kiểu model viết,
     `DONE_WITH_CONCERNS` không bị đọc thành `DONE`, dòng cuối thắng, trạng thái lạ bị bỏ qua, lý do
     lấy từ `Summary:` khi dòng `Status:` không có, chữ `BLOCKED` trần chỉ tính khi không có dòng
-    `Status:`; runtime thắng lời khai: run không xong là `failed`, approval tool quyết định gần nhất
-    bị từ chối hay hết hạn là `blocked`, câu hỏi không ai trả lời thì không; hết giờ chờ vẫn giữ
-    dòng một);
+    `Status:`; dòng `Status:` trong khối code không lấn dòng khép lại bên ngoài, khối khép lại con
+    bọc trong code vẫn tính, `status: blocked` viết thường trong một tệp con cho xem thì không;
+    runtime thắng lời khai: run không xong là `failed`, approval tool quyết định gần nhất bị từ chối
+    hay hết hạn là `blocked`, câu hỏi không ai trả lời thì không; hết giờ chờ vẫn giữ dòng một);
     `tests/test_tools_delegate.py::test_the_first_two_lines_are_the_ones_the_web_card_reads`
     (Python và regex của thẻ web đọc cùng hai dòng),
     `::test_a_child_that_needs_more_context_is_not_handed_on`,
     `::test_a_child_done_with_concerns_goes_back_to_the_parent_whole`,
     `::test_a_child_that_declares_done_is_handed_on_word_for_word`,
     `::test_a_child_whose_last_approval_was_refused_is_blocked`,
+    `::test_a_question_after_a_refused_tool_does_not_hide_the_refusal`,
     `::test_a_child_still_waiting_when_the_wait_runs_out_failed`;
+    `tests/test_store_approvals_jobs_usage.py::test_history_can_be_narrowed_to_tool_approvals`;
     `tests/test_delegate_relay.py::test_a_child_that_needs_more_context_goes_back_through_the_boss`,
-    `::test_a_child_halted_for_repeating_itself_is_reported_as_failed`;
+    `::test_a_child_halted_for_repeating_itself_is_reported_as_failed`,
+    `::test_a_status_in_a_code_block_never_lets_a_blocked_child_through`;
     `tests/test_delegation_contract.py::test_every_status_the_skill_offers_is_one_the_parent_reads`
   - vitest: `lib/delegate-result.test.ts` ("reads what the task came to, and why, from the second
     line", "reads an outcome with no reason, and one with no reply after it", "leaves the outcome
     out for a result written before there was one", "goes by the outcome when there is one", "goes
-    by how the run ended for a result that has no outcome"); `components/delegate-cards.test.tsx`
-    ("says in words what the task came to, and marks one that is not done", "marks a task that
-    failed apart from one that only stopped short", "reads a finished task as done, with nothing
-    more to explain")
+    by how the run ended for a result that has no outcome", và mục `delegateReason`: mã dừng, hết
+    giờ chờ khi con còn chạy, tool bị từ chối hay hết hạn thành câu, lời của con giữ nguyên);
+    `components/delegate-cards.test.tsx` ("says in words what the task came to, and marks one that
+    is not done", "marks a task that failed apart from one that only stopped short", "says why in
+    words, not in the codes the delegating agent reads", "reads a finished task as done, with
+    nothing more to explain")
   - Playwright: `delegate-smoke.spec.ts`
     "a task that came back short of done says so, and why, on the card"
   - Thủ công, tốn tiền thật: case `a-lookup-is-handed-to-the-researcher` trong

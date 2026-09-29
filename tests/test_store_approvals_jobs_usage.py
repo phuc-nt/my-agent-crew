@@ -10,6 +10,7 @@ import pytest
 from my_agent_crew.llm.types import Message, ToolCall
 from my_agent_crew.store import Store
 from my_agent_crew.store.approvals import EXPIRED, PENDING
+from my_agent_crew.store.models import QUESTION, TOOL
 
 CALL = ToolCall("c1", "shell_run", {"command": "ls"})
 
@@ -67,6 +68,24 @@ def test_one_conversations_history_is_not_crowded_out_by_a_busier_one(store: Sto
     history = store.approvals.recent(limit=2, conversation_id=quiet.id)
 
     assert [a.conversation_id for a in history] == [quiet.id]
+
+
+def test_history_can_be_narrowed_to_tool_approvals(store: Store):
+    """A question the child asked after a refused tool is decided later, so the newest
+    decision of any kind would hide the refusal."""
+    conv = store.create()
+    msg = store.append(conv.id, Message(role="assistant", content=""))
+    refused = store.approvals.create(conv.id, msg.id, CALL)
+    asked = ToolCall("q", "ask_user", {"question": "Lưu chỗ khác không?"})
+    question = store.approvals.create(conv.id, msg.id, asked, kind=QUESTION, options=["có"])
+    store.approvals.resolve(refused.id, approve=False)
+    store.approvals.resolve(question.id, approve=False, status=EXPIRED)
+
+    newest = store.approvals.recent(limit=1, conversation_id=conv.id)
+    newest_tool = store.approvals.recent(limit=1, conversation_id=conv.id, kind=TOOL)
+
+    assert [a.id for a in newest] == [question.id]
+    assert [a.id for a in newest_tool] == [refused.id]
 
 
 def test_auto_approve_is_stored_as_a_list_and_defaults_empty(store: Store):

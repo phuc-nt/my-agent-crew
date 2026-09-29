@@ -2,6 +2,7 @@ import { useState } from "react";
 import { vi } from "../i18n/vi";
 import {
   delegateAgent,
+  delegateReason,
   delegateTask,
   delegateTone,
   parseDelegateResult,
@@ -123,6 +124,7 @@ function DelegateCard({
   const target = delegateAgent(item.arguments);
   const task = delegateTask(item.arguments);
   const result = item.output ? parseDelegateResult(item.output) : null;
+  const reason = result ? delegateReason(result) : "";
   const name = target ? (agentName?.(target) ?? target) : vi.delegateUnknownAgent;
   return (
     <div className="tool-card delegate-card" data-testid="delegate-card" data-tool={DELEGATE}>
@@ -149,13 +151,13 @@ function DelegateCard({
             className="delegate-chip"
             data-testid="delegate-status"
             data-tone={delegateTone(result)}
-            title={result.outcomeReason}
+            title={reason || undefined}
           >
             {result.outcome ? (vi.delegateOutcome[result.outcome] ?? result.outcome) : result.status}
           </span>
-          {result.outcomeReason && (
+          {reason && (
             <span className="delegate-reason" data-testid="delegate-reason">
-              {result.outcomeReason}
+              {reason}
             </span>
           )}
           <span className="muted">

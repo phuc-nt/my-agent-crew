@@ -116,6 +116,14 @@ def test_what_may_be_handed_on():
     assert relayable(ToolResult(ok=True, output="h", reply="  ")) is None
 
 
+def test_a_status_in_a_code_block_never_lets_a_blocked_child_through():
+    """Before the Status reader, any BLOCKED held a relay back. A `Status: done` in a task
+    list the child quoted must not undo that for the closing line under it."""
+    answer = "Bảng việc:\n```\nGọi điện\nStatus: done\n```\n**Status**: BLOCKED\n**Summary**: cần"
+
+    assert relayable(ToolResult(ok=True, output="h", reply=answer)) is None
+
+
 def test_a_progress_note_beside_the_delegation_does_not_count_as_work(store: Store):
     conv = store.create()
     store.append(conv.id, Message(role="user", content="hỏi giúp"))

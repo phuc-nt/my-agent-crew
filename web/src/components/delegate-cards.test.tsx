@@ -85,13 +85,33 @@ describe("the card for a handed-off task", () => {
   });
 
   it("marks a task that failed apart from one that only stopped short", () => {
-    const output = `${HEADER}\noutcome=failed reason=timeout\nHết thời gian chờ agent con.`;
+    const header = "conversation=c-child status=running spent=$0.0250 steps=4";
+    const output = `${header}\noutcome=failed reason=timeout\nHết thời gian chờ agent con.`;
     render(<ToolCallCard item={delegateCall({ status: "failed", output })} />);
 
     const chip = screen.getByTestId("delegate-status");
     expect(chip).toHaveTextContent(vi.delegateOutcome.failed);
     expect(chip).toHaveAttribute("data-tone", "danger");
-    expect(chip).toHaveAttribute("title", "timeout");
+    expect(chip).toHaveAttribute("title", vi.delegateTimeout);
+    expect(screen.getByTestId("delegate-reason")).toHaveTextContent(vi.delegateTimeout);
+  });
+
+  it("says why in words, not in the codes the delegating agent reads", () => {
+    const halted = "conversation=c-child status=halted spent=$0.0250 steps=9";
+    const { unmount } = render(
+      <ToolCallCard
+        item={delegateCall({ output: `${halted}\noutcome=failed reason=loop\nĐọc lại n.md` })}
+      />,
+    );
+    expect(screen.getByTestId("delegate-reason")).toHaveTextContent(vi.haltedLoop);
+    expect(screen.getByTestId("delegate-card")).not.toHaveTextContent("reason=");
+    unmount();
+
+    const output = `${HEADER}\noutcome=blocked reason=workspace_write denied\nKhông ghi được.`;
+    render(<ToolCallCard item={delegateCall({ output })} />);
+    const refused = vi.delegateRefused.denied("workspace_write");
+    expect(screen.getByTestId("delegate-reason")).toHaveTextContent(refused);
+    expect(screen.getByTestId("delegate-status")).toHaveAttribute("title", refused);
   });
 
   it("reads a finished task as done, with nothing more to explain", () => {

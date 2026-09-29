@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
+import { vi } from "../i18n/vi";
 import {
   type DelegateResult,
   delegateAgent,
+  delegateReason,
   delegateTask,
   delegateTone,
   parseDelegateResult,
@@ -86,6 +88,61 @@ describe("delegateTone", () => {
   it("goes by how the run ended for a result that has no outcome", () => {
     expect(delegateTone(base)).toBe("ok");
     expect(delegateTone({ ...base, status: "halted" })).toBe("danger");
+  });
+});
+
+describe("delegateReason", () => {
+  const ended = (status: string, outcome: string, outcomeReason?: string): DelegateResult => ({
+    conversationId: "c",
+    status,
+    spentUsd: 0,
+    steps: 1,
+    outcome,
+    outcomeReason,
+    reply: "",
+  });
+
+  it("says in words how the child's run stopped", () => {
+    expect(delegateReason(ended("halted", "failed", "loop"))).toBe(vi.haltedLoop);
+    expect(delegateReason(ended("halted", "failed", "budget"))).toBe(vi.haltedBudget);
+    expect(delegateReason(ended("halted", "failed", "max_steps"))).toBe(vi.haltedMaxSteps);
+    expect(delegateReason(ended("error", "failed", "interrupted"))).toBe(vi.runInterrupted);
+    expect(delegateReason(ended("error", "failed", "error"))).toBe(vi.runEndedError);
+    expect(delegateReason(ended("error", "failed", "Nhà cung cấp trả lỗi 500"))).toBe(
+      "Nhà cung cấp trả lỗi 500",
+    );
+  });
+
+  it("reads a wait that ran out only while the child was still going", () => {
+    expect(delegateReason(ended("running", "failed", "timeout"))).toBe(vi.delegateTimeout);
+    expect(delegateReason(ended("awaiting_approval", "failed", "timeout"))).toBe(
+      vi.delegateTimeout,
+    );
+    // An error message that happens to be the word is the error, as written.
+    expect(delegateReason(ended("error", "failed", "timeout"))).toBe("timeout");
+  });
+
+  it("names the tool whose approval was refused or lapsed", () => {
+    expect(delegateReason(ended("done", "blocked", "workspace_write denied"))).toBe(
+      vi.delegateRefused.denied("workspace_write"),
+    );
+    expect(delegateReason(ended("done", "blocked", "shell_run expired"))).toBe(
+      vi.delegateRefused.expired("shell_run"),
+    );
+  });
+
+  it("shows what the child wrote as it wrote it", () => {
+    expect(delegateReason(ended("done", "blocked", "cần quyền tạo bảng"))).toBe(
+      "cần quyền tạo bảng",
+    );
+    expect(delegateReason(ended("done", "needs_context", "thiếu ngày"))).toBe("thiếu ngày");
+    // Only the runtime writes codes, and never for a task the child finished with concerns.
+    expect(delegateReason(ended("done", "done_with_concerns", "loop"))).toBe("loop");
+  });
+
+  it("has nothing to say for a task that is done or a result from before outcomes", () => {
+    expect(delegateReason(ended("done", "done"))).toBe("");
+    expect(delegateReason({ ...ended("halted", "failed"), outcome: undefined })).toBe("");
   });
 });
 
