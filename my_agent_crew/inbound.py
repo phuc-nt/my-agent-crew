@@ -3,12 +3,16 @@
 guards the conversation, runs the turn and records it on the activity hub. A platform
 that streams (the web) reads the events; one that shows a message per turn (Telegram, a
 relay behind the API) takes the collected `TurnReply`. Nothing here knows which platform
-called, so a new one needs an adapter and no change to the agents."""
+called, so a new one needs an adapter and no change to the agents.
+
+A message that finds its conversation busy does not start a second turn beside the first:
+it waits in the conversation's queue and is answered once the turn is over, or, when it is
+`/steer text` or a command from the agent's kit, is handed to the running turn at its next
+step (`inbound_queue.py`)."""
 
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Callable, Mapping
-from datetime import datetime
 from typing import Any
 
 from my_agent_crew import texts
@@ -16,11 +20,11 @@ from my_agent_crew.activity import ActivityHub, tracked
 from my_agent_crew.agent.events import Event
 from my_agent_crew.agent.loop import AgentDeps, run_turn
 from my_agent_crew.agent.resume import answer_question, resolve_approval
-from my_agent_crew.agent.turn_context import CHAT, TELEGRAM
-from my_agent_crew.agents import DEFAULT_AGENT_ID
-from my_agent_crew.agents.kit_commands import expand
+from my_agent_crew.agent.turn_context import CHAT
+from my_agent_crew.agents.kit_commands import steer_text
+from my_agent_crew.inbound_conversations import ConversationOpening, OnReplaced, channel_label
+from my_agent_crew.inbound_queue import enqueue
 from my_agent_crew.memory.conversation_title import title_on_first_message
-from my_agent_crew.store import Conversation
 from my_agent_crew.store.models import AWAITING_APPROVAL
 
 # Re-exported: a turn collapsed to one message lives in its own module now, but every
@@ -29,21 +33,16 @@ from my_agent_crew.turn_reply import TurnReply, collect_reply
 
 __all__ = ["Inbound", "InboundBusy", "TurnReply", "channel_label", "collect_reply"]
 
-OnReplaced = Callable[[AgentDeps, str], None]
 # How long naming waits for the turn it queued behind before giving up on a better title.
 TITLE_AFTER_TURN_TIMEOUT_S = 300.0
 
 
 class InboundBusy(Exception):
-    """The conversation waits for a decision on a tool call; a new message must wait too."""
+    """The conversation waits for a decision on a tool call, or a decision was already
+    taken and its turn has not started yet; a new message or decision must wait too."""
 
 
-def channel_label(channel: str) -> str:
-    """`telegram:42` → `telegram`; a bare channel name is its own label."""
-    return channel.split(":", 1)[0] or CHAT
-
-
-class Inbound:
+class Inbound(ConversationOpening):
     def __init__(
         self,
         agents: Mapping[str, AgentDeps],
@@ -60,81 +59,37 @@ class Inbound:
         self.on_replaced = on_replaced
         self.keep = keep
 
-    def deps_for(self, agent_id: str) -> AgentDeps:
-        try:
-            return self.agents[agent_id]
-        except KeyError as exc:
-            raise KeyError(texts.AGENT_UNKNOWN.format(agent_id=agent_id)) from exc
-
-    def deps_for_conversation(self, conv_id: str) -> AgentDeps:
-        """KeyError for an unknown conversation; one whose agent left the crew runs as
-        the master rather than being lost."""
-        conv = next(iter(self.agents.values())).store.get(conv_id)
-        deps = self.agents.get(conv.agent_id) or self.agents.get(DEFAULT_AGENT_ID)
-        if deps is None:
-            raise KeyError(texts.AGENT_UNKNOWN.format(agent_id=conv.agent_id))
-        return deps
-
-    def conversation_for(
-        self,
-        agent_id: str,
-        channel: str,
-        clock: Callable[[], datetime] = datetime.now,
-        title: str = texts.INBOUND_CONVERSATION_TITLE,
-    ) -> Conversation:
-        """Today's conversation of the agent on this channel, opened on first use each
-        day. A chat window is one thread; a day is a natural place to cut it."""
-        deps = self.deps_for(agent_id)
-        latest = deps.store.latest_for_channel(agent_id, channel)
-        now = clock()  # the stored stamp is UTC; the day is read in the clock's own zone
-        if latest is None:
-            return self.open_conversation(agent_id, channel, clock, title)
-        opened = datetime.fromisoformat(latest.created_at).astimezone(now.tzinfo)
-        if opened.date() != now.date():
-            return self.open_conversation(agent_id, channel, clock, title)
-        return latest
-
-    def open_conversation(
-        self,
-        agent_id: str,
-        channel: str,
-        clock: Callable[[], datetime] = datetime.now,
-        title: str = texts.INBOUND_CONVERSATION_TITLE,
-    ) -> Conversation:
-        """Opens a new conversation on the channel; the one it replaces is handed to
-        `on_replaced` so the caller can recap it in the background."""
-        deps = self.deps_for(agent_id)
-        previous = deps.store.latest_for_channel(agent_id, channel)
-        telegram = deps.agent.telegram if channel_label(channel) == TELEGRAM else None
-        conv = deps.store.create(
-            title=title.format(channel=channel_label(channel), date=clock().date().isoformat()),
-            autonomous=deps.settings.autonomous_default,
-            cost_cap_usd=deps.settings.cost_cap_usd,
-            agent_id=agent_id,
-            channel=channel,
-            approval_ttl_seconds=telegram.approval_ttl_seconds if telegram else None,
-        )
-        if previous is not None and self.on_replaced is not None:
-            self.on_replaced(deps, previous.id)
-        return conv
-
     def stream(self, conv_id: str, text: str, source: str = CHAT) -> AsyncIterator[Event]:
-        """A person's message as a tracked turn. Raises `InboundBusy` while a tool call
-        of this conversation waits for a decision: the loop would refuse the message too,
-        but only once the stream is read, which is too late for a status code."""
+        """A person's message as a tracked turn or, while the conversation is busy, as its
+        place in the queue: one `QueuedEvent`. Raises `InboundBusy` while a tool call of
+        this conversation waits for a decision: the loop would refuse the message too, but
+        only once the stream is read, which is too late for a status code."""
         deps = self.deps_for_conversation(conv_id)
         conv = deps.store.get(conv_id)
+        # `/steer text` and `/name args` from the agent's kit ask to jump the queue; idle,
+        # they are simply the text the agent reads. A bare `/steer` is refused either way.
+        steer = steer_text(text, deps.agent.commands)
+        if self.hub.busy.busy(conv_id):
+            return enqueue(deps, conv_id, text, steer, source)
         if conv.status == AWAITING_APPROVAL or deps.store.approvals.pending(conv_id) is not None:
             raise InboundBusy(conv_id)
-        # `/name args` from the agent's kit becomes the command's prompt before the
-        # agent reads it, on every platform alike.
-        text = expand(text, deps.agent.commands)
+        text = text if steer is None else steer
         # Before naming, which waits for this turn to end: the wait must not read the
         # signal the previous turn left raised.
         self.hub.turn_starting(conv_id)
         title = self._name_conversation(deps, conv_id, text)
+        self.hub.busy.claim(conv_id)
         events = run_turn(deps, conv_id, text, source=source)
         return tracked(self.hub, events, deps.agent.id, source, title, conv.id)
+
+    def stream_delivered(self, conv_id: str, source: str = CHAT) -> AsyncIterator[Event]:
+        """The turn that answers what the queue already wrote into the conversation. The
+        drain claimed the conversation before writing; this turn's run takes it over."""
+        deps = self.deps_for_conversation(conv_id)
+        conv = deps.store.get(conv_id)
+        self.hub.turn_starting(conv_id)
+        events = run_turn(deps, conv_id, None, source=source)
+        return tracked(self.hub, events, deps.agent.id, source, conv.title, conv.id)
 
     def _name_conversation(self, deps: AgentDeps, conv_id: str, text: str) -> str:
         """Names a still-unnamed conversation from what was just said, and returns the
@@ -156,6 +111,14 @@ class Inbound:
             after=after_the_turn,
         )
 
+    def _claim(self, conv_id: str) -> None:
+        """A decision holds the conversation from the moment it is taken, so a second one
+        — a double click, the other channel — is turned away instead of racing the first
+        to the same pending call, and a message sent meanwhile waits in the queue."""
+        if self.hub.busy.busy(conv_id):
+            raise InboundBusy(conv_id)
+        self.hub.busy.claim(conv_id)
+
     def decide(
         self,
         conv_id: str,
@@ -167,6 +130,7 @@ class Inbound:
         """Resolves a pending tool call and streams the rest of the turn."""
         deps = self.deps_for_conversation(conv_id)
         conv = deps.store.get(conv_id)
+        self._claim(conv_id)
         events = resolve_approval(deps, conv_id, approval_id, approve, always=always)
         return tracked(self.hub, events, deps.agent.id, source, conv.title, conv.id)
 
@@ -177,6 +141,7 @@ class Inbound:
         `decide`: same pause, same resume, but the outcome is text rather than a yes."""
         deps = self.deps_for_conversation(conv_id)
         conv = deps.store.get(conv_id)
+        self._claim(conv_id)
         events = answer_question(deps, conv_id, approval_id, answer)
         return tracked(self.hub, events, deps.agent.id, source, conv.title, conv.id)
 

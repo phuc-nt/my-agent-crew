@@ -105,6 +105,24 @@ class RouteFallbackEvent:
     error: str
 
 
+@dataclass(frozen=True)
+class QueuedEvent:
+    """The message waits instead of starting a turn, because one is running: a follow-up
+    runs once that turn ends, a steer is read by it before its next model call."""
+
+    item_id: int
+    kind: str  # "follow_up" | "steer"
+    position: int  # its place in line, 1 for the first
+
+
+@dataclass(frozen=True)
+class SteerEvent:
+    """Messages sent while the turn ran were handed to it before its next model call."""
+
+    text: str
+    count: int
+
+
 Event = (
     TextDeltaEvent
     | ThinkingEvent
@@ -117,6 +135,8 @@ Event = (
     | HaltedEvent
     | ErrorEvent
     | RouteFallbackEvent
+    | QueuedEvent
+    | SteerEvent
 )
 
 # Events that flow through a turn but are not worth a write or a broadcast on their own:
@@ -135,6 +155,8 @@ _KIND = {
     HaltedEvent: "halted",
     ErrorEvent: "error",
     RouteFallbackEvent: "route_fallback",
+    QueuedEvent: "queued",
+    SteerEvent: "steer",
 }
 
 

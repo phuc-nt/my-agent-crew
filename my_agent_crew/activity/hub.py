@@ -8,6 +8,7 @@ import asyncio
 from collections.abc import AsyncIterator, Sequence
 from typing import Any
 
+from my_agent_crew.activity.busy import Busy
 from my_agent_crew.activity.steps import apply_event
 from my_agent_crew.agent.events import STREAMING_EVENTS, Event, kind_of, to_dict
 from my_agent_crew.store import Store
@@ -33,8 +34,15 @@ class ActivityHub:
         # Set when a conversation's run reaches a terminal status, so a caller waiting on
         # a delegated turn wakes up instead of polling.
         self._finished: dict[str, asyncio.Event] = {}
+        self.busy = Busy(self._running)
 
     # --- runs ----------------------------------------------------------------------------
+
+    def _running(self, conversation_id: str) -> bool:
+        return any(
+            run.conversation_id == conversation_id and run.status == RUNNING
+            for run in list(self._live.values())
+        )
 
     def turn_starting(self, conversation_id: str) -> None:
         """Lowers the conversation's terminal signal before the turn produces anything.
@@ -48,9 +56,11 @@ class ActivityHub:
     def start(
         self, agent_id: str, source: str, title: str, conversation_id: str | None
     ) -> RunRecord:
-        """A turn that resumes after an approval continues the run that paused."""
+        """A turn that resumes after an approval continues the run that paused. Either way
+        the run takes over the claim the door made on its conversation."""
         if conversation_id:
             self.turn_starting(conversation_id)
+            self.busy.release(conversation_id)
         for live in self._live.values():
             if live.conversation_id == conversation_id and live.status == AWAITING:
                 live.status = RUNNING
@@ -100,6 +110,7 @@ class ActivityHub:
         self._broadcast({"type": "run", "run": run.to_dict()})
         if run.conversation_id:
             self._finished.setdefault(run.conversation_id, asyncio.Event()).set()
+            self.busy.settle(run.conversation_id)
 
     async def wait_finished(self, conversation_id: str, timeout: float) -> RunRecord | None:
         """Blocks until this conversation's run reaches a terminal status, and returns it.

@@ -18,6 +18,7 @@ from my_agent_crew.agents import DEFAULT_AGENT_ID, AgentProfile
 from my_agent_crew.channels import TelegramChannel
 from my_agent_crew.config import Route, Settings
 from my_agent_crew.inbound import Inbound
+from my_agent_crew.inbound_queue import QueueDrain
 from my_agent_crew.memory.session_summary import schedule_summary
 from my_agent_crew.scheduler import Scheduler
 from my_agent_crew.server.agent_assembly import build_agent_deps
@@ -49,6 +50,8 @@ class Runtime:
     scheduler: Scheduler = field(init=False)
     # The gate every platform's messages pass through; it shares `agents`, so it grows too.
     inbound: Inbound = field(init=False)
+    # Answers what waited while a conversation was busy, whichever channel it came from.
+    drain: QueueDrain = field(init=False)
 
     def __post_init__(self) -> None:
         self.scheduler = Scheduler(
@@ -57,6 +60,7 @@ class Runtime:
         self.inbound = Inbound(
             self.agents, self.hub, self.summarize_replaced, keep=self.scheduler.keep
         )
+        self.drain = QueueDrain(self.store, self.hub, self.inbound)
         if self.channel is not None:
             self.channel.set_on_replaced(self.summarize_replaced)
 
@@ -88,10 +92,7 @@ class Runtime:
         return self.agents[DEFAULT_AGENT_ID]
 
     def deps_for(self, agent_id: str) -> AgentDeps:
-        try:
-            return self.agents[agent_id]
-        except KeyError as exc:
-            raise KeyError(texts.AGENT_UNKNOWN.format(agent_id=agent_id)) from exc
+        return self.inbound.deps_for(agent_id)
 
     def deps_for_child(self, agent_id: str) -> AgentDeps:
         """The same agent, minus `delegate`. A child that could delegate would make the
@@ -145,14 +146,9 @@ class Runtime:
         return added
 
     def replace_agent(self, profile: AgentProfile) -> None:
-        """Swap in an edited profile without a restart.
-
-        The deps are rebuilt rather than patched: routes, skills and the tool set are all
-        derived from the profile at assembly, so editing the profile in place would leave
-        an agent whose description no longer matches what it can do. The peer map is
-        shared by identity, so updating the entry is what makes the new name and the new
-        delegate list visible to everyone else.
-        """
+        """Swap in an edited profile without a restart. The deps are rebuilt, not patched:
+        routes, skills and tools all derive from the profile, so a patched agent would not
+        match what it can do. The shared peer map shows the new name to everyone else."""
         if self.client is None:
             raise RuntimeError(texts.RUNTIME_CANNOT_GROW)
         deps = build_agent_deps(

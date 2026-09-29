@@ -34,18 +34,51 @@ any platform ──POST /api/inbound (JSON, sync)─────┴─▶ Inboun
                                                         │           │  skills + persona/memory + crew roster (system prompt)
                                                         │           └─ store (SQLite: conversations, messages, approvals, runs)
                                                         ├─ activity hub (live runs → SSE /api/activity/stream)
+                                                        ├─ QueueDrain   (what waited while busy → a turn of its own)
                                                         └─ Scheduler    (cron/every jobs per agent, 20 s tick)
 ```
 
 - **Một cửa cho mọi nền tảng.** Cổng inbound tìm agent, mở hoặc dùng lại cuộc trò chuyện
-  (một cuộc mỗi agent mỗi kênh mỗi ngày), canh giữ nó khi có approval đang chờ, chạy lượt
+  (một cuộc mỗi agent mỗi kênh mỗi ngày), giữ nó mỗi lúc một lượt, chạy lượt
   dưới sự theo dõi của activity và ghi lại nguồn của run. Web đọc luồng event; Telegram và
   `POST /api/inbound` nhận `TurnReply` đã gom (text, status, steps). Không nền tảng nào đặc
   biệt, nên một thay đổi ở backend tới được tất cả và một tính năng được test bằng cách post
   vào API.
 
+- **Một lượt một lúc; tin đến sau thì chờ hoặc rẽ lượt.** Cổng inbound giữ cuộc trò chuyện từ lúc
+  trao ra một lượt: một claim, thành run sống khi lượt được đọc lần đầu; claim không ai đọc hết hạn
+  sau 15 s. Tin đến trong lúc đó không chạy song song và không bị từ chối: nó vào bảng
+  `queued_messages` của cuộc trò chuyện (tối đa 20, tin thứ 21 nhận 429) và người gửi nhận một event
+  `queued` (`item_id`, `kind`, `position`) thay cho lượt. Tin thường là `follow_up`: khi lượt đang
+  chạy kết thúc, `QueueDrain` ghép mọi tin đang chờ theo thứ tự, cách nhau một dòng trống, thành một
+  tin người dùng và chạy một lượt cho nó ở nền, với nguồn của tin đầu. Tin bắt đầu bằng
+  `/steer <chữ>` hay một lệnh mà kit của agent định nghĩa là `steer`: lượt đang chạy lấy nó ở đầu
+  vòng kế tiếp — sau kết quả của tool đang chạy, trước lần gọi model sau đó — thành một tin người
+  dùng, hiện trên run là một step `steer`, và trả lời nó ngay trong lượt ấy. Steer phải chờ tool
+  đang chạy xong, nên một `delegate` dài làm nó trễ; steer đến sau lần kiểm cuối của lượt thì ở lại
+  hàng và được trả lời như tin thường. `/tmp/x` hay một lệnh không ai định nghĩa là tin thường;
+  `/steer` không kèm chữ bị từ chối (422) cả khi rảnh lẫn khi bận, còn lúc rảnh `/steer X` chỉ là
+  tin `X`. Cuộc trò chuyện đang chờ duyệt vẫn từ chối tin mới (409). Một quyết định hay câu trả lời
+  giữ cuộc trò chuyện ngay lúc được đưa ra, trước khi lượt nó tiếp tục kịp chạy, nên tin gửi ngay
+  sau đó chờ lượt ấy, còn quyết định thứ hai cho cùng yêu cầu nhận 409.
+- **Hàng đợi bền và dừng được.** Chuyển tin từ hàng vào lịch sử là một transaction: dòng rời hàng và
+  tin vào nhật ký trong cùng một commit, nên tin đã báo "đã xếp hàng" không bao giờ mất. Hàng sống
+  qua restart: khởi động xong, server drain mọi cuộc trò chuyện còn tin, trừ cuộc đang chờ duyệt
+  (lượt tiếp tục sau quyết định sẽ drain nó). Server chạy `--no-schedule` không tự bắt đầu việc gì,
+  nên hàng còn lại nằm đó tới khi lượt kế của cuộc trò chuyện ấy xong. Lúc tắt, drain dừng trước mọi
+  thứ khác nên không lượt mới nào bắt đầu giữa chừng. Xoá cuộc trò chuyện xoá luôn hàng của nó.
+  `GET /api/conversations/{id}` liệt kê tin đang chờ trong `queued`, và
+  `POST /api/conversations/{id}/stop` lấy hết hàng, trả lại chữ trong `cleared` và huỷ lượt nền mà
+  hàng đang chạy (`cancelled`). Nó chỉ với tới lượt do chính hàng khởi chạy: lượt mà một tab đang
+  đọc, lượt bot Telegram chạy cho tin vừa đến hay lượt của một job không phải của nó để dừng, và khi
+  đó `cancelled` là `false`.
+
 - **Trạng thái bền là nhật ký message.** Một lượt tiếp tục từ message assistant cuối cùng đã lưu:
-  các tool call chưa xong được giải quyết trước, nên crash giữa lượt là khôi phục được.
+  các tool call chưa xong được giải quyết trước, nên crash giữa lượt là khôi phục được. Tin mới
+  của người thì khác: call nào lượt trước bỏ lại không có kết quả (tab đóng, server tắt giữa lúc
+  tool chạy) được đóng trước khi tin được ghi, bằng quyết định đã biết của nó (từ chối, hết hạn,
+  câu trả lời) hoặc bằng một kết quả nói nó bị ngắt và không rõ đã chạy hay chưa. Không call nào
+  chạy lại mà không ai hỏi, và thứ tự tin vẫn hợp lệ với provider; call còn chờ duyệt thì để nguyên.
   SQLite mở ở chế độ WAL với `synchronous=NORMAL` (`store/connection.py`): mỗi commit chỉ
   nối vào log thay vì ép tệp chính xuống đĩa, nên hàng chục lần ghi nhỏ của một lượt rẻ;
   mất điện có thể mất vài commit cuối nhưng không hỏng tệp, crash tiến trình không mất gì.

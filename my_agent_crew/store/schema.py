@@ -43,6 +43,10 @@ CREATE TABLE IF NOT EXISTS side_calls (
     prompt_tokens INTEGER, completion_tokens INTEGER, cached_tokens INTEGER,
     created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS queued_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, conversation_id TEXT NOT NULL, kind TEXT NOT NULL,
+    text TEXT NOT NULL, source TEXT NOT NULL, created_at TEXT NOT NULL
+);
 """
 
 # (table, column, definition) added after the table first shipped.
@@ -84,8 +88,8 @@ ADDED_COLUMNS = (
 # One index per query shape that would otherwise scan a whole table: the activity feed
 # and stats read runs newest first, a conversation's runs by its id, the sidebar reads an
 # agent's conversations by recency, a channel finds its latest conversation, the loop
-# looks up a conversation's pending approvals on every step, and the usage ledger reads
-# side calls by day.
+# looks up a conversation's pending approvals on every step, the usage ledger reads side
+# calls by day, and the queue reads a conversation's waiting messages in order.
 INDEXES = """
 CREATE INDEX IF NOT EXISTS runs_by_started ON runs (started_at);
 CREATE INDEX IF NOT EXISTS runs_by_conversation ON runs (conversation_id, started_at);
@@ -94,6 +98,7 @@ CREATE INDEX IF NOT EXISTS conversations_by_channel ON conversations (agent_id, 
 CREATE INDEX IF NOT EXISTS approvals_by_conversation ON approvals (conversation_id, status);
 CREATE INDEX IF NOT EXISTS side_calls_by_created ON side_calls (created_at);
 CREATE INDEX IF NOT EXISTS side_calls_by_conversation ON side_calls (conversation_id);
+CREATE INDEX IF NOT EXISTS queued_by_conversation ON queued_messages (conversation_id, id);
 """
 
 

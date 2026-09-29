@@ -23,7 +23,8 @@ from my_agent_crew.agent.events import (
 from my_agent_crew.agent.loop_guard import HALT, OK, LoopGuard
 from my_agent_crew.agent.prompt import turn_messages
 from my_agent_crew.agent.reply_checks import blank_reply_event, with_dropped_attachments
-from my_agent_crew.agent.tool_calls import refuse_unanswered, settle_tool_calls
+from my_agent_crew.agent.steer import take_steers
+from my_agent_crew.agent.tool_calls import close_interrupted, refuse_unanswered, settle_tool_calls
 from my_agent_crew.agent.turn_context import (
     CHAT,
     set_turn_conversation,
@@ -79,6 +80,7 @@ async def run_turn(
     if user_text is not None:
         if conv.status == AWAITING_APPROVAL:
             raise ConversationBusy(conv_id)
+        close_interrupted(deps.store, conv_id)
         deps.store.append(conv_id, Message(role="user", content=user_text))
 
     empty_replies = 0
@@ -88,6 +90,8 @@ async def run_turn(
             yield event
             if isinstance(event, ApprovalRequiredEvent):
                 return
+        async for event in take_steers(deps, conv_id, guard):
+            yield event
         history = deps.store.history(conv_id)
         last = history[-1].message
         if last.role == "assistant" and not last.tool_calls:

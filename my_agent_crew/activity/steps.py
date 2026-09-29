@@ -21,6 +21,7 @@ from my_agent_crew.agent.events import (
     HaltedEvent,
     ModelCallEvent,
     RouteFallbackEvent,
+    SteerEvent,
     TextDeltaEvent,
     ThinkingEvent,
     ToolCallEvent,
@@ -41,6 +42,12 @@ def _close_step(step: dict[str, Any], clock: float) -> None:
     started = step.pop(CLOCK_KEY, clock)
     # A paused run outlives its process, and a reboot restarts the clock it was timed on.
     step["duration_ms"] = max(0, int((clock - started) * 1000))
+
+
+def _instant(run: RunRecord, step: dict[str, Any], clock: float) -> None:
+    """A step with no duration worth reading, opened and closed on the same clock."""
+    _open_step(run, step, clock)
+    _close_step(step, clock)
 
 
 def _model_step(run: RunRecord, clock: float) -> dict[str, Any]:
@@ -107,12 +114,9 @@ def apply_event(run: RunRecord, event: Event, clock: float) -> None:
     if isinstance(event, ToolCallEvent):
         if event.name == PROGRESS_NOTE_TOOL_NAME:
             # A note is the agent saying what it is doing, so it belongs on the timeline
-            # the moment it is said — not when the call returns. It is opened and closed
-            # on the same clock because a sentence has no duration worth reading, and it
-            # carries no ok flag because it cannot fail.
-            step = {"kind": "note", "text": note_text(event.arguments)}
-            _open_step(run, step, clock)
-            _close_step(step, clock)
+            # the moment it is said — not when the call returns. It carries no ok flag
+            # because it cannot fail.
+            _instant(run, {"kind": "note", "text": note_text(event.arguments)}, clock)
             return
         _open_step(
             run,
@@ -143,6 +147,10 @@ def apply_event(run: RunRecord, event: Event, clock: float) -> None:
             step["cost_usd"] = event.cost_usd
             _bill(run, event.cost_usd)
         _close_step(step, clock)
+        return
+    if isinstance(event, SteerEvent):
+        # What the person handed the running turn, shown in one line the way a note is.
+        _instant(run, {"kind": "steer", "text": note_text({"text": event.text})}, clock)
         return
     if isinstance(event, ApprovalRequiredEvent):
         run.status = AWAITING

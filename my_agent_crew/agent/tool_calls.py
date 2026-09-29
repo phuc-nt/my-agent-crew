@@ -27,10 +27,10 @@ from my_agent_crew.agent.tool_gate import ask_reason_text, pauses_for_a_person
 from my_agent_crew.agent.turn_context import set_tool_call_id
 from my_agent_crew.agents.approval_ttl import effective_ttl
 from my_agent_crew.llm.types import Message, ToolCall
-from my_agent_crew.store import StoredMessage
+from my_agent_crew.store import Approval, Store, StoredMessage
 from my_agent_crew.store.approvals import ANSWERED, DENIED, EXPIRED, PENDING
 from my_agent_crew.store.models import AWAITING_APPROVAL, QUESTION, TOOL
-from my_agent_crew.texts import DENIED_TOOL, EXPIRED_TOOL
+from my_agent_crew.texts import DENIED_TOOL, EXPIRED_TOOL, INTERRUPTED_TOOL
 from my_agent_crew.tools.ask_user import (
     ASK_USER_TOOL_NAME,
     answer_result,
@@ -89,6 +89,35 @@ async def refuse_unanswered(deps: AgentDeps, conv_id: str, output: str) -> Async
         yield await _record(deps, conv_id, call, ToolResult(ok=False, output=output))
 
 
+def _question_result(approval: Approval, call: ToolCall) -> str:
+    """An answered question hands over the person's words; an expired one hands over its
+    default. Neither is a refusal: the turn carries on either way."""
+    if approval.status == ANSWERED and approval.answer is not None:
+        return answer_result(approval.answer)
+    return unanswered_result(call.arguments)
+
+
+def close_interrupted(store: Store, conv_id: str) -> None:
+    """Closes the calls an earlier turn left without a result — it was stopped, or the
+    server went down mid-call — before a new message is written after them. They are
+    never run again: whether they ran the first time is unknown, and the model is told so.
+    A call whose decision is known closes with it; one still waiting on a person stays."""
+    _, pending = _unanswered(store.history(conv_id))
+    for call in pending:
+        approval = store.approvals.find_for_call(conv_id, call.id)
+        if approval is not None and approval.status == PENDING:
+            continue
+        if approval is None:
+            output = INTERRUPTED_TOOL
+        elif approval.kind == QUESTION:
+            output = _question_result(approval, call)
+        else:
+            output = REFUSALS.get(approval.status, INTERRUPTED_TOOL)
+        store.append(
+            conv_id, Message(role="tool", content=output, tool_call_id=call.id, name=call.name)
+        )
+
+
 async def settle_tool_calls(deps: AgentDeps, conv_id: str) -> AsyncIterator[Event]:
     last, pending = _unanswered(deps.store.history(conv_id))
     if last is None:
@@ -132,14 +161,7 @@ async def settle_tool_calls(deps: AgentDeps, conv_id: str) -> AsyncIterator[Even
                 )
                 return
             if approval.kind == QUESTION:
-                # An answered question hands over the person's words; an expired one hands
-                # over its default. Neither is a refusal: the turn carries on either way.
-                answered = approval.status == ANSWERED and approval.answer is not None
-                output = (
-                    answer_result(approval.answer)
-                    if answered
-                    else unanswered_result(call.arguments)
-                )
+                output = _question_result(approval, call)
                 yield ToolCallEvent(tool_call_id=call.id, name=call.name, arguments=call.arguments)
                 yield await _record(deps, conv_id, call, ToolResult(ok=True, output=output))
                 continue

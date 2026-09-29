@@ -42,6 +42,8 @@ async def expire_overdue(
     store = next(iter(agents.values())).store
     closed: list[str] = []
     for approval in store.approvals.overdue(now or datetime.now(UTC)):
+        if hub.busy.busy(approval.conversation_id):
+            continue  # a decision just taken holds it; the turn applying it closes the request
         store.approvals.resolve(approval.id, approve=False, status=EXPIRED)
         conv = store.update(approval.conversation_id, status=IDLE)
         deps = agents.get(conv.agent_id) or next(iter(agents.values()))

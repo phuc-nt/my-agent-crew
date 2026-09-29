@@ -11,8 +11,10 @@ from pydantic import BaseModel, Field
 
 from my_agent_crew.agent.turn_context import API
 from my_agent_crew.agents import DEFAULT_AGENT_ID
+from my_agent_crew.agents.kit_commands import EmptySteer
 from my_agent_crew.inbound import InboundBusy
 from my_agent_crew.server.deps import Rt
+from my_agent_crew.store.queue import QueueFull
 
 router = APIRouter(tags=["inbound"])
 
@@ -40,4 +42,16 @@ async def post_inbound(body: InboundBody, rt: Rt) -> dict[str, Any]:
         raise HTTPException(404, str(exc.args[0]) if exc.args else "not found") from exc
     except InboundBusy as exc:
         raise HTTPException(409, "awaiting approval") from exc
-    return {"conversation_id": conv.id, "agent_id": conv.agent_id, **reply.to_dict()}
+    except EmptySteer as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except QueueFull as exc:
+        raise HTTPException(429, str(exc)) from exc
+    # A queued message has no answer yet: the turn it waits for answers it later, into the
+    # conversation, where a relay reads it back if it needs it.
+    queued = reply.status == "queued"
+    return {
+        "conversation_id": conv.id,
+        "agent_id": conv.agent_id,
+        **reply.to_dict(),
+        "queued": queued,
+    }

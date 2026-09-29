@@ -16,15 +16,24 @@ Nền tảng chưa có adapter riêng nói chuyện với cổng qua HTTP:
 
 ```
 POST /api/inbound {"text": "…", "agent_id"?: "default", "channel"?: "api", "conversation_id"?: "…", "source"?: "api"}
-→ 200 {"conversation_id": "…", "agent_id": "default", "text": "…", "status": "done", "steps": 2}
+→ 200 {"conversation_id": "…", "agent_id": "default", "text": "…", "status": "done", "steps": 2, "queued": false}
 ```
 
 `channel` chọn cuộc trò chuyện theo ngày (`api:<something>` tách một relay khỏi
 relay khác), `conversation_id` thì tiếp tục một cuộc cụ thể thay vào đó, và `source` là thứ run
 hiển thị trong view hoạt động. 404 khi agent hoặc cuộc trò chuyện không tồn tại, 409 khi
-cuộc trò chuyện đang chờ duyệt. `status` là `done`, `halted`, `error` hoặc
-`approval_required`, và khi đó text kết thúc bằng thông báo tương ứng. Đây cũng là cách
-test một tính năng đầu-cuối: một request, một câu trả lời, không cần trình duyệt.
+cuộc trò chuyện đang chờ duyệt, 422 khi tin chỉ là `/steer` không kèm chữ, 429 khi hàng của cuộc
+trò chuyện đã đủ 20 tin; `detail` của 422 và 429 là câu nói cho người đọc. `status` là `done`,
+`halted`, `error` hoặc `approval_required`, và khi đó text kết thúc bằng thông báo tương ứng. Đây
+cũng là cách test một tính năng đầu-cuối: một request, một câu trả lời, không cần trình duyệt.
+
+Cuộc trò chuyện đang chạy một lượt thì tin không bị từ chối mà vào hàng của nó: `status` là
+`queued`, `queued` là `true`, `steps` là 0 và text là câu báo đã xếp hàng. Tin thường được trả
+lời bằng một lượt riêng sau khi lượt đang chạy xong, cùng mọi tin chờ với nó; tin bắt đầu bằng
+`/steer <chữ>` hay một lệnh trong kit của agent được chèn vào chính lượt đang chạy ở ranh giới
+tool kế tiếp (xem [design.md](design.md#hình-dạng-runtime)). Câu trả lời cho tin đã xếp hàng
+không quay về request này: relay cần nó thì đọc lại cuộc trò chuyện
+(`GET /api/conversations/{id}`).
 
 ## Cấu hình
 

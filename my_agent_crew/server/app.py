@@ -89,9 +89,12 @@ def create_app(runtime: Runtime | AgentDeps | None = None, schedule: bool = True
         if schedule:
             runtime.scheduler.start()
             runtime.start_channel()
+            runtime.drain.start()  # after the channel, whose bot answers its own chats
         try:
             yield
         finally:
+            # First: a turn the shutdown cuts short must not start the next one in line.
+            await runtime.drain.stop()
             await runtime.stop_channel()
             await runtime.scheduler.stop()
             runtime.hub.close()

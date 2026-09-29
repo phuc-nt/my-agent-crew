@@ -76,6 +76,8 @@ def get_conversation(conv_id: str, deps: ConvDeps) -> dict[str, Any]:
         # call, as it was for the live event, so a request read later still says it.
         reason = ask_reason_text(deps, pending.tool_name, pending.arguments)
         data["pending_approval"] = {**pending.to_dict(), "reason": reason}
+    # Read, not taken: what waits for the running turn stays queued after a reload shows it.
+    data["queued"] = [item.to_dict() for item in deps.store.queue.peek_all(conv_id)]
     return data
 
 

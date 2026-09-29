@@ -22,7 +22,8 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--no-schedule",
         action="store_true",
-        help="run no scheduled jobs and open no channel (Telegram); the web API still works",
+        help="run no scheduled jobs, open no channel (Telegram) and leave what waited in a"
+        " conversation's line through a restart for its next turn; the web API still works",
     )
     # No subcommand keeps starting the server, so the way the service is launched never
     # changes underneath an installed launchd job.

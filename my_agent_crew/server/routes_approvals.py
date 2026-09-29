@@ -13,6 +13,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
+from my_agent_crew.inbound import InboundBusy
 from my_agent_crew.server.deps import ConvDeps, Rt
 from my_agent_crew.server.routes_chat import sse_events
 from my_agent_crew.store.models import QUESTION
@@ -63,7 +64,10 @@ async def decide(
         raise HTTPException(409, "approval already resolved")
     if approval.kind == QUESTION:
         raise HTTPException(409, "this is a question; answer it instead")
-    events = rt.inbound.decide(conv_id, approval_id, body.approve, always=body.always)
+    try:
+        events = rt.inbound.decide(conv_id, approval_id, body.approve, always=body.always)
+    except InboundBusy as exc:  # a decision taken a moment ago holds it, still unapplied
+        raise HTTPException(409, "approval already resolved") from exc
     return EventSourceResponse(sse_events(events))
 
 
@@ -81,5 +85,8 @@ async def answer(
         raise HTTPException(409, "this is a tool call; approve or deny it instead")
     if not body.answer.strip():
         raise HTTPException(422, "answer is empty")
-    events = rt.inbound.answer(conv_id, approval_id, body.answer)
+    try:
+        events = rt.inbound.answer(conv_id, approval_id, body.answer)
+    except InboundBusy as exc:
+        raise HTTPException(409, "approval already resolved") from exc
     return EventSourceResponse(sse_events(events))

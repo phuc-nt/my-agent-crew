@@ -25,6 +25,7 @@ from my_agent_crew.tools.memory import build_memory_tools
 from my_agent_crew.tools.shell import build_shell_tool
 from my_agent_crew.tools.skills import build_skill_tools
 from my_agent_crew.tools.workspace import build_workspace_tools
+from tests.queue_helpers import Rig, make_rig
 from tests.telegram_fake import CHAT, TOKEN, FakeTelegram
 
 
@@ -83,6 +84,22 @@ def deps_factory(settings: Settings, store: Store):
 
 async def collect(events) -> list:
     return [event async for event in events]
+
+
+@pytest.fixture
+async def rigs(deps_factory):
+    """Builds rigs (`tests/queue_helpers.py`) and stops each one's queue drain afterwards,
+    so a test that fails midway leaves no drain running into the next."""
+    made: list[Rig] = []
+
+    def build(*args, **kwargs) -> Rig:
+        rig = make_rig(deps_factory, *args, **kwargs)
+        made.append(rig)
+        return rig
+
+    yield build
+    for rig in made:
+        await rig.drain.stop()
 
 
 # The Telegram fake lives here rather than in a test module so every test that drives the

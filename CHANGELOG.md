@@ -66,6 +66,26 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   not, so the file and the page both say to read it before sharing. A tool result is cut at
   2,000 characters unless `full=1` is asked for. In the Markdown, a title stays on one line and
   a code block a message left open is closed before the next message begins.
+- A message sent while its conversation is busy waits its turn instead of starting a second
+  turn beside the running one. A plain message waits in the conversation's line; once the
+  running turn is over, everything that waited is answered by a turn of its own, as one message
+  in the order it was sent. A message that starts with `/steer <text>`, or with a command from
+  the agent's kit, goes into the running turn instead: the agent reads it once the tool it is
+  running returns, before its next model call, the run shows it as a step, and the same turn
+  answers it. One that arrives after the turn's last look waits in line like any other message.
+  With nothing running, `/steer X` is simply the message X, and a bare `/steer` is refused (422)
+  either way. A line holds 20 messages; the 21st is refused (429) with the reason. The line lives in
+  the database, so what waits is answered after a restart too (a server started with `--no-schedule`
+  starts nothing on its own and leaves it for the conversation's next turn), and it goes with its
+  conversation when that is deleted. A conversation waiting on a person's decision still refuses new
+  messages (409).
+- `GET /api/conversations/{id}` lists what waits under `queued`, and
+  `POST /api/conversations/{id}/stop` hands it back as `cleared`, empties the line and stops the
+  turn the line started, if one runs (`cancelled`). A turn a browser tab is reading, one the
+  Telegram bot runs for a message it just got, or a job's, is not the line's to stop.
+- A message sent to `POST /api/inbound` while its conversation is busy is answered at once with
+  `status` `queued`, `queued: true`, no steps and a notice as its text; the answer itself is read
+  back from the conversation. Every reply carries `queued`.
 
 ### Changed
 
@@ -103,11 +123,23 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 - Grouping the ledger by model keeps one model name served by two providers as two rows.
 - Runs that began in the same second keep the order they were created in. A run is saved again
   at every step, and each save used to move it ahead of the others in the activity list.
+- Two turns no longer run at once in one conversation. A message sent while a turn was running
+  started a second turn beside it, both writing into the same history.
+- A decision holds its conversation from the moment it is taken. A message sent right after it
+  waits for the turn the decision resumes instead of being refused or running beside it; a
+  second decision on the same request, sent before that turn began, is refused (409) instead of
+  racing the first; and the sweep that expires unanswered approvals leaves it alone.
+- A tool call a turn left without a result — the turn was stopped, or the server went down
+  mid-call — no longer runs again when the next message arrives, with its result landing after
+  that message. It is closed before the message: with the decision taken on it when there was
+  one, otherwise with a note that it was interrupted and may or may not have run, so the model
+  checks before trying again. A call still waiting on a person is left open.
 
 ### Upgrade notes
 
 - The database gains a `side_calls` table, created on start. Calls from before the upgrade
   stay as they were: the ledger is complete from this version on.
+- The database gains a `queued_messages` table, created on start.
 
 ## [0.9.2] — 2026-09-28
 

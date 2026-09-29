@@ -45,7 +45,7 @@ Sơ đồ chia làm ba vùng. Đọc từ trái sang phải: người dùng đi 
 Inbound là cổng duy nhất cho tin nhắn từ người. Nó làm ba việc nhỏ nhưng quan trọng:
 
 1. Tìm hoặc tạo cuộc trò chuyện theo kênh và ngày (một cuộc trò chuyện mỗi ngày mỗi kênh cho master).
-2. Từ chối (HTTP 409) nếu lượt trước còn đang chạy hoặc đang chờ duyệt — không xếp hàng, không chạy song song trên cùng cuộc trò chuyện.
+2. Giữ mỗi cuộc trò chuyện một lượt một lúc. Tin đến khi lượt trước còn chạy không chạy song song, cũng không bị từ chối: nó vào hàng của cuộc trò chuyện. Tin thường chờ lượt đó xong rồi cùng mọi tin chờ với nó được trả lời bằng một lượt riêng, chạy nền. Tin bắt đầu bằng `/steer <chữ>` hay một lệnh trong kit của agent được chèn vào chính lượt đang chạy, ở ranh giới tool kế tiếp. Chỉ cuộc trò chuyện đang chờ duyệt mới từ chối tin mới (HTTP 409).
 3. Chạy lượt và đăng ký run với activity hub.
 
 Job lịch không đi qua Inbound: scheduler chạy thẳng một lượt với nguồn `job` trên cuộc trò chuyện riêng của job. Hai đường, một vòng lặp.
@@ -57,6 +57,7 @@ Gói `agent/` là trái tim. Một lượt:
 ```
 messages = lịch sử cuộc trò chuyện + tin mới
 lặp tối đa max_steps:
+    messages += tin /steer đang chờ              # chèn ở ranh giới tool
     system = lắp system prompt từ tệp của agent   # lắp lại mỗi vòng
     reply  = model(system, messages, mô tả tool)
     nếu reply không gọi tool: kết thúc, lưu, trả lời
@@ -180,7 +181,7 @@ Hai đường tắt có chủ đích:
 - Cuộc trò chuyện **autonomous** (job lịch, lượt delegate, hoặc agent có `autonomous: true`) bỏ qua cổng. Trong bộ cài thật, cả Pong lẫn HLV đều `autonomous: true` vì chúng chạy chủ yếu theo lịch.
 - `shell_ask_patterns` buộc hỏi cả khi autonomous cho lệnh khớp mẫu nguy hiểm.
 
-Khi một approval đang chờ, `/api/inbound` trả 409 để người dùng không vô tình mở lượt thứ hai trên cùng cuộc trò chuyện.
+Khi một approval đang chờ, `/api/inbound` trả 409 để người dùng không vô tình mở lượt thứ hai trên cùng cuộc trò chuyện. Quyết định giữ cuộc trò chuyện ngay lúc được đưa ra, trước cả khi lượt tiếp tục kịp chạy: tin gửi ngay sau đó vào hàng chờ lượt đó, còn quyết định thứ hai cho cùng yêu cầu nhận 409.
 
 ## 6. Ngữ cảnh đi vào, trí nhớ đi ra
 

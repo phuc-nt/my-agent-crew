@@ -19,9 +19,11 @@ from my_agent_crew.agent.events import (
     ErrorEvent,
     Event,
     HaltedEvent,
+    QueuedEvent,
     kind_of,
 )
 from my_agent_crew.store.models import QUESTION
+from my_agent_crew.store.queue import STEER
 
 # How a question with choices is shown where there is no radio button to click: the
 # choices numbered, and a line saying a number or a sentence will both do.
@@ -48,7 +50,7 @@ class TurnReply:
 
     text: str
     steps: int
-    status: str  # done | halted | error | approval_required
+    status: str  # done | halted | error | approval_required | queued
 
     def to_dict(self) -> dict[str, Any]:
         return {"text": self.text, "steps": self.steps, "status": self.status}
@@ -86,6 +88,11 @@ async def collect_reply(
                 parts.append(
                     texts.REPLY_APPROVAL.format(name=event.name, reason=reason, how=approval_how)
                 )
+            status = kind_of(event)
+        elif isinstance(event, QueuedEvent):
+            # The conversation was busy: the answer comes from the turn this message waits
+            # for, so the reply only says it was received and when it will be read.
+            parts.append(texts.QUEUED_STEER if event.kind == STEER else texts.QUEUED_FOLLOW_UP)
             status = kind_of(event)
     answer = "\n\n".join(part for part in parts if part)
     return TurnReply(answer or texts.REPLY_EMPTY.format(steps=steps), steps, status)

@@ -6,16 +6,19 @@ from __future__ import annotations
 from dataclasses import replace
 from pathlib import Path
 
+import pytest
+
 from my_agent_crew import texts
 from my_agent_crew.activity import ActivityHub
 from my_agent_crew.agents.kit import Kit
 from my_agent_crew.agents.kit_commands import (
     Command,
+    EmptySteer,
     commands_section,
-    expand,
     find_command,
     load_commands,
     parse_command,
+    steer_text,
 )
 from my_agent_crew.channels.telegram_commands import MENU, help_text, menu_for
 from my_agent_crew.config import Route
@@ -30,18 +33,23 @@ PAIR = Command("pair", "", "First: $1. Second: $2.")
 PLAIN = Command("mk:plan", "Lập kế hoạch.", "Write a plan.")
 
 
-def test_expand_replaces_placeholders_or_appends_the_arguments():
+def test_steer_text_renders_kit_commands_and_leaves_everything_else_alone():
     commands = (HELLO, PAIR, PLAIN)
-    assert expand("/hello An", commands) == "Say hello to An in Vietnamese."
-    assert expand("/hello@bot  An Bình ", commands) == "Say hello to An Bình in Vietnamese."
-    assert expand("/pair a b c", commands) == "First: a. Second: b."
-    assert expand("/pair a", commands) == "First: a. Second: ."
-    assert expand("/mk:plan", commands) == "Write a plan."
-    appended = expand("/mk:plan for auth\nwith tests", commands)
+    assert steer_text("/hello An", commands) == "Say hello to An in Vietnamese."
+    assert steer_text("/hello@bot  An Bình ", commands) == "Say hello to An Bình in Vietnamese."
+    assert steer_text("/pair a b c", commands) == "First: a. Second: b."
+    assert steer_text("/pair a", commands) == "First: a. Second: ."
+    assert steer_text("/mk:plan", commands) == "Write a plan."
+    appended = steer_text("/mk:plan for auth\nwith tests", commands)
     assert appended == "Write a plan.\n\nfor auth\nwith tests"
-    assert expand("/unknown x", commands) == "/unknown x"
-    assert expand("/usr/bin/x", commands) == "/usr/bin/x"
-    assert expand("hi /hello", commands) == "hi /hello"
+    assert steer_text("/steer  đổi hướng\nsang B ", commands) == "đổi hướng\nsang B"
+    assert steer_text("/steer@bot X", commands) == "X"
+    for plain in ("/unknown x", "/usr/bin/x", "/tmp/x", "/Users/a/b", "hi /hello", "xin chào"):
+        assert steer_text(plain, commands) is None, plain
+    for bare in ("/steer", "/steer   ", " /steer\n"):
+        with pytest.raises(EmptySteer) as refused:
+            steer_text(bare, commands)
+        assert str(refused.value) == texts.STEER_NEEDS_TEXT
     assert find_command(commands, "pair") is PAIR and find_command(commands, "x") is None
 
 
@@ -73,6 +81,8 @@ async def test_inbound_expands_a_kit_command_before_the_turn(deps_factory):
     reply = await inbound.reply(conv.id, "/hello An")
     assert reply.text == "(echo) Say hello to An in Vietnamese."
     assert (await inbound.reply(conv.id, "/nope An")).text == "(echo) /nope An"
+    # With nothing running there is no turn to steer: the agent reads the words.
+    assert (await inbound.reply(conv.id, "/steer làm X")).text == "(echo) làm X"
 
 
 async def test_telegram_passes_kit_commands_to_the_agent_and_lists_them(

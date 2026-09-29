@@ -17,6 +17,13 @@ ARGUMENTS = "$ARGUMENTS"
 _POSITIONAL = re.compile(r"\$([1-9])")
 _INVOCATION = re.compile(r"^/([\w:.-]+)(?:@\w+)?(?:\s+(.*))?$", re.DOTALL)
 MAX_DESCRIPTION_CHARS = 200
+# Built in, and ahead of any kit command of the same name: `/steer text` hands `text` to the
+# turn already running instead of waiting for it to end.
+STEER_COMMAND = "steer"
+
+
+class EmptySteer(ValueError):
+    """`/steer` with nothing to hand over; str() tells the person how to use it."""
 
 
 @dataclass(frozen=True)
@@ -73,16 +80,21 @@ def find_command(commands: Sequence[Command], name: str) -> Command | None:
     return next((c for c in commands if c.name == name), None)
 
 
-def expand(text: str, commands: Sequence[Command]) -> str:
-    """`/name args` becomes the command's text; anything else is returned as it came,
-    including a `/path/like/this` and a command nobody defined."""
+def steer_text(text: str, commands: Sequence[Command]) -> str | None:
+    """What a message that may jump the queue asks for, or None for an ordinary message.
+
+    `/steer text` asks for `text` and a kit command for its prompt. Anything else, a
+    `/path/like/this` and a command nobody defined included, waits its turn as written."""
     match = _INVOCATION.match(text.strip())
     if match is None:
-        return text
-    command = find_command(commands, match.group(1))
-    if command is None:
-        return text
-    return command.render((match.group(2) or "").strip())
+        return None
+    name, arguments = match.group(1), (match.group(2) or "").strip()
+    if name == STEER_COMMAND:
+        if not arguments:
+            raise EmptySteer(texts.STEER_NEEDS_TEXT)
+        return arguments
+    command = find_command(commands, name)
+    return None if command is None else command.render(arguments)
 
 
 def commands_section(commands: Sequence[Command]) -> tuple[str, str] | None:
