@@ -47,7 +47,7 @@ my-agent-crew: một tiến trình Python, một tệp SQLite, một thư mục 
 **Chức năng**
 - Mọi tin từ người đi qua `POST /api/inbound`; job đi thẳng vào cùng vòng lặp lượt. Không có đường nào khác tới model.
 - Tool cần duyệt phải dừng lượt cho tới khi có quyết định, trừ cuộc trò chuyện autonomous; `shell_ask_patterns` hỏi cả khi autonomous.
-- Approval không được trả lời sau `approval_ttl_seconds` coi như từ chối.
+- Approval không được trả lời sau `approval_ttl_seconds` coi như từ chối: hành động không chạy, và model được bảo không làm một việc tương đương bằng tool khác. Lịch và khối `telegram` đặt được hạn riêng cho cuộc trò chuyện chúng mở.
 - Mỗi lượt là một run có step, xem được sau khi kết thúc.
 - Chi phí lượt con cộng vào lượt cha; trần chi phí của con không vượt phần còn lại của cha.
 

@@ -25,6 +25,7 @@ from my_agent_crew.agent.turn_context import (
     turn_depth,
 )
 from my_agent_crew.agents import AgentProfile
+from my_agent_crew.agents.approval_ttl import effective_ttl
 from my_agent_crew.agents.roster import DELEGATE_TOOL_NAME, delegate_targets
 from my_agent_crew.store.models import Conversation
 from my_agent_crew.tools.delegate_attachments import child_answer, relay_attachments
@@ -114,7 +115,9 @@ async def _delegate(
             raise ToolError(texts.DELEGATE_TOO_MANY.format(limit=MAX_DELEGATES))
         child = _open_child(runtime, parent, target, task, args, call_id)
         runtime.scheduler.keep(asyncio.create_task(_run_child(runtime, child, task, target)))
-    timeout = float(runtime.settings.approval_ttl_seconds) + WAIT_MARGIN_SECONDS
+    # The child's own wait, which it copied from this parent when it opened: a parent whose
+    # wait changed since, or the crew's setting, is not what the child's approvals use.
+    timeout = effective_ttl(child, runtime.deps_for(target).settings) + WAIT_MARGIN_SECONDS
     run = await runtime.hub.wait_finished(child.id, timeout)
     if run is None:
         return timed_out(child.id, runtime.store.runs.latest_for_conversation(child.id))
@@ -179,6 +182,7 @@ def _open_child(
         skills=tuple(str(s) for s in args.get("skills") or ()),
         agent_id=target,
         parent_call_id=call_id,
+        approval_ttl_seconds=parent.approval_ttl_seconds if parent is not None else None,
     )
     if parent is not None and parent.auto_approve:
         child = runtime.store.update(child.id, auto_approve=list(parent.auto_approve))

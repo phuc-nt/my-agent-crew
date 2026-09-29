@@ -173,7 +173,7 @@ Web UI ghim kết quả delegate vào thread của master để người đọc 
 2. Người dùng thấy thanh duyệt trên web UI. `POST /api/approvals/{id}` với `approve`, `deny`, hoặc `approve + always`.
 3. Duyệt: harness chạy tool, kết quả về model, lượt tiếp tục như chưa từng dừng. `always` ghi tên tool vào `auto_approve` của cuộc trò chuyện đó.
 4. Từ chối: model nhận tool result `DENIED_TOOL` và tự quyết bước tiếp — lượt không hỏng.
-5. Hết hạn: scheduler quét định kỳ; approval quá `approval_ttl_seconds` (600 s) bị đánh dấu expired và xử lý như từ chối. Fail-closed: không ai trả lời thì không chạy.
+5. Hết hạn: scheduler quét định kỳ; approval quá hạn bị đánh dấu expired và xử lý như từ chối. Hạn là `approval_ttl_seconds` của cuộc trò chuyện — lịch hay khối `telegram` đã mở nó đặt, cuộc của agent con chép của cha — không có thì của `config.yaml` (600 s). Fail-closed: không ai trả lời thì không chạy, và kết quả tool nói chưa có gì thay đổi, không làm lại hay làm việc tương đương bằng tool khác.
 
 Hai đường tắt có chủ đích:
 

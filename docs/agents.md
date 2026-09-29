@@ -69,7 +69,7 @@ không bao giờ âm thầm vô hiệu một cài đặt.
 | `write_paths` | danh sách | `[]` | đường dẫn bên trong workspace mà `workspace_write` và `workspace_edit` được ghi; ghi chỗ khác bị từ chối với lỗi nêu danh sách này, và không thư mục nào được tạo. Rỗng thì ghi được mọi nơi trong workspace. Dùng cho agent autonomous có workspace là một repo, nơi tệp lạc chỗ có thể bị commit lên; đường dẫn ra ngoài workspace là lỗi khởi động. Không ảnh hưởng `shell_run`, xem `shell_write_paths` |
 | `schedules` | danh sách | `[]` | job, xem [Lịch](#lịch) |
 | `memory_consolidate` | chuỗi cron | không có | theo lịch này, viết lại `MEMORY.md` từ ghi chú ngày rồi biên dịch wiki vault từ chính các ghi chú đó, xem [memory.md](memory.md) |
-| `telegram` | map | không có | `token_env` + `chat_id`; chỉ đọc trên `agent.yaml` của master, ở nơi khác bị bỏ qua kèm cảnh báo, xem [channels.md](channels.md) |
+| `telegram` | map | không có | `token_env` + `chat_id`, tuỳ chọn `approval_ttl_seconds` (60–43200) cho cuộc trò chuyện mở từ chat đó; chỉ đọc trên `agent.yaml` của master, ở nơi khác bị bỏ qua kèm cảnh báo, xem [channels.md](channels.md) |
 | `delegates` | danh sách id agent | `[]` | agent mà agent này được giao việc cho; id không trỏ tới agent nào là lỗi khởi động. Rỗng trên master nghĩa là mọi agent khác, xem [Agent master](#agent-master) |
 | `tools` | danh sách tên tool | `[]` | khi đặt, là những tool duy nhất agent này có; rỗng nghĩa là mọi thứ mode của nó mang lại. Tên lạ là cảnh báo, nên profile viết cho phiên bản mới hơn vẫn khởi động được |
 
@@ -83,7 +83,7 @@ và `config.yaml`:
 | `MY_AGENT_COST_CAP_USD` | `cost_cap_usd` | `0.5` |
 | `MY_AGENT_MAX_STEPS` | `max_steps` | `12` |
 | `MY_AGENT_AUTONOMOUS` | `autonomous_default` | tắt (`1`, `true`, `yes`, `on` bật lên) |
-| `MY_AGENT_APPROVAL_TTL_SECONDS` | `approval_ttl_seconds` | `600`; phải ≥ 1. Yêu cầu duyệt không ai trả lời trong khoảng này bị từ chối và lượt đi tiếp |
+| `MY_AGENT_APPROVAL_TTL_SECONDS` | `approval_ttl_seconds` | `600`; phải ≥ 1. Yêu cầu duyệt không ai trả lời trong khoảng này bị từ chối và lượt đi tiếp. Một lịch hay khối `telegram` đặt được hạn riêng cho cuộc trò chuyện nó mở (xem [Lịch](#lịch)) |
 | `MY_AGENT_SHELL_ASK_PATTERNS` | `shell_ask_patterns` | danh sách trong [tools.md](tools.md#shell); giá trị env phân cách bằng `;` và giá trị rỗng tắt hàng rào |
 | `MY_AGENT_SHELL_ALLOW_PATTERNS` | `shell_allow_patterns` | rỗng; phân cách bằng `;` như danh sách hỏi. Mẫu dưới hai ký tự, hoặc mẫu chỉ trông như ký tự đại diện, bị loại thay vì được chấp nhận |
 | `MY_AGENT_TOOL_OUTPUT_CHARS` | `tool_output_chars` | `8000`; phải ≥ 1 |
@@ -494,6 +494,7 @@ Mỗi mục trong `schedules` thành một job `<agent id>/<schedule id>` trong 
 | `prompt` **hoặc** `command` | đúng một trong hai: prompt mở một cuộc trò chuyện autonomous mới và chạy một lượt; command chạy qua `shell_run` trong workspace và chỉ ghi lại bước đó |
 | `enabled` | mặc định `true`. Lịch đang bật có thể tạm dừng và tiếp tục từ thẻ job (`PATCH /api/jobs/{agent}/{id}/state`); công tắc đó lưu trong bảng `job_state` và sống qua khởi động lại. Lịch tắt ở đây chỉ bật lại được bằng cách sửa yaml |
 | `skills` | danh sách tên skill gắn toàn văn vào cuộc trò chuyện mà job prompt mở ra; mặc định rỗng, và tên không skill nào cung cấp được ghi log cảnh báo lúc khởi động. Tên skill có gạch nối viết trong `prompt` cũng được gắn |
+| `approval_ttl_seconds` | số giây một yêu cầu duyệt trong cuộc trò chuyện job prompt mở ra chờ người trả lời: số nguyên từ 60 đến 43200 (12 giờ), không đặt trong ngoặc kép; không đặt thì theo `approval_ttl_seconds` của `config.yaml`. Job chạy lúc không ai thức nên đặt dài hơn, ví dụ `7200`. Cuộc trò chuyện giữ hạn này cho mọi yêu cầu về sau, kể cả sau khi server khởi động lại, và cuộc của agent con được giao việc chép lại nó. Trình sửa trên web giữ khoá này qua các lần sửa nhưng không có ô nhập; `PATCH /api/agents/{id}` gửi `schedules` mà dòng nào thiếu khoá thì dòng đó mất khoá |
 
 ### Một script mỗi job
 

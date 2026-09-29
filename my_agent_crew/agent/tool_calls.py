@@ -25,6 +25,7 @@ from my_agent_crew.agent.events import (
 from my_agent_crew.agent.tool_batches import split_batches
 from my_agent_crew.agent.tool_gate import ask_reason_text, pauses_for_a_person
 from my_agent_crew.agent.turn_context import set_tool_call_id
+from my_agent_crew.agents.approval_ttl import effective_ttl
 from my_agent_crew.llm.types import Message, ToolCall
 from my_agent_crew.store import StoredMessage
 from my_agent_crew.store.approvals import ANSWERED, DENIED, EXPIRED, PENDING
@@ -113,7 +114,7 @@ async def settle_tool_calls(deps: AgentDeps, conv_id: str) -> AsyncIterator[Even
                     conv_id,
                     last.id,
                     call,
-                    ttl_seconds=deps.settings.approval_ttl_seconds,
+                    ttl_seconds=effective_ttl(conv, deps.settings),
                     kind=QUESTION if asking else TOOL,
                     options=options_of(call.arguments) if asking else [],
                 )

@@ -616,6 +616,23 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "a task that came back short of done says so, and why, on the card"
   - Thủ công, tốn tiền thật: case `a-lookup-is-handed-to-the-researcher` trong
     `<home>/evals/delegation.yaml` (`delegates_to: {agent: researcher, outcome: done}`)
+- **Hạn chờ duyệt đặt theo lịch và theo kênh Telegram; duyệt hết hạn là từ chối mà chưa có gì
+  thay đổi**
+  - pytest: `tests/test_approval_ttl.py` (lịch và khối `telegram` nhận số giây nguyên từ một phút
+    tới nửa ngày; số trong ngoặc kép, bool, số lẻ và số ngoài khoảng bị từ chối kèm chỗ sai; khối
+    `telegram` không có khoá đọc như trước và khoá mới không nới hai khoá bắt buộc; cuộc trò
+    chuyện giữ và báo hạn của nó, cơ sở dữ liệu cũ có thêm cột rỗng; sửa lịch khác hay đổi
+    `chat_id` qua API không làm mất hạn; danh sách khoá của lịch ở fake web khớp server; câu hết
+    hạn giữ đoạn mở đầu của câu từ chối);
+    `tests/test_approval_ttl_runs.py` (job hỏi thì chờ đúng hạn của lịch, câu hỏi sau khi khởi
+    động lại vẫn chờ chừng ấy; cuộc mở từ Telegram chờ theo kênh, từ web thì theo cấu hình; con
+    chép hạn của cha và cha chờ đúng chừng đó cộng biên, không có thì theo agent con, con được tìm
+    lại giữ hạn lúc mở; cha thôi chờ khi hạn của con đã qua);
+    `tests/test_api_agents_edit.py::test_a_saved_schedule_comes_back_in_the_shape_it_can_be_resent_in`
+  - vitest: `components/agent-editor/schedules-section.test.tsx` ("keeps how long a row's
+    approvals wait when another row is edited"); `components/agent-editor/channel-section.test.tsx`
+    ("stays when the chat id changes", "comes back with the channel when it is turned off and on
+    again"); `hooks/use-agent-draft.test.ts` (dòng server khai lại mang `approval_ttl_seconds`)
 - **Tool không trả kết quả rỗng: `fetch_url` báo 202 và trang không còn chữ là lỗi, markdown rỗng
   của firecrawl vẫn rơi về tải trực tiếp; `shell_run` không in gì vẫn nói lệnh kết thúc ra sao**
   - pytest: `tests/test_tools_web.py::test_a_page_accepted_but_not_ready_is_an_error_not_an_empty_read`,

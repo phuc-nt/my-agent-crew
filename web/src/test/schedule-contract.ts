@@ -6,13 +6,21 @@
 // These are the checks `profile_yaml._schedule` and `channels.parse_telegram` make, in
 // their order, so a fake refuses what the server refuses and answers with what it would
 // declare back.
-import type { ScheduleInfo } from "../api/types";
+import type { ScheduleInfo, TelegramBlock } from "../api/types";
 
 type Declared = Omit<ScheduleInfo, "kind">;
 
-const SCHEDULE_KEYS = new Set(["id", "name", "cron", "every", "prompt", "command", "enabled", "skills"]);
+const SCHEDULE_KEYS = new Set(["id", "name", "cron", "every", "prompt", "command", "enabled", "skills", "approval_ttl_seconds"]);
 
 type Read<T> = { ok: T } | { error: string };
+
+/** `approval_ttl.parse_approval_ttl`: whole seconds from a minute to half a day, or absent. */
+function readTtl(value: unknown, where: string): Read<number | null> {
+  if (value === null || value === undefined) return { ok: null };
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 60 || value > 43_200)
+    return { error: `${where}: approval_ttl_seconds must be whole seconds from 60 to 43200` };
+  return { ok: value };
+}
 
 /** `texts.RESTART_REASON_SCHEDULES`, word for word: the server's reason for a restart. */
 export const SCHEDULES_RESTART_REASON = "Thay đổi lịch chạy chỉ có hiệu lực sau khi khởi động lại máy chủ.";
@@ -41,6 +49,8 @@ export function readSchedules(value: unknown): Read<Declared[]> {
     // `profile_edit.validated`: the scheduler keys jobs by id, so a second one would
     // replace the first without a word.
     if (rows.some((row) => row.id === id)) return { error: `two schedules share the id ${id}` };
+    const ttl = readTtl(raw.approval_ttl_seconds, `schedule ${id}`);
+    if ("error" in ttl) return ttl;
     rows.push({
       id,
       name: String(raw.name || id),
@@ -50,12 +60,13 @@ export function readSchedules(value: unknown): Read<Declared[]> {
       command: (raw.command as string | undefined) ?? null,
       enabled: raw.enabled === undefined ? true : Boolean(raw.enabled),
       skills: ((raw.skills as unknown[] | undefined) ?? []).map(String),
+      approval_ttl_seconds: ttl.ok,
     });
   }
   return { ok: rows };
 }
 
-function readTelegram(value: unknown): Read<{ token_env: string; chat_id: number } | null> {
+function readTelegram(value: unknown): Read<TelegramBlock | null> {
   if (value === null || value === undefined) return { ok: null };
   const raw = value as Record<string, unknown>;
   const chatId = raw.chat_id;
@@ -64,7 +75,11 @@ function readTelegram(value: unknown): Read<{ token_env: string; chat_id: number
   const tokenEnv = String(raw.token_env ?? "").trim();
   if (!tokenEnv) return { error: "telegram needs a token_env" };
   if (chatId === 0) return { error: "telegram needs a chat_id" };
-  return { ok: { token_env: tokenEnv, chat_id: chatId } };
+  const ttl = readTtl(raw.approval_ttl_seconds, "telegram");
+  if ("error" in ttl) return ttl;
+  const block: TelegramBlock = { token_env: tokenEnv, chat_id: chatId };
+  if (ttl.ok !== null) block.approval_ttl_seconds = ttl.ok;
+  return { ok: block };
 }
 
 /**

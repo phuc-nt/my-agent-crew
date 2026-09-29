@@ -36,7 +36,11 @@ telegram:
   chat_id: 123456789                           # the only chat the bot answers
 ```
 
-Cả hai key đều bắt buộc; `chat_id` là int. Bản thân token nằm trong môi trường của
+Cả hai key đều bắt buộc; `chat_id` là int. Key thứ ba, `approval_ttl_seconds` (số giây
+nguyên từ 60 đến 43200), tuỳ chọn: yêu cầu duyệt trong cuộc trò chuyện mở từ chat này chờ lâu
+chừng đó thay vì theo `approval_ttl_seconds` của `config.yaml`, hợp với một chat chỉ được đọc
+vài lần mỗi ngày. Trình sửa agent trên web giữ key này khi đổi hai key kia, kể cả khi tắt rồi
+bật lại kênh, nhưng không có ô nhập cho nó. Bản thân token nằm trong môi trường của
 server — `<home>/env`, được server nạp lúc khởi động và trang **Kết nối** của web UI
 ghi vào. Đặt khối này từ trình sửa agent, hoặc lưu token của nó ở Kết nối, sẽ dựng lại
 kênh tại chỗ; sửa tay `agent.yaml` vẫn
@@ -142,7 +146,7 @@ agent mà runtime không biết được ghi log và không gửi. Khi lượt c
 `max_steps` hay vì gọi lại y hệt một lệnh, lỗi provider, một duyệt còn treo) kênh gửi
 thông báo "run chưa xong" kèm tóm tắt của run thay vì im lặng, nên
 job theo lịch không bao giờ biến mất không dấu vết. Khi một duyệt trong lượt đó hết hạn
-(`approval_ttl_seconds`), phần giao nói trước tool nào bị từ chối vì quá hạn,
+(`approval_ttl_seconds` của lịch, không có thì của `config.yaml`), phần giao nói trước tool nào bị từ chối vì quá hạn,
 để câu trả lời theo sau được đọc là do hàng rào tạo hình, không phải do người.
 
 Run dừng sớm nhưng *có* để lại text là trường hợp khó hơn: câu trả lời

@@ -72,6 +72,9 @@ ADDED_COLUMNS = (
     ("approvals", "kind", "TEXT NOT NULL DEFAULT 'tool'"),
     ("approvals", "options", "TEXT NOT NULL DEFAULT '[]'"),
     ("approvals", "answer", "TEXT"),
+    # How long this conversation's approvals wait, set by the schedule or the channel that
+    # opened it, or copied from the parent that delegated it; NULL is the global setting.
+    ("conversations", "approval_ttl_seconds", "INTEGER"),
 )
 
 

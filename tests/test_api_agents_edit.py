@@ -175,7 +175,8 @@ def test_a_saved_schedule_comes_back_in_the_shape_it_can_be_resent_in(crew) -> N
     assert profile["tools"] and all(isinstance(n, str) for n in profile["tools"])
     assert all(isinstance(n, str) for n in profile["skills"])
     declared = profile["declared"]["schedules"]
-    assert declared == [{**row, "cron": None, "prompt": None, "enabled": True}]
+    unset = {"cron": None, "prompt": None, "enabled": True, "approval_ttl_seconds": None}
+    assert declared == [{**row, **unset}]
     again = client.patch("/api/agents/coder", json={"profile": {"schedules": declared}})
     assert again.status_code == 200
     assert again.json()["profile"]["declared"]["schedules"] == declared

@@ -56,7 +56,8 @@ any platform ──POST /api/inbound (JSON, sync)─────┴─▶ Inboun
   Cuộc trò chuyện đánh dấu `autonomous` bỏ qua chỗ dừng. Các từ chối cứng — path thoát khỏi
   workspace, đích mạng private/loopback — không duyệt được.
 - **Approval không ai trả lời thì đóng lại an toàn.** Mỗi `Approval` mang một hạn chót
-  (`approval_ttl_seconds`, mặc định 600); tick của scheduler quét những cái quá hạn,
+  (`approval_ttl_seconds`, mặc định 600; một lịch hay khối `telegram` đặt được hạn riêng, cuộc
+  trò chuyện chúng mở giữ hạn đó và cuộc của agent con chép của cha); tick của scheduler quét những cái quá hạn,
   đóng chúng là `expired`, tiếp tục lượt với tool bị từ chối
   và gửi câu trả lời như mọi lượt khác, nên một yêu cầu không ai thấy không bao giờ treo
   cuộc trò chuyện. Endpoint quyết định cũng nhận `always`: duyệt kèm nó thì tool được thêm vào

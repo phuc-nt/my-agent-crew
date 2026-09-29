@@ -38,6 +38,9 @@ export function ChannelSection({ form, agent, readOnly }: Props) {
             "telegram",
             on
               ? {
+                  // What the file says beyond the two boxes, such as how long an
+                  // approval waits, comes back with the channel.
+                  ...agent.telegram,
                   token_env: agent.telegram?.token_env ?? "",
                   chat_id: agent.telegram?.chat_id ?? 0,
                 }

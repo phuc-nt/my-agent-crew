@@ -6,16 +6,25 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-TELEGRAM_KEYS = {"token_env", "chat_id"}
+from my_agent_crew.agents.approval_ttl import parse_approval_ttl
+
+TELEGRAM_REQUIRED = {"token_env", "chat_id"}
+TELEGRAM_KEYS = TELEGRAM_REQUIRED | {"approval_ttl_seconds"}
 
 
 @dataclass(frozen=True)
 class TelegramConfig:
     token_env: str  # name of the env var holding the bot token
     chat_id: int  # the one chat the bot talks to; other chats are ignored
+    # How long an approval in a conversation opened from this chat waits; None is the setting.
+    approval_ttl_seconds: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return {"token_env": self.token_env, "chat_id": self.chat_id}
+        """The wait only when set, so an agent that never uses it reads as it always did."""
+        out: dict[str, Any] = {"token_env": self.token_env, "chat_id": self.chat_id}
+        if self.approval_ttl_seconds is not None:
+            out["approval_ttl_seconds"] = self.approval_ttl_seconds
+        return out
 
 
 def parse_telegram(raw: Any, agent_id: str) -> TelegramConfig:
@@ -24,7 +33,7 @@ def parse_telegram(raw: Any, agent_id: str) -> TelegramConfig:
     unknown = set(raw) - TELEGRAM_KEYS
     if unknown:
         raise ValueError(f"agent {agent_id}: telegram has unknown keys {sorted(unknown)}")
-    missing = TELEGRAM_KEYS - set(raw)
+    missing = TELEGRAM_REQUIRED - set(raw)
     if missing:
         raise ValueError(f"agent {agent_id}: telegram needs {sorted(missing)}")
     try:
@@ -39,4 +48,5 @@ def parse_telegram(raw: Any, agent_id: str) -> TelegramConfig:
         raise ValueError(f"agent {agent_id}: telegram needs a token_env")
     if chat_id == 0:
         raise ValueError(f"agent {agent_id}: telegram needs a chat_id")
-    return TelegramConfig(token_env=token_env, chat_id=chat_id)
+    ttl = parse_approval_ttl(raw.get("approval_ttl_seconds"), f"agent {agent_id}: telegram")
+    return TelegramConfig(token_env=token_env, chat_id=chat_id, approval_ttl_seconds=ttl)

@@ -174,6 +174,10 @@ export interface ScheduleInfo {
   enabled: boolean;
   /** Skills attached in full to the conversation this schedule opens. */
   skills: string[];
+  /** How long an approval in the conversation this schedule opens waits, in seconds; null
+   * is the crew's setting. Set in `agent.yaml` only: the form has no box for it, and a row
+   * sent back without it would drop it, so the form carries it through untouched. */
+  approval_ttl_seconds?: number | null;
 }
 
 /** A slash command from a kit (`.agents/commands/*.md`): `/name` expands to its template. */
@@ -194,6 +198,15 @@ export interface DeclaredProfile {
   delegates: string[];
   /** Without `kind`, which is derived — the parser refuses a row that carries it back. */
   schedules: Omit<ScheduleInfo, "kind">[];
+}
+
+/** The `telegram:` block of an agent's file. It names the variable holding the token. */
+export interface TelegramBlock {
+  token_env: string;
+  chat_id: number;
+  /** How long an approval in a conversation opened from this chat waits, in seconds. Set in
+   * `agent.yaml` only; the form keeps it through every edit of the other two. */
+  approval_ttl_seconds?: number;
 }
 
 /** One agent profile as listed by GET /api/agents. */
@@ -232,7 +245,7 @@ export interface AgentInfo {
    * is refused and the editor shows where the definition actually lives instead. */
   editable: boolean;
   /** Set on the master when a Telegram bot also talks to it; the token stays on the server. */
-  telegram: { token_env: string; chat_id: number } | null;
+  telegram: TelegramBlock | null;
   /** What the agent's own file says, where that differs from what the crew computed.
    * An editor diffs against these: saving a computed value back would write the
    * computation into the file and freeze it there. */
@@ -284,7 +297,7 @@ export interface AgentPatch {
   shell_ask_patterns?: string[] | null;
   tool_output_chars?: number | null;
   schedules?: unknown[] | null;
-  telegram?: { token_env: string; chat_id: number } | null;
+  telegram?: TelegramBlock | null;
   memory_consolidate?: string | null;
   mode?: string;
   delegates?: string[] | null;

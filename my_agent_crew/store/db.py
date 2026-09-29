@@ -70,13 +70,14 @@ class Store(ConversationLookups):
         agent_id: str = "default",
         channel: str = "",
         parent_call_id: str = "",
+        approval_ttl_seconds: int | None = None,
     ) -> Conversation:
         conv_id, stamp = new_id(), now_iso()
         with self._lock:
             [row] = self._conn.execute(
                 "INSERT INTO conversations (id, title, created_at, updated_at, autonomous,"
-                " cost_cap_usd, skills, agent_id, channel, parent_call_id)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *",
+                " cost_cap_usd, skills, agent_id, channel, parent_call_id, approval_ttl_seconds)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *",
                 (
                     conv_id,
                     title,
@@ -88,6 +89,7 @@ class Store(ConversationLookups):
                     agent_id,
                     channel,
                     parent_call_id,
+                    approval_ttl_seconds,
                 ),
             ).fetchall()
             self._conn.commit()

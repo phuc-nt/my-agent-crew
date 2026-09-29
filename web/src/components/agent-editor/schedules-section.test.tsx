@@ -209,6 +209,22 @@ describe("the schedules part of the agent editor", () => {
     expect((sentProfile().schedules as ScheduleRow[])[0].prompt).toBe("Dòng một.\nMEDIA: a.png\nThêm dòng");
   });
 
+  // The wait is written in agent.yaml and has no box in the form; the whole list goes back
+  // on every save, so a row sent without it would lose it without anyone touching the row.
+  it("keeps how long a row's approvals wait when another row is edited", async () => {
+    open(declaring({ ...brief, approval_ttl_seconds: 7200 }, { ...brief, id: "evening", name: "Tối" }));
+
+    const evening = within(screen.getAllByTestId("schedule-row")[1]).getByLabelText(vi.editor.scheduleName);
+    await userEvent.type(evening, " muộn");
+    await save();
+
+    await waitFor(() => expect(screen.getByTestId("restart-banner")).toBeInTheDocument());
+    const [kept, edited] = sentProfile().schedules as Record<string, unknown>[];
+    expect(kept.approval_ttl_seconds).toBe(7200);
+    expect(edited.name).toBe("Tối muộn");
+    expect(edited).not.toHaveProperty("approval_ttl_seconds");
+  });
+
   // Rows were keyed by position, so the focused Xoá button stayed where it was and now
   // belonged to the next schedule: a second press, or a double click, removed that one too.
   it("removes one schedule per press and hands focus to the one that moved up", async () => {

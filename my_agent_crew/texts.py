@@ -19,7 +19,9 @@ DENIED_TOOL = (
 # Keeps the DENIED_TOOL opening so every reader treating a denial the same way still does.
 EXPIRED_TOOL = (
     "Người dùng đã TỪ CHỐI hành động này (hết hạn chờ duyệt, không ai trả lời). "
-    "Không thử lại cùng hành động; nếu cần, hỏi lại người dùng cách khác."
+    "Hành động KHÔNG được thực hiện, chưa có gì thay đổi. Không tự làm lại hành động này, "
+    "cũng không làm một hành động tương đương bằng công cụ khác. Hãy nói với người dùng "
+    "việc gì đang chờ duyệt để họ gửi lại yêu cầu nếu vẫn muốn."
 )
 UNKNOWN_TOOL = "Không có công cụ tên {name}."
 TOOL_FAILED = "Công cụ lỗi: {error}"

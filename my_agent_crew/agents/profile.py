@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any
 
 from my_agent_crew import texts
 from my_agent_crew.agents.channels import TelegramConfig
+from my_agent_crew.agents.schedule import Schedule
 from my_agent_crew.config import Settings
 
 if TYPE_CHECKING:
@@ -52,43 +53,7 @@ PROFILE_KEYS = {
 ASSISTANT, WORK = "assistant", "work"
 MODES = (ASSISTANT, WORK)
 WORK_DEFAULTS = {"autonomous": True, "cost_cap_usd": 20.0, "max_steps": 120}
-SCHEDULE_KEYS = {"id", "name", "cron", "every", "prompt", "command", "enabled", "skills"}
 CONSOLIDATE_JOB_ID = "memory-consolidate"
-PROMPT, COMMAND, CONSOLIDATE = "prompt", "command", "consolidate"
-
-
-@dataclass(frozen=True)
-class Schedule:
-    id: str
-    name: str
-    cron: str | None = None
-    every: str | None = None
-    prompt: str | None = None
-    command: str | None = None
-    enabled: bool = True
-    consolidate: bool = False
-    # Skills attached in full to the conversation a prompt job opens, by name.
-    skills: tuple[str, ...] = ()
-
-    @property
-    def kind(self) -> str:
-        """What running this job does, so the UI can label it without guessing."""
-        if self.consolidate:
-            return CONSOLIDATE
-        return COMMAND if self.command else PROMPT
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "id": self.id,
-            "name": self.name,
-            "cron": self.cron,
-            "every": self.every,
-            "prompt": self.prompt,
-            "command": self.command,
-            "enabled": self.enabled,
-            "skills": list(self.skills),
-            "kind": self.kind,
-        }
 
 
 @dataclass(frozen=True)

@@ -70,3 +70,37 @@ describe("turning the Telegram channel on", () => {
     await waitFor(() => expect(screen.getByText(vi.editor.clean)).toBeInTheDocument());
   });
 });
+
+// The wait is written in agent.yaml and has no box here. The form sends the whole block,
+// so a block rebuilt from the two boxes alone would have erased it on the next save.
+describe("how long a Telegram approval waits", () => {
+  const waiting = { ...fakeAgent, telegram: { token_env: "TG_TOKEN", chat_id: 42, approval_ttl_seconds: 900 } };
+
+  async function saveChatId(id: string) {
+    const box = screen.getByLabelText(vi.editor.telegramChatId);
+    await userEvent.clear(box);
+    await userEvent.type(box, id);
+    await userEvent.click(screen.getByRole("button", { name: vi.editor.save }));
+    await waitFor(() => expect(screen.getByText(vi.editor.clean)).toBeInTheDocument());
+    return backend.requests.find((r) => r.method === "PATCH")?.body;
+  }
+
+  it("stays when the chat id changes", async () => {
+    open(waiting);
+
+    expect(await saveChatId("43")).toEqual({
+      profile: { telegram: { token_env: "TG_TOKEN", chat_id: 43, approval_ttl_seconds: 900 } },
+    });
+  });
+
+  it("comes back with the channel when it is turned off and on again", async () => {
+    open(waiting);
+    const channel = screen.getByRole("checkbox", { name: vi.editor.telegramEnabled });
+    await userEvent.click(channel);
+    await userEvent.click(channel);
+
+    expect(await saveChatId("43")).toEqual({
+      profile: { telegram: { token_env: "TG_TOKEN", chat_id: 43, approval_ttl_seconds: 900 } },
+    });
+  });
+});

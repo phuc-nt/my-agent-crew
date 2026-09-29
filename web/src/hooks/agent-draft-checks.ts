@@ -160,6 +160,8 @@ function sendableRow(row: ScheduleRow): Record<string, unknown> {
   }
   out.enabled = row.enabled;
   out.skills = row.skills;
+  // Written in the file, not the form: a row sent without it would lose it.
+  if (typeof row.approval_ttl_seconds === "number") out.approval_ttl_seconds = row.approval_ttl_seconds;
   return out;
 }
 

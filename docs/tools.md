@@ -51,8 +51,11 @@ System prompt liệt kê tên các tool có sẵn; model thấy JSON schema củ
   chạy lệnh `shell_run` khớp `settings.shell_allow_patterns` mà không hỏi, để
   agent được giám sát vẫn làm được phần việc thường ngày của mình. Danh sách hỏi được kiểm tra
   trước, nên nêu một lệnh ở cả hai danh sách nghĩa là nó hỏi. Từ chối cứng, thoát khỏi workspace và đích mạng riêng, không
-  thể duyệt. Yêu cầu không ai trả lời trong `approval_ttl_seconds` (mặc định 600) bị
-  từ chối: kết quả tool nói vậy, lượt tiếp tục và câu trả lời được gửi như thường.
+  thể duyệt. Yêu cầu không ai trả lời trong `approval_ttl_seconds` (mặc định 600; lịch và
+  khối `telegram` đặt được hạn riêng, xem [agents.md](agents.md#lịch)) bị từ chối: kết quả
+  tool nói hành động không chạy và chưa có gì thay đổi, dặn không làm lại hay làm một việc
+  tương đương bằng tool khác mà nói với người việc gì đang chờ duyệt; lượt tiếp tục và câu trả
+  lời được gửi như thường.
   Duyệt bằng `always` đưa tool vào danh sách `auto_approve` của cuộc trò chuyện, nên các
   lời gọi sau trong cuộc trò chuyện đó chạy không hỏi; rào danh sách hỏi vẫn áp dụng.
 - **Nội dung là dữ liệu.** Khung prompt bảo model rằng bất cứ thứ gì tool trả về là dữ liệu,
@@ -119,7 +122,9 @@ con làm tiếp với mặc định của nó. Còn lại theo dòng `Status:` c
 `done` thì dòng có thêm `reason=`, và mô tả tool dặn bên giao nói thẳng với người dùng là việc chưa
 xong và vì sao, không tóm thành đã xong. Hết thời gian chờ thì tool báo lỗi nhưng vẫn giữ dòng một,
 để thẻ giao việc trên web còn chỉ được tới cuộc trò chuyện của con; thẻ hiện outcome bằng chữ, và
-lý do ngay bên cạnh.
+lý do ngay bên cạnh. Thời gian chờ là hạn duyệt của chính cuộc trò chuyện con cộng năm phút: con
+chép hạn của cha lúc mở, không có thì theo `approval_ttl_seconds` của agent con, nên bên giao
+không bỏ cuộc trong khi yêu cầu duyệt của con còn đang chờ người.
 Người dùng kể một dữ kiện thuộc lĩnh vực của agent nào (ăn uống, bia rượu, chi tiêu, giấy tờ)
 hay bảo lưu lại thì master giao agent đó ghi vào sổ của nó, không ghi vào memory thay; hỏi vì
 sao trong lĩnh vực đó thì giao lại kèm dữ kiện mới, không tự suy luận.
@@ -377,8 +382,9 @@ và khác ở ba điểm quan trọng:
 - **Hết giờ không phải từ chối.** Tool không ai cho phép thì không được chạy, nhưng
   câu hỏi không ai trả lời vẫn có `default`: agent được trao nó, đi tiếp, và
   được bảo nói trong câu trả lời rằng nó đã tự quyết. Hạn là
-  `approval_ttl_seconds` dùng chung (mặc định 600), nên job có thể hỏi khi không ai theo dõi
-  nên luôn truyền `default`.
+  `approval_ttl_seconds` của cuộc trò chuyện (lịch đã mở nó có thể đặt dài hơn), không có thì
+  của `config.yaml` (mặc định 600), nên job có thể hỏi khi không ai theo dõi nên luôn truyền
+  `default`.
 
 Vì nó tạm dừng lượt, mỗi cuộc trò chuyện chỉ có thể mở một câu hỏi tại một thời điểm, và
 ô soạn tin đóng khi đang có một câu: server từ chối tin mới khi bất kỳ

@@ -13,6 +13,7 @@ from typing import Any
 
 import yaml
 
+from my_agent_crew.agents.approval_ttl import parse_approval_ttl
 from my_agent_crew.agents.channels import parse_telegram
 from my_agent_crew.agents.profile import (
     ASSISTANT,
@@ -20,15 +21,14 @@ from my_agent_crew.agents.profile import (
     MODES,
     PERSONA_FILES,
     PROFILE_KEYS,
-    SCHEDULE_KEYS,
     WORK,
     WORK_DEFAULTS,
     AgentProfile,
-    Schedule,
     consolidate_schedule,
     default_profile,
 )
 from my_agent_crew.agents.profile_settings import names, settings_from
+from my_agent_crew.agents.schedule import SCHEDULE_KEYS, Schedule
 from my_agent_crew.config import Settings
 
 MASTER_MANIFEST = "agent.yaml"
@@ -52,6 +52,9 @@ def _schedule(raw: dict[str, Any], agent_id: str, index: int) -> Schedule:
         command=raw.get("command"),
         enabled=bool(raw.get("enabled", True)),
         skills=tuple(str(s) for s in raw.get("skills") or []),
+        approval_ttl_seconds=parse_approval_ttl(
+            raw.get("approval_ttl_seconds"), f"agent {agent_id}: schedule {job_id}"
+        ),
     )
 
 

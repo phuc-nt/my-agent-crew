@@ -49,6 +49,7 @@ class Conversation:
     auto_approve: tuple[str, ...] = ()  # tools the user chose to always allow here
     # The parent's tool call id when another agent delegated this conversation, else "".
     parent_call_id: str = ""
+    approval_ttl_seconds: int | None = None  # None: the setting's wait applies
 
     @property
     def over_budget(self) -> bool:
@@ -79,6 +80,7 @@ class Conversation:
             summary=row["summary"],
             auto_approve=tuple(json.loads(row["auto_approve"])),
             parent_call_id=row["parent_call_id"],
+            approval_ttl_seconds=row["approval_ttl_seconds"],
         )
 
 

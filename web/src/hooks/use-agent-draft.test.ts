@@ -370,7 +370,17 @@ describe("useAgentDraft", () => {
       await result.current.save();
     });
 
-    const declared = { id: "job-0", name: "job-0", cron: null, every: "2h", prompt: "Nhắc", command: null, enabled: true, skills: [] };
+    const declared = {
+      id: "job-0",
+      name: "job-0",
+      cron: null,
+      every: "2h",
+      prompt: "Nhắc",
+      command: null,
+      enabled: true,
+      skills: [],
+      approval_ttl_seconds: null,
+    };
     expect(result.current.original?.declared.schedules).toEqual([declared]);
     expect(result.current.original?.schedules).toEqual([{ ...declared, kind: "prompt" }]);
     expect(result.current.draft.schedules).toEqual([declared]);
@@ -408,7 +418,17 @@ describe("useAgentDraft", () => {
     const reads = backend.requests.filter((r) => r.method === "GET" && r.path === "/agents");
     expect(reads).toHaveLength(1);
     expect(result.current.original?.declared.schedules).toEqual([
-      { id: "t", name: "T", cron: "0 7 * * *", every: null, prompt: "Nhắc", command: null, enabled: true, skills: [] },
+      {
+        id: "t",
+        name: "T",
+        cron: "0 7 * * *",
+        every: null,
+        prompt: "Nhắc",
+        command: null,
+        enabled: true,
+        skills: [],
+        approval_ttl_seconds: null,
+      },
     ]);
     expect(result.current.dirty).toEqual([]);
   });

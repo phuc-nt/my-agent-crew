@@ -78,6 +78,7 @@ async def run_prompt(job: Job, deps: AgentDeps, hub: ActivityHub, title: str) ->
         cost_cap_usd=deps.settings.cost_cap_usd,
         agent_id=job.agent_id,
         skills=prompt_skills(job, deps.skills),
+        approval_ttl_seconds=job.schedule.approval_ttl_seconds,
     )
     events = run_turn(deps, conv.id, job.schedule.prompt, source=JOB)
     async for _ in tracked(hub, events, job.agent_id, JOB_SOURCE + job.id, conv.title, conv.id):

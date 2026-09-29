@@ -42,6 +42,13 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 - The delegation card on the web names the outcome in words, marks one that is not done, and
   shows the reason beside it.
 - An eval case can require what a delegation came to: `delegates_to: {agent, outcome}`.
+- A schedule, or the master's `telegram:` block, may say how long an approval in the
+  conversation it opens waits for a person: `approval_ttl_seconds`, whole seconds from 60 to
+  43200. A job that asks at night can wait for the morning instead of expiring in ten minutes.
+  The conversation keeps its wait for every later approval, after a restart too, a delegated
+  child copies its parent's, and the parent waits on the child that long plus five minutes.
+  Without the key the global `approval_ttl_seconds` applies as before. The web editor keeps the
+  key through edits of other rows and of the chat id, but has no box for it.
 
 ### Changed
 
@@ -52,6 +59,9 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   reports it. The check reads the child's closing `Status:` line instead of looking for the word
   BLOCKED anywhere in its answer, so that word in the prose of a finished task no longer holds
   the answer back.
+- An approval nobody answered tells the model that the action did not run and nothing changed,
+  and not to redo it or reach the same end with another tool, but to tell the person what is
+  waiting so they can ask again.
 
 ### Fixed
 

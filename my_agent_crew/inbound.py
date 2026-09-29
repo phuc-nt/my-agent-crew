@@ -16,7 +16,7 @@ from my_agent_crew.activity import ActivityHub, tracked
 from my_agent_crew.agent.events import Event
 from my_agent_crew.agent.loop import AgentDeps, run_turn
 from my_agent_crew.agent.resume import answer_question, resolve_approval
-from my_agent_crew.agent.turn_context import CHAT
+from my_agent_crew.agent.turn_context import CHAT, TELEGRAM
 from my_agent_crew.agents import DEFAULT_AGENT_ID
 from my_agent_crew.agents.kit_commands import expand
 from my_agent_crew.memory.conversation_title import title_on_first_message
@@ -105,12 +105,14 @@ class Inbound:
         `on_replaced` so the caller can recap it in the background."""
         deps = self.deps_for(agent_id)
         previous = deps.store.latest_for_channel(agent_id, channel)
+        telegram = deps.agent.telegram if channel_label(channel) == TELEGRAM else None
         conv = deps.store.create(
             title=title.format(channel=channel_label(channel), date=clock().date().isoformat()),
             autonomous=deps.settings.autonomous_default,
             cost_cap_usd=deps.settings.cost_cap_usd,
             agent_id=agent_id,
             channel=channel,
+            approval_ttl_seconds=telegram.approval_ttl_seconds if telegram else None,
         )
         if previous is not None and self.on_replaced is not None:
             self.on_replaced(deps, previous.id)
