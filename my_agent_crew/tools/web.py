@@ -92,11 +92,14 @@ def build_web_tools(
         await _guard_url(url, resolver)
         if settings.firecrawl_base_url:
             markdown = await _scrape(settings, client, url)
-            if markdown:
+            if markdown.strip():
                 return markdown[:MAX_MARKDOWN_CHARS]
         body, content_type = await fetch_page(client, url)
         if "html" in content_type:
             body = html_to_text(body)
+        if not body.strip():
+            # An empty answer reads to the model as "the page says nothing".
+            raise ToolError(texts.URL_EMPTY_BODY)
         return body[:MAX_PAGE_CHARS]
 
     async def web_search(args: dict[str, Any]) -> str:

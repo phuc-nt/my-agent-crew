@@ -32,14 +32,35 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   spent is read from the usage ledger and capped by `--max-usd`. `--dry-run` swaps in the fake
   model to check the plumbing. Cases live in `<home>/evals/`; see docs/testing.md.
 - `--no-schedule` starts the server with no scheduler and no channels.
+- A delegation's result says what the handed-off task came to, on its second line, not only how
+  the child's run ended: `outcome=done`, `done_with_concerns`, `blocked`, `needs_context` or
+  `failed`, with a reason when it is not done. The runtime's facts come first: a run that
+  errored, halted or outlasted the wait failed, and a child whose last tool approval was refused
+  or lapsed is blocked. Otherwise the child's closing `Status:` line decides, and a child that
+  declared nothing is done, as before. The tool tells the agent that delegated to say plainly
+  when a task is not done, and why.
+- The delegation card on the web names the outcome in words, marks one that is not done, and
+  shows the reason beside it.
+- An eval case can require what a delegation came to: `delegates_to: {agent, outcome}`.
 
 ### Changed
 
 - A halted run says why in words on Telegram and in the reply of an API turn (the cost cap, the
   step limit, the same call over and over) instead of the loop's code, as the web already did.
+- Only a task that came to `done` is handed straight to the person. A child that needs more
+  context, finished with concerns or was blocked goes back to the agent that delegated, which
+  reports it. The check reads the child's closing `Status:` line instead of looking for the word
+  BLOCKED anywhere in its answer, so that word in the prose of a finished task no longer holds
+  the answer back.
 
 ### Fixed
 
+- `fetch_url` no longer returns an empty result. A server that answers 202 (accepted, nothing to
+  read yet) is reported as not ready, and a page with no readable text (an empty body, or one
+  drawn only by JavaScript) is reported as such instead of reading as a page that says nothing.
+  A blank scrape from firecrawl falls back to fetching the page itself, as an empty one did.
+- A delegation that outlasts its wait still names the child's conversation, so its card can
+  open it, and reads as failed.
 - The fake model gives every tool call an id of its own, as a real provider does. Two
   conversations that delegated at the same point used to share an id, and the second was handed
   the first one's child.

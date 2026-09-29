@@ -27,8 +27,15 @@ from my_agent_crew.agent.turn_context import (
 from my_agent_crew.agents import AgentProfile
 from my_agent_crew.agents.roster import DELEGATE_TOOL_NAME, delegate_targets
 from my_agent_crew.store.models import Conversation
-from my_agent_crew.store.runs import DONE
 from my_agent_crew.tools.delegate_attachments import child_answer, relay_attachments
+from my_agent_crew.tools.delegate_outcome import (
+    decide,
+    declared_outcome,
+    header_line,
+    outcome_line,
+    relays,
+    timed_out,
+)
 from my_agent_crew.tools.delegate_report import unfinished_note
 from my_agent_crew.tools.registry import Tool, ToolError, ToolResult
 
@@ -110,7 +117,7 @@ async def _delegate(
     timeout = float(runtime.settings.approval_ttl_seconds) + WAIT_MARGIN_SECONDS
     run = await runtime.hub.wait_finished(child.id, timeout)
     if run is None:
-        raise ToolError(texts.DELEGATE_TIMEOUT.format(conv_id=child.id))
+        return timed_out(child.id, runtime.store.runs.latest_for_conversation(child.id))
     try:
         spent = runtime.store.get(child.id).spent_usd
     except KeyError:
@@ -120,19 +127,17 @@ async def _delegate(
         # What the child spent is the parent's spend too, or a fan-out would cost the
         # parent's budget nothing and its cap would stop meaning anything.
         runtime.store.add_spend(parent.id, spent)
-    header = texts.DELEGATE_RESULT_HEADER.format(
-        conv_id=child.id, status=run.status, spent=run.spent_usd or 0.0, steps=len(run.steps)
-    )
+    said = child_answer(runtime.store.history(child.id))
+    decided = runtime.store.approvals.recent(limit=1, conversation_id=child.id)
+    outcome = decide(run, declared_outcome(said), decided[0] if decided else None)
     note = unfinished_note(run)
     answer = relay_attachments(
-        child_answer(runtime.store.history(child.id)),
-        runtime.deps_for(target).agent.workspace,
-        profile.workspace,
-        child.id,
+        said, runtime.deps_for(target).agent.workspace, profile.workspace, child.id
     )
     body = f"{note}\n\n{answer}" if note else answer
-    relay = run.status == DONE and args.get("relay", True) is not False
-    return ToolResult(ok=True, output=f"{header}\n{body}", reply=answer if relay else None)
+    relay = relays(outcome) and args.get("relay", True) is not False
+    output = f"{header_line(child.id, run)}\n{outcome_line(outcome)}\n{body}"
+    return ToolResult(ok=True, output=output, reply=answer if relay else None)
 
 
 def _children(runtime: Runtime, parent: Conversation | None) -> list[Conversation]:

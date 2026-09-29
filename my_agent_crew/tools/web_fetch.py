@@ -21,14 +21,18 @@ MAX_PAGE_BYTES = 512 * 1024
 
 async def fetch_page(client: httpx.AsyncClient, url: str) -> tuple[str, str]:
     """`(body, content_type)` for a 2xx page, the redirect notice with an empty type for a
-    3xx, and a `ToolError` for anything else. The body is decoded with the charset the
-    server named, or UTF-8 with replacement so one odd byte does not lose the page."""
+    3xx, and a `ToolError` for anything else, a 202 included. The body is decoded with the
+    charset the server named, or UTF-8 with replacement so one odd byte does not lose the
+    page."""
     try:
         async with client.stream("GET", url, follow_redirects=False, timeout=FETCH_TIMEOUT) as resp:
             if 300 <= resp.status_code < 400:
                 return texts.URL_REDIRECT.format(location=resp.headers.get("location", "?")), ""
             if resp.status_code >= 400:
                 raise ToolError(texts.URL_STATUS.format(status=resp.status_code))
+            if resp.status_code == 202:
+                # Accepted for later: whatever body came with it is not the page.
+                raise ToolError(texts.URL_ACCEPTED_NOT_READY)
             raw = await _read_capped(resp)
             content_type = resp.headers.get("content-type", "")
     except httpx.HTTPError as exc:

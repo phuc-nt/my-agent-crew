@@ -7,6 +7,8 @@ from typing import Any
 from eval_check import Ask, Call, Delegate
 from eval_observe import child_ids, observe
 
+from my_agent_crew.tools.delegate_outcome import NEEDS_CONTEXT, Outcome, outcome_line
+
 
 def message(seq: int, role: str, content: str = "", calls: list[dict] | None = None, **extra: Any):
     return {
@@ -64,6 +66,17 @@ def test_tool_calls_carry_the_turn_and_the_agent_that_made_them():
 def test_a_child_conversation_is_a_delegation_to_its_agent():
     assert observe(ROOT, [CHILD], [], spent_usd=0.0).delegates == (Delegate("ada", None),)
     assert observe(ROOT, [], [], spent_usd=0.0).delegates == ()
+
+
+def test_a_delegation_carries_the_outcome_its_result_reported():
+    unfinished = outcome_line(Outcome(NEEDS_CONTEXT, "thiếu ngày"))
+    result = f"conversation=conv-2 status=done spent=$0.0010 steps=2\n{unfinished}\nfound it"
+    answered = message(7, "tool", result, tool_call_id="t2", name="delegate")
+    root = {**ROOT, "messages": [*ROOT["messages"][:6], answered, ROOT["messages"][7]]}
+
+    assert observe(root, [CHILD], [], spent_usd=0.0).delegates == (
+        Delegate("ada", "needs_context"),
+    )
 
 
 def test_the_reply_is_the_last_text_of_the_last_turn():

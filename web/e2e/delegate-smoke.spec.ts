@@ -1,18 +1,23 @@
 import { expect, test } from "@playwright/test";
 import { coderTemplate, devAgent, mockApi, run } from "./mock-api";
 
+// Written before results carried an `outcome=` line; the history still holds these.
 const RESULT = "conversation=c-child status=done spent=$0.0250 steps=4\nĐã dọn xong hai tệp.";
+const UNFINISHED =
+  "conversation=c-child status=done spent=$0.0100 steps=2\noutcome=needs_context reason=chưa biết ngày nào\nCần biết ngày khám.";
+
+function delegation(output: string) {
+  const call = { agent: "coder", task: "Dọn mã trong web" };
+  return [[
+    { type: "assistant_message", message_id: "a1", content: "", tool_calls: [{ id: "tc", name: "delegate", arguments: call }], provider: "fake", model: "echo", cost_usd: 0 },
+    { type: "tool_call", tool_call_id: "tc", name: "delegate", arguments: call },
+    { type: "tool_result", tool_call_id: "tc", name: "delegate", ok: true, output },
+    { type: "done", spent_usd: 0.03, unknown_cost_calls: 0 },
+  ]];
+}
 
 test("a handed-off task reads as a job, not as a tool call", async ({ page }) => {
-  await mockApi(page, {
-    agents: [devAgent],
-    turns: [[
-      { type: "assistant_message", message_id: "a1", content: "", tool_calls: [{ id: "tc", name: "delegate", arguments: { agent: "coder", task: "Dọn mã trong web" } }], provider: "fake", model: "echo", cost_usd: 0 },
-      { type: "tool_call", tool_call_id: "tc", name: "delegate", arguments: { agent: "coder", task: "Dọn mã trong web" } },
-      { type: "tool_result", tool_call_id: "tc", name: "delegate", ok: true, output: RESULT },
-      { type: "done", spent_usd: 0.03, unknown_cost_calls: 0 },
-    ]],
-  });
+  await mockApi(page, { agents: [devAgent], turns: delegation(RESULT) });
   await page.goto("/");
   await page.getByRole("textbox").fill("dọn giúp tôi");
   await page.keyboard.press("Enter");
@@ -26,6 +31,22 @@ test("a handed-off task reads as a job, not as a tool call", async ({ page }) =>
   await card.getByRole("button", { name: "Xem kết quả" }).click();
   await expect(card).toContainText("Đã dọn xong hai tệp.");
   await expect(card).not.toContainText("conversation=c-child");
+});
+
+test("a task that came back short of done says so, and why, on the card", async ({ page }) => {
+  await mockApi(page, { agents: [devAgent], turns: delegation(UNFINISHED) });
+  await page.goto("/");
+  await page.getByRole("textbox").fill("tra lịch khám");
+  await page.keyboard.press("Enter");
+
+  const card = page.getByTestId("delegate-card");
+  const chip = card.getByTestId("delegate-status");
+  await expect(chip).toHaveText("cần thêm thông tin");
+  await expect(chip).toHaveAttribute("data-tone", "warn");
+  await expect(card.getByTestId("delegate-reason")).toHaveText("chưa biết ngày nào");
+  await card.getByRole("button", { name: "Xem kết quả" }).click();
+  await expect(card).toContainText("Cần biết ngày khám.");
+  await expect(card).not.toContainText("outcome=");
 });
 
 test("a work agent is badged, and its delegated run nests under the run that handed it out", async ({ page }) => {

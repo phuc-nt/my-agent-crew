@@ -39,8 +39,8 @@ def unfinished_note(run: RunRecord) -> str:
 def _line(step: dict[str, Any]) -> str:
     return texts.DELEGATE_UNFINISHED_LINE.format(
         name=step.get("name", "?"),
-        arguments=_cut(_arguments(step.get("arguments"))),
-        output=_cut(str(step.get("output") or "")),
+        arguments=cut(_arguments(step.get("arguments"))),
+        output=cut(str(step.get("output") or "")),
     )
 
 
@@ -57,6 +57,7 @@ def _arguments(arguments: Any) -> str:
     return json.dumps(arguments, ensure_ascii=False)
 
 
-def _cut(text: str) -> str:
+def cut(text: str) -> str:
+    """One line, at most FIELD_CHARS long, for a field quoted inside a delegation result."""
     text = " ".join(text.split())
     return text if len(text) <= FIELD_CHARS else text[:FIELD_CHARS] + "…"

@@ -1,0 +1,168 @@
+"""What a delegated task came to, as opposed to how the child's run ended: what the child
+declared in its closing `Status:` line, and what the runtime knows for certain."""
+
+from __future__ import annotations
+
+from dataclasses import replace
+
+import pytest
+
+from my_agent_crew.store.approvals import APPROVED, DENIED, EXPIRED
+from my_agent_crew.store.models import QUESTION, Approval
+from my_agent_crew.store.runs import DONE, FAILED, HALTED, RunRecord
+from my_agent_crew.texts import DELEGATE_TIMEOUT
+from my_agent_crew.tools.delegate_outcome import (
+    BLOCKED,
+    DONE_WITH_CONCERNS,
+    NEEDS_CONTEXT,
+    Outcome,
+    decide,
+    declared_outcome,
+    outcome_line,
+    relays,
+    timed_out,
+)
+from my_agent_crew.tools.delegate_outcome import DONE as OUTCOME_DONE
+from my_agent_crew.tools.delegate_outcome import FAILED as OUTCOME_FAILED
+
+
+@pytest.mark.parametrize(
+    ("answer", "expected"),
+    [
+        ("Đã ghi.\n\nStatus: DONE", Outcome(OUTCOME_DONE)),
+        ("Đã ghi.\n**Status:** DONE", Outcome(OUTCOME_DONE)),
+        ("Đã ghi.\n**Status: DONE**", Outcome(OUTCOME_DONE)),
+        ("Đã ghi.\nstatus: done", Outcome(OUTCOME_DONE)),
+        ("Status:DONE", Outcome(OUTCOME_DONE)),
+        ("- Status: BLOCKED — cần duyệt", Outcome(BLOCKED, "cần duyệt")),
+        ("> Status: NEEDS_CONTEXT: thiếu ngày", Outcome(NEEDS_CONTEXT, "thiếu ngày")),
+        ("* **Status:** BLOCKED, cần bạn đồng ý", Outcome(BLOCKED, "cần bạn đồng ý")),
+    ],
+)
+def test_the_status_line_is_read_in_every_way_a_model_writes_it(answer: str, expected: Outcome):
+    assert declared_outcome(answer) == expected
+
+
+def test_done_with_concerns_is_not_read_as_done():
+    answer = "Xong phần lớn.\nStatus: DONE_WITH_CONCERNS\nSummary: bảng tháng 8 thiếu hai ngày"
+
+    assert declared_outcome(answer) == Outcome(DONE_WITH_CONCERNS, "bảng tháng 8 thiếu hai ngày")
+
+
+@pytest.mark.parametrize("word", ["DONE_FOO", "DONEISH", "MAYBE"])
+def test_a_status_the_contract_does_not_name_is_not_a_declaration(word: str):
+    assert declared_outcome(f"Kết quả.\nStatus: {word}") is None
+
+
+def test_the_last_status_line_wins():
+    answer = "Status: BLOCKED\nNgười dùng đồng ý rồi, tôi làm tiếp.\nStatus: DONE"
+
+    assert declared_outcome(answer) == Outcome(OUTCOME_DONE)
+
+
+def test_an_unknown_status_after_a_valid_one_leaves_the_valid_one_standing():
+    answer = "Status: NEEDS_CONTEXT\nSummary: thiếu ngày\nStatus: MAYBE"
+
+    assert declared_outcome(answer) == Outcome(NEEDS_CONTEXT, "thiếu ngày")
+
+
+def test_the_reason_is_the_summary_line_when_the_status_line_has_none():
+    answer = "Status: BLOCKED\n\nSummary: cần quyền tạo bảng\nConcerns/Blockers: chưa có bảng"
+
+    assert declared_outcome(answer) == Outcome(BLOCKED, "cần quyền tạo bảng")
+
+
+def test_the_reason_is_one_line_and_cut_like_the_unfinished_note():
+    long = "chữ " * 100
+    reason = declared_outcome(f"Status: BLOCKED — {long}").reason
+
+    assert "\n" not in reason and reason.endswith("…") and len(reason) == 161
+
+
+def test_an_answer_that_is_only_the_status_line_is_still_read():
+    assert declared_outcome("Status: NEEDS_CONTEXT") == Outcome(NEEDS_CONTEXT)
+
+
+def test_a_bare_blocked_word_counts_when_there_is_no_status_line():
+    assert declared_outcome("(echo) BLOCKED: cần bạn đồng ý") == Outcome(BLOCKED, "cần bạn đồng ý")
+
+
+@pytest.mark.parametrize(
+    "answer",
+    ["Việc bị blocked vì thiếu quyền", "Đã UNBLOCKED hàng đợi", "cờ BLOCKED_BY vẫn còn", "Xong."],
+)
+def test_other_spellings_of_blocked_and_plain_answers_declare_nothing(answer: str):
+    assert declared_outcome(answer) is None
+
+
+def test_a_status_line_beats_the_word_blocked_in_the_prose():
+    """Before this, the substring alone held a relay back wherever it appeared."""
+    answer = "Tệp từng BLOCKED do khoá, giờ đã mở và ghi xong.\nStatus: DONE"
+
+    assert declared_outcome(answer) == Outcome(OUTCOME_DONE)
+
+
+def run_ending(status: str, summary: str = "") -> RunRecord:
+    return RunRecord(
+        "r1", "worker", "c1", "delegate:p", "t", status, "2026-09-29T08:00:00", summary=summary
+    )
+
+
+def decision(status: str, tool: str = "workspace_write") -> Approval:
+    return Approval("a1", "c1", 1, "t1", tool, {}, status, "2026-09-29T08:00:00")
+
+
+def test_a_run_that_did_not_finish_failed_whatever_the_child_wrote():
+    declared = Outcome(OUTCOME_DONE)
+
+    assert decide(run_ending(HALTED, "loop"), declared, None) == Outcome(OUTCOME_FAILED, "loop")
+    assert decide(run_ending(FAILED, "boom"), None, None) == Outcome(OUTCOME_FAILED, "boom")
+    assert decide(run_ending(FAILED), None, None) == Outcome(OUTCOME_FAILED, FAILED)
+
+
+@pytest.mark.parametrize("status", [DENIED, EXPIRED])
+def test_a_refused_or_lapsed_last_decision_blocks_a_run_that_says_done(status: str):
+    blocked = decide(run_ending(DONE), Outcome(OUTCOME_DONE), decision(status))
+
+    assert blocked == Outcome(BLOCKED, f"workspace_write {status}")
+
+
+def test_an_approved_last_decision_leaves_the_declaration_standing():
+    declared = Outcome(NEEDS_CONTEXT, "thiếu ngày")
+
+    assert decide(run_ending(DONE), declared, decision(APPROVED)) == declared
+    assert decide(run_ending(DONE), None, decision(APPROVED)) == Outcome(OUTCOME_DONE)
+
+
+def test_a_question_nobody_answered_is_not_a_refusal():
+    """A lapsed question lets the child carry on with its default, so the task may be done."""
+    lapsed = replace(decision(EXPIRED, "ask_user"), kind=QUESTION)
+
+    assert decide(run_ending(DONE), None, lapsed) == Outcome(OUTCOME_DONE)
+
+
+def test_a_finished_run_that_declares_nothing_is_done():
+    assert decide(run_ending(DONE), None, None) == Outcome(OUTCOME_DONE)
+
+
+def test_only_done_is_handed_straight_to_the_person():
+    assert relays(Outcome(OUTCOME_DONE))
+    for status in (DONE_WITH_CONCERNS, BLOCKED, NEEDS_CONTEXT, OUTCOME_FAILED):
+        assert not relays(Outcome(status, "lý do"))
+
+
+def test_the_outcome_line_names_a_reason_only_when_the_task_is_not_done():
+    assert outcome_line(Outcome(OUTCOME_DONE, "mọi thứ ổn")) == "outcome=done"
+    assert outcome_line(Outcome(BLOCKED, "cần duyệt")) == "outcome=blocked reason=cần duyệt"
+    assert outcome_line(Outcome(NEEDS_CONTEXT)) == "outcome=needs_context"
+
+
+def test_a_wait_that_runs_out_fails_and_keeps_the_header_the_card_reads():
+    result = timed_out("c9", None)
+
+    assert not result.ok and result.reply is None
+    assert result.output.split("\n", 2) == [
+        "conversation=c9 status=running spent=$0.0000 steps=0",
+        "outcome=failed reason=timeout",
+        DELEGATE_TIMEOUT.format(conv_id="c9"),
+    ]

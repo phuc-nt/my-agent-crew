@@ -73,6 +73,37 @@ describe("the card for a handed-off task", () => {
     expect(open).toHaveBeenCalledWith("c-child");
   });
 
+  it("says in words what the task came to, and marks one that is not done", () => {
+    const answer = "Status: NEEDS_CONTEXT — chưa biết ngày nào";
+    const output = `${HEADER}\noutcome=needs_context reason=chưa biết ngày nào\n${answer}`;
+    render(<ToolCallCard item={delegateCall({ output })} />);
+
+    const chip = screen.getByTestId("delegate-status");
+    expect(chip).toHaveTextContent(vi.delegateOutcome.needs_context);
+    expect(chip).toHaveAttribute("data-tone", "warn");
+    expect(screen.getByTestId("delegate-card")).toHaveTextContent("chưa biết ngày nào");
+  });
+
+  it("marks a task that failed apart from one that only stopped short", () => {
+    const output = `${HEADER}\noutcome=failed reason=timeout\nHết thời gian chờ agent con.`;
+    render(<ToolCallCard item={delegateCall({ status: "failed", output })} />);
+
+    const chip = screen.getByTestId("delegate-status");
+    expect(chip).toHaveTextContent(vi.delegateOutcome.failed);
+    expect(chip).toHaveAttribute("data-tone", "danger");
+    expect(chip).toHaveAttribute("title", "timeout");
+  });
+
+  it("reads a finished task as done, with nothing more to explain", () => {
+    const output = `${HEADER}\noutcome=done\nĐã dọn xong.`;
+    render(<ToolCallCard item={delegateCall({ output })} />);
+
+    const chip = screen.getByTestId("delegate-status");
+    expect(chip).toHaveTextContent(vi.delegateOutcome.done);
+    expect(chip).toHaveAttribute("data-tone", "ok");
+    expect(screen.queryByTestId("delegate-reason")).toBeNull();
+  });
+
   it("shows a task still running, with no result to open yet", () => {
     render(<ToolCallCard item={delegateCall({ status: "running", output: null })} />);
 

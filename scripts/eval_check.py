@@ -35,6 +35,9 @@ class Delegate(NamedTuple):
     agent: str
     outcome: str | None
 
+    def __str__(self) -> str:
+        return f"{self.agent} ({self.outcome or 'no outcome line'})"
+
 
 @dataclass(frozen=True)
 class Observed:
@@ -96,11 +99,10 @@ def check(case: Case, observed: Observed) -> list[Failure]:
     for needle in expect.reply_not_contains:
         if normalize(needle) in reply:
             out.append(Failure("reply_not_contains", f"{needle!r} is in: {_short(observed.reply)}"))
-    if expect.delegates_to and all(d.agent != expect.delegates_to for d in observed.delegates):
-        went = ", ".join(d.agent for d in observed.delegates) or "nobody"
-        out.append(
-            Failure("delegates_to", f"no delegation to {expect.delegates_to}; went to {went}")
-        )
+    wanted = expect.delegates_to
+    if wanted is not None and not any(wanted.hit(*d) for d in observed.delegates):
+        went = ", ".join(map(str, observed.delegates)) or "nobody"
+        out.append(Failure("delegates_to", f"no delegation to {wanted}; went to {went}"))
     if expect.max_cost_usd is not None and observed.spent_usd > expect.max_cost_usd:
         detail = f"spent ${observed.spent_usd:.4f}, at most ${expect.max_cost_usd:.4f}"
         out.append(Failure("max_cost_usd", detail))

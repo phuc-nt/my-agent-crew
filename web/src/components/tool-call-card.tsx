@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { vi } from "../i18n/vi";
-import { delegateAgent, delegateTask, parseDelegateResult } from "../lib/delegate-result";
+import {
+  delegateAgent,
+  delegateTask,
+  delegateTone,
+  parseDelegateResult,
+} from "../lib/delegate-result";
 import type { ThreadItem, ToolStatus } from "../state/thread-reducer";
 import { SUMMARY_CUT, ToolArgsDetail } from "./tool-args-detail";
 import { AgentAvatar } from "./ui/agent-avatar";
@@ -140,9 +145,19 @@ function DelegateCard({
       </div>
       {result && (
         <div className="delegate-result">
-          <span className="delegate-chip" data-testid="delegate-status">
-            {result.status}
+          <span
+            className="delegate-chip"
+            data-testid="delegate-status"
+            data-tone={delegateTone(result)}
+            title={result.outcomeReason}
+          >
+            {result.outcome ? (vi.delegateOutcome[result.outcome] ?? result.outcome) : result.status}
           </span>
+          {result.outcomeReason && (
+            <span className="delegate-reason" data-testid="delegate-reason">
+              {result.outcomeReason}
+            </span>
+          )}
           <span className="muted">
             ${result.spentUsd.toFixed(4)} · {vi.delegateSteps.replace("{n}", String(result.steps))}
           </span>

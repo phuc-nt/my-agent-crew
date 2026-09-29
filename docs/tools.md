@@ -95,7 +95,8 @@ chúng và mỗi spec tool thêm vào đều tốn token prompt:
 
 `delegate` mở một cuộc trò chuyện mới cho agent nêu trong `agent` — một trong các
 `delegates` của bên gọi, hoặc chính nó — chạy việc ở đó, và trả về câu trả lời cuối của cuộc trò chuyện đó
-kèm một dòng đầu ghi id, trạng thái, chi phí và số step. Agent con bắt đầu trống: nó
+kèm hai dòng đầu: dòng một ghi id, trạng thái run, chi phí và số step; dòng hai (`outcome=`) ghi
+việc được giao đi tới đâu. Agent con bắt đầu trống: nó
 không bao giờ thấy lịch sử của cha, và đó là mục đích, nên `task` phải mang theo mọi thứ nó
 cần: ý định của người dùng (lời nguyên văn, ngày hôm nay), không phải cách làm. Mô tả của
 tool và danh sách đội trong prompt của master nói rõ điều này, và danh sách đội không nêu
@@ -109,6 +110,16 @@ tool, danh sách đội, mục "Việc được giao" và skill luôn bật `del
 phần chia việc theo tệp của skill chỉ áp cho việc lập trình.
 Agent con gặp việc cần người dùng đồng ý thì dừng, nói cần làm gì và vì sao, kết thúc
 `Status: BLOCKED`; master kể lại và hỏi người dùng, không tự làm thay, không giao cho agent khác.
+Trạng thái run chỉ nói run kết thúc ra sao: con trả lời "không làm được vì thiếu quyền" vẫn kết
+thúc run là `done`. Dòng `outcome=` nói việc được giao ra sao, xét theo thứ tự. Run lỗi, dừng
+(`budget`, `max_steps`, `loop`) hay hết thời gian chờ là `failed`. Approval tool quyết định gần nhất
+của con bị từ chối hay hết hạn là `blocked`; câu hỏi `ask_user` không ai trả lời thì không tính, vì
+con làm tiếp với mặc định của nó. Còn lại theo dòng `Status:` cuối cùng con viết (`done`,
+`done_with_concerns`, `blocked`, `needs_context`), và con không khai gì là `done` như trước. Khác
+`done` thì dòng có thêm `reason=`, và mô tả tool dặn bên giao nói thẳng với người dùng là việc chưa
+xong và vì sao, không tóm thành đã xong. Hết thời gian chờ thì tool báo lỗi nhưng vẫn giữ dòng một,
+để thẻ giao việc trên web còn chỉ được tới cuộc trò chuyện của con; thẻ hiện outcome bằng chữ, và
+lý do ngay bên cạnh.
 Người dùng kể một dữ kiện thuộc lĩnh vực của agent nào (ăn uống, bia rượu, chi tiêu, giấy tờ)
 hay bảo lưu lại thì master giao agent đó ghi vào sổ của nó, không ghi vào memory thay; hỏi vì
 sao trong lĩnh vực đó thì giao lại kèm dữ kiện mới, không tự suy luận.
@@ -177,7 +188,13 @@ request, kể cả request tới firecrawl, nên URL riêng không bao giờ t�
 
 Khi đặt `FIRECRAWL_BASE_URL`, `fetch_url` nhờ firecrawl lấy nội dung chính dạng markdown
 và giữ 20 000 ký tự của nó; tiêu đề và danh sách còn nguyên, điều mà văn bản thô đã lột mất.
-Firecrawl bị sập hay chậm không phải lỗi — tool rơi về văn bản thuần.
+Firecrawl bị sập, chậm hay trả markdown rỗng không phải lỗi — tool rơi về văn bản thuần.
+
+Tool không trả kết quả rỗng. Máy chủ trả 202 (đã nhận, chưa có kết quả) là lỗi "chưa có kết quả để
+đọc", vì thân đi kèm không phải trang. Trang không còn chữ nào sau khi rút (thân rỗng, hoặc chỉ
+dựng bằng JavaScript) cũng là lỗi nói đúng điều đó: một chuỗi rỗng model đọc thành "trang không
+nói gì" và kể lại như một dữ kiện. `shell_run` cũng vậy: lệnh xong mà không in gì trả về một ghi
+chú nói thế, lệnh hỏng mà không in gì vẫn có dòng mã thoát.
 
 `web_search` thử các backend theo thứ tự và dừng ở cái đầu tiên có kết quả:
 firecrawl, rồi Brave, rồi Tavily, rồi DuckDuckGo. DuckDuckGo không cần khoá và đóng

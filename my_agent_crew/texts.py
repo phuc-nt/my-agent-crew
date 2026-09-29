@@ -9,6 +9,7 @@ from my_agent_crew.texts_halt import *  # noqa: F403
 from my_agent_crew.texts_image import *  # noqa: F403
 from my_agent_crew.texts_kit import *  # noqa: F403
 from my_agent_crew.texts_telegram import *  # noqa: F403
+from my_agent_crew.texts_web import *  # noqa: F403
 from my_agent_crew.texts_workspace import *  # noqa: F403
 
 DENIED_TOOL = (
@@ -44,15 +45,6 @@ GLOB_PARAM_PATTERN = "Mẫu tên tệp, ví dụ **/*.py."
 GLOB_NO_MATCH = "Không có tệp nào khớp."
 
 TOOL_OUTPUT_TRIMMED = "[kết quả cũ đã lược, {chars} ký tự — gọi lại công cụ nếu còn cần]"
-
-URL_SCHEME = "Chỉ hỗ trợ http và https."
-URL_PRIVATE = "Từ chối truy cập địa chỉ nội bộ."
-URL_REDIRECT = "Trang chuyển hướng tới: {location}"
-URL_UNREACHABLE = "Không tới được trang: {error}"
-URL_STATUS = "Trang trả về HTTP {status}."
-
-SEARCH_UNREACHABLE = "Không tới được dịch vụ tìm kiếm: {error}"
-SEARCH_EMPTY = "Không có kết quả cho: {query}"
 
 MEMORY_SAVED = "Đã ghi nhớ ({count} ghi chú)."
 MEMORY_EMPTY = "Không có ghi chú nào khớp."

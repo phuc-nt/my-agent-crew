@@ -42,6 +42,17 @@ async def test_tool_reports_exit_code_and_requires_approval(tmp_path: Path):
     assert result.ok is False and "không tồn tại" in result.output
 
 
+async def test_a_command_that_prints_nothing_still_says_how_it_ended(tmp_path: Path):
+    """An empty result reads to the model as 'nothing happened', success or not."""
+    reg = ToolRegistry([build_shell_tool(tmp_path)])
+
+    quiet = await reg.execute("shell_run", {"command": "true"})
+    quiet_failure = await reg.execute("shell_run", {"command": "exit 4"})
+
+    assert quiet.ok and quiet.output == texts.SHELL_NO_OUTPUT
+    assert not quiet_failure.ok and "Lệnh thoát với mã 4." in quiet_failure.output
+
+
 async def test_a_secret_in_the_server_environment_never_reaches_the_command(
     tmp_path: Path, monkeypatch
 ):

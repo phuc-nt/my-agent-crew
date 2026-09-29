@@ -5,6 +5,7 @@ person's intent, and never grant through a task what the person did not."""
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -19,6 +20,7 @@ from my_agent_crew.server.runtime import Runtime
 from my_agent_crew.skills.loader import parse_skill
 from my_agent_crew.store import Store
 from my_agent_crew.tools.delegate import DELEGATE_TOOL_NAME
+from my_agent_crew.tools.delegate_outcome import Outcome, declared_outcome
 from my_agent_crew.tools.memory import build_memory_tools
 from my_agent_crew.tools.memory_user import build_user_memory_tools
 from tests.test_tools_delegate import agent, delegate
@@ -126,3 +128,16 @@ def test_a_task_is_sized_to_the_question_everywhere_the_model_reads_it(runtime: 
     for text in (description, roster.lower(), handing_out):
         assert SIZED in text and "kết luận cũ" in text
     assert "bảo lưu thì giao lưu" in roster and "bảo lưu thì giao lưu" in handing_out
+
+
+def test_every_status_the_skill_offers_is_one_the_parent_reads(runtime: Runtime):
+    """The child closes on the Status line the skill teaches, the runtime turns it into the
+    result's `outcome=` line, and the parent is told that anything but done is not done."""
+    description = runtime.deps_for("boss").tools.get(DELEGATE_TOOL_NAME).description
+    offered = re.search(r"^Status: (.+)$", SKILL.read_text(encoding="utf-8"), re.MULTILINE)
+
+    assert "`outcome=`" in description and "chưa xong" in description
+    words = offered.group(1).split(" | ")
+    assert len(words) == 4
+    for word in words:
+        assert declared_outcome(f"Xong.\nStatus: {word}") == Outcome(word.lower())

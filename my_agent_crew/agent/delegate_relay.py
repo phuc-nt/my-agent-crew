@@ -6,9 +6,9 @@ since the person's message was exactly one `delegate` call, and the child finish
 child's answer is stored as the delegator's reply as it stands and the turn ends there.
 
 Everything else still goes back through the delegator, which is the agent that knows how
-to ask the person: a child that stopped short (no `reply` rides on its result), one that
-answered nothing, one that came back BLOCKED, a call made with `relay: false`, or a turn
-that also read a file, wrote a note or delegated twice."""
+to ask the person: a child whose task did not come to `done` (no `reply` rides on its
+result), one that answered nothing or declared anything but done, a call made with
+`relay: false`, or a turn that also read a file, wrote a note or delegated twice."""
 
 from __future__ import annotations
 
@@ -20,23 +20,25 @@ from my_agent_crew.agent.events import AssistantMessageEvent, Event
 from my_agent_crew.agents.roster import DELEGATE_TOOL_NAME
 from my_agent_crew.llm.types import Message, ToolCall
 from my_agent_crew.store import StoredMessage
+from my_agent_crew.tools.delegate_outcome import declared_outcome, relays
 from my_agent_crew.tools.progress_note import PROGRESS_NOTE_TOOL_NAME
 from my_agent_crew.tools.registry import ToolResult
 
 if TYPE_CHECKING:
     from my_agent_crew.agent.loop import AgentDeps
 
-# A child that needs the person's decision writes this word; its answer is for the
-# delegator to act on, not for the person to read as a result.
-BLOCKED_MARK = "BLOCKED"
-
 
 def relayable(result: ToolResult) -> str | None:
-    """The answer to hand on, or None when the result must go back through the model."""
+    """The answer to hand on, or None when the result must go back through the model.
+    The answer is read again here, so a result built without an outcome still holds back
+    a child that asked for the person's decision."""
     if not result.ok or result.reply is None:
         return None
     answer = result.reply.strip()
-    if not answer or answer == texts.EMPTY_REPLY or BLOCKED_MARK in answer:
+    if not answer or answer == texts.EMPTY_REPLY:
+        return None
+    declared = declared_outcome(answer)
+    if declared is not None and not relays(declared):
         return None
     return answer
 

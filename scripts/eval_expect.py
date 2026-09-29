@@ -11,6 +11,14 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
+from my_agent_crew.tools.delegate_outcome import (
+    BLOCKED,
+    DONE,
+    DONE_WITH_CONCERNS,
+    FAILED,
+    NEEDS_CONTEXT,
+)
+
 EXPECT_KEYS = (
     "calls_tool",
     "not_calls_tool",
@@ -26,7 +34,9 @@ TOOL_SPEC_KEYS = {
     "not_calls_tool": ("name", "args_regex", "turn"),
     "asks_approval": ("name", "args_regex"),
 }
-DELEGATE_KEYS = ("agent",)
+DELEGATE_KEYS = ("agent", "outcome")
+# What the second line of a delegate result may say the task came to.
+OUTCOMES = (DONE, DONE_WITH_CONCERNS, BLOCKED, NEEDS_CONTEXT, FAILED)
 
 
 @dataclass(frozen=True)
@@ -56,6 +66,18 @@ class ToolSpec:
 
 
 @dataclass(frozen=True)
+class DelegateSpec:
+    agent: str
+    outcome: str | None = None
+
+    def hit(self, agent: str, outcome: str | None) -> bool:
+        return agent == self.agent and (self.outcome is None or outcome == self.outcome)
+
+    def __str__(self) -> str:
+        return self.agent if self.outcome is None else f"{self.agent} ({self.outcome})"
+
+
+@dataclass(frozen=True)
 class Expect:
     calls_tool: tuple[ToolSpec, ...] = ()
     not_calls_tool: tuple[ToolSpec, ...] = ()
@@ -63,7 +85,7 @@ class Expect:
     max_calls: Mapping[str, int] = field(default_factory=dict)
     reply_contains: tuple[str, ...] = ()
     reply_not_contains: tuple[str, ...] = ()
-    delegates_to: str | None = None
+    delegates_to: DelegateSpec | None = None
     max_cost_usd: float | None = None
 
 
@@ -138,16 +160,18 @@ def _needles(raw: object, key: str, where: str) -> tuple[str, ...]:
     return strings([raw] if isinstance(raw, str) else raw, f"{where}: {key}")
 
 
-def _delegates_to(raw: object, where: str) -> str | None:
+def _delegates_to(raw: object, where: str) -> DelegateSpec | None:
     if raw is None:
         return None
     if not isinstance(raw, Mapping):
         raise ValueError(f"{where}: delegates_to is a mapping with an agent")
     only(raw, DELEGATE_KEYS, f"{where}: delegates_to")
-    agent = raw.get("agent")
+    agent, outcome = raw.get("agent"), raw.get("outcome")
     if not isinstance(agent, str) or not agent:
         raise ValueError(f"{where}: delegates_to needs an agent")
-    return agent
+    if outcome is not None and outcome not in OUTCOMES:
+        raise ValueError(f"{where}: delegates_to.outcome is one of {', '.join(OUTCOMES)}")
+    return DelegateSpec(agent, outcome)
 
 
 def _max_cost(raw: object, where: str) -> float | None:

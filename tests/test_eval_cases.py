@@ -90,6 +90,7 @@ def expecting(expect: str) -> str:
         ("- {id: x1, agent: default, messages: [a], colour: red}", "colour"),
         (expecting("replies_with: hi"), "replies_with"),
         (expecting("delegates_to: {agent: b, colour: red}"), "colour"),
+        (expecting("delegates_to: {agent: b, outcome: complete}"), "outcome"),
         (expecting("calls_tool: [{name: t, colour: red}]"), "colour"),
         ("- {agent: default, messages: [a]}", "id"),
         ("- {id: x1, messages: [a]}", "agent"),
@@ -248,6 +249,23 @@ def test_delegates_to_needs_a_delegation_to_that_agent():
     assert judge(spec, Observed(delegates=(Delegate("coder", None),))) == []
     assert judge(spec, Observed(delegates=(Delegate("ledger", None),))) == ["delegates_to"]
     assert judge(spec, Observed()) == ["delegates_to"]
+
+
+def test_delegates_to_with_an_outcome_needs_the_task_to_have_come_to_that():
+    spec = {"delegates_to": {"agent": "researcher", "outcome": "done"}}
+
+    assert judge(spec, Observed(delegates=(Delegate("researcher", "done"),))) == []
+    assert judge(spec, Observed(delegates=(Delegate("researcher", "blocked"),))) == ["delegates_to"]
+    assert judge(spec, Observed(delegates=(Delegate("researcher", None),))) == ["delegates_to"]
+    assert judge(spec, Observed(delegates=(Delegate("coder", "done"),))) == ["delegates_to"]
+    (failure,) = failures(spec, Observed(delegates=(Delegate("researcher", "blocked"),)))
+    assert "researcher (done)" in failure.detail and "researcher (blocked)" in failure.detail
+
+
+def test_delegates_to_without_an_outcome_holds_whatever_the_task_came_to():
+    spec = {"delegates_to": {"agent": "researcher"}}
+
+    assert judge(spec, Observed(delegates=(Delegate("researcher", "failed"),))) == []
 
 
 def test_max_cost_usd_is_a_ceiling_on_what_the_run_spent():

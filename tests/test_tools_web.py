@@ -110,6 +110,72 @@ async def test_http_error_and_unreachable_are_distinct_messages():
     assert texts.URL_UNREACHABLE.split("{")[0] in b.output
 
 
+async def test_a_page_accepted_but_not_ready_is_an_error_not_an_empty_read():
+    """A 202 is the server saying "later". Its empty body used to reach the model as the
+    page, which then reported that the page said nothing."""
+
+    def handler(request):
+        return httpx.Response(202, text="")
+
+    result = await registry(handler).execute("fetch_url", {"url": "https://example.com/"})
+    assert result.ok is False and texts.URL_ACCEPTED_NOT_READY in result.output
+    assert "chưa có kết quả" in texts.URL_ACCEPTED_NOT_READY
+
+
+@pytest.mark.parametrize(
+    ("body", "content_type"),
+    [
+        ("", "text/html"),
+        (" \n\t", "text/plain"),
+        ("<html><script>render()</script><style>p { color: red }</style></html>", "text/html"),
+    ],
+)
+async def test_a_page_with_no_readable_text_is_an_error(body: str, content_type: str):
+    def handler(request):
+        return httpx.Response(200, text=body, headers={"content-type": content_type})
+
+    result = await registry(handler).execute("fetch_url", {"url": "https://example.com/"})
+    assert result.ok is False and texts.URL_EMPTY_BODY in result.output
+
+
+async def test_a_script_page_with_a_title_still_reads_as_its_title():
+    html = "<html><head><title>Giá vàng</title></head><body><script>app()</script></body></html>"
+
+    def handler(request):
+        return httpx.Response(200, text=html, headers={"content-type": "text/html"})
+
+    result = await registry(handler).execute("fetch_url", {"url": "https://example.com/"})
+    assert result.ok and result.output == "Giá vàng"
+
+
+CRAWLED = Settings(
+    home="/tmp/x", routes=(Route("fake", "echo"),), firecrawl_base_url="http://crawl.test"
+)
+
+
+def crawl_then_page(markdown: str, page: str):
+    def handler(request):
+        if request.url.host == "crawl.test":
+            return httpx.Response(200, json={"data": {"markdown": markdown}})
+        return httpx.Response(200, text=page, headers={"content-type": "text/html"})
+
+    return handler
+
+
+async def test_a_blank_scrape_falls_back_to_the_page_itself():
+    handler = crawl_then_page(" \n ", "<p>Nội dung thật</p>")
+
+    result = await registry(handler, CRAWLED).execute("fetch_url", {"url": "https://example.com/"})
+    assert result.ok and result.output == "Nội dung thật"
+
+
+async def test_a_blank_scrape_of_a_blank_page_is_an_error():
+    handler = crawl_then_page("", "<html><body></body></html>")
+
+    result = await registry(handler, CRAWLED).execute("fetch_url", {"url": "https://example.com/"})
+    assert result.ok is False and texts.URL_EMPTY_BODY in result.output
+
+
 def test_web_search_exists_without_any_key():
     """DuckDuckGo closes the backend list, so a machine with no search key still has
     the tool rather than an agent that silently lost it."""

@@ -15,7 +15,9 @@ DELEGATE_DESCRIPTION = (
     "không hỏi; agent nhận việc tự tra dữ liệu mới nhất. "
     "Gọi nhiều lần trong cùng một lượt để chạy song song. Dùng cho việc lớn, độc lập; việc "
     "nhỏ thì tự làm nhanh hơn. Dòng `MEDIA:`/`FILE:` trong kết quả là ảnh, tệp agent con gửi "
-    "người dùng: chép nguyên dòng vào cuối câu trả lời."
+    "người dùng: chép nguyên dòng vào cuối câu trả lời. Dòng thứ hai của kết quả là "
+    "`outcome=`: khác `done` thì nói thẳng với người dùng là việc chưa xong và vì sao, không "
+    "tóm tắt thành đã xong."
 )
 DELEGATE_PARAM_TASK = (
     "Ý định của người dùng cùng ngữ cảnh chỉ cuộc này biết. Không bịa đường dẫn hay chỗ lưu."

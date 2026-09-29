@@ -4,10 +4,14 @@ go by. Pure: nothing here talks to the server."""
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterator, Mapping, Sequence
 from typing import Any
 
 from eval_check import Ask, Call, Delegate, Observed
+
+# Line 2 of a delegate result: what the handed-off task came to.
+_OUTCOME = re.compile(r"outcome=(\S+)(?: reason=.*)?")
 
 
 def child_ids(runs: Sequence[Mapping[str, Any]], conv_id: str) -> list[str]:
@@ -32,6 +36,7 @@ def observe(
     turn_of_call: dict[str, int] = {}
     calls = list(_calls(messages, str(conversation["agent_id"]), turn_of_call))
     last_turn = max(1, sum(1 for m in messages if m["role"] == "user"))
+    outcomes = _outcomes(messages)
     for child in children:
         turn = turn_of_call.get(str(child.get("parent_call_id")), last_turn)
         calls.extend(_calls(child.get("messages", []), str(child["agent_id"]), {}, fixed_turn=turn))
@@ -43,7 +48,10 @@ def observe(
             for a in approvals
             if a.get("kind", "tool") == "tool"
         ),
-        delegates=tuple(Delegate(str(c["agent_id"]), None) for c in children),
+        delegates=tuple(
+            Delegate(str(c["agent_id"]), outcomes.get(str(c.get("parent_call_id"))))
+            for c in children
+        ),
         spent_usd=spent_usd,
         unknown_cost_calls=unknown_cost_calls,
         error=error,
@@ -64,6 +72,17 @@ def _calls(
             at = fixed_turn if fixed_turn is not None else turn
             turn_of_call[str(call["id"])] = at
             yield Call(at, agent, str(call["name"]), dict(call.get("arguments") or {}))
+
+
+def _outcomes(messages: Sequence[Mapping[str, Any]]) -> dict[str, str]:
+    """What each delegation came to, by the id of the call that made it. A result written
+    before the outcome line existed has none, and its delegation reads as None."""
+    found: dict[str, str] = {}
+    for message in messages:
+        lines = str(message.get("content") or "").split("\n", 2)
+        if message["role"] == "tool" and len(lines) > 1 and (hit := _OUTCOME.fullmatch(lines[1])):
+            found[str(message.get("tool_call_id"))] = hit.group(1)
+    return found
 
 
 def _reply(messages: Sequence[Mapping[str, Any]]) -> str:

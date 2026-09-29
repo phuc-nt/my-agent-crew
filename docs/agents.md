@@ -285,8 +285,10 @@ bị xoá. Hai điều khiến nó khác một người dẫn đầu work:
   agent nào giao việc) chỉ gọi `delegate` một lần trong lượt, không gọi tool nào khác, và agent
   con làm xong, câu trả lời của con — kèm biểu đồ, tệp nó gửi — trở thành câu trả lời của lượt,
   không qua một lần gọi model nữa để kể lại. Tin nhắn chuyển tiếp không ghi provider/model và
-  không tính là bước model. Đặt `relay: false` trên lệnh gọi khi còn phải làm tiếp với kết quả;
-  con dừng giữa chừng, trả lời rỗng hoặc báo `BLOCKED` thì vẫn về tay agent giao việc.
+  không tính là bước model. Đặt `relay: false` trên lệnh gọi khi còn phải làm tiếp với kết quả.
+  Chỉ việc đi tới `done` mới đi thẳng: con dừng giữa chừng, bị từ chối duyệt, trả lời rỗng hoặc
+  khai `Status:` khác `DONE` (thiếu thông tin, bị chặn, xong mà còn lưu ý) thì kết quả, với dòng
+  `outcome=` và lý do, về tay agent giao việc để nó kể lại cho đúng ([tools.md](tools.md#giao-việc)).
 - **Con được nhắc kết luận trước khi hết bước.** Từ lần gọi model thứ 25 (hoặc một lần trước
   `max_steps` của chính nó, nếu thấp hơn) agent con nhận ghi chú kết luận và không còn tool, để
   thứ trả về là một câu trả lời chứ không phải một mảnh bị trần bước cắt. Ghi chú nằm trong cuộc

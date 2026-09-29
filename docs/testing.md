@@ -169,7 +169,8 @@ uv run python scripts/run_evals.py --dry-run
   `approve`), `answers` (trả lời lần lượt cho câu hỏi của agent) và `expect`: `calls_tool`,
   `not_calls_tool`, `asks_approval` (mỗi mục là `{name, args_regex?, agent?, turn?}`; regex tìm
   trong tham số viết thành JSON, lượt đếm từ 1), `max_calls`, `reply_contains`,
-  `reply_not_contains` (không phân biệt hoa thường và dấu), `delegates_to` và `max_cost_usd`.
+  `reply_not_contains` (không phân biệt hoa thường và dấu), `delegates_to` (`{agent, outcome?}`;
+  `outcome` là một trong năm giá trị của dòng `outcome=` trong kết quả giao việc) và `max_cost_usd`.
   Khoá lạ, regex hỏng hay id trùng bị từ chối *trước* khi tốn đồng nào. Việc một agent con làm
   tính vào lượt của cha đã giao nó.
 - **Mỗi case chơi `--runs` lần** (mặc định 3) và đạt khi ít nhất hai phần ba số lần đạt. Số tiền
@@ -556,10 +557,12 @@ tên một test thì sửa dòng của nó trong cùng commit.
   - pytest: `tests/test_eval_cases.py` (đọc case từ tệp hay thư mục; khoá lạ, thiếu id hay
     agent, tin nhắn không phải chuỗi, regex hỏng, id trùng bị từ chối trước khi tốn tiền; từng
     loại kỳ vọng: gọi và không gọi tool theo tên, tham số, agent và lượt, xin duyệt, số lần gọi tối đa,
-    câu đáp chứa và không chứa, giao việc cho agent nào, giá tối đa; "hai phần ba số lần chơi
-    đạt thì case đạt");
+    câu đáp chứa và không chứa, giao việc cho agent nào và việc đi tới outcome nào (không nêu
+    outcome thì outcome nào cũng được, outcome lạ bị từ chối), giá tối đa; "hai phần ba số lần
+    chơi đạt thì case đạt");
     `tests/test_eval_observe.py` (mỗi lệnh gọi mang số lượt và agent, việc của agent con tính
-    vào lượt của cha đã giao, lời đáp cuối, lỗi và giá, tìm ra các cuộc con);
+    vào lượt của cha đã giao, outcome của mỗi lần giao việc đọc từ dòng hai kết quả của nó, kết
+    quả cũ không có dòng đó thì không có outcome; lời đáp cuối, lỗi và giá, tìm ra các cuộc con);
     `tests/test_eval_client.py` (duyệt và từ chối được ghi lại, lệnh nêu đường dẫn live bị từ
     chối kể cả khi chính sách là duyệt, câu hỏi lấy câu trả lời kế tiếp và hết thì hỏng, một
     lượt vẫn bị cắt khi luồng cứ gửi keep-alive, yêu cầu duyệt của agent con được trả lời, được
@@ -584,3 +587,40 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `tests/test_echo_provider.py` (mỗi lệnh gọi của model giả có mã riêng, như provider thật,
     nên hai cuộc trò chuyện giao việc ở cùng một chỗ không nhận nhầm agent con của nhau)
   - Thủ công, tốn tiền thật: `scripts/run_evals.py` trên các case trong `<home>/evals/`
+- **Kết quả giao việc nói việc đi tới đâu (`outcome=` ở dòng hai), không chỉ run kết thúc ra sao;
+  chỉ việc đi tới `done` mới được chuyển thẳng cho người dùng**
+  - pytest: `tests/test_delegate_outcome.py` (dòng `Status:` theo mọi kiểu model viết,
+    `DONE_WITH_CONCERNS` không bị đọc thành `DONE`, dòng cuối thắng, trạng thái lạ bị bỏ qua, lý do
+    lấy từ `Summary:` khi dòng `Status:` không có, chữ `BLOCKED` trần chỉ tính khi không có dòng
+    `Status:`; runtime thắng lời khai: run không xong là `failed`, approval tool quyết định gần nhất
+    bị từ chối hay hết hạn là `blocked`, câu hỏi không ai trả lời thì không; hết giờ chờ vẫn giữ
+    dòng một);
+    `tests/test_tools_delegate.py::test_the_first_two_lines_are_the_ones_the_web_card_reads`
+    (Python và regex của thẻ web đọc cùng hai dòng),
+    `::test_a_child_that_needs_more_context_is_not_handed_on`,
+    `::test_a_child_done_with_concerns_goes_back_to_the_parent_whole`,
+    `::test_a_child_that_declares_done_is_handed_on_word_for_word`,
+    `::test_a_child_whose_last_approval_was_refused_is_blocked`,
+    `::test_a_child_still_waiting_when_the_wait_runs_out_failed`;
+    `tests/test_delegate_relay.py::test_a_child_that_needs_more_context_goes_back_through_the_boss`,
+    `::test_a_child_halted_for_repeating_itself_is_reported_as_failed`;
+    `tests/test_delegation_contract.py::test_every_status_the_skill_offers_is_one_the_parent_reads`
+  - vitest: `lib/delegate-result.test.ts` ("reads what the task came to, and why, from the second
+    line", "reads an outcome with no reason, and one with no reply after it", "leaves the outcome
+    out for a result written before there was one", "goes by the outcome when there is one", "goes
+    by how the run ended for a result that has no outcome"); `components/delegate-cards.test.tsx`
+    ("says in words what the task came to, and marks one that is not done", "marks a task that
+    failed apart from one that only stopped short", "reads a finished task as done, with nothing
+    more to explain")
+  - Playwright: `delegate-smoke.spec.ts`
+    "a task that came back short of done says so, and why, on the card"
+  - Thủ công, tốn tiền thật: case `a-lookup-is-handed-to-the-researcher` trong
+    `<home>/evals/delegation.yaml` (`delegates_to: {agent: researcher, outcome: done}`)
+- **Tool không trả kết quả rỗng: `fetch_url` báo 202 và trang không còn chữ là lỗi, markdown rỗng
+  của firecrawl vẫn rơi về tải trực tiếp; `shell_run` không in gì vẫn nói lệnh kết thúc ra sao**
+  - pytest: `tests/test_tools_web.py::test_a_page_accepted_but_not_ready_is_an_error_not_an_empty_read`,
+    `::test_a_page_with_no_readable_text_is_an_error`,
+    `::test_a_script_page_with_a_title_still_reads_as_its_title`,
+    `::test_a_blank_scrape_falls_back_to_the_page_itself`,
+    `::test_a_blank_scrape_of_a_blank_page_is_an_error`;
+    `tests/test_tools_shell.py::test_a_command_that_prints_nothing_still_says_how_it_ended`

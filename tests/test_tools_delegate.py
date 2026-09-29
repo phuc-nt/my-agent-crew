@@ -4,7 +4,9 @@ keep one delegation from turning into a fan-out nobody asked for."""
 from __future__ import annotations
 
 import asyncio
+import re
 from dataclasses import replace
+from pathlib import Path
 
 import pytest
 
@@ -21,7 +23,7 @@ from my_agent_crew.server.runtime import Runtime
 from my_agent_crew.store import Store
 from my_agent_crew.store.runs import AWAITING
 from my_agent_crew.tools.delegate import DELEGATE_TOOL_NAME, MAX_DELEGATES
-from my_agent_crew.tools.registry import ToolRegistry
+from my_agent_crew.tools.registry import ToolRegistry, ToolResult
 from tests.conftest import collect
 
 
@@ -46,12 +48,15 @@ def runtime(deps_factory, store: Store) -> Runtime:
     return rt
 
 
-async def delegate(runtime: Runtime, parent_id: str, call_id: str, **args) -> str:
+async def delegation_result(runtime: Runtime, parent_id: str, call_id: str, **args) -> ToolResult:
     """Calls the tool the way the loop would: inside a turn, with a call id in context."""
     set_turn_conversation(parent_id, 0)
     set_tool_call_id(call_id)
-    result = await runtime.deps_for("boss").tools.execute(DELEGATE_TOOL_NAME, args)
-    return result.output
+    return await runtime.deps_for("boss").tools.execute(DELEGATE_TOOL_NAME, args)
+
+
+async def delegate(runtime: Runtime, parent_id: str, call_id: str, **args) -> str:
+    return (await delegation_result(runtime, parent_id, call_id, **args)).output
 
 
 async def test_the_parent_gets_the_child_answer_and_pays_for_it(runtime: Runtime):
@@ -209,3 +214,119 @@ async def test_the_child_is_told_its_task_was_written_by_another_agent(runtime: 
     assert texts.DELEGATED_TURN_BODY in system_prompt_for(worker, child)
     direct = runtime.store.create(agent_id="worker")
     assert texts.DELEGATED_TURN_TITLE not in system_prompt_for(worker, direct)
+
+
+WEB_PARSER = Path(__file__).parent.parent / "web" / "src" / "lib" / "delegate-result.ts"
+
+
+def web_pattern(name: str) -> re.Pattern[str]:
+    """A regex the web card reads a delegate result with, taken from its source so that
+    changing the lines on either side without the other turns these tests red."""
+    source = WEB_PARSER.read_text(encoding="utf-8")
+    found = re.search(rf"^const {name} = /(.+)/;$", source, re.MULTILINE)
+    assert found, f"{name} is no longer a one-line regex constant in {WEB_PARSER.name}"
+    return re.compile(found.group(1))
+
+
+def lines_of(result: ToolResult) -> tuple[str, str, str]:
+    header, outcome, body = result.output.split("\n", 2)
+    return header, outcome, body
+
+
+async def test_the_first_two_lines_are_the_ones_the_web_card_reads(runtime: Runtime):
+    parent = runtime.store.create(agent_id="boss", autonomous=True)
+    result = await delegation_result(runtime, parent.id, "call-1", task="đếm", agent="worker")
+
+    header, outcome, body = lines_of(result)
+    child = runtime.store.for_parent_call("call-1")
+    assert web_pattern("HEADER").fullmatch(header).groups()[:2] == (child.id, "done")
+    assert web_pattern("OUTCOME").fullmatch(outcome).groups() == ("done", None)
+    assert body == "(echo) đếm" and result.reply == body
+
+
+async def test_a_child_that_needs_more_context_is_not_handed_on(runtime: Runtime):
+    """The run finished, so the first line still says done; the second says the task did
+    not, and the answer goes back to the parent, which is the one that can ask."""
+    parent = runtime.store.create(agent_id="boss", autonomous=True)
+    task = "tra lịch khám\nStatus: NEEDS_CONTEXT — chưa biết ngày nào"
+    result = await delegation_result(runtime, parent.id, "call-1", task=task, agent="worker")
+
+    header, outcome, body = lines_of(result)
+    assert " status=done " in header
+    assert outcome == "outcome=needs_context reason=chưa biết ngày nào"
+    assert body == f"(echo) {task}"
+    assert result.ok and result.reply is None
+
+
+async def test_a_child_done_with_concerns_goes_back_to_the_parent_whole(runtime: Runtime):
+    parent = runtime.store.create(agent_id="boss", autonomous=True)
+    task = "báo cáo tháng 8\nStatus: DONE_WITH_CONCERNS\nSummary: thiếu hai ngày"
+    result = await delegation_result(runtime, parent.id, "call-1", task=task, agent="worker")
+
+    _, outcome, body = lines_of(result)
+    assert outcome == "outcome=done_with_concerns reason=thiếu hai ngày"
+    assert body == f"(echo) {task}" and result.reply is None
+
+
+async def test_a_child_that_declares_done_is_handed_on_word_for_word(runtime: Runtime):
+    parent = runtime.store.create(agent_id="boss", autonomous=True)
+    task = "đã ghi 3 dòng\nStatus: DONE"
+    result = await delegation_result(runtime, parent.id, "call-1", task=task, agent="worker")
+
+    assert lines_of(result)[1] == "outcome=done"
+    assert result.reply == f"(echo) {task}"
+
+
+async def wait_until_paused(runtime: Runtime) -> None:
+    for _ in range(200):
+        if any(run.status == AWAITING for run in runtime.hub.live()):
+            return
+        await asyncio.sleep(0.01)
+    raise AssertionError("the child never paused on its approval")
+
+
+async def test_a_child_whose_last_approval_was_refused_is_blocked(runtime: Runtime):
+    """The child finished its run and wrote no status, but the runtime saw the person say
+    no: that outranks whatever the child made of the refusal."""
+    parent = runtime.store.create(agent_id="boss", autonomous=False)
+    write = '/tool workspace_write {"path": "x.txt", "content": "1"}'
+    waiting = asyncio.create_task(
+        delegation_result(runtime, parent.id, "call-1", task=write, agent="worker")
+    )
+    await wait_until_paused(runtime)
+    child = runtime.store.for_parent_call("call-1")
+    approval = runtime.store.approvals.pending(child.id)
+
+    await collect(runtime.inbound.decide(child.id, approval.id, False))
+
+    result = await asyncio.wait_for(waiting, 2)
+    header, outcome, _ = lines_of(result)
+    assert " status=done " in header
+    assert outcome == "outcome=blocked reason=workspace_write denied"
+    assert result.reply is None
+
+
+async def test_a_child_still_waiting_when_the_wait_runs_out_failed(runtime: Runtime, monkeypatch):
+    """The result keeps its header, so the card still shows which conversation to open
+    instead of falling back to bare text."""
+    real_wait = runtime.hub.wait_finished
+
+    async def runs_out(conv_id: str, timeout: float):
+        await wait_until_paused(runtime)
+        return await real_wait(conv_id, 0.01)
+
+    monkeypatch.setattr(runtime.hub, "wait_finished", runs_out)
+    parent = runtime.store.create(agent_id="boss", autonomous=False)
+    write = '/tool workspace_write {"path": "x.txt", "content": "1"}'
+    result = await delegation_result(runtime, parent.id, "call-1", task=write, agent="worker")
+
+    child = runtime.store.for_parent_call("call-1")
+    run = runtime.store.runs.latest_for_conversation(child.id)
+    header, outcome, body = lines_of(result)
+    assert not result.ok and result.reply is None
+    assert web_pattern("HEADER").fullmatch(header)
+    assert header == texts.DELEGATE_RESULT_HEADER.format(
+        conv_id=child.id, status=AWAITING, spent=run.spent_usd, steps=len(run.steps)
+    )
+    assert outcome == "outcome=failed reason=timeout"
+    assert body == texts.DELEGATE_TIMEOUT.format(conv_id=child.id)

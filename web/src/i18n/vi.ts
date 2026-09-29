@@ -152,6 +152,14 @@ export const vi = {
   delegateTask: "Việc đã giao",
   delegateRunning: "đang làm",
   delegateSteps: "{n} bước",
+  // What a handed-off task came to, keyed by the `outcome=` word the server writes.
+  delegateOutcome: {
+    done: "xong",
+    done_with_concerns: "xong, còn lưu ý",
+    blocked: "bị chặn",
+    needs_context: "cần thêm thông tin",
+    failed: "không xong",
+  } as Record<string, string>,
   delegateOpenChild: "Mở cuộc con",
   delegateUnknownAgent: "agent khác",
   delegateChildOf: "cuộc con của {parent}",

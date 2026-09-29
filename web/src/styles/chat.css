@@ -443,6 +443,23 @@ button.suggestion:hover:not(:disabled) {
   font-weight: 500;
 }
 
+/* A task can end its run cleanly and still not be done; the chip says which. */
+.delegate-chip[data-tone="warn"] {
+  background: var(--warn-bg);
+  color: var(--warn-text);
+}
+
+.delegate-chip[data-tone="danger"] {
+  background: var(--danger-bg);
+  color: var(--danger-text);
+}
+
+.delegate-reason {
+  min-width: 0;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
 .delegate-result .link-button {
   margin: 0;
 }

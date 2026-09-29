@@ -154,3 +154,28 @@ async def test_the_next_turn_still_sees_the_delegation_and_the_relayed_answer(cr
     assert seen[-3].role == "tool" and relayed in seen[-3].content
     assert seen[-2].content == relayed
     assert rt.store.history(parent_id)[-1].message.content == RETOLD
+
+
+async def test_a_child_that_needs_more_context_goes_back_through_the_boss(crew):
+    """Its words were written for the delegator; the person gets the boss's retelling."""
+    task = "tra lịch khám\nStatus: NEEDS_CONTEXT — chưa biết ngày nào"
+    rt, parent_id = crew(completion(tool_calls=(delegation("d1", task),)))
+    _, requests, history = await run(rt, parent_id)
+
+    assert len(requests) == 2 and history[-1].message.content == RETOLD
+    result = history[-2].message.content.split("\n")
+    assert result[1] == "outcome=needs_context reason=chưa biết ngày nào"
+
+
+async def test_a_child_halted_for_repeating_itself_is_reported_as_failed(crew, deps_factory):
+    reads = [
+        completion(tool_calls=(ToolCall(f"r{i}", "workspace_read", {"path": "n.md"}),))
+        for i in range(6)
+    ]
+    looping = deps_factory(script=reads, max_steps=20)
+    rt, parent_id = crew(completion(tool_calls=(delegation("d1", "đọc n.md"),)), looping)
+    _, requests, history = await run(rt, parent_id)
+
+    assert len(requests) == 2 and history[-1].message.content == RETOLD
+    result = history[-2].message.content.split("\n")
+    assert " status=halted " in result[0] and result[1] == "outcome=failed reason=loop"
