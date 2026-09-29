@@ -8,7 +8,7 @@ from my_agent_crew.channels.telegram_api import TelegramError
 from my_agent_crew.channels.telegram_offset import read_offset, write_offset
 from my_agent_crew.channels.telegram_polling import TelegramPolling
 from my_agent_crew.texts_telegram import TELEGRAM_CUT_OFF
-from tests.telegram_fake import message
+from tests.telegram_fake import message, settle
 
 TOKEN = "123456:secret-token-value"
 
@@ -170,6 +170,7 @@ async def test_a_stop_leaves_the_queued_messages_for_the_next_bot(
 
     monkeypatch.setattr(telegram_polling, "handle_updates", handle)
     await channel.poll_once()
+    await settle(channel)
 
     assert handled == [7]
     assert (tmp_path / "telegram.offset").read_text() == "123 8"  # 8 stays unconfirmed

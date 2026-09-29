@@ -7,7 +7,9 @@ and a successor that began polling before this loop ended would share the bot wi
 which Telegram answers with a 409 on both. So a stop lets the message in hand finish
 (for a while — a turn is not waited on forever) and returns only once the loop is over.
 A turn that outlives the wait is cut off, and the chat is told so the person can send it
-again: its offset is already written, so no later poll would bring it back.
+again: its offset is already written, so no later poll would bring it back. Turns run in
+the background (`telegram_turns`), so the wait covers every turn the channel started, and one
+a message in hand starts while the stop waits.
 """
 
 from __future__ import annotations
@@ -23,19 +25,20 @@ from my_agent_crew.channels.telegram_api import CONFLICT_STATUS, TelegramApi, Te
 from my_agent_crew.channels.telegram_commands import menu_for
 from my_agent_crew.channels.telegram_inbound import handle_updates
 from my_agent_crew.channels.telegram_offset import write_offset
+from my_agent_crew.channels.telegram_turns import TelegramTurns
 
 if TYPE_CHECKING:
     from my_agent_crew.agent.loop import AgentDeps
 
 logger = logging.getLogger(__name__)
 RETRY_SECONDS = 5
-# How long a stop waits for a message being handled before cutting it off.
+# How long a stop waits for the turns under way before cutting them off.
 STOP_GRACE_SECONDS = 30.0
 # How long telling the chat about a cut-off turn may hold up the stop.
 CUT_OFF_NOTICE_SECONDS = 5.0
 
 
-class TelegramPolling:
+class TelegramPolling(TelegramTurns):
     agent_id: str
     chat_id: int
     _api: TelegramApi
@@ -44,7 +47,6 @@ class TelegramPolling:
     _menu_registered: bool = False
     _task: asyncio.Task[None] | None = None
     _stopping: bool = False
-    _handling: bool = False
 
     @property
     def deps(self) -> AgentDeps:
@@ -60,10 +62,7 @@ class TelegramPolling:
         if task is None:
             return
         self._stopping = True
-        cut_off = False
-        if self._handling:
-            done, _ = await asyncio.wait({task}, timeout=STOP_GRACE_SECONDS)
-            cut_off = not done and self._handling
+        cut_off = await self.wait_for_turns(task, STOP_GRACE_SECONDS)
         task.cancel()
         try:
             await task
@@ -71,6 +70,7 @@ class TelegramPolling:
             current = asyncio.current_task()
             if current is not None and current.cancelling():
                 raise  # the stop itself was cancelled, not only the loop
+        await self.cancel_turns()
         if cut_off:
             await self._say_cut_off()
 

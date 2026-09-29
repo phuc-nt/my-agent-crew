@@ -19,7 +19,7 @@ from my_agent_crew.llm.fake import completion
 from my_agent_crew.llm.types import ToolCall
 from my_agent_crew.store.approvals import ANSWERED
 from my_agent_crew.store.models import QUESTION, Approval
-from tests.telegram_fake import message
+from tests.telegram_fake import message, settle
 
 ASK = ToolCall(
     "q1",
@@ -75,6 +75,7 @@ async def test_the_question_reaches_the_chat_with_its_choices_numbered(
     channel = make_channel(deps_factory(script=asking(ASK, "đã dời")))
     fake.updates = [message(1, "xem hạn")]
     await channel.poll_once()
+    await settle(channel)
     sent = fake.sent[-1]
     assert "Dời hạn sang thứ sáu?" in sent
     assert "1. có" in sent and "2. không" in sent
@@ -86,12 +87,14 @@ async def test_the_next_message_is_read_as_the_answer(make_channel, fake, deps_f
     channel = make_channel(deps_factory(script=asking(ASK, "đã dời")))
     fake.updates = [message(1, "xem hạn")]
     await channel.poll_once()
+    await settle(channel)
     conv = channel.conversation()
     question = channel.store.approvals.pending_question(conv.id)
     assert question is not None
 
     fake.updates = [message(2, "2")]
     await channel.poll_once()
+    await settle(channel)
 
     closed = channel.store.approvals.get(question.id)
     assert closed.status == ANSWERED and closed.answer == "không"
@@ -108,8 +111,10 @@ async def test_a_waiting_tool_approval_still_reports_busy(make_channel, fake, de
     channel = make_channel(deps_factory(script=asking(WRITE, "đã ghi")))
     fake.updates = [message(1, "ghi file")]
     await channel.poll_once()
+    await settle(channel)
     fake.updates = [message(2, "ừ chạy đi")]
     await channel.poll_once()
+    await settle(channel)
     assert fake.sent[-1] == texts.TELEGRAM_BUSY
     assert not (channel.deps.settings.workspace_dir / "x.txt").exists()
 
@@ -122,11 +127,13 @@ async def test_a_slash_command_is_not_swallowed_as_the_answer(make_channel, fake
     channel = make_channel(replace(deps, profile=replace(deps.agent, commands=(brief,))))
     fake.updates = [message(1, "xem hạn")]
     await channel.poll_once()
+    await settle(channel)
     conv = channel.conversation()
     question = channel.store.approvals.pending_question(conv.id)
 
     fake.updates = [message(2, "/brief")]
     await channel.poll_once()
+    await settle(channel)
 
     assert channel.store.approvals.get(question.id).status == "pending"
 
@@ -137,10 +144,12 @@ async def test_a_question_with_no_choices_takes_the_sentence_as_written(
     channel = make_channel(deps_factory(script=asking(OPEN, "đã đặt tên")))
     fake.updates = [message(1, "đặt tên hộ")]
     await channel.poll_once()
+    await settle(channel)
     conv = channel.conversation()
     question = channel.store.approvals.pending_question(conv.id)
 
     fake.updates = [message(2, "Sổ tay tháng chín")]
     await channel.poll_once()
+    await settle(channel)
 
     assert channel.store.approvals.get(question.id).answer == "Sổ tay tháng chín"

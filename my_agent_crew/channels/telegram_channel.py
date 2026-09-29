@@ -3,27 +3,25 @@ master's per-day conversation, run through the same `Inbound` gate as the web UI
 chat and the web are the same mechanism — talk to the master, which delegates. Every agent
 is known to the channel so `deliver` can push a crew member's scheduled brief to the chat
 under that member's name. `telegram_inbound` reads each update (slash commands,
-attachments). Only one process may poll a bot: a 409 means another is."""
+attachments), `telegram_chat` runs each message's turn in the background. Only one
+process may poll a bot: a 409 means another is."""
 
 from __future__ import annotations
 
 import logging
-from collections.abc import AsyncIterator, Callable, Mapping
+from collections.abc import Callable, Mapping
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from my_agent_crew import texts
 from my_agent_crew.activity import ActivityHub
-from my_agent_crew.agent.events import Event
 from my_agent_crew.agent.loop import AgentDeps
-from my_agent_crew.agent.turn_context import TELEGRAM
-from my_agent_crew.channels.telegram_answers import answer_text
 from my_agent_crew.channels.telegram_api import TelegramApi
+from my_agent_crew.channels.telegram_chat import TelegramChat
 from my_agent_crew.channels.telegram_offset import read_offset
 from my_agent_crew.channels.telegram_outbound import TelegramOutbound
-from my_agent_crew.channels.telegram_polling import TelegramPolling
-from my_agent_crew.inbound import Inbound, InboundBusy, collect_reply
+from my_agent_crew.inbound import Inbound
 from my_agent_crew.store import Conversation, Store
 
 logger = logging.getLogger(__name__)
@@ -35,7 +33,7 @@ def channel_key(chat_id: int) -> str:
     return f"telegram:{chat_id}"
 
 
-class TelegramChannel(TelegramPolling):
+class TelegramChannel(TelegramChat):
     def __init__(
         self,
         agents: Mapping[str, AgentDeps],
@@ -102,36 +100,16 @@ class TelegramChannel(TelegramPolling):
             self._outbound[agent_id] = TelegramOutbound(deps, self._api, self.chat_id, prefix)
         return self._outbound[agent_id]
 
-    async def chat(self, text: str) -> None:
-        conv = self.conversation()
-        question = self.store.approvals.pending_question(conv.id)
-        # A slash command is a new instruction, never an answer. Someone who types `/brief`
-        # while a question is open wants the brief, and storing "/brief" as the answer would
-        # both lose the command and close the question with a word the agent cannot use.
-        if question is not None and not text.startswith("/"):
-            # The agent asked something and this is the reply. In a chat there is nowhere
-            # else to put it: telling the person the conversation is busy when it is busy
-            # waiting on them is the one answer that cannot be right.
-            events = self.inbound.answer(conv.id, question.id, answer_text(text, question))
-            return await self.outbound().send(await self.answer(events))
-        try:
-            events = self.inbound.stream(conv.id, text, source=TELEGRAM)
-        except InboundBusy:
-            return await self.say(texts.TELEGRAM_BUSY)
-        await self.outbound().send(await self.answer(events))
-
-    async def answer(self, events: AsyncIterator[Event]) -> str:
-        """The turn as one message, read with "typing…" showing."""
-        async with self.outbound().typing():
-            reply = await collect_reply(events, texts.TELEGRAM_APPROVAL_HOW)
-        return reply.text
-
     async def say(self, text: str) -> None:
         """A message from the bot itself, not from an agent."""
         await self._api.send_message(self.chat_id, text)
 
     def conversation(self) -> Conversation:
-        return self.inbound.conversation_for(self.agent_id, self.channel_key, self._clock, TITLE)
+        """The conversation a message joins: the one a turn runs or messages wait in, else
+        today's."""
+        return self.in_flight() or self.inbound.conversation_for(
+            self.agent_id, self.channel_key, self._clock, TITLE
+        )
 
     def open_conversation(self) -> Conversation:
         return self.inbound.open_conversation(self.agent_id, self.channel_key, self._clock, TITLE)

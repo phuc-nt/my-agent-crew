@@ -38,8 +38,14 @@ TELEGRAM_COMMANDS = {
     "tools": "Các công cụ agent đang có.",
     "approve": "Duyệt công cụ đang chờ.",
     "deny": "Từ chối công cụ đang chờ.",
+    "steer": "Chèn ý vào lượt đang chạy.",
 }
 TELEGRAM_HELP_LINE = "/{command} — {description}"
+# The last line of /help: what a message sent while the agent works becomes.
+TELEGRAM_HELP_BUSY = (
+    "Nhắn khi agent đang làm thì tin xếp hàng chờ lượt sau; "
+    "/steer <nội dung> thì chèn vào lượt đang chạy."
+)
 TELEGRAM_UNKNOWN_COMMAND = "Không có lệnh /{command}. Gửi /help để xem các lệnh."
 TELEGRAM_STATUS = (
     "{title}\n"
@@ -49,12 +55,19 @@ TELEGRAM_STATUS = (
     "Lần chạy gần nhất: {run}"
 )
 TELEGRAM_STATE_IDLE = "sẵn sàng"
+TELEGRAM_STATE_RUNNING = "đang chạy · {queued} tin xếp hàng"
 TELEGRAM_STATE_OVER_BUDGET = "hết ngân sách"
 TELEGRAM_STATE_AWAITING = "đang chờ duyệt {name} (/approve, /deny)"
 TELEGRAM_RUN_NONE = "chưa có"
 TELEGRAM_RUN = "{status}, {steps} bước, {started}"
 TELEGRAM_TOOLS = "Công cụ ({count}):\n{names}"
 TELEGRAM_NO_APPROVAL = "Không có công cụ nào đang chờ duyệt."
+# /new while a turn runs or messages wait: those stay in the conversation they came to.
+TELEGRAM_NEW_BUSY = (
+    "Agent đang làm dở hoặc còn tin xếp hàng; đợi xong rồi hãy /new, hoặc dừng lượt trên web UI."
+)
+# A turn that broke without an answer; only the error's kind is named, the log has the rest.
+TELEGRAM_TURN_FAILED = "Lượt vừa rồi hỏng giữa chừng ({error}); xem log hoặc gửi lại giúp."
 # The first line of a crew member's brief delivered to the master's chat.
 TELEGRAM_AGENT_PREFIX = "[{name}]"
 # Sent when a stop (the bot's token or chat changed from the web) cut off a turn.

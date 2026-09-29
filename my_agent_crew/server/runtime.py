@@ -63,6 +63,7 @@ class Runtime:
         self.drain = QueueDrain(self.store, self.hub, self.inbound)
         if self.channel is not None:
             self.channel.set_on_replaced(self.summarize_replaced)
+            self.channel.set_drain(self.drain)
 
     def summarize_replaced(self, deps: AgentDeps, conv_id: str) -> None:
         """A channel opened a new conversation; recap the one it replaced in the

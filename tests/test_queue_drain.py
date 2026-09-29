@@ -129,7 +129,11 @@ async def test_a_telegram_chat_hears_its_answer_from_its_bot_and_waits_while_the
     # Written into the chat before the bot was asked to answer it.
     assert rig.history() == [("user", "tin")] and rig.store.queue.count(rig.conv.id) == 0
     await settle_loop()
-    assert not rig.hub.busy.busy(rig.conv.id)
+    # The bot's runner returns once it has started its turn, before that turn's run takes
+    # the conversation over, so the drain's claim holds it meanwhile: a message sent in
+    # between waits instead of starting a second turn.
+    assert rig.hub.busy.busy(rig.conv.id)
+    rig.hub.busy.release(rig.conv.id)  # what the run does when it starts
     rig.drain.unregister(TELEGRAM)
     rig.store.queue.add(rig.conv.id, FOLLOW_UP, "tin sau", TELEGRAM)
     rig.drain.schedule(rig.conv.id)

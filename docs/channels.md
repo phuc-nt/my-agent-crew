@@ -126,15 +126,27 @@ tiến trình để client hiển thị chúng.
 
 | Lệnh | Tác dụng |
 |---|---|
-| `/new`, `/reset`, `/start` | mở cuộc trò chuyện khác |
+| `/new`, `/reset`, `/start` | mở cuộc trò chuyện khác (bị từ chối khi lượt còn chạy hoặc còn tin xếp hàng) |
 | `/help` | danh sách lệnh |
 | `/status` | số lượt, chi tiêu so với trần, tuyến, duyệt đang chờ, run gần nhất (giờ bắt đầu theo múi giờ của người dùng, xem `timezone` trong [agents.md](agents.md#agentyaml); run được lưu theo UTC) |
 | `/tools` | tên các tool của master |
+| `/steer <nội dung>` | chèn ý vào lượt đang chạy; lúc rảnh thì là tin thường |
 | `/approve`, `/deny` | giải quyết duyệt đang chờ và stream phần còn lại của lượt về |
 
 `/status@botname` dùng được; `/usr/bin` hoặc câu bắt đầu bằng `/` không phải lệnh và
 đi tới model. Tin nhắn trong lúc một tool đang chờ duyệt nhận được lời nhắc thay vì một
 lượt.
+
+Lượt chạy nền: vòng poll không chờ lượt xong mới đọc tin kế. Trong lúc một lượt chạy, `/status`
+trả lời ngay ("đang chạy · N tin xếp hàng"), tin thường vào hàng của cuộc trò chuyện và chat nhận
+ngay câu báo đã xếp hàng, không kèm "đang gõ…"; khi lượt xong, tin chờ được trả lời bằng một lượt
+riêng như mọi lượt khác. `/steer <nội dung>` hay một lệnh trong kit của agent được chèn vào chính
+lượt đang chạy ở ranh giới tool kế tiếp; `/steer` trơn bị từ chối. Tin gửi cùng một poll với tin
+đang mở lượt cũng vào hàng. Khi lượt còn chạy hoặc còn tin chờ, chat ở lại cuộc trò chuyện đó, kể
+cả qua nửa đêm, và `/new` bị từ chối tới khi xong; `/approve` tìm cả cuộc chờ duyệt không phải cuộc
+mới nhất. "Đang gõ…" chờ Telegram tối đa 3 s cho lần hiện đầu, quá hạn thì lượt vẫn chạy và log ghi
+cảnh báo. Lượt hỏng giữa chừng được ghi log, còn chat chỉ nghe tên loại lỗi, không nghe nội dung.
+Nút Stop trên web chỉ dừng được lượt do hàng của web chạy; lượt Telegram trả lời tin chờ thì chưa.
 
 Câu hỏi agent đặt bằng `ask_user` là chỗ dừng duy nhất không hoạt động theo cách này.
 `/approve` và `/deny` bị từ chối ở đó, vì không có gì để cho phép: thứ còn
@@ -182,7 +194,7 @@ bot mới bắt đầu từ 0 thay vì bỏ qua tin nhắn của nó theo cách 
 khác); kênh ghi log `another poller holds this bot` và thử lại mỗi 5 s.
 
 Dừng bot (dựng lại sau khi token hoặc chat đổi, hoặc server tắt) để
-tin nhắn đang xử lý chạy xong, tối đa 30 s, để các tin nhắn xếp sau nó chưa xác nhận cho
+mọi lượt đang chạy xong (bot thôi nhận tin chờ trước), tối đa 30 s, để các tin nhắn xếp sau nó chưa xác nhận cho
 bot tiếp theo, và chỉ trả về khi vòng poll đã kết thúc, nên
 bot mới không bao giờ poll song song với bot cũ. Long poll đang rảnh bị cắt ngay. Lượt
 vẫn chạy sau 30 s bị huỷ, và chat được báo ("…có thể chưa được trả

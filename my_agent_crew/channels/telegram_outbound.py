@@ -25,6 +25,9 @@ from my_agent_crew.tools.workspace import resolve_inside
 
 logger = logging.getLogger(__name__)
 TYPING_INTERVAL_SECONDS = 4
+# How long the first "typing…" may hold up the turn; one Telegram does not answer is
+# given up so the turn still runs.
+TYPING_FIRST_TIMEOUT_SECONDS = 3.0
 
 
 def _ending(run: RunRecord) -> str:
@@ -142,8 +145,12 @@ class TelegramOutbound:
     @asynccontextmanager
     async def typing(self, interval: float = TYPING_INTERVAL_SECONDS) -> AsyncIterator[None]:
         """Shows the typing indicator at once and keeps it alive for the duration of the
-        block; a failed `sendChatAction` is only logged, it never breaks the turn."""
-        await self._show_typing()
+        block; a failed `sendChatAction` is only logged, it never breaks the turn, and a
+        first one that hangs is given up after a while."""
+        try:
+            await asyncio.wait_for(self._show_typing(), TYPING_FIRST_TIMEOUT_SECONDS)
+        except TimeoutError:
+            logger.warning("telegram %s: typing indicator did not answer", self.agent_id)
         task = asyncio.create_task(self._keep_typing(interval))
         try:
             yield

@@ -11,7 +11,7 @@ import sqlite3
 import threading
 
 from my_agent_crew.store.messages import MessageStore
-from my_agent_crew.store.models import Conversation, StoredMessage
+from my_agent_crew.store.models import AWAITING_APPROVAL, Conversation, StoredMessage
 
 
 def _one(
@@ -35,6 +35,20 @@ def latest_for_channel(
         " ORDER BY created_at DESC, rowid DESC LIMIT 1",
         (agent_id, channel),
     )
+
+
+def awaiting_for_channel(
+    conn: sqlite3.Connection, lock: threading.Lock, agent_id: str, channel: str, limit: int
+) -> list[Conversation]:
+    """The conversations an agent holds on a channel that wait on a decision, newest change
+    first: the one a chat's `/approve` means need not be the newest conversation."""
+    sql = (
+        "SELECT * FROM conversations WHERE agent_id = ? AND channel = ? AND parent_call_id = ''"
+        " AND status = ? ORDER BY updated_at DESC, rowid DESC LIMIT ?"
+    )
+    with lock:
+        rows = conn.execute(sql, (agent_id, channel, AWAITING_APPROVAL, limit)).fetchall()
+    return [Conversation.from_row(r) for r in rows]
 
 
 def previous_for_channel(
@@ -109,6 +123,11 @@ class ConversationLookups:
 
     def latest_for_channel(self, agent_id: str, channel: str) -> Conversation | None:
         return latest_for_channel(self._conn, self._lock, agent_id, channel)
+
+    def awaiting_for_channel(
+        self, agent_id: str, channel: str, limit: int = 5
+    ) -> list[Conversation]:
+        return awaiting_for_channel(self._conn, self._lock, agent_id, channel, limit)
 
     def previous_for_channel(self, agent_id: str, channel: str, before: str) -> Conversation | None:
         return previous_for_channel(self._conn, self._lock, agent_id, channel, before)

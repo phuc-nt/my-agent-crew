@@ -28,13 +28,14 @@ from my_agent_crew.llm.provider import ProviderError
 from my_agent_crew.llm.types import Message, ToolCall
 from my_agent_crew.store.models import AWAITING_APPROVAL
 from my_agent_crew.store.runs import DONE, HALTED, RunRecord
-from tests.telegram_fake import CHAT, TOKEN, document, message, photo
+from tests.telegram_fake import CHAT, TOKEN, document, message, photo, poll_each, settle
 
 
 async def test_inbound_message_runs_a_tracked_turn_and_replies(make_channel, fake, tmp_path):
     channel = make_channel()
     fake.updates = [message(7, "xin chào")]
     assert await channel.poll_once() == 1
+    await settle(channel)
     assert fake.sent == ["(echo) xin chào"]
     [conv] = channel.deps.store.list()
     assert conv.channel == f"telegram:{CHAT}" and conv.agent_id == "default"
@@ -43,6 +44,7 @@ async def test_inbound_message_runs_a_tracked_turn_and_replies(make_channel, fak
     assert run.source == "telegram" and run.conversation_id == conv.id and run.status == "done"
     assert (tmp_path / "telegram.offset").read_text() == "123 8"
     assert await channel.poll_once() == 0  # offset moved past the handled update
+    await settle(channel)
     assert fake.calls.index("sendChatAction") < fake.calls.index("sendMessage")
 
 
@@ -57,6 +59,7 @@ async def test_typing_indicator_is_kept_alive_and_never_breaks_the_turn(make_cha
     fake.updates = [message(1, "a")]
     with caplog.at_level(logging.WARNING, logger="my_agent_crew.channels"):
         await channel.poll_once()
+        await settle(channel)
     assert fake.sent == ["(echo) a"]
     assert "typing indicator" in caplog.text and "sendChatAction" in caplog.text
 
@@ -65,6 +68,7 @@ async def test_messages_from_other_chats_are_ignored(make_channel, fake):
     channel = make_channel()
     fake.updates = [message(1, "hi", chat=99), {"update_id": 2, "message": {"chat": {"id": CHAT}}}]
     assert await channel.poll_once() == 2
+    await settle(channel)
     assert fake.sent == [] and channel.deps.store.list() == []
 
 
@@ -76,6 +80,7 @@ async def test_a_photo_is_saved_to_the_inbox_and_the_agent_reads_its_path_with_t
     fake.files = {"big": "photos/file_7.jpg"}
     fake.updates = [photo(1, "big", caption="sổ đỏ lô B")]
     await channel.poll_once()
+    await settle(channel)
     saved = channel.deps.agent.workspace / "inbox" / "20260921-140509-file_7.jpg"
     assert saved.read_bytes() == b"BYTES:photos/file_7.jpg"
     assert fake.sent == [f"(echo) [Tệp đính kèm đã lưu: {saved}]\nsổ đỏ lô B"]
@@ -108,9 +113,10 @@ async def test_an_album_is_one_message_with_every_photo_and_the_caption(make_cha
         album(1, "p1", "g1", caption="hai mặt giấy tờ"),
         album(2, "p2", "g1"),
         album(3, "p3", "g1"),
-        message(4, "xong"),
     ]
-    assert await channel.poll_once() == 4
+    assert await channel.poll_once() == 3
+    await settle(channel)
+    await poll_each(channel, fake, message(4, "xong"))
     inbox = channel.deps.agent.workspace / "inbox"
     lines = "\n".join(
         f"[Tệp đính kèm đã lưu: {inbox / f'20260921-140509-file_{n}.jpg'}]" for n in (1, 2, 3)
@@ -136,11 +142,13 @@ async def test_an_album_still_arriving_is_waited_for(make_channel, fake, monkeyp
     fake.files = {"p1": "photos/file_1.jpg", "p2": "photos/file_2.jpg"}
     fake.updates = [album(1, "p1", "g1", caption="cả hai")]
     assert await channel.poll_once() == 2
+    await settle(channel)
     [sent] = fake.sent
     assert "file_1.jpg" in sent and "file_2.jpg" in sent and sent.endswith("cả hai")
     assert naps == [telegram_albums.ALBUM_SETTLE_SECONDS] * telegram_albums.ALBUM_SETTLE_ROUNDS
     assert fake.calls.count("getUpdates") == 1 + telegram_albums.ALBUM_SETTLE_ROUNDS
     assert await channel.poll_once() == 0  # the offset moved past the whole album
+    await settle(channel)
 
 
 def test_updates_of_one_album_are_grouped_and_everything_else_stands_alone():
@@ -157,6 +165,7 @@ async def test_a_document_keeps_the_senders_file_name_reduced_to_a_plain_name(ma
     fake.files = {"doc": "documents/file_3.pdf"}
     fake.updates = [document(1, "doc", "../../hợp đồng (bản 2).pdf")]
     await channel.poll_once()
+    await settle(channel)
     inbox = channel.deps.agent.workspace / "inbox"
     [saved] = list(inbox.iterdir())
     assert saved.name == "20260921-080000-hợp_đồng_bản_2_.pdf"
@@ -169,6 +178,7 @@ async def test_a_failed_download_is_reported_without_a_model_turn(make_channel, 
     fake.updates = [photo(1, "gone")]
     with caplog.at_level(logging.WARNING, logger="my_agent_crew.channels"):
         await channel.poll_once()
+        await settle(channel)
     assert len(fake.sent) == 1 and fake.sent[0].startswith("Không tải được tệp đính kèm")
     assert channel.deps.store.list() == [] and TOKEN not in caplog.text
     assert not (channel.deps.agent.workspace / "inbox").exists()
@@ -179,19 +189,20 @@ async def test_same_day_messages_share_one_conversation_and_a_new_day_opens_anot
 ):
     clock = [datetime.now()]
     channel = make_channel(clock=lambda: clock[0])
-    fake.updates = [message(1, "a"), message(2, "b")]
-    await channel.poll_once()
+    await poll_each(channel, fake, message(1, "a"), message(2, "b"))
     assert len(channel.deps.store.list()) == 1
     clock[0] += timedelta(days=1)
     fake.updates = [message(3, "c")]
     await channel.poll_once()
+    await settle(channel)
     assert len(channel.deps.store.list()) == 2
 
 
 async def test_new_and_reset_commands_open_a_fresh_conversation(make_channel, fake):
     channel = make_channel()
-    fake.updates = [message(1, "a"), message(2, "/new"), message(3, "b"), message(4, "/reset")]
-    await channel.poll_once()
+    await poll_each(
+        channel, fake, message(1, "a"), message(2, "/new"), message(3, "b"), message(4, "/reset")
+    )
     assert fake.sent == [
         "(echo) a",
         texts.TELEGRAM_NEW_CONVERSATION,
@@ -205,10 +216,12 @@ async def test_new_and_reset_commands_open_a_fresh_conversation(make_channel, fa
 
 async def test_help_status_tools_and_unknown_commands_are_answered_locally(make_channel, fake):
     channel = make_channel()
-    fake.updates = [message(1, "xin chào"), message(2, "/help"), message(3, "/status@mybot")]
-    await channel.poll_once()
-    fake.updates = [message(4, "/tools"), message(5, "/loop 5m"), message(6, "/usr/bin/x")]
-    await channel.poll_once()
+    await poll_each(
+        channel, fake, message(1, "xin chào"), message(2, "/help"), message(3, "/status@mybot")
+    )
+    await poll_each(
+        channel, fake, message(4, "/tools"), message(5, "/loop 5m"), message(6, "/usr/bin/x")
+    )
     reply, help_text, status, tools, unknown, path = fake.sent
     assert reply == "(echo) xin chào"
     assert help_text.splitlines()[0] == "/new — " + texts.TELEGRAM_COMMANDS["new"]
@@ -243,8 +256,9 @@ WRITE = ToolCall("c1", "workspace_write", {"path": "out.txt", "content": "ok"})
 async def test_approve_and_deny_commands_resolve_the_pending_tool(make_channel, fake, deps_factory):
     deps = deps_factory(script=[completion(tool_calls=(WRITE,)), completion("đã ghi")])
     channel = make_channel(deps)
-    fake.updates = [message(1, "/approve"), message(2, "ghi file"), message(3, "/approve")]
-    await channel.poll_once()
+    await poll_each(
+        channel, fake, message(1, "/approve"), message(2, "ghi file"), message(3, "/approve")
+    )
     assert fake.sent == [
         texts.TELEGRAM_NO_APPROVAL,
         texts.REPLY_APPROVAL.format(
@@ -258,8 +272,9 @@ async def test_approve_and_deny_commands_resolve_the_pending_tool(make_channel, 
     deps = deps_factory(script=[completion(tool_calls=(again,)), completion("thôi vậy")])
     channel = make_channel(deps)  # same store, same day: continues the conversation above
     fake.sent.clear()
-    fake.updates = [message(4, "ghi file"), message(5, "/status"), message(6, "/deny")]
-    await channel.poll_once()
+    await poll_each(
+        channel, fake, message(4, "ghi file"), message(5, "/status"), message(6, "/deny")
+    )
     assert texts.TELEGRAM_STATE_AWAITING.format(name="workspace_write") in fake.sent[1]
     assert fake.sent[2] == "thôi vậy"
     assert not (deps.settings.workspace_dir / "second.txt").exists()
@@ -273,6 +288,7 @@ async def test_text_written_next_to_a_tool_call_is_not_lost(make_channel, fake, 
     channel = make_channel(deps)
     fake.updates = [message(1, "hỏi")]
     await channel.poll_once()
+    await settle(channel)
     assert fake.sent == ["Phân tích dài.", texts.TELEGRAM_MEDIA_MISSING.format(path="x.png")]
 
 
@@ -282,12 +298,14 @@ async def test_provider_failure_and_pending_approval_become_notices(
     channel = make_channel(deps_factory(script=[ProviderError("model down")]))
     fake.updates = [message(1, "a")]
     await channel.poll_once()
+    await settle(channel)
     [notice] = fake.sent
     assert notice.startswith(texts.REPLY_ERROR.format(message="")) and "model down" in notice
     conv = channel.conversation()
     channel.deps.store.update(conv.id, status=AWAITING_APPROVAL)
     fake.updates = [message(2, "b")]
     await channel.poll_once()
+    await settle(channel)
     assert fake.sent[-1] == texts.TELEGRAM_BUSY
 
 
@@ -353,6 +371,7 @@ async def test_a_crew_members_brief_is_delivered_under_its_name_from_its_own_wor
     assert await channel.deliver(stranger.id) is False
     fake.updates = [message(1, "hi")]
     await channel.poll_once()  # the chat itself still goes to the master, unprefixed
+    await settle(channel)
     assert fake.sent[-1] == "(echo) hi" and master.store.list(agent_id="default")
 
 
@@ -434,6 +453,7 @@ async def test_a_turn_that_produces_no_text_says_so_instead_of_staying_silent(
     channel = make_channel(deps)
     fake.updates = [message(1, "tuần này sao rồi")]
     await channel.poll_once()
+    await settle(channel)
     blank = texts.BLANK_COMPLETION.format(provider="scripted", model="m")
     assert fake.sent == [texts.REPLY_ERROR.format(message=blank)]
 
@@ -447,6 +467,7 @@ async def test_an_approval_forced_by_the_ask_list_says_which_pattern_matched(
     channel.deps.store.update(channel.conversation().id, autonomous=True)
     fake.updates = [message(1, "dọn tmp")]
     await channel.poll_once()
+    await settle(channel)
     reason = texts.SHELL_ASK_REASON.format(pattern="rm -rf")  # first match in list order
     how = texts.TELEGRAM_APPROVAL_HOW
     notice = texts.REPLY_APPROVAL.format(name="shell_run", reason=f" ({reason})", how=how)
@@ -504,10 +525,12 @@ async def test_opening_a_new_conversation_hands_the_replaced_one_to_the_runtime(
     channel.set_on_replaced(lambda deps, conv_id: replaced.append(conv_id))
     fake.updates = [message(1, "xin chào")]
     await channel.poll_once()
+    await settle(channel)
     first = channel.conversation()
 
     fake.updates = [message(2, "/new")]
     await channel.poll_once()
+    await settle(channel)
 
     assert replaced == [first.id]
     assert channel.conversation().id != first.id
@@ -520,6 +543,7 @@ async def test_the_first_conversation_on_a_channel_replaces_nothing(make_channel
     fake.updates = [message(1, "/new")]
 
     await channel.poll_once()
+    await settle(channel)
 
     assert replaced == []
 
@@ -531,10 +555,12 @@ async def test_a_new_day_replaces_yesterdays_conversation(make_channel, fake):
     channel.set_on_replaced(lambda deps, conv_id: replaced.append(conv_id))
     fake.updates = [message(1, "xin chào")]
     await channel.poll_once()
+    await settle(channel)
     yesterday = channel.conversation()
 
     clock[0] += timedelta(days=1)
     fake.updates = [message(2, "chào buổi sáng")]
     await channel.poll_once()
+    await settle(channel)
 
     assert replaced == [yesterday.id] and channel.conversation().id != yesterday.id

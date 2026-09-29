@@ -102,6 +102,7 @@ async def restart_channel(rt: Runtime) -> None:
         rt.channel = build_channel(rt.agents, rt.hub, rt.client, os.environ)
         if rt.channel is not None:
             rt.channel.set_on_replaced(rt.summarize_replaced)
+            rt.channel.set_drain(rt.drain)
     finally:
         if live:
             rt.start_channel()

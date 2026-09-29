@@ -1,7 +1,8 @@
 """Message syntax the Telegram channel answers itself, so the model never sees it (a
 "/reset" that reaches the model costs a turn and a bootstrap ritual). Slash commands are
 a small pick of what chat bots usually offer: open a new conversation, help, status,
-tools, and approve/deny for a tool waiting on the web UI. `MENU` is registered with
+tools, approve/deny for a tool waiting on the web UI, and `/steer`, which goes to the
+agent as a message that joins the running turn. `MENU` is registered with
 Telegram at startup so the client shows these instead of whatever the previous bot code
 registered."""
 
@@ -22,6 +23,7 @@ if TYPE_CHECKING:
 
 NEW_CONVERSATION = ("new", "reset", "start")
 BOT_COMMANDS = ("help",)  # answered by the bot about itself, not about the conversation
+CHAT_COMMANDS = ("steer",)  # built in, yet a message to the agent (`Inbound` reads it)
 MENU = tuple((name, texts.TELEGRAM_COMMANDS[name]) for name in texts.TELEGRAM_COMMANDS)
 _COMMAND = re.compile(r"^/([a-z0-9_:.-]+)(?:@\w+)?(?:\s|$)")
 # What Telegram accepts in its command menu; a kit command outside this shape still works
@@ -55,6 +57,8 @@ def menu_for(commands: Sequence[Command]) -> list[tuple[str, str]]:
 
 async def answer_command(channel: TelegramChannel, command: str) -> str:
     if command in NEW_CONVERSATION:
+        if channel.in_flight() is not None:
+            return texts.TELEGRAM_NEW_BUSY
         channel.open_conversation()
         return texts.TELEGRAM_NEW_CONVERSATION
     if command == "help":
@@ -75,17 +79,19 @@ def bot_answers(command: str) -> bool:
 
 
 def help_text(extra: Sequence[Command] = ()) -> str:
-    """The built-in commands, then every kit command the agent has, listed or not."""
+    """The built-in commands, every kit command the agent has, listed or not, and what a
+    message sent while the agent works becomes."""
     lines = [*MENU]
     lines += [
         (c.name, c.description or texts.KIT_COMMAND_NO_DESCRIPTION)
         for c in extra
         if not is_builtin(c.name)
     ]
-    return "\n".join(
+    help_lines = [
         texts.TELEGRAM_HELP_LINE.format(command=name, description=description)
         for name, description in lines
-    )
+    ]
+    return "\n".join([*help_lines, texts.TELEGRAM_HELP_BUSY])
 
 
 def local_clock(stamp: str, zone: tzinfo | None = None) -> str:
@@ -100,6 +106,8 @@ def status_text(channel: TelegramChannel) -> str:
     if conv.status == AWAITING_APPROVAL:
         pending = deps.store.approvals.pending(conv.id)
         state = texts.TELEGRAM_STATE_AWAITING.format(name=pending.tool_name if pending else "?")
+    elif channel.hub.busy.busy(conv.id):
+        state = texts.TELEGRAM_STATE_RUNNING.format(queued=deps.store.queue.count(conv.id))
     elif conv.over_budget:
         state = texts.TELEGRAM_STATE_OVER_BUDGET
     else:
@@ -125,11 +133,16 @@ def status_text(channel: TelegramChannel) -> str:
 
 
 async def decide(channel: TelegramChannel, approve: bool) -> str:
-    """Resolves the pending approval of today's conversation and runs the rest of the
-    turn like a normal message, so the answer comes back to the chat."""
-    conv, deps = channel.conversation(), channel.deps
-    pending = deps.store.approvals.pending(conv.id)
-    if conv.status != AWAITING_APPROVAL or pending is None:
-        return texts.TELEGRAM_NO_APPROVAL
-    events = channel.inbound.decide(conv.id, pending.id, approve, source=TELEGRAM)
-    return await channel.answer(events)
+    """Resolves the pending approval of the chat's latest conversation that waits on one,
+    which need not be today's, and runs the rest of that turn in the background like a
+    message; its answer comes to the chat when it ends, so this says nothing itself. One
+    already resuming is busy and passed over: a second `/approve` resumes nothing."""
+    store = channel.deps.store
+    for conv in store.awaiting_for_channel(channel.agent_id, channel.channel_key):
+        pending = store.approvals.pending(conv.id)
+        if pending is None or channel.hub.busy.busy(conv.id):
+            continue
+        events = channel.inbound.decide(conv.id, pending.id, approve, source=TELEGRAM)
+        channel.spawn(channel.reply_to(events))
+        return ""
+    return texts.TELEGRAM_NO_APPROVAL

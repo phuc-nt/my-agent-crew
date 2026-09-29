@@ -123,16 +123,22 @@ class QueueDrain:
         task = asyncio.current_task()
         if task is not None:
             self._turns[conv_id] = task
+        answered = False
         try:
             await runner(conv_id, source)
+            answered = True
         except Exception:
             logger.exception("queue of %s: the turn answering it failed", conv_id)
         finally:
             if task is not None and self._turns.get(conv_id) is task:
                 del self._turns[conv_id]
-            # A runner that failed before its run started would otherwise hold the
-            # conversation until the claim lapsed; a later claim is not this one to drop.
-            self._hub.busy.release(conv_id, token)
+            # A runner that returned has handed the conversation to its run, which takes the
+            # claim over when it starts: the bot's runner returns as soon as it has started
+            # its turn, so dropping the claim here would let another turn in first. One that
+            # failed would hold the conversation until the claim lapsed; a later claim is not
+            # this one to drop.
+            if not answered:
+                self._hub.busy.release(conv_id, token)
             self._hub.busy.settle(conv_id)
 
     def _take(self, conv_id: str) -> tuple[Runner, str, object] | None:

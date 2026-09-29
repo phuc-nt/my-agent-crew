@@ -23,6 +23,7 @@ from my_agent_crew.agents.kit_commands import (
 from my_agent_crew.channels.telegram_commands import MENU, help_text, menu_for
 from my_agent_crew.config import Route
 from my_agent_crew.inbound import Inbound
+from tests.telegram_fake import poll_each
 from tests.test_channels_telegram import message
 
 # The Telegram fixtures (`fake`, `make_channel`) come from that module.
@@ -91,10 +92,10 @@ async def test_telegram_passes_kit_commands_to_the_agent_and_lists_them(
     deps = with_commands(deps_factory(routes=(Route("fake", "echo"),)), HELLO, PAIR, PLAIN)
     channel = make_channel(deps)
     await channel.register_menu()
-    fake.updates = [message(1, "/hello An"), message(2, "/mk:plan x"), message(3, "/help")]
-    await channel.poll_once()
-    fake.updates = [message(4, "/loop 5m"), message(5, "/status")]
-    await channel.poll_once()
+    await poll_each(channel, fake, message(1, "/hello An"), message(2, "/mk:plan x"))
+    await poll_each(
+        channel, fake, message(3, "/help"), message(4, "/loop 5m"), message(5, "/status")
+    )
     hello, plan, help_lines, unknown, status = fake.sent
     assert hello == "(echo) Say hello to An in Vietnamese."
     assert plan == "(echo) Write a plan.\n\nx"
@@ -102,7 +103,8 @@ async def test_telegram_passes_kit_commands_to_the_agent_and_lists_them(
     assert status.startswith(channel.conversation().title)  # built-ins still win
     assert "/hello — Chào theo tên." in help_lines and "/mk:plan — Lập kế hoạch." in help_lines
     assert f"/pair — {texts.KIT_COMMAND_NO_DESCRIPTION}" in help_lines
-    assert help_text() == "\n".join(f"/{n} — {d}" for n, d in MENU)
+    lines = [f"/{n} — {d}" for n, d in MENU]
+    assert help_text() == "\n".join([*lines, texts.TELEGRAM_HELP_BUSY])
     # Telegram's menu takes only names it accepts, with a description of some length.
     menu = [(m["command"], m["description"]) for m in fake.menu]
     assert menu == [*MENU, ("hello", "Chào theo tên.")]

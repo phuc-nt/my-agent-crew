@@ -86,6 +86,12 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 - A message sent to `POST /api/inbound` while its conversation is busy is answered at once with
   `status` `queued`, `queued: true`, no steps and a notice as its text; the answer itself is read
   back from the conversation. Every reply carries `queued`.
+- The Telegram bot reads the chat while a turn runs: the turn runs in the background, `/status`
+  answers mid-turn with how many messages wait, a plain message waits in the conversation's line
+  and is answered by a turn of its own, and `/steer <text>` (or a kit command) is steered into
+  the running turn. The chat stays in its conversation until the turn and its line are done, even
+  past midnight, and `/new` waits for them. A stop waits for every running turn before cutting it
+  off, and a "typing…" indicator Telegram does not answer no longer holds the turn.
 
 ### Changed
 

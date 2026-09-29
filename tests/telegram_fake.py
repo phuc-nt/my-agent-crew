@@ -6,6 +6,7 @@ can assert on the messages a person would actually see in the chat.
 
 from __future__ import annotations
 
+import asyncio
 import json
 from urllib.parse import parse_qsl
 
@@ -91,3 +92,24 @@ def document(update_id: int, file_id: str, name: str, caption: str = "") -> dict
     if caption:
         body["caption"] = caption
     return {"update_id": update_id, "message": body}
+
+
+async def settle(channel, drain=None, timeout: float = 5.0) -> None:
+    """Waits for the turns a channel runs in the background, and for any turn they or the
+    drain start after them, so a test reads the chat once everything it set off is done."""
+    async with asyncio.timeout(timeout):
+        while True:
+            tasks = [*channel.turns, *(drain._tasks if drain is not None else ())]
+            running = [task for task in tasks if not task.done()]
+            if not running:
+                return
+            await asyncio.gather(*running, return_exceptions=True)
+
+
+async def poll_each(channel, fake: FakeTelegram, *updates: dict) -> None:
+    """One poll per update, each answered before the next is sent: a person who waits for
+    the reply. Updates of one poll that find a turn running wait in its line instead."""
+    for update in updates:
+        fake.updates = [update]
+        await channel.poll_once()
+        await settle(channel)
