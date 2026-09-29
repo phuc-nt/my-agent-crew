@@ -789,3 +789,24 @@ tên một test thì sửa dòng của nó trong cùng commit.
     hay hết hạn đóng bằng lời từ chối của nó; câu hỏi đóng bằng câu trả lời hoặc mặc định; call còn
     chờ duyệt để nguyên; không làm gì khi mọi call đã có kết quả);
     `tests/test_queue_drain.py::test_what_waited_through_a_restart_comes_after_the_calls_it_cut_short`
+- **Voice note Telegram được chép lời bằng tuyến riêng, "Đã nghe" trước khi vào lượt, không bao
+  giờ đọc như lệnh slash hay `/steer`**
+  - pytest: `tests/test_telegram_voice.py` (`find_voice` đọc voice note và audio file, bỏ qua ảnh
+    hay message trống; voice hợp lệ được chép, "Đã nghe: …" gửi trước, rồi lượt tới master mang
+    cả đường dẫn tệp lẫn lời chép; chưa cấu hình `audio_routes` thì báo cách bật, không tải về;
+    quá 300 giây hay định dạng không nhận ra bị từ chối trước khi tải; quá 10 MB chỉ lộ ra sau
+    khi tải thì vẫn bị chặn trước lúc chép lời; tải hỏng báo lỗi và không mở cuộc trò chuyện nào;
+    tuyến chép lời lỗi báo bằng lý do cố định, không lộ lỗi gốc của provider; lời chép trống hay
+    "không nghe rõ" vẫn tính tiền vào sổ chi phí; chép lời hết giờ báo timeout và không mở lượt;
+    voice tới lúc agent đang bận thì xếp hàng, không bao giờ chen ngang thành `/steer`; hai voice
+    trong một nhóm mỗi cái có lượt chép và lượt riêng của nó; message vừa có voice vừa có document
+    thì đi theo đường voice; tuyến audio đọc thẳng từ deps của kênh, thêm route sau khi khởi động
+    vẫn có tác dụng ngay); `tests/test_side_calls.py` ghi nhận purpose `transcribe` trong
+    `PURPOSES`
+  - vitest: `components/connections-panel.test.tsx`
+    ("shows the providers that were built and the routes in order" — cũng khẳng định
+    `noAudioRoutes` hiện khi chưa cấu hình, "lists the audio route used for voice note
+    transcription"); `components/stats-panel.test.tsx`
+    "names a voice note transcription row by its own purpose"; `components/global-routes-editor.test.tsx`,
+    `test/fake-backend.ts`, `e2e/mock-api.ts` mang trường `audio_routes` trong mọi fixture
+    `ConnectionsInfo` để không mock nào lệch kiểu thật

@@ -132,6 +132,14 @@ describe("the costs page's usage figures", () => {
     expect(unnamed).toHaveTextContent("rerank");
   });
 
+  it("names a voice note transcription row by its own purpose", () => {
+    const purposes = [{ purpose: "transcribe", ...day("x", { calls: 1, cost_usd: 0.00002 }) }];
+    render(<StatsPanel stats={stats({ purposes })} agentName={name} />);
+
+    const [, row] = within(screen.getByTestId("stat-purposes")).getAllByRole("row");
+    expect(row).toHaveTextContent(vi.costPurpose.transcribe);
+  });
+
   it("leaves the purpose card out while the ledger is empty or the server has none", () => {
     const { rerender } = render(<StatsPanel stats={stats()} agentName={name} />);
     expect(screen.queryByTestId("stat-purposes")).not.toBeInTheDocument();

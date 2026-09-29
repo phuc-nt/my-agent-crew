@@ -1,10 +1,12 @@
-"""Telegram updates, from the wire to the master: the chat filter, slash commands, and
-attachments. A photo or a document the person sends is downloaded into the master's
-`<workspace>/inbox/` and the master reads the saved paths in place of the message, with
-the caption after them — the model has no eyes here, but the path travels in a delegated
-task, and a script or a `cp` on the other end takes it from there (a paper into the
-ledger's inbox, a receipt onto Drive). An album arrives as several updates handled
-together (see `telegram_albums`): one message, every photo."""
+"""Telegram updates, from the wire to the master: the chat filter, slash commands,
+attachments and voice notes. A photo or a document the person sends is downloaded into the
+master's `<workspace>/inbox/` and the master reads the saved paths in place of the message,
+with the caption after them — the model has no eyes here, but the path travels in a
+delegated task, and a script or a `cp` on the other end takes it from there (a paper into
+the ledger's inbox, a receipt onto Drive). A voice note goes through `channels.voice`
+instead: it is transcribed before the master ever sees it, so the turn it opens carries
+text like any other. An album arrives as several updates handled together (see
+`telegram_albums`): one message, every photo."""
 
 from __future__ import annotations
 
@@ -25,6 +27,15 @@ from my_agent_crew.channels.telegram_commands import (
     is_builtin,
     parse_command,
 )
+from my_agent_crew.channels.voice import (
+    MAX_VOICE_BYTES,
+    VoicePart,
+    audio_chain,
+    find_voice,
+    listen,
+    refusal,
+)
+from my_agent_crew.llm.metered_chain import MeteredChain
 
 if TYPE_CHECKING:
     from my_agent_crew.channels.telegram_channel import TelegramChannel
@@ -36,9 +47,9 @@ _UNSAFE = re.compile(r"[^\w.\-]+")
 
 @dataclass(frozen=True)
 class Attachment:
-    kind: str  # "photo" or "document"
+    kind: str  # "photo", "document" or "voice"
     file_id: str
-    name: str  # the sender's file name for a document, empty for a photo
+    name: str  # the sender's file name for a document, empty for a photo or voice
 
 
 def find_attachment(message: dict[str, Any]) -> Attachment | None:
@@ -85,10 +96,13 @@ async def handle_updates(channel: TelegramChannel, updates: list[dict[str, Any]]
     chat_ids = {(message.get("chat") or {}).get("id") for message in messages}
     text = next((t for t in map(message_text, messages) if t), "")
     attachments = [a for a in map(find_attachment, messages) if a is not None]
-    if chat_ids != {channel.chat_id} or not (text or attachments):
+    voices = [v for v in map(find_voice, messages) if v is not None]
+    if chat_ids != {channel.chat_id} or not (text or attachments or voices):
         logger.info("telegram: ignored update from chat %s", chat_ids)
         return
     logger.info("telegram: message of %d chars, %d files", len(text), len(attachments))
+    if voices:
+        return await receive_voices(channel, voices, text)
     if attachments:
         return await receive_attachments(channel, attachments, text)
     command = parse_command(text)
@@ -127,3 +141,45 @@ async def receive_attachments(
     files = "\n".join(texts.TELEGRAM_ATTACHMENT_LINE.format(path=path) for path in paths)
     text = texts.TELEGRAM_ATTACHMENT.format(files=files, caption=caption).rstrip()
     await channel.chat(text)
+
+
+async def receive_voices(channel: TelegramChannel, voices: list[VoicePart], caption: str) -> None:
+    """Every voice note transcribed in turn, each its own turn to the agent. One voice
+    stopping (no route, a refusal, a failed download or transcription) never silences the
+    rest of an audio group: it is told apart and the others still run."""
+    for voice in voices:
+        await _receive_one_voice(channel, voice, caption)
+        caption = ""  # the caption belongs to the first voice of the group, like a photo
+
+
+async def _receive_one_voice(channel: TelegramChannel, voice: VoicePart, caption: str) -> None:
+    chain = audio_chain(channel.deps.settings, channel.deps.chain.providers)
+    if chain is None:
+        return await channel.say(texts.TELEGRAM_VOICE_NO_ROUTE)
+    reason = refusal(voice)
+    if reason is not None:
+        return await channel.say(reason)
+    conv = channel.conversation()  # only after the cheap checks, so a refusal starts none
+    inbox = channel.deps.agent.workspace / INBOX_DIR
+    attachment = Attachment("voice", voice.file_id, voice.name)
+    try:
+        path = await save_attachment(channel.api, attachment, inbox, channel.now())
+    except TelegramError as exc:
+        logger.warning("telegram: voice download failed: %s", exc)
+        return await channel.say(texts.TELEGRAM_ATTACHMENT_FAILED.format(error=exc))
+    if path.stat().st_size > MAX_VOICE_BYTES:  # metadata can be absent or wrong
+        mb = 1024 * 1024
+        return await channel.say(
+            texts.TELEGRAM_VOICE_TOO_BIG.format(
+                size=path.stat().st_size / mb, limit=MAX_VOICE_BYTES / mb
+            )
+        )
+    metered = MeteredChain(chain, channel.deps.store, channel.deps.agent.id, "transcribe", conv.id)
+    text, reason = await listen(metered, path, voice.format or "ogg")
+    if reason is not None:
+        return await channel.say(texts.TELEGRAM_VOICE_FAILED.format(reason=reason))
+    heard = text if len(text) <= 500 else text[:500] + "…"
+    await channel.say(texts.TELEGRAM_VOICE_HEARD.format(text=heard))
+    file_line = texts.TELEGRAM_ATTACHMENT_LINE.format(path=path)
+    turn = texts.TELEGRAM_VOICE_TURN.format(file=file_line, text=text, caption=caption).rstrip()
+    await channel.chat(turn)

@@ -10,6 +10,7 @@ const base: ConnectionsInfo = {
   routes: [],
   routes_source: "config",
   vision_routes: [],
+  audio_routes: [],
   keys: [],
   search_backends: ["duckduckgo"],
   firecrawl_base_url: "",
@@ -62,6 +63,18 @@ describe("ConnectionsPanel", () => {
     const models = within(screen.getByTestId("routes")).getAllByLabelText(vi.editor.model);
     expect(models.map((field) => (field as HTMLInputElement).value)).toEqual(["gpt-4", "qwen"]);
     expect(screen.getByText(vi.connectionsPage.noVisionRoutes)).toBeInTheDocument();
+    expect(screen.getByText(vi.connectionsPage.noAudioRoutes)).toBeInTheDocument();
+  });
+
+  it("lists the audio route used for voice note transcription", () => {
+    const connections = {
+      ...base,
+      audio_routes: [{ provider: "openrouter", model: "google/gemini-2.5-flash-lite" }],
+    };
+    render(<ConnectionsPanel connections={connections} credentials={controller([])} onChanged={noop} />);
+
+    expect(screen.getByTestId("audio-routes")).toHaveTextContent("google/gemini-2.5-flash-lite");
+    expect(screen.queryByText(vi.connectionsPage.noAudioRoutes)).not.toBeInTheDocument();
   });
 
   it("puts each key on the card of what it connects, with where it is kept", () => {

@@ -77,3 +77,27 @@ TELEGRAM_CUT_OFF = (
     "Tin nhắn vừa rồi có thể chưa được trả lời trọn vẹn vì bot vừa khởi động lại. "
     "Nếu bạn chưa nhận đủ câu trả lời, gửi lại giúp mình nhé."
 )
+TRANSCRIBE_SYSTEM = (
+    "Bạn chép lời một đoạn ghi âm sang chữ. Chép nguyên văn từng từ, đúng ngôn ngữ nói,"
+    " không tóm tắt, không thêm bớt, không bình luận. Nghe không rõ thì chỉ trả lời"
+    " đúng chuỗi [không nghe rõ], không đoán."
+)
+# Said right after a voice note is transcribed, so the sender can catch a mishearing
+# before it reaches the agent. Cut to 500 characters with an ellipsis: a long clip must
+# not turn this confirmation into the whole answer.
+TELEGRAM_VOICE_HEARD = "Đã nghe: {text}"
+TELEGRAM_VOICE_NO_ROUTE = (
+    "Chưa bật chép lời voice: cần cấu hình audio_routes (biến môi trường"
+    " MY_AGENT_AUDIO_ROUTES) trỏ tới một model nghe được audio."
+)
+TELEGRAM_VOICE_TOO_LONG = "Voice dài {seconds:.0f} giây, quá mức {limit:.0f} giây cho chép lời."
+TELEGRAM_VOICE_TOO_BIG = "Voice nặng {size:.1f} MB, quá mức {limit:.1f} MB cho chép lời."
+TELEGRAM_VOICE_FORMAT = "Không nhận ra định dạng voice này; gửi lại bằng voice note hoặc mp3/m4a."
+TELEGRAM_VOICE_FAILED = "Không chép được lời voice ({reason}); gửi lại giúp."
+VOICE_REASON_TIMEOUT = "hết giờ chờ"
+VOICE_REASON_ROUTE_ERROR = "tuyến chép lời lỗi"
+VOICE_REASON_UNCLEAR = "không nghe rõ tiếng nói"
+# Opens the turn the master sees, right after the attachment line: names the transcript as
+# what it is (a machine's guess at speech) so the model reads it with the same caution the
+# person just got from "Đã nghe: …", and never as a caption written by the sender.
+TELEGRAM_VOICE_TURN = "{file}\nTin nhắn thoại (lời chép, có thể nghe sai): {text}\n{caption}"

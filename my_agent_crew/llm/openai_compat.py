@@ -29,12 +29,17 @@ from my_agent_crew.llm.types import (
 
 
 def _content(m: Message) -> str | list[dict[str, Any]]:
-    """Plain text unless the message carries pictures; then the OpenAI parts form, text
-    first so the model reads the question before the image."""
-    if not m.images:
+    """Plain text unless the message carries pictures or audio; then the OpenAI parts
+    form, text first so the model reads the question before what it sees or hears, then
+    images, then audio."""
+    if not m.images and not m.audio:
         return m.content
     parts: list[dict[str, Any]] = [{"type": "text", "text": m.content}] if m.content else []
     parts += [{"type": "image_url", "image_url": {"url": url}} for url in m.images]
+    parts += [
+        {"type": "input_audio", "input_audio": {"data": a.data, "format": a.format}}
+        for a in m.audio
+    ]
     return parts
 
 

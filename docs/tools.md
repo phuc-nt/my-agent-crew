@@ -453,6 +453,7 @@ debug agent thấy gì, hoặc cho người dùng xem agent biết gì).
 
 ```
 GET /api/connections → {"providers": […], "routes": […], "vision_routes": […],
+                        "audio_routes": […],
                         "keys": [{"name": "OPENROUTER_API_KEY", "present": true}],
                         "telegram": [{"agent_id": "…", "token_env": "…",
                                       "configured": false, "ignored": false}]}

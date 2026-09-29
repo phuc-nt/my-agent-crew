@@ -89,6 +89,7 @@ export const connections = {
   routes: [{ provider: "fake", model: "echo" }],
   routes_source: "config",
   vision_routes: [],
+  audio_routes: [],
   keys: [
     { name: "OPENROUTER_API_KEY", present: true },
     { name: "BRAVE_API_KEY", present: false },

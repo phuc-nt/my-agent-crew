@@ -12,8 +12,6 @@ from dataclasses import dataclass, replace
 from datetime import date, datetime, tzinfo
 from pathlib import Path
 
-import yaml
-
 from my_agent_crew.clock import zone_for
 from my_agent_crew.config_parse import (
     DEFAULT_SHELL_ASK_PATTERNS,
@@ -21,30 +19,17 @@ from my_agent_crew.config_parse import (
     allow_patterns,
     as_bool,
     ask_patterns,
+    audio_routes,
     name_list,
     required_routes,
     vision_routes,
 )
 from my_agent_crew.config_secrets import secrets_from
+from my_agent_crew.config_yaml import from_yaml
 
 __all__ = ["Route", "Settings", "home_from", "load_settings"]
 
 DEFAULT_ROUTES = "openrouter:deepseek/deepseek-v4-flash"
-YAML_KEYS = (
-    "routes",
-    "vision_routes",
-    "cost_cap_usd",
-    "language",
-    "timezone",
-    "max_steps",
-    "autonomous_default",
-    "shell_ask_patterns",
-    "shell_allow_patterns",
-    "approval_ttl_seconds",
-    "tool_output_chars",
-    "openrouter_providers",
-    "openrouter_provider_fallbacks",
-)
 # Characters of one tool result the model gets to see; the rest is cut with a notice.
 DEFAULT_TOOL_OUTPUT_CHARS = 8000
 # How long a tool call waits for a decision before it is treated as denied. A pause
@@ -58,6 +43,9 @@ class Settings:
     routes: tuple[Route, ...]
     # Routes a picture is sent to; empty means no agent can read images.
     vision_routes: tuple[Route, ...] = ()
+    # Routes a voice note is sent to for transcription; empty means Telegram voice notes
+    # get a "not configured" reply instead of a chat turn.
+    audio_routes: tuple[Route, ...] = ()
     openrouter_api_key: str | None = None
     brave_api_key: str | None = None
     tavily_api_key: str | None = None
@@ -126,17 +114,6 @@ class Settings:
         return self.home / "agent.sqlite3"
 
 
-def _from_yaml(home: Path) -> dict:
-    path = home / "config.yaml"
-    if not path.exists():
-        return {}
-    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    unknown = set(data) - set(YAML_KEYS)
-    if unknown:
-        raise ValueError(f"config.yaml: unknown keys {sorted(unknown)}")
-    return data
-
-
 def home_from(env: Mapping[str, str]) -> Path:
     return Path(env.get("MY_AGENT_HOME") or Path.home() / ".my-agent-crew").expanduser()
 
@@ -144,12 +121,13 @@ def home_from(env: Mapping[str, str]) -> Path:
 def load_settings(env: Mapping[str, str] | None = None) -> Settings:
     env = os.environ if env is None else env
     home = home_from(env)
-    file_values = _from_yaml(home)
+    file_values = from_yaml(home)
     routes_text = env.get("MY_AGENT_ROUTES") or file_values.get("routes") or DEFAULT_ROUTES
     settings = Settings(
         home=home,
         routes=required_routes(routes_text),
         vision_routes=vision_routes(env, file_values),
+        audio_routes=audio_routes(env, file_values),
         **secrets_from(env),
         cost_cap_usd=float(
             env.get("MY_AGENT_COST_CAP_USD") or file_values.get("cost_cap_usd", 0.50)

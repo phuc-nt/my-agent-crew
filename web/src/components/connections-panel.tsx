@@ -69,6 +69,18 @@ export function ConnectionsPanel({ connections, credentials, onChanged }: Props)
             ))}
           </ol>
         )}
+        <h4 className="connections-subtitle">{t.audioRoutes}</h4>
+        {connections.audio_routes.length === 0 ? (
+          <p className="muted">{t.noAudioRoutes}</p>
+        ) : (
+          <ol className="route-list" data-testid="audio-routes">
+            {connections.audio_routes.map((route, i) => (
+              <li key={`${route.provider}/${route.model}/${i}`}>
+                <code>{route.provider}</code> <span className="muted">{route.model}</span>
+              </li>
+            ))}
+          </ol>
+        )}
       </MetricCard>
 
       <MetricCard title={t.search}>

@@ -15,6 +15,7 @@ const connections: ConnectionsInfo = {
   routes: [{ provider: "openrouter", model: "deepseek/v4" }],
   routes_source: "config",
   vision_routes: [],
+  audio_routes: [],
   keys: [],
   search_backends: ["duckduckgo"],
   firecrawl_base_url: "",

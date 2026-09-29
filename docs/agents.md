@@ -92,6 +92,7 @@ và `config.yaml`:
 | `MY_AGENT_OPENROUTER_PROVIDERS` | `openrouter_providers` | rỗng; danh sách (hoặc chuỗi phân cách bằng dấu phẩy) tên provider phía sau OpenRouter (`DeepSeek`, `OpenInference`…) thử theo thứ tự, gửi đi dưới `provider.order`. Ghim một provider để cache prompt không mất mỗi khi OpenRouter đổi bên phục vụ |
 | `MY_AGENT_OPENROUTER_PROVIDER_FALLBACKS` | `openrouter_provider_fallbacks` | bật; `false` cấm OpenRouter rơi sang provider ngoài danh sách trên. Không có tác dụng khi danh sách rỗng |
 | `MY_AGENT_VISION_ROUTES` | `vision_routes` | `openrouter:google/gemini-2.5-flash-lite, openrouter:qwen/qwen3-vl-8b-instruct`; chuỗi tuyến mà `image_read` gửi ảnh tới, xem [tools.md](tools.md#ảnh). Giá trị rỗng tắt đọc ảnh |
+| `MY_AGENT_AUDIO_ROUTES` | `audio_routes` | `openrouter:google/gemini-2.5-flash-lite`; chuỗi tuyến mà voice note trên Telegram được gửi tới để chép lời, xem [channels.md](channels.md). Giá trị rỗng tắt chép lời — kênh sẽ báo cách bật thay vì tải voice về |
 | `OLLAMA_BASE_URL` | — | `http://127.0.0.1:11434/v1`; nơi ollama cục bộ lắng nghe. Nó không cần khoá, nên provider này luôn được dựng, xem [tools.md](tools.md#provider-không-cần-khoá) |
 | `OPENROUTER_API_KEY` | — | bật provider OpenRouter |
 | `BRAVE_API_KEY` / `TAVILY_API_KEY` | — | bật `web_search` |

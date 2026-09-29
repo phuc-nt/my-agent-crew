@@ -16,6 +16,15 @@ class ToolCall:
 
 
 @dataclass(frozen=True)
+class AudioPart:
+    """One audio clip attached to a message, ready for the wire. `data` is base64 ASCII,
+    `format` the OpenRouter-recognised extension (`"ogg"`, `"mp3"`, …)."""
+
+    data: str
+    format: str
+
+
+@dataclass(frozen=True)
 class Message:
     role: Role
     content: str = ""
@@ -25,6 +34,9 @@ class Message:
     # Pictures shown with the text, as data URLs. Only a vision route ever gets them;
     # they are not written to the store.
     images: tuple[str, ...] = ()
+    # Audio shown with the text. Only an audio route ever gets it; it is not written to
+    # the store.
+    audio: tuple[AudioPart, ...] = ()
 
 
 @dataclass(frozen=True)

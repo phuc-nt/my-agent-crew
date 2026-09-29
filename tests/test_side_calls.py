@@ -161,6 +161,23 @@ def test_a_purpose_outside_the_fixed_set_is_refused_where_it_is_written(store: S
         store.side_calls.record(SideCall("default", "misc", "p", "m", None))
 
 
+async def test_a_transcription_is_a_side_call_of_its_own_named_purpose(store: Store):
+    conv = store.create()
+    metered = MeteredChain(
+        chain_of([completion("nghe rõ rồi", cost_usd=0.00004)]),
+        store,
+        "master",
+        "transcribe",
+        conv.id,
+    )
+
+    items = await ask(metered)
+
+    assert items[-1].message.content == "nghe rõ rồi"
+    [call] = store.side_calls.for_conversation(conv.id)
+    assert (call.purpose, call.cost_usd) == ("transcribe", 0.00004)
+
+
 @pytest.fixture
 def ledger(store: Store) -> Store:
     """A chat call and three side calls over two days, one of them of unknown cost."""

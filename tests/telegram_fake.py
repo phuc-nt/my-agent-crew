@@ -94,6 +94,38 @@ def document(update_id: int, file_id: str, name: str, caption: str = "") -> dict
     return {"update_id": update_id, "message": body}
 
 
+def voice(update_id: int, file_id: str, duration: float = 3, caption: str = "") -> dict:
+    """A `message.voice`, always OGG/Opus by Telegram's own rule."""
+    body = {
+        "chat": {"id": CHAT},
+        "voice": {"file_id": file_id, "duration": duration, "mime_type": "audio/ogg"},
+    }
+    if caption:
+        body["caption"] = caption
+    return {"update_id": update_id, "message": body}
+
+
+def audio(
+    update_id: int,
+    file_id: str,
+    duration: float = 3,
+    mime_type: str = "",
+    file_name: str = "",
+    caption: str = "",
+) -> dict:
+    """A `message.audio`: an uploaded audio file rather than a recorded voice note, told
+    apart by mime type first and its file name's suffix second."""
+    entry: dict = {"file_id": file_id, "duration": duration}
+    if mime_type:
+        entry["mime_type"] = mime_type
+    if file_name:
+        entry["file_name"] = file_name
+    body = {"chat": {"id": CHAT}, "audio": entry}
+    if caption:
+        body["caption"] = caption
+    return {"update_id": update_id, "message": body}
+
+
 async def settle(channel, drain=None, timeout: float = 5.0) -> None:
     """Waits for the turns a channel runs in the background, and for any turn they or the
     drain start after them, so a test reads the chat once everything it set off is done."""

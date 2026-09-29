@@ -107,6 +107,17 @@ nói phải làm gì với đường dẫn, chẳng hạn đưa nó cho agent đ
 Tải về thất bại được báo vào chat mà không có lượt model. Lệnh slash không được
 đọc từ caption.
 
+Voice note (hoặc file audio) được chép lời bằng một tuyến riêng (`audio_routes`, cấu
+hình như `vision_routes`) trước khi tới master — model chat không nghe được audio. Note
+dài quá 300 giây hoặc nặng quá 10 MB bị từ chối ngay từ metadata, không tải về; định
+dạng không nhận ra (không phải mp3/m4a/ogg/wav/flac/aac) cũng vậy. Note hợp lệ được tải
+vào `inbox/` như một tệp đính kèm, gửi cho tuyến chép lời, rồi kênh trả lời "Đã nghe: …"
+để người gửi tự kiểm tra trước khi lượt của master chạy — bản chép không bao giờ được đọc
+như lệnh slash hay `/steer`, dù nó bắt đầu bằng `/`. Chép lời hết giờ (25 giây), tuyến lỗi,
+hoặc model nói không nghe rõ đều báo lại lý do bằng tiếng Việt, không lộ nguyên văn lỗi của
+provider, và không mở lượt nào cho master. Chưa cấu hình tuyến nào thì kênh báo cách bật
+thay vì tải về. Chi phí mỗi lần chép lời ghi vào sổ chi phí dưới purpose `transcribe`.
+
 Nhiều ảnh gửi cùng lúc tới dưới dạng mỗi ảnh một update cùng chung `media_group_id`,
 caption chỉ ở ảnh đầu. Kênh gom các update liên tiếp của một album thành
 một lượt mà text liệt kê mọi đường dẫn đã lưu, rồi tới caption; một poll kết thúc giữa

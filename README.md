@@ -59,7 +59,7 @@ Secrets are read **only** from environment variables; `config.yaml` holds only n
 | the name given by `telegram.token_env` (e.g. `TELEGRAM_BOT_TOKEN`) | the master's Telegram bot token; missing means the channel is off | — |
 
 `config.yaml` in `MY_AGENT_HOME` accepts exactly these keys: `routes`, `vision_routes`,
-`cost_cap_usd`, `max_steps`, `language`, `timezone`, `autonomous_default`,
+`audio_routes`, `cost_cap_usd`, `max_steps`, `language`, `timezone`, `autonomous_default`,
 `approval_ttl_seconds`, `tool_output_chars`, `shell_ask_patterns`, `shell_allow_patterns`,
 `openrouter_providers`, `openrouter_provider_fallbacks`.
 An unknown key makes the server fail at startup, so one typo does not silently disable a setting.
@@ -143,6 +143,18 @@ the job looks again with its own question. Set `vision_routes: []` to turn it of
 only scanned pages are rendered and sent through `vision_routes`, once per page — so a document
 mixing both kinds only costs money for exactly the scanned pages. Without `vision_routes` configured, typeset
 PDFs are still readable.
+
+## Voice notes
+
+A voice note (or audio file) sent on Telegram is downloaded and transcribed by the `audio_routes`
+chain (by default `google/gemini-2.5-flash-lite` on OpenRouter) before the master ever sees it —
+the chat model cannot hear audio. The channel replies "Đã nghe: …" with the transcript so the
+sender can catch a mishearing, then hands that text to the master as an ordinary message; it is
+never read as a slash command or a `/steer`, whatever it starts with. A note over 300 seconds or
+10 MB, or in a format none of `mp3/m4a/ogg/wav/flac/aac` covers, is refused before it is
+downloaded. Transcription cost is recorded under the `transcribe` purpose in the cost ledger. Set
+`audio_routes: []` to turn it off — the channel then tells the sender how to enable it instead of
+downloading the note.
 
 ## Ask instead of guessing
 

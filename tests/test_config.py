@@ -6,7 +6,11 @@ import pytest
 
 from my_agent_crew.clock import day_start_utc, local_day, zone_for
 from my_agent_crew.config import DEFAULT_ROUTES, Route, ensure_home, load_settings
-from my_agent_crew.config_parse import DEFAULT_SHELL_ASK_PATTERNS, DEFAULT_VISION_ROUTES
+from my_agent_crew.config_parse import (
+    DEFAULT_AUDIO_ROUTES,
+    DEFAULT_SHELL_ASK_PATTERNS,
+    DEFAULT_VISION_ROUTES,
+)
 
 
 def test_defaults_without_env(tmp_path: Path):
@@ -176,3 +180,19 @@ def test_vision_routes_default_to_two_openrouter_models_and_can_be_turned_off(tm
     assert load_settings(env=home).vision_routes == ()
     (tmp_path / "config.yaml").write_text("vision_routes:\n")
     assert load_settings(env=home).vision_routes == ()
+
+
+def test_audio_routes_default_to_one_openrouter_model_and_can_be_turned_off(tmp_path: Path):
+    home = {"MY_AGENT_HOME": str(tmp_path)}
+    assert load_settings(env=home).audio_routes == (Route.parse(DEFAULT_AUDIO_ROUTES),)
+    (tmp_path / "config.yaml").write_text("audio_routes: [fake:listener]\n")
+    assert load_settings(env=home).audio_routes == (Route("fake", "listener"),)
+    assert load_settings(env={**home, "MY_AGENT_AUDIO_ROUTES": "a:b,c:d"}).audio_routes == (
+        Route("a", "b"),
+        Route("c", "d"),
+    )
+    assert load_settings(env={**home, "MY_AGENT_AUDIO_ROUTES": ""}).audio_routes == ()
+    (tmp_path / "config.yaml").write_text("audio_routes: []\n")
+    assert load_settings(env=home).audio_routes == ()
+    (tmp_path / "config.yaml").write_text("audio_routes:\n")
+    assert load_settings(env=home).audio_routes == ()

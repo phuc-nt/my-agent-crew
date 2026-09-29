@@ -99,6 +99,7 @@ def list_connections(rt: Rt) -> dict[str, Any]:
         "routes": [{"provider": r.provider, "model": r.model} for r in s.routes],
         "routes_source": routes_source(s.home),
         "vision_routes": [{"provider": r.provider, "model": r.model} for r in s.vision_routes],
+        "audio_routes": [{"provider": r.provider, "model": r.model} for r in s.audio_routes],
         "keys": [
             {"name": "OPENROUTER_API_KEY", "present": bool(s.openrouter_api_key)},
             {"name": "BRAVE_API_KEY", "present": bool(s.brave_api_key)},

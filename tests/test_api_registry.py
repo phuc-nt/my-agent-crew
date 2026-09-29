@@ -58,6 +58,10 @@ def test_connections_report_a_key_as_present_without_showing_it(crew) -> None:
     assert keys["OPENROUTER_API_KEY"] is True
     assert keys["BRAVE_API_KEY"] is False
     assert body["routes"] == [{"provider": "fake", "model": "echo"}]
+    # The default audio route, reported like vision's, even though nothing here calls it.
+    assert body["audio_routes"] == [
+        {"provider": "openrouter", "model": "google/gemini-2.5-flash-lite"}
+    ]
     # The whole response, not only the keys section: a secret must not reach the browser
     # by any field, and this is the assertion that keeps that true as fields are added.
     assert FAKE_KEY not in json.dumps(body, ensure_ascii=False)

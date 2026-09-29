@@ -368,6 +368,7 @@ export interface ConnectionsInfo {
    * in config.yaml, or the built-in default. The page saves to config.yaml. */
   routes_source: "env" | "config" | "default";
   vision_routes: RouteInfo[];
+  audio_routes: RouteInfo[];
   keys: KeyStatus[];
   /** Search backends in priority order, best first. Never empty. */
   search_backends: string[];

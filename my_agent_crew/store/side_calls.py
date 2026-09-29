@@ -16,7 +16,16 @@ from datetime import UTC, datetime
 # What a side call was for. A fixed set, so the ledger groups by something a person can
 # read and a call site that invents a new word fails where it is written.
 PURPOSES = frozenset(
-    {"title", "session_summary", "tool_summary", "image", "pdf", "consolidate", "wiki"}
+    {
+        "title",
+        "session_summary",
+        "tool_summary",
+        "image",
+        "pdf",
+        "consolidate",
+        "wiki",
+        "transcribe",
+    }
 )
 
 

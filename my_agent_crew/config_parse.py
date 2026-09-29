@@ -17,6 +17,10 @@ DEFAULT_VISION_ROUTES = (
     "openrouter:google/gemini-2.5-flash-lite,openrouter:qwen/qwen3-vl-8b-instruct"
 )
 
+# The chain a voice note is sent to for transcription; same family as vision, so the key
+# that already unlocks vision unlocks this too.
+DEFAULT_AUDIO_ROUTES = "openrouter:google/gemini-2.5-flash-lite"
+
 
 @dataclass(frozen=True)
 class Route:
@@ -51,13 +55,28 @@ def required_routes(value: str | Sequence[str]) -> tuple[Route, ...]:
     return routes
 
 
-def vision_routes(env: Mapping[str, str], file_values: Mapping) -> tuple[Route, ...]:
-    """An empty env value or an empty yaml list turns image reading off on purpose; only
-    an absent setting takes the default."""
-    from_env = env.get("MY_AGENT_VISION_ROUTES")
+def _optional_routes(
+    env: Mapping[str, str], file_values: Mapping, env_name: str, key: str, default: str
+) -> tuple[Route, ...]:
+    """An empty env value or an empty yaml list turns the route off on purpose; only an
+    absent setting takes the default. Shared by every route a chat model does not have to
+    have — vision and audio so far — so each keeps this one rule instead of restating it."""
+    from_env = env.get(env_name)
     if from_env is not None:
         return parse_routes(from_env)
-    return parse_routes(file_values.get("vision_routes", DEFAULT_VISION_ROUTES))
+    return parse_routes(file_values.get(key, default))
+
+
+def vision_routes(env: Mapping[str, str], file_values: Mapping) -> tuple[Route, ...]:
+    return _optional_routes(
+        env, file_values, "MY_AGENT_VISION_ROUTES", "vision_routes", DEFAULT_VISION_ROUTES
+    )
+
+
+def audio_routes(env: Mapping[str, str], file_values: Mapping) -> tuple[Route, ...]:
+    return _optional_routes(
+        env, file_values, "MY_AGENT_AUDIO_ROUTES", "audio_routes", DEFAULT_AUDIO_ROUTES
+    )
 
 
 # Commands that get an approval even in an autonomous conversation. This is a second,

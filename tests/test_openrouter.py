@@ -6,6 +6,7 @@ import pytest
 from my_agent_crew.llm.openrouter import OpenRouterProvider, to_wire, tools_to_wire
 from my_agent_crew.llm.provider import ProviderError
 from my_agent_crew.llm.types import (
+    AudioPart,
     Completion,
     Message,
     StreamStarted,
@@ -195,3 +196,25 @@ def test_a_message_with_pictures_is_sent_as_text_and_image_parts():
         {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,BBBB"}}
     ]
     assert wire[2]["content"] == "chữ thường"
+
+
+def test_a_message_with_audio_is_sent_as_an_input_audio_part_after_text_and_images():
+    wire = to_wire(
+        [
+            Message(
+                role="user",
+                content="Nghe câu này",
+                images=("data:image/png;base64,AAAA",),
+                audio=(AudioPart(data="QkJC", format="ogg"),),
+            ),
+            Message(role="user", content="", audio=(AudioPart(data="Q0ND", format="mp3"),)),
+        ]
+    )
+    assert wire[0]["content"] == [
+        {"type": "text", "text": "Nghe câu này"},
+        {"type": "image_url", "image_url": {"url": "data:image/png;base64,AAAA"}},
+        {"type": "input_audio", "input_audio": {"data": "QkJC", "format": "ogg"}},
+    ]
+    assert wire[1]["content"] == [
+        {"type": "input_audio", "input_audio": {"data": "Q0ND", "format": "mp3"}}
+    ]

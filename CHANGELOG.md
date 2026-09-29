@@ -13,6 +13,13 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ### Added
 
+- A voice note (or audio file) sent on Telegram is transcribed by its own `audio_routes` chain
+  before the master ever sees it. The channel replies "Đã nghe: …" with the transcript so the
+  sender can catch a mishearing, then hands that text to the master as an ordinary message —
+  never as a slash command or a `/steer`, whatever it starts with. A note over 300 seconds, over
+  10 MB, or in a format none of `mp3/m4a/ogg/wav/flac/aac` covers is refused before download.
+  Transcription cost is recorded under a new `transcribe` purpose in the cost ledger, and the
+  connections page lists the configured audio route the same way it already lists vision routes.
 - The costs page splits the whole ledger by what each call was for: the turns' own calls, and
   the ones made beside them — a conversation's title, a session recap, a long tool output
   summarised, a picture or a scanned PDF page read, memory consolidation, the wiki compile.

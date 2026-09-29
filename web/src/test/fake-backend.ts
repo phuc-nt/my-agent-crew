@@ -167,6 +167,7 @@ export class FakeBackend {
     routes: [{ provider: "fake", model: "echo" }],
     routes_source: "config",
     vision_routes: [],
+    audio_routes: [],
     keys: [
       { name: "OPENROUTER_API_KEY", present: false },
       { name: "BRAVE_API_KEY", present: false },
