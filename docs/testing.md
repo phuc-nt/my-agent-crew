@@ -781,8 +781,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     loại lỗi; bot trả lời tin chờ từ lúc start tới lúc stop; "đang gõ…" treo không giữ câu trả
     lời; `/approve` tìm cuộc chờ duyệt nằm sau cuộc mới hơn, gửi hai lần chỉ tiếp tục một lần);
     `tests/test_queue_drain.py::test_a_telegram_chat_hears_its_answer_from_its_bot_and_waits_while_there_is_none`
-    (claim của drain giữ cuộc trò chuyện tới khi run nhận); các test Telegram cũ gửi từng tin một
-    bằng `poll_each` (`tests/telegram_fake.py`)
+    (claim của drain giữ cuộc trò chuyện tới khi run nhận);
+    `tests/test_telegram_drain_wiring.py` (runtime giao drain cho bot dựng lúc khởi động và cho
+    bot dựng lại khi đổi kết nối, nên tin chờ trong chat được bot đang chạy trả lời); các test
+    Telegram cũ gửi từng tin một bằng `poll_each` (`tests/telegram_fake.py`)
 - **Lời gọi tool bị bỏ dở được đóng trước tin mới, không bao giờ chạy lại mà không ai hỏi**
   - pytest: `tests/test_interrupted_calls.py` (call không có kết quả nhận kết quả thay thế nằm
     trước tin mới và không chạy; call đã duyệt mà chưa báo lại không chạy lần nữa; call bị từ chối
