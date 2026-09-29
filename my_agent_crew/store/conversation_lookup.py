@@ -10,6 +10,7 @@ from __future__ import annotations
 import sqlite3
 import threading
 
+from my_agent_crew.store.messages import MessageStore
 from my_agent_crew.store.models import Conversation, StoredMessage
 
 
@@ -96,3 +97,29 @@ def delegating_call_ids(history: list[StoredMessage], tool_name: str) -> tuple[s
         for call in stored.message.tool_calls
         if call.name == tool_name
     )
+
+
+class ConversationLookups:
+    """The lookups above as methods of the store, which holds the connection, the lock and
+    the message log they read. Each method calls the module function of the same name."""
+
+    _conn: sqlite3.Connection
+    _lock: threading.RLock
+    messages: MessageStore
+
+    def latest_for_channel(self, agent_id: str, channel: str) -> Conversation | None:
+        return latest_for_channel(self._conn, self._lock, agent_id, channel)
+
+    def previous_for_channel(self, agent_id: str, channel: str, before: str) -> Conversation | None:
+        return previous_for_channel(self._conn, self._lock, agent_id, channel, before)
+
+    def for_parent_call(self, parent_call_id: str) -> Conversation | None:
+        return for_parent_call(self._conn, self._lock, parent_call_id)
+
+    def children_of(self, call_ids: tuple[str, ...]) -> list[Conversation]:
+        return children_of(self._conn, self._lock, call_ids)
+
+    def delegated_children(self, conv_id: str, tool_name: str) -> list[Conversation]:
+        """What this conversation delegated, oldest first, found through its own tool calls."""
+        calls = delegating_call_ids(self.messages.history(conv_id), tool_name)
+        return self.children_of(calls)

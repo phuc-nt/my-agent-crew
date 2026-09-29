@@ -194,6 +194,13 @@ function StepRow({ row }: { row: RunRow }) {
           {vi.stepShaped(step.shaped.kind, step.shaped.original_chars)}
         </span>
       )}
+      {/* A tool that asked a model itself: its price is in the run's total, so the row
+          that spent it says so instead of leaving the total larger than its model rows. */}
+      {step.kind === "tool" && step.cost_usd !== undefined && (
+        <span className="step-detail muted" data-testid="step-tool-cost">
+          {vi.stepToolCost(step.cost_usd === null ? vi.stepCostUnknown : formatUsd(step.cost_usd))}
+        </span>
+      )}
       {step.kind === "tool" && step.output && (
         <>
           <button type="button" className="link-button" onClick={() => setShowOutput((s) => !s)}>

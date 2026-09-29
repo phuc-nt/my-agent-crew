@@ -1,4 +1,5 @@
-import type { DayUsage, ModelUsage, StatsInfo } from "../api/types";
+import type { ReactNode } from "react";
+import type { DayUsage, PurposeUsage, StatsInfo, UsageTotals } from "../api/types";
 import { vi } from "../i18n/vi";
 import { cacheShare, compactNumber } from "../lib/format-usage";
 import { EmptyState } from "./empty-state";
@@ -75,15 +76,26 @@ function RecentDays({ days }: { days: DayUsage[] }) {
   );
 }
 
-function ModelTable({ models }: { models: ModelUsage[] }) {
-  if (models.length === 0) return null;
+interface LedgerProps<T extends UsageTotals> {
+  title: string;
+  /** The first column's header: what each row is. */
+  header: string;
+  testId: string;
+  rows: T[];
+  rowKey: (row: T) => string;
+  label: (row: T) => ReactNode;
+}
+
+/** The whole ledger split one way (by model, by purpose), a row per value, biggest first. */
+function LedgerTable<T extends UsageTotals>({ title, header, testId, rows, rowKey, label }: LedgerProps<T>) {
+  if (rows.length === 0) return null;
   return (
     <section className="metric-card">
-      <CardTitle title={vi.costModels} covers={vi.costWindowAll} />
-      <table className="stat-table" data-testid="stat-models">
+      <CardTitle title={title} covers={vi.costWindowAll} />
+      <table className="stat-table" data-testid={testId}>
         <thead>
           <tr>
-            <th>{vi.costByModel}</th>
+            <th>{header}</th>
             <th>{vi.costModelCalls}</th>
             <th>{vi.tokensHeader}</th>
             <th>{vi.cacheHeader}</th>
@@ -91,19 +103,17 @@ function ModelTable({ models }: { models: ModelUsage[] }) {
           </tr>
         </thead>
         <tbody>
-          {models.map((m) => (
-            <tr key={m.model}>
+          {rows.map((row) => (
+            <tr key={rowKey(row)}>
+              <td>{label(row)}</td>
+              <td>{row.calls}</td>
+              <td>{tokens(row)}</td>
               <td>
-                <code>{m.model}</code>
-              </td>
-              <td>{m.calls}</td>
-              <td>{tokens(m)}</td>
-              <td>
-                <CacheCell cached={m.cached_tokens} prompt={m.prompt_tokens} />
+                <CacheCell cached={row.cached_tokens} prompt={row.prompt_tokens} />
               </td>
               <td>
-                {formatUsd(m.cost_usd)}
-                {m.unknown_cost_calls > 0 && <span className="badge warn"> ? {m.unknown_cost_calls}</span>}
+                {formatUsd(row.cost_usd)}
+                {row.unknown_cost_calls > 0 && <span className="badge warn"> ? {row.unknown_cost_calls}</span>}
               </td>
             </tr>
           ))}
@@ -113,10 +123,16 @@ function ModelTable({ models }: { models: ModelUsage[] }) {
   );
 }
 
+/** A purpose the page has no name for yet is shown as the server wrote it. */
+function purposeLabel(row: PurposeUsage): ReactNode {
+  return vi.costPurpose[row.purpose] ?? <code>{row.purpose}</code>;
+}
+
 /**
  * Honest cost dashboard: today and the week, the recent runs' totals and spend by agent,
- * the cache per agent, the recent days with tokens, and each model — each labelled with
- * what it is counted over, since the run window and the message log are not the same.
+ * the cache per agent, the recent days with tokens, what the calls were for and each
+ * model — each labelled with what it is counted over, since the run window and the usage
+ * ledger are not the same.
  */
 export function StatsPanel({ stats, agentName }: Props) {
   if (stats === null) return <p className="muted">{vi.loadFailed}</p>;
@@ -156,7 +172,22 @@ export function StatsPanel({ stats, agentName }: Props) {
         />
       )}
       <RecentDays days={stats.days} />
-      <ModelTable models={stats.models} />
+      <LedgerTable
+        title={vi.costPurposes}
+        header={vi.costPurposeHeader}
+        testId="stat-purposes"
+        rows={stats.purposes ?? []}
+        rowKey={(p) => p.purpose}
+        label={purposeLabel}
+      />
+      <LedgerTable
+        title={vi.costModels}
+        header={vi.costByModel}
+        testId="stat-models"
+        rows={stats.models}
+        rowKey={(m) => m.model}
+        label={(m) => <code>{m.model}</code>}
+      />
     </div>
   );
 }

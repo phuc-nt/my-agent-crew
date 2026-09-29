@@ -56,6 +56,10 @@ class ToolResultEvent:
     # was first. Carried so a run card can say the model answered from a shortened output.
     shaped_kind: str = "none"
     original_chars: int = 0
+    # What the tool paid a model (a picture, a scanned page, a long output summarised),
+    # when `metered`; None there means the provider gave no price. The run adds it up.
+    cost_usd: float | None = None
+    metered: bool = False
 
 
 @dataclass(frozen=True)

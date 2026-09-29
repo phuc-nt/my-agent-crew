@@ -64,6 +64,8 @@ async def _record(deps: AgentDeps, conv_id: str, call: ToolCall, result: ToolRes
         output=result.output,
         shaped_kind=result.shaped_kind,
         original_chars=result.original_chars,
+        cost_usd=result.cost_usd if result.metered else None,
+        metered=result.metered,
     )
 
 

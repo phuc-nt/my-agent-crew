@@ -174,7 +174,7 @@ class ToolRegistry:
                 # A tool that paid for a model itself keeps its own price; summarising is
                 # added on top, because both calls happened and both are owed.
                 cost_usd=_add_cost(output.cost_usd, shaped.cost_usd),
-                metered=output.metered or shaped.cost_usd is not None,
+                metered=output.metered or shaped.kind == "summary",
             )
         return ToolResult(
             ok=True,
@@ -182,5 +182,7 @@ class ToolRegistry:
             shaped_kind=shaped.kind,
             original_chars=shaped.original_chars,
             cost_usd=shaped.cost_usd,
-            metered=shaped.cost_usd is not None,
+            # A summary is a model call even when its provider put no price on it: counted
+            # as one of unknown cost, never as free.
+            metered=shaped.kind == "summary",
         )

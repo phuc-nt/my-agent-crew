@@ -27,8 +27,9 @@ System prompt liệt kê tên các tool có sẵn; model thấy JSON schema củ
 
   Đường structure không bao giờ viết lại con số: số liệu sổ cái và chỉ số sức khoẻ
   đi qua đường này, và một bản tóm tắt làm tròn con số thì tệ hơn một bản bỏ sót một dòng.
-  Đường summary hỏi chính các tuyến của agent và được tính vào run như mọi
-  lời gọi model khác. Nó là một cải tiến so với cut, không bao giờ là điều kiện tiên quyết cho cut — không có tuyến, tuyến
+  Đường summary hỏi chính các tuyến của agent và được tính vào run và cuộc trò chuyện như mọi
+  lời gọi model khác, kể cả khi provider không báo giá (khi đó là một lần gọi giá không rõ);
+  sổ cái sử dụng ghi nó dưới mục đích `tool_summary`. Nó là một cải tiến so với cut, không bao giờ là điều kiện tiên quyết cho cut — không có tuyến, tuyến
   hỏng, tuyến chậm hay câu trả lời rỗng đều rơi về cut thuần, và tool
   vẫn trả lời dù thế nào.
 
@@ -311,7 +312,8 @@ tool cho mọi agent; tuyến mà provider không có khoá bị bỏ qua kèm c
 và bởi agent mà nó giao việc. `question` là điều model vision được hỏi;
 không có thì nó mô tả ảnh. Mọi agent đều có tool này ở mọi mode, và
 danh sách cho phép `tools` của agent có thể nêu nó mà không bị cảnh báo khi không có vision route.
-Chi phí của lời gọi được cộng vào cuộc trò chuyện như một completion.
+Chi phí của lời gọi được cộng vào run và cuộc trò chuyện như một completion, và sổ cái sử
+dụng ghi nó dưới mục đích `image`; dòng của tool trên dòng thời gian run hiện giá đó.
 
 Master đọc một lần để quyết định ảnh dành cho ai và chuyển đường dẫn tuyệt đối
 trong task; chuyên gia đọc lại với câu hỏi của riêng mình. Cách đó rẻ hơn một
@@ -329,6 +331,8 @@ Một PDF chứa hai loại trang khác nhau và tool xử lý chúng khác nhau
 chỉ chứa một bức hình, nên trang đó được render bằng pypdfium2 và gửi xuống cùng
 chuỗi `vision_routes` mà `image_read` dùng, từng trang một và chỉ với những trang
 cần. Nên tài liệu trộn tốn một lời gọi model mỗi trang scan và không tốn gì cho phần còn lại.
+Các lời gọi đó được cộng vào run và cuộc trò chuyện, và sổ cái sử dụng ghi chúng dưới mục đích
+`pdf`.
 
 Các trang trả về dưới tiêu đề `--- Trang N ---`. Trang không đọc được nhận một
 dòng trong ngoặc vuông thay cho văn bản chứ không phải lỗi, nên một trang không đọc được không bao giờ

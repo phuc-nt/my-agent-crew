@@ -58,6 +58,18 @@ async def test_a_recap_leaves_the_conversation_dated_by_its_last_message(deps_fa
     assert after.updated_at == last_spoken
 
 
+async def test_a_recap_that_came_back_blank_is_still_charged(deps_factory):
+    """Nothing to keep, but the answer was paid for, the same as a title nobody could use."""
+    deps = deps_factory(script=[completion("  \n ", cost_usd=0.02)])
+    conv = deps.store.create()
+    talked(deps, conv.id)
+
+    assert await summarize_conversation(deps, conv.id) == ""
+
+    after = deps.store.get(conv.id)
+    assert (after.summary, after.spent_usd) == ("", pytest.approx(0.02))
+
+
 async def test_an_existing_summary_is_reused_unless_the_caller_forces_a_new_one(deps_factory):
     deps = deps_factory(script=[completion("Bản đầu"), completion("Bản sau")])
     conv = deps.store.create()

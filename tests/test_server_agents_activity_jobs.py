@@ -221,19 +221,32 @@ def test_a_job_can_be_paused_over_http_and_lists_its_own_runs(two_agents):
     assert [j.id for j in runtime.scheduler.due(far)] == ["coach/brief", "coach/sync"]
 
 
-def test_stats_carry_the_message_ledger_with_tokens(two_agents):
+def stats_once(client: TestClient, ready, timeout_s: float = 5.0) -> dict:
+    """`/api/stats` once `ready(stats)` holds, for figures a background task writes."""
+    deadline = time.monotonic() + timeout_s
+    while True:
+        stats = client.get("/api/stats").json()
+        if ready(stats) or time.monotonic() > deadline:
+            return stats
+        time.sleep(0.02)
+
+
+def test_stats_carry_the_ledger_with_tokens_and_what_each_call_was_for(two_agents):
     client, _ = two_agents
     conv = client.post("/api/conversations", json={"agent_id": "coach"}).json()
     with client.stream(
         "POST", f"/api/conversations/{conv['id']}/messages", json={"text": "xin chào"}
     ) as r:
         r.read()
-    stats = client.get("/api/stats").json()
-    assert len(stats["days"]) == 7 and stats["days"][-1]["calls"] == 1
+    # The model names a first message after the turn, in the background: a call of its own,
+    # which the ledger counts beside the turn's.
+    stats = stats_once(client, lambda s: any(p["purpose"] == "title" for p in s["purposes"]))
+    assert {p["purpose"]: p["calls"] for p in stats["purposes"]} == {"chat": 1, "title": 1}
+    assert len(stats["days"]) == 7 and stats["days"][-1]["calls"] == 2
     assert stats["days"][-1]["prompt_tokens"] > 0 and stats["days"][-1]["completion_tokens"] > 0
     assert stats["days"][0]["calls"] == 0
     (model,) = stats["models"]
-    assert model["model"] == "fake:echo" and model["calls"] == 1
+    assert model["model"] == "fake:echo" and model["calls"] == 2
 
 
 def model_call(prompt: int | None, cached: int | None) -> dict:

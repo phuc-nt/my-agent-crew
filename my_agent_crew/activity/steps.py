@@ -5,6 +5,12 @@ from __future__ import annotations
 
 from typing import Any
 
+from my_agent_crew.activity.step_lookup import (
+    CLOCK_KEY,
+    find_tool_step,
+    pending_model_step,
+    unsent_after_fallback,
+)
 from my_agent_crew.activity.step_previews import argument_preview, preview
 from my_agent_crew.agent.events import (
     ApprovalRequiredEvent,
@@ -24,8 +30,6 @@ from my_agent_crew.store.models import QUESTION
 from my_agent_crew.store.runs import AWAITING, DONE, FAILED, HALTED, RUNNING, RunRecord
 from my_agent_crew.tools.progress_note import PROGRESS_NOTE_TOOL_NAME, note_text
 
-CLOCK_KEY = "_clock"
-
 
 def _open_step(run: RunRecord, step: dict[str, Any], clock: float) -> None:
     step[CLOCK_KEY] = clock
@@ -41,11 +45,19 @@ def _close_step(step: dict[str, Any], clock: float) -> None:
 
 def _model_step(run: RunRecord, clock: float) -> dict[str, Any]:
     """The open model step, opened now when the call sent no event before this one."""
-    pending = _pending_model_step(run)
+    pending = pending_model_step(run)
     if pending is None:
         _open_step(run, {"kind": "model", "chars": 0, "first_token_ms": None}, clock)
         pending = run.steps[-1]
     return pending
+
+
+def _bill(run: RunRecord, cost_usd: float | None) -> None:
+    """A call the provider put no price on is counted apart instead of guessed at."""
+    if cost_usd is None:
+        run.unknown_cost_calls += 1
+    else:
+        run.spent_usd += cost_usd
 
 
 def _mark_first_token(step: dict[str, Any], clock: float) -> None:
@@ -89,10 +101,7 @@ def apply_event(run: RunRecord, event: Event, clock: float) -> None:
             preview=preview(event.content),
         )
         _close_step(step, clock)
-        if event.cost_usd is None:
-            run.unknown_cost_calls += 1
-        else:
-            run.spent_usd += event.cost_usd
+        _bill(run, event.cost_usd)
         run.status = RUNNING
         return
     if isinstance(event, ToolCallEvent):
@@ -122,7 +131,7 @@ def apply_event(run: RunRecord, event: Event, clock: float) -> None:
             # The note step was already written and closed by the call. Falling through
             # would find no open tool step for this id and open a second, empty one.
             return
-        step = _find_tool_step(run, event.tool_call_id)
+        step = find_tool_step(run, event.tool_call_id)
         if step is None:
             _open_step(run, {"kind": "tool", "name": event.name, "ok": None}, clock)
             step = run.steps[-1]
@@ -130,6 +139,9 @@ def apply_event(run: RunRecord, event: Event, clock: float) -> None:
         step["output"] = preview(event.output)
         if event.shaped_kind != "none":
             step["shaped"] = {"kind": event.shaped_kind, "original_chars": event.original_chars}
+        if event.metered:  # a tool that paid a model is billed with the run, like a completion
+            step["cost_usd"] = event.cost_usd
+            _bill(run, event.cost_usd)
         _close_step(step, clock)
         return
     if isinstance(event, ApprovalRequiredEvent):
@@ -156,7 +168,7 @@ def apply_event(run: RunRecord, event: Event, clock: float) -> None:
         run.summary = event.reason
         return
     if isinstance(event, ErrorEvent):
-        if _unsent_after_fallback(run):
+        if unsent_after_fallback(run):
             # The last route failed too: the step moved there for "the next route" waits
             # on nothing, and left open it would read as a model that never answered.
             run.steps.pop()
@@ -167,7 +179,7 @@ def apply_event(run: RunRecord, event: Event, clock: float) -> None:
         # The request's model step was timing the route that just failed. That wait is the
         # fallback's, and the step moves after it to time the next route, so a run that
         # recovered keeps one model step per call and none of them left open.
-        pending = _pending_model_step(run)
+        pending = pending_model_step(run)
         if pending is not None:
             run.steps.pop()
         step = {"kind": "fallback", "provider": event.provider, "model": event.model}
@@ -176,23 +188,3 @@ def apply_event(run: RunRecord, event: Event, clock: float) -> None:
         _close_step(step, clock)
         if pending is not None:
             _open_step(run, {"kind": "model", "chars": 0, "first_token_ms": None}, clock)
-
-
-def _pending_model_step(run: RunRecord) -> dict[str, Any] | None:
-    if run.steps and run.steps[-1].get("kind") == "model" and CLOCK_KEY in run.steps[-1]:
-        return run.steps[-1]
-    return None
-
-
-def _unsent_after_fallback(run: RunRecord) -> bool:
-    pending = _pending_model_step(run)
-    if pending is None or len(run.steps) < 2 or run.steps[-2].get("kind") != "fallback":
-        return False
-    return pending.get("first_token_ms") is None and not pending.get("thinking")
-
-
-def _find_tool_step(run: RunRecord, tool_call_id: str) -> dict[str, Any] | None:
-    for step in reversed(run.steps):
-        if step.get("kind") == "tool" and step.get("tool_call_id") == tool_call_id:
-            return step
-    return None

@@ -13,6 +13,7 @@ from datetime import tzinfo
 from typing import TYPE_CHECKING
 
 from my_agent_crew.clock import day_and_time
+from my_agent_crew.llm.metered_chain import MeteredChain
 from my_agent_crew.llm.types import Completion, Message
 from my_agent_crew.store import Store, StoredMessage
 from my_agent_crew.texts import SUMMARY_PROMPT, SUMMARY_TRANSCRIPT_LINE
@@ -64,19 +65,22 @@ async def summarize_conversation(deps: AgentDeps, conv_id: str, force: bool = Fa
     if not transcript:
         return ""
     prompt = Message(role="user", content=SUMMARY_PROMPT.format(transcript=transcript))
+    # Named explicitly: a recap runs as the next conversation opens, not in this one's turn.
+    chain = MeteredChain(deps.chain, deps.store, deps.agent.id, "session_summary", conv_id)
     completion: Completion | None = None
-    async for item in deps.chain.stream([prompt], []):
+    async for item in chain.stream([prompt], []):
         if isinstance(item, Completion):
             completion = item
     if completion is None:
         return ""
+    # Written after the conversation ended: leaving `updated_at` keeps it where it was in the
+    # list, unread for no one, and still dated by when it was last spoken in. A recap that
+    # came back empty was paid for all the same.
+    deps.store.add_spend(conv_id, completion.usage.cost_usd, touch=False)
     summary = " ".join(completion.message.content.split())[:MAX_SUMMARY_CHARS]
     if not summary:
         return ""
-    # Written after the conversation ended: leaving `updated_at` keeps it where it was in the
-    # list, unread for no one, and still dated by when it was last spoken in.
     deps.store.update(conv_id, touch=False, summary=summary)
-    deps.store.add_spend(conv_id, completion.usage.cost_usd, touch=False)
     return summary
 
 

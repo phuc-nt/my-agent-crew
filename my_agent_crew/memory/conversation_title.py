@@ -21,6 +21,7 @@ import logging
 import re
 from typing import TYPE_CHECKING, Any
 
+from my_agent_crew.llm.metered_chain import MeteredChain
 from my_agent_crew.llm.types import Completion, Message
 from my_agent_crew.texts import CONVERSATION_TITLE_DEFAULT, TITLE_PROMPT
 
@@ -83,14 +84,17 @@ def _echoes_the_instructions(title: str) -> bool:
     return bool(opening) and opening in title.lower()
 
 
-async def generate_title(deps: AgentDeps, text: str) -> tuple[str, float | None]:
+async def generate_title(deps: AgentDeps, conv_id: str, text: str) -> tuple[str, float | None]:
     """Asks the model for a title, with what the answer cost.
 
     An empty title means the model had nothing usable to say; the cost is still returned,
     because an answer that was paid for was paid for whether or not it could be used."""
     prompt = Message(role="user", content=TITLE_PROMPT.format(message=text[:MAX_SOURCE_CHARS]))
+    # Named explicitly: this runs in a task started before the turn, whose context still
+    # holds whichever conversation its creator was last in.
+    chain = MeteredChain(deps.chain, deps.store, deps.agent.id, "title", conv_id)
     completion: Completion | None = None
-    async for item in deps.chain.stream([prompt], []):
+    async for item in chain.stream([prompt], []):
         if isinstance(item, Completion):
             completion = item
     if completion is None:
@@ -105,7 +109,7 @@ async def _write_model_title(deps: AgentDeps, conv_id: str, text: str, heuristic
     # the conversation needs no name from the model, so none is paid for.
     if deps.store.get(conv_id).title != heuristic:
         return
-    title, cost_usd = await asyncio.wait_for(generate_title(deps, text), TITLE_TIMEOUT_S)
+    title, cost_usd = await asyncio.wait_for(generate_title(deps, conv_id, text), TITLE_TIMEOUT_S)
     # Naming costs money like any other model call, so it is spent against the same cap.
     # Like the name, it is bookkeeping the reply already dated, so neither moves `updated_at`.
     deps.store.add_spend(conv_id, cost_usd, touch=False)

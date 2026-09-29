@@ -9,6 +9,33 @@ All notable changes to my-agent-crew. The format follows [Keep a Changelog](http
 versioning follows [SemVer](https://semver.org/). One version number for both backend and web: within a
 single release, `pyproject.toml` and `web/package.json` always carry the same number.
 
+## [Unreleased]
+
+### Added
+
+- The costs page splits the whole ledger by what each call was for: the turns' own calls, and
+  the ones made beside them — a conversation's title, a session recap, a long tool output
+  summarised, a picture or a scanned PDF page read, memory consolidation, the wiki compile.
+- A tool that asked a model itself shows the price on its row of the run timeline.
+
+### Fixed
+
+- Model calls made beside a turn now reach the usage ledger. Titles, recaps, tool-output
+  summaries, picture and scanned-page reads, consolidation and the wiki compile were billed by
+  the provider but missing from the day and model totals. Each is now written down with its
+  purpose, provider, model, tokens and price, never its prompt; a call abandoned mid-answer is
+  written down at an unknown price instead of being lost.
+- A run's total includes what its tools paid a model (a picture, a scanned page, a summary), so
+  the run, its conversation and the ledger agree.
+- A tool-output summary whose provider gave no price counts as a call of unknown cost instead of
+  a free one, and a session recap that came back empty is still charged to its conversation.
+- Grouping the ledger by model keeps one model name served by two providers as two rows.
+
+### Upgrade notes
+
+- The database gains a `side_calls` table, created on start. Calls from before the upgrade
+  stay as they were: the ledger is complete from this version on.
+
 ## [0.9.2] — 2026-09-28
 
 A one-fix release: a delegated answer that ended on a bare chart line reached the person as the

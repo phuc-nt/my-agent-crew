@@ -37,6 +37,12 @@ CREATE TABLE IF NOT EXISTS memory_proposals (
     description TEXT NOT NULL, type TEXT NOT NULL, body TEXT NOT NULL, status TEXT NOT NULL,
     source TEXT NOT NULL, created_at TEXT NOT NULL, resolved_at TEXT
 );
+CREATE TABLE IF NOT EXISTS side_calls (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, agent_id TEXT NOT NULL, conversation_id TEXT,
+    purpose TEXT NOT NULL, provider TEXT NOT NULL, model TEXT NOT NULL, cost_usd REAL,
+    prompt_tokens INTEGER, completion_tokens INTEGER, cached_tokens INTEGER,
+    created_at TEXT NOT NULL
+);
 """
 
 # (table, column, definition) added after the table first shipped.
@@ -71,14 +77,17 @@ ADDED_COLUMNS = (
 
 # One index per query shape that would otherwise scan a whole table: the activity feed
 # and stats read runs newest first, a conversation's runs by its id, the sidebar reads an
-# agent's conversations by recency, a channel finds its latest conversation, and the loop
-# looks up a conversation's pending approvals on every step.
+# agent's conversations by recency, a channel finds its latest conversation, the loop
+# looks up a conversation's pending approvals on every step, and the usage ledger reads
+# side calls by day.
 INDEXES = """
 CREATE INDEX IF NOT EXISTS runs_by_started ON runs (started_at);
 CREATE INDEX IF NOT EXISTS runs_by_conversation ON runs (conversation_id, started_at);
 CREATE INDEX IF NOT EXISTS conversations_by_agent ON conversations (agent_id, updated_at);
 CREATE INDEX IF NOT EXISTS conversations_by_channel ON conversations (agent_id, channel);
 CREATE INDEX IF NOT EXISTS approvals_by_conversation ON approvals (conversation_id, status);
+CREATE INDEX IF NOT EXISTS side_calls_by_created ON side_calls (created_at);
+CREATE INDEX IF NOT EXISTS side_calls_by_conversation ON side_calls (conversation_id);
 """
 
 

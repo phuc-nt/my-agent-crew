@@ -77,6 +77,19 @@ async def test_a_summariser_rewrites_the_middle_of_a_long_text_output():
     assert result.cost_usd == 0.0004 and result.metered is True
 
 
+async def test_a_summary_without_a_price_is_charged_as_one_of_unknown_cost():
+    async def big(args):
+        return "MỞ ĐẦU. " + ("dòng nhật ký lặp lại. " * 3000) + " KẾT THÚC."
+
+    async def unpriced(prompt):
+        return "ba nghìn dòng nhật ký giống nhau", None
+
+    result = await ToolRegistry([tool(run=big)], limit=2000, summariser=unpriced).execute("t", {})
+    assert result.shaped_kind == "summary"
+    # A model was asked and answered: not free, only unpriced, so it is counted apart.
+    assert result.cost_usd is None and result.metered is True
+
+
 async def test_a_summariser_that_fails_leaves_the_output_cut_and_the_tool_answering():
     async def big(args):
         return "y" * 9000

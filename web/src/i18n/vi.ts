@@ -588,6 +588,8 @@ export const vi = {
   stepDuration: (ms: number) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)} giây` : `${ms} ms`),
   stepChars: (n: number) => `${n} ký tự`,
   stepCostUnknown: "không rõ giá",
+  // A tool that asked a model itself (a picture read, a long output summarised), priced.
+  stepToolCost: (price: string) => `Có gọi model · ${price}`,
   // The usage half of a model step's detail line: "openrouter:deepseek · TTFT 1.2s ·
   // 12.3k tok (8.1k cache) · suy nghĩ". TTFT is the wait before the first word came back.
   stepTtft: (ms: number) => `TTFT ${ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`}`,
@@ -634,6 +636,20 @@ export const vi = {
   costByDay: "Theo ngày",
   costLastDays: "7 ngày gần đây",
   costModels: "Theo model",
+  costPurposes: "Theo mục đích",
+  costPurposeHeader: "Mục đích",
+  // What a call was for. `chat` is every turn's own calls — a scheduled job or a delegated
+  // task runs in a conversation too; the rest were made beside a turn.
+  costPurpose: {
+    chat: "Trò chuyện",
+    title: "Đặt tên cuộc trò chuyện",
+    session_summary: "Tóm tắt phiên",
+    tool_summary: "Tóm tắt kết quả công cụ",
+    image: "Đọc ảnh",
+    pdf: "Đọc PDF scan",
+    consolidate: "Cô đọng bộ nhớ",
+    wiki: "Dựng wiki",
+  } as Record<string, string>,
   // Model calls, said as such: a bare "lượt" is how this page counts runs.
   costCalls: (n: number) => `${n} lượt gọi`,
   // Given already shortened ("1.2M"), the way the cache beside them is written.

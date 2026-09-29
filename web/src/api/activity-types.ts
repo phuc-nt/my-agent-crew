@@ -49,6 +49,12 @@ export type RunStep =
        * mistaken for one built on the whole thing.
        */
       shaped?: { kind: "json" | "summary" | "cut"; original_chars: number };
+      /**
+       * What the tool paid a model: a picture or a scanned page read, a long output
+       * summarised. Absent on a tool that asked no model; null when the provider put no
+       * price on the call. The run's total already includes it.
+       */
+      cost_usd?: number | null;
       duration_ms: number | null;
     }
   | {
@@ -143,6 +149,12 @@ export interface ModelUsage extends UsageTotals {
   model: string;
 }
 
+export interface PurposeUsage extends UsageTotals {
+  /** `chat` for the turns' own calls; otherwise what a call beside them was for:
+   *  `title`, `session_summary`, `tool_summary`, `image`, `pdf`, `consolidate`, `wiki`. */
+  purpose: string;
+}
+
 /** One agent's prompt tokens and the part of them served from the provider's cache. */
 export interface AgentCacheTotals {
   prompt_tokens: number;
@@ -169,4 +181,7 @@ export interface StatsInfo {
   days: DayUsage[];
   /** Every model ever billed, biggest spender first. */
   models: ModelUsage[];
+  /** The same calls split by what they were for, biggest spender first. A server from
+   *  before side calls were written down leaves it out. */
+  purposes?: PurposeUsage[];
 }

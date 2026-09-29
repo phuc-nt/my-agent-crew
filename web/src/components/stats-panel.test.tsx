@@ -29,6 +29,7 @@ function stats(overrides: Partial<StatsInfo> = {}): StatsInfo {
     by_day: {},
     days: [],
     models: [],
+    purposes: [],
     pending_proposals: 0,
     ...overrides,
   };
@@ -107,6 +108,37 @@ describe("the costs page's usage figures", () => {
     expect(byAgent).toHaveTextContent(vi.costWindowRecent(500));
     const byModel = screen.getByRole("heading", { name: new RegExp(`^${vi.costModels}`) });
     expect(byModel).toHaveTextContent(vi.costWindowAll);
+  });
+
+  it("splits the whole ledger by what each call was for, named in words", () => {
+    const purposes = [
+      { purpose: "chat", ...day("x", { calls: 40, cost_usd: 1.2 }) },
+      { purpose: "session_summary", ...day("x", { calls: 3, cost_usd: 0.05 }) },
+      { purpose: "image", ...day("x", { calls: 2, cost_usd: 0, unknown_cost_calls: 2 }) },
+      { purpose: "rerank", ...day("x", { calls: 1, cost_usd: 0.01 }) },
+    ];
+    render(<StatsPanel stats={stats({ purposes })} agentName={name} />);
+
+    const title = screen.getByRole("heading", { name: new RegExp(`^${vi.costPurposes}`) });
+    expect(title).toHaveTextContent(vi.costWindowAll);
+    const [, chat, recap, picture, unnamed] = within(screen.getByTestId("stat-purposes")).getAllByRole("row");
+    expect(chat).toHaveTextContent(vi.costPurpose.chat);
+    expect(chat).toHaveTextContent("$1.20");
+    expect(recap).toHaveTextContent(vi.costPurpose.session_summary);
+    // Paid for, only unpriced: flagged as a model row flags it, never passed off as free.
+    expect(picture).toHaveTextContent(vi.costPurpose.image);
+    expect(picture).toHaveTextContent("? 2");
+    // A purpose the page has no name for yet is shown as the server wrote it.
+    expect(unnamed).toHaveTextContent("rerank");
+  });
+
+  it("leaves the purpose card out while the ledger is empty or the server has none", () => {
+    const { rerender } = render(<StatsPanel stats={stats()} agentName={name} />);
+    expect(screen.queryByTestId("stat-purposes")).not.toBeInTheDocument();
+
+    rerender(<StatsPanel stats={stats({ purposes: undefined })} agentName={name} />);
+    expect(screen.getByTestId("stats")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: new RegExp(`^${vi.costPurposes}`) })).not.toBeInTheDocument();
   });
 
   it("shows each model's cached tokens and their share of the prompt", () => {

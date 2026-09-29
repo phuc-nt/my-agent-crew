@@ -76,7 +76,15 @@ any platform ──POST /api/inbound (JSON, sync)─────┴─▶ Inboun
   khi trả ra bất cứ gì; lỗi giữa stream được đưa lên bề mặt, không bao giờ bị che bằng một lần thử lại âm thầm.
 - **Chi phí trung thực.** Mỗi message assistant lưu `cost_usd` hoặc `None`. Cuộc trò chuyện giữ
   `spent_usd` và `unknown_cost_calls`; `cost_cap_usd` dừng trước lần gọi model kế tiếp
-  (0 = không giới hạn).
+  (0 = không giới hạn). Mọi lần gọi model nằm ngoài vòng lặp lượt — đặt tiêu đề, tóm tắt
+  phiên, tóm tắt output tool dài, đọc ảnh, đọc trang PDF scan, cô đọng bộ nhớ, dựng wiki —
+  đi qua `MeteredChain` và để lại một dòng trong bảng `side_calls` kèm mục đích của nó (chỉ số
+  liệu, không bao giờ prompt). Sổ cái sử dụng (`/api/stats`: `days`, `models`, `purposes`) cộng
+  hai bảng đó và không đọc run, nên không lần gọi nào bị đếm hai lần hay bị bỏ sót. Tool có gọi
+  model (ảnh, PDF scan, bản tóm tắt được dùng) được tính vào run và cuộc trò chuyện như một
+  completion; giá không rõ được đếm riêng, không bao giờ coi là 0. Lần gọi bị bỏ dở sau chunk
+  đầu tiên vẫn được ghi, với giá không rõ. Bản tóm tắt hết giờ hay rỗng — tool rơi về cắt —
+  chỉ nằm trong sổ cái: run và cuộc trò chuyện không có con số nào để cộng.
 - **Provider echo là một tính năng sản phẩm.** `MY_AGENT_ROUTES=fake:echo` chạy cả stack mà không cần
   key; `/tool <name> {json}` điều khiển tool thật qua đường duyệt thật. Đó cũng là thứ
   live smoke và test trình duyệt dựa vào.

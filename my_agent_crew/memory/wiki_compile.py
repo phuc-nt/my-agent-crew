@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING
 
 from my_agent_crew.activity import ActivityHub
 from my_agent_crew.agent.events import AssistantMessageEvent
+from my_agent_crew.llm.metered_chain import MeteredChain
 from my_agent_crew.llm.types import Completion, Message
 from my_agent_crew.memory import wiki_store
 from my_agent_crew.memory.consolidate import MAX_INPUT_CHARS, notes_text, recent_notes
@@ -67,8 +68,10 @@ async def _ask_model(deps: AgentDeps, pages: str, notes: str) -> Completion | No
     prompt = Message(
         role="user", content=texts.WIKI_COMPILE_PROMPT.format(pages=pages, notes=notes)
     )
+    # Upkeep belongs to no conversation; the run keeps a copy for the activity rail only.
+    chain = MeteredChain(deps.chain, deps.store, deps.agent.id, "wiki")
     completion: Completion | None = None
-    async for item in deps.chain.stream([prompt], []):
+    async for item in chain.stream([prompt], []):
         if isinstance(item, Completion):
             completion = item
     return completion

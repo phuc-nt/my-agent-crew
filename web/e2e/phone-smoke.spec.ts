@@ -329,6 +329,11 @@ test("the costs page fits, cache columns and today's tiles included", async ({ p
     { model: "openrouter:deepseek/deepseek-v4-flash-preview-2026-09", ...usage },
     { model: "ollama:qwen3", ...usage, cached_tokens: 0 },
   ];
+  // The longest name the page gives a purpose, and one it has no name for yet.
+  const purposes = [
+    { purpose: "tool_summary", ...usage },
+    { purpose: "a_purpose_this_page_has_no_name_for", ...usage },
+  ];
   const call = {
     kind: "model",
     chars: 120,
@@ -358,6 +363,7 @@ test("the costs page fits, cache columns and today's tiles included", async ({ p
     },
     days,
     models,
+    purposes,
     pending_proposals: 0,
   };
   await mockApi(page, { agents: [defaultAgent, coachAgent], runs, stats });
@@ -366,6 +372,7 @@ test("the costs page fits, cache columns and today's tiles included", async ({ p
   await expect(page.getByTestId("stat-periods")).toContainText("Hôm nay");
   await expect(page.getByTestId("stat-periods")).toContainText("7 ngày");
   await expect(page.getByTestId("stat-models")).toContainText("98.8M · 80%");
+  await expect(page.getByTestId("stat-purposes")).toContainText("Tóm tắt kết quả công cụ");
   await expect(page.getByTestId("stat-agent-cache")).toContainText("40k · 88%");
   await expect(page.getByTestId("stats")).toContainText("500 lượt gần nhất");
   let overflow = await widestOverflow(page);

@@ -121,8 +121,9 @@ def summarize(runs: list[RunRecord], zone: tzinfo | None = None) -> dict[str, An
 
 @router.get("/stats")
 def stats(rt: Rt) -> dict[str, Any]:
-    """Run totals for the rail, plus the message-log ledger (`days`, `models`), which is
-    the honest number: it counts what providers billed, with tokens, over every run."""
+    """Run totals for the rail, plus the usage ledger (`days`, `models`, `purposes`), which
+    is the honest number: it counts what providers billed, with tokens, for every call —
+    the turns' own and those made beside them (a title, a recap, a picture...)."""
     version = rt.store.changes
     memo = _stats_memo.get(rt.store)
     if memo is not None and memo[0] == version:
@@ -131,5 +132,6 @@ def stats(rt: Rt) -> dict[str, Any]:
     data["pending_proposals"] = len(rt.store.proposals.list())
     data["days"] = rt.store.usage.by_day(zone=rt.settings.zone)
     data["models"] = rt.store.usage.by_model()
+    data["purposes"] = rt.store.usage.by_purpose()
     _stats_memo[rt.store] = (version, data)
     return data

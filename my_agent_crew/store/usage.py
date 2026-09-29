@@ -1,8 +1,9 @@
-"""Spend and token totals read straight from the message log.
+"""Spend and token totals read straight from the two logs every paid call lands in.
 
-Every assistant message that came from a provider carries its cost and token counts, so
-the log is the honest ledger: what was billed is what was written. Runs keep a copy for
-the activity rail, but a dashboard adds up messages, not runs."""
+A turn's own completions are assistant messages that carry their cost and token counts;
+every other call (a title, a recap, a picture, consolidation...) is a row in `side_calls`.
+Together they are the honest ledger: what was billed is what was written. Runs keep a copy
+for the activity rail, but a dashboard adds up these two logs, never runs."""
 
 from __future__ import annotations
 
@@ -22,7 +23,13 @@ _TOTALS = (
     " COALESCE(SUM(cached_tokens), 0) AS cached_tokens,"
     " SUM(CASE WHEN cost_usd IS NULL THEN 1 ELSE 0 END) AS unknown_cost_calls"
 )
-_MODEL_CALLS = "role = 'assistant' AND provider IS NOT NULL"
+# Every paid call from either log: the turns' own as purpose `chat`, the rest under theirs.
+_CALLS = (
+    "SELECT 'chat' AS purpose, provider, model, cost_usd, prompt_tokens, completion_tokens,"
+    " cached_tokens, created_at FROM messages WHERE role = 'assistant' AND provider IS NOT NULL"
+    " UNION ALL SELECT purpose, provider, model, cost_usd, prompt_tokens, completion_tokens,"
+    " cached_tokens, created_at FROM side_calls"
+)
 
 
 def _totals(row: sqlite3.Row | None) -> dict[str, Any]:
@@ -64,8 +71,7 @@ class UsageStore:
         with self._lock:
             rows = self._conn.execute(
                 "SELECT created_at, cost_usd, prompt_tokens, completion_tokens, cached_tokens"
-                " FROM messages"
-                f" WHERE {_MODEL_CALLS} AND created_at >= ?",
+                f" FROM ({_CALLS}) WHERE created_at >= ?",
                 (day_start_utc(first, zone),),
             ).fetchall()
         buckets = {(first + timedelta(days=i)).isoformat(): _totals(None) for i in range(days)}
@@ -82,10 +88,22 @@ class UsageStore:
         return [{"day": day} | totals for day, totals in buckets.items()]
 
     def by_model(self) -> list[dict[str, Any]]:
-        """Totals per `provider:model` over the whole log, biggest spender first."""
+        """Totals per `provider:model` over the whole ledger, biggest spender first. Grouped
+        by both columns: SQLite reads a bare `model` in GROUP BY as the input column, so one
+        model name served by two providers would otherwise fold into one row."""
         with self._lock:
             rows = self._conn.execute(
-                f"SELECT provider || ':' || model AS model, {_TOTALS} FROM messages"
-                f" WHERE {_MODEL_CALLS} GROUP BY model ORDER BY cost_usd DESC, calls DESC"
+                f"SELECT provider || ':' || model AS model, {_TOTALS} FROM ({_CALLS})"
+                " GROUP BY provider, model ORDER BY cost_usd DESC, calls DESC"
             ).fetchall()
         return [{"model": r["model"]} | _totals(r) for r in rows]
+
+    def by_purpose(self) -> list[dict[str, Any]]:
+        """Totals per purpose over the whole ledger, biggest spender first: `chat` for the
+        turns' own calls, then each kind of call made beside them."""
+        with self._lock:
+            rows = self._conn.execute(
+                f"SELECT purpose, {_TOTALS} FROM ({_CALLS})"
+                " GROUP BY purpose ORDER BY cost_usd DESC, calls DESC"
+            ).fetchall()
+        return [{"purpose": r["purpose"]} | _totals(r) for r in rows]

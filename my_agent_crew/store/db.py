@@ -11,15 +11,16 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from my_agent_crew.llm.types import Message
-from my_agent_crew.store import conversation_lookup as lookup
 from my_agent_crew.store.approvals import ApprovalStore
 from my_agent_crew.store.connection import connect
+from my_agent_crew.store.conversation_lookup import ConversationLookups
 from my_agent_crew.store.job_state import JobStateStore
 from my_agent_crew.store.memory_proposals import MemoryProposalStore
 from my_agent_crew.store.messages import MessageStore
 from my_agent_crew.store.models import Conversation, StoredMessage
 from my_agent_crew.store.runs import RunStore
 from my_agent_crew.store.schema import apply_schema
+from my_agent_crew.store.side_calls import SideCallStore
 from my_agent_crew.store.usage import UsageStore
 from my_agent_crew.texts import CONVERSATION_TITLE_DEFAULT
 
@@ -36,7 +37,7 @@ def new_id() -> str:
     return uuid.uuid4().hex[:12]
 
 
-class Store:
+class Store(ConversationLookups):
     def __init__(self, path: Path | str = ":memory:"):
         self._conn = connect(path)
         self._lock = threading.RLock()
@@ -48,6 +49,7 @@ class Store:
         self.proposals = MemoryProposalStore(self._conn, self._lock)
         self.jobs = JobStateStore(self._conn, self._lock)
         self.usage = UsageStore(self._conn, self._lock)
+        self.side_calls = SideCallStore(self._conn, self._lock)
 
     def close(self) -> None:
         self._conn.close()
@@ -107,23 +109,6 @@ class Store:
                 f"SELECT * FROM conversations{where} ORDER BY updated_at DESC, rowid DESC", params
             ).fetchall()
         return [Conversation.from_row(r) for r in rows]
-
-    def latest_for_channel(self, agent_id: str, channel: str) -> Conversation | None:
-        return lookup.latest_for_channel(self._conn, self._lock, agent_id, channel)
-
-    def previous_for_channel(self, agent_id: str, channel: str, before: str) -> Conversation | None:
-        return lookup.previous_for_channel(self._conn, self._lock, agent_id, channel, before)
-
-    def for_parent_call(self, parent_call_id: str) -> Conversation | None:
-        return lookup.for_parent_call(self._conn, self._lock, parent_call_id)
-
-    def children_of(self, call_ids: tuple[str, ...]) -> list[Conversation]:
-        return lookup.children_of(self._conn, self._lock, call_ids)
-
-    def delegated_children(self, conv_id: str, tool_name: str) -> list[Conversation]:
-        """What this conversation delegated, oldest first, found through its own tool calls."""
-        calls = lookup.delegating_call_ids(self.history(conv_id), tool_name)
-        return self.children_of(calls)
 
     def update(self, conv_id: str, *, touch: bool = True, **fields: object) -> Conversation:
         """`touch=False` leaves `updated_at` alone, for bookkeeping written in the background

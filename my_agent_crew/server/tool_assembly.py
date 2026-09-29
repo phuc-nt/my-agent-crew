@@ -10,6 +10,7 @@ from collections.abc import Sequence
 import httpx
 
 from my_agent_crew.agents import AgentProfile
+from my_agent_crew.llm.metered_chain import MeteredChain
 from my_agent_crew.llm.provider import ProviderChain
 from my_agent_crew.skills import Skill
 from my_agent_crew.store import Store
@@ -64,7 +65,10 @@ def build_tools(
 
     `chain` is the agent's own route chain, used to summarise the middle of an over-cap
     text output. Without one the output is cut instead, which is what every caller that
-    does not pass a chain gets."""
+    does not pass a chain gets. Every call either chain makes here lands in the usage
+    ledger under what it was for."""
+    pictures = MeteredChain(vision, store, profile.id, "image") if vision is not None else None
+    pages = MeteredChain(vision, store, profile.id, "pdf") if vision is not None else None
     tools: list[Tool] = [
         *build_workspace_tools(profile.workspace, profile.settings.write_paths),
         *build_web_tools(profile.settings, client),
@@ -96,18 +100,20 @@ def build_tools(
         build_progress_note_tool(),
         # Registered whether or not there is a vision chain: a typeset PDF reads fine
         # without one, and only a scanned page needs to say it could not.
-        build_pdf_tool((profile.workspace, profile.settings.home), vision),
+        build_pdf_tool((profile.workspace, profile.settings.home), pages),
     ]
     if profile.is_work:
         tools += [
             build_edit_tool(profile.workspace, profile.settings.write_paths),
             *build_search_tools(profile.workspace),
         ]
-    if vision is not None:
+    if pictures is not None:
         # The crew home is a root too, so a delegate can read the master's inbox.
-        tools.append(build_image_tool((profile.workspace, profile.settings.home), vision))
+        tools.append(build_image_tool((profile.workspace, profile.settings.home), pictures))
     tools += list(extra)
     kept = allowed(tools, profile.tools, profile.id)
     hooks = HookRunner(profile.hooks, profile.id) if profile.hooks else None
-    summariser = chain_summariser(chain) if chain is not None else None
+    summariser = None
+    if chain is not None:
+        summariser = chain_summariser(MeteredChain(chain, store, profile.id, "tool_summary"))
     return ToolRegistry(kept, profile.settings.tool_output_chars, hooks, summariser)

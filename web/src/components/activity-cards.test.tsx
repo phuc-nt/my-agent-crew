@@ -100,6 +100,22 @@ describe("RunCard", () => {
     expect(within(steps[2]).queryByTestId("step-shaped")).toBeNull();
   });
 
+  it("prices a tool that asked a model itself, and says nothing on one that did not", () => {
+    const run = fakeRun({
+      steps: [
+        { kind: "tool", name: "image_read", tool_call_id: "a", arguments: {}, ok: true, output: "Phở.", cost_usd: 0.002, duration_ms: 10 },
+        { kind: "tool", name: "pdf_read", tool_call_id: "b", arguments: {}, ok: true, output: "…", cost_usd: null, duration_ms: 10 },
+        { kind: "tool", name: "workspace_read", tool_call_id: "c", arguments: {}, ok: true, output: "vừa", duration_ms: 10 },
+      ],
+    });
+    render(<RunCard run={run} agentName="HLV" expanded />);
+    const [picture, scan, plain] = screen.getAllByTestId("run-step");
+    expect(within(picture).getByTestId("step-tool-cost")).toHaveTextContent(vi.stepToolCost("$0.0020"));
+    // Paid, only unpriced: said so rather than passed off as free.
+    expect(within(scan).getByTestId("step-tool-cost")).toHaveTextContent(vi.stepToolCost(vi.stepCostUnknown));
+    expect(within(plain).queryByTestId("step-tool-cost")).toBeNull();
+  });
+
   it("stops showing a step as running once its run has died under it", async () => {
     // The step is recorded open (`ok: null`) because it was open when the row
     // was written. The run then errored without ever closing it. Painting that
@@ -349,6 +365,7 @@ describe("StatsPanel", () => {
           runs: 3, model_calls: 7, spent_usd: 0.3, unknown_cost_calls: 2, by_agent: { coach: 0.2, default: 0.1 }, by_model: { deepseek: 0.3 }, by_day: { "2026-09-19": 0.3 },
           days: [{ day: "2026-09-18", calls: 0, cost_usd: 0, prompt_tokens: 0, completion_tokens: 0, cached_tokens: 0, unknown_cost_calls: 0 }, { day: "2026-09-19", ...usage }],
           models: [{ model: "openrouter:deepseek", ...usage }],
+          purposes: [{ purpose: "chat", ...usage }],
           pending_proposals: 0,
         }}
       />,
@@ -368,7 +385,7 @@ describe("StatsPanel", () => {
   });
 
   it("says when nothing has been spent", () => {
-    render(<StatsPanel agentName={name} stats={{ runs: 0, model_calls: 0, spent_usd: 0, unknown_cost_calls: 0, by_agent: {}, by_model: {}, by_day: {}, days: [], models: [], pending_proposals: 0 }} />);
+    render(<StatsPanel agentName={name} stats={{ runs: 0, model_calls: 0, spent_usd: 0, unknown_cost_calls: 0, by_agent: {}, by_model: {}, by_day: {}, days: [], models: [], purposes: [], pending_proposals: 0 }} />);
     expect(screen.getByText(vi.costEmpty)).toBeInTheDocument();
   });
 });

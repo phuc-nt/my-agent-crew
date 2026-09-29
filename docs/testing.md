@@ -340,6 +340,24 @@ tên một test thì sửa dòng của nó trong cùng commit.
     ("the activity log's chips fold on a phone, then wrap and stay big enough to tap",
     "a chat whose run history cannot be read says so, with a retry big enough to tap")
   - pytest: `tests/test_activity.py::test_one_agents_runs_are_not_crowded_out_by_a_busier_agent`
+- **Sổ cái sử dụng đầy đủ: lời gọi bên cạnh lượt**
+  - pytest: `tests/test_side_calls.py` (ghi mục đích và agent, lần gọi rơi tuyến không ghi,
+    lần gọi bỏ dở sau chunk đầu hay hết giờ ghi giá không rõ, sổ hỏng không làm mất câu trả
+    lời, mục đích lạ bị từ chối, tổng theo ngày/model/mục đích cộng cả hai bảng, một tên model
+    sau hai provider vẫn là hai dòng, tool trả phí cộng giá vào run và step);
+    `tests/test_side_calls_wiring.py` (ảnh, PDF scan, tóm tắt output, tiêu đề, tóm tắt phiên,
+    cô đọng, wiki đều ghi đúng mục đích và đúng cuộc trò chuyện; bảo trì không thuộc cuộc
+    nào và chỉ đếm một lần);
+    `tests/test_tools_registry.py::test_a_summary_without_a_price_is_charged_as_one_of_unknown_cost`;
+    `tests/test_memory_session_summary.py::test_a_recap_that_came_back_blank_is_still_charged`;
+    `tests/test_server_agents_activity_jobs.py::test_stats_carry_the_ledger_with_tokens_and_what_each_call_was_for`
+  - vitest: `components/stats-panel.test.tsx` "splits the whole ledger by what each call was
+    for, named in words", "leaves the purpose card out while the ledger is empty or the server
+    has none"; `components/activity-cards.test.tsx` "prices a tool that asked a model itself,
+    and says nothing on one that did not"
+  - Playwright: `phone-smoke.spec.ts`
+    "the costs page fits, cache columns and today's tiles included" (bảng theo mục đích vừa
+    màn hình điện thoại)
 - **Token, cache và thời gian tới token đầu**
   - vitest: `components/run-timeline.test.tsx`; `lib/format-usage.test.ts`;
     `components/stats-panel.test.tsx`; `state/activity-reducer.test.ts`

@@ -20,6 +20,7 @@ from my_agent_crew import texts
 from my_agent_crew.activity import ActivityHub
 from my_agent_crew.agent.events import AssistantMessageEvent
 from my_agent_crew.agents.context import MAX_SECTION_CHARS
+from my_agent_crew.llm.metered_chain import MeteredChain
 from my_agent_crew.llm.types import Completion, Message
 from my_agent_crew.memory import agent_store
 from my_agent_crew.memory.proposals_apply import apply_proposal
@@ -82,8 +83,10 @@ async def _ask_model(deps: AgentDeps, memory: str, notes: str) -> Completion | N
     prompt = Message(
         role="user", content=texts.CONSOLIDATE_PROMPT.format(memory=memory, notes=notes)
     )
+    # Upkeep belongs to no conversation; the run keeps a copy for the activity rail only.
+    chain = MeteredChain(deps.chain, deps.store, deps.agent.id, "consolidate")
     completion: Completion | None = None
-    async for item in deps.chain.stream([prompt], []):
+    async for item in chain.stream([prompt], []):
         if isinstance(item, Completion):
             completion = item
     return completion
