@@ -24,7 +24,8 @@ import time
 from pathlib import Path
 from typing import Any
 
-from llm_bench_client import Api, Server
+from llm_bench_client import Api
+from llm_bench_server import Server
 from llm_bench_tasks import TASKS as SHORT_TASKS
 from llm_bench_tasks import metrics, score, seed_home
 from llm_bench_tasks_multi import TASKS as MULTI_TASKS

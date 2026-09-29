@@ -29,6 +29,14 @@ MY_AGENT_ROUTES=fake:echo uv run python -m my_agent_crew
 In echo mode, type `/tool <name> {json}` to call a tool directly, for example
 `/tool workspace_list {"path":"."}`.
 
+To check that your own agents still behave after a change to a persona, a prompt or a tool set,
+play written cases against a throwaway copy of your home with the real model (costs money; the
+live crew is not touched):
+
+```bash
+OPENROUTER_API_KEY=... uv run python scripts/run_evals.py --runs 3 --max-usd 0.5
+```
+
 ## Configuration
 
 Secrets are read **only** from environment variables; `config.yaml` holds only non-sensitive keys.

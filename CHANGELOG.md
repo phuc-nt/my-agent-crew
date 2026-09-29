@@ -22,6 +22,16 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   and nothing a tool returned; three more identical calls halt the turn with the reason "loop",
   and the call that would have been the sixth is answered with a refusal instead of running.
   Repeats with a change in between ("run the tests, fix, run them again") are left alone.
+- `scripts/run_evals.py` plays written cases against your own agents and the real model. A case
+  is a short conversation with one agent plus what must, and must not, happen in it: the tools
+  it calls, what it asks approval for, what it says, whom it delegates to and what it costs.
+  Every case is played several times and passes when two runs in three do. It runs on a copy of
+  your home in a throwaway folder, so nothing touches the live crew: the copy has no schedule,
+  no Telegram bot, no secrets file, no shell allow list and no login files, and a command that
+  names a path of the live home or a workspace is refused even when the case approves. Money
+  spent is read from the usage ledger and capped by `--max-usd`. `--dry-run` swaps in the fake
+  model to check the plumbing. Cases live in `<home>/evals/`; see docs/testing.md.
+- `--no-schedule` starts the server with no scheduler and no channels.
 
 ### Changed
 
@@ -30,6 +40,9 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ### Fixed
 
+- The fake model gives every tool call an id of its own, as a real provider does. Two
+  conversations that delegated at the same point used to share an id, and the second was handed
+  the first one's child.
 - Model calls made beside a turn now reach the usage ledger. Titles, recaps, tool-output
   summaries, picture and scanned-page reads, consolidation and the wiki compile were billed by
   the provider but missing from the day and model totals. Each is now written down with its

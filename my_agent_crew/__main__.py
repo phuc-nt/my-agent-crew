@@ -19,6 +19,11 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="my-agent-crew")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument(
+        "--no-schedule",
+        action="store_true",
+        help="run no scheduled jobs and open no channel (Telegram); the web API still works",
+    )
     # No subcommand keeps starting the server, so the way the service is launched never
     # changes underneath an installed launchd job.
     sub = parser.add_subparsers(dest="command")
@@ -71,7 +76,7 @@ def _serve(args: argparse.Namespace) -> None:
     load_env_file(home_from(os.environ), os.environ)
     settings = load_settings()
     runtime = build_runtime(settings)
-    app = create_app(runtime)
+    app = create_app(runtime, schedule=not args.no_schedule)
     routes = ", ".join(f"{r.provider}:{r.model}" for r in settings.routes)
     agents = ", ".join(runtime.agents)
     print(f"my-agent-crew · home={settings.home} · routes={routes} · agents={agents}")

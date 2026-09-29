@@ -1,89 +1,19 @@
-"""The bench's view of one server: start it on a throwaway home, talk to it over the HTTP
-API the web uses, stop it. Nothing here knows about the live home or the live port; the
-server is a child of this process and dies with it."""
+"""The bench's view of one server, over the HTTP API the web uses: a turn, followed through
+every approval it stops on."""
 
 from __future__ import annotations
 
 import json
-import os
-import socket
-import subprocess
-import sys
 import time
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import IO, Any
+from typing import Any
 
 import httpx
 
-# What the bench must not inherit: the live home, the live routes, the Telegram bot (a
-# second poller would steal the live agent's updates) and every optional backend that
-# would make one model's run differ from another's.
-DROPPED_ENV = (
-    "MY_AGENT_HOME",
-    "MY_AGENT_ROUTES",
-    "MY_AGENT_OPENROUTER_PROVIDERS",
-    "MY_AGENT_OPENROUTER_PROVIDER_FALLBACKS",
-    "TELEGRAM_BOT_TOKEN",
-    "OLLAMA_BASE_URL",
-    "FIRECRAWL_BASE_URL",
-    "FIRECRAWL_API_KEY",
-    "BRAVE_API_KEY",
-    "TAVILY_API_KEY",
-)
-STARTUP_SECONDS = 60
+Step = tuple[str, dict[str, Any]]  # the next request of a turn: (path, JSON body)
 
-
-def port_is_free(port: int) -> bool:
-    with socket.socket() as sock:
-        return sock.connect_ex(("127.0.0.1", port)) != 0
-
-
-class Server:
-    """One `python -m my_agent_crew` on its own home and port, logged into that home."""
-
-    def __init__(self, repo: Path, home: Path, port: int) -> None:
-        self.repo, self.home, self.port = repo, home, port
-        self.base = f"http://127.0.0.1:{port}/api"
-        self._proc: subprocess.Popen[bytes] | None = None
-        self._log: IO[bytes] | None = None
-
-    def start(self) -> None:
-        if not port_is_free(self.port):
-            raise SystemExit(f"port {self.port} is busy: stop its owner first, it is not mine")
-        env = {k: v for k, v in os.environ.items() if k not in DROPPED_ENV}
-        env["MY_AGENT_HOME"] = str(self.home)
-        self._log = open(self.home / "server.log", "ab")
-        self._proc = subprocess.Popen(
-            [sys.executable, "-m", "my_agent_crew", "--port", str(self.port)],
-            cwd=self.repo,
-            env=env,
-            stdout=self._log,
-            stderr=subprocess.STDOUT,
-        )
-        deadline = time.monotonic() + STARTUP_SECONDS
-        while time.monotonic() < deadline:
-            if self._proc.poll() is not None:
-                raise SystemExit(f"server exited early, see {self.home / 'server.log'}")
-            try:
-                httpx.get(f"{self.base}/agents", timeout=2.0).raise_for_status()
-                return
-            except httpx.HTTPError:
-                time.sleep(0.5)
-        self.stop()
-        raise SystemExit(f"server did not come up in {STARTUP_SECONDS}s")
-
-    def stop(self) -> None:
-        if self._proc is not None and self._proc.poll() is None:
-            self._proc.terminate()
-            try:
-                self._proc.wait(10)
-            except subprocess.TimeoutExpired:
-                self._proc.kill()
-                self._proc.wait(5)
-        if self._log is not None:
-            self._log.close()
-        self._proc, self._log = None, None
+TIMED_OUT = "timed out after"
+HTTP_FAILED = "http:"  # what a turn error starts with when the server could not be reached
 
 
 @dataclass
@@ -96,55 +26,86 @@ class Turn:
 
 
 class Api:
-    def __init__(self, base: str, timeout: float) -> None:
-        self._client = httpx.Client(base_url=base, timeout=httpx.Timeout(timeout, connect=5.0))
+    def __init__(
+        self,
+        base: str,
+        timeout: float,
+        transport: httpx.BaseTransport | None = None,
+        turn_seconds: float | None = None,
+    ) -> None:
+        """`timeout` bounds each wait on the server; `turn_seconds`, when given, bounds a whole
+        turn, which a stream that keeps sending keep-alives would otherwise never reach."""
+        self._client = httpx.Client(
+            base_url=base, timeout=httpx.Timeout(timeout, connect=5.0), transport=transport
+        )
+        self._turn_seconds = turn_seconds
+        self._deadline: float | None = None
 
-    def create_conversation(self, agent_id: str = "default") -> str:
-        resp = self._client.post("/conversations", json={"agent_id": agent_id})
+    def create_conversation(self, agent_id: str = "default", autonomous: bool | None = None) -> str:
+        body: dict[str, Any] = {"agent_id": agent_id}
+        if autonomous is not None:
+            body["autonomous"] = autonomous
+        resp = self._client.post("/conversations", json=body)
         resp.raise_for_status()
         return str(resp.json()["id"])
 
     def turn(self, conv_id: str, text: str) -> Turn:
         """One user message, followed through every approval the turn asks for, until the
-        stream that ends the turn closes. A question to the person is a failure: the bench
-        has nobody to answer it."""
+        stream that ends the turn closes."""
         turn = Turn()
         start = time.monotonic()
-        path, body = f"/conversations/{conv_id}/messages", {"text": text}
-        try:
-            while True:
-                pending = self._consume(path, body, turn)
-                if pending is None or turn.error:
-                    break
-                turn.approvals += 1
-                path, body = f"/conversations/{conv_id}/approvals/{pending}", {"approve": True}
-        except httpx.HTTPError as exc:
-            turn.error = f"http: {exc}"
+        self._deadline = start + self._turn_seconds if self._turn_seconds else None
+        self._drive(conv_id, (f"/conversations/{conv_id}/messages", {"text": text}), turn)
         turn.wall_s = round(time.monotonic() - start, 2)
         return turn
 
-    def _consume(self, path: str, body: dict[str, Any], turn: Turn) -> str | None:
-        pending: str | None = None
+    def _drive(self, conv_id: str, step: Step | None, turn: Turn) -> None:
+        """Follows `step`, and each approval its stream stops on, until a stream ends clean."""
+        try:
+            while step is not None:
+                pending = self._consume(*step, turn)
+                if pending is None or turn.error:
+                    break
+                step = self._answer(conv_id, pending, turn)
+        except httpx.HTTPError as exc:
+            turn.error = f"{HTTP_FAILED} {exc}"
+
+    def _cut_short(self) -> str:
+        """Why the turn in flight must stop now, or an empty string. Checked as each line of
+        a stream arrives, and a stream that keeps sending keep-alives never times out itself."""
+        if self._deadline is not None and time.monotonic() > self._deadline:
+            return f"{TIMED_OUT} {self._turn_seconds:g}s"
+        return ""
+
+    def _answer(self, conv_id: str, pending: dict[str, Any], turn: Turn) -> Step | None:
+        """The request that answers an approval the turn stopped on, or None to end the turn.
+        The bench approves every tool; a question to the person is a failure, it has nobody
+        to answer it."""
+        if pending.get("kind") == "question":
+            turn.error = "asked the person a question"
+            return None
+        turn.approvals += 1
+        return f"/conversations/{conv_id}/approvals/{pending['approval_id']}", {"approve": True}
+
+    def _consume(self, path: str, body: dict[str, Any], turn: Turn) -> dict[str, Any] | None:
+        pending: dict[str, Any] | None = None
         event = ""
         with self._client.stream("POST", path, json=body) as resp:
             resp.raise_for_status()
             for line in resp.iter_lines():
+                reason = self._cut_short()
+                if reason:
+                    turn.error = reason
+                    break
                 if line.startswith("event:"):
                     event = line[len("event:") :].strip()
                 elif line.startswith("data:") and event:
                     data = json.loads(line[len("data:") :])
                     self._note(event, data, turn)
                     if event == "approval_required":
-                        pending = self._pending(data, turn)
+                        pending = data
                     event = ""
-        return pending or None
-
-    @staticmethod
-    def _pending(data: dict[str, Any], turn: Turn) -> str | None:
-        if data.get("kind") == "question":
-            turn.error = "asked the person a question"
-            return None
-        return str(data["approval_id"])
+        return pending
 
     @staticmethod
     def _note(event: str, data: dict[str, Any], turn: Turn) -> None:

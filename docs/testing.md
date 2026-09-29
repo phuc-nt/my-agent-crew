@@ -143,6 +143,100 @@ Một lượt hỏi người dùng (`ask_user`) tính là hỏng — bench khôn
 tool thì bench tự duyệt và tính vào thời gian lượt. Cổng bận thì script từ chối chạy thay vì
 giết chủ cổng.
 
+## Kiểm thử hành vi bằng model thật
+
+Bench ở trên so các model với nhau; kiểm thử hành vi hỏi câu khác: **agent của mình** — đúng
+persona, đúng bộ tool, đúng model mà crew thật đang dùng — có làm điều nó phải làm và tránh điều
+nó không được làm không. Đó là chỗ duy nhất bắt được kiểu hỏng "sửa persona xong, agent quên một
+luật cũ" hay "thêm tool xong, agent gọi nó bừa"; model giả không thấy được những thứ đó.
+`scripts/run_evals.py` chơi các case viết tay trên một **bản sao** của home và chấm cái agent
+*cố làm*: gọi tool nào, xin duyệt việc gì, nói gì. Nó không chấm một lệnh in ra gì, vì lệnh cần
+duyệt bị từ chối theo mặc định.
+
+Chạy tay, không nằm trong CI: tốn tiền thật, và một model không trả lời hai lần giống nhau. Chạy
+trước mỗi lần phát hành và sau mỗi lần đổi persona, prompt hay bộ tool của một agent:
+
+```bash
+export OPENROUTER_API_KEY=...      # bí mật duy nhất server eval được nhận
+uv run python scripts/run_evals.py --runs 3 --max-usd 0.5
+uv run python scripts/run_evals.py --only <id>,<id> --runs 1
+uv run python scripts/run_evals.py --dry-run
+```
+
+- **Case** nằm trong `<home>/evals/*.yaml`, cạnh các agent nó thử (`--cases` chỉ một tệp hay
+  thư mục khác, `--home` chọn home khác); `scripts/eval_example_cases.yaml` là mẫu có chú thích.
+  Một case có `id`, `agent`, `messages` (mỗi tin một lượt), `approvals` (`deny` mặc định, hoặc
+  `approve`), `answers` (trả lời lần lượt cho câu hỏi của agent) và `expect`: `calls_tool`,
+  `not_calls_tool`, `asks_approval` (mỗi mục là `{name, args_regex?, agent?, turn?}`; regex tìm
+  trong tham số viết thành JSON, lượt đếm từ 1), `max_calls`, `reply_contains`,
+  `reply_not_contains` (không phân biệt hoa thường và dấu), `delegates_to` và `max_cost_usd`.
+  Khoá lạ, regex hỏng hay id trùng bị từ chối *trước* khi tốn đồng nào. Việc một agent con làm
+  tính vào lượt của cha đã giao nó.
+- **Mỗi case chơi `--runs` lần** (mặc định 3) và đạt khi ít nhất hai phần ba số lần đạt. Số tiền
+  là mức sổ cái của server tăng lên kể từ lúc bắt đầu, lời gọi bên cạnh lượt cũng tính; trước mỗi
+  lần chơi mà đã hết `--max-usd` (mặc định 0.5) thì dừng. Có lời gọi provider không báo giá thì
+  tổng chỉ là cận dưới và báo cáo nói vậy.
+- **Kết quả** ghi vào `<out>/results/` (`--out`, mặc định `$TMPDIR/my-agent-crew-evals`, không
+  được nằm trong repo): `results.md` nêu kỳ vọng nào hỏng ở lần chơi nào, kèm lời đáp rút gọn;
+  `results.json`; `server.log`. Ghi sau mỗi lần chơi, nên cuộc chạy bị cắt vẫn để lại số của
+  những lần đã xong.
+- **Một lượt quá `--turn-timeout`** (300 giây, tính cả khi luồng SSE vẫn gửi keep-alive) hay một
+  lỗi HTTP dừng cả cuộc eval: nó không còn biết server có sống không. Ctrl-C và SIGTERM cũng
+  dừng server và xoá bản sao.
+- **`--dry-run`** đổi model bằng `fake:echo` trên một home tổng hợp và bộ case mẫu, chỉ để kiểm
+  dây nối; chỉ một lần chơi *không kết thúc được* (lỗi, hết giờ, mất server) mới tính là hỏng,
+  vì model giả không thể thoả các kỳ vọng.
+
+Không có gì chạy trên crew thật. Home và các workspace mà agent dùng được chép vào `<out>/run`
+(chỉ chủ sở hữu đọc được); một server khởi động trên bản sao ở `--port` (mặc định 8798, không
+bao giờ là cổng live) với `--no-schedule` — không scheduler, không Telegram hay kênh nào — và
+`HOME` trỏ vào bản sao. Cả hai biến mất khi xong; `--keep-home` giữ bản sao lại, và vì nó chứa
+dữ liệu của các agent, tự xoá tay. Bản sao:
+
+- **bỏ** `env`, `agent.sqlite3*`, `backups`, `logs`, `channels`, `run-server.zsh`, `evals`,
+  `spill`, tệp offset, mọi `.env*`, thư mục git, `.venv`, `node_modules`, `__pycache__`, kit nằm
+  ngoài các thư mục crew đọc, symlink (không chép cũng không theo) và những gì giữ một phiên
+  đăng nhập: cookie, token, khoá riêng, hồ sơ trình duyệt. Báo cáo đếm những gì bị bỏ;
+- **bỏ** `schedules`, `telegram`, `memory_consolidate` và `shell_allow_patterns` khỏi manifest
+  của từng agent (`shell_allow_patterns` cũng bị bỏ khỏi `config.yaml`), và viết lại mọi đường
+  dẫn cho nằm trong thư mục chạy. Đường dẫn ra ngoài home và các workspace bị từ chối trước khi
+  chép gì; một workspace là hay chứa thư mục home của bạn cũng vậy;
+- **giữ** cấu hình, persona, bộ nhớ, kỹ năng, workspace và cơ sở dữ liệu nằm trong workspace.
+  Cơ sở dữ liệu đang được ghi lúc chép có thể hỏng nửa chừng; dữ liệu đó chỉ để đọc;
+- chỉ nhận model key từ shell của người chạy: `env` của home không bao giờ được đọc hay chép,
+  biến chứa token bot mà hồ sơ live gọi tên bị giữ ngoài môi trường của server, và
+  `MY_AGENT_SHELL_ALLOW_PATTERNS` cũng vậy.
+
+Mọi cuộc trò chuyện của eval không tự động (`autonomous` tắt) và bản sao không còn danh sách
+cho phép lệnh shell, nên mọi `shell_run` đều hỏi trước. Danh sách cho phép mà còn sót thì một
+lệnh khớp nó chạy không ai hỏi, kể cả lệnh nêu đường dẫn live, nên `build_home` từ chối một bản
+sao còn danh sách ấy. Runner từ chối hoặc duyệt theo `approvals` của case; kể cả khi duyệt, một
+lệnh nêu đường dẫn của home hay workspace live vẫn bị từ chối, vì lệnh ấy có thể đọc hay ghi cây
+live. Câu hỏi của agent lấy câu trả lời kế tiếp trong `answers`; hết câu trả lời thì lần chơi
+hỏng. Agent con xin duyệt trong cuộc trò chuyện *của nó*, luồng của cha không mang những yêu cầu
+ấy, nên runner hỏi các cuộc con mỗi nửa giây và trả lời theo cùng chính sách; không có nó, lượt
+của cha chờ mãi.
+
+Rủi ro còn lại, đã thu hẹp chứ chưa xoá: persona của vài agent gõ lệnh kèm đường dẫn tuyệt
+đối vào cây live. Mọi lệnh shell đều hỏi và runner không duyệt lệnh nêu đường dẫn ấy, nên một
+lệnh như vậy không chạy; nhưng runner chỉ nhận ra đường dẫn viết nguyên văn, nên một lệnh dựng
+đường dẫn bằng cách khác vẫn có thể lọt nếu case duyệt. Vì thế mọi case mặc định `deny` và chấm
+cái agent *thử* làm; `approve` chỉ dành cho việc không đụng đường dẫn live. Các lớp chặn còn
+lại: `HOME` của server trỏ vào bản sao, môi trường của shell chỉ có một danh sách nhỏ biến, bản
+sao không có `.venv` và không có symlink. Một chuỗi trong manifest hay `config.yaml` vẫn nêu
+đường dẫn live được báo trong cảnh báo của lần chạy chứ không bị viết lại.
+
+Model giả (`fake:echo`) cấp cho mỗi lệnh gọi một mã riêng, như provider thật vẫn làm: agent con
+được tìm lại theo mã lệnh gọi của cha, nên hai cuộc trò chuyện giao việc ở cùng một chỗ mà cùng
+mã thì cuộc sau nhận nhầm agent con của cuộc trước.
+
+Mã nằm trong `scripts/`, tách theo việc để mỗi tệp ≤ 200 dòng như mã của gói: `run_evals.py`
+(điểm vào), `eval_cli.py` (tuỳ chọn, chọn case, từ chối sớm), `eval_play.py` (chơi một lần, chạy
+hết các case), `eval_home.py` + `eval_copy.py` + `eval_layout.py` (bản sao), `eval_cases.py` +
+`eval_expect.py` + `eval_check.py` (đọc và chấm case), `eval_observe.py` (biến một cuộc trò
+chuyện thành thứ chấm được), `eval_client.py` (duyệt, câu hỏi, sổ cái), `eval_report.py` (báo
+cáo). Server và client HTTP chia với bench: `llm_bench_server.py`, `llm_bench_client.py`.
+
 ## Smoke trực tiếp (thủ công)
 
 `MY_AGENT_ROUTES=fake:echo` trên một `MY_AGENT_HOME` tạm, rồi qua UI hoặc curl:
@@ -458,3 +552,35 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `tests/test_delegate_attachments.py::test_only_a_chart_only_ending_reaches_back_for_the_words`
     (lời nháp trước một câu trả lời thật vẫn bị bỏ, dòng đính kèm không gửi hai lần);
     `tests/test_delegate_attachments.py::test_the_words_are_looked_for_only_since_the_task_was_given`
+- **Kiểm thử hành vi bằng model thật, chạy trên bản sao của home**
+  - pytest: `tests/test_eval_cases.py` (đọc case từ tệp hay thư mục; khoá lạ, thiếu id hay
+    agent, tin nhắn không phải chuỗi, regex hỏng, id trùng bị từ chối trước khi tốn tiền; từng
+    loại kỳ vọng: gọi và không gọi tool theo tên, tham số, agent và lượt, xin duyệt, số lần gọi tối đa,
+    câu đáp chứa và không chứa, giao việc cho agent nào, giá tối đa; "hai phần ba số lần chơi
+    đạt thì case đạt");
+    `tests/test_eval_observe.py` (mỗi lệnh gọi mang số lượt và agent, việc của agent con tính
+    vào lượt của cha đã giao, lời đáp cuối, lỗi và giá, tìm ra các cuộc con);
+    `tests/test_eval_client.py` (duyệt và từ chối được ghi lại, lệnh nêu đường dẫn live bị từ
+    chối kể cả khi chính sách là duyệt, câu hỏi lấy câu trả lời kế tiếp và hết thì hỏng, một
+    lượt vẫn bị cắt khi luồng cứ gửi keep-alive, yêu cầu duyệt của agent con được trả lời, được
+    hỏi lại khi nó xin lần nữa, và hỏng rõ ràng khi không trả lời được);
+    `tests/test_eval_home.py` (bản sao bỏ bí mật, trạng thái, cơ sở dữ liệu của server, lịch sử,
+    phiên đăng nhập, symlink, kit ngoài thư mục crew; giữ cấu hình, persona, bộ nhớ, workspace
+    và cơ sở dữ liệu của workspace; nạp lại được bằng đúng bộ đọc của server; không còn lịch,
+    Telegram, cô đọng bộ nhớ; không manifest nào nêu đường dẫn home live; không agent nào còn
+    danh sách cho phép lệnh shell, ở manifest lẫn `config.yaml`; chuỗi còn nêu đường dẫn live
+    được báo chứ không viết lại; từ chối đường dẫn ra ngoài, thư mục chạy nằm trong home hay
+    workspace, một workspace là hay chứa thư mục home của người dùng; cây live không đổi; thư
+    mục chạy chỉ chủ sở hữu đọc được; chép hỏng thì dọn sạch);
+    `tests/test_eval_report.py` (luật đạt, đếm khi chạy thử, tiền là cận dưới khi có lời gọi
+    không báo giá, dạng dòng, bảng, markdown và json);
+    `tests/test_run_evals.py` (một lần chơi đạt hay hỏng và vì kỳ vọng nào, cuộc trò chuyện
+    không tự động, lỗi ở lượt đầu chặn lượt sau, tiền tính theo mức tăng của sổ cái, hết ngân
+    sách thì dừng trước lần chơi kế, Ctrl-C để lại số của các lần đã xong, một lượt quá giờ hay
+    mất server dừng cả cuộc, các từ chối trước khi chép gì, chạy thử qua một server thật);
+    `tests/test_llm_bench_client.py` (môi trường của server bench và eval không mang home,
+    token bot hay danh sách cho phép lệnh shell của người chạy);
+    `tests/test_serve_flags.py` (`--no-schedule` tắt cả scheduler lẫn kênh, không đụng `--port`);
+    `tests/test_echo_provider.py` (mỗi lệnh gọi của model giả có mã riêng, như provider thật,
+    nên hai cuộc trò chuyện giao việc ở cùng một chỗ không nhận nhầm agent con của nhau)
+  - Thủ công, tốn tiền thật: `scripts/run_evals.py` trên các case trong `<home>/evals/`

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import re
+import uuid
 from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass, replace
 
@@ -98,7 +99,7 @@ class EchoProvider:
             text = f"Kết quả công cụ {last.name}:\n{last.content[:400]}"
             calls: tuple[ToolCall, ...] = ()
         else:
-            call_id = f"call_echo_{len(messages)}"
+            call_id = f"call_echo_{len(messages)}_{uuid.uuid4().hex[:8]}"
             text, calls = _interpret(last.content, tools, call_id)
         for piece in _chunked(text):
             yield TextDelta(piece)
