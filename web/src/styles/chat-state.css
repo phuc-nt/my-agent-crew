@@ -84,7 +84,8 @@
 /* ── Stopped turn, request handled elsewhere ────────────────────────────── */
 /* Neutral: the person asked for it, or someone answered first, so nothing went wrong. */
 .notice.stopped,
-.notice.handled {
+.notice.handled,
+.notice.elsewhere {
   background: var(--surface-sunken);
   color: var(--text-secondary);
 }

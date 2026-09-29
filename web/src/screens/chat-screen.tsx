@@ -3,12 +3,13 @@ import type { AgentInfo, Conversation, RunInfo, SettingsInfo } from "../api/type
 import { ApprovalBar } from "../components/approval-bar";
 import { RaiseCapButton } from "../components/budget-indicator";
 import { QuestionCard } from "../components/question-card";
-import { Composer } from "../components/composer";
+import { Composer, type RestoreRequest } from "../components/composer";
 import { ConversationActivity } from "../components/conversation-activity";
 import { ConversationHeader } from "../components/conversation-header";
 import { ConversationList } from "../components/conversation-list";
 import { ErrorBoundary } from "../components/error-boundary";
 import { MessageThread } from "../components/message-thread";
+import { QueuedChips } from "../components/queued-chips";
 import { StatusLine } from "../components/status-line";
 import { AgentAvatar } from "../components/ui/agent-avatar";
 import { Icon, type IconName } from "../components/ui/icon";
@@ -48,7 +49,13 @@ const DOCKED_ACTIVITY_QUERY = "(min-width: 1101px)";
 // Matches the breakpoint in shell.css.
 const PHONE_QUERY = "(max-width: 720px)";
 
-const NOTICE_ICON: Record<string, IconName> = { fallback: "refresh", halted: "pause", stopped: "stop", handled: "info" };
+const NOTICE_ICON: Record<string, IconName> = {
+  fallback: "refresh",
+  halted: "pause",
+  stopped: "stop",
+  handled: "info",
+  elsewhere: "info",
+};
 
 export function ChatScreen({
   list,
@@ -64,6 +71,16 @@ export function ChatScreen({
 }: Props) {
   const [draft, setDraft] = useState<string | undefined>(undefined);
   const [queued, setQueued] = useState<{ id: string; text: string } | null>(null);
+  // Text handed back to the composer from outside: a queueing POST that itself failed, or
+  // words Stop pulled off the server's queue. `restoreNonce` is a plain counter rather than
+  // `Date.now()` so two restores in the same millisecond (Stop, then a failed send right
+  // after) still read as two distinct requests to the composer's own nonce check.
+  const [restore, setRestore] = useState<RestoreRequest | null>(null);
+  const restoreNonce = useRef(0);
+  const restoreText = useCallback((text: string) => {
+    restoreNonce.current += 1;
+    setRestore({ nonce: restoreNonce.current, text });
+  }, []);
   const searchRef = useRef<HTMLInputElement>(null);
   const [collapseSignal, setCollapseSignal] = useState(0);
   const phone = useMediaQuery(PHONE_QUERY);
@@ -109,7 +126,13 @@ export function ChatScreen({
   }, [listCreate, onSelectConversation]);
 
   const send = async (text: string) => {
-    if (list.activeId) return thread.send(text);
+    if (list.activeId) {
+      // A non-null result is the text itself, handed back because the queueing POST failed
+      // server-side; it belongs back in the box exactly like text Stop pulled off the queue.
+      const failed = await thread.send(text);
+      if (failed !== null) restoreText(failed);
+      return;
+    }
     const created = await create();
     if (created) setQueued({ id: created.id, text });
   };
@@ -148,6 +171,19 @@ export function ChatScreen({
   // what was spent, so a raise takes it away and the halt's notice says to send again.
   const overBudget = Boolean(active?.over_budget) && !state.busy;
   const capReached = active !== null && active.cost_cap_usd > 0 && state.spentUsd >= active.cost_cap_usd;
+  // Stop can reach three different things: this tab's own running turn, a message still
+  // only sitting in the queue with nothing running yet, or a turn another chat tab or the
+  // Telegram channel started. Only the last of those needs asking the server whether
+  // anything was even there to stop — `chat` and `api` are the sources a person, not a
+  // schedule or a delegate, could plausibly be running from right now.
+  const stoppable =
+    state.busy ||
+    state.waiting.length > 0 ||
+    (externalRun !== null && ["chat", "api"].includes(externalRun.source));
+  const onStop = async () => {
+    const cleared = await thread.stop(externalRun !== null);
+    if (cleared.length > 0) restoreText(cleared.join("\n\n"));
+  };
   // A raise from a notice often takes the notice, or its button, away with the control
   // the keyboard was on. Once the screen has caught up, the keyboard goes where the person
   // carries on: the composer when the raise let it write, or the raise still on offer.
@@ -178,7 +214,9 @@ export function ChatScreen({
             ? vi.stopped
             : state.notice.kind === "handled"
               ? vi.attentionHandled
-              : vi.errorPrefix + state.notice.text}
+              : state.notice.kind === "elsewhere"
+                ? vi.stopElsewhere
+                : vi.errorPrefix + state.notice.text}
       {state.notice.kind === "halted" && state.notice.text === "budget" && active && !overBudget && capReached && (
         <RaiseCapButton capUsd={active.cost_cap_usd} onSave={raiseFromNotice} />
       )}
@@ -363,13 +401,16 @@ export function ChatScreen({
             <RaiseCapButton capUsd={active.cost_cap_usd} onSave={raiseFromNotice} />
           </div>
         )}
+        <QueuedChips items={state.waiting} />
         <Composer
           // Anything pending blocks the composer, question included: the server refuses a
           // new message while an approval waits, so an enabled box would only collect text
           // and then 409. The question card carries its own input for the reply. A spent
           // budget blocks it too: the server would halt the turn before it started.
           disabled={state.pending !== null || Boolean(active?.over_budget)}
-          busy={state.busy}
+          busy={state.busy || externalRun !== null}
+          stoppable={stoppable}
+          restore={restore}
           draft={draft}
           draftKey={list.activeId ?? "new"}
           agentName={active ? crew.agentName(active.agent_id) : master?.name}
@@ -378,7 +419,7 @@ export function ChatScreen({
             setDraft(undefined);
             void send(text);
           }}
-          onStop={thread.stop}
+          onStop={() => void onStop()}
         />
         <StatusLine
           thread={state}

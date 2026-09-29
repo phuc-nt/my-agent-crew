@@ -83,6 +83,22 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   `POST /api/conversations/{id}/stop` hands it back as `cleared`, empties the line and stops the
   turn the line started, if one runs (`cancelled`). A turn a browser tab is reading, one the
   Telegram bot runs for a message it just got, or a job's, is not the line's to stop.
+- The composer no longer locks while its conversation is busy: typing and Enter still send, only
+  where the message goes changes. A plain message becomes a chip reading "Đã xếp hàng, chạy sau
+  lượt này" and is sent by a POST of its own, never touching the running turn's stream or its
+  `AbortController`; a `/steer` message or a kit command becomes a chip reading "Sẽ chèn vào lượt
+  đang chạy", and once the server folds it in, the chip turns into a user message in place and the
+  run draws an empty dot on its timeline for the step, so a person's steer reads apart from the
+  agent's own work. Stop is the only way to take a message back: it calls the server first, within
+  three seconds, so the line has a chance to be cleared in order before the tab aborts its own
+  turn, then returns every cleared chip's text to the composer in the order it was sent. Stopping
+  with nothing left to clear says nothing; clearing chips from a turn the server could not cancel
+  (Telegram, a job, another tab) says so instead of clearing them silently. A conversation's chips
+  survive a reload: they come from `queued` on the conversation's own record, not from anything
+  kept only in the tab.
+- A run first seen already running while its tab still shows a queued chip is reloaded right away,
+  instead of waiting for a status change that a turn finishing between polls, or one halted on its
+  own budget, may never produce — the chip could otherwise outlive the turn it was queued behind.
 - A message sent to `POST /api/inbound` while its conversation is busy is answered at once with
   `status` `queued`, `queued: true`, no steps and a notice as its text; the answer itself is read
   back from the conversation. Every reply carries `queued`.

@@ -92,6 +92,16 @@
   transform: none;
   border-radius: 50%;
 }
+.step.steer::before {
+  /* Same bead as a note — a sentence, not a piece of work — but hollow: this one was
+     said by a person cutting in, not by the agent narrating itself. */
+  background: transparent;
+  border: 1px solid var(--step-note);
+  width: 6px;
+  height: 6px;
+  transform: none;
+  border-radius: 50%;
+}
 
 /* A note is a sentence the agent wrote, not the name of a machine part, so it is set
    apart from the tool and model names it sits between. Italic alone does that; settled

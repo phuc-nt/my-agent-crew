@@ -55,6 +55,8 @@ export function stepState(step: RunStep, runStatus: RunStatus): StepState {
   if (step.kind === "model") return isSettled(runStatus) ? "stalled" : "running";
   // A note is finished the instant it is written, and it can neither run nor fail.
   if (step.kind === "note") return "done";
+  // Likewise a steer step: it is handed to the turn and done the same instant.
+  if (step.kind === "steer") return "done";
   // A question never closes on this run: the answer resumes the turn as a new one. So it
   // is "waiting" whatever the run went on to do, rather than stalling once the run ends.
   if (step.kind === "question") return "waiting";
@@ -119,8 +121,9 @@ export function stepProgress(run: RunInfo): StepProgress {
   // A note is commentary on the work, not a piece of it. Counted, it would land on both
   // sides of the fraction and quietly deflate it: an agent that says what it is doing
   // before each of three tool calls would read "6/8" where a silent one reads "3/4",
-  // making the more talkative agent look further behind for having explained itself.
-  const counted = run.steps.filter((step) => step.kind !== "note");
+  // making the more talkative agent look further behind for having explained itself. A
+  // steer step is the same kind of thing said by a person instead of the agent.
+  const counted = run.steps.filter((step) => step.kind !== "note" && step.kind !== "steer");
   const total = counted.length;
   // A waiting step is not finished any more than a running one is. Counting it as done
   // would fill the bar on a run that is stopped, which is the one moment the bar is

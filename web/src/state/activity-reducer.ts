@@ -125,6 +125,16 @@ export function applyRunEvent(run: RunInfo, e: AgentEvent): RunInfo {
       else steps.push(fallback);
       break;
     }
+    case "steer":
+      // Shown the way a note is, and shortened by the same function the server shortens
+      // it with (`note_text` in `activity/steps.py`), so the row does not change text
+      // once the server's own stored step replaces this live one.
+      steps.push({ kind: "steer", text: noteText(e.text), duration_ms: 0 });
+      break;
+    // Never reaches the activity stream: a stream nothing is watching for it carries only
+    // the one `queued` event, which the sending hook intercepts before this reducer runs.
+    // Listed so the switch stays exhaustive against a stale tab that somehow still sees it.
+    case "queued":
     case "text_delta":
     case "thinking":
     case "model_call":

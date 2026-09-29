@@ -1,9 +1,18 @@
 import type { Page, Route } from "@playwright/test";
-import type { AgentInfo, WikiPage, WikiPageEdit } from "../src/api/types";
+import type { AgentInfo, QueuedMessage, WikiPage, WikiPageEdit } from "../src/api/types";
 import { applyAgentPatch, restartRequired } from "../src/test/schedule-contract";
 
 // Every /api call is answered in-browser so the smoke tests measure the real DOM without a backend.
-export type Conversation = Record<string, unknown> & { id: string; messages: unknown[]; pending_approval: unknown };
+export type Conversation = Record<string, unknown> & {
+  id: string;
+  messages: unknown[];
+  pending_approval: unknown;
+  /** What `stop` answers with and empties: a test's own hang-then-queue route (see
+   *  `queue.spec.ts`) pushes onto this array directly, the same object `stop` reads.
+   *  Optional like the real `ConversationDetail.queued?`, so every existing fixture that
+   *  builds a conversation without it stays valid; `mockApi` fills it in as `[]`. */
+  queued?: QueuedMessage[];
+};
 
 // Annotated rather than inferred: a fixture the compiler does not check against the real
 // type drifts silently, and the screens then render fields in a state the backend can
@@ -166,7 +175,13 @@ export function sse(events: object[], retryMs = 60_000): string {
 
 export async function mockApi(page: Page, options: MockOptions = {}) {
   const turns = options.turns ?? [];
-  const conversations = options.conversations ?? [];
+  // `queued` defaults to `[]` on every fixture that omits it, the same as an old server's
+  // response would parse to on the client — so `stop`'s own `conv.queued ?? []` never has
+  // to special-case a conversation that came from a literal rather than a runtime POST.
+  const conversations: Conversation[] = (options.conversations ?? []).map((c) => ({
+    ...c,
+    queued: c.queued ?? [],
+  }));
   const agents = options.agents ?? [defaultAgent];
   // Saved routes live per page, so one test's save never shows in the next.
   let routes = connections.routes;
@@ -341,10 +356,22 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
       const conv: Conversation = {
         id: `c${++created}`, agent_id: "default", channel: "", title: "", created_at: "", updated_at: "", autonomous: false, cost_cap_usd: 1,
         skills: [], auto_approve: [], spent_usd: 0, unknown_cost_calls: 0, status: "idle", over_budget: false, messages: [], pending_approval: null,
+        queued: [],
         ...(route.request().postDataJSON() ?? {}),
       };
       conversations.push(conv);
       return json(conv, 201);
+    }
+    // Stop: hands back whatever a test's own hang-then-queue route pushed onto this
+    // conversation's `queued`, then empties it — the one thing the base handler cannot do
+    // per-test, since the queue is state shared between that route and this one.
+    const stopped = path.match(/^\/conversations\/([^/]+)\/stop$/)?.[1];
+    if (stopped && method === "POST") {
+      const conv = conversations.find((c) => c.id === decodeURIComponent(stopped));
+      if (!conv) return json({ detail: "not found" }, 404);
+      const cleared = conv.queued ?? [];
+      conv.queued = [];
+      return json({ cleared, cancelled: false });
     }
     // A question closes by its own `/answer` route, not by the approve/deny one, so the
     // pattern has to reach it — otherwise answering in the browser 404s here and the

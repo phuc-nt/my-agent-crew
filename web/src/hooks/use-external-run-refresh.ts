@@ -92,6 +92,14 @@ export function useExternalRunRefresh(
       // A paused run belongs to whoever answers it: a decision taken here resumes it on
       // this tab's stream, one taken elsewhere does not.
       if (run.status === AWAITING) ours.current.delete(run.id);
+      // A drain turn's first sighting is exactly the run a waiting chip is about to
+      // become: the person's message was written before the turn even started. This does
+      // not require catching it as `running` — the server may finish that turn before the
+      // browser renders a frame for it (an echo reply, a turn halted on budget with no
+      // model call at all), in which case the first payload this tab ever sees for the run
+      // already carries its terminal status. Either way the chip needs the same reload.
+      const drains = prev === undefined && thread.state.waiting.length > 0;
+      if (!mine && drains && !behind.current) changed = true;
       if (mine || prev === undefined || prev === run.status) continue;
       // Going back to running only matters when it took an approval with it.
       if (run.status !== "running" || prev === AWAITING) changed = true;

@@ -2,11 +2,23 @@ import { useEffect, useLayoutEffect, useRef, type KeyboardEvent } from "react";
 import type { CommandInfo } from "../api/types";
 import { useDraft } from "../hooks/use-draft";
 import { vi } from "../i18n/vi";
+import { steerHint } from "../lib/steer-hint";
 import { SlashPopover, useSlashMenu } from "./slash-popover";
 import { Icon } from "./ui/icon";
 
+/** Text handed back to the box from outside — Stop returning a chip's words, in order.
+ *  `nonce` is what the box watches: the same text restored twice in a row (Stop pressed
+ *  again with nothing new cleared) would not otherwise be a new value to react to. */
+export interface RestoreRequest {
+  nonce: number;
+  text: string;
+}
+
 interface Props {
   disabled: boolean;
+  /** The agent is busy somewhere — this tab's own turn, or one running elsewhere. The box
+   *  is never locked for it; it only changes what the send button says and whether Stop
+   *  is offered beside it. */
   busy: boolean;
   draft?: string;
   /** Where the unsent text is kept, one per conversation; absent keeps it in memory only. */
@@ -15,6 +27,13 @@ interface Props {
   agentName?: string;
   /** The agent's own commands, offered when the message starts with "/". */
   commands?: CommandInfo[];
+  /** Whether Stop should be offered while busy. Defaults to `busy`, so a caller that only
+   *  ever passes `busy` keeps seeing Stop exactly as before this prop existed. A run this
+   *  tab cannot touch — another channel's — passes `false` here instead. */
+  stoppable?: boolean;
+  /** Text to put back in the box from outside, oldest first, ahead of whatever is already
+   *  being typed. */
+  restore?: RestoreRequest | null;
   onSend: (text: string) => void;
   onStop: () => void;
 }
@@ -29,6 +48,8 @@ export function Composer({
   draftKey,
   agentName,
   commands = [],
+  stoppable = busy,
+  restore,
   onSend,
   onStop,
 }: Props) {
@@ -36,12 +57,31 @@ export function Composer({
   const box = useRef<HTMLTextAreaElement>(null);
   const menu = useSlashMenu(commands, text, setText, box, disabled);
   const listed = menu.open && menu.shown.length > 0;
+  // What a busy send will actually do to this text: the server alone decides for real
+  // (`steer_text`, `find_command`), so a stale or unloaded command list only gets the
+  // button's own wording wrong, never the send itself.
+  const sendLabel = steerHint(text, commands) === "steer" ? vi.sendSteer : vi.sendQueue;
   // Keyed on the suggestion alone: re-running when the conversation changes would copy a
   // suggestion picked in one conversation over the draft kept for the next.
   useEffect(() => {
     if (draft !== undefined) setText(draft);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft]);
+
+  // A chip's words coming back from Stop go ahead of whatever is already half-written,
+  // never over it: the person may have kept typing while Stop was in flight. `setText`
+  // only ever takes a plain string, so the join reads `text` as it stands this render
+  // rather than through a functional update `useDraft` does not offer.
+  const restoredNonce = useRef<number | null>(null);
+  useEffect(() => {
+    if (!restore || restore.nonce === restoredNonce.current) return;
+    restoredNonce.current = restore.nonce;
+    setText(text ? `${restore.text}\n\n${text}` : restore.text);
+    box.current?.focus();
+    // Only a new `nonce` should ever re-run this: `text` and `setText` change on every
+    // keystroke, which would replay the same restore on top of what was typed since.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restore]);
 
   // One line when empty, as tall as the message while it is written: a fixed two-row box
   // either wastes a line on every short message or hides the start of a long one. Empty,
@@ -56,7 +96,7 @@ export function Composer({
 
   const submit = () => {
     const trimmed = text.trim();
-    if (!trimmed || disabled || busy) return;
+    if (!trimmed || disabled) return;
     onSend(trimmed);
     setText("");
   };
@@ -115,7 +155,7 @@ export function Composer({
             /
           </button>
         )}
-        {busy ? (
+        {busy && stoppable && (
           <button
             type="button"
             className="composer-action stop"
@@ -125,12 +165,16 @@ export function Composer({
           >
             <Icon name="stop" />
           </button>
-        ) : (
+        )}
+        {/* Busy with nothing typed offers only Stop: a send button with nothing to send
+            would just repeat it, and the two side by side at that point read as one
+            choice offered twice. */}
+        {(!busy || text.trim()) && (
           <button
             type="submit"
             className="composer-action primary"
-            aria-label={vi.send}
-            title={vi.send}
+            aria-label={busy ? sendLabel : vi.send}
+            title={busy ? sendLabel : vi.send}
             disabled={disabled || !text.trim()}
           >
             <Icon name="arrow-up" />

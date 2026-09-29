@@ -79,6 +79,13 @@ export type RunStep =
       kind: "note";
       text: string;
       duration_ms: number | null;
+    }
+  | {
+      /** What a person handed the running turn — `/steer text` or a kit command — shown
+       *  the way a note is: one line, done the instant it is said. */
+      kind: "steer";
+      text: string;
+      duration_ms: number | null;
     };
 
 /** A chat turn or job execution with its step timeline. */

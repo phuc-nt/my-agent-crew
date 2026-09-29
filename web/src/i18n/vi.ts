@@ -80,6 +80,18 @@ export const vi = {
   },
   send: "Gửi",
   stop: "Dừng",
+  /** The send button's own label while the conversation is busy: what a plain message or
+   *  a `/steer` one will do, since "Gửi" alone would promise an answer that is not coming
+   *  yet. */
+  sendQueue: "Xếp hàng",
+  sendSteer: "Chèn",
+  /** A message that found the conversation busy: confirmation only, no cancel. */
+  queuedFollowUp: "Đã xếp hàng, chạy sau lượt này",
+  queuedSteer: "Sẽ chèn vào lượt đang chạy",
+  queuedLabel: "Tin đang chờ gửi",
+  /** Stop reached a turn only another channel can touch: the chips are gone, but nothing
+   *  here just stopped. */
+  stopElsewhere: "Lượt này đang chạy ở nơi khác nên chưa dừng được từ đây.",
   thinking: "Đang suy nghĩ…",
   jumpToNewest: "Tin mới nhất",
   awaitingApproval: "Agent muốn chạy một công cụ cần bạn duyệt.",
@@ -603,6 +615,9 @@ export const vi = {
   // Not "ghi chú": that would suggest something was written down and kept. The note only
   // reports what is happening right now, and disappears with the run.
   stepNote: "đang làm",
+  // Said the way a note is said, but by a person rather than the agent: "bạn chèn" reads
+  // as "you cut in", the same instant it happened.
+  stepSteer: "bạn chèn",
   routeFallback: (detail: string) => `Tuyến ${detail} không trả lời, đã chuyển sang tuyến dự phòng.`,
   stepDuration: (ms: number) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)} giây` : `${ms} ms`),
   stepChars: (n: number) => `${n} ký tự`,

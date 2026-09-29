@@ -26,6 +26,7 @@ import type {
   RunInfo,
   SettingsInfo,
   StatsInfo,
+  StopResult,
   TemplateInfo,
   UserMemory,
   WikiList,
@@ -187,6 +188,10 @@ export const api = {
     request<{ id: string; summary: string }>(`/conversations/${id}/summary`, { method: "POST" }),
   sendMessage: (id: string, text: string, onEvent: (e: AgentEvent) => void, signal?: AbortSignal) =>
     stream(`/conversations/${id}/messages`, { text }, onEvent, signal),
+  /** Takes every message still waiting for this conversation's turn back out of the queue,
+   *  and stops the turn too where the server can reach it — see `StopResult`. */
+  stopConversation: (id: string, signal?: AbortSignal) =>
+    request<StopResult>(`/conversations/${id}/stop`, { method: "POST", signal }),
   resolveApproval: (
     id: string,
     approvalId: string,

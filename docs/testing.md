@@ -708,6 +708,71 @@ tên một test thì sửa dòng của nó trong cùng commit.
     động thì trả lời tin đã chờ qua restart, còn server `--no-schedule` để tin ấy tới sau lượt kế);
     `tests/test_kit_commands.py::test_steer_text_renders_kit_commands_and_leaves_everything_else_alone`,
     `::test_inbound_expands_a_kit_command_before_the_turn` (lúc rảnh `/steer X` là tin `X`)
+  - vitest: `state/thread-reducer.test.ts` nhóm "threadReducer queue and steer"
+    ("loaded reads waiting from detail.queued, defaulting to empty",
+    "opened clears waiting along with the rest of the thread",
+    "queued adds a chip and drops the matching local bubble, but only on a text match",
+    "queue_cleared empties waiting", "elsewhere sets a notice of that kind",
+    "a steer event adds one user message and drops the oldest matching count of steer chips",
+    "a steer count larger than the number of steer chips only drops the steer chips there are",
+    "a queued event reaching the reducer directly is a no-op: the hook intercepts it first",
+    "queue_failed sets an error notice without touching busy, streaming or items" — lỗi từ POST
+    xếp hàng không đụng luồng đang chạy, chỉ để lại một thông báo và giữ chip nguyên tại chỗ);
+    `hooks/use-thread.test.ts`
+    ("goes a second POST instead of runTurn, and the running turn keeps working and can still be
+    stopped", "aborts a queueing POST still in flight when the conversation is switched", nhóm
+    "send while the conversation is busy elsewhere (this tab thought it was idle)"
+    "catches the queued event on the plain send path and turns the temp bubble into a chip", nhóm
+    "send while busy hits the queue's own limits", và nhóm "Stop, redesigned: server first, then
+    abort, chip text back in order"
+    ("calls the server before aborting, returns the cleared texts in queue order and clears the
+    chips", "shows no notice when Stop only had chips to clear and nothing was running",
+    "says `elsewhere` on an external run the server could not cancel, and still clears the chips",
+    "aborts locally once STOP_WAIT_MS elapses when the server hangs, driven by fake timers") — hạn
+    chờ giả bằng fake timers, không chờ thật ba giây;
+    `lib/steer-hint.test.ts` "steerHint" (bảng `/tmp/x`, `/Users/a/b`, lệnh lạ, `/steer`,
+    `/steer x`, lệnh đã biết, chữ thường — cùng dạng regex với server);
+    `components/queued-chips.test.tsx`
+    ("renders nothing when there is nothing waiting",
+    "carries the full text in the DOM even though the row itself is a single truncated line",
+    "announces itself with aria-live so a chip appearing is read out without moving focus",
+    "labels a follow-up chip and a steer chip differently for someone using a screen reader",
+    "offers no button: a chip is confirmation only, nothing here can be cancelled");
+    `components/components.test.tsx` nhóm "Composer"
+    ("still sends on Enter while busy: the box is never locked, only Stop is offered beside it",
+    "labels the send button by what a busy send will do: queue a plain message, steer a /steer
+    one", "offers both Stop and send while busy with text typed, but only Stop once the box is
+    empty", "hides Stop when the caller says the busy turn cannot be stopped from here",
+    "prepends restored text to whatever is already in the box, then focuses it",
+    "restores alone with no join when the box was empty" — hai test cuối `waitFor` việc focus
+    dời sang ô soạn sau khi `restore` đổi `nonce`);
+    `lib/run-steer-step.test.ts` nhóm "a steer event on a live run"
+    ("becomes a steer step, shortened exactly as the server shortens it",
+    "cuts a long steer text at the same length the server cuts at") — cùng độ dài cắt với
+    `note_text` phía server; nhóm "a queued event on a live run"
+    "never reaches the activity stream, but a run read from a stale tab is not thrown"; nhóm
+    "a steer step in the timeline"
+    ("is labelled with its own sentence and painted done",
+    "never merges with the steer step beside it: two turns of steering differ even when they read
+    alike", "is left out of the progress counter, like a note: it is what a person said, not a
+    piece of work");
+    `hooks/use-external-run-refresh.test.ts` nhóm "a run first seen running while a drain's chip is
+    still on screen"
+    ("reloads the thread right away instead of waiting for the run to change status",
+    "does not reload when there is no chip waiting: a plain external run keeps its old, quieter
+    behaviour",
+    "reloads even when the run is first seen already finished: an echo reply or a turn halted on
+    budget never renders as running at all",
+    "reloads when the run is first seen halted: the same instant turn can also stop on its own
+    budget cap",
+    "does not reload while the stream is behind: the reload on catching up already covers it")
+  - Playwright: `queue.spec.ts`
+    ("a plain message queues as a chip, clears the box, and leaves Stop and send both showing",
+    "a /steer message queues as a chip that will cut in, then becomes a user message once the held
+    turn steers it",
+    "Stop hands both queued texts back to the box in order and the chips go",
+    "a reload still shows the chip: the conversation's own queued field carries it",
+    "chips wrap instead of forcing the page wider, and Stop and send stay tappable")
 - **Lượt Telegram chạy nền: chat được đọc trong lúc lượt chạy**
   - pytest: `tests/test_telegram_background.py` (`/status` trả lời giữa lượt, tin thứ hai xếp
     hàng không kèm "đang gõ…" rồi được trả lời riêng, `/new` bị từ chối khi đang chạy; `/steer`

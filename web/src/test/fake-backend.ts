@@ -11,6 +11,7 @@ import type {
   FactType,
   JobInfo,
   MemoryProposal,
+  QueuedMessage,
   RegistryTool,
   RunInfo,
   SettingsInfo,
@@ -186,6 +187,13 @@ export class FakeBackend {
 
   /** Events streamed by the next POST /messages or /approvals call. */
   nextTurn: AgentEvent[] = [];
+  /** A conversation whose turn `holdTurn()` is keeping open: its first POST /messages
+   *  does not close its SSE stream until the test releases it, and every POST that
+   *  reaches the conversation before that queues instead of starting a second turn. */
+  private held = new Map<string, () => void>();
+  /** Messages queued behind a held turn, oldest first, keyed by conversation id. */
+  private queues = new Map<string, QueuedMessage[]>();
+  private queueCounter = 0;
   requests: { method: string; path: string; body: unknown }[] = [];
   private counter = 0;
 
@@ -290,8 +298,17 @@ export class FakeBackend {
     if (conv && path.endsWith("/messages") && method === "POST") {
       const c = this.conversations.get(conv)!;
       if (c.status === "awaiting_approval") return json({ detail: "conversation is awaiting approval" }, 409);
+      // A turn is already being held open for this conversation: the message it found
+      // busy is queued, and its own stream carries the one `queued` event this sends it.
+      if (this.held.has(conv)) return this.queueMessage(c, body.text);
       c.messages.push(storedMessage("user", body.text));
       return this.streamTurn(c);
+    }
+    if (conv && path.endsWith("/stop") && method === "POST") {
+      const cleared = this.queues.get(conv) ?? [];
+      this.queues.set(conv, []);
+      this.conversations.get(conv)!.queued = [];
+      return json({ cleared, cancelled: false });
     }
     if (conv && path.endsWith("/summary") && method === "POST") {
       const c = this.conversations.get(conv)!;
@@ -570,6 +587,10 @@ export class FakeBackend {
     };
   }
 
+  /** Set by `holdTurn()` for the conversation whose next `/messages` POST must open a
+   *  turn that stays running instead of an ordinary one-shot stream. */
+  private willHold: string | null = null;
+
   private streamTurn(c: ConversationDetail): Response {
     const events = this.nextTurn;
     this.nextTurn = [];
@@ -581,9 +602,50 @@ export class FakeBackend {
       c.pending_approval = { id, conversation_id: c.id, message_id: "", tool_call_id, tool_name, arguments: args, status: "pending", created_at: "", expires_at, resolved_at: null, kind, options, reason };
     }
     const encoder = new TextEncoder();
+    const held = this.willHold === c.id;
+    this.willHold = null;
+    const stream = new ReadableStream<Uint8Array>({
+      start: (controller) => {
+        for (const e of events) controller.enqueue(encoder.encode(`event: ${e.type}\r\ndata: ${JSON.stringify(e)}\r\n\r\n`));
+        // An ordinary turn ends its stream at once. A held one leaves it open — this is
+        // what `state.busy` reads as true on — and only `release()` closes it, the way
+        // the real connection stays open until the tool it is waiting on returns.
+        if (held) this.held.set(c.id, () => controller.close());
+        else controller.close();
+      },
+    });
+    return new Response(stream, { status: 200, headers: { "content-type": "text/event-stream" } });
+  }
+
+  /** Marks the given conversation's next turn as one to hold open, the way a slow tool
+   *  call would: send the message that starts it and the returned SSE stream will not
+   *  close on its own. Every POST that reaches the conversation before `release()` is
+   *  queued instead of starting a second turn, exactly as the real server queues one
+   *  behind a turn that is still going. */
+  holdTurn(conversationId: string): { release: () => void } {
+    this.willHold = conversationId;
+    return {
+      release: () => {
+        this.held.get(conversationId)?.();
+        this.held.delete(conversationId);
+      },
+    };
+  }
+
+  /** A message that found a held turn busy: queued exactly as the server queues one,
+   *  with the one `queued` event on its own stream and nothing added to the transcript
+   *  yet — the transcript only gains it once the turn that is holding runs it. */
+  private queueMessage(c: ConversationDetail, text: string): Response {
+    const kind: QueuedMessage["kind"] = text.trim().startsWith("/steer") ? "steer" : "follow_up";
+    const item: QueuedMessage = { id: ++this.queueCounter, kind, text };
+    const queue = [...(this.queues.get(c.id) ?? []), item];
+    this.queues.set(c.id, queue);
+    c.queued = queue;
+    const event: AgentEvent = { type: "queued", item_id: item.id, kind: item.kind, position: queue.length };
+    const encoder = new TextEncoder();
     const stream = new ReadableStream<Uint8Array>({
       start(controller) {
-        for (const e of events) controller.enqueue(encoder.encode(`event: ${e.type}\r\ndata: ${JSON.stringify(e)}\r\n\r\n`));
+        controller.enqueue(encoder.encode(`event: ${event.type}\r\ndata: ${JSON.stringify(event)}\r\n\r\n`));
         controller.close();
       },
     });

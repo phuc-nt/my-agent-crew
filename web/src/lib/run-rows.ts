@@ -14,7 +14,7 @@ import type { RunInfo, RunStatus, RunStep } from "../api/types";
 import { vi } from "../i18n/vi";
 
 /** The visual family of a row, which decides its colour and glyph. */
-export type RowKind = "model" | "tool" | "delegate" | "fallback" | "question" | "note";
+export type RowKind = "model" | "tool" | "delegate" | "fallback" | "question" | "note" | "steer";
 
 export interface RunRow {
   /** Stable within one run: the index of the first step this row covers. */
@@ -71,6 +71,7 @@ function rowKind(step: RunStep): RowKind {
   if (step.kind === "fallback") return "fallback";
   if (step.kind === "question") return "question";
   if (step.kind === "note") return "note";
+  if (step.kind === "steer") return "steer";
   return step.name === DELEGATE_TOOL ? "delegate" : "tool";
 }
 
@@ -86,6 +87,8 @@ function rowLabel(step: RunStep, status: RunStatus): string {
   if (step.kind === "question") return step.question;
   // Likewise a note is its sentence; there is no other name it could go by.
   if (step.kind === "note") return step.text;
+  // And a steer step is what was handed to the turn — its own sentence, not a tool name.
+  if (step.kind === "steer") return step.text;
   return step.name;
 }
 

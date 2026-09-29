@@ -80,9 +80,27 @@ export interface ApprovalInfo extends Approval {
   agent_id: string;
 }
 
+/** A message that found its conversation busy: a follow-up waits for the turn to end, a
+ *  steer is handed to it before its next model call. */
+export interface QueuedMessage {
+  /** The server's own integer id, not a string like the other ids in this file. */
+  id: number;
+  kind: "follow_up" | "steer";
+  text: string;
+}
+
+/** What `POST /conversations/{id}/stop` answers: the texts it took back out of the queue,
+ *  and whether it also stopped a turn the queue runs for this conversation. */
+export interface StopResult {
+  cleared: QueuedMessage[];
+  cancelled: boolean;
+}
+
 export interface ConversationDetail extends Conversation {
   messages: StoredMessage[];
   pending_approval: Approval | null;
+  /** Read, not taken: what still waits for the running turn. Absent on an old server. */
+  queued?: QueuedMessage[];
 }
 
 export interface ConversationPatch {
@@ -124,7 +142,12 @@ export type AgentEvent =
   | { type: "done"; spent_usd: number; unknown_cost_calls: number }
   | { type: "halted"; reason: "budget" | "max_steps" | "loop"; spent_usd: number }
   | { type: "error"; message: string }
-  | { type: "route_fallback"; provider: string; model: string; error: string };
+  | { type: "route_fallback"; provider: string; model: string; error: string }
+  /** The message that started this stream found its conversation busy and waits instead:
+   *  the only event this stream will ever carry. */
+  | { type: "queued"; item_id: number; kind: "follow_up" | "steer"; position: number }
+  /** A message sent while this turn ran was just handed to it, before its next model call. */
+  | { type: "steer"; text: string; count: number };
 
 export interface ToolInfo {
   name: string;

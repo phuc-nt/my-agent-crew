@@ -1,5 +1,13 @@
 import { noteText, PROGRESS_NOTE_TOOL } from "../lib/run-rows";
-import type { AgentEvent, Approval, ApprovalKind, ConversationDetail, StoredMessage, ToolCall } from "../api/types";
+import type {
+  AgentEvent,
+  Approval,
+  ApprovalKind,
+  ConversationDetail,
+  QueuedMessage,
+  StoredMessage,
+  ToolCall,
+} from "../api/types";
 
 /** `stopped`: the turn ended before the call answered — stopped here, cut off, or left
  *  behind by a run that is no longer going. Nothing is running it any more. */
@@ -68,7 +76,9 @@ export interface ThreadState {
   pending: PendingApproval | null;
   spentUsd: number;
   unknownCostCalls: number;
-  notice: { kind: "error" | "halted" | "fallback" | "stopped" | "handled"; text: string } | null;
+  notice: { kind: "error" | "halted" | "fallback" | "stopped" | "handled" | "elsewhere"; text: string } | null;
+  /** Messages that found this conversation busy and wait: a chip each, confirmation only. */
+  waiting: QueuedMessage[];
 }
 
 export type ThreadAction =
@@ -86,6 +96,17 @@ export type ThreadAction =
   /** A decision met a request already closed elsewhere. Nothing failed, and the run that
    *  other channel resumed may still be carrying out its calls: a note, not a settle. */
   | { type: "handled" }
+  /** A message just found this conversation busy and waits: add its chip. */
+  | { type: "queued"; item: QueuedMessage }
+  /** Stop took every waiting message back out of the queue; the server has confirmed it. */
+  | { type: "queue_cleared" }
+  /** Stop reached a run this tab cannot touch — another channel's, a job's, another tab's. */
+  | { type: "elsewhere" }
+  /** A busy-send's own POST failed — the queue is full, or the text itself was refused.
+   *  Unlike `failed`, this says nothing about the turn already running: that stream's
+   *  `busy`, `streaming` and `items` are untouched, since the queueing attempt beside it
+   *  is the only thing that went wrong. */
+  | { type: "queue_failed"; message: string }
   | { type: "event"; event: AgentEvent };
 
 export const emptyThread: ThreadState = {
@@ -97,6 +118,7 @@ export const emptyThread: ThreadState = {
   spentUsd: 0,
   unknownCostCalls: 0,
   notice: null,
+  waiting: [],
 };
 
 const DENIED_MARKER = "Người dùng đã TỪ CHỐI";
@@ -185,6 +207,7 @@ export function threadReducer(state: ThreadState, action: ThreadAction): ThreadS
         spentUsd: d.spent_usd,
         unknownCostCalls: d.unknown_cost_calls,
         notice: handled,
+        waiting: d.queued ?? [],
       };
     }
     case "user_sent":
@@ -223,6 +246,24 @@ export function threadReducer(state: ThreadState, action: ThreadAction): ThreadS
     case "handled":
       // A turn begun since has the thread: a note about the earlier decision would be stale.
       return state.busy ? state : { ...state, notice: { kind: "handled", text: "" } };
+    case "queued": {
+      // A local bubble for this text was added optimistically by `user_sent` on the plain
+      // send path; drop it once the server's own chip stands for it. A busy-send POST never
+      // adds that bubble, so there is nothing to drop on that path — only to add here.
+      const last = state.items[state.items.length - 1];
+      const dropsBubble = last?.kind === "user" && last.id.startsWith("local-") && last.text === action.item.text;
+      return {
+        ...state,
+        items: dropsBubble ? state.items.slice(0, -1) : state.items,
+        waiting: [...state.waiting, action.item],
+      };
+    }
+    case "queue_cleared":
+      return { ...state, waiting: [] };
+    case "elsewhere":
+      return { ...state, notice: { kind: "elsewhere", text: "" } };
+    case "queue_failed":
+      return { ...state, notice: { kind: "error", text: action.message } };
     case "event": {
       // Whatever the model does next — words, a tool call, an end — ends its thinking. A
       // model_call marker is not something the model does; it only times the call.
@@ -288,5 +329,24 @@ function applyEvent(state: ThreadState, e: AgentEvent): ThreadState {
       return { ...state, busy: false, streaming: null, notice: { kind: "error", text: e.message } };
     case "route_fallback":
       return { ...state, notice: { kind: "fallback", text: `${e.provider}:${e.model} — ${e.error}` } };
+    // The hook that sent the message intercepts its own `queued` event before the reducer
+    // ever sees it — only the hook knows which text was just sent. Reaching here means the
+    // event arrived on a stream nothing is watching for it; nothing to do.
+    case "queued":
+      return state;
+    case "steer": {
+      const items = [...state.items, { kind: "user" as const, id: `local-${state.items.length}`, text: e.text }];
+      let left = e.count;
+      const waiting: QueuedMessage[] = [];
+      // Oldest first, drop up to `count` steer chips; a follow_up chip is never touched.
+      for (const item of state.waiting) {
+        if (item.kind === "steer" && left > 0) {
+          left -= 1;
+          continue;
+        }
+        waiting.push(item);
+      }
+      return { ...state, items, waiting };
+    }
   }
 }

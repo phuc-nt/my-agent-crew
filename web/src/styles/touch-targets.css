@@ -35,9 +35,12 @@
     min-height: var(--touch-target);
   }
 
+  /* Stop and Send sit side by side while a turn is running, so both need the fuller
+     44px floor rather than the 40px every other control gets: a thumb has to land on
+     one without also catching its neighbour. */
   button.composer-action {
-    min-width: var(--touch-target);
-    min-height: var(--touch-target);
+    min-width: 44px;
+    min-height: 44px;
   }
 
   /* A download link is a control, whatever element it is. */

@@ -133,9 +133,12 @@ function StepRow({ row }: { row: RunRow }) {
   const [showOutput, setShowOutput] = useState(false);
   const { step } = row;
   // A note's duration is always zero — it is stamped and closed on the same clock. "0 ms"
-  // on every note row is noise that says nothing about the work the note describes.
+  // on every note row is noise that says nothing about the work the note describes. A
+  // steer step is the same: said and done in the same instant, by a person instead.
   const duration =
-    row.durationMs !== null && row.kind !== "note" ? vi.stepDuration(row.durationMs) : null;
+    row.durationMs !== null && row.kind !== "note" && row.kind !== "steer"
+      ? vi.stepDuration(row.durationMs)
+      : null;
 
   return (
     <li className={`step ${row.kind} ${row.state}`} data-testid="run-step" data-state={row.state}>
@@ -155,6 +158,9 @@ function StepRow({ row }: { row: RunRow }) {
           {/* Same reason: the label is a sentence the agent wrote, and without a word
               naming it the row reads as the agent's answer rather than an aside. */}
           {row.kind === "note" && <span className="step-role muted">{vi.stepNote}</span>}
+          {/* Same reason again, but the sentence is a person's, not the agent's — without
+              this the row reads as something the agent itself said. */}
+          {row.kind === "steer" && <span className="step-role muted">{vi.stepSteer}</span>}
           {row.repeat > 1 && (
             <span className="step-repeat tabular" title={vi.runStepCount(row.repeat, row.repeat)}>
               {vi.stepRepeat(row.repeat)}

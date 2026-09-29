@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AgentEvent, ConversationDetail, StoredMessage } from "../api/types";
+import type { AgentEvent, ConversationDetail, QueuedMessage, StoredMessage } from "../api/types";
 import { emptyThread, itemsFromMessages, questionText, threadReducer, type ThreadState } from "./thread-reducer";
 
 const DENIED_TEXT = "Người dùng đã TỪ CHỐI hành động này. Không thử lại cùng hành động.";
@@ -372,5 +372,98 @@ describe("threadReducer turn end", () => {
     const settled = threadReducer({ ...busy, busy: false }, { type: "settled" });
     expect(statuses(settled)).toEqual(["stopped", "stopped"]);
     expect(threadReducer(settled, { type: "settled" })).toBe(settled);
+  });
+});
+
+describe("threadReducer queue and steer", () => {
+  const followUp: QueuedMessage = { id: 1, kind: "follow_up", text: "sau đó thì sao?" };
+  const steerItem: QueuedMessage = { id: 2, kind: "steer", text: "dừng lại đã" };
+
+  it("loaded reads waiting from detail.queued, defaulting to empty", () => {
+    const withItems = threadReducer(emptyThread, {
+      type: "loaded",
+      detail: detail({ queued: [followUp, steerItem] }),
+    });
+    expect(withItems.waiting).toEqual([followUp, steerItem]);
+    const withoutField = threadReducer(emptyThread, { type: "loaded", detail: detail() });
+    expect(withoutField.waiting).toEqual([]);
+  });
+
+  it("opened clears waiting along with the rest of the thread", () => {
+    const loaded = threadReducer(emptyThread, {
+      type: "loaded",
+      detail: detail({ queued: [followUp] }),
+    });
+    expect(threadReducer(loaded, { type: "opened" })).toEqual(emptyThread);
+  });
+
+  it("queued adds a chip and drops the matching local bubble, but only on a text match", () => {
+    const sent = threadReducer({ ...emptyThread, busy: true }, { type: "user_sent", text: followUp.text });
+    const queued = threadReducer(sent, { type: "queued", item: followUp });
+    expect(queued.waiting).toEqual([followUp]);
+    expect(queued.items).toEqual([]);
+    // A local bubble for different text (an unrelated message sent moments before) stays.
+    const other = threadReducer({ ...emptyThread, busy: true }, { type: "user_sent", text: "khác hẳn" });
+    const stillThere = threadReducer(other, { type: "queued", item: followUp });
+    expect(stillThere.waiting).toEqual([followUp]);
+    expect(stillThere.items).toEqual([{ kind: "user", id: "local-0", text: "khác hẳn" }]);
+    // No local bubble at all (the busy-send path never dispatches user_sent): the chip is
+    // simply added.
+    const busyPath = threadReducer({ ...emptyThread, busy: true }, { type: "queued", item: followUp });
+    expect(busyPath.waiting).toEqual([followUp]);
+    expect(busyPath.items).toEqual([]);
+  });
+
+  it("queue_cleared empties waiting", () => {
+    const withChips = { ...emptyThread, waiting: [followUp, steerItem] };
+    expect(threadReducer(withChips, { type: "queue_cleared" }).waiting).toEqual([]);
+  });
+
+  it("elsewhere sets a notice of that kind", () => {
+    const state = threadReducer(emptyThread, { type: "elsewhere" });
+    expect(state.notice).toEqual({ kind: "elsewhere", text: "" });
+  });
+
+  it("a steer event adds one user message and drops the oldest matching count of steer chips", () => {
+    const withChips = {
+      ...emptyThread,
+      busy: true,
+      waiting: [followUp, steerItem, { id: 3, kind: "steer" as const, text: "rồi sao nữa" }],
+    };
+    const steered = run([{ type: "steer", text: "chèn vào giữa", count: 1 }], withChips);
+    expect(steered.items).toEqual([{ kind: "user", id: "local-0", text: "chèn vào giữa" }]);
+    // The oldest steer chip is gone; the follow_up chip and the newer steer chip stay.
+    expect(steered.waiting).toEqual([followUp, { id: 3, kind: "steer", text: "rồi sao nữa" }]);
+  });
+
+  it("a steer count larger than the number of steer chips only drops the steer chips there are", () => {
+    const withChips = { ...emptyThread, busy: true, waiting: [followUp, steerItem] };
+    const steered = run([{ type: "steer", text: "chèn", count: 5 }], withChips);
+    expect(steered.waiting).toEqual([followUp]);
+    expect(steered.items).toHaveLength(1);
+  });
+
+  it("a queued event reaching the reducer directly is a no-op: the hook intercepts it first", () => {
+    const state = { ...emptyThread, busy: true };
+    // `run` wraps every event as `threadReducer`'s outer `event` case does, which always
+    // clears `thinking`; `applyEvent` itself changes nothing else for this event.
+    expect(run([{ type: "queued", item_id: 9, kind: "follow_up", position: 1 }], state)).toEqual({
+      ...state,
+      thinking: false,
+    });
+  });
+
+  it("queue_failed sets an error notice without touching busy, streaming or items", () => {
+    const running = {
+      ...emptyThread,
+      busy: true,
+      streaming: "đang trả lời",
+      items: [{ kind: "user" as const, id: "local-0", text: "việc đầu tiên" }],
+    };
+    const failed = threadReducer(running, { type: "queue_failed", message: "hàng đầy, hãy chờ hoặc bấm Stop" });
+    expect(failed.notice).toEqual({ kind: "error", text: "hàng đầy, hãy chờ hoặc bấm Stop" });
+    expect(failed.busy).toBe(true);
+    expect(failed.streaming).toBe("đang trả lời");
+    expect(failed.items).toBe(running.items);
   });
 });

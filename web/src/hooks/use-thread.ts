@@ -1,20 +1,31 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { api, ApiError } from "../api/client";
-import type { AgentEvent, ConversationDetail } from "../api/types";
+import type { AgentEvent, ConversationDetail, StopResult } from "../api/types";
 import { vi } from "../i18n/vi";
 import { emptyThread, threadReducer, type ThreadState } from "../state/thread-reducer";
 import { errorText } from "../lib/error-text";
 
+/** How long Stop waits on the server before giving up and cutting the stream locally
+ *  anyway. A `setTimeout` rather than `AbortSignal.timeout`, so a test can drive it with
+ *  fake timers instead of waiting out a real three seconds. */
+const STOP_WAIT_MS = 3000;
+
 export interface ThreadController {
   state: ThreadState;
   detail: ConversationDetail | null;
-  send: (text: string) => Promise<void>;
+  /** On the plain path this is the same send it always was. Found busy — this tab's own
+   *  stream, or one this tab did not start — it queues instead, and resolves with the text
+   *  to put back in the composer if the queueing POST itself failed; `null` otherwise. */
+  send: (text: string) => Promise<string | null>;
   /** `always` also whitelists the tool for the rest of this conversation. */
   decide: (approve: boolean, always?: boolean) => Promise<void>;
   /** Reply to a question the agent asked. Only a question row accepts this. */
   answer: (text: string) => Promise<void>;
-  /** Cuts whichever stream is running — a message, a decision or an answer. */
-  stop: () => void;
+  /** Tells the server to end the turn and hand back every message still queued, then cuts
+   *  this tab's own stream if it has one; resolves with the cleared texts, oldest first, so
+   *  the caller can put them back in the composer. `externalRunning` says whether a turn is
+   *  known to be going somewhere this tab cannot reach, for the notice it may show. */
+  stop: (externalRunning?: boolean) => Promise<string[]>;
   reload: () => Promise<void>;
   /** Loads again now, or once this tab's turn is over: a load mid-turn would drop it. */
   reloadWhenIdle: () => void;
@@ -30,6 +41,13 @@ export function useThread(conversationId: string | null): ThreadController {
   const [detail, setDetail] = useState<ConversationDetail | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const turns = useRef(0);
+  // Controllers for a queueing POST still in flight: a busy-send never touches `abortRef`,
+  // since that would cut the turn actually running rather than the message trying to join
+  // its queue. Switching conversation or unmounting cuts every one of these instead.
+  const queueingRef = useRef(new Set<AbortController>());
+  // Set for the run of a Stop call and cleared once it settles, so a second press while one
+  // is still in flight can tell and skip the server call rather than sending it twice.
+  const stoppingRef = useRef(false);
   const [owed, setOwed] = useState(false);
   const [handledElsewhere, setHandledElsewhere] = useState(0);
   // A fresh object each time a conversation is opened: whatever answers for an opening
@@ -62,6 +80,8 @@ export function useThread(conversationId: string | null): ThreadController {
   useEffect(() => {
     opened.current = { id: conversationId };
     abortRef.current?.abort();
+    for (const controller of queueingRef.current) controller.abort();
+    queueingRef.current.clear();
     setOwed(false);
     dispatch({ type: "opened" });
     void reload();
@@ -128,11 +148,61 @@ export function useThread(conversationId: string | null): ThreadController {
 
   const send = useCallback(
     async (text: string) => {
-      if (!conversationId) return;
+      if (!conversationId) return null;
+      if (state.busy) {
+        // This tab's own stream is running: a second POST joins the queue behind it without
+        // ever touching `runTurn`, `abortRef` or `turns` — the turn already on screen must
+        // keep receiving events and stay abortable by Stop exactly as if this send had not
+        // happened.
+        const controller = new AbortController();
+        queueingRef.current.add(controller);
+        try {
+          await api.sendMessage(conversationId, text, (event) => {
+            if (event.type === "queued") dispatch({ type: "queued", item: { id: event.item_id, kind: event.kind, text } });
+          }, controller.signal);
+          return null;
+        } catch (error) {
+          if (controller.signal.aborted) return null;
+          // Neither branch touches the turn actually running: `queue_failed` only sets the
+          // notice, leaving `busy`, `streaming` and `items` exactly as the running stream
+          // left them. A 429 or 422 carries the server's own Vietnamese sentence; anything
+          // else — a dropped connection, most likely — falls back to `describe`.
+          const message =
+            error instanceof ApiError && (error.status === 429 || error.status === 422)
+              ? error.message
+              : describe(error);
+          dispatch({ type: "queue_failed", message });
+          return text;
+        } finally {
+          queueingRef.current.delete(controller);
+        }
+      }
+      // The plain path: this tab believes the conversation is idle. It may still be busy
+      // somewhere this tab cannot see — another tab, a job, the schedule — in which case the
+      // server queues the message and this stream's only event is `queued`.
       dispatch({ type: "user_sent", text });
-      await runTurn((emit, signal) => api.sendMessage(conversationId, text, emit, signal));
+      let queuedText: string | null = null;
+      await runTurn((emit, signal) =>
+        api.sendMessage(
+          conversationId,
+          text,
+          (event) => {
+            // Not passed on to the reducer's own `event` action: `applyEvent`'s `case
+            // "queued"` is a documented no-op, since only this caller knows which text was
+            // just sent and needs its temp bubble replaced with a chip.
+            if (event.type === "queued") {
+              dispatch({ type: "queued", item: { id: event.item_id, kind: event.kind, text } });
+              queuedText = text;
+              return;
+            }
+            emit(event);
+          },
+          signal,
+        ),
+      );
+      return queuedText;
     },
-    [conversationId, runTurn],
+    [conversationId, runTurn, state.busy],
   );
 
   const decide = useCallback(
@@ -157,14 +227,50 @@ export function useThread(conversationId: string | null): ThreadController {
     [conversationId, decisionTurn, state.pending],
   );
 
-  // Ends the turn on screen at once rather than when the aborted fetch unwinds: a stream
-  // stuck on a dead connection may take its time to notice it was cut.
-  const stop = useCallback(() => {
-    const controller = abortRef.current;
-    if (!controller) return;
-    controller.abort();
-    dispatch({ type: "turn_stopped" });
-  }, []);
+  /**
+   * Stop. The server is told first — it alone knows the queue and can end a turn this tab
+   * did not start — and only then is this tab's own stream cut, so a fast reply never races
+   * the abort into unwinding before `queue_cleared` and `turn_stopped`/`elsewhere` are both
+   * decided from the same server answer.
+   *
+   * A server that errors or does not answer within `STOP_WAIT_MS` still leaves the local
+   * stream cut: the person asked to stop, and a slow or unreachable server is not a reason to
+   * keep this tab's own view of the turn running. The chips stay in that case — they are
+   * still sitting on the server, unconfirmed — so pressing Stop again is exactly the right
+   * next move, and `waiting.length > 0` is what keeps the button around for it.
+   */
+  const stop = useCallback(
+    async (externalRunning = false) => {
+      if (stoppingRef.current) return [];
+      stoppingRef.current = true;
+      try {
+        if (!conversationId) return [];
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), STOP_WAIT_MS);
+        let result: StopResult | null = null;
+        try {
+          result = await api.stopConversation(conversationId, controller.signal);
+        } catch {
+          result = null;
+        } finally {
+          clearTimeout(timer);
+        }
+        const hadOwnStream = abortRef.current !== null;
+        abortRef.current?.abort();
+        if (result) {
+          dispatch({ type: "queue_cleared" });
+          if (hadOwnStream || result.cancelled) dispatch({ type: "turn_stopped" });
+          else if (externalRunning) dispatch({ type: "elsewhere" });
+          return result.cleared.map((c) => c.text);
+        }
+        if (hadOwnStream) dispatch({ type: "turn_stopped" });
+        return [];
+      } finally {
+        stoppingRef.current = false;
+      }
+    },
+    [conversationId],
+  );
 
   const settle = useCallback(() => dispatch({ type: "settled" }), []);
 

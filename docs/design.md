@@ -263,6 +263,21 @@ trên máy khác) dừng chờ duyệt hay chạy tiếp sau quyết định, v�
 nối lại, vì trong lúc luồng đứt một run có thể đã chạy rồi xong; lịch sử duyệt đọc lại khi
 tập yêu cầu đang chờ đổi. Mọi chuỗi đều lấy từ một tệp chuỗi tiếng Việt.
 
+Ô soạn không khoá khi agent đang bận: gõ và Enter vẫn gửi được, chỉ đổi chỗ tin đi tới. Tin
+thường ra một chip "Đã xếp hàng, chạy sau lượt này" và không đụng luồng của lượt đang chạy —
+web gửi nó bằng một POST riêng, chỉ đọc event `queued` từ đó, không chạm `AbortController` hay
+reducer của lượt. Tin bắt đầu bằng `/steer` hay một lệnh kit ra chip "Sẽ chèn vào lượt đang
+chạy"; khi server chèn nó (event `steer`), chip biến thành một tin người dùng ngay trong luồng,
+và bước `steer` của run vẽ một hạt rỗng trên timeline để phân biệt "người nói" với "agent nói".
+Stop là lối duy nhất lấy chữ về: nó gọi server trước (`POST …/stop`, hạn ba giây) để hàng có cơ
+hội bị xoá đúng thứ tự trước khi web abort luồng ở máy, rồi trả chữ các chip vào đầu ô soạn theo
+thứ tự chúng được gửi. Chip là các chip xác nhận, không có nút huỷ riêng — quản lý hàng đợi
+không phải phạm vi tính năng này. Một lượt drain (Telegram, một job, một tab khác) mà web không
+dừng được từ đây báo `cancelled: false`; lúc đó Stop chỉ xoá chip và nói "đang chạy ở nơi khác
+nên chưa dừng được từ đây" thay vì im lặng, còn khi Stop chỉ xoá chip mà không có gì đang chạy
+thì không thông báo gì, vì nói "chạy ở nơi khác" lúc đó là sai. Hàng sống qua F5 vì chip của
+thread lấy từ `queued` trong chi tiết cuộc trò chuyện mỗi lần `loaded`, không giữ riêng ở máy.
+
 Bundle tách thành ba phần (`react`, `vendor`, mã ứng dụng), tên tệp mang hash nội dung;
 server phục vụ `/assets/*` với `Cache-Control: immutable` và nén gzip mọi phản hồi trên
 1 KB trừ luồng SSE, nên một bản phát hành chỉ đổi mã ứng dụng để trình duyệt giữ nguyên

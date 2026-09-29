@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi as vitest } from "vitest";
 import { vi } from "../i18n/vi";
@@ -403,6 +403,75 @@ describe("Composer", () => {
   it("prefills the draft handed in from a suggestion", () => {
     render(<Composer disabled={false} busy={false} draft="gợi ý" onSend={() => undefined} onStop={() => undefined} />);
     expect(screen.getByRole("textbox")).toHaveValue("gợi ý");
+  });
+
+  it("still sends on Enter while busy: the box is never locked, only Stop is offered beside it", async () => {
+    const onSend = vitest.fn();
+    render(<Composer disabled={false} busy onSend={onSend} onStop={() => undefined} />);
+    await userEvent.type(screen.getByRole("textbox"), "chen ngang{Enter}");
+    expect(onSend).toHaveBeenCalledWith("chen ngang");
+    expect(screen.getByRole("textbox")).toHaveValue("");
+  });
+
+  it("labels the send button by what a busy send will do: queue a plain message, steer a /steer one", () => {
+    const { rerender } = render(<Composer disabled={false} busy onSend={() => undefined} onStop={() => undefined} />);
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "việc bình thường" } });
+    expect(screen.getByRole("button", { name: vi.sendQueue })).toBeInTheDocument();
+
+    rerender(<Composer disabled={false} busy onSend={() => undefined} onStop={() => undefined} />);
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "/steer chen vao" } });
+    expect(screen.getByRole("button", { name: vi.sendSteer })).toBeInTheDocument();
+  });
+
+  it("offers both Stop and send while busy with text typed, but only Stop once the box is empty", () => {
+    render(<Composer disabled={false} busy onSend={() => undefined} onStop={() => undefined} />);
+    expect(screen.getByRole("button", { name: vi.stop })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: vi.sendQueue })).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "chen ngang" } });
+    expect(screen.getByRole("button", { name: vi.stop })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: vi.sendQueue })).toBeInTheDocument();
+  });
+
+  it("hides Stop when the caller says the busy turn cannot be stopped from here", () => {
+    render(<Composer disabled={false} busy stoppable={false} onSend={() => undefined} onStop={() => undefined} />);
+    expect(screen.queryByRole("button", { name: vi.stop })).not.toBeInTheDocument();
+  });
+
+  it("prepends restored text to whatever is already in the box, then focuses it", async () => {
+    const { rerender } = render(
+      <Composer disabled={false} busy={false} onSend={() => undefined} onStop={() => undefined} />,
+    );
+    const box = screen.getByRole("textbox");
+    await userEvent.type(box, "chua gui");
+    box.blur();
+
+    rerender(
+      <Composer
+        disabled={false}
+        busy={false}
+        restore={{ nonce: 1, text: "lay lai" }}
+        onSend={() => undefined}
+        onStop={() => undefined}
+      />,
+    );
+    expect(box).toHaveValue("lay lai\n\nchua gui");
+    await waitFor(() => expect(box).toHaveFocus());
+  });
+
+  it("restores alone with no join when the box was empty", async () => {
+    render(
+      <Composer
+        disabled={false}
+        busy={false}
+        restore={{ nonce: 1, text: "lay lai" }}
+        onSend={() => undefined}
+        onStop={() => undefined}
+      />,
+    );
+    const box = screen.getByRole("textbox");
+    expect(box).toHaveValue("lay lai");
+    await waitFor(() => expect(box).toHaveFocus());
   });
 });
 
