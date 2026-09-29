@@ -145,6 +145,29 @@ describe("RunReplay", () => {
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
+  it("offers the run as a JSON and a Markdown file to save, with a word to check before sharing", async () => {
+    // An id with characters a path cannot carry as they are, to prove it is encoded.
+    backend.runs = [fakeRun({ id: "r 1/2", title: "Dọn kho" })];
+
+    show("r 1/2");
+
+    const asJson = await screen.findByRole("link", { name: vi.replay.downloadJson });
+    const asMarkdown = screen.getByRole("link", { name: vi.replay.downloadMarkdown });
+    expect(asJson).toHaveAttribute("href", "/api/activity/runs/r%201%2F2/trajectory?format=json");
+    expect(asMarkdown).toHaveAttribute("href", "/api/activity/runs/r%201%2F2/trajectory?format=md");
+    // Saved rather than opened in place: a raw JSON tab is not what "download" meant.
+    expect(asJson).toHaveAttribute("download");
+    expect(asMarkdown).toHaveAttribute("download");
+    expect(screen.getByText(vi.replay.exportNote)).toBeInTheDocument();
+  });
+
+  it("offers no download while there is no run to download", async () => {
+    show("missing");
+
+    await waitFor(() => expect(screen.getByRole("status")).toBeInTheDocument());
+    expect(screen.queryByTestId("run-export")).not.toBeInTheDocument();
+  });
+
   it("says so when the run is not there any more", async () => {
     show("missing");
 

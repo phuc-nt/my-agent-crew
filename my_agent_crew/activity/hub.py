@@ -5,7 +5,6 @@ can show all agents working at once, not only the conversation on screen."""
 from __future__ import annotations
 
 import asyncio
-import time
 from collections.abc import AsyncIterator, Sequence
 from typing import Any
 
@@ -66,6 +65,7 @@ class ActivityHub:
             title=title,
             status=RUNNING,
             started_at=now_iso(),
+            after_seq=self._store.messages.max_seq(conversation_id) if conversation_id else None,
         )
         self._live[run.id] = run
         self._store.runs.save(run)
@@ -177,23 +177,3 @@ class ActivityHub:
     def close(self) -> None:
         for queue in list(self._subscribers):
             queue.put_nowait(None)
-
-
-async def tracked(
-    hub: ActivityHub,
-    events: AsyncIterator[Event],
-    agent_id: str,
-    source: str,
-    title: str,
-    conversation_id: str | None,
-) -> AsyncIterator[Event]:
-    """Re-yields the loop's events while recording them on a run. A consumer that stops
-    reading (client disconnect) leaves the run marked as failed, not running forever."""
-    run = hub.start(agent_id, source, title, conversation_id)
-    try:
-        async for event in events:
-            hub.record(run, event, time.monotonic())
-            yield event
-    finally:
-        if run.status == RUNNING:
-            hub.finish(run, status="error", summary="interrupted")

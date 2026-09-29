@@ -1,6 +1,6 @@
 # Kiểm thử
 
-**Phiên bản**: 0.9.2 · **Cập nhật**: 2026-09-28
+**Phiên bản**: 0.9.2 · **Cập nhật**: 2026-09-29
 
 Ba tầng, một quy tắc: **mỗi tính năng ra kèm một test ở tầng thấp nhất có thể thấy nó.**
 Bản thân các tệp test là bản kiểm kê đầy đủ; trang này nói mỗi tầng dùng để làm gì, chạy ra
@@ -647,3 +647,22 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `::test_a_blank_scrape_falls_back_to_the_page_itself`,
     `::test_a_blank_scrape_of_a_blank_page_is_an_error`;
     `tests/test_tools_shell.py::test_a_command_that_prints_nothing_still_says_how_it_ended`
+- **Tải một lượt chạy về dạng JSON hay Markdown: đúng tin của run, agent con của nó, khoá được
+  che, kết quả tool dài bị cắt**
+  - pytest: `tests/test_trajectory.py` (mỗi run ghi cuộc trò chuyện đang ở tin nào khi nó bắt đầu
+    và chỉ lấy tin của mình, run tiếp tục sau khi duyệt giữ mốc cũ, run có từ trước khi có mốc
+    thì cắt theo giờ, agent con đi theo còn con của cuộc khác trùng mã lời gọi thì không, chỉ con
+    do chính run mở mới đi theo, run không có cuộc trò chuyện vẫn xuất bản ghi và các bước,
+    Markdown có mọi lời gọi tool kèm tham số và kết quả, kết quả dài bị cắt và nói dài bao nhiêu
+    trừ khi xin bản đầy đủ); `tests/test_trajectory_redact.py` (chỉ gom giá trị dài của biến có
+    tên như bí mật, bí mật chứa bí mật khác được che trọn, dạng khoá quen thuộc được che dù không
+    biết giá trị, chữ chỉ hơi giống khoá thì để nguyên; run không có là 404, hai dạng đến như tệp
+    để lưu với `no-store`, bí mật trong môi trường và chuỗi dạng khoá được che ở cả hai dạng, bí
+    mật nằm ở chỗ bị cắt vẫn được che trước khi cắt, không gì từ môi trường đi theo nếu tin không
+    chứa nó, bản đầy đủ giữ nguyên kết quả dài)
+  - vitest: `components/run-replay.test.tsx` ("offers the run as a JSON and a Markdown file to
+    save, with a word to check before sharing", "offers no download while there is no run to
+    download")
+  - Playwright: `replay-smoke.spec.ts` "a run downloads as a JSON file and as a Markdown file from
+    its own page" (bấm là tải chứ không điều hướng, tới đúng URL với đúng tên tệp; trình duyệt tự
+    tải `a[download]` mà không qua route nào của spec, nên thân tệp và header do pytest giữ)

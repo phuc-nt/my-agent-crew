@@ -4,15 +4,18 @@ totals per agent, model and day."""
 from __future__ import annotations
 
 import json
+import os
 from collections import defaultdict
 from collections.abc import AsyncIterator
 from datetime import tzinfo
-from typing import Any
+from typing import Any, Literal
 from weakref import WeakKeyDictionary
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query, Response
 from sse_starlette.sse import EventSourceResponse
 
+from my_agent_crew.activity import trajectory
+from my_agent_crew.activity.redact import env_secrets
 from my_agent_crew.agents.roster import DELEGATE_TOOL_NAME
 from my_agent_crew.clock import local_day
 from my_agent_crew.server.deps import Rt
@@ -55,15 +58,40 @@ def conversation_family(rt: Rt, conversation_id: str) -> set[str]:
     return {conversation_id, *(child.id for child in children)}
 
 
-@router.get("/activity/runs/{run_id}")
-def get_run(run_id: str, rt: Rt) -> dict[str, Any]:
+def _find_run(rt: Rt, run_id: str) -> RunRecord:
     for run in rt.hub.live():
         if run.id == run_id:
-            return run.to_dict()
+            return run
     try:
-        return rt.store.runs.get(run_id).to_dict()
+        return rt.store.runs.get(run_id)
     except KeyError as exc:
         raise HTTPException(404, "run not found") from exc
+
+
+@router.get("/activity/runs/{run_id}")
+def get_run(run_id: str, rt: Rt) -> dict[str, Any]:
+    return _find_run(rt, run_id).to_dict()
+
+
+@router.get("/activity/runs/{run_id}/trajectory")
+def run_trajectory(
+    run_id: str,
+    rt: Rt,
+    kind: Literal["json", "md"] = Query("json", alias="format"),
+    full: bool = False,
+) -> Response:
+    """The run as a file to save. It may hold whatever its tools read, so it is never
+    cached, and secrets this process knows of are covered before it leaves."""
+    run = _find_run(rt, run_id)
+    data = trajectory.build(rt.store, run, env_secrets(os.environ), full)
+    headers = {
+        "Content-Disposition": f'attachment; filename="run-{run.id}.{kind}"',
+        "Cache-Control": "no-store",
+    }
+    if kind == "md":
+        return Response(trajectory.to_markdown(data), media_type="text/markdown", headers=headers)
+    body = json.dumps(data, ensure_ascii=False, indent=2)
+    return Response(body, media_type="application/json", headers=headers)
 
 
 @router.get("/activity/stream")

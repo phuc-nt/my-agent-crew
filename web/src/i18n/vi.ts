@@ -562,6 +562,10 @@ export const vi = {
     notFound: (id: string) => `Không tìm thấy lượt chạy ${id}.`,
     failed: "Không đọc được lượt chạy.",
     openLink: "Xem riêng",
+    downloadJson: "Tải JSON",
+    downloadMarkdown: "Tải Markdown",
+    exportNote:
+      "Bản tải về có cả tham số và kết quả của mọi công cụ, nên có thể chứa dữ liệu cá nhân. Khoá được che theo cách tốt nhất có thể, không bảo đảm hết: đọc lại trước khi dán ra ngoài.",
   },
   nothingLive: "Không có agent nào đang chạy.",
   streamConnected: "Đang theo dõi trực tiếp",

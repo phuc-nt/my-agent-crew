@@ -95,6 +95,11 @@ export function agentFileUrl(agentId: string, path: string): string {
   return `/api/agents/${encodeURIComponent(agentId)}/files${query({ path })}`;
 }
 
+/** A run written out whole, which the server sends as a file to save. */
+export function runTrajectoryUrl(runId: string, format: "json" | "md"): string {
+  return `/api/activity/runs/${encodeURIComponent(runId)}/trajectory${query({ format })}`;
+}
+
 /**
  * Long-lived subscription to every agent's activity. Reconnects are left to the
  * browser's EventSource; the server replays a snapshot of live runs on each connect.

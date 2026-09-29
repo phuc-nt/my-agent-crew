@@ -9,6 +9,7 @@ from my_agent_crew.texts_halt import *  # noqa: F403
 from my_agent_crew.texts_image import *  # noqa: F403
 from my_agent_crew.texts_kit import *  # noqa: F403
 from my_agent_crew.texts_telegram import *  # noqa: F403
+from my_agent_crew.texts_trajectory import *  # noqa: F403
 from my_agent_crew.texts_web import *  # noqa: F403
 from my_agent_crew.texts_workspace import *  # noqa: F403
 

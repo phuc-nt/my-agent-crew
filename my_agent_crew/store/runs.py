@@ -34,6 +34,7 @@ class RunRecord:
     spent_usd: float = 0.0
     unknown_cost_calls: int = 0
     summary: str = ""
+    after_seq: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -72,6 +73,7 @@ class RunRecord:
             spent_usd=row["spent_usd"],
             unknown_cost_calls=row["unknown_cost_calls"],
             summary=row["summary"],
+            after_seq=row["after_seq"],
         )
 
 
@@ -84,8 +86,8 @@ class RunStore:
         with self._lock:
             self._conn.execute(
                 "INSERT OR REPLACE INTO runs (id, agent_id, conversation_id, source, title,"
-                " status, started_at, finished_at, steps, spent_usd, unknown_cost_calls, summary)"
-                " VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                " status, started_at, finished_at, steps, spent_usd, unknown_cost_calls,"
+                " summary, after_seq) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     run.id,
                     run.agent_id,
@@ -99,6 +101,7 @@ class RunStore:
                     run.spent_usd,
                     run.unknown_cost_calls,
                     run.summary,
+                    run.after_seq,
                 ),
             )
             self._conn.commit()

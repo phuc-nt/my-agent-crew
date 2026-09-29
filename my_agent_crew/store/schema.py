@@ -75,6 +75,9 @@ ADDED_COLUMNS = (
     # How long this conversation's approvals wait, set by the schedule or the channel that
     # opened it, or copied from the parent that delegated it; NULL is the global setting.
     ("conversations", "approval_ttl_seconds", "INTEGER"),
+    # The conversation's last message seq when a run began: the run's own messages are the
+    # ones after it. NULL on runs recorded before it was kept, which are read back by time.
+    ("runs", "after_seq", "INTEGER"),
 )
 
 

@@ -56,6 +56,31 @@ test("a run recorded with its arguments flattened still reads as one line", asyn
   await expect(replay).not.toContainText("0={");
 });
 
+// The unit test sees an href; only a browser shows the click ends in a download rather than
+// a navigation that opens the JSON in place of the page. The browser fetches an
+// a[download] itself, past every route a spec sets, so the file's body and headers are the
+// server's to prove (tests/test_trajectory_redact.py) and this checks where it was sent.
+test("a run downloads as a JSON file and as a Markdown file from its own page", async ({ page }) => {
+  await mockApi(page, { agents: [defaultAgent, coachAgent], runs: [older] });
+  await page.goto("/#/manage/activity/older");
+  const replay = page.getByTestId("run-replay");
+  await expect(replay).toContainText("đọc lại trước khi dán ra ngoài");
+
+  for (const [label, format] of [["Tải JSON", "json"], ["Tải Markdown", "md"]]) {
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      replay.getByRole("link", { name: label }).click(),
+    ]);
+    const sent = new URL(download.url());
+    expect(sent.pathname + sent.search).toBe(`/api/activity/runs/older/trajectory?format=${format}`);
+    expect(download.suggestedFilename()).toBe(`run-older.${format}`);
+  }
+
+  // Still on the run: a download is not a navigation.
+  await expect(replay.getByTestId("run-card")).toContainText("Dọn kho");
+  expect(page.url()).toContain("#/manage/activity/older");
+});
+
 test("a link to a run that is gone says so instead of showing nothing", async ({ page }) => {
   await mockApi(page, { agents: [defaultAgent], runs: [] });
   await page.goto("/#/manage/activity/vanished");

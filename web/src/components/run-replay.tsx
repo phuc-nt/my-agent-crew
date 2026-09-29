@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { ApiError, api } from "../api/client";
+import { ApiError, api, runTrajectoryUrl } from "../api/client";
 import type { RunInfo } from "../api/types";
 import { vi } from "../i18n/vi";
 import { isSettled } from "../lib/run-progress";
 import { RunCard } from "./run-timeline";
+import { Icon } from "./ui/icon";
 
 interface Props {
   runId: string;
@@ -94,6 +95,21 @@ export function RunReplay({ runId, known, agentName, onBack, backLabel, onOpenCo
           expanded
           onOpenConversation={onOpenConversation}
         />
+      )}
+      {run && (
+        <div className="run-export" data-testid="run-export">
+          <div className="run-export-links">
+            <a href={runTrajectoryUrl(run.id, "json")} download={`run-${run.id}.json`}>
+              <Icon name="download" />
+              {vi.replay.downloadJson}
+            </a>
+            <a href={runTrajectoryUrl(run.id, "md")} download={`run-${run.id}.md`}>
+              <Icon name="download" />
+              {vi.replay.downloadMarkdown}
+            </a>
+          </div>
+          <p className="muted run-export-note">{vi.replay.exportNote}</p>
+        </div>
       )}
     </section>
   );

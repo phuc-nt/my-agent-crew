@@ -290,6 +290,27 @@ phần trăm, vì không có gì trong dữ liệu run nói còn bao nhiêu step
 phần trăm sẽ là bịa. Run đã kết thúc thì thay vào đó nói nó kết thúc ra sao; một run đã xong
 mà bảo đang suy nghĩ thì đọc như bị treo.
 
+Trang riêng của run còn cho tải cả lượt chạy về, dạng JSON (cho máy, và làm nguồn dựng case
+eval) hoặc Markdown (để đọc, dán vào issue): bản ghi của run, đúng những tin nhắn của run đó
+trong cuộc trò chuyện, mọi lời gọi tool kèm tham số và kết quả, và bản ghi cuộc trò chuyện của
+từng agent con mà run đã giao việc. Run mới ghi lại cuộc trò chuyện đang đứng ở tin nào khi nó
+bắt đầu (`after_seq`), nên tin của nó là các tin sau mốc đó và trước mốc của run kế tiếp trong
+cùng cuộc; run tiếp tục sau khi duyệt vẫn là run ấy nên giữ mốc cũ. Run có từ trước khi có mốc
+thì được cắt theo giờ bắt đầu và kết thúc, và bản xuất ghi `slice: "by_time"` để người đọc biết.
+Hai lượt chạy chồng nhau trong một cuộc thì ranh giới giữa chúng chỉ gần đúng. Agent con chỉ đi
+theo khi run của nó mang nguồn `delegate:<cuộc trò chuyện của run được xuất>`: mã lời gọi do
+provider cấp có thể trùng giữa hai cuộc, và tra theo mã trần sẽ kéo bản ghi của agent khác vào.
+
+Bản xuất khác thứ người đã thấy trên màn hình: nó có mọi thứ tool đã chạm tới (đầu ra shell,
+trang web, tệp trong workspace, dữ liệu một agent con mang về). Server che khoá theo cách tốt
+nhất có thể, không bảo đảm: giá trị của mọi biến môi trường trong tiến trình server có tên
+chứa `KEY`, `TOKEN`, `SECRET`, `PASSWORD` hay `CREDENTIAL` và dài từ 8 ký tự, cùng những
+chuỗi có dạng khoá quen thuộc (`sk-…`, `Bearer …`, JWT), đều thành `[đã che]`. Một bí mật đến
+từ chỗ khác (người dùng gõ vào, một tệp hay trang web tool đọc được) thì không bị che. Vì vậy
+đầu bản xuất và dưới hai link tải đều nhắc đọc lại trước khi dán ra ngoài. Kết quả tool dài quá
+2 000 ký tự bị cắt và ghi rõ dài bao nhiêu, trừ khi gọi với `full=1`. Tệp đến dưới dạng
+`attachment` với `Cache-Control: no-store`, qua cùng hàng rào Host/Origin như mọi đường khác.
+
 Header chat là tiêu đề và ba pill: chi tiêu so với trần, tuỳ chọn, và số thành viên
 đội. Pill mang dòng tóm tắt và mở một thẻ với chi tiết: thẻ chi tiêu
 có thanh, phần còn lại, phần đã giao việc và chỗ nâng trần (thêm một bước, hoặc gõ trần mới

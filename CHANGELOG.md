@@ -53,6 +53,16 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   child copies its parent's, and the parent waits on the child that long plus five minutes.
   Without the key the global `approval_ttl_seconds` applies as before. The web editor keeps the
   key through edits of other rows and of the chat id, but has no box for it.
+- A run downloads from its own page as JSON or Markdown
+  (`GET /api/activity/runs/{id}/trajectory?format=json|md`): its record, the messages of that
+  run alone, every tool call with its arguments and result, and the transcript of each child it
+  delegated to. A new run notes where its conversation stood when it began, so its messages stop
+  where the next run's begin; a run recorded before that is sliced by its start and finish time
+  and says so. Secrets are covered on a best-effort basis: the values of the server's
+  environment variables named like a key, token, secret, password or credential, and common key
+  shapes (`sk-…`, `Bearer …`, JWT). A secret from anywhere else is not, so the file and the page
+  both say to read it before sharing. A tool result is cut at 2,000 characters unless `full=1`
+  is asked for.
 
 ### Changed
 

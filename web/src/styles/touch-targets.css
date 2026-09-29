@@ -39,4 +39,9 @@
     min-width: var(--touch-target);
     min-height: var(--touch-target);
   }
+
+  /* A download link is a control, whatever element it is. */
+  .run-export a {
+    min-height: var(--touch-target);
+  }
 }

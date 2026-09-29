@@ -24,6 +24,17 @@ _INSERT = (
 )
 
 
+# A run's own messages: those after where its conversation stood when the run began, up to
+# where the next run in that conversation began. Stamps have one-second resolution, so two
+# runs that began in the same second are ordered by that seq instead.
+_OF_RUN = (
+    "SELECT * FROM messages WHERE conversation_id = :conv AND seq > :after AND seq <= COALESCE("
+    "(SELECT MIN(after_seq) FROM runs WHERE conversation_id = :conv AND id != :run"
+    " AND (started_at > :started OR (started_at = :started AND after_seq > :after))),"
+    " 9223372036854775807) ORDER BY seq"
+)
+
+
 class MessageStore:
     def __init__(self, conn: sqlite3.Connection, lock: threading.RLock):
         self._conn = conn
@@ -61,5 +72,31 @@ class MessageStore:
         with self._lock:
             rows = self._conn.execute(
                 "SELECT * FROM messages WHERE conversation_id = ? ORDER BY seq", (conv_id,)
+            ).fetchall()
+        return [StoredMessage.from_row(r) for r in rows]
+
+    def max_seq(self, conv_id: str) -> int:
+        """The seq of the conversation's last message, 0 when it has none."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT COALESCE(MAX(seq), 0) FROM messages WHERE conversation_id = ?", (conv_id,)
+            ).fetchone()
+        return int(row[0])
+
+    def of_run(
+        self, conv_id: str, run_id: str, after_seq: int, started_at: str
+    ) -> list[StoredMessage]:
+        params = {"conv": conv_id, "run": run_id, "after": after_seq, "started": started_at}
+        with self._lock:
+            rows = self._conn.execute(_OF_RUN, params).fetchall()
+        return [StoredMessage.from_row(r) for r in rows]
+
+    def stamped_between(self, conv_id: str, start: str, end: str | None) -> list[StoredMessage]:
+        """Messages written from `start` to `end`, both included; no `end` means up to now."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM messages WHERE conversation_id = ? AND created_at >= ?"
+                " AND (? IS NULL OR created_at <= ?) ORDER BY seq",
+                (conv_id, start, end, end),
             ).fetchall()
         return [StoredMessage.from_row(r) for r in rows]
