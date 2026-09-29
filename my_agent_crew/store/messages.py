@@ -26,11 +26,13 @@ _INSERT = (
 
 # A run's own messages: those after where its conversation stood when the run began, up to
 # where the next run in that conversation began. Stamps have one-second resolution, so two
-# runs that began in the same second are ordered by that seq instead.
+# runs that began in the same second are ordered by that seq instead, and by the order they
+# were created in when the first wrote nothing and both began at the same seq.
 _OF_RUN = (
     "SELECT * FROM messages WHERE conversation_id = :conv AND seq > :after AND seq <= COALESCE("
     "(SELECT MIN(after_seq) FROM runs WHERE conversation_id = :conv AND id != :run"
-    " AND (started_at > :started OR (started_at = :started AND after_seq > :after))),"
+    " AND (started_at > :started OR (started_at = :started AND (after_seq > :after"
+    " OR (after_seq = :after AND rowid > (SELECT rowid FROM runs WHERE id = :run)))))),"
     " 9223372036854775807) ORDER BY seq"
 )
 

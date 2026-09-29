@@ -7,7 +7,8 @@ import os
 import pytest
 from fastapi.testclient import TestClient
 
-from my_agent_crew.activity.redact import env_secrets, redact
+from my_agent_crew.activity.redact import MIN_SECRET_CHARS, env_secrets, redact
+from my_agent_crew.activity.step_previews import argument_preview, preview
 from my_agent_crew.activity.trajectory import RESULT_LIMIT
 from my_agent_crew.config import Route
 from my_agent_crew.llm.types import Message, ToolCall
@@ -15,9 +16,13 @@ from my_agent_crew.server import create_app
 from my_agent_crew.store.db import now_iso
 from my_agent_crew.store.runs import DONE, RunRecord
 from my_agent_crew.texts import TRAJECTORY_REDACTED
+from tests.trajectory_fake import delegating_turn
 
 FAKE_KEY = "sk-or-v1-" + "0123456789abcdef" * 4
 JWT = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U"
+# Letters no id, stamp or label holds, so any run of them left in a file is the secret's.
+PLANTED = "planted-secret-" + "klmnopqrstuvwxyz" * 4
+QUOTED = 'quoted"and\\slashed-planted-value'
 
 
 def test_only_long_values_of_variables_named_as_secrets_are_gathered():
@@ -37,6 +42,40 @@ def test_a_secret_that_contains_another_is_covered_whole():
     assert redact("x abcdefgh1234 y abcdefgh", secrets) == (
         f"x {TRAJECTORY_REDACTED} y {TRAJECTORY_REDACTED}"
     )
+
+
+def test_each_form_a_runs_record_can_hold_a_secret_in_is_gathered():
+    """A preview collapses whitespace; a mapping argument is kept as JSON, which escapes
+    quotes and backslashes; one inside a preview is both."""
+    value = 'pass  "word"\\x'
+
+    assert set(env_secrets({"DB_PASSWORD": value})) == {
+        value,
+        'pass "word"\\x',
+        'pass  \\"word\\"\\\\x',
+        'pass \\"word\\"\\\\x',
+    }
+
+
+def test_the_head_or_the_tail_a_cut_left_of_a_secret_is_covered():
+    secrets = env_secrets({"PLANTED_API_KEY": PLANTED})
+    covered = TRAJECTORY_REDACTED
+
+    assert redact("cắt ở " + PLANTED[:20], secrets) == f"cắt ở {covered}"
+    assert redact(f"xem {PLANTED[:12]}… rồi tiếp", secrets) == f"xem {covered}… rồi tiếp"
+    assert redact(PLANTED[-12:] + " là phần cuối", secrets) == f"{covered} là phần cuối"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Đang tải… xong rồi…",
+        "planted-secret là tên một biến, không phải khoá",
+        "…và câu này kết thúc bằng stuvwxyz",
+    ],
+)
+def test_text_that_only_shares_a_start_or_an_end_with_a_secret_is_left_alone(text: str):
+    assert redact(text, env_secrets({"PLANTED_API_KEY": PLANTED})) == text
 
 
 @pytest.mark.parametrize(
@@ -151,3 +190,74 @@ def test_the_full_export_keeps_a_long_result_whole(client):
         return json.loads(download(c, run_id, **params).text)["messages"][2]["content"]
 
     assert len(result()) < 4500 and result(full="1") == "z" * 4500
+
+
+def pieces(secret: str) -> set[str]:
+    """Every run of characters of the secret long enough to be covered."""
+    width = MIN_SECRET_CHARS
+    return {secret[at : at + width] for at in range(len(secret) - width + 1)}
+
+
+def test_a_secret_cut_short_anywhere_in_a_runs_record_is_covered_in_both(client, monkeypatch):
+    """The record keeps previews, not whole texts: a title cut to fit a row, a summary kept
+    from the end of an output, outputs and arguments cut with an ellipsis. Each can hold a
+    head or a tail of a secret that the whole value no longer matches."""
+    c, store = client
+    monkeypatch.setenv("TRAJECTORY_TEST_API_KEY", PLANTED)
+    conv = store.create()
+    step = {
+        "kind": "tool",
+        "name": "shell_run",
+        "ok": True,
+        "arguments": argument_preview({"command": "echo " + "x" * 140 + PLANTED, PLANTED: "v"}),
+        "output": preview("in ra " + "y" * 140 + PLANTED),
+        "duration_ms": 3,
+    }
+    run = RunRecord(
+        "r1",
+        "default",
+        conv.id,
+        "chat",
+        ("Xem " + PLANTED)[:60],
+        DONE,
+        now_iso(),
+        steps=[step],
+        summary=("in " + PLANTED + " rồi dừng")[-40:],
+        after_seq=0,
+    )
+    store.runs.save(run)
+    call = ToolCall("t1", "shell_run", {"command": f"echo {PLANTED}", PLANTED: "v"})
+    store.append(conv.id, Message(role="assistant", tool_calls=(call,)), "fake", "echo")
+    delegating_turn(store, conv.id, "call_0", "đọc khoá", f"Khoá là {PLANTED}")
+
+    as_json, as_md = download(c, "r1"), download(c, "r1", format="md")
+
+    assert len(as_json.json()["children"]) == 1
+    for body in (as_json.text, as_md.text):
+        assert not [piece for piece in pieces(PLANTED) if piece in body]
+        assert TRAJECTORY_REDACTED in body
+
+
+def test_a_secret_with_quotes_or_backslashes_is_covered_where_json_escaped_it(client, monkeypatch):
+    c, store = client
+    monkeypatch.setenv("TRAJECTORY_TEST_PASSWORD", QUOTED)
+    conv = store.create()
+    arguments = {
+        "note": QUOTED,
+        "payload": {"password": QUOTED},
+        # Cut by the preview partway through the escaped secret.
+        "long": {"pad": "z" * 121, "password": QUOTED},
+    }
+    step = {"kind": "tool", "name": "http_post", "ok": True, "duration_ms": 1}
+    step["arguments"] = argument_preview(arguments)
+    run = RunRecord("r2", "default", conv.id, "chat", "Gửi", DONE, now_iso(), steps=[step])
+    run.after_seq = 0
+    store.runs.save(run)
+    body = json.dumps({"password": QUOTED})
+    call = ToolCall("t1", "http_post", {"body": body})
+    store.append(conv.id, Message(role="assistant", tool_calls=(call,)), "fake", "echo")
+
+    for text in (download(c, "r2").text, download(c, "r2", format="md").text):
+        # Every form the secret is left in, and every head of it, starts with this.
+        assert "quoted" not in text
+        assert TRAJECTORY_REDACTED in text

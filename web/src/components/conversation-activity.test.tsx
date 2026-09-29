@@ -321,10 +321,10 @@ describe("a conversation's runs from before the page opened", () => {
     agree();
   });
 
-  // Work handed out in one batch starts in one second. The store lists such runs last saved
-  // first, not in the order the page heard them start, and the strip took the store's order
-  // once the history landed while the activity page kept the page's: its cards changed places
-  // and its bar moved on to another run.
+  // Work handed out in one batch starts in one second, and the store's order for such runs
+  // need not be the one the page heard them start in. The strip took the store's order once
+  // the history landed while the activity page kept the page's: its cards changed places and
+  // its bar moved on to another run.
   it.each([
     ["still going", { status: "running" as const, finished_at: null }, () => screen.getAllByTestId("run-progress")[0]],
     ["ended in one second", { status: "error" as const, finished_at: "2026-09-19T08:00:06Z" }, () => screen.getByText(new RegExp(vi.conversationActivity.lastRun))],
@@ -334,7 +334,7 @@ describe("a conversation's runs from before the page opened", () => {
     const kid = (id: string, title: string, steps: RunStep[]) =>
       fakeRun({ id, conversation_id: `w-${id}`, source: "delegate:c1", title, steps, ...state });
     const [a, b] = [kid("a", "Con A", [tool("1")]), kid("b", "Con B", [tool("2"), tool("3")])];
-    // `a` was saved last, so the store lists it first.
+    // The store lists `a` first, though the page heard it start before `b`.
     backend.runs = [a, b, turn, fakeRun({ id: "old", title: "Hôm qua", started_at: "2026-09-18T08:00:00Z" })];
     let release = () => undefined as void;
     const gate = new Promise<void>((resolve) => (release = resolve));

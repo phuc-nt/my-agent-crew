@@ -4,12 +4,11 @@ record, the messages it wrote into its conversation, and what it delegated.
 Unlike the conversation export this carries every tool call's arguments and result, so
 whatever a tool touched comes along. Secrets are covered on the way out, long results are
 cut unless the whole is asked for, and both formats open with a notice to check before
-sharing.
+sharing. `trajectory_markdown` writes the same data out for a person to read.
 """
 
 from __future__ import annotations
 
-import json
 import re
 from typing import Any
 
@@ -17,11 +16,13 @@ from my_agent_crew import texts
 from my_agent_crew.activity.redact import redact_tree
 from my_agent_crew.agent.turn_context import DELEGATE
 from my_agent_crew.agents.roster import DELEGATE_TOOL_NAME
-from my_agent_crew.store import Store, StoredMessage
+from my_agent_crew.store import Conversation, Store, StoredMessage
 from my_agent_crew.store.runs import RunRecord
 
 RESULT_LIMIT = 2000
 BY_SEQ, BY_TIME, NO_CONVERSATION = "by_seq", "by_time", "none"
+# The first line of every delegate result, the one the web card reads too.
+_NAMED_CHILD = re.compile(r"conversation=(\S+) status=")
 
 
 def build(
@@ -54,15 +55,32 @@ def _slice(store: Store, run: RunRecord) -> tuple[list[StoredMessage], str]:
 
 
 def _children(store: Store, run: RunRecord, said: list[StoredMessage]) -> list[dict[str, Any]]:
-    """What this run delegated. A call id alone is no proof: a provider that sends none gets
-    the same `call_0` in every conversation, so a child counts only when its own run names
+    """What this run delegated. An answered call names its child on the first line of its
+    result. A call still waiting is matched by its id, which a provider that sends none
+    repeats as `call_0` in every turn of every conversation, so that child must also have
+    been opened while this run went on. Either way it counts only when its own run names
     this conversation as the one that delegated it."""
-    called = tuple(
+    named: list[str] = []
+    answered: set[str | None] = set()
+    for stored in said:
+        message = stored.message
+        if message.role == "tool" and message.name == DELEGATE_TOOL_NAME:
+            answered.add(message.tool_call_id)
+            if found := _NAMED_CHILD.match(message.content):
+                named.append(found.group(1))
+    waiting = tuple(
         call.id
         for stored in said
         for call in stored.message.tool_calls
-        if call.name == DELEGATE_TOOL_NAME
+        if call.name == DELEGATE_TOOL_NAME and call.id not in answered
     )
+    opened: list[Conversation] = []
+    for child_id in named:
+        try:
+            opened.append(store.get(child_id))
+        except KeyError:  # deleted since; its messages went with it
+            continue
+    opened += [child for child in store.children_of(waiting) if _opened_during(child, run)]
     source = f"{DELEGATE}:{run.conversation_id}"
     return [
         {
@@ -71,9 +89,15 @@ def _children(store: Store, run: RunRecord, said: list[StoredMessage]) -> list[d
             "tool_call_id": child.parent_call_id,
             "messages": [_message(m) for m in store.history(child.id)],
         }
-        for child in store.children_of(called)
+        for child in {child.id: child for child in opened}.values()
         if store.runs.recent(limit=1, conversation_ids=[child.id], source=source)
     ]
+
+
+def _opened_during(child: Conversation, run: RunRecord) -> bool:
+    return run.started_at <= child.created_at and (
+        run.finished_at is None or child.created_at <= run.finished_at
+    )
 
 
 def _message(stored: StoredMessage) -> dict[str, Any]:
@@ -100,87 +124,3 @@ def _cut(message: dict[str, Any]) -> None:
         message["content"] = content[:RESULT_LIMIT] + texts.TRAJECTORY_CUT.format(
             total=len(content)
         )
-
-
-def to_markdown(data: dict[str, Any]) -> str:
-    run = data["run"]
-    lines = [texts.TRAJECTORY_TITLE.format(title=run["title"] or run["id"]), ""]
-    lines += [f"> {data['notice']}", "", *_facts(run, data["slice"]), ""]
-    if data["messages"] or not run["steps"]:
-        lines += [texts.TRAJECTORY_MESSAGES, "", *_blocks(data["messages"])]
-    else:
-        lines += [texts.TRAJECTORY_STEPS, "", *(_step(step) for step in run["steps"]), ""]
-    for child in data["children"]:
-        heading = texts.TRAJECTORY_CHILD.format(
-            agent=child["agent_id"],
-            conversation=child["conversation_id"],
-            call=child["tool_call_id"],
-        )
-        lines += [heading, "", *_blocks(child["messages"])]
-    return "\n".join(lines).rstrip() + "\n"
-
-
-def _facts(run: dict[str, Any], how: str) -> list[str]:
-    spent = f"${run['spent_usd']:.4f}"
-    if run["unknown_cost_calls"]:
-        spent += texts.TRAJECTORY_UNKNOWN_COST.format(count=run["unknown_cost_calls"])
-    conversation = run["conversation_id"]
-    facts = {
-        "id": f"`{run['id']}`",
-        "agent_id": run["agent_id"],
-        "source": f"`{run['source']}`",
-        "status": f"`{run['status']}`",
-        "summary": _one_line(run["summary"]),
-        "started_at": run["started_at"],
-        "finished_at": run["finished_at"],
-        "steps": str(len(run["steps"])),
-        "spent_usd": spent,
-        "conversation_id": f"`{conversation}`" if conversation else "",
-        "slice": texts.TRAJECTORY_SLICES[how],
-    }
-    labels = texts.TRAJECTORY_FACT_LABELS
-    return [f"- {labels[key]}: {value}" for key, value in facts.items() if value]
-
-
-def _blocks(messages: list[dict[str, Any]]) -> list[str]:
-    if not messages:
-        return [texts.TRAJECTORY_NO_MESSAGES, ""]
-    lines: list[str] = []
-    for message in messages:
-        lines += [_heading(message), ""]
-        if message["role"] == "tool":
-            lines += [_fenced(message["content"]), ""]
-            continue
-        if message["content"]:
-            lines += [message["content"], ""]
-        for call in message["tool_calls"]:
-            arguments = json.dumps(call["arguments"], ensure_ascii=False, indent=2)
-            lines += [texts.TRAJECTORY_CALL.format(name=call["name"]), ""]
-            lines += [_fenced(arguments, "json"), ""]
-    return lines
-
-
-def _heading(message: dict[str, Any]) -> str:
-    parts = [f"#{message['seq']}", texts.TRAJECTORY_ROLES.get(message["role"], message["role"])]
-    if message["role"] == "tool" and message["name"]:
-        parts.append(f"`{message['name']}`")
-    if message["model"]:
-        provider = message["provider"]
-        parts.append(f"{provider}/{message['model']}" if provider else message["model"])
-    return "### " + " · ".join(parts)
-
-
-def _fenced(text: str, language: str = "") -> str:
-    """A fence longer than any backtick run inside, so the text cannot close it early."""
-    longest = max((len(run) for run in re.findall(r"`+", text)), default=0)
-    fence = "`" * max(3, longest + 1)
-    return f"{fence}{language}\n{text}\n{fence}"
-
-
-def _step(step: dict[str, Any]) -> str:
-    shown = (f"{key}: {value}" for key, value in step.items() if value not in (None, "", []))
-    return "- " + _one_line(" · ".join(shown))
-
-
-def _one_line(text: str) -> str:
-    return " ".join(str(text).split())

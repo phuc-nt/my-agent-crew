@@ -4,7 +4,8 @@ delegated to, and a Markdown copy a person can read."""
 import json
 
 from my_agent_crew.activity import ActivityHub, tracked
-from my_agent_crew.activity.trajectory import RESULT_LIMIT, build, to_markdown
+from my_agent_crew.activity.trajectory import RESULT_LIMIT, build
+from my_agent_crew.activity.trajectory_markdown import to_markdown
 from my_agent_crew.agent.loop import run_turn
 from my_agent_crew.agent.resume import resolve_approval
 from my_agent_crew.config import Route
@@ -12,9 +13,10 @@ from my_agent_crew.llm.fake import completion
 from my_agent_crew.llm.types import Message, ToolCall
 from my_agent_crew.store import Store
 from my_agent_crew.store.db import new_id, now_iso
-from my_agent_crew.store.runs import DONE, RunRecord
-from my_agent_crew.texts import TRAJECTORY_NOTICE
+from my_agent_crew.store.runs import DONE, HALTED, RUNNING, RunRecord
+from my_agent_crew.texts import TRAJECTORY_NOTICE, TRAJECTORY_TITLE
 from tests.conftest import collect
+from tests.trajectory_fake import child_of, delegate_call, delegating_turn, run_from
 
 
 async def turn(hub: ActivityHub, deps, conv_id: str, text: str) -> RunRecord:
@@ -74,6 +76,7 @@ def test_a_run_recorded_before_runs_kept_their_start_is_sliced_by_time(store: St
         ("trước", "2026-09-20T08:00:00+00:00"),
         ("hỏi", "2026-09-20T09:00:00+00:00"),
         ("đáp", "2026-09-20T09:00:40+00:00"),
+        ("cuối", "2026-09-20T09:01:00+00:00"),
         ("sau", "2026-09-20T10:00:00+00:00"),
     ]
     for text, stamp in said:
@@ -92,36 +95,44 @@ def test_a_run_recorded_before_runs_kept_their_start_is_sliced_by_time(store: St
 
     data = build(store, store.runs.get("old"))
 
-    assert data["slice"] == "by_time" and contents(data) == ["hỏi", "đáp"]
+    # Both ends are kept: a stamp has one-second resolution, as does the run's finish.
+    assert data["slice"] == "by_time" and contents(data) == ["hỏi", "đáp", "cuối"]
 
 
-def delegating_turn(store: Store, conv_id: str, call_id: str, task: str) -> None:
-    store.append(conv_id, Message(role="user", content=f"nhờ {task}"))
-    call = ToolCall(call_id, "delegate", {"agent": "coach", "task": task})
-    store.append(conv_id, Message(role="assistant", tool_calls=(call,)), "fake", "echo")
-    result = f"conversation=x status=done spent=$0.0000 steps=1\noutcome=done\n{task} xong"
-    store.append(
-        conv_id, Message(role="tool", content=result, tool_call_id=call_id, name="delegate")
-    )
+def test_runs_that_began_in_the_same_second_are_told_apart_by_where_they_began(store: Store):
+    conv = store.create()
+    stamp = "2026-09-20T09:00:00+00:00"
+    for text in ("a", "một", "b", "hai"):
+        store.messages.append(conv.id, Message(role="user", content=text), stamp)
+    first = RunRecord("first", "default", conv.id, "chat", "t", DONE, stamp, after_seq=0)
+    second = RunRecord("second", "default", conv.id, "chat", "t", DONE, stamp, after_seq=2)
+    store.runs.save(second)
+    store.runs.save(first)
+
+    assert contents(build(store, first)) == ["a", "một"]
+    assert contents(build(store, second)) == ["b", "hai"]
 
 
-def child_of(store: Store, parent_id: str, call_id: str, said: str) -> str:
-    """A child as `_run_child` leaves it: its own conversation and a run whose source names
-    the conversation that delegated."""
-    child = store.create(agent_id="coach", parent_call_id=call_id)
-    store.append(child.id, Message(role="user", content="việc được giao"))
-    store.append(child.id, Message(role="assistant", content=said), "fake", "echo")
-    source = f"delegate:{parent_id}"
-    store.runs.save(
-        RunRecord(new_id(), "coach", child.id, source, "t", DONE, now_iso(), after_seq=0)
-    )
-    return child.id
+def test_a_run_that_wrote_nothing_keeps_its_place_when_it_is_saved_again(store: Store):
+    """Two runs that began in the same second where the conversation stood at the same seq
+    are ordered by when each was created. Saving the first again as it ends must not move
+    it after the second, or it would take the second's messages as its own."""
+    conv = store.create()
+    stamp = "2026-09-20T09:00:00+00:00"
+    for text in ("a", "một"):
+        store.messages.append(conv.id, Message(role="user", content=text), stamp)
+    empty = RunRecord("empty", "default", conv.id, "chat", "t", RUNNING, stamp, after_seq=2)
+    store.runs.save(empty)
+    busy = RunRecord("busy", "default", conv.id, "chat", "t", DONE, stamp, after_seq=2)
+    store.runs.save(busy)
+    for text in ("b", "hai"):
+        store.messages.append(conv.id, Message(role="user", content=text), stamp)
+    empty.status, empty.finished_at = HALTED, stamp
+    store.runs.save(empty)
 
-
-def run_from(store: Store, conv_id: str, after_seq: int) -> RunRecord:
-    run = RunRecord(new_id(), "default", conv_id, "chat", "t", DONE, now_iso(), after_seq=after_seq)
-    store.runs.save(run)
-    return run
+    assert build(store, store.runs.get("empty"))["messages"] == []
+    assert contents(build(store, store.runs.get("busy"))) == ["b", "hai"]
+    assert store.runs.latest_for_conversation(conv.id).id == "busy"
 
 
 def test_a_child_comes_along_but_not_another_conversations_child_with_the_same_call_id(
@@ -131,10 +142,8 @@ def test_a_child_comes_along_but_not_another_conversations_child_with_the_same_c
     the bare id can name another agent's child."""
     parent, other = store.create(), store.create()
     run = run_from(store, parent.id, 0)
-    delegating_turn(store, parent.id, "call_0", "tóm tắt")
-    mine = child_of(store, parent.id, "call_0", "Tóm tắt của tôi")
-    delegating_turn(store, other.id, "call_0", "đọc nhật ký")
-    child_of(store, other.id, "call_0", "Nhật ký riêng của người khác")
+    mine = delegating_turn(store, parent.id, "call_0", "tóm tắt", "Tóm tắt của tôi")
+    delegating_turn(store, other.id, "call_0", "đọc nhật ký", "Nhật ký riêng của người khác")
 
     data = build(store, run)
 
@@ -148,14 +157,51 @@ def test_a_child_comes_along_but_not_another_conversations_child_with_the_same_c
 def test_only_the_children_this_run_opened_come_along(store: Store):
     conv = store.create()
     earlier = run_from(store, conv.id, 0)
-    delegating_turn(store, conv.id, "call_a", "việc cũ")
-    child_of(store, conv.id, "call_a", "đáp cũ")
+    delegating_turn(store, conv.id, "call_a", "việc cũ", "đáp cũ")
     later = run_from(store, conv.id, store.messages.max_seq(conv.id))
-    delegating_turn(store, conv.id, "call_b", "việc mới")
-    new = child_of(store, conv.id, "call_b", "đáp mới")
+    new = delegating_turn(store, conv.id, "call_b", "việc mới", "đáp mới")
 
     assert [c["conversation_id"] for c in build(store, later)["children"]] == [new]
     assert [c["tool_call_id"] for c in build(store, earlier)["children"]] == ["call_a"]
+
+
+def test_two_runs_whose_calls_were_both_call_0_each_bring_only_their_own_child(store: Store):
+    """A provider that sends no call id gets `call_0` again in every turn."""
+    conv = store.create()
+    first = run_from(store, conv.id, 0)
+    one = delegating_turn(store, conv.id, "call_0", "việc một", "đáp một")
+    second = run_from(store, conv.id, store.messages.max_seq(conv.id))
+    two = delegating_turn(store, conv.id, "call_0", "việc hai", "đáp hai")
+
+    assert [c["conversation_id"] for c in build(store, first)["children"]] == [one]
+    assert [c["conversation_id"] for c in build(store, second)["children"]] == [two]
+
+
+def test_a_call_still_waiting_brings_the_child_it_opened_while_the_run_went_on(store: Store):
+    """With no result yet there is no line naming the child, only the call id: the child
+    must have been opened during the run and by this conversation."""
+    conv, other = store.create(), store.create()
+    halted = RunRecord(
+        "halted",
+        "default",
+        conv.id,
+        "chat",
+        "t",
+        HALTED,
+        "2020-01-01T08:00:00+00:00",
+        finished_at="2020-01-01T08:05:00+00:00",
+        after_seq=0,
+    )
+    store.runs.save(halted)
+    delegate_call(store, conv.id, "call_0", "việc bỏ dở")
+    running = run_from(store, conv.id, store.messages.max_seq(conv.id), RUNNING)
+    delegate_call(store, conv.id, "call_0", "việc đang làm")
+    child = child_of(store, conv.id, "call_0", "đang làm")
+    delegate_call(store, other.id, "call_0", "việc của người khác")
+    child_of(store, other.id, "call_0", "của người khác")
+
+    assert [c["conversation_id"] for c in build(store, running)["children"]] == [child]
+    assert build(store, halted)["children"] == []
 
 
 def test_a_run_with_no_conversation_exports_its_record_and_steps(store: Store):
@@ -205,3 +251,33 @@ def test_a_long_tool_result_is_cut_and_says_how_long_it_was_unless_all_is_asked_
     # Only tool results are cut: what the agent said is what the person read.
     assert cut[1]["content"] == "y" * 5000
     assert whole[0]["content"] == long
+
+
+def test_the_markdown_keeps_the_title_on_one_line_and_closes_a_block_left_open(store: Store):
+    conv = store.create()
+    run = RunRecord(
+        new_id(),
+        "default",
+        conv.id,
+        "chat",
+        "Dòng một\n# Giả\n```",
+        DONE,
+        now_iso(),
+        summary="xong\n## Giả",
+        after_seq=0,
+    )
+    store.runs.save(run)
+    store.append(conv.id, Message(role="user", content="viết code"))
+    stopped = "Đây:\n```python\nprint(1)"
+    store.append(conv.id, Message(role="assistant", content=stopped), "fake", "echo")
+    store.append(conv.id, Message(role="user", content="Dùng ```x``` nhé:\n```\nok\n```"))
+    store.append(conv.id, Message(role="assistant", content="Được."), "fake", "echo")
+
+    markdown = to_markdown(build(store, run))
+
+    assert markdown.splitlines()[0] == TRAJECTORY_TITLE.format(title="Dòng một # Giả ```")
+    assert "\n## Giả" not in markdown and "xong ## Giả" in markdown
+    # An answer stopped mid-block is closed before the next message's heading.
+    assert "Đây:\n```python\nprint(1)\n```\n\n### #3" in markdown
+    # A block that closes itself, and code written inline, are left as they were.
+    assert "Dùng ```x``` nhé:\n```\nok\n```\n\n### #4" in markdown

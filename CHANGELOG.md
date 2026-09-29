@@ -60,9 +60,12 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   where the next run's begin; a run recorded before that is sliced by its start and finish time
   and says so. Secrets are covered on a best-effort basis: the values of the server's
   environment variables named like a key, token, secret, password or credential, and common key
-  shapes (`sk-…`, `Bearer …`, JWT). A secret from anywhere else is not, so the file and the page
-  both say to read it before sharing. A tool result is cut at 2,000 characters unless `full=1`
-  is asked for.
+  shapes (`sk-…`, `Bearer …`, JWT). An environment value is also covered where the run's record
+  holds only part of it: a title or preview cut partway through it, a summary kept from partway
+  through it, a copy escaped inside JSON, or an argument's name. A secret from anywhere else is
+  not, so the file and the page both say to read it before sharing. A tool result is cut at
+  2,000 characters unless `full=1` is asked for. In the Markdown, a title stays on one line and
+  a code block a message left open is closed before the next message begins.
 
 ### Changed
 
@@ -98,6 +101,8 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 - A tool-output summary whose provider gave no price counts as a call of unknown cost instead of
   a free one, and a session recap that came back empty is still charged to its conversation.
 - Grouping the ledger by model keeps one model name served by two providers as two rows.
+- Runs that began in the same second keep the order they were created in. A run is saved again
+  at every step, and each save used to move it ahead of the others in the activity list.
 
 ### Upgrade notes
 

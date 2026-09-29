@@ -651,14 +651,24 @@ tên một test thì sửa dòng của nó trong cùng commit.
   che, kết quả tool dài bị cắt**
   - pytest: `tests/test_trajectory.py` (mỗi run ghi cuộc trò chuyện đang ở tin nào khi nó bắt đầu
     và chỉ lấy tin của mình, run tiếp tục sau khi duyệt giữ mốc cũ, run có từ trước khi có mốc
-    thì cắt theo giờ, agent con đi theo còn con của cuộc khác trùng mã lời gọi thì không, chỉ con
-    do chính run mở mới đi theo, run không có cuộc trò chuyện vẫn xuất bản ghi và các bước,
-    Markdown có mọi lời gọi tool kèm tham số và kết quả, kết quả dài bị cắt và nói dài bao nhiêu
-    trừ khi xin bản đầy đủ); `tests/test_trajectory_redact.py` (chỉ gom giá trị dài của biến có
-    tên như bí mật, bí mật chứa bí mật khác được che trọn, dạng khoá quen thuộc được che dù không
-    biết giá trị, chữ chỉ hơi giống khoá thì để nguyên; run không có là 404, hai dạng đến như tệp
-    để lưu với `no-store`, bí mật trong môi trường và chuỗi dạng khoá được che ở cả hai dạng, bí
-    mật nằm ở chỗ bị cắt vẫn được che trước khi cắt, không gì từ môi trường đi theo nếu tin không
+    thì cắt theo giờ và lấy cả tin đúng giây kết thúc, hai run bắt đầu cùng giây được phân theo
+    mốc tin, run không ghi gì vẫn giữ chỗ khi được lưu lại nên không nhận tin của run sau nó cùng
+    giây, agent con đi theo còn con của cuộc khác trùng mã lời gọi thì không, chỉ con do chính
+    run mở mới đi theo, hai run cùng gọi `call_0` mỗi run chỉ mang con của mình, lời gọi chưa có
+    kết quả chỉ mang con mở trong lúc run chạy và do chính cuộc này giao, run không có cuộc trò
+    chuyện vẫn xuất bản ghi và các bước, Markdown có mọi lời gọi tool kèm tham số và kết quả, kết
+    quả dài bị cắt và nói dài bao nhiêu trừ khi xin bản đầy đủ, Markdown giữ tiêu đề và tóm tắt
+    trên một dòng và đóng khối code bị bỏ dở trước tin sau còn khối tự đóng và code trong dòng
+    thì giữ nguyên); `tests/test_trajectory_redact.py` (chỉ gom giá trị dài của biến có tên như
+    bí mật, gom cả dạng gộp khoảng trắng, dạng JSON đã thoát và dạng có cả hai, bí mật chứa bí
+    mật khác được che trọn, phần đầu bị cắt ở cuối chữ hay trước dấu `…` và phần đuôi ở đầu chữ
+    đều được che, chữ chỉ trùng đầu hay đuôi bí mật mà không phải chỗ cắt thì để nguyên, dạng
+    khoá quen thuộc được che dù không biết giá trị, chữ chỉ hơi giống khoá thì để nguyên; run
+    không có là 404, hai dạng đến như tệp để lưu với `no-store`, bí mật trong môi trường và chuỗi
+    dạng khoá được che ở cả hai dạng, bí mật nằm ở chỗ bị cắt vẫn được che trước khi cắt, bí mật
+    bị bản ghi cắt ngắn ở tiêu đề, tóm tắt, output và tham số của bước, ở tên và giá trị tham số
+    lời gọi hay trong tin của agent con đều được che ở cả hai dạng, bí mật có ngoặc kép hay gạch
+    chéo ngược được che cả khi JSON đã thoát nó, không gì từ môi trường đi theo nếu tin không
     chứa nó, bản đầy đủ giữ nguyên kết quả dài)
   - vitest: `components/run-replay.test.tsx` ("offers the run as a JSON and a Markdown file to
     save, with a word to check before sharing", "offers no download while there is no run to

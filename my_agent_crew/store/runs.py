@@ -83,11 +83,19 @@ class RunStore:
         self._lock = lock
 
     def save(self, run: RunRecord) -> None:
+        """An upsert rather than a replace, so a run keeps the rowid it was created with:
+        runs that began in the same second are told apart by it."""
         with self._lock:
             self._conn.execute(
-                "INSERT OR REPLACE INTO runs (id, agent_id, conversation_id, source, title,"
-                " status, started_at, finished_at, steps, spent_usd, unknown_cost_calls,"
-                " summary, after_seq) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO runs (id, agent_id, conversation_id, source, title, status,"
+                " started_at, finished_at, steps, spent_usd, unknown_cost_calls, summary,"
+                " after_seq) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET"
+                " agent_id = excluded.agent_id, conversation_id = excluded.conversation_id,"
+                " source = excluded.source, title = excluded.title, status = excluded.status,"
+                " started_at = excluded.started_at, finished_at = excluded.finished_at,"
+                " steps = excluded.steps, spent_usd = excluded.spent_usd,"
+                " unknown_cost_calls = excluded.unknown_cost_calls, summary = excluded.summary,"
+                " after_seq = excluded.after_seq",
                 (
                     run.id,
                     run.agent_id,

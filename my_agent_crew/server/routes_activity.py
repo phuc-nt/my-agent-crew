@@ -14,7 +14,7 @@ from weakref import WeakKeyDictionary
 from fastapi import APIRouter, HTTPException, Query, Response
 from sse_starlette.sse import EventSourceResponse
 
-from my_agent_crew.activity import trajectory
+from my_agent_crew.activity import trajectory, trajectory_markdown
 from my_agent_crew.activity.redact import env_secrets
 from my_agent_crew.agents.roster import DELEGATE_TOOL_NAME
 from my_agent_crew.clock import local_day
@@ -89,7 +89,8 @@ def run_trajectory(
         "Cache-Control": "no-store",
     }
     if kind == "md":
-        return Response(trajectory.to_markdown(data), media_type="text/markdown", headers=headers)
+        markdown = trajectory_markdown.to_markdown(data)
+        return Response(markdown, media_type="text/markdown", headers=headers)
     body = json.dumps(data, ensure_ascii=False, indent=2)
     return Response(body, media_type="application/json", headers=headers)
 
