@@ -67,6 +67,17 @@ lặp tối đa max_steps:
     messages += reply + results
 ```
 
+**Chặn lặp.** Model rẻ kẹt ở một lệnh hỏng có thể gọi lại y hệt nó tới hết `max_steps`: dài,
+tốn tiền và không đi tới đâu. Mỗi lượt có một bộ chặn (`agent/loop_guard.py`) đọc các tool call
+của một lần gọi model thành một chữ ký (tên cộng tham số, không tính id, không tính thứ tự song
+song) và đếm chữ ký giống hệt *liên tiếp*. Lần thứ ba, model nhận một tin nhắc chỉ nêu tên công
+cụ và số lần — không chép tham số hay kết quả, vì tin này nằm ở vai người dùng mà dữ liệu từ web
+hay tệp thì không bao giờ được thành lời của người. Gọi y hệt thêm ba lần nữa thì lượt dừng
+(`halted`, lý do `loop`); lệnh cuối không chạy mà nhận kết quả từ chối, để cuộc trò chuyện vẫn
+tiếp được. Chỉ lặp liền nhau mới tính: "chạy test, sửa, chạy lại" đổi gì đó ở giữa, và đó là
+cách làm việc. `progress_note` và `ask_user` không tính; một lần gọi model không có tool, hay tin
+mới của người, đếm lại từ đầu.
+
 Điểm cần nhớ với người mới: **model không "chạy" gì cả**. Nó chỉ trả về JSON nói "tôi muốn gọi `workspace_read` với path này". Harness quyết định có chạy không, chạy rồi đưa kết quả vào message tiếp theo. Mọi cổng kiểm soát nằm ở chỗ này.
 
 ### 2.4 Sổ đăng ký tool: tay chân của agent
@@ -247,7 +258,7 @@ Kit `.agents/` cấp home cho master lệnh `/tongket` — ví dụ về việc 
 | "Agent nhớ chuyện hôm qua" | Chỉ nhớ nếu có trong `MEMORY.md`, ghi chú ngày, facts, hay tóm tắt cuộc trước. Không có tệp, không có ký ức. |
 | "Model chạy lệnh shell" | Model chỉ xin. Harness chạy, và chỉ khi có duyệt hoặc autonomous. |
 | "Agent con thấy cả cuộc chat" | Không. Nó chỉ thấy brief trong `delegate`. Muốn nó biết gì, master phải viết vào brief. |
-| "Tăng `max_steps` là agent thông minh hơn" | Chỉ cho nó nhiều vòng hơn. Vòng lặp vô tận tốn tiền nhanh; `cost_cap_usd` là phanh thứ hai. |
+| "Tăng `max_steps` là agent thông minh hơn" | Chỉ cho nó nhiều vòng hơn. Vòng lặp vô tận tốn tiền nhanh; bộ chặn lặp dừng lượt gọi lại y hệt một lệnh, `cost_cap_usd` là phanh thứ hai. |
 | "Fallback model là im lặng" | `RouteFallback` là event nhìn thấy trên web; run ghi model nào thực sự trả lời. |
 | "Skill là plugin" | Skill là tệp markdown. Nó thay đổi *lời khuyên* cho model, không thêm khả năng mới. Khả năng mới là tool. |
 | "Xoá cuộc trò chuyện là agent quên" | Cuộc trò chuyện là log; trí nhớ dài nằm ở tệp. Hai thứ tách nhau có chủ đích. |

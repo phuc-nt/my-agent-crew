@@ -87,7 +87,7 @@ class DoneEvent:
 
 @dataclass(frozen=True)
 class HaltedEvent:
-    reason: str  # "budget" | "max_steps"
+    reason: str  # "budget" | "max_steps" | "loop" (the same tool calls over and over)
     spent_usd: float
 
 

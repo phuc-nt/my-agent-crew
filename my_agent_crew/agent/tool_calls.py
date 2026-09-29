@@ -12,7 +12,7 @@ time hands it a default instead of a refusal. Which calls pause is `tool_gate`'s
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from typing import TYPE_CHECKING
 
 from my_agent_crew.agent.delegate_relay import relay_reply
@@ -26,6 +26,7 @@ from my_agent_crew.agent.tool_batches import split_batches
 from my_agent_crew.agent.tool_gate import ask_reason_text, pauses_for_a_person
 from my_agent_crew.agent.turn_context import set_tool_call_id
 from my_agent_crew.llm.types import Message, ToolCall
+from my_agent_crew.store import StoredMessage
 from my_agent_crew.store.approvals import ANSWERED, DENIED, EXPIRED, PENDING
 from my_agent_crew.store.models import AWAITING_APPROVAL, QUESTION, TOOL
 from my_agent_crew.texts import DENIED_TOOL, EXPIRED_TOOL
@@ -69,15 +70,29 @@ async def _record(deps: AgentDeps, conv_id: str, call: ToolCall, result: ToolRes
     )
 
 
-async def settle_tool_calls(deps: AgentDeps, conv_id: str) -> AsyncIterator[Event]:
-    history = deps.store.history(conv_id)
+def _unanswered(history: Sequence[StoredMessage]) -> tuple[StoredMessage | None, list[ToolCall]]:
+    """The last model call, when it asked for tools, and those of its calls with no result."""
     assistants = [m for m in history if m.message.role == "assistant"]
     if not assistants or not assistants[-1].message.tool_calls:
-        return
+        return None, []
     last = assistants[-1]
     answered = {m.message.tool_call_id for m in history if m.seq > last.seq}
+    return last, [c for c in last.message.tool_calls if c.id not in answered]
+
+
+async def refuse_unanswered(deps: AgentDeps, conv_id: str, output: str) -> AsyncIterator[Event]:
+    """Closes each call still without a result with `output`, never running it, so the log
+    stays one a later turn can carry on from."""
+    _, pending = _unanswered(deps.store.history(conv_id))
+    for call in pending:
+        yield await _record(deps, conv_id, call, ToolResult(ok=False, output=output))
+
+
+async def settle_tool_calls(deps: AgentDeps, conv_id: str) -> AsyncIterator[Event]:
+    last, pending = _unanswered(deps.store.history(conv_id))
+    if last is None:
+        return
     conv = deps.store.get(conv_id)
-    pending = [c for c in last.message.tool_calls if c.id not in answered]
     batches = split_batches(pending, deps.tools, lambda c: not pauses_for_a_person(deps, conv, c))
     for batch in batches:
         if len(batch) > 1:

@@ -6,6 +6,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass, field
 
+from my_agent_crew import texts
 from my_agent_crew.agent.child_wrap_up import nudge_to_conclude, wrap_up_due
 from my_agent_crew.agent.events import (
     ApprovalRequiredEvent,
@@ -19,9 +20,10 @@ from my_agent_crew.agent.events import (
     TextDeltaEvent,
     ThinkingEvent,
 )
+from my_agent_crew.agent.loop_guard import HALT, OK, LoopGuard
 from my_agent_crew.agent.prompt import turn_messages
 from my_agent_crew.agent.reply_checks import blank_reply_event, with_dropped_attachments
-from my_agent_crew.agent.tool_calls import settle_tool_calls
+from my_agent_crew.agent.tool_calls import refuse_unanswered, settle_tool_calls
 from my_agent_crew.agent.turn_context import (
     CHAT,
     set_turn_conversation,
@@ -80,6 +82,7 @@ async def run_turn(
         deps.store.append(conv_id, Message(role="user", content=user_text))
 
     empty_replies = 0
+    guard = LoopGuard()
     for _ in range(deps.settings.max_steps):
         async for event in settle_tool_calls(deps, conv_id):
             yield event
@@ -106,15 +109,25 @@ async def run_turn(
         if conv.over_budget:
             yield HaltedEvent(reason="budget", spent_usd=conv.spent_usd)
             return
+        if guard.redirect_due:
+            history = guard.redirect(deps.store, conv_id)
         # A delegated child near its soft cap is told to conclude and given no tools.
         tools: Sequence[ToolSpec] = deps.tools.specs()
         if wrap_up_due(conv, history, deps.settings.max_steps):
             history, tools = nudge_to_conclude(deps.store, conv, history), ()
+        verdict = OK
         try:
             async for event in _complete(deps, conv, history, tools):
                 yield event
+                if isinstance(event, AssistantMessageEvent):
+                    verdict = guard.observe(event.tool_calls)
         except ProviderError as exc:
             yield ErrorEvent(message=str(exc))
+            return
+        if verdict == HALT:  # the repeated calls stay unrun, each closed with a refusal
+            async for event in refuse_unanswered(deps, conv_id, texts.LOOP_HALTED_TOOL):
+                yield event
+            yield HaltedEvent(reason="loop", spent_usd=deps.store.get(conv_id).spent_usd)
             return
     conv = deps.store.get(conv_id)
     yield HaltedEvent(reason="max_steps", spent_usd=conv.spent_usd)

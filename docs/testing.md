@@ -358,6 +358,19 @@ tên một test thì sửa dòng của nó trong cùng commit.
   - Playwright: `phone-smoke.spec.ts`
     "the costs page fits, cache columns and today's tiles included" (bảng theo mục đích vừa
     màn hình điện thoại)
+- **Dừng lượt cứ gọi lại y hệt một lệnh**
+  - pytest: `tests/test_loop_guard.py` (lần thứ ba liên tiếp thì nhắc, lần thứ sáu thì dừng; đổi
+    tham số, hai lệnh xen kẽ, ghi chú tiến độ, câu hỏi hay câu trả lời xen giữa đều đếm lại từ
+    đầu; ghi chú đi kèm lệnh lặp không che được lần lặp; lệnh song song đổi thứ tự vẫn là một
+    lệnh; lời nhắc nằm sau kết quả lần thứ ba, chỉ nêu tên công cụ, không chép tham số hay kết
+    quả; lệnh thứ sáu không chạy mà nhận kết quả từ chối nên mọi lệnh đều có kết quả; lượt đổi
+    hướng sau lời nhắc chạy tiếp; "chạy test, sửa, chạy lại" không bị nhắc; lý do dừng đọc bằng
+    lời); `tests/test_channels_telegram.py::test_deliver_reports_a_run_that_stopped_without_a_reply`,
+    `tests/test_channels_telegram.py::test_a_reply_from_a_run_that_stopped_early_carries_a_notice`
+    (Telegram nêu lý do dừng bằng lời, không bằng mã)
+  - vitest: `lib/run-summary.test.ts`
+    "reads the halt reasons and the interrupted marker as sentences"; `app.test.tsx`
+    "says in words why a turn halted on %s" (với `max_steps` và `loop`)
 - **Token, cache và thời gian tới token đầu**
   - vitest: `components/run-timeline.test.tsx`; `lib/format-usage.test.ts`;
     `components/stats-panel.test.tsx`; `state/activity-reducer.test.ts`

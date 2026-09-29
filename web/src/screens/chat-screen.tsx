@@ -21,6 +21,7 @@ import type { ManageSection } from "../hooks/use-route";
 import { useShortcuts } from "../hooks/use-shortcuts";
 import type { useThread } from "../hooks/use-thread";
 import { vi } from "../i18n/vi";
+import { runSummaryText } from "../lib/run-summary";
 import { conversationFamilyRuns, liveRuns, runningRuns, sortedRuns } from "../state/activity-reducer";
 
 interface Props {
@@ -170,7 +171,7 @@ export function ChatScreen({
           ? overBudget || capReached
             ? vi.haltedBudget
             : vi.haltedBudgetLifted
-          : vi.haltedMaxSteps
+          : runSummaryText({ status: "halted", summary: state.notice.text })
         : state.notice.kind === "fallback"
           ? vi.routeFallback(state.notice.text)
           : state.notice.kind === "stopped"

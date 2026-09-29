@@ -139,7 +139,7 @@ Sau mỗi prompt job, scheduler yêu cầu runtime giao cuộc trò chuyện đ�
 chuyển tiếp text của assistant ở lượt cuối tới chat khi master
 có kênh. Bản tin của thành viên đội mang tiền tố `[Name]`; cuộc trò chuyện của
 agent mà runtime không biết được ghi log và không gửi. Khi lượt cuối kết thúc mà không có text nào của assistant (run dừng ở
-`max_steps`, lỗi provider, một duyệt còn treo) kênh gửi
+`max_steps` hay vì gọi lại y hệt một lệnh, lỗi provider, một duyệt còn treo) kênh gửi
 thông báo "run chưa xong" kèm tóm tắt của run thay vì im lặng, nên
 job theo lịch không bao giờ biến mất không dấu vết. Khi một duyệt trong lượt đó hết hạn
 (`approval_ttl_seconds`), phần giao nói trước tool nào bị từ chối vì quá hạn,
@@ -147,7 +147,10 @@ job theo lịch không bao giờ biến mất không dấu vết. Khi một duy�
 
 Run dừng sớm nhưng *có* để lại text là trường hợp khó hơn: câu trả lời
 nửa chừng đọc như một câu trả lời hoàn chỉnh. Nên sau khi gửi text, run có status `halted`
-hoặc `error` nhận thêm tin nhắn thứ hai "bị cắt ngắn" nêu lý do và run đã tiêu bao nhiêu. Dù thế nào scheduler cũng ghi một dòng log cho mỗi prompt job —
+hoặc `error` nhận thêm tin nhắn thứ hai "bị cắt ngắn" nêu lý do và run đã tiêu bao nhiêu. Lý do
+của run `halted` là mã vòng lặp ghi (`budget`, `max_steps`, `loop`), nên kênh đọc nó thành lời
+("chạm trần chi phí", "hết số bước tối đa", "gọi lại y hệt một lệnh nhiều lần liên tiếp"); lý do
+của run `error` đã là câu báo lỗi. Dù thế nào scheduler cũng ghi một dòng log cho mỗi prompt job —
 `job <id>: delivered=<bool> conv=<id> status=<status>` — để log phân biệt job đã
 trả lời với job im lặng. Giao thất bại được ghi log, không thử lại.
 

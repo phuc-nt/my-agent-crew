@@ -17,6 +17,16 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   the ones made beside them — a conversation's title, a session recap, a long tool output
   summarised, a picture or a scanned PDF page read, memory consolidation, the wiki compile.
 - A tool that asked a model itself shows the price on its row of the run timeline.
+- A turn that keeps making the same tool calls is stopped before it burns its step limit. At
+  the third identical call in a row the agent is told it is repeating itself, naming the tool
+  and nothing a tool returned; three more identical calls halt the turn with the reason "loop",
+  and the call that would have been the sixth is answered with a refusal instead of running.
+  Repeats with a change in between ("run the tests, fix, run them again") are left alone.
+
+### Changed
+
+- A halted run says why in words on Telegram and in the reply of an API turn (the cost cap, the
+  step limit, the same call over and over) instead of the loop's code, as the web already did.
 
 ### Fixed
 

@@ -73,7 +73,7 @@ my-agent-crew: một tiến trình Python, một tệp SQLite, một thư mục 
 
 | Rủi ro | Giảm nhẹ |
 |---|---|
-| Model rẻ gọi tool sai hoặc lặp | `max_steps`, `cost_cap_usd`, `tool_output_chars`, cổng duyệt |
+| Model rẻ gọi tool sai hoặc lặp | bộ chặn lặp (nhắc ở lần gọi y hệt thứ ba, dừng ở lần thứ sáu), `max_steps`, `cost_cap_usd`, `tool_output_chars`, cổng duyệt |
 | Agent con tốn hết ngân sách cha | trần con = phần còn lại của cha |
 | Trí nhớ phình hoặc lệch | consolidate là đề xuất có duyệt, giữ bản cũ |
 | Lộ bí mật qua log hoặc doc | redact, tệp env ngoài repo, quy tắc placeholder trong doc |

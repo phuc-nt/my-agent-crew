@@ -122,7 +122,7 @@ export type AgentEvent =
       options?: string[];
     }
   | { type: "done"; spent_usd: number; unknown_cost_calls: number }
-  | { type: "halted"; reason: "budget" | "max_steps"; spent_usd: number }
+  | { type: "halted"; reason: "budget" | "max_steps" | "loop"; spent_usd: number }
   | { type: "error"; message: string }
   | { type: "route_fallback"; provider: string; model: string; error: string };
 

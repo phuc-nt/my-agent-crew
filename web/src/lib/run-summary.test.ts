@@ -7,6 +7,7 @@ describe("run summary codes", () => {
   it("reads the halt reasons and the interrupted marker as sentences", () => {
     expect(runSummaryText(fakeRun({ status: "halted", summary: "budget" }))).toBe(vi.haltedBudget);
     expect(runSummaryText(fakeRun({ status: "halted", summary: "max_steps" }))).toBe(vi.haltedMaxSteps);
+    expect(runSummaryText(fakeRun({ status: "halted", summary: "loop" }))).toBe(vi.haltedLoop);
     expect(runSummaryText(fakeRun({ status: "error", summary: "interrupted" }))).toBe(vi.runInterrupted);
   });
 

@@ -70,7 +70,8 @@ async def collect_reply(
             steps += 1
             parts.append(event.content.strip())
         elif isinstance(event, HaltedEvent):
-            parts.append(texts.REPLY_HALTED.format(reason=event.reason, spent=event.spent_usd))
+            reason = texts.HALT_REASONS.get(event.reason, event.reason)
+            parts.append(texts.REPLY_HALTED.format(reason=reason, spent=event.spent_usd))
             status = kind_of(event)
         elif isinstance(event, ErrorEvent):
             parts.append(texts.REPLY_ERROR.format(message=event.message))

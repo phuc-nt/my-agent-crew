@@ -420,7 +420,9 @@ async def test_deliver_reports_a_run_that_stopped_without_a_reply(make_channel, 
     )
     assert store.runs.latest_for_conversation(conv.id).id == "r2"
     assert await channel.deliver(conv.id) is True
-    assert fake.sent == [texts.TELEGRAM_RUN_UNFINISHED.format(reason="max_steps")]
+    # The run keeps the loop's code for why it stopped; the chat reads it in words.
+    words = texts.HALT_REASONS["max_steps"]
+    assert fake.sent == [texts.TELEGRAM_RUN_UNFINISHED.format(reason=words)]
 
 
 async def test_a_turn_that_produces_no_text_says_so_instead_of_staying_silent(
@@ -492,7 +494,7 @@ async def test_a_reply_from_a_run_that_stopped_early_carries_a_notice(make_chann
     assert await channel.deliver(conv.id) is True
     assert fake.sent == [
         "Mới được nửa chừng.",
-        texts.TELEGRAM_RUN_CUT_SHORT.format(reason="max_steps", spent=0.0123),
+        texts.TELEGRAM_RUN_CUT_SHORT.format(reason=texts.HALT_REASONS["max_steps"], spent=0.0123),
     ]
 
 

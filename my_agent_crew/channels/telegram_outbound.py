@@ -19,12 +19,20 @@ from my_agent_crew.channels.telegram_attachments import (
     allowed_suffix_list,
     document_suffix_allowed,
 )
-from my_agent_crew.store.runs import DONE, FAILED, HALTED
+from my_agent_crew.store.runs import DONE, FAILED, HALTED, RunRecord
 from my_agent_crew.tools.registry import ToolError
 from my_agent_crew.tools.workspace import resolve_inside
 
 logger = logging.getLogger(__name__)
 TYPING_INTERVAL_SECONDS = 4
+
+
+def _ending(run: RunRecord) -> str:
+    """Why a run ended, in words: a halted run's summary is the loop's code for it, a
+    failed one's is already the error message."""
+    if run.status == HALTED:
+        return texts.HALT_REASONS.get(run.summary, run.summary or run.status)
+    return run.summary or run.status
 
 
 class TelegramOutbound:
@@ -64,9 +72,7 @@ class TelegramOutbound:
             # half-finished answer reads like a complete one.
             if run is not None and run.status in (HALTED, FAILED):
                 await self.send(
-                    texts.TELEGRAM_RUN_CUT_SHORT.format(
-                        reason=run.summary or run.status, spent=run.spent_usd
-                    )
+                    texts.TELEGRAM_RUN_CUT_SHORT.format(reason=_ending(run), spent=run.spent_usd)
                 )
             return True
         if run is None:
@@ -78,7 +84,7 @@ class TelegramOutbound:
             logger.info("telegram %s: run for %s finished empty", self.agent_id, conv_id)
             await self.send(texts.REPLY_EMPTY.format(steps=len(run.steps)))
             return True
-        await self.send(texts.TELEGRAM_RUN_UNFINISHED.format(reason=run.summary or run.status))
+        await self.send(texts.TELEGRAM_RUN_UNFINISHED.format(reason=_ending(run)))
         return True
 
     async def send(self, text: str) -> None:

@@ -200,6 +200,21 @@ describe("App", () => {
     await waitFor(() => expect(screen.getByTestId("notice")).toHaveTextContent(vi.busyConflict));
   });
 
+  // The loop sends why it stopped as a code; the notice says it in the timeline's words.
+  it.each([
+    ["max_steps", vi.haltedMaxSteps],
+    ["loop", vi.haltedLoop],
+  ] as const)("says in words why a turn halted on %s", async (reason, words) => {
+    backend.create({ title: "A" });
+    backend.nextTurn = [{ type: "halted", reason, spent_usd: 0.2 }];
+    render(<App />);
+    await userEvent.click(await screen.findByText("A", { selector: ".conversation-title" }));
+    await userEvent.type(screen.getByRole("textbox"), "x{Enter}");
+    const notice = await screen.findByTestId("notice");
+    expect(notice).toHaveTextContent(words);
+    expect(notice).not.toHaveTextContent(reason);
+  });
+
   // Telegram, another tab or the expiry sweep can close a request while its bar is on screen.
   // "Busy" would send the person to wait for a turn that has already ended.
   it.each([

@@ -195,6 +195,7 @@ export const vi = {
   haltedBudget: "Đã dừng vì chạm ngân sách của cuộc trò chuyện.",
   haltedBudgetLifted: "Đã lưu trần mới — gửi lại tin nhắn để agent làm tiếp.",
   haltedMaxSteps: "Đã dừng vì vượt số bước tối đa trong một lượt.",
+  haltedLoop: "Đã dừng vì agent gọi lại y hệt một lệnh nhiều lần liên tiếp.",
   runInterrupted: "Bị ngắt giữa chừng: máy chủ khởi động lại hoặc kết nối bị đóng.",
   errorPrefix: "Lỗi: ",
   stopped: "Đã dừng lượt này.",
