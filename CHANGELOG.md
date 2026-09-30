@@ -11,6 +11,13 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+### Changed
+
+- The README now covers what 0.10.0 added beyond voice notes: messages to a busy agent (queue or
+  `/steer`), reading a shortened tool output back, dated `MEMORY.md` lines and the rewrite gate,
+  searching past conversations, forking a conversation, agent-proposed schedules, cost by purpose
+  and the run trajectory download.
+
 ## [0.10.0] — 2026-09-30
 
 The crew now works more like people who share a desk. A message sent while an agent is busy

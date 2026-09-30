@@ -156,6 +156,19 @@ downloaded. Transcription cost is recorded under the `transcribe` purpose in the
 `audio_routes: []` to turn it off — the channel then tells the sender how to enable it instead of
 downloading the note.
 
+## While an agent is busy
+
+A message that reaches a conversation mid-turn is not refused. A plain message waits its turn:
+it is answered by its own turn once the running one ends, together with anything else queued
+beside it (at most 20 per conversation). A message that starts with `/steer <text>`, or with one
+of the agent's own kit commands, is slipped into the running turn at its next tool boundary
+instead, so a correction lands while the work is still going. On the web the send button says
+which will happen (**Xếp hàng**, queue, or **Chèn**, insert) and the waiting message shows
+under the thread. On Telegram the bot answers at once that the message is queued, `/status`
+counts the queue, and turns run in the background so the bot keeps answering meanwhile;
+`/new` is refused while a turn runs or messages wait. `POST /api/inbound` answers a queued
+message with `"status": "queued"` — read the conversation back for the reply.
+
 ## Ask instead of guessing
 
 At a real fork in the road, the agent calls `ask_user` to ask rather than choosing on its own — even when `autonomous` is
@@ -163,6 +176,16 @@ on, because auto-approving a question means nobody answers it. The question show
 web, and on Telegram you answer by number or in words. A timeout is not a denial:
 the agent receives the declared `default`, moves on, and states in its reply that it decided on its own, so a
 job running while nobody is watching should always include a `default`.
+
+## Long tool output
+
+A tool result too long for the output cap is shortened in the prompt, but the whole text is
+kept under `spill/<conversation>/` in the home (at most 5 MB a file) and the shortened text ends
+with a line naming the call. The agent reads the rest with `tool_output_read`, in segments that
+always fit the cap, instead of running the command again. It reads only its own conversation;
+a conversation's spill goes with it, a fork gets its own copy, and a daily sweep removes files
+older than seven days. Agents without a `tools:` list have it; an agent with its own list needs
+`tool_output_read` added there.
 
 ## One assistant directs the whole crew
 
@@ -241,6 +264,13 @@ its `MEMORY.md` from recent notes — also a proposal, keeping the old text for 
 tab in the manage screen edits everything: `USER.md`, facts, agent `MEMORY.md`, daily notes,
 search both scopes, approve/deny proposals, and trigger consolidation immediately.
 
+Each line in `MEMORY.md` can end with the day it was last confirmed, `(YYYY-MM-DD)`. The next
+consolidation looks again at undated lines and lines older than 90 days, and says why it kept,
+changed or dropped each one; a newer note wins over an older line that contradicts it. Even for
+an `autonomous` agent, the code (not the model) decides whether a rewrite applies on its own:
+one that only adds lines or refreshes dates does, while one that drops or rewords a line, or
+invents a date, waits for a person with its reasons on the card.
+
 At the same time, the agent gathers the daily notes into a **wiki vault** (`memory/wiki/`): one Markdown page per
 topic, sorted into `entities` / `concepts` / `syntheses` and linked to each other with
 `[[page name]]` — in place of vector search. The daily notes answer "what happened that day", the wiki answers
@@ -250,6 +280,12 @@ the machine-written part is replaced, the human-written part stays. View, edit a
 under **Ghi nhớ**, where a page reads as rendered prose whose `[[links]]` lead to their pages, one
 tap marks it fine, and the vault's open questions and today's note open from above the page list.
 Details: [docs/memory.md](docs/memory.md).
+
+What was said stays findable too. `conversation_search` searches the words of past
+conversations (SQLite FTS5; typing without Vietnamese accents still matches accented text): an
+agent searches its own, the master any one agent's or the whole crew's, and the conversation
+still running is left out. On the web, the conversation list's search matches titles and, under
+**Trong nội dung** (in the content), the text inside messages.
 
 Details on agent configuration, tools, memory and channels: [docs/agents.md](docs/agents.md),
 [docs/tools.md](docs/tools.md), [docs/memory.md](docs/memory.md),
@@ -269,7 +305,9 @@ they appear on screen:
   provider's cache; **Gần đây** (recent) is the stored run history, narrowed by agent on the
   server and by status and source in the page, remembered in this browser, folded behind one
   **Lọc** (filter) toggle on a phone, and reaching further back with **Xem thêm** (show more).
-  A run also opens on its own timeline. The nav entry counts the runs running and the failures
+  A run also opens on its own timeline, which downloads as JSON or Markdown (**Tải JSON**,
+  **Tải Markdown**) — tool arguments and results included, keys masked on a best-effort basis, so
+  read it before pasting it anywhere. The nav entry counts the runs running and the failures
   not yet seen.
 - **Duyệt** (approvals): the requests waiting on you come first and are decided in place —
   approve, deny, or answer a question — with a countdown to their deadline and **Xem đầy đủ**
@@ -282,9 +320,14 @@ they appear on screen:
   row; how the last run ended (a status badge, its summary and a link to that run); run-now and
   pause/resume buttons; and **Sửa lịch** (edit schedule), which opens the agent's editor at its
   schedules, where jobs are added, changed or turned on. The nav entry shows a red count of the
-  jobs whose latest run failed.
+  jobs whose latest run failed. An agent can propose its own repeating job with
+  `schedule_create`; it always waits in **Duyệt** with the verbatim prompt, the timing in words
+  and the next runs — even in an `autonomous` conversation, and no setting turns that off. An
+  approved job is stored in the database, runs without a restart and is listed here.
 - **Chi phí** (costs): today and the last seven days on the viewer's calendar, then spend, tokens
-  and the share of the prompt served from cache, by agent / model / day.
+  and the share of the prompt served from cache, by agent / model / day, and by purpose
+  (**Theo mục đích**): every model call is on the ledger, including the side calls for titles,
+  summaries, image and PDF reading, voice transcription, memory consolidation and the wiki.
 - **Ghi nhớ** (memory — split further into **Về bạn**, **Của agent**, **Wiki**, **Tìm** and
   **Đề xuất**): a proposal shows the lines it drops beside those it adds, or the exact fact it
   touches, before it is approved.
@@ -304,6 +347,10 @@ on the timeline so the viewer sees progress instead of a spinner. Also in the ch
   yesterday, older) on the viewer's own calendar, says how long ago each one changed, and puts an
   unread dot on a conversation that changed since this browser last had it open. The composer
   keeps each conversation's unsent draft across switches and reloads.
+- **Sửa và gửi lại từ đây** (edit and resend from here) under a message of yours forks the
+  conversation there: a new conversation holds everything before it, the composer opens with
+  that message to edit, and a line "Rẽ nhánh từ …" (forked from) leads back. The original is left
+  untouched, and the fork starts with no spend and no standing approvals.
 - A `/` at the start of the composer lists the commands of the agent the conversation talks to,
   narrowed as the name is typed.
 - Each agent reply can be copied, or shared where the device has a share sheet, and each code
