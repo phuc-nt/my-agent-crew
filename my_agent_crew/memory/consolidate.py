@@ -25,8 +25,8 @@ from my_agent_crew.agent.events import AssistantMessageEvent
 from my_agent_crew.agents.context import MAX_SECTION_CHARS
 from my_agent_crew.llm.metered_chain import MeteredChain
 from my_agent_crew.llm.types import Completion, Message
-from my_agent_crew.memory import agent_store, fact_dates, user_store
-from my_agent_crew.memory.fact_review import review_user_facts
+from my_agent_crew.memory import agent_store, fact_dates
+from my_agent_crew.memory.fact_review import review_for_master
 from my_agent_crew.memory.rewrite_proposal import JOB_SOURCE, submit_rewrite
 from my_agent_crew.store.memory_proposals import MemoryProposal
 from my_agent_crew.store.runs import DONE, FAILED, RunRecord
@@ -139,8 +139,8 @@ async def _consolidate(deps: AgentDeps, hub: ActivityHub, run: RunRecord) -> Mem
     today = date.today()
     current = agent_store.read_memory_md(profile.memory_file).strip()
     notes = recent_notes(profile.memory_dir)
-    notes_budget = MAX_INPUT_CHARS - len(current)
-    completion = await _ask_model(deps, current, notes_text(notes, notes_budget), today)
+    notes_block = notes_text(notes, MAX_INPUT_CHARS - len(current))
+    completion = await _ask_model(deps, current, notes_block, today)
     if completion is None:
         hub.finish(run, status=FAILED, summary=texts.CONSOLIDATE_EMPTY)
         return None
@@ -165,36 +165,10 @@ async def _consolidate(deps: AgentDeps, hub: ActivityHub, run: RunRecord) -> Mem
     if not new_memory or new_memory == current:
         summary = texts.CONSOLIDATE_UNCHANGED
     else:
-        outcome = await submit_rewrite(deps, current, new_memory, reasons, notes)
+        outcome = await submit_rewrite(deps, current, new_memory, reasons, notes, today)
         summary = outcome.summary
         proposal = outcome.proposal
 
-    addendum = await _review_facts(deps, notes, today)
+    addendum = await review_for_master(deps, notes_block, today)
     hub.finish(run, status=DONE, summary=f"{summary} {addendum}".strip())
     return proposal
-
-
-async def _review_facts(deps: AgentDeps, notes: list[tuple[str, str]], today: date) -> str:
-    """The master's user-fact hygiene pass: only for the agent the person talks to, and
-    only when there is at least one fact, since those facts are shared by the whole crew
-    rather than owned by whichever agent happened to run consolidation.
-
-    Returns a line to append to the run's summary — empty when there was nothing to run,
-    or nothing worth mentioning once it ran.
-    """
-    profile = deps.agent
-    if not profile.is_master:
-        return ""
-    facts = user_store.list_facts(profile.settings.user_dir)
-    if not facts:
-        return ""
-    try:
-        review = await review_user_facts(deps, facts, notes, today)
-    except Exception:  # the rewrite already succeeded; a broken review must not lose it
-        logger.exception("fact review failed for agent %s", profile.id)
-        return texts.FACT_REVIEW_FAILED
-    if review.errored:
-        return texts.FACT_REVIEW_BROKEN_JSON
-    if review.created:
-        return texts.FACT_REVIEW_CREATED.format(count=review.created)
-    return ""

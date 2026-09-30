@@ -1,17 +1,14 @@
 """Reviewing the shared user facts alongside a memory rewrite.
 
-Only the master runs this, and only when the person has at least one fact recorded: those
-facts are shared by the whole crew, so a job forgetting or rewriting one on its own would
-affect agents that never asked for the change. Every action this produces waits for
-approval regardless of how the agent is configured — there is no autonomous path here at
-all, unlike the memory rewrite next to it.
+The facts are shared by the whole crew, so a job forgetting or rewriting one on its own
+would affect agents that never asked for it: every action here waits for approval, however
+the agent is configured. There is no autonomous path, unlike the memory rewrite next to it.
 """
 
 from __future__ import annotations
 
 import json
 import logging
-import re
 from dataclasses import dataclass
 from datetime import date
 from typing import TYPE_CHECKING
@@ -29,10 +26,10 @@ logger = logging.getLogger(__name__)
 
 SOURCE = "memory:hygiene"
 MAX_FACTS = 60
+MAX_BODY_CHARS = 400
 MAX_ACTIONS = 10
+MAX_REASON_CHARS = 300
 FORGET, UPDATE = "forget", "update"
-
-_FENCE = re.compile(r"```(?:json)?\s*(.*?)```", re.DOTALL)
 
 
 @dataclass(frozen=True)
@@ -47,26 +44,35 @@ class FactReview:
 
 
 def _order_facts(facts: list[user_store.Fact], today: date) -> list[user_store.Fact]:
-    """Stale facts first, then the rest newest-first: what is most likely to need a
-    decision goes in front of the truncation at `MAX_FACTS`, not behind it."""
+    """Stale facts first, oldest first, then the rest newest first: what most likely needs
+    a decision goes in front of the cut at `MAX_FACTS`, not behind it. A fact whose date
+    does not parse sorts as the oldest, as `is_stale` already counts it stale."""
+
+    def day(fact: user_store.Fact) -> date:
+        return fact_dates.updated_day(fact.updated) or date.min
+
     stale = fact_dates.stale_facts(facts, today)
     stale_names = {f.name for f in stale}
     fresh = [f for f in facts if f.name not in stale_names]
-    return [*stale, *fresh][:MAX_FACTS]
+    return sorted(stale, key=day) + sorted(fresh, key=day, reverse=True)
 
 
-def _facts_block(facts: list[user_store.Fact]) -> str:
-    return "\n".join(f"- {f.name}: {f.body} ({f.updated})" for f in facts)
+def _facts_block(facts: list[user_store.Fact], more: int) -> str:
+    """One line per fact, its body flattened and cut, and the facts left out counted
+    rather than dropped in silence."""
+    lines = [
+        f"- {f.name} ({f.updated[:10]}) — {f.description}: "
+        + " ".join(f.body.split())[:MAX_BODY_CHARS]
+        for f in facts
+    ]
+    if more:
+        lines.append(texts.FACT_REVIEW_MORE.format(count=more))
+    return "\n".join(lines)
 
 
-def _notes_block(notes: list[tuple[str, str]]) -> str:
-    return "\n\n".join(f"## {day}\n{text}" for day, text in notes)
-
-
-async def _ask_model(deps: AgentDeps, facts_block: str, notes_block: str) -> Completion | None:
+async def _ask_model(deps: AgentDeps, facts_block: str, notes: str) -> Completion | None:
     prompt = Message(
-        role="user",
-        content=texts.FACT_REVIEW_PROMPT.format(facts=facts_block, notes=notes_block),
+        role="user", content=texts.FACT_REVIEW_PROMPT.format(facts=facts_block, notes=notes)
     )
     chain = MeteredChain(deps.chain, deps.store, deps.agent.id, "consolidate")
     completion: Completion | None = None
@@ -77,88 +83,116 @@ async def _ask_model(deps: AgentDeps, facts_block: str, notes_block: str) -> Com
 
 
 def _actions(text: str) -> list[dict] | None:
-    """The action list in the model's reply, or `None` when it cannot be read at all.
+    """The first JSON array anywhere in the reply, or `None` when there is none at all.
 
-    A JSON value that parses but is not a list, or a list with no dict in it, is treated
-    the same as nothing to do rather than an error: the model said something coherent, it
-    just had no actions to propose.
+    The model may wrap the array in a code fence or a sentence, so each `[` is tried in
+    turn until one opens a whole array. Items that are not objects are dropped: an empty
+    array, or one with nothing usable in it, means nothing to do rather than a broken reply.
     """
-    match = _FENCE.search(text)
-    body = match.group(1).strip() if match else text.strip()
-    try:
-        loaded = json.loads(body)
-    except json.JSONDecodeError:
-        return None
-    if not isinstance(loaded, list):
-        return None
-    return [item for item in loaded if isinstance(item, dict)]
+    decoder = json.JSONDecoder()
+    start = text.find("[")
+    while start != -1:
+        try:
+            loaded, _ = decoder.raw_decode(text, start)
+        except json.JSONDecodeError:
+            start = text.find("[", start + 1)
+            continue
+        return [item for item in loaded if isinstance(item, dict)]
+    return None
 
 
 async def review_user_facts(
-    deps: AgentDeps, facts: list[user_store.Fact], notes: list[tuple[str, str]], today: date
+    deps: AgentDeps, facts: list[user_store.Fact], notes: str, today: date
 ) -> FactReview:
     """Ask the model which of the person's facts a contradiction or staleness has caught
     up with, and turn each answer into an always-pending proposal.
 
-    A skipped action never raises: an unknown name, an update with no real change, or a
-    duplicate of a proposal already pending is simply not worth a card, not a failure.
+    `notes` is the recent-notes block the rewrite prompt already carries, so both calls
+    read the same days under the same budget. A skipped action never raises: an unknown
+    name, an update with no real change, or a duplicate of a proposal already pending is
+    simply not worth a card, not a failure.
     """
     ordered = _order_facts(facts, today)
-    completion = await _ask_model(deps, _facts_block(ordered), _notes_block(notes))
+    shown = ordered[:MAX_FACTS]
+    completion = await _ask_model(deps, _facts_block(shown, len(ordered) - len(shown)), notes)
     if completion is None:
         return FactReview(errored=True)
 
     actions = _actions(completion.message.content)
     if actions is None:
-        logger.warning("fact review returned unparseable JSON for agent %s", deps.agent.id)
+        logger.warning("fact review returned no JSON array for agent %s", deps.agent.id)
         return FactReview(errored=True)
 
-    by_name = {f.name: f for f in facts}
+    # Only the facts the model was shown: a name past the cut is one it never read.
+    by_name = {f.name: f for f in shown}
     created = skipped = 0
     for action in actions[:MAX_ACTIONS]:
-        outcome = _apply_action(deps, action, by_name)
-        if outcome:
+        if _apply_action(deps, action, by_name):
             created += 1
         else:
             skipped += 1
     return FactReview(created=created, skipped=skipped)
 
 
+def _text(action: dict, key: str) -> str:
+    value = action.get(key)
+    return value.strip() if isinstance(value, str) else ""
+
+
 def _apply_action(deps: AgentDeps, action: dict, by_name: dict[str, user_store.Fact]) -> bool:
-    kind = action.get("action")
-    name = action.get("name")
-    reason = str(action.get("reason", ""))
-    fact = by_name.get(name) if isinstance(name, str) else None
+    fact = by_name.get(_text(action, "name"))
     if fact is None:
         return False
-
-    if kind == FORGET:
-        body = fact.body
-        proposal_kind = USER_FORGET
-    elif kind == UPDATE:
-        body = str(action.get("body", "")).strip()
+    if action.get("action") == FORGET:
+        kind, body = USER_FORGET, fact.body
+    elif action.get("action") == UPDATE:
+        kind, body = USER_FACT, _text(action, "body")
         if not body or body == fact.body:
             return False
-        proposal_kind = USER_FACT
     else:
         return False
 
-    if deps.store.proposals.find_pending(deps.agent.id, proposal_kind, name, body) is not None:
+    if deps.store.proposals.find_pending(deps.agent.id, kind, fact.name, body) is not None:
         return False  # an identical pending proposal already covers this
-
     proposal = deps.store.proposals.create(
         agent_id=deps.agent.id,
-        kind=proposal_kind,
-        name=name,
+        kind=kind,
+        name=fact.name,
         description=fact.description,
         type=fact.type,
         body=body,
         source=SOURCE,
-        reasons=reason,
+        reasons=_text(action, "reason")[:MAX_REASON_CHARS],
     )
-    # A different body for the same fact+kind replaces what was pending before, so the
-    # panel never shows two cards proposing two different rewrites of the same fact.
+    # One live hygiene proposal per fact, whatever its kind: a new forget replaces a
+    # pending update of the same fact and the other way round, never shown side by side.
     deps.store.proposals.supersede(
-        deps.agent.id, kind=proposal_kind, source=SOURCE, name=name, keep_id=proposal.id
+        deps.agent.id, source=SOURCE, name=fact.name, keep_id=proposal.id
     )
     return True
+
+
+async def review_for_master(deps: AgentDeps, notes: str, today: date) -> str:
+    """The fact review a consolidation runs after its rewrite, as a line for its summary.
+
+    Only the agent the person talks to runs it, and only when there is at least one fact,
+    since those facts are shared by the whole crew rather than owned by whichever agent
+    happened to consolidate. Empty when there was nothing to run, or nothing worth
+    mentioning once it ran.
+    """
+    profile = deps.agent
+    if not profile.is_master:
+        return ""
+    facts = user_store.list_facts(profile.settings.user_dir)
+    if not facts:
+        return ""
+    try:
+        review = await review_user_facts(deps, facts, notes, today)
+    except Exception:  # the rewrite already succeeded; a broken review must not lose it
+        logger.exception("fact review failed for agent %s", profile.id)
+        return texts.FACT_REVIEW_FAILED
+    if review.errored:
+        return texts.FACT_REVIEW_BROKEN_JSON
+    if review.created:
+        return texts.FACT_REVIEW_CREATED.format(count=review.created)
+    return ""

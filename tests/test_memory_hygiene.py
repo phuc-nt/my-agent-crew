@@ -4,7 +4,8 @@ consolidate integration that wires them into a proposal."""
 from __future__ import annotations
 
 import os
-from datetime import date
+import unicodedata
+from datetime import date, timedelta
 from pathlib import Path
 
 import pytest
@@ -12,8 +13,9 @@ import pytest
 from my_agent_crew import texts
 from my_agent_crew.activity import ActivityHub
 from my_agent_crew.llm.fake import completion
-from my_agent_crew.memory import agent_store, fact_dates
+from my_agent_crew.memory import agent_store, consolidate, fact_dates
 from my_agent_crew.memory.consolidate import consolidate_memory
+from my_agent_crew.memory.wiki_lint import STALE_DAYS
 from my_agent_crew.store.memory_proposals import APPROVED, PENDING
 
 
@@ -42,6 +44,14 @@ def test_review_list_ignores_headings_and_blank_lines():
     assert review.undated == [] and review.stale == []
 
 
+def test_review_list_counts_a_date_that_is_not_a_real_day_as_no_date():
+    today = date(2026, 9, 30)
+    memory = "- Ngày không có thật. (2026-02-30)\n- Còn mới. (2026-09-28)"
+    review = fact_dates.review_list(memory, today)
+    assert review.undated == ["- Ngày không có thật. (2026-02-30)"]
+    assert review.stale == []
+
+
 def test_review_list_caps_each_bucket_at_forty_and_counts_the_rest():
     today = date(2026, 9, 30)
     lines = [f"- Việc {i} không ngày." for i in range(45)]
@@ -62,6 +72,15 @@ def test_split_reasons_accepts_the_lowercase_unaccented_marker():
     text = "bộ nhớ\n---ly do---\nlý do ở đây"
     body, reasons = fact_dates.split_reasons(text)
     assert body == "bộ nhớ" and reasons == "lý do ở đây"
+
+
+def test_split_reasons_accepts_a_decomposed_separator():
+    # Some models emit `Ý` as `Y` plus a combining acute accent; missing the split would let
+    # the reasons land in memory and read as added lines.
+    marker = unicodedata.normalize("NFD", "---LÝ DO---")
+    assert marker != "---LÝ DO---"
+    body, reasons = fact_dates.split_reasons(f"bộ nhớ\n{marker}\n- lý do")
+    assert body == "bộ nhớ" and reasons == "- lý do"
 
 
 def test_split_reasons_without_a_separator_keeps_the_whole_answer_as_the_body():
@@ -143,6 +162,23 @@ def test_is_stale_true_past_the_threshold_false_within_it():
     assert fact_dates.is_stale("2026-09-29T07:00:00", today) is False
 
 
+def test_a_fact_exactly_at_the_threshold_is_not_yet_stale():
+    # "Older than" the threshold, the same strict comparison as the wiki's own stale check.
+    today = date(2026, 9, 30)
+    at = (today - timedelta(days=STALE_DAYS)).isoformat()
+    past = (today - timedelta(days=STALE_DAYS + 1)).isoformat()
+    assert fact_dates.is_stale(f"{at}T07:00:00", today) is False
+    assert fact_dates.is_stale(f"{past}T07:00:00", today) is True
+
+
+def test_a_line_exactly_at_the_threshold_is_not_listed_as_stale():
+    today = date(2026, 9, 30)
+    at = (today - timedelta(days=STALE_DAYS)).isoformat()
+    past = (today - timedelta(days=STALE_DAYS + 1)).isoformat()
+    review = fact_dates.review_list(f"- Đúng hạn. ({at})\n- Quá hạn. ({past})", today)
+    assert review.undated == [] and review.stale == [f"- Quá hạn. ({past})"]
+
+
 def test_stale_facts_filters_by_the_updated_field():
 
     class Fake:
@@ -176,9 +212,19 @@ def hub(store) -> ActivityHub:
     return ActivityHub(store)
 
 
+class _FixedToday(date):
+    """A day no note or memory line in these tests carries, so finding it in a prompt or
+    accepting it as a date can only come from the consolidation's own `today`."""
+
+    @classmethod
+    def today(cls) -> date:
+        return cls(2026, 12, 25)
+
+
 async def test_consolidate_stores_reasons_and_the_prompt_carries_the_review_list_and_today(
-    deps_factory, hub
+    deps_factory, hub, monkeypatch
 ):
+    monkeypatch.setattr(consolidate, "date", _FixedToday)
     reply = "- Sếp thích trà. (2026-09-30)\n---LÝ DO---\n- Giữ nguyên, chỉ cập nhật ngày."
     deps = deps_factory(script=[completion(reply)])
     memory = write_memory(deps, "- Sếp thích trà.")
@@ -192,7 +238,7 @@ async def test_consolidate_stores_reasons_and_the_prompt_carries_the_review_list
     provider = deps.chain.providers["scripted"]
     sent = provider.requests[0].messages[0].content
     assert "- Sếp thích trà." in sent  # the undated line is fed back for review
-    assert "2026-09-30" in sent  # today's date is in the prompt
+    assert "2026-12-25" in sent  # today's date is in the prompt
 
 
 async def test_a_rewrite_identical_to_the_current_text_is_unchanged_even_with_reasons(
@@ -222,8 +268,8 @@ async def test_an_autonomous_agent_with_a_dropped_line_stays_pending_and_leaves_
     proposal = await consolidate_memory(deps, hub)
     assert proposal is not None and proposal.status == PENDING
     assert agent_store.read_memory_md(memory) == "- Sếp thích trà.\n- Sếp ngủ trước 23h."
-    run = hub.recent(5)[0]
-    assert run.summary.startswith(texts.CONSOLIDATE_PROPOSED_REMOVING.split("{")[0])
+    held = texts.CONSOLIDATE_HELD.format(why=texts.HELD_REMOVED.format(count=1))
+    assert hub.recent(5)[0].summary == held
 
 
 async def test_an_autonomous_agent_with_only_an_addition_still_auto_applies(deps_factory, hub):
@@ -257,5 +303,47 @@ async def test_a_rewrite_with_an_invented_date_stays_pending_and_names_the_date(
 
     proposal = await consolidate_memory(deps, hub)
     assert proposal is not None and proposal.status == PENDING
-    assert "2026-01-15" in proposal.reasons
+    assert proposal.reasons == "\n".join(
+        ["- Thêm một việc mới.", texts.CONSOLIDATE_INVENTED_DATES.format(dates="2026-01-15")]
+    )
     assert agent_store.read_memory_md(memory) == "- Sếp thích trà."
+    # Nothing was dropped, so the summary must not claim a line was.
+    held = texts.CONSOLIDATE_HELD.format(why=texts.HELD_INVENTED.format(count=1))
+    assert hub.recent(5)[0].summary == held
+
+
+async def test_an_invented_date_is_named_even_when_the_model_gave_no_reasons(deps_factory, hub):
+    reply = "- Sếp thích trà.\n- Việc bịa ra. (2026-01-15)"
+    deps = deps_factory(script=[completion(reply)], autonomous_default=True)
+    memory = write_memory(deps, "- Sếp thích trà.")
+    write_note(deps, "2026-09-19", "Cập nhật.", newer_than=memory)
+
+    proposal = await consolidate_memory(deps, hub)
+    assert proposal is not None and proposal.status == PENDING
+    assert proposal.reasons == texts.CONSOLIDATE_INVENTED_DATES.format(dates="2026-01-15")
+
+
+async def test_a_dropped_line_and_an_invented_date_are_both_named(deps_factory, hub):
+    reply = "- Việc bịa ra. (2026-01-15)\n---LÝ DO---\n- Thay dòng cũ."
+    deps = deps_factory(script=[completion(reply)], autonomous_default=True)
+    memory = write_memory(deps, "- Sếp thích trà.")
+    write_note(deps, "2026-09-19", "Cập nhật.", newer_than=memory)
+
+    proposal = await consolidate_memory(deps, hub)
+    assert proposal is not None and proposal.status == PENDING
+    why = ", ".join([texts.HELD_REMOVED.format(count=1), texts.HELD_INVENTED.format(count=1)])
+    assert hub.recent(5)[0].summary == texts.CONSOLIDATE_HELD.format(why=why)
+
+
+async def test_a_date_equal_to_the_consolidation_today_is_not_invented(
+    deps_factory, hub, monkeypatch
+):
+    monkeypatch.setattr(consolidate, "date", _FixedToday)
+    reply = "- Sếp thích trà. (2026-12-25)\n---LÝ DO---\n- Ghi chép hôm nay xác nhận lại."
+    deps = deps_factory(script=[completion(reply)], autonomous_default=True)
+    memory = write_memory(deps, "- Sếp thích trà.")
+    write_note(deps, "2026-09-19", "Sếp thích trà.", newer_than=memory)
+
+    proposal = await consolidate_memory(deps, hub)
+    assert proposal is not None and proposal.status == APPROVED
+    assert agent_store.read_memory_md(memory) == "- Sếp thích trà. (2026-12-25)"

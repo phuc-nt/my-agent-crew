@@ -10,6 +10,7 @@ is safe to apply without a person looking at it first.
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass
 from datetime import date, datetime
 
@@ -53,31 +54,46 @@ def review_list(memory_text: str, today: date, stale_days: int = STALE_DAYS) -> 
     """Bullet lines with no date, and bullet lines dated more than `stale_days` ago.
 
     A line with a recent date is left out entirely: it is not something the model needs
-    to reconsider, and including it would just make the prompt longer for no reason.
+    to reconsider, and including it would just make the prompt longer for no reason. A
+    suffix that is not a real day (`2026-02-30`) counts as no date: the file is written by
+    hand and by agents, and one bad line must not fail every consolidation after it.
     """
     undated: list[str] = []
     stale: list[str] = []
     for line in _bullet_lines(memory_text):
-        match = DATE_SUFFIX.search(line.strip())
-        if match is None:
+        day = _suffix_day(line.strip())
+        if day is None:
             undated.append(line.strip())
-            continue
-        day = date.fromisoformat(match.group(1))
-        if (today - day).days > stale_days:
+        elif (today - day).days > stale_days:
             stale.append(line.strip())
     kept_undated, more_undated = _cap(undated)
     kept_stale, more_stale = _cap(stale)
     return Review(kept_undated, kept_stale, more_undated, more_stale)
 
 
+def _suffix_day(line: str) -> date | None:
+    match = DATE_SUFFIX.search(line)
+    if match is None:
+        return None
+    try:
+        return date.fromisoformat(match.group(1))
+    except ValueError:
+        return None
+
+
+def updated_day(updated_iso: str) -> date | None:
+    """The day of a fact's `updated` stamp, or `None` when it does not parse."""
+    try:
+        return datetime.fromisoformat(updated_iso).date()
+    except ValueError:
+        return None
+
+
 def is_stale(updated_iso: str, today: date, days: int = STALE_DAYS) -> bool:
     """A fact with no parseable `updated` counts as stale: absence of evidence is not
     evidence of freshness, same reasoning as the wiki's own stale check."""
-    try:
-        day = datetime.fromisoformat(updated_iso).date()
-    except ValueError:
-        return True
-    return (today - day).days > days
+    day = updated_day(updated_iso)
+    return day is None or (today - day).days > days
 
 
 def stale_facts(facts: list, today: date, days: int = STALE_DAYS) -> list:
@@ -89,10 +105,12 @@ def stale_facts(facts: list, today: date, days: int = STALE_DAYS) -> list:
 def split_reasons(text: str) -> tuple[str, str]:
     """`(memory, reasons)`, split on the model's own separator line before anything else
     is truncated. Missing the separator is treated as "no reasons given" rather than an
-    error, since that was the whole answer's shape before this prompt existed."""
+    error, since that was the whole answer's shape before this prompt existed. The line is
+    NFC-normalized first: a decomposed `Ý` (`Y` plus a combining accent) would otherwise
+    miss the separator and let the reasons land in the memory body."""
     lines = text.split("\n")
     for i, line in enumerate(lines):
-        if _SEPARATOR.match(line.strip()):
+        if _SEPARATOR.match(unicodedata.normalize("NFC", line.strip())):
             body = "\n".join(lines[:i]).strip()
             reasons = "\n".join(lines[i + 1 :]).strip()
             return body, reasons[:_REASONS_MAX_CHARS]

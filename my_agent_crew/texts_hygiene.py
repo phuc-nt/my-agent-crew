@@ -24,9 +24,13 @@ CONSOLIDATE_PROMPT = (
     "--- bộ nhớ hiện tại ---\n{memory}\n\n--- ghi chép gần đây ---\n{notes}"
 )
 
-CONSOLIDATE_PROPOSED_REMOVING = (
-    "Đề xuất bỏ hoặc đổi {count} dòng, chờ duyệt dù agent là autonomous."
-)
+# `{why}` joins whichever of the two HELD_* parts apply, so a rewrite that only brings an
+# unsourced date is not reported as dropping lines.
+CONSOLIDATE_HELD = "Đề xuất chờ duyệt dù agent là autonomous: {why}."
+HELD_REMOVED = "bỏ hoặc đổi {count} dòng"
+HELD_INVENTED = "{count} ngày không rõ nguồn gốc"
+# Appended to the proposal's reasons so the person sees which dates came from nowhere.
+CONSOLIDATE_INVENTED_DATES = "- Ngày không rõ nguồn gốc: {dates}"
 CONSOLIDATE_STALE = "Bộ nhớ đã bị ghi trong lúc chạy, không áp dụng đề xuất này."
 
 REVIEW_MORE = "… và {count} dòng khác"
@@ -36,7 +40,8 @@ FACT_REVIEW_PROMPT = (
     "Dưới đây là các điều đã ghi nhớ về người dùng và các ghi chép hằng ngày gần đây của "
     "một trợ lý. Xem lại từng fact: ghi chép mới có làm nó sai không, hay nó đã quá cũ và "
     "không còn ai xác nhận lại. Chỉ nêu ra fact thật sự cần quên hoặc sửa; đa số fact "
-    "không cần động tới.\n\n"
+    "không cần động tới. Mỗi fact là một dòng dạng `- tên (ngày cập nhật) — mô tả: thân`; "
+    "`name` trong câu trả lời là đúng phần tên đó.\n\n"
     "Trả lời bằng một mảng JSON, tối đa 10 mục, mỗi mục dạng "
     '{{"action": "forget" hoặc "update", "name": "…", "body": "…" (chỉ khi update), '
     '"reason": "…"}}. `update` phải kèm `body` mới, khác với thân hiện tại. Không thêm gì '
@@ -44,6 +49,7 @@ FACT_REVIEW_PROMPT = (
     "--- các fact ---\n{facts}\n\n--- ghi chép gần đây ---\n{notes}"
 )
 
+FACT_REVIEW_MORE = "… còn {count} fact khác"
 FACT_REVIEW_CREATED = "Đề xuất xem lại {count} fact, chờ duyệt."
 FACT_REVIEW_BROKEN_JSON = "Model không trả JSON hợp lệ khi xem lại fact, bỏ qua bước này."
 FACT_REVIEW_FAILED = "Bước xem lại fact lỗi, bản viết lại bộ nhớ vẫn giữ nguyên."

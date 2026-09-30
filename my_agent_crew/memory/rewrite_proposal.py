@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from datetime import date
 from typing import TYPE_CHECKING
 
 from my_agent_crew import texts
@@ -19,6 +18,8 @@ from my_agent_crew.memory.proposals_apply import StaleProposal, apply_proposal
 from my_agent_crew.store.memory_proposals import AGENT_MEMORY_REWRITE, MemoryProposal
 
 if TYPE_CHECKING:  # the loop imports memory, not the other way round
+    from datetime import date
+
     from my_agent_crew.agent.loop import AgentDeps
 
 JOB_SOURCE = "memory:consolidate"
@@ -39,6 +40,7 @@ async def submit_rewrite(
     new_memory: str,
     reasons: str,
     notes: list[tuple[str, str]],
+    today: date,
 ) -> RewriteOutcome:
     """Create the rewrite proposal, gate it, and act on the gate's answer.
 
@@ -49,11 +51,10 @@ async def submit_rewrite(
     approval — the model's own stated reason for dropping a line is shown on the card, but
     it never buys the line skipping review.
     """
-    today = date.today()
     removed = fact_dates.removed_lines(current, new_memory)
     invented = fact_dates.invented_dates(current, notes, new_memory, today)
     if invented:
-        note = "- Ngày không rõ nguồn gốc: " + ", ".join(invented)
+        note = texts.CONSOLIDATE_INVENTED_DATES.format(dates=", ".join(invented))
         reasons = f"{reasons}\n{note}" if reasons else note
 
     profile = deps.agent
@@ -69,12 +70,13 @@ async def submit_rewrite(
     )
     deps.store.proposals.supersede(profile.id, kind=AGENT_MEMORY_REWRITE, keep_id=proposal.id)
 
-    dirty = bool(removed) or bool(invented)
     if not profile.settings.autonomous_default:
         return RewriteOutcome(proposal, texts.CONSOLIDATE_PROPOSED)
-    if dirty:
-        summary = texts.CONSOLIDATE_PROPOSED_REMOVING.format(count=len(removed) + len(invented))
-        return RewriteOutcome(proposal, summary)
+    held = [texts.HELD_REMOVED.format(count=len(removed))] if removed else []
+    if invented:
+        held.append(texts.HELD_INVENTED.format(count=len(invented)))
+    if held:
+        return RewriteOutcome(proposal, texts.CONSOLIDATE_HELD.format(why=", ".join(held)))
 
     try:
         # Off the event loop, as the web decides: the lock may be held by a decision there.
