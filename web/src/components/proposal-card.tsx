@@ -43,7 +43,7 @@ function appended(current: string, body: string): string {
 function ProposalReasons({ reasons }: { reasons: string }) {
   const lines = reasons
     .split("\n")
-    .map((line) => line.replace(/^-\s*/, "").trim())
+    .map((line) => line.replace(/^\s*[-*+•]\s*/, "").trim())
     .filter(Boolean);
   if (lines.length === 0) return null;
   return (

@@ -24,17 +24,6 @@ import { fold } from "../components/conversation-search";
 import { FakeWiki } from "./fake-wiki";
 import { applyAgentPatch, restartRequired } from "./schedule-contract";
 
-/** Ninety days, mirroring `fact_dates.STALE_DAYS`. An unparseable `updated` counts as
- *  stale too, same reasoning as the server: absence of evidence is not freshness. */
-const STALE_DAYS = 90;
-
-export function factIsStale(updatedIso: string, today: Date = new Date()): boolean {
-  const updated = new Date(updatedIso);
-  if (Number.isNaN(updated.getTime())) return true;
-  const days = (today.getTime() - updated.getTime()) / (1000 * 60 * 60 * 24);
-  return days > STALE_DAYS;
-}
-
 export const fakeAgent: AgentInfo = {
   id: "default",
   name: "Agent",
@@ -648,7 +637,9 @@ export class FakeBackend {
   private userMemory() {
     return {
       user_md: this.userMd,
-      facts: this.facts.map((f) => ({ ...f, stale: factIsStale(f.updated) })),
+      // Each fixture says whether it is stale, as the server would: computing it here from
+      // today's date would flip a fixture's answer once the calendar passed ninety days.
+      facts: this.facts,
       index_md: this.facts.map((f) => `- [${f.description}](${f.name}.md)`).join("\n"),
     };
   }

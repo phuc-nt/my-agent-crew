@@ -420,6 +420,26 @@ describe("MemoryPanel proposal review", () => {
     expect(screen.getByText("Thêm từ ghi chép hôm nay.")).toBeInTheDocument();
   });
 
+  it("drops whichever bullet marker the model used in front of a reason", async () => {
+    backend.addProposal({
+      kind: "agent_memory_rewrite",
+      name: "MEMORY.md",
+      description: "Cô đọng bộ nhớ",
+      previous_body: "- Sếp dị ứng tôm.",
+      body: "- Sếp thích trà.",
+      reasons: "* Gộp hai dòng trùng.\n+ Giữ dòng có ngày mới hơn.\n  • Bỏ việc chỉ đúng một ngày.",
+    });
+    mount(1);
+
+    await open(vi.memory.proposals);
+    const list = (await screen.findByText(vi.memory.proposalReasons)).parentElement!;
+    expect(within(list).getAllByRole("listitem").map((item) => item.textContent)).toEqual([
+      "Gộp hai dòng trùng.",
+      "Giữ dòng có ngày mới hơn.",
+      "Bỏ việc chỉ đúng một ngày.",
+    ]);
+  });
+
   it("shows nothing extra for a proposal with no reasons to give", async () => {
     backend.addProposal({ name: "ca-phe", description: "Thích cà phê", body: "Thích cà phê sữa." });
     mount(1);
