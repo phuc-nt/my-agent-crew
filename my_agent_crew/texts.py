@@ -28,6 +28,13 @@ EXPIRED_TOOL = (
     "cũng không làm một hành động tương đương bằng công cụ khác. Hãy nói với người dùng "
     "việc gì đang chờ duyệt để họ gửi lại yêu cầu nếu vẫn muốn."
 )
+# A reused call id whose stored approval names a different tool or different arguments: the
+# id collided (see openai_compat's uuid fix) rather than this being the same request again,
+# so the call is refused instead of reusing a decision that was never about it.
+APPROVAL_CALL_MISMATCH = (
+    "Lời gọi này trùng id với một lời gọi khác đã được duyệt cho một việc khác, nên không "
+    "dùng lại quyết định đó. Hãy gọi lại nếu vẫn cần."
+)
 UNKNOWN_TOOL = "Không có công cụ tên {name}."
 TOOL_FAILED = "Công cụ lỗi: {error}"
 OUTPUT_TRUNCATED = "\n…[đã cắt bớt {dropped} ký tự]"

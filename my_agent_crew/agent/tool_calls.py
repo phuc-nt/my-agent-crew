@@ -15,6 +15,7 @@ import asyncio
 from collections.abc import AsyncIterator, Sequence
 from typing import TYPE_CHECKING
 
+from my_agent_crew.agent.approval_lookup import matches, open_new
 from my_agent_crew.agent.delegate_relay import relay_reply
 from my_agent_crew.agent.events import (
     ApprovalRequiredEvent,
@@ -25,18 +26,17 @@ from my_agent_crew.agent.events import (
 from my_agent_crew.agent.tool_batches import split_batches
 from my_agent_crew.agent.tool_gate import ask_reason_text, pauses_for_a_person
 from my_agent_crew.agent.turn_context import set_tool_call_id
-from my_agent_crew.agents.approval_ttl import effective_ttl
 from my_agent_crew.llm.types import Message, ToolCall
 from my_agent_crew.store import Approval, Store, StoredMessage
 from my_agent_crew.store.approvals import ANSWERED, DENIED, EXPIRED, PENDING
-from my_agent_crew.store.models import AWAITING_APPROVAL, QUESTION, TOOL
-from my_agent_crew.texts import DENIED_TOOL, EXPIRED_TOOL, INTERRUPTED_TOOL
-from my_agent_crew.tools.ask_user import (
-    ASK_USER_TOOL_NAME,
-    answer_result,
-    options_of,
-    unanswered_result,
+from my_agent_crew.store.models import QUESTION
+from my_agent_crew.texts import (
+    APPROVAL_CALL_MISMATCH,
+    DENIED_TOOL,
+    EXPIRED_TOOL,
+    INTERRUPTED_TOOL,
 )
+from my_agent_crew.tools.ask_user import answer_result, unanswered_result
 from my_agent_crew.tools.registry import ToolResult
 
 if TYPE_CHECKING:  # the loop owns the deps; importing it back would be a cycle
@@ -136,18 +136,18 @@ async def settle_tool_calls(deps: AgentDeps, conv_id: str) -> AsyncIterator[Even
             continue
         call = batch[0]
         if pauses_for_a_person(deps, conv, call):
-            asking = call.name == ASK_USER_TOOL_NAME
             approval = deps.store.approvals.find_for_call(conv_id, call.id)
-            if approval is None:
-                approval = deps.store.approvals.create(
-                    conv_id,
-                    last.id,
-                    call,
-                    ttl_seconds=effective_ttl(conv, deps.settings),
-                    kind=QUESTION if asking else TOOL,
-                    options=options_of(call.arguments) if asking else [],
+            if approval is not None and not matches(approval, call):
+                # The id collided with an earlier, different call (see openai_compat's uuid
+                # fix): the stored approval was never a decision about this call, so it must
+                # not be reused, and the UNIQUE (conversation_id, tool_call_id) constraint
+                # rules out simply recording a fresh one under the same id.
+                yield await _record(
+                    deps, conv_id, call, ToolResult(ok=False, output=APPROVAL_CALL_MISMATCH)
                 )
-                deps.store.update(conv_id, status=AWAITING_APPROVAL)
+                continue
+            if approval is None:
+                approval = open_new(deps, conv, last.id, call)
             if approval.status == PENDING:
                 yield ApprovalRequiredEvent(
                     approval_id=approval.id,
