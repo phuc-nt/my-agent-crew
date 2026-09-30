@@ -157,9 +157,23 @@ class TestReasonLine:
         )
         line = reason_line(proposal, datetime(2026, 9, 30, 8, 0))
         assert "Uống nước" in line
-        assert "07:00" in line
         assert "Nhắc tôi uống nước." in line
         assert len(line) <= 3000
+        when_line = line.splitlines()[1]
+        assert when_line == "Lịch: Mỗi ngày 07:00 (0 7 * * *)"
+
+    def test_reason_line_speaks_the_every_shorthand_in_words_too(self) -> None:
+        proposal = parse({"name": "n", "prompt": "p", "every": "30m"}, known_skills=())
+        line = reason_line(proposal, datetime(2026, 9, 30, 8, 0))
+        assert line.splitlines()[1] == "Lịch: Mỗi 30 phút (30m)"
+
+    def test_reason_line_falls_back_to_the_written_cron_for_an_unnamed_shape(self) -> None:
+        # A schedule with no run in a month never fires: min_gap_minutes rejects it before
+        # reason_line ever runs on it, so a monthly-only-once-a-year shape is used here — one
+        # that still passes validation but has no words of its own.
+        proposal = parse({"name": "n", "prompt": "p", "cron": "0 9 3 5 *"}, known_skills=())
+        line = reason_line(proposal, datetime(2026, 1, 1))
+        assert line.splitlines()[1] == "Lịch: 0 9 3 5 * (0 9 3 5 *)"
 
     def test_reason_line_includes_attached_skills(self) -> None:
         proposal = parse(

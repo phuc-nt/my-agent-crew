@@ -20,6 +20,7 @@ from my_agent_crew.tools.schedule_create_texts import (
     SCHEDULE_REASON_WHEN,
     SCHEDULE_UNWATCHED_WARNING,
 )
+from my_agent_crew.tools.schedule_words import schedule_words
 
 MIN_GAP_MINUTES = 15
 MAX_PROMPT = 2000
@@ -142,10 +143,6 @@ def upcoming(proposal: Proposal, now: datetime, count: int = 3) -> list[datetime
     return out
 
 
-def _schedule_words(proposal: Proposal) -> str:
-    return f"mỗi {proposal.every}" if proposal.every else "theo cron"
-
-
 def reason_line(proposal: Proposal, now: datetime) -> str:
     """The approval card's whole content, as one string: it is the only place a person
     reads the prompt (the web card and Telegram both render `reason` verbatim and nothing
@@ -154,7 +151,9 @@ def reason_line(proposal: Proposal, now: datetime) -> str:
     written = proposal.cron or proposal.every or ""
     parts = [
         SCHEDULE_REASON_HEADER.format(name=proposal.name or "(chưa đặt tên)"),
-        SCHEDULE_REASON_WHEN.format(words=_schedule_words(proposal), written=written),
+        SCHEDULE_REASON_WHEN.format(
+            words=schedule_words(proposal.cron, proposal.every), written=written
+        ),
     ]
     runs = upcoming(proposal, now, count=3)
     if runs:
