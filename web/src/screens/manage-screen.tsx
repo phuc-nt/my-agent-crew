@@ -62,6 +62,7 @@ interface Props {
   onOpenConversation: (conversationId: string) => void;
   onRunJob: (jobId: string) => void;
   onToggleJob: (jobId: string, enabled: boolean) => void;
+  onDeleteJob: (jobId: string) => void;
   /** The part of the open editor to bring into view, when the URL names one. */
   editFocus?: string;
   /** Opens an agent's editor on its schedules, from a row in the jobs list. */
@@ -365,6 +366,7 @@ export function ManageScreen(props: Props) {
               agentName={props.agentName}
               onRunNow={props.onRunJob}
               onToggle={props.onToggleJob}
+              onDelete={props.onDeleteJob}
               onOpenConversation={props.onOpenConversation}
               onOpenRun={props.onReplayRun}
               onEditSchedules={props.onEditSchedules}

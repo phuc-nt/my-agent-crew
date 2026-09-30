@@ -216,7 +216,7 @@ describe("App activity across the crew", () => {
 
   it("lists only the master's conversations, creates new ones for it and runs a job now", async () => {
     backend.agents = [fakeAgent, coachAgent];
-    backend.jobs = [{ ...coachAgent.schedules[0], id: "coach/brief", schedule_id: "brief", agent_id: "coach", next_run: null, last_run: null, running: false, paused: false }];
+    backend.jobs = [{ ...coachAgent.schedules[0], id: "coach/brief", schedule_id: "brief", agent_id: "coach", next_run: null, last_run: null, running: false, paused: false, origin: "profile" }];
     backend.create({ title: "Chung" });
     backend.create({ title: "Sức khoẻ", agent_id: "coach" });
     render(<App />);

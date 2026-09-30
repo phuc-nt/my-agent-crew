@@ -723,6 +723,11 @@ export const vi = {
   jobEnabled: "Bật lịch",
   jobDisabledInProfile: "Tắt trong hồ sơ agent — bấm Sửa lịch để bật lại.",
   jobRunning: "đang chạy…",
+  // Only a chat-origin job ("tạo từ chat") gets a delete button — a profile job needs its
+  // `agent.yaml` edited and a restart instead, so there is nothing to confirm-delete here.
+  jobFromChat: "tạo từ chat",
+  jobDelete: "Xoá lịch",
+  jobDeleteConfirm: (name: string) => `Xoá lịch "${name}"? Không thể hoàn tác.`,
   runNow: "Chạy ngay",
   jobHistory: "Lịch sử chạy",
   showHistory: "Xem lịch sử",

@@ -148,6 +148,7 @@ export function App() {
           onOpenConversation={openConversation}
           onRunJob={(id) => void crew.runJob(id)}
           onToggleJob={(id, enabled) => void crew.setJobEnabled(id, enabled)}
+          onDeleteJob={(id) => void crew.deleteJob(id)}
         />
       </ErrorBoundary>
     );

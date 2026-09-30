@@ -18,6 +18,7 @@ const brief: JobInfo = {
   last_run: null,
   running: false,
   paused: false,
+  origin: "profile",
 };
 
 describe("where the jobs list sends a person to change a schedule", () => {
@@ -243,5 +244,51 @@ describe("a job read at a glance", () => {
     expect(failingJobs(null)).toBe(0);
     expect(failingJobs([brief, ran("done"), ran("halted"), ran("running")])).toBe(0);
     expect(failingJobs([ran("error"), ran("done"), ran("error")])).toBe(2);
+  });
+});
+
+// A schedule the agent proposed and a person approved lives beside the ones written by hand
+// in agent.yaml, but only it can be deleted from here: a profile schedule needs the file
+// edited and a restart instead, so the delete button only ever appears on a chat-origin row.
+describe("a schedule created from chat", () => {
+  afterEach(() => {
+    vitest.restoreAllMocks();
+  });
+
+  const chatJob: JobInfo = { ...brief, id: "chat-1", schedule_id: "chat-1", origin: "chat" };
+
+  it("labels a chat-origin row and leaves a profile row unlabelled", () => {
+    render(<JobsPanel jobs={[brief, chatJob]} agentName={name} onRunNow={() => {}} onToggle={() => {}} />);
+
+    const [profileRow, chatRow] = screen.getAllByTestId("job");
+    expect(within(profileRow).queryByText(vi.jobFromChat)).not.toBeInTheDocument();
+    expect(within(chatRow).getByText(vi.jobFromChat)).toBeVisible();
+  });
+
+  it("offers no delete button for a profile job even when onDelete is supplied", () => {
+    render(<JobsPanel jobs={[brief]} agentName={name} onRunNow={() => {}} onToggle={() => {}} onDelete={() => {}} />);
+
+    expect(screen.queryByRole("button", { name: `${vi.jobDelete}: ${brief.name}` })).not.toBeInTheDocument();
+  });
+
+  it("deletes a chat job once the confirm dialog is accepted", async () => {
+    const onDelete = vitest.fn();
+    vitest.spyOn(window, "confirm").mockReturnValue(true);
+    render(<JobsPanel jobs={[chatJob]} agentName={name} onRunNow={() => {}} onToggle={() => {}} onDelete={onDelete} />);
+
+    await userEvent.click(screen.getByRole("button", { name: `${vi.jobDelete}: ${chatJob.name}` }));
+
+    expect(window.confirm).toHaveBeenCalledWith(vi.jobDeleteConfirm(chatJob.name));
+    expect(onDelete).toHaveBeenCalledWith("chat-1");
+  });
+
+  it("keeps the job when the confirm dialog is declined", async () => {
+    const onDelete = vitest.fn();
+    vitest.spyOn(window, "confirm").mockReturnValue(false);
+    render(<JobsPanel jobs={[chatJob]} agentName={name} onRunNow={() => {}} onToggle={() => {}} onDelete={onDelete} />);
+
+    await userEvent.click(screen.getByRole("button", { name: `${vi.jobDelete}: ${chatJob.name}` }));
+
+    expect(onDelete).not.toHaveBeenCalled();
   });
 });

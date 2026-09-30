@@ -43,6 +43,7 @@ function show(section: ManageSection, overrides: ScreenProps = {}) {
       onOpenConversation={() => undefined}
       onRunJob={() => undefined}
       onToggleJob={() => undefined}
+      onDeleteJob={() => undefined}
       {...overrides}
       {...more}
     />
@@ -55,7 +56,7 @@ function show(section: ManageSection, overrides: ScreenProps = {}) {
 const job = (id: string, last: ReturnType<typeof fakeRun> | null) => ({
   id: `default/${id}`, schedule_id: id, agent_id: "default", name: id, kind: "prompt" as const,
   cron: "0 7 * * *", every: null, prompt: "p", command: null, enabled: true, skills: [],
-  next_run: null, last_run: last, running: false, paused: false,
+  next_run: null, last_run: last, running: false, paused: false, origin: "profile" as const,
 });
 
 describe("the manage screen", () => {

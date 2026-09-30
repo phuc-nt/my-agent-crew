@@ -24,6 +24,9 @@ interface Props {
   onRunNow: (jobId: string) => void;
   /** Pause or resume a schedule at runtime without editing its profile. */
   onToggle: (jobId: string, enabled: boolean) => void;
+  /** Only offered for a chat-origin job; a profile one needs its `agent.yaml` edited and a
+   *  restart instead, so there is nothing to delete here. */
+  onDelete?: (jobId: string) => void;
   onOpenConversation?: (conversationId: string) => void;
   /** Opens one run on its own page, from the row's last run or its history. The job goes
    *  along so that page's back link returns to this row. */
@@ -37,8 +40,18 @@ interface Props {
 
 /** Every agent's schedules with their next and last run, a pause switch, run history and run-now. */
 export function JobsPanel(props: Props) {
-  const { jobs, agentName, onRunNow, onToggle, onOpenConversation, onOpenRun, onEditSchedules, onOpenCrew, focusJob } =
-    props;
+  const {
+    jobs,
+    agentName,
+    onRunNow,
+    onToggle,
+    onDelete,
+    onOpenConversation,
+    onOpenRun,
+    onEditSchedules,
+    onOpenCrew,
+    focusJob,
+  } = props;
   const [open, setOpen] = useState<string | null>(null);
   const target = useRef<HTMLLIElement>(null);
   const arrived = jobs?.some((job) => job.id === focusJob) ?? false;
@@ -80,6 +93,7 @@ export function JobsPanel(props: Props) {
                 {offInProfile && <span className="badge warn"> {vi.jobDisabled}</span>}
                 {job.paused && <span className="badge warn"> {vi.jobPaused}</span>}
                 {job.running && <span className="badge live"> {vi.jobRunning}</span>}
+                {job.origin === "chat" && <span className="badge"> {vi.jobFromChat}</span>}
               </span>
               <span className="job-actions">
                 <label className="toggle">
@@ -112,6 +126,19 @@ export function JobsPanel(props: Props) {
                     aria-label={vi.jobRow.editOf(job.name)}
                   >
                     {vi.jobRow.edit}
+                  </button>
+                )}
+                {onDelete && job.origin === "chat" && (
+                  <button
+                    type="button"
+                    className="ghost"
+                    onClick={() => {
+                      if (window.confirm(vi.jobDeleteConfirm(job.name))) onDelete(job.id);
+                    }}
+                    aria-label={`${vi.jobDelete}: ${job.name}`}
+                  >
+                    <Icon name="trash" />
+                    {vi.jobDelete}
                   </button>
                 )}
               </span>

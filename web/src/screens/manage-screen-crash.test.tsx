@@ -42,6 +42,7 @@ function screenAt(section: ManageSection) {
       onOpenConversation={() => undefined}
       onRunJob={() => undefined}
       onToggleJob={() => undefined}
+      onDeleteJob={() => undefined}
     />
   );
 }

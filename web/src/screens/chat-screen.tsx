@@ -430,8 +430,13 @@ export function ChatScreen({
             pending={state.pending}
             busy={state.busy}
             onDecide={(ok) => void thread.decide(ok)}
-            // The header shows the always-allow list from the conversation list, so refresh it.
-            onAlways={() => void thread.decide(true, true).then(list.refresh)}
+            // Withheld whenever a reason stopped the call: that pause cannot be waived (see
+            // `tool_gate.needs_decision`), so an always-allow button here would only fail on
+            // click. The header still shows the always-allow list from the conversation
+            // list, refreshed once a decision is made.
+            onAlways={
+              state.pending.reason ? undefined : () => void thread.decide(true, true).then(list.refresh)
+            }
           />
         )}
         {overBudget && active && (

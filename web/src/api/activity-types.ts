@@ -133,6 +133,9 @@ export interface JobInfo extends ScheduleInfo {
   running: boolean;
   /** Switched off at runtime; `enabled` is the effective value (profile AND not paused). */
   paused: boolean;
+  /** "profile" came from `agent.yaml` and needs a restart to change; "chat" was proposed
+   *  by the agent and approved by a person, and can be deleted from here. */
+  origin: "profile" | "chat";
 }
 
 /** Calls, tokens and cost added up from the message log for one bucket. */

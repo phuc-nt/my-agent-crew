@@ -292,6 +292,18 @@ export class FakeBackend {
     }
     const history = path.match(/^\/jobs\/(.+)\/runs$/)?.[1];
     if (history) return json(this.runs.filter((r) => r.source === `job:${decodeURIComponent(history)}`));
+    // Matched after the three suffixed routes above, so a bare job id is not read as one of
+    // them. Like the real route: a profile job's row is never removed here, only a
+    // chat-origin one, and the caller decides which button to even offer.
+    const removed = path.match(/^\/jobs\/(.+)$/)?.[1];
+    if (removed && method === "DELETE") {
+      const id = decodeURIComponent(removed);
+      const found = this.jobs.find((j) => j.id === id);
+      if (!found) return json({ detail: "job not found" }, 404);
+      if (found.origin === "profile") return json({ detail: "job comes from agent.yaml; edit the profile instead" }, 409);
+      this.jobs = this.jobs.filter((j) => j.id !== id);
+      return new Response(null, { status: 204 });
+    }
     if (path === "/conversations" && method === "GET") {
       const agentId = url.searchParams.get("agent_id");
       const all = [...this.conversations.values()].map(listItem);

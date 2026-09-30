@@ -357,6 +357,19 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
       return job ? json({ ...job, enabled, paused: !enabled }) : json({ detail: "job not found" }, 404);
     }
     if (/^\/jobs\/.+\/runs$/.test(path)) return json([]);
+    // Matched after the three suffixed routes above so a bare job id is not read as one of
+    // them; a profile job (`origin: "profile"`) is never offered the delete button in the
+    // first place, so this mock does not need to reject one the way the real server's 409
+    // does — nothing here ever sends that request. Spliced in place, not filtered into a
+    // copy, so a spec holding the same `jobs` array it passed to `mockApi` sees the removal.
+    if (/^\/jobs\/.+$/.test(path) && method === "DELETE") {
+      const id = path.slice(6);
+      const list = options.jobs ?? [];
+      const index = list.findIndex((j) => (j as { id: string }).id === id);
+      if (index === -1) return json({ detail: "job not found" }, 404);
+      list.splice(index, 1);
+      return route.fulfill({ status: 204 });
+    }
     if (path === "/conversations" && method === "GET") {
       const agentId = url.searchParams.get("agent_id");
       return json(agentId ? conversations.filter((c) => c.agent_id === agentId) : conversations);
