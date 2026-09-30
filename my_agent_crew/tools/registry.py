@@ -61,6 +61,10 @@ class Tool:
     # Safe to run at the same time as the other parallel calls in the same message. Only
     # for tools that spend most of their time waiting and do not race each other.
     parallel: bool = False
+    # Set only by a tool that must always stop for a person: `tool_gate.needs_decision`
+    # treats a non-empty return here as a reason to ask, ahead of the allow list, autonomy
+    # and `auto_approve` — none of which can waive it. None means the ordinary rules apply.
+    ask_reason: Callable[[dict[str, Any]], str] | None = None
 
     @property
     def spec(self) -> ToolSpec:

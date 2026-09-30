@@ -14,6 +14,7 @@ from my_agent_crew.llm.types import Message
 from my_agent_crew.store.approvals import ApprovalStore
 from my_agent_crew.store.connection import connect
 from my_agent_crew.store.conversation_lookup import ConversationLookups
+from my_agent_crew.store.created_schedules import CreatedSchedulesStore
 from my_agent_crew.store.fork import Forks
 from my_agent_crew.store.job_state import JobStateStore
 from my_agent_crew.store.memory_proposals import MemoryProposalStore
@@ -55,6 +56,7 @@ class Store(ConversationLookups, Forks):
         self.usage = UsageStore(self._conn, self._lock)
         self.side_calls = SideCallStore(self._conn, self._lock)
         self.search = SearchStore(self._conn, self._lock)
+        self.created_schedules = CreatedSchedulesStore(self._conn, self._lock)
 
     def close(self) -> None:
         self._conn.close()

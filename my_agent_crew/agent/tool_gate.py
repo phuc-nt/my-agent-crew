@@ -19,6 +19,17 @@ if TYPE_CHECKING:  # the loop owns the deps; importing it back would be a cycle
     from my_agent_crew.agent.loop import AgentDeps
 
 
+def _tool_ask_reason(deps: AgentDeps, name: str, arguments: dict[str, Any]) -> str | None:
+    """A tool that must always stop for a person says so itself: `schedule_create` is the
+    first of these. Returned verbatim, never wrapped — the caller reads the tool's own
+    words as-is, since no fixed pattern name applies here the way `SHELL_ASK_REASON` names
+    one for shell."""
+    tool = deps.tools.get(name)
+    if tool is None or tool.ask_reason is None:
+        return None
+    return tool.ask_reason(arguments) or None
+
+
 def ask_reason_for(deps: AgentDeps, name: str, arguments: dict[str, Any]) -> str | None:
     """A shell command whose shape is on the ask list is approved even when the
     conversation is autonomous; every other call keeps the old rule.
@@ -27,7 +38,13 @@ def ask_reason_for(deps: AgentDeps, name: str, arguments: dict[str, Any]) -> str
     tripped the list on every cleanup and stalled unattended runs, while deleting nothing
     of the person's. The exemption only holds when every path the command names resolves
     inside a system temp root — see `deletes_only_temp_paths`.
+
+    Checked before any of that: a tool with its own `ask_reason` always wins, since that
+    reason exists precisely to outrank every waiver below it.
     """
+    tool_reason = _tool_ask_reason(deps, name, arguments)
+    if tool_reason is not None:
+        return tool_reason
     if name != SHELL_TOOL_NAME:
         return None
     command = str(arguments.get("command", ""))
@@ -38,9 +55,14 @@ def ask_reason_for(deps: AgentDeps, name: str, arguments: dict[str, Any]) -> str
 
 
 def ask_reason_text(deps: AgentDeps, name: str, arguments: dict[str, Any]) -> str:
-    """The line a person reads beside the request saying which ask pattern stopped it, or
-    "" when the ask list played no part. It follows from the call and the agent's list, so
-    a request read back later is given it again rather than it being stored."""
+    """The line a person reads beside the request saying why it stopped, or "" when
+    nothing did. A tool's own reason is shown exactly as it wrote it; only the shell ask
+    list's bare pattern is dressed up with `SHELL_ASK_REASON`. It follows from the call and
+    the agent's list, so a request read back later is given it again rather than it being
+    stored."""
+    tool_reason = _tool_ask_reason(deps, name, arguments)
+    if tool_reason is not None:
+        return tool_reason
     pattern = ask_reason_for(deps, name, arguments)
     return SHELL_ASK_REASON.format(pattern=pattern) if pattern else ""
 

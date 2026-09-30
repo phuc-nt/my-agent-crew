@@ -24,6 +24,7 @@ from my_agent_crew.tools.memory_user import build_user_memory_tools
 from my_agent_crew.tools.output_summary import chain_summariser
 from my_agent_crew.tools.pdf import build_pdf_tool
 from my_agent_crew.tools.progress_note import build_progress_note_tool
+from my_agent_crew.tools.schedule_create import build_schedule_create_tool
 from my_agent_crew.tools.shell import build_shell_tool
 from my_agent_crew.tools.skills import build_skill_tools
 from my_agent_crew.tools.web import build_web_tools
@@ -103,6 +104,12 @@ def build_tools(
         # Registered whether or not there is a vision chain: a typeset PDF reads fine
         # without one, and only a scanned page needs to say it could not.
         build_pdf_tool((profile.workspace, profile.settings.home), pages),
+        # Proposing a schedule is gated by `ask_reason`, not by `tools:` — every agent gets
+        # it so the gate is what stands between a proposal and a person, never a missing
+        # allow-list entry.
+        build_schedule_create_tool(
+            store, profile.id, tuple(skill.name for skill in skills), profile.settings.now
+        ),
     ]
     if profile.is_work:
         tools += [

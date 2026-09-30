@@ -49,6 +49,11 @@ CREATE TABLE IF NOT EXISTS queued_messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT, conversation_id TEXT NOT NULL, kind TEXT NOT NULL,
     text TEXT NOT NULL, source TEXT NOT NULL, created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS created_schedules (
+    id TEXT PRIMARY KEY, agent_id TEXT NOT NULL, name TEXT NOT NULL, cron TEXT, every TEXT,
+    prompt TEXT NOT NULL, skills TEXT NOT NULL DEFAULT '[]',
+    created_by_conversation TEXT NOT NULL, created_at TEXT NOT NULL
+);
 """
 
 # (table, column, definition) added after the table first shipped.
