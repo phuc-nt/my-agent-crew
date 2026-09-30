@@ -104,9 +104,8 @@ def build_tools(
         # Registered whether or not there is a vision chain: a typeset PDF reads fine
         # without one, and only a scanned page needs to say it could not.
         build_pdf_tool((profile.workspace, profile.settings.home), pages),
-        # Proposing a schedule is gated by `ask_reason`, not by `tools:` — every agent gets
-        # it so the gate is what stands between a proposal and a person, never a missing
-        # allow-list entry.
+        # Proposing a schedule is gated by `ask_reason`, which always stops for a person.
+        # An agent with a `tools:` allow list still needs the name listed to have it.
         build_schedule_create_tool(
             store, profile.id, tuple(skill.name for skill in skills), profile.settings.now
         ),

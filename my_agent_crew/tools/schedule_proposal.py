@@ -12,35 +12,22 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from my_agent_crew.scheduler.cron import CronSpec, parse_every
-from my_agent_crew.tools.schedule_create_texts import (
-    SCHEDULE_REASON_HEADER,
-    SCHEDULE_REASON_PROMPT_HEADER,
-    SCHEDULE_REASON_SKILLS,
-    SCHEDULE_REASON_UPCOMING_HEADER,
-    SCHEDULE_REASON_WHEN,
-    SCHEDULE_UNWATCHED_WARNING,
-)
+from my_agent_crew.tools import schedule_create_texts as texts
 from my_agent_crew.tools.schedule_words import schedule_words
 
 MIN_GAP_MINUTES = 15
 MAX_PROMPT = 2000
 MAX_NAME = 60
 MAX_PER_AGENT = 20
+#: Far longer than any real five-field cron. The cap exists because a list field such as
+#: `7,7,7,…` parses fine and would otherwise print the same run time hundreds of times.
+MAX_CRON = 100
 #: Beyond this, a proposal's second occurrence is not worth listing: a yearly cron's next
 #: run is always more than a month out, and showing it anyway would just be noise.
 REASON_HORIZON_DAYS = 31
 #: `CronSpec.next_after`'s own limit: a schedule with no run in this many days is refused
 #: outright, since it would never fire at all.
 NEXT_RUN_HORIZON_DAYS = 366
-
-_ERR_NEEDS_ONE_OF = "Cần đúng một trong hai: cron hoặc every."
-_ERR_EVERY_TOO_SHORT = "every phải từ 15 phút trở lên."
-_ERR_CRON_INVALID = "Biểu thức cron không hợp lệ: {error}"
-_ERR_CRON_TOO_FREQUENT = "Cron này chạy dày hơn {gap} phút một lần; cần cách nhau ít nhất 15 phút."
-_ERR_CRON_NEVER_RUNS = "Cron này không có lần chạy nào trong 366 ngày tới."
-_ERR_NAME_TOO_LONG = f"Tên lịch dài quá {MAX_NAME} ký tự."
-_ERR_PROMPT_TOO_LONG = f"Nội dung dài quá {MAX_PROMPT} ký tự."
-_ERR_UNKNOWN_SKILL = "Không có skill tên {name!r}."
 
 
 class ProposalError(ValueError):
@@ -71,24 +58,40 @@ def min_gap_minutes(spec: CronSpec) -> int:
 
 
 def _validate_cron(cron: str) -> None:
+    if len(cron) > MAX_CRON:
+        raise ProposalError(texts.SCHEDULE_ERR_CRON_TOO_LONG.format(limit=MAX_CRON))
     try:
         spec = CronSpec.parse(cron)
     except ValueError as exc:
-        raise ProposalError(_ERR_CRON_INVALID.format(error=exc)) from exc
+        raise ProposalError(texts.SCHEDULE_ERR_CRON_INVALID.format(error=exc)) from exc
     gap = min_gap_minutes(spec)
     if gap < MIN_GAP_MINUTES:
-        raise ProposalError(_ERR_CRON_TOO_FREQUENT.format(gap=gap))
+        raise ProposalError(texts.SCHEDULE_ERR_CRON_TOO_FREQUENT.format(gap=gap))
     if spec.next_after(datetime.now(), horizon_days=NEXT_RUN_HORIZON_DAYS) is None:
-        raise ProposalError(_ERR_CRON_NEVER_RUNS)
+        raise ProposalError(texts.SCHEDULE_ERR_CRON_NEVER_RUNS)
 
 
 def _validate_every(every: str) -> None:
     try:
         seconds = parse_every(every)
     except ValueError as exc:
-        raise ProposalError(str(exc)) from exc
+        raise ProposalError(texts.SCHEDULE_ERR_EVERY_INVALID.format(error=exc)) from exc
     if seconds < MIN_GAP_MINUTES * 60:
-        raise ProposalError(_ERR_EVERY_TOO_SHORT)
+        raise ProposalError(texts.SCHEDULE_ERR_EVERY_TOO_SHORT)
+    # Longer than this never comes round inside the scheduler's horizon — and a huge one
+    # would overflow `timedelta` while the card is being drawn.
+    if seconds > NEXT_RUN_HORIZON_DAYS * 86400:
+        raise ProposalError(texts.SCHEDULE_ERR_EVERY_TOO_LONG)
+
+
+def _skills(raw: Any) -> tuple[str, ...]:
+    """A lone name counts as a one-item list rather than as its letters, and a repeat is
+    dropped, keeping the order the agent gave."""
+    if isinstance(raw, str):
+        raw = [raw]
+    if not isinstance(raw, list | tuple):
+        raise ProposalError(texts.SCHEDULE_ERR_SKILLS_NOT_A_LIST)
+    return tuple(dict.fromkeys(str(s) for s in raw))
 
 
 def parse(args: dict[str, Any], known_skills: tuple[str, ...]) -> Proposal:
@@ -98,21 +101,25 @@ def parse(args: dict[str, Any], known_skills: tuple[str, ...]) -> Proposal:
     prompt = str(args.get("prompt", "")).strip()
     cron = args.get("cron") or None
     every = args.get("every") or None
-    skills = tuple(str(s) for s in (args.get("skills") or ()))
+    skills = _skills(args.get("skills") or ())
 
     if bool(cron) == bool(every):  # both set, or neither
-        raise ProposalError(_ERR_NEEDS_ONE_OF)
+        raise ProposalError(texts.SCHEDULE_ERR_NEEDS_ONE_OF)
     if cron:
         _validate_cron(str(cron))
     else:
         _validate_every(str(every))
+    if not name:
+        raise ProposalError(texts.SCHEDULE_ERR_NAME_MISSING)
     if len(name) > MAX_NAME:
-        raise ProposalError(_ERR_NAME_TOO_LONG)
+        raise ProposalError(texts.SCHEDULE_ERR_NAME_TOO_LONG.format(limit=MAX_NAME))
+    if not prompt:
+        raise ProposalError(texts.SCHEDULE_ERR_PROMPT_MISSING)
     if len(prompt) > MAX_PROMPT:
-        raise ProposalError(_ERR_PROMPT_TOO_LONG)
+        raise ProposalError(texts.SCHEDULE_ERR_PROMPT_TOO_LONG.format(limit=MAX_PROMPT))
     for skill in skills:
         if skill not in known_skills:
-            raise ProposalError(_ERR_UNKNOWN_SKILL.format(name=skill))
+            raise ProposalError(texts.SCHEDULE_ERR_UNKNOWN_SKILL.format(name=skill))
     return Proposal(
         name=name,
         prompt=prompt,
@@ -150,18 +157,22 @@ def reason_line(proposal: Proposal, now: datetime) -> str:
     skills, the verbatim prompt and the one-sentence warning about unwatched runs."""
     written = proposal.cron or proposal.every or ""
     parts = [
-        SCHEDULE_REASON_HEADER.format(name=proposal.name or "(chưa đặt tên)"),
-        SCHEDULE_REASON_WHEN.format(
+        texts.SCHEDULE_REASON_HEADER.format(name=proposal.name),
+        texts.SCHEDULE_REASON_WHEN.format(
             words=schedule_words(proposal.cron, proposal.every), written=written
         ),
     ]
     runs = upcoming(proposal, now, count=3)
     if runs:
-        parts.append(SCHEDULE_REASON_UPCOMING_HEADER)
+        parts.append(
+            texts.SCHEDULE_REASON_UPCOMING_APPROX_HEADER
+            if proposal.every
+            else texts.SCHEDULE_REASON_UPCOMING_HEADER
+        )
         parts.extend(f"- {when.strftime('%d/%m %H:%M')}" for when in runs)
     if proposal.skills:
-        parts.append(SCHEDULE_REASON_SKILLS.format(skills=", ".join(proposal.skills)))
-    parts.append(SCHEDULE_REASON_PROMPT_HEADER)
+        parts.append(texts.SCHEDULE_REASON_SKILLS.format(skills=", ".join(proposal.skills)))
+    parts.append(texts.SCHEDULE_REASON_PROMPT_HEADER)
     parts.append(proposal.prompt)
-    parts.append(SCHEDULE_UNWATCHED_WARNING)
+    parts.append(texts.SCHEDULE_UNWATCHED_WARNING)
     return "\n".join(parts)

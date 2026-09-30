@@ -13,14 +13,16 @@ from __future__ import annotations
 
 import re
 
-_UNIT_WORDS = {"s": "giây", "m": "phút", "h": "giờ", "d": "ngày"}
-_DAY_NAMES = ["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"]
+from my_agent_crew.tools import schedule_create_texts as texts
+
 _EVERY = re.compile(r"^(\d+)\s*([smhd])$")
 
 
 def _every_words(n: int, unit: str) -> str:
-    word = _UNIT_WORDS[unit]
-    return f"Mỗi {word}" if n == 1 else f"Mỗi {n} {word}"
+    word = texts.SCHEDULE_WORDS_UNITS[unit]
+    if n == 1:
+        return texts.SCHEDULE_WORDS_EVERY_ONE.format(unit=word)
+    return texts.SCHEDULE_WORDS_EVERY_N.format(n=n, unit=word)
 
 
 def _num(text: str, low: int, high: int) -> int | None:
@@ -58,14 +60,15 @@ def _weekdays(text: str) -> set[int] | None:
 
 def _on_days(days: set[int], time: str) -> str:
     if len(days) == 7:
-        return f"Mỗi ngày {time}"
+        return texts.SCHEDULE_WORDS_DAILY.format(time=time)
     key = ",".join(str(d) for d in sorted(days))
     if key == "1,2,3,4,5":
-        return f"Thứ Hai–Thứ Sáu {time}"
+        return texts.SCHEDULE_WORDS_WEEKDAYS.format(time=time)
     if key == "0,6":
-        return f"Cuối tuần {time}"
-    names = [_DAY_NAMES[d] for d in [1, 2, 3, 4, 5, 6, 0] if d in days]  # Monday first, Sunday last
-    return f"{', '.join(names)} hằng tuần {time}"
+        return texts.SCHEDULE_WORDS_WEEKEND.format(time=time)
+    names = [texts.SCHEDULE_WORDS_DAY_NAMES[d] for d in [1, 2, 3, 4, 5, 6, 0] if d in days]
+    # Monday first, Sunday last
+    return texts.SCHEDULE_WORDS_WEEKLY.format(days=", ".join(names), time=time)
 
 
 def _repeating(minute: str, hour: str) -> str | None:
@@ -81,7 +84,7 @@ def _repeating(minute: str, hour: str) -> str | None:
     if hours is None or at is None:
         return None
     every = _every_words(hours, "h")
-    return every if at == 0 else f"{every} vào phút {at}"
+    return every if at == 0 else texts.SCHEDULE_WORDS_AT_MINUTE.format(every=every, minute=at)
 
 
 def cron_words(cron: str) -> str:
@@ -105,7 +108,9 @@ def cron_words(cron: str) -> str:
         days = set(range(7)) if weekday == "*" else _weekdays(weekday)
         return _on_days(days, time) if days is not None else cron
     date = _num(day, 1, 31)
-    return f"Ngày {date} hằng tháng {time}" if date is not None and weekday == "*" else cron
+    if date is None or weekday != "*":
+        return cron
+    return texts.SCHEDULE_WORDS_MONTHLY.format(date=date, time=time)
 
 
 def every_words(every: str) -> str:

@@ -98,7 +98,7 @@ class CreatedSchedulesStore:
     def all(self) -> list[CreatedScheduleRow]:
         with self._lock:
             rows = self._conn.execute(
-                "SELECT * FROM created_schedules ORDER BY created_at"
+                "SELECT * FROM created_schedules ORDER BY created_at, rowid"
             ).fetchall()
         return [CreatedScheduleRow.from_row(r) for r in rows]
 

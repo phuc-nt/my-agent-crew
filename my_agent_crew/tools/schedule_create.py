@@ -7,8 +7,9 @@ work still only happens by hand, in that agent's own `agent.yaml`.
 
 `ask_reason` is what makes approval unconditional (see `agent/tool_gate.py`): it is asked
 before the gate even looks at autonomy, `auto_approve` or the allow list, and it is never
-empty — a proposal that fails validation still produces a card, just one whose reason is
-the validation error instead of the schedule. A useless card, but a truthful one."""
+empty — a proposal that fails validation, or one from an agent already at its cap, still
+produces a card, just one whose reason is that error instead of the schedule. A useless
+card, but a truthful one."""
 
 from __future__ import annotations
 
@@ -73,12 +74,16 @@ def build_schedule_create_tool(
     clock: Callable[[], datetime],
 ) -> Tool:
     def ask_reason(arguments: dict[str, Any]) -> str:
-        """Never empty: a proposal that parses becomes the full card; one that does not
-        becomes its own error, read as the reason instead."""
+        """Never empty: a proposal that parses becomes the full card; one that does not,
+        or one this agent has no room left for, becomes its own error, read as the
+        reason instead. The cap is a courtesy here — `run` checks it again, atomically,
+        because another approval can land between the card and this one."""
         try:
             proposal = parse(arguments, known_skills)
         except ProposalError as exc:
             return str(exc)
+        if store.created_schedules.count(agent_id) >= MAX_PER_AGENT:
+            return SCHEDULE_LIMIT_REACHED.format(cap=MAX_PER_AGENT)
         return reason_line(proposal, clock())
 
     async def run(arguments: dict[str, Any]) -> str:

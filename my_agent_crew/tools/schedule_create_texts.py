@@ -40,6 +40,9 @@ SCHEDULE_UNWATCHED_WARNING = (
 SCHEDULE_REASON_HEADER = "Đề xuất lịch: {name}"
 SCHEDULE_REASON_WHEN = "Lịch: {words} ({written})"
 SCHEDULE_REASON_UPCOMING_HEADER = "Các lần chạy kế tiếp:"
+#: An `every` schedule counts from the moment the scheduler first sees it, which is when
+#: the person approves, not when the card was drawn — so its times can only be approximate.
+SCHEDULE_REASON_UPCOMING_APPROX_HEADER = "Các lần chạy kế tiếp (khoảng, tính từ lúc duyệt):"
 SCHEDULE_REASON_SKILLS = "Skill đi kèm: {skills}"
 SCHEDULE_REASON_PROMPT_HEADER = "Nguyên văn sẽ chạy:"
 
@@ -50,3 +53,44 @@ SCHEDULE_CREATED_NO_UPCOMING = "Đã tạo lịch {name!r} (id {id})."
 #: schedules — not a validation error, since nothing about the proposal itself is wrong;
 #: the limit is checked atomically by the store, not by `schedule_proposal.parse`.
 SCHEDULE_LIMIT_REACHED = "Agent này đã có {cap} lịch tạo từ chat, đây là mức tối đa cho phép."
+
+#: Validation errors. A malformed proposal still gets a card, and one of these is its whole
+#: reason, so each says what to change rather than what went wrong internally.
+SCHEDULE_ERR_NEEDS_ONE_OF = "Cần đúng một trong hai: cron hoặc every."
+SCHEDULE_ERR_NAME_MISSING = "Cần đặt một tên ngắn cho lịch."
+SCHEDULE_ERR_NAME_TOO_LONG = "Tên lịch dài quá {limit} ký tự."
+SCHEDULE_ERR_PROMPT_MISSING = "Cần nội dung sẽ chạy mỗi lần tới lịch."
+SCHEDULE_ERR_PROMPT_TOO_LONG = "Nội dung dài quá {limit} ký tự."
+SCHEDULE_ERR_EVERY_INVALID = "every không hợp lệ: {error}"
+SCHEDULE_ERR_EVERY_TOO_SHORT = "every phải từ 15 phút trở lên."
+SCHEDULE_ERR_EVERY_TOO_LONG = (
+    "every không được dài quá 366 ngày, nếu không lịch sẽ không bao giờ chạy."
+)
+SCHEDULE_ERR_CRON_INVALID = "Biểu thức cron không hợp lệ: {error}"
+SCHEDULE_ERR_CRON_TOO_LONG = "Biểu thức cron dài quá {limit} ký tự."
+SCHEDULE_ERR_CRON_TOO_FREQUENT = (
+    "Cron này có hai lần chạy chỉ cách nhau {gap} phút; cần cách nhau ít nhất 15 phút."
+)
+SCHEDULE_ERR_CRON_NEVER_RUNS = "Cron này không có lần chạy nào trong 366 ngày tới."
+SCHEDULE_ERR_SKILLS_NOT_A_LIST = "skills phải là danh sách tên skill."
+SCHEDULE_ERR_UNKNOWN_SKILL = "Không có skill tên {name!r}."
+
+#: A schedule in words, the same phrasing `web/src/lib/cron-text.ts` takes from `vi.ts`.
+SCHEDULE_WORDS_UNITS = {"s": "giây", "m": "phút", "h": "giờ", "d": "ngày"}
+SCHEDULE_WORDS_DAY_NAMES = (
+    "Chủ Nhật",
+    "Thứ Hai",
+    "Thứ Ba",
+    "Thứ Tư",
+    "Thứ Năm",
+    "Thứ Sáu",
+    "Thứ Bảy",
+)
+SCHEDULE_WORDS_EVERY_ONE = "Mỗi {unit}"
+SCHEDULE_WORDS_EVERY_N = "Mỗi {n} {unit}"
+SCHEDULE_WORDS_AT_MINUTE = "{every} vào phút {minute}"
+SCHEDULE_WORDS_DAILY = "Mỗi ngày {time}"
+SCHEDULE_WORDS_WEEKDAYS = "Thứ Hai–Thứ Sáu {time}"
+SCHEDULE_WORDS_WEEKEND = "Cuối tuần {time}"
+SCHEDULE_WORDS_WEEKLY = "{days} hằng tuần {time}"
+SCHEDULE_WORDS_MONTHLY = "Ngày {date} hằng tháng {time}"

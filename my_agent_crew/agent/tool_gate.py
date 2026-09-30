@@ -6,6 +6,7 @@ then does autonomy (or a per-tool always-allow) decide."""
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Any
 
 from my_agent_crew.llm.types import ToolCall
@@ -18,16 +19,27 @@ from my_agent_crew.tools.shell_temp_paths import deletes_only_temp_paths
 if TYPE_CHECKING:  # the loop owns the deps; importing it back would be a cycle
     from my_agent_crew.agent.loop import AgentDeps
 
+logger = logging.getLogger(__name__)
+
 
 def _tool_ask_reason(deps: AgentDeps, name: str, arguments: dict[str, Any]) -> str | None:
     """A tool that must always stop for a person says so itself: `schedule_create` is the
     first of these. Returned verbatim, never wrapped — the caller reads the tool's own
     words as-is, since no fixed pattern name applies here the way `SHELL_ASK_REASON` names
-    one for shell."""
+    one for shell.
+
+    Fails closed: a reason that comes back empty, or a tool that crashes while writing it,
+    still stops for a person — named by the tool alone — rather than letting the call
+    skip the gate or take the turn down."""
     tool = deps.tools.get(name)
     if tool is None or tool.ask_reason is None:
         return None
-    return tool.ask_reason(arguments) or None
+    try:
+        reason = tool.ask_reason(arguments)
+    except Exception:
+        logger.exception("ask_reason for %s crashed", name)
+        return name
+    return reason or name
 
 
 def ask_reason_for(deps: AgentDeps, name: str, arguments: dict[str, Any]) -> str | None:

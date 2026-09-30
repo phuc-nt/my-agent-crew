@@ -434,16 +434,22 @@ nó nằm trong allow-list của agent.** Luật này nằm trong code (`Tool.as
 [design.md](design.md#scheduler)), không phải cấu hình, và không công tắc
 nào trong `agent.yaml` hay `config.yaml` tắt được nó — tạo một lượt chạy không người trông
 trong tương lai là đúng loại việc mà duyệt tồn tại để chặn. Thẻ duyệt mang nguyên văn prompt
-sẽ chạy, lịch viết ra lời (ví dụ "07:00 hằng ngày"), ba lần chạy kế tiếp, skill đi kèm và một
-câu nói rõ: sau khi duyệt, mỗi lần chạy là một lượt agent tự dùng tool mà không hỏi từng bước.
-Vì đó là điều duy nhất người đọc trước khi duyệt, nút "Luôn cho phép" bị ẩn trên thẻ này — nó
-sẽ chỉ thất bại nếu bấm, vì luật hỏi luôn không có gì để nó nới.
+sẽ chạy, lịch viết ra lời (ví dụ "Mỗi ngày 07:00"), ba lần chạy kế tiếp (với `every` chỉ là giờ
+ước chừng, vì khoảng lặp tính từ lúc duyệt), skill đi kèm và một câu nói rõ: sau khi duyệt, mỗi
+lần chạy là một lượt agent tự dùng tool mà không hỏi từng bước. Nút "Luôn cho phép" bị ẩn trên
+mọi thẻ có reason, thẻ này cũng như thẻ lệnh shell khớp mẫu hỏi: bấm nó không bỏ được lần hỏi
+ấy — luật hỏi luôn đứng trên `auto_approve` — mà chỉ lặng lẽ miễn duyệt các lời gọi khác của
+cùng tool. Nếu tool không dựng nổi reason (rỗng, hoặc lỗi giữa chừng) thì cổng vẫn dừng chờ
+người, thẻ khi đó chỉ ghi tên tool, và lượt không bị đổ.
 
-Giới hạn kiểm trước khi ra thẻ và kiểm lại lúc chạy: `every` tối thiểu 15 phút, hai lần chạy
-liền nhau của `cron` cũng phải cách nhau ít nhất chừng đó, phải có lần chạy trong vòng 366
-ngày, prompt tối đa 2000 ký tự, tên tối đa 60 ký tự, skill phải có thật, và tối đa 20 lịch tạo
-từ chat cho mỗi agent. Đề xuất sai vẫn ra một thẻ duyệt trung thực: reason của thẻ khi đó là
-chính lời báo lỗi kiểm hợp lệ.
+Giới hạn kiểm trước khi ra thẻ và kiểm lại lúc chạy: `every` từ 15 phút tới 366 ngày, hai lần
+chạy liền nhau của `cron` cũng phải cách nhau ít nhất 15 phút, cron dài tối đa 100 ký tự và
+phải có lần chạy trong vòng 366 ngày, tên (tối đa 60 ký tự) và prompt (tối đa 2000 ký tự) không
+được rỗng, `skills` là danh sách tên skill có thật (một tên đứng riêng được hiểu là một skill,
+tên lặp chỉ tính một lần), và tối đa 20 lịch tạo từ chat cho mỗi agent. Đề xuất sai, hay agent
+đã có đủ 20 lịch, vẫn ra một thẻ duyệt trung thực: reason của thẻ khi đó là chính lời báo lỗi.
+Trần được kiểm lại một lần nữa lúc chạy, vì giữa lúc ra thẻ và lúc duyệt có thể có một lịch
+khác vừa được duyệt.
 
 Lịch được duyệt lưu trong DB, không phải `agent.yaml`, nên chạy ngay không cần khởi động lại
 và sống qua lần khởi động lại kế tiếp; xem [Lịch](agents.md#lịch) để biết nó đứng cạnh lịch

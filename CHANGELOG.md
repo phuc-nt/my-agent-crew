@@ -144,17 +144,24 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   no setting in `agent.yaml` or `config.yaml` can wave this one through, because approving it
   means handing the agent an unattended future turn. The approval card spells the schedule out in
   words the same way the jobs tab already does ("Mỗi ngày 07:00"), lists the next three times it
-  would run, and shows the verbatim prompt that will run every time after that; its "always
-  allow" button is hidden, since there is nothing left for it to widen. A proposal outside the
-  limits — under 15 minutes apart, no run within the next year, a prompt or name over the length
-  cap, an unknown skill, more than 20 such schedules already on the agent — still produces an
-  honest card whose reason is the validation error itself. Once approved, the schedule runs
+  would run (approximate for an interval, which counts from the approval), and shows the
+  verbatim prompt that will run every time after that. A proposal outside the limits — under
+  15 minutes apart, an interval over a year, no run within the next year, a cron over 100
+  characters, an empty name or prompt, one over the length cap, an unknown skill, an agent that
+  already has 20 such schedules — still produces an honest card whose reason is the error
+  itself; the cap is checked once more when the approved call runs, since another approval can
+  land in between. Once approved, the schedule runs
   without a server restart and survives the next one; the jobs tab labels it "tạo từ chat" beside
   the ones written by hand and offers a delete button only for this kind, since a hand-written
   one needs its file edited instead.
 
 ### Changed
 
+- The web approval card no longer offers "Luôn cho phép" on a request that stopped for a
+  reason — a shell command matching the ask list, or a proposed schedule. Always-allowing the
+  tool from there never waived that pause; it only quietly let the same tool's other calls run
+  unasked, which is not what a card about one flagged call suggests. Other cards keep the
+  button.
 - Whether a memory rewrite applies on its own is decided by code from the old and new text, not
   by the model, and this changes what an `autonomous` agent does: a rewrite that only adds lines
   or updates dates still applies at once, but one that drops or rewords a line, or brings a

@@ -275,11 +275,15 @@ cuộc trò chuyện `autonomous`, tool nằm trong `auto_approve`, hay tool n�
 agent. `Tool` có trường `ask_reason: Callable[[dict], str] | None`; khi khác `None`,
 `tool_gate.ask_reason_for`/`ask_reason_text` trả nguyên văn kết quả của nó trước khi xét tới
 allow-list, autonomy hay `auto_approve`, và luật 2 của `needs_decision`
-(`if reason: return True`) khi đó luôn đúng. Không có hằng số kiểu `ALWAYS_ASK`, không import
+(`if reason: return True`) khi đó luôn đúng. Cổng đóng khi lỗi: reason rỗng, hay tool ném lỗi
+giữa lúc dựng reason, vẫn dừng chờ người — thẻ khi đó chỉ ghi tên tool — thay vì để lời gọi
+lọt qua cổng hay làm đổ cả lượt. Không có hằng số kiểu `ALWAYS_ASK`, không import
 `scheduler` vào `agent/tool_gate.py`, và không công tắc nào trong `agent.yaml` hay
 `config.yaml` tắt được luật này — nó chỉ đổi được bằng cách sửa code. Vì thẻ duyệt là nơi
 duy nhất người đọc nguyên văn prompt trước khi nó chạy nhiều lần sau này mà không ai hỏi lại
-từng bước, nút "Luôn cho phép" bị ẩn trên một thẻ có `reason`.
+từng bước, nút "Luôn cho phép" bị ẩn trên mọi thẻ có `reason` (kể cả thẻ lệnh shell khớp mẫu
+hỏi): bấm nó không bỏ được chính lần hỏi ấy mà chỉ lặng lẽ thêm tool vào `auto_approve`, miễn
+duyệt các lời gọi khác của cùng tool.
 
 ## Kênh
 

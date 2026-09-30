@@ -7,6 +7,7 @@ from __future__ import annotations
 import asyncio
 import threading
 import time
+from dataclasses import replace
 from datetime import datetime
 
 import pytest
@@ -16,6 +17,7 @@ from my_agent_crew.activity import ActivityHub
 from my_agent_crew.agent.approval_expiry import expire_overdue
 from my_agent_crew.agent.loop import run_turn
 from my_agent_crew.agent.tool_gate import ask_reason_text, needs_decision, pauses_for_a_person
+from my_agent_crew.agent.turn_context import set_turn_conversation
 from my_agent_crew.llm.fake import completion
 from my_agent_crew.llm.types import ToolCall
 from my_agent_crew.scheduler.jobs import JOB_SOURCE
@@ -27,6 +29,12 @@ from my_agent_crew.tools.schedule_create import (
     SCHEDULE_CREATE_TOOL_NAME,
     build_schedule_create_tool,
 )
+from my_agent_crew.tools.schedule_create_texts import (
+    SCHEDULE_CREATED,
+    SCHEDULE_ERR_CRON_TOO_FREQUENT,
+    SCHEDULE_LIMIT_REACHED,
+)
+from my_agent_crew.tools.schedule_proposal import MAX_PER_AGENT
 
 ROW = {
     "agent_id": "default",
@@ -107,7 +115,39 @@ class TestAlwaysAsks:
         tool = build_schedule_create_tool(store, "default", (), datetime.now)
         deps = deps_factory(extra_tools=[tool])
         reason = ask_reason_text(deps, SCHEDULE_CREATE_TOOL_NAME, call(cron="* * * * *").arguments)
-        assert reason  # useless card, but a truthful one — never a silent pass-through
+        # A useless card, but a truthful one: the validation error itself, not the bare
+        # tool name the gate falls back to when a reason comes back empty.
+        assert reason == SCHEDULE_ERR_CRON_TOO_FREQUENT.format(gap=1)
+
+    @pytest.mark.parametrize(
+        "bad", [{"skills": 5}, {"cron": None, "every": "5000000d"}, {"name": ""}]
+    )
+    def test_arguments_that_used_to_crash_the_card_still_pause_with_a_reason(
+        self, store, deps_factory, bad: dict
+    ) -> None:
+        tool = build_schedule_create_tool(store, "default", (), datetime.now)
+        deps = deps_factory(extra_tools=[tool])
+        c = conv(autonomous=True, auto_approve=(SCHEDULE_CREATE_TOOL_NAME,))
+        assert ask_reason_text(deps, SCHEDULE_CREATE_TOOL_NAME, call(**bad).arguments)
+        assert pauses_for_a_person(deps, c, call(**bad))
+
+    @pytest.mark.parametrize(
+        "ask_reason",
+        [lambda _args: "", lambda _args: 1 / 0, lambda args: args["missing"]],
+        ids=["empty", "arithmetic-error", "lookup-error"],
+    )
+    def test_a_tool_whose_own_reason_is_empty_or_crashes_still_pauses(
+        self, store, deps_factory, ask_reason
+    ) -> None:
+        # The gate fails closed: an empty reason must not read as "nothing to ask", and a
+        # bug while writing one must neither skip the person nor take the turn down.
+        tool = replace(
+            build_schedule_create_tool(store, "default", (), datetime.now), ask_reason=ask_reason
+        )
+        deps = deps_factory(extra_tools=[tool])
+        c = conv(autonomous=True, auto_approve=(SCHEDULE_CREATE_TOOL_NAME,))
+        assert ask_reason_text(deps, SCHEDULE_CREATE_TOOL_NAME, call().arguments)
+        assert pauses_for_a_person(deps, c, call())
 
     def test_the_reason_is_not_wrapped_in_the_shell_ask_reason_sentence(
         self, store, deps_factory
@@ -155,6 +195,7 @@ class TestApprovalToRun:
 
         [described] = sched.describe()
         assert described["origin"] == "chat"
+        assert [job.id for job in sched.jobs()] == [f"default/{created.id}"]
         assert described["id"] == f"default/{created.id}"
 
         clock[0] = datetime(2026, 9, 30, 7, 0, 5)
@@ -221,6 +262,61 @@ class TestDenialAndLimits:
         assert sorted(outcomes) == ["ok", "rejected"]
         assert store.created_schedules.count("default") == 20
 
+    def test_the_cap_and_the_count_are_per_agent(self, store) -> None:
+        for i in range(20):
+            store.created_schedules.add(row(name=f"n{i}"), cap=20)
+        assert store.created_schedules.count("coach") == 0
+        store.created_schedules.add(row(agent_id="coach"), cap=20)
+        assert store.created_schedules.count("coach") == 1
+
+    def test_a_refused_add_leaves_the_store_writable(self, store) -> None:
+        for i in range(20):
+            store.created_schedules.add(row(name=f"n{i}"), cap=20)
+        with pytest.raises(ScheduleLimitError):
+            store.created_schedules.add(row(name="n20"), cap=20)
+        # The refusal ends its own transaction: one left open would make the next
+        # `BEGIN IMMEDIATE` fail and hold the write lock until something else commits.
+        store.created_schedules.add(row(agent_id="coach"), cap=20)
+        assert store.created_schedules.count("coach") == 1
+
+    def test_rows_come_back_in_the_order_they_were_added(self, store) -> None:
+        # All five land in the same second and their ids are random, so the order
+        # only holds because of the explicit tie-break.
+        names = [f"n{i}" for i in range(5)]
+        for name in names:
+            store.created_schedules.add(row(name=name), cap=20)
+        assert [r.name for r in store.created_schedules.all()] == names
+
+    def test_a_full_agent_is_told_on_the_card_and_still_pauses(self, store, deps_factory) -> None:
+        for i in range(MAX_PER_AGENT):
+            store.created_schedules.add(row(name=f"n{i}"), cap=MAX_PER_AGENT)
+        tool = build_schedule_create_tool(store, "default", (), datetime.now)
+        deps = deps_factory(extra_tools=[tool])
+        c = conv(autonomous=True, auto_approve=(SCHEDULE_CREATE_TOOL_NAME,))
+        # Said before anyone approves, not only in the reply after they have.
+        reason = ask_reason_text(deps, SCHEDULE_CREATE_TOOL_NAME, call().arguments)
+        assert reason == SCHEDULE_LIMIT_REACHED.format(cap=MAX_PER_AGENT)
+        assert pauses_for_a_person(deps, c, call())
+        # Another agent's full list does not stand in for this one's.
+        other = build_schedule_create_tool(store, "coach", (), datetime.now)
+        assert other.ask_reason is not None
+        assert other.ask_reason(call().arguments) != reason
+
+    def test_one_below_the_cap_still_gets_the_full_card(self, store) -> None:
+        for i in range(MAX_PER_AGENT - 1):
+            store.created_schedules.add(row(name=f"n{i}"), cap=MAX_PER_AGENT)
+        tool = build_schedule_create_tool(store, "default", (), datetime.now)
+        assert tool.ask_reason is not None
+        assert tool.ask_reason(call().arguments) != SCHEDULE_LIMIT_REACHED.format(cap=MAX_PER_AGENT)
+
+    async def test_the_tool_answers_the_cap_in_words_and_saves_nothing(self, store) -> None:
+        for i in range(MAX_PER_AGENT):
+            store.created_schedules.add(row(name=f"n{i}"), cap=MAX_PER_AGENT)
+        tool = build_schedule_create_tool(store, "default", (), datetime.now)
+        reply = await tool.run(call().arguments)
+        assert reply == SCHEDULE_LIMIT_REACHED.format(cap=MAX_PER_AGENT)
+        assert store.created_schedules.count("default") == MAX_PER_AGENT
+
 
 class TestOwnershipAndSkills:
     def test_the_tool_has_no_agent_parameter_and_always_uses_the_callers_agent_id(
@@ -228,6 +324,24 @@ class TestOwnershipAndSkills:
     ) -> None:
         tool = build_schedule_create_tool(store, "coach", (), datetime.now)
         assert "agent" not in tool.parameters.get("properties", {})
+
+    def test_run_saves_the_row_under_the_callers_agent_turn_and_skills(self, store) -> None:
+        tool = build_schedule_create_tool(
+            store, "coach", ("real",), lambda: datetime(2026, 9, 30, 6, 0)
+        )
+
+        async def approved_run() -> str:
+            # Set inside the coroutine: `asyncio.run` gives it a copy of the context,
+            # so this turn's id cannot leak into another test.
+            set_turn_conversation("c-turn")
+            return await tool.run(call(skills=["real"], agent="default").arguments)
+
+        reply = asyncio.run(approved_run())
+        [saved] = store.created_schedules.all()
+        assert saved.agent_id == "coach"  # a stray `agent` argument is ignored, not obeyed
+        assert saved.created_by_conversation == "c-turn"
+        assert saved.skills == ("real",)
+        assert reply == SCHEDULE_CREATED.format(name="n", id=saved.id, next_run="30/09 07:00")
 
     async def test_an_unknown_skill_is_rejected_by_run(self, store) -> None:
         tool = build_schedule_create_tool(store, "default", ("real",), datetime.now)
@@ -245,6 +359,30 @@ class TestOwnershipAndSkills:
         schedule = to_schedule(created)
         assert schedule.skills == ("gone",)
         assert schedule.enabled is True
+        assert (schedule.name, schedule.cron, schedule.prompt) == ("n", "0 7 * * *", "p")
+
+
+class TestAssembly:
+    async def test_every_agent_gets_the_tool_bound_to_its_own_id_and_skills(
+        self, tmp_path, store
+    ) -> None:
+        import httpx
+
+        from my_agent_crew.agents.profile import default_profile
+        from my_agent_crew.config import Route, Settings
+        from my_agent_crew.server.tool_assembly import build_tools
+        from my_agent_crew.skills import Skill
+
+        settings = Settings(home=tmp_path / "home", routes=(Route("fake", "echo"),))
+        profile = replace(default_profile(settings), id="coach")
+        skills = [Skill(name="real", description="d", body="b")]
+        async with httpx.AsyncClient() as client:
+            registry = build_tools(profile, client, store, skills)
+        tool = registry.get(SCHEDULE_CREATE_TOOL_NAME)
+        assert tool is not None
+        await tool.run(call(skills=["real"]).arguments)
+        [saved] = store.created_schedules.all()
+        assert (saved.agent_id, saved.skills) == ("coach", ("real",))
 
 
 class TestOrphanRowsAndConcurrentDescribe:
@@ -299,6 +437,11 @@ class TestDeleteRoute:
         assert store.created_schedules.all() == []
         assert store.jobs.enabled(job_id) is None  # cleared, not just overridden back
 
+    def test_delete_with_another_agents_id_removes_nothing(self, store) -> None:
+        created = store.created_schedules.add(row(), cap=20)
+        assert store.created_schedules.remove(created.id, "coach") is False
+        assert [r.id for r in store.created_schedules.all()] == [created.id]
+
     def test_delete_of_an_unknown_id_reports_nothing_removed(self, store) -> None:
         assert store.created_schedules.remove("chat-nope", "default") is False
 
@@ -343,8 +486,12 @@ class TestDeleteRoute:
             assert client.delete("/api/jobs/coach/brief").status_code == 409
 
             created = runtime.store.created_schedules.add(row(agent_id="coach"), cap=20)
-            assert client.delete(f"/api/jobs/coach/{created.id}").status_code == 204
+            job_id = f"coach/{created.id}"
+            runtime.store.jobs.set_enabled(job_id, False, "2026-01-01T00:00:00+00:00")
+            assert client.delete(f"/api/jobs/{job_id}").status_code == 204
             assert runtime.store.created_schedules.all() == []
+            # A pause left behind would silently apply to nothing, and outlive the job.
+            assert runtime.store.jobs.enabled(job_id) is None
 
     def test_delete_removes_an_orphaned_row_whose_agent_is_gone(self, tmp_path) -> None:
         from fastapi.testclient import TestClient
@@ -386,6 +533,7 @@ class TestTelegramCardLength:
             SCHEDULE_CREATE_TOOL_NAME,
             call(prompt=prompt, cron="0 9 3 5 *", skills=["a", "b", "c"]).arguments,
         )
+        assert prompt in reason
         full = texts.REPLY_APPROVAL.format(
             name=SCHEDULE_CREATE_TOOL_NAME, reason=f" ({reason})", how=texts.REPLY_APPROVAL_HOW
         )

@@ -971,48 +971,68 @@ tên một test thì sửa dòng của nó trong cùng commit.
     matches' message off when a title misses but content still hits")
 - **Agent đề xuất lịch chạy qua `schedule_create`, người duyệt nguyên văn prompt**
   - pytest: `tests/test_cron_next_after.py` (`next_after` nhảy so với một bản quét từng phút viết
-    riêng trong test, trên khoảng 30 biểu thức cron × 9 mốc bắt đầu; không có lần chạy nào trong
-    366 ngày trả `None`; ngày-trong-tháng và thứ vẫn là AND qua một ca 29/2 rơi vào thứ Hai; kết
-    quả luôn sau mốc bắt đầu kể cả khi mốc đó đã tròn phút);
-    `tests/test_schedule_words.py` (đọc lịch bằng lời y hệt từng ca của `lib/cron-text.test.ts`:
-    hằng ngày, một khoảng thứ, cuối tuần, một danh sách thứ, ngày-trong-tháng, mỗi phút/giờ và
-    bước `*/N` chia hết chu kỳ; một dạng không nằm trong các ca trên, kể cả bước không chia hết
-    giờ hay ngày, trả về nguyên văn cron hoặc `every`);
-    `tests/test_schedule_proposal.py::TestRejections` (mỗi phút, mỗi 5 phút, cron không có lần
-    chạy trong hạn, `every` dưới 15 phút, thiếu hoặc thừa cả `cron` lẫn `every`, cron sai, prompt
-    hay tên quá dài, skill không có thật đều bị từ chối); `::TestAcceptance` (`*/15`, cron hằng
-    ngày, `every 15m`, cron hằng năm đều được chấp nhận); `::TestUpcoming` (ba lần chạy kế tiếp
-    của cron, dừng sau một lần khi lần đầu đã xa hơn hạn, `every` là "khoảng" `now + k`×chu kỳ);
-    `::TestReasonLine` (`reason_line` mang đủ tên, lịch bằng lời, ba lần chạy, skill, nguyên văn
-    prompt, lời cảnh báo; đề xuất sai vẫn có reason là lời báo lỗi; không bao giờ rỗng và không
-    vượt trần ký tự Telegram dù là cron hằng năm); `test_min_gap_minutes_documented_cases` và
-    `test_min_gap_minutes_is_a_lower_bound_that_only_under_rejects` (khoảng cách hai lần chạy
-    liền nhau của cron là cận dưới, chỉ có thể từ chối thừa);
-    `tests/test_schedule_create.py::TestAlwaysAsks` (`ask_reason` không bao giờ rỗng cho tool
-    này; `needs_decision` vẫn đúng dù cuộc trò chuyện `autonomous`, dù tool nằm trong
-    `auto_approve`; một lượt không người trông vẫn dừng dù mọi cổng khác đã cho qua; đề xuất sai
-    dạng vẫn ra reason không rỗng; reason không bị bọc bởi câu dành cho lệnh shell);
-    `::TestUnattendedProposalExpires` (job prompt tự đề xuất lịch mà không ai duyệt thì approval
-    hết hạn và không để lại dòng DB); `::TestApprovalToRun` (duyệt xong có dòng, `describe()` hiện
-    `origin=chat`, đồng hồ giả tiến tới hạn thì `run_job` chạy mà không cần khởi động lại
-    `Scheduler`; một `Scheduler` mới trên cùng CSDL vẫn thấy dòng đó; tạm dừng qua `job_state`
-    khiến `due` không chọn job chat); `::TestDenialAndLimits` (từ chối thì không có dòng, vượt
-    trần 20 thì lỗi, hai lần `add` chạy đua ở biên trần chỉ một cái qua); `::TestOwnershipAndSkills`
-    (tool không có tham số `agent`, dòng luôn mang `agent_id` của người gọi; skill không có bị từ
-    chối; skill bị xoá sau khi lịch đã tạo không chặn job chạy); `::TestOrphanRowsAndConcurrentDescribe`
-    (dòng của agent đã bị gỡ không xuất hiện trong `describe()`; gọi `describe()` từ thread pool
-    trong lúc luồng khác `add`/`remove` không lỗi và cho kết quả nhất quán); `::TestDeleteRoute`
-    (xoá bỏ đúng dòng `created_schedules` và `job_state`, giữ nguyên lịch sử run; id không có báo
-    không xoá gì; qua HTTP trả 204, 409 cho job `origin=profile`, 404 khi không có; xoá được cả
-    dòng mồ côi); `::TestTelegramCardLength` (thẻ duyệt Telegram mang nguyên văn prompt và không
-    vượt 4096 ký tự kể cả ở ca prompt dài nhất với cron hằng năm);
-    `test_existing_shell_ask_pattern_gate_is_unaffected` (cổng hỏi của lệnh shell hiện có không
-    đổi kết quả sau khi thêm `ask_reason`)
-  - vitest: `components/jobs-panel.test.tsx`
-    ("labels a chat-origin row and leaves a profile row unlabelled",
-    "offers no delete button for a profile job even when onDelete is supplied",
-    "deletes a chat job once the confirm dialog is accepted",
-    "keeps the job when the confirm dialog is declined")
+    riêng trong test, trên khoảng 30 biểu thức cron × 9 mốc bắt đầu; không có lần chạy nào trong 366
+    ngày trả `None`; ngày-trong-tháng và thứ vẫn là AND qua một ca 29/2 rơi vào thứ Hai; kết quả
+    luôn sau mốc bắt đầu kể cả khi mốc đó đã tròn phút); `tests/test_schedule_words.py` (đọc lịch
+    bằng lời y hệt từng ca của `lib/cron-text.test.ts`: hằng ngày, một khoảng thứ, cuối tuần, một
+    danh sách thứ, ngày-trong-tháng, mỗi phút/giờ và bước `*/N` chia hết chu kỳ; một dạng không nằm
+    trong các ca trên, kể cả bước không chia hết giờ hay ngày, trả về nguyên văn cron hoặc `every`);
+    `tests/test_schedule_proposal.py::TestRejections` (mỗi phút, mỗi 5 phút, cron không có lần chạy
+    trong hạn, `every` dưới 15 phút hay dài hơn 366 ngày, một `every` khổng lồ bị từ chối bằng lời
+    thay vì tràn `timedelta`, `every` sai dạng báo lỗi bằng tiếng Việt, thiếu hoặc thừa cả `cron`
+    lẫn `every`, cron sai hay dài quá 100 ký tự, tên hoặc prompt rỗng hay quá dài, `skills` không
+    phải danh sách, skill không có thật đều bị từ chối); `::TestAcceptance` (`*/15`, cron hằng ngày,
+    `every 15m`, `every 30d`, cron hằng năm đều được chấp nhận; một tên skill đứng riêng là một
+    skill chứ không phải từng chữ cái; skill lặp chỉ giữ một, đúng thứ tự; đúng bằng từng giới hạn —
+    cron dài đúng 100 ký tự, `every 366d`, tên 60 và prompt 2000 ký tự — vẫn được chấp nhận);
+    `::TestUpcoming` (ba lần chạy kế tiếp của cron, dừng sau một lần khi lần đầu đã xa hơn hạn,
+    `every` là `now + k`×chu kỳ); `::TestReasonLine` (`reason_line` là đúng từng dòng: tên, lịch
+    bằng lời, ba lần chạy, nguyên văn prompt, lời cảnh báo; thẻ `every` ghi giờ là "khoảng", thẻ
+    cron thì không; cron dài nhất hợp lệ vẫn chỉ liệt kê ba lần chạy; đề xuất sai có reason đúng
+    bằng lời báo lỗi; không bao giờ rỗng và không vượt trần ký tự Telegram dù là cron hằng năm);
+    `test_min_gap_minutes_documented_cases` và
+    `test_min_gap_minutes_is_a_lower_bound_that_only_under_rejects` (khoảng cách hai lần chạy liền
+    nhau của cron là cận dưới, chỉ có thể từ chối thừa);
+    `tests/test_schedule_create.py::TestAlwaysAsks` (`ask_reason` không bao giờ rỗng cho tool này;
+    `needs_decision` vẫn đúng dù cuộc trò chuyện `autonomous`, dù tool nằm trong `auto_approve`; một
+    lượt không người trông vẫn dừng dù mọi cổng khác đã cho qua; đề xuất sai dạng có reason đúng
+    bằng lời báo lỗi, không phải tên tool trơ trọi; những tham số từng làm đổ thẻ — `skills` là số,
+    `every` khổng lồ, tên rỗng — vẫn dừng chờ người kèm reason; một tool trả reason rỗng hoặc lỗi
+    khi dựng reason (lỗi số học hay lỗi tra khoá) vẫn dừng chờ người, không đổ lượt; reason không bị
+    bọc bởi câu dành cho lệnh shell); `::TestUnattendedProposalExpires` (job prompt tự đề xuất lịch
+    mà không ai duyệt thì approval hết hạn và không để lại dòng DB); `::TestApprovalToRun` (duyệt
+    xong có dòng, `describe()` hiện `origin=chat`, đồng hồ giả tiến tới hạn thì `run_job` chạy mà
+    không cần khởi động lại `Scheduler`, `jobs()` cũng có job đó; một `Scheduler` mới trên cùng CSDL
+    vẫn thấy dòng đó; tạm dừng qua `job_state` khiến `due` không chọn job chat);
+    `::TestDenialAndLimits` (từ chối thì không có dòng, vượt trần 20 thì lỗi, hai lần `add` chạy đua
+    ở biên trần chỉ một cái qua; trần và số đếm tính riêng từng agent; bị từ chối ở trần không để
+    transaction treo, CSDL vẫn ghi tiếp được; các dòng trả về đúng thứ tự thêm dù cùng một giây;
+    agent đã đủ trần thì thẻ duyệt báo ngay điều đó mà vẫn dừng chờ người, và trần đã đủ của agent
+    khác không tính; thiếu một lịch mới tới trần vẫn ra thẻ đầy đủ; tool báo đủ trần bằng lời và
+    không lưu gì); `::TestOwnershipAndSkills` (tool không có tham số `agent`, dòng luôn mang
+    `agent_id` của người gọi; skill không có bị từ chối; skill bị xoá sau khi lịch đã tạo không chặn
+    job chạy, dòng chat thành job prompt mang đúng tên, cron, prompt; `run` lưu dòng dưới `agent_id`
+    của người gọi — tham số `agent` lạc bị bỏ qua — đúng cuộc trò chuyện của lượt, đúng skill, và
+    trả lời kèm lần chạy kế tiếp); `::TestAssembly` (agent nào cũng có tool này, gắn đúng id và danh
+    sách skill của chính agent đó); `::TestOrphanRowsAndConcurrentDescribe` (dòng của agent đã bị gỡ
+    không xuất hiện trong `describe()`; gọi `describe()` từ thread pool trong lúc luồng khác
+    `add`/`remove` không lỗi và cho kết quả nhất quán); `::TestDeleteRoute` (xoá bỏ đúng dòng
+    `created_schedules` và `job_state`, giữ nguyên lịch sử run; id không có hay id của agent khác
+    báo không xoá gì; qua HTTP trả 204 và xoá luôn trạng thái tạm dừng của job, 409 cho job
+    `origin=profile`, 404 khi không có; xoá được cả dòng mồ côi); `::TestTelegramCardLength` (thẻ
+    duyệt Telegram mang nguyên văn prompt và không vượt 4096 ký tự kể cả ở ca prompt dài nhất với
+    cron hằng năm); `test_existing_shell_ask_pattern_gate_is_unaffected` (cổng hỏi của lệnh shell
+    hiện có không đổi kết quả sau khi thêm `ask_reason`)
+  - vitest: `components/jobs-panel.test.tsx` ("labels a chat-origin row and leaves a profile row
+    unlabelled", "offers no delete button for a profile job even when onDelete is supplied",
+    "deletes a chat job once the confirm dialog is accepted", "keeps the job when the confirm dialog
+    is declined"); `app.test.tsx` ("withholds always-allow on a proposed schedule / a shell command
+    on the ask list, which stopped for a reason, and shows that reason": thẻ có reason hiện đủ từng
+    dòng reason, có nút Duyệt nhưng không có "Luôn cho phép"; thẻ không reason vẫn có nút đó, theo
+    "always-allows a tool from the approval bar, shows it in the header and revokes it");
+    `app-activity.test.tsx` ("deletes a chat-created job from the jobs tab and keeps the profile
+    one": trên toàn app, nút xoá chỉ có ở job chat, bấm xác nhận thì gửi đúng một DELETE, dòng biến
+    mất, job profile còn nguyên)
   - Playwright: `e2e/manage-smoke.spec.ts`
     "a schedule is added from the jobs list through the agent's editor" (không đổi assertion,
     chỉ sửa `e2e/mock-api.ts` để một spec giữ tham chiếu tới cùng mảng `jobs` nó truyền vào
