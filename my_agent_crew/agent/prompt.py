@@ -17,6 +17,7 @@ from my_agent_crew.config import Settings
 from my_agent_crew.llm.types import Message
 from my_agent_crew.skills import Skill
 from my_agent_crew.store import Conversation, StoredMessage
+from my_agent_crew.tools.output_spill import READ_TOOL
 
 if TYPE_CHECKING:
     from my_agent_crew.agent.loop import AgentDeps
@@ -145,4 +146,5 @@ def turn_messages(
     """The exact message list one model call is given: the system frame this module
     builds, then the conversation so far with old tool output trimmed out."""
     system = Message(role="system", content=system_prompt_for(deps, conv))
-    return [system, *trim_tool_outputs([m.message for m in history])]
+    can_reread = deps.tools.get(READ_TOOL) is not None
+    return [system, *trim_tool_outputs([m.message for m in history], can_reread=can_reread)]

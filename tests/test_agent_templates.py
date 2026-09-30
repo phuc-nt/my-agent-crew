@@ -201,3 +201,28 @@ def test_a_pinned_workspace_reaches_the_lead_and_every_peer_it_brings(tmp_path):
         text = (directory / MANIFEST).read_text(encoding="utf-8")
         assert f"workspace: {repo.resolve()}" in text, directory.name
         assert "# The crew shares one set of skills" in text  # comments survive the rewrite
+
+
+def test_every_tool_a_template_lists_is_a_real_tool(tmp_path):
+    """A name that no tool answers to is dropped with a warning at startup, so the role
+    silently loses a capability. Installing every template and comparing catches it here."""
+    add_template(LEAD, tmp_path)  # brings the peers it delegates to
+    env = {"MY_AGENT_HOME": str(tmp_path), "MY_AGENT_ROUTES": "fake:echo"}
+
+    rt = build_runtime(load_settings(env=env))
+
+    for agent_id in EXPECTED:
+        deps = rt.deps_for(agent_id)
+        assert set(deps.agent.tools) <= set(deps.tools.names()), agent_id
+
+
+def test_the_counsel_and_the_researcher_can_read_a_long_output_back(tmp_path):
+    for template in ("kongming", "researcher"):
+        add_template(template, tmp_path)
+    env = {"MY_AGENT_HOME": str(tmp_path), "MY_AGENT_ROUTES": "fake:echo"}
+
+    rt = build_runtime(load_settings(env=env))
+
+    for agent_id in ("kongming", "researcher"):
+        assert "tool_output_read" in rt.deps_for(agent_id).tools.names(), agent_id
+        assert rt.deps_for(agent_id).tools.spill is not None, agent_id

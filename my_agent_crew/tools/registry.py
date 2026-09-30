@@ -11,10 +11,12 @@ from typing import TYPE_CHECKING, Any
 from my_agent_crew.config import DEFAULT_TOOL_OUTPUT_CHARS
 from my_agent_crew.llm.types import ToolSpec
 from my_agent_crew.texts import TOOL_BLOCKED_BY_HOOK, TOOL_FAILED, UNKNOWN_TOOL
-from my_agent_crew.tools.output_shaping import cut, shape_output_async
+from my_agent_crew.tools.output_shaping import cut
+from my_agent_crew.tools.output_spill import shape_with_spill
 
 if TYPE_CHECKING:
     from my_agent_crew.tools.hooks import HookRunner
+    from my_agent_crew.tools.output_spill import Spill
     from my_agent_crew.tools.output_summary import Summariser
 
 logger = logging.getLogger(__name__)
@@ -107,15 +109,19 @@ class ToolRegistry:
         limit: int = MAX_OUTPUT_CHARS,
         hooks: HookRunner | None = None,
         summariser: Summariser | None = None,
+        spill: Spill | None = None,
     ):
         # The cap is per registry, so an agent whose scripts print long JSON can raise it
         # in its profile without every other agent paying the context for it. The hooks
         # are the agent's kit hooks, asked before and after every call. The summariser,
         # when one is wired in, rewrites the middle of an over-cap text output instead of
-        # dropping it; without one the output is simply cut, as it always was.
+        # dropping it; without one the output is simply cut, as it always was. The spill,
+        # when wired in, keeps the true original of a cut output on disk so the model can
+        # ask for it back instead of losing it for good.
         self.limit = limit
         self.hooks = hooks
         self.summariser = summariser
+        self.spill = spill
         self._tools: dict[str, Tool] = {}
         for tool in tools or []:
             self.register(tool)
@@ -135,7 +141,7 @@ class ToolRegistry:
         """A copy missing one tool. How a delegated agent is handed the same toolbox minus
         `delegate`, so the chain stops one level down."""
         kept = [t for t in self._tools.values() if t.name != name]
-        return ToolRegistry(kept, self.limit, self.hooks, self.summariser)
+        return ToolRegistry(kept, self.limit, self.hooks, self.summariser, self.spill)
 
     def specs(self) -> list[ToolSpec]:
         return [t.spec for t in self._tools.values()]
@@ -168,7 +174,7 @@ class ToolRegistry:
             logger.exception("tool %s crashed", name)
             return ToolResult(ok=False, output=TOOL_FAILED.format(error=type(exc).__name__))
         text = output.output if isinstance(output, ToolResult) else output
-        shaped = await shape_output_async(text, self.limit, self.summariser)
+        shaped = await shape_with_spill(self.spill, name, text, self.limit, self.summariser)
         if isinstance(output, ToolResult):
             return replace(
                 output,

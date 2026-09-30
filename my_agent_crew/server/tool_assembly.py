@@ -21,6 +21,8 @@ from my_agent_crew.tools.hooks import HookRunner
 from my_agent_crew.tools.image import build_image_tool
 from my_agent_crew.tools.memory import build_memory_tools
 from my_agent_crew.tools.memory_user import build_user_memory_tools
+from my_agent_crew.tools.output_read import build_output_read_tool
+from my_agent_crew.tools.output_spill import READ_TOOL, Spill
 from my_agent_crew.tools.output_summary import chain_summariser
 from my_agent_crew.tools.pdf import build_pdf_tool
 from my_agent_crew.tools.progress_note import build_progress_note_tool
@@ -119,9 +121,16 @@ def build_tools(
         # The crew home is a root too, so a delegate can read the master's inbox.
         tools.append(build_image_tool((profile.workspace, profile.settings.home), pictures))
     tools += list(extra)
+    # Rereading is a capability like any other: listed in `tools`, or everything is allowed.
+    # The spill file and the pointer to it exist only for an agent that can follow the
+    # pointer, so a narrowed agent without it behaves exactly as before.
+    spill = Spill(profile.settings.home)
+    limit = profile.settings.tool_output_chars
+    tools.append(build_output_read_tool(store, spill, limit))
     kept = allowed(tools, profile.tools, profile.id)
+    can_reread = any(tool.name == READ_TOOL for tool in kept)
     hooks = HookRunner(profile.hooks, profile.id) if profile.hooks else None
     summariser = None
     if chain is not None:
         summariser = chain_summariser(MeteredChain(chain, store, profile.id, "tool_summary"))
-    return ToolRegistry(kept, profile.settings.tool_output_chars, hooks, summariser)
+    return ToolRegistry(kept, limit, hooks, summariser, spill if can_reread else None)

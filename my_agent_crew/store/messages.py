@@ -93,6 +93,18 @@ class MessageStore:
             rows = self._conn.execute(_OF_RUN, params).fetchall()
         return [StoredMessage.from_row(r) for r in rows]
 
+    def tool_results(self, conv_id: str, tool_call_id: str, limit: int = 2) -> list[StoredMessage]:
+        """The tool messages a call id produced in this conversation, oldest first. More
+        than one row means the id was reused for two different calls (see openai_compat's
+        uuid fix): the caller decides what to do with that, this just reports what exists."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM messages WHERE conversation_id = ? AND role = 'tool'"
+                " AND tool_call_id = ? ORDER BY seq LIMIT ?",
+                (conv_id, tool_call_id, limit),
+            ).fetchall()
+        return [StoredMessage.from_row(r) for r in rows]
+
     def stamped_between(self, conv_id: str, start: str, end: str | None) -> list[StoredMessage]:
         """Messages written from `start` to `end`, both included; no `end` means up to now."""
         with self._lock:

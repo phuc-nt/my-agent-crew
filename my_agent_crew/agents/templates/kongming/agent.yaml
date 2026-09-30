@@ -13,6 +13,7 @@ tools:
   - fetch_url
   - pdf_read
   - skill_read
+  - tool_output_read
 # The crew works in the master agent's workspace by default; `agent add --workspace` or
 # the install API pins a repository here instead.
 workspace: ../../workspace

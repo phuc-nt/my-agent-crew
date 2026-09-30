@@ -13,6 +13,7 @@ from my_agent_crew.texts_kit import *  # noqa: F403
 from my_agent_crew.texts_queue import *  # noqa: F403
 from my_agent_crew.texts_search import *  # noqa: F403
 from my_agent_crew.texts_telegram import *  # noqa: F403
+from my_agent_crew.texts_tool_output import *  # noqa: F403
 from my_agent_crew.texts_trajectory import *  # noqa: F403
 from my_agent_crew.texts_web import *  # noqa: F403
 from my_agent_crew.texts_workspace import *  # noqa: F403
@@ -59,6 +60,11 @@ GLOB_PARAM_PATTERN = "Mẫu tên tệp, ví dụ **/*.py."
 GLOB_NO_MATCH = "Không có tệp nào khớp."
 
 TOOL_OUTPUT_TRIMMED = "[kết quả cũ đã lược, {chars} ký tự — gọi lại công cụ nếu còn cần]"
+# Same trim, but the agent has tool_output_read: naming the id it needs is cheaper than a
+# repeat of the whole original call, and rereading is safe when the call had side effects.
+TOOL_OUTPUT_TRIMMED_REREAD = (
+    "[kết quả cũ đã lược, {chars} ký tự — đọc lại bằng tool_output_read id={id} nếu còn cần]"
+)
 
 MEMORY_SAVED = "Đã ghi nhớ ({count} ghi chú)."
 MEMORY_EMPTY = "Không có ghi chú nào khớp."

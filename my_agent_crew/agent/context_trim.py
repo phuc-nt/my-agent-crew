@@ -28,12 +28,23 @@ MIN_TRIM_CHARS = 200
 PINNED_TOOLS = frozenset({"delegate"})
 
 
-def trim_tool_outputs(messages: Sequence[Message], keep: int = KEEP_TOOL_OUTPUTS) -> list[Message]:
+def _stub(message: Message, can_reread: bool) -> str:
+    if can_reread and message.tool_call_id:
+        return texts.TOOL_OUTPUT_TRIMMED_REREAD.format(
+            chars=len(message.content), id=message.tool_call_id
+        )
+    return texts.TOOL_OUTPUT_TRIMMED.format(chars=len(message.content))
+
+
+def trim_tool_outputs(
+    messages: Sequence[Message], keep: int = KEEP_TOOL_OUTPUTS, can_reread: bool = False
+) -> list[Message]:
     """The same messages, with tool results older than the last `keep` replaced by a
     one-line stub naming their size so the model can fetch them again if it needs to.
     Once there are more than `keep`, whole blocks of the oldest are stubbed, so the set of
     stubs only changes every `TRIM_BLOCK` results. Results of `PINNED_TOOLS` stay in full
-    however old they are."""
+    however old they are. `can_reread` is true for an agent that has `tool_output_read`: its
+    stubs name the call id to read the result back with, instead of asking for a repeat."""
     indexes = [i for i, m in enumerate(messages) if m.role == "tool" and m.name not in PINNED_TOOLS]
     if len(indexes) <= keep:
         return list(messages)
@@ -42,8 +53,7 @@ def trim_tool_outputs(messages: Sequence[Message], keep: int = KEEP_TOOL_OUTPUTS
     out: list[Message] = []
     for index, message in enumerate(messages):
         if index in stale and len(message.content) > MIN_TRIM_CHARS:
-            stub = texts.TOOL_OUTPUT_TRIMMED.format(chars=len(message.content))
-            out.append(replace(message, content=stub))
+            out.append(replace(message, content=_stub(message, can_reread)))
         else:
             out.append(message)
     return out

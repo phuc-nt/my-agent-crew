@@ -60,6 +60,36 @@ def test_a_small_tool_result_is_left_alone_because_the_stub_would_not_be_shorter
     assert trim_tool_outputs(messages) == messages
 
 
+def test_a_stub_names_the_id_to_reread_only_for_an_agent_that_can_reread():
+    messages = [tool_message(i) for i in range(KEEP_TOOL_OUTPUTS + 1)]
+
+    plain = trim_tool_outputs(messages)[0].content
+    rereadable = trim_tool_outputs(messages, can_reread=True)[0].content
+
+    assert "tool_output_read" not in plain and "call-0" not in plain
+    assert "tool_output_read id=call-0" in rereadable and "500 ký tự" in rereadable
+    assert trim_tool_outputs(messages, can_reread=False) == trim_tool_outputs(messages)
+
+
+def test_rereading_changes_only_the_wording_of_the_stubs():
+    messages = [tool_message(i) for i in range(KEEP_TOOL_OUTPUTS + 5)]
+
+    plain = trim_tool_outputs(messages)
+    rereadable = trim_tool_outputs(messages, can_reread=True)
+
+    assert [m.tool_call_id for m in plain] == [m.tool_call_id for m in rereadable]
+    assert plain[TRIM_BLOCK:] == rereadable[TRIM_BLOCK:] == messages[TRIM_BLOCK:]
+
+
+def test_a_stub_for_a_call_with_no_id_falls_back_to_the_plain_wording():
+    messages = [
+        Message(role="tool", content="x" * 500, name="workspace_read")
+        for _ in range(KEEP_TOOL_OUTPUTS + 1)
+    ]
+
+    assert "tool_output_read" not in trim_tool_outputs(messages, can_reread=True)[0].content
+
+
 def test_a_delegate_result_stays_in_full_however_old_it_is():
     """The master asks Pong, then the coach, then comes back to Pong's topic: the answer
     Pong gave is what the master needs, and it must not have turned into a stub."""
