@@ -83,7 +83,7 @@ def test_backfill_indexes_messages_written_before_the_table_existed(tmp_path: Pa
     store = Store(db_path)
     conv = store.create()
     store.append(conv.id, user("tin cũ một"))
-    store.append(conv.id, assistant("tin cũ hai"))
+    store.append(conv.id, assistant("tin cũ hai, đọc lại"))
     store.append(conv.id, tool("tin tool không tính"))
     store._conn.execute("DROP TRIGGER messages_fts_ai")
     store._conn.execute("DROP TRIGGER messages_fts_ad")
@@ -94,6 +94,9 @@ def test_backfill_indexes_messages_written_before_the_table_existed(tmp_path: Pa
     reopened = Store(db_path)
 
     assert len(indexed_rowids(reopened._conn)) == 2
+    # Backfilled rows get the same đ→d fold as the insert trigger, so an existing message
+    # is as reachable without accents as one written after the index existed.
+    assert [h.snippet for h in reopened.search.find("doc")] == ["tin cũ hai, đọc lại"]
 
 
 def test_reopening_a_database_twice_does_not_duplicate_the_index(tmp_path: Path) -> None:

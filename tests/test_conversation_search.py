@@ -82,6 +82,10 @@ def test_snippet_falls_back_to_the_start_when_folding_changes_the_length() -> No
     # the other.
     mismatched = "sáng"
     assert snippet(mismatched, ["sang"], width=1) == mismatched[0] + "…"
+    # A term far from the start tells the fallback apart from trusting the drifted offset,
+    # which would centre the cut on the wrong characters instead of starting at 0.
+    drifted = "sa\u0301ng " + "x" * 10 + " doc"
+    assert snippet(drifted, ["doc"], width=3) == drifted[:3] + "…"
 
 
 @pytest.mark.parametrize("query", ['"*()', "()", "*", "", 'a"b', "x*y", "AND", "NEAR("])
@@ -238,11 +242,15 @@ async def test_the_running_conversation_is_excluded_from_its_own_search(populate
         set_turn_conversation("")
 
 
-async def test_a_badly_formatted_since_is_a_tool_error(populated: Store) -> None:
+# "20260930" parses with `date.fromisoformat` yet compares below every stored
+# "2026-09-30T…" timestamp, so only the explicit pattern keeps it from silently
+# filtering out everything.
+@pytest.mark.parametrize("since", ["30/09/2026", "20260930"])
+async def test_a_badly_formatted_since_is_a_tool_error(populated: Store, since: str) -> None:
     tool = build_conversation_search_tool(populated, "default", is_master=True)
     reg = ToolRegistry([tool])
 
-    result = await reg.execute("conversation_search", {"query": "tìm được", "since": "30/09/2026"})
+    result = await reg.execute("conversation_search", {"query": "tìm được", "since": since})
 
     assert result.ok is False
     assert texts.CONVERSATION_SEARCH_BAD_SINCE in result.output
