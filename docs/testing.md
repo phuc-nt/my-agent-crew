@@ -969,3 +969,47 @@ tên một test thì sửa dòng của nó trong cùng commit.
     ("shows a 'Trong nội dung' section once the debounced content search answers", "never
     calls the content search API without an agentName", "keeps the row list's own 'no
     matches' message off when a title misses but content still hits")
+- **Agent đề xuất lịch chạy qua `schedule_create`, người duyệt nguyên văn prompt**
+  - pytest: `tests/test_cron_next_after.py` (`next_after` nhảy so với một bản quét từng phút viết
+    riêng trong test, trên khoảng 30 biểu thức cron × 9 mốc bắt đầu; không có lần chạy nào trong
+    366 ngày trả `None`; ngày-trong-tháng và thứ vẫn là AND qua một ca 29/2 rơi vào thứ Hai; kết
+    quả luôn sau mốc bắt đầu kể cả khi mốc đó đã tròn phút);
+    `tests/test_schedule_proposal.py::TestRejections` (mỗi phút, mỗi 5 phút, cron không có lần
+    chạy trong hạn, `every` dưới 15 phút, thiếu hoặc thừa cả `cron` lẫn `every`, cron sai, prompt
+    hay tên quá dài, skill không có thật đều bị từ chối); `::TestAcceptance` (`*/15`, cron hằng
+    ngày, `every 15m`, cron hằng năm đều được chấp nhận); `::TestUpcoming` (ba lần chạy kế tiếp
+    của cron, dừng sau một lần khi lần đầu đã xa hơn hạn, `every` là "khoảng" `now + k`×chu kỳ);
+    `::TestReasonLine` (`reason_line` mang đủ tên, lịch bằng lời, ba lần chạy, skill, nguyên văn
+    prompt, lời cảnh báo; đề xuất sai vẫn có reason là lời báo lỗi; không bao giờ rỗng và không
+    vượt trần ký tự Telegram dù là cron hằng năm); `test_min_gap_minutes_documented_cases` và
+    `test_min_gap_minutes_is_a_lower_bound_that_only_under_rejects` (khoảng cách hai lần chạy
+    liền nhau của cron là cận dưới, chỉ có thể từ chối thừa);
+    `tests/test_schedule_create.py::TestAlwaysAsks` (`ask_reason` không bao giờ rỗng cho tool
+    này; `needs_decision` vẫn đúng dù cuộc trò chuyện `autonomous`, dù tool nằm trong
+    `auto_approve`; một lượt không người trông vẫn dừng dù mọi cổng khác đã cho qua; đề xuất sai
+    dạng vẫn ra reason không rỗng; reason không bị bọc bởi câu dành cho lệnh shell);
+    `::TestUnattendedProposalExpires` (job prompt tự đề xuất lịch mà không ai duyệt thì approval
+    hết hạn và không để lại dòng DB); `::TestApprovalToRun` (duyệt xong có dòng, `describe()` hiện
+    `origin=chat`, đồng hồ giả tiến tới hạn thì `run_job` chạy mà không cần khởi động lại
+    `Scheduler`; một `Scheduler` mới trên cùng CSDL vẫn thấy dòng đó; tạm dừng qua `job_state`
+    khiến `due` không chọn job chat); `::TestDenialAndLimits` (từ chối thì không có dòng, vượt
+    trần 20 thì lỗi, hai lần `add` chạy đua ở biên trần chỉ một cái qua); `::TestOwnershipAndSkills`
+    (tool không có tham số `agent`, dòng luôn mang `agent_id` của người gọi; skill không có bị từ
+    chối; skill bị xoá sau khi lịch đã tạo không chặn job chạy); `::TestOrphanRowsAndConcurrentDescribe`
+    (dòng của agent đã bị gỡ không xuất hiện trong `describe()`; gọi `describe()` từ thread pool
+    trong lúc luồng khác `add`/`remove` không lỗi và cho kết quả nhất quán); `::TestDeleteRoute`
+    (xoá bỏ đúng dòng `created_schedules` và `job_state`, giữ nguyên lịch sử run; id không có báo
+    không xoá gì; qua HTTP trả 204, 409 cho job `origin=profile`, 404 khi không có; xoá được cả
+    dòng mồ côi); `::TestTelegramCardLength` (thẻ duyệt Telegram mang nguyên văn prompt và không
+    vượt 4096 ký tự kể cả ở ca prompt dài nhất với cron hằng năm);
+    `test_existing_shell_ask_pattern_gate_is_unaffected` (cổng hỏi của lệnh shell hiện có không
+    đổi kết quả sau khi thêm `ask_reason`)
+  - vitest: `components/jobs-panel.test.tsx`
+    ("labels a chat-origin row and leaves a profile row unlabelled",
+    "offers no delete button for a profile job even when onDelete is supplied",
+    "deletes a chat job once the confirm dialog is accepted",
+    "keeps the job when the confirm dialog is declined")
+  - Playwright: `e2e/manage-smoke.spec.ts`
+    "a schedule is added from the jobs list through the agent's editor" (không đổi assertion,
+    chỉ sửa `e2e/mock-api.ts` để một spec giữ tham chiếu tới cùng mảng `jobs` nó truyền vào
+    `mockApi` thấy được cả việc thêm bằng `push` lẫn việc xoá qua route DELETE mới)

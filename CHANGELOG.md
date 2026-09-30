@@ -137,6 +137,20 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   sidebar's own search box, once it is showing, now searches message content the same way and
   lists "Trong nội dung" hits below the title matches, each naming the agent it came from and
   opening straight into that conversation on a click, over a new `GET /api/messages/search`.
+- A new `schedule_create` tool lets an agent propose a recurring job itself instead of waiting
+  for `agent.yaml` to be hand-edited: a name, a prompt, exactly one of `cron` or `every`, and an
+  optional list of skills. It always stops for a person, even in an `autonomous` conversation,
+  even when the tool sits in `auto_approve`, even when it sits in the agent's own allow list —
+  no setting in `agent.yaml` or `config.yaml` can wave this one through, because approving it
+  means handing the agent an unattended future turn. The approval card spells the schedule out in
+  words ("07:00 hằng ngày"), lists the next three times it would run, and shows the verbatim
+  prompt that will run every time after that; its "always allow" button is hidden, since there is
+  nothing left for it to widen. A proposal outside the limits — under 15 minutes apart, no run
+  within the next year, a prompt or name over the length cap, an unknown skill, more than 20 such
+  schedules already on the agent — still produces an honest card whose reason is the validation
+  error itself. Once approved, the schedule runs without a server restart and survives the next
+  one; the jobs tab labels it "tạo từ chat" beside the ones written by hand and offers a delete
+  button only for this kind, since a hand-written one needs its file edited instead.
 
 ### Changed
 
@@ -194,6 +208,9 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   that message. It is closed before the message: with the decision taken on it when there was
   one, otherwise with a note that it was interrupted and may or may not have run, so the model
   checks before trying again. A call still waiting on a person is left open.
+- Finding a cron schedule's next run no longer walks the calendar minute by minute: it jumps to
+  the next day, hour or minute that can match instead, so a yearly schedule whose next run is
+  months away resolves in a handful of steps rather than several hundred thousand.
 
 ### Upgrade notes
 
@@ -205,6 +222,8 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   no FTS5 module stops at startup with a message saying so.
 - The `conversations.forked_from` and `memory_proposals.reasons` columns are added on start,
   empty for existing rows.
+- The database gains a `created_schedules` table, created on start, holding the schedules an
+  agent proposed through `schedule_create` and a person approved.
 
 ## [0.9.2] — 2026-09-28
 

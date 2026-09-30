@@ -69,7 +69,7 @@ dừng, lỗi, đổi tuyến). Cùng một chuỗi vừa là SSE cho web, vừa
 | Trí nhớ agent | `GET/PUT /api/agents/{id}/memory`, `GET/PUT …/memory/notes/{day}`, `POST …/memory/consolidate` |
 | Wiki | `GET /api/agents/{id}/memory/wiki`, `GET/PUT/DELETE …/wiki/pages/{slug}`, `GET …/wiki/report`, `POST …/wiki/compile` |
 | Trí nhớ người dùng | `GET/PUT /api/memory/user`, `…/user/facts/{name}`, `GET /api/memory/proposals[/{id}]`, `GET /api/memory/search` |
-| Job | `GET /api/jobs`, `GET …/{id}/runs`, `PATCH …/{id}/state` (tạm dừng/chạy lại), `POST …/{id}/run` |
+| Job | `GET /api/jobs`, `GET …/{id}/runs`, `PATCH …/{id}/state` (tạm dừng/chạy lại), `POST …/{id}/run`, `DELETE …/{id}` (chỉ job `origin: "chat"`, tạo qua `schedule_create`) |
 | Cài đặt | `GET /api/settings` |
 
 Mọi đường không phải `/api/*` trả SPA. Web định tuyến bằng hash, nên một lượt chạy có đường

@@ -252,6 +252,35 @@ trong database, sống qua restart và chỉ áp dụng với lịch
 mà profile bật — lịch tắt trong yaml được báo là `enabled: false, paused: false` và
 không bật được từ UI. `GET /api/jobs/{id}/runs` liệt kê các run đã qua của job đó.
 
+**Lịch từ chat.** Bên cạnh lịch viết tay trong `agent.yaml`, tool `schedule_create`
+(`origin: "chat"` trên job, đối lập `origin: "profile"`) cho agent tự đề xuất một job prompt
+lặp lại; chi tiết tool ở [tools.md](tools.md#đề-xuất-lịch-chạy). Lịch loại này sống trong
+bảng `created_schedules`, không phải `agent.yaml`, vì yaml thuộc home mà phiên khác quản lý và
+đổi yaml cần restart — id có tiền tố `chat-` nên không bao giờ trùng id viết tay. `Scheduler`
+không giữ một bảng job trong bộ nhớ cho nguồn này; nó dựng lại `{job từ profile} ∪ chat_jobs(DB)`
+mỗi lần `jobs()`, `describe()`, `due()` hay `get()` cần, vì bảng trong bộ nhớ phải được cập
+nhật cả từ tool (chạy trước khi `Runtime`/`Scheduler` tồn tại) lẫn từ route job (đồng bộ, chạy
+trong thread pool) trong khi `tick` chạy trong event loop — hai luồng cùng sửa một cấu trúc tại
+chỗ là đua dữ liệu, còn dựng lại từ DB mỗi lần thì không. Hệ quả: mốc "lần cuối" của một lịch
+mới là lúc scheduler thấy nó lần đầu, nên lần chạy rơi vào khoảng 20 giây đầu (một nhịp tick)
+có thể bị lỡ; khởi động lại không làm mất lịch vì mọi thứ đã ở DB. Xoá qua
+`DELETE /api/jobs/{id:path}` bỏ dòng `created_schedules` và `job_state` liên quan, giữ nguyên
+lịch sử run, và không đi qua `Scheduler` để dòng mồ côi (agent gọi nó đã bị gỡ) vẫn xoá được;
+xoá một job có nguồn `profile` bị từ chối với 409, vì nó cần sửa yaml và restart thay vì xoá.
+
+**Duyệt luôn luôn cho lịch chạy.** Tạo một lịch nghĩa là agent tự cho mình một lượt chạy
+trong tương lai không ai trông chừng — đúng loại việc mà duyệt tồn tại để chặn — nên
+`schedule_create` phải dừng chờ người ngay cả khi mọi cơ chế miễn duyệt khác đều cho qua:
+cuộc trò chuyện `autonomous`, tool nằm trong `auto_approve`, hay tool nằm trong allow-list của
+agent. `Tool` có trường `ask_reason: Callable[[dict], str] | None`; khi khác `None`,
+`tool_gate.ask_reason_for`/`ask_reason_text` trả nguyên văn kết quả của nó trước khi xét tới
+allow-list, autonomy hay `auto_approve`, và luật 2 của `needs_decision`
+(`if reason: return True`) khi đó luôn đúng. Không có hằng số kiểu `ALWAYS_ASK`, không import
+`scheduler` vào `agent/tool_gate.py`, và không công tắc nào trong `agent.yaml` hay
+`config.yaml` tắt được luật này — nó chỉ đổi được bằng cách sửa code. Vì thẻ duyệt là nơi
+duy nhất người đọc nguyên văn prompt trước khi nó chạy nhiều lần sau này mà không ai hỏi lại
+từng bước, nút "Luôn cho phép" bị ẩn trên một thẻ có `reason`.
+
 ## Kênh
 
 `channels/` cho người dùng nói chuyện với đội trên thứ khác ngoài web UI. Hiện nay

@@ -90,6 +90,7 @@ Gói `tools/` giữ danh sách tool mà agent được dùng (`tools:` trong `ag
 | Workspace | `workspace_list`, `workspace_read`, `workspace_glob`, `workspace_grep` | không |
 | Workspace | `workspace_write`, `workspace_edit` | có |
 | Shell | `shell_run` (cwd = workspace, có `shell_ask_patterns` và `shell_deny_patterns`; `shell_network: false` hoặc `shell_write_paths` thì chạy trong `sandbox-exec`, chỉ ghi dưới các đường dẫn đó, không mạng nếu `shell_network: false`) | có |
+| Lịch | `schedule_create` (đề xuất một job prompt lặp lại) | **luôn luôn**, không cấu hình nào tắt được |
 | Web | `fetch_url`, `web_search` | không |
 | Trí nhớ | `memory_save`, `memory_search`, `user_memory_save`, `user_memory_forget`, `wiki_get`, `wiki_search`, `wiki_apply` | không |
 | Đội | `delegate` | không |
@@ -104,7 +105,7 @@ Gói `llm/` nói chuyện với OpenRouter (và Ollama) và bọc thành một c
 
 ### 2.6 Scheduler
 
-`scheduler/` đọc `schedules:` của mọi agent, mỗi phút kiểm tra cron, đến hạn thì tạo một job run: một cuộc trò chuyện autonomous với prompt (hoặc lệnh kit) định sẵn. Trạng thái job lưu ở bảng `job_state`, xem ở `/api/jobs`.
+`scheduler/` đọc `schedules:` của mọi agent, mỗi phút kiểm tra cron, đến hạn thì tạo một job run: một cuộc trò chuyện autonomous với prompt (hoặc lệnh kit) định sẵn. Trạng thái job lưu ở bảng `job_state`, xem ở `/api/jobs`. Ngoài `agent.yaml`, một job có thể tới từ bảng `created_schedules` — agent tự đề xuất qua tool `schedule_create`, người duyệt nguyên văn prompt, rồi job chạy ngay không cần khởi động lại (`origin: "chat"` trên job, đối lập `origin: "profile"`); xem [design.md](design.md#scheduler) và [tools.md](tools.md#đề-xuất-lịch-chạy).
 
 ### 2.7 Home: agent là tệp
 
