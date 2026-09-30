@@ -132,6 +132,19 @@ async def test_resuming_the_same_call_reuses_the_child_it_already_opened(runtime
     assert len(runtime.store.history(child.id)) == turns_before
 
 
+async def test_another_parents_child_with_the_same_call_id_is_not_reused(runtime: Runtime):
+    """Two parents whose calls happen to share an id each get their own child and their
+    own answer; the lookup is scoped to the parent that asked."""
+    other = runtime.store.create(agent_id="boss", autonomous=True)
+    parent = runtime.store.create(agent_id="boss", autonomous=True)
+    await delegate(runtime, other.id, "call-1", task="việc của người khác", agent="worker")
+
+    out = await delegate(runtime, parent.id, "call-1", task="việc của tôi", agent="worker")
+
+    assert len(runtime.store.children_of(("call-1",))) == 2
+    assert "việc của tôi" in out and "việc của người khác" not in out
+
+
 async def test_one_conversation_may_only_delegate_so_many_times(runtime: Runtime):
     parent = runtime.store.create(agent_id="boss", autonomous=True)
     calls = []

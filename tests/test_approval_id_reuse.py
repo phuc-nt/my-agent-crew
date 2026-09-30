@@ -18,7 +18,8 @@ from tests.conftest import collect
 
 WRITE = ToolCall("c1", "workspace_write", {"path": "out.txt", "content": "một"})
 OTHER_WRITE = ToolCall("c1", "workspace_write", {"path": "out.txt", "content": "khác"})
-SPY_CALL = ToolCall("c1", "spy", {})
+# Same arguments as WRITE, so only the tool name tells the two calls apart.
+SPY_CALL = ToolCall("c1", "spy", dict(WRITE.arguments))
 
 
 def _spy_tool(seen: list[str]) -> Tool:

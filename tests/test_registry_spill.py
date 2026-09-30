@@ -120,6 +120,38 @@ async def test_tool_output_reads_own_output_is_never_spilled_even_with_a_tiny_ca
     assert spill.read("conv1", "call1") is None
 
 
+async def test_tool_output_reads_own_output_is_never_spilled_even_with_a_roomy_cap(
+    spill: Spill,
+):
+    """A cap wide enough for a pointer line, so only the read tool's own exemption keeps
+    its reply from spilling."""
+
+    async def big(args: dict) -> str:
+        return "x" * 20000
+
+    reg = ToolRegistry([tool(name=READ_TOOL, run=big)], limit=1000, spill=spill)
+    result = await reg.execute(READ_TOOL, {})
+
+    assert len(result.output) <= 1000
+    assert "tool_output_read id=" not in result.output
+    assert spill.read("conv1", "call1") is None
+
+
+async def test_a_cap_too_narrow_for_a_pointer_line_shapes_without_spilling(spill: Spill):
+    """A pointer line would eat most of a 100-character cap, leaving the model a pointer
+    and next to nothing of the output itself; the ordinary shaping is more use."""
+
+    async def big(args: dict) -> str:
+        return "x" * 20000
+
+    reg = ToolRegistry([tool(run=big)], limit=100, spill=spill)
+    result = await reg.execute("t", {})
+
+    assert len(result.output) <= 100
+    assert "tool_output_read id=" not in result.output
+    assert spill.read("conv1", "call1") is None
+
+
 async def test_missing_turn_context_never_spills_even_with_a_configured_spill(spill: Spill):
     """A tool call outside a real turn — a direct registry call in a script, say — has no
     conversation or call id to spill under; spilling must not be attempted in that case."""

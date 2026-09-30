@@ -103,6 +103,24 @@ async def test_an_offset_past_the_end_returns_an_empty_segment_marked_finished(
     out = await _read(store, spill)({"id": "c1", "offset": 999})
 
     assert out.endswith(texts.TOOL_OUTPUT_READ_DONE) and "ngắn" not in out
+    assert out.startswith(
+        texts.TOOL_OUTPUT_READ_HEADER.format(
+            source=texts.TOOL_OUTPUT_SOURCE_STORED, offset=4, end=4, total=4
+        )
+    )
+
+
+async def test_a_negative_offset_reads_from_the_start(store: Store, spill: Spill):
+    conv = store.create()
+    store.append(conv.id, _result("c1", "ngắn"))
+    set_turn_conversation(conv.id)
+
+    out = await _read(store, spill)({"id": "c1", "offset": -3})
+
+    header = texts.TOOL_OUTPUT_READ_HEADER.format(
+        source=texts.TOOL_OUTPUT_SOURCE_STORED, offset=0, end=4, total=4
+    )
+    assert out == header + "ngắn" + texts.TOOL_OUTPUT_READ_DONE
 
 
 async def test_a_call_id_from_another_conversation_is_not_found(store: Store, spill: Spill):
