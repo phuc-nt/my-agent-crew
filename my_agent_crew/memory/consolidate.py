@@ -3,16 +3,19 @@
 Memory grows by appending, so it drifts towards a long list of things that were true
 once. Consolidation asks the model to rewrite the file: keep what still holds, merge
 repeats, drop what only mattered for a day. The result is a proposal rather than a write,
-because a rewrite can lose something and nobody is watching a scheduled job. An agent
-marked `autonomous` applies it immediately, and the proposal keeps the previous text so
-one step back is always possible.
+because a rewrite can lose something and nobody is watching a scheduled job. What happens
+to that proposal — applied straight away or left for a person — is decided by
+`rewrite_proposal.submit_rewrite`, from the two texts rather than the model's own account
+of what it did. For the master, and only when the person has facts recorded, a second
+model call reviews those facts too; unlike the memory rewrite, its proposals never
+auto-apply, since the facts it touches are shared by the whole crew.
 """
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
+from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -22,9 +25,10 @@ from my_agent_crew.agent.events import AssistantMessageEvent
 from my_agent_crew.agents.context import MAX_SECTION_CHARS
 from my_agent_crew.llm.metered_chain import MeteredChain
 from my_agent_crew.llm.types import Completion, Message
-from my_agent_crew.memory import agent_store
-from my_agent_crew.memory.proposals_apply import apply_proposal
-from my_agent_crew.store.memory_proposals import AGENT_MEMORY_REWRITE, MemoryProposal
+from my_agent_crew.memory import agent_store, fact_dates, user_store
+from my_agent_crew.memory.fact_review import review_user_facts
+from my_agent_crew.memory.rewrite_proposal import JOB_SOURCE, submit_rewrite
+from my_agent_crew.store.memory_proposals import MemoryProposal
 from my_agent_crew.store.runs import DONE, FAILED, RunRecord
 
 if TYPE_CHECKING:  # the loop imports memory, not the other way round
@@ -34,7 +38,6 @@ logger = logging.getLogger(__name__)
 
 MAX_NOTES = 7
 MAX_INPUT_CHARS = 40000
-JOB_SOURCE = "memory:consolidate"
 
 
 def recent_notes(memory_dir: Path, limit: int = MAX_NOTES) -> list[tuple[str, str]]:
@@ -79,9 +82,24 @@ def has_newer_notes(memory_file: Path, memory_dir: Path) -> bool:
     )
 
 
-async def _ask_model(deps: AgentDeps, memory: str, notes: str) -> Completion | None:
+def _review_block(lines: list[str], more: int) -> str:
+    if not lines:
+        return texts.REVIEW_NONE
+    block = "\n".join(lines)
+    return f"{block}\n{texts.REVIEW_MORE.format(count=more)}" if more else block
+
+
+async def _ask_model(deps: AgentDeps, memory: str, notes: str, today: date) -> Completion | None:
+    review = fact_dates.review_list(memory, today)
     prompt = Message(
-        role="user", content=texts.CONSOLIDATE_PROMPT.format(memory=memory, notes=notes)
+        role="user",
+        content=texts.CONSOLIDATE_PROMPT.format(
+            memory=memory,
+            notes=notes,
+            today=today.isoformat(),
+            undated=_review_block(review.undated, review.more_undated),
+            stale=_review_block(review.stale, review.more_stale),
+        ),
     )
     # Upkeep belongs to no conversation; the run keeps a copy for the activity rail only.
     chain = MeteredChain(deps.chain, deps.store, deps.agent.id, "consolidate")
@@ -118,9 +136,11 @@ async def _consolidate(deps: AgentDeps, hub: ActivityHub, run: RunRecord) -> Mem
         hub.finish(run, status=DONE, summary=texts.CONSOLIDATE_NOTHING_NEW)
         return None
 
+    today = date.today()
     current = agent_store.read_memory_md(profile.memory_file).strip()
-    notes = notes_text(recent_notes(profile.memory_dir), MAX_INPUT_CHARS - len(current))
-    completion = await _ask_model(deps, current, notes)
+    notes = recent_notes(profile.memory_dir)
+    notes_budget = MAX_INPUT_CHARS - len(current)
+    completion = await _ask_model(deps, current, notes_text(notes, notes_budget), today)
     if completion is None:
         hub.finish(run, status=FAILED, summary=texts.CONSOLIDATE_EMPTY)
         return None
@@ -137,31 +157,44 @@ async def _consolidate(deps: AgentDeps, hub: ActivityHub, run: RunRecord) -> Mem
         ),
         time.monotonic(),
     )
-    new_memory = completion.message.content.strip()[:MAX_SECTION_CHARS]
+    # Reasons are split off before anything is truncated: a long reasons list must not eat
+    # into the memory body's own character budget.
+    raw_body, reasons = fact_dates.split_reasons(completion.message.content.strip())
+    new_memory = raw_body[:MAX_SECTION_CHARS]
+    proposal: MemoryProposal | None = None
     if not new_memory or new_memory == current:
-        hub.finish(run, status=DONE, summary=texts.CONSOLIDATE_UNCHANGED)
-        return None
-
-    proposal = deps.store.proposals.create(
-        agent_id=profile.id,
-        kind=AGENT_MEMORY_REWRITE,
-        name=profile.memory_file.name,
-        description=texts.CONSOLIDATE_JOB_NAME,
-        body=new_memory,
-        source=JOB_SOURCE,
-        previous_body=current,
-    )
-    if profile.settings.autonomous_default:
-        # Off the event loop, as the web decides: the lock may be held by a decision there.
-        proposal = await asyncio.to_thread(
-            apply_proposal,
-            deps.store,
-            proposal.id,
-            approve=True,
-            user_dir=profile.settings.user_dir,
-            memory_files={profile.id: profile.memory_file},
-        )
-        hub.finish(run, status=DONE, summary=texts.CONSOLIDATE_APPLIED)
+        summary = texts.CONSOLIDATE_UNCHANGED
     else:
-        hub.finish(run, status=DONE, summary=texts.CONSOLIDATE_PROPOSED)
+        outcome = await submit_rewrite(deps, current, new_memory, reasons, notes)
+        summary = outcome.summary
+        proposal = outcome.proposal
+
+    addendum = await _review_facts(deps, notes, today)
+    hub.finish(run, status=DONE, summary=f"{summary} {addendum}".strip())
     return proposal
+
+
+async def _review_facts(deps: AgentDeps, notes: list[tuple[str, str]], today: date) -> str:
+    """The master's user-fact hygiene pass: only for the agent the person talks to, and
+    only when there is at least one fact, since those facts are shared by the whole crew
+    rather than owned by whichever agent happened to run consolidation.
+
+    Returns a line to append to the run's summary — empty when there was nothing to run,
+    or nothing worth mentioning once it ran.
+    """
+    profile = deps.agent
+    if not profile.is_master:
+        return ""
+    facts = user_store.list_facts(profile.settings.user_dir)
+    if not facts:
+        return ""
+    try:
+        review = await review_user_facts(deps, facts, notes, today)
+    except Exception:  # the rewrite already succeeded; a broken review must not lose it
+        logger.exception("fact review failed for agent %s", profile.id)
+        return texts.FACT_REVIEW_FAILED
+    if review.errored:
+        return texts.FACT_REVIEW_BROKEN_JSON
+    if review.created:
+        return texts.FACT_REVIEW_CREATED.format(count=review.created)
+    return ""

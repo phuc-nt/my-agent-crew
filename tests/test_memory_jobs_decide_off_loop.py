@@ -62,7 +62,9 @@ def hub(store) -> ActivityHub:
 
 
 async def test_an_autonomous_rewrite_waits_for_a_decision_off_the_event_loop(deps_factory, hub):
-    deps = deps_factory(script=[completion("- Sếp thích trà.")], autonomous_default=True)
+    # A pure addition, not a replacement: the gate only lets an addition-only rewrite through
+    # without a person's decision, and this test is about the off-loop wait, not the gate.
+    deps = deps_factory(script=[completion("- Cũ.\n- Sếp thích trà.")], autonomous_default=True)
     memory = deps.agent.memory_file
     agent_store.write_memory_md(memory, "- Cũ.")
     agent_store.write_note(deps.agent.memory_dir, "2026-09-19", "Sếp thích trà.")
