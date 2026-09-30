@@ -491,6 +491,49 @@ tên một test thì sửa dòng của nó trong cùng commit.
     (agent tự chủ cũng ghi theo cùng luật một-quyết-định-một-lúc, nên đề xuất bị từ chối ngay khi
     vừa hiện thì không trang nào được ghi), `tests/test_memory_jobs_decide_off_loop.py` (việc dọn
     bộ nhớ và dựng wiki chờ một quyết định đang ghi ở web mà không chặn event loop)
+- **Vệ sinh bộ nhớ: ngày trên từng dòng, cổng tự áp dụng do mã kiểm tra chứ không phải model,
+  đề xuất mới thay chỗ đề xuất cũ, và vệ sinh fact người dùng luôn chờ duyệt**
+  - vitest: `components/memory-panel.test.tsx`
+    ("shows why the model changed or dropped each line, before the person decides",
+    "shows nothing extra for a proposal with no reasons to give",
+    "drops whichever bullet marker the model used in front of a reason",
+    "shows a superseded rewrite in the history, with no undo since nothing of it was applied",
+    "flags a fact nobody has confirmed in over ninety days", "does not flag a fact confirmed recently")
+  - pytest:
+    `tests/test_memory_hygiene.py` (các hàm thuần của `fact_dates.py`: danh sách xem lại gồm
+    dòng thiếu ngày và dòng cũ, một ngày không có thật tính như thiếu ngày, mỗi nhóm tối đa 40 dòng
+    và đếm phần còn lại; lý do được tách trước khi cắt bớt, dấu tách viết thường không dấu hay ở
+    dạng NFD vẫn nhận; dòng bị bỏ hay bị viết lại khác với chỉ đổi ngày hay chỉ thêm dòng; ngày
+    bịa ra không khớp nguồn nào), `test_consolidate_stores_reasons_and_the_prompt_carries_the_review_list_and_today`
+    (prompt mang danh sách xem lại và đúng ngày hôm nay của lần cô đọng),
+    `test_an_autonomous_agent_with_a_dropped_line_stays_pending_and_leaves_the_file`
+    (một agent autonomous làm rơi một dòng vẫn dừng ở đề xuất chờ duyệt, tệp giữ nguyên),
+    `test_an_autonomous_agent_with_only_an_addition_still_auto_applies`,
+    `test_an_autonomous_agent_with_only_a_date_change_still_auto_applies`
+    (hai trường hợp vẫn tự áp dụng vì không dòng nào mất và không ngày nào bịa ra),
+    `test_a_rewrite_with_an_invented_date_stays_pending_and_names_the_date`,
+    `test_a_dropped_line_and_an_invented_date_are_both_named` (tóm tắt run nêu đủ cả hai lý do bị
+    giữ), `test_a_date_equal_to_the_consolidation_today_is_not_invented`;
+    `tests/test_memory_proposal_stale.py` (`supersede` cần ít nhất một bộ lọc và chỉ đổi đề xuất
+    đang chờ của đúng agent; duyệt một bản viết lại khi `MEMORY.md` đã đổi là lỗi stale, qua HTTP
+    là 409 và tệp giữ nguyên; duyệt một đề xuất đã bị thay cũng là 409; lần cô đọng thứ hai thay
+    chỗ bản viết lại cũ còn chờ; hoàn tác ghi thẳng, không bị cổng chặn; fact cũ hơn 90 ngày được
+    báo `stale` trong `GET /api/memory/user`);
+    `tests/test_memory_fact_review.py` (chỉ master mới xem lại fact người dùng, và agent khác
+    không gọi model lần hai; kể cả khi autonomous vẫn chỉ tạo đề xuất chờ duyệt; mỗi lần xem lại
+    tính một side call phí `consolidate`; fact cũ đứng trước, cũ nhất trước, fact không đọc được
+    ngày tính là cũ nhất, phần còn lại mới nhất trước; chỉ 60 fact được đưa vào và tên nằm ngoài
+    phần cắt bị bỏ qua; mỗi dòng fact mang mô tả và thân đã gộp dòng, cắt ở 400 ký tự; mảng JSON
+    đầu tiên được đọc ra dù nằm trong đoạn văn hay khối code; lý do cắt ở 300 ký tự; tên lạ, bản
+    cập nhật rỗng hay không đổi gì bị bỏ qua; quá 10 mục thì cắt; json hỏng không tạo đề xuất
+    nào; tóm tắt run đếm số đề xuất fact, nêu câu trả lời hỏng, và nói rõ khi bước xem lại lỗi mà
+    bản viết lại vẫn còn; bước xem lại đọc cùng khối ghi chú đã cắt theo ngân sách và cùng ngày
+    hôm nay với bước viết lại; đề xuất giống hệt không bị nhân đôi),
+    `tests/test_memory_fact_review.py::test_a_different_body_supersedes_the_old_pending_hygiene_proposal`
+    (một đề xuất vệ sinh fact mới thay chỗ đề xuất cũ cùng loại còn đang chờ),
+    `tests/test_memory_fact_review.py::test_a_forget_supersedes_a_pending_update_of_the_same_fact`
+    (một đề xuất quên thay chỗ đề xuất cập nhật cùng fact, còn đề xuất tạo từ cuộc trò chuyện giữ
+    nguyên)
 - **Ảnh từ trang khác trong câu trả lời và trang wiki chỉ tải khi bấm, không gửi referrer**
   - vitest: `components/markdown-body.test.tsx` "an image in a reply"
 - **Wiki đọc được: link, đánh dấu ổn, câu hỏi mở, ghi chú hôm nay; theo dõi compile và consolidate**

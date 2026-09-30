@@ -240,8 +240,9 @@ của store và chỉ tính lại khi có gì đó được ghi.
 đúng một trong `cron` (năm trường, theo múi giờ của người dùng) hoặc `every` (`30m`, `2h`, `1d`) và đúng
 một trong `prompt` hoặc `command`. **Job prompt** mở một cuộc trò chuyện autonomous mới cho agent
 và chạy một lượt; **job command** chạy chuỗi lệnh bằng `shell_run` trong workspace của agent và
-chỉ ghi step đó; **job consolidate**, thêm bởi một cron `memory_consolidate`, ghi lại
-`MEMORY.md` của agent bằng một lần gọi model và không mở cuộc trò chuyện nào, nên không gửi gì cả. Tick là 20 s; `POST /api/jobs/{id}/run` khởi động một job ngay lập tức và
+chỉ ghi step đó; **job consolidate**, thêm bởi một cron `memory_consolidate`, đề xuất viết
+lại `MEMORY.md` của agent bằng một lần gọi model (master gọi thêm một lần để xem lại fact người
+dùng) và không mở cuộc trò chuyện nào, nên không gửi gì cả. Tick là 20 s; `POST /api/jobs/{id}/run` khởi động một job ngay lập tức và
 trả 202. Đồng hồ của lịch là múi giờ của người dùng: key `timezone` trong `config.yaml` (hoặc
 `MY_AGENT_TIMEZONE`), một tên IANA như `Asia/Ho_Chi_Minh`, và múi giờ của máy khi chưa đặt.
 Mọi dấu thời gian trong database vẫn là UTC và được đổi sang ngày của người dùng cho

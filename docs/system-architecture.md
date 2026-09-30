@@ -5,7 +5,7 @@ title: Kiến trúc hệ thống — giải phẫu một agent harness
 
 # Kiến trúc hệ thống: giải phẫu một agent harness
 
-**Phiên bản**: 0.9.2 · **Cập nhật**: 2026-09-28
+**Phiên bản**: 0.9.2 · **Cập nhật**: 2026-09-30
 
 Tài liệu này dành cho người chưa từng xây agent harness. Nó trả lời ba câu hỏi: harness gồm những gì, mỗi phần làm việc gì, và chúng khớp với nhau ra sao khi một tin nhắn đi qua. Mọi ví dụ lấy từ một bộ cài thật của my-agent-crew: một master "Trợ lý", ba agent việc cá nhân (Pong, HLV sức khoẻ, sổ cái) và ba agent kỹ thuật (lập trình, cố vấn, nghiên cứu), tất cả chạy trong một tiến trình trên máy cá nhân, nói chuyện qua web UI và một bot Telegram.
 
@@ -211,7 +211,7 @@ Skill không vào toàn văn: chỉ chỉ mục tên + mô tả; agent gọi `sk
 - `user_memory_save` / `user_memory_forget`: sửa `users/owner/facts/<name>.md`, mọi agent cùng thấy.
 - tool workspace: tệp trong `workspace/`.
 
-**Cô đọng** — job `memory_consolidate` (cron trong `agent.yaml`; bộ cài thật đặt một lần mỗi tuần) đọc 7 ngày ghi chú, nhờ model viết lại `MEMORY.md`, và tạo một *đề xuất* (`memory_proposals`). Agent autonomous áp ngay; agent khác chờ người duyệt ở `/api/memory/proposals`. Bản cũ giữ lại để lùi.
+**Cô đọng** — job `memory_consolidate` (cron trong `agent.yaml`; bộ cài thật đặt một lần mỗi tuần) đọc 7 ngày ghi chú, nhờ model viết lại `MEMORY.md`, và tạo một *đề xuất* (`memory_proposals`). Agent không autonomous luôn để đề xuất chờ người duyệt ở `/api/memory/proposals`. Agent autonomous chỉ tự áp một đề xuất chỉ thêm dòng hoặc chỉ đổi ngày; đề xuất bỏ hay đổi nội dung một dòng, hoặc mang một ngày không có nguồn, vẫn chờ người duyệt — mã so bản cũ với bản mới quyết định, không phải model. Bản cũ giữ lại để lùi.
 
 Chi tiết ở [memory.md](memory.md).
 

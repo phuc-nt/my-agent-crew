@@ -1,6 +1,6 @@
 # Trí nhớ
 
-**Phiên bản**: 0.9.2 · **Cập nhật**: 2026-09-28
+**Phiên bản**: 0.9.2 · **Cập nhật**: 2026-09-30
 
 Trí nhớ là Markdown trên đĩa, cùng hình dạng với thứ một người có thể tự ghi tay. Không có
 gì được embed hay tóm tắt sau lưng agent; model đọc gì thì trên đĩa có đúng thứ đó.
@@ -128,9 +128,47 @@ Một agent tham gia bằng cron `memory_consolidate` trong profile của nó, c
 một lịch bình thường (kind `consolidate`) bên cạnh các job prompt và command của nó. Nó đọc
 tối đa 7 ngày ghi chú (đếm theo ngày chứ không theo tệp, nên nhiều ghi chú của một ngày vẫn
 tính là một ngày đó) trong ngân sách 40 000 ký tự, mới nhất trước, và không làm gì cả khi
-không có ghi chú nào mới hơn `MEMORY.md`. Agent được đánh dấu `autonomous` áp dụng bản viết
-lại ngay; mọi agent khác thấy nó ở **Ghi nhớ → Đề xuất**. Run xuất hiện trong Activity kèm
-chi phí của nó, và một lần viết lại thất bại để tệp y nguyên như cũ.
+không có ghi chú nào mới hơn `MEMORY.md`. Run xuất hiện trong Activity kèm chi phí của nó, và
+một lần viết lại thất bại để tệp y nguyên như cũ.
+
+### Ngày trên mỗi dòng, và cổng tự áp dụng
+
+Mỗi dòng trong `MEMORY.md` có thể mang một ngày ở cuối, `(YYYY-MM-DD)` — lần gần nhất dòng đó
+được xác nhận còn đúng. Ở lần cô đọng kế tiếp, một dòng thiếu ngày, hoặc mang ngày cũ hơn 90
+ngày, được đưa lại cho model xem xét: giữ nguyên, sửa lại, hoặc bỏ, và phải nói ra vì sao. Khi
+ghi chú mới nói ngược lại một dòng cũ, ghi chú mới hơn thắng và lý do được ghi lại; mọi lý do
+hiện trên thẻ đề xuất trước khi có ai duyệt.
+
+Agent không `autonomous` luôn để bản viết lại chờ ở **Ghi nhớ → Đề xuất**. Với agent
+`autonomous`, **mã so bản cũ với bản mới, không phải model**, quyết định bản viết lại có tự áp
+dụng được hay không. Một bản chỉ *thêm* dòng, hoặc chỉ *đổi ngày* trên dòng đã có mà giữ nguyên
+nội dung, vẫn tự áp dụng ngay như trước. Một bản *bỏ hoặc đổi* nội dung một dòng, hoặc mang một
+ngày không có trong `MEMORY.md` cũ, không phải ngày của một ghi chú gần đây và cũng không phải
+hôm nay, sẽ dừng lại chờ người quyết định. Tóm tắt run nói nó bị giữ vì lý do nào, và những ngày
+không rõ nguồn được ghi thêm vào danh sách lý do trên thẻ.
+
+Một bản viết lại mới thay chỗ bản viết lại cũ còn đang chờ của cùng agent; duyệt bản đã bị thay
+trả về 409 chứ không ghi đè lên bản mới hơn. Duyệt một bản viết lại khi `MEMORY.md` đã đổi kể từ
+lúc đề xuất — người sửa tay, hay một bản khác vừa được áp dụng — cũng bị từ chối bằng 409, và đề
+xuất chuyển sang "đã bị thay thế" thay vì xoá mất những gì đã viết ở giữa; bản tự áp dụng của
+agent `autonomous` kiểm tra y như vậy. Lịch sử giữ tất cả; một đề xuất đã bị thay không có nút
+hoàn tác, vì không có gì của nó từng được áp dụng để mà lùi lại.
+
+### Vệ sinh fact người dùng
+
+Chỉ trong lần cô đọng của **master**, sau bước viết lại `MEMORY.md` — dù bước đó có tạo đề xuất
+hay không, miễn là có ghi chú mới và model đã trả lời — model xem lại các fact dùng chung và có
+thể đề xuất quên hoặc cập nhật một fact mà ghi chú mới mâu thuẫn, hoặc đã lâu không ai xác nhận.
+Những đề xuất này **luôn** chờ người duyệt, kể cả khi master là `autonomous`, vì facts dùng
+chung được mọi agent đọc — một quyết định sai ở đây ảnh hưởng cả đội, không riêng một agent.
+
+Model đọc đúng khối ghi chú, trong cùng ngân sách, mà bước viết lại đã đọc, cùng tối đa 60 fact:
+fact hơn 90 ngày chưa ai xác nhận đứng trước, cũ nhất trước, rồi đến phần còn lại, mới nhất
+trước; số fact bị bỏ ngoài được nói rõ trong prompt. Mỗi lần xem xét tạo tối đa 10 đề xuất, và
+mỗi fact chỉ có một đề xuất vệ sinh đang chờ, dù là quên hay cập nhật — đề xuất mới thay đề xuất
+cũ. Đề xuất tạo ra từ cuộc trò chuyện không bị đụng tới. Tóm tắt run đếm số đề xuất fact đã tạo,
+hoặc nói rõ khi model trả lời hỏng. Danh sách fact trên màn Ghi nhớ gắn nhãn "cũ" cho fact hơn
+90 ngày chưa ai xác nhận.
 
 ## Vault wiki
 

@@ -13,6 +13,14 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ### Added
 
+- Every line in `MEMORY.md` can now carry the day it was last confirmed. On the next
+  consolidation, an undated line or one older than ninety days goes back to the model for an
+  explicit keep, fix or drop with a reason, and a newer note wins over an older line it
+  contradicts. The reasons show on the proposal card before anyone decides. A master's
+  consolidation also reviews the shared user facts and may propose forgetting or updating one
+  that new notes contradict or nobody has confirmed in a while; those proposals always wait for
+  a person, since every agent reads the facts. The facts list on the memory screen flags a fact
+  nobody has confirmed in over ninety days.
 - A button under a saved user message forks the conversation there: the server copies every
   message before it into a new conversation, closes any tool call still open at the cut without
   running it, and resets cost, approvals and autonomy to the agent's own defaults. The composer
@@ -132,6 +140,11 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ### Changed
 
+- Whether a memory rewrite applies on its own is decided by code from the old and new text, not
+  by the model, and this changes what an `autonomous` agent does: a rewrite that only adds lines
+  or updates dates still applies at once, but one that drops or rewords a line, or brings a
+  date found in neither the old memory nor the notes it read, now waits for a person. A new
+  rewrite proposal replaces any older one still pending for the same agent.
 - A halted run says why in words on Telegram and in the reply of an API turn (the cost cap, the
   step limit, the same call over and over) instead of the loop's code, as the web already did.
 - Only a task that came to `done` is handed straight to the person. A child that needs more
@@ -145,6 +158,10 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ### Fixed
 
+- Approving a memory rewrite after `MEMORY.md` changed since it was proposed is refused (409) and
+  the proposal is marked superseded, instead of overwriting what was written in between; a
+  rewrite applied on its own checks the same way. A superseded proposal shows in the history
+  with no undo, since none of it was ever applied.
 - `fetch_url` no longer returns an empty result. A server that answers 202 (accepted, nothing to
   read yet) is reported as not ready, and a page with no readable text (an empty body, or one
   drawn only by JavaScript) is reported as such instead of reading as a page that says nothing.
@@ -183,6 +200,11 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 - The database gains a `side_calls` table, created on start. Calls from before the upgrade
   stay as they were: the ledger is complete from this version on.
 - The database gains a `queued_messages` table, created on start.
+- The database gains a `messages_fts` full-text index over message bodies, built and filled on
+  the first start; with a long history that start takes longer, once. A Python whose SQLite has
+  no FTS5 module stops at startup with a message saying so.
+- The `conversations.forked_from` and `memory_proposals.reasons` columns are added on start,
+  empty for existing rows.
 
 ## [0.9.2] — 2026-09-28
 

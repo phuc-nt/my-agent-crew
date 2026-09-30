@@ -514,9 +514,9 @@ schema mà nó mô tả thay vì lệch dần với nó. Trong `agent.yaml` ch�
 dòng prompt.
 
 Cron `memory_consolidate` thành một job cùng hình dạng, `<agent id>/memory-consolidate`,
-không có prompt hay command riêng. Nó làm hai việc liên tiếp: viết lại `MEMORY.md`, rồi
-biên dịch wiki vault từ chính các ghi chú đó. Việc biên dịch không có cron riêng vì cả hai
-nửa đọc cùng ghi chú và vault nên lắng từ cùng một đêm đọc. Mỗi nửa
+không có prompt hay command riêng. Nó làm hai việc liên tiếp: viết lại `MEMORY.md` (master xem
+lại luôn các fact người dùng trong cùng run), rồi biên dịch wiki vault từ chính các ghi chú đó.
+Việc biên dịch không có cron riêng vì cả hai nửa đọc cùng ghi chú và vault nên lắng từ cùng một đêm đọc. Mỗi nửa
 có run riêng trong Activity, và biên dịch hỏng không làm job hỏng — lúc đó bản viết lại
 đã xong rồi, và báo cả job thất bại sẽ khiến ai đó đi tìm
 hư hại không có ở đó. Xem [memory.md](memory.md#compile).
