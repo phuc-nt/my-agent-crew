@@ -51,6 +51,13 @@ describe("the fork-origin line", () => {
     expect(screen.queryByTestId("fork-origin")).toBeNull();
   });
 
+  it("is absent when the conversation carries no forked_from field at all", () => {
+    const plain = conversation();
+    delete plain.forked_from;
+    header({ conversation: plain });
+    expect(screen.queryByTestId("fork-origin")).toBeNull();
+  });
+
   it("names the source conversation and opens it on click", () => {
     let opened = false;
     header({

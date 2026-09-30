@@ -477,6 +477,7 @@ export class FakeBackend {
       skills: [],
       auto_approve: [],
       parent_call_id: "",
+      forked_from: "",
       spent_usd: 0,
       unknown_cost_calls: 0,
       status: "idle",

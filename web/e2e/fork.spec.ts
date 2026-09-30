@@ -21,6 +21,8 @@ function twoTurnConversation() {
 test("forking at the second saved message keeps the first turn, prefills the composer, and links back", async ({ page }) => {
   const mock = await mockApi(page, { conversations: [twoTurnConversation()] });
   await page.goto("/#/chat/c1");
+  await expect(page.getByTestId("message-user")).toHaveCount(2);
+  await expect(page.getByTestId("fork-origin")).toHaveCount(0);
 
   // Forks at "câu sau", the second saved user message: the branch keeps the first turn
   // (câu đầu + its reply) and drops everything from "câu sau" on, which comes back only
@@ -52,6 +54,7 @@ test("forking at the second saved message keeps the first turn, prefills the com
   await origin.locator("button").click();
   await expect(page.getByTestId("message-user")).toHaveCount(2);
   await expect(page.getByTestId("message-assistant")).toHaveCount(2);
+  await expect(page.getByTestId("fork-origin")).toHaveCount(0);
 });
 
 // The bubble a send just produced keeps its optimistic `local-N` id until the next reload

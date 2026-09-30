@@ -37,6 +37,8 @@ async function resolveMessageId(conversationId: string, item: UserItem, items: r
 }
 
 export interface UseForkOptions {
+  /** The conversation on screen: a failure is only ever reported on the one it happened in. */
+  activeId: string | null;
   /** Reloads the conversation list so the fork appears in it before it is selected. */
   refresh: () => Promise<void>;
   /** Puts the fork in the address bar and opens it, the same as picking it from the list. */
@@ -48,12 +50,22 @@ export interface ForkController {
    *  seeds the fork's draft, refreshes the list and opens it. Returns whether it worked;
    *  a resolution mismatch never reaches the server at all. */
   fork: (conversationId: string, item: ThreadItem, items: readonly ThreadItem[]) => Promise<boolean>;
+  /** Why the last attempt failed, while the conversation it failed in is the one open. */
   error: string | null;
 }
 
 /** "Sửa và gửi lại từ đây": rewind and fork a conversation at a saved user message. */
-export function useFork({ refresh, onSelectConversation }: UseForkOptions): ForkController {
-  const [error, setError] = useState<string | null>(null);
+export function useFork({ activeId, refresh, onSelectConversation }: UseForkOptions): ForkController {
+  // The conversation the last attempt failed in, forgotten during the very render that
+  // opens another one: the notice stays with the conversation it is about, so it neither
+  // follows the person elsewhere nor greets them again on the way back — and an attempt
+  // that fails after they already left is never reported at all.
+  const [failedIn, setFailedIn] = useState<string | null>(null);
+  const [failedFor, setFailedFor] = useState(activeId);
+  if (failedFor !== activeId) {
+    setFailedFor(activeId);
+    setFailedIn(null);
+  }
 
   const fork = useCallback(
     async (conversationId: string, item: ThreadItem, items: readonly ThreadItem[]) => {
@@ -61,25 +73,25 @@ export function useFork({ refresh, onSelectConversation }: UseForkOptions): Fork
       try {
         const beforeMessageId = await resolveMessageId(conversationId, item, items);
         if (beforeMessageId === null) {
-          setError(vi.fork.failed);
+          setFailedIn(conversationId);
           return false;
         }
         const result = await api.forkConversation(conversationId, beforeMessageId);
         saveDraft(result.id, result.draft);
         await refresh();
         onSelectConversation(result.id);
-        setError(null);
+        setFailedIn(null);
         return true;
       } catch {
         // Same generic message as a resolution mismatch: neither is something retrying
         // with the exact same click would fix, and the raw error is a server detail the
         // person cannot act on.
-        setError(vi.fork.failed);
+        setFailedIn(conversationId);
         return false;
       }
     },
     [refresh, onSelectConversation],
   );
 
-  return { fork, error };
+  return { fork, error: failedIn !== null && failedIn === activeId ? vi.fork.failed : null };
 }

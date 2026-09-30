@@ -91,14 +91,14 @@ export function ConversationHeader(props: Props) {
           {props.extra}
         </div>
       </div>
-      {c.forked_from !== "" && (
+      {c.forked_from ? (
         <div className="header-fork-origin" data-testid="fork-origin">
           <span className="muted">{vi.fork.from}</span>
           <button type="button" className="link-button" onClick={props.onOpenSource}>
             {props.sourceTitle ?? vi.fork.original}
           </button>
         </div>
-      )}
+      ) : null}
       <div className="header-summary">
         {c.summary ? (
           <p className="summary-text" title={c.summary}>

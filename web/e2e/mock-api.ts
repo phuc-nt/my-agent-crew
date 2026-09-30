@@ -365,7 +365,7 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
       const conv: Conversation = {
         id: `c${++created}`, agent_id: "default", channel: "", title: "", created_at: "", updated_at: "", autonomous: false, cost_cap_usd: 1,
         skills: [], auto_approve: [], spent_usd: 0, unknown_cost_calls: 0, status: "idle", over_budget: false, messages: [], pending_approval: null,
-        queued: [],
+        queued: [], forked_from: "",
         ...(route.request().postDataJSON() ?? {}),
       };
       conversations.push(conv);

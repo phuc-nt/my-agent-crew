@@ -837,6 +837,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `[assistant(A,B), tool(A), user]` khi một lượt bị ngắt giữa chừng rồi người nhắn tiếp; call B
     còn mở sau khi chép, chờ route đóng lại),
     `test_a_failed_copy_leaves_no_fork_behind`,
+    `test_only_the_source_conversations_own_messages_are_copied` (tin của hội thoại khác có
+    `seq` nhỏ hơn điểm cắt không lọt vào nhánh),
     `test_forked_from_marks_the_conversation_so_the_recap_can_be_skipped`,
     `test_deleting_the_source_clears_forked_from_and_the_fork_keeps_its_messages`,
     `test_deleting_the_fork_does_not_touch_the_sources_delegate_children`,
@@ -851,7 +853,12 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `test_an_open_call_is_closed_and_never_run_again` (chạy một lượt ở nhánh với tool đếm số lần
     gọi: tool bị đóng ở điểm cắt không được gọi lại),
     `test_a_refusal_that_fails_to_write_leaves_no_fork_behind` (`refuse_unanswered` ném lỗi thì
-    route trả 500 và không còn nhánh))
+    route trả 500 và không còn nhánh),
+    `test_the_fork_runs_on_its_own_only_when_the_agent_default_says_so` (cả hai giá trị của
+    `autonomous_default`, gốc luôn mang giá trị ngược lại));
+    `tests/test_memory_session_summary.py::test_a_fork_is_not_told_about_the_conversation_it_was_cut_from`
+    (hội thoại liền trước nhánh thường là chính gốc của nó; tóm tắt của gốc kể phần sau điểm cắt
+    mà nhánh sinh ra để bỏ, nên không vào prompt của nhánh)
   - vitest: `hooks/use-fork.test.ts`
     ("uses a numeric id straight away, with no extra read of the conversation",
     "resolves a local-N id by reading the conversation once and counting from the end" (bubble vừa
@@ -859,13 +866,21 @@ tên một test thì sửa dòng của nó trong cùng commit.
     chữ của nó),
     "gives up without ever calling the fork API when the text at that position no longer matches",
     "saves the fork's draft, refreshes the list, and selects the fork",
-    "shows forkFailed and stays put when the server refuses the fork");
+    "shows forkFailed and stays put when the server refuses the fork",
+    "only on the conversation it failed in, and not again on the way back to it",
+    "never, when it fails after the person has already moved to another conversation" — lỗi rẽ
+    nhánh chỉ hiện ở đúng cuộc trò chuyện vừa lỗi, không theo người sang cuộc khác);
+    `app-fork.test.tsx` (cả app trên `FakeBackend`: "opens the branch with the old words ready to
+    edit, and links back to an untouched source" — ô soạn tin mang chữ cũ và có focus, nhánh được
+    chọn trong sidebar, dòng "Rẽ nhánh từ" dẫn về gốc còn đủ bốn tin và gốc không có dòng đó;
+    "reports a refused fork on its own conversation only");
     `components/message-thread.test.tsx`
     ("sits under the user bubble but not under the assistant's reply",
     "is absent without an onFork handler, even while idle", "is hidden while the thread is busy",
     "calls onFork with the item it sits under, not the conversation as a whole");
     `components/conversation-header.test.tsx`
     ("is absent when the conversation is not a fork",
+    "is absent when the conversation carries no forked_from field at all",
     "names the source conversation and opens it on click",
     "falls back to the generic label when the source is not in the loaded list");
     `hooks/use-draft.test.ts`
@@ -874,7 +889,7 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "forgetDraft still empties what saveDraft wrote")
   - Playwright: `e2e/fork.spec.ts`
     ("forking at the second saved message keeps the first turn, prefills the composer, and links
-    back", "forking right after sending, before any reload, still resolves to the real message" —
+    back" — gốc không có dòng "Rẽ nhánh từ" cả trước khi rẽ lẫn lúc quay về, "forking right after sending, before any reload, still resolves to the real message" —
     ca `local-N` trên mock, riêng với self-test thủ công trên server thật)
 - **Tìm hội thoại FTS5: gõ không dấu khớp có dấu, `conversation_search` cho model, "Trong nội
   dung" trong sidebar cho người**

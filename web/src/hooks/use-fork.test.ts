@@ -67,7 +67,7 @@ describe("resolving which message the fork button was actually pressed under", (
     const calls = stubApi({ ...conversation(), messages: [], pending_approval: null }, forkResult());
     const refresh = vitest.fn(async () => {});
     const onSelect = vitest.fn();
-    const { result } = renderHook(() => useFork({ refresh, onSelectConversation: onSelect }));
+    const { result } = renderHook(() => useFork({ activeId: "c1", refresh, onSelectConversation: onSelect }));
 
     const item: ThreadItem = { id: "42", kind: "user", text: "hỏi lại" };
     let ok = false;
@@ -94,7 +94,7 @@ describe("resolving which message the fork button was actually pressed under", (
     };
     const calls = stubApi(detail, forkResult());
     const { result } = renderHook(() =>
-      useFork({ refresh: vitest.fn(async () => {}), onSelectConversation: vitest.fn() }),
+      useFork({ activeId: "c1", refresh: vitest.fn(async () => {}), onSelectConversation: vitest.fn() }),
     );
 
     // Two user bubbles rendered so far; the fresh one clicked is the last (1st from the end).
@@ -121,7 +121,7 @@ describe("resolving which message the fork button was actually pressed under", (
     };
     const calls = stubApi(detail, forkResult());
     const { result } = renderHook(() =>
-      useFork({ refresh: vitest.fn(async () => {}), onSelectConversation: vitest.fn() }),
+      useFork({ activeId: "c1", refresh: vitest.fn(async () => {}), onSelectConversation: vitest.fn() }),
     );
 
     const items: ThreadItem[] = [{ id: "local-0", kind: "user", text: "chữ đã gõ" }];
@@ -142,7 +142,7 @@ describe("what a click does once the real message id is known", () => {
     stubApi({ ...conversation(), messages: [], pending_approval: null }, forkResult({ id: "c9", draft: "sửa câu này" }));
     const refresh = vitest.fn(async () => {});
     const onSelect = vitest.fn();
-    const { result } = renderHook(() => useFork({ refresh, onSelectConversation: onSelect }));
+    const { result } = renderHook(() => useFork({ activeId: "c1", refresh, onSelectConversation: onSelect }));
     // Mounted on the conversation open before the fork, the way the real composer is: only
     // a later switch onto the fork's own key should ever show what `fork` saved for it.
     const draftHook = renderHook(({ key }) => useDraft(key), { initialProps: { key: "c1" } });
@@ -162,7 +162,7 @@ describe("what a click does once the real message id is known", () => {
     stubApi({ ...conversation(), messages: [], pending_approval: null }, null);
     const refresh = vitest.fn(async () => {});
     const onSelect = vitest.fn();
-    const { result } = renderHook(() => useFork({ refresh, onSelectConversation: onSelect }));
+    const { result } = renderHook(() => useFork({ activeId: "c1", refresh, onSelectConversation: onSelect }));
 
     let ok = true;
     await act(async () => {
@@ -173,5 +173,58 @@ describe("what a click does once the real message id is known", () => {
     expect(refresh).not.toHaveBeenCalled();
     expect(onSelect).not.toHaveBeenCalled();
     await waitFor(() => expect(result.current.error).toBe("Không rẽ nhánh được: không tìm thấy đúng tin nhắn."));
+  });
+});
+
+describe("where a failed fork is reported", () => {
+  const failed = "Không rẽ nhánh được: không tìm thấy đúng tin nhắn.";
+  const options = (activeId: string) => ({
+    activeId,
+    refresh: vitest.fn(async () => {}),
+    onSelectConversation: vitest.fn(),
+  });
+
+  it("only on the conversation it failed in, and not again on the way back to it", async () => {
+    stubApi({ ...conversation(), messages: [], pending_approval: null }, null);
+    const { result, rerender } = renderHook(({ activeId }) => useFork(options(activeId)), {
+      initialProps: { activeId: "c1" },
+    });
+
+    await act(async () => {
+      await result.current.fork("c1", { id: "5", kind: "user", text: "hỏi" }, []);
+    });
+    expect(result.current.error).toBe(failed);
+
+    rerender({ activeId: "c2" });
+    expect(result.current.error).toBeNull();
+
+    rerender({ activeId: "c1" });
+    expect(result.current.error).toBeNull();
+  });
+
+  it("never, when it fails after the person has already moved to another conversation", async () => {
+    let answer: (response: Response) => void = () => {};
+    const fetch = vitest.fn(() => new Promise<Response>((resolve) => (answer = resolve)));
+    vitest.stubGlobal("fetch", fetch);
+    const { result, rerender } = renderHook(({ activeId }) => useFork(options(activeId)), {
+      initialProps: { activeId: "c1" },
+    });
+
+    let attempt: Promise<boolean> = Promise.resolve(true);
+    act(() => {
+      attempt = result.current.fork("c1", { id: "5", kind: "user", text: "hỏi" }, []);
+    });
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    rerender({ activeId: "c2" });
+    let ok = true;
+    await act(async () => {
+      answer(json({ detail: "lỗi" }, 500));
+      ok = await attempt;
+    });
+
+    expect(ok).toBe(false);
+    expect(result.current.error).toBeNull();
+    rerender({ activeId: "c1" });
+    expect(result.current.error).toBeNull();
   });
 });

@@ -210,7 +210,7 @@ export function ChatScreen({
   // composer afterwards, the same way a cap raise does — the fork's own draft is already
   // seeded by the time `onSelectConversation` switches `draftKey` onto it.
   const { refresh: listRefresh } = list;
-  const fork = useFork({ refresh: listRefresh, onSelectConversation });
+  const fork = useFork({ activeId: list.activeId, refresh: listRefresh, onSelectConversation });
   const [afterFork, setAfterFork] = useState(0);
   const { items: threadItems } = state;
   const onFork = useCallback(
