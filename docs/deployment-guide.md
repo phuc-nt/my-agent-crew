@@ -5,7 +5,7 @@ title: Cài đặt, vận hành và publish tài liệu
 
 # Cài đặt, vận hành và publish tài liệu
 
-**Phiên bản**: 0.9.2 · **Cập nhật**: 2026-09-28
+**Phiên bản**: 0.10.0 · **Cập nhật**: 2026-09-30
 
 ## 1. Yêu cầu
 
@@ -115,8 +115,10 @@ Bản này khác bản trước ở đâu: [CHANGELOG.md](../CHANGELOG.md).
 
 ## 6b. Phát hành một phiên bản
 
-Dự án phát hành bằng **tag git có chú thích**, không dựng GitHub Release và không đẩy lên PyPI —
-người dùng cài bằng cách clone rồi `uv sync`, nên tag là đủ để trỏ tới một trạng thái code.
+Dự án phát hành bằng **tag git có chú thích kèm một GitHub Release**, không đẩy lên PyPI —
+người dùng cài bằng cách clone rồi `uv sync`, nên tag là thứ trỏ tới một trạng thái code, còn
+Release là chỗ người theo dõi repo đọc bản đó có gì (ghi chú chép từ mục của bản đó trong
+CHANGELOG).
 
 **Số hiệu** theo SemVer, và **một số dùng chung cho cả backend lẫn web**:
 
@@ -129,32 +131,49 @@ người dùng cài bằng cách clone rồi `uv sync`, nên tag là đủ để
 ### Các bước
 
 ```bash
-# 1. Cổng: chạy mọi cổng CI ở code-standards §4. Không tag khi còn một cổng đỏ.
+# 1. Cổng: mọi cổng CI trong một lệnh (testing.md, mục Chạy các cổng). Không tag khi còn một
+#    cổng đỏ.
+./scripts/gates.sh
 
-# 2. Nâng số ở năm chỗ — phải khớp nhau
-#    pyproject.toml · my_agent_crew/__init__.py · web/package.json
+# 2. Bản minor: chạy bộ kiểm thử hành vi bằng model thật (tốn tiền thật; testing.md, mục Kiểm
+#    thử hành vi bằng model thật). Ca trượt vì lỗi runtime thì sửa trước khi phát hành; ca
+#    trượt vì persona là một phát hiện, không chặn phát hành.
+uv run python scripts/run_evals.py --runs 3 --max-usd 0.5
+
+# 3. Nâng số ở mọi chỗ ghi phiên bản — phải khớp nhau:
+#    pyproject.toml · my_agent_crew/__init__.py · uv.lock (mục my-agent-crew)
+#    web/package.json · web/package-lock.json (hai dòng đầu có "version")
 #    + dòng "**Phiên bản**" ở mọi tài liệu trong docs/ có dòng này
-grep -rn '"\?version"\?[ =:]' pyproject.toml my_agent_crew/__init__.py web/package.json
+grep -n 'version' pyproject.toml my_agent_crew/__init__.py web/package.json
+grep -n -A1 'name = "my-agent-crew"' uv.lock
+grep -n -m2 '"version"' web/package-lock.json
 grep -rn '^\*\*Phiên bản\*\*' docs/*.md
+uv lock --check        # uv.lock khớp pyproject.toml chưa; CI chạy `uv sync` nên không bắt lệch
 
-# 3. Viết mục mới trong CHANGELOG.md: Thêm / Đổi / Sửa / Lưu ý khi nâng cấp
+# 4. Viết mục mới trong CHANGELOG.md: Added / Changed / Fixed / Upgrade notes, thêm link ref
+#    của bản mới ở cuối tệp và để lại một mục [Unreleased] trống ở trên cùng.
 #    Nguồn là `git log --oneline vX.Y.Z..HEAD`, nhưng viết theo giá trị cho người dùng,
 #    không chép nguyên commit message.
 
-# 4. Commit rồi đẩy — để CI chạy thật trước khi tag
-git add -A && git commit -m "chore(release): v0.4.0"
+# 5. Commit rồi đẩy — để CI chạy thật trước khi tag
+git add -A && git commit -m "chore(release): v0.10.0"
 git push origin main
 
-# 5. Đợi CI xanh. Chỉ tag khi đã xanh: tag trỏ vào commit đỏ là thứ khó gỡ.
+# 6. Đợi CI xanh. Chỉ tag khi đã xanh: tag trỏ vào commit đỏ là thứ khó gỡ.
 gh run watch
 
-# 6. Tag có chú thích (ba tag cũ đều là annotated — giữ cho đồng nhất)
-git tag -a v0.4.0 -m "v0.4.0 — web UI dựng lại quanh việc nhìn thấy agent đang làm gì"
-git push origin v0.4.0
+# 7. Tag có chú thích (mọi tag cũ đều là annotated — giữ cho đồng nhất)
+git tag -a v0.10.0 -m "v0.10.0"
+git push origin v0.10.0
+
+# 8. GitHub Release: ghi chú là mục của bản này trong CHANGELOG (bỏ dòng tiêu đề), cộng một
+#    dòng kết quả eval nếu đã chạy — chỉ số ca đạt và chi phí, không nội dung ca.
+gh release create v0.10.0 --title "v0.10.0 — <một câu nói bản này làm gì>" --notes-file notes.md
 ```
 
 **Không nên**: tag trước khi push (tag trỏ tới commit chưa ai thấy); tag khi CI đang đỏ; nâng số
-ở `pyproject.toml` mà quên `web/package.json` (hai bên lệch nhau là thứ không có test nào bắt được).
+ở `pyproject.toml` mà quên `web/package.json` (hai bên lệch nhau là thứ không có test nào bắt
+được) hay `uv.lock` (chỉ `uv lock --check` bắt được).
 
 ## 7. Thêm agent
 

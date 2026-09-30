@@ -11,6 +11,20 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+## [0.10.0] — 2026-09-30
+
+The crew now works more like people who share a desk. A message sent while an agent is busy
+waits its turn, and one that starts with a slash command steers the turn already running;
+Telegram turns run in the background so the bot keeps answering, and a voice note is
+transcribed, with the transcript echoed back, before the master sees it. What was said stays
+findable: an agent searches its own past conversations and the master the whole crew's, and a
+conversation can be forked at an earlier message to try it another way. Memory keeps itself
+current: each line carries the day it was last confirmed, and a rewrite that drops or rewords
+a line waits for a person. An agent can propose its own repeating job, which runs only after a
+person approves the verbatim prompt, and a tool output cut short stays readable in full
+through `tool_output_read`. Every model call, including the side calls for titles, summaries
+and memory, now lands in the cost ledger, and a run's trajectory downloads as JSON or Markdown.
+
 ### Added
 
 - A tool result that was shortened for being over the output cap can now be read back in full.
@@ -249,6 +263,19 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   empty for existing rows.
 - The database gains a `created_schedules` table, created on start, holding the schedules an
   agent proposed through `schedule_create` and a person approved.
+- The `conversations.approval_ttl_seconds` and `runs.after_seq` columns are added on start,
+  empty for existing rows. A conversation without its own wait uses the global
+  `approval_ttl_seconds` as before; a run from before the upgrade exports its trajectory by its
+  start and finish time instead of by message sequence.
+- Agents with their own `tools:` list in `agent.yaml` do not get `conversation_search`,
+  `schedule_create` or `tool_output_read` until those names are added to that list; agents
+  without a list get all three on start.
+- Voice notes are transcribed through `audio_routes`, which defaults to
+  `openrouter:google/gemini-2.5-flash-lite`: the key that already enables image reading enables
+  this too. Set it empty to turn transcription off.
+- A tool output too long for its cap is kept whole under `spill/` in the home, at most 5 MB a
+  file. The server sweeps files older than seven days on start and once a day, and deletes a
+  conversation's folder with the conversation.
 
 ## [0.9.2] — 2026-09-28
 
@@ -1043,6 +1070,7 @@ restarting the process.
 
 - One agent, `run_turn` loop with a tool approval gate, web UI, memory on disk.
 
+[0.10.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.10.0
 [0.9.2]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.9.2
 [0.9.1]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.9.1
 [0.9.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.9.0
