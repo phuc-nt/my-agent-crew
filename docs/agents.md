@@ -494,9 +494,10 @@ khởi động lại, và job của nó mang `origin: "profile"`. Lịch agent t
 lần khởi động lại kế tiếp, và job của nó mang `origin: "chat"`. Tab Lịch chạy gắn nhãn "tạo từ
 chat" cho loại thứ hai và cho xoá tại chỗ (`DELETE /api/jobs/{id:path}`, xoá dòng
 `created_schedules` và `job_state`, giữ nguyên lịch sử run); lịch viết tay không có nút xoá vì
-xoá nó nghĩa là sửa yaml. Lịch từ chat chỉ tạo được loại job prompt — không có job command hay
-consolidate qua chat — và luôn cần người duyệt nguyên văn prompt trước khi chạy lần đầu, dù
-cuộc trò chuyện có autonomous hay không.
+xoá nó nghĩa là sửa yaml, còn lịch từ chat không có nút sửa lịch vì trình sửa agent chỉ chứa
+lịch trong yaml: muốn đổi thì xoá rồi để agent đề xuất lại. Lịch từ chat chỉ tạo được loại job
+prompt — không có job command hay consolidate qua chat — và luôn cần người duyệt nguyên văn
+prompt trước khi chạy lần đầu, dù cuộc trò chuyện có autonomous hay không.
 
 | Khoá | Ý nghĩa |
 |---|---|

@@ -163,7 +163,8 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   land in between. Once approved, the schedule runs
   without a server restart and survives the next one; the jobs tab labels it "tạo từ chat" beside
   the ones written by hand and offers a delete button only for this kind, since a hand-written
-  one needs its file edited instead.
+  one needs its file edited instead. It has no edit button either: the agent editor holds only
+  the schedules from `agent.yaml`, so changing one means deleting it and proposing it again.
 
 ### Changed
 

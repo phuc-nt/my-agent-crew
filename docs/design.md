@@ -385,7 +385,8 @@ lọc theo agent ngay ở server và theo trạng thái, nguồn trong trang, đ
 câu hỏi — kèm đồng hồ đếm tới hạn chót; bên dưới là lịch sử các yêu cầu đã quyết kèm kết
 quả — đã duyệt, bị từ chối, hết hạn, đã trả lời), đội, tool, job (lịch đọc thành chữ cạnh
 cron gốc, run kế/run trước kèm giờ đồng hồ, run trước kết thúc ra sao, nút chạy ngay, công
-tắc tạm dừng/tiếp tục, nút sửa lịch mở trình sửa agent, và lịch sử run của job khi cần),
+tắc tạm dừng/tiếp tục, nút sửa lịch mở trình sửa agent cho lịch viết tay, nút xoá cho lịch
+tạo từ chat, và lịch sử run của job khi cần),
 trí nhớ, chi phí theo agent, model và ngày — trong đó bảy ngày gần nhất và bảng theo model
 được đọc thẳng từ nhật ký message với số token của nó, nên con số là thứ thực sự được tính
 tiền chứ không phải ước lượng — kết nối, và cài đặt. Yêu cầu chờ duyệt và run hỏng nằm ở hai

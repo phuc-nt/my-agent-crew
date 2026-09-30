@@ -1026,7 +1026,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
   - vitest: `components/jobs-panel.test.tsx` ("labels a chat-origin row and leaves a profile row
     unlabelled", "offers no delete button for a profile job even when onDelete is supplied",
     "deletes a chat job once the confirm dialog is accepted", "keeps the job when the confirm dialog
-    is declined"); `app.test.tsx` ("withholds always-allow on a proposed schedule / a shell command
+    is declined", "offers no edit button on a chat job, whose schedule is not in the profile
+    editor"); `app.test.tsx` ("withholds always-allow on a proposed schedule / a shell command
     on the ask list, which stopped for a reason, and shows that reason": thẻ có reason hiện đủ từng
     dòng reason, có nút Duyệt nhưng không có "Luôn cho phép"; thẻ không reason vẫn có nút đó, theo
     "always-allows a tool from the approval bar, shows it in the header and revokes it");

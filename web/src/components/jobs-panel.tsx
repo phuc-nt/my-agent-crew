@@ -118,7 +118,9 @@ export function JobsPanel(props: Props) {
                   <Icon name="play" />
                   {vi.runNow}
                 </button>
-                {onEditSchedules && (
+                {/* A chat job is a database row, not an agent.yaml entry: the editor would
+                    open without it, so the change a chat row offers is deleting it. */}
+                {onEditSchedules && job.origin !== "chat" && (
                   <button
                     type="button"
                     className="ghost"

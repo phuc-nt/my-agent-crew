@@ -265,6 +265,14 @@ describe("a schedule created from chat", () => {
     expect(within(chatRow).getByText(vi.jobFromChat)).toBeVisible();
   });
 
+  it("offers no edit button on a chat job, whose schedule is not in the profile editor", () => {
+    render(<JobsPanel jobs={[brief, chatJob]} agentName={name} onRunNow={() => {}} onToggle={() => {}} onEditSchedules={() => {}} />);
+
+    const [profileRow, chatRow] = screen.getAllByTestId("job");
+    expect(within(profileRow).getByRole("button", { name: vi.jobRow.editOf(brief.name) })).toBeVisible();
+    expect(within(chatRow).queryByRole("button", { name: vi.jobRow.editOf(chatJob.name) })).not.toBeInTheDocument();
+  });
+
   it("offers no delete button for a profile job even when onDelete is supplied", () => {
     render(<JobsPanel jobs={[brief]} agentName={name} onRunNow={() => {}} onToggle={() => {}} onDelete={() => {}} />);
 
