@@ -76,6 +76,7 @@ function proposal(over: Partial<MemoryProposal>): MemoryProposal {
     previous_body: "",
     status: "pending",
     source: "memory:wiki",
+    reasons: "",
     created_at: "2026-09-26T01:00:00+00:00",
     resolved_at: null,
     ...over,

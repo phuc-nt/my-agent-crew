@@ -458,6 +458,8 @@ export interface FactInfo {
   source: string;
   updated: string;
   body: string;
+  /** Server-computed: `updated` is more than ninety days old. */
+  stale: boolean;
 }
 
 export type FactType = "profile" | "preference" | "feedback" | "project" | "reference";
@@ -517,7 +519,10 @@ export type ProposalKind =
   | "agent_memory_rewrite"
   /** A whole batch of wiki pages, decided in one approval; the body is JSON. */
   | "wiki_compile";
-export type ProposalStatus = "pending" | "approved" | "rejected";
+/** "superseded" is a proposal a newer one of the same kind made obsolete, or one whose
+ *  file changed under it before anyone decided — distinct from "rejected": nobody said
+ *  no, the ground moved. */
+export type ProposalStatus = "pending" | "approved" | "rejected" | "superseded";
 
 /** A memory write a scheduled job asked for and cannot perform on its own. */
 export interface MemoryProposal {
@@ -532,6 +537,9 @@ export interface MemoryProposal {
   previous_body: string;
   status: ProposalStatus;
   source: string;
+  /** Why the model changed or dropped each line, one bullet per decision. Empty when the
+   *  proposal is a plain addition with nothing to explain. */
+  reasons: string;
   created_at: string;
   resolved_at: string | null;
 }

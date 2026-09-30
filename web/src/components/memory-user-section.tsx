@@ -56,6 +56,7 @@ export function MemoryUserSection(props: Props) {
               <div className="fact-head">
                 <strong>{fact.description || fact.name}</strong>
                 <span className="badge">{vi.memory.factTypes[fact.type] ?? fact.type}</span>
+                {fact.stale && <span className="badge warn">{vi.memory.factStale}</span>}
               </div>
               <div className="muted">
                 <code>{fact.name}</code> · {vi.memory.writtenBy(fact.written_by)} · {fact.updated}

@@ -49,6 +49,7 @@ describe("MemoryPanel", () => {
         source: "chat",
         updated: "2026-09-20T08:00:00",
         body: "Ngủ sớm mỗi ngày.",
+        stale: false,
       },
     ];
     mount();
@@ -61,6 +62,44 @@ describe("MemoryPanel", () => {
     await userEvent.type(textarea, " Thích ngắn gọn.");
     await userEvent.click(screen.getByRole("button", { name: vi.memory.save }));
     await waitFor(() => expect(backend.userMd).toContain("Thích ngắn gọn."));
+  });
+
+  it("flags a fact nobody has confirmed in over ninety days", async () => {
+    backend.facts = [
+      {
+        name: "cu-roi",
+        description: "Điều cũ",
+        type: "preference",
+        written_by: "coach",
+        source: "chat",
+        updated: "2026-01-01T00:00:00",
+        body: "Đã lâu chưa ai xác nhận.",
+        stale: true,
+      },
+    ];
+    mount();
+
+    const card = (await screen.findByText("Điều cũ")).closest(".fact-head") as HTMLElement;
+    expect(within(card).getByText(vi.memory.factStale)).toBeInTheDocument();
+  });
+
+  it("does not flag a fact confirmed recently", async () => {
+    backend.facts = [
+      {
+        name: "ngu-som",
+        description: "Ngủ trước 23h",
+        type: "preference",
+        written_by: "coach",
+        source: "chat",
+        updated: "2026-09-20T08:00:00",
+        body: "Ngủ sớm mỗi ngày.",
+        stale: false,
+      },
+    ];
+    mount();
+
+    const card = (await screen.findByText("Ngủ trước 23h")).closest(".fact-head") as HTMLElement;
+    expect(within(card).queryByText(vi.memory.factStale)).toBeNull();
   });
 
   it("creates a fact through the form and forgets it after a confirm", async () => {
@@ -290,6 +329,25 @@ describe("MemoryPanel", () => {
     );
   });
 
+  it("shows a superseded rewrite in the history, with no undo since nothing of it was applied", async () => {
+    backend.addProposal({
+      kind: "agent_memory_rewrite",
+      name: "MEMORY.md",
+      description: "Cô đọng bộ nhớ (cũ)",
+      body: "- Sếp thích trà.",
+      previous_body: "- Sếp thích trà.",
+      status: "superseded",
+      resolved_at: "2026-09-20T09:00:00",
+    });
+    mount();
+
+    await open(vi.memory.proposals);
+    await userEvent.click(await screen.findByRole("button", { name: `${vi.memory.history} (1)` }));
+    const entry = (await screen.findByText("Cô đọng bộ nhớ (cũ)")).closest("li")!;
+    expect(within(entry).getByText(vi.memory.proposalStatus.superseded)).toBeInTheDocument();
+    expect(within(entry).queryByRole("button", { name: vi.memory.undo })).toBeNull();
+  });
+
   it("shows an agent_memory proposal as the lines it would add", async () => {
     backend.setAgentMemory("default", { memory_md: "- Sếp thích trà." });
     backend.addProposal({
@@ -315,6 +373,7 @@ const savedFact = (overrides: Partial<FactInfo> = {}): FactInfo => ({
   source: "chat",
   updated: "2026-09-20T08:00:00",
   body: "Ngủ sớm mỗi ngày.",
+  stale: false,
   ...overrides,
 });
 
@@ -342,6 +401,32 @@ describe("MemoryPanel proposal review", () => {
     ]);
     expect(screen.getByText(`Agent · ${formatDateTime("2026-09-20T07:00:00")}`)).toBeInTheDocument();
     expect(screen.queryByText(/2026-09-20T07:00:00/)).toBeNull();
+  });
+
+  it("shows why the model changed or dropped each line, before the person decides", async () => {
+    backend.addProposal({
+      kind: "agent_memory_rewrite",
+      name: "MEMORY.md",
+      description: "Cô đọng bộ nhớ",
+      previous_body: "- Sếp dị ứng tôm.",
+      body: "- Sếp thích trà.",
+      reasons: "- Bỏ vì không còn ai xác nhận lại.\n- Thêm từ ghi chép hôm nay.",
+    });
+    mount(1);
+
+    await open(vi.memory.proposals);
+    expect(await screen.findByText(vi.memory.proposalReasons)).toBeInTheDocument();
+    expect(screen.getByText("Bỏ vì không còn ai xác nhận lại.")).toBeInTheDocument();
+    expect(screen.getByText("Thêm từ ghi chép hôm nay.")).toBeInTheDocument();
+  });
+
+  it("shows nothing extra for a proposal with no reasons to give", async () => {
+    backend.addProposal({ name: "ca-phe", description: "Thích cà phê", body: "Thích cà phê sữa." });
+    mount(1);
+
+    await open(vi.memory.proposals);
+    await screen.findByText("Thích cà phê sữa.");
+    expect(screen.queryByText(vi.memory.proposalReasons)).toBeNull();
   });
 
   it("shows the exact fact a forget drops and approves it only after a confirm", async () => {

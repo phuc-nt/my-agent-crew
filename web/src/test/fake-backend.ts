@@ -24,6 +24,17 @@ import { fold } from "../components/conversation-search";
 import { FakeWiki } from "./fake-wiki";
 import { applyAgentPatch, restartRequired } from "./schedule-contract";
 
+/** Ninety days, mirroring `fact_dates.STALE_DAYS`. An unparseable `updated` counts as
+ *  stale too, same reasoning as the server: absence of evidence is not freshness. */
+const STALE_DAYS = 90;
+
+export function factIsStale(updatedIso: string, today: Date = new Date()): boolean {
+  const updated = new Date(updatedIso);
+  if (Number.isNaN(updated.getTime())) return true;
+  const days = (today.getTime() - updated.getTime()) / (1000 * 60 * 60 * 24);
+  return days > STALE_DAYS;
+}
+
 export const fakeAgent: AgentInfo = {
   id: "default",
   name: "Agent",
@@ -521,6 +532,7 @@ export class FakeBackend {
         source: "web",
         updated: "2026-09-20T09:00:00",
         body: body.body,
+        stale: false,
       };
       this.facts = [fact, ...this.facts.filter((f) => f.name !== fact.name)];
       return json(fact);
@@ -619,6 +631,7 @@ export class FakeBackend {
       previous_body: "",
       status: "pending",
       source: "job",
+      reasons: "",
       created_at: "2026-09-20T07:00:00",
       resolved_at: null,
       ...overrides,
@@ -635,7 +648,7 @@ export class FakeBackend {
   private userMemory() {
     return {
       user_md: this.userMd,
-      facts: this.facts,
+      facts: this.facts.map((f) => ({ ...f, stale: factIsStale(f.updated) })),
       index_md: this.facts.map((f) => `- [${f.description}](${f.name}.md)`).join("\n"),
     };
   }

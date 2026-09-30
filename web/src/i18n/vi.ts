@@ -824,6 +824,8 @@ export const vi = {
       reference: "tham chiếu",
     } as Record<string, string>,
     writtenBy: (who: string) => `ghi bởi ${who}`,
+    /** Nobody has confirmed this fact in over ninety days. */
+    factStale: "cũ",
     save: "Lưu",
     saving: "Đang lưu…",
     saved: "Đã lưu",
@@ -862,7 +864,12 @@ export const vi = {
     } as Record<string, string>,
     approve: "Duyệt",
     reject: "Từ chối",
-    proposalStatus: { approved: "đã duyệt", rejected: "đã từ chối" } as Record<string, string>,
+    proposalStatus: {
+      approved: "đã duyệt",
+      rejected: "đã từ chối",
+      superseded: "đã bị thay thế",
+    } as Record<string, string>,
+    proposalReasons: "Lý do",
     undo: "Hoàn tác",
     confirmUndo: "Khôi phục MEMORY.md về bản trước khi ghi đè?",
     undoFailed: "Hoàn tác không thành công.",

@@ -38,6 +38,26 @@ function appended(current: string, body: string): string {
   return `${current}${separator}- ${body.trim()}\n`;
 }
 
+/** One bullet per line the model gave a reason for, dropping the leading "- " each keeps
+ *  from the prompt's own Markdown shape. */
+function ProposalReasons({ reasons }: { reasons: string }) {
+  const lines = reasons
+    .split("\n")
+    .map((line) => line.replace(/^-\s*/, "").trim())
+    .filter(Boolean);
+  if (lines.length === 0) return null;
+  return (
+    <div className="proposal-reasons">
+      <p className="muted">{vi.memory.proposalReasons}</p>
+      <ul>
+        {lines.map((line, index) => (
+          <li key={index}>{line}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 /**
  * The part of a proposal a reviewer has to see to decide: for a rewrite, both sides of the
  * diff; for a fact, what it overwrites; for a forget, the exact fact that goes. Showing the
@@ -119,6 +139,7 @@ export function ProposalCard(props: Props) {
         {props.agentName(proposal.agent_id)} · {formatDateTime(proposal.created_at)}
       </div>
       <ProposalBody proposal={proposal} facts={props.facts} agentMemoryMd={props.agentMemoryMd} />
+      <ProposalReasons reasons={proposal.reasons} />
       {props.conflicted ? (
         <p className="notice" role="status">
           {vi.memory.alreadyDecided}

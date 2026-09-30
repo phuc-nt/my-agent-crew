@@ -28,6 +28,7 @@ function proposal(body: unknown, previous: unknown): MemoryProposal {
     previous_body: JSON.stringify(previous),
     status: "pending",
     source: "memory:wiki",
+    reasons: "",
     created_at: "2026-09-20T07:00:00",
     resolved_at: null,
   };
