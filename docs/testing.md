@@ -1,6 +1,6 @@
 # Kiểm thử
 
-**Phiên bản**: 0.9.2 · **Cập nhật**: 2026-09-29
+**Phiên bản**: 0.9.2 · **Cập nhật**: 2026-09-30
 
 Ba tầng, một quy tắc: **mỗi tính năng ra kèm một test ở tầng thấp nhất có thể thấy nó.**
 Bản thân các tệp test là bản kiểm kê đầy đủ; trang này nói mỗi tầng dùng để làm gì, chạy ra
@@ -811,6 +811,70 @@ tên một test thì sửa dòng của nó trong cùng commit.
     transcription"); `components/stats-panel.test.tsx`
     "names a voice note transcription row by its own purpose"; `components/global-routes-editor.test.tsx`,
     `test/fake-backend.ts`, `e2e/mock-api.ts` mang trường `audio_routes` trong mọi fixture
+- **"Sửa và gửi lại từ đây": rẽ nhánh hội thoại ở một tin user đã lưu, giữ gốc nguyên vẹn**
+  - pytest: `tests/test_store_fork.py`
+    (`test_copies_every_message_before_the_cut_with_its_columns`,
+    `test_cutting_at_the_first_user_message_makes_an_empty_fork_with_the_right_draft`,
+    `test_tool_calls_and_tool_messages_survive_the_copy`,
+    `test_provider_cost_and_token_columns_are_null_on_the_copy`,
+    `test_the_fork_has_zero_spend_and_zero_unknown_cost_calls`,
+    `test_usage_totals_are_identical_before_and_after_forking` (`by_model`, `by_purpose`, `by_day`
+    và `/api/stats` không đổi vì bản chép không mang `provider`, nên không lượt gọi model nào bị
+    đếm hai lần), `test_agent_id_cost_cap_and_skills_are_copied_others_are_reset`,
+    `test_autonomous_follows_the_agent_default_not_the_source` (nhánh không thừa hưởng
+    `autonomous` hay `auto_approve` của gốc dù gốc đã bật),
+    `test_the_suffix_is_added_once_and_not_doubled_on_a_fork_of_a_fork`,
+    `test_a_default_titled_source_stays_default_on_the_fork`,
+    `test_cutting_at_an_assistant_or_tool_message_is_a_value_error`,
+    `test_a_message_of_another_conversation_is_a_key_error`,
+    `test_an_unknown_message_id_is_a_key_error`, `test_an_unknown_conversation_is_a_key_error`,
+    `test_a_delegated_child_conversation_cannot_be_forked`,
+    `test_the_source_conversation_is_unchanged_after_forking`,
+    `test_a_pending_approval_on_the_source_survives_forking_at_an_earlier_point`,
+    `test_forking_a_telegram_conversation_makes_a_web_fork_and_keeps_the_channel`,
+    `test_an_open_call_is_copied_still_open_ready_for_the_route_to_close_it` (lịch sử thật
+    `[assistant(A,B), tool(A), user]` khi một lượt bị ngắt giữa chừng rồi người nhắn tiếp; call B
+    còn mở sau khi chép, chờ route đóng lại),
+    `test_a_failed_copy_leaves_no_fork_behind`,
+    `test_forked_from_marks_the_conversation_so_the_recap_can_be_skipped`,
+    `test_deleting_the_source_clears_forked_from_and_the_fork_keeps_its_messages`,
+    `test_deleting_the_fork_does_not_touch_the_sources_delegate_children`,
+    `test_a_shared_line_finds_a_single_hit_belonging_to_the_fork` (chỉ mục FTS của phase 10 gộp
+    phần chữ chung của gốc và nhánh về một hit, thuộc về nhánh vì `id` lớn hơn));
+    `tests/test_api_fork.py`
+    (`test_forking_returns_the_new_conversation_and_the_cut_messages_own_text`,
+    `test_unknown_conversation_is_404`, `test_unknown_message_id_is_404`,
+    `test_a_message_belonging_to_another_conversation_is_404`,
+    `test_cutting_at_a_non_user_message_is_400`, `test_forking_a_delegated_child_is_400`,
+    `test_before_message_id_must_be_a_positive_integer`,
+    `test_an_open_call_is_closed_and_never_run_again` (chạy một lượt ở nhánh với tool đếm số lần
+    gọi: tool bị đóng ở điểm cắt không được gọi lại),
+    `test_a_refusal_that_fails_to_write_leaves_no_fork_behind` (`refuse_unanswered` ném lỗi thì
+    route trả 500 và không còn nhánh))
+  - vitest: `hooks/use-fork.test.ts`
+    ("uses a numeric id straight away, with no extra read of the conversation",
+    "resolves a local-N id by reading the conversation once and counting from the end" (bubble vừa
+    gửi chưa nạp lại nên còn giữ id `local-N`; khớp theo vị trí tin user tính từ cuối và đúng
+    chữ của nó),
+    "gives up without ever calling the fork API when the text at that position no longer matches",
+    "saves the fork's draft, refreshes the list, and selects the fork",
+    "shows forkFailed and stays put when the server refuses the fork");
+    `components/message-thread.test.tsx`
+    ("sits under the user bubble but not under the assistant's reply",
+    "is absent without an onFork handler, even while idle", "is hidden while the thread is busy",
+    "calls onFork with the item it sits under, not the conversation as a whole");
+    `components/conversation-header.test.tsx`
+    ("is absent when the conversation is not a fork",
+    "names the source conversation and opens it on click",
+    "falls back to the generic label when the source is not in the loaded list");
+    `hooks/use-draft.test.ts`
+    ("is read back by useDraft once it mounts on that key",
+    "is picked up by a useDraft already mounted, the moment its key switches to it",
+    "forgetDraft still empties what saveDraft wrote")
+  - Playwright: `e2e/fork.spec.ts`
+    ("forking at the second saved message keeps the first turn, prefills the composer, and links
+    back", "forking right after sending, before any reload, still resolves to the real message" —
+    ca `local-N` trên mock, riêng với self-test thủ công trên server thật)
 - **Tìm hội thoại FTS5: gõ không dấu khớp có dấu, `conversation_search` cho model, "Trong nội
   dung" trong sidebar cho người**
   - pytest: `tests/test_search_index.py` (thiếu module fts5 báo lỗi rõ; tin `user`/`assistant`

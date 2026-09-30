@@ -13,6 +13,11 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ### Added
 
+- A button under a saved user message forks the conversation there: the server copies every
+  message before it into a new conversation, closes any tool call still open at the cut without
+  running it, and resets cost, approvals and autonomy to the agent's own defaults. The composer
+  opens on the fork prefilled with the cut message's own text; the source conversation, its spend
+  and its approvals are untouched. The header names where a fork came from and links back to it.
 - A voice note (or audio file) sent on Telegram is transcribed by its own `audio_routes` chain
   before the master ever sees it. The channel replies "Đã nghe: …" with the transcript so the
   sender can catch a mishearing, then hands that text to the master as an ordinary message —

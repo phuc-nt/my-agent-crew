@@ -1,6 +1,6 @@
 # Thiết kế
 
-**Phiên bản**: 0.9.2 · **Cập nhật**: 2026-09-28
+**Phiên bản**: 0.9.2 · **Cập nhật**: 2026-09-30
 
 ## Mục tiêu
 
@@ -105,6 +105,24 @@ any platform ──POST /api/inbound (JSON, sync)─────┴─▶ Inboun
   danh sách `auto_approve` của cuộc trò chuyện và các lần gọi tool đó về sau chạy không cần hỏi,
   cho tới khi chip trên header thu hồi. Danh sách hỏi của shell vẫn tạm dừng một `shell_run`
   đã được cho phép luôn. Các yêu cầu đã quyết vẫn đọc được ở `GET /api/approvals`.
+- **Rẽ nhánh là chép, không phải tua tại chỗ.** `POST /api/conversations/{id}/fork` (thân
+  `{before_message_id}`) tạo một hội thoại mới chép mọi tin trước điểm cắt bằng một câu
+  `INSERT … SELECT` giữ nguyên `role`, `content`, `tool_calls`, `tool_call_id`, `name`, `model`,
+  `created_at` và đánh lại `seq` liền mạch từ 1; điểm cắt phải là một tin `role == "user"` đã lưu
+  của chính hội thoại đó (tin còn trong `queued_messages` không có), và hội thoại con của delegate
+  bị từ chối vì tin đầu của nó là lời agent cha. `provider`, `cost_usd` và bốn cột token luôn NULL
+  trên bản chép — tiền đã tiêu thuộc về gốc, `by_model`/`by_purpose`/`by_day` không đếm hai lần —
+  và nhánh có `spent_usd = 0`, `autonomous` theo mặc định của agent, `auto_approve = ()`: quyền
+  không đi theo lịch sử, vì mở lại đúng chỗ thường là để agent làm khác đi. Một tool call còn mở
+  ở cuối phần chép (lượt bị ngắt giữa chừng rồi người nhắn tiếp, nên lịch sử thật có dạng
+  `[assistant(A,B), tool(A), user]` với B chưa trả lời) được `refuse_unanswered` đóng lại ngay sau
+  khi chép, ghi kết quả từ chối mà không chạy tool — nếu không, `settle_tool_calls` ở lượt đầu của
+  nhánh sẽ tự chạy lại một tool đổi trạng thái ngoài ý chủ. Toàn bộ (tạo, chép, đóng call mở) nằm
+  dưới một lần giữ lock; lỗi ở bất kỳ bước nào xoá nhánh vừa tạo rồi ném lại lỗi, nên không bao giờ
+  còn một nhánh nửa chừng. Xoá hội thoại gốc chỉ gỡ liên kết `forked_from` của các nhánh, không xoá
+  chúng. Đánh đổi đã ghi nhận: con delegate và `MAX_DELEGATES` được tính theo lịch sử nên nhánh
+  thấy (và bị tính) con của gốc; kết quả tìm kiếm ở phần chữ chung giữa gốc và nhánh chỉ về một hit,
+  thuộc về nhánh vì `id` lớn hơn.
 - **Fallback nhìn thấy được.** Mỗi tuyến bỏ cuộc đều được log, phát thành event `route_fallback`
   và ghi thành step `fallback` trên run, nên một model cứ lỗi mãi sẽ hiện trên timeline
   thay vì âm thầm tốn thêm ở tuyến kế tiếp. Step `fallback` mang thời gian của lần thử hỏng
@@ -371,6 +389,16 @@ từ chỗ khác (người dùng gõ vào, một tệp hay trang web tool đọc
 đầu bản xuất và dưới hai link tải đều nhắc đọc lại trước khi dán ra ngoài. Kết quả tool dài quá
 2 000 ký tự bị cắt và ghi rõ dài bao nhiêu, trừ khi gọi với `full=1`. Tệp đến dưới dạng
 `attachment` với `Cache-Control: no-store`, qua cùng hàng rào Host/Origin như mọi đường khác.
+
+Dưới mỗi tin người dùng đã lưu có một nút "Sửa và gửi lại từ đây": bấm thì rẽ nhánh ngay tại đó
+(ẩn khi thread đang bận, khi bubble còn xếp hàng hay khi hội thoại đang mở là con của delegate).
+Bubble id số gọi API thẳng; bubble vừa gửi còn giữ id `local-N` (thread không nạp lại sau lượt của
+chính nó) thì trước tiên đọc lại hội thoại một lần, khớp theo vị trí tin user tính từ cuối và chữ
+của nó — không khớp thì báo lỗi chứ không đoán. Rẽ nhánh xong, web lưu chữ cũ làm bản nháp của
+nhánh, làm mới danh sách rồi chuyển sang nhánh với ô soạn đã có sẵn chữ đó và đang focus. Header
+của nhánh có thêm một dòng nhỏ "Rẽ nhánh từ …" dẫn về gốc (gốc không còn trong danh sách thì ghi
+chung chung "cuộc trò chuyện gốc"), và tiêu đề mang hậu tố "(nhánh)" một lần, không cộng dồn qua
+nhiều lần rẽ. Hội thoại gốc không đổi gì — không tin nào bị xoá hay viết lại.
 
 Header chat là tiêu đề và ba pill: chi tiêu so với trần, tuỳ chọn, và số thành viên
 đội. Pill mang dòng tóm tắt và mở một thẻ với chi tiết: thẻ chi tiêu
