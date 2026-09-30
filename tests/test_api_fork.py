@@ -65,6 +65,19 @@ def test_forking_returns_the_new_conversation_and_the_cut_messages_own_text(clie
     assert [m["content"] for m in history] == ["một"]
 
 
+@pytest.mark.parametrize("default", [False, True])
+def test_the_fork_runs_on_its_own_only_when_the_agent_default_says_so(deps_factory, default):
+    deps = deps_factory(routes=(Route("fake", "echo"),), autonomous_default=default)
+    with TestClient(create_app(deps), base_url="http://127.0.0.1") as c:
+        conv_id = new_conversation(c, autonomous=not default)
+        cut = deps.store.append(conv_id, user("hỏi")).id
+
+        response = fork(c, conv_id, cut)
+
+    assert response.status_code == 201
+    assert response.json()["autonomous"] is default
+
+
 def test_unknown_conversation_is_404(client):
     c, _ = client
     assert fork(c, "khong-co", 1).status_code == 404

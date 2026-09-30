@@ -206,3 +206,18 @@ def test_a_delegated_turn_is_not_told_about_the_previous_conversation(deps_facto
 
     assert "Việc cũ đã xong." not in system_prompt_for(deps, deps.store.get(child.id))
     assert "Việc cũ đã xong." in system_prompt_for(deps, deps.store.get(plain.id))
+
+
+def test_a_fork_is_not_told_about_the_conversation_it_was_cut_from(deps_factory):
+    """A fork is the newest conversation on its channel, so the one right before it is
+    usually its own source, whose summary covers the part after the cut the fork exists
+    to drop."""
+    deps = deps_factory()
+    source = deps.store.create(agent_id="default", channel="")
+    deps.store.update(source.id, summary="Phần sau điểm cắt.")
+    cut = deps.store.append(source.id, Message(role="user", content="hỏi")).id
+
+    fork, _ = deps.store.fork(source.id, cut, autonomous=False)
+
+    assert deps.store.previous_for_channel("default", "", fork.id).id == source.id
+    assert "Phần sau điểm cắt." not in system_prompt_for(deps, deps.store.get(fork.id))

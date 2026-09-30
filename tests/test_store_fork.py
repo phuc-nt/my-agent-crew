@@ -58,6 +58,19 @@ def test_copies_every_message_before_the_cut_with_its_columns(store: Store) -> N
         assert copy.created_at == source.created_at
 
 
+def test_only_the_source_conversations_own_messages_are_copied(store: Store) -> None:
+    other = store.create()
+    store.append(other.id, user("của hội thoại khác"))
+    store.append(other.id, user("vẫn của hội thoại khác"))
+    conv = store.create()
+    store.append(conv.id, user("một"))
+    cut = store.append(conv.id, user("hai")).id
+
+    fork, _ = store.fork(conv.id, cut, autonomous=False)
+
+    assert [m.message.content for m in store.history(fork.id)] == ["một"]
+
+
 def test_cutting_at_the_first_user_message_makes_an_empty_fork_with_the_right_draft(
     store: Store,
 ) -> None:
