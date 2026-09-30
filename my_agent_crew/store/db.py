@@ -14,6 +14,7 @@ from my_agent_crew.llm.types import Message
 from my_agent_crew.store.approvals import ApprovalStore
 from my_agent_crew.store.connection import connect
 from my_agent_crew.store.conversation_lookup import ConversationLookups
+from my_agent_crew.store.fork import Forks
 from my_agent_crew.store.job_state import JobStateStore
 from my_agent_crew.store.memory_proposals import MemoryProposalStore
 from my_agent_crew.store.messages import MessageStore
@@ -39,7 +40,7 @@ def new_id() -> str:
     return uuid.uuid4().hex[:12]
 
 
-class Store(ConversationLookups):
+class Store(ConversationLookups, Forks):
     def __init__(self, path: Path | str = ":memory:"):
         self._conn = connect(path)
         self._lock = threading.RLock()
@@ -75,13 +76,14 @@ class Store(ConversationLookups):
         channel: str = "",
         parent_call_id: str = "",
         approval_ttl_seconds: int | None = None,
+        forked_from: str = "",
     ) -> Conversation:
         conv_id, stamp = new_id(), now_iso()
         with self._lock:
             [row] = self._conn.execute(
                 "INSERT INTO conversations (id, title, created_at, updated_at, autonomous,"
-                " cost_cap_usd, skills, agent_id, channel, parent_call_id, approval_ttl_seconds)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *",
+                " cost_cap_usd, skills, agent_id, channel, parent_call_id, approval_ttl_seconds,"
+                " forked_from) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *",
                 (
                     conv_id,
                     title,
@@ -94,6 +96,7 @@ class Store(ConversationLookups):
                     channel,
                     parent_call_id,
                     approval_ttl_seconds,
+                    forked_from,
                 ),
             ).fetchall()
             self._conn.commit()
@@ -148,6 +151,11 @@ class Store(ConversationLookups):
         with self._lock:
             for table in ("messages", "approvals", "queued_messages"):
                 self._conn.execute(f"DELETE FROM {table} WHERE conversation_id = ?", (conv_id,))
+            # A fork's header links back here; once this conversation is gone that link
+            # must go too, or it would point at an id that no longer exists.
+            self._conn.execute(
+                "UPDATE conversations SET forked_from = '' WHERE forked_from = ?", (conv_id,)
+            )
             cur = self._conn.execute("DELETE FROM conversations WHERE id = ?", (conv_id,))
             self._conn.commit()
         if cur.rowcount == 0:

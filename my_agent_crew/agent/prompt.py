@@ -101,10 +101,12 @@ def system_prompt_for(deps: AgentDeps, conv: Conversation | None = None) -> str:
     profile = deps.agent
     # A delegated turn is one job with a fresh brief; the summary of some earlier job on
     # the same channel is noise to it, and a different one for every child breaks the
-    # prefix all the children of one master could otherwise share.
+    # prefix all the children of one master could otherwise share. A fork is newest on its
+    # channel by rowid, so "the conversation before it" usually is the very one it was cut
+    # from — whose summary covers the part after the cut that the fork exists to drop.
     previous = (
         deps.store.previous_for_channel(conv.agent_id, conv.channel, conv.id)
-        if conv is not None and not conv.parent_call_id
+        if conv is not None and not conv.parent_call_id and not conv.forked_from
         else None
     )
     today = deps.settings.today()

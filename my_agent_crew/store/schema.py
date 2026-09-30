@@ -84,6 +84,9 @@ ADDED_COLUMNS = (
     # The conversation's last message seq when a run began: the run's own messages are the
     # ones after it. NULL on runs recorded before it was kept, which are read back by time.
     ("runs", "after_seq", "INTEGER"),
+    # The id of the conversation this one was forked from, when it is a fork; "" otherwise.
+    # Cleared when that conversation is deleted, so a fork never points at a missing id.
+    ("conversations", "forked_from", "TEXT NOT NULL DEFAULT ''"),
 )
 
 
