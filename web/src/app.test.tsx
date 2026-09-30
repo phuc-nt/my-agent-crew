@@ -158,6 +158,27 @@ describe("App", () => {
     expect(screen.queryByRole("list", { name: vi.autoApproved })).not.toBeInTheDocument();
   });
 
+  it.each([
+    ["a proposed schedule", "schedule_create", "Đề xuất lịch: Uống nước\nLịch: Mỗi ngày 07:00 (0 7 * * *)\nNguyên văn sẽ chạy:\nNhắc tôi uống nước."],
+    ["a shell command on the ask list", "shell_run", "khớp mẫu cần duyệt: `rm -rf`"],
+  ])("withholds always-allow on %s, which stopped for a reason, and shows that reason", async (_what, tool, reason) => {
+    // Always-allowing the tool would not waive a pause that a reason caused; it would only let
+    // the same tool's other calls run unasked, which is not what this card is about.
+    backend.create({
+      title: "Lý do",
+      status: "awaiting_approval",
+      messages: [storedMessage("assistant", "", { tool_calls: [{ id: "tc1", name: tool, arguments: {} }] })],
+      pending_approval: { id: "ap1", conversation_id: "c1", message_id: "m", tool_call_id: "tc1", tool_name: tool, arguments: {}, status: "pending", created_at: "", expires_at: null, resolved_at: null, reason },
+    });
+    render(<App />);
+    await userEvent.click(await screen.findByRole("button", { name: /Lý do/ }));
+    const bar = await screen.findByRole("alertdialog");
+    // Every line of the reason arrives intact: the card is the only place a person reads it.
+    expect(bar.querySelector(".approval-reason")?.textContent).toBe(reason);
+    expect(within(bar).getByRole("button", { name: vi.approve })).toBeInTheDocument();
+    expect(within(bar).queryByRole("button", { name: vi.alwaysAllow })).not.toBeInTheDocument();
+  });
+
   it("answers a question the agent asked and resumes the turn", async () => {
     // The whole point of the question card: before it, this row offered only Allow and
     // Refuse, and the server 409s both, so the agent waited out its deadline.

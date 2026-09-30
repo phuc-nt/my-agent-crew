@@ -1,7 +1,7 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi as vitest } from "vitest";
 import { App } from "./app";
 import { vi } from "./i18n/vi";
 import { FakeBackend, FakeEventSource, coachAgent, fakeAgent, fakeRun, listItem, storedMessage } from "./test/fake-backend";
@@ -240,6 +240,31 @@ describe("App activity across the crew", () => {
     await waitFor(() => expect(backend.requests.find((r) => r.method === "PATCH" && r.path === "/jobs/coach/brief/state")?.body).toEqual({ enabled: false }));
     expect(await within(screen.getByTestId("job")).findByText(vi.jobPaused)).toBeInTheDocument();
     expect(screen.getByRole("checkbox", { name: `${vi.jobEnabled}: Bản tin sáng` })).not.toBeChecked();
+  });
+
+  // The whole path a delete takes, from the jobs tab through the crew hook to the server and
+  // back: the row leaves the list once the server has removed it, and the profile job beside
+  // it is never offered the button at all.
+  it("deletes a chat-created job from the jobs tab and keeps the profile one", async () => {
+    backend.agents = [fakeAgent, coachAgent];
+    const profile = { ...coachAgent.schedules[0], id: "coach/brief", schedule_id: "brief", agent_id: "coach", next_run: null, last_run: null, running: false, paused: false, origin: "profile" as const };
+    const fromChat = { ...profile, id: "coach/chat-1a2b3c4d", schedule_id: "chat-1a2b3c4d", name: "Nhắc uống nước", origin: "chat" as const };
+    backend.jobs = [profile, fromChat];
+    const confirm = vitest.spyOn(window, "confirm").mockReturnValue(true);
+    onTestFinished(() => confirm.mockRestore());
+    render(<App />);
+    await screen.findByRole("navigation");
+    await openManage();
+    await userEvent.click(screen.getByRole("button", { name: vi.jobs }));
+    expect(await screen.findAllByTestId("job")).toHaveLength(2);
+    expect(screen.queryByRole("button", { name: `${vi.jobDelete}: Bản tin sáng` })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: `${vi.jobDelete}: Nhắc uống nước` }));
+
+    await waitFor(() => expect(screen.getAllByTestId("job")).toHaveLength(1));
+    expect(screen.getByTestId("job")).toHaveTextContent("Bản tin sáng");
+    expect(backend.requests.filter((r) => r.method === "DELETE").map((r) => r.path)).toEqual(["/jobs/coach/chat-1a2b3c4d"]);
+    expect(backend.jobs.map((job) => job.id)).toEqual(["coach/brief"]);
   });
 
   it("opens a delegate's conversation from the attention center without listing it", async () => {
