@@ -143,14 +143,15 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   even when the tool sits in `auto_approve`, even when it sits in the agent's own allow list —
   no setting in `agent.yaml` or `config.yaml` can wave this one through, because approving it
   means handing the agent an unattended future turn. The approval card spells the schedule out in
-  words ("07:00 hằng ngày"), lists the next three times it would run, and shows the verbatim
-  prompt that will run every time after that; its "always allow" button is hidden, since there is
-  nothing left for it to widen. A proposal outside the limits — under 15 minutes apart, no run
-  within the next year, a prompt or name over the length cap, an unknown skill, more than 20 such
-  schedules already on the agent — still produces an honest card whose reason is the validation
-  error itself. Once approved, the schedule runs without a server restart and survives the next
-  one; the jobs tab labels it "tạo từ chat" beside the ones written by hand and offers a delete
-  button only for this kind, since a hand-written one needs its file edited instead.
+  words the same way the jobs tab already does ("Mỗi ngày 07:00"), lists the next three times it
+  would run, and shows the verbatim prompt that will run every time after that; its "always
+  allow" button is hidden, since there is nothing left for it to widen. A proposal outside the
+  limits — under 15 minutes apart, no run within the next year, a prompt or name over the length
+  cap, an unknown skill, more than 20 such schedules already on the agent — still produces an
+  honest card whose reason is the validation error itself. Once approved, the schedule runs
+  without a server restart and survives the next one; the jobs tab labels it "tạo từ chat" beside
+  the ones written by hand and offers a delete button only for this kind, since a hand-written
+  one needs its file edited instead.
 
 ### Changed
 

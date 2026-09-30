@@ -974,6 +974,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     riêng trong test, trên khoảng 30 biểu thức cron × 9 mốc bắt đầu; không có lần chạy nào trong
     366 ngày trả `None`; ngày-trong-tháng và thứ vẫn là AND qua một ca 29/2 rơi vào thứ Hai; kết
     quả luôn sau mốc bắt đầu kể cả khi mốc đó đã tròn phút);
+    `tests/test_schedule_words.py` (đọc lịch bằng lời y hệt từng ca của `lib/cron-text.test.ts`:
+    hằng ngày, một khoảng thứ, cuối tuần, một danh sách thứ, ngày-trong-tháng, mỗi phút/giờ và
+    bước `*/N` chia hết chu kỳ; một dạng không nằm trong các ca trên, kể cả bước không chia hết
+    giờ hay ngày, trả về nguyên văn cron hoặc `every`);
     `tests/test_schedule_proposal.py::TestRejections` (mỗi phút, mỗi 5 phút, cron không có lần
     chạy trong hạn, `every` dưới 15 phút, thiếu hoặc thừa cả `cron` lẫn `every`, cron sai, prompt
     hay tên quá dài, skill không có thật đều bị từ chối); `::TestAcceptance` (`*/15`, cron hằng
