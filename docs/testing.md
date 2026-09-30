@@ -811,6 +811,7 @@ tên một test thì sửa dòng của nó trong cùng commit.
     transcription"); `components/stats-panel.test.tsx`
     "names a voice note transcription row by its own purpose"; `components/global-routes-editor.test.tsx`,
     `test/fake-backend.ts`, `e2e/mock-api.ts` mang trường `audio_routes` trong mọi fixture
+    `ConnectionsInfo` để không mock nào lệch kiểu thật
 - **"Sửa và gửi lại từ đây": rẽ nhánh hội thoại ở một tin user đã lưu, giữ gốc nguyên vẹn**
   - pytest: `tests/test_store_fork.py`
     (`test_copies_every_message_before_the_cut_with_its_columns`,
@@ -839,7 +840,7 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `test_forked_from_marks_the_conversation_so_the_recap_can_be_skipped`,
     `test_deleting_the_source_clears_forked_from_and_the_fork_keeps_its_messages`,
     `test_deleting_the_fork_does_not_touch_the_sources_delegate_children`,
-    `test_a_shared_line_finds_a_single_hit_belonging_to_the_fork` (chỉ mục FTS của phase 10 gộp
+    `test_a_shared_line_finds_a_single_hit_belonging_to_the_fork` (chỉ mục FTS của tính năng tìm hội thoại gộp
     phần chữ chung của gốc và nhánh về một hit, thuộc về nhánh vì `id` lớn hơn));
     `tests/test_api_fork.py`
     (`test_forking_returns_the_new_conversation_and_the_cut_messages_own_text`,
@@ -910,4 +911,3 @@ tên một test thì sửa dòng của nó trong cùng commit.
     ("shows a 'Trong nội dung' section once the debounced content search answers", "never
     calls the content search API without an agentName", "keeps the row list's own 'no
     matches' message off when a title misses but content still hits")
-    `ConnectionsInfo` để không mock nào lệch kiểu thật
