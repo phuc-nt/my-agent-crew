@@ -69,13 +69,31 @@ class CronSpec:
             and weekday in self.weekdays
         )
 
+    def _date_matches(self, at: datetime) -> bool:
+        """Day-of-month and weekday stay AND'd, same as `matches`, but without the minute
+        and hour fields — a yearly cron's slow part is the day it lands on, not the minute,
+        so jumping a whole day at a time is what turns 527k scanned minutes into a walk of
+        at most `horizon_days` days."""
+        weekday = (at.weekday() + 1) % 7  # python: Monday=0 → cron: Sunday=0
+        return at.day in self.days and at.month in self.months and weekday in self.weekdays
+
     def next_after(self, at: datetime, horizon_days: int = 366) -> datetime | None:
+        """Jumps over whichever field cannot match yet instead of stepping by the minute:
+        a wrong day jumps to next midnight, a wrong hour jumps to the next hour's :00, and
+        only once both are right does it step minute by minute to find one in `minutes`.
+        Steps, never binary-searches, past a matching day/hour: those fields are so few
+        (31, 24) that landing on the right one is cheaper to detect than to compute."""
         candidate = at.replace(second=0, microsecond=0) + timedelta(minutes=1)
         limit = at + timedelta(days=horizon_days)
         while candidate <= limit:
-            if self.matches(candidate):
+            if not self._date_matches(candidate):
+                candidate = (candidate + timedelta(days=1)).replace(hour=0, minute=0)
+            elif candidate.hour not in self.hours:
+                candidate = (candidate + timedelta(hours=1)).replace(minute=0)
+            elif candidate.minute in self.minutes:
                 return candidate
-            candidate += timedelta(minutes=1)
+            else:
+                candidate += timedelta(minutes=1)
         return None
 
 
