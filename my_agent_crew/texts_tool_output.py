@@ -12,6 +12,8 @@ TOOL_OUTPUT_READ_PARAM_LIMIT = "Số ký tự tối đa trả về trong lần �
 # The pointer a spilled output leaves behind, read by the model as an instruction: this
 # exact id, passed to this exact tool, is how the rest of a cut output comes back.
 TOOL_OUTPUT_POINTER = "\n[bản đầy đủ {chars} ký tự: gọi tool_output_read id={id} để đọc tiếp]"
+# Ends a spill file whose original was larger than the on-disk cap.
+TOOL_OUTPUT_SPILL_CAPPED = "\n…[đã cắt ở 5 MB, phần còn lại không được lưu]"
 TOOL_OUTPUT_NOT_FOUND = "Không có kết quả công cụ nào với id {id} trong cuộc trò chuyện này."
 # More than one row shares this id (see openai_compat's uuid fix): guessing which one the
 # caller means would silently answer for the wrong call, so this refuses instead.

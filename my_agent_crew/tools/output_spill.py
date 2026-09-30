@@ -33,7 +33,6 @@ SPILL_DIR = "spill"
 # A run's own output rarely nears this; the cap exists so one runaway command cannot fill
 # the disk with a single file.
 MAX_SPILL_BYTES = 5 * 1024 * 1024
-_TRUNCATED_NOTE = "\n…[đã cắt ở 5 MB, phần còn lại không được lưu]"
 _CONV_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
 
@@ -64,7 +63,10 @@ class Spill:
             return False
         body = text.encode("utf-8")
         if len(body) > MAX_SPILL_BYTES:
-            body = body[:MAX_SPILL_BYTES] + _TRUNCATED_NOTE.encode("utf-8")
+            # Cut on a character boundary: a multi-byte letter split in half would make
+            # the whole file unreadable as UTF-8 when the model asks for it back.
+            kept = body[:MAX_SPILL_BYTES].decode("utf-8", errors="ignore")
+            body = (kept + texts.TOOL_OUTPUT_SPILL_CAPPED).encode("utf-8")
         try:
             conv_dir.mkdir(parents=True, exist_ok=True)
             (conv_dir / f"{_digest(call_id)}.txt").write_bytes(body)

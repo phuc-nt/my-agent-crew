@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 
+from my_agent_crew import texts
 from my_agent_crew.tools.output_spill import (
     MAX_SPILL_BYTES,
     Spill,
@@ -90,6 +91,22 @@ def test_a_file_over_the_cap_is_truncated_with_a_note(home: Path) -> None:
     assert "cắt" in stored or "cut" in stored.lower()
 
 
+def test_a_capped_file_splits_no_multibyte_letter_and_reads_back(home: Path) -> None:
+    spill = Spill(home)
+    # One ASCII byte first, so a three-byte letter straddles the cap.
+    text = "x" + "ệ" * MAX_SPILL_BYTES
+
+    spill.write("conv1", "call1", text)
+
+    stored = spill.read("conv1", "call1")
+    assert stored is not None
+    assert stored.startswith("xệệ")
+    assert stored.endswith(texts.TOOL_OUTPUT_SPILL_CAPPED)
+    assert len(stored.encode("utf-8")) <= MAX_SPILL_BYTES + len(
+        texts.TOOL_OUTPUT_SPILL_CAPPED.encode("utf-8")
+    )
+
+
 def test_sweep_removes_files_older_than_max_age_and_keeps_recent_ones(home: Path) -> None:
     spill = Spill(home)
     spill.write("old-conv", "call1", "cũ")
@@ -116,10 +133,13 @@ def test_sweep_does_not_follow_a_symlink_into_another_directory(home: Path, tmp_
     link.symlink_to(victim)
     old_stamp = os.stat(link, follow_symlinks=False).st_mtime - (8 * 86400)
     os.utime(link, (old_stamp, old_stamp), follow_symlinks=False)
+    # The target is old too, so following the link would judge it due for removal.
+    os.utime(victim, (old_stamp, old_stamp))
 
     sweep(home, max_age_days=7)
 
     assert victim.read_text() == "không được đụng"
+    assert link.is_symlink()
 
 
 def test_remove_conversation_deletes_the_conversations_own_folder(home: Path) -> None:
@@ -161,6 +181,22 @@ def test_copy_conversation_duplicates_every_file_with_a_fresh_mtime(home: Path) 
     assert spill.read("fork-conv", "call1") == "bản gốc"
     dst_file = next((home / "spill" / "fork-conv").iterdir())
     assert os.stat(dst_file).st_mtime > old_stamp
+
+
+def test_copy_conversation_does_not_copy_what_a_symlink_points_at(
+    home: Path, tmp_path: Path
+) -> None:
+    outside = tmp_path.parent / "outside-copy-target"
+    outside.mkdir(exist_ok=True)
+    secret = outside / "secret.txt"
+    secret.write_text("không thuộc spill")
+    src = home / "spill" / "source-conv"
+    src.mkdir(parents=True)
+    (src / "link.txt").symlink_to(secret)
+
+    copy_conversation(home, "source-conv", "fork-conv")
+
+    assert not (home / "spill" / "fork-conv" / "link.txt").exists()
 
 
 def test_copy_conversation_from_a_source_with_no_spill_directory_does_nothing(home: Path) -> None:

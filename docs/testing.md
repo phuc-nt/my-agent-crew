@@ -1038,12 +1038,14 @@ tên một test thì sửa dòng của nó trong cùng commit.
     chỉ sửa `e2e/mock-api.ts` để một spec giữ tham chiếu tới cùng mảng `jobs` nó truyền vào
     `mockApi` thấy được cả việc thêm bằng `push` lẫn việc xoá qua route DELETE mới)
 - **Đọc lại đầu ra tool đã bị rút ngắn (`tool_output_read`), spill và dọn dẹp**
-  - pytest: `tests/test_output_spill.py` (ghi và đọc tệp, trần 5 MB, tên tệp băm từ id, id hội
-    thoại lạ bị từ chối, quét không theo symlink, `shape_with_spill`);
+  - pytest: `tests/test_output_spill.py` (ghi và đọc tệp, trần 5 MB cắt đúng ranh giới ký tự
+    nên tệp vẫn đọc được UTF-8, tên tệp băm từ id, id hội thoại lạ bị từ chối, quét không theo
+    và không xoá symlink, sao chép bỏ qua symlink, `shape_with_spill`);
     `tests/test_registry_spill.py` (registry ghi tệp và nối dòng trỏ vừa trần, không ghi khi
-    đầu ra ngắn, ghi lỗi thì vẫn trả kết quả, `tool_output_read` không tự spill, ghi chú của
-    hook sau không đổi); `tests/test_tool_output_read.py` (đọc từng đoạn, nhãn nguồn, tệp thắng
-    bản DB, hết thì báo, id của cuộc khác, id trùng bị từ chối, vừa trần registry);
+    đầu ra ngắn, ghi lỗi thì vẫn trả kết quả, `tool_output_read` không tự spill dù trần rộng
+    hay hẹp, trần quá hẹp cho dòng trỏ thì chỉ rút gọn, ghi chú của hook sau không đổi); `tests/test_tool_output_read.py` (đọc từng đoạn, nhãn nguồn, tệp thắng
+    bản DB, hết thì báo, offset âm hoặc quá cuối bị kẹp vào văn bản, id của cuộc khác, id trùng
+    bị từ chối, vừa trần registry);
     `tests/test_message_tool_results.py` (`MessageStore.tool_results`);
     `tests/test_output_read_wiring.py` (agent có hoặc không có tool trong `tools:` thì có hoặc
     không có spill, stub trong prompt nêu id đúng khi có tool, vòng lặp thật đọc lại đoạn giữa
@@ -1065,5 +1067,6 @@ tên một test thì sửa dòng của nó trong cùng commit.
 - **Id lời gọi tool không còn trùng hay bị dùng lại sai**
   - pytest: `tests/test_tool_call_ids.py` (id provider bỏ trống là uuid duy nhất);
     `tests/test_approval_id_reuse.py` (id dùng lại mà approval đã lưu ghi lời gọi khác thì bị
-    từ chối); `tests/test_delegate_child_scope.py` (agent con chỉ tìm được qua lời gọi của chính
-    cha nó)
+    từ chối, kể cả khi chỉ khác tên tool); `tests/test_delegate_child_scope.py` (agent con chỉ
+    tìm được qua lời gọi của chính cha nó); `tests/test_tools_delegate.py`
+    ("test_another_parents_child_with_the_same_call_id_is_not_reused")
