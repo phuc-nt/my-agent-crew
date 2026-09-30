@@ -87,6 +87,8 @@ ADDED_COLUMNS = (
     # The id of the conversation this one was forked from, when it is a fork; "" otherwise.
     # Cleared when that conversation is deleted, so a fork never points at a missing id.
     ("conversations", "forked_from", "TEXT NOT NULL DEFAULT ''"),
+    # Why the model made this proposal, shown on the card before anyone approves it.
+    ("memory_proposals", "reasons", "TEXT NOT NULL DEFAULT ''"),
 )
 
 

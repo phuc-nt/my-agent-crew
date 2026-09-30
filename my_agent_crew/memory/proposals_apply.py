@@ -35,6 +35,12 @@ logger = logging.getLogger(__name__)
 _deciding = threading.Lock()
 
 
+class StaleProposal(Exception):
+    """A rewrite proposal's `previous_body` no longer matches the file: something else
+    wrote to it — a newer consolidation, a person editing by hand — after this proposal
+    was made. Applying it would silently discard that other write, so it is refused."""
+
+
 @contextmanager
 def pending(store: Store, proposal_id: str) -> Iterator[MemoryProposal]:
     """Hold the one decision at a time for a proposal still pending, refusing one already
@@ -67,10 +73,24 @@ def apply_proposal(
     stale tab would otherwise write a fact the person rejected, or append a line twice,
     and only then learn from the store that it was too late. Two decisions arriving
     together are taken one after the other, so the second finds the first's answer.
+
+    A rewrite proposal whose file changed underneath it is superseded rather than left
+    pending: retrying the same approval would just fail the same way again, and the
+    person's actual choice now is to look at the newer state, not to re-click this stale
+    one.
     """
     with pending(store, proposal_id) as proposal:
         if approve:
-            _write(proposal, user_dir, memory_files or {}, memory_dirs or {})
+            try:
+                _write(proposal, user_dir, memory_files or {}, memory_dirs or {})
+            except StaleProposal:
+                store.proposals.supersede(
+                    proposal.agent_id,
+                    kind=proposal.kind,
+                    source=proposal.source,
+                    name=proposal.name,
+                )
+                raise
         return store.proposals.resolve(proposal_id, approve)
 
 
@@ -102,6 +122,9 @@ def _write(
         if path is None:
             raise KeyError(proposal.agent_id)
         if proposal.kind == AGENT_MEMORY_REWRITE:
+            current = agent_store.read_memory_md(path).strip()
+            if current != proposal.previous_body.strip():
+                raise StaleProposal(proposal.agent_id)
             agent_store.write_memory_md(path, proposal.body)
         else:
             _append_line(path, proposal.body)

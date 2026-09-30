@@ -21,6 +21,9 @@ USER_FACT, USER_FORGET, AGENT_MEMORY = "user_fact", "user_forget", "agent_memory
 # A whole rewritten MEMORY.md rather than one line to append; carries what it replaces.
 AGENT_MEMORY_REWRITE = "agent_memory_rewrite"
 PENDING, APPROVED, REJECTED = "pending", "approved", "rejected"
+# Made obsolete by a newer proposal of the same shape, or by the file it targets changing
+# before anyone decided on it. Distinct from `rejected`: nobody said no, the ground moved.
+SUPERSEDED = "superseded"
 
 
 @dataclass(frozen=True)
@@ -38,6 +41,9 @@ class MemoryProposal:
     resolved_at: str | None = None
     # What the file held before an approval overwrote it, so one step back is possible.
     previous_body: str = ""
+    # Why the model made this proposal, shown on the card. One line for a fact, a list of
+    # bullets (one per kept/changed/dropped line) for a memory rewrite.
+    reasons: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -57,6 +63,7 @@ class MemoryProposal:
             created_at=row["created_at"],
             resolved_at=row["resolved_at"],
             previous_body=row["previous_body"],
+            reasons=row["reasons"],
         )
 
 
@@ -75,13 +82,15 @@ class MemoryProposalStore:
         body: str = "",
         source: str = "job",
         previous_body: str = "",
+        reasons: str = "",
     ) -> MemoryProposal:
         proposal_id = uuid.uuid4().hex[:12]
         stamp = datetime.now(UTC).isoformat(timespec="seconds")
         with self._lock:
             self._conn.execute(
                 "INSERT INTO memory_proposals (id, agent_id, kind, name, description, type, body,"
-                " status, source, created_at, previous_body) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                " status, source, created_at, previous_body, reasons)"
+                " VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     proposal_id,
                     agent_id,
@@ -94,6 +103,7 @@ class MemoryProposalStore:
                     source,
                     stamp,
                     previous_body,
+                    reasons,
                 ),
             )
             self._conn.commit()
@@ -134,3 +144,53 @@ class MemoryProposalStore:
         if cur.rowcount == 0:
             raise KeyError(proposal_id)
         return self.get(proposal_id)
+
+    def supersede(
+        self,
+        agent_id: str,
+        *,
+        kind: str | None = None,
+        source: str | None = None,
+        name: str | None = None,
+        keep_id: str | None = None,
+    ) -> int:
+        """Flip every still-pending proposal matching the given filters to `superseded`,
+        except `keep_id`. At least one of `kind`/`source`/`name` is required: an unfiltered
+        call would supersede every pending proposal for the agent, almost certainly a bug
+        at the call site rather than an intended bulk action."""
+        if kind is None and source is None and name is None:
+            raise ValueError("supersede() requires at least one of kind, source or name")
+        clauses = ["agent_id = ?", "status = ?"]
+        params: list[Any] = [agent_id, PENDING]
+        if kind is not None:
+            clauses.append("kind = ?")
+            params.append(kind)
+        if source is not None:
+            clauses.append("source = ?")
+            params.append(source)
+        if name is not None:
+            clauses.append("name = ?")
+            params.append(name)
+        if keep_id is not None:
+            clauses.append("id != ?")
+            params.append(keep_id)
+        stamp = datetime.now(UTC).isoformat(timespec="seconds")
+        with self._lock:
+            cur = self._conn.execute(
+                "UPDATE memory_proposals SET status = ?, resolved_at = ? WHERE "
+                + " AND ".join(clauses),
+                (SUPERSEDED, stamp, *params),
+            )
+            self._conn.commit()
+        return cur.rowcount
+
+    def find_pending(self, agent_id: str, kind: str, name: str, body: str) -> MemoryProposal | None:
+        """An exact-match pending proposal already asking for this same write, used to skip
+        creating a duplicate rather than piling up identical cards."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT * FROM memory_proposals WHERE agent_id = ? AND kind = ? AND name = ?"
+                " AND body = ? AND status = ?",
+                (agent_id, kind, name, body, PENDING),
+            ).fetchone()
+        return MemoryProposal.from_row(row) if row is not None else None

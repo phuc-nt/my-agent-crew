@@ -7,16 +7,17 @@ position of arguing with a memory they cannot reach.
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from my_agent_crew.memory import user_store
-from my_agent_crew.memory.proposals_apply import apply_proposal
+from my_agent_crew.memory import fact_dates, user_store
+from my_agent_crew.memory.proposals_apply import StaleProposal, apply_proposal
 from my_agent_crew.server.deps import Rt
 from my_agent_crew.server.memory_search import search_all
-from my_agent_crew.store.memory_proposals import PENDING
+from my_agent_crew.store.memory_proposals import PENDING, SUPERSEDED
 
 router = APIRouter(tags=["memory"])
 
@@ -41,9 +42,15 @@ class DecisionBody(BaseModel):
 @router.get("/memory/user")
 def get_user_memory(rt: Rt) -> dict[str, Any]:
     user_dir = rt.settings.user_dir
+    today = date.today()
+    facts = []
+    for f in user_store.list_facts(user_dir):
+        fact = f.to_dict()
+        fact["stale"] = fact_dates.is_stale(f.updated, today)
+        facts.append(fact)
     return {
         "user_md": user_store.read_user_md(user_dir),
-        "facts": [f.to_dict() for f in user_store.list_facts(user_dir)],
+        "facts": facts,
         "index_md": user_store.read_index(user_dir),
     }
 
@@ -110,6 +117,8 @@ def decide_proposal(proposal_id: str, body: DecisionBody, rt: Rt) -> dict[str, A
             memory_files=memory_files,
             memory_dirs=memory_dirs,
         )
+    except StaleProposal as exc:
+        raise HTTPException(409, "proposal is stale") from exc
     except KeyError as exc:
         raise HTTPException(*_not_decidable(rt, proposal_id)) from exc
     return proposal.to_dict()
@@ -121,12 +130,16 @@ def _not_decidable(rt: Rt, proposal_id: str) -> tuple[int, str]:
     Deciding twice is a conflict, not a missing row, and the UI answers 409 by saying the
     proposal was handled elsewhere and taking its buttons away. So only a proposal that is
     no longer pending gets it. One still pending failed on what it writes to, an agent that
-    has left the crew; it can still be rejected, so that is the agent missing, a 404.
+    has left the crew; it can still be rejected, so that is the agent missing, a 404. A
+    proposal already superseded — by a newer one of the same kind, from an earlier request —
+    gets the same "stale" wording as one discovered stale during this very request.
     """
     try:
         proposal = rt.store.proposals.get(proposal_id)
     except KeyError:
         return 404, "proposal not found"
+    if proposal.status == SUPERSEDED:
+        return 409, "proposal is stale"
     if proposal.status != PENDING:
         return 409, "proposal already decided"
     return 404, "agent not found"
