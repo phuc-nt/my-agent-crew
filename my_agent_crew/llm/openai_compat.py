@@ -9,6 +9,7 @@ duplicated once before this module existed.
 from __future__ import annotations
 
 import json
+import uuid
 from collections.abc import AsyncIterator, Sequence
 from typing import Any
 
@@ -99,7 +100,11 @@ class ToolCallBuffer:
             if not isinstance(args, dict):
                 raise ProviderError(f"tool call {slot['name']} arguments are not an object")
             calls.append(
-                ToolCall(id=slot["id"] or f"call_{index}", name=slot["name"], arguments=args)
+                ToolCall(
+                    id=slot["id"] or f"call_{uuid.uuid4().hex}",
+                    name=slot["name"],
+                    arguments=args,
+                )
             )
         return tuple(calls)
 
