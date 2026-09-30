@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import sqlite3
 
+from my_agent_crew import texts
+
 # `content` already has its `đ`/`Đ` folded to `d`/`D`, matching what a query goes through
 # in `store/search.py`; both trigger bodies and the backfill share the same expression so
 # the rule can only drift in one place.
@@ -73,10 +75,7 @@ def ensure_search_index(conn: sqlite3.Connection) -> None:
     except sqlite3.OperationalError as exc:
         conn.rollback()
         if "fts5" in str(exc).lower() or "no such module" in str(exc).lower():
-            raise RuntimeError(
-                "SQLite ở đây không có module fts5, nên không dựng được chỉ mục tìm hội"
-                " thoại. Cần một bản Python có SQLite biên dịch kèm FTS5."
-            ) from exc
+            raise RuntimeError(texts.SEARCH_INDEX_NO_FTS5) from exc
         raise
     except Exception:
         conn.rollback()

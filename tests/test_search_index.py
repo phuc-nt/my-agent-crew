@@ -1,6 +1,7 @@
 import sqlite3
 from pathlib import Path
 
+from my_agent_crew import texts
 from my_agent_crew.llm.types import Message
 from my_agent_crew.store import Store
 from my_agent_crew.store.connection import connect
@@ -50,7 +51,7 @@ def test_a_missing_fts5_fails_with_a_clear_message(tmp_path: Path) -> None:
         ensure_search_index(conn)
         raise AssertionError("expected ensure_search_index to fail loudly")
     except RuntimeError as exc:
-        assert "fts5" in str(exc).lower()
+        assert str(exc) == texts.SEARCH_INDEX_NO_FTS5
 
 
 def test_user_and_assistant_messages_are_indexed_immediately_but_not_tool() -> None:

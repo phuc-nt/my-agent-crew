@@ -1,6 +1,6 @@
-"""Strings for the `conversation_search` tool, split out of `texts` so neither file
-outgrows its budget. Import them from `my_agent_crew.texts`, which re-exports every name
-here."""
+"""Strings for the `conversation_search` tool and the index behind it, split out of `texts`
+so neither file outgrows its budget. Import them from `my_agent_crew.texts`, which re-exports
+every name here."""
 
 CONVERSATION_SEARCH_DESCRIPTION_MASTER = (
     "Tìm trong nội dung các hội thoại cũ của mọi agent, kể cả không nhớ nó thuộc agent"
@@ -23,3 +23,8 @@ CONVERSATION_SEARCH_EMPTY = "Không tìm thấy hội thoại nào khớp."
 # to a different agent than the one running the search; the caller's own hits omit it.
 CONVERSATION_SEARCH_CONVERSATION_LINE = "{agent}{title} — {when} ({conversation_id})"
 CONVERSATION_SEARCH_HIT_LINE = "{role}: {snippet}"
+# Startup refuses to go on without the index rather than serve a search that finds nothing.
+SEARCH_INDEX_NO_FTS5 = (
+    "SQLite ở đây không có module fts5, nên không dựng được chỉ mục tìm hội thoại. Cần một"
+    " bản Python có SQLite biên dịch kèm FTS5."
+)
