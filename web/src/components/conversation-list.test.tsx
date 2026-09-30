@@ -1,6 +1,7 @@
-import { act, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
-import type { Conversation, RunInfo } from "../api/types";
+import { api } from "../api/client";
+import type { Conversation, ContentHit, RunInfo } from "../api/types";
 import { vi } from "../i18n/vi";
 import { memoryStorage, refusingStorage } from "../test/memory-storage";
 import { ConversationList } from "./conversation-list";
@@ -32,12 +33,18 @@ function conversation(id: string, updated_at: string, overrides: Partial<Convers
 
 type LiveRun = Pick<RunInfo, "conversation_id" | "status">;
 
-function list(conversations: Conversation[], activeId: string | null, liveRuns?: LiveRun[]) {
+function list(
+  conversations: Conversation[],
+  activeId: string | null,
+  liveRuns?: LiveRun[],
+  agentName?: (agentId: string) => string,
+) {
   return (
     <ConversationList
       conversations={conversations}
       activeId={activeId}
       liveRuns={liveRuns}
+      agentName={agentName}
       onSelect={() => {}}
       onCreate={() => {}}
       onDelete={() => {}}
@@ -244,5 +251,71 @@ describe("the status dot", () => {
       expect(dot(title)).toHaveClass("awaiting_approval");
       expect(dot(title)).not.toHaveClass("running");
     }
+  });
+});
+
+describe("searching inside message content, not just conversation titles", () => {
+  // The outer beforeEach only fakes Date; the debounce inside useContentSearch needs
+  // setTimeout faked too, so it can be driven forward deterministically. `shouldAdvanceTime`
+  // keeps the search promise's own microtasks flowing while the clock is jumped forward
+  // explicitly — see the same pattern in use-thread.test.ts and use-content-search.test.ts.
+  beforeEach(() => {
+    vitest.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"], shouldAdvanceTime: true });
+    vitest.setSystemTime(new Date(NOW));
+  });
+  // A mock's call history and resolved value must not survive into the next test in this
+  // block; the outer afterEach only restores real timers, never mocks.
+  afterEach(() => vitest.restoreAllMocks());
+
+  // Content search only makes sense once the title search box itself is showing.
+  const many = () => Array.from({ length: 8 }, (_, i) => conversation(`hội thoại ${i}`, "2026-09-26T03:00:00Z"));
+  const agentName = (id: string) => id;
+
+  function contentHit(overrides: Partial<ContentHit> = {}): ContentHit {
+    return {
+      conversation_id: "c-doc",
+      agent_id: "coach",
+      title: "Kế hoạch tuần",
+      message_id: "m1",
+      role: "user",
+      snippet: "…đọc sách mỗi tối…",
+      created_at: "2026-09-29T10:00:00Z",
+      ...overrides,
+    };
+  }
+
+  it("shows a 'Trong nội dung' section once the debounced content search answers", async () => {
+    vitest.spyOn(api, "searchMessages").mockResolvedValue({ hits: [contentHit()] });
+    render(list(many(), null, undefined, agentName));
+
+    fireEvent.change(screen.getByLabelText(vi.searchConversations), { target: { value: "doc sach" } });
+    await act(() => vitest.advanceTimersByTimeAsync(250));
+
+    expect(await screen.findByText(vi.contentSearch.heading)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Kế hoạch tuần/ })).toBeInTheDocument();
+  });
+
+  it("never calls the content search API without an agentName", async () => {
+    const search = vitest.spyOn(api, "searchMessages").mockResolvedValue({ hits: [contentHit()] });
+    render(list(many(), null));
+
+    fireEvent.change(screen.getByLabelText(vi.searchConversations), { target: { value: "doc sach" } });
+    await act(() => vitest.advanceTimersByTimeAsync(250));
+
+    expect(search).not.toHaveBeenCalled();
+    expect(screen.queryByText(vi.contentSearch.heading)).not.toBeInTheDocument();
+  });
+
+  it("keeps the row list's own 'no matches' message off when a title misses but content still hits", async () => {
+    vitest.spyOn(api, "searchMessages").mockResolvedValue({ hits: [contentHit()] });
+    render(list(many(), null, undefined, agentName));
+
+    fireEvent.change(screen.getByLabelText(vi.searchConversations), {
+      target: { value: "khong-co-trong-tieu-de" },
+    });
+    await act(() => vitest.advanceTimersByTimeAsync(250));
+
+    await screen.findByText(vi.contentSearch.heading);
+    expect(screen.queryByTestId("no-matches")).not.toBeInTheDocument();
   });
 });

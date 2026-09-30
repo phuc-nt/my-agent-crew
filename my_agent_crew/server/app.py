@@ -32,6 +32,7 @@ from my_agent_crew.server import (
     routes_memory_wiki,
     routes_model_routes,
     routes_registry,
+    routes_search,
     routes_settings,
 )
 from my_agent_crew.server.agent_assembly import build_providers
@@ -66,6 +67,7 @@ ROUTERS = (
     routes_memory_user.router,
     routes_memory_agent.router,
     routes_memory_wiki.router,
+    routes_search.router,
 )
 
 

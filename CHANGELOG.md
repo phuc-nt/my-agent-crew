@@ -115,6 +115,15 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   the running turn. The chat stays in its conversation until the turn and its line are done, even
   past midnight, and `/new` waits for them. A stop waits for every running turn before cutting it
   off, and a "typing…" indicator Telegram does not answer no longer holds the turn.
+- A new `conversation_search` tool finds what was said in an older conversation, across a full
+  FTS5 index of every message body. An agent searches its own conversations; the master can name
+  another agent or search the whole crew. Typing without accents still reaches an accented word
+  (`đ`/`Đ` are folded to `d`/`D` before indexing, on top of SQLite's own accent-insensitive
+  tokenizer), results are capped at three per conversation so one long thread cannot crowd out
+  everything else, and the conversation a call runs from is left out of its own search. The
+  sidebar's own search box, once it is showing, now searches message content the same way and
+  lists "Trong nội dung" hits below the title matches, each naming the agent it came from and
+  opening straight into that conversation on a click, over a new `GET /api/messages/search`.
 
 ### Changed
 

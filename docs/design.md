@@ -84,6 +84,14 @@ any platform ──POST /api/inbound (JSON, sync)─────┴─▶ Inboun
   mất điện có thể mất vài commit cuối nhưng không hỏng tệp, crash tiến trình không mất gì.
   Ghi rồi đọc lại dùng `RETURNING` trong một câu lệnh. Đọc tệp live từ ngoài thì mở bằng
   `mode=ro` (không phải `immutable=1`, vì bản đó không thấy phần còn nằm trong log WAL).
+- **Lời đã nói tìm lại được.** `store/search_index.py` dựng bảng FTS5 `messages_fts` và
+  trigger giữ nó khớp `messages` (insert/delete, không update vì `messages` chỉ thêm) trong
+  cùng transaction với `apply_schema`, nên một crash giữa chừng không để lại chỉ mục rỗng mà
+  lần khởi động sau tưởng đã xong. Bộ gõ `unicode61 remove_diacritics 2` tự bỏ dấu khi so
+  khớp nhưng không đụng tới `đ`; trigger và backfill tự thay `đ`/`Đ` bằng `d`/`D` trước khi
+  đưa vào chỉ mục, để gõ "doc" vẫn khớp "đọc". `store/search.py` là nơi cả `conversation_search`
+  (tool cho model, phạm vi theo agent) lẫn `GET /api/messages/search` (cho người, ở phần Web UI
+  bên dưới) cùng đọc.
 - **Duyệt là hạng nhất.** Một tool `requires_approval` tạm dừng lượt với một event `approval_required`
   và một `Approval` được lưu; UI hiện một thanh, endpoint quyết định tiếp tục đúng lượt đó.
   Cuộc trò chuyện đánh dấu `autonomous` bỏ qua chỗ dừng. Các từ chối cứng — path thoát khỏi
@@ -301,7 +309,12 @@ và cuộc mới luôn được mở cho nó. Màn hình chào nói với tư c�
 (master trước, kèm huy hiệu mode, live, lịch và Telegram) và cài một mẫu đi kèm
 bằng một cú bấm. Cuộc trò chuyện của agent được giao việc không nằm trong danh sách, nhưng mở được từ thẻ run
 hoặc mục **Cần bạn xử lý**. Danh sách xếp các cuộc dưới Hôm nay / Hôm qua / Cũ hơn theo lịch
-của chính người xem, không theo ngày UTC, và mỗi dòng nói nó đổi cách đây bao lâu.
+của chính người xem, không theo ngày UTC, và mỗi dòng nói nó đổi cách đây bao lâu. Từ tám
+cuộc trở lên, sidebar thêm một ô tìm lọc tiêu đề tại chỗ trên trang, có debounce, gọi
+`GET /api/messages/search` để tìm cả trong nội dung tin nhắn — không chỉ cuộc trò chuyện của
+agent đang mở mà của cả đội, mỗi kết quả mang huy hiệu tên agent khi khác agent hiện tại và
+bấm vào mở đúng cuộc trò chuyện đó. Tiêu đề không khớp gì nhưng nội dung có kết quả thì
+không hiện "không có kết quả", vì phần "Trong nội dung" bên dưới đã nói lên điều đó.
 
 Màn hình chia theo việc thuộc về ai. Những gì cuộc trò chuyện bạn đang ở trong đó đang làm nằm
 trong khung chat: một view activity của cuộc trò chuyện hiện các run của chính cuộc đó, từng step

@@ -9,6 +9,7 @@ import type {
   AgentSaved,
   ApprovalInfo,
   ConnectionsInfo,
+  ContentHit,
   CredentialCheck,
   CredentialsInfo,
   Conversation,
@@ -259,6 +260,8 @@ export const api = {
     ),
   searchMemory: (q: string, agentId?: string) =>
     request<{ hits: MemoryHit[] }>(`/memory/search${query({ q, agent_id: agentId })}`),
+  searchMessages: (q: string, signal?: AbortSignal) =>
+    request<{ hits: ContentHit[] }>(`/messages/search${query({ q })}`, { signal }),
   listProposals: (status?: string) =>
     request<{ proposals: MemoryProposal[] }>(`/memory/proposals${query({ status })}`),
   decideProposal: (id: string, approve: boolean) =>

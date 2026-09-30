@@ -72,6 +72,7 @@ System prompt liệt kê tên các tool có sẵn; model thấy JSON schema củ
 | `web_search` | không | 5 kết quả | luôn có sẵn; các backend được thử theo thứ tự firecrawl → brave → tavily → duckduckgo; trả về tiêu đề, URL, đoạn trích |
 | `memory_save` | không | — | nối `- HH:MM text` vào ghi chú hôm nay, xem [memory.md](memory.md) |
 | `memory_search` | không | 12 kết quả | tìm trong facts người dùng dùng chung, rồi `MEMORY.md` và mọi ghi chú ngày, mới nhất trước; mọi từ khoá đều phải khớp |
+| `conversation_search` | không | 20 kết quả, tối đa 3 mỗi hội thoại | tìm trong lời đã nói ở các hội thoại khác (FTS5, gõ không dấu vẫn khớp có dấu); agent thường chỉ tìm hội thoại của chính mình, master tìm được của một agent bất kỳ hoặc cả đội; hội thoại đang chạy không tính |
 | `user_memory_save` | không | — | ghi nhớ một điều về người dùng, cả đội dùng chung, xem [memory.md](memory.md) |
 | `user_memory_forget` | không | — | bỏ một fact đã nhớ theo tên |
 | `wiki_get` | không | — | một trang wiki đầy đủ, tra theo tiêu đề, xem [memory.md](memory.md#vault-wiki) |

@@ -490,6 +490,17 @@ export interface MemoryHit {
   text: string;
 }
 
+/** One matched message from `GET /api/messages/search`, across past conversations. */
+export interface ContentHit {
+  conversation_id: string;
+  agent_id: string;
+  title: string;
+  message_id: string;
+  role: string;
+  snippet: string;
+  created_at: string;
+}
+
 export type ProposalKind =
   | "user_fact"
   | "user_forget"

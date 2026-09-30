@@ -5,6 +5,7 @@ import type {
   AgentMemory,
   ApprovalInfo,
   ConnectionsInfo,
+  ContentHit,
   Conversation,
   ConversationDetail,
   FactInfo,
@@ -19,6 +20,7 @@ import type {
   StoredMessage,
   TemplateInfo,
 } from "../api/types";
+import { fold } from "../components/conversation-search";
 import { FakeWiki } from "./fake-wiki";
 import { applyAgentPatch, restartRequired } from "./schedule-contract";
 
@@ -214,6 +216,7 @@ export class FakeBackend {
     if (wiki) return wiki;
     const memory = this.memoryRoute(path, method, body, url.searchParams);
     if (memory) return memory;
+    if (path === "/messages/search") return json({ hits: this.matchingContentHits(url.searchParams.get("q") ?? "") });
     if (path === "/settings") return json(this.settings);
     if (path === "/health") return json({ status: "ok", version: this.version });
     if (path === "/" && method === "GET") return new Response(this.indexHtml, { headers: { "content-type": "text/html" } });
@@ -546,6 +549,16 @@ export class FakeBackend {
 
   /** Hits returned by the next GET /memory/search. */
   hits: { scope: "user" | "agent"; agent_id: string; file: string; text: string }[] = [];
+
+  /** The universe GET /messages/search filters by query, folded the same way as title search. */
+  contentHits: ContentHit[] = [];
+
+  /** Content hits whose title or snippet contains the query, accents optional. */
+  private matchingContentHits(query: string): ContentHit[] {
+    const needle = fold(query.trim());
+    if (needle === "") return [];
+    return this.contentHits.filter((h) => fold(`${h.title} ${h.snippet}`).includes(needle));
+  }
 
   readAgentMemory(agentId: string): AgentMemory {
     return this.agentMemory.get(agentId) ?? { memory_md: "", notes: [], note_count: 0 };

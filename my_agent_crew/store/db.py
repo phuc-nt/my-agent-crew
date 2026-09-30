@@ -21,6 +21,7 @@ from my_agent_crew.store.models import Conversation, StoredMessage
 from my_agent_crew.store.queue import QueueStore
 from my_agent_crew.store.runs import RunStore
 from my_agent_crew.store.schema import apply_schema
+from my_agent_crew.store.search import SearchStore
 from my_agent_crew.store.side_calls import SideCallStore
 from my_agent_crew.store.usage import UsageStore
 from my_agent_crew.texts import CONVERSATION_TITLE_DEFAULT
@@ -52,6 +53,7 @@ class Store(ConversationLookups):
         self.jobs = JobStateStore(self._conn, self._lock)
         self.usage = UsageStore(self._conn, self._lock)
         self.side_calls = SideCallStore(self._conn, self._lock)
+        self.search = SearchStore(self._conn, self._lock)
 
     def close(self) -> None:
         self._conn.close()

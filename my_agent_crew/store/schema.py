@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import sqlite3
 
+from my_agent_crew.store.search_index import ensure_search_index
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS conversations (
     id TEXT PRIMARY KEY, title TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
@@ -111,3 +113,6 @@ def apply_schema(conn: sqlite3.Connection) -> None:
     # After the columns: an index on a column an older file has not gained yet would fail.
     conn.executescript(INDEXES)
     conn.commit()
+    # After its own commit: `ensure_search_index` opens `BEGIN IMMEDIATE` itself and must
+    # not find one of this function's statements still open.
+    ensure_search_index(conn)

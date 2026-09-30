@@ -295,6 +295,7 @@ export function ChatScreen({
         searchRef={searchRef}
         drawer={phone ? { open: drawer.open, close: drawer.hide, ref: drawer.panelRef } : undefined}
         liveRuns={live}
+        agentName={crew.agentName}
         top={
           master && (
             <div className="master-card" data-testid="master-card">

@@ -57,6 +57,7 @@ dừng, lỗi, đổi tuyến). Cùng một chuỗi vừa là SSE cho web, vừa
 | Sức khoẻ | `GET /api/health` |
 | Cổng vào | `POST /api/inbound` |
 | Cuộc trò chuyện | `GET/POST/DELETE /api/conversations[/{id}]`, `POST …/{id}/messages` (SSE), `GET …/{id}/summary` |
+| Tìm trong hội thoại | `GET /api/messages/search?q=&agent_id=&limit=` (FTS5 trên nội dung tin, `conversation_search` là bản cho model) |
 | Duyệt | `GET /api/approvals`, `POST /api/conversations/{id}/approvals/{aid}` (`{"approve": bool}`), `POST …/approvals/{aid}/answer` (câu hỏi của `ask_user`) |
 | Run | `GET /api/activity/runs`, `GET …/runs/{id}`, `GET …/runs/{id}/trajectory?format=json\|md[&full=1]` (cả lượt chạy thành tệp để lưu), `GET …/stream` (SSE), `GET /api/stats` |
 | Agent | `GET /api/agents`, `GET …/{id}`, `GET …/{id}/files`, `POST /api/agents/install`, `GET /api/templates` |

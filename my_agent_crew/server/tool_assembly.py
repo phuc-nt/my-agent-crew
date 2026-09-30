@@ -16,6 +16,7 @@ from my_agent_crew.skills import Skill
 from my_agent_crew.store import Store
 from my_agent_crew.tools import Tool, ToolRegistry
 from my_agent_crew.tools.ask_user import build_ask_user_tool
+from my_agent_crew.tools.conversation_search import build_conversation_search_tool
 from my_agent_crew.tools.hooks import HookRunner
 from my_agent_crew.tools.image import build_image_tool
 from my_agent_crew.tools.memory import build_memory_tools
@@ -79,6 +80,7 @@ def build_tools(
             clock=profile.settings.now,
         ),
         *build_user_memory_tools(profile.settings.user_dir, store, profile.id),
+        build_conversation_search_tool(store, profile.id, profile.is_master),
         # The vault lives beside the daily notes, so every agent that has memory has one.
         # It stays empty until something compiles into it, and an empty vault costs one
         # absent prompt section.

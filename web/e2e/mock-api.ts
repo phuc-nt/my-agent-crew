@@ -1,5 +1,6 @@
 import type { Page, Route } from "@playwright/test";
-import type { AgentInfo, QueuedMessage, WikiPage, WikiPageEdit } from "../src/api/types";
+import type { AgentInfo, ContentHit, QueuedMessage, WikiPage, WikiPageEdit } from "../src/api/types";
+import { fold } from "../src/components/conversation-search";
 import { applyAgentPatch, restartRequired } from "../src/test/schedule-contract";
 
 // Every /api call is answered in-browser so the smoke tests measure the real DOM without a backend.
@@ -167,6 +168,8 @@ export interface MockOptions {
   tools?: object[];
   /** Each agent's wiki as whole pages; the list and the report are derived from them. */
   wiki?: Record<string, WikiPage[]>;
+  /** The universe GET /messages/search filters by query, folded the same way as title search. */
+  contentHits?: ContentHit[];
 }
 
 export function sse(events: object[], retryMs = 60_000): string {
@@ -342,6 +345,11 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
       return json(options.stats ?? { runs: 0, model_calls: 0, spent_usd: 0, unknown_cost_calls: 0, by_agent: {}, by_model: {}, by_day: {}, days: [], models: [], purposes: [] });
     if (path === "/jobs") return json(options.jobs ?? []);
     if (path === "/approvals") return json([]);
+    if (path === "/messages/search") {
+      const needle = fold((url.searchParams.get("q") ?? "").trim());
+      const hits = needle === "" ? [] : (options.contentHits ?? []).filter((h) => fold(`${h.title} ${h.snippet}`).includes(needle));
+      return json({ hits });
+    }
     if (/^\/jobs\/.+\/run$/.test(path) && method === "POST") return json({ job_id: path.slice(6, -4), status: "started" }, 202);
     if (/^\/jobs\/.+\/state$/.test(path) && method === "PATCH") {
       const { enabled } = route.request().postDataJSON() as { enabled: boolean };

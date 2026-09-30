@@ -1,9 +1,11 @@
 import { useState, type ReactNode, type RefObject } from "react";
 import type { Conversation, RunInfo } from "../api/types";
+import { useContentSearch } from "../hooks/use-content-search";
 import { useLastSeen } from "../hooks/use-last-seen";
 import { useNow } from "../hooks/use-now";
 import { vi } from "../i18n/vi";
 import { dayGroup, type DayGroup } from "../lib/relative-time";
+import { ContentHits } from "./content-hits";
 import { ConversationRow, type LiveStatus } from "./conversation-row";
 import { ConversationSearch, matching } from "./conversation-search";
 import { Brand } from "./ui/brand-mark";
@@ -27,6 +29,12 @@ interface Props {
   drawer?: { open: boolean; close: () => void; ref: RefObject<HTMLElement | null> };
   /** The runs working right now; each row shows the state of the one in it. */
   liveRuns?: LiveRun[];
+  /**
+   * Looks up an agent's display name for a content hit's badge, e.g. `crew.agentName`.
+   * Present, the search box also searches message content; absent, it only searches titles,
+   * exactly as before.
+   */
+  agentName?: (agentId: string) => string;
 }
 
 /** How many threads it takes before scanning the list beats reading it. */
@@ -84,6 +92,7 @@ export function ConversationList({
   searchRef,
   drawer,
   liveRuns = [],
+  agentName,
 }: Props) {
   const [query, setQuery] = useState("");
   const live = liveByConversation(liveRuns);
@@ -93,6 +102,10 @@ export function ConversationList({
   // never the quickest way to do the thing is just something else to look past.
   const searchable = conversations.length >= SEARCH_FROM;
   const shown = searchable ? matching(conversations, query) : conversations;
+  const content = useContentSearch(query, searchable && agentName !== undefined);
+  // A title miss is not "no results" once content search still found something; the
+  // "Trong nội dung" section below speaks for itself in that case.
+  const hasContentHits = (content.hits?.length ?? 0) > 0;
   // Choosing where to go is the drawer's whole job, so doing it also puts the drawer away.
   const pick = (id: string) => {
     onSelect(id);
@@ -138,11 +151,11 @@ export function ConversationList({
       )}
       {conversations.length === 0 ? (
         <p className="muted">{vi.noConversations}</p>
-      ) : shown.length === 0 ? (
+      ) : shown.length === 0 && !hasContentHits ? (
         <p className="muted" data-testid="no-matches">
           {vi.noMatchingConversations}
         </p>
-      ) : (
+      ) : shown.length === 0 ? null : (
         <div className="conversation-list">
           {byDay(shown, now).map(([group, rows]) => (
             // A group, not a section: a labelled section is a landmark, and one per day
@@ -173,6 +186,17 @@ export function ConversationList({
             </div>
           ))}
         </div>
+      )}
+      {agentName && (
+        <ContentHits
+          hits={content.hits}
+          loading={content.loading}
+          error={content.error}
+          onRetry={content.retry}
+          onSelect={pick}
+          agentName={agentName}
+          now={now}
+        />
       )}
       {bottom && <div className="sidebar-foot">{bottom}</div>}
     </nav>

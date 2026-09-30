@@ -811,4 +811,39 @@ tên một test thì sửa dòng của nó trong cùng commit.
     transcription"); `components/stats-panel.test.tsx`
     "names a voice note transcription row by its own purpose"; `components/global-routes-editor.test.tsx`,
     `test/fake-backend.ts`, `e2e/mock-api.ts` mang trường `audio_routes` trong mọi fixture
+- **Tìm hội thoại FTS5: gõ không dấu khớp có dấu, `conversation_search` cho model, "Trong nội
+  dung" trong sidebar cho người**
+  - pytest: `tests/test_search_index.py` (thiếu module fts5 báo lỗi rõ; tin `user`/`assistant`
+    vào chỉ mục ngay, tin `tool` thì không; xoá cuộc trò chuyện dọn đúng theo nó; backfill lập
+    chỉ mục cho tin ghi trước khi có bảng; mở lại một CSDL hai lần không nhân đôi chỉ mục;
+    backfill lỗi giữa chừng không để lại bảng hay trigger mồ côi, lần chạy sau thành công; không
+    có chỗ nào `UPDATE messages` — chỉ mục chỉ có trigger insert/delete);
+    `tests/test_conversation_search.py` (gõ "doc" khớp "đọc"; dấu nặng tiếng Nhật không bị bỏ
+    như dấu tiếng Việt; dạng NFD vẫn tìm được và đoạn trích giữ nguyên ký tự gốc; đoạn trích chỉ
+    đánh dấu đầu/cuối thật sự bị cắt; ký tự đặc biệt của FTS5 không làm câu truy vấn vỡ; nội dung
+    trùng ở nhiều cuộc trò chuyện của cùng một agent gộp về bản mới nhất, khác agent thì giữ cả
+    hai; một cuộc trò chuyện không góp quá ba kết quả; `limit` chặn tổng số; `since` lọc theo
+    ngày; `agent_ids` lọc đúng các agent được nêu; `exclude_conversation` bỏ đúng cuộc đang chạy
+    khỏi kết quả);
+    `tests/test_conversation_search_api.py` (kết quả trả về 200 dù `conversation_id` không có
+    thật, không phải 404 của route cuộc trò chuyện; `agent_id` thu hẹp về đúng một agent; agent
+    không tồn tại trả kết quả rỗng, không lỗi; câu rỗng cũng vậy; `limit` dưới 1 hay trên 50 là
+    422; không truyền `agent_id` thì tìm khắp cả đội vì người gọi route là chủ của cả đội)
+  - vitest: `hooks/use-content-search.test.ts`
+    ("waits 250ms of no typing before calling the API, and skips a call the next keystroke
+    cancels", "never calls the API for a query under 2 characters, and clears any earlier
+    hits", "aborts the in-flight request when the query changes again before it answers",
+    "reports a real failure as an error, but a cancelled request as no error at all",
+    "does not call the API at all while disabled, even for a long query", "retries the same
+    query immediately, without waiting out another debounce window");
+    `components/content-hits.test.tsx`
+    ("shows a loading state while the search is in flight", "shows an error state, distinct
+    from an empty result, with a retry button", "shows nothing at all once settled with no
+    hits, not an error", "names each row's agent with a badge, and gives the button an
+    accessible name naming the conversation", "shows when each hit happened, relative to now",
+    "calls onSelect with the hit's conversation_id, not its message_id, when clicked");
+    `components/conversation-list.test.tsx`
+    ("shows a 'Trong nội dung' section once the debounced content search answers", "never
+    calls the content search API without an agentName", "keeps the row list's own 'no
+    matches' message off when a title misses but content still hits")
     `ConnectionsInfo` để không mock nào lệch kiểu thật

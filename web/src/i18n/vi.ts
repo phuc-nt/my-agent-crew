@@ -11,6 +11,12 @@ export const vi = {
   noConversations: "Chưa có cuộc trò chuyện nào.",
   searchConversations: "Tìm cuộc trò chuyện",
   noMatchingConversations: "Không có cuộc nào khớp.",
+  /** The "Trong nội dung" section under the sidebar's title search: hits inside message text. */
+  contentSearch: {
+    heading: "Trong nội dung",
+    loading: "Đang tìm…",
+    error: "Không tìm được lúc này.",
+  },
   deleteConversation: "Xoá cuộc trò chuyện",
   confirmDelete: "Xoá cuộc trò chuyện này? Không thể hoàn tác.",
   // The dot before each sidebar row: what the conversation is doing right now.
