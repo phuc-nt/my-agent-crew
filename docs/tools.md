@@ -84,6 +84,7 @@ System prompt liệt kê tên các tool có sẵn; model thấy JSON schema củ
 | `image_read` | không | 8 MB; jpg, png, webp, gif | gửi một ảnh từ workspace hoặc home của đội (nơi `inbox/` giữ những gì Telegram chuyển tới) vào chuỗi `vision_routes` kèm một `question` và trả về câu trả lời, xem [Ảnh](#ảnh); chỉ có khi đã cấu hình vision route |
 | `pdf_read` | không | 50 trang, `pages` chọn một cửa sổ; áp dụng trần đầu ra của agent | đọc một PDF từ workspace hoặc home của đội; trang có chữ sắp sẵn trả về dạng văn bản, trang scan đi qua chuỗi vision, xem [PDF](#pdf) |
 | `ask_user` | **có, luôn luôn** | một câu hỏi mở mỗi cuộc trò chuyện | hỏi người dùng một điều và tạm dừng lượt cho tới khi họ trả lời, xem [Hỏi người dùng](#hỏi-người-dùng) |
+| `tool_output_read` | không | mỗi lần đọc vừa trần đầu ra của agent, `offset` và `limit` tính bằng ký tự | đọc lại toàn văn một kết quả tool đã bị rút ngắn theo id lời gọi, xem [Đọc lại đầu ra dài](#đọc-lại-đầu-ra-dài) |
 | `progress_note` | không | 200 ký tự | nói trong một dòng agent sắp làm gì; trở thành một step `note` trên run, xem [Nói mình đang làm gì](#nói-mình-đang-làm-gì) |
 
 Bốn tool nữa chỉ đi kèm `mode: work`, vì trợ lý chỉ trò chuyện không cần
@@ -95,6 +96,29 @@ chúng và mỗi spec tool thêm vào đều tốn token prompt:
 | `workspace_grep` | không | 200 kết quả, 30 s | tìm regex trên workspace; dùng `rg` khi đã cài, nếu không tự duyệt cây. Bỏ qua `.git`, `.venv`, `node_modules`, `__pycache__`, `dist`, `build` và tệp nhị phân |
 | `workspace_glob` | không | 500 đường dẫn | liệt kê tệp khớp một glob, cùng danh sách bỏ qua |
 | `delegate` | không | 8 mỗi cuộc trò chuyện, 8 cùng lúc | giao trọn một việc cho agent khác và chờ câu trả lời, xem bên dưới |
+
+### Đọc lại đầu ra dài
+
+Đầu ra vượt trần bị rút ngắn trước khi vào ngữ cảnh, nhưng bản gốc không mất: registry ghi nó
+vào `<home>/spill/<conversation>/<sha256(call id)[:32]>.txt` (tối đa 5 MB) rồi nối vào cuối
+bản rút ngắn một dòng nêu số ký tự và id lời gọi. `tool_output_read` (`id`, `offset`, `limit`,
+đều tính bằng ký tự) trả bản gốc theo từng đoạn; mỗi đoạn có dòng đầu ghi nguồn và khoảng đã
+đọc, và dòng cuối nêu `offset` tiếp theo hoặc báo đã hết. Đoạn luôn vừa trần đầu ra, vì chính
+đầu ra của tool này không bao giờ bị ghi ra tệp.
+
+- **Chỉ trong cuộc trò chuyện hiện tại**, kể cả với master: id do model gõ nên không được
+  quyết định đọc dữ liệu của ai. Id không có, hoặc trùng giữa hai kết quả, bị từ chối thay vì
+  đoán. Tệp còn thì đọc tệp; hết tệp thì đọc bản đã lưu trong DB và gắn nhãn "có thể đã rút
+  ngắn".
+- **Agent nào có.** Tool nằm trong mọi agent không có danh sách `tools:`; agent có danh sách
+  phải ghi `tool_output_read` thì mới có tool, tệp spill và dòng trỏ. Agent không ghi thì hành
+  xử y như trước. Template kongming và researcher đã ghi sẵn. Với agent đang chạy thật, thêm
+  tên này vào `tools:` là việc của người giữ home của agent đó.
+- **Dọn dẹp.** Xoá cuộc trò chuyện xoá luôn thư mục spill của nó; fork sao chép thư mục sang
+  id của fork để fork vẫn đọc được bản gốc khi nguồn đã bị xoá; một vòng quét mỗi ngày (chạy
+  khi khởi động rồi mỗi 24 giờ, cùng lúc scheduler) xoá tệp cũ hơn 7 ngày và không theo symlink.
+- **Khi prompt bị lược.** Kết quả cũ bị thay bằng một dòng stub; với agent có tool này, stub nêu
+  id để đọc lại thay vì bảo gọi lại tool.
 
 ### Giao việc
 

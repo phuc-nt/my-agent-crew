@@ -1037,3 +1037,33 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "a schedule is added from the jobs list through the agent's editor" (không đổi assertion,
     chỉ sửa `e2e/mock-api.ts` để một spec giữ tham chiếu tới cùng mảng `jobs` nó truyền vào
     `mockApi` thấy được cả việc thêm bằng `push` lẫn việc xoá qua route DELETE mới)
+- **Đọc lại đầu ra tool đã bị rút ngắn (`tool_output_read`), spill và dọn dẹp**
+  - pytest: `tests/test_output_spill.py` (ghi và đọc tệp, trần 5 MB, tên tệp băm từ id, id hội
+    thoại lạ bị từ chối, quét không theo symlink, `shape_with_spill`);
+    `tests/test_registry_spill.py` (registry ghi tệp và nối dòng trỏ vừa trần, không ghi khi
+    đầu ra ngắn, ghi lỗi thì vẫn trả kết quả, `tool_output_read` không tự spill, ghi chú của
+    hook sau không đổi); `tests/test_tool_output_read.py` (đọc từng đoạn, nhãn nguồn, tệp thắng
+    bản DB, hết thì báo, id của cuộc khác, id trùng bị từ chối, vừa trần registry);
+    `tests/test_message_tool_results.py` (`MessageStore.tool_results`);
+    `tests/test_output_read_wiring.py` (agent có hoặc không có tool trong `tools:` thì có hoặc
+    không có spill, stub trong prompt nêu id đúng khi có tool, vòng lặp thật đọc lại đoạn giữa
+    của đầu ra 22 000 ký tự); `tests/test_agent_context_trim.py`
+    ("test_a_stub_names_the_id_to_reread_only_for_an_agent_that_can_reread",
+    "test_rereading_changes_only_the_wording_of_the_stubs",
+    "test_a_stub_for_a_call_with_no_id_falls_back_to_the_plain_wording");
+    `tests/test_agent_templates.py` ("test_every_tool_a_template_lists_is_a_real_tool",
+    "test_the_counsel_and_the_researcher_can_read_a_long_output_back");
+    `tests/test_housekeeping.py` (quét ngay khi khởi động, quét lại mỗi chu kỳ, lần quét lỗi
+    không giết vòng, huỷ được, lifespan chỉ quét khi `schedule=True`); `tests/test_api_fork.py`
+    ("test_deleting_a_conversation_removes_its_spill_folder",
+    "test_deleting_an_unknown_conversation_is_404_and_touches_no_spill_folder",
+    "test_forking_copies_the_spill_files_to_the_fork",
+    "test_a_failed_spill_copy_does_not_break_the_fork",
+    "test_a_fork_still_reads_the_original_after_its_source_is_deleted_and_swept")
+  - Behavior eval: `evals/` của home, một ca chạy lệnh in khoảng 24 000 ký tự rồi hỏi một giá
+    trị ở giữa (kỳ vọng `tool_output_read`, tối đa một `shell_run`)
+- **Id lời gọi tool không còn trùng hay bị dùng lại sai**
+  - pytest: `tests/test_tool_call_ids.py` (id provider bỏ trống là uuid duy nhất);
+    `tests/test_approval_id_reuse.py` (id dùng lại mà approval đã lưu ghi lời gọi khác thì bị
+    từ chối); `tests/test_delegate_child_scope.py` (agent con chỉ tìm được qua lời gọi của chính
+    cha nó)

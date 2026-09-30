@@ -94,6 +94,7 @@ Gói `tools/` giữ danh sách tool mà agent được dùng (`tools:` trong `ag
 | Web | `fetch_url`, `web_search` | không |
 | Trí nhớ | `memory_save`, `memory_search`, `user_memory_save`, `user_memory_forget`, `wiki_get`, `wiki_search`, `wiki_apply` | không |
 | Đội | `delegate` | không |
+| Đầu ra dài | `tool_output_read` (đọc lại bản gốc của kết quả đã bị rút ngắn, chỉ trong cuộc trò chuyện hiện tại) | không |
 | Với người | `ask_user` (dừng lượt, chờ câu trả lời), `progress_note` (một câu "đang làm gì" lên timeline) | không |
 | Khác | `image_read`, `pdf_read`, `skill_read` | không |
 
@@ -106,6 +107,8 @@ Gói `llm/` nói chuyện với OpenRouter (và Ollama) và bọc thành một c
 ### 2.6 Scheduler
 
 `scheduler/` đọc `schedules:` của mọi agent, mỗi phút kiểm tra cron, đến hạn thì tạo một job run: một cuộc trò chuyện autonomous với prompt (hoặc lệnh kit) định sẵn. Trạng thái job lưu ở bảng `job_state`, xem ở `/api/jobs`. Ngoài `agent.yaml`, một job có thể tới từ bảng `created_schedules` — agent tự đề xuất qua tool `schedule_create`, người duyệt nguyên văn prompt, rồi job chạy ngay không cần khởi động lại (`origin: "chat"` trên job, đối lập `origin: "profile"`); xem [design.md](design.md#scheduler) và [tools.md](tools.md#đề-xuất-lịch-chạy).
+
+Cùng vòng đời với scheduler, `server/housekeeping.py` chạy một vòng quét mỗi ngày (ngay khi khởi động, rồi mỗi 24 giờ, ngoài event loop) xoá tệp trong `spill/` cũ hơn 7 ngày; một lần quét lỗi chỉ được ghi log, vòng vẫn chạy tiếp. Xem [tools.md](tools.md#đọc-lại-đầu-ra-dài).
 
 ### 2.7 Home: agent là tệp
 
@@ -226,6 +229,7 @@ Bộ cài dùng để viết tài liệu này (đã bỏ số liệu và định
 ├── env                    # OPENROUTER_API_KEY, TELEGRAM_BOT_TOKEN (chmod 600, ngoài repo)
 ├── agent.yaml             # master "Trợ lý": autonomous, cost_cap_usd, max_steps, telegram
 ├── agent.sqlite3
+├── spill/<conversation>/  # bản gốc của đầu ra tool đã bị rút ngắn; xoá cùng cuộc trò chuyện, quét sau 7 ngày
 ├── run-server.zsh         # source env → uv run python -m my_agent_crew
 ├── logs/server.log
 ├── skills/                # code-review, debug, delegation, git, scout, test

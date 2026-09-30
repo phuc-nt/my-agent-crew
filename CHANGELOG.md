@@ -13,6 +13,16 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ### Added
 
+- A tool result that was shortened for being over the output cap can now be read back in full.
+  The original is kept under `spill/<conversation>/` in the home, the shortened text ends with
+  a line naming the call id, and the new `tool_output_read` tool (`id`, `offset`, `limit`)
+  returns it in segments that always fit the cap. It reads only the conversation it is called
+  from and refuses an id that more than one result shares. Once old tool results are stubbed
+  out of the prompt, the stub names the id to read them back with. Only agents whose tool list
+  includes `tool_output_read` (every agent without an allow-list, and the kongming and
+  researcher templates) get the spill and the pointer; an agent with a narrowed list is
+  unchanged. Spill files go away with their conversation, a fork gets its own copy, and a daily
+  sweep removes anything older than seven days.
 - Every line in `MEMORY.md` can now carry the day it was last confirmed. On the next
   consolidation, an undated line or one older than ninety days goes back to the model for an
   explicit keep, fix or drop with a reason, and a newer note wins over an older line it
@@ -219,6 +229,12 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 - Finding a cron schedule's next run no longer walks the calendar minute by minute: it jumps to
   the next day, hour or minute that can match instead, so a yearly schedule whose next run is
   months away resolves in a handful of steps rather than several hundred thousand.
+- A tool call id that a provider left out is now a unique generated id instead of one derived
+  from its position, so two such calls in one conversation no longer share an id.
+- A reused call id whose stored approval names a different call is refused instead of being
+  run under that approval.
+- A delegated child conversation is found only through its own parent's call, so a call id
+  from another conversation can no longer open it.
 
 ### Upgrade notes
 
