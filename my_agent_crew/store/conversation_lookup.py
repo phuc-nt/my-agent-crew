@@ -69,17 +69,37 @@ def previous_for_channel(
 
 
 def for_parent_call(
-    conn: sqlite3.Connection, lock: threading.Lock, parent_call_id: str
+    conn: sqlite3.Connection,
+    lock: threading.Lock,
+    parent_call_id: str,
+    source: str | None = None,
 ) -> Conversation | None:
     """The conversation a given tool call already opened, so a delegating turn that was
-    interrupted and resumed picks its child back up instead of starting a second one."""
+    interrupted and resumed picks its child back up instead of starting a second one.
+
+    A bare call id is only unique within the parent that made it; two different parents
+    could hand out the same one before `llm/openai_compat.py`'s uuid fix, or still could
+    from an old row written before that fix shipped. `source` narrows the search to the
+    run the caller itself opened the child under, so a collision in another conversation
+    is never mistaken for this one's own child. Callers that have no source to check
+    against — reading historical data written before runs carried one, say — may omit it
+    and fall back to the old, id-only search."""
     if not parent_call_id:
         return None
+    if source is None:
+        return _one(
+            conn,
+            lock,
+            "SELECT * FROM conversations WHERE parent_call_id = ? ORDER BY rowid LIMIT 1",
+            (parent_call_id,),
+        )
     return _one(
         conn,
         lock,
-        "SELECT * FROM conversations WHERE parent_call_id = ? ORDER BY rowid LIMIT 1",
-        (parent_call_id,),
+        "SELECT * FROM conversations AS c WHERE c.parent_call_id = ? AND EXISTS ("
+        " SELECT 1 FROM runs AS r WHERE r.conversation_id = c.id AND r.source = ?"
+        ") ORDER BY c.rowid LIMIT 1",
+        (parent_call_id, source),
     )
 
 
@@ -132,8 +152,10 @@ class ConversationLookups:
     def previous_for_channel(self, agent_id: str, channel: str, before: str) -> Conversation | None:
         return previous_for_channel(self._conn, self._lock, agent_id, channel, before)
 
-    def for_parent_call(self, parent_call_id: str) -> Conversation | None:
-        return for_parent_call(self._conn, self._lock, parent_call_id)
+    def for_parent_call(
+        self, parent_call_id: str, source: str | None = None
+    ) -> Conversation | None:
+        return for_parent_call(self._conn, self._lock, parent_call_id, source)
 
     def children_of(self, call_ids: tuple[str, ...]) -> list[Conversation]:
         return children_of(self._conn, self._lock, call_ids)

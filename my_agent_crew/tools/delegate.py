@@ -29,6 +29,7 @@ from my_agent_crew.agents.approval_ttl import effective_ttl
 from my_agent_crew.agents.roster import DELEGATE_TOOL_NAME, delegate_targets
 from my_agent_crew.store.models import TOOL, Conversation
 from my_agent_crew.tools.delegate_attachments import child_answer, relay_attachments
+from my_agent_crew.tools.delegate_open import open_child
 from my_agent_crew.tools.delegate_outcome import (
     decide,
     declared_outcome,
@@ -45,7 +46,13 @@ if TYPE_CHECKING:  # the runtime builds this tool, so importing it back would be
 
 __all__ = ["DELEGATE_TOOL_NAME", "MAX_DELEGATES", "build_delegate_tool"]
 
-TITLE_TASK_CHARS = 60
+
+def _source(parent_id: str) -> str:
+    """Which parent conversation delegated this child, so a colliding call id still resolves
+    to the right one."""
+    return f"{DELEGATE}:{parent_id}"
+
+
 # How many tasks one conversation may hand out in total. The batch limit only caps a
 # single message; without this a model could keep delegating one call at a time until the
 # budget ran out.
@@ -109,12 +116,14 @@ async def _delegate(
     parent_id = turn_conversation_id()
     parent = runtime.store.get(parent_id) if parent_id else None
     call_id = tool_call_id()
-    child = runtime.store.for_parent_call(call_id) if call_id else None
+    have_ids = bool(call_id and parent_id)
+    child = runtime.store.for_parent_call(call_id, _source(parent_id)) if have_ids else None
     if child is None:
         if len(_children(runtime, parent)) >= MAX_DELEGATES:
             raise ToolError(texts.DELEGATE_TOO_MANY.format(limit=MAX_DELEGATES))
-        child = _open_child(runtime, parent, target, task, args, call_id)
-        runtime.scheduler.keep(asyncio.create_task(_run_child(runtime, child, task, target)))
+        child = open_child(runtime, parent, target, task, args, call_id)
+        runner = _run_child(runtime, child, task, target, parent_id)
+        runtime.scheduler.keep(asyncio.create_task(runner))
     # The child's own wait, which it copied from this parent when it opened: a parent whose
     # wait changed since, or the crew's setting, is not what the child's approvals use.
     timeout = effective_ttl(child, runtime.deps_for(target).settings) + WAIT_MARGIN_SECONDS
@@ -150,40 +159,14 @@ def _children(runtime: Runtime, parent: Conversation | None) -> list[Conversatio
     return runtime.store.delegated_children(parent.id, DELEGATE_TOOL_NAME)
 
 
-async def _run_child(runtime: Runtime, child: Conversation, task: str, agent_id: str) -> None:
+async def _run_child(
+    runtime: Runtime, child: Conversation, task: str, agent_id: str, parent_id: str
+) -> None:
     """The child runs as its own tracked activity run, so it shows up in the UI on its own
-    instead of disappearing inside the parent's single tool call."""
+    instead of disappearing inside the parent's single tool call. `parent_id` is the value
+    `_delegate` looked the child up with, not read again from context here."""
     deps = runtime.deps_for_child(agent_id)
-    source = f"{DELEGATE}:{turn_conversation_id() or child.id}"
+    source = _source(parent_id or child.id)
     events = run_turn(deps, child.id, task, source=source, depth=1)
     async for _ in tracked(runtime.hub, events, agent_id, source, child.title, child.id):
         pass
-
-
-def _open_child(
-    runtime: Runtime,
-    parent: Conversation | None,
-    target: str,
-    task: str,
-    args: dict[str, Any],
-    call_id: str,
-) -> Conversation:
-    """The child inherits the parent's approval stance and what is left of its budget, so a
-    fan-out cannot spend more than the parent was allowed in total."""
-    cap = runtime.deps_for(target).settings.cost_cap_usd
-    if parent is not None and parent.cost_cap_usd:
-        remaining = max(parent.cost_cap_usd - parent.spent_usd, 0.0)
-        cap = min(cap, remaining) if cap else remaining
-    title = texts.DELEGATE_CONVERSATION_TITLE.format(agent=target, task=task[:TITLE_TASK_CHARS])
-    child = runtime.store.create(
-        title=title,
-        autonomous=parent.autonomous if parent is not None else True,
-        cost_cap_usd=cap,
-        skills=tuple(str(s) for s in args.get("skills") or ()),
-        agent_id=target,
-        parent_call_id=call_id,
-        approval_ttl_seconds=parent.approval_ttl_seconds if parent is not None else None,
-    )
-    if parent is not None and parent.auto_approve:
-        child = runtime.store.update(child.id, auto_approve=list(parent.auto_approve))
-    return child
