@@ -25,6 +25,7 @@ from my_agent_crew.server import (
     routes_chat,
     routes_conversations,
     routes_credentials,
+    routes_fork,
     routes_inbound,
     routes_jobs,
     routes_memory_agent,
@@ -52,6 +53,7 @@ GZIP_MIN_BYTES = 1024
 IMMUTABLE_CACHE = "public, max-age=31536000, immutable"
 ROUTERS = (
     routes_conversations.router,
+    routes_fork.router,
     routes_chat.router,
     routes_inbound.router,
     routes_approvals.router,
