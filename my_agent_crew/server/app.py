@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -37,6 +38,7 @@ from my_agent_crew.server import (
     routes_settings,
 )
 from my_agent_crew.server.agent_assembly import build_providers
+from my_agent_crew.server.housekeeping import sweep_loop
 from my_agent_crew.server.local_guard import allowed_hosts, install_local_guard
 from my_agent_crew.server.runtime import Runtime
 from my_agent_crew.server.runtime_build import build_deps, build_runtime
@@ -90,13 +92,17 @@ def create_app(runtime: Runtime | AgentDeps | None = None, schedule: bool = True
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        sweeper: asyncio.Task[None] | None = None
         if schedule:
             runtime.scheduler.start()
             runtime.start_channel()
             runtime.drain.start()  # after the channel, whose bot answers its own chats
+            sweeper = asyncio.create_task(sweep_loop(runtime.settings.home))
         try:
             yield
         finally:
+            if sweeper is not None:
+                sweeper.cancel()
             # First: a turn the shutdown cuts short must not start the next one in line.
             await runtime.drain.stop()
             await runtime.stop_channel()

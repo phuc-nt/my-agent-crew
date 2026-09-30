@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from my_agent_crew.agent.tool_calls import refuse_unanswered
 from my_agent_crew.server.deps import ConvDeps
 from my_agent_crew.texts import FORK_CALL_NOT_RUN
+from my_agent_crew.tools.output_spill import copy_conversation
 
 router = APIRouter(tags=["conversations"])
 
@@ -38,4 +39,7 @@ async def fork_conversation(conv_id: str, body: ForkRequest, deps: ConvDeps) -> 
     except Exception:
         deps.store.delete(fork.id)
         raise
+    # The fork reads the same tool results as its source did, and must keep reading them
+    # after the source is deleted; a failed copy only costs it the untruncated text.
+    copy_conversation(deps.settings.home, conv_id, fork.id)
     return {**fork.to_dict(), "draft": draft}

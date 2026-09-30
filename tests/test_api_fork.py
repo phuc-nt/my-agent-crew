@@ -14,6 +14,7 @@ from my_agent_crew.llm.fake import completion
 from my_agent_crew.llm.types import Message, ToolCall
 from my_agent_crew.server import create_app
 from my_agent_crew.texts import FORK_CALL_NOT_RUN
+from my_agent_crew.tools.output_spill import Spill, sweep
 from my_agent_crew.tools.registry import Tool, ToolResult
 
 CALL_A, CALL_B = ToolCall("a1", "slow", {}), ToolCall("b1", "counter", {})
@@ -182,3 +183,76 @@ def test_a_refusal_that_fails_to_write_leaves_no_fork_behind(client, monkeypatch
         fork(c, conv_id, cut)
 
     assert {conv.id for conv in deps.store.list()} == before_ids
+
+
+def _spill_files(deps, conv_id: str) -> list[str]:
+    folder = deps.settings.home / "spill" / conv_id
+    return sorted(p.name for p in folder.iterdir()) if folder.is_dir() else []
+
+
+def test_deleting_a_conversation_removes_its_spill_folder(client):
+    c, deps = client
+    conv_id = new_conversation(c)
+    other = new_conversation(c)
+    Spill(deps.settings.home).write(conv_id, "call1", "x" * 10)
+    Spill(deps.settings.home).write(other, "call1", "y" * 10)
+
+    assert c.delete(f"/api/conversations/{conv_id}").status_code == 204
+
+    assert _spill_files(deps, conv_id) == []
+    assert not (deps.settings.home / "spill" / conv_id).exists()
+    assert len(_spill_files(deps, other)) == 1
+
+
+def test_deleting_an_unknown_conversation_is_404_and_touches_no_spill_folder(client):
+    c, deps = client
+    conv_id = new_conversation(c)
+    Spill(deps.settings.home).write(conv_id, "call1", "x" * 10)
+
+    assert c.delete("/api/conversations/nope").status_code == 404
+
+    assert len(_spill_files(deps, conv_id)) == 1
+
+
+def test_forking_copies_the_spill_files_to_the_fork(client):
+    c, deps = client
+    conv_id = new_conversation(c)
+    cut = deps.store.append(conv_id, user("hỏi")).id
+    Spill(deps.settings.home).write(conv_id, "call1", "bản gốc")
+
+    fork_id = fork(c, conv_id, cut).json()["id"]
+
+    assert _spill_files(deps, fork_id) == _spill_files(deps, conv_id) != []
+    assert Spill(deps.settings.home).read(fork_id, "call1") == "bản gốc"
+
+
+def test_a_failed_spill_copy_does_not_break_the_fork(client, monkeypatch):
+    c, deps = client
+    conv_id = new_conversation(c)
+    cut = deps.store.append(conv_id, user("hỏi")).id
+    Spill(deps.settings.home).write(conv_id, "call1", "bản gốc")
+
+    def broken(*_args, **_kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr("my_agent_crew.tools.output_spill.shutil.copyfile", broken)
+
+    response = fork(c, conv_id, cut)
+
+    assert response.status_code == 201
+    assert c.get(f"/api/conversations/{response.json()['id']}").status_code == 200
+
+
+def test_a_fork_still_reads_the_original_after_its_source_is_deleted_and_swept(client):
+    c, deps = client
+    conv_id = new_conversation(c)
+    cut = deps.store.append(conv_id, user("hỏi")).id
+    spill = Spill(deps.settings.home)
+    spill.write(conv_id, "call1", "bản gốc")
+    fork_id = fork(c, conv_id, cut).json()["id"]
+
+    assert c.delete(f"/api/conversations/{conv_id}").status_code == 204
+    assert sweep(deps.settings.home) == 0
+
+    assert spill.read(fork_id, "call1") == "bản gốc"
+    assert spill.read(conv_id, "call1") is None
