@@ -17,6 +17,7 @@ import type {
   ConversationPatch,
   FactBody,
   FactInfo,
+  ForkResult,
   InstallRequest,
   InstallResult,
   JobInfo,
@@ -185,6 +186,13 @@ export const api = {
     request<Conversation>(`/conversations/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteConversation: (id: string) =>
     request<void>(`/conversations/${id}`, { method: "DELETE" }),
+  /** Rewind and fork: a new conversation holding every message before `beforeMessageId`,
+   *  with that message's own text handed back as a draft. */
+  forkConversation: (id: string, beforeMessageId: number) =>
+    request<ForkResult>(`/conversations/${id}/fork`, {
+      method: "POST",
+      body: JSON.stringify({ before_message_id: beforeMessageId }),
+    }),
   summarizeConversation: (id: string) =>
     request<{ id: string; summary: string }>(`/conversations/${id}/summary`, { method: "POST" }),
   sendMessage: (id: string, text: string, onEvent: (e: AgentEvent) => void, signal?: AbortSignal) =>

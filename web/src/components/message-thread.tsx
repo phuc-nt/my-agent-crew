@@ -5,6 +5,7 @@ import { vi } from "../i18n/vi";
 import type { ThreadItem } from "../state/thread-reducer";
 import { AttachmentChip, fileName, splitAttachments, type AttachmentBlock } from "./attachment-chip";
 import { BubbleActions } from "./copy-button";
+import { ForkButton } from "./fork-button";
 import { MarkdownBody } from "./markdown-body";
 import { RunProgressHeader } from "./run-progress-header";
 import { ToolCallCard } from "./tool-call-card";
@@ -28,6 +29,11 @@ interface Props {
   /** The master introduces itself by name and names the team it can hand work to. */
   masterName?: string;
   crewNames?: string[];
+  /** Rewinds and forks the conversation at a saved user message; absent hides the button
+   *  entirely, and it is also hidden while `busy` — see `use-fork.ts` for why: the
+   *  `local-N` resolution it does counts bubbles by position, which a turn still writing
+   *  new ones would throw off mid-click. */
+  onFork?: (item: ThreadItem) => void;
 }
 
 const MEDIA_PREFIX = "MEDIA:";
@@ -45,6 +51,7 @@ export function MessageThread({
   onOpenConversation,
   masterName,
   crewNames = [],
+  onFork,
 }: Props) {
   const scroll = useAutoScroll<HTMLElement>();
   const speaker = agentName?.(agentId) ?? vi.agent;
@@ -88,6 +95,7 @@ export function MessageThread({
             speaker={speaker}
             agentName={agentName}
             onOpenConversation={onOpenConversation}
+            onFork={!busy ? onFork : undefined}
           />
       ))}
       {streaming !== null && (
@@ -178,12 +186,16 @@ function Item({
   speaker,
   agentName,
   onOpenConversation,
+  onFork,
 }: {
   item: ThreadItem;
   agentId: string;
   speaker: string;
   agentName?: (id: string) => string;
   onOpenConversation?: (conversationId: string) => void;
+  /** Already `undefined` while busy — `MessageThread` clears it before passing it down —
+   *  so `Item` only has to decide whether the item itself can ever be forked. */
+  onFork?: (item: ThreadItem) => void;
 }) {
   if (item.kind === "tool")
     return (
@@ -244,6 +256,7 @@ function Item({
         ),
       )}
       {assistant && item.text.trim() !== "" && <BubbleActions text={item.text} />}
+      {!assistant && onFork && <ForkButton onClick={() => onFork(item)} />}
     </div>
   );
 }

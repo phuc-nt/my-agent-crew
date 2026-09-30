@@ -17,6 +17,7 @@ import type { useActivity } from "../hooks/use-activity";
 import type { useCrew } from "../hooks/use-agents";
 import type { useConversations } from "../hooks/use-conversations";
 import { useDrawer } from "../hooks/use-drawer";
+import { useFork } from "../hooks/use-fork";
 import { useMediaQuery } from "../hooks/use-media-query";
 import type { ManageSection } from "../hooks/use-route";
 import { useShortcuts } from "../hooks/use-shortcuts";
@@ -24,6 +25,7 @@ import type { useThread } from "../hooks/use-thread";
 import { vi } from "../i18n/vi";
 import { runSummaryText } from "../lib/run-summary";
 import { conversationFamilyRuns, liveRuns, runningRuns, sortedRuns } from "../state/activity-reducer";
+import type { ThreadItem } from "../state/thread-reducer";
 
 interface Props {
   list: ReturnType<typeof useConversations>;
@@ -103,6 +105,10 @@ export function ChatScreen({
   const active: Conversation | null =
     list.conversations.find((c) => c.id === list.activeId) ??
     (thread.detail && thread.detail.id === list.activeId ? thread.detail : null);
+  // Narrowed once here rather than at each use: `forked_from` is `string | undefined` on
+  // the type (kept optional so ~15 existing fixtures need no edit), but empty and absent
+  // mean the same thing — "not a fork" — so this also folds that into one falsy check.
+  const forkSource = active?.forked_from || null;
   // `live` is newest-first, so the first match is the turn being waited on even
   // when an earlier run was left open.
   const activeRun = list.activeId
@@ -199,6 +205,27 @@ export function ChatScreen({
       ?.querySelector<HTMLElement>(".composer textarea:not(:disabled), [data-testid=over-budget] > .link-button")
       ?.focus();
   }, [afterRaise]);
+  // Rewinds and forks the conversation at a saved user message. The list is refreshed and
+  // the fork selected inside the hook itself; this screen only has to move focus into the
+  // composer afterwards, the same way a cap raise does — the fork's own draft is already
+  // seeded by the time `onSelectConversation` switches `draftKey` onto it.
+  const { refresh: listRefresh } = list;
+  const fork = useFork({ refresh: listRefresh, onSelectConversation });
+  const [afterFork, setAfterFork] = useState(0);
+  const { items: threadItems } = state;
+  const onFork = useCallback(
+    (item: ThreadItem) => {
+      if (!active) return;
+      void fork.fork(active.id, item, threadItems).then((ok) => {
+        if (ok) setAfterFork((n) => n + 1);
+      });
+    },
+    [active, fork, threadItems],
+  );
+  useEffect(() => {
+    if (afterFork === 0) return;
+    mainRef.current?.querySelector<HTMLElement>(".composer textarea:not(:disabled)")?.focus();
+  }, [afterFork]);
   const notice = state.notice && (
     <div className={`notice ${state.notice.kind}`} role="status" data-testid="notice">
       <Icon name={NOTICE_ICON[state.notice.kind] ?? "alert"} />
@@ -342,6 +369,8 @@ export function ChatScreen({
             onSetCap={onRaiseCap}
             extra={crewChip}
             lead={menuButton}
+            sourceTitle={list.conversations.find((c) => c.id === forkSource)?.title}
+            onOpenSource={forkSource ? () => onSelectConversation(forkSource) : undefined}
           />
         ) : (
           <header className="conversation-header">
@@ -360,6 +389,12 @@ export function ChatScreen({
             {vi.loadFailed}
           </div>
         )}
+        {fork.error && (
+          <div className="notice error" data-testid="fork-error">
+            <Icon name="alert" />
+            {fork.error}
+          </div>
+        )}
         {notice}
         <ErrorBoundary>
           <MessageThread
@@ -376,6 +411,10 @@ export function ChatScreen({
             onSuggestion={(text) => setDraft(text)}
             masterName={master?.name}
             crewNames={crewNames}
+            // A delegate's own conversation (`parent_call_id` set) is not a valid fork
+            // source — the server rejects it with 400 — so the button is withheld there
+            // rather than offering something that would only fail on click.
+            onFork={active && !active.parent_call_id ? onFork : undefined}
           />
         </ErrorBoundary>
         {!docked && activityPane}

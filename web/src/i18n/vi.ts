@@ -781,6 +781,12 @@ export const vi = {
     failed: "Trình duyệt không cho chép tự động. Chọn đoạn dưới đây rồi chép tay.",
     manual: "Nội dung để chép tay",
   },
+  fork: {
+    fromHere: "Sửa và gửi lại từ đây",
+    from: "Rẽ nhánh từ",
+    original: "cuộc trò chuyện gốc",
+    failed: "Không rẽ nhánh được: không tìm thấy đúng tin nhắn.",
+  },
   crashed: "Giao diện gặp lỗi không mong đợi.",
   reload: "Tải lại",
   // The server runs a newer build than this page: loading again picks it up.

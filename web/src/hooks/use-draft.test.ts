@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi as vitest } from "vitest";
 import { memoryStorage, refusingStorage } from "../test/memory-storage";
-import { useDraft } from "./use-draft";
+import { forgetDraft, saveDraft, useDraft } from "./use-draft";
 
 afterEach(() => vitest.unstubAllGlobals());
 
@@ -57,5 +57,30 @@ describe("the unsent text kept per conversation", () => {
 
     hook.rerender({ key: "c2" });
     expect(hook.result.current[0]).toBe("");
+  });
+});
+
+describe("saveDraft: seeding a draft before its useDraft ever mounts", () => {
+  it("is read back by useDraft once it mounts on that key", () => {
+    memoryStorage();
+    saveDraft("c-fork", "hỏi lại");
+    const hook = draft("c-fork");
+    expect(hook.result.current[0]).toBe("hỏi lại");
+  });
+
+  it("is picked up by a useDraft already mounted, the moment its key switches to it", () => {
+    memoryStorage();
+    const hook = draft("c1");
+    saveDraft("c-fork", "chữ đã lưu trước");
+    hook.rerender({ key: "c-fork" });
+    expect(hook.result.current[0]).toBe("chữ đã lưu trước");
+  });
+
+  it("forgetDraft still empties what saveDraft wrote", () => {
+    const store = memoryStorage();
+    saveDraft("c-fork", "sẽ bị xoá");
+    forgetDraft("c-fork");
+    expect(draft("c-fork").result.current[0]).toBe("");
+    expect(store.size).toBe(0);
   });
 });

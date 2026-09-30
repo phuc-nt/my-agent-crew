@@ -108,6 +108,45 @@ button.copy-button[data-copied] {
   }
 }
 
+/* "Sửa và gửi lại từ đây": sits bare in the user bubble rather than inside a
+   `.bubble-actions` row (there is only ever the one action on that side), so it needs
+   its own hover/focus reveal mirroring `.bubble-actions`' rather than inheriting one.
+   Coloured with the bubble's own text (`--user-bubble-text`) instead of `button.copy-
+   button`'s `--muted`, which all but disappears against the solid user-bubble fill. */
+.fork-button {
+  align-self: flex-end;
+  margin-top: var(--space-1);
+  min-height: 28px;
+  padding: var(--space-1) var(--space-2);
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  color: var(--user-bubble-text);
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out);
+}
+.fork-button:hover:not(:disabled) {
+  /* A light wash of the bubble's own text colour rather than the neutral
+     `--surface-hover` other buttons use: on the solid user-bubble fill that neutral
+     reads as a mismatched patch, where a tint of the text itself does not. */
+  background: color-mix(in srgb, var(--user-bubble-text) 16%, transparent);
+}
+.bubble.user:hover .fork-button,
+.fork-button:focus-visible {
+  opacity: 1;
+}
+@media (hover: none) {
+  .fork-button {
+    opacity: 1;
+  }
+}
+@media (max-width: 720px) {
+  .fork-button {
+    min-height: var(--touch-target);
+    min-width: var(--touch-target);
+  }
+}
+
 /* ── What the person sent ───────────────────────────────────────────────── */
 .bubble a.attachment-thumb {
   display: block;

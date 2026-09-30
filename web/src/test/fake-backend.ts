@@ -338,6 +338,7 @@ export class FakeBackend {
       c.pending_approval = null;
       return this.streamTurn(c);
     }
+    if (conv && path.endsWith("/fork") && method === "POST") return this.fork(conv, body.before_message_id);
     if (conv && method === "GET") return json(this.conversations.get(conv));
     if (conv && method === "PATCH") return this.patchConversation(conv, body);
     if (conv && method === "DELETE") {
@@ -423,6 +424,43 @@ export class FakeBackend {
       { ...fakeAgent, id, name: found.name, description: found.description, mode: found.mode, tools: found.tools, delegates: found.delegates, is_master: false },
     ];
     return json({ installed: [id], live: [id], needs_restart: false }, 201);
+  }
+
+  /** POST /conversations/{id}/fork: a new conversation holding a copy of every message
+   *  before `beforeMessageId`, matching the real route's shape closely enough for the
+   *  web-side tests and e2e specs that only ever look at the fork's own row and draft —
+   *  the atomicity, usage-neutrality and closed-tool-call guarantees are the Python
+   *  store's job and are covered there, not re-verified through this fake. */
+  private fork(sourceId: string, beforeMessageId: number): Response {
+    const source = this.conversations.get(sourceId);
+    if (!source) return json({ detail: "conversation not found" }, 404);
+    if (source.parent_call_id) return json({ detail: "cannot fork a delegate's conversation" }, 400);
+    const cutIndex = source.messages.findIndex((m) => String(m.id) === String(beforeMessageId));
+    if (cutIndex === -1) return json({ detail: "message not found" }, 404);
+    const cut = source.messages[cutIndex];
+    if (cut.role !== "user") return json({ detail: "cut message must be a saved user message" }, 400);
+    const copied = source.messages.slice(0, cutIndex).map((m, i) => ({ ...m, seq: i + 1 }));
+    // Matches `texts_fork.py`'s `FORK_TITLE_SUFFIX`: appended once, never doubled on a
+    // fork of a fork, and left off a still-default (empty) title the same way the real
+    // route does — `conversation_title.py` only ever names a conversation still at that
+    // default, so a suffixed empty string would block it from ever getting a real name.
+    const FORK_TITLE_SUFFIX = "(nhánh)";
+    const suffixed = source.title.endsWith(FORK_TITLE_SUFFIX)
+      ? source.title
+      : `${source.title} ${FORK_TITLE_SUFFIX}`.trim();
+    const fork = this.create({
+      agent_id: source.agent_id,
+      channel: "",
+      title: source.title === "" ? "" : suffixed,
+      cost_cap_usd: source.cost_cap_usd,
+      skills: source.skills,
+      autonomous: false,
+      auto_approve: [],
+      parent_call_id: "",
+      forked_from: sourceId,
+      messages: copied,
+    });
+    return json({ ...listItem(fork), draft: cut.content }, 201);
   }
 
   create(overrides: Partial<ConversationDetail> = {}): ConversationDetail {

@@ -44,6 +44,9 @@ export interface Conversation {
   auto_approve: string[];
   /** The parent's tool call, when another agent delegated this conversation; "" otherwise. */
   parent_call_id: string;
+  /** The conversation this one was forked from, when it is a fork; "" otherwise. Optional
+   *  so every existing fixture that predates forking stays a valid `Conversation`. */
+  forked_from?: string;
 }
 
 export type ApprovalStatus = "pending" | "approved" | "denied" | "expired" | "answered";
@@ -101,6 +104,12 @@ export interface ConversationDetail extends Conversation {
   pending_approval: Approval | null;
   /** Read, not taken: what still waits for the running turn. Absent on an old server. */
   queued?: QueuedMessage[];
+}
+
+/** What `POST /conversations/{id}/fork` answers: the new conversation, plus the cut
+ *  message's own text so the composer can open pre-filled with it. */
+export interface ForkResult extends Conversation {
+  draft: string;
 }
 
 export interface ConversationPatch {

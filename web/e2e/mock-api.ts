@@ -1,5 +1,5 @@
 import type { Page, Route } from "@playwright/test";
-import type { AgentInfo, ContentHit, QueuedMessage, WikiPage, WikiPageEdit } from "../src/api/types";
+import type { AgentEvent, AgentInfo, ContentHit, QueuedMessage, WikiPage, WikiPageEdit } from "../src/api/types";
 import { fold } from "../src/components/conversation-search";
 import { applyAgentPatch, restartRequired } from "../src/test/schedule-contract";
 
@@ -385,13 +385,76 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
     // A question closes by its own `/answer` route, not by the approve/deny one, so the
     // pattern has to reach it — otherwise answering in the browser 404s here and the
     // test passes for a card that would never work against the real server.
-    if (/\/(messages|approvals\/[^/]+(\/answer)?)$/.test(path) && method === "POST") {
+    const sendingMessage = /\/messages$/.test(path) && method === "POST";
+    if (sendingMessage || (/\/approvals\/[^/]+(\/answer)?$/.test(path) && method === "POST")) {
       // A decided request is closed on the server, so a page that reads the conversation
       // again (the attention list does, to see whether the turn paused anew) must not find it.
       const decided = conversations.find((c) => path.startsWith(`/conversations/${c.id}/approvals/`));
       if (decided) decided.pending_approval = null;
       const events = turns.shift() ?? [];
+      if (sendingMessage) {
+        // Persists the sent text and any assistant reply into `conv.messages`, the way the
+        // real server would: `resolveMessageId` (see `use-fork.ts`) falls back to a fresh
+        // `GET /conversations/{id}` for a bubble still carrying its optimistic `local-N` id,
+        // and that read has to find the same rows the thread already shows, or every fork
+        // attempted right after a send would 404 its own message out from under itself.
+        const sent = conversations.find((c) => path.startsWith(`/conversations/${c.id}/messages`));
+        if (sent) {
+          const { text } = route.request().postDataJSON() as { text: string };
+          const nextSeq = () => (sent.messages as { seq: number }[]).reduce((n, m) => Math.max(n, m.seq), 0) + 1;
+          const nextId = () => String((sent.messages as { id: string }[]).reduce((n, m) => Math.max(n, Number(m.id) || 0), 0) + 1);
+          sent.messages.push({
+            id: nextId(), seq: nextSeq(), role: "user", content: text, tool_calls: [],
+            tool_call_id: null, name: null, provider: null, model: null, cost_usd: null, created_at: "",
+          });
+          for (const event of events as { type: string }[]) {
+            if (event.type !== "assistant_message") continue;
+            const e = event as Extract<AgentEvent, { type: "assistant_message" }>;
+            sent.messages.push({
+              id: nextId(), seq: nextSeq(), role: "assistant", content: e.content, tool_calls: e.tool_calls,
+              tool_call_id: null, name: null, provider: e.provider, model: e.model, cost_usd: e.cost_usd, created_at: "",
+            });
+          }
+        }
+      }
       return route.fulfill({ status: 200, contentType: "text/event-stream", body: sse(events) });
+    }
+    // Rewind and fork: a new conversation holding a copy of every message before the cut,
+    // with that message's own text handed back as `draft` — matches the real route's
+    // response shape closely enough for `fork.spec.ts`, which only ever looks at the
+    // fork's own row and draft; the store's atomicity and usage-neutrality guarantees are
+    // exercised against the real server in the Python test suite, not re-proven here.
+    const forking = path.match(/^\/conversations\/([^/]+)\/fork$/)?.[1];
+    if (forking && method === "POST") {
+      const source = conversations.find((c) => c.id === decodeURIComponent(forking));
+      if (!source) return json({ detail: "conversation not found" }, 404);
+      const { before_message_id } = route.request().postDataJSON() as { before_message_id: number };
+      const messages = source.messages as { id: unknown; role: string; content: string }[];
+      const cutIndex = messages.findIndex((m) => String(m.id) === String(before_message_id));
+      if (cutIndex === -1) return json({ detail: "message not found" }, 404);
+      const cut = messages[cutIndex];
+      if (cut.role !== "user") return json({ detail: "cut message must be a saved user message" }, 400);
+      const FORK_TITLE_SUFFIX = "(nhánh)"; // texts_fork.py's FORK_TITLE_SUFFIX
+      const title = String(source.title ?? "");
+      const suffixed = title === "" ? "" : title.endsWith(FORK_TITLE_SUFFIX) ? title : `${title} ${FORK_TITLE_SUFFIX}`;
+      const fork: Conversation = {
+        ...source,
+        id: `c${++created}`,
+        title: suffixed,
+        channel: "",
+        autonomous: false,
+        auto_approve: [],
+        parent_call_id: "",
+        forked_from: source.id,
+        spent_usd: 0,
+        unknown_cost_calls: 0,
+        summary: "",
+        messages: messages.slice(0, cutIndex),
+        pending_approval: null,
+        queued: [],
+      };
+      conversations.push(fork);
+      return json({ ...fork, draft: cut.content }, 201);
     }
     const conv = conversations.find((c) => path.startsWith(`/conversations/${c.id}`));
     if (conv && method === "GET") return json(conv);

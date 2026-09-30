@@ -204,6 +204,47 @@ describe("the actions under a reply", () => {
   });
 });
 
+describe("the fork button under a saved user message", () => {
+  const assistantItem: ThreadItem = { id: "a1", kind: "assistant", text: "trả lời", model: null };
+
+  function thread(extra: { busy?: boolean; onFork?: (item: ThreadItem) => void } = {}) {
+    return render(
+      <MessageThread
+        items={[userItem, assistantItem]}
+        streaming={null}
+        busy={extra.busy ?? false}
+        onSuggestion={() => {}}
+        echoOnly={false}
+        agentId="master"
+        onFork={extra.onFork}
+      />,
+    );
+  }
+
+  it("sits under the user bubble but not under the assistant's reply", () => {
+    thread({ onFork: () => {} });
+    expect(screen.getByTestId("message-user").querySelector(".fork-button")).not.toBeNull();
+    expect(screen.getByTestId("message-assistant").querySelector(".fork-button")).toBeNull();
+  });
+
+  it("is absent without an onFork handler, even while idle", () => {
+    thread();
+    expect(screen.queryByTestId("message-user")?.querySelector(".fork-button")).toBeNull();
+  });
+
+  it("is hidden while the thread is busy", () => {
+    thread({ busy: true, onFork: () => {} });
+    expect(screen.getByTestId("message-user").querySelector(".fork-button")).toBeNull();
+  });
+
+  it("calls onFork with the item it sits under, not the conversation as a whole", () => {
+    let picked: ThreadItem | null = null;
+    thread({ onFork: (item) => (picked = item) });
+    screen.getByTestId("message-user").querySelector<HTMLButtonElement>(".fork-button")?.click();
+    expect(picked).toEqual(userItem);
+  });
+});
+
 describe("splitMedia", () => {
   it("keeps the order the reply named its attachments in", () => {
     expect(splitMedia("a\nFILE: one.pdf\nb\nMEDIA: two.png\nc")).toEqual([

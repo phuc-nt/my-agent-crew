@@ -19,6 +19,13 @@ export function forgetDraft(key: string): void {
   write(key, "");
 }
 
+/** Seeds a conversation's draft before its `useDraft` ever mounts — a fork opens on a
+ *  conversation that did not exist a moment ago, so its composer has to find the text
+ *  already there on its very first read rather than racing a `setText` after mount. */
+export function saveDraft(key: string, text: string): void {
+  write(key, text);
+}
+
 /**
  * The composer's text, kept per conversation so a half-written message survives switching
  * away and back — on a phone the drawer makes that switch constant — and a reload.
