@@ -6,11 +6,13 @@ from __future__ import annotations
 
 import json
 import threading
+from functools import partial
 from pathlib import Path
 
 from my_agent_crew.store.approvals import ApprovalStore
 from my_agent_crew.store.artifact_links import ArtifactLinks
 from my_agent_crew.store.artifacts import ArtifactStore
+from my_agent_crew.store.canvas_note import build_note
 from my_agent_crew.store.connection import connect
 from my_agent_crew.store.conversation_lookup import ConversationLookups
 from my_agent_crew.store.created_schedules import CreatedSchedulesStore
@@ -47,7 +49,7 @@ class Store(ConversationLookups, Forks, MessageLog, Spending):
             apply_schema(self._conn)
         self.approvals = ApprovalStore(self._conn, self._lock)
         self.runs = RunStore(self._conn, self._lock)
-        self.messages = MessageStore(self._conn, self._lock)
+        self.messages = MessageStore(self._conn, self._lock, partial(build_note, self))
         self.queue = QueueStore(self._conn, self._lock, self.messages)
         self.proposals = MemoryProposalStore(self._conn, self._lock)
         self.jobs = JobStateStore(self._conn, self._lock)

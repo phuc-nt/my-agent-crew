@@ -1,6 +1,7 @@
 """An exported run as Markdown a person can read. Free text goes in as the agent wrote it,
 so nothing in it may reshape the file: one line for the title, and a code block a message
-leaves open is closed before the next message starts."""
+leaves open is closed before the next message starts. The canvas note a message was read
+after sits in a code block ahead of it, where the model read it."""
 
 from __future__ import annotations
 
@@ -64,6 +65,8 @@ def _blocks(messages: list[dict[str, Any]]) -> list[str]:
         if message["role"] == "tool":
             lines += [fenced(message["content"]), ""]
             continue
+        if message.get("context"):
+            lines += [fenced(message["context"]), ""]
         if message["content"]:
             lines += [_closed(message["content"]), ""]
         for call in message["tool_calls"]:

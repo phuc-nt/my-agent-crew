@@ -96,3 +96,24 @@ CANVAS_PAYLOAD_CUT_OFF = (
     "[đã lược {chars} ký tự; lần ghi này bị ngắt giữa chừng, không rõ đã lưu chưa: xem"
     " artifact_list trước khi ghi lại]"
 )
+
+# The canvas note stored with a person's message and read in front of it: what changed in
+# the conversation's canvases since its agent last heard, and what is open in the web chat.
+# A canvas's own text inside it is quoted, never part of the frame.
+CANVAS_NOTE_OPEN = "[Canvas — ghi chú của hệ thống]"
+CANVAS_NOTE_CLOSE = "[Hết ghi chú canvas]"
+# What an earlier turn's note becomes in the prompt: the canvases have moved on since.
+CANVAS_NOTE_STUB = "[Canvas — ghi chú cũ đã lược; đọc canvas bằng artifact_read nếu cần]"
+CANVAS_NOTE_FOCUS = "Canvas đang mở trên web: «{title}» (id {id}, v{version})."
+# The passage the person selected, quoted under this line; `where` is one of the PICK_ forms.
+CANVAS_NOTE_PICK = "Người đang chọn trong «{title}» (id {id}), {where}:"
+PICK_LINES = "dòng {span} của v{version}"
+PICK_TEXT = "trên v{version}, tìm theo chữ"
+PICK_OLD = "trên v{version} (bản mới nhất là v{head}), tìm theo chữ"
+PICK_GONE = "trên một bản đã gộp (bản mới nhất là v{head}), tìm theo chữ"
+CANVAS_NOTE_NEW = "Hội thoại có canvas bạn chưa đọc: «{title}» (id {id}), bản mới nhất v{head}."
+CANVAS_NOTE_EDITED = "Người đã sửa «{title}» (id {id}) từ v{base} lên v{head}:"
+CANVAS_NOTE_BUMP = "«{title}» (id {id}) đã lên v{head}."
+CANVAS_NOTE_READ = "Đọc bằng artifact_read."
+CANVAS_NOTE_LARGE = "Người đã sửa nhiều chỗ trong «{title}» (id {id}), từ v{base} lên v{head}."
+CANVAS_NOTE_MORE = "…và {n} canvas khác đã đổi; xem bằng artifact_list."

@@ -1,4 +1,6 @@
-"""Keeping a turn's prompt free of the documents earlier turns sent to a canvas.
+"""What a turn's prompt carries of the conversation's canvases: none of the documents earlier
+turns sent to a canvas, and each person's message read after the canvas note it was stored
+with.
 
 A canvas write carries the whole text it saves: a create's or a rewrite's `content`, an
 edit's `old` and `new`. Sent again with every later turn, a few drafts would fill the prompt
@@ -11,7 +13,11 @@ The turn that wrote it keeps every word to its end. A steer, the loop guard's re
 child's wrap-up note are all messages from the user's side, so "before the last user
 message" would move mid-turn; the boundary is where the turn's run began instead, which a
 turn resumed after an approval keeps. Only the prompt changes: the store keeps every call
-as it was made."""
+as it was made.
+
+A canvas note tells what the canvases were when its message came, so only the turn that
+message opened reads it whole; an earlier turn's note is read as a fixed stub, which changes
+the prompt once, when that turn is over, and keeps the history a stable prefix after that."""
 
 from __future__ import annotations
 
@@ -24,6 +30,7 @@ from my_agent_crew.artifacts.tag import TAG_RE
 from my_agent_crew.llm.types import Message, ToolCall
 from my_agent_crew.store.runs import RUNNING
 from my_agent_crew.texts_canvas import (
+    CANVAS_NOTE_STUB,
     CANVAS_PAYLOAD_CUT_OFF,
     CANVAS_PAYLOAD_FAILED,
     CANVAS_PAYLOAD_SAVED,
@@ -66,6 +73,24 @@ def trim_canvas_payloads(history: Sequence[StoredMessage], turn_start: int | Non
         calls = tuple(_trimmed(call, results.get((index, call.id))) for call in message.tool_calls)
         changed = any(new is not old for new, old in zip(calls, message.tool_calls, strict=True))
         out.append(replace(message, tool_calls=calls) if changed else message)
+    return out
+
+
+def attach_canvas_notes(
+    history: Sequence[StoredMessage], messages: Sequence[Message], turn_start: int | None
+) -> list[Message]:
+    """`messages`, one for each of `history`, with every message stored with a canvas note
+    read after that note, or after the stub when the note is older than this turn. The queue
+    writes a message just before the run of the turn that answers it begins, so the turn
+    starts at that message, not after it. A message left unchanged is the same object."""
+    out: list[Message] = []
+    for stored, message in zip(history, messages, strict=True):
+        if not stored.context:
+            out.append(message)
+            continue
+        current = turn_start is None or stored.seq >= turn_start
+        note = stored.context if current else CANVAS_NOTE_STUB
+        out.append(replace(message, content=f"{note}\n\n{message.content}"))
     return out
 
 

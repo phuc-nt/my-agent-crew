@@ -70,12 +70,13 @@ CREATE TABLE IF NOT EXISTS conversation_artifacts (
     conversation_id TEXT NOT NULL, artifact_id TEXT NOT NULL,
     seen_version INTEGER NOT NULL DEFAULT 0, read_version INTEGER NOT NULL DEFAULT 0,
     read_upto INTEGER NOT NULL DEFAULT 0, linked_at TEXT NOT NULL,
-    shared INTEGER NOT NULL DEFAULT 0,
+    shared INTEGER NOT NULL DEFAULT 0, noted_version INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (conversation_id, artifact_id)
 );
 CREATE TABLE IF NOT EXISTS canvas_focus (
     conversation_id TEXT PRIMARY KEY, artifact_id TEXT NOT NULL,
-    selection TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL
+    selection TEXT NOT NULL DEFAULT '', noted INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL
 );
 """
 

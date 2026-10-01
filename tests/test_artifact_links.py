@@ -31,7 +31,7 @@ def test_linking_twice_keeps_what_the_conversation_has_already_seen(store: Store
 
 def test_a_fresh_link_has_seen_and_read_nothing(store: Store, pair):
     link = store.artifact_links.link(*pair)
-    assert (link.seen_version, link.read_version, link.read_upto) == (0, 0, 0)
+    assert (link.seen_version, link.read_version, link.read_upto, link.noted_version) == (0,) * 4
     assert link.linked_at
     assert store.artifact_links.links_for(pair[0]) == [link]
 
@@ -138,12 +138,53 @@ def test_pinned_once_some_conversation_has_seen_or_is_reading_that_version(store
 def test_an_uncommitted_mark_is_undone_with_the_callers_transaction(store: Store, pair):
     links, (conv, art) = store.artifact_links, pair
     links.link(conv, art)
+    links.set_focus(conv, art, SELECTION)
     with store._lock:
-        links.mark_seen(conv, art, 7, commit=False)
+        assert links.advance_seen(conv, art, 0, 7, commit=False) is True
+        links.mark_seen(conv, art, 8, commit=False)
         links.mark_read(conv, art, 7, 0, 5, 5, commit=False)
+        links.mark_noted(conv, art, 7, commit=False)
+        links.note_focus(conv, clear_selection=True, commit=False)
         store._conn.rollback()
     [link] = links.links_for(conv)
-    assert (link.seen_version, link.read_version, link.read_upto) == (0, 0, 0)
+    assert (link.seen_version, link.read_version, link.read_upto, link.noted_version) == (0,) * 4
+    focus = links.focus(conv)
+    assert (focus.noted, focus.selection) == (False, SELECTION)
+
+
+def test_a_note_marks_only_links_that_already_exist(store: Store, pair):
+    """The note marks what it showed through links it listed; a mark never makes a link."""
+    links, (conv, art) = store.artifact_links, pair
+    links.mark_noted(conv, art, 3)
+    assert links.advance_seen(conv, art, 0, 3) is False
+    links.note_focus(conv)
+    assert _stored(store) == (0, 0)
+
+
+def test_noted_version_only_moves_forward_and_pins_what_a_note_showed(store: Store, pair):
+    """A note diffs from the newest version it showed; a person's next autosave must not fold
+    that version away, or the next note would have nothing to diff from."""
+    links, (conv, art) = store.artifact_links, pair
+    links.link(conv, art)
+    links.mark_noted(conv, art, 4)
+    links.mark_noted(conv, art, 2)
+    link = links.get(conv, art)
+    assert (link.noted_version, link.seen_version) == (4, 0)
+    assert links.pinned(art, 4) and links.pinned(art, 3)
+    assert not links.pinned(art, 5)
+
+
+def test_advancing_seen_moves_only_from_the_version_the_note_diffed_from(store: Store, pair):
+    """A read or a write that moved `seen` while the note was built wins: the note's move
+    applies only from the exact version it diffed from, and never moves `seen` back."""
+    links, (conv, art) = store.artifact_links, pair
+    links.mark_seen(conv, art, 2)
+    assert links.advance_seen(conv, art, 1, 5) is False
+    assert links.get(conv, art).seen_version == 2
+    assert links.advance_seen(conv, art, 2, 5) is True
+    assert links.get(conv, art).seen_version == 5
+    assert links.advance_seen(conv, art, 5, 3) is False
+    assert links.get(conv, art).seen_version == 5
 
 
 def test_focus_holds_the_open_canvas_and_the_selected_passage(store: Store, pair):
@@ -157,6 +198,39 @@ def test_focus_holds_the_open_canvas_and_the_selected_passage(store: Store, pair
     links.set_focus(conv, second, None)
     focus = links.focus(conv)
     assert (focus.artifact_id, focus.selection) == (second, None)
+
+
+def test_noting_the_focus_marks_it_told_and_may_clear_the_selection(store: Store, pair):
+    links, (conv, art) = store.artifact_links, pair
+    links.set_focus(conv, art, SELECTION)
+    assert links.focus(conv).noted is False
+    links.note_focus(conv)
+    focus = links.focus(conv)
+    assert (focus.noted, focus.selection) == (True, SELECTION)
+    links.note_focus(conv, clear_selection=True)
+    focus = links.focus(conv)
+    assert (focus.artifact_id, focus.noted, focus.selection) == (art, True, None)
+
+
+def test_the_open_canvas_stays_told_until_another_opens_or_a_passage_is_selected(
+    store: Store, pair
+):
+    """The note says once which canvas is open: the web setting the same canvas again keeps
+    that, while another canvas or a new selection has to be told."""
+    links, (conv, art) = store.artifact_links, pair
+    links.set_focus(conv, art, None)
+    links.note_focus(conv)
+    links.set_focus(conv, art, None)
+    assert links.focus(conv).noted is True
+
+    links.set_focus(conv, art, SELECTION)
+    assert links.focus(conv).noted is False
+    links.note_focus(conv, clear_selection=True)
+    links.set_focus(conv, art, None)
+    assert links.focus(conv).noted is True
+
+    links.set_focus(conv, _canvas(store, conv), None)
+    assert links.focus(conv).noted is False
 
 
 def test_clearing_the_selection_keeps_the_canvas_open(store: Store, pair):

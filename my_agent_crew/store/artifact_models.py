@@ -73,6 +73,9 @@ class Link:
     # Whether the conversation's delegated children reach the canvas through it: set by
     # creating or writing the canvas there, never by reading it.
     shared: bool = False
+    # The newest version a canvas note told the conversation about: the next note starts
+    # there, and a person's autosave cannot fold it away.
+    noted_version: int = 0
 
     @classmethod
     def from_row(cls, row: sqlite3.Row) -> Link:
@@ -87,11 +90,14 @@ class Focus:
     # {"version", "text", "line_start", "line_end"} while a passage is selected, else None.
     selection: dict[str, Any] | None
     updated_at: str
+    # Whether a canvas note has named this canvas since it opened.
+    noted: bool = False
 
     @classmethod
     def from_row(cls, row: sqlite3.Row) -> Focus:
         selection = json.loads(row["selection"]) if row["selection"] else None
-        return cls(row["conversation_id"], row["artifact_id"], selection, row["updated_at"])
+        conversation_id, artifact_id = row["conversation_id"], row["artifact_id"]
+        return cls(conversation_id, artifact_id, selection, row["updated_at"], bool(row["noted"]))
 
 
 class VersionConflict(Exception):

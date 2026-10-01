@@ -1,5 +1,6 @@
 """A run written out whole, for a person debugging it or a case built from it: the run's
-record, the messages it wrote into its conversation, and what it delegated.
+record, the messages it wrote into its conversation, each with the canvas note it was read
+after, and what it delegated.
 
 Unlike the conversation export this carries every tool call's arguments and result, so
 whatever a tool touched comes along. Secrets are covered on the way out, long results are
@@ -103,7 +104,7 @@ def _opened_during(child: Conversation, run: RunRecord) -> bool:
 def _message(stored: StoredMessage) -> dict[str, Any]:
     message = stored.message
     calls = [{"id": c.id, "name": c.name, "arguments": c.arguments} for c in message.tool_calls]
-    return {
+    data: dict[str, Any] = {
         "seq": stored.seq,
         "role": message.role,
         "content": message.content,
@@ -115,6 +116,9 @@ def _message(stored: StoredMessage) -> dict[str, Any]:
         "cost_usd": stored.cost_usd,
         "created_at": stored.created_at,
     }
+    if stored.context:
+        data["context"] = stored.context
+    return data
 
 
 def _cut(message: dict[str, Any]) -> None:

@@ -16,6 +16,7 @@ from my_agent_crew.config import Settings
 from my_agent_crew.llm.fake import completion
 from my_agent_crew.llm.types import Message, ToolCall
 from my_agent_crew.server.tool_assembly import build_tools
+from my_agent_crew.store.message_models import StoredMessage
 from my_agent_crew.tools import Tool, ToolRegistry
 from my_agent_crew.tools.output_read import build_output_read_tool
 from my_agent_crew.tools.output_spill import Spill
@@ -61,11 +62,12 @@ def _stubbable(count: int) -> list:
 
 
 def test_the_prompt_stubs_name_the_id_only_when_the_agent_has_the_tool(deps_factory, store):
-    from types import SimpleNamespace
-
     deps = deps_factory()
     conv = store.create()
-    history = [SimpleNamespace(message=m) for m in _stubbable(21)]
+    history = [
+        StoredMessage(i, i, message, None, None, None, "")
+        for i, message in enumerate(_stubbable(21), start=1)
+    ]
     reading = replace(
         deps, tools=ToolRegistry([build_output_read_tool(store, Spill(deps.settings.home), 4000)])
     )

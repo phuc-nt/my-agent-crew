@@ -86,7 +86,7 @@ async def run_turn(
         if conv.status == AWAITING_APPROVAL:
             raise ConversationBusy(conv_id)
         close_interrupted(deps.store, conv_id)
-        deps.store.append(conv_id, Message(role="user", content=user_text))
+        deps.store.append(conv_id, Message(role="user", content=user_text), note_source=source)
 
     empty_replies = 0
     guard = LoopGuard()

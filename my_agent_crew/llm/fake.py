@@ -22,6 +22,7 @@ from my_agent_crew.llm.types import (
 )
 
 _TOOL_DIRECTIVE = re.compile(r"^/tool\s+(\w+)\s*(\{.*\})?\s*$", re.DOTALL)
+_TOOL_LINE = re.compile(r"^/tool\b", re.MULTILINE)
 
 
 def _chunked(text: str, size: int = 12) -> list[str]:
@@ -82,8 +83,9 @@ def completion(
 
 
 class EchoProvider:
-    """Answers with the user's last message. A message of the form
-    `/tool <name> {json}` becomes a tool call, so every tool path can be walked by hand."""
+    """Answers with the user's last message. A message that ends in `/tool <name> {json}`
+    from a line of its own becomes a tool call, whatever comes above it (the canvas note the
+    prompt puts first, say), so every tool path can be walked by hand."""
 
     name = "fake"
 
@@ -116,7 +118,9 @@ class EchoProvider:
 def _interpret(
     text: str, tools: Sequence[ToolSpec], call_id: str
 ) -> tuple[str, tuple[ToolCall, ...]]:
-    match = _TOOL_DIRECTIVE.match(text.strip())
+    stripped = text.strip()
+    starts = [line.start() for line in _TOOL_LINE.finditer(stripped)]
+    match = _TOOL_DIRECTIVE.match(stripped[starts[-1] :]) if starts else None
     if not match:
         return f"(echo) {text}", ()
     name, raw_args = match.group(1), match.group(2) or "{}"

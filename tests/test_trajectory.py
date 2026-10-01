@@ -8,13 +8,21 @@ from my_agent_crew.activity.trajectory import RESULT_LIMIT, build
 from my_agent_crew.activity.trajectory_markdown import to_markdown
 from my_agent_crew.agent.loop import run_turn
 from my_agent_crew.agent.resume import resolve_approval
+from my_agent_crew.artifacts.diff import fenced
 from my_agent_crew.config import Route
 from my_agent_crew.llm.fake import completion
 from my_agent_crew.llm.types import Message, ToolCall
 from my_agent_crew.store import Store
+from my_agent_crew.store.artifact_models import USER
 from my_agent_crew.store.db import new_id, now_iso
 from my_agent_crew.store.runs import DONE, HALTED, RUNNING, RunRecord
-from my_agent_crew.texts import TRAJECTORY_NOTICE, TRAJECTORY_TITLE
+from my_agent_crew.texts import (
+    TRAJECTORY_NOTICE,
+    TRAJECTORY_REDACTED,
+    TRAJECTORY_ROLES,
+    TRAJECTORY_TITLE,
+)
+from tests.canvas_helpers import PLAN, say, seen_canvas
 from tests.conftest import collect
 from tests.trajectory_fake import child_of, delegate_call, delegating_turn, run_from
 
@@ -281,3 +289,23 @@ def test_the_markdown_keeps_the_title_on_one_line_and_closes_a_block_left_open(s
     assert "Đây:\n```python\nprint(1)\n```\n\n### #3" in markdown
     # A block that closes itself, and code written inline, are left as they were.
     assert "Dùng ```x``` nhé:\n```\nok\n```\n\n### #4" in markdown
+
+
+def test_a_message_read_after_a_canvas_note_carries_the_note_with_secrets_covered(store: Store):
+    """The Markdown puts the note ahead of the message, as the model read it. A message
+    stored without a note has no such field."""
+    conv = store.create()
+    run = run_from(store, conv.id, 0)
+    art = seen_canvas(store, conv)
+    secret = "canvas-secret-" + "klmnopqrstuvwxyz" * 2
+    store.artifacts.write(art, PLAN.replace("bơi", f"bơi {secret}"), USER, "")
+    note = say(store, conv)
+    store.append(conv.id, Message(role="assistant", content="Đã xem."), "fake", "echo")
+
+    data = build(store, run, secrets=[secret])
+
+    covered = note.replace(secret, TRAJECTORY_REDACTED)
+    first, second = data["messages"]
+    assert secret in note and first["context"] == covered and "context" not in second
+    heading = f"### #{first['seq']} · {TRAJECTORY_ROLES['user']}"
+    assert f"{heading}\n\n{fenced(covered)}\n\ntiếp nhé\n" in to_markdown(data)

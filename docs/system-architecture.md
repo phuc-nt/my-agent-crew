@@ -213,6 +213,20 @@ phần đổi theo lượt đứng sau, để cache prompt của provider giữ 
 
 Skill không vào toàn văn: chỉ chỉ mục tên + mô tả; agent gọi `skill_read` khi cần. Skill có `always: true` thì vào toàn văn.
 
+**Ghi chú canvas** đi cùng tin của người, không vào system prompt. Khi lưu một tin mở lượt,
+trong cùng giao dịch, hệ thống so từng canvas gắn với cuộc trò chuyện với bản agent đã thấy
+hay đã được báo gần nhất, rồi lưu kèm tin một ghi chú: canvas agent chưa đọc lần nào được một
+dòng; chỗ người tự sửa được một diff, tối đa ba canvas, canvas đổi gần nhất trước; bản do agent
+khác viết, bản khôi phục, hay một vùng sửa quá dài chỉ được một dòng kèm lời dặn đọc lại. Mỗi
+diff và cả ghi chú có trần chữ; canvas không vừa được gom vào một dòng cuối. Mọi tin mở lượt,
+từ web, Telegram, `/api/inbound`, job hay lượt được giao việc, đều kèm phần đã đổi; chỉ tin từ
+web chat kèm thêm canvas đang mở và đoạn người đang chọn, vì chỉ ở đó người nhìn thấy canvas.
+Model đọc ghi chú ngay trước tin trong mọi lần gọi của lượt tin đó mở; từ lượt sau, ghi chú
+được thay bằng một dòng cố định, nên system prompt và phần đầu prompt mà provider cache vẫn
+giữ nguyên. Mỗi thay đổi chỉ được báo một lần. Canvas chỉ tính là agent đã thấy bản mới khi
+diff đi từ bản nó đã thấy trọn và cho thấy mọi chỗ đổi; ngoài trường hợp đó agent phải đọc lại
+trước khi viết lại cả canvas. Dựng ghi chú lỗi thì tin vẫn được lưu, chỉ không có ghi chú.
+
 **Ra** — trong lượt:
 
 - `messages`, `runs`, `usage`: SQLite, tự động.

@@ -54,13 +54,25 @@ def fenced_diff(before: str, after: str, room: int) -> str:
     return block
 
 
+@dataclass(frozen=True)
+class DiffText:
+    """A drawn diff, and whether it shows every changed line in full: no line cut short and
+    none counted in a mark instead of shown."""
+
+    text: str
+    whole: bool
+
+
 def render_diff(before: str, after: str, budget: int) -> str:
     """The lines `after` changed from `before`, under headings numbered as in `after`, with no
     context. Removed lines take at most half the budget, so what was written always shows;
     whatever does not fit is counted in a closing mark."""
-    old, new = before.split("\n"), after.split("\n")
-    head = _shared(old, new)
-    tail = _shared(old[head:][::-1], new[head:][::-1])
+    return diff_text(before, after, budget).text
+
+
+def diff_text(before: str, after: str, budget: int) -> DiffText:
+    """`render_diff`, told apart from a diff that had to leave something out."""
+    old, new, head, tail = _ends(before, after)
     # The default junk heuristic keeps a run of repeated lines from making this quadratic.
     matcher = SequenceMatcher(None, old[head : len(old) - tail], new[head : len(new) - tail])
     hunks = [
@@ -76,7 +88,22 @@ def render_diff(before: str, after: str, budget: int) -> str:
             break
     if out.counted < changed:
         out.lines.append(LINES_CUT.format(n=changed - out.counted))
-    return "\n".join(out.lines)
+    return DiffText("\n".join(out.lines), out.whole and out.counted == changed)
+
+
+def middle_lines(before: str, after: str) -> int:
+    """How many lines of the longer text lie between the ends both texts share: what a diff
+    has to compare line by line."""
+    old, new, head, tail = _ends(before, after)
+    return max(len(old), len(new)) - head - tail
+
+
+def _ends(before: str, after: str) -> tuple[list[str], list[str], int, int]:
+    """Both texts' lines and how many lines they share at the start and, after that, at the
+    end."""
+    old, new = before.split("\n"), after.split("\n")
+    head = _shared(old, new)
+    return old, new, head, _shared(old[head:][::-1], new[head:][::-1])
 
 
 @dataclass
@@ -85,6 +112,7 @@ class _Diff:
     removed_room: int  # characters removed lines may still take
     lines: list[str] = field(default_factory=list)
     counted: int = 0  # changed lines shown, or counted in a mark of their own
+    whole: bool = True  # no line cut short and none counted instead of shown
 
     def add(self, line: str) -> bool:
         if len(line) + 1 > self.room:
@@ -99,27 +127,34 @@ class _Diff:
             return False
         shown = 0
         for index, line in enumerate(removed):
-            text = "- " + _cut(line, added[index] if index < len(added) else None)
+            text = "- " + self.cut(line, added[index] if index < len(added) else None)
             if len(text) + 1 > self.removed_room or not self.add(text):
                 break
             self.removed_room -= len(text) + 1
             shown += 1
         self.counted += shown
         if shown < len(removed):
+            self.whole = False
             if not self.add(LINES_CUT.format(n=len(removed) - shown)):
                 return False
             self.counted += len(removed) - shown
         for index, line in enumerate(added):
             partner = removed[index] if index < len(removed) else None
-            if not self.add("+ " + _cut(line, partner)):
+            if not self.add("+ " + self.cut(line, partner)):
                 # An added line too long for what is left is cut to fit, and ends the diff.
                 if self.room - 3 >= MIN_LINE_CHARS and self.add(
-                    "+ " + _cut(line, partner, self.room - 3)
+                    "+ " + self.cut(line, partner, self.room - 3)
                 ):
                     self.counted += 1
                 return False
             self.counted += 1
         return True
+
+    def cut(self, line: str, partner: str | None, width: int = DIFF_LINE_CHARS) -> str:
+        """`_cut`, remembering that the diff is no longer whole when it shortened the line."""
+        shown = _cut(line, partner, width)
+        self.whole = self.whole and shown == line
+        return shown
 
 
 def _cut(line: str, partner: str | None, width: int = DIFF_LINE_CHARS) -> str:

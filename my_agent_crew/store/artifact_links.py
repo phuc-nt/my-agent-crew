@@ -10,6 +10,9 @@ seen or is reading is pinned: a person's next autosave adds a row instead of fol
 A link through which the conversation created or wrote the canvas is `shared`: the
 conversation's delegated children reach the canvas through it. Sharing only ever turns
 on, and reading never turns it on, so what one child read never widens the next one's reach.
+A canvas note records the newest version it told the conversation about (`noted_version`):
+the next note starts there, and that version is pinned as well. A note moves `seen_version`
+only when it showed every change in full, and only from the version it diffed from.
 
 Every write names a conversation and a canvas that both exist, or stores nothing, so a turn
 still running after either is deleted leaves no orphan row. `commit=False` leaves a write in
@@ -35,6 +38,14 @@ _MARK_SEEN = (
     "INSERT INTO conversation_artifacts (conversation_id, artifact_id, seen_version, linked_at)"
     f" SELECT c.id, a.id, ?, ? {BOTH_EXIST} ON CONFLICT (conversation_id, artifact_id)"
     " DO UPDATE SET seen_version = MAX(seen_version, excluded.seen_version) RETURNING *"
+)
+_MARK_NOTED = (
+    "UPDATE conversation_artifacts SET noted_version = MAX(noted_version, ?)"
+    " WHERE conversation_id = ? AND artifact_id = ?"
+)
+_ADVANCE_SEEN = (
+    "UPDATE conversation_artifacts SET seen_version = ? WHERE conversation_id = ?"
+    " AND artifact_id = ? AND seen_version = ? AND seen_version < ?"
 )
 _SET_READ = (
     "UPDATE conversation_artifacts SET read_version = ?, read_upto = ?, seen_version = ?"
@@ -122,6 +133,21 @@ class ArtifactLinks(CanvasFocus):
 
         return self._write(step, commit)
 
+    def mark_noted(
+        self, conversation_id: str, artifact_id: str, version: int, *, commit: bool = True
+    ) -> None:
+        """Records that a note told of `version`. Never moves back, never makes a link."""
+        params = (version, conversation_id, artifact_id)
+        self._write(lambda: self._conn.execute(_MARK_NOTED, params), commit)
+
+    def advance_seen(
+        self, conversation_id: str, artifact_id: str, base: int, head: int, *, commit: bool = True
+    ) -> bool:
+        """Moves `seen_version` from exactly `base` up to `head`. False, moving nothing, when
+        a read or a write moved it meanwhile or the link is missing."""
+        params = (head, conversation_id, artifact_id, base, head)
+        return self._write(lambda: self._conn.execute(_ADVANCE_SEEN, params).rowcount > 0, commit)
+
     def links_for(self, conversation_id: str) -> list[Link]:
         with self._lock:
             rows = self._conn.execute(
@@ -140,13 +166,13 @@ class ArtifactLinks(CanvasFocus):
         return [row[0] for row in rows]
 
     def pinned(self, artifact_id: str, version: int) -> bool:
-        """Whether some conversation's agent has seen this version or a later one, or is
-        reading one page by page: its next note diffs from that version and its next page
-        is cut from it, so the version must not be folded away."""
+        """Whether some conversation's agent has seen this version or a later one, was told
+        of one by a note, or is reading one page by page: its next note diffs from that
+        version and its next page is cut from it, so the version must not be folded away."""
         with self._lock:
             row = self._conn.execute(
                 "SELECT 1 FROM conversation_artifacts WHERE artifact_id = ?"
-                " AND MAX(seen_version, read_version) >= ? LIMIT 1",
+                " AND MAX(seen_version, read_version, noted_version) >= ? LIMIT 1",
                 (artifact_id, version),
             ).fetchone()
         return row is not None

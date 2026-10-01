@@ -352,17 +352,32 @@ class _ConnectionProxy:
         return getattr(self._real, name)
 
 
-def test_a_failed_copy_leaves_no_fork_behind(store: Store, monkeypatch: pytest.MonkeyPatch) -> None:
+def _rows(store: Store) -> tuple[int, int]:
+    """How many messages and canvas links the store holds in all."""
+    count = "SELECT (SELECT COUNT(*) FROM messages), (SELECT COUNT(*) FROM conversation_artifacts)"
+    return tuple(store._conn.execute(count).fetchone())
+
+
+@pytest.mark.parametrize("blocks", ["INSERT INTO messages", "INSERT INTO conversation_artifacts"])
+def test_a_failed_copy_leaves_no_fork_behind(
+    store: Store, monkeypatch: pytest.MonkeyPatch, blocks: str
+) -> None:
+    """Copying the messages or the canvas links failing takes the fork and every row already
+    copied into it away."""
     conv = store.create()
+    store.append(conv.id, user("một"))
     cut = store.append(conv.id, user("hỏi")).id
-    before_ids = {c.id for c in store.list()}
-    monkeypatch.setattr(store, "_conn", _ConnectionProxy(store._conn, "INSERT INTO messages"))
+    art = store.artifacts.create("Kế hoạch", "markdown", "", "user", "", "# Kế hoạch\n").id
+    store.artifact_links.link(conv.id, art)
+    before_ids, before_rows = {c.id for c in store.list()}, _rows(store)
 
-    with pytest.raises(sqlite3.OperationalError):
-        store.fork(conv.id, cut, autonomous=False)
+    with monkeypatch.context() as patch:
+        patch.setattr(store, "_conn", _ConnectionProxy(store._conn, blocks))
+        with pytest.raises(sqlite3.OperationalError):
+            store.fork(conv.id, cut, autonomous=False)
 
-    monkeypatch.undo()
     assert {c.id for c in store.list()} == before_ids
+    assert _rows(store) == before_rows
 
 
 # --- recap ---------------------------------------------------------------------------

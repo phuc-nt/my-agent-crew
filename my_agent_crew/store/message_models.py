@@ -25,6 +25,9 @@ class StoredMessage:
     completion_tokens: int | None = None
     reasoning_tokens: int | None = None
     cached_tokens: int | None = None
+    # The canvas note stored with a person's message: what changed in the conversation's
+    # canvases since the agent last heard. The model reads it in front of the message.
+    context: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         m = self.message
@@ -44,6 +47,7 @@ class StoredMessage:
             "reasoning_tokens": self.reasoning_tokens,
             "cached_tokens": self.cached_tokens,
             "created_at": self.created_at,
+            "context": self.context,
         }
 
     @classmethod
@@ -68,4 +72,5 @@ class StoredMessage:
             completion_tokens=row["completion_tokens"],
             reasoning_tokens=row["reasoning_tokens"],
             cached_tokens=row["cached_tokens"],
+            context=row["context"],
         )

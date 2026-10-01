@@ -3,10 +3,16 @@ saved user message, so a person can edit and resend an earlier turn without dist
 original. See `agent/tool_calls.py` for why an open tool call at the cut is closed rather
 than copied, and `texts_fork.py` for the message that closes it.
 
+The fork also links every canvas the source had linked by the time of that message, with
+nothing seen, read or told: its agent has read nothing yet, so it reads a canvas again before
+it overwrites it, and its first note tells of each one as new. Stamps go to the second, so a
+canvas linked in the same second as the message is kept. The canvas open in the source stays
+open there only.
+
 Everything here runs under one hold of `self._lock` (the store's own `RLock`), so a
 conversation is never left half-copied: any error after `create()` deletes the row it just
-made before re-raising, and the two SELECTs plus the INSERT…SELECT that follow are one
-atomic unit as far as a caller can observe.
+made before re-raising, and the SELECTs plus the INSERT…SELECTs that follow are one atomic
+unit as far as a caller can observe.
 """
 
 from __future__ import annotations
@@ -19,14 +25,21 @@ from my_agent_crew.texts import CONVERSATION_TITLE_DEFAULT
 from my_agent_crew.texts_fork import FORK_TITLE_SUFFIX
 
 # Copies everything a later turn needs to keep making sense of the history — the words,
-# the tool-call shape, who said it and when — while leaving billing columns out. See the
-# module docstring in `search_index.py`: an INSERT is fine here, an UPDATE never is.
+# the tool-call shape, who said it and when, the canvas note it was read after — while
+# leaving billing columns out. See the module docstring in `search_index.py`: an INSERT is
+# fine here, an UPDATE never is.
 _COPY_MESSAGES = """
 INSERT INTO messages (conversation_id, seq, role, content, tool_calls, tool_call_id, name,
-                       model, created_at)
+                       model, created_at, context)
 SELECT ?, ROW_NUMBER() OVER (ORDER BY seq), role, content, tool_calls, tool_call_id, name,
-       model, created_at
+       model, created_at, context
 FROM messages WHERE conversation_id = ? AND seq < ? ORDER BY seq
+"""
+# The marks of what was seen, read and told start again at 0 from the column defaults.
+_COPY_LINKS = """
+INSERT INTO conversation_artifacts (conversation_id, artifact_id, linked_at, shared)
+SELECT ?, artifact_id, linked_at, shared FROM conversation_artifacts
+WHERE conversation_id = ? AND linked_at <= ? ORDER BY rowid
 """
 
 
@@ -61,7 +74,7 @@ class Forks:
             if source.parent_call_id:
                 raise ValueError("cannot fork a delegated conversation")
             cut = self._conn.execute(
-                "SELECT conversation_id, seq, role, content FROM messages WHERE id = ?",
+                "SELECT conversation_id, seq, role, content, created_at FROM messages WHERE id = ?",
                 (before_message_id,),
             ).fetchone()
             if cut is None or cut["conversation_id"] != conv_id:
@@ -78,6 +91,7 @@ class Forks:
             )
             try:
                 self._conn.execute(_COPY_MESSAGES, (fork.id, conv_id, cut["seq"]))
+                self._conn.execute(_COPY_LINKS, (fork.id, conv_id, cut["created_at"]))
                 self._conn.commit()
             except Exception:
                 self.delete(fork.id)

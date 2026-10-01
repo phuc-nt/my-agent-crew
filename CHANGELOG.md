@@ -28,6 +28,20 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   one canvas and creates at most 30 canvases, and later turns carry a note of where a write went
   instead of the document it sent. An agent with a `tools:` allow-list gets only the canvas
   tools it lists.
+- What a person changed in a canvas reaches the agent with their next message, without a tool
+  call. The message is stored with a canvas note, built in the same transaction, naming each
+  linked canvas that moved since the agent last saw or was told of it: a diff of the person's
+  own edits for at most three canvases, the most recently changed first, or one line asking the
+  agent to read again for another agent's versions, a restore or a very long change. Each diff
+  and the whole note have a size cap, and canvases that do not fit are counted in a last line.
+  Only a web-chat message also names the canvas open there and quotes the passage selected in
+  it. The model reads the note right before the message in every call of the turn that message
+  opened, and a fixed stub in later turns, so the system prompt and the cached prompt prefix do
+  not change. A diff from the version seen whole that shows every change counts as seeing the
+  new version; otherwise the agent reads again before a rewrite. A note that fails to build
+  leaves the message stored without one. Forking a conversation copies each message's note and
+  the canvases linked by the fork point, with nothing seen or read; the run trajectory carries
+  the note with its secrets redacted.
 
 ### Fixed
 
@@ -64,6 +78,12 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ### Changed
 
+- The offline `fake:echo` model calls the tool named on a message's last line that starts with
+  `/tool`, when that line and its arguments end the message, whatever comes above it, so a
+  self-test can drive a canvas tool from a message stored with a canvas note. A tool line inside
+  the note, above what the person wrote, calls nothing.
+- The system prompt's rule that web and file content is data now names canvas content and what
+  a canvas note quotes.
 - The README now covers what 0.10.0 added beyond voice notes: messages to a busy agent (queue or
   `/steer`), reading a shortened tool output back, dated `MEMORY.md` lines and the rewrite gate,
   searching past conversations, forking a conversation, agent-proposed schedules, cost by purpose

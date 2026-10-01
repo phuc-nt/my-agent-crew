@@ -534,6 +534,12 @@ nhận thêm quyền ghi.
   những bản agent sắp gặp, và đặt "…" ở đầu khi còn nhóm cũ hơn. Bản khôi phục luôn là một nhóm
   riêng nêu bản nó đưa về (ví dụ "v7 người khôi phục v2"): nó mang lại chữ agent có thể đã biết,
   nên không được lẫn vào một loạt lưu thường của cùng người.
+- **Ghi chú canvas.** Người sửa canvas thì agent biết ở tin kế tiếp mà không cần gọi tool:
+  tin được lưu kèm một ghi chú nêu canvas nào đã đổi từ lần agent nghe gần nhất, diff của chỗ
+  người tự sửa, và với tin từ web chat, canvas đang mở cùng đoạn người đang chọn. Diff đi từ
+  bản agent đã thấy trọn và cho thấy mọi chỗ đổi thì tính như agent đã thấy bản mới; ngoài
+  trường hợp đó agent vẫn phải đọc lại trước khi viết lại cả canvas. Xem
+  [system-architecture.md](system-architecture.md#6-ngữ-cảnh-đi-vào-trí-nhớ-đi-ra).
 - **Thẻ.** Kết quả của mọi lần ghi thành công mở đầu bằng `[artifact <id> v<n>]`, thêm
   ` unchanged` khi nội dung không đổi và không có bản mới; trang đọc và danh sách không bao giờ
   mở đầu như vậy.

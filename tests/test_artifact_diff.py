@@ -12,9 +12,12 @@ import pytest
 from my_agent_crew.artifacts import diff
 from my_agent_crew.artifacts.diff import (
     DIFF_LINE_CHARS,
+    DiffText,
+    diff_text,
     excerpt,
     fenced,
     fenced_diff,
+    middle_lines,
     render_diff,
 )
 from my_agent_crew.artifacts.tag import TAG_RE, artifact_tag
@@ -205,3 +208,63 @@ def test_a_diff_quoting_a_backtick_run_is_drawn_again_to_fit_a_longer_fence(room
 def test_a_room_too_small_for_any_line_still_ends_with_the_count_alone():
     block = fenced_diff("a\nb", "a\nc", 5)
     assert block == fenced(LINES_CUT.format(n=2), "diff")
+
+
+def test_a_diff_that_shows_every_changed_line_in_full_is_whole():
+    shown = diff_text("a\nb\nc", "a\nB\nc\nd", 500)
+    assert shown == DiffText(render_diff("a\nb\nc", "a\nB\nc\nd", 500), whole=True)
+    assert diff_text("giống", "giống", 500) == DiffText("", whole=True)
+
+
+def test_a_diff_with_a_line_cut_around_its_change_is_not_whole():
+    before, after = "x" * 5000 + " giá cũ", "x" * 5000 + " giá mới"
+    shown = diff_text(before, after, 2000)
+    assert shown.text == render_diff(before, after, 2000)
+    assert re.search(HEAD, shown.text) and shown.whole is False
+
+
+def test_a_diff_that_counts_removed_lines_instead_of_showing_them_is_not_whole():
+    before = "\n".join(f"dòng cũ số {n} " + "chữ " * 20 for n in range(200))
+    shown = diff_text(before, "dòng mới duy nhất", 1000)
+    assert "+ dòng mới duy nhất" in shown.text.split("\n") and shown.whole is False
+
+
+def test_a_diff_that_runs_out_of_room_for_later_changes_is_not_whole():
+    before = "\n".join(f"dòng {n}" for n in range(100))
+    after = "\n".join(f"DÒNG {n}" if n % 10 == 0 else f"dòng {n}" for n in range(100))
+    shown = diff_text(before, after, 120)
+    lines = shown.text.split("\n")
+    assert lines[0] == DIFF_HUNK.format(span="1") and lines[1:3] == ["- dòng 0", "+ DÒNG 0"]
+    assert lines[-1] == LINES_CUT.format(n=20 - _counted(shown.text))
+    assert shown.whole is False
+    assert diff_text(before, after, 3000).whole is True
+
+
+def test_a_last_added_line_cut_to_the_room_left_is_not_whole():
+    shown = diff_text("a", "a\n" + "z" * 4000, 200)
+    assert shown.text.split("\n")[0] == DIFF_HUNK.format(span="2")
+    assert shown.whole is False
+
+
+def test_an_added_line_that_fits_only_once_cut_is_not_whole_even_when_it_ends_the_diff():
+    """The cut line is counted as shown, so the count alone would call the diff whole."""
+    shown = diff_text("a", "a\n" + "z" * 250, 200)
+    assert len(shown.text.split("\n")) == 2 and shown.whole is False
+
+
+def _counted(text: str) -> int:
+    return sum(1 for line in text.split("\n") if line.startswith(("- ", "+ ")))
+
+
+@pytest.mark.parametrize(
+    ("before", "after", "middle"),
+    [
+        ("a\nb\nc", "a\nb\nc", 0),
+        ("a\nb\nc", "a\nX\nc", 1),
+        ("a\nb\nc", "a\nX\nY\nZ\nc", 3),
+        ("a\nb\nc\nd\ne", "a\ne", 3),
+        ("đầu\n" + "giữa\n" * 50 + "cuối", "ĐẦU\n" + "giữa\n" * 50 + "CUỐI", 52),
+    ],
+)
+def test_the_changed_middle_counts_lines_between_the_shared_ends(before, after, middle):
+    assert middle_lines(before, after) == middle

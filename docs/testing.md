@@ -638,7 +638,11 @@ tên một test thì sửa dòng của nó trong cùng commit.
     token bot hay danh sách cho phép lệnh shell của người chạy);
     `tests/test_serve_flags.py` (`--no-schedule` tắt cả scheduler lẫn kênh, không đụng `--port`);
     `tests/test_echo_provider.py` (mỗi lệnh gọi của model giả có mã riêng, như provider thật,
-    nên hai cuộc trò chuyện giao việc ở cùng một chỗ không nhận nhầm agent con của nhau)
+    nên hai cuộc trò chuyện giao việc ở cùng một chỗ không nhận nhầm agent con của nhau; dòng
+    cuối cùng mở đầu bằng `/tool`, khi nó cùng tham số kết thúc tin, là lời gọi dù phía trên có
+    gì, kể cả ghi chú canvas;
+    dòng `/tool` nằm trong ghi chú mà người chỉ viết chữ thường thì không gọi gì; tham số có chữ
+    `/tool` được giữ nguyên)
   - Thủ công, tốn tiền thật: `scripts/run_evals.py` trên các case trong `<home>/evals/`
 - **Kết quả giao việc nói việc đi tới đâu (`outcome=` ở dòng hai), không chỉ run kết thúc ra sao;
   chỉ việc đi tới `done` mới được chuyển thẳng cho người dùng**
@@ -712,7 +716,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     chuyện vẫn xuất bản ghi và các bước, Markdown có mọi lời gọi tool kèm tham số và kết quả, kết
     quả dài bị cắt và nói dài bao nhiêu trừ khi xin bản đầy đủ, Markdown giữ tiêu đề và tóm tắt
     trên một dòng và đóng khối code bị bỏ dở trước tin sau còn khối tự đóng và code trong dòng
-    thì giữ nguyên); `tests/test_trajectory_redact.py` (chỉ gom giá trị dài của biến có tên như
+    thì giữ nguyên, tin đọc sau một ghi chú canvas mang ghi chú đó với bí mật đã che và Markdown
+    đặt ghi chú trong khối code ngay trước tin, tin không có ghi chú thì không có trường này);
+    `tests/test_trajectory_redact.py` (chỉ gom giá trị dài của biến có tên như
     bí mật, gom cả dạng gộp khoảng trắng, dạng JSON đã thoát và dạng có cả hai, bí mật chứa bí
     mật khác được che trọn, phần đầu bị cắt ở cuối chữ hay trước dấu `…` và phần đuôi ở đầu chữ
     đều được che, chữ chỉ trùng đầu hay đuôi bí mật mà không phải chỗ cắt thì để nguyên, dạng
@@ -889,7 +895,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `test_an_open_call_is_copied_still_open_ready_for_the_route_to_close_it` (lịch sử thật
     `[assistant(A,B), tool(A), user]` khi một lượt bị ngắt giữa chừng rồi người nhắn tiếp; call B
     còn mở sau khi chép, chờ route đóng lại),
-    `test_a_failed_copy_leaves_no_fork_behind`,
+    `test_a_failed_copy_leaves_no_fork_behind` (chép tin hay chép liên kết canvas lỗi đều không
+    để lại nhánh hay hàng nào),
     `test_only_the_source_conversations_own_messages_are_copied` (tin của hội thoại khác có
     `seq` nhỏ hơn điểm cắt không lọt vào nhánh),
     `test_forked_from_marks_the_conversation_so_the_recap_can_be_skipped`,
@@ -1265,6 +1272,52 @@ tên một test thì sửa dòng của nó trong cùng commit.
     bộ tool; web chat và con của nó thì không,
     "test_the_note_names_only_the_canvas_writes_the_agent_holds", prompt thường trực không có mục
     này, "test_the_note_lists_exactly_the_tools_a_closed_channel_refuses")
+- **Canvas: ghi chú canvas báo agent những gì đã đổi từ lần nó nghe gần nhất, cùng canvas đang
+  mở và đoạn người chọn trên web**
+  - pytest: `tests/test_canvas_note.py` (hội thoại không có canvas không lưu ghi chú, canvas agent
+    chưa từng thấy được nêu một lần mà vẫn không viết lại được,
+    "test_a_persons_edit_is_shown_as_a_diff_that_makes_the_new_version_seen", ghi chú không hiện
+    trọn mọi thay đổi (bản của agent khác, dòng bị cắt, bản khôi phục) thì `artifact_rewrite` vẫn
+    bị từ chối, người sửa tiếp sau một thay đổi đã báo thì diff từ bản đã báo còn `seen` đứng yên,
+    bản đã báo không bị lần tự lưu kế tiếp gộp mất, sửa rồi hoàn tác thì không báo gì mà tính
+    canvas là đã thấy, phần giữa đổi quá 600 dòng báo một dòng, tối đa ba diff và mới nhất trước,
+    canvas không vừa được đếm và báo ở ghi chú sau,
+    "test_a_note_never_outgrows_its_ceiling_and_counts_what_it_left_out", canvas dựng lỗi được báo
+    một dòng còn canvas khác vẫn hiện, dựng ghi chú không ghi gì);
+    `tests/test_canvas_note_focus.py` (canvas đang mở được nêu một lần cho mỗi lần mở, đoạn được
+    chọn trích một lần rồi xoá, đặt theo dòng chỉ khi các dòng đó chứa đúng đoạn, đoạn chọn trên
+    bản cũ nói bản nào mới nhất, trên bản đã gộp thì tìm trong bản mới nhất, vùng chọn sai dạng,
+    rỗng, chỉ có khoảng trắng hay không có trong bản thì bị bỏ, canvas không phải chữ chỉ được nêu
+    tên, canvas đang mở mà agent chưa thấy được nêu và báo là mới, tin từ Telegram, API, job hay
+    agent con không nghe gì về canvas đang mở, canvas đang mở đứng đầu còn lại mới nhất trước);
+    `tests/test_canvas_note_frame.py` (dấu mở, dấu đóng và ký tự xuống dòng trong canvas không đổi
+    được khung ghi chú hay giả làm stub, chữ trích thoát mọi ký tự xuống dòng trừ LF, tiêu đề dài
+    bị cắt và không đóng được ngoặc quanh nó); `tests/test_message_context.py` (tin, ghi chú và
+    các dấu đã báo vào cùng một giao dịch, lỗi ở lúc chèn tin, cập nhật liên kết, cập nhật cuộc
+    trò chuyện hay commit không để lại gì kể cả sau một commit khác, tin cho cuộc trò chuyện không
+    tồn tại không đánh dấu gì, ghi chú dựng lỗi thì tin vẫn lưu không ghi chú và tin sau báo lại,
+    giao từ hàng đợi lỗi thì hàng chờ còn nguyên, tin xếp hàng hay steer từ Telegram nghe thay đổi
+    mà không nghe canvas đang mở còn từ web chat thì nghe cả hai, chỉ tin của người từ một nguồn
+    mới có ghi chú); `tests/test_artifact_links.py` (ghi chú chỉ đánh dấu liên kết đã có, bản đã
+    báo chỉ tiến và được giữ khỏi bị gộp, `seen` chỉ tiến từ đúng bản ghi chú diff từ đó, báo
+    canvas đang mở thì đánh dấu đã báo và có thể xoá vùng chọn, canvas đang mở vẫn là đã báo tới
+    khi canvas khác mở hay có đoạn mới được chọn); `tests/test_artifact_diff.py` (diff hiện đủ mọi
+    dòng đổi mới là trọn; dòng bị cắt quanh chỗ đổi, dòng bỏ chỉ được đếm, hết chỗ cho thay đổi
+    sau hay dòng thêm bị cắt cho vừa thì không trọn; phần giữa đã đổi đếm các dòng giữa hai đầu
+    chung); `tests/test_canvas_note_prompt.py` (mọi lời gọi model của lượt đọc tin sau ghi chú
+    trọn vẹn còn kho giữ nguyên chữ người viết, ghi chú của lượt trước thành cùng một stub, tin
+    hàng đợi giao đọc ghi chú trọn trong lượt của nó, system prompt giống hệt dù ghi chú khác
+    nhau, hội thoại không có canvas tới model đúng như đã lưu và cùng object, khung prompt gọi
+    những gì canvas chứa, kể cả chữ ghi chú trích, là dữ liệu ở cả hai ngôn ngữ);
+    `tests/test_canvas_fork.py` (mỗi tin chép giữ ghi chú của nó, nhánh liên kết những canvas gốc
+    đã liên kết tới điểm rẽ mà chưa thấy, chưa đọc, chưa báo gì, canvas liên kết sau điểm rẽ bị bỏ
+    còn cùng giây thì giữ, canvas đang mở ở gốc không mở ở nhánh, ghi chú đầu ở nhánh báo mỗi
+    canvas là mới, nhánh chỉ đọc trang cuối vẫn không viết lại được);
+    `tests/test_canvas_note_imports.py` (mỗi phần dựng ghi chú import được đầu tiên trong một
+    trình thông dịch mới, phần ở tầng lưu trữ không kéo gói agent, tên nguồn web chat của ghi chú
+    trùng tên nguồn của agent); `tests/test_canvas_note_app.py` (qua app với `fake:echo`: tin từ
+    web lưu cùng canvas đang mở và diff, model đọc ghi chú trước tin, `/tool artifact_read` vẫn gọi
+    được trong hội thoại có ghi chú)
 - **Mã agent khớp cả chuỗi: chữ thường, số và gạch ngang, không cả xuống dòng ở cuối**
   - pytest: `tests/test_api_agents_edit.py::test_an_id_that_is_not_a_safe_folder_name_is_refused`
     (`../escape` và `coder` có xuống dòng ở cuối đều bị từ chối, không thư mục nào được tạo);

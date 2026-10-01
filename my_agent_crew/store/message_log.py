@@ -17,12 +17,23 @@ class MessageLog:
         provider: str | None = None,
         model: str | None = None,
         cost_usd: float | None = None,
+        *,
+        note_source: str | None = None,
         **tokens: int | None,
     ) -> StoredMessage:
         """`tokens` are the message's prompt_tokens, completion_tokens, reasoning_tokens and
-        cached_tokens, each None when the provider did not report it."""
+        cached_tokens, each None when the provider did not report it. A person's message
+        names the turn source it came from in `note_source`, so it is stored with its canvas
+        note; the loop's own notes to the model pass none."""
         return self.messages.append(
-            conv_id, message, now_iso(), provider, model, cost_usd, **tokens
+            conv_id,
+            message,
+            now_iso(),
+            provider,
+            model,
+            cost_usd,
+            note_source=note_source,
+            **tokens,
         )
 
     def history(self, conv_id: str) -> list[StoredMessage]:

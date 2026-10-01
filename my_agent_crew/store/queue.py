@@ -123,8 +123,11 @@ class QueueStore:
                 )
                 if items:
                     text = "\n\n".join(item.text for item in items)
-                    # Its commit carries the DELETE above: both land, or neither does.
-                    self._messages.append(conv_id, Message(role="user", content=text), _stamp())
+                    # Its commit carries the DELETE above: both land, or neither does. The
+                    # batch hears the open canvas only when its first message came from the
+                    # web chat.
+                    message = Message(role="user", content=text)
+                    self._messages.append(conv_id, message, _stamp(), note_source=items[0].source)
                 else:
                     self._conn.commit()
             except BaseException:
