@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import replace
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import httpx
@@ -43,6 +43,30 @@ def settings(tmp_path: Path) -> Settings:
 @pytest.fixture
 def store() -> Store:
     return Store(":memory:")
+
+
+class CanvasClock:
+    """Stands in for `now_iso` in the canvas stores, so a test says how far apart two writes
+    are instead of sleeping. Time moves only when the test calls `tick`."""
+
+    def __init__(self, start: datetime):
+        self._now = start
+
+    @property
+    def now(self) -> str:
+        return self._now.isoformat(timespec="seconds")
+
+    def tick(self, seconds: float) -> str:
+        self._now += timedelta(seconds=seconds)
+        return self.now
+
+
+@pytest.fixture
+def canvas_clock(monkeypatch) -> CanvasClock:
+    clock = CanvasClock(datetime(2026, 10, 1, 3, 0, tzinfo=UTC))
+    for module in ("my_agent_crew.store.artifacts", "my_agent_crew.store.artifact_versions"):
+        monkeypatch.setattr(f"{module}.now_iso", lambda: clock.now)
+    return clock
 
 
 def make_deps(

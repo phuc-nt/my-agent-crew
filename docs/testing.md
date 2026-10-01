@@ -1079,3 +1079,25 @@ tên một test thì sửa dòng của nó trong cùng commit.
     giá không rõ còn lần bị từ chối trước chunk đầu thì không, lượt chỉ giữ câu trả lời của lần
     hỏi lại và không phát `route_fallback`); `tests/test_provider_chain.py` (lỗi không tạm thời
     vẫn rơi tuyến ngay như trước)
+- **Canvas: tài liệu có phiên bản đi cạnh cuộc trò chuyện (tầng lưu trữ)**
+  - pytest: `tests/test_artifact_kinds.py` (mỗi loại là chữ hoặc nhị phân, mỗi loại một trần,
+    loại lạ bị từ chối theo tên, lỗi kích thước là `ValueError` để một chỗ trả lời được mọi đầu
+    vào sai); `tests/test_artifact_schema.py` (DB mới có đủ bảng và index, payload là các cột cuối,
+    DB cũ có thêm bảng canvas mà giữ nguyên tin nhắn, mở lần hai không đổi gì);
+    `tests/test_artifact_links.py` (liên kết lại giữ `seen_version`, `seen_version` không lùi,
+    đánh dấu chưa commit được huỷ cùng giao dịch của bên gọi, focus giữ canvas đang mở và đoạn
+    được chọn, xoá cuộc trò chuyện bỏ liên kết và focus mà giữ canvas);
+    `tests/test_artifact_versions.py`
+    ("test_thirty_saves_in_a_minute_that_nobody_has_seen_keep_one_version",
+    "test_a_burst_that_never_pauses_still_closes_its_row_after_the_window",
+    "test_a_clock_set_back_does_not_hold_a_burst_open",
+    "test_a_version_an_agent_has_seen_is_never_folded_into_the_next_save",
+    "test_a_save_that_fails_halfway_through_folding_loses_nothing"; số phiên bản không bao giờ
+    dùng lại, base cũ bị từ chối kèm bản mới nhất, `apply` đọc, sửa và ghi trong một bước, xuống
+    dòng lưu thành LF trên mọi đường ghi, khôi phục giữ các bản sau);
+    `tests/test_artifact_store.py` (kích thước tính bằng byte UTF-8, payload sai loại hay vượt
+    trần không lưu gì, trần đo trên chữ đã đổi xuống dòng, thứ không tồn tại là `KeyError`, xoá
+    canvas bỏ phiên bản, liên kết và focus của nó,
+    "test_list_matches_the_title_regardless_of_case_and_accents", hai canvas cùng giây xếp theo
+    thứ tự tạo, "test_on_change_hears_every_write_after_commit_outside_the_lock",
+    "test_a_failing_on_change_is_logged_and_the_write_stands")

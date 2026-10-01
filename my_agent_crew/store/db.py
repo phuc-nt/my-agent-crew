@@ -10,6 +10,8 @@ from pathlib import Path
 
 from my_agent_crew.llm.types import Message
 from my_agent_crew.store.approvals import ApprovalStore
+from my_agent_crew.store.artifact_links import ArtifactLinks
+from my_agent_crew.store.artifacts import ArtifactStore
 from my_agent_crew.store.connection import connect
 from my_agent_crew.store.conversation_lookup import ConversationLookups
 from my_agent_crew.store.created_schedules import CreatedSchedulesStore
@@ -31,6 +33,10 @@ from my_agent_crew.texts import CONVERSATION_TITLE_DEFAULT
 MUTABLE_FIELDS = {"title", "autonomous", "cost_cap_usd", "skills", "status", "summary"}
 MUTABLE_FIELDS |= {"auto_approve"}
 LIST_FIELDS = ("skills", "auto_approve")  # stored as JSON arrays
+# Rows that go with a conversation. A canvas it linked to stays: other conversations
+# and the library may still use it.
+OWNED_BY_CONVERSATION = ("messages", "approvals", "queued_messages")
+OWNED_BY_CONVERSATION += ("conversation_artifacts", "canvas_focus")
 
 
 class Store(ConversationLookups, Forks, Spending):
@@ -49,6 +55,8 @@ class Store(ConversationLookups, Forks, Spending):
         self.side_calls = SideCallStore(self._conn, self._lock)
         self.search = SearchStore(self._conn, self._lock)
         self.created_schedules = CreatedSchedulesStore(self._conn, self._lock)
+        self.artifact_links = ArtifactLinks(self._conn, self._lock)
+        self.artifacts = ArtifactStore(self._conn, self._lock, self.artifact_links)
 
     def close(self) -> None:
         self._conn.close()
@@ -143,7 +151,7 @@ class Store(ConversationLookups, Forks, Spending):
 
     def delete(self, conv_id: str) -> None:
         with self._lock:
-            for table in ("messages", "approvals", "queued_messages"):
+            for table in OWNED_BY_CONVERSATION:
                 self._conn.execute(f"DELETE FROM {table} WHERE conversation_id = ?", (conv_id,))
             # A fork's header links back here; once this conversation is gone that link
             # must go too, or it would point at an id that no longer exists.

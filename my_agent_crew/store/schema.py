@@ -54,6 +54,27 @@ CREATE TABLE IF NOT EXISTS created_schedules (
     prompt TEXT NOT NULL, skills TEXT NOT NULL DEFAULT '[]',
     created_by_conversation TEXT NOT NULL, created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS artifacts (
+    id TEXT PRIMARY KEY, title TEXT NOT NULL, kind TEXT NOT NULL,
+    language TEXT NOT NULL DEFAULT '', agent_id TEXT NOT NULL, head_version INTEGER NOT NULL,
+    source TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS artifact_versions (
+    artifact_id TEXT NOT NULL, version INTEGER NOT NULL, size INTEGER NOT NULL,
+    author TEXT NOT NULL, conversation_id TEXT NOT NULL DEFAULT '',
+    note TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+    content TEXT, data BLOB,
+    PRIMARY KEY (artifact_id, version)
+);
+CREATE TABLE IF NOT EXISTS conversation_artifacts (
+    conversation_id TEXT NOT NULL, artifact_id TEXT NOT NULL,
+    seen_version INTEGER NOT NULL DEFAULT 0, linked_at TEXT NOT NULL,
+    PRIMARY KEY (conversation_id, artifact_id)
+);
+CREATE TABLE IF NOT EXISTS canvas_focus (
+    conversation_id TEXT PRIMARY KEY, artifact_id TEXT NOT NULL,
+    selection TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL
+);
 """
 
 # (table, column, definition) added after the table first shipped.
@@ -94,6 +115,10 @@ ADDED_COLUMNS = (
     ("conversations", "forked_from", "TEXT NOT NULL DEFAULT ''"),
     # Why the model made this proposal, shown on the card before anyone approves it.
     ("memory_proposals", "reasons", "TEXT NOT NULL DEFAULT ''"),
+    # A system note attached to a person's message (what changed on a canvas since the agent
+    # last looked, the passage they selected), sent to the model ahead of `content` but kept
+    # apart from it, so search and the chat bubble show only what the person wrote.
+    ("messages", "context", "TEXT NOT NULL DEFAULT ''"),
 )
 
 
@@ -101,7 +126,9 @@ ADDED_COLUMNS = (
 # and stats read runs newest first, a conversation's runs by its id, the sidebar reads an
 # agent's conversations by recency, a channel finds its latest conversation, the loop
 # looks up a conversation's pending approvals on every step, the usage ledger reads side
-# calls by day, and the queue reads a conversation's waiting messages in order.
+# calls by day, the queue reads a conversation's waiting messages in order, a canvas finds
+# the conversations linked to it, the library lists canvases by recency, and a conversation
+# finds the canvas versions written from it.
 INDEXES = """
 CREATE INDEX IF NOT EXISTS runs_by_started ON runs (started_at);
 CREATE INDEX IF NOT EXISTS runs_by_conversation ON runs (conversation_id, started_at);
@@ -111,6 +138,11 @@ CREATE INDEX IF NOT EXISTS approvals_by_conversation ON approvals (conversation_
 CREATE INDEX IF NOT EXISTS side_calls_by_created ON side_calls (created_at);
 CREATE INDEX IF NOT EXISTS side_calls_by_conversation ON side_calls (conversation_id);
 CREATE INDEX IF NOT EXISTS queued_by_conversation ON queued_messages (conversation_id, id);
+CREATE INDEX IF NOT EXISTS conversation_artifacts_by_artifact
+    ON conversation_artifacts (artifact_id);
+CREATE INDEX IF NOT EXISTS artifacts_by_updated ON artifacts (updated_at);
+CREATE INDEX IF NOT EXISTS artifact_versions_by_conversation
+    ON artifact_versions (conversation_id);
 """
 
 
