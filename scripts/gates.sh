@@ -28,7 +28,9 @@ run() {
   fi
 }
 
-run "ruff check"            uv run ruff check .
+# Lint without ruff's cache: a new first-party module changes how imports sort in files
+# whose bytes did not change, and the cache would keep their old, clean result.
+run "ruff check"            uv run ruff check --no-cache .
 run "ruff format --check"   uv run ruff format --check .
 run "pytest"                uv run pytest -q
 
