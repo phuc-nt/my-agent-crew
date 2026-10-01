@@ -596,6 +596,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `tests/test_delegate_attachments.py::test_only_a_chart_only_ending_reaches_back_for_the_words`
     (lời nháp trước một câu trả lời thật vẫn bị bỏ, dòng đính kèm không gửi hai lần);
     `tests/test_delegate_attachments.py::test_the_words_are_looked_for_only_since_the_task_was_given`
+- **Agent con chạy lại sau duyệt, câu hỏi hay khởi động lại vẫn không giao việc tiếp được**
+  - pytest: `tests/test_resumed_child_depth.py` (cuộc con chạy lại không truyền độ sâu vẫn ở độ
+    sâu 1, cuộc người mở giữ độ sâu 0, con lấy lại tool `delegate` qua `deps_for_conversation` vẫn
+    nhận lỗi quá sâu và không tạo cuộc cháu nào)
 - **Kiểm thử hành vi bằng model thật, chạy trên bản sao của home**
   - pytest: `tests/test_eval_cases.py` (đọc case từ tệp hay thư mục; khoá lạ, thiếu id hay
     agent, tin nhắn không phải chuỗi, regex hỏng, id trùng bị từ chối trước khi tốn tiền; từng

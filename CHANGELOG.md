@@ -27,6 +27,9 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   stopped, for a cut-off call) and the few characters around that spot, and the turn carries on
   so the model can send it again. Such a call never asks a person for approval or an answer, and
   the broken text itself is not stored.
+- A delegated agent picked up again after an approval, a question or a restart can no longer
+  hand work on to another agent. Resuming started its turn as if a person had opened it, so the
+  one-level limit on delegation did not apply.
 
 ### Changed
 

@@ -74,9 +74,11 @@ class AgentDeps:
 async def run_turn(
     deps: AgentDeps, conv_id: str, user_text: str | None, source: str = CHAT, depth: int = 0
 ) -> AsyncIterator[Event]:
-    set_turn_source(source)
-    set_turn_conversation(conv_id, depth)
     conv = deps.store.get(conv_id)
+    set_turn_source(source)
+    # A child picked up again after an approval or a restart arrives without the depth
+    # its delegation gave it; the conversation still knows it is one level down.
+    set_turn_conversation(conv_id, max(depth, 1) if conv.parent_call_id else depth)
     if user_text is not None:
         if conv.status == AWAITING_APPROVAL:
             raise ConversationBusy(conv_id)
