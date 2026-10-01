@@ -3,6 +3,15 @@ the lines a result is made of. The refusals the tools share live in `texts_canva
 
 from __future__ import annotations
 
+# A model that finds the canvas it just made short of what was asked tends to make a second
+# one, or to read back every page it has only just sent before rewriting it. The text it wrote
+# this turn is still in front of it, and the store counts that version as seen.
+CHANGE_IN_PLACE = (
+    "Muốn đổi một canvas đã có, kể cả canvas vừa tạo, thì sửa hay viết lại chính nó; đừng tạo"
+    " canvas thứ hai cho cùng tài liệu."
+)
+OWN_WRITE_IS_SEEN = "Không cần đọc lại bản chính bạn vừa tạo hay viết lại trong lượt này."
+
 # The descriptions decide when a model writes a canvas at all, so each says what belongs in
 # one and what stays in the chat, and that a canvas is never copied back into the reply.
 ARTIFACT_CREATE_DESCRIPTION = (
@@ -10,6 +19,7 @@ ARTIFACT_CREATE_DESCRIPTION = (
     " nội dung dài hoặc có cấu trúc mà người sẽ đọc lại, sửa hay dùng tiếp: kế hoạch, báo cáo,"
     " bản nháp, một tệp code hoàn chỉnh. Câu trả lời ngắn, câu hỏi và trao đổi thì để trong chat."
     " Sau khi tạo, trong câu trả lời chỉ nói ngắn bạn đã viết gì; đừng chép nội dung canvas vào."
+    f" {CHANGE_IN_PLACE}"
 )
 ARTIFACT_LIST_DESCRIPTION = (
     "Liệt kê các canvas bạn mở được, mới sửa trước: id, tiêu đề, bản mới nhất, và canvas nào có"
@@ -19,16 +29,18 @@ ARTIFACT_READ_DESCRIPTION = (
     "Đọc một canvas theo trang, chữ nguyên văn không đánh số dòng. Không truyền version thì đọc"
     " bản mới nhất từ dòng 1; cuối trang có lệnh đọc tiếp, dùng đúng version và from_line đó để"
     " mọi trang thuộc cùng một bản. Đọc tới hết bản mới nhất thì mới viết lại được cả canvas."
+    f" {OWN_WRITE_IS_SEEN}"
 )
 ARTIFACT_EDIT_DESCRIPTION = (
     "Sửa một đoạn của canvas: thay `old`, chép nguyên văn từ canvas và đủ dài để chỉ khớp một"
     " chỗ, bằng `new`. Dùng cho mọi sửa đổi nhỏ và vừa, không cần đọc hết canvas trước. Kết quả"
-    " có diff của phần đã đổi."
+    " có diff của phần đã đổi và cỡ mới của canvas."
 )
 ARTIFACT_REWRITE_DESCRIPTION = (
     "Viết lại toàn bộ canvas bằng `content`. Chỉ dùng khi phải đổi gần hết nội dung; sửa vài"
-    " đoạn thì dùng artifact_edit. Phải đọc hết bản mới nhất bằng artifact_read trước. Nếu từ đó"
-    " người hay agent khác đã sửa canvas, lần ghi bị từ chối và bạn nhận diff của phần họ đổi."
+    " đoạn thì dùng artifact_edit. Phải đọc hết bản mới nhất bằng artifact_read trước."
+    f" {OWN_WRITE_IS_SEEN} Nếu từ đó người hay agent khác đã sửa canvas, lần ghi bị từ chối và"
+    " bạn nhận diff của phần họ đổi."
 )
 
 PARAM_ID = "Id 12 ký tự của canvas, từ artifact_list hoặc từ thẻ [artifact …] của lần ghi trước."
@@ -49,7 +61,9 @@ ARTIFACT_CREATED = (
     "Đã tạo canvas «{title}» ({kind}, {size} byte, {lines} dòng). Người thấy nó ngay cạnh khung"
     " chat: trong câu trả lời chỉ nói ngắn bạn đã viết gì, đừng chép lại nội dung."
 )
-ARTIFACT_EDITED = "Đã thay {count} chỗ."
+# An edit says how long the canvas now is: a model growing one toward a length it was asked
+# for otherwise reads it back, or measures it with a shell, after every edit.
+ARTIFACT_EDITED = "Đã thay {count} chỗ; canvas giờ có {size} byte, {lines} dòng."
 ARTIFACT_REWRITTEN = "Đã viết lại canvas ({size} byte, {lines} dòng)."
 ARTIFACT_UNCHANGED = "Nội dung không đổi nên không thêm bản nào."
 ARTIFACT_RENAMED = "Đã đổi tiêu đề thành «{title}»."

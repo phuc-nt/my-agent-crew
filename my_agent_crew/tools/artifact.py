@@ -14,7 +14,13 @@ from my_agent_crew.agent.turn_context import note_canvas_write
 from my_agent_crew.artifacts.kinds import prepare
 from my_agent_crew.artifacts.tag import artifact_tag
 from my_agent_crew.clock import day_and_time
-from my_agent_crew.tools.artifact_context import CanvasAgent, kind_label, optional_text, text_arg
+from my_agent_crew.tools.artifact_context import (
+    CanvasAgent,
+    kind_label,
+    line_count,
+    optional_text,
+    text_arg,
+)
 from my_agent_crew.tools.artifact_edit import run_edit, run_rewrite
 from my_agent_crew.tools.artifact_read import run_read
 from my_agent_crew.tools.artifact_scope import (
@@ -76,7 +82,7 @@ async def _create(agent: CanvasAgent, args: dict[str, Any]) -> str:
     note_canvas_write(NEW_CANVAS)
     agent.share(conv, summary.id)
     agent.store.artifact_links.mark_seen(conv.id, summary.id, 1)
-    lines = (text or "").count("\n") + 1
+    lines = line_count(text)
     done = ARTIFACT_CREATED.format(title=summary.title, kind=kind, size=size, lines=lines)
     return f"{artifact_tag(summary.id, 1)}\n{done}"
 

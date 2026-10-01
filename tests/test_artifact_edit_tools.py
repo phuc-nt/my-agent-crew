@@ -18,13 +18,17 @@ from my_agent_crew.texts_canvas import (
     ARTIFACT_VERSION_CONFLICT,
     LINES_CUT,
 )
+from my_agent_crew.tools.artifact import build_artifact_tools
 from my_agent_crew.tools.artifact_texts import (
     ARTIFACT_CONFLICT_DIFF,
     ARTIFACT_RENAMED,
     ARTIFACT_REWRITTEN,
     ARTIFACT_UNCHANGED,
+    CHANGE_IN_PLACE,
+    OWN_WRITE_IS_SEEN,
 )
 from tests.canvas_helpers import (
+    ZONE,
     LongNote,
     agents_canvas,
     before_note,
@@ -73,9 +77,22 @@ async def test_an_edit_quotes_back_the_lines_it_changed_and_makes_its_version_se
     art = await _created(store)
     result = await call(store, "artifact_edit", {"id": art, "old": "chạy 5 km", "new": "chạy 8 km"})
     diff = "```diff\n@@ dòng 2 @@\n- chạy 5 km\n+ chạy 8 km\n```"
-    assert result.output == f"[artifact {art} v2]\nĐã thay 1 chỗ.\n{diff}"
+    edited = "Đã thay 1 chỗ; canvas giờ có 32 byte, 4 dòng."
+    assert result.output == f"[artifact {art} v2]\n{edited}\n{diff}"
     assert store.artifacts.head(art).content == "# Kế hoạch\nchạy 8 km\nbơi\n"
     assert seen(store, conv, art) == 2
+
+
+async def test_an_edit_says_how_long_the_canvas_now_is_as_a_read_counts_it(store: Store):
+    """A model growing a canvas toward a length it was asked for would otherwise read it back,
+    or measure it with a shell, after every edit."""
+    turn(store)
+    art = await _created(store)
+    grow = {"id": art, "old": "bơi\n", "new": "bơi 500 m\nđạp xe 20 km\n"}
+    result = await call(store, "artifact_edit", grow)
+    assert result.output.split("\n")[1] == "Đã thay 1 chỗ; canvas giờ có 54 byte, 5 dòng."
+    page = await call(store, "artifact_read", {"id": art})
+    assert page.output.split("\n")[0].endswith("dòng 1–5 / 5")
 
 
 async def test_an_edit_over_a_persons_save_names_it_and_leaves_it_unseen(store: Store):
@@ -85,7 +102,8 @@ async def test_an_edit_over_a_persons_save_names_it_and_leaves_it_unseen(store: 
     result = await call(store, "artifact_edit", {"id": art, "old": "chạy 5 km", "new": "chạy 8 km"})
     authors = ARTIFACT_AUTHORS.format(groups="v2 người")
     diff = "```diff\n@@ dòng 2 @@\n- chạy 5 km\n+ chạy 8 km\n```"
-    assert result.output == f"[artifact {art} v3]\nĐã thay 1 chỗ.\n{authors}\n{diff}"
+    edited = "Đã thay 1 chỗ; canvas giờ có 37 byte, 4 dòng."
+    assert result.output == f"[artifact {art} v3]\n{edited}\n{authors}\n{diff}"
     assert store.artifacts.head(art).content == "# Kế hoạch\nchạy 8 km\nbơi 1 km\n"
     assert seen(store, conv, art) == 1
 
@@ -119,7 +137,7 @@ async def test_an_edit_diff_fits_any_cap_and_leaves_a_hooks_note_to_be_cut_first
         edit = {"id": art, "old": old, "new": new, "replace_all": True}
         result = await call(store, "artifact_edit", edit, limit=limit, hooks=LongNote())
         tag, edited, diff = before_note(result.output).split("\n", 2)
-        assert edited == "Đã thay 100 chỗ."
+        assert edited == "Đã thay 100 chỗ; canvas giờ có 4199 byte, 100 dòng."
         assert diff.startswith("```diff\n@@ dòng 1–100 @@\n") and diff.endswith("\n```")
         old, new = new, old
 
@@ -203,6 +221,26 @@ async def test_a_rewrite_from_the_newest_version_read_whole_writes_it(store: Sto
     assert seen(store, conv, art) == 2
 
 
+async def test_what_the_agent_created_or_rewrote_it_rewrites_without_reading_back(store: Store):
+    """The descriptions say so, and send a change to the canvas already made: a model that
+    found its first draft short read back every page it had just sent, or made a second one."""
+    conv = turn(store)
+    art = await _created(store)
+    first = await call(store, "artifact_rewrite", {"id": art, "content": "dài hơn"})
+    again = await call(store, "artifact_rewrite", {"id": art, "content": "dài hơn nữa"})
+    assert (tagged(first), tagged(again)) == ((art, 2, False), (art, 3, False))
+    assert seen(store, conv, art) == 3 and store.artifacts.head(art).content == "dài hơn nữa"
+    tools = {
+        tool.name: tool.description
+        for tool in build_artifact_tools(store, "coach", False, 4000, ZONE)
+    }
+    assert (
+        OWN_WRITE_IS_SEEN in tools["artifact_read"]
+        and OWN_WRITE_IS_SEEN in tools["artifact_rewrite"]
+    )
+    assert CHANGE_IN_PLACE in tools["artifact_create"]
+
+
 async def test_a_rewrite_that_only_changes_line_endings_changes_nothing(store: Store):
     conv = turn(store)
     art = persons_canvas(store, PLAN, conv.id)
@@ -258,7 +296,8 @@ async def test_a_diff_quoting_backticks_gets_a_longer_fence(store: Store):
     art = await _created(store, "# Mã\n```python\nprint(1)\n```\n")
     result = await call(store, "artifact_edit", {"id": art, "old": "```python", "new": "````py"})
     diff = "`````diff\n@@ dòng 2 @@\n- ```python\n+ ````py\n`````"
-    assert result.output == f"[artifact {art} v2]\nĐã thay 1 chỗ.\n{diff}"
+    edited = "Đã thay 1 chỗ; canvas giờ có 26 byte, 5 dòng."
+    assert result.output == f"[artifact {art} v2]\n{edited}\n{diff}"
 
 
 async def test_an_edit_matching_twice_is_refused_unless_every_match_is_replaced(store: Store):

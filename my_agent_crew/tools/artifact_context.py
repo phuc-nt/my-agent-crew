@@ -78,6 +78,11 @@ def kind_label(summary: ArtifactSummary) -> str:
     return f"{summary.kind} {summary.language}" if summary.language else summary.kind
 
 
+def line_count(text: str | None) -> int:
+    """Lines as a page counts them, so the length a write reports is the one a read shows."""
+    return (text or "").count("\n") + 1
+
+
 def text_arg(args: dict[str, Any], name: str) -> str:
     """A string argument as sent. Anything else is refused before anything is touched: the
     text of a number or a list is never what the model meant to write."""

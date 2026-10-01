@@ -325,7 +325,7 @@ async def test_each_write_opens_with_its_tag_and_a_read_or_a_list_never_does(sto
     edit = {"id": art, "old": "Thứ", "new": "Ngày", "replace_all": "true"}
     edited = await call(store, "artifact_edit", edit)
     assert tagged(edited)[1:] == (2, False)
-    assert edited.output.split("\n")[1] == "Đã thay 2 chỗ."
+    assert edited.output.split("\n")[1] == "Đã thay 2 chỗ; canvas giờ có 65 byte, 4 dòng."
     rewrite = {"id": art, "content": "# Tuần sau\n"}
     assert tagged(await call(store, "artifact_rewrite", rewrite))[1:] == (3, False)
     same = {"id": art, "old": "Tuần sau", "new": "Tuần sau"}

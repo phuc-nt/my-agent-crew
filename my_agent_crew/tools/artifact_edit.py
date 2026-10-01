@@ -19,6 +19,7 @@ from my_agent_crew.tools.artifact_context import (
     CUT_MARK_ROOM,
     CanvasAgent,
     flag_arg,
+    line_count,
     optional_text,
     text_arg,
 )
@@ -95,7 +96,8 @@ async def run_edit(agent: CanvasAgent, args: dict[str, Any]) -> str:
         return _unchanged(agent, artifact_id, exc.version, title)
     head = before["head"]
     _written(agent, conv, artifact_id, written.version, moved=head.version == seen)
-    edited = ARTIFACT_EDITED.format(count=before["count"])
+    lines = line_count(written.content)
+    edited = ARTIFACT_EDITED.format(count=before["count"], size=written.size, lines=lines)
     parts = [artifact_tag(artifact_id, written.version), edited]
     if head.version != seen:
         with canvas_errors(artifact_id):
@@ -136,8 +138,7 @@ async def run_rewrite(agent: CanvasAgent, args: dict[str, Any]) -> str:
     except _Unchanged as exc:
         return _unchanged(agent, artifact_id, exc.version, title)
     _written(agent, conv, artifact_id, written.version, moved=True)
-    lines = (written.content or "").count("\n") + 1
-    done = ARTIFACT_REWRITTEN.format(size=written.size, lines=lines)
+    done = ARTIFACT_REWRITTEN.format(size=written.size, lines=line_count(written.content))
     return f"{artifact_tag(artifact_id, written.version)}\n{done}"
 
 
