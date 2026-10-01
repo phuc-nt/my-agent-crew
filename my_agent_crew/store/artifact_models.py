@@ -1,8 +1,8 @@
 """Row shapes for canvas documents. A canvas (`artifacts`) points at its newest version; each
 version (`artifact_versions`) is a full copy of the document, never a diff; a link
-(`conversation_artifacts`) records which version a conversation's agent has last seen; and a
-focus (`canvas_focus`) is the canvas a conversation has open in the web UI, with the passage
-the person selected in it."""
+(`conversation_artifacts`) records which version a conversation's agent has last seen and how
+far its paged read of a version has got; and a focus (`canvas_focus`) is the canvas a
+conversation has open in the web UI, with the passage the person selected in it."""
 
 from __future__ import annotations
 
@@ -65,6 +65,8 @@ class Link:
     conversation_id: str
     artifact_id: str
     seen_version: int  # 0 until the conversation's agent has read or written the canvas
+    read_version: int  # the version its paged read goes through, 0 before the first page
+    read_upto: int  # characters of that version read from the start without a gap
     linked_at: str
 
     @classmethod
@@ -94,3 +96,15 @@ class VersionConflict(Exception):
         super().__init__(f"base version is stale; the newest is {head_version}")
         self.head_version = head_version
         self.head_content = head_content
+
+
+class VersionGone(KeyError):
+    """The canvas is there but this version is not: a person's later save in the same burst
+    folded it away, or it never existed. Carries the newest number, so a reader is told to
+    start again from it rather than that the canvas is gone."""
+
+    def __init__(self, artifact_id: str, version: int, head_version: int):
+        super().__init__(f"{artifact_id} v{version}")
+        self.artifact_id = artifact_id
+        self.version = version
+        self.head_version = head_version

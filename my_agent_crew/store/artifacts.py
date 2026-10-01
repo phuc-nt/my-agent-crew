@@ -16,7 +16,14 @@ from collections.abc import Callable
 from itertools import islice
 from typing import Any
 
-from my_agent_crew.artifacts.kinds import STORAGE_CAP, StorageFull, clean_title, prepare
+from my_agent_crew.agent_ids import is_agent_id
+from my_agent_crew.artifacts.kinds import (
+    STORAGE_CAP,
+    StorageFull,
+    clean_language,
+    clean_title,
+    prepare,
+)
 from my_agent_crew.memory.search import normalize
 from my_agent_crew.store.artifact_links import ArtifactLinks
 from my_agent_crew.store.artifact_models import USER, ArtifactSummary
@@ -49,9 +56,12 @@ class ArtifactStore(ArtifactVersions):
         source: str = "",
     ) -> ArtifactSummary:
         """A new canvas at version 1. It is linked to no conversation yet: whoever creates
-        it links it, so the change it announces lists no conversations. `agent_id` is ""
-        when a person creates it."""
-        title = clean_title(title)
+        it links it, so the change it announces lists no conversations. `agent_id` names the
+        creator and must match `author`: "" for the person, "<id>" for "agent:<id>"."""
+        creator = USER if agent_id == "" else f"agent:{agent_id}"
+        if author != creator:
+            raise ValueError(f"author {author!r} did not create a canvas filed under {creator!r}")
+        title, language = clean_title(title), clean_language(language)
         content, size = prepare(kind, content, data)
         artifact_id, now = new_id(), now_iso()
         with self._lock:
@@ -154,16 +164,20 @@ class ArtifactStore(ArtifactVersions):
         return {row[0]: row[1] for row in rows}
 
     def _check_write(self, author: str, added: int) -> None:
-        """Refuses an author that is neither the person nor an agent, and a write that would
-        take every canvas together past STORAGE_CAP. Called with the lock held, so two
-        writers cannot both fit under the cap with the same last bytes."""
-        if author != USER and not (author.startswith("agent:") and author != "agent:"):
+        """Refuses an author that is neither the person nor a named agent, and a write that
+        would take every canvas together past its author's ceiling: STORAGE_CAP for the
+        person, a tenth short of it for an agent, so a writer stuck in a loop still leaves the
+        person room to save. Called with the lock held, so two writers cannot both fit under
+        the ceiling with the same last bytes."""
+        named_agent = author.startswith("agent:") and is_agent_id(author.removeprefix("agent:"))
+        if author != USER and not named_agent:
             raise ValueError(f"author must be {USER!r} or 'agent:<id>', not {author!r}")
+        cap = STORAGE_CAP if author == USER else STORAGE_CAP * 9 // 10
         [used] = self._conn.execute(
             "SELECT COALESCE(SUM(size), 0) FROM artifact_versions"
         ).fetchone()
-        if used + added > STORAGE_CAP:
-            raise StorageFull(used, STORAGE_CAP)
+        if used + added > cap:
+            raise StorageFull(used, cap)
 
     def _notify(self, summary: dict[str, Any], conversation_ids: list[str]) -> None:
         if self.on_change is None:

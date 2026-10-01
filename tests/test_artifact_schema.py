@@ -10,6 +10,7 @@ CANVAS_INDEXES = {
     "conversation_artifacts_by_artifact",
     "artifacts_by_updated",
     "artifact_versions_by_conversation",
+    "artifact_versions_by_size",
 }
 
 
@@ -26,6 +27,20 @@ def test_a_new_database_has_every_canvas_table_and_index(store: Store):
 def test_version_payloads_are_the_last_columns_so_metadata_reads_skip_them(store: Store):
     columns = [row[1] for row in store._conn.execute("PRAGMA table_info(artifact_versions)")]
     assert columns[-2:] == ["content", "data"]
+
+
+def _plan(store: Store, sql: str) -> str:
+    return " | ".join(row[3] for row in store._conn.execute(f"EXPLAIN QUERY PLAN {sql}"))
+
+
+def test_version_sizes_are_summed_from_an_index_without_reading_the_payloads(store: Store):
+    """The storage check runs on every canvas write; scanning the table instead would walk
+    every page that holds a version's text."""
+    for sql in (
+        "SELECT COALESCE(SUM(size), 0) FROM artifact_versions",
+        "SELECT artifact_id, SUM(size) FROM artifact_versions GROUP BY artifact_id",
+    ):
+        assert "COVERING INDEX artifact_versions_by_size" in _plan(store, sql)
 
 
 def test_an_older_database_gains_the_canvas_tables_and_keeps_its_messages(tmp_path: Path):

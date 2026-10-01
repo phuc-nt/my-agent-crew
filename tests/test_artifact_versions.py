@@ -16,7 +16,8 @@ AGENT = "agent:default"
 
 
 def _canvas(store: Store, author: str = AGENT, content: str = "# v1"):
-    return store.artifacts.create("Kế hoạch", "markdown", "default", author, "c1", content)
+    creator = "" if author == USER else author.removeprefix("agent:")
+    return store.artifacts.create("Kế hoạch", "markdown", creator, author, "c1", content)
 
 
 def _rows(store: Store, artifact_id: str) -> list[tuple[int, str]]:
@@ -104,13 +105,29 @@ def test_a_version_an_agent_has_seen_is_never_folded_into_the_next_save(store, c
     art = _canvas(store, author=USER)
     canvas_clock.tick(1)
     store.artifacts.write(art.id, "# draft", USER, "c1")
-    store.artifact_links.mark_seen("c2", art.id, 2)
+    store.artifact_links.mark_seen(store.create().id, art.id, 2)
     canvas_clock.tick(1)
 
     store.artifacts.write(art.id, "# after", USER, "c1")
 
     assert _rows(store, art.id) == [(2, USER), (3, USER)]
     assert store.artifacts.version(art.id, 2).content == "# draft"
+
+
+def test_a_version_an_agent_is_reading_page_by_page_is_never_folded_away(store, canvas_clock):
+    """The agent has read page 1 of the person's newest row when the person saves again:
+    folding would delete the version its next page has to come from."""
+    art = _canvas(store, author=USER, content="# one\n# two")
+    conv = store.create().id
+    store.artifact_links.mark_read(conv, art.id, 1, 0, 6, 11)
+    canvas_clock.tick(1)
+
+    store.artifacts.write(art.id, "# one\n# two, edited", USER, "c1")
+
+    assert _rows(store, art.id) == [(1, USER), (2, USER)]
+    page_two = store.artifacts.version(art.id, 1).content[6:]
+    assert store.artifact_links.mark_read(conv, art.id, 1, 6, 11, 11).seen_version == 1
+    assert page_two == "# two"
 
 
 def test_a_restore_stays_its_own_row_and_the_next_save_opens_another(store, canvas_clock):
@@ -182,6 +199,17 @@ def test_line_breaks_are_stored_as_lf_on_every_write_path(store):
     applied = store.artifacts.apply(art.id, lambda text: text + "\r\nf", AGENT, "c1")
     assert (written.content, applied.content) == ("d\ne", "d\ne\nf")
     assert applied.size == len("d\ne\nf")
+
+
+def test_other_line_separators_are_kept_so_lines_split_on_lf_alone(store):
+    """A canvas's lines are `split("\\n")` on the server and in the browser alike. Form
+    feed, U+2028 and the other separators `splitlines()` breaks on stay as they are:
+    changing them would change the document, and counting them would shift line numbers."""
+    text = "a\x0bb\x0cc\x1cd\x85e\u2028f\u2029g\nh"
+    art = store.artifacts.create("t", "markdown", "default", AGENT, "c1", text)
+    content = store.artifacts.head(art.id).content
+    assert content == text
+    assert content.split("\n") == ["a\x0bb\x0cc\x1cd\x85e\u2028f\u2029g", "h"]
 
 
 def test_restore_writes_the_old_text_as_a_new_version_and_keeps_the_later_ones(store):

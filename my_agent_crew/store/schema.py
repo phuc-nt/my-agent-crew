@@ -68,7 +68,8 @@ CREATE TABLE IF NOT EXISTS artifact_versions (
 );
 CREATE TABLE IF NOT EXISTS conversation_artifacts (
     conversation_id TEXT NOT NULL, artifact_id TEXT NOT NULL,
-    seen_version INTEGER NOT NULL DEFAULT 0, linked_at TEXT NOT NULL,
+    seen_version INTEGER NOT NULL DEFAULT 0, read_version INTEGER NOT NULL DEFAULT 0,
+    read_upto INTEGER NOT NULL DEFAULT 0, linked_at TEXT NOT NULL,
     PRIMARY KEY (conversation_id, artifact_id)
 );
 CREATE TABLE IF NOT EXISTS canvas_focus (
@@ -127,8 +128,9 @@ ADDED_COLUMNS = (
 # agent's conversations by recency, a channel finds its latest conversation, the loop
 # looks up a conversation's pending approvals on every step, the usage ledger reads side
 # calls by day, the queue reads a conversation's waiting messages in order, a canvas finds
-# the conversations linked to it, the library lists canvases by recency, and a conversation
-# finds the canvas versions written from it.
+# the conversations linked to it, the library lists canvases by recency, a conversation
+# finds the canvas versions written from it, and the storage check on every canvas write sums
+# version sizes from the index without walking the pages that hold the versions' text.
 INDEXES = """
 CREATE INDEX IF NOT EXISTS runs_by_started ON runs (started_at);
 CREATE INDEX IF NOT EXISTS runs_by_conversation ON runs (conversation_id, started_at);
@@ -143,6 +145,7 @@ CREATE INDEX IF NOT EXISTS conversation_artifacts_by_artifact
 CREATE INDEX IF NOT EXISTS artifacts_by_updated ON artifacts (updated_at);
 CREATE INDEX IF NOT EXISTS artifact_versions_by_conversation
     ON artifact_versions (conversation_id);
+CREATE INDEX IF NOT EXISTS artifact_versions_by_size ON artifact_versions (artifact_id, size);
 """
 
 

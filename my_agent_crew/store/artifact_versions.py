@@ -3,11 +3,11 @@ number is never used twice, so a tab still holding an old one always learns it i
 
 A person's autosaves fold into one row while they belong to one burst: the newest row and
 the new write are both the person's, neither carries a note, the burst began at most
-COALESCE_WINDOW_S ago, and no conversation's agent has seen the newest row. Folding deletes
-that row and adds the next number with the burst's first `created_at`, so a burst closes a
-window after its first save however long the typing goes on. A version an agent wrote or
-saw is never folded away: the note at the start of a turn diffs from the version the agent
-last saw, which must still be there to diff from."""
+COALESCE_WINDOW_S ago, and the newest row is not pinned (`ArtifactLinks.pinned`). Folding
+deletes that row and adds the next number with the burst's first `created_at`, so a burst
+closes a window after its first save however long the typing goes on. A version an agent
+wrote, saw or is reading page by page is never folded away: the turn's note diffs from it
+and the next page is cut from it, so it must still be there."""
 
 from __future__ import annotations
 
@@ -23,6 +23,7 @@ from my_agent_crew.store.artifact_models import (
     ArtifactSummary,
     ArtifactVersion,
     VersionConflict,
+    VersionGone,
 )
 from my_agent_crew.store.stamps import now_iso
 
@@ -64,13 +65,14 @@ class ArtifactVersions:
         return ArtifactVersion.from_row(row)
 
     def version(self, artifact_id: str, version: int) -> ArtifactVersion:
+        """`VersionGone` when the canvas is there without this version, else KeyError."""
         with self._lock:
             row = self._conn.execute(
                 "SELECT * FROM artifact_versions WHERE artifact_id = ? AND version = ?",
                 (artifact_id, version),
             ).fetchone()
-        if row is None:
-            raise KeyError(f"{artifact_id} v{version}")
+            if row is None:
+                raise VersionGone(artifact_id, version, self.get(artifact_id).head_version)
         return ArtifactVersion.from_row(row)
 
     def versions(self, artifact_id: str) -> list[ArtifactVersion]:
@@ -151,7 +153,7 @@ class ArtifactVersions:
             and not note
             and not head.note
             and 0 <= elapsed <= COALESCE_WINDOW_S
-            and not self._links.any_seen(head.artifact_id, head.version)
+            and not self._links.pinned(head.artifact_id, head.version)
         )
 
     def _write_next(

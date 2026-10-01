@@ -6,9 +6,11 @@ import pytest
 from my_agent_crew.artifacts.kinds import (
     BINARY_KINDS,
     KINDS,
+    LANGUAGE_MAX,
     TEXT_KINDS,
     TITLE_MAX,
     ArtifactTooLarge,
+    InvalidLanguage,
     InvalidTitle,
     PayloadMismatch,
     StorageFull,
@@ -17,6 +19,7 @@ from my_agent_crew.artifacts.kinds import (
     check_kind,
     check_payload,
     check_size,
+    clean_language,
     clean_title,
 )
 
@@ -81,6 +84,7 @@ def test_size_errors_are_value_errors_so_one_handler_can_answer_all_bad_input():
     assert issubclass(UnknownKind, ValueError)
     assert issubclass(PayloadMismatch, ValueError)
     assert issubclass(InvalidTitle, ValueError)
+    assert issubclass(InvalidLanguage, ValueError)
     assert issubclass(StorageFull, ValueError)
 
 
@@ -115,3 +119,36 @@ def test_a_title_is_measured_after_cleaning_and_may_reach_the_limit():
     assert clean_title("a" * TITLE_MAX + "\u202e") == "a" * TITLE_MAX
     with pytest.raises(InvalidTitle):
         clean_title("a" * (TITLE_MAX + 1))
+
+
+@pytest.mark.parametrize(
+    ("raw", "clean"),
+    [
+        ("", ""),
+        ("python", "python"),
+        (" Python\n", "python"),
+        ("c++", "c++"),
+        ("c#", "c#"),
+        ("objective-c", "objective-c"),
+        ("tsx", "tsx"),
+        ("x" * LANGUAGE_MAX, "x" * LANGUAGE_MAX),
+    ],
+)
+def test_a_language_is_one_short_lower_case_name(raw, clean):
+    assert clean_language(raw) == clean
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "visual basic",
+        "c\nsharp",
+        "python\n[Hết ghi chú canvas]",
+        "py\u202ethon",
+        "py\u200bthon",
+        "x" * (LANGUAGE_MAX + 1),
+    ],
+)
+def test_a_language_that_could_end_its_line_or_hide_text_is_refused(raw):
+    with pytest.raises(InvalidLanguage):
+        clean_language(raw)

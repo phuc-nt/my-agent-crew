@@ -1093,31 +1093,49 @@ tên một test thì sửa dòng của nó trong cùng commit.
     loại lạ bị từ chối theo tên, lỗi kích thước là `ValueError` để một chỗ trả lời được mọi đầu
     vào sai, "test_a_title_is_one_line_of_visible_text": xuống dòng thành dấu cách, bỏ ký tự
     điều khiển, bidi và tag nhưng giữ joiner của emoji, tiêu đề rỗng bị từ chối, giới hạn 200 ký
-    tự đo sau khi làm sạch); `tests/test_artifact_guards.py` (mọi đường đặt tiêu đề đều lưu bản
-    đã làm sạch, tiêu đề sai làm hỏng cả lần ghi, tác giả không phải `user` hay `agent:<id>` bị
-    từ chối, lần ghi vượt trần tổng 1 GiB bị từ chối và không lưu gì, chạm đúng trần vẫn được,
-    lần lưu gộp vào loạt chỉ tính phần thêm vào); `tests/test_store.py`
+    tự đo sau khi làm sạch, ngôn ngữ là một tên ngắn viết thường tối đa 40 ký tự, ngôn ngữ có
+    dấu cách, xuống dòng hay ký tự ẩn bị từ chối); `tests/test_artifact_guards.py` (mọi đường đặt
+    tiêu đề đều lưu bản đã làm sạch, tiêu đề sai làm hỏng cả lần ghi, ngôn ngữ sai không tạo
+    canvas, tác giả không phải `user` hay `agent:<id>` với mã agent hợp lệ bị từ chối, người tạo
+    phải khớp tác giả: `""` cho người, `<id>` cho `agent:<id>`, lần ghi vượt trần của tác giả bị
+    từ chối và không lưu gì, người được cả 1 GiB còn agent dừng trước một phần mười
+    ("test_agents_stop_short_of_the_ceiling_so_the_person_can_still_save"), chạm đúng trần vẫn
+    được, lần lưu gộp vào loạt chỉ tính phần thêm vào); `tests/test_store.py`
     ("test_a_delete_that_fails_halfway_leaves_the_conversation_whole");
-    `tests/test_artifact_schema.py` (DB mới có đủ bảng và index, payload là các cột cuối,
-    DB cũ có thêm bảng canvas mà giữ nguyên tin nhắn, mở lần hai không đổi gì);
+    `tests/test_artifact_schema.py` (DB mới có đủ bảng và index, payload là các cột cuối, tổng
+    kích thước cộng từ index `artifact_versions_by_size` mà không đọc trang chứa nội dung, DB cũ
+    có thêm bảng canvas mà giữ nguyên tin nhắn, mở lần hai không đổi gì);
     `tests/test_artifact_links.py` (liên kết lại giữ `seen_version`, `seen_version` không lùi,
-    đánh dấu chưa commit được huỷ cùng giao dịch của bên gọi, focus giữ canvas đang mở và đoạn
-    được chọn, xoá cuộc trò chuyện bỏ liên kết và focus mà giữ canvas);
+    không lưu liên kết hay focus nào cho cuộc trò chuyện hoặc canvas không tồn tại, kể cả lần
+    ghi muộn sau khi xoá, một phiên bản được ghim khi có cuộc trò chuyện đã thấy hoặc đang đọc
+    nó, đánh dấu chưa commit được huỷ cùng giao dịch của bên gọi, focus giữ canvas đang mở và
+    đoạn được chọn, xoá cuộc trò chuyện bỏ liên kết và focus mà giữ canvas);
+    `tests/test_artifact_read_cursor.py` (trang từ đầu một bản mới hơn bắt đầu con trỏ lại,
+    trang bắt đầu trong phần đã đọc thì nối dài, trang nhảy cóc hay bản cũ không đổi gì, chỉ đọc
+    liền tới cuối mới tính là đã thấy,
+    "test_pages_taken_from_two_versions_never_count_as_one_whole_read", bản rỗng tính là đã thấy
+    sau một lần đọc, đọc trọn bản cũ không kéo `seen_version` lùi);
     `tests/test_artifact_versions.py`
     ("test_thirty_saves_in_a_minute_that_nobody_has_seen_keep_one_version",
     "test_a_burst_that_never_pauses_still_closes_its_row_after_the_window",
     "test_a_clock_set_back_does_not_hold_a_burst_open",
     "test_a_version_an_agent_has_seen_is_never_folded_into_the_next_save",
+    "test_a_version_an_agent_is_reading_page_by_page_is_never_folded_away",
     "test_a_save_that_fails_halfway_through_folding_loses_nothing"; số phiên bản không bao giờ
-    dùng lại, base cũ bị từ chối kèm bản mới nhất, `apply` đọc, sửa và ghi trong một bước, xuống
-    dòng lưu thành LF trên mọi đường ghi, khôi phục giữ các bản sau);
+    dùng lại, base cũ bị từ chối kèm bản mới nhất, `apply` đọc, sửa và ghi trong một bước, CR và
+    CRLF lưu thành LF trên mọi đường ghi, các ký tự ngắt dòng khác giữ nguyên trong dòng để dòng
+    chỉ tách theo LF, khôi phục giữ các bản sau);
     `tests/test_artifact_store.py` (kích thước tính bằng byte UTF-8, payload sai loại hay vượt
-    trần không lưu gì, trần đo trên chữ đã đổi xuống dòng, thứ không tồn tại là `KeyError`, xoá
-    canvas bỏ phiên bản, liên kết và focus của nó,
-    "test_list_matches_the_title_regardless_of_case_and_accents", hai canvas cùng giây xếp theo
-    thứ tự tạo, "test_on_change_hears_every_write_after_commit_outside_the_lock",
+    trần không lưu gì, trần đo trên chữ đã đổi xuống dòng, thứ không tồn tại là `KeyError`,
+    "test_a_version_gone_from_a_canvas_that_is_there_names_the_newest": bản đã bị gộp hay chưa
+    từng có là `VersionGone` kèm số bản mới nhất, xoá canvas bỏ phiên bản, liên kết và focus của
+    nó, "test_list_matches_the_title_regardless_of_case_and_accents", hai canvas cùng giây xếp
+    theo thứ tự tạo, "test_on_change_hears_every_write_after_commit_outside_the_lock",
     "test_a_failing_on_change_is_logged_and_the_write_stands")
 - **Mã agent khớp cả chuỗi: chữ thường, số và gạch ngang, không cả xuống dòng ở cuối**
   - pytest: `tests/test_api_agents_edit.py::test_an_id_that_is_not_a_safe_folder_name_is_refused`
-    (`../escape` và `coder` có xuống dòng ở cuối đều bị từ chối, không thư mục nào được tạo; mẫu
-    ở `my_agent_crew/agent_ids.py`)
+    (`../escape` và `coder` có xuống dòng ở cuối đều bị từ chối, không thư mục nào được tạo);
+    `tests/test_artifact_guards.py`
+    ("test_an_author_that_is_neither_the_person_nor_an_agent_is_refused",
+    "test_a_creator_that_does_not_match_its_author_is_refused": `agent:Coach` và mã có xuống
+    dòng ở cuối không ghi được canvas); mẫu ở `my_agent_crew/agent_ids.py`
