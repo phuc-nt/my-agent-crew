@@ -9,6 +9,7 @@ import re
 from typing import Any
 
 from my_agent_crew import texts
+from my_agent_crew.artifacts.diff import fenced
 
 # A fence as CommonMark reads one: at most three spaces in, three or more of one mark.
 _FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
@@ -61,14 +62,14 @@ def _blocks(messages: list[dict[str, Any]]) -> list[str]:
     for message in messages:
         lines += [_heading(message), ""]
         if message["role"] == "tool":
-            lines += [_fenced(message["content"]), ""]
+            lines += [fenced(message["content"]), ""]
             continue
         if message["content"]:
             lines += [_closed(message["content"]), ""]
         for call in message["tool_calls"]:
             arguments = json.dumps(call["arguments"], ensure_ascii=False, indent=2)
             lines += [texts.TRAJECTORY_CALL.format(name=call["name"]), ""]
-            lines += [_fenced(arguments, "json"), ""]
+            lines += [fenced(arguments, "json"), ""]
     return lines
 
 
@@ -80,13 +81,6 @@ def _heading(message: dict[str, Any]) -> str:
         provider = message["provider"]
         parts.append(f"{provider}/{message['model']}" if provider else message["model"])
     return "### " + " · ".join(parts)
-
-
-def _fenced(text: str, language: str = "") -> str:
-    """A fence longer than any backtick run inside, so the text cannot close it early."""
-    longest = max((len(run) for run in re.findall(r"`+", text)), default=0)
-    fence = "`" * max(3, longest + 1)
-    return f"{fence}{language}\n{text}\n{fence}"
 
 
 def _closed(text: str) -> str:
