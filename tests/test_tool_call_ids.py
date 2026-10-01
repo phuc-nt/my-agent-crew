@@ -4,7 +4,7 @@ call id is used as a lookup key, such as finding a delegated child by its parent
 
 from __future__ import annotations
 
-from my_agent_crew.llm.openai_compat import ToolCallBuffer
+from my_agent_crew.llm.tool_call_buffer import ToolCallBuffer
 
 
 def _delta(index: int, name: str = "delegate", args: str = "{}") -> dict:

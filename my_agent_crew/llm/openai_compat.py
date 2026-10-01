@@ -9,13 +9,13 @@ duplicated once before this module existed.
 from __future__ import annotations
 
 import json
-import uuid
 from collections.abc import AsyncIterator, Sequence
 from typing import Any
 
 import httpx
 
 from my_agent_crew.llm.provider import ProviderError
+from my_agent_crew.llm.tool_call_buffer import ToolCallBuffer
 from my_agent_crew.llm.types import (
     Completion,
     Message,
@@ -23,7 +23,6 @@ from my_agent_crew.llm.types import (
     StreamItem,
     StreamStarted,
     TextDelta,
-    ToolCall,
     ToolSpec,
     Usage,
 )
@@ -73,40 +72,6 @@ def tools_to_wire(tools: Sequence[ToolSpec]) -> list[dict[str, Any]]:
         }
         for t in tools
     ]
-
-
-class ToolCallBuffer:
-    """Assembles fragmented tool_call deltas keyed by their stream index."""
-
-    def __init__(self) -> None:
-        self._parts: dict[int, dict[str, str]] = {}
-
-    def feed(self, deltas: list[dict[str, Any]]) -> None:
-        for d in deltas:
-            slot = self._parts.setdefault(d.get("index", 0), {"id": "", "name": "", "args": ""})
-            slot["id"] = d.get("id") or slot["id"]
-            fn = d.get("function") or {}
-            slot["name"] = fn.get("name") or slot["name"]
-            slot["args"] += fn.get("arguments") or ""
-
-    def calls(self) -> tuple[ToolCall, ...]:
-        calls = []
-        for index in sorted(self._parts):
-            slot = self._parts[index]
-            try:
-                args = json.loads(slot["args"] or "{}")
-            except ValueError as exc:
-                raise ProviderError(f"tool call {slot['name']} had malformed arguments") from exc
-            if not isinstance(args, dict):
-                raise ProviderError(f"tool call {slot['name']} arguments are not an object")
-            calls.append(
-                ToolCall(
-                    id=slot["id"] or f"call_{uuid.uuid4().hex}",
-                    name=slot["name"],
-                    arguments=args,
-                )
-            )
-        return tuple(calls)
 
 
 def usage_from(raw: dict[str, Any]) -> Usage:
