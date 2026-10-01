@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:  # the store imports nothing from the agent package
     from my_agent_crew.store import Store
+    from my_agent_crew.store.models import Conversation
 
 CHAT, TELEGRAM, JOB, WEB = "chat", "telegram", "job", "web"
 # A message posted to the inbound API by a platform that relays a person's chat.
@@ -20,11 +21,17 @@ API = "api"
 # A turn another agent asked for; the rest of the source names the parent conversation.
 DELEGATE = "delegate"
 PRESENT_SOURCES = (CHAT, TELEGRAM, API)
+# Narrower than PRESENT_SOURCES: a person is there on Telegram and the API too, but can
+# open a canvas only in the web chat, so only a turn from there may write one.
+CANVAS_WRITE_SOURCES = (CHAT,)
 
 _turn_source: ContextVar[str] = ContextVar("turn_source", default=CHAT)
 _turn_conversation_id: ContextVar[str] = ContextVar("turn_conversation_id", default="")
 _turn_depth: ContextVar[int] = ContextVar("turn_depth", default=0)
 _tool_call_id: ContextVar[str] = ContextVar("tool_call_id", default="")
+# Versions written per canvas this turn. A dict changed in place, not a value set again:
+# a batched call runs in a copy of the context, and its writes still belong to the turn.
+_canvas_writes: ContextVar[dict[str, int] | None] = ContextVar("canvas_writes", default=None)
 
 
 def set_turn_source(source: str) -> None:
@@ -40,6 +47,7 @@ def set_turn_conversation(conv_id: str, depth: int = 0) -> None:
     that opens a conversation of its own needs both, and neither belongs in its arguments."""
     _turn_conversation_id.set(conv_id)
     _turn_depth.set(depth)
+    _canvas_writes.set({})
 
 
 def turn_conversation_id() -> str:
@@ -81,3 +89,22 @@ def conversation_source(store: Store, conv_id: str) -> str:
 def person_is_present() -> bool:
     """True when someone is at the other end to notice what the agent remembers."""
     return turn_source() in PRESENT_SOURCES
+
+
+def may_write_canvas(conv: Conversation) -> bool:
+    """A delegated child's own turn names its parent, not a channel, so it writes only when
+    the turn its chain began from could; a chain with no recorded root never does."""
+    source = conv.root_source if turn_source() == DELEGATE else turn_source()
+    return source in CANVAS_WRITE_SOURCES
+
+
+def canvas_writes(artifact_id: str) -> int:
+    return (_canvas_writes.get() or {}).get(artifact_id, 0)
+
+
+def note_canvas_write(artifact_id: str) -> None:
+    writes = _canvas_writes.get()
+    if writes is None:  # outside a turn: nothing to count against
+        writes = {}
+        _canvas_writes.set(writes)
+    writes[artifact_id] = writes.get(artifact_id, 0) + 1

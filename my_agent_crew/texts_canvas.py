@@ -30,3 +30,44 @@ ARTIFACT_EDIT_TOO_LARGE = (
     "Sau khi sửa, canvas sẽ nặng {size} byte, quá trần {cap} byte của loại này. Chưa sửa gì: bớt"
     " nội dung, hoặc chuyển phần dài sang một canvas khác."
 )
+
+# Who wrote the versions the agent has not seen yet, oldest first: "v3–v5 người, v6 agent:coach".
+AUTHOR_PERSON = "người"
+ARTIFACT_AUTHORS = "Các bản bạn chưa thấy: {groups}."
+
+# The same words for a canvas that does not exist and one out of the agent's reach, so the
+# answer never tells an agent which canvases exist beyond its reach.
+ARTIFACT_NOT_FOUND = "Không tìm thấy canvas {id}. Xem các canvas bạn mở được bằng artifact_list."
+ARTIFACT_CHANNEL_CLOSED = (
+    "Kênh của lượt này chưa mở được canvas (mới chỉ web chat mở được), nên chưa ghi gì. Viết"
+    " thẳng nội dung vào câu trả lời."
+)
+ARTIFACT_WRITE_BUDGET = (
+    "Lượt này đã ghi {limit} bản cho canvas này, chạm trần của một lượt, nên chưa ghi gì. Dừng"
+    " sửa và báo người những gì đã làm; lượt sau ghi tiếp được."
+)
+ARTIFACT_CREATE_BUDGET = (
+    "Lượt này đã tạo {limit} canvas, chạm trần của một lượt, nên chưa tạo gì. Báo người những gì"
+    " đã làm; lượt sau tạo tiếp được."
+)
+ARTIFACT_KIND_CLOSED = "Agent chưa ghi được loại canvas này. Các loại ghi được: {kinds}."
+ARTIFACT_TOO_LARGE = (
+    "Canvas {kind} sẽ nặng {size} byte, quá trần {cap} byte của loại này. Chưa lưu gì: chia nội"
+    " dung thành nhiều canvas nhỏ hơn."
+)
+ARTIFACT_BAD_TITLE = "Tiêu đề cần có chữ và dài tối đa {limit} ký tự. Chưa lưu gì."
+ARTIFACT_BAD_LANGUAGE = (
+    "`language` là tên ngắn của ngôn ngữ lập trình, chỉ gồm chữ, số và +#._-, tối đa {limit} ký"
+    " tự, vd. python, typescript, c++. Chưa lưu gì."
+)
+ARTIFACT_STORAGE_FULL = (
+    "Các canvas đã dùng {used} trên {cap} byte agent được dùng. Chưa lưu gì. Đừng thử lại: báo"
+    " người để họ xoá bớt canvas cũ."
+)
+ARTIFACT_VERSION_GONE = (
+    "v{version} không còn, bản mới nhất là v{head}. Đọc lại từ bản mới nhất: artifact_read id={id}."
+)
+ARTIFACT_VERSION_CONFLICT = (
+    "Canvas đã có bản mới hơn (v{head}) từ lần cuối bạn thấy nó, nên chưa ghi gì. Đọc lại bằng"
+    " artifact_read rồi sửa bằng artifact_edit."
+)
