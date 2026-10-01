@@ -29,6 +29,12 @@ from tests.queue_helpers import Rig, make_rig
 from tests.telegram_fake import CHAT, TOKEN, FakeTelegram
 
 
+@pytest.fixture(autouse=True)
+def no_retry_wait(monkeypatch):
+    """A retried route waits before asking again; tests do not."""
+    monkeypatch.setattr(ProviderChain, "retry_delay_s", 0.0)
+
+
 @pytest.fixture
 def settings(tmp_path: Path) -> Settings:
     return Settings(home=tmp_path / "home", routes=(Route("scripted", "m"),), cost_cap_usd=0.5)

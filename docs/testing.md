@@ -1071,3 +1071,11 @@ tên một test thì sửa dòng của nó trong cùng commit.
     từ chối, kể cả khi chỉ khác tên tool); `tests/test_delegate_child_scope.py` (agent con chỉ
     tìm được qua lời gọi của chính cha nó); `tests/test_tools_delegate.py`
     ("test_another_parents_child_with_the_same_call_id_is_not_reused")
+- **Lỗi tạm thời của upstream được hỏi lại một lần trên cùng tuyến, chỉ khi chưa hiện chữ**
+  - pytest: `tests/test_route_retry.py` (chunk lỗi `provider_unavailable` giữa stream được hỏi
+    lại và trả lời, 503/429 và chunk lỗi mã 500/429 được thử lại, 402/400, chunk lỗi không mã
+    hay mã 400 và stream hỏng không thử lại, lỗi kết nối được thử lại, đã hiện chữ thì không thử
+    lại, hỏng lần hai thì rơi tuyến kế hoặc báo mọi tuyến hỏng, lần hỏi đã được phục vụ ghi sổ
+    giá không rõ còn lần bị từ chối trước chunk đầu thì không, lượt chỉ giữ câu trả lời của lần
+    hỏi lại và không phát `route_fallback`); `tests/test_provider_chain.py` (lỗi không tạm thời
+    vẫn rơi tuyến ngay như trước)

@@ -134,6 +134,16 @@ any platform ──POST /api/inbound (JSON, sync)─────┴─▶ Inboun
   đó. Nội dung suy nghĩ không hiện và không lưu, chỉ lưu số `reasoning_tokens`.
 - **Chỉ fallback trước khi có output.** Chuỗi chỉ thử tuyến kế tiếp nếu tuyến trước lỗi trước
   khi trả ra bất cứ gì; lỗi giữa stream được đưa lên bề mặt, không bao giờ bị che bằng một lần thử lại âm thầm.
+- **Lỗi tạm thời được hỏi lại một lần trên cùng tuyến, khi chưa có chữ nào hiện ra.** OpenRouter
+  có thể trả 200 rồi gửi chunk lỗi giữa stream khi host phía sau sập (`provider_unavailable`).
+  Lỗi tạm thời là HTTP 408/425/429/5xx, chunk lỗi mang các mã đó hoặc `provider_unavailable`,
+  và lỗi kết nối; request bị từ chối (4xx khác), chunk lỗi không mã và stream hỏng thì không
+  thử lại. Chuỗi chờ 2 giây rồi hỏi lại cùng tuyến (`ProviderChain.retries = 1`), phát item
+  `RouteRetry` và log `retrying`. Chỉ thử lại khi chưa có `TextDelta`: mốc thời gian và suy nghĩ
+  không bao giờ hiện, nên lần hỏi mới không để lại đường nối; đã có chữ thì lỗi vẫn đưa lên bề
+  mặt như cũ. Hỏi lại vẫn hỏng thì mới rơi sang tuyến kế (hoặc báo mọi tuyến hỏng). Đây không
+  phải tuyến dự phòng: cùng model, cùng provider, nên quyết định một tuyến của chủ vẫn nguyên.
+  Lời gọi bên cạnh lượt bị bỏ dở sau chunk đầu rồi được hỏi lại vẫn ghi vào sổ với giá không rõ.
 - **Chi phí trung thực.** Mỗi message assistant lưu `cost_usd` hoặc `None`. Cuộc trò chuyện giữ
   `spent_usd` và `unknown_cost_calls`; `cost_cap_usd` dừng trước lần gọi model kế tiếp
   (0 = không giới hạn). Mọi lần gọi model nằm ngoài vòng lặp lượt — đặt tiêu đề, tóm tắt

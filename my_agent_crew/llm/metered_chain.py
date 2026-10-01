@@ -17,7 +17,14 @@ from typing import TYPE_CHECKING
 
 from my_agent_crew.agent.turn_context import turn_conversation_id
 from my_agent_crew.llm.provider import ProviderChain
-from my_agent_crew.llm.types import Completion, Message, RouteFailed, StreamItem, ToolSpec
+from my_agent_crew.llm.types import (
+    Completion,
+    Message,
+    RouteFailed,
+    RouteRetry,
+    StreamItem,
+    ToolSpec,
+)
 from my_agent_crew.store.side_calls import PURPOSES, SideCall
 
 if TYPE_CHECKING:  # the store is handed in; importing its package here would be a cycle
@@ -52,12 +59,17 @@ class MeteredChain(ProviderChain):
     ) -> AsyncIterator[StreamItem]:
         # A call dropped after its first chunk (a timeout, a failure mid-answer) was still
         # served and may still be billed, so it is written down as one of unknown cost.
-        # A route that failed before its first chunk served nothing and is not.
+        # A route that failed before its first chunk served nothing and is not. An attempt
+        # dropped and then retried is written down the same way before the retry starts.
         failed, started, answered = 0, False, False
         try:
             async for item in super().stream(messages, tools):
                 if isinstance(item, RouteFailed):
                     failed += 1
+                elif isinstance(item, RouteRetry):
+                    if started:
+                        self._record(item.provider, item.model, None)
+                    started = False
                 elif isinstance(item, Completion):
                     answered = True
                     self._record(item.provider, item.model, item)

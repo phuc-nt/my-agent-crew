@@ -158,7 +158,7 @@ async def _complete(
             yield ModelCallEvent(stage="first_token")
         elif isinstance(item, RouteFailed):
             yield RouteFallbackEvent(provider=item.provider, model=item.model, error=item.error)
-        else:
+        elif isinstance(item, Completion):
             completion = item
     if completion is None:
         raise ProviderError("stream ended without a completion")

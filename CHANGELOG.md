@@ -11,6 +11,17 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+### Fixed
+
+- A model call that hits a passing upstream failure before any text is shown is now asked
+  again once on the same route, after a two-second pause, instead of ending the run. This
+  covers OpenRouter's `provider_unavailable` error sent mid-stream after a 200, HTTP
+  408/425/429/5xx and transport failures; a refused request (other 4xx), an error without a
+  code and a malformed stream still fail at once, and a failure after text has been shown
+  still surfaces rather than being hidden. A retried side call that had already been served is
+  written to the cost ledger at an unknown cost. No model fallback is added: the retry uses the
+  same model and provider.
+
 ### Changed
 
 - The README now covers what 0.10.0 added beyond voice notes: messages to a busy agent (queue or

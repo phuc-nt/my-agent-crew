@@ -96,4 +96,15 @@ class RouteFailed:
     error: str
 
 
-StreamItem = TextDelta | ReasoningDelta | StreamStarted | Completion | RouteFailed
+@dataclass(frozen=True)
+class RouteRetry:
+    """A route hit a passing upstream failure before any text was shown, and the chain is
+    asking the same route again. Whatever the failed attempt streamed (timing, thinking)
+    is superseded by the new attempt."""
+
+    provider: str
+    model: str
+    error: str
+
+
+StreamItem = TextDelta | ReasoningDelta | StreamStarted | Completion | RouteFailed | RouteRetry

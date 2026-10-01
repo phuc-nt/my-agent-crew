@@ -122,6 +122,21 @@ def usage_from(raw: dict[str, Any]) -> Usage:
     )
 
 
+def transient_status(code: object) -> bool:
+    """A status that asking again may cure: a timeout, rate limit or upstream outage."""
+    return isinstance(code, int) and (code in (408, 425, 429) or code >= 500)
+
+
+def transient_error(error: object) -> bool:
+    """An error chunk sent mid-stream, as OpenRouter does when the host behind it fails."""
+    if not isinstance(error, dict):
+        return False
+    meta = error.get("metadata")
+    if isinstance(meta, dict) and meta.get("error_type") == "provider_unavailable":
+        return True
+    return transient_status(error.get("code"))
+
+
 async def stream_chat(
     client: httpx.AsyncClient,
     url: str,
@@ -139,7 +154,10 @@ async def stream_chat(
     try:
         async with client.stream("POST", url, json=body, headers=headers) as resp:
             if resp.status_code >= 400:
-                raise ProviderError(f"HTTP {resp.status_code} from {model}")
+                raise ProviderError(
+                    f"HTTP {resp.status_code} from {model}",
+                    transient=transient_status(resp.status_code),
+                )
             async for line in resp.aiter_lines():
                 if not line.startswith("data:"):
                     continue
@@ -148,7 +166,8 @@ async def stream_chat(
                     break
                 chunk = json.loads(payload)
                 if "error" in chunk:
-                    raise ProviderError(str(chunk["error"]))
+                    error = chunk["error"]
+                    raise ProviderError(str(error), transient=transient_error(error))
                 if not started:
                     started = True
                     yield StreamStarted()
@@ -165,7 +184,7 @@ async def stream_chat(
                         calls.feed(delta["tool_calls"])
                     finish = choice.get("finish_reason") or finish
     except httpx.HTTPError as exc:
-        raise ProviderError(f"transport failure talking to {model}: {exc}") from exc
+        raise ProviderError(f"transport failure talking to {model}: {exc}", transient=True) from exc
     except ValueError as exc:
         raise ProviderError(f"malformed stream from {model}") from exc
     message = Message(role="assistant", content="".join(text_parts), tool_calls=calls.calls())
