@@ -68,6 +68,11 @@ lặp tối đa max_steps:
     messages += reply + results
 ```
 
+**Hết bước.** Lần gọi model cuối cùng `max_steps` cho phép mà đã trả lời thì lượt xong như mọi
+lượt khác. Nếu nó còn xin gọi tool, các lệnh đó không chạy mà nhận kết quả nói lượt đã hết
+bước, rồi lượt dừng (`halted`, lý do `max_steps`). Nhờ vậy tin kế tiếp không phải đóng chúng
+thành lệnh bị ngắt mà model không biết đã chạy hay chưa.
+
 **Chặn lặp.** Model rẻ kẹt ở một lệnh hỏng có thể gọi lại y hệt nó tới hết `max_steps`: dài,
 tốn tiền và không đi tới đâu. Mỗi lượt có một bộ chặn (`agent/loop_guard.py`) đọc các tool call
 của một lần gọi model thành một chữ ký (tên cộng tham số, không tính id, không tính thứ tự song

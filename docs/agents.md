@@ -58,7 +58,7 @@ không bao giờ âm thầm vô hiệu một cài đặt.
 | `persona_names` | chỉ đọc | — | danh sách tên tệp persona thực sự có mặt (trả về bởi `GET /api/agents/{id}` và `GET /api/agents/{id}/prompt`) |
 | `skills_dirs` | danh sách đường dẫn | `[]` | thư mục skill bổ sung; `<agent dir>/skills` luôn đứng đầu |
 | `cost_cap_usd` | số ≥ 0 | toàn cục | ngân sách mỗi cuộc trò chuyện, `0` = không giới hạn |
-| `max_steps` | int ≥ 1 | toàn cục | số lần gọi model mỗi lượt trước khi `halted` |
+| `max_steps` | int ≥ 1 | toàn cục | số lần gọi model tối đa mỗi lượt; lần cuối còn xin gọi tool thì lượt `halted` |
 | `autonomous` | bool | `autonomous_default` toàn cục | cuộc trò chuyện mới bỏ qua cổng duyệt tool |
 | `shell_ask_patterns` | danh sách chuỗi | toàn cục | lệnh shell vẫn hỏi ngay cả khi autonomous, xem [tools.md](tools.md#shell); khai báo nó sẽ thay thế mặc định, `[]` tắt hàng rào |
 | `shell_allow_patterns` | danh sách chuỗi | toàn cục (rỗng) | lệnh shell đủ thường lệ để chạy không cần hỏi ngay cả khi *không* autonomous, xem [tools.md](tools.md#shell). Danh sách hỏi được kiểm tra trước, nên lệnh nằm trong cả hai thì vẫn hỏi |

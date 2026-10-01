@@ -20,6 +20,7 @@ from my_agent_crew.config import Route
 from my_agent_crew.llm.fake import completion
 from my_agent_crew.llm.provider import ProviderError
 from my_agent_crew.llm.types import ToolCall
+from my_agent_crew.texts import STEPS_HALTED_TOOL
 from my_agent_crew.tools import Tool
 from tests.conftest import collect
 
@@ -102,6 +103,39 @@ async def test_max_steps_halts_a_tool_loop(deps_factory):
     events = await collect(run_turn(deps, conv.id, "loop"))
     assert isinstance(events[-1], HaltedEvent) and events[-1].reason == "max_steps"
     assert len(deps.chain.providers["scripted"].requests) == 3
+
+
+async def test_a_turn_that_answers_on_its_last_allowed_call_is_done(deps_factory):
+    """The answer is there like any other; calling the turn halted would read as cut short."""
+    calls = [completion(tool_calls=(ToolCall(f"c{i}", "workspace_list", {}),)) for i in range(2)]
+    deps = deps_factory(script=[*calls, completion("Xong.")], max_steps=3)
+    conv = deps.store.create()
+    events = await collect(run_turn(deps, conv.id, "go"))
+    assert isinstance(events[-1], DoneEvent)
+    assert len(deps.chain.providers["scripted"].requests) == 3
+    assert deps.store.history(conv.id)[-1].message.content == "Xong."
+
+
+async def test_a_turn_out_of_steps_closes_the_calls_it_never_ran(deps_factory):
+    """Left open, the next message would close them as interrupted, and the model would be
+    told it cannot know whether they ran."""
+    ran: list[str] = []
+
+    async def spy(args):
+        ran.append("spy")
+        return "ok"
+
+    tool = Tool(name="spy", description="", parameters={"type": "object"}, run=spy)
+    calls = [completion(tool_calls=(ToolCall(f"c{i}", "spy", {}),)) for i in range(3)]
+    deps = deps_factory(script=[*calls, completion("Chào.")], extra_tools=[tool], max_steps=3)
+    conv = deps.store.create()
+    events = await collect(run_turn(deps, conv.id, "go"))
+    assert isinstance(events[-1], HaltedEvent) and events[-1].reason == "max_steps"
+    assert events[-2] == ToolResultEvent("c2", "spy", ok=False, output=STEPS_HALTED_TOOL)
+    assert ran == ["spy", "spy"]
+    await collect(run_turn(deps, conv.id, "tiếp"))
+    results = [m.message.content for m in deps.store.history(conv.id) if m.message.role == "tool"]
+    assert results == ["ok", "ok", STEPS_HALTED_TOOL]
 
 
 async def test_provider_failure_becomes_error_event_and_keeps_user_message(deps_factory):

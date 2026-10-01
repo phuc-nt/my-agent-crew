@@ -466,6 +466,12 @@ tên một test thì sửa dòng của nó trong cùng commit.
   - vitest: `lib/run-summary.test.ts`
     "reads the halt reasons and the interrupted marker as sentences"; `app.test.tsx`
     "says in words why a turn halted on %s" (với `max_steps` và `loop`)
+- **Lượt hết số bước tối đa**
+  - pytest: `tests/test_agent_loop.py` ("test_max_steps_halts_a_tool_loop",
+    "test_a_turn_that_answers_on_its_last_allowed_call_is_done",
+    "test_a_turn_out_of_steps_closes_the_calls_it_never_ran": lệnh mà lần gọi cuối xin không
+    chạy mà nhận kết quả nói lượt đã hết bước, và tin kế tiếp không đóng lại chúng thành lệnh
+    bị ngắt)
 - **Token, cache và thời gian tới token đầu**
   - vitest: `components/run-timeline.test.tsx`; `lib/format-usage.test.ts`;
     `components/stats-panel.test.tsx`; `state/activity-reducer.test.ts`

@@ -39,6 +39,10 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   (`chat`, `telegram`, `web`, `job` or `job:<id>`, `delegate:<…>`, `memory:<…>`). A relay could
   otherwise pass for the person in the web chat, or post a run that showed up as a scheduled
   job's last run and in its history. Any other label, `api` included, is recorded as before.
+- A turn whose last allowed model call answered now ends as done, not halted at the step
+  limit. A turn that does run out of steps answers the tool calls it never ran with a note
+  that the step limit stopped them, so the next message no longer closes them as interrupted
+  and tells the model it cannot know whether they ran.
 
 ### Changed
 

@@ -25,6 +25,7 @@ from my_agent_crew.agent.payload_trim import turn_boundary
 from my_agent_crew.agent.prompt import turn_messages
 from my_agent_crew.agent.reply_checks import blank_reply_event, with_dropped_attachments
 from my_agent_crew.agent.steer import take_steers
+from my_agent_crew.agent.step_limit import out_of_steps
 from my_agent_crew.agent.tool_calls import close_interrupted, refuse_unanswered, settle_tool_calls
 from my_agent_crew.agent.turn_context import (
     CHAT,
@@ -137,8 +138,8 @@ async def run_turn(
                 yield event
             yield HaltedEvent(reason="loop", spent_usd=deps.store.get(conv_id).spent_usd)
             return
-    conv = deps.store.get(conv_id)
-    yield HaltedEvent(reason="max_steps", spent_usd=conv.spent_usd)
+    async for event in out_of_steps(deps, conv_id):
+        yield event
 
 
 async def _complete(

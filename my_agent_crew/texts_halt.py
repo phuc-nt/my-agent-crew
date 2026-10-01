@@ -21,3 +21,5 @@ LOOP_REDIRECT = (
 LOOP_HALTED_TOOL = (
     "Không chạy: lệnh này đã được gọi y hệt nhiều lần liên tiếp nên lượt bị dừng tại đây."
 )
+# The result of a call the last allowed model call asked for: the turn ran out of steps first.
+STEPS_HALTED_TOOL = "Không chạy: lượt đã hết số bước tối đa nên dừng trước lệnh này."
