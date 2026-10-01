@@ -1155,6 +1155,111 @@ tên một test thì sửa dòng của nó trong cùng commit.
     nó, "test_list_matches_the_title_regardless_of_case_and_accents", hai canvas cùng giây xếp
     theo thứ tự tạo, "test_on_change_hears_every_write_after_commit_outside_the_lock",
     "test_a_failing_on_change_is_logged_and_the_write_stands")
+- **Canvas: năm tool để agent tạo, liệt kê, đọc, sửa và viết lại canvas**
+  - pytest: `tests/test_artifact_tools.py` (năm tool, không tool nào hỏi duyệt, tạo lưu canvas
+    dưới tên agent và không trả lại nội dung, con được giao việc chia sẻ canvas nó tạo với gốc,
+    loại agent không ghi được bị từ chối,
+    "test_only_the_web_chat_writes_a_canvas_yet_any_channel_reads_one", con chỉ ghi được trong
+    chuỗi bắt đầu từ web chat, canvas master đã đọc không vào tầm của con, lần đọc của một con
+    không mở rộng tầm của con kế tiếp, canvas do người tạo chỉ vào tầm qua liên kết, canvas không
+    tồn tại trả lời như canvas ngoài tầm,
+    "test_a_turn_writes_at_most_thirty_versions_of_one_canvas": lần ghi không đổi gì không tính
+    và canvas khác có bộ đếm riêng, một lượt tạo tối đa 30 canvas, danh sách mới nhất trước theo
+    giờ của chủ và đánh dấu canvas có bản cuộc trò chuyện chưa thấy, lọc theo tiêu đề và master
+    liệt kê mọi canvas, mọi lời từ chối của kho nói phải làm gì thay vào đó, đối số không phải
+    chuỗi bị từ chối trước khi chạm vào gì, mọi tool cần cuộc trò chuyện của lượt,
+    "test_each_write_opens_with_its_tag_and_a_read_or_a_list_never_does");
+    `tests/test_artifact_read.py`
+    ("test_the_pages_of_a_canvas_fit_the_cap_and_join_back_into_its_text", ghi chú của hook bị cắt
+    trước bất kỳ dòng nào của trang, dòng dài hơn một trang bị cắt và trang sau bắt đầu ở dòng kế,
+    phần bị cắt chưa ai đọc nên bản đó không tính là đã thấy,
+    "test_only_a_read_from_the_first_line_to_the_last_makes_a_version_seen", người lưu giữa hai
+    trang thì lần đọc vẫn ở bản nó bắt đầu, bản đã bị gộp mất thì báo bản mới nhất, mỗi trang nêu
+    ai viết các bản chưa thấy, trang theo số dòng đặt trước và bản mới nhất khi không nói bản nào,
+    dòng quá cuối và loại không đọc được thành chữ bị từ chối, canvas code hiện ngôn ngữ cạnh loại);
+    `tests/test_artifact_edit_tools.py` (sửa trích lại các dòng đã đổi và tính bản mới là đã thấy,
+    "test_an_edit_says_how_long_the_canvas_now_is_as_a_read_counts_it": kết quả sửa nêu cỡ mới
+    của canvas, số dòng đúng như trang đọc đếm,
+    sửa đè lên lần lưu của người nêu người và để bản đó chưa thấy,
+    "test_the_nearest_passage_to_a_missed_edit_is_looked_for_outside_the_lock", diff của sửa vừa
+    mọi trần và để ghi chú của hook bị cắt trước, sửa không đổi gì không thêm bản mà vẫn đổi tiêu
+    đề, "test_a_rewrite_needs_the_canvas_read_whole_first": liệt kê, đọc trang đầu hay nhảy tới
+    trang cuối đều không đủ, viết lại đè lên lần lưu của người bị từ chối kèm phần họ đổi, xung
+    đột vừa mọi trần, viết lại từ bản mới nhất đã đọc trọn thì ghi,
+    "test_what_the_agent_created_or_rewrote_it_rewrites_without_reading_back": bản agent vừa tạo
+    hay viết lại thì viết lại được ngay mà không đọc lại, đúng như mô tả tool nói, và mô tả tạo
+    dặn sửa chính canvas đã có, viết lại chỉ đổi kiểu xuống
+    dòng là không đổi gì, con sửa hay viết lại thì chia sẻ canvas với gốc,
+    "test_a_kind_agents_do_not_write_is_refused_only_once_the_canvas_is_in_reach", diff trích
+    dãy backtick có rào dài hơn, sửa khớp hai chỗ bị từ chối trừ khi thay mọi chỗ);
+    `tests/test_canvas_tool_wiring.py` (agent không có allow-list, master hay không, nhận đủ năm
+    tool theo thứ tự, "test_an_allow_list_keeps_out_the_canvas_tools_it_does_not_name", master
+    liệt kê mọi canvas theo giờ của chủ còn agent khác thì không, trang đọc vừa trần đầu ra của
+    chính agent)
+- **Canvas: kênh nào ghi được, agent với tới canvas nào, một lượt ghi bao nhiêu, ai viết các bản
+  chưa thấy**
+  - pytest: `tests/test_artifact_scope.py`
+    ("test_only_a_turn_from_the_web_chat_writes_a_canvas",
+    "test_a_delegated_child_writes_only_when_its_chain_began_in_the_web_chat": con mở trước khi
+    chuỗi ghi gốc thì không bao giờ ghi, người gõ thẳng vào cuộc trò chuyện của con thì ghi được từ
+    đó, agent chỉ ghi markdown và code, lần ghi thứ 31 cho một canvas trong lượt bị từ chối, một
+    lượt tạo tối đa 30 canvas,
+    "test_a_batched_call_counts_toward_its_turn_and_a_child_turn_counts_apart", master với tới mọi
+    canvas còn agent khác chỉ canvas của mình, canvas một lượt trong chuỗi chỉ đọc không vào tầm
+    của con kế tiếp, dòng tác giả gom từng đoạn liền của một tác giả, nhóm phủ cả những số bản một
+    loạt gộp đã bỏ, tối đa sáu nhóm, mỗi lời từ chối của kho thành lời dặn,
+    "test_a_canvas_out_of_reach_reads_exactly_like_one_that_does_not_exist", lỗi khác đi qua
+    nguyên vẹn); `tests/test_artifact_reach.py`
+    ("test_a_quiet_canvas_linked_here_is_found_past_newer_ones_out_of_reach",
+    "test_reachable_and_is_reachable_agree_on_every_kind_of_canvas",
+    "test_a_persons_canvas_is_reached_only_through_a_link_whatever_the_agent_is_called", khớp tiêu
+    đề bỏ qua hoa thường và dấu trước khi giới hạn, mới sửa trước); `tests/test_store.py`
+    ("test_a_child_keeps_the_root_of_its_delegation_and_nothing_can_change_it");
+    `tests/test_tools_delegate.py`
+    ("test_the_child_records_its_root_and_where_the_root_turn_came_from",
+    "test_a_child_further_down_keeps_the_root_its_parent_was_given")
+- **Canvas: sửa theo đoạn khớp, chỉ ra chỗ gần nhất khi trượt, diff có rào và có trần**
+  - pytest: `tests/test_text_edit.py` (khớp chính xác thay tại chỗ, nháy cong và dấu cách đặc biệt
+    khớp dạng thường theo cả hai chiều, khớp chính xác thắng khớp nới lỏng, khớp nới lỏng nhiều chỗ
+    bị từ chối kèm số chỗ, khớp chính xác nhiều chỗ bị từ chối trừ khi thay tất cả, `old` rỗng bị
+    từ chối, "test_no_match_raises_a_bare_not_found_without_searching": phần chạy trong khoá của
+    kho không tìm gì, trần tính số byte của đúng chữ đã khớp, vừa đúng trần thì giữ còn hơn một
+    byte thì không, `replace_all` quá trần bị từ chối trước khi dựng chuỗi, chuẩn hoá giữ nguyên vị
+    trí từng ký tự); `tests/test_text_nearest.py`
+    ("test_a_miss_names_the_closest_lines_and_quotes_them_verbatim", lời báo rào vùng sau câu không
+    tìm thấy, không gì giống hay một đoạn giống quá ít thì không có vùng,
+    "test_two_equally_close_places_give_no_region",
+    "test_a_long_old_on_a_long_text_compares_at_most_three_windows", dòng rào lặp khắp nơi không
+    kéo vùng đi chỗ khác, vùng quanh một dòng khổng lồ vẫn trong cỡ của nó, đoạn khớp dài bị cắt ở
+    giới hạn dòng, `old` quá dài thì không tìm); `tests/test_artifact_diff.py` (hai dạng thẻ đọc lại
+    qua cùng một mẫu, thẻ chỉ tính khi đứng ngay đầu kết quả, rào dài hơn mọi dãy backtick bên
+    trong, dòng vừa chỗ giữ nguyên, dòng dài hiện quanh phần cần xem,
+    "test_removed_lines_take_at_most_half_and_what_was_written_always_shows", dòng dài bị đổi cắt
+    quanh chỗ đổi ở cả hai bên, "test_the_diff_never_outgrows_its_budget", số đếm cuối luôn vừa
+    ngân sách, dòng thêm dài bị cắt cho vừa chỗ chứ không bị bỏ, tiêu đề đoạn đánh số dòng chỉ theo
+    LF và theo chỗ trong chữ mới, không khác gì thì diff rỗng, chỉ phần giữa đã đổi được so,
+    "test_a_diff_quoting_a_backtick_run_is_drawn_again_to_fit_a_longer_fence", chỗ quá nhỏ vẫn kết
+    thúc bằng số đếm)
+- **Canvas: lượt sau không mang lại chữ mà lượt trước đã ghi vào canvas**
+  - pytest: `tests/test_canvas_payload_trim.py`
+    ("test_a_steer_mid_turn_leaves_the_document_the_turn_wrote_whole",
+    "test_a_child_told_to_conclude_still_sees_the_document_it_wrote",
+    "test_an_earlier_turns_frame_and_edits_leave_notes_of_where_their_text_went": id, tiêu đề, loại
+    và `old` ngắn giữ nguyên còn kho giữ mọi chữ, lần ghi thất bại để lại ghi chú chưa lưu gì,
+    "test_a_write_cut_off_mid_call_leaves_a_note_to_look_before_writing_again",
+    "test_a_turn_resumed_after_an_approval_keeps_the_document_it_wrote_before", lời gọi chưa có kết
+    quả và mọi tin khác đi qua nguyên vẹn, đúng là object cũ, kết quả lạc hay `content` không phải
+    chuỗi không làm hỏng lượt nào, ranh giới lượt nằm ở tin cuối cùng trước lượt, id dùng lại được ghép với kết quả theo sau nó, lời gọi của lượt này dưới id cũ không
+    nhận kết quả của lời gọi trước, lượt bắt đầu ở chỗ run đang chạy bắt đầu hoặc sau tin cuối,
+    "test_every_canvas_tool_argument_that_carries_document_text_is_trimmed",
+    "test_a_note_is_always_shorter_than_the_text_it_stands_for")
+- **Canvas: lượt không ghi được canvas được báo trước trong system prompt**
+  - pytest: `tests/test_canvas_prompt_tail.py`
+    ("test_a_turn_that_cannot_write_a_canvas_is_told_so_with_the_same_tools": Telegram, job, API và
+    con có chuỗi bắt đầu từ Telegram nghe mục này, sau ghi chú ngày và ngay trước dòng ngày, cùng
+    bộ tool; web chat và con của nó thì không,
+    "test_the_note_names_only_the_canvas_writes_the_agent_holds", prompt thường trực không có mục
+    này, "test_the_note_lists_exactly_the_tools_a_closed_channel_refuses")
 - **Mã agent khớp cả chuỗi: chữ thường, số và gạch ngang, không cả xuống dòng ở cuối**
   - pytest: `tests/test_api_agents_edit.py::test_an_id_that_is_not_a_safe_folder_name_is_refused`
     (`../escape` và `coder` có xuống dòng ở cuối đều bị từ chối, không thư mục nào được tạo);

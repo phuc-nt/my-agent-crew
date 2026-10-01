@@ -86,6 +86,11 @@ System prompt liệt kê tên các tool có sẵn; model thấy JSON schema củ
 | `ask_user` | **có, luôn luôn** | một câu hỏi mở mỗi cuộc trò chuyện | hỏi người dùng một điều và tạm dừng lượt cho tới khi họ trả lời, xem [Hỏi người dùng](#hỏi-người-dùng) |
 | `tool_output_read` | không | mỗi lần đọc vừa trần đầu ra của agent, `offset` và `limit` tính bằng ký tự | đọc lại toàn văn một kết quả tool đã bị rút ngắn theo id lời gọi, xem [Đọc lại đầu ra dài](#đọc-lại-đầu-ra-dài) |
 | `progress_note` | không | 200 ký tự | nói trong một dòng agent sắp làm gì; trở thành một step `note` trên run, xem [Nói mình đang làm gì](#nói-mình-đang-làm-gì) |
+| `artifact_create` | không | `markdown` và `code`, 512 KB mỗi canvas; 30 canvas mỗi lượt | tạo một canvas cạnh khung chat từ `title`, `kind`, `content` và `language` tuỳ chọn; kết quả mở đầu bằng thẻ `[artifact <id> v1]` và không trả lại nội dung, xem [Canvas](#canvas) |
+| `artifact_list` | không | 30 canvas | liệt kê các canvas agent với tới, mới sửa trước, đánh dấu canvas chưa đọc hay có bản mới; `query` lọc theo tiêu đề, không phân biệt hoa thường và dấu |
+| `artifact_read` | không | mỗi trang vừa trần đầu ra của agent | đọc một canvas theo trang, chữ nguyên văn; chân trang là lệnh đọc tiếp đúng bản đó |
+| `artifact_edit` | không | 30 bản mỗi canvas mỗi lượt; diff 1 500 ký tự | thay một đoạn `old` chép nguyên văn bằng `new`; kết quả có diff của phần đã đổi và cỡ mới của canvas |
+| `artifact_rewrite` | không | như `artifact_edit`; diff xung đột 4 000 ký tự | viết lại cả canvas khi bản mới nhất là bản agent đã thấy trọn; nếu không thì từ chối kèm diff của phần người khác đã đổi |
 
 Bốn tool nữa chỉ đi kèm `mode: work`, vì trợ lý chỉ trò chuyện không cần
 chúng và mỗi spec tool thêm vào đều tốn token prompt:
@@ -479,6 +484,61 @@ Lịch được duyệt lưu trong DB, không phải `agent.yaml`, nên chạy n
 và sống qua lần khởi động lại kế tiếp; xem [Lịch](agents.md#lịch) để biết nó đứng cạnh lịch
 YAML thế nào và xoá ra sao. Agent có allow-list `tools:` riêng cần được thêm `schedule_create`
 vào danh sách đó mới dùng được; master không có allow-list nên có tool này ngay.
+
+### Canvas
+
+Canvas là tài liệu có phiên bản đi cạnh cuộc trò chuyện, người và agent cùng sửa. Năm tool
+`artifact_*` không hỏi duyệt: mỗi lần ghi thêm một phiên bản và bản cũ vẫn khôi phục được, nên
+không lần ghi nào của agent làm mất chữ của người. Mọi agent có đủ năm tool; agent có allow-list
+`tools:` chỉ có những tool canvas nó liệt kê, nên một danh sách viết trước khi có canvas không tự
+nhận thêm quyền ghi.
+
+- **Loại và trần.** Agent tạo được canvas `markdown` và `code` (kèm `language`, ví dụ `python`).
+  Một canvas nặng tối đa 512 KB, tiêu đề tối đa 200 ký tự. Mọi canvas cộng lại có trần 1 GiB;
+  agent dừng ở chín phần mười trần đó để người vẫn còn chỗ lưu. Trần nằm trong code, không có
+  khoá cấu hình.
+- **Kênh.** Chỉ lượt từ web chat, và agent được giao việc trong chuỗi bắt đầu từ web chat, ghi
+  được canvas, vì người chưa mở được canvas ở kênh khác. Lượt Telegram, job và `/api/inbound`
+  vẫn có năm tool để phần đầu prompt giống lượt web, nhưng lời gọi tạo, sửa hay viết lại bị từ
+  chối và không gì được ghi; system prompt của các lượt đó kết thúc bằng mục **Canvas** dặn trả
+  lời thẳng trong tin nhắn, nêu tên những tool ghi agent đang có. Đọc và liệt kê chạy ở mọi
+  kênh. Xem [channels.md](channels.md#cuộc-trò-chuyện).
+- **Tầm với.** Master với tới mọi canvas. Agent khác với tới canvas gắn với cuộc trò chuyện của
+  nó, canvas chuỗi giao việc của nó đã chia sẻ, và canvas nó tự tạo. Canvas do người tạo chỉ vào
+  tầm của agent khi đã gắn vào cuộc trò chuyện. Đọc chỉ gắn canvas vào cuộc trò chuyện đang đọc;
+  tạo, sửa và viết lại chia sẻ nó với cả chuỗi, nên agent được giao việc sau trong chuỗi mở được.
+  Canvas ngoài tầm nhận đúng câu trả lời của canvas không tồn tại, nên agent không dò được canvas
+  nằm ngoài tầm.
+- **Ngân sách của một lượt.** Tối đa 30 bản cho mỗi canvas và 30 canvas mới; lần ghi không đổi
+  gì không tính. Chạm trần thì tool bảo agent dừng và báo người những gì đã làm.
+- **Đọc theo trang.** Mỗi trang là chữ nguyên văn, không đánh số dòng, vừa trần đầu ra của agent
+  kể cả khi hook nối thêm ghi chú. Đầu trang ghi bản và khoảng dòng; chân trang là lệnh đọc tiếp
+  với đúng bản đó, để mọi trang thuộc cùng một bản. Chỉ một lần đọc liền từ dòng đầu tới dòng cuối
+  mới tính là đã thấy bản đó.
+- **Sửa một đoạn.** `old` phải khớp đúng một chỗ, trừ khi `replace_all`. Không khớp chính xác thì
+  thử lại với nháy cong coi như nháy thẳng và dấu cách đặc biệt coi như dấu cách. Vẫn không khớp
+  thì lời từ chối trích nguyên văn chỗ giống nhất, khi có một chỗ đủ giống mà không chỗ nào khác
+  giống ngang nó. Sửa xong, kết quả nêu cỡ mới của canvas, số byte và số dòng đếm như trang
+  đọc, để agent đang nới một tài liệu tới độ dài được yêu cầu không phải đọc lại hay đo bằng
+  shell sau mỗi lần sửa.
+- **Viết lại cả canvas** chỉ chạy khi bản mới nhất là bản cuộc trò chuyện đã thấy trọn, qua một
+  lần đọc hết hay vì chính nó vừa ghi bản đó. Có người hay agent khác lưu từ đó thì lần ghi bị từ
+  chối kèm diff của phần họ đổi, và lời từ chối dặn sửa bằng `artifact_edit`. Mô tả của tool
+  nói rõ bản agent vừa tạo hay viết lại trong lượt thì không cần đọc lại, còn mô tả của
+  `artifact_create` dặn sửa chính canvas đã có thay vì tạo canvas thứ hai cho cùng tài liệu: khi
+  đo, model thấy bản nháp đầu ngắn hơn yêu cầu thì có lúc đọc lại từng trang vừa gửi, có lúc tạo
+  luôn một canvas trùng.
+- **Tác giả.** Khi canvas có bản agent chưa thấy, trang đọc và kết quả sửa nêu ai viết các bản đó
+  (ví dụ "v3–v5 người, v6 agent:coach"). Bản do agent viết không bao giờ được gọi là của người, để
+  chữ chèn qua prompt không mượn được lời người.
+- **Thẻ.** Kết quả của mọi lần ghi thành công mở đầu bằng `[artifact <id> v<n>]`, thêm
+  ` unchanged` khi nội dung không đổi và không có bản mới; trang đọc và danh sách không bao giờ
+  mở đầu như vậy.
+- **Lượt sau không mang lại tài liệu.** Khi lượt đã xong, chữ một lần ghi gửi đi (`content` của
+  tạo và viết lại, `old` và `new` của sửa) được thay trong prompt bằng một ghi chú: đã vào canvas
+  nào bản mấy, thất bại nên chưa lưu gì, hoặc bị ngắt giữa chừng nên phải xem danh sách trước khi
+  ghi lại. Lượt đang chạy giữ nguyên mọi chữ đến hết lượt, kể cả sau khi người chen tin hay sau
+  một lần chờ duyệt; kho vẫn giữ lời gọi đúng như đã gọi.
 
 ## Provider không cần khoá
 

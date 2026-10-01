@@ -11,6 +11,22 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+### Added
+
+- Agents can write canvases: versioned markdown and code documents next to a web chat, through
+  `artifact_create`, `artifact_list`, `artifact_read`, `artifact_edit` and `artifact_rewrite`.
+  None of them asks for approval, since every version stays restorable. Only a web-chat turn,
+  or an agent delegated from one, may write; a Telegram, job or inbound-API turn can list and
+  read, and its system prompt says so before the model tries. The master reaches every canvas;
+  another agent reaches those linked to its conversation, shared down its delegation chain or
+  made by itself, and one out of reach reads as missing. A canvas is read a page at a time
+  within the output cap; an edit replaces one exact passage, reports the canvas's new length
+  and, when it misses, quotes the closest one; a rewrite needs the newest version read whole
+  and is refused with a diff when someone saved since. A turn writes at most 30 versions of one
+  canvas and creates at most 30 canvases, and later turns carry a note of where a write went
+  instead of the document it sent. An agent with a `tools:` allow-list gets only the canvas
+  tools it lists.
+
 ### Fixed
 
 - A model call that hits a passing upstream failure before any text is shown is now asked

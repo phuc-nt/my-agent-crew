@@ -133,6 +133,13 @@ cùng kênh được đưa vào prompt dưới mục **Cuộc trước**, nên `
 tin nhắn đầu tiên của ngày mới tiếp nối chỗ
 cuộc trước dừng lại mà không phát lại các message của nó.
 
+Canvas chưa tới được Telegram: người chưa mở được canvas ở đây, nên lượt từ Telegram, và agent
+master giao việc trong lượt đó, chỉ liệt kê và đọc được canvas. Các tool canvas vẫn có trong
+lượt để phần đầu prompt giống lượt web, nhưng lời gọi tạo, sửa hay viết lại bị từ chối và không
+ghi gì. System prompt của lượt kết thúc bằng mục **Canvas** dặn trả lời thẳng trong tin nhắn,
+nêu tên những tool ghi agent đang có, để model không đổ cả tài liệu vào một lời gọi rồi mới bị
+từ chối. Lượt job và lượt qua `/api/inbound` cũng vậy; xem [tools.md](tools.md#canvas).
+
 ## Lệnh
 
 Được kênh trả lời không cần gọi model, và đăng ký bằng `setMyCommands` một lần mỗi
