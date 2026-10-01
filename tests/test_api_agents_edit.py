@@ -36,10 +36,11 @@ def test_creating_an_agent_puts_it_on_disk_and_in_the_crew(crew) -> None:
     assert "coder" in client.get("/api/agents/default").json()["delegates"]
 
 
-def test_an_id_that_is_not_a_safe_folder_name_is_refused(crew) -> None:
+@pytest.mark.parametrize("agent_id", ["../escape", "coder\n"])
+def test_an_id_that_is_not_a_safe_folder_name_is_refused(crew, agent_id) -> None:
     client, _, home = crew
 
-    reply = client.post("/api/agents", json={"agent_id": "../escape", "profile": {}})
+    reply = client.post("/api/agents", json={"agent_id": agent_id, "profile": {}})
 
     assert reply.status_code == 422
     assert not (home / "agents").exists()

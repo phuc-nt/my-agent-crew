@@ -1117,3 +1117,7 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "test_list_matches_the_title_regardless_of_case_and_accents", hai canvas cùng giây xếp theo
     thứ tự tạo, "test_on_change_hears_every_write_after_commit_outside_the_lock",
     "test_a_failing_on_change_is_logged_and_the_write_stands")
+- **Mã agent khớp cả chuỗi: chữ thường, số và gạch ngang, không cả xuống dòng ở cuối**
+  - pytest: `tests/test_api_agents_edit.py::test_an_id_that_is_not_a_safe_folder_name_is_refused`
+    (`../escape` và `coder` có xuống dòng ở cuối đều bị từ chối, không thư mục nào được tạo; mẫu
+    ở `my_agent_crew/agent_ids.py`)

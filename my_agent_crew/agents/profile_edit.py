@@ -11,19 +11,18 @@ more of the schedules an edit brings than boot asks of a file: see `check_schedu
 
 from __future__ import annotations
 
-import re
 from collections import Counter
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
 from my_agent_crew import texts
+from my_agent_crew.agent_ids import is_agent_id
 from my_agent_crew.agents.profile import PROFILE_KEYS, AgentProfile, Schedule
 from my_agent_crew.agents.profile_yaml import parse_profile
 from my_agent_crew.config import Settings
 from my_agent_crew.scheduler.cron import CronSpec, parse_every
 
-AGENT_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 # What the scheduler reads once at startup and never again. The Telegram bridge is not
 # here: an edited `telegram` block rebuilds the bot on the spot.
 RESTART_KEYS = {
@@ -42,7 +41,7 @@ PATH_KEYS = ("persona_files", "skills_dirs", "workspace")
 def check_agent_id(agent_id: str) -> None:
     """An id is a directory name and a URL segment both, so it is kept to the characters
     that are safe in each rather than escaped at every use."""
-    if not AGENT_ID_RE.match(agent_id):
+    if not is_agent_id(agent_id):
         raise ValueError(texts.AGENT_ID_INVALID)
 
 
