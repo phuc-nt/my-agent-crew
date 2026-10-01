@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING
 
 from my_agent_crew.artifacts.kinds import clean_title, prepare
 from my_agent_crew.store.artifact_models import (
+    RESTORE_NOTE,
     USER,
     ArtifactSummary,
     ArtifactVersion,
@@ -137,7 +138,7 @@ class ArtifactVersions:
             old = self.version(artifact_id, version)
             return old.content, old.data
 
-        note = f"restore:{version}"
+        note = f"{RESTORE_NOTE}{version}"
         return self._write_next(artifact_id, payload, author, conversation_id, None, note)
 
     def _insert_version(self, *values: object) -> sqlite3.Row:

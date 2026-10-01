@@ -198,6 +198,9 @@ async def test_every_page_names_who_wrote_the_versions_not_yet_seen(store: Store
     assert store.artifacts.head(art).version == 4
     [page, *_] = await _read_on(store, art, 1, version=4, **master)
     assert page.split("\n")[1] == ARTIFACT_AUTHORS.format(groups="v4 người")
+    store.artifacts.restore(art, 1, USER, "")
+    [page, *_] = await _read_on(store, art, 1, version=5, **master)
+    assert page.split("\n")[1] == ARTIFACT_AUTHORS.format(groups="v5 người khôi phục v1")
 
 
 async def test_a_page_of_a_set_number_of_lines_and_the_head_by_default(store: Store):

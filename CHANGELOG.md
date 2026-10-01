@@ -22,8 +22,10 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   made by itself, and one out of reach reads as missing. A canvas is read a page at a time
   within the output cap; an edit replaces one exact passage, reports the canvas's new length
   and, when it misses, quotes the closest one; a rewrite needs the newest version read whole
-  and is refused with a diff when someone saved since. A turn writes at most 30 versions of one
-  canvas and creates at most 30 canvases, and later turns carry a note of where a write went
+  and is refused with a diff when someone saved since. A page or a write over versions the agent
+  has not seen names who wrote them: at most the six newest runs of one author, and a restore
+  as a run of its own naming the version it brought back. A turn writes at most 30 versions of
+  one canvas and creates at most 30 canvases, and later turns carry a note of where a write went
   instead of the document it sent. An agent with a `tools:` allow-list gets only the canvas
   tools it lists.
 

@@ -2,14 +2,18 @@
 
 from my_agent_crew.store.artifact_authors import authors_line
 from my_agent_crew.store.artifact_models import USER, ArtifactVersion
+from my_agent_crew.texts_canvas import ARTIFACT_AUTHORS
 
 ART = "0123456789ab"
 
 
-def _history(*authors: str, numbers: tuple[int, ...] = ()) -> list[ArtifactVersion]:
+def _history(
+    *authors: str, numbers: tuple[int, ...] = (), notes: dict[int, str] | None = None
+) -> list[ArtifactVersion]:
     numbers = numbers or tuple(range(1, len(authors) + 1))
+    notes = notes or {}
     return [
-        ArtifactVersion(ART, number, 1, author, "", "", "", "")
+        ArtifactVersion(ART, number, 1, author, "", notes.get(number, ""), "", "")
         for number, author in zip(numbers, authors, strict=True)
     ]
 
@@ -29,8 +33,21 @@ def test_a_group_spans_the_numbers_a_folded_burst_left_out():
     assert "v1–v3 người, v4 agent:coach" in authors_line(history, 0, 4)
 
 
-def test_the_authors_line_names_six_groups_at_most():
+def test_the_authors_line_names_the_six_newest_groups_at_most():
+    """The newest versions are the ones the agent is about to meet, so the older ones give way."""
     history = _history(*[USER, "agent:coach"] * 4)
-    line = authors_line(history, 0, 8)
-    assert "v1 người" in line and "v6 agent:coach" in line
-    assert "v7" not in line and line.rstrip(".").endswith("…")
+    newest = "…, v3 người, v4 agent:coach, v5 người, v6 agent:coach, v7 người, v8 agent:coach"
+    assert authors_line(history, 0, 8) == ARTIFACT_AUTHORS.format(groups=newest)
+    assert authors_line(history, 2, 8) == ARTIFACT_AUTHORS.format(groups=newest[3:])
+
+
+def test_a_restore_is_a_group_of_its_own_naming_the_version_it_brought_back():
+    """A restore puts back text the agent may already know, so it must not hide inside a run of
+    ordinary saves by the same person."""
+    notes = {3: "restore:1", 4: "restore:1", 5: "restore:2"}
+    history = _history(*[USER] * 6, notes=notes)
+    groups = (
+        "v1–v2 người, v3 người khôi phục v1, v4 người khôi phục v1, v5 người khôi phục v2, v6 người"
+    )
+    assert authors_line(history, 0, 6) == ARTIFACT_AUTHORS.format(groups=groups)
+    assert authors_line(history, 4, 5) == ARTIFACT_AUTHORS.format(groups="v5 người khôi phục v2")

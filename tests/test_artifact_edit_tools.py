@@ -193,6 +193,23 @@ async def test_a_rewrite_over_a_persons_save_is_refused_with_what_they_changed(s
     assert (seen(store, conv, art), store.artifacts.head(art).version) == (1, 2)
 
 
+async def test_a_conflict_over_many_writers_names_the_newest_six_and_any_restore(store: Store):
+    turn(store)
+    art = await _created(store)
+    for number, author in enumerate([USER, "agent:coach"] * 3, start=2):
+        store.artifacts.write(art, f"{PLAN}bản {number}\n", author, "")
+    store.artifacts.restore(art, 1, USER, "")
+    store.artifacts.write(art, f"{PLAN}bản 9\n", USER, "")
+    result = await call(store, "artifact_rewrite", {"id": art, "content": "mới"})
+    newest = (
+        "…, v4 người, v5 agent:coach, v6 người, v7 agent:coach, v8 người khôi phục v1, v9 người"
+    )
+    authors = ARTIFACT_AUTHORS.format(groups=newest)
+    conflict = ARTIFACT_VERSION_CONFLICT.format(head=9)
+    assert result.output.startswith(_failed(f"{conflict}\n{authors}\n"))
+    assert store.artifacts.head(art).version == 9
+
+
 async def test_a_conflict_fits_any_cap_and_leaves_a_hooks_note_to_be_cut_first(store: Store):
     turn(store)
     text = lines_text(100)

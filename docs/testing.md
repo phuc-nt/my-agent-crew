@@ -1175,7 +1175,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     phần bị cắt chưa ai đọc nên bản đó không tính là đã thấy,
     "test_only_a_read_from_the_first_line_to_the_last_makes_a_version_seen", người lưu giữa hai
     trang thì lần đọc vẫn ở bản nó bắt đầu, bản đã bị gộp mất thì báo bản mới nhất, mỗi trang nêu
-    ai viết các bản chưa thấy, trang theo số dòng đặt trước và bản mới nhất khi không nói bản nào,
+    ai viết các bản chưa thấy kể cả bản người khôi phục, trang theo số dòng đặt trước và bản mới
+    nhất khi không nói bản nào,
     dòng quá cuối và loại không đọc được thành chữ bị từ chối, canvas code hiện ngôn ngữ cạnh loại);
     `tests/test_artifact_edit_tools.py` (sửa trích lại các dòng đã đổi và tính bản mới là đã thấy,
     "test_an_edit_says_how_long_the_canvas_now_is_as_a_read_counts_it": kết quả sửa nêu cỡ mới
@@ -1184,8 +1185,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "test_the_nearest_passage_to_a_missed_edit_is_looked_for_outside_the_lock", diff của sửa vừa
     mọi trần và để ghi chú của hook bị cắt trước, sửa không đổi gì không thêm bản mà vẫn đổi tiêu
     đề, "test_a_rewrite_needs_the_canvas_read_whole_first": liệt kê, đọc trang đầu hay nhảy tới
-    trang cuối đều không đủ, viết lại đè lên lần lưu của người bị từ chối kèm phần họ đổi, xung
-    đột vừa mọi trần, viết lại từ bản mới nhất đã đọc trọn thì ghi,
+    trang cuối đều không đủ, viết lại đè lên lần lưu của người bị từ chối kèm phần họ đổi,
+    "test_a_conflict_over_many_writers_names_the_newest_six_and_any_restore", xung đột vừa mọi
+    trần, viết lại từ bản mới nhất đã đọc trọn thì ghi,
     "test_what_the_agent_created_or_rewrote_it_rewrites_without_reading_back": bản agent vừa tạo
     hay viết lại thì viết lại được ngay mà không đọc lại, đúng như mô tả tool nói, và mô tả tạo
     dặn sửa chính canvas đã có, viết lại chỉ đổi kiểu xuống
@@ -1209,7 +1211,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     của con kế tiếp, mỗi lời từ chối của kho thành lời dặn,
     "test_a_canvas_out_of_reach_reads_exactly_like_one_that_does_not_exist", lỗi khác đi qua
     nguyên vẹn); `tests/test_artifact_authors.py` (dòng tác giả gom từng đoạn liền của một tác
-    giả, nhóm phủ cả những số bản một loạt gộp đã bỏ, tối đa sáu nhóm);
+    giả, nhóm phủ cả những số bản một loạt gộp đã bỏ,
+    "test_the_authors_line_names_the_six_newest_groups_at_most": giữ sáu nhóm mới nhất và dấu …
+    đứng đầu, "test_a_restore_is_a_group_of_its_own_naming_the_version_it_brought_back");
     `tests/test_artifact_reach.py`
     ("test_a_quiet_canvas_linked_here_is_found_past_newer_ones_out_of_reach",
     "test_reachable_and_is_reachable_agree_on_every_kind_of_canvas",

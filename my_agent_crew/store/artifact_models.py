@@ -13,6 +13,8 @@ from typing import Any
 
 # The author of a version a person wrote; an agent's versions carry "agent:<agent_id>".
 USER = "user"
+# The note of a version that restores an older one, followed by that older version's number.
+RESTORE_NOTE = "restore:"
 
 
 @dataclass(frozen=True)
@@ -42,7 +44,7 @@ class ArtifactVersion:
     size: int  # bytes of UTF-8 content, or of data
     author: str  # "user" or "agent:<agent_id>"
     conversation_id: str  # where the write came from, "" when from nowhere in particular
-    note: str  # "" for an ordinary write, else e.g. "restore:<n>"
+    note: str  # "" for an ordinary write, else e.g. RESTORE_NOTE + "<n>"
     created_at: str
     updated_at: str
     content: str | None = None  # text kinds; None when read as metadata only

@@ -530,7 +530,10 @@ nhận thêm quyền ghi.
   luôn một canvas trùng.
 - **Tác giả.** Khi canvas có bản agent chưa thấy, trang đọc và kết quả sửa nêu ai viết các bản đó
   (ví dụ "v3–v5 người, v6 agent:coach"). Bản do agent viết không bao giờ được gọi là của người, để
-  chữ chèn qua prompt không mượn được lời người.
+  chữ chèn qua prompt không mượn được lời người. Dòng này nêu tối đa sáu nhóm mới nhất, vì đó là
+  những bản agent sắp gặp, và đặt "…" ở đầu khi còn nhóm cũ hơn. Bản khôi phục luôn là một nhóm
+  riêng nêu bản nó đưa về (ví dụ "v7 người khôi phục v2"): nó mang lại chữ agent có thể đã biết,
+  nên không được lẫn vào một loạt lưu thường của cùng người.
 - **Thẻ.** Kết quả của mọi lần ghi thành công mở đầu bằng `[artifact <id> v<n>]`, thêm
   ` unchanged` khi nội dung không đổi và không có bản mới; trang đọc và danh sách không bao giờ
   mở đầu như vậy.
