@@ -8,7 +8,6 @@ import json
 import threading
 from pathlib import Path
 
-from my_agent_crew.llm.types import Message
 from my_agent_crew.store.approvals import ApprovalStore
 from my_agent_crew.store.artifact_links import ArtifactLinks
 from my_agent_crew.store.artifacts import ArtifactStore
@@ -18,7 +17,7 @@ from my_agent_crew.store.created_schedules import CreatedSchedulesStore
 from my_agent_crew.store.fork import Forks
 from my_agent_crew.store.job_state import JobStateStore
 from my_agent_crew.store.memory_proposals import MemoryProposalStore
-from my_agent_crew.store.message_models import StoredMessage
+from my_agent_crew.store.message_log import MessageLog
 from my_agent_crew.store.messages import MessageStore
 from my_agent_crew.store.models import Conversation
 from my_agent_crew.store.queue import QueueStore
@@ -40,7 +39,7 @@ OWNED_BY_CONVERSATION = ("messages", "approvals", "queued_messages")
 OWNED_BY_CONVERSATION += ("conversation_artifacts", "canvas_focus")
 
 
-class Store(ConversationLookups, Forks, Spending):
+class Store(ConversationLookups, Forks, MessageLog, Spending):
     def __init__(self, path: Path | str = ":memory:"):
         self._conn = connect(path)
         self._lock = threading.RLock()
@@ -175,23 +174,3 @@ class Store(ConversationLookups, Forks, Spending):
                 raise
         if cur.rowcount == 0:
             raise KeyError(conv_id)
-
-    # --- messages ------------------------------------------------------------------------
-
-    def append(
-        self,
-        conv_id: str,
-        message: Message,
-        provider: str | None = None,
-        model: str | None = None,
-        cost_usd: float | None = None,
-        **tokens: int | None,
-    ) -> StoredMessage:
-        """`tokens` are the message's prompt_tokens, completion_tokens, reasoning_tokens and
-        cached_tokens, each None when the provider did not report it."""
-        return self.messages.append(
-            conv_id, message, now_iso(), provider, model, cost_usd, **tokens
-        )
-
-    def history(self, conv_id: str) -> list[StoredMessage]:
-        return self.messages.history(conv_id)
