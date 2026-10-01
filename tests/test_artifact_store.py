@@ -189,14 +189,14 @@ def test_list_breaks_a_tie_within_one_second_by_creation_order(store: Store, can
 def test_list_filters_by_conversation_and_by_agent(store: Store):
     mine = _create(store, title="Của default")
     coach = _create(store, title="Của coach", agent_id="coach")
-    person = _create(store, title="Của người", agent_id="user", author=USER)
+    person = _create(store, title="Của người", agent_id="", author=USER)
     store.artifact_links.link("c1", mine.id)
     store.artifact_links.link("c1", person.id)
     store.artifact_links.link("c2", coach.id)
 
     assert _titles(store.artifacts.list(conversation_id="c1")) == ["Của người", "Của default"]
     assert _titles(store.artifacts.list(agent_id="coach")) == ["Của coach"]
-    assert _titles(store.artifacts.list(conversation_id="c1", agent_id="user")) == ["Của người"]
+    assert _titles(store.artifacts.list(conversation_id="c1", agent_id="")) == ["Của người"]
     assert store.artifacts.list(conversation_id="c3") == []
 
 

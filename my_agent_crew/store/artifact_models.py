@@ -21,7 +21,7 @@ class ArtifactSummary:
     title: str
     kind: str
     language: str
-    agent_id: str  # the agent that created it, or "user" when a person did on the web
+    agent_id: str  # the agent that created it; "" when a person did on the web
     head_version: int
     source: str
     created_at: str

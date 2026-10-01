@@ -17,7 +17,7 @@ from collections.abc import Callable
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from my_agent_crew.artifacts.kinds import prepare
+from my_agent_crew.artifacts.kinds import clean_title, prepare
 from my_agent_crew.store.artifact_models import (
     USER,
     ArtifactSummary,
@@ -45,8 +45,8 @@ Payload = Callable[[ArtifactVersion], tuple[str | None, bytes | None]]
 
 
 class ArtifactVersions:
-    """Reading and adding versions; mixed into `ArtifactStore`, which supplies `get` and
-    `_notify`."""
+    """Reading and adding versions; mixed into `ArtifactStore`, which supplies `get`,
+    `_check_write` and `_notify`."""
 
     _conn: sqlite3.Connection
     _lock: threading.RLock
@@ -117,7 +117,9 @@ class ArtifactVersions:
         note: str = "",
     ) -> ArtifactVersion:
         """Reads the newest text, changes it and writes the result in one step: no other
-        write lands in between, and when `change` raises nothing is written."""
+        write lands in between, and when `change` raises nothing is written. `change` runs
+        with the store's lock held, so every other read and write waits for it: keep it a
+        quick, plain transformation, with no fuzzy search and no I/O."""
 
         def payload(head: ArtifactVersion) -> tuple[str | None, bytes | None]:
             return change(head.content or ""), None
@@ -165,6 +167,7 @@ class ArtifactVersions:
         continues its burst. One hold of the lock covers the first read to the commit, a
         failure anywhere rolls back all of it, and listeners hear of the change only once
         it is committed and the lock is released."""
+        title = None if title is None else clean_title(title)
         with self._lock:
             kind = self.get(artifact_id).kind
             head = self.head(artifact_id)
@@ -172,6 +175,7 @@ class ArtifactVersions:
             content, size = prepare(kind, content, data)
             now = now_iso()
             folds = self._folds_into(head, author, note, now)
+            self._check_write(author, size - (head.size if folds else 0))
             number = head.version + 1
             meta = (artifact_id, number, size, author, conversation_id, note)
             stamps = (head.created_at if folds else now, now)

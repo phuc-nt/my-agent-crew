@@ -16,10 +16,10 @@ from collections.abc import Callable
 from itertools import islice
 from typing import Any
 
-from my_agent_crew.artifacts.kinds import prepare
+from my_agent_crew.artifacts.kinds import STORAGE_CAP, StorageFull, clean_title, prepare
 from my_agent_crew.memory.search import normalize
 from my_agent_crew.store.artifact_links import ArtifactLinks
-from my_agent_crew.store.artifact_models import ArtifactSummary
+from my_agent_crew.store.artifact_models import USER, ArtifactSummary
 from my_agent_crew.store.artifact_versions import ArtifactVersions
 from my_agent_crew.store.stamps import new_id, now_iso
 
@@ -49,10 +49,13 @@ class ArtifactStore(ArtifactVersions):
         source: str = "",
     ) -> ArtifactSummary:
         """A new canvas at version 1. It is linked to no conversation yet: whoever creates
-        it links it, so the change it announces lists no conversations."""
+        it links it, so the change it announces lists no conversations. `agent_id` is ""
+        when a person creates it."""
+        title = clean_title(title)
         content, size = prepare(kind, content, data)
         artifact_id, now = new_id(), now_iso()
         with self._lock:
+            self._check_write(author, size)
             try:
                 [row] = self._conn.execute(
                     "INSERT INTO artifacts (id, title, kind, language, agent_id, head_version,"
@@ -112,6 +115,7 @@ class ArtifactStore(ArtifactVersions):
 
     def rename(self, artifact_id: str, title: str) -> ArtifactSummary:
         """A new title only: no new version."""
+        title = clean_title(title)
         with self._lock:
             rows = self._conn.execute(
                 "UPDATE artifacts SET title = ?, updated_at = ? WHERE id = ? RETURNING *",
@@ -148,6 +152,18 @@ class ArtifactStore(ArtifactVersions):
                 "SELECT artifact_id, SUM(size) FROM artifact_versions GROUP BY artifact_id"
             ).fetchall()
         return {row[0]: row[1] for row in rows}
+
+    def _check_write(self, author: str, added: int) -> None:
+        """Refuses an author that is neither the person nor an agent, and a write that would
+        take every canvas together past STORAGE_CAP. Called with the lock held, so two
+        writers cannot both fit under the cap with the same last bytes."""
+        if author != USER and not (author.startswith("agent:") and author != "agent:"):
+            raise ValueError(f"author must be {USER!r} or 'agent:<id>', not {author!r}")
+        [used] = self._conn.execute(
+            "SELECT COALESCE(SUM(size), 0) FROM artifact_versions"
+        ).fetchone()
+        if used + added > STORAGE_CAP:
+            raise StorageFull(used, STORAGE_CAP)
 
     def _notify(self, summary: dict[str, Any], conversation_ids: list[str]) -> None:
         if self.on_change is None:

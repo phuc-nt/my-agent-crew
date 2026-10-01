@@ -1082,7 +1082,14 @@ tên một test thì sửa dòng của nó trong cùng commit.
 - **Canvas: tài liệu có phiên bản đi cạnh cuộc trò chuyện (tầng lưu trữ)**
   - pytest: `tests/test_artifact_kinds.py` (mỗi loại là chữ hoặc nhị phân, mỗi loại một trần,
     loại lạ bị từ chối theo tên, lỗi kích thước là `ValueError` để một chỗ trả lời được mọi đầu
-    vào sai); `tests/test_artifact_schema.py` (DB mới có đủ bảng và index, payload là các cột cuối,
+    vào sai, "test_a_title_is_one_line_of_visible_text": xuống dòng thành dấu cách, bỏ ký tự
+    điều khiển, bidi và tag nhưng giữ joiner của emoji, tiêu đề rỗng bị từ chối, giới hạn 200 ký
+    tự đo sau khi làm sạch); `tests/test_artifact_guards.py` (mọi đường đặt tiêu đề đều lưu bản
+    đã làm sạch, tiêu đề sai làm hỏng cả lần ghi, tác giả không phải `user` hay `agent:<id>` bị
+    từ chối, lần ghi vượt trần tổng 1 GiB bị từ chối và không lưu gì, chạm đúng trần vẫn được,
+    lần lưu gộp vào loạt chỉ tính phần thêm vào); `tests/test_store.py`
+    ("test_a_delete_that_fails_halfway_leaves_the_conversation_whole");
+    `tests/test_artifact_schema.py` (DB mới có đủ bảng và index, payload là các cột cuối,
     DB cũ có thêm bảng canvas mà giữ nguyên tin nhắn, mở lần hai không đổi gì);
     `tests/test_artifact_links.py` (liên kết lại giữ `seen_version`, `seen_version` không lùi,
     đánh dấu chưa commit được huỷ cùng giao dịch của bên gọi, focus giữ canvas đang mở và đoạn

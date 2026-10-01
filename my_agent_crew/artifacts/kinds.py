@@ -4,7 +4,17 @@ table, so a tool, a route and an import are all held to the same limits."""
 
 from __future__ import annotations
 
+import unicodedata
+
 KB, MB = 1024, 1024 * 1024
+TITLE_MAX = 200
+# Every version of every canvas together. Old versions are never pruned, so this is what
+# stops a writer stuck in a loop long before the disk fills and every other write fails.
+STORAGE_CAP = 1024 * MB
+# Format characters a title may keep: the joiners that hold an emoji sequence or a word in
+# some scripts together. Every other one is invisible at best, and a bidi override reorders
+# whatever follows it.
+_JOINERS = frozenset("\u200c\u200d")
 
 # Largest version per kind, in bytes of UTF-8 text or of raw data. Prose and code stay
 # small enough to diff and to quote back to a model; a page or a picture is allowed more.
@@ -35,6 +45,18 @@ class ArtifactTooLarge(ValueError):
 
 class PayloadMismatch(ValueError):
     """Text sent for a binary kind, bytes for a text kind, or neither."""
+
+
+class InvalidTitle(ValueError):
+    """Nothing left once cleaned, or longer than TITLE_MAX."""
+
+
+class StorageFull(ValueError):
+    """The write would take every canvas together past STORAGE_CAP."""
+
+    def __init__(self, used: int, cap: int):
+        super().__init__(f"canvases already hold {used} of {cap} bytes")
+        self.used, self.cap = used, cap
 
 
 def check_kind(kind: str) -> str:
@@ -75,3 +97,19 @@ def prepare(kind: str, content: str | None, data: bytes | None) -> tuple[str | N
         size = len(data or b"")
     check_size(kind, size)
     return content, size
+
+
+def clean_title(title: str) -> str:
+    """One line of visible text. Line breaks and other spaces become single spaces, and
+    control and format characters are dropped, so a title quoted to a model or shown in a
+    list cannot end the line it sits on, hide text, or reorder what follows."""
+    kept = (" " if ch.isspace() else ch for ch in title)
+    visible = "".join(
+        ch for ch in kept if ch in _JOINERS or unicodedata.category(ch) not in ("Cc", "Cf")
+    )
+    text = " ".join(unicodedata.normalize("NFC", visible).split())
+    if not text:
+        raise InvalidTitle("a canvas needs a title")
+    if len(text) > TITLE_MAX:
+        raise InvalidTitle(f"a title of {len(text)} characters is over {TITLE_MAX}")
+    return text
