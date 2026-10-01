@@ -1,4 +1,4 @@
-"""Which conversations know a canvas, and what each has open.
+"""Which conversations know a canvas; `CanvasFocus` adds what each has open.
 
 A link records the newest version a conversation's agent has read whole or written
 (`seen_version`, 0 until it has); the note at the start of a turn diffs from there, so it
@@ -11,9 +11,6 @@ A link through which the conversation created or wrote the canvas is `shared`: t
 conversation's delegated children reach the canvas through it. Sharing only ever turns
 on, and reading never turns it on, so what one child read never widens the next one's reach.
 
-A focus is web UI state: the canvas a conversation has open and the passage the person
-selected in it, which the next turn's note quotes once and clears.
-
 Every write names a conversation and a canvas that both exist, or stores nothing, so a turn
 still running after either is deleted leaves no orphan row. `commit=False` leaves a write in
 the caller's transaction, so the note can mark what it showed in the same commit as the
@@ -21,41 +18,31 @@ message it is attached to."""
 
 from __future__ import annotations
 
-import json
 import sqlite3
 import threading
 from collections.abc import Callable
-from typing import Any
 
-from my_agent_crew.store.artifact_models import Focus, Link
+from my_agent_crew.store.artifact_models import Link
+from my_agent_crew.store.canvas_focus import BOTH_EXIST, CanvasFocus
 from my_agent_crew.store.stamps import now_iso
 
-# Selects the pair only while both rows exist; an insert from it stores nothing otherwise.
-# The WHERE also keeps SQLite from reading the upsert's ON as a join's.
-_BOTH = "FROM conversations c, artifacts a WHERE c.id = ? AND a.id = ?"
 _LINK = (
     "INSERT INTO conversation_artifacts (conversation_id, artifact_id, linked_at, shared)"
-    f" SELECT c.id, a.id, ?, ? {_BOTH} ON CONFLICT (conversation_id, artifact_id)"
+    f" SELECT c.id, a.id, ?, ? {BOTH_EXIST} ON CONFLICT (conversation_id, artifact_id)"
     " DO UPDATE SET shared = MAX(shared, excluded.shared)"
 )
 _MARK_SEEN = (
     "INSERT INTO conversation_artifacts (conversation_id, artifact_id, seen_version, linked_at)"
-    f" SELECT c.id, a.id, ?, ? {_BOTH} ON CONFLICT (conversation_id, artifact_id)"
+    f" SELECT c.id, a.id, ?, ? {BOTH_EXIST} ON CONFLICT (conversation_id, artifact_id)"
     " DO UPDATE SET seen_version = MAX(seen_version, excluded.seen_version) RETURNING *"
 )
 _SET_READ = (
     "UPDATE conversation_artifacts SET read_version = ?, read_upto = ?, seen_version = ?"
     " WHERE conversation_id = ? AND artifact_id = ? RETURNING *"
 )
-_SET_FOCUS = (
-    "INSERT INTO canvas_focus (conversation_id, artifact_id, selection, updated_at)"
-    f" SELECT c.id, a.id, ?, ? {_BOTH} ON CONFLICT (conversation_id) DO UPDATE SET"
-    " artifact_id = excluded.artifact_id, selection = excluded.selection,"
-    " updated_at = excluded.updated_at"
-)
 
 
-class ArtifactLinks:
+class ArtifactLinks(CanvasFocus):
     def __init__(self, conn: sqlite3.Connection, lock: threading.RLock):
         self._conn = conn
         self._lock = lock
@@ -163,26 +150,3 @@ class ArtifactLinks:
                 (artifact_id, version),
             ).fetchone()
         return row is not None
-
-    def focus(self, conversation_id: str) -> Focus | None:
-        with self._lock:
-            row = self._conn.execute(
-                "SELECT * FROM canvas_focus WHERE conversation_id = ?", (conversation_id,)
-            ).fetchone()
-        return None if row is None else Focus.from_row(row)
-
-    def set_focus(
-        self, conversation_id: str, artifact_id: str, selection: dict[str, Any] | None
-    ) -> bool:
-        """False, with nothing stored, when either is missing."""
-        stored = "" if selection is None else json.dumps(selection, ensure_ascii=False)
-        params = (stored, now_iso(), conversation_id, artifact_id)
-        return self._write(lambda: self._conn.execute(_SET_FOCUS, params).rowcount > 0, True)
-
-    def clear_selection(self, conversation_id: str, *, commit: bool = True) -> None:
-        sql = "UPDATE canvas_focus SET selection = '', updated_at = ? WHERE conversation_id = ?"
-        self._write(lambda: self._conn.execute(sql, (now_iso(), conversation_id)), commit)
-
-    def clear_focus(self, conversation_id: str) -> None:
-        sql = "DELETE FROM canvas_focus WHERE conversation_id = ?"
-        self._write(lambda: self._conn.execute(sql, (conversation_id,)), True)
