@@ -10,8 +10,9 @@ from __future__ import annotations
 import sqlite3
 import threading
 
+from my_agent_crew.store.message_models import StoredMessage
 from my_agent_crew.store.messages import MessageStore
-from my_agent_crew.store.models import AWAITING_APPROVAL, Conversation, StoredMessage
+from my_agent_crew.store.models import AWAITING_APPROVAL, Conversation
 
 
 def _one(

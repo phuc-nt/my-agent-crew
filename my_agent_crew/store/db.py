@@ -18,8 +18,9 @@ from my_agent_crew.store.created_schedules import CreatedSchedulesStore
 from my_agent_crew.store.fork import Forks
 from my_agent_crew.store.job_state import JobStateStore
 from my_agent_crew.store.memory_proposals import MemoryProposalStore
+from my_agent_crew.store.message_models import StoredMessage
 from my_agent_crew.store.messages import MessageStore
-from my_agent_crew.store.models import Conversation, StoredMessage
+from my_agent_crew.store.models import Conversation
 from my_agent_crew.store.queue import QueueStore
 from my_agent_crew.store.runs import RunStore
 from my_agent_crew.store.schema import apply_schema

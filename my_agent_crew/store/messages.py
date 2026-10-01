@@ -9,7 +9,7 @@ import sqlite3
 import threading
 
 from my_agent_crew.llm.types import Message
-from my_agent_crew.store.models import StoredMessage
+from my_agent_crew.store.message_models import StoredMessage
 
 # The next seq is read and the row written in the same statement, and the row comes
 # straight back: one round trip where there used to be three. Selecting from the
