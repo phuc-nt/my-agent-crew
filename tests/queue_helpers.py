@@ -132,11 +132,14 @@ def make_rig(
     held: Sequence[int] = (),
     commands: Sequence[Command] = (),
     channel: str = "",
+    extra_tools: Sequence[Tool] = (),
 ) -> Rig:
     provider = GatedProvider(script, held)
     slow, guarded = SlowTool(), SlowTool("guarded", requires_approval=True)
     guarded.release.set()
-    deps = deps_factory(providers={"scripted": provider}, extra_tools=[slow.tool, guarded.tool])
+    deps = deps_factory(
+        providers={"scripted": provider}, extra_tools=[slow.tool, guarded.tool, *extra_tools]
+    )
     if commands:
         deps = replace(deps, profile=replace(deps.agent, commands=tuple(commands)))
     hub = OrderedHub(deps.store)

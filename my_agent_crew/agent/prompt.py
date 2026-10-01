@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 from my_agent_crew import texts
 from my_agent_crew.agent.context_trim import trim_tool_outputs
+from my_agent_crew.agent.payload_trim import trim_canvas_payloads
 from my_agent_crew.agent.prompt_frame import frame_text, today_line
 from my_agent_crew.agents.context import bootstrap_sections, turn_tail_sections
 from my_agent_crew.agents.kit_commands import commands_section
@@ -141,10 +142,16 @@ def system_prompt_for(deps: AgentDeps, conv: Conversation | None = None) -> str:
 
 
 def turn_messages(
-    deps: AgentDeps, conv: Conversation, history: Sequence[StoredMessage]
+    deps: AgentDeps,
+    conv: Conversation,
+    history: Sequence[StoredMessage],
+    turn_start: int | None = None,
 ) -> list[Message]:
     """The exact message list one model call is given: the system frame this module
-    builds, then the conversation so far with old tool output trimmed out."""
+    builds, then the conversation so far with old tool output trimmed out and, when
+    `turn_start` names the last message before this turn, the document text of the canvas
+    writes made up to it."""
     system = Message(role="system", content=system_prompt_for(deps, conv))
     can_reread = deps.tools.get(READ_TOOL) is not None
-    return [system, *trim_tool_outputs([m.message for m in history], can_reread=can_reread)]
+    messages = trim_canvas_payloads(history, turn_start)
+    return [system, *trim_tool_outputs(messages, can_reread=can_reread)]

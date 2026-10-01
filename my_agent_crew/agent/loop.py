@@ -21,6 +21,7 @@ from my_agent_crew.agent.events import (
     ThinkingEvent,
 )
 from my_agent_crew.agent.loop_guard import HALT, OK, LoopGuard
+from my_agent_crew.agent.payload_trim import turn_boundary
 from my_agent_crew.agent.prompt import turn_messages
 from my_agent_crew.agent.reply_checks import blank_reply_event, with_dropped_attachments
 from my_agent_crew.agent.steer import take_steers
@@ -79,6 +80,7 @@ async def run_turn(
     # A child picked up again after an approval or a restart arrives without the depth
     # its delegation gave it; the conversation still knows it is one level down.
     set_turn_conversation(conv_id, max(depth, 1) if conv.parent_call_id else depth)
+    turn_start = turn_boundary(deps.store, conv_id)  # before this turn writes anything
     if user_text is not None:
         if conv.status == AWAITING_APPROVAL:
             raise ConversationBusy(conv_id)
@@ -123,7 +125,7 @@ async def run_turn(
             history, tools = nudge_to_conclude(deps.store, conv, history), ()
         verdict = OK
         try:
-            async for event in _complete(deps, conv, history, tools):
+            async for event in _complete(deps, conv, history, tools, turn_start):
                 yield event
                 if isinstance(event, AssistantMessageEvent):
                     verdict = guard.observe(event.tool_calls)
@@ -144,8 +146,9 @@ async def _complete(
     conv: Conversation,
     history: Sequence[StoredMessage],
     tools: Sequence[ToolSpec],
+    turn_start: int,
 ) -> AsyncIterator[Event]:
-    messages = turn_messages(deps, conv, history)
+    messages = turn_messages(deps, conv, history, turn_start)
     completion: Completion | None = None
     thinking = False
     yield ModelCallEvent(stage="sent")

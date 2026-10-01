@@ -79,3 +79,15 @@ ARTIFACT_REWRITE_UNSEEN = (
 )
 ARTIFACT_READ_PAST_END = "v{version} có {total} dòng; from_line phải từ 1 tới {total}."
 ARTIFACT_READ_BINARY = "Canvas này là {kind}; agent chưa đọc được loại này."
+# What an earlier turn's canvas write carries in the prompt in place of the document text
+# it sent: where that text went, that it went nowhere, or that the write was cut off before
+# anyone learnt which. The store keeps the text itself.
+CANVAS_PAYLOAD_SAVED = (
+    "[đã lược {chars} ký tự; lần ghi này đã vào artifact {id} v{version}, đọc lại bằng"
+    " artifact_read]"
+)
+CANVAS_PAYLOAD_FAILED = "[đã lược {chars} ký tự; lần ghi này thất bại, chưa lưu gì]"
+CANVAS_PAYLOAD_CUT_OFF = (
+    "[đã lược {chars} ký tự; lần ghi này bị ngắt giữa chừng, không rõ đã lưu chưa: xem"
+    " artifact_list trước khi ghi lại]"
+)
