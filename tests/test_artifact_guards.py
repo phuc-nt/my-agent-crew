@@ -33,7 +33,7 @@ def test_every_way_of_setting_a_title_stores_it_cleaned(store: Store):
     assert art.title == "Kế hoạch"
     store.artifacts.write(art.id, "# b", AGENT, "c1", title="Bản\r\nhai")
     assert store.artifacts.get(art.id).title == "Bản hai"
-    store.artifacts.apply(art.id, str.upper, AGENT, "c1", title="\tBản ba⁦")
+    store.artifacts.apply(art.id, lambda head: head.content.upper(), AGENT, "c1", title="\tBản ba⁦")
     assert store.artifacts.get(art.id).title == "Bản ba"
     assert store.artifacts.rename(art.id, "Bản bốn").title == "Bản bốn"
 
@@ -45,7 +45,9 @@ def test_a_bad_title_refuses_the_whole_write(store: Store):
     with pytest.raises(InvalidTitle):
         store.artifacts.write(art.id, "# b", AGENT, "c1", title=" ")
     with pytest.raises(InvalidTitle):
-        store.artifacts.apply(art.id, str.upper, AGENT, "c1", title="x" * (TITLE_MAX + 1))
+        store.artifacts.apply(
+            art.id, lambda head: head.content.upper(), AGENT, "c1", title="x" * (TITLE_MAX + 1)
+        )
     with pytest.raises(InvalidTitle):
         store.artifacts.rename(art.id, "")
 

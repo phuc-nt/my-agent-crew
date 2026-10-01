@@ -16,7 +16,11 @@ from my_agent_crew.activity import ActivityHub
 from my_agent_crew.agent.approval_expiry import expire_overdue
 from my_agent_crew.agent.loop import AgentDeps, run_turn
 from my_agent_crew.agent.prompt import system_prompt_for
-from my_agent_crew.agent.turn_context import set_tool_call_id, set_turn_conversation
+from my_agent_crew.agent.turn_context import (
+    set_tool_call_id,
+    set_turn_conversation,
+    set_turn_source,
+)
 from my_agent_crew.agents.profile import WORK
 from my_agent_crew.config import Route
 from my_agent_crew.llm.fake import completion
@@ -27,6 +31,7 @@ from my_agent_crew.store import Store
 from my_agent_crew.store.models import QUESTION
 from my_agent_crew.store.runs import AWAITING
 from my_agent_crew.tools.delegate import DELEGATE_TOOL_NAME, MAX_DELEGATES
+from my_agent_crew.tools.delegate_open import open_child
 from my_agent_crew.tools.registry import ToolRegistry, ToolResult
 from tests.conftest import collect
 
@@ -169,6 +174,38 @@ async def test_the_child_inherits_what_is_left_of_the_parent_budget(runtime: Run
 
     child = runtime.store.for_parent_call("call-1")
     assert child.cost_cap_usd == pytest.approx(0.25)
+
+
+async def test_the_child_records_its_root_and_where_the_root_turn_came_from(runtime: Runtime):
+    """Set once when the child opens: which canvases it reaches, and whether it may write
+    them, follow from these, so nothing the child does later can move them."""
+    parent = runtime.store.create(agent_id="boss", autonomous=True)
+    set_turn_source("telegram")
+    await delegate(runtime, parent.id, "call-1", task="việc", agent="worker")
+    child = runtime.store.for_parent_call("call-1")
+    assert (child.root_id, child.root_source) == (parent.id, "telegram")
+
+    set_turn_source("job:boss/brief")
+    await delegate(runtime, parent.id, "call-2", task="việc", agent="worker")
+    from_job = runtime.store.for_parent_call("call-2")
+    assert (from_job.root_id, from_job.root_source) == (parent.id, "job")
+
+
+async def test_a_child_further_down_keeps_the_root_its_parent_was_given(runtime: Runtime):
+    root = runtime.store.create(agent_id="boss")
+    child = runtime.store.create(parent_call_id="c1", root_id=root.id, root_source="chat")
+    set_turn_source(f"delegate:{root.id}")
+    grandchild = open_child(runtime, child, "worker", "việc", {}, "c2")
+    assert (grandchild.root_id, grandchild.root_source) == (root.id, "chat")
+
+    # A child opened before roots were recorded stands in as the root, and the turn it
+    # runs is a delegated one, so no source a write is allowed from comes with it.
+    old_child = runtime.store.create(parent_call_id="c3")
+    under_old = open_child(runtime, old_child, "worker", "việc", {}, "c4")
+    assert (under_old.root_id, under_old.root_source) == (old_child.id, "")
+
+    orphan = open_child(runtime, None, "worker", "việc", {}, "c5")
+    assert (orphan.root_id, orphan.root_source) == ("", "")
 
 
 async def test_a_child_deleted_while_the_parent_waits_is_reported_in_words(runtime: Runtime):

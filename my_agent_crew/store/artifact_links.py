@@ -7,6 +7,9 @@ only ever moves forward. A paged read keeps a cursor beside it: the version it g
 (`read_upto`). Only a cursor that reaches the end of its version moves `seen_version`, so
 pages taken from two versions never pass for one whole read. A version some conversation has
 seen or is reading is pinned: a person's next autosave adds a row instead of folding it away.
+A link through which the conversation created or wrote the canvas is `shared`: the
+conversation's delegated children reach the canvas through it. Sharing only ever turns
+on, and reading never turns it on, so what one child read never widens the next one's reach.
 
 A focus is web UI state: the canvas a conversation has open and the passage the person
 selected in it, which the next turn's note quotes once and clears.
@@ -31,8 +34,9 @@ from my_agent_crew.store.stamps import now_iso
 # The WHERE also keeps SQLite from reading the upsert's ON as a join's.
 _BOTH = "FROM conversations c, artifacts a WHERE c.id = ? AND a.id = ?"
 _LINK = (
-    "INSERT INTO conversation_artifacts (conversation_id, artifact_id, linked_at)"
-    f" SELECT c.id, a.id, ? {_BOTH} ON CONFLICT (conversation_id, artifact_id) DO NOTHING"
+    "INSERT INTO conversation_artifacts (conversation_id, artifact_id, linked_at, shared)"
+    f" SELECT c.id, a.id, ?, ? {_BOTH} ON CONFLICT (conversation_id, artifact_id)"
+    " DO UPDATE SET shared = MAX(shared, excluded.shared)"
 )
 _MARK_SEEN = (
     "INSERT INTO conversation_artifacts (conversation_id, artifact_id, seen_version, linked_at)"
@@ -69,18 +73,25 @@ class ArtifactLinks:
                 raise
         return result
 
-    def _ensure(self, conversation_id: str, artifact_id: str) -> Link | None:
-        self._conn.execute(_LINK, (now_iso(), conversation_id, artifact_id))
-        row = self._conn.execute(
-            "SELECT * FROM conversation_artifacts WHERE conversation_id = ? AND artifact_id = ?",
-            (conversation_id, artifact_id),
-        ).fetchone()
+    def _ensure(self, conversation_id: str, artifact_id: str, shared: bool = False) -> Link | None:
+        self._conn.execute(_LINK, (now_iso(), int(shared), conversation_id, artifact_id))
+        return self.get(conversation_id, artifact_id)
+
+    def get(self, conversation_id: str, artifact_id: str) -> Link | None:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT * FROM conversation_artifacts WHERE conversation_id = ?"
+                " AND artifact_id = ?",
+                (conversation_id, artifact_id),
+            ).fetchone()
         return None if row is None else Link.from_row(row)
 
-    def link(self, conversation_id: str, artifact_id: str, *, commit: bool = True) -> Link | None:
-        """Links the two once; linking again keeps what the conversation has seen and read.
-        None when either is missing."""
-        return self._write(lambda: self._ensure(conversation_id, artifact_id), commit)
+    def link(
+        self, conversation_id: str, artifact_id: str, *, shared: bool = False, commit: bool = True
+    ) -> Link | None:
+        """Links the two once; linking again keeps what the conversation has seen and read,
+        and shares the link if it was not yet. None when either is missing."""
+        return self._write(lambda: self._ensure(conversation_id, artifact_id, shared), commit)
 
     def mark_seen(
         self, conversation_id: str, artifact_id: str, version: int, *, commit: bool = True

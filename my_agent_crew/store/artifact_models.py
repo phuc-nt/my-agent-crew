@@ -68,10 +68,14 @@ class Link:
     read_version: int  # the version its paged read goes through, 0 before the first page
     read_upto: int  # characters of that version read from the start without a gap
     linked_at: str
+    # Whether the conversation's delegated children reach the canvas through it: set by
+    # creating or writing the canvas there, never by reading it.
+    shared: bool = False
 
     @classmethod
     def from_row(cls, row: sqlite3.Row) -> Link:
-        return cls(**{name: row[name] for name in cls.__dataclass_fields__})
+        values = {name: row[name] for name in cls.__dataclass_fields__}
+        return cls(**{**values, "shared": bool(values["shared"])})
 
 
 @dataclass(frozen=True)

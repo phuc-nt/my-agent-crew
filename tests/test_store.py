@@ -274,6 +274,18 @@ def test_a_conversation_remembers_the_tool_call_that_opened_it(store: Store):
     assert store.for_parent_call("") is None
 
 
+def test_a_child_keeps_the_root_of_its_delegation_and_nothing_can_change_it(store: Store):
+    """Which canvases a child may reach, and whether it may write them, follow from the
+    conversation at the root of the chain and where that turn came from."""
+    child = store.create(parent_call_id="call-1", root_id="r00t", root_source="chat")
+    assert (store.get(child.id).root_id, store.get(child.id).root_source) == ("r00t", "chat")
+    plain = store.create()
+    assert (plain.root_id, plain.root_source) == ("", "")
+    for field in ("root_id", "root_source"):
+        with pytest.raises(ValueError):
+            store.update(child.id, **{field: "x"})
+
+
 def test_children_of_lists_what_a_turn_delegated_oldest_first(store: Store):
     first = store.create(parent_call_id="call-1")
     second = store.create(parent_call_id="call-2")

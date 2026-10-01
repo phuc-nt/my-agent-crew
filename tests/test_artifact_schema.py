@@ -73,6 +73,8 @@ def test_an_older_database_gains_the_canvas_tables_and_keeps_its_messages(tmp_pa
     assert message.message.content == "xin chào"
     [row] = store._conn.execute("SELECT context FROM messages").fetchall()
     assert row[0] == ""
+    conversation = store.get("c1")
+    assert (conversation.root_id, conversation.root_source) == ("", "")
 
 
 def test_opening_the_same_database_twice_changes_nothing_the_second_time(tmp_path: Path):

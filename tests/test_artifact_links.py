@@ -36,6 +36,29 @@ def test_a_fresh_link_has_seen_and_read_nothing(store: Store, pair):
     assert store.artifact_links.links_for(pair[0]) == [link]
 
 
+def test_sharing_only_ever_turns_on_and_reading_never_turns_it_on(store: Store, pair):
+    """A shared link puts the canvas in reach of the conversation's delegated children; a
+    read must not, or what one child read would widen what the next child can reach."""
+    links, (conv, art) = store.artifact_links, pair
+    assert links.link(conv, art).shared is False
+    assert links.link(conv, art, shared=True).shared is True
+    assert links.link(conv, art).shared is True
+
+    other = store.create().id
+    links.mark_seen(other, art, 1)
+    links.mark_read(other, art, 1, 0, 1, 1)
+    assert links.get(other, art).shared is False
+    assert links.link(other, art, shared=True).seen_version == 1
+
+
+def test_getting_a_link_never_makes_one(store: Store, pair):
+    links, (conv, art) = store.artifact_links, pair
+    assert links.get(conv, art) is None
+    assert _stored(store) == (0, 0)
+    made = links.link(conv, art)
+    assert links.get(conv, art) == made
+
+
 def test_seen_version_never_moves_back(store: Store, pair):
     links, (conv, art) = store.artifact_links, pair
     links.mark_seen(conv, art, 5)

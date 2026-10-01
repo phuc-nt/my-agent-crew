@@ -79,13 +79,16 @@ class Store(ConversationLookups, Forks, Spending):
         parent_call_id: str = "",
         approval_ttl_seconds: int | None = None,
         forked_from: str = "",
+        root_id: str = "",
+        root_source: str = "",
     ) -> Conversation:
         conv_id, stamp = new_id(), now_iso()
         with self._lock:
             [row] = self._conn.execute(
                 "INSERT INTO conversations (id, title, created_at, updated_at, autonomous,"
                 " cost_cap_usd, skills, agent_id, channel, parent_call_id, approval_ttl_seconds,"
-                " forked_from) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *",
+                " forked_from, root_id, root_source)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *",
                 (
                     conv_id,
                     title,
@@ -99,6 +102,8 @@ class Store(ConversationLookups, Forks, Spending):
                     parent_call_id,
                     approval_ttl_seconds,
                     forked_from,
+                    root_id,
+                    root_source,
                 ),
             ).fetchall()
             self._conn.commit()

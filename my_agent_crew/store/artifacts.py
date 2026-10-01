@@ -13,7 +13,6 @@ import logging
 import sqlite3
 import threading
 from collections.abc import Callable
-from itertools import islice
 from typing import Any
 
 from my_agent_crew.agent_ids import is_agent_id
@@ -24,9 +23,9 @@ from my_agent_crew.artifacts.kinds import (
     clean_title,
     prepare,
 )
-from my_agent_crew.memory.search import normalize
 from my_agent_crew.store.artifact_links import ArtifactLinks
 from my_agent_crew.store.artifact_models import USER, ArtifactSummary
+from my_agent_crew.store.artifact_reach import NEWEST_FIRST, ArtifactReach
 from my_agent_crew.store.artifact_versions import ArtifactVersions
 from my_agent_crew.store.stamps import new_id, now_iso
 
@@ -36,7 +35,7 @@ logger = logging.getLogger(__name__)
 _OWNED = ("artifact_versions", "conversation_artifacts", "canvas_focus")
 
 
-class ArtifactStore(ArtifactVersions):
+class ArtifactStore(ArtifactReach, ArtifactVersions):
     def __init__(self, conn: sqlite3.Connection, lock: threading.RLock, links: ArtifactLinks):
         self._conn = conn
         self._lock = lock
@@ -99,29 +98,19 @@ class ArtifactStore(ArtifactVersions):
         query: str | None = None,
         limit: int = 50,
     ) -> list[ArtifactSummary]:
-        """Most recently changed first. `query` matches the title regardless of case and
-        accents, which SQLite's LIKE cannot do beyond ASCII, so it is matched here."""
-        sql, where, params = "SELECT a.* FROM artifacts a", [], []
+        """Most recently changed first; `query` matches the title regardless of case and
+        accents (`ArtifactReach._titled`)."""
+        sql, where, params = "SELECT a.* FROM artifacts a", [], {}
         if conversation_id is not None:
             sql += " JOIN conversation_artifacts l ON l.artifact_id = a.id"
-            where.append("l.conversation_id = ?")
-            params.append(conversation_id)
+            where.append("l.conversation_id = :conv")
+            params["conv"] = conversation_id
         if agent_id is not None:
-            where.append("a.agent_id = ?")
-            params.append(agent_id)
+            where.append("a.agent_id = :agent")
+            params["agent"] = agent_id
         if where:
             sql += " WHERE " + " AND ".join(where)
-        sql += " ORDER BY a.updated_at DESC, a.rowid DESC"
-        needle = normalize(query.strip()) if query else ""
-        if not needle:
-            sql += " LIMIT ?"
-            params.append(limit)
-        with self._lock:
-            rows = self._conn.execute(sql, params).fetchall()
-        found = (ArtifactSummary.from_row(row) for row in rows)
-        if needle:
-            found = (summary for summary in found if needle in normalize(summary.title))
-        return [*islice(found, limit)]
+        return self._titled(sql + NEWEST_FIRST, params, query, limit)
 
     def rename(self, artifact_id: str, title: str) -> ArtifactSummary:
         """A new title only: no new version."""

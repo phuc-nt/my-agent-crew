@@ -70,6 +70,7 @@ CREATE TABLE IF NOT EXISTS conversation_artifacts (
     conversation_id TEXT NOT NULL, artifact_id TEXT NOT NULL,
     seen_version INTEGER NOT NULL DEFAULT 0, read_version INTEGER NOT NULL DEFAULT 0,
     read_upto INTEGER NOT NULL DEFAULT 0, linked_at TEXT NOT NULL,
+    shared INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (conversation_id, artifact_id)
 );
 CREATE TABLE IF NOT EXISTS canvas_focus (
@@ -120,6 +121,12 @@ ADDED_COLUMNS = (
     # last looked, the passage they selected), sent to the model ahead of `content` but kept
     # apart from it, so search and the chat bubble show only what the person wrote.
     ("messages", "context", "TEXT NOT NULL DEFAULT ''"),
+    # On a delegated child, the conversation at the root of its chain and where the turn
+    # that opened the chain came from; "" on a conversation a person or a job opened.
+    # Set once when the child opens: which canvases it reaches, and whether it may
+    # write them, follow from these.
+    ("conversations", "root_id", "TEXT NOT NULL DEFAULT ''"),
+    ("conversations", "root_source", "TEXT NOT NULL DEFAULT ''"),
 )
 
 

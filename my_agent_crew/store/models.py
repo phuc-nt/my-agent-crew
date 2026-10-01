@@ -52,6 +52,9 @@ class Conversation:
     approval_ttl_seconds: int | None = None  # None: the setting's wait applies
     # The id of the conversation this one was forked from ("Sửa và gửi lại từ đây"), else "".
     forked_from: str = ""
+    # On a delegated child, its chain's root and that root turn's source; else "".
+    root_id: str = ""
+    root_source: str = ""
 
     @property
     def over_budget(self) -> bool:
@@ -84,6 +87,8 @@ class Conversation:
             parent_call_id=row["parent_call_id"],
             approval_ttl_seconds=row["approval_ttl_seconds"],
             forked_from=row["forked_from"],
+            root_id=row["root_id"],
+            root_source=row["root_source"],
         )
 
 

@@ -112,19 +112,19 @@ class ArtifactVersions:
     def apply(
         self,
         artifact_id: str,
-        change: Callable[[str], str],
+        change: Callable[[ArtifactVersion], str],
         author: str,
         conversation_id: str,
         title: str | None = None,
         note: str = "",
     ) -> ArtifactVersion:
-        """Reads the newest text, changes it and writes the result in one step: no other
-        write lands in between, and when `change` raises nothing is written. `change` runs
+        """Hands `change` the newest version and writes the text it returns, in one step: no
+        other write lands in between, and when `change` raises nothing is written. It runs
         with the store's lock held, so every other read and write waits for it: keep it a
         quick, plain transformation, with no fuzzy search and no I/O."""
 
         def payload(head: ArtifactVersion) -> tuple[str | None, bytes | None]:
-            return change(head.content or ""), None
+            return change(head), None
 
         return self._write_next(artifact_id, payload, author, conversation_id, title, note)
 

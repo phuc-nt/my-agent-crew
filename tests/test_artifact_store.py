@@ -103,7 +103,7 @@ def test_what_does_not_exist_raises_key_error(store: Store):
         lambda: store.artifacts.version("nope", 1),
         lambda: store.artifacts.versions("nope"),
         lambda: store.artifacts.write("nope", "x", AGENT, "c1"),
-        lambda: store.artifacts.apply("nope", str.upper, AGENT, "c1"),
+        lambda: store.artifacts.apply("nope", lambda head: head.content.upper(), AGENT, "c1"),
         lambda: store.artifacts.restore("nope", 1, USER, "c1"),
         lambda: store.artifacts.rename("nope", "x"),
         lambda: store.artifacts.delete("nope"),
@@ -272,7 +272,7 @@ def test_on_change_hears_every_write_after_commit_outside_the_lock(store: Store)
     store.artifact_links.link(first, art.id)
     store.artifact_links.link(second, art.id)
     store.artifacts.write(art.id, "# b", AGENT, "c1")
-    store.artifacts.apply(art.id, str.upper, AGENT, "c1")
+    store.artifacts.apply(art.id, lambda head: head.content.upper(), AGENT, "c1")
     store.artifacts.restore(art.id, 1, USER, "c1")
     store.artifacts.rename(art.id, "Mới")
     store.artifacts.delete(art.id)

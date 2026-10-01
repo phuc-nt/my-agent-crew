@@ -8,7 +8,7 @@ from datetime import datetime
 import pytest
 
 from my_agent_crew.artifacts.kinds import ArtifactTooLarge, cap_bytes
-from my_agent_crew.store.artifact_models import USER, VersionConflict
+from my_agent_crew.store.artifact_models import USER, ArtifactVersion, VersionConflict
 from my_agent_crew.store.artifact_versions import COALESCE_WINDOW_S
 from my_agent_crew.store.db import Store
 
@@ -169,15 +169,30 @@ def test_a_write_against_a_stale_base_is_refused_with_the_newest_version(store):
 
 def test_apply_reads_changes_and_writes_in_one_step(store):
     art = _canvas(store, content="# a\nb")
-    version = store.artifacts.apply(art.id, lambda text: text.replace("b", "c"), AGENT, "c1")
+    version = store.artifacts.apply(
+        art.id, lambda head: head.content.replace("b", "c"), AGENT, "c1"
+    )
     assert (version.version, version.content, version.author) == (2, "# a\nc", AGENT)
     assert store.artifacts.head(art.id).content == "# a\nc"
+
+
+def test_apply_hands_the_change_the_newest_version_whole(store):
+    art = _canvas(store, content="# a")
+    store.artifacts.write(art.id, "# b", USER, "c1")
+    seen = []
+
+    def change(head: ArtifactVersion) -> str:
+        seen.append((head.version, head.author, head.content))
+        return head.content + "!"
+
+    assert store.artifacts.apply(art.id, change, AGENT, "c1").content == "# b!"
+    assert seen == [(2, USER, "# b")]
 
 
 def test_apply_writes_nothing_when_the_change_fails(store):
     art = _canvas(store)
 
-    def fail(text: str) -> str:
+    def fail(head: ArtifactVersion) -> str:
         raise ValueError("old text not found")
 
     with pytest.raises(ValueError, match="old text not found"):
@@ -188,7 +203,7 @@ def test_apply_writes_nothing_when_the_change_fails(store):
 def test_apply_writes_nothing_when_the_result_is_over_the_cap(store):
     art = _canvas(store)
     with pytest.raises(ArtifactTooLarge):
-        store.artifacts.apply(art.id, lambda text: "x" * (cap_bytes("markdown") + 1), AGENT, "")
+        store.artifacts.apply(art.id, lambda head: "x" * (cap_bytes("markdown") + 1), AGENT, "")
     assert _rows(store, art.id) == [(1, AGENT)]
 
 
@@ -196,7 +211,7 @@ def test_line_breaks_are_stored_as_lf_on_every_write_path(store):
     art = store.artifacts.create("t", "markdown", "default", AGENT, "c1", "a\r\nb\rc")
     assert store.artifacts.head(art.id).content == "a\nb\nc"
     written = store.artifacts.write(art.id, "d\r\ne", AGENT, "c1")
-    applied = store.artifacts.apply(art.id, lambda text: text + "\r\nf", AGENT, "c1")
+    applied = store.artifacts.apply(art.id, lambda head: head.content + "\r\nf", AGENT, "c1")
     assert (written.content, applied.content) == ("d\ne", "d\ne\nf")
     assert applied.size == len("d\ne\nf")
 
