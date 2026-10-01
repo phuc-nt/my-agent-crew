@@ -10,6 +10,7 @@ from my_agent_crew import texts
 from my_agent_crew.agent.context_trim import trim_tool_outputs
 from my_agent_crew.agent.payload_trim import trim_canvas_payloads
 from my_agent_crew.agent.prompt_frame import frame_text, today_line
+from my_agent_crew.agent.turn_context import may_write_canvas
 from my_agent_crew.agents.context import bootstrap_sections, turn_tail_sections
 from my_agent_crew.agents.kit_commands import commands_section
 from my_agent_crew.agents.roster import DELEGATE_TOOL_NAME, crew_roster_section
@@ -18,6 +19,8 @@ from my_agent_crew.config import Settings
 from my_agent_crew.llm.types import Message
 from my_agent_crew.skills import Skill
 from my_agent_crew.store import Conversation, StoredMessage
+from my_agent_crew.texts_canvas import CANVAS_CLOSED_BODY, CANVAS_CLOSED_TITLE
+from my_agent_crew.tools.artifact_scope import CANVAS_WRITE_TOOLS
 from my_agent_crew.tools.output_spill import READ_TOOL
 
 if TYPE_CHECKING:
@@ -61,6 +64,18 @@ def skill_index_section(skills: Sequence[Skill]) -> str:
             line = line.rstrip(": ")
         lines.append(line + _index_suffix(skill))
     return f"\n{texts.SKILL_INDEX_HEADING}\n{texts.SKILL_INDEX_INTRO}\n" + "\n".join(lines) + "\n"
+
+
+def canvas_closed_section(
+    conv: Conversation | None, tool_names: Sequence[str]
+) -> list[tuple[str, str]]:
+    """A turn that cannot write a canvas hears so before the model puts a whole document into
+    a call only to have it refused. The tools stay listed, so every turn of the agent shares
+    one prefix; the standing prompt, with no turn, has no channel to speak of."""
+    held = [name for name in CANVAS_WRITE_TOOLS if name in tool_names]
+    if conv is None or not held or may_write_canvas(conv):
+        return []
+    return [(CANVAS_CLOSED_TITLE, CANVAS_CLOSED_BODY.format(tools=", ".join(held)))]
 
 
 def build_system_prompt(
@@ -132,12 +147,17 @@ def system_prompt_for(deps: AgentDeps, conv: Conversation | None = None) -> str:
         name=profile.name,
         today=today.isoformat(),
         skill_index=index,
-        tail_sections=turn_tail_sections(
-            profile,
-            today=today,
-            previous_summary=previous.summary if previous else "",
-            previous_at=day_and_time(previous.updated_at, deps.settings.zone) if previous else "",
-        ),
+        tail_sections=[
+            *turn_tail_sections(
+                profile,
+                today=today,
+                previous_summary=previous.summary if previous else "",
+                previous_at=day_and_time(previous.updated_at, deps.settings.zone)
+                if previous
+                else "",
+            ),
+            *canvas_closed_section(conv, tool_names),
+        ],
     )
 
 

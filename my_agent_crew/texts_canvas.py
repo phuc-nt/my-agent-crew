@@ -42,6 +42,10 @@ ARTIFACT_CHANNEL_CLOSED = (
     "Kênh của lượt này chưa mở được canvas (mới chỉ web chat mở được), nên chưa ghi gì. Viết"
     " thẳng nội dung vào câu trả lời."
 )
+# The tail of the system prompt for a turn whose channel cannot write a canvas, said before
+# the model puts a whole document into a call only to hear `ARTIFACT_CHANNEL_CLOSED`.
+CANVAS_CLOSED_TITLE = "Canvas"
+CANVAS_CLOSED_BODY = "Kênh này chưa mở được canvas: trả lời thẳng trong tin nhắn, đừng gọi {tools}."
 ARTIFACT_WRITE_BUDGET = (
     "Lượt này đã ghi {limit} bản cho canvas này, chạm trần của một lượt, nên chưa ghi gì. Dừng"
     " sửa và báo người những gì đã làm; lượt sau ghi tiếp được."
