@@ -1,3 +1,4 @@
+import sqlite3
 from pathlib import Path
 
 import pytest
@@ -17,6 +18,37 @@ def test_create_get_list_update_delete(store: Store):
     store.delete(a.id)
     with pytest.raises(KeyError):
         store.get(a.id)
+
+
+class _RemovingTheConversationFails:
+    """The store's connection, except that removing the conversation row itself fails as a
+    full disk would, after its messages are already gone inside the transaction."""
+
+    def __init__(self, conn: sqlite3.Connection):
+        self._conn = conn
+
+    def execute(self, sql: str, params: tuple = ()):
+        if sql.startswith("DELETE FROM conversations WHERE"):
+            raise sqlite3.OperationalError("disk I/O error")
+        return self._conn.execute(sql, params)
+
+    def __getattr__(self, name: str):
+        return getattr(self._conn, name)
+
+
+def test_a_delete_that_fails_halfway_leaves_the_conversation_whole(store: Store):
+    """Without a rollback the next unrelated commit would finish the half-done delete,
+    taking the messages of a conversation that was reported as still there."""
+    conv = store.create(title="A")
+    store.append(conv.id, Message(role="user", content="hi"))
+    store._conn = _RemovingTheConversationFails(store._conn)
+    with pytest.raises(sqlite3.OperationalError):
+        store.delete(conv.id)
+    store._conn = store._conn._conn
+
+    store.create(title="B")
+    assert store.get(conv.id).title == "A"
+    assert [m.message.content for m in store.history(conv.id)] == ["hi"]
 
 
 def test_update_rejects_non_mutable_fields(store: Store):

@@ -150,16 +150,23 @@ class Store(ConversationLookups, Forks, Spending):
         return Conversation.from_row(rows[0])
 
     def delete(self, conv_id: str) -> None:
+        """All of it or none of it: a failure halfway rolls back, so the next unrelated
+        commit cannot finish a delete that was reported as failed."""
         with self._lock:
-            for table in OWNED_BY_CONVERSATION:
-                self._conn.execute(f"DELETE FROM {table} WHERE conversation_id = ?", (conv_id,))
-            # A fork's header links back here; once this conversation is gone that link
-            # must go too, or it would point at an id that no longer exists.
-            self._conn.execute(
-                "UPDATE conversations SET forked_from = '' WHERE forked_from = ?", (conv_id,)
-            )
-            cur = self._conn.execute("DELETE FROM conversations WHERE id = ?", (conv_id,))
-            self._conn.commit()
+            try:
+                for table in OWNED_BY_CONVERSATION:
+                    sql = f"DELETE FROM {table} WHERE conversation_id = ?"
+                    self._conn.execute(sql, (conv_id,))
+                # A fork's header links back here; once this conversation is gone that link
+                # must go too, or it would point at an id that no longer exists.
+                self._conn.execute(
+                    "UPDATE conversations SET forked_from = '' WHERE forked_from = ?", (conv_id,)
+                )
+                cur = self._conn.execute("DELETE FROM conversations WHERE id = ?", (conv_id,))
+                self._conn.commit()
+            except BaseException:
+                self._conn.rollback()
+                raise
         if cur.rowcount == 0:
             raise KeyError(conv_id)
 
