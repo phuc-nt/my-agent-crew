@@ -13,6 +13,19 @@ class ToolCall:
     id: str
     name: str
     arguments: dict[str, Any]
+    # Why the arguments the model sent were not a JSON object, "" when they were. Such a
+    # call carries `{}` and is answered with this reason instead of being run. Never sent
+    # back to a provider: the wire carries only id, name and arguments.
+    invalid: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        """As stored and served. `invalid` appears only when set, so every ordinary call
+        keeps the shape it always had and a server rolled back past this field still
+        reads it."""
+        row: dict[str, Any] = {"id": self.id, "name": self.name, "arguments": self.arguments}
+        if self.invalid:
+            row["invalid"] = self.invalid
+        return row
 
 
 @dataclass(frozen=True)

@@ -113,6 +113,10 @@ def allowed_by_pattern(deps: AgentDeps, name: str, arguments: dict[str, Any]) ->
 
 
 def pauses_for_a_person(deps: AgentDeps, conv: Conversation, call: ToolCall) -> bool:
+    """A call whose arguments never parsed asks nobody: a person would be shown nothing to
+    decide on, and it is answered with the parse error whatever they chose."""
+    if call.invalid:
+        return False
     tool = deps.tools.get(call.name)
     denied = deny_reason(call.arguments, deps.settings.shell_deny_patterns)
     if tool is None or not tool.requires_approval or (call.name == SHELL_TOOL_NAME and denied):

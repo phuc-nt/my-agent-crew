@@ -1079,6 +1079,15 @@ tên một test thì sửa dòng của nó trong cùng commit.
     giá không rõ còn lần bị từ chối trước chunk đầu thì không, lượt chỉ giữ câu trả lời của lần
     hỏi lại và không phát `route_fallback`); `tests/test_provider_chain.py` (lỗi không tạm thời
     vẫn rơi tuyến ngay như trước)
+- **Tham số lời gọi tool không phải JSON object thành lỗi tool, lượt vẫn chạy tiếp**
+  - pytest: `tests/test_tool_args_invalid.py` (tham số bị cắt giữa chừng báo vị trí chỗ dừng
+    chứ không phải chỗ chuỗi bắt đầu, lỗi giữa chừng báo vị trí và vài chục ký tự quanh đó với
+    ký tự điều khiển viết thành `<U+000A>`, escape `\u` sai gần cuối không bị coi là bị cắt,
+    JSON không phải object được gọi theo kiểu, tham số đúng hay rỗng không bị đánh dấu, chi
+    tiết không bao giờ lên wire, lời gọi hỏng lưu và đọc lại được còn lời gọi thường giữ đúng
+    dạng hàng cũ, lời gọi hỏng không chạy mà trả lỗi rồi lượt chạy tiếp, `ask_user` và tool cần
+    duyệt có tham số hỏng không hỏi ai); `tests/test_openrouter.py`
+    ("test_malformed_tool_arguments_complete_as_an_invalid_call")
 - **Canvas: tài liệu có phiên bản đi cạnh cuộc trò chuyện (tầng lưu trữ)**
   - pytest: `tests/test_artifact_kinds.py` (mỗi loại là chữ hoặc nhị phân, mỗi loại một trần,
     loại lạ bị từ chối theo tên, lỗi kích thước là `ValueError` để một chỗ trả lời được mọi đầu

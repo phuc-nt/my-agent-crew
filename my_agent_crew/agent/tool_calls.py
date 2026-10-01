@@ -35,6 +35,7 @@ from my_agent_crew.texts import (
     DENIED_TOOL,
     EXPIRED_TOOL,
     INTERRUPTED_TOOL,
+    TOOL_ARGS_INVALID,
 )
 from my_agent_crew.tools.ask_user import answer_result, unanswered_result
 from my_agent_crew.tools.registry import ToolResult
@@ -47,7 +48,12 @@ REFUSALS = {DENIED: DENIED_TOOL, EXPIRED: EXPIRED_TOOL}
 
 async def _execute(deps: AgentDeps, call: ToolCall) -> ToolResult:
     """Each call runs with its own id in context. `asyncio.gather` copies the context per
-    task, so a batched call reads its own id and not whichever one was set last."""
+    task, so a batched call reads its own id and not whichever one was set last. A call
+    whose arguments never parsed is answered with where they broke instead of being run."""
+    if call.invalid:
+        return ToolResult(
+            ok=False, output=TOOL_ARGS_INVALID.format(name=call.name, detail=call.invalid)
+        )
     set_tool_call_id(call.id)
     return await deps.tools.execute(call.name, call.arguments)
 

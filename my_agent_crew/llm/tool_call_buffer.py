@@ -7,8 +7,12 @@ import json
 import uuid
 from typing import Any
 
-from my_agent_crew.llm.provider import ProviderError
 from my_agent_crew.llm.types import ToolCall
+
+# How much of the arguments around the break is quoted back: enough to recognise the spot,
+# little enough that a long broken document is never echoed into the history.
+_BEFORE, _AFTER = 40, 20
+_JSON_TYPES = {list: "array", str: "string", int: "number", float: "number", bool: "boolean"}
 
 
 class ToolCallBuffer:
@@ -29,17 +33,48 @@ class ToolCallBuffer:
         calls = []
         for index in sorted(self._parts):
             slot = self._parts[index]
-            try:
-                args = json.loads(slot["args"] or "{}")
-            except ValueError as exc:
-                raise ProviderError(f"tool call {slot['name']} had malformed arguments") from exc
-            if not isinstance(args, dict):
-                raise ProviderError(f"tool call {slot['name']} arguments are not an object")
+            arguments, invalid = parse_arguments(slot["args"] or "{}")
             calls.append(
                 ToolCall(
                     id=slot["id"] or f"call_{uuid.uuid4().hex}",
                     name=slot["name"],
-                    arguments=args,
+                    arguments=arguments,
+                    invalid=invalid,
                 )
             )
         return tuple(calls)
+
+
+def parse_arguments(raw: str) -> tuple[dict[str, Any], str]:
+    """The arguments as an object, or `{}` and why they are not one. A long document written
+    into one argument is where models break JSON most, with a raw line break, an unescaped
+    quote or output cut off mid-call; saying where lets the model send the call again
+    instead of the whole run failing."""
+    try:
+        value = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        n = len(raw)
+        if _ran_out(raw, exc):
+            return {}, f"{n} chars; cut off at char {n}; ends with {_shown(raw, n)}"
+        # Some of Python's messages already end in "at" ("Invalid control character at").
+        why = exc.msg.removesuffix(" at")
+        return {}, f"{n} chars; {why} at char {exc.pos}; near {_shown(raw, exc.pos + _AFTER)}"
+    if not isinstance(value, dict):
+        return {}, f"{len(raw)} chars; JSON {_JSON_TYPES.get(type(value), 'null')}, not an object"
+    return value, ""
+
+
+def _ran_out(raw: str, exc: json.JSONDecodeError) -> bool:
+    """The text ended before the JSON did. Python names where the unfinished string began,
+    which for a cut-off document is thousands of characters before where it stopped."""
+    if exc.msg.startswith("Unterminated string") or exc.pos >= len(raw):
+        return True
+    return exc.msg.startswith("Invalid \\uXXXX") and exc.pos + 5 >= len(raw)
+
+
+def _shown(text: str, end: int) -> str:
+    """The last `_BEFORE + _AFTER` characters before `end`, as sent but with control
+    characters spelled out: a raw line break inside a string is what broke the JSON, so it
+    must not read like the `\\n` escape it should have been."""
+    tail = text[max(0, end - _BEFORE - _AFTER) : end]
+    return "".join(f"<U+{ord(ch):04X}>" if ord(ch) < 0x20 else ch for ch in tail)

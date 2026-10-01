@@ -108,7 +108,7 @@ class StoredMessage:
             "seq": self.seq,
             "role": m.role,
             "content": m.content,
-            "tool_calls": [asdict(tc) for tc in m.tool_calls],
+            "tool_calls": [tc.to_dict() for tc in m.tool_calls],
             "tool_call_id": m.tool_call_id,
             "name": m.name,
             "provider": self.provider,

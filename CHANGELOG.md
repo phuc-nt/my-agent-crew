@@ -21,6 +21,12 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   still surfaces rather than being hidden. A retried side call that had already been served is
   written to the cost ledger at an unknown cost. No model fallback is added: the retry uses the
   same model and provider.
+- A tool call whose arguments are not a JSON object (a raw line break or unescaped quote inside
+  a long document, or output cut off mid-call) no longer ends the run with a provider error. The
+  call is answered, without running, with its length, where the JSON broke (where the text
+  stopped, for a cut-off call) and the few characters around that spot, and the turn carries on
+  so the model can send it again. Such a call never asks a person for approval or an answer, and
+  the broken text itself is not stored.
 
 ### Changed
 

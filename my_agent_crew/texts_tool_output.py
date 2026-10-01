@@ -1,5 +1,6 @@
-"""Strings for `tool_output_read`, split out of `texts` so neither file outgrows its
-budget. Import them from `my_agent_crew.texts`, which re-exports every name here."""
+"""Strings about tool output and tool calls (`tool_output_read`, arguments that did not
+parse), split out of `texts` so neither file outgrows its budget. Import them from
+`my_agent_crew.texts`, which re-exports every name here."""
 
 TOOL_OUTPUT_READ_DESCRIPTION = (
     "Đọc lại toàn bộ kết quả gốc của một lời gọi công cụ trước đó trong CHÍNH cuộc trò chuyện"
@@ -29,3 +30,12 @@ TOOL_OUTPUT_READ_MORE = (
     "\n[còn {remaining} ký tự — gọi lại tool_output_read id={id} offset={next_offset} để đọc tiếp]"
 )
 TOOL_OUTPUT_READ_DONE = "\n[đã đọc hết]"
+# A tool call whose arguments were not a JSON object, so it was not run. `detail` is the
+# English diagnosis from the llm layer: length, where the JSON broke, the text around it.
+# The advice stays generic because not every agent has the tools a long document needs.
+TOOL_ARGS_INVALID = (
+    "Không chạy {name}: tham số gửi lên không phải một JSON object hợp lệ nên đã bị bỏ qua."
+    " Hãy gửi lại lời gọi này. Trong chuỗi JSON, xuống dòng phải viết là \\n và dấu nháy kép"
+    ' là \\"; nội dung dài thì gửi phần khung trước rồi bổ sung dần từng phần.\n'
+    "Chi tiết: {detail}"
+)

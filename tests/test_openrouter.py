@@ -125,13 +125,18 @@ async def test_fragmented_tool_call_arguments_are_reassembled():
     assert done.finish_reason == "tool_calls"
 
 
-async def test_malformed_tool_arguments_raise_provider_error():
+async def test_malformed_tool_arguments_complete_as_an_invalid_call():
+    """Not a provider error: the model is told where its JSON broke and tries again."""
     body = sse(
         delta(tool_calls=[{"index": 0, "id": "c1", "function": {"name": "t", "arguments": "{"}}]),
         delta(finish="tool_calls"),
     )
-    with pytest.raises(ProviderError):
-        await collect(provider_with(body).stream([Message(role="user", content="hi")], [], "m"))
+    items = await collect(provider_with(body).stream([Message(role="user", content="hi")], [], "m"))
+    done = items[-1]
+    [call] = done.message.tool_calls
+    assert (call.id, call.name, call.arguments) == ("c1", "t", {})
+    assert call.invalid.startswith("1 chars; cut off at char 1")
+    assert done.finish_reason == "tool_calls"
 
 
 async def test_http_error_status_raises_provider_error():

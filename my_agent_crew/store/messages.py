@@ -7,7 +7,6 @@ from __future__ import annotations
 import json
 import sqlite3
 import threading
-from dataclasses import asdict
 
 from my_agent_crew.llm.types import Message
 from my_agent_crew.store.models import StoredMessage
@@ -56,7 +55,7 @@ class MessageStore:
         cached_tokens: int | None = None,
     ) -> StoredMessage:
         """Raises KeyError for an unknown conversation, with nothing written."""
-        tool_calls = json.dumps([asdict(tc) for tc in message.tool_calls])
+        tool_calls = json.dumps([tc.to_dict() for tc in message.tool_calls])
         values = [conv_id, message.role, message.content, tool_calls, message.tool_call_id]
         values += [message.name, provider, model, cost_usd, stamp]
         values += [prompt_tokens, completion_tokens, reasoning_tokens, cached_tokens, conv_id]
