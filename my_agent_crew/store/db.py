@@ -6,8 +6,6 @@ from __future__ import annotations
 
 import json
 import threading
-import uuid
-from datetime import UTC, datetime
 from pathlib import Path
 
 from my_agent_crew.llm.types import Message
@@ -25,6 +23,8 @@ from my_agent_crew.store.runs import RunStore
 from my_agent_crew.store.schema import apply_schema
 from my_agent_crew.store.search import SearchStore
 from my_agent_crew.store.side_calls import SideCallStore
+from my_agent_crew.store.spend import Spending
+from my_agent_crew.store.stamps import new_id, now_iso
 from my_agent_crew.store.usage import UsageStore
 from my_agent_crew.texts import CONVERSATION_TITLE_DEFAULT
 
@@ -33,15 +33,7 @@ MUTABLE_FIELDS |= {"auto_approve"}
 LIST_FIELDS = ("skills", "auto_approve")  # stored as JSON arrays
 
 
-def now_iso() -> str:
-    return datetime.now(UTC).isoformat(timespec="seconds")
-
-
-def new_id() -> str:
-    return uuid.uuid4().hex[:12]
-
-
-class Store(ConversationLookups, Forks):
+class Store(ConversationLookups, Forks, Spending):
     def __init__(self, path: Path | str = ":memory:"):
         self._conn = connect(path)
         self._lock = threading.RLock()
@@ -162,21 +154,6 @@ class Store(ConversationLookups, Forks):
             self._conn.commit()
         if cur.rowcount == 0:
             raise KeyError(conv_id)
-
-    def add_spend(
-        self, conv_id: str, cost_usd: float | None, *, touch: bool = True
-    ) -> Conversation:
-        column = (
-            "spent_usd = spent_usd + ?"
-            if cost_usd is not None
-            else "unknown_cost_calls = unknown_cost_calls + ?"
-        )
-        amount = cost_usd if cost_usd is not None else 1
-        stamp, params = (", updated_at = ?", (amount, now_iso())) if touch else ("", (amount,))
-        return self._update_returning(
-            f"UPDATE conversations SET {column}{stamp} WHERE id = ? RETURNING *",
-            (*params, conv_id),
-        )
 
     # --- messages ------------------------------------------------------------------------
 
