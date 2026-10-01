@@ -2,13 +2,13 @@
 rest of the app a canvas changed."""
 
 import logging
-import threading
 
 import pytest
 
 from my_agent_crew.artifacts.kinds import ArtifactTooLarge, PayloadMismatch, UnknownKind, cap_bytes
 from my_agent_crew.store.artifact_models import USER, VersionGone
 from my_agent_crew.store.db import Store
+from tests.canvas_helpers import lock_is_free
 
 AGENT = "agent:default"
 PNG = b"\x89PNG\r\n\x1a\n" + bytes(16)
@@ -243,27 +243,11 @@ def test_sizes_add_up_every_version_of_each_canvas(store: Store):
     assert store.artifacts.sizes() == {text.id: 7, image.id: len(PNG)}
 
 
-def _lock_is_free(store: Store) -> bool:
-    """Whether another thread could take the store's lock right now."""
-    taken: list[bool] = []
-
-    def take() -> None:
-        got = store._lock.acquire(timeout=1)
-        taken.append(got)
-        if got:
-            store._lock.release()
-
-    thread = threading.Thread(target=take)
-    thread.start()
-    thread.join()
-    return taken[0]
-
-
 def test_on_change_hears_every_write_after_commit_outside_the_lock(store: Store):
     heard: list[tuple] = []
 
     def on_change(summary: dict, conversation_ids: list[str]) -> None:
-        free = _lock_is_free(store)
+        free = lock_is_free(store)
         heard.append((summary, conversation_ids, store._conn.in_transaction, free))
 
     store.artifacts.on_change = on_change

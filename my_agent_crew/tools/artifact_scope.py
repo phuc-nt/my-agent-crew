@@ -82,6 +82,16 @@ def check_channel(conv: Conversation) -> None:
         raise ToolError(ARTIFACT_CHANNEL_CLOSED)
 
 
+def check_agent_kind(kind: str) -> None:
+    """Agents write only `AGENT_KINDS`, also to a canvas a person made of another kind."""
+    if kind not in AGENT_KINDS:
+        raise _kind_closed()
+
+
+def _kind_closed() -> ToolError:
+    return ToolError(ARTIFACT_KIND_CLOSED.format(kinds=", ".join(AGENT_KINDS)))
+
+
 def check_budget(artifact_id: str) -> None:
     """Refuses the write once this turn has written `CANVAS_WRITES_PER_TURN` versions of the
     canvas, or created that many canvases when `artifact_id` is `NEW_CANVAS`. A write that
@@ -126,7 +136,7 @@ def canvas_errors(artifact_id: str = "") -> Iterator[None]:
     try:
         yield
     except (UnknownKind, PayloadMismatch):
-        raise ToolError(ARTIFACT_KIND_CLOSED.format(kinds=", ".join(AGENT_KINDS))) from None
+        raise _kind_closed() from None
     except ArtifactTooLarge as exc:
         message = ARTIFACT_TOO_LARGE.format(kind=exc.kind, size=exc.size, cap=exc.cap)
         raise ToolError(message) from None

@@ -31,12 +31,17 @@ from my_agent_crew.store.artifact_models import (
     VersionGone,
 )
 from my_agent_crew.store.db import Store
-from my_agent_crew.texts_canvas import ARTIFACT_CHANNEL_CLOSED, ARTIFACT_CREATE_BUDGET
+from my_agent_crew.texts_canvas import (
+    ARTIFACT_CHANNEL_CLOSED,
+    ARTIFACT_CREATE_BUDGET,
+    ARTIFACT_KIND_CLOSED,
+)
 from my_agent_crew.tools.artifact_scope import (
     CANVAS_WRITES_PER_TURN,
     NEW_CANVAS,
     authors_line,
     canvas_errors,
+    check_agent_kind,
     check_budget,
     check_channel,
     in_scope,
@@ -97,6 +102,15 @@ def test_a_person_typing_in_a_childs_own_conversation_writes_from_there(store: S
     child = store.create(root_id=root.id, root_source=TELEGRAM)
     set_turn_source(CHAT)
     assert may_write_canvas(child) is True
+
+
+@pytest.mark.parametrize("kind", ["html", "svg", "mermaid", "image", "pdf"])
+def test_an_agent_writes_markdown_and_code_alone(kind):
+    with pytest.raises(ToolError) as caught:
+        check_agent_kind(kind)
+    assert str(caught.value) == ARTIFACT_KIND_CLOSED.format(kinds="markdown, code")
+    for writable in ("markdown", "code"):
+        check_agent_kind(writable)
 
 
 def test_the_thirty_first_write_to_one_canvas_in_a_turn_is_refused():

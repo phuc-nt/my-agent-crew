@@ -71,3 +71,11 @@ ARTIFACT_VERSION_CONFLICT = (
     "Canvas đã có bản mới hơn (v{head}) từ lần cuối bạn thấy nó, nên chưa ghi gì. Đọc lại bằng"
     " artifact_read rồi sửa bằng artifact_edit."
 )
+ARTIFACT_ARG_TEXT = "`{name}` cần là một chuỗi chữ. Chưa làm gì."
+ARTIFACT_NO_CONVERSATION = "Canvas chỉ dùng được trong một cuộc trò chuyện. Chưa làm gì."
+ARTIFACT_REWRITE_UNSEEN = (
+    "Bạn chưa đọc hết bản mới nhất của canvas này nên chưa viết lại được, chưa ghi gì. Sửa từng"
+    " đoạn bằng artifact_edit, hoặc đọc hết bằng artifact_read id={id} rồi mới viết lại."
+)
+ARTIFACT_READ_PAST_END = "v{version} có {total} dòng; from_line phải từ 1 tới {total}."
+ARTIFACT_READ_BINARY = "Canvas này là {kind}; agent chưa đọc được loại này."

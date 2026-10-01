@@ -42,6 +42,18 @@ def excerpt(line: str, start: int, end: int, width: int) -> str:
     return f"{head}{line[low:high]}{tail}"
 
 
+def fenced_diff(before: str, after: str, room: int) -> str:
+    """`render_diff` in a diff fence, the whole block in at most `room` characters. A fence
+    grows past three backticks only for a diff that quotes a longer run, so the diff is drawn
+    again with what that fence leaves."""
+    budget = room - len(fenced("", "diff"))
+    block = fenced(render_diff(before, after, budget), "diff")
+    while len(block) > room and budget > 0:
+        budget -= len(block) - room
+        block = fenced(render_diff(before, after, budget), "diff")
+    return block
+
+
 def render_diff(before: str, after: str, budget: int) -> str:
     """The lines `after` changed from `before`, under headings numbered as in `after`, with no
     context. Removed lines take at most half the budget, so what was written always shows;

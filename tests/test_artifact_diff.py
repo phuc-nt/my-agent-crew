@@ -10,7 +10,13 @@ import re
 import pytest
 
 from my_agent_crew.artifacts import diff
-from my_agent_crew.artifacts.diff import DIFF_LINE_CHARS, excerpt, fenced, render_diff
+from my_agent_crew.artifacts.diff import (
+    DIFF_LINE_CHARS,
+    excerpt,
+    fenced,
+    fenced_diff,
+    render_diff,
+)
 from my_agent_crew.artifacts.tag import TAG_RE, artifact_tag
 from my_agent_crew.texts_canvas import DIFF_HUNK, LINE_CUT_HEAD, LINE_CUT_TAIL, LINES_CUT
 
@@ -176,3 +182,26 @@ def test_only_the_changed_middle_of_a_long_text_is_compared(monkeypatch):
         "+ | b |",
     ]
     assert compared == [(1, 1)]
+
+
+@pytest.mark.parametrize("room", [40, 120, 500, 2000])
+def test_a_fenced_diff_fits_its_room_whole(room):
+    before = "\n".join(f"dòng {n}" for n in range(200))
+    after = "\n".join(f"DÒNG {n}" for n in range(200))
+    block = fenced_diff(before, after, room)
+    assert len(block) <= room
+    assert block.startswith("```diff\n") and block.endswith("\n```")
+
+
+@pytest.mark.parametrize("room", range(60, 400, 7))
+def test_a_diff_quoting_a_backtick_run_is_drawn_again_to_fit_a_longer_fence(room):
+    before = "\n".join(f"`````{n}" for n in range(50))
+    after = "\n".join(f"`````{n}!" for n in range(50))
+    block = fenced_diff(before, after, room)
+    assert len(block) <= room
+    assert block.startswith("``````diff\n") and block.endswith("\n``````")
+
+
+def test_a_room_too_small_for_any_line_still_ends_with_the_count_alone():
+    block = fenced_diff("a\nb", "a\nc", 5)
+    assert block == fenced(LINES_CUT.format(n=2), "diff")
