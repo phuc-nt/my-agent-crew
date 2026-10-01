@@ -81,8 +81,8 @@ class Tool:
 
 
 def truncate(text: str, limit: int = MAX_OUTPUT_CHARS) -> str:
-    """A cut that ignores what the text is. Still used for the short control messages a
-    hook or a block adds; tool output itself goes through `shape_output`, which keeps JSON
+    """A cut that ignores what the text is. Used for a tool's error and the control messages
+    a hook or a block adds; tool output itself goes through `shape_output`, which keeps JSON
     parseable instead of leaving the model a fragment."""
     if len(text) <= limit:
         return text
@@ -169,7 +169,7 @@ class ToolRegistry:
         try:
             output = await tool.run(arguments)
         except ToolError as exc:
-            return ToolResult(ok=False, output=TOOL_FAILED.format(error=exc))
+            return ToolResult(ok=False, output=truncate(TOOL_FAILED.format(error=exc), self.limit))
         except Exception as exc:  # a bug in a tool must not take the turn down with it
             logger.exception("tool %s crashed", name)
             return ToolResult(ok=False, output=TOOL_FAILED.format(error=type(exc).__name__))

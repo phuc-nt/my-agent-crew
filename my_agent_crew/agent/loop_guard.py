@@ -36,6 +36,10 @@ def _arguments(arguments: Mapping[str, Any]) -> str:
     return json.dumps(arguments, sort_keys=True, ensure_ascii=False, default=str)
 
 
+def _signature(call: Mapping[str, Any]) -> str:
+    return f"{call['name']} {_arguments(call['arguments'])} {call.get('invalid', '')}"
+
+
 class LoopGuard:
     def __init__(self, threshold: int = THRESHOLD, exempt: Iterable[str] = EXEMPT) -> None:
         self.threshold = threshold
@@ -53,9 +57,11 @@ class LoopGuard:
     def observe(self, tool_calls: Sequence[Mapping[str, Any]]) -> str:
         """Takes one model call's tool calls (as the assistant event carries them) and says
         whether the turn goes on, is told it repeats itself, or halts. Parallel calls in
-        another order are the same call; ids never count."""
+        another order are the same call; ids never count. A call whose arguments did not
+        parse arrives with `{}` and counts by where it broke, so long documents cut off at
+        different places are attempts, not repeats."""
         counted = [c for c in tool_calls if c["name"] not in self.exempt]
-        signature = tuple(sorted(f"{c['name']} {_arguments(c['arguments'])}" for c in counted))
+        signature = tuple(sorted(_signature(c) for c in counted))
         if not signature:
             self.reset()
             return OK

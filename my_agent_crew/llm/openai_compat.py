@@ -152,7 +152,9 @@ async def stream_chat(
         raise ProviderError(f"transport failure talking to {model}: {exc}", transient=True) from exc
     except ValueError as exc:
         raise ProviderError(f"malformed stream from {model}") from exc
-    message = Message(role="assistant", content="".join(text_parts), tool_calls=calls.calls())
+    # A reply stopped at the output limit can leave its last tool call half written.
+    tool_calls = calls.calls(cut_off=finish == "length")
+    message = Message(role="assistant", content="".join(text_parts), tool_calls=tool_calls)
     yield Completion(
         message=message, usage=usage, provider=provider, model=model, finish_reason=finish
     )

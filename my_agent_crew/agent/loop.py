@@ -180,10 +180,7 @@ async def _complete(
     yield AssistantMessageEvent(
         message_id=stored.id,
         content=completion.message.content,
-        tool_calls=[
-            {"id": tc.id, "name": tc.name, "arguments": tc.arguments}
-            for tc in completion.message.tool_calls
-        ],
+        tool_calls=[tc.to_dict() for tc in completion.message.tool_calls],
         provider=completion.provider,
         model=completion.model,
         cost_usd=completion.usage.cost_usd,

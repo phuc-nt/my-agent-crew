@@ -13,6 +13,10 @@ from my_agent_crew.llm.types import ToolCall
 # little enough that a long broken document is never echoed into the history.
 _BEFORE, _AFTER = 40, 20
 _JSON_TYPES = {list: "array", str: "string", int: "number", float: "number", bool: "boolean"}
+# Opens the diagnosis of the call that was still being written when the reply hit the
+# model's output limit. Sending that call again word for word breaks at the same place,
+# so the agent layer answers it with "split it" rather than "send it again".
+CUT_OFF = "cut off at the output limit; "
 
 
 class ToolCallBuffer:
@@ -29,11 +33,16 @@ class ToolCallBuffer:
             slot["name"] = fn.get("name") or slot["name"]
             slot["args"] += fn.get("arguments") or ""
 
-    def calls(self) -> tuple[ToolCall, ...]:
+    def calls(self, cut_off: bool = False) -> tuple[ToolCall, ...]:
+        """`cut_off` says the reply stopped at the output limit. Only the last call can have
+        been interrupted by that; an earlier one that broke, broke on its own."""
         calls = []
+        last = max(self._parts, default=None)
         for index in sorted(self._parts):
             slot = self._parts[index]
             arguments, invalid = parse_arguments(slot["args"] or "{}")
+            if invalid and cut_off and index == last:
+                invalid = CUT_OFF + invalid
             calls.append(
                 ToolCall(
                     id=slot["id"] or f"call_{uuid.uuid4().hex}",

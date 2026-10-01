@@ -39,3 +39,12 @@ TOOL_ARGS_INVALID = (
     ' là \\"; nội dung dài thì gửi phần khung trước rồi bổ sung dần từng phần.\n'
     "Chi tiết: {detail}"
 )
+# The call that was still being written when the reply hit the model's output limit. Sent
+# again unchanged it would stop at the same place, so this asks for smaller pieces instead
+# of a resend and must never carry TOOL_ARGS_INVALID's "send it again".
+TOOL_ARGS_CUT_OFF = (
+    "Không chạy {name}: câu trả lời chạm giới hạn độ dài đầu ra khi lời gọi này còn đang viết,"
+    " nên tham số bị cắt và đã bị bỏ qua. Đừng gửi lại nguyên văn: lần gửi lại sẽ bị cắt đúng"
+    " chỗ cũ. Chia nội dung thành nhiều lời gọi nhỏ hơn, gửi phần khung trước rồi bổ sung dần.\n"
+    "Chi tiết: {detail}"
+)

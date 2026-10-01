@@ -30,6 +30,11 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 - A delegated agent picked up again after an approval, a question or a restart can no longer
   hand work on to another agent. Resuming started its turn as if a person had opened it, so the
   one-level limit on delegation did not apply.
+- A tool call cut off because the reply reached the model's output limit is now answered with a
+  request to split the content into smaller calls, not to send it again, which would stop at the
+  same place. Calls broken at different places no longer count as one repeated call, so a model
+  working through a long document is not told it is looping or halted; the same broken call sent
+  three times in a row still is. A tool error longer than the output cap is cut like any output.
 
 ### Changed
 

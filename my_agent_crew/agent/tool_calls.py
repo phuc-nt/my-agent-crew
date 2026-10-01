@@ -26,6 +26,7 @@ from my_agent_crew.agent.events import (
 from my_agent_crew.agent.tool_batches import split_batches
 from my_agent_crew.agent.tool_gate import ask_reason_text, pauses_for_a_person
 from my_agent_crew.agent.turn_context import set_tool_call_id
+from my_agent_crew.llm.tool_call_buffer import CUT_OFF
 from my_agent_crew.llm.types import Message, ToolCall
 from my_agent_crew.store import Approval, Store, StoredMessage
 from my_agent_crew.store.approvals import ANSWERED, DENIED, EXPIRED, PENDING
@@ -35,6 +36,7 @@ from my_agent_crew.texts import (
     DENIED_TOOL,
     EXPIRED_TOOL,
     INTERRUPTED_TOOL,
+    TOOL_ARGS_CUT_OFF,
     TOOL_ARGS_INVALID,
 )
 from my_agent_crew.tools.ask_user import answer_result, unanswered_result
@@ -51,9 +53,8 @@ async def _execute(deps: AgentDeps, call: ToolCall) -> ToolResult:
     task, so a batched call reads its own id and not whichever one was set last. A call
     whose arguments never parsed is answered with where they broke instead of being run."""
     if call.invalid:
-        return ToolResult(
-            ok=False, output=TOOL_ARGS_INVALID.format(name=call.name, detail=call.invalid)
-        )
+        template = TOOL_ARGS_CUT_OFF if call.invalid.startswith(CUT_OFF) else TOOL_ARGS_INVALID
+        return ToolResult(ok=False, output=template.format(name=call.name, detail=call.invalid))
     set_tool_call_id(call.id)
     return await deps.tools.execute(call.name, call.arguments)
 
