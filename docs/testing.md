@@ -1206,10 +1206,11 @@ tên một test thì sửa dòng của nó trong cùng commit.
     lượt tạo tối đa 30 canvas,
     "test_a_batched_call_counts_toward_its_turn_and_a_child_turn_counts_apart", master với tới mọi
     canvas còn agent khác chỉ canvas của mình, canvas một lượt trong chuỗi chỉ đọc không vào tầm
-    của con kế tiếp, dòng tác giả gom từng đoạn liền của một tác giả, nhóm phủ cả những số bản một
-    loạt gộp đã bỏ, tối đa sáu nhóm, mỗi lời từ chối của kho thành lời dặn,
+    của con kế tiếp, mỗi lời từ chối của kho thành lời dặn,
     "test_a_canvas_out_of_reach_reads_exactly_like_one_that_does_not_exist", lỗi khác đi qua
-    nguyên vẹn); `tests/test_artifact_reach.py`
+    nguyên vẹn); `tests/test_artifact_authors.py` (dòng tác giả gom từng đoạn liền của một tác
+    giả, nhóm phủ cả những số bản một loạt gộp đã bỏ, tối đa sáu nhóm);
+    `tests/test_artifact_reach.py`
     ("test_a_quiet_canvas_linked_here_is_found_past_newer_ones_out_of_reach",
     "test_reachable_and_is_reachable_agree_on_every_kind_of_canvas",
     "test_a_persons_canvas_is_reached_only_through_a_link_whatever_the_agent_is_called", khớp tiêu

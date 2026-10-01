@@ -13,6 +13,7 @@ from my_agent_crew.agent.turn_context import note_canvas_write
 from my_agent_crew.artifacts.diff import fenced_diff
 from my_agent_crew.artifacts.kinds import cap_bytes, clean_title, prepare
 from my_agent_crew.artifacts.tag import artifact_tag
+from my_agent_crew.store.artifact_authors import authors_line
 from my_agent_crew.texts import TOOL_FAILED
 from my_agent_crew.texts_canvas import ARTIFACT_REWRITE_UNSEEN, ARTIFACT_VERSION_CONFLICT
 from my_agent_crew.tools.artifact_context import (
@@ -24,7 +25,6 @@ from my_agent_crew.tools.artifact_context import (
     text_arg,
 )
 from my_agent_crew.tools.artifact_scope import (
-    authors_line,
     canvas_errors,
     check_agent_kind,
     check_budget,

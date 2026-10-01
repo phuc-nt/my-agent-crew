@@ -8,6 +8,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from my_agent_crew.artifacts.diff import line_span
+from my_agent_crew.store.artifact_authors import authors_line
 from my_agent_crew.texts_canvas import ARTIFACT_READ_BINARY, ARTIFACT_READ_PAST_END, LINE_CUT_TAIL
 from my_agent_crew.tools.artifact_context import (
     CUT_MARK_ROOM,
@@ -16,7 +17,7 @@ from my_agent_crew.tools.artifact_context import (
     kind_label,
     text_arg,
 )
-from my_agent_crew.tools.artifact_scope import authors_line, canvas_errors
+from my_agent_crew.tools.artifact_scope import canvas_errors
 from my_agent_crew.tools.artifact_texts import (
     ARTIFACT_READ_BEHIND,
     ARTIFACT_READ_END,
