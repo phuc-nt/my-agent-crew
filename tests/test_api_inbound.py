@@ -71,11 +71,35 @@ def test_channels_and_explicit_conversations_are_kept_apart(crew):
     slack = client.post("/api/inbound", json={"text": "a", "channel": "slack:team"}).json()
     api = client.post("/api/inbound", json={"text": "b"}).json()
     into_web = client.post(
-        "/api/inbound", json={"text": "c", "conversation_id": web["id"], "source": "chat"}
+        "/api/inbound", json={"text": "c", "conversation_id": web["id"], "source": "slack"}
     ).json()
 
     assert len({slack["conversation_id"], api["conversation_id"], web["id"]}) == 3
     assert into_web["conversation_id"] == web["id"] and into_web["text"] == "(echo) c"
+
+
+@pytest.mark.parametrize(
+    "source", ["chat", "telegram", "job", "job:pong/brief", "delegate:c1", "web", "memory:wiki"]
+)
+def test_a_relay_cannot_borrow_the_name_of_one_of_the_servers_own_channels(crew, source):
+    """A turn labelled `chat` may write a canvas, and a `job:<id>` run is listed as that
+    job's last run: a relay must not be able to claim either."""
+    client, runtime = crew
+
+    res = client.post("/api/inbound", json={"text": "a", "source": source})
+
+    assert res.status_code == 422 and "own channels" in res.text
+    assert runtime.hub.recent() == [] and runtime.store.list() == []
+
+
+@pytest.mark.parametrize("source", ["api", "selftest", "slack:team", "api:zalo"])
+def test_any_other_source_is_recorded_on_the_run(crew, source):
+    client, runtime = crew
+
+    res = client.post("/api/inbound", json={"text": "a", "source": source})
+
+    assert res.status_code == 200 and res.json()["status"] == "done"
+    assert [r.source for r in runtime.hub.recent()] == [source]
 
 
 def test_unknown_agents_and_conversations_are_refused(crew):

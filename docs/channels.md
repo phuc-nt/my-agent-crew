@@ -21,9 +21,12 @@ POST /api/inbound {"text": "…", "agent_id"?: "default", "channel"?: "api", "co
 
 `channel` chọn cuộc trò chuyện theo ngày (`api:<something>` tách một relay khỏi
 relay khác), `conversation_id` thì tiếp tục một cuộc cụ thể thay vào đó, và `source` là thứ run
-hiển thị trong view hoạt động. 404 khi agent hoặc cuộc trò chuyện không tồn tại, 409 khi
-cuộc trò chuyện đang chờ duyệt, 422 khi tin chỉ là `/steer` không kèm chữ, 429 khi hàng của cuộc
-trò chuyện đã đủ 20 tin; `detail` của 422 và 429 là câu nói cho người đọc. `status` là `done`,
+hiển thị trong view hoạt động. `source` không được mượn tên kênh của chính server (`chat`,
+`telegram`, `web`, `job` hay `job:<id>`, `delegate:<…>`, `memory:<…>`): lượt `chat` được ghi
+canvas, còn run `job:<id>` hiện thành lần chạy gần nhất và nằm trong lịch sử của job đó. 404 khi
+agent hoặc cuộc trò chuyện không tồn tại, 409 khi cuộc trò chuyện đang chờ duyệt, 422 khi tin chỉ
+là `/steer` không kèm chữ hoặc `source` là tên kênh nội bộ, 429 khi hàng của cuộc trò chuyện đã
+đủ 20 tin; `detail` của 422 vì `/steer` và của 429 là câu nói cho người đọc. `status` là `done`,
 `halted`, `error` hoặc `approval_required`, và khi đó text kết thúc bằng thông báo tương ứng. Đây
 cũng là cách test một tính năng đầu-cuối: một request, một câu trả lời, không cần trình duyệt.
 

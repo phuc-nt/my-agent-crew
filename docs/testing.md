@@ -1099,6 +1099,12 @@ tên một test thì sửa dòng của nó trong cùng commit.
     dấu, lời gọi bị cắt nhận lời dặn chia nhỏ chứ không phải "gửi lại", sự kiện câu trả lời mang
     chi tiết chỗ hỏng của từng lời gọi, sáu lần hỏng khác chỗ không bị nhắc lặp hay dừng lượt,
     cùng một lời gọi hỏng ba lần liền vẫn bị nhắc, lỗi tool dài hơn trần bị cắt như mọi kết quả)
+- **`/api/inbound` không nhận tên kênh nội bộ làm `source`**
+  - pytest: `tests/test_api_inbound.py`
+    ("test_a_relay_cannot_borrow_the_name_of_one_of_the_servers_own_channels": `chat`, `telegram`,
+    `job`, `job:<id>`, `delegate:<…>`, `web`, `memory:<…>` bị 422 và không có run hay cuộc trò
+    chuyện nào được tạo; "test_any_other_source_is_recorded_on_the_run": `api`, `selftest`,
+    `slack:team`, `api:zalo` vẫn chạy và run ghi đúng nhãn)
 - **Canvas: tài liệu có phiên bản đi cạnh cuộc trò chuyện (tầng lưu trữ)**
   - pytest: `tests/test_artifact_kinds.py` (mỗi loại là chữ hoặc nhị phân, mỗi loại một trần,
     loại lạ bị từ chối theo tên, lỗi kích thước là `ValueError` để một chỗ trả lời được mọi đầu

@@ -35,6 +35,10 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   same place. Calls broken at different places no longer count as one repeated call, so a model
   working through a long document is not told it is looping or halted; the same broken call sent
   three times in a row still is. A tool error longer than the output cap is cut like any output.
+- `POST /api/inbound` now answers 422 when `source` names one of the server's own channels
+  (`chat`, `telegram`, `web`, `job` or `job:<id>`, `delegate:<…>`, `memory:<…>`). A relay could
+  otherwise pass for the person in the web chat, or post a run that showed up as a scheduled
+  job's last run and in its history. Any other label, `api` included, is recorded as before.
 
 ### Changed
 
