@@ -3,7 +3,7 @@
 import asyncio
 
 from my_agent_crew.activity import ActivityHub
-from my_agent_crew.activity.hub import SUBSCRIBER_QUEUE_SIZE
+from my_agent_crew.activity.watchers import SUBSCRIBER_QUEUE_SIZE
 from my_agent_crew.agent.events import (
     AssistantMessageEvent,
     DoneEvent,

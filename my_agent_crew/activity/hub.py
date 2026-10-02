@@ -10,16 +10,13 @@ from typing import Any
 
 from my_agent_crew.activity.busy import Busy
 from my_agent_crew.activity.steps import apply_event
+from my_agent_crew.activity.watchers import Watchers
 from my_agent_crew.agent.events import STREAMING_EVENTS, Event, kind_of, to_dict
 from my_agent_crew.store import Store
 from my_agent_crew.store.db import new_id, now_iso
 from my_agent_crew.store.runs import ACTIVE_STATUSES, AWAITING, RUNNING, RunRecord
 
 RECENT_LIMIT = 100
-# A watcher that falls this many payloads behind is cut off; its stream ends and the
-# browser reconnects to a fresh snapshot. One stalled tab must not hold every event of
-# every run in memory for as long as it stays open.
-SUBSCRIBER_QUEUE_SIZE = 256
 # Streamed tokens change the step under construction, not the timeline: the run is
 # written and announced at step boundaries, and a delta only moves a counter in memory.
 
@@ -30,7 +27,7 @@ class ActivityHub:
         # A run paused on a request that still waits is held again, so the decision
         # continues it; everything else the previous process left open is closed.
         self._live = {run.id: run for run in store.runs.settle_after_restart(now_iso())}
-        self._subscribers: set[asyncio.Queue[dict[str, Any] | None]] = set()
+        self._watchers = Watchers()
         # Set when a conversation's run reaches a terminal status, so a caller waiting on
         # a delegated turn wakes up instead of polling.
         self._finished: dict[str, asyncio.Event] = {}
@@ -65,7 +62,7 @@ class ActivityHub:
             if live.conversation_id == conversation_id and live.status == AWAITING:
                 live.status = RUNNING
                 self._store.runs.save(live)
-                self._broadcast({"type": "run", "run": live.to_dict()})
+                self._watchers.broadcast({"type": "run", "run": live.to_dict()})
                 return live
         run = RunRecord(
             id=new_id(),
@@ -79,7 +76,7 @@ class ActivityHub:
         )
         self._live[run.id] = run
         self._store.runs.save(run)
-        self._broadcast({"type": "run", "run": run.to_dict()})
+        self._watchers.broadcast({"type": "run", "run": run.to_dict()})
         return run
 
     def record(self, run: RunRecord, event: Event, clock: float) -> None:
@@ -95,7 +92,7 @@ class ActivityHub:
             "status": run.status,
             "event": {"type": kind_of(event), **to_dict(event)},
         }
-        self._broadcast(payload)
+        self._watchers.broadcast(payload)
         if run.status not in ACTIVE_STATUSES:
             self.finish(run)
 
@@ -107,7 +104,7 @@ class ActivityHub:
         run.finished_at = run.finished_at or now_iso()
         self._live.pop(run.id, None)
         self._store.runs.save(run)
-        self._broadcast({"type": "run", "run": run.to_dict()})
+        self._watchers.broadcast({"type": "run", "run": run.to_dict()})
         if run.conversation_id:
             self._finished.setdefault(run.conversation_id, asyncio.Event()).set()
             self.busy.settle(run.conversation_id)
@@ -130,7 +127,7 @@ class ActivityHub:
 
         The sidebar is built from a list fetched once, so a name written in the
         background would otherwise not appear until something else forced a reload."""
-        self._broadcast({"type": "conversation", "conversation": conversation})
+        self._watchers.broadcast({"type": "conversation", "conversation": conversation})
 
     def recent(
         self,
@@ -162,29 +159,13 @@ class ActivityHub:
 
     # --- streaming -----------------------------------------------------------------------
 
-    def _broadcast(self, payload: dict[str, Any]) -> None:
-        for queue in list(self._subscribers):
-            try:
-                queue.put_nowait(payload)
-            except asyncio.QueueFull:
-                # Make room for the end marker, then drop the watcher.
-                self._subscribers.discard(queue)
-                queue.get_nowait()
-                queue.put_nowait(None)
+    def subscribe(self) -> AsyncIterator[dict[str, Any]]:
+        """The live runs first, then every payload until the watcher falls behind or the
+        hub closes."""
+        return self._watchers.subscribe(self._snapshot)
 
-    async def subscribe(self) -> AsyncIterator[dict[str, Any]]:
-        queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue(SUBSCRIBER_QUEUE_SIZE)
-        self._subscribers.add(queue)
-        try:
-            yield {"type": "snapshot", "runs": [r.to_dict() for r in self.live()]}
-            while True:
-                item = await queue.get()
-                if item is None:
-                    return
-                yield item
-        finally:
-            self._subscribers.discard(queue)
+    def _snapshot(self) -> dict[str, Any]:
+        return {"type": "snapshot", "runs": [r.to_dict() for r in self.live()]}
 
     def close(self) -> None:
-        for queue in list(self._subscribers):
-            queue.put_nowait(None)
+        self._watchers.close()
