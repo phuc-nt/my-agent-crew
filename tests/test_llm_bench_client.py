@@ -1,5 +1,6 @@
 """The client the bench and the behaviour evals share: how a turn follows its approvals, and
-what a server it starts is given."""
+what a server it starts is given: what a program needs to run and the model key, nothing else
+of the caller's environment."""
 
 from __future__ import annotations
 
@@ -61,39 +62,57 @@ def test_a_conversation_is_autonomous_only_when_the_caller_says_so():
     assert second == {"agent_id": "coach", "autonomous": False}
 
 
-def test_a_server_gets_the_bench_environment_plus_what_it_is_told(monkeypatch, tmp_path: Path):
-    monkeypatch.setenv("MY_AGENT_HOME", "/live/home")
-    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "x")
-    monkeypatch.setenv("COACH_BOT_TOKEN", "x")
-    monkeypatch.setenv("OPENROUTER_API_KEY", "x")
+def test_a_server_gets_what_a_program_needs_and_the_model_key_and_nothing_else(tmp_path: Path):
+    needed = {
+        "PATH": "/usr/bin:/bin",
+        "HOME": "/Users/owner",
+        "LANG": "vi_VN.UTF-8",
+        "LC_ALL": "vi_VN.UTF-8",
+        "LC_CTYPE": "UTF-8",
+        "TERM": "xterm-256color",
+        "TMPDIR": "/var/folders/x/T/",
+        "USER": "owner",
+        "LOGNAME": "owner",
+        "SHELL": "/bin/zsh",
+        "TZ": "Asia/Saigon",
+        "OPENROUTER_API_KEY": "x",
+    }
+    kept_out = {
+        "MY_AGENT_HOME": "/live/home",
+        "MY_AGENT_COST_CAP_USD": "5",
+        "MY_AGENT_SHELL_ALLOW_PATTERNS": "python3 ",
+        "TELEGRAM_BOT_TOKEN": "x",
+        "COACH_BOT_TOKEN": "x",
+        "BRAVE_API_KEY": "x",
+        "GEMINI_API_KEY": "x",
+        "LINEAR_API_KEY": "x",
+        "CLAUDE_CODE_MESSAGING_TOKEN": "x",
+        "SSH_AUTH_SOCK": "/tmp/agent.sock",
+    }
     server = Server(
         tmp_path,
         tmp_path / "home",
         8798,
         extra_args=["--no-schedule"],
         extra_env={"HOME": str(tmp_path / "run")},
-        dropped_env=["COACH_BOT_TOKEN"],
     )
 
-    env = server.environment()
+    env = server.environment({**needed, **kept_out})
 
-    assert env["MY_AGENT_HOME"] == str(tmp_path / "home")
-    assert env["HOME"] == str(tmp_path / "run")
-    assert "OPENROUTER_API_KEY" in env
-    assert "TELEGRAM_BOT_TOKEN" not in env
-    assert "COACH_BOT_TOKEN" not in env
+    homes = {"HOME": str(tmp_path / "run"), "MY_AGENT_HOME": str(tmp_path / "home")}
+    assert env == {**needed, **homes}
     assert server.command()[-3:] == ["--port", "8798", "--no-schedule"]
     assert server.log_path == tmp_path / "home" / "server.log"
 
 
-def test_a_shell_allow_list_in_the_callers_environment_does_not_reach_the_server(
-    monkeypatch, tmp_path: Path
-):
-    monkeypatch.setenv("MY_AGENT_SHELL_ALLOW_PATTERNS", "python3 ")
+def test_a_server_reads_the_environment_of_the_process_starting_it(monkeypatch, tmp_path: Path):
+    monkeypatch.setenv("OPENROUTER_API_KEY", "x")
+    monkeypatch.setenv("SSH_AUTH_SOCK", "/tmp/agent.sock")
 
     env = Server(tmp_path, tmp_path / "home", 8798).environment()
 
-    assert "MY_AGENT_SHELL_ALLOW_PATTERNS" not in env
+    assert env.get("OPENROUTER_API_KEY") == "x"
+    assert env.get("SSH_AUTH_SOCK") is None
 
 
 def test_a_server_can_log_outside_its_home(tmp_path: Path):

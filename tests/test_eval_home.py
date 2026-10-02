@@ -381,14 +381,6 @@ def test_workspaces_with_the_same_name_get_their_own_copies(tmp_path):
     assert (workspace_of(built, "coach") / "notes.md").is_file()
 
 
-def test_the_bot_tokens_the_live_profiles_name_are_reported_to_keep_out_of_the_server(tmp_path):
-    live = make_live(tmp_path)
-
-    built = build_home(live.home, live.out)
-
-    assert built.token_envs == ("COACH_BOT_TOKEN", "MASTER_BOT_TOKEN")
-
-
 def test_the_live_paths_are_reported_for_the_approval_guard(tmp_path):
     live = make_live(tmp_path)
 
@@ -509,7 +501,6 @@ def test_a_synthetic_home_loads_with_the_fake_route_and_nothing_of_the_live_crew
 
     assert [(r.provider, r.model) for r in settings.routes] == [("fake", "echo")]
     assert [p.id for p in load_profiles(settings)] == ["default"]
-    assert built.token_envs == ()
     assert built.live_paths == ()
     assert built.root == (tmp_path / "run").resolve()
 

@@ -69,19 +69,15 @@ def copy_dirs(externals: Sequence[Path], ws: Path) -> list[Path]:
 
 def plan_manifests(
     live: Path, mapping: Mapping, live_paths: Sequence[str]
-) -> tuple[list[tuple[str, dict[str, Any]]], set[str], list[str]]:
+) -> tuple[list[tuple[str, dict[str, Any]]], list[str]]:
     """Each manifest as the copy will hold it, worked out before anything is copied so a
     path that leads nowhere is refused while there is nothing to clean up."""
     planned: list[tuple[str, dict[str, Any]]] = []
-    tokens: set[str] = set()
     warnings: list[str] = []
     for rel, source, live_dir in _manifests(live):
         raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
         if not isinstance(raw, dict):
             raise ValueError(f"{rel}: expected a mapping at the top level")
-        telegram = raw.get("telegram")
-        if isinstance(telegram, dict) and isinstance(telegram.get("token_env"), str):
-            tokens.add(telegram["token_env"])
         for key in DROPPED_KEYS:
             raw.pop(key, None)
         for key in PATH_KEYS:
@@ -92,7 +88,7 @@ def plan_manifests(
                 shown = text if len(text) <= MAX_WARNING_TEXT else text[:MAX_WARNING_TEXT] + "..."
                 warnings.append(f'{rel}: "{shown}" still names a live path')
         planned.append((rel, raw))
-    return planned, tokens, warnings
+    return planned, warnings
 
 
 def _manifests(live: Path) -> Iterator[tuple[str, Path, Path]]:

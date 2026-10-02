@@ -38,7 +38,6 @@ from my_agent_crew.config import load_settings
 class EvalHome:
     root: Path  # the run directory: HOME of the eval server, so `~` reaches nothing live
     home: Path  # MY_AGENT_HOME of the eval server
-    token_envs: tuple[str, ...]  # bot-token variables the live agents name; keep them out
     files: int = 0
     size_bytes: int = 0
     warnings: tuple[str, ...] = ()
@@ -55,7 +54,7 @@ def synthetic_home(out: Path) -> EvalHome:
     home.mkdir(mode=0o700)
     (home / "config.yaml").write_text("routes: fake:echo\n", encoding="utf-8")
     files, size = count_tree(root)
-    return EvalHome(root=root, home=home, token_envs=(), files=files, size_bytes=size)
+    return EvalHome(root=root, home=home, files=files, size_bytes=size)
 
 
 def build_home(live_home: Path, out: Path) -> EvalHome:
@@ -75,7 +74,7 @@ def build_home(live_home: Path, out: Path) -> EvalHome:
             raise ValueError(f"{taken} already exists; a copy never overwrites another")
     mapping: Mapping = [(live, home), *zip(externals, copy_dirs(externals, ws), strict=True)]
     live_paths = tuple(str(p) for p in (live, *externals))
-    manifests, tokens, warnings = plan_manifests(live, mapping, live_paths)
+    manifests, warnings = plan_manifests(live, mapping, live_paths)
     fresh = not root.exists()
     root.mkdir(parents=True, exist_ok=True, mode=0o700)
     try:
@@ -105,7 +104,6 @@ def build_home(live_home: Path, out: Path) -> EvalHome:
     return EvalHome(
         root=root,
         home=home,
-        token_envs=tuple(sorted(tokens)),
         files=files,
         size_bytes=size,
         warnings=tuple(warnings),

@@ -135,6 +135,11 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   limit. A turn that does run out of steps answers the tool calls it never ran with a note
   that the step limit stopped them, so the next message no longer closes them as interrupted
   and tells the model it cannot know whether they ran.
+- The bench and eval servers now get only what a program needs to run from the caller's
+  environment (`PATH`, `HOME`, the locale, `TERM`, `TMPDIR`, `USER`, `LOGNAME`, `SHELL`, `TZ`)
+  and `OPENROUTER_API_KEY`. Before, they got the rest of the operator's shell but for a short
+  list of dropped names, and so did every hook they ran: another service's key, a messaging
+  token or the ssh-agent socket reached an eval driven by a real model.
 
 ### Changed
 

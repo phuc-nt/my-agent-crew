@@ -15,22 +15,17 @@ from typing import IO
 
 import httpx
 
-# What the bench must not inherit: the live home, the live routes, a shell allow list (a
-# command would run unasked), the Telegram bot (a second poller would steal the live agent's
-# updates) and every optional backend that would make one model's run differ from another's.
-DROPPED_ENV = (
-    "MY_AGENT_HOME",
-    "MY_AGENT_ROUTES",
-    "MY_AGENT_SHELL_ALLOW_PATTERNS",
-    "MY_AGENT_OPENROUTER_PROVIDERS",
-    "MY_AGENT_OPENROUTER_PROVIDER_FALLBACKS",
-    "TELEGRAM_BOT_TOKEN",
-    "OLLAMA_BASE_URL",
-    "FIRECRAWL_BASE_URL",
-    "FIRECRAWL_API_KEY",
-    "BRAVE_API_KEY",
-    "TAVILY_API_KEY",
-)
+from my_agent_crew.tools.shell import PASSTHROUGH_ENV
+
+# All a server started here gets of the caller's environment: what a program needs to run (what
+# a shell command gets, the rest of the locale, the login name, the time zone) and the one model
+# key. Whatever else the caller exports stays out, since the server and every hook and command
+# it runs would hold it: the live home, its routes and settings, a shell allow list (a command
+# would run unasked), a bot token (a second poller would steal the live agent's updates), the
+# key or address of another service (one model's run would differ from another's), an agent
+# socket.
+PASSED_ENV = frozenset({*PASSTHROUGH_ENV, "LOGNAME", "TZ", "OPENROUTER_API_KEY"})
+PASSED_PREFIX = "LC_"
 STARTUP_SECONDS = 60
 
 
@@ -42,7 +37,7 @@ def port_is_free(port: int) -> bool:
 class Server:
     """One `python -m my_agent_crew` on its own home and port. It logs into `log_path`, by
     default `server.log` in the home. `extra_args` and `extra_env` add to its command line and
-    environment; `dropped_env` names more variables to keep from it than the bench does."""
+    environment."""
 
     def __init__(
         self,
@@ -52,7 +47,6 @@ class Server:
         *,
         extra_args: Sequence[str] = (),
         extra_env: Mapping[str, str] | None = None,
-        dropped_env: Sequence[str] = (),
         log_path: Path | None = None,
     ) -> None:
         self.repo, self.home, self.port = repo, home, port
@@ -60,15 +54,17 @@ class Server:
         self.log_path = log_path or home / "server.log"
         self._extra_args = tuple(extra_args)
         self._extra_env = dict(extra_env or {})
-        self._dropped = {*DROPPED_ENV, *dropped_env}
         self._proc: subprocess.Popen[bytes] | None = None
         self._log: IO[bytes] | None = None
 
     def command(self) -> list[str]:
         return [sys.executable, "-m", "my_agent_crew", "--port", str(self.port), *self._extra_args]
 
-    def environment(self) -> dict[str, str]:
-        env = {k: v for k, v in os.environ.items() if k not in self._dropped}
+    def environment(self, caller: Mapping[str, str] | None = None) -> dict[str, str]:
+        """What `caller`, this process's environment by default, holds of `PASSED_ENV`, then
+        the server's home and `extra_env`."""
+        source = os.environ if caller is None else caller
+        env = {k: v for k, v in source.items() if k in PASSED_ENV or k.startswith(PASSED_PREFIX)}
         env["MY_AGENT_HOME"] = str(self.home)
         env.update(self._extra_env)
         return env

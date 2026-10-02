@@ -105,7 +105,6 @@ def main(argv: list[str] | None = None) -> int:
                 args.port,
                 extra_args=("--no-schedule",),
                 extra_env={"HOME": str(eval_home.root)},
-                dropped_env=eval_home.token_envs,
                 log_path=results_dir / "server.log",
             )
             api = EvalApi(

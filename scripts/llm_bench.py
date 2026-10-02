@@ -4,7 +4,8 @@
         --out /tmp/llm-bench
 
 Each model gets a throwaway home under `--out`, its own server on `--port` (never the
-live port), no Telegram token and no live routes; only `OPENROUTER_API_KEY` is inherited.
+live port), no Telegram token and no live routes; of the caller's environment the server gets
+what a program needs to run and `OPENROUTER_API_KEY`, nothing else (`llm_bench_server.py`).
 The short tasks are in `llm_bench_tasks.py`, the multi-step and multi-delegate chains in
 `llm_bench_tasks_multi.py`; `--tasks` picks a subset. Per task the bench records wall
 time, model calls, time to first token, cached prompt tokens and cost, then writes

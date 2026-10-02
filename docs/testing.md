@@ -116,9 +116,11 @@ viết theo giờ Việt Nam, không tự đặt múi giờ.
 
 `scripts/llm_bench.py` đo các model ứng viên ngay trên vòng lặp agent, tách khỏi crew đang
 chạy: mỗi model một home tạm dưới `--out`, một server riêng trên `--port` (mặc định 8797,
-không bao giờ là cổng live), không có token Telegram, không có tuyến live; chỉ
-`OPENROUTER_API_KEY` được kế thừa. Hai bộ việc, chọn bằng `--tasks short`, `--tasks multi`
-hoặc liệt kê id (mặc định chạy cả hai):
+không bao giờ là cổng live), không có token Telegram, không có tuyến live. Từ môi trường của
+người chạy, server chỉ nhận những biến một chương trình cần để chạy (`PATH`, `HOME`, `LANG` và
+các `LC_*`, `TERM`, `TMPDIR`, `USER`, `LOGNAME`, `SHELL`, `TZ`) cùng `OPENROUTER_API_KEY`; hook
+và lệnh server chạy cũng chỉ thấy chừng ấy. Hai bộ việc, chọn bằng `--tasks short`,
+`--tasks multi` hoặc liệt kê id (mặc định chạy cả hai):
 
 - `scripts/llm_bench_tasks.py`, bộ ngắn: trả lời suông, ghi rồi đọc tệp, lệnh shell, giao
   việc cho agent `helper`, tóm tắt tài liệu.
@@ -254,8 +256,10 @@ dữ liệu của các agent, tự xoá tay. Bản sao:
 - **giữ** cấu hình, persona, bộ nhớ, kỹ năng, workspace và cơ sở dữ liệu nằm trong workspace.
   Cơ sở dữ liệu đang được ghi lúc chép có thể hỏng nửa chừng; dữ liệu đó chỉ để đọc;
 - chỉ nhận model key từ shell của người chạy: `env` của home không bao giờ được đọc hay chép,
-  biến chứa token bot mà hồ sơ live gọi tên bị giữ ngoài môi trường của server, và
-  `MY_AGENT_SHELL_ALLOW_PATTERNS` cũng vậy.
+  và từ môi trường của người chạy server chỉ nhận đúng danh sách biến của server bench. Token
+  bot, khoá của dịch vụ khác, socket của ssh-agent hay thiết lập `MY_AGENT_*` dành cho server
+  live, kể cả `MY_AGENT_SHELL_ALLOW_PATTERNS`, đều ở ngoài, nên hook và lệnh của bản sao cũng
+  không thấy.
 
 Mọi cuộc trò chuyện của eval không tự động (`autonomous` tắt) và bản sao không còn danh sách
 cho phép lệnh shell, nên mọi `shell_run` đều hỏi trước. Danh sách cho phép mà còn sót thì một
@@ -272,8 +276,8 @@ Rủi ro còn lại, đã thu hẹp chứ chưa xoá: persona của vài agent g
 lệnh như vậy không chạy; nhưng runner chỉ nhận ra đường dẫn viết nguyên văn, nên một lệnh dựng
 đường dẫn bằng cách khác vẫn có thể lọt nếu case duyệt. Vì thế mọi case mặc định `deny` và chấm
 cái agent *thử* làm; `approve` chỉ dành cho việc không đụng đường dẫn live. Các lớp chặn còn
-lại: `HOME` của server trỏ vào bản sao, môi trường của shell chỉ có một danh sách nhỏ biến, bản
-sao không có `.venv` và không có symlink. Một chuỗi trong manifest hay `config.yaml` vẫn nêu
+lại: `HOME` của server trỏ vào bản sao, môi trường của server, và của mọi hook hay lệnh nó
+chạy, chỉ có một danh sách nhỏ biến, bản sao không có `.venv` và không có symlink. Một chuỗi trong manifest hay `config.yaml` vẫn nêu
 đường dẫn live được báo trong cảnh báo của lần chạy chứ không bị viết lại.
 
 Model giả (`fake:echo`) cấp cho mỗi lệnh gọi một mã riêng, như provider thật vẫn làm: agent con
@@ -731,8 +735,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     bản ghi tên theo thứ tự case, id và lần, giữ cuộc trò chuyện, cuộc con, canvas và lần xin
     duyệt; bộ nhớ không đặt lại được bị từ chối trước lần chơi đầu; khi chạy thử, lần sau không
     thấy canvas, cuộc trò chuyện hay ghi chú của lần trước);
-    `tests/test_llm_bench_client.py` (môi trường của server bench và eval không mang home,
-    token bot hay danh sách cho phép lệnh shell của người chạy);
+    `tests/test_llm_bench_client.py` (server bench và eval chỉ nhận từ môi trường của người
+    chạy những biến một chương trình cần và model key; home, thiết lập live, danh sách cho phép
+    lệnh shell, token bot, khoá của dịch vụ khác và socket ssh-agent ở ngoài);
     `tests/test_serve_flags.py` (`--no-schedule` tắt cả scheduler lẫn kênh, không đụng `--port`);
     `tests/test_echo_provider.py` (mỗi lệnh gọi của model giả có mã riêng, như provider thật,
     nên hai cuộc trò chuyện giao việc ở cùng một chỗ không nhận nhầm agent con của nhau; dòng
