@@ -187,7 +187,16 @@ uv run python scripts/run_evals.py --dry-run
   sau, nên một bước chọn phải có tin theo sau. Một tin có `: ` phải để trong ngoặc kép, không thì
   YAML đọc nó thành một bước. Bước không làm được (cuộc trò chuyện chưa có canvas, `old` hay đoạn
   chọn không có đúng một lần, server từ chối lần lưu) làm lần chơi hỏng và không gửi tin sau; mất
-  server thì dừng cả cuộc eval như một lượt.
+  server thì dừng cả cuộc eval như một lượt. `edit_canvas` có `new` trùng `old` bị từ chối, vì
+  lần sửa ấy không đổi gì.
+- **Bước canvas phải tới được agent** (`eval_note.py`). Agent chỉ biết một bước canvas qua ghi
+  chú canvas server lưu cùng tin kế của người. Nên tin chứa mỗi chữ case gửi phải có ghi chú
+  nêu mọi canvas người đã tạo hay lưu kể từ tin trước, ở đúng bản người để lại, theo một trong
+  các dạng ghi chú báo thay đổi (canvas chưa đọc, đoạn diff, đã lên bản, sửa nhiều chỗ), và
+  trích đoạn tin ấy mang theo đúng như ghi chú trích; dòng nêu canvas đang mở thì không tính.
+  Thiếu thì lần chơi hỏng, vì kỳ vọng của case sẽ chấm một agent chưa hề nghe về bước ấy. Case
+  lưu canvas về đúng nội dung agent đã nghe trước tin kế, hay đổi nhiều canvas tới mức ghi chú
+  phải dồn vào dòng đếm cuối, cũng hỏng ở đây: ghi chú không nêu riêng canvas ấy.
 - **Kỳ vọng về canvas** chấm mọi canvas liên kết với cuộc trò chuyện gốc khi lần chơi xong:
   `canvas_count` (số canvas), `canvas_contains` và `canvas_not_contains` (có trong một canvas nào
   đó, hay không còn trong canvas nào; không phân biệt hoa thường và dấu) và `canvas_not_in_chat:
@@ -276,8 +285,8 @@ kiểm cả hai): `run_evals.py` (điểm vào), `eval_cli.py` (tuỳ chọn, ch
 `eval_play.py` (chơi một lần, chạy hết các case, bản ghi), `eval_reset.py` (đưa server và bộ
 nhớ về như lúc đầu trước mỗi lần chơi), `eval_home.py` + `eval_copy.py` + `eval_layout.py` (bản sao), `eval_cases.py` +
 `eval_expect.py` + `eval_check.py` (đọc và chấm case), `eval_shape.py` (dạng giá trị chung của
-case, kỳ vọng và bước), `eval_canvas.py` (bước canvas), `eval_paste.py` (luật chép canvas
-vào chat), `eval_observe.py` (biến một cuộc trò chuyện thành thứ chấm được), `eval_client.py` (duyệt, câu
+case, kỳ vọng và bước), `eval_canvas.py` (bước canvas), `eval_note.py` (bước canvas có tới
+agent không), `eval_paste.py` (luật chép canvas vào chat), `eval_observe.py` (biến một cuộc trò chuyện thành thứ chấm được), `eval_client.py` (duyệt, câu
 hỏi, sổ cái, canvas), `eval_report.py` (báo cáo). Server và client HTTP chia với bench: `llm_bench_server.py`, `llm_bench_client.py`.
 
 ## Smoke trực tiếp (thủ công)
@@ -655,14 +664,24 @@ tên một test thì sửa dòng của nó trong cùng commit.
     câu đáp chứa và không chứa, giao việc cho agent nào và việc đi tới outcome nào (không nêu
     outcome thì outcome nào cũng được, outcome lạ bị từ chối), giá tối đa; "hai phần ba số lần
     chơi đạt thì case đạt"; bước canvas đọc đúng chỗ giữa các tin, bước lạ, tin có `: ` không
-    ngoặc, bước thiếu hay thừa khoá, `kind` lạ, đoạn chọn rỗng, bước chọn không có tin sau và case
-    chỉ có bước bị từ chối, kỳ vọng canvas sai dạng cũng vậy);
+    ngoặc, bước thiếu hay thừa khoá, `kind` lạ, đoạn chọn rỗng, `edit_canvas` có `new` trùng
+    `old`, bước chọn không có tin sau và case chỉ có bước bị từ chối, kỳ vọng canvas sai dạng
+    cũng vậy);
     `tests/test_eval_canvas.py` (tạo canvas trong cuộc trò chuyện và mở nó, sửa lưu trên đúng bản
     vừa đọc, chưa mở thì lấy canvas mới đổi gần nhất, không có canvas hay `old` không có đúng một
     lần thì hỏng mà không lưu, server từ chối thì hỏng mà eval đi tiếp, mất server thì ném lỗi như
     một lượt, vùng chọn mang đúng dòng và chỉ đi với tin kế, mở canvas khác thì bỏ vùng chọn; chấm
     canvas: chứa, không chứa, số canvas, dán ở lượt nào hay chia ra hai tin cũng hỏng và nêu tên
-    canvas bị dán, trích một dòng hay nêu dòng ngắn thì không tính, mỗi canvas chấm riêng);
+    canvas bị dán, trích một dòng hay nêu dòng ngắn thì không tính, mỗi canvas chấm riêng; mỗi tin
+    ghi lại phần ghi chú nợ agent: canvas người tạo hay lưu kể từ tin trước, ở bản server trả về
+    khi lưu, và đoạn tin mang theo; tin trước khi có canvas không nợ gì, hai canvas mới đều nợ);
+    `tests/test_eval_note.py` (ghi chú nêu canvas ở bản người để lại, dạng nào cũng được: canvas
+    chưa đọc, đoạn diff, đã lên bản, sửa nhiều chỗ; không có ghi chú, ghi chú rỗng hay chỉ nêu
+    canvas đang mở thì hỏng; bản cũ hơn, canvas có id dài hơn cùng đầu, bản có cùng chữ số đầu,
+    dòng vùng chọn và dòng trích không tính, kể cả dòng trích trông như một dòng báo thay đổi;
+    mỗi canvas phải được nêu riêng; đoạn mang theo phải được trích như ghi chú trích, kể cả ngắt
+    dòng dán từ trình soạn thảo, đoạn quá dài chỉ cần phần ghi chú trích; ghi chú đọc từ tin chứa
+    chữ case gửi chứ không từ tin loop guard; tin cuộc trò chuyện không giữ để observe báo);
     `tests/test_eval_paste.py` (tỉ lệ cụm ba chữ chat lặp lại: canvas dòng ngắn nói lại nguyên văn,
     thành bảng hay dồn một dòng không dấu đều là dán hết; nêu tiêu đề, đề mục mở đầu kể cả sau
     dòng trống, dòng chính là tiêu đề dù markup nào, trích dòng vừa sửa dù nó chiếm gần hết
@@ -703,8 +722,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     sách thì dừng trước lần chơi kế, Ctrl-C để lại số của các lần đã xong, một lượt quá giờ hay
     mất server dừng cả cuộc, các từ chối trước khi chép gì, chạy thử qua một server thật; bước
     canvas chạy giữa các lượt và mọi tin sau mang canvas đang mở, bước hỏng chặn tin sau mà không
-    dừng eval, tin trước khi có canvas chỉ có chữ; khi chạy thử, server đặt vùng chọn đúng dòng eval
-    đếm trên bản đã sửa, và một lần dán ba dòng bị bắt từ JSON thật của server; mỗi lần chơi bắt
+    dừng eval, tin trước khi có canvas chỉ có chữ, bước canvas không tới agent thì lần chơi hỏng; khi chạy thử, server đặt vùng chọn đúng dòng eval
+    đếm trên bản đã sửa, ghi chú thật của server nêu canvas ở bản đã lưu và trích vùng chọn, và
+    một lần dán ba dòng bị bắt từ JSON thật của server; mỗi lần chơi bắt
     đầu sau một lần đặt lại, không đặt lại được thì không chơi và dừng eval; mỗi lần chơi để lại
     bản ghi tên theo thứ tự case, id và lần, giữ cuộc trò chuyện, cuộc con, canvas và lần xin
     duyệt; bộ nhớ không đặt lại được bị từ chối trước lần chơi đầu; khi chạy thử, lần sau không

@@ -43,7 +43,7 @@ def observe(
     `GET /artifacts/{id}` serves it. A conversation that does not hold every text sent fails
     the run, unless the run already failed."""
     messages = conversation.get("messages", [])
-    turns = _turns(messages, sent)
+    turns = turn_numbers(messages, sent)
     held = turns[-1] if turns else 0
     if held < len(sent) and not error:
         error = f"the conversation holds {held} of the {len(sent)} messages the eval sent"
@@ -78,7 +78,7 @@ def observe(
     )
 
 
-def _turns(messages: Sequence[Mapping[str, Any]], sent: Sequence[str]) -> list[int]:
+def turn_numbers(messages: Sequence[Mapping[str, Any]], sent: Sequence[str]) -> list[int]:
     """The turn each message is in: how many of the texts in `sent` the conversation holds
     up to it, in order; 0 before the first."""
     turns, held = [], 0

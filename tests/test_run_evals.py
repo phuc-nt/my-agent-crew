@@ -20,8 +20,9 @@ from eval_reset import RESET_FAILED, ResetError
 from llm_bench_server import port_is_free
 
 from my_agent_crew.artifacts.diff import line_span
+from my_agent_crew.store.canvas_quote import quoted
 from my_agent_crew.texts import MEMORY_SAVED
-from my_agent_crew.texts_canvas import PICK_LINES
+from my_agent_crew.texts_canvas import CANVAS_NOTE_NEW, PICK_LINES
 from my_agent_crew.texts_search import CONVERSATION_SEARCH_EMPTY
 from my_agent_crew.tools.artifact_texts import ARTIFACT_LIST_EMPTY
 from tests.http_fake import FakeServer, as_json, say, sse, tool_approval
@@ -58,8 +59,9 @@ def said(text: str, *calls: dict) -> dict:
     return {"role": "assistant", "content": text, "tool_calls": list(calls)}
 
 
-def told(text: str) -> dict:
-    return {"role": "user", "content": text}
+def told(text: str, note: str = "") -> dict:
+    """The person's message as the server stores it, with the canvas note it was given."""
+    return {"role": "user", "content": text} | ({"context": note} if note else {})
 
 
 def one_run(
@@ -188,7 +190,9 @@ def test_canvas_steps_run_between_the_turns_and_every_later_message_carries_the_
         "ta",
         expect={"canvas_count": 1, "canvas_contains": "Water the plants"},
     )
-    turns = [told("look"), said("seen"), told("this one?"), said("that"), told("ta"), said("ok")]
+    made = CANVAS_NOTE_NEW.format(title="Weekend", id="a1", head=1)
+    turns = [told("look", made), said("seen"), told("this one?", quoted("Clean the fridge"))]
+    turns += [said("that"), told("ta"), said("ok")]
     server = (
         one_run(sse(say("seen")), sse(say("that")), sse(say("ok")), after=record(*turns))
         .on("/api/artifacts", canvas(WEEKEND), as_json([{"id": "a1"}]))
@@ -214,6 +218,20 @@ def test_canvas_steps_run_between_the_turns_and_every_later_message_carries_the_
         ("GET", "/api/artifacts"),
         ("GET", "/api/artifacts/a1"),
     ]
+
+
+def test_a_run_whose_canvas_step_never_reached_the_agent_fails():
+    case = case_of("c", {"create_canvas": {"title": "Weekend", "content": WEEKEND}}, "look")
+    server = (
+        one_run(sse(say("seen")), after=record(told("look"), said("seen")))
+        .on("/api/artifacts", canvas(WEEKEND), as_json([{"id": "a1"}]))
+        .on("/api/artifacts/a1", canvas(WEEKEND))
+    )
+
+    result = eval_play.play(api_over(server), case, 1)
+
+    detail = "the canvas note of message 1 does not tell of a1 at v1"
+    assert [(f.assertion, f.detail) for f in result.failures] == [(RUN, detail)]
 
 
 def test_a_canvas_step_that_cannot_be_done_ends_the_run_before_the_next_message():

@@ -10,12 +10,13 @@ step goes over the REST routes the panel uses (`server/routes_artifacts.py`), as
 
 With no canvas open a step takes the conversation's most recently changed one, as the panel
 would show it. Every message after a canvas is open carries it, and a selection goes with the
-next message only, as a message from the web does (`server/routes_chat.py`)."""
+next message only, as a message from the web does (`server/routes_chat.py`). Each message also
+records what its canvas note owes the agent, for `eval_note.py` to check."""
 
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 import httpx
@@ -42,12 +43,25 @@ class CanvasStep:
     text: str = ""  # the passage select_canvas selects
 
 
+@dataclass(frozen=True)
+class NoteDue:
+    """What the canvas note of one message must tell: each canvas the person made or saved
+    since the message before, at the version they left it, and the passage the message
+    carries."""
+
+    saved: Mapping[str, int] = field(default_factory=dict)
+    passage: str = ""
+
+
 @dataclass
 class Panel:
-    """The canvas open in the person's panel, and the passage selected in it."""
+    """The canvas open in the person's panel, the passage selected in it, the canvases the
+    person made or saved since their last message, and what each message they sent owes."""
 
     artifact_id: str = ""
     selection: dict[str, Any] | None = None
+    saved: dict[str, int] = field(default_factory=dict)
+    due: list[NoteDue] = field(default_factory=list)
 
     def open(self, artifact_id: str) -> None:
         if artifact_id != self.artifact_id:
@@ -55,7 +69,10 @@ class Panel:
 
     def carry(self) -> dict[str, Any]:
         """The next message's `canvas` field; none before a canvas is open, so the
-        conversation keeps whatever it has open."""
+        conversation keeps whatever it has open. What that message's note owes joins `due`."""
+        passage = str(self.selection["text"]) if self.selection else ""
+        self.due.append(NoteDue(self.saved, passage))
+        self.saved = {}
         if not self.artifact_id:
             return {}
         sent = {"artifact_id": self.artifact_id, "selection": self.selection}
@@ -117,6 +134,8 @@ def parse_step(raw: Mapping[str, Any], where: str) -> CanvasStep:
         raise ValueError(f"{label}: old is the text to replace")
     if not isinstance(new, str):
         raise ValueError(f"{label}: new is the text to put there, empty to delete it")
+    if new == old:
+        raise ValueError(f"{label}: new is the same as old, so the edit changes nothing")
     return CanvasStep(action, old=old, new=new)
 
 
@@ -128,6 +147,7 @@ def perform(api: EvalApi, conv_id: str, step: CanvasStep, panel: Panel) -> str:
         if step.action == "create_canvas":
             made = api.create_artifact(conv_id, step.title, step.kind, step.content)
             panel.open(str(made["id"]))
+            panel.saved[panel.artifact_id] = int(made["head_version"])
             return ""
         target = panel.artifact_id or _newest(api, conv_id)
         if not target:
@@ -139,7 +159,8 @@ def perform(api: EvalApi, conv_id: str, step: CanvasStep, panel: Panel) -> str:
         if (times := content.count(wanted)) != 1:
             return f"{step.action}: {wanted!r} is in the canvas {times} times, not once"
         if step.action == "edit_canvas":
-            api.save_artifact(target, content.replace(wanted, step.new), version)
+            written = api.save_artifact(target, content.replace(wanted, step.new), version)
+            panel.saved[target] = int(written["version"])
         else:
             panel.selection = _pick(content, wanted, version)
         return ""

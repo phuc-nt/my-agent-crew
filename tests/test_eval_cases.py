@@ -171,6 +171,7 @@ def with_steps(messages: str) -> str:
         (with_steps("{edit_canvas: {old: x}}, a"), "new"),
         (with_steps("{edit_canvas: {old: x, new: 3}}, a"), "new"),
         (with_steps("{edit_canvas: {old: x, new: y, colour: red}}, a"), "colour"),
+        (with_steps("{edit_canvas: {old: x, new: x}}, a"), "changes nothing"),
         (with_steps("{select_canvas: ''}, a"), "passage"),
         (with_steps("{select_canvas: '  '}, a"), "passage"),
         (with_steps("{select_canvas: {text: x}}, a"), "passage"),

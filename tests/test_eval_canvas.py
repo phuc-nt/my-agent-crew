@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import httpx
 import pytest
-from eval_canvas import Panel, parse_step, perform
+from eval_canvas import NoteDue, Panel, parse_step, perform
 from eval_cases import parse_case
 from eval_check import RUN, Failure, Observed, check
 from eval_client import EvalApi
@@ -161,6 +161,37 @@ def test_a_selection_stays_with_its_canvas_and_is_dropped_when_another_one_opens
 
     assert same.carry() == {"canvas": {"artifact_id": "a1", "selection": picked}}
     assert other.carry() == {"canvas": {"artifact_id": "a2", "selection": None}}
+
+
+def test_each_message_owes_a_note_of_what_the_person_made_saved_and_selected_since_the_last():
+    edited = WEEKEND.replace("curtains", "blankets")
+    server = (
+        FakeServer()
+        .on(LIST, canvas(WEEKEND))
+        .on(ART, canvas(WEEKEND), as_json({"version": 2}), canvas(edited, version=2))
+    )
+    panel = Panel()
+
+    run_step(server, {"create_canvas": {"title": "Weekend", "content": WEEKEND}}, panel)
+    run_step(server, {"edit_canvas": {"old": "curtains", "new": "blankets"}}, panel)
+    panel.carry()
+    panel.carry()
+    run_step(server, {"select_canvas": "Clean the fridge"}, panel)
+    panel.carry()
+
+    assert panel.due == [NoteDue({"a1": 2}), NoteDue(), NoteDue({}, "Clean the fridge")]
+
+
+def test_a_message_before_any_canvas_owes_nothing_and_two_new_canvases_are_both_owed():
+    server = FakeServer().on(LIST, canvas("- a\n"), canvas("- b\n", artifact_id="a2"))
+    panel = Panel()
+
+    panel.carry()
+    run_step(server, {"create_canvas": {"title": "A", "content": "- a\n"}}, panel)
+    run_step(server, {"create_canvas": {"title": "B", "content": "- b\n"}}, panel)
+    panel.carry()
+
+    assert panel.due == [NoteDue(), NoteDue({"a1": 1, "a2": 1})]
 
 
 # --- what the canvases hold ---------------------------------------------------------------

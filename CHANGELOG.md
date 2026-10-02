@@ -73,7 +73,11 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   ends: `canvas_count`, `canvas_contains`, `canvas_not_contains`, and `canvas_not_in_chat`,
   which fails when the agent's messages in the conversation repeat half or more of a canvas's
   three-word runs, whatever the markup or layout; the title, the heading the canvas opens with
-  and a quote that stays within one line do not count. The dry run plays a canvas case through
+  and a quote that stays within one line do not count. A run also fails when a message after
+  canvas steps reaches the agent without a canvas note telling of each canvas the person made
+  or saved since the message before, at the version they left it, and quoting the passage the
+  message carried: the expectations would judge an agent that never heard of the step. An
+  `edit_canvas` whose `new` is its `old` is refused. The dry run plays a canvas case through
   the real server.
 
 ### Fixed

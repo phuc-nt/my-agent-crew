@@ -2,7 +2,8 @@
 results after each so a run cut short still leaves its numbers. Each run starts from a server
 put back as the first run found it (`eval_reset.py`) and leaves a transcript of what it did
 beside the results. A canvas step between two messages is not a turn: it is what the person
-does in the panel (`eval_canvas.py`)."""
+does in the panel (`eval_canvas.py`), and a run whose step never reached the agent fails
+(`eval_note.py`)."""
 
 from __future__ import annotations
 
@@ -19,6 +20,7 @@ from eval_canvas import CanvasStep, Panel, perform
 from eval_cases import Case
 from eval_check import RUN, Failure, check
 from eval_client import EvalApi
+from eval_note import note_failures
 from eval_observe import child_ids, observe
 from eval_report import CaseResult, Report, RunResult, as_json, markdown, progress_line
 from eval_reset import RESET_FAILED, ResetError
@@ -66,7 +68,8 @@ def play(api: EvalApi, case: Case, number: int, transcript: Path | None = None) 
         kept = {"case": case.id, "run": number, "conversation": conversation}
         kept |= {"children": children, "canvases": canvases, "asked": api.asked}
         _write_json(transcript, kept)
-    failures = tuple(check(case, observed))
+    told = note_failures(conversation.get("messages", []), sent, panel.due)
+    failures = (*told, *check(case, observed))
     return RunResult(number, failures, observed.spent_usd, round(wall, 1), observed.reply)
 
 
