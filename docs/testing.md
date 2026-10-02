@@ -1589,7 +1589,12 @@ tên một test thì sửa dòng của nó trong cùng commit.
     type over the name of something just made"); `web/src/components/canvas/canvas-editor.test.tsx`
     (Ctrl/Cmd+S lưu ngay thay cho hộp lưu của trình duyệt, kể cả khi giữ Shift, còn chữ s để cho ô gõ;
     báo canvas lúc ô mất focus và lúc soạn IME; code không kiểm chính tả và dùng phông code; "stays on
-    the characters it was on when a line arrives above", tính từ chỗ phím gõ để con trỏ, giữ chỗ cuộn)
+    the characters it was on when a line arrives above", tính từ chỗ phím gõ để con trỏ, giữ chỗ cuộn);
+    `web/src/components/canvas/canvas-panel-modes.test.tsx` (canvas vừa tạo ở đây mở ở Sửa kể cả khi
+    agent ghi vào trước lần đọc đầu, chữ gõ gộp vào bản mới hơn của agent mở ở Sửa và nói đã gộp tới
+    khi lưu, canvas code của người dùng phông code; tên canvas vừa tạo mở để gõ, tối đa 200 ký tự;
+    không hiện dòng phiên bản khi canvas đang được đọc dù bản mới đã báo tới; chọn Xem hay Sửa thì
+    đóng lịch sử)
 - **Canvas trên web: dòng trạng thái lưu, lời báo khi không lưu được, diff hai bản**
   - vitest: `web/src/components/canvas/canvas-status.test.tsx` (chữ cho từng trạng thái và lý do không
     bản nào giữ chữ đang gõ, "follows a save from the keystroke until it lands", server không trả lời
@@ -1602,7 +1607,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     bản giống nhau và hai bản quá lớn để so theo dòng đều được nói);
     `web/src/components/canvas/canvas-conflict.test.tsx` (thanh xung đột nêu ai lưu bản nào, giữ chữ
     của tôi thì không nạp bản kia, nạp bản kia khi được bảo, "shows what keeping mine would change in
-    theirs, and hides it again"; chữ mà "Nạp bản mới" thay lấy lại được cho tới khi gõ)
+    theirs, and hides it again"; chữ mà "Nạp bản mới" thay lấy lại được cho tới khi gõ);
+    `web/src/components/canvas/canvas-notices.test.tsx` ("says the canvas could not be opened, and
+    opens it on retry", máy này không giữ được nháp thì nói)
 - **Canvas trên web: lịch sử phiên bản, so sánh và khôi phục**
   - vitest: `web/src/components/canvas/canvas-history.test.tsx` ("lists each version, the newest first,
     and compares one with the version listed before it", so với bản cũ nhất còn giữ khi được hỏi và nói
@@ -1610,15 +1617,22 @@ tên một test thì sửa dòng của nó trong cùng commit.
     version picked the newest without waiting for the event", ghi chú khôi phục hiện trên bản nó tạo,
     không khôi phục khi chữ gõ chưa lưu được và nói vì sao, server hết chỗ thì hiện các canvas lớn nhất;
     bản được chọn hay bản cần khôi phục đã bị gộp mất thì đọc lại danh sách và vẫn mở, "takes a restore
-    of a canvas deleted meanwhile for the deletion")
+    of a canvas deleted meanwhile for the deletion");
+    `web/src/components/canvas/canvas-history-reads.test.tsx` (bản mới báo tới lúc lịch sử đang mở thì
+    đọc lại danh sách, chọn lại bản đọc hỏng thì đọc lại và thôi báo lỗi, danh sách hay một bản bị từ
+    chối vì canvas đã xoá là canvas đã xoá; khôi phục đang đi thì không bấm lại được, server từ chối thì
+    bấm lại được, lần thử lại lưu được chữ gõ thì thôi nói chữ gõ chặn lần khôi phục)
 - **Canvas trên web: danh sách canvas của cuộc trò chuyện và nút tạo canvas mới**
   - vitest: `web/src/hooks/use-canvas-list.test.ts` (không hỏi gì khi chưa mở cuộc nào, chỉ canvas của
     cuộc này và mới nhất trước, "drops the last conversation's list at once, and its reply when it comes
     late", "reads the list once for a burst of changes, half a second after the first", thấy canvas tạo
     ở chỗ khác dù lời báo chưa nêu cuộc nào, không đọc được thì nói và đọc lại khi thử lại, đọc lại hỏng
     vẫn giữ danh sách đang có, đọc lại khi luồng nối lại và khi tab hiện, đóng cuộc rồi thì không nghe
-    thay đổi nữa); `web/src/components/canvas/canvas-picker.test.tsx` (đang tải, chưa có canvas, lỗi có
-    nút thử lại, "shows each canvas with its kind, version and last change, and opens the one picked",
+    thay đổi nữa, không hiện gì của danh sách cuộc trước trong lúc đọc danh sách cuộc sau, thay đổi
+    nghe được ngay trước khi đóng cuộc không làm đọc lại danh sách cuộc ấy, lần đọc trước hỏng sau khi
+    lần đọc sau đã về thì giữ cái lần sau thấy); `web/src/components/canvas/canvas-picker.test.tsx`
+    (đang tải, chưa có canvas, lỗi có nút thử lại, "shows each canvas with its kind, version and last
+    change, and opens the one picked",
     "makes a canvas, one at a time, and says when one could not be made");
     `web/src/lib/artifact-events.test.ts` ("announces a canvas found gone as a deletion that names no
     conversation")
@@ -1631,10 +1645,19 @@ tên một test thì sửa dòng của nó trong cùng commit.
     nào xong thì ở lại tới khi đóng hẳn, lần lưu quá hạn cũng ở lại, canvas bị xoá lúc lần lưu cuối đang
     bay hay đã bị xoá thì đóng ngay; lần lưu hỏng sau khi panel đi được báo tới khi ẩn, canvas đã đóng
     hẳn thì không báo; "brings the canvas forward on each opening, and the button toggles the dock");
+    `web/src/hooks/use-canvas-dock-moves.test.ts` (mở canvas hay danh sách khi đang xem hoạt động thì
+    đưa tab canvas lên, không tạo canvas khi chưa mở cuộc nào, không báo lỗi tạo của canvas xin trước
+    khi người mở canvas khác, canvas mở lại mà lần lưu cuối hỏng thì được báo lại, panel cũ buông muộn
+    thì dock vẫn hỏi panel mới); `web/src/components/canvas/canvas-dock-view.test.tsx` (focus đi từ nút
+    Canvas vào cột mở ra, sang nút về chat khi dock phủ cuộc trò chuyện, và đứng yên khi dock chuyển từ
+    danh sách sang canvas; hoạt động hiện khi chưa mở gì, tab hoạt động theo cú bấm, lớp phủ hiện cả
+    dock; cột rộng đúng như cạnh nói; nút Canvas đếm canvas và nói dock mở hay đóng; lần lưu không về
+    của canvas chưa có tên gọi là canvas không tên);
     `web/src/hooks/use-canvas-width.test.ts` ("takes half the room beside the sidebar until the person
     chooses", cả canvas lẫn cuộc trò chuyện rộng ít nhất 360 px, chỉ nhớ bề rộng khi được bảo giữ, bề
     rộng đã giữ co theo cửa sổ hẹp và trở lại khi cửa sổ rộng ra, theo cửa sổ khi người chưa chọn, không
-    hẹp dưới 360 px kể cả cạnh cuộc trò chuyện hẹp, bỏ bề rộng đã giữ không phải số);
+    hẹp dưới 360 px kể cả cạnh cuộc trò chuyện hẹp, bỏ bề rộng đã giữ không phải số hay lớn quá để là
+    số, đo chỗ cạnh sidebar theo bề rộng mà stylesheet đặt);
     `web/src/components/canvas/canvas-handle.test.tsx` ("widens the canvas as the pointer moves left
     and keeps where the button came up", kéo không bôi đen chữ, sau khi nhả thì thôi theo con trỏ; chỉ
     nút chính mới kéo; panel đóng giữa lúc kéo thì buông con trỏ);

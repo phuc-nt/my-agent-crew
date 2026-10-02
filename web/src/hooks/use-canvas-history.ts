@@ -1,8 +1,9 @@
 /**
- * The history of one canvas: its versions, the newest first, the version picked and the one it is
- * compared with, the texts read so far, and the restore. A version's text is read once, when it is
- * picked or compared with. A version folded away since the list was read makes the list read
- * again; a canvas the server no longer has is announced as deleted, as the stream would have.
+ * The history of one canvas: its versions, the newest first as the server lists them, the version
+ * picked and the one it is compared with, the texts read so far, and the restore. A version's text
+ * is read once, when it is picked or compared with. A version folded away since the list was read
+ * makes the list read again; a canvas the server no longer has is announced as deleted, as the
+ * stream would have.
  *
  * Version numbers have gaps, so "the version before" is the one listed after it, never `n - 1`.
  * A restore saves the typing first: a version restored over unsaved text would drop it.
@@ -76,7 +77,7 @@ export function useCanvasHistory({ artifactId, headVersion, flush, onRestored }:
     setListFailed(false);
     artifactApi.versions(artifactId).then(
       (found) => {
-        if (live) setVersions([...found].sort((a, b) => b.version - a.version));
+        if (live) setVersions(found);
       },
       (error: unknown) => {
         if (!live) return;
@@ -106,11 +107,11 @@ export function useCanvasHistory({ artifactId, headVersion, flush, onRestored }:
         (found) => setTexts((known) => new Map(known).set(version, found.content)),
         (error: unknown) => {
           asked.current.delete(version);
-          if (versionGoneOf(error) !== null) {
+          if (canvasGone(error)) announceDeletion(artifactId);
+          else if (versionGoneOf(error) !== null) {
             setProblem({ type: "versionGone" });
             reload();
-          } else if (canvasGone(error)) announceDeletion(artifactId);
-          else setProblem({ type: "versionFailed" });
+          } else setProblem({ type: "versionFailed" });
         },
       );
     }
@@ -130,11 +131,11 @@ export function useCanvasHistory({ artifactId, headVersion, flush, onRestored }:
       onRestored(meta.version, content);
     } catch (error) {
       const full = storageFullOf(error);
-      if (versionGoneOf(error) !== null) {
+      if (canvasGone(error)) announceDeletion(artifactId);
+      else if (versionGoneOf(error) !== null) {
         setProblem({ type: "versionGone" });
         reload();
-      } else if (canvasGone(error)) announceDeletion(artifactId);
-      else setProblem(full ? { type: "full", full } : { type: "restoreFailed", reason: canvasReason(error) });
+      } else setProblem(full ? { type: "full", full } : { type: "restoreFailed", reason: canvasReason(error) });
     } finally {
       setRestoring(false);
     }

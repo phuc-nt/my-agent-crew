@@ -78,4 +78,19 @@ describe("the width of the canvas beside a wide conversation", () => {
 
     expect(renderHook(useCanvasWidth).result.current.width).toBe(584);
   });
+
+  it("ignores a kept width too large to be a number", () => {
+    store.set("canvas-width", "1e999");
+
+    expect(renderHook(useCanvasWidth).result.current.width).toBe(584);
+  });
+
+  it("measures the room beside the sidebar the stylesheet sets", () => {
+    document.documentElement.style.setProperty("--sidebar-width", "300px");
+    try {
+      expect(renderHook(useCanvasWidth).result.current).toMatchObject({ width: 570, max: 780 });
+    } finally {
+      document.documentElement.style.removeProperty("--sidebar-width");
+    }
+  });
 });

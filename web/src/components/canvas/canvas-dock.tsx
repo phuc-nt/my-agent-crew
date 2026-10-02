@@ -31,7 +31,9 @@ type Props = {
   trigger: RefObject<HTMLButtonElement | null>;
 };
 
-const FIRST_CONTROL = ".dock-canvas button:not(:disabled), .dock-canvas input";
+// Every move resets "Canvas mới", and the overlay's way back, the list's first button and the
+// loading panel's way to the list each come before any field.
+const FIRST_CONTROL = ".dock-canvas button";
 
 function useDockFocus(root: RefObject<HTMLDivElement | null>, trigger: Props["trigger"], view: DockView) {
   const was = useRef(view);

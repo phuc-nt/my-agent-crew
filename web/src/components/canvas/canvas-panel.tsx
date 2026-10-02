@@ -39,9 +39,10 @@ export type CanvasPanelProps = {
   onForceClose(): void;
 };
 
-/** A person's text opens to edit, an agent's to read, unless this device holds typing for it. */
+/** A person's text opens to edit, an agent's to read, unless the canvas was just made here or this
+ *  device holds typing for it. */
 function firstMode(state: CanvasState, created: boolean): CanvasMode {
-  if (created || state.opened === "draft" || state.opened === "merged" || state.opened === "conflict") return "edit";
+  if (created || state.opened !== "fresh") return "edit";
   return state.base.author.startsWith("agent:") ? "view" : "edit";
 }
 

@@ -1,5 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
 import { artifactApi } from "../api/artifact-client";
 import { landed, setVisibility, startServer, stopServer, wait } from "../test/canvas-hook";
 import type { FakeBackend } from "../test/fake-backend";
@@ -59,6 +59,33 @@ describe("the canvases of the open conversation", () => {
     expect(titles(result.current.items)).toEqual(["Của c2"]);
   });
 
+  it("shows nothing of the last conversation's list while the next one's is read", async () => {
+    backend.canvas.add({ title: "Của c1", conversationIds: ["c1"] });
+    const { result, rerender } = await openList();
+    expect(titles(result.current.items)).toEqual(["Của c1"]);
+    backend.canvas.holdNext("GET /artifacts", "request");
+
+    rerender({ conversationId: "c2", connected: true });
+    await landed();
+
+    expect(result.current.items).toBeNull();
+  });
+
+  it("reads no list for the last conversation after a change it heard just before closing", async () => {
+    const one = backend.canvas.add({ title: "Của c1", conversationIds: ["c1"] });
+    backend.canvas.add({ title: "Của c2", conversationIds: ["c2"] });
+    const { result, rerender } = await openList();
+    act(() => backend.canvas.write(one.id, "x"));
+
+    rerender({ conversationId: "c2", connected: true });
+    await landed();
+    wait(LIST_RELOAD_MS);
+    await landed();
+
+    expect(reads()).toHaveLength(2);
+    expect(titles(result.current.items)).toEqual(["Của c2"]);
+  });
+
   it("reads the list once for a burst of changes, half a second after the first", async () => {
     const one = backend.canvas.add({ title: "Một", conversationIds: ["c1"] });
     await openList();
@@ -111,6 +138,29 @@ describe("the canvases of the open conversation", () => {
 
     expect(result.current.failed).toBe(true);
     expect(titles(result.current.items)).toEqual(["Một"]);
+  });
+
+  it("keeps what a later read found when an earlier read fails after it", async () => {
+    backend.canvas.add({ title: "Một", conversationIds: ["c1"] });
+    let fail: (error: Error) => void = () => {};
+    const list = vitest.spyOn(artifactApi, "list").mockImplementationOnce(
+      () =>
+        new Promise((_, reject) => {
+          fail = reject;
+        }),
+    );
+    try {
+      const { result } = await openList();
+      act(() => result.current.retry());
+      await landed();
+
+      await act(async () => fail(new TypeError("Failed to fetch")));
+
+      expect(result.current.failed).toBe(false);
+      expect(titles(result.current.items)).toEqual(["Một"]);
+    } finally {
+      list.mockRestore();
+    }
   });
 
   it("reads the list again when the stream comes back and when the tab shows again", async () => {

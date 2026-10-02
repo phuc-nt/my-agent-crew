@@ -2,6 +2,7 @@ import { fireEvent, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
 import { vi } from "../../i18n/vi";
 import { landed, startServer, stopServer, wait } from "../../test/canvas-hook";
+import { diff, history, openHistory, pick, picked, rows, threeVersions, writes } from "../../test/canvas-history";
 import { editor, openPanel, typeInto, versionLine } from "../../test/canvas-panel";
 import type { FakeBackend } from "../../test/fake-backend";
 
@@ -14,36 +15,12 @@ beforeEach(() => {
 
 afterEach(stopServer);
 
-const history = () => screen.getByRole("region", { name: vi.canvas.historyTitle });
-const rows = () => within(history()).getAllByRole("listitem").map((row) => row.textContent);
-const picked = () => within(history()).getByRole("button", { current: true }).textContent;
-const diff = () => history().querySelector(".canvas-diff")?.textContent ?? null;
-const pick = async (version: number) => {
-  fireEvent.click(within(history()).getByRole("button", { name: new RegExp(`^v${version} `) }));
-  await landed();
-};
 const versionsRead = () =>
   backend.requests.filter((request) => request.path.startsWith("/artifacts/a1/versions/")).map((request) => request.path);
-const writes = () =>
-  backend.requests
-    .filter((request) => request.method === "PUT" || request.method === "POST")
-    .map(({ method, path, body }) => ({ method, path, body }));
-
-async function openHistory() {
-  fireEvent.click(screen.getByRole("button", { name: vi.canvas.history }));
-  await landed();
-}
-
-/** v1 by the person, v2 by Ming, and v4 by the person with v3 folded away. */
-function threeVersions() {
-  backend.canvas.add({ title: "Ghi chú", content: "một" });
-  backend.canvas.write("a1", "một\nhai", { author: "agent:ming" });
-  backend.canvas.write("a1", "một\nhai\nbốn", { author: "user", gap: 1 });
-}
 
 describe("the versions of a canvas", () => {
   it("lists each version, the newest first, and compares one with the version listed before it", async () => {
-    threeVersions();
+    threeVersions(backend);
     await openPanel();
 
     await openHistory();
@@ -60,7 +37,7 @@ describe("the versions of a canvas", () => {
   });
 
   it("compares with the oldest version kept on request, and says the oldest has none before it", async () => {
-    threeVersions();
+    threeVersions(backend);
     await openPanel();
     await openHistory();
 
@@ -75,7 +52,7 @@ describe("the versions of a canvas", () => {
   });
 
   it("closes without restoring anything", async () => {
-    threeVersions();
+    threeVersions(backend);
     await openPanel();
     await openHistory();
 
@@ -88,7 +65,7 @@ describe("the versions of a canvas", () => {
 
 describe("restoring a version", () => {
   it("saves the typing first, then makes the version picked the newest without waiting for the event", async () => {
-    threeVersions();
+    threeVersions(backend);
     await openPanel();
     typeInto("một\nhai\nbốn\nnăm");
     await openHistory();
@@ -98,7 +75,7 @@ describe("restoring a version", () => {
     fireEvent.click(within(history()).getByRole("button", { name: vi.canvas.restore }));
     await landed();
 
-    expect(writes()).toEqual([
+    expect(writes(backend)).toEqual([
       { method: "PUT", path: "/artifacts/a1", body: { content: "một\nhai\nbốn\nnăm", base_version: 4 } },
       { method: "POST", path: "/artifacts/a1/restore", body: { version: 1 } },
     ]);
@@ -109,11 +86,11 @@ describe("restoring a version", () => {
     typeInto("một!");
     wait(1500);
     await landed();
-    expect(writes().at(-1)?.body).toEqual({ content: "một!", base_version: 6 });
+    expect(writes(backend).at(-1)?.body).toEqual({ content: "một!", base_version: 6 });
   });
 
   it("shows the restore's own note on the version it made", async () => {
-    threeVersions();
+    threeVersions(backend);
     await openPanel();
     await openHistory();
     await pick(2);
@@ -126,7 +103,7 @@ describe("restoring a version", () => {
   });
 
   it("restores nothing while the typing cannot be saved, and says why", async () => {
-    threeVersions();
+    threeVersions(backend);
     await openPanel();
     typeInto("một\nhai\nbốn\nnăm");
     await openHistory();
@@ -136,12 +113,12 @@ describe("restoring a version", () => {
     fireEvent.click(within(history()).getByRole("button", { name: vi.canvas.restore }));
     await landed();
 
-    expect(writes().map((write) => write.method)).toEqual(["PUT"]);
+    expect(writes(backend).map((write) => write.method)).toEqual(["PUT"]);
     expect(within(history()).getByRole("alert").textContent).toBe("Không khôi phục được: máy chủ không nhận nội dung này");
   });
 
   it("shows the largest canvases when the server has no room for the restore", async () => {
-    threeVersions();
+    threeVersions(backend);
     await openPanel();
     await openHistory();
     await pick(1);
@@ -159,7 +136,7 @@ describe("restoring a version", () => {
 
 describe("versions that went", () => {
   it("reads the list again when a version picked was folded away, and stays open", async () => {
-    threeVersions();
+    threeVersions(backend);
     await openPanel();
     await openHistory();
     backend.canvas.forget("a1", 1);
@@ -172,7 +149,7 @@ describe("versions that went", () => {
   });
 
   it("reads the list again when the version to restore was folded away meanwhile", async () => {
-    threeVersions();
+    threeVersions(backend);
     await openPanel();
     await openHistory();
     await pick(1);
@@ -187,7 +164,7 @@ describe("versions that went", () => {
   });
 
   it("takes a restore of a canvas deleted meanwhile for the deletion", async () => {
-    threeVersions();
+    threeVersions(backend);
     await openPanel();
     await openHistory();
     await pick(1);
