@@ -1586,7 +1586,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "copies the text as it is, unmarked", dock lưu được chữ đang mở, hỏi được canvas còn không và buông
     khi panel tháo); `web/src/components/editable-title.test.tsx` ("renaming a canvas beside the
     conversation": ô tên có nhãn và placeholder riêng dưới tiêu đề của cuộc trò chuyện, "opens ready to
-    type over the name of something just made")
+    type over the name of something just made"); `web/src/components/canvas/canvas-editor.test.tsx`
+    (Ctrl/Cmd+S lưu ngay thay cho hộp lưu của trình duyệt, kể cả khi giữ Shift, còn chữ s để cho ô gõ;
+    báo canvas lúc ô mất focus và lúc soạn IME; code không kiểm chính tả và dùng phông code; "stays on
+    the characters it was on when a line arrives above", tính từ chỗ phím gõ để con trỏ, giữ chỗ cuộn)
 - **Canvas trên web: dòng trạng thái lưu, lời báo khi không lưu được, diff hai bản**
   - vitest: `web/src/components/canvas/canvas-status.test.tsx` (chữ cho từng trạng thái và lý do không
     bản nào giữ chữ đang gõ, "follows a save from the keystroke until it lands", server không trả lời
@@ -1596,7 +1599,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `web/src/lib/canvas-reasons.test.ts` ("reads %i as its reason, never the server's own words",
     request không tới server là mất kết nối); `web/src/components/diff-view.test.tsx` ("keeps three
     unchanged lines around a change and counts the rest", chỗ sửa chỉ gồm một ký tự ẩn vẫn hiện ra, hai
-    bản giống nhau và hai bản quá lớn để so theo dòng đều được nói)
+    bản giống nhau và hai bản quá lớn để so theo dòng đều được nói);
+    `web/src/components/canvas/canvas-conflict.test.tsx` (thanh xung đột nêu ai lưu bản nào, giữ chữ
+    của tôi thì không nạp bản kia, nạp bản kia khi được bảo, "shows what keeping mine would change in
+    theirs, and hides it again"; chữ mà "Nạp bản mới" thay lấy lại được cho tới khi gõ)
 - **Canvas trên web: lịch sử phiên bản, so sánh và khôi phục**
   - vitest: `web/src/components/canvas/canvas-history.test.tsx` ("lists each version, the newest first,
     and compares one with the version listed before it", so với bản cũ nhất còn giữ khi được hỏi và nói
@@ -1629,6 +1635,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     chooses", cả canvas lẫn cuộc trò chuyện rộng ít nhất 360 px, chỉ nhớ bề rộng khi được bảo giữ, bề
     rộng đã giữ co theo cửa sổ hẹp và trở lại khi cửa sổ rộng ra, theo cửa sổ khi người chưa chọn, không
     hẹp dưới 360 px kể cả cạnh cuộc trò chuyện hẹp, bỏ bề rộng đã giữ không phải số);
+    `web/src/components/canvas/canvas-handle.test.tsx` ("widens the canvas as the pointer moves left
+    and keeps where the button came up", kéo không bôi đen chữ, sau khi nhả thì thôi theo con trỏ; chỉ
+    nút chính mới kéo; panel đóng giữa lúc kéo thì buông con trỏ);
     `web/src/components/conversation-header.test.tsx` ("starts with the pill given first, ahead of spend
     and options, and ends with the extras": nút Canvas đứng đầu hàng pill nên ở 390 px vẫn trong màn
     hình)
