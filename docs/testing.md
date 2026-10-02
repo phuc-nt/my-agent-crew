@@ -234,7 +234,10 @@ uv run python scripts/run_evals.py --dry-run
   persona, dữ liệu workspace), nên tự xoá tay khi xong, như với `--keep-home`.
 - **Một lượt quá `--turn-timeout`** (300 giây, tính cả khi luồng SSE vẫn gửi keep-alive) hay một
   lỗi HTTP dừng cả cuộc eval: nó không còn biết server có sống không. Ctrl-C và SIGTERM cũng
-  dừng server và xoá bản sao.
+  dừng server và xoá bản sao. Đừng đặt `--turn-timeout` lớn hơn thời gian `delegate` chờ một
+  agent con (hạn duyệt cộng 300 giây, mặc định 900): khi đó lượt cha có thể xong trong lúc con
+  còn chạy, và bước canvas hay tin kế tiếp đua với con. Case có giao việc hay lượt dài thì chạy
+  với `--turn-timeout 900`.
 - **`--dry-run`** đổi model bằng `fake:echo` trên một home tổng hợp và bộ case mẫu, chỉ để kiểm
   dây nối; chỉ một lần chơi *không kết thúc được* (lỗi, hết giờ, mất server) mới tính là hỏng,
   vì model giả không thể thoả các kỳ vọng.
