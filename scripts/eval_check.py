@@ -5,12 +5,13 @@ Pure logic with no server and no model. `eval_play.py` gathers what a run did in
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from typing import Any, NamedTuple
 
+from eval_canvas import COPY_LINES, copied_lines
 from eval_cases import Case
-from eval_expect import args_text
+from eval_expect import Expect, args_text
 
 from my_agent_crew.memory.search import normalize
 
@@ -41,9 +42,13 @@ class Delegate(NamedTuple):
 
 @dataclass(frozen=True)
 class Observed:
-    """What one run did, whatever the model said about it."""
+    """What one run did, whatever the model said about it: `said` is everything the agent
+    said in the chat, `reply` the last of it, and `canvases` the text of each canvas the
+    conversation has."""
 
     reply: str = ""
+    said: tuple[str, ...] = ()
+    canvases: tuple[str, ...] = ()
     tool_calls: tuple[Call, ...] = ()
     approvals: tuple[Ask, ...] = ()
     delegates: tuple[Delegate, ...] = ()
@@ -99,6 +104,7 @@ def check(case: Case, observed: Observed) -> list[Failure]:
     for needle in expect.reply_not_contains:
         if normalize(needle) in reply:
             out.append(Failure("reply_not_contains", f"{needle!r} is in: {_short(observed.reply)}"))
+    out.extend(_canvas_failures(expect, observed))
     wanted = expect.delegates_to
     if wanted is not None and not any(wanted.hit(*d) for d in observed.delegates):
         went = ", ".join(map(str, observed.delegates)) or "nobody"
@@ -107,6 +113,23 @@ def check(case: Case, observed: Observed) -> list[Failure]:
         detail = f"spent ${observed.spent_usd:.4f}, at most ${expect.max_cost_usd:.4f}"
         out.append(Failure("max_cost_usd", detail))
     return out
+
+
+def _canvas_failures(expect: Expect, observed: Observed) -> Iterator[Failure]:
+    canvases = observed.canvases
+    held = [normalize(text) for text in canvases]
+    seen = f"{len(canvases)} canvas{'' if len(canvases) == 1 else 'es'}"
+    if expect.canvas_count is not None and len(canvases) != expect.canvas_count:
+        yield Failure("canvas_count", f"{seen}, not {expect.canvas_count}")
+    for needle in expect.canvas_contains:
+        if not any(normalize(needle) in text for text in held):
+            yield Failure("canvas_contains", f"no {needle!r} in {seen}")
+    for needle in expect.canvas_not_contains:
+        if any(normalize(needle) in text for text in held):
+            yield Failure("canvas_not_contains", f"{needle!r} is still in a canvas")
+    copied = copied_lines("\n\n".join(observed.said), canvases)
+    if expect.canvas_not_in_chat and copied >= COPY_LINES:
+        yield Failure("canvas_not_in_chat", f"the chat repeats {copied} lines of a canvas")
 
 
 def case_passed(outcomes: Sequence[bool], runs: int) -> bool:

@@ -1,8 +1,8 @@
 """Behaviour-eval cases: the file format, and how a file or a folder of them is loaded.
 
 A case is a short conversation with one agent plus what must, and must not, happen in it (see
-`scripts/eval_example_cases.yaml`). `eval_expect.py` holds the `expect` block and
-`eval_check.py` judges a run against it."""
+`scripts/eval_example_cases.yaml`). `eval_expect.py` holds the `expect` block, `eval_canvas.py`
+the canvas steps between messages, and `eval_check.py` judges a run against it."""
 
 from __future__ import annotations
 
@@ -11,7 +11,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
-from eval_expect import Expect, only, parse_expect, strings
+from eval_canvas import CanvasStep, parse_messages
+from eval_expect import Expect, parse_expect
+from eval_shape import only, strings
 
 APPROVAL_POLICIES = ("deny", "approve")
 CASE_KEYS = ("id", "agent", "messages", "approvals", "answers", "expect")
@@ -21,7 +23,7 @@ CASE_KEYS = ("id", "agent", "messages", "approvals", "answers", "expect")
 class Case:
     id: str
     agent: str
-    messages: tuple[str, ...]
+    messages: tuple[str | CanvasStep, ...]
     approvals: str = "deny"
     answers: tuple[str, ...] = ()
     expect: Expect = field(default_factory=Expect)
@@ -68,9 +70,7 @@ def parse_case(raw: object, source: str) -> Case:
     approvals = raw.get("approvals", "deny")
     if approvals not in APPROVAL_POLICIES:
         raise ValueError(f"{where}: approvals is one of {', '.join(APPROVAL_POLICIES)}")
-    messages = strings(raw.get("messages"), f"{where}: messages")
-    if not messages:
-        raise ValueError(f"{where}: messages must be a non-empty list of strings")
+    messages = parse_messages(raw.get("messages"), where)
     answers = strings(raw.get("answers", []), f"{where}: answers")
     expect = parse_expect(raw.get("expect") or {}, where)
     return Case(case_id, agent, messages, str(approvals), answers, expect, source)

@@ -1,6 +1,6 @@
 """What one eval run did, read back from the JSON the server already serves: the
-conversation's messages, the conversations it delegated to, and the approvals the client saw
-go by. Pure: nothing here talks to the server."""
+conversation's messages, the conversations it delegated to, the canvases it has, and the
+approvals the client saw go by. Pure: nothing here talks to the server."""
 
 from __future__ import annotations
 
@@ -29,9 +29,11 @@ def observe(
     spent_usd: float,
     unknown_cost_calls: int = 0,
     error: str = "",
+    canvases: Sequence[str] = (),
 ) -> Observed:
     """`conversation` and each of `children` are `GET /conversations/{id}`; `approvals` are
-    the `approval_required` payloads the client answered, each with the `turn` it came in."""
+    the `approval_required` payloads the client answered, each with the `turn` it came in;
+    `canvases` the text of each canvas the conversation has."""
     messages = conversation.get("messages", [])
     turn_of_call: dict[str, int] = {}
     calls = list(_calls(messages, str(conversation["agent_id"]), turn_of_call))
@@ -42,6 +44,10 @@ def observe(
         calls.extend(_calls(child.get("messages", []), str(child["agent_id"]), {}, fixed_turn=turn))
     return Observed(
         reply=_reply(messages),
+        said=tuple(
+            str(m["content"]) for m in messages if m["role"] == "assistant" and m.get("content")
+        ),
+        canvases=tuple(canvases),
         tool_calls=tuple(calls),
         approvals=tuple(
             Ask(int(a["turn"]), str(a["name"]), dict(a.get("arguments") or {}))

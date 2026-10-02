@@ -18,6 +18,8 @@ from eval_client import EvalApi
 from eval_report import Report, RunResult
 from llm_bench_server import port_is_free
 
+from my_agent_crew.artifacts.diff import line_span
+from my_agent_crew.texts_canvas import PICK_LINES
 from tests.http_fake import FakeServer, as_json, say, sse, tool_approval
 
 CONV = "/api/conversations/c1"
@@ -28,7 +30,7 @@ def no_settling(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(eval_play, "SETTLE_SECONDS", 0.0)
 
 
-def case_of(name: str, *messages: str, agent: str = "default", **rest) -> Case:
+def case_of(name: str, *messages: str | dict, agent: str = "default", **rest) -> Case:
     raw = {"id": name, "agent": agent, "messages": list(messages or ["hi"]), **rest}
     return parse_case(raw, "test")
 
@@ -60,7 +62,8 @@ def one_run(
     *turns: httpx.Response, after: httpx.Response, cost=(0.0, 0.0), runs: list[dict] | None = None
 ) -> FakeServer:
     """The requests one run makes: the ledger, a conversation, a stream per turn, the record
-    read back, the family of runs, and the ledger again."""
+    read back, the family of runs, the canvases it has (none unless a test queues some), and the
+    ledger again."""
     return (
         FakeServer()
         .on("/api/stats", ledger(cost[0]), ledger(cost[1]))
@@ -68,6 +71,7 @@ def one_run(
         .on(f"{CONV}/messages", *turns)
         .on(CONV, after)
         .on("/api/activity/runs", as_json(runs or []))
+        .always("/api/artifacts", as_json([]))
     )
 
 
@@ -157,6 +161,79 @@ def test_what_a_delegated_child_did_counts_as_part_of_the_run():
     ).on("/api/conversations/c2", as_json({"agent_id": "researcher", "messages": []}))
 
     assert eval_play.play(api_over(server), case, 1).failures == ()
+
+
+WEEKEND = "# Weekend\n- Clean the fridge\n- Wash the curtains\n"
+
+
+def canvas(content: str, version: int = 1) -> httpx.Response:
+    return as_json({"id": "a1", "head_version": version, "content": content})
+
+
+def sent_messages(server: FakeServer) -> list[dict]:
+    return [body for _method, path, body, _query in server.requests if path == f"{CONV}/messages"]
+
+
+def test_canvas_steps_run_between_the_turns_and_every_later_message_carries_the_open_canvas():
+    case = case_of(
+        "c",
+        {"create_canvas": {"title": "Weekend", "content": WEEKEND}},
+        "look",
+        {"select_canvas": "Clean the fridge"},
+        "this one?",
+        "ta",
+        expect={"canvas_count": 1, "canvas_contains": "Water the plants"},
+    )
+    turns = [told("look"), said("seen"), told("this one?"), said("that"), told("ta"), said("ok")]
+    server = (
+        one_run(sse(say("seen")), sse(say("that")), sse(say("ok")), after=record(*turns))
+        .on("/api/artifacts", canvas(WEEKEND), as_json([{"id": "a1"}]))
+        .on("/api/artifacts/a1", canvas(WEEKEND), canvas(WEEKEND + "- Water the plants\n", 2))
+    )
+
+    result = eval_play.play(api_over(server), case, 1)
+
+    assert result.failures == ()
+    picked = {"version": 1, "text": "Clean the fridge", "line_start": 2, "line_end": 2}
+    assert sent_messages(server) == [
+        {"text": "look", "canvas": {"artifact_id": "a1", "selection": None}},
+        {"text": "this one?", "canvas": {"artifact_id": "a1", "selection": picked}},
+        {"text": "ta", "canvas": {"artifact_id": "a1", "selection": None}},
+    ]
+    canvas_or_turn = ("/api/artifacts", f"{CONV}/messages")
+    assert [call for call in server.calls() if call[1].startswith(canvas_or_turn)] == [
+        ("POST", "/api/artifacts"),
+        ("POST", f"{CONV}/messages"),
+        ("GET", "/api/artifacts/a1"),
+        ("POST", f"{CONV}/messages"),
+        ("POST", f"{CONV}/messages"),
+        ("GET", "/api/artifacts"),
+        ("GET", "/api/artifacts/a1"),
+    ]
+
+
+def test_a_canvas_step_that_cannot_be_done_ends_the_run_before_the_next_message():
+    case = case_of("c", "hello", {"edit_canvas": {"old": "Wash the dishes", "new": "x"}}, "more")
+    server = (
+        one_run(sse(say("hi")), after=record(told("hello"), said("hi")))
+        .on("/api/artifacts", as_json([{"id": "a1"}]))
+        .on("/api/artifacts/a1", canvas(WEEKEND))
+    )
+
+    result = eval_play.play(api_over(server), case, 1)
+
+    detail = "edit_canvas: 'Wash the dishes' is in the canvas 0 times, not once"
+    assert [(f.assertion, f.detail) for f in result.failures] == [(RUN, detail)]
+    assert server.posted().count(f"{CONV}/messages") == 1
+    assert not eval_play.stalled(result)
+
+
+def test_a_message_sent_before_any_canvas_is_open_is_its_text_alone():
+    server = one_run(sse(say("done")), after=record(told("hi"), said("done")))
+
+    eval_play.play(api_over(server), case_of("c"), 1)
+
+    assert sent_messages(server) == [{"text": "hi"}]
 
 
 def test_a_run_that_timed_out_or_lost_the_server_is_a_stall_and_one_that_did_not_is_not():
@@ -415,6 +492,46 @@ CASES = """\
   messages: [hello]
   expect:
     reply_contains: banana
+
+- id: the-person-works-on-a-canvas-between-turns
+  agent: default
+  messages:
+    - create_canvas:
+        title: Weekend
+        content: |
+          # Weekend
+
+          - Clean out the fridge on Saturday
+          - Wash the curtains in the spare room
+    - edit_canvas: {old: Wash the curtains, new: Wash the blankets}
+    - '/tool artifact_list {}'
+    - select_canvas: Clean out the fridge on Saturday
+    - what about this line?
+  expect:
+    calls_tool:
+      - {name: artifact_list, turn: 1}
+    canvas_count: 1
+    canvas_contains: [Wash the blankets]
+    canvas_not_contains: [Wash the curtains]
+    reply_contains: [Clean out the fridge on Saturday]
+    canvas_not_in_chat: true
+
+- id: the-fake-model-says-the-selected-lines-back
+  agent: default
+  messages:
+    - create_canvas:
+        title: Lunch
+        content: |
+          - Monday: chicken rice with greens
+          - Tuesday: beef noodle soup, extra herbs
+          - Wednesday: grilled fish and rice
+    - select_canvas: |
+        Monday: chicken rice with greens
+        - Tuesday: beef noodle soup, extra herbs
+        - Wednesday: grilled fish and rice
+    - and these?
+  expect:
+    canvas_not_in_chat: true
 """
 
 
@@ -437,12 +554,20 @@ def test_a_dry_run_plays_real_turns_through_a_real_server_and_leaves_only_the_re
         "deleting-asks-first",
         "the-write-comes-in-the-second-turn",
         "a-delegated-child-asks-in-its-own-conversation",
+        "the-person-works-on-a-canvas-between-turns",
     )
     for name in playable:
         assert [run["failures"] for run in by_id[name]["runs"]] == [[], []], name
     banana = by_id["nothing-the-fake-model-can-say"]["runs"][0]
     assert [f["assertion"] for f in banana["failures"]] == ["reply_contains"]
     assert banana["ok"] is True
+    # The server placed the selection by the lines the eval counted, on the edited version.
+    worked = by_id["the-person-works-on-a-canvas-between-turns"]["runs"][0]
+    assert PICK_LINES.format(span=line_span(3, 3), version=2) in worked["reply"]
+    pasted = by_id["the-fake-model-says-the-selected-lines-back"]["runs"][0]
+    assert [(f["assertion"], f["detail"]) for f in pasted["failures"]] == [
+        ("canvas_not_in_chat", "the chat repeats 3 lines of a canvas")
+    ]
     assert "> Dry run." in (out / "results" / "results.md").read_text()
     assert (out / "results" / "server.log").exists()
     assert not (out / eval_cli.RUN_DIR).exists()

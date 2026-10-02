@@ -173,6 +173,23 @@ uv run python scripts/run_evals.py --dry-run
   `outcome` là một trong năm giá trị của dòng `outcome=` trong kết quả giao việc) và `max_cost_usd`.
   Khoá lạ, regex hỏng hay id trùng bị từ chối *trước* khi tốn đồng nào. Việc một agent con làm
   tính vào lượt của cha đã giao nó.
+- **Bước canvas** nằm giữa các tin trong `messages`: đó là việc người làm trên panel giữa hai
+  lượt, đi qua đúng các route REST mà web dùng, với tư cách người. `create_canvas: {title,
+  content, kind?}` tạo canvas trong cuộc trò chuyện và mở nó (`kind` là `markdown`, mặc định, hay
+  `code`). `edit_canvas: {old, new}` thay chỗ duy nhất có `old` trong canvas đang mở rồi lưu trên
+  đúng bản vừa đọc, như editor. `select_canvas: <đoạn>` chọn chỗ duy nhất có đoạn ấy, đếm dòng
+  như panel. Chưa mở canvas nào thì bước làm trên canvas mới đổi gần nhất của cuộc trò chuyện. Từ
+  lúc có canvas mở, mọi tin gửi đi mang canvas đó như tin từ web; vùng chọn chỉ đi cùng tin ngay
+  sau, nên một bước chọn phải có tin theo sau. Một tin có `: ` phải để trong ngoặc kép, không thì
+  YAML đọc nó thành một bước. Bước không làm được (cuộc trò chuyện chưa có canvas, `old` hay đoạn
+  chọn không có đúng một lần, server từ chối lần lưu) làm lần chơi hỏng và không gửi tin sau; mất
+  server thì dừng cả cuộc eval như một lượt.
+- **Kỳ vọng về canvas** chấm mọi canvas liên kết với cuộc trò chuyện gốc khi lần chơi xong:
+  `canvas_count` (số canvas), `canvas_contains` và `canvas_not_contains` (có trong một canvas nào
+  đó, hay không còn trong canvas nào; không phân biệt hoa thường và dấu) và `canvas_not_in_chat:
+  true`. Kỳ vọng cuối hỏng khi những gì agent nói trong cuộc trò chuyện gốc, ở mọi lượt, lặp lại
+  từ 3 dòng của một canvas, mỗi dòng từ 20 ký tự, bất kể dấu đầu dòng, số thứ tự hay chữ đậm:
+  canvas là chỗ làm việc, chat là chỗ nói về nó.
 - **Mỗi case chơi `--runs` lần** (mặc định 3) và đạt khi ít nhất hai phần ba số lần đạt. Số tiền
   là mức sổ cái của server tăng lên kể từ lúc bắt đầu, lời gọi bên cạnh lượt cũng tính; trước mỗi
   lần chơi mà đã hết `--max-usd` (mặc định 0.5) thì dừng. Có lời gọi provider không báo giá thì
@@ -234,9 +251,10 @@ mã thì cuộc sau nhận nhầm agent con của cuộc trước.
 Mã nằm trong `scripts/`, tách theo việc để mỗi tệp ≤ 200 dòng như mã của gói: `run_evals.py`
 (điểm vào), `eval_cli.py` (tuỳ chọn, chọn case, từ chối sớm), `eval_play.py` (chơi một lần, chạy
 hết các case), `eval_home.py` + `eval_copy.py` + `eval_layout.py` (bản sao), `eval_cases.py` +
-`eval_expect.py` + `eval_check.py` (đọc và chấm case), `eval_observe.py` (biến một cuộc trò
-chuyện thành thứ chấm được), `eval_client.py` (duyệt, câu hỏi, sổ cái), `eval_report.py` (báo
-cáo). Server và client HTTP chia với bench: `llm_bench_server.py`, `llm_bench_client.py`.
+`eval_expect.py` + `eval_check.py` (đọc và chấm case), `eval_shape.py` (dạng giá trị chung của
+case, kỳ vọng và bước), `eval_canvas.py` (bước canvas, luật chép canvas vào chat),
+`eval_observe.py` (biến một cuộc trò chuyện thành thứ chấm được), `eval_client.py` (duyệt, câu
+hỏi, sổ cái, canvas), `eval_report.py` (báo cáo). Server và client HTTP chia với bench: `llm_bench_server.py`, `llm_bench_client.py`.
 
 ## Smoke trực tiếp (thủ công)
 
@@ -612,10 +630,19 @@ tên một test thì sửa dòng của nó trong cùng commit.
     loại kỳ vọng: gọi và không gọi tool theo tên, tham số, agent và lượt, xin duyệt, số lần gọi tối đa,
     câu đáp chứa và không chứa, giao việc cho agent nào và việc đi tới outcome nào (không nêu
     outcome thì outcome nào cũng được, outcome lạ bị từ chối), giá tối đa; "hai phần ba số lần
-    chơi đạt thì case đạt");
+    chơi đạt thì case đạt"; bước canvas đọc đúng chỗ giữa các tin, bước lạ, tin có `: ` không
+    ngoặc, bước thiếu hay thừa khoá, `kind` lạ, đoạn chọn rỗng, bước chọn không có tin sau và case
+    chỉ có bước bị từ chối, kỳ vọng canvas sai dạng cũng vậy);
+    `tests/test_eval_canvas.py` (tạo canvas trong cuộc trò chuyện và mở nó, sửa lưu trên đúng bản
+    vừa đọc, chưa mở thì lấy canvas mới đổi gần nhất, không có canvas hay `old` không có đúng một
+    lần thì hỏng mà không lưu, server từ chối thì hỏng mà eval đi tiếp, mất server thì ném lỗi như
+    một lượt, vùng chọn mang đúng dòng và chỉ đi với tin kế, mở canvas khác thì bỏ vùng chọn; chấm
+    canvas: chứa, không chứa, số canvas, dán từ 3 dòng ở bất kỳ lượt nào bất kể markdown, trích một
+    dòng hay nêu dòng ngắn thì không tính);
     `tests/test_eval_observe.py` (mỗi lệnh gọi mang số lượt và agent, việc của agent con tính
     vào lượt của cha đã giao, outcome của mỗi lần giao việc đọc từ dòng hai kết quả của nó, kết
-    quả cũ không có dòng đó thì không có outcome; lời đáp cuối, lỗi và giá, tìm ra các cuộc con);
+    quả cũ không có dòng đó thì không có outcome; lời đáp cuối, lỗi và giá, tìm ra các cuộc con;
+    mọi câu agent nói trong cuộc gốc, nội dung các canvas);
     `tests/test_eval_client.py` (duyệt và từ chối được ghi lại, lệnh nêu đường dẫn live bị từ
     chối kể cả khi chính sách là duyệt, câu hỏi lấy câu trả lời kế tiếp và hết thì hỏng, một
     lượt vẫn bị cắt khi luồng cứ gửi keep-alive, yêu cầu duyệt của agent con được trả lời, được
@@ -633,7 +660,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `tests/test_run_evals.py` (một lần chơi đạt hay hỏng và vì kỳ vọng nào, cuộc trò chuyện
     không tự động, lỗi ở lượt đầu chặn lượt sau, tiền tính theo mức tăng của sổ cái, hết ngân
     sách thì dừng trước lần chơi kế, Ctrl-C để lại số của các lần đã xong, một lượt quá giờ hay
-    mất server dừng cả cuộc, các từ chối trước khi chép gì, chạy thử qua một server thật);
+    mất server dừng cả cuộc, các từ chối trước khi chép gì, chạy thử qua một server thật; bước
+    canvas chạy giữa các lượt và mọi tin sau mang canvas đang mở, bước hỏng chặn tin sau mà không
+    dừng eval, tin trước khi có canvas chỉ có chữ; khi chạy thử, server đặt vùng chọn đúng dòng eval
+    đếm trên bản đã sửa, và một lần dán ba dòng bị bắt từ JSON thật của server);
     `tests/test_llm_bench_client.py` (môi trường của server bench và eval không mang home,
     token bot hay danh sách cho phép lệnh shell của người chạy);
     `tests/test_serve_flags.py` (`--no-schedule` tắt cả scheduler lẫn kênh, không đụng `--port`);

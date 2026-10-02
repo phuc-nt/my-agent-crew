@@ -75,10 +75,10 @@ def as_json(data: Any) -> httpx.Response:
 
 class FakeServer:
     """A reply is a response, or a function that makes one when the request arrives. A path
-    takes its queued replies in order, then its standing reply."""
+    takes its queued replies in order, then its standing reply, whatever the method."""
 
     def __init__(self) -> None:
-        self.requests: list[tuple[str, dict[str, Any]]] = []
+        self.requests: list[tuple[str, str, dict[str, Any], dict[str, str]]] = []
         self._replies: dict[str, list[Reply]] = {}
         self._standing: dict[str, Reply] = {}
         self._lock = threading.Lock()
@@ -95,17 +95,29 @@ class FakeServer:
     def posted(self) -> list[str]:
         """The paths asked for, in order."""
         with self._lock:
-            return [path for path, _body in self.requests]
+            return [path for _method, path, _body, _query in self.requests]
 
-    def body_of(self, path: str) -> dict[str, Any]:
+    def calls(self) -> list[tuple[str, str]]:
+        """Each request's method and path, in order."""
         with self._lock:
-            return next(body for seen, body in self.requests if seen == path)
+            return [(method, path) for method, path, _body, _query in self.requests]
+
+    def body_of(self, path: str, method: str = "POST") -> dict[str, Any]:
+        """The body of the first `method` request to `path`."""
+        return self._first(path, method)[2]
+
+    def query_of(self, path: str, method: str = "GET") -> dict[str, str]:
+        return self._first(path, method)[3]
+
+    def _first(self, path: str, method: str) -> tuple[str, str, dict[str, Any], dict[str, str]]:
+        with self._lock:
+            return next(r for r in self.requests if r[:2] == (method, path))
 
     def _handle(self, request: httpx.Request) -> httpx.Response:
         path = request.url.path
         body = json.loads(request.content) if request.content else {}
         with self._lock:
-            self.requests.append((path, body))
+            self.requests.append((request.method, path, body, dict(request.url.params)))
             queue = self._replies.get(path)
             reply = queue.pop(0) if queue else self._standing[path]
         return reply() if callable(reply) else reply

@@ -62,6 +62,15 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   canvas shares it with the conversation, so the agents it delegates to reach it too. A
   selection the note would drop is refused with 422 and changes nothing, and a message the
   approval gate refuses leaves the open canvas alone.
+- Behaviour evals can work on a canvas between two messages, as the person would in the web
+  panel and over the same routes: `create_canvas`, `edit_canvas` (replaces one exact passage and
+  saves on the version it read) and `select_canvas` (the next message carries the selection's
+  lines). Every message sent once a canvas is open carries it, as a web message does. A step
+  that cannot be done fails the run before the next message; a lost server stops the eval as a
+  lost turn does. New expectations judge the canvases linked to the conversation when the run
+  ends: `canvas_count`, `canvas_contains`, `canvas_not_contains`, and `canvas_not_in_chat`,
+  which fails when anything the agent said in the conversation repeats three or more lines of a
+  canvas, whatever the markup. The dry run plays a canvas case through the real server.
 
 ### Fixed
 

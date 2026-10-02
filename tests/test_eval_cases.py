@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from eval_canvas import CanvasStep
 from eval_cases import load_cases, parse_case
 from eval_check import Ask, Call, Delegate, Failure, Observed, case_passed, check
 
@@ -80,8 +81,62 @@ def test_a_directory_loads_every_yaml_file_in_name_order(tmp_path):
     assert [c.id for c in load_cases(tmp_path)] == ["ay", "bee"]
 
 
+def test_canvas_steps_load_in_their_place_between_the_messages(tmp_path):
+    path = write(
+        tmp_path / "canvas.yaml",
+        """
+- id: works-on-a-canvas
+  agent: default
+  messages:
+    - create_canvas: {title: Plan, content: "- a\\n- b\\n"}
+    - look at it
+    - edit_canvas: {old: "- a", new: ""}
+    - select_canvas: |
+        - b
+    - "and: this?"
+  expect:
+    canvas_count: 1
+    canvas_contains: b
+    canvas_not_contains: ["- a"]
+    canvas_not_in_chat: true
+""",
+    )
+
+    (case,) = load_cases(path)
+
+    assert case.messages == (
+        CanvasStep("create_canvas", title="Plan", content="- a\n- b\n", kind="markdown"),
+        "look at it",
+        CanvasStep("edit_canvas", old="- a", new=""),
+        CanvasStep("select_canvas", text="- b"),
+        "and: this?",
+    )
+    expect = case.expect
+    assert (expect.canvas_count, expect.canvas_contains, expect.canvas_not_contains) == (
+        1,
+        ("b",),
+        ("- a",),
+    )
+    assert expect.canvas_not_in_chat is True
+
+
+def test_a_case_without_canvas_expectations_checks_none():
+    expect = parse_case({"id": "c", "agent": "default", "messages": ["hi"]}, "test").expect
+
+    assert (expect.canvas_count, expect.canvas_contains, expect.canvas_not_contains) == (
+        None,
+        (),
+        (),
+    )
+    assert expect.canvas_not_in_chat is False
+
+
 def expecting(expect: str) -> str:
     return f"- {{id: x1, agent: default, messages: [a], expect: {{{expect}}}}}"
+
+
+def with_steps(messages: str) -> str:
+    return f"- {{id: x1, agent: default, messages: [{messages}]}}"
 
 
 @pytest.mark.parametrize(
@@ -102,6 +157,32 @@ def expecting(expect: str) -> str:
         (expecting("calls_tool: [{name: t, turn: 0}]"), "turn"),
         (expecting("max_calls: {t: many}"), "max_calls"),
         (expecting("max_cost_usd: free"), "max_cost_usd"),
+        ("- {id: x1, agent: default, messages: ['']}", "messages"),
+        (with_steps("{paint_canvas: {}}, a"), "paint_canvas"),
+        (with_steps("note: buy milk"), "needs quotes"),
+        (with_steps("{create_canvas: {title: T, content: x}, select_canvas: x}, a"), "one of"),
+        (with_steps("{create_canvas: T}, a"), "mapping"),
+        (with_steps("{create_canvas: {content: x}}, a"), "title"),
+        (with_steps("{create_canvas: {title: ' ', content: x}}, a"), "title"),
+        (with_steps("{create_canvas: {title: T}}, a"), "content"),
+        (with_steps("{create_canvas: {title: T, content: x, kind: html}}, a"), "kind"),
+        (with_steps("{create_canvas: {title: T, content: x, colour: red}}, a"), "colour"),
+        (with_steps("{edit_canvas: {old: '', new: x}}, a"), "old"),
+        (with_steps("{edit_canvas: {old: x}}, a"), "new"),
+        (with_steps("{edit_canvas: {old: x, new: 3}}, a"), "new"),
+        (with_steps("{edit_canvas: {old: x, new: y, colour: red}}, a"), "colour"),
+        (with_steps("{select_canvas: ''}, a"), "passage"),
+        (with_steps("{select_canvas: '  '}, a"), "passage"),
+        (with_steps("{select_canvas: {text: x}}, a"), "passage"),
+        (with_steps("{create_canvas: {title: T, content: x}}"), "only canvas steps"),
+        (with_steps("a, {select_canvas: x}"), "message after it"),
+        (with_steps("a, {select_canvas: x}, {edit_canvas: {old: x, new: y}}"), "message after it"),
+        (expecting("canvas_count: -1"), "canvas_count"),
+        (expecting("canvas_count: true"), "canvas_count"),
+        (expecting("canvas_count: 1.5"), "canvas_count"),
+        (expecting("canvas_contains: ['']"), "canvas_contains"),
+        (expecting("canvas_not_contains: [3]"), "canvas_not_contains"),
+        (expecting("canvas_not_in_chat: 1"), "canvas_not_in_chat"),
     ],
 )
 def test_a_case_that_cannot_be_judged_is_refused_naming_the_file_and_the_case(

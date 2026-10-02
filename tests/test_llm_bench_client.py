@@ -56,7 +56,7 @@ def test_a_conversation_is_autonomous_only_when_the_caller_says_so():
     api.create_conversation("coach")
     api.create_conversation("coach", autonomous=False)
 
-    first, second = (body for _path, body in server.requests)
+    first, second = (body for _method, _path, body, _query in server.requests)
     assert first == {"agent_id": "coach"}
     assert second == {"agent_id": "coach", "autonomous": False}
 

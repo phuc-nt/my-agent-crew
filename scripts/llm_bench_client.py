@@ -49,13 +49,15 @@ class Api:
         resp.raise_for_status()
         return str(resp.json()["id"])
 
-    def turn(self, conv_id: str, text: str) -> Turn:
+    def turn(self, conv_id: str, text: str, **fields: Any) -> Turn:
         """One user message, followed through every approval the turn asks for, until the
-        stream that ends the turn closes."""
+        stream that ends the turn closes. `fields` go in the message too, as the web's
+        `canvas` does."""
         turn = Turn()
         start = time.monotonic()
         self._deadline = start + self._turn_seconds if self._turn_seconds else None
-        self._drive(conv_id, (f"/conversations/{conv_id}/messages", {"text": text}), turn)
+        step = (f"/conversations/{conv_id}/messages", {"text": text, **fields})
+        self._drive(conv_id, step, turn)
         turn.wall_s = round(time.monotonic() - start, 2)
         return turn
 

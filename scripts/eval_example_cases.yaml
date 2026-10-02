@@ -11,6 +11,20 @@
 #   max_cost_usd                 what the run may spend
 # A tool spec is {name, args_regex?, agent?, turn?}: the regex is searched in the call's
 # arguments as JSON, and turns count from 1.
+#
+# Between two messages a case may do what the person does in the web panel, over the same REST
+# routes; a step is a mapping with one key, and one that cannot be done fails the run:
+#   create_canvas: {title, content, kind?}   makes a canvas in the conversation and opens it
+#                                            (kind: markdown, the default, or code)
+#   edit_canvas: {old, new}                  replaces the one place `old` is in the open canvas
+#   select_canvas: <text>                    selects the one place the text is; the next
+#                                            message carries it
+# A message with ": " in it needs quotes, or it reads as a step. The canvases the conversation
+# has when the run ends are judged too:
+#   canvas_count                 how many there are
+#   canvas_contains / canvas_not_contains   text in any of them; case and accents are ignored
+#   canvas_not_in_chat           true: what the agent says must not repeat 3 or more lines of a
+#                                canvas, whatever the markup
 
 - id: a-question-changes-nothing
   agent: default
@@ -32,3 +46,22 @@
     asks_approval:
       - name: shell_run
         args_regex: 'rm\b.*notes\.txt'
+
+- id: the-agent-works-in-the-canvas-it-was-shown
+  agent: default
+  messages:
+    - create_canvas:
+        title: Packing list
+        content: |
+          # Packing list
+
+          - Passport and tickets
+          - Phone charger
+    - edit_canvas: {old: Phone charger, new: Phone charger and travel adapter}
+    - select_canvas: Passport and tickets
+    - Put sunscreen on a new line right after this one.
+  expect:
+    canvas_count: 1
+    canvas_contains: [sunscreen, travel adapter]
+    canvas_not_in_chat: true
+    max_cost_usd: 0.03

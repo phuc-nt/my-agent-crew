@@ -1,5 +1,6 @@
 """The eval runner's view of a conversation: the bench's HTTP client, plus what a case decides
-about the approvals and questions its turns run into, plus the server's cost ledger."""
+about the approvals and questions its turns run into, plus the canvases a person works on and
+the server's cost ledger."""
 
 from __future__ import annotations
 
@@ -54,13 +55,13 @@ class EvalApi(Api):
         self.policy, self.answers = policy, list(answers)
         self.asked, self._turn_no, self._abort = [], 0, ""
 
-    def turn(self, conv_id: str, text: str) -> Turn:
+    def turn(self, conv_id: str, text: str, **fields: Any) -> Turn:
         self._turn_no += 1
         stop = threading.Event()
         watcher = threading.Thread(target=self._watch_children, args=(conv_id, stop), daemon=True)
         watcher.start()
         try:
-            turn = super().turn(conv_id, text)
+            turn = super().turn(conv_id, text, **fields)
         finally:
             stop.set()
             watcher.join(WATCH_JOIN_SECONDS)
@@ -118,15 +119,31 @@ class EvalApi(Api):
             self._abort = turn.error
 
     def agent_ids(self) -> list[str]:
-        resp = self._client.get("/agents")
-        resp.raise_for_status()
-        return [str(agent["id"]) for agent in resp.json()]
+        return [str(agent["id"]) for agent in self._json("GET", "/agents")]
+
+    def artifacts(self, conv_id: str) -> list[dict[str, Any]]:
+        """The canvases linked to the conversation, the most recently changed first."""
+        return list(self._json("GET", "/artifacts", params={"conversation_id": conv_id}))
+
+    def artifact(self, artifact_id: str) -> dict[str, Any]:
+        return dict(self._json("GET", f"/artifacts/{artifact_id}"))
+
+    def create_artifact(self, conv_id: str, title: str, kind: str, content: str) -> dict[str, Any]:
+        body = {"title": title, "kind": kind, "content": content, "conversation_id": conv_id}
+        return dict(self._json("POST", "/artifacts", json=body))
+
+    def save_artifact(self, artifact_id: str, content: str, base_version: int) -> dict[str, Any]:
+        body = {"content": content, "base_version": base_version}
+        return dict(self._json("PUT", f"/artifacts/{artifact_id}", json=body))
 
     def ledger(self) -> tuple[float, int]:
         """What the server has spent since it started: dollars, and the calls whose price the
         provider did not give (so the dollars are a lower bound when there are any)."""
-        resp = self._client.get("/stats")
-        resp.raise_for_status()
-        purposes = resp.json().get("purposes") or []
+        purposes = self._json("GET", "/stats").get("purposes") or []
         cost = sum(float(p.get("cost_usd") or 0.0) for p in purposes)
         return cost, sum(int(p.get("unknown_cost_calls") or 0) for p in purposes)
+
+    def _json(self, method: str, path: str, **request: Any) -> Any:
+        resp = self._client.request(method, path, **request)
+        resp.raise_for_status()
+        return resp.json()

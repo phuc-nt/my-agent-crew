@@ -7,9 +7,11 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
+
+from eval_shape import count_or_none, flag, is_count, needles, only
 
 from my_agent_crew.tools.delegate_outcome import (
     BLOCKED,
@@ -28,7 +30,12 @@ EXPECT_KEYS = (
     "reply_not_contains",
     "delegates_to",
     "max_cost_usd",
+    "canvas_count",
+    "canvas_contains",
+    "canvas_not_contains",
+    "canvas_not_in_chat",
 )
+NEEDLE_KEYS = ("reply_contains", "reply_not_contains", "canvas_contains", "canvas_not_contains")
 TOOL_SPEC_KEYS = {
     "calls_tool": ("name", "args_regex", "agent", "turn"),
     "not_calls_tool": ("name", "args_regex", "turn"),
@@ -87,22 +94,15 @@ class Expect:
     reply_not_contains: tuple[str, ...] = ()
     delegates_to: DelegateSpec | None = None
     max_cost_usd: float | None = None
+    # The canvases the conversation has when the run ends, and whether its chat repeats one.
+    canvas_count: int | None = None
+    canvas_contains: tuple[str, ...] = ()
+    canvas_not_contains: tuple[str, ...] = ()
+    canvas_not_in_chat: bool = False
 
 
 def args_text(args: Mapping[str, Any]) -> str:
     return json.dumps(args, ensure_ascii=False, sort_keys=True, default=str)
-
-
-def only(raw: Mapping[str, Any], allowed: Sequence[str], where: str) -> None:
-    unknown = sorted(set(raw) - set(allowed), key=str)
-    if unknown:
-        raise ValueError(f"{where}: unknown key {unknown[0]!r}; known keys: {', '.join(allowed)}")
-
-
-def strings(value: object, where: str) -> tuple[str, ...]:
-    if not isinstance(value, list) or not all(isinstance(v, str) and v for v in value):
-        raise ValueError(f"{where} must be a list of non-empty strings")
-    return tuple(value)
 
 
 def parse_expect(raw: object, where: str) -> Expect:
@@ -110,13 +110,15 @@ def parse_expect(raw: object, where: str) -> Expect:
         raise ValueError(f"{where}: expect must be a mapping")
     only(raw, EXPECT_KEYS, f"{where}: expect")
     specs = {key: _tool_specs(raw.get(key, []), key, where) for key in TOOL_SPEC_KEYS}
+    found = {key: needles(raw.get(key, []), key, where) for key in NEEDLE_KEYS}
     return Expect(
         **specs,
+        **found,
         max_calls=_max_calls(raw.get("max_calls", {}), where),
-        reply_contains=_needles(raw.get("reply_contains", []), "reply_contains", where),
-        reply_not_contains=_needles(raw.get("reply_not_contains", []), "reply_not_contains", where),
         delegates_to=_delegates_to(raw.get("delegates_to"), where),
         max_cost_usd=_max_cost(raw.get("max_cost_usd"), where),
+        canvas_count=count_or_none(raw.get("canvas_count"), "canvas_count", where),
+        canvas_not_in_chat=flag(raw.get("canvas_not_in_chat", False), "canvas_not_in_chat", where),
     )
 
 
@@ -147,17 +149,9 @@ def _tool_spec(raw: object, label: str, key: str, where: str) -> ToolSpec:
 
 
 def _max_calls(raw: object, where: str) -> dict[str, int]:
-    if isinstance(raw, Mapping) and all(_count(n) for n in raw.values()):
+    if isinstance(raw, Mapping) and all(is_count(n) for n in raw.values()):
         return {str(name): int(limit) for name, limit in raw.items()}
     raise ValueError(f"{where}: max_calls maps a tool name to a whole number, 0 or more")
-
-
-def _count(value: object) -> bool:
-    return isinstance(value, int) and not isinstance(value, bool) and value >= 0
-
-
-def _needles(raw: object, key: str, where: str) -> tuple[str, ...]:
-    return strings([raw] if isinstance(raw, str) else raw, f"{where}: {key}")
 
 
 def _delegates_to(raw: object, where: str) -> DelegateSpec | None:

@@ -1,5 +1,6 @@
 """Playing cases: one run on a fresh conversation, then the runs of every case, writing the
-results after each so a run cut short still leaves its numbers."""
+results after each so a run cut short still leaves its numbers. A canvas step between two
+messages is not a turn: it is what the person does in the panel (`eval_canvas.py`)."""
 
 from __future__ import annotations
 
@@ -10,6 +11,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 import httpx
+from eval_canvas import CanvasStep, Panel, perform
 from eval_cases import Case
 from eval_check import RUN, Failure, check
 from eval_client import EvalApi
@@ -25,16 +27,20 @@ def play(api: EvalApi, case: Case, number: int) -> RunResult:
     cost_before, unknown_before = api.ledger()
     conv_id = api.create_conversation(case.agent, autonomous=False)
     api.start_case(case.approvals, case.answers)
-    error, wall = "", 0.0
-    for message in case.messages:
-        turn = api.turn(conv_id, message)
-        wall += turn.wall_s
-        if turn.error:
+    panel, error, wall = Panel(), "", 0.0
+    for item in case.messages:
+        if isinstance(item, CanvasStep):
+            error = perform(api, conv_id, item, panel)
+        else:
+            turn = api.turn(conv_id, item, **panel.carry())
+            wall += turn.wall_s
             error = turn.error
+        if error:
             break
     time.sleep(SETTLE_SECONDS)
     conversation = api.conversation(conv_id)
     children = [api.conversation(child) for child in child_ids(api.runs(conv_id), conv_id)]
+    canvases = [api.artifact(str(a["id"])).get("content") or "" for a in api.artifacts(conv_id)]
     cost_after, unknown_after = api.ledger()
     observed = observe(
         conversation,
@@ -43,6 +49,7 @@ def play(api: EvalApi, case: Case, number: int) -> RunResult:
         cost_after - cost_before,
         unknown_after - unknown_before,
         error,
+        canvases,
     )
     failures = tuple(check(case, observed))
     return RunResult(number, failures, observed.spent_usd, round(wall, 1), observed.reply)

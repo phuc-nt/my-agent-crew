@@ -130,6 +130,13 @@ def test_only_tool_approvals_count_as_asks_and_they_keep_the_turn_they_came_in()
     )
 
 
+def test_said_is_every_text_the_agent_wrote_in_the_conversation_and_canvases_pass_through():
+    seen = observe(ROOT, [CHILD], [], spent_usd=0.0, canvases=["# Plan\n"])
+
+    assert seen.said == ("Logged.", "Here it is.")
+    assert seen.canvases == ("# Plan\n",)
+
+
 def test_cost_and_error_are_carried_through():
     seen = observe(ROOT, [], [], spent_usd=0.0123, unknown_cost_calls=2, error="halted: loop")
 
