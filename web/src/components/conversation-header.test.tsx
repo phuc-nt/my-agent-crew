@@ -1,4 +1,5 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 import type { Conversation } from "../api/types";
 import { vi } from "../i18n/vi";
@@ -26,7 +27,15 @@ function conversation(overrides: Partial<Conversation> = {}): Conversation {
   } as Conversation;
 }
 
-function header(extra: { conversation?: Conversation; sourceTitle?: string; onOpenSource?: () => void } = {}) {
+type Extra = {
+  conversation?: Conversation;
+  sourceTitle?: string;
+  onOpenSource?: () => void;
+  first?: ReactNode;
+  extra?: ReactNode;
+};
+
+function header(extra: Extra = {}) {
   return render(
     <ConversationHeader
       conversation={extra.conversation ?? conversation()}
@@ -41,6 +50,8 @@ function header(extra: { conversation?: Conversation; sourceTitle?: string; onOp
       onRevokeAutoApprove={() => {}}
       sourceTitle={extra.sourceTitle}
       onOpenSource={extra.onOpenSource}
+      first={extra.first}
+      extra={extra.extra}
     />,
   );
 }
@@ -76,5 +87,18 @@ describe("the fork-origin line", () => {
     header({ conversation: conversation({ forked_from: "c1" }), sourceTitle: undefined });
     const link = screen.getByTestId("fork-origin");
     expect(link).toHaveTextContent(vi.fork.original);
+  });
+});
+
+describe("the row of pills", () => {
+  // On a phone the row scrolls sideways: what comes first is what stays on screen, and Tab
+  // follows the same order.
+  it("starts with the pill given first, ahead of spend and options, and ends with the extras", () => {
+    header({ first: <button type="button">Canvas</button>, extra: <button type="button">Đội</button> });
+
+    const row = document.querySelector(".header-controls") as HTMLElement;
+    const pills = within(row).getAllByRole("button").map((button) => button.textContent);
+    expect(pills).toHaveLength(4);
+    expect([pills[0], pills[3]]).toEqual(["Canvas", "Đội"]);
   });
 });

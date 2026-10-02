@@ -1,0 +1,482 @@
+/*
+ * The canvas dock beside the chat. From 1101px it is the layout's right-hand column: the
+ * conversation's activity alone while nothing is open, and with the list or a canvas open, a
+ * tab for each over a column whose left edge drags. Narrower, the open dock is a layer over
+ * the chat column, the whole screen on a phone. Inside it: the conversation's canvases, and
+ * one canvas with its header, its text, the conflict bar and the history.
+ */
+
+/* ── The column ─────────────────────────────────────────────────────────── */
+/* The dock carries its own width, so the grid only leaves room for it. */
+.layout.with-canvas {
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr) auto;
+}
+
+/* Closed, the dock is only a slot: the activity inside it stays the grid's third column. */
+.canvas-dock.closed,
+.canvas-dock.closed > .dock-activity {
+  display: contents;
+}
+
+.canvas-dock.column {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: var(--canvas-width);
+  min-width: 0;
+  height: 100vh;
+  height: 100dvh;
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.canvas-dock.column > .dock-activity,
+.canvas-dock > .dock-canvas {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Under its tab the activity fills what the tabs leave, and the dock draws the edge. */
+.canvas-dock.column .conversation-activity.docked {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+  border-left: none;
+}
+
+.canvas-dock > .dock-tabs {
+  flex: none;
+  align-self: flex-start;
+  margin: var(--space-3) var(--space-4) 0;
+}
+
+/* ── The edge ───────────────────────────────────────────────────────────── */
+/* Wider than the line it draws, half over the chat, so the pointer finds it. */
+.canvas-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -4px;
+  z-index: 1;
+  width: 8px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.canvas-handle::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 2px;
+  background: transparent;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.canvas-handle:hover::after,
+.canvas-handle:focus-visible::after {
+  background: var(--accent);
+}
+
+/* The ring is drawn inside: the strip runs the full height of the window. */
+.canvas-handle:focus-visible {
+  outline-offset: -2px;
+}
+
+@media (pointer: coarse) {
+  .canvas-handle {
+    left: -12px;
+    width: 24px;
+  }
+
+  .canvas-handle::after {
+    left: 11px;
+  }
+}
+
+/* ── The layer below 1101px ─────────────────────────────────────────────── */
+/* It covers the whole chat column: the chat under it takes no input, so a strip of it left
+   showing would only look usable. Under the update bar and the phone drawer, over the rest. */
+.canvas-dock.overlay {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: var(--sidebar-width);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  box-shadow: var(--shadow-3);
+  animation: fade-in var(--duration-base) var(--ease-out);
+}
+
+@media (max-width: 720px) {
+  .canvas-dock.overlay {
+    left: 0;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+      env(safe-area-inset-left);
+  }
+}
+
+.dock-back {
+  flex: none;
+  align-self: flex-start;
+  margin: var(--space-2) var(--space-3) 0;
+}
+
+/* ── One canvas ─────────────────────────────────────────────────────────── */
+.canvas-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.canvas-header {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4) var(--space-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.canvas-title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.canvas-title-row > .title-heading {
+  flex: 1 1 auto;
+}
+
+.canvas-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+}
+
+.canvas-save-state {
+  margin-left: auto;
+}
+
+.canvas-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.canvas-toolbar > .segmented {
+  align-self: center;
+}
+
+/* Copy and download sit among the ghost buttons, so they take the ghost buttons' size. */
+.canvas-toolbar button.copy-button {
+  min-height: 36px;
+  padding: 0.45rem 0.85rem;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+  font-size: inherit;
+}
+
+.canvas-download {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 36px;
+  padding: 0.45rem 0.85rem;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-weight: 500;
+  text-decoration: none;
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.canvas-download:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+/* ── The text ───────────────────────────────────────────────────────────── */
+.canvas-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  overflow-y: auto;
+}
+
+.dock-canvas .notice {
+  margin: 0;
+}
+
+.canvas-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+}
+
+.canvas-notice > p {
+  margin: 0;
+}
+
+/* Only telling, nothing went wrong: the soft accent rather than a warning colour. */
+.canvas-notice.info {
+  background: var(--accent-softer);
+  color: var(--text);
+}
+
+.canvas-largest {
+  flex-basis: 100%;
+  margin: var(--space-1) 0 0;
+  padding-left: var(--space-4);
+}
+
+.canvas-editor {
+  flex: 1;
+  width: 100%;
+  min-height: 12rem;
+  resize: none;
+  line-height: var(--leading-prose);
+}
+
+.canvas-editor.code {
+  font-family: var(--font-mono);
+  white-space: pre;
+  overflow-wrap: normal;
+  overflow-x: auto;
+  tab-size: 4;
+}
+
+.canvas-view {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.canvas-code {
+  margin: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  white-space: pre;
+  overflow-wrap: normal;
+  overflow-x: auto;
+}
+
+.canvas-diff {
+  margin: 0;
+}
+
+.canvas-diff .skipped {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.canvas-conflict {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.canvas-conflict > p {
+  margin: 0;
+}
+
+.canvas-conflict-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* The bar keeps its buttons and the text in reach however long the diff runs. */
+.canvas-conflict .canvas-diff {
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+/* ── The list ───────────────────────────────────────────────────────────── */
+.canvas-picker {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  overflow-y: auto;
+}
+
+.canvas-picker-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.canvas-picker-head h2 {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+
+.canvas-list,
+.canvas-versions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.canvas-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    "icon title"
+    "icon meta";
+  align-items: center;
+  column-gap: var(--space-3);
+  row-gap: 2px;
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border-color: var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: none;
+  text-align: left;
+}
+
+.canvas-row > .icon {
+  grid-area: icon;
+  color: var(--accent);
+}
+
+.canvas-row:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-softer);
+}
+
+.canvas-row-title {
+  grid-area: title;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.canvas-row-meta {
+  grid-area: meta;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 400;
+}
+
+/* ── History ────────────────────────────────────────────────────────────── */
+.canvas-history {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.canvas-history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.canvas-history-head h3 {
+  margin: 0;
+  font-size: var(--text-md);
+}
+
+/* The list scrolls on its own so the version picked, shown under it, stays in reach. */
+.canvas-versions {
+  gap: 2px;
+  max-height: min(40vh, 20rem);
+  overflow-y: auto;
+}
+
+.canvas-version-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border-color: transparent;
+  border-radius: var(--radius-md);
+  background: none;
+  box-shadow: none;
+  font-size: var(--text-sm);
+  text-align: left;
+}
+
+.canvas-version-row:hover:not(:disabled) {
+  border-color: transparent;
+  background: var(--surface-hover);
+}
+
+.canvas-version-row[aria-current="true"],
+.canvas-version-row[aria-current="true"]:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-softer);
+}
+
+.canvas-version-note {
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 400;
+}
+
+.canvas-version-detail {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.canvas-version-detail > p {
+  margin: 0;
+}
+
+.canvas-version-detail > .canvas-diff {
+  align-self: stretch;
+}
+
+.canvas-compare {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+/* ── The way in ─────────────────────────────────────────────────────────── */
+button.canvas-button[aria-expanded="true"] {
+  border-color: var(--accent);
+  background: var(--accent-softer);
+  color: var(--text);
+}
+
+/* A pane behind the other tab keeps its place in the tree; the rules above must not show it. */
+.canvas-dock.column > .dock-activity[hidden],
+.canvas-dock > .dock-canvas[hidden] {
+  display: none;
+}

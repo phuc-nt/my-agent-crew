@@ -15,3 +15,17 @@ export function showHiddenChars(text: string): string {
     return `[U+${code.toString(16).toUpperCase().padStart(4, "0")}]`;
   });
 }
+
+/** The slice of a markdown tree the plugin below touches. */
+type MdNode = { type: string; value?: string; children?: MdNode[] };
+
+function mark(node: MdNode): void {
+  if (typeof node.value === "string") node.value = showHiddenChars(node.value);
+  node.children?.forEach(mark);
+}
+
+/** A remark plugin writing each such character as its mark in the parsed tree, prose and code
+ *  alike. Marked in the source instead, a mark's brackets could join the text after it into a link. */
+export function remarkHiddenChars() {
+  return (tree: MdNode) => mark(tree);
+}

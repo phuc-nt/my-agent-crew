@@ -12,6 +12,7 @@ import { useReloadOnReconnect } from "./hooks/use-reload-on-reconnect";
 import { type ManageSection, type Route, useRoute } from "./hooks/use-route";
 import { useThread } from "./hooks/use-thread";
 import { useVersionCheck } from "./hooks/use-version-check";
+import { pruneDrafts } from "./lib/canvas-draft";
 import { ChatScreen } from "./screens/chat-screen";
 import { ManageScreen } from "./screens/manage-screen";
 import { liveRuns, needsAttention, runningRuns, sortedRuns } from "./state/activity-reducer";
@@ -44,6 +45,10 @@ export function App() {
     api.settings().then(setSettings, () => setSettings(null));
     api.templates().then(setTemplates, () => setTemplates([]));
   }, []);
+
+  // Canvas drafts are otherwise thinned only as a new one is written; a month-old draft of a
+  // canvas nobody reopened would stay on the device for good.
+  useEffect(() => pruneDrafts(Date.now()), []);
 
   // Settings describe a server that may have restarted since the page loaded, so opening
   // them asks again. A failed ask keeps what was shown rather than blanking it.

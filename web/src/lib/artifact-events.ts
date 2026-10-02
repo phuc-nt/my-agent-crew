@@ -29,3 +29,11 @@ export function emitArtifactEvent(event: ArtifactEvent): void {
     if (subscriptions.has(subscription)) subscription.listener(event);
   }
 }
+
+/**
+ * Canvas `id` is gone, as the stream would say it: a request the server answered with "artifact
+ * not found" tells every listener at once, rather than each finding out on its next request.
+ */
+export function announceDeletion(id: string): void {
+  emitArtifactEvent({ type: "artifact", artifact: { id, deleted: true }, conversation_ids: [] });
+}

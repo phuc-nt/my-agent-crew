@@ -17,6 +17,7 @@ import { isValidElement, type ReactNode, useMemo } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { vi } from "../i18n/vi";
+import { remarkHiddenChars } from "../lib/hidden-chars";
 import { remarkWikiLinks, wikiSlugFromHref } from "../lib/wiki-links";
 import { CopyButton } from "./copy-button";
 import { MarkdownImage } from "./markdown-image";
@@ -91,9 +92,12 @@ interface Props {
    * link must stay inside the app (open the page in place), so it never reaches SafeLink.
    */
   wikiLink?: (slug: string, label: ReactNode) => ReactNode;
+  /** Writes characters that change how text reads without being seen as marks, for a canvas,
+   *  which may hold text an agent copied from a web page. */
+  showHidden?: boolean;
 }
 
-export function MarkdownBody({ text, wikiLink }: Props) {
+export function MarkdownBody({ text, wikiLink, showHidden = false }: Props) {
   const withWiki = useMemo<Components | null>(
     () =>
       wikiLink
@@ -110,7 +114,7 @@ export function MarkdownBody({ text, wikiLink }: Props) {
   return (
     <div className="md">
       <ReactMarkdown
-        remarkPlugins={withWiki ? wikiPlugins : [remarkGfm]}
+        remarkPlugins={[...(withWiki ? wikiPlugins : [remarkGfm]), ...(showHidden ? [remarkHiddenChars] : [])]}
         components={withWiki ?? components}
       >
         {text}

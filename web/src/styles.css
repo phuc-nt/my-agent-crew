@@ -15,6 +15,7 @@
  *   agent-admin → editing the crew: the agent editor's form, the tools matrix, connections.
  *   conversation-activity → the activity strip belonging to the open chat.
  *   run-timeline   → the process visualisation inside an open run card.
+ *   canvas  → the canvas dock beside the chat: its column, overlay, panel and history.
  *
  * A rule belongs to exactly one of these. If a new rule fits none of them, that
  * is the signal to add a region rather than to append it here.
@@ -39,4 +40,5 @@
 @import "./styles/approvals.css";
 @import "./styles/thread-composer.css";
 @import "./styles/chat-state.css";
+@import "./styles/canvas.css";
 @import "./styles/touch-targets.css";

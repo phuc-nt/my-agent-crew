@@ -143,6 +143,7 @@ const PATHS = {
   sparkle: (
     <path d="M12 3.5l1.8 5.1 5.2 1.9-5.2 1.9L12 17.5l-1.8-5.1L5 10.5l5.2-1.9zM18.5 16l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z" />
   ),
+  document: <path d="M7 3.5h7l4.5 4.5v12.5H7zM14 3.5V8h4.5M9.5 12.5h6M9.5 16h6" />,
 } satisfies Record<string, ReactNode>;
 
 export type IconName = keyof typeof PATHS;

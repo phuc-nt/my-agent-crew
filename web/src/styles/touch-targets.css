@@ -30,6 +30,7 @@
   /* Controls whose own rule sets a smaller floor, named here so this floor still wins. */
   .tabs.sub button,
   .editable-title,
+  .canvas-toolbar button.copy-button,
   .composer-box textarea,
   .composer-box textarea:focus {
     min-height: var(--touch-target);
@@ -44,7 +45,8 @@
   }
 
   /* A download link is a control, whatever element it is. */
-  .run-export a {
+  .run-export a,
+  .canvas-download {
     min-height: var(--touch-target);
   }
 }

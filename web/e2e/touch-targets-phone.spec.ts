@@ -1,39 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import { type Conversation, coachAgent, defaultAgent, mockApi, run } from "./mock-api";
+import { smallTargets } from "./small-targets";
 
 // A touch screen at the width people hold, where a finger is the pointer.
 test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
-
-const MIN = 40;
-
-/**
- * Every control on screen that a finger could miss: narrower or shorter than 40px, measured
- * on what takes the tap — a checkbox inside a label is tapped through its label, so the label
- * is measured. A link inside running text is exempt, as WCAG exempts it: growing it would
- * push the lines of the sentence apart.
- */
-async function smallTargets(page: Page): Promise<string[]> {
-  await page.evaluate(() => document.fonts.ready.then(() => undefined));
-  return page.evaluate((min) => {
-    const found: string[] = [];
-    const controls = document.querySelectorAll<HTMLElement>(
-      "button, a[href], input:not([type=hidden]), select, textarea, summary, [role=switch], [role=tab]",
-    );
-    for (const el of controls) {
-      const style = getComputedStyle(el);
-      if (style.visibility === "hidden" || el.closest("[inert], [aria-hidden=true]")) continue;
-      const target = el.closest("label") ?? el;
-      const box = target.getBoundingClientRect();
-      if (box.width === 0 || box.height === 0) continue;
-      const inline = el.tagName === "A" && getComputedStyle(el).display === "inline" && el.parentElement?.closest("p, li, td");
-      if (inline) continue;
-      if (box.width >= min && box.height >= min) continue;
-      const name = (el.getAttribute("aria-label") ?? el.textContent ?? "").trim().slice(0, 30);
-      found.push(`${el.tagName.toLowerCase()}.${String(el.className).split(" ")[0]} "${name}" ${Math.round(box.width)}×${Math.round(box.height)}`);
-    }
-    return found;
-  }, MIN);
-}
 
 function conversation(id: string, title: string): Conversation {
   return {

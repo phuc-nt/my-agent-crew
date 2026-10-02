@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ArtifactEvent } from "../api/artifact-types";
-import { emitArtifactEvent, onArtifactEvent } from "./artifact-events";
+import { announceDeletion, emitArtifactEvent, onArtifactEvent } from "./artifact-events";
 
 const event = (id: string): ArtifactEvent => ({ type: "artifact", artifact: { id, deleted: true }, conversation_ids: [] });
 
@@ -48,5 +48,13 @@ describe("artifact events", () => {
     offFirst();
     offLate();
     expect(seen).toEqual(["first:x", "first:y", "late:y"]);
+  });
+
+  it("announces a canvas found gone as a deletion that names no conversation", () => {
+    const seen: ArtifactEvent[] = [];
+    const off = onArtifactEvent((e) => seen.push(e));
+    announceDeletion("a1");
+    off();
+    expect(seen).toEqual([event("a1")]);
   });
 });

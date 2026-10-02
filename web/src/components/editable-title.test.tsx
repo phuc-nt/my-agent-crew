@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi as vitest } from "vitest";
 import { vi } from "../i18n/vi";
@@ -78,5 +78,45 @@ describe("renaming a conversation where it is shown", () => {
     render(<EditableTitle title="" onRename={vitest.fn()} />);
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(vi.newConversation);
     expect(screen.getByRole("button", { name: vi.newConversation })).toBeInTheDocument();
+  });
+});
+
+describe("renaming a canvas beside the conversation", () => {
+  const canvasTitle = (props: { title?: string; startEditing?: boolean } = {}) => {
+    const onRename = vitest.fn();
+    render(
+      <EditableTitle
+        title={props.title ?? "Ghi chú"}
+        onRename={onRename}
+        level={2}
+        maxLength={200}
+        label={vi.canvas.rename}
+        hint={vi.canvas.renameHint}
+        placeholder={vi.canvas.untitled}
+        startEditing={props.startEditing}
+      />,
+    );
+    return { onRename, field: () => screen.getByRole<HTMLInputElement>("textbox", { name: vi.canvas.rename }) };
+  };
+
+  it("names its part of the page under the conversation's heading, with its own field and placeholder", async () => {
+    canvasTitle({ title: "" });
+    expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent(vi.canvas.untitled);
+    expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
+    expect(screen.getByRole("button", { name: vi.canvas.untitled })).toHaveAttribute("title", vi.canvas.renameHint);
+
+    await userEvent.click(screen.getByRole("button", { name: vi.canvas.untitled }));
+    expect(screen.getByRole("textbox", { name: vi.canvas.rename })).toHaveAttribute("maxLength", "200");
+  });
+
+  it("opens ready to type over the name of something just made", async () => {
+    const { onRename, field } = canvasTitle({ title: vi.canvas.untitled, startEditing: true });
+
+    await waitFor(() => expect(field()).toHaveFocus());
+    expect(field().selectionStart).toBe(0);
+    expect(field().selectionEnd).toBe(vi.canvas.untitled.length);
+
+    await userEvent.keyboard("Kế hoạch{Enter}");
+    expect(onRename).toHaveBeenCalledWith("Kế hoạch");
   });
 });

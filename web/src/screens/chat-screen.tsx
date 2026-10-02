@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { AgentInfo, Conversation, RunInfo, SettingsInfo } from "../api/types";
 import { ApprovalBar } from "../components/approval-bar";
 import { RaiseCapButton } from "../components/budget-indicator";
+import { CanvasButton, CanvasDockView, CanvasHandoffNotices } from "../components/canvas/canvas-dock";
 import { QuestionCard } from "../components/question-card";
 import { Composer, type RestoreRequest } from "../components/composer";
 import { ConversationActivity } from "../components/conversation-activity";
@@ -15,6 +16,7 @@ import { AgentAvatar } from "../components/ui/agent-avatar";
 import { Icon, type IconName } from "../components/ui/icon";
 import type { useActivity } from "../hooks/use-activity";
 import type { useCrew } from "../hooks/use-agents";
+import { useCanvasDock } from "../hooks/use-canvas-dock";
 import type { useConversations } from "../hooks/use-conversations";
 import { useDrawer } from "../hooks/use-drawer";
 import { useFork } from "../hooks/use-fork";
@@ -143,10 +145,19 @@ export function ChatScreen({
     if (created) setQueued({ id: created.id, text });
   };
 
+  // Narrower than this, the activity is a strip under the thread and an open canvas covers
+  // the chat column; wider, both share the column beside the chat.
+  const wide = useMediaQuery(DOCKED_ACTIVITY_QUERY);
+  const dock = useCanvasDock(active?.id ?? null, activity.state.connected);
+  const overlayOpen = !wide && dock.view !== "closed";
+  const { close: closeDock } = dock;
+  const canvasTrigger = useRef<HTMLButtonElement>(null);
+
   // The search box only exists once the list is long enough to need it, so focusing it is
   // a request that can go unanswered — hence a ref that may hold nothing. On a phone it
   // lives in the drawer, which has to open around it first. Escape closes the topmost
-  // layer only: with the drawer open that is the drawer, not the strip under it.
+  // layer only: the drawer, else a canvas covering the chat (once its typing is saved),
+  // and only then the strip under the thread.
   useShortcuts({
     onSearch: useCallback(() => {
       const box = searchRef.current;
@@ -156,8 +167,9 @@ export function ChatScreen({
     onNew: useCallback(() => void create(), [create]),
     onEscape: useCallback(() => {
       if (drawerOpen) hideDrawer();
+      else if (overlayOpen) void closeDock();
       else setCollapseSignal((n) => n + 1);
-    }, [drawerOpen, hideDrawer]),
+    }, [drawerOpen, hideDrawer, overlayOpen, closeDock]),
   });
 
   const remove = (id: string) => {
@@ -293,7 +305,6 @@ export function ChatScreen({
   );
 
   // A narrow screen keeps the one-line strip under the thread instead of the column.
-  const wide = useMediaQuery(DOCKED_ACTIVITY_QUERY);
   const docked = wide && Boolean(active);
   const activityPane = active && (
     <ErrorBoundary>
@@ -311,7 +322,7 @@ export function ChatScreen({
   );
 
   return (
-    <div className={`layout${docked ? " with-activity" : ""}`}>
+    <div className={`layout${docked ? (dock.view === "closed" ? " with-activity" : " with-canvas") : ""}`}>
       {drawer.open && <div className="scrim" aria-hidden="true" onClick={drawer.hide} />}
       <ConversationList
         conversations={list.conversations}
@@ -341,8 +352,9 @@ export function ChatScreen({
         }
         bottom={manageButton}
       />
-      {/* The open drawer is modal: what it covers takes no focus and reads as absent. */}
-      <main className="main" ref={mainRef} inert={drawer.open || undefined}>
+      {/* The open drawer is modal, and so is a canvas covering the chat: what either covers
+          takes no focus and reads as absent. */}
+      <main className="main" ref={mainRef} inert={drawer.open || overlayOpen || undefined}>
         {active ? (
           <ConversationHeader
             conversation={active}
@@ -367,6 +379,7 @@ export function ChatScreen({
               })
             }
             onSetCap={onRaiseCap}
+            first={<CanvasButton dock={dock} ref={canvasTrigger} />}
             extra={crewChip}
             lead={menuButton}
             sourceTitle={list.conversations.find((c) => c.id === forkSource)?.title}
@@ -395,6 +408,7 @@ export function ChatScreen({
             {fork.error}
           </div>
         )}
+        <CanvasHandoffNotices dock={dock} />
         {notice}
         <ErrorBoundary>
           <MessageThread
@@ -475,7 +489,14 @@ export function ChatScreen({
           overBudget={overBudget}
         />
       </main>
-      {docked && activityPane}
+      <CanvasDockView
+        dock={dock}
+        mode={wide ? "column" : "overlay"}
+        activity={docked ? activityPane : null}
+        connected={activity.state.connected}
+        agentName={crew.agentName}
+        trigger={canvasTrigger}
+      />
     </div>
   );
 }

@@ -649,11 +649,12 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "says the device is offline instead of offering a retry that cannot work",
     "reads the crew, the schedules and the totals again when the stream comes back, not when it first opens")
 - **Vùng chạm ≥40px trên điện thoại**
-  - Playwright: `touch-targets-phone.spec.ts` — quét mọi nút, link, ô nhập, select, summary,
-    công tắc và tab trên từng trang (chat, mười trang Quản lý) và trong drawer cuộc trò chuyện ở
-    390×844 cảm ứng; checkbox đo theo label bọc nó, link nằm trong câu được miễn như WCAG
-    ("every control on %s is big enough for a finger",
-    "every control in the phone's conversation drawer is big enough for a finger")
+  - Playwright: `touch-targets-phone.spec.ts` — quét mọi nút, link, ô nhập, select, summary, công tắc và
+    tab trên từng trang (chat, mười trang Quản lý) và trong drawer cuộc trò chuyện ở 390×844 cảm ứng;
+    checkbox đo theo label bọc nó, link nằm trong câu được miễn như WCAG ("every control on %s is big
+    enough for a finger", "every control in the phone's conversation drawer is big enough for a
+    finger"); phép quét nằm ở `small-targets.ts`, quét được riêng một vùng, và `canvas.spec.ts` dùng nó
+    cho dock canvas
 - **Agent con kết lượt bằng một dòng `MEDIA:` trần vẫn đưa lời khuyên tới người dùng**
   - pytest:
     `tests/test_delegate_attachments.py::test_an_answer_written_beside_a_tool_call_is_not_lost_to_a_bare_chart_line`;
@@ -1575,6 +1576,76 @@ tên một test thì sửa dòng của nó trong cùng commit.
     là agent, agent không còn thì theo id); `web/src/lib/format-bytes.test.ts` (bước 1024, một chữ số lẻ
     dưới mười viết bằng dấu phẩy, làm tròn tới 1024 thì lên đơn vị); `web/src/lib/hidden-chars.test.ts`
     ("shows a right-to-left override as a visible mark", mọi ký tự điều khiển bidi và zero-width)
+- **Canvas trên web: panel một canvas đọc, sửa, đổi tên, chép và tải về; canvas đã xoá vẫn đọc được**
+  - vitest: `web/src/components/canvas/canvas-panel.test.tsx` (canvas người viết mở ở Sửa, sang Xem rồi
+    về không mất chữ gõ, "opens a canvas an agent wrote to read, and keeps reading when a newer version
+    arrives", canvas người viết vẫn ở Sửa khi agent ghi vào, nháp trên máy mở ở Sửa kể cả trên canvas
+    agent viết, markup trong canvas markdown và code hiện thành chữ; đổi tên bằng `PATCH`, canvas vừa
+    tạo mở với tên chờ gõ đè, đổi tên mà server không thấy canvas là canvas đã xoá; "keeps its text to
+    read and copy, and offers nothing that needs the canvas"; về danh sách, đóng, tải bản mới nhất,
+    "copies the text as it is, unmarked", dock lưu được chữ đang mở, hỏi được canvas còn không và buông
+    khi panel tháo); `web/src/components/editable-title.test.tsx` ("renaming a canvas beside the
+    conversation": ô tên có nhãn và placeholder riêng dưới tiêu đề của cuộc trò chuyện, "opens ready to
+    type over the name of something just made")
+- **Canvas trên web: dòng trạng thái lưu, lời báo khi không lưu được, diff hai bản**
+  - vitest: `web/src/components/canvas/canvas-status.test.tsx` (chữ cho từng trạng thái và lý do không
+    bản nào giữ chữ đang gõ, "follows a save from the keystroke until it lands", server không trả lời
+    khi máy có mạng, lần lưu chờ mạng khi máy mất mạng, "shows the largest canvases when the server is
+    full, saves on its own no more, and saves on Cmd+S", nội dung bản lưu trong lúc sửa chỉ hiện ở thanh
+    xung đột, canvas xin đóng mà chưa bản nào giữ chữ nói lý do rồi đóng hẳn khi được bảo);
+    `web/src/lib/canvas-reasons.test.ts` ("reads %i as its reason, never the server's own words",
+    request không tới server là mất kết nối); `web/src/components/diff-view.test.tsx` ("keeps three
+    unchanged lines around a change and counts the rest", chỗ sửa chỉ gồm một ký tự ẩn vẫn hiện ra, hai
+    bản giống nhau và hai bản quá lớn để so theo dòng đều được nói)
+- **Canvas trên web: lịch sử phiên bản, so sánh và khôi phục**
+  - vitest: `web/src/components/canvas/canvas-history.test.tsx` ("lists each version, the newest first,
+    and compares one with the version listed before it", so với bản cũ nhất còn giữ khi được hỏi và nói
+    bản cũ nhất không có bản trước, đóng mà không khôi phục gì; "saves the typing first, then makes the
+    version picked the newest without waiting for the event", ghi chú khôi phục hiện trên bản nó tạo,
+    không khôi phục khi chữ gõ chưa lưu được và nói vì sao, server hết chỗ thì hiện các canvas lớn nhất;
+    bản được chọn hay bản cần khôi phục đã bị gộp mất thì đọc lại danh sách và vẫn mở, "takes a restore
+    of a canvas deleted meanwhile for the deletion")
+- **Canvas trên web: danh sách canvas của cuộc trò chuyện và nút tạo canvas mới**
+  - vitest: `web/src/hooks/use-canvas-list.test.ts` (không hỏi gì khi chưa mở cuộc nào, chỉ canvas của
+    cuộc này và mới nhất trước, "drops the last conversation's list at once, and its reply when it comes
+    late", "reads the list once for a burst of changes, half a second after the first", thấy canvas tạo
+    ở chỗ khác dù lời báo chưa nêu cuộc nào, không đọc được thì nói và đọc lại khi thử lại, đọc lại hỏng
+    vẫn giữ danh sách đang có, đọc lại khi luồng nối lại và khi tab hiện, đóng cuộc rồi thì không nghe
+    thay đổi nữa); `web/src/components/canvas/canvas-picker.test.tsx` (đang tải, chưa có canvas, lỗi có
+    nút thử lại, "shows each canvas with its kind, version and last change, and opens the one picked",
+    "makes a canvas, one at a time, and says when one could not be made");
+    `web/src/lib/artifact-events.test.ts` ("announces a canvas found gone as a deletion that names no
+    conversation")
+- **Canvas trên web: dock cạnh cuộc trò chuyện, tab và cột kéo rộng được từ 1101 px, lớp phủ cột chat
+  dưới đó, rời canvas vẫn lưu nốt**
+  - vitest: `web/src/hooks/use-canvas-dock.test.ts` ("never shows the last conversation's canvas in a
+    render of the next one", lần lưu cuối hỏng sau khi đổi cuộc không để gì lại ở cuộc sau; tạo canvas
+    markdown chưa có tên trong cuộc này rồi mở với tên chờ gõ, không tạo được thì nói và ở lại danh
+    sách; "gives up on the open canvas's save after 5 seconds", đóng hay về danh sách mà không lần lưu
+    nào xong thì ở lại tới khi đóng hẳn, lần lưu quá hạn cũng ở lại, canvas bị xoá lúc lần lưu cuối đang
+    bay hay đã bị xoá thì đóng ngay; lần lưu hỏng sau khi panel đi được báo tới khi ẩn, canvas đã đóng
+    hẳn thì không báo; "brings the canvas forward on each opening, and the button toggles the dock");
+    `web/src/hooks/use-canvas-width.test.ts` ("takes half the room beside the sidebar until the person
+    chooses", cả canvas lẫn cuộc trò chuyện rộng ít nhất 360 px, chỉ nhớ bề rộng khi được bảo giữ, bề
+    rộng đã giữ co theo cửa sổ hẹp và trở lại khi cửa sổ rộng ra, theo cửa sổ khi người chưa chọn, không
+    hẹp dưới 360 px kể cả cạnh cuộc trò chuyện hẹp, bỏ bề rộng đã giữ không phải số);
+    `web/src/components/conversation-header.test.tsx` ("starts with the pill given first, ahead of spend
+    and options, and ends with the extras": nút Canvas đứng đầu hàng pill nên ở 390 px vẫn trong màn
+    hình)
+  - vitest, cả App trên `FakeCanvas`: `web/src/app-canvas.test.tsx` ("opens as a tab over the activity,
+    in a column its edge widens, and keeps both mounted", "keeps the open canvas and its typing as the
+    window crosses 1101 px both ways", "makes a canvas from the list and opens its name to type over",
+    "covers the chat column, and Escape saves the typing, closes it and gives focus back", "goes back to
+    the chat from the covering list", "closes the drawer opened over the canvas before the canvas",
+    "closes as another conversation opens, and the typing left behind is saved", "tells in the chat of a
+    save that failed after the switch, until dismissed", "drops the ones older than 30 days as the app
+    starts")
+  - Playwright: `canvas.spec.ts` ở 1440 px ("opens in a tab beside the chat, and a pause in typing saves
+    once from the version it began on", "keeps every character typed while a save is held for two
+    seconds", "an agent's save on the line being edited raises the conflict bar, and keeping mine saves
+    over it"), ở 1000 px và 390×844 cảm ứng ("saves, keeps the approval out of reach, fits a finger and
+    goes back to the chat": nút Canvas trọn trong màn hình, Tab không tới nút duyệt dưới lớp phủ, mọi
+    nút trong dock ≥40px, không cuộn ngang)
 - **Mã agent khớp cả chuỗi: chữ thường, số và gạch ngang, không cả xuống dòng ở cuối**
   - pytest: `tests/test_api_agents_edit.py::test_an_id_that_is_not_a_safe_folder_name_is_refused`
     (`../escape` và `coder` có xuống dòng ở cuối đều bị từ chối, không thư mục nào được tạo);
