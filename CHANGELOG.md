@@ -80,6 +80,32 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   message carried: the expectations would judge an agent that never heard of the step. An
   `edit_canvas` whose `new` is its `old` is refused. The dry run plays a canvas case through
   the real server.
+- The web chat opens canvases beside the conversation. A Canvas button leads the conversation
+  header with the number of canvases linked to it and opens their list, newest first, each with
+  its kind, version and last change; a button there makes an untitled markdown canvas and opens its
+  name to type over. From 1101 px wide the canvas takes a column, in a tab beside the activity
+  with both kept mounted, whose edge widens or narrows it by dragging or with the arrow keys; it
+  is never narrower than 360 px, leaves the chat as much when there is room, and keeps its width
+  for the next visit. Narrower, it covers the chat column, the chat under it takes no focus, and
+  Escape or "← Chat" closes it and gives focus back to the button.
+- A canvas opens to edit when a person wrote its newest version and to read when an agent did,
+  and switches between the two without losing the typing. Reading shows markdown as the thread
+  does and code as text, never running markup; bidi and zero-width characters show as visible
+  marks with a notice, while copy and download keep the text as it is. Typing saves 1.5 seconds
+  after the last key, at once on Cmd/Ctrl+S, when the tab hides and when the canvas closes, each
+  save naming the version it was made on. A version saved elsewhere meanwhile merges with the
+  typing when the two change different lines, and otherwise raises a conflict bar with a diff:
+  keeping mine saves over it, and loading theirs can be undone. The header says where the save
+  stands, from saving and saved to waiting for a network, the server not answering, too large,
+  the server full (naming the largest canvases) or deleted. Typing not yet saved stays in a
+  draft on this device, reopened with the canvas and dropped after 30 days or beyond the ten
+  newest. A failed save is tried again after 2 to 60 seconds, and a request unanswered for 30
+  seconds counts as lost. The history lists every version, newest first, with its author, age
+  and size, compares one with the version before it or with the oldest, and restores one as the
+  newest once the typing is saved. A canvas renames in place and downloads its newest version.
+  Opening another conversation saves the typing and closes the canvas; a save that fails after
+  the switch is told in the chat until dismissed, its typing kept in the draft. A canvas deleted
+  elsewhere keeps its text to read and copy.
 
 ### Fixed
 
