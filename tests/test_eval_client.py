@@ -10,6 +10,9 @@ import httpx
 import pytest
 from eval_client import EvalApi
 
+from my_agent_crew.llm.types import Message
+from my_agent_crew.store import Store
+from my_agent_crew.store.side_calls import SideCall
 from tests.http_fake import FakeServer, as_json, held, opens, question, say, sse, tool_approval
 
 MESSAGES = "/api/conversations/c1/messages"
@@ -303,3 +306,88 @@ def test_a_child_waiting_on_something_that_cannot_be_read_ends_the_turn(fast_pol
 
     assert "could not read" in turn.error
     assert turn.wall_s < 4
+
+
+CONV = "/api/conversations/c1"
+PAID = {"role": "assistant", "provider": "openrouter", "cost_usd": 0.02}
+
+
+def test_what_a_deleted_conversations_turns_cost_still_counts_in_the_ledger():
+    messages = [
+        {"role": "user", "provider": None, "cost_usd": None},
+        PAID,
+        {"role": "assistant", "provider": "openrouter", "cost_usd": None},
+        {"role": "assistant", "provider": "openrouter", "cost_usd": 0.0},  # free: priced
+        # The ledger counts neither: a note no provider answered, and a tool's result.
+        {"role": "assistant", "provider": None, "cost_usd": 0.5},
+        {"role": "tool", "provider": "openrouter", "cost_usd": 0.5},
+    ]
+    title = {"purpose": "title", "cost_usd": 0.01, "unknown_cost_calls": 0}
+    server = FakeServer().on(CONV, as_json({"messages": messages}), httpx.Response(204))
+    server.always("/api/stats", as_json({"purposes": [title]}))
+    api = api_over(server)
+
+    api.delete_conversation("c1")
+
+    cost, unknown = api.ledger()
+    assert (round(cost, 6), unknown) == (0.03, 1)
+    assert server.calls() == [("GET", CONV), ("DELETE", CONV), ("GET", "/api/stats")]
+
+
+def test_a_delete_the_server_refuses_raises_and_counts_nothing_more():
+    server = FakeServer().on(CONV, as_json({"messages": [PAID]}), httpx.Response(404))
+    server.always("/api/stats", as_json({"purposes": []}))
+    api = api_over(server)
+
+    with pytest.raises(httpx.HTTPStatusError):
+        api.delete_conversation("c1")
+
+    assert api.ledger() == (0.0, 0)
+
+
+def test_every_conversation_and_canvas_the_server_holds_is_listed_by_id():
+    server = FakeServer().on("/api/conversations", as_json([{"id": "c1"}, {"id": "k1"}]))
+    server.on("/api/artifacts", as_json([{"id": "a1"}]))
+    api = api_over(server)
+
+    assert api.conversation_ids() == ["c1", "k1"]
+    assert api.artifact_ids() == ["a1"]
+    assert server.query_of("/api/conversations") == {}
+    assert server.query_of("/api/artifacts") == {"limit": "200"}
+
+
+def test_a_canvas_is_deleted_by_id_and_a_refused_delete_raises():
+    server = FakeServer().on("/api/artifacts/a1", httpx.Response(204), httpx.Response(404))
+    api = api_over(server)
+
+    api.delete_artifact("a1")
+    with pytest.raises(httpx.HTTPStatusError):
+        api.delete_artifact("a1")
+
+    assert server.calls() == [("DELETE", "/api/artifacts/a1")] * 2
+
+
+def test_what_paid_counts_is_what_the_ledger_loses_when_a_conversation_goes():
+    store = Store(":memory:")
+    conv = store.create()
+    store.append(conv.id, Message(role="user", content="hỏi"))
+    store.append(conv.id, Message(role="assistant", content="a"), "p", "m", cost_usd=0.02)
+    store.append(conv.id, Message(role="assistant", content="b"), "p", "m", cost_usd=None)
+    store.append(conv.id, Message(role="assistant", content="c"), "p", "m", cost_usd=0.0)
+    store.append(conv.id, Message(role="assistant", content="ghi chú"))
+    title = SideCall(conv.agent_id, "title", "p", "m", 0.01, conversation_id=conv.id)
+    store.side_calls.record(title)
+    before = _ledger_of(store)
+    owed = eval_client.paid([m.to_dict() for m in store.history(conv.id)])
+
+    store.delete(conv.id)
+
+    after = _ledger_of(store)
+    assert (round(before[0] - after[0], 6), before[1] - after[1]) == owed == (0.02, 1)
+    assert after == (0.01, 0)
+
+
+def _ledger_of(store: Store) -> tuple[float, int]:
+    purposes = store.usage.by_purpose()
+    cost = round(sum(p["cost_usd"] for p in purposes), 6)
+    return cost, sum(p["unknown_cost_calls"] for p in purposes)

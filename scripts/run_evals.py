@@ -10,10 +10,13 @@ Cases live in the live home's `evals/` folder, beside the agents they test.
 Nothing runs on the live crew. The live home and the workspaces its agents use are copied into
 `<out>/run`, a server starts on the copy on `--port` with no schedules, no Telegram and no
 secrets file, and both are gone at the end unless `--keep-home`. Every case is played `--runs`
-times, because a model does not answer the same way twice: two runs in three must pass. Once
-`--max-usd` has been spent the eval stops before its next run. `<out>/results/` keeps
-`results.md`, `results.json` and the server's log after every run, so a run cut short still
-leaves its numbers. `--dry-run` swaps the model for the fake one to check the plumbing."""
+times, because a model does not answer the same way twice: two runs in three must pass. Each
+run starts from the server the first one found, with no conversation, canvas or memory note an
+earlier run left (`eval_reset.py`). Once `--max-usd` has been spent the eval stops before its
+next run. `<out>/results/` keeps `results.md`, `results.json`, the server's log and, in
+`transcripts/`, what each run said and made, after every run, so a run cut short still leaves
+its numbers. What the agents know can be in all of them: delete them when done. `--dry-run`
+swaps the model for the fake one to check the plumbing."""
 
 from __future__ import annotations
 
@@ -41,6 +44,7 @@ from eval_copy import remove_tree
 from eval_home import EvalHome, build_home, synthetic_home
 from eval_play import run_cases
 from eval_report import Report, money, succeeded, summary_table
+from eval_reset import MemorySnapshot, memory_roots, reset
 from llm_bench_server import Server
 
 from my_agent_crew.config import home_from
@@ -49,6 +53,14 @@ from my_agent_crew.config import home_from
 def _build_home(args: argparse.Namespace, live: Path, root: Path) -> EvalHome:
     try:
         return synthetic_home(root) if args.dry_run else build_home(live, root)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
+
+
+def _memory_of(eval_home: EvalHome) -> MemorySnapshot:
+    """The memory files every run starts from: the copy's, as the server found them."""
+    try:
+        return MemorySnapshot.take(memory_roots(eval_home.home), eval_home.root)
     except ValueError as exc:
         raise SystemExit(str(exc)) from exc
 
@@ -105,7 +117,8 @@ def main(argv: list[str] | None = None) -> int:
             try:
                 server.start()
                 check_agents(api, cases)
-                run_cases(api, cases, report, results_dir)
+                memory = _memory_of(eval_home)
+                run_cases(api, cases, report, results_dir, fresh=lambda: reset(api, memory))
             finally:
                 server.stop()
         finally:

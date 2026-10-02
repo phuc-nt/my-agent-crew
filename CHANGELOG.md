@@ -74,6 +74,15 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ### Fixed
 
+- Each behaviour eval run now starts from the server as the first run found it. The runs share
+  one server, so a new conversation opened with a summary of an earlier run's, `conversation_search`
+  and `artifact_list` found earlier chats and canvases, and notes an agent saved stayed: a later
+  run was judged on what an earlier one left. Before every run the runner deletes every canvas
+  and conversation, checks none is left, and puts the memory files back as they were, never
+  outside the run dir and without following a link; when it cannot, the run is not played and
+  the eval stops. What a deleted conversation's turns cost still counts toward the budget. Each
+  run also leaves a JSON transcript of its conversation, child conversations, canvases and
+  approvals in `results/transcripts/`; it can hold what the agents know, so delete it by hand.
 - A file in an agent's workspace no longer opens as a page of the app. `GET
   /api/agents/{id}/files` served each file with the type its extension suggested, so an HTML or
   SVG file an agent wrote, opened from its link, ran its scripts with the app's origin and could

@@ -16,10 +16,14 @@ from eval_cases import Case, parse_case
 from eval_check import RUN, Failure
 from eval_client import EvalApi
 from eval_report import Report, RunResult
+from eval_reset import RESET_FAILED, ResetError
 from llm_bench_server import port_is_free
 
 from my_agent_crew.artifacts.diff import line_span
+from my_agent_crew.texts import MEMORY_SAVED
 from my_agent_crew.texts_canvas import PICK_LINES
+from my_agent_crew.texts_search import CONVERSATION_SEARCH_EMPTY
+from my_agent_crew.tools.artifact_texts import ARTIFACT_LIST_EMPTY
 from tests.http_fake import FakeServer, as_json, say, sse, tool_approval
 
 CONV = "/api/conversations/c1"
@@ -228,6 +232,39 @@ def test_a_canvas_step_that_cannot_be_done_ends_the_run_before_the_next_message(
     assert not eval_play.stalled(result)
 
 
+def test_a_run_keeps_what_it_left_in_its_transcript(tmp_path):
+    case = case_of("c", {"create_canvas": {"title": "Weekend", "content": WEEKEND}}, "rm it")
+    runs = [
+        {"conversation_id": "c1", "started_at": "2026-09-29T00:00:01+00:00"},
+        {"conversation_id": "c2", "started_at": "2026-09-29T00:00:02+00:00"},
+    ]
+    child = {"agent_id": "researcher", "messages": [told("look")]}
+    server = (
+        one_run(
+            sse(tool_approval("p1", command="rm notes.txt")),
+            after=record(told("rm it"), said("cancelled")),
+            runs=runs,
+        )
+        .on(f"{CONV}/approvals/p1", sse(say("cancelled")))
+        .on("/api/conversations/c2", as_json(child))
+        .on("/api/artifacts", canvas(WEEKEND), as_json([{"id": "a1"}]))
+        .on("/api/artifacts/a1", canvas(WEEKEND))
+    )
+    path = tmp_path / "transcripts" / "01-c-2.json"
+
+    eval_play.play(api_over(server), case, 2, path)
+
+    kept = json.loads(path.read_text(encoding="utf-8"))
+    assert {key: kept[key] for key in ("case", "run", "children", "canvases")} == {
+        "case": "c",
+        "run": 2,
+        "children": [child],
+        "canvases": [{"id": "a1", "head_version": 1, "content": WEEKEND}],
+    }
+    assert kept["conversation"]["messages"] == [told("rm it"), said("cancelled")]
+    assert [(asked["approval_id"], asked["turn"]) for asked in kept["asked"]] == [("p1", 1)]
+
+
 def test_a_message_sent_before_any_canvas_is_open_is_its_text_alone():
     server = one_run(sse(say("done")), after=record(told("hi"), said("done")))
 
@@ -242,6 +279,7 @@ def test_a_run_that_timed_out_or_lost_the_server_is_a_stall_and_one_that_did_not
 
     assert eval_play.stalled(run_with(Failure(RUN, "timed out after 5s")))
     assert eval_play.stalled(run_with(Failure(RUN, "http: connection refused")))
+    assert eval_play.stalled(run_with(Failure(RUN, f"{RESET_FAILED} conversations c9")))
     assert not eval_play.stalled(run_with(Failure(RUN, "boom")))
     assert not eval_play.stalled(run_with(Failure("reply_contains", "timed out after 5s")))
 
@@ -257,14 +295,25 @@ class Spender:
         self.results: dict[int, RunResult] = {}
         self.raise_at: dict[int, BaseException] = {}
         self.unreadable_after = 10**9
+        self.resets: list[int] = []  # how many runs had been played at each reset
+        self.reset_raises_at: dict[int, BaseException] = {}
+        self.transcripts: list[Path | None] = []
 
     def ledger(self) -> tuple[float, int]:
         if len(self.played) >= self.unreadable_after:
             raise httpx.ConnectError("ledger unreadable")
         return self.spent, self.unknown
 
-    def play(self, api: object, case: Case, number: int) -> RunResult:
+    def fresh(self) -> None:
+        self.resets.append(len(self.played))
+        if len(self.resets) in self.reset_raises_at:
+            raise self.reset_raises_at[len(self.resets)]
+
+    def play(
+        self, api: object, case: Case, number: int, transcript: Path | None = None
+    ) -> RunResult:
         self.played.append((case.id, number))
+        self.transcripts.append(transcript)
         nth = len(self.played)
         if nth in self.raise_at:
             raise self.raise_at[nth]
@@ -276,7 +325,7 @@ class Spender:
 def run_with(spender: Spender, monkeypatch, tmp_path: Path, *cases: Case, budget: float = 0.5):
     monkeypatch.setattr(eval_play, "play", spender.play)
     report = Report("2026-09-29T00:00:00+00:00", 3, budget)
-    eval_play.run_cases(spender, cases, report, tmp_path)
+    eval_play.run_cases(spender, cases, report, tmp_path, fresh=spender.fresh)
     return report
 
 
@@ -292,6 +341,55 @@ def test_every_run_of_every_case_is_played_in_order_and_the_results_are_written(
     data = json.loads((tmp_path / "results.json").read_text())
     assert [len(case["runs"]) for case in data["cases"]] == [3, 3]
     assert "| a | default | pass | 3/3 |" in (tmp_path / "results.md").read_text()
+
+
+def test_every_run_starts_from_a_clean_server(monkeypatch, tmp_path):
+    spender = Spender()
+
+    run_with(spender, monkeypatch, tmp_path, case_of("a"), case_of("b"))
+
+    assert spender.resets == [0, 1, 2, 3, 4, 5]
+
+
+@pytest.mark.parametrize(
+    ("error", "detail"),
+    [
+        (ResetError(f"{RESET_FAILED} conversations c9"), f"{RESET_FAILED} conversations c9"),
+        (httpx.ConnectError("refused"), "http: refused"),
+    ],
+)
+def test_a_run_that_cannot_start_from_a_clean_server_is_not_played_and_the_eval_stops(
+    monkeypatch, tmp_path, error, detail
+):
+    spender = Spender()
+    spender.reset_raises_at[2] = error
+
+    report = run_with(spender, monkeypatch, tmp_path, case_of("a"), case_of("b"))
+
+    assert spender.played == [("a", 1)]
+    assert [(f.assertion, f.detail) for f in report.cases[0].runs[1].failures] == [(RUN, detail)]
+    assert report.stopped == "stall"
+    assert [len(item.runs) for item in report.cases] == [2, 0]
+
+
+def test_each_run_keeps_its_transcript_beside_the_results_named_by_case_and_run(
+    monkeypatch, tmp_path
+):
+    spender = Spender()
+
+    run_with(spender, monkeypatch, tmp_path, case_of("a"), case_of("is it/ok?"))
+
+    assert spender.transcripts == [
+        tmp_path / "transcripts" / name
+        for name in (
+            "01-a-1.json",
+            "01-a-2.json",
+            "01-a-3.json",
+            "02-is_it_ok_-1.json",
+            "02-is_it_ok_-2.json",
+            "02-is_it_ok_-3.json",
+        )
+    ]
 
 
 def test_the_total_is_what_the_ledger_grew_by_so_a_price_outside_the_runs_is_counted(
@@ -532,6 +630,20 @@ CASES = """\
     - and these?
   expect:
     canvas_not_in_chat: true
+
+- id: each-run-starts-with-no-canvas
+  agent: default
+  messages:
+    - '/tool artifact_list {}'
+    - create_canvas: {title: Leftover, content: "- one line"}
+
+- id: each-run-starts-with-no-chat
+  agent: default
+  messages: ['/tool conversation_search {"query": "zebra"}']
+
+- id: each-run-starts-with-the-notes-it-had
+  agent: default
+  messages: ['/tool memory_save {"text": "zebra crossing on the corner"}']
 """
 
 
@@ -568,6 +680,22 @@ def test_a_dry_run_plays_real_turns_through_a_real_server_and_leaves_only_the_re
     assert [(f["assertion"], f["detail"]) for f in pasted["failures"]] == [
         ("canvas_not_in_chat", "the chat repeats 3 lines of a canvas")
     ]
+    # Each run starts clean: no canvas, chat or note an earlier run left changes its answer.
+    clean = {
+        "each-run-starts-with-no-canvas": ARTIFACT_LIST_EMPTY,
+        "each-run-starts-with-no-chat": CONVERSATION_SEARCH_EMPTY,
+        "each-run-starts-with-the-notes-it-had": MEMORY_SAVED.format(count=1),
+    }
+    for name, answer in clean.items():
+        assert [answer in run["reply"] for run in by_id[name]["runs"]] == [True, True], name
+    transcripts = out / "results" / "transcripts"
+    assert len(list(transcripts.iterdir())) == 2 * len(by_id)
+    left = json.loads((transcripts / "07-each-run-starts-with-no-canvas-2.json").read_text())
+    assert [kept["title"] for kept in left["canvases"]] == ["Leftover"]
+    delegated = json.loads(
+        (transcripts / "03-a-delegated-child-asks-in-its-own-conversation-1.json").read_text()
+    )
+    assert len(delegated["children"]) == 1
     assert "> Dry run." in (out / "results" / "results.md").read_text()
     assert (out / "results" / "server.log").exists()
     assert not (out / eval_cli.RUN_DIR).exists()
@@ -583,5 +711,19 @@ def test_a_case_for_an_agent_the_copy_does_not_have_is_refused_and_the_copy_is_r
     with pytest.raises(SystemExit, match="no such agent in the copy: nobody-here"):
         run_evals.main(["--dry-run", "--cases", str(cases), "--port", str(port), "--out", str(out)])
 
+    assert not (out / eval_cli.RUN_DIR).exists()
+    assert port_is_free(port)
+
+
+def test_memory_the_eval_could_not_put_back_is_refused_before_any_run(tmp_path, monkeypatch):
+    cases = tmp_path / "cases.yaml"
+    cases.write_text("- id: one\n  agent: default\n  messages: [hi]\n", encoding="utf-8")
+    out, port = tmp_path / "out", free_port()
+    monkeypatch.setattr(run_evals, "memory_roots", lambda home: (tmp_path / "live" / "memory",))
+
+    with pytest.raises(SystemExit, match="outside the run dir"):
+        run_evals.main(["--dry-run", "--cases", str(cases), "--port", str(port), "--out", str(out)])
+
+    assert not (out / "results" / eval_play.TRANSCRIPTS).exists()
     assert not (out / eval_cli.RUN_DIR).exists()
     assert port_is_free(port)

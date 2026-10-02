@@ -76,7 +76,9 @@ tra agent cha đọc được lời báo cuộc con đã bị xoá thay vì mộ
 
 Vài test bảo vệ repo chứ không phải một tính năng:
 
-- **ngân sách kích thước tệp**: không tệp nguồn nào quá 200 dòng, để module đọc gọn trong một màn hình;
+- **ngân sách kích thước tệp**: không tệp nguồn nào quá 200 dòng, của gói lẫn của `scripts/`, để
+  module đọc gọn trong một màn hình; thư mục nào được kiểm cũng phải còn tệp nguồn, để dời thư
+  mục đi không làm test đạt trên rỗng;
 - **bundle** trong `my_agent_crew/server/static` có mặt và được phục vụ ở `/`, với 404 của `/api/*`
   vẫn là JSON; mọi icon và manifest mà trang và manifest trỏ tới đều có trong bundle và được
   phục vụ đúng content-type;
@@ -191,13 +193,27 @@ uv run python scripts/run_evals.py --dry-run
   từ 3 dòng của một canvas, mỗi dòng từ 20 ký tự, bất kể dấu đầu dòng, số thứ tự hay chữ đậm:
   canvas là chỗ làm việc, chat là chỗ nói về nó.
 - **Mỗi case chơi `--runs` lần** (mặc định 3) và đạt khi ít nhất hai phần ba số lần đạt. Số tiền
-  là mức sổ cái của server tăng lên kể từ lúc bắt đầu, lời gọi bên cạnh lượt cũng tính; trước mỗi
-  lần chơi mà đã hết `--max-usd` (mặc định 0.5) thì dừng. Có lời gọi provider không báo giá thì
-  tổng chỉ là cận dưới và báo cáo nói vậy.
+  là mức sổ cái của server tăng lên kể từ lúc bắt đầu, lời gọi bên cạnh lượt cũng tính; xoá một
+  cuộc trò chuyện thì sổ cái mất các lượt của nó, nên runner cộng giá các lượt ấy trước khi xoá.
+  Trước mỗi lần chơi mà đã hết `--max-usd` (mặc định 0.5) thì dừng. Có lời gọi provider không
+  báo giá thì tổng chỉ là cận dưới và báo cáo nói vậy.
+- **Mỗi lần chơi bắt đầu từ server như lần đầu thấy** (`eval_reset.py`). Các lần chơi dùng
+  chung một server, và không có bước này thì lần sau chấm cả những gì lần trước để lại: cuộc
+  trò chuyện mới mở đầu bằng tóm tắt của cuộc trước trong cùng kênh, `conversation_search` và
+  `artifact_list` thấy chat và canvas cũ, `memory_save` để lại ghi chú. Nên trước mỗi lần,
+  runner xoá mọi canvas rồi mọi cuộc trò chuyện, kiểm server không còn cái nào, rồi đặt lại các
+  tệp bộ nhớ (những gì crew biết về người, ghi chú và wiki của từng agent cùng mục lục) như lúc
+  eval bắt đầu, không bao giờ ngoài thư mục chạy và không theo symlink. Không đặt lại được thì
+  lần chơi không chạy và eval dừng như mất server. Bước này không đặt lại những gì một tool cần
+  duyệt đổi trong case `approve`, tệp agent con trả về workspace, lịch agent tạo hay đề xuất bộ
+  nhớ chờ người: case cần những thứ đó sạch thì đừng gây ra chúng.
 - **Kết quả** ghi vào `<out>/results/` (`--out`, mặc định `$TMPDIR/my-agent-crew-evals`, không
   được nằm trong repo): `results.md` nêu kỳ vọng nào hỏng ở lần chơi nào, kèm lời đáp rút gọn;
   `results.json`; `server.log`. Ghi sau mỗi lần chơi, nên cuộc chạy bị cắt vẫn để lại số của
-  những lần đã xong.
+  những lần đã xong. `transcripts/` giữ mỗi lần chơi một tệp JSON (`<thứ tự case>-<id>-<lần>.json`):
+  cuộc trò chuyện gốc, các cuộc con, các canvas và các lần xin duyệt, để xem lại agent đã nói và
+  làm gì sau khi bản sao đã xoá. Những tệp ấy có thể chứa mọi thứ các agent biết (bộ nhớ,
+  persona, dữ liệu workspace), nên tự xoá tay khi xong, như với `--keep-home`.
 - **Một lượt quá `--turn-timeout`** (300 giây, tính cả khi luồng SSE vẫn gửi keep-alive) hay một
   lỗi HTTP dừng cả cuộc eval: nó không còn biết server có sống không. Ctrl-C và SIGTERM cũng
   dừng server và xoá bản sao.
@@ -248,9 +264,10 @@ Model giả (`fake:echo`) cấp cho mỗi lệnh gọi một mã riêng, như pr
 được tìm lại theo mã lệnh gọi của cha, nên hai cuộc trò chuyện giao việc ở cùng một chỗ mà cùng
 mã thì cuộc sau nhận nhầm agent con của cuộc trước.
 
-Mã nằm trong `scripts/`, tách theo việc để mỗi tệp ≤ 200 dòng như mã của gói: `run_evals.py`
-(điểm vào), `eval_cli.py` (tuỳ chọn, chọn case, từ chối sớm), `eval_play.py` (chơi một lần, chạy
-hết các case), `eval_home.py` + `eval_copy.py` + `eval_layout.py` (bản sao), `eval_cases.py` +
+Mã nằm trong `scripts/`, tách theo việc để mỗi tệp ≤ 200 dòng như mã của gói (cùng một test
+kiểm cả hai): `run_evals.py` (điểm vào), `eval_cli.py` (tuỳ chọn, chọn case, từ chối sớm),
+`eval_play.py` (chơi một lần, chạy hết các case, bản ghi), `eval_reset.py` (đưa server và bộ
+nhớ về như lúc đầu trước mỗi lần chơi), `eval_home.py` + `eval_copy.py` + `eval_layout.py` (bản sao), `eval_cases.py` +
 `eval_expect.py` + `eval_check.py` (đọc và chấm case), `eval_shape.py` (dạng giá trị chung của
 case, kỳ vọng và bước), `eval_canvas.py` (bước canvas, luật chép canvas vào chat),
 `eval_observe.py` (biến một cuộc trò chuyện thành thứ chấm được), `eval_client.py` (duyệt, câu
@@ -646,7 +663,16 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `tests/test_eval_client.py` (duyệt và từ chối được ghi lại, lệnh nêu đường dẫn live bị từ
     chối kể cả khi chính sách là duyệt, câu hỏi lấy câu trả lời kế tiếp và hết thì hỏng, một
     lượt vẫn bị cắt khi luồng cứ gửi keep-alive, yêu cầu duyệt của agent con được trả lời, được
-    hỏi lại khi nó xin lần nữa, và hỏng rõ ràng khi không trả lời được);
+    hỏi lại khi nó xin lần nữa, và hỏng rõ ràng khi không trả lời được; giá các lượt của cuộc
+    trò chuyện bị xoá vẫn nằm trong sổ cái, lời gọi miễn phí không tính là không báo giá, lần
+    xoá bị từ chối thì ném lỗi và không cộng gì; mọi cuộc trò chuyện và canvas được liệt kê và
+    xoá theo id; phần `paid` cộng đúng bằng phần sổ cái thật mất khi xoá một cuộc);
+    `tests/test_eval_reset.py` (bộ nhớ trở lại như cũ dù lần chơi ghi thêm, sửa hay xoá; gốc vốn
+    không có thì lại không có; tệp hoá thư mục và ngược lại được đặt lại; symlink lần chơi để lại
+    bị xoá mà không theo; gốc ngoài thư mục chạy, kể cả qua symlink, và symlink có sẵn lúc bắt
+    đầu bị từ chối; các gốc là bộ nhớ của người và ghi chú của từng agent; đặt lại xoá mọi canvas
+    rồi mọi cuộc trò chuyện, kiểm lại rồi mới đặt bộ nhớ; còn sót gì trên server hay không đặt
+    lại được bộ nhớ thì hỏng, nói rõ cái gì, và không đụng gì bên ngoài);
     `tests/test_eval_home.py` (bản sao bỏ bí mật, trạng thái, cơ sở dữ liệu của server, lịch sử,
     phiên đăng nhập, symlink, kit ngoài thư mục crew; giữ cấu hình, persona, bộ nhớ, workspace
     và cơ sở dữ liệu của workspace; nạp lại được bằng đúng bộ đọc của server; không còn lịch,
@@ -663,7 +689,11 @@ tên một test thì sửa dòng của nó trong cùng commit.
     mất server dừng cả cuộc, các từ chối trước khi chép gì, chạy thử qua một server thật; bước
     canvas chạy giữa các lượt và mọi tin sau mang canvas đang mở, bước hỏng chặn tin sau mà không
     dừng eval, tin trước khi có canvas chỉ có chữ; khi chạy thử, server đặt vùng chọn đúng dòng eval
-    đếm trên bản đã sửa, và một lần dán ba dòng bị bắt từ JSON thật của server);
+    đếm trên bản đã sửa, và một lần dán ba dòng bị bắt từ JSON thật của server; mỗi lần chơi bắt
+    đầu sau một lần đặt lại, không đặt lại được thì không chơi và dừng eval; mỗi lần chơi để lại
+    bản ghi tên theo thứ tự case, id và lần, giữ cuộc trò chuyện, cuộc con, canvas và lần xin
+    duyệt; bộ nhớ không đặt lại được bị từ chối trước lần chơi đầu; khi chạy thử, lần sau không
+    thấy canvas, cuộc trò chuyện hay ghi chú của lần trước);
     `tests/test_llm_bench_client.py` (môi trường của server bench và eval không mang home,
     token bot hay danh sách cho phép lệnh shell của người chạy);
     `tests/test_serve_flags.py` (`--no-schedule` tắt cả scheduler lẫn kênh, không đụng `--port`);

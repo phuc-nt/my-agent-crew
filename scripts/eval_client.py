@@ -1,12 +1,12 @@
 """The eval runner's view of a conversation: the bench's HTTP client, plus what a case decides
-about the approvals and questions its turns run into, plus the canvases a person works on and
-the server's cost ledger."""
+about the approvals and questions its turns run into, plus the canvases a person works on, what
+a reset deletes and the server's cost ledger."""
 
 from __future__ import annotations
 
 import json
 import threading
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 import httpx
@@ -16,6 +16,7 @@ POLL_SECONDS = 0.5
 WATCH_JOIN_SECONDS = 30.0
 AWAITING = "awaiting_approval"
 NO_ANSWER = "asked the person a question and the case has no answer left"
+ARTIFACT_PAGE = 200  # the most `GET /artifacts` lists at once
 
 
 def as_event(pending: dict[str, Any]) -> dict[str, Any]:
@@ -27,6 +28,14 @@ def as_event(pending: dict[str, Any]) -> dict[str, Any]:
         "arguments": pending["arguments"],
         "kind": pending["kind"],
     }
+
+
+def paid(messages: Sequence[Mapping[str, Any]]) -> tuple[float, int]:
+    """What a conversation's own turns cost as the ledger counts them (`store/usage.py`): the
+    assistant messages a provider answered, and how many of those came with no price."""
+    calls = [m for m in messages if m.get("role") == "assistant" and m.get("provider") is not None]
+    cost = sum(float(m.get("cost_usd") or 0.0) for m in calls)
+    return cost, sum(1 for m in calls if m.get("cost_usd") is None)
 
 
 class EvalApi(Api):
@@ -50,6 +59,7 @@ class EvalApi(Api):
         self._turn_no = 0
         self._abort = ""
         self._lock = threading.Lock()
+        self._deleted_cost, self._deleted_unknown = 0.0, 0
 
     def start_case(self, policy: str, answers: Sequence[str]) -> None:
         self.policy, self.answers = policy, list(answers)
@@ -121,6 +131,25 @@ class EvalApi(Api):
     def agent_ids(self) -> list[str]:
         return [str(agent["id"]) for agent in self._json("GET", "/agents")]
 
+    def conversation_ids(self) -> list[str]:
+        """Every conversation on the server, the children agents delegated to among them."""
+        return [str(conv["id"]) for conv in self._json("GET", "/conversations")]
+
+    def artifact_ids(self) -> list[str]:
+        params = {"limit": ARTIFACT_PAGE}
+        return [str(found["id"]) for found in self._json("GET", "/artifacts", params=params)]
+
+    def delete_conversation(self, conv_id: str) -> None:
+        """Deletes it, and keeps what its turns cost: the ledger reads a turn's own calls from
+        the conversation's messages, which go with it."""
+        cost, unknown = paid(self.conversation(conv_id).get("messages") or [])
+        self._client.delete(f"/conversations/{conv_id}").raise_for_status()
+        self._deleted_cost += cost
+        self._deleted_unknown += unknown
+
+    def delete_artifact(self, artifact_id: str) -> None:
+        self._client.delete(f"/artifacts/{artifact_id}").raise_for_status()
+
     def artifacts(self, conv_id: str) -> list[dict[str, Any]]:
         """The canvases linked to the conversation, the most recently changed first."""
         return list(self._json("GET", "/artifacts", params={"conversation_id": conv_id}))
@@ -138,10 +167,12 @@ class EvalApi(Api):
 
     def ledger(self) -> tuple[float, int]:
         """What the server has spent since it started: dollars, and the calls whose price the
-        provider did not give (so the dollars are a lower bound when there are any)."""
+        provider did not give (so the dollars are a lower bound when there are any). The
+        conversations this client deleted still count."""
         purposes = self._json("GET", "/stats").get("purposes") or []
-        cost = sum(float(p.get("cost_usd") or 0.0) for p in purposes)
-        return cost, sum(int(p.get("unknown_cost_calls") or 0) for p in purposes)
+        cost = sum(float(p.get("cost_usd") or 0.0) for p in purposes) + self._deleted_cost
+        unknown = sum(int(p.get("unknown_cost_calls") or 0) for p in purposes)
+        return cost, unknown + self._deleted_unknown
 
     def _json(self, method: str, path: str, **request: Any) -> Any:
         resp = self._client.request(method, path, **request)
