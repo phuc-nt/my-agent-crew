@@ -186,9 +186,9 @@ uv run python scripts/run_evals.py --dry-run
   lúc có canvas mở, mọi tin gửi đi mang canvas đó như tin từ web; vùng chọn chỉ đi cùng tin ngay
   sau, nên một bước chọn phải có tin theo sau. Một tin có `: ` phải để trong ngoặc kép, không thì
   YAML đọc nó thành một bước. Bước không làm được (cuộc trò chuyện chưa có canvas, `old` hay đoạn
-  chọn không có đúng một lần, server từ chối lần lưu) làm lần chơi hỏng và không gửi tin sau; mất
-  server thì dừng cả cuộc eval như một lượt. `edit_canvas` có `new` trùng `old` bị từ chối, vì
-  lần sửa ấy không đổi gì.
+  chọn không có đúng một lần, server từ chối lần lưu hay trả lời ở dạng panel không đọc được)
+  làm lần chơi hỏng và không gửi tin sau; mất server thì dừng cả cuộc eval như một lượt.
+  `edit_canvas` có `new` trùng `old` bị từ chối, vì lần sửa ấy không đổi gì.
 - **Bước canvas phải tới được agent** (`eval_note.py`). Agent chỉ biết một bước canvas qua ghi
   chú canvas server lưu cùng tin kế của người. Nên tin chứa mỗi chữ case gửi phải có ghi chú
   nêu mọi canvas người đã tạo hay lưu kể từ tin trước, ở đúng bản người để lại, theo một trong
@@ -669,7 +669,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     cũng vậy);
     `tests/test_eval_canvas.py` (tạo canvas trong cuộc trò chuyện và mở nó, sửa lưu trên đúng bản
     vừa đọc, chưa mở thì lấy canvas mới đổi gần nhất, không có canvas hay `old` không có đúng một
-    lần thì hỏng mà không lưu, server từ chối thì hỏng mà eval đi tiếp, mất server thì ném lỗi như
+    lần thì hỏng mà không lưu, server từ chối hay trả lời ở dạng không đọc được (thiếu id hay
+    bản, không phải JSON) thì hỏng mà eval đi tiếp, mất server thì ném lỗi như
     một lượt, vùng chọn mang đúng dòng và chỉ đi với tin kế, mở canvas khác thì bỏ vùng chọn; chấm
     canvas: chứa, không chứa, số canvas, dán ở lượt nào hay chia ra hai tin cũng hỏng và nêu tên
     canvas bị dán, trích một dòng hay nêu dòng ngắn thì không tính, mỗi canvas chấm riêng; mỗi tin

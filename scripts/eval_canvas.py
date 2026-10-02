@@ -141,8 +141,8 @@ def parse_step(raw: Mapping[str, Any], where: str) -> CanvasStep:
 
 def perform(api: EvalApi, conv_id: str, step: CanvasStep, panel: Panel) -> str:
     """Does `step`: an empty string when it is done, else why the run cannot go on. A
-    request the server refuses fails the run; a server that cannot be reached raises, as it
-    does in a turn, and stops the eval."""
+    request the server refuses, or answers in a shape the panel cannot read, fails the run; a
+    server that cannot be reached raises, as it does in a turn, and stops the eval."""
     try:
         if step.action == "create_canvas":
             made = api.create_artifact(conv_id, step.title, step.kind, step.content)
@@ -167,6 +167,8 @@ def perform(api: EvalApi, conv_id: str, step: CanvasStep, panel: Panel) -> str:
     except httpx.HTTPStatusError as exc:
         answer = exc.response.text[:SERVER_TEXT_CHARS]
         return f"{step.action}: the server answered {exc.response.status_code}: {answer}"
+    except (KeyError, TypeError, ValueError) as exc:
+        return f"{step.action}: the server's answer cannot be read ({type(exc).__name__}: {exc})"
 
 
 def _newest(api: EvalApi, conv_id: str) -> str:

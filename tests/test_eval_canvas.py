@@ -116,6 +116,46 @@ def test_a_save_the_server_refuses_fails_the_run_without_stopping_the_eval():
     assert not stalled(RunResult(1, (Failure(RUN, error),)))
 
 
+@pytest.mark.parametrize(
+    ("server", "raw", "panel", "unread"),
+    [
+        (
+            FakeServer().on(LIST, as_json({"head_version": 1})),
+            {"create_canvas": {"title": "Weekend", "content": WEEKEND}},
+            Panel(),
+            "KeyError",
+        ),
+        (
+            FakeServer().on(LIST, httpx.Response(200, text="<html>Bad gateway</html>")),
+            {"create_canvas": {"title": "Weekend", "content": WEEKEND}},
+            Panel(),
+            "JSONDecodeError",
+        ),
+        (
+            FakeServer().on(ART, canvas(WEEKEND), as_json({"version": None})),
+            {"edit_canvas": {"old": "Clean", "new": "Empty"}},
+            Panel("a1"),
+            "TypeError",
+        ),
+        (
+            FakeServer().on(LIST, as_json([{"title": "Weekend"}])),
+            {"select_canvas": "fridge"},
+            Panel(),
+            "KeyError",
+        ),
+    ],
+    ids=["made-without-an-id", "not-json", "saved-without-a-version", "listed-without-an-id"],
+)
+def test_an_answer_the_panel_cannot_read_fails_the_run_without_stopping_the_eval(
+    server, raw, panel, unread
+):
+    error = run_step(server, raw, panel)
+
+    action = next(iter(raw))
+    assert error.startswith(f"{action}: the server's answer cannot be read ({unread}")
+    assert not stalled(RunResult(1, (Failure(RUN, error),)))
+
+
 def test_a_server_that_cannot_be_reached_raises_as_a_lost_turn_does():
     def refuse() -> httpx.Response:
         raise httpx.ConnectError("refused")
