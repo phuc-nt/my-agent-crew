@@ -678,7 +678,7 @@ def test_a_dry_run_plays_real_turns_through_a_real_server_and_leaves_only_the_re
     assert PICK_LINES.format(span=line_span(3, 3), version=2) in worked["reply"]
     pasted = by_id["the-fake-model-says-the-selected-lines-back"]["runs"][0]
     assert [(f["assertion"], f["detail"]) for f in pasted["failures"]] == [
-        ("canvas_not_in_chat", "the chat repeats 3 lines of a canvas")
+        ("canvas_not_in_chat", "the chat repeats 100% of the canvas 'Lunch'")
     ]
     # Each run starts clean: no canvas, chat or note an earlier run left changes its answer.
     clean = {

@@ -189,9 +189,14 @@ uv run python scripts/run_evals.py --dry-run
 - **Kỳ vọng về canvas** chấm mọi canvas liên kết với cuộc trò chuyện gốc khi lần chơi xong:
   `canvas_count` (số canvas), `canvas_contains` và `canvas_not_contains` (có trong một canvas nào
   đó, hay không còn trong canvas nào; không phân biệt hoa thường và dấu) và `canvas_not_in_chat:
-  true`. Kỳ vọng cuối hỏng khi những gì agent nói trong cuộc trò chuyện gốc, ở mọi lượt, lặp lại
-  từ 3 dòng của một canvas, mỗi dòng từ 20 ký tự, bất kể dấu đầu dòng, số thứ tự hay chữ đậm:
-  canvas là chỗ làm việc, chat là chỗ nói về nó.
+  true`. Kỳ vọng cuối hỏng khi các tin agent viết trong cuộc trò chuyện gốc, ở mọi lượt, lặp lại
+  từ một nửa số cụm ba chữ liền nhau của một canvas (`eval_paste.py`). Canvas và từng tin được
+  đọc như một dải chữ, bỏ dấu đầu dòng, số thứ tự, chữ đậm, hoa thường và dấu, nên dán nguyên
+  văn, thành bảng, đổi dấu phân cách hay dồn về một dòng đều bị bắt. Không tính tiêu đề và đề
+  mục canvas mở đầu bằng, vì đó là cách chat gọi tên canvas; mọi cụm lặp lại nằm gọn trong một
+  dòng là trích dẫn (dòng vừa sửa chẳng hạn), không phải dán; không cụm nào nối hai tin. Dán mà
+  bỏ nhãn của mọi dòng ngắn (thứ trong tuần của một kế hoạch mỗi ngày một phòng) thì còn quá ít
+  cụm để bắt. Canvas là chỗ làm việc, chat là chỗ nói về nó.
 - **Mỗi case chơi `--runs` lần** (mặc định 3) và đạt khi ít nhất hai phần ba số lần đạt. Số tiền
   là mức sổ cái của server tăng lên kể từ lúc bắt đầu, lời gọi bên cạnh lượt cũng tính; xoá một
   cuộc trò chuyện thì sổ cái mất các lượt của nó, nên runner cộng giá các lượt ấy trước khi xoá.
@@ -269,8 +274,8 @@ kiểm cả hai): `run_evals.py` (điểm vào), `eval_cli.py` (tuỳ chọn, ch
 `eval_play.py` (chơi một lần, chạy hết các case, bản ghi), `eval_reset.py` (đưa server và bộ
 nhớ về như lúc đầu trước mỗi lần chơi), `eval_home.py` + `eval_copy.py` + `eval_layout.py` (bản sao), `eval_cases.py` +
 `eval_expect.py` + `eval_check.py` (đọc và chấm case), `eval_shape.py` (dạng giá trị chung của
-case, kỳ vọng và bước), `eval_canvas.py` (bước canvas, luật chép canvas vào chat),
-`eval_observe.py` (biến một cuộc trò chuyện thành thứ chấm được), `eval_client.py` (duyệt, câu
+case, kỳ vọng và bước), `eval_canvas.py` (bước canvas), `eval_paste.py` (luật chép canvas
+vào chat), `eval_observe.py` (biến một cuộc trò chuyện thành thứ chấm được), `eval_client.py` (duyệt, câu
 hỏi, sổ cái, canvas), `eval_report.py` (báo cáo). Server và client HTTP chia với bench: `llm_bench_server.py`, `llm_bench_client.py`.
 
 ## Smoke trực tiếp (thủ công)
@@ -654,12 +659,18 @@ tên một test thì sửa dòng của nó trong cùng commit.
     vừa đọc, chưa mở thì lấy canvas mới đổi gần nhất, không có canvas hay `old` không có đúng một
     lần thì hỏng mà không lưu, server từ chối thì hỏng mà eval đi tiếp, mất server thì ném lỗi như
     một lượt, vùng chọn mang đúng dòng và chỉ đi với tin kế, mở canvas khác thì bỏ vùng chọn; chấm
-    canvas: chứa, không chứa, số canvas, dán từ 3 dòng ở bất kỳ lượt nào bất kể markdown, trích một
-    dòng hay nêu dòng ngắn thì không tính);
+    canvas: chứa, không chứa, số canvas, dán ở lượt nào hay chia ra hai tin cũng hỏng và nêu tên
+    canvas bị dán, trích một dòng hay nêu dòng ngắn thì không tính, mỗi canvas chấm riêng);
+    `tests/test_eval_paste.py` (tỉ lệ cụm ba chữ chat lặp lại: canvas dòng ngắn nói lại nguyên văn,
+    thành bảng hay dồn một dòng không dấu đều là dán hết; nêu tiêu đề, đề mục mở đầu kể cả sau
+    dòng trống, dòng chính là tiêu đề dù markup nào, trích dòng vừa sửa dù nó chiếm gần hết
+    canvas, dòng canvas lặp hai lần vẫn là một dòng, trích hai dòng vừa đổi của canvas dài hơn,
+    nêu các đề mục hay việc vừa thêm thì không phải dán; nói lại cả danh sách, dàn ý đổi cách
+    đánh số, dòng dài bỏ nhãn vẫn là dán; canvas quá ngắn thì không bao giờ);
     `tests/test_eval_observe.py` (mỗi lệnh gọi mang số lượt và agent, việc của agent con tính
     vào lượt của cha đã giao, outcome của mỗi lần giao việc đọc từ dòng hai kết quả của nó, kết
     quả cũ không có dòng đó thì không có outcome; lời đáp cuối, lỗi và giá, tìm ra các cuộc con;
-    mọi câu agent nói trong cuộc gốc, nội dung các canvas);
+    mọi câu agent nói trong cuộc gốc, tiêu đề và nội dung từng canvas);
     `tests/test_eval_client.py` (duyệt và từ chối được ghi lại, lệnh nêu đường dẫn live bị từ
     chối kể cả khi chính sách là duyệt, câu hỏi lấy câu trả lời kế tiếp và hết thì hỏng, một
     lượt vẫn bị cắt khi luồng cứ gửi keep-alive, yêu cầu duyệt của agent con được trả lời, được

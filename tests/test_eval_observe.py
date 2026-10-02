@@ -6,6 +6,7 @@ from typing import Any
 
 from eval_check import Ask, Call, Delegate
 from eval_observe import child_ids, observe
+from eval_paste import Canvas
 
 from my_agent_crew.tools.delegate_outcome import NEEDS_CONTEXT, Outcome, outcome_line
 
@@ -130,11 +131,15 @@ def test_only_tool_approvals_count_as_asks_and_they_keep_the_turn_they_came_in()
     )
 
 
-def test_said_is_every_text_the_agent_wrote_in_the_conversation_and_canvases_pass_through():
-    seen = observe(ROOT, [CHILD], [], spent_usd=0.0, canvases=["# Plan\n"])
+def test_said_is_every_text_the_agent_wrote_and_each_canvas_keeps_its_title_and_text():
+    canvases = [
+        {"id": "a1", "title": "Plan", "kind": "markdown", "head_version": 2, "content": "# Plan\n"},
+        {"id": "a2", "title": "Page", "kind": "html", "head_version": 1, "content": None},
+    ]
+    seen = observe(ROOT, [CHILD], [], spent_usd=0.0, canvases=canvases)
 
     assert seen.said == ("Logged.", "Here it is.")
-    assert seen.canvases == ("# Plan\n",)
+    assert seen.canvases == (Canvas("Plan", "# Plan\n"), Canvas("Page", ""))
 
 
 def test_cost_and_error_are_carried_through():

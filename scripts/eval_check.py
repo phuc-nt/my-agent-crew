@@ -9,9 +9,9 @@ from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from typing import Any, NamedTuple
 
-from eval_canvas import COPY_LINES, copied_lines
 from eval_cases import Case
 from eval_expect import Expect, args_text
+from eval_paste import PASTE_SHARE, Canvas, pasted_share
 
 from my_agent_crew.memory.search import normalize
 
@@ -43,12 +43,12 @@ class Delegate(NamedTuple):
 @dataclass(frozen=True)
 class Observed:
     """What one run did, whatever the model said about it: `said` is everything the agent
-    said in the chat, `reply` the last of it, and `canvases` the text of each canvas the
-    conversation has."""
+    said in the chat, `reply` the last of it, and `canvases` each canvas the conversation
+    has."""
 
     reply: str = ""
     said: tuple[str, ...] = ()
-    canvases: tuple[str, ...] = ()
+    canvases: tuple[Canvas, ...] = ()
     tool_calls: tuple[Call, ...] = ()
     approvals: tuple[Ask, ...] = ()
     delegates: tuple[Delegate, ...] = ()
@@ -117,7 +117,7 @@ def check(case: Case, observed: Observed) -> list[Failure]:
 
 def _canvas_failures(expect: Expect, observed: Observed) -> Iterator[Failure]:
     canvases = observed.canvases
-    held = [normalize(text) for text in canvases]
+    held = [normalize(canvas.content) for canvas in canvases]
     seen = f"{len(canvases)} canvas{'' if len(canvases) == 1 else 'es'}"
     if expect.canvas_count is not None and len(canvases) != expect.canvas_count:
         yield Failure("canvas_count", f"{seen}, not {expect.canvas_count}")
@@ -127,9 +127,11 @@ def _canvas_failures(expect: Expect, observed: Observed) -> Iterator[Failure]:
     for needle in expect.canvas_not_contains:
         if any(normalize(needle) in text for text in held):
             yield Failure("canvas_not_contains", f"{needle!r} is still in a canvas")
-    copied = copied_lines("\n\n".join(observed.said), canvases)
-    if expect.canvas_not_in_chat and copied >= COPY_LINES:
-        yield Failure("canvas_not_in_chat", f"the chat repeats {copied} lines of a canvas")
+    for canvas in canvases if expect.canvas_not_in_chat else ():
+        share = pasted_share(canvas, *observed.said)
+        if share >= PASTE_SHARE:
+            detail = f"the chat repeats {share:.0%} of the canvas {canvas.title!r}"
+            yield Failure("canvas_not_in_chat", detail)
 
 
 def case_passed(outcomes: Sequence[bool], runs: int) -> bool:

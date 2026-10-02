@@ -5,10 +5,11 @@ from __future__ import annotations
 
 import httpx
 import pytest
-from eval_canvas import Panel, copied_lines, parse_step, perform
+from eval_canvas import Panel, parse_step, perform
 from eval_cases import parse_case
 from eval_check import RUN, Failure, Observed, check
 from eval_client import EvalApi
+from eval_paste import Canvas, pasted_share
 from eval_play import stalled
 from eval_report import RunResult
 
@@ -31,9 +32,10 @@ def run_step(server: FakeServer, raw: dict, panel: Panel | None = None) -> str:
     return perform(api_over(server), "c1", parse_step(raw, "test"), panel or Panel())
 
 
-def judge(expect: dict, canvases: list[str], *said: str) -> list[Failure]:
+def judge(expect: dict, canvases: list[Canvas | str], *said: str) -> list[Failure]:
     raw = {"id": "c", "agent": "default", "messages": ["hi"], "expect": expect}
-    seen = Observed(reply=said[-1] if said else "", said=said, canvases=tuple(canvases))
+    held = tuple(c if isinstance(c, Canvas) else Canvas("Plan", c) for c in canvases)
+    seen = Observed(reply=said[-1] if said else "", said=said, canvases=held)
     return check(parse_case(raw, "test"), seen)
 
 
@@ -188,31 +190,32 @@ def test_canvas_count_is_the_number_of_canvases_the_conversation_has():
     assert judge({"canvas_count": 0}, []) == []
 
 
-LUNCH = (
+LUNCH = Canvas(
+    "Lunch plan",
     "# Lunch plan\n\n"
     "- Monday: chicken rice with greens\n"
     "- Tuesday: beef noodle soup, extra herbs\n"
     "- Wednesday: grilled fish and rice\n"
-    "- Thursday: pho\n"
+    "- Thursday: pho\n",
 )
 
 
-def test_a_reply_that_pastes_the_canvas_copies_its_lines_whatever_the_markup():
+def test_a_reply_that_pastes_a_canvas_fails_whatever_the_markup_and_names_the_canvas():
     reply = (
         "Here it is:\n1. **Monday**: chicken rice with greens\n"
         "2. Tuesday: Beef noodle soup, extra herbs\n* Wednesday:  grilled fish and rice"
     )
 
-    assert copied_lines(reply, [LUNCH]) == 3
+    assert pasted_share(LUNCH, reply) == 14 / 16
     (failure,) = judge({"canvas_not_in_chat": True}, [LUNCH], reply)
     assert (failure.assertion, failure.detail) == (
         "canvas_not_in_chat",
-        "the chat repeats 3 lines of a canvas",
+        "the chat repeats 88% of the canvas 'Lunch plan'",
     )
     assert judge({}, [LUNCH], reply) == []
 
 
-def test_a_canvas_pasted_before_the_last_reply_is_still_in_the_chat():
+def test_a_canvas_pasted_over_two_messages_is_still_in_the_chat():
     pasted = "Writing it:\nMonday: chicken rice with greens\nTuesday: beef noodle soup, extra herbs"
     later = "Wednesday: grilled fish and rice. Done, it is in the canvas."
 
@@ -221,17 +224,20 @@ def test_a_canvas_pasted_before_the_last_reply_is_still_in_the_chat():
     ]
 
 
-def test_quoting_one_line_or_naming_short_lines_is_not_a_copy():
+def test_quoting_one_line_or_naming_short_lines_is_not_a_paste():
     one = "I added: Wednesday: grilled fish and rice."
     short = "Thursday: pho, and the Lunch plan title."
 
-    assert copied_lines(one, [LUNCH]) == 1
-    assert copied_lines(short, [LUNCH]) == 0
-    assert copied_lines(one + "\nTuesday: beef noodle soup, extra herbs", [LUNCH]) == 2
-    assert judge({"canvas_not_in_chat": True}, [LUNCH], one) == []
+    assert pasted_share(LUNCH, one) == 0.0
+    assert pasted_share(LUNCH, short) == 0.0
+    assert pasted_share(LUNCH, one, short) == 0.0  # no run of words spans two messages
+    assert judge({"canvas_not_in_chat": True}, [LUNCH], one, short) == []
 
 
-def test_a_copy_is_counted_without_accents_and_a_repeated_line_once():
-    doc = "- Thứ Hai: cơm gà xối mỡ rau luộc\n- Thứ Hai: cơm gà xối mỡ rau luộc\n"
+def test_each_canvas_is_judged_on_its_own_and_the_one_pasted_is_named():
+    weekend = Canvas("Weekend", "- Clean out the fridge on Saturday\n- Wash the blankets\n")
+    said = "Sure: clean out the fridge on Saturday, wash the blankets."
 
-    assert copied_lines("thu hai: com ga xoi mo rau luoc", [doc]) == 1
+    failures = judge({"canvas_not_in_chat": True}, [LUNCH, weekend], said)
+
+    assert [f.detail for f in failures] == ["the chat repeats 100% of the canvas 'Weekend'"]

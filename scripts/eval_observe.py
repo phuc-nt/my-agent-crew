@@ -9,6 +9,7 @@ from collections.abc import Iterator, Mapping, Sequence
 from typing import Any
 
 from eval_check import Ask, Call, Delegate, Observed
+from eval_paste import Canvas
 
 # Line 2 of a delegate result: what the handed-off task came to.
 _OUTCOME = re.compile(r"outcome=(\S+)(?: reason=.*)?")
@@ -29,11 +30,11 @@ def observe(
     spent_usd: float,
     unknown_cost_calls: int = 0,
     error: str = "",
-    canvases: Sequence[str] = (),
+    canvases: Sequence[Mapping[str, Any]] = (),
 ) -> Observed:
     """`conversation` and each of `children` are `GET /conversations/{id}`; `approvals` are
     the `approval_required` payloads the client answered, each with the `turn` it came in;
-    `canvases` the text of each canvas the conversation has."""
+    `canvases` each canvas the conversation has, as `GET /artifacts/{id}` serves it."""
     messages = conversation.get("messages", [])
     turn_of_call: dict[str, int] = {}
     calls = list(_calls(messages, str(conversation["agent_id"]), turn_of_call))
@@ -47,7 +48,9 @@ def observe(
         said=tuple(
             str(m["content"]) for m in messages if m["role"] == "assistant" and m.get("content")
         ),
-        canvases=tuple(canvases),
+        canvases=tuple(
+            Canvas(str(c.get("title") or ""), str(c.get("content") or "")) for c in canvases
+        ),
         tool_calls=tuple(calls),
         approvals=tuple(
             Ask(int(a["turn"]), str(a["name"]), dict(a.get("arguments") or {}))

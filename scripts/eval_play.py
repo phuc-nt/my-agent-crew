@@ -58,7 +58,7 @@ def play(api: EvalApi, case: Case, number: int, transcript: Path | None = None) 
         cost_after - cost_before,
         unknown_after - unknown_before,
         error,
-        [canvas.get("content") or "" for canvas in canvases],
+        canvases,
     )
     if transcript is not None:
         kept = {"case": case.id, "run": number, "conversation": conversation}

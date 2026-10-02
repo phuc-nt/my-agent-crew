@@ -1,4 +1,4 @@
-"""Canvas steps in an eval case, and the check that a chat did not paste a canvas back.
+"""Canvas steps in an eval case: what the person does on a canvas between two messages.
 
 A case's `messages` may hold, between its messages, what the person does in the web panel. Each
 step goes over the REST routes the panel uses (`server/routes_artifacts.py`), as the person:
@@ -14,15 +14,12 @@ next message only, as a message from the web does (`server/routes_chat.py`)."""
 
 from __future__ import annotations
 
-import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import httpx
 from eval_shape import only
-
-from my_agent_crew.memory.search import normalize
 
 if TYPE_CHECKING:
     from eval_client import EvalApi
@@ -31,12 +28,7 @@ STEPS = ("create_canvas", "edit_canvas", "select_canvas")
 CREATE_KEYS = ("title", "content", "kind")
 EDIT_KEYS = ("old", "new")
 KINDS = ("markdown", "code")
-# A chat repeats a canvas when it has this many of its lines; one line is a quote.
-COPY_LINES = 3
-COPY_LINE_CHARS = 20  # a shorter line is a heading or a name, fine to say again
 SERVER_TEXT_CHARS = 200
-_MARKER = re.compile(r"^(?:\s*(?:#+|>|[-*+]|\d+[.)]))+\s*")
-_EMPHASIS = re.compile(r"[*_`]+")
 
 
 @dataclass(frozen=True)
@@ -154,18 +146,6 @@ def perform(api: EvalApi, conv_id: str, step: CanvasStep, panel: Panel) -> str:
     except httpx.HTTPStatusError as exc:
         answer = exc.response.text[:SERVER_TEXT_CHARS]
         return f"{step.action}: the server answered {exc.response.status_code}: {answer}"
-
-
-def copied_lines(said: str, contents: Sequence[str]) -> int:
-    """How many distinct lines of the canvases, of `COPY_LINE_CHARS` or more, `said`
-    repeats, whatever the markup, case and accents of either."""
-    plain = _plain(said)
-    lines = {_plain(_MARKER.sub("", line)) for text in contents for line in text.splitlines()}
-    return sum(1 for line in lines if len(line) >= COPY_LINE_CHARS and line in plain)
-
-
-def _plain(text: str) -> str:
-    return " ".join(_EMPHASIS.sub("", normalize(text)).split())
 
 
 def _newest(api: EvalApi, conv_id: str) -> str:
