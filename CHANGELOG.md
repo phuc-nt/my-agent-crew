@@ -87,6 +87,11 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   the eval stops. What a deleted conversation's turns cost still counts toward the budget. Each
   run also leaves a JSON transcript of its conversation, child conversations, canvases and
   approvals in `results/transcripts/`; it can hold what the agents know, so delete it by hand.
+- An eval expectation pinned to a turn now counts turns by the messages the case sent. A note
+  the server stores as the person's message, the loop guard's after three identical calls above
+  all, started a turn of its own, so a tool called after it was judged as the next turn's and
+  the reply stopped at the note. A conversation that does not hold every message the case sent
+  now fails the run instead of numbering its turns wrong.
 - A file in an agent's workspace no longer opens as a page of the app. `GET
   /api/agents/{id}/files` served each file with the type its extension suggested, so an HTML or
   SVG file an agent wrote, opened from its link, ran its scripts with the app's origin and could

@@ -1,6 +1,9 @@
 """What one eval run did, read back from the JSON the server already serves: the
 conversation's messages, the conversations it delegated to, the canvases it has, and the
-approvals the client saw go by. Pure: nothing here talks to the server."""
+approvals the client saw go by. Pure: nothing here talks to the server.
+
+A turn starts at the message that holds the next text the eval sent. The server writes notes of
+its own as the person's messages, the loop guard's above all, and those start no turn."""
 
 from __future__ import annotations
 
@@ -28,23 +31,31 @@ def observe(
     children: Sequence[Mapping[str, Any]],
     approvals: Sequence[Mapping[str, Any]],
     spent_usd: float,
+    *,
+    sent: Sequence[str],
     unknown_cost_calls: int = 0,
     error: str = "",
     canvases: Sequence[Mapping[str, Any]] = (),
 ) -> Observed:
     """`conversation` and each of `children` are `GET /conversations/{id}`; `approvals` are
     the `approval_required` payloads the client answered, each with the `turn` it came in;
-    `canvases` each canvas the conversation has, as `GET /artifacts/{id}` serves it."""
+    `sent` the texts the eval sent, in order; `canvases` each canvas the conversation has, as
+    `GET /artifacts/{id}` serves it. A conversation that does not hold every text sent fails
+    the run, unless the run already failed."""
     messages = conversation.get("messages", [])
+    turns = _turns(messages, sent)
+    held = turns[-1] if turns else 0
+    if held < len(sent) and not error:
+        error = f"the conversation holds {held} of the {len(sent)} messages the eval sent"
     turn_of_call: dict[str, int] = {}
-    calls = list(_calls(messages, str(conversation["agent_id"]), turn_of_call))
-    last_turn = max(1, sum(1 for m in messages if m["role"] == "user"))
+    calls = list(_calls(messages, turns, str(conversation["agent_id"]), turn_of_call))
     outcomes = _outcomes(messages)
     for child in children:
-        turn = turn_of_call.get(str(child.get("parent_call_id")), last_turn)
-        calls.extend(_calls(child.get("messages", []), str(child["agent_id"]), {}, fixed_turn=turn))
+        turn = turn_of_call.get(str(child.get("parent_call_id")), max(1, held))
+        child_messages = child.get("messages", [])
+        calls.extend(_calls(child_messages, [turn] * len(child_messages), str(child["agent_id"])))
     return Observed(
-        reply=_reply(messages),
+        reply=_reply(messages, turns),
         said=tuple(
             str(m["content"]) for m in messages if m["role"] == "assistant" and m.get("content")
         ),
@@ -67,20 +78,28 @@ def observe(
     )
 
 
+def _turns(messages: Sequence[Mapping[str, Any]], sent: Sequence[str]) -> list[int]:
+    """The turn each message is in: how many of the texts in `sent` the conversation holds
+    up to it, in order; 0 before the first."""
+    turns, held = [], 0
+    for message in messages:
+        if held < len(sent) and message["role"] == "user" and message.get("content") == sent[held]:
+            held += 1
+        turns.append(held)
+    return turns
+
+
 def _calls(
     messages: Sequence[Mapping[str, Any]],
+    turns: Sequence[int],
     agent: str,
-    turn_of_call: dict[str, int],
-    fixed_turn: int | None = None,
+    turn_of_call: dict[str, int] | None = None,
 ) -> Iterator[Call]:
-    turn = 0
-    for message in messages:
-        if message["role"] == "user":
-            turn += 1
+    for message, turn in zip(messages, turns, strict=True):
         for call in message.get("tool_calls") or []:
-            at = fixed_turn if fixed_turn is not None else turn
-            turn_of_call[str(call["id"])] = at
-            yield Call(at, agent, str(call["name"]), dict(call.get("arguments") or {}))
+            if turn_of_call is not None:
+                turn_of_call[str(call["id"])] = turn
+            yield Call(turn, agent, str(call["name"]), dict(call.get("arguments") or {}))
 
 
 def _outcomes(messages: Sequence[Mapping[str, Any]]) -> dict[str, str]:
@@ -94,12 +113,12 @@ def _outcomes(messages: Sequence[Mapping[str, Any]]) -> dict[str, str]:
     return found
 
 
-def _reply(messages: Sequence[Mapping[str, Any]]) -> str:
-    """The last thing the agent said since the last thing it was told."""
-    said = ""
-    for message in messages:
-        if message["role"] == "user":
-            said = ""
-        elif message["role"] == "assistant" and message.get("content"):
-            said = str(message["content"])
-    return said
+def _reply(messages: Sequence[Mapping[str, Any]], turns: Sequence[int]) -> str:
+    """The last thing the agent said in the last turn."""
+    last = turns[-1] if turns else 0
+    said = [
+        str(message["content"])
+        for message, turn in zip(messages, turns, strict=True)
+        if turn == last and message["role"] == "assistant" and message.get("content")
+    ]
+    return said[-1] if said else ""

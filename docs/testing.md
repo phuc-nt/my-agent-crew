@@ -170,11 +170,13 @@ uv run python scripts/run_evals.py --dry-run
   Một case có `id`, `agent`, `messages` (mỗi tin một lượt), `approvals` (`deny` mặc định, hoặc
   `approve`), `answers` (trả lời lần lượt cho câu hỏi của agent) và `expect`: `calls_tool`,
   `not_calls_tool`, `asks_approval` (mỗi mục là `{name, args_regex?, agent?, turn?}`; regex tìm
-  trong tham số viết thành JSON, lượt đếm từ 1), `max_calls`, `reply_contains`,
+  trong tham số viết thành JSON, lượt đếm từ 1 theo các tin case đã gửi, nên ghi chú server tự
+  viết vào vai người, như của loop guard, không mở lượt mới), `max_calls`, `reply_contains`,
   `reply_not_contains` (không phân biệt hoa thường và dấu), `delegates_to` (`{agent, outcome?}`;
   `outcome` là một trong năm giá trị của dòng `outcome=` trong kết quả giao việc) và `max_cost_usd`.
   Khoá lạ, regex hỏng hay id trùng bị từ chối *trước* khi tốn đồng nào. Việc một agent con làm
-  tính vào lượt của cha đã giao nó.
+  tính vào lượt của cha đã giao nó. Cuộc trò chuyện không giữ đủ các tin đã gửi thì lần chơi
+  hỏng, thay vì đếm lệch lượt.
 - **Bước canvas** nằm giữa các tin trong `messages`: đó là việc người làm trên panel giữa hai
   lượt, đi qua đúng các route REST mà web dùng, với tư cách người. `create_canvas: {title,
   content, kind?}` tạo canvas trong cuộc trò chuyện và mở nó (`kind` là `markdown`, mặc định, hay
@@ -670,7 +672,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `tests/test_eval_observe.py` (mỗi lệnh gọi mang số lượt và agent, việc của agent con tính
     vào lượt của cha đã giao, outcome của mỗi lần giao việc đọc từ dòng hai kết quả của nó, kết
     quả cũ không có dòng đó thì không có outcome; lời đáp cuối, lỗi và giá, tìm ra các cuộc con;
-    mọi câu agent nói trong cuộc gốc, tiêu đề và nội dung từng canvas);
+    mọi câu agent nói trong cuộc gốc, tiêu đề và nội dung từng canvas; lượt đếm theo tin case đã
+    gửi: ghi chú loop guard không mở lượt cũng không cắt lời đáp, agent nói trước tin kế của
+    người không mở lượt đó, cuộc trò chuyện thiếu tin đã gửi thì hỏng trừ khi lần chơi đã hỏng);
     `tests/test_eval_client.py` (duyệt và từ chối được ghi lại, lệnh nêu đường dẫn live bị từ
     chối kể cả khi chính sách là duyệt, câu hỏi lấy câu trả lời kế tiếp và hết thì hỏng, một
     lượt vẫn bị cắt khi luồng cứ gửi keep-alive, yêu cầu duyệt của agent con được trả lời, được

@@ -36,11 +36,12 @@ def play(api: EvalApi, case: Case, number: int, transcript: Path | None = None) 
     cost_before, unknown_before = api.ledger()
     conv_id = api.create_conversation(case.agent, autonomous=False)
     api.start_case(case.approvals, case.answers)
-    panel, error, wall = Panel(), "", 0.0
+    panel, error, wall, sent = Panel(), "", 0.0, []
     for item in case.messages:
         if isinstance(item, CanvasStep):
             error = perform(api, conv_id, item, panel)
         else:
+            sent.append(item)
             turn = api.turn(conv_id, item, **panel.carry())
             wall += turn.wall_s
             error = turn.error
@@ -56,9 +57,10 @@ def play(api: EvalApi, case: Case, number: int, transcript: Path | None = None) 
         children,
         api.asked,
         cost_after - cost_before,
-        unknown_after - unknown_before,
-        error,
-        canvases,
+        sent=sent,
+        unknown_cost_calls=unknown_after - unknown_before,
+        error=error,
+        canvases=canvases,
     )
     if transcript is not None:
         kept = {"case": case.id, "run": number, "conversation": conversation}
