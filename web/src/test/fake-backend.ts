@@ -20,7 +20,9 @@ import type {
   StoredMessage,
   TemplateInfo,
 } from "../api/types";
+import type { ArtifactEvent } from "../api/artifact-types";
 import { fold } from "../components/conversation-search";
+import { FakeCanvas } from "./fake-canvas";
 import { FakeWiki } from "./fake-wiki";
 import { applyAgentPatch, restartRequired } from "./schedule-contract";
 
@@ -183,6 +185,16 @@ export class FakeBackend {
   };
   /** The wiki vault, empty until a test puts pages in it. */
   wiki = new FakeWiki();
+  /** The canvases, empty until a test seeds one. Each change reaches every open activity
+   *  stream, unless a test points `canvas.onEvent` elsewhere to deliver it on its own time. */
+  canvas = Object.assign(new FakeCanvas(), {
+    conversationExists: (id: string) => this.conversations.has(id),
+    onEvent: (event: ArtifactEvent) => {
+      for (const source of FakeEventSource.instances) if (!source.closed) source.emit(event);
+    },
+  });
+  /** Keepalive body bytes still in flight, which the browser caps. */
+  private keepaliveBytes = 0;
   /** Set to a message to make the next PATCH refuse, the way a bad field would. */
   refuseEdit: string | null = null;
   /** What the next POST /summary writes onto the conversation. */
@@ -197,7 +209,7 @@ export class FakeBackend {
   /** Messages queued behind a held turn, oldest first, keyed by conversation id. */
   private queues = new Map<string, QueuedMessage[]>();
   private queueCounter = 0;
-  requests: { method: string; path: string; body: unknown }[] = [];
+  requests: { method: string; path: string; body: unknown; keepalive?: true }[] = [];
   private counter = 0;
 
   fetch = async (input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> => {
@@ -205,6 +217,7 @@ export class FakeBackend {
     const path = url.pathname.replace(/^\/api/, "");
     const method = init.method ?? "GET";
     const body = init.body ? JSON.parse(String(init.body)) : null;
+    if (/^\/artifacts(\/|$)/.test(path)) return this.canvasFetch(url, path, method, body, init);
     this.requests.push({ method, path: path + url.search, body });
     const conv = path.match(/^\/conversations\/([^/]+)/)?.[1];
 
@@ -361,6 +374,31 @@ export class FakeBackend {
   };
 
   /** Like the server, the master's `delegates` is everyone else, whatever its profile says. */
+  /** The canvas routes as a browser meets them: a lost reply fails the fetch, an abort
+   *  rejects it while held work still lands, and a keepalive body that would take the bytes
+   *  in flight past 64 KiB is refused without being sent. */
+  private async canvasFetch(url: URL, path: string, method: string, body: unknown, init: RequestInit): Promise<Response> {
+    const size = init.keepalive ? new TextEncoder().encode(String(init.body ?? "")).length : 0;
+    if (init.signal?.aborted) throw init.signal.reason;
+    if (this.keepaliveBytes + size > KEEPALIVE_BUDGET) throw new TypeError("Failed to fetch");
+    this.requests.push({ method, path: path + url.search, body, ...(init.keepalive ? { keepalive: true as const } : {}) });
+    this.keepaliveBytes += size;
+    try {
+      const routed = this.canvas.route(path, method, body, url.searchParams) ?? { status: 404, body: { detail: "Not Found" } };
+      const reply = await abortable(Promise.resolve(routed), init.signal);
+      if (reply === "lost") throw new TypeError("Failed to fetch");
+      if (reply.text !== undefined) {
+        // An error's text is its reason phrase, which is also what a proxy would put in the status line.
+        const statusText = reply.status >= 400 ? reply.text : "";
+        const headers = { "content-type": "text/plain; charset=utf-8" };
+        return new Response(reply.text, { status: reply.status, statusText, headers });
+      }
+      return reply.status === 204 ? new Response(null, { status: 204 }) : json(reply.body, reply.status);
+    } finally {
+      this.keepaliveBytes -= size;
+    }
+  }
+
   private master(): AgentInfo[] {
     const others = this.agents.filter((a) => !a.is_master).map((a) => a.id);
     return this.agents.map((a) => (a.is_master ? { ...a, delegates: others } : a));
@@ -774,6 +812,18 @@ export function storedMessage(role: StoredMessage["role"], content: string, extr
 export function listItem(detail: ConversationDetail): Conversation {
   const { messages: _messages, pending_approval: _pending, ...rest } = detail;
   return rest;
+}
+
+const KEEPALIVE_BUDGET = 64 * 1024;
+
+/** `promise`, unless `signal` aborts first. */
+function abortable<T>(promise: Promise<T>, signal?: AbortSignal | null): Promise<T> {
+  if (!signal) return promise;
+  return new Promise<T>((resolve, reject) => {
+    const abort = () => reject(signal.reason);
+    signal.addEventListener("abort", abort, { once: true });
+    promise.then(resolve, reject).finally(() => signal.removeEventListener("abort", abort));
+  });
 }
 
 function json(body: unknown, status = 200): Response {

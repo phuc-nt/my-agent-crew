@@ -1,5 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
+import type { ArtifactEvent } from "../api/artifact-types";
+import { onArtifactEvent } from "../lib/artifact-events";
 import { liveRuns } from "../state/activity-reducer";
 import { FakeBackend, FakeEventSource, fakeRun } from "../test/fake-backend";
 import { useActivity } from "./use-activity";
@@ -105,5 +107,30 @@ describe("useActivity and list answers that land late", () => {
     });
     await waitFor(() => expect(result.current.state.runs.job1?.status).toBe("done"));
     expect(net.reads()).toBe(2);
+  });
+});
+
+describe("useActivity and canvas events", () => {
+  it("hands an artifact payload to the canvas listeners and leaves the run state as it was", async () => {
+    const net = network();
+    const seen: ArtifactEvent[] = [];
+    const off = onArtifactEvent((event) => seen.push(event));
+    const { result } = renderHook(() => useActivity(true));
+    act(() => {
+      stream().open();
+      stream().emit({ type: "snapshot", runs: [] });
+    });
+    await waitFor(() => expect(net.reads()).toBe(1));
+    const before = result.current.state;
+
+    const payload: ArtifactEvent = {
+      type: "artifact",
+      artifact: { id: "a1", deleted: true },
+      conversation_ids: ["c1"],
+    };
+    act(() => stream().emit(payload));
+    off();
+    expect(seen).toEqual([payload]);
+    expect(result.current.state).toBe(before);
   });
 });

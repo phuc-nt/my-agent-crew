@@ -50,7 +50,30 @@ describe("api", () => {
 
   it("falls back to the status text when the error body is not JSON", async () => {
     fetchMock.mockResolvedValueOnce(new Response("nope", { status: 500, statusText: "Server Error" }));
-    await expect(api.settings()).rejects.toMatchObject({ status: 500, message: "Server Error" });
+    const error = await api.settings().catch((e: unknown) => e);
+    expect(error).toMatchObject({ status: 500, message: "Server Error" });
+    expect((error as ApiError).detail).toBeUndefined();
+  });
+
+  it("keeps a structured error detail beside the message older callers read", async () => {
+    const conflict = { head_version: 7, content: "theirs", author: "agent:ming" };
+    const full = { used: 900, cap: 1000, largest: [{ id: "a1", title: "Big", size: 600 }] };
+    fetchMock.mockResolvedValueOnce(jsonResponse({ detail: conflict }, 409));
+    fetchMock.mockResolvedValueOnce(jsonResponse({ detail: full }, 507));
+    const first = await api.settings().catch((e: unknown) => e);
+    const second = await api.settings().catch((e: unknown) => e);
+    expect(first).toBeInstanceOf(ApiError);
+    expect(first).toMatchObject({ status: 409, message: JSON.stringify(conflict), detail: conflict });
+    expect(second).toMatchObject({ status: 507, message: JSON.stringify(full), detail: full });
+  });
+
+  it("keeps a string detail as both the message and the detail", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ detail: "artifact not found" }, 404));
+    await expect(api.settings()).rejects.toMatchObject({
+      status: 404,
+      message: "artifact not found",
+      detail: "artifact not found",
+    });
   });
 
   it("returns undefined for 204 responses", async () => {
@@ -101,7 +124,11 @@ describe("api", () => {
 
   it("rejects a streaming call whose response is an error", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ detail: "busy" }, 409));
-    await expect(api.sendMessage("c1", "x", () => undefined)).rejects.toMatchObject({ status: 409, message: "busy" });
+    await expect(api.sendMessage("c1", "x", () => undefined)).rejects.toMatchObject({
+      status: 409,
+      message: "busy",
+      detail: "busy",
+    });
   });
 });
 
@@ -133,8 +160,9 @@ describe("activity api", () => {
     source.open();
     source.emit({ type: "snapshot", runs: [] });
     source.emit({ type: "run", run: { id: "r" } as never });
+    source.emit({ type: "artifact", artifact: { id: "a1", deleted: true }, conversation_ids: [] });
     source.onerror?.();
-    expect(seen.map((p) => (p as { type: string }).type)).toEqual(["snapshot", "run"]);
+    expect(seen.map((p) => (p as { type: string }).type)).toEqual(["snapshot", "run", "artifact"]);
     expect(status).toEqual([true, false]);
     stop();
     expect(source.closed).toBe(true);

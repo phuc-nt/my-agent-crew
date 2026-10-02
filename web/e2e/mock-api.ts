@@ -1,6 +1,7 @@
 import type { Page, Route } from "@playwright/test";
 import type { AgentEvent, AgentInfo, ContentHit, QueuedMessage, WikiPage, WikiPageEdit } from "../src/api/types";
 import { fold } from "../src/components/conversation-search";
+import { FakeCanvas, type FakeReply } from "../src/test/fake-canvas";
 import { applyAgentPatch, restartRequired } from "../src/test/schedule-contract";
 
 // Every /api call is answered in-browser so the smoke tests measure the real DOM without a backend.
@@ -170,6 +171,8 @@ export interface MockOptions {
   wiki?: Record<string, WikiPage[]>;
   /** The universe GET /messages/search filters by query, folded the same way as title search. */
   contentHits?: ContentHit[];
+  /** The canvases the canvas routes answer from; a fresh, empty one when omitted. */
+  canvas?: FakeCanvas;
 }
 
 export function sse(events: object[], retryMs = 60_000): string {
@@ -197,6 +200,8 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
   let created = conversations.length;
   // Copied, so a page marked ok in one test is not already ok in the next.
   const wiki = new Map(Object.entries(options.wiki ?? {}).map(([id, pages]) => [id, pages.map((p) => ({ ...p }))]));
+  const canvas = options.canvas ?? new FakeCanvas();
+  canvas.conversationExists = (id) => conversations.some((c) => c.id === id);
   await page.route(/^https?:\/\/[^/]+\/api\//, async (route: Route) => {
     const url = new URL(route.request().url());
     const path = url.pathname.replace(/^\/api/, "");
@@ -206,6 +211,10 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
     if (method === "POST") posted.push({ path: path + url.search, body: route.request().postDataJSON() });
     if (path === "/settings") return json({ ...settings, agents });
     if (path === "/health") return json({ status: "ok", version: "0.8.0" });
+    if (/^\/artifacts(\/|$)/.test(path)) {
+      const reply = canvas.route(path, method, route.request().postDataJSON(), url.searchParams);
+      return fulfillCanvas(route, await (reply ?? { status: 404, body: { detail: "Not Found" } }));
+    }
     // Before the list route below, which matches on path alone: a POST to the same path
     // would otherwise be answered with the crew and never create anything.
     if (path === "/agents" && method === "POST") {
@@ -480,5 +489,15 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
     }
     return json({ detail: "no route" }, 404);
   });
-  return { posted, conversations };
+  return { posted, conversations, canvas };
+}
+
+/** A canvas reply as the browser would get it; a lost one fails the request. */
+function fulfillCanvas(route: Route, reply: FakeReply) {
+  if (reply === "lost") return route.abort("failed");
+  if (reply.text !== undefined) {
+    return route.fulfill({ status: reply.status, contentType: "text/plain; charset=utf-8", body: reply.text });
+  }
+  if (reply.status === 204) return route.fulfill({ status: 204 });
+  return route.fulfill({ status: reply.status, contentType: "application/json", body: JSON.stringify(reply.body) });
 }

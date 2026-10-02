@@ -40,30 +40,34 @@ import type {
 const wikiPath = (agentId: string) => `/agents/${encodeURIComponent(agentId)}/memory/wiki`;
 
 export class ApiError extends Error {
+  /** `detail` is the server's `detail` as sent, so a caller can read a structured one; the
+   *  message stays a string for the callers that only show or compare it. */
   constructor(
     public readonly status: number,
     message: string,
+    public readonly detail: unknown = undefined,
   ) {
     super(message);
   }
 }
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`/api${path}`, {
     ...init,
     headers: { "content-type": "application/json", ...(init.headers ?? {}) },
   });
-  if (!response.ok) throw new ApiError(response.status, await errorDetail(response));
+  if (!response.ok) throw await failure(response);
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
 }
 
-async function errorDetail(response: Response): Promise<string> {
+async function failure(response: Response): Promise<ApiError> {
   try {
     const body = (await response.json()) as { detail?: unknown };
-    return typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail ?? body);
+    const message = typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail ?? body);
+    return new ApiError(response.status, message, body.detail);
   } catch {
-    return response.statusText || `HTTP ${response.status}`;
+    return new ApiError(response.status, response.statusText || `HTTP ${response.status}`);
   }
 }
 
@@ -79,12 +83,12 @@ async function stream(
     body: JSON.stringify(body),
     signal,
   });
-  if (!response.ok) throw new ApiError(response.status, await errorDetail(response));
+  if (!response.ok) throw await failure(response);
   if (!response.body) throw new ApiError(response.status, "empty stream");
   await readSse(response.body, onEvent);
 }
 
-function query(params: Record<string, string | number | undefined>): string {
+export function query(params: Record<string, string | number | undefined>): string {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (value !== undefined && value !== "") search.set(key, String(value));
@@ -116,7 +120,7 @@ export function subscribeActivity(
     onPayload(JSON.parse(message.data) as ActivityPayload);
   // The server names each SSE event after its payload type; a type not listed here
   // never reaches the app.
-  for (const name of ["snapshot", "run", "event", "conversation"]) {
+  for (const name of ["snapshot", "run", "event", "conversation", "artifact"]) {
     source.addEventListener(name, handle);
   }
   source.onopen = () => onStatus(true);

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { api, subscribeActivity } from "../api/client";
+import { emitArtifactEvent } from "../lib/artifact-events";
 import type { Conversation } from "../api/types";
 import { activityReducer, emptyActivity, type ActivityState } from "../state/activity-reducer";
 
@@ -54,6 +55,10 @@ export function useActivity(
       (payload) => {
         if (payload.type === "conversation") {
           notify.current?.(payload.conversation);
+          return;
+        }
+        if (payload.type === "artifact") {
+          emitArtifactEvent(payload);
           return;
         }
         dispatch({ type: "payload", payload });

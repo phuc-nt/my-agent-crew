@@ -1500,6 +1500,27 @@ tên một test thì sửa dòng của nó trong cùng commit.
     chỗ vùng đó, không so được thì chỉ kẹp); `web/src/lib/canvas-diff.test.ts` (dòng bớt trước dòng
     thêm, đoạn không đổi dài thu còn ba dòng mỗi bên, kể cả sau một lần chèn ở dòng đầu, quá trần là
     null)
+- **Canvas trên web: client REST, lời từ chối có cấu trúc, event canvas từ luồng hoạt động**
+  - vitest: `web/src/api/artifact-client.test.ts` (danh sách mọi canvas, của một hội thoại hay theo
+    tiêu đề, tạo trong hội thoại trả bản đầy đủ, mọi route dưới id đã mã hoá, signal và `keepalive`
+    của lần lưu tới `fetch`, link chữ thô của bản mới nhất, của một bản và để tải về,
+    "reads the server's version from a 409 that carries one, and from nothing else", 507 nêu dung
+    lượng và các canvas lớn nhất, "tells a version that was folded away from a canvas that is
+    gone"); `web/src/api/client.test.ts` ("keeps a structured error detail beside the message older
+    callers read", detail dạng chữ vẫn là lời báo, luồng hoạt động chuyển cả event `artifact`);
+    `web/src/hooks/use-activity.test.ts` ("hands an artifact payload to the canvas listeners and
+    leaves the run state as it was"); `web/src/lib/artifact-events.test.ts` (một hàm đăng ký hai lần
+    bỏ một lần vẫn nghe, "skips a listener removed during an event, and starts one added during it
+    from the next")
+  - vitest, server giả cho các test sau: `web/src/test/fake-canvas.test.ts` (số bản nối sau bản mới
+    nhất, lưu trên bản cũ trả bản mới nhất, khe và bản đã gộp, khôi phục ghi `restore:<n>`,
+    "checks a save the way the store does: the canvas, the body, the base, the size, then the
+    room", kho đầy nêu ba canvas lớn nhất, route và method không có trả như router, danh sách gập
+    tiêu đề như server và cùng giây thì canvas tạo sau đứng trước, từ chối, mất reply và giữ request
+    hay reply đúng một lần, event mang hội thoại liên kết lúc đó và không bao giờ mang chữ,
+    "refuses a keepalive body that would take the bytes in flight past 64 KiB, without sending it",
+    request bị huỷ vẫn ghi phần việc đã bắt đầu, canvas chỉ liên kết với hội thoại có thật và event
+    tới mọi luồng đang mở)
 - **Mã agent khớp cả chuỗi: chữ thường, số và gạch ngang, không cả xuống dòng ở cuối**
   - pytest: `tests/test_api_agents_edit.py::test_an_id_that_is_not_a_safe_folder_name_is_refused`
     (`../escape` và `coder` có xuống dòng ở cuối đều bị từ chối, không thư mục nào được tạo);

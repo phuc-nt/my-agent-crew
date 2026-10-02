@@ -1,4 +1,5 @@
 // Shapes of the activity stream, the job list and the cost summary (GET /api/activity/*, /jobs, /stats).
+import type { ArtifactEvent } from "./artifact-types";
 import type { AgentEvent, Conversation, ScheduleInfo } from "./types";
 
 export type RunStatus = "running" | "awaiting_approval" | "done" | "halted" | "error";
@@ -123,7 +124,9 @@ export type ActivityPayload =
   | RunPayload
   // A conversation changed outside a run — so far only its title, written in the
   // background once the first message named it.
-  | { type: "conversation"; conversation: Conversation };
+  | { type: "conversation"; conversation: Conversation }
+  // A canvas changed: its summary or its deletion, never its text.
+  | ArtifactEvent;
 
 export interface JobInfo extends ScheduleInfo {
   schedule_id: string;
