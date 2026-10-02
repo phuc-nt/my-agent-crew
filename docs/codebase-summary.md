@@ -5,7 +5,7 @@ title: Bản đồ mã nguồn
 
 # Bản đồ mã nguồn
 
-**Phiên bản**: 0.10.0 · **Cập nhật**: 2026-09-30
+**Phiên bản**: 0.10.0 · **Cập nhật**: 2026-10-02
 
 Đọc [system-architecture.md](system-architecture.md) trước để biết các khối là gì; tài liệu này
 chỉ nói khối nào nằm ở **gói** nào. Tên tệp, hàm và số liệu không ghi ở đây: mã nguồn là nguồn
@@ -33,15 +33,16 @@ my-agent-crew/
 |---|---|
 | `agent/` | vòng lặp một lượt: ghép lời nhắc, gọi mô hình, chạy tool, dừng chờ duyệt, chạy tiếp, cắt ngữ cảnh dài, sự kiện của lượt |
 | `agents/` | hồ sơ agent từ đĩa: đọc/ghi `agent.yaml` giữ chú thích, vá và kiểm tra, roster cho master, đọc kit `.agents/`, mẫu agent |
-| `activity/` | run và step của mọi lượt, phát cho web qua SSE |
+| `activity/` | run và step của mọi lượt cùng mọi thay đổi canvas, phát cho web qua SSE từ bất kỳ luồng nào |
+| `artifacts/` | canvas: loại nào giữ chữ hay byte và trần của mỗi loại, áp và định vị một lần sửa, diff gọn trong ngân sách, tên tệp khi tải về |
 | `channels/` | Telegram: poll, tin vào, ảnh và album, tin ra, lệnh `/…`, câu trả lời cho `ask_user`, offset, che token |
 | `inbound.py` | một cổng vào chung cho mọi nền tảng |
 | `llm/` | provider: OpenRouter, Ollama, provider giả; chuỗi tuyến và fallback |
 | `memory/` | ghi chú ngày, facts chung, gom 7 ngày thành đề xuất, tìm kiếm, tóm tắt cuộc trước, vault wiki |
 | `scheduler/` | cron: phân tích lịch, job đến hạn, chạy job, giao kết quả ra kênh |
-| `server/` | FastAPI: dựng runtime, lắp provider và tool cho từng agent, áp dụng kết nối không cần restart, kiểm tra khoá, ghi `<home>/env`, hàng rào Host/Origin, các nhóm route |
+| `server/` | FastAPI: dựng runtime, lắp provider và tool cho từng agent, áp dụng kết nối không cần restart, kiểm tra khoá, ghi `<home>/env`, hàng rào Host/Origin, phục vụ tệp agent viết như nội dung không tin cậy, đổi lời từ chối của kho canvas thành mã HTTP, các nhóm route |
 | `skills/` | nạp skill markdown, chỉ mục trong lời nhắc |
-| `store/` | SQLite: cuộc trò chuyện, tin, duyệt, run, trạng thái job, đề xuất trí nhớ, sổ chi tiêu |
+| `store/` | SQLite: cuộc trò chuyện, tin, duyệt, run, trạng thái job, đề xuất trí nhớ, sổ chi tiêu; canvas với phiên bản, liên kết canvas với cuộc trò chuyện, canvas đang mở cùng đoạn được chọn, ghi chú canvas đi kèm tin |
 | `tools/` | mọi tool: workspace, shell và sandbox, web, trí nhớ, wiki, giao việc, hỏi người dùng, PDF, ảnh, skill, hook |
 | `config*.py` | cài đặt từ env + `config.yaml` |
 | `texts*.py` | mọi chuỗi tiếng Việt của backend |
@@ -59,7 +60,9 @@ dừng, lỗi, đổi tuyến). Cùng một chuỗi vừa là SSE cho web, vừa
 | Cuộc trò chuyện | `GET/POST/DELETE /api/conversations[/{id}]`, `POST …/{id}/messages` (SSE), `GET …/{id}/summary` |
 | Tìm trong hội thoại | `GET /api/messages/search?q=&agent_id=&limit=` (FTS5 trên nội dung tin, `conversation_search` là bản cho model) |
 | Duyệt | `GET /api/approvals`, `POST /api/conversations/{id}/approvals/{aid}` (`{"approve": bool}`), `POST …/approvals/{aid}/answer` (câu hỏi của `ask_user`) |
-| Run | `GET /api/activity/runs`, `GET …/runs/{id}`, `GET …/runs/{id}/trajectory?format=json\|md[&full=1]` (cả lượt chạy thành tệp để lưu), `GET …/stream` (SSE), `GET /api/stats` |
+| Run | `GET /api/activity/runs`, `GET …/runs/{id}`, `GET …/runs/{id}/trajectory?format=json\|md[&full=1]` (cả lượt chạy thành tệp để lưu), `GET …/stream` (SSE: run, step, và event `artifact` mỗi lần một canvas được tạo, ghi, đổi tên, khôi phục hay xoá), `GET /api/stats` |
+| Canvas | `GET/POST /api/artifacts` (`?conversation_id=&q=&limit=`), `GET/PUT/PATCH/DELETE …/{id}` (`PUT` cần `base_version`; lưu trên bản cũ là 409 kèm bản mới nhất, không ghi đè), `GET …/{id}/versions[/{n}]`, `POST …/{id}/restore`, `GET …/{id}/raw[?version=&download=1]` (luôn là chữ thuần, không chạy gì); mọi lần ghi qua REST là của người |
+| Canvas đang mở | `GET/PUT /api/conversations/{id}/canvas` (`{"artifact_id", "selection"}`, `null` là đóng); mỗi tin chat mang `canvas` của tab gửi nó, nên ghi chú nói đúng canvas thiết bị đó đang mở |
 | Agent | `GET /api/agents`, `GET …/{id}`, `GET …/{id}/files`, `POST /api/agents/install`, `GET /api/templates` |
 | Sửa agent | `POST /api/agents`, `PATCH …/{id}`, `DELETE …/{id}` |
 | Tệp tính cách | `PUT /api/agents/{id}/files/{name}`, `GET …/{id}/prompt` (lời nhắc hệ thống đã ghép), `POST /api/agents/reload` |

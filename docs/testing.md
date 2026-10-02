@@ -1328,6 +1328,60 @@ tên một test thì sửa dòng của nó trong cùng commit.
     trùng tên nguồn của agent); `tests/test_canvas_note_app.py` (qua app với `fake:echo`: tin từ
     web lưu cùng canvas đang mở và diff, model đọc ghi chú trước tin, `/tool artifact_read` vẫn gọi
     được trong hội thoại có ghi chú)
+- **Canvas qua REST: tạo, đọc, lưu, đổi tên, xoá; mọi lần ghi qua REST là của người**
+  - pytest: `tests/test_api_artifacts.py`
+    ("test_a_canvas_made_on_the_web_is_the_persons_and_reads_back_the_same", canvas tạo trong một
+    hội thoại được chia sẻ và mở ở đó, hội thoại không có thì 404 và không tạo gì, web chỉ tạo
+    markdown và code, tiêu đề kho từ chối là 422, quá trần là 413 và không ghi gì, kho đầy là 507
+    nêu các canvas lớn nhất,
+    "test_the_detail_is_one_version_whole_though_a_write_lands_between_its_reads", canvas không có
+    là 404 ở mọi route, "test_a_save_without_a_real_base_version_is_422_and_writes_nothing": thiếu,
+    `true` hay `0` đều bị từ chối, lưu trên bản cũ là 409 kèm bản mới nhất và không ghi gì, hai lần
+    lưu trong một đợt gộp mà số bản vẫn tăng, đổi tên không thêm bản, danh sách mới nhất trước và
+    lọc theo hội thoại hay tiêu đề, `limit` từ 1 tới 200); `tests/test_artifact_errors.py` (mỗi lời
+    từ chối của kho ra đúng mã:
+    "test_a_version_folded_away_is_404_with_the_newest_number_though_it_is_a_key_error", `KeyError`
+    của id khác và `ValueError` bảng không nêu đi tiếp như lỗi thật, 409 đọc lại bản mới nhất chứ
+    không dùng bản lúc xung đột, canvas bị xoá giữa chừng là 404, 413 nêu cỡ và trần,
+    "test_full_storage_is_507_naming_the_three_largest_canvases_biggest_first", 422 mang lời của kho)
+- **Canvas qua REST: lịch sử phiên bản, khôi phục và chữ thô không chạy gì**
+  - pytest: `tests/test_api_artifact_history.py` (phiên bản mới nhất trước và không kèm chữ, một bản
+    đọc trọn, bản đã gộp là 404 kèm số bản mới nhất, canvas không có là 404 ở mọi route lịch sử,
+    "test_a_restore_writes_the_old_version_as_the_persons_newest": ghi chú `restore:<n>`, số bản
+    khôi phục phải là số nguyên thật, "test_the_raw_text_is_plain_text_that_runs_nothing": `raw` luôn
+    là `text/plain` sandbox kèm `nosniff` và CORP dù canvas chứa HTML, chữ thô của một bản cũ,
+    "test_a_download_is_named_after_the_title_in_any_script"); `tests/test_artifact_filenames.py`
+    ("test_a_file_name_keeps_the_title_in_any_script_without_what_a_file_system_refuses",
+    "test_a_file_name_ends_in_the_extension_of_its_kind": markdown là `.md`, code theo ngôn ngữ, ngôn
+    ngữ lạ là `.txt`)
+- **Canvas đang mở trên web: đặt, đọc, đóng; mở là chia sẻ với hội thoại**
+  - pytest: `tests/test_api_canvas_focus.py` (đặt rồi đọc lại cùng vùng chọn, `null` là đóng, vùng
+    chọn không kèm canvas là 422, mở canvas agent chỉ đọc thì chia sẻ nó, canvas chưa liên kết được
+    liên kết chia sẻ và chưa thấy,
+    "test_a_canvas_opened_on_the_web_reaches_the_agents_the_conversation_delegates_to",
+    "test_a_selection_the_note_would_drop_is_422_and_nothing_changes": `true`, chỉ khoảng trắng, bản
+    sau bản mới nhất, dòng cuối trước dòng đầu, chữ quá 20.000 ký tự,
+    "test_a_selection_may_reach_twenty_thousand_characters", hội thoại hay canvas không có là 404)
+- **Mỗi tin chat mang canvas đang mở ở tab gửi nó**
+  - pytest: `tests/test_api_chat_canvas.py`
+    ("test_a_message_names_the_canvas_open_in_the_tab_that_sent_it": thiết bị khác vừa mở canvas
+    khác cũng không đổi điều tin nêu, tin trích đoạn được chọn, tin không mang `canvas` giữ canvas
+    đang mở, tin từ tab không mở canvas thì đóng nó,
+    "test_a_message_with_a_selection_the_note_would_drop_is_422_and_goes_nowhere", cổng từ chối (chờ
+    duyệt, hội thoại không có) thì canvas đang mở không đổi, tab hiện canvas đã xoá vẫn gửi được và
+    đóng nó, "test_a_queued_message_names_its_canvas_when_it_is_delivered",
+    "test_the_open_canvas_is_named_once_while_messages_keep_carrying_it")
+- **Mọi thay đổi canvas tới web qua luồng hoạt động, kể cả lần ghi từ luồng khác; không lần đọc
+  nào đổi trạng thái**
+  - pytest: `tests/test_artifact_events.py` ("test_every_change_made_over_rest_is_announced": tạo,
+    lưu, đổi tên, khôi phục và xoá, mỗi lần một event `artifact` kèm hội thoại liên kết,
+    "test_a_canvas_an_agent_writes_with_its_tool_is_announced",
+    "test_a_write_from_another_thread_reaches_the_watchers_loop": loop chạy ở chế độ debug, lần ghi
+    từ luồng khác tới watcher trong 0,5 s mà không có lỗi nào; thiếu bước chuyển về loop thì test
+    đỏ chứ không treo); `tests/test_api_artifact_invariants.py`
+    ("test_every_canvas_route_and_the_chat_message_run_on_the_event_loop",
+    "test_no_read_changes_what_a_conversation_knows_or_has_open": mọi `GET` canvas giữ nguyên liên
+    kết, con trỏ đọc, canvas đang mở, phiên bản và tin)
 - **Mã agent khớp cả chuỗi: chữ thường, số và gạch ngang, không cả xuống dòng ở cuối**
   - pytest: `tests/test_api_agents_edit.py::test_an_id_that_is_not_a_safe_folder_name_is_refused`
     (`../escape` và `coder` có xuống dòng ở cuối đều bị từ chối, không thư mục nào được tạo);

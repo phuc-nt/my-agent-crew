@@ -23,6 +23,9 @@ from my_agent_crew.server import (
     routes_agents_edit,
     routes_agents_files,
     routes_approvals,
+    routes_artifact_history,
+    routes_artifacts,
+    routes_canvas_focus,
     routes_chat,
     routes_conversations,
     routes_credentials,
@@ -72,6 +75,9 @@ ROUTERS = (
     routes_memory_agent.router,
     routes_memory_wiki.router,
     routes_search.router,
+    routes_artifacts.router,
+    routes_artifact_history.router,
+    routes_canvas_focus.router,
 )
 
 
@@ -85,6 +91,9 @@ class HashedAssets(StaticFiles):
 
 
 def create_app(runtime: Runtime | AgentDeps | None = None, schedule: bool = True) -> FastAPI:
+    """Wires what only a served app needs: canvas changes reach the activity stream here,
+    the one place `build_runtime` and the runtime a test builds both pass through, while
+    the store wires its own parts in `Store.__init__`."""
     if runtime is None:
         runtime = build_runtime(load_settings())
     elif isinstance(runtime, AgentDeps):
@@ -111,6 +120,7 @@ def create_app(runtime: Runtime | AgentDeps | None = None, schedule: bool = True
 
     app = FastAPI(title="my-agent-crew", version=__version__, lifespan=lifespan)
     app.state.runtime = runtime
+    runtime.store.artifacts.on_change = runtime.hub.publish_artifact
     app.add_middleware(GZipMiddleware, minimum_size=GZIP_MIN_BYTES)
     install_local_guard(app, allowed_hosts(os.environ))
 

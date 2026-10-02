@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import NamedTuple
 from urllib.parse import quote
 
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 
 from my_agent_crew.memory.search import normalize
 
@@ -60,6 +60,13 @@ def untrusted_file(path: Path) -> FileResponse:
     shown = SHOWN.get(path.suffix.lower(), BYTES)
     headers = untrusted_headers(shown, path.name, "file")
     return FileResponse(path, media_type=shown.media_type, headers=headers)
+
+
+def untrusted_text(text: str, name: str, *, download: bool) -> Response:
+    """A canvas's text, as plain text whatever its kind, so a page an agent wrote never runs
+    as one of the app's. `download` saves it under `name` instead of showing it."""
+    shown = Shown(TEXT, not download, True)
+    return Response(text, media_type=TEXT, headers=untrusted_headers(shown, name, "canvas"))
 
 
 def untrusted_headers(shown: Shown, name: str, fallback: str) -> dict[str, str]:

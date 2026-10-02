@@ -42,6 +42,26 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   leaves the message stored without one. Forking a conversation copies each message's note and
   the canvases linked by the fork point, with nothing seen or read; the run trajectory carries
   the note with its secrets redacted.
+- Canvases over REST for the web: `GET/POST /api/artifacts` lists (newest first, by
+  conversation or title) and creates markdown and code canvases, and `GET/PUT/PATCH/DELETE
+  /api/artifacts/{id}` reads, saves, renames and deletes one. A save names the version it was
+  made on, and a save on any older version is refused with 409 and the newest version's
+  number, author and text instead of overwriting it. `GET …/versions[/{n}]` lists the history
+  and reads one version whole, `POST …/restore` writes an old version back as the newest, and
+  `GET …/raw` serves a version's text, always as sandboxed plain text whatever the canvas holds,
+  or as a download named after its title in any script. Every write over REST is the person's:
+  no body names an author or a conversation for it. A refusal from the store answers with its
+  own status (404, 409, 413, 422, 507) and a structured body, never a 500.
+- The activity stream announces every canvas change as an `artifact` event with the
+  conversations linked to the canvas: a create, a save, a rename, a restore, a delete, and a
+  write an agent makes with its tool, from whichever thread wrote it.
+- `GET/PUT /api/conversations/{id}/canvas` reads and sets the canvas open in a conversation,
+  with the passage selected in it. Every chat message may also carry the canvas open in the tab
+  that sent it, so the canvas note names what that device shows even when another device opened
+  a different canvas since; a message without one leaves the open canvas as it was. Opening a
+  canvas shares it with the conversation, so the agents it delegates to reach it too. A
+  selection the note would drop is refused with 422 and changes nothing, and a message the
+  approval gate refuses leaves the open canvas alone.
 
 ### Fixed
 

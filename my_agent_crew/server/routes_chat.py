@@ -17,6 +17,7 @@ from my_agent_crew.agent.events import Event, kind_of, to_dict
 from my_agent_crew.agents.kit_commands import EmptySteer
 from my_agent_crew.inbound import InboundBusy
 from my_agent_crew.server.deps import ConvDeps, Rt
+from my_agent_crew.server.routes_canvas_focus import FocusBody, apply_focus, check_focus
 from my_agent_crew.store.queue import QueueFull
 
 router = APIRouter(tags=["chat"])
@@ -24,6 +25,7 @@ router = APIRouter(tags=["chat"])
 
 class ChatBody(BaseModel):
     text: str = Field(min_length=1, max_length=20000)
+    canvas: FocusBody | None = None  # the canvas open in the sending tab; absent leaves it
 
 
 async def sse_events(events: AsyncIterator[Event]) -> AsyncIterator[dict[str, str]]:
@@ -33,6 +35,12 @@ async def sse_events(events: AsyncIterator[Event]) -> AsyncIterator[dict[str, st
 
 @router.post("/conversations/{conv_id}/messages")
 async def post_message(conv_id: str, body: ChatBody, rt: Rt) -> EventSourceResponse:
+    """The sending tab's canvas is checked before the gate, so a selection the note would
+    drop stores and queues nothing, and applied right after it with no `await` in between:
+    a message the gate refuses leaves the open canvas, and the turn's note, built only as
+    the stream is read or the queued message delivered, names the new one."""
+    canvas = body.canvas
+    present = False if canvas is None else check_focus(rt.store, canvas)
     try:
         events = rt.inbound.stream(conv_id, body.text)
     except KeyError as exc:
@@ -43,6 +51,8 @@ async def post_message(conv_id: str, body: ChatBody, rt: Rt) -> EventSourceRespo
         raise HTTPException(422, str(exc)) from exc
     except QueueFull as exc:
         raise HTTPException(429, str(exc)) from exc
+    if canvas is not None:
+        apply_focus(rt.store, conv_id, canvas, present)
     return EventSourceResponse(sse_events(events))
 
 

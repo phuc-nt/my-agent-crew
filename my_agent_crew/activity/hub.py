@@ -129,6 +129,12 @@ class ActivityHub:
         background would otherwise not appear until something else forced a reload."""
         self._watchers.broadcast({"type": "conversation", "conversation": conversation})
 
+    def publish_artifact(self, artifact: dict[str, Any], conversation_ids: list[str]) -> None:
+        """Tells watchers a canvas changed: created, written, renamed, restored or deleted."""
+        self._watchers.broadcast(
+            {"type": "artifact", "artifact": artifact, "conversation_ids": conversation_ids}
+        )
+
     def recent(
         self,
         limit: int = RECENT_LIMIT,
