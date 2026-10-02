@@ -342,8 +342,9 @@ thật và các lệnh ghi thật qua `ask_reason` rồi đếm.
 
 Dòng `MEDIA:<path relative to the workspace>` của assistant không phải tool; nó là
 quy ước mà khung prompt dạy. Web UI hiển thị nó qua
-`GET /api/agents/{id}/files?path=`, chỉ phục vụ tệp bên trong workspace;
-Telegram biến nó thành `sendPhoto`.
+`GET /api/agents/{id}/files?path=`, chỉ phục vụ tệp bên trong workspace và phục vụ như nội dung
+không tin cậy ([design.md](design.md#tool-shell-và-tệp-của-agent)); Telegram biến nó thành
+`sendPhoto`.
 
 `FILE:<path>` là anh em của nó dành cho tài liệu, vì Telegram xử lý hai loại khác nhau: ảnh
 được mã hoá lại, đúng với biểu đồ nhưng phá hỏng CSV. Dòng `FILE:` tới

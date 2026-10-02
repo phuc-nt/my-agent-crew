@@ -314,7 +314,12 @@ Hành vi đầy đủ, lệnh, offset và secret: [channels.md](channels.md).
 (PATH, HOME, LANG, TERM, TMPDIR, USER, SHELL) và timeout có giới hạn; nó luôn cần duyệt
 trừ khi cuộc trò chuyện hoặc agent là autonomous. `GET /api/agents/{id}/files?path=` chỉ phục vụ tệp
 từ bên trong workspace đó, và đó là cách một dòng `MEDIA: charts/sleep.png` của assistant được
-UI hiển thị inline.
+UI hiển thị inline. Tệp ở đó là thứ agent viết, mà agent có thể bị dắt bởi thứ nó đọc, nên route
+phục vụ nó như nội dung không tin cậy. Chỉ ảnh raster, PDF và chữ thuần mở tại chỗ; mọi tệp khác
+tải về dưới dạng byte. Mọi response trừ PDF có CSP `sandbox` không cho chạy script và đặt trang
+vào origin mờ, nên request từ đó mang `Origin: null` và bị rào Host/Origin từ chối; cùng với
+`nosniff` và `Cross-Origin-Resource-Policy: same-origin`. Bảng đuôi ghim trong code, không theo
+bảng MIME của máy, nên máy nào cũng ra cùng header.
 
 Ảnh đi chiều ngược lại qua `image_read`: model chat trên các tuyến của agent được
 chọn vì giá và văn bản, nên tool gửi tệp xuống một chuỗi `vision_routes` riêng

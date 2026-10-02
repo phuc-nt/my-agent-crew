@@ -1118,6 +1118,16 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `job`, `job:<id>`, `delegate:<…>`, `web`, `memory:<…>` bị 422 và không có run hay cuộc trò
     chuyện nào được tạo; "test_any_other_source_is_recorded_on_the_run": `api`, `selftest`,
     `slack:team`, `api:zalo` vẫn chạy và run ghi đúng nhãn)
+- **Tệp trong workspace của agent phục vụ như nội dung không tin cậy: chỉ ảnh raster, PDF và chữ
+  thuần mở tại chỗ, còn lại tải về**
+  - pytest: `tests/test_untrusted_content.py` (mỗi nhóm đuôi của bảng ghim sẵn có đúng
+    `Content-Type`, `inline` hay `attachment`, CSP sandbox trừ PDF; `.PNG` viết hoa như `.png`;
+    HTML, `.xht`, `.rss`, `.atom`, `.ts`, tệp không đuôi đều là `application/octet-stream` tải về;
+    SVG tải về khi mở; mọi response có `nosniff` và CORP `same-origin`; tên tệp chữ Việt, Nhật, có
+    ngoặc kép, xuống dòng, `/` hay chỉ có emoji ra header mã hoá được bằng latin-1, có tên ASCII
+    dự phòng và `filename*` giải mã lại đúng tên);
+    `tests/test_server_agents_activity_jobs.py::test_agent_files_are_served_only_from_the_workspace`
+    (chỉ tệp trong workspace, kể cả qua symlink)
 - **Canvas: tài liệu có phiên bản đi cạnh cuộc trò chuyện (tầng lưu trữ)**
   - pytest: `tests/test_artifact_kinds.py` (mỗi loại là chữ hoặc nhị phân, mỗi loại một trần,
     loại lạ bị từ chối theo tên, lỗi kích thước là `ValueError` để một chỗ trả lời được mọi đầu

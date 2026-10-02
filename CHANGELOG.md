@@ -45,6 +45,15 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ### Fixed
 
+- A file in an agent's workspace no longer opens as a page of the app. `GET
+  /api/agents/{id}/files` served each file with the type its extension suggested, so an HTML or
+  SVG file an agent wrote, opened from its link, ran its scripts with the app's origin and could
+  call every API route. Now only raster images, PDF and plain text open in place; any other file
+  downloads as `application/octet-stream`. Every response but a PDF's is sandboxed with no
+  scripts, and every one carries `X-Content-Type-Options: nosniff` and
+  `Cross-Origin-Resource-Policy: same-origin`. The types are pinned in code rather than read
+  from the machine's MIME table. Images in a thread still show, and a download keeps the file's
+  name in any script, with a plain ASCII fallback.
 - A model call that hits a passing upstream failure before any text is shown is now asked
   again once on the same route, after a two-second pause, instead of ending the run. This
   covers OpenRouter's `provider_unavailable` error sent mid-stream after a 200, HTTP

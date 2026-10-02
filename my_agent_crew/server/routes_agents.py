@@ -21,6 +21,7 @@ from my_agent_crew.server.agent_edit_common import manifest_path, write_lock
 from my_agent_crew.server.deps import Rt
 from my_agent_crew.server.runtime import Runtime
 from my_agent_crew.server.runtime_build import check_delegates
+from my_agent_crew.server.untrusted_content import untrusted_file
 from my_agent_crew.tools.registry import ToolError
 from my_agent_crew.tools.workspace import resolve_inside
 
@@ -147,4 +148,4 @@ def get_file(agent_id: str, path: str, rt: Rt) -> FileResponse:
     resolved = _inside_workspace(deps.agent.workspace, path)
     if not resolved.is_file():
         raise HTTPException(404, "file not found")
-    return FileResponse(resolved)
+    return untrusted_file(resolved)
