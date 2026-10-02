@@ -10,12 +10,15 @@ import type {
   ArtifactSummary,
   ArtifactVersion,
   ArtifactVersionMeta,
+  CanvasFocus,
+  MessageCanvas,
   NewArtifact,
   StorageFull,
 } from "./artifact-types";
 import { ApiError, query, request } from "./client";
 
 const artifactPath = (id: string) => `/artifacts/${encodeURIComponent(id)}`;
+const focusPath = (conversationId: string) => `/conversations/${encodeURIComponent(conversationId)}/canvas`;
 
 export type SaveOptions = { signal?: AbortSignal; keepalive?: boolean };
 
@@ -50,6 +53,11 @@ export const artifactApi = {
     request<ArtifactVersion>(`${artifactPath(id)}/versions/${version}`),
   rawUrl: (id: string, options: { version?: number; download?: boolean } = {}) =>
     `/api${artifactPath(id)}/raw${query({ version: options.version, download: options.download ? 1 : undefined })}`,
+  /** The canvas a conversation has open, or null when none is. */
+  getFocus: (conversationId: string) => request<CanvasFocus | null>(focusPath(conversationId)),
+  /** What `getFocus` reads next: `artifact_id: null` closes the canvas. A canvas that is gone is a 404. */
+  putFocus: (conversationId: string, body: MessageCanvas) =>
+    request<CanvasFocus | null>(focusPath(conversationId), { method: "PUT", body: JSON.stringify(body) }),
 };
 
 function detailOf(error: unknown, status: number): Record<string, unknown> | null {

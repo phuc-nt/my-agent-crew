@@ -1,6 +1,12 @@
 /** What a canvas route answers. "lost" means the work was done and the reply never came back. */
 export type FakeReply = { status: number; body?: unknown; text?: string } | "lost";
 
+export const ok = (body: unknown, status = 200): FakeReply => ({ status, body });
+export const refused = (status: number, detail: unknown): FakeReply => ({ status, body: { detail } });
+/** A 422 the way the server's request validation words it, naming the field. */
+export const invalid = (field: string, where = "body") =>
+  refused(422, [{ type: "value_error", loc: [where, field], msg: `invalid ${field}` }]);
+
 type Fault = { target: string } & (
   | { kind: "refuse"; status: number; detail?: unknown }
   | { kind: "lose" }

@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
+import type { MessageCanvas } from "../api/artifact-types";
 import { api, ApiError } from "../api/client";
 import type { AgentEvent, ApprovalKind, ConversationDetail, QueuedMessage } from "../api/types";
 import { vi } from "../i18n/vi";
@@ -199,7 +200,7 @@ describe("send while this tab's own turn is running", () => {
     expect(queuedResult).toEqual({ status: "queued" });
     // A busy-send never runs `runTurn`, `user_sent` or `turn_started`: the thread's own
     // items are untouched but for the chip, and `busy` still reflects the first stream.
-    expect(queueing).toHaveBeenCalledWith("c1", "chen ngang khi bận", expect.any(Function), expect.anything());
+    expect(queueing).toHaveBeenCalledWith("c1", "chen ngang khi bận", expect.any(Function), expect.anything(), undefined);
     expect(result.current.state.busy).toBe(true);
     expect(result.current.state.items).toHaveLength(itemsAfterFirst);
     expect(result.current.state.waiting).toEqual([{ id: 1, kind: "follow_up", text: "chen ngang khi bận" }]);
@@ -453,6 +454,124 @@ describe("the canvas note a message was sent with", () => {
     const bubble = result.current.state.items.find((it) => it.kind === "user");
     expect(bubble).toMatchObject({ kind: "user", text: "không kèm gì" });
     expect(bubble).not.toHaveProperty("context");
+  });
+});
+
+describe("the canvas a send carries", () => {
+  const CANVAS: MessageCanvas = { artifact_id: "0123456789ab", selection: null };
+  const done: AgentEvent = { type: "done", spent_usd: 0, unknown_cost_calls: 0 };
+
+  it("goes to the POST of a plain send, and a send without one passes none on", async () => {
+    vitest.spyOn(api, "getConversation").mockResolvedValue(idle());
+    const post = vitest.spyOn(api, "sendMessage").mockImplementation(oneShot(done));
+    const { result } = renderHook(() => useThread("c1"));
+    await waitFor(() => expect(result.current.detail).not.toBeNull());
+
+    await act(async () => {
+      await result.current.send("có canvas", CANVAS);
+      await result.current.send("không có canvas");
+      await result.current.send("đóng canvas", { artifact_id: null });
+    });
+
+    expect(post.mock.calls.map(([, text, , , canvas]) => [text, canvas])).toEqual([
+      ["có canvas", CANVAS],
+      ["không có canvas", undefined],
+      ["đóng canvas", { artifact_id: null }],
+    ]);
+  });
+
+  it("goes to the queueing POST of a send made while this tab's own turn runs", async () => {
+    vitest.spyOn(api, "getConversation").mockResolvedValue(idle());
+    vitest.spyOn(api, "stopConversation").mockResolvedValue({ cleared: [], cancelled: true });
+    const { held, open } = heldStream();
+    const post = vitest.spyOn(api, "sendMessage").mockImplementationOnce((_id, _text, emit, signal) => open(emit, signal));
+    post.mockImplementationOnce(oneShot({ type: "queued", item_id: 3, kind: "follow_up", position: 1 }));
+    const { result } = renderHook(() => useThread("c1"));
+    await waitFor(() => expect(result.current.detail).not.toBeNull());
+    act(() => {
+      void result.current.send("việc đầu tiên", CANVAS);
+    });
+    await waitFor(() => expect(held.signal).toBeDefined());
+
+    let outcome: SendResult | undefined;
+    await act(async () => {
+      outcome = await result.current.send("chen ngang", CANVAS);
+    });
+
+    expect(outcome).toEqual({ status: "queued" });
+    expect(post.mock.calls.map(([, text, , , canvas]) => [text, canvas])).toEqual([
+      ["việc đầu tiên", CANVAS],
+      ["chen ngang", CANVAS],
+    ]);
+    await act(() => result.current.stop());
+  });
+
+  const refusals = [
+    // Only a 422 changes with the canvas: the passage the message quoted is what it refuses.
+    ["a selection the canvas no longer holds", new ApiError(422, "selection does not match the canvas"), vi.sendFailed.selection, vi.sendFailed.selection],
+    ["a conversation waiting on approval", new ApiError(409, "conversation is awaiting approval"), vi.busyConflict, vi.busyConflict],
+    ["a full queue", new ApiError(429, "hàng đầy"), vi.sendFailed.tooFast, "hàng đầy"],
+    ["a crash on the server", new ApiError(500, "boom"), vi.sendFailed.other, vi.requestErrors.server(500)],
+    ["a connection that never opened", new TypeError("Failed to fetch"), vi.requestErrors.network, vi.requestErrors.network],
+  ] as const;
+
+  it.each(refusals)("%s on a plain send is told in Vietnamese, in the result and in the notice", async (_name, error, reason, notice) => {
+    vitest.spyOn(api, "getConversation").mockResolvedValue(idle());
+    vitest.spyOn(api, "sendMessage").mockRejectedValue(error);
+    const { result } = renderHook(() => useThread("c1"));
+    await waitFor(() => expect(result.current.detail).not.toBeNull());
+
+    let outcome: SendResult | undefined;
+    await act(async () => {
+      outcome = await result.current.send("kèm canvas", CANVAS);
+    });
+
+    expect(outcome).toEqual({ status: "failed", error: reason });
+    expect(result.current.state.notice).toEqual({ kind: "error", text: notice });
+    expect(result.current.state.items.some((it) => it.kind === "user")).toBe(false);
+  });
+
+  it.each([
+    ["a selection the canvas no longer holds", new ApiError(422, "selection does not match the canvas"), vi.sendFailed.selection, vi.sendFailed.selection],
+    ["a full queue", new ApiError(429, "hàng đầy"), vi.sendFailed.tooFast, "hàng đầy"],
+    ["a connection that dropped", new TypeError("Failed to fetch"), vi.requestErrors.network, vi.requestErrors.network],
+  ] as const)("%s on a send queued behind this tab's turn is told in Vietnamese too", async (_name, error, reason, notice) => {
+    vitest.spyOn(api, "getConversation").mockResolvedValue(idle());
+    vitest.spyOn(api, "stopConversation").mockResolvedValue({ cleared: [], cancelled: true });
+    const { held, open } = heldStream();
+    vitest.spyOn(api, "sendMessage").mockImplementationOnce((_id, _text, emit, signal) => open(emit, signal));
+    vitest.spyOn(api, "sendMessage").mockRejectedValueOnce(error);
+    const { result } = renderHook(() => useThread("c1"));
+    await waitFor(() => expect(result.current.detail).not.toBeNull());
+    act(() => {
+      void result.current.send("việc đầu tiên");
+    });
+    await waitFor(() => expect(held.signal).toBeDefined());
+
+    let outcome: SendResult | undefined;
+    await act(async () => {
+      outcome = await result.current.send("kèm canvas", CANVAS);
+    });
+
+    expect(outcome).toEqual({ status: "failed", error: reason });
+    expect(result.current.state.notice).toEqual({ kind: "error", text: notice });
+    expect(result.current.state.busy).toBe(true);
+    await act(() => result.current.stop());
+  });
+
+  it("keeps the old wording of a 422 for a message that carried no canvas", async () => {
+    vitest.spyOn(api, "getConversation").mockResolvedValue(idle());
+    vitest.spyOn(api, "sendMessage").mockRejectedValue(new ApiError(422, "text must not be empty"));
+    const { result } = renderHook(() => useThread("c1"));
+    await waitFor(() => expect(result.current.detail).not.toBeNull());
+
+    let outcome: SendResult | undefined;
+    await act(async () => {
+      outcome = await result.current.send("không kèm canvas");
+    });
+
+    expect(outcome).toEqual({ status: "failed", error: vi.sendFailed.other });
+    expect(result.current.state.notice).toEqual({ kind: "error", text: "text must not be empty" });
   });
 });
 

@@ -93,6 +93,36 @@ describe("artifactApi", () => {
     expect(artifactApi.rawUrl("a1", { version: 3 })).toBe("/api/artifacts/a1/raw?version=3");
     expect(artifactApi.rawUrl("a1", { download: true })).toBe("/api/artifacts/a1/raw?download=1");
   });
+
+  it("reads what a conversation has open, null when nothing, and sets or closes it under an encoded id", async () => {
+    const open = { artifact_id: "0123456789ab", selection: null };
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(open))
+      .mockResolvedValueOnce(jsonResponse(null))
+      .mockResolvedValueOnce(jsonResponse(open))
+      .mockResolvedValueOnce(jsonResponse(null));
+
+    expect(await artifactApi.getFocus("c/1")).toEqual(open);
+    expect(await artifactApi.getFocus("c1")).toBeNull();
+    expect(await artifactApi.putFocus("c/1", { artifact_id: "0123456789ab" })).toEqual(open);
+    expect(await artifactApi.putFocus("c1", { artifact_id: null })).toBeNull();
+
+    const calls = fetchMock.mock.calls.map((_, n) => sent(n));
+    expect(calls.map(({ method, url, body }) => [method, url, body])).toEqual([
+      ["GET", "/api/conversations/c%2F1/canvas", undefined],
+      ["GET", "/api/conversations/c1/canvas", undefined],
+      ["PUT", "/api/conversations/c%2F1/canvas", { artifact_id: "0123456789ab" }],
+      ["PUT", "/api/conversations/c1/canvas", { artifact_id: null }],
+    ]);
+  });
+
+  it("rejects a focus request the server refused, with its status", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ detail: "artifact not found" }, 404));
+    await expect(artifactApi.putFocus("c1", { artifact_id: "gone" })).rejects.toMatchObject({
+      status: 404,
+      message: "artifact not found",
+    });
+  });
 });
 
 describe("canvas error shapes", () => {

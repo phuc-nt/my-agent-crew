@@ -1,3 +1,4 @@
+import type { MessageCanvas } from "./artifact-types";
 import { readSse } from "./sse";
 import type {
   ActivityPayload,
@@ -199,8 +200,17 @@ export const api = {
     }),
   summarizeConversation: (id: string) =>
     request<{ id: string; summary: string }>(`/conversations/${id}/summary`, { method: "POST" }),
-  sendMessage: (id: string, text: string, onEvent: (e: AgentEvent) => void, signal?: AbortSignal) =>
-    stream(`/conversations/${id}/messages`, { text }, onEvent, signal),
+  /** `canvas` is the canvas open in this tab. Left out, the server keeps the one it has
+   *  (a tab that does not know yet must not close what another opened); `{artifact_id: null}`
+   *  says none is open. */
+  sendMessage: (
+    id: string,
+    text: string,
+    onEvent: (e: AgentEvent) => void,
+    signal?: AbortSignal,
+    canvas?: MessageCanvas,
+  ) =>
+    stream(`/conversations/${id}/messages`, canvas === undefined ? { text } : { text, canvas }, onEvent, signal),
   /** Takes every message still waiting for this conversation's turn back out of the queue,
    *  and stops the turn too where the server can reach it — see `StopResult`. */
   stopConversation: (id: string, signal?: AbortSignal) =>

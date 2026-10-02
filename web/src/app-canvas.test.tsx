@@ -1,80 +1,24 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { App } from "./app";
 import { vi } from "./i18n/vi";
-import { landed, sent, startServer, stopServer } from "./test/canvas-hook";
+import { canvasButton, conversation, layout, openChat, openNote, startApp } from "./test/canvas-app";
+import { landed, sent, stopServer } from "./test/canvas-hook";
 import { editor, typeInto } from "./test/canvas-panel";
-import { type FakeBackend, FakeEventSource, fakeRun } from "./test/fake-backend";
+import { type FakeBackend, fakeRun } from "./test/fake-backend";
+import { resize, screenAt } from "./test/screen-width";
 
 let backend: FakeBackend;
-let width = 1440;
-const listeners = new Set<() => void>();
 const DAY = 24 * 60 * 60 * 1000;
 
-/** A window `px` wide whose width queries follow `resize`; any other query answers false. */
-function screenAt(px: number) {
-  width = px;
-  vitest.stubGlobal("innerWidth", px);
-  vitest.stubGlobal("matchMedia", (media: string) => ({
-    get matches() {
-      const min = /min-width:\s*(\d+)px/.exec(media);
-      const max = /max-width:\s*(\d+)px/.exec(media);
-      if (!min && !max) return false;
-      return (!min || width >= Number(min[1])) && (!max || width <= Number(max[1]));
-    },
-    media,
-    addEventListener: (_: string, fn: () => void) => listeners.add(fn),
-    removeEventListener: (_: string, fn: () => void) => listeners.delete(fn),
-  }));
-}
-
-/** The window is resized to `px`. */
-function resize(px: number) {
-  act(() => {
-    width = px;
-    vitest.stubGlobal("innerWidth", px);
-    for (const fn of [...listeners]) fn();
-    window.dispatchEvent(new Event("resize"));
-  });
-}
-
 beforeEach(() => {
-  backend = startServer();
-  FakeEventSource.instances = [];
-  vitest.stubGlobal("EventSource", FakeEventSource);
-  listeners.clear();
-  window.location.hash = "";
-  backend.create({ title: "Một" });
-  backend.create({ title: "Hai" });
-  backend.canvas.add({ title: "Ghi chú", conversationIds: ["c1"] });
+  backend = startApp();
 });
 
 afterEach(stopServer);
 
-const conversation = (title: string) => screen.getByRole("button", { name: new RegExp(title), hidden: true });
-const canvasButton = () => screen.getByRole("button", { name: vi.canvas.buttonLabel(1) });
 const main = () => document.querySelector("main") as HTMLElement;
-const layout = () => document.querySelector(".layout") as HTMLElement;
 const typedAt = (text: string) => ({ content: text, base_version: 1 });
-
-/** The app at `px` wide on conversation "Một", whose one canvas is "Ghi chú". */
-async function openChat(px: number) {
-  screenAt(px);
-  render(<App />);
-  await landed();
-  await landed();
-  fireEvent.click(conversation("Một"));
-  await landed();
-  await landed();
-}
-
-/** Opens the dock's list with the Canvas button, then "Ghi chú" from it. */
-async function openNote() {
-  fireEvent.click(canvasButton());
-  await landed();
-  fireEvent.click(screen.getByRole("button", { name: /Ghi chú/ }));
-  await landed();
-}
 
 describe("the canvas dock beside a wide conversation", () => {
   it("opens as a tab over the activity, in a column its edge widens, and keeps both mounted", async () => {

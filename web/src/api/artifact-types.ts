@@ -58,6 +58,16 @@ export type StorageFull = {
   largest: { id: string; title: string; size: number }[];
 };
 
+/** A passage selected in a canvas: the version it was read in, its text, and the lines it spans. */
+export type FocusSelection = { version: number; text: string; line_start: number; line_end: number };
+
+/** The canvas a conversation has open on the web, with the selected passage if there is one. */
+export type CanvasFocus = { artifact_id: string; selection: FocusSelection | null };
+
+/** The canvas open in the tab that sends a message, as the chat route takes it. A null
+ *  `artifact_id` is a tab with none open; a message sent without the field says nothing. */
+export type MessageCanvas = { artifact_id: string | null; selection?: FocusSelection | null };
+
 /** A committed change, never with its text: the canvas's summary, or the id of a deleted one,
  *  with the conversations linked at that moment ("[]" for a canvas just created). */
 export type ArtifactEvent = {

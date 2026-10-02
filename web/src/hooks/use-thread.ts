@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import type { MessageCanvas } from "../api/artifact-types";
 import { api, ApiError } from "../api/client";
 import type { AgentEvent, ConversationDetail, StopResult } from "../api/types";
 import { turnErrorText } from "../lib/error-text";
@@ -16,8 +17,9 @@ export interface ThreadController {
   detail: ConversationDetail | null;
   /** Sends `text` and says how that went the moment the server says anything — see
    *  `SendResult` — while the turn it starts goes on after that. Found busy, this tab's own
-   *  stream or one this tab did not start, the message queues instead. */
-  send: (text: string) => Promise<SendResult>;
+   *  stream or one this tab did not start, the message queues instead. `canvas` is the one
+   *  open in this tab, which the server takes as the conversation's; left out, it keeps its own. */
+  send: (text: string, canvas?: MessageCanvas) => Promise<SendResult>;
   /** `always` also whitelists the tool for the rest of this conversation. */
   decide: (approve: boolean, always?: boolean) => Promise<void>;
   /** Reply to a question the agent asked. Only a question row accepts this. */
@@ -98,7 +100,10 @@ export function useThread(conversationId: string | null): ThreadController {
   const onEvent = useCallback((event: AgentEvent) => dispatch({ type: "event", event }), []);
 
   const runTurn = useCallback(
-    async (run: (onEvent: (e: AgentEvent) => void, signal: AbortSignal) => Promise<void>) => {
+    async (
+      run: (onEvent: (e: AgentEvent) => void, signal: AbortSignal) => Promise<void>,
+      describe: (error: unknown) => string = turnErrorText,
+    ) => {
       const controller = new AbortController();
       abortRef.current = controller;
       turns.current += 1;
@@ -112,7 +117,7 @@ export function useThread(conversationId: string | null): ThreadController {
         await run(emit, controller.signal);
         if (!controller.signal.aborted) dispatch({ type: "turn_finished" });
       } catch (error) {
-        if (!controller.signal.aborted) dispatch({ type: "failed", message: turnErrorText(error) });
+        if (!controller.signal.aborted) dispatch({ type: "failed", message: describe(error) });
       } finally {
         if (abortRef.current === controller) abortRef.current = null;
       }

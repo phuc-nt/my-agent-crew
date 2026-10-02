@@ -1,6 +1,7 @@
 import type { ArtifactDetail, ArtifactEvent, ArtifactSummary, ArtifactVersion } from "../api/artifact-types";
 import { fold } from "../components/conversation-search";
-import { CanvasFaults, type FakeReply } from "./fake-canvas-faults";
+import { CanvasFaults, type FakeReply, invalid, ok, refused } from "./fake-canvas-faults";
+import { FocusBook } from "./fake-canvas-focus";
 
 export type { FakeReply } from "./fake-canvas-faults";
 
@@ -30,10 +31,6 @@ const ROUTES: [RegExp, string[]][] = [
 
 const bytes = (text: string) => new TextEncoder().encode(text).length;
 const lf = (text: string) => text.replace(/\r\n?/g, "\n");
-const ok = (body: unknown, status = 200): FakeReply => ({ status, body });
-const refused = (status: number, detail: unknown): FakeReply => ({ status, body: { detail } });
-const invalid = (field: string, where = "body") =>
-  refused(422, [{ type: "value_error", loc: [where, field], msg: `invalid ${field}` }]);
 const isVersion = (value: unknown) => Number.isInteger(value) && (value as number) >= 1;
 const withoutText = ({ content: _content, ...meta }: ArtifactVersion) => meta;
 
@@ -61,6 +58,14 @@ export class FakeCanvas {
   /** Hears each committed change as the activity stream would carry it. */
   onEvent: ((event: ArtifactEvent) => void) | null = null;
   conversationExists: (id: string) => boolean = () => true;
+  /** The canvas each conversation has open, which a message, a `PUT` or a canvas made there sets. */
+  focus = new FocusBook({
+    head: (id) => this.canvases.get(id)?.summary.head_version,
+    link: (id, conversationId) => {
+      const { conversationIds } = this.get(id);
+      if (!conversationIds.includes(conversationId)) conversationIds.push(conversationId);
+    },
+  });
   private faults = new CanvasFaults();
   private ticks = 0;
   private rows = 0;
@@ -96,6 +101,7 @@ export class FakeCanvas {
   remove(id: string): void {
     const { conversationIds } = this.get(id);
     this.canvases.delete(id);
+    this.focus.forget(id);
     this.announce({ id, deleted: true }, conversationIds);
   }
 
@@ -125,6 +131,23 @@ export class FakeCanvas {
     return this.faults.run(method, path, work, (status, detail) => this.refusal(id, fields, status, detail));
   }
 
+  /** `GET` and `PUT /conversations/{id}/canvas`, under the same faults as the other canvas routes. */
+  focusRoute(conversationId: string, method: string, body: unknown): FakeReply | Promise<FakeReply> {
+    const fields = typeof body === "object" && body !== null ? (body as Record<string, unknown>) : {};
+    const work = () => {
+      if (method === "GET") return ok(this.focus.of(conversationId));
+      return method === "PUT" ? this.focus.put(conversationId, fields) : refused(405, "Method Not Allowed");
+    };
+    const path = `/conversations/${conversationId}/canvas`;
+    return this.faults.run(method, path, work, (status, detail) => this.refusal(null, fields, status, detail));
+  }
+
+  /** The `canvas` a chat message carried, applied the way the server does after its gates:
+   *  null when the message goes on, a 422 when the selection is one the note would drop. */
+  applyMessageCanvas(conversationId: string, canvas: unknown): FakeReply | null {
+    return this.focus.message(conversationId, canvas);
+  }
+
   private top(method: string, body: Record<string, unknown>, params: URLSearchParams): FakeReply {
     if (method === "POST") return this.create(body);
     if (method !== "GET") return refused(405, "Method Not Allowed");
@@ -152,9 +175,8 @@ export class FakeCanvas {
     if (refusal) return refusal;
     const summary = this.add({ title: cleaned, kind, content });
     this.announce(summary, []);
-    const canvas = this.get(summary.id);
-    if (conversation !== null) canvas.conversationIds.push(conversation);
-    return ok(this.detail(canvas), 201);
+    if (conversation !== null) this.focus.open(conversation, summary.id);
+    return ok(this.detail(this.get(summary.id)), 201);
   }
 
   private one(id: string, rest: string, method: string, body: Record<string, unknown>, params: URLSearchParams): FakeReply {

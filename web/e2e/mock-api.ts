@@ -413,6 +413,14 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
       // again (the attention list does, to see whether the turn paused anew) must not find it.
       const decided = conversations.find((c) => path.startsWith(`/conversations/${c.id}/approvals/`));
       if (decided) decided.pending_approval = null;
+      const sent = sendingMessage ? conversations.find((c) => path.startsWith(`/conversations/${c.id}/messages`)) : undefined;
+      if (sent) {
+        // The canvas the tab had open goes with the message, as the server takes it: a selection
+        // the note would drop refuses the message before it is stored or a turn is spent on it.
+        const { canvas: carried } = route.request().postDataJSON() as { canvas?: unknown };
+        const refusal = canvas.applyMessageCanvas(sent.id, carried);
+        if (refusal) return fulfillCanvas(route, refusal);
+      }
       const events = turns.shift() ?? [];
       if (sendingMessage) {
         // Persists the sent text and any assistant reply into `conv.messages`, the way the
@@ -420,7 +428,6 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
         // `GET /conversations/{id}` for a bubble still carrying its optimistic `local-N` id,
         // and that read has to find the same rows the thread already shows, or every fork
         // attempted right after a send would 404 its own message out from under itself.
-        const sent = conversations.find((c) => path.startsWith(`/conversations/${c.id}/messages`));
         if (sent) {
           const { text } = route.request().postDataJSON() as { text: string };
           const nextSeq = () => (sent.messages as { seq: number }[]).reduce((n, m) => Math.max(n, m.seq), 0) + 1;
@@ -480,6 +487,14 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
       };
       conversations.push(fork);
       return json({ ...fork, draft: cut.content }, 201);
+    }
+    // Before the conversation routes below, which match on the start of the path alone and
+    // would answer a read of the open canvas with the conversation.
+    const focusing = path.match(/^\/conversations\/([^/]+)\/canvas$/)?.[1];
+    if (focusing) {
+      const id = decodeURIComponent(focusing);
+      if (!conversations.some((c) => c.id === id)) return json({ detail: "conversation not found" }, 404);
+      return fulfillCanvas(route, await canvas.focusRoute(id, method, route.request().postDataJSON()));
     }
     const conv = conversations.find((c) => path.startsWith(`/conversations/${c.id}`));
     if (conv && method === "GET") return json(conv);

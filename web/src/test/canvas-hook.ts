@@ -57,6 +57,16 @@ export function wait(ms: number): void {
   });
 }
 
+/** What `work` came to, as far as the timers and promises a test has let run so far. */
+export function watch<T>(work: Promise<T>) {
+  const seen: { settled: boolean; value?: T } = { settled: false };
+  void work.then(
+    (value) => Object.assign(seen, { settled: true, value }),
+    () => Object.assign(seen, { settled: true }),
+  );
+  return seen;
+}
+
 /** The tab hides or shows. */
 export function setVisibility(state: DocumentVisibilityState): void {
   vitest.spyOn(document, "visibilityState", "get").mockReturnValue(state);

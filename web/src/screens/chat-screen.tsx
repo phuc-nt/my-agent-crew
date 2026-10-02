@@ -17,6 +17,7 @@ import { Icon, type IconName } from "../components/ui/icon";
 import type { useActivity } from "../hooks/use-activity";
 import type { useCrew } from "../hooks/use-agents";
 import { useCanvasDock } from "../hooks/use-canvas-dock";
+import { useCanvasFocus } from "../hooks/use-canvas-focus";
 import type { useConversations } from "../hooks/use-conversations";
 import { useDrawer } from "../hooks/use-drawer";
 import { useFork } from "../hooks/use-fork";
@@ -92,6 +93,12 @@ export function ChatScreen({
   const { open: drawerOpen, show: showDrawer, hide: hideDrawer } = drawer;
 
   const { send: threadSend, detail } = thread;
+  // A send waits for the canvas to be saved before it posts. By then the person may be in
+  // another conversation, and this one may have become busy: it posts through what is current.
+  const activeRef = useRef(list.activeId);
+  activeRef.current = list.activeId;
+  const sendRef = useRef(threadSend);
+  sendRef.current = threadSend;
   // Only a send the server never took gives its words back: one it queued is held there and
   // shown as a chip, and one it began a turn for is on screen as a message.
   const sendOrRestore = useCallback(
@@ -142,16 +149,29 @@ export function ChatScreen({
     return created;
   }, [listCreate, onSelectConversation]);
 
-  const send = async (text: string) => {
-    if (list.activeId) return sendOrRestore(text);
-    const created = await create();
-    if (created) setQueued({ id: created.id, text });
-  };
-
   // Narrower than this, the activity is a strip under the thread and an open canvas covers
   // the chat column; wider, both share the column beside the chat.
   const wide = useMediaQuery(DOCKED_ACTIVITY_QUERY);
-  const dock = useCanvasDock(active?.id ?? null, activity.state.connected);
+  const dock = useCanvasDock(active?.id ?? null, activity.state.connected, wide);
+  useCanvasFocus(active?.id ?? null, wide, dock);
+
+  // The composer keeps the words until this answers. A conversation that does not exist yet is
+  // made first, and the words wait for it to load; one that does waits for the open canvas's
+  // last save and goes with the canvas as it stands by then. `false` means nothing was sent:
+  // the conversation could not be made, the person went to another one before the save landed,
+  // or the server turned the message down before it began.
+  const send = async (text: string): Promise<boolean> => {
+    const id = list.activeId;
+    if (!id) {
+      const created = await create();
+      if (created) setQueued({ id: created.id, text });
+      return Boolean(created);
+    }
+    await dock.flush();
+    if (activeRef.current !== id) return false;
+    const result = await sendRef.current(text, dock.messageCanvas());
+    return result.status !== "failed";
+  };
   const overlayOpen = !wide && dock.view !== "closed";
   const { close: closeDock } = dock;
   const canvasTrigger = useRef<HTMLButtonElement>(null);
@@ -479,7 +499,7 @@ export function ChatScreen({
           commands={(active ? crew.agents.find((a) => a.id === active.agent_id) : master)?.commands ?? []}
           onSend={(text) => {
             setDraft(undefined);
-            void send(text);
+            return send(text);
           }}
           onStop={() => void onStop()}
         />

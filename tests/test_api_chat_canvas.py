@@ -144,3 +144,34 @@ def test_the_open_canvas_is_named_once_while_messages_keep_carrying_it(client, s
         _send(client, conv_id, text, {"artifact_id": laptop})
     first, _, second, _ = store.history(conv_id)
     assert (first.context, second.context) == (_opened("Bản X", laptop), "")
+
+
+def test_a_queued_ask_keeps_its_passage_until_it_is_delivered(client, store: Store):
+    conv_id, laptop, _ = _two_canvases(client, store)
+    client.app.state.runtime.hub.busy.claim(conv_id)
+    [queued] = parse_sse(
+        _post(client, conv_id, "sửa chỗ này", {"artifact_id": laptop, "selection": PICK}).text
+    )
+    assert store.artifact_links.focus(conv_id).selection is not None
+    store.queue.deliver(conv_id, [queued["item_id"]])
+    where = PICK_LINES.format(span=line_span(2, 2), version=1)
+    pick = CANVAS_NOTE_PICK.format(title="Bản X", id=laptop, where=where)
+    assert store.history(conv_id)[-1].context == framed(pick, "> chạy 5 km")
+
+
+def test_a_queued_ask_loses_its_passage_to_a_later_message_from_the_same_tab(client, store: Store):
+    # A known limit: a queued note is built when it is delivered, from the focus as it stands
+    # then, and the later message's own `canvas` has already cleared the selection.
+    conv_id, laptop, _ = _two_canvases(client, store)
+    client.app.state.runtime.hub.busy.claim(conv_id)
+    ask = {"artifact_id": laptop, "selection": PICK}
+    [first] = parse_sse(_post(client, conv_id, "sửa chỗ này", ask).text)
+    [second] = parse_sse(
+        _post(client, conv_id, "và cả chỗ kia", {"artifact_id": laptop, "selection": None}).text
+    )
+    assert (first["type"], second["type"]) == ("queued", "queued")
+    assert store.artifact_links.focus(conv_id).selection is None
+    store.queue.deliver(conv_id, [first["item_id"]])
+    context = store.history(conv_id)[-1].context
+    assert context == _opened("Bản X", laptop)
+    assert "chạy 5 km" not in context

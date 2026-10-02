@@ -7,7 +7,8 @@
  *
  * Focus follows the person: opening moves it into the dock unless something there took it
  * already, a move inside the dock picks it up only when it was dropped, and closing gives it back
- * to the Canvas button when it was in the dock or nowhere.
+ * to the Canvas button when it was in the dock or nowhere. A canvas opened without being asked for
+ * (quietly) leaves it where it is, even when it was nowhere: the person is typing in the chat.
  */
 
 import { type CSSProperties, type ReactNode, type RefObject, useEffect, useRef } from "react";
@@ -35,7 +36,7 @@ type Props = {
 // loading panel's way to the list each come before any field.
 const FIRST_CONTROL = ".dock-canvas button";
 
-function useDockFocus(root: RefObject<HTMLDivElement | null>, trigger: Props["trigger"], view: DockView) {
+function useDockFocus(root: RefObject<HTMLDivElement | null>, trigger: Props["trigger"], view: DockView, quiet: boolean) {
   const was = useRef(view);
   useEffect(() => {
     const before = was.current;
@@ -46,16 +47,16 @@ function useDockFocus(root: RefObject<HTMLDivElement | null>, trigger: Props["tr
     const node = root.current;
     if (view === "closed") {
       if (dropped || node?.contains(active)) trigger.current?.focus();
-    } else if (dropped || (before === "closed" && !node?.contains(active))) {
+    } else if (!quiet && (dropped || (before === "closed" && !node?.contains(active)))) {
       node?.querySelector<HTMLElement>(FIRST_CONTROL)?.focus();
     }
-  }, [root, trigger, view]);
+  }, [root, trigger, view, quiet]);
 }
 
 export function CanvasDockView({ dock, mode, activity, connected, agentName, trigger }: Props) {
   const size = useCanvasWidth();
   const root = useRef<HTMLDivElement>(null);
-  useDockFocus(root, trigger, dock.view);
+  useDockFocus(root, trigger, dock.view, dock.quiet);
   const open = dock.view !== "closed";
   const column = mode === "column";
   if (!open && (!column || activity === null)) return null;

@@ -27,7 +27,7 @@ async function openDock() {
   const renders: Seen[] = [];
   const view = renderHook(
     ({ conversationId }: Props) => {
-      const dock = useCanvasDock(conversationId, true);
+      const dock = useCanvasDock(conversationId, true, true);
       renders.push({ conversationId, view: dock.view, artifactId: dock.artifactId });
       return dock;
     },

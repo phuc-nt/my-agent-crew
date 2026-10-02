@@ -1505,7 +1505,32 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "test_a_message_with_a_selection_the_note_would_drop_is_422_and_goes_nowhere", cổng từ chối (chờ
     duyệt, hội thoại không có) thì canvas đang mở không đổi, tab hiện canvas đã xoá vẫn gửi được và
     đóng nó, "test_a_queued_message_names_its_canvas_when_it_is_delivered",
-    "test_the_open_canvas_is_named_once_while_messages_keep_carrying_it")
+    "test_the_open_canvas_is_named_once_while_messages_keep_carrying_it",
+    "test_a_queued_ask_keeps_its_passage_until_it_is_delivered": tin hỏi về một đoạn mà bị xếp hàng
+    giữ vùng chọn tới lúc giao, ghi chú giao đi trích đúng đoạn ấy,
+    "test_a_queued_ask_loses_its_passage_to_a_later_message_from_the_same_tab": giới hạn đã biết, ghi
+    chú của tin xếp hàng dựng lúc giao theo canvas đang mở khi ấy, nên tin sau từ cùng tab, đã xoá
+    vùng chọn, làm tin trước mất đoạn)
+  - vitest, tab nêu canvas nào trong tin: `web/src/api/client.test.ts` ("carries the tab's canvas only
+    when it is given, and a null one as it is": thân POST là `{text}` khi không có canvas, `{text,
+    canvas}` khi có, kể cả `{artifact_id: null}`); `web/src/hooks/use-canvas-dock-focus.test.ts` nhóm
+    "the canvas a message names" (chưa mở canvas nào ở tab này thì không nêu gì, mở rồi thì nêu canvas
+    ấy không kèm đoạn chọn, canvas mới nhất vừa mở và canvas tạo tại đây ngay từ lúc tạo; đóng trên
+    màn rộng là `null` dù đóng bằng `close`, `forceClose` hay `toggle`, còn lớp phủ của màn hẹp dẹp đi
+    thì vẫn nêu canvas; theo bề rộng lúc đóng chứ không lúc mở; về danh sách vẫn nêu canvas, việc đóng
+    đang chờ một lần lưu chưa xong cũng vậy; sang hội thoại khác thì trống và không quay lại theo
+    người; đọc qua tham chiếu lấy từ trước vẫn thấy giá trị lúc hỏi);
+    `web/src/hooks/use-thread.test.ts` nhóm "the canvas a send carries" (canvas đi theo POST của tin
+    gửi thường và của tin xếp hàng sau lượt đang chạy ở tab này; bảng "%s on a plain send is told in
+    Vietnamese, in the result and in the notice" cho 422 là đoạn chọn không còn khớp, 409, 429, 500 và
+    mất kết nối: `error` của kết quả luôn là câu của ta, thông báo giữ câu của server ở 429 và nói máy
+    chủ lỗi ở 5xx, bong bóng tạm biến mất; ba lỗi 422, 429 và mất kết nối của tin xếp hàng cũng vậy;
+    "keeps the old wording of a 422 for a message that carried no canvas");
+    `web/src/lib/error-text.test.ts` nhóm "turnErrorText" (409 là hội thoại chờ quyết định dù server
+    viết gì, 422 của tin mang canvas là đoạn chọn không còn khớp, lỗi khác để `errorText` lo);
+    `web/src/lib/send-result.test.ts` ("words a 422 as the selection only when the message carried the
+    canvas"; `sendErrorText` đổi nghĩa chỉ của 422 và chỉ khi tin mang canvas, lời server bằng tiếng
+    Anh không bao giờ tới người dùng)
 - **Tin gửi đi cùng ghi chú canvas thì tab gửi nhận lại đúng ghi chú ấy ngay đầu luồng và hiện nó
   thành một chip dưới tin; mở lại cuộc trò chuyện vẫn thấy chip**
   - pytest: `tests/test_user_context_event.py`
@@ -1731,6 +1756,78 @@ tên một test thì sửa dòng của nó trong cùng commit.
     over it"), ở 1000 px và 390×844 cảm ứng ("saves, keeps the approval out of reach, fits a finger and
     goes back to the chat": nút Canvas trọn trong màn hình, Tab không tới nút duyệt dưới lớp phủ, mọi
     nút trong dock ≥40px, không cuộn ngang)
+- **Gửi tin lúc canvas đang mở: chữ gõ trong canvas lưu xong rồi tin mới đi, ô soạn tin giữ chữ ở chế
+  độ chỉ đọc tới khi server nhận**
+  - vitest: `web/src/lib/canvas-handoff-flush.test.ts` (`handoffsSettled` trả ngay khi không lần lưu
+    nào đang bay, chờ mọi lần lưu đang bay kể cả lần hỏng hay ném lỗi và không chờ lần bắt đầu sau lúc
+    hỏi; `within` trả giá trị của việc khi nó xong kịp rồi xoá timer, trả giá trị muộn khi hết giờ chứ
+    không sớm hơn, chuyển lỗi của việc đi và xoá timer; `flushAll` trả phiên bản panel vừa lưu khi mọi
+    lần lưu đang bay đã xong, giữ phiên bản ấy khi một lần lưu chưa về tới trần, chờ panel và các lần
+    lưu đang bay dưới một trần chung rồi trả null khi panel không còn, chỉ chờ các lần lưu đang bay
+    khi không có panel, bỏ chờ ở trần, xoá timer khi mọi thứ đã về);
+    `web/src/hooks/use-canvas-dock-flush.test.ts` ("answers the version the open panel's last save
+    landed", null khi không phiên bản nào giữ chữ trong trần, chờ lần lưu của canvas đã rời trước đó
+    và giữ phiên bản của panel khi lần lưu kia muộn, chờ lần lưu của canvas đã rời khi không có panel
+    và trả null, một hàm duy nhất suốt lúc dock còn gắn, rời canvas bằng tay chỉ hỏi panel đang mở
+    chứ không chờ các lần lưu khác); `web/src/components/composer-send-lock.test.tsx` ("holds the
+    text in a read-only box and sends it once, however it is asked again", chữ được nhận thì ô và
+    bản nháp đã giữ được xoá, không được nhận hay bị từ chối thì ô trả lại cùng chữ và bản nháp để
+    gửi lại được, từ chối còn báo ra console, `onSend` không trả gì thì xoá ô ngay như cũ; khoá thuộc
+    về hội thoại nơi chữ được gõ: chữ được nhận thì bản nháp của hội thoại đã rời bị xoá còn bản của
+    hội thoại đang ở giữ nguyên, không được nhận thì bản nháp ấy được giữ; Stop trả chữ xếp hàng về ô
+    trong lúc chờ thì chỉ phần đã gửi bị xoá, gợi ý thay chữ trong lúc chờ thì giữ gợi ý, danh sách
+    lệnh `/` bị dẹp và không nhận lệnh khi ô đang giữ)
+  - vitest, cả App trên `FakeCanvas`: `web/src/app-canvas-send.test.tsx` ("saves the typing in the
+    canvas first, then sends the message naming that canvas": PUT canvas đi trước POST tin; "names no
+    canvas when none was opened in this tab": thân POST chỉ có `{text}`; "holds the words in a
+    read-only box until the canvas is saved, and sends once however often Enter comes"; rời sang hội
+    thoại khác trước khi lần lưu về thì không gửi gì và chữ trở lại ô khi quay lại; ở hội thoại khác
+    tin mới vẫn chờ lần lưu của canvas người vừa bỏ lại; 422 cho tin mang canvas được nói bằng tiếng
+    Việt rằng đoạn không còn khớp, câu tiếng Anh của server không lộ ra, chữ ở lại ô và không có
+    bong bóng)
+  - Playwright: `canvas-send.spec.ts` ("a message sent over typing the canvas has not saved yet waits
+    for the save, then names the canvas": lần lưu bị giữ thì chưa có POST nào và ô soạn tin chỉ đọc
+    còn nguyên chữ, thả ra thì thứ tự là lưu rồi gửi, thân tin nêu canvas, ô trống và mở lại)
+- **Canvas mà server đang mở ở hội thoại: vào hội thoại thì web mở lại nó mà không giành focus và không
+  ghi gì; chỉ báo server khi người đóng canvas trên màn rộng**
+  - vitest, hook: `web/src/hooks/use-canvas-focus.test.ts` nhóm "coming into a conversation" (màn rộng
+    thì mở lặng lẽ canvas server đang mở ở hội thoại ấy và không ghi gì, server không mở gì thì không
+    mở gì và tin đi không kèm canvas, hỏi lại ở mỗi hội thoại đổi sang, màn hẹp không hỏi gì và không
+    hỏi lại khi màn thành rộng hay dock đổi, id server không bao giờ tạo thì không mở, mở đúng một
+    lần và không ghi gì dù StrictMode chạy effect lần hai, câu trả lời tới sau khi người sang hội
+    thoại khác hay sau khi người mở rồi đóng canvas thì không mở gì, đọc hỏng chỉ ghi console và dock
+    vẫn dùng được); `web/src/hooks/use-canvas-focus-close.test.ts` ("tells the server once, from a
+    canvas opened here, and opening it told nothing": đóng trên màn rộng gửi `PUT {artifact_id:
+    null}` đúng một lần, cả khi chỉ mới hiện danh sách; về danh sách, màn hẹp, hay sang hội thoại
+    khác với canvas đang mở thì không báo gì; ghi hỏng chỉ ghi console và dock vẫn đóng; `focusId`
+    thành `null` mà người không đóng gì, lúc hook gắn hay cùng lúc đổi hội thoại, thì không báo, và
+    lần đóng thật sau đó vẫn báo); `web/src/hooks/use-canvas-dock-restore.test.ts` ("opens it
+    quietly, and names it, when nothing has moved since the ticket"; người đã sang hội thoại khác rồi
+    quay lại, hay giữ tham chiếu lấy ở hội thoại đã rời, thì không mở gì; id không đúng mười hai chữ
+    số hex thường thì không mở: `a1`, `../x`, chữ hoa, thiếu, thừa, xuống dòng ở cuối, rỗng);
+    `web/src/hooks/use-canvas-dock-focus.test.ts` nhóm "a canvas opened quietly" (đánh dấu tới bước
+    kế, mở thường thì không đánh dấu; canvas khác mở, danh sách mở, dock đóng hay bị buộc đóng đều
+    hết đánh dấu); `web/src/components/canvas/canvas-dock-view.test.tsx` nhóm "focus when a canvas
+    opens without being asked for" (mở thường thì focus vào dock dù từ đâu tới; mở lặng lẽ thì focus
+    ở đâu vẫn ở đó: không đâu thì vẫn không đâu, ở ô soạn tin thì vẫn ở ô soạn tin)
+  - vitest, server giả: `web/src/api/artifact-client.test.ts` ("reads what a conversation has open,
+    null when nothing, and sets or closes it under an encoded id", "rejects a focus request the
+    server refused, with its status"); `web/src/test/fake-canvas-focus.test.ts` (route canvas đang mở
+    của hội thoại đọc và ghi như server: chưa mở gì thì null, mở một canvas thì chia sẻ nó với hội
+    thoại, `null` đóng, canvas không có thì 404 và giữ nguyên cái đang mở, đoạn chọn dài nhất cho
+    phép đếm theo ký tự, canvas bị xoá thì không còn mở ở đâu, canvas tạo trong hội thoại thì mở ở
+    đó và không kèm đoạn chọn còn canvas tạo riêng thì không mở ở đâu, một lần đọc cũng giữ và thả
+    được như request canvas khác, từ chối hay mất reply theo yêu cầu, method không có route thì 405; tin mang `canvas` được áp trước khi đi tiếp: không mang hay
+    mang `null` thì để yên, id thật thì mở và chia sẻ, id đã mất thì đóng, đoạn chọn ghi đè đoạn
+    trước, đoạn ghi chú sẽ bỏ thì 422 và không áp gì; `FakeBackend` từ chối nguyên tin với 422 mà
+    không lưu gì). Dụng cụ dùng chung: `web/src/test/canvas-app.tsx` (cả App trên hai hội thoại
+    "Một", "Hai" và canvas "Ghi chú"), `canvas-dock-hook.ts` (dock trên server giả), `screen-width.ts`
+    (bề rộng cửa sổ giả cho `matchMedia`)
+  - vitest, cả App trên `FakeCanvas`: `web/src/app-canvas-focus.test.tsx` ("tells the server once on a
+    wide screen, and the next message names no canvas", "tells nothing on a narrow screen, where the
+    canvas put away is still the one the message names", "opens beside the chat without taking the
+    focus from the box, and writes nothing": chữ gõ ngay sau đó vào ô soạn tin chứ không vào canvas,
+    "carries no canvas from a read that was answered after the person went to another conversation")
 - **Mã agent khớp cả chuỗi: chữ thường, số và gạch ngang, không cả xuống dòng ở cuối**
   - pytest: `tests/test_api_agents_edit.py::test_an_id_that_is_not_a_safe_folder_name_is_refused`
     (`../escape` và `coder` có xuống dòng ở cuối đều bị từ chối, không thư mục nào được tạo);

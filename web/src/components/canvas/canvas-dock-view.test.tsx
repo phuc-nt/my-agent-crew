@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { useRef } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { useCanvasDock } from "../../hooks/use-canvas-dock";
+import { type CanvasDock, useCanvasDock } from "../../hooks/use-canvas-dock";
 import { vi } from "../../i18n/vi";
 import { saveInBackground } from "../../lib/canvas-handoff";
 import { openState } from "../../lib/canvas-machine";
@@ -18,10 +18,14 @@ beforeEach(() => {
 
 afterEach(stopServer);
 
+/** The dock the chat last drew, for the tests that open a canvas without a click. */
+const seen: { dock: CanvasDock | null } = { dock: null };
+
 /** The dock as the chat lays it out: the Canvas button, a composer outside the dock, the notices
  *  of saves handed off, and the dock itself. */
 function Chat({ mode }: { mode: "column" | "overlay" }) {
-  const dock = useCanvasDock("c1", true);
+  const dock = useCanvasDock("c1", true, true);
+  seen.dock = dock;
   const trigger = useRef<HTMLButtonElement>(null);
   return (
     <>
@@ -74,6 +78,51 @@ describe("focus in the canvas dock", () => {
     fireEvent.click(screen.getByRole("button", { name: /^Ghi chú/ }));
     await landed();
 
+    expect(composer()).toHaveFocus();
+  });
+});
+
+describe("focus when a canvas opens without being asked for", () => {
+  const dockOpen = () => document.querySelector(".dock-canvas");
+  const inDock = () => dockOpen()?.contains(document.activeElement) ?? false;
+
+  it("goes into the dock from nowhere, as any opening does", async () => {
+    await openChat("column");
+
+    act(() => seen.dock?.open("a1"));
+    await landed();
+
+    expect(inDock()).toBe(true);
+  });
+
+  it("goes into the dock from the composer, as any opening does", async () => {
+    await openChat("column");
+    composer().focus();
+
+    act(() => seen.dock?.open("a1"));
+    await landed();
+
+    expect(inDock()).toBe(true);
+  });
+
+  it("stays nowhere when it was nowhere", async () => {
+    await openChat("column");
+
+    act(() => seen.dock?.open("a1", { quiet: true }));
+    await landed();
+
+    expect(dockOpen()).not.toBeNull();
+    expect(document.body).toHaveFocus();
+  });
+
+  it("stays in the composer when it was there", async () => {
+    await openChat("column");
+    composer().focus();
+
+    act(() => seen.dock?.open("a1", { quiet: true }));
+    await landed();
+
+    expect(dockOpen()).not.toBeNull();
     expect(composer()).toHaveFocus();
   });
 });

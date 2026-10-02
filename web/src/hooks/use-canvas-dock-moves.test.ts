@@ -19,7 +19,7 @@ beforeEach(() => {
 afterEach(stopServer);
 
 async function openDock(conversationId: string | null = "c1") {
-  const view = renderHook(() => useCanvasDock(conversationId, true));
+  const view = renderHook(() => useCanvasDock(conversationId, true, true));
   await landed();
   return view;
 }

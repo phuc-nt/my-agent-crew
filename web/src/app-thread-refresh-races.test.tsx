@@ -36,6 +36,10 @@ function door() {
   return { shut, open };
 }
 
+/** The user's own bubble on the thread: until the server answers, the box holds the words too. */
+const userBubble = (text: string) =>
+  screen.getAllByTestId("message-user").find((bubble) => within(bubble).queryByText(text) !== null);
+
 const threadLoads = (id: string) =>
   backend.requests.filter((r) => r.method === "GET" && r.path === `/conversations/${id}`).length;
 
@@ -75,10 +79,10 @@ describe("reloads of the open thread racing this tab's turns and other runs", ()
     holdLoads = true;
     act(() => stream().emit({ type: "run", run: run(c.id, "done") }));
     await userEvent.type(screen.getByRole("textbox", { name: vi.composerPlaceholder }), "tin mới{Enter}");
-    expect(screen.getByText("tin mới")).toBeInTheDocument();
+    expect(userBubble("tin mới")).toBeInTheDocument();
 
     await act(async () => load.open());
-    expect(screen.getByText("tin mới")).toBeInTheDocument();
+    expect(userBubble("tin mới")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: vi.stop })).toBeInTheDocument();
 
     c.messages.push(storedMessage("assistant", "Đã nhận"));

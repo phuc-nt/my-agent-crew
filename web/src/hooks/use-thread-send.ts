@@ -1,4 +1,5 @@
 import { useCallback, type Dispatch, type MutableRefObject } from "react";
+import type { MessageCanvas } from "../api/artifact-types";
 import { api, ApiError } from "../api/client";
 import type { AgentEvent } from "../api/types";
 import { vi } from "../i18n/vi";
@@ -13,8 +14,11 @@ interface SendParts {
   busy: boolean;
   dispatch: Dispatch<ThreadAction>;
   /** Runs a turn on this tab's own stream: busy while it lasts, cut by Stop, its errors
-   *  put on screen as a notice. */
-  runTurn: (run: (emit: (e: AgentEvent) => void, signal: AbortSignal) => Promise<void>) => Promise<void>;
+   *  put on screen as a notice, worded by `describe` when the caller knows better. */
+  runTurn: (
+    run: (emit: (e: AgentEvent) => void, signal: AbortSignal) => Promise<void>,
+    describe?: (error: unknown) => string,
+  ) => Promise<void>;
   /** The queueing POSTs still in flight, each cut when the conversation is left. */
   queueing: MutableRefObject<Set<AbortController>>;
 }
@@ -29,7 +33,7 @@ export function useThreadSend({ conversationId, busy, dispatch, runTurn, queuein
    *  touching `runTurn`, `abortRef` or `turns` — the turn already on screen must keep
    *  receiving events and stay abortable by Stop exactly as if this send had not happened. */
   const queueBehindTurn = useCallback(
-    async (id: string, text: string, answer: Settlement) => {
+    async (id: string, text: string, answer: Settlement, canvas?: MessageCanvas) => {
       const controller = new AbortController();
       queueing.current.add(controller);
       try {
@@ -41,17 +45,21 @@ export function useThreadSend({ conversationId, busy, dispatch, runTurn, queuein
             answer.heard(event);
           },
           controller.signal,
+          canvas,
         );
       } catch (error) {
         if (controller.signal.aborted) return;
         // Neither branch touches the turn actually running: `queue_failed` only sets the
         // notice, leaving `busy`, `streaming` and `items` exactly as the running stream
-        // left them. A 429 or 422 carries the server's own Vietnamese sentence; anything
-        // else — a dropped connection, most likely — falls back to `turnErrorText`.
+        // left them. A 429 or 422 carries the server's own Vietnamese sentence, except a 422
+        // for a message that carried the canvas — its selection, which the server words in
+        // English; anything else — a dropped connection, most likely — falls back to
+        // `turnErrorText`.
+        const withCanvas = canvas !== undefined;
         const message =
-          error instanceof ApiError && (error.status === 429 || error.status === 422)
+          error instanceof ApiError && (error.status === 429 || (error.status === 422 && !withCanvas))
             ? error.message
-            : turnErrorText(error);
+            : turnErrorText(error, withCanvas);
         dispatch({ type: "queue_failed", message });
         answer.failed(error);
       } finally {
@@ -66,8 +74,9 @@ export function useThreadSend({ conversationId, busy, dispatch, runTurn, queuein
    *  cannot see — another tab, a job, the schedule — in which case the server queues the
    *  message and this stream's only event is `queued`. */
   const startTurn = useCallback(
-    async (id: string, text: string, answer: Settlement) => {
+    async (id: string, text: string, answer: Settlement, canvas?: MessageCanvas) => {
       dispatch({ type: "user_sent", text });
+      const describe = (error: unknown) => turnErrorText(error, canvas !== undefined);
       await runTurn(async (emit, signal) => {
         try {
           await api.sendMessage(
@@ -82,6 +91,7 @@ export function useThreadSend({ conversationId, busy, dispatch, runTurn, queuein
               else emit(event);
             },
             signal,
+            canvas,
           );
         } catch (error) {
           // Nothing the server said has reached this tab, so the message may never have got
@@ -96,16 +106,17 @@ export function useThreadSend({ conversationId, busy, dispatch, runTurn, queuein
         } finally {
           answer.ended();
         }
-      });
+      }, describe);
     },
     [dispatch, runTurn],
   );
 
   return useCallback(
-    (text: string): Promise<SendResult> => {
+    (text: string, canvas?: MessageCanvas): Promise<SendResult> => {
       if (!conversationId) return Promise.resolve({ status: "failed", error: vi.sendFailed.other });
-      const answer = settlement();
-      void (busy ? queueBehindTurn(conversationId, text, answer) : startTurn(conversationId, text, answer));
+      const answer = settlement(canvas !== undefined);
+      const go = busy ? queueBehindTurn : startTurn;
+      void go(conversationId, text, answer, canvas);
       return answer.promise;
     },
     [conversationId, busy, queueBehindTurn, startTurn],

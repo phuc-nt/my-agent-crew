@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, type KeyboardEvent } from "react";
 import type { CommandInfo } from "../api/types";
 import { useDraft } from "../hooks/use-draft";
+import { useSendLock, type SendWords } from "../hooks/use-send-lock";
 import { vi } from "../i18n/vi";
 import { steerHint } from "../lib/steer-hint";
 import { SlashPopover, useSlashMenu } from "./slash-popover";
@@ -34,7 +35,10 @@ interface Props {
   /** Text to put back in the box from outside, oldest first, ahead of whatever is already
    *  being typed. */
   restore?: RestoreRequest | null;
-  onSend: (text: string) => void;
+  /** Takes the words. A promise keeps the box read-only, its text in place, until it settles:
+   *  `true` spends the words and `false` leaves them where they were typed. Anything else
+   *  spends them at once. */
+  onSend: SendWords;
   onStop: () => void;
 }
 
@@ -54,8 +58,9 @@ export function Composer({
   onStop,
 }: Props) {
   const [text, setText] = useDraft(draftKey ?? null);
+  const lock = useSendLock(draftKey ?? null, text, setText);
   const box = useRef<HTMLTextAreaElement>(null);
-  const menu = useSlashMenu(commands, text, setText, box, disabled);
+  const menu = useSlashMenu(commands, text, setText, box, disabled || lock.locked);
   const listed = menu.open && menu.shown.length > 0;
   // What a busy send will actually do to this text: the server alone decides for real
   // (`steer_text`, `find_command`), so a stale or unloaded command list only gets the
@@ -95,10 +100,7 @@ export function Composer({
   }, [text]);
 
   const submit = () => {
-    const trimmed = text.trim();
-    if (!trimmed || disabled) return;
-    onSend(trimmed);
-    setText("");
+    if (!disabled) lock.send(onSend, text);
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -134,6 +136,7 @@ export function Composer({
           value={text}
           rows={1}
           disabled={disabled}
+          readOnly={lock.locked}
           onChange={(event) => setText(event.target.value)}
           onKeyDown={onKeyDown}
           onFocus={menu.onFocus}
@@ -147,7 +150,7 @@ export function Composer({
             title={vi.slash.open}
             aria-haspopup="listbox"
             aria-expanded={menu.open}
-            disabled={disabled}
+            disabled={disabled || lock.locked}
             // Keeps the focus, and with it the phone's keyboard, in the box.
             onMouseDown={(event) => event.preventDefault()}
             onClick={menu.toggle}

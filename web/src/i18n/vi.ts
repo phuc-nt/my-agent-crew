@@ -236,6 +236,8 @@ export const vi = {
   // never copied from the server, some of whose refusals are in English.
   sendFailed: {
     tooFast: "Hàng chờ đã đầy hoặc bạn gửi quá nhanh — đợi lượt hiện tại xong rồi gửi tiếp.",
+    // The server refused the passage that went with the message: the canvas changed under it.
+    selection: "Đoạn đã chọn không còn khớp với canvas — chọn lại đoạn đó rồi gửi tiếp.",
     other: "Chưa gửi được tin này — thử lại sau một lúc.",
   },
   loadFailed: "Không tải được dữ liệu từ máy chủ.",

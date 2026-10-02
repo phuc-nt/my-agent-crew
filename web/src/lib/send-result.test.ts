@@ -36,6 +36,17 @@ describe("settlement", () => {
     expect(s.done).toBe(true);
   });
 
+  it("words a 422 as the selection only when the message carried the canvas", async () => {
+    const refused = new ApiError(422, "selection does not match the canvas");
+    const withCanvas = settlement(true);
+    withCanvas.failed(refused);
+    await expect(withCanvas.promise).resolves.toEqual({ status: "failed", error: vi.sendFailed.selection });
+
+    const without = settlement();
+    without.failed(refused);
+    await expect(without.promise).resolves.toEqual({ status: "failed", error: vi.sendFailed.other });
+  });
+
   it("answers sent when the send ends having heard nothing: cut off on purpose, or silent", async () => {
     const s = settlement();
     s.ended();
@@ -56,5 +67,15 @@ describe("sendErrorText", () => {
     ["something that is not an error at all", "boom", vi.sendFailed.other],
   ])("says %s in our own words", (_name, error, text) => {
     expect(sendErrorText(error)).toBe(text);
+  });
+
+  it.each([
+    ["a selection the canvas no longer holds", new ApiError(422, "selection does not match the canvas"), vi.sendFailed.selection],
+    ["a conversation waiting on approval", new ApiError(409, "conversation is awaiting approval"), vi.busyConflict],
+    ["a full queue", new ApiError(429, "Hàng chờ đã đủ 20 tin."), vi.sendFailed.tooFast],
+    ["a connection that never opened", new TypeError("Failed to fetch"), vi.requestErrors.network],
+    ["a crash on the server", new ApiError(500, "boom"), vi.sendFailed.other],
+  ])("says %s the same way for a message that carried the canvas, but for a 422", (_name, error, text) => {
+    expect(sendErrorText(error, true)).toBe(text);
   });
 });

@@ -1,6 +1,6 @@
 /**
  * Saves that outlive the moment: one sent as the page may be going away, and the last save of a
- * canvas the person left without waiting for it.
+ * canvas the person left without waiting for it, which a message sent soon after waits for.
  *
  * A browser caps the bodies of the `keepalive` requests in flight at 64 KiB and refuses a new one
  * that would go over, so a save is kept alive only while the page is hidden, only up to 60 KiB and
@@ -22,6 +22,8 @@ type Leaving = { readonly id: string; readonly state: CanvasState; flush(): Prom
 
 let keepaliveOut = false;
 const listeners = new Set<{ listener: (failure: HandoffFailure) => void }>();
+/** The handoffs not yet settled, each dropped as it settles. */
+const handoffs = new Set<Promise<void>>();
 
 function fitsKeepalive(content: string, baseVersion: number): boolean {
   const body = saveBody(content, baseVersion);
@@ -59,8 +61,51 @@ export function onHandoffFailed(listener: (failure: HandoffFailure) => void): ()
  * the panel went away goes once a version holds its text; when no version can, it stays on this
  * device and the listeners hear of it.
  */
-export async function saveInBackground(runner: Leaving): Promise<void> {
+export function saveInBackground(runner: Leaving): Promise<void> {
+  const handoff = handOff(runner);
+  handoffs.add(handoff);
+  const settled = () => void handoffs.delete(handoff);
+  handoff.then(settled, settled);
+  return handoff;
+}
+
+async function handOff(runner: Leaving): Promise<void> {
   if ((await runner.flush()) !== null) return;
   const failure = { id: runner.id, title: runner.state.summary?.title ?? null };
   for (const { listener } of [...listeners]) listener(failure);
+}
+
+/** Resolves once every handoff now in flight has settled, those that failed included. */
+export async function handoffsSettled(): Promise<void> {
+  await Promise.allSettled([...handoffs]);
+}
+
+/** What `work` resolves to, or `late` when it has not settled within `ms`. */
+export async function within<T, L>(ms: number, work: Promise<T>, late: L): Promise<T | L> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<L>((resolve) => {
+    timer = setTimeout(() => resolve(late), ms);
+  });
+  try {
+    return await Promise.race([work, timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Waits for the open panel's last save (when there is a panel) and for every handoff, together, at
+ * most `ms`. The answer is the version the panel's save landed, or null when it had not landed in
+ * time or failed; a handoff still out at the end does not take that answer away.
+ */
+export async function flushAll(ms: number, panelSave: Promise<number | null> | null): Promise<number | null> {
+  const saved: { version: number | null } = { version: null };
+  const landed = panelSave
+    ? panelSave.then(
+        (version) => void (saved.version = version),
+        () => undefined,
+      )
+    : Promise.resolve();
+  await within(ms, Promise.all([landed, handoffsSettled()]), null);
+  return saved.version;
 }

@@ -98,6 +98,27 @@ describe("api", () => {
     expect(JSON.parse(String(init?.body))).toEqual({ text: "hello" });
   });
 
+  // A message that says nothing of the canvas leaves the server's as it is; one that says
+  // "none" closes it. The two must never read alike on the wire.
+  it("carries the tab's canvas only when it is given, and a null one as it is", async () => {
+    const done = 'event: done\r\ndata: {"type":"done","spent_usd":0,"unknown_cost_calls":0}\r\n\r\n';
+    fetchMock.mockImplementation(async () => sseResponse(done));
+    const pick = { version: 3, text: "chạy 5 km", line_start: 2, line_end: 2 };
+
+    await api.sendMessage("c1", "none given", () => undefined);
+    await api.sendMessage("c1", "none given, with a signal", () => undefined, new AbortController().signal);
+    await api.sendMessage("c1", "closed", () => undefined, undefined, { artifact_id: null });
+    await api.sendMessage("c1", "open", () => undefined, undefined, { artifact_id: "0123456789ab", selection: null });
+    await api.sendMessage("c1", "asking", () => undefined, undefined, { artifact_id: "0123456789ab", selection: pick });
+
+    const bodies = fetchMock.mock.calls.map(([, init]) => String(init?.body));
+    expect(bodies[0]).toBe('{"text":"none given"}');
+    expect(bodies[1]).toBe('{"text":"none given, with a signal"}');
+    expect(JSON.parse(bodies[2])).toEqual({ text: "closed", canvas: { artifact_id: null } });
+    expect(JSON.parse(bodies[3])).toEqual({ text: "open", canvas: { artifact_id: "0123456789ab", selection: null } });
+    expect(JSON.parse(bodies[4])).toEqual({ text: "asking", canvas: { artifact_id: "0123456789ab", selection: pick } });
+  });
+
   it("posts the decision to the approval endpoint", async () => {
     fetchMock.mockResolvedValueOnce(sseResponse('data: {"type":"done","spent_usd":0,"unknown_cost_calls":0}\n\n'));
     await api.resolveApproval("c1", "ap1", false, () => undefined);

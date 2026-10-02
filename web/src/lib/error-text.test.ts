@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ApiError } from "../api/client";
 import { vi } from "../i18n/vi";
-import { errorText } from "./error-text";
+import { errorText, turnErrorText } from "./error-text";
 
 describe("errorText", () => {
   it("keeps what the server wrote as a sentence, in whatever language", () => {
@@ -39,5 +39,27 @@ describe("errorText", () => {
   it("leaves an error of the page's own as it is", () => {
     expect(errorText(new Error("Hỏng"))).toBe("Hỏng");
     expect(errorText("thô")).toBe("thô");
+  });
+});
+
+describe("turnErrorText", () => {
+  it("says a 409 is a conversation waiting on a decision, whatever the server wrote", () => {
+    expect(turnErrorText(new ApiError(409, "conversation is awaiting approval"))).toBe(vi.busyConflict);
+    expect(turnErrorText(new ApiError(409, "conversation is awaiting approval"), true)).toBe(vi.busyConflict);
+  });
+
+  it("puts a 422 for a message that carried the canvas in words: it is the selection", () => {
+    const refused = new ApiError(422, "selection does not match the canvas");
+    expect(turnErrorText(refused, true)).toBe(vi.sendFailed.selection);
+    // With no canvas on the request a 422 is something else, and keeps its own words.
+    expect(turnErrorText(refused)).toBe("selection does not match the canvas");
+  });
+
+  it("leaves every other failure to errorText, canvas or not", () => {
+    for (const withCanvas of [false, true]) {
+      expect(turnErrorText(new ApiError(429, "Hàng chờ đã đầy."), withCanvas)).toBe("Hàng chờ đã đầy.");
+      expect(turnErrorText(new ApiError(500, "boom"), withCanvas)).toBe(vi.requestErrors.server(500));
+      expect(turnErrorText(new TypeError("Failed to fetch"), withCanvas)).toBe(vi.requestErrors.network);
+    }
   });
 });

@@ -22,7 +22,7 @@ import type {
 } from "../api/types";
 import type { ArtifactEvent } from "../api/artifact-types";
 import { fold } from "../components/conversation-search";
-import { FakeCanvas } from "./fake-canvas";
+import { FakeCanvas, type FakeReply } from "./fake-canvas";
 import { FakeWiki } from "./fake-wiki";
 import { applyAgentPatch, restartRequired } from "./schedule-contract";
 
@@ -324,9 +324,14 @@ export class FakeBackend {
     }
     if (path === "/conversations" && method === "POST") return json(listItem(this.create(body ?? {})), 201);
     if (conv && !this.conversations.has(conv)) return json({ detail: "not found" }, 404);
+    if (conv && path === `/conversations/${conv}/canvas`) {
+      return this.canvasReply(this.canvas.focusRoute(conv, method, body), init.signal);
+    }
     if (conv && path.endsWith("/messages") && method === "POST") {
       const c = this.conversations.get(conv)!;
       if (c.status === "awaiting_approval") return json({ detail: "conversation is awaiting approval" }, 409);
+      const refusal = this.canvas.applyMessageCanvas(conv, body.canvas);
+      if (refusal) return this.canvasReply(refusal);
       // A turn is already being held open for this conversation: the message it found
       // busy is queued, and its own stream carries the one `queued` event this sends it.
       if (this.held.has(conv)) return this.queueMessage(c, body.text);
@@ -385,18 +390,24 @@ export class FakeBackend {
     this.keepaliveBytes += size;
     try {
       const routed = this.canvas.route(path, method, body, url.searchParams) ?? { status: 404, body: { detail: "Not Found" } };
-      const reply = await abortable(Promise.resolve(routed), init.signal);
-      if (reply === "lost") throw new TypeError("Failed to fetch");
-      if (reply.text !== undefined) {
-        // An error's text is its reason phrase, which is also what a proxy would put in the status line.
-        const statusText = reply.status >= 400 ? reply.text : "";
-        const headers = { "content-type": "text/plain; charset=utf-8" };
-        return new Response(reply.text, { status: reply.status, statusText, headers });
-      }
-      return reply.status === 204 ? new Response(null, { status: 204 }) : json(reply.body, reply.status);
+      return await this.canvasReply(routed, init.signal);
     } finally {
       this.keepaliveBytes -= size;
     }
+  }
+
+  /** A canvas route's answer as the browser gets it: a lost reply fails the fetch, and an abort
+   *  rejects it while the work held behind it still lands. */
+  private async canvasReply(routed: FakeReply | Promise<FakeReply>, signal?: AbortSignal | null): Promise<Response> {
+    const reply = await abortable(Promise.resolve(routed), signal);
+    if (reply === "lost") throw new TypeError("Failed to fetch");
+    if (reply.text !== undefined) {
+      // An error's text is its reason phrase, which is also what a proxy would put in the status line.
+      const statusText = reply.status >= 400 ? reply.text : "";
+      const headers = { "content-type": "text/plain; charset=utf-8" };
+      return new Response(reply.text, { status: reply.status, statusText, headers });
+    }
+    return reply.status === 204 ? new Response(null, { status: 204 }) : json(reply.body, reply.status);
   }
 
   private master(): AgentInfo[] {
