@@ -14,7 +14,8 @@ import type {
 export type ToolStatus = "running" | "done" | "failed" | "awaiting" | "denied" | "stopped";
 
 export type ThreadItem =
-  | { kind: "user"; id: string; text: string }
+  /** `context`: the canvas note the message was stored with, when the person's canvas came along. */
+  | { kind: "user"; id: string; text: string; context?: string }
   | { kind: "assistant"; id: string; text: string; model: string | null }
   | {
       kind: "tool";
@@ -131,7 +132,9 @@ export function itemsFromMessages(messages: StoredMessage[]): ThreadItem[] {
   const items: ThreadItem[] = [];
   const toolIndex = new Map<string, number>();
   for (const m of messages) {
-    if (m.role === "user") items.push({ kind: "user", id: m.id, text: m.content });
+    if (m.role === "user") {
+      items.push({ kind: "user", id: m.id, text: m.content, ...(m.context ? { context: m.context } : {}) });
+    }
     if (m.role === "assistant") {
       if (m.content) items.push({ kind: "assistant", id: m.id, text: m.content, model: m.model });
       for (const call of m.tool_calls) {
@@ -174,6 +177,16 @@ function threadItemFor(call: ToolCall): ThreadItem {
 function withoutLocalBubble(items: ThreadItem[], text: string): ThreadItem[] {
   const last = items[items.length - 1];
   return last?.kind === "user" && last.id.startsWith("local-") && last.text === text ? items.slice(0, -1) : items;
+}
+
+/** The latest user message with `context` as its canvas note, left as it was and in its place:
+ *  the bubble was drawn before the server stored the message, and forking finds it by position. */
+function withContext(items: ThreadItem[], context: string): ThreadItem[] {
+  for (let at = items.length - 1; at >= 0; at--) {
+    const item = items[at];
+    if (item.kind === "user") return items.map((it, i) => (i === at ? { ...item, context } : it));
+  }
+  return items;
 }
 
 /**
@@ -346,6 +359,8 @@ function applyEvent(state: ThreadState, e: AgentEvent): ThreadState {
     // event arrived on a stream nothing is watching for it; nothing to do.
     case "queued":
       return state;
+    case "user_context":
+      return { ...state, items: withContext(state.items, e.context) };
     case "steer": {
       const items = [...state.items, { kind: "user" as const, id: `local-${state.items.length}`, text: e.text }];
       let left = e.count;

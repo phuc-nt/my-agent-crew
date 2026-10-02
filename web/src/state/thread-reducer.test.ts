@@ -10,6 +10,7 @@ import {
 } from "./thread-reducer";
 
 const DENIED_TEXT = "Người dùng đã TỪ CHỐI hành động này. Không thử lại cùng hành động.";
+const NOTE = "[Canvas · Kế hoạch tuần]\n> chạy 5 km";
 
 function message(partial: Partial<StoredMessage> & { role: StoredMessage["role"] }): StoredMessage {
   return {
@@ -84,6 +85,18 @@ describe("itemsFromMessages", () => {
 
   it("skips system messages and assistant messages with no content or calls", () => {
     expect(itemsFromMessages([message({ role: "system", content: "x" }), message({ role: "assistant" })])).toEqual([]);
+  });
+
+  it("carries the canvas note a user message was stored with, and nothing for one stored without", () => {
+    const items = itemsFromMessages([
+      message({ id: "u1", role: "user", content: "sửa chỗ này", context: NOTE }),
+      message({ id: "u2", role: "user", content: "không kèm gì" }),
+      message({ id: "u3", role: "user", content: "ghi chú rỗng", context: "" }),
+    ]);
+    expect(items[0]).toEqual({ kind: "user", id: "u1", text: "sửa chỗ này", context: NOTE });
+    // No key at all, not an empty one: the thread draws a chip wherever `context` is set.
+    expect(items[1]).not.toHaveProperty("context");
+    expect(items[2]).not.toHaveProperty("context");
   });
 });
 
@@ -270,6 +283,39 @@ describe("threadReducer streaming turn", () => {
     const before = run([{ type: "thinking" }]);
     expect(threadReducer(before, { type: "event", event: { type: "model_call", stage: "first_token" } })).toBe(before);
     expect(run([{ type: "model_call", stage: "sent" }]).busy).toBe(true);
+  });
+
+  it("a user_context event gives the message this tab just drew the note the server stored with it", () => {
+    const earlier: ThreadItem = { kind: "user", id: "m-1", text: "câu cũ", context: "ghi chú cũ" };
+    const sent = threadReducer({ ...emptyThread, items: [earlier] }, { type: "user_sent", text: "sửa chỗ này" });
+    const noted = run([{ type: "user_context", context: NOTE }], { ...sent, busy: true });
+    // The bubble keeps its local id: forking finds it by position, and a note changes nothing
+    // about where the message stands. The message before it is left as it was.
+    expect(noted.items).toEqual([earlier, { kind: "user", id: "local-1", text: "sửa chỗ này", context: NOTE }]);
+    expect(noted.items[0]).toBe(earlier);
+    expect(noted.busy).toBe(true);
+  });
+
+  it("a user_context event goes to the latest user message, wherever it stands in the thread", () => {
+    const items: ThreadItem[] = [
+      { kind: "user", id: "m-1", text: "một" },
+      { kind: "user", id: "local-1", text: "hai" },
+      { kind: "assistant", id: "a-1", text: "đã rõ", model: null },
+    ];
+    const noted = run([{ type: "user_context", context: NOTE }], { ...emptyThread, busy: true, items });
+    expect(noted.items.map((it) => (it.kind === "user" ? (it.context ?? "none") : "-"))).toEqual(["none", NOTE, "-"]);
+  });
+
+  it("a user_context event leaves the thread alone when it holds no user message to give it to", () => {
+    const state: ThreadState = {
+      ...emptyThread,
+      busy: true,
+      items: [{ kind: "assistant", id: "a-1", text: "xin chào", model: null }],
+    };
+    const next = run([{ type: "user_context", context: NOTE }], state);
+    expect(next.items).toBe(state.items);
+    // The outer case clears `thinking` for every event that is not a marker; nothing else moved.
+    expect(next).toEqual({ ...state, thinking: false });
   });
 
   it("user_sent appends locally and turn_started clears the previous notice", () => {

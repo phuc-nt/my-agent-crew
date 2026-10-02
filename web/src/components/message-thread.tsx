@@ -4,6 +4,7 @@ import { useAutoScroll } from "../hooks/use-auto-scroll";
 import { vi } from "../i18n/vi";
 import type { ThreadItem } from "../state/thread-reducer";
 import { AttachmentChip, fileName, splitAttachments, type AttachmentBlock } from "./attachment-chip";
+import { CanvasNoteChip } from "./canvas/canvas-note-chip";
 import { BubbleActions } from "./copy-button";
 import { ForkButton } from "./fork-button";
 import { MarkdownBody } from "./markdown-body";
@@ -215,7 +216,7 @@ function Item({
   const blocks: (ReplyBlock | AttachmentBlock)[] = assistant
     ? splitMedia(item.text)
     : splitAttachments(item.text);
-  return (
+  const bubble = (
     <div className={`bubble ${item.kind}`} data-testid={`message-${item.kind}`}>
       {/* Your own messages need no name on screen — the side they sit on says it — but a
           screen reader reading the thread in order still needs to hear who spoke. */}
@@ -258,5 +259,15 @@ function Item({
       {assistant && item.text.trim() !== "" && <BubbleActions text={item.text} />}
       {!assistant && onFork && <ForkButton onClick={() => onFork(item)} />}
     </div>
+  );
+  // The canvas note a message carried hangs under its bubble, not inside it: the bubble's
+  // colour is the person's own words, and the note is the document's.
+  return item.kind === "user" && item.context ? (
+    <>
+      {bubble}
+      <CanvasNoteChip note={item.context} />
+    </>
+  ) : (
+    bubble
   );
 }

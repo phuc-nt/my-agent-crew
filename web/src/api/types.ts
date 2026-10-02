@@ -21,6 +21,10 @@ export interface StoredMessage {
   model: string | null;
   cost_usd: number | null;
   created_at: string;
+  /** The note a user message was stored with when the person's canvas came along: the passage
+   *  they selected, or what they changed since the agent last saw it. Absent or empty when
+   *  there was none. */
+  context?: string;
 }
 
 export interface Conversation {
@@ -156,7 +160,11 @@ export type AgentEvent =
    *  the only event this stream will ever carry. */
   | { type: "queued"; item_id: number; kind: "follow_up" | "steer"; position: number }
   /** A message sent while this turn ran was just handed to it, before its next model call. */
-  | { type: "steer"; text: string; count: number };
+  | { type: "steer"; text: string; count: number }
+  /** The canvas note stored with the message that started this turn, the first thing the
+   *  stream of the tab that sent it carries. It names no message: the bubble is that tab's
+   *  latest. */
+  | { type: "user_context"; context: string };
 
 export interface ToolInfo {
   name: string;

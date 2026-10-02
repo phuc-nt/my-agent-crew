@@ -425,9 +425,12 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
           const { text } = route.request().postDataJSON() as { text: string };
           const nextSeq = () => (sent.messages as { seq: number }[]).reduce((n, m) => Math.max(n, m.seq), 0) + 1;
           const nextId = () => String((sent.messages as { id: string }[]).reduce((n, m) => Math.max(n, Number(m.id) || 0), 0) + 1);
+          // The note a turn streams back for its message is the one the server stored with it.
+          const note = (events as AgentEvent[]).find((event) => event.type === "user_context");
           sent.messages.push({
             id: nextId(), seq: nextSeq(), role: "user", content: text, tool_calls: [],
             tool_call_id: null, name: null, provider: null, model: null, cost_usd: null, created_at: "",
+            ...(note?.type === "user_context" ? { context: note.context } : {}),
           });
           for (const event of events as { type: string }[]) {
             if (event.type !== "assistant_message") continue;

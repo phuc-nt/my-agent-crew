@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { agentFileUrl } from "../api/client";
 import type { RunInfo, RunStep } from "../api/types";
@@ -242,6 +242,55 @@ describe("the fork button under a saved user message", () => {
     thread({ onFork: (item) => (picked = item) });
     screen.getByTestId("message-user").querySelector<HTMLButtonElement>(".fork-button")?.click();
     expect(picked).toEqual(userItem);
+  });
+});
+
+describe("the canvas note under a user message", () => {
+  const NOTE = "[Canvas · Kế hoạch tuần]\n> chạy 5 km";
+  const plain: ThreadItem = { id: "m1", kind: "user", text: "cảm ơn" };
+  const asked: ThreadItem = { id: "m2", kind: "user", text: "sửa chỗ này", context: NOTE };
+  const reply: ThreadItem = { id: "a1", kind: "assistant", text: "đã sửa", model: null };
+
+  function thread(items: ThreadItem[]) {
+    return render(
+      <MessageThread
+        items={items}
+        streaming={null}
+        busy={false}
+        onSuggestion={() => {}}
+        echoOnly={false}
+        agentId="master"
+        onFork={() => {}}
+      />,
+    );
+  }
+
+  it("is a collapsed chip right under the bubble of the message that carries one", () => {
+    thread([asked, reply]);
+
+    const bubble = screen.getByTestId("message-user");
+    const note = screen.getByTestId("canvas-note");
+    expect(bubble.nextElementSibling).toBe(note);
+    // Beside the bubble, not in it: the bubble's colour would swallow the note's own text.
+    expect(bubble).not.toContainElement(note);
+    expect(within(note).getByRole("button", { name: vi.canvas.noteChip })).toHaveAttribute("aria-expanded", "false");
+    expect(bubble.querySelector(".fork-button")).not.toBeNull();
+  });
+
+  it("is absent under a message that carries none and under an agent reply", () => {
+    thread([plain, reply]);
+    expect(screen.queryByTestId("canvas-note")).toBeNull();
+  });
+
+  it("stands under its own message and no other", () => {
+    thread([plain, asked, reply, { ...plain, id: "m4" }]);
+
+    const [first, second, third] = screen.getAllByTestId("message-user");
+    const note = screen.getByTestId("canvas-note");
+    expect(screen.getAllByTestId("canvas-note")).toHaveLength(1);
+    expect(second.nextElementSibling).toBe(note);
+    expect(first.nextElementSibling).not.toBe(note);
+    expect(third.previousElementSibling).not.toBe(note);
   });
 });
 

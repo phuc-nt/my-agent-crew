@@ -132,9 +132,11 @@ export function applyRunEvent(run: RunInfo, e: AgentEvent): RunInfo {
       steps.push({ kind: "steer", text: noteText(e.text), duration_ms: 0 });
       break;
     // Never reaches the activity stream: a stream nothing is watching for it carries only
-    // the one `queued` event, which the sending hook intercepts before this reducer runs.
-    // Listed so the switch stays exhaustive against a stale tab that somehow still sees it.
+    // the one `queued` event, which the sending hook intercepts before this reducer runs, and
+    // the canvas note of a message goes to the tab that sent it and no one else.
+    // Listed so the switch stays exhaustive against a stale tab that somehow still sees them.
     case "queued":
+    case "user_context":
     case "text_delta":
     case "thinking":
     case "model_call":

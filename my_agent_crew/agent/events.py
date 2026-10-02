@@ -123,6 +123,15 @@ class SteerEvent:
     count: int
 
 
+@dataclass(frozen=True)
+class UserContextEvent:
+    """The canvas note stored with the message this turn answers. The web drew that message's
+    bubble before the server had stored anything, so the note reaches it here, on the stream
+    of the tab that sent the message. It names no message: the bubble is that tab's latest."""
+
+    context: str
+
+
 Event = (
     TextDeltaEvent
     | ThinkingEvent
@@ -137,11 +146,13 @@ Event = (
     | RouteFallbackEvent
     | QueuedEvent
     | SteerEvent
+    | UserContextEvent
 )
 
-# Events that flow through a turn but are not worth a write or a broadcast on their own:
-# the run they belong to is stored and sent at the next step boundary.
-STREAMING_EVENTS = (TextDeltaEvent, ThinkingEvent, ModelCallEvent)
+# Events that flow through a turn but are not worth a write or a broadcast on their own: the
+# run they belong to is stored and sent at the next step boundary. The canvas note is here for
+# another reason as well: it quotes the person's canvas, so only their own stream carries it.
+STREAMING_EVENTS = (TextDeltaEvent, ThinkingEvent, ModelCallEvent, UserContextEvent)
 
 _KIND = {
     TextDeltaEvent: "text_delta",
@@ -157,6 +168,7 @@ _KIND = {
     RouteFallbackEvent: "route_fallback",
     QueuedEvent: "queued",
     SteerEvent: "steer",
+    UserContextEvent: "user_context",
 }
 
 

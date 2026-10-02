@@ -654,7 +654,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     checkbox đo theo label bọc nó, link nằm trong câu được miễn như WCAG ("every control on %s is big
     enough for a finger", "every control in the phone's conversation drawer is big enough for a
     finger"); phép quét nằm ở `small-targets.ts`, quét được riêng một vùng, và `canvas.spec.ts` dùng nó
-    cho dock canvas
+    cho dock canvas, `canvas-note.spec.ts` cho chip ghi chú dưới tin (cả ở 1000 px cảm ứng, nơi chỉ
+    `touch-targets.css` giữ nút chép ghi chú ở 40px)
 - **Agent con kết lượt bằng một dòng `MEDIA:` trần vẫn đưa lời khuyên tới người dùng**
   - pytest:
     `tests/test_delegate_attachments.py::test_an_answer_written_beside_a_tool_call_is_not_lost_to_a_bare_chart_line`;
@@ -1505,6 +1506,31 @@ tên một test thì sửa dòng của nó trong cùng commit.
     duyệt, hội thoại không có) thì canvas đang mở không đổi, tab hiện canvas đã xoá vẫn gửi được và
     đóng nó, "test_a_queued_message_names_its_canvas_when_it_is_delivered",
     "test_the_open_canvas_is_named_once_while_messages_keep_carrying_it")
+- **Tin gửi đi cùng ghi chú canvas thì tab gửi nhận lại đúng ghi chú ấy ngay đầu luồng và hiện nó
+  thành một chip dưới tin; mở lại cuộc trò chuyện vẫn thấy chip**
+  - pytest: `tests/test_user_context_event.py`
+    ("test_the_first_event_of_a_turn_is_the_note_its_message_was_stored_with", event chỉ có `type`
+    và `context`, không mang id tin; tin lưu không có ghi chú, lượt không nhận tin mới và tin server
+    xếp hàng (chỉ nhận `queued`) đều không có event này;
+    "test_the_activity_hub_neither_writes_nor_broadcasts_it": tab khác đang xem không thấy ghi chú
+    của người gửi; "test_a_reply_reads_the_same_with_the_note_in_the_chain_or_without_it"; qua API
+    thì là khối SSE đầu tiên và mang đúng đoạn người đã chọn)
+  - vitest: `web/src/state/thread-reducer.test.ts` (tin lưu cùng ghi chú mang ghi chú, tin lưu không
+    có hay có ghi chú rỗng thì không có khoá `context`; event `user_context` gắn ghi chú vào tin người
+    mới nhất dù nó đứng đâu trong thread, và để yên thread khi chưa có tin người nào);
+    `web/src/state/activity-reducer.test.ts` (luồng hoạt động của tab khác không nhận gì từ ghi chú
+    của tin); `web/src/hooks/use-thread.test.ts` ("reaches the bubble the send drew, off the stream
+    of that send"; tin server không lưu ghi chú thì bong bóng giữ nguyên chữ người gõ);
+    `web/src/components/canvas/canvas-note-chip.test.tsx` (chip gập lại và chưa có chữ nào của ghi
+    chú trên màn hình, `aria-controls` chỉ có khi thân đang mở, mở rồi đóng lại, chữ trong ghi chú
+    là chữ chứ không là markup, ký tự ẩn hiện thành dấu thấy được còn nút chép chép đúng bản gốc);
+    `web/src/components/message-thread.test.tsx` ("the canvas note under a user message": chip nằm
+    ngay dưới bong bóng của tin mang ghi chú và ngoài bong bóng, không có dưới tin không mang ghi
+    chú hay dưới câu trả lời của agent, và chỉ dưới đúng tin của nó)
+  - Playwright: `canvas-note.spec.ts` ("a message sent with a canvas note shows it as a chip, and
+    still does once the page is loaded again": chip ngay sau bong bóng, mở ra thấy đúng ghi chú,
+    tải lại trang vẫn còn; tin gửi không ghi chú thì không có chip; ở 390×844 và 1000×800 cảm ứng
+    chip và nút chép đều ≥40px kể cả lúc đang mở, không cuộn ngang)
 - **Mọi thay đổi canvas tới web qua luồng hoạt động, kể cả lần ghi từ luồng khác; không lần đọc
   nào đổi trạng thái**
   - pytest: `tests/test_artifact_events.py` ("test_every_change_made_over_rest_is_announced": tạo,

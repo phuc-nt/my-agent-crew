@@ -1039,5 +1039,7 @@ export const vi = {
     unchanged: (count: number) => `⋯ ${count} dòng không đổi`,
     tooBig: "Thay đổi quá lớn để hiện từng dòng",
     noChange: "Không có thay đổi.",
+    noteChip: "Kèm ngữ cảnh canvas",
+    noteCopy: "Sao chép ghi chú canvas",
   },
 } as const;

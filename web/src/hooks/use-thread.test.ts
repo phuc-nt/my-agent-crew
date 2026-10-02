@@ -418,6 +418,44 @@ describe("send settles at the first thing the server says", () => {
   });
 });
 
+describe("the canvas note a message was sent with", () => {
+  const NOTE = "[Canvas · Kế hoạch tuần]\n> chạy 5 km";
+
+  it("reaches the bubble the send drew, off the stream of that send", async () => {
+    vitest.spyOn(api, "getConversation").mockResolvedValue(idle());
+    vitest.spyOn(api, "sendMessage").mockImplementation(async (_id, _text, emit) => {
+      emit({ type: "user_context", context: NOTE });
+      emit({ type: "done", spent_usd: 0, unknown_cost_calls: 0 });
+    });
+    const { result } = renderHook(() => useThread("c1"));
+    await waitFor(() => expect(result.current.detail).not.toBeNull());
+    const before = result.current.state.items.length;
+
+    await act(async () => {
+      await result.current.send("sửa chỗ này");
+    });
+
+    const bubbles = result.current.state.items.filter((it) => it.kind === "user");
+    expect(bubbles).toEqual([{ kind: "user", id: `local-${before}`, text: "sửa chỗ này", context: NOTE }]);
+    expect(result.current.state.busy).toBe(false);
+  });
+
+  it("leaves a bubble the server stored no note for as the person typed it", async () => {
+    vitest.spyOn(api, "getConversation").mockResolvedValue(idle());
+    vitest.spyOn(api, "sendMessage").mockImplementation(oneShot({ type: "done", spent_usd: 0, unknown_cost_calls: 0 }));
+    const { result } = renderHook(() => useThread("c1"));
+    await waitFor(() => expect(result.current.detail).not.toBeNull());
+
+    await act(async () => {
+      await result.current.send("không kèm gì");
+    });
+
+    const bubble = result.current.state.items.find((it) => it.kind === "user");
+    expect(bubble).toMatchObject({ kind: "user", text: "không kèm gì" });
+    expect(bubble).not.toHaveProperty("context");
+  });
+});
+
 describe("Stop, redesigned: server first, then abort, chip text back in order", () => {
   beforeEach(() => {
     // `shouldAdvanceTime` keeps `waitFor`'s own polling and React's scheduler moving in

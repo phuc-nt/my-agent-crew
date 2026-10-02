@@ -19,6 +19,7 @@ from my_agent_crew.agent.events import (
     RouteFallbackEvent,
     TextDeltaEvent,
     ThinkingEvent,
+    UserContextEvent,
 )
 from my_agent_crew.agent.loop_guard import HALT, OK, LoopGuard
 from my_agent_crew.agent.payload_trim import turn_boundary
@@ -86,7 +87,11 @@ async def run_turn(
         if conv.status == AWAITING_APPROVAL:
             raise ConversationBusy(conv_id)
         close_interrupted(deps.store, conv_id)
-        deps.store.append(conv_id, Message(role="user", content=user_text), note_source=source)
+        stored = deps.store.append(
+            conv_id, Message(role="user", content=user_text), note_source=source
+        )
+        if stored.context:
+            yield UserContextEvent(stored.context)
 
     empty_replies = 0
     guard = LoopGuard()

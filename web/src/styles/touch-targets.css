@@ -31,6 +31,8 @@
   .tabs.sub button,
   .editable-title,
   .canvas-toolbar button.copy-button,
+  button.canvas-note-toggle,
+  .canvas-note button.copy-button,
   .composer-box textarea,
   .composer-box textarea:focus {
     min-height: var(--touch-target);

@@ -3,7 +3,8 @@
  * conversation's activity alone while nothing is open, and with the list or a canvas open, a
  * tab for each over a column whose left edge drags. Narrower, the open dock is a layer over
  * the chat column, the whole screen on a phone. Inside it: the conversation's canvases, and
- * one canvas with its header, its text, the conflict bar and the history.
+ * one canvas with its header, its text, the conflict bar and the history. Last, outside the
+ * dock, the note a message carried from the canvas, as a chip under its bubble in the thread.
  */
 
 /* ── The column ─────────────────────────────────────────────────────────── */
@@ -479,4 +480,49 @@ button.canvas-button[aria-expanded="true"] {
 .canvas-dock.column > .dock-activity[hidden],
 .canvas-dock > .dock-canvas[hidden] {
   display: none;
+}
+
+/* ── The note under a message ───────────────────────────────────────────── */
+/* Closed, a chip tucked under the bubble it belongs to: the thread's own gap would set it
+   adrift as a message of its own. Open, the note's text and its copy button follow. */
+.canvas-note {
+  align-self: flex-end;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-2);
+  min-width: 0;
+  max-width: min(85%, 620px);
+  margin-top: calc(-1 * var(--space-3));
+}
+
+button.canvas-note-toggle {
+  min-height: 28px;
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+.canvas-note-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-1);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.canvas-note-text {
+  margin: 0;
+  max-width: 100%;
+  max-height: 40vh;
+  overflow-y: auto;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  /* A line of a quoted document can be longer than the screen: it wraps rather than scrolls. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }

@@ -146,6 +146,15 @@ describe("applyRunEvent", () => {
     expect(applyRunEvent(run(), { type: "model_call", stage: "sent" }).steps).toEqual([]);
   });
 
+  it("takes nothing from the canvas note a message was sent with: it is the sender's stream's alone", () => {
+    const midTurn = run({
+      summary: "đang làm",
+      spent_usd: 0.1,
+      steps: [{ kind: "tool", name: "shell_run", ok: null, output: null, duration_ms: null }],
+    });
+    expect(applyRunEvent(midTurn, { type: "user_context", context: "[Canvas]\n> chạy 5 km" })).toEqual(midTurn);
+  });
+
   it("labels a paused question by what it asked and leaves its step open, as the server does", () => {
     const asked = applyRunEvent(run(), {
       type: "approval_required",

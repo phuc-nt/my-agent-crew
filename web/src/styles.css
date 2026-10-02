@@ -15,7 +15,8 @@
  *   agent-admin → editing the crew: the agent editor's form, the tools matrix, connections.
  *   conversation-activity → the activity strip belonging to the open chat.
  *   run-timeline   → the process visualisation inside an open run card.
- *   canvas  → the canvas dock beside the chat: its column, overlay, panel and history.
+ *   canvas  → the canvas dock beside the chat: its column, overlay, panel and history, and the
+ *             note a message carries from it, under the message in the thread.
  *
  * A rule belongs to exactly one of these. If a new rule fits none of them, that
  * is the signal to add a region rather than to append it here.
