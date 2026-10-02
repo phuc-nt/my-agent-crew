@@ -51,7 +51,8 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   number, author and text instead of overwriting it. `GET …/versions[/{n}]` lists the history
   and reads one version whole, `POST …/restore` writes an old version back as the newest, and
   `GET …/raw` serves a version's text, always as sandboxed plain text whatever the canvas holds,
-  or as a download named after its title in any script. Every write over REST is the person's:
+  or as a download named after its title in any script; HTML code downloads as `.html.txt`, so
+  opening the file shows the code instead of running it. Every write over REST is the person's:
   no body names an author or a conversation for it. A refusal from the store answers with its
   own status (404, 409, 413, 422, 507) and a structured body, never a 500.
 - The activity stream announces every canvas change as an `artifact` event with the

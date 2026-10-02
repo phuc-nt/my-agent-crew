@@ -1459,7 +1459,7 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "test_a_download_is_named_after_the_title_in_any_script"); `tests/test_artifact_filenames.py`
     ("test_a_file_name_keeps_the_title_in_any_script_without_what_a_file_system_refuses",
     "test_a_file_name_ends_in_the_extension_of_its_kind": markdown là `.md`, code theo ngôn ngữ, ngôn
-    ngữ lạ là `.txt`)
+    ngữ lạ là `.txt`, code `html` là `.html.txt` để mở tệp tải về chỉ thấy chữ, không chạy script)
 - **Canvas đang mở trên web: đặt, đọc, đóng; mở là chia sẻ với hội thoại**
   - pytest: `tests/test_api_canvas_focus.py` (đặt rồi đọc lại cùng vùng chọn, `null` là đóng, vùng
     chọn không kèm canvas là 422, mở canvas agent chỉ đọc thì chia sẻ nó, canvas chưa liên kết được

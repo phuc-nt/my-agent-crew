@@ -1,5 +1,6 @@
 """The name a canvas is saved under when it is downloaded: its title in any script, less what
-a file system refuses, and the extension of its kind."""
+a file system refuses, and the extension of its kind, followed by `.txt` for code a browser would
+run when the file is opened."""
 
 import pytest
 
@@ -34,6 +35,8 @@ def test_a_file_name_keeps_the_title_in_any_script_without_what_a_file_system_re
         ("code", "typescript", ".ts"),
         ("code", "yml", ".yaml"),
         ("code", "c++", ".cpp"),
+        ("code", "css", ".css"),
+        ("code", "html", ".html.txt"),
         ("code", "brainfuck", ".txt"),
         ("code", "", ".txt"),
         ("html", "", ".txt"),

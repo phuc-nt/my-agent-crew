@@ -115,6 +115,7 @@ def test_the_raw_text_of_an_older_version(client, store: Store):
     [
         ("markdown", "", "Kế hoạch tuần.md", "ke-hoach-tuan.md"),
         ("code", "python", "Kế hoạch tuần.py", "ke-hoach-tuan.py"),
+        ("code", "html", "Kế hoạch tuần.html.txt", "ke-hoach-tuan.html.txt"),
         ("code", "", "Kế hoạch tuần.txt", "ke-hoach-tuan.txt"),
     ],
 )

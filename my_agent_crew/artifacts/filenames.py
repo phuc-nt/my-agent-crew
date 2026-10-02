@@ -40,6 +40,9 @@ _CODE: dict[str, tuple[str, ...]] = {
     ".php": ("php",),
 }
 CODE_EXTENSIONS = {name: extension for extension, names in _CODE.items() for name in names}
+# A browser runs the scripts in these when the file is opened, with the reach of a local file,
+# and a canvas can hold whatever an agent copied from a web page: they download as text.
+_BROWSER_RUNS = {".html"}
 
 
 def extension_for(kind: str, language: str = "") -> str:
@@ -51,7 +54,11 @@ def extension_for(kind: str, language: str = "") -> str:
 
 
 def filename_for(title: str, kind: str, language: str = "") -> str:
-    """Whitespace runs become one space, and a title with nothing left saves as "canvas"."""
+    """Whitespace runs become one space, and a title with nothing left saves as "canvas". Code a
+    browser would run keeps its extension before `.txt`, so opening the file shows the code."""
     spaced = " ".join(_SEPARATORS.sub("-", title).split())
     stem = " ".join(_UNSAFE.sub("", spaced).split())[:FILENAME_MAX].strip(" .-")
-    return (stem or FALLBACK_STEM) + extension_for(kind, language)
+    extension = extension_for(kind, language)
+    if extension in _BROWSER_RUNS:
+        extension += ".txt"
+    return (stem or FALLBACK_STEM) + extension
