@@ -187,7 +187,7 @@ export class FakeBackend {
   wiki = new FakeWiki();
   /** The canvases, empty until a test seeds one. Each change reaches every open activity
    *  stream, unless a test points `canvas.onEvent` elsewhere to deliver it on its own time. */
-  canvas = Object.assign(new FakeCanvas(), {
+  canvas: FakeCanvas = Object.assign(new FakeCanvas(), {
     conversationExists: (id: string) => this.conversations.has(id),
     onEvent: (event: ArtifactEvent) => {
       for (const source of FakeEventSource.instances) if (!source.closed) source.emit(event);

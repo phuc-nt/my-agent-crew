@@ -18,9 +18,13 @@ export function readText(key: string): string | null {
   return attempt((storage) => storage.getItem(key), null);
 }
 
-/** Stores `text` under `key`; null removes the entry. */
-export function writeText(key: string, text: string | null): void {
-  attempt((storage) => (text === null ? storage.removeItem(key) : storage.setItem(key, text)), undefined);
+/** Stores `text` under `key`; null removes the entry. False when the browser refused. */
+export function writeText(key: string, text: string | null): boolean {
+  return attempt((storage) => {
+    if (text === null) storage.removeItem(key);
+    else storage.setItem(key, text);
+    return true;
+  }, false);
 }
 
 /** The value stored under `key` as JSON, or null. */
@@ -31,7 +35,22 @@ export function readJson(key: string): unknown {
   }, null);
 }
 
-/** Stores `value` under `key` as JSON. */
-export function writeJson(key: string, value: unknown): void {
-  attempt((storage) => storage.setItem(key, JSON.stringify(value)), undefined);
+/** Stores `value` under `key` as JSON. False when the browser refused. */
+export function writeJson(key: string, value: unknown): boolean {
+  return attempt((storage) => {
+    storage.setItem(key, JSON.stringify(value));
+    return true;
+  }, false);
+}
+
+/** Every stored key that starts with `prefix`; none when storage is refused. */
+export function keys(prefix: string): string[] {
+  return attempt((storage) => {
+    const found: string[] = [];
+    for (let i = 0; i < storage.length; i++) {
+      const key = storage.key(i);
+      if (key !== null && key.startsWith(prefix)) found.push(key);
+    }
+    return found;
+  }, []);
 }

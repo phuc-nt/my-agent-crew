@@ -19,6 +19,10 @@ const artifactPath = (id: string) => `/artifacts/${encodeURIComponent(id)}`;
 
 export type SaveOptions = { signal?: AbortSignal; keepalive?: boolean };
 
+/** The body of a save, whose size a request kept alive past the page has to fit. */
+export const saveBody = (content: string, baseVersion: number) =>
+  JSON.stringify({ content, base_version: baseVersion });
+
 export const artifactApi = {
   list: (conversationId?: string, q?: string) =>
     request<ArtifactSummary[]>(`/artifacts${query({ conversation_id: conversationId, q })}`),
@@ -30,7 +34,7 @@ export const artifactApi = {
   save: (id: string, content: string, baseVersion: number, options: SaveOptions = {}) =>
     request<ArtifactVersionMeta>(artifactPath(id), {
       method: "PUT",
-      body: JSON.stringify({ content, base_version: baseVersion }),
+      body: saveBody(content, baseVersion),
       signal: options.signal,
       keepalive: options.keepalive,
     }),

@@ -1521,6 +1521,60 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "refuses a keepalive body that would take the bytes in flight past 64 KiB, without sending it",
     request bị huỷ vẫn ghi phần việc đã bắt đầu, canvas chỉ liên kết với hội thoại có thật và event
     tới mọi luồng đang mở)
+- **Canvas trên web: tự lưu không mất phím gõ, mỗi lúc một lần lưu, thử lại khi mất reply, dừng khi
+  server từ chối**
+  - vitest, máy trạng thái thuần, không timer và không mạng: `web/src/lib/canvas-machine-save.test.ts`
+    ("never has two saves in flight, whatever falls due and whatever comes back", gửi chữ kèm phiên bản
+    nó được sửa từ đó rồi lấy reply làm base, chữ gõ trong lúc lưu được gửi khi lần lưu kia về, trần
+    kích thước đo bằng byte UTF-8, thử lại sau 2, 5, 15, 30 giây rồi mỗi phút, 5xx như mất reply, "still
+    sends the text when it went back to its base after a lost save, which may have landed", mỗi mã từ
+    chối một test: 404 là đã xoá, 413 dừng tới khi chữ đổi, 507 giữ các canvas lớn nhất và dừng tới lần
+    lưu tay, 422 và 4xx khác dừng tới lần lưu tay, 409 không kèm bản mới nhất không phải xung đột);
+    `web/src/lib/canvas-machine-flush.test.ts` (`flush` trả phiên bản giữ chữ lúc gọi, không chờ phím gõ
+    sau đó, chờ qua lần lưu đang bay mang chữ cũ, null khi xung đột, đã xoá, bị từ chối, lần lưu đầu
+    mất, quá trần hay đang dừng)
+- **Canvas trên web: theo kịp server và nháp trên máy; event của chính mình không đọc lại, bản mới được
+  trộn, xung đột giữ cả hai phía**
+  - vitest: `web/src/lib/canvas-machine-sync.test.ts` ("reads nothing when its own save's event comes
+    before or after the reply", "does not call text saved when the agent wrote a newer version during
+    the save", đổi tên và xoá khi đang lưu, "puts off a read asked for during a save, and never sends
+    older text after it", hai bản nối nhau mỗi bản một lần đọc, lần lưu mất reply mà đã tới server được
+    nhận làm base; mở với nháp: nháp bằng bản mới nhất thì bỏ, nháp trên bản mới nhất thành chữ chưa
+    lưu, nháp trên bản cũ được trộn, sửa cùng dòng là xung đột, "takes the person's own save that was
+    out when the page closed, and keeps what they typed after it", "does not take a version the agent
+    wrote with the same words for the person's own save"); `web/src/lib/canvas-machine-conflict.test.ts`
+    (409 của chính lần lưu mất reply là base chứ không phải xung đột, phím gõ trong lúc lưu được trộn,
+    "merges again when the merged save meets yet another version, and loses nothing", `keepMine` và
+    `loadTheirs` rồi lấy lại chữ của mình được cho tới khi gõ, 409 giữa lúc soạn IME chờ
+    `compositionend`, khôi phục đặt chữ và base không chờ luồng); `web/src/lib/canvas-draft.test.ts`
+    (nháp chỉ của đúng canvas, xoá khoá cũ trước khi ghi nên kho đầy không để lại nháp, trình duyệt từ
+    chối thì báo, "clears a draft only while it still holds the text that was saved", giữ mười nháp mới
+    nhất, bỏ nháp quá ba mươi ngày và nháp hỏng); `web/src/lib/local-store.test.ts` (liệt kê khoá theo
+    tiền tố, lần ghi báo có được giữ không khi trình duyệt từ chối hay hết quota)
+- **Canvas trên web: canvas đang mở lưu 1,5 giây sau phím cuối, rời đi vẫn lưu nốt, keepalive chỉ khi
+  vừa trần**
+  - vitest, hook trên `FakeCanvas` với đồng hồ giả: `web/src/hooks/use-canvas.test.ts` ("saves once,
+    1.5 s after the last of thirty keystrokes and not a moment sooner", Cmd/Ctrl+S lưu ngay và không lưu
+    lại khi hết lúc dừng gõ, sửa mà chữ không đổi không lùi lần lưu, "says so when this device cannot
+    keep the draft, until it can again", canvas 100 KB ẩn tab hay tháo panel đi bằng request thường và
+    nháp giữ phím gõ ngay trước, canvas 10 KB tháo panel thì một `PUT` keepalive đúng base, "forgets the
+    draft of a canvas deleted while open once its panel goes");
+    `web/src/hooks/use-canvas-switch.test.ts` ("shows the next canvas at once and finishes the last
+    one's save behind it", thử lại đang chờ được thử thêm một lần khi rời rồi dừng, ẩn tab lúc canvas
+    sau đang tải không lưu gì cho nó, "lets a canvas left behind finish its save without reading it
+    again or showing it", cờ nháp hỏng không theo sang canvas sau);
+    `web/src/hooks/use-canvas-sync.test.ts` (đọc lại khi luồng nối lại sau lần rớt mà không đọc lúc mới
+    nối, khi tab hiện, khi event báo bản mới; lần lưu không reply trong 30 giây là mất và được gửi lại;
+    nháp qua lần mount thử của StrictMode; "opens text typed after a save that landed unheard as the
+    person's draft, not as a clash"; năm test `flush`); `web/src/lib/canvas-handoff.test.ts` (lần lưu
+    cuối của canvas đã rời: 409 của chính mình là đã lưu, lỗi giữ nháp và báo người nghe còn đăng ký,
+    gửi chữ gõ sau lần lưu đang bay, ngân sách keepalive tính bằng byte, mỗi lúc một lần lưu keepalive,
+    lỗi trả lại ngân sách)
+- **Canvas trên web: tên người viết một bản, kích thước đọc được, ký tự ẩn hiện ra**
+  - vitest: `web/src/lib/canvas-author.test.ts` (người là "bạn", agent theo tên, agent có id `user` vẫn
+    là agent, agent không còn thì theo id); `web/src/lib/format-bytes.test.ts` (bước 1024, một chữ số lẻ
+    dưới mười viết bằng dấu phẩy, làm tròn tới 1024 thì lên đơn vị); `web/src/lib/hidden-chars.test.ts`
+    ("shows a right-to-left override as a visible mark", mọi ký tự điều khiển bidi và zero-width)
 - **Mã agent khớp cả chuỗi: chữ thường, số và gạch ngang, không cả xuống dòng ở cuối**
   - pytest: `tests/test_api_agents_edit.py::test_an_id_that_is_not_a_safe_folder_name_is_refused`
     (`../escape` và `coder` có xuống dòng ở cuối đều bị từ chối, không thư mục nào được tạo);

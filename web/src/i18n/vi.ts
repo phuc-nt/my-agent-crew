@@ -948,4 +948,7 @@ export const vi = {
     } as Record<string, string>,
     confirmRemove: (title: string) => `Xoá trang "${title}"? Không thể hoàn tác.`,
   },
+  canvas: {
+    you: "bạn",
+  },
 } as const;
