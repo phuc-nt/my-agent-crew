@@ -232,6 +232,12 @@ export const vi = {
   errorPrefix: "Lỗi: ",
   stopped: "Đã dừng lượt này.",
   busyConflict: "Cuộc trò chuyện đang chờ duyệt — hãy quyết định trước khi nhắn tiếp.",
+  // Why a message did not go, for the box that gets its words back. Picked by status and
+  // never copied from the server, some of whose refusals are in English.
+  sendFailed: {
+    tooFast: "Hàng chờ đã đầy hoặc bạn gửi quá nhanh — đợi lượt hiện tại xong rồi gửi tiếp.",
+    other: "Chưa gửi được tin này — thử lại sau một lúc.",
+  },
   loadFailed: "Không tải được dữ liệu từ máy chủ.",
   loading: "Đang tải…",
   // One word per action wherever it is offered — asking again after a failure, the next

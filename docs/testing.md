@@ -938,6 +938,33 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "Stop hands both queued texts back to the box in order and the chips go",
     "a reload still shows the chip: the conversation's own queued field carries it",
     "chips wrap instead of forcing the page wider, and Stop and send stay tappable")
+- **`send` báo kết quả ngay khi server nói gì đó: tin server giữ trong hàng không quay về ô soạn
+  tin, tin server không nhận thì chữ ở lại nơi người gõ**
+  - vitest: `app-queued-send.test.tsx` nhóm "a message sent while this tab thought the conversation
+    idle" ("stays out of the box once the server queued it: the chip stands for it" — tab không
+    thấy lượt đang chạy ở tab khác nên gửi theo đường rảnh và chỉ nhận một event `queued`: chip
+    đứng thay tin, ô soạn tin trống, không có bong bóng thứ hai; "takes its bubble back and leaves
+    the words in the box when the server refuses it before saying anything" — 429 trước event đầu:
+    bong bóng tạm biến mất, chữ ở lại ô và thông báo giữ câu của server; "hands the first message
+    of a new conversation back to the box when it cannot be sent" — cuộc trò chuyện mới đã tạo,
+    chữ về ô của nó);
+    `hooks/use-thread.test.ts` nhóm "send settles at the first thing the server says"
+    ("answers sent at the first event while the turn goes on", bảng "%s before any event takes the
+    bubble back and reports the send as failed" cho hàng đầy, chờ duyệt, server hỏng, hội thoại
+    mất và mất kết nối, "keeps the bubble and its error once the server has said anything: the
+    text is not given back", "answers sent, not failed, when the person leaves before the server
+    says anything" — rời đi hay bấm Stop không phải lỗi nên không trả chữ về ô của hội thoại khác,
+    "answers sent when the stream ends with nothing to say: the server took the message",
+    "has nowhere to send without a conversation"); nhóm "send while busy hits the queue's own
+    limits" ("a %d from the queueing POST shows the server's own text in the notice and fails the
+    send in our words" — thông báo giữ câu của server, `error` là câu của ta) và ba test xếp hàng
+    cũ nay kiểm cả kết quả (`queued`, `sent`, `queued`);
+    `state/thread-reducer.test.ts` "user_unsent takes back the local bubble for that text, and
+    only that one" (chỉ bong bóng `local-` cuối cùng đúng chữ; tin server đã lưu hay có thứ gì
+    đứng sau thì ở lại);
+    `lib/send-result.test.ts` nhóm "settlement" (chốt một lần, ở việc đến trước trong ba: nghe
+    event, lỗi, kết thúc; `queued` chỉ cho event `queued`) và "sendErrorText" (đổi trạng thái
+    thành câu tiếng Việt của ta, kể cả khi server trả câu tiếng Anh)
 - **Lượt Telegram chạy nền: chat được đọc trong lúc lượt chạy**
   - pytest: `tests/test_telegram_background.py` (`/status` trả lời giữa lượt, tin thứ hai xếp
     hàng không kèm "đang gõ…" rồi được trả lời riêng, `/new` bị từ chối khi đang chạy; `/steer`

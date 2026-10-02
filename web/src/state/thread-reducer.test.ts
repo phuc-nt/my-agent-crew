@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { AgentEvent, ConversationDetail, QueuedMessage, StoredMessage } from "../api/types";
-import { emptyThread, itemsFromMessages, questionText, threadReducer, type ThreadState } from "./thread-reducer";
+import {
+  emptyThread,
+  itemsFromMessages,
+  questionText,
+  threadReducer,
+  type ThreadItem,
+  type ThreadState,
+} from "./thread-reducer";
 
 const DENIED_TEXT = "Người dùng đã TỪ CHỐI hành động này. Không thử lại cùng hành động.";
 
@@ -412,6 +419,23 @@ describe("threadReducer queue and steer", () => {
     const busyPath = threadReducer({ ...emptyThread, busy: true }, { type: "queued", item: followUp });
     expect(busyPath.waiting).toEqual([followUp]);
     expect(busyPath.items).toEqual([]);
+  });
+
+  it("user_unsent takes back the local bubble for that text, and only that one", () => {
+    const earlier: ThreadItem = { kind: "user", id: "m-1", text: "câu cũ" };
+    const sent = threadReducer(
+      { ...emptyThread, items: [earlier] },
+      { type: "user_sent", text: "chưa tới được server" },
+    );
+    expect(threadReducer(sent, { type: "user_unsent", text: "chưa tới được server" }).items).toEqual([earlier]);
+    // Other words: the bubble stands for some other send, and stays.
+    expect(threadReducer(sent, { type: "user_unsent", text: "khác hẳn" }).items).toBe(sent.items);
+    // A message the server stored, with the same words, is not this send's bubble.
+    const stored = { ...emptyThread, items: [{ kind: "user" as const, id: "m-2", text: "lặp lại" }] };
+    expect(threadReducer(stored, { type: "user_unsent", text: "lặp lại" }).items).toBe(stored.items);
+    // Anything after the bubble means the server has answered: it stays.
+    const answered = { ...sent, items: [...sent.items, { kind: "note" as const, id: "n1", text: "đang xem" }] };
+    expect(threadReducer(answered, { type: "user_unsent", text: "chưa tới được server" }).items).toBe(answered.items);
   });
 
   it("queue_cleared empties waiting", () => {

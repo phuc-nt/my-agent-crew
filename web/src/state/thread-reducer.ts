@@ -86,6 +86,10 @@ export type ThreadAction =
   | { type: "opened" }
   | { type: "loaded"; detail: ConversationDetail }
   | { type: "user_sent"; text: string }
+  /** The server never took the message `user_sent` showed — it refused it, or the request
+   *  never got through — so the bubble goes, and the words go back where they were typed
+   *  rather than showing twice. */
+  | { type: "user_unsent"; text: string }
   | { type: "turn_started" }
   | { type: "turn_finished" }
   /** The person pressed Stop: whatever the stream still had to say is not coming. */
@@ -164,6 +168,14 @@ function threadItemFor(call: ToolCall): ThreadItem {
   return toolItem(call, "running");
 }
 
+/** Without the bubble `user_sent` added for `text`, while it is still the last thing in the
+ *  thread: a stored message with the same words is the server's, and anything after the
+ *  bubble means the server has already answered. */
+function withoutLocalBubble(items: ThreadItem[], text: string): ThreadItem[] {
+  const last = items[items.length - 1];
+  return last?.kind === "user" && last.id.startsWith("local-") && last.text === text ? items.slice(0, -1) : items;
+}
+
 /**
  * Calls that never answered, once no turn is going to answer them. A turn paused on a
  * person is not over: the calls queued behind the one waiting still run once it is
@@ -216,6 +228,8 @@ export function threadReducer(state: ThreadState, action: ThreadAction): ThreadS
         items: [...state.items, { kind: "user", id: `local-${state.items.length}`, text: action.text }],
         notice: null,
       };
+    case "user_unsent":
+      return { ...state, items: withoutLocalBubble(state.items, action.text) };
     case "turn_started":
       return { ...state, busy: true, streaming: null, notice: null };
     case "turn_finished":
@@ -250,11 +264,9 @@ export function threadReducer(state: ThreadState, action: ThreadAction): ThreadS
       // A local bubble for this text was added optimistically by `user_sent` on the plain
       // send path; drop it once the server's own chip stands for it. A busy-send POST never
       // adds that bubble, so there is nothing to drop on that path — only to add here.
-      const last = state.items[state.items.length - 1];
-      const dropsBubble = last?.kind === "user" && last.id.startsWith("local-") && last.text === action.item.text;
       return {
         ...state,
-        items: dropsBubble ? state.items.slice(0, -1) : state.items,
+        items: withoutLocalBubble(state.items, action.item.text),
         waiting: [...state.waiting, action.item],
       };
     }

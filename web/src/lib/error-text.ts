@@ -26,3 +26,10 @@ export function errorText(error: unknown, notFound?: string): string {
   if (error instanceof Error) return error.message;
   return String(error);
 }
+
+/** `errorText` for a request that sends a message or resumes a turn, where a 409 means the
+ *  conversation waits on a decision. */
+export function turnErrorText(error: unknown): string {
+  if (error instanceof ApiError && error.status === 409) return vi.busyConflict;
+  return errorText(error);
+}

@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { api, ApiError } from "../api/client";
 import type { AgentEvent, ConversationDetail, StopResult } from "../api/types";
-import { vi } from "../i18n/vi";
+import { turnErrorText } from "../lib/error-text";
+import type { SendResult } from "../lib/send-result";
 import { emptyThread, threadReducer, type ThreadState } from "../state/thread-reducer";
-import { errorText } from "../lib/error-text";
+import { useThreadSend } from "./use-thread-send";
 
 /** How long Stop waits on the server before giving up and cutting the stream locally
  *  anyway. A `setTimeout` rather than `AbortSignal.timeout`, so a test can drive it with
@@ -13,10 +14,10 @@ const STOP_WAIT_MS = 3000;
 export interface ThreadController {
   state: ThreadState;
   detail: ConversationDetail | null;
-  /** On the plain path this is the same send it always was. Found busy — this tab's own
-   *  stream, or one this tab did not start — it queues instead, and resolves with the text
-   *  to put back in the composer if the queueing POST itself failed; `null` otherwise. */
-  send: (text: string) => Promise<string | null>;
+  /** Sends `text` and says how that went the moment the server says anything — see
+   *  `SendResult` — while the turn it starts goes on after that. Found busy, this tab's own
+   *  stream or one this tab did not start, the message queues instead. */
+  send: (text: string) => Promise<SendResult>;
   /** `always` also whitelists the tool for the rest of this conversation. */
   decide: (approve: boolean, always?: boolean) => Promise<void>;
   /** Reply to a question the agent asked. Only a question row accepts this. */
@@ -73,7 +74,7 @@ export function useThread(conversationId: string | null): ThreadController {
     } catch (error) {
       if (opening !== opened.current) return;
       if (turn !== turns.current) return setOwed(true);
-      dispatch({ type: "failed", message: describe(error) });
+      dispatch({ type: "failed", message: turnErrorText(error) });
     }
   }, [conversationId]);
 
@@ -111,7 +112,7 @@ export function useThread(conversationId: string | null): ThreadController {
         await run(emit, controller.signal);
         if (!controller.signal.aborted) dispatch({ type: "turn_finished" });
       } catch (error) {
-        if (!controller.signal.aborted) dispatch({ type: "failed", message: describe(error) });
+        if (!controller.signal.aborted) dispatch({ type: "failed", message: turnErrorText(error) });
       } finally {
         if (abortRef.current === controller) abortRef.current = null;
       }
@@ -146,64 +147,7 @@ export function useThread(conversationId: string | null): ThreadController {
     [runTurn, reload],
   );
 
-  const send = useCallback(
-    async (text: string) => {
-      if (!conversationId) return null;
-      if (state.busy) {
-        // This tab's own stream is running: a second POST joins the queue behind it without
-        // ever touching `runTurn`, `abortRef` or `turns` — the turn already on screen must
-        // keep receiving events and stay abortable by Stop exactly as if this send had not
-        // happened.
-        const controller = new AbortController();
-        queueingRef.current.add(controller);
-        try {
-          await api.sendMessage(conversationId, text, (event) => {
-            if (event.type === "queued") dispatch({ type: "queued", item: { id: event.item_id, kind: event.kind, text } });
-          }, controller.signal);
-          return null;
-        } catch (error) {
-          if (controller.signal.aborted) return null;
-          // Neither branch touches the turn actually running: `queue_failed` only sets the
-          // notice, leaving `busy`, `streaming` and `items` exactly as the running stream
-          // left them. A 429 or 422 carries the server's own Vietnamese sentence; anything
-          // else — a dropped connection, most likely — falls back to `describe`.
-          const message =
-            error instanceof ApiError && (error.status === 429 || error.status === 422)
-              ? error.message
-              : describe(error);
-          dispatch({ type: "queue_failed", message });
-          return text;
-        } finally {
-          queueingRef.current.delete(controller);
-        }
-      }
-      // The plain path: this tab believes the conversation is idle. It may still be busy
-      // somewhere this tab cannot see — another tab, a job, the schedule — in which case the
-      // server queues the message and this stream's only event is `queued`.
-      dispatch({ type: "user_sent", text });
-      let queuedText: string | null = null;
-      await runTurn((emit, signal) =>
-        api.sendMessage(
-          conversationId,
-          text,
-          (event) => {
-            // Not passed on to the reducer's own `event` action: `applyEvent`'s `case
-            // "queued"` is a documented no-op, since only this caller knows which text was
-            // just sent and needs its temp bubble replaced with a chip.
-            if (event.type === "queued") {
-              dispatch({ type: "queued", item: { id: event.item_id, kind: event.kind, text } });
-              queuedText = text;
-              return;
-            }
-            emit(event);
-          },
-          signal,
-        ),
-      );
-      return queuedText;
-    },
-    [conversationId, runTurn, state.busy],
-  );
+  const send = useThreadSend({ conversationId, busy: state.busy, dispatch, runTurn, queueing: queueingRef });
 
   const decide = useCallback(
     async (approve: boolean, always = false) => {
@@ -275,9 +219,4 @@ export function useThread(conversationId: string | null): ThreadController {
   const settle = useCallback(() => dispatch({ type: "settled" }), []);
 
   return { state, detail, send, decide, answer, stop, reload, reloadWhenIdle, settle, handledElsewhere };
-}
-
-function describe(error: unknown): string {
-  if (error instanceof ApiError && error.status === 409) return vi.busyConflict;
-  return errorText(error);
 }

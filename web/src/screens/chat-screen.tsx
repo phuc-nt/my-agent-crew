@@ -91,14 +91,23 @@ export function ChatScreen({
   const drawer = useDrawer(phone);
   const { open: drawerOpen, show: showDrawer, hide: hideDrawer } = drawer;
 
-  // A message typed before any conversation exists waits until the new one has loaded.
   const { send: threadSend, detail } = thread;
+  // Only a send the server never took gives its words back: one it queued is held there and
+  // shown as a chip, and one it began a turn for is on screen as a message.
+  const sendOrRestore = useCallback(
+    async (text: string) => {
+      const result = await threadSend(text);
+      if (result.status === "failed") restoreText(text);
+    },
+    [threadSend, restoreText],
+  );
+  // A message typed before any conversation exists waits until the new one has loaded.
   useEffect(() => {
     if (queued && detail?.id === queued.id) {
       setQueued(null);
-      void threadSend(queued.text);
+      void sendOrRestore(queued.text);
     }
-  }, [queued, detail?.id, threadSend]);
+  }, [queued, detail?.id, sendOrRestore]);
 
   const runs = sortedRuns(activity.state);
   const live = liveRuns(activity.state);
@@ -134,13 +143,7 @@ export function ChatScreen({
   }, [listCreate, onSelectConversation]);
 
   const send = async (text: string) => {
-    if (list.activeId) {
-      // A non-null result is the text itself, handed back because the queueing POST failed
-      // server-side; it belongs back in the box exactly like text Stop pulled off the queue.
-      const failed = await thread.send(text);
-      if (failed !== null) restoreText(failed);
-      return;
-    }
+    if (list.activeId) return sendOrRestore(text);
     const created = await create();
     if (created) setQueued({ id: created.id, text });
   };

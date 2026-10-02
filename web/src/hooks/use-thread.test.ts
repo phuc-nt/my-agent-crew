@@ -1,7 +1,9 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
-import { api } from "../api/client";
+import { api, ApiError } from "../api/client";
 import type { AgentEvent, ApprovalKind, ConversationDetail, QueuedMessage } from "../api/types";
+import { vi } from "../i18n/vi";
+import type { SendResult } from "../lib/send-result";
 import { useThread } from "./use-thread";
 
 /** An idle conversation with nothing pending: the base case for send-while-busy tests,
@@ -182,7 +184,7 @@ describe("send while this tab's own turn is running", () => {
     const { result } = renderHook(() => useThread("c1"));
     await waitFor(() => expect(result.current.detail).not.toBeNull());
 
-    let firstTurn: Promise<string | null> = Promise.resolve(null);
+    let firstTurn: Promise<SendResult> = Promise.resolve({ status: "sent" });
     act(() => {
       firstTurn = result.current.send("việc đầu tiên");
     });
@@ -190,7 +192,11 @@ describe("send while this tab's own turn is running", () => {
     expect(result.current.state.busy).toBe(true);
     const itemsAfterFirst = result.current.state.items.length;
 
-    await act(() => result.current.send("chen ngang khi bận"));
+    let queuedResult: SendResult | undefined;
+    await act(async () => {
+      queuedResult = await result.current.send("chen ngang khi bận");
+    });
+    expect(queuedResult).toEqual({ status: "queued" });
     // A busy-send never runs `runTurn`, `user_sent` or `turn_started`: the thread's own
     // items are untouched but for the chip, and `busy` still reflects the first stream.
     expect(queueing).toHaveBeenCalledWith("c1", "chen ngang khi bận", expect.any(Function), expect.anything());
@@ -226,14 +232,18 @@ describe("send while this tab's own turn is running", () => {
       void result.current.send("việc đầu tiên");
     });
     await waitFor(() => expect(firstHeld.signal).toBeDefined());
+    let queuing: Promise<SendResult> = Promise.resolve({ status: "sent" });
     act(() => {
-      void result.current.send("còn treo khi đổi hội thoại");
+      queuing = result.current.send("còn treo khi đổi hội thoại");
     });
     await waitFor(() => expect(queueSignal).toBeDefined());
 
     rerender({ id: "c2" });
     await waitFor(() => expect(queueSignal?.aborted).toBe(true));
     expect(queueHeld.signal?.aborted).toBe(true);
+    // Cut by the person leaving, not refused: the caller must not hand the text back to the
+    // box of the conversation now on screen.
+    await expect(queuing).resolves.toEqual({ status: "sent" });
   });
 });
 
@@ -247,8 +257,13 @@ describe("send while the conversation is busy elsewhere (this tab thought it was
     await waitFor(() => expect(result.current.detail).not.toBeNull());
     const itemsBefore = result.current.state.items.length;
 
-    await act(() => result.current.send("tưởng rảnh mà server bận"));
+    let outcome: SendResult | undefined;
+    await act(async () => {
+      outcome = await result.current.send("tưởng rảnh mà server bận");
+    });
 
+    // The server holds the message: that is not a failure, so nothing goes back to the box.
+    expect(outcome).toEqual({ status: "queued" });
     // `user_sent` added a local bubble first, as the plain path always does; the `queued`
     // event then drops it in favour of the chip, per the reducer's own dedupe rule.
     expect(result.current.state.items).toHaveLength(itemsBefore);
@@ -258,11 +273,13 @@ describe("send while the conversation is busy elsewhere (this tab thought it was
 });
 
 describe("send while busy hits the queue's own limits", () => {
-  it.each([429, 422])("a %d from the queueing POST shows the server's own text and hands the text back to restore", async (status) => {
+  it.each([
+    [429, vi.sendFailed.tooFast],
+    [422, vi.sendFailed.other],
+  ])("a %d from the queueing POST shows the server's own text in the notice and fails the send in our words", async (status, reason) => {
     vitest.spyOn(api, "getConversation").mockResolvedValue(idle());
     const { held, open } = heldStream();
     vitest.spyOn(api, "sendMessage").mockImplementationOnce((_id, _text, emit, signal) => open(emit, signal));
-    const { ApiError } = await import("../api/client");
     vitest.spyOn(api, "sendMessage").mockImplementationOnce(() => Promise.reject(new ApiError(status, "hàng đầy, hãy chờ hoặc bấm Stop")));
     const { result } = renderHook(() => useThread("c1"));
     await waitFor(() => expect(result.current.detail).not.toBeNull());
@@ -271,15 +288,133 @@ describe("send while busy hits the queue's own limits", () => {
     });
     await waitFor(() => expect(held.signal).toBeDefined());
 
-    let restored: string | null = "unset";
+    let outcome: SendResult | undefined;
     await act(async () => {
-      restored = await result.current.send("gõ trúng lúc trần đầy");
+      outcome = await result.current.send("gõ trúng lúc trần đầy");
     });
 
-    expect(restored).toBe("gõ trúng lúc trần đầy");
+    expect(outcome).toEqual({ status: "failed", error: reason });
     expect(result.current.state.notice).toEqual({ kind: "error", text: "hàng đầy, hãy chờ hoặc bấm Stop" });
     // The queueing POST's own error never touches `busy`: the running stream is unaffected.
     expect(result.current.state.busy).toBe(true);
+  });
+});
+
+describe("send settles at the first thing the server says", () => {
+  it("answers sent at the first event while the turn goes on", async () => {
+    vitest.spyOn(api, "getConversation").mockResolvedValue(idle());
+    vitest.spyOn(api, "stopConversation").mockResolvedValue({ cleared: [], cancelled: true });
+    const { held, open } = heldStream();
+    vitest.spyOn(api, "sendMessage").mockImplementation((_id, _text, emit, signal) => open(emit, signal));
+    const { result } = renderHook(() => useThread("c1"));
+    await waitFor(() => expect(result.current.detail).not.toBeNull());
+
+    let outcome: SendResult | undefined;
+    await act(async () => {
+      outcome = await result.current.send("việc dài");
+    });
+
+    expect(outcome).toEqual({ status: "sent" });
+    expect(result.current.state.busy).toBe(true);
+    expect(held.signal?.aborted).toBe(false);
+    await act(() => result.current.stop());
+  });
+
+  it.each([
+    ["a full queue", new ApiError(429, "hàng đầy"), vi.sendFailed.tooFast, "hàng đầy"],
+    ["a conversation waiting on approval", new ApiError(409, "conversation is awaiting approval"), vi.busyConflict, vi.busyConflict],
+    ["a crash on the server", new ApiError(500, "boom"), vi.sendFailed.other, vi.requestErrors.server(500)],
+    ["a conversation that is gone", new ApiError(404, "not found"), vi.sendFailed.other, vi.requestErrors.notFound],
+    ["a connection that never opened", new TypeError("Failed to fetch"), vi.requestErrors.network, vi.requestErrors.network],
+  ])("%s before any event takes the bubble back and reports the send as failed", async (_name, error, reason, notice) => {
+    vitest.spyOn(api, "getConversation").mockResolvedValue(idle());
+    vitest.spyOn(api, "sendMessage").mockRejectedValue(error);
+    const { result } = renderHook(() => useThread("c1"));
+    await waitFor(() => expect(result.current.detail).not.toBeNull());
+    const before = result.current.state.items.length;
+
+    let outcome: SendResult | undefined;
+    await act(async () => {
+      outcome = await result.current.send("không tới được server");
+    });
+
+    expect(outcome).toEqual({ status: "failed", error: reason });
+    // The bubble is gone, so the words stay where the person typed them rather than showing
+    // twice.
+    expect(result.current.state.items).toHaveLength(before);
+    expect(result.current.state.items.some((it) => it.kind === "user")).toBe(false);
+    expect(result.current.state.notice).toEqual({ kind: "error", text: notice });
+    expect(result.current.state.busy).toBe(false);
+  });
+
+  it("keeps the bubble and its error once the server has said anything: the text is not given back", async () => {
+    vitest.spyOn(api, "getConversation").mockResolvedValue(idle());
+    vitest.spyOn(api, "sendMessage").mockImplementation(async (_id, _text, emit) => {
+      emit({ type: "text_delta", text: "Để tôi " });
+      throw new TypeError("network error");
+    });
+    const { result } = renderHook(() => useThread("c1"));
+    await waitFor(() => expect(result.current.detail).not.toBeNull());
+
+    let outcome: SendResult | undefined;
+    await act(async () => {
+      outcome = await result.current.send("đang giữa lượt");
+    });
+
+    expect(outcome).toEqual({ status: "sent" });
+    expect(result.current.state.items.at(-1)).toMatchObject({ kind: "user", text: "đang giữa lượt" });
+    expect(result.current.state.notice).toEqual({ kind: "error", text: vi.requestErrors.network });
+    expect(result.current.state.busy).toBe(false);
+  });
+
+  it("answers sent, not failed, when the person leaves before the server says anything", async () => {
+    vitest.spyOn(api, "getConversation").mockImplementation(async (id) => idle({ id }));
+    vitest.spyOn(api, "sendMessage").mockImplementation(
+      (_id, _text, _emit, signal) =>
+        new Promise<void>((_, reject) => {
+          signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+        }),
+    );
+    const { result, rerender } = renderHook(({ id }) => useThread(id), { initialProps: { id: "c1" } });
+    await waitFor(() => expect(result.current.detail?.id).toBe("c1"));
+
+    let sending: Promise<SendResult> = Promise.resolve({ status: "sent" });
+    act(() => {
+      sending = result.current.send("đi rồi mới tới");
+    });
+    rerender({ id: "c2" });
+
+    // The server may well hold the message by now, and the box on screen is another
+    // conversation's: restoring the text there would be wrong either way.
+    await expect(sending).resolves.toEqual({ status: "sent" });
+  });
+
+  it("answers sent when the stream ends with nothing to say: the server took the message", async () => {
+    vitest.spyOn(api, "getConversation").mockResolvedValue(idle());
+    vitest.spyOn(api, "sendMessage").mockResolvedValue(undefined);
+    const { result } = renderHook(() => useThread("c1"));
+    await waitFor(() => expect(result.current.detail).not.toBeNull());
+
+    let outcome: SendResult | undefined;
+    await act(async () => {
+      outcome = await result.current.send("lặng lẽ");
+    });
+
+    expect(outcome).toEqual({ status: "sent" });
+    expect(result.current.state.notice).toBeNull();
+  });
+
+  it("has nowhere to send without a conversation", async () => {
+    const send = vitest.spyOn(api, "sendMessage");
+    const { result } = renderHook(() => useThread(null));
+
+    let outcome: SendResult | undefined;
+    await act(async () => {
+      outcome = await result.current.send("chưa có cuộc trò chuyện");
+    });
+
+    expect(outcome).toEqual({ status: "failed", error: vi.sendFailed.other });
+    expect(send).not.toHaveBeenCalled();
   });
 });
 
