@@ -1488,6 +1488,18 @@ tên một test thì sửa dòng của nó trong cùng commit.
     ("test_every_canvas_route_and_the_chat_message_run_on_the_event_loop",
     "test_no_read_changes_what_a_conversation_knows_or_has_open": mọi `GET` canvas giữ nguyên liên
     kết, con trỏ đọc, canvas đang mở, phiên bản và tin)
+- **Canvas trên web: trộn ba chiều theo dòng, giữ con trỏ trên đúng ký tự, diff lịch sử giữ mọi dòng**
+  - vitest: `web/src/lib/diff-lines.test.ts` (dòng trống, khoảng trắng cuối dòng và xuống dòng cuối là
+    dòng thật, đầu đuôi chung được cắt trước khi áp trần, quá trần là null);
+    `web/src/lib/merge3.test.ts` ("merges two edits far apart in a long text under the default cap",
+    viết lại các dòng sát một lần chèn là xung đột, hai bên cùng thêm cuối tệp là xung đột, sửa hai dòng
+    liền nhau là xung đột, xuống dòng cuối của mỗi bên được giữ, sửa giống nhau không nhân đôi, xoá với
+    sửa cùng dòng là xung đột, một bên quá trần là xung đột, "gives the server's changes in the person's
+    line numbers"); `web/src/lib/line-edits.test.ts` (sửa ở hai phía con trỏ giữ đúng ký tự, thêm dòng
+    cuối tệp không dời con trỏ ở dòng cuối, vị trí trong vùng thay về cuối đoạn thay, trong vùng xoá về
+    chỗ vùng đó, không so được thì chỉ kẹp); `web/src/lib/canvas-diff.test.ts` (dòng bớt trước dòng
+    thêm, đoạn không đổi dài thu còn ba dòng mỗi bên, kể cả sau một lần chèn ở dòng đầu, quá trần là
+    null)
 - **Mã agent khớp cả chuỗi: chữ thường, số và gạch ngang, không cả xuống dòng ở cuối**
   - pytest: `tests/test_api_agents_edit.py::test_an_id_that_is_not_a_safe_folder_name_is_refused`
     (`../escape` và `coder` có xuống dòng ở cuối đều bị từ chối, không thư mục nào được tạo);
