@@ -32,9 +32,11 @@ from my_agent_crew.texts_canvas import (
 from my_agent_crew.tools.artifact import build_artifact_tools
 from my_agent_crew.tools.artifact_scope import CANVAS_WRITES_PER_TURN
 from my_agent_crew.tools.artifact_texts import (
+    ADD_BY_EDIT,
     ARTIFACT_CREATED,
     ARTIFACT_LIST_EMPTY,
     ARTIFACT_LIST_NO_MATCH,
+    KEPT_GOES_TO_CANVAS,
 )
 from tests.canvas_helpers import (
     agents_canvas,
@@ -74,6 +76,18 @@ def test_an_agent_gets_the_five_canvas_tools_none_asking_for_approval(store: Sto
     assert not any(tool.requires_approval or tool.parallel for tool in tools)
     kinds = tools[0].parameters["properties"]["kind"]["enum"]
     assert kinds == ["markdown", "code"]
+
+
+def test_the_descriptions_send_a_kept_document_to_a_canvas_and_say_how_to_add_to_one(
+    store: Store,
+):
+    """A model asked for five lines the person would keep editing wrote them in the chat, as
+    the short answer the description sent there; what decides is whether the text is kept,
+    not how long it is. And an edit replaces text, so adding a line needs one to anchor on."""
+    tools = {t.name: t.description for t in build_artifact_tools(store, "coach", False, 8000)}
+    assert KEPT_GOES_TO_CANVAS in tools["artifact_create"]
+    assert "Câu trả lời ngắn" not in tools["artifact_create"]
+    assert ADD_BY_EDIT in tools["artifact_edit"]
 
 
 async def test_create_files_the_canvas_under_the_agent_and_returns_no_content(store: Store):

@@ -1233,7 +1233,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     theo thứ tự tạo, "test_on_change_hears_every_write_after_commit_outside_the_lock",
     "test_a_failing_on_change_is_logged_and_the_write_stands")
 - **Canvas: năm tool để agent tạo, liệt kê, đọc, sửa và viết lại canvas**
-  - pytest: `tests/test_artifact_tools.py` (năm tool, không tool nào hỏi duyệt, tạo lưu canvas
+  - pytest: `tests/test_artifact_tools.py` (năm tool, không tool nào hỏi duyệt, mô tả đưa tài
+    liệu người sẽ sửa dần vào canvas dù chỉ vài dòng và nói cách thêm chữ bằng một lần sửa, tạo lưu canvas
     dưới tên agent và không trả lại nội dung, con được giao việc chia sẻ canvas nó tạo với gốc,
     loại agent không ghi được bị từ chối,
     "test_only_the_web_chat_writes_a_canvas_yet_any_channel_reads_one", con chỉ ghi được trong

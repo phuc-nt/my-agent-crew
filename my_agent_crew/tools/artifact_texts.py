@@ -11,13 +11,24 @@ CHANGE_IN_PLACE = (
     " canvas thứ hai cho cùng tài liệu."
 )
 OWN_WRITE_IS_SEEN = "Không cần đọc lại bản chính bạn vừa tạo hay viết lại trong lượt này."
+# A model asked for five lines the person would keep editing wrote them in the chat as a short
+# answer: whether the text is kept decides, not its length.
+KEPT_GOES_TO_CANVAS = (
+    "Tài liệu người sẽ sửa dần, giữ lại hay dùng tiếp thì vào canvas, dù chỉ vài dòng."
+)
+# An edit only replaces, so new text has to ride on a passage that is already there.
+ADD_BY_EDIT = (
+    "Muốn thêm chữ mới, chép vào `old` đoạn đứng ngay trước chỗ thêm, rồi trong `new` viết lại"
+    " đoạn đó với chữ mới theo sau."
+)
 
 # The descriptions decide when a model writes a canvas at all, so each says what belongs in
 # one and what stays in the chat, and that a canvas is never copied back into the reply.
 ARTIFACT_CREATE_DESCRIPTION = (
     "Tạo một canvas: tài liệu hiện ngay cạnh khung chat, người và bạn cùng sửa được. Dùng cho"
     " nội dung dài hoặc có cấu trúc mà người sẽ đọc lại, sửa hay dùng tiếp: kế hoạch, báo cáo,"
-    " bản nháp, một tệp code hoàn chỉnh. Câu trả lời ngắn, câu hỏi và trao đổi thì để trong chat."
+    f" bản nháp, một tệp code hoàn chỉnh. {KEPT_GOES_TO_CANVAS} Câu trả lời chỉ đọc một lần, câu"
+    " hỏi và trao đổi thì để trong chat."
     " Sau khi tạo, trong câu trả lời chỉ nói ngắn bạn đã viết gì; đừng chép nội dung canvas vào."
     f" {CHANGE_IN_PLACE}"
 )
@@ -33,8 +44,8 @@ ARTIFACT_READ_DESCRIPTION = (
 )
 ARTIFACT_EDIT_DESCRIPTION = (
     "Sửa một đoạn của canvas: thay `old`, chép nguyên văn từ canvas và đủ dài để chỉ khớp một"
-    " chỗ, bằng `new`. Dùng cho mọi sửa đổi nhỏ và vừa, không cần đọc hết canvas trước. Kết quả"
-    " có diff của phần đã đổi và cỡ mới của canvas."
+    " chỗ, bằng `new`. Dùng cho mọi sửa đổi nhỏ và vừa, không cần đọc hết canvas trước."
+    f" {ADD_BY_EDIT} Kết quả có diff của phần đã đổi và cỡ mới của canvas."
 )
 ARTIFACT_REWRITE_DESCRIPTION = (
     "Viết lại toàn bộ canvas bằng `content`. Chỉ dùng khi phải đổi gần hết nội dung; sửa vài"
