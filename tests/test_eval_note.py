@@ -52,7 +52,7 @@ def details(messages: list[dict], sent: list[str], due: list[NoteDue]) -> list[s
     [
         CANVAS_NOTE_NEW.format(title=TITLE, id="a1", head=3),
         CANVAS_NOTE_EDITED.format(title=TITLE, id="a1", base=1, head=3)
-        + "\n@@ dòng 3 @@\n-- Giặt rèm\n+- Giặt chăn",
+        + "\n@@ dòng 3 @@\n- - Giặt rèm\n+ - Giặt chăn",
         f"{CANVAS_NOTE_BUMP.format(title=TITLE, id='a1', head=3)} {CANVAS_NOTE_READ}",
         f"{CANVAS_NOTE_LARGE.format(title=TITLE, id='a1', base=2, head=3)} {CANVAS_NOTE_READ}",
     ],
@@ -132,7 +132,7 @@ def test_each_note_is_read_from_the_message_holding_the_text_sent_not_a_note_the
         told("tạo đi", note(made)),
         said("look"),  # the agent saying the next text first does not hold it
         told(LOOP_REDIRECT.format(names="artifact_edit", count=3)),
-        told("look", note(edited, "@@ dòng 2 @@", "+- Giặt chăn")),
+        told("look", note(edited, "@@ dòng 2 @@", "+ - Giặt chăn")),
         said("Đã xem."),
     ]
     due = [NoteDue({"a1": 1}), NoteDue({"a1": 2})]

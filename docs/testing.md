@@ -724,8 +724,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     mất server dừng cả cuộc, các từ chối trước khi chép gì, chạy thử qua một server thật; bước
     canvas chạy giữa các lượt và mọi tin sau mang canvas đang mở, bước hỏng chặn tin sau mà không
     dừng eval, tin trước khi có canvas chỉ có chữ, bước canvas không tới agent thì lần chơi hỏng; khi chạy thử, server đặt vùng chọn đúng dòng eval
-    đếm trên bản đã sửa, ghi chú thật của server nêu canvas ở bản đã lưu và trích vùng chọn, và
-    một lần dán ba dòng bị bắt từ JSON thật của server; mỗi lần chơi bắt
+    đếm trên bản đã sửa, ghi chú thật của server nêu canvas ở bản đã lưu và trích vùng chọn,
+    người sửa canvas agent vừa tạo thì agent nhận diff của đúng lần sửa ấy, và một lần dán ba
+    dòng bị bắt từ JSON thật của server; mỗi lần chơi bắt
     đầu sau một lần đặt lại, không đặt lại được thì không chơi và dừng eval; mỗi lần chơi để lại
     bản ghi tên theo thứ tự case, id và lần, giữ cuộc trò chuyện, cuộc con, canvas và lần xin
     duyệt; bộ nhớ không đặt lại được bị từ chối trước lần chơi đầu; khi chạy thử, lần sau không

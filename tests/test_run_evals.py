@@ -22,7 +22,7 @@ from llm_bench_server import port_is_free
 from my_agent_crew.artifacts.diff import line_span
 from my_agent_crew.store.canvas_quote import quoted
 from my_agent_crew.texts import MEMORY_SAVED
-from my_agent_crew.texts_canvas import CANVAS_NOTE_NEW, PICK_LINES
+from my_agent_crew.texts_canvas import CANVAS_NOTE_EDITED, CANVAS_NOTE_NEW, PICK_LINES
 from my_agent_crew.texts_search import CONVERSATION_SEARCH_EMPTY
 from my_agent_crew.tools.artifact_texts import ARTIFACT_LIST_EMPTY
 from tests.http_fake import FakeServer, as_json, say, sse, tool_approval
@@ -662,6 +662,22 @@ CASES = """\
 - id: each-run-starts-with-the-notes-it-had
   agent: default
   messages: ['/tool memory_save {"text": "zebra crossing on the corner"}']
+
+- id: the-person-edits-the-canvas-the-agent-made
+  agent: default
+  messages:
+    - >-
+      /tool artifact_create {"title": "Plan", "kind": "markdown",
+      "content": "- Mon: rest\\n- Tue: run\\n"}
+    - edit_canvas: {old: "Tue: run", new: "Tue: swim"}
+    - what changed?
+  expect:
+    calls_tool:
+      - {name: artifact_create, turn: 1}
+    canvas_count: 1
+    canvas_contains: ["Tue: swim"]
+    canvas_not_contains: ["Tue: run"]
+    reply_contains: ["+ - Tue: swim"]
 """
 
 
@@ -685,6 +701,7 @@ def test_a_dry_run_plays_real_turns_through_a_real_server_and_leaves_only_the_re
         "the-write-comes-in-the-second-turn",
         "a-delegated-child-asks-in-its-own-conversation",
         "the-person-works-on-a-canvas-between-turns",
+        "the-person-edits-the-canvas-the-agent-made",
     )
     for name in playable:
         assert [run["failures"] for run in by_id[name]["runs"]] == [[], []], name
@@ -714,6 +731,13 @@ def test_a_dry_run_plays_real_turns_through_a_real_server_and_leaves_only_the_re
         (transcripts / "03-a-delegated-child-asks-in-its-own-conversation-1.json").read_text()
     )
     assert len(delegated["children"]) == 1
+    # The person's edit on the agent's version reached the agent as a diff of that edit.
+    edited = json.loads(
+        (transcripts / "10-the-person-edits-the-canvas-the-agent-made-1.json").read_text()
+    )
+    (plan,) = edited["canvases"]
+    told = CANVAS_NOTE_EDITED.format(title="Plan", id=plan["id"], base=1, head=2)
+    assert told in by_id["the-person-edits-the-canvas-the-agent-made"]["runs"][0]["reply"]
     assert "> Dry run." in (out / "results" / "results.md").read_text()
     assert (out / "results" / "server.log").exists()
     assert not (out / eval_cli.RUN_DIR).exists()
