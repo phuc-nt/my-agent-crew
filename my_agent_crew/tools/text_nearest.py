@@ -19,10 +19,11 @@ from my_agent_crew.tools.text_edit import EditNotFound, normalize_for_match
 _TOKEN = re.compile(r"\w+|[^\w\s]")
 
 MISS_MAX_OLD = 20_000  # an `old` longer than this is not searched for
-# Characters. Tokenising and weighing the text takes memory that grows with its length: about
-# 70 MB at this size for the densest text measured (minified script), about 20 MB for prose.
-# A markdown, code or mermaid canvas is at most half of it and an html page may fill it; a
-# larger one, mostly a deck carrying its images inline, gets the plain not-found error.
+# Characters. Tokenising and weighing the text takes memory that grows with its length, and a
+# failed edit pays all of it at once. At this size: about 70 MB for the densest text measured
+# (minified script), 50 MB for html markup, 46 MB for Vietnamese prose, 20 MB for English
+# prose. A markdown, code or mermaid canvas is at most half of it and an html page may fill
+# it; a larger one, mostly a deck carrying its images inline, gets the plain not-found error.
 MISS_MAX_TEXT = 1024 * 1024
 MATCH_TOKENS = 500  # only the start of a longer `old` is compared
 MISS_WINDOWS = 3  # candidate passages compared closely
