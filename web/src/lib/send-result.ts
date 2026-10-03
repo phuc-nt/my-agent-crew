@@ -33,8 +33,9 @@ export function settlement(withCanvas = false): Settlement {
     settle = resolve;
   });
   let done = false;
+  // A promise keeps the first result it is given and ignores the rest, so a later answer only
+  // sets `done` again.
   const set = (result: SendResult) => {
-    if (done) return;
     done = true;
     settle(result);
   };

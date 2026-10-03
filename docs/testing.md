@@ -332,7 +332,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `chat-state-phone.spec.ts` "a spent budget's notice keeps its raise on one line"
 - **Lỗi request nói bằng lời: giữ câu server viết, dịch dump kiểm tra, 404 soạn sẵn, lỗi 5xx và
   lỗi mạng**
-  - vitest: `lib/error-text.test.ts`; `components/cap-editor.test.tsx`
+  - vitest: `lib/error-text.test.ts`; `hooks/use-thread.test.ts` nhóm "a request of the thread that
+    fails" ("tells a conversation that cannot be loaded in our words", "tells a decision that cannot
+    be sent in our words too": mất kết nối ở hai chỗ ấy hiện câu của ta, không phải câu tiếng Anh
+    của trình duyệt); `components/cap-editor.test.tsx`
     ("says in words why the server refused a cap, not in its validation dump",
     "keeps a refusal the server wrote as a sentence",
     "says the conversation is gone when the server no longer has it",
@@ -886,7 +889,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     xếp hàng không đụng luồng đang chạy, chỉ để lại một thông báo và giữ chip nguyên tại chỗ);
     `hooks/use-thread.test.ts`
     ("goes a second POST instead of runTurn, and the running turn keeps working and can still be
-    stopped", "aborts a queueing POST still in flight when the conversation is switched", nhóm
+    stopped", "aborts a queueing POST still in flight when the conversation is switched" — và request
+    bị cắt không để lại thông báo nào ở hội thoại đang hiện, nhóm
     "send while the conversation is busy elsewhere (this tab thought it was idle)"
     "catches the queued event on the plain send path and turns the temp bubble into a chip", nhóm
     "send while busy hits the queue's own limits", và nhóm "Stop, redesigned: server first, then
@@ -963,10 +967,20 @@ tên một test thì sửa dòng của nó trong cùng commit.
     limits" ("a %d from the queueing POST shows the server's own text in the notice and fails the
     send in our words" — thông báo giữ câu của server, `error` là câu của ta) và ba test xếp hàng
     cũ nay kiểm cả kết quả (`queued`, `sent`, `queued`);
-    `hooks/use-thread-send.test.ts` ("is worded as any refused message is: a validation dump never
-    reaches the notice" — tin xếp hàng sau lượt đang chạy ở tab này mà server từ chối bằng danh
-    sách lỗi kiểm tra dữ liệu, như tin dài quá 20000 ký tự, thì thông báo nói câu của ta giống
-    đường gửi thường, không in nguyên danh sách JSON);
+    `hooks/use-thread-send.test.ts` nhóm "a message queued behind this tab's own turn" ("is held
+    among the queueing requests only while its request is in flight" — request xếp hàng nằm trong
+    tập để rời hội thoại thì cắt được, và rời tập khi xong; "answers sent when its request closes
+    having said nothing: the server took the message"; "says nothing of a request it was cut off
+    from: the person left, nothing was refused" — bị cắt vì người rời đi thì không báo lỗi và không
+    đặt thông báo), nhóm "a message sent on this tab's own stream that the server queues instead"
+    ("is turned into its chip by the send itself: the turn's stream is handed no queued event" —
+    đường gửi thường tự đổi bong bóng tạm thành chip, luồng của lượt không nhận event `queued` lần
+    hai; "hands every other event on to the turn's stream") và nhóm "a message queued behind this
+    tab's own turn that the server refuses"
+    ("is worded as any refused message is: a validation dump never reaches the notice" — tin xếp
+    hàng sau lượt đang chạy ở tab này mà server từ chối bằng danh sách lỗi kiểm tra dữ liệu, như
+    tin dài quá 20000 ký tự, thì thông báo nói câu của ta giống đường gửi thường, không in nguyên
+    danh sách JSON);
     `state/thread-reducer.test.ts` "user_unsent takes back the local bubble for that text, and
     only that one" (chỉ bong bóng `local-` cuối cùng đúng chữ; tin server đã lưu hay có thứ gì
     đứng sau thì ở lại);
@@ -1545,8 +1559,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     và `context`, không mang id tin; tin lưu không có ghi chú, lượt không nhận tin mới và tin server
     xếp hàng (chỉ nhận `queued`) đều không có event này;
     "test_the_activity_hub_neither_writes_nor_broadcasts_it": tab khác đang xem không thấy ghi chú
-    của người gửi; "test_a_reply_reads_the_same_with_the_note_in_the_chain_or_without_it"; qua API
-    thì là khối SSE đầu tiên và mang đúng đoạn người đã chọn)
+    của người gửi; "test_a_reply_reads_the_same_with_the_note_in_the_chain_or_without_it";
+    "test_it_cannot_be_changed_once_it_is_made": một event đi qua luồng, bộ lọc của hub và câu trả
+    lời kênh chat gom lại, nên không chỗ nào được sửa ghi chú của chỗ sau; qua API thì là khối SSE
+    đầu tiên và mang đúng đoạn người đã chọn)
   - vitest: `web/src/state/thread-reducer.test.ts` (tin lưu cùng ghi chú mang ghi chú, tin lưu không
     có hay có ghi chú rỗng thì không có khoá `context`; event `user_context` gắn ghi chú vào tin người
     mới nhất dù nó đứng đâu trong thread, và để yên thread khi chưa có tin người nào);
@@ -1562,7 +1578,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
   - Playwright: `canvas-note.spec.ts` ("a message sent with a canvas note shows it as a chip, and
     still does once the page is loaded again": chip ngay sau bong bóng, mở ra thấy đúng ghi chú,
     tải lại trang vẫn còn; tin gửi không ghi chú thì không có chip; ở 390×844 và 1000×800 cảm ứng
-    chip và nút chép đều ≥40px kể cả lúc đang mở, không cuộn ngang)
+    chip và nút chép đều ≥40px kể cả lúc đang mở, không cuộn ngang; ghi chú dài — 60 dòng, một dòng
+    nhiều từ và một dòng 400 ký tự liền — mở ra vẫn xuống dòng trong bề rộng, cao dưới nửa màn hình
+    và cuộn được bên trong)
 - **Mọi thay đổi canvas tới web qua luồng hoạt động, kể cả lần ghi từ luồng khác; không lần đọc
   nào đổi trạng thái**
   - pytest: `tests/test_artifact_events.py` ("test_every_change_made_over_rest_is_announced": tạo,

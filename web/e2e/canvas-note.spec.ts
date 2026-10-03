@@ -46,14 +46,22 @@ test("a message sent without one has no chip", async ({ page }) => {
   await expect(page.getByTestId("canvas-note")).toHaveCount(0);
 });
 
+// A note quotes a document, so it can be tall, and hold a line longer than any window.
+const LONG_NOTE = [
+  "[Canvas · Kế hoạch tuần]",
+  ...Array.from({ length: 60 }, (_, i) => `> dòng ${i + 1} của bản kế hoạch dài`),
+  `> ${"một dòng rất dài gồm nhiều từ ".repeat(20)}`,
+  `> ${"a".repeat(400)}`,
+].join("\n");
+
 /** A saved conversation whose first message went to the agent with a canvas note. */
-function noted(): Conversation {
+function noted(note = NOTE): Conversation {
   return {
     id: "c1", agent_id: "default", channel: "", title: "Kế hoạch", summary: "", created_at: "", updated_at: "",
     autonomous: false, cost_cap_usd: 1, skills: [], auto_approve: [], spent_usd: 0, unknown_cost_calls: 0,
     status: "idle", over_budget: false, parent_call_id: "", pending_approval: null,
     messages: [
-      { id: "m1", seq: 1, role: "user", content: "sửa chỗ này", context: NOTE, tool_calls: [], tool_call_id: null, name: null, provider: null, model: null, cost_usd: null, created_at: "" },
+      { id: "m1", seq: 1, role: "user", content: "sửa chỗ này", context: note, tool_calls: [], tool_call_id: null, name: null, provider: null, model: null, cost_usd: null, created_at: "" },
       { id: "m2", seq: 2, role: "assistant", content: "Đã sửa.", tool_calls: [], tool_call_id: null, name: null, provider: "fake", model: "echo", cost_usd: 0, created_at: "" },
     ],
   };
@@ -86,6 +94,24 @@ for (const [name, viewport] of TOUCH) {
 
       // It reads inside the thread's width: nothing of the note pushes the page sideways.
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    });
+
+    test("holds a long note in its box: lines wrap, and the height scrolls inside", async ({ page }) => {
+      await mockApi(page, { conversations: [noted(LONG_NOTE)] });
+      await page.goto("/#/chat/c1");
+      await page.getByRole("button", { name: vi.canvas.noteChip }).tap();
+
+      const text = page.getByTestId("canvas-note-body").locator("pre");
+      await expect(text).toBeVisible();
+      const box = await text.evaluate((el) => {
+        el.scrollTop = el.scrollHeight;
+        return { sideways: el.scrollWidth > el.clientWidth, height: el.getBoundingClientRect().height, scrolled: el.scrollTop };
+      });
+      // Neither a long line nor a long word scrolls the box sideways, and a tall note takes under
+      // half the window and scrolls inside it rather than pushing the thread down.
+      expect(box.sideways).toBe(false);
+      expect(box.height).toBeLessThan(viewport.height / 2);
+      expect(box.scrolled).toBeGreaterThan(0);
     });
   });
 }

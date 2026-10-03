@@ -174,6 +174,27 @@ describe("a thread another conversation has replaced", () => {
   });
 });
 
+describe("a request of the thread that fails", () => {
+  // What a browser says of a connection that never opened is English and means nothing to the
+  // person: the notice must carry our sentence for it, whichever request it was.
+  it("tells a conversation that cannot be loaded in our words", async () => {
+    vitest.spyOn(api, "getConversation").mockRejectedValue(new TypeError("Failed to fetch"));
+    const { result } = renderHook(() => useThread("c1"));
+
+    await waitFor(() => expect(result.current.state.notice).not.toBeNull());
+    expect(result.current.state.notice).toEqual({ kind: "error", text: vi.requestErrors.network });
+  });
+
+  it("tells a decision that cannot be sent in our words too", async () => {
+    vitest.spyOn(api, "resolveApproval").mockRejectedValue(new TypeError("Failed to fetch"));
+    const { result } = await openPaused("tool");
+
+    await act(() => result.current.decide(true));
+
+    expect(result.current.state.notice).toEqual({ kind: "error", text: vi.requestErrors.network });
+  });
+});
+
 describe("send while this tab's own turn is running", () => {
   it("goes a second POST instead of runTurn, and the running turn keeps working and can still be stopped", async () => {
     vitest.spyOn(api, "getConversation").mockResolvedValue(idle());
@@ -245,6 +266,9 @@ describe("send while this tab's own turn is running", () => {
     // Cut by the person leaving, not refused: the caller must not hand the text back to the
     // box of the conversation now on screen.
     await expect(queuing).resolves.toEqual({ status: "sent" });
+    // Nor does the cut request leave a notice in the conversation now on screen.
+    await act(async () => {});
+    expect(result.current.state.notice).toBeNull();
   });
 });
 

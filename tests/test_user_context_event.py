@@ -8,6 +8,7 @@ from __future__ import annotations
 import asyncio
 import json
 from collections.abc import AsyncIterator, Sequence
+from dataclasses import FrozenInstanceError
 
 import pytest
 from fastapi.testclient import TestClient
@@ -80,6 +81,15 @@ def test_its_payload_is_the_note_and_nothing_else():
     event = UserContextEvent("ghi chú")
     assert kind_of(event) == "user_context"
     assert to_dict(event) == {"type": "user_context", "context": "ghi chú"}
+
+
+def test_it_cannot_be_changed_once_it_is_made():
+    """The same object passes the stream, the activity hub's filter and the reply a chat platform
+    collects: if one of them could rewrite the note, the next would read what no message carried."""
+    event = UserContextEvent("ghi chú")
+    with pytest.raises(FrozenInstanceError):
+        event.context = "đã đổi"  # type: ignore[misc]
+    assert event.context == "ghi chú"
 
 
 async def test_the_first_event_of_a_turn_is_the_note_its_message_was_stored_with(
