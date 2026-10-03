@@ -3,28 +3,22 @@
  * feeds the replies back in. `use-canvas` owns one per open panel; `saveInBackground` keeps one
  * going after its panel went away, until the last save lands.
  *
- * Every request gives up after 30 seconds, so a reply that never comes counts as lost and is
- * retried instead of holding the save forever. A detached runner reads nothing and retries
- * nothing: it only finishes the save it was asked for.
+ * A detached runner reads nothing and retries nothing: it only finishes the save it was asked for.
+ * The requests themselves, and the 30 seconds after which a silent one counts as lost, are in
+ * `canvas-requests`.
  */
 
-import { artifactApi, conflictOf, storageFullOf } from "../api/artifact-client";
-import { ApiError } from "../api/client";
 import { clearDraft, readDraft, textKey, writeDraft } from "./canvas-draft";
-import { withKeepalive } from "./canvas-handoff";
 import { type CanvasEffect, type CanvasInput, type CanvasState, openState, step } from "./canvas-machine";
+import { requestRead, requestSave } from "./canvas-requests";
 import { isDirty } from "./canvas-state";
 
 /** A save goes this long after the last keystroke. */
 export const SAVE_DELAY_MS = 1500;
 /** The draft is written this long after the last keystroke, and at once when the page may go. */
 export const DRAFT_DELAY_MS = 300;
-/** A request with no reply by then is taken as lost. */
-export const REQUEST_TIMEOUT_MS = 30_000;
 
 type Timer = ReturnType<typeof setTimeout> | undefined;
-
-const httpStatus = (error: unknown) => (error instanceof ApiError ? error.status : null);
 
 export class CanvasRunner {
   state: CanvasState;
@@ -170,37 +164,15 @@ export class CanvasRunner {
   }
 
   private put(content: string, baseVersion: number, hidden: boolean): void {
-    const abort = new AbortController();
-    const timer = setTimeout(() => abort.abort(), REQUEST_TIMEOUT_MS);
-    withKeepalive(hidden, content, baseVersion, (keepalive) =>
-      artifactApi.save(this.id, content, baseVersion, { signal: abort.signal, keepalive }),
-    ).then(
-      (meta) => {
-        clearTimeout(timer);
-        this.send({ type: "saved", meta });
-      },
-      (error: unknown) => {
-        clearTimeout(timer);
-        const conflict = conflictOf(error);
-        this.send({ type: "saveFailed", status: httpStatus(error), conflict, full: storageFullOf(error) });
-      },
-    );
+    requestSave(this.id, content, baseVersion, hidden, (input) => this.send(input));
   }
 
   private get(): void {
     if (this.detached) return;
-    const reading = new AbortController();
-    this.reading = reading;
-    const timer = setTimeout(() => reading.abort(), REQUEST_TIMEOUT_MS);
-    const landed = (input: CanvasInput) => {
-      clearTimeout(timer);
+    this.reading = requestRead(this.id, (input) => {
       this.reading = null;
       this.send(input);
-    };
-    artifactApi.get(this.id, reading.signal).then(
-      (detail) => landed({ type: "read", detail }),
-      (error: unknown) => landed({ type: "readFailed", status: httpStatus(error) }),
-    );
+    });
   }
 }
 

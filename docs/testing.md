@@ -1674,6 +1674,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     cuối của canvas đã rời: 409 của chính mình là đã lưu, lỗi giữ nháp và báo người nghe còn đăng ký,
     gửi chữ gõ sau lần lưu đang bay, ngân sách keepalive tính bằng byte, mỗi lúc một lần lưu keepalive,
     lỗi trả lại ngân sách)
+  - Hai request của runner (lưu và đọc, mỗi cái bị bỏ sau 30 giây không reply) nằm ở
+    `web/src/lib/canvas-requests.ts` và không có tệp test riêng: các test ở trên chạy chúng thật trên
+    `FakeCanvas`, nên chuyển chúng khỏi `canvas-runner.ts` không đổi test nào
 - **Canvas trên web: tên người viết một bản, kích thước đọc được, ký tự ẩn hiện ra**
   - vitest: `web/src/lib/canvas-author.test.ts` (người là "bạn", agent theo tên, agent có id `user` vẫn
     là agent, agent không còn thì theo id); `web/src/lib/format-bytes.test.ts` (bước 1024, một chữ số lẻ
