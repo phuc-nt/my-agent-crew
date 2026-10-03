@@ -84,13 +84,23 @@ async def put_canvas(conv_id: str, body: FocusBody, rt: Rt) -> dict[str, Any] | 
 
 
 def _quotable(selection: Selection, head: int) -> bool:
-    """As the note reads it (`valid_pick`), with its lines in order and no longer than a
-    message."""
+    """As the note reads it (`valid_pick`), with its lines in order, no longer than a message
+    and made of characters a row can hold: a lone surrogate, which a cut between the two code
+    units of a character leaves, would fail the write of the focus once the message is queued."""
     return (
         valid_pick(selection.model_dump(), head)
         and selection.line_end >= selection.line_start
         and len(selection.text) <= SELECTION_MAX
+        and _encodable(selection.text)
     )
+
+
+def _encodable(text: str) -> bool:
+    try:
+        text.encode("utf-8")
+    except UnicodeEncodeError:
+        return False
+    return True
 
 
 def _check_conversation(store: Store, conversation_id: str) -> None:

@@ -8,9 +8,10 @@
  * they were at are still under the caret.
  */
 
-import { type KeyboardEvent, type RefObject, useLayoutEffect, useRef } from "react";
+import { type KeyboardEvent, type RefObject, useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import type { CanvasController } from "../../hooks/use-canvas";
 import { vi } from "../../i18n/vi";
+import { type CanvasSelection, fromTextarea } from "../../lib/canvas-selection";
 import { mapOffset } from "../../lib/line-edits";
 
 type Props = {
@@ -18,9 +19,11 @@ type Props = {
   kind: string;
   /** Lets the panel see whether the keyboard is in the field. */
   fieldRef?: RefObject<HTMLTextAreaElement | null>;
+  /** Told what is selected in the field each time that changes: null for a caret, or blank text. */
+  onSelection?: (selection: CanvasSelection | null) => void;
 };
 
-export function CanvasEditor({ canvas, kind, fieldRef }: Props) {
+export function CanvasEditor({ canvas, kind, fieldRef, onSelection }: Props) {
   const { state } = canvas;
   const own = useRef<HTMLTextAreaElement>(null);
   const field = fieldRef ?? own;
@@ -28,10 +31,29 @@ export function CanvasEditor({ canvas, kind, fieldRef }: Props) {
   const replaced = useRef(state.replaced);
   replaced.current = state.replaced;
 
-  const remember = () => {
+  const remember = useCallback(() => {
     const el = field.current;
     if (el) caret.current = { start: el.selectionStart, end: el.selectionEnd, scroll: el.scrollTop };
-  };
+  }, [field]);
+
+  // React hears of a change of selection from the mouse and the keys, which is how a drag, the
+  // shift keys and select-all make it. A browser tells the rest, such as the handles of a touch
+  // screen's selection, only as a `selectionchange` aimed at the field, which React lets pass; so
+  // the document is listened to as well, for the field while it has the keyboard.
+  const report = useCallback(() => {
+    const el = field.current;
+    if (!el) return;
+    remember();
+    onSelection?.(fromTextarea(el, el.value));
+  }, [field, remember, onSelection]);
+
+  useEffect(() => {
+    const heard = () => {
+      if (document.activeElement === field.current) report();
+    };
+    document.addEventListener("selectionchange", heard);
+    return () => document.removeEventListener("selectionchange", heard);
+  }, [field, report]);
 
   const seq = state.replaced?.seq;
   useLayoutEffect(() => {
@@ -66,7 +88,7 @@ export function CanvasEditor({ canvas, kind, fieldRef }: Props) {
         canvas.edit(event.target.value);
         remember();
       }}
-      onSelect={remember}
+      onSelect={report}
       onScroll={remember}
       onKeyDown={onKeyDown}
       onBlur={canvas.blur}

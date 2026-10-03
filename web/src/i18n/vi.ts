@@ -1055,5 +1055,23 @@ export const vi = {
       open: "Mở",
       openLabel: (title: string) => `Mở canvas ${title}`,
     },
+    // The bar at the foot of the panel that asks the agent about the passage selected in it.
+    ask: {
+      group: "Hỏi về đoạn đã chọn",
+      button: "Hỏi về đoạn này",
+      lines: (start: number, end: number, chars: number) =>
+        `Dòng ${start === end ? start : `${start}–${end}`} · ${chars} ký tự`,
+      longer: "Sẽ gửi cả các dòng chứa đoạn chọn, dài hơn phần bạn chọn. Chuyển sang Sửa để chọn đúng đoạn cần hỏi.",
+      question: "Câu hỏi về đoạn này",
+      placeholder: "Bạn muốn hỏi gì về đoạn này?",
+      cancel: "Huỷ",
+      notSaved: "Chưa lưu được canvas nên chưa hỏi được",
+      changed: "Canvas vừa đổi, hãy chọn lại đoạn cần hỏi",
+      elsewhere: "Bạn đã sang cuộc trò chuyện khác nên câu hỏi chưa được gửi",
+      // Why asking is off for now, one sentence for each.
+      busy: "Agent đang chạy, hãy hỏi sau khi lượt này xong.",
+      pending: "Agent đang chờ bạn duyệt, hãy quyết định trước khi hỏi.",
+      budget: "Cuộc trò chuyện đã hết ngân sách, hãy nâng trần để hỏi tiếp.",
+    },
   },
 } as const;

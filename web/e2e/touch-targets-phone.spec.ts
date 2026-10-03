@@ -98,3 +98,28 @@ test("the canvas card's Open button and the note chip in the thread are big enou
   expect(await smallTargets(page, ".canvas-card")).toEqual([]);
   expect(await smallTargets(page, ".canvas-note")).toEqual([]);
 });
+
+test("the buttons of the bar that asks about a passage of the canvas are big enough for a finger", async ({ page }) => {
+  const text = "Việc một\n\nViệc hai";
+  const fake = new FakeCanvas();
+  fake.add({ id: PLAN, title: "Kế hoạch tuần", content: text, conversationIds: ["c1"] });
+  await mockApi(page, { conversations: [conversation("c1", "Kế hoạch")], canvas: fake });
+  await page.goto("/#/chat/c1");
+  await page.getByRole("button", { name: vi.canvas.buttonLabel(1) }).tap();
+  await page.getByRole("button", { name: /Kế hoạch tuần/ }).tap();
+  const field = page.getByRole("textbox", { name: vi.canvas.editor });
+  await expect(field).toHaveValue(text);
+  await field.focus();
+  await field.evaluate((el: HTMLTextAreaElement) => el.setSelectionRange(0, 8));
+
+  const bar = page.getByRole("group", { name: vi.canvas.ask.group });
+  await expect(bar).toBeVisible();
+  expect(await smallTargets(page, ".canvas-ask")).toEqual([]);
+
+  // With the box open it holds the question and the two buttons that send or put it away.
+  await bar.getByRole("button", { name: vi.canvas.ask.button }).tap();
+  await expect(bar.getByRole("textbox", { name: vi.canvas.ask.question })).toBeVisible();
+  await expect(bar.getByRole("button", { name: vi.send, exact: true })).toBeVisible();
+  await expect(bar.getByRole("button", { name: vi.canvas.ask.cancel })).toBeVisible();
+  expect(await smallTargets(page, ".canvas-ask")).toEqual([]);
+});

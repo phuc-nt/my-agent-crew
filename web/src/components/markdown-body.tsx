@@ -18,6 +18,7 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { vi } from "../i18n/vi";
 import { remarkHiddenChars } from "../lib/hidden-chars";
+import { rehypeSourceLines } from "../lib/rehype-source-lines";
 import { remarkWikiLinks, wikiSlugFromHref } from "../lib/wiki-links";
 import { CopyButton } from "./copy-button";
 import { MarkdownImage } from "./markdown-image";
@@ -84,6 +85,7 @@ const components: Components = {
 };
 
 const wikiPlugins = [remarkGfm, remarkWikiLinks];
+const lineMarks = [rehypeSourceLines];
 
 interface Props {
   text: string;
@@ -95,9 +97,12 @@ interface Props {
   /** Writes characters that change how text reads without being seen as marks, for a canvas,
    *  which may hold text an agent copied from a web page. */
   showHidden?: boolean;
+  /** Names on each block the lines of `text` it was written on (`data-line-start` and
+   *  `data-line-end`), for a canvas, in which a selection is asked about by its lines. */
+  sourceLines?: boolean;
 }
 
-export function MarkdownBody({ text, wikiLink, showHidden = false }: Props) {
+export function MarkdownBody({ text, wikiLink, showHidden = false, sourceLines = false }: Props) {
   const withWiki = useMemo<Components | null>(
     () =>
       wikiLink
@@ -115,6 +120,7 @@ export function MarkdownBody({ text, wikiLink, showHidden = false }: Props) {
     <div className="md">
       <ReactMarkdown
         remarkPlugins={[...(withWiki ? wikiPlugins : [remarkGfm]), ...(showHidden ? [remarkHiddenChars] : [])]}
+        rehypePlugins={sourceLines ? lineMarks : undefined}
         components={withWiki ?? components}
       >
         {text}

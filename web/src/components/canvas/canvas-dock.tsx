@@ -17,7 +17,7 @@ import { useCanvasWidth } from "../../hooks/use-canvas-width";
 import { vi } from "../../i18n/vi";
 import { Icon } from "../ui/icon";
 import { CanvasHandle } from "./canvas-handle";
-import { CanvasPanel } from "./canvas-panel";
+import { CanvasPanel, type CanvasPanelProps } from "./canvas-panel";
 import { CanvasPicker } from "./canvas-picker";
 
 type Props = {
@@ -30,6 +30,10 @@ type Props = {
   agentName(id: string): string;
   /** The Canvas button, which focus goes back to on closing. */
   trigger: RefObject<HTMLButtonElement | null>;
+  /** Asks the agent about a passage of the open canvas; where it is absent, no way to ask is offered. */
+  onAsk?: CanvasPanelProps["onAsk"];
+  /** Why asking is off for now, if it is. */
+  askDisabled?: CanvasPanelProps["askDisabled"];
 };
 
 // Every move resets "Canvas mới", and the overlay's way back, the list's first button and the
@@ -53,7 +57,7 @@ function useDockFocus(root: RefObject<HTMLDivElement | null>, trigger: Props["tr
   }, [root, trigger, view, quiet]);
 }
 
-export function CanvasDockView({ dock, mode, activity, connected, agentName, trigger }: Props) {
+export function CanvasDockView({ dock, mode, activity, connected, agentName, trigger, onAsk, askDisabled }: Props) {
   const size = useCanvasWidth();
   const root = useRef<HTMLDivElement>(null);
   useDockFocus(root, trigger, dock.view, dock.quiet);
@@ -132,6 +136,8 @@ export function CanvasDockView({ dock, mode, activity, connected, agentName, tri
               onShowList={() => void dock.showList()}
               onClose={() => void dock.close()}
               onForceClose={dock.forceClose}
+              onAsk={onAsk}
+              askDisabled={askDisabled}
             />
           )}
         </section>

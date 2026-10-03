@@ -5,6 +5,8 @@ is refused, never stored."""
 
 from __future__ import annotations
 
+import json
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -114,6 +116,33 @@ def test_a_selection_the_note_would_drop_is_422_and_nothing_changes(client, stor
     response = _open(client, conv.id, art, {**PICK, **change})
     assert response.status_code == 422
     assert store.artifact_links.focus(conv.id) == before
+
+
+def _open_on_the_wire(client: TestClient, conv_id: str, artifact_id: str, selection: dict):
+    """`_open` for a body httpx would refuse to encode: a lone surrogate goes as the escape
+    a browser's `JSON.stringify` makes of it."""
+    return client.put(
+        f"/api/conversations/{conv_id}/canvas",
+        content=json.dumps({"artifact_id": artifact_id, "selection": selection}),
+        headers={"content-type": "application/json"},
+    )
+
+
+def test_a_selection_cut_through_a_character_is_422_and_nothing_changes(client, store: Store):
+    conv, art = store.create(), persons_canvas(store, PLAN)
+    _open(client, conv.id, art, PICK)
+    before = store.artifact_links.focus(conv.id)
+    # Half an emoji, as a cut between the two code units of a character leaves it.
+    half = {**PICK, "text": "chạy 5 km \ud83d"}
+    assert _open_on_the_wire(client, conv.id, art, half).status_code == 422
+    assert store.artifact_links.focus(conv.id) == before
+
+
+def test_a_selection_with_a_whole_emoji_in_it_is_stored(client, store: Store):
+    conv, art = store.create(), persons_canvas(store, PLAN)
+    whole = {**PICK, "text": "chạy 5 km \U0001f3c3"}
+    assert _open_on_the_wire(client, conv.id, art, whole).status_code == 200
+    assert store.artifact_links.focus(conv.id).selection == whole
 
 
 def test_a_selection_may_reach_twenty_thousand_characters(client, store: Store):

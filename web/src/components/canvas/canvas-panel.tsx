@@ -3,10 +3,15 @@
  * history, and copy and download. A canvas an agent wrote opens to read and a person's opens to
  * edit. The mode is chosen once, when the text first arrives, so a version arriving later never
  * moves the person from one to the other.
+ *
+ * Where the panel is given a way to ask, a passage selected in the text can be asked about from a
+ * bar at its foot. The passage is the one selected when the text last stood as it does now: any
+ * change to the text, and a turn to the other mode or to the history, drops it.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { artifactApi } from "../../api/artifact-client";
+import type { MessageCanvas } from "../../api/artifact-types";
 import { ApiError } from "../../api/client";
 import { useCanvas } from "../../hooks/use-canvas";
 import type { PanelHandle } from "../../hooks/use-canvas-dock";
@@ -14,7 +19,10 @@ import { vi } from "../../i18n/vi";
 import { announceDeletion } from "../../lib/artifact-events";
 import type { CanvasState } from "../../lib/canvas-machine";
 import { canvasReason } from "../../lib/canvas-reasons";
+import type { CanvasSelection } from "../../lib/canvas-selection";
 import { isDirty } from "../../lib/canvas-state";
+import type { SendResult } from "../../lib/send-result";
+import { type AskDisabled, CanvasAsk } from "./canvas-ask";
 import { CanvasConflict } from "./canvas-conflict";
 import { CanvasEditor } from "./canvas-editor";
 import { type CanvasMode, CanvasHeader } from "./canvas-header";
@@ -38,6 +46,10 @@ export type CanvasPanelProps = {
   onShowList(): void;
   onClose(): void;
   onForceClose(): void;
+  /** Asks the agent about a passage of this canvas; where it is absent, no way to ask is offered. */
+  onAsk?(canvas: MessageCanvas, question: string): Promise<SendResult>;
+  /** Why asking is off for now, if it is. */
+  askDisabled?: AskDisabled;
 };
 
 /** A person's text opens to edit, an agent's to read, unless the canvas was just made here or this
@@ -49,6 +61,7 @@ function firstMode(state: CanvasState, created: boolean): CanvasMode {
 
 export function CanvasPanel(props: CanvasPanelProps) {
   const { artifactId, created, connected, stuck, agentName, bind, flush, onShowList, onClose, onForceClose } = props;
+  const { onAsk, askDisabled = null } = props;
   const canvas = useCanvas(artifactId, connected);
   const { state } = canvas;
   const latest = useRef(state);
@@ -57,6 +70,11 @@ export function CanvasPanel(props: CanvasPanelProps) {
   const [chosen, setChosen] = useState<CanvasMode | null>(null);
   const [history, setHistory] = useState(false);
   const [renameError, setRenameError] = useState<string | null>(null);
+  const [picked, setPicked] = useState<{ selection: CanvasSelection; gen: number } | null>(null);
+  const pick = useCallback(
+    (selection: CanvasSelection | null) => setPicked(selection && { selection, gen: latest.current.gen }),
+    [],
+  );
 
   // The handle is one object for as long as the panel stays: what changes is read through the refs.
   useEffect(
@@ -74,6 +92,7 @@ export function CanvasPanel(props: CanvasPanelProps) {
   const choose = (mode: CanvasMode) => {
     setChosen(mode);
     setHistory(false);
+    setPicked(null);
   };
 
   const rename = async (title: string) => {
@@ -90,6 +109,7 @@ export function CanvasPanel(props: CanvasPanelProps) {
   const ready = state.phase === "ready";
   const kind = state.summary?.kind ?? "markdown";
   const showHistory = ready && history && !state.gone;
+  const selection = picked?.gen === state.gen ? picked.selection : null;
   return (
     <div className="canvas-panel">
       <CanvasHeader
@@ -100,7 +120,10 @@ export function CanvasPanel(props: CanvasPanelProps) {
         mode={chosen}
         history={history}
         onChoose={choose}
-        onHistory={() => setHistory(!history)}
+        onHistory={() => {
+          setHistory(!history);
+          setPicked(null);
+        }}
         onRename={(title) => void rename(title)}
         onShowList={onShowList}
         onClose={onClose}
@@ -126,13 +149,25 @@ export function CanvasPanel(props: CanvasPanelProps) {
           <>
             <CanvasConflict canvas={canvas} agentName={agentName} />
             {chosen === "view" ? (
-              <CanvasView text={state.text} kind={kind} />
+              <CanvasView text={state.text} kind={kind} onSelection={onAsk ? pick : undefined} />
             ) : (
-              <CanvasEditor canvas={canvas} kind={kind} fieldRef={editor} />
+              <CanvasEditor canvas={canvas} kind={kind} fieldRef={editor} onSelection={onAsk ? pick : undefined} />
             )}
           </>
         )}
       </div>
+      {onAsk && (
+        <CanvasAsk
+          artifactId={artifactId}
+          selection={selection}
+          gen={state.gen}
+          hidden={!ready || showHistory || state.gone || state.conflict !== null}
+          disabled={askDisabled}
+          flush={flush}
+          onAsk={onAsk}
+          onAsked={() => setPicked(null)}
+        />
+      )}
     </div>
   );
 }

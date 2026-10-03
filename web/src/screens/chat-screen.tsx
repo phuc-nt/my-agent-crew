@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { MessageCanvas } from "../api/artifact-types";
 import type { AgentInfo, Conversation, RunInfo, SettingsInfo } from "../api/types";
 import { ApprovalBar } from "../components/approval-bar";
 import { RaiseCapButton } from "../components/budget-indicator";
+import type { AskDisabled } from "../components/canvas/canvas-ask";
 import { CanvasButton, CanvasDockView, CanvasHandoffNotices } from "../components/canvas/canvas-dock";
 import { QuestionCard } from "../components/question-card";
 import { Composer, type RestoreRequest } from "../components/composer";
@@ -28,6 +30,7 @@ import { useShortcuts } from "../hooks/use-shortcuts";
 import type { useThread } from "../hooks/use-thread";
 import { vi } from "../i18n/vi";
 import { runSummaryText } from "../lib/run-summary";
+import type { SendResult } from "../lib/send-result";
 import { conversationFamilyRuns, liveRuns, runningRuns, sortedRuns } from "../state/activity-reducer";
 import type { ThreadItem } from "../state/thread-reducer";
 
@@ -180,6 +183,18 @@ export function ChatScreen({
   const { close: closeDock } = dock;
   const canvasTrigger = useRef<HTMLButtonElement>(null);
 
+  // A question about a passage of the open canvas. The panel has saved the canvas and names the
+  // version, so this only posts it, to the conversation the person pressed Send in. A canvas that
+  // covers the chat is put away once the server has taken the question, so that the answer shows.
+  const ask = async (canvas: MessageCanvas, question: string): Promise<SendResult> => {
+    const id = list.activeId;
+    if (activeRef.current !== id) return { status: "failed", error: vi.canvas.ask.elsewhere };
+    const result = await sendRef.current(question, canvas);
+    // Only the conversation the question went to has an overlay to put away.
+    if (!wide && result.status !== "failed" && activeRef.current === id) void closeDock();
+    return result;
+  };
+
   // The search box only exists once the list is long enough to need it, so focusing it is
   // a request that can go unanswered — hence a ref that may hold nothing. On a phone it
   // lives in the drawer, which has to open around it first. Escape closes the topmost
@@ -204,6 +219,16 @@ export function ChatScreen({
   };
 
   const { state } = thread;
+  // Why a question about a passage cannot go now, which the ask bar says in words. A turn that
+  // is running comes first: the passage would be of a canvas the agent is still changing.
+  const askDisabled: AskDisabled =
+    state.busy || externalRun !== null
+      ? "busy"
+      : state.pending !== null
+        ? "pending"
+        : active?.over_budget
+          ? "budget"
+          : null;
   // One way to change the cap, shared by the budget card and both budget notices. A
   // delegate's conversation is not in the list, so only its reloaded thread shows the cap.
   const onRaiseCap = async (cost_cap_usd: number) => {
@@ -524,6 +549,8 @@ export function ChatScreen({
         connected={activity.state.connected}
         agentName={crew.agentName}
         trigger={canvasTrigger}
+        onAsk={ask}
+        askDisabled={askDisabled}
       />
     </div>
   );

@@ -197,6 +197,9 @@ export class FakeBackend {
   private keepaliveBytes = 0;
   /** Set to a message to make the next PATCH refuse, the way a bad field would. */
   refuseEdit: string | null = null;
+  /** Set to make every POST /messages refuse with this status, once the conversation is known
+   *  to exist and is not waiting on a decision, before the canvas it carries is looked at. */
+  refuseMessage: { status: number; detail: string } | null = null;
   /** What the next POST /summary writes onto the conversation. */
   nextSummary = "Bản tóm tắt mới.";
 
@@ -330,6 +333,7 @@ export class FakeBackend {
     if (conv && path.endsWith("/messages") && method === "POST") {
       const c = this.conversations.get(conv)!;
       if (c.status === "awaiting_approval") return json({ detail: "conversation is awaiting approval" }, 409);
+      if (this.refuseMessage) return json({ detail: this.refuseMessage.detail }, this.refuseMessage.status);
       const refusal = this.canvas.applyMessageCanvas(conv, body.canvas);
       if (refusal) return this.canvasReply(refusal);
       // A turn is already being held open for this conversation: the message it found

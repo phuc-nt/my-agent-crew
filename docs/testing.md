@@ -1891,6 +1891,114 @@ tên một test thì sửa dòng của nó trong cùng commit.
     phím ở ô soạn tin, nút Mở của thẻ đưa canvas đã đóng trở lại; ở 390 px thẻ có nút Mở và một lần
     chạm phủ canvas lên thread); `touch-targets-phone.spec.ts` ("the canvas card's Open button and the
     note chip in the thread are big enough for a finger": ≥40px mỗi chiều ở 390 px)
+- **Chọn một đoạn của canvas rồi hỏi agent về đoạn ấy: tin gửi đi mang đoạn trích đúng các dòng người đã
+  chọn, ở chế độ Sửa lẫn chế độ Xem**
+  - pytest: `tests/test_api_canvas_focus.py`
+    ("test_a_selection_cut_through_a_character_is_422_and_nothing_changes",
+    "test_a_selection_with_a_whole_emoji_in_it_is_stored": đoạn cắt giữa một ký tự — nửa emoji, hai đơn
+    vị UTF-16 bị tách rời — bị từ chối 422 và vùng chọn đang mở giữ nguyên, emoji nguyên vẹn được lưu;
+    thân yêu cầu gửi như trình duyệt gửi, đơn vị lẻ viết thành escape, vì httpx không mã hoá nổi nó);
+    `tests/test_api_chat_canvas.py` (cùng hai ca ở POST tin nhắn: bị từ chối trước khi tin vào hàng đợi,
+    cả khi cuộc trò chuyện đang bận, không để lại tin, hàng đợi hay lần chia sẻ nào; đoạn cắt ở cuối
+    dòng, như web cắt đoạn dài hơn một tin, vẫn được ghi chú đặt theo dòng với dòng cuối đã hạ cho khớp;
+    đoạn đã cắt mà còn giữ dòng cuối của cả vùng chọn thì ghi chú đặt theo chữ (`PICK_TEXT`) và không
+    nêu dòng nào, vì các dòng ấy chạy quá đoạn)
+  - vitest, thư viện: `web/src/lib/rehype-source-lines.test.tsx` (mỗi đoạn văn, tiêu đề mọi kiểu kể cả
+    tiêu đề gạch dưới trải hai dòng, mục danh sách — mục có danh sách lồng mang cả các dòng của phần
+    lồng —, bảng và từng hàng của nó (không phải hàng ngăn cách hay ô), khối code và code trong khối
+    với các dòng của khối kể cả hàng rào, khối trích dẫn và đoạn trong nó đều mang các dòng đã viết; code
+    trong câu, nhấn mạnh, liên kết, danh sách nói chung, đường kẻ và ô để nguyên; phần tử không có vị
+    trí thì không có dòng nào để nêu mà vẫn giữ thuộc tính; markup trong chữ chỉ hiện thành chữ nên
+    không giả được dòng); `web/src/components/markdown-body.test.tsx` nhóm "the source lines a canvas
+    needs to place a selection" (khối được đánh dấu dòng khi được yêu cầu, code trong khối rào mang dòng
+    của khối vì đó là phần trang giữ lại của khối, code trong câu không có dòng, không yêu cầu thì vẽ
+    đúng HTML như trước, markup trong chữ không giả được dòng); `web/src/lib/canvas-selection.test.ts`
+    (nhóm "a passage clipped to what a message can take": đoạn trong giới hạn và đúng bằng giới hạn giữ
+    nguyên, đếm ký tự như server — một cặp đơn vị mã là một —, đoạn chỉ toàn khoảng trắng không có gì để
+    hỏi; đoạn dài hơn bị cắt ở cuối dòng cuối cùng còn vừa và dòng cuối hạ xuống dòng liền trước, kể cả
+    khi cuối dòng ấy đúng là ký tự cuối của giới hạn; một dòng dài hơn giới hạn thì cắt theo ký tự, không
+    bao giờ giữa một cặp; dòng đầu một mình đã quá giới hạn thì đoạn cắt dừng ở dòng đầu; đoạn cắt chỉ
+    còn khoảng trắng thì không có gì. Nhóm "the passage selected in the editor": đoạn giữa dòng, đoạn
+    qua nhiều dòng với mỗi đầu ở đúng dòng của nó, đoạn dừng ngay sau ký tự xuống dòng không tính dòng
+    kế, đoạn bắt đầu ở ký tự xuống dòng không tính dòng trước, bỏ mọi ký tự xuống dòng ở hai đầu như khi
+    ba lần nhấp chọn một dòng, giữ thụt lề và dòng trống ở giữa; con trỏ, khoảng trắng hay chỉ ký tự
+    xuống dòng thì không đọc ra gì; đoạn quá giới hạn bị cắt mà vẫn nói đã chọn bao nhiêu ký tự, đếm
+    theo ký tự chứ không theo đơn vị mã); `web/src/lib/canvas-selection-view.test.tsx` (vùng chọn trong
+    canvas đang đọc: trong một đoạn văn là mọi dòng của đoạn, qua hai mục danh sách là dòng của cả hai,
+    từ tiêu đề xuống đoạn văn gồm cả dòng trống ở giữa, trong khối code là cả khối kể cả hàng rào, trong
+    ô bảng là cả hàng, trong mục có danh sách lồng là dòng của mục và của các mục lồng; số ký tự báo là
+    chữ nhìn thấy chứ không phải dấu markdown; code thì mỗi dòng đứng riêng, kể cả dòng trống và dòng cuối
+    không có ký tự xuống dòng; nhãn nút sao chép của khối code nằm giữa hai đoạn văn không làm lệch;
+    vùng chọn kết thúc ngay đầu khối kế, như ba lần nhấp để lại — dù đầu ấy là chữ, là phần tử, hay là
+    chữ ngoài vùng đọc — không lấy khối kế; con trỏ, khoảng trắng, không có vùng chọn, một đầu nằm ngoài
+    vùng đang đọc hay chữ không nêu dòng nguồn nào đều không đọc ra gì; vùng chọn quá giới hạn bị cắt như
+    mọi vùng khác. Ca vùng chọn kết thúc ở vị trí 0 của một nút chữ — dạng Firefox và WebKit để lại — chỉ
+    có test jsdom này, vì Chromium không bao giờ để lại nó)
+  - vitest, thành phần: `web/src/components/canvas/canvas-ask.test.tsx` (thanh hỏi không hiện gì khi
+    chưa chọn gì và hộp còn đóng, hay khi đang ẩn; hiện đoạn chọn, các dòng nó nằm trên và nút hỏi; đoạn
+    trên một dòng gọi tên dòng ấy một mình; đếm ký tự như server; đoạn trích hiện tối đa số ký tự cho
+    phép, cắt giữa các ký tự nguyên, đoạn vừa thì hiện nguyên không dấu đã cắt; ký tự không nhìn thấy
+    được viết ra thành dấu để người thấy điều agent sẽ nhận, dấu BOM cũng vậy dù mẫu khoảng trắng coi nó
+    là khoảng trắng; nhóm "what is said when more is sent than was selected": nói rằng cả các dòng sẽ
+    đi và chỉ sang Sửa khi các dòng chứa nhiều hơn hẳn phần đã chọn, đến ngưỡng thì không nói; nhóm "the
+    question box": hộp mở bằng nút, nhận con trỏ và vẫn để đoạn chọn hiện, bấm nút không làm mất vùng
+    chọn của trang, không gửi được khi rỗng hay chỉ có khoảng trắng bằng nút hay Enter, Huỷ và Escape
+    đóng hộp, bỏ chữ đã gõ và lần sau mở ra rỗng, trả con trỏ về nút khi đóng bằng Escape hay Huỷ nhưng
+    không giật con trỏ đang ở chỗ khác, giữ đoạn đã chọn khi người rời trang để vào hộp, theo đoạn chọn
+    mới khi hộp đang mở và giữ đoạn ấy khi vùng chọn mất, biến khi ẩn và trở lại như cũ; nhóm "why asking
+    is off": mỗi lý do khoá nút và nói đúng lý do ấy, hỏi được thì không nói gì, hộp đang mở thì khoá Gửi
+    và Enter nhưng vẫn cho viết tiếp câu hỏi, hết lý do thì mở lại Gửi);
+    `web/src/components/canvas/canvas-ask-send.test.tsx`
+    (lưu canvas trước rồi mới gửi đoạn ở đúng phiên bản lần lưu cho, kèm câu hỏi đã bỏ khoảng trắng hai
+    đầu; Enter gửi, Shift+Enter và Enter kết thúc một chữ đang gõ bằng bộ gõ thì không; server nhận hay
+    xếp hàng đều đóng hộp và báo panel; server từ chối thì hộp và câu hỏi còn nguyên, báo điều đã sai và
+    lần thử kế bắt đầu sạch; không lưu được canvas thì không hỏi gì, báo và giữ câu hỏi; canvas đổi giữa
+    lúc lưu thì không hỏi, bảo chọn lại đoạn và giữ câu hỏi, chọn lại thì hỏi về đoạn mới với câu hỏi
+    như cũ và bỏ lời báo cũ; bấm bao nhiêu lần cũng hỏi một lần, hộp bị khoá — chỉ đọc, Gửi và Huỷ tắt,
+    Escape không đóng — tới khi lưu xong; hỏi được câu thứ hai về đoạn khác khi câu đầu đã đi qua);
+    `web/src/components/canvas/canvas-panel-ask.test.tsx`
+    (chạy cho cả canvas đang sửa lẫn đang đọc: đề nghị hỏi về đoạn đang chọn với các dòng của nó, chưa
+    chọn gì thì không đề nghị gì, panel không có đường hỏi thì không đề nghị dù chọn gì; đặt con trỏ vào
+    chữ thay cho đoạn thì thôi đề nghị, con trỏ đi nơi khác thì vẫn đề nghị; chữ đổi thì thôi đề nghị
+    đoạn cũ và đề nghị đoạn chọn kế; người chuyển sang cách hiển thị kia thì thôi; canvas bị xoá thì hết,
+    kể cả đoạn chọn sau đó; nói lý do tắt như chat nói; ẩn khi xem lịch sử, giữ câu hỏi đã bắt đầu qua
+    lần xem và không đưa lại đoạn chỉ chọn trước lần xem; hai bản xung đột thì không đề nghị gì; gửi câu
+    hỏi từ panel: lưu chữ đã gõ trước rồi hỏi về đoạn ở bản đã giữ nó, lấy phiên bản từ lần lưu của dock
+    — lần lưu có giới hạn thời gian —, chữ đổi trong lúc lưu thì không hỏi và bảo chọn lại);
+    `web/src/components/canvas/canvas-editor.test.tsx` nhóm "the selection the editor reports" (đoạn đang
+    chọn kèm các dòng, chỉ con trỏ thì báo không có, chữ đúng như đã gõ, vẫn ghi con trỏ cho các lần
+    thay của máy khi chẳng ai nghe) và nhóm "a selection that no key or mouse made" (vùng chọn mà trình
+    duyệt chỉ báo bằng `selectionchange` — tay cầm chọn trên màn cảm ứng, `setSelectionRange`, chọn tất
+    cả trong menu — được báo khi ô đang giữ bàn phím và bị bỏ qua khi bàn phím ở chỗ khác; con trỏ cho
+    các lần thay của máy dời theo như khi phím tạo vùng chọn; tài liệu chỉ được nghe khi trình sửa còn
+    trên trang, một trình nghe thêm vào và chính nó gỡ ra. Test bắn `selectionchange` vào chính ô, như
+    Chromium, vì React bỏ qua bản ấy và chỉ nghe bản bắn vào tài liệu — bắn vào tài liệu thì test vẫn
+    xanh dù trình sửa hỏng trên trình duyệt thật)
+  - vitest, cả App trên `FakeCanvas`: `web/src/app-canvas-ask.test.tsx` (một tin duy nhất mang đoạn chọn
+    và câu hỏi, không lưu hay ghi gì thêm, cho cả canvas đang sửa lẫn đang đọc; chữ đã gõ được lưu trước
+    và đoạn được hỏi theo bản đã lưu; tin của người có chip ghi chú server giữ cùng câu hỏi; hộp đóng mà
+    canvas vẫn ở cạnh chat khi lượt vừa bắt đầu còn chạy, và hộp cũng đóng khi server xếp câu hỏi sau
+    một lượt tab này không thấy; câu hỏi bị từ chối bằng 409, 422 hay 429 thì hộp giữ câu hỏi, nói lý do
+    bằng lời của web chứ không bằng chữ của server, và lần thử kế đi qua; mất mạng thì hộp giữ câu hỏi và
+    nói không tới được server; sang cuộc trò chuyện khác trước khi canvas lưu xong thì không gửi gì;
+    canvas phủ lên chat được cất đi khi câu hỏi đã đi qua để câu trả lời hiện ra, còn nguyên cả canvas
+    lẫn câu hỏi khi server từ chối, Escape trong hộp chỉ đóng hộp, và không đụng tới canvas người mở ở
+    cuộc khác trong lúc câu hỏi còn trên đường; hỏi tắt khi lượt của tab đang chạy và bật lại khi xong,
+    khi kênh khác đang chạy lượt, khi cuộc trò chuyện chờ quyết định về một công cụ, khi đã hết ngân
+    sách, và chỉ nói một lý do một lúc: quyết định trước ngân sách, lượt đang chạy trước cả hai). Hàm
+    dùng chung: `web/src/test/canvas-pick.ts` (chọn chữ trên DOM như một cú kéo để lại, trong trang đọc
+    hay trong ô sửa), `web/src/test/canvas-ask.tsx` (thanh hỏi đứng riêng với hàm lưu và hàm gửi giả), và
+    `FakeBackend.refuseMessage` (POST tin nhắn từ chối với đúng trạng thái và `detail` đã đặt)
+  - Playwright: `canvas-ask.spec.ts` (ở 1440 px: đoạn chọn trong ô sửa bằng `setSelectionRange` đi cùng
+    câu hỏi với đúng `line_start` và `line_end`, câu hỏi và câu trả lời hiện trong thread, chip ghi chú nằm
+    ngay dưới tin của người và mở ra đúng ghi chú, canvas vẫn ở cạnh chat; đoạn chọn bằng phím —
+    `Shift+ArrowRight` từng chữ, vì `End` trên Mac nhảy tới cuối văn bản chứ không phải cuối dòng — được đề
+    nghị khi còn chọn và hết cùng con trỏ; đoạn chọn trong canvas đang đọc bằng một `Range` dựng qua
+    `page.evaluate`; ba lần nhấp chọn đúng đoạn văn dưới nó, đoạn đầu, đoạn giữa và đoạn cuối, kể cả khi
+    Chromium để vùng chọn kết thúc ở một phần tử nằm ngoài vùng đọc như thanh hỏi; ở 390 px canvas phủ lên
+    chat được cất đi sau khi gửi để câu hỏi và câu trả lời hiện ra); `touch-targets-phone.spec.ts` ("the
+    buttons of the bar that asks about a passage of the canvas are big enough for a finger": nút hỏi, ô
+    câu hỏi, Gửi và Huỷ ≥40px mỗi chiều ở 390 px)
 - **Mã agent khớp cả chuỗi: chữ thường, số và gạch ngang, không cả xuống dòng ở cuối**
   - pytest: `tests/test_api_agents_edit.py::test_an_id_that_is_not_a_safe_folder_name_is_refused`
     (`../escape` và `coder` có xuống dòng ở cuối đều bị từ chối, không thư mục nào được tạo);

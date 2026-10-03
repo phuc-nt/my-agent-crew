@@ -128,3 +128,46 @@ describe("an image in a reply", () => {
   });
 });
 
+describe("the source lines a canvas needs to place a selection", () => {
+  const DOC = "para **b**\n\n- a\n- b\n\n> quote\n\n| A |\n| - |\n| 1 |";
+  const PLAIN =
+    '<div class="md"><p>para <strong>b</strong></p>\n<ul>\n<li>a</li>\n<li>b</li>\n</ul>\n<blockquote>\n<p>quote</p>\n</blockquote>\n<table><thead><tr><th>A</th></tr></thead><tbody><tr><td>1</td></tr></tbody></table></div>';
+
+  it("marks blocks with the lines they were written on when asked", () => {
+    const { container } = render(<MarkdownBody text={DOC} sourceLines />);
+    const lines = (selector: string) =>
+      [...container.querySelectorAll(selector)].map((el) => `${el.getAttribute("data-line-start")}-${el.getAttribute("data-line-end")}`);
+    expect(lines("p")).toEqual(["1-1", "6-6"]);
+    expect(lines("li")).toEqual(["3-3", "4-4"]);
+    expect(lines("blockquote")).toEqual(["6-6"]);
+    expect(lines("table")).toEqual(["8-10"]);
+    expect(lines("tr")).toEqual(["8-8", "10-10"]);
+  });
+
+  it("puts the lines of a fenced block on its code, which is what the page keeps of the block", () => {
+    const { container } = render(<MarkdownBody text={"before\n\n```bash\nls\npwd\n```"} sourceLines />);
+    const code = container.querySelector("pre.md-pre code");
+    expect(code).toHaveAttribute("data-line-start", "3");
+    expect(code).toHaveAttribute("data-line-end", "6");
+    expect(container.querySelector("pre")).not.toHaveAttribute("data-line-start");
+  });
+
+  it("leaves code inside a sentence without lines", () => {
+    const { container } = render(<MarkdownBody text="chạy `pytest` trước" sourceLines />);
+    expect(container.querySelector("code.md-inline")).not.toHaveAttribute("data-line-start");
+  });
+
+  it("draws exactly the HTML it drew before when not asked", () => {
+    const { container } = render(<MarkdownBody text={DOC} />);
+    expect(container.innerHTML).toBe(PLAIN);
+    expect(container.querySelector("[data-line-start]")).toBeNull();
+  });
+
+  it("does not let the text forge lines: markup in it stays text", () => {
+    const { container } = render(
+      <MarkdownBody text={'<p data-line-start="9" data-line-end="9">x</p>\n\nreal'} sourceLines />,
+    );
+    expect([...container.querySelectorAll("[data-line-start]")].map((el) => el.getAttribute("data-line-start"))).toEqual(["3"]);
+    expect(container.textContent).toContain('data-line-start="9"');
+  });
+});

@@ -3,8 +3,9 @@
  * conversation's activity alone while nothing is open, and with the list or a canvas open, a
  * tab for each over a column whose left edge drags. Narrower, the open dock is a layer over
  * the chat column, the whole screen on a phone. Inside it: the conversation's canvases, and
- * one canvas with its header, its text, the conflict bar and the history. Last, outside the
- * dock, the note a message carried from the canvas, as a chip under its bubble in the thread.
+ * one canvas with its header, its text, the conflict bar, the bar that asks about a passage and
+ * the history. Last, outside the dock, the note a message carried from the canvas, as a chip
+ * under its bubble in the thread.
  */
 
 /* ── The column ─────────────────────────────────────────────────────────── */
@@ -311,6 +312,65 @@
 .canvas-conflict .canvas-diff {
   max-height: 40vh;
   overflow-y: auto;
+}
+
+/* ── Asking about a passage ─────────────────────────────────────────────── */
+/* In the panel's flow under the text, so the text gives up the room instead of being covered.
+   Past half the screen — a long note, a small window — it scrolls inside itself. */
+.canvas-ask {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: 50vh;
+  max-height: 50dvh;
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  overflow-y: auto;
+}
+
+.canvas-ask-excerpt {
+  margin: 0;
+  padding: var(--space-1) var(--space-3);
+  border-left: 3px solid var(--accent);
+  background: var(--accent-softer);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
+.canvas-ask-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.canvas-ask-meta,
+.canvas-ask-note {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+}
+
+.canvas-ask-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.canvas-ask-form textarea {
+  width: 100%;
+  min-height: 3.5rem;
+  resize: vertical;
+}
+
+.canvas-ask-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
 }
 
 /* ── The list ───────────────────────────────────────────────────────────── */

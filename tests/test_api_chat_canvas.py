@@ -5,6 +5,8 @@ and left alone by a message the gate refuses or that carries no canvas at all.""
 
 from __future__ import annotations
 
+import json
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -14,8 +16,13 @@ from my_agent_crew.server import create_app
 from my_agent_crew.server.runtime import Runtime
 from my_agent_crew.store.db import Store
 from my_agent_crew.store.models import AWAITING_APPROVAL
-from my_agent_crew.texts_canvas import CANVAS_NOTE_FOCUS, CANVAS_NOTE_PICK, PICK_LINES
-from tests.canvas_helpers import framed, seen_canvas
+from my_agent_crew.texts_canvas import (
+    CANVAS_NOTE_FOCUS,
+    CANVAS_NOTE_PICK,
+    PICK_LINES,
+    PICK_TEXT,
+)
+from tests.canvas_helpers import framed, persons_canvas, seen_canvas
 from tests.test_server_api import parse_sse
 
 PICK = {"version": 1, "text": "chạy 5 km", "line_start": 2, "line_end": 2}
@@ -43,6 +50,17 @@ def _two_canvases(client: TestClient, store: Store) -> tuple[str, str, str]:
 def _post(client: TestClient, conv_id: str, text: str, canvas=ABSENT):
     body = {"text": text} if canvas is ABSENT else {"text": text, "canvas": canvas}
     return client.post(f"/api/conversations/{conv_id}/messages", json=body)
+
+
+def _post_wire(client: TestClient, conv_id: str, text: str, canvas):
+    """`_post` for a body httpx would refuse to encode: the text goes as the wire has it, with
+    a lone surrogate as the escape a browser's `JSON.stringify` makes of it."""
+    content = json.dumps({"text": text, "canvas": canvas})
+    return client.post(
+        f"/api/conversations/{conv_id}/messages",
+        content=content,
+        headers={"content-type": "application/json"},
+    )
 
 
 def _send(client: TestClient, conv_id: str, text: str, canvas=ABSENT) -> str:
@@ -175,3 +193,66 @@ def test_a_queued_ask_loses_its_passage_to_a_later_message_from_the_same_tab(cli
     context = store.history(conv_id)[-1].context
     assert context == _opened("Bản X", laptop)
     assert "chạy 5 km" not in context
+
+
+def test_a_selection_cut_through_a_character_is_422_and_goes_nowhere(client, store: Store):
+    conv_id, laptop, _ = _two_canvases(client, store)
+    before = store.artifact_links.focus(conv_id)
+    # Half an emoji, as a cut between the two code units of a character leaves it. No row can
+    # hold it, so it must be refused before the message is queued, not when focus is written.
+    cut = {"artifact_id": laptop, "selection": {**PICK, "text": "chạy 5 km \ud83d"}}
+    assert _post_wire(client, conv_id, "sửa", cut).status_code == 422
+    client.app.state.runtime.hub.busy.claim(conv_id)
+    assert _post_wire(client, conv_id, "sửa", cut).status_code == 422
+    assert (store.history(conv_id), store.queue.peek_all(conv_id)) == ([], [])
+    assert store.artifact_links.focus(conv_id) == before
+    assert store.artifact_links.get(conv_id, laptop).shared is False
+
+
+def test_a_selection_with_a_whole_emoji_in_it_goes_with_the_message(client, store: Store):
+    conv_id, laptop, _ = _two_canvases(client, store)
+    emoji = {**PICK, "text": "chạy 5 km \U0001f3c3"}
+    assert (
+        _post_wire(client, conv_id, "sửa", {"artifact_id": laptop, "selection": emoji}).status_code
+        == 200
+    )
+    assert store.history(conv_id)[0].message.content == "sửa"
+
+
+def _long_canvas(store: Store, conv_id: str) -> tuple[str, list[str]]:
+    lines = [f"dòng {n:03d} " + "ă" * 60 for n in range(1, 400)]
+    return persons_canvas(store, "\n".join(lines), conv_id), lines
+
+
+def _cut_at_a_line_end(lines: list[str], limit: int = 20000) -> dict:
+    """The longest run of whole lines from the first that fits `limit` characters, as the
+    web cuts a selection: at a line break, with the end line lowered to match."""
+    count = max(n for n in range(1, len(lines) + 1) if len("\n".join(lines[:n])) <= limit)
+    return {"version": 1, "text": "\n".join(lines[:count]), "line_start": 1, "line_end": count}
+
+
+def test_a_selection_cut_at_a_line_end_is_still_placed_by_its_lines(client, store: Store):
+    conv_id = client.post("/api/conversations", json={"title": "Dài"}).json()["id"]
+    art, lines = _long_canvas(store, conv_id)
+    cut = _cut_at_a_line_end(lines)
+    assert 1 < cut["line_end"] < len(lines)
+    assert _send(client, conv_id, "tóm tắt", {"artifact_id": art, "selection": cut}) == "done"
+    where = PICK_LINES.format(span=line_span(1, cut["line_end"]), version=1)
+    assert CANVAS_NOTE_PICK.format(title="Ghi chú của người", id=art, where=where) in (
+        store.history(conv_id)[0].context
+    )
+
+
+def test_a_cut_that_kept_the_end_line_of_the_whole_selection_is_placed_by_its_text(
+    client, store: Store
+):
+    # Why the web lowers the end line when it cuts: the lines the note was told of would run
+    # past the passage, and the note could say nothing of where it is.
+    conv_id = client.post("/api/conversations", json={"title": "Dài"}).json()["id"]
+    art, lines = _long_canvas(store, conv_id)
+    cut = {**_cut_at_a_line_end(lines), "line_end": len(lines)}
+    assert _send(client, conv_id, "tóm tắt", {"artifact_id": art, "selection": cut}) == "done"
+    context = store.history(conv_id)[0].context
+    assert PICK_TEXT.format(version=1) in context
+    for end in (cut["line_end"], len(lines)):
+        assert PICK_LINES.format(span=line_span(1, end), version=1) not in context
