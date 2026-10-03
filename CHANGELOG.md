@@ -106,6 +106,50 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   Opening another conversation saves the typing and closes the canvas; a save that fails after
   the switch is told in the chat until dismissed, its typing kept in the draft. A canvas deleted
   elsewhere keeps its text to read and copy.
+- A message sent from the web chat names the canvas open in the tab, and what was typed into
+  that canvas is saved before the message goes out, so the agent's note is built from what the
+  person is looking at. The composer keeps the words read-only until the save has landed (at
+  most 5 seconds) and the server has said anything about the message; then it empties, or
+  leaves the words where they were typed when the message was refused. The dock remembers which
+  canvas it opened in each conversation. Closing the canvas on a wide screen tells the server
+  once that none is open; opening one, changing conversation or putting the overlay of a narrow
+  screen away tells it nothing. Entering a conversation on a wide screen opens again the canvas
+  the server has open there, without taking focus from the composer and without writing
+  anything. A 422 for a message that carried a canvas reads as a passage that no longer matches
+  the canvas, not as the server's own sentence.
+- A message that carries a canvas note shows it. A turn opens with a `user_context` event
+  carrying the note stored with the message, only when the message has one, and the tab that
+  sent the message attaches it to its latest bubble. The event is streamed, neither stored nor
+  broadcast, so a tab that merely watches the conversation never receives a passage someone
+  quoted from their canvas. Under such a message the thread draws a chip, closed until pressed:
+  opened, it shows the note as text with hidden characters written out as marks, and a button
+  copies the note exactly as the agent read it. A conversation loaded from the server shows the
+  same chips, from its stored messages.
+- A canvas write shows in the web thread as the canvas it touched: its title, what was done to
+  which version, and a button that opens it. A card still running asks the server nothing, and
+  a canvas the server no longer has says so and offers no button. A write that failed, was
+  refused, was stopped or waits for approval keeps the plain tool card, which shows why, and a
+  card never shows arguments or content. The canvas a card opens is the one the tag at the
+  start of the result names; an edit or rewrite without a tag falls back to the id it was
+  given, when the server makes that id. A canvas the agent creates during a turn the tab is
+  showing opens beside the thread on a wide screen, without taking the keyboard and without
+  writing anything. Each call is judged once, as it ends: not while the person is typing in a
+  canvas, not on a narrow screen, and never for a call the saved history holds.
+- A passage selected in a canvas, in the editor or in the page being read, can be asked about:
+  a bar at the foot of the panel names the lines the selection lies on and offers a box for a
+  question, which goes as one message with the passage as of the version just saved, so the
+  lines named are those the person saw. In the page being read, the passage is placed by the
+  source lines the rendered blocks carry: a paragraph, a list item, a table row or a code
+  block counts as the whole of its lines, and code as the lines a selection touches. A passage
+  longer than a message is cut at a line end, with the end line lowered to match. The editor
+  also hears a selection the browser reports only as a `selectionchange` on the field, which
+  React does not pass on: the handles of a touch screen's selection, `setSelectionRange` and
+  select-all from the menu. Asking is off while a turn runs, while the conversation waits for
+  a decision and once the budget is spent, and the bar says which. A question the server
+  refuses, or that cannot be saved or reached, stays in the box with the reason; on a phone,
+  where the canvas covers the chat, the canvas is put away once the question went through, so
+  the answer shows. The server now refuses, with 422 and before queueing anything, a selection
+  cut through a character, since a lone half of a pair could not be stored.
 
 ### Fixed
 
@@ -167,6 +211,11 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   and `OPENROUTER_API_KEY`. Before, they got the rest of the operator's shell but for a short
   list of dropped names, and so did every hook they ran: another service's key, a messaging
   token or the ssh-agent socket reached an eval driven by a real model.
+- A message the server queued, because the conversation was busy somewhere the web tab could not
+  see, no longer comes back to the composer: a chip stood for it while the same words returned
+  to the box. A message the server refused neither gave its words back nor took its bubble back,
+  and now does both. A send cut off on purpose, by Stop or by leaving the conversation, counts
+  as sent, not as failed.
 
 ### Changed
 
