@@ -13,13 +13,18 @@ Two headers give that away, and a browser does not let a page forge either:
   when the Host looks right. The Vite dev proxy passes `localhost:5173` as both.
 - `Sec-Fetch-Site`, on the API, must be absent, `same-origin` or `none`. `Origin` misses what
   a page does without a script: a link, an `<img>` or a navigation to an API address is a GET
-  that carries none, and still runs on the server. A browser sends this header with every
-  request and a page cannot forge it: `cross-site` is another site, or a sandboxed page's
-  opaque origin; `same-site` is another port of this machine, which is as untrusted as the
-  paragraph above says. `same-origin` is the page's own calls — the Vite proxy's too, as the
-  browser sees both at `localhost:5173` — and `none` an address typed or a bookmark opened.
-  A program that is no browser (curl, the eval runner, Telegram) sends none and passes. The
-  pages themselves are not held to it: a link from elsewhere into the app has to open it. One
+  that carries none, and still runs on the server. A page cannot forge this header, and a
+  browser sends it with every request to a "potentially trustworthy" URL (https, `localhost`,
+  127.0.0.0/8 and ::1): `cross-site` is another site, or a sandboxed page's opaque origin;
+  `same-site` is another port of this machine, which is as untrusted as the paragraph above
+  says. `same-origin` is the page's own calls — the Vite proxy's too, as the browser sees both
+  at `localhost:5173` — and `none` an address typed or a bookmark opened. A program that is no
+  browser (curl, the eval runner, Telegram) sends none and passes.
+  So does a browser that opened the app over plain http through another name, such as a
+  Tailscale name in `MY_AGENT_ALLOWED_HOSTS`: it sends no `Sec-Fetch-*` header to a URL that is
+  not trustworthy, so this check lets that request through and only `Host` and `Origin` stand
+  guard. A remote name needs https (`tailscale serve`) for this check to hold. The pages
+  themselves are not held to it: a link from elsewhere into the app has to open it. One
   API address is let through whatever it says, a canvas's render page: it runs in an opaque
   origin, framed by the app or in a tab of its own, and a page there that reloads itself is
   `cross-site` to the browser. It only reads.
@@ -103,9 +108,10 @@ def is_local_request(host_header: str, origin: str | None, extra: frozenset[str]
 def cross_site_refusal(path: str, fetch_site: str | None) -> str | None:
     """Why a browser request to the API is turned away for where it says it came from, or None.
 
-    `fetch_site` is the `Sec-Fetch-Site` header: absent from a program that is no browser, which
-    passes. Any value but the two of the page and the person is refused, one this code does not
-    know included, except for the render page of a canvas.
+    `fetch_site` is the `Sec-Fetch-Site` header: absent from a program that is no browser, and
+    from a browser that opened the app over plain http through a name that is not local (the
+    module docstring says why). Both pass. Any value but the two of the page and the person is
+    refused, one this code does not know included, except for the render page of a canvas.
     """
     if fetch_site is None or fetch_site in OWN_REQUESTS or not path.startswith("/api/"):
         return None
