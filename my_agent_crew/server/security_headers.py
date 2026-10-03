@@ -1,4 +1,4 @@
-"""Headers every response carries, whichever route or guard made it.
+"""Headers every response carries, whichever route, guard or layer made it.
 
 `frame-ancestors 'self'` lets this app's own pages frame a response and nobody else. Without
 it a page on any site could frame the web app, lay its own buttons over it and have the person
@@ -10,10 +10,15 @@ already set: a browser enforces every policy it is given, so each keeps its own 
 
 Plain ASGI rather than `BaseHTTPMiddleware`: that wraps the response body, and an event stream
 must reach the client as it is written.
+
+`SecuredApp` puts the rule around the whole stack. `add_middleware` cannot: Starlette keeps its
+server-error handler outside every middleware added, so the 500 page of an exception nothing
+caught would leave without it.
 """
 
 from __future__ import annotations
 
+from fastapi import FastAPI
 from starlette.datastructures import MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
@@ -35,3 +40,10 @@ class SecurityHeaders:
             await send(message)
 
         await self.app(scope, receive, forbid_framing)
+
+
+class SecuredApp(FastAPI):
+    """A FastAPI app whose every answer carries the headers, an unhandled error's included."""
+
+    def build_middleware_stack(self) -> ASGIApp:
+        return SecurityHeaders(super().build_middleware_stack())

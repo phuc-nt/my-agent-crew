@@ -7,6 +7,7 @@ from __future__ import annotations
 import asyncio
 
 import pytest
+from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 from starlette.types import Message
 
@@ -48,6 +49,19 @@ def test_a_refusal_of_the_local_guard_forbids_framing_too(app):
     with TestClient(app, base_url="http://evil.example:8765") as rebound:
         response = rebound.get("/api/health")
     assert response.status_code == 403
+    assert _policies(response) == [NO_FRAMING]
+
+
+def test_the_500_page_of_an_error_nothing_caught_forbids_framing_too(app):
+    def explode() -> None:
+        raise RuntimeError("no handler takes this")
+
+    # In front of the catch-all that answers every address the API does not own with the page.
+    app.router.routes.insert(0, APIRoute("/api/explodes", explode))
+    with TestClient(app, base_url="http://127.0.0.1", raise_server_exceptions=False) as client:
+        response = client.get("/api/explodes")
+    assert response.status_code == 500
+    assert response.text == "Internal Server Error"
     assert _policies(response) == [NO_FRAMING]
 
 

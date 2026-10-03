@@ -46,7 +46,7 @@ from my_agent_crew.server.housekeeping import sweep_loop
 from my_agent_crew.server.local_guard import allowed_hosts, install_local_guard
 from my_agent_crew.server.runtime import Runtime
 from my_agent_crew.server.runtime_build import build_deps, build_runtime
-from my_agent_crew.server.security_headers import SecurityHeaders
+from my_agent_crew.server.security_headers import SecuredApp
 
 __all__ = ["build_deps", "build_providers", "build_runtime", "create_app"]
 
@@ -121,13 +121,13 @@ def create_app(runtime: Runtime | AgentDeps | None = None, schedule: bool = True
             await runtime.scheduler.stop()
             runtime.hub.close()
 
-    app = FastAPI(title="my-agent-crew", version=__version__, lifespan=lifespan)
+    app = SecuredApp(title="my-agent-crew", version=__version__, lifespan=lifespan)
     app.state.runtime = runtime
     runtime.store.artifacts.on_change = runtime.hub.publish_artifact
-    # The last one added is the outermost, so a refusal of the guard carries the headers too.
+    # The security headers are not added here: `SecuredApp` wraps the whole stack in them, so a
+    # refusal of the guard and the 500 page of an unhandled error carry them like any answer.
     app.add_middleware(GZipMiddleware, minimum_size=GZIP_MIN_BYTES)
     install_local_guard(app, allowed_hosts(os.environ))
-    app.add_middleware(SecurityHeaders)
 
     for router in ROUTERS:
         app.include_router(router, prefix="/api")

@@ -87,6 +87,12 @@ Vài test bảo vệ repo chứ không phải một tính năng:
   sau policy mà route tự đặt (raw, tệp của agent và trang chạy của canvas giữ nguyên policy sandbox
   của chúng); luồng SSE vẫn tới client lúc còn mở (`tests/test_security_headers.py`,
   `tests/test_artifact_render.py`);
+- **trang 500 của một lỗi không ai bắt cũng không cho site khác nhúng**: một route ném
+  `RuntimeError` (đặt trước route bắt mọi địa chỉ để phục vụ trang) trả 500 "Internal Server
+  Error" vẫn mang đúng một header `Content-Security-Policy: frame-ancestors 'self'`. Header được
+  bọc quanh cả chồng middleware bằng `SecuredApp` chứ không thêm bằng `add_middleware`, vì
+  Starlette đặt bộ xử lý lỗi máy chủ ở ngoài mọi middleware đã thêm, nên trang 500 đi ra không có
+  header (`tests/test_security_headers.py`);
 - **API từ chối request mà trình duyệt báo đến từ site hay cổng khác**: `Sec-Fetch-Site` là
   `cross-site`, `same-site` hay một giá trị lạ thì 403 `CROSS_SITE_REQUEST` ở mọi method và cả khi
   đường dẫn viết bằng `%61` hay `%2F`; `same-origin`, `none` và không có header (curl, eval,
