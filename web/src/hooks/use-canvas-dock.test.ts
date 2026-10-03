@@ -3,7 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vites
 import type { ArtifactSummary } from "../api/artifact-types";
 import { saveInBackground } from "../lib/canvas-handoff";
 import { openState } from "../lib/canvas-machine";
+import { idleHandle } from "../test/canvas-dock-hook";
 import { landed, startServer, stopServer, wait } from "../test/canvas-hook";
+import { type LeftCanvas, leftCanvas } from "../test/canvas-left";
 import type { FakeBackend } from "../test/fake-backend";
 import { type CanvasDock, DOCK_FLUSH_MS, type PanelHandle, useCanvasDock } from "./use-canvas-dock";
 
@@ -39,7 +41,7 @@ async function openDock() {
 
 /** An open panel whose last save answers with `answer`; it never answers by default. */
 function panel(answer: Promise<number | null> = new Promise(() => {}), gone = false) {
-  return { flush: vitest.fn(() => answer), gone: () => gone, typing: () => false } satisfies PanelHandle;
+  return { flush: vitest.fn(() => answer), gone: () => gone, typing: () => false, ...idleHandle } satisfies PanelHandle;
 }
 
 /** A promise to be settled by the test. */
@@ -60,7 +62,13 @@ function opened(dock: { current: CanvasDock }, handle: PanelHandle) {
   return unbind;
 }
 
-const failedSave = (title: string) => saveInBackground({ id: "a1", state: { ...openState("a1", null), summary: { ...note, title } }, flush: async () => null });
+const failedSave = (title: string, over: Partial<LeftCanvas> = {}) =>
+  saveInBackground(
+    leftCanvas("a1", async () => null, {
+      state: { ...openState("a1", null), summary: { ...note, title } },
+      ...over,
+    }),
+  );
 
 describe("the canvas dock across conversations", () => {
   it("never shows the last conversation's canvas in a render of the next one", async () => {
@@ -208,11 +216,44 @@ describe("leaving an open canvas", () => {
     expect(result.current).toMatchObject({ view: "canvas", stuck: true });
   });
 
+  it.each([
+    ["close", "closed"],
+    ["showList", "list"],
+  ] as const)("moves on from %s while the last save is still inside its own deadline, which the handoff waits out", async (move, view) => {
+    const { result } = await openDock();
+    opened(result, { ...panel(), waitMs: () => 20_000 });
+    let moving = Promise.resolve();
+    act(() => {
+      moving = result.current[move]();
+    });
+
+    wait(DOCK_FLUSH_MS);
+    await act(() => moving);
+
+    expect(result.current).toMatchObject({ view, artifactId: null, stuck: false });
+  });
+
+  it("stays once the deadline of the save has passed and no version holds the text", async () => {
+    const { result } = await openDock();
+    let left = 20_000;
+    opened(result, { ...panel(), waitMs: () => left });
+    let closing = Promise.resolve();
+    act(() => {
+      closing = result.current.close();
+    });
+
+    left = 0;
+    wait(DOCK_FLUSH_MS);
+    await act(() => closing);
+
+    expect(result.current).toMatchObject({ view: "canvas", stuck: true });
+  });
+
   it("closes a canvas deleted while its last save was out", async () => {
     const answer = later<number | null>();
     const canvas = { gone: false };
     const { result } = await openDock();
-    opened(result, { flush: () => answer.promise, gone: () => canvas.gone, typing: () => false });
+    opened(result, { flush: () => answer.promise, gone: () => canvas.gone, typing: () => false, ...idleHandle });
     let closing = Promise.resolve();
     act(() => {
       closing = result.current.close();
@@ -245,7 +286,7 @@ describe("saves that fail after the panel went", () => {
 
     await act(() => failedSave("Ghi chú"));
     await act(() => failedSave("Ghi chú mới"));
-    expect(result.current.handoffs).toEqual([{ id: "a1", title: "Ghi chú mới" }]);
+    expect(result.current.handoffs).toEqual([{ id: "a1", title: "Ghi chú mới", draft: true }]);
 
     act(() => result.current.dismissHandoff("a1"));
     expect(result.current.handoffs).toEqual([]);
@@ -261,7 +302,31 @@ describe("saves that fail after the panel went", () => {
     expect(result.current.handoffs).toEqual([]);
 
     await act(() => failedSave("Ghi chú"));
-    expect(result.current.handoffs).toEqual([{ id: "a1", title: "Ghi chú" }]);
+    expect(result.current.handoffs).toEqual([{ id: "a1", title: "Ghi chú", draft: true }]);
+  });
+});
+
+describe("a canvas closed anyway, by what this device kept", () => {
+  it("is told of by the notice when this device could not keep its text, which is all the person gets", async () => {
+    const { result } = await openDock();
+    opened(result, { ...panel(Promise.resolve(null)), draftFailed: () => true });
+    await act(() => result.current.close());
+    act(() => result.current.forceClose());
+
+    await act(() => failedSave("Ghi chú", { draftFailed: true }));
+
+    expect(result.current.handoffs).toEqual([{ id: "a1", title: "Ghi chú", draft: false }]);
+  });
+
+  it("is not told of when this device kept its text, the person having been told already", async () => {
+    const { result } = await openDock();
+    opened(result, { ...panel(Promise.resolve(null)), draftFailed: () => false });
+    await act(() => result.current.close());
+    act(() => result.current.forceClose());
+
+    await act(() => failedSave("Ghi chú"));
+
+    expect(result.current.handoffs).toEqual([]);
   });
 });
 

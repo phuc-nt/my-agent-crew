@@ -817,6 +817,13 @@ button.suggestion:hover:not(:disabled) {
   box-shadow: none;
 }
 
+/* Why the box is waiting: the open canvas's last save is still going out. */
+.composer-note {
+  margin: var(--space-1) var(--space-4) 0;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
 .composer-box textarea,
 .composer-box textarea:focus {
   flex: 1;

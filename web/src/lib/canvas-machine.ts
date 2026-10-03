@@ -7,10 +7,11 @@
  * and a newer version never replaces text that is not on the server.
  */
 
-import { apply409, flush, saveDue, saved, saveFailed, send } from "./canvas-save";
+import { fits } from "./canvas-caps";
+import { apply409, flush, saveDue, saved, saveFailed, saveTimedOut, send } from "./canvas-save";
 import {
+  clearStop,
   editsBetween,
-  fits,
   isDirty,
   moveBase,
   readIfWanted,
@@ -23,7 +24,6 @@ import { event, read, readFailed, resync } from "./canvas-sync";
 import type { CanvasEffect, CanvasInput, CanvasState } from "./canvas-types";
 
 export { openState, statusOf } from "./canvas-state";
-export { SIZE_CAP } from "./canvas-types";
 export type { CanvasEffect, CanvasInput, CanvasState, CanvasStatus } from "./canvas-types";
 
 export function step(previous: CanvasState, input: CanvasInput): { state: CanvasState; effects: CanvasEffect[] } {
@@ -31,10 +31,7 @@ export function step(previous: CanvasState, input: CanvasInput): { state: Canvas
   const effects: CanvasEffect[] = [];
   apply(state, effects, input);
   // A stop is about text that could not be saved; once nothing is unsaved there is nothing to stop.
-  if (state.stop && !isDirty(state)) {
-    state.stop = null;
-    state.full = null;
-  }
+  if (state.stop && !isDirty(state)) clearStop(state);
   return { state, effects };
 }
 
@@ -49,7 +46,9 @@ function apply(state: CanvasState, effects: CanvasEffect[], input: CanvasInput):
     case "saved":
       return saved(state, effects, input.meta);
     case "saveFailed":
-      return saveFailed(state, effects, input.status, input.conflict, input.full);
+      return saveFailed(state, effects, input);
+    case "saveTimedOut":
+      return saveTimedOut(state, effects);
     case "event":
       return event(state, effects, input.artifact);
     case "read":
@@ -83,7 +82,7 @@ function edit(state: CanvasState, text: string): void {
   state.text = text;
   state.gen++;
   state.undo = null;
-  if (state.stop === "tooLarge" && fits(text)) state.stop = null;
+  if (state.stop === "tooLarge" && fits(text, state.summary?.kind)) clearStop(state);
 }
 
 /** "Giữ bản của tôi": the person's text goes on top of the newer version. */
@@ -115,8 +114,7 @@ function restored(state: CanvasState, effects: CanvasEffect[], version: number, 
   state.unsure = [];
   state.conflict = null;
   state.held = null;
-  state.stop = null;
-  state.full = null;
+  clearStop(state);
   state.seen = Math.max(state.seen, version);
   effects.push({ type: "dropDraft" });
   settleAll(state, effects, version);

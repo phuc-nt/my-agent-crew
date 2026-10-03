@@ -16,8 +16,6 @@ import type {
 import type { CanvasDraft } from "./canvas-draft";
 import type { LineEdit } from "./line-edits";
 
-/** The server's cap on a markdown or code canvas, in UTF-8 bytes. */
-export const SIZE_CAP = 512 * 1024;
 /** Waits between retries of a lost save: 2, 5, 15 and 30 seconds, then every minute. */
 export const RETRY_DELAYS_MS = [2000, 5000, 15000, 30000, 60000];
 /** Lost saves remembered as maybe on the server; a read or a 409 that holds one is the person's own. */
@@ -57,9 +55,13 @@ export type CanvasState = {
   hidden: boolean;
   stop: Stop | null;
   full: StorageFull | null;
+  /** The cap a "too large" stop was held to, in bytes: the server's own figure when it refused. */
+  cap: number | null;
   gone: boolean;
   /** Lost saves in a row; the retry waits longer with each. */
   failures: number;
+  /** The last of them was a save still unanswered at its deadline, not one that failed outright. */
+  slow: boolean;
   retrying: boolean;
   /** The person's text "Nạp bản mới" replaced, until they type. */
   undo: string | null;
@@ -77,8 +79,17 @@ export type CanvasInput =
   | { type: "saveDue"; reason: Exclude<SaveReason, "flush"> }
   | { type: "flush"; ticket: number }
   | { type: "saved"; meta: ArtifactVersionMeta }
-  /** `status` is null when no reply came; `conflict` and `full` carry a 409's and a 507's body. */
-  | { type: "saveFailed"; status: number | null; conflict: ArtifactConflict | null; full: StorageFull | null }
+  /** `status` is null when no reply came; `conflict`, `full` and `cap` carry what a 409, a 507 and a
+   *  413 said. */
+  | {
+      type: "saveFailed";
+      status: number | null;
+      conflict: ArtifactConflict | null;
+      full: StorageFull | null;
+      cap?: number | null;
+    }
+  /** The save was still unanswered when its deadline came: the connection is up, but too slow for it. */
+  | { type: "saveTimedOut" }
   | { type: "event"; artifact: ArtifactSummary | { id: string; deleted: true } }
   | { type: "read"; detail: ArtifactDetail }
   | { type: "readFailed"; status: number | null }
@@ -108,6 +119,7 @@ export type CanvasStatus =
   | Stop
   | "offline"
   | "serverDown"
+  | "slow"
   | "saving"
   | "newer"
   | "unsaved"

@@ -78,6 +78,12 @@ export function conflictOf(error: unknown): ArtifactConflict | null {
     : null;
 }
 
+/** What a canvas was held to when the server refused it as too large, in bytes. */
+export function sizeCapOf(error: unknown): number | null {
+  const cap = detailOf(error, 413)?.cap;
+  return typeof cap === "number" ? cap : null;
+}
+
 /** How full the canvas store is, and its largest canvases. */
 export function storageFullOf(error: unknown): StorageFull | null {
   const detail = detailOf(error, 507);

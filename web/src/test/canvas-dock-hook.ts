@@ -46,10 +46,17 @@ export async function openTab(props: Partial<DockProps> = {}, wrapper?: typeof S
   return view;
 }
 
+/** What a panel says of its save in flight and its draft when a test does not care: no save is out
+ *  and this device kept the draft. A test that does spreads its own over it. */
+export const idleHandle = { waitMs: () => 0, draftFailed: () => false } satisfies Pick<
+  PanelHandle,
+  "waitMs" | "draftFailed"
+>;
+
 /** An open panel whose last save answers with `answer`, which it never does by default, and whose
  *  person is typing when `typing` says so, which is never by default. */
 export const panel = (answer: Promise<number | null> = new Promise(() => {}), typing: () => boolean = () => false) =>
-  ({ flush: vitest.fn(() => answer), gone: () => false, typing }) satisfies PanelHandle;
+  ({ flush: vitest.fn(() => answer), gone: () => false, typing, ...idleHandle }) satisfies PanelHandle;
 
 /** Opens canvas `id` in the dock, and lends it `handle` as the panel showing it when there is one. */
 export function opened(dock: { current: CanvasDock }, id = NOTE, handle?: PanelHandle) {

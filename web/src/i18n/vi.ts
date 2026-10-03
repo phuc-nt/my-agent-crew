@@ -994,16 +994,18 @@ export const vi = {
       newer: "Có thay đổi mới",
       offline: "Mất kết nối, sẽ lưu khi có mạng",
       serverDown: "Máy chủ không phản hồi, sẽ thử lại",
+      slow: "Mạng chậm, đang gửi lại",
       conflict: "Có hai bản khác nhau",
     },
     notSaved: (reason: string) => `Không lưu được: ${reason}`,
     reasons: {
-      tooLarge: "canvas vượt quá 512 KB",
+      tooLarge: (limit: string) => `canvas vượt quá ${limit}`,
       full: "hết chỗ lưu canvas trên máy chủ",
       invalid: "máy chủ không nhận nội dung này",
       title: "tên trống hoặc dài quá 200 ký tự",
       offline: "mất kết nối",
       server: "máy chủ không phản hồi",
+      slow: "mạng chậm",
       gone: "canvas đã bị xoá",
       timeout: "chờ quá 5 giây",
       conflict: "máy chủ có bản mới hơn",
@@ -1019,7 +1021,14 @@ export const vi = {
     hiddenCharsHint: "Ký tự ẩn hiện thành dấu như [U+202E]. Sao chép và tải về giữ nguyên văn bản gốc.",
     stuck: (reason: string) => `Chưa lưu được: ${reason}.`,
     closeAnyway: "Đóng, giữ bản trên máy này",
-    handoffFailed: (title: string) => `Chưa lưu được ${title}; bản nháp vẫn trên máy này`,
+    // Shown instead when this device could not keep a draft either.
+    closeAnywayLoses: "Đóng, chữ chưa lưu sẽ mất",
+    handoffFailed: (title: string, draft: boolean) =>
+      draft
+        ? `Chưa lưu được ${title}; bản nháp vẫn trên máy này`
+        : `Chưa lưu được ${title}; máy này cũng không giữ được bản nháp`,
+    // Under the message box while a message waits for the open canvas's last save.
+    savingFirst: "Đang lưu canvas…",
     dismiss: "Ẩn thông báo",
     conflictBy: (author: string, version: number) => `${author} đã lưu v${version} trong lúc bạn sửa.`,
     keepMine: "Giữ bản của tôi",

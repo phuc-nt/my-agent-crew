@@ -58,7 +58,7 @@ describe("keeping an open canvas up with the server", () => {
     expect(result.current.status).toBe("saved");
   });
 
-  it("takes a save with no reply in 30 s as lost, and sends it again", async () => {
+  it("takes a save with no reply at its deadline as slow, not failed, and sends it again", async () => {
     backend.canvas.add({ content: "a" });
     const { result } = await openCanvas();
     backend.canvas.holdNext("PUT", "request");
@@ -66,12 +66,13 @@ describe("keeping an open canvas up with the server", () => {
     wait(1500);
     expect(sent(backend, "PUT")).toHaveLength(1);
 
-    wait(29_999);
+    // 30 s, and 1 ms more for the body's few bytes at 50 KiB/s.
+    wait(30_000);
     await landed();
     expect(result.current.status).toBe("saving");
     wait(1);
     await landed();
-    expect(result.current.status).toBe("serverDown");
+    expect(result.current.status).toBe("slow");
 
     wait(2000);
     expect(sent(backend, "PUT")).toHaveLength(2);

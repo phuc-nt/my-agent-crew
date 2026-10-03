@@ -26,6 +26,7 @@ import { useDrawer } from "../hooks/use-drawer";
 import { useFork } from "../hooks/use-fork";
 import { useMediaQuery } from "../hooks/use-media-query";
 import type { ManageSection } from "../hooks/use-route";
+import { useSavingNote } from "../hooks/use-saving-note";
 import { useShortcuts } from "../hooks/use-shortcuts";
 import type { useThread } from "../hooks/use-thread";
 import { vi } from "../i18n/vi";
@@ -157,6 +158,7 @@ export function ChatScreen({
   // the chat column; wider, both share the column beside the chat.
   const wide = useMediaQuery(DOCKED_ACTIVITY_QUERY);
   const dock = useCanvasDock(active?.id ?? null, activity.state.connected, wide);
+  const saving = useSavingNote();
   useCanvasFocus(active?.id ?? null, wide, dock);
   useCanvasAutoOpen(thread, dock, wide);
   const { titleOf, isGone, verify } = dock.list;
@@ -174,7 +176,7 @@ export function ChatScreen({
       if (created) setQueued({ id: created.id, text });
       return Boolean(created);
     }
-    await dock.flush();
+    await saving.during(dock.flush());
     if (activeRef.current !== id) return false;
     const result = await sendRef.current(text, dock.messageCanvas());
     return result.status !== "failed";
@@ -523,6 +525,7 @@ export function ChatScreen({
           busy={state.busy || externalRun !== null}
           stoppable={stoppable}
           restore={restore}
+          note={saving.shown ? vi.canvas.savingFirst : undefined}
           draft={draft}
           draftKey={list.activeId ?? "new"}
           agentName={active ? crew.agentName(active.agent_id) : master?.name}

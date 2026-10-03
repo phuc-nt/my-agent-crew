@@ -5,6 +5,7 @@ import type { CanvasStatus } from "../../lib/canvas-machine";
 import { landed, sent, startServer, stopServer, wait } from "../../test/canvas-hook";
 import { editor, openPanel, saveState, typeInto } from "../../test/canvas-panel";
 import type { FakeBackend } from "../../test/fake-backend";
+import { refusingStorage } from "../../test/memory-storage";
 import { statusText, stuckReason } from "./canvas-status";
 
 let backend: FakeBackend;
@@ -27,6 +28,7 @@ describe("the words for each status", () => {
     ["invalid", "Không lưu được: máy chủ không nhận nội dung này"],
     ["offline", "Mất kết nối, sẽ lưu khi có mạng"],
     ["serverDown", "Máy chủ không phản hồi, sẽ thử lại"],
+    ["slow", "Mạng chậm, đang gửi lại"],
     ["saving", "Đang lưu…"],
     ["newer", "Có thay đổi mới"],
     ["unsaved", "Chưa lưu"],
@@ -42,11 +44,21 @@ describe("the words for each status", () => {
     ["invalid", "máy chủ không nhận nội dung này"],
     ["offline", "mất kết nối"],
     ["serverDown", "máy chủ không phản hồi"],
+    ["slow", "mạng chậm"],
     ["gone", "canvas đã bị xoá"],
     ["saving", "chờ quá 5 giây"],
     ["unsaved", "chờ quá 5 giây"],
   ])("gives “%s” as why no version holds the text", (status, reason) => {
     expect(stuckReason(status)).toBe(reason);
+  });
+
+  it("names the limit a canvas too large was held to, in the size the person reads", () => {
+    const MB = 1024 * 1024;
+
+    expect(statusText("tooLarge", 4 * MB)).toBe("Không lưu được: canvas vượt quá 4 MB");
+    expect(statusText("tooLarge", 2 * MB)).toBe("Không lưu được: canvas vượt quá 2 MB");
+    expect(stuckReason("tooLarge", 4 * MB)).toBe("canvas vượt quá 4 MB");
+    expect(stuckReason("tooLarge", 2 * MB)).toBe("canvas vượt quá 2 MB");
   });
 });
 
@@ -77,6 +89,24 @@ describe("the save line", () => {
     await landed();
 
     expect(saveState()).toBe("Máy chủ không phản hồi, sẽ thử lại");
+  });
+
+  it("says the network is slow, not the server down, once a save has had no reply by its deadline", async () => {
+    backend.canvas.add({ content: "a" });
+    await openPanel();
+    backend.canvas.holdNext("PUT");
+
+    typeInto("ab");
+    wait(1500);
+    await landed();
+    expect(saveState()).toBe("Đang lưu…");
+    wait(30_000);
+    await landed();
+    expect(saveState()).toBe("Đang lưu…");
+    wait(1);
+    await landed();
+
+    expect(saveState()).toBe("Mạng chậm, đang gửi lại");
   });
 
   it("says the save waits for a network while the device has none", async () => {
@@ -161,6 +191,24 @@ describe("notices", () => {
     const alert = screen.getByRole("alert");
     expect(alert.textContent).toContain("Chưa lưu được: máy chủ không nhận nội dung này.");
     fireEvent.click(within(alert).getByRole("button", { name: vi.canvas.closeAnyway }));
+    expect(props.onForceClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("warns that closing anyway loses the text when this device could not keep a draft of it", async () => {
+    backend.canvas.add({ content: "a" });
+    backend.canvas.refuseNext("PUT", 422);
+    refusingStorage();
+    const { props } = await openPanel({ stuck: true });
+
+    typeInto("ab");
+    wait(1500);
+    await landed();
+
+    const stuck = screen
+      .getAllByRole("alert")
+      .find((alert) => alert.textContent?.includes(vi.canvas.stuck(vi.canvas.reasons.invalid))) as HTMLElement;
+    expect(within(stuck).queryByRole("button", { name: vi.canvas.closeAnyway })).toBeNull();
+    fireEvent.click(within(stuck).getByRole("button", { name: vi.canvas.closeAnywayLoses }));
     expect(props.onForceClose).toHaveBeenCalledTimes(1);
   });
 });

@@ -6,7 +6,7 @@
 
 import type { ArtifactDetail, ArtifactSummary } from "../api/artifact-types";
 import type { CanvasDraft } from "./canvas-draft";
-import { type CanvasEffect, type CanvasState, type CanvasStatus, SIZE_CAP, type Version } from "./canvas-types";
+import type { CanvasEffect, CanvasState, CanvasStatus, Version } from "./canvas-types";
 import { diffLines } from "./diff-lines";
 import { type LineEdit, editsFromHunks } from "./line-edits";
 
@@ -32,8 +32,10 @@ export function openState(id: string, draft: CanvasDraft | null): CanvasState {
     hidden: false,
     stop: null,
     full: null,
+    cap: null,
     gone: false,
     failures: 0,
+    slow: false,
     retrying: false,
     undo: null,
     replaced: null,
@@ -49,20 +51,22 @@ export function statusOf(state: CanvasState, online: boolean): CanvasStatus {
   if (state.gone) return "gone";
   if (state.conflict) return "conflict";
   if (state.stop) return state.stop;
-  if (state.failures > 0) return online ? "serverDown" : "offline";
+  if (state.failures > 0) return !online ? "offline" : state.slow ? "slow" : "serverDown";
   if (state.saving || state.held) return "saving";
   if (state.seen > state.base.version) return "newer";
   return isDirty(state) ? "unsaved" : "saved";
 }
 
+/** Saving may go on again: whatever stopped it, and what it said, is forgotten. */
+export function clearStop(state: CanvasState): void {
+  state.stop = null;
+  state.full = null;
+  state.cap = null;
+}
+
 /** Something may be missing from the server: text the base lacks, or a save nobody heard back from. */
 export function isDirty(state: CanvasState): boolean {
   return state.text !== state.base.content || state.unsure.length > 0;
-}
-
-/** Whether `text` is within the size cap. Three bytes per character is the most UTF-16 can need. */
-export function fits(text: string): boolean {
-  return text.length * 3 <= SIZE_CAP || new TextEncoder().encode(text).length <= SIZE_CAP;
 }
 
 /** The summary fields of a read. */
@@ -141,8 +145,7 @@ export function goGone(state: CanvasState, effects: CanvasEffect[]): void {
   state.readWanted = false;
   state.held = null;
   state.conflict = null;
-  state.stop = null;
-  state.full = null;
+  clearStop(state);
   state.failures = 0;
   state.retrying = false;
   state.pending = false;

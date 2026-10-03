@@ -3,7 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vites
 import type { ArtifactSummary } from "../api/artifact-types";
 import { saveInBackground } from "../lib/canvas-handoff";
 import { openState } from "../lib/canvas-machine";
+import { idleHandle } from "../test/canvas-dock-hook";
 import { landed, startServer, stopServer } from "../test/canvas-hook";
+import { leftCanvas } from "../test/canvas-left";
 import type { FakeBackend } from "../test/fake-backend";
 import { type PanelHandle, useCanvasDock } from "./use-canvas-dock";
 
@@ -26,7 +28,7 @@ async function openDock(conversationId: string | null = "c1") {
 
 /** An open panel whose last save answers `version`. */
 const panel = (version: number) =>
-  ({ flush: vitest.fn(async () => version), gone: () => false, typing: () => false }) satisfies PanelHandle;
+  ({ flush: vitest.fn(async () => version), gone: () => false, typing: () => false, ...idleHandle }) satisfies PanelHandle;
 
 const posts = () => backend.requests.filter((request) => request.method === "POST");
 
@@ -78,10 +80,12 @@ describe("a canvas closed anyway", () => {
     act(() => result.current.open(note.id));
 
     await act(() =>
-      saveInBackground({ id: note.id, state: { ...openState(note.id, null), summary: note }, flush: async () => null }),
+      saveInBackground(
+        leftCanvas(note.id, async () => null, { state: { ...openState(note.id, null), summary: note } }),
+      ),
     );
 
-    expect(result.current.handoffs).toEqual([{ id: note.id, title: "Ghi chú" }]);
+    expect(result.current.handoffs).toEqual([{ id: note.id, title: "Ghi chú", draft: true }]);
   });
 });
 

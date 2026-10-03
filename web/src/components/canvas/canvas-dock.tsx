@@ -172,7 +172,7 @@ export function CanvasHandoffNotices({ dock }: { dock: CanvasDock }) {
       {dock.handoffs.map((failure) => (
         <div key={failure.id} className="notice error canvas-notice" role="alert">
           <Icon name="alert" />
-          <span>{vi.canvas.handoffFailed(failure.title || vi.canvas.untitled)}</span>
+          <span>{vi.canvas.handoffFailed(failure.title || vi.canvas.untitled, failure.draft)}</span>
           <button type="button" className="link-button" onClick={() => dock.dismissHandoff(failure.id)}>
             {vi.canvas.dismiss}
           </button>

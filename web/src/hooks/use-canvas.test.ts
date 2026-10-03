@@ -1,8 +1,10 @@
 import { act } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { handoffsSettled } from "../lib/canvas-handoff";
 import { readDraft } from "../lib/canvas-draft";
 import { DRAFT_DELAY_MS } from "../lib/canvas-runner";
 import { landed, openCanvas, sent, setVisibility, startServer, stopServer, wait } from "../test/canvas-hook";
+import { askedToStay } from "../test/close-page";
 import type { FakeBackend } from "../test/fake-backend";
 import { memoryStorage, refusingStorage } from "../test/memory-storage";
 
@@ -75,6 +77,67 @@ describe("saving a canvas as the person types", () => {
     act(() => result.current.edit("abc"));
     wait(DRAFT_DELAY_MS);
     expect(result.current.draftFailed).toBe(false);
+  });
+});
+
+describe("a page that closes over text nothing else holds", () => {
+  it("asks first while text this device could not keep a draft of is unsaved, and stops once it is saved", async () => {
+    backend.canvas.add({ content: "a" });
+    refusingStorage();
+    const { result } = await openCanvas();
+    expect(askedToStay()).toBe(false);
+
+    act(() => result.current.edit("ab"));
+    wait(DRAFT_DELAY_MS);
+    expect(result.current.draftFailed).toBe(true);
+    expect(askedToStay()).toBe(true);
+
+    act(() => result.current.save());
+    await landed();
+
+    expect(result.current.status).toBe("saved");
+    expect(askedToStay()).toBe(false);
+  });
+
+  it("does not ask when this device keeps the draft, however much is unsaved", async () => {
+    backend.canvas.add({ content: "a" });
+    memoryStorage();
+    const { result } = await openCanvas();
+
+    act(() => result.current.edit("ab"));
+    wait(DRAFT_DELAY_MS);
+
+    expect(result.current.draftFailed).toBe(false);
+    expect(askedToStay()).toBe(false);
+  });
+
+  it("does not ask when a draft that failed has nothing unsaved behind it", async () => {
+    backend.canvas.add({ content: "a" });
+    refusingStorage();
+    const { result } = await openCanvas();
+
+    act(() => result.current.edit("ab"));
+    wait(DRAFT_DELAY_MS);
+    act(() => result.current.edit("a"));
+
+    expect(askedToStay()).toBe(false);
+  });
+
+  it("goes on asking after the panel goes, until the save it left behind lands", async () => {
+    backend.canvas.add({ content: "a" });
+    refusingStorage();
+    const { result, unmount } = await openCanvas();
+    act(() => result.current.edit("ab"));
+    wait(DRAFT_DELAY_MS);
+    const release = backend.canvas.holdNext("PUT", "reply");
+
+    unmount();
+    expect(askedToStay()).toBe(true);
+
+    release();
+    await handoffsSettled();
+    expect(askedToStay()).toBe(false);
+    expect(backend.canvas.content("a1")).toBe("ab");
   });
 });
 

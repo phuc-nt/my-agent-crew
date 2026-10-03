@@ -7,11 +7,12 @@
  * different lines and becomes a conflict for the person when they did not.
  */
 
-import type { ArtifactConflict, ArtifactVersionMeta, StorageFull } from "../api/artifact-types";
+import type { ArtifactConflict, ArtifactVersionMeta } from "../api/artifact-types";
+import { capOf, fits } from "./canvas-caps";
 import {
+  clearStop,
   goGone,
   isDirty,
-  fits,
   moveBase,
   readIfWanted,
   replaceText,
@@ -21,6 +22,7 @@ import {
 } from "./canvas-state";
 import {
   type CanvasEffect,
+  type CanvasInput,
   type CanvasState,
   RETRY_DELAYS_MS,
   type SaveReason,
@@ -30,6 +32,7 @@ import {
 import { merge3 } from "./merge3";
 
 type Sent = { gen: number; content: string };
+type SaveFailure = Extract<CanvasInput, { type: "saveFailed" }>;
 
 /** A save fell due for `reason`; it goes out unless something holds it back. */
 export function saveDue(state: CanvasState, effects: CanvasEffect[], reason: SaveReason): void {
@@ -37,8 +40,7 @@ export function saveDue(state: CanvasState, effects: CanvasEffect[], reason: Sav
   if (state.stop) {
     // Only the person asking again lifts a stop; the timer would only be refused again.
     if (reason !== "manual") return;
-    state.stop = null;
-    state.full = null;
+    clearStop(state);
   }
   // While a retry waits, typing does not shorten the wait; the retry sends the newest text.
   if (state.retrying ? reason === "timer" || reason === "blur" : reason === "retry") return;
@@ -56,10 +58,11 @@ export function saveDue(state: CanvasState, effects: CanvasEffect[], reason: Sav
   send(state, effects);
 }
 
-/** Sends the text on its base, or stops when it is over the size cap. */
+/** Sends the text on its base, or stops when it is over the size cap of its kind. */
 export function send(state: CanvasState, effects: CanvasEffect[]): void {
-  if (!fits(state.text)) {
-    stopSaving(state, effects, "tooLarge");
+  const kind = state.summary?.kind;
+  if (!fits(state.text, kind)) {
+    stopSaving(state, effects, "tooLarge", capOf(kind));
     return;
   }
   state.saving = { gen: state.gen, content: state.text, baseVersion: state.base.version };
@@ -103,13 +106,8 @@ export function saved(state: CanvasState, effects: CanvasEffect[], meta: Artifac
   readIfWanted(state, effects);
 }
 
-export function saveFailed(
-  state: CanvasState,
-  effects: CanvasEffect[],
-  status: number | null,
-  conflict: ArtifactConflict | null,
-  full: StorageFull | null,
-): void {
+export function saveFailed(state: CanvasState, effects: CanvasEffect[], failure: SaveFailure): void {
+  const { status, conflict, full, cap } = failure;
   const sent = state.saving;
   if (state.gone || !sent) return;
   state.saving = null;
@@ -125,19 +123,39 @@ export function saveFailed(
   } else if (status === 404) {
     goGone(state, effects);
   } else if (status === null || (status >= 500 && status !== 507)) {
-    if (!state.unsure.includes(sent.content)) state.unsure = [...state.unsure, sent.content].slice(-UNSURE_KEEP);
-    state.failures++;
-    state.retrying = true;
-    effects.push({ type: "retryIn", ms: RETRY_DELAYS_MS[Math.min(state.failures, RETRY_DELAYS_MS.length) - 1] });
-    settleAll(state, effects, null);
-    state.pending = false;
+    retryLater(state, effects, sent, false);
     return;
+  } else if (status === 413) {
+    stopSaving(state, effects, "tooLarge", cap ?? capOf(state.summary?.kind));
+  } else if (status === 507) {
+    stopSaving(state, effects, "full");
+    state.full = full;
   } else {
-    stopSaving(state, effects, status === 413 ? "tooLarge" : status === 507 ? "full" : "invalid");
-    if (status === 507) state.full = full;
+    stopSaving(state, effects, "invalid");
   }
   state.pending = false;
   readIfWanted(state, effects);
+}
+
+/** The save was still unanswered at its deadline. The link is up but too slow for it, and the text
+ *  may have landed: it is retried like a lost save, and said to be slow rather than offline. */
+export function saveTimedOut(state: CanvasState, effects: CanvasEffect[]): void {
+  const sent = state.saving;
+  if (state.gone || !sent) return;
+  state.saving = null;
+  retryLater(state, effects, sent, true);
+}
+
+/** A save whose fate is unknown: its text stays as maybe on the server, and the save goes again
+ *  after a wait that grows with each failure in a row. */
+function retryLater(state: CanvasState, effects: CanvasEffect[], sent: Sent, slow: boolean): void {
+  if (!state.unsure.includes(sent.content)) state.unsure = [...state.unsure, sent.content].slice(-UNSURE_KEEP);
+  state.failures++;
+  state.slow = slow;
+  state.retrying = true;
+  effects.push({ type: "retryIn", ms: RETRY_DELAYS_MS[Math.min(state.failures, RETRY_DELAYS_MS.length) - 1] });
+  settleAll(state, effects, null);
+  state.pending = false;
 }
 
 /** What a 409 makes of the text: the person's own lost write, a clean merge, or a conflict. */
@@ -170,9 +188,11 @@ export function apply409(state: CanvasState, effects: CanvasEffect[], conflict: 
   effects.push({ type: "dropDraft" });
 }
 
-/** Saving stops until the text changes or the person saves by hand; nobody waits on it. */
-function stopSaving(state: CanvasState, effects: CanvasEffect[], stop: Stop): void {
+/** Saving stops until the text changes or the person saves by hand; nobody waits on it. `cap` is the
+ *  limit a "too large" stop was held to. */
+function stopSaving(state: CanvasState, effects: CanvasEffect[], stop: Stop, cap: number | null = null): void {
   state.stop = stop;
+  state.cap = cap;
   state.failures = 0;
   state.retrying = false;
   settleAll(state, effects, null);

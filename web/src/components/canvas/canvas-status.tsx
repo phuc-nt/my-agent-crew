@@ -8,27 +8,34 @@ import { useMemo } from "react";
 import type { StorageFull } from "../../api/artifact-types";
 import type { CanvasController } from "../../hooks/use-canvas";
 import { vi } from "../../i18n/vi";
+import { SMALLEST_CAP } from "../../lib/canvas-caps";
 import type { CanvasStatus } from "../../lib/canvas-machine";
 import { formatBytes } from "../../lib/format-bytes";
 import { hasHiddenChars } from "../../lib/hidden-chars";
 
-/** The status beside the version line. */
-export function statusText(status: CanvasStatus): string {
+/** What a "too large" stop was held to, said in the size the person reads. */
+const limitText = (cap: number | null) => formatBytes(cap ?? SMALLEST_CAP);
+
+/** The status beside the version line. `cap` is what a "too large" stop was held to. */
+export function statusText(status: CanvasStatus, cap: number | null = null): string {
   const { canvas } = vi;
   if (status === "loading") return canvas.loading;
   if (status === "loadFailed") return canvas.loadFailed;
   if (status === "gone") return canvas.gone;
-  if (status === "tooLarge" || status === "full" || status === "invalid") return canvas.notSaved(canvas.reasons[status]);
+  if (status === "tooLarge") return canvas.notSaved(canvas.reasons.tooLarge(limitText(cap)));
+  if (status === "full" || status === "invalid") return canvas.notSaved(canvas.reasons[status]);
   return canvas.status[status];
 }
 
 /** Why no version holds the text, said after "Chưa lưu được:" or "Không khôi phục được:". */
-export function stuckReason(status: CanvasStatus): string {
+export function stuckReason(status: CanvasStatus, cap: number | null = null): string {
   const { reasons } = vi.canvas;
   if (status === "conflict") return reasons.conflict;
-  if (status === "tooLarge" || status === "full" || status === "invalid") return reasons[status];
+  if (status === "tooLarge") return reasons.tooLarge(limitText(cap));
+  if (status === "full" || status === "invalid") return reasons[status];
   if (status === "offline") return reasons.offline;
   if (status === "serverDown") return reasons.server;
+  if (status === "slow") return reasons.slow;
   if (status === "gone") return reasons.gone;
   return reasons.timeout;
 }
@@ -78,9 +85,9 @@ export function CanvasNotices({ canvas, stuck, onForceClose }: Props) {
       )}
       {stuck && status !== "saved" && (
         <div className="notice error canvas-notice" role="alert">
-          <span>{vi.canvas.stuck(stuckReason(status))}</span>
+          <span>{vi.canvas.stuck(stuckReason(status, state.cap))}</span>
           <button type="button" className="link-button" onClick={onForceClose}>
-            {vi.canvas.closeAnyway}
+            {draftFailed ? vi.canvas.closeAnywayLoses : vi.canvas.closeAnyway}
           </button>
         </div>
       )}

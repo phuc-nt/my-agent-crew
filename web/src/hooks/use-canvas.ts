@@ -13,6 +13,8 @@ import { onArtifactEvent } from "../lib/artifact-events";
 import { saveInBackground } from "../lib/canvas-handoff";
 import { type CanvasInput, type CanvasState, type CanvasStatus, openState, statusOf } from "../lib/canvas-machine";
 import { CanvasRunner } from "../lib/canvas-runner";
+import { isDirty } from "../lib/canvas-state";
+import { guardUnload } from "../lib/unload-guard";
 import { useOnline } from "./use-online";
 import { useReloadOnReconnect } from "./use-reload-on-reconnect";
 
@@ -28,6 +30,8 @@ export type CanvasController = {
   composition(composing: boolean): void;
   /** Saves the text as it is now; the version that holds it, or null when none will. */
   flush(): Promise<number | null>;
+  /** How long the save in flight may still go unanswered, in ms; 0 when none is out. */
+  waitMs(): number;
   keepMine(): void;
   loadTheirs(): void;
   undo(): void;
@@ -78,6 +82,7 @@ export function useCanvas(id: string, connected: boolean): CanvasController {
       blur: () => send({ type: "saveDue", reason: "blur" }),
       composition: (composing: boolean) => send({ type: "composition", composing }),
       flush: () => runner.current?.flush() ?? Promise.resolve(null),
+      waitMs: () => runner.current?.waitMs() ?? 0,
       keepMine: () => send({ type: "keepMine" }),
       loadTheirs: () => send({ type: "loadTheirs" }),
       undo: () => runner.current?.undo(),
@@ -88,5 +93,8 @@ export function useCanvas(id: string, connected: boolean): CanvasController {
   }, []);
   const shown = view.id === id;
   const state = shown ? view.state : blank;
+  // Text that is neither saved nor kept on this device is lost with the page: the browser asks first.
+  const atRisk = shown && view.draftFailed && isDirty(view.state);
+  useEffect(() => (atRisk ? guardUnload() : undefined), [atRisk]);
   return { state, status: statusOf(state, online), draftFailed: shown && view.draftFailed, ...actions };
 }

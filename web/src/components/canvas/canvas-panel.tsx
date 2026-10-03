@@ -66,6 +66,8 @@ export function CanvasPanel(props: CanvasPanelProps) {
   const { state } = canvas;
   const latest = useRef(state);
   latest.current = state;
+  const draftFailed = useRef(canvas.draftFailed);
+  draftFailed.current = canvas.draftFailed;
   const editor = useRef<HTMLTextAreaElement | null>(null);
   const [chosen, setChosen] = useState<CanvasMode | null>(null);
   const [history, setHistory] = useState(false);
@@ -83,8 +85,10 @@ export function CanvasPanel(props: CanvasPanelProps) {
         flush: canvas.flush,
         gone: () => latest.current.gone,
         typing: () => isDirty(latest.current) || (editor.current !== null && document.activeElement === editor.current),
+        waitMs: canvas.waitMs,
+        draftFailed: () => draftFailed.current,
       }),
-    [bind, canvas.flush],
+    [bind, canvas.flush, canvas.waitMs],
   );
 
   if (chosen === null && state.phase === "ready") setChosen(firstMode(state, created));

@@ -35,6 +35,8 @@ interface Props {
   /** Text to put back in the box from outside, oldest first, ahead of whatever is already
    *  being typed. */
   restore?: RestoreRequest | null;
+  /** Why the box is waiting, said under it; absent says nothing. */
+  note?: string;
   /** Takes the words. A promise keeps the box read-only, its text in place, until it settles:
    *  `true` spends the words and `false` leaves them where they were typed. Anything else
    *  spends them at once. */
@@ -54,6 +56,7 @@ export function Composer({
   commands = [],
   stoppable = busy,
   restore,
+  note,
   onSend,
   onStop,
 }: Props) {
@@ -184,6 +187,11 @@ export function Composer({
           </button>
         )}
       </div>
+      {note && (
+        <p className="composer-note" role="status">
+          {note}
+        </p>
+      )}
     </form>
   );
 }

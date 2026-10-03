@@ -63,7 +63,7 @@ export function CanvasHeader({ canvas, artifactId, created, agentName, mode, his
             {vi.canvas.meta(state.base.version, authorLabel(state.base.author, agentName), timeAgo(summary.updated_at, now))}
           </span>
           <span className="canvas-save-state" role="status">
-            {statusText(status)}
+            {statusText(status, state.cap)}
           </span>
         </p>
       )}

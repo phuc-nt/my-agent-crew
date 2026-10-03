@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { StorageFull } from "../api/artifact-types";
 import { conflictAt, detailAt, drive, lost, metaAt, openOn, putsIn, typeAndPause } from "../test/canvas-driver";
-import { type CanvasInput, SIZE_CAP, openState, statusOf } from "./canvas-machine";
+import { CAPS } from "./canvas-caps";
+import { type CanvasInput, openState, statusOf } from "./canvas-machine";
+
+const SIZE_CAP = CAPS.markdown;
 
 const refused = (status: number, full: StorageFull | null = null): CanvasInput => ({
   type: "saveFailed",

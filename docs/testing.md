@@ -1718,7 +1718,26 @@ tên một test thì sửa dòng của nó trong cùng commit.
     lưu tay, 422 và 4xx khác dừng tới lần lưu tay, 409 không kèm bản mới nhất không phải xung đột);
     `web/src/lib/canvas-machine-flush.test.ts` (`flush` trả phiên bản giữ chữ lúc gọi, không chờ phím gõ
     sau đó, chờ qua lần lưu đang bay mang chữ cũ, null khi xung đột, đã xoá, bị từ chối, lần lưu đầu
-    mất, quá trần hay đang dừng)
+    mất, quá trần hay đang dừng); `web/src/lib/canvas-machine-size.test.ts` (trần theo loại canvas:
+    markdown, code và mermaid 512 KB, html 4 MB, svg 2 MB; đúng trần thì gửi, hơn một byte thì dừng và
+    nêu trần; html nhận 1 MB mà markdown thì không; loại lạ theo trần nhỏ nhất; đếm byte UTF-8 chứ
+    không đếm ký tự; dừng vì cỡ được gỡ và quên trần khi chữ vừa lại, vẫn dừng khi chưa vừa, lưu tay hay
+    khôi phục một bản cũng gỡ nó và quên trần; 413 nêu
+    trần server nói và trần ấy thắng bảng, 413 không kèm trần thì dùng trần của loại, lần lưu xong
+    thì không còn trần nào); `web/src/lib/canvas-machine-slow.test.ts` (lần lưu hết hạn mà không reply
+    là mạng chậm chứ không phải mất: thử lại sau hai giây, chữ ấy còn tính là có thể đã tới server,
+    trạng thái "slow" khi máy có mạng và "offline" khi không, lần thử lại gửi đúng chữ và trạng thái
+    vẫn là "slow" tới khi một lần lưu về, bỏ qua lần lưu theo giờ hay lúc mất focus trong lúc chờ,
+    chờ lâu dần như lần lưu mất, phân biệt với lần lưu mất ở lần kế, một lần lưu về thì thôi nói mạng
+    chậm, flush đang chờ được trả null, 409 mang chữ của lần hết hạn là của chính mình, lần thử lại
+    thấy đúng chữ ấy trên server thì coi là đã lưu, canvas bị xoá lúc lần lưu đang bay thì hết hạn cũng
+    không đặt lần thử lại nào, không có lần lưu nào bay thì bỏ qua);
+    `web/src/lib/canvas-caps.test.ts` (trần từng loại, tên lạ hay tên của prototype theo trần nhỏ
+    nhất, độ dài tin chat là 20000, đếm byte UTF-8 của chữ một, hai, ba và bốn byte, `fits` đúng trần
+    và hơn một byte của từng loại, chữ hai byte có số ký tự nhân ba vượt trần mà đo byte vẫn vừa, mỗi
+    loại một trần riêng)
+  - pytest: `tests/test_web_caps.py` (bảng trần của web khớp bảng của server theo từng loại, và giới
+    hạn độ dài tin của web khớp route chat; một bên đổi một mình thì hỏng ở đây)
 - **Canvas trên web: theo kịp server và nháp trên máy; event của chính mình không đọc lại, bản mới được
   trộn, xung đột giữ cả hai phía**
   - vitest: `web/src/lib/canvas-machine-sync.test.ts` ("reads nothing when its own save's event comes
@@ -1735,7 +1754,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `compositionend`, khôi phục đặt chữ và base không chờ luồng); `web/src/lib/canvas-draft.test.ts`
     (nháp chỉ của đúng canvas, xoá khoá cũ trước khi ghi nên kho đầy không để lại nháp, trình duyệt từ
     chối thì báo, "clears a draft only while it still holds the text that was saved", giữ mười nháp mới
-    nhất, bỏ nháp quá ba mươi ngày và nháp hỏng); `web/src/lib/local-store.test.ts` (liệt kê khoá theo
+    nhất, bỏ nháp quá ba mươi ngày và nháp hỏng; hết quota thì bỏ nháp cũ nhất từng cái một cho tới khi
+    vừa, mục không phải nháp đi trước, và dọn hết vẫn không vừa thì mọi nháp khác được trả lại nguyên
+    byte, không đụng gì khác khi lần ghi vừa); `web/src/lib/local-store.test.ts` (liệt kê khoá theo
     tiền tố, lần ghi báo có được giữ không khi trình duyệt từ chối hay hết quota)
 - **Canvas trên web: canvas đang mở lưu 1,5 giây sau phím cuối, rời đi vẫn lưu nốt, keepalive chỉ khi
   vừa trần**
@@ -1744,21 +1765,37 @@ tên một test thì sửa dòng của nó trong cùng commit.
     lại khi hết lúc dừng gõ, sửa mà chữ không đổi không lùi lần lưu, "says so when this device cannot
     keep the draft, until it can again", canvas 100 KB ẩn tab hay tháo panel đi bằng request thường và
     nháp giữ phím gõ ngay trước, canvas 10 KB tháo panel thì một `PUT` keepalive đúng base, "forgets the
-    draft of a canvas deleted while open once its panel goes");
+    draft of a canvas deleted while open once its panel goes", trang hỏi trước khi đóng chỉ khi chữ
+    chưa lưu mà máy cũng không giữ được nháp, thôi hỏi khi chữ đã lưu hay đã về bản gốc, và vẫn hỏi
+    sau khi panel đi cho tới khi lần lưu để lại hạ cánh);
     `web/src/hooks/use-canvas-switch.test.ts` ("shows the next canvas at once and finishes the last
     one's save behind it", thử lại đang chờ được thử thêm một lần khi rời rồi dừng, ẩn tab lúc canvas
     sau đang tải không lưu gì cho nó, "lets a canvas left behind finish its save without reading it
     again or showing it", cờ nháp hỏng không theo sang canvas sau);
     `web/src/hooks/use-canvas-sync.test.ts` (đọc lại khi luồng nối lại sau lần rớt mà không đọc lúc mới
-    nối, khi tab hiện, khi event báo bản mới; lần lưu không reply trong 30 giây là mất và được gửi lại;
+    nối, khi tab hiện, khi event báo bản mới; lần lưu không reply tới hạn (30 giây, thêm một giây cho mỗi
+    50 KiB thân) là chậm chứ không phải mất và được gửi lại;
     nháp qua lần mount thử của StrictMode; "opens text typed after a save that landed unheard as the
     person's draft, not as a clash"; năm test `flush`); `web/src/lib/canvas-handoff.test.ts` (lần lưu
     cuối của canvas đã rời: 409 của chính mình là đã lưu, lỗi giữ nháp và báo người nghe còn đăng ký,
     gửi chữ gõ sau lần lưu đang bay, ngân sách keepalive tính bằng byte, mỗi lúc một lần lưu keepalive,
-    lỗi trả lại ngân sách)
-  - Hai request của runner (lưu và đọc, mỗi cái bị bỏ sau 30 giây không reply) nằm ở
-    `web/src/lib/canvas-requests.ts` và không có tệp test riêng: các test ở trên chạy chúng thật trên
-    `FakeCanvas`, nên chuyển chúng khỏi `canvas-runner.ts` không đổi test nào
+    lỗi trả lại ngân sách; canvas rời đi mà máy không giữ được nháp thì trang hỏi trước khi đóng tới khi
+    lần lưu xong, hỏng hay ném lỗi cũng thôi hỏi và thông báo không hứa nháp, có nháp thì không hỏi gì,
+    hai canvas thì hỏi tới khi cả hai xong)
+  - Hai request của runner (lưu và đọc) nằm ở `web/src/lib/canvas-requests.ts`. Hạn của lần lưu có test
+    riêng ở `web/src/lib/canvas-requests.test.ts`: 30 giây cộng một giây cho mỗi 50 KiB thân, làm tròn
+    lên; đo trên byte UTF-8 của thân nên 100000 chữ "ệ" chờ lâu hơn 100000 chữ "x"; không reply tới hạn
+    thì báo `saveTimedOut` chứ không báo mất, trước hạn một mili giây thì chưa, 3 MB html không bị cắt
+    ở giây 31, reply mất không mang status, 413 mang trần của loại canvas.
+    `web/src/lib/canvas-runner-wait.test.ts` giữ `waitMs` của runner (0 khi chưa có lần lưu nào, cả
+    hạn lúc lần lưu đi rồi ít dần, dài hơn với lần lưu lớn, về 0 khi lần lưu xong hay hết hạn, và vẫn là
+    0 chứ không âm khi đồng hồ nhảy qua hạn trước lúc timer chạy).
+    `web/src/lib/unload-guard.test.ts` giữ câu hỏi trước khi đóng trang (không hỏi khi chưa ai giữ,
+    hỏi khi có người giữ và đặt cả `returnValue` cho engine cũ, thôi hỏi khi nhả và nhả hai lần không
+    hại, còn hỏi khi còn người giữ khác), `web/src/hooks/use-saving-note.test.ts` giữ lời báo đang lưu
+    (không nói gì khi việc xong trong chưa tới 300 ms, nói từ 300 ms và thôi khi việc xong hay hỏng,
+    trả lại kết quả và chuyển lỗi đi, không để timer nào lại). Các test khác chạy hai request ấy thật
+    trên `FakeCanvas`, nên chuyển chúng khỏi `canvas-runner.ts` không đổi test nào
 - **Canvas trên web: tên người viết một bản, kích thước đọc được, ký tự ẩn hiện ra**
   - vitest: `web/src/lib/canvas-author.test.ts` (người là "bạn", agent theo tên, agent có id `user` vẫn
     là agent, agent không còn thì theo id); `web/src/lib/format-bytes.test.ts` (bước 1024, một chữ số lẻ
@@ -1782,13 +1819,21 @@ tên một test thì sửa dòng của nó trong cùng commit.
     agent ghi vào trước lần đọc đầu, chữ gõ gộp vào bản mới hơn của agent mở ở Sửa và nói đã gộp tới
     khi lưu, canvas code của người dùng phông code; tên canvas vừa tạo mở để gõ, tối đa 200 ký tự;
     không hiện dòng phiên bản khi canvas đang được đọc dù bản mới đã báo tới; chọn Xem hay Sửa thì
-    đóng lịch sử)
+    đóng lịch sử); `web/src/components/canvas/canvas-panel-lent.test.tsx` (cái panel đang mở cho dock
+    mượn: thời gian lần lưu đang bay còn được chờ là 0 khi chưa có lần lưu nào, đủ hạn cộng một mili
+    giây lúc lần lưu đi, ít dần theo giờ và về 0 khi lần lưu về; và máy này có giữ được nháp của chữ đang
+    gõ hay không, rồi giữ được trở lại khi một lần ghi nháp vừa)
 - **Canvas trên web: dòng trạng thái lưu, lời báo khi không lưu được, diff hai bản**
   - vitest: `web/src/components/canvas/canvas-status.test.tsx` (chữ cho từng trạng thái và lý do không
     bản nào giữ chữ đang gõ, "follows a save from the keystroke until it lands", server không trả lời
-    khi máy có mạng, lần lưu chờ mạng khi máy mất mạng, "shows the largest canvases when the server is
-    full, saves on its own no more, and saves on Cmd+S", nội dung bản lưu trong lúc sửa chỉ hiện ở thanh
-    xung đột, canvas xin đóng mà chưa bản nào giữ chữ nói lý do rồi đóng hẳn khi được bảo);
+    khi máy có mạng, lần lưu chờ mạng khi máy mất mạng, lần lưu hết hạn mà chưa reply là "Mạng chậm,
+    đang gửi lại" chứ không phải máy chủ không phản hồi, chữ nêu đúng trần (4 MB, 2 MB) mà canvas quá
+    lớn bị giữ, "shows the largest canvases when the server is full, saves on its own no more, and
+    saves on Cmd+S", nội dung bản lưu trong lúc sửa chỉ hiện ở thanh xung đột, canvas xin đóng mà chưa
+    bản nào giữ chữ nói lý do rồi đóng hẳn khi được bảo, và nút nói rõ chữ chưa lưu sẽ mất khi máy
+    cũng không giữ được nháp); `web/src/components/canvas/canvas-status-cap.test.tsx` (trần mà server
+    giữ một lần lưu được nói ở mọi chỗ panel nói vì sao chưa lưu: cạnh dòng phiên bản, trong thông
+    báo của canvas xin đóng, và ở Lịch sử khi một lần khôi phục chờ chữ không lưu được);
     `web/src/lib/canvas-reasons.test.ts` ("reads %i as its reason, never the server's own words",
     request không tới server là mất kết nối); `web/src/components/diff-view.test.tsx` ("keeps three
     unchanged lines around a change and counts the rest", chỗ sửa chỉ gồm một ký tự ẩn vẫn hiện ra, hai
@@ -1830,9 +1875,11 @@ tên một test thì sửa dòng của nó trong cùng commit.
     render of the next one", lần lưu cuối hỏng sau khi đổi cuộc không để gì lại ở cuộc sau; tạo canvas
     markdown chưa có tên trong cuộc này rồi mở với tên chờ gõ, không tạo được thì nói và ở lại danh
     sách; "gives up on the open canvas's save after 5 seconds", đóng hay về danh sách mà không lần lưu
-    nào xong thì ở lại tới khi đóng hẳn, lần lưu quá hạn cũng ở lại, canvas bị xoá lúc lần lưu cuối đang
-    bay hay đã bị xoá thì đóng ngay; lần lưu hỏng sau khi panel đi được báo tới khi ẩn, canvas đã đóng
-    hẳn thì không báo; "brings the canvas forward on each opening, and the button toggles the dock");
+    nào xong thì ở lại tới khi đóng hẳn, lần lưu quá hạn cũng ở lại, còn lần lưu chưa hết hạn riêng của
+    nó thì panel đóng và để lần lưu ở phía sau chờ nốt, canvas bị xoá lúc lần lưu cuối đang bay hay đã
+    bị xoá thì đóng ngay; lần lưu hỏng sau khi panel đi được báo tới khi ẩn, canvas đã đóng hẳn thì
+    không báo, trừ khi máy không giữ được nháp của nó: khi ấy thông báo là chỗ duy nhất người biết;
+    "brings the canvas forward on each opening, and the button toggles the dock");
     `web/src/hooks/use-canvas-dock-moves.test.ts` (mở canvas hay danh sách khi đang xem hoạt động thì
     đưa tab canvas lên, không tạo canvas khi chưa mở cuộc nào, không báo lỗi tạo của canvas xin trước
     khi người mở canvas khác, canvas mở lại mà lần lưu cuối hỏng thì được báo lại, panel cũ buông muộn
@@ -1840,7 +1887,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     Canvas vào cột mở ra, sang nút về chat khi dock phủ cuộc trò chuyện, và đứng yên khi dock chuyển từ
     danh sách sang canvas; hoạt động hiện khi chưa mở gì, tab hoạt động theo cú bấm, lớp phủ hiện cả
     dock; cột rộng đúng như cạnh nói; nút Canvas đếm canvas và nói dock mở hay đóng; lần lưu không về
-    của canvas chưa có tên gọi là canvas không tên);
+    của canvas chưa có tên gọi là canvas không tên, và thông báo nói bản nháp vẫn trên máy khi giữ được,
+    không hứa nháp khi máy không giữ được);
     `web/src/hooks/use-canvas-width.test.ts` ("takes half the room beside the sidebar until the person
     chooses", cả canvas lẫn cuộc trò chuyện rộng ít nhất 360 px, chỉ nhớ bề rộng khi được bảo giữ, bề
     rộng đã giữ co theo cửa sổ hẹp và trở lại khi cửa sổ rộng ra, theo cửa sổ khi người chưa chọn, không
@@ -1877,12 +1925,19 @@ tên một test thì sửa dòng của nó trong cùng commit.
     không sớm hơn, chuyển lỗi của việc đi và xoá timer; `flushAll` trả phiên bản panel vừa lưu khi mọi
     lần lưu đang bay đã xong, giữ phiên bản ấy khi một lần lưu chưa về tới trần, chờ panel và các lần
     lưu đang bay dưới một trần chung rồi trả null khi panel không còn, chỉ chờ các lần lưu đang bay
-    khi không có panel, bỏ chờ ở trần, xoá timer khi mọi thứ đã về);
+    khi không có panel, bỏ chờ ở trần, xoá timer khi mọi thứ đã về; trần tính sau hạn của lần lưu đang
+    bay: panel chờ hạn 60 giây thì trả null ở 65 giây, hạn của các lần lưu đã rời tính lâu nhất chứ
+    không cộng dồn, hạn của panel và của các lần lưu ấy lấy cái dài hơn, không bao giờ ngắn hơn trần,
+    giữ phiên bản của panel khi lần lưu chậm của canvas đã rời còn trong hạn, trả lời ngay khi mọi thứ
+    đã về);
     `web/src/hooks/use-canvas-dock-flush.test.ts` ("answers the version the open panel's last save
     landed", null khi không phiên bản nào giữ chữ trong trần, chờ lần lưu của canvas đã rời trước đó
     và giữ phiên bản của panel khi lần lưu kia muộn, chờ lần lưu của canvas đã rời khi không có panel
     và trả null, một hàm duy nhất suốt lúc dock còn gắn, rời canvas bằng tay chỉ hỏi panel đang mở
-    chứ không chờ các lần lưu khác); `web/src/components/composer-send-lock.test.tsx` ("holds the
+    chứ không chờ các lần lưu khác; lần lưu của panel được hạn riêng của nó rồi mới tới trần và trả
+    null ở 65 giây khi hạn là 60, trả phiên bản ngay khi lần lưu hạ cánh trong hạn, hỏi hạn của panel
+    sau khi lần lưu đã bắt đầu vì chính lần lưu đặt ra hạn ấy, và chờ cả hạn của lần lưu canvas đã
+    rời); `web/src/components/composer-send-lock.test.tsx` ("holds the
     text in a read-only box and sends it once, however it is asked again", chữ được nhận thì ô và
     bản nháp đã giữ được xoá, không được nhận hay bị từ chối thì ô trả lại cùng chữ và bản nháp để
     gửi lại được, từ chối còn báo ra console, `onSend` không trả gì thì xoá ô ngay như cũ; khoá thuộc
@@ -1897,7 +1952,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     thoại khác trước khi lần lưu về thì không gửi gì và chữ trở lại ô khi quay lại; ở hội thoại khác
     tin mới vẫn chờ lần lưu của canvas người vừa bỏ lại; 422 cho tin mang canvas được nói bằng tiếng
     Việt rằng đoạn không còn khớp, câu tiếng Anh của server không lộ ra, chữ ở lại ô và không có
-    bong bóng)
+    bong bóng; dưới ô soạn tin chỉ hiện "Đang lưu canvas…" khi lần chờ quá 300 ms và thôi hiện khi tin
+    đi, lưu ngay thì không hiện gì, lần lưu hỏng thì tin vẫn đi)
   - Playwright: `canvas-send.spec.ts` ("a message sent over typing the canvas has not saved yet waits
     for the save, then names the canvas": lần lưu bị giữ thì chưa có POST nào và ô soạn tin chỉ đọc
     còn nguyên chữ, thả ra thì thứ tự là lưu rồi gửi, thân tin nêu canvas, ô trống và mở lại)

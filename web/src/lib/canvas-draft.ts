@@ -2,7 +2,7 @@
 // does not lose what the person typed. The panel writes it shortly after each keystroke and at
 // once when the page may go away; reopening the canvas finds it and merges it with the newest
 // version (see canvas-machine.ts).
-import { keys, readJson, writeText } from "./local-store";
+import { keys, readJson, readText, writeText } from "./local-store";
 
 const PREFIX = "canvas-draft:";
 /** Drafts kept at most; the ones saved longest ago go first. */
@@ -67,16 +67,46 @@ export function readDraft(id: string): CanvasDraft | null {
  * Keeps `draft`, or removes it when its text is back to its base and no save it sent may land.
  * False when the browser did not keep it. The older draft is removed first: a write the quota
  * refuses must not leave a draft older than what the person has since typed, which reopening
- * would merge back in.
+ * would merge back in. A refused write makes room by removing other canvases' drafts, the oldest
+ * first and one at a time, until it fits: what the person types now outweighs what they left.
+ * When no room can be made, the others stay as they were.
  */
 export function writeDraft(draft: CanvasDraft): boolean {
   const key = PREFIX + draft.artifact_id;
   if (draft.text === draft.base && draft.sent.length === 0) return writeText(key, null);
   writeText(key, null);
-  if (!writeText(key, JSON.stringify(draft))) return false;
+  if (!store(key, JSON.stringify(draft))) return false;
   // Values are read only when there are too many: a write follows every pause in typing.
   if (keys(PREFIX).length > KEEP) pruneDrafts(draft.saved_at, draft.artifact_id);
   return true;
+}
+
+/**
+ * Stores `json` under `key`, freeing room as `writeDraft` says when the browser refuses it. When
+ * even every other draft gone leaves no room, they are put back as they were: losing what other
+ * canvases kept would buy the person nothing.
+ */
+function store(key: string, json: string): boolean {
+  if (writeText(key, json)) return true;
+  const freed: Array<[string, string]> = [];
+  for (const other of othersOldestFirst()) {
+    const text = readText(other);
+    writeText(other, null);
+    if (text !== null) freed.push([other, text]);
+    if (writeText(key, json)) return true;
+  }
+  for (const [other, text] of freed) writeText(other, text);
+  return false;
+}
+
+/** The keys of the drafts kept, the longest kept first; an entry that is no draft goes first of all.
+ *  `writeDraft` has taken its own key out by now, so these are other canvases'. */
+function othersOldestFirst(): string[] {
+  const aged = keys(PREFIX).map((other) => {
+    const value = readJson(other);
+    return { other, savedAt: isDraft(value) ? value.saved_at : Number.NEGATIVE_INFINITY };
+  });
+  return aged.sort((x, y) => (x.savedAt < y.savedAt ? -1 : x.savedAt > y.savedAt ? 1 : 0)).map(({ other }) => other);
 }
 
 /** Removes canvas `id`'s draft; given `text`, only while the draft still holds that text, so a

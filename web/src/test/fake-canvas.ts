@@ -1,5 +1,6 @@
 import type { ArtifactDetail, ArtifactEvent, ArtifactSummary, ArtifactVersion } from "../api/artifact-types";
 import { fold } from "../components/conversation-search";
+import { capOf } from "../lib/canvas-caps";
 import { cleanTitle } from "../lib/canvas-title";
 import { CanvasFaults, type FakeReply, invalid, ok, refused } from "./fake-canvas-faults";
 import { FocusBook } from "./fake-canvas-focus";
@@ -42,8 +43,9 @@ const withoutText = ({ content: _content, ...meta }: ArtifactVersion) => meta;
  */
 export class FakeCanvas {
   canvases = new Map<string, Canvas>();
-  /** The most one version may hold, as the store caps markdown and code. */
-  sizeCap = 512 * 1024;
+  /** The most any version may hold, whatever its kind, when a test sets one; otherwise each kind
+   *  has the cap the store gives it. */
+  sizeCap: number | null = null;
   /** What every version of every canvas may hold together; an agent gets a tenth less. */
   storageCap = 1024 * 1024 * 1024;
   /** Hears each committed change as the activity stream would carry it. */
@@ -162,7 +164,7 @@ export class FakeCanvas {
     if (conversation !== null && !this.conversationExists(conversation)) return refused(404, "conversation not found");
     const cleaned = cleanTitle(title);
     if (typeof cleaned !== "string") return refused(422, cleaned.problem);
-    const refusal = this.refuseWrite(USER, bytes(lf(content)));
+    const refusal = this.refuseWrite(USER, bytes(lf(content)), kind);
     if (refusal) return refusal;
     const summary = this.add({ title: cleaned, kind, content });
     this.announce(summary, []);
@@ -214,11 +216,15 @@ export class FakeCanvas {
   }
 
   private store(canvas: Canvas, content: string, note: string): FakeReply {
-    return this.refuseWrite(USER, bytes(content)) ?? ok(withoutText(this.append(canvas, content, USER, note, 0)));
+    return (
+      this.refuseWrite(USER, bytes(content), canvas.summary.kind) ??
+      ok(withoutText(this.append(canvas, content, USER, note, 0)))
+    );
   }
 
-  private refuseWrite(author: string, size: number): FakeReply | null {
-    if (size > this.sizeCap) return refused(413, { size, cap: this.sizeCap });
+  private refuseWrite(author: string, size: number, kind: string): FakeReply | null {
+    const limit = this.sizeCap ?? capOf(kind);
+    if (size > limit) return refused(413, { size, cap: limit });
     const cap = author === USER ? this.storageCap : Math.floor((this.storageCap * 9) / 10);
     return this.used() + size > cap ? refused(507, this.fullness(cap)) : null;
   }
@@ -227,7 +233,10 @@ export class FakeCanvas {
     const canvas = id === null ? undefined : this.canvases.get(id);
     if (detail !== undefined) return refused(status, detail);
     if (status === 409 && canvas) return refused(409, this.conflict(canvas));
-    if (status === 413) return refused(413, { size: bytes(String(body.content ?? "")), cap: this.sizeCap });
+    if (status === 413) {
+      const cap = this.sizeCap ?? capOf(canvas?.summary.kind);
+      return refused(413, { size: bytes(String(body.content ?? "")), cap });
+    }
     if (status === 507) return refused(507, this.fullness(this.storageCap));
     if (status >= 500) return { status, text: REASONS[status] ?? "Internal Server Error" };
     return refused(status, status === 404 ? "artifact not found" : "refused");

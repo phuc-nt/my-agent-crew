@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
 import { watch } from "../test/canvas-hook";
+import { type LeftCanvas, leftCanvas } from "../test/canvas-left";
 import { flushAll, handoffsSettled, saveInBackground, within } from "./canvas-handoff";
-import { openState } from "./canvas-machine";
 
 const outstanding: Array<() => void> = [];
 
@@ -14,11 +14,12 @@ afterEach(async () => {
   await handoffsSettled();
 });
 
-/** A save in the background that stays out until the test lets it land. */
-function leaving(id = "a1") {
+/** A save in the background that stays out until the test lets it land; `over` says what its canvas
+ *  reports, such as how long its save may still go unanswered. */
+function leaving(id = "a1", over: Partial<LeftCanvas> = {}) {
   let land: (version: number | null) => void = () => undefined;
   const flush = () => new Promise<number | null>((resolve) => (land = resolve));
-  saveInBackground({ id, state: openState(id, null), flush });
+  saveInBackground(leftCanvas(id, flush, over));
   outstanding.push(() => land(1));
   return { land: (version: number | null) => land(version) };
 }
@@ -33,11 +34,7 @@ describe("handoffsSettled", () => {
   it("waits for every save out, those that failed or crashed included", async () => {
     const slow = leaving("a1");
     const failed = leaving("a2");
-    const crashed = saveInBackground({
-      id: "a3",
-      state: openState("a3", null),
-      flush: () => Promise.reject(new Error("boom")),
-    });
+    const crashed = saveInBackground(leftCanvas("a3", () => Promise.reject(new Error("boom"))));
     const waiting = watch(handoffsSettled());
 
     await settle();
@@ -153,5 +150,87 @@ describe("flushAll", () => {
   it("clears its timer once everything is in", async () => {
     await flushAll(5000, Promise.resolve(1));
     expect(vitest.getTimerCount()).toBe(0);
+  });
+});
+
+describe("flushAll while a save is still inside its own deadline", () => {
+  const never = () => new Promise<number | null>(() => undefined);
+
+  it("waits for the panel's save as long as it may still go unanswered, on top of the cap", async () => {
+    const answer = watch(flushAll(5000, never(), 60_000));
+
+    await vitest.advanceTimersByTimeAsync(64_999);
+    expect(answer.settled).toBe(false);
+    await vitest.advanceTimersByTimeAsync(1);
+
+    expect(answer).toEqual({ settled: true, value: null });
+  });
+
+  it("waits for a save left behind as long as it may still go unanswered, on top of the cap", async () => {
+    leaving("a1", { waitMs: () => 60_000 });
+    const answer = watch(flushAll(5000, null));
+
+    await vitest.advanceTimersByTimeAsync(64_999);
+    expect(answer.settled).toBe(false);
+    await vitest.advanceTimersByTimeAsync(1);
+
+    expect(answer).toEqual({ settled: true, value: null });
+  });
+
+  it("waits for the longest of the saves left behind, not for their sum", async () => {
+    leaving("a1", { waitMs: () => 10_000 });
+    leaving("a2", { waitMs: () => 20_000 });
+    const answer = watch(flushAll(5000, null));
+
+    await vitest.advanceTimersByTimeAsync(24_999);
+    expect(answer.settled).toBe(false);
+    await vitest.advanceTimersByTimeAsync(1);
+
+    expect(answer.settled).toBe(true);
+  });
+
+  it("waits for the longest of the panel's and the saves left behind, not for their sum", async () => {
+    leaving("a1", { waitMs: () => 20_000 });
+    const answer = watch(flushAll(5000, never(), 60_000));
+
+    await vitest.advanceTimersByTimeAsync(64_999);
+    expect(answer.settled).toBe(false);
+    await vitest.advanceTimersByTimeAsync(1);
+
+    expect(answer.settled).toBe(true);
+  });
+
+  it("never waits less than the cap, whatever the saves report", async () => {
+    leaving("a1", { waitMs: () => 0 });
+    const answer = watch(flushAll(5000, null, 0));
+
+    await vitest.advanceTimersByTimeAsync(4999);
+    expect(answer.settled).toBe(false);
+    await vitest.advanceTimersByTimeAsync(1);
+
+    expect(answer.settled).toBe(true);
+  });
+
+  it("keeps the panel's version while it waits on a slow save left behind", async () => {
+    leaving("a1", { waitMs: () => 30_000 });
+    const answer = watch(flushAll(5000, Promise.resolve(7)));
+
+    await vitest.advanceTimersByTimeAsync(34_999);
+    expect(answer.settled).toBe(false);
+    await vitest.advanceTimersByTimeAsync(1);
+
+    expect(answer).toEqual({ settled: true, value: 7 });
+  });
+
+  it("answers as soon as everything has landed, not at the end of the wait", async () => {
+    const out = leaving("a1", { waitMs: () => 60_000 });
+    const answer = watch(flushAll(5000, Promise.resolve(7), 60_000));
+
+    await vitest.advanceTimersByTimeAsync(1000);
+    expect(answer.settled).toBe(false);
+    out.land(8);
+    await settle();
+
+    expect(answer).toEqual({ settled: true, value: 7 });
   });
 });

@@ -3,8 +3,10 @@
  * one canvas — and the moves between them, and which canvas a message sent now names.
  *
  * Leaving a canvas by hand (closing it, going back to the list, Escape) waits for its last save,
- * at most 5 seconds. When no version holds the text by then, the panel stays and says why, and the
- * person may close it anyway, keeping the draft on this device. A deleted canvas closes at once.
+ * at most 5 seconds. When no version holds the text by then because the save failed, the panel
+ * stays and says why, and the person may close it anyway, keeping the draft on this device. A save
+ * still going out inside its own deadline does not hold the panel: it closes, and
+ * `saveInBackground` goes on waiting. A deleted canvas closes at once.
  *
  * Opening another conversation does not wait: the dock shows nothing in that very render, and the
  * panel going away hands its last save to `saveInBackground`, whose failure becomes a notice here.
@@ -19,36 +21,27 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MessageCanvas } from "../api/artifact-types";
 import { isArtifactId } from "../lib/artifact-tag";
+import { closedFor, type DockState, type DockTab, type DockView } from "../lib/canvas-dock-state";
 import { flushAll, type HandoffFailure, onHandoffFailed, within } from "../lib/canvas-handoff";
 import { useCanvasCreate } from "./use-canvas-create";
 import { type CanvasList, useCanvasList } from "./use-canvas-list";
 
+export type { DockTab, DockView };
+
 /** How long leaving a canvas, or sending a message, waits for the last save. */
 export const DOCK_FLUSH_MS = 5000;
 
-export type DockView = "closed" | "list" | "canvas";
-export type DockTab = "activity" | "canvas";
-/** What the open panel lends the dock: its last save, whether its canvas is gone, whether its person types. */
-export type PanelHandle = { flush(): Promise<number | null>; gone(): boolean; typing(): boolean };
-
-type State = {
-  conversationId: string | null;
-  view: DockView;
-  artifactId: string | null;
-  /** The canvas a message sent now names: undefined until one is opened here, null once closed. */
-  focusId: string | null | undefined;
-  /** The canvas was opened without being asked for, so the keyboard stays where it was. */
-  quiet: boolean;
-  /** The open canvas was just made here, so its title opens for editing. */
-  created: boolean;
-  /** Leaving was asked for and no save landed. */
-  stuck: boolean;
-  tab: DockTab;
-  creating: boolean;
-  createFailed: boolean;
+/** What the open panel lends the dock: its last save, whether its canvas is gone, whether its person
+ *  types, how long its save in flight may still go unanswered, and whether this device kept its draft. */
+export type PanelHandle = {
+  flush(): Promise<number | null>;
+  gone(): boolean;
+  typing(): boolean;
+  waitMs(): number;
+  draftFailed(): boolean;
 };
 
-export type CanvasDock = Omit<State, "conversationId"> & {
+export type CanvasDock = Omit<DockState, "conversationId"> & {
   list: CanvasList;
   handoffs: HandoffFailure[];
   showList(): Promise<void>;
@@ -61,8 +54,9 @@ export type CanvasDock = Omit<State, "conversationId"> & {
   selectTab(tab: DockTab): void;
   /** Lends the dock the open panel's handle until the returned function is called. */
   bind(handle: PanelHandle): () => void;
-  /** The open canvas's last save, or null when none lands within 5 seconds; waits for the saves
-   *  of canvases left meanwhile as well, and gives up on those at the same time. */
+  /** The open canvas's last save, or null when none lands within 5 seconds after the save in
+   *  flight has had its own deadline; waits for the saves of canvases left meanwhile as well, and
+   *  gives up on those at the same time. */
   flush(): Promise<number | null>;
   /** Whether the person is typing in the open canvas, which a canvas opened now must not take from them. */
   typing(): boolean;
@@ -74,19 +68,6 @@ export type CanvasDock = Omit<State, "conversationId"> & {
   restore(id: string, ticket: number): void;
   dismissHandoff(id: string): void;
 };
-
-const closedFor = (conversationId: string | null): State => ({
-  conversationId,
-  view: "closed",
-  artifactId: null,
-  focusId: undefined,
-  quiet: false,
-  created: false,
-  stuck: false,
-  tab: "canvas",
-  creating: false,
-  createFailed: false,
-});
 
 export function useCanvasDock(conversationId: string | null, connected: boolean, wide: boolean): CanvasDock {
   const [state, setState] = useState(() => closedFor(conversationId));
@@ -114,7 +95,11 @@ export function useCanvasDock(conversationId: string | null, connected: boolean,
     [],
   );
 
-  const flush = useCallback(async () => flushAll(DOCK_FLUSH_MS, panel.current?.flush() ?? null), []);
+  const flush = useCallback(async () => {
+    // The panel's save starts first, so the deadline it brings is known when the wait is set.
+    const saving = panel.current?.flush() ?? null;
+    return flushAll(DOCK_FLUSH_MS, saving, panel.current?.waitMs() ?? 0);
+  }, []);
   const typing = useCallback(() => panel.current?.typing() ?? false, []);
   const messageCanvas = useCallback((): MessageCanvas | undefined => {
     const { focusId } = latest.current;
@@ -124,7 +109,7 @@ export function useCanvasDock(conversationId: string | null, connected: boolean,
   const readTicket = useCallback(() => moves.current, []);
 
   const move = useCallback(
-    (next: Partial<State>) => {
+    (next: Partial<DockState>) => {
       moves.current++;
       setState((was) => ({ ...was, conversationId, stuck: false, creating: false, createFailed: false, quiet: false, ...next }));
     },
@@ -141,13 +126,14 @@ export function useCanvasDock(conversationId: string | null, connected: boolean,
   const create = useCanvasCreate({ conversationId, moves, progress, opened });
 
   const actions = useMemo(() => {
-    const leave = async (next: Partial<State>) => {
+    const leave = async (next: Partial<DockState>) => {
       const ticket = ++moves.current;
       const handle = panel.current;
       if (handle && !handle.gone()) {
         const version = await within(DOCK_FLUSH_MS, handle.flush(), null);
         if (moves.current !== ticket) return;
-        if (version === null && !handle.gone()) {
+        // A save inside its deadline has not failed: the panel closes and the handoff waits on.
+        if (version === null && !handle.gone() && handle.waitMs() === 0) {
           setState((was) => ({ ...was, stuck: true }));
           return;
         }
@@ -172,7 +158,8 @@ export function useCanvasDock(conversationId: string | null, connected: boolean,
       close: () => leave(closed),
       forceClose: () => {
         const open = latest.current.artifactId;
-        if (open !== null) kept.current.add(open);
+        // Told of the loss already only when this device kept the text; otherwise the notice follows.
+        if (open !== null && !panel.current?.draftFailed()) kept.current.add(open);
         move(closed);
       },
       toggle: async () => {

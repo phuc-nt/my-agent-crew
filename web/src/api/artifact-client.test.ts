@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi as vitest } from "vitest";
-import { artifactApi, conflictOf, storageFullOf, versionGoneOf } from "./artifact-client";
+import { artifactApi, conflictOf, sizeCapOf, storageFullOf, versionGoneOf } from "./artifact-client";
 import type { ArtifactDetail } from "./artifact-types";
 import { ApiError } from "./client";
 
@@ -142,6 +142,17 @@ describe("canvas error shapes", () => {
     expect(storageFullOf(new ApiError(507, "Insufficient Storage", "Insufficient Storage"))).toBeNull();
     expect(storageFullOf(new ApiError(500, "", body))).toBeNull();
     expect(storageFullOf(new ApiError(507, "", { ...body, largest: null }))).toBeNull();
+  });
+
+  it("reads the cap a 413 holds the canvas to, and from nothing else", () => {
+    const body = { size: 5_000_000, cap: 4 * 1024 * 1024 };
+    expect(sizeCapOf(new ApiError(413, JSON.stringify(body), body))).toBe(4 * 1024 * 1024);
+    expect(sizeCapOf(new ApiError(413, "too large", "too large"))).toBeNull();
+    expect(sizeCapOf(new ApiError(413, "", { size: 5_000_000 }))).toBeNull();
+    expect(sizeCapOf(new ApiError(413, "", { ...body, cap: "4 MB" }))).toBeNull();
+    expect(sizeCapOf(new ApiError(413, "", [body]))).toBeNull();
+    expect(sizeCapOf(new ApiError(422, "", body))).toBeNull();
+    expect(sizeCapOf(new TypeError("Failed to fetch"))).toBeNull();
   });
 
   it("tells a version that was folded away from a canvas that is gone", () => {

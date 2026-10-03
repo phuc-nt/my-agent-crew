@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
 import { saveBody } from "../api/artifact-client";
-import type { CanvasSeed } from "../test/fake-canvas";
+import { leftCanvas } from "../test/canvas-left";
+import { askedToStay } from "../test/close-page";
 import { FakeBackend } from "../test/fake-backend";
-import { memoryStorage } from "../test/memory-storage";
+import type { CanvasSeed } from "../test/fake-canvas";
+import { memoryStorage, refusingStorage } from "../test/memory-storage";
 import { readDraft } from "./canvas-draft";
 import { type HandoffFailure, KEEPALIVE_MAX, onHandoffFailed, saveInBackground, withKeepalive } from "./canvas-handoff";
-import { openState } from "./canvas-machine";
 import { CanvasRunner } from "./canvas-runner";
 
 let backend: FakeBackend;
@@ -62,7 +63,7 @@ describe("the last save of a canvas the person left", () => {
 
     await saveInBackground(runner);
 
-    expect(heard).toEqual([{ id: "a1", title: "Ghi chú" }]);
+    expect(heard).toEqual([{ id: "a1", title: "Ghi chú", draft: true }]);
     expect(readDraft("a1")?.text).toBe("a!");
     await vitest.advanceTimersByTimeAsync(60_000);
     expect(puts()).toHaveLength(1);
@@ -90,13 +91,90 @@ describe("the last save of a canvas the person left", () => {
   });
 
   it("tells only the listeners still subscribed, with no title when it never had one", async () => {
-    const leaving = { id: "a9", state: openState("a9", null), flush: async () => null };
+    const leaving = leftCanvas("a9", async () => null);
 
     await saveInBackground(leaving);
     unsubscribe();
     await saveInBackground(leaving);
 
-    expect(heard).toEqual([{ id: "a9", title: null }]);
+    expect(heard).toEqual([{ id: "a9", title: null, draft: true }]);
+  });
+});
+
+/** A canvas left behind whose save stays out until `land` is called. */
+function stuck(id: string, draftFailed: boolean) {
+  let land: (version: number | null) => void = () => undefined;
+  const done = saveInBackground(
+    leftCanvas(id, () => new Promise<number | null>((resolve) => (land = resolve)), { draftFailed }),
+  );
+  return { done, land: (version: number | null) => land(version) };
+}
+
+describe("a canvas left behind whose draft this device could not keep", () => {
+  it("asks before the page closes while its last save is out, and stops when it lands", async () => {
+    const left = stuck("a1", true);
+    expect(askedToStay()).toBe(true);
+
+    left.land(3);
+    await left.done;
+
+    expect(askedToStay()).toBe(false);
+  });
+
+  it("asks nothing for a canvas whose draft is kept", async () => {
+    const left = stuck("a1", false);
+    expect(askedToStay()).toBe(false);
+
+    left.land(3);
+    await left.done;
+  });
+
+  it("asks until the last of them has settled", async () => {
+    const first = stuck("a1", true);
+    const second = stuck("a2", true);
+
+    first.land(1);
+    await first.done;
+    expect(askedToStay()).toBe(true);
+
+    second.land(1);
+    await second.done;
+    expect(askedToStay()).toBe(false);
+  });
+
+  it("stops asking when the save fails, and says no draft was kept", async () => {
+    const left = stuck("a1", true);
+
+    left.land(null);
+    await left.done;
+
+    expect(askedToStay()).toBe(false);
+    expect(heard).toEqual([{ id: "a1", title: null, draft: false }]);
+  });
+
+  it("stops asking when the save crashes", async () => {
+    const done = saveInBackground(leftCanvas("a1", () => Promise.reject(new Error("boom")), { draftFailed: true }));
+
+    await expect(done).rejects.toThrow("boom");
+
+    expect(askedToStay()).toBe(false);
+  });
+
+  it("is a runner whose draft the browser refused, held and told of with no draft behind it", async () => {
+    vitest.useFakeTimers({ shouldAdvanceTime: true });
+    const runner = await opened({ title: "Ghi chú" });
+    refusingStorage();
+    runner.edit("a!");
+    runner.detach();
+    expect(runner.draftFailed).toBe(true);
+    backend.canvas.refuseNext("PUT", 503);
+
+    const done = saveInBackground(runner);
+    expect(askedToStay()).toBe(true);
+    await done;
+
+    expect(askedToStay()).toBe(false);
+    expect(heard).toEqual([{ id: "a1", title: "Ghi chú", draft: false }]);
   });
 });
 

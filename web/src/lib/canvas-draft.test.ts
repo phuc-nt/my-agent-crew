@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
-import { fullStorage, memoryStorage, refusingStorage } from "../test/memory-storage";
+import { fullStorage, limitedStorage, memoryStorage, refusingStorage } from "../test/memory-storage";
 import { type CanvasDraft, clearDraft, pruneDrafts, readDraft, textKey, writeDraft } from "./canvas-draft";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -127,5 +127,73 @@ describe("a canvas draft on this device", () => {
     pruneDrafts(NOW);
 
     expect([...store.keys()].sort()).toEqual(["canvas-draft:recent", "composer-draft:c1"]);
+  });
+});
+
+describe("a draft the browser's quota has no room for", () => {
+  /** What a draft takes of the quota: its key and its text. */
+  const sizeOf = (d: CanvasDraft) => `canvas-draft:${d.artifact_id}`.length + JSON.stringify(d).length;
+  const bulky = (id: string, savedAt: number, chars = 1000) =>
+    draft(id, { saved_at: savedAt, text: "x".repeat(chars) });
+  const keptKeys = () => [...store.keys()].sort();
+
+  /** Three drafts, the oldest first, with a quota that holds exactly these. */
+  function fillQuota(): CanvasDraft[] {
+    const drafts = [bulky("a1", NOW + 1), bulky("a2", NOW + 2), bulky("a3", NOW + 3)];
+    for (const d of drafts) writeDraft(d);
+    limitedStorage(store, drafts.reduce((sum, d) => sum + sizeOf(d), 0));
+    return drafts;
+  }
+
+  it("frees the oldest other draft, and no more than it takes", () => {
+    fillQuota();
+
+    expect(writeDraft(bulky("a4", NOW + 4))).toBe(true);
+
+    expect(keptKeys()).toEqual(["canvas-draft:a2", "canvas-draft:a3", "canvas-draft:a4"]);
+    expect(readDraft("a4")?.text).toHaveLength(1000);
+  });
+
+  it("frees a second one when the first leaves too little room, and keeps the newest", () => {
+    fillQuota();
+
+    expect(writeDraft(bulky("a4", NOW + 4, 1800))).toBe(true);
+
+    expect(keptKeys()).toEqual(["canvas-draft:a3", "canvas-draft:a4"]);
+    expect(readDraft("a4")?.text).toHaveLength(1800);
+  });
+
+  it("frees what is no draft before any draft", () => {
+    const [a1, a2] = [bulky("a1", NOW + 1), bulky("a2", NOW + 2)];
+    writeDraft(a1);
+    writeDraft(a2);
+    store.set("canvas-draft:junk", "j".repeat(1200));
+    limitedStorage(store, sizeOf(a1) + sizeOf(a2) + "canvas-draft:junk".length + 1200);
+
+    expect(writeDraft(bulky("a4", NOW + 4))).toBe(true);
+
+    expect(keptKeys()).toEqual(["canvas-draft:a1", "canvas-draft:a2", "canvas-draft:a4"]);
+  });
+
+  it("leaves the others as they were when even removing them all would not make room", () => {
+    fillQuota();
+    const before = Object.fromEntries(store);
+
+    expect(writeDraft(bulky("a9", NOW + 9, 50_000))).toBe(false);
+
+    expect(Object.fromEntries(store)).toEqual(before);
+    expect(readDraft("a9")).toBeNull();
+  });
+
+  it("touches nothing else while the write fits", () => {
+    const [a1] = [bulky("a1", NOW + 1)];
+    writeDraft(a1);
+    limitedStorage(store, 10 * sizeOf(a1));
+    const before = Object.fromEntries(store);
+
+    expect(writeDraft(bulky("a2", NOW + 2))).toBe(true);
+
+    expect(keptKeys()).toEqual(["canvas-draft:a1", "canvas-draft:a2"]);
+    expect(store.get("canvas-draft:a1")).toBe(before["canvas-draft:a1"]);
   });
 });

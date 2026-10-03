@@ -63,10 +63,11 @@ export function drive(state: CanvasState): Driver {
 export function openOn(
   content: string,
   version = 5,
-  options: { author?: string; draft?: CanvasDraft | null } = {},
+  options: { author?: string; draft?: CanvasDraft | null; kind?: string } = {},
 ): Driver {
   const canvas = drive(openState("a1", options.draft ?? null));
-  canvas.send({ type: "read", detail: detailAt(version, content, { head_author: options.author ?? "user" }) });
+  const kind = options.kind ?? "markdown";
+  canvas.send({ type: "read", detail: detailAt(version, content, { head_author: options.author ?? "user", kind }) });
   return canvas;
 }
 

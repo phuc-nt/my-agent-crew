@@ -4,7 +4,7 @@
  * going after its panel went away, until the last save lands.
  *
  * A detached runner reads nothing and retries nothing: it only finishes the save it was asked for.
- * The requests themselves, and the 30 seconds after which a silent one counts as lost, are in
+ * The requests themselves, and the deadlines after which a silent one counts as lost, are in
  * `canvas-requests`.
  */
 
@@ -30,6 +30,8 @@ export class CanvasRunner {
   private retryTimer: Timer;
   private reading: AbortController | null = null;
   private tickets = 0;
+  /** When the save in flight reaches its deadline. */
+  private putEndsAt = 0;
   private readonly settles = new Map<number, (version: number | null) => void>();
 
   constructor(
@@ -115,6 +117,11 @@ export class CanvasRunner {
     this.send({ type: "visibility", hidden: true });
   }
 
+  /** How long the save in flight may still go unanswered, in ms; 0 when none is out. */
+  waitMs(): number {
+    return this.state.saving ? Math.max(0, this.putEndsAt - Date.now()) : 0;
+  }
+
   /** Whether text may still be missing from the server. */
   needsSave(): boolean {
     const { phase, gone, saving, held } = this.state;
@@ -164,7 +171,7 @@ export class CanvasRunner {
   }
 
   private put(content: string, baseVersion: number, hidden: boolean): void {
-    requestSave(this.id, content, baseVersion, hidden, (input) => this.send(input));
+    this.putEndsAt = Date.now() + requestSave(this.id, content, baseVersion, hidden, (input) => this.send(input));
   }
 
   private get(): void {

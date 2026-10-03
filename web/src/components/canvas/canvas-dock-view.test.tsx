@@ -4,8 +4,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { type CanvasDock, useCanvasDock } from "../../hooks/use-canvas-dock";
 import { vi } from "../../i18n/vi";
 import { saveInBackground } from "../../lib/canvas-handoff";
-import { openState } from "../../lib/canvas-machine";
 import { landed, startServer, stopServer } from "../../test/canvas-hook";
+import { leftCanvas } from "../../test/canvas-left";
 import { CanvasButton, CanvasDockView, CanvasHandoffNotices } from "./canvas-dock";
 
 const ACTIVITY = "Các bước của lượt chạy";
@@ -174,8 +174,22 @@ describe("a save handed off that did not land", () => {
   it("names a canvas without a title as untitled", async () => {
     await openChat("column");
 
-    await act(() => saveInBackground({ id: "a9", state: openState("a9", null), flush: async () => null }));
+    await act(() => saveInBackground(leftCanvas("a9", async () => null)));
 
-    expect(screen.getByRole("alert")).toHaveTextContent(vi.canvas.handoffFailed(vi.canvas.untitled));
+    expect(screen.getByRole("alert")).toHaveTextContent(vi.canvas.handoffFailed(vi.canvas.untitled, true));
+    // The words themselves, since the line above would follow a swap inside the function.
+    expect(screen.getByRole("alert")).toHaveTextContent("bản nháp vẫn trên máy này");
+  });
+
+  it("promises no draft when this device could not keep one", async () => {
+    await openChat("column");
+
+    await act(() => saveInBackground(leftCanvas("a9", async () => null, { draftFailed: true })));
+
+    const notice = screen.getByRole("alert");
+    expect(notice).toHaveTextContent(vi.canvas.handoffFailed(vi.canvas.untitled, false));
+    expect(notice).not.toHaveTextContent(vi.canvas.handoffFailed(vi.canvas.untitled, true));
+    expect(notice).toHaveTextContent("máy này cũng không giữ được bản nháp");
+    expect(notice).not.toHaveTextContent("vẫn trên máy này");
   });
 });

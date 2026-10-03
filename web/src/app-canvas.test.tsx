@@ -190,11 +190,11 @@ describe("the canvas dock across conversations", () => {
     await landed();
     await landed();
 
-    const told = screen.getByText(vi.canvas.handoffFailed("Ghi chú")).closest("[role=alert]") as HTMLElement;
+    const told = screen.getByText(vi.canvas.handoffFailed("Ghi chú", true)).closest("[role=alert]") as HTMLElement;
     expect(main()).toContainElement(told);
     expect(localStorage.getItem("canvas-draft:a1")).toContain("không lưu được");
     fireEvent.click(within(told).getByRole("button", { name: vi.canvas.dismiss }));
-    expect(screen.queryByText(vi.canvas.handoffFailed("Ghi chú"))).toBeNull();
+    expect(screen.queryByText(vi.canvas.handoffFailed("Ghi chú", true))).toBeNull();
   });
 });
 

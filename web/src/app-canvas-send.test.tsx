@@ -13,7 +13,7 @@ import {
   traffic,
   typeInCanvas,
 } from "./test/canvas-app";
-import { landed, stopServer } from "./test/canvas-hook";
+import { landed, stopServer, wait } from "./test/canvas-hook";
 import type { FakeBackend } from "./test/fake-backend";
 
 let backend: FakeBackend;
@@ -71,6 +71,52 @@ describe("sending a message while a canvas is open", () => {
     expect(posts(backend)).toHaveLength(1);
     expect(box()).toHaveValue("");
     expect(box()).not.toHaveAttribute("readonly");
+  });
+
+  it("says the canvas is being saved once the wait has gone on a moment, and stops when the message goes", async () => {
+    await openChat(1440);
+    await openNote();
+    typeInCanvas("đang gõ");
+    const release = backend.canvas.holdNext("PUT");
+
+    await say("tin một");
+    expect(screen.queryByText(vi.canvas.savingFirst)).toBeNull();
+    wait(299);
+    expect(screen.queryByText(vi.canvas.savingFirst)).toBeNull();
+    wait(1);
+    expect(screen.getByText(vi.canvas.savingFirst)).toHaveAttribute("role", "status");
+
+    await act(() => release());
+    await landed();
+    await landed();
+
+    expect(posts(backend)).toHaveLength(1);
+    expect(screen.queryByText(vi.canvas.savingFirst)).toBeNull();
+  });
+
+  it("says nothing of saving when the canvas is saved at once", async () => {
+    await openChat(1440);
+    await openNote();
+    typeInCanvas("đang gõ");
+
+    await say("tin một");
+    wait(1000);
+
+    expect(posts(backend)).toHaveLength(1);
+    expect(screen.queryByText(vi.canvas.savingFirst)).toBeNull();
+  });
+
+  it("sends the message all the same when the canvas could not be saved, and stops saying it is saving", async () => {
+    await openChat(1440);
+    await openNote();
+    typeInCanvas("đang gõ");
+    backend.canvas.refuseNext("PUT", 422);
+
+    await say("tin một");
+
+    expect(posts(backend)).toHaveLength(1);
+    expect(screen.queryByText(vi.canvas.savingFirst)).toBeNull();
+    expect(box()).toHaveValue("");
   });
 
   it("sends nothing when the person goes to another conversation before the save lands, and keeps the words", async () => {

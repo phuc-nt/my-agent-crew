@@ -33,13 +33,13 @@ function noteText(note: string): string {
   return restore ? vi.canvas.restoredFrom(Number(restore[1])) : note;
 }
 
-function problemText(problem: HistoryProblem, status: CanvasStatus): string | null {
+function problemText(problem: HistoryProblem, status: CanvasStatus, cap: number | null): string | null {
   const { canvas } = vi;
   if (problem.type === "versionGone") return canvas.versionGone;
   if (problem.type === "versionFailed") return canvas.versionFailed;
   if (problem.type === "restoreFailed") return canvas.restoreFailed(problem.reason);
   // The save that held the restore back may land meanwhile; the reason follows the save line.
-  if (problem.type === "blocked") return status === "saved" ? null : canvas.restoreFailed(stuckReason(status));
+  if (problem.type === "blocked") return status === "saved" ? null : canvas.restoreFailed(stuckReason(status, cap));
   return null;
 }
 
@@ -63,7 +63,7 @@ export function CanvasHistory({ canvas, artifactId, agentName, flush, onClose }:
     if (against === null) return shownText.split("\n").map((text) => ({ op: "add", text }));
     return againstText === undefined ? undefined : canvasDiff(againstText, shownText);
   }, [shownText, against, againstText]);
-  const said = problem ? problemText(problem, canvas.status) : null;
+  const said = problem ? problemText(problem, canvas.status, canvas.state.cap) : null;
 
   return (
     <section className="canvas-history" aria-label={vi.canvas.historyTitle}>

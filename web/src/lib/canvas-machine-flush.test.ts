@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { conflictAt, drive, lost, metaAt, openOn, putsIn, settledIn, typeAndPause } from "../test/canvas-driver";
-import { type CanvasInput, SIZE_CAP, openState } from "./canvas-machine";
+import { CAPS } from "./canvas-caps";
+import { type CanvasInput, openState } from "./canvas-machine";
+
+const SIZE_CAP = CAPS.markdown;
 
 const refused = (status: number): CanvasInput => ({ type: "saveFailed", status, conflict: null, full: null });
 const flush = (ticket = 1): CanvasInput => ({ type: "flush", ticket });
