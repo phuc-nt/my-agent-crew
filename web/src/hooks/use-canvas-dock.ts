@@ -17,11 +17,10 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { artifactApi } from "../api/artifact-client";
 import type { MessageCanvas } from "../api/artifact-types";
-import { vi } from "../i18n/vi";
 import { isArtifactId } from "../lib/artifact-tag";
 import { flushAll, type HandoffFailure, onHandoffFailed, within } from "../lib/canvas-handoff";
+import { useCanvasCreate } from "./use-canvas-create";
 import { type CanvasList, useCanvasList } from "./use-canvas-list";
 
 /** How long leaving a canvas, or sending a message, waits for the last save. */
@@ -124,11 +123,24 @@ export function useCanvasDock(conversationId: string | null, connected: boolean,
   }, []);
   const readTicket = useCallback(() => moves.current, []);
 
-  const actions = useMemo(() => {
-    const move = (next: Partial<State>) => {
+  const move = useCallback(
+    (next: Partial<State>) => {
       moves.current++;
       setState((was) => ({ ...was, conversationId, stuck: false, creating: false, createFailed: false, quiet: false, ...next }));
-    };
+    },
+    [conversationId],
+  );
+  const progress = useCallback(
+    (next: { creating: boolean; createFailed: boolean }) => setState((was) => ({ ...was, ...next })),
+    [],
+  );
+  const opened = useCallback(
+    (id: string) => move({ view: "canvas", artifactId: id, focusId: id, created: true, tab: "canvas" }),
+    [move],
+  );
+  const create = useCanvasCreate({ conversationId, moves, progress, opened });
+
+  const actions = useMemo(() => {
     const leave = async (next: Partial<State>) => {
       const ticket = ++moves.current;
       const handle = panel.current;
@@ -163,20 +175,6 @@ export function useCanvasDock(conversationId: string | null, connected: boolean,
         if (open !== null) kept.current.add(open);
         move(closed);
       },
-      create: async () => {
-        if (conversationId === null) return;
-        const ticket = ++moves.current;
-        setState((was) => ({ ...was, creating: true, createFailed: false }));
-        const body = { title: vi.canvas.untitled, kind: "markdown", content: "", conversation_id: conversationId } as const;
-        try {
-          const made = await artifactApi.create(body);
-          if (moves.current === ticket) {
-            move({ view: "canvas", artifactId: made.id, focusId: made.id, created: true, tab: "canvas" });
-          }
-        } catch {
-          if (moves.current === ticket) setState((was) => ({ ...was, creating: false, createFailed: true }));
-        }
-      },
       toggle: async () => {
         const { view, tab } = latest.current;
         if (view === "closed") await leave(listed);
@@ -185,7 +183,7 @@ export function useCanvasDock(conversationId: string | null, connected: boolean,
       },
       selectTab: (tab: DockTab) => setState((was) => ({ ...was, tab })),
     };
-  }, [conversationId, wide]);
+  }, [conversationId, wide, move]);
 
   const bind = useCallback((handle: PanelHandle) => {
     panel.current = handle;
@@ -196,5 +194,5 @@ export function useCanvasDock(conversationId: string | null, connected: boolean,
   const dismissHandoff = useCallback((id: string) => setHandoffs((told) => told.filter((f) => f.id !== id)), []);
 
   const { conversationId: _, ...view } = shown;
-  return { ...view, list, handoffs, ...actions, bind, flush, typing, messageCanvas, ticket: readTicket, dismissHandoff };
+  return { ...view, list, handoffs, ...actions, create, bind, flush, typing, messageCanvas, ticket: readTicket, dismissHandoff };
 }

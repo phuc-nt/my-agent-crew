@@ -1770,6 +1770,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `web/src/components/conversation-header.test.tsx` ("starts with the pill given first, ahead of spend
     and options, and ends with the extras": nút Canvas đứng đầu hàng pill nên ở 390 px vẫn trong màn
     hình)
+  - Việc xin tạo canvas nằm ở `web/src/hooks/use-canvas-create.ts` và không có tệp test riêng: dock
+    đưa cho nó số lần chuyển và hai cách hiện kết quả, nên các test ở trên (tạo, lỗi tạo, chuyển trước
+    khi reply về) chạy nó qua dock và chuyển nó ra khỏi dock không đổi test nào
   - vitest, cả App trên `FakeCanvas`: `web/src/app-canvas.test.tsx` ("opens as a tab over the activity,
     in a column its edge widens, and keeps both mounted", "keeps the open canvas and its typing as the
     window crosses 1101 px both ways", "makes a canvas from the list and opens its name to type over",
