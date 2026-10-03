@@ -8,6 +8,7 @@ import {
   parseDelegateResult,
 } from "../lib/delegate-result";
 import type { ThreadItem, ToolStatus } from "../state/thread-reducer";
+import { CanvasCard, type CanvasLinks, isCanvasWrite } from "./canvas/canvas-card";
 import { SUMMARY_CUT, ToolArgsDetail } from "./tool-args-detail";
 import { AgentAvatar } from "./ui/agent-avatar";
 import { Icon, type IconName } from "./ui/icon";
@@ -68,9 +69,11 @@ interface Props {
   agentName?: (id: string) => string;
   /** Opens the child conversation this call created; absent means the button is hidden. */
   onOpenConversation?: (conversationId: string) => void;
+  /** Lets a write to a canvas be drawn as that canvas, with a way to open it; absent keeps the plain card. */
+  canvas?: CanvasLinks;
 }
 
-export function ToolCallCard({ item, agentName, onOpenConversation }: Props) {
+export function ToolCallCard({ item, agentName, onOpenConversation, canvas }: Props) {
   const [open, setOpen] = useState(false);
   const hasOutput = item.output !== null && item.output !== "";
   if (item.name === DELEGATE) {
@@ -84,6 +87,7 @@ export function ToolCallCard({ item, agentName, onOpenConversation }: Props) {
       />
     );
   }
+  if (canvas && isCanvasWrite(item)) return <CanvasCard item={item} canvas={canvas} />;
   return (
     <div className={`tool-card ${item.status}`} data-testid="tool-card" data-tool={item.name}>
       <div className="tool-header">

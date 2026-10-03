@@ -1,4 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
+import { vi } from "../src/i18n/vi";
+import { FakeCanvas } from "../src/test/fake-canvas";
 import { type Conversation, coachAgent, defaultAgent, mockApi, run } from "./mock-api";
 import { smallTargets } from "./small-targets";
 
@@ -66,4 +68,33 @@ test("every control in the phone's conversation drawer is big enough for a finge
   await expect(page.locator(".sidebar")).not.toHaveAttribute("inert");
   await expect(page.locator(".sidebar").getByRole("button", { name: /Việc nhà/ })).toBeInViewport();
   expect(await smallTargets(page)).toEqual([]);
+});
+
+const PLAN = "00ff00ff00ff";
+
+/** A saved conversation whose first message went with a canvas note, and in which the agent made a canvas. */
+function withCanvas(): Conversation {
+  const call = { id: "w1", name: "artifact_create", arguments: { title: "Kế hoạch tuần", content: "Việc một" } };
+  const stored = { tool_calls: [], tool_call_id: null, name: null, provider: null, model: null, cost_usd: null, created_at: "" };
+  return {
+    ...conversation("c1", "Kế hoạch"),
+    messages: [
+      { ...stored, id: "m1", seq: 1, role: "user", content: "viết kế hoạch", context: "[Canvas · Ghi chú]\n> chạy 5 km" },
+      { ...stored, id: "m2", seq: 2, role: "assistant", content: "", tool_calls: [call] },
+      { ...stored, id: "m3", seq: 3, role: "tool", content: `[artifact ${PLAN} v1]\nCanvas "Kế hoạch tuần" was created.`, tool_call_id: "w1", name: "artifact_create" },
+      { ...stored, id: "m4", seq: 4, role: "assistant", content: "Xong." },
+    ],
+  };
+}
+
+test("the canvas card's Open button and the note chip in the thread are big enough for a finger", async ({ page }) => {
+  const fake = new FakeCanvas();
+  fake.add({ id: PLAN, title: "Kế hoạch tuần", agent_id: "master", conversationIds: ["c1"] });
+  await mockApi(page, { conversations: [withCanvas()], canvas: fake });
+  await page.goto("/#/chat/c1");
+  await expect(page.getByRole("button", { name: vi.canvas.card.openLabel("Kế hoạch tuần") })).toBeVisible();
+  await expect(page.getByRole("button", { name: vi.canvas.noteChip })).toBeVisible();
+
+  expect(await smallTargets(page, ".canvas-card")).toEqual([]);
+  expect(await smallTargets(page, ".canvas-note")).toEqual([]);
 });

@@ -1,5 +1,6 @@
 import type { ArtifactDetail, ArtifactEvent, ArtifactSummary, ArtifactVersion } from "../api/artifact-types";
 import { fold } from "../components/conversation-search";
+import { cleanTitle } from "../lib/canvas-title";
 import { CanvasFaults, type FakeReply, invalid, ok, refused } from "./fake-canvas-faults";
 import { FocusBook } from "./fake-canvas-focus";
 
@@ -19,7 +20,6 @@ type Canvas = { summary: ArtifactSummary; versions: ArtifactVersion[]; conversat
 const START = Date.parse("2026-10-02T03:00:00Z");
 const USER = "user";
 const LARGEST_SHOWN = 3;
-const JOINERS = new Set(["‌", "‍"]);
 const REASONS: Record<number, string> = { 502: "Bad Gateway", 503: "Service Unavailable", 504: "Gateway Timeout" };
 const ROUTES: [RegExp, string[]][] = [
   [/^$/, ["GET", "PUT", "PATCH", "DELETE"]],
@@ -33,15 +33,6 @@ const bytes = (text: string) => new TextEncoder().encode(text).length;
 const lf = (text: string) => text.replace(/\r\n?/g, "\n");
 const isVersion = (value: unknown) => Number.isInteger(value) && (value as number) >= 1;
 const withoutText = ({ content: _content, ...meta }: ArtifactVersion) => meta;
-
-/** The server's `clean_title`: one line of visible text, or why there is none. */
-function cleanTitle(title: string): string | { problem: string } {
-  const visible = [...title.replace(/\s/gu, " ")].filter((ch) => JOINERS.has(ch) || !/[\p{Cc}\p{Cf}]/u.test(ch));
-  const text = visible.join("").normalize("NFC").split(" ").filter(Boolean).join(" ");
-  const length = [...text].length;
-  if (!text) return { problem: "a canvas needs a title" };
-  return length > 200 ? { problem: `a title of ${length} characters is over 200` } : text;
-}
 
 /**
  * The canvas half of the fake server, shared by the vitest fetch and the Playwright routes.

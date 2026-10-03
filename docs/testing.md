@@ -1828,6 +1828,69 @@ tên một test thì sửa dòng của nó trong cùng commit.
     canvas put away is still the one the message names", "opens beside the chat without taking the
     focus from the box, and writes nothing": chữ gõ ngay sau đó vào ô soạn tin chứ không vào canvas,
     "carries no canvas from a read that was answered after the person went to another conversation")
+- **Canvas agent ghi hiện thành thẻ trong hội thoại và mở được từ đó; canvas agent vừa tạo ở lượt của
+  chính tab này tự mở bên cạnh mà không giành focus**
+  - vitest, thư viện: `web/src/lib/artifact-tag.test.ts` (đọc canvas và phiên bản từ thẻ ở đầu kết quả
+    ghi, kể cả lần ghi không đổi gì; không có thẻ, thẻ không nằm ở đầu, thẻ không trọn, id server không
+    bao giờ tạo hay phiên bản số không giữ chính xác được thì không đọc; id là đúng mười hai chữ số hex
+    thường, có xuống dòng ở cuối thì bị từ chối); `web/src/lib/canvas-title.test.ts` (tên được làm sạch
+    đúng như server: xuống dòng và chuỗi khoảng trắng thành một dấu cách, mọi ký tự `isspace` của Python
+    tính là dấu cách, BOM bị bỏ chứ không thành dấu cách, ký tự điều khiển và định dạng kể cả bidi và
+    khoảng trắng rộng bằng không bị bỏ, ký tự nối giữ emoji liền nhau được giữ, chữ gõ rời được ghép
+    lại, không còn gì nhìn thấy thì xin tên khác, tối đa 200 ký tự và nói đã thấy bao nhiêu, mỗi ký tự
+    đếm một lần dù chiếm mấy đơn vị UTF-16, đếm sau khi làm sạch chứ không trước)
+  - vitest, hook: `web/src/hooks/use-canvas-list-verify.test.ts` nhóm "the title of a canvas a card
+    names" (tên là tên danh sách đang giữ và không hỏi server thêm; canvas chưa ai đọc thì chưa biết
+    tên; canvas danh sách không giữ thì đọc một lần rồi giữ; danh sách giữ canvas rồi thì lấy tên của
+    danh sách), nhóm "asking whether a canvas is still there" (chờ danh sách đọc xong nên canvas danh
+    sách giữ không bao giờ bị hỏi; hỏi khi danh sách đã về mà không giữ canvas; hỏi lại sau mỗi lần đọc
+    danh sách khi chưa có câu trả lời; mất mạng không phải câu trả lời; 404 là canvas đã xoá và báo mọi
+    bên nghe đúng một lần; từ chối khác không phải xoá; mỗi canvas một lần đọc tại một lúc; id server
+    không tạo thì không hỏi; sang hội thoại khác thì quên việc định hỏi; một hàm duy nhất) và nhóm "a
+    canvas deleted" (nghe thấy từ luồng, vẫn là đã xoá sau khi danh sách đọc lại mà thiếu nó, khác với
+    canvas đổi); `web/src/hooks/use-canvas-dock-typing.test.ts` (`typing()` là không khi chưa có panel,
+    là điều panel nói và hỏi lại mỗi lần, lại là không khi panel buông, một hàm duy nhất);
+    `web/src/hooks/use-canvas-auto-open.test.ts` (mở lặng lẽ khi lệnh tạo xong ở lượt tab này đang
+    xem, đúng một lần dù thread vẽ lại bao nhiêu, hai canvas trong một lần vẽ thì mở theo thứ tự tạo,
+    lấy canvas thẻ nêu chứ không lấy tham số, cần thẻ ở đầu kết quả, mở được cả khi chưa tải chi tiết
+    hội thoại; không bao giờ tự mở: sửa hay viết lại, lệnh tạo hỏng hay bị từ chối hay bị dừng, canvas
+    của hội thoại tab chỉ mới đọc dù lúc gắn hay lúc tải, canvas có trước khi màn hình được vẽ, canvas
+    trên màn quá hẹp kể cả khi màn rộng ra sau đó, canvas xong lúc người đang gõ kể cả khi họ ngừng;
+    lệnh chưa xong thì bỏ qua và xét một lần khi xong, đang chờ duyệt thì bỏ qua rồi mở khi xong, xét
+    theo lúc kết thúc chứ không lúc bắt đầu; lệnh đã có trong lịch sử đã lưu thì không phải của lượt
+    này, không chặn lệnh của lượt này mà lịch sử chưa có, phân biệt theo lệnh chứ không theo canvas nó
+    tạo)
+  - vitest, thành phần: `web/src/components/canvas/canvas-card.test.tsx` (thẻ nói canvas đã tạo, tên
+    và phiên bản, và mở được; sửa, viết lại và "không đổi" nói đúng phiên bản; là thẻ riêng chứ không
+    phải thẻ công cụ thường; thẻ đang chạy nói đang viết, không có nút mở và không hỏi server; tên của
+    lệnh tạo đang chạy làm sạch như server, tên server sẽ từ chối thì vẫn gọi là Canvas; sửa hay viết
+    lại canvas thread chưa biết thì gọi là Canvas bất kể tham số, tham số hợp lệ chỉ để tra tên; id tham
+    số mà server không tạo thì bỏ qua; tham số không phải mapping, của lần chạy cũ, vẫn là thẻ; tên là
+    tên thread biết chứ không phải tên trong tham số, kể cả tên rỗng; ký tự ẩn hay đảo chiều hiện thành
+    dấu, cả trong nhãn nút; canvas mở là canvas thẻ nêu bất kể tham số, sửa hay viết lại không có thẻ
+    thì lấy id đã đưa, lệnh tạo không có thẻ thì không có nút; thẻ không ở đầu kết quả thì không có
+    canvas; canvas đã xoá thì nói vậy, giữ tên và không có nút, và đổi từ có nút sang không có khi
+    canvas mất; mỗi canvas hỏi server một lần dù vẽ lại, hỏi lại khi thẻ đang chạy xong; không bao giờ
+    hiện tham số hay chữ của kết quả); `web/src/components/tool-call-card-canvas.test.tsx` (ba lệnh ghi
+    thành thẻ canvas khi đang chạy và khi xong; lệnh hỏng, bị từ chối, bị dừng hay đang chờ duyệt giữ
+    thẻ thường và hiện lý do; lệnh đọc giữ thẻ thường; thread không có đường mở canvas thì giữ thẻ
+    thường; lệnh giao việc và công cụ khác như cũ; trong thread, thẻ nhận đúng đường mở của thread và
+    nằm đúng thứ tự giữa các thẻ của lượt); `web/src/components/canvas/canvas-panel-typing.test.tsx`
+    (canvas vừa mở thì chưa là đang gõ dù ô soạn đã có; chữ chưa lưu là đang gõ và hết khi đã lưu; ô
+    soạn đang giữ bàn phím là đang gõ dù đã lưu và hết khi buông; bàn phím ở chỗ khác trong panel thì
+    không; canvas đang đọc không có ô để gõ; chữ chưa lưu vẫn là đang gõ ở chế độ đọc; ô soạn biến mất
+    mà không còn gì chưa lưu thì hết; hỏi lại mỗi lần qua một tay cầm duy nhất)
+  - vitest, cả App trên `FakeCanvas`: `web/src/app-canvas-thread.test.tsx` ("opens beside the thread at
+    once, leaves the keyboard in the box and writes nothing", "goes with the next message the person
+    sends as the canvas they have open", "does not take the panel from a canvas the person has the
+    keyboard in", "opens only the once, however the person goes from the chat to the crew and back";
+    màn hẹp chỉ hiện thẻ có nút mở và không tự mở gì; lượt trước tạo canvas thì thẻ nằm trong thread đã
+    lưu, chỉ mở khi được bấm và kéo bàn phím vào dock; server không còn canvas thì thẻ nói vậy và không
+    có nút)
+  - Playwright: `canvas-thread.spec.ts` (ở 1440 px canvas agent tạo mở bên cạnh thread trong khi bàn
+    phím ở ô soạn tin, nút Mở của thẻ đưa canvas đã đóng trở lại; ở 390 px thẻ có nút Mở và một lần
+    chạm phủ canvas lên thread); `touch-targets-phone.spec.ts` ("the canvas card's Open button and the
+    note chip in the thread are big enough for a finger": ≥40px mỗi chiều ở 390 px)
 - **Mã agent khớp cả chuỗi: chữ thường, số và gạch ngang, không cả xuống dòng ở cuối**
   - pytest: `tests/test_api_agents_edit.py::test_an_id_that_is_not_a_safe_folder_name_is_refused`
     (`../escape` và `coder` có xuống dòng ở cuối đều bị từ chối, không thư mục nào được tạo);

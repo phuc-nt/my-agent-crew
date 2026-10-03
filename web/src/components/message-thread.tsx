@@ -4,6 +4,7 @@ import { useAutoScroll } from "../hooks/use-auto-scroll";
 import { vi } from "../i18n/vi";
 import type { ThreadItem } from "../state/thread-reducer";
 import { AttachmentChip, fileName, splitAttachments, type AttachmentBlock } from "./attachment-chip";
+import type { CanvasLinks } from "./canvas/canvas-card";
 import { CanvasNoteChip } from "./canvas/canvas-note-chip";
 import { BubbleActions } from "./copy-button";
 import { ForkButton } from "./fork-button";
@@ -27,6 +28,8 @@ interface Props {
   agentName?: (id: string) => string;
   /** Opens the conversation a delegation created. */
   onOpenConversation?: (conversationId: string) => void;
+  /** Draws a write to a canvas as the canvas, with a way to open it; absent keeps the plain tool card. */
+  canvas?: CanvasLinks;
   /** The master introduces itself by name and names the team it can hand work to. */
   masterName?: string;
   crewNames?: string[];
@@ -50,6 +53,7 @@ export function MessageThread({
   agentId,
   agentName,
   onOpenConversation,
+  canvas,
   masterName,
   crewNames = [],
   onFork,
@@ -96,6 +100,7 @@ export function MessageThread({
             speaker={speaker}
             agentName={agentName}
             onOpenConversation={onOpenConversation}
+            canvas={canvas}
             onFork={!busy ? onFork : undefined}
           />
       ))}
@@ -187,6 +192,7 @@ function Item({
   speaker,
   agentName,
   onOpenConversation,
+  canvas,
   onFork,
 }: {
   item: ThreadItem;
@@ -194,13 +200,14 @@ function Item({
   speaker: string;
   agentName?: (id: string) => string;
   onOpenConversation?: (conversationId: string) => void;
+  canvas?: CanvasLinks;
   /** Already `undefined` while busy — `MessageThread` clears it before passing it down —
    *  so `Item` only has to decide whether the item itself can ever be forked. */
   onFork?: (item: ThreadItem) => void;
 }) {
   if (item.kind === "tool")
     return (
-      <ToolCallCard item={item} agentName={agentName} onOpenConversation={onOpenConversation} />
+      <ToolCallCard item={item} agentName={agentName} onOpenConversation={onOpenConversation} canvas={canvas} />
     );
   // Not a bubble: a note is an aside about the work, not a turn in the conversation.
   // Giving it a bubble would make the agent look like it had said two things.

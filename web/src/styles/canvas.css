@@ -526,3 +526,31 @@ button.canvas-note-toggle {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+/* ── The card for a canvas write in the thread ──────────────────────────── */
+/* The tool card's frame with the canvas where the tool's name was, and the way in at its end:
+   the thread says what was made or changed, and the panel is one press away. */
+.canvas-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.canvas-card-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* A title is one line of any length: it wraps rather than pushing the button off the card. */
+.canvas-card-title {
+  font-weight: 550;
+  overflow-wrap: anywhere;
+}
+
+button.canvas-card-open {
+  flex: none;
+}

@@ -46,9 +46,10 @@ export async function openTab(props: Partial<DockProps> = {}, wrapper?: typeof S
   return view;
 }
 
-/** An open panel whose last save answers with `answer`; it never answers by default. */
-export const panel = (answer: Promise<number | null> = new Promise(() => {})) =>
-  ({ flush: vitest.fn(() => answer), gone: () => false }) satisfies PanelHandle;
+/** An open panel whose last save answers with `answer`, which it never does by default, and whose
+ *  person is typing when `typing` says so, which is never by default. */
+export const panel = (answer: Promise<number | null> = new Promise(() => {}), typing: () => boolean = () => false) =>
+  ({ flush: vitest.fn(() => answer), gone: () => false, typing }) satisfies PanelHandle;
 
 /** Opens canvas `id` in the dock, and lends it `handle` as the panel showing it when there is one. */
 export function opened(dock: { current: CanvasDock }, id = NOTE, handle?: PanelHandle) {

@@ -1043,5 +1043,17 @@ export const vi = {
     noChange: "Không có thay đổi.",
     noteChip: "Kèm ngữ cảnh canvas",
     noteCopy: "Sao chép ghi chú canvas",
+    // The card the thread draws for each canvas write, in place of the plain tool card.
+    card: {
+      untitled: "Canvas",
+      created: "Đã tạo",
+      edited: "Đã sửa",
+      rewritten: "Đã viết lại",
+      unchanged: "Không đổi",
+      writing: "Đang viết…",
+      version: (what: string, version: number) => `${what} · v${version}`,
+      open: "Mở",
+      openLabel: (title: string) => `Mở canvas ${title}`,
+    },
   },
 } as const;

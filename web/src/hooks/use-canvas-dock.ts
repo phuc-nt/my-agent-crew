@@ -20,18 +20,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { artifactApi } from "../api/artifact-client";
 import type { MessageCanvas } from "../api/artifact-types";
 import { vi } from "../i18n/vi";
+import { isArtifactId } from "../lib/artifact-tag";
 import { flushAll, type HandoffFailure, onHandoffFailed, within } from "../lib/canvas-handoff";
 import { type CanvasList, useCanvasList } from "./use-canvas-list";
 
 /** How long leaving a canvas, or sending a message, waits for the last save. */
 export const DOCK_FLUSH_MS = 5000;
-/** The ids the server makes, the only ones worth asking it about. */
-const ARTIFACT_ID = /^[0-9a-f]{12}$/;
 
 export type DockView = "closed" | "list" | "canvas";
 export type DockTab = "activity" | "canvas";
-/** What the open panel lends the dock: its last save, and whether its canvas is gone. */
-export type PanelHandle = { flush(): Promise<number | null>; gone(): boolean };
+/** What the open panel lends the dock: its last save, whether its canvas is gone, whether its person types. */
+export type PanelHandle = { flush(): Promise<number | null>; gone(): boolean; typing(): boolean };
 
 type State = {
   conversationId: string | null;
@@ -66,12 +65,13 @@ export type CanvasDock = Omit<State, "conversationId"> & {
   /** The open canvas's last save, or null when none lands within 5 seconds; waits for the saves
    *  of canvases left meanwhile as well, and gives up on those at the same time. */
   flush(): Promise<number | null>;
+  /** Whether the person is typing in the open canvas, which a canvas opened now must not take from them. */
+  typing(): boolean;
   /** What a message sent now says of the canvas: nothing until one is opened here. */
   messageCanvas(): MessageCanvas | undefined;
   /** A mark of the moves made so far, for `restore`. */
   ticket(): number;
-  /** Opens a canvas an earlier answer named, keeping the keyboard where it is, unless the dock
-   *  moved since `ticket` was read. */
+  /** Opens the canvas an earlier answer named, quietly, unless the dock moved since `ticket` was read. */
   restore(id: string, ticket: number): void;
   dismissHandoff(id: string): void;
 };
@@ -116,6 +116,7 @@ export function useCanvasDock(conversationId: string | null, connected: boolean,
   );
 
   const flush = useCallback(async () => flushAll(DOCK_FLUSH_MS, panel.current?.flush() ?? null), []);
+  const typing = useCallback(() => panel.current?.typing() ?? false, []);
   const messageCanvas = useCallback((): MessageCanvas | undefined => {
     const { focusId } = latest.current;
     if (focusId === undefined) return undefined;
@@ -152,7 +153,7 @@ export function useCanvasDock(conversationId: string | null, connected: boolean,
       showList: () => leave(listed),
       open,
       restore: (id: string, mark: number) => {
-        if (moves.current === mark && latest.current.conversationId === conversationId && ARTIFACT_ID.test(id)) {
+        if (moves.current === mark && latest.current.conversationId === conversationId && isArtifactId(id)) {
           open(id, { quiet: true });
         }
       },
@@ -195,5 +196,5 @@ export function useCanvasDock(conversationId: string | null, connected: boolean,
   const dismissHandoff = useCallback((id: string) => setHandoffs((told) => told.filter((f) => f.id !== id)), []);
 
   const { conversationId: _, ...view } = shown;
-  return { ...view, list, handoffs, ...actions, bind, flush, messageCanvas, ticket: readTicket, dismissHandoff };
+  return { ...view, list, handoffs, ...actions, bind, flush, typing, messageCanvas, ticket: readTicket, dismissHandoff };
 }

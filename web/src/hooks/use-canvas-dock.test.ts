@@ -39,7 +39,7 @@ async function openDock() {
 
 /** An open panel whose last save answers with `answer`; it never answers by default. */
 function panel(answer: Promise<number | null> = new Promise(() => {}), gone = false) {
-  return { flush: vitest.fn(() => answer), gone: () => gone } satisfies PanelHandle;
+  return { flush: vitest.fn(() => answer), gone: () => gone, typing: () => false } satisfies PanelHandle;
 }
 
 /** A promise to be settled by the test. */
@@ -212,7 +212,7 @@ describe("leaving an open canvas", () => {
     const answer = later<number | null>();
     const canvas = { gone: false };
     const { result } = await openDock();
-    opened(result, { flush: () => answer.promise, gone: () => canvas.gone });
+    opened(result, { flush: () => answer.promise, gone: () => canvas.gone, typing: () => false });
     let closing = Promise.resolve();
     act(() => {
       closing = result.current.close();

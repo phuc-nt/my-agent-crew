@@ -16,6 +16,7 @@ import { AgentAvatar } from "../components/ui/agent-avatar";
 import { Icon, type IconName } from "../components/ui/icon";
 import type { useActivity } from "../hooks/use-activity";
 import type { useCrew } from "../hooks/use-agents";
+import { useCanvasAutoOpen } from "../hooks/use-canvas-auto-open";
 import { useCanvasDock } from "../hooks/use-canvas-dock";
 import { useCanvasFocus } from "../hooks/use-canvas-focus";
 import type { useConversations } from "../hooks/use-conversations";
@@ -154,6 +155,9 @@ export function ChatScreen({
   const wide = useMediaQuery(DOCKED_ACTIVITY_QUERY);
   const dock = useCanvasDock(active?.id ?? null, activity.state.connected, wide);
   useCanvasFocus(active?.id ?? null, wide, dock);
+  useCanvasAutoOpen(thread, dock, wide);
+  const { titleOf, isGone, verify } = dock.list;
+  const canvasLinks = { titleOf, isGone, verify, open: dock.open };
 
   // The composer keeps the words until this answers. A conversation that does not exist yet is
   // made first, and the words wait for it to load; one that does waits for the open canvas's
@@ -445,6 +449,7 @@ export function ChatScreen({
             agentId={active?.agent_id ?? "default"}
             agentName={crew.agentName}
             onOpenConversation={onSelectConversation}
+            canvas={canvasLinks}
             onSuggestion={(text) => setDraft(text)}
             masterName={master?.name}
             crewNames={crewNames}

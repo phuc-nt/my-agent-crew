@@ -25,7 +25,8 @@ async function openDock(conversationId: string | null = "c1") {
 }
 
 /** An open panel whose last save answers `version`. */
-const panel = (version: number) => ({ flush: vitest.fn(async () => version), gone: () => false }) satisfies PanelHandle;
+const panel = (version: number) =>
+  ({ flush: vitest.fn(async () => version), gone: () => false, typing: () => false }) satisfies PanelHandle;
 
 const posts = () => backend.requests.filter((request) => request.method === "POST");
 

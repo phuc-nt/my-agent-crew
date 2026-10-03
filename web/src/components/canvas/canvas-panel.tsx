@@ -14,6 +14,7 @@ import { vi } from "../../i18n/vi";
 import { announceDeletion } from "../../lib/artifact-events";
 import type { CanvasState } from "../../lib/canvas-machine";
 import { canvasReason } from "../../lib/canvas-reasons";
+import { isDirty } from "../../lib/canvas-state";
 import { CanvasConflict } from "./canvas-conflict";
 import { CanvasEditor } from "./canvas-editor";
 import { type CanvasMode, CanvasHeader } from "./canvas-header";
@@ -30,7 +31,7 @@ export type CanvasPanelProps = {
   /** Leaving was asked for and no save landed. */
   stuck: boolean;
   agentName(id: string): string;
-  /** Lets the dock save the text and ask whether the canvas is gone; returns the unbind. */
+  /** Lets the dock save the text and ask whether the canvas is gone or its person is typing; returns the unbind. */
   bind(handle: PanelHandle): () => void;
   /** The dock's flush, with its time limit. */
   flush(): Promise<number | null>;
@@ -52,11 +53,21 @@ export function CanvasPanel(props: CanvasPanelProps) {
   const { state } = canvas;
   const latest = useRef(state);
   latest.current = state;
+  const editor = useRef<HTMLTextAreaElement | null>(null);
   const [chosen, setChosen] = useState<CanvasMode | null>(null);
   const [history, setHistory] = useState(false);
   const [renameError, setRenameError] = useState<string | null>(null);
 
-  useEffect(() => bind({ flush: canvas.flush, gone: () => latest.current.gone }), [bind, canvas.flush]);
+  // The handle is one object for as long as the panel stays: what changes is read through the refs.
+  useEffect(
+    () =>
+      bind({
+        flush: canvas.flush,
+        gone: () => latest.current.gone,
+        typing: () => isDirty(latest.current) || (editor.current !== null && document.activeElement === editor.current),
+      }),
+    [bind, canvas.flush],
+  );
 
   if (chosen === null && state.phase === "ready") setChosen(firstMode(state, created));
 
@@ -114,7 +125,11 @@ export function CanvasPanel(props: CanvasPanelProps) {
         {ready && !showHistory && (
           <>
             <CanvasConflict canvas={canvas} agentName={agentName} />
-            {chosen === "view" ? <CanvasView text={state.text} kind={kind} /> : <CanvasEditor canvas={canvas} kind={kind} />}
+            {chosen === "view" ? (
+              <CanvasView text={state.text} kind={kind} />
+            ) : (
+              <CanvasEditor canvas={canvas} kind={kind} fieldRef={editor} />
+            )}
           </>
         )}
       </div>

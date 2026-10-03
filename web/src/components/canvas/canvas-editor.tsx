@@ -8,14 +8,22 @@
  * they were at are still under the caret.
  */
 
-import { type KeyboardEvent, useLayoutEffect, useRef } from "react";
+import { type KeyboardEvent, type RefObject, useLayoutEffect, useRef } from "react";
 import type { CanvasController } from "../../hooks/use-canvas";
 import { vi } from "../../i18n/vi";
 import { mapOffset } from "../../lib/line-edits";
 
-export function CanvasEditor({ canvas, kind }: { canvas: CanvasController; kind: string }) {
+type Props = {
+  canvas: CanvasController;
+  kind: string;
+  /** Lets the panel see whether the keyboard is in the field. */
+  fieldRef?: RefObject<HTMLTextAreaElement | null>;
+};
+
+export function CanvasEditor({ canvas, kind, fieldRef }: Props) {
   const { state } = canvas;
-  const field = useRef<HTMLTextAreaElement>(null);
+  const own = useRef<HTMLTextAreaElement>(null);
+  const field = fieldRef ?? own;
   const caret = useRef({ start: 0, end: 0, scroll: 0 });
   const replaced = useRef(state.replaced);
   replaced.current = state.replaced;

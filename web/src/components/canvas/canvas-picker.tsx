@@ -11,7 +11,7 @@ import { timeAgo } from "../../lib/relative-time";
 import { Icon } from "../ui/icon";
 
 type Props = {
-  list: CanvasList;
+  list: Pick<CanvasList, "items" | "failed" | "retry">;
   creating: boolean;
   createFailed: boolean;
   onOpen(id: string): void;
