@@ -1,6 +1,6 @@
 import { useCallback, type Dispatch, type MutableRefObject } from "react";
 import type { MessageCanvas } from "../api/artifact-types";
-import { api, ApiError } from "../api/client";
+import { api } from "../api/client";
 import type { AgentEvent } from "../api/types";
 import { vi } from "../i18n/vi";
 import { turnErrorText } from "../lib/error-text";
@@ -49,17 +49,12 @@ export function useThreadSend({ conversationId, busy, dispatch, runTurn, queuein
         );
       } catch (error) {
         if (controller.signal.aborted) return;
-        // Neither branch touches the turn actually running: `queue_failed` only sets the
-        // notice, leaving `busy`, `streaming` and `items` exactly as the running stream
-        // left them. A 429 or 422 carries the server's own Vietnamese sentence, except a 422
-        // for a message that carried the canvas — its selection, which the server words in
-        // English; anything else — a dropped connection, most likely — falls back to
-        // `turnErrorText`.
-        const withCanvas = canvas !== undefined;
-        const message =
-          error instanceof ApiError && (error.status === 429 || (error.status === 422 && !withCanvas))
-            ? error.message
-            : turnErrorText(error, withCanvas);
+        // `queue_failed` only sets the notice, leaving `busy`, `streaming` and `items` exactly
+        // as the running stream left them. The notice is worded as for any other send: the
+        // server's own sentence when it wrote one, as a full queue does, and ours for what a
+        // person cannot act on — a validation dump, a dropped connection — or for a canvas
+        // selection, which the server words in English.
+        const message = turnErrorText(error, canvas !== undefined);
         dispatch({ type: "queue_failed", message });
         answer.failed(error);
       } finally {

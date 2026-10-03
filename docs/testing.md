@@ -963,6 +963,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     limits" ("a %d from the queueing POST shows the server's own text in the notice and fails the
     send in our words" — thông báo giữ câu của server, `error` là câu của ta) và ba test xếp hàng
     cũ nay kiểm cả kết quả (`queued`, `sent`, `queued`);
+    `hooks/use-thread-send.test.ts` ("is worded as any refused message is: a validation dump never
+    reaches the notice" — tin xếp hàng sau lượt đang chạy ở tab này mà server từ chối bằng danh
+    sách lỗi kiểm tra dữ liệu, như tin dài quá 20000 ký tự, thì thông báo nói câu của ta giống
+    đường gửi thường, không in nguyên danh sách JSON);
     `state/thread-reducer.test.ts` "user_unsent takes back the local bubble for that text, and
     only that one" (chỉ bong bóng `local-` cuối cùng đúng chữ; tin server đã lưu hay có thứ gì
     đứng sau thì ở lại);
