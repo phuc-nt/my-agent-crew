@@ -18,13 +18,13 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from my_agent_crew.artifacts.kinds import clean_title, prepare
+from my_agent_crew.store.artifact_history import META_COLUMNS, ArtifactHistory
 from my_agent_crew.store.artifact_models import (
     RESTORE_NOTE,
     USER,
     ArtifactSummary,
     ArtifactVersion,
     VersionConflict,
-    VersionGone,
 )
 from my_agent_crew.store.stamps import now_iso
 
@@ -32,9 +32,8 @@ if TYPE_CHECKING:
     from my_agent_crew.store.artifact_links import ArtifactLinks
 
 COALESCE_WINDOW_S = 120
-_META = "artifact_id, version, size, author, conversation_id, note, created_at, updated_at"
 _INSERT = (
-    f"INSERT INTO artifact_versions ({_META}, content, data)"
+    f"INSERT INTO artifact_versions ({META_COLUMNS}, content, data)"
     " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *"
 )
 _ADVANCE = (
@@ -46,47 +45,13 @@ _ADVANCE = (
 Payload = Callable[[ArtifactVersion], tuple[str | None, bytes | None]]
 
 
-class ArtifactVersions:
-    """Reading and adding versions; mixed into `ArtifactStore`, which supplies `get`,
-    `_check_write` and `_notify`."""
+class ArtifactVersions(ArtifactHistory):
+    """Adding versions, on top of reading them; mixed into `ArtifactStore`, which supplies
+    `get`, `_check_write` and `_notify`."""
 
     _conn: sqlite3.Connection
     _lock: threading.RLock
     _links: ArtifactLinks
-
-    def head(self, artifact_id: str) -> ArtifactVersion:
-        with self._lock:
-            row = self._conn.execute(
-                "SELECT v.* FROM artifact_versions v JOIN artifacts a"
-                " ON v.artifact_id = a.id AND v.version = a.head_version WHERE a.id = ?",
-                (artifact_id,),
-            ).fetchone()
-        if row is None:
-            raise KeyError(artifact_id)
-        return ArtifactVersion.from_row(row)
-
-    def version(self, artifact_id: str, version: int) -> ArtifactVersion:
-        """`VersionGone` when the canvas is there without this version, else KeyError."""
-        with self._lock:
-            row = self._conn.execute(
-                "SELECT * FROM artifact_versions WHERE artifact_id = ? AND version = ?",
-                (artifact_id, version),
-            ).fetchone()
-            if row is None:
-                raise VersionGone(artifact_id, version, self.get(artifact_id).head_version)
-        return ArtifactVersion.from_row(row)
-
-    def versions(self, artifact_id: str) -> list[ArtifactVersion]:
-        """The history, oldest first, without payloads. Every canvas has at least one
-        version, so none at all means there is no such canvas."""
-        with self._lock:
-            rows = self._conn.execute(
-                f"SELECT {_META} FROM artifact_versions WHERE artifact_id = ? ORDER BY version",
-                (artifact_id,),
-            ).fetchall()
-        if not rows:
-            raise KeyError(artifact_id)
-        return [ArtifactVersion.from_row(row) for row in rows]
 
     def write(
         self,
@@ -142,7 +107,7 @@ class ArtifactVersions:
         return self._write_next(artifact_id, payload, author, conversation_id, None, note)
 
     def _insert_version(self, *values: object) -> sqlite3.Row:
-        """One version row: the `_META` columns in order, then content and data."""
+        """One version row: the `META_COLUMNS` in order, then content and data."""
         [row] = self._conn.execute(_INSERT, values).fetchall()
         return row
 

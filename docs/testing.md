@@ -1357,6 +1357,24 @@ tên một test thì sửa dòng của nó trong cùng commit.
     nó, "test_list_matches_the_title_regardless_of_case_and_accents", hai canvas cùng giây xếp
     theo thứ tự tạo, "test_on_change_hears_every_write_after_commit_outside_the_lock",
     "test_a_failing_on_change_is_logged_and_the_write_stands")
+- **Canvas: số phiên bản mà SQLite không chứa nổi là một phiên bản không có, không phải lỗi 500**
+  - pytest: `tests/test_artifact_version_range.py`
+    ("test_a_version_number_at_or_beyond_the_64_bit_edge_is_gone_and_names_the_newest": mọi số từ
+    `2**63` trở lên hay từ `-(2**63) - 1` trở xuống, cùng hai số sát mép còn nằm trong 64 bit, đều
+    là `VersionGone` kèm số bản mới nhất chứ không phải `OverflowError` của driver,
+    "test_a_canvas_that_is_not_there_stays_a_missing_canvas_whatever_version_is_asked": canvas
+    không có vẫn là `KeyError` gọi đúng mã canvas chứ không thành "bản không còn",
+    "test_a_read_of_a_version_too_large_to_exist_is_404_with_the_newest_number": xem một bản,
+    `raw` và trang chạy với số đó đều 404 kèm `head_version`,
+    "test_a_restore_of_a_version_too_large_to_exist_is_404_and_writes_nothing": khôi phục bị 404
+    và không thêm bản nào,
+    "test_a_save_on_a_version_too_large_to_exist_is_a_conflict_and_writes_nothing": lưu với
+    `base_version` đó là 409 kèm bản mới nhất, canvas không đổi (số này không bao giờ xuống SQL
+    nên test chỉ ghim điều đó),
+    "test_the_tool_reads_a_version_too_large_to_exist_as_one_that_is_gone": `artifact_read` trả
+    đúng câu "bản đó không còn, bản mới nhất là …" cho cả số lẫn chuỗi số, không phải "tool
+    lỗi"). Việc chặn nằm ở một chỗ là `ArtifactHistory.version`, nơi mọi đường gọi tên một phiên
+    bản đều đi qua, nên không route hay tool nào cần giới hạn riêng
 - **Canvas: năm tool để agent tạo, liệt kê, đọc, sửa và viết lại canvas**
   - pytest: `tests/test_artifact_tools.py` (năm tool, không tool nào hỏi duyệt, mô tả đưa tài
     liệu người sẽ sửa dần vào canvas dù chỉ vài dòng và nói cách thêm chữ bằng một lần sửa, tạo lưu canvas
