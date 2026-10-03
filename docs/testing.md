@@ -944,8 +944,11 @@ tên một test thì sửa dòng của nó trong cùng commit.
   - vitest: `app-queued-send.test.tsx` nhóm "a message sent while this tab thought the conversation
     idle" ("stays out of the box once the server queued it: the chip stands for it" — tab không
     thấy lượt đang chạy ở tab khác nên gửi theo đường rảnh và chỉ nhận một event `queued`: chip
-    đứng thay tin, ô soạn tin trống, không có bong bóng thứ hai; "takes its bubble back and leaves
-    the words in the box when the server refuses it before saying anything" — 429 trước event đầu:
+    đứng thay tin, ô soạn tin trống, không có bong bóng thứ hai; "stays out of the box too when it
+    is the first message of a new conversation, and the server queued it" — lượt ở tab khác chiếm
+    cuộc trò chuyện mới trước khi tin đầu tới: chip cũng đứng thay tin và ô soạn tin trống; "takes
+    its bubble back and leaves the words in the box when the server refuses it before saying
+    anything" — 429 trước event đầu:
     bong bóng tạm biến mất, chữ ở lại ô và thông báo giữ câu của server; "hands the first message
     of a new conversation back to the box when it cannot be sent" — cuộc trò chuyện mới đã tạo,
     chữ về ô của nó);
@@ -1848,7 +1851,11 @@ tên một test thì sửa dòng của nó trong cùng commit.
     bên nghe đúng một lần; từ chối khác không phải xoá; mỗi canvas một lần đọc tại một lúc; id server
     không tạo thì không hỏi; sang hội thoại khác thì quên việc định hỏi; một hàm duy nhất) và nhóm "a
     canvas deleted" (nghe thấy từ luồng, vẫn là đã xoá sau khi danh sách đọc lại mà thiếu nó, khác với
-    canvas đổi); `web/src/hooks/use-canvas-dock-typing.test.ts` (`typing()` là không khi chưa có panel,
+    canvas đổi); `web/src/hooks/use-canvas-list-memory.test.ts` (danh sách nhớ gì về các canvas thẻ
+    nêu: tên của mọi canvas đã đọc chứ không chỉ canvas đọc sau cùng, mọi canvas đã xoá chứ không chỉ
+    canvas xoá sau cùng; chờ danh sách của cuộc trò chuyện vừa mở và không lấy danh sách của cuộc
+    trước làm của nó, nên canvas chưa biết không bị hỏi trước khi danh sách mới về);
+    `web/src/hooks/use-canvas-dock-typing.test.ts` (`typing()` là không khi chưa có panel,
     là điều panel nói và hỏi lại mỗi lần, lại là không khi panel buông, một hàm duy nhất);
     `web/src/hooks/use-canvas-auto-open.test.ts` (mở lặng lẽ khi lệnh tạo xong ở lượt tab này đang
     xem, đúng một lần dù thread vẽ lại bao nhiêu, hai canvas trong một lần vẽ thì mở theo thứ tự tạo,
@@ -1862,7 +1869,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     tạo)
   - vitest, thành phần: `web/src/components/canvas/canvas-card.test.tsx` (thẻ nói canvas đã tạo, tên
     và phiên bản, và mở được; sửa, viết lại và "không đổi" nói đúng phiên bản; là thẻ riêng chứ không
-    phải thẻ công cụ thường; thẻ đang chạy nói đang viết, không có nút mở và không hỏi server; tên của
+    phải thẻ công cụ thường; thẻ đang chạy nói đang viết kèm vòng quay — xong thì hết vòng quay —,
+    không có nút mở và không hỏi server; tên của
     lệnh tạo đang chạy làm sạch như server, tên server sẽ từ chối thì vẫn gọi là Canvas; sửa hay viết
     lại canvas thread chưa biết thì gọi là Canvas bất kể tham số, tham số hợp lệ chỉ để tra tên; id tham
     số mà server không tạo thì bỏ qua; tham số không phải mapping, của lần chạy cũ, vẫn là thẻ; tên là
@@ -1914,11 +1922,16 @@ tên một test thì sửa dòng của nó trong cùng commit.
     của khối vì đó là phần trang giữ lại của khối, code trong câu không có dòng, không yêu cầu thì vẽ
     đúng HTML như trước, markup trong chữ không giả được dòng); `web/src/lib/canvas-selection.test.ts`
     (nhóm "a passage clipped to what a message can take": đoạn trong giới hạn và đúng bằng giới hạn giữ
-    nguyên, đếm ký tự như server — một cặp đơn vị mã là một —, đoạn chỉ toàn khoảng trắng không có gì để
-    hỏi; đoạn dài hơn bị cắt ở cuối dòng cuối cùng còn vừa và dòng cuối hạ xuống dòng liền trước, kể cả
-    khi cuối dòng ấy đúng là ký tự cuối của giới hạn; một dòng dài hơn giới hạn thì cắt theo ký tự, không
-    bao giờ giữa một cặp; dòng đầu một mình đã quá giới hạn thì đoạn cắt dừng ở dòng đầu; đoạn cắt chỉ
-    còn khoảng trắng thì không có gì. Nhóm "the passage selected in the editor": đoạn giữa dòng, đoạn
+    nguyên, giới hạn là đúng 20000 ký tự server nhận — hơn một hay kém một đều sai —, đếm ký tự như
+    server — một cặp đơn vị mã là một —, nên các dòng trọn đúng bằng giới hạn theo ký tự vẫn giữ nguyên
+    dù một cặp làm chúng dài hơn theo đơn vị mã; đoạn chỉ toàn khoảng trắng không có gì để hỏi; đoạn
+    dài hơn bị cắt ở cuối dòng cuối cùng còn vừa và dòng cuối hạ xuống dòng liền trước, kể cả khi cuối
+    dòng ấy đúng là ký tự cuối của giới hạn, và khi một dòng vừa chạm giới hạn thì ký tự xuống dòng liền
+    sau nó là ký tự đầu tiên bị bỏ; ký tự xuống dòng ở chỗ cắt và các dòng chúng thêm không nằm trong
+    đoạn cắt; một dòng dài hơn giới hạn thì cắt theo ký tự, không bao giờ giữa một cặp; khi ký tự xuống
+    dòng duy nhất trong giới hạn lại là ký tự đầu thì cũng cắt theo ký tự và giữ dòng trống ở đầu; dòng
+    đầu một mình đã quá giới hạn thì đoạn cắt dừng ở dòng đầu; đoạn cắt chỉ còn khoảng trắng thì không
+    có gì. Nhóm "the passage selected in the editor": đoạn giữa dòng, đoạn
     qua nhiều dòng với mỗi đầu ở đúng dòng của nó, đoạn dừng ngay sau ký tự xuống dòng không tính dòng
     kế, đoạn bắt đầu ở ký tự xuống dòng không tính dòng trước, bỏ mọi ký tự xuống dòng ở hai đầu như khi
     ba lần nhấp chọn một dòng, giữ thụt lề và dòng trống ở giữa; con trỏ, khoảng trắng hay chỉ ký tự
@@ -1931,18 +1944,28 @@ tên một test thì sửa dòng của nó trong cùng commit.
     không có ký tự xuống dòng; nhãn nút sao chép của khối code nằm giữa hai đoạn văn không làm lệch;
     vùng chọn kết thúc ngay đầu khối kế, như ba lần nhấp để lại — dù đầu ấy là chữ, là phần tử, hay là
     chữ ngoài vùng đọc — không lấy khối kế; con trỏ, khoảng trắng, không có vùng chọn, một đầu nằm ngoài
-    vùng đang đọc hay chữ không nêu dòng nguồn nào đều không đọc ra gì; vùng chọn quá giới hạn bị cắt như
-    mọi vùng khác. Ca vùng chọn kết thúc ở vị trí 0 của một nút chữ — dạng Firefox và WebKit để lại — chỉ
-    có test jsdom này, vì Chromium không bao giờ để lại nó)
+    vùng đang đọc hay chữ không nêu dòng nguồn nào đều không đọc ra gì, và chữ ở trước vùng đọc kèm
+    khoảng trắng ở sau nó vẫn là chữ ngoài vùng; vùng chọn bắt đầu ở khoảng trắng trước vùng đọc rồi
+    kết thúc trong nó thì đọc được; vùng chọn quá giới hạn bị cắt như mọi vùng khác. Ca vùng chọn kết
+    thúc ở vị trí 0 của một nút chữ — dạng Firefox và WebKit để lại — chỉ có test jsdom này, vì Chromium
+    không bao giờ để lại nó); `web/src/lib/canvas-selection-markup.test.tsx` (vùng chọn trong markup do
+    thứ khác vẽ, để thử riêng từng điều kiện đặt ra cho khối: khối nêu dòng nhưng nằm quanh vùng đọc
+    chứ không trong nó thì bị bỏ; vùng chọn đi từ dòng đầu sớm nhất tới dòng cuối muộn nhất của khối ở
+    hai đầu, khối lồng nằm ở đầu nào cũng vậy; khối nêu dòng mà nguồn không có thì không đọc ra gì, còn
+    nguồn đủ dòng thì đọc được; dòng đầu trước dòng thứ nhất, dòng âm, dòng không nguyên ở đầu hay ở
+    cuối, giá trị không phải số đều không đọc ra gì; dòng nguyên nằm trong nguồn thì đọc ra đúng các dòng
+    ấy)
   - vitest, thành phần: `web/src/components/canvas/canvas-ask.test.tsx` (thanh hỏi không hiện gì khi
     chưa chọn gì và hộp còn đóng, hay khi đang ẩn; hiện đoạn chọn, các dòng nó nằm trên và nút hỏi; đoạn
     trên một dòng gọi tên dòng ấy một mình; đếm ký tự như server; đoạn trích hiện tối đa số ký tự cho
-    phép, cắt giữa các ký tự nguyên, đoạn vừa thì hiện nguyên không dấu đã cắt; ký tự không nhìn thấy
+    phép, cắt giữa các ký tự nguyên, đoạn vừa thì hiện nguyên không dấu đã cắt, khoảng trắng quanh đoạn không tính vào đoạn trích; ký tự không nhìn thấy
     được viết ra thành dấu để người thấy điều agent sẽ nhận, dấu BOM cũng vậy dù mẫu khoảng trắng coi nó
     là khoảng trắng; nhóm "what is said when more is sent than was selected": nói rằng cả các dòng sẽ
-    đi và chỉ sang Sửa khi các dòng chứa nhiều hơn hẳn phần đã chọn, đến ngưỡng thì không nói; nhóm "the
+    đi và chỉ sang Sửa khi các dòng chứa nhiều hơn hẳn phần đã chọn, đến ngưỡng thì không nói, và thanh đếm số ký tự sẽ đi chứ không đếm số đã chọn; nhóm "the
     question box": hộp mở bằng nút, nhận con trỏ và vẫn để đoạn chọn hiện, bấm nút không làm mất vùng
-    chọn của trang, không gửi được khi rỗng hay chỉ có khoảng trắng bằng nút hay Enter, Huỷ và Escape
+    chọn của trang, không gửi được khi rỗng hay chỉ có khoảng trắng bằng nút hay Enter, trang nhận Enter
+    và Escape thay cho ô — không để lại ký tự xuống dòng hay hành vi mặc định của phím — còn Shift+Enter
+    và phím của chữ đang gõ bằng bộ gõ thì để cho ô, Huỷ và Escape
     đóng hộp, bỏ chữ đã gõ và lần sau mở ra rỗng, trả con trỏ về nút khi đóng bằng Escape hay Huỷ nhưng
     không giật con trỏ đang ở chỗ khác, giữ đoạn đã chọn khi người rời trang để vào hộp, theo đoạn chọn
     mới khi hộp đang mở và giữ đoạn ấy khi vùng chọn mất, biến khi ẩn và trở lại như cũ; nhóm "why asking
@@ -1956,6 +1979,11 @@ tên một test thì sửa dòng của nó trong cùng commit.
     lúc lưu thì không hỏi, bảo chọn lại đoạn và giữ câu hỏi, chọn lại thì hỏi về đoạn mới với câu hỏi
     như cũ và bỏ lời báo cũ; bấm bao nhiêu lần cũng hỏi một lần, hộp bị khoá — chỉ đọc, Gửi và Huỷ tắt,
     Escape không đóng — tới khi lưu xong; hỏi được câu thứ hai về đoạn khác khi câu đầu đã đi qua);
+    `web/src/components/canvas/canvas-ask-failure.test.tsx` (lời báo về câu hỏi server đã từ chối: còn
+    nguyên khi đúng đoạn ấy được báo lại; mất khi đoạn chọn khác đi — chữ khác, dòng đầu khác hay dòng
+    cuối khác — mà câu hỏi gõ dở vẫn còn; mất khi chữ của canvas đã đổi dù chữ chọn vẫn thế; không còn
+    khi hộp mở lại sau khi đóng; panel cứ đưa đoạn chọn trước lúc chữ đổi thì câu hỏi không đi, thanh
+    báo chữ đã đổi và bảo chọn lại);
     `web/src/components/canvas/canvas-panel-ask.test.tsx`
     (chạy cho cả canvas đang sửa lẫn đang đọc: đề nghị hỏi về đoạn đang chọn với các dòng của nó, chưa
     chọn gì thì không đề nghị gì, panel không có đường hỏi thì không đề nghị dù chọn gì; đặt con trỏ vào
@@ -1973,7 +2001,16 @@ tên một test thì sửa dòng của nó trong cùng commit.
     các lần thay của máy dời theo như khi phím tạo vùng chọn; tài liệu chỉ được nghe khi trình sửa còn
     trên trang, một trình nghe thêm vào và chính nó gỡ ra. Test bắn `selectionchange` vào chính ô, như
     Chromium, vì React bỏ qua bản ấy và chỉ nghe bản bắn vào tài liệu — bắn vào tài liệu thì test vẫn
-    xanh dù trình sửa hỏng trên trình duyệt thật)
+    xanh dù trình sửa hỏng trên trình duyệt thật); `web/src/components/canvas/canvas-view-selection.test.tsx`
+    (canvas đang đọc báo gì về vùng chọn vượt ra ngoài nó: có cả hai đầu trong nó thì báo đoạn chọn;
+    bắt đầu trong nó rồi chạy tiếp ra trang, hay từ trang đi vào nó, thì báo không có đoạn nào; không
+    đầu nào nằm trong nó — kể cả vùng chọn chạy ngang qua nó — thì không nghe gì; chọn chữ khi không
+    ai nghe, và bỏ hẳn vùng chọn, đều không ném lỗi — test bắt sự kiện `error` mà jsdom bắn khi một
+    listener ném, vì không bắt thì lỗi ấy chỉ hiện thành "lỗi chưa xử lý" của cả lần chạy, không gắn
+    với test nào);
+    `web/src/components/canvas/canvas-view-memo.test.tsx` (canvas đang đọc không vẽ lại chữ khi cái nó
+    nhận không đổi, như khi panel vẽ lại vì người đang gõ câu hỏi, và vẽ lại khi chữ đổi; test đếm số
+    lần thân markdown được vẽ)
   - vitest, cả App trên `FakeCanvas`: `web/src/app-canvas-ask.test.tsx` (một tin duy nhất mang đoạn chọn
     và câu hỏi, không lưu hay ghi gì thêm, cho cả canvas đang sửa lẫn đang đọc; chữ đã gõ được lưu trước
     và đoạn được hỏi theo bản đã lưu; tin của người có chip ghi chú server giữ cùng câu hỏi; hộp đóng mà
@@ -1987,7 +2024,7 @@ tên một test thì sửa dòng của nó trong cùng commit.
     khi kênh khác đang chạy lượt, khi cuộc trò chuyện chờ quyết định về một công cụ, khi đã hết ngân
     sách, và chỉ nói một lý do một lúc: quyết định trước ngân sách, lượt đang chạy trước cả hai). Hàm
     dùng chung: `web/src/test/canvas-pick.ts` (chọn chữ trên DOM như một cú kéo để lại, trong trang đọc
-    hay trong ô sửa), `web/src/test/canvas-ask.tsx` (thanh hỏi đứng riêng với hàm lưu và hàm gửi giả), và
+    hay trong ô sửa; đặt dòng chữ ngoài canvas lên trang và dọn đi sau mỗi test), `web/src/test/canvas-ask.tsx` (thanh hỏi đứng riêng với hàm lưu và hàm gửi giả), và
     `FakeBackend.refuseMessage` (POST tin nhắn từ chối với đúng trạng thái và `detail` đã đặt)
   - Playwright: `canvas-ask.spec.ts` (ở 1440 px: đoạn chọn trong ô sửa bằng `setSelectionRange` đi cùng
     câu hỏi với đúng `line_start` và `line_end`, câu hỏi và câu trả lời hiện trong thread, chip ghi chú nằm

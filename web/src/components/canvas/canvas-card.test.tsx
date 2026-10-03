@@ -85,6 +85,15 @@ describe("a canvas being written", () => {
     expect(canvas.open).not.toHaveBeenCalled();
   });
 
+  it("shows a spinner beside the words while it runs, and none once it is done", () => {
+    const running = shown(call("artifact_edit", { status: "running", arguments: { id: NOTE } }));
+    expect(root().querySelector(".canvas-card-line svg")).not.toBeNull();
+    running.unmount();
+
+    shown(call("artifact_edit", { output: `${tag(NOTE, 2)}\nEdited.` }));
+    expect(root().querySelector(".canvas-card-line svg")).toBeNull();
+  });
+
   it("is titled by what a create was given, cleaned as the server cleans a title", () => {
     shown(call("artifact_create", { status: "running", arguments: { title: "  Kế hoạch\ntuần \u{200B}này " } }));
 

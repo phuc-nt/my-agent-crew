@@ -1,7 +1,7 @@
 import { render } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { CanvasView } from "../components/canvas/canvas-view";
-import { between, find, select } from "../test/canvas-pick";
+import { between, clearPage, elsewhere, find, place, select } from "../test/canvas-pick";
 import { fromRendered, SELECTION_MAX } from "./canvas-selection";
 
 /** `text` drawn as the canvas draws it, and the element a selection in it is read against. */
@@ -10,21 +10,7 @@ function view(text: string, kind = "markdown"): HTMLElement {
   return container.querySelector(".canvas-view") as HTMLElement;
 }
 
-const outside: HTMLElement[] = [];
-/** A line of text on the page, before or after whatever was drawn, that the canvas has no part in. */
-function elsewhere(text: string, place: "before" | "after"): Text {
-  const element = document.createElement("p");
-  element.textContent = text;
-  if (place === "before") document.body.prepend(element);
-  else document.body.append(element);
-  outside.push(element);
-  return element.firstChild as Text;
-}
-
-afterEach(() => {
-  for (const element of outside.splice(0)) element.remove();
-  document.getSelection()?.removeAllRanges();
-});
+afterEach(clearPage);
 
 describe("the passage selected in a canvas that is being read", () => {
   it("reads a selection inside one paragraph as all the lines of that paragraph", () => {
@@ -188,11 +174,32 @@ describe("the passage selected in a canvas that is being read", () => {
     expect(fromRendered(select([after, 1], [after, 4]), root, source)).toBeNull();
   });
 
+  it("reads nothing when words before the view and blanks after it are taken together", () => {
+    const source = "inside one\n\ninside two";
+    const root = view(source);
+    const before = elsewhere("above", "before");
+    const after = elsewhere("   ", "after");
+
+    // The words before the view count, though what comes after it is only blank.
+    expect(fromRendered(select([before, 1], [after, 2]), root, source)).toBeNull();
+  });
+
+  it("reads a selection that starts in blanks before the view and ends inside it", () => {
+    const source = "inside one\n\ninside two";
+    const root = view(source);
+    const before = elsewhere("   ", "before");
+    const inside = find(root, "inside one");
+
+    expect(fromRendered(select([before, 1], [inside.node, 6]), root, source)).toMatchObject({
+      text: "inside one",
+      line_start: 1,
+      line_end: 1,
+    });
+  });
+
   it("reads nothing from text that names no source line", () => {
-    const root = document.createElement("div");
+    const root = place(document.createElement("div"));
     root.innerHTML = "<p>drawn by something else</p>";
-    document.body.append(root);
-    outside.push(root);
     const text = find(root, "drawn").node;
 
     expect(fromRendered(select([text, 0], [text, 5]), root, "drawn by something else")).toBeNull();

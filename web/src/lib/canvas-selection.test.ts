@@ -24,10 +24,22 @@ describe("a passage clipped to what a message can take", () => {
     expect(clipSelection(text, 1, 1)).toEqual({ text, line_start: 1, line_end: 1 });
   });
 
+  it("holds to the 20000 characters the server takes, not one more and not one fewer", () => {
+    expect(clipSelection("x".repeat(20000), 1, 1)?.text.length).toBe(20000);
+    expect(clipSelection("x".repeat(20001), 1, 1)?.text.length).toBe(20000);
+  });
+
   it("counts characters as the server does, a pair of code units being one", () => {
     const text = "\u{1F600}".repeat(SELECTION_MAX);
     expect(text.length).toBe(2 * SELECTION_MAX);
     expect(clipSelection(text, 1, 1)?.text).toBe(text);
+  });
+
+  it("keeps whole lines of exactly the limit in characters when a pair makes them longer in code units", () => {
+    // 200 rows and 20000 characters, the last of them a pair: 20001 code units.
+    const text = [...lines(199, 99), `${"y".repeat(99)}\u{1F600}`].join("\n");
+    expect(text.length).toBe(20001);
+    expect(clipSelection(text, 1, 200)).toEqual({ text, line_start: 1, line_end: 200 });
   });
 
   it("takes a passage of only blanks for nothing to ask about", () => {
@@ -47,6 +59,17 @@ describe("a passage clipped to what a message can take", () => {
     expect(clipped).toEqual({ text: rows.slice(0, 200).join("\n"), line_start: 5, line_end: 204 });
   });
 
+  it("keeps a last row that ends at the limit, the line end after it being the first character left out", () => {
+    const rows = [...lines(199, 99), "y".repeat(100), ...lines(50, 99)];
+    const clipped = clipSelection(rows.join("\n"), 1, 250);
+    expect(clipped).toEqual({ text: rows.slice(0, 200).join("\n"), line_start: 1, line_end: 200 });
+  });
+
+  it("leaves the line ends at the cut out of the passage, and the lines they would add", () => {
+    const clipped = clipSelection(`A\n\n\n${"z".repeat(SELECTION_MAX)}`, 1, 4);
+    expect(clipped).toEqual({ text: "A", line_start: 1, line_end: 1 });
+  });
+
   it("cuts one line longer than the limit by characters, never through a pair", () => {
     const clipped = clipSelection(`${"a".repeat(SELECTION_MAX - 1)}\u{1F600}bbb`, 7, 7);
     expect(clipped).toEqual({ text: `${"a".repeat(SELECTION_MAX - 1)}\u{1F600}`, line_start: 7, line_end: 7 });
@@ -56,6 +79,11 @@ describe("a passage clipped to what a message can take", () => {
   it("ends the cut on its first line when the first line alone passes the limit", () => {
     const clipped = clipSelection(`${"a".repeat(SELECTION_MAX + 10)}\nsecond\nthird`, 3, 5);
     expect(clipped).toEqual({ text: "a".repeat(SELECTION_MAX), line_start: 3, line_end: 3 });
+  });
+
+  it("cuts by characters, and keeps the blank line before it, when the only line end within the limit is the first character", () => {
+    const clipped = clipSelection(`\n${"x".repeat(SELECTION_MAX + 5000)}`, 4, 5);
+    expect(clipped).toEqual({ text: `\n${"x".repeat(SELECTION_MAX - 1)}`, line_start: 4, line_end: 5 });
   });
 
   it("takes a cut that leaves only blanks for nothing to ask about", () => {

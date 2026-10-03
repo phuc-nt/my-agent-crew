@@ -72,7 +72,7 @@ export function CanvasAsk({ artifactId, selection, gen, hidden, disabled, flush,
 
   // With the box open, a passage chosen anew is the one asked about, and the note about the old one
   // is spent. When the choice goes, the last passage stays.
-  if (held && selection && (held.selection !== selection || held.gen !== gen)) {
+  if (held && selection && held.selection !== selection) {
     setHeld({ selection, gen });
     if (held.gen !== gen || !sameLines(held.selection, selection)) setError(null);
   }
@@ -80,7 +80,6 @@ export function CanvasAsk({ artifactId, selection, gen, hidden, disabled, flush,
   useEffect(() => {
     if (open) field.current?.focus();
     else if (refocus.current) button.current?.focus();
-    refocus.current = false;
   }, [open]);
 
   const close = () => {
@@ -101,7 +100,7 @@ export function CanvasAsk({ artifactId, selection, gen, hidden, disabled, flush,
   }
 
   const words = question.trim();
-  const canSend = open && !sending && disabled === null && words !== "";
+  const canSend = !sending && disabled === null && words !== "";
   const submit = async () => {
     if (!held || !canSend) return;
     setSending(true);

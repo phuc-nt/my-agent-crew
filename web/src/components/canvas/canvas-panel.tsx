@@ -161,7 +161,7 @@ export function CanvasPanel(props: CanvasPanelProps) {
           artifactId={artifactId}
           selection={selection}
           gen={state.gen}
-          hidden={!ready || showHistory || state.gone || state.conflict !== null}
+          hidden={showHistory || state.gone || state.conflict !== null}
           disabled={askDisabled}
           flush={flush}
           onAsk={onAsk}

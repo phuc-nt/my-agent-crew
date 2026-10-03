@@ -32,7 +32,7 @@ export function clipSelection(text: string, lineStart: number, lineEnd: number):
     const head = chars.slice(0, SELECTION_MAX);
     const lastBreak = head.lastIndexOf("\n");
     const atLineEnd = chars[SELECTION_MAX] === "\n";
-    kept = (atLineEnd || lastBreak < 0 ? head : head.slice(0, lastBreak)).join("").replace(/\n+$/, "");
+    kept = (atLineEnd || lastBreak <= 0 ? head : head.slice(0, lastBreak)).join("").replace(/\n+$/, "");
     end = lineStart + kept.split("\n").length - 1;
   }
   return kept.trim() === "" ? null : { text: kept, line_start: lineStart, line_end: end };
@@ -115,7 +115,8 @@ function linesTaken(range: Range, root: Element): [number, number] | null {
  * of text in `root` alone.
  */
 export function fromRendered(selection: Selection, root: Element, source: string): CanvasSelection | null {
-  if (selection.rangeCount === 0 || selection.isCollapsed) return null;
+  // A selection with no range is collapsed too, so a range exists for `getRangeAt` below.
+  if (selection.isCollapsed) return null;
   const range = selection.getRangeAt(0);
   if (outsideText(range, root).trim() !== "") return null;
   const taken = linesTaken(range, root);

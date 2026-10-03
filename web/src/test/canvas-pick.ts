@@ -34,6 +34,29 @@ export function between(root: Node, from: string, to: string): Selection {
   return select([a.node, a.from], [b.node, b.to]);
 }
 
+const placed: HTMLElement[] = [];
+
+/** Puts `element` on the page, at its end or its start, until `clearPage`. */
+export function place<T extends HTMLElement>(element: T, where: "before" | "after" = "after"): T {
+  if (where === "before") document.body.prepend(element);
+  else document.body.append(element);
+  placed.push(element);
+  return element;
+}
+
+/** A line of text on the page, before or after whatever a test drew, that the canvas has no part in. */
+export function elsewhere(text: string, where: "before" | "after"): Text {
+  const line = document.createElement("p");
+  line.textContent = text;
+  return place(line, where).firstChild as Text;
+}
+
+/** Takes off the page what `place` and `elsewhere` put there, and the selection: for `afterEach`. */
+export function clearPage(): void {
+  for (const element of placed.splice(0)) element.remove();
+  document.getSelection()?.removeAllRanges();
+}
+
 /** Lets the page say its selection changed, as a browser does after each drag and key. */
 export function announceSelection(): void {
   act(() => {

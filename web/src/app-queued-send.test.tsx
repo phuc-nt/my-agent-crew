@@ -59,6 +59,33 @@ describe("a message sent while this tab thought the conversation idle", () => {
     held.release();
   });
 
+  it("stays out of the box too when it is the first message of a new conversation, and the server queued it", async () => {
+    // Another tab's turn takes the new conversation before this tab's first message reaches it.
+    const turns: { release: () => void }[] = [];
+    vitest.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+      const response = await backend.fetch(input, init);
+      if (init?.method === "POST" && String(input).endsWith("/conversations")) {
+        const { id } = (await response.clone().json()) as { id: string };
+        turns.push(backend.holdTurn(id));
+        await backend.fetch(`/api/conversations/${id}/messages`, {
+          method: "POST",
+          body: JSON.stringify({ text: "việc của tab kia" }),
+        });
+      }
+      return response;
+    });
+    render(<App />);
+    await screen.findByText(vi.welcomeTitleFor("Agent"));
+
+    await userEvent.type(box(), "câu mở đầu{Enter}");
+    const chips = await screen.findByRole("list", { name: vi.queuedLabel });
+    await act(async () => {});
+
+    expect(chips).toHaveTextContent("câu mở đầu");
+    expect(box()).toHaveValue("");
+    for (const turn of turns) turn.release();
+  });
+
   it("takes its bubble back and leaves the words in the box when the server refuses it before saying anything", async () => {
     backend.create({ title: "Hàng đầy", messages: [storedMessage("user", "chào")] });
     refuseMessages(429, FULL);

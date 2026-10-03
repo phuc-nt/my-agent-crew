@@ -74,7 +74,7 @@ export function CanvasCard({ item, canvas }: { item: ToolItem; canvas: CanvasLin
   const done = item.status === "done";
   const tag = parseArtifactTag(item.output);
   const id = tag?.id ?? givenId(item);
-  const gone = done && id !== null && isGone(id);
+  const gone = id !== null && isGone(id);
 
   useEffect(() => {
     if (done && id !== null) verify(id);

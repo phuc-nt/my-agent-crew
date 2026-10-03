@@ -66,6 +66,12 @@ describe("the bar at the foot of a canvas that asks about a selected passage", (
     expect(excerpt()).toBe("x".repeat(EXCERPT_CHARS));
   });
 
+  it("leaves the blanks around a passage out, so they do not count against the excerpt", () => {
+    setupAsk({ selection: { text: `\t  ${"x".repeat(EXCERPT_CHARS)}  \n`, line_start: 1, line_end: 1, shown: EXCERPT_CHARS + 5 } });
+
+    expect(excerpt()).toBe("x".repeat(EXCERPT_CHARS));
+  });
+
   it("marks the characters that cannot be seen, so the person sees what the agent would be sent", () => {
     setupAsk({ selection: { text: "an\u{200B}toàn\u{202E}", line_start: 1, line_end: 1, shown: 8 } });
 
@@ -87,6 +93,13 @@ describe("what is said when more is sent than was selected", () => {
     setupAsk({ selection: of(shown * LONGER_RATIO + 1) });
 
     expect(longer()).toBeInTheDocument();
+  });
+
+  it("counts in the bar the characters that go, not the ones that were chosen", () => {
+    const sent = shown * LONGER_RATIO + 1;
+    setupAsk({ selection: of(sent) });
+
+    expect(bar()).toHaveTextContent(`Dòng 1–3 · ${sent} ký tự`);
   });
 
   it("says nothing of it when the lines hold what was chosen, or not much more", () => {
@@ -132,6 +145,19 @@ describe("the question box", () => {
 
     expect(props.flush).not.toHaveBeenCalled();
     expect(props.onAsk).not.toHaveBeenCalled();
+  });
+
+  it("takes Enter and Escape from the page, and leaves Shift+Enter and the keys of a word being composed to the box", () => {
+    setupAsk();
+    openBox();
+    const field = questionBox() as HTMLElement;
+
+    // fireEvent answers false when the handler stopped the key's own effect, a line break for Enter.
+    expect(fireEvent.keyDown(field, { key: "Enter", shiftKey: true })).toBe(true);
+    expect(fireEvent.keyDown(field, { key: "Enter", isComposing: true })).toBe(true);
+    expect(fireEvent.keyDown(field, { key: "Escape", isComposing: true })).toBe(true);
+    expect(fireEvent.keyDown(field, { key: "Enter" })).toBe(false);
+    expect(fireEvent.keyDown(field, { key: "Escape" })).toBe(false);
   });
 
   it("closes on Cancel, drops what was typed, and opens empty the next time", () => {
