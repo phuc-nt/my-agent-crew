@@ -86,6 +86,13 @@ Vài test bảo vệ repo chứ không phải một tính năng:
   rào cục bộ đều mang `Content-Security-Policy: frame-ancestors 'self'`, thành một header riêng đứng
   sau policy mà route tự đặt (raw và tệp của agent giữ nguyên policy sandbox của chúng); luồng SSE vẫn
   tới client lúc còn mở (`tests/test_security_headers.py`);
+- **API từ chối request mà trình duyệt báo đến từ site hay cổng khác**: `Sec-Fetch-Site` là
+  `cross-site`, `same-site` hay một giá trị lạ thì 403 `CROSS_SITE_REQUEST` ở mọi method và cả khi
+  đường dẫn viết bằng `%61` hay `%2F`; `same-origin`, `none` và không có header (curl, eval,
+  Telegram) thì qua; trang, asset và đường dẫn chỉ bắt đầu giống `/api` không bị chặn, vì link từ
+  nơi khác vào app phải mở được; lý do này không bị ghi log như một tên host cần cho phép, còn tên
+  host lạ vẫn nhận lời khuyên `MY_AGENT_ALLOWED_HOSTS` dù request cũng là cross-site
+  (`tests/test_local_guard.py`);
 - **khởi động chỉ nạp thứ cần**: một tiến trình con import server rồi kiểm tra `pypdf` và
   `pypdfium2` chưa được nạp — chúng chỉ nạp khi có PDF cần đọc;
 - **chi phí ngoài model** có test riêng: store mở ở chế độ WAL và có index cho các truy vấn

@@ -1,5 +1,6 @@
 """Only this server's own page, or a program on the machine, may use the API: a page on
-another site that reached the port by DNS rebinding is refused on every route."""
+another site that reached the port by DNS rebinding is refused on every route, and a browser
+request that says it came from another site or another port is refused on the API."""
 
 from pathlib import Path
 
@@ -8,8 +9,9 @@ from fastapi.testclient import TestClient
 
 from my_agent_crew.config import load_settings
 from my_agent_crew.server.app import create_app
-from my_agent_crew.server.local_guard import allowed_hosts, is_local_request
+from my_agent_crew.server.local_guard import allowed_hosts, cross_site_refusal, is_local_request
 from my_agent_crew.server.runtime_build import build_runtime
+from my_agent_crew.texts_credentials import CROSS_SITE_REQUEST
 
 NONE: frozenset[str] = frozenset()
 
@@ -89,3 +91,65 @@ def test_a_refused_name_is_told_how_to_allow_it_and_logged_once(tmp_path: Path, 
     # Once per name, whatever the port; a wrong Origin is not logged as a name to allow.
     refusals = [r for r in caplog.records if "refused a request" in r.getMessage()]
     assert [r.getMessage().count("mac.tail-net.ts.net") for r in refusals] == [1]
+
+
+@pytest.mark.parametrize(
+    ("path", "fetch_site", "refused"),
+    [
+        ("/api/conversations", None, False),  # curl, the eval runner, Telegram: no such header
+        ("/api/conversations", "same-origin", False),  # the page's own calls, the Vite proxy too
+        ("/api/conversations", "none", False),  # an address typed or a bookmark opened
+        ("/api/conversations", "cross-site", True),  # another site, or a sandboxed page's origin
+        ("/api/conversations", "same-site", True),  # another port of this machine
+        ("/api/conversations", "made-up", True),  # a value this code does not know is not trusted
+        ("/", "cross-site", False),  # a link from elsewhere into the app has to open it
+        ("/conversations/abc", "same-site", False),
+        ("/assets/index.js", "cross-site", False),
+        ("/apiary", "cross-site", False),  # only the API itself, not a path that starts alike
+    ],
+)
+def test_a_browser_request_to_the_api_must_not_say_it_came_from_elsewhere(
+    path, fetch_site, refused
+) -> None:
+    assert cross_site_refusal(path, fetch_site) == (CROSS_SITE_REQUEST if refused else None)
+
+
+def test_cross_site_requests_are_refused_on_every_method_and_the_page_still_opens(
+    tmp_path: Path, caplog
+) -> None:
+    settings = load_settings(env={"MY_AGENT_HOME": str(tmp_path), "MY_AGENT_ROUTES": "fake:echo"})
+    app = create_app(build_runtime(settings), schedule=False)
+    local = TestClient(app, base_url="http://127.0.0.1:8765")
+    with local, caplog.at_level("WARNING", logger="my_agent_crew.server.local_guard"):
+        for site in ("cross-site", "same-site"):
+            headers = {"Sec-Fetch-Site": site}
+            for reply in (
+                local.get("/api/conversations", headers=headers),
+                local.post("/api/conversations", json={}, headers=headers),
+                local.delete("/api/conversations/none", headers=headers),
+                # The path the router matches, not the raw one: `%61` is an `a`, `%2F` a slash.
+                local.get("/%61pi/conversations", headers=headers),
+                local.get("/api%2Fconversations", headers=headers),
+            ):
+                assert reply.status_code == 403, (site, reply.request.url)
+                assert reply.json() == {"detail": CROSS_SITE_REQUEST}
+        for site in ("same-origin", "none"):
+            own = local.get("/api/conversations", headers={"Sec-Fetch-Site": site})
+            assert own.status_code == 200, site
+        assert local.get("/api/conversations").status_code == 200
+        page = local.get("/", headers={"Sec-Fetch-Site": "cross-site"})
+        assert page.status_code == 200 and 'id="root"' in page.text
+    # The refusal is not about a name, so it is not logged as one to allow.
+    assert not [r for r in caplog.records if "refused a request" in r.getMessage()]
+
+
+def test_a_foreign_name_is_still_told_its_way_in_when_the_request_is_also_cross_site(
+    tmp_path: Path,
+) -> None:
+    settings = load_settings(env={"MY_AGENT_HOME": str(tmp_path), "MY_AGENT_ROUTES": "fake:echo"})
+    app = create_app(build_runtime(settings), schedule=False)
+    by_name = TestClient(app, base_url="http://mac.tail-net.ts.net:8765")
+    with by_name:
+        reply = by_name.get("/api/agents", headers={"Sec-Fetch-Site": "cross-site"})
+    assert reply.status_code == 403
+    assert "MY_AGENT_ALLOWED_HOSTS" in reply.json()["detail"]

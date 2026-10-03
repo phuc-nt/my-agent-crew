@@ -13,6 +13,10 @@ NOT_IN_FILE = "{name} được đặt ngoài tệp env (môi trường lúc kh�
 NOT_SET = "{name} chưa được đặt."
 NOT_CHECKABLE = "{name} không có phép kiểm tra."
 FOREIGN_ORIGIN = "Yêu cầu không đến từ giao diện của máy chủ này."
+CROSS_SITE_REQUEST = (
+    "Trình duyệt báo yêu cầu này đến từ trang của một site hay một cổng khác nên API không nhận. "
+    "Dùng giao diện của chính máy chủ này."
+)
 FOREIGN_HOST = (
     "Máy chủ chỉ trả lời qua localhost hoặc địa chỉ IP, không qua tên {host}. Muốn mở qua tên "
     "này, thêm nó vào {env} trong tệp env rồi khởi động lại — máy chủ không có đăng nhập, nên "
