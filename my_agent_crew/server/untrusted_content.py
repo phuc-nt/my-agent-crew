@@ -1,6 +1,7 @@
-"""Headers for what an agent wrote: the files in its workspace. An agent can be steered by
-what it reads, so its output must never open as a page of the app, where a script could call
-every `/api/...` route: its origin would be the app's, and the local guard lets those through.
+"""Headers for what an agent wrote: the files in its workspace and the canvases it fills. An
+agent can be steered by what it reads, so its output must never open as a page of the app,
+where a script could call every `/api/...` route: its origin would be the app's, and the local
+guard lets those through.
 
 Two independent layers keep it out. Anything but a raster image, a PDF or plain text downloads
 as bytes instead of opening. And everything but a PDF opens sandboxed, in an opaque origin whose
@@ -9,6 +10,9 @@ requests carry `Origin: null`, which the local guard refuses.
 The table is pinned here rather than taken from `mimetypes`, which differs between machines
 (`.ts` is `video/mp2t` on a Mac) and would hand `.xht`, `.rss` or `.svg` to the browser as
 documents that run scripts.
+
+A canvas takes the same two layers (`canvas_shown`): a page is plain text when it is read, a
+drawing an image that downloads when it is opened, a picture its own bytes.
 """
 
 from __future__ import annotations
@@ -20,6 +24,7 @@ from urllib.parse import quote
 
 from fastapi.responses import FileResponse, Response
 
+from my_agent_crew.artifacts.kinds import sniff_image
 from my_agent_crew.memory.search import normalize
 
 #: Never `allow-scripts` or `allow-same-origin`. Inline styles stay, so an image or a text
@@ -62,11 +67,31 @@ def untrusted_file(path: Path) -> FileResponse:
     return FileResponse(path, media_type=shown.media_type, headers=headers)
 
 
-def untrusted_text(text: str, name: str, *, download: bool) -> Response:
-    """A canvas's text, as plain text whatever its kind, so a page an agent wrote never runs
-    as one of the app's. `download` saves it under `name` instead of showing it."""
-    shown = Shown(TEXT, not download, True)
-    return Response(text, media_type=TEXT, headers=untrusted_headers(shown, name, "canvas"))
+def canvas_shown(kind: str, data: bytes | None, *, download: bool) -> Shown:
+    """How a canvas of `kind` goes out. Text is plain text whatever it holds, so a page an
+    agent wrote never runs as one of the app's. A drawing is an image: an `<img>` draws it
+    without running its script, and opened as a document it downloads. A picture is its own
+    bytes under the type they give, and bytes of no type we know, which no write lets in, are
+    plain bytes. `download` saves any of them under their name instead of showing them."""
+    if kind == "image":
+        shown = SHOWN.get(sniff_image(data) or "", BYTES)
+    elif kind == "svg" and not download:
+        shown = SHOWN[".svg"]
+    else:
+        shown = Shown(TEXT, True, True)
+    return shown._replace(inline=shown.inline and not download)
+
+
+def untrusted_text(text: str, shown: Shown, name: str) -> Response:
+    """A canvas's text, under the type and the disposition `shown` gives it."""
+    headers = untrusted_headers(shown, name, "canvas")
+    return Response(text, media_type=shown.media_type, headers=headers)
+
+
+def untrusted_bytes(data: bytes, shown: Shown, name: str) -> Response:
+    """A picture's own bytes, under the type and the disposition `shown` gives them."""
+    headers = untrusted_headers(shown, name, "canvas")
+    return Response(data, media_type=shown.media_type, headers=headers)
 
 
 def untrusted_headers(shown: Shown, name: str, fallback: str) -> dict[str, str]:

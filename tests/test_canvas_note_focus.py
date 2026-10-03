@@ -129,7 +129,8 @@ def test_a_selection_that_cannot_be_quoted_only_names_the_open_canvas(store: Sto
 
 def test_a_selection_in_a_canvas_without_text_only_names_the_canvas(store: Store):
     conv = store.create()
-    art = store.artifacts.create("Ảnh", "image", "coach", "agent:coach", "", data=b"\x89PNG").id
+    png = b"\x89PNG\r\n\x1a\n"
+    art = store.artifacts.create("Ảnh", "image", "coach", "agent:coach", "", data=png).id
     store.artifact_links.mark_seen(conv.id, art, 1)
     store.artifact_links.set_focus(conv.id, art, GOOD)
     assert say(store, conv) == framed(_open(art, title="Ảnh"))

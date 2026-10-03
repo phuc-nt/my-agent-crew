@@ -1,6 +1,7 @@
 """Where an edit that matched nothing was probably aimed: the passage most like its `old`,
 quoted with a little context so the agent can copy the right text on its next try. Runs off
-the event loop, and at a bounded cost however long the canvas or `old` is."""
+the event loop, and at a bounded cost: a canvas or an `old` past its ceiling is not searched,
+and the edit is refused without a passage quoted."""
 
 from __future__ import annotations
 
@@ -18,6 +19,11 @@ from my_agent_crew.tools.text_edit import EditNotFound, normalize_for_match
 _TOKEN = re.compile(r"\w+|[^\w\s]")
 
 MISS_MAX_OLD = 20_000  # an `old` longer than this is not searched for
+# Characters. Tokenising and weighing the text takes memory that grows with its length: about
+# 70 MB at this size for the densest text measured (minified script), about 20 MB for prose.
+# A markdown, code or mermaid canvas is at most half of it and an html page may fill it; a
+# larger one, mostly a deck carrying its images inline, gets the plain not-found error.
+MISS_MAX_TEXT = 1024 * 1024
 MATCH_TOKENS = 500  # only the start of a longer `old` is compared
 MISS_WINDOWS = 3  # candidate passages compared closely
 SIMILAR_ENOUGH = 0.5
@@ -51,7 +57,7 @@ async def explain_miss(text: str, old: str) -> EditNotFound:
 def nearest_region(text: str, old: str) -> Region | None:
     """The passage most like `old`, with its context. None when nothing is close enough, or
     when two passages are about as close, since quoting either would be a guess."""
-    if len(old) > MISS_MAX_OLD:
+    if len(old) > MISS_MAX_OLD or len(text) > MISS_MAX_TEXT:
         return None
     loose = normalize_for_match(text)
     words = [word.lower() for word in _TOKEN.findall(loose)]

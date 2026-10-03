@@ -1,10 +1,11 @@
-"""What a canvas may hold: its kind decides whether the payload is text or bytes, and how
-large one version may grow."""
+"""What a canvas may hold: its kind decides whether the payload is text or bytes, how large one
+version may grow, and, for a picture, that its bytes really are one."""
 
 import pytest
 
 from my_agent_crew.artifacts.kinds import (
     BINARY_KINDS,
+    CREATABLE_KINDS,
     KINDS,
     LANGUAGE_MAX,
     TEXT_KINDS,
@@ -12,24 +13,57 @@ from my_agent_crew.artifacts.kinds import (
     ArtifactTooLarge,
     InvalidLanguage,
     InvalidTitle,
+    NotAnImage,
     PayloadMismatch,
     StorageFull,
     UnknownKind,
     cap_bytes,
+    check_image,
     check_kind,
     check_payload,
     check_size,
     clean_language,
     clean_title,
+    prepare,
+    sniff_image,
 )
 
 KB, MB = 1024, 1024 * 1024
+PICTURES = [
+    (b"\x89PNG\r\n\x1a\n" + bytes(8), ".png"),
+    (b"\xff\xd8\xff\xe0\x00\x10JFIF", ".jpg"),
+    (b"\xff\xd8\xff\xdb\x00\x43", ".jpg"),
+    (b"GIF87a" + bytes(8), ".gif"),
+    (b"GIF89a" + bytes(8), ".gif"),
+    (b"RIFF\x1a\x00\x00\x00WEBPVP8 ", ".webp"),
+]
+NOT_PICTURES = [
+    b"",
+    b"\x89PNG",
+    b"\x89PNG\r\n\x1a",
+    b"\xff\xd8",
+    b"GIF88a" + bytes(8),
+    b"RIFF\x1a\x00\x00\x00WAVEfmt ",
+    b"RIFF\x1a\x00\x00\x00WEB",
+    b"WEBP\x1a\x00\x00\x00RIFF",
+    b"<svg xmlns='http://www.w3.org/2000/svg'/>",
+    b"<html><script>alert(1)</script></html>",
+    b"%PDF-1.7",
+    b" \x89PNG\r\n\x1a\n",
+]
 
 
 def test_every_kind_is_either_text_or_binary_never_both():
     assert set(KINDS) == TEXT_KINDS | BINARY_KINDS
     assert not TEXT_KINDS & BINARY_KINDS
     assert BINARY_KINDS == {"image"}
+
+
+def test_the_kinds_made_by_hand_are_the_text_kinds_in_the_order_of_the_table():
+    """A tuple, not `TEXT_KINDS`, which is a set: the order of the tool's choices and of the
+    refusal that lists them would otherwise change with the hash seed."""
+    assert CREATABLE_KINDS == ("markdown", "code", "html", "svg", "mermaid")
+    assert set(CREATABLE_KINDS) == TEXT_KINDS
 
 
 @pytest.mark.parametrize(
@@ -86,6 +120,45 @@ def test_size_errors_are_value_errors_so_one_handler_can_answer_all_bad_input():
     assert issubclass(InvalidTitle, ValueError)
     assert issubclass(InvalidLanguage, ValueError)
     assert issubclass(StorageFull, ValueError)
+    assert issubclass(NotAnImage, ValueError)
+
+
+@pytest.mark.parametrize(("data", "extension"), PICTURES)
+def test_a_picture_is_known_by_its_first_bytes_and_named_after_them(data, extension):
+    assert sniff_image(data) == extension
+    check_image(data)
+
+
+@pytest.mark.parametrize("data", NOT_PICTURES + [None])
+def test_bytes_that_are_no_picture_are_not_one_whatever_they_pretend(data):
+    """The signature is the whole of it: a RIFF file that is not WebP, a truncated signature
+    and a page or a document all fail, and so does a signature that does not begin the bytes."""
+    assert sniff_image(data) is None
+    with pytest.raises(NotAnImage):
+        check_image(data)
+
+
+def test_a_picture_version_is_checked_as_it_is_prepared():
+    """`prepare` runs on every path a version takes into the store, so one check there holds
+    for a person, a tool and an import alike."""
+    for data, _ in PICTURES:
+        assert prepare("image", None, data) == (None, len(data))
+    for data in NOT_PICTURES:
+        with pytest.raises(NotAnImage):
+            prepare("image", None, data)
+
+
+def test_a_picture_too_large_is_refused_for_its_size_before_it_is_looked_at():
+    with pytest.raises(ArtifactTooLarge):
+        prepare("image", None, bytes(cap_bytes("image") + 1))
+
+
+def test_the_check_for_a_picture_leaves_text_kinds_and_payload_errors_alone():
+    assert prepare("html", "<p>\r\n", None) == ("<p>\n", 4)
+    with pytest.raises(PayloadMismatch):
+        prepare("image", "text", None)
+    with pytest.raises(PayloadMismatch):
+        prepare("image", None, None)
 
 
 @pytest.mark.parametrize(

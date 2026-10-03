@@ -22,15 +22,34 @@ ADD_BY_EDIT = (
     " đoạn đó với chữ mới theo sau."
 )
 
+# A page runs in a sandbox with no network of its own, no storage and no windows. A model that
+# is not told writes the page it knows, which then fails without a word, so the rules ride on
+# the one description it reads before it writes.
+PAGE_RULES = "\n".join(
+    [
+        "Loại html là một tệp tự chứa, chạy trong khung cách ly:",
+        "- Script và CSS viết ngay trong tệp, hoặc nạp từ cdnjs.cloudflare.com, cdn.jsdelivr.net,"
+        " unpkg.com; font nạp từ Google Fonts.",
+        "- Script nạp từ CDN phải ghim phiên bản và có thuộc tính integrity.",
+        "- Không có mạng nào khác: không fetch, XMLHttpRequest hay WebSocket. Ảnh nhúng bằng data:"
+        " hoặc SVG viết ngay trong trang, không dùng ảnh ở địa chỉ ngoài.",
+        "- Không có bộ nhớ: không localStorage, sessionStorage, IndexedDB hay cookie.",
+        "- Không gửi form; không alert, confirm, prompt; không mở cửa sổ mới.",
+        "Loại svg hiện như một ảnh: script, liên kết và tài nguyên ngoài không chạy.",
+        "Loại mermaid chỉ là cú pháp sơ đồ, không bọc trong khối ```.",
+    ]
+)
+
 # The descriptions decide when a model writes a canvas at all, so each says what belongs in
 # one and what stays in the chat, and that a canvas is never copied back into the reply.
 ARTIFACT_CREATE_DESCRIPTION = (
     "Tạo một canvas: tài liệu hiện ngay cạnh khung chat, người và bạn cùng sửa được. Dùng cho"
     " nội dung dài hoặc có cấu trúc mà người sẽ đọc lại, sửa hay dùng tiếp: kế hoạch, báo cáo,"
-    f" bản nháp, một tệp code hoàn chỉnh. {KEPT_GOES_TO_CANVAS} Câu trả lời chỉ đọc một lần, câu"
+    " bản nháp, một tệp code hoàn chỉnh, một trang web (html), một hình vẽ (svg), một sơ đồ"
+    f" (mermaid). {KEPT_GOES_TO_CANVAS} Câu trả lời chỉ đọc một lần, câu"
     " hỏi và trao đổi thì để trong chat."
     " Sau khi tạo, trong câu trả lời chỉ nói ngắn bạn đã viết gì; đừng chép nội dung canvas vào."
-    f" {CHANGE_IN_PLACE}"
+    f" {CHANGE_IN_PLACE}\n{PAGE_RULES}"
 )
 ARTIFACT_LIST_DESCRIPTION = (
     "Liệt kê các canvas bạn mở được, mới sửa trước: id, tiêu đề, bản mới nhất, và canvas nào có"
@@ -57,8 +76,11 @@ ARTIFACT_REWRITE_DESCRIPTION = (
 PARAM_ID = "Id 12 ký tự của canvas, từ artifact_list hoặc từ thẻ [artifact …] của lần ghi trước."
 PARAM_TITLE = "Tiêu đề ngắn, một dòng, tối đa 200 ký tự."
 PARAM_NEW_TITLE = "Tiêu đề mới, chỉ khi muốn đổi tiêu đề."
-PARAM_KIND = "markdown cho văn bản, code cho một tệp mã nguồn."
-PARAM_LANGUAGE = "Với kind=code: tên ngôn ngữ, vd. python, typescript. Bỏ trống với markdown."
+PARAM_KIND = (
+    "markdown cho văn bản, code cho một tệp mã nguồn, html cho một trang web chạy được, svg cho"
+    " một hình vẽ, mermaid cho một sơ đồ."
+)
+PARAM_LANGUAGE = "Với kind=code: tên ngôn ngữ, vd. python, typescript. Bỏ trống với các loại khác."
 PARAM_CONTENT = "Toàn bộ nội dung của canvas."
 PARAM_QUERY = "Chỉ liệt kê canvas có tiêu đề chứa chuỗi này, không phân biệt hoa thường và dấu."
 PARAM_VERSION = "Bản cần đọc; bỏ trống để đọc bản mới nhất."

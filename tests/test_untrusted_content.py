@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 
 from my_agent_crew.server import create_app
 from my_agent_crew.server.security_headers import FRAME_ANCESTORS
-from my_agent_crew.server.untrusted_content import disposition
+from my_agent_crew.server.untrusted_content import BYTES, Shown, canvas_shown, disposition
 
 # No `allow-scripts`, no `allow-same-origin`: a page opened from here runs no script and has
 # an opaque origin, whose requests the local guard refuses. The rule against framing the app
@@ -149,3 +149,35 @@ def test_a_name_reaches_the_browser_whole_with_a_plain_fallback(name, plain):
 def test_a_name_that_folds_to_nothing_takes_the_fallback_it_is_given():
     assert HEADER.fullmatch(disposition("メモ.md", "canvas"))[2] == "canvas.md"
     assert disposition("a.txt", "file", inline=True).startswith("inline;")
+
+
+@pytest.mark.parametrize("kind", ["markdown", "code", "html", "mermaid"])
+def test_a_canvas_of_text_goes_out_as_plain_text_that_downloads_on_request(kind):
+    assert canvas_shown(kind, None, download=False) == Shown(TEXT, True, True)
+    assert canvas_shown(kind, None, download=True) == Shown(TEXT, False, True)
+
+
+def test_a_drawing_is_an_image_that_downloads_when_opened_and_text_when_saved():
+    assert canvas_shown("svg", None, download=False) == Shown("image/svg+xml", False, True)
+    assert canvas_shown("svg", None, download=True) == Shown(TEXT, False, True)
+
+
+@pytest.mark.parametrize(
+    ("data", "media_type"),
+    [
+        (b"\x89PNG\r\n\x1a\n", "image/png"),
+        (b"\xff\xd8\xff\xe0", "image/jpeg"),
+        (b"GIF89a", "image/gif"),
+        (b"RIFF\x00\x00\x00\x00WEBP", "image/webp"),
+    ],
+)
+def test_a_picture_goes_out_under_the_type_its_bytes_give(data, media_type):
+    assert canvas_shown("image", data, download=False) == Shown(media_type, True, True)
+    assert canvas_shown("image", data, download=True) == Shown(media_type, False, True)
+
+
+@pytest.mark.parametrize("data", [b"<svg onload='x'/>", b"\x89PNG", b"", None])
+@pytest.mark.parametrize("download", [False, True])
+def test_bytes_of_no_type_we_know_go_out_as_bytes_that_never_open(data, download):
+    shown = canvas_shown("image", data, download=download)
+    assert shown == BYTES == Shown("application/octet-stream", False, True)

@@ -5,7 +5,13 @@ import logging
 
 import pytest
 
-from my_agent_crew.artifacts.kinds import ArtifactTooLarge, PayloadMismatch, UnknownKind, cap_bytes
+from my_agent_crew.artifacts.kinds import (
+    ArtifactTooLarge,
+    NotAnImage,
+    PayloadMismatch,
+    UnknownKind,
+    cap_bytes,
+)
 from my_agent_crew.store.artifact_models import USER, VersionGone
 from my_agent_crew.store.db import Store
 from tests.canvas_helpers import lock_is_free
@@ -50,6 +56,21 @@ def test_an_image_keeps_its_bytes_and_no_text(store: Store):
     art = store.artifacts.create("Logo", "image", "default", AGENT, "c1", data=PNG)
     head = store.artifacts.head(art.id)
     assert (head.data, head.content, head.size) == (PNG, None, len(PNG))
+
+
+@pytest.mark.parametrize("junk", [b"<svg onload='x'/>", b"\x89PNG", b"RIFF\x00\x00\x00\x00WAVE"])
+def test_bytes_that_are_no_picture_are_stored_on_no_path(store: Store, junk: bytes):
+    """Create and write go through the one check, so a picture canvas never holds bytes a
+    browser would be asked to draw as something else. A restore only writes again a version
+    that passed it."""
+    with pytest.raises(NotAnImage):
+        store.artifacts.create("Logo", "image", "default", AGENT, "c1", data=junk)
+    assert store.artifacts.list() == []
+    art = store.artifacts.create("Logo", "image", "default", AGENT, "c1", data=PNG)
+    with pytest.raises(NotAnImage):
+        store.artifacts.write(art.id, None, AGENT, "c1", data=junk)
+    assert [v.version for v in store.artifacts.versions(art.id)] == [1]
+    assert store.artifacts.head(art.id).data == PNG
 
 
 @pytest.mark.parametrize(

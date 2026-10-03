@@ -37,6 +37,8 @@ from my_agent_crew.tools.artifact_texts import (
     ARTIFACT_LIST_EMPTY,
     ARTIFACT_LIST_NO_MATCH,
     KEPT_GOES_TO_CANVAS,
+    PAGE_RULES,
+    PARAM_KIND,
 )
 from tests.canvas_helpers import (
     agents_canvas,
@@ -49,6 +51,7 @@ from tests.canvas_helpers import (
 )
 
 PLAN = "# Kế hoạch tuần\n\n- Thứ hai: chạy 5 km\n- Thứ tư: bơi"
+WRITABLE = "markdown, code, html, svg, mermaid"
 TOOLS = ("artifact_create", "artifact_list", "artifact_read", "artifact_edit", "artifact_rewrite")
 
 
@@ -74,8 +77,10 @@ def test_an_agent_gets_the_five_canvas_tools_none_asking_for_approval(store: Sto
     tools = build_artifact_tools(store, "coach", False, 8000)
     assert tuple(tool.name for tool in tools) == TOOLS
     assert not any(tool.requires_approval or tool.parallel for tool in tools)
-    kinds = tools[0].parameters["properties"]["kind"]["enum"]
-    assert kinds == ["markdown", "code"]
+    kind = tools[0].parameters["properties"]["kind"]
+    assert kind["enum"] == ["markdown", "code", "html", "svg", "mermaid"]
+    assert kind["description"] == PARAM_KIND
+    assert all(name in PARAM_KIND for name in kind["enum"])
 
 
 def test_the_descriptions_send_a_kept_document_to_a_canvas_and_say_how_to_add_to_one(
@@ -88,6 +93,21 @@ def test_the_descriptions_send_a_kept_document_to_a_canvas_and_say_how_to_add_to
     assert KEPT_GOES_TO_CANVAS in tools["artifact_create"]
     assert "Câu trả lời ngắn" not in tools["artifact_create"]
     assert ADD_BY_EDIT in tools["artifact_edit"]
+
+
+def test_the_create_description_tells_a_page_what_its_sandbox_will_not_let_it_do(store: Store):
+    """A page runs with no network of its own, no storage and no windows. A model not told
+    writes the page it knows, which then fails without a word, so the rules ride on the one
+    description it reads before writing."""
+    tools = {t.name: t.description for t in build_artifact_tools(store, "coach", False, 8000)}
+    description = tools["artifact_create"]
+    for rule in ("localStorage", "cdnjs.cloudflare.com", "cdn.jsdelivr.net", "unpkg.com"):
+        assert rule in description, rule
+    for rule in ("integrity", "alert", "fetch", "data:", "mermaid", "svg"):
+        assert rule in description, rule
+    assert PAGE_RULES in description
+    for name in ("artifact_list", "artifact_read", "artifact_edit", "artifact_rewrite"):
+        assert PAGE_RULES not in tools[name]
 
 
 async def test_create_files_the_canvas_under_the_agent_and_returns_no_content(store: Store):
@@ -119,11 +139,45 @@ async def test_a_delegated_child_shares_what_it_creates_with_the_root(store: Sto
     assert (seen(store, child, art), seen(store, root, art)) == (1, 0)
 
 
-@pytest.mark.parametrize("kind", ["html", "svg", "image", "pdf"])
+@pytest.mark.parametrize(
+    ("kind", "content"),
+    [
+        ("html", "<!doctype html>\n<h1>Kế hoạch</h1>\n"),
+        ("svg", '<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0h8"/></svg>'),
+        ("mermaid", "graph TD\n  A[Chạy] --> B[Bơi]\n"),
+    ],
+)
+async def test_create_files_a_page_a_drawing_and_a_diagram_like_any_other_canvas(
+    store: Store, kind: str, content: str
+):
+    conv = turn(store)
+    result = await call(store, "artifact_create", _create_args(kind=kind, content=content))
+    art, version, _ = tagged(result)
+    size, lines = len(content.encode()), content.count("\n") + 1
+    done = ARTIFACT_CREATED.format(title="Kế hoạch tuần", kind=kind, size=size, lines=lines)
+    assert result.output == f"[artifact {art} v1]\n{done}"
+    summary = store.artifacts.get(art)
+    assert (summary.kind, summary.agent_id, summary.head_version) == (kind, "coach", 1)
+    assert store.artifacts.head(art).content == content
+    assert seen(store, conv, art) == 1
+
+
+async def test_a_page_may_be_larger_than_a_document_but_has_its_own_cap(store: Store):
+    turn(store)
+    cap = cap_bytes("html")
+    assert cap > cap_bytes("markdown")
+    roomy = _create_args(kind="html", content="x" * (cap_bytes("markdown") + 1))
+    assert tagged(await call(store, "artifact_create", roomy))[1] == 1
+    over = await call(store, "artifact_create", _create_args(kind="html", content="x" * (cap + 1)))
+    assert over.output == _failed(ARTIFACT_TOO_LARGE.format(kind="html", size=cap + 1, cap=cap))
+    assert len(store.artifacts.list()) == 1
+
+
+@pytest.mark.parametrize("kind", ["image", "pdf"])
 async def test_create_refuses_a_kind_agents_do_not_write(store: Store, kind: str):
     turn(store)
     result = await call(store, "artifact_create", {**_create_args(), "kind": kind})
-    assert result.output == _failed(ARTIFACT_KIND_CLOSED.format(kinds="markdown, code"))
+    assert result.output == _failed(ARTIFACT_KIND_CLOSED.format(kinds=WRITABLE))
     assert store.artifacts.list() == []
 
 

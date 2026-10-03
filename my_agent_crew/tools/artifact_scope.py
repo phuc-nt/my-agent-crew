@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 
 from my_agent_crew.agent.turn_context import canvas_writes, may_write_canvas
 from my_agent_crew.artifacts.kinds import (
+    CREATABLE_KINDS,
     LANGUAGE_MAX,
     TITLE_MAX,
     ArtifactTooLarge,
@@ -43,8 +44,9 @@ if TYPE_CHECKING:
     from my_agent_crew.store import Store
     from my_agent_crew.store.models import Conversation
 
-# The kinds an agent writes. A person may hold others in the web UI, which an agent reads.
-AGENT_KINDS = ("markdown", "code")
+# The kinds an agent writes: the text ones. A person may hold a picture, which an agent never
+# reads or writes.
+AGENT_KINDS = CREATABLE_KINDS
 # Versions one turn may write to one canvas, and canvases it may create: enough for any
 # real piece of work, few enough that a turn stuck in a loop stops long before storage does.
 CANVAS_WRITES_PER_TURN = 30

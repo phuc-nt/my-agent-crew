@@ -1,8 +1,8 @@
 """A canvas's history over REST: its versions, one version whole, a restore that writes an old
-version as the person's newest, and the raw text. The raw text always goes out as plain text,
-whatever the canvas's kind, so a page an agent wrote never runs as one of the app's
-(`untrusted_content.py`). A version a later save folded away is 404 with the newest number,
-so the web can show what is there instead."""
+version as the person's newest, and the raw payload. Text goes out as plain text whatever the
+canvas's kind, so a page an agent wrote never runs as one of the app's; a drawing goes out as
+an image and a picture as its own bytes (`untrusted_content.py`). A version a later save
+folded away is 404 with the newest number, so the web can show what is there instead."""
 
 from __future__ import annotations
 
@@ -14,7 +14,11 @@ from pydantic import BaseModel, Field, StrictInt
 from my_agent_crew.artifacts.filenames import filename_for
 from my_agent_crew.server.artifact_errors import artifact_errors
 from my_agent_crew.server.deps import Rt
-from my_agent_crew.server.untrusted_content import untrusted_text
+from my_agent_crew.server.untrusted_content import (
+    canvas_shown,
+    untrusted_bytes,
+    untrusted_text,
+)
 from my_agent_crew.store.artifact_models import USER
 
 router = APIRouter(tags=["artifacts"])
@@ -55,8 +59,8 @@ async def raw_text(
     version: int | None = Query(None, ge=1),
     download: bool = False,
 ) -> Response:
-    """The newest version's text, or `version`'s. `download` saves it under the title with
-    the extension of its kind instead of showing it."""
+    """The newest version's payload, or `version`'s. `download` saves it under the title with
+    the extension of its kind, a picture's from its bytes, instead of showing it."""
     artifacts = rt.store.artifacts
     with artifact_errors(artifacts, artifact_id):
         summary = artifacts.get(artifact_id)
@@ -64,5 +68,8 @@ async def raw_text(
             found = artifacts.head(artifact_id)
         else:
             found = artifacts.version(artifact_id, version)
-    name = filename_for(summary.title, summary.kind, summary.language)
-    return untrusted_text(found.content or "", name, download=download)
+    shown = canvas_shown(summary.kind, found.data, download=download)
+    name = filename_for(summary.title, summary.kind, summary.language, found.data)
+    if found.content is None:
+        return untrusted_bytes(found.data or b"", shown, name)
+    return untrusted_text(found.content, shown, name)

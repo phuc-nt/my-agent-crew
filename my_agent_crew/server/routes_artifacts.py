@@ -24,7 +24,9 @@ LIST_LIMIT = 50
 
 class CreateBody(BaseModel):
     title: str
-    kind: Literal["markdown", "code"]
+    # Written out by hand so the schema lists them; a test holds it to `CREATABLE_KINDS`. An
+    # image only comes in by import, and anything else is refused with a 422.
+    kind: Literal["markdown", "code", "html", "svg", "mermaid"]
     content: str = ""
     # Made in this conversation: shared with it and open there.
     conversation_id: str | None = None

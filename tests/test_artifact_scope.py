@@ -48,6 +48,8 @@ from my_agent_crew.tools.artifact_scope import (
 from my_agent_crew.tools.registry import ToolError
 
 ART = "0123456789ab"
+# What an agent's refusal of a kind lists, in the order of the table.
+WRITABLE = "markdown, code, html, svg, mermaid"
 
 
 @pytest.fixture(autouse=True)
@@ -102,12 +104,13 @@ def test_a_person_typing_in_a_childs_own_conversation_writes_from_there(store: S
     assert may_write_canvas(child) is True
 
 
-@pytest.mark.parametrize("kind", ["html", "svg", "mermaid", "image", "pdf"])
-def test_an_agent_writes_markdown_and_code_alone(kind):
+@pytest.mark.parametrize("kind", ["image", "pdf", "", "HTML"])
+def test_an_agent_writes_the_text_kinds_alone(kind):
+    """A picture is bytes an agent cannot write, and one a person imported is no exception."""
     with pytest.raises(ToolError) as caught:
         check_agent_kind(kind)
-    assert str(caught.value) == ARTIFACT_KIND_CLOSED.format(kinds="markdown, code")
-    for writable in ("markdown", "code"):
+    assert str(caught.value) == ARTIFACT_KIND_CLOSED.format(kinds=WRITABLE)
+    for writable in ("markdown", "code", "html", "svg", "mermaid"):
         check_agent_kind(writable)
 
 
@@ -200,8 +203,8 @@ def test_what_a_turn_in_the_chain_only_read_stays_out_of_the_next_childs_reach(s
 @pytest.mark.parametrize(
     ("error", "says"),
     [
-        (UnknownKind("pdf"), ["markdown, code"]),
-        (PayloadMismatch("image"), ["markdown, code"]),
+        (UnknownKind("pdf"), [WRITABLE]),
+        (PayloadMismatch("image"), [WRITABLE]),
         (ArtifactTooLarge("markdown", 600000, 524288), ["600000", "524288", "nhiều canvas"]),
         (InvalidTitle("empty"), ["200"]),
         (InvalidLanguage("bad"), ["40", "python"]),

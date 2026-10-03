@@ -1,5 +1,6 @@
 """Where an edit that matched nothing was probably aimed: the closest passage, quoted with
-its context, found at a bounded cost and never when two passages are about as close."""
+its context, found at a bounded cost, never in a text too long to search and never when two
+passages are about as close."""
 
 from __future__ import annotations
 
@@ -14,6 +15,7 @@ from my_agent_crew.tools.text_nearest import (
     MATCH_TOKENS,
     MISS_CHARS,
     MISS_LINES,
+    MISS_MAX_TEXT,
     explain_miss,
     nearest_region,
 )
@@ -111,3 +113,16 @@ def test_a_long_run_of_matching_lines_is_cut_to_the_line_limit():
 
 def test_an_old_too_long_to_search_gives_no_region():
     assert nearest_region(PROSE, "x" * 20_001 + PROSE) is None
+
+
+def test_a_text_too_long_to_search_gives_no_region_and_the_plain_not_found():
+    """Memory is what grows with the text, and a page may hold far more than a hint is worth
+    searching: the edit is refused all the same, only without the passage quoted."""
+    at_ceiling = PROSE + "\n" + "x" * (MISS_MAX_TEXT - len(PROSE) - 1)
+    assert len(at_ceiling) == MISS_MAX_TEXT
+    region = nearest_region(at_ceiling, CLOSE_TO_LINE_4)
+    assert region is not None and region.text == PROSE
+    assert "dòng 1–7" in str(asyncio.run(explain_miss(at_ceiling, CLOSE_TO_LINE_4)))
+    over = at_ceiling + "x"
+    assert nearest_region(over, CLOSE_TO_LINE_4) is None
+    assert str(asyncio.run(explain_miss(over, CLOSE_TO_LINE_4))) == ARTIFACT_EDIT_NO_MATCH

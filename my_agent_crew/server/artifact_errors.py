@@ -16,6 +16,7 @@ from my_agent_crew.artifacts.kinds import (
     ArtifactTooLarge,
     InvalidLanguage,
     InvalidTitle,
+    NotAnImage,
     PayloadMismatch,
     StorageFull,
     UnknownKind,
@@ -54,7 +55,7 @@ def artifact_errors(store: ArtifactStore, artifact_id: str = "") -> Iterator[Non
     except StorageFull as exc:
         detail = {"used": exc.used, "cap": exc.cap, "largest": _largest(store)}
         raise HTTPException(507, detail) from None
-    except (UnknownKind, PayloadMismatch, InvalidTitle, InvalidLanguage) as exc:
+    except (UnknownKind, PayloadMismatch, NotAnImage, InvalidTitle, InvalidLanguage) as exc:
         raise HTTPException(422, str(exc)) from None
 
 

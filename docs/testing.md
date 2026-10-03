@@ -1291,13 +1291,20 @@ tên một test thì sửa dòng của nó trong cùng commit.
     HTML, `.xht`, `.rss`, `.atom`, `.ts`, tệp không đuôi đều là `application/octet-stream` tải về;
     SVG tải về khi mở; mọi response có `nosniff` và CORP `same-origin`; tên tệp chữ Việt, Nhật, có
     ngoặc kép, xuống dòng, `/` hay chỉ có emoji ra header mã hoá được bằng latin-1, có tên ASCII
-    dự phòng và `filename*` giải mã lại đúng tên);
+    dự phòng và `filename*` giải mã lại đúng tên; bảng của canvas (`canvas_shown`): canvas chữ là
+    `text/plain` mở tại chỗ và tải về khi yêu cầu, svg khi xem là `image/svg+xml` tải về còn khi
+    lưu là chữ, ảnh theo kiểu mà byte của nó cho, byte không nhận ra là `application/octet-stream`
+    không bao giờ mở tại chỗ);
     `tests/test_server_agents_activity_jobs.py::test_agent_files_are_served_only_from_the_workspace`
     (chỉ tệp trong workspace, kể cả qua symlink)
 - **Canvas: tài liệu có phiên bản đi cạnh cuộc trò chuyện (tầng lưu trữ)**
   - pytest: `tests/test_artifact_kinds.py` (mỗi loại là chữ hoặc nhị phân, mỗi loại một trần,
     loại lạ bị từ chối theo tên, lỗi kích thước là `ValueError` để một chỗ trả lời được mọi đầu
-    vào sai, "test_a_title_is_one_line_of_visible_text": xuống dòng thành dấu cách, bỏ ký tự
+    vào sai, loại tạo bằng tay là các loại chữ theo thứ tự của bảng chứ không theo tập,
+    `sniff_image` nhận PNG, JPEG, GIF và WebP theo vài byte đầu rồi trả đuôi, còn `RIFF` không có
+    `WEBP`, chữ cắt ngắn, trang hay PDF thì không, `prepare` kiểm byte của ảnh sau khi kiểm cỡ nên
+    ảnh quá trần vẫn bị từ chối vì cỡ,
+    "test_a_title_is_one_line_of_visible_text": xuống dòng thành dấu cách, bỏ ký tự
     điều khiển, bidi và tag nhưng giữ joiner của emoji, tiêu đề rỗng bị từ chối, giới hạn 200 ký
     tự đo sau khi làm sạch, ngôn ngữ là một tên ngắn viết thường tối đa 40 ký tự, ngôn ngữ có
     dấu cách, xuống dòng hay ký tự ẩn bị từ chối); `tests/test_artifact_guards.py` (mọi đường đặt
@@ -1332,7 +1339,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     CRLF lưu thành LF trên mọi đường ghi, các ký tự ngắt dòng khác giữ nguyên trong dòng để dòng
     chỉ tách theo LF, khôi phục giữ các bản sau);
     `tests/test_artifact_store.py` (kích thước tính bằng byte UTF-8, payload sai loại hay vượt
-    trần không lưu gì, trần đo trên chữ đã đổi xuống dòng, thứ không tồn tại là `KeyError`,
+    trần không lưu gì, byte không phải ảnh không vào được qua tạo hay ghi, trần đo trên chữ đã
+    đổi xuống dòng, thứ không tồn tại là `KeyError`,
     "test_a_version_gone_from_a_canvas_that_is_there_names_the_newest": bản đã bị gộp hay chưa
     từng có là `VersionGone` kèm số bản mới nhất, xoá canvas bỏ phiên bản, liên kết và focus của
     nó, "test_list_matches_the_title_regardless_of_case_and_accents", hai canvas cùng giây xếp
@@ -1342,7 +1350,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
   - pytest: `tests/test_artifact_tools.py` (năm tool, không tool nào hỏi duyệt, mô tả đưa tài
     liệu người sẽ sửa dần vào canvas dù chỉ vài dòng và nói cách thêm chữ bằng một lần sửa, tạo lưu canvas
     dưới tên agent và không trả lại nội dung, con được giao việc chia sẻ canvas nó tạo với gốc,
-    loại agent không ghi được bị từ chối,
+    loại agent không ghi được (ảnh) bị từ chối, enum của tool là năm loại chữ, tạo html, svg hay
+    mermaid như mọi canvas và html được lớn hơn tài liệu nhưng có trần riêng, mô tả của tool tạo
+    (và chỉ nó) nói cho trang html biết khung cách ly không cho gì: không `localStorage`, không
+    mạng ngoài ba CDN, không `alert`, không mở cửa sổ,
     "test_only_the_web_chat_writes_a_canvas_yet_any_channel_reads_one", con chỉ ghi được trong
     chuỗi bắt đầu từ web chat, canvas master đã đọc không vào tầm của con, lần đọc của một con
     không mở rộng tầm của con kế tiếp, canvas do người tạo chỉ vào tầm qua liên kết, canvas không
@@ -1376,7 +1387,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     hay viết lại thì viết lại được ngay mà không đọc lại, đúng như mô tả tool nói, và mô tả tạo
     dặn sửa chính canvas đã có, viết lại chỉ đổi kiểu xuống
     dòng là không đổi gì, con sửa hay viết lại thì chia sẻ canvas với gốc,
-    "test_a_kind_agents_do_not_write_is_refused_only_once_the_canvas_is_in_reach", diff trích
+    "test_a_kind_agents_do_not_write_is_refused_only_once_the_canvas_is_in_reach": canvas ảnh của
+    người, trong tầm thì bị từ chối là loại đóng, ngoài tầm thì như không tồn tại, sửa và viết lại
+    html, svg, mermaid như mọi canvas, trang html 1 MB viết liền một dòng thì sửa theo đoạn được
+    còn viết lại bị từ chối kèm lời dặn dùng `artifact_edit`, diff trích
     dãy backtick có rào dài hơn, sửa khớp hai chỗ bị từ chối trừ khi thay mọi chỗ);
     `tests/test_canvas_tool_wiring.py` (agent không có allow-list, master hay không, nhận đủ năm
     tool theo thứ tự, "test_an_allow_list_keeps_out_the_canvas_tools_it_does_not_name", master
@@ -1388,7 +1402,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     ("test_only_a_turn_from_the_web_chat_writes_a_canvas",
     "test_a_delegated_child_writes_only_when_its_chain_began_in_the_web_chat": con mở trước khi
     chuỗi ghi gốc thì không bao giờ ghi, người gõ thẳng vào cuộc trò chuyện của con thì ghi được từ
-    đó, agent chỉ ghi markdown và code, lần ghi thứ 31 cho một canvas trong lượt bị từ chối, một
+    đó, agent ghi được năm loại chữ (markdown, code, html, svg, mermaid) chứ không ghi ảnh, lời từ
+    chối kể đủ năm loại, lần ghi thứ 31 cho một canvas trong lượt bị từ chối, một
     lượt tạo tối đa 30 canvas,
     "test_a_batched_call_counts_toward_its_turn_and_a_child_turn_counts_apart", master với tới mọi
     canvas còn agent khác chỉ canvas của mình, canvas một lượt trong chuỗi chỉ đọc không vào tầm
@@ -1420,7 +1435,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "test_two_equally_close_places_give_no_region",
     "test_a_long_old_on_a_long_text_compares_at_most_three_windows", dòng rào lặp khắp nơi không
     kéo vùng đi chỗ khác, vùng quanh một dòng khổng lồ vẫn trong cỡ của nó, đoạn khớp dài bị cắt ở
-    giới hạn dòng, `old` quá dài thì không tìm); `tests/test_artifact_diff.py` (hai dạng thẻ đọc lại
+    giới hạn dòng, `old` quá dài thì không tìm, văn bản dài hơn `MISS_MAX_TEXT` cũng không tìm
+    (trần theo số đo bộ nhớ, 1 MiB ký tự): đúng trần vẫn trích đoạn gần nhất, hơn một ký tự thì chỉ
+    có lời không tìm thấy thường); `tests/test_artifact_diff.py` (hai dạng thẻ đọc lại
     qua cùng một mẫu, thẻ chỉ tính khi đứng ngay đầu kết quả, rào dài hơn mọi dãy backtick bên
     trong, dòng vừa chỗ giữ nguyên, dòng dài hiện quanh phần cần xem,
     "test_removed_lines_take_at_most_half_and_what_was_written_always_shows", dòng dài bị đổi cắt
@@ -1498,9 +1515,11 @@ tên một test thì sửa dòng của nó trong cùng commit.
 - **Canvas qua REST: tạo, đọc, lưu, đổi tên, xoá; mọi lần ghi qua REST là của người**
   - pytest: `tests/test_api_artifacts.py`
     ("test_a_canvas_made_on_the_web_is_the_persons_and_reads_back_the_same", canvas tạo trong một
-    hội thoại được chia sẻ và mở ở đó, hội thoại không có thì 404 và không tạo gì, web chỉ tạo
-    markdown và code, tiêu đề kho từ chối là 422, quá trần là 413 và không ghi gì, kho đầy là 507
-    nêu các canvas lớn nhất,
+    hội thoại được chia sẻ và mở ở đó, hội thoại không có thì 404 và không tạo gì, web tạo được
+    năm loại chữ chứ không tạo ảnh (`image`, `pdf`, rỗng hay viết hoa đều 422 và kho còn trống),
+    schema của `kind` khớp `CREATABLE_KINDS`, tiêu đề kho từ chối là 422, quá trần là 413 nêu đúng
+    trần của loại đó (trang html lớn hơn tài liệu) và không ghi gì, kho đầy là 507 nêu các canvas
+    lớn nhất,
     "test_the_detail_is_one_version_whole_though_a_write_lands_between_its_reads", canvas không có
     là 404 ở mọi route, "test_a_save_without_a_real_base_version_is_422_and_writes_nothing": thiếu,
     `true` hay `0` đều bị từ chối, lưu trên bản cũ là 409 kèm bản mới nhất và không ghi gì, hai lần
@@ -1510,17 +1529,27 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "test_a_version_folded_away_is_404_with_the_newest_number_though_it_is_a_key_error", `KeyError`
     của id khác và `ValueError` bảng không nêu đi tiếp như lỗi thật, 409 đọc lại bản mới nhất chứ
     không dùng bản lúc xung đột, canvas bị xoá giữa chừng là 404, 413 nêu cỡ và trần,
-    "test_full_storage_is_507_naming_the_three_largest_canvases_biggest_first", 422 mang lời của kho)
+    "test_full_storage_is_507_naming_the_three_largest_canvases_biggest_first", 422 mang lời của
+    kho, kể cả khi byte gửi lên không phải ảnh)
 - **Canvas qua REST: lịch sử phiên bản, khôi phục và chữ thô không chạy gì**
   - pytest: `tests/test_api_artifact_history.py` (phiên bản mới nhất trước và không kèm chữ, một bản
     đọc trọn, bản đã gộp là 404 kèm số bản mới nhất, canvas không có là 404 ở mọi route lịch sử,
     "test_a_restore_writes_the_old_version_as_the_persons_newest": ghi chú `restore:<n>`, số bản
-    khôi phục phải là số nguyên thật, "test_the_raw_text_is_plain_text_that_runs_nothing": `raw` luôn
-    là `text/plain` sandbox kèm `nosniff` và CORP dù canvas chứa HTML, chữ thô của một bản cũ,
+    khôi phục phải là số nguyên thật, "test_the_raw_text_is_plain_text_that_runs_nothing": `raw` của
+    canvas chữ là `text/plain` sandbox kèm `nosniff`, CORP và một chính sách `frame-ancestors`
+    riêng dù canvas chứa HTML, chữ thô của một bản cũ,
+    "test_a_page_is_shown_and_saved_as_text_and_never_as_a_page" (khi xem lẫn khi tải về),
+    "test_a_drawing_is_shown_as_an_image_that_downloads_and_is_saved_as_text": svg khi xem là
+    `image/svg+xml` tải về (tên `.svg.txt`) còn khi lưu là chữ, mermaid là chữ `.mmd`,
+    "test_a_picture_goes_out_as_its_own_bytes_under_the_type_they_give": ảnh ra đúng từng byte
+    dưới kiểu PNG, JPEG, GIF hay WebP mà byte cho, chi tiết của ảnh có `content: null`, bản cũ của
+    ảnh kèm byte và kiểu của chính nó,
     "test_a_download_is_named_after_the_title_in_any_script"); `tests/test_artifact_filenames.py`
     ("test_a_file_name_keeps_the_title_in_any_script_without_what_a_file_system_refuses",
     "test_a_file_name_ends_in_the_extension_of_its_kind": markdown là `.md`, code theo ngôn ngữ, ngôn
-    ngữ lạ là `.txt`, code `html` là `.html.txt` để mở tệp tải về chỉ thấy chữ, không chạy script)
+    ngữ lạ là `.txt`, code `html`, canvas html và svg là `.html.txt`, `.svg.txt` để mở tệp tải về
+    chỉ thấy chữ, không chạy script, mermaid là `.mmd`; ảnh lấy đuôi từ byte của nó và `.bin` khi
+    byte không cho đuôi nào, còn byte không bao giờ đổi tên của loại chữ)
 - **Canvas đang mở trên web: đặt, đọc, đóng; mở là chia sẻ với hội thoại**
   - pytest: `tests/test_api_canvas_focus.py` (đặt rồi đọc lại cùng vùng chọn, `null` là đóng, vùng
     chọn không kèm canvas là 422, mở canvas agent chỉ đọc thì chia sẻ nó, canvas chưa liên kết được

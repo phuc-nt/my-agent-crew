@@ -1,6 +1,7 @@
 """What a canvas may hold. The kind decides whether a version is text (`content`) or bytes
-(`data`) and how large one version may grow. The store checks every write against this
-table, so a tool, a route and an import are all held to the same limits."""
+(`data`), how large one version may grow and, for a picture, that its bytes really are one.
+The store checks every write against this table, so a tool, a route and an import are all
+held to the same limits."""
 
 from __future__ import annotations
 
@@ -33,6 +34,18 @@ _CAPS = {
 KINDS = tuple(_CAPS)
 BINARY_KINDS = frozenset({"image"})
 TEXT_KINDS = frozenset(KINDS) - BINARY_KINDS
+# What a person or an agent writes by hand: the text kinds in the order of the table. Not
+# `TEXT_KINDS`, a set whose order changes with the hash seed, and with it the tool's choices
+# and the refusal that lists them. A picture comes in only by import.
+CREATABLE_KINDS = tuple(kind for kind in KINDS if kind not in BINARY_KINDS)
+# How a picture file begins, with the extension each format takes. WebP is a RIFF container
+# and is told apart in `sniff_image`.
+_SIGNATURES = (
+    (b"\x89PNG\r\n\x1a\n", ".png"),
+    (b"\xff\xd8\xff", ".jpg"),
+    (b"GIF87a", ".gif"),
+    (b"GIF89a", ".gif"),
+)
 
 
 class UnknownKind(ValueError):
@@ -49,6 +62,10 @@ class ArtifactTooLarge(ValueError):
 
 class PayloadMismatch(ValueError):
     """Text sent for a binary kind, bytes for a text kind, or neither."""
+
+
+class NotAnImage(ValueError):
+    """Bytes for an image canvas that do not begin as a PNG, JPEG, GIF or WebP file."""
 
 
 class InvalidTitle(ValueError):
@@ -92,6 +109,25 @@ def check_payload(kind: str, content: str | None, data: bytes | None) -> None:
         raise PayloadMismatch(f"{kind} takes content, not data")
 
 
+def sniff_image(data: bytes | None) -> str | None:
+    """The extension of the picture format `data` begins as (`.png`, `.jpg`, `.gif`, `.webp`),
+    or None when it begins as none an image canvas holds. A RIFF file is a picture only when
+    its form type, after the four bytes of size, is WEBP: a WAV file begins the same way."""
+    if not data:
+        return None
+    for signature, extension in _SIGNATURES:
+        if data.startswith(signature):
+            return extension
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return ".webp"
+    return None
+
+
+def check_image(data: bytes | None) -> None:
+    if sniff_image(data) is None:
+        raise NotAnImage("an image canvas holds a PNG, JPEG, GIF or WebP file")
+
+
 def prepare(kind: str, content: str | None, data: bytes | None) -> tuple[str | None, int]:
     """Checks one version's payload for its kind and returns the text as it will be stored,
     with the payload's size in bytes. CR and CRLF become LF: a browser's textarea only ever
@@ -99,7 +135,8 @@ def prepare(kind: str, content: str | None, data: bytes | None) -> tuple[str | N
     saved it from the web. A canvas's lines are then what splitting on LF alone gives, on the
     server and in the browser alike: the vertical tab, form feed, file, group and record
     separators, NEL and the Unicode line and paragraph separators, which `str.splitlines`
-    would also break on, are kept as they are, inside a line."""
+    would also break on, are kept as they are, inside a line. The bytes of a picture are
+    looked at last, so one over its cap is refused for its size alone."""
     check_payload(kind, content, data)
     if content is not None:
         content = content.replace("\r\n", "\n").replace("\r", "\n")
@@ -107,6 +144,8 @@ def prepare(kind: str, content: str | None, data: bytes | None) -> tuple[str | N
     else:
         size = len(data or b"")
     check_size(kind, size)
+    if kind == "image":
+        check_image(data)
     return content, size
 
 

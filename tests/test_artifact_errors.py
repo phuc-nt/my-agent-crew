@@ -114,10 +114,11 @@ def test_full_storage_is_507_naming_the_three_largest_canvases_biggest_first(sto
     [
         lambda arts: arts.create("Plan", "pdf", "", USER, "", "x"),
         lambda arts: arts.create("Plan", "image", "", USER, "", "x"),
+        lambda arts: arts.create("Plan", "image", "", USER, "", data=b"<svg onload='x'/>"),
         lambda arts: arts.create("   ", "markdown", "", USER, "", "x"),
         lambda arts: arts.create("Plan", "code", "", USER, "", "x", language="py thon"),
     ],
-    ids=["kind", "payload", "title", "language"],
+    ids=["kind", "payload", "not-an-image", "title", "language"],
 )
 def test_a_kind_payload_title_or_language_the_store_refuses_is_422_with_its_message(store, make):
     with pytest.raises(ValueError) as raw:

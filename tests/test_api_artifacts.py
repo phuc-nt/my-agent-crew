@@ -5,11 +5,14 @@ back with its own status code and nothing stored."""
 
 from __future__ import annotations
 
+from typing import get_args
+
 import pytest
 from fastapi.testclient import TestClient
 
-from my_agent_crew.artifacts.kinds import cap_bytes
+from my_agent_crew.artifacts.kinds import CREATABLE_KINDS, cap_bytes
 from my_agent_crew.server import create_app
+from my_agent_crew.server.routes_artifacts import CreateBody
 from my_agent_crew.store.artifact_models import USER
 from my_agent_crew.store.db import Store
 from tests.canvas_helpers import PLAN, agents_canvas
@@ -63,11 +66,37 @@ def test_a_canvas_for_a_missing_conversation_is_404_and_nothing_is_made(
     assert (store.artifacts.list(), heard) == ([], [])
 
 
-@pytest.mark.parametrize("kind", ["html", "svg", "mermaid", "image", "pdf"])
-def test_the_web_makes_only_markdown_and_code_canvases(client, store: Store, kind):
+@pytest.mark.parametrize("kind", ["markdown", "code", "html", "svg", "mermaid"])
+def test_the_web_makes_a_canvas_of_every_kind_that_is_text(client, store: Store, kind):
+    made = _create(client, kind=kind, content="x")
+    assert (made["kind"], made["content"]) == (kind, "x")
+    assert made == client.get(f"/api/artifacts/{made['id']}").json()
+    assert store.artifacts.head(made["id"]).content == "x"
+
+
+@pytest.mark.parametrize("kind", ["image", "pdf", "", "HTML"])
+def test_the_web_makes_no_canvas_of_a_kind_that_is_not_text(client, store: Store, kind):
     response = client.post("/api/artifacts", json={"title": "Kế hoạch", "kind": kind})
     assert response.status_code == 422
     assert store.artifacts.list() == []
+
+
+def test_the_kinds_the_web_may_create_are_the_ones_the_store_lists():
+    """`CreateBody.kind` is spelt out so the API schema names the kinds; this keeps it from
+    drifting from the table the store and the tools read."""
+    assert get_args(CreateBody.model_fields["kind"].annotation) == CREATABLE_KINDS
+
+
+def test_a_page_may_be_far_larger_than_text_and_its_413_names_its_own_cap(client, store: Store):
+    cap = cap_bytes("html")
+    made = _create(client, kind="html", content="x" * cap)
+    assert store.artifacts.head(made["id"]).size == cap
+    over = {"title": "Trang", "kind": "html", "content": "x" * (cap + 1)}
+    refused = client.post("/api/artifacts", json=over)
+    assert (refused.status_code, refused.json()["detail"]) == (413, {"size": cap + 1, "cap": cap})
+    assert _save(client, made["id"], "y" * (cap + 1), 1).status_code == 413
+    assert _save(client, made["id"], "y" * 1024, 1).status_code == 200
+    assert [summary.id for summary in store.artifacts.list()] == [made["id"]]
 
 
 @pytest.mark.parametrize(

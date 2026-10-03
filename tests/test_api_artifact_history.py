@@ -1,6 +1,7 @@
 """A canvas's history over REST: its versions newest first, one version whole, a restore that
-writes an old version as the newest, and the raw text, which the browser is only ever given as
-plain text, under the canvas's title as a file name when it is downloaded."""
+writes an old version as the newest, and the raw payload. The browser is given text as plain text
+whatever the kind, a drawing as an image it draws without running, and a picture as its own bytes
+under the type they give, always sandboxed. A download is named after the canvas's title."""
 
 from __future__ import annotations
 
@@ -20,6 +21,13 @@ SANDBOX = "default-src 'none'; style-src 'unsafe-inline'; sandbox"
 DISPOSITION = re.compile(
     r"(inline|attachment); filename=\"([a-z0-9._-]+)\"; filename\*=UTF-8''(.+)"
 )
+TEXT = "text/plain; charset=utf-8"
+PICTURES = [
+    (".png", b"\x89PNG\r\n\x1a\n" + bytes(range(32)), "image/png"),
+    (".jpg", b"\xff\xd8\xff\xe0\x00\x10JFIF" + bytes(range(32)), "image/jpeg"),
+    (".gif", b"GIF89a" + bytes(range(32)), "image/gif"),
+    (".webp", b"RIFF\x1a\x00\x00\x00WEBPVP8 " + bytes(range(32)), "image/webp"),
+]
 
 
 @pytest.fixture
@@ -27,6 +35,20 @@ def client(deps_factory):
     app = create_app(deps_factory(), schedule=False)
     with TestClient(app, base_url="http://127.0.0.1") as client:
         yield client
+
+
+def _disposition(response) -> tuple[str, str, str]:
+    header = response.headers["content-disposition"]
+    match = DISPOSITION.fullmatch(header)
+    assert match, header
+    return match[1], match[2], unquote(match[3])
+
+
+def _contained(response) -> None:
+    """What every `/raw` answer carries whatever it holds."""
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert response.headers["cross-origin-resource-policy"] == "same-origin"
+    assert response.headers.get_list("content-security-policy") == [SANDBOX, FRAME_ANCESTORS]
 
 
 def _written_twice(store: Store) -> str:
@@ -118,6 +140,9 @@ def test_the_raw_text_of_an_older_version(client, store: Store):
         ("code", "python", "Kế hoạch tuần.py", "ke-hoach-tuan.py"),
         ("code", "html", "Kế hoạch tuần.html.txt", "ke-hoach-tuan.html.txt"),
         ("code", "", "Kế hoạch tuần.txt", "ke-hoach-tuan.txt"),
+        ("html", "", "Kế hoạch tuần.html.txt", "ke-hoach-tuan.html.txt"),
+        ("svg", "", "Kế hoạch tuần.svg.txt", "ke-hoach-tuan.svg.txt"),
+        ("mermaid", "", "Kế hoạch tuần.mmd", "ke-hoach-tuan.mmd"),
     ],
 )
 def test_a_download_is_named_after_the_title_in_any_script(
@@ -125,9 +150,74 @@ def test_a_download_is_named_after_the_title_in_any_script(
 ):
     created = store.artifacts.create("Kế hoạch tuần", kind, "", USER, "", "x", language=language)
     response = client.get(f"/api/artifacts/{created.id}/raw", params={"download": 1})
-    assert response.headers["content-type"] == "text/plain; charset=utf-8"
+    assert response.headers["content-type"] == TEXT
     assert response.headers.get_list("content-security-policy") == [SANDBOX, FRAME_ANCESTORS]
-    header = response.headers["content-disposition"]
-    match = DISPOSITION.fullmatch(header)
-    assert match, header
-    assert (match[1], match[2], unquote(match[3])) == ("attachment", plain, name)
+    assert _disposition(response) == ("attachment", plain, name)
+
+
+def test_a_page_is_shown_and_saved_as_text_and_never_as_a_page(client, store: Store):
+    page = "<!doctype html><script>fetch('/api/settings')</script>"
+    art = store.artifacts.create("Kế hoạch tuần", "html", "", USER, "", page).id
+    shown = client.get(f"/api/artifacts/{art}/raw")
+    assert (shown.status_code, shown.text, shown.headers["content-type"]) == (200, page, TEXT)
+    assert _disposition(shown)[0] == "inline"
+    _contained(shown)
+    saved = client.get(f"/api/artifacts/{art}/raw", params={"download": 1})
+    assert (saved.text, saved.headers["content-type"]) == (page, TEXT)
+    assert _disposition(saved) == ("attachment", "ke-hoach-tuan.html.txt", "Kế hoạch tuần.html.txt")
+    _contained(saved)
+
+
+def test_a_drawing_is_shown_as_an_image_that_downloads_and_is_saved_as_text(client, store: Store):
+    """An `<img>` draws an SVG without running its script and ignores the disposition of the
+    answer, so the panel still shows it. Opened as a document the answer downloads instead, and
+    under a name a browser will not run from the disk."""
+    svg = '<svg xmlns="http://www.w3.org/2000/svg" onload="fetch(\'/api/settings\')"/>'
+    art = store.artifacts.create("Sơ đồ", "svg", "", USER, "", svg).id
+    shown = client.get(f"/api/artifacts/{art}/raw")
+    assert (shown.status_code, shown.text) == (200, svg)
+    assert shown.headers["content-type"] == "image/svg+xml"
+    assert _disposition(shown) == ("attachment", "so-do.svg.txt", "Sơ đồ.svg.txt")
+    _contained(shown)
+    saved = client.get(f"/api/artifacts/{art}/raw", params={"download": 1})
+    assert (saved.text, saved.headers["content-type"]) == (svg, TEXT)
+    assert _disposition(saved) == ("attachment", "so-do.svg.txt", "Sơ đồ.svg.txt")
+    _contained(saved)
+
+
+def test_a_diagram_is_text_whether_it_is_shown_or_saved(client, store: Store):
+    art = store.artifacts.create("Luồng", "mermaid", "", USER, "", "graph TD\n  A --> B\n").id
+    for params, disposition in (({}, "inline"), ({"download": 1}, "attachment")):
+        response = client.get(f"/api/artifacts/{art}/raw", params=params)
+        assert response.text == "graph TD\n  A --> B\n"
+        assert response.headers["content-type"] == TEXT
+        assert _disposition(response) == (disposition, "luong.mmd", "Luồng.mmd")
+        _contained(response)
+
+
+@pytest.mark.parametrize(("extension", "data", "media_type"), PICTURES)
+def test_a_picture_goes_out_as_its_own_bytes_under_the_type_they_give(
+    client, store: Store, extension, data, media_type
+):
+    art = store.artifacts.create("Ảnh bìa", "image", "", USER, "", data=data).id
+    assert client.get(f"/api/artifacts/{art}").json()["content"] is None
+    shown = client.get(f"/api/artifacts/{art}/raw")
+    assert (shown.status_code, shown.content) == (200, data)
+    assert shown.headers["content-type"] == media_type
+    assert _disposition(shown) == ("inline", "anh-bia" + extension, "Ảnh bìa" + extension)
+    _contained(shown)
+    saved = client.get(f"/api/artifacts/{art}/raw", params={"download": 1})
+    assert (saved.content, saved.headers["content-type"]) == (data, media_type)
+    assert _disposition(saved) == ("attachment", "anh-bia" + extension, "Ảnh bìa" + extension)
+    _contained(saved)
+
+
+def test_an_older_version_of_a_picture_comes_with_its_own_bytes_and_type(client, store: Store):
+    (_, png, _), (_, jpeg, _) = PICTURES[0], PICTURES[1]
+    art = store.artifacts.create("Ảnh", "image", "", USER, "", data=png).id
+    store.artifacts.write(art, None, "agent:coach", "", data=jpeg)
+    older = client.get(f"/api/artifacts/{art}/raw", params={"version": 1})
+    assert (older.content, older.headers["content-type"]) == (png, "image/png")
+    newest = client.get(f"/api/artifacts/{art}/raw")
+    assert (newest.content, newest.headers["content-type"]) == (jpeg, "image/jpeg")
+    assert _disposition(newest)[2] == "Ảnh.jpg"

@@ -2,6 +2,8 @@
 quotes back what changed, a rewrite starts only from the newest version the conversation saw
 whole, and a write over versions it never saw says who wrote them."""
 
+import re
+
 import pytest
 
 from my_agent_crew.agent.turn_context import CHAT, set_turn_conversation, set_turn_source
@@ -16,6 +18,7 @@ from my_agent_crew.texts_canvas import (
     ARTIFACT_NOT_FOUND,
     ARTIFACT_REWRITE_UNSEEN,
     ARTIFACT_VERSION_CONFLICT,
+    LINE_CUT_TAIL,
     LINES_CUT,
 )
 from my_agent_crew.tools.artifact import build_artifact_tools
@@ -43,6 +46,9 @@ from tests.canvas_helpers import (
 )
 
 PLAN = "# Kế hoạch\nchạy 5 km\nbơi\n"
+WRITABLE = "markdown, code, html, svg, mermaid"
+PICTURE = b"\x89PNG\r\n\x1a\n" + bytes(8)
+LINE_CUT = re.escape(LINE_CUT_TAIL).replace(r"\{n\}", r"\d+")
 
 
 @pytest.fixture(autouse=True)
@@ -62,6 +68,14 @@ async def _created(store: Store, content: str = PLAN, title: str = "Kế hoạch
     args = {"title": title, "kind": "markdown", "content": content}
     art, version, _ = tagged(await call(store, "artifact_create", args))
     assert version == 1
+    return art
+
+
+def _picture(store: Store, *links: str) -> str:
+    """A picture a person imported, linked to each conversation in `links`."""
+    art = store.artifacts.create("Ảnh của người", "image", "", USER, "", data=PICTURE).id
+    for conversation_id in links:
+        store.artifact_links.link(conversation_id, art)
     return art
 
 
@@ -295,17 +309,72 @@ async def test_a_kind_agents_do_not_write_is_refused_only_once_the_canvas_is_in_
     """Out of reach, the refusal is the one for a canvas that does not exist, so it never
     tells the kind of a canvas the agent cannot open."""
     conv = turn(store)
-    linked = persons_canvas(store, "<p>chào</p>", conv.id, kind="html")
-    hidden = persons_canvas(store, "<p>ẩn</p>", kind="html")
-    await _read_whole(store, linked)
-    closed = _failed(ARTIFACT_KIND_CLOSED.format(kinds="markdown, code"))
+    linked = _picture(store, conv.id)
+    hidden = _picture(store)
+    closed = _failed(ARTIFACT_KIND_CLOSED.format(kinds=WRITABLE))
     edit = {"old": "chào", "new": "xin chào"}
     assert (await call(store, "artifact_edit", {"id": linked, **edit})).output == closed
     rewrite = {"id": linked, "content": "<p>mới</p>"}
     assert (await call(store, "artifact_rewrite", rewrite)).output == closed
     missing = _failed(ARTIFACT_NOT_FOUND.format(id=hidden))
     assert (await call(store, "artifact_edit", {"id": hidden, **edit})).output == missing
+    assert (await call(store, "artifact_rewrite", {**rewrite, "id": hidden})).output == missing
     assert store.artifacts.head(linked).version == 1
+
+
+@pytest.mark.parametrize(
+    ("kind", "page", "old", "new", "edited"),
+    [
+        (
+            "html",
+            "<h1>Chào</h1>\n<p>Bơi</p>\n",
+            "<p>Bơi</p>",
+            "<p>Chạy</p>",
+            "<h1>Chào</h1>\n<p>Chạy</p>\n",
+        ),
+        (
+            "svg",
+            '<svg xmlns="http://www.w3.org/2000/svg">\n<circle r="4"/>\n</svg>\n',
+            'r="4"',
+            'r="9"',
+            '<svg xmlns="http://www.w3.org/2000/svg">\n<circle r="9"/>\n</svg>\n',
+        ),
+        ("mermaid", "graph TD\n  A --> B\n", "A --> B", "A --> C", "graph TD\n  A --> C\n"),
+    ],
+)
+async def test_an_agent_edits_and_rewrites_a_page_a_drawing_and_a_diagram(
+    store: Store, kind: str, page: str, old: str, new: str, edited: str
+):
+    turn(store)
+    created = {"title": "Trang", "kind": kind, "content": page}
+    art, _, _ = tagged(await call(store, "artifact_create", created))
+    assert tagged(await call(store, "artifact_edit", {"id": art, "old": old, "new": new}))[1] == 2
+    assert store.artifacts.head(art).content == edited
+    assert tagged(await call(store, "artifact_rewrite", {"id": art, "content": page}))[1] == 3
+    assert store.artifacts.head(art).content == page
+    assert store.artifacts.get(art).kind == kind
+
+
+async def test_a_page_on_one_line_too_long_to_read_is_edited_in_parts_never_rewritten(
+    store: Store,
+):
+    """A line is cut at what one result may hold, so a page minified onto one line is never
+    read to its end through the tool, though the page ends there, and a rewrite from a read
+    that was cut is refused. The refusal sends the agent to `artifact_edit`, which needs no
+    read of the whole."""
+    conv = turn(store)
+    page = "<p>" + "x" * 1024 * 1024 + "</p>"
+    art = persons_canvas(store, page, conv.id, kind="html")
+    read = await call(store, "artifact_read", {"id": art})
+    assert read.ok and re.search(LINE_CUT, read.output)
+    assert seen(store, conv, art) == 0
+    refused = await call(store, "artifact_rewrite", {"id": art, "content": "<p>mới</p>"})
+    assert refused.output == _failed(ARTIFACT_REWRITE_UNSEEN.format(id=art))
+    assert "artifact_edit" in refused.output
+    assert store.artifacts.head(art).content == page
+    edit = {"id": art, "old": "<p>", "new": "<p class='a'>"}
+    assert tagged(await call(store, "artifact_edit", edit))[1] == 2
+    assert store.artifacts.head(art).content == page.replace("<p>", "<p class='a'>", 1)
 
 
 async def test_a_diff_quoting_backticks_gets_a_longer_fence(store: Store):
