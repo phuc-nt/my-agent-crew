@@ -2065,3 +2065,36 @@ tên một test thì sửa dòng của nó trong cùng commit.
     ("test_an_author_that_is_neither_the_person_nor_an_agent_is_refused",
     "test_a_creator_that_does_not_match_its_author_is_refused": `agent:Coach` và mã có xuống
     dòng ở cuối không ghi được canvas); mẫu ở `my_agent_crew/agent_ids.py`
+- **Thread bám theo tin mới nhất khi câu trả lời đổ về một lượt; chỉ cuộn lên mới nhả**
+  - vitest: `hooks/use-auto-scroll.test.ts` ("stays pinned when its own scroll is reported after the
+    content grew again, and lets go once the reader moves up": trình duyệt báo cú cuộn của chính hook
+    chậm một khung hình, lúc đó nội dung đã dài thêm nên khoảng cách tới đáy đọc ra xa dù không ai
+    cuộn, thread vẫn bám và chỉ nhả khi vị trí đi lên; "stays pinned when the report of its own jump
+    finds the element exactly where it left it"; "counts the jump its size observer makes as where
+    the element was left": bộ quan sát kích thước cũng ghi lại chỗ nó vừa nhảy tới; "does not take
+    hold again on a scroll down that stops short of the bottom"; "lets go when the reader scrolls up
+    straight after a jump to the newest"). Lỗi thật thấy trên trình duyệt (390 px và 1000 px, model
+    echo): sau vài tin thread ngừng bám giữa chừng, nút "Tin mới nhất" hiện lên và câu trả lời nằm
+    ngoài màn hình
+  - vitest: `components/message-thread.test.tsx` ("marks the thread as following while it is at its
+    newest line, so the browser's anchoring stays out of it", "drops the mark once the reader scrolls
+    up, and offers the way back to the newest line", "brings the mark back when the reader jumps to
+    the newest line": thread mang `data-following` khi đang ở dòng mới nhất, mất khi người đọc cuộn
+    lên và có nút "Tin mới nhất" để quay về)
+  - Playwright: `thread-follow.spec.ts` (390 px, hội thoại tám lượt với câu trả lời nhiều dòng, câu
+    trả lời của lượt mới được giữ lại tới khi test thả ra; "the browser's own anchoring is off while
+    the thread follows its newest line and on once it is read": `overflow-anchor` tính ra là `none`
+    khi thread bám, `auto` khi người đọc cuộn lên và `none` lại sau "Tin mới nhất", đây là test ghim
+    nguyên nhân; "a reader who scrolled back keeps their place when the buttons above leave": đầu câu
+    trả lời đang đọc không xê dịch khi nút rẽ nhánh phía trên biến mất, chặn việc tắt neo cuộn cho
+    mọi thread; "a turn that starts with the thread on its newest line leaves it there": lượt bắt đầu
+    rồi câu trả lời về xong, thread vẫn ở dòng mới nhất và không có "Tin mới nhất")
+  - Nguyên nhân thứ hai của cùng triệu chứng, thấy khi kiểm tay ở 390 px với câu hỏi về một đoạn
+    canvas: lúc lượt bắt đầu các nút rẽ nhánh phía trên biến mất (khoảng 44 px mỗi tin của người) và
+    Chrome hạ vị trí cuộn theo (scroll anchoring) để giữ yên dòng đang xem, trong khi khoảng 93 px
+    nội dung mới (tin của người và khối đang nghĩ) hiện ra bên dưới: chỗ còn lại cách đáy
+    93 − 44 × (số hàng nút từ điểm neo trở xuống) px, tức 49 px khi còn một hàng, vượt ngưỡng 48 px.
+    Nếu sự kiện cuộn đến trước bộ quan sát kích thước, hook thấy cách đáy hơn 48 px và coi là người
+    đọc cuộn lên. Thứ tự hai việc đó khác nhau giữa các đường gửi (đã đo: gửi từ ô nhắn thì bộ quan
+    sát bám trước, gửi từ thanh hỏi về canvas thì sự kiện cuộn đến trước), nên test "a turn that
+    starts…" đạt cả trước khi sửa; chỉ test ghim công tắc `overflow-anchor` đỏ trước khi sửa

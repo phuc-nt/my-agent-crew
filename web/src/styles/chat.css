@@ -52,6 +52,14 @@
   overscroll-behavior: contain;
 }
 
+/* While the thread follows its newest line, `use-auto-scroll` is what moves it. The browser's
+   scroll anchoring would move it too whenever height above the view goes (the fork buttons
+   leave when a turn starts), and the hook reads that as the reader scrolling up and lets go.
+   A reader who has scrolled back keeps the anchoring, so what they are reading holds still. */
+.thread[data-following] {
+  overflow-anchor: none;
+}
+
 .jump-newest {
   position: absolute;
   bottom: var(--space-4);

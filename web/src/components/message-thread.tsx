@@ -91,7 +91,13 @@ export function MessageThread({
 
   return (
     <div className="thread-frame">
-      <section className="thread" aria-live="polite" ref={scroll.ref} onScroll={scroll.onScroll}>
+      <section
+        className="thread"
+        aria-live="polite"
+        ref={scroll.ref}
+        onScroll={scroll.onScroll}
+        data-following={scroll.atBottom || undefined}
+      >
       {items.map((item) => (
         <Item
             key={item.id}

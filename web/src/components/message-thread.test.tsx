@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { agentFileUrl } from "../api/client";
 import type { RunInfo, RunStep } from "../api/types";
@@ -291,6 +291,57 @@ describe("the canvas note under a user message", () => {
     expect(second.nextElementSibling).toBe(note);
     expect(first.nextElementSibling).not.toBe(note);
     expect(third.previousElementSibling).not.toBe(note);
+  });
+});
+
+describe("the thread's hold on its newest line", () => {
+  function longThread() {
+    const { container } = render(
+      <MessageThread
+        items={[userItem, { id: "a1", kind: "assistant", text: "đã tìm xong", model: null }]}
+        streaming={null}
+        busy={false}
+        onSuggestion={() => {}}
+        echoOnly={false}
+        agentId="master"
+      />,
+    );
+    const section = container.querySelector("section.thread") as HTMLElement;
+    // jsdom lays nothing out: the geometry of a thread much taller than its window is given.
+    Object.defineProperty(section, "scrollHeight", { value: 2000, configurable: true });
+    Object.defineProperty(section, "clientHeight", { value: 600, configurable: true });
+    Object.defineProperty(section, "scrollTop", { value: 0, writable: true, configurable: true });
+    return section;
+  }
+
+  it("marks the thread as following while it is at its newest line, so the browser's anchoring stays out of it", () => {
+    // The stylesheet turns the browser's scroll anchoring off for this mark: while the thread
+    // follows, the browser lowering the position when height above the view goes would read
+    // as the person scrolling up.
+    const section = longThread();
+    expect(section).toHaveAttribute("data-following");
+  });
+
+  it("drops the mark once the reader scrolls up, and offers the way back to the newest line", () => {
+    const section = longThread();
+
+    section.scrollTop = 100;
+    fireEvent.scroll(section);
+
+    expect(section).not.toHaveAttribute("data-following");
+    expect(screen.getByTestId("jump-newest")).toHaveTextContent(vi.jumpToNewest);
+  });
+
+  it("brings the mark back when the reader jumps to the newest line", () => {
+    const section = longThread();
+    section.scrollTop = 100;
+    fireEvent.scroll(section);
+
+    fireEvent.click(screen.getByTestId("jump-newest"));
+
+    expect(section).toHaveAttribute("data-following");
+    expect(section.scrollTop).toBe(2000);
+    expect(screen.queryByTestId("jump-newest")).toBeNull();
   });
 });
 

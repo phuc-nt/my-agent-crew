@@ -216,6 +216,13 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   to the box. A message the server refused neither gave its words back nor took its bubble back,
   and now does both. A send cut off on purpose, by Stop or by leaving the conversation, counts
   as sent, not as failed.
+- The conversation no longer stops following its newest line while a reply arrives. A reply that
+  came in a burst, or a turn whose start removed the fork buttons above the view (the browser
+  then shifted the scroll position to hold the lines in view still), could read as the reader
+  scrolling up: the thread stayed where it was, "Tin mới nhất" appeared and the answer sat below
+  the screen. Only a move up lets go of the newest line now, and the browser's own scroll
+  anchoring is off while the thread follows; a reader who has scrolled back keeps it, so what
+  they are reading holds still.
 
 ### Changed
 
