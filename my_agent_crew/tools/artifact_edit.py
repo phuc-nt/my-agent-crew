@@ -6,24 +6,21 @@ change inside the store's lock and quote back a diff of what changed."""
 
 from __future__ import annotations
 
-import asyncio
 from typing import TYPE_CHECKING, Any
 
 from my_agent_crew.agent.turn_context import note_canvas_write
-from my_agent_crew.artifacts.diff import fenced_diff
 from my_agent_crew.artifacts.kinds import cap_bytes, clean_title, prepare
 from my_agent_crew.artifacts.tag import artifact_tag
 from my_agent_crew.store.artifact_authors import authors_line
-from my_agent_crew.texts import TOOL_FAILED
-from my_agent_crew.texts_canvas import ARTIFACT_REWRITE_UNSEEN, ARTIFACT_VERSION_CONFLICT
+from my_agent_crew.texts_canvas import ARTIFACT_REWRITE_UNSEEN
 from my_agent_crew.tools.artifact_context import (
-    CUT_MARK_ROOM,
     CanvasAgent,
     flag_arg,
     line_count,
     optional_text,
     text_arg,
 )
+from my_agent_crew.tools.artifact_quote import edit_diff, rewrite_conflict
 from my_agent_crew.tools.artifact_scope import (
     canvas_errors,
     check_agent_kind,
@@ -31,7 +28,6 @@ from my_agent_crew.tools.artifact_scope import (
     check_channel,
 )
 from my_agent_crew.tools.artifact_texts import (
-    ARTIFACT_CONFLICT_DIFF,
     ARTIFACT_EDITED,
     ARTIFACT_RENAMED,
     ARTIFACT_REWRITTEN,
@@ -44,11 +40,6 @@ from my_agent_crew.tools.text_nearest import explain_miss
 if TYPE_CHECKING:
     from my_agent_crew.store.artifact_models import ArtifactVersion
     from my_agent_crew.store.models import Conversation
-
-# The most a diff takes in a result: enough to check that an edit landed where it was meant,
-# and to see what someone else changed before trying a rewrite again.
-EDIT_DIFF_CHARS = 1500
-CONFLICT_DIFF_CHARS = 4000
 
 
 class _Unchanged(Exception):
@@ -105,8 +96,7 @@ async def run_edit(agent: CanvasAgent, args: dict[str, Any]) -> str:
         authors = authors_line(history, seen, head.version)
         if authors:
             parts.append(authors)
-    room = min(EDIT_DIFF_CHARS, agent.limit - sum(len(p) + 1 for p in parts) - CUT_MARK_ROOM)
-    parts.append(fenced_diff(head.content or "", written.content or "", room))
+    parts.append(await edit_diff(agent.limit, parts, head.content or "", written.content or ""))
     return "\n".join(parts)
 
 
@@ -134,7 +124,7 @@ async def run_rewrite(agent: CanvasAgent, args: dict[str, Any]) -> str:
                 artifact_id, change, agent.author, conv.id, title=title
             )
     except _Stale as exc:
-        raise await _conflict(agent, artifact_id, seen, exc.head) from None
+        raise await rewrite_conflict(agent, artifact_id, seen, exc.head) from None
     except _Unchanged as exc:
         return _unchanged(agent, artifact_id, exc.version, title)
     _written(agent, conv, artifact_id, written.version, moved=True)
@@ -174,22 +164,3 @@ def _unchanged(agent: CanvasAgent, artifact_id: str, version: int, title: str | 
                 renamed = agent.store.artifacts.rename(artifact_id, title)
                 lines.append(ARTIFACT_RENAMED.format(title=renamed.title))
     return "\n".join(lines)
-
-
-async def _conflict(
-    agent: CanvasAgent, artifact_id: str, seen: int, head: ArtifactVersion
-) -> ToolError:
-    """The refusal of a rewrite over versions the conversation has not seen: who wrote them
-    and what they changed since its version, so the agent can redo its change on theirs."""
-    with canvas_errors(artifact_id):
-        old = agent.store.artifacts.version(artifact_id, seen)
-        history = agent.store.artifacts.versions(artifact_id)
-    parts = [ARTIFACT_VERSION_CONFLICT.format(head=head.version)]
-    authors = authors_line(history, seen, head.version)
-    if authors:
-        parts.append(authors)
-    parts.append(ARTIFACT_CONFLICT_DIFF.format(seen=seen, head=head.version))
-    taken = len(TOOL_FAILED.format(error="")) + sum(len(p) + 1 for p in parts) + CUT_MARK_ROOM
-    room = min(CONFLICT_DIFF_CHARS, agent.limit - taken)
-    block = await asyncio.to_thread(fenced_diff, old.content or "", head.content or "", room)
-    return ToolError("\n".join([*parts, block]))

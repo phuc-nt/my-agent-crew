@@ -30,6 +30,15 @@ ARTIFACT_EDIT_TOO_LARGE = (
     "Sau khi sửa, canvas sẽ nặng {size} byte, quá trần {cap} byte của loại này. Chưa sửa gì: bớt"
     " nội dung, hoặc chuyển phần dài sang một canvas khác."
 )
+# Said where a diff would be when a change spreads over too many lines to compare line by line.
+ARTIFACT_EDIT_DIFF_WIDE = (
+    "Chỗ đã đổi trải qua quá nhiều dòng để liệt kê từng chỗ khác biệt. Cần kiểm tra kết quả thì"
+    " đọc lại bằng artifact_read."
+)
+ARTIFACT_CONFLICT_WIDE = (
+    "Từ v{seen}, bản bạn thấy lần cuối, tới v{head} đã đổi quá nhiều dòng để liệt kê từng chỗ:"
+    " đọc bản mới nhất bằng artifact_read thay vì xem phần khác biệt."
+)
 
 # Who wrote the versions the agent has not seen yet, oldest first: "v3–v5 người, v6 agent:coach".
 AUTHOR_PERSON = "người"

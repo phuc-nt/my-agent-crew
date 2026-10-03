@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from functools import partial
 from typing import TYPE_CHECKING
 
-from my_agent_crew.artifacts.diff import diff_text, middle_lines
+from my_agent_crew.artifacts.diff import MIDDLE_LINES, diff_text, middle_lines
 from my_agent_crew.artifacts.kinds import TEXT_KINDS
 from my_agent_crew.store.artifact_authors import authors_line
 from my_agent_crew.store.artifact_models import USER, ArtifactSummary, Focus, Link, VersionGone
@@ -38,8 +38,6 @@ log = logging.getLogger(__name__)
 
 # The web chat's turn source, where the open canvas lives; a test keeps it the agent's own.
 WEB_CHAT = "chat"
-# A person's change is diffed only while its changed middle is at most this many lines.
-MIDDLE_LINES = 600
 MAX_DIFFS = 3  # canvases one note diffs; the rest get a line each
 NOTE_CHARS = 8000  # the whole note, its frame and overflow line included
 DIFF_CHARS = 3000  # one canvas's diff

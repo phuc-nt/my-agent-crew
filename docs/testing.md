@@ -1451,6 +1451,21 @@ tên một test thì sửa dòng của nó trong cùng commit.
     LF và theo chỗ trong chữ mới, không khác gì thì diff rỗng, chỉ phần giữa đã đổi được so,
     "test_a_diff_quoting_a_backtick_run_is_drawn_again_to_fit_a_longer_fence", chỗ quá nhỏ vẫn kết
     thúc bằng số đếm)
+- **Canvas: chỗ đổi trải quá rộng thì kết quả nói bằng lời, diff vẽ ra thì vẽ ngoài vòng lặp chung**
+  - pytest: `tests/test_artifact_quote.py`
+    ("test_an_edit_spread_over_too_many_lines_is_written_and_quotes_no_diff": sửa vẫn được ghi,
+    kết quả kết thúc bằng lời bảo đọc lại bằng `artifact_read` chứ không có khung diff, và việc so
+    từng dòng không chạy lần nào (`SequenceMatcher` bị thay bằng hàm báo lỗi),
+    "test_a_rewrite_refused_over_a_wide_change_sends_the_agent_to_read_instead": lời từ chối vẫn
+    nêu bản mới nhất và ai viết, rồi bảo đọc bản mới nhất thay vì xem phần khác biệt, cũng không so
+    dòng nào, "test_a_change_just_inside_the_limit_is_still_compared_and_quoted": chỗ đổi trải
+    đúng `MIDDLE_LINES` dòng vẫn được so và trích, cả khi sửa lẫn khi bị từ chối viết lại,
+    "test_a_diff_is_drawn_off_the_thread_that_serves_every_conversation": diff được vẽ đúng một
+    lần, trên một luồng khác luồng của vòng lặp sự kiện, ở cả `artifact_edit` lẫn
+    `artifact_rewrite`). Số dòng của các ca lấy từ chính `MIDDLE_LINES` chứ không chép con số 600,
+    và luồng được đo bằng định danh luồng chứ không bằng thời gian, nên các test neo vào việc "quá
+    rộng thì không so" và "so thì không chiếm vòng lặp", không neo vào một ngưỡng hay một tốc độ.
+    Ghi chú canvas dùng chung ngưỡng này (`tests/test_canvas_note.py`)
 - **Canvas: lượt sau không mang lại chữ mà lượt trước đã ghi vào canvas**
   - pytest: `tests/test_canvas_payload_trim.py`
     ("test_a_steer_mid_turn_leaves_the_document_the_turn_wrote_whole",

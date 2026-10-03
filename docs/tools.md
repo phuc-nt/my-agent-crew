@@ -521,10 +521,14 @@ nhận thêm quyền ghi.
   thì lời từ chối trích nguyên văn chỗ giống nhất, khi có một chỗ đủ giống mà không chỗ nào khác
   giống ngang nó. Sửa xong, kết quả nêu cỡ mới của canvas, số byte và số dòng đếm như trang
   đọc, để agent đang nới một tài liệu tới độ dài được yêu cầu không phải đọc lại hay đo bằng
-  shell sau mỗi lần sửa.
+  shell sau mỗi lần sửa. Kết quả cũng trích diff của chỗ vừa đổi; phần giữa hai bản đổi quá 600
+  dòng thì diff không được vẽ, thay bằng một câu bảo đọc lại bằng `artifact_read`, vì so từng
+  dòng tốn thời gian theo bình phương số dòng đó. Diff vẽ ra được tính trong một luồng riêng để
+  không chiếm vòng lặp mà mọi cuộc trò chuyện của máy chủ dùng chung.
 - **Viết lại cả canvas** chỉ chạy khi bản mới nhất là bản cuộc trò chuyện đã thấy trọn, qua một
   lần đọc hết hay vì chính nó vừa ghi bản đó. Có người hay agent khác lưu từ đó thì lần ghi bị từ
-  chối kèm diff của phần họ đổi, và lời từ chối dặn sửa bằng `artifact_edit`. Mô tả của tool
+  chối kèm diff của phần họ đổi (khi phần đó đổi quá 600 dòng thì thay diff bằng câu bảo đọc bản
+  mới nhất bằng `artifact_read`), và lời từ chối dặn sửa bằng `artifact_edit`. Mô tả của tool
   nói rõ bản agent vừa tạo hay viết lại trong lượt thì không cần đọc lại, còn mô tả của
   `artifact_create` dặn sửa chính canvas đã có thay vì tạo canvas thứ hai cho cùng tài liệu: khi
   đo, model thấy bản nháp đầu ngắn hơn yêu cầu thì có lúc đọc lại từng trang vừa gửi, có lúc tạo

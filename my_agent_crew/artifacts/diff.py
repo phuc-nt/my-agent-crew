@@ -14,6 +14,10 @@ from my_agent_crew.texts_canvas import DIFF_HUNK, LINE_CUT_HEAD, LINE_CUT_TAIL, 
 DIFF_LINE_CHARS = 300
 # The narrowest a cut line may be: both marks fit beside some text even on a 4 MB line.
 MIN_LINE_CHARS = 60
+# A change is drawn as a diff only while the lines between the ends both texts share number at
+# most this many: comparing them line by line takes time in step with the square of that count,
+# so past it the change is told in a sentence instead, wherever a diff would have been drawn.
+MIDDLE_LINES = 600
 
 
 def fenced(text: str, info: str = "") -> str:
