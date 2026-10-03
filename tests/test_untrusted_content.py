@@ -12,10 +12,12 @@ import pytest
 from fastapi.testclient import TestClient
 
 from my_agent_crew.server import create_app
+from my_agent_crew.server.security_headers import FRAME_ANCESTORS
 from my_agent_crew.server.untrusted_content import disposition
 
 # No `allow-scripts`, no `allow-same-origin`: a page opened from here runs no script and has
-# an opaque origin, whose requests the local guard refuses.
+# an opaque origin, whose requests the local guard refuses. The rule against framing the app
+# goes out after it, as a second policy on every response.
 SANDBOX = "default-src 'none'; style-src 'unsafe-inline'; sandbox"
 TEXT = "text/plain; charset=utf-8"
 HEADER = re.compile(
@@ -57,7 +59,7 @@ def test_raster_images_and_plain_text_open_in_place_inside_a_sandbox(served, nam
     response = _get(served, name)
     assert response.headers["content-type"] == media_type
     assert response.headers["content-disposition"].startswith("inline;")
-    assert response.headers["content-security-policy"] == SANDBOX
+    assert response.headers.get_list("content-security-policy") == [SANDBOX, FRAME_ANCESTORS]
 
 
 @pytest.mark.parametrize(
@@ -85,7 +87,7 @@ def test_every_other_file_downloads_as_bytes(served, name):
     response = _get(served, name, b"<script>fetch('/api/settings')</script>")
     assert response.headers["content-type"] == "application/octet-stream"
     assert response.headers["content-disposition"].startswith("attachment;")
-    assert response.headers["content-security-policy"] == SANDBOX
+    assert response.headers.get_list("content-security-policy") == [SANDBOX, FRAME_ANCESTORS]
 
 
 def test_an_svg_downloads_when_opened_and_still_shows_in_an_img(served):
@@ -93,14 +95,14 @@ def test_an_svg_downloads_when_opened_and_still_shows_in_an_img(served):
     response = _get(served, "chart.svg", svg)
     assert response.headers["content-type"] == "image/svg+xml"
     assert response.headers["content-disposition"].startswith("attachment;")
-    assert response.headers["content-security-policy"] == SANDBOX
+    assert response.headers.get_list("content-security-policy") == [SANDBOX, FRAME_ANCESTORS]
 
 
 def test_a_pdf_opens_in_place_without_the_sandbox_its_viewer_cannot_run_in(served):
     response = _get(served, "report.pdf", b"%PDF-1.4")
     assert response.headers["content-type"] == "application/pdf"
     assert response.headers["content-disposition"].startswith("inline;")
-    assert "content-security-policy" not in response.headers
+    assert response.headers.get_list("content-security-policy") == [FRAME_ANCESTORS]
 
 
 @pytest.mark.parametrize("name", ["a.png", "a.svg", "a.pdf", "a.txt", "a.html", "a"])

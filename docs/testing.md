@@ -82,6 +82,10 @@ Vài test bảo vệ repo chứ không phải một tính năng:
 - **bundle** trong `my_agent_crew/server/static` có mặt và được phục vụ ở `/`, với 404 của `/api/*`
   vẫn là JSON; mọi icon và manifest mà trang và manifest trỏ tới đều có trong bundle và được
   phục vụ đúng content-type;
+- **không trang nào của site khác nhúng được app**: trang, API, asset có băm, 404 và cả 403 của hàng
+  rào cục bộ đều mang `Content-Security-Policy: frame-ancestors 'self'`, thành một header riêng đứng
+  sau policy mà route tự đặt (raw và tệp của agent giữ nguyên policy sandbox của chúng); luồng SSE vẫn
+  tới client lúc còn mở (`tests/test_security_headers.py`);
 - **khởi động chỉ nạp thứ cần**: một tiến trình con import server rồi kiểm tra `pypdf` và
   `pypdfium2` chưa được nạp — chúng chỉ nạp khi có PDF cần đọc;
 - **chi phí ngoài model** có test riêng: store mở ở chế độ WAL và có index cho các truy vấn

@@ -11,6 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from my_agent_crew.server import create_app
+from my_agent_crew.server.security_headers import FRAME_ANCESTORS
 from my_agent_crew.store.artifact_models import USER
 from my_agent_crew.store.db import Store
 from tests.canvas_helpers import PLAN, SWIM, agents_canvas
@@ -100,7 +101,7 @@ def test_the_raw_text_is_plain_text_that_runs_nothing(client, store: Store):
     assert response.headers["content-type"] == "text/plain; charset=utf-8"
     assert response.headers["x-content-type-options"] == "nosniff"
     assert response.headers["cross-origin-resource-policy"] == "same-origin"
-    assert response.headers["content-security-policy"] == SANDBOX
+    assert response.headers.get_list("content-security-policy") == [SANDBOX, FRAME_ANCESTORS]
     assert response.headers["content-disposition"].startswith("inline;")
 
 
@@ -125,7 +126,7 @@ def test_a_download_is_named_after_the_title_in_any_script(
     created = store.artifacts.create("Kế hoạch tuần", kind, "", USER, "", "x", language=language)
     response = client.get(f"/api/artifacts/{created.id}/raw", params={"download": 1})
     assert response.headers["content-type"] == "text/plain; charset=utf-8"
-    assert response.headers["content-security-policy"] == SANDBOX
+    assert response.headers.get_list("content-security-policy") == [SANDBOX, FRAME_ANCESTORS]
     header = response.headers["content-disposition"]
     match = DISPOSITION.fullmatch(header)
     assert match, header
