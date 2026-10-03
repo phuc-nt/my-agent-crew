@@ -117,3 +117,9 @@ CANVAS_NOTE_BUMP = "«{title}» (id {id}) đã lên v{head}."
 CANVAS_NOTE_READ = "Đọc bằng artifact_read."
 CANVAS_NOTE_LARGE = "Người đã sửa nhiều chỗ trong «{title}» (id {id}), từ v{base} lên v{head}."
 CANVAS_NOTE_MORE = "…và {n} canvas khác đã đổi; xem bằng artifact_list."
+
+# Said above a diagram's source when the page could not load the library that draws it: no
+# network, or a file that is not the one the page pins.
+RENDER_MERMAID_OFFLINE = (
+    "Không tải được thư viện Mermaid (có thể đang mất mạng) nên đây là mã nguồn của sơ đồ."
+)

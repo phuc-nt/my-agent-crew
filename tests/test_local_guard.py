@@ -106,6 +106,21 @@ def test_a_refused_name_is_told_how_to_allow_it_and_logged_once(tmp_path: Path, 
         ("/conversations/abc", "same-site", False),
         ("/assets/index.js", "cross-site", False),
         ("/apiary", "cross-site", False),  # only the API itself, not a path that starts alike
+        # A canvas's render page runs in an opaque origin, and a reload of it is cross-site.
+        ("/api/artifacts/abc/render", "cross-site", False),
+        ("/api/artifacts/abc/render", "same-site", False),
+        ("/api/artifacts/abc/render", "made-up", False),
+        # Only that address, whole: nothing beside it, under it or built from it.
+        ("/api/artifacts/abc/render/", "cross-site", True),
+        ("/api/artifacts/abc/render\n", "cross-site", True),  # what `%0A` decodes to
+        ("/api/artifacts/abc/render/x", "cross-site", True),
+        ("/api/artifacts/a/b/render", "cross-site", True),  # what `a%2Fb` decodes to
+        ("/api/artifacts//render", "cross-site", True),
+        ("/api/artifacts/render", "cross-site", True),
+        ("/api/artifacts/abc", "cross-site", True),
+        ("/api/artifacts/abc/raw", "same-site", True),
+        ("/api/artifacts/abc/versions", "cross-site", True),
+        ("/api/conversations/render", "cross-site", True),
     ],
 )
 def test_a_browser_request_to_the_api_must_not_say_it_came_from_elsewhere(
@@ -141,6 +156,41 @@ def test_cross_site_requests_are_refused_on_every_method_and_the_page_still_open
         assert page.status_code == 200 and 'id="root"' in page.text
     # The refusal is not about a name, so it is not logged as one to allow.
     assert not [r for r in caplog.records if "refused a request" in r.getMessage()]
+
+
+def test_only_the_render_page_of_a_canvas_is_open_to_a_request_from_elsewhere(
+    tmp_path: Path,
+) -> None:
+    settings = load_settings(env={"MY_AGENT_HOME": str(tmp_path), "MY_AGENT_ROUTES": "fake:echo"})
+    app = create_app(build_runtime(settings), schedule=False)
+    local = TestClient(app, base_url="http://127.0.0.1:8765")
+    with local:
+        made = local.post(
+            "/api/artifacts", json={"title": "Trang", "kind": "html", "content": "<p>hi</p>"}
+        )
+        art = made.json()["id"]
+        page = f"/api/artifacts/{art}/render"
+        for site in ("cross-site", "same-site"):
+            headers = {"Sec-Fetch-Site": site}
+            shown = local.get(page, headers=headers)
+            assert shown.status_code == 200, site
+            assert "<p>hi</p>" in shown.text
+            for path in (
+                f"/api/artifacts/{art}",
+                f"/api/artifacts/{art}/raw",
+                f"/api/artifacts/{art}/versions",
+                "/api/artifacts",
+                f"{page}/",
+                f"{page}/x",
+                f"{page}%0A",
+                "/api/artifacts/a%2Fb/render",
+            ):
+                refused = local.get(path, headers=headers)
+                assert refused.status_code == 403, (site, path)
+                assert refused.json() == {"detail": CROSS_SITE_REQUEST}
+        # The exception is for the address only: a foreign name or Origin is still turned away.
+        assert local.get(page, headers={"Origin": "null"}).status_code == 403
+        assert TestClient(app, base_url="http://evil.example:8765").get(page).status_code == 403
 
 
 def test_a_foreign_name_is_still_told_its_way_in_when_the_request_is_also_cross_site(

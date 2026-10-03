@@ -24,6 +24,7 @@ from my_agent_crew.server import (
     routes_agents_files,
     routes_approvals,
     routes_artifact_history,
+    routes_artifact_render,
     routes_artifacts,
     routes_canvas_focus,
     routes_chat,
@@ -78,6 +79,7 @@ ROUTERS = (
     routes_search.router,
     routes_artifacts.router,
     routes_artifact_history.router,
+    routes_artifact_render.router,
     routes_canvas_focus.router,
 )
 

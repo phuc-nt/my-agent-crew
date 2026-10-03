@@ -12,7 +12,9 @@ The table is pinned here rather than taken from `mimetypes`, which differs betwe
 documents that run scripts.
 
 A canvas takes the same two layers (`canvas_shown`): a page is plain text when it is read, a
-drawing an image that downloads when it is opened, a picture its own bytes.
+drawing an image that downloads when it is opened, a picture its own bytes. Only the render
+route runs a canvas as a page, in a sandbox of its own that allows scripts and has no way out
+(`artifacts/render.py`); nothing here ever does.
 """
 
 from __future__ import annotations

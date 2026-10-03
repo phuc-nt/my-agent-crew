@@ -115,11 +115,11 @@ def seen_canvas(store: Store, conv: Conversation, title: str = "Kế hoạch") -
     return art
 
 
-def agents_canvas(store: Store, agent_id: str, content: str = "# Kế hoạch\n") -> str:
+def agents_canvas(
+    store: Store, agent_id: str, content: str = "# Kế hoạch\n", kind: str = "markdown"
+) -> str:
     """A canvas `agent_id` made in some earlier conversation, linked to none."""
-    return store.artifacts.create(
-        "Kế hoạch", "markdown", agent_id, f"agent:{agent_id}", "", content
-    ).id
+    return store.artifacts.create("Kế hoạch", kind, agent_id, f"agent:{agent_id}", "", content).id
 
 
 async def created(store: Store, content: str, title: str = "Kế hoạch") -> str:

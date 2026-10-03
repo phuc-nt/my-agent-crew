@@ -84,14 +84,19 @@ Vài test bảo vệ repo chứ không phải một tính năng:
   phục vụ đúng content-type;
 - **không trang nào của site khác nhúng được app**: trang, API, asset có băm, 404 và cả 403 của hàng
   rào cục bộ đều mang `Content-Security-Policy: frame-ancestors 'self'`, thành một header riêng đứng
-  sau policy mà route tự đặt (raw và tệp của agent giữ nguyên policy sandbox của chúng); luồng SSE vẫn
-  tới client lúc còn mở (`tests/test_security_headers.py`);
+  sau policy mà route tự đặt (raw, tệp của agent và trang chạy của canvas giữ nguyên policy sandbox
+  của chúng); luồng SSE vẫn tới client lúc còn mở (`tests/test_security_headers.py`,
+  `tests/test_artifact_render.py`);
 - **API từ chối request mà trình duyệt báo đến từ site hay cổng khác**: `Sec-Fetch-Site` là
   `cross-site`, `same-site` hay một giá trị lạ thì 403 `CROSS_SITE_REQUEST` ở mọi method và cả khi
   đường dẫn viết bằng `%61` hay `%2F`; `same-origin`, `none` và không có header (curl, eval,
   Telegram) thì qua; trang, asset và đường dẫn chỉ bắt đầu giống `/api` không bị chặn, vì link từ
   nơi khác vào app phải mở được; lý do này không bị ghi log như một tên host cần cho phép, còn tên
-  host lạ vẫn nhận lời khuyên `MY_AGENT_ALLOWED_HOSTS` dù request cũng là cross-site
+  host lạ vẫn nhận lời khuyên `MY_AGENT_ALLOWED_HOSTS` dù request cũng là cross-site; ngoại lệ duy
+  nhất là đúng địa chỉ `/api/artifacts/{id}/render`, vì trang chạy của canvas có origin ẩn danh nên
+  tải lại nó là `cross-site`: `/render/`, `/render` kèm xuống dòng (`%0A`), `/render/x`,
+  `a%2Fb/render`, `raw`, `versions`, danh sách và canvas không đi theo ngoại lệ ấy, Origin hay host
+  lạ vẫn bị chặn, và địa chỉ đó chỉ nhận `GET` nên cho qua không đổi được gì
   (`tests/test_local_guard.py`);
 - **khởi động chỉ nạp thứ cần**: một tiến trình con import server rồi kiểm tra `pypdf` và
   `pypdfium2` chưa được nạp — chúng chỉ nạp khi có PDF cần đọc;
@@ -1550,6 +1555,40 @@ tên một test thì sửa dòng của nó trong cùng commit.
     ngữ lạ là `.txt`, code `html`, canvas html và svg là `.html.txt`, `.svg.txt` để mở tệp tải về
     chỉ thấy chữ, không chạy script, mermaid là `.mmd`; ảnh lấy đuôi từ byte của nó và `.bin` khi
     byte không cho đuôi nào, còn byte không bao giờ đổi tên của loại chữ)
+- **Canvas qua REST: trang chạy trong sandbox, không có đường nào ra ngoài**
+  - pytest: `tests/test_artifact_render.py` (chính sách viết ra nguyên văn trong test nên đổi nó là
+    đổi cả tệp này; `sandbox` chỉ có `allow-scripts`, không bao giờ `allow-same-origin`; chỉ
+    `frame-ancestors` nhắc `'self'`; `default-src`, `connect-src`, `form-action` và `base-uri` là
+    `'none'`, `img-src` và `media-src` chỉ có `data:` và `blob:`, không nguồn nào là `*`, `http:` hay
+    `https:` trần, `webrtc` bị chặn; thư viện của trang mermaid nằm trong `script-src`;
+    "test_a_page_goes_out_with_the_headers_of_a_page_that_runs_and_no_others": hai header
+    `Content-Security-Policy` (chính sách rồi `frame-ancestors`), `text/html`, `nosniff`,
+    `no-referrer`, `no-store` và không header nào khác ngoài `content-length` và `vary` của lớp nén;
+    canvas html ra đúng trang của nó kèm reporter, mermaid ra trang vẽ nguồn của nó, bản mới nhất
+    khi không hỏi bản nào, `version` bằng 0, âm hay không phải số là 422; markdown, code, svg và ảnh
+    là 404 `NOT_A_PAGE` kể cả khi kèm `version`, canvas không có là 404, bản đã gộp hay chưa có là
+    404 kèm số bản mới nhất; địa chỉ chỉ nhận `GET`, các method khác là 405 và không ghi gì);
+    `tests/test_render_pages.py` (reporter đứng ngay sau doctype mở đầu trang, sau cả BOM, khoảng
+    trắng và chú thích, và đứng trên cùng khi trang không có doctype, bỏ nó đi thì ra đúng canvas;
+    trình duyệt gặp doctype trước và reporter trước mọi script của trang; reporter không tự đóng
+    được thẻ `script` của nó và là JavaScript cổ trong một hàm không để lại biến toàn cục, vì một
+    trang không parse được thì không báo gì; một lời từ chối không phải `Error` (Mermaid từ chối sơ
+    đồ không parse được bằng object thường `{str, message, hash}`) được báo bằng `message` của nó
+    chứ không phải `[object Object]`;
+    "test_the_work_on_a_page_does_not_grow_with_the_square_of_what_it_holds": hai đầu vào mà bản cũ
+    tốn hàng giây hoặc vô tận (28 chú thích liền nhau trước một doctype không có, 64.000 khoảng
+    trắng trong sơ đồ có rào) phải xong dưới 0,5 s, vì cả hai chạy trên event loop; sơ đồ đóng
+    `</pre>` rồi mở `<script>` và tiêu đề đóng `</title>` đều ra thành chữ; một rào ba dấu huyền bọc
+    cả sơ đồ thì bỏ, mọi trường hợp khác giữ nguyên; thư viện là một phiên bản ghim kèm băm và
+    `crossorigin`, `securityLevel: "strict"` và `startOnLoad: false`; không có thư viện thì có dòng
+    báo ở trên nguồn; trang là tài liệu đủ bộ và reporter đứng trước mọi thứ nó tải);
+    `tests/test_render_fixtures.py` (`web/e2e/render-policy.txt` và `web/e2e/frame-reporter.js`, hai
+    tệp mà test trình duyệt đọc, bằng `render_csp()` và `REPORTER_JS` từng byte; sửa một bên mà quên
+    tệp thì test đỏ); `tests/test_local_guard.py`
+    ("test_only_the_render_page_of_a_canvas_is_open_to_a_request_from_elsewhere": với
+    `Sec-Fetch-Site` là `cross-site` hay `same-site`, địa chỉ render trả 200 còn canvas, `raw`,
+    `versions`, danh sách, `/render/`, `/render/x`, `/render%0A` và `a%2Fb/render` đều 403; Origin
+    lạ và host lạ vẫn bị từ chối)
 - **Canvas đang mở trên web: đặt, đọc, đóng; mở là chia sẻ với hội thoại**
   - pytest: `tests/test_api_canvas_focus.py` (đặt rồi đọc lại cùng vùng chọn, `null` là đóng, vùng
     chọn không kèm canvas là 422, mở canvas agent chỉ đọc thì chia sẻ nó, canvas chưa liên kết được
@@ -1630,8 +1669,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     từ luồng khác tới watcher trong 0,5 s mà không có lỗi nào; thiếu bước chuyển về loop thì test
     đỏ chứ không treo); `tests/test_api_artifact_invariants.py`
     ("test_every_canvas_route_and_the_chat_message_run_on_the_event_loop",
-    "test_no_read_changes_what_a_conversation_knows_or_has_open": mọi `GET` canvas giữ nguyên liên
-    kết, con trỏ đọc, canvas đang mở, phiên bản và tin)
+    "test_no_read_changes_what_a_conversation_knows_or_has_open": mọi `GET` canvas, kể cả trang
+    `render` của canvas html và mermaid ở bản mới nhất lẫn một bản cũ, giữ nguyên liên kết, con
+    trỏ đọc, canvas đang mở, phiên bản và tin)
 - **Canvas trên web: trộn ba chiều theo dòng, giữ con trỏ trên đúng ký tự, diff lịch sử giữ mọi dòng**
   - vitest: `web/src/lib/diff-lines.test.ts` (dòng trống, khoảng trắng cuối dòng và xuống dòng cuối là
     dòng thật, đầu đuôi chung được cắt trước khi áp trần, quá trần là null);

@@ -19,7 +19,10 @@ Two headers give that away, and a browser does not let a page forge either:
   paragraph above says. `same-origin` is the page's own calls — the Vite proxy's too, as the
   browser sees both at `localhost:5173` — and `none` an address typed or a bookmark opened.
   A program that is no browser (curl, the eval runner, Telegram) sends none and passes. The
-  pages themselves are not held to it: a link from elsewhere into the app has to open it.
+  pages themselves are not held to it: a link from elsewhere into the app has to open it. One
+  API address is let through whatever it says, a canvas's render page: it runs in an opaque
+  origin, framed by the app or in a tab of its own, and a page there that reloads itself is
+  `cross-site` to the browser. It only reads.
 
 Every path is guarded, not only the keys: a rebound page that could patch the master's
 Telegram chat, start a turn with tools, or fetch a file would be as bad as one that could
@@ -35,6 +38,7 @@ from __future__ import annotations
 
 import ipaddress
 import logging
+import re
 from collections.abc import Awaitable, Callable, Mapping
 from urllib.parse import urlsplit
 
@@ -50,6 +54,9 @@ MAX_LOGGED_HOSTS = 32
 SHOWN_HOST_CHARS = 100
 # What a browser says of a request that is the page's own or the person's.
 OWN_REQUESTS = frozenset({"same-origin", "none"})
+# The one API address a request from elsewhere may reach, matched whole: `[^/]+` takes a newline,
+# which `$` would let trail the address.
+RENDER_PATH = re.compile(r"/api/artifacts/[^/]+/render")
 
 
 def allowed_hosts(env: Mapping[str, str]) -> frozenset[str]:
@@ -98,11 +105,11 @@ def cross_site_refusal(path: str, fetch_site: str | None) -> str | None:
 
     `fetch_site` is the `Sec-Fetch-Site` header: absent from a program that is no browser, which
     passes. Any value but the two of the page and the person is refused, one this code does not
-    know included.
+    know included, except for the render page of a canvas.
     """
     if fetch_site is None or fetch_site in OWN_REQUESTS or not path.startswith("/api/"):
         return None
-    return CROSS_SITE_REQUEST
+    return None if RENDER_PATH.fullmatch(path) else CROSS_SITE_REQUEST
 
 
 def install_local_guard(app: FastAPI, extra: frozenset[str]) -> None:

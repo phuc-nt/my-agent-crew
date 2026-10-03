@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 from my_agent_crew.server import (
     create_app,
     routes_artifact_history,
+    routes_artifact_render,
     routes_artifacts,
     routes_canvas_focus,
     routes_chat,
@@ -21,7 +22,12 @@ from my_agent_crew.server import (
 from my_agent_crew.store.db import Store
 from tests.canvas_helpers import PLAN, SWIM, agents_canvas
 
-ROUTERS = (routes_artifacts.router, routes_artifact_history.router, routes_canvas_focus.router)
+ROUTERS = (
+    routes_artifacts.router,
+    routes_artifact_history.router,
+    routes_artifact_render.router,
+    routes_canvas_focus.router,
+)
 PICK = {"version": 2, "text": "bơi 1 km", "line_start": 3, "line_end": 3}
 
 
@@ -53,21 +59,27 @@ def _state(store: Store, conv_id: str, art: str) -> tuple:
     )
 
 
+READS = [
+    "/api/artifacts",
+    "/api/artifacts?conversation_id={conv}",
+    "/api/artifacts/{art}",
+    "/api/artifacts/{art}/versions",
+    "/api/artifacts/{art}/versions/1",
+    "/api/artifacts/{art}/raw",
+    "/api/artifacts/{art}/raw?version=1&download=1",
+    "/api/conversations/{conv}/canvas",
+]
+# The page of a canvas that runs, as the newest version and as an earlier one.
+PAGES = ["/api/artifacts/{art}/render", "/api/artifacts/{art}/render?version=1"]
+
+
 @pytest.mark.parametrize(
-    "path",
-    [
-        "/api/artifacts",
-        "/api/artifacts?conversation_id={conv}",
-        "/api/artifacts/{art}",
-        "/api/artifacts/{art}/versions",
-        "/api/artifacts/{art}/versions/1",
-        "/api/artifacts/{art}/raw",
-        "/api/artifacts/{art}/raw?version=1&download=1",
-        "/api/conversations/{conv}/canvas",
-    ],
+    ("path", "kind"),
+    [(path, "markdown") for path in READS]
+    + [(path, kind) for path in PAGES for kind in ("html", "mermaid")],
 )
-def test_no_read_changes_what_a_conversation_knows_or_has_open(client, store: Store, path):
-    conv, art = store.create(), agents_canvas(store, "coach", PLAN)
+def test_no_read_changes_what_a_conversation_knows_or_has_open(client, store: Store, path, kind):
+    conv, art = store.create(), agents_canvas(store, "coach", PLAN, kind)
     store.artifacts.write(art, SWIM, "agent:coach", conv.id)
     links = store.artifact_links
     links.link(conv.id, art, shared=True)
