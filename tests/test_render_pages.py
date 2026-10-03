@@ -215,6 +215,14 @@ def test_the_library_is_told_not_to_run_what_a_diagram_carries():
     assert "startOnLoad: false" in runner
 
 
+def test_a_diagram_that_does_not_parse_is_left_to_the_reporter():
+    # `run()` rejects a source Mermaid cannot read. Nothing on the page handles that rejection, so
+    # it reaches the reporter as an unhandled one and the error bar says why nothing was drawn.
+    runner = Page(mermaid_page(TITLE, DIAGRAM)).named("script")[-1][1]
+    assert "\n  window.mermaid.run();\n" in runner
+    assert not re.search(r"\b(?:try|catch|finally|await)\b|\.then\(", runner)
+
+
 def test_without_the_library_the_page_says_so_above_the_source():
     page = Page(mermaid_page(TITLE, DIAGRAM))
     [(attrs, text)] = [(attrs, text) for attrs, text in page.named("p")]

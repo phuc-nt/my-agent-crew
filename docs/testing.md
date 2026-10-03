@@ -1580,8 +1580,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     trắng trong sơ đồ có rào) phải xong dưới 0,5 s, vì cả hai chạy trên event loop; sơ đồ đóng
     `</pre>` rồi mở `<script>` và tiêu đề đóng `</title>` đều ra thành chữ; một rào ba dấu huyền bọc
     cả sơ đồ thì bỏ, mọi trường hợp khác giữ nguyên; thư viện là một phiên bản ghim kèm băm và
-    `crossorigin`, `securityLevel: "strict"` và `startOnLoad: false`; không có thư viện thì có dòng
-    báo ở trên nguồn; trang là tài liệu đủ bộ và reporter đứng trước mọi thứ nó tải);
+    `crossorigin`, `securityLevel: "strict"` và `startOnLoad: false`; sơ đồ không parse được không
+    bị trang nuốt: `run()` đứng một mình, không `try`, `catch`, `finally`, `await` hay `.then`, nên
+    lời từ chối của nó tới reporter, và bỏ lời gọi đó thì không sơ đồ nào được vẽ; không có thư viện
+    thì có dòng báo ở trên nguồn; trang là tài liệu đủ bộ và reporter đứng trước mọi thứ nó tải);
     `tests/test_render_fixtures.py` (`web/e2e/render-policy.txt` và `web/e2e/frame-reporter.js`, hai
     tệp mà test trình duyệt đọc, bằng `render_csp()` và `REPORTER_JS` từng byte; sửa một bên mà quên
     tệp thì test đỏ); `tests/test_local_guard.py`
