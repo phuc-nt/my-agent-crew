@@ -5,7 +5,9 @@ matches, finding the closest passage is left to `text_nearest`, after the lock i
 
 from __future__ import annotations
 
+from my_agent_crew.artifacts.kinds import utf8_size
 from my_agent_crew.texts_canvas import (
+    ARTIFACT_CONTENT_UNSTORABLE,
     ARTIFACT_EDIT_AMBIGUOUS,
     ARTIFACT_EDIT_EMPTY_OLD,
     ARTIFACT_EDIT_NO_MATCH,
@@ -39,12 +41,15 @@ def apply_edit(
     text: str, old: str, new: str, replace_all: bool = False, cap: int | None = None
 ) -> tuple[str, int]:
     """`text` with `old` replaced by `new`, and how many places changed. Cheap enough to run
-    inside the store's lock: no search beyond plain `find`."""
+    inside the store's lock: no search beyond plain `find`. A `new` with a lone surrogate is
+    refused as `UnstorableText`. An `old` with one needs no check: no canvas holds one, so it
+    matches nothing and is reported as not found."""
     if not old:
         raise ToolError(ARTIFACT_EDIT_EMPTY_OLD)
+    new_size = utf8_size(new, ARTIFACT_CONTENT_UNSTORABLE)
     count = text.count(old)
     if count:
-        size = len(text.encode()) + count * (len(new.encode()) - len(old.encode()))
+        size = len(text.encode()) + count * (new_size - len(old.encode()))
         _check(count, replace_all, size, cap)
         return text.replace(old, new), count
     loose, wanted, starts = normalize_for_match(text), normalize_for_match(old), []
@@ -56,7 +61,7 @@ def apply_edit(
         raise EditNotFound(ARTIFACT_EDIT_NO_MATCH)
     # A loose match replaces the canvas's own characters, which may take more bytes.
     matched = sum(len(text[start : start + len(old)].encode()) for start in starts)
-    size = len(text.encode()) - matched + len(starts) * len(new.encode())
+    size = len(text.encode()) - matched + len(starts) * new_size
     _check(len(starts), replace_all, size, cap)
     pieces, end = [], 0
     for start in starts:

@@ -8,6 +8,8 @@ from __future__ import annotations
 import re
 import unicodedata
 
+from my_agent_crew.texts_canvas import ARTIFACT_CONTENT_UNSTORABLE, ARTIFACT_TITLE_UNSTORABLE
+
 KB, MB = 1024, 1024 * 1024
 TITLE_MAX = 200
 LANGUAGE_MAX = 40
@@ -84,6 +86,21 @@ class StorageFull(ValueError):
         self.used, self.cap = used, cap
 
 
+class UnstorableText(ValueError):
+    """Text with a lone surrogate: half of a character such as an emoji, which UTF-8 has no
+    form for, so nothing could keep it. The message is the sentence its writer is told."""
+
+
+def utf8_size(text: str, refusal: str) -> int:
+    """The bytes `text` takes as UTF-8, or `UnstorableText(refusal)` when it has no UTF-8
+    form. JSON can carry half of an emoji, so a request body or a model's tool call may hold
+    one."""
+    try:
+        return len(text.encode("utf-8"))
+    except UnicodeEncodeError:
+        raise UnstorableText(refusal) from None
+
+
 def check_kind(kind: str) -> str:
     if kind not in _CAPS:
         raise UnknownKind(f"unknown canvas kind {kind!r}")
@@ -135,12 +152,13 @@ def prepare(kind: str, content: str | None, data: bytes | None) -> tuple[str | N
     saved it from the web. A canvas's lines are then what splitting on LF alone gives, on the
     server and in the browser alike: the vertical tab, form feed, file, group and record
     separators, NEL and the Unicode line and paragraph separators, which `str.splitlines`
-    would also break on, are kept as they are, inside a line. The bytes of a picture are
-    looked at last, so one over its cap is refused for its size alone."""
+    would also break on, are kept as they are, inside a line. Text with a lone surrogate is
+    refused as `UnstorableText`. The bytes of a picture are looked at last, so one over its
+    cap is refused for its size alone."""
     check_payload(kind, content, data)
     if content is not None:
         content = content.replace("\r\n", "\n").replace("\r", "\n")
-        size = len(content.encode("utf-8"))
+        size = utf8_size(content, ARTIFACT_CONTENT_UNSTORABLE)
     else:
         size = len(data or b"")
     check_size(kind, size)
@@ -152,7 +170,8 @@ def prepare(kind: str, content: str | None, data: bytes | None) -> tuple[str | N
 def clean_title(title: str) -> str:
     """One line of visible text. Line breaks and other spaces become single spaces, and
     control and format characters are dropped, so a title quoted to a model or shown in a
-    list cannot end the line it sits on, hide text, or reorder what follows."""
+    list cannot end the line it sits on, hide text, or reorder what follows. A lone surrogate,
+    which no category above drops, is refused as `UnstorableText`."""
     kept = (" " if ch.isspace() else ch for ch in title)
     visible = "".join(
         ch for ch in kept if ch in _JOINERS or unicodedata.category(ch) not in ("Cc", "Cf")
@@ -162,6 +181,7 @@ def clean_title(title: str) -> str:
         raise InvalidTitle("a canvas needs a title")
     if len(text) > TITLE_MAX:
         raise InvalidTitle(f"a title of {len(text)} characters is over {TITLE_MAX}")
+    utf8_size(text, ARTIFACT_TITLE_UNSTORABLE)  # for the refusal alone; the size is not used
     return text
 
 

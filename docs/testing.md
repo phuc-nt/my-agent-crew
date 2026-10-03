@@ -1375,6 +1375,25 @@ tên một test thì sửa dòng của nó trong cùng commit.
     đúng câu "bản đó không còn, bản mới nhất là …" cho cả số lẫn chuỗi số, không phải "tool
     lỗi"). Việc chặn nằm ở một chỗ là `ArtifactHistory.version`, nơi mọi đường gọi tên một phiên
     bản đều đi qua, nên không route hay tool nào cần giới hạn riêng
+- **Canvas: chữ có nửa ký tự Unicode bị từ chối kèm lý do, không phải lỗi 500**
+  - pytest: `tests/test_artifact_unstorable_text.py`
+    ("test_the_store_refuses_half_a_character_saying_which_part_and_writes_nothing": nửa ký tự
+    (surrogate lẻ, ví dụ nửa đầu của một emoji) trong nội dung hay tiêu đề, qua tạo, lưu, `apply`
+    và đổi tên, đều là `UnstorableText` kèm câu nói rõ phần nào sai và kho không đổi gì,
+    "test_a_request_with_half_a_character_is_422_saying_which_part_and_writes_nothing": tạo, lưu
+    và đổi tên qua REST đều 422 kèm đúng câu đó, không ghi gì,
+    "test_a_whole_emoji_sent_as_an_escaped_pair_is_kept_by_every_write": emoji đủ cặp, mà JSON viết
+    thành hai `\u` escape, vẫn được lưu ở cả ba đường,
+    "test_the_tool_refuses_half_a_character_saying_which_part_and_writes_nothing": `artifact_create`,
+    `artifact_edit` (khớp đúng, khớp nới, tiêu đề, và lần sửa không đổi gì mà vẫn gửi tiêu đề) và
+    `artifact_rewrite` trả đúng câu đó chứ không phải "tool lỗi", canvas không đổi và khoá của kho
+    được nhả, `language` có nửa ký tự vẫn nhận lời từ chối `language` có sẵn,
+    "test_a_whole_emoji_is_written_by_every_tool",
+    "test_an_old_passage_with_half_a_character_is_one_the_canvas_does_not_hold": `old` có nửa ký
+    tự chỉ là đoạn không tìm thấy, vì canvas không bao giờ chứa nó). Việc chặn nằm ở `utf8_size`,
+    một chỗ tính cỡ UTF-8 cho nội dung, tiêu đề và `new` của lần sửa, nên không đường ghi nào cần
+    kiểm riêng; hai hàng của `tests/test_artifact_errors.py` và `tests/test_artifact_scope.py` ghim
+    chỗ bảng 422 và `canvas_errors` nhận ra `UnstorableText`
 - **Canvas: năm tool để agent tạo, liệt kê, đọc, sửa và viết lại canvas**
   - pytest: `tests/test_artifact_tools.py` (năm tool, không tool nào hỏi duyệt, mô tả đưa tài
     liệu người sẽ sửa dần vào canvas dù chỉ vài dòng và nói cách thêm chữ bằng một lần sửa, tạo lưu canvas
@@ -1436,7 +1455,7 @@ tên một test thì sửa dòng của nó trong cùng commit.
     lượt tạo tối đa 30 canvas,
     "test_a_batched_call_counts_toward_its_turn_and_a_child_turn_counts_apart", master với tới mọi
     canvas còn agent khác chỉ canvas của mình, canvas một lượt trong chuỗi chỉ đọc không vào tầm
-    của con kế tiếp, mỗi lời từ chối của kho thành lời dặn,
+    của con kế tiếp, mỗi lời từ chối của kho thành lời dặn (kể cả chữ có nửa ký tự Unicode),
     "test_a_canvas_out_of_reach_reads_exactly_like_one_that_does_not_exist", lỗi khác đi qua
     nguyên vẹn); `tests/test_artifact_authors.py` (dòng tác giả gom từng đoạn liền của một tác
     giả, nhóm phủ cả những số bản một loạt gộp đã bỏ,
@@ -1574,7 +1593,7 @@ tên một test thì sửa dòng của nó trong cùng commit.
     của id khác và `ValueError` bảng không nêu đi tiếp như lỗi thật, 409 đọc lại bản mới nhất chứ
     không dùng bản lúc xung đột, canvas bị xoá giữa chừng là 404, 413 nêu cỡ và trần,
     "test_full_storage_is_507_naming_the_three_largest_canvases_biggest_first", 422 mang lời của
-    kho, kể cả khi byte gửi lên không phải ảnh)
+    kho, kể cả khi byte gửi lên không phải ảnh hay chữ có nửa ký tự Unicode)
 - **Canvas qua REST: lịch sử phiên bản, khôi phục và chữ thô không chạy gì**
   - pytest: `tests/test_api_artifact_history.py` (phiên bản mới nhất trước và không kèm chữ, một bản
     đọc trọn, bản đã gộp là 404 kèm số bản mới nhất, canvas không có là 404 ở mọi route lịch sử,

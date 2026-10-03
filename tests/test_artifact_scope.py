@@ -23,6 +23,7 @@ from my_agent_crew.artifacts.kinds import (
     PayloadMismatch,
     StorageFull,
     UnknownKind,
+    UnstorableText,
 )
 from my_agent_crew.store.artifact_models import (
     USER,
@@ -32,8 +33,10 @@ from my_agent_crew.store.artifact_models import (
 from my_agent_crew.store.db import Store
 from my_agent_crew.texts_canvas import (
     ARTIFACT_CHANNEL_CLOSED,
+    ARTIFACT_CONTENT_UNSTORABLE,
     ARTIFACT_CREATE_BUDGET,
     ARTIFACT_KIND_CLOSED,
+    ARTIFACT_TITLE_UNSTORABLE,
 )
 from my_agent_crew.tools.artifact_scope import (
     CANVAS_WRITES_PER_TURN,
@@ -208,6 +211,8 @@ def test_what_a_turn_in_the_chain_only_read_stays_out_of_the_next_childs_reach(s
         (ArtifactTooLarge("markdown", 600000, 524288), ["600000", "524288", "nhiều canvas"]),
         (InvalidTitle("empty"), ["200"]),
         (InvalidLanguage("bad"), ["40", "python"]),
+        (UnstorableText(ARTIFACT_CONTENT_UNSTORABLE), ["Nội dung", "một nửa", "Chưa lưu gì"]),
+        (UnstorableText(ARTIFACT_TITLE_UNSTORABLE), ["Tiêu đề", "một nửa", "Chưa lưu gì"]),
         (StorageFull(1000, 2000), ["1000", "2000", "Đừng thử lại"]),
         (VersionGone(ART, 12, 13), ["v12 không còn, bản mới nhất là v13", f"id={ART}"]),
         (VersionConflict(9, "# mới"), ["v9", "artifact_read"]),

@@ -70,6 +70,14 @@ ARTIFACT_TOO_LARGE = (
     " dung thành nhiều canvas nhỏ hơn."
 )
 ARTIFACT_BAD_TITLE = "Tiêu đề cần có chữ và dài tối đa {limit} ký tự. Chưa lưu gì."
+# A lone surrogate is half of a character such as an emoji, cut in two on its way here. JSON can
+# carry it, but UTF-8 cannot, so no file or database keeps it. The refusal says what to do.
+_UNSTORABLE = (
+    "{what} có một nửa của một ký tự Unicode (thường là một emoji bị cắt đôi) nên không lưu"
+    " được. Chưa lưu gì: bỏ nửa ký tự đó hoặc viết đủ ký tự, rồi gửi lại."
+)
+ARTIFACT_CONTENT_UNSTORABLE = _UNSTORABLE.format(what="Nội dung")
+ARTIFACT_TITLE_UNSTORABLE = _UNSTORABLE.format(what="Tiêu đề")
 ARTIFACT_BAD_LANGUAGE = (
     "`language` là tên ngắn của ngôn ngữ lập trình, chỉ gồm chữ, số và +#._-, tối đa {limit} ký"
     " tự, vd. python, typescript, c++. Chưa lưu gì."

@@ -20,6 +20,7 @@ from my_agent_crew.artifacts.kinds import (
     PayloadMismatch,
     StorageFull,
     UnknownKind,
+    UnstorableText,
 )
 from my_agent_crew.store.artifact_models import (
     VersionConflict,
@@ -120,6 +121,8 @@ def canvas_errors(artifact_id: str = "") -> Iterator[None]:
         raise ToolError(ARTIFACT_BAD_TITLE.format(limit=TITLE_MAX)) from None
     except InvalidLanguage:
         raise ToolError(ARTIFACT_BAD_LANGUAGE.format(limit=LANGUAGE_MAX)) from None
+    except UnstorableText as exc:
+        raise ToolError(str(exc)) from None
     except StorageFull as exc:
         raise ToolError(ARTIFACT_STORAGE_FULL.format(used=exc.used, cap=exc.cap)) from None
     except VersionGone as exc:
