@@ -2028,6 +2028,41 @@ tên một test thì sửa dòng của nó trong cùng commit.
     và vẫn giữ chữ khi người khác chỉ lưu thêm một bản của canvas ("is still asked about when someone
     else only saves its canvas anew, and is there on the way back"), và không hỏi gì khi lần lưu để
     lại hạ cánh)
+- **Canvas trên web: nháp chỉ còn trong tab được tự lưu khi mở lại canvas, và lời báo chưa lưu đi khi
+  lần lưu hạ cánh**
+  - vitest, cả App trên `FakeCanvas`: `web/src/app-canvas-held-draft.test.tsx` (trình duyệt chặn lưu
+    trữ: mở lại canvas sau lần lưu để lại hỏng thì chữ được gửi 1,5 giây sau, không sớm hơn một mili
+    giây và không cần phím nào, rồi dòng trong luồng chat, dòng "Không giữ được bản nháp trên máy này"
+    trong panel và câu hỏi trước khi đóng trang đều đi; rời canvas ngay sau khi mở lại cũng lưu và
+    dòng trong luồng chat đi; nháp đã trộn với bản mới hơn lúc mở lại, lưu tay xong thì trang thôi
+    hỏi; canvas vẫn mở thì dòng trong panel chỉ còn tới khi lần lưu hạ cánh và hiện lại khi chữ kế
+    cũng bị từ chối; trình duyệt giữ được nháp thì mở lại chỉ hiện nháp, 60 giây không gửi gì, dòng
+    trong luồng chat ở lại và đi khi người tự lưu)
+  - vitest, runner trên `FakeCanvas` với đồng hồ giả: `web/src/lib/canvas-runner-held-draft.test.ts`
+    ("saves the draft by itself, as long after it opened as after a keystroke"; cờ nháp hỏng bật khi
+    nháp được ghi lại sau 0,3 giây và tắt khi lần lưu hạ cánh; nháp trộn được thì lưu đúng chữ đã trộn
+    trên bản vừa trộn; lưu tay trước khi nháp được ghi lại thì tab không còn giữ gì; nháp xung đột với
+    bản mới nhất thì không gửi gì, vẫn giữ và trang vẫn hỏi; lần đọc đầu hỏng thì lần đọc sau mang
+    nháp về và tự lưu; runner bị thả ngay lúc lần đọc đầu về thì không đặt lần lưu nào; nháp trình
+    duyệt đã giữ thì chỉ hiện, 60 giây không gửi gì cho tới khi người lưu hay gõ);
+    `web/src/lib/canvas-runner-tab-draft.test.ts` (nháp tab giữ của canvas đang mở: đi khi lần lưu đã
+    trộn với bản của người khác hạ cánh dù nháp còn mang chữ trước khi trộn, ở lại khi chữ gõ sau lúc
+    lần lưu đi còn chưa lưu, đi khi một lần đọc cho thấy lần lưu mất reply đã hạ cánh);
+    `web/src/lib/canvas-machine-sync.test.ts` ("drops the draft of a lost save a read shows landed, by
+    the text that landed"); `web/src/lib/canvas-draft-held.test.ts` (`heldInTab` chỉ đúng với canvas
+    mà trình duyệt từ chối nháp và thôi đúng khi nháp sau được giữ; `dropFromTab` bỏ nháp của tab dù
+    chữ gì, trang thôi hỏi khi đó là nháp cuối và vẫn hỏi khi tab còn giữ nháp của canvas khác, không
+    đụng nháp tab khác đã lưu, không làm gì với canvas tab không giữ nháp)
+  - vitest, lời "canvas không còn gì chưa lưu": `web/src/lib/canvas-handoff-saved.test.ts` (tới khi
+    lần lưu để lại hạ cánh, không tới khi nó hỏng, không tới khi một nháp của chữ gõ sau đó còn sống
+    lâu hơn lần lưu ấy ("does not come when the save that lands is outlived by a draft of words typed
+    since") và tới khi lần lưu giữ đúng chữ của nháp; runner đã thả chỉ báo một lần, từ lần lưu để
+    lại; canvas đang mở báo khi lần lưu hạ cánh mà không gõ gì thêm, không báo khi còn chữ gõ sau lúc
+    lần lưu đi hay khi đang xung đột; mỗi lượt đăng ký nghe riêng và thôi nghe riêng);
+    `web/src/hooks/use-canvas-chat-notices.test.ts` (dòng về lần lưu hỏng đi khi canvas ấy được lưu,
+    dù nháp còn trên máy hay chỉ trong tab, còn dòng của canvas khác ở lại; đi khi lần lưu để lại sau
+    đó hạ cánh; danh sách vẫn là chính nó khi canvas được lưu chưa từng bị nhắc tới; hiện lại khi lần
+    lưu sau lại hỏng; nút ẩn vẫn cất như cũ)
 - **Canvas trên web: canvas đang mở lưu 1,5 giây sau phím cuối, rời đi vẫn lưu nốt, keepalive chỉ khi
   vừa trần**
   - vitest, hook trên `FakeCanvas` với đồng hồ giả: `web/src/hooks/use-canvas.test.ts` ("saves once,

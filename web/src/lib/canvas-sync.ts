@@ -42,6 +42,7 @@ export function read(state: CanvasState, effects: CanvasEffect[], detail: Artifa
   if (head.author === "user" && state.unsure.includes(head.content)) {
     // A save whose reply was lost did land.
     moveBase(state, head);
+    effects.push({ type: "dropDraft", text: head.content });
     if (!isDirty(state)) {
       state.failures = 0;
       state.retrying = false;

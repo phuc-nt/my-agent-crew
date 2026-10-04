@@ -8,7 +8,8 @@
  * `canvas-requests`.
  */
 
-import { clearDraft, readDraft, textKey, writeDraft } from "./canvas-draft";
+import { clearDraft, dropFromTab, heldInTab, readDraft, textKey, writeDraft } from "./canvas-draft";
+import { canvasSaved } from "./canvas-handoff";
 import { type CanvasEffect, type CanvasInput, type CanvasState, openState, step } from "./canvas-machine";
 import { requestRead, SaveClock } from "./canvas-requests";
 import { isDirty } from "./canvas-state";
@@ -165,7 +166,13 @@ export class CanvasRunner {
         }, effect.ms);
         return;
       case "dropDraft":
-        return clearDraft(this.id, effect.text);
+        clearDraft(this.id, effect.text);
+        if (this.detached || this.needsSave()) return;
+        // Nothing is left to save: the draft this tab holds goes whatever its text, which a merge
+        // may have moved on from, and with it what was said of a draft or a save that failed.
+        dropFromTab(this.id);
+        this.draftFailed = false;
+        return canvasSaved(this.id);
       case "settle": {
         const resolve = this.settles.get(effect.ticket);
         this.settles.delete(effect.ticket);
@@ -176,9 +183,13 @@ export class CanvasRunner {
 
   private get(): void {
     if (this.detached) return;
+    // A draft only this tab holds is not left for the person to save: the first read that brings
+    // it in is followed by a save and a draft, as text just typed is.
+    const held = this.state.phase !== "ready" && heldInTab(this.id);
     this.reading = requestRead(this.id, (input) => {
       this.reading = null;
-      this.send(input);
+      if (held && !this.detached) this.typed(input);
+      else this.send(input);
     });
   }
 }

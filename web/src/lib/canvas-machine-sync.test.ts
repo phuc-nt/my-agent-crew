@@ -277,6 +277,18 @@ describe("a canvas reading the newest version", () => {
     expect(putsIn(effects)).toEqual([{ type: "put", content: "abc", baseVersion: 6, hidden: false }]);
   });
 
+  it("drops the draft of a lost save a read shows landed, by the text that landed", () => {
+    const canvas = openOn("a");
+    canvas.send({ type: "resync" });
+    typeAndPause(canvas, "ab");
+    canvas.send(lost);
+    canvas.send({ type: "edit", text: "abc" });
+
+    const effects = canvas.send({ type: "read", detail: detailAt(6, "ab") });
+
+    expect(effects.filter((effect) => effect.type === "dropDraft")).toEqual([{ type: "dropDraft", text: "ab" }]);
+  });
+
   it("calls the text saved once a read shows the lost save landed", () => {
     const canvas = openOn("a");
     canvas.send({ type: "resync" });

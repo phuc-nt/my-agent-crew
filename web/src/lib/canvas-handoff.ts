@@ -10,7 +10,7 @@
 
 import { saveBody } from "../api/artifact-client";
 import { utf8Bytes } from "./canvas-caps";
-import { clearDraft } from "./canvas-draft";
+import { clearDraft, readDraft } from "./canvas-draft";
 import type { CanvasState } from "./canvas-types";
 import { guardUnload } from "./unload-guard";
 
@@ -35,6 +35,7 @@ type Leaving = {
 
 let keepaliveOut = false;
 const listeners = new Set<{ listener: (failure: HandoffFailure) => void }>();
+const savedListeners = new Set<{ listener: (id: string) => void }>();
 /** The handoffs not yet settled, each dropped as it settles. */
 const handoffs = new Map<Promise<void>, Leaving>();
 
@@ -69,6 +70,19 @@ export function onHandoffFailed(listener: (failure: HandoffFailure) => void): ()
   return () => void listeners.delete(subscription);
 }
 
+/** Hears each canvas that has nothing left unsaved: what was said of a save of its that failed
+ *  holds no longer. */
+export function onCanvasSaved(listener: (id: string) => void): () => void {
+  const subscription = { listener };
+  savedListeners.add(subscription);
+  return () => void savedListeners.delete(subscription);
+}
+
+/** A version holds all of canvas `id`'s text: said by its open panel's runner, or by its handoff. */
+export function canvasSaved(id: string): void {
+  for (const { listener } of [...savedListeners]) listener(id);
+}
+
 /**
  * Saves what the person left in a canvas, after the save in flight if one is. The draft written as
  * the panel went away goes once a version holds its text, merged with someone else's or not; when
@@ -90,7 +104,12 @@ export function saveInBackground(runner: Leaving): Promise<void> {
 
 async function handOff(runner: Leaving): Promise<void> {
   const left = runner.state.text;
-  if ((await runner.flush()) !== null) return clearDraft(runner.id, left);
+  if ((await runner.flush()) !== null) {
+    clearDraft(runner.id, left);
+    // A draft that outlives this save holds words typed since: the canvas still has text unsaved.
+    if (readDraft(runner.id) === null) canvasSaved(runner.id);
+    return;
+  }
   const failure = { id: runner.id, title: runner.state.summary?.title ?? null, draft: !runner.draftFailed };
   for (const { listener } of [...listeners]) listener(failure);
 }

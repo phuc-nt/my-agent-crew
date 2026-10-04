@@ -74,7 +74,11 @@ function holdInTab(draft: CanvasDraft): false {
   return false;
 }
 
-function dropFromTab(id: string): void {
+/** Whether the draft kept for canvas `id` is held by this tab alone. */
+export const heldInTab = (id: string): boolean => tabOnly.has(id);
+
+/** Lets go of the draft this tab holds of canvas `id`, whatever its text; a stored one stays. */
+export function dropFromTab(id: string): void {
   tabOnly.delete(id);
   if (tabOnly.size > 0) return;
   stopAsking?.();

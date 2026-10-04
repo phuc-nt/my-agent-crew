@@ -2,12 +2,14 @@
  * What the canvases have to say in the chat, outside the dock: the saves left behind as the person
  * moved on that did not land, and that a message went before the canvas it names was saved.
  *
+ * The first is said of a canvas until the person puts the line away or a later save leaves that
+ * canvas with nothing unsaved.
  * The second is said of the conversation the message went in, until the next message there goes
  * with its canvas saved or the person puts the line away.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { type HandoffFailure, onHandoffFailed } from "../lib/canvas-handoff";
+import { type HandoffFailure, onCanvasSaved, onHandoffFailed } from "../lib/canvas-handoff";
 
 export type CanvasChatNotices = {
   handoffs: HandoffFailure[];
@@ -34,7 +36,12 @@ export function useCanvasChatNotices(conversationId: string | null): CanvasChatN
     [],
   );
 
-  const dismissHandoff = useCallback((id: string) => setHandoffs((told) => told.filter((f) => f.id !== id)), []);
+  // A save lands with every pause in typing: the list is a new one only when it loses a line.
+  const dismissHandoff = useCallback(
+    (id: string) => setHandoffs((told) => (told.some((f) => f.id === id) ? told.filter((f) => f.id !== id) : told)),
+    [],
+  );
+  useEffect(() => onCanvasSaved(dismissHandoff), [dismissHandoff]);
   const noteSentUnsaved = useCallback(
     (on: boolean) => {
       if (conversationId === null) return;
