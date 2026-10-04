@@ -75,7 +75,8 @@ function holdInTab(draft: CanvasDraft): false {
 }
 
 function dropFromTab(id: string): void {
-  if (!tabOnly.delete(id) || tabOnly.size > 0) return;
+  tabOnly.delete(id);
+  if (tabOnly.size > 0) return;
   stopAsking?.();
   stopAsking = null;
 }
