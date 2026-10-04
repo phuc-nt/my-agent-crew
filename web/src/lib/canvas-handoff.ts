@@ -86,7 +86,8 @@ export function canvasSaved(id: string): void {
 /**
  * Saves what the person left in a canvas, after the save in flight if one is. The draft written as
  * the panel went away goes once a version holds its text, merged with someone else's or not; when
- * no version can, it stays and the listeners hear of it. A draft this device could not keep is held
+ * no version can, it stays and the listeners hear of it, unless the canvas was deleted meanwhile:
+ * then the draft goes with it and nobody hears. A draft this device could not keep is held
  * by this tab, which asks before it closes for as long as it holds one; a runner that says it kept
  * none has the page ask until its save settles.
  */
@@ -108,6 +109,11 @@ async function handOff(runner: Leaving): Promise<void> {
     clearDraft(runner.id, left);
     // A draft that outlives this save holds words typed since: the canvas still has text unsaved.
     if (readDraft(runner.id) === null) canvasSaved(runner.id);
+    return;
+  }
+  // Deleted while the save was out: there is no canvas left for the words, and nothing failed.
+  if (runner.state.gone) {
+    clearDraft(runner.id);
     return;
   }
   const failure = { id: runner.id, title: runner.state.summary?.title ?? null, draft: !runner.draftFailed };

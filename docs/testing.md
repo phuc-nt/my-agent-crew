@@ -2257,7 +2257,11 @@ tên một test thì sửa dòng của nó trong cùng commit.
     lần lưu xong, hỏng hay ném lỗi cũng thôi hỏi và thông báo không hứa nháp, có nháp thì không hỏi gì,
     hai canvas thì hỏi tới khi cả hai xong; runner thật mà trình duyệt từ chối nháp thì tab giữ chữ và
     trang vẫn hỏi sau khi lần lưu hỏng; nháp đi khi bản lưu giữ chữ ở dạng đã trộn với bản của người
-    khác, và ở lại khi người đã gõ thêm từ lúc rời)
+    khác, và ở lại khi người đã gõ thêm từ lúc rời; "says nothing and keeps no draft when the canvas
+    was deleted before its last save got there": canvas bị xoá trong lúc lần lưu cuối còn bay thì
+    `PUT` gặp 404, không người nghe nào được gọi và nháp của nó bị xoá, vì không có lần lưu nào hỏng
+    cả; "lets go of words only this tab held for a canvas deleted before its last save got there":
+    nháp mà chỉ tab giữ cũng đi theo, nên trang thôi hỏi trước khi đóng)
   - Hai request của runner (lưu và đọc) nằm ở `web/src/lib/canvas-requests.ts`. Hạn của lần lưu có test
     riêng ở `web/src/lib/canvas-requests.test.ts`: 30 giây cộng một giây cho mỗi 50 KiB thân, làm tròn
     lên; đo trên byte UTF-8 của thân nên 100000 chữ "ệ" chờ lâu hơn 100000 chữ "x"; không reply tới hạn

@@ -69,6 +69,38 @@ describe("the last save of a canvas the person left", () => {
     expect(puts()).toHaveLength(1);
   });
 
+  // The person deleted the canvas themselves: a save that finds it gone has failed at nothing.
+  it("says nothing and keeps no draft when the canvas was deleted before its last save got there", async () => {
+    const runner = await opened({ title: "Ghi chú" });
+    runner.edit("a!");
+    runner.detach();
+    expect(readDraft("a1")?.text).toBe("a!");
+    backend.canvas.remove("a1");
+
+    await saveInBackground(runner);
+
+    expect(puts()).toHaveLength(1);
+    expect(runner.state.gone).toBe(true);
+    expect(heard).toEqual([]);
+    expect(readDraft("a1")).toBeNull();
+  });
+
+  // A draft this tab alone holds goes the same way, and with it the question before the page closes.
+  it("lets go of words only this tab held for a canvas deleted before its last save got there", async () => {
+    const runner = await opened();
+    refusingStorage();
+    runner.edit("a!");
+    runner.detach();
+    expect(runner.draftFailed).toBe(true);
+    backend.canvas.remove("a1");
+
+    await saveInBackground(runner);
+
+    expect(heard).toEqual([]);
+    expect(readDraft("a1")).toBeNull();
+    expect(askedToStay()).toBe(false);
+  });
+
   it("sends what was typed after the save in flight once that save lands", async () => {
     const runner = await opened();
     const release = backend.canvas.holdNext("PUT", "reply");
