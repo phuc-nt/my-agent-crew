@@ -138,10 +138,13 @@ async def test_an_older_version_goes_out_when_asked_for_and_one_that_is_gone_is_
 async def test_a_canvas_out_of_reach_reads_as_one_that_does_not_exist_and_no_file_is_made(
     store: Store, root: Path
 ):
+    """Asking for a version it lacks tells nothing more: reach is settled before the canvas
+    is looked at."""
     turn(store)
     art = agents_canvas(store, "ledger", "# Sổ\n")
-    result = await _export(store, root, art, "x.md")
-    assert result.output == _failed(ARTIFACT_NOT_FOUND.format(id=art))
+    for args in ({}, {"version": 9}):
+        result = await _export(store, root, art, "x.md", **args)
+        assert result.output == _failed(ARTIFACT_NOT_FOUND.format(id=art)), args
     assert list(root.iterdir()) == []
 
 

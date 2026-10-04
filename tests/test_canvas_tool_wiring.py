@@ -1,6 +1,7 @@
 """How the canvas tools reach an agent: one that does not narrow `tools` gets all seven, sized
 to its own output cap, showing times in the owner's zone and reaching what its place in the
-crew lets it reach; an allow-list keeps out any it does not name."""
+crew lets it reach; an allow-list keeps out any it does not name. An export lands only in
+the agent's own workspace, inside its write paths."""
 
 from __future__ import annotations
 
@@ -17,6 +18,7 @@ from my_agent_crew.clock import day_and_time
 from my_agent_crew.config import Settings
 from my_agent_crew.server.tool_assembly import build_tools
 from my_agent_crew.store.db import Store
+from my_agent_crew.texts import TOOL_FAILED, WORKSPACE_WRITE_OUTSIDE
 from my_agent_crew.tools import ToolRegistry
 from tests.canvas_helpers import agents_canvas, lines_text, persons_canvas, turn
 from tests.conftest import CanvasClock
@@ -81,6 +83,24 @@ async def test_the_master_lists_every_canvas_in_the_owners_time_and_another_agen
     when = day_and_time(canvas_clock.now, ZoneInfo("America/New_York"))
     assert f"- {art} «Kế hoạch»" in master.output and f"sửa {when})" in master.output
     assert art not in peer.output
+
+
+async def test_an_export_lands_only_in_the_agents_own_workspace_and_write_paths(
+    settings: Settings, store: Store
+):
+    """The paths that hold `workspace_write` hold an export too."""
+    held = replace(settings, write_paths=("out",))
+    held.workspace_dir.mkdir(parents=True)
+    registry = _assemble(held, store)
+    conv = turn(store)
+    art = persons_canvas(store, "# Kế hoạch\n", conv.id)
+    refused = await registry.execute("artifact_export", {"id": art, "path": "notes/x.md"})
+    refusal = WORKSPACE_WRITE_OUTSIDE.format(paths="out", path="notes/x.md")
+    assert refused.output == TOOL_FAILED.format(error=refusal)
+    assert list(held.workspace_dir.iterdir()) == []
+    assert (await registry.execute("artifact_export", {"id": art, "path": "out/x.md"})).ok
+    written = held.workspace_dir / "out" / "x.md"
+    assert written.read_text(encoding="utf-8") == "# Kế hoạch\n"
 
 
 async def test_a_canvas_page_fits_the_agents_own_output_cap(settings: Settings, store: Store):

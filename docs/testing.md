@@ -1477,8 +1477,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     master hay không, nhận đủ bảy tool theo thứ tự, năm tool cũ rồi `artifact_import`,
     `artifact_export`, và chỉ `artifact_export` hỏi duyệt,
     "test_an_allow_list_keeps_out_the_canvas_tools_it_does_not_name", master
-    liệt kê mọi canvas theo giờ của chủ còn agent khác thì không, trang đọc vừa trần đầu ra của
-    chính agent)
+    liệt kê mọi canvas theo giờ của chủ còn agent khác thì không,
+    "test_an_export_lands_only_in_the_agents_own_workspace_and_write_paths": `artifact_export`
+    lắp từ profile chỉ ghi trong workspace và `write_paths` của chính agent đó, trang đọc vừa
+    trần đầu ra của chính agent)
 - **Canvas: tệp trong workspace vào canvas bằng `artifact_import`, canvas ra tệp bằng
   `artifact_export`, chữ không đi qua model**
   - pytest: `tests/test_artifact_source.py` (đọc tệp nguồn: chữ về đúng dạng kho sẽ giữ, bỏ BOM,
@@ -1501,7 +1503,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "test_a_source_names_the_agent_and_the_path_under_its_workspace": `source_for` và
     `parse_source` đi vòng đúng, tách ở dấu `/` đầu tiên, nguồn tính từ gốc workspace chứ không từ
     gốc máy, "test_a_source_is_never_built_from_a_name_that_hides_something": tên thật trên đĩa
-    cũng được kiểm, URL và chuỗi rỗng parse ra không có gì, `web_url` chỉ nhận http và https có
+    cũng được kiểm, URL, chuỗi rỗng và nguồn thiếu tiền tố `workspace:` parse ra không có gì,
+    `web_url` chỉ nhận http và https có
     host, không khoảng trắng, không quá 2.000 ký tự,
     "test_each_file_a_page_points_at_is_counted_once_and_a_link_that_loads_none_is_not");
     `tests/test_artifact_import.py`
@@ -1535,12 +1538,23 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "test_replace_goes_over_unseen_versions_and_leaves_them_unseen": `replace: true` ghi đè, nêu
     bản của ai bị thay và rằng chúng còn trong lịch sử, seen đứng yên nên ghi chú lượt sau vẫn kể
     các bản đó, "test_a_change_made_while_the_file_was_read_is_not_written_over": bản mới nhất
-    được tra sau khi đã có tệp trong tay); `tests/test_artifact_export.py`
+    được tra sau khi đã có tệp trong tay); `tests/test_artifact_import_args.py`
+    ("test_only_a_code_canvas_takes_a_language_from_the_suffix": tệp `.py` nhập với
+    `kind: markdown` không mang ngôn ngữ nào,
+    "test_a_title_and_a_link_sent_with_a_file_are_recorded_in_the_write_that_replaces": `title`
+    và `source_url` gửi kèm lần nhập đè được ghi trong chính lần ghi đó, một bản duy nhất, bản
+    ấy thuộc cuộc trò chuyện đã nhập, dòng nguồn nêu đúng link,
+    "test_a_link_sent_with_a_file_that_changes_nothing_becomes_the_source": tệp không đổi gì thì
+    link vẫn thành nguồn và chỉ được báo một lần,
+    "test_a_save_that_lands_as_the_file_is_written_is_refused_not_written_over": lần ghi nêu
+    đúng bản đã đem so, nên bản người lưu chen vào sát lúc ghi bị báo xung đột chứ không bị ghi
+    đè, không trừ ngân sách, không đổi nguồn); `tests/test_artifact_export.py`
     ("test_the_two_file_tools_come_together_and_only_the_export_asks_first",
     "test_text_goes_out_as_utf8_and_the_canvas_stays_as_it_was": kết quả không mở đầu bằng thẻ,
     chỉ nói đã thay tệp khi tệp có sẵn, canvas không thêm bản và lượt không bị trừ ngân sách, ảnh
     ra nguyên từng byte, canvas html ra `x.html` vẫn là `x.html` và đường dẫn tuyệt đối được gọi
-    lại từ gốc workspace, tham số `version` và bản không còn, canvas ngoài tầm thì không tạo tệp,
+    lại từ gốc workspace, tham số `version` và bản không còn, canvas ngoài tầm thì không tạo tệp
+    và hỏi một bản nó không có cũng chỉ nhận câu không tìm thấy canvas,
     "test_an_export_makes_nothing_seen_so_an_unread_canvas_still_cannot_be_rewritten");
     `tests/test_artifact_export_paths.py` (thoát workspace bằng `..`, bằng đường dẫn tuyệt đối
     hay `~người-không-có`, đích là thư mục, đường dẫn giấu ký tự hoặc rỗng đều bị từ chối và cây
@@ -1746,7 +1760,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     đọc sau khi tệp đã trong tay,
     "test_a_picture_is_compared_and_replaced_byte_for_byte");
     `tests/test_api_artifact_import_scope.py`
-    ("test_a_reimport_links_no_conversation_and_makes_nothing_seen",
+    ("test_a_reimport_links_no_conversation_and_makes_nothing_seen": bản mới không thuộc cuộc
+    trò chuyện nào dù canvas đã liên kết,
     "test_the_request_picks_neither_the_file_nor_whose_version_it_becomes": `path`, `source`,
     `conversation_id`, `kind`, `author`, `note`, `content` trong body đều không có tác dụng,
     "test_no_request_of_the_web_gives_a_canvas_a_source": tạo, lưu, đổi tên kèm `source` vẫn để

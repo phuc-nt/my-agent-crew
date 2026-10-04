@@ -41,6 +41,7 @@ def test_a_reimport_links_no_conversation_and_makes_nothing_seen(served, store: 
     store.artifact_links.mark_seen(linked.id, art, 1)
     before = store.artifact_links.get(linked.id, art)
     assert reimport(client, art).json()["changed"] is True
+    assert store.artifacts.head(art).conversation_id == ""
     assert store.artifact_links.conversations_for(art) == [linked.id]
     assert store.artifact_links.get(linked.id, art) == before
     assert before is not None and before.seen_version == 1

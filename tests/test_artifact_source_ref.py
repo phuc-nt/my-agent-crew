@@ -93,6 +93,7 @@ def test_a_source_is_never_built_from_a_name_that_hides_something(tmp_path: Path
         "workspace:Coach/a.md",
         "workspace:co ach/a.md",
         "file:coach/a.md",
+        "coach/a.md",
     ],
 )
 def test_a_source_that_names_no_workspace_file_parses_to_nothing(source: str):
