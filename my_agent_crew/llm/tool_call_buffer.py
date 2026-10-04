@@ -7,7 +7,7 @@ import json
 import uuid
 from typing import Any
 
-from my_agent_crew.llm.types import ToolCall
+from my_agent_crew.llm.types import ToolCall, ToolCallDelta
 
 # How much of the arguments around the break is quoted back: enough to recognise the spot,
 # little enough that a long broken document is never echoed into the history.
@@ -25,13 +25,22 @@ class ToolCallBuffer:
     def __init__(self) -> None:
         self._parts: dict[int, dict[str, str]] = {}
 
-    def feed(self, deltas: list[dict[str, Any]]) -> None:
+    def feed(self, deltas: list[dict[str, Any]]) -> list[ToolCallDelta]:
+        """Takes the deltas in and hands back the pieces of arguments they brought, each
+        with its call's index and the name assembled for that call so far. A delta that
+        brought only an id or a name is no piece."""
+        pieces = []
         for d in deltas:
-            slot = self._parts.setdefault(d.get("index", 0), {"id": "", "name": "", "args": ""})
+            index = d.get("index", 0)
+            slot = self._parts.setdefault(index, {"id": "", "name": "", "args": ""})
             slot["id"] = d.get("id") or slot["id"]
             fn = d.get("function") or {}
             slot["name"] = fn.get("name") or slot["name"]
-            slot["args"] += fn.get("arguments") or ""
+            chunk = fn.get("arguments") or ""
+            slot["args"] += chunk
+            if chunk:
+                pieces.append(ToolCallDelta(index=index, name=slot["name"], chunk=chunk))
+        return pieces
 
     def calls(self, cut_off: bool = False) -> tuple[ToolCall, ...]:
         """`cut_off` says the reply stopped at the output limit. Only the last call can have

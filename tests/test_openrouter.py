@@ -12,7 +12,9 @@ from my_agent_crew.llm.types import (
     StreamStarted,
     TextDelta,
     ToolCall,
+    ToolCallDelta,
     ToolSpec,
+    Usage,
 )
 from tests.conftest import collect
 
@@ -123,6 +125,46 @@ async def test_fragmented_tool_call_arguments_are_reassembled():
     done = items[-1]
     assert done.message.tool_calls == (ToolCall("c1", "workspace_read", {"path": "a.txt"}),)
     assert done.finish_reason == "tool_calls"
+
+
+async def test_each_fragment_of_a_tool_call_is_passed_on_as_it_arrives():
+    """A reader can follow a call while the model is still writing it: the fragments come in
+    the order they were sent, each naming its call, among whatever text came between them.
+    The answer that ends the stream is the one it always was."""
+    body = sse(
+        delta(tool_calls=[{"index": 0, "id": "c1", "function": {"name": "artifact_create"}}]),
+        delta(tool_calls=[{"index": 0, "function": {"arguments": '{"ti'}}]),
+        delta("đang viết"),
+        delta(
+            tool_calls=[
+                {"index": 0, "function": {"arguments": 'tle": "A"}'}},
+                {"index": 1, "id": "c2", "function": {"name": "workspace_list", "arguments": "{}"}},
+            ]
+        ),
+        delta(finish="tool_calls"),
+    )
+    items = await collect(provider_with(body).stream([Message(role="user", content="hi")], [], "m"))
+    assert items[:-1] == [
+        StreamStarted(),
+        ToolCallDelta(index=0, name="artifact_create", chunk='{"ti'),
+        TextDelta("đang viết"),
+        ToolCallDelta(index=0, name="artifact_create", chunk='tle": "A"}'),
+        ToolCallDelta(index=1, name="workspace_list", chunk="{}"),
+    ]
+    assert items[-1] == Completion(
+        message=Message(
+            role="assistant",
+            content="đang viết",
+            tool_calls=(
+                ToolCall("c1", "artifact_create", {"title": "A"}),
+                ToolCall("c2", "workspace_list", {}),
+            ),
+        ),
+        usage=Usage(),
+        provider="openrouter",
+        model="m",
+        finish_reason="tool_calls",
+    )
 
 
 async def test_malformed_tool_arguments_complete_as_an_invalid_call():

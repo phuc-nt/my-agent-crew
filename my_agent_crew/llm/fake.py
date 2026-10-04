@@ -1,13 +1,16 @@
 """Offline providers. `ScriptedProvider` replays canned completions for tests;
 `EchoProvider` is a product feature (`MY_AGENT_ROUTES=fake:echo`) so the UI, e2e
-tests and a first run all work without any API key."""
+tests and a first run all work without any API key. Both stream an answer the way a
+model does: its words, then the arguments of each tool call, a piece at a time. On
+`fake:slow` the echo waits between two pieces, so the stream can be watched arriving."""
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 import uuid
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from dataclasses import dataclass, replace
 
 from my_agent_crew.llm.provider import ProviderError
@@ -17,16 +20,29 @@ from my_agent_crew.llm.types import (
     StreamItem,
     TextDelta,
     ToolCall,
+    ToolCallDelta,
     ToolSpec,
     Usage,
 )
 
 _TOOL_DIRECTIVE = re.compile(r"^/tool\s+(\w+)\s*(\{.*\})?\s*$", re.DOTALL)
 _TOOL_LINE = re.compile(r"^/tool\b", re.MULTILINE)
+# The wait between two pieces on the `slow` model: long enough to watch an answer arrive.
+SLOW_MODEL, SLOW_CHUNK_S = "slow", 0.1
 
 
 def _chunked(text: str, size: int = 12) -> list[str]:
-    return [text[i : i + size] for i in range(0, len(text), size)] or [""]
+    return [text[i : i + size] for i in range(0, len(text), size)]
+
+
+def _pieces(text: str, calls: Sequence[ToolCall]) -> list[StreamItem]:
+    """An answer as a stream sends it ahead of the completion: the words, then each call's
+    arguments under the call's place in the answer. An answer with no words sends none."""
+    pieces: list[StreamItem] = [TextDelta(piece) for piece in _chunked(text)]
+    for index, call in enumerate(calls):
+        arguments = json.dumps(call.arguments, ensure_ascii=False)
+        pieces += [ToolCallDelta(index, call.name, piece) for piece in _chunked(arguments)]
+    return pieces
 
 
 @dataclass(frozen=True)
@@ -62,9 +78,8 @@ class ScriptedProvider:
         item = self._script.pop(0)
         if isinstance(item, ProviderError):
             raise item
-        for piece in _chunked(item.message.content):
-            if piece:
-                yield TextDelta(piece)
+        for piece in _pieces(item.message.content, item.message.tool_calls):
+            yield piece
         yield replace(item, provider=self.name, model=model)
 
 
@@ -85,9 +100,13 @@ def completion(
 class EchoProvider:
     """Answers with the user's last message. A message that ends in `/tool <name> {json}`
     from a line of its own becomes a tool call, whatever comes above it (the canvas note the
-    prompt puts first, say), so every tool path can be walked by hand."""
+    prompt puts first, say), so every tool path can be walked by hand. `sleep` is what the
+    `slow` model waits with; every other model never waits."""
 
     name = "fake"
+
+    def __init__(self, sleep: Callable[[float], Awaitable[None]] = asyncio.sleep) -> None:
+        self._sleep = sleep
 
     async def stream(
         self,
@@ -103,8 +122,10 @@ class EchoProvider:
         else:
             call_id = f"call_echo_{len(messages)}_{uuid.uuid4().hex[:8]}"
             text, calls = _interpret(last.content, tools, call_id)
-        for piece in _chunked(text):
-            yield TextDelta(piece)
+        for position, piece in enumerate(_pieces(text, calls)):
+            if position and model == SLOW_MODEL:
+                await self._sleep(SLOW_CHUNK_S)
+            yield piece
         yield Completion(
             message=Message(role="assistant", content=text, tool_calls=calls),
             usage=Usage(

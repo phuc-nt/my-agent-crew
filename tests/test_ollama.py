@@ -8,7 +8,15 @@ import pytest
 
 from my_agent_crew.llm.ollama import DEFAULT_BASE_URL, OllamaProvider, base_url
 from my_agent_crew.llm.provider import ProviderError
-from my_agent_crew.llm.types import Completion, Message, TextDelta, ToolSpec
+from my_agent_crew.llm.types import (
+    Completion,
+    Message,
+    StreamStarted,
+    TextDelta,
+    ToolCall,
+    ToolCallDelta,
+    ToolSpec,
+)
 from tests.conftest import collect
 
 
@@ -84,6 +92,27 @@ async def test_tool_calls_come_back_assembled():
     calls = items[-1].message.tool_calls
     assert len(calls) == 1
     assert calls[0].name == "workspace_list" and calls[0].arguments == {"path": "."}
+
+
+async def test_a_local_model_passes_on_the_pieces_of_a_tool_call_too():
+    body = sse(
+        delta(
+            tool_calls=[
+                {"index": 0, "id": "c1", "function": {"name": "workspace_list", "arguments": '{"p'}}
+            ]
+        ),
+        delta(tool_calls=[{"index": 0, "function": {"arguments": 'ath": "."}'}}]),
+        delta(finish="tool_calls"),
+    )
+    items = await collect(provider_with(body).stream([Message(role="user", content="hi")], [], "m"))
+    assert items[:-1] == [
+        StreamStarted(),
+        ToolCallDelta(index=0, name="workspace_list", chunk='{"p'),
+        ToolCallDelta(index=0, name="workspace_list", chunk='ath": "."}'),
+    ]
+    done = items[-1]
+    assert isinstance(done, Completion) and done.provider == "ollama"
+    assert done.message.tool_calls == (ToolCall("c1", "workspace_list", {"path": "."}),)
 
 
 async def test_a_server_that_is_not_running_is_a_provider_error_not_a_crash():

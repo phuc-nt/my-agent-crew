@@ -95,6 +95,18 @@ class ReasoningDelta:
 
 
 @dataclass(frozen=True)
+class ToolCallDelta:
+    """One piece of the arguments of a tool call the model is still writing. `index` is the
+    call's place in the answer; `name` is the call's name as assembled so far, empty while
+    a stream that sends arguments ahead of the name has not said it yet. The whole call
+    still arrives in the `Completion`: a piece is for following along, never for running."""
+
+    index: int
+    name: str
+    chunk: str
+
+
+@dataclass(frozen=True)
 class StreamStarted:
     """The first chunk of a streamed completion arrived. It carries nothing itself: it
     marks the time to first token, which for a tool-only answer no delta would."""
@@ -120,4 +132,12 @@ class RouteRetry:
     error: str
 
 
-StreamItem = TextDelta | ReasoningDelta | StreamStarted | Completion | RouteFailed | RouteRetry
+StreamItem = (
+    TextDelta
+    | ReasoningDelta
+    | ToolCallDelta
+    | StreamStarted
+    | Completion
+    | RouteFailed
+    | RouteRetry
+)

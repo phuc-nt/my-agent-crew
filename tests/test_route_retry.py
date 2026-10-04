@@ -22,6 +22,9 @@ from my_agent_crew.llm.types import (
     RouteFailed,
     RouteRetry,
     StreamStarted,
+    TextDelta,
+    ToolCall,
+    ToolCallDelta,
 )
 from my_agent_crew.store import Store
 from tests.conftest import collect
@@ -123,6 +126,69 @@ async def test_nothing_is_asked_again_once_text_has_been_shown():
     with pytest.raises(ProviderError, match="provider_unavailable"):
         await collect(one_route(provider).stream(USER, []))
     assert len(seen) == 1
+
+
+async def test_a_route_is_still_asked_again_after_part_of_a_tool_call_arrived():
+    """Half a call is not text a person has read as the answer: the attempt can still be
+    dropped and asked again, and the pieces of both attempts are passed on in order."""
+    half = {
+        "choices": [
+            {
+                "delta": {
+                    "tool_calls": [
+                        {"index": 0, "id": "c1", "function": {"name": "t", "arguments": '{"a"'}}
+                    ]
+                }
+            }
+        ]
+    }
+    rest = {
+        "choices": [{"delta": {"tool_calls": [{"index": 0, "function": {"arguments": ": 1}"}}]}}]
+    }
+    provider, seen = openrouter((200, sse(half, {"error": UPSTREAM_DOWN})), (200, sse(half, rest)))
+    items = await collect(one_route(provider).stream(USER, []))
+
+    assert len(seen) == 2
+    assert items[:-1] == [
+        StreamStarted(),
+        ToolCallDelta(index=0, name="t", chunk='{"a"'),
+        RouteRetry(provider="openrouter", model="m", error=str(UPSTREAM_DOWN)),
+        StreamStarted(),
+        ToolCallDelta(index=0, name="t", chunk='{"a"'),
+        ToolCallDelta(index=0, name="t", chunk=": 1}"),
+    ]
+    assert items[-1].message.tool_calls == (ToolCall("c1", "t", {"a": 1}),)
+
+
+async def test_a_tool_call_piece_does_not_use_up_the_retry_that_text_would():
+    """The same failure after a word of the answer is not retried; this pins that the two
+    kinds of piece are told apart, so a preview never costs a route its second try."""
+    piece = ToolCallDelta(index=0, name="t", chunk="{}")
+
+    class CutOffOnce:
+        name = "flaky"
+
+        def __init__(self, before_failing):
+            self.calls = 0
+            self._before_failing = before_failing
+
+        async def stream(self, messages, tools, model):
+            self.calls += 1
+            if self.calls == 1:
+                yield self._before_failing
+                raise ProviderError("cut off", transient=True)
+            yield TextDelta("xong")
+
+    after_a_piece = CutOffOnce(piece)
+    chain = ProviderChain({"flaky": after_a_piece}, [Route("flaky", "m")])
+    items = await collect(chain.stream(USER, []))
+    assert after_a_piece.calls == 2
+    assert items == [piece, RouteRetry("flaky", "m", "cut off"), TextDelta("xong")]
+
+    after_text = CutOffOnce(TextDelta("nửa câu"))
+    with pytest.raises(ProviderError, match="cut off"):
+        await collect(ProviderChain({"flaky": after_text}, [Route("flaky", "m")]).stream(USER, []))
+    assert after_text.calls == 1
 
 
 async def test_a_route_still_failing_after_its_retry_falls_back_to_the_next():

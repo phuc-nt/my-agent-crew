@@ -9,7 +9,7 @@ test nào phải đổi theo. Số lượng test không giữ ở đây — ch�
 
 | Tầng | Chạy bằng | Thấy được gì |
 |---|---|---|
-| pytest (`tests/`) | `uv run pytest -q` | vòng lặp, tool, store, provider, profile, scheduler, kênh, HTTP API và các stream SSE của nó — mọi thứ server làm, với model thay bằng `MY_AGENT_ROUTES=fake:echo` |
+| pytest (`tests/`) | `uv run pytest -q` | vòng lặp, tool, store, provider, profile, scheduler, kênh, HTTP API và các stream SSE của nó — mọi thứ server làm, với model thay bằng `MY_AGENT_ROUTES=fake:echo` (hoặc `fake:slow`: cùng model giả, nhưng chờ giữa hai mảnh để nhìn được stream tới dần) |
 | vitest (`web/`) | `cd web && npm test` | parser, reducer, API client, từng component, và cả App chạy trên một fake server trong bộ nhớ. Worker tắt web storage riêng của Node, nên máy Node 26 và CI Node 24 cùng dùng storage của jsdom, và mỗi test bắt đầu với storage rỗng (`test-environment.test.ts`) |
 | Playwright (`web/e2e/`) | `cd web && npm run e2e` | trình duyệt thật trên Vite dev server thật, `/api` do một mock trong test trả lời; dùng cho các luồng chỉ hỏng trong trình duyệt (SSE reconnect, layout ở bề rộng điện thoại, drawer điện thoại là modal, bàn phím). Proxy `/api` của dev server khi chạy e2e trỏ vào một cổng không ai nghe (`API_ORIGIN`), nên spec nào quên mock sẽ hỏng chứ không gọi vào đội đang chạy trên máy (`dev-proxy.spec.ts`) |
 
@@ -1370,6 +1370,27 @@ tên một test thì sửa dòng của nó trong cùng commit.
     giá không rõ còn lần bị từ chối trước chunk đầu thì không, lượt chỉ giữ câu trả lời của lần
     hỏi lại và không phát `route_fallback`); `tests/test_provider_chain.py` (lỗi không tạm thời
     vẫn rơi tuyến ngay như trước)
+- **Đối số của lời gọi tool đi ra từng mảnh ngay khi model gửi, trước câu trả lời trọn vẹn**
+  - pytest: `tests/test_tool_call_ids.py`
+    ("test_each_piece_of_arguments_comes_back_named_with_the_call_it_belongs_to": mỗi mảnh mang
+    vị trí và tên đã ghép của lời gọi, lời gọi ghép ở cuối không đổi,
+    "test_a_delta_that_brings_no_arguments_is_not_a_piece",
+    "test_arguments_sent_ahead_of_the_name_come_back_with_no_name_yet",
+    "test_pieces_of_two_calls_keep_their_own_index_and_name_in_the_order_they_came",
+    "test_a_delta_that_states_no_index_is_a_piece_of_the_first_call");
+    `tests/test_openrouter.py::test_each_fragment_of_a_tool_call_is_passed_on_as_it_arrives`
+    (mảnh xen với chữ theo đúng thứ tự gửi, `Completion` cuối y như cũ);
+    `tests/test_ollama.py::test_a_local_model_passes_on_the_pieces_of_a_tool_call_too`;
+    `tests/test_route_retry.py`
+    ("test_a_route_is_still_asked_again_after_part_of_a_tool_call_arrived",
+    "test_a_tool_call_piece_does_not_use_up_the_retry_that_text_would": mảnh lời gọi không phải
+    chữ đã hiện, nên tuyến vẫn được hỏi lại); `tests/test_provider_chain.py`
+    ("test_scripted_provider_streams_each_tool_call_in_pieces_before_the_completion",
+    "test_scripted_provider_streams_no_piece_for_an_answer_that_calls_nothing");
+    `tests/test_echo_provider.py` (model giả phát mảnh 12 ký tự mang tên lời gọi, chữ có dấu
+    không bị đổi thành mã escape, lượt chỉ gọi tool không còn mảnh chữ rỗng, `fake:slow` chờ
+    giữa hai mảnh chữ hay hai mảnh lời gọi và không chờ quanh câu trả lời một mảnh, `fake:echo`
+    không bao giờ chờ, mặc định chờ bằng `asyncio.sleep`)
 - **Tham số lời gọi tool không phải JSON object thành lỗi tool, lượt vẫn chạy tiếp**
   - pytest: `tests/test_tool_args_invalid.py` (tham số bị cắt giữa chừng báo vị trí chỗ dừng
     chứ không phải chỗ chuỗi bắt đầu, lỗi giữa chừng báo vị trí và vài chục ký tự quanh đó với

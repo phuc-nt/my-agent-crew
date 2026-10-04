@@ -25,7 +25,7 @@ uv run python -m my_agent_crew   # http://127.0.0.1:8765
 
 Lần chạy đầu tạo home `~/.my-agent-crew/` với `config.yaml`, `agent.sqlite3`, `agent.yaml` cho master và `users/owner/`. Mở trình duyệt, gõ một câu, xem run xuất hiện ở panel hoạt động.
 
-Thử không tốn tiền: `MY_AGENT_ROUTES=fake:echo uv run python -m my_agent_crew`; gõ `/tool workspace_list` để thấy vòng lặp tool chạy qua provider giả.
+Thử không tốn tiền: `MY_AGENT_ROUTES=fake:echo uv run python -m my_agent_crew`; gõ `/tool workspace_list` để thấy vòng lặp tool chạy qua provider giả. Đổi thành `MY_AGENT_ROUTES=fake:slow` thì cùng provider giả ấy chờ 0,1 giây giữa hai mảnh, để nhìn câu trả lời và đối số của lời gọi tool tới dần.
 
 ## 3. Home và các tệp cần biết
 

@@ -1,9 +1,18 @@
+from dataclasses import replace
+
 import pytest
 
 from my_agent_crew.config import Route
 from my_agent_crew.llm.fake import ScriptedProvider, completion
 from my_agent_crew.llm.provider import AllRoutesFailed, ProviderChain, ProviderError
-from my_agent_crew.llm.types import Completion, Message, RouteFailed, TextDelta
+from my_agent_crew.llm.types import (
+    Completion,
+    Message,
+    RouteFailed,
+    TextDelta,
+    ToolCall,
+    ToolCallDelta,
+)
 from tests.conftest import collect
 
 USER = [Message(role="user", content="hi")]
@@ -75,3 +84,28 @@ async def test_scripted_provider_streams_deltas_then_completion():
     deltas = [i.text for i in items if isinstance(i, TextDelta)]
     assert "".join(deltas) == items[-1].message.content
     assert len(deltas) > 1
+
+
+async def test_scripted_provider_streams_each_tool_call_in_pieces_before_the_completion():
+    """As a real stream does: the words first, then each call's arguments twelve characters
+    at a time under the call's place in the answer, then the completion as it was scripted."""
+    scripted = completion(
+        "đang viết",
+        tool_calls=(
+            ToolCall("c1", "artifact_create", {"title": "Kế hoạch"}),
+            ToolCall("c2", "workspace_list", {}),
+        ),
+    )
+    items = await collect(ScriptedProvider([scripted]).stream(USER, [], "m"))
+    assert items == [
+        TextDelta("đang viết"),
+        ToolCallDelta(index=0, name="artifact_create", chunk='{"title": "K'),
+        ToolCallDelta(index=0, name="artifact_create", chunk='ế hoạch"}'),
+        ToolCallDelta(index=1, name="workspace_list", chunk="{}"),
+        replace(scripted, provider="scripted", model="m"),
+    ]
+
+
+async def test_scripted_provider_streams_no_piece_for_an_answer_that_calls_nothing():
+    items = await collect(ScriptedProvider([completion("xong")]).stream(USER, [], "m"))
+    assert [type(item) for item in items] == [TextDelta, Completion]

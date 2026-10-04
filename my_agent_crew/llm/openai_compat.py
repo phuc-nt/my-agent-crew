@@ -110,7 +110,8 @@ async def stream_chat(
     provider: str,
     model: str,
 ) -> AsyncIterator[StreamItem]:
-    """One streamed completion: text deltas as they arrive, then a final `Completion`."""
+    """One streamed completion: text and the pieces of each tool call as they arrive, then
+    a final `Completion` that carries the whole answer."""
     text_parts: list[str] = []
     calls = ToolCallBuffer()
     usage = Usage()
@@ -146,7 +147,8 @@ async def stream_chat(
                         text_parts.append(delta["content"])
                         yield TextDelta(delta["content"])
                     if delta.get("tool_calls"):
-                        calls.feed(delta["tool_calls"])
+                        for piece in calls.feed(delta["tool_calls"]):
+                            yield piece
                     finish = choice.get("finish_reason") or finish
     except httpx.HTTPError as exc:
         raise ProviderError(f"transport failure talking to {model}: {exc}", transient=True) from exc
