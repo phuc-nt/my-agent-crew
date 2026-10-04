@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import logging
 import os
+import secrets
 from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
@@ -131,18 +132,39 @@ async def test_the_folders_made_for_a_file_that_was_not_written_are_taken_away_a
         assert _tree(root) == before, path
 
 
-async def test_a_folder_that_holds_something_by_then_is_left_with_what_it_holds(
-    store: Store, root: Path, art: str, monkeypatch
+@pytest.mark.parametrize("error", [OSError(*FULL), Stopped()])
+def test_a_folder_that_holds_something_by_then_is_left_with_what_it_holds(
+    root: Path, monkeypatch, error: BaseException
 ):
-    def full(*_: object) -> None:
-        put(root, "fresh/other.md", "của việc khác")
-        raise OSError(*FULL)
+    """And its refusal to go is not what the caller hears: the error is the one that stopped
+    the write."""
 
-    monkeypatch.setattr(os, "replace", full)
+    def stopping(*_: object) -> None:
+        put(root, "fresh/other.md", "của việc khác")
+        raise error
+
+    monkeypatch.setattr(os, "replace", stopping)
     before = _tree(root)
-    assert not (await _export(store, root, art, "fresh/deep/new.md")).ok
+    with pytest.raises(type(error)) as caught:
+        write_whole(root / "fresh/deep/new.md", PLAN.encode())
+    assert caught.value is error
     left = [entry for entry in _tree(root) if entry not in before]
     assert left == ["fresh", f"fresh/other.md={'của việc khác'.encode()!r}"]
+
+
+def test_a_name_someone_put_a_link_at_first_is_never_written_through(
+    root: Path, tmp_path: Path, monkeypatch
+):
+    """The file is made new or not at all, and what was there is not this write's to remove."""
+    outside = put(tmp_path, "outside.md", "của người khác")
+    monkeypatch.setattr(secrets, "token_hex", lambda _: "ab" * 8)
+    planted = root / "notes" / f".export-{'ab' * 8}.tmp"
+    planted.symlink_to(outside)
+    before = _tree(root)
+    with pytest.raises(FileExistsError):
+        write_whole(root / OLD, PLAN.encode())
+    assert _tree(root) == before and planted.is_symlink()
+    assert outside.read_text(encoding="utf-8") == "của người khác"
 
 
 async def test_a_folder_another_write_made_first_is_used_and_is_not_this_ones_to_take_away(

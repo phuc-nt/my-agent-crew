@@ -1579,7 +1579,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `OSError`, `MemoryError` hay một `BaseException` đều dọn tệp ghi dở,
     "test_the_folders_made_for_a_file_that_was_not_written_are_taken_away_again": chỉ những thư
     mục chính lần ghi đó tạo, từ sâu ra nông, thư mục có sẵn thì ở lại,
-    "test_a_folder_that_holds_something_by_then_is_left_with_what_it_holds",
+    "test_a_folder_that_holds_something_by_then_is_left_with_what_it_holds": lỗi tới tay nơi
+    gọi vẫn là lỗi đã chặn lần ghi, không phải việc thư mục không xoá được,
+    "test_a_name_someone_put_a_link_at_first_is_never_written_through": tên tệp tạm đã có sẵn
+    một symlink thì lần ghi dừng, tệp symlink trỏ tới không đổi và symlink không bị dọn,
     "test_a_folder_another_write_made_first_is_used_and_is_not_this_ones_to_take_away");
     `tests/test_artifact_export_modes.py`
     ("test_the_file_being_written_is_open_to_no_reader_the_finished_one_is_closed_to": dưới umask
