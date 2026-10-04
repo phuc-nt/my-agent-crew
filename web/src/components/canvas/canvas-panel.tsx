@@ -10,17 +10,14 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { artifactApi } from "../../api/artifact-client";
 import type { MessageCanvas } from "../../api/artifact-types";
-import { ApiError } from "../../api/client";
 import { useCanvas } from "../../hooks/use-canvas";
 import type { PanelHandle } from "../../hooks/use-canvas-dock";
+import { useCanvasRename } from "../../hooks/use-canvas-rename";
 import { useSaveThenShow } from "../../hooks/use-save-then-show";
 import { vi } from "../../i18n/vi";
-import { announceDeletion } from "../../lib/artifact-events";
 import { hasNoText, showsSaved } from "../../lib/canvas-kinds";
 import type { CanvasState } from "../../lib/canvas-machine";
-import { canvasReason } from "../../lib/canvas-reasons";
 import type { CanvasSelection } from "../../lib/canvas-selection";
 import { isDirty } from "../../lib/canvas-state";
 import type { SendResult } from "../../lib/send-result";
@@ -75,7 +72,7 @@ export function CanvasPanel(props: CanvasPanelProps) {
   const editor = useRef<HTMLTextAreaElement | null>(null);
   const [chosen, setChosen] = useState<CanvasMode | null>(null);
   const [history, setHistory] = useState(false);
-  const [renameError, setRenameError] = useState<string | null>(null);
+  const { rename, renameError } = useCanvasRename(artifactId, canvas);
   const [picked, setPicked] = useState<{ selection: CanvasSelection; gen: number } | null>(null);
   const pick = useCallback(
     (selection: CanvasSelection | null) => setPicked(selection && { selection, gen: latest.current.gen }),
@@ -109,17 +106,6 @@ export function CanvasPanel(props: CanvasPanelProps) {
       setHistory(false);
       setPicked(null);
     });
-
-  const rename = async (title: string) => {
-    setRenameError(null);
-    try {
-      canvas.renamed(await artifactApi.rename(artifactId, title));
-    } catch (error) {
-      const status = error instanceof ApiError ? error.status : null;
-      if (status === 404) announceDeletion(artifactId);
-      else setRenameError(status === 422 ? vi.canvas.reasons.title : canvasReason(error));
-    }
-  };
 
   const showHistory = ready && history && !state.gone;
   const selection = picked?.gen === state.gen ? picked.selection : null;
