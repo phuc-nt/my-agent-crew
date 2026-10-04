@@ -52,6 +52,28 @@ describe("a page that takes the keyboard", () => {
     expect(screen.queryByRole("status")).toBeNull();
   });
 
+  it("does not keep what it took while the window was behind: the person is back in front, and so is the keyboard", () => {
+    const { container } = setup();
+    const first = frameIn(container);
+    fireEvent.load(first);
+    const field = writing();
+
+    // The person goes to another window, the page takes the focus, and the person comes back.
+    act(() => {
+      fireEvent.blur(window);
+    });
+    act(() => first.focus());
+    wait(0);
+    act(() => {
+      fireEvent.focus(window);
+    });
+    wait(0);
+    wait(ATTEST_GRACE_MS);
+
+    expect(document.activeElement).toBe(field);
+    expect(frameIn(container)).toBe(first);
+  });
+
   it("is taken out the fifth time it does, the person is told why, and the keyboard is theirs", () => {
     const { container, onMount } = setup();
     const first = frameIn(container);

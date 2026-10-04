@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { useRef, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
-import { wait } from "../test/canvas-hook";
+import { setVisibility, wait } from "../test/canvas-hook";
 import { ATTEST_GRACE_MS, GRABS_MAX, LATE_MS, useFrameFocusGuard } from "./use-frame-focus-guard";
 
 beforeEach(() => {
@@ -610,6 +610,225 @@ describe("a page that held the app up while it had the keyboard", () => {
   });
 });
 
+describe("the keyboard a page took while the window was behind", () => {
+  /** The person goes to another window: the app's is told it lost the focus, which stays where it was. */
+  function leave() {
+    act(() => {
+      fireEvent.blur(window);
+    });
+  }
+
+  /** The page takes the focus meanwhile. A window that is not in front is told nothing of it. */
+  function takesBehind() {
+    act(() => page().focus());
+    // The task the focus left its element in is long over by the time the person is back.
+    wait(0);
+  }
+
+  /** The window says it is in front again, and the task it said so in is over. */
+  function comeBack() {
+    act(() => {
+      fireEvent.focus(window);
+    });
+    wait(0);
+  }
+
+  /** One grab is against the page: three more go unreported, and the one after is the fifth. */
+  function expectOneGrab(onGrabbing: () => void) {
+    takes(GRABS_MAX - 2);
+    expect(onGrabbing).not.toHaveBeenCalled();
+    takes(1);
+    expect(onGrabbing).toHaveBeenCalledTimes(1);
+  }
+
+  /** No grab is against the page: once the offer is taken back, the fifth it takes is the first reported. */
+  function expectNoGrab(onGrabbing: () => void) {
+    fireEvent.pointerDown(message());
+    takes(GRABS_MAX - 1);
+    expect(onGrabbing).not.toHaveBeenCalled();
+    takes(1);
+    expect(onGrabbing).toHaveBeenCalledTimes(1);
+  }
+
+  it("goes back to what had it when the window went behind, though the focus left nothing as the page took it", () => {
+    const { onGrabbing } = setup();
+    message().focus();
+    leave();
+    takesBehind();
+
+    // In front again, the window is told it lost the focus to the page.
+    act(() => {
+      fireEvent.blur(window);
+    });
+    wait(ATTEST_GRACE_MS - 1);
+    expect(holder()).toBe(page());
+    wait(1);
+
+    expect(holder()).toBe(message());
+    expectOneGrab(onGrabbing);
+  });
+
+  it("is taken once when the window says it is in front and that it lost the focus to the page, one after the other", () => {
+    const { onGrabbing } = setup();
+    message().focus();
+    leave();
+    takesBehind();
+
+    act(() => {
+      fireEvent.focus(window);
+      fireEvent.blur(window);
+    });
+    wait(ATTEST_GRACE_MS);
+
+    expect(holder()).toBe(message());
+    expectOneGrab(onGrabbing);
+  });
+
+  it("goes back once the window is in front again, and is held against the page", () => {
+    const { onGrabbing } = setup();
+    message().focus();
+    leave();
+    takesBehind();
+
+    comeBack();
+    wait(ATTEST_GRACE_MS - 1);
+    expect(holder()).toBe(page());
+    wait(1);
+
+    expect(holder()).toBe(message());
+    expectOneGrab(onGrabbing);
+  });
+
+  it("is looked for a task after the window says it is in front, when the browser has put the focus back", () => {
+    setup();
+    message().focus();
+    leave();
+
+    act(() => {
+      fireEvent.focus(window);
+      // Only now is the focus where the page took it, and the window is told nothing more.
+      page().focus();
+    });
+    wait(0);
+    wait(ATTEST_GRACE_MS);
+
+    expect(holder()).toBe(message());
+  });
+
+  it("does not go to what had it before the person came back and let it go", () => {
+    setup();
+    message().focus();
+    leave();
+    comeBack();
+    message().blur();
+    wait(0);
+    const focused = vitest.spyOn(message(), "focus");
+
+    takes(1);
+
+    expect(holder()).toBe(document.body);
+    expect(focused).not.toHaveBeenCalled();
+  });
+
+  it("goes back when the tab is shown again, and is left with the page while the tab is hidden", () => {
+    const { onGrabbing } = setup();
+    message().focus();
+    leave();
+    takesBehind();
+
+    // A hidden tab's timers run late, and a wait that ends late stops the page for it.
+    setVisibility("hidden");
+    wait(ATTEST_GRACE_MS);
+    expect(holder()).toBe(page());
+
+    setVisibility("visible");
+    wait(ATTEST_GRACE_MS - 1);
+    expect(holder()).toBe(page());
+    wait(1);
+
+    expect(holder()).toBe(message());
+    expectOneGrab(onGrabbing);
+  });
+
+  it.each(["pointerMove", "pointerDown"] as const)(
+    "goes back at a %s in the app, where the window has not said it is in front",
+    (pointer) => {
+      const { onGrabbing } = setup();
+      message().focus();
+      leave();
+      takesBehind();
+
+      fireEvent[pointer](knob());
+      wait(ATTEST_GRACE_MS - 1);
+      expect(holder()).toBe(page());
+      wait(1);
+
+      expect(holder()).toBe(message());
+      expectOneGrab(onGrabbing);
+    },
+  );
+
+  it("is not looked for at a pointer in the app while the window never went behind", () => {
+    const { onGrabbing } = setup();
+    // The person gave the page the keyboard, then pressed something in the app that left the focus there.
+    press();
+    act(() => page().focus());
+    fireEvent.pointerDown(knob());
+
+    fireEvent.pointerMove(knob());
+    fireEvent.pointerDown(knob());
+    wait(ATTEST_GRACE_MS);
+
+    expect(holder()).toBe(page());
+    expectNoGrab(onGrabbing);
+  });
+
+  it("is no longer looked for at a pointer in the app once the person is back", () => {
+    const { onGrabbing } = setup();
+    message().focus();
+    leave();
+    comeBack();
+    press();
+    act(() => page().focus());
+    fireEvent.pointerDown(knob());
+
+    fireEvent.pointerMove(knob());
+    wait(ATTEST_GRACE_MS);
+
+    expect(holder()).toBe(page());
+    expectNoGrab(onGrabbing);
+  });
+
+  it("stays with the page the person pressed in to come back", () => {
+    const { onGrabbing } = setup();
+    message().focus();
+    leave();
+    press();
+    act(() => page().focus());
+
+    comeBack();
+    wait(ATTEST_GRACE_MS);
+
+    expect(holder()).toBe(page());
+    expectNoGrab(onGrabbing);
+  });
+
+  it("stays with the page whose reporter tells of that press only after the window says it is in front", () => {
+    const { onGrabbing } = setup();
+    message().focus();
+    leave();
+    act(() => page().focus());
+
+    comeBack();
+    wait(ATTEST_GRACE_MS - 1);
+    press();
+    wait(ATTEST_GRACE_MS);
+
+    expect(holder()).toBe(page());
+    expectNoGrab(onGrabbing);
+  });
+});
+
 describe("a guard that is put up", () => {
   it("holds no scroll back: it tells the browser it only listens to the pointer", () => {
     const put = vitest.spyOn(document, "addEventListener");
@@ -621,6 +840,7 @@ describe("a guard that is put up", () => {
         .filter(([told]) => told === type)
         .map(([, , options]) => typeof options === "object" && options.passive === true);
     expect(passive("pointerdown")).toEqual([true]);
+    expect(passive("pointermove")).toEqual([true]);
     expect(passive("wheel")).toEqual([]);
   });
 });
@@ -634,8 +854,11 @@ describe("a guard that is taken down", () => {
     fireEvent.focusOut(knob());
     vitest.spyOn(document, "activeElement", "get").mockReturnValue(page());
     fireEvent.blur(window);
-    // One to forget what the focus left, one to wait on the page.
-    expect(vitest.getTimerCount()).toBe(2);
+    // The window says twice that it is in front.
+    fireEvent.focus(window);
+    fireEvent.focus(window);
+    // One to forget what the focus left, one to wait on the page, one to look once the window is in front.
+    expect(vitest.getTimerCount()).toBe(3);
 
     unmount();
 
@@ -672,12 +895,14 @@ describe("a guard that is taken down", () => {
     const onDocument = told(put.document.mock.calls);
     const onWindow = told(put.window.mock.calls);
     expect(onDocument.map((one) => `${one.type} ${one.capture}`)).toEqual([
+      "pointermove true",
       "pointerdown true",
       "keydown true",
       "focusin true",
       "focusout true",
+      "visibilitychange false",
     ]);
-    expect(onWindow.map((one) => `${one.type} ${one.capture}`)).toEqual(["blur false"]);
+    expect(onWindow.map((one) => `${one.type} ${one.capture}`)).toEqual(["blur false", "focus false"]);
     expect(told(taken.document.mock.calls)).toEqual([]);
 
     unmount();

@@ -19,6 +19,13 @@
  * was taken from, or off the frame when nothing held it. Keys pressed during the wait go to the
  * page. A wait that ends much later than it was due means the app was held up while the page had
  * the keyboard, and stops the page at once.
+ *
+ * A window that is not in front is told nothing when a page in it takes the focus. So the element
+ * that had the keyboard when the window lost the focus to anything but the frame is remembered, and
+ * the frame is looked at again when the person is back: a task after the window's `focus`, when the
+ * tab is shown again, and at a pointer moved or pressed in the app before the window has said it is
+ * in front. A frame that has the keyboard then with no offer is waited on like any other, and the
+ * keyboard goes back to the remembered element.
  */
 
 import { type RefObject, useCallback, useEffect, useRef } from "react";
@@ -29,6 +36,8 @@ export const GRABS_MAX = 5;
 export const ATTEST_GRACE_MS = 50;
 /** How far past its time that wait may end before the page is stopped for it. */
 export const LATE_MS = 100;
+
+const POINTER_EVENTS = ["pointermove", "pointerdown"] as const;
 
 type Timer = ReturnType<typeof setTimeout> | undefined;
 
@@ -57,6 +66,10 @@ export function useFrameFocusGuard(frame: RefObject<HTMLIFrameElement | null>, o
     // The element focus left in this very task: a frame that has the focus now took it from there.
     let left: HTMLElement | null = null;
     let forgetting: Timer;
+    // The window is not in front, and the element that had the keyboard when it stopped being.
+    let away = false;
+    let kept: HTMLElement | null = null;
+    let returning: Timer;
     let waiting: Timer;
 
     const settle = (taker: HTMLIFrameElement, from: HTMLElement | null, since: number) => {
@@ -88,7 +101,8 @@ export function useFrameFocusGuard(frame: RefObject<HTMLIFrameElement | null>, o
     };
 
     const pointed = (event: Event) => {
-      if (box.current?.contains(event.target as Node) !== true) offered = false;
+      if (away) suspect(kept);
+      if (event.type === "pointerdown" && box.current?.contains(event.target as Node) !== true) offered = false;
     };
     const pressed = (event: KeyboardEvent) => {
       offered = event.key === "Tab";
@@ -104,21 +118,47 @@ export function useFrameFocusGuard(frame: RefObject<HTMLIFrameElement | null>, o
         left = null;
       }, 0);
     };
-    const blurred = () => suspect(left);
+    const blurred = () => {
+      const active = document.activeElement;
+      if (active === frame.current) {
+        suspect(left ?? kept);
+        return;
+      }
+      // Lost to another window or to the browser's own controls, not to the page.
+      away = true;
+      kept = active as HTMLElement | null;
+    };
+    const returned = () => {
+      clearTimeout(returning);
+      // A task later: a browser may put the focus back where it was only after it told of the window's.
+      returning = setTimeout(() => {
+        suspect(kept);
+        away = false;
+        kept = null;
+      }, 0);
+    };
+    const shown = () => {
+      // Not while the tab is hidden: its timers run late, and a wait that ends late stops the page.
+      if (document.visibilityState === "visible") suspect(kept);
+    };
 
-    document.addEventListener("pointerdown", pointed, { capture: true, passive: true });
+    for (const type of POINTER_EVENTS) document.addEventListener(type, pointed, { capture: true, passive: true });
     document.addEventListener("keydown", pressed, true);
     document.addEventListener("focusin", arrived, true);
     document.addEventListener("focusout", leaving, true);
+    document.addEventListener("visibilitychange", shown);
     window.addEventListener("blur", blurred);
+    window.addEventListener("focus", returned);
     return () => {
-      document.removeEventListener("pointerdown", pointed, true);
+      for (const type of POINTER_EVENTS) document.removeEventListener(type, pointed, true);
       document.removeEventListener("keydown", pressed, true);
       document.removeEventListener("focusin", arrived, true);
       document.removeEventListener("focusout", leaving, true);
+      document.removeEventListener("visibilitychange", shown);
       window.removeEventListener("blur", blurred);
+      window.removeEventListener("focus", returned);
       told.current = undefined;
-      for (const timer of [forgetting, waiting]) clearTimeout(timer);
+      for (const timer of [forgetting, returning, waiting]) clearTimeout(timer);
     };
   }, [frame]);
 

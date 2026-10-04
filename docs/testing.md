@@ -2567,8 +2567,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `web/e2e/canvas-overflow.ts` là hàm đo cuộn ngang dùng chung với `canvas.spec.ts`, đo cả
     `.canvas-errors-list`
 - **Canvas trên web: trang trong khung tự lấy focus thì bàn phím về lại chỗ người đang gõ; người đưa
-  bàn phím cho trang bằng một cú bấm trong trang hoặc Tab; trang giành tới lần thứ năm thì bị gỡ; khung
-  nói khi bàn phím đang ở trang**
+  bàn phím cho trang bằng một cú bấm trong trang hoặc Tab; trang giành tới lần thứ năm thì bị gỡ; trang
+  giành lúc cửa sổ ở phía sau thì bàn phím về lại khi người quay lại; khung nói khi bàn phím đang ở
+  trang**
   - pytest: `tests/test_render_pages.py`, bốn test của reporter về lời chào và cú bấm (xem mục trang
     render ở trên): cú bấm chỉ được nói khi trình duyệt bảo một người đã bấm
   - vitest: `web/src/hooks/use-frame-focus-guard.test.tsx` nhóm "the keyboard a page took unasked"
@@ -2598,13 +2599,28 @@ tên một test thì sửa dòng của nó trong cùng commit.
     từ không, và không phải trả lời cho khung cũ đang được chờ; báo cho callback mới nhất), nhóm "a
     page that held the app up while it had the keyboard" (bàn phím về trễ ba giây thì trang bị báo
     ngay lần đầu; trễ đúng `LATE_MS` (100 ms) thì chưa, quá một mili giây thì có; khoảng chờ kết thúc
-    bằng một cú bấm thì dù cú bấm tới trễ cũng không báo), nhóm "a guard that is put up" (listener
+    bằng một cú bấm thì dù cú bấm tới trễ cũng không báo), nhóm "the keyboard a page took while the
+    window was behind" (cửa sổ app mất focus về thứ không phải khung thì phần tử đang giữ bàn phím
+    được nhớ; trang lấy focus trong lúc ấy, cửa sổ không được báo gì: khi cửa sổ nhận `blur` về khung
+    mà không phần tử nào vừa mất focus thì bàn phím về phần tử đã nhớ chứ không rơi xuống `body`;
+    `focus` rồi `blur` liền nhau chỉ là một lần giành; cửa sổ nhận `focus` thì một task sau khung
+    được xét lại, chờ đủ khoảng chờ rồi bàn phím về phần tử đã nhớ và tính một lần giành; "is looked
+    for a task after the window says it is in front, when the browser has put the focus back": xét
+    ngay trong `focus` là test đỏ; người đã quay lại và tự buông focus thì phần tử đã nhớ bị quên;
+    tab hiện lại thì khung được xét lại, tab đang ẩn thì không; cửa sổ chưa nói nó ở phía trước mà
+    con trỏ đã di chuyển hay bấm trong app thì khung cũng được xét lại; cửa sổ chưa từng ở phía sau,
+    hoặc người đã quay lại, thì con trỏ trong app không mở khoảng chờ nào; người quay lại bằng một
+    cú bấm trong trang thì trang giữ bàn phím, kể cả khi reporter nói tới cú bấm ấy sau `focus` của
+    cửa sổ, và không lần nào bị tính), nhóm "a guard that is put up" (hai listener `pointermove` và
     `pointerdown` gắn với `passive: true` và không có listener `wheel` nào, nên guard không bao giờ
-    giữ một cú cuộn lại), nhóm "a guard that is taken down" (không để lại timer nào, không còn nghe
-    cú bấm, gỡ đủ từng listener đã gắn với đúng cờ capture);
+    giữ một cú cuộn lại), nhóm "a guard that is taken down" (không để lại timer nào trong ba timer
+    của nó, không còn nghe cú bấm, gỡ đủ từng listener đã gắn với đúng cờ capture: sáu trên
+    `document`, hai trên `window`);
     `web/src/components/canvas/canvas-frame-keyboard.test.tsx` nhóm "a page that takes the keyboard"
     (hộp `div.canvas-frame-box` chỉ mang `class` và `tabindex="-1"`, không còn thuộc tính nào tắt con
-    trỏ của khung; một lần giành thì trang vẫn còn và ô đang gõ có lại focus; lần thứ năm khung bị
+    trỏ của khung; một lần giành thì trang vẫn còn và ô đang gõ có lại focus; "does not keep what it
+    took while the window was behind: the person is back in front, and so is the keyboard": cửa sổ
+    mất focus, trang lấy focus, cửa sổ có lại focus thì ô đang gõ có lại bàn phím; lần thứ năm khung bị
     gỡ, lời báo là "Trang liên tục giành bàn phím nên đã bị dừng." kèm nút Nạp lại, panel được báo
     như khi trang tự đổi địa chỉ; đã gỡ thì đứng yên qua bản mới, nối lại và tab hiện lại; Nạp lại
     đưa khung mới lên và khung ấy lại có đủ năm lần; bàn phím người đưa bằng cú bấm trong trang thì
@@ -2655,8 +2671,12 @@ tên một test thì sửa dòng của nó trong cùng commit.
     soạn tin, cú thứ năm gỡ trang, năm phím gõ xen giữa vào đủ ô soạn tin). Ở 390×844 cảm ứng: "goes
     to the page with the first tap, which the page hears as a pointer pressed" (cú chạm đầu tới trang
     như một `pointerdown`, mười phím gõ sau đó trang nghe đủ, dòng chữ nằm trong bề ngang của khung,
-    khung không dời và không có cuộn ngang). Phần còn lại đã ghi nhận: phím bấm trong khoảng chờ, tối
-    đa 50 ms giữa lúc trang giành và lúc bàn phím được trả lại, thì tới trang
+    khung không dời và không có cuộn ngang). Trang giành lúc cửa sổ ở phía sau chỉ có test vitest:
+    Chromium của Playwright luôn coi trang là đang có focus nên cửa sổ không bao giờ nhận `blur` vì
+    người sang cửa sổ khác. Phần còn lại đã ghi nhận: phím bấm trong khoảng chờ, tối đa 50 ms giữa
+    lúc trang giành và lúc bàn phím được trả lại, thì tới trang; trang giành lúc cửa sổ ở phía sau
+    mà người quay lại bằng bàn phím, không có `focus` của cửa sổ, tab không đổi trạng thái và con
+    trỏ không động, thì phím tới trang cho tới sự kiện đầu tiên trong ba sự kiện ấy
 - **Canvas trên web: svg và ảnh hiện thành hình từ bản đã lưu; ảnh chỉ để xem; hình không tải được
   thì phân biệt hình hỏng, bản đã mất, server lỗi và mất mạng**
   - vitest: `web/src/components/canvas/canvas-image.test.tsx` nhóm "a picture of a canvas" (hình là
