@@ -26,7 +26,7 @@ def write_whole(target: Path, payload: bytes) -> bool:
         return _move_in(target, payload)
     except BaseException:
         for folder in reversed(made):
-            with suppress(OSError, ValueError):
+            with suppress(OSError):  # one that holds something by now stays
                 folder.rmdir()
         raise
 
@@ -62,7 +62,7 @@ def _move_in(target: Path, payload: bytes) -> bool:
             out.write(payload)
         os.replace(temp, target)
     except BaseException:
-        with suppress(OSError, ValueError):
+        with suppress(OSError):
             temp.unlink()
         raise
     return old is not None
