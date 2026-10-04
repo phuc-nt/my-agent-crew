@@ -1,7 +1,8 @@
-"""Canvases over REST, as the web panel uses them: list, create, read, save, rename, delete.
-Every write is the person's, from no conversation in particular: no body names an author or a
-conversation for it, so no request can pass a write off as an agent's. The store decides every
-limit (`artifacts/kinds.py`) and `artifact_errors` turns each refusal into its status code.
+"""Canvases over REST, as the web uses them: list, create, read, save, rename, delete, and the
+room they take together. Every write is the person's, from no conversation in particular: no
+body names an author or a conversation for it, so no request can pass a write off as an agent's.
+The store decides every limit (`artifacts/kinds.py`) and `artifact_errors` turns each refusal
+into its status code.
 
 Every route is `async`: it writes the store, and so announces the change, on the event loop
 the activity watchers wait on (`activity/watchers.py`)."""
@@ -13,6 +14,7 @@ from typing import Any, Literal
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field, StrictInt
 
+from my_agent_crew.artifacts.kinds import STORAGE_CAP
 from my_agent_crew.server.artifact_errors import artifact_errors
 from my_agent_crew.server.deps import Rt
 from my_agent_crew.store.artifact_models import USER
@@ -86,6 +88,20 @@ async def create_artifact(body: CreateBody, rt: Rt) -> dict[str, Any]:
         store.artifact_links.set_focus(conv_id, made.id, None)
     with artifact_errors(store.artifacts, made.id):
         return detail(store, made.id)
+
+
+@router.get("/artifacts/usage")
+async def artifact_usage(rt: Rt) -> dict[str, Any]:
+    """Every canvas there is, past what one list returns, with the bytes each keeps across all
+    its versions and the ceiling they fit under together. Declared ahead of
+    `/artifacts/{artifact_id}`, which would otherwise read "usage" as the id of a canvas."""
+    sizes = rt.store.artifacts.sizes()
+    return {
+        "count": len(sizes),
+        "bytes": sum(sizes.values()),
+        "cap": STORAGE_CAP,
+        "by_artifact": sizes,
+    }
 
 
 @router.get("/artifacts/{artifact_id}")

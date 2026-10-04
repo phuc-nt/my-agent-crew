@@ -1804,6 +1804,18 @@ tên một test thì sửa dòng của nó trong cùng commit.
     không dùng bản lúc xung đột, canvas bị xoá giữa chừng là 404, 413 nêu cỡ và trần,
     "test_full_storage_is_507_naming_the_three_largest_canvases_biggest_first", 422 mang lời của
     kho, kể cả khi byte gửi lên không phải ảnh hay chữ có nửa ký tự Unicode)
+- **Canvas qua REST: chỗ các canvas đang chiếm (`GET /api/artifacts/usage`)**
+  - pytest: `tests/test_api_artifacts_usage.py`
+    ("test_usage_adds_up_every_version_of_every_canvas": `bytes` và `by_artifact` cộng mọi phiên
+    bản chứ không chỉ bản mới nhất, chữ tính theo byte chứ không theo ký tự, ảnh tính cùng chữ,
+    `cap` là trần chung của kho,
+    "test_a_deleted_canvas_gives_its_room_back",
+    "test_usage_with_no_canvas_is_nothing_under_the_same_ceiling": kho rỗng trả `count` 0, `bytes`
+    0, `by_artifact` rỗng và vẫn nêu trần,
+    "test_usage_is_not_read_as_the_id_of_a_canvas": route khai báo trước `/artifacts/{id}` nên
+    "usage" không bị đọc thành mã canvas; từ khác ở chỗ đó vẫn là 404 và canvas thật vẫn đọc được,
+    "test_usage_counts_the_canvases_a_list_is_too_short_to_return": 201 canvas thì danh sách dừng
+    ở 200 còn `count` là 201)
 - **Canvas qua REST: lịch sử phiên bản, khôi phục và chữ thô không chạy gì**
   - pytest: `tests/test_api_artifact_history.py` (phiên bản mới nhất trước và không kèm chữ, một bản
     đọc trọn, bản đã gộp là 404 kèm số bản mới nhất, canvas không có là 404 ở mọi route lịch sử,
@@ -1995,9 +2007,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     ("test_every_canvas_route_and_the_chat_message_run_on_the_event_loop",
     "test_the_routers_checked_here_are_every_canvas_router_the_app_serves": router canvas nào
     của `app.ROUTERS` cũng nằm trong bộ được kiểm, kể cả router nhập lại,
-    "test_no_read_changes_what_a_conversation_knows_or_has_open": mọi `GET` canvas, kể cả trang
-    `render` của canvas html và mermaid ở bản mới nhất lẫn một bản cũ, giữ nguyên liên kết, con
-    trỏ đọc, canvas đang mở, phiên bản và tin)
+    "test_no_read_changes_what_a_conversation_knows_or_has_open": mọi `GET` canvas, kể cả
+    `usage` và trang `render` của canvas html và mermaid ở bản mới nhất lẫn một bản cũ, giữ
+    nguyên liên kết, con trỏ đọc, canvas đang mở, phiên bản và tin)
 - **Canvas trên web: trộn ba chiều theo dòng, giữ con trỏ trên đúng ký tự, diff lịch sử giữ mọi dòng**
   - vitest: `web/src/lib/diff-lines.test.ts` (dòng trống, khoảng trắng cuối dòng và xuống dòng cuối là
     dòng thật, đầu đuôi chung được cắt trước khi áp trần, quá trần là null);

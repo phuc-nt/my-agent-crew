@@ -76,6 +76,7 @@ def _state(store: Store, conv_id: str, art: str) -> tuple:
 READS = [
     "/api/artifacts",
     "/api/artifacts?conversation_id={conv}",
+    "/api/artifacts/usage",
     "/api/artifacts/{art}",
     "/api/artifacts/{art}/versions",
     "/api/artifacts/{art}/versions/1",
