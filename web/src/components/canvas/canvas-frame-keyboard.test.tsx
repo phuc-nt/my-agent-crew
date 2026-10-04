@@ -188,6 +188,7 @@ describe("a page that takes the keyboard", () => {
 
     expect(frameIn(container)).toBe(first);
     expect(screen.queryByText(vi.canvas.page.grabbing)).toBeNull();
+    expect(screen.queryByText(vi.canvas.page.navigated)).toBeNull();
     expect(screen.getByRole("button", { name: vi.canvas.page.newer })).toBeTruthy();
   });
 

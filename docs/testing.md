@@ -2908,7 +2908,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     gỡ, lời báo là "Trang liên tục giành bàn phím nên đã bị dừng." kèm nút Nạp lại, panel được báo
     như khi trang tự đổi địa chỉ; đã gỡ thì đứng yên qua bản mới, nối lại và tab hiện lại; Nạp lại
     đưa khung mới lên và khung ấy lại có đủ năm lần; bàn phím người đưa bằng cú bấm trong trang thì
-    sáu vòng cũng không bị gỡ và bản mới chờ sau nút "Có bản mới"; trang tự giành thì không được coi
+    sáu vòng cũng không bị gỡ, không có lời báo dừng nào, cả lời báo giành bàn phím lẫn lời báo trang
+    tự chuyển địa chỉ, và bản mới chờ sau nút "Có bản mới"; trang tự giành thì không được coi
     là đang dùng, bản mới thay khung không cần nút; nút mời bản mới mất khi trang bị gỡ), nhóm "the
     press a page's reporter tells of" (cổng chỉ được nhận từ tin đầu tiên khung nói, và tin ấy phải
     là lời chào từ chính cửa sổ của khung dưới origin `null`: sau một lời báo, một tin bất kỳ hay một
