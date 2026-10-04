@@ -1532,8 +1532,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     ("test_a_file_replaces_the_newest_version_the_conversation_has_seen": bản mới của agent mang
     ghi chú `import`, seen lên bản mới, `language` gửi kèm không đổi gì,
     "test_a_file_that_changes_nothing_adds_no_version_and_opens_no_gate": thẻ có `unchanged`,
-    không trừ ngân sách, seen đứng yên, `title` mới vẫn đổi tên, nguồn đổi thì được ghi lại bằng
-    một dòng, canvas ảnh chỉ thêm bản khi byte khác,
+    không trừ ngân sách, seen đứng yên, canvas vẫn gắn với cuộc trò chuyện mà không được chia
+    sẻ, `title` mới vẫn đổi tên, nguồn đổi thì được ghi lại bằng một dòng, canvas ảnh chỉ thêm
+    bản khi byte khác,
     "test_a_file_does_not_go_over_versions_the_conversation_has_not_seen": lời từ chối nêu ai
     viết các bản đó và không ghi, không đếm, không đánh dấu đã thấy gì,
     "test_replace_goes_over_unseen_versions_and_leaves_them_unseen": `replace: true` ghi đè, nêu
@@ -1556,7 +1557,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     ra nguyên từng byte, canvas html ra `x.html` vẫn là `x.html` và đường dẫn tuyệt đối được gọi
     lại từ gốc workspace, tham số `version` và bản không còn, canvas ngoài tầm thì không tạo tệp
     và hỏi một bản nó không có cũng chỉ nhận câu không tìm thấy canvas,
-    "test_an_export_makes_nothing_seen_so_an_unread_canvas_still_cannot_be_rewritten");
+    "test_an_export_makes_nothing_seen_so_an_unread_canvas_still_cannot_be_rewritten": xuất
+    không phải đọc cũng không phải ghi, canvas vẫn gắn với cuộc trò chuyện mà không được chia sẻ);
     `tests/test_artifact_export_paths.py` (thoát workspace bằng `..`, bằng đường dẫn tuyệt đối
     hay `~người-không-có`, đích là thư mục, đường dẫn giấu ký tự, mang nửa surrogate lẻ hoặc
     rỗng đều bị từ chối và cây thư mục không đổi, "test_an_agent_held_to_its_write_paths_exports_only_under_them",
@@ -1595,6 +1597,16 @@ tên một test thì sửa dòng của nó trong cùng commit.
     quyền đọc: lời từ chối nói đúng là thiếu quyền chứ không gọi đó là thứ không phải tệp thường,
     tool nhập không tạo canvas và không trừ ngân sách, lần nhập lại từ web trả 422 cùng câu đó
     và canvas đứng yên);
+    `tests/test_artifact_file_reach.py` (đem canvas ra tệp hay đem tệp vào mà không đổi gì thì
+    không nới tầm với của ai:
+    "test_what_a_child_carried_to_or_from_a_file_stays_out_of_the_next_childs_reach": con xuất
+    hay nhập lại không đổi canvas của chính nó thì canvas chỉ gắn với cuộc trò chuyện của con,
+    không chia sẻ, gốc của chuỗi giữ nguyên dù đã gắn sẵn hay chưa, con kế tiếp đọc, xuất hay
+    nhập đều nhận câu không tìm thấy canvas và không tệp nào được ghi,
+    "test_what_the_master_carried_does_not_reach_its_delegated_child": master xuất hay nhập lại
+    canvas của người thì con được giao việc sau đó vẫn không với tới,
+    "test_an_import_that_writes_a_version_shares_the_canvas_as_any_write_does": lần nhập thêm
+    bản vẫn chia sẻ với cả chuỗi, và xuất hay nhập không đổi sau đó không rút lại phần chia sẻ);
     `tests/test_kit_hooks_canvas_files.py` (hook của kit và hai tool canvas chạm tệp:
     "test_a_hook_that_guards_files_is_asked_about_the_canvas_tools_that_carry_them": hook có
     matcher `Read|Write|Edit|Bash` hay `workspace_read|workspace_write` chặn cả `workspace_read`,

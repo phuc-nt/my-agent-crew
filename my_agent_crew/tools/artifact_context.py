@@ -77,6 +77,12 @@ class CanvasAgent:
         if conv.root_id:
             self.store.artifact_links.link(conv.root_id, artifact_id, shared=True)
 
+    def link(self, conv: Conversation, artifact_id: str) -> None:
+        """A canvas only carried to or from a file here is linked to this conversation, as a
+        read links it, and shared with no one: the root is not touched, so what one child
+        reached is not handed to the chain's later children."""
+        self.store.artifact_links.link(conv.id, artifact_id)
+
 
 def kind_label(summary: ArtifactSummary) -> str:
     """The kind as a list row and a page header show it: "code python" for code."""

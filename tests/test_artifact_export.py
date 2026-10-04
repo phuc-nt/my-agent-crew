@@ -151,8 +151,8 @@ async def test_a_canvas_out_of_reach_reads_as_one_that_does_not_exist_and_no_fil
 async def test_an_export_makes_nothing_seen_so_an_unread_canvas_still_cannot_be_rewritten(
     store: Store, root: Path
 ):
-    """Carrying the text out is not reading it. The canvas is shared with the conversation,
-    as one it worked with, and nothing else about it moves."""
+    """Carrying the text out is not reading it, and it is no write either: the canvas stays
+    linked to the conversation without being shared, and nothing else about it moves."""
     conv = turn(store)
     art = persons_canvas(store, PLAN, conv.id)
     assert (await _export(store, root, art, "x.md")).ok
@@ -160,5 +160,5 @@ async def test_an_export_makes_nothing_seen_so_an_unread_canvas_still_cannot_be_
     rewrite = await call(store, "artifact_rewrite", {"id": art, "content": "mới"}, root=root)
     assert rewrite.output == _failed(ARTIFACT_REWRITE_UNSEEN.format(id=art))
     link = store.artifact_links.get(conv.id, art)
-    assert link is not None and link.shared
+    assert link is not None and not link.shared
     assert store.artifacts.head(art).content == PLAN

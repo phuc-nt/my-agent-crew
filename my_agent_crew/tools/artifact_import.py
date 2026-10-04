@@ -2,7 +2,7 @@
 of one that is there, without its text passing through the model. A turn on a channel with no
 canvas, or one that has written its share, is refused before the file is opened. A file never
 goes over versions the conversation has not seen unless `replace` says the person wants that,
-and even then those versions stay unseen."""
+and even then those versions stay unseen. A file that changes nothing shares nothing."""
 
 from __future__ import annotations
 
@@ -133,9 +133,9 @@ async def _replace(
     seen = agent.seen(conv, artifact_id)
     title = asked.title or None
     if (file.content, file.data) == (head.content, head.data):
-        # No version, no count against the turn and nothing made seen: only the link, the
-        # title and the place the file sits are brought up to date.
-        agent.share(conv, artifact_id)
+        # No version, no count against the turn, nothing made seen and nothing shared: only
+        # the link, the title and the place the file sits are brought up to date.
+        agent.link(conv, artifact_id)
         told = unchanged(agent, artifact_id, head.version, title)
         if source == recorded:
             return told

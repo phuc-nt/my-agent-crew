@@ -103,8 +103,8 @@ async def test_a_file_replaces_the_newest_version_the_conversation_has_seen(
 async def test_a_file_that_changes_nothing_adds_no_version_and_opens_no_gate(
     store: Store, root: Path
 ):
-    """Nothing is counted against the turn and nothing becomes seen: the agent has still not
-    read the canvas. Where the file sits and a new title are recorded all the same."""
+    """Nothing is counted against the turn, nothing becomes seen and nothing is shared: the
+    agent has neither read nor written. Where the file sits and a new title are recorded."""
     conv = turn(store)
     art = persons_canvas(store, FROM_FILE, conv.id)
     first = await _import(store, root, art)
@@ -124,7 +124,7 @@ async def test_a_file_that_changes_nothing_adds_no_version_and_opens_no_gate(
     assert (summary.source, summary.title) == ("workspace:trainer/notes/plan.md", "Kế hoạch tuần")
     assert (summary.head_version, seen(store, conv, art), canvas_writes(art)) == (1, 0, 0)
     link = store.artifact_links.get(conv.id, art)
-    assert link is not None and link.shared
+    assert link is not None and not link.shared
 
 
 async def test_a_picture_is_replaced_by_importing_it_again_and_only_when_its_bytes_differ(

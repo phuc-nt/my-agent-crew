@@ -3,7 +3,8 @@ itself. An import adds a version a person can go back from, so it does not ask; 
 writes over a file nothing keeps a version of, so it asks first, like `workspace_write`. An
 export writes only where the file would really land inside the workspace and the agent's write
 paths, never through a link, and whole or not at all (`artifact_file_write`). It writes no
-canvas, so it is open on every channel, costs the turn nothing and makes nothing seen."""
+canvas, so it is open on every channel, costs the turn nothing, makes nothing seen and shares
+the canvas with no one."""
 
 from __future__ import annotations
 
@@ -69,7 +70,7 @@ async def run_export(
     except Exception:  # no failure of a disk: worded the same, and kept for whoever looks
         logger.exception("artifact_export could not write %s", shown)
         raise ToolError(EXPORT_FAILED.format(path=shown)) from None
-    agent.share(conv, artifact_id)
+    agent.link(conv, artifact_id)
     done = EXPORT_DONE.format(
         version=doc.version, id=artifact_id, title=title, size=len(payload), path=shown
     )
