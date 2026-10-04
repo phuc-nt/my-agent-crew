@@ -15,16 +15,12 @@ from my_agent_crew.agent.events import (
     ErrorEvent,
     Event,
     HaltedEvent,
-    ModelCallEvent,
-    RouteFallbackEvent,
-    TextDeltaEvent,
-    ThinkingEvent,
     UserContextEvent,
 )
 from my_agent_crew.agent.loop_guard import HALT, OK, LoopGuard
+from my_agent_crew.agent.model_stream import complete_step
 from my_agent_crew.agent.payload_trim import turn_boundary
-from my_agent_crew.agent.prompt import turn_messages
-from my_agent_crew.agent.reply_checks import blank_reply_event, with_dropped_attachments
+from my_agent_crew.agent.reply_checks import blank_reply_event
 from my_agent_crew.agent.steer import take_steers
 from my_agent_crew.agent.step_limit import out_of_steps
 from my_agent_crew.agent.tool_calls import close_interrupted, refuse_unanswered, settle_tool_calls
@@ -36,17 +32,9 @@ from my_agent_crew.agent.turn_context import (
 from my_agent_crew.agents.profile import AgentProfile, default_profile
 from my_agent_crew.config import Settings
 from my_agent_crew.llm.provider import ProviderChain, ProviderError
-from my_agent_crew.llm.types import (
-    Completion,
-    Message,
-    ReasoningDelta,
-    RouteFailed,
-    StreamStarted,
-    TextDelta,
-    ToolSpec,
-)
+from my_agent_crew.llm.types import Message, ToolSpec
 from my_agent_crew.skills import Skill
-from my_agent_crew.store import Conversation, Store, StoredMessage
+from my_agent_crew.store import Store
 from my_agent_crew.store.models import AWAITING_APPROVAL
 from my_agent_crew.tools import ToolRegistry
 
@@ -131,7 +119,7 @@ async def run_turn(
             history, tools = nudge_to_conclude(deps.store, conv, history), ()
         verdict = OK
         try:
-            async for event in _complete(deps, conv, history, tools, turn_start):
+            async for event in complete_step(deps, conv, history, tools, turn_start):
                 yield event
                 if isinstance(event, AssistantMessageEvent):
                     verdict = guard.observe(event.tool_calls)
@@ -145,54 +133,3 @@ async def run_turn(
             return
     async for event in out_of_steps(deps, conv_id):
         yield event
-
-
-async def _complete(
-    deps: AgentDeps,
-    conv: Conversation,
-    history: Sequence[StoredMessage],
-    tools: Sequence[ToolSpec],
-    turn_start: int,
-) -> AsyncIterator[Event]:
-    messages = turn_messages(deps, conv, history, turn_start)
-    completion: Completion | None = None
-    thinking = False
-    yield ModelCallEvent(stage="sent")
-    async for item in deps.chain.stream(messages, tools):
-        if isinstance(item, TextDelta):
-            yield TextDeltaEvent(text=item.text)
-        elif isinstance(item, ReasoningDelta):
-            if not thinking:
-                thinking = True
-                yield ThinkingEvent()
-        elif isinstance(item, StreamStarted):
-            yield ModelCallEvent(stage="first_token")
-        elif isinstance(item, RouteFailed):
-            yield RouteFallbackEvent(provider=item.provider, model=item.model, error=item.error)
-        elif isinstance(item, Completion):
-            completion = item
-    if completion is None:
-        raise ProviderError("stream ended without a completion")
-    completion = with_dropped_attachments(completion, history)
-    stored = deps.store.append(
-        conv.id,
-        completion.message,
-        provider=completion.provider,
-        model=completion.model,
-        cost_usd=completion.usage.cost_usd,
-        prompt_tokens=completion.usage.prompt_tokens,
-        completion_tokens=completion.usage.completion_tokens,
-        reasoning_tokens=completion.usage.reasoning_tokens,
-        cached_tokens=completion.usage.cached_tokens,
-    )
-    deps.store.add_spend(conv.id, completion.usage.cost_usd)
-    yield AssistantMessageEvent(
-        message_id=stored.id,
-        content=completion.message.content,
-        tool_calls=[tc.to_dict() for tc in completion.message.tool_calls],
-        provider=completion.provider,
-        model=completion.model,
-        cost_usd=completion.usage.cost_usd,
-        prompt_tokens=completion.usage.prompt_tokens,
-        cached_tokens=completion.usage.cached_tokens,
-    )
