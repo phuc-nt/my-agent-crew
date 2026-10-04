@@ -42,6 +42,7 @@ describe("a file read into a canvas, in the thread", () => {
     shown(imported({ status: "running", arguments: { path: "thuc-don.md" } }));
 
     expect(line()).toBe(card.importing);
+    expect(line()).toBe("Đang nhập…");
     expect(root().querySelector(".canvas-card-line svg")).not.toBeNull();
   });
 
@@ -49,12 +50,14 @@ describe("a file read into a canvas, in the thread", () => {
     shown(imported({ arguments: { path: "thuc-don.md" }, output: tag(1) }));
 
     expect(line()).toBe(card.version(card.imported, 1));
+    expect(line()).toBe("Đã nhập · v1");
   });
 
   it("says a file was read again when the call names the canvas to read it into", () => {
     shown(imported({ arguments: { path: "thuc-don.md", id: NOTE, replace: true }, output: tag(4) }));
 
     expect(line()).toBe(card.version(card.reimported, 4));
+    expect(line()).toBe("Đã nhập lại · v4");
   });
 
   it("takes an id sent blank, or as anything but text, as none", () => {

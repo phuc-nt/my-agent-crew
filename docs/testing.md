@@ -2080,7 +2080,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
   - vitest: `web/src/components/canvas/canvas-panel.test.tsx` (canvas người viết mở ở Sửa, sang Xem rồi
     về không mất chữ gõ, "opens a canvas an agent wrote to read, and keeps reading when a newer version
     arrives", canvas người viết vẫn ở Sửa khi agent ghi vào, nháp trên máy mở ở Sửa kể cả trên canvas
-    agent viết, markup trong canvas markdown và code hiện thành chữ; đổi tên bằng `PATCH`, canvas vừa
+    agent viết, markup trong canvas markdown và code hiện thành chữ; đổi tên bằng `PATCH`, "shows the
+    name the server answered with, when the stream says nothing of the rename": tên mới lấy từ chính
+    reply chứ không chờ luồng báo, canvas vừa
     tạo mở với tên chờ gõ đè, đổi tên mà server không thấy canvas là canvas đã xoá; "keeps its text to
     read and copy, and offers nothing that needs the canvas"; về danh sách, đóng, tải bản mới nhất,
     "copies the text as it is, unmarked", dock lưu được chữ đang mở, hỏi được canvas còn không và buông
@@ -2691,7 +2693,12 @@ tên một test thì sửa dòng của nó trong cùng commit.
   - vitest, thư viện: `web/src/lib/canvas-source.test.ts` (nguồn `workspace:<agent>/<đường dẫn>` cắt
     ở dấu `/` đầu tiên nên mã agent có gạch ngang và đường dẫn có `/` hay `:` vẫn đúng; thiếu agent
     hay thiếu đường dẫn thì không phải tệp; địa chỉ http và https là trang web, host là host trình
-    duyệt thật sự tới chứ không phải phần viết trước `@`; `javascript:`, `data:`, `file:`, chuỗi
+    duyệt thật sự tới chứ không phải phần viết trước `@`; "is a workspace file only when the text
+    opens with the word, not when a link or a sentence holds it": link có đoạn `workspace:` trong
+    đường dẫn vẫn là link, câu có chữ đó ở giữa thì không là gì; "gives the link whole, as the host
+    it names is read, so a page cannot resolve it to somewhere else": `https:example.com/thuc don`
+    viết thiếu `//` trả về `https://example.com/thuc%20don`, vì để nguyên thì một trang cùng scheme
+    sẽ phân giải nó về chính địa chỉ của mình trong khi nhãn ghi host khác; `javascript:`, `data:`, `file:`, chuỗi
     rỗng và chữ thường đều không là nguồn nào); `web/src/lib/canvas-import-call.test.ts` (tham số
     đọc từ mapping model gửi, lệnh cũ không có mapping thì không có gì; lần nhập "có `id`" là khi
     `id` là chữ không rỗng, như server đọc một giá trị trống; tên tệp là phần cuối của `path`, không
@@ -2707,21 +2714,27 @@ tên một test thì sửa dòng của nó trong cùng commit.
     được báo về bản đang hiện thì không đọc gì; người đang gõ thì giữ chữ của họ và nói có thay đổi
     đang chờ)
   - vitest, thành phần: `web/src/components/canvas/canvas-source.test.tsx` nhóm "where a canvas came
-    from" (dòng nguồn nêu tên agent và tệp, thư mục và tên tệp tách riêng, cả đường dẫn ở `title`;
+    from" (dòng nguồn nêu tên agent và tệp, thư mục và tên tệp tách riêng, cả đường dẫn ở `title`,
+    nút nhập lại là nút phụ `ghost`;
     ký tự ẩn hay đảo chiều trong đường dẫn hiện thành dấu, cả ở `title`; nguồn là trang web thì có
-    link "Mở nguồn (host)" với `target="_blank"` và `rel="noopener noreferrer"`, không có nút nhập
+    link đúng chữ "Mở nguồn (example.com:8787)" với `target="_blank"` và `rel="noopener noreferrer"`, không có nút nhập
     lại; nguồn rỗng, chữ thường, `javascript:` hay `data:` thì không có dòng và không có link nào)
     và nhóm "reading a canvas's file again" ("saves the typing first, then asks on the version that
     holds it, and shows the file's text after one read": `PUT` rồi `POST` với `base_version` của
-    `PUT` đó, đúng hai lần `GET`, dòng lịch sử ghi "Nhập từ tệp"; chữ chưa lưu được thì không có
+    `PUT` đó, đúng hai lần `GET`, lời báo đúng chữ "Đã nhập lại thành v3. Bản trước ở Lịch sử.",
+    vẻ `info`, nằm ngay dưới dòng nguồn, dòng lịch sử ghi "Nhập từ tệp"; "shows the version the file
+    became on the reply alone, when the stream says nothing of it": luồng im thì canvas vẫn đọc bản
+    mới nhờ reply; chữ chưa lưu được thì không có
     `POST` nào và nói vậy; tệp không đổi thì nói vậy và không đọc lại; "reads a version saved
     unheard that holds what the file does, so what it calls the same is what shows": tệp giống một
     bản đã lưu mà canvas chưa nghe tới thì vẫn nói không đổi, và canvas đọc bản đó chứ không đứng ở
     chữ cũ; nút khoá và ghi "Đang nhập…"
-    trong lúc đọc, lời báo trước biến mất; 403, 410, 413, 422 mỗi cái một câu của web, không bao
-    giờ hiện chữ của server; 413 đúng một câu dù server trả câu chữ hay object cỡ; tệp không còn là
+    trong lúc đọc, lời báo trước biến mất; 403, 410, 413, 422 mỗi cái một câu của web, so nguyên
+    văn nên hai lời từ chối không lẫn chữ của nhau, vẻ `error`, không bao
+    giờ hiện chữ của server, và không lần nào đọc lại canvas; 413 đúng một câu dù server trả câu chữ hay object cỡ; tệp không còn là
     410; 409 thì đọc lại canvas và không hiện gì của body từ chối; canvas đã xoá thì chỉ còn lời
-    báo đã xoá và nút khoá; 500, 507 và mất mạng nói bằng lý do của web);
+    báo đã xoá và nút khoá; 500, 507 và mất mạng nói bằng lý do của web, 500 đúng chữ "Không nhập
+    lại được: máy chủ không phản hồi", và cũng không đọc lại canvas);
     `web/src/components/canvas/canvas-card-import.test.tsx` nhóm "a file read into a canvas, in the
     thread" (là thẻ canvas khi đang chạy và khi xong, thẻ thường khi hỏng, bị từ chối, bị dừng hay
     chờ duyệt; "Đang nhập…" kèm vòng quay; "Đã nhập · v1" khi lệnh không nêu canvas, "Đã nhập lại ·
@@ -2739,18 +2752,29 @@ tên một test thì sửa dòng của nó trong cùng commit.
     xuất giữ thẻ thường khi chờ duyệt, đang chạy và đã xong, nên người duyệt thấy `id` và `path`; bốn
     lệnh ghi, kể cả nhập, thành thẻ canvas); `web/src/components/canvas/canvas-history.test.tsx`
     ("calls a version read from the canvas's file by that, not by the word the server keeps for
-    it": ghi chú `import` hiện là "Nhập từ tệp"); `web/src/components/canvas/canvas-panel.test.tsx`
+    it": ghi chú `import` hiện là "Nhập từ tệp"; "shows a note that only opens with the word the
+    server keeps for a re-import as it is written": ghi chú `imported by hand` hiện nguyên văn);
+    `web/src/components/canvas/canvas-panel.test.tsx`
     nhóm "where the canvas came from" (dòng nguồn đứng đầu thân panel, trên chữ của canvas, và vẫn
-    ở đó khi mở lịch sử; canvas tạo ở đây thì không có dòng nguồn và không có nút nhập lại)
+    ở đó khi mở lịch sử; "stays above what the panel says of the canvas": lời báo canvas đã xoá nằm
+    ngay dưới dòng nguồn chứ không chen lên trên; "saves the typing through the dock before the file
+    is read, and asks for nothing when the dock could not": nút gọi đúng `flush` của dock một lần,
+    dock trả null thì không có `POST` nào; canvas tạo ở đây thì không có dòng nguồn và không có nút
+    nhập lại)
   - Playwright: `canvas-import.spec.ts` ở 1440×900 ("saves the typing first, then reads the file
     again on the version that save made": request `PUT` đi trước `POST …/reimport` và `POST` mang
-    `base_version` của `PUT` đó, chữ người gõ còn lại là phiên bản ngay dưới bản nhập; "says the
+    `base_version` của `PUT` đó, chữ người gõ còn lại là phiên bản ngay dưới bản nhập, và nút "Nhập
+    lại" nằm sát cuối dòng dù đường dẫn ngắn; "says the
     file holds what the canvas does, and writes nothing"; "links the page a canvas was taken from,
     named by its host, in a tab that cannot reach back") và ở 390×844 cảm ứng ("keeps the name of
     the file in view and gives the folder up, with a button a finger can hit": đường dẫn dài thì
     thư mục bị cắt còn tên tệp và nút "Nhập lại" nằm trọn trong màn, nút cao ít nhất 40 px, không
-    phần nào của canvas cuộn ngang, kể cả sau khi lời báo nhập lại hiện ra; "shows the link to a
-    page as a control a finger can hit, inside the width": link "Mở nguồn" cao ít nhất 40 px); bản
+    phần nào của canvas cuộn ngang, kể cả sau khi lời báo nhập lại hiện ra, nhãn, tên tệp và nút
+    nằm trên một hàng có chung đường giữa và có khoảng hở giữa các phần; "shows the link to a
+    page as a control a finger can hit, inside the width": link "Mở nguồn" cao ít nhất 40 px và chữ
+    của nó nằm giữa chiều cao đó; "wraps the name of a host too long for the width, and nothing
+    scrolls sideways": host dài không có gạch ngang thì xuống dòng trong bề ngang, link vẫn nằm trọn
+    trong màn); bản
     giả của route nằm ở `web/src/test/fake-canvas-import.ts`, dùng chung cho vitest và Playwright
 - **Mã agent khớp cả chuỗi: chữ thường, số và gạch ngang, không cả xuống dòng ở cuối**
   - pytest: `tests/test_api_agents_edit.py::test_an_id_that_is_not_a_safe_folder_name_is_refused`

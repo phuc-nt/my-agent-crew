@@ -63,6 +63,16 @@ describe("the versions of a canvas", () => {
     expect(history().textContent).not.toMatch(/import/);
   });
 
+  it("shows a note that only opens with the word the server keeps for a re-import as it is written", async () => {
+    backend.canvas.add({ content: "a" });
+    backend.canvas.write("a1", "ab", { author: "user" }).note = "imported by hand";
+    await openPanel();
+
+    await openHistory();
+
+    expect(rows()[0]).toBe("v2 · bạn · 4 phút · 2 Bimported by hand");
+  });
+
   it("closes without restoring anything", async () => {
     threeVersions(backend);
     await openPanel();

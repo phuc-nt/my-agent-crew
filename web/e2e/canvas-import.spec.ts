@@ -11,6 +11,8 @@ const { source } = vi.canvas;
 const FILE = "workspace:default/notes/thuc-don.md";
 const DEEP = "workspace:default/ghi chú của cả nhà/tuần này và tuần sau nữa/bữa sáng trưa tối/thuc-don.md";
 const PAGE = "https://tin-tuc.example.com/bai-viet/thuc-don-ca-tuan?trang=2";
+// No dash in it: a line may break after one, and this name must not fit a phone on any one line.
+const LONG_HOST = "thucdoncatuannayvatuansaunuachocanhabuasangtruatoi.tintucamthucmoingaychomoinguoi.example.com";
 
 function chat(): Conversation {
   return {
@@ -50,6 +52,38 @@ const line = (page: Page) => page.locator(".canvas-source");
 const again = (page: Page) => page.getByRole("button", { name: source.reimport, exact: true });
 const height = async (page: Page, selector: string) => (await page.locator(selector).boundingBox())?.height ?? 0;
 
+/**
+ * How the line of a file is laid out: the middle of the label's words, of the file's name and of
+ * the button, the room between the parts, and what lies between the button and the line's end.
+ */
+const laidOut = (page: Page) =>
+  line(page).evaluate((row) => {
+    const box = (selector: string) => (row.querySelector(selector) as Element).getBoundingClientRect();
+    const words = (selector: string) => {
+      const range = document.createRange();
+      range.selectNodeContents(row.querySelector(selector) as Element);
+      return range.getBoundingClientRect();
+    };
+    const middle = (rect: DOMRect) => (rect.top + rect.bottom) / 2;
+    const [label, path, button] = [box(".canvas-source-label"), box(".canvas-source-path"), box("button")];
+    return {
+      middles: [middle(words(".canvas-source-label")), middle(words(".canvas-source-file")), middle(button)],
+      gaps: [path.left - label.right, button.left - path.right],
+      afterButton: Math.abs(row.getBoundingClientRect().right - button.right),
+    };
+  });
+
+/** How far the middle of the link's words is from the middle of the link. */
+const offCentre = (page: Page) =>
+  line(page)
+    .locator("a")
+    .evaluate((link) => {
+      const range = document.createRange();
+      range.selectNodeContents(link);
+      const [words, box] = [range.getBoundingClientRect(), link.getBoundingClientRect()];
+      return Math.abs((words.top + words.bottom) / 2 - (box.top + box.bottom) / 2);
+    });
+
 test.describe("a canvas read from a workspace file, beside a wide conversation", () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -58,6 +92,8 @@ test.describe("a canvas read from a workspace file, beside a wide conversation",
     await expect(line(page).locator(".canvas-source-label")).toHaveText(source.label);
     await expect(line(page).locator(".canvas-source-path")).toHaveText("Agent/notes/thuc-don.md");
     await expect(line(page).locator(".canvas-source-path")).toHaveAttribute("title", "Agent/notes/thuc-don.md");
+    // The button ends the line, however short the path before it.
+    expect((await laidOut(page)).afterButton).toBeLessThanOrEqual(1);
 
     await page.getByRole("button", { name: vi.canvas.edit, exact: true }).click();
     await editor(page).fill("Sáng: phở\nTrưa: cơm\n");
@@ -110,6 +146,10 @@ test.describe("where a canvas came from, on a phone", () => {
     await expect(again(page)).toBeInViewport({ ratio: 1 });
     expect(await page.locator(".canvas-source-dir").evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
     expect(await height(page, ".canvas-source > button")).toBeGreaterThanOrEqual(40);
+    // One row: the label, the name and the button share a middle, with room between the parts.
+    const row = await laidOut(page);
+    expect(Math.max(...row.middles) - Math.min(...row.middles)).toBeLessThanOrEqual(1);
+    for (const gap of row.gaps) expect(gap).toBeGreaterThanOrEqual(4);
     expect(await smallTargets(page, ".canvas-dock")).toEqual([]);
     expect(await overflowing(page)).toEqual([]);
 
@@ -126,6 +166,16 @@ test.describe("where a canvas came from, on a phone", () => {
 
     await expect(page.getByRole("link", { name: source.open("tin-tuc.example.com") })).toBeInViewport({ ratio: 1 });
     expect(await height(page, ".canvas-source a")).toBeGreaterThanOrEqual(40);
+    // Its words sit in the middle of the height a finger gets, not at the top of it.
+    expect(await offCentre(page)).toBeLessThanOrEqual(1);
+    expect(await smallTargets(page, ".canvas-dock")).toEqual([]);
+    expect(await overflowing(page)).toEqual([]);
+  });
+
+  test("wraps the name of a host too long for the width, and nothing scrolls sideways", async ({ page }) => {
+    await openImported(page, `https://${LONG_HOST}/bai-viet`);
+
+    await expect(page.getByRole("link", { name: source.open(LONG_HOST) })).toBeInViewport({ ratio: 1 });
     expect(await smallTargets(page, ".canvas-dock")).toEqual([]);
     expect(await overflowing(page)).toEqual([]);
   });

@@ -24,6 +24,9 @@ const again = () => screen.getByRole("button", { name: new RegExp(`^(${source.re
 const said = (role: "alert" | "status") =>
   [...document.querySelectorAll(`.canvas-notice[role="${role}"]`)].map((notice) => notice.textContent);
 
+/** The one notice of `role`, to read how it is drawn and where. */
+const notice = (role: "alert" | "status") => document.querySelector(`.canvas-notice[role="${role}"]`);
+
 /** a1 came from FILE, which now holds `text`; the panel is open on it. */
 async function openImported(text: string | null, content = "a") {
   backend.canvas.add({ title: "Thực đơn", content, source: FILE });
@@ -45,6 +48,8 @@ describe("where a canvas came from", () => {
     expect(line()?.querySelector(".canvas-source-file")?.textContent).toBe("thuc-don.md");
     expect(line()?.querySelector(".canvas-source-path")).toHaveAttribute("title", "Ming/notes/tuần 1/thuc-don.md");
     expect(again()).toBeEnabled();
+    // A quiet button: the main actions of a canvas are the ones in its header.
+    expect(again()).toHaveClass("ghost");
   });
 
   it("shows a character that hides or reorders text in the path as a mark, on hover too", async () => {
@@ -61,6 +66,7 @@ describe("where a canvas came from", () => {
     await openPanel();
 
     const link = screen.getByRole("link", { name: source.open("example.com:8787") });
+    expect(link.textContent).toBe("Mở nguồn (example.com:8787)");
     expect(link).toHaveAttribute("href", "https://bank.example@example.com:8787/a?b=1");
     expect(link).toHaveAttribute("target", "_blank");
     expect(link).toHaveAttribute("rel", "noopener noreferrer");
@@ -95,10 +101,25 @@ describe("reading a canvas's file again", () => {
     expect(editor()?.value).toBe("từ tệp");
     expect(versionLine()).toMatch(/^v3 · bạn · /);
     expect(said("status")).toEqual([source.changed(3)]);
+    expect(said("status")).toEqual(["Đã nhập lại thành v3. Bản trước ở Lịch sử."]);
     expect(said("alert")).toEqual([]);
+    // Said as news, right under the line that names the file.
+    expect(notice("status")).toHaveClass("info");
+    expect(line()?.nextElementSibling).toBe(notice("status"));
 
     await openHistory();
     expect(rows()[0]).toMatch(new RegExp(`^v3 · bạn · .*${vi.canvas.importedNote}$`));
+  });
+
+  it("shows the version the file became on the reply alone, when the stream says nothing of it", async () => {
+    await openImported("từ tệp");
+    backend.canvas.onEvent = null;
+
+    await reimport();
+
+    expect(sent(backend, "GET")).toHaveLength(2);
+    expect(editor()?.value).toBe("từ tệp");
+    expect(versionLine()).toMatch(/^v2 · bạn · /);
   });
 
   it("asks the server for nothing while the typing cannot be saved, and says so", async () => {
@@ -160,10 +181,10 @@ describe("reading a canvas's file again", () => {
 
   it("says in its own words why the server would not read the file, never in the server's", async () => {
     const refusals: [number, string][] = [
-      [403, source.outside],
-      [410, source.missing],
-      [413, source.tooLarge],
-      [422, source.unfit],
+      [403, "Tệp nằm ngoài thư mục làm việc của agent."],
+      [410, "Không còn tệp nguồn hoặc agent."],
+      [413, "Tệp nguồn vượt trần cỡ của loại canvas này."],
+      [422, "Tệp nguồn không hợp với loại canvas này."],
     ];
     await openImported("từ tệp");
     for (const [status, sentence] of refusals) {
@@ -173,8 +194,11 @@ describe("reading a canvas's file again", () => {
 
       expect(said("alert"), String(status)).toEqual([sentence]);
       expect(said("status"), String(status)).toEqual([]);
+      expect(notice("alert"), String(status)).toHaveClass("error");
     }
     expect(editor()?.value).toBe("a");
+    // None of them is a version saved meanwhile: the canvas is not read again.
+    expect(sent(backend, "GET")).toHaveLength(1);
   });
 
   it("says a file is too large whether the server answers with a sentence or with sizes", async () => {
@@ -228,6 +252,7 @@ describe("reading a canvas's file again", () => {
     backend.canvas.refuseNext(REIMPORT, 500);
     await reimport();
     expect(said("alert")).toEqual([source.failed(reasons.server)]);
+    expect(said("alert")).toEqual(["Không nhập lại được: máy chủ không phản hồi"]);
 
     backend.canvas.refuseNext(REIMPORT, 507);
     await reimport();
@@ -236,5 +261,6 @@ describe("reading a canvas's file again", () => {
     backend.canvas.loseNext(REIMPORT);
     await reimport();
     expect(said("alert")).toEqual([source.failed(reasons.offline)]);
+    expect(sent(backend, "GET")).toHaveLength(1);
   });
 });

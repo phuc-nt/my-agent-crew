@@ -123,6 +123,16 @@ describe("the name", () => {
     expect(title()).toBe("Kế hoạch");
   });
 
+  it("shows the name the server answered with, when the stream says nothing of the rename", async () => {
+    backend.canvas.add({ title: "Ghi chú", content: "a" });
+    await openPanel();
+    backend.canvas.onEvent = null;
+
+    await rename("Ghi chú", "Kế hoạch");
+
+    expect(title()).toBe("Kế hoạch");
+  });
+
   it("opens a canvas just made with its name ready to type over and its text to edit", async () => {
     backend.canvas.add({ title: "Tài liệu không tên" });
 
@@ -196,6 +206,33 @@ describe("where the canvas came from", () => {
     await landed();
     expect(screen.getByRole("region", { name: vi.canvas.historyTitle })).toBeTruthy();
     expect(head()).toHaveClass("canvas-source");
+  });
+
+  it("stays above what the panel says of the canvas", async () => {
+    backend.canvas.add({ title: "Thực đơn", content: "a", source: "workspace:ming/notes/thuc-don.md" });
+    const { container } = await openPanel();
+
+    act(() => backend.canvas.remove("a1"));
+
+    const body = container.querySelector(".canvas-body");
+    expect(body?.children[0]).toHaveClass("canvas-source");
+    expect(body?.children[1]).toBe(screen.getByRole("alert"));
+    expect(body?.children[1].textContent).toBe(`${vi.canvas.gone} ${vi.canvas.goneHint}`);
+  });
+
+  it("saves the typing through the dock before the file is read, and asks for nothing when the dock could not", async () => {
+    backend.canvas.add({ title: "Thực đơn", content: "a", source: "workspace:ming/notes/thuc-don.md" });
+    backend.canvas.files.put("workspace:ming/notes/thuc-don.md", "từ tệp");
+    const flush = vitest.fn(async () => null);
+    await openPanel({ flush });
+
+    fireEvent.click(screen.getByRole("button", { name: vi.canvas.source.reimport }));
+    await landed();
+
+    expect(flush).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("alert").textContent).toBe(vi.canvas.source.unsaved);
+    expect(backend.requests.filter((request) => request.method === "POST")).toEqual([]);
+    expect(editor()?.value).toBe("a");
   });
 
   it("is not there for a canvas made here", async () => {

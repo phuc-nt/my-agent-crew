@@ -20,6 +20,15 @@ describe("where a canvas says it came from", () => {
     }
   });
 
+  it("is a workspace file only when the text opens with the word, not when a link or a sentence holds it", () => {
+    expect(parseSource("https://example.com/workspace:master/a.md")).toEqual({
+      kind: "url",
+      href: "https://example.com/workspace:master/a.md",
+      host: "example.com",
+    });
+    expect(parseSource("xem workspace:master/a.md")).toBeNull();
+  });
+
   it("is a web page, by its address as the browser reads it and the host it leads to", () => {
     expect(parseSource("https://example.com/a/b?c=1#d")).toEqual({
       kind: "url",
@@ -35,6 +44,16 @@ describe("where a canvas says it came from", () => {
 
   it("names the host a link really leads to, not the one written before an @", () => {
     expect(parseSource("https://bank.example@evil.test/login")).toMatchObject({ kind: "url", host: "evil.test" });
+  });
+
+  it("gives the link whole, as the host it names is read, so a page cannot resolve it to somewhere else", () => {
+    // Written without its slashes, an address is one a page of the same scheme resolves against
+    // its own: left as written, the link would lead there while its label names this host.
+    expect(parseSource("https:example.com/thuc don")).toEqual({
+      kind: "url",
+      href: "https://example.com/thuc%20don",
+      host: "example.com",
+    });
   });
 
   it("is nothing for a link that is not http or https", () => {
