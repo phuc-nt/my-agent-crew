@@ -1,8 +1,9 @@
 """`artifact_import`: a file already in the workspace becomes a canvas, or the newest version
 of one that is there, without its text passing through the model. A turn on a channel with no
-canvas, or one that has written its share, is refused before the file is opened. A file never
-goes over versions the conversation has not seen unless `replace` says the person wants that,
-and even then those versions stay unseen. A file that changes nothing shares nothing."""
+canvas, a path that leaves the workspace, or a turn that has written its share is refused
+before the file is opened. A file never goes over versions the conversation has not seen
+unless `replace` says the person wants that, and even then those versions stay unseen. A file
+that changes nothing shares nothing."""
 
 from __future__ import annotations
 
@@ -35,7 +36,13 @@ from my_agent_crew.tools.artifact_scope import (
     check_budget,
     check_channel,
 )
-from my_agent_crew.tools.artifact_source import SourceFile, code_language, infer_kind, read_source
+from my_agent_crew.tools.artifact_source import (
+    SourceFile,
+    code_language,
+    infer_kind,
+    inside_workspace,
+    read_source,
+)
 from my_agent_crew.tools.artifact_source_ref import (
     check_path,
     relative_ref_count,
@@ -69,6 +76,8 @@ async def run_import(agent: CanvasAgent, root: Path, args: dict[str, Any]) -> st
     conv = agent.conversation()
     check_channel(conv)
     path = check_path(text_arg(args, "path"))
+    # Before its suffix, its kind or its canvas: a path that leaves is wrong whatever those are.
+    inside_workspace(root, path)
     artifact_id, title, kind, url = (
         (optional_text(args, name) or "").strip() for name in ("id", "title", "kind", "source_url")
     )

@@ -1551,7 +1551,15 @@ tên một test thì sửa dòng của nó trong cùng commit.
     chối mà không đọc tệp, `kind` lạ, URL xấu, đường dẫn giấu ký tự hay chỉ có khoảng trắng, đường
     dẫn hay link mang nửa surrogate lẻ bị từ chối trước khi đọc, tệp không đọc được thì không tạo canvas và không trừ ngân sách, tệp không
     đổi được loại của canvas đã có, canvas ngoài tầm trả lời như canvas không tồn tại kể cả khi
-    `kind` gửi kèm lệch); `tests/test_artifact_import_replace.py`
+    `kind` gửi kèm lệch); `tests/test_artifact_import_outside.py`
+    ("test_a_path_out_of_the_workspace_is_told_so_whatever_its_suffix_or_kind": đường dẫn ra ngoài
+    workspace (`..`, tuyệt đối, `~tên`) nhận câu ra ngoài workspace chứ không phải câu về đuôi
+    tệp, có hay không có `kind`, và không tệp nào bị mở,
+    "test_a_path_out_of_the_workspace_is_told_so_before_the_canvas_it_was_to_go_into": cả khi
+    nhập vào canvas có sẵn, `kind` lệch hay canvas ngoài tầm, không trừ ngân sách,
+    "test_a_link_inside_the_workspace_is_still_followed_to_where_it_leads": liên kết người đặt
+    trong workspace vẫn được đi theo như `workspace_read`, đường dẫn tuyệt đối rơi vào trong
+    workspace vẫn đọc được); `tests/test_artifact_import_replace.py`
     ("test_a_file_replaces_the_newest_version_the_conversation_has_seen": bản mới của agent mang
     ghi chú `import`, seen lên bản mới, `language` gửi kèm không đổi gì,
     "test_a_file_that_changes_nothing_adds_no_version_and_opens_no_gate": thẻ có `unchanged`,

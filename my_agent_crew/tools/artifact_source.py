@@ -86,14 +86,20 @@ def code_language(path: str) -> str:
     return _LANGUAGE_BY_SUFFIX.get(Path(path).suffix.lower(), "")
 
 
+def inside_workspace(root: Path, relative: str) -> Path:
+    """Where `relative` lands under the workspace `root`, by the rule the file tools keep. No
+    file is opened to tell, so a caller asks this before it looks at anything else of the path."""
+    try:
+        return resolve_inside(root, relative)
+    except (ToolError, RuntimeError):  # RuntimeError: "~name" for a user this machine lacks
+        raise SourceError(403, WORKSPACE_ESCAPE) from None
+
+
 def read_source(root: Path, relative: str, kind: str) -> SourceFile:
     """The file at `relative` under the workspace `root`, checked as a version of `kind`.
     It blocks on the disk, so call it in a thread. Every refusal names the path as it was sent."""
     cap = cap_bytes(kind)
-    try:
-        path = resolve_inside(root, relative)
-    except (ToolError, RuntimeError):  # RuntimeError: "~name" for a user this machine lacks
-        raise SourceError(403, WORKSPACE_ESCAPE) from None
+    path = inside_workspace(root, relative)
     try:
         raw = _read_regular(path, cap)
     except (FileNotFoundError, NotADirectoryError):
