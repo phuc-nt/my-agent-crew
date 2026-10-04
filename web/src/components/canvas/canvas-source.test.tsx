@@ -125,6 +125,21 @@ describe("reading a canvas's file again", () => {
     expect(versionLine()).toMatch(/^v1 · /);
   });
 
+  it("reads a version saved unheard that holds what the file does, so what it calls the same is what shows", async () => {
+    await openImported("của agent");
+    backend.canvas.onEvent = null;
+    backend.canvas.write("a1", "của agent");
+
+    await reimport();
+
+    expect(writes(backend)).toEqual([{ method: "POST", path: "/artifacts/a1/reimport", body: { base_version: 1 } }]);
+    expect(said("status")).toEqual([source.unchanged]);
+    expect(said("alert")).toEqual([]);
+    expect(sent(backend, "GET")).toHaveLength(2);
+    expect(editor()?.value).toBe("của agent");
+    expect(versionLine()).toMatch(/^v2 · /);
+  });
+
   it("is locked while the file is read, and forgets what it said last", async () => {
     await openImported("a");
     await reimport();

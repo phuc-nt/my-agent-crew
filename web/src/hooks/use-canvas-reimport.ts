@@ -49,7 +49,9 @@ export function useCanvasReimport(
         return;
       }
       const { changed, artifact } = await artifactApi.reimport(artifactId, base);
-      if (changed) canvas.imported(artifact);
+      // Told either way: a file that holds what the newest version does may still name a version
+      // the canvas has not read.
+      canvas.imported(artifact);
       setNote({ tone: "info", text: changed ? source.changed(artifact.head_version) : source.unchanged });
     } catch (error) {
       const status = error instanceof ApiError ? error.status : null;

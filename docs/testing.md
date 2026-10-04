@@ -2714,7 +2714,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     và nhóm "reading a canvas's file again" ("saves the typing first, then asks on the version that
     holds it, and shows the file's text after one read": `PUT` rồi `POST` với `base_version` của
     `PUT` đó, đúng hai lần `GET`, dòng lịch sử ghi "Nhập từ tệp"; chữ chưa lưu được thì không có
-    `POST` nào và nói vậy; tệp không đổi thì nói vậy và không đọc lại; nút khoá và ghi "Đang nhập…"
+    `POST` nào và nói vậy; tệp không đổi thì nói vậy và không đọc lại; "reads a version saved
+    unheard that holds what the file does, so what it calls the same is what shows": tệp giống một
+    bản đã lưu mà canvas chưa nghe tới thì vẫn nói không đổi, và canvas đọc bản đó chứ không đứng ở
+    chữ cũ; nút khoá và ghi "Đang nhập…"
     trong lúc đọc, lời báo trước biến mất; 403, 410, 413, 422 mỗi cái một câu của web, không bao
     giờ hiện chữ của server; 413 đúng một câu dù server trả câu chữ hay object cỡ; tệp không còn là
     410; 409 thì đọc lại canvas và không hiện gì của body từ chối; canvas đã xoá thì chỉ còn lời
