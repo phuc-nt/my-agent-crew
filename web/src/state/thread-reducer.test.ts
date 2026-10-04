@@ -83,6 +83,59 @@ describe("itemsFromMessages", () => {
     expect(items[0]).toMatchObject({ kind: "tool", status: "denied" });
   });
 
+  // Each as the registry writes it: the tool raised, the tool crashed, no tool has the name, a
+  // kit hook stopped the call. A stored message has no flag for success, only these openings.
+  const FAILED_REPLIES = [
+    "Công cụ lỗi: Không ghi được notes/thuc-don.md. Tệp cũ ở đó, nếu có, còn nguyên.",
+    "Công cụ lỗi: ValueError",
+    "Không có công cụ tên artifact_exprot.",
+    "Hook chặn workspace_write: ngoài giờ làm việc",
+  ];
+
+  it.each(FAILED_REPLIES)("keeps a call that failed as failed when the thread is read back: %s", (reply) => {
+    const items = itemsFromMessages([
+      message({ role: "assistant", tool_calls: [{ id: "tc", name: "artifact_export", arguments: {} }] }),
+      message({ role: "tool", tool_call_id: "tc", content: reply }),
+    ]);
+    expect(items).toEqual([
+      { kind: "tool", id: "tc", name: "artifact_export", arguments: {}, output: reply, status: "failed" },
+    ]);
+  });
+
+  it.each([
+    "Đã xuất v1 của canvas a1b2c3d4e5f6 «Thực đơn» (12 byte) ra notes/thuc-don.md.",
+    "Kết quả: Công cụ lỗi: không phải ở đầu",
+    " Công cụ lỗi: sau một dấu cách",
+    "Công cụ lỗi", // the words alone, with no failure after them
+    "công cụ lỗi: chữ thường",
+    "Không có công cụ nào cần gọi.",
+    "Hook chặnworkspace_write",
+    "",
+  ])("reads a reply that only resembles a failure as a call that finished: %j", (reply) => {
+    const items = itemsFromMessages([
+      message({ role: "assistant", tool_calls: [{ id: "tc", name: "read_file", arguments: {} }] }),
+      message({ role: "tool", tool_call_id: "tc", content: reply }),
+    ]);
+    expect(items[0]).toMatchObject({ kind: "tool", status: "done", output: reply });
+  });
+
+  it("gives a reply the same status read back as it had when it arrived", () => {
+    const replies = [...FAILED_REPLIES, DENIED_TEXT];
+    const calls = replies.map((_, at) => ({ id: `tc${at}`, name: "run_shell", arguments: {} }));
+    const live = run([
+      { type: "assistant_message", message_id: "a", content: "", tool_calls: calls, provider: null, model: null, cost_usd: null },
+      ...calls.map((call) => ({ type: "tool_call" as const, tool_call_id: call.id, name: call.name, arguments: {} })),
+      ...replies.map((output, at) => ({ type: "tool_result" as const, tool_call_id: `tc${at}`, name: "run_shell", ok: false, output })),
+    ]);
+    const stored = itemsFromMessages([
+      message({ role: "assistant", tool_calls: calls }),
+      ...replies.map((content, at) => message({ role: "tool", tool_call_id: `tc${at}`, content })),
+    ]);
+    const statuses = (items: ThreadItem[]) => items.map((item) => (item.kind === "tool" ? item.status : item.kind));
+    expect(statuses(stored)).toEqual(["failed", "failed", "failed", "failed", "denied"]);
+    expect(statuses(stored)).toEqual(statuses(live.items));
+  });
+
   it("skips system messages and assistant messages with no content or calls", () => {
     expect(itemsFromMessages([message({ role: "system", content: "x" }), message({ role: "assistant" })])).toEqual([]);
   });

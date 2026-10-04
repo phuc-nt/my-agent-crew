@@ -1,4 +1,5 @@
 import { noteText, PROGRESS_NOTE_TOOL } from "../lib/run-rows";
+import { isDenied, storedStatus } from "../lib/tool-reply";
 import type {
   AgentEvent,
   Approval,
@@ -126,8 +127,6 @@ export const emptyThread: ThreadState = {
   waiting: [],
 };
 
-const DENIED_MARKER = "Người dùng đã TỪ CHỐI";
-
 export function itemsFromMessages(messages: StoredMessage[]): ThreadItem[] {
   const items: ThreadItem[] = [];
   const toolIndex = new Map<string, number>();
@@ -144,9 +143,8 @@ export function itemsFromMessages(messages: StoredMessage[]): ThreadItem[] {
     }
     if (m.role === "tool" && m.tool_call_id !== null) {
       const at = toolIndex.get(m.tool_call_id);
-      const denied = m.content.startsWith(DENIED_MARKER);
       if (at !== undefined) {
-        items[at] = { ...(items[at] as ThreadItem & { kind: "tool" }), output: m.content, status: denied ? "denied" : "done" };
+        items[at] = { ...(items[at] as ThreadItem & { kind: "tool" }), output: m.content, status: storedStatus(m.content) };
       }
     }
   }
@@ -326,8 +324,7 @@ function applyEvent(state: ThreadState, e: AgentEvent): ThreadState {
       // A note has no result to show: it was complete when it was written. Falling
       // through would look for a tool item that is not there and drop `pending`.
       if (e.name === PROGRESS_NOTE_TOOL) return state;
-      const denied = e.output.startsWith(DENIED_MARKER);
-      const status: ToolStatus = denied ? "denied" : e.ok ? "done" : "failed";
+      const status: ToolStatus = isDenied(e.output) ? "denied" : e.ok ? "done" : "failed";
       return { ...state, items: updateTool(state.items, e.tool_call_id, { output: e.output, status }), pending: null };
     }
     case "approval_required":

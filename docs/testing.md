@@ -433,6 +433,17 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "a tool call's full arguments wrap at phone width instead of widening the page";
     `phone-smoke.spec.ts`
     "a request's full arguments leave its buttons on screen in a short phone view"
+- **Thẻ của lời gọi tool hỏng vẫn là "lỗi" khi thread được đọc lại từ server**
+  - vitest: `state/thread-reducer.test.ts` nhóm "itemsFromMessages"
+    ("keeps a call that failed as failed when the thread is read back": lời đáp mở bằng câu của
+    registry khi tool báo lỗi, tool sập, không có tool tên đó hay hook của kit chặn thì thẻ giữ
+    trạng thái `failed`, "reads a reply that only resembles a failure as a call that finished",
+    "gives a reply the same status read back as it had when it arrived": cùng một lời đáp cho
+    cùng một trạng thái ở luồng trực tiếp và khi dựng lại từ tin đã lưu)
+  - pytest: `tests/test_tool_reply_openings.py` (mỗi tiền tố web dùng trong
+    `web/src/lib/tool-reply.ts` đúng là phần mở đầu của chuỗi server tương ứng: `DENIED_TOOL` và
+    `EXPIRED_TOOL`, `TOOL_FAILED`, `UNKNOWN_TOOL`, `TOOL_BLOCKED_BY_HOOK`, và registry chạy thật
+    trả đúng các lời mở đó, nên hai bên không lệch nhau khi một bên đổi chữ)
 - **Dừng thật, thread tự làm mới, pill kết nối lại**
   - vitest: `hooks/use-thread.test.ts` "Stop on a stream that resumed after a person answered";
     `state/thread-reducer.test.ts`
