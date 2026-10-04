@@ -11,7 +11,11 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from my_agent_crew.agent_ids import is_agent_id
-from my_agent_crew.tools.artifact_file_texts import IMPORT_BAD_PATH, IMPORT_BAD_URL
+from my_agent_crew.tools.artifact_file_texts import (
+    IMPORT_BAD_PATH,
+    IMPORT_BAD_URL,
+    IMPORT_URL_HAS_LOGIN,
+)
 from my_agent_crew.tools.registry import ToolError
 
 PATH_MAX = 1024
@@ -58,7 +62,8 @@ def parse_source(source: str) -> tuple[str, str] | None:
 
 
 def web_url(value: str) -> str:
-    """`value` as sent, when it is a plain http or https link to a named host."""
+    """`value` as sent, when it is a plain http or https link to a named host. One that names
+    who logs in there is refused: it would be stored, and shown to everyone the canvas is."""
     refusal = ToolError(IMPORT_BAD_URL.format(limit=URL_MAX))
     if len(value) > URL_MAX or _hides(value) or any(ch.isspace() for ch in value):
         raise refusal
@@ -69,6 +74,8 @@ def web_url(value: str) -> str:
         raise refusal from None
     if parts.scheme not in ("http", "https") or not host:
         raise refusal
+    if "@" in parts.netloc:  # a name, a password or both, even an empty one
+        raise ToolError(IMPORT_URL_HAS_LOGIN)
     return value
 
 

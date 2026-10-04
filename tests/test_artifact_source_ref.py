@@ -8,7 +8,11 @@ from pathlib import Path
 
 import pytest
 
-from my_agent_crew.tools.artifact_file_texts import IMPORT_BAD_PATH, IMPORT_BAD_URL
+from my_agent_crew.tools.artifact_file_texts import (
+    IMPORT_BAD_PATH,
+    IMPORT_BAD_URL,
+    IMPORT_URL_HAS_LOGIN,
+)
 from my_agent_crew.tools.artifact_source_ref import (
     PATH_MAX,
     URL_MAX,
@@ -110,11 +114,37 @@ def test_a_source_that_names_no_workspace_file_parses_to_nothing(source: str):
         "HTTPS://Example.com/x",
         "https://example.com:8443/p",
         "https://vi.wikipedia.org/wiki/Phở",
+        # An @ after the host names no login: a page of an author, a search, a place on a page.
+        "https://medium.com/@tac-gia/bai-viet",
+        "https://example.com/tim?q=ai@example.vn",
+        "https://example.com/a#muc@2",
         LONG_URL,
     ],
 )
 def test_a_plain_web_link_passes_as_sent(url: str):
     assert web_url(url) == url
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://ai:matkhau@example.com/a",
+        "https://ai@example.com/a",
+        "https://:matkhau@example.com",
+        "https://@example.com/a",
+        "http://example.com@khac.example/a",
+        "https://ai:mat%40khau@example.com:8443/a?b=c",
+        "HTTPS://AI@Example.com",
+    ],
+)
+def test_a_link_that_carries_a_login_is_refused_in_words_that_say_why(url: str):
+    """The link is kept with the canvas and shown to whoever opens it: a password in it would
+    sit in the database, in every answer of the API and in the library. The refusal quotes
+    none of the link back."""
+    with pytest.raises(ToolError) as caught:
+        web_url(url)
+    assert str(caught.value) == IMPORT_URL_HAS_LOGIN
+    assert "@" in IMPORT_URL_HAS_LOGIN and "{" not in IMPORT_URL_HAS_LOGIN
 
 
 @pytest.mark.parametrize(

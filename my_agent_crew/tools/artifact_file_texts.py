@@ -69,6 +69,12 @@ IMPORT_BAD_URL = (
     "`source_url` phải là một link http hoặc https có tên máy chủ, tối đa {limit} ký tự, không"
     " có khoảng trắng hay ký tự ẩn. Chưa nhập gì."
 )
+# Quotes nothing of the link: what it refuses is a secret, and the result is stored and shown.
+IMPORT_URL_HAS_LOGIN = (
+    "`source_url` không được kèm tên đăng nhập hay mật khẩu (phần đứng trước dấu @ trong tên máy"
+    " chủ): link này được lưu cùng canvas và hiện cho người mở nó. Bỏ phần đó rồi gọi lại. Chưa"
+    " nhập gì."
+)
 IMPORT_BAD_PATH = (
     "`path` phải là một đường dẫn không rỗng, tối đa {limit} ký tự, không có ký tự điều khiển"
     " hay ký tự ẩn. Chưa làm gì."

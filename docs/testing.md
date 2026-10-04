@@ -1530,6 +1530,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     cũng được kiểm, URL, chuỗi rỗng và nguồn thiếu tiền tố `workspace:` parse ra không có gì,
     `web_url` chỉ nhận http và https có
     host, không khoảng trắng, không nửa surrogate lẻ, không quá 2.000 ký tự,
+    "test_a_link_that_carries_a_login_is_refused_in_words_that_say_why": link có tên đăng nhập hay
+    mật khẩu trước dấu `@` của tên máy chủ bị từ chối bằng câu riêng, không chép lại link, còn
+    `@` trong đường dẫn, câu truy vấn hay phần sau `#` thì vẫn qua,
     "test_each_file_a_page_points_at_is_counted_once_and_a_link_that_loads_none_is_not");
     `tests/test_artifact_import.py`
     ("test_a_file_becomes_a_canvas_that_remembers_where_it_came_from": canvas có `source`, tác giả
@@ -1549,7 +1552,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "test_a_turn_that_made_its_share_of_canvases_imports_no_more" và
     "test_a_turn_that_wrote_its_share_of_one_canvas_imports_into_it_no_more": lần thứ 31 bị từ
     chối mà không đọc tệp, `kind` lạ, URL xấu, đường dẫn giấu ký tự hay chỉ có khoảng trắng, đường
-    dẫn hay link mang nửa surrogate lẻ bị từ chối trước khi đọc, tệp không đọc được thì không tạo canvas và không trừ ngân sách, tệp không
+    dẫn hay link mang nửa surrogate lẻ bị từ chối trước khi đọc, `source_url` mang tên đăng nhập
+    hay mật khẩu cũng vậy và không thành nguồn của canvas có sẵn
+    ("test_a_link_with_a_login_never_becomes_the_source_of_a_canvas_that_is_there"), tệp không đọc được thì không tạo canvas và không trừ ngân sách, tệp không
     đổi được loại của canvas đã có, canvas ngoài tầm trả lời như canvas không tồn tại kể cả khi
     `kind` gửi kèm lệch); `tests/test_artifact_import_outside.py`
     ("test_a_path_out_of_the_workspace_is_told_so_whatever_its_suffix_or_kind": đường dẫn ra ngoài

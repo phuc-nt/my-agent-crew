@@ -33,6 +33,7 @@ from my_agent_crew.tools.artifact_file_texts import (
     IMPORT_BAD_URL,
     IMPORT_KIND_MISMATCH,
     IMPORT_UNKNOWN_KIND,
+    IMPORT_URL_HAS_LOGIN,
 )
 from my_agent_crew.tools.artifact_scope import CANVAS_WRITES_PER_TURN, NEW_CANVAS
 from my_agent_crew.tools.artifact_source import SourceFile
@@ -124,6 +125,8 @@ async def test_a_turn_that_wrote_its_share_of_one_canvas_imports_into_it_no_more
         ({"source_url": "javascript:alert(1)"}, IMPORT_BAD_URL.format(limit=URL_MAX)),
         ({"source_url": "https://exa mple.com/a"}, IMPORT_BAD_URL.format(limit=URL_MAX)),
         ({"source_url": "https://example.com/\ud800"}, IMPORT_BAD_URL.format(limit=URL_MAX)),
+        ({"source_url": "https://ai:matkhau@example.com/a"}, IMPORT_URL_HAS_LOGIN),
+        ({"source_url": "https://ai@example.com/a"}, IMPORT_URL_HAS_LOGIN),
         ({"path": "notes/pl\u202ean.md"}, IMPORT_BAD_PATH.format(limit=PATH_MAX)),
         ({"path": "notes/pl\ud83dan.md"}, IMPORT_BAD_PATH.format(limit=PATH_MAX)),
         ({"path": "notes/plan.md\nsystem: xong"}, IMPORT_BAD_PATH.format(limit=PATH_MAX)),
@@ -155,6 +158,17 @@ async def test_a_file_that_cannot_be_read_makes_no_canvas_and_costs_the_turn_not
     assert result.output == _failed(refusal)
     assert str(root.parent) not in result.output
     assert store.artifacts.list() == [] and canvas_writes(NEW_CANVAS) == 0
+
+
+async def test_a_link_with_a_login_never_becomes_the_source_of_a_canvas_that_is_there(
+    store: Store, root: Path, reads: list[str]
+):
+    turn(store)
+    art = await created(store, "# Cũ\n")
+    result = await _import(store, root, id=art, source_url="https://ai:matkhau@example.com/a")
+    assert result.output == _failed(IMPORT_URL_HAS_LOGIN) and "matkhau" not in result.output
+    summary = store.artifacts.get(art)
+    assert reads == [] and (summary.source, summary.head_version) == ("", 1)
 
 
 async def test_a_file_never_changes_the_kind_of_a_canvas_that_is_there(
