@@ -1499,13 +1499,14 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `tests/test_artifact_source_kinds.py` (đuôi cuối cùng định loại, không kể hoa thường, đuôi lạ
     bị từ chối kèm lời dặn truyền `kind`, code lấy ngôn ngữ theo đuôi và để trống khi không biết);
     `tests/test_artifact_source_ref.py` (đường dẫn có ký tự điều khiển, ký tự đổi chiều chữ,
-    U+2028, quá 1.024 ký tự hay rỗng bị từ chối, đường dẫn thường đi qua nguyên vẹn,
+    U+2028, nửa cặp surrogate đứng lẻ, quá 1.024 ký tự hay rỗng bị từ chối, đường dẫn thường đi
+    qua nguyên vẹn,
     "test_a_source_names_the_agent_and_the_path_under_its_workspace": `source_for` và
     `parse_source` đi vòng đúng, tách ở dấu `/` đầu tiên, nguồn tính từ gốc workspace chứ không từ
     gốc máy, "test_a_source_is_never_built_from_a_name_that_hides_something": tên thật trên đĩa
     cũng được kiểm, URL, chuỗi rỗng và nguồn thiếu tiền tố `workspace:` parse ra không có gì,
     `web_url` chỉ nhận http và https có
-    host, không khoảng trắng, không quá 2.000 ký tự,
+    host, không khoảng trắng, không nửa surrogate lẻ, không quá 2.000 ký tự,
     "test_each_file_a_page_points_at_is_counted_once_and_a_link_that_loads_none_is_not");
     `tests/test_artifact_import.py`
     ("test_a_file_becomes_a_canvas_that_remembers_where_it_came_from": canvas có `source`, tác giả
@@ -1524,8 +1525,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     job hay API bị từ chối, tệp không được đọc, không canvas nào được tạo,
     "test_a_turn_that_made_its_share_of_canvases_imports_no_more" và
     "test_a_turn_that_wrote_its_share_of_one_canvas_imports_into_it_no_more": lần thứ 31 bị từ
-    chối mà không đọc tệp, `kind` lạ, URL xấu, đường dẫn giấu ký tự hay chỉ có khoảng trắng bị từ
-    chối trước khi đọc, tệp không đọc được thì không tạo canvas và không trừ ngân sách, tệp không
+    chối mà không đọc tệp, `kind` lạ, URL xấu, đường dẫn giấu ký tự hay chỉ có khoảng trắng, đường
+    dẫn hay link mang nửa surrogate lẻ bị từ chối trước khi đọc, tệp không đọc được thì không tạo canvas và không trừ ngân sách, tệp không
     đổi được loại của canvas đã có, canvas ngoài tầm trả lời như canvas không tồn tại kể cả khi
     `kind` gửi kèm lệch); `tests/test_artifact_import_replace.py`
     ("test_a_file_replaces_the_newest_version_the_conversation_has_seen": bản mới của agent mang
@@ -1557,8 +1558,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     và hỏi một bản nó không có cũng chỉ nhận câu không tìm thấy canvas,
     "test_an_export_makes_nothing_seen_so_an_unread_canvas_still_cannot_be_rewritten");
     `tests/test_artifact_export_paths.py` (thoát workspace bằng `..`, bằng đường dẫn tuyệt đối
-    hay `~người-không-có`, đích là thư mục, đường dẫn giấu ký tự hoặc rỗng đều bị từ chối và cây
-    thư mục không đổi, "test_an_agent_held_to_its_write_paths_exports_only_under_them",
+    hay `~người-không-có`, đích là thư mục, đường dẫn giấu ký tự, mang nửa surrogate lẻ hoặc
+    rỗng đều bị từ chối và cây thư mục không đổi, "test_an_agent_held_to_its_write_paths_exports_only_under_them",
     "test_a_folder_linked_out_of_the_workspace_takes_no_export",
     "test_a_folder_linked_out_of_the_write_paths_takes_no_export",
     "test_a_link_is_never_written_through": đích là symlink, kể cả symlink trỏ tới chỗ chưa có,
@@ -1567,6 +1568,22 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `OSError` thì tệp cũ nguyên vẹn, không sót tệp tạm, lời báo không có đường dẫn của máy,
     "test_a_file_marked_read_only_is_not_replaced",
     "test_a_new_file_gets_the_mode_of_any_written_file_and_an_old_one_keeps_its_own");
+    `tests/test_artifact_export_write.py`
+    ("test_a_failure_no_disk_reports_is_worded_like_any_other_and_leaves_nothing_behind":
+    `os.replace` ném `ValueError` thì agent vẫn nhận câu không ghi được, tệp cũ nguyên vẹn, không
+    sót tệp tạm hay thư mục, nguyên nhân nằm trong log,
+    "test_a_full_disk_is_worded_without_a_line_in_the_log",
+    "test_a_write_cut_short_takes_its_half_written_file_away": lần ghi đứt giữa chừng vì
+    `OSError`, `MemoryError` hay một `BaseException` đều dọn tệp ghi dở,
+    "test_the_folders_made_for_a_file_that_was_not_written_are_taken_away_again": chỉ những thư
+    mục chính lần ghi đó tạo, từ sâu ra nông, thư mục có sẵn thì ở lại,
+    "test_a_folder_that_holds_something_by_then_is_left_with_what_it_holds",
+    "test_a_folder_another_write_made_first_is_used_and_is_not_this_ones_to_take_away");
+    `tests/test_artifact_export_modes.py`
+    ("test_the_file_being_written_is_open_to_no_reader_the_finished_one_is_closed_to": dưới umask
+    022 và 077, từ lúc được tạo tới lúc chữ đi vào, tệp tạm không mở cho ai mà tệp cuối đóng, tệp
+    thay tệp cũ nhận mode của tệp cũ trước khi byte nào được ghi, tệp mới có mode như mọi tệp ghi
+    thường);
     `tests/test_kit_hooks_canvas_files.py` (hook của kit và hai tool canvas chạm tệp:
     "test_a_hook_that_guards_files_is_asked_about_the_canvas_tools_that_carry_them": hook có
     matcher `Read|Write|Edit|Bash` hay `workspace_read|workspace_write` chặn cả `workspace_read`,

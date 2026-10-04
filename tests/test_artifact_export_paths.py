@@ -19,7 +19,6 @@ from my_agent_crew.texts import (
     WORKSPACE_IS_DIR,
     WORKSPACE_WRITE_OUTSIDE,
 )
-from my_agent_crew.tools import artifact_files
 from my_agent_crew.tools.artifact_file_texts import (
     EXPORT_FAILED,
     EXPORT_TARGET_IS_LINK,
@@ -85,6 +84,7 @@ async def test_a_path_that_is_no_place_for_a_file_is_refused_and_nothing_is_writ
         "~no-such-user-0/x.md": WORKSPACE_ESCAPE,
         "notes": WORKSPACE_IS_DIR.format(path="notes"),
         "notes/x\u202e.md": IMPORT_BAD_PATH.format(limit=PATH_MAX),
+        "out/a\ud83d.md": IMPORT_BAD_PATH.format(limit=PATH_MAX),
         "": IMPORT_BAD_PATH.format(limit=PATH_MAX),
     }
     before = _tree(root)
@@ -149,7 +149,7 @@ async def test_a_write_that_fails_leaves_the_old_file_whole_and_no_other_behind(
     def full(*_: object) -> None:
         raise OSError(28, "No space left on device", str(root / OLD))
 
-    monkeypatch.setattr(artifact_files.os, "replace", full)
+    monkeypatch.setattr(os, "replace", full)
     before = _tree(root)
     for path in (OLD, "notes/new.md"):
         result = await _export(store, root, art, path)

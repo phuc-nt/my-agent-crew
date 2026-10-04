@@ -2,17 +2,14 @@
 itself. An import adds a version a person can go back from, so it does not ask; an export
 writes over a file nothing keeps a version of, so it asks first, like `workspace_write`. An
 export writes only where the file would really land inside the workspace and the agent's write
-paths, never through a link, and whole or not at all. It writes no canvas, so it is open on
-every channel, costs the turn nothing and makes nothing seen."""
+paths, never through a link, and whole or not at all (`artifact_file_write`). It writes no
+canvas, so it is open on every channel, costs the turn nothing and makes nothing seen."""
 
 from __future__ import annotations
 
 import asyncio
-import os
-import secrets
-import stat
+import logging
 from collections.abc import Sequence
-from contextlib import suppress
 from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -37,6 +34,7 @@ from my_agent_crew.tools.artifact_file_texts import (
     PARAM_REPLACE,
     PARAM_SOURCE_URL,
 )
+from my_agent_crew.tools.artifact_file_write import write_whole
 from my_agent_crew.tools.artifact_import import run_import
 from my_agent_crew.tools.artifact_scope import canvas_errors
 from my_agent_crew.tools.artifact_source_ref import check_path, workspace_path
@@ -46,6 +44,8 @@ from my_agent_crew.tools.workspace import resolve_writable
 
 if TYPE_CHECKING:
     from my_agent_crew.store import Store
+
+logger = logging.getLogger(__name__)
 
 
 async def run_export(
@@ -63,8 +63,11 @@ async def run_export(
     target, shown = _target(root, path, write_paths)
     payload = (doc.data or b"") if doc.content is None else doc.content.encode("utf-8")
     try:
-        existed = await asyncio.to_thread(_write_whole, target, payload)
+        existed = await asyncio.to_thread(write_whole, target, payload)
     except OSError:  # worded here: the error's own text names the path on this machine
+        raise ToolError(EXPORT_FAILED.format(path=shown)) from None
+    except Exception:  # no failure of a disk: worded the same, and kept for whoever looks
+        logger.exception("artifact_export could not write %s", shown)
         raise ToolError(EXPORT_FAILED.format(path=shown)) from None
     agent.share(conv, artifact_id)
     done = EXPORT_DONE.format(
@@ -95,32 +98,6 @@ def _target(root: Path, path: str, write_paths: Sequence[str]) -> tuple[Path, st
     if real.is_dir():
         raise ToolError(WORKSPACE_IS_DIR.format(path=path))
     return real, workspace_path(root, target)
-
-
-def _write_whole(target: Path, payload: bytes) -> bool:
-    """Puts `payload` at `target` whole or not at all, and says whether a file was there. It
-    is written beside the target and moved into place, so a write that fails half way leaves
-    the old file as it was and nothing else behind. A new file gets the mode any written file
-    gets; one that replaces another keeps the other's. Moving a file into place needs no leave
-    from the one it replaces, so a file marked read-only is refused here, as a plain write
-    would be. It blocks: run in a thread."""
-    target.parent.mkdir(parents=True, exist_ok=True)
-    mode = stat.S_IMODE(target.stat().st_mode) if target.exists() else None
-    if mode is not None and not os.access(target, os.W_OK):
-        raise PermissionError(target.name)
-    temp = target.with_name(f".export-{secrets.token_hex(8)}.tmp")
-    fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC, 0o666)
-    try:
-        with os.fdopen(fd, "wb") as out:
-            out.write(payload)
-            if mode is not None:
-                os.fchmod(out.fileno(), mode)
-        os.replace(temp, target)
-    except OSError:
-        with suppress(OSError):
-            temp.unlink()
-        raise
-    return mode is not None
 
 
 def build_artifact_file_tools(

@@ -18,7 +18,8 @@ PATH_MAX = 1024
 URL_MAX = 2000
 WORKSPACE_PREFIX = "workspace:"
 # Control and format characters and the two Unicode line breaks: none shows where it stands.
-_HIDDEN = ("Cc", "Cf", "Zl", "Zp")
+# Half of a surrogate pair is no character at all, and no disk or database can take one.
+_HIDDEN = ("Cc", "Cf", "Zl", "Zp", "Cs")
 _REF = re.compile(r"""\b(?:src|href)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))""", re.IGNORECASE)
 # What a canvas can show without loading a file that sits beside the page.
 _NOT_A_FILE = ("data:", "blob:", "http:", "https:", "//", "#", "mailto:", "javascript:")

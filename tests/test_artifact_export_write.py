@@ -1,0 +1,159 @@
+"""What `artifact_export` leaves on disk. A write that fails, whatever stopped it, leaves the
+old file whole, no half-written file beside it and none of the folders it made on the way."""
+
+from __future__ import annotations
+
+import logging
+import os
+from collections.abc import Callable, Iterator
+from pathlib import Path
+from typing import Any
+
+import pytest
+
+from my_agent_crew.agent.turn_context import CHAT, set_turn_conversation, set_turn_source
+from my_agent_crew.store.db import Store
+from my_agent_crew.texts import TOOL_FAILED
+from my_agent_crew.tools.artifact_file_texts import EXPORT_FAILED
+from my_agent_crew.tools.artifact_file_write import write_whole
+from my_agent_crew.tools.registry import ToolResult
+from tests.canvas_helpers import PLAN, call, created, put, turn
+
+OLD = "notes/old.md"
+FULL = (28, "No space left on device")
+
+
+class Stopped(BaseException):
+    """What ends a thread from outside: no `Exception`, so no tool words it."""
+
+
+@pytest.fixture(autouse=True)
+def fresh_turn() -> Iterator[None]:
+    yield
+    set_turn_source(CHAT)
+    set_turn_conversation("")
+
+
+@pytest.fixture
+def root(tmp_path: Path) -> Path:
+    put(tmp_path / "ws", OLD, "cũ")
+    (tmp_path / "ws" / "out").mkdir()
+    return tmp_path / "ws"
+
+
+@pytest.fixture
+async def art(store: Store) -> str:
+    turn(store)
+    return await created(store, PLAN)
+
+
+async def _export(store: Store, root: Path, art: str, path: str) -> ToolResult:
+    return await call(store, "artifact_export", {"id": art, "path": path}, root=root)
+
+
+def _tree(root: Path) -> list[str]:
+    """Every folder and file of the workspace, and what each file holds."""
+    return sorted(
+        f"{entry.relative_to(root).as_posix()}={entry.read_bytes()!r}"
+        if entry.is_file()
+        else entry.relative_to(root).as_posix()
+        for entry in root.rglob("*")
+    )
+
+
+def _failing(error: BaseException) -> Callable[..., None]:
+    def fail(*_: object) -> None:
+        raise error
+
+    return fail
+
+
+async def test_a_failure_no_disk_reports_is_worded_like_any_other_and_leaves_nothing_behind(
+    store: Store, root: Path, art: str, monkeypatch, caplog
+):
+    """The registry would name only the error's type; the agent is told what became of the
+    file, and the cause is kept for whoever reads the log."""
+    monkeypatch.setattr(os, "replace", _failing(ValueError("embedded null byte")))
+    before = _tree(root)
+    with caplog.at_level(logging.ERROR):
+        for path in (OLD, "notes/new.md", "fresh/deep/new.md"):
+            result = await _export(store, root, art, path)
+            assert result.output == TOOL_FAILED.format(error=EXPORT_FAILED.format(path=path)), path
+            assert str(root.parent) not in result.output
+    assert _tree(root) == before
+    assert caplog.text.count("ValueError: embedded null byte") == 3
+
+
+async def test_a_full_disk_is_worded_without_a_line_in_the_log(
+    store: Store, root: Path, art: str, monkeypatch, caplog
+):
+    monkeypatch.setattr(os, "replace", _failing(OSError(*FULL)))
+    with caplog.at_level(logging.ERROR):
+        result = await _export(store, root, art, OLD)
+    assert result.output == TOOL_FAILED.format(error=EXPORT_FAILED.format(path=OLD))
+    assert caplog.records == []
+
+
+@pytest.mark.parametrize("error", [OSError(*FULL), MemoryError(), Stopped()])
+def test_a_write_cut_short_takes_its_half_written_file_away(
+    root: Path, monkeypatch, error: BaseException
+):
+    opened = os.fdopen
+
+    def cutting(fd: int, *args: Any, **kwargs: Any) -> Any:
+        def cut(data: bytes) -> None:
+            os.write(fd, data[:3])
+            raise error
+
+        out = opened(fd, *args, **kwargs)
+        out.write = cut
+        return out
+
+    monkeypatch.setattr(os, "fdopen", cutting)
+    before = _tree(root)
+    for path in (OLD, "notes/new.md", "fresh/deep/new.md"):
+        with pytest.raises(type(error)):
+            write_whole(root / path, PLAN.encode())
+        assert _tree(root) == before, path
+
+
+async def test_the_folders_made_for_a_file_that_was_not_written_are_taken_away_again(
+    store: Store, root: Path, art: str, monkeypatch
+):
+    """Only the ones this write made: `out` was there before it, so `out` stays."""
+    monkeypatch.setattr(os, "replace", _failing(OSError(*FULL)))
+    before = _tree(root)
+    for path in ("fresh/new.md", "fresh/deep/er/new.md", "out/sub/new.md"):
+        assert not (await _export(store, root, art, path)).ok, path
+        assert _tree(root) == before, path
+
+
+async def test_a_folder_that_holds_something_by_then_is_left_with_what_it_holds(
+    store: Store, root: Path, art: str, monkeypatch
+):
+    def full(*_: object) -> None:
+        put(root, "fresh/other.md", "của việc khác")
+        raise OSError(*FULL)
+
+    monkeypatch.setattr(os, "replace", full)
+    before = _tree(root)
+    assert not (await _export(store, root, art, "fresh/deep/new.md")).ok
+    left = [entry for entry in _tree(root) if entry not in before]
+    assert left == ["fresh", f"fresh/other.md={'của việc khác'.encode()!r}"]
+
+
+async def test_a_folder_another_write_made_first_is_used_and_is_not_this_ones_to_take_away(
+    store: Store, root: Path, art: str, monkeypatch
+):
+    make = Path.mkdir
+
+    def late(self: Path, *args: Any, **kwargs: Any) -> None:
+        os.mkdir(self)  # the other write gets there between the look and the making
+        make(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "mkdir", late)
+    assert (await _export(store, root, art, "fresh/new.md")).ok
+    assert (root / "fresh" / "new.md").read_text(encoding="utf-8") == PLAN
+    monkeypatch.setattr(os, "replace", _failing(OSError(*FULL)))
+    assert not (await _export(store, root, art, "other/new.md")).ok
+    assert (root / "other").is_dir() and list((root / "other").iterdir()) == []
