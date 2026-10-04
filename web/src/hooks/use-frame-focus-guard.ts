@@ -32,7 +32,8 @@
  * none of these, so until the window says it is in front the frame is also looked at on a beat
  * (`behind-watch.ts`), and is found once the browser says the keys go to the app's document or a
  * frame in it. A frame that has the keyboard then with no offer is waited on like any other, and
- * the keyboard goes back to the remembered element.
+ * the keyboard goes back to the remembered element. A guard put up in a window that is behind
+ * already, which no `blur` tells of, starts as it would after one.
  */
 
 import { type RefObject, useCallback, useEffect, useRef } from "react";
@@ -178,6 +179,8 @@ export function useFrameFocusGuard(frame: RefObject<HTMLIFrameElement | null>, o
     document.addEventListener("visibilitychange", shown);
     window.addEventListener("blur", blurred);
     window.addEventListener("focus", returned);
+    // Put up in a window that is behind already: no `blur` will say so.
+    if (!document.hasFocus()) blurred();
     return () => {
       for (const type of POINTER_EVENTS) document.removeEventListener(type, pointed, true);
       document.removeEventListener("keydown", pressed, true);

@@ -2820,8 +2820,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
 - **Canvas trên web: trang trong khung tự lấy focus thì bàn phím về lại chỗ người đang gõ; người đưa
   bàn phím cho trang bằng một cú bấm trong trang hoặc Tab, và lời mời ấy chỉ dùng được cho lần chuyển
   focus đi cùng nó; trang giành tới lần thứ năm thì bị gỡ; trang giành lúc cửa sổ ở phía sau thì bàn
-  phím về lại khi người quay lại, kể cả khi quay lại chỉ bằng bàn phím; khung nói khi bàn phím đang ở
-  trang**
+  phím về lại khi người quay lại, kể cả khi quay lại chỉ bằng bàn phím và kể cả khi khung được dựng
+  lên lúc cửa sổ đã ở phía sau; khung nói khi bàn phím đang ở trang**
   - pytest: `tests/test_render_pages.py`, bốn test của reporter về lời chào và cú bấm (xem mục trang
     render ở trên): cú bấm chỉ được nói khi trình duyệt bảo một người đã bấm, lúc con trỏ xuống và
     lần nữa lúc nó lên (`pointerup`, `mouseup`, `click` do con trỏ tạo ra)
@@ -2899,7 +2899,16 @@ tên một test thì sửa dòng của nó trong cùng commit.
     không mở khoảng chờ nào nữa và phần tử đã nhớ bị quên; "is looked for on the beat only while the
     window is behind, and on one beat however often it says so": một timer duy nhất dù cửa sổ nói hai
     lần, không timer nào trước khi cửa sổ ra sau và sau khi nó nói đã ở phía trước; nhịp thấy khung
-    rồi thì dừng), nhóm "a guard that is put up" (hai listener `pointermove` và
+    rồi thì dừng; khung được dựng lên lúc cửa sổ đã ở phía sau, tức `document.hasFocus()` là `false`
+    lúc guard được dựng và không `blur` nào báo: "goes back within a beat of the person coming back
+    by the keyboard alone to a window the page was put up behind": phần tử đang giữ focus lúc dựng
+    được nhớ, ba nhịp trôi qua khung vẫn giữ focus, `hasFocus()` thành `true` thì tới đúng nhịp kế
+    tiếp khung mới được xét, chờ đủ khoảng chờ rồi bàn phím về phần tử ấy và tính một lần giành;
+    "goes back at a pointer in the app, where the window the page was put up behind has not said it
+    is in front": con trỏ di chuyển trong app lúc ấy cũng mở khoảng chờ; "is looked for on the beat
+    from the time the page is put up behind the window, until the window says it is in front": một
+    timer ngay từ lúc dựng, hết khi cửa sổ nhận `focus`), nhóm "a guard that is put up" (hai
+    listener `pointermove` và
     `pointerdown` gắn với `passive: true` và không có listener `wheel` nào, nên guard không bao giờ
     giữ một cú cuộn lại), nhóm "a guard that is taken down" (không để lại timer nào trong ba timer
     của nó, lời mời đang chờ hết hạn và nhịp xét lúc cửa sổ ở phía sau cũng dừng, không còn nghe cú
@@ -2937,8 +2946,11 @@ tên một test thì sửa dòng của nó trong cùng commit.
     không cần sự kiện nào, hiện trong một nhịp kể từ lúc khung có focus và mất trong một nhịp kể từ
     lúc khung buông; người quay lại bằng bàn phím thì dấu hiện trong một nhịp; khung mới thay khung
     cũ lúc cửa sổ còn ở phía sau vẫn được xét theo nhịp ấy; nhịp của dấu dừng ở nhịp đầu tiên thấy
-    `document.hasFocus()` là `true`, và cả hai nhịp dừng khi khung đi; khung thay khung đang giữ bàn
-    phím thì không mang dấu ấy;
+    `document.hasFocus()` là `true`, và cả hai nhịp dừng khi khung đi; khung được dựng lên lúc cửa sổ
+    đã ở phía sau, không `blur` nào báo, thì dấu cũng hiện trong một nhịp kể từ lúc khung có focus,
+    hai nhịp của dấu và của guard chạy ngay từ lúc dựng, nhịp của dấu dừng ở nhịp đầu tiên thấy cửa
+    sổ ở phía trước và nhịp còn lại dừng khi khung đi; khung thay khung đang giữ bàn phím thì không
+    mang dấu ấy;
     khung đi thì gỡ đủ listener đã gắn lên `window` và `document`), nhóm "a stopped page the person
     asks for again" (lời báo đã dừng là một nút DOM khác với hộp của khung cũ và của khung mới; sau
     Nạp lại, nút vừa bấm mất nên focus được đặt lên hộp của khung mới bằng `focus({ preventScroll:
@@ -3004,12 +3016,16 @@ tên một test thì sửa dòng của nó trong cùng commit.
     như một `pointerdown`, mười phím gõ sau đó trang nghe đủ, dòng chữ nằm trong bề ngang của khung,
     khung không dời và không có cuộn ngang). Trang giành lúc cửa sổ ở phía sau chỉ có test vitest:
     Chromium của Playwright luôn coi trang là đang có focus nên cửa sổ không bao giờ nhận `blur` vì
-    người sang cửa sổ khác. Phần còn lại đã ghi nhận: phím bấm trong khoảng chờ, tối đa 50 ms giữa
+    người sang cửa sổ khác. Trong vitest, `web/src/test-setup.ts` cho `document.hasFocus()` trả
+    `true` ở mọi test: jsdom chỉ nói cửa sổ có focus sau khi một phần tử được focus, còn test là một
+    người đang ngồi trước app; test nào cần cửa sổ ở phía sau thì spy `hasFocus` thành `false`, trước
+    khi dựng khung nếu khung phải được dựng ở đó. Phần còn lại đã ghi nhận: phím bấm trong khoảng
+    chờ, tối đa 50 ms giữa
     lúc trang giành và lúc bàn phím được trả lại, thì tới trang; trang giành lúc cửa sổ ở phía sau
     mà người quay lại bằng bàn phím, không có `focus` của cửa sổ, tab không đổi trạng thái và con
     trỏ không động, thì phím tới trang tối đa một nhịp cộng khoảng chờ (250 ms) rồi bàn phím về; khung
-    được dựng lên khi cửa sổ đã ở phía sau từ trước (guard và dấu chưa từng thấy `blur` của cửa sổ)
-    thì không có nhịp nào, và vẫn chờ một trong ba sự kiện ấy; trang chặn hành vi mặc định của cú bấm
+    được dựng lên khi cửa sổ đã ở phía sau từ trước thì theo cùng nhịp ấy ngay từ lúc dựng, và phần
+    tử được nhớ là cái đang giữ focus lúc dựng; trang chặn hành vi mặc định của cú bấm
     (khung không nhận focus) rồi tự focus hơn 50 ms sau lúc con trỏ xuống mà nút vẫn đang giữ, hoặc
     hơn 50 ms sau lúc nhả (chẳng hạn sau một hoạt cảnh), thì bị coi là tự giành: lời mời của cú bấm
     ấy đã hết; ba sự kiện lúc nhả thừa nhau với chuột trong Chromium (bỏ riêng một cái thì test

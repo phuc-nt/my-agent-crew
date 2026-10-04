@@ -3,6 +3,11 @@ import { cleanup } from "@testing-library/react";
 import { afterEach } from "vitest";
 import { forgetTabDrafts } from "./lib/canvas-draft";
 
+// jsdom says its window has the focus only once an element in it was given the focus. A test is a
+// person at the app, whose window is in front; a test of a window that is behind says so with a spy
+// on `hasFocus` (a canvas frame put up there is looked at on a beat, `use-frame-focus-guard.ts`).
+document.hasFocus = () => true;
+
 afterEach(() => {
   cleanup();
   // A canvas draft the browser refused is held by the tab, and with it the question the page asks

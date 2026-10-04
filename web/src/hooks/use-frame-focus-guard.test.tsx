@@ -1223,6 +1223,60 @@ describe("the keyboard a page took while the window was behind", () => {
     wait(ATTEST_GRACE_MS);
     expect(vitest.getTimerCount()).toBe(0);
   });
+
+  /** The app puts the page up while its window is behind, where the person left off writing: no `blur` tells of it. */
+  function putUpBehind() {
+    inFront(false);
+    render(<textarea aria-label="message" />);
+    message().focus();
+    return setup({ field: "gone" });
+  }
+
+  it("goes back within a beat of the person coming back by the keyboard alone to a window the page was put up behind", () => {
+    const { onGrabbing } = putUpBehind();
+    takesBehind();
+
+    // Behind, the page is left with the focus, however long.
+    wait(BEHIND_LOOK_MS * 3);
+    expect(holder()).toBe(page());
+
+    inFront(true);
+    wait(BEHIND_LOOK_MS - 1);
+    expect(holder()).toBe(page());
+    wait(1);
+    wait(ATTEST_GRACE_MS - 1);
+    expect(holder()).toBe(page());
+    wait(1);
+
+    expect(holder()).toBe(message());
+    expectOneGrab(onGrabbing);
+  });
+
+  it("goes back at a pointer in the app, where the window the page was put up behind has not said it is in front", () => {
+    const { onGrabbing } = putUpBehind();
+    takesBehind();
+
+    fireEvent.pointerMove(knob());
+    wait(ATTEST_GRACE_MS - 1);
+    expect(holder()).toBe(page());
+    wait(1);
+
+    expect(holder()).toBe(message());
+    expectOneGrab(onGrabbing);
+  });
+
+  it("is looked for on the beat from the time the page is put up behind the window, until the window says it is in front", () => {
+    inFront(false);
+    setup();
+    expect(vitest.getTimerCount()).toBe(1);
+    wait(BEHIND_LOOK_MS * 3);
+    expect(vitest.getTimerCount()).toBe(1);
+
+    comeBack();
+    expect(vitest.getTimerCount()).toBe(0);
+    wait(BEHIND_LOOK_MS * 3);
+    expect(vitest.getTimerCount()).toBe(0);
+  });
 });
 
 describe("a guard that is put up", () => {

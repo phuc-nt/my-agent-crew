@@ -571,6 +571,38 @@ describe("the page that has the keyboard", () => {
       unmount();
       expect(vitest.getTimerCount()).toBe(0);
     });
+
+    it("is marked within a beat of taking it where the frame was put up behind the window, which no blur told of", () => {
+      vitest.spyOn(document, "hasFocus").mockReturnValue(false);
+      const { container } = setup();
+      const first = frameIn(container);
+      fireEvent.load(first);
+
+      vitest.spyOn(document, "activeElement", "get").mockReturnValue(first);
+      wait(BEHIND_LOOK_MS - 1);
+      expect(marker()).toBeNull();
+      wait(1);
+
+      expect(marker()).not.toBeNull();
+      expect(boxOf(first).getAttribute("data-keyboard")).toBe("");
+    });
+
+    it("is looked for on the beat from the time the frame is put up behind the window, until the window is in front again", () => {
+      const front = vitest.spyOn(document, "hasFocus").mockReturnValue(false);
+      const { unmount } = setup();
+      // One beat for the marker and one for the guard.
+      expect(vitest.getTimerCount()).toBe(2);
+      wait(BEHIND_LOOK_MS * 3);
+      expect(vitest.getTimerCount()).toBe(2);
+
+      // In front with nothing of the page's holding the focus: the marker has no more to look for.
+      front.mockReturnValue(true);
+      wait(BEHIND_LOOK_MS);
+      expect(vitest.getTimerCount()).toBe(1);
+
+      unmount();
+      expect(vitest.getTimerCount()).toBe(0);
+    });
   });
 
   it("is not marked for a frame that came after the one that had it", () => {

@@ -6,10 +6,10 @@ import { behindWatch } from "../lib/behind-watch";
  * A style sheet cannot tell (`:focus` is not defined for a frame), so it is read from the document
  * each time the focus can have moved: the app's window loses it to the frame and gets it back, and
  * an element of the app takes or loses it. A window that is not in front is told of none of this,
- * so from the time it loses the focus the document is also read on a beat (`behind-watch.ts`),
- * until the browser says the keys go to the app's document or a frame in it again. `shown` tells
- * one frame from the next and is null while the page is stopped; a frame that was just put up has
- * taken nothing yet.
+ * so from the time it loses the focus, or from the start where it is behind already, the document
+ * is also read on a beat (`behind-watch.ts`), until the browser says the keys go to the app's
+ * document or a frame in it again. `shown` tells one frame from the next and is null while the page
+ * is stopped; a frame that was just put up has taken nothing yet.
  */
 export function useFrameKeyboard(frame: RefObject<HTMLIFrameElement | null>, shown: number | null): boolean {
   const [held, setHeld] = useState(false);
@@ -28,6 +28,8 @@ export function useFrameKeyboard(frame: RefObject<HTMLIFrameElement | null>, sho
     window.addEventListener("focus", look);
     document.addEventListener("focusin", look, true);
     document.addEventListener("focusout", look, true);
+    // Put up in a window that is behind already: no `blur` will say so.
+    if (!document.hasFocus()) behind.start();
     return () => {
       behind.stop();
       window.removeEventListener("blur", lost);
