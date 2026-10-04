@@ -2394,7 +2394,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     nhóm "the errors a page reported" (không hiện gì khi trang chưa báo gì, nói số lỗi và giữ danh
     sách đóng tới khi được hỏi, từ lời báo thứ năm mươi thì ghi "50+" còn bốn mươi chín thì chưa,
     liệt kê cũ trước mới sau, "draws what the page wrote as text and never as markup, with hidden
-    characters as marks") và nhóm "sending the errors to the agent" (chỉ có nút
+    characters as marks": cả lời báo lẫn tên tệp ở dòng vị trí, `app[U+202E]gnp.js:3`) và nhóm
+    "sending the errors to the agent" (chỉ có nút
     gửi khi có chat để gửi; "sends nothing until the button is pressed, however many errors arrive";
     lưu canvas rồi gửi một tin nêu trang và bản của nó; gửi năm lỗi mới nhất; nút bị giữ trong lúc
     lưu và gửi nên bấm bao nhiêu lần cũng gửi một lần; canvas chưa lưu được thì nói, không gửi và cho

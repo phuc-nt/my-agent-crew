@@ -133,12 +133,16 @@ describe("the errors a page reported", () => {
 
   it("draws what the page wrote as text and never as markup, with hidden characters as marks", () => {
     const markup = `<img src=x onerror="alert(1)"><b>bold</b>`;
-    const { container } = setup({ report: reportOf([error(markup), error("ab‮cd")]) });
+    // A file named so that it reads as another: the override turns "gnp.js" round.
+    const named = error("x", { source: "app\u202egnp.js", line: 3 });
+    const { container } = setup({ report: reportOf([error(markup), error("ab‮cd"), named]) });
 
     fireEvent.click(screen.getByRole("button", { name: pageErrors.show }));
 
-    expect(messages(container)).toEqual([markup, "ab[U+202E]cd"]);
+    expect(messages(container)).toEqual([markup, "ab[U+202E]cd", "x"]);
     expect(container.querySelector("img, b")).toBeNull();
+    const places = [...container.querySelectorAll(".canvas-error-place")].map((each) => each.textContent);
+    expect(places).toEqual(["app[U+202E]gnp.js:3"]);
   });
 });
 

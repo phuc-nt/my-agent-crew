@@ -97,7 +97,7 @@ export function CanvasErrors({ artifactId, title, report, disabled, flush, onAsk
           {report.recent.map((error, at) => (
             <li key={at}>
               <span className="canvas-error-message">{showHiddenChars(error.message)}</span>
-              {where(error) !== "" && <span className="canvas-error-place">{where(error)}</span>}
+              {where(error) !== "" && <span className="canvas-error-place">{showHiddenChars(where(error))}</span>}
             </li>
           ))}
         </ol>
