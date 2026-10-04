@@ -15,6 +15,7 @@ YAML_KEYS = (
     "cost_cap_usd",
     "language",
     "timezone",
+    "web_url",
     "max_steps",
     "autonomous_default",
     "shell_ask_patterns",

@@ -8,8 +8,11 @@ re-exports it, so every existing `from my_agent_crew.config import Route` still 
 
 from __future__ import annotations
 
+import re
+import unicodedata
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from urllib.parse import urlsplit
 
 # The vision chain a picture is sent to when the chat model cannot see one. Two routes so a
 # single provider hiccup does not turn image reading off for the day.
@@ -150,6 +153,39 @@ def name_list(from_env: str | None, from_file: object) -> tuple[str, ...]:
     else:
         return ()
     return tuple(p.strip() for p in raw if p.strip())
+
+
+# A path is written into links as it stands, so it holds nothing that would need escaping.
+_WEB_URL_PATH = re.compile(r"[A-Za-z0-9._~/-]*")
+
+
+def _plain_address(text: str) -> str | None:
+    """`text` without its last slash when it is a scheme, a host, a port and a path and
+    nothing else; None otherwise. A character that does not show where it stands is refused,
+    and so is half a surrogate pair, which no message can carry."""
+    if any(ch.isspace() or unicodedata.category(ch) in ("Cc", "Cf", "Cs") for ch in text):
+        return None
+    try:
+        parts = urlsplit(text)
+        host, _port = parts.hostname, parts.port
+    except ValueError:  # a bracket left open, a port that is no number
+        return None
+    if parts.scheme not in ("http", "https") or not host or "@" in parts.netloc:
+        return None
+    if parts.query or parts.fragment or not _WEB_URL_PATH.fullmatch(parts.path):
+        return None
+    return f"{parts.scheme}://{parts.netloc}{parts.path}".rstrip("/")
+
+
+def parse_web_url(value: object) -> str:
+    """The address a person opens the web at, which a link sent to a chat starts with; empty
+    when none is set. The error names the key and never the value, which may hold a password."""
+    if value is None or (isinstance(value, str) and not value.strip()):
+        return ""
+    address = _plain_address(value.strip()) if isinstance(value, str) else None
+    if address is None:
+        raise ValueError("web_url must be a plain http or https address: host, port and path only")
+    return address
 
 
 def as_bool(value: object) -> bool:

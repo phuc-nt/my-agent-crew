@@ -31,7 +31,7 @@ Thử không tốn tiền: `MY_AGENT_ROUTES=fake:echo uv run python -m my_agent_
 
 ```
 ~/.my-agent-crew/
-├── config.yaml        # routes, cost_cap_usd, max_steps, language, timezone, autonomous_default, approval_ttl_seconds
+├── config.yaml        # routes, cost_cap_usd, max_steps, language, timezone, web_url, autonomous_default, approval_ttl_seconds
 ├── env                # KEY=value, chmod 600, KHÔNG nằm trong repo
 ├── agent.yaml         # master
 ├── agent.sqlite3
@@ -51,6 +51,7 @@ Thử không tốn tiền: `MY_AGENT_ROUTES=fake:echo uv run python -m my_agent_
 | `MY_AGENT_HOME` | thư mục home |
 | `MY_AGENT_ROUTES` | danh sách model, ví dụ `openrouter:a,openrouter:b` hoặc `fake:echo` |
 | `MY_AGENT_COST_CAP_USD`, `MY_AGENT_MAX_STEPS`, `MY_AGENT_AUTONOMOUS`, `MY_AGENT_APPROVAL_TTL_SECONDS`, `MY_AGENT_TIMEZONE` | ghi đè `config.yaml` |
+| `MY_AGENT_WEB_URL` | ghi đè `web_url` của `config.yaml`: địa chỉ người dùng mở web, ví dụ `http://127.0.0.1:8765`, để tin gửi ra kênh viết được link về web. Chỉ nhận `http`/`https`, host, cổng và path trơn; có tên đăng nhập, query, fragment, khoảng trắng hay ký tự ẩn thì server dừng lúc khởi động, và câu lỗi không lặp lại giá trị. Để trống thì không link nào được viết |
 | `OPENROUTER_API_KEY` | bắt buộc trừ khi dùng `fake:` |
 | `TAVILY_API_KEY` / `BRAVE_API_KEY` | nguồn tìm kiếm trả phí cho `web_search` (không có vẫn chạy bằng DuckDuckGo) |
 | `FIRECRAWL_BASE_URL` | host firecrawl, ví dụ `http://127.0.0.1:3002`; bật tìm kiếm + scrape markdown |

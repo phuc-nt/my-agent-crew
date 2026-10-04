@@ -21,6 +21,7 @@ from my_agent_crew.config_parse import (
     ask_patterns,
     audio_routes,
     name_list,
+    parse_web_url,
     required_routes,
     vision_routes,
 )
@@ -58,6 +59,8 @@ class Settings:
     language: str = "vi"
     # The person's IANA zone; empty means the machine's. See `clock.py`.
     timezone: str = ""
+    # Where a person opens the web, for the links a channel sends; empty sends none.
+    web_url: str = ""
     max_steps: int = 12
     autonomous_default: bool = False
     shell_ask_patterns: tuple[str, ...] = DEFAULT_SHELL_ASK_PATTERNS
@@ -135,6 +138,7 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         ),
         language=env.get("MY_AGENT_LANGUAGE") or file_values.get("language", "vi"),
         timezone=str(env.get("MY_AGENT_TIMEZONE") or file_values.get("timezone") or ""),
+        web_url=parse_web_url(env.get("MY_AGENT_WEB_URL") or file_values.get("web_url")),
         max_steps=int(env.get("MY_AGENT_MAX_STEPS") or file_values.get("max_steps", 12)),
         autonomous_default=as_bool(
             env.get("MY_AGENT_AUTONOMOUS", file_values.get("autonomous_default", False))

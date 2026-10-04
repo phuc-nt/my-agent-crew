@@ -10,7 +10,9 @@ from my_agent_crew.config_parse import (
     DEFAULT_AUDIO_ROUTES,
     DEFAULT_SHELL_ASK_PATTERNS,
     DEFAULT_VISION_ROUTES,
+    parse_web_url,
 )
+from my_agent_crew.config_yaml import YAML_KEYS
 
 
 def test_defaults_without_env(tmp_path: Path):
@@ -95,6 +97,77 @@ def test_an_unknown_timezone_fails_when_settings_load(tmp_path: Path):
         load_settings(env={"MY_AGENT_HOME": str(tmp_path)})
     with pytest.raises(ValueError):
         zone_for("not a zone")
+
+
+def test_the_web_address_comes_from_yaml_or_env_and_defaults_to_none(tmp_path: Path):
+    home = {"MY_AGENT_HOME": str(tmp_path)}
+    assert "web_url" in YAML_KEYS
+    assert load_settings(env=home).web_url == ""
+    (tmp_path / "config.yaml").write_text("web_url: http://crew.local:8765/\n")
+    assert load_settings(env=home).web_url == "http://crew.local:8765"
+    env = {**home, "MY_AGENT_WEB_URL": "https://crew.example/app/"}
+    assert load_settings(env=env).web_url == "https://crew.example/app"
+
+
+@pytest.mark.parametrize("value", [None, "", "  \n"])
+def test_no_web_address_reads_as_empty(value):
+    assert parse_web_url(value) == ""
+
+
+@pytest.mark.parametrize(
+    ("value", "kept"),
+    [
+        ("http://127.0.0.1:8765", "http://127.0.0.1:8765"),
+        ("  https://crew.example/  ", "https://crew.example"),
+        ("HTTPS://crew.example/a-b/c_d.e~f/", "https://crew.example/a-b/c_d.e~f"),
+        ("http://[::1]:8765//", "http://[::1]:8765"),
+    ],
+)
+def test_a_web_address_keeps_its_scheme_host_port_and_path_without_the_last_slash(value, kept):
+    assert parse_web_url(value) == kept
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "ftp://x",
+        "localhost:8765",
+        "//crew.example",
+        "http://",
+        "http:///app",
+        "http://u:p@h",
+        "http://@h",
+        "http://h/?a=1",
+        "http://h/#x",
+        "http://h/a b",
+        "http://h/a\tb",
+        "http://h\u200b",
+        "http://h/\x00",
+        "http://h\udc80",
+        "http://h:port",
+        "http://h:99999",
+        "http://[h",
+        "http://h/a%2Fb",
+        "http://h/a;b",
+        8765,
+        ["http://h"],
+    ],
+)
+def test_a_web_address_that_is_not_a_plain_one_is_refused(value):
+    with pytest.raises(ValueError, match="web_url"):
+        parse_web_url(value)
+
+
+def test_a_refused_web_address_stops_the_load_and_is_not_repeated(tmp_path: Path):
+    """The value may carry a password, and the error ends up in a log."""
+    env = {"MY_AGENT_HOME": str(tmp_path), "MY_AGENT_WEB_URL": "http://owner:hunter2pass@crew:80x"}
+    with pytest.raises(ValueError, match="web_url") as refused:
+        load_settings(env=env)
+    shown = f"{refused.value} {refused.value.__cause__} {refused.value.__context__}"
+    assert not any(part in shown for part in ("hunter2pass", "owner", "crew", "80x"))
+    (tmp_path / "config.yaml").write_text("web_url: [http://h]\n")
+    with pytest.raises(ValueError, match="web_url"):
+        load_settings(env={"MY_AGENT_HOME": str(tmp_path)})
 
 
 def test_a_utc_stamp_is_read_as_the_persons_day():
