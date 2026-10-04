@@ -204,7 +204,7 @@ describe("a save handed off that did not land", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("bản nháp vẫn trên máy này");
   });
 
-  it("promises no draft when this device could not keep one", async () => {
+  it("says the draft is in this tab alone when this device could not keep one, and how to save it", async () => {
     await openChat("column");
 
     await act(() => saveInBackground(leftCanvas("a9", async () => null, { draftFailed: true })));
@@ -212,7 +212,7 @@ describe("a save handed off that did not land", () => {
     const notice = screen.getByRole("alert");
     expect(notice).toHaveTextContent(vi.canvas.handoffFailed(vi.canvas.untitled, false));
     expect(notice).not.toHaveTextContent(vi.canvas.handoffFailed(vi.canvas.untitled, true));
-    expect(notice).toHaveTextContent("máy này cũng không giữ được bản nháp");
+    expect(notice).toHaveTextContent("bản nháp chỉ còn trong tab này, mở lại canvas để lưu");
     expect(notice).not.toHaveTextContent("vẫn trên máy này");
   });
 });

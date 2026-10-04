@@ -10,6 +10,7 @@
 
 import { saveBody } from "../api/artifact-client";
 import { utf8Bytes } from "./canvas-caps";
+import { clearDraft } from "./canvas-draft";
 import type { CanvasState } from "./canvas-types";
 import { guardUnload } from "./unload-guard";
 
@@ -17,7 +18,7 @@ import { guardUnload } from "./unload-guard";
 export const KEEPALIVE_MAX = 60 * 1024;
 
 /** A canvas whose last save failed after its panel went away; `draft` is whether this device kept
- *  its text. */
+ *  its text, which is otherwise held by this tab alone. */
 export type HandoffFailure = { id: string; title: string | null; draft: boolean };
 
 /** What `saveInBackground` needs of a canvas runner. */
@@ -69,9 +70,10 @@ export function onHandoffFailed(listener: (failure: HandoffFailure) => void): ()
 
 /**
  * Saves what the person left in a canvas, after the save in flight if one is. The draft written as
- * the panel went away goes once a version holds its text; when no version can, it stays on this
- * device and the listeners hear of it. Text this device could not keep a draft of is lost with the
- * page unless the save lands first, so the page asks before it closes until then.
+ * the panel went away goes once a version holds its text, merged with someone else's or not; when
+ * no version can, it stays and the listeners hear of it. A draft this device could not keep is held
+ * by this tab, which asks before it closes for as long as it holds one; a runner that says it kept
+ * none has the page ask until its save settles.
  */
 export function saveInBackground(runner: Leaving): Promise<void> {
   const handoff = handOff(runner);
@@ -86,7 +88,8 @@ export function saveInBackground(runner: Leaving): Promise<void> {
 }
 
 async function handOff(runner: Leaving): Promise<void> {
-  if ((await runner.flush()) !== null) return;
+  const left = runner.state.text;
+  if ((await runner.flush()) !== null) return clearDraft(runner.id, left);
   const failure = { id: runner.id, title: runner.state.summary?.title ?? null, draft: !runner.draftFailed };
   for (const { listener } of [...listeners]) listener(failure);
 }

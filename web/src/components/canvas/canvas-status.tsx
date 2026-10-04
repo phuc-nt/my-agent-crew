@@ -87,7 +87,7 @@ export function CanvasNotices({ canvas, stuck, onForceClose }: Props) {
         <div className="notice error canvas-notice" role="alert">
           <span>{vi.canvas.stuck(stuckReason(status, state.cap))}</span>
           <button type="button" className="link-button" onClick={onForceClose}>
-            {draftFailed ? vi.canvas.closeAnywayLoses : vi.canvas.closeAnyway}
+            {draftFailed ? vi.canvas.closeAnywayTabOnly : vi.canvas.closeAnyway}
           </button>
         </div>
       )}

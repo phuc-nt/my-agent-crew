@@ -194,7 +194,7 @@ describe("notices", () => {
     expect(props.onForceClose).toHaveBeenCalledTimes(1);
   });
 
-  it("warns that closing anyway loses the text when this device could not keep a draft of it", async () => {
+  it("says closing anyway leaves the draft in this tab alone when this device could not keep it", async () => {
     backend.canvas.add({ content: "a" });
     backend.canvas.refuseNext("PUT", 422);
     refusingStorage();
@@ -208,7 +208,8 @@ describe("notices", () => {
       .getAllByRole("alert")
       .find((alert) => alert.textContent?.includes(vi.canvas.stuck(vi.canvas.reasons.invalid))) as HTMLElement;
     expect(within(stuck).queryByRole("button", { name: vi.canvas.closeAnyway })).toBeNull();
-    fireEvent.click(within(stuck).getByRole("button", { name: vi.canvas.closeAnywayLoses }));
+    // The words themselves: the text is not lost by closing the panel, only with the tab.
+    fireEvent.click(within(stuck).getByRole("button", { name: "Đóng, bản nháp chỉ còn trong tab này" }));
     expect(props.onForceClose).toHaveBeenCalledTimes(1);
   });
 });

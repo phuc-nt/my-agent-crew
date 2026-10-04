@@ -1823,11 +1823,25 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `loadTheirs` rồi lấy lại chữ của mình được cho tới khi gõ, 409 giữa lúc soạn IME chờ
     `compositionend`, khôi phục đặt chữ và base không chờ luồng); `web/src/lib/canvas-draft.test.ts`
     (nháp chỉ của đúng canvas, xoá khoá cũ trước khi ghi nên kho đầy không để lại nháp, trình duyệt từ
-    chối thì báo, "clears a draft only while it still holds the text that was saved", giữ mười nháp mới
-    nhất, bỏ nháp quá ba mươi ngày và nháp hỏng; hết quota thì bỏ nháp cũ nhất từng cái một cho tới khi
-    vừa, mục không phải nháp đi trước, và dọn hết vẫn không vừa thì mọi nháp khác được trả lại nguyên
-    byte, không đụng gì khác khi lần ghi vừa); `web/src/lib/local-store.test.ts` (liệt kê khoá theo
-    tiền tố, lần ghi báo có được giữ không khi trình duyệt từ chối hay hết quota)
+    chối thì báo và tab giữ nháp, "clears a draft only while it still holds the text that was saved",
+    giữ mười nháp mới nhất, bỏ nháp quá ba mươi ngày và nháp hỏng; hết quota thì bỏ nháp cũ nhất từng
+    cái một cho tới khi vừa, mục không phải nháp đi trước, và dọn hết vẫn không vừa thì mọi nháp khác
+    được trả lại nguyên byte, không đụng gì khác khi lần ghi vừa; nhóm "a draft the browser refused,
+    held in this tab": nháp của tab được đọc trước nháp tab khác đã lưu, đi khi trình duyệt giữ được
+    hay khi không còn gì để giữ (trình duyệt chặn lưu trữ không biến việc đó thành lỗi), `clearDraft`
+    xoá từng bản theo chữ của chính bản đó, trang hỏi trước khi đóng tới khi nháp cuối cùng đi; nhóm "a
+    draft the browser refuses again and again": mười lần dừng gõ chỉ hỏi trình duyệt một lần và nháp
+    của canvas khác chỉ bị lấy ra rồi đặt lại một lần, thử lại khi nháp nhẹ hơn hay khi một nháp đã
+    lưu bị xoá, xoá nháp chỉ có ở tab thì không thử lại, không cản nháp của canvas khác, trình duyệt
+    chặn hẳn lưu trữ thì không bị nhớ, và `console.error` khi nháp lấy ra không đặt lại được);
+    `web/src/lib/local-store.test.ts` (liệt kê khoá theo tiền tố, lần ghi báo có được giữ không khi
+    trình duyệt từ chối hay hết quota)
+- **Canvas trên web: nháp mà trình duyệt từ chối vẫn còn trong tab cho tới khi một bản giữ chữ**
+  - vitest, cả App trên `FakeCanvas` với trình duyệt chặn lưu trữ: `web/src/app-canvas-tab-draft.test.tsx`
+    (chữ gõ còn nguyên khi mở lại canvas sau lần đóng mà cả hai lần lưu đều 500, sau lần đóng mà lần
+    lưu để lại gặp 409 của người khác, và sau khi đổi cuộc trò chuyện; lần lưu kế gửi đúng chữ đó;
+    trang hỏi trước khi đóng suốt lúc ấy, thôi hỏi khi một bản đã giữ chữ hay canvas bị xoá, và không
+    hỏi gì khi lần lưu để lại hạ cánh)
 - **Canvas trên web: canvas đang mở lưu 1,5 giây sau phím cuối, rời đi vẫn lưu nốt, keepalive chỉ khi
   vừa trần**
   - vitest, hook trên `FakeCanvas` với đồng hồ giả: `web/src/hooks/use-canvas.test.ts` ("saves once,
@@ -1851,7 +1865,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     gửi chữ gõ sau lần lưu đang bay, ngân sách keepalive tính bằng byte, mỗi lúc một lần lưu keepalive,
     lỗi trả lại ngân sách; canvas rời đi mà máy không giữ được nháp thì trang hỏi trước khi đóng tới khi
     lần lưu xong, hỏng hay ném lỗi cũng thôi hỏi và thông báo không hứa nháp, có nháp thì không hỏi gì,
-    hai canvas thì hỏi tới khi cả hai xong)
+    hai canvas thì hỏi tới khi cả hai xong; runner thật mà trình duyệt từ chối nháp thì tab giữ chữ và
+    trang vẫn hỏi sau khi lần lưu hỏng; nháp đi khi bản lưu giữ chữ ở dạng đã trộn với bản của người
+    khác, và ở lại khi người đã gõ thêm từ lúc rời)
   - Hai request của runner (lưu và đọc) nằm ở `web/src/lib/canvas-requests.ts`. Hạn của lần lưu có test
     riêng ở `web/src/lib/canvas-requests.test.ts`: 30 giây cộng một giây cho mỗi 50 KiB thân, làm tròn
     lên; đo trên byte UTF-8 của thân nên 100000 chữ "ệ" chờ lâu hơn 100000 chữ "x"; không reply tới hạn
@@ -1906,8 +1922,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     đang gửi lại" chứ không phải máy chủ không phản hồi, chữ nêu đúng trần (4 MB, 2 MB) mà canvas quá
     lớn bị giữ, "shows the largest canvases when the server is full, saves on its own no more, and
     saves on Cmd+S", nội dung bản lưu trong lúc sửa chỉ hiện ở thanh xung đột, canvas xin đóng mà chưa
-    bản nào giữ chữ nói lý do rồi đóng hẳn khi được bảo, và nút nói rõ chữ chưa lưu sẽ mất khi máy
-    cũng không giữ được nháp); `web/src/components/canvas/canvas-status-cap.test.tsx` (trần mà server
+    bản nào giữ chữ nói lý do rồi đóng hẳn khi được bảo, và nút nói bản nháp chỉ còn trong tab này khi
+    máy không giữ được nháp); `web/src/components/canvas/canvas-status-cap.test.tsx` (trần mà server
     giữ một lần lưu được nói ở mọi chỗ panel nói vì sao chưa lưu: cạnh dòng phiên bản, trong thông
     báo của canvas xin đóng, và ở Lịch sử khi một lần khôi phục chờ chữ không lưu được);
     `web/src/lib/canvas-reasons.test.ts` ("reads %i as its reason, never the server's own words",
@@ -1918,7 +1934,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     của tôi thì không nạp bản kia, nạp bản kia khi được bảo, "shows what keeping mine would change in
     theirs, and hides it again"; chữ mà "Nạp bản mới" thay lấy lại được cho tới khi gõ);
     `web/src/components/canvas/canvas-notices.test.tsx` ("says the canvas could not be opened, and
-    opens it on retry", máy này không giữ được nháp thì nói)
+    opens it on retry", máy này không giữ được nháp thì nói, canvas không có gì chưa lưu thì không
+    cảnh báo nháp dù trình duyệt chặn lưu trữ, cảnh báo đi ngay khi chữ về đúng bản đã lưu)
 - **Canvas trên web: lịch sử phiên bản, so sánh và khôi phục**
   - vitest: `web/src/components/canvas/canvas-history.test.tsx` ("lists each version, the newest first,
     and compares one with the version listed before it", so với bản cũ nhất còn giữ khi được hỏi và nói
@@ -1969,8 +1986,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     danh sách sang canvas; hoạt động hiện khi chưa mở gì, tab hoạt động theo cú bấm, lớp phủ hiện cả
     dock; cột rộng đúng như cạnh nói; nút Canvas đếm canvas và nói dock mở hay đóng; lần lưu không về
     của canvas chưa có tên gọi là canvas không tên, và thông báo nói bản nháp vẫn trên máy khi giữ được,
-    không hứa nháp khi máy không giữ được; nhóm "making a canvas of a kind from the list": "asks for
-    the kind chosen with what it starts from, and opens it to edit as text");
+    nói nháp chỉ còn trong tab và mở lại canvas để lưu khi máy không giữ được; nhóm "making a canvas of
+    a kind from the list": "asks for the kind chosen with what it starts from, and opens it to edit as
+    text");
     `web/src/hooks/use-canvas-width.test.ts` ("takes half the room beside the sidebar until the person
     chooses", cả canvas lẫn cuộc trò chuyện rộng ít nhất 360 px, chỉ nhớ bề rộng khi được bảo giữ, bề
     rộng đã giữ co theo cửa sổ hẹp và trở lại khi cửa sổ rộng ra, theo cửa sổ khi người chưa chọn, không

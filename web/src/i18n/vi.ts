@@ -1031,12 +1031,12 @@ export const vi = {
     hiddenCharsHint: "Ký tự ẩn hiện thành dấu như [U+202E]. Sao chép và tải về giữ nguyên văn bản gốc.",
     stuck: (reason: string) => `Chưa lưu được: ${reason}.`,
     closeAnyway: "Đóng, giữ bản trên máy này",
-    // Shown instead when this device could not keep a draft either.
-    closeAnywayLoses: "Đóng, chữ chưa lưu sẽ mất",
+    // Shown instead when this device could not keep a draft: the text stays until the tab closes.
+    closeAnywayTabOnly: "Đóng, bản nháp chỉ còn trong tab này",
     handoffFailed: (title: string, draft: boolean) =>
       draft
         ? `Chưa lưu được ${title}; bản nháp vẫn trên máy này`
-        : `Chưa lưu được ${title}; máy này cũng không giữ được bản nháp`,
+        : `Chưa lưu được ${title}; bản nháp chỉ còn trong tab này, mở lại canvas để lưu`,
     // Under the message box while a message waits for the open canvas's last save.
     savingFirst: "Đang lưu canvas…",
     dismiss: "Ẩn thông báo",

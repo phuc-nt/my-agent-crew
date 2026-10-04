@@ -2,7 +2,7 @@ import { fireEvent, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { vi } from "../../i18n/vi";
 import { DRAFT_DELAY_MS } from "../../lib/canvas-runner";
-import { landed, startServer, stopServer, wait } from "../../test/canvas-hook";
+import { landed, setVisibility, startServer, stopServer, wait } from "../../test/canvas-hook";
 import { editor, openPanel, typeInto } from "../../test/canvas-panel";
 import type { FakeBackend } from "../../test/fake-backend";
 import { refusingStorage } from "../../test/memory-storage";
@@ -40,5 +40,28 @@ describe("the notices over a canvas", () => {
     await landed();
 
     expect(screen.getByText(vi.canvas.draftFailed)).toBeTruthy();
+  });
+
+  it("says nothing of drafts over a canvas with nothing unsaved, where the browser refuses storage", async () => {
+    backend.canvas.add({ title: "Ghi chú", content: "a" });
+    refusingStorage();
+    await openPanel();
+
+    setVisibility("hidden");
+    await landed();
+
+    expect(screen.queryByText(vi.canvas.draftFailed)).toBeNull();
+  });
+
+  it("takes the warning back as soon as the typing is back to what is saved", async () => {
+    backend.canvas.add({ title: "Ghi chú", content: "a" });
+    refusingStorage();
+    await openPanel();
+    typeInto("ab");
+    wait(DRAFT_DELAY_MS);
+
+    typeInto("a");
+
+    expect(screen.queryByText(vi.canvas.draftFailed)).toBeNull();
   });
 });

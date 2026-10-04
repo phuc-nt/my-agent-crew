@@ -142,6 +142,9 @@ export class CanvasRunner {
       this.saveTimer = undefined;
       this.send({ type: "saveDue", reason: "timer" });
     }, SAVE_DELAY_MS);
+    // Text back to what is saved leaves nothing to wait for: its draft goes at once, and with it
+    // the question the page asks before closing over a draft only this tab holds.
+    if (!isDirty(this.state)) return this.keepDraft();
     stop(this.draftTimer);
     this.draftTimer = setTimeout(() => this.keepDraft(), DRAFT_DELAY_MS);
   }

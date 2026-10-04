@@ -4,9 +4,9 @@
  *
  * Leaving a canvas by hand (closing it, going back to the list, Escape) waits for its last save,
  * at most 5 seconds. When no version holds the text by then because the save failed, the panel
- * stays and says why, and the person may close it anyway, keeping the draft on this device. A save
- * still going out inside its own deadline does not hold the panel: it closes, and
- * `saveInBackground` goes on waiting. A deleted canvas closes at once.
+ * stays and says why, and the person may close it anyway, keeping the draft on this device, or in
+ * this tab alone where the browser keeps none. A save still going out inside its own deadline does
+ * not hold the panel: it closes, and `saveInBackground` goes on waiting. A deleted canvas closes at once.
  *
  * Opening another conversation does not wait: the dock shows nothing in that very render, and the
  * panel going away hands its last save to `saveInBackground`, whose failure becomes a notice here.

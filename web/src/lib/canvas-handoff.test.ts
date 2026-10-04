@@ -5,7 +5,7 @@ import { askedToStay } from "../test/close-page";
 import { FakeBackend } from "../test/fake-backend";
 import type { CanvasSeed } from "../test/fake-canvas";
 import { memoryStorage, refusingStorage } from "../test/memory-storage";
-import { readDraft } from "./canvas-draft";
+import { readDraft, writeDraft } from "./canvas-draft";
 import { type HandoffFailure, KEEPALIVE_MAX, onHandoffFailed, saveInBackground, withKeepalive } from "./canvas-handoff";
 import { CanvasRunner } from "./canvas-runner";
 
@@ -160,7 +160,7 @@ describe("a canvas left behind whose draft this device could not keep", () => {
     expect(askedToStay()).toBe(false);
   });
 
-  it("is a runner whose draft the browser refused, held and told of with no draft behind it", async () => {
+  it("is a runner whose draft the browser refused: this tab holds its text, and the page goes on asking", async () => {
     vitest.useFakeTimers({ shouldAdvanceTime: true });
     const runner = await opened({ title: "Ghi chú" });
     refusingStorage();
@@ -173,8 +173,46 @@ describe("a canvas left behind whose draft this device could not keep", () => {
     expect(askedToStay()).toBe(true);
     await done;
 
-    expect(askedToStay()).toBe(false);
     expect(heard).toEqual([{ id: "a1", title: "Ghi chú", draft: false }]);
+    expect(readDraft("a1")?.text).toBe("a!");
+    expect(askedToStay()).toBe(true);
+  });
+});
+
+describe("the draft of a canvas whose last save landed", () => {
+  const BASE = "one\ntwo\nthree\nfour\nfive";
+  const MINE = "ONE\ntwo\nthree\nfour\nfive";
+  const THEIRS = "one\ntwo\nthree\nfour\nFIVE";
+  const MERGED = "ONE\ntwo\nthree\nfour\nFIVE";
+
+  it("goes when the version holds it merged with someone else's, in words the draft never had", async () => {
+    const runner = await opened({ content: BASE });
+    refusingStorage();
+    runner.edit(MINE);
+    runner.detach();
+    backend.canvas.write("a1", THEIRS);
+
+    await saveInBackground(runner);
+
+    expect(heard).toEqual([]);
+    expect(backend.canvas.content("a1")).toBe(MERGED);
+    expect(readDraft("a1")).toBeNull();
+    expect(askedToStay()).toBe(false);
+  });
+
+  it("stays when the person has typed more in the canvas since, opened again", async () => {
+    const runner = await opened();
+    const release = backend.canvas.holdNext("PUT", "reply");
+    runner.edit("ab");
+    runner.detach();
+    const done = saveInBackground(runner);
+    writeDraft({ artifact_id: "a1", base_version: 1, base: "a", text: "abc", saved_at: Date.now(), sent: [] });
+
+    await release();
+    await done;
+
+    expect(backend.canvas.content("a1")).toBe("ab");
+    expect(readDraft("a1")?.text).toBe("abc");
   });
 });
 
