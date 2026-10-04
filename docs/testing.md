@@ -1440,6 +1440,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     html, svg, mermaid như mọi canvas, trang html 1 MB viết liền một dòng thì sửa theo đoạn được
     còn viết lại bị từ chối kèm lời dặn dùng `artifact_edit`, diff trích
     dãy backtick có rào dài hơn, sửa khớp hai chỗ bị từ chối trừ khi thay mọi chỗ);
+    `tests/test_artifact_unchanged_rename.py`
+    ("test_a_canvas_deleted_before_an_unchanged_write_renames_it_reads_as_not_found": canvas bị
+    xoá giữa lần ghi không đổi gì và lần đổi tiêu đề đi kèm thì `artifact_edit` lẫn
+    `artifact_rewrite` trả đúng câu không tìm thấy canvas chứ không phải "tool lỗi");
     `tests/test_canvas_tool_wiring.py` (agent không có allow-list, master hay không, nhận đủ năm
     tool theo thứ tự, "test_an_allow_list_keeps_out_the_canvas_tools_it_does_not_name", master
     liệt kê mọi canvas theo giờ của chủ còn agent khác thì không, trang đọc vừa trần đầu ra của
