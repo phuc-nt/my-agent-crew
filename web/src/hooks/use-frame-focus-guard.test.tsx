@@ -84,6 +84,23 @@ function takes(times: number) {
   }
 }
 
+/** One grab is against the page: three more go unreported, and the one after is the fifth. */
+function expectOneGrab(onGrabbing: () => void) {
+  takes(GRABS_MAX - 2);
+  expect(onGrabbing).not.toHaveBeenCalled();
+  takes(1);
+  expect(onGrabbing).toHaveBeenCalledTimes(1);
+}
+
+/** No grab is against the page: once the offer is taken back, the fifth it takes is the first reported. */
+function expectNoGrab(onGrabbing: () => void) {
+  fireEvent.pointerDown(message());
+  takes(GRABS_MAX - 1);
+  expect(onGrabbing).not.toHaveBeenCalled();
+  takes(1);
+  expect(onGrabbing).toHaveBeenCalledTimes(1);
+}
+
 describe("the keyboard a page took unasked", () => {
   it("goes back to the element it was taken from, once the page was given its time to tell of a press", () => {
     setup();
@@ -288,6 +305,137 @@ describe("the keyboard the person offers the page", () => {
 
     expect(holder()).toBe(page());
     expect(onGrabbing).not.toHaveBeenCalled();
+  });
+
+  it("stays with the page after Tab pressed with shift, which goes back through the app's controls", () => {
+    const { onGrabbing } = setup();
+    message().focus();
+
+    fireEvent.keyDown(message(), { key: "Tab", shiftKey: true });
+    takes(1);
+
+    expect(holder()).toBe(page());
+    expectNoGrab(onGrabbing);
+  });
+
+  it.each(["ctrlKey", "metaKey", "altKey"] as const)(
+    "is not made by Tab pressed with %s, which goes to the browser or the system and not through the app's controls",
+    (held) => {
+      const { onGrabbing } = setup();
+      message().focus();
+
+      fireEvent.keyDown(message(), { key: "Tab", [held]: true });
+      takes(1);
+
+      expect(holder()).toBe(message());
+      expectOneGrab(onGrabbing);
+    },
+  );
+
+  it.each(["ctrlKey", "metaKey", "altKey"] as const)("is taken back by Tab pressed with %s, as by any other key", (held) => {
+    const { onGrabbing } = setup();
+    message().focus();
+    press();
+
+    fireEvent.keyDown(message(), { key: "Tab", [held]: true });
+    takes(1);
+
+    expect(holder()).toBe(message());
+    expectOneGrab(onGrabbing);
+  });
+
+  it("is over a task after Tab that did not bring the focus to the page: a page that takes the keyboard then took it", () => {
+    const { onGrabbing } = setup();
+    message().focus();
+
+    // The app kept the key for itself, as the list of commands over the message does.
+    fireEvent.keyDown(message(), { key: "Tab" });
+    wait(0);
+    takes(1);
+
+    expect(holder()).toBe(message());
+    expectOneGrab(onGrabbing);
+  });
+
+  it("is over once a press was told and the frame did not take the focus in the time a page is given: a page that takes the keyboard then took it", () => {
+    const { onGrabbing } = setup();
+    message().focus();
+
+    press();
+    wait(ATTEST_GRACE_MS);
+    takes(1);
+
+    expect(holder()).toBe(message());
+    expectOneGrab(onGrabbing);
+  });
+
+  it("stands for the focus that comes thirty milliseconds after the press was told, as a busy browser brings it", () => {
+    const { onGrabbing } = setup();
+    message().focus();
+
+    press();
+    wait(30);
+    takes(1);
+
+    expect(holder()).toBe(page());
+    expectNoGrab(onGrabbing);
+  });
+
+  it("is made by a press told thirty milliseconds after the page took the keyboard, as a busy browser tells it", () => {
+    const { onGrabbing } = setup();
+    message().focus();
+
+    grab();
+    wait(30);
+    press();
+    wait(ATTEST_GRACE_MS);
+
+    expect(holder()).toBe(page());
+    expectNoGrab(onGrabbing);
+  });
+
+  it("is made anew by the second telling of one tap, long after the first was over", () => {
+    const { onGrabbing } = setup();
+    message().focus();
+
+    // A finger on a phone: the pointer is told of when it goes down, the mouse press the browser
+    // makes of it when it is lifted, and only then does the focus move.
+    press();
+    wait(ATTEST_GRACE_MS + 250);
+    press();
+    takes(1);
+
+    expect(holder()).toBe(page());
+    expectNoGrab(onGrabbing);
+  });
+
+  it("lasts from the press told last, not from the one before it", () => {
+    const { onGrabbing } = setup();
+    message().focus();
+
+    press();
+    wait(30);
+    press();
+    wait(30);
+    takes(1);
+
+    expect(holder()).toBe(page());
+    expectNoGrab(onGrabbing);
+  });
+
+  it.each([
+    ["a press told", () => press()],
+    ["Tab", () => fireEvent.keyDown(message(), { key: "Tab" })],
+  ])("is made to the frame on show and to no other: %s does not give the keyboard to the frame that replaces it", (_, offer) => {
+    const { onGrabbing, show } = setup();
+    message().focus();
+
+    offer();
+    show({ n: 1 });
+    takes(1);
+
+    expect(holder()).toBe(message());
+    expectOneGrab(onGrabbing);
   });
 
   it.each(["pointerMove", "pointerOver", "pointerEnter", "wheel", "scroll", "mouseMove"] as const)(
@@ -645,23 +793,6 @@ describe("the keyboard a page took while the window was behind", () => {
     wait(BEHIND_LOOK_MS);
   }
 
-  /** One grab is against the page: three more go unreported, and the one after is the fifth. */
-  function expectOneGrab(onGrabbing: () => void) {
-    takes(GRABS_MAX - 2);
-    expect(onGrabbing).not.toHaveBeenCalled();
-    takes(1);
-    expect(onGrabbing).toHaveBeenCalledTimes(1);
-  }
-
-  /** No grab is against the page: once the offer is taken back, the fifth it takes is the first reported. */
-  function expectNoGrab(onGrabbing: () => void) {
-    fireEvent.pointerDown(message());
-    takes(GRABS_MAX - 1);
-    expect(onGrabbing).not.toHaveBeenCalled();
-    takes(1);
-    expect(onGrabbing).toHaveBeenCalledTimes(1);
-  }
-
   it("goes back to what had it when the window went behind, though the focus left nothing as the page took it", () => {
     const { onGrabbing } = setup();
     message().focus();
@@ -1008,6 +1139,16 @@ describe("a guard that is taken down", () => {
     fireEvent.focus(window);
     // One to forget what the focus left, one to wait on the page, one to look once the window is in front.
     expect(vitest.getTimerCount()).toBe(3);
+
+    unmount();
+
+    expect(vitest.getTimerCount()).toBe(0);
+  });
+
+  it("leaves no offer waiting for its time to be over", () => {
+    const { unmount } = setup();
+    press();
+    expect(vitest.getTimerCount()).toBe(1);
 
     unmount();
 

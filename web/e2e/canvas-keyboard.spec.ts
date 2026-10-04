@@ -209,6 +209,20 @@ test.describe("the keyboard beside a page in the canvas", () => {
     await expect(page.getByText(words.grabbing)).toHaveCount(0);
   });
 
+  test("stays with the message when the page takes it after Tab pressed with Control, which goes through none of the app's controls", async ({ page }) => {
+    await openPage(page, LISTENING);
+    await composer(page).click();
+
+    await page.keyboard.press("Control+Tab");
+    expect(await holder(page)).toBe("TEXTAREA");
+    await grab(page);
+
+    await expect(inside(page).locator("#left")).toHaveText("1");
+    await page.keyboard.type(TYPED);
+    await expect(composer(page)).toHaveValue(TYPED);
+    await expect(inside(page).locator("#heard")).toHaveText("");
+  });
+
   test("stays where the person had it while a page that goes on taking it is stopped", async ({ page }) => {
     const grabbing = `<input autofocus>${script("setInterval(function () { window.focus(); }, 100);")}`;
     const { fake } = await openPage(page, grabbing);

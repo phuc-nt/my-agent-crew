@@ -6,7 +6,9 @@
  * The page has the keyboard only while the person offers it. Two things make the offer. One is a
  * pointer pressed inside the page: the page's own reporter tells of it over a port the app was
  * handed before any of the page's code ran (`use-frame-messages.ts`), and a page cannot make that
- * press up. The other is Tab, while it is the last key pressed in the app. A key that is not Tab
+ * press up. The other is Tab pressed in the app, alone or with shift. The offer is for the focus
+ * that moves with it (`keyboard-offer.ts`): a frame that does not have the focus a task after Tab,
+ * or `ATTEST_GRACE_MS` after the press was told, has no offer any more. A key that is not that Tab
  * pressed in the app, a pointer pressed in the app outside the frame's box, and the focus arriving
  * on one of the app's elements each take the offer back. Moving the pointer or scrolling says
  * nothing either way, over the page or off it: a page can make the browser do both.
@@ -33,6 +35,7 @@
 
 import { type RefObject, useCallback, useEffect, useRef } from "react";
 import { behindWatch } from "../lib/behind-watch";
+import { keyboardOffer } from "../lib/keyboard-offer";
 
 /** How often one frame may take the keyboard unasked before its page is stopped. */
 export const GRABS_MAX = 5;
@@ -66,7 +69,7 @@ export function useFrameFocusGuard(frame: RefObject<HTMLIFrameElement | null>, o
 
   useEffect(() => {
     const grabsOf = new WeakMap<HTMLIFrameElement, number>();
-    let offered = false;
+    const offer = keyboardOffer();
     // The element focus left in this very task: a frame that has the focus now took it from there.
     let left: HTMLElement | null = null;
     let forgetting: Timer;
@@ -94,12 +97,12 @@ export function useFrameFocusGuard(frame: RefObject<HTMLIFrameElement | null>, o
     /** Starts the wait on the frame, if it has the keyboard with no offer and is not waited on yet. */
     const suspect = (from: HTMLElement | null) => {
       const taker = frame.current;
-      if (taker === null || document.activeElement !== taker || offered || waiting !== undefined) return;
+      if (taker === null || document.activeElement !== taker || offer.madeTo(taker) || waiting !== undefined) return;
       const since = performance.now();
       waiting = setTimeout(() => settle(taker, from, since), ATTEST_GRACE_MS);
     };
     told.current = () => {
-      offered = true;
+      offer.make(frame.current, ATTEST_GRACE_MS);
       clearTimeout(waiting);
       waiting = undefined;
     };
@@ -118,13 +121,15 @@ export function useFrameFocusGuard(frame: RefObject<HTMLIFrameElement | null>, o
 
     const pointed = (event: Event) => {
       if (away) suspect(kept);
-      if (event.type === "pointerdown" && box.current?.contains(event.target as Node) !== true) offered = false;
+      if (event.type === "pointerdown" && box.current?.contains(event.target as Node) !== true) offer.withdraw();
     };
     const pressed = (event: KeyboardEvent) => {
-      offered = event.key === "Tab";
+      // Tab with one of these goes to the browser or the system, not through the app's controls.
+      if (event.key === "Tab" && !(event.ctrlKey || event.metaKey || event.altKey)) offer.make(frame.current, 0);
+      else offer.withdraw();
     };
     const arrived = (event: FocusEvent) => {
-      if (event.target !== frame.current) offered = false;
+      if (event.target !== frame.current) offer.withdraw();
     };
     const leaving = (event: FocusEvent) => {
       if (event.target === frame.current) return;
@@ -175,6 +180,7 @@ export function useFrameFocusGuard(frame: RefObject<HTMLIFrameElement | null>, o
       window.removeEventListener("focus", returned);
       for (const timer of [forgetting, returning, waiting]) clearTimeout(timer);
       behind.stop();
+      offer.withdraw();
     };
   }, [frame]);
 

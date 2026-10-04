@@ -2813,9 +2813,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `web/e2e/canvas-overflow.ts` là hàm đo cuộn ngang dùng chung với `canvas.spec.ts`, đo cả
     `.canvas-errors-list`
 - **Canvas trên web: trang trong khung tự lấy focus thì bàn phím về lại chỗ người đang gõ; người đưa
-  bàn phím cho trang bằng một cú bấm trong trang hoặc Tab; trang giành tới lần thứ năm thì bị gỡ; trang
-  giành lúc cửa sổ ở phía sau thì bàn phím về lại khi người quay lại, kể cả khi quay lại chỉ bằng bàn
-  phím; khung nói khi bàn phím đang ở trang**
+  bàn phím cho trang bằng một cú bấm trong trang hoặc Tab, và lời mời ấy chỉ dùng được cho lần chuyển
+  focus đi cùng nó; trang giành tới lần thứ năm thì bị gỡ; trang giành lúc cửa sổ ở phía sau thì bàn
+  phím về lại khi người quay lại, kể cả khi quay lại chỉ bằng bàn phím; khung nói khi bàn phím đang ở
+  trang**
   - pytest: `tests/test_render_pages.py`, bốn test của reporter về lời chào và cú bấm (xem mục trang
     render ở trên): cú bấm chỉ được nói khi trình duyệt bảo một người đã bấm
   - vitest: `web/src/hooks/use-frame-focus-guard.test.tsx` nhóm "the keyboard a page took unasked"
@@ -2831,7 +2832,19 @@ tên một test thì sửa dòng của nó trong cùng commit.
     offers the page" (reporter nói tới cú bấm trước khi trang lấy focus, hoặc trong lúc chờ, thì trang
     giữ bàn phím và không lần nào bị tính, nói bao nhiêu lần cũng vậy; "comes too late once the
     keyboard is back": cú bấm nói sau khoảng chờ không xoá lần giành đã tính; Tab là phím cuối thì
-    trang giữ bàn phím; `pointermove`, `pointerover`, `pointerenter`, `wheel`, `scroll`, `mousemove`
+    trang giữ bàn phím, Shift+Tab cũng vậy; Tab kèm `ctrlKey`, `metaKey` hay `altKey` không phải lời
+    mời và còn thu lại lời mời đang có như mọi phím khác; "is over a task after Tab that did not
+    bring the focus to the page": app giữ phím Tab cho mình, như danh sách lệnh trên ô soạn tin, thì
+    một task sau lời mời hết, trang lấy focus lúc ấy bị trả bàn phím và tính một lần giành; "is over
+    once a press was told and the frame did not take the focus in the time a page is given": cú bấm
+    được nói mà sau `ATTEST_GRACE_MS` khung vẫn chưa có focus thì lời mời hết; focus tới 30 ms sau cú
+    bấm thì lời mời còn, và cú bấm được nói 30 ms sau khi trang lấy focus vẫn là lời mời (hai test
+    neo vào tình huống trình duyệt bận, không neo vào hằng số: rút khoảng chờ xuống vài mili giây là
+    đỏ); "is made anew by the second telling of one tap, long after the first was over": ngón tay
+    trên điện thoại được nói hai lần, lần đầu hết hạn rồi lần hai vẫn đưa được bàn phím; hạn tính từ
+    cú bấm được nói sau cùng; "is made to the frame on show and to no other": lời mời bằng cú bấm
+    hay bằng Tab không theo sang khung thay thế; `pointermove`, `pointerover`, `pointerenter`,
+    `wheel`, `scroll`, `mousemove`
     trên khung không phải lời mời, và `pointerdown` trên hộp của khung trong app, cái reporter không
     nói tới, cũng không; lời mời đứng vững khi con trỏ di chuyển, rời đi hay cuộn ở chỗ khác và khi
     bấm lên hộp của khung; `pointerdown` ở chỗ khác trong app, một phím khác Tab bấm trong app, Tab
@@ -2871,7 +2884,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     rồi thì dừng), nhóm "a guard that is put up" (hai listener `pointermove` và
     `pointerdown` gắn với `passive: true` và không có listener `wheel` nào, nên guard không bao giờ
     giữ một cú cuộn lại), nhóm "a guard that is taken down" (không để lại timer nào trong ba timer
-    của nó, nhịp xét lúc cửa sổ ở phía sau cũng dừng, không còn nghe cú bấm, gỡ đủ từng listener đã
+    của nó, lời mời đang chờ hết hạn và nhịp xét lúc cửa sổ ở phía sau cũng dừng, không còn nghe cú
+    bấm, gỡ đủ từng listener đã
     gắn với đúng cờ capture: sáu trên `document`, hai trên `window`);
     `web/src/components/canvas/canvas-frame-keyboard.test.tsx` nhóm "a page that takes the keyboard"
     (hộp `div.canvas-frame-box` chỉ mang `class` và `tabindex="-1"`, không còn thuộc tính nào tắt con
@@ -2937,7 +2951,11 @@ tên một test thì sửa dòng của nó trong cùng commit.
     (trang gọi `window.focus()` trong `pointermove` của nó: con trỏ đi qua trang không phải lời mời,
     chữ gõ trước và sau đều vào ô soạn tin); "stays with the message while the wheel turned over the
     page scrolls the page" (ngay sau khi gõ, lăn chuột trên trang thì trang cuộn và chữ gõ tiếp vẫn
-    vào ô soạn tin: khung luôn nhận con trỏ); "goes to the page with Tab"; "stays where the person
+    vào ô soạn tin: khung luôn nhận con trỏ); "goes to the page with Tab" (cũng là test giữ hạn một
+    task của lời mời bằng Tab: trong trình duyệt thật khung đã có focus trước khi task ấy tới);
+    "stays with the message when the page takes it after Tab pressed with Control, which goes
+    through none of the app's controls" (Control+Tab không dời focus; trang lấy focus sau đó thì bàn
+    phím về ô soạn tin và ba mươi phím gõ vào đủ ô soạn tin); "stays where the person
     had it while a page that goes on taking it is stopped" (trang `setInterval(window.focus, 100)` bị
     gỡ kèm lời báo, ba mươi phím gõ sau đó vào đủ ô soạn tin mà không cần bấm lại, Nạp lại đưa trang
     mới lên và focus nằm trên `canvas-frame-box` chứ không ở `body`); "is not given to a page that
@@ -2953,7 +2971,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     mà người quay lại bằng bàn phím, không có `focus` của cửa sổ, tab không đổi trạng thái và con
     trỏ không động, thì phím tới trang tối đa một nhịp cộng khoảng chờ (250 ms) rồi bàn phím về; khung
     được dựng lên khi cửa sổ đã ở phía sau từ trước (guard và dấu chưa từng thấy `blur` của cửa sổ)
-    thì không có nhịp nào, và vẫn chờ một trong ba sự kiện ấy
+    thì không có nhịp nào, và vẫn chờ một trong ba sự kiện ấy; trang chặn hành vi mặc định của cú bấm
+    (khung không nhận focus) rồi tự focus sau hơn 50 ms, chẳng hạn trong `click`, thì bị coi là tự
+    giành: lời mời của cú bấm ấy đã hết
 - **Canvas trên web: svg và ảnh hiện thành hình từ bản đã lưu; ảnh chỉ để xem; hình không tải được
   thì phân biệt hình hỏng, bản đã mất, server lỗi và mất mạng**
   - vitest: `web/src/components/canvas/canvas-image.test.tsx` nhóm "a picture of a canvas" (hình là
