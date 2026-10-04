@@ -7,6 +7,11 @@ paths in the child's workspace, so passed on unchanged they would point at nothi
 parent's. The files are copied into the parent's workspace and the lines rewritten to the
 copies.
 
+A line may name a canvas instead, by `artifact:<id>`. Every agent reads the one store, so
+there is nothing to copy; what the parent lacks is the reach, and its reply is held to its
+own. The line is the child model's text, so the canvas is carried only when the child itself
+reaches it, and it is then linked to the parent's conversation.
+
 The parent then retells the answer in its own words, and a retelling drops attachment
 lines readily: a health coach drew two charts, the master summarised, and the person saw
 neither. So the loop puts back, at the end of the final reply, any relayed line the reply
@@ -22,13 +27,22 @@ from __future__ import annotations
 
 import logging
 import shutil
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
 from my_agent_crew import texts
+from my_agent_crew.agents import AgentProfile
 from my_agent_crew.agents.roster import DELEGATE_TOOL_NAME
-from my_agent_crew.reply_attachments import FILE_PREFIX, MAX_DOCUMENT_BYTES, MEDIA_PREFIX
-from my_agent_crew.store import StoredMessage
+from my_agent_crew.reply_attachments import (
+    FILE_PREFIX,
+    MAX_DOCUMENT_BYTES,
+    MEDIA_PREFIX,
+    artifact_ref,
+    reply_lines,
+)
+from my_agent_crew.store import Store, StoredMessage
+from my_agent_crew.store.models import Conversation
+from my_agent_crew.tools.artifact_scope import in_scope
 from my_agent_crew.tools.registry import ToolError
 from my_agent_crew.tools.workspace import resolve_inside
 
@@ -65,36 +79,82 @@ def child_answer(history: Sequence[StoredMessage]) -> str:
     words = next((text for text in reversed(said[:-1]) if not _only_attaches(text)), None)
     if not _only_attaches(last) or words is None:
         return last
-    already = {line.strip() for line in words.split("\n")}
-    extra = [line for line in last.split("\n") if line.strip() not in already]
+    already = {line.strip() for line in reply_lines(words)}
+    extra = [line for line in reply_lines(last) if line.strip() not in already]
     return "\n\n".join([words, "\n".join(extra)]) if extra else words
 
 
 def _only_attaches(text: str) -> bool:
-    lines = [line for line in text.split("\n") if line.strip()]
+    lines = [line for line in reply_lines(text) if line.strip()]
     return all(attachment(line) for line in lines)
 
 
-def relay_attachments(answer: str, child_root: Path, parent_root: Path, child_id: str) -> str:
+def relay_attachments(
+    answer: str,
+    child_root: Path,
+    parent_root: Path,
+    child_id: str,
+    carry_canvas: Callable[[str], bool],
+) -> str:
     """The child's answer with each attachment copied into the parent's workspace and its
     line pointing at the copy. A file that cannot be carried over becomes a sentence saying
-    so, not a line that would fail again at delivery with no word about why."""
-    if child_root.resolve() == parent_root.resolve():
-        return answer
+    so, not a line that would fail again at delivery with no word about why.
+
+    A line that names a canvas rides on as it is when `carry_canvas` says so for the id it
+    names, "" when it names none. It is asked whatever the workspaces are: an agent that
+    shares its parent's has no file to copy and its file lines stay as written, which says
+    nothing of the canvases it may reach. An answer with nothing to change comes back as it
+    was, line breaks and all."""
+    shared = child_root.resolve() == parent_root.resolve()
     used: set[str] = set()
+    written = reply_lines(answer)
     lines = []
-    for line in answer.split("\n"):
+    for line in written:
         found = attachment(line)
         if found is None:
             lines.append(line)
             continue
         prefix, path = found
-        copied = _copy(path, child_root, parent_root / RELAY_DIR / child_id, used)
-        if copied is None:
-            lines.append(texts.DELEGATE_ATTACHMENT_LOST.format(path=path))
+        canvas = artifact_ref(path)
+        if canvas is not None:
+            carried = line if carry_canvas(canvas) else None
+        elif shared:
+            carried = line
         else:
-            lines.append(f"{prefix} {copied.relative_to(parent_root).as_posix()}")
-    return "\n".join(lines)
+            copied = _copy(path, child_root, parent_root / RELAY_DIR / child_id, used)
+            carried = f"{prefix} {copied.relative_to(parent_root).as_posix()}" if copied else None
+        lines.append(carried or texts.DELEGATE_ATTACHMENT_LOST.format(path=path))
+    return answer if lines == written else "\n".join(lines)
+
+
+def canvas_carrier(
+    store: Store, agent: AgentProfile, child: Conversation, parent: Conversation | None
+) -> Callable[[str], bool]:
+    """What `relay_attachments` asks about each canvas the answer of `child`, a conversation
+    of `agent`, names: whether its line rides on. Only a canvas the child's own canvas tools
+    reach does, and it is linked to the conversation that asked, so the agent there may send
+    it on. The link is not one that conversation shares with its other children."""
+
+    def carry(artifact_id: str) -> bool:
+        reached = bool(artifact_id) and in_scope(
+            store,
+            artifact_id,
+            agent_id=agent.id,
+            is_master=agent.is_master,
+            conversation_id=child.id,
+            root_id=child.root_id,
+        )
+        if not reached:
+            return False
+        try:
+            store.artifacts.get(artifact_id)  # the master reaches every id, that of no canvas too
+        except KeyError:
+            return False
+        if parent is not None:
+            store.artifact_links.link(parent.id, artifact_id)
+        return True
+
+    return carry
 
 
 def _copy(path: str, child_root: Path, target_dir: Path, used: set[str]) -> Path | None:
@@ -116,14 +176,14 @@ def _copy(path: str, child_root: Path, target_dir: Path, used: set[str]) -> Path
 def dropped_attachments(history: Sequence[StoredMessage], reply: str) -> list[str]:
     """The attachment lines this turn's delegated answers carried that `reply` does not,
     in the order they came back. Only this turn: an older chart was already delivered."""
-    kept = {found[1] for line in reply.split("\n") if (found := attachment(line))}
+    kept = {found[1] for line in reply_lines(reply) if (found := attachment(line))}
     start = max((i for i, m in enumerate(history) if m.message.role == "user"), default=-1)
     missing: list[str] = []
     for stored in history[start + 1 :]:
         message = stored.message
         if message.role != "tool" or message.name != DELEGATE_TOOL_NAME:
             continue
-        for line in message.content.split("\n"):
+        for line in reply_lines(message.content):
             found = attachment(line)
             if found is not None and found[1] not in kept:
                 kept.add(found[1])

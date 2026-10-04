@@ -20,6 +20,14 @@ _ARTIFACT_ID = re.compile(r"[0-9a-f]{12}")
 MAX_DOCUMENT_BYTES = 20 * 1024 * 1024
 
 
+def reply_lines(text: str) -> list[str]:
+    """The lines of a reply, cut at every line break a string knows. The channel that sends a
+    reply and the relay that carries a child's answer to its parent both read lines here: a
+    line one of them took for an attachment and the other for prose would get past the checks
+    of the one that missed it."""
+    return text.splitlines()
+
+
 def artifact_ref(path: str) -> str | None:
     """The id of the canvas `path` names; None when it is a file path. A path that opens as a
     canvas and goes on as anything but one whole id is "": the line meant a canvas, so it is

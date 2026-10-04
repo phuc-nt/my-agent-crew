@@ -3964,3 +3964,38 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `::test_a_canvas_imported_from_a_file_of_a_known_kind_or_a_link_is_sent`;
     `::test_a_picture_is_sent_whatever_its_file_was_called`;
     `::test_reach_is_checked_before_where_a_canvas_came_from`
+- **Dòng `FILE: artifact:<id>` trong câu trả lời của agent con đi tiếp tới agent cha theo tầm với
+  của agent con, không qua đường chép tệp workspace**
+  - pytest (`tests/test_delegate_canvas_lines.py`):
+    `::test_a_canvas_line_that_is_carried_rides_on_as_it_is`;
+    `::test_a_canvas_line_that_is_not_carried_becomes_the_sentence_of_a_lost_file` (dòng ghi sai mã
+    được hỏi bằng `""`); `::test_a_line_that_opens_as_a_canvas_is_never_looked_up_as_a_file` (kể cả
+    khi workspace của agent con có tệp đúng tên đó);
+    `::test_workspace_files_beside_a_canvas_line_are_copied_as_before`;
+    `::test_canvas_lines_are_asked_about_when_parent_and_child_share_a_workspace` (chung workspace
+    chỉ miễn việc chép tệp, không nói gì về canvas agent con với tới);
+    `::test_an_answer_with_nothing_to_carry_comes_back_as_it_was` (không có gì phải đổi thì trả lại
+    đúng từng ký tự, kể cả dấu ngắt dòng)
+  - pytest (`canvas_carrier`):
+    `::test_a_canvas_within_the_childs_reach_is_carried_and_linked_to_the_parent` (canvas của chính
+    nó, canvas gắn với hội thoại của nó, canvas gốc chia sẻ; liên kết tạo ra không chia sẻ cho các
+    agent con khác);
+    `::test_a_canvas_outside_the_childs_reach_is_not_carried_and_links_nothing` (kể cả canvas của
+    chính agent cha, canvas agent cha giữ riêng, mã không có canvas, mã rỗng);
+    `::test_the_master_as_a_child_carries_every_canvas_that_is_there` (master với tới mọi mã, nhưng
+    mã không có canvas vẫn không được mang);
+    `::test_with_no_conversation_to_link_a_reached_canvas_is_still_carried`
+  - pytest (qua tool `delegate`):
+    `::test_a_delegated_canvas_reaches_the_parent_with_the_reach_to_send_it` (trước khi giao việc
+    agent cha không với tới canvas, sau đó thì có);
+    `::test_a_delegated_line_for_a_canvas_the_child_cannot_reach_is_said_in_words`
+  - pytest (đặt lại dòng bị bỏ sót): `::test_a_canvas_line_the_parents_reply_left_out_is_put_back`
+    (dòng đã thành câu báo thì không đặt lại)
+- **Kênh gửi câu trả lời và đường chuyển câu trả lời của agent con tách dòng bằng cùng một hàm
+  (`reply_lines`), nên một dòng đính kèm đứng sau dấu ngắt dòng Unicode không lọt qua bên nào**
+  - pytest (`tests/test_delegate_canvas_lines.py`):
+    `::test_a_reply_is_cut_into_lines_at_every_line_break_a_string_knows`;
+    `::test_a_line_after_any_line_break_is_an_attachment_to_the_channel_and_the_relay` (`U+2028`
+    trước dòng `MEDIA:` và dòng `FILE: artifact:`: tệp được chép, canvas được hỏi);
+    `::test_the_childs_last_words_are_read_line_by_line_the_same_way`;
+    `::test_dropped_lines_are_looked_for_line_by_line_the_same_way`

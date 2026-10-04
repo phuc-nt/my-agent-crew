@@ -16,7 +16,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from my_agent_crew.reply_attachments import FILE_PREFIX, MAX_DOCUMENT_BYTES, MEDIA_PREFIX
+from my_agent_crew.reply_attachments import (
+    FILE_PREFIX,
+    MAX_DOCUMENT_BYTES,
+    MEDIA_PREFIX,
+    reply_lines,
+)
 
 __all__ = [
     "FILE_PREFIX",
@@ -39,7 +44,7 @@ def split_reply(text: str) -> tuple[str, list[str], list[str]]:
     prose: list[str] = []
     media: list[str] = []
     files: list[str] = []
-    for line in text.splitlines():
+    for line in reply_lines(text):
         stripped = line.strip()
         if stripped.startswith(MEDIA_PREFIX):
             media.append(stripped[len(MEDIA_PREFIX) :].strip())

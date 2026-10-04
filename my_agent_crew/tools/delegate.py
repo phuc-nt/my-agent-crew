@@ -28,7 +28,11 @@ from my_agent_crew.agents import AgentProfile
 from my_agent_crew.agents.approval_ttl import effective_ttl
 from my_agent_crew.agents.roster import DELEGATE_TOOL_NAME, delegate_targets
 from my_agent_crew.store.models import TOOL, Conversation
-from my_agent_crew.tools.delegate_attachments import child_answer, relay_attachments
+from my_agent_crew.tools.delegate_attachments import (
+    canvas_carrier,
+    child_answer,
+    relay_attachments,
+)
 from my_agent_crew.tools.delegate_open import open_child
 from my_agent_crew.tools.delegate_outcome import (
     decide,
@@ -147,9 +151,9 @@ async def _delegate(
     decided = runtime.store.approvals.recent(limit=1, conversation_id=child.id, kind=TOOL)
     outcome = decide(run, declared_outcome(said), decided[0] if decided else None)
     note = unfinished_note(run)
-    answer = relay_attachments(
-        said, runtime.deps_for(target).agent.workspace, profile.workspace, child.id
-    )
+    agent = runtime.deps_for(target).agent
+    carry = canvas_carrier(runtime.store, agent, child, parent)
+    answer = relay_attachments(said, agent.workspace, profile.workspace, child.id, carry)
     body = f"{note}\n\n{answer}" if note else answer
     relay = relays(outcome) and args.get("relay", True) is not False
     output = result_text(header_line(child.id, run), outcome_line(outcome), canvases, more, body)
