@@ -66,11 +66,14 @@ async def _import(store: Store, root: Path, **args: object) -> ToolResult:
 
 
 @pytest.mark.parametrize("path", OUTSIDE)
-@pytest.mark.parametrize("args", [{}, {"kind": "markdown"}, {"kind": "code"}, {"title": "Máy"}])
+@pytest.mark.parametrize(
+    "args", [{}, {"kind": "markdown"}, {"kind": "code"}, {"kind": "bảng tính"}, {"title": "Máy"}]
+)
 async def test_a_path_out_of_the_workspace_is_told_so_whatever_its_suffix_or_kind(
     store: Store, root: Path, opened: list[str], path: str, args: dict[str, str]
 ):
-    """The model is told what is wrong with the path, not sent to look for another suffix."""
+    """The model is told what is wrong with the path, not sent to look for another suffix, nor
+    for another kind when the one it sent is no kind of canvas at all."""
     turn(store)
     result = await _import(store, root, path=path, **args)
     assert not result.ok and result.output == REFUSED

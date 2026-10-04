@@ -107,6 +107,14 @@ describe("where a canvas came from", () => {
     expect(line()?.querySelector(".canvas-source-path")).toHaveAttribute("title", "Ming/a[U+202E]b/c[U+200B]d.md");
   });
 
+  it("shows a character that hides or reorders text in the agent's name as a mark as well", async () => {
+    backend.canvas.add({ content: "a", source: "workspace:ming/plan.md" });
+    await openPanel({ agentName: () => "Mi\u{202E}ng" });
+
+    expect(line()?.querySelector(".canvas-source-dir")?.textContent).toBe("Mi[U+202E]ng/");
+    expect(line()?.querySelector(".canvas-source-path")).toHaveAttribute("title", "Mi[U+202E]ng/plan.md");
+  });
+
   it("links the page a canvas was taken from, in a tab that cannot reach back, and offers no re-import", async () => {
     backend.canvas.add({ content: "a", source: "https://example.com:8787/a?b=1#c" });
     await openPanel();
@@ -350,6 +358,22 @@ describe("reading a canvas's file again", () => {
     expect(editor()?.value).toBe("từ tệp");
   });
 
+  it("words a read the browser cut short itself as a lost connection, for no deadline ran out", async () => {
+    // A browser that drops a request ends it as an abort does, and that is no word about the server.
+    const cut = new AbortController();
+    vitest.spyOn(AbortSignal, "timeout").mockReturnValue(cut.signal);
+    await openImported("từ tệp");
+    backend.canvas.holdNext(REIMPORT, "request");
+
+    await reimport();
+    act(() => cut.abort(new DOMException("The operation was aborted.", "AbortError")));
+    await landed();
+
+    expect(said("alert")).toEqual(["Không nhập lại được: mất kết nối"]);
+    expect(heldOff()).toBe(false);
+    expect(editor()?.value).toBe("a");
+  });
+
   it("says its news in a place that was there before it had any, and an error apart from it", async () => {
     await openImported("a");
     const there = place();
@@ -514,6 +538,25 @@ describe("what a re-import said, once the canvas has a newer version", () => {
 
     expect(versionLine()).toMatch(/^v2 · bạn · /);
     expect(said("alert")).toEqual(["Tệp nằm ngoài thư mục làm việc của agent."]);
+  });
+
+  it("stands through the read of the version a conflict told of, when it was said before that read answered", async () => {
+    await openImported("từ tệp");
+    backend.canvas.onEvent = null;
+    backend.canvas.write("a1", "của agent");
+    const release = backend.canvas.holdNext(READ, "request");
+
+    await reimport();
+    // Said while the canvas still stands on the version it asked on: the refusal named the newer one.
+    expect(versionLine()).toMatch(/^v1 · /);
+    expect(said("alert")).toEqual(["Không nhập lại được: máy chủ có bản mới hơn"]);
+
+    await act(release);
+    await landed();
+
+    expect(versionLine()).toMatch(/^v2 · /);
+    expect(editor()?.value).toBe("của agent");
+    expect(said("alert")).toEqual(["Không nhập lại được: máy chủ có bản mới hơn"]);
   });
 
   it("is taken back by a version newer than the one a conflict told of, not by that one", async () => {

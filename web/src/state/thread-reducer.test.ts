@@ -119,6 +119,24 @@ describe("itemsFromMessages", () => {
     expect(items[0]).toMatchObject({ kind: "tool", status: "done", output: reply });
   });
 
+  it("reads a reply that only quotes the refusal as a call that finished, read back or as it arrives", () => {
+    // A file or a search hit may hold the words: only a reply that opens with them is a refusal.
+    const reply = `notes/nhat-ky.md, dòng 3: ${DENIED_TEXT}`;
+    const call = { id: "tc", name: "read_file", arguments: {} };
+    const stored = itemsFromMessages([
+      message({ role: "assistant", tool_calls: [call] }),
+      message({ role: "tool", tool_call_id: "tc", content: reply }),
+    ]);
+    const live = run([
+      { type: "assistant_message", message_id: "a", content: "", tool_calls: [call], provider: null, model: null, cost_usd: null },
+      { type: "tool_call", tool_call_id: "tc", name: "read_file", arguments: {} },
+      { type: "tool_result", tool_call_id: "tc", name: "read_file", ok: true, output: reply },
+    ]);
+    const finished = [{ kind: "tool", id: "tc", name: "read_file", arguments: {}, output: reply, status: "done" }];
+    expect(stored).toEqual(finished);
+    expect(live.items).toEqual(finished);
+  });
+
   it("gives a reply the same status read back as it had when it arrived", () => {
     const replies = [...FAILED_REPLIES, DENIED_TEXT];
     const calls = replies.map((_, at) => ({ id: `tc${at}`, name: "run_shell", arguments: {} }));

@@ -205,6 +205,39 @@ test.describe("a canvas read from a workspace file, beside a wide conversation",
     expect(writes).toEqual([{ method: "POST", path: "/artifacts/a1/reimport", body: { base_version: 1 } }]);
   });
 
+  test("gives nothing under the pointer or under a press while the file is read", async ({ page }) => {
+    const { fake, writes } = await openImported(page, FILE, "Sáng: bún\n");
+    /** How the button is drawn, once every transition on it has run out. */
+    const drawn = () =>
+      button(page).evaluate(async (el) => {
+        await Promise.all(el.getAnimations().map((animation) => animation.finished));
+        const { backgroundColor, color, transform } = getComputedStyle(el);
+        return { backgroundColor, color, transform };
+      });
+    const release = fake.holdNext(REIMPORT, "request");
+    // Off the button, so that what is measured first is the button with no pointer on it.
+    await page.mouse.move(0, 0);
+    await again(page).focus();
+    await page.keyboard.press("Enter");
+    await expect(button(page)).toHaveAttribute("aria-disabled", "true");
+    const resting = await drawn();
+    expect(resting).toMatchObject({ backgroundColor: "rgba(0, 0, 0, 0)", transform: "none" });
+
+    await button(page).hover();
+    expect(await drawn()).toEqual(resting);
+    await page.mouse.down();
+    expect(await drawn()).toEqual(resting);
+    await page.mouse.up();
+    await release();
+
+    // Ready again with the pointer still on it, it lights up as any button of its kind does.
+    await expect(button(page)).toHaveAttribute("aria-disabled", "false");
+    const ready = await drawn();
+    expect(ready.backgroundColor).not.toBe(resting.backgroundColor);
+    expect(ready.color).not.toBe(resting.color);
+    expect(writes).toEqual([{ method: "POST", path: "/artifacts/a1/reimport", body: { base_version: 1 } }]);
+  });
+
   test("gives up a read that never answers, says the server did not, and offers the button again", async ({ page }) => {
     // Thirty seconds in the app; here the same deadline, asked for by the same number, runs out sooner.
     await page.addInitScript(() => {

@@ -438,6 +438,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     ("keeps a call that failed as failed when the thread is read back": lời đáp mở bằng câu của
     registry khi tool báo lỗi, tool sập, không có tool tên đó hay hook của kit chặn thì thẻ giữ
     trạng thái `failed`, "reads a reply that only resembles a failure as a call that finished",
+    "reads a reply that only quotes the refusal as a call that finished, read back or as it
+    arrives": lời đáp chỉ trích lại câu từ chối ở giữa chữ thì thẻ là `done`, cả khi dựng lại từ tin
+    đã lưu lẫn khi lời đáp vừa tới,
     "gives a reply the same status read back as it had when it arrived": cùng một lời đáp cho
     cùng một trạng thái ở luồng trực tiếp và khi dựng lại từ tin đã lưu)
   - pytest: `tests/test_tool_reply_openings.py` (mỗi tiền tố web dùng trong
@@ -1570,7 +1573,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `kind` gửi kèm lệch); `tests/test_artifact_import_outside.py`
     ("test_a_path_out_of_the_workspace_is_told_so_whatever_its_suffix_or_kind": đường dẫn ra ngoài
     workspace (`..`, tuyệt đối, `~tên`) nhận câu ra ngoài workspace chứ không phải câu về đuôi
-    tệp, có hay không có `kind`, và không tệp nào bị mở,
+    tệp, có hay không có `kind`, kể cả khi `kind` gửi kèm không phải loại canvas nào (không
+    nhận câu về loại lạ), và không tệp nào bị mở,
     "test_a_path_out_of_the_workspace_is_told_so_before_the_canvas_it_was_to_go_into": cả khi
     nhập vào canvas có sẵn, `kind` lệch hay canvas ngoài tầm, không trừ ngân sách,
     "test_a_link_inside_the_workspace_is_still_followed_to_where_it_leads": liên kết người đặt
@@ -3061,7 +3065,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     nút nhập lại là nút phụ `ghost`;
     "shows what the server stores of a path and nobody would see as marks, on hover too": U+00A0,
     U+3164, U+FE0F và dấu cách cuối đoạn, những thứ server có lưu, hiện thành dấu ở thư mục, ở tên
-    tệp và ở `title`; ký tự đảo chiều cũng vẫn hiện thành dấu; nguồn là trang web thì có
+    tệp và ở `title`; ký tự đảo chiều cũng vẫn hiện thành dấu; "shows a character that hides or
+    reorders text in the agent's name as a mark as well": tên agent có U+202E thì ký tự đó hiện
+    thành dấu ở thư mục và ở `title`; nguồn là trang web thì có
     link chữ "Mở nguồn (example.com:8787)", tên truy cập "Mở nguồn (example.com:8787) (mở trong tab
     mới)", `title` là cả địa chỉ, `target="_blank"` và `rel="noopener noreferrer"`, không có nút nhập
     lại; "shows no line for a link that carries a login, names a host no label can hold, or leads
@@ -3089,7 +3095,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "gives a read that never answers thirty seconds, then says so and offers the button again":
     `AbortSignal.timeout` được gọi đúng với 30 000, ở 29 999 ms nút còn "Đang nhập…", thêm 1 ms thì
     nút trở lại và lời báo đúng chữ "Không nhập lại được: máy chủ không phản hồi", không đọc lại
-    canvas; "cuts no read that answers in time, however long after the deadline was set"; "says its
+    canvas; "cuts no read that answers in time, however long after the deadline was set"; "words a
+    read the browser cut short itself as a lost connection, for no deadline ran out": request bị
+    huỷ bằng `AbortError` chứ không phải `TimeoutError` thì lời báo là "Không nhập lại được: mất kết
+    nối", không phải câu của hạn chờ, và nút trở lại; "says its
     news in a place that was there before it had any, and an error apart from it": phần tử
     `role="status"` nằm ngay sau dòng nguồn từ trước khi có lời nào, rỗng và không mang lớp
     `notice`, lời báo tin hiện trong chính phần tử đó, còn lời báo lỗi là một `role="alert"` khác;
@@ -3105,7 +3114,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     (lời báo tin lẫn lời từ chối đều biến mất khi agent ghi một bản mới hơn hay khi lần lưu của
     chính người dùng tạo ra một bản, và chỗ nói tin trở lại rỗng; "stands when a refusal follows a
     save of the typing, for that version is the one it was said on": bản do lần lưu trước khi nhập
-    lại tạo ra không xoá lời từ chối vừa nói; "is taken back by a version newer than the one a
+    lại tạo ra không xoá lời từ chối vừa nói; "stands through the read of the version a conflict
+    told of, when it was said before that read answered": lời báo 409 hiện khi canvas còn đứng ở v1
+    và lần đọc lại còn đang treo, lần đọc về v2 thì lời báo vẫn đứng; "is taken back by a version
+    newer than the one a
     conflict told of, not by that one": lời báo 409 đứng qua lần đọc bản mà 409 nêu và chỉ biến mất
     ở bản sau đó; "is said again by the next press, on the version the canvas has by then");
     `web/src/components/canvas/canvas-card-import.test.tsx` nhóm "a file read into a canvas, in the
@@ -3153,7 +3165,11 @@ tên một test thì sửa dòng của nó trong cùng commit.
     đang giữ focus và request bị giữ lại thì nút ghi "Đang nhập…", `aria-disabled="true"`, thuộc
     tính `disabled` là false, focus vẫn ở nút, `opacity` 0.45 và con trỏ `not-allowed`; Enter, phím
     cách và một cú bấm chuột nữa không thành request thứ hai; thả request thì nút trở lại "Nhập
-    lại", vẫn giữ focus; "gives up a read that never answers, says the server did not, and offers
+    lại", vẫn giữ focus; "gives nothing under the pointer or under a press while the file is
+    read": trong lúc nút bị giữ, đưa chuột lên rồi nhấn giữ chuột thì màu nền, màu chữ và
+    `transform` của nút (đọc sau khi mọi transition của nút chạy xong) vẫn y như lúc chưa có
+    chuột, nền trong suốt và không co lại; nhả chuột không thành request thứ hai; thả request
+    thì nút sáng lên dưới con trỏ như mọi nút `ghost`; "gives up a read that never answers, says the server did not, and offers
     the button again": `AbortSignal.timeout(30 000)` của trang được rút ngắn bằng `addInitScript`,
     request không bao giờ được trả lời thì trình duyệt huỷ đúng request `POST …/reimport`, lời báo
     là "Không nhập lại được: máy chủ không phản hồi", nút trở lại và chữ của canvas còn nguyên;
