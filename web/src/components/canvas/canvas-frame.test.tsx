@@ -303,6 +303,30 @@ describe("a page that moves to another address", () => {
     expect(frameIn(container)).toBeTruthy();
   });
 
+  it("takes a late load of the frame it replaced for no load of its own", () => {
+    const { container, show } = setup();
+    // Still loading, as a page waiting for a file from elsewhere is, when a newer version comes.
+    const first = frameIn(container);
+    show({ version: 2 });
+
+    // Its load arrives once the new frame is asked for and before it is in the page.
+    act(() => {
+      vitest.advanceTimersByTime(RELOAD_DELAY_MS);
+      fireEvent.load(first);
+    });
+    const second = frameIn(container);
+    expect(second).not.toBe(first);
+    expect(screen.getByRole("status").textContent).toBe(vi.canvas.page.loading);
+
+    fireEvent.load(second);
+    expect(frameIn(container)).toBe(second);
+    expect(screen.queryByRole("status")).toBeNull();
+
+    fireEvent.load(second);
+    expect(container.querySelector("iframe")).toBeNull();
+    expect(screen.getByRole("button", { name: vi.canvas.page.reload })).toBeTruthy();
+  });
+
   it("stays stopped, whatever else happens, until the person asks for it again", () => {
     const { container, onMount, show } = setup();
     const first = frameIn(container);

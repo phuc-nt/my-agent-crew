@@ -57,14 +57,12 @@ export function CanvasFrame({ artifactId, title, version, connected, onMount, on
   const online = useOnline();
   const [page, setPage] = useState<Page>({ n: 0, version, phase: "loading", held: false });
   const frame = useRef<HTMLIFrameElement>(null);
-  const loads = useRef(0);
   // How many messages each frame was heard out on. A frame that replaces another starts from none.
   const [heardOf] = useState(() => new WeakMap<HTMLIFrameElement, number>());
   const latest = useRef({ version, page, online });
   latest.current = { version, page, online };
 
   const mount = useCallback((next: number) => {
-    loads.current = 0;
     setPage((was) => ({ n: was.n + 1, version: next, phase: "loading", held: false }));
   }, []);
 
@@ -118,10 +116,13 @@ export function CanvasFrame({ artifactId, title, version, connected, onMount, on
     return () => window.removeEventListener("message", heard);
   }, [onError, heardOf]);
 
-  const loaded = () => {
-    const first = ++loads.current === 1;
-    setPage((was) => (first ? { ...was, phase: "shown" } : { ...was, phase: "stopped", held: false }));
-  };
+  // The phase is the count of the frame on show: a first load shows it, a second stops it. A frame
+  // being replaced stays in the page until the next one is drawn, and its load is none of the next's.
+  const loaded = (n: number) =>
+    setPage((was) => {
+      if (was.n !== n) return was;
+      return was.phase === "loading" ? { ...was, phase: "shown" } : { ...was, phase: "stopped", held: false };
+    });
 
   return (
     <>
@@ -152,7 +153,7 @@ export function CanvasFrame({ artifactId, title, version, connected, onMount, on
           allow="fullscreen"
           referrerPolicy="no-referrer"
           src={artifactApi.renderUrl(artifactId)}
-          onLoad={loaded}
+          onLoad={() => loaded(page.n)}
         />
       )}
     </>

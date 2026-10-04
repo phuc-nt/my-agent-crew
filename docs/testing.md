@@ -2307,7 +2307,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     đang có lúc bấm, không có bản mới thì không có nút; tab ẩn thì chờ tab hiện lại rồi đưa lên ngay,
     bản vẫn thế thì không đưa lại), nhóm "the live stream" (luồng nối lại sau khi rớt thì đưa trang
     lên lại với bản mới nhất; lần nối đầu và luồng chưa từng nối thì không), nhóm "a page that moves
-    to another address" (tải lần thứ hai là bị gỡ và người được báo, tải một lần dù lâu thì không; đã
+    to another address" (tải lần thứ hai là bị gỡ và người được báo, tải một lần dù lâu thì không;
+    "takes a late load of the frame it replaced for no load of its own": `load` của khung cũ tới sau
+    khi khung mới được hẹn mà chưa được vẽ thì khung mới vẫn nói đang tải, lần tải thật đầu của nó
+    không làm nó bị gỡ và lần thứ hai vẫn gỡ nó; đã
     gỡ thì đứng yên tới khi người bảo chạy lại, khi ấy bản mới nhất được đưa lên và chạy như mọi
     trang; "is told to the panel under the version that was up, though a newer one was waiting its
     second"; trang đã gỡ thì bỏ nút mời bản mới);
@@ -2377,8 +2380,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     ký tự và tên tệp ở 300, không bao giờ cắt giữa hai nửa một ký tự ngoài mặt phẳng cơ bản; vị trí
     không phải số đếm thành 0; "turns a position too large to be a count into 0, and keeps the
     largest that is one": `1e308`, `2 ** 53` thành 0 nên danh sách không hiện `1e+308`, còn
-    `Number.MAX_SAFE_INTEGER` được giữ; không giữ gì của trang ngoài bốn trường), nhóm "where a page says its
-    error is" và nhóm "a file the page asked for that did not arrive";
+    `Number.MAX_SAFE_INTEGER` được giữ; không giữ gì của trang ngoài bốn trường), nhóm "where a page
+    says its error is" và nhóm "a file the page asked for that did not arrive";
     `web/src/lib/clip-text.test.ts` (chữ vừa chỗ thì để nguyên, giữ các đơn vị đầu, bỏ cả cặp chứ
     không để lại nửa đầu của nó); `web/src/components/canvas/canvas-frame.test.tsx` nhóm "what the
     page reports" (chuyển đi lời báo từ cửa sổ của trang; không nhận gì từ cửa sổ khác, từ trang đã
