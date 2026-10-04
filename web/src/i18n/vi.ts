@@ -1134,6 +1134,8 @@ export const vi = {
       group: "Lỗi do trang báo",
       // `more` once the page has said all one page is heard out on: it may have reported more.
       count: (count: number, more = false) => `Trang báo ${count}${more ? "+" : ""} lỗi`,
+      // The page was heard out before it reported anything: there is no count to put a "+" on.
+      unheard: "Trang gửi quá nhiều tin nên lỗi nó báo từ đây không còn được nghe",
       show: "Xem",
       hide: "Ẩn",
       send: "Gửi lỗi cho agent",

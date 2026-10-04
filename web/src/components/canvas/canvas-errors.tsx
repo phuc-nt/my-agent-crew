@@ -7,6 +7,10 @@
  * Sending saves the canvas first, like the question about a passage, so the agent reads what the
  * person sees. The errors sent are the ones listed when the button is pressed. Once they are sent
  * the button stays off until the page reports something new.
+ *
+ * A page the frame stopped hearing may have reported more than is counted. The count says so with a
+ * "+"; with no report to count the panel says it in words, or the person would read a page that
+ * reports nothing as a page with nothing wrong.
  */
 
 import { useState } from "react";
@@ -64,8 +68,17 @@ export function CanvasErrors({ artifactId, title, report, disabled, flush, onAsk
     else setFailure(failed);
   };
 
-  if (report.count === 0) return null;
   const { pageErrors } = vi.canvas;
+  if (report.count === 0) {
+    if (!report.silenced) return null;
+    return (
+      <div className="canvas-errors" role="group" aria-label={pageErrors.group}>
+        <p className="canvas-ask-note" role="status">
+          {pageErrors.unheard}
+        </p>
+      </div>
+    );
+  }
   return (
     <div className="canvas-errors" role="group" aria-label={pageErrors.group}>
       <div className="canvas-errors-bar">

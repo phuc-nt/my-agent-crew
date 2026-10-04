@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { describe, expect, it, vi as vitest } from "vitest";
 import type { MessageCanvas } from "../../api/artifact-types";
@@ -113,6 +113,24 @@ describe("the errors a page reported", () => {
     // Some of the fifty messages were no reports: the page was heard out all the same.
     expect(counted(49, true)).toContain("49+");
     expect(counted(1, true)).toContain("1+");
+  });
+
+  it("says the page is no longer heard when it was heard out without one report, with nothing to list or send", () => {
+    setup({ report: reportOf([], { silenced: true }) });
+
+    const group = screen.getByRole("group", { name: pageErrors.group });
+    expect(group.textContent).toBe(pageErrors.unheard);
+    expect(within(group).getByRole("status").textContent).toBe(pageErrors.unheard);
+    expect(pageErrors.unheard).toBe("Trang gửi quá nhiều tin nên lỗi nó báo từ đây không còn được nghe");
+    expect(screen.queryAllByRole("button")).toEqual([]);
+  });
+
+  it("leaves saying so to the count once the page has reported something", () => {
+    setup({ report: reportOf([error("boom")], { silenced: true }) });
+
+    expect(screen.queryByText(pageErrors.unheard)).toBeNull();
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(sendButton().disabled).toBe(false);
   });
 
   it("lists the errors it keeps, oldest first, when asked, and closes the list again", () => {

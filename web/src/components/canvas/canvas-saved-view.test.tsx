@@ -55,6 +55,14 @@ function floods(times: number, first?: unknown) {
   });
 }
 
+/** The page says `data`, which is no report, to the app's window `times` over. */
+function says(times: number, data: unknown) {
+  const from = { source: frame().contentWindow, origin: "null", ports: [] };
+  act(() => {
+    for (let n = 0; n < times; n++) window.dispatchEvent(Object.assign(new Event("message"), { ...from, data }));
+  });
+}
+
 /** A chat's send that takes every message. */
 const taking = () => vitest.fn<NonNullable<CanvasPanelProps["onAsk"]>>(async (): Promise<SendResult> => ({ status: "sent" }));
 
@@ -205,6 +213,23 @@ describe("what the page of a canvas reports, in the panel", () => {
     expect(count()).toContain("49+");
     fireEvent.click(within(errors() as HTMLElement).getByRole("button", { name: pageErrors.show }));
     expect(listed()).toEqual(["lỗi 45", "lỗi 46", "lỗi 47", "lỗi 48", "lỗi 49"]);
+  });
+
+  it("says the page is no longer heard once it has said fifty things, though none was a report", async () => {
+    await openPage();
+
+    says(49, "không phải lời báo");
+    expect(errors()).toBeNull();
+    says(1, "không phải lời báo");
+
+    expect(errors()?.textContent).toBe(pageErrors.unheard);
+    // A report it makes now is one of those no longer heard.
+    reports(FIRST);
+    expect(errors()?.textContent).toBe(pageErrors.unheard);
+
+    await agentWrites();
+    wait(RELOAD_DELAY_MS);
+    expect(errors()).toBeNull();
   });
 
   it("hears the page put up next from none, and does not say of it what it said of the one before", async () => {

@@ -2706,7 +2706,7 @@ tên một test thì sửa dòng của nó trong cùng commit.
     khôi phục và hiện nó là bản mới nhất; với canvas chữ, một dòng dài quá 2000 ký tự trong diff bị
     cắt kèm số ký tự đã bỏ)
 - **Canvas trên web: lỗi trang báo được đếm và liệt kê; chỉ tới agent khi người bấm gửi, trong một
-  tin rào lỗi lại như dữ liệu**
+  tin rào lỗi lại như dữ liệu; trang không còn được nghe thì panel nói ra, kể cả khi chưa có lỗi nào**
   - vitest: `web/src/lib/frame-messages.test.ts` nhóm "what a page in the canvas frame may tell the
     panel" (nhận lời báo từ chính cửa sổ của khung, origin trình duyệt ghi là `null`; bỏ lời từ cửa
     sổ khác, từ không đâu — kể cả khi khung đã đi —, từ origin khác `null`, dữ liệu không phải object
@@ -2739,7 +2739,11 @@ tên một test thì sửa dòng của nó trong cùng commit.
     nhóm "the errors a page reported" (không hiện gì khi trang chưa báo gì, nói số lỗi và giữ danh
     sách đóng tới khi được hỏi, dấu "+" theo việc khung đã thôi nghe trang chứ không theo số lời
     báo: bốn mươi chín hay năm mươi lời báo mà trang còn được nghe thì không có "+", đã thôi nghe thì
-    "50+", "49+" hay "1+",
+    "50+", "49+" hay "1+"; "says the page is no longer heard when it was heard out without one
+    report, with nothing to list or send": chưa có lời báo nào mà khung đã thôi nghe thì nhóm chỉ có
+    một dòng `role="status"` đúng câu "Trang gửi quá nhiều tin nên lỗi nó báo từ đây không còn được
+    nghe" và không nút nào; "leaves saying so to the count once the page has reported something": đã
+    có lời báo thì dòng ấy không hiện, dấu "+" nói thay;
     liệt kê cũ trước mới sau, "draws what the page wrote as text and never as markup, with hidden
     characters as marks": cả lời báo lẫn tên tệp ở dòng vị trí, `app[U+202E]gnp.js:3`) và nhóm
     "sending the errors to the agent" (chỉ có nút
@@ -2766,6 +2770,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     lists the newest five of the fifty": mười nghìn lời báo thì thanh ghi "50+" và danh sách là lỗi
     46 tới 50; bốn mươi chín lời báo thì chưa có "+"; lời chào của reporter tới trước thì mười nghìn
     lời báo sau nó ra "49+" và danh sách là lỗi 45 tới 49, vì lời chào là một trong năm mươi tin;
+    "says the page is no longer heard once it has said fifty things, though none was a report": bốn
+    mươi chín tin không phải lời báo thì panel chưa hiện gì, tin thứ năm mươi thì hiện câu ấy, lời
+    báo tới sau không đổi được nó, và trang kế tiếp thì không còn câu ấy;
     trang kế tiếp chưa nói gì thì không mang dấu "+" của trang trước; luồng nối lại thì trang được
     đưa lên lại và không lỗi nào
     tính cho nó; chat không nhận tin được thì nút gửi tắt và nói lý do; "does not send the errors
@@ -2779,6 +2786,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     gửi sau đợt lỗi nên số đếm là 21; "is heard out on fifty messages of the ten thousand reports it
     posts past the reporter": trang gọi thẳng `parent.postMessage` mười nghìn lần, tin đầu trong năm
     mươi tin là lời chào của reporter nên thanh ghi "49+" và đứng yên, danh sách là tin 45 tới 49;
+    "is said to be no longer heard when what it posts by the thousand is no report at all": mười
+    nghìn tin là chữ thường thì panel chỉ có câu trang không còn được nghe, không nút nào;
     "reports a picture from elsewhere that the policy keeps it from
     loading": cả dòng `img-src blocked` lẫn dòng `failed to load`, và request kết thúc với lỗi `csp`
     trước khi ra mạng; "reports a promise nothing caught as one error"; "shows at most two thousand

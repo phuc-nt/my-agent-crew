@@ -182,6 +182,13 @@ test.describe("a page in the canvas beside a wide conversation", () => {
     expect(await lines(page).allTextContents()).toEqual(newest);
   });
 
+  test("is said to be no longer heard when what it posts by the thousand is no report at all", async ({ page }) => {
+    await openPage(page, script('for (var n = 1; n <= 10000; n++) parent.postMessage("tin " + n, "*");'));
+
+    await expect(errors(page)).toHaveText(pageErrors.unheard);
+    await expect(errors(page).getByRole("button")).toHaveCount(0);
+  });
+
   test("reports a picture from elsewhere that the policy keeps it from loading", async ({ page }) => {
     const refused: string[] = [];
     page.on("requestfailed", (request) => refused.push(`${request.url()} ${request.failure()?.errorText}`));
