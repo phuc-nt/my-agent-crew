@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
 import { watch } from "../test/canvas-hook";
 import { type LeftCanvas, leftCanvas } from "../test/canvas-left";
-import { flushAll, handoffsSettled, saveInBackground, within } from "./canvas-handoff";
+import { flushAll, handoffOut, handoffsSettled, saveInBackground, within } from "./canvas-handoff";
 
 const outstanding: Array<() => void> = [];
 
@@ -58,6 +58,29 @@ describe("handoffsSettled", () => {
     await settle();
 
     expect(waiting.settled).toBe(true);
+  });
+});
+
+describe("handoffOut", () => {
+  it("is true of a canvas whose save left behind is still out, and of no other", async () => {
+    leaving("a1");
+
+    expect(handoffOut("a1")).toBe(true);
+    expect(handoffOut("a2")).toBe(false);
+  });
+
+  it.each<[string, number | null]>([
+    ["landed", 3],
+    ["failed", null],
+  ])("is false again once that save has %s", async (_name, version) => {
+    const first = leaving("a1");
+    leaving("a2");
+
+    first.land(version);
+    await settle();
+
+    expect(handoffOut("a1")).toBe(false);
+    expect(handoffOut("a2")).toBe(true);
   });
 });
 
@@ -168,6 +191,17 @@ describe("flushAll while a save is still inside its own deadline", () => {
 
   it("waits for a save left behind as long as it may still go unanswered, on top of the cap", async () => {
     leaving("a1", { waitMs: () => 60_000 });
+    const answer = watch(flushAll(5000, null));
+
+    await vitest.advanceTimersByTimeAsync(64_999);
+    expect(answer.settled).toBe(false);
+    await vitest.advanceTimersByTimeAsync(1);
+
+    expect(answer).toEqual({ settled: true, value: null });
+  });
+
+  it("waits for a save left behind only as long as it was first given, not for the deadline it has grown", async () => {
+    leaving("a1", { waitMs: (first?: boolean) => (first ? 60_000 : 600_000) });
     const answer = watch(flushAll(5000, null));
 
     await vitest.advanceTimersByTimeAsync(64_999);

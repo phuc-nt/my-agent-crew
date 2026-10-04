@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { useRef } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { type CanvasDock, useCanvasDock } from "../../hooks/use-canvas-dock";
@@ -9,7 +9,7 @@ import { landed, startServer, stopServer } from "../../test/canvas-hook";
 import { leftCanvas } from "../../test/canvas-left";
 import { editor, mode } from "../../test/canvas-panel";
 import type { FakeBackend } from "../../test/fake-backend";
-import { CanvasButton, CanvasDockView, CanvasHandoffNotices } from "./canvas-dock";
+import { CanvasButton, CanvasChatNotices, CanvasDockView } from "./canvas-dock";
 
 const ACTIVITY = "Các bước của lượt chạy";
 
@@ -26,8 +26,8 @@ afterEach(stopServer);
 /** The dock the chat last drew, for the tests that open a canvas without a click. */
 const seen: { dock: CanvasDock | null } = { dock: null };
 
-/** The dock as the chat lays it out: the Canvas button, a composer outside the dock, the notices
- *  of saves handed off, and the dock itself. */
+/** The dock as the chat lays it out: the Canvas button, a composer outside the dock, what the
+ *  canvases have to say in the chat, and the dock itself. */
 function Chat({ mode }: { mode: "column" | "overlay" }) {
   const dock = useCanvasDock("c1", true, true);
   seen.dock = dock;
@@ -36,7 +36,7 @@ function Chat({ mode }: { mode: "column" | "overlay" }) {
     <>
       <CanvasButton dock={dock} ref={trigger} />
       <textarea aria-label="Soạn tin" />
-      <CanvasHandoffNotices dock={dock} />
+      <CanvasChatNotices dock={dock} />
       <CanvasDockView dock={dock} mode={mode} activity={<p>{ACTIVITY}</p>} connected agentName={(id) => id} trigger={trigger} />
     </>
   );
@@ -214,5 +214,33 @@ describe("a save handed off that did not land", () => {
     expect(notice).not.toHaveTextContent(vi.canvas.handoffFailed(vi.canvas.untitled, true));
     expect(notice).toHaveTextContent("bản nháp chỉ còn trong tab này, mở lại canvas để lưu");
     expect(notice).not.toHaveTextContent("vẫn trên máy này");
+  });
+});
+
+describe("the line saying a message went before its canvas was saved", () => {
+  it("is not there until the dock says so, and is a status, not an alarm", async () => {
+    await openChat("column");
+    expect(screen.queryByRole("status")).toBeNull();
+
+    act(() => seen.dock?.noteSentUnsaved(true));
+
+    expect(screen.getByRole("status")).toHaveTextContent(vi.canvas.sentUnsaved);
+    expect(screen.getByRole("status")).toHaveClass("notice", "warn", "canvas-notice");
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("stands beside a save that did not land, and each is put away by its own button", async () => {
+    await openChat("column");
+    await act(() => saveInBackground(leftCanvas("a9", async () => null)));
+    act(() => seen.dock?.noteSentUnsaved(true));
+
+    fireEvent.click(within(screen.getByRole("status")).getByRole("button", { name: vi.canvas.dismiss }));
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+
+    act(() => seen.dock?.noteSentUnsaved(true));
+    fireEvent.click(within(screen.getByRole("alert")).getByRole("button", { name: vi.canvas.dismiss }));
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByRole("status")).toBeInTheDocument();
   });
 });

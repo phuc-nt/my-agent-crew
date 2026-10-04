@@ -4,7 +4,7 @@ import type { AgentInfo, Conversation, RunInfo, SettingsInfo } from "../api/type
 import { ApprovalBar } from "../components/approval-bar";
 import { RaiseCapButton } from "../components/budget-indicator";
 import type { AskDisabled } from "../components/canvas/canvas-ask";
-import { CanvasButton, CanvasDockView, CanvasHandoffNotices } from "../components/canvas/canvas-dock";
+import { CanvasButton, CanvasChatNotices, CanvasDockView } from "../components/canvas/canvas-dock";
 import { QuestionCard } from "../components/question-card";
 import { Composer, type RestoreRequest } from "../components/composer";
 import { ConversationActivity } from "../components/conversation-activity";
@@ -166,7 +166,8 @@ export function ChatScreen({
 
   // The composer keeps the words until this answers. A conversation that does not exist yet is
   // made first, and the words wait for it to load; one that does waits for the open canvas's
-  // last save and goes with the canvas as it stands by then. `false` means nothing was sent:
+  // last save and goes with the canvas as it stands by then, which the chat says when that is
+  // not what the person sees. `false` means nothing was sent:
   // the conversation could not be made, the person went to another one before the save landed,
   // or the server turned the message down before it began.
   const send = async (text: string): Promise<boolean> => {
@@ -176,9 +177,10 @@ export function ChatScreen({
       if (created) setQueued({ id: created.id, text });
       return Boolean(created);
     }
-    await saving.during(dock.flush());
+    const unsaved = await saving.during(dock.flushForMessage());
     if (activeRef.current !== id) return false;
     const result = await sendRef.current(text, dock.messageCanvas());
+    if (result.status !== "failed") dock.noteSentUnsaved(unsaved);
     return result.status !== "failed";
   };
   const overlayOpen = !wide && dock.view !== "closed";
@@ -462,7 +464,7 @@ export function ChatScreen({
             {fork.error}
           </div>
         )}
-        <CanvasHandoffNotices dock={dock} />
+        <CanvasChatNotices dock={dock} />
         {notice}
         <ErrorBoundary>
           <MessageThread

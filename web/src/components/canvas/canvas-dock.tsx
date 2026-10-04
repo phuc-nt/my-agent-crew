@@ -165,8 +165,9 @@ export function CanvasButton({ dock, ref }: { dock: CanvasDock; ref: Props["trig
   );
 }
 
-/** Saves handed off as another conversation opened that did not land; shown in the chat. */
-export function CanvasHandoffNotices({ dock }: { dock: CanvasDock }) {
+/** What the canvases have to say in the chat: the saves handed off as the person moved on that
+ *  did not land, and that the last message went before the canvas it names was saved. */
+export function CanvasChatNotices({ dock }: { dock: CanvasDock }) {
   return (
     <>
       {dock.handoffs.map((failure) => (
@@ -178,6 +179,15 @@ export function CanvasHandoffNotices({ dock }: { dock: CanvasDock }) {
           </button>
         </div>
       ))}
+      {dock.sentUnsaved && (
+        <div className="notice warn canvas-notice" role="status">
+          <Icon name="info" />
+          <span>{vi.canvas.sentUnsaved}</span>
+          <button type="button" className="link-button" onClick={() => dock.noteSentUnsaved(false)}>
+            {vi.canvas.dismiss}
+          </button>
+        </div>
+      )}
     </>
   );
 }

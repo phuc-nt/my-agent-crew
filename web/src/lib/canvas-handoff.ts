@@ -28,8 +28,9 @@ type Leaving = {
   /** The last draft this device could not keep. */
   readonly draftFailed: boolean;
   flush(): Promise<number | null>;
-  /** How long the save in flight may still go unanswered, in ms. */
-  waitMs(): number;
+  /** How long the save in flight may still go unanswered, in ms; with `first`, by the deadline it
+   *  had before saves with no reply in time gave it longer. */
+  waitMs(first?: boolean): number;
 };
 
 let keepaliveOut = false;
@@ -99,9 +100,14 @@ export async function handoffsSettled(): Promise<void> {
   await Promise.allSettled([...handoffs.keys()]);
 }
 
-/** The longest any handoff's save in flight may still go unanswered, in ms. */
+/** Whether the last save of canvas `id`, left behind, is still out. */
+export function handoffOut(id: string): boolean {
+  return [...handoffs.values()].some((runner) => runner.id === id);
+}
+
+/** The longest any handoff's save in flight has left of the deadline it was first given, in ms. */
 function handoffWaitMs(): number {
-  return Math.max(0, ...[...handoffs.values()].map((runner) => runner.waitMs()));
+  return Math.max(0, ...[...handoffs.values()].map((runner) => runner.waitMs(true)));
 }
 
 /** What `work` resolves to, or `late` when it has not settled within `ms`. */
@@ -119,9 +125,11 @@ export async function within<T, L>(ms: number, work: Promise<T>, late: L): Promi
 
 /**
  * Waits for the open panel's last save (when there is a panel) and for every handoff, together, at
- * most `ms` after the longest save already in flight has had its own deadline: a slow link is not a
- * stuck one. The answer is the version the panel's save landed, or null when it had not landed in
- * time or failed; a handoff still out at the end does not take that answer away.
+ * most `ms` after the longest save already in flight has had the deadline it was first given: a slow
+ * link is not a stuck one, but what waits here is a person, and the longer deadline a save gets
+ * after others went unanswered is minutes. The answer is the version the panel's save landed, or
+ * null when it had not landed in time or failed; a handoff still out at the end does not take that
+ * answer away.
  */
 export async function flushAll(
   ms: number,

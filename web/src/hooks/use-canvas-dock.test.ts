@@ -246,7 +246,8 @@ describe("leaving an open canvas", () => {
     ["showList", "list"],
   ] as const)("moves on from %s while the last save is still inside its own deadline, which the handoff waits out", async (move, view) => {
     const { result } = await openDock();
-    opened(result, { ...panel(), waitMs: () => 20_000 });
+    // The deadline the save was first given is over; the longer one it has now is not.
+    opened(result, { ...panel(), waitMs: (first?: boolean) => (first ? 0 : 20_000) });
     let moving = Promise.resolve();
     act(() => {
       moving = result.current[move]();
@@ -261,7 +262,8 @@ describe("leaving an open canvas", () => {
   it("stays once the deadline of the save has passed and no version holds the text", async () => {
     const { result } = await openDock();
     let left = 20_000;
-    opened(result, { ...panel(), waitMs: () => left });
+    // Asked what a message would wait, the panel would say there is time left; leaving does not ask that.
+    opened(result, { ...panel(), waitMs: (first?: boolean) => (first ? 20_000 : left) });
     let closing = Promise.resolve();
     act(() => {
       closing = result.current.close();

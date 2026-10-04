@@ -42,9 +42,9 @@ describe("how long a save may go unanswered", () => {
     backend.canvas.add({ content: "a" });
 
     // 100000 characters of 3 bytes each, and 30 bytes of JSON around them.
-    expect(requestSave("a1", "ệ".repeat(100_000), 1, false, send)).toBe(35_860);
+    expect(requestSave("a1", "ệ".repeat(100_000), 1, false, send)).toEqual({ ms: 35_860, firstMs: 35_860 });
     // The same count in one-byte characters would give a fifth of the wait.
-    expect(requestSave("a1", "x".repeat(100_000), 1, false, send)).toBe(31_954);
+    expect(requestSave("a1", "x".repeat(100_000), 1, false, send)).toEqual({ ms: 31_954, firstMs: 31_954 });
     await landed();
   });
 });
@@ -67,6 +67,16 @@ describe("how long a save may go unanswered after saves in a row had no reply in
     expect(saveDeadlineMs(4 * MB, 4000)).toBe(685_360);
   });
 
+  it("keeps the first deadline what it was however many there were: only the save's own grows", async () => {
+    backend.canvas.add({ kind: "html", content: "<p>a</p>" });
+    const page = "x".repeat(3 * MB);
+
+    expect(requestSave("a1", page, 1, false, send, 2)).toEqual({ ms: 275_763, firstMs: 91_441 });
+    expect(requestSave("a1", page, 1, false, send, 3)).toEqual({ ms: 521_525, firstMs: 91_441 });
+    expect(requestSave("a1", page, 1, false, send, 30)).toEqual({ ms: 521_525, firstMs: 91_441 });
+    await landed();
+  });
+
   it("leaves a small save at half a minute: 34 bytes get milliseconds more, never a minute", () => {
     expect(saveDeadlineMs(34, 0)).toBe(30_001);
     expect(saveDeadlineMs(34, 1)).toBe(30_002);
@@ -77,13 +87,14 @@ describe("how long a save may go unanswered after saves in a row had no reply in
     backend.canvas.add({ kind: "html", content: "<p>a</p>" });
     backend.canvas.holdNext("PUT");
 
+    // With it comes the deadline the same body had on the first try, which is all a message waits.
     const deadline = requestSave("a1", "x".repeat(3 * MB), 1, false, send, 1);
-    expect(deadline).toBe(152_882);
+    expect(deadline).toEqual({ ms: 152_882, firstMs: 91_441 });
 
     // The first try's deadline passes, and the request is still out.
-    wait(91_441);
+    wait(deadline.firstMs);
     await landed();
-    wait(deadline - 91_441 - 1);
+    wait(deadline.ms - deadline.firstMs - 1);
     await landed();
     expect(heard).toEqual([]);
 
@@ -113,9 +124,9 @@ describe("a save going out", () => {
     backend.canvas.holdNext("PUT");
 
     const deadline = requestSave("a1", "ab", 1, false, send);
-    expect(deadline).toBe(30_001);
+    expect(deadline).toEqual({ ms: 30_001, firstMs: 30_001 });
 
-    wait(deadline - 1);
+    wait(deadline.ms - 1);
     await landed();
     expect(heard).toEqual([]);
 
@@ -130,11 +141,11 @@ describe("a save going out", () => {
     backend.canvas.holdNext("PUT");
 
     const deadline = requestSave("a1", "x".repeat(3 * MB), 1, false, send);
-    expect(deadline).toBe(91_441);
+    expect(deadline).toEqual({ ms: 91_441, firstMs: 91_441 });
 
     wait(31_000);
     await landed();
-    wait(deadline - 31_000 - 1);
+    wait(deadline.ms - 31_000 - 1);
     await landed();
     expect(heard).toEqual([]);
 

@@ -2062,7 +2062,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     unanswered after saves in a row had no reply in time" giữ việc nới hạn cho đường truyền chậm: sau
     mỗi lần lưu hết hạn liên tiếp thì phần thời gian cho thân gấp đôi còn 30 giây chờ reply giữ nguyên
     (4 MB: 111920, 193840, 357680, 685360 ms), dừng ở 8 lần dù hết hạn bao nhiêu lần, thân 34 byte vẫn
-    là nửa phút chứ không thành một phút, và request thật sống tới đúng hạn đã nới. Lần đọc có nhóm "a read
+    là nửa phút chứ không thành một phút, và request thật sống tới đúng hạn đã nới. `requestSave` trả
+    về cả hai hạn, `{ ms, firstMs }`: hạn của chính lần lưu và hạn đầu của cùng thân ấy; "keeps the
+    first deadline what it was however many there were: only the save's own grows" giữ `firstMs` đứng
+    yên ở 91441 ms khi `ms` lên 275763 rồi 521525. Lần đọc có nhóm "a read
     coming back" ở cùng tệp: gửi đi cái server giữ và không để timer nào lại, "says the canvas could
     not be read when what came back cannot be taken in, instead of leaving it loading" (thân trả về
     mà máy trạng thái không nhận được thì báo đọc hỏng chứ không treo ở "đang tải"), "says in the
@@ -2076,7 +2079,11 @@ tên một test thì sửa dòng của nó trong cùng commit.
     server không nhận) vẫn lưu xong mà không ai chạm vào canvas, lần gửi lại có `waitMs` 193842 ms và
     còn trong hạn khi hạn đầu đã qua, hết hạn hai lần liên tiếp thì gấp bốn, lưu xong thì về hạn đầu,
     lần bị server từ chối ở giữa không xoá mức nới, lần mất hay bị từ chối không làm hạn dài ra, canvas
-    nhỏ vẫn nửa phút. Dock chờ theo `waitMs` nên theo luôn hạn đã nới.
+    nhỏ vẫn nửa phút. `waitMs(true)` là phần còn lại của hạn đầu, tính từ lúc chính lần lưu ấy đi:
+    "has, for a message, only what is left of the deadline it was first given, however long its own
+    has grown" (sau một lần hết hạn `waitMs()` là 193842 còn `waitMs(true)` là 111921, về 0 khi hạn
+    đầu qua dù lần lưu còn bay trong hạn đã nới, và 0 khi không lần lưu nào đang bay). Rời canvas hỏi
+    `waitMs()` nên theo hạn đã nới; tin gửi đi hỏi `waitMs(true)` nên không theo.
     `web/src/lib/unload-guard.test.ts` giữ câu hỏi trước khi đóng trang (không hỏi khi chưa ai giữ,
     hỏi khi có người giữ và đặt cả `returnValue` cho engine cũ, thôi hỏi khi nhả và nhả hai lần không
     hại, còn hỏi khi còn người giữ khác), `web/src/hooks/use-saving-note.test.ts` giữ lời báo đang lưu
@@ -2233,7 +2240,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     bay: panel chờ hạn 60 giây thì trả null ở 65 giây, hạn của các lần lưu đã rời tính lâu nhất chứ
     không cộng dồn, hạn của panel và của các lần lưu ấy lấy cái dài hơn, không bao giờ ngắn hơn trần,
     giữ phiên bản của panel khi lần lưu chậm của canvas đã rời còn trong hạn, trả lời ngay khi mọi thứ
-    đã về);
+    đã về; "waits for a save left behind only as long as it was first given, not for the deadline it
+    has grown": lần lưu đã rời có hạn đầu 60 giây và hạn đã nới 600 giây thì trả null ở 65 giây; nhóm
+    `handoffOut`: đúng với canvas mà lần lưu để lại còn bay và sai với canvas khác, sai trở lại khi lần
+    lưu ấy xong hay hỏng);
     `web/src/hooks/use-canvas-dock-flush.test.ts` ("answers the version the open panel's last save
     landed", null khi không phiên bản nào giữ chữ trong trần, chờ lần lưu của canvas đã rời trước đó
     và giữ phiên bản của panel khi lần lưu kia muộn, chờ lần lưu của canvas đã rời khi không có panel
@@ -2264,6 +2274,33 @@ tên một test thì sửa dòng của nó trong cùng commit.
   - Playwright: `canvas-send.spec.ts` ("a message sent over typing the canvas has not saved yet waits
     for the save, then names the canvas": lần lưu bị giữ thì chưa có POST nào và ô soạn tin chỉ đọc
     còn nguyên chữ, thả ra thì thứ tự là lưu rồi gửi, thân tin nêu canvas, ô trống và mở lại)
+- **Tin gửi đi không chờ theo hạn đã nới của lần lưu: chờ hết hạn đầu của lần lưu (cộng 5 giây) rồi
+  đi kèm bản đã lưu gần nhất, và cuộc trò chuyện nói rõ điều đó**
+  - vitest, hook: `web/src/hooks/use-canvas-dock-message.test.ts` (nhóm "the wait of a message on a
+    save given longer after saves that had no reply in time": panel có hạn đầu 60 giây và hạn đã nới
+    600 giây thì `flush` trả null ở 65 giây chứ không sớm hơn một mili giây, lần lưu của canvas đã rời
+    cũng vậy; nhóm "whether a message about to go names a canvas with text no version holds":
+    `flushForMessage` trả `false` khi chưa mở canvas nào, khi lần lưu của canvas đang mở đã xong, khi
+    canvas đã bị xoá, khi lần lưu còn bay là của canvas khác với canvas tin nêu, khi tin không nêu
+    canvas nào, và khi người mở canvas khác trong lúc tin còn chờ; trả `true` khi lần lưu hỏng, khi
+    hết lượt chờ mà lần lưu chưa về (và không trả gì trước đó), khi canvas tin nêu đã được cất đi trên
+    màn hẹp mà lần lưu cuối còn bay; nhóm "the note that a message went before the canvas it names
+    was saved": `sentUnsaved` bật và tắt theo `noteSentUnsaved`, thuộc về hội thoại tin đã đi (sang
+    hội thoại khác không hiện, quay lại thì hiện), hàm lấy ở hội thoại nào thì nói về hội thoại ấy dù
+    người đã sang nơi khác, mỗi hội thoại giữ lời của riêng mình, không hội thoại nào mở thì không
+    có); `web/src/hooks/use-canvas-dock.test.ts` giữ việc rời canvas vẫn hỏi hạn đã nới: panel giả
+    trả 0 cho hạn đầu và 20 giây cho hạn đã nới thì vẫn đóng được, trả 20 giây cho hạn đầu mà hạn
+    đã nới đã hết thì ở lại; `web/src/components/canvas/canvas-dock-view.test.tsx` nhóm "the line
+    saying a message went before its canvas was saved" (không có cho tới khi dock nói, là `status`
+    chứ không phải `alert`, đứng cạnh thông báo lần lưu không về và mỗi dòng được ẩn bằng nút riêng)
+  - vitest, cả App trên `FakeCanvas`: `web/src/app-canvas-send-unsaved.test.tsx` ("goes once the save
+    has had the time it was first given, with the version saved before, and says so": 500 KiB
+    markdown trên đường truyền mất 100 giây, ba lần lưu hết hạn, tin chưa đi ở 45 giây thiếu một mili
+    giây và đi ở đúng 45 giây, ô soạn tin mở lại, server chưa có chữ mới; "leaves the save the
+    longer time it was given": lần lưu ấy vẫn hạ cánh ở giây 100 và dòng báo còn đó; dòng báo mang
+    đúng câu chữ, lớp `notice warn canvas-notice` và nằm trong cột chat; tin sau gửi lúc canvas đã lưu
+    thì dòng báo đi; nút "Ẩn thông báo" cất nó mà không gửi gì thêm; tin server không nhận thì không
+    báo; canvas lưu kịp hay không mở canvas nào thì không báo)
 - **Canvas mà server đang mở ở hội thoại: vào hội thoại thì web mở lại nó mà không giành focus và không
   ghi gì; chỉ báo server khi người đóng canvas trên màn rộng**
   - vitest, hook: `web/src/hooks/use-canvas-focus.test.ts` nhóm "coming into a conversation" (màn rộng

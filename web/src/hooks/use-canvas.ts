@@ -30,8 +30,9 @@ export type CanvasController = {
   composition(composing: boolean): void;
   /** Saves the text as it is now; the version that holds it, or null when none will. */
   flush(): Promise<number | null>;
-  /** How long the save in flight may still go unanswered, in ms; 0 when none is out. */
-  waitMs(): number;
+  /** How long the save in flight may still go unanswered, in ms; 0 when none is out. With `first`,
+   *  by the deadline it was first given, which is all a message waits. */
+  waitMs(first?: boolean): number;
   keepMine(): void;
   loadTheirs(): void;
   undo(): void;
@@ -84,7 +85,7 @@ export function useCanvas(id: string, connected: boolean): CanvasController {
       blur: () => send({ type: "saveDue", reason: "blur" }),
       composition: (composing: boolean) => send({ type: "composition", composing }),
       flush: () => runner.current?.flush() ?? Promise.resolve(null),
-      waitMs: () => runner.current?.waitMs() ?? 0,
+      waitMs: (first?: boolean) => runner.current?.waitMs(first) ?? 0,
       keepMine: () => send({ type: "keepMine" }),
       loadTheirs: () => send({ type: "loadTheirs" }),
       undo: () => runner.current?.undo(),

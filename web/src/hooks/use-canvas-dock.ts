@@ -9,8 +9,11 @@
  * not hold the panel: it closes, and `saveInBackground` goes on waiting. A deleted canvas closes at once.
  *
  * Opening another conversation does not wait: the dock shows nothing in that very render, and the
- * panel going away hands its last save to `saveInBackground`, whose failure becomes a notice here.
- * Any move made while a "Canvas mới" request is out means its reply opens nothing.
+ * panel going away hands its last save to `saveInBackground`, whose failure becomes a notice in
+ * `use-canvas-chat-notices`. Any move made while a "Canvas mới" request is out means its reply opens nothing.
+ *
+ * A message waits for the saves too, but only 5 seconds past the deadline a save was first given:
+ * it then goes with the canvas as last saved, and the chat says so.
  *
  * The canvas this tab is talking about, `focusId`, is not the one on show: it is empty until a canvas
  * is opened here and null once the person closed it on a wide screen, while closing the overlay of a
@@ -22,7 +25,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CreatableKind, MessageCanvas } from "../api/artifact-types";
 import { isArtifactId } from "../lib/artifact-tag";
 import { closedFor, type DockState, type DockTab, type DockView } from "../lib/canvas-dock-state";
-import { flushAll, type HandoffFailure, onHandoffFailed, within } from "../lib/canvas-handoff";
+import { flushAll, handoffOut, within } from "../lib/canvas-handoff";
+import { type CanvasChatNotices, useCanvasChatNotices } from "./use-canvas-chat-notices";
 import { useCanvasCreate } from "./use-canvas-create";
 import { type CanvasList, useCanvasList } from "./use-canvas-list";
 
@@ -32,18 +36,18 @@ export type { DockTab, DockView };
 export const DOCK_FLUSH_MS = 5000;
 
 /** What the open panel lends the dock: its last save, whether its canvas is gone, whether its person
- *  types, how long its save in flight may still go unanswered, and whether this device kept its draft. */
+ *  types, how long its save in flight may still go unanswered (with `first`, by the deadline it was
+ *  first given), and whether this device kept its draft. */
 export type PanelHandle = {
   flush(): Promise<number | null>;
   gone(): boolean;
   typing(): boolean;
-  waitMs(): number;
+  waitMs(first?: boolean): number;
   draftFailed(): boolean;
 };
 
-export type CanvasDock = Omit<DockState, "conversationId"> & {
+export type CanvasDock = Omit<DockState, "conversationId"> & Omit<CanvasChatNotices, "kept"> & {
   list: CanvasList;
-  handoffs: HandoffFailure[];
   showList(): Promise<void>;
   open(id: string, options?: { quiet?: boolean }): void;
   close(): Promise<void>;
@@ -56,9 +60,11 @@ export type CanvasDock = Omit<DockState, "conversationId"> & {
   /** Lends the dock the open panel's handle until the returned function is called. */
   bind(handle: PanelHandle): () => void;
   /** The open canvas's last save, or null when none lands within 5 seconds after the save in
-   *  flight has had its own deadline; waits for the saves of canvases left meanwhile as well, and
-   *  gives up on those at the same time. */
+   *  flight has had the deadline it was first given; waits for the saves of canvases left meanwhile
+   *  as well, and gives up on those at the same time. */
   flush(): Promise<number | null>;
+  /** The same wait, for a message about to go: whether the canvas it names still has text no version holds. */
+  flushForMessage(): Promise<boolean>;
   /** Whether the person is typing in the open canvas, which a canvas opened now must not take from them. */
   typing(): boolean;
   /** What a message sent now says of the canvas: nothing until one is opened here. */
@@ -67,17 +73,14 @@ export type CanvasDock = Omit<DockState, "conversationId"> & {
   ticket(): number;
   /** Opens the canvas an earlier answer named, quietly, unless the dock moved since `ticket` was read. */
   restore(id: string, ticket: number): void;
-  dismissHandoff(id: string): void;
 };
 
 export function useCanvasDock(conversationId: string | null, connected: boolean, wide: boolean): CanvasDock {
   const [state, setState] = useState(() => closedFor(conversationId));
-  const [handoffs, setHandoffs] = useState<HandoffFailure[]>([]);
+  const { kept, ...notices } = useCanvasChatNotices(conversationId);
   const list = useCanvasList(conversationId, connected);
   const moves = useRef(0);
   const panel = useRef<PanelHandle | null>(null);
-  // Canvases closed anyway: the person already knows their last save did not land.
-  const kept = useRef(new Set<string>());
   const shown = state.conversationId === conversationId ? state : closedFor(conversationId);
   const latest = useRef(shown);
   latest.current = shown;
@@ -87,20 +90,20 @@ export function useCanvasDock(conversationId: string | null, connected: boolean,
     setState((was) => (was.conversationId === conversationId ? was : closedFor(conversationId)));
   }, [conversationId]);
 
-  useEffect(
-    () =>
-      onHandoffFailed((failure) => {
-        if (kept.current.delete(failure.id)) return;
-        setHandoffs((told) => [...told.filter((f) => f.id !== failure.id), failure]);
-      }),
-    [],
-  );
-
   const flush = useCallback(async () => {
     // The panel's save starts first, so the deadline it brings is known when the wait is set.
     const saving = panel.current?.flush() ?? null;
-    return flushAll(DOCK_FLUSH_MS, saving, panel.current?.waitMs() ?? 0);
+    return flushAll(DOCK_FLUSH_MS, saving, panel.current?.waitMs(true) ?? 0);
   }, []);
+  const flushForMessage = useCallback(async () => {
+    const asked = panel.current;
+    const version = await flush();
+    const { focusId } = latest.current;
+    if (typeof focusId !== "string") return false;
+    // The panel asked is still the one open, its canvas is still there, and no version holds its text.
+    const open = version === null && asked !== null && panel.current === asked && !asked.gone();
+    return open || handoffOut(focusId);
+  }, [flush]);
   const typing = useCallback(() => panel.current?.typing() ?? false, []);
   const messageCanvas = useCallback((): MessageCanvas | undefined => {
     const { focusId } = latest.current;
@@ -179,8 +182,8 @@ export function useCanvasDock(conversationId: string | null, connected: boolean,
       if (panel.current === handle) panel.current = null;
     };
   }, []);
-  const dismissHandoff = useCallback((id: string) => setHandoffs((told) => told.filter((f) => f.id !== id)), []);
 
   const { conversationId: _, ...view } = shown;
-  return { ...view, list, handoffs, ...actions, create, bind, flush, typing, messageCanvas, ticket: readTicket, dismissHandoff };
+  const saves = { flush, flushForMessage };
+  return { ...view, list, ...notices, ...actions, create, bind, ...saves, typing, messageCanvas, ticket: readTicket };
 }

@@ -31,10 +31,12 @@ describe("how long the save in flight may still go unanswered", () => {
   it("is nothing while no save is out, whatever has been typed", async () => {
     const runner = await opened();
     expect(runner.waitMs()).toBe(0);
+    expect(runner.waitMs(true)).toBe(0);
 
     runner.edit("ab");
 
     expect(runner.waitMs()).toBe(0);
+    expect(runner.waitMs(true)).toBe(0);
   });
 
   it("is the whole deadline as the save goes out, and less as time passes", async () => {
@@ -64,11 +66,13 @@ describe("how long the save in flight may still go unanswered", () => {
     runner.edit("ab");
     save(runner);
     expect(runner.waitMs()).toBeGreaterThan(0);
+    expect(runner.waitMs(true)).toBeGreaterThan(0);
 
     await landed();
 
     expect(runner.state.saving).toBeNull();
     expect(runner.waitMs()).toBe(0);
+    expect(runner.waitMs(true)).toBe(0);
   });
 
   it("is nothing, never less, when the clock jumped past the deadline before its timer ran", async () => {
@@ -167,6 +171,31 @@ describe("a save the link was too slow for", () => {
     await timesOut(runner, 5_000);
 
     expect(runner.waitMs()).toBe(357_683);
+    expect(runner.waitMs(true)).toBe(111_921);
+  });
+
+  it("has, for a message, only what is left of the deadline it was first given, however long its own has grown", async () => {
+    backend.canvas.holdNext("PUT");
+    const runner = await bigSaveOut();
+    expect(runner.waitMs(true)).toBe(111_921);
+    backend.canvas.holdNext("PUT");
+
+    await timesOut(runner, 2_000);
+    expect(runner.waitMs()).toBe(193_842);
+    expect(runner.waitMs(true)).toBe(111_921);
+
+    // Counted from when this save went out, as its own deadline is.
+    wait(100_000);
+    expect(runner.waitMs(true)).toBe(11_921);
+    wait(11_921);
+    await landed();
+
+    // The save is still out and inside its own deadline: a message waits on it no more.
+    expect(runner.state.saving).not.toBeNull();
+    expect(runner.waitMs()).toBe(81_921);
+    expect(runner.waitMs(true)).toBe(0);
+    wait(50_000);
+    expect(runner.waitMs(true)).toBe(0);
   });
 
   it("is back to the first deadline once a save has landed", async () => {

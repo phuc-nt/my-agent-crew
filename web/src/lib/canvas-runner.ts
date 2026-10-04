@@ -10,7 +10,7 @@
 
 import { clearDraft, readDraft, textKey, writeDraft } from "./canvas-draft";
 import { type CanvasEffect, type CanvasInput, type CanvasState, openState, step } from "./canvas-machine";
-import { requestRead, requestSave } from "./canvas-requests";
+import { requestRead, SaveClock } from "./canvas-requests";
 import { isDirty } from "./canvas-state";
 
 /** A save goes this long after the last keystroke. */
@@ -30,10 +30,8 @@ export class CanvasRunner {
   private retryTimer: Timer;
   private reading: AbortController | null = null;
   private tickets = 0;
-  /** When the save in flight reaches its deadline. */
-  private putEndsAt = 0;
-  /** The saves in a row that had no reply by their deadline: the next one is given longer. */
-  private timeouts = 0;
+  /** The deadline of the save in flight, and of the next after saves that had no reply in time. */
+  private readonly saves = new SaveClock();
   private readonly settles = new Map<number, (version: number | null) => void>();
 
   constructor(
@@ -119,9 +117,10 @@ export class CanvasRunner {
     this.send({ type: "visibility", hidden: true });
   }
 
-  /** How long the save in flight may still go unanswered, in ms; 0 when none is out. */
-  waitMs(): number {
-    return this.state.saving ? Math.max(0, this.putEndsAt - Date.now()) : 0;
+  /** How long the save in flight may still go unanswered, in ms; 0 when none is out. With `first`,
+   *  by the deadline it had before saves with no reply in time gave it longer: all a message waits. */
+  waitMs(first = false): number {
+    return this.state.saving ? this.saves.leftMs(first) : 0;
   }
 
   /** Whether text may still be missing from the server. */
@@ -154,7 +153,7 @@ export class CanvasRunner {
   private run(effect: CanvasEffect): void {
     switch (effect.type) {
       case "put":
-        return this.put(effect.content, effect.baseVersion, effect.hidden);
+        return this.saves.send(this.id, effect.content, effect.baseVersion, effect.hidden, (input) => this.send(input));
       case "get":
         return this.get();
       case "retryIn":
@@ -173,16 +172,6 @@ export class CanvasRunner {
         return resolve?.(effect.version);
       }
     }
-  }
-
-  private put(content: string, baseVersion: number, hidden: boolean): void {
-    const heard = (input: CanvasInput) => {
-      // Only a save that lands says the link carries one in time again.
-      if (input.type === "saveTimedOut") this.timeouts++;
-      else if (input.type === "saved") this.timeouts = 0;
-      this.send(input);
-    };
-    this.putEndsAt = Date.now() + requestSave(this.id, content, baseVersion, hidden, heard, this.timeouts);
   }
 
   private get(): void {

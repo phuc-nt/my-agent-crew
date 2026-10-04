@@ -1039,6 +1039,8 @@ export const vi = {
         : `Chưa lưu được ${title}; bản nháp chỉ còn trong tab này, mở lại canvas để lưu`,
     // Under the message box while a message waits for the open canvas's last save.
     savingFirst: "Đang lưu canvas…",
+    // In the chat once a message has gone while the canvas it names still had text no version held.
+    sentUnsaved: "Canvas chưa lưu xong nên tin vừa gửi đi kèm bản đã lưu gần nhất",
     dismiss: "Ẩn thông báo",
     conflictBy: (author: string, version: number) => `${author} đã lưu v${version} trong lúc bạn sửa.`,
     keepMine: "Giữ bản của tôi",
