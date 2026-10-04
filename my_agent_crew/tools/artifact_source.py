@@ -23,6 +23,7 @@ from my_agent_crew.texts_canvas import (
     IMPORT_TOO_LARGE,
     IMPORT_UNKNOWN_SUFFIX,
 )
+from my_agent_crew.tools.artifact_file_texts import IMPORT_NOT_READABLE
 from my_agent_crew.tools.registry import ToolError
 from my_agent_crew.tools.workspace import resolve_inside
 
@@ -99,6 +100,8 @@ def read_source(root: Path, relative: str, kind: str) -> SourceFile:
         raise SourceError(404, WORKSPACE_NOT_FOUND.format(path=relative)) from None
     except IsADirectoryError:
         raise SourceError(422, WORKSPACE_IS_DIR.format(path=relative)) from None
+    except PermissionError:  # a file like any other, closed to this process
+        raise SourceError(422, IMPORT_NOT_READABLE.format(path=relative)) from None
     except OSError:
         raise SourceError(422, IMPORT_NOT_FILE.format(path=relative)) from None
     except _OverCap:

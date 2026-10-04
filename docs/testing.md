@@ -1584,6 +1584,17 @@ tên một test thì sửa dòng của nó trong cùng commit.
     022 và 077, từ lúc được tạo tới lúc chữ đi vào, tệp tạm không mở cho ai mà tệp cuối đóng, tệp
     thay tệp cũ nhận mode của tệp cũ trước khi byte nào được ghi, tệp mới có mode như mọi tệp ghi
     thường);
+    `tests/test_artifact_number_args.py`
+    ("test_a_version_that_is_no_finite_number_exports_nothing": `version` là vô cực hay NaN, kể
+    cả khi JSON gửi `1e999`, bị từ chối bằng lời và không tệp nào được ghi,
+    "test_a_read_sent_one_shows_no_page_and_moves_no_cursor": `version`, `from_line` và `lines`
+    của `artifact_read` cũng vậy, con trỏ đọc đứng yên,
+    "test_a_number_as_text_is_read_and_what_is_no_number_reads_as_left_out": số viết thành chuỗi
+    vẫn được đọc, thứ không phải số vẫn tính như bỏ trống);
+    `tests/test_artifact_source_unreadable.py` (tệp, hay thư mục chứa nó, mà tiến trình không có
+    quyền đọc: lời từ chối nói đúng là thiếu quyền chứ không gọi đó là thứ không phải tệp thường,
+    tool nhập không tạo canvas và không trừ ngân sách, lần nhập lại từ web trả 422 cùng câu đó
+    và canvas đứng yên);
     `tests/test_kit_hooks_canvas_files.py` (hook của kit và hai tool canvas chạm tệp:
     "test_a_hook_that_guards_files_is_asked_about_the_canvas_tools_that_carry_them": hook có
     matcher `Read|Write|Edit|Bash` hay `workspace_read|workspace_write` chặn cả `workspace_read`,

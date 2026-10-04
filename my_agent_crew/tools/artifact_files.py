@@ -54,7 +54,7 @@ async def run_export(
     conv = agent.conversation()
     artifact_id = text_arg(args, "id")
     path = check_path(text_arg(args, "path"))
-    number = int_arg(args.get("version"), 0)
+    number = int_arg(args, "version", 0)
     agent.reach(conv, artifact_id)
     canvases = agent.store.artifacts
     with canvas_errors(artifact_id):

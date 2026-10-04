@@ -3,13 +3,18 @@ to, and the arguments as the model sent them, checked before anything is touched
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from datetime import tzinfo
 from typing import TYPE_CHECKING, Any
 
 from my_agent_crew.agent.turn_context import turn_conversation_id
 from my_agent_crew.texts import OUTPUT_TRUNCATED
-from my_agent_crew.texts_canvas import ARTIFACT_ARG_TEXT, ARTIFACT_NO_CONVERSATION
+from my_agent_crew.texts_canvas import (
+    ARTIFACT_ARG_NUMBER,
+    ARTIFACT_ARG_TEXT,
+    ARTIFACT_NO_CONVERSATION,
+)
 from my_agent_crew.tools.artifact_scope import in_scope, not_found
 from my_agent_crew.tools.registry import ToolError
 
@@ -97,7 +102,13 @@ def optional_text(args: dict[str, Any], name: str) -> str | None:
     return None if args.get(name) is None else text_arg(args, name)
 
 
-def int_arg(value: Any, default: int) -> int:
+def int_arg(args: dict[str, Any], name: str, default: int) -> int:
+    """A whole number as sent or as a model wrote it in a string; `default` when the argument
+    is left out or is no number at all. Infinity and NaN, which JSON lets through, are refused:
+    a number was meant, and no version or line is that one."""
+    value = args.get(name)
+    if isinstance(value, float) and not math.isfinite(value):
+        raise ToolError(ARTIFACT_ARG_NUMBER.format(name=name))
     try:
         return int(value)
     except (TypeError, ValueError):

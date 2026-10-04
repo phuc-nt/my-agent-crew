@@ -73,6 +73,8 @@ IMPORT_BAD_PATH = (
     "`path` phải là một đường dẫn không rỗng, tối đa {limit} ký tự, không có ký tự điều khiển"
     " hay ký tự ẩn. Chưa làm gì."
 )
+# The web answers with this one too, when it reads a canvas's file again.
+IMPORT_NOT_READABLE = "Không có quyền đọc {path} nên không nhập được. Chưa nhập gì."
 EXPORT_TARGET_IS_LINK = (
     "{path} là một liên kết (symlink) nên không ghi đè lên. Chưa xuất gì: chọn đường dẫn khác."
 )

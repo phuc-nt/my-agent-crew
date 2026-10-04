@@ -35,7 +35,7 @@ async def run_read(agent: CanvasAgent, args: dict[str, Any]) -> str:
     artifact_id = text_arg(args, "id")
     agent.reach(conv, artifact_id)
     canvases = agent.store.artifacts
-    number = int_arg(args.get("version"), 0)
+    number = int_arg(args, "version", 0)
     with canvas_errors(artifact_id):
         summary = canvases.get(artifact_id)
         doc = canvases.head(artifact_id) if number <= 0 else canvases.version(artifact_id, number)
@@ -43,13 +43,13 @@ async def run_read(agent: CanvasAgent, args: dict[str, Any]) -> str:
     if doc.content is None:
         raise ToolError(ARTIFACT_READ_BINARY.format(kind=summary.kind))
     lines = doc.content.split("\n")
-    first = max(int_arg(args.get("from_line"), 1), 1)
+    first = max(int_arg(args, "from_line", 1), 1)
     if first > len(lines):
         raise ToolError(ARTIFACT_READ_PAST_END.format(version=doc.version, total=len(lines)))
     authors = authors_line(history, agent.seen(conv, artifact_id), doc.version)
     page = _Page(summary, doc, lines)
     room = agent.limit - page.widest(authors) - CUT_MARK_ROOM
-    body, upto, cut = _fill(lines, first - 1, max(room, 1), int_arg(args.get("lines"), 0))
+    body, upto, cut = _fill(lines, first - 1, max(room, 1), int_arg(args, "lines", 0))
     start = sum(len(line) + 1 for line in lines[: first - 1])
     end = start + cut if cut else min(start + sum(len(line) + 1 for line in body), len(doc.content))
     agent.store.artifact_links.mark_read(

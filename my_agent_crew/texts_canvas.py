@@ -113,6 +113,7 @@ ARTIFACT_VERSION_CONFLICT = (
     " artifact_read rồi sửa bằng artifact_edit."
 )
 ARTIFACT_ARG_TEXT = "`{name}` cần là một chuỗi chữ. Chưa làm gì."
+ARTIFACT_ARG_NUMBER = "`{name}` cần là một số nguyên. Chưa làm gì."
 ARTIFACT_NO_CONVERSATION = "Canvas chỉ dùng được trong một cuộc trò chuyện. Chưa làm gì."
 ARTIFACT_REWRITE_UNSEEN = (
     "Bạn chưa đọc hết bản mới nhất của canvas này nên chưa viết lại được, chưa ghi gì. Sửa từng"
