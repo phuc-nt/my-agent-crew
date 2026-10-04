@@ -1074,6 +1074,8 @@ export const vi = {
       reimport: "Nhập lại",
       reimporting: "Đang nhập…",
       open: (host: string) => `Mở nguồn (${host})`,
+      // What the link is called aloud: its own words, then where it opens, which nothing on the line shows.
+      openLabel: (host: string) => `Mở nguồn (${host}) (mở trong tab mới)`,
       changed: (version: number) => `Đã nhập lại thành v${version}. Bản trước ở Lịch sử.`,
       unchanged: "Tệp nguồn không đổi.",
       unsaved: "Chưa lưu được bản đang sửa nên chưa nhập lại.",

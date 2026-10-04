@@ -14,6 +14,10 @@ const JOINERS = new Set(["\u{200C}", "\u{200D}"]);
  *  separators U+001C to U+001F and U+0085, and takes in U+FEFF, which the server drops instead. */
 const SPACES = /[\t-\r\x1C-\x20\x85\xA0\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}]/gu;
 
+/** Whether nothing is left of `text` once the server has stripped it, as `str.strip` does. `trim`
+ *  is not asked: it strips by the other set, so it answers otherwise for a separator or a U+FEFF. */
+export const isBlank = (text: string): boolean => text.replace(SPACES, "") === "";
+
 /** Why a title cannot be kept. */
 export type TitleProblem = { problem: string };
 

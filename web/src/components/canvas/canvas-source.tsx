@@ -4,15 +4,16 @@
  * canvas made here has no source and shows no line.
  *
  * The source is text the server stored for an agent. It is read again here before anything is
- * drawn from it: only an http or https address becomes a link, named by the host it really leads
- * to, and a path shows the characters that hide or reorder text as marks.
+ * drawn from it: only an http or https address that leads off this app becomes a link, named by
+ * the host it leads to and by the tab it opens in, with the whole address on hover; and a path
+ * shows as marks the characters nobody would see in it.
  */
 
 import type { CanvasController } from "../../hooks/use-canvas";
 import { useCanvasReimport } from "../../hooks/use-canvas-reimport";
 import { vi } from "../../i18n/vi";
 import { parseSource } from "../../lib/canvas-source";
-import { showHiddenChars } from "../../lib/hidden-chars";
+import { showHiddenChars, showPathChars } from "../../lib/hidden-chars";
 
 type Props = {
   canvas: CanvasController;
@@ -30,14 +31,14 @@ export function CanvasSource({ canvas, artifactId, agentName, flush }: Props) {
   if (source.kind === "url") {
     return (
       <div className="canvas-source">
-        <a href={source.href} target="_blank" rel="noopener noreferrer">
+        <a href={source.href} title={source.href} aria-label={text.openLabel(source.host)} target="_blank" rel="noopener noreferrer">
           {text.open(source.host)}
         </a>
       </div>
     );
   }
   // The folder gives way on a narrow panel; the name of the file is the part that tells files apart.
-  const path = showHiddenChars(`${agentName(source.agentId)}/${source.path}`);
+  const path = `${showHiddenChars(agentName(source.agentId))}/${showPathChars(source.path)}`;
   const cut = path.lastIndexOf("/") + 1;
   return (
     <>

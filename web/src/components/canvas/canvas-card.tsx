@@ -3,7 +3,7 @@ import { vi } from "../../i18n/vi";
 import { type ArtifactTag, isArtifactId, parseArtifactTag } from "../../lib/artifact-tag";
 import { IMPORT, argument, importedFile, importsInto } from "../../lib/canvas-import-call";
 import { cleanTitle } from "../../lib/canvas-title";
-import { showHiddenChars } from "../../lib/hidden-chars";
+import { showHiddenChars, showPathChars } from "../../lib/hidden-chars";
 import type { ThreadItem } from "../../state/thread-reducer";
 import { Icon } from "../ui/icon";
 
@@ -39,14 +39,17 @@ function givenId(item: ToolItem): string | null {
 }
 
 /** The title a create or an import under way was given, as the server will keep it; an import
- *  given none goes by the name of its file. Only a call still running is titled this way: once it
- *  is done the thread knows the canvas by the title it was kept under. */
+ *  given none goes by the name of its file, with what nobody would see of that name written out.
+ *  Only a call still running is titled this way: once it is done the thread knows the canvas by
+ *  the title it was kept under. */
 function givenTitle(item: ToolItem): string | null {
   if (item.status !== "running") return null;
   const title = argument(item, "title");
   const makes = item.name === CREATE || item.name === IMPORT;
   const clean = makes && typeof title === "string" ? cleanTitle(title) : null;
-  return typeof clean === "string" ? clean : importedFile(item);
+  if (typeof clean === "string") return clean;
+  const file = importedFile(item);
+  return file === null ? null : showPathChars(file);
 }
 
 /** What a finished write did. An import that named its canvas read the file into it again. */

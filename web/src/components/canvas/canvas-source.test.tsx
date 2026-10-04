@@ -52,7 +52,19 @@ describe("where a canvas came from", () => {
     expect(again()).toHaveClass("ghost");
   });
 
-  it("shows a character that hides or reorders text in the path as a mark, on hover too", async () => {
+  it("shows what the server stores of a path and nobody would see as marks, on hover too", async () => {
+    // A space that is not the ordinary one, a filler, a selector, and a space at each end of a part:
+    // the server refuses none of them in a path, so each can reach this line.
+    backend.canvas.add({ content: "a", source: "workspace:ming/ghi chú\u{A0}/tuần\u{3164} 1 /plan\u{FE0F}.md " });
+    await openPanel();
+
+    expect(line()?.querySelector(".canvas-source-dir")?.textContent).toBe("Ming/ghi chú[U+00A0]/tuần[U+3164] 1[U+0020]/");
+    expect(line()?.querySelector(".canvas-source-file")?.textContent).toBe("plan[U+FE0F].md[U+0020]");
+    const whole = "Ming/ghi chú[U+00A0]/tuần[U+3164] 1[U+0020]/plan[U+FE0F].md[U+0020]";
+    expect(line()?.querySelector(".canvas-source-path")).toHaveAttribute("title", whole);
+  });
+
+  it("shows a character that hides or reorders text as a mark too, should a path ever hold one", async () => {
     backend.canvas.add({ content: "a", source: "workspace:ming/a\u{202E}b/c\u{200B}d.md" });
     await openPanel();
 
@@ -62,15 +74,36 @@ describe("where a canvas came from", () => {
   });
 
   it("links the page a canvas was taken from, in a tab that cannot reach back, and offers no re-import", async () => {
-    backend.canvas.add({ content: "a", source: "https://bank.example@example.com:8787/a?b=1" });
+    backend.canvas.add({ content: "a", source: "https://example.com:8787/a?b=1#c" });
     await openPanel();
 
-    const link = screen.getByRole("link", { name: source.open("example.com:8787") });
-    expect(link.textContent).toBe("Mở nguồn (example.com:8787)");
-    expect(link).toHaveAttribute("href", "https://bank.example@example.com:8787/a?b=1");
+    // Named by the host and by where it opens; the whole address shows on hover.
+    const link = screen.getByRole("link", { name: "Mở nguồn (example.com:8787) (mở trong tab mới)" });
+    expect(link).toHaveAttribute("href", "https://example.com:8787/a?b=1#c");
+    expect(link).toHaveAttribute("title", "https://example.com:8787/a?b=1#c");
     expect(link).toHaveAttribute("target", "_blank");
     expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    // The words that say where it opens are read out, and take no room on the line.
+    expect(link.textContent).toBe("Mở nguồn (example.com:8787)");
+    expect(link.childElementCount).toBe(0);
     expect(screen.queryByRole("button", { name: source.reimport })).toBeNull();
+  });
+
+  it("shows no line for a link that carries a login, names a host no label can hold, or leads to the app", async () => {
+    const sources = [
+      "https://bank.example@example.com:8787/a?b=1",
+      "https://ai:matkhau@example.com/a",
+      "http://good.example).evil.test/",
+      `${window.location.origin}/api/artifacts/a1/render`,
+    ];
+    for (const { id, source: from } of sources.map((from) => backend.canvas.add({ content: "a", source: from }))) {
+      const view = await openPanel({ artifactId: id });
+      expect(editor()?.value, from).toBe("a");
+      expect(line(), from).toBeNull();
+      expect(document.querySelector(".canvas-dock a, a[target]"), from).toBeNull();
+      expect(document.body.innerHTML, from).not.toContain("matkhau");
+      view.unmount();
+    }
   });
 
   it("shows nothing for a source that is neither, and links no script", async () => {

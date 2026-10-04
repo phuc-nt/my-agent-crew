@@ -1,5 +1,6 @@
 /* Where the canvas came from. On a narrow panel the folder gives way and the file's name stays:
-   the folder is the one part that may be cut, so it alone takes less than its words need. */
+   the folder alone takes less than its words need, down to nothing. A name wider than the row by
+   itself gets the whole row and is cut at its end, with an ellipsis to say that it was. */
 .canvas-source {
   display: flex;
   align-items: center;
@@ -16,6 +17,13 @@
 }
 
 .canvas-source-dir {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.canvas-source-file {
+  flex: none;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
 }

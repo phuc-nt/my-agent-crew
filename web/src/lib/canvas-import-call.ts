@@ -4,6 +4,8 @@
  * mapping has no arguments to read.
  */
 
+import { isBlank } from "./canvas-title";
+
 export const IMPORT = "artifact_import";
 
 type Call = { name: string; arguments: unknown };
@@ -18,12 +20,13 @@ export function argument(call: Pick<Call, "arguments">, key: string): unknown {
  *  canvas. The server takes an `id` sent blank for one left out, so a blank one names none here. */
 export function importsInto(call: Call): boolean {
   const id = argument(call, "id");
-  return call.name === IMPORT && typeof id === "string" && id.trim() !== "";
+  return call.name === IMPORT && typeof id === "string" && !isBlank(id);
 }
 
-/** The name of the file an import reads, the last part of its path; null when the call names none. */
+/** The name of the file an import reads, the last part of its path; null when the call names none.
+ *  A path blank as a whole names none, and the server refuses it; a part made of spaces is a name. */
 export function importedFile(call: Call): string | null {
   const path = argument(call, "path");
-  if (call.name !== IMPORT || typeof path !== "string") return null;
-  return path.split("/").findLast((part) => part.trim() !== "") ?? null;
+  if (call.name !== IMPORT || typeof path !== "string" || isBlank(path)) return null;
+  return path.split("/").findLast((part) => part !== "") ?? null;
 }

@@ -41,6 +41,14 @@ describe("opening the canvas a file was just read into", () => {
     expect(dock.open.mock.calls.map(([id]) => id)).toEqual([NOTE, SHOP, NOTE]);
   });
 
+  it("takes for blank an id the server strips to nothing, though trim would leave it", () => {
+    const { dock, draw } = mount();
+
+    draw([imported("c1", { id: "\u{1F}" }), imported("c2", { id: "\u{85}\u{1C}" }, { canvas: SHOP })]);
+
+    expect(dock.open.mock.calls.map(([id]) => id)).toEqual([NOTE, SHOP]);
+  });
+
   it("does not open a canvas the call named, which a file was read into again", () => {
     const { dock, draw } = mount();
 

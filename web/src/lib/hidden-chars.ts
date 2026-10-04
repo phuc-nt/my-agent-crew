@@ -8,12 +8,30 @@ export function hasHiddenChars(text: string): boolean {
   return new RegExp(HIDDEN).test(text);
 }
 
+/** A character written as its code point: a right-to-left override is "[U+202E]". */
+function asCode(char: string): string {
+  const code = char.codePointAt(0) ?? 0;
+  return `[U+${code.toString(16).toUpperCase().padStart(4, "0")}]`;
+}
+
 /** The text with each such character written as its code point: "a‮b" is "a[U+202E]b". */
 export function showHiddenChars(text: string): string {
-  return text.replace(new RegExp(HIDDEN, "g"), (char) => {
-    const code = char.codePointAt(0) ?? 0;
-    return `[U+${code.toString(16).toUpperCase().padStart(4, "0")}]`;
-  });
+  return text.replace(new RegExp(HIDDEN, "g"), asCode);
+}
+
+// A path names the file that is read, and the server stores more of one than a person can see
+// (`check_path` in `my_agent_crew/tools/artifact_source_ref.py` refuses only control and format
+// characters): what draws as nothing by default, a code point that means what a font says it
+// does, the blank a braille cell draws, and every space that is not the ordinary one.
+const BLANK = /[\p{Default_Ignorable_Code_Point}\p{Co}\u2800]|(?! )\p{Zs}/gu;
+/** The spaces a part of a path opens or ends with: beside a slash nobody sees those either. */
+const EDGE = /^ +| +$/g;
+
+/** A path with each character nobody would see in it written as its code point, so two files
+ *  whose names draw alike read apart: "notes/plan.md " is "notes/plan.md[U+0020]". */
+export function showPathChars(path: string): string {
+  const shown = (part: string) => part.replace(EDGE, (spaces) => asCode(" ").repeat(spaces.length)).replace(BLANK, asCode);
+  return path.split("/").map(shown).join("/");
 }
 
 /** The slice of a markdown tree the plugin below touches. */

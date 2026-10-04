@@ -28,6 +28,17 @@ describe("whether an import reads into a canvas that exists", () => {
     }
   });
 
+  it("reads a blank as Python's strip does, which is not what trim strips", () => {
+    // The separators U+001C to U+001F and U+0085 are spaces to the server and none to `trim`.
+    for (const id of ["\u{1F}", "\u{1C}\u{1D}\u{1E}", "\u{85}", " \u{A0}\u{3000}\u{2028}\t"]) {
+      expect(importsInto(call({ path: "a.md", id })), JSON.stringify(id)).toBe(false);
+    }
+    // U+FEFF is a space to `trim` and a character to the server, which then looks for that canvas.
+    for (const id of ["\u{FEFF}", "\u{200B}", " \u{FEFF} "]) {
+      expect(importsInto(call({ path: "a.md", id })), JSON.stringify(id)).toBe(true);
+    }
+  });
+
   it("does not for an id that is no text, nor for arguments that are no mapping", () => {
     expect(importsInto(call({ path: "a.md", id: 12 }))).toBe(false);
     expect(importsInto(call("id=0123456789ab"))).toBe(false);
@@ -52,6 +63,20 @@ describe("the file an import reads", () => {
     for (const args of [{}, { path: "" }, { path: " " }, { path: "//" }, { path: 4 }, "path=a.md"]) {
       expect(importedFile(call(args)), JSON.stringify(args)).toBeNull();
     }
+  });
+
+  it("has no name when the path is blank as the server reads a blank, which refuses it", () => {
+    for (const path of ["\u{1F}", " \n\u{85}", "\u{A0}\u{3000}", "\t "]) {
+      expect(importedFile(call({ path })), JSON.stringify(path)).toBeNull();
+    }
+  });
+
+  it("is a part made of spaces when that is the last one: the server reads the file of that name", () => {
+    expect(importedFile(call({ path: "notes/ " }))).toBe(" ");
+    expect(importedFile(call({ path: "notes/\u{A0}" }))).toBe("\u{A0}");
+    expect(importedFile(call({ path: "notes/plan.md " }))).toBe("plan.md ");
+    expect(importedFile(call({ path: " /a.md/" }))).toBe("a.md");
+    expect(importedFile(call({ path: "\u{FEFF}" }))).toBe("\u{FEFF}");
   });
 
   it("is asked of imports only", () => {

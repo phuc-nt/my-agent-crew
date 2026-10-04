@@ -60,8 +60,8 @@ describe("a file read into a canvas, in the thread", () => {
     expect(line()).toBe("Đã nhập lại · v4");
   });
 
-  it("takes an id sent blank, or as anything but text, as none", () => {
-    for (const id of ["", "   ", null, 7]) {
+  it("takes an id sent blank as the server reads a blank, or as anything but text, as none", () => {
+    for (const id of ["", "   ", "\u{1F}", "\u{85}", null, 7]) {
       const view = shown(imported({ arguments: { path: "thuc-don.md", id }, output: tag(1) }));
       expect(line(), JSON.stringify(id)).toBe(card.version(card.imported, 1));
       view.unmount();
@@ -113,6 +113,31 @@ describe("the title of a file being read into a canvas", () => {
     shown(imported({ status: "running", arguments: { path: "notes/a\u{202E}b.md" } }));
 
     expect(title()).toBe("a[U+202E]b.md");
+  });
+
+  it("shows what the server stores of a name and nobody would see as marks", () => {
+    const names: [string, string][] = [
+      ["notes/plan.md ", "plan.md[U+0020]"],
+      ["notes/ plan.md", "[U+0020]plan.md"],
+      ["notes/pl\u{034F}an.md", "pl[U+034F]an.md"],
+      ["notes/plan\u{FE0F}.md", "plan[U+FE0F].md"],
+      ["notes/plan.md\u{3164}", "plan.md[U+3164]"],
+      ["notes/\u{3164}", "[U+3164]"],
+      ["notes/\u{A0}", "[U+00A0]"],
+      ["notes/ ", "[U+0020]"],
+      ["notes/\u{E000} 9.41\u{202F}AM.png", "[U+E000] 9.41[U+202F]AM.png"],
+    ];
+    for (const [path, name] of names) {
+      const view = shown(imported({ status: "running", arguments: { path } }));
+      expect(title(), JSON.stringify(path)).toBe(name);
+      view.unmount();
+    }
+  });
+
+  it("keeps the spaces inside a title the call gives, which the server keeps as one line", () => {
+    shown(imported({ status: "running", arguments: { path: "notes/a.md ", title: " Thực đơn \u{A0} tuần " } }));
+
+    expect(title()).toBe("Thực đơn tuần");
   });
 
   it("is only called a canvas when the call names no file either", () => {

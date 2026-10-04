@@ -10,6 +10,8 @@ type Write = { method: string; path: string; body: unknown };
 const { source } = vi.canvas;
 const FILE = "workspace:default/notes/thuc-don.md";
 const DEEP = "workspace:default/ghi chú của cả nhà/tuần này và tuần sau nữa/bữa sáng trưa tối/thuc-don.md";
+// Wider than a phone by itself, and told from the file beside it only by how it ends.
+const LONG_NAME = "thuc-don-ca-tuan-nay-va-tuan-sau-nua-cho-ca-nha-bua-sang-trua-toi-ban-nhap.md";
 const PAGE = "https://tin-tuc.example.com/bai-viet/thuc-don-ca-tuan?trang=2";
 // No dash in it: a line may break after one, and this name must not fit a phone on any one line.
 const LONG_HOST = "thucdoncatuannayvatuansaunuachocanhabuasangtruatoi.tintucamthucmoingaychomoinguoi.example.com";
@@ -73,6 +75,21 @@ const laidOut = (page: Page) =>
     };
   });
 
+/** How the file's name sits in the room the path has: whether it was cut, how the cut is drawn,
+ *  how far it runs past the path's end, and the width left to the folder before it. */
+const nameCut = (page: Page) =>
+  line(page).evaluate((row) => {
+    const [dir, file] = [".canvas-source-dir", ".canvas-source-file"].map((part) => row.querySelector(part) as HTMLElement);
+    const path = (file.parentElement as Element).getBoundingClientRect();
+    return {
+      cut: file.scrollWidth > file.clientWidth,
+      drawn: getComputedStyle(file).textOverflow,
+      past: file.getBoundingClientRect().right - path.right,
+      share: file.getBoundingClientRect().width / path.width,
+      folder: dir.getBoundingClientRect().width,
+    };
+  });
+
 /** How far the middle of the link's words is from the middle of the link. */
 const offCentre = (page: Page) =>
   line(page)
@@ -127,8 +144,11 @@ test.describe("a canvas read from a workspace file, beside a wide conversation",
   test("links the page a canvas was taken from, named by its host, in a tab that cannot reach back", async ({ page }) => {
     await openImported(page, PAGE);
 
-    const link = page.getByRole("link", { name: source.open("tin-tuc.example.com") });
+    // Called by its words and by where it opens; the line shows the words, hovering the whole address.
+    const link = page.getByRole("link", { name: "Mở nguồn (tin-tuc.example.com) (mở trong tab mới)", exact: true });
+    await expect(link).toHaveText(source.open("tin-tuc.example.com"));
     await expect(link).toHaveAttribute("href", PAGE);
+    await expect(link).toHaveAttribute("title", PAGE);
     await expect(link).toHaveAttribute("target", "_blank");
     await expect(link).toHaveAttribute("rel", "noopener noreferrer");
     await expect(again(page)).toHaveCount(0);
@@ -145,6 +165,9 @@ test.describe("where a canvas came from, on a phone", () => {
     await expect(page.locator(".canvas-source-file")).toBeInViewport({ ratio: 1 });
     await expect(again(page)).toBeInViewport({ ratio: 1 });
     expect(await page.locator(".canvas-source-dir").evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
+    // The folder gives up its room before the name gives any: the name is whole, to its last letter.
+    expect(await nameCut(page)).toMatchObject({ cut: false });
+    expect((await nameCut(page)).folder).toBeGreaterThan(0);
     expect(await height(page, ".canvas-source > button")).toBeGreaterThanOrEqual(40);
     // One row: the label, the name and the button share a middle, with room between the parts.
     const row = await laidOut(page);
@@ -157,6 +180,26 @@ test.describe("where a canvas came from, on a phone", () => {
     await again(page).tap();
     await expect(page.locator(".canvas-notice[role=status]")).toHaveText(source.changed(2));
     await expect(shown(page)).toHaveText("Sáng: bún");
+    expect(await smallTargets(page, ".canvas-dock")).toEqual([]);
+    expect(await overflowing(page)).toEqual([]);
+  });
+
+  test("cuts a name too long for the width with an ellipsis, and nothing runs past the row", async ({ page }) => {
+    await openImported(page, `workspace:default/notes/tuần này/${LONG_NAME}`, "Sáng: bún\n");
+
+    // The whole name is in the page and on hover; the row draws what fits, and says it was cut.
+    await expect(page.locator(".canvas-source-file")).toHaveText(LONG_NAME);
+    await expect(page.locator(".canvas-source-path")).toHaveAttribute("title", `Agent/notes/tuần này/${LONG_NAME}`);
+    const name = await nameCut(page);
+    expect(name).toMatchObject({ cut: true, drawn: "ellipsis", folder: 0 });
+    expect(name.past).toBeLessThanOrEqual(0.5);
+    // The name takes the room the folder gave up, all of it.
+    expect(name.share).toBeGreaterThan(0.99);
+    await expect(again(page)).toBeInViewport({ ratio: 1 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    const row = await laidOut(page);
+    expect(Math.max(...row.middles) - Math.min(...row.middles)).toBeLessThanOrEqual(1);
+    for (const gap of row.gaps) expect(gap).toBeGreaterThanOrEqual(4);
     expect(await smallTargets(page, ".canvas-dock")).toEqual([]);
     expect(await overflowing(page)).toEqual([]);
   });
