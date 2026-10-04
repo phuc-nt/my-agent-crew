@@ -1384,6 +1384,29 @@ tên một test thì sửa dòng của nó trong cùng commit.
     tệp cũng một dòng, `artifact_rewrite` sau đó vẫn bị từ chối);
     `tests/test_api_artifact_pictures.py`
     ("test_saving_text_onto_a_picture_canvas_is_422_and_the_picture_stays")
+- **Canvas: những canvas agent đã ghi trong một cuộc trò chuyện (tầng lưu trữ)**
+  - pytest: `tests/test_artifact_store_written_in.py`
+    ("test_a_canvas_the_agent_began_and_one_it_only_changed_are_both_listed": `written_in` nêu cả
+    canvas agent tạo lẫn canvas có sẵn mà agent chỉ sửa, kèm tiêu đề hiện tại, và cuộc trò chuyện
+    gốc không có dòng nào,
+    "test_each_conversation_lists_what_was_written_in_it_alone": canvas được ghi ở hai cuộc trò
+    chuyện thì mỗi bên nêu phiên bản lớn nhất ghi ở bên đó, không phải bản mới nhất của canvas,
+    "test_what_a_person_saved_in_the_conversation_is_not_the_agents_writing": bản người lưu trong
+    cùng cuộc trò chuyện bị bỏ, canvas chỉ có bản của người không có dòng, phiên bản nêu là bản
+    lớn nhất agent ghi dù người đã sửa sau,
+    "test_a_deleted_canvas_is_no_longer_listed",
+    "test_canvases_come_in_the_order_each_was_first_written_within_one_second": cùng một giây vẫn
+    xếp theo lần ghi đầu, không theo mã, tiêu đề hay lần ghi mới nhất,
+    "test_a_file_the_agent_imports_is_its_writing_as_a_new_canvas_or_a_new_version": bản agent
+    nhập bằng `artifact_import` được tính, canvas mới lẫn phiên bản mới,
+    "test_carrying_a_canvas_to_or_from_a_file_unchanged_writes_nothing": xuất, nhập không đổi và
+    ghi nguồn không thêm phiên bản nên không sinh dòng nào,
+    "test_a_file_the_person_reads_again_on_the_web_is_not_the_agents_writing": "Nhập lại" trên
+    web là bản của người, không thuộc cuộc trò chuyện nào);
+    `tests/test_artifact_store_usage.py`
+    ("test_the_canvases_are_counted_with_the_stores_lock_held": `sizes` và `written_in` chạy câu
+    truy vấn khi đang giữ khoá của store, nên không đếm phiên bản của một lần ghi còn dang dở,
+    "test_a_canvas_named_as_written_cannot_be_changed_by_its_reader")
 - **Canvas: số phiên bản mà SQLite không chứa nổi là một phiên bản không có, không phải lỗi 500**
   - pytest: `tests/test_artifact_version_range.py`
     ("test_a_version_number_at_or_beyond_the_64_bit_edge_is_gone_and_names_the_newest": mọi số từ
