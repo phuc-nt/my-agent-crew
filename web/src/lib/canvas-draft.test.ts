@@ -345,6 +345,25 @@ describe("a draft the browser refuses again and again", () => {
     expect(askedToStay()).toBe(false);
   });
 
+  it("is tried again once the version it was edited from is shorter, its own text no shorter", () => {
+    fullWithOthers();
+    const text = "x".repeat(500);
+    expect(writeDraft(draft("a9", { base: "b".repeat(5000), text }))).toBe(false);
+
+    expect(writeDraft(draft("a9", { base: "b".repeat(100), text }))).toBe(true);
+    expect(store.get("canvas-draft:a9")).toContain(text);
+  });
+
+  it("is tried again at the size refused once a smaller one was kept: the refusal is the last word no more", () => {
+    fullWithOthers();
+    writeDraft(big("a9", 5000));
+    expect(writeDraft(big("a9", 1000))).toBe(true);
+    limitedStorage(store, 50_000);
+
+    expect(writeDraft(big("a9", 5000))).toBe(true);
+    expect(store.get("canvas-draft:a9")).toContain("x".repeat(5000));
+  });
+
   it("is tried again after a stored draft was cleared, which may have made room", () => {
     fullWithOthers();
     writeDraft(big("a9", 5000));

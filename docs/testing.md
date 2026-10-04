@@ -1831,8 +1831,11 @@ tên một test thì sửa dòng của nó trong cùng commit.
     hay khi không còn gì để giữ (trình duyệt chặn lưu trữ không biến việc đó thành lỗi), `clearDraft`
     xoá từng bản theo chữ của chính bản đó, trang hỏi trước khi đóng tới khi nháp cuối cùng đi; nhóm "a
     draft the browser refuses again and again": mười lần dừng gõ chỉ hỏi trình duyệt một lần và nháp
-    của canvas khác chỉ bị lấy ra rồi đặt lại một lần, thử lại khi nháp nhẹ hơn hay khi một nháp đã
-    lưu bị xoá, xoá nháp chỉ có ở tab thì không thử lại, không cản nháp của canvas khác, trình duyệt
+    của canvas khác chỉ bị lấy ra rồi đặt lại một lần, thử lại khi nháp nhẹ hơn (chữ ngắn hơn, hay
+    bản gốc ngắn hơn mà chữ vẫn dài như cũ: "is tried again once the version it was edited from is
+    shorter, its own text no shorter") hay khi một nháp đã lưu bị xoá, một nháp nhẹ hơn đã được giữ thì
+    cỡ từng bị từ chối cũng được thử lại ("is tried again at the size refused once a smaller one was
+    kept"), xoá nháp chỉ có ở tab thì không thử lại, không cản nháp của canvas khác, trình duyệt
     chặn hẳn lưu trữ thì không bị nhớ, và `console.error` khi nháp lấy ra không đặt lại được);
     `web/src/lib/local-store.test.ts` (liệt kê khoá theo tiền tố, lần ghi báo có được giữ không khi
     trình duyệt từ chối hay hết quota)
@@ -1840,8 +1843,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
   - vitest, cả App trên `FakeCanvas` với trình duyệt chặn lưu trữ: `web/src/app-canvas-tab-draft.test.tsx`
     (chữ gõ còn nguyên khi mở lại canvas sau lần đóng mà cả hai lần lưu đều 500, sau lần đóng mà lần
     lưu để lại gặp 409 của người khác, và sau khi đổi cuộc trò chuyện; lần lưu kế gửi đúng chữ đó;
-    trang hỏi trước khi đóng suốt lúc ấy, thôi hỏi khi một bản đã giữ chữ hay canvas bị xoá, và không
-    hỏi gì khi lần lưu để lại hạ cánh)
+    trang hỏi trước khi đóng suốt lúc ấy, thôi hỏi khi một bản đã giữ chữ hay canvas bị xoá, vẫn hỏi
+    và vẫn giữ chữ khi người khác chỉ lưu thêm một bản của canvas ("is still asked about when someone
+    else only saves its canvas anew, and is there on the way back"), và không hỏi gì khi lần lưu để
+    lại hạ cánh)
 - **Canvas trên web: canvas đang mở lưu 1,5 giây sau phím cuối, rời đi vẫn lưu nốt, keepalive chỉ khi
   vừa trần**
   - vitest, hook trên `FakeCanvas` với đồng hồ giả: `web/src/hooks/use-canvas.test.ts` ("saves once,

@@ -133,6 +133,21 @@ describe("text typed into a canvas where the browser refuses to keep drafts", ()
     expect(askedToStay()).toBe(false);
   });
 
+  it("is still asked about when someone else only saves its canvas anew, and is there on the way back", async () => {
+    await typed();
+    backend.canvas.refuseNext("PUT", 500);
+    fireEvent.click(conversation("Hai"));
+    await settle();
+
+    act(() => void backend.canvas.write("a1", "chữ của người khác"));
+
+    expect(askedToStay()).toBe(true);
+    fireEvent.click(conversation("Một"));
+    await settle();
+    await openNote();
+    expect(editor()).toHaveValue(TYPED);
+  });
+
   it("is not asked about when the save handed off lands", async () => {
     await typed();
 
