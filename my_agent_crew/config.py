@@ -77,8 +77,9 @@ class Settings:
     shell_network: bool = True
     shell_write_paths: tuple[str, ...] = ()
     shell_deny_patterns: tuple[str, ...] = ()
-    # Where `workspace_write` and `workspace_edit` may write, inside the workspace. Empty
-    # means anywhere in it; set, a guessed path cannot scatter files through a repo.
+    # Where `workspace_write`, `workspace_edit` and `artifact_export` may write, inside the
+    # workspace. Empty means anywhere in it; set, a guessed path cannot scatter files
+    # through a repo.
     write_paths: tuple[str, ...] = ()
 
     @property

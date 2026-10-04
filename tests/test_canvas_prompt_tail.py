@@ -4,6 +4,8 @@ the same tools and the same prompt up to that tail, so the cached prefix is shar
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from my_agent_crew.agent.loop import run_turn
 from my_agent_crew.agent.prompt import system_prompt_for
 from my_agent_crew.agent.prompt_frame import today_line
@@ -18,11 +20,11 @@ from my_agent_crew.texts_canvas import (
     CANVAS_CLOSED_TITLE,
 )
 from my_agent_crew.tools.artifact_scope import CANVAS_WRITE_TOOLS
-from tests.canvas_helpers import call, persons_canvas, turn
+from tests.canvas_helpers import call, persons_canvas, put, turn
 from tests.conftest import collect
 from tests.test_canvas_payload_trim import canvas_tools
 
-ALL_WRITES = "artifact_create, artifact_edit, artifact_rewrite"
+ALL_WRITES = "artifact_create, artifact_edit, artifact_rewrite, artifact_import"
 
 
 def note(tools: str = ALL_WRITES) -> str:
@@ -35,12 +37,13 @@ async def _first_request(deps, conv_id: str, source: str, depth: int = 0):
 
 
 async def test_a_turn_that_cannot_write_a_canvas_is_told_so_with_the_same_tools(
-    deps_factory, store: Store
+    deps_factory, store: Store, tmp_path: Path
 ):
     """Telegram, a job, the inbound API and a child whose chain began on Telegram hear it,
     after the day's notes and right before the date, so a turn on any channel shares the
     prefix up to there; the web chat and a child of it do not."""
-    deps = deps_factory(script=[completion("được")] * 6, extra_tools=canvas_tools(store))
+    tools = canvas_tools(store, tmp_path)
+    deps = deps_factory(script=[completion("được")] * 6, extra_tools=tools)
     note_path = daily_note_path(deps.agent.memory_dir, deps.settings.today())
     note_path.write_text("- đã chốt lịch chạy sáng thứ bảy\n")
     chat = await _first_request(deps, store.create().id, CHAT)
@@ -59,13 +62,18 @@ async def test_a_turn_that_cannot_write_a_canvas_is_told_so_with_the_same_tools(
         assert (note() in request.messages[0].content) is closed, root_source
 
 
-async def test_the_note_names_only_the_canvas_writes_the_agent_holds(deps_factory, store: Store):
-    """An agent that only reads canvases has nothing to be warned off."""
+async def test_the_note_names_only_the_canvas_writes_the_agent_holds(
+    deps_factory, store: Store, tmp_path: Path
+):
+    """An agent that only reads canvases, or only carries them out to a file, has nothing to
+    be warned off."""
     for held, expected in (
         ({"artifact_edit", "artifact_read"}, "artifact_edit"),
+        ({"artifact_import", "artifact_export"}, "artifact_import"),
+        ({"artifact_export", "artifact_read"}, None),
         ({"artifact_list"}, None),
     ):
-        tools = [tool for tool in canvas_tools(store) if tool.name in held]
+        tools = [tool for tool in canvas_tools(store, tmp_path) if tool.name in held]
         deps = deps_factory(script=[completion("được")], extra_tools=tools)
         request = await _first_request(deps, store.create().id, TELEGRAM)
         system = request.messages[0].content
@@ -85,25 +93,33 @@ def test_the_standing_prompt_has_no_canvas_note(deps_factory, store: Store):
         set_turn_source(CHAT)
 
 
-async def test_the_note_lists_exactly_the_tools_a_closed_channel_refuses(store: Store):
+async def test_the_note_lists_exactly_the_tools_a_closed_channel_refuses(
+    store: Store, tmp_path: Path
+):
     """A canvas tool added later is either refused on Telegram and named in the note, or
-    allowed there and left out of it; a tool with no arguments here fails the test."""
+    allowed there and left out of it; a tool with no arguments here fails the test. A file
+    comes in as a canvas only where a canvas can be written; one goes out on any channel."""
     conv = turn(store, source=TELEGRAM)
     art = persons_canvas(store, "một\nhai", conv.id)
+    put(tmp_path, "notes/a.md", "# Tuần\n")
     arguments = {
         "artifact_create": {"title": "Kế hoạch", "kind": "markdown", "content": "# Tuần"},
         "artifact_list": {},
         "artifact_read": {"id": art},
         "artifact_edit": {"id": art, "old": "một", "new": "ba"},
         "artifact_rewrite": {"id": art, "content": "mới"},
+        "artifact_import": {"path": "notes/a.md"},
+        "artifact_export": {"id": art, "path": "out/a.md"},
     }
-    assert set(arguments) == {tool.name for tool in canvas_tools(store)}
+    assert set(arguments) == {tool.name for tool in canvas_tools(store, tmp_path)}
     refused = set()
     for name, args in arguments.items():
-        result = await call(store, name, args)
+        result = await call(store, name, args, root=tmp_path)
         if result.output == TOOL_FAILED.format(error=ARTIFACT_CHANNEL_CLOSED):
             refused.add(name)
         else:
             assert result.ok, (name, result.output)
     assert refused == set(CANVAS_WRITE_TOOLS)
     assert ", ".join(CANVAS_WRITE_TOOLS) == ALL_WRITES
+    assert (tmp_path / "out" / "a.md").read_text(encoding="utf-8") == "một\nhai"
+    assert [canvas.id for canvas in store.artifacts.list(limit=10)] == [art]

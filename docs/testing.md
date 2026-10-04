@@ -1421,8 +1421,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     một chỗ tính cỡ UTF-8 cho nội dung, tiêu đề và `new` của lần sửa, nên không đường ghi nào cần
     kiểm riêng; hai hàng của `tests/test_artifact_errors.py` và `tests/test_artifact_scope.py` ghim
     chỗ bảng 422 và `canvas_errors` nhận ra `UnstorableText`
-- **Canvas: năm tool để agent tạo, liệt kê, đọc, sửa và viết lại canvas**
-  - pytest: `tests/test_artifact_tools.py` (năm tool, không tool nào hỏi duyệt, mô tả đưa tài
+- **Canvas: bảy tool của agent, trong đó năm tool để tạo, liệt kê, đọc, sửa và viết lại canvas**
+  - pytest: `tests/test_artifact_tools.py` (`build_artifact_tools` trả năm tool, không tool nào
+    hỏi duyệt; hai tool mang tệp vào và ra nằm ở mục nhập, xuất bên dưới; mô tả đưa tài
     liệu người sẽ sửa dần vào canvas dù chỉ vài dòng và nói cách thêm chữ bằng một lần sửa, tạo lưu canvas
     dưới tên agent và không trả lại nội dung, con được giao việc chia sẻ canvas nó tạo với gốc,
     loại agent không ghi được (ảnh) bị từ chối, enum của tool là năm loại chữ, tạo html, svg hay
@@ -1471,10 +1472,87 @@ tên một test thì sửa dòng của nó trong cùng commit.
     ("test_a_canvas_deleted_before_an_unchanged_write_renames_it_reads_as_not_found": canvas bị
     xoá giữa lần ghi không đổi gì và lần đổi tiêu đề đi kèm thì `artifact_edit` lẫn
     `artifact_rewrite` trả đúng câu không tìm thấy canvas chứ không phải "tool lỗi");
-    `tests/test_canvas_tool_wiring.py` (agent không có allow-list, master hay không, nhận đủ năm
-    tool theo thứ tự, "test_an_allow_list_keeps_out_the_canvas_tools_it_does_not_name", master
+    `tests/test_canvas_tool_wiring.py`
+    ("test_an_agent_with_no_allow_list_gets_the_seven_canvas_tools": agent không có allow-list,
+    master hay không, nhận đủ bảy tool theo thứ tự, năm tool cũ rồi `artifact_import`,
+    `artifact_export`, và chỉ `artifact_export` hỏi duyệt,
+    "test_an_allow_list_keeps_out_the_canvas_tools_it_does_not_name", master
     liệt kê mọi canvas theo giờ của chủ còn agent khác thì không, trang đọc vừa trần đầu ra của
     chính agent)
+- **Canvas: tệp trong workspace vào canvas bằng `artifact_import`, canvas ra tệp bằng
+  `artifact_export`, chữ không đi qua model**
+  - pytest: `tests/test_artifact_source.py` (đọc tệp nguồn: chữ về đúng dạng kho sẽ giữ, bỏ BOM,
+    xuống dòng LF, mã băm của đúng chữ đó, ảnh về nguyên từng byte, đường dẫn thoát workspace
+    bằng `..`, bằng đường dẫn tuyệt đối hay `~người-không-có` bị từ chối, đường dẫn tuyệt đối
+    trong workspace và symlink người đặt trong workspace thì đọc được như `workspace_read`, tệp
+    không có là không tìm thấy, thư mục bị từ chối,
+    "test_a_pipe_is_refused_without_waiting_for_a_writer": FIFO bị từ chối ngay vì tệp được mở
+    không chặn, test giữ thời hạn và tự mở đầu ghi ở `finally` nên không treo được,
+    "test_a_device_behind_a_link_is_refused",
+    "test_a_file_over_the_cap_is_refused_before_a_byte_is_read",
+    "test_a_file_that_grew_after_it_was_measured_is_refused_one_byte_past_the_cap": đọc nhiều
+    nhất trần cộng một byte, tệp đúng bằng trần thì đọc trọn,
+    "test_bytes_that_are_not_utf8_text_are_refused_rather_than_patched": byte hỏng hay byte NUL
+    không bị thay bằng ký tự thế chỗ, byte không mở đầu như ảnh nào thì canvas ảnh từ chối);
+    `tests/test_artifact_source_kinds.py` (đuôi cuối cùng định loại, không kể hoa thường, đuôi lạ
+    bị từ chối kèm lời dặn truyền `kind`, code lấy ngôn ngữ theo đuôi và để trống khi không biết);
+    `tests/test_artifact_source_ref.py` (đường dẫn có ký tự điều khiển, ký tự đổi chiều chữ,
+    U+2028, quá 1.024 ký tự hay rỗng bị từ chối, đường dẫn thường đi qua nguyên vẹn,
+    "test_a_source_names_the_agent_and_the_path_under_its_workspace": `source_for` và
+    `parse_source` đi vòng đúng, tách ở dấu `/` đầu tiên, nguồn tính từ gốc workspace chứ không từ
+    gốc máy, "test_a_source_is_never_built_from_a_name_that_hides_something": tên thật trên đĩa
+    cũng được kiểm, URL và chuỗi rỗng parse ra không có gì, `web_url` chỉ nhận http và https có
+    host, không khoảng trắng, không quá 2.000 ký tự,
+    "test_each_file_a_page_points_at_is_counted_once_and_a_link_that_loads_none_is_not");
+    `tests/test_artifact_import.py`
+    ("test_a_file_becomes_a_canvas_that_remembers_where_it_came_from": canvas có `source`, tác giả
+    `agent:<id>`, cuộc trò chuyện đã thấy bản 1, kết quả là thẻ, tên tệp, cỡ, 12 ký tự mã băm và
+    dòng nguồn, không có đường dẫn của máy, con chia sẻ canvas nó nhập với gốc của chuỗi, tiêu đề
+    mặc định lấy tên tệp, trang `index` lấy tên thư mục chứa nó, tên dài được ghép dấu trước rồi
+    mới cắt ở 200 ký tự, `title` trắng tính như không gửi,
+    "test_the_result_tells_of_a_page_without_a_word_the_file_holds": chuỗi đánh dấu trong chữ,
+    trong `src=` và trong `href=` của tệp đều không xuất hiện ở kết quả, các tệp trang trỏ tới chỉ
+    được đếm, cảnh báo đó chỉ có với html và svg, `kind` gửi kèm thắng đuôi tệp và code lấy ngôn
+    ngữ theo đuôi, đối số tuỳ chọn gửi trắng tính như bỏ trống, ảnh vào nguyên từng byte và dòng
+    nguồn không mời đọc, `source_url` được giữ làm nguồn,
+    "test_an_absolute_path_inside_the_workspace_is_stored_relative_to_it");
+    `tests/test_artifact_import_guards.py`
+    ("test_a_turn_on_a_channel_with_no_canvas_is_refused_before_the_file_is_read": lượt Telegram,
+    job hay API bị từ chối, tệp không được đọc, không canvas nào được tạo,
+    "test_a_turn_that_made_its_share_of_canvases_imports_no_more" và
+    "test_a_turn_that_wrote_its_share_of_one_canvas_imports_into_it_no_more": lần thứ 31 bị từ
+    chối mà không đọc tệp, `kind` lạ, URL xấu, đường dẫn giấu ký tự hay chỉ có khoảng trắng bị từ
+    chối trước khi đọc, tệp không đọc được thì không tạo canvas và không trừ ngân sách, tệp không
+    đổi được loại của canvas đã có, canvas ngoài tầm trả lời như canvas không tồn tại kể cả khi
+    `kind` gửi kèm lệch); `tests/test_artifact_import_replace.py`
+    ("test_a_file_replaces_the_newest_version_the_conversation_has_seen": bản mới của agent mang
+    ghi chú `import`, seen lên bản mới, `language` gửi kèm không đổi gì,
+    "test_a_file_that_changes_nothing_adds_no_version_and_opens_no_gate": thẻ có `unchanged`,
+    không trừ ngân sách, seen đứng yên, `title` mới vẫn đổi tên, nguồn đổi thì được ghi lại bằng
+    một dòng, canvas ảnh chỉ thêm bản khi byte khác,
+    "test_a_file_does_not_go_over_versions_the_conversation_has_not_seen": lời từ chối nêu ai
+    viết các bản đó và không ghi, không đếm, không đánh dấu đã thấy gì,
+    "test_replace_goes_over_unseen_versions_and_leaves_them_unseen": `replace: true` ghi đè, nêu
+    bản của ai bị thay và rằng chúng còn trong lịch sử, seen đứng yên nên ghi chú lượt sau vẫn kể
+    các bản đó, "test_a_change_made_while_the_file_was_read_is_not_written_over": bản mới nhất
+    được tra sau khi đã có tệp trong tay); `tests/test_artifact_export.py`
+    ("test_the_two_file_tools_come_together_and_only_the_export_asks_first",
+    "test_text_goes_out_as_utf8_and_the_canvas_stays_as_it_was": kết quả không mở đầu bằng thẻ,
+    chỉ nói đã thay tệp khi tệp có sẵn, canvas không thêm bản và lượt không bị trừ ngân sách, ảnh
+    ra nguyên từng byte, canvas html ra `x.html` vẫn là `x.html` và đường dẫn tuyệt đối được gọi
+    lại từ gốc workspace, tham số `version` và bản không còn, canvas ngoài tầm thì không tạo tệp,
+    "test_an_export_makes_nothing_seen_so_an_unread_canvas_still_cannot_be_rewritten");
+    `tests/test_artifact_export_paths.py` (thoát workspace bằng `..`, bằng đường dẫn tuyệt đối
+    hay `~người-không-có`, đích là thư mục, đường dẫn giấu ký tự hoặc rỗng đều bị từ chối và cây
+    thư mục không đổi, "test_an_agent_held_to_its_write_paths_exports_only_under_them",
+    "test_a_folder_linked_out_of_the_workspace_takes_no_export",
+    "test_a_folder_linked_out_of_the_write_paths_takes_no_export",
+    "test_a_link_is_never_written_through": đích là symlink, kể cả symlink trỏ tới chỗ chưa có,
+    bị từ chối và tệp nó trỏ tới không đổi,
+    "test_a_write_that_fails_leaves_the_old_file_whole_and_no_other_behind": `os.replace` ném
+    `OSError` thì tệp cũ nguyên vẹn, không sót tệp tạm, lời báo không có đường dẫn của máy,
+    "test_a_file_marked_read_only_is_not_replaced",
+    "test_a_new_file_gets_the_mode_of_any_written_file_and_an_old_one_keeps_its_own")
 - **Canvas: kênh nào ghi được, agent với tới canvas nào, một lượt ghi bao nhiêu, ai viết các bản
   chưa thấy**
   - pytest: `tests/test_artifact_scope.py`
@@ -1551,15 +1629,22 @@ tên một test thì sửa dòng của nó trong cùng commit.
     quả và mọi tin khác đi qua nguyên vẹn, đúng là object cũ, kết quả lạc hay `content` không phải
     chuỗi không làm hỏng lượt nào, ranh giới lượt nằm ở tin cuối cùng trước lượt, id dùng lại được ghép với kết quả theo sau nó, lời gọi của lượt này dưới id cũ không
     nhận kết quả của lời gọi trước, lượt bắt đầu ở chỗ run đang chạy bắt đầu hoặc sau tin cuối,
-    "test_every_canvas_tool_argument_that_carries_document_text_is_trimmed",
+    "test_a_file_carried_in_or_out_by_an_earlier_turn_passes_on_as_the_call_was_made": lời gọi
+    `artifact_import` và `artifact_export` của lượt trước đi qua nguyên vẹn, đúng là object cũ, dù
+    đường dẫn hay tiêu đề dài, vì chúng không mang chữ của tài liệu,
+    "test_every_canvas_tool_argument_that_carries_document_text_is_trimmed": xét cả bảy tool,
     "test_a_note_is_always_shorter_than_the_text_it_stands_for")
 - **Canvas: lượt không ghi được canvas được báo trước trong system prompt**
   - pytest: `tests/test_canvas_prompt_tail.py`
     ("test_a_turn_that_cannot_write_a_canvas_is_told_so_with_the_same_tools": Telegram, job, API và
     con có chuỗi bắt đầu từ Telegram nghe mục này, sau ghi chú ngày và ngay trước dòng ngày, cùng
     bộ tool; web chat và con của nó thì không,
-    "test_the_note_names_only_the_canvas_writes_the_agent_holds", prompt thường trực không có mục
-    này, "test_the_note_lists_exactly_the_tools_a_closed_channel_refuses")
+    "test_the_note_names_only_the_canvas_writes_the_agent_holds": agent chỉ có `artifact_import`
+    và `artifact_export` được nhắc đúng một tên `artifact_import`, agent chỉ xuất và đọc thì không
+    có mục này, prompt thường trực không có mục
+    này, "test_the_note_lists_exactly_the_tools_a_closed_channel_refuses": trên Telegram
+    `artifact_import` bị từ chối và có tên trong mục, `artifact_export` vẫn ghi được tệp và không
+    có tên)
 - **Canvas: ghi chú canvas báo agent những gì đã đổi từ lần nó nghe gần nhất, cùng canvas đang
   mở và đoạn người chọn trên web**
   - pytest: `tests/test_canvas_note.py` (hội thoại không có canvas không lưu ghi chú, canvas agent
@@ -1643,7 +1728,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "test_a_file_name_ends_in_the_extension_of_its_kind": markdown là `.md`, code theo ngôn ngữ, ngôn
     ngữ lạ là `.txt`, code `html`, canvas html và svg là `.html.txt`, `.svg.txt` để mở tệp tải về
     chỉ thấy chữ, không chạy script, mermaid là `.mmd`; ảnh lấy đuôi từ byte của nó và `.bin` khi
-    byte không cho đuôi nào, còn byte không bao giờ đổi tên của loại chữ)
+    byte không cho đuôi nào, còn byte không bao giờ đổi tên của loại chữ,
+    "test_an_extension_names_the_first_language_that_saves_under_it": bảng ngược
+    `LANGUAGE_BY_EXTENSION` phủ đúng các đuôi của `CODE_EXTENSIONS` và mỗi đuôi trả về ngôn ngữ
+    lưu ra chính đuôi đó)
 - **Canvas qua REST: trang chạy trong sandbox, không có đường nào ra ngoài**
   - pytest: `tests/test_artifact_render.py` (chính sách viết ra nguyên văn trong test nên đổi nó là
     đổi cả tệp này; `sandbox` chỉ có `allow-scripts`, không bao giờ `allow-same-origin`; chỉ

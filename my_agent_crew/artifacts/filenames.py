@@ -42,6 +42,8 @@ _CODE: dict[str, tuple[str, ...]] = {
     ".php": ("php",),
 }
 CODE_EXTENSIONS = {name: extension for extension, names in _CODE.items() for name in names}
+# The other way round, for a file that comes in: the language its extension stands for.
+LANGUAGE_BY_EXTENSION = {extension: names[0] for extension, names in _CODE.items()}
 _BY_KIND = {"markdown": ".md", "html": ".html", "svg": ".svg", "mermaid": ".mmd"}
 # A browser runs the scripts in these when the file is opened, with the reach of a local file,
 # and a canvas can hold whatever an agent copied from a web page: they download as text.

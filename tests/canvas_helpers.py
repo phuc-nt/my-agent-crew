@@ -1,12 +1,13 @@
 """Shared steps for the canvas tests: whether the store's lock is free, a turn in a
 conversation, a canvas tool called through the registry the way the loop calls it, a hook
-whose note the registry must cut, the canvases a person and an agent leave behind, and a
-person's message with the canvas note it was stored with."""
+whose note the registry must cut, a file in a workspace, the canvases a person and an agent
+leave behind, and a person's message with the canvas note it was stored with."""
 
 from __future__ import annotations
 
 import re
 import threading
+from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -20,11 +21,13 @@ from my_agent_crew.store.models import Conversation
 from my_agent_crew.texts import OUTPUT_TRUNCATED
 from my_agent_crew.texts_canvas import CANVAS_NOTE_CLOSE, CANVAS_NOTE_EDITED, CANVAS_NOTE_OPEN
 from my_agent_crew.tools.artifact import build_artifact_tools
+from my_agent_crew.tools.artifact_files import build_artifact_file_tools
 from my_agent_crew.tools.registry import ToolRegistry, ToolResult
 
 ZONE = ZoneInfo("Asia/Saigon")
 PLAN = "# Kế hoạch\nchạy 5 km\nbơi\n"
 SWIM = PLAN.replace("bơi", "bơi 1 km")
+PNG = b"\x89PNG\r\n\x1a\n" + bytes(range(32))
 NOTE_CUT = re.compile("h*" + re.escape(OUTPUT_TRUNCATED).replace(re.escape("{dropped}"), r"\d+"))
 
 
@@ -42,6 +45,14 @@ def lock_is_free(store: Store) -> bool:
     thread.start()
     thread.join()
     return taken[0]
+
+
+def put(root: Path, path: str, payload: str | bytes) -> Path:
+    """Writes a file into the workspace `root`, with the folders above it."""
+    file = root / path
+    file.parent.mkdir(parents=True, exist_ok=True)
+    file.write_bytes(payload if isinstance(payload, bytes) else payload.encode("utf-8"))
+    return file
 
 
 def turn(
@@ -69,8 +80,13 @@ async def call(
     is_master: bool = False,
     limit: int = DEFAULT_TOOL_OUTPUT_CHARS,
     hooks: Any = None,
+    root: Path | None = None,
+    write_paths: tuple[str, ...] = (),
 ) -> ToolResult:
+    """Calls a canvas tool; with a workspace `root`, the two that carry files are there too."""
     tools = build_artifact_tools(store, agent_id, is_master, limit, ZONE)
+    if root is not None:
+        tools += build_artifact_file_tools(store, agent_id, is_master, limit, root, write_paths)
     return await ToolRegistry(tools, limit, hooks).execute(name, args)
 
 

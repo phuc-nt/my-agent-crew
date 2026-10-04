@@ -46,6 +46,19 @@ AUTHOR_RESTORE = "{author} khôi phục v{version}"
 AUTHOR_IMPORT = "{author} nhập từ tệp"
 ARTIFACT_AUTHORS = "Các bản bạn chưa thấy: {groups}."
 
+# Why a workspace file did not become a canvas, to an agent and to the web alike. Each names
+# the path as it was sent: never where the workspace sits on this machine, nor what the file holds.
+IMPORT_UNKNOWN_SUFFIX = (
+    "Đuôi của {path} không nói được tệp thuộc loại canvas nào. Chưa nhập gì: truyền `kind` (một"
+    " trong {kinds}) để nói rõ, vd. code cho một tệp văn bản thường."
+)
+IMPORT_TOO_LARGE = "{path} nặng hơn trần {cap} byte của canvas {kind}. Chưa nhập gì."
+IMPORT_NOT_TEXT = (
+    "{path} không phải văn bản UTF-8 nên không nhập được làm canvas {kind}. Chưa nhập gì."
+)
+IMPORT_NOT_IMAGE = "{path} không phải ảnh PNG, JPEG, GIF hay WebP. Chưa nhập gì."
+IMPORT_NOT_FILE = "{path} không phải một tệp thường nên không đọc được. Chưa nhập gì."
+
 # The same words for a canvas that does not exist and one out of the agent's reach, so the
 # answer never tells an agent which canvases exist beyond its reach.
 ARTIFACT_NOT_FOUND = "Không tìm thấy canvas {id}. Xem các canvas bạn mở được bằng artifact_list."

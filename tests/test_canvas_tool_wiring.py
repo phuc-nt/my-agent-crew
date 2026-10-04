@@ -1,4 +1,4 @@
-"""How the canvas tools reach an agent: one that does not narrow `tools` gets all five, sized
+"""How the canvas tools reach an agent: one that does not narrow `tools` gets all seven, sized
 to its own output cap, showing times in the owner's zone and reaching what its place in the
 crew lets it reach; an allow-list keeps out any it does not name."""
 
@@ -27,6 +27,8 @@ CANVAS_TOOLS = [
     "artifact_read",
     "artifact_edit",
     "artifact_rewrite",
+    "artifact_import",
+    "artifact_export",
 ]
 
 
@@ -48,9 +50,13 @@ def _canvas_names(registry: ToolRegistry) -> list[str]:
     return [name for name in registry.names() if name.startswith("artifact_")]
 
 
-def test_an_agent_with_no_allow_list_gets_the_five_canvas_tools(settings: Settings, store: Store):
+def test_an_agent_with_no_allow_list_gets_the_seven_canvas_tools(settings: Settings, store: Store):
+    """Of the seven, only the one that writes over a workspace file stops for approval."""
     for agent_id in (DEFAULT_AGENT_ID, "coach"):
-        assert _canvas_names(_assemble(settings, store, agent_id)) == CANVAS_TOOLS, agent_id
+        registry = _assemble(settings, store, agent_id)
+        assert _canvas_names(registry) == CANVAS_TOOLS, agent_id
+        asking = [name for name in CANVAS_TOOLS if registry.get(name).requires_approval]
+        assert asking == ["artifact_export"], agent_id
 
 
 def test_an_allow_list_keeps_out_the_canvas_tools_it_does_not_name(

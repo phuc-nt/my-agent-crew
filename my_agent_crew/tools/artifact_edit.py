@@ -77,26 +77,26 @@ async def run_edit(agent: CanvasAgent, args: dict[str, Any]) -> str:
 
     try:
         with canvas_errors(artifact_id):
-            written = agent.store.artifacts.apply(
+            saved = agent.store.artifacts.apply(
                 artifact_id, change, agent.author, conv.id, title=title
             )
     except EditNotFound:
         # Looked for once the lock is let go: the search may take a while on a long canvas.
         raise await explain_miss(before["head"].content or "", old) from None
     except _Unchanged as exc:
-        return _unchanged(agent, artifact_id, exc.version, title)
+        return unchanged(agent, artifact_id, exc.version, title)
     head = before["head"]
-    _written(agent, conv, artifact_id, written.version, moved=head.version == seen)
-    lines = line_count(written.content)
-    edited = ARTIFACT_EDITED.format(count=before["count"], size=written.size, lines=lines)
-    parts = [artifact_tag(artifact_id, written.version), edited]
+    written(agent, conv, artifact_id, saved.version, moved=head.version == seen)
+    lines = line_count(saved.content)
+    edited = ARTIFACT_EDITED.format(count=before["count"], size=saved.size, lines=lines)
+    parts = [artifact_tag(artifact_id, saved.version), edited]
     if head.version != seen:
         with canvas_errors(artifact_id):
             history = agent.store.artifacts.versions(artifact_id)
         authors = authors_line(history, seen, head.version)
         if authors:
             parts.append(authors)
-    parts.append(await edit_diff(agent.limit, parts, head.content or "", written.content or ""))
+    parts.append(await edit_diff(agent.limit, parts, head.content or "", saved.content or ""))
     return "\n".join(parts)
 
 
@@ -120,16 +120,16 @@ async def run_rewrite(agent: CanvasAgent, args: dict[str, Any]) -> str:
 
     try:
         with canvas_errors(artifact_id):
-            written = agent.store.artifacts.apply(
+            saved = agent.store.artifacts.apply(
                 artifact_id, change, agent.author, conv.id, title=title
             )
     except _Stale as exc:
         raise await rewrite_conflict(agent, artifact_id, seen, exc.head) from None
     except _Unchanged as exc:
-        return _unchanged(agent, artifact_id, exc.version, title)
-    _written(agent, conv, artifact_id, written.version, moved=True)
-    done = ARTIFACT_REWRITTEN.format(size=written.size, lines=line_count(written.content))
-    return f"{artifact_tag(artifact_id, written.version)}\n{done}"
+        return unchanged(agent, artifact_id, exc.version, title)
+    written(agent, conv, artifact_id, saved.version, moved=True)
+    done = ARTIFACT_REWRITTEN.format(size=saved.size, lines=line_count(saved.content))
+    return f"{artifact_tag(artifact_id, saved.version)}\n{done}"
 
 
 def _writable_kind(agent: CanvasAgent, conv: Conversation, artifact_id: str) -> str:
@@ -142,7 +142,7 @@ def _writable_kind(agent: CanvasAgent, conv: Conversation, artifact_id: str) -> 
     return kind
 
 
-def _written(
+def written(
     agent: CanvasAgent, conv: Conversation, artifact_id: str, version: int, *, moved: bool
 ) -> None:
     """Counts the write against the turn and shares the canvas with the conversation and its
@@ -154,7 +154,7 @@ def _written(
         agent.store.artifact_links.mark_seen(conv.id, artifact_id, version)
 
 
-def _unchanged(agent: CanvasAgent, artifact_id: str, version: int, title: str | None) -> str:
+def unchanged(agent: CanvasAgent, artifact_id: str, version: int, title: str | None) -> str:
     """A write that changed nothing adds no version and is not counted; a new title sent with
     it still renames the canvas."""
     lines = [artifact_tag(artifact_id, version, unchanged=True), ARTIFACT_UNCHANGED]

@@ -1,10 +1,16 @@
 """The name a canvas is saved under when it is downloaded: its title in any script, less what
 a file system refuses, and the extension of its kind, followed by `.txt` for a page or a picture
-a browser would run when the file is opened. A raster picture takes its extension from its bytes."""
+a browser would run when the file is opened. A raster picture takes its extension from its bytes.
+Read the other way, an extension names the language a code file is imported as."""
 
 import pytest
 
-from my_agent_crew.artifacts.filenames import FILENAME_MAX, filename_for
+from my_agent_crew.artifacts.filenames import (
+    CODE_EXTENSIONS,
+    FILENAME_MAX,
+    LANGUAGE_BY_EXTENSION,
+    filename_for,
+)
 
 
 @pytest.mark.parametrize(
@@ -70,3 +76,12 @@ def test_the_bytes_of_a_canvas_never_change_the_name_of_a_text_kind():
     png = b"\x89PNG\r\n\x1a\n"
     assert filename_for("a", "html", data=png) == "a.html.txt"
     assert filename_for("a", "markdown", data=png) == "a.md"
+
+
+def test_an_extension_names_the_first_language_that_saves_under_it():
+    """So a file imported as code and saved again keeps its extension."""
+    assert set(LANGUAGE_BY_EXTENSION) == set(CODE_EXTENSIONS.values())
+    for extension, language in LANGUAGE_BY_EXTENSION.items():
+        assert CODE_EXTENSIONS[language] == extension
+    named = [LANGUAGE_BY_EXTENSION[extension] for extension in (".py", ".yaml", ".tsx", ".cs")]
+    assert named == ["python", "yaml", "tsx", "c#"]

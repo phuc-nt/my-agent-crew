@@ -16,6 +16,7 @@ from my_agent_crew.skills import Skill
 from my_agent_crew.store import Store
 from my_agent_crew.tools import Tool, ToolRegistry
 from my_agent_crew.tools.artifact import build_artifact_tools
+from my_agent_crew.tools.artifact_files import build_artifact_file_tools
 from my_agent_crew.tools.ask_user import build_ask_user_tool
 from my_agent_crew.tools.conversation_search import build_conversation_search_tool
 from my_agent_crew.tools.hooks import HookRunner
@@ -112,7 +113,8 @@ def build_tools(
         build_schedule_create_tool(
             store, profile.id, tuple(skill.name for skill in skills), profile.settings.now
         ),
-        # A canvas keeps every version, so none of these asks first. A page and a diff are
+        # A canvas keeps every version, so no tool that writes one asks first; only
+        # `artifact_export` does, which writes over a workspace file. A page and a diff are
         # sized to the same cap the registry below cuts at.
         *build_artifact_tools(
             store,
@@ -120,6 +122,14 @@ def build_tools(
             profile.is_master,
             profile.settings.tool_output_chars,
             profile.settings.zone,
+        ),
+        *build_artifact_file_tools(
+            store,
+            profile.id,
+            profile.is_master,
+            profile.settings.tool_output_chars,
+            profile.workspace,
+            profile.settings.write_paths,
         ),
     ]
     if profile.is_work:

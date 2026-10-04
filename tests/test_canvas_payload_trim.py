@@ -5,6 +5,8 @@ a child's wrap-up note or a pause for approval, and the store keeps every call a
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from my_agent_crew.agent.context_trim import MIN_TRIM_CHARS
 from my_agent_crew.agent.events import ApprovalRequiredEvent, DoneEvent
 from my_agent_crew.agent.loop import run_turn
@@ -24,6 +26,7 @@ from my_agent_crew.texts_canvas import (
     CANVAS_PAYLOAD_SAVED,
 )
 from my_agent_crew.tools.artifact import build_artifact_tools
+from my_agent_crew.tools.artifact_files import build_artifact_file_tools
 from my_agent_crew.tools.registry import Tool
 from tests.canvas_helpers import ZONE, lines_text
 from tests.conftest import collect
@@ -38,8 +41,14 @@ SLOW = ToolCall("c1", "slow", {})
 GUARDED = ToolCall("g1", "guarded", {})
 
 
-def canvas_tools(store: Store) -> list[Tool]:
-    return build_artifact_tools(store, DEFAULT_AGENT_ID, False, DEFAULT_TOOL_OUTPUT_CHARS, ZONE)
+def canvas_tools(store: Store, root: Path | None = None) -> list[Tool]:
+    """The canvas tools; over a workspace `root`, also the two that carry files, since an
+    export writes a real file."""
+    limit = DEFAULT_TOOL_OUTPUT_CHARS
+    tools = build_artifact_tools(store, DEFAULT_AGENT_ID, False, limit, ZONE)
+    if root is not None:
+        tools += build_artifact_file_tools(store, DEFAULT_AGENT_ID, False, limit, root, ())
+    return tools
 
 
 def sent_calls(request) -> dict[str, ToolCall]:
@@ -289,17 +298,43 @@ def test_a_turn_starts_where_its_running_run_began_or_else_after_the_last_messag
     assert turn_boundary(store, conv.id) == last
 
 
-def test_every_canvas_tool_argument_that_carries_document_text_is_trimmed(store: Store):
+def test_a_file_carried_in_or_out_by_an_earlier_turn_passes_on_as_the_call_was_made(store: Store):
+    """Neither call holds document text, so nothing in it stands for a note: a path or a
+    title, however long, is what the model must read back to know which file it was."""
+    conv = store.create()
+    path = "notes/" + "a" * (MIN_TRIM_CHARS + 1) + ".md"
+    taking = ToolCall("f1", "artifact_import", {"path": path, "title": "T" * (MIN_TRIM_CHARS + 1)})
+    giving = ToolCall("f2", "artifact_export", {"id": ART, "path": path})
+    _append(
+        store,
+        conv.id,
+        Message(role="user", content="đưa tệp vào canvas rồi xuất ra"),
+        Message(role="assistant", tool_calls=(taking, giving)),
+        Message(role="tool", content=f"[artifact {ART} v1]\nĐã nhập.", tool_call_id="f1"),
+        Message(role="tool", content="Đã xuất.", tool_call_id="f2"),
+        Message(role="assistant", content="xong"),
+    )
+    history = store.history(conv.id)
+    trimmed = trim_canvas_payloads(history, history[-1].seq)
+    assert all(new is old.message for new, old in zip(trimmed, history, strict=True))
+    assert trimmed[1].tool_calls == (taking, giving)
+
+
+def test_every_canvas_tool_argument_that_carries_document_text_is_trimmed(
+    store: Store, tmp_path: Path
+):
     """A canvas tool added later with a `content`, `old` or `new` is trimmed too, or fails
     here; every argument trimmed is text in that tool's schema."""
-    for tool in canvas_tools(store):
+    tools = canvas_tools(store, tmp_path)
+    assert len(tools) == 7
+    for tool in tools:
         documents = {
             name
             for name, schema in tool.parameters["properties"].items()
             if name in {"content", "old", "new"} and schema["type"] == "string"
         }
         assert documents == set(CANVAS_PAYLOADS.get(tool.name, ())), tool.name
-    assert set(CANVAS_PAYLOADS) <= {tool.name for tool in canvas_tools(store)}
+    assert set(CANVAS_PAYLOADS) <= {tool.name for tool in tools}
 
 
 def test_a_note_is_always_shorter_than_the_text_it_stands_for():

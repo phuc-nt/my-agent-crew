@@ -2,7 +2,8 @@
 built with reading (`artifact_read`) and changing (`artifact_edit`) one. Each acts for one
 agent in the conversation the turn belongs to. None asks for approval: a canvas keeps every
 version, so nothing an agent writes there is lost to the person, and only a turn from the web
-chat, where the person sees the canvas open beside the reply, may write at all."""
+chat, where the person sees the canvas open beside the reply, may write at all. The two tools
+that carry a canvas to and from a workspace file are built in `artifact_files`."""
 
 from __future__ import annotations
 
@@ -120,15 +121,15 @@ def _row(agent: CanvasAgent, summary: ArtifactSummary, seen: int) -> str:
     )
 
 
-def _text(description: str) -> dict[str, str]:
+def text_param(description: str) -> dict[str, str]:
     return {"type": "string", "description": description}
 
 
-def _number(description: str) -> dict[str, str]:
+def number_param(description: str) -> dict[str, str]:
     return {"type": "integer", "description": description}
 
 
-def _schema(required: list[str], **properties: dict[str, Any]) -> dict[str, Any]:
+def schema(required: list[str], **properties: dict[str, Any]) -> dict[str, Any]:
     return {"type": "object", "properties": properties, "required": required}
 
 
@@ -139,40 +140,40 @@ def build_artifact_tools(
     page and a diff are sized to fit; `zone` is the owner's, for the times a list shows."""
     agent = CanvasAgent(store, agent_id, is_master, limit, zone)
     kind = {"type": "string", "enum": list(AGENT_KINDS), "description": PARAM_KIND}
-    create = _schema(
+    create = schema(
         ["title", "kind", "content"],
-        title=_text(PARAM_TITLE),
+        title=text_param(PARAM_TITLE),
         kind=kind,
-        content=_text(PARAM_CONTENT),
-        language=_text(PARAM_LANGUAGE),
+        content=text_param(PARAM_CONTENT),
+        language=text_param(PARAM_LANGUAGE),
     )
-    read = _schema(
+    read = schema(
         ["id"],
-        id=_text(PARAM_ID),
-        version=_number(PARAM_VERSION),
-        from_line=_number(PARAM_FROM_LINE),
-        lines=_number(PARAM_LINES),
+        id=text_param(PARAM_ID),
+        version=number_param(PARAM_VERSION),
+        from_line=number_param(PARAM_FROM_LINE),
+        lines=number_param(PARAM_LINES),
     )
-    edit = _schema(
+    edit = schema(
         ["id", "old", "new"],
-        id=_text(PARAM_ID),
-        old=_text(PARAM_OLD),
-        new=_text(PARAM_NEW),
+        id=text_param(PARAM_ID),
+        old=text_param(PARAM_OLD),
+        new=text_param(PARAM_NEW),
         replace_all={"type": "boolean", "description": PARAM_REPLACE_ALL},
-        title=_text(PARAM_NEW_TITLE),
+        title=text_param(PARAM_NEW_TITLE),
     )
-    rewrite = _schema(
+    rewrite = schema(
         ["id", "content"],
-        id=_text(PARAM_ID),
-        content=_text(PARAM_CONTENT),
-        title=_text(PARAM_NEW_TITLE),
+        id=text_param(PARAM_ID),
+        content=text_param(PARAM_CONTENT),
+        title=text_param(PARAM_NEW_TITLE),
     )
     return [
         Tool("artifact_create", ARTIFACT_CREATE_DESCRIPTION, create, partial(_create, agent)),
         Tool(
             "artifact_list",
             ARTIFACT_LIST_DESCRIPTION,
-            _schema([], query=_text(PARAM_QUERY)),
+            schema([], query=text_param(PARAM_QUERY)),
             partial(_list, agent),
         ),
         Tool("artifact_read", ARTIFACT_READ_DESCRIPTION, read, partial(run_read, agent)),

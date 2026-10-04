@@ -77,7 +77,7 @@ def not_found(artifact_id: str) -> ToolError:
 
 # The canvas tools that write and so pass `check_channel`: the ones a turn on a channel
 # with no canvas is told, in its system prompt, not to call.
-CANVAS_WRITE_TOOLS = ("artifact_create", "artifact_edit", "artifact_rewrite")
+CANVAS_WRITE_TOOLS = ("artifact_create", "artifact_edit", "artifact_rewrite", "artifact_import")
 
 
 def check_channel(conv: Conversation) -> None:
