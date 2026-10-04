@@ -31,6 +31,9 @@ __all__ = [
 API_BASE = "https://api.telegram.org"
 MESSAGE_LIMIT = 4096
 POLL_TIMEOUT_SECONDS = 25
+# How long an upload from memory may take. A line that stalls under megabytes would otherwise
+# hold the rest of the reply for as long as it stalls.
+SEND_TIMEOUT_SECONDS = 60
 CONFLICT_STATUS = 409  # another process polls the same bot
 TOKEN_PLACEHOLDER = "<token>"
 
@@ -150,6 +153,16 @@ class TelegramApi:
             await self.call(
                 "sendDocument", {"chat_id": chat_id}, files={"document": (path.name, handle)}
             )
+
+    async def send_bytes(
+        self, chat_id: int, name: str, data: bytes, caption: str = "", as_photo: bool = False
+    ) -> None:
+        """A file held in memory, sent under `name` as a photo or as a document."""
+        method, field = ("sendPhoto", "photo") if as_photo else ("sendDocument", "document")
+        form: dict[str, Any] = {"chat_id": chat_id}
+        if caption:
+            form["caption"] = plain_text(caption)
+        await self.call(method, form, files={field: (name, data)}, timeout=SEND_TIMEOUT_SECONDS)
 
     async def file_path(self, file_id: str) -> str:
         """Where Telegram keeps a file the person sent, relative to the file endpoint."""

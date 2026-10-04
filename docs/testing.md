@@ -3916,3 +3916,51 @@ tên một test thì sửa dòng của nó trong cùng commit.
     mỗi dòng báo hỏng một dòng log mức `warning`); bản giả Telegram (`tests/telegram_fake.py`) cho
     một method trả lỗi bằng `fail`, giữ một lời gọi bằng `hold`, và đọc tên tệp, caption, bytes của
     mỗi lời tải lên vào `uploads`
+- **Dòng `FILE: artifact:<id>` hoặc `MEDIA: artifact:<id>` của một câu trả lời gửi canvas đó tới
+  chat Telegram dưới dạng tệp, dựng trong bộ nhớ, sau các tệp workspace**
+  - pytest (đọc dòng, `tests/test_telegram_canvas_file.py`):
+    `::test_a_path_names_a_canvas_only_as_the_prefix_and_a_whole_id`
+    (mã 12 ký tự hex thường là canvas; mở bằng `artifact:` mà phần sau không phải đúng một mã thì là
+    `""`, không bao giờ được tìm như một tệp; còn lại là đường dẫn tệp);
+    `::test_lines_that_misname_a_canvas_get_one_notice_that_repeats_none_of_them` (một dòng báo cho
+    mọi dòng ghi sai mã, không lặp lại chữ của model);
+    `::test_a_canvas_named_twice_in_one_reply_is_sent_once`;
+    `::test_workspace_files_go_first_and_as_before_then_the_canvases`
+  - pytest (tệp gửi đi): `::test_a_markdown_canvas_arrives_as_a_document_with_its_secrets_covered`
+    (giá trị biến môi trường mang tên khoá và chuỗi dạng `sk-…` được che trong nội dung);
+    `::test_a_text_canvas_is_named_so_a_phone_opens_it_as_text` (markdown giữ `.md`, các loại chữ
+    khác kết thúc bằng `.txt`); `::test_a_picture_is_named_by_what_its_bytes_are`;
+    `::test_a_picture_arrives_as_a_photo_with_its_bytes_as_they_are` (loại canvas quyết định cách
+    gửi, không phải tiền tố của dòng); `::test_a_text_canvas_on_a_media_line_is_still_a_document`;
+    `::test_the_newest_version_is_sent_and_the_caption_says_which`;
+    `::test_the_caption_ends_with_a_link_when_the_web_has_an_address`;
+    `::test_a_link_that_would_make_the_caption_too_long_is_left_out` (đúng 1024 ký tự thì còn link,
+    1025 thì bỏ cả link);
+    `::test_a_secret_in_the_title_reaches_neither_the_caption_nor_the_file_name`;
+    `::test_the_caption_is_plain_text_like_every_message`;
+    `::test_bytes_are_uploaded_under_a_name_with_a_bounded_wait` (`send_bytes`: không có phần
+    `caption` khi rỗng, không `parse_mode`, mỗi lần tải lên chờ tối đa 60 giây)
+  - pytest (khi hỏng): `::test_a_picture_refused_as_a_photo_arrives_as_a_document` (`sendPhoto` trả
+    400 thì gửi lại một lần bằng `sendDocument`);
+    `::test_a_picture_refused_both_ways_is_tried_once_more_and_no_further`;
+    `::test_a_photo_that_fails_for_another_reason_is_not_sent_again`;
+    `::test_a_document_that_is_refused_is_not_sent_again`;
+    `::test_a_canvas_that_cannot_be_sent_does_not_stop_the_next` (lý do chỉ vào log);
+    `::test_a_canvas_over_what_a_chat_takes_is_not_uploaded` (đo bằng byte, bằng đúng mức trần thì
+    vẫn gửi); `::test_a_canvas_that_is_not_there_is_said_so`;
+    `::test_a_notice_about_a_canvas_that_cannot_be_sent_stops_nothing`;
+    `::test_the_log_names_the_canvas_by_id_version_and_size_alone` (log không mang tiêu đề hay nội
+    dung)
+  - pytest (ai được gửi canvas nào, `tests/test_telegram_canvas_scope.py`):
+    `::test_a_canvas_out_of_reach_reads_as_one_that_is_not_there` (cùng một câu với canvas không tồn
+    tại, để câu trả lời không dò được mã nào có thật);
+    `::test_an_agent_sends_what_it_made_whatever_became_of_the_conversation`;
+    `::test_a_linked_canvas_is_sent_for_its_conversation_alone`;
+    `::test_what_the_root_of_a_delegation_shares_reaches_its_child`;
+    `::test_the_master_sends_a_canvas_of_any_agent_and_any_conversation`;
+    `::test_a_canvas_imported_from_a_file_no_reply_could_send_is_not_sent` (canvas nhập từ tệp
+    workspace có đuôi không thuộc danh sách `FILE:` cũng không phải một loại canvas, ví dụ `.env`,
+    `.pem`, tệp không đuôi);
+    `::test_a_canvas_imported_from_a_file_of_a_known_kind_or_a_link_is_sent`;
+    `::test_a_picture_is_sent_whatever_its_file_was_called`;
+    `::test_reach_is_checked_before_where_a_canvas_came_from`

@@ -1,7 +1,8 @@
 """Outbound half of a Telegram channel: replies, `MEDIA:` photos and `FILE:` documents to
 the one allowed chat, plus the "typing…" indicator shown while a turn runs. Telegram drops
 the indicator after about five seconds, so it is re-sent on an interval until the reply
-goes out. The files themselves are sent by `telegram_files`."""
+goes out. The files themselves are sent by `telegram_files`, and the canvases a line names
+in place of a file by `telegram_canvas_file`."""
 
 from __future__ import annotations
 
@@ -13,7 +14,9 @@ from contextlib import asynccontextmanager, suppress
 from my_agent_crew import texts
 from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.channels.telegram_api import TelegramApi, TelegramError, split_reply
+from my_agent_crew.channels.telegram_canvas_file import send_canvases
 from my_agent_crew.channels.telegram_files import TelegramFiles
+from my_agent_crew.reply_attachments import artifact_ref
 from my_agent_crew.store.runs import DONE, FAILED, HALTED, RunRecord
 
 logger = logging.getLogger(__name__)
@@ -84,17 +87,27 @@ class TelegramOutbound:
         await self.send(texts.TELEGRAM_RUN_UNFINISHED.format(reason=_ending(run)))
         return True
 
-    async def send(self, text: str) -> None:
+    async def send(self, text: str, conv_id: str | None = None) -> None:
+        """The prose, then the workspace files its lines name, then the canvases they name.
+        `conv_id` is the conversation the reply belongs to, which decides the canvases it may
+        send. It comes with each call: one sender serves an agent's every turn."""
         prose, media, files = split_reply(text)
         if prose:
-            if self._prefix:
-                prose = f"{self._prefix}\n{prose}"
-            await self._api.send_message(self._chat_id, prose)
-            logger.info("telegram %s: sent %d chars", self.agent_id, len(prose))
+            await self._say(prose)
         for relative in media:
-            await self._files.photo(relative)
+            if artifact_ref(relative) is None:
+                await self._files.photo(relative)
         for relative in files:
-            await self._files.document(relative)
+            if artifact_ref(relative) is None:
+                await self._files.document(relative)
+        refs = [ref for ref in map(artifact_ref, (*media, *files)) if ref is not None]
+        await send_canvases(self._deps, self._api, self._chat_id, refs, conv_id)
+
+    async def _say(self, prose: str) -> None:
+        if self._prefix:
+            prose = f"{self._prefix}\n{prose}"
+        await self._api.send_message(self._chat_id, prose)
+        logger.info("telegram %s: sent %d chars", self.agent_id, len(prose))
 
     @asynccontextmanager
     async def typing(self, interval: float = TYPING_INTERVAL_SECONDS) -> AsyncIterator[None]:

@@ -16,6 +16,17 @@ TELEGRAM_MEDIA_MISSING = "(không gửi được ảnh: {path})"
 TELEGRAM_FILE_MISSING = "(không gửi được tệp: {path})"
 TELEGRAM_FILE_SUFFIX = "định dạng không gửi qua chat được; chỉ nhận: {kinds}"
 TELEGRAM_FILE_TOO_BIG = "tệp {size:.1f} MB, quá mức {cap:.0f} MB cho chat"
+# Said when a `FILE: artifact:<id>` line names a canvas the chat does not get. None repeats
+# what the model wrote: `{id}` is an id that was read as one. A canvas that is not there and
+# one out of the agent's reach share a sentence, so a reply cannot tell which ids exist.
+TELEGRAM_CANVAS_MISSING = "(không gửi được canvas {id}: không tìm thấy canvas này)"
+TELEGRAM_CANVAS_BAD_REF = "(không gửi được canvas: dòng đính kèm ghi sai mã canvas)"
+TELEGRAM_CANVAS_SOURCE = (
+    "(không gửi được canvas {id}: nó được nhập từ một tệp thuộc loại không gửi qua chat được)"
+)
+TELEGRAM_CANVAS_FAILED = "(không gửi được canvas {id}; mở web UI để xem nó)"
+# Under the file a canvas arrives as: its title and the version that was sent.
+TELEGRAM_CANVAS_CAPTION = '"{title}" v{version}'
 # What the agent reads when the person sends photos or a file: one line per saved path,
 # the caption (if any) after them, so the model treats the attachments as part of the message.
 # The web thread finds these lines by their words (`attachmentSaved` in web/src/i18n/vi.ts)
