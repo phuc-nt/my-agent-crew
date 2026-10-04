@@ -70,7 +70,13 @@ export function requestRead(id: string, send: Send): AbortController {
   const timer = setTimeout(() => reading.abort(), REQUEST_TIMEOUT_MS);
   const landed = (input: CanvasInput) => {
     clearTimeout(timer);
-    send(input);
+    try {
+      send(input);
+    } catch {
+      // A reply the machine cannot take in leaves the canvas loading for good: it says it could
+      // not be read, and offers to try again.
+      send({ type: "readFailed", status: null });
+    }
   };
   artifactApi.get(id, reading.signal).then(
     (detail) => landed({ type: "read", detail }),

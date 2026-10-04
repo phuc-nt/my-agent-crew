@@ -34,7 +34,8 @@ export type CanvasHistory = {
    *  null when `shown` is the oldest. */
   against: ArtifactVersionMeta | null;
   compareFirst: boolean;
-  texts: ReadonlyMap<number, string>;
+  /** The text of each version read; null for a version of an image, which has none. */
+  texts: ReadonlyMap<number, string | null>;
   problem: HistoryProblem | null;
   restoring: boolean;
   pick(version: number): void;
@@ -49,8 +50,8 @@ type Options = {
   headVersion: number | undefined;
   /** Saves the typing; the version that holds it, or null when none will. */
   flush(): Promise<number | null>;
-  /** Version `version`, holding `content`, is now the newest. */
-  onRestored(version: number, content: string): void;
+  /** Version `version`, holding `content` (null for an image), is now the newest. */
+  onRestored(version: number, content: string | null): void;
 };
 
 /** A 404 for the canvas itself, not for one of its versions. */
@@ -65,7 +66,7 @@ export function useCanvasHistory({ artifactId, headVersion, flush, onRestored }:
   // Every pick, so picking a version whose read failed reads it again.
   const [picks, setPicks] = useState(0);
   const [compareFirst, setCompareFirst] = useState(false);
-  const [texts, setTexts] = useState<ReadonlyMap<number, string>>(() => new Map());
+  const [texts, setTexts] = useState<ReadonlyMap<number, string | null>>(() => new Map());
   const [problem, setProblem] = useState<HistoryProblem | null>(null);
   const [restoring, setRestoring] = useState(false);
   // Versions read or being read, so an effect run twice asks once.

@@ -27,7 +27,9 @@ import { merge3 } from "./merge3";
 
 export function read(state: CanvasState, effects: CanvasEffect[], detail: ArtifactDetail): void {
   if (state.gone) return;
-  const head: Version = { version: detail.head_version, content: detail.content, author: detail.head_author };
+  // An image has no text. It reads as an empty one that nothing edits, so it is never dirty and a
+  // newer version only moves its base.
+  const head: Version = { version: detail.head_version, content: detail.content ?? "", author: detail.head_author };
   takeSummary(state, summaryOf(detail));
   state.seen = Math.max(state.seen, head.version);
   if (state.phase !== "ready") {

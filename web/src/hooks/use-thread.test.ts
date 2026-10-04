@@ -483,6 +483,10 @@ describe("the canvas note a message was sent with", () => {
 
 describe("the canvas a send carries", () => {
   const CANVAS: MessageCanvas = { artifact_id: "0123456789ab", selection: null };
+  const PASSAGE: MessageCanvas = {
+    artifact_id: "0123456789ab",
+    selection: { version: 2, text: "Đoạn hai", line_start: 3, line_end: 3 },
+  };
   const done: AgentEvent = { type: "done", spent_usd: 0, unknown_cost_calls: 0 };
 
   it("goes to the POST of a plain send, and a send without one passes none on", async () => {
@@ -531,7 +535,7 @@ describe("the canvas a send carries", () => {
   });
 
   const refusals = [
-    // Only a 422 changes with the canvas: the passage the message quoted is what it refuses.
+    // Only a 422 changes with the passage: the one the message quoted is what it refuses.
     ["a selection the canvas no longer holds", new ApiError(422, "selection does not match the canvas"), vi.sendFailed.selection, vi.sendFailed.selection],
     ["a conversation waiting on approval", new ApiError(409, "conversation is awaiting approval"), vi.busyConflict, vi.busyConflict],
     ["a full queue", new ApiError(429, "hàng đầy"), vi.sendFailed.tooFast, "hàng đầy"],
@@ -547,7 +551,7 @@ describe("the canvas a send carries", () => {
 
     let outcome: SendResult | undefined;
     await act(async () => {
-      outcome = await result.current.send("kèm canvas", CANVAS);
+      outcome = await result.current.send("kèm đoạn chọn", PASSAGE);
     });
 
     expect(outcome).toEqual({ status: "failed", error: reason });
@@ -574,12 +578,58 @@ describe("the canvas a send carries", () => {
 
     let outcome: SendResult | undefined;
     await act(async () => {
-      outcome = await result.current.send("kèm canvas", CANVAS);
+      outcome = await result.current.send("kèm đoạn chọn", PASSAGE);
     });
 
     expect(outcome).toEqual({ status: "failed", error: reason });
     expect(result.current.state.notice).toEqual({ kind: "error", text: notice });
     expect(result.current.state.busy).toBe(true);
+    await act(() => result.current.stop());
+  });
+
+  // A message that names the canvas and no passage — the page's errors, or a question about the
+  // whole canvas — can be refused for nothing the person selected, so a 422 keeps its own wording.
+  const noPassage = [
+    ["a selection of null", CANVAS],
+    ["no selection field", { artifact_id: "0123456789ab" }],
+    ["a canvas being closed", { artifact_id: null }],
+  ] as const;
+
+  it.each(noPassage)("a 422 for a plain send with %s is not told as a passage that no longer fits", async (_name, canvas) => {
+    vitest.spyOn(api, "getConversation").mockResolvedValue(idle());
+    vitest.spyOn(api, "sendMessage").mockRejectedValue(new ApiError(422, "text must not be empty"));
+    const { result } = renderHook(() => useThread("c1"));
+    await waitFor(() => expect(result.current.detail).not.toBeNull());
+
+    let outcome: SendResult | undefined;
+    await act(async () => {
+      outcome = await result.current.send("kèm canvas", canvas);
+    });
+
+    expect(outcome).toEqual({ status: "failed", error: vi.sendFailed.other });
+    expect(result.current.state.notice).toEqual({ kind: "error", text: "text must not be empty" });
+  });
+
+  it.each(noPassage)("a 422 for a send queued behind this tab's turn with %s is not told as a passage either", async (_name, canvas) => {
+    vitest.spyOn(api, "getConversation").mockResolvedValue(idle());
+    vitest.spyOn(api, "stopConversation").mockResolvedValue({ cleared: [], cancelled: true });
+    const { held, open } = heldStream();
+    vitest.spyOn(api, "sendMessage").mockImplementationOnce((_id, _text, emit, signal) => open(emit, signal));
+    vitest.spyOn(api, "sendMessage").mockRejectedValueOnce(new ApiError(422, "text must not be empty"));
+    const { result } = renderHook(() => useThread("c1"));
+    await waitFor(() => expect(result.current.detail).not.toBeNull());
+    act(() => {
+      void result.current.send("việc đầu tiên");
+    });
+    await waitFor(() => expect(held.signal).toBeDefined());
+
+    let outcome: SendResult | undefined;
+    await act(async () => {
+      outcome = await result.current.send("kèm canvas", canvas);
+    });
+
+    expect(outcome).toEqual({ status: "failed", error: vi.sendFailed.other });
+    expect(result.current.state.notice).toEqual({ kind: "error", text: "text must not be empty" });
     await act(() => result.current.stop());
   });
 

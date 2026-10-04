@@ -1,7 +1,8 @@
 /**
  * A canvas read rather than edited. Markdown goes through `MarkdownBody`, which shows raw HTML as
  * text, opens links away from the app and loads an outside image only when asked; code keeps its
- * spacing. Both write characters that change how text reads without being seen as marks.
+ * spacing. Both write characters that change how text reads without being seen as marks. The kinds
+ * shown as a page or a picture do not come here (`canvas-saved-view.tsx`).
  *
  * Each block, and each line of code, names the lines of the canvas it shows, so what a person
  * selects can be asked about by its lines (`lib/canvas-selection.ts`).
@@ -72,7 +73,8 @@ function MarkdownView({ text, onSelection }: Omit<Props, "kind">) {
 }
 
 /** Memoized so that what the panel does around it, such as typing a question, does not draw a
- *  long text again. */
+ *  long text again. Only markdown is read as markdown: any other kind, one the web does not know
+ *  included, keeps its spacing as code does. */
 export const CanvasView = memo(function CanvasView({ kind, ...rest }: Props) {
-  return kind === "code" ? <CodeView {...rest} /> : <MarkdownView {...rest} />;
+  return kind === "markdown" ? <MarkdownView {...rest} /> : <CodeView {...rest} />;
 });

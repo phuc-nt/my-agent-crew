@@ -6,7 +6,9 @@
 
 import { useCallback } from "react";
 import { artifactApi } from "../api/artifact-client";
+import type { CreatableKind, NewArtifact } from "../api/artifact-types";
 import { vi } from "../i18n/vi";
+import { canvasTemplate } from "../lib/canvas-templates";
 
 type Lend = {
   conversationId: string | null;
@@ -18,13 +20,19 @@ type Lend = {
   opened(id: string): void;
 };
 
-/** Asks for an empty canvas in the open conversation; does nothing before one is open. */
-export function useCanvasCreate({ conversationId, moves, progress, opened }: Lend): () => Promise<void> {
-  return useCallback(async () => {
+/** Asks for a canvas of `kind`, markdown unless said, in the open conversation, holding what a new
+ *  canvas of that kind starts from; does nothing before a conversation is open. */
+export function useCanvasCreate({ conversationId, moves, progress, opened }: Lend): (kind?: CreatableKind) => Promise<void> {
+  return useCallback(async (kind: CreatableKind = "markdown") => {
     if (conversationId === null) return;
     const ticket = ++moves.current;
     progress({ creating: true, createFailed: false });
-    const body = { title: vi.canvas.untitled, kind: "markdown", content: "", conversation_id: conversationId } as const;
+    const body: NewArtifact = {
+      title: vi.canvas.untitled,
+      kind,
+      content: canvasTemplate(kind),
+      conversation_id: conversationId,
+    };
     try {
       const made = await artifactApi.create(body);
       if (moves.current === ticket) opened(made.id);

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vites
 import type { ArtifactSummary } from "../api/artifact-types";
 import { saveInBackground } from "../lib/canvas-handoff";
 import { openState } from "../lib/canvas-machine";
+import { canvasTemplate } from "../lib/canvas-templates";
 import { idleHandle } from "../test/canvas-dock-hook";
 import { landed, startServer, stopServer, wait } from "../test/canvas-hook";
 import { type LeftCanvas, leftCanvas } from "../test/canvas-left";
@@ -116,6 +117,30 @@ describe("making a canvas", () => {
       { method: "POST", path: "/artifacts", body: { title: "Tài liệu không tên", kind: "markdown", content: "", conversation_id: "c1" } },
     ]);
     expect(result.current).toMatchObject({ view: "canvas", artifactId: "a2", created: true, creating: false });
+  });
+
+  it.each(["code", "html", "svg", "mermaid"] as const)("makes a %s canvas holding what one of its kind starts from", async (kind) => {
+    const { result } = await openDock();
+    await act(() => result.current.showList());
+
+    await act(() => result.current.create(kind));
+
+    const body = { title: "Tài liệu không tên", kind, content: canvasTemplate(kind), conversation_id: "c1" };
+    expect(backend.requests.filter((request) => request.method === "POST")).toEqual([{ method: "POST", path: "/artifacts", body }]);
+    expect(backend.canvas.content("a2")).toBe(canvasTemplate(kind));
+    expect(result.current).toMatchObject({ view: "canvas", artifactId: "a2", created: true, creating: false });
+  });
+
+  it("sends nothing, and shows no request as out, while no conversation is open to put the canvas in", async () => {
+    const { result, rerender } = await openDock();
+    rerender({ conversationId: null });
+    const before = backend.requests.length;
+
+    await act(() => result.current.create("html"));
+
+    expect(backend.requests.slice(before)).toEqual([]);
+    expect(result.current).toMatchObject({ view: "closed", artifactId: null, creating: false, createFailed: false });
+    expect(backend.canvas.canvases.has("a2")).toBe(false);
   });
 
   it.each([

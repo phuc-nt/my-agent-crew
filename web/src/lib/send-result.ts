@@ -25,9 +25,9 @@ export interface Settlement {
   ended(): void;
 }
 
-/** A send's answer. It settles once, on whichever of the three comes first. `withCanvas` says
- *  the message carried the tab's canvas, which changes what a 422 means. */
-export function settlement(withCanvas = false): Settlement {
+/** A send's answer. It settles once, on whichever of the three comes first. `withSelection` says
+ *  the message carried a selection of the tab's canvas, which changes what a 422 means. */
+export function settlement(withSelection = false): Settlement {
   let settle: (result: SendResult) => void = () => {};
   const promise = new Promise<SendResult>((resolve) => {
     settle = resolve;
@@ -45,7 +45,7 @@ export function settlement(withCanvas = false): Settlement {
       return done;
     },
     heard: (event) => set({ status: event.type === "queued" ? "queued" : "sent" }),
-    failed: (error) => set({ status: "failed", error: sendErrorText(error, withCanvas) }),
+    failed: (error) => set({ status: "failed", error: sendErrorText(error, withSelection) }),
     ended: () => set({ status: "sent" }),
   };
 }
@@ -53,14 +53,14 @@ export function settlement(withCanvas = false): Settlement {
 /**
  * The sentence for a send that failed, chosen by what went wrong rather than copied from the
  * server: 409 is a conversation waiting on a decision, 429 a full queue, 422 — for a message
- * that carried the canvas — a selection the canvas no longer holds, a bare `TypeError` a
- * connection that never opened, and anything else one general sentence.
+ * that carried a selection of the canvas — a selection the canvas no longer holds, a bare
+ * `TypeError` a connection that never opened, and anything else one general sentence.
  */
-export function sendErrorText(error: unknown, withCanvas = false): string {
+export function sendErrorText(error: unknown, withSelection = false): string {
   if (error instanceof ApiError) {
     if (error.status === 409) return vi.busyConflict;
     if (error.status === 429) return vi.sendFailed.tooFast;
-    if (error.status === 422 && withCanvas) return vi.sendFailed.selection;
+    if (error.status === 422 && withSelection) return vi.sendFailed.selection;
   } else if (error instanceof TypeError) {
     return vi.requestErrors.network;
   }

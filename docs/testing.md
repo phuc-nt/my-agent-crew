@@ -1682,15 +1682,20 @@ tên một test thì sửa dòng của nó trong cùng commit.
     người; đọc qua tham chiếu lấy từ trước vẫn thấy giá trị lúc hỏi);
     `web/src/hooks/use-thread.test.ts` nhóm "the canvas a send carries" (canvas đi theo POST của tin
     gửi thường và của tin xếp hàng sau lượt đang chạy ở tab này; bảng "%s on a plain send is told in
-    Vietnamese, in the result and in the notice" cho 422 là đoạn chọn không còn khớp, 409, 429, 500 và
-    mất kết nối: `error` của kết quả luôn là câu của ta, thông báo giữ câu của server ở 429 và nói máy
-    chủ lỗi ở 5xx, bong bóng tạm biến mất; ba lỗi 422, 429 và mất kết nối của tin xếp hàng cũng vậy;
+    Vietnamese, in the result and in the notice", gửi tin mang một đoạn chọn, cho 422 là đoạn chọn
+    không còn khớp, 409, 429, 500 và mất kết nối: `error` của kết quả luôn là câu của ta, thông báo
+    giữ câu của server ở 429 và nói máy chủ lỗi ở 5xx, bong bóng tạm biến mất; ba lỗi 422, 429 và mất
+    kết nối của tin xếp hàng cũng vậy; hai bảng "a 422 for a plain send with %s is not told as a
+    passage that no longer fits" và "a 422 for a send queued behind this tab's turn with %s is not
+    told as a passage either" cho tin nêu canvas mà không mang đoạn chọn nào — `selection: null`,
+    không có trường `selection`, và canvas đang đóng: kết quả là câu chung "chưa gửi được" còn thông
+    báo giữ lời của server, vì không đoạn nào của người bị từ chối;
     "keeps the old wording of a 422 for a message that carried no canvas");
     `web/src/lib/error-text.test.ts` nhóm "turnErrorText" (409 là hội thoại chờ quyết định dù server
-    viết gì, 422 của tin mang canvas là đoạn chọn không còn khớp, lỗi khác để `errorText` lo);
-    `web/src/lib/send-result.test.ts` ("words a 422 as the selection only when the message carried the
-    canvas"; `sendErrorText` đổi nghĩa chỉ của 422 và chỉ khi tin mang canvas, lời server bằng tiếng
-    Anh không bao giờ tới người dùng)
+    viết gì, 422 của tin mang đoạn chọn là đoạn chọn không còn khớp, lỗi khác để `errorText` lo dù
+    tin có đoạn chọn hay không); `web/src/lib/send-result.test.ts` ("words a 422 as the selection only
+    when the message carried a selection of the canvas"; `sendErrorText` đổi nghĩa chỉ của 422 và chỉ
+    khi tin mang đoạn chọn, lời server bằng tiếng Anh không bao giờ tới người dùng)
 - **Tin gửi đi cùng ghi chú canvas thì tab gửi nhận lại đúng ghi chú ấy ngay đầu luồng và hiện nó
   thành một chip dưới tin; mở lại cuộc trò chuyện vẫn thấy chip**
   - pytest: `tests/test_user_context_event.py`
@@ -1748,6 +1753,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
   - vitest: `web/src/api/artifact-client.test.ts` (danh sách mọi canvas, của một hội thoại hay theo
     tiêu đề, tạo trong hội thoại trả bản đầy đủ, mọi route dưới id đã mã hoá, signal và `keepalive`
     của lần lưu tới `fetch`, link chữ thô của bản mới nhất, của một bản và để tải về,
+    "links the page of a canvas under an encoded id, with no version: the newest is the one shown",
+    "sends the kind a canvas is made as, with the text it starts from", chi tiết của ảnh có
+    `content: null`,
     "reads the server's version from a 409 that carries one, and from nothing else", 507 nêu dung
     lượng và các canvas lớn nhất, "tells a version that was folded away from a canvas that is
     gone"); `web/src/api/client.test.ts` ("keeps a structured error detail beside the message older
@@ -1764,7 +1772,11 @@ tên một test thì sửa dòng của nó trong cùng commit.
     hay reply đúng một lần, event mang hội thoại liên kết lúc đó và không bao giờ mang chữ,
     "refuses a keepalive body that would take the bytes in flight past 64 KiB, without sending it",
     request bị huỷ vẫn ghi phần việc đã bắt đầu, canvas chỉ liên kết với hội thoại có thật và event
-    tới mọi luồng đang mở)
+    tới mọi luồng đang mở, "makes a canvas of every kind a person can make, with the text it is
+    given", "keeps a picture as bytes with no text: its detail and versions say so, and a write of
+    text is refused"). Mẫu canvas html, svg, mermaid và ảnh cho các test về loại nằm ở
+    `web/src/test/fake-canvas-kinds.ts` (`SAMPLES`; ảnh không có chữ, server giả chỉ giữ cân nặng
+    của nó và trả `content: null` như server thật)
 - **Canvas trên web: tự lưu không mất phím gõ, mỗi lúc một lần lưu, thử lại khi mất reply, dừng khi
   server từ chối**
   - vitest, máy trạng thái thuần, không timer và không mạng: `web/src/lib/canvas-machine-save.test.ts`
@@ -1844,7 +1856,11 @@ tên một test thì sửa dòng của nó trong cùng commit.
     riêng ở `web/src/lib/canvas-requests.test.ts`: 30 giây cộng một giây cho mỗi 50 KiB thân, làm tròn
     lên; đo trên byte UTF-8 của thân nên 100000 chữ "ệ" chờ lâu hơn 100000 chữ "x"; không reply tới hạn
     thì báo `saveTimedOut` chứ không báo mất, trước hạn một mili giây thì chưa, 3 MB html không bị cắt
-    ở giây 31, reply mất không mang status, 413 mang trần của loại canvas.
+    ở giây 31, reply mất không mang status, 413 mang trần của loại canvas. Lần đọc có nhóm "a read
+    coming back" ở cùng tệp: gửi đi cái server giữ và không để timer nào lại, "says the canvas could
+    not be read when what came back cannot be taken in, instead of leaving it loading" (thân trả về
+    mà máy trạng thái không nhận được thì báo đọc hỏng chứ không treo ở "đang tải"), lần đọc bị từ
+    chối báo hỏng kèm status đúng một lần.
     `web/src/lib/canvas-runner-wait.test.ts` giữ `waitMs` của runner (0 khi chưa có lần lưu nào, cả
     hạn lúc lần lưu đi rồi ít dần, dài hơn với lần lưu lớn, về 0 khi lần lưu xong hay hết hạn, và vẫn là
     0 chứ không âm khi đồng hồ nhảy qua hạn trước lúc timer chạy).
@@ -1871,7 +1887,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     conversation": ô tên có nhãn và placeholder riêng dưới tiêu đề của cuộc trò chuyện, "opens ready to
     type over the name of something just made"); `web/src/components/canvas/canvas-editor.test.tsx`
     (Ctrl/Cmd+S lưu ngay thay cho hộp lưu của trình duyệt, kể cả khi giữ Shift, còn chữ s để cho ô gõ;
-    báo canvas lúc ô mất focus và lúc soạn IME; code không kiểm chính tả và dùng phông code; "stays on
+    báo canvas lúc ô mất focus và lúc soạn IME; code, html, svg, mermaid và một loại web không biết
+    đều dùng phông code và không kiểm chính tả, còn văn xuôi được kiểm chính tả trong phông của trang;
+    "stays on
     the characters it was on when a line arrives above", tính từ chỗ phím gõ để con trỏ, giữ chỗ cuộn);
     `web/src/components/canvas/canvas-panel-modes.test.tsx` (canvas vừa tạo ở đây mở ở Sửa kể cả khi
     agent ghi vào trước lần đọc đầu, chữ gõ gộp vào bản mới hơn của agent mở ở Sửa và nói đã gộp tới
@@ -1924,14 +1942,19 @@ tên một test thì sửa dòng của nó trong cùng commit.
     lần đọc sau đã về thì giữ cái lần sau thấy); `web/src/components/canvas/canvas-picker.test.tsx`
     (đang tải, chưa có canvas, lỗi có nút thử lại, "shows each canvas with its kind, version and last
     change, and opens the one picked",
-    "makes a canvas, one at a time, and says when one could not be made");
+    "makes a canvas, one at a time, and says when one could not be made", "names the kind of a
+    drawing, a diagram and a picture, and an unknown kind as it is", "offers the five kinds a person
+    can make, never an image, and makes the one chosen", "keeps the kind chosen for the next canvas,
+    and changes it on the next choice", "holds the kind still while a canvas is being made");
     `web/src/lib/artifact-events.test.ts` ("announces a canvas found gone as a deletion that names no
     conversation")
 - **Canvas trên web: dock cạnh cuộc trò chuyện, tab và cột kéo rộng được từ 1101 px, lớp phủ cột chat
   dưới đó, rời canvas vẫn lưu nốt**
   - vitest: `web/src/hooks/use-canvas-dock.test.ts` ("never shows the last conversation's canvas in a
     render of the next one", lần lưu cuối hỏng sau khi đổi cuộc không để gì lại ở cuộc sau; tạo canvas
-    markdown chưa có tên trong cuộc này rồi mở với tên chờ gõ, không tạo được thì nói và ở lại danh
+    markdown chưa có tên trong cuộc này rồi mở với tên chờ gõ, bảng "makes a %s canvas holding what
+    one of its kind starts from" cho code, html, svg và mermaid, "sends nothing, and shows no request
+    as out, while no conversation is open to put the canvas in", không tạo được thì nói và ở lại danh
     sách; "gives up on the open canvas's save after 5 seconds", đóng hay về danh sách mà không lần lưu
     nào xong thì ở lại tới khi đóng hẳn, lần lưu quá hạn cũng ở lại, còn lần lưu chưa hết hạn riêng của
     nó thì panel đóng và để lần lưu ở phía sau chờ nốt, canvas bị xoá lúc lần lưu cuối đang bay hay đã
@@ -1946,7 +1969,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     danh sách sang canvas; hoạt động hiện khi chưa mở gì, tab hoạt động theo cú bấm, lớp phủ hiện cả
     dock; cột rộng đúng như cạnh nói; nút Canvas đếm canvas và nói dock mở hay đóng; lần lưu không về
     của canvas chưa có tên gọi là canvas không tên, và thông báo nói bản nháp vẫn trên máy khi giữ được,
-    không hứa nháp khi máy không giữ được);
+    không hứa nháp khi máy không giữ được; nhóm "making a canvas of a kind from the list": "asks for
+    the kind chosen with what it starts from, and opens it to edit as text");
     `web/src/hooks/use-canvas-width.test.ts` ("takes half the room beside the sidebar until the person
     chooses", cả canvas lẫn cuộc trò chuyện rộng ít nhất 360 px, chỉ nhớ bề rộng khi được bảo giữ, bề
     rộng đã giữ co theo cửa sổ hẹp và trở lại khi cửa sổ rộng ra, theo cửa sổ khi người chưa chọn, không
@@ -1959,8 +1983,13 @@ tên một test thì sửa dòng của nó trong cùng commit.
     and options, and ends with the extras": nút Canvas đứng đầu hàng pill nên ở 390 px vẫn trong màn
     hình)
   - Việc xin tạo canvas nằm ở `web/src/hooks/use-canvas-create.ts` và không có tệp test riêng: dock
-    đưa cho nó số lần chuyển và hai cách hiện kết quả, nên các test ở trên (tạo, lỗi tạo, chuyển trước
-    khi reply về) chạy nó qua dock và chuyển nó ra khỏi dock không đổi test nào
+    đưa cho nó số lần chuyển và hai cách hiện kết quả, nên các test ở trên (tạo từng loại kèm chữ mở
+    đầu của loại ấy, không gửi gì khi chưa mở cuộc nào, lỗi tạo, chuyển trước khi reply về) chạy nó
+    qua dock và chuyển nó ra khỏi dock không đổi test nào. Chữ mở đầu của từng loại có test riêng ở
+    `web/src/lib/canvas-templates.test.ts` (năm loại theo thứ tự danh sách hiện, markdown và code bắt
+    đầu trống, html là trang nhỏ nhất còn chừa thân để viết, svg có `viewBox` để vẽ, mermaid có hai ô
+    đã vẽ được với tên tiếng Việt, mẫu nào cũng kết thúc bằng xuống dòng và lần nào cũng cho cùng
+    chữ, và nằm xa dưới trần nhỏ nhất của mọi loại)
   - vitest, cả App trên `FakeCanvas`: `web/src/app-canvas.test.tsx` ("opens as a tab over the activity,
     in a column its edge widens, and keeps both mounted", "keeps the open canvas and its typing as the
     window crosses 1101 px both ways", "makes a canvas from the list and opens its name to type over",
@@ -2008,8 +2037,11 @@ tên một test thì sửa dòng của nó trong cùng commit.
     canvas when none was opened in this tab": thân POST chỉ có `{text}`; "holds the words in a
     read-only box until the canvas is saved, and sends once however often Enter comes"; rời sang hội
     thoại khác trước khi lần lưu về thì không gửi gì và chữ trở lại ô khi quay lại; ở hội thoại khác
-    tin mới vẫn chờ lần lưu của canvas người vừa bỏ lại; 422 cho tin mang canvas được nói bằng tiếng
-    Việt rằng đoạn không còn khớp, câu tiếng Anh của server không lộ ra, chữ ở lại ô và không có
+    tin mới vẫn chờ lần lưu của canvas người vừa bỏ lại; "does not blame a passage the message never
+    named, and leaves the words in the box": tin từ ô soạn nêu canvas mà không mang đoạn chọn, nên
+    422 của nó (ở đây là danh sách `string_too_long` của server) được nói bằng câu tiếng Việt cho
+    yêu cầu không hợp lệ chứ không bảo đoạn chọn không còn khớp, mã lỗi của server không lộ ra, chữ
+    ở lại ô, ô gõ lại được và không có
     bong bóng; dưới ô soạn tin chỉ hiện "Đang lưu canvas…" khi lần chờ quá 300 ms và thôi hiện khi tin
     đi, lưu ngay thì không hiện gì, lần lưu hỏng thì tin vẫn đi)
   - Playwright: `canvas-send.spec.ts` ("a message sent over typing the canvas has not saved yet waits
@@ -2246,7 +2278,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     lẫn câu hỏi khi server từ chối, Escape trong hộp chỉ đóng hộp, và không đụng tới canvas người mở ở
     cuộc khác trong lúc câu hỏi còn trên đường; hỏi tắt khi lượt của tab đang chạy và bật lại khi xong,
     khi kênh khác đang chạy lượt, khi cuộc trò chuyện chờ quyết định về một công cụ, khi đã hết ngân
-    sách, và chỉ nói một lý do một lúc: quyết định trước ngân sách, lượt đang chạy trước cả hai). Hàm
+    sách, và chỉ nói một lý do một lúc: quyết định trước ngân sách, lượt đang chạy trước cả hai; nhóm
+    "sending the errors a page reported from the canvas beside the chat": lỗi trang báo đi thành một
+    tin duy nhất nêu canvas mà không nêu đoạn nào, chỉ khi người bấm gửi, không lưu canvas và không
+    ghi canvas đang mở). Hàm
     dùng chung: `web/src/test/canvas-pick.ts` (chọn chữ trên DOM như một cú kéo để lại, trong trang đọc
     hay trong ô sửa; đặt dòng chữ ngoài canvas lên trang và dọn đi sau mỗi test), `web/src/test/canvas-ask.tsx` (thanh hỏi đứng riêng với hàm lưu và hàm gửi giả), và
     `FakeBackend.refuseMessage` (POST tin nhắn từ chối với đúng trạng thái và `detail` đã đặt)
@@ -2260,6 +2295,132 @@ tên một test thì sửa dòng của nó trong cùng commit.
     chat được cất đi sau khi gửi để câu hỏi và câu trả lời hiện ra); `touch-targets-phone.spec.ts` ("the
     buttons of the bar that asks about a passage of the canvas are big enough for a finger": nút hỏi, ô
     câu hỏi, Gửi và Huỷ ≥40px mỗi chiều ở 390 px)
+- **Canvas trên web: trang html và mermaid chạy trong khung sandbox không dính gì tới app; bản mới
+  thay khung sau một giây đứng yên, trang tự đi sang địa chỉ khác thì bị gỡ**
+  - vitest: `web/src/components/canvas/canvas-frame.test.tsx` nhóm "the page of a canvas, in its
+    frame" ("runs the page in a frame that has a script and nothing of the app": `sandbox` đúng bằng
+    `allow-scripts` — thêm `allow-same-origin` là test đỏ —, `allow` là `fullscreen`, `referrerpolicy`
+    là `no-referrer`, tiêu đề của canvas; địa chỉ là route `render` không kèm phiên bản; nói đang tải
+    tới khi trang tải xong lần đầu; báo cho panel bản vừa đưa lên), nhóm "a newer version of the page"
+    (khung được thay bằng khung mới một giây sau lần đổi bản cuối, chờ bản đứng yên rồi đưa bản cuối
+    lên; người đang giữ focus trong trang thì giữ khung và mời bản mới bằng một nút, nút đưa lên bản
+    đang có lúc bấm, không có bản mới thì không có nút; tab ẩn thì chờ tab hiện lại rồi đưa lên ngay,
+    bản vẫn thế thì không đưa lại), nhóm "the live stream" (luồng nối lại sau khi rớt thì đưa trang
+    lên lại với bản mới nhất; lần nối đầu và luồng chưa từng nối thì không), nhóm "a page that moves
+    to another address" (tải lần thứ hai là bị gỡ và người được báo, tải một lần dù lâu thì không; đã
+    gỡ thì đứng yên tới khi người bảo chạy lại, khi ấy bản mới nhất được đưa lên và chạy như mọi
+    trang; "is told to the panel under the version that was up, though a newer one was waiting its
+    second"; trang đã gỡ thì bỏ nút mời bản mới);
+    `web/src/components/canvas/canvas-panel-kinds.test.tsx` nhóm "a canvas shown as a page" (html của
+    agent mở thành trang trong khung, html vừa tạo ở đây mở ở Sửa trong phông code, sơ đồ mermaid cũng
+    là một trang; "turns to the page at once when nothing is unsaved, and sends nothing": đổi ngay
+    trong cú bấm; "saves what was typed before turning to the page, and says so on the View button
+    meanwhile"; "keeps the last click: Edit pressed while the save is out stays in Edit when it
+    lands"; lịch sử mở trong lúc lưu thì vẫn mở; lưu bị từ chối thì hiện bản đã lưu gần nhất và nói
+    chữ đang gõ chưa có trong đó; "opens the saved page in a new tab, and only once nothing is
+    unsaved": `window.open` với `noopener,noreferrer`; canvas mới biết tên mà chưa đọc xong thì chưa
+    có trang để mở; trang có ký tự ẩn thì nói; canvas đã xoá thì không còn trang để mở) và nhóm "a
+    kind the web does not know" (hiện thành chữ trong phông code, không khung, không hình);
+    `web/src/hooks/use-save-then-show.test.ts` (lần chuyển sang cái server đang giữ: đổi ngay khi
+    không có gì phải chờ và không xin lưu, chờ lần lưu và nói đang chờ, lần lưu ném lỗi vẫn đổi và
+    thôi nói chờ, lần chuyển sau thắng lần đang chờ, huỷ thì bỏ lần đang chờ)
+  - Playwright: `canvas-render.spec.ts`, trang html do `web/e2e/mock-render.ts` trả kèm đúng chính
+    sách và reporter của server (hai tệp mà `tests/test_render_fixtures.py` giữ bằng server từng byte;
+    mermaid không được phục vụ vì trang ấy tải thư viện từ CDN). Mở thẳng địa chỉ render: "has an
+    origin of its own and no storage, by the policy it comes with" (`window.origin` là `null`, đọc
+    `localStorage` ném `SecurityError`; bỏ `sandbox` khỏi `render-policy.txt` là test đỏ). Trong khung
+    ở 1440×900: "runs under an origin that is not the app's, and what it throws is listed"; "cannot
+    call the api: the policy stops the request before it leaves, and says so" (không request nào đi
+    từ khung, lời báo là `connect-src blocked`); "cannot keep anything in the browser's storage";
+    "cannot put a dialog over the app"; "cannot move the app to another address" (`top.location` ném
+    `SecurityError`, app vẫn ở địa chỉ cũ); "is taken out when it moves itself to another address,
+    and the person is told" (trang đổi `location` sau khi tải xong; trang tự đi ngay lúc còn đang
+    parse thì không bị bắt, đó là phần rủi ro đã ghi nhận). Ở 390×844 cảm ứng: "gets most of the
+    screen, and its errors fit a finger without a sideways scroll" (khung cao ít nhất 60% màn hình,
+    mọi nút trong dock ≥40px, một từ 300 ký tự trong danh sách lỗi không làm cuộn ngang).
+    `web/e2e/canvas-overflow.ts` là hàm đo cuộn ngang dùng chung với `canvas.spec.ts`, đo cả
+    `.canvas-errors-list`
+- **Canvas trên web: svg và ảnh hiện thành hình từ bản đã lưu; ảnh chỉ để xem; hình không tải được
+  thì phân biệt hình hỏng, bản đã mất, server lỗi và mất mạng**
+  - vitest: `web/src/components/canvas/canvas-image.test.tsx` nhóm "a picture of a canvas" (hình là
+    `raw?version=n` của đúng bản được giao, dưới tên canvas; svg mang lớp `vector`; mỗi bản mới được
+    báo lên một lần và vẽ từ địa chỉ của chính nó) và nhóm "a picture that does not load" (địa chỉ
+    vẫn trả lời thì cái nó giữ không phải hình: nói hình hỏng; "gives the agent a drawing the server
+    holds that does not draw, once": chỉ svg mới được báo cho agent, và một lần; bản đã mất thì đọc
+    lại canvas chứ không đổ cho hình; server đang lỗi thì không đổ cho hình hay bản nào; địa chỉ
+    không trả lời thì chờ mạng và không nói gì với agent; luồng nối lại sau khi rớt thì vẽ lại, hình
+    đang hiện thì để yên, hình hỏng thì không thử lại; hai lần kiểm cùng bay thì lần mới nhất quyết
+    định; hình đi thì bỏ lần kiểm còn bay); `web/src/hooks/use-canvas-image.test.ts` (canvas ảnh mở
+    ra là đã đọc và đã lưu với chữ rỗng không bao giờ được gửi, ảnh mới tới qua luồng thì đọc một lần
+    và chỉ chuyển sang bản ấy, ảnh được khôi phục là bản mới nhất, vẫn không có chữ và không có gì
+    để lưu); `web/src/components/canvas/canvas-panel-kinds.test.tsx` nhóm "a canvas shown as a
+    picture" (svg của agent vẽ từ bản đã lưu, không có trang để mở và vẫn sửa được; "shows an image
+    only to look at, even when it was just made, with nothing to copy": chỉ có Xem, không ô sửa,
+    không nút chép, không danh sách lỗi) và nhóm "asking about a passage of a canvas shown as what
+    the server holds" (thanh hỏi và hộp đang mở biến mất khi chuyển từ chữ của html, svg hay mermaid
+    sang cái nó hiện; ảnh không có chữ để chọn nên không có gì để hỏi);
+    `web/src/components/canvas/canvas-saved-view.test.tsx` nhóm "what a drawing reports, in the
+    panel" ("stays one picture however often the panel is drawn again"; svg mà trình duyệt không vẽ
+    được dù server giữ nó thì vào danh sách lỗi để gửi agent; bản kế là một hình riêng và không lỗi
+    nào tính cho nó; "reads the canvas again when the version it draws is gone, and draws the one
+    that took its place"; "draws a picture that did not arrive again when the activity stream comes
+    back"); `web/src/components/canvas/canvas-history-kinds.test.tsx` (lịch sử của ảnh hiện mỗi bản
+    thành một hình riêng, không có dòng để so, không có ô chọn; khôi phục một ảnh cũ chỉ bằng lệnh
+    khôi phục và hiện nó là bản mới nhất; với canvas chữ, một dòng dài quá 2000 ký tự trong diff bị
+    cắt kèm số ký tự đã bỏ)
+- **Canvas trên web: lỗi trang báo được đếm và liệt kê; chỉ tới agent khi người bấm gửi, trong một
+  tin rào lỗi lại như dữ liệu**
+  - vitest: `web/src/lib/frame-messages.test.ts` nhóm "what a page in the canvas frame may tell the
+    panel" (nhận lời báo từ chính cửa sổ của khung, origin trình duyệt ghi là `null`; bỏ lời từ cửa
+    sổ khác, từ không đâu — kể cả khi khung đã đi —, từ origin khác `null`, dữ liệu không phải object
+    hay không phải `canvas-error`, `message` không phải chữ; giữ `message` rỗng; cắt `message` ở 2000
+    ký tự và tên tệp ở 300, không bao giờ cắt giữa hai nửa một ký tự ngoài mặt phẳng cơ bản; vị trí
+    không phải số đếm thành 0; không giữ gì của trang ngoài bốn trường), nhóm "where a page says its
+    error is" và nhóm "a file the page asked for that did not arrive";
+    `web/src/lib/clip-text.test.ts` (chữ vừa chỗ thì để nguyên, giữ các đơn vị đầu, bỏ cả cặp chứ
+    không để lại nửa đầu của nó); `web/src/components/canvas/canvas-frame.test.tsx` nhóm "what the
+    page reports" (chuyển đi lời báo từ cửa sổ của trang; không nhận gì từ cửa sổ khác, từ trang đã
+    gỡ hay từ khung đã bị thay; thôi nghe khi khung đi; "tells the panel's newest listener alone,
+    once the panel has given it another"; tệp không tới lúc máy mất mạng thì bỏ qua còn lời báo khác
+    vẫn giữ, có mạng lại thì liệt kê); `web/src/components/canvas/canvas-errors.test.tsx` nhóm "the
+    errors a page reported" (không hiện gì khi trang chưa báo gì, nói số lỗi và giữ danh sách đóng
+    tới khi được hỏi, liệt kê cũ trước mới sau, "draws what the page wrote as text and never as
+    markup, with hidden characters as marks") và nhóm "sending the errors to the agent" (chỉ có nút
+    gửi khi có chat để gửi; "sends nothing until the button is pressed, however many errors arrive";
+    lưu canvas rồi gửi một tin nêu trang và bản của nó; gửi năm lỗi mới nhất; nút bị giữ trong lúc
+    lưu và gửi nên bấm bao nhiêu lần cũng gửi một lần; canvas chưa lưu được thì nói, không gửi và cho
+    thử lại; server từ chối thì hiện lời của web và lần bấm sau gửi lại; lần gửi hay lần lưu ném lỗi
+    thì nói một câu chung; tin xếp hàng tính là đã gửi và nút tắt tới khi trang báo lỗi mới; gửi
+    đúng các lỗi có lúc bấm; nút tắt và nói lý do khi chat bận, chờ quyết định hay hết ngân sách);
+    `web/src/lib/error-report.test.ts` (tin là các lỗi trong một rào giữa một dòng nói đó là gì và
+    một dòng xin sửa; "says the fenced text was written by the page, and is data and not a
+    request"; tên canvas nằm trong inline code trên một dòng kèm bản được đưa lên, tên có dấu huyền
+    thì bọc bằng dãy dấu huyền dài hơn và đệm khoảng trắng khi nó mở đầu hay kết thúc bằng dấu ấy;
+    ký tự ẩn hiện thành dấu thấy được; năm lỗi mới nhất của hai mươi lăm, đánh số từ một; lỗi 5000 ký
+    tự cắt còn 2000, cắt theo chữ trang viết chứ không theo dấu thay ký tự ẩn; cả tin luôn nằm trong
+    giới hạn của route chat; rào là ba dấu huyền và dài hơn mọi dãy dấu huyền trong lỗi, "lets the
+    page end no fence early, whatever it writes"; vị trí lỗi chỉ nêu tới mức trang cho);
+    `web/src/components/canvas/canvas-saved-view.test.tsx` nhóm "what the page of a canvas reports,
+    in the panel" ("lists what the page itself says, and nothing another window says"; "sends the
+    errors as those of the version the page was put up for, while a newer one waits its second";
+    bản mới được đưa lên thì quên lỗi của trang cũ và đếm lại từ không, và gửi lại được dù lỗi trước
+    đã gửi; trang bị gỡ vì tự đi nơi khác thì quên lỗi của nó; "counts every report the page makes
+    and keeps the newest five to list"; luồng nối lại thì trang được đưa lên lại và không lỗi nào
+    tính cho nó; chat không nhận tin được thì nút gửi tắt và nói lý do; "does not send the errors
+    when what was typed could not be saved, and says so")
+  - vitest, cả App trên `FakeCanvas`: `web/src/app-canvas-ask.test.tsx` nhóm "sending the errors a
+    page reported from the canvas beside the chat" (xem mục hỏi về một đoạn ở trên: một tin duy nhất
+    với `selection: null`, không lần lưu và không lần ghi canvas đang mở nào)
+  - Playwright: `canvas-render.spec.ts` ở 1440×900 ("is the only window whose reports are listed:
+    one the app posts to itself is not"; "is heard for twenty of the twenty-five errors it throws,
+    and the list keeps the newest five": reporter dừng ở hai mươi, test chờ bằng một lời báo trang tự
+    gửi sau đợt lỗi nên số đếm là 21; "reports a picture from elsewhere that the policy keeps it from
+    loading": cả dòng `img-src blocked` lẫn dòng `failed to load`, và request kết thúc với lỗi `csp`
+    trước khi ra mạng; "reports a promise nothing caught as one error"; "shows at most two thousand
+    characters of an error of five thousand": cái reporter gửi đi cũng đã chỉ dài 2000, đo ngay trên
+    cửa sổ của app trước khi app cắt; "sends what it reported to the agent only when asked, as one
+    message that fences it as data": chưa bấm thì không có POST nào, bấm thì đúng một tin với
+    `selection: null`, từng dòng của tin khớp mẫu và tin hiện trong thread)
 - **Mã agent khớp cả chuỗi: chữ thường, số và gạch ngang, không cả xuống dòng ở cuối**
   - pytest: `tests/test_api_agents_edit.py::test_an_id_that_is_not_a_safe_folder_name_is_refused`
     (`../escape` và `coder` có xuống dòng ở cuối đều bị từ chối, không thư mục nào được tạo);

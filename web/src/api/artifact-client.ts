@@ -53,6 +53,9 @@ export const artifactApi = {
     request<ArtifactVersion>(`${artifactPath(id)}/versions/${version}`),
   rawUrl: (id: string, options: { version?: number; download?: boolean } = {}) =>
     `/api${artifactPath(id)}/raw${query({ version: options.version, download: options.download ? 1 : undefined })}`,
+  /** The page of an html or mermaid canvas, for a frame or a tab: always the newest version, since
+   *  a save can fold an older one away. */
+  renderUrl: (id: string) => `/api${artifactPath(id)}/render`,
   /** The canvas a conversation has open, or null when none is. */
   getFocus: (conversationId: string) => request<CanvasFocus | null>(focusPath(conversationId)),
   /** What `getFocus` reads next: `artifact_id: null` closes the canvas. A canvas that is gone is a 404. */

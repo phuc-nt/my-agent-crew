@@ -79,11 +79,11 @@ export function CanvasEditor({ canvas, kind, fieldRef, onSelection }: Props) {
   return (
     <textarea
       ref={field}
-      className={kind === "code" ? "canvas-editor code" : "canvas-editor"}
+      className={kind === "markdown" ? "canvas-editor" : "canvas-editor code"}
       aria-label={vi.canvas.editor}
       value={state.text}
       readOnly={state.gone}
-      spellCheck={kind !== "code"}
+      spellCheck={kind === "markdown"}
       onChange={(event) => {
         canvas.edit(event.target.value);
         remember();

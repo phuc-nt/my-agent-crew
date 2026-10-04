@@ -28,10 +28,10 @@ export function errorText(error: unknown, notFound?: string): string {
 }
 
 /** `errorText` for a request that sends a message or resumes a turn, where a 409 means the
- *  conversation waits on a decision. A 422 for a message that carried the canvas is its
- *  selection, which the server words in English. */
-export function turnErrorText(error: unknown, withCanvas = false): string {
+ *  conversation waits on a decision. A 422 for a message that carried a selection of the canvas is
+ *  that selection, which the server words in English; for any other message it is not. */
+export function turnErrorText(error: unknown, withSelection = false): string {
   if (error instanceof ApiError && error.status === 409) return vi.busyConflict;
-  if (withCanvas && error instanceof ApiError && error.status === 422) return vi.sendFailed.selection;
+  if (withSelection && error instanceof ApiError && error.status === 422) return vi.sendFailed.selection;
   return errorText(error);
 }

@@ -94,6 +94,29 @@ describe("artifactApi", () => {
     expect(artifactApi.rawUrl("a1", { download: true })).toBe("/api/artifacts/a1/raw?download=1");
   });
 
+  it("links the page of a canvas under an encoded id, with no version: the newest is the one shown", () => {
+    expect(artifactApi.renderUrl("a/1")).toBe("/api/artifacts/a%2F1/render");
+    expect(artifactApi.renderUrl("a1")).toBe("/api/artifacts/a1/render");
+  });
+
+  it("sends the kind a canvas is made as, with the text it starts from", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ ...detail, kind: "html" }, 201));
+    await artifactApi.create({ title: "Trang", kind: "html", content: "<p>x</p>", conversation_id: "c1" });
+
+    expect(sent()).toMatchObject({
+      url: "/api/artifacts",
+      method: "POST",
+      body: { title: "Trang", kind: "html", content: "<p>x</p>", conversation_id: "c1" },
+    });
+  });
+
+  it("reads the detail of an image, which has no text", async () => {
+    const image = { ...detail, kind: "image", content: null };
+    fetchMock.mockResolvedValueOnce(jsonResponse(image));
+
+    expect(await artifactApi.get("a1")).toEqual(image);
+  });
+
   it("reads what a conversation has open, null when nothing, and sets or closes it under an encoded id", async () => {
     const open = { artifact_id: "0123456789ab", selection: null };
     fetchMock

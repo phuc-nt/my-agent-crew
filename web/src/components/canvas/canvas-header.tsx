@@ -9,6 +9,8 @@ import type { CanvasController } from "../../hooks/use-canvas";
 import { useNow } from "../../hooks/use-now";
 import { vi } from "../../i18n/vi";
 import { authorLabel } from "../../lib/canvas-author";
+import { hasNoText, showsPage } from "../../lib/canvas-kinds";
+import { isDirty } from "../../lib/canvas-state";
 import { timeAgo } from "../../lib/relative-time";
 import { CopyButton } from "../copy-button";
 import { EditableTitle } from "../editable-title";
@@ -21,16 +23,20 @@ export type CanvasMode = "view" | "edit";
 type Props = Pick<CanvasPanelProps, "artifactId" | "created" | "agentName" | "onShowList" | "onClose"> & {
   canvas: CanvasController;
   mode: CanvasMode | null;
+  /** A turn to View is waiting for the canvas to be saved. */
+  switching: boolean;
   history: boolean;
   onChoose(mode: CanvasMode): void;
   onHistory(): void;
   onRename(title: string): void;
 };
 
-export function CanvasHeader({ canvas, artifactId, created, agentName, mode, history, ...on }: Props) {
+export function CanvasHeader({ canvas, artifactId, created, agentName, mode, switching, history, ...on }: Props) {
   const now = useNow(60_000);
   const { state, status } = canvas;
   const { summary, gone } = state;
+  const kind = summary?.kind ?? "markdown";
+  const modes = hasNoText(kind) ? (["view"] as const) : (["view", "edit"] as const);
   return (
     <header className="canvas-header">
       <div className="canvas-title-row">
@@ -69,11 +75,14 @@ export function CanvasHeader({ canvas, artifactId, created, agentName, mode, his
       )}
       <div className="canvas-toolbar">
         <div className="segmented" role="group" aria-label={vi.canvas.mode}>
-          {(["view", "edit"] as const).map((each) => (
-            <button key={each} type="button" aria-pressed={mode === each} onClick={() => on.onChoose(each)}>
-              {vi.canvas[each]}
-            </button>
-          ))}
+          {modes.map((each) => {
+            const busy = switching && each === "view";
+            return (
+              <button key={each} type="button" aria-pressed={mode === each} aria-busy={busy || undefined} onClick={() => on.onChoose(each)}>
+                {busy ? vi.canvas.status.saving : vi.canvas[each]}
+              </button>
+            );
+          })}
         </div>
         {!gone && (
           <button type="button" className="ghost" aria-expanded={history} onClick={on.onHistory}>
@@ -81,7 +90,19 @@ export function CanvasHeader({ canvas, artifactId, created, agentName, mode, his
             {vi.canvas.history}
           </button>
         )}
-        <CopyButton text={state.text} label={vi.canvas.copy} />
+        {state.phase === "ready" && !gone && showsPage(kind) && (
+          <button
+            type="button"
+            className="ghost"
+            // Only text that is saved is on the server to open, and the opening happens in this click.
+            disabled={isDirty(state)}
+            onClick={() => window.open(artifactApi.renderUrl(artifactId), "_blank", "noopener,noreferrer")}
+          >
+            <Icon name="arrow-right" />
+            {vi.canvas.page.open}
+          </button>
+        )}
+        {!hasNoText(kind) && <CopyButton text={state.text} label={vi.canvas.copy} />}
         {!gone && (
           <a className="canvas-download" href={artifactApi.rawUrl(artifactId, { download: true })} download>
             <Icon name="download" />

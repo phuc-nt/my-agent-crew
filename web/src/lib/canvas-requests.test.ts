@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
 import { landed, startServer, stopServer, wait } from "../test/canvas-hook";
 import type { FakeBackend } from "../test/fake-backend";
-import { REQUEST_TIMEOUT_MS, UPLOAD_BYTES_PER_S, requestSave, saveDeadlineMs } from "./canvas-requests";
+import { REQUEST_TIMEOUT_MS, UPLOAD_BYTES_PER_S, requestRead, requestSave, saveDeadlineMs } from "./canvas-requests";
 import type { CanvasInput } from "./canvas-types";
 
 const MB = 1024 * 1024;
@@ -113,5 +113,39 @@ describe("a save going out", () => {
     await landed();
 
     expect(heard).toEqual([{ type: "saveFailed", status: 413, conflict: null, full: null, cap }]);
+  });
+});
+
+describe("a read coming back", () => {
+  it("sends what the server holds, and leaves no timer running", async () => {
+    backend.canvas.add({ content: "a" });
+
+    requestRead("a1", send);
+    await landed();
+
+    expect(heard).toEqual([{ type: "read", detail: expect.objectContaining({ id: "a1", content: "a", head_version: 1 }) }]);
+    expect(vitest.getTimerCount()).toBe(0);
+  });
+
+  it("says the canvas could not be read when what came back cannot be taken in, instead of leaving it loading", async () => {
+    backend.canvas.add({ content: "a" });
+    const unreadable = (input: CanvasInput) => {
+      heard.push(input);
+      if (input.type === "read") throw new Error("a detail the machine cannot take in");
+    };
+
+    requestRead("a1", unreadable);
+    await landed();
+
+    expect(heard.map((input) => input.type)).toEqual(["read", "readFailed"]);
+    expect(heard[1]).toEqual({ type: "readFailed", status: null });
+    expect(vitest.getTimerCount()).toBe(0);
+  });
+
+  it("says a read the server refused failed, with its status, once", async () => {
+    requestRead("gone", send);
+    await landed();
+
+    expect(heard).toEqual([{ type: "readFailed", status: 404 }]);
   });
 });

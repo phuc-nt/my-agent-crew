@@ -19,7 +19,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { MessageCanvas } from "../api/artifact-types";
+import type { CreatableKind, MessageCanvas } from "../api/artifact-types";
 import { isArtifactId } from "../lib/artifact-tag";
 import { closedFor, type DockState, type DockTab, type DockView } from "../lib/canvas-dock-state";
 import { flushAll, type HandoffFailure, onHandoffFailed, within } from "../lib/canvas-handoff";
@@ -48,7 +48,8 @@ export type CanvasDock = Omit<DockState, "conversationId"> & {
   open(id: string, options?: { quiet?: boolean }): void;
   close(): Promise<void>;
   forceClose(): void;
-  create(): Promise<void>;
+  /** A new canvas of `kind`, markdown unless said, opened in the editor. */
+  create(kind?: CreatableKind): Promise<void>;
   /** The Canvas button: opens the list, brings the canvas tab forward, or closes. */
   toggle(): Promise<void>;
   selectTab(tab: DockTab): void;

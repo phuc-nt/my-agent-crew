@@ -119,7 +119,10 @@ describe("FakeCanvas checks", () => {
     const canvas = new FakeCanvas();
     canvas.conversationExists = (id) => id === "c1";
     const create = (body: object) => call(canvas, "/artifacts", "POST", body);
-    expect(Array.isArray((create({ title: "x", kind: "html" }).body as { detail: unknown }).detail)).toBe(true);
+    // A picture only comes in by import, so a create refuses it as it does a kind nobody knows.
+    for (const kind of ["image", "pdf"]) {
+      expect(Array.isArray((create({ title: "x", kind }).body as { detail: unknown }).detail)).toBe(true);
+    }
     expect(create({ title: " \n\t ", kind: "markdown" })).toEqual({ status: 422, body: { detail: "a canvas needs a title" } });
     expect(create({ title: "x", kind: "markdown", conversation_id: "c9" })).toEqual({
       status: 404,
@@ -132,6 +135,25 @@ describe("FakeCanvas checks", () => {
       status: 422,
       body: { detail: "a title of 201 characters is over 200" },
     });
+  });
+
+  it("makes a canvas of every kind a person can make, with the text it is given", () => {
+    const canvas = new FakeCanvas();
+    for (const kind of ["markdown", "code", "html", "svg", "mermaid"]) {
+      const made = call(canvas, "/artifacts", "POST", { title: kind, kind, content: `<${kind}>` });
+      expect(made).toMatchObject({ status: 201, body: { kind, content: `<${kind}>` } });
+    }
+  });
+
+  it("keeps a picture as bytes with no text: its detail and versions say so, and a write of text is refused", () => {
+    const canvas = new FakeCanvas();
+    canvas.add({ id: "a1", title: "Biểu đồ.png", kind: "image", content: null });
+
+    expect(call(canvas, "/artifacts/a1")).toMatchObject({ status: 200, body: { kind: "image", content: null } });
+    expect(call(canvas, "/artifacts/a1/versions/1")).toMatchObject({ status: 200, body: { content: null } });
+    expect(canvas.content("a1")).toBeNull();
+    expect(call(canvas, "/artifacts/a1/raw")).toEqual({ status: 200, text: "" });
+    expect(save(canvas, "a1", "chữ", 1)).toEqual({ status: 422, body: { detail: "a picture has no text to write" } });
   });
 
   it("answers paths and methods the routes do not have the way the router does", () => {

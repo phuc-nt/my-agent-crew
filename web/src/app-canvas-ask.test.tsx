@@ -2,6 +2,7 @@ import { act, fireEvent, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
 import type { AgentEvent } from "./api/types";
 import { vi } from "./i18n/vi";
+import { errorReport } from "./lib/error-report";
 import {
   bodies,
   conversation,
@@ -19,6 +20,7 @@ import { landed, stopServer } from "./test/canvas-hook";
 import { editor, typeInto } from "./test/canvas-panel";
 import { pick, pickIn } from "./test/canvas-pick";
 import { type FakeBackend, FakeEventSource, fakeApproval, fakeRun } from "./test/fake-backend";
+import { SAMPLES } from "./test/fake-canvas-kinds";
 
 const TEXT = "Đoạn một\n\nĐoạn hai\n\nĐoạn ba\n";
 const PASSAGE = "Đoạn hai";
@@ -414,5 +416,46 @@ describe("asking while the chat cannot take a question", () => {
     expect(reason(vi.canvas.ask.busy)).toBeInTheDocument();
     expect(reason(vi.canvas.ask.pending)).toBeNull();
     expect(reason(vi.canvas.ask.budget)).toBeNull();
+  });
+});
+
+describe("sending the errors a page reported from the canvas beside the chat", () => {
+  const FAILURE = { message: "Uncaught ReferenceError: dem is not defined", source: "", line: 12, column: 3 };
+
+  /** The page in the frame reports `FAILURE`, as the browser delivers it from a sandboxed frame. */
+  function pageReports() {
+    const frame = document.querySelector("iframe.canvas-frame") as HTMLIFrameElement;
+    act(() => {
+      window.dispatchEvent(
+        Object.assign(new Event("message"), {
+          source: frame.contentWindow,
+          origin: "null",
+          data: { type: "canvas-error", ...FAILURE },
+        }),
+      );
+    });
+  }
+
+  it("sends them as one message that names the canvas and no passage, only when asked, and writes no focus", async () => {
+    backend.canvas.add({ ...SAMPLES.html, agent_id: "ming", conversationIds: ["c1"] });
+    await openChat(1440);
+    fireEvent.click(screen.getByRole("button", { name: vi.canvas.buttonLabel(2) }));
+    await landed();
+    fireEvent.click(screen.getByRole("button", { name: /Trang hẹn giờ/ }));
+    await landed();
+
+    pageReports();
+    await settle();
+    expect(posts(backend)).toEqual([]);
+
+    fireEvent.click(screen.getByRole("button", { name: vi.canvas.pageErrors.send }));
+    await settle();
+
+    expect(bodies(backend)).toEqual([
+      { text: errorReport("Trang hẹn giờ", 1, [FAILURE]), canvas: { artifact_id: "a2", selection: null } },
+    ]);
+    expect(focusWrites(backend)).toEqual([]);
+    expect(traffic(backend)).not.toContain("PUT /artifacts/a2");
+    expect(screen.getByText(vi.canvas.pageErrors.sent(1))).toBeInTheDocument();
   });
 });

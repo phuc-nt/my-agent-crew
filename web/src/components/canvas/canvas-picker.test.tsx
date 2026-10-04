@@ -88,17 +88,37 @@ describe("the canvases of a conversation", () => {
     expect(rows).toEqual([
       `${vi.canvas.untitled}Mã · v4 · 5 phút`,
       "Kế hoạchMarkdown · v3 · 5 phút",
-      "Tranghtml · v1 · vừa xong",
+      "TrangHTML · v1 · vừa xong",
     ]);
     fireEvent.click(screen.getByRole("button", { name: /Kế hoạch/ }));
 
     expect(onOpen).toHaveBeenCalledWith("a1");
   });
 
+  it("names the kind of a drawing, a diagram and a picture, and an unknown kind as it is", () => {
+    const at = "2026-10-02T03:04:30+00:00";
+    picker({
+      items: [
+        summary({ id: "b1", title: "Hình", kind: "svg", updated_at: at }),
+        summary({ id: "b2", title: "Sơ đồ", kind: "mermaid", updated_at: at }),
+        summary({ id: "b3", title: "Ảnh chụp", kind: "image", updated_at: at }),
+        summary({ id: "b4", title: "Tệp", kind: "pdf", updated_at: at }),
+      ],
+    });
+
+    expect(screen.getAllByRole("listitem").map((row) => row.textContent)).toEqual([
+      "HìnhSVG · v1 · vừa xong",
+      "Sơ đồMermaid · v1 · vừa xong",
+      "Ảnh chụpẢnh · v1 · vừa xong",
+      "Tệppdf · v1 · vừa xong",
+    ]);
+  });
+
   it("makes a canvas, one at a time, and says when one could not be made", () => {
     const { onCreate } = picker({ items: [] });
     fireEvent.click(screen.getByRole("button", { name: vi.canvas.newCanvas }));
     expect(onCreate).toHaveBeenCalledTimes(1);
+    expect(onCreate).toHaveBeenCalledWith("markdown");
     expect(screen.queryByRole("alert")).toBeNull();
 
     picker({ items: [] }, { creating: true, createFailed: true });
@@ -106,5 +126,45 @@ describe("the canvases of a conversation", () => {
     const buttons = screen.getAllByRole("button", { name: vi.canvas.newCanvas }) as HTMLButtonElement[];
     expect(buttons.map((button) => button.disabled)).toEqual([false, true]);
     expect(screen.getByRole("alert").textContent).toBe(vi.canvas.createFailed);
+  });
+
+  it("offers the five kinds a person can make, never an image, and makes the one chosen", () => {
+    const { onCreate } = picker({ items: [] });
+    const select = screen.getByRole("combobox", { name: vi.canvas.kindLabel }) as HTMLSelectElement;
+
+    expect(Array.from(select.options).map((option) => [option.value, option.textContent])).toEqual([
+      ["markdown", "Markdown"],
+      ["code", "Mã"],
+      ["html", "HTML"],
+      ["svg", "SVG"],
+      ["mermaid", "Mermaid"],
+    ]);
+    expect(select.value).toBe("markdown");
+
+    fireEvent.change(select, { target: { value: "html" } });
+    fireEvent.click(screen.getByRole("button", { name: vi.canvas.newCanvas }));
+
+    expect(onCreate).toHaveBeenCalledTimes(1);
+    expect(onCreate).toHaveBeenCalledWith("html");
+  });
+
+  it("keeps the kind chosen for the next canvas, and changes it on the next choice", () => {
+    const { onCreate } = picker({ items: [] });
+    const select = screen.getByRole("combobox", { name: vi.canvas.kindLabel });
+    const make = screen.getByRole("button", { name: vi.canvas.newCanvas });
+
+    fireEvent.change(select, { target: { value: "mermaid" } });
+    fireEvent.click(make);
+    fireEvent.click(make);
+    fireEvent.change(select, { target: { value: "svg" } });
+    fireEvent.click(make);
+
+    expect(onCreate.mock.calls).toEqual([["mermaid"], ["mermaid"], ["svg"]]);
+  });
+
+  it("holds the kind still while a canvas is being made", () => {
+    picker({ items: [] }, { creating: true });
+
+    expect((screen.getByRole("combobox", { name: vi.canvas.kindLabel }) as HTMLSelectElement).disabled).toBe(true);
   });
 });

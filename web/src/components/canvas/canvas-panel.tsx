@@ -15,8 +15,10 @@ import type { MessageCanvas } from "../../api/artifact-types";
 import { ApiError } from "../../api/client";
 import { useCanvas } from "../../hooks/use-canvas";
 import type { PanelHandle } from "../../hooks/use-canvas-dock";
+import { useSaveThenShow } from "../../hooks/use-save-then-show";
 import { vi } from "../../i18n/vi";
 import { announceDeletion } from "../../lib/artifact-events";
+import { hasNoText, showsSaved } from "../../lib/canvas-kinds";
 import type { CanvasState } from "../../lib/canvas-machine";
 import { canvasReason } from "../../lib/canvas-reasons";
 import type { CanvasSelection } from "../../lib/canvas-selection";
@@ -27,6 +29,7 @@ import { CanvasConflict } from "./canvas-conflict";
 import { CanvasEditor } from "./canvas-editor";
 import { type CanvasMode, CanvasHeader } from "./canvas-header";
 import { CanvasHistory } from "./canvas-history";
+import { CanvasSavedView } from "./canvas-saved-view";
 import { CanvasNotices } from "./canvas-status";
 import { CanvasView } from "./canvas-view";
 
@@ -53,8 +56,9 @@ export type CanvasPanelProps = {
 };
 
 /** A person's text opens to edit, an agent's to read, unless the canvas was just made here or this
- *  device holds typing for it. */
+ *  device holds typing for it. A canvas with no text opens to look at. */
 function firstMode(state: CanvasState, created: boolean): CanvasMode {
+  if (hasNoText(state.summary?.kind ?? "")) return "view";
   if (created || state.opened !== "fresh") return "edit";
   return state.base.author.startsWith("agent:") ? "view" : "edit";
 }
@@ -93,11 +97,18 @@ export function CanvasPanel(props: CanvasPanelProps) {
 
   if (chosen === null && state.phase === "ready") setChosen(firstMode(state, created));
 
-  const choose = (mode: CanvasMode) => {
-    setChosen(mode);
-    setHistory(false);
-    setPicked(null);
-  };
+  const ready = state.phase === "ready";
+  const kind = state.summary?.kind ?? "markdown";
+  const saved = showsSaved(kind);
+  const { waiting, turn, cancel } = useSaveThenShow(flush);
+
+  // A page and a picture show what the server holds, so turning to them first saves what was typed.
+  const choose = (mode: CanvasMode) =>
+    turn(mode === "view" && saved && isDirty(latest.current), () => {
+      setChosen(mode);
+      setHistory(false);
+      setPicked(null);
+    });
 
   const rename = async (title: string) => {
     setRenameError(null);
@@ -110,8 +121,6 @@ export function CanvasPanel(props: CanvasPanelProps) {
     }
   };
 
-  const ready = state.phase === "ready";
-  const kind = state.summary?.kind ?? "markdown";
   const showHistory = ready && history && !state.gone;
   const selection = picked?.gen === state.gen ? picked.selection : null;
   return (
@@ -122,9 +131,12 @@ export function CanvasPanel(props: CanvasPanelProps) {
         created={created}
         agentName={agentName}
         mode={chosen}
+        switching={waiting}
         history={history}
         onChoose={choose}
         onHistory={() => {
+          // Opening the history is a move of its own: a turn still waiting for its save must not close it.
+          cancel();
           setHistory(!history);
           setPicked(null);
         }}
@@ -152,10 +164,20 @@ export function CanvasPanel(props: CanvasPanelProps) {
         {ready && !showHistory && (
           <>
             <CanvasConflict canvas={canvas} agentName={agentName} />
-            {chosen === "view" ? (
-              <CanvasView text={state.text} kind={kind} onSelection={onAsk ? pick : undefined} />
-            ) : (
+            {chosen !== "view" ? (
               <CanvasEditor canvas={canvas} kind={kind} fieldRef={editor} onSelection={onAsk ? pick : undefined} />
+            ) : saved ? (
+              <CanvasSavedView
+                canvas={canvas}
+                artifactId={artifactId}
+                kind={kind}
+                connected={connected}
+                askDisabled={askDisabled}
+                flush={flush}
+                onAsk={onAsk}
+              />
+            ) : (
+              <CanvasView text={state.text} kind={kind} onSelection={onAsk ? pick : undefined} />
             )}
           </>
         )}
@@ -165,7 +187,8 @@ export function CanvasPanel(props: CanvasPanelProps) {
           artifactId={artifactId}
           selection={selection}
           gen={state.gen}
-          hidden={showHistory || state.gone || state.conflict !== null}
+          // A page or a picture has no text to select a passage of.
+          hidden={showHistory || state.gone || state.conflict !== null || (chosen === "view" && saved)}
           disabled={askDisabled}
           flush={flush}
           onAsk={onAsk}

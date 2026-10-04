@@ -7,6 +7,11 @@ import { turnErrorText } from "../lib/error-text";
 import { settlement, type SendResult, type Settlement } from "../lib/send-result";
 import type { ThreadAction } from "../state/thread-reducer";
 
+/** Whether the message names a passage of the canvas: only then is a 422 about the passage. A
+ *  message that names the canvas alone, as the page's errors do, can be refused for nothing the
+ *  person selected. */
+const hasSelection = (canvas?: MessageCanvas): boolean => canvas?.selection != null;
+
 /** What a send needs from the conversation it belongs to. */
 interface SendParts {
   conversationId: string | null;
@@ -54,7 +59,7 @@ export function useThreadSend({ conversationId, busy, dispatch, runTurn, queuein
         // server's own sentence when it wrote one, as a full queue does, and ours for what a
         // person cannot act on — a validation dump, a dropped connection — or for a canvas
         // selection, which the server words in English.
-        const message = turnErrorText(error, canvas !== undefined);
+        const message = turnErrorText(error, hasSelection(canvas));
         dispatch({ type: "queue_failed", message });
         answer.failed(error);
       } finally {
@@ -71,7 +76,7 @@ export function useThreadSend({ conversationId, busy, dispatch, runTurn, queuein
   const startTurn = useCallback(
     async (id: string, text: string, answer: Settlement, canvas?: MessageCanvas) => {
       dispatch({ type: "user_sent", text });
-      const describe = (error: unknown) => turnErrorText(error, canvas !== undefined);
+      const describe = (error: unknown) => turnErrorText(error, hasSelection(canvas));
       await runTurn(async (emit, signal) => {
         try {
           await api.sendMessage(
@@ -109,7 +114,7 @@ export function useThreadSend({ conversationId, busy, dispatch, runTurn, queuein
   return useCallback(
     (text: string, canvas?: MessageCanvas): Promise<SendResult> => {
       if (!conversationId) return Promise.resolve({ status: "failed", error: vi.sendFailed.other });
-      const answer = settlement(canvas !== undefined);
+      const answer = settlement(hasSelection(canvas));
       const go = busy ? queueBehindTurn : startTurn;
       void go(conversationId, text, answer, canvas);
       return answer.promise;

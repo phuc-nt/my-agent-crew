@@ -18,10 +18,11 @@ export type ArtifactSummary = {
   updated_at: string;
 };
 
-/** A canvas with its newest version's text and author, and the conversations linked to it. */
+/** A canvas with its newest version's text and author, and the conversations linked to it. The
+ *  text is null for an image: its bytes are not text, and are read from the `/raw` route. */
 export type ArtifactDetail = ArtifactSummary & {
   head_author: string;
-  content: string;
+  content: string | null;
   conversation_ids: string[];
 };
 
@@ -38,12 +39,14 @@ export type ArtifactVersionMeta = {
   updated_at: string;
 };
 
-export type ArtifactVersion = ArtifactVersionMeta & { content: string };
+export type ArtifactVersion = ArtifactVersionMeta & { content: string | null };
 
-/** What a person may create from the web; agents make the other kinds. */
+/** The kinds a person may start from the web; an image only comes in from an agent or an import. */
+export type CreatableKind = "markdown" | "code" | "html" | "svg" | "mermaid";
+
 export type NewArtifact = {
   title: string;
-  kind: "markdown" | "code";
+  kind: CreatableKind;
   content?: string;
   conversation_id?: string;
 };

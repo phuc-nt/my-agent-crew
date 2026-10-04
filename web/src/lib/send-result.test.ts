@@ -36,11 +36,11 @@ describe("settlement", () => {
     expect(s.done).toBe(true);
   });
 
-  it("words a 422 as the selection only when the message carried the canvas", async () => {
+  it("words a 422 as the selection only when the message carried a selection of the canvas", async () => {
     const refused = new ApiError(422, "selection does not match the canvas");
-    const withCanvas = settlement(true);
-    withCanvas.failed(refused);
-    await expect(withCanvas.promise).resolves.toEqual({ status: "failed", error: vi.sendFailed.selection });
+    const withSelection = settlement(true);
+    withSelection.failed(refused);
+    await expect(withSelection.promise).resolves.toEqual({ status: "failed", error: vi.sendFailed.selection });
 
     const without = settlement();
     without.failed(refused);
@@ -75,7 +75,7 @@ describe("sendErrorText", () => {
     ["a full queue", new ApiError(429, "Hàng chờ đã đủ 20 tin."), vi.sendFailed.tooFast],
     ["a connection that never opened", new TypeError("Failed to fetch"), vi.requestErrors.network],
     ["a crash on the server", new ApiError(500, "boom"), vi.sendFailed.other],
-  ])("says %s the same way for a message that carried the canvas, but for a 422", (_name, error, text) => {
+  ])("says %s the same way for a message that carried a selection, but for a 422", (_name, error, text) => {
     expect(sendErrorText(error, true)).toBe(text);
   });
 });

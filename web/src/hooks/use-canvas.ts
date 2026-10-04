@@ -35,8 +35,8 @@ export type CanvasController = {
   keepMine(): void;
   loadTheirs(): void;
   undo(): void;
-  /** Version `version`, holding `content`, was restored as the newest. */
-  restored(version: number, content: string): void;
+  /** Version `version`, holding `content`, was restored as the newest; an image has no text. */
+  restored(version: number, content: string | null): void;
   renamed(summary: ArtifactSummary): void;
   /** Loads again after a failed first read; otherwise retries or reads, whichever is due. */
   reload(): void;
@@ -86,7 +86,7 @@ export function useCanvas(id: string, connected: boolean): CanvasController {
       keepMine: () => send({ type: "keepMine" }),
       loadTheirs: () => send({ type: "loadTheirs" }),
       undo: () => runner.current?.undo(),
-      restored: (version: number, content: string) => send({ type: "restored", version, content }),
+      restored: (version: number, content: string | null) => send({ type: "restored", version, content: content ?? "" }),
       renamed: (summary: ArtifactSummary) => send({ type: "renamed", summary }),
       reload: () => send({ type: "resync" }),
     };

@@ -1,0 +1,113 @@
+/* ── A canvas shown as the page or picture the server holds ─────────────── */
+.canvas-saved {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.canvas-saved-note {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+}
+
+.canvas-frame-note {
+  margin: 0;
+}
+
+.canvas-frame-note.notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+}
+
+.canvas-frame-newer {
+  align-self: flex-start;
+}
+
+/* White, as the page would be in a tab of its own: the app's colour scheme is not the page's. */
+.canvas-frame {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  border: 0;
+  background: #fff;
+}
+
+@media (max-width: 720px) {
+  .canvas-frame {
+    min-height: 60vh;
+  }
+}
+
+.canvas-picture {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+  background: #fff;
+}
+
+/* A drawing that names no size takes the width of the panel. */
+.canvas-picture.vector {
+  width: 100%;
+}
+
+.canvas-picture-note {
+  margin: 0;
+}
+
+/* ── What the page said went wrong ──────────────────────────────────────── */
+.canvas-errors {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.canvas-errors-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.canvas-errors-count {
+  margin-right: auto;
+  font-weight: 500;
+}
+
+/* Every word of the list was written by the page: text, wrapped wherever it must, in a box of its own height. */
+.canvas-errors-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-5);
+  max-height: 12rem;
+  overflow-y: auto;
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.canvas-error-place {
+  display: block;
+  color: var(--text-secondary);
+}
+
+/* ── Choosing a kind, and the rest of a long line ───────────────────────── */
+.canvas-kind {
+  margin-left: auto;
+}
+
+.cut {
+  color: var(--text-secondary);
+  font-style: italic;
+}

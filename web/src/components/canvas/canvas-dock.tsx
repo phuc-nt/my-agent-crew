@@ -120,7 +120,7 @@ export function CanvasDockView({ dock, mode, activity, connected, agentName, tri
               creating={dock.creating}
               createFailed={dock.createFailed}
               onOpen={dock.open}
-              onCreate={() => void dock.create()}
+              onCreate={(kind) => void dock.create(kind)}
             />
           )}
           {dock.view === "canvas" && dock.artifactId !== null && (

@@ -5,6 +5,7 @@
  */
 
 import { useMemo } from "react";
+import { artifactApi } from "../../api/artifact-client";
 import type { CanvasController } from "../../hooks/use-canvas";
 import { type HistoryProblem, useCanvasHistory } from "../../hooks/use-canvas-history";
 import { useNow } from "../../hooks/use-now";
@@ -55,13 +56,15 @@ export function CanvasHistory({ canvas, artifactId, agentName, flush, onClose }:
     },
   });
   const { versions, shown, against, texts, problem } = history;
+  // Undefined until a version is read; null once it is, for a picture, which has no text to compare.
   const shownText = shown ? texts.get(shown.version) : undefined;
   const againstText = against ? texts.get(against.version) : undefined;
+  const picture = shownText === null;
   // The oldest version kept has nothing before it: all of its lines read as added.
   const lines = useMemo<CanvasDiffLine[] | null | undefined>(() => {
-    if (shownText === undefined) return undefined;
+    if (typeof shownText !== "string") return undefined;
     if (against === null) return shownText.split("\n").map((text) => ({ op: "add", text }));
-    return againstText === undefined ? undefined : canvasDiff(againstText, shownText);
+    return typeof againstText === "string" ? canvasDiff(againstText, shownText) : undefined;
   }, [shownText, against, againstText]);
   const said = problem ? problemText(problem, canvas.status, canvas.state.cap) : null;
 
@@ -112,14 +115,23 @@ export function CanvasHistory({ canvas, artifactId, agentName, flush, onClose }:
           {against === null ? (
             <p className="muted">{vi.canvas.firstVersion}</p>
           ) : (
-            <label className="canvas-compare">
-              <input
-                type="checkbox"
-                checked={history.compareFirst}
-                onChange={(event) => history.setCompareFirst(event.target.checked)}
-              />
-              {vi.canvas.compareFirst}
-            </label>
+            !picture && (
+              <label className="canvas-compare">
+                <input
+                  type="checkbox"
+                  checked={history.compareFirst}
+                  onChange={(event) => history.setCompareFirst(event.target.checked)}
+                />
+                {vi.canvas.compareFirst}
+              </label>
+            )
+          )}
+          {picture && (
+            <img
+              className="canvas-picture"
+              src={artifactApi.rawUrl(artifactId, { version: shown.version })}
+              alt={vi.canvas.versionImage(shown.version)}
+            />
           )}
           {lines !== undefined && <CanvasDiffView lines={lines} />}
           {shown !== versions?.[0] && (

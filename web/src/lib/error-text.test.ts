@@ -48,18 +48,18 @@ describe("turnErrorText", () => {
     expect(turnErrorText(new ApiError(409, "conversation is awaiting approval"), true)).toBe(vi.busyConflict);
   });
 
-  it("puts a 422 for a message that carried the canvas in words: it is the selection", () => {
+  it("puts a 422 for a message that carried a selection in words: it is the selection", () => {
     const refused = new ApiError(422, "selection does not match the canvas");
     expect(turnErrorText(refused, true)).toBe(vi.sendFailed.selection);
-    // With no canvas on the request a 422 is something else, and keeps its own words.
+    // With no selection on the request a 422 is something else, and keeps its own words.
     expect(turnErrorText(refused)).toBe("selection does not match the canvas");
   });
 
-  it("leaves every other failure to errorText, canvas or not", () => {
-    for (const withCanvas of [false, true]) {
-      expect(turnErrorText(new ApiError(429, "Hàng chờ đã đầy."), withCanvas)).toBe("Hàng chờ đã đầy.");
-      expect(turnErrorText(new ApiError(500, "boom"), withCanvas)).toBe(vi.requestErrors.server(500));
-      expect(turnErrorText(new TypeError("Failed to fetch"), withCanvas)).toBe(vi.requestErrors.network);
+  it("leaves every other failure to errorText, selection or not", () => {
+    for (const withSelection of [false, true]) {
+      expect(turnErrorText(new ApiError(429, "Hàng chờ đã đầy."), withSelection)).toBe("Hàng chờ đã đầy.");
+      expect(turnErrorText(new ApiError(500, "boom"), withSelection)).toBe(vi.requestErrors.server(500));
+      expect(turnErrorText(new TypeError("Failed to fetch"), withSelection)).toBe(vi.requestErrors.network);
     }
   });
 });

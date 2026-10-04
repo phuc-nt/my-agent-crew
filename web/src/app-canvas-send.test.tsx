@@ -165,14 +165,16 @@ describe("sending a message while a canvas is open", () => {
 });
 
 describe("a message the server turns down for the canvas it carried", () => {
-  it("says in Vietnamese that the passage no longer fits, and leaves the words in the box", async () => {
+  it("does not blame a passage the message never named, and leaves the words in the box", async () => {
     await openChat(1440);
     await openNote();
     const real = backend.fetch;
+    // What the server answers for a message over its length limit is a list, not a sentence.
+    const dump = [{ type: "string_too_long", loc: ["body", "text"], msg: "String should have at most 20000 characters" }];
     vitest.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) =>
       String(input).endsWith("/messages")
         ? Promise.resolve(
-            new Response(JSON.stringify({ detail: "the selection does not fit the canvas at version 3" }), {
+            new Response(JSON.stringify({ detail: dump }), {
               status: 422,
               headers: { "content-type": "application/json" },
             }),
@@ -180,11 +182,12 @@ describe("a message the server turns down for the canvas it carried", () => {
         : real(input, init),
     );
 
-    await say("hỏi đoạn này");
+    await say("hỏi cả canvas");
 
-    expect(screen.getByTestId("notice")).toHaveTextContent(vi.errorPrefix + vi.sendFailed.selection);
-    expect(screen.queryByText(/does not fit/)).toBeNull();
-    expect(box()).toHaveValue("hỏi đoạn này");
+    expect(screen.getByTestId("notice")).toHaveTextContent(vi.errorPrefix + vi.requestErrors.invalid);
+    expect(screen.queryByText(vi.sendFailed.selection)).toBeNull();
+    expect(screen.queryByText(/string_too_long/)).toBeNull();
+    expect(box()).toHaveValue("hỏi cả canvas");
     expect(box()).not.toHaveAttribute("readonly");
     expect(screen.queryAllByTestId("message-user")).toEqual([]);
   });

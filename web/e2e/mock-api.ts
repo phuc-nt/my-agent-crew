@@ -3,6 +3,7 @@ import type { AgentEvent, AgentInfo, ContentHit, QueuedMessage, WikiPage, WikiPa
 import { fold } from "../src/components/conversation-search";
 import { FakeCanvas, type FakeReply } from "../src/test/fake-canvas";
 import { applyAgentPatch, restartRequired } from "../src/test/schedule-contract";
+import { renderRoute } from "./mock-render";
 
 // Every /api call is answered in-browser so the smoke tests measure the real DOM without a backend.
 export type Conversation = Record<string, unknown> & {
@@ -211,6 +212,9 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
     if (method === "POST") posted.push({ path: path + url.search, body: route.request().postDataJSON() });
     if (path === "/settings") return json({ ...settings, agents });
     if (path === "/health") return json({ status: "ok", version: "0.8.0" });
+    // A canvas's page is a document with a policy of its own, not one of the JSON routes below.
+    const rendered = renderRoute(route, canvas, path, method);
+    if (rendered) return rendered;
     if (/^\/artifacts(\/|$)/.test(path)) {
       const reply = canvas.route(path, method, route.request().postDataJSON(), url.searchParams);
       return fulfillCanvas(route, await (reply ?? { status: 404, body: { detail: "Not Found" } }));

@@ -1,6 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 import { vi } from "../src/i18n/vi";
 import { FakeCanvas } from "../src/test/fake-canvas";
+import { overflowing } from "./canvas-overflow";
 import { type Conversation, mockApi } from "./mock-api";
 import { smallTargets } from "./small-targets";
 
@@ -43,15 +44,6 @@ async function openNote(page: Page) {
   await canvasButton(page).click();
   await page.getByRole("button", { name: /Ghi chú/ }).click();
   await expect(editor(page)).toHaveValue(NOTE);
-}
-
-/** What a phone would scroll sideways: the page, or a part of the canvas wider than its room. */
-function overflowing(page: Page): Promise<string[]> {
-  return page.evaluate(() =>
-    [document.documentElement, ...document.querySelectorAll<HTMLElement>(".canvas-dock, .canvas-header, .canvas-body")]
-      .filter((el) => el.scrollWidth > el.clientWidth)
-      .map((el) => `${el.tagName.toLowerCase()}.${el.className} ${el.scrollWidth}>${el.clientWidth}`),
-  );
 }
 
 test.describe("a canvas beside a wide conversation", () => {

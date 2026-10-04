@@ -62,16 +62,18 @@ describe("the canvas editor's keys and events", () => {
     expect(calls.blur).toHaveBeenCalledTimes(1);
   });
 
-  it("sets code in the code face without a spell check", () => {
-    const code = openEditor("print(1)\n", "code");
+  // Everything but prose is written in a language of its own, where a spell check underlines every word.
+  it.each(["code", "html", "svg", "mermaid", "pdf"])("sets a %s canvas in the code face without a spell check", (kind) => {
+    const code = openEditor("print(1)\n", kind);
 
     expect(code).toHaveClass("canvas-editor", "code");
     expect(code).toHaveAttribute("spellcheck", "false");
   });
 
-  it("checks the spelling of prose", () => {
+  it("checks the spelling of prose, which is set in the face of the page", () => {
     const prose = openEditor("Dòng một\n", "markdown");
 
+    expect(prose).toHaveClass("canvas-editor");
     expect(prose).not.toHaveClass("code");
     expect(prose).toHaveAttribute("spellcheck", "true");
   });

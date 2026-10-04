@@ -4,14 +4,19 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { type CanvasDock, useCanvasDock } from "../../hooks/use-canvas-dock";
 import { vi } from "../../i18n/vi";
 import { saveInBackground } from "../../lib/canvas-handoff";
+import { canvasTemplate } from "../../lib/canvas-templates";
 import { landed, startServer, stopServer } from "../../test/canvas-hook";
 import { leftCanvas } from "../../test/canvas-left";
+import { editor, mode } from "../../test/canvas-panel";
+import type { FakeBackend } from "../../test/fake-backend";
 import { CanvasButton, CanvasDockView, CanvasHandoffNotices } from "./canvas-dock";
 
 const ACTIVITY = "Các bước của lượt chạy";
 
+let backend: FakeBackend;
+
 beforeEach(() => {
-  const backend = startServer();
+  backend = startServer();
   backend.create({ title: "Một" });
   backend.canvas.add({ title: "Ghi chú", conversationIds: ["c1"] });
 });
@@ -50,6 +55,24 @@ async function openList() {
   fireEvent.click(canvasButton());
   await landed();
 }
+
+describe("making a canvas of a kind from the list", () => {
+  it("asks for the kind chosen with what it starts from, and opens it to edit as text", async () => {
+    await openChat("column");
+    await openList();
+
+    fireEvent.change(screen.getByRole("combobox", { name: vi.canvas.kindLabel }), { target: { value: "html" } });
+    fireEvent.click(screen.getByRole("button", { name: vi.canvas.newCanvas }));
+    await landed();
+
+    const body = { title: vi.canvas.untitled, kind: "html", content: canvasTemplate("html"), conversation_id: "c1" };
+    expect(backend.requests.filter((request) => request.method === "POST")).toEqual([{ method: "POST", path: "/artifacts", body }]);
+    expect(mode()).toBe(vi.canvas.edit);
+    expect(editor()?.value).toBe(canvasTemplate("html"));
+    expect(editor()).toHaveClass("code");
+    expect(document.querySelector("iframe")).toBeNull();
+  });
+});
 
 describe("focus in the canvas dock", () => {
   it("moves from the Canvas button into the column it opens", async () => {

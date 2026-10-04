@@ -4,13 +4,14 @@ import { capOf } from "../lib/canvas-caps";
 import { cleanTitle } from "../lib/canvas-title";
 import { CanvasFaults, type FakeReply, invalid, ok, refused } from "./fake-canvas-faults";
 import { FocusBook } from "./fake-canvas-focus";
+import { CREATABLE_KINDS, PICTURE_BYTES } from "./fake-canvas-kinds";
 
 export type { FakeReply } from "./fake-canvas-faults";
 
 /** A canvas as if made earlier. `version` above 1 leaves a gap before it; `author` defaults to
- *  the creator. */
+ *  the creator; `content` is null for a picture, which has no text. */
 export type CanvasSeed = Partial<ArtifactSummary> & {
-  content?: string;
+  content?: string | null;
   author?: string;
   version?: number;
   conversationIds?: string[];
@@ -73,14 +74,16 @@ export class FakeCanvas {
       ...{ created_at: now, updated_at: now, ...fields, head_version: version },
     };
     const writer = author ?? (summary.agent_id ? `agent:${summary.agent_id}` : USER);
-    const first = this.version(summary.id, version, lf(content), writer, "", summary.updated_at);
+    const first = this.version(summary.id, version, content === null ? null : lf(content), writer, "", summary.updated_at);
     this.canvases.set(summary.id, { summary, versions: [first], conversationIds: [...conversationIds], row });
     return { ...summary };
   }
 
-  /** A write from outside this client, an agent's by default; `gap` skips that many numbers. */
-  write(id: string, content: string, options: { author?: string; gap?: number } = {}): ArtifactVersion {
-    return this.append(this.get(id), lf(content), options.author ?? "agent:master", "", options.gap ?? 0);
+  /** A write from outside this client, an agent's by default; `gap` skips that many numbers. A null
+   *  `content` is a new picture. */
+  write(id: string, content: string | null, options: { author?: string; gap?: number } = {}): ArtifactVersion {
+    const text = content === null ? null : lf(content);
+    return this.append(this.get(id), text, options.author ?? "agent:master", "", options.gap ?? 0);
   }
 
   /** Drops a version the way a fold does; the head cannot go. */
@@ -98,7 +101,7 @@ export class FakeCanvas {
     this.announce({ id, deleted: true }, conversationIds);
   }
 
-  content(id: string): string {
+  content(id: string): string | null {
     return this.head(this.get(id)).content;
   }
 
@@ -158,7 +161,7 @@ export class FakeCanvas {
   private create(body: Record<string, unknown>): FakeReply {
     const { title, kind, content = "", conversation_id: conversation = null } = body;
     if (typeof title !== "string") return invalid("title");
-    if (kind !== "markdown" && kind !== "code") return invalid("kind");
+    if (typeof kind !== "string" || !CREATABLE_KINDS.includes(kind)) return invalid("kind");
     if (typeof content !== "string") return invalid("content");
     if (conversation !== null && typeof conversation !== "string") return invalid("conversation_id");
     if (conversation !== null && !this.conversationExists(conversation)) return refused(404, "conversation not found");
@@ -186,6 +189,7 @@ export class FakeCanvas {
     if (!canvas) return refused(404, "artifact not found");
     const gone = refused(404, { head_version: canvas.summary.head_version });
     const find = (version: number) => canvas.versions.find((v) => v.version === version);
+    if (method === "PUT" && canvas.summary.kind === "image") return refused(422, "a picture has no text to write");
     if (rest === "/versions") return ok(canvas.versions.map(withoutText).reverse());
     if (rest.startsWith("/versions/")) {
       const found = find(Number(rest.slice("/versions/".length)));
@@ -194,7 +198,7 @@ export class FakeCanvas {
     if (rest === "/raw") {
       const asked = params.get("version");
       const found = asked === null ? this.head(canvas) : find(Number(asked));
-      return found ? { status: 200, text: found.content } : gone;
+      return found ? { status: 200, text: found.content ?? "" } : gone;
     }
     if (rest === "/restore") {
       const found = find(body.version as number);
@@ -215,9 +219,9 @@ export class FakeCanvas {
     return this.store(canvas, lf(body.content as string), "");
   }
 
-  private store(canvas: Canvas, content: string, note: string): FakeReply {
+  private store(canvas: Canvas, content: string | null, note: string): FakeReply {
     return (
-      this.refuseWrite(USER, bytes(content), canvas.summary.kind) ??
+      this.refuseWrite(USER, content === null ? PICTURE_BYTES : bytes(content), canvas.summary.kind) ??
       ok(withoutText(this.append(canvas, content, USER, note, 0)))
     );
   }
@@ -242,7 +246,7 @@ export class FakeCanvas {
     return refused(status, status === 404 ? "artifact not found" : "refused");
   }
 
-  private append(canvas: Canvas, content: string, author: string, note: string, gap: number): ArtifactVersion {
+  private append(canvas: Canvas, content: string | null, author: string, note: string, gap: number): ArtifactVersion {
     const now = this.now();
     const next = this.version(canvas.summary.id, canvas.summary.head_version + 1 + gap, content, author, note, now);
     canvas.versions.push(next);
@@ -251,8 +255,9 @@ export class FakeCanvas {
     return next;
   }
 
-  private version(id: string, version: number, content: string, author: string, note: string, at: string): ArtifactVersion {
-    return { artifact_id: id, version, size: bytes(content), author, conversation_id: "", note, created_at: at, updated_at: at, content };
+  private version(id: string, version: number, content: string | null, author: string, note: string, at: string): ArtifactVersion {
+    const size = content === null ? PICTURE_BYTES : bytes(content);
+    return { artifact_id: id, version, size, author, conversation_id: "", note, created_at: at, updated_at: at, content };
   }
 
   private detail(canvas: Canvas): ArtifactDetail {
