@@ -8,6 +8,7 @@ import type {
   ArtifactConflict,
   ArtifactDetail,
   ArtifactSummary,
+  ArtifactUsage,
   ArtifactVersion,
   ArtifactVersionMeta,
   CanvasFocus,
@@ -27,8 +28,13 @@ export const saveBody = (content: string, baseVersion: number) =>
   JSON.stringify({ content, base_version: baseVersion });
 
 export const artifactApi = {
-  list: (conversationId?: string, q?: string) =>
-    request<ArtifactSummary[]>(`/artifacts${query({ conversation_id: conversationId, q })}`),
+  /** Newest first: the canvases linked to a conversation, or every canvas when none is named; `q`
+   *  keeps those whose title holds it. The server lists fifty unless `limit` says otherwise. */
+  list: (conversationId?: string, q?: string, limit?: number) =>
+    request<ArtifactSummary[]>(`/artifacts${query({ conversation_id: conversationId, q, limit })}`),
+  usage: () => request<ArtifactUsage>("/artifacts/usage"),
+  /** Deletes the canvas with every version of it. A canvas already gone is a 404. */
+  remove: (id: string) => request<void>(artifactPath(id), { method: "DELETE" }),
   create: (body: NewArtifact) =>
     request<ArtifactDetail>("/artifacts", { method: "POST", body: JSON.stringify(body) }),
   get: (id: string, signal?: AbortSignal) => request<ArtifactDetail>(artifactPath(id), { signal }),

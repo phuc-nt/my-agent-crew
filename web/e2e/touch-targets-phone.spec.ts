@@ -30,7 +30,11 @@ const job = {
 };
 
 async function open(page: Page, hash: string) {
+  // A canvas no conversation is linked to: a row of the library, with its delete button.
+  const canvas = new FakeCanvas();
+  canvas.add({ title: "Ghi chú", agent_id: "coach", source: "workspace:coach/notes/a.md" });
   await mockApi(page, {
+    canvas,
     agents: [{ ...defaultAgent, delegates: ["coach"] }, coachAgent],
     conversations: [conversation("c1", "Tóm tắt tuần"), conversation("c2", "Việc nhà")],
     runs: [waiting, failed, run({ id: "ok", conversation_id: "c2" })],
@@ -49,6 +53,7 @@ const PAGES: [string, string][] = [
   ["tools", "/#/manage/tools"],
   ["jobs", "/#/manage/jobs"],
   ["memory", "/#/manage/memory"],
+  ["the canvas library", "/#/manage/canvas"],
   ["connections", "/#/manage/connections"],
   ["settings", "/#/manage/settings"],
 ];

@@ -1,0 +1,75 @@
+/* ── The library of every canvas, on the manage screen ──────────────────── */
+.canvas-library {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+/* The search box takes the room; the total sits beside it and drops under it on a phone. */
+.canvas-library-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.canvas-library-head input[type="search"] {
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+
+.canvas-library-total,
+.canvas-library-capped,
+.canvas-library-row > p {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.canvas-library-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.canvas-library-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+  min-width: 0;
+}
+
+.canvas-library-row-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* A title is as long as its writer made it, and a path has no spaces to break at. */
+.canvas-library-title {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.canvas-library-row-head > .badge {
+  flex: none;
+}
+
+.canvas-library-source {
+  overflow-wrap: anywhere;
+}
+
+.canvas-library-refused {
+  color: var(--danger-text);
+}

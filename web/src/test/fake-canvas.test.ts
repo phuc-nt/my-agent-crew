@@ -187,6 +187,27 @@ describe("FakeCanvas lists", () => {
     canvas.add({ id: "late", updated_at: "2026-10-02T09:00:00+00:00" });
     expect(ids(call(canvas, "/artifacts"))).toEqual(["late", "early"]);
   });
+
+  it("counts what every version of each canvas holds, on a path no canvas's id answers", () => {
+    const canvas = new FakeCanvas();
+    expect(call(canvas, "/artifacts/usage")).toEqual({
+      status: 200,
+      body: { count: 0, bytes: 0, cap: canvas.storageCap, by_artifact: {} },
+    });
+    canvas.add({ id: "a1", content: "một" });
+    canvas.add({ id: "a2", content: "ab" });
+    save(canvas, "a1", "hai", 1);
+    expect(call(canvas, "/artifacts/usage").body).toEqual({
+      count: 2,
+      bytes: 10,
+      cap: canvas.storageCap,
+      by_artifact: { a1: 8, a2: 2 },
+    });
+    expect(call(canvas, "/artifacts/usage", "DELETE")).toEqual({ status: 405, body: { detail: "Method Not Allowed" } });
+    canvas.refuseNext("GET /artifacts/usage", 503);
+    expect(call(canvas, "/artifacts").status).toBe(200);
+    expect(call(canvas, "/artifacts/usage")).toEqual({ status: 503, text: "Service Unavailable" });
+  });
 });
 
 describe("FakeCanvas faults", () => {

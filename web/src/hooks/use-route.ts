@@ -10,6 +10,7 @@ export const MANAGE_SECTIONS = [
   "tools",
   "jobs",
   "memory",
+  "canvas",
   "costs",
   "connections",
   "settings",

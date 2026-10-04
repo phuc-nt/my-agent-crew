@@ -6,6 +6,7 @@ import { CanvasFaults, type FakeReply, invalid, ok, refused } from "./fake-canva
 import { FocusBook } from "./fake-canvas-focus";
 import { SourceFiles } from "./fake-canvas-import";
 import { CREATABLE_KINDS, PICTURE_BYTES } from "./fake-canvas-kinds";
+import { USAGE_PATH, usageReply } from "./fake-canvas-usage";
 
 export type { FakeReply } from "./fake-canvas-faults";
 
@@ -127,6 +128,10 @@ export class FakeCanvas {
     if (!match) return null;
     const id = match[1] === undefined ? null : decodeURIComponent(match[1]);
     const fields = typeof body === "object" && body !== null ? (body as Record<string, unknown>) : {};
+    if (path === USAGE_PATH) {
+      const count = () => usageReply(method, this.canvases.values(), this.storageCap);
+      return this.faults.run(method, path, count, (status, detail) => this.refusal(null, fields, status, detail));
+    }
     const work = () => (id === null ? this.top(method, fields, params) : this.one(id, match[2] ?? "", method, fields, params));
     return this.faults.run(method, path, work, (status, detail) => this.refusal(id, fields, status, detail));
   }

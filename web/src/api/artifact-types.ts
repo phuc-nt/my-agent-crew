@@ -61,6 +61,10 @@ export type StorageFull = {
   largest: { id: string; title: string; size: number }[];
 };
 
+/** What the canvas store holds: how many canvases, the bytes of every version of every one against
+ *  the ceiling they share, and the bytes of each canvas's versions by its id. */
+export type ArtifactUsage = { count: number; bytes: number; cap: number; by_artifact: Record<string, number> };
+
 /** A passage selected in a canvas: the version it was read in, its text, and the lines it spans. */
 export type FocusSelection = { version: number; text: string; line_start: number; line_end: number };
 

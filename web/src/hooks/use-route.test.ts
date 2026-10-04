@@ -88,6 +88,18 @@ describe("reading a route from the address bar", () => {
     });
   });
 
+  // The library of canvases, and one canvas on a page of its own, are both links a person keeps.
+  it("reads the canvas library, and the canvas a page is opened on, out of a manage link", () => {
+    const library = { kind: "manage", section: "canvas" } as const;
+    expect(parseRoute("#/manage/canvas")).toEqual(library);
+    expect(routeHash(library)).toBe("#/manage/canvas");
+    const page = { ...library, param: "0123456789ab" } as const;
+    expect(routeHash(page)).toBe("#/manage/canvas/0123456789ab");
+    expect(parseRoute("#/manage/canvas/0123456789ab")).toEqual(page);
+    // A section spelt some other way is still none we have.
+    expect(parseRoute("#/manage/canvases/0123456789ab")).toEqual({ kind: "manage", section: "activity" });
+  });
+
   it("writes a hash that reads back as the same route", () => {
     const routes = [
       { kind: "chat", conversationId: null },

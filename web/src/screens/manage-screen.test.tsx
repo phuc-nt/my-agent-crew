@@ -358,6 +358,20 @@ describe("the manage screen", () => {
     show("tools");
     expect(await screen.findByTestId("tools-matrix")).toBeInTheDocument();
   });
+
+  // What the crew wrote stands with the crew, right after what it remembers.
+  it("lists the canvases under the crew, after the memory, and opens their library", async () => {
+    show("canvas");
+
+    // The group and its first section share a word, so the group is found by its label.
+    const label = screen.getByText(vi.manage.groups.crew, { selector: ".manage-nav-label" });
+    const crew = label.closest(".manage-nav-group") as HTMLElement;
+    const names = [...crew.querySelectorAll(".manage-nav-name")].map((entry) => entry.textContent);
+    expect(names).toEqual([vi.crew.tab, vi.manage.tools, vi.jobs, vi.memory.tab, vi.canvas.tab]);
+    expect(within(crew).getByRole("button", { name: vi.canvas.tab })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent(vi.canvas.tab);
+    expect(await screen.findByTestId("canvas-library")).toBeInTheDocument();
+  });
 });
 
 // A section reachable by URL but missing from the grouped nav would be one nobody finds.

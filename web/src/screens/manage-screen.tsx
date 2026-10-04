@@ -4,6 +4,7 @@ import type { RunInfo } from "../api/types";
 import { AgentEditor } from "../components/agent-editor/agent-editor";
 import { ApprovalHistory } from "../components/approval-history";
 import { AttentionCenter } from "../components/attention-center";
+import { CanvasSection } from "../components/canvas/canvas-section";
 import { ConnectionNotice } from "../components/connection-notice";
 import { ConnectionsPanel } from "../components/connections-panel";
 import { CrewPanel } from "../components/crew-panel";
@@ -82,6 +83,7 @@ const LABELS: Record<ManageSection, string> = {
   tools: vi.manage.tools,
   jobs: vi.jobs,
   memory: vi.memory.tab,
+  canvas: vi.canvas.tab,
   costs: vi.costs,
   connections: vi.manage.connections,
   settings: vi.settings,
@@ -96,19 +98,20 @@ const ICONS: Record<ManageSection, IconName> = {
   tools: "wrench",
   jobs: "clock",
   memory: "book",
+  canvas: "document",
   connections: "plug",
   settings: "sliders",
 };
 
 /**
- * The sections in three groups rather than one list of nine: what to keep an eye on,
+ * The sections in three groups rather than one list of ten: what to keep an eye on,
  * who is on the team and what they can do, and how the install is wired. Grouped, the
  * section a person wants is found by its kind first — "is this about the team?" — which
  * is how the question arrives, instead of by reading the list top to bottom.
  */
 export const NAV_GROUPS: { key: keyof typeof vi.manage.groups; sections: ManageSection[] }[] = [
   { key: "watch", sections: ["activity", "approvals", "costs"] },
-  { key: "crew", sections: ["crew", "tools", "jobs", "memory"] },
+  { key: "crew", sections: ["crew", "tools", "jobs", "memory", "canvas"] },
   { key: "system", sections: ["connections", "settings"] },
 ];
 
@@ -382,6 +385,9 @@ export function ManageScreen(props: Props) {
               agentName={props.agentName}
               runs={props.runs}
             />
+          )}
+          {props.section === "canvas" && (
+            <CanvasSection connected={props.connection?.connected ?? true} agentName={props.agentName} />
           )}
           {props.section === "costs" && (
             <StatsPanel stats={props.stats} agentName={props.agentName} />

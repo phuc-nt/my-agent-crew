@@ -1042,6 +1042,22 @@ export const vi = {
     // In the chat once a message has gone while the canvas it names still had text no version held.
     sentUnsaved: "Canvas chưa lưu xong nên tin vừa gửi đi kèm bản đã lưu gần nhất",
     dismiss: "Ẩn thông báo",
+    // The library on the manage screen: every canvas, whatever conversation it was written in.
+    tab: "Canvas",
+    librarySearch: "Tìm canvas theo tên",
+    libraryTotal: (count: number, size: string, cap: string) => `${count} canvas · ${size} / ${cap}`,
+    libraryLoading: "Đang tải canvas…",
+    libraryFailed: "Không tải được canvas.",
+    libraryCreatedBy: "tạo bởi",
+    libraryAllVersions: "mọi phiên bản",
+    // The address is the agent's word for where the text came from; nothing here checked it.
+    librarySourceDeclared: (host: string) => `agent ghi nguồn: ${host}`,
+    libraryEmpty: "Chưa có canvas nào. Nhờ agent viết một tài liệu, hoặc bấm Canvas mới trong một hội thoại.",
+    libraryNoMatch: "Không có canvas nào khớp tên đó.",
+    libraryCapped: (count: number) => `Hiện ${count} canvas mới nhất; tìm theo tên để thấy canvas cũ hơn.`,
+    deleteLabel: (title: string) => `Xoá canvas ${title}`,
+    deleteConfirm: (title: string) => `Xoá canvas "${title}" cùng mọi phiên bản của nó? Không thể hoàn tác.`,
+    deleteFailed: "Không xoá được canvas. Thử lại sau.",
     conflictBy: (author: string, version: number) => `${author} đã lưu v${version} trong lúc bạn sửa.`,
     keepMine: "Giữ bản của tôi",
     loadTheirs: "Nạp bản mới",

@@ -3226,6 +3226,46 @@ tên một test thì sửa dòng của nó trong cùng commit.
     scrolls sideways": host dài không có gạch ngang thì xuống dòng trong bề ngang, link vẫn nằm trọn
     trong màn); bản
     giả của route nằm ở `web/src/test/fake-canvas-import.ts`, dùng chung cho vitest và Playwright
+- **Canvas trên web: thư viện ở màn Quản lý liệt kê mọi canvas, tìm theo tên, nói ai tạo, từ đâu tới
+  và mọi phiên bản nặng bao nhiêu, và xoá được sau khi hỏi lại**
+  - vitest, đường dẫn và màn: `web/src/hooks/use-route.test.ts` ("reads the canvas library, and the
+    canvas a page is opened on, out of a manage link": `#/manage/canvas` và `#/manage/canvas/<id>` đi
+    về qua `parseRoute`/`routeHash`, mục viết khác đi thì về Hoạt động);
+    `web/src/screens/manage-screen.test.tsx` ("lists the canvases under the crew, after the memory, and
+    opens their library": mục Canvas đứng cuối nhóm Đội, sau Trí nhớ)
+  - vitest, hook: `web/src/hooks/use-canvas-library.test.ts` (đọc mọi canvas bất kể hội thoại, với
+    `limit=200` và không `conversation_id`; 201 canvas thì hiện 200 và số đếm vẫn là 201; danh sách và
+    dung lượng là hai lần đọc gửi cùng lúc, cái nào về trước hiện trước; không đọc được dung lượng thì
+    vẫn có danh sách; lần đọc đầu hỏng thì báo và đọc lại khi thử lại, lần đọc sau hỏng thì giữ danh
+    sách cũ cùng chữ đã tìm; tìm theo tên chờ 250 ms sau phím cuối và gửi tên thành tham số `q` riêng;
+    ô chỉ khác dấu cách thì không hỏi lại; câu trả lời hay lỗi về sau lần hỏi mới hơn thì bỏ; một loạt
+    thay đổi gom thành một lần đọc sau nửa giây; stream nối lại và tab hiện lại thì đọc lại với chữ
+    đang tìm; rời thư viện thì thôi đọc); `web/src/hooks/use-canvas-library-delete.test.ts` (canvas
+    rời danh sách và tổng khi server trả lời, không sớm hơn; 404 cũng là đã xoá; 500 hay mất mạng thì
+    giữ canvas và ghi nhận nó bị từ chối cho tới lần thử sau; canvas chưa đọc được cỡ thì tổng giữ
+    nguyên; nơi khác đang hiện canvas ấy được báo)
+  - vitest, thành phần: `web/src/components/canvas/canvas-library.test.tsx` (mỗi dòng nói loại, phiên
+    bản, ai tạo, lúc nào và cỡ mọi phiên bản; sáu loại, canvas mã kèm ngôn ngữ, loại lạ in nguyên;
+    người là "bạn", agent là tên của nó kể cả agent có mã `user`; tiêu đề là chữ thuần, ký tự ẩn được
+    viết ra, thẻ HTML không thành phần tử; nguồn tệp là `<agent>/<đường dẫn>`, nguồn web là "agent ghi
+    nguồn: <host>", không có link nào; thiếu cỡ thì không có dòng cỡ và không có "NaN", cỡ 0 là "0 B";
+    dòng tổng "<n> canvas · <đã dùng> / <trần>"; ô tìm dài tối đa 200 ký tự; bốn trạng thái: đang tải,
+    lỗi kèm "Thử lại", trống, không khớp tên; "Hiện 200 canvas mới nhất…" khi còn canvas cũ hơn và
+    không đang tìm; xoá hỏi `window.confirm` với đúng tiêu đề đang hiện, từ chối thì không gọi server,
+    server không xoá thì câu báo nằm dưới đúng dòng đó);
+    `web/src/components/canvas/canvas-section.test.tsx` (mục Canvas chỉ hỏi `/artifacts?limit=200`,
+    không hỏi canvas của hội thoại nào; lần lưu để lại phía sau mà hỏng thì câu "lưu hỏng, nháp còn
+    giữ" hiện phía trên thư viện và cất đi được; câu "tin đi kèm bản đã lưu gần nhất" không hiện ở
+    đây; stream nối lại thì thư viện đọc lại)
+  - Playwright: `web/e2e/canvas-library.spec.ts` (ở 1440 px và 390 px: ba canvas với người tạo, nguồn,
+    cỡ và dòng tổng, không link nào, tiêu đề và đường dẫn dài không làm trang, mục, thư viện hay dòng
+    nào tràn ngang; tìm không dấu "ke hoach" ra đúng một canvas, tên lạ ra câu không khớp, xoá ô thì
+    đủ lại; bấm xoá rồi từ chối thì canvas còn, đồng ý thì dòng mất, server giả hết canvas ấy và tổng
+    giảm; "the canvas library is reached from the crew's part of the manage screen");
+    `web/e2e/touch-targets-phone.spec.ts` (trang "the canvas library": nút xoá của một dòng đủ 40 px);
+    bản giả của `GET /api/artifacts/usage` nằm ở `web/src/test/fake-canvas-usage.ts`
+    (`web/src/test/fake-canvas.test.ts`, "counts what every version of each canvas holds, on a path
+    no canvas's id answers")
 - **Mã agent khớp cả chuỗi: chữ thường, số và gạch ngang, không cả xuống dòng ở cuối**
   - pytest: `tests/test_api_agents_edit.py::test_an_id_that_is_not_a_safe_folder_name_is_refused`
     (`../escape` và `coder` có xuống dòng ở cuối đều bị từ chối, không thư mục nào được tạo);
