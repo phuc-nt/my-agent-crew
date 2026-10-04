@@ -1224,6 +1224,60 @@ describe("the keyboard a page took while the window was behind", () => {
     expect(vitest.getTimerCount()).toBe(0);
   });
 
+  /** The person passes over the app's window on the way to another: it says it is behind, in front and behind again in one task. */
+  function passOver() {
+    act(() => {
+      fireEvent.blur(window);
+      fireEvent.focus(window);
+      fireEvent.blur(window);
+    });
+    // The task the window said it was in front in is long over.
+    wait(0);
+  }
+
+  it("goes back within a beat of the person coming back by the keyboard alone to a window that went behind again before it was settled as back", () => {
+    const { onGrabbing } = setup();
+    message().focus();
+    inFront(false);
+    passOver();
+    takesBehind();
+    wait(BEHIND_LOOK_MS * 3);
+    expect(holder()).toBe(page());
+
+    comeBackUnheard();
+    wait(ATTEST_GRACE_MS);
+
+    expect(holder()).toBe(message());
+    expectOneGrab(onGrabbing);
+  });
+
+  it("goes back at a pointer in the app, where the window went behind again before it was settled as back", () => {
+    const { onGrabbing } = setup();
+    message().focus();
+    inFront(false);
+    passOver();
+    takesBehind();
+
+    fireEvent.pointerMove(knob());
+    wait(ATTEST_GRACE_MS);
+
+    expect(holder()).toBe(message());
+    expectOneGrab(onGrabbing);
+  });
+
+  it("is still looked for on the beat when the window went behind again before it was settled as back, until it says it is in front", () => {
+    setup();
+    inFront(false);
+
+    passOver();
+    expect(vitest.getTimerCount()).toBe(1);
+    wait(BEHIND_LOOK_MS * 3);
+    expect(vitest.getTimerCount()).toBe(1);
+
+    comeBack();
+    expect(vitest.getTimerCount()).toBe(0);
+  });
+
   /** The app puts the page up while its window is behind, where the person left off writing: no `blur` tells of it. */
   function putUpBehind() {
     inFront(false);

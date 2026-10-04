@@ -154,7 +154,8 @@ export function useFrameFocusGuard(frame: RefObject<HTMLIFrameElement | null>, o
         suspect(left ?? kept);
         return;
       }
-      // Lost to another window or to the browser's own controls, not to the page.
+      // Lost to another window or to the browser's own controls, not to the page: a return not settled yet is none.
+      clearTimeout(returning);
       away = true;
       kept = active as HTMLElement | null;
       behind.start();

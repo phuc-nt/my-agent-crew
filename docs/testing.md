@@ -2901,7 +2901,18 @@ tên một test thì sửa dòng của nó trong cùng commit.
     không mở khoảng chờ nào nữa và phần tử đã nhớ bị quên; "is looked for on the beat only while the
     window is behind, and on one beat however often it says so": một timer duy nhất dù cửa sổ nói hai
     lần, không timer nào trước khi cửa sổ ra sau và sau khi nó nói đã ở phía trước; nhịp thấy khung
-    rồi thì dừng; khung được dựng lên lúc cửa sổ đã ở phía sau, tức `document.hasFocus()` là `false`
+    rồi thì dừng; cửa sổ nói `blur`, `focus`, `blur` trong cùng một task, tức người lướt qua cửa sổ
+    app trên đường sang cửa sổ khác, thì task 0 ms của lần `focus` ấy bị huỷ chứ không chạy sau
+    `blur` thứ hai mà coi như người đã về: "goes back within a beat of the person coming back by the
+    keyboard alone to a window that went behind again before it was settled as back" (phần tử đã
+    nhớ còn nguyên, trang lấy focus sau đó giữ nó qua ba nhịp, người quay lại bằng bàn phím thì sau
+    một nhịp cộng khoảng chờ bàn phím về phần tử ấy và tính một lần giành), "goes back at a pointer
+    in the app, where the window went behind again before it was settled as back" (con trỏ di chuyển
+    trong app lúc ấy vẫn mở khoảng chờ), "is still looked for on the beat when the window went
+    behind again before it was settled as back, until it says it is in front" (một timer qua ba
+    nhịp, hết khi cửa sổ nhận `focus`); bỏ lệnh huỷ ấy là cả ba đỏ: nhịp dừng và phần tử đã nhớ bị
+    quên trong lúc cửa sổ vẫn ở phía sau; khung được dựng lên lúc cửa sổ đã ở phía sau, tức
+    `document.hasFocus()` là `false`
     lúc guard được dựng và không `blur` nào báo: "goes back within a beat of the person coming back
     by the keyboard alone to a window the page was put up behind": phần tử đang giữ focus lúc dựng
     được nhớ, ba nhịp trôi qua khung vẫn giữ focus, `hasFocus()` thành `true` thì tới đúng nhịp kế
