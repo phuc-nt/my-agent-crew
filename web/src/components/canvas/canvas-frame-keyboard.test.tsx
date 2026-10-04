@@ -2,6 +2,7 @@ import { act, fireEvent, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
 import { ATTEST_GRACE_MS, GRABS_MAX } from "../../hooks/use-frame-focus-guard";
 import { vi } from "../../i18n/vi";
+import { BEHIND_LOOK_MS } from "../../lib/behind-watch";
 import {
   boxOf,
   deliver,
@@ -72,6 +73,31 @@ describe("a page that takes the keyboard", () => {
 
     expect(document.activeElement).toBe(field);
     expect(frameIn(container)).toBe(first);
+  });
+
+  it("does not keep what it took behind the window when the person comes back by the keyboard alone, and nothing tells the app's window so", () => {
+    const { container } = setup();
+    const first = frameIn(container);
+    fireEvent.load(first);
+    const field = writing();
+    const front = vitest.spyOn(document, "hasFocus").mockReturnValue(false);
+
+    // The person goes to another window, and the page takes the focus there.
+    act(() => {
+      fireEvent.blur(window);
+    });
+    act(() => first.focus());
+    wait(BEHIND_LOOK_MS * 2);
+    expect(document.activeElement).toBe(first);
+
+    // Back in front, it is the page's window that is told so: no focus, no tab shown, no pointer.
+    front.mockReturnValue(true);
+    wait(BEHIND_LOOK_MS);
+    wait(ATTEST_GRACE_MS);
+
+    expect(document.activeElement).toBe(field);
+    expect(frameIn(container)).toBe(first);
+    expect(screen.queryByRole("status")).toBeNull();
   });
 
   it("is taken out the fifth time it does, the person is told why, and the keyboard is theirs", () => {
@@ -457,6 +483,93 @@ describe("the page that has the keyboard", () => {
     expect(marker()).not.toBeNull();
     moves();
     expect(marker()).toBeNull();
+  });
+
+  describe("behind the app's window, which is told nothing of the focus a page takes there", () => {
+    /** The person goes to another window. `front` is what the browser says of where the keys go. */
+    function leave() {
+      const front = vitest.spyOn(document, "hasFocus").mockReturnValue(false);
+      fireEvent.blur(window);
+      return front;
+    }
+
+    it("is marked within a beat of taking it, and no longer within a beat of letting it go", () => {
+      const { container } = setup();
+      const first = frameIn(container);
+      fireEvent.load(first);
+      const active = vitest.spyOn(document, "activeElement", "get");
+      leave();
+
+      active.mockReturnValue(first);
+      wait(BEHIND_LOOK_MS - 1);
+      expect(marker()).toBeNull();
+      wait(1);
+      expect(marker()).not.toBeNull();
+      expect(boxOf(first).getAttribute("data-keyboard")).toBe("");
+
+      active.mockReturnValue(document.body);
+      wait(BEHIND_LOOK_MS - 1);
+      expect(marker()).not.toBeNull();
+      wait(1);
+      expect(marker()).toBeNull();
+    });
+
+    it("is marked within a beat of the person coming back to it by the keyboard alone", () => {
+      const { container } = setup();
+      const first = frameIn(container);
+      fireEvent.load(first);
+      const active = vitest.spyOn(document, "activeElement", "get");
+      const front = leave();
+      wait(BEHIND_LOOK_MS * 3);
+
+      // The page takes the focus as the person comes back: its window is the one told so.
+      active.mockReturnValue(first);
+      front.mockReturnValue(true);
+      wait(BEHIND_LOOK_MS);
+
+      expect(marker()).not.toBeNull();
+    });
+
+    it("is looked for on the beat for the frame that replaced the one on show meanwhile", () => {
+      const { container, show } = setup();
+      const first = frameIn(container);
+      fireEvent.load(first);
+      leave();
+
+      show({ version: 2 });
+      wait(RELOAD_DELAY_MS);
+      const second = frameIn(container);
+      expect(second).not.toBe(first);
+      // The new page takes the focus as it loads.
+      vitest.spyOn(document, "activeElement", "get").mockReturnValue(second);
+      wait(BEHIND_LOOK_MS);
+
+      expect(marker()).not.toBeNull();
+      expect(marker()?.parentElement).toBe(boxOf(second));
+    });
+
+    it("is looked for on the beat only until the window is in front again, and on no beat once the frame is gone", () => {
+      const { unmount } = setup();
+      expect(vitest.getTimerCount()).toBe(0);
+
+      // One beat for the marker and one for the guard, however often the window says it went behind.
+      const front = leave();
+      fireEvent.blur(window);
+      expect(vitest.getTimerCount()).toBe(2);
+      wait(BEHIND_LOOK_MS * 3);
+      expect(vitest.getTimerCount()).toBe(2);
+
+      // In front with nothing of the page's holding the focus: the marker has no more to look for.
+      front.mockReturnValue(true);
+      wait(BEHIND_LOOK_MS);
+      expect(vitest.getTimerCount()).toBe(1);
+
+      front.mockReturnValue(false);
+      fireEvent.blur(window);
+      expect(vitest.getTimerCount()).toBe(2);
+      unmount();
+      expect(vitest.getTimerCount()).toBe(0);
+    });
   });
 
   it("is not marked for a frame that came after the one that had it", () => {

@@ -24,11 +24,15 @@
  * that had the keyboard when the window lost the focus to anything but the frame is remembered, and
  * the frame is looked at again when the person is back: a task after the window's `focus`, when the
  * tab is shown again, and at a pointer moved or pressed in the app before the window has said it is
- * in front. A frame that has the keyboard then with no offer is waited on like any other, and the
- * keyboard goes back to the remembered element.
+ * in front. A person who comes back by the keyboard alone to a frame that has the focus sets off
+ * none of these, so until the window says it is in front the frame is also looked at on a beat
+ * (`behind-watch.ts`), and is found once the browser says the keys go to the app's document or a
+ * frame in it. A frame that has the keyboard then with no offer is waited on like any other, and
+ * the keyboard goes back to the remembered element.
  */
 
 import { type RefObject, useCallback, useEffect, useRef } from "react";
+import { behindWatch } from "../lib/behind-watch";
 
 /** How often one frame may take the keyboard unasked before its page is stopped. */
 export const GRABS_MAX = 5;
@@ -100,6 +104,18 @@ export function useFrameFocusGuard(frame: RefObject<HTMLIFrameElement | null>, o
       waiting = undefined;
     };
 
+    /** The person is back, or the frame was found with the keyboard: nothing more to look for. */
+    const back = () => {
+      away = false;
+      kept = null;
+      behind.stop();
+    };
+    const behind = behindWatch(() => {
+      if (!document.hasFocus() || document.activeElement !== frame.current) return;
+      suspect(kept);
+      back();
+    });
+
     const pointed = (event: Event) => {
       if (away) suspect(kept);
       if (event.type === "pointerdown" && box.current?.contains(event.target as Node) !== true) offered = false;
@@ -127,14 +143,14 @@ export function useFrameFocusGuard(frame: RefObject<HTMLIFrameElement | null>, o
       // Lost to another window or to the browser's own controls, not to the page.
       away = true;
       kept = active as HTMLElement | null;
+      behind.start();
     };
     const returned = () => {
       clearTimeout(returning);
       // A task later: a browser may put the focus back where it was only after it told of the window's.
       returning = setTimeout(() => {
         suspect(kept);
-        away = false;
-        kept = null;
+        back();
       }, 0);
     };
     const shown = () => {
@@ -158,6 +174,7 @@ export function useFrameFocusGuard(frame: RefObject<HTMLIFrameElement | null>, o
       window.removeEventListener("blur", blurred);
       window.removeEventListener("focus", returned);
       for (const timer of [forgetting, returning, waiting]) clearTimeout(timer);
+      behind.stop();
     };
   }, [frame]);
 

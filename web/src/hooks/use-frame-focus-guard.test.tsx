@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { useRef, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
+import { BEHIND_LOOK_MS } from "../lib/behind-watch";
 import { setVisibility, wait } from "../test/canvas-hook";
 import { ATTEST_GRACE_MS, GRABS_MAX, LATE_MS, useFrameFocusGuard } from "./use-frame-focus-guard";
 
@@ -633,6 +634,17 @@ describe("the keyboard a page took while the window was behind", () => {
     wait(0);
   }
 
+  /** What the browser says of where the keys go: to the app's window or a frame in it, or elsewhere. */
+  function inFront(front: boolean) {
+    vitest.spyOn(document, "hasFocus").mockReturnValue(front);
+  }
+
+  /** The person is back by the keyboard alone, and the beat that finds the page with it has come. */
+  function comeBackUnheard() {
+    inFront(true);
+    wait(BEHIND_LOOK_MS);
+  }
+
   /** One grab is against the page: three more go unreported, and the one after is the fifth. */
   function expectOneGrab(onGrabbing: () => void) {
     takes(GRABS_MAX - 2);
@@ -827,6 +839,143 @@ describe("the keyboard a page took while the window was behind", () => {
     expect(holder()).toBe(page());
     expectNoGrab(onGrabbing);
   });
+
+  it("goes back within a beat of the person coming back by the keyboard alone, which the app's window is told nothing of", () => {
+    const { onGrabbing } = setup();
+    message().focus();
+    inFront(false);
+    leave();
+    takesBehind();
+
+    // Behind, the keys go to neither: the page is left with the focus, however long.
+    wait(BEHIND_LOOK_MS * 3);
+    expect(holder()).toBe(page());
+
+    // In front again with the page holding the focus, it is the page's window that is told so:
+    // the app's hears of no focus, no tab shown again and no pointer.
+    inFront(true);
+    wait(BEHIND_LOOK_MS - 1);
+    expect(holder()).toBe(page());
+    wait(1);
+    // Found on the beat, the page is waited on like any other.
+    wait(ATTEST_GRACE_MS - 1);
+    expect(holder()).toBe(page());
+    wait(1);
+
+    expect(holder()).toBe(message());
+    expectOneGrab(onGrabbing);
+  });
+
+  it("is looked for on a beat no slower than a fifth of a second", () => {
+    expect(BEHIND_LOOK_MS).toBeLessThanOrEqual(200);
+  });
+
+  it("stays with the page the person pressed in to come back, when the beat finds it there", () => {
+    const { onGrabbing } = setup();
+    message().focus();
+    inFront(false);
+    leave();
+    press();
+    act(() => page().focus());
+
+    comeBackUnheard();
+    wait(ATTEST_GRACE_MS);
+
+    expect(holder()).toBe(page());
+    expectNoGrab(onGrabbing);
+  });
+
+  it("goes on being looked for on the beat until the page is found with it, whatever else has the focus meanwhile", () => {
+    const { onGrabbing } = setup();
+    message().focus();
+    leave();
+    // A browser that says the keys go to the app while one of the app's own elements has the focus.
+    comeBackUnheard();
+    takesBehind();
+
+    // The window has still not said it is in front: a pointer in the app is looked at.
+    fireEvent.pointerMove(knob());
+    wait(ATTEST_GRACE_MS);
+
+    expect(holder()).toBe(message());
+    expectOneGrab(onGrabbing);
+  });
+
+  it("is no longer looked for at a pointer in the app once the beat found the page with it", () => {
+    const { onGrabbing } = setup();
+    message().focus();
+    inFront(false);
+    leave();
+    takesBehind();
+    comeBackUnheard();
+    wait(ATTEST_GRACE_MS);
+    expect(holder()).toBe(message());
+    // The person gives the page the keyboard, then presses something in the app that leaves the focus there.
+    press();
+    act(() => page().focus());
+    fireEvent.pointerDown(knob());
+
+    fireEvent.pointerMove(knob());
+    wait(ATTEST_GRACE_MS);
+
+    expect(holder()).toBe(page());
+    // The one grab the beat found is against the page, and no other.
+    fireEvent.pointerDown(message());
+    takes(GRABS_MAX - 2);
+    expect(onGrabbing).not.toHaveBeenCalled();
+    takes(1);
+    expect(onGrabbing).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not go to what had it before the beat found the page, once the person let that go", () => {
+    setup();
+    message().focus();
+    inFront(false);
+    leave();
+    takesBehind();
+    comeBackUnheard();
+    wait(ATTEST_GRACE_MS);
+    expect(holder()).toBe(message());
+    message().blur();
+    wait(0);
+    const focused = vitest.spyOn(message(), "focus");
+
+    takes(1);
+
+    expect(holder()).toBe(document.body);
+    expect(focused).not.toHaveBeenCalled();
+  });
+
+  it("is looked for on the beat only while the window is behind, and on one beat however often it says so", () => {
+    setup();
+    inFront(false);
+    expect(vitest.getTimerCount()).toBe(0);
+
+    leave();
+    leave();
+    expect(vitest.getTimerCount()).toBe(1);
+    wait(BEHIND_LOOK_MS * 3);
+    expect(vitest.getTimerCount()).toBe(1);
+
+    comeBack();
+    expect(vitest.getTimerCount()).toBe(0);
+    wait(BEHIND_LOOK_MS * 3);
+    expect(vitest.getTimerCount()).toBe(0);
+  });
+
+  it("is looked for on no beat after the one that found the page with it", () => {
+    setup();
+    inFront(false);
+    leave();
+    // The focus is not really moved: jsdom sets a timer of its own for each focus it moves.
+    vitest.spyOn(document, "activeElement", "get").mockReturnValue(page());
+
+    comeBackUnheard();
+    // The page is waited on, and nothing else.
+    expect(vitest.getTimerCount()).toBe(1);
+    wait(ATTEST_GRACE_MS);
+    expect(vitest.getTimerCount()).toBe(0);
+  });
 });
 
 describe("a guard that is put up", () => {
@@ -859,6 +1008,16 @@ describe("a guard that is taken down", () => {
     fireEvent.focus(window);
     // One to forget what the focus left, one to wait on the page, one to look once the window is in front.
     expect(vitest.getTimerCount()).toBe(3);
+
+    unmount();
+
+    expect(vitest.getTimerCount()).toBe(0);
+  });
+
+  it("leaves no beat running behind a window that went behind", () => {
+    const { unmount } = setup();
+    fireEvent.blur(window);
+    expect(vitest.getTimerCount()).toBe(1);
 
     unmount();
 

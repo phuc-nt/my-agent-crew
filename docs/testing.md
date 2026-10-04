@@ -2814,8 +2814,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `.canvas-errors-list`
 - **Canvas trên web: trang trong khung tự lấy focus thì bàn phím về lại chỗ người đang gõ; người đưa
   bàn phím cho trang bằng một cú bấm trong trang hoặc Tab; trang giành tới lần thứ năm thì bị gỡ; trang
-  giành lúc cửa sổ ở phía sau thì bàn phím về lại khi người quay lại; khung nói khi bàn phím đang ở
-  trang**
+  giành lúc cửa sổ ở phía sau thì bàn phím về lại khi người quay lại, kể cả khi quay lại chỉ bằng bàn
+  phím; khung nói khi bàn phím đang ở trang**
   - pytest: `tests/test_render_pages.py`, bốn test của reporter về lời chào và cú bấm (xem mục trang
     render ở trên): cú bấm chỉ được nói khi trình duyệt bảo một người đã bấm
   - vitest: `web/src/hooks/use-frame-focus-guard.test.tsx` nhóm "the keyboard a page took unasked"
@@ -2857,16 +2857,30 @@ tên một test thì sửa dòng của nó trong cùng commit.
     con trỏ đã di chuyển hay bấm trong app thì khung cũng được xét lại; cửa sổ chưa từng ở phía sau,
     hoặc người đã quay lại, thì con trỏ trong app không mở khoảng chờ nào; người quay lại bằng một
     cú bấm trong trang thì trang giữ bàn phím, kể cả khi reporter nói tới cú bấm ấy sau `focus` của
-    cửa sổ, và không lần nào bị tính), nhóm "a guard that is put up" (hai listener `pointermove` và
+    cửa sổ, và không lần nào bị tính; "goes back within a beat of the person coming back by the
+    keyboard alone, which the app's window is told nothing of": không `focus` của cửa sổ, không
+    `visibilitychange`, không sự kiện con trỏ, chỉ `document.hasFocus()` đổi thành `true`: lúc còn ở
+    phía sau thì ba nhịp trôi qua khung vẫn giữ focus, quay lại thì tới đúng nhịp kế tiếp
+    (`BEHIND_LOOK_MS`, 200 ms) khung mới được xét, chờ đủ khoảng chờ rồi bàn phím về phần tử đã nhớ
+    và tính một lần giành; nhịp không bao giờ thưa hơn 200 ms; người quay lại bằng một cú bấm trong
+    trang thì nhịp thấy khung mà không tính gì; nhịp thấy một phần tử của app đang giữ focus thì
+    không đổi gì, con trỏ trong app sau đó vẫn được xét; nhịp đã thấy khung thì con trỏ trong app
+    không mở khoảng chờ nào nữa và phần tử đã nhớ bị quên; "is looked for on the beat only while the
+    window is behind, and on one beat however often it says so": một timer duy nhất dù cửa sổ nói hai
+    lần, không timer nào trước khi cửa sổ ra sau và sau khi nó nói đã ở phía trước; nhịp thấy khung
+    rồi thì dừng), nhóm "a guard that is put up" (hai listener `pointermove` và
     `pointerdown` gắn với `passive: true` và không có listener `wheel` nào, nên guard không bao giờ
     giữ một cú cuộn lại), nhóm "a guard that is taken down" (không để lại timer nào trong ba timer
-    của nó, không còn nghe cú bấm, gỡ đủ từng listener đã gắn với đúng cờ capture: sáu trên
-    `document`, hai trên `window`);
+    của nó, nhịp xét lúc cửa sổ ở phía sau cũng dừng, không còn nghe cú bấm, gỡ đủ từng listener đã
+    gắn với đúng cờ capture: sáu trên `document`, hai trên `window`);
     `web/src/components/canvas/canvas-frame-keyboard.test.tsx` nhóm "a page that takes the keyboard"
     (hộp `div.canvas-frame-box` chỉ mang `class` và `tabindex="-1"`, không còn thuộc tính nào tắt con
     trỏ của khung; một lần giành thì trang vẫn còn và ô đang gõ có lại focus; "does not keep what it
     took while the window was behind: the person is back in front, and so is the keyboard": cửa sổ
-    mất focus, trang lấy focus, cửa sổ có lại focus thì ô đang gõ có lại bàn phím; lần thứ năm khung bị
+    mất focus, trang lấy focus, cửa sổ có lại focus thì ô đang gõ có lại bàn phím; "does not keep what
+    it took behind the window when the person comes back by the keyboard alone, and nothing tells the
+    app's window so": cùng tình huống nhưng cửa sổ app không nhận `focus`, chỉ `document.hasFocus()`
+    đổi: sau một nhịp cộng khoảng chờ ô đang gõ có lại bàn phím, khung còn nguyên; lần thứ năm khung bị
     gỡ, lời báo là "Trang liên tục giành bàn phím nên đã bị dừng." kèm nút Nạp lại, panel được báo
     như khi trang tự đổi địa chỉ; đã gỡ thì đứng yên qua bản mới, nối lại và tab hiện lại; Nạp lại
     đưa khung mới lên và khung ấy lại có đủ năm lần; bàn phím người đưa bằng cú bấm trong trang thì
@@ -2885,7 +2899,13 @@ tên một test thì sửa dòng của nó trong cùng commit.
     chỉ được vẽ lại), nhóm "the page that has the keyboard" (khung giữ focus thì hộp mang
     `data-keyboard` và dòng "Bàn phím đang ở trang" với `role="status"` nằm trong hộp, khung vẫn là
     đúng phần tử cũ, focus về app thì cả hai mất; được xét lại ở `blur` và `focus` của cửa sổ, ở
-    `focusin` và `focusout` của tài liệu; khung thay khung đang giữ bàn phím thì không mang dấu ấy;
+    `focusin` và `focusout` của tài liệu; nhóm con "behind the app's window, which is told nothing of
+    the focus a page takes there": cửa sổ đã nhận `blur` thì dấu được xét theo cùng nhịp 200 ms mà
+    không cần sự kiện nào, hiện trong một nhịp kể từ lúc khung có focus và mất trong một nhịp kể từ
+    lúc khung buông; người quay lại bằng bàn phím thì dấu hiện trong một nhịp; khung mới thay khung
+    cũ lúc cửa sổ còn ở phía sau vẫn được xét theo nhịp ấy; nhịp của dấu dừng ở nhịp đầu tiên thấy
+    `document.hasFocus()` là `true`, và cả hai nhịp dừng khi khung đi; khung thay khung đang giữ bàn
+    phím thì không mang dấu ấy;
     khung đi thì gỡ đủ listener đã gắn lên `window` và `document`), nhóm "a stopped page the person
     asks for again" (lời báo đã dừng là một nút DOM khác với hộp của khung cũ và của khung mới; sau
     Nạp lại, nút vừa bấm mất nên focus được đặt lên hộp của khung mới bằng `focus({ preventScroll:
@@ -2931,7 +2951,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     người sang cửa sổ khác. Phần còn lại đã ghi nhận: phím bấm trong khoảng chờ, tối đa 50 ms giữa
     lúc trang giành và lúc bàn phím được trả lại, thì tới trang; trang giành lúc cửa sổ ở phía sau
     mà người quay lại bằng bàn phím, không có `focus` của cửa sổ, tab không đổi trạng thái và con
-    trỏ không động, thì phím tới trang cho tới sự kiện đầu tiên trong ba sự kiện ấy
+    trỏ không động, thì phím tới trang tối đa một nhịp cộng khoảng chờ (250 ms) rồi bàn phím về; khung
+    được dựng lên khi cửa sổ đã ở phía sau từ trước (guard và dấu chưa từng thấy `blur` của cửa sổ)
+    thì không có nhịp nào, và vẫn chờ một trong ba sự kiện ấy
 - **Canvas trên web: svg và ảnh hiện thành hình từ bản đã lưu; ảnh chỉ để xem; hình không tải được
   thì phân biệt hình hỏng, bản đã mất, server lỗi và mất mạng**
   - vitest: `web/src/components/canvas/canvas-image.test.tsx` nhóm "a picture of a canvas" (hình là
