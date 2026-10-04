@@ -72,16 +72,19 @@ async def test_a_failure_no_disk_reports_is_worded_like_any_other_and_leaves_not
     store: Store, root: Path, art: str, monkeypatch, caplog
 ):
     """The registry would name only the error's type; the agent is told what became of the
-    file, and the cause is kept for whoever reads the log."""
+    file, and the cause is kept for whoever reads the log, with where on this machine the
+    file was going: the agent's own words for the place would not say whose workspace."""
     monkeypatch.setattr(os, "replace", _failing(ValueError("embedded null byte")))
-    before = _tree(root)
+    before, paths = _tree(root), (OLD, "notes/new.md", "fresh/deep/new.md")
     with caplog.at_level(logging.ERROR):
-        for path in (OLD, "notes/new.md", "fresh/deep/new.md"):
+        for path in paths:
             result = await _export(store, root, art, path)
             assert result.output == TOOL_FAILED.format(error=EXPORT_FAILED.format(path=path)), path
             assert str(root.parent) not in result.output
     assert _tree(root) == before
     assert caplog.text.count("ValueError: embedded null byte") == 3
+    places = [record.getMessage().rpartition(" ")[2] for record in caplog.records]
+    assert places == [str(root.resolve() / path) for path in paths]
 
 
 async def test_a_full_disk_is_worded_without_a_line_in_the_log(

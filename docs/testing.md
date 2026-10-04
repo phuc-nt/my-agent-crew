@@ -1573,7 +1573,7 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `tests/test_artifact_export_write.py`
     ("test_a_failure_no_disk_reports_is_worded_like_any_other_and_leaves_nothing_behind":
     `os.replace` ném `ValueError` thì agent vẫn nhận câu không ghi được, tệp cũ nguyên vẹn, không
-    sót tệp tạm hay thư mục, nguyên nhân nằm trong log,
+    sót tệp tạm hay thư mục, nguyên nhân nằm trong log cùng chỗ thật trên máy mà tệp định tới,
     "test_a_full_disk_is_worded_without_a_line_in_the_log",
     "test_a_write_cut_short_takes_its_half_written_file_away": lần ghi đứt giữa chừng vì
     `OSError`, `MemoryError` hay một `BaseException` đều dọn tệp ghi dở,

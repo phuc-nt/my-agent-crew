@@ -67,8 +67,8 @@ async def run_export(
         existed = await asyncio.to_thread(write_whole, target, payload)
     except OSError:  # worded here: the error's own text names the path on this machine
         raise ToolError(EXPORT_FAILED.format(path=shown)) from None
-    except Exception:  # no failure of a disk: worded the same, and kept for whoever looks
-        logger.exception("artifact_export could not write %s", shown)
+    except Exception:  # no failure of a disk: worded the same, and logged with the real place
+        logger.exception("artifact_export could not write %s", target)
         raise ToolError(EXPORT_FAILED.format(path=shown)) from None
     agent.link(conv, artifact_id)
     done = EXPORT_DONE.format(
