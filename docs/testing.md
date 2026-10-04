@@ -1357,6 +1357,33 @@ tên một test thì sửa dòng của nó trong cùng commit.
     nó, "test_list_matches_the_title_regardless_of_case_and_accents", hai canvas cùng giây xếp
     theo thứ tự tạo, "test_on_change_hears_every_write_after_commit_outside_the_lock",
     "test_a_failing_on_change_is_logged_and_the_write_stands")
+- **Canvas: nguồn của canvas và bản nhập từ tệp (tầng lưu trữ)**
+  - pytest: `tests/test_artifact_source_store.py`
+    ("test_a_write_records_where_its_version_came_from_in_the_one_change": `write(source=…)` đổi
+    nguồn cùng lúc với phiên bản mới, một event mang cả hai,
+    "test_a_write_that_names_no_source_keeps_the_one_recorded": ghi, `apply`, khôi phục không nêu
+    nguồn thì nguồn giữ nguyên, "test_a_refused_write_leaves_the_source_as_it_was",
+    "test_setting_the_source_adds_no_version_and_keeps_the_time_of_the_last_change": `set_source`
+    không thêm bản, không đổi `updated_at`, có event sau commit và ngoài khoá,
+    "test_setting_the_source_of_a_canvas_that_is_gone_raises_key_error",
+    "test_typing_right_after_a_reimport_keeps_the_imported_version" và
+    "test_a_reimport_right_after_a_burst_of_typing_keeps_what_was_typed": dòng `import` không bị
+    tự lưu của người gộp mất và cũng không gộp mất loạt tự lưu,
+    "test_a_picture_canvas_takes_new_bytes_and_keeps_the_old_ones",
+    "test_a_write_whose_payload_does_not_fit_the_kind_adds_no_version": chữ cho canvas ảnh hay
+    byte cho canvas chữ là `PayloadMismatch`,
+    "test_restoring_a_picture_brings_back_its_exact_bytes");
+    `tests/test_artifact_authors.py`
+    ("test_a_version_imported_from_a_file_is_named_as_one_whoever_imported_it": bản nhập của
+    người lẫn của agent đứng riêng khỏi các bản tự viết của cùng tác giả, các bản nhập liền nhau
+    là một nhóm);
+    `tests/test_canvas_note_one_line.py`
+    ("test_a_picture_that_changed_is_told_in_one_line_and_stays_unseen": canvas ảnh đổi thì ghi
+    chú là một dòng tác giả, không diff, seen đứng yên,
+    "test_a_reimport_from_the_web_is_told_in_one_line_and_stays_unseen": bản người nhập lại từ
+    tệp cũng một dòng, `artifact_rewrite` sau đó vẫn bị từ chối);
+    `tests/test_api_artifact_pictures.py`
+    ("test_saving_text_onto_a_picture_canvas_is_422_and_the_picture_stays")
 - **Canvas: số phiên bản mà SQLite không chứa nổi là một phiên bản không có, không phải lỗi 500**
   - pytest: `tests/test_artifact_version_range.py`
     ("test_a_version_number_at_or_beyond_the_64_bit_edge_is_gone_and_names_the_newest": mọi số từ

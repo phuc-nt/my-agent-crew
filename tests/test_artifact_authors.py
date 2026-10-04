@@ -1,7 +1,7 @@
 """The line naming who wrote the versions of a canvas an agent has not seen."""
 
 from my_agent_crew.store.artifact_authors import authors_line
-from my_agent_crew.store.artifact_models import USER, ArtifactVersion
+from my_agent_crew.store.artifact_models import IMPORT_NOTE, USER, ArtifactVersion
 from my_agent_crew.texts_canvas import ARTIFACT_AUTHORS
 
 ART = "0123456789ab"
@@ -51,3 +51,15 @@ def test_a_restore_is_a_group_of_its_own_naming_the_version_it_brought_back():
     )
     assert authors_line(history, 0, 6) == ARTIFACT_AUTHORS.format(groups=groups)
     assert authors_line(history, 4, 5) == ARTIFACT_AUTHORS.format(groups="v5 người khôi phục v2")
+
+
+def test_a_version_imported_from_a_file_is_named_as_one_whoever_imported_it():
+    """An import puts a file's text in place of the canvas's, so it must not hide inside a run
+    of the same author's ordinary writes; imports one after another are one group."""
+    notes = {2: IMPORT_NOTE, 4: IMPORT_NOTE, 5: IMPORT_NOTE}
+    history = _history(USER, USER, "agent:coach", "agent:coach", "agent:coach", USER, notes=notes)
+    groups = (
+        "v1 người, v2 người nhập từ tệp, v3 agent:coach, v4–v5 agent:coach nhập từ tệp, v6 người"
+    )
+    assert authors_line(history, 0, 6) == ARTIFACT_AUTHORS.format(groups=groups)
+    assert authors_line(history, 1, 2) == ARTIFACT_AUTHORS.format(groups="v2 người nhập từ tệp")

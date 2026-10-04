@@ -37,8 +37,8 @@ _INSERT = (
     " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *"
 )
 _ADVANCE = (
-    "UPDATE artifacts SET head_version = ?, updated_at = ?, title = COALESCE(?, title)"
-    " WHERE id = ? RETURNING *"
+    "UPDATE artifacts SET head_version = ?, updated_at = ?, title = COALESCE(?, title),"
+    " source = COALESCE(?, source) WHERE id = ? RETURNING *"
 )
 
 # What a write puts in the next version, given the newest one: (content, data).
@@ -64,16 +64,20 @@ class ArtifactVersions(ArtifactHistory):
         note: str = "",
         *,
         data: bytes | None = None,
+        source: str | None = None,
     ) -> ArtifactVersion:
         """With `base_version`, refuses unless that is still the newest version, so an editor
-        that loaded an older one cannot write over what came since."""
+        that loaded an older one cannot write over what came since. With `source`, records
+        where this version was imported from in the same change; None keeps what is recorded."""
 
         def payload(head: ArtifactVersion) -> tuple[str | None, bytes | None]:
             if base_version is not None and base_version != head.version:
                 raise VersionConflict(head.version, head.content)
             return content, data
 
-        return self._write_next(artifact_id, payload, author, conversation_id, title, note)
+        return self._write_next(
+            artifact_id, payload, author, conversation_id, title, note, source=source
+        )
 
     def apply(
         self,
@@ -130,6 +134,8 @@ class ArtifactVersions(ArtifactHistory):
         conversation_id: str,
         title: str | None,
         note: str,
+        *,
+        source: str | None = None,
     ) -> ArtifactVersion:
         """Adds the version after the newest, folding the newest away when this write
         continues its burst. One hold of the lock covers the first read to the commit, a
@@ -154,7 +160,7 @@ class ArtifactVersions(ArtifactHistory):
                         (artifact_id, head.version),
                     )
                 row = self._insert_version(*meta, *stamps, content, data)
-                advance = (number, now, title, artifact_id)
+                advance = (number, now, title, source, artifact_id)
                 [summary] = self._conn.execute(_ADVANCE, advance).fetchall()
                 self._conn.commit()
             except BaseException:

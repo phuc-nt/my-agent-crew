@@ -43,6 +43,7 @@ ARTIFACT_CONFLICT_WIDE = (
 # Who wrote the versions the agent has not seen yet, oldest first: "v3–v5 người, v6 agent:coach".
 AUTHOR_PERSON = "người"
 AUTHOR_RESTORE = "{author} khôi phục v{version}"
+AUTHOR_IMPORT = "{author} nhập từ tệp"
 ARTIFACT_AUTHORS = "Các bản bạn chưa thấy: {groups}."
 
 # The same words for a canvas that does not exist and one out of the agent's reach, so the

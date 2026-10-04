@@ -114,11 +114,18 @@ class ArtifactStore(ArtifactReach, ArtifactVersions):
 
     def rename(self, artifact_id: str, title: str) -> ArtifactSummary:
         """A new title only: no new version."""
-        title = clean_title(title)
+        return self._set(artifact_id, "title = ?, updated_at = ?", clean_title(title), now_iso())
+
+    def set_source(self, artifact_id: str, source: str) -> ArtifactSummary:
+        """Where the canvas was imported from, for an import that found nothing else to
+        change: no new version, and `updated_at` stays, since nothing a reader sees moved."""
+        return self._set(artifact_id, "source = ?", source)
+
+    def _set(self, artifact_id: str, columns: str, *values: str) -> ArtifactSummary:
+        """Changes the canvas's own row, never its versions, and announces it."""
         with self._lock:
             rows = self._conn.execute(
-                "UPDATE artifacts SET title = ?, updated_at = ? WHERE id = ? RETURNING *",
-                (title, now_iso(), artifact_id),
+                f"UPDATE artifacts SET {columns} WHERE id = ? RETURNING *", (*values, artifact_id)
             ).fetchall()
             self._conn.commit()
             linked = self._links.conversations_for(artifact_id)

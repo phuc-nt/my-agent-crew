@@ -15,6 +15,8 @@ from typing import Any
 USER = "user"
 # The note of a version that restores an older one, followed by that older version's number.
 RESTORE_NOTE = "restore:"
+# The note of a version whose payload was read from a file, by an agent's import or a person's.
+IMPORT_NOTE = "import"
 
 
 @dataclass(frozen=True)

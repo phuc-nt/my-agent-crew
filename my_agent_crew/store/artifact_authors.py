@@ -5,8 +5,13 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from my_agent_crew.store.artifact_models import RESTORE_NOTE, USER, ArtifactVersion
-from my_agent_crew.texts_canvas import ARTIFACT_AUTHORS, AUTHOR_PERSON, AUTHOR_RESTORE
+from my_agent_crew.store.artifact_models import IMPORT_NOTE, RESTORE_NOTE, USER, ArtifactVersion
+from my_agent_crew.texts_canvas import (
+    ARTIFACT_AUTHORS,
+    AUTHOR_IMPORT,
+    AUTHOR_PERSON,
+    AUTHOR_RESTORE,
+)
 
 AUTHOR_GROUPS = 6
 
@@ -16,7 +21,8 @@ def authors_line(versions: Sequence[ArtifactVersion], after: int, upto: int) -> 
     group per run of one author's versions and the newest six at most, since those are what
     the agent is about to meet; "" when there are none. A person's burst of saves folds into
     its last number, so a group spans the first and last number it holds rather than counting
-    them. A restore is a group of its own: it brings back text the agent may already know."""
+    them. A restore is a group of its own: it brings back text the agent may already know. A
+    version imported from a file is named as one, apart from its author's own writing."""
     groups: list[tuple[str, int, int]] = []
     for version in versions:
         if not after < version.version <= upto:
@@ -26,6 +32,8 @@ def authors_line(versions: Sequence[ArtifactVersion], after: int, upto: int) -> 
         if restore:
             restored = version.note.removeprefix(RESTORE_NOTE)
             name = AUTHOR_RESTORE.format(author=name, version=restored)
+        elif version.note == IMPORT_NOTE:
+            name = AUTHOR_IMPORT.format(author=name)
         if groups and groups[-1][0] == name and not restore:
             groups[-1] = (name, groups[-1][1], version.version)
         else:
