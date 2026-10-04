@@ -2962,11 +2962,15 @@ tên một test thì sửa dòng của nó trong cùng commit.
     (trang gọi `window.focus()` trong `pointermove` của nó: con trỏ đi qua trang không phải lời mời,
     chữ gõ trước và sau đều vào ô soạn tin); "stays with the message while the wheel turned over the
     page scrolls the page" (ngay sau khi gõ, lăn chuột trên trang thì trang cuộn và chữ gõ tiếp vẫn
-    vào ô soạn tin: khung luôn nhận con trỏ); "goes to the page with Tab" (cũng là test giữ hạn một
-    task của lời mời bằng Tab: trong trình duyệt thật khung đã có focus trước khi task ấy tới);
+    vào ô soạn tin: khung luôn nhận con trỏ); "goes to the page with Tab" (cũng cho thấy hạn một
+    task của lời mời bằng Tab là đủ trong trình duyệt thật: cửa sổ app nghe `blur` trước khi task ấy
+    tới; bỏ lời mời của Tab là test đỏ, còn lời mời hết hạn thế nào thì trình duyệt không phân biệt
+    được, chỉ các test vitest ở trên giữ);
     "stays with the message when the page takes it after Tab pressed with Control, which goes
     through none of the app's controls" (Control+Tab không dời focus; trang lấy focus sau đó thì bàn
-    phím về ô soạn tin và ba mươi phím gõ vào đủ ô soạn tin); "stays where the person
+    phím về ô soạn tin và ba mươi phím gõ vào đủ ô soạn tin; coi Control+Tab là lời mời và để lời
+    mời ấy sống quá một task là test đỏ, chỉ bỏ điều kiện phím bổ trợ thì hạn một task đã che và
+    phần ấy do vitest giữ); "stays where the person
     had it while a page that goes on taking it is stopped" (trang `setInterval(window.focus, 100)` bị
     gỡ kèm lời báo, ba mươi phím gõ sau đó vào đủ ô soạn tin mà không cần bấm lại, Nạp lại đưa trang
     mới lên và focus nằm trên `canvas-frame-box` chứ không ở `body`); "is not given to a page that
