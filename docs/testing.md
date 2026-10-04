@@ -1379,7 +1379,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "test_pieces_of_two_calls_keep_their_own_index_and_name_in_the_order_they_came",
     "test_a_delta_that_states_no_index_is_a_piece_of_the_first_call");
     `tests/test_openrouter.py::test_each_fragment_of_a_tool_call_is_passed_on_as_it_arrives`
-    (mảnh xen với chữ theo đúng thứ tự gửi, `Completion` cuối y như cũ);
+    (mảnh xen với chữ theo đúng thứ tự gửi, `Completion` cuối y như cũ) và
+    "test_a_delta_that_brings_words_and_a_fragment_passes_both_on_the_words_first" (một delta
+    mang cả chữ lẫn mảnh thì mảnh không bị bỏ và đi sau chữ);
     `tests/test_ollama.py::test_a_local_model_passes_on_the_pieces_of_a_tool_call_too`;
     `tests/test_route_retry.py`
     ("test_a_route_is_still_asked_again_after_part_of_a_tool_call_arrived",
@@ -1408,7 +1410,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     mảnh đầu và mọi event của nó mang `attempt=1`; lần thử chưa hiện gì thì không có event tên
     rỗng nhưng vẫn được đếm; tuyến hỏng hẳn vẫn cho `route_fallback` và cũng được đếm;
     "test_on_the_slow_model_a_document_of_a_few_kilobytes_is_seen_filling_in": trên `fake:slow`
-    một tài liệu vài KB được phát nhiều lần chứ không phải một);
+    một tài liệu vài KB được phát nhiều lần chứ không phải một, và tổng thời gian model chờ
+    cho cả tài liệu ấy dưới một phút);
     `tests/test_tool_call_delta_event.py` (event `tool_call_delta` chỉ có `type`, `index`, `name`,
     `chunk`, `attempt`; "test_the_activity_hub_neither_writes_nor_broadcasts_it";
     "test_it_leaves_a_run_exactly_as_it_was": `apply_event` không mở step và không đổi số nào;

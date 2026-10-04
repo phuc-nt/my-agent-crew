@@ -277,7 +277,8 @@ async def test_every_attempt_given_up_is_counted_and_only_those_that_showed_are_
 async def test_on_the_slow_model_a_document_of_a_few_kilobytes_is_seen_filling_in(deps_factory):
     """What a self-test without a model key leans on: over such a document the waits of the
     slow model add up to several preview intervals, so the pane is drawn again and again
-    rather than once. The clock here moves only by what the model waited."""
+    rather than once, and to less than a minute, so whoever watches the document to its end
+    is not left waiting. The clock here moves only by what the model waited."""
     clock = Clock()
 
     async def wait(seconds: float) -> None:
@@ -296,6 +297,7 @@ async def test_on_the_slow_model_a_document_of_a_few_kilobytes_is_seen_filling_i
     assert len(previews) >= 3
     assert written.startswith("".join(event.chunk for event in previews))
     assert len(previews[1].chunk) > len(previews[0].chunk)
+    assert clock.now < 60
 
 
 def test_left_to_itself_the_step_reads_the_clock_that_only_goes_forward():

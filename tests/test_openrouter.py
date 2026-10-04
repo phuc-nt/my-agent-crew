@@ -167,6 +167,28 @@ async def test_each_fragment_of_a_tool_call_is_passed_on_as_it_arrives():
     )
 
 
+async def test_a_delta_that_brings_words_and_a_fragment_passes_both_on_the_words_first():
+    """A server may put the last words of an answer and the opening of a call in one delta.
+    The fragment is not lost for the company it came in, and it follows the words as the call
+    follows them in the answer."""
+    opening = {"index": 0, "id": "c1", "function": {"name": "artifact_create", "arguments": '{"ti'}}
+    body = sse(
+        delta("Viết đây.", tool_calls=[opening]),
+        delta(tool_calls=[{"index": 0, "function": {"arguments": 'tle": "A"}'}}]),
+        delta(finish="tool_calls"),
+    )
+    items = await collect(provider_with(body).stream([Message(role="user", content="hi")], [], "m"))
+    assert items[:-1] == [
+        StreamStarted(),
+        TextDelta("Viết đây."),
+        ToolCallDelta(index=0, name="artifact_create", chunk='{"ti'),
+        ToolCallDelta(index=0, name="artifact_create", chunk='tle": "A"}'),
+    ]
+    done = items[-1]
+    assert done.message.content == "Viết đây."
+    assert done.message.tool_calls == (ToolCall("c1", "artifact_create", {"title": "A"}),)
+
+
 async def test_malformed_tool_arguments_complete_as_an_invalid_call():
     """Not a provider error: the model is told where its JSON broke and tries again."""
     body = sse(
