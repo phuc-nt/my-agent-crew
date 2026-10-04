@@ -825,6 +825,41 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "a task that came back short of done says so, and why, on the card"
   - Thủ công, tốn tiền thật: case `a-lookup-is-handed-to-the-researcher` trong
     `<home>/evals/delegation.yaml` (`delegates_to: {agent: researcher, outcome: done}`)
+- **Kết quả giao việc nêu các canvas agent con đã viết, ngay dưới dòng `outcome=` và trên một dòng
+  trống luôn có**
+  - pytest: `tests/test_delegate_canvases.py`
+    ("test_the_canvases_the_child_wrote_stand_right_under_the_outcome": mỗi canvas một dòng ở phiên
+    bản lớn nhất con viết, theo thứ tự viết lần đầu, thẻ khớp `TAG_RE` và cả dòng khớp regex
+    `CANVAS` của web, `reply` vẫn đúng là câu trả lời,
+    "test_a_child_that_wrote_no_canvas_leaves_only_the_blank_line",
+    "test_an_answer_that_opens_like_a_canvas_line_stays_below_the_blank_line",
+    "test_a_long_title_is_cut_like_any_field_quoted_in_a_result",
+    "test_canvases_past_the_twelfth_are_counted_in_the_first_line_of_the_body",
+    "test_a_canvas_deleted_while_the_parent_waited_is_not_named",
+    "test_a_task_that_is_not_done_still_names_what_was_written",
+    "test_a_child_stopped_short_names_its_canvases_above_the_unfinished_note",
+    "test_a_wait_that_runs_out_still_names_what_the_child_had_written": mười hai dòng đầu và câu
+    đếm phần còn lại, như mọi kết quả khác,
+    "test_carrying_a_canvas_to_or_from_a_file_unchanged_names_nothing": xuất và nhập không đổi
+    không sinh dòng, cũng không chia sẻ canvas sang cuộc gốc,
+    "test_naming_a_canvas_to_the_master_is_not_the_master_having_read_it": lượt kế của cuộc gốc vẫn
+    nhận ghi chú canvas mới đúng một lần, `artifact_rewrite` của master vẫn bị từ chối,
+    "test_the_count_of_the_rest_says_how_many_and_which_tool_lists_them": câu đếm nêu số và tool
+    `artifact_list` có thật, và không đọc nhầm thành một dòng canvas,
+    và `canvas_lines` gọi thẳng: cuộc không ai viết, mười hai dòng đầu rồi câu đếm phần còn lại,
+    bản người lưu và bản ghi ở cuộc khác không được nêu);
+    `tests/test_delegate_outcome.py`
+    ("test_the_blank_line_is_there_whether_or_not_a_canvas_was_written",
+    "test_a_wait_that_runs_out_names_the_canvases_written_so_far");
+    `tests/test_tools_delegate.py::test_the_first_two_lines_are_the_ones_the_web_card_reads`
+    (dòng ba là dòng trống khi con không viết canvas nào);
+    `tests/test_delegation_contract.py::test_the_parent_is_told_what_the_canvas_lines_under_the_outcome_are`
+  - vitest: `lib/delegate-result.test.ts`, mục "the canvases a delegate result names" (khối đọc
+    tới dòng trống, dòng trống ngay dưới outcome là không canvas nào, kết quả cũ không có dòng
+    trống hay không có dòng outcome đọc như trước, dòng chỉ có dấu cách không phải dòng trống,
+    câu trả lời mở đầu bằng dòng giống thẻ, dòng giống thẻ ở dưới hay lẫn với chữ khác, thẻ không
+    đúng dạng chuẩn, dòng dừng ở dấu cách sau thẻ là canvas không tiêu đề, quá 12 canvas, hết giờ
+    chờ)
 - **Hạn chờ duyệt đặt theo lịch và theo kênh Telegram; duyệt hết hạn là từ chối mà chưa có gì
   thay đổi**
   - pytest: `tests/test_approval_ttl.py` (lịch và khối `telegram` nhận số giây nguyên từ một phút

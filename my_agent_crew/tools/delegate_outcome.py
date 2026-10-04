@@ -13,6 +13,7 @@ because the child's words were written for the agent that gave it the task."""
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from my_agent_crew import texts
@@ -115,12 +116,20 @@ def header_line(conv_id: str, run: RunRecord | None) -> str:
     )
 
 
-def timed_out(conv_id: str, run: RunRecord | None) -> ToolResult:
+def result_text(header: str, outcome: str, canvases: Sequence[str], more: str, body: str) -> str:
+    """Line 1, line 2, the canvases the child wrote, a blank line that is always there, the
+    body. `more` counts the canvases left out and opens the body: below the blank line, so
+    it is never read as one more canvas, and outside the answer handed to the person."""
+    rest = f"{more}\n\n{body}" if more else body
+    return "\n".join([header, outcome, *canvases, "", rest])
+
+
+def timed_out(
+    conv_id: str, run: RunRecord | None, canvases: Sequence[str], more: str
+) -> ToolResult:
     """The wait ran out with the child still going. The header stays, so the card can
-    still point at the child's conversation, and the parent reads a failure to report."""
-    lines = (
-        header_line(conv_id, run),
-        outcome_line(Outcome(FAILED, TIMEOUT)),
-        texts.DELEGATE_TIMEOUT.format(conv_id=conv_id),
-    )
-    return ToolResult(ok=False, output="\n".join(lines))
+    still point at the child's conversation, and the parent reads a failure to report,
+    with what the child had written by then named as in any other result."""
+    body = texts.DELEGATE_TIMEOUT.format(conv_id=conv_id)
+    header, outcome = header_line(conv_id, run), outcome_line(Outcome(FAILED, TIMEOUT))
+    return ToolResult(ok=False, output=result_text(header, outcome, canvases, more, body))

@@ -36,9 +36,10 @@ from my_agent_crew.tools.delegate_outcome import (
     header_line,
     outcome_line,
     relays,
+    result_text,
     timed_out,
 )
-from my_agent_crew.tools.delegate_report import unfinished_note
+from my_agent_crew.tools.delegate_report import canvas_lines, unfinished_note
 from my_agent_crew.tools.registry import Tool, ToolError, ToolResult
 
 if TYPE_CHECKING:  # the runtime builds this tool, so importing it back would be a cycle
@@ -112,7 +113,8 @@ async def _delegate(
 ) -> ToolResult:
     """Opens (or re-finds) the child conversation, runs it, and reports what came back.
     A finished child's answer also rides along whole as `reply`, so the loop can hand it
-    to the person without another model call when nothing else happened this turn."""
+    to the person without another model call when nothing else happened this turn. The
+    canvases the child wrote are named in the result alone, however the wait ended."""
     parent_id = turn_conversation_id()
     parent = runtime.store.get(parent_id) if parent_id else None
     call_id = tool_call_id()
@@ -128,8 +130,10 @@ async def _delegate(
     # wait changed since, or the crew's setting, is not what the child's approvals use.
     timeout = effective_ttl(child, runtime.deps_for(target).settings) + WAIT_MARGIN_SECONDS
     run = await runtime.hub.wait_finished(child.id, timeout)
+    canvases, more = canvas_lines(runtime.store.artifacts, child.id)
     if run is None:
-        return timed_out(child.id, runtime.store.runs.latest_for_conversation(child.id))
+        latest = runtime.store.runs.latest_for_conversation(child.id)
+        return timed_out(child.id, latest, canvases, more)
     try:
         spent = runtime.store.get(child.id).spent_usd
     except KeyError:
@@ -148,7 +152,7 @@ async def _delegate(
     )
     body = f"{note}\n\n{answer}" if note else answer
     relay = relays(outcome) and args.get("relay", True) is not False
-    output = f"{header_line(child.id, run)}\n{outcome_line(outcome)}\n{body}"
+    output = result_text(header_line(child.id, run), outcome_line(outcome), canvases, more, body)
     return ToolResult(ok=True, output=output, reply=answer if relay else None)
 
 

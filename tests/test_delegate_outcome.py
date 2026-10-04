@@ -10,7 +10,7 @@ import pytest
 from my_agent_crew.store.approvals import APPROVED, DENIED, EXPIRED
 from my_agent_crew.store.models import QUESTION, Approval
 from my_agent_crew.store.runs import DONE, FAILED, HALTED, RunRecord
-from my_agent_crew.texts import DELEGATE_TIMEOUT
+from my_agent_crew.texts import DELEGATE_CANVAS_MORE, DELEGATE_TIMEOUT
 from my_agent_crew.tools.delegate_outcome import (
     BLOCKED,
     DONE_WITH_CONCERNS,
@@ -20,6 +20,7 @@ from my_agent_crew.tools.delegate_outcome import (
     declared_outcome,
     outcome_line,
     relays,
+    result_text,
     timed_out,
 )
 from my_agent_crew.tools.delegate_outcome import DONE as OUTCOME_DONE
@@ -224,11 +225,38 @@ def test_the_outcome_line_names_a_reason_only_when_the_task_is_not_done():
 
 
 def test_a_wait_that_runs_out_fails_and_keeps_the_header_the_card_reads():
-    result = timed_out("c9", None)
+    result = timed_out("c9", None, [], "")
 
     assert not result.ok and result.reply is None
-    assert result.output.split("\n", 2) == [
+    assert result.output.split("\n") == [
         "conversation=c9 status=running spent=$0.0000 steps=0",
         "outcome=failed reason=timeout",
+        "",
         DELEGATE_TIMEOUT.format(conv_id="c9"),
     ]
+
+
+def test_a_wait_that_runs_out_names_the_canvases_written_so_far():
+    canvas = "[artifact 3f9a1c2b7d40 v1] Dàn ý"
+    more = DELEGATE_CANVAS_MORE.format(n=2)
+
+    result = timed_out("c9", None, [canvas], more)
+
+    assert not result.ok and result.reply is None
+    assert result.output.split("\n")[1:] == [
+        "outcome=failed reason=timeout",
+        canvas,
+        "",
+        more,
+        "",
+        DELEGATE_TIMEOUT.format(conv_id="c9"),
+    ]
+
+
+def test_the_blank_line_is_there_whether_or_not_a_canvas_was_written():
+    """Line 1, line 2, a line for each canvas, the blank line, the body. The count of the
+    canvases left out opens the body as a paragraph of its own, below the blank line, so it
+    is never read as one more canvas."""
+    assert result_text("h", "o", [], "", "lời") == "h\no\n\nlời"
+    assert result_text("h", "o", ("c1", "c2"), "", "lời\n\nthêm") == "h\no\nc1\nc2\n\nlời\n\nthêm"
+    assert result_text("h", "o", ["c1"], "còn 2", "lời") == "h\no\nc1\n\ncòn 2\n\nlời"

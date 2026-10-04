@@ -1,18 +1,25 @@
-"""What a delegated run that did not finish had already done.
+"""What a delegated child left behind, beside its answer.
 
 A child that stops at its step cap, on an error or on an interruption hands back its last
 words, which are often half a thought ("that table does not exist…"). Read alone they say
 nothing happened, and the delegator hands the same work out again with a wider remit —
 on top of a row the child had in fact already written. The calls that succeeded are the
-part it must not repeat, so they travel with the answer."""
+part it must not repeat, so they travel with the answer.
+
+The canvases it wrote are named whether it finished or not. A canvas outlives the child's
+conversation, and the delegator can tell the person only about one it knows is there."""
 
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from my_agent_crew import texts
+from my_agent_crew.artifacts.tag import artifact_tag
 from my_agent_crew.store.runs import DONE, RunRecord
+
+if TYPE_CHECKING:
+    from my_agent_crew.store.artifact_usage import ArtifactUsage
 
 # The most recent successful calls are listed; the state a retry would clash with is
 # usually near the end, and a child at its step cap may have made dozens.
@@ -34,6 +41,17 @@ def unfinished_note(run: RunRecord) -> str:
     if hidden > 0:
         lines.insert(0, texts.DELEGATE_UNFINISHED_EARLIER.format(count=hidden))
     return "\n".join([head, texts.DELEGATE_UNFINISHED_DONE, *lines])
+
+
+def canvas_lines(artifacts: ArtifactUsage, conversation_id: str) -> tuple[list[str], str]:
+    """A line for each canvas an agent wrote in the conversation, the first written first and
+    MAX_LISTED at most, then the sentence that counts the rest, empty when none are left out.
+    A line is the tag a canvas tool's own result opens with, then the title; the title is the
+    child's wording, and `cut` keeps it to that one line."""
+    written = artifacts.written_in(conversation_id)
+    lines = [f"{artifact_tag(w.id, w.version)} {cut(w.title)}" for w in written[:MAX_LISTED]]
+    hidden = len(written) - MAX_LISTED
+    return lines, texts.DELEGATE_CANVAS_MORE.format(n=hidden) if hidden > 0 else ""
 
 
 def _line(step: dict[str, Any]) -> str:

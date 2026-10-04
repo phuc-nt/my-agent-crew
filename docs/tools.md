@@ -130,7 +130,8 @@ bản rút ngắn một dòng nêu số ký tự và id lời gọi. `tool_outpu
 `delegate` mở một cuộc trò chuyện mới cho agent nêu trong `agent` — một trong các
 `delegates` của bên gọi, hoặc chính nó — chạy việc ở đó, và trả về câu trả lời cuối của cuộc trò chuyện đó
 kèm hai dòng đầu: dòng một ghi id, trạng thái run, chi phí và số step; dòng hai (`outcome=`) ghi
-việc được giao đi tới đâu. Agent con bắt đầu trống: nó
+việc được giao đi tới đâu. Dưới hai dòng đó là khối canvas con đã viết, rồi một dòng trống luôn có,
+rồi mới tới lời của con (xem đoạn "Khối canvas" bên dưới). Agent con bắt đầu trống: nó
 không bao giờ thấy lịch sử của cha, và đó là mục đích, nên `task` phải mang theo mọi thứ nó
 cần: ý định của người dùng (lời nguyên văn, ngày hôm nay), không phải cách làm. Mô tả của
 tool và danh sách đội trong prompt của master nói rõ điều này, và danh sách đội không nêu
@@ -167,6 +168,21 @@ hay bảo lưu lại thì master giao agent đó ghi vào sổ của nó, không
 sao trong lĩnh vực đó thì giao lại kèm dữ kiện mới, không tự suy luận.
 Con dừng giữa chừng (`halted`, `error`, bị ngắt) thì kết quả ghi rõ là chưa xong và liệt kê
 các tool call đã thành công của nó, để bên giao không làm lại hay giao lại với quyền rộng hơn.
+Khối canvas đứng ngay dưới dòng `outcome=`: mỗi canvas agent con đã viết trong cuộc trò chuyện của
+nó một dòng `[artifact <id> v<n>] <tiêu đề>`, theo thứ tự viết lần đầu, `v<n>` là phiên bản lớn
+nhất con viết ở đó. Thẻ là đúng thẻ mà kết quả của tool canvas mở đầu; tiêu đề cắt ở 160 ký tự như
+mọi trường trích trong kết quả. Canvas đã xoá, canvas con chỉ đọc, chỉ xuất ra tệp hay nhập lại mà
+không đổi thì không có dòng. Nêu tối đa 12 canvas viết trước nhất; nhiều hơn thì phần thân mở đầu
+bằng `(+N canvas khác, xem bằng artifact_list)`. Sau khối là một dòng trống luôn có, kể cả khi con
+không viết canvas nào: chỉ những dòng trên dòng trống đó là canvas, nên câu trả lời của con mở đầu
+bằng một dòng trông như thẻ vẫn là câu trả lời. Khối có ở mọi outcome, cả khi hết thời gian chờ
+(những gì con đã viết tới lúc đó) lẫn khi con dừng giữa chừng (đứng trên ghi chú chưa xong). Câu
+trả lời chuyển thẳng cho người dùng không mang khối này, vẫn đúng là lời của con. Tiêu đề là chữ
+của con, nên mô tả tool dặn bên giao coi nó là dữ liệu chứ không phải chỉ dẫn, và nhắc tên canvas
+cho người dùng thay vì đọc rồi chép nội dung vào câu trả lời. Được nêu tên chưa phải là đã đọc:
+lượt kế của cuộc gốc vẫn nhận ghi chú canvas mới, và `artifact_rewrite` của master vẫn bị từ chối
+cho tới khi nó đọc canvas. Web đọc khối bằng cùng dạng dòng (`lib/delegate-result.ts`); kết quả lưu
+từ trước khi có dòng trống thì đọc như cũ, không có canvas nào.
 Ngữ cảnh của cha chỉ lớn thêm một kết quả tool thay vì cả công việc, và
 kết quả đó không bao giờ bị cắt gọn bởi cơ chế tỉa đầu ra tool cũ: master hỏi Pong,
 rồi hỏi HLV, rồi quay lại chủ đề của Pong

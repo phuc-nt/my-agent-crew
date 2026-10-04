@@ -283,7 +283,10 @@ def web_pattern(name: str) -> re.Pattern[str]:
 
 
 def lines_of(result: ToolResult) -> tuple[str, str, str]:
-    header, outcome, body = result.output.split("\n", 2)
+    """Line 1, line 2 and the body. The canvases a child wrote stand between line 2 and a
+    blank line that is always there; the children here wrote none, so line 3 is that line."""
+    header, outcome, blank, body = result.output.split("\n", 3)
+    assert blank == "", result.output
     return header, outcome, body
 
 
@@ -295,6 +298,8 @@ async def test_the_first_two_lines_are_the_ones_the_web_card_reads(runtime: Runt
     child = runtime.store.for_parent_call("call-1")
     assert web_pattern("HEADER").fullmatch(header).groups()[:2] == (child.id, "done")
     assert web_pattern("OUTCOME").fullmatch(outcome).groups() == ("done", None)
+    # The blank line parts what the runtime wrote from what the child said.
+    assert result.output.split("\n")[2:] == ["", "(echo) đếm"]
     assert body == "(echo) đếm" and result.reply == body
 
 
