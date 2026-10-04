@@ -41,7 +41,9 @@ export type CanvasState = {
   saving: { gen: number; content: string; baseVersion: number } | null;
   /** A save fell due while one was in flight. */
   pending: boolean;
-  reading: { gen: number } | null;
+  /** The read now out: the `gen` it was asked at, and the newest version heard of by then, which
+   *  its reply holds or goes past. */
+  reading: { gen: number; seen: number } | null;
   /** A read was asked for while a save or a read was out. */
   readWanted: boolean;
   /** Texts of saves whose reply never came. */

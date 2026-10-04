@@ -28,8 +28,9 @@ type Props = {
   onClose(): void;
 };
 
-/** "Khôi phục từ v2" for a restore's note; any other note as written. */
+/** "Khôi phục từ v2" for a restore's note and "Nhập từ tệp" for a re-import's; any other note as written. */
 function noteText(note: string): string {
+  if (note === "import") return vi.canvas.importedNote;
   const restore = /^restore:(\d+)$/.exec(note);
   return restore ? vi.canvas.restoredFrom(Number(restore[1])) : note;
 }

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { vi } from "../../i18n/vi";
 import { type ArtifactTag, isArtifactId, parseArtifactTag } from "../../lib/artifact-tag";
+import { IMPORT, argument, importedFile, importsInto } from "../../lib/canvas-import-call";
 import { cleanTitle } from "../../lib/canvas-title";
 import { showHiddenChars } from "../../lib/hidden-chars";
 import type { ThreadItem } from "../../state/thread-reducer";
@@ -20,7 +21,9 @@ export type CanvasLinks = {
 
 const CREATE = "artifact_create";
 const EDIT = "artifact_edit";
-const WRITES = [CREATE, EDIT, "artifact_rewrite"];
+/** Reading a file into a canvas writes it too. Writing a canvas out to a file changes no canvas,
+ *  and keeps the plain tool card, which shows the canvas and the file it names. */
+const WRITES = [CREATE, EDIT, "artifact_rewrite", IMPORT];
 
 /** A write is drawn as a canvas card while it runs and once it is done. One that failed, was refused,
  *  was cut short or waits to be allowed keeps the plain tool card, which shows why. */
@@ -28,33 +31,35 @@ export function isCanvasWrite(item: ToolItem): boolean {
   return WRITES.includes(item.name) && (item.status === "running" || item.status === "done");
 }
 
-/** One argument of a call. They are whatever the model sent, and a call saved by an older version
- *  holds them as one line of text: anything but a mapping has no arguments to read. */
-function argument(item: ToolItem, key: string): unknown {
-  const args: unknown = item.arguments;
-  return typeof args === "object" && args !== null ? (args as Record<string, unknown>)[key] : undefined;
-}
-
-/** The id an edit or a rewrite was given, when it is one the server makes. A create names none:
- *  it makes its canvas, and only the tag in its result says which. */
+/** The id an edit, a rewrite or an import was given, when it is one the server makes. A create
+ *  names none: it makes its canvas, and only the tag in its result says which. */
 function givenId(item: ToolItem): string | null {
   const id = argument(item, "id");
   return item.name !== CREATE && typeof id === "string" && isArtifactId(id) ? id : null;
 }
 
-/** The title a create under way was given, as the server will keep it. Only a call still running
- *  is titled this way: once it is done the thread knows the canvas by the title it was kept under. */
+/** The title a create or an import under way was given, as the server will keep it; an import
+ *  given none goes by the name of its file. Only a call still running is titled this way: once it
+ *  is done the thread knows the canvas by the title it was kept under. */
 function givenTitle(item: ToolItem): string | null {
+  if (item.status !== "running") return null;
   const title = argument(item, "title");
-  if (item.name !== CREATE || item.status !== "running" || typeof title !== "string") return null;
-  const clean = cleanTitle(title);
-  return typeof clean === "string" ? clean : null;
+  const makes = item.name === CREATE || item.name === IMPORT;
+  const clean = makes && typeof title === "string" ? cleanTitle(title) : null;
+  return typeof clean === "string" ? clean : importedFile(item);
+}
+
+/** What a finished write did. An import that named its canvas read the file into it again. */
+function did(item: ToolItem): string {
+  const { card } = vi.canvas;
+  if (item.name === IMPORT) return importsInto(item) ? card.reimported : card.imported;
+  return item.name === CREATE ? card.created : item.name === EDIT ? card.edited : card.rewritten;
 }
 
 /** What a finished write did to its canvas, and to which version when its tag says. */
-function outcome(name: string, tag: ArtifactTag | null): string {
+function outcome(item: ToolItem, tag: ArtifactTag | null): string {
   const { card } = vi.canvas;
-  const what = tag?.unchanged ? card.unchanged : name === CREATE ? card.created : name === EDIT ? card.edited : card.rewritten;
+  const what = tag?.unchanged ? card.unchanged : did(item);
   return tag ? card.version(what, tag.version) : what;
 }
 
@@ -63,9 +68,9 @@ function outcome(name: string, tag: ArtifactTag | null): string {
  * its title, what was done and to which version, and a button that opens it. It never shows the
  * arguments or the text of the result, which are the canvas's content and not the thread's.
  *
- * The canvas is the one the tag at the start of the result names; an edit or a rewrite whose result
- * has no tag falls back to the id it was given, when that is one the server makes. A card still
- * running has nothing to open yet, and asks the server nothing.
+ * The canvas is the one the tag at the start of the result names; a call that named its canvas and
+ * whose result has no tag falls back to the id it was given, when that is one the server makes. A
+ * card still running has nothing to open yet, and asks the server nothing.
  */
 export function CanvasCard({ item, canvas }: { item: ToolItem; canvas: CanvasLinks }) {
   const { card } = vi.canvas;
@@ -88,7 +93,7 @@ export function CanvasCard({ item, canvas }: { item: ToolItem; canvas: CanvasLin
         <span className="canvas-card-title">{title}</span>
         <span className={`canvas-card-line tool-status ${item.status}`}>
           {running && <Icon name="spinner" />}
-          {running ? card.writing : gone ? vi.canvas.gone : outcome(item.name, tag)}
+          {running ? (item.name === IMPORT ? card.importing : card.writing) : gone ? vi.canvas.gone : outcome(item, tag)}
         </span>
       </div>
       {done && id !== null && !gone && (

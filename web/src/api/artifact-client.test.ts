@@ -76,6 +76,14 @@ describe("artifactApi", () => {
     ]);
   });
 
+  it("asks for a canvas's file to be read again, on the version the text stands on", async () => {
+    const summary = { ...detail, head_version: 4, source: "workspace:master/a.md" };
+    fetchMock.mockResolvedValueOnce(jsonResponse({ changed: true, artifact: summary }));
+
+    expect(await artifactApi.reimport("a/1", 3)).toEqual({ changed: true, artifact: summary });
+    expect(sent()).toMatchObject({ url: "/api/artifacts/a%2F1/reimport", method: "POST", body: { base_version: 3 } });
+  });
+
   it("passes a read's signal, and a save's signal and keepalive, through to fetch", async () => {
     fetchMock.mockImplementation(async () => jsonResponse({}));
     const read = new AbortController();

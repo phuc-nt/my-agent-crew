@@ -7,7 +7,7 @@ import { MessageThread } from "./message-thread";
 import { ToolCallCard } from "./tool-call-card";
 
 const NOTE = "0123456789ab";
-const WRITES = ["artifact_create", "artifact_edit", "artifact_rewrite"];
+const WRITES = ["artifact_create", "artifact_edit", "artifact_rewrite", "artifact_import"];
 const OTHER_CANVAS_TOOLS = ["artifact_read", "artifact_list"];
 const SETTLED: ToolStatus[] = ["failed", "denied", "stopped", "awaiting"];
 
@@ -69,6 +69,17 @@ describe("which tool calls the thread draws as a canvas card", () => {
         expect(plainCard(), `${name} ${status}`).toHaveAttribute("data-tool", name);
         view.unmount();
       }
+    }
+  });
+
+  it("keeps the plain card for a canvas written out to a file, which shows the canvas and the file it names", () => {
+    for (const status of ["awaiting", "running", "done"] as const) {
+      const item = call("artifact_export", status, { arguments: { id: NOTE, path: "out/thuc-don.md" }, output: null });
+      const view = render(<ToolCallCard item={item} canvas={links()} />);
+      expect(canvasCard(), status).toBeNull();
+      expect(plainCard(), status).toHaveAttribute("data-tool", "artifact_export");
+      expect(plainCard(), status).toHaveTextContent(`id=${NOTE}, path=out/thuc-don.md`);
+      view.unmount();
     }
   });
 

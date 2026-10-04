@@ -48,6 +48,13 @@ export const artifactApi = {
       method: "POST",
       body: JSON.stringify({ version }),
     }),
+  /** Reads the canvas's workspace file again. `changed` is false when the file holds what the
+   *  newest version does, and no version is added; `artifact` is the canvas as that left it. */
+  reimport: (id: string, baseVersion: number) =>
+    request<{ changed: boolean; artifact: ArtifactSummary }>(`${artifactPath(id)}/reimport`, {
+      method: "POST",
+      body: JSON.stringify({ base_version: baseVersion }),
+    }),
   versions: (id: string) => request<ArtifactVersionMeta[]>(`${artifactPath(id)}/versions`),
   version: (id: string, version: number) =>
     request<ArtifactVersion>(`${artifactPath(id)}/versions/${version}`),

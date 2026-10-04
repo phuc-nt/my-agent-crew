@@ -1,0 +1,35 @@
+/* Where the canvas came from. On a narrow panel the folder gives way and the file's name stays. */
+.canvas-source {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+
+.canvas-source-label,
+.canvas-source-file,
+.canvas-source > button {
+  flex: none;
+}
+
+.canvas-source-path {
+  flex: 1;
+  display: flex;
+  min-width: 0;
+  overflow: hidden;
+  white-space: pre;
+}
+
+.canvas-source-dir {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.canvas-source a {
+  display: inline-flex;
+  align-items: center;
+  overflow-wrap: anywhere;
+}

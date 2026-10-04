@@ -38,6 +38,8 @@ export type CanvasController = {
   /** Version `version`, holding `content`, was restored as the newest; an image has no text. */
   restored(version: number, content: string | null): void;
   renamed(summary: ArtifactSummary): void;
+  /** The canvas as a re-import left it: taken as the stream's own word of the change would be. */
+  imported(summary: ArtifactSummary): void;
   /** Loads again after a failed first read; otherwise retries or reads, whichever is due. */
   reload(): void;
 };
@@ -88,6 +90,7 @@ export function useCanvas(id: string, connected: boolean): CanvasController {
       undo: () => runner.current?.undo(),
       restored: (version: number, content: string | null) => send({ type: "restored", version, content: content ?? "" }),
       renamed: (summary: ArtifactSummary) => send({ type: "renamed", summary }),
+      imported: (summary: ArtifactSummary) => send({ type: "event", artifact: summary }),
       reload: () => send({ type: "resync" }),
     };
   }, []);

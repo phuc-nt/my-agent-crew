@@ -22,7 +22,7 @@ export function openState(id: string, draft: CanvasDraft | null): CanvasState {
     summary: null,
     saving: null,
     pending: false,
-    reading: { gen: 0 },
+    reading: { gen: 0, seen: 0 },
     readWanted: false,
     unsure: [],
     seen: 0,
@@ -103,6 +103,9 @@ export function replaceText(state: CanvasState, next: string, edits: LineEdit[] 
   state.undo = null;
 }
 
+/** A read going out now, after every version up to `seen` was heard of. */
+export const readingNow = (state: CanvasState) => ({ gen: state.gen, seen: state.seen });
+
 /** Asks for a read, or for one after the save, the held reply or the read now out. */
 export function requestRead(state: CanvasState, effects: CanvasEffect[]): void {
   if (state.gone) return;
@@ -111,7 +114,7 @@ export function requestRead(state: CanvasState, effects: CanvasEffect[]): void {
     return;
   }
   state.readWanted = false;
-  state.reading = { gen: state.gen };
+  state.reading = readingNow(state);
   effects.push({ type: "get" });
 }
 

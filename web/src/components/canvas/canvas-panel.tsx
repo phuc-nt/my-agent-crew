@@ -27,6 +27,7 @@ import { CanvasEditor } from "./canvas-editor";
 import { type CanvasMode, CanvasHeader } from "./canvas-header";
 import { CanvasHistory } from "./canvas-history";
 import { CanvasSavedView } from "./canvas-saved-view";
+import { CanvasSource } from "./canvas-source";
 import { CanvasNotices } from "./canvas-status";
 import { CanvasView } from "./canvas-view";
 
@@ -131,6 +132,7 @@ export function CanvasPanel(props: CanvasPanelProps) {
         onClose={onClose}
       />
       <div className="canvas-body">
+        <CanvasSource canvas={canvas} artifactId={artifactId} agentName={agentName} flush={flush} />
         <CanvasNotices canvas={canvas} stuck={stuck} onForceClose={onForceClose} />
         {renameError && (
           <div className="notice error canvas-notice" role="alert">

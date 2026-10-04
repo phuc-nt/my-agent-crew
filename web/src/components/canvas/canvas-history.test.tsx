@@ -51,6 +51,18 @@ describe("the versions of a canvas", () => {
     expect(diff()).toBe("+ một");
   });
 
+  it("calls a version read from the canvas's file by that, not by the word the server keeps for it", async () => {
+    backend.canvas.add({ content: "a", source: "workspace:ming/a.md" });
+    backend.canvas.files.put("workspace:ming/a.md", "từ tệp");
+    await backend.canvas.route("/artifacts/a1/reimport", "POST", { base_version: 1 }, new URLSearchParams());
+    await openPanel();
+
+    await openHistory();
+
+    expect(rows()).toEqual([`v2 · bạn · 4 phút · 10 B${vi.canvas.importedNote}`, "v1 · bạn · 5 phút · 1 B"]);
+    expect(history().textContent).not.toMatch(/import/);
+  });
+
   it("closes without restoring anything", async () => {
     threeVersions(backend);
     await openPanel();

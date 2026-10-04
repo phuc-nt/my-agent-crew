@@ -9,10 +9,15 @@
  * change afterwards. Edits and rewrites never open one, for the canvas may not be the one the
  * person is reading; neither does a call that failed or was refused. The card in the thread still
  * opens any of them on request.
+ *
+ * A file read into a canvas makes one when the call names none, and that canvas opens as any made
+ * does. Read into a canvas the call names it is a rewrite, and a file that left its canvas as it
+ * was made nothing: neither opens.
  */
 
 import { useEffect, useRef, useState } from "react";
 import { parseArtifactTag } from "../lib/artifact-tag";
+import { IMPORT, importsInto } from "../lib/canvas-import-call";
 import type { ThreadItem } from "../state/thread-reducer";
 import type { CanvasDock } from "./use-canvas-dock";
 
@@ -38,10 +43,11 @@ export function useCanvasAutoOpen(thread: Thread, dock: Pick<CanvasDock, "open" 
       // A call that has not ended is judged when it does.
       if (item.status === "running" || item.status === "awaiting") continue;
       judged.add(item.id);
-      if (item.name !== "artifact_create" || item.status !== "done") continue;
+      const makes = item.name === "artifact_create" || (item.name === IMPORT && !importsInto(item));
+      if (!makes || item.status !== "done") continue;
       const tag = parseArtifactTag(item.output);
       const history = detail?.messages.some((message) => message.tool_calls.some((call) => call.id === item.id));
-      if (tag === null || !wide || history || dock.typing()) continue;
+      if (tag === null || tag.unchanged || !wide || history || dock.typing()) continue;
       dock.open(tag.id, { quiet: true });
     }
   }, [items, judged]);

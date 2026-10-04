@@ -4,6 +4,7 @@ import { capOf } from "../lib/canvas-caps";
 import { cleanTitle } from "../lib/canvas-title";
 import { CanvasFaults, type FakeReply, invalid, ok, refused } from "./fake-canvas-faults";
 import { FocusBook } from "./fake-canvas-focus";
+import { SourceFiles } from "./fake-canvas-import";
 import { CREATABLE_KINDS, PICTURE_BYTES } from "./fake-canvas-kinds";
 
 export type { FakeReply } from "./fake-canvas-faults";
@@ -28,6 +29,7 @@ const ROUTES: [RegExp, string[]][] = [
   [/^\/versions$/, ["GET"]],
   [/^\/versions\/\d+$/, ["GET"]],
   [/^\/restore$/, ["POST"]],
+  [/^\/reimport$/, ["POST"]],
   [/^\/raw$/, ["GET"]],
 ];
 
@@ -60,6 +62,8 @@ export class FakeCanvas {
       if (!conversationIds.includes(conversationId)) conversationIds.push(conversationId);
     },
   });
+  /** The workspace files canvases were imported from, which a re-import reads again. */
+  files = new SourceFiles<Canvas>((kind) => this.sizeCap ?? capOf(kind), (canvas, text) => this.store(canvas, text, "import"));
   private faults = new CanvasFaults();
   private ticks = 0;
   private rows = 0;
@@ -185,6 +189,7 @@ export class FakeCanvas {
     if (rest === "/restore" && !isVersion(body.version)) return invalid("version");
     const title = method === "PATCH" ? cleanTitle(body.title as string) : "";
     if (typeof title !== "string") return refused(422, title.problem);
+    if (rest === "/reimport") return this.files.reimport(this.canvases.get(id), body.base_version);
     const canvas = this.canvases.get(id);
     if (!canvas) return refused(404, "artifact not found");
     const gone = refused(404, { head_version: canvas.summary.head_version });

@@ -183,6 +183,31 @@ describe("a deleted canvas", () => {
   });
 });
 
+describe("where the canvas came from", () => {
+  it("heads the body of a canvas read from a file, above its text, and stays there over the versions", async () => {
+    backend.canvas.add({ title: "Thực đơn", content: "a", source: "workspace:ming/notes/thuc-don.md" });
+    const { container } = await openPanel();
+    const head = () => container.querySelector(".canvas-body")?.firstElementChild;
+
+    expect(head()).toHaveClass("canvas-source");
+    expect(head()?.textContent).toBe(`${vi.canvas.source.label}Ming/notes/thuc-don.md${vi.canvas.source.reimport}`);
+
+    fireEvent.click(screen.getByRole("button", { name: vi.canvas.history }));
+    await landed();
+    expect(screen.getByRole("region", { name: vi.canvas.historyTitle })).toBeTruthy();
+    expect(head()).toHaveClass("canvas-source");
+  });
+
+  it("is not there for a canvas made here", async () => {
+    backend.canvas.add({ title: "Ghi chú", content: "a" });
+    const { container } = await openPanel();
+
+    expect(editor()?.value).toBe("a");
+    expect(container.querySelector(".canvas-source")).toBeNull();
+    expect(screen.queryByRole("button", { name: vi.canvas.source.reimport })).toBeNull();
+  });
+});
+
 describe("the header and the dock", () => {
   it("goes back to the list, closes, and downloads the newest version", async () => {
     backend.canvas.add({ title: "Ghi chú", content: "a" });

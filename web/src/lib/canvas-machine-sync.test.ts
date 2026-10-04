@@ -201,6 +201,50 @@ describe("a canvas reading the newest version", () => {
     expect(canvas.state.base.version).toBe(7);
   });
 
+  it("reads once for a version it hears of twice while the read is out", () => {
+    const canvas = openOn("a");
+
+    const effects = [
+      ...canvas.send(event(6)),
+      ...canvas.send(event(6)),
+      ...canvas.send({ type: "read", detail: detailAt(6, "a6", { head_author: "agent:ming" }) }),
+    ];
+
+    expect(getsIn(effects)).toBe(1);
+    expect(canvas.state.text).toBe("a6");
+    expect(canvas.state.base.version).toBe(6);
+    expect(statusOf(canvas.state, true)).toBe("saved");
+  });
+
+  it("reads again for a version it hears of during a read that was asked for before it", () => {
+    const canvas = openOn("a");
+
+    const effects = [
+      ...canvas.send({ type: "resync" }),
+      ...sendAll(canvas, [event(6), event(6)]),
+      ...canvas.send({ type: "read", detail: detailAt(5, "a") }),
+      ...canvas.send({ type: "read", detail: detailAt(6, "a6", { head_author: "agent:ming" }) }),
+    ];
+
+    expect(getsIn(effects)).toBe(2);
+    expect(canvas.state.text).toBe("a6");
+    expect(canvas.state.base.version).toBe(6);
+  });
+
+  it("reads once for a version heard of twice across a conflict", () => {
+    const canvas = openOn("a");
+    typeAndPause(canvas, "mine");
+    canvas.send(conflictAt(6, "theirs"));
+
+    const effects = [
+      ...sendAll(canvas, [event(7), event(7)]),
+      ...canvas.send({ type: "read", detail: detailAt(7, "theirs too", { head_author: "agent:ming" }) }),
+    ];
+
+    expect(getsIn(effects)).toBe(1);
+    expect(canvas.state.conflict?.theirs).toMatchObject({ version: 7, content: "theirs too" });
+  });
+
   it("asks for one more read when the stream comes back during a read", () => {
     const canvas = openOn("a");
     canvas.send(event(6));

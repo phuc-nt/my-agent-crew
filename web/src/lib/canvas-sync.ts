@@ -16,6 +16,7 @@ import {
   isDirty,
   moveBase,
   readIfWanted,
+  readingNow,
   replaceText,
   requestRead,
   settleAll,
@@ -133,6 +134,9 @@ export function event(
   // A save in flight or a composition settles first; the version is read after it if needed.
   if (state.phase !== "ready" || state.saving || state.held || state.composing) return;
   if (artifact.head_version <= state.base.version) return;
+  // Heard of twice, by the stream and by the reply to what made it: the read that went out after
+  // the first word of this version brings it, and another would only read the same again.
+  if (state.reading && artifact.head_version <= state.reading.seen) return;
   if (state.conflict) {
     if (artifact.head_version > state.conflict.theirs.version) requestRead(state, effects);
     return;
@@ -144,7 +148,7 @@ export function event(
 export function resync(state: CanvasState, effects: CanvasEffect[]): void {
   if (state.phase === "failed") {
     state.phase = "loading";
-    state.reading = { gen: state.gen };
+    state.reading = readingNow(state);
     effects.push({ type: "get" });
     return;
   }
