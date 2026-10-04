@@ -2854,7 +2854,12 @@ tên một test thì sửa dòng của nó trong cùng commit.
     button a person held": cú bấm được nói, 150 ms sau (người giữ nút chuột chừng ấy) ô đang gõ vẫn
     giữ focus, lúc nhả được nói thêm một lần rồi khung mới lấy focus thì trang giữ bàn phím và không
     lần nào bị tính; "is not made by a button that is still held": cùng tình huống mà không có lời
-    nào lúc nhả thì bàn phím về ô đang gõ và tính một lần giành, tức luật hết hạn không bị nới; hạn
+    nào lúc nhả thì bàn phím về ô đang gõ và tính một lần giành, tức luật hết hạn không bị nới;
+    "stands for as long as the page has the keyboard, however long ago the press was told and
+    however often the page is looked at again": cú bấm được nói, khung lấy focus, rồi sáu lần tab bị
+    ẩn một giây và hiện lại, mỗi lần hiện khung được xét lại: trang vẫn giữ bàn phím và không lần nào
+    bị tính, tức lời mời đứng vững chừng nào khung còn giữ focus chứ không hết theo đồng hồ; cho lời
+    mời luôn hết hạn là test đỏ; hạn
     tính từ cú bấm được nói sau cùng; "is made to the frame on show and to no other": lời mời bằng cú bấm
     hay bằng Tab không theo sang khung thay thế; `pointermove`, `pointerover`, `pointerenter`,
     `wheel`, `scroll`, `mousemove`
@@ -2895,7 +2900,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `visibilitychange`, không sự kiện con trỏ, chỉ `document.hasFocus()` đổi thành `true`: lúc còn ở
     phía sau thì ba nhịp trôi qua khung vẫn giữ focus, quay lại thì tới đúng nhịp kế tiếp
     (`BEHIND_LOOK_MS`, 200 ms) khung mới được xét, chờ đủ khoảng chờ rồi bàn phím về phần tử đã nhớ
-    và tính một lần giành; nhịp không bao giờ thưa hơn 200 ms; người quay lại bằng một cú bấm trong
+    và tính một lần giành; "is looked for on a beat no slower than a fifth of a second": đo bằng
+    đồng hồ chứ không so hằng số với một con số, người quay lại bằng bàn phím thì 200 ms cộng khoảng
+    chờ sau bàn phím đã về phần tử đã nhớ, nên bỏ nhịp hay cho nhịp thưa hơn 200 ms đều là test đỏ;
+    người quay lại bằng một cú bấm trong
     trang thì nhịp thấy khung mà không tính gì; nhịp thấy một phần tử của app đang giữ focus thì
     không đổi gì, con trỏ trong app sau đó vẫn được xét; nhịp đã thấy khung thì con trỏ trong app
     không mở khoảng chờ nào nữa và phần tử đã nhớ bị quên; "is looked for on the beat only while the
@@ -3049,7 +3057,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     ấy đã hết; hai sự kiện lúc nhả, `pointerup` và `mouseup`, thừa nhau với chuột trong Chromium (bỏ
     riêng một cái thì test trình duyệt vẫn xanh), từng cái chỉ được giữ bằng test chữ của reporter;
     Enter hay phím cách rơi vào khoảng chờ thì tới trang như mọi phím khác, nhưng không còn là lời
-    mời dù trang cho sự kiện của nó tự nói gì
+    mời dù trang cho sự kiện của nó tự nói gì; tha lần trễ đầu của một khung có cái giá của nó: ở
+    nơi khung chạy trên cùng luồng với app, một trang giành bàn phím rồi chặn luồng thì nghe mọi
+    phím gõ trong lúc luồng bị chặn, và mỗi phần tử khung có hai khoảng nghe như thế trước khi trang
+    bị dừng, không phải một
 - **Canvas trên web: svg và ảnh hiện thành hình từ bản đã lưu; ảnh chỉ để xem; hình không tải được
   thì phân biệt hình hỏng, bản đã mất, server lỗi và mất mạng**
   - vitest: `web/src/components/canvas/canvas-image.test.tsx` nhóm "a picture of a canvas" (hình là

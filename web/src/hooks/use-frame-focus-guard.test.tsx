@@ -440,6 +440,25 @@ describe("the keyboard the person offers the page", () => {
     expectOneGrab(onGrabbing);
   });
 
+  it("stands for as long as the page has the keyboard, however long ago the press was told and however often the page is looked at again", () => {
+    const { onGrabbing } = setup();
+    message().focus();
+
+    press();
+    takes(1);
+    // One time more than a page may take the keyboard unasked: the person reads in another tab
+    // and comes back, and each time the tab is shown the frame is looked at again.
+    for (let round = 0; round <= GRABS_MAX; round++) {
+      setVisibility("hidden");
+      wait(1000);
+      setVisibility("visible");
+      wait(ATTEST_GRACE_MS);
+      expect(holder()).toBe(page());
+    }
+
+    expectNoGrab(onGrabbing);
+  });
+
   it("lasts from the press told last, not from the one before it", () => {
     const { onGrabbing } = setup();
     message().focus();
@@ -1114,7 +1133,18 @@ describe("the keyboard a page took while the window was behind", () => {
   });
 
   it("is looked for on a beat no slower than a fifth of a second", () => {
-    expect(BEHIND_LOOK_MS).toBeLessThanOrEqual(200);
+    setup();
+    message().focus();
+    inFront(false);
+    leave();
+    takesBehind();
+
+    // Back by the keyboard alone. A fifth of a second by the clock, not by the guard's own count
+    // of it, and the time a page is waited on: by then the keys are the message's again.
+    inFront(true);
+    wait(200 + ATTEST_GRACE_MS);
+
+    expect(holder()).toBe(message());
   });
 
   it("stays with the page the person pressed in to come back, when the beat finds it there", () => {
