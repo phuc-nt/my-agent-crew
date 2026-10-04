@@ -65,7 +65,10 @@ async def run_export(
     payload = (doc.data or b"") if doc.content is None else doc.content.encode("utf-8")
     try:
         existed = await asyncio.to_thread(write_whole, target, payload)
-    except OSError:  # worded here: the error's own text names the path on this machine
+    except OSError as exc:  # worded here: the error's own text names the path on this machine
+        # The log is told where the file was going and which error, never the error's words.
+        told = (target, type(exc).__name__, exc.errno)
+        logger.warning("artifact_export could not write %s: %s errno %s", *told)
         raise ToolError(EXPORT_FAILED.format(path=shown)) from None
     except Exception:  # no failure of a disk: worded the same, and logged with the real place
         logger.exception("artifact_export could not write %s", target)
