@@ -58,6 +58,11 @@ IMPORT_NOT_TEXT = (
 )
 IMPORT_NOT_IMAGE = "{path} không phải ảnh PNG, JPEG, GIF hay WebP. Chưa nhập gì."
 IMPORT_NOT_FILE = "{path} không phải một tệp thường nên không đọc được. Chưa nhập gì."
+# Why the web could not read a canvas's file again, before any file is opened.
+REIMPORT_NO_SOURCE = "Canvas này không ghi tệp nguồn nào trong workspace nên không nhập lại được."
+REIMPORT_AGENT_GONE = (
+    "Agent giữ tệp nguồn của canvas này không còn trong đội nên không đọc lại được tệp."
+)
 
 # The same words for a canvas that does not exist and one out of the agent's reach, so the
 # answer never tells an agent which canvases exist beyond its reach.

@@ -14,17 +14,20 @@ from fastapi.testclient import TestClient
 from my_agent_crew.server import (
     create_app,
     routes_artifact_history,
+    routes_artifact_import,
     routes_artifact_render,
     routes_artifacts,
     routes_canvas_focus,
     routes_chat,
 )
+from my_agent_crew.server.app import ROUTERS as SERVED
 from my_agent_crew.store.db import Store
 from tests.canvas_helpers import PLAN, SWIM, agents_canvas
 
 ROUTERS = (
     routes_artifacts.router,
     routes_artifact_history.router,
+    routes_artifact_import.router,
     routes_artifact_render.router,
     routes_canvas_focus.router,
 )
@@ -44,6 +47,17 @@ def test_every_canvas_route_and_the_chat_message_run_on_the_event_loop():
     endpoints = [route.endpoint for route in routes] + [routes_chat.post_message]
     assert len(endpoints) >= 12
     assert [e.__name__ for e in endpoints if not inspect.iscoroutinefunction(e)] == []
+
+
+def test_the_routers_checked_here_are_every_canvas_router_the_app_serves():
+    """A canvas router added to the app and not to the list above would go unchecked."""
+    canvas = [
+        router
+        for router in SERVED
+        if any("artifact" in route.path or "canvas" in route.path for route in router.routes)
+    ]
+    assert len(canvas) == len(ROUTERS) == len(set(map(id, ROUTERS)))
+    assert all(any(router is checked for checked in ROUTERS) for router in canvas)
 
 
 def _state(store: Store, conv_id: str, art: str) -> tuple:

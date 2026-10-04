@@ -1732,6 +1732,39 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "test_an_extension_names_the_first_language_that_saves_under_it": bảng ngược
     `LANGUAGE_BY_EXTENSION` phủ đúng các đuôi của `CODE_EXTENSIONS` và mỗi đuôi trả về ngôn ngữ
     lưu ra chính đuôi đó)
+- **Canvas qua REST: đọc lại tệp nguồn trong workspace (`POST /api/artifacts/{id}/reimport`)**
+  - pytest: `tests/test_api_artifact_import.py`
+    ("test_a_changed_file_becomes_the_persons_newest_version_marked_as_an_import": tác giả `user`,
+    ghi chú `import`, `conversation_id` rỗng, nguồn giữ nguyên, trả `{changed, artifact}` không kèm
+    chữ, "test_a_file_that_changes_nothing_adds_no_version": tệp chỉ khác BOM và kiểu xuống dòng
+    vẫn là không đổi, "test_a_reimport_must_say_which_version_the_panel_loaded": thiếu
+    `base_version`, 0 hay chuỗi là 422,
+    "test_a_file_never_goes_over_a_version_saved_since_the_panel_loaded": `base_version` cũ mà tệp
+    khác bản mới nhất là 409 kèm `head_version`, chữ và tác giả của bản đó; cũ mà tệp bằng bản mới
+    nhất là 200 `changed: false`,
+    "test_a_save_made_while_the_file_was_read_is_what_the_file_is_compared_with": bản mới nhất được
+    đọc sau khi tệp đã trong tay,
+    "test_a_picture_is_compared_and_replaced_byte_for_byte");
+    `tests/test_api_artifact_import_scope.py`
+    ("test_a_reimport_links_no_conversation_and_makes_nothing_seen",
+    "test_the_request_picks_neither_the_file_nor_whose_version_it_becomes": `path`, `source`,
+    `conversation_id`, `kind`, `author`, `note`, `content` trong body đều không có tác dụng,
+    "test_no_request_of_the_web_gives_a_canvas_a_source": tạo, lưu, đổi tên kèm `source` vẫn để
+    nguồn rỗng nên nhập lại là 422,
+    "test_a_reimport_is_announced_only_when_it_changed_the_canvas": không đổi thì không có event,
+    đổi thì một event `artifact` tới các hội thoại đã liên kết);
+    `tests/test_api_artifact_import_refusals.py` (lời từ chối nào cũng không ghi gì và không lộ
+    đường dẫn của máy: "test_a_canvas_that_names_no_workspace_file_is_422": không nguồn, nguồn là
+    URL, `workspace:` thiếu agent hay thiếu đường dẫn, "test_a_canvas_that_is_not_there_is_404",
+    "test_a_canvas_deleted_while_its_file_was_read_is_404",
+    "test_a_source_whose_agent_left_the_crew_is_410", "test_a_source_file_that_is_gone_is_410",
+    "test_a_source_outside_the_workspace_is_403_in_words_for_a_person": `..`, đường dẫn tuyệt đối
+    và `~` ra ngoài workspace nhận `FILE_OUTSIDE_WORKSPACE`,
+    "test_a_file_that_cannot_be_a_version_of_the_canvas_is_refused_by_the_canvas_kind": quá trần
+    là 413, không phải UTF-8 hay có byte NUL là 422, canvas ảnh mà tệp không phải ảnh là 422, thư
+    mục là 422, "test_a_source_that_became_a_pipe_is_422_without_waiting_for_a_writer": request
+    không treo, "test_a_page_of_another_site_cannot_ask_for_a_reimport": `Sec-Fetch-Site`
+    `cross-site` hay `same-site` là 403, "test_full_storage_is_507_and_the_canvas_stays")
 - **Canvas qua REST: trang chạy trong sandbox, không có đường nào ra ngoài**
   - pytest: `tests/test_artifact_render.py` (chính sách viết ra nguyên văn trong test nên đổi nó là
     đổi cả tệp này; `sandbox` chỉ có `allow-scripts`, không bao giờ `allow-same-origin`; chỉ
@@ -1853,6 +1886,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     từ luồng khác tới watcher trong 0,5 s mà không có lỗi nào; thiếu bước chuyển về loop thì test
     đỏ chứ không treo); `tests/test_api_artifact_invariants.py`
     ("test_every_canvas_route_and_the_chat_message_run_on_the_event_loop",
+    "test_the_routers_checked_here_are_every_canvas_router_the_app_serves": router canvas nào
+    của `app.ROUTERS` cũng nằm trong bộ được kiểm, kể cả router nhập lại,
     "test_no_read_changes_what_a_conversation_knows_or_has_open": mọi `GET` canvas, kể cả trang
     `render` của canvas html và mermaid ở bản mới nhất lẫn một bản cũ, giữ nguyên liên kết, con
     trỏ đọc, canvas đang mở, phiên bản và tin)
