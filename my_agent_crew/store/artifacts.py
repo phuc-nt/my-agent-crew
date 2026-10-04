@@ -26,6 +26,7 @@ from my_agent_crew.artifacts.kinds import (
 from my_agent_crew.store.artifact_links import ArtifactLinks
 from my_agent_crew.store.artifact_models import USER, ArtifactSummary
 from my_agent_crew.store.artifact_reach import NEWEST_FIRST, ArtifactReach
+from my_agent_crew.store.artifact_usage import ArtifactUsage
 from my_agent_crew.store.artifact_versions import ArtifactVersions
 from my_agent_crew.store.stamps import new_id, now_iso
 
@@ -35,7 +36,7 @@ logger = logging.getLogger(__name__)
 _OWNED = ("artifact_versions", "conversation_artifacts", "canvas_focus")
 
 
-class ArtifactStore(ArtifactReach, ArtifactVersions):
+class ArtifactStore(ArtifactReach, ArtifactUsage, ArtifactVersions):
     def __init__(self, conn: sqlite3.Connection, lock: threading.RLock, links: ArtifactLinks):
         self._conn = conn
         self._lock = lock
@@ -150,14 +151,6 @@ class ArtifactStore(ArtifactReach, ArtifactVersions):
                 self._conn.rollback()
                 raise
         self._notify({"id": artifact_id, "deleted": True}, linked)
-
-    def sizes(self) -> dict[str, int]:
-        """Bytes each canvas keeps across all its versions."""
-        with self._lock:
-            rows = self._conn.execute(
-                "SELECT artifact_id, SUM(size) FROM artifact_versions GROUP BY artifact_id"
-            ).fetchall()
-        return {row[0]: row[1] for row in rows}
 
     def _check_write(self, author: str, added: int) -> None:
         """Refuses an author that is neither the person nor a named agent, and a write that
