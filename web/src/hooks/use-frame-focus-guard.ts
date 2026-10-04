@@ -19,8 +19,10 @@
  * stands and nothing is held against the page. Otherwise the page took the keyboard: the frame has
  * one more grab against it, the fifth stops the page, and the keyboard goes back to the element it
  * was taken from, or off the frame when nothing held it. Keys pressed during the wait go to the
- * page. A wait that ends much later than it was due means the app was held up while the page had
- * the keyboard, and stops the page at once.
+ * page. A wait that comes due more than `LATE_MS` late leaves one task more for a press that was on
+ * its way meanwhile. The first that ends so is a grab like any other, since the app may have been
+ * busy on its own account; from the second, the frame held the app up while it had the keyboard,
+ * and its page is stopped.
  *
  * A window that is not in front is told nothing when a page in it takes the focus. So the element
  * that had the keyboard when the window lost the focus to anything but the frame is remembered, and
@@ -41,7 +43,7 @@ import { keyboardOffer } from "../lib/keyboard-offer";
 export const GRABS_MAX = 5;
 /** How long a frame that has the focus with no offer is given for its page to tell of a press. */
 export const ATTEST_GRACE_MS = 50;
-/** How far past its time that wait may end before the page is stopped for it. */
+/** How far past its time that wait may come due before it is held against the page. */
 export const LATE_MS = 100;
 
 const POINTER_EVENTS = ["pointermove", "pointerdown"] as const;
@@ -57,8 +59,8 @@ export type FrameFocusGuard = {
 
 /**
  * Guards the keyboard against the page in `frame`. `onGrabbing` is called when the frame on show
- * has taken the keyboard `GRABS_MAX` times or held the app up while it had it, and each time it
- * takes it after that while it is left up; a frame that replaces it starts with no grab against it.
+ * has taken the keyboard `GRABS_MAX` times or twice held the app up while it had it, and each time
+ * it takes it after that while it is left up; a frame that replaces it starts with nothing against it.
  */
 export function useFrameFocusGuard(frame: RefObject<HTMLIFrameElement | null>, onGrabbing: () => void): FrameFocusGuard {
   const box = useRef<HTMLDivElement>(null);
@@ -69,6 +71,7 @@ export function useFrameFocusGuard(frame: RefObject<HTMLIFrameElement | null>, o
 
   useEffect(() => {
     const grabsOf = new WeakMap<HTMLIFrameElement, number>();
+    const heldUp = new WeakSet<HTMLIFrameElement>();
     const offer = keyboardOffer();
     // The element focus left in this very task: a frame that has the focus now took it from there.
     let left: HTMLElement | null = null;
@@ -79,7 +82,7 @@ export function useFrameFocusGuard(frame: RefObject<HTMLIFrameElement | null>, o
     let returning: Timer;
     let waiting: Timer;
 
-    const settle = (taker: HTMLIFrameElement, from: HTMLElement | null, since: number) => {
+    const settle = (taker: HTMLIFrameElement, from: HTMLElement | null, late: boolean) => {
       waiting = undefined;
       // A frame replaced or stopped while its page was waited on has nothing left to answer for.
       if (frame.current !== taker) return;
@@ -92,14 +95,19 @@ export function useFrameFocusGuard(frame: RefObject<HTMLIFrameElement | null>, o
         // the keyboard anyway. A frame that no longer has the focus is not touched by this.
         taker.blur();
       }
-      if (grabs >= GRABS_MAX || performance.now() - since > ATTEST_GRACE_MS + LATE_MS) stop.current();
+      if (grabs >= GRABS_MAX || (late && heldUp.has(taker))) stop.current();
+      if (late) heldUp.add(taker);
     };
     /** Starts the wait on the frame, if it has the keyboard with no offer and is not waited on yet. */
     const suspect = (from: HTMLElement | null) => {
       const taker = frame.current;
       if (taker === null || document.activeElement !== taker || offer.madeTo(taker) || waiting !== undefined) return;
       const since = performance.now();
-      waiting = setTimeout(() => settle(taker, from, since), ATTEST_GRACE_MS);
+      waiting = setTimeout(() => {
+        // Due late: a press told while the app was held up is heard in the task this leaves for it.
+        if (performance.now() - since > ATTEST_GRACE_MS + LATE_MS) waiting = setTimeout(() => settle(taker, from, true), 0);
+        else settle(taker, from, false);
+      }, ATTEST_GRACE_MS);
     };
     told.current = () => {
       offer.make(frame.current, ATTEST_GRACE_MS);
@@ -159,7 +167,7 @@ export function useFrameFocusGuard(frame: RefObject<HTMLIFrameElement | null>, o
       }, 0);
     };
     const shown = () => {
-      // Not while the tab is hidden: its timers run late, and a wait that ends late stops the page.
+      // Not while the tab is hidden: its timers run late, and a late wait is held against the page.
       if (document.visibilityState === "visible") suspect(kept);
     };
 

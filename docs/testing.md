@@ -2856,9 +2856,16 @@ tên một test thì sửa dòng của nó trong cùng commit.
     the app left the page up"; app nhận `blur` nhiều lần trước khi bàn phím về thì vẫn là một lần
     giành; bàn phím do người đưa thì bao nhiêu lần cũng không tính; khung mới thay khung cũ bắt đầu
     từ không, và không phải trả lời cho khung cũ đang được chờ; báo cho callback mới nhất), nhóm "a
-    page that held the app up while it had the keyboard" (bàn phím về trễ ba giây thì trang bị báo
-    ngay lần đầu; trễ đúng `LATE_MS` (100 ms) thì chưa, quá một mili giây thì có; khoảng chờ kết thúc
-    bằng một cú bấm thì dù cú bấm tới trễ cũng không báo), nhóm "the keyboard a page took while the
+    page that held the app up while it had the keyboard" (khoảng chờ tới hạn trễ hơn `LATE_MS`
+    (100 ms): lần đầu của một khung chỉ là một lần giành như mọi lần khác, bàn phím về chỗ cũ, tính
+    một lần và trang không bị báo, vì có thể chính app đang bận; từ lần thứ hai trang bị báo, và mỗi
+    lần sau đó; trễ đúng `LATE_MS` thì chưa là trễ, quá một mili giây thì là trễ; "has the keyboard
+    for one task more when the wait comes due late, and no longer": tới hạn trễ thì guard nhường
+    đúng một task cho cú bấm đang nằm trong hàng đợi của cổng rồi mới kết luận; "is not held to have
+    taken it when the press is told right after the wait came due late": cú bấm được nói trong task
+    ấy thì trang giữ bàn phím, không bị báo, không bị tính, và lần trễ ấy không được nhớ cho lần
+    sau; khung thay thế bắt đầu lại từ chưa trễ lần nào; khoảng chờ kết thúc bằng một cú bấm thì dù
+    cú bấm tới trễ cũng không báo), nhóm "the keyboard a page took while the
     window was behind" (cửa sổ app mất focus về thứ không phải khung thì phần tử đang giữ bàn phím
     được nhớ; trang lấy focus trong lúc ấy, cửa sổ không được báo gì: khi cửa sổ nhận `blur` về khung
     mà không phần tử nào vừa mất focus thì bàn phím về phần tử đã nhớ chứ không rơi xuống `body`;

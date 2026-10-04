@@ -715,32 +715,117 @@ describe("a page that goes on taking the keyboard", () => {
 });
 
 describe("a page that held the app up while it had the keyboard", () => {
-  /** The page takes the keyboard, and the wait on it ends `late` ms after it was due. */
-  function takesAndHolds(late: number) {
+  /** The page takes the keyboard, and the wait on it comes due `late` ms after its time. */
+  function takesAndComesDue(late: number) {
     const clock = vitest.spyOn(performance, "now").mockReturnValue(1000);
     grab();
     clock.mockReturnValue(1000 + ATTEST_GRACE_MS + late);
-    wait(ATTEST_GRACE_MS);
+    // Up to the wait's own timer and no further: what it sets when it comes due is left for later.
+    wait(ATTEST_GRACE_MS - 1);
+    act(() => {
+      vitest.advanceTimersToNextTimer();
+    });
   }
 
-  it("is reported the first time, when the keyboard goes back three seconds late", () => {
+  /** The task a wait that came due late leaves for a press: the fake clock puts a timer set by a timer a millisecond on. */
+  const TASK_MS = 1;
+
+  /** The same, and the wait is over: no press was told in the task it left for one. */
+  function takesAndHolds(late: number) {
+    takesAndComesDue(late);
+    wait(TASK_MS);
+  }
+
+  it("is not reported the first time the keyboard goes back late, which a busy app may be the cause of: that is one grab like any other", () => {
     const { onGrabbing } = setup();
     message().focus();
 
     takesAndHolds(3000);
 
-    expect(onGrabbing).toHaveBeenCalledTimes(1);
+    expect(onGrabbing).not.toHaveBeenCalled();
     expect(holder()).toBe(message());
+    expectOneGrab(onGrabbing);
   });
 
-  it("is reported from the first millisecond past what a busy app may be late by, and not at it", () => {
+  it("is reported the second time the keyboard goes back late, and each time after that", () => {
+    const { onGrabbing } = setup();
+    message().focus();
+    takesAndHolds(3000);
+
+    takesAndHolds(3000);
+    expect(onGrabbing).toHaveBeenCalledTimes(1);
+    expect(holder()).toBe(message());
+
+    takesAndHolds(3000);
+    expect(onGrabbing).toHaveBeenCalledTimes(2);
+  });
+
+  it("is late from the first millisecond past what a busy app may be late by, and not at it", () => {
     const { onGrabbing } = setup();
     message().focus();
 
     takesAndHolds(LATE_MS);
+    takesAndHolds(LATE_MS);
     expect(onGrabbing).not.toHaveBeenCalled();
 
     takesAndHolds(LATE_MS + 1);
+    expect(onGrabbing).not.toHaveBeenCalled();
+    takesAndHolds(LATE_MS + 1);
+    expect(onGrabbing).toHaveBeenCalledTimes(1);
+  });
+
+  it("has the keyboard for one task more when the wait comes due late, and no longer", () => {
+    setup();
+    message().focus();
+
+    takesAndComesDue(3000);
+    expect(holder()).toBe(page());
+
+    wait(TASK_MS);
+    expect(holder()).toBe(message());
+  });
+
+  it("is not held to have taken it when the press is told right after the wait came due late: the press was on its way", () => {
+    const { onGrabbing } = setup();
+    message().focus();
+    const focused = vitest.spyOn(message(), "focus");
+
+    // The app was held up with the press waiting to be told, and the wait's timer came first.
+    takesAndComesDue(3000);
+    press();
+    wait(ATTEST_GRACE_MS);
+
+    expect(holder()).toBe(page());
+    expect(focused).not.toHaveBeenCalled();
+    expect(onGrabbing).not.toHaveBeenCalled();
+    expectNoGrab(onGrabbing);
+  });
+
+  it("was not late for a wait that a press ended after it came due: the next late one is its first", () => {
+    const { onGrabbing } = setup();
+    message().focus();
+    takesAndComesDue(3000);
+    press();
+    wait(ATTEST_GRACE_MS);
+    // The person goes back to the message, and the page takes the keyboard from it.
+    message().focus();
+
+    takesAndHolds(3000);
+
+    expect(onGrabbing).not.toHaveBeenCalled();
+    expect(holder()).toBe(message());
+  });
+
+  it("is not answered for by the frame that replaces it: that one may be late once too", () => {
+    const { onGrabbing, show } = setup();
+    message().focus();
+    takesAndHolds(3000);
+
+    show({ n: 1 });
+    takesAndHolds(3000);
+    expect(onGrabbing).not.toHaveBeenCalled();
+
+    takesAndHolds(3000);
     expect(onGrabbing).toHaveBeenCalledTimes(1);
   });
 
@@ -879,7 +964,7 @@ describe("the keyboard a page took while the window was behind", () => {
     leave();
     takesBehind();
 
-    // A hidden tab's timers run late, and a wait that ends late stops the page for it.
+    // A hidden tab's timers run late, and a wait that ends late is held against the page.
     setVisibility("hidden");
     wait(ATTEST_GRACE_MS);
     expect(holder()).toBe(page());
