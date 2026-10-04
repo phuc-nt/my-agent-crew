@@ -27,6 +27,7 @@ const reportOf = (errors: FrameError[], rest: Partial<PageReport> = {}): PageRep
   version: 4,
   count: errors.length,
   recent: errors,
+  silenced: false,
   ...rest,
 });
 
@@ -100,14 +101,18 @@ describe("the errors a page reported", () => {
     expect(container.querySelector(".canvas-errors-list")).toBeNull();
   });
 
-  it("says the page reported more once it has used up what one page is heard out on, and not before", () => {
-    const counted = (count: number) =>
-      setup({ report: reportOf([error("boom")], { count }) }).container.querySelector(".canvas-errors-count")?.textContent;
+  it("says the page may have reported more once the frame no longer hears it, however many reports it counted", () => {
+    const counted = (count: number, silenced: boolean) =>
+      setup({ report: reportOf([error("boom")], { count, silenced }) }).container.querySelector(".canvas-errors-count")?.textContent;
 
-    expect(counted(49)).toBe(pageErrors.count(49));
-    expect(counted(49)).not.toContain("+");
-    expect(counted(50)).toBe(pageErrors.count(50, true));
-    expect(counted(50)).toContain("50+");
+    expect(counted(49, false)).toBe(pageErrors.count(49));
+    expect(counted(50, false)).toBe(pageErrors.count(50));
+    expect(counted(50, false)).not.toContain("+");
+    expect(counted(50, true)).toBe(pageErrors.count(50, true));
+    expect(counted(50, true)).toContain("50+");
+    // Some of the fifty messages were no reports: the page was heard out all the same.
+    expect(counted(49, true)).toContain("49+");
+    expect(counted(1, true)).toContain("1+");
   });
 
   it("lists the errors it keeps, oldest first, when asked, and closes the list again", () => {

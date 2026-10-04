@@ -43,6 +43,18 @@ function reports(error: FrameError, source: Window | null = frame().contentWindo
   });
 }
 
+/** The page says `times` things went wrong, one after another, after `first` if it says that before them. */
+function floods(times: number, first?: unknown) {
+  const from = { source: frame().contentWindow, origin: "null", ports: [] };
+  act(() => {
+    if (first !== undefined) window.dispatchEvent(Object.assign(new Event("message"), { ...from, data: first }));
+    for (let n = 1; n <= times; n++) {
+      const data = { type: "canvas-error", ...FIRST, message: `lỗi ${n}` };
+      window.dispatchEvent(Object.assign(new Event("message"), { ...from, data }));
+    }
+  });
+}
+
 /** A chat's send that takes every message. */
 const taking = () => vitest.fn<NonNullable<CanvasPanelProps["onAsk"]>>(async (): Promise<SendResult> => ({ status: "sent" }));
 
@@ -167,17 +179,45 @@ describe("what the page of a canvas reports, in the panel", () => {
   it("stops counting at fifty, says the page reported more, and lists the newest five of the fifty", async () => {
     await openPage();
 
-    act(() => {
-      for (let n = 1; n <= 10_000; n++) {
-        const data = { type: "canvas-error", ...FIRST, message: `lỗi ${n}` };
-        window.dispatchEvent(Object.assign(new Event("message"), { source: frame().contentWindow, origin: "null", data }));
-      }
-    });
+    floods(10_000);
 
     expect(count()).toBe(pageErrors.count(50, true));
     expect(count()).toContain("50+");
     fireEvent.click(within(errors() as HTMLElement).getByRole("button", { name: pageErrors.show }));
     expect(listed()).toEqual(["lỗi 46", "lỗi 47", "lỗi 48", "lỗi 49", "lỗi 50"]);
+  });
+
+  it("does not say the page reported more for the fifty reports it was heard out on short of one", async () => {
+    await openPage();
+
+    floods(49);
+
+    expect(count()).toBe(pageErrors.count(49));
+    expect(count()).not.toContain("+");
+  });
+
+  it("says the page reported more when one of the fifty was its reporter's hello, and counts the forty-nine", async () => {
+    await openPage();
+
+    floods(10_000, { type: "canvas-hello" });
+
+    expect(count()).toBe(pageErrors.count(49, true));
+    expect(count()).toContain("49+");
+    fireEvent.click(within(errors() as HTMLElement).getByRole("button", { name: pageErrors.show }));
+    expect(listed()).toEqual(["lỗi 45", "lỗi 46", "lỗi 47", "lỗi 48", "lỗi 49"]);
+  });
+
+  it("hears the page put up next from none, and does not say of it what it said of the one before", async () => {
+    await openPage();
+    floods(10_000);
+    expect(count()).toContain("50+");
+
+    await agentWrites();
+    wait(RELOAD_DELAY_MS);
+    reports(SECOND);
+
+    expect(count()).toBe(pageErrors.count(1));
+    expect(count()).not.toContain("+");
   });
 
   it("puts the page up again when the activity stream comes back, with nothing listed against it", async () => {

@@ -2,8 +2,9 @@
  * An HTML or Mermaid canvas run as the page it is, in a frame the browser keeps apart from the
  * app: `sandbox="allow-scripts"` without `allow-same-origin` gives the page an origin of its own,
  * written "null", from which it reads nothing of the app's; the policy the server sends with the
- * page says the same. The panel never posts into the frame, and takes only the reports its own
- * window makes, fifty messages of one frame at most: a page that goes on posting is not read.
+ * page says the same. The panel never posts into the frame. It listens: to the reports the frame's
+ * own window makes, and to the port the page's reporter hands over, which says when a person
+ * presses inside the page (`use-frame-messages.ts`).
  *
  * The frame shows the version it was put up with. A newer one replaces it a second after the last
  * change, unless the person has the frame's focus, who is using the page, when a button offers it
@@ -14,22 +15,21 @@
  * frame means it happened (a change of hash fires none), so the frame is taken out and the person is
  * told. That is a defence on top, not a barrier: an address can carry the page's data away before
  * it. A page that goes on taking the keyboard the person did not offer it is taken out the same
- * way (`use-frame-focus-guard.ts`). A stopped page stays stopped until the person asks for it again.
+ * way (`use-frame-focus-guard.ts`). A stopped page stays stopped until the person asks for it again,
+ * and then the focus, if it went with the button they pressed, is put on the box of the new frame.
+ *
+ * While the frame has the keyboard the box says so, in words and with a line around the page: what
+ * is typed then goes to the page, and nothing else on the screen shows it.
  */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { artifactApi } from "../../api/artifact-client";
 import { useFrameFocusGuard } from "../../hooks/use-frame-focus-guard";
-import { useOnline } from "../../hooks/use-online";
+import { useFrameKeyboard } from "../../hooks/use-frame-keyboard";
+import { useFrameMessages } from "../../hooks/use-frame-messages";
 import { useReloadOnReconnect } from "../../hooks/use-reload-on-reconnect";
 import { vi } from "../../i18n/vi";
-import {
-  FRAME_REPORTS_MAX,
-  type FrameError,
-  isFromFrame,
-  isLoadFailure,
-  parseFrameMessage,
-} from "../../lib/frame-messages";
+import type { FrameError } from "../../lib/frame-messages";
 
 /** How long the version must stand still before the page is put up again. */
 export const RELOAD_DELAY_MS = 1000;
@@ -44,6 +44,8 @@ type Props = {
   /** A page of `version` was put up, or the one on show was stopped: what the one before reported is gone. */
   onMount(version: number): void;
   onError(error: FrameError): void;
+  /** The page on show said as much as one page is heard out on: nothing it says from here on is read. */
+  onSilenced(): void;
 };
 
 /** What a page was stopped for: it moved itself to another address, or went on taking the keyboard. */
@@ -60,14 +62,13 @@ type Page = {
 
 const isStop = (phase: Page["phase"]): phase is Stop => phase === "navigated" || phase === "grabbing";
 
-export function CanvasFrame({ artifactId, title, version, connected, onMount, onError }: Props) {
-  const online = useOnline();
+export function CanvasFrame({ artifactId, title, version, connected, onMount, onError, onSilenced }: Props) {
   const [page, setPage] = useState<Page>({ n: 0, version, phase: "loading", held: false });
   const frame = useRef<HTMLIFrameElement>(null);
-  // How many messages each frame was heard out on. A frame that replaces another starts from none.
-  const [heardOf] = useState(() => new WeakMap<HTMLIFrameElement, number>());
-  const latest = useRef({ version, page, online });
-  latest.current = { version, page, online };
+  const latest = useRef({ version, page });
+  latest.current = { version, page };
+  // The person asked for a stopped page again: the button they pressed goes, and the focus with it.
+  const asked = useRef(false);
 
   const mount = useCallback((next: number) => {
     setPage((was) => ({ n: was.n + 1, version: next, phase: "loading", held: false }));
@@ -106,25 +107,22 @@ export function CanvasFrame({ artifactId, title, version, connected, onMount, on
   });
 
   const grabbing = useCallback(() => setPage((was) => ({ ...was, phase: "grabbing", held: false })), []);
-  const box = useFrameFocusGuard(frame, grabbing);
+  const { box, attest } = useFrameFocusGuard(frame, grabbing);
+  const shown = stopped ? null : page.n;
+  useFrameMessages(frame, shown, { onError, onSilenced, onPress: attest });
+  const keyboard = useFrameKeyboard(frame, shown);
 
   useEffect(() => {
-    const heard = (event: MessageEvent) => {
-      const from = frame.current;
-      // Whose message it is and whether the page may still speak are settled before any of it is
-      // read. A message that is no report counts too, or a page could be read without end.
-      if (!isFromFrame(event, from)) return;
-      const before = heardOf.get(from) ?? 0;
-      if (before >= FRAME_REPORTS_MAX) return;
-      heardOf.set(from, before + 1);
-      const error = parseFrameMessage(event, from);
-      // With no network at all, the files a page asks for cannot arrive and there is nothing to tell.
-      if (error === null || (!latest.current.online && isLoadFailure(error))) return;
-      onError(error);
-    };
-    window.addEventListener("message", heard);
-    return () => window.removeEventListener("message", heard);
-  }, [onError, heardOf]);
+    if (!asked.current) return;
+    asked.current = false;
+    // In a browser whose buttons take no focus when pressed, it is still where the person had it.
+    if (document.activeElement === document.body) box.current?.focus({ preventScroll: true });
+  }, [page.n, box]);
+
+  const again = () => {
+    asked.current = true;
+    mount(version);
+  };
 
   // The phase is the count of the frame on show: a first load shows it, a second stops it. A frame
   // being replaced stays in the page until the next one is drawn, and its load is none of the next's.
@@ -147,14 +145,14 @@ export function CanvasFrame({ artifactId, title, version, connected, onMount, on
         </button>
       )}
       {isStop(page.phase) ? (
-        <div className="notice canvas-frame-note" role="status">
+        <div key="stopped" className="notice canvas-frame-note" role="status">
           <span>{vi.canvas.page[page.phase]}</span>
-          <button type="button" className="ghost" onClick={() => mount(version)}>
+          <button type="button" className="ghost" onClick={again}>
             {vi.canvas.page.reload}
           </button>
         </div>
       ) : (
-        <div ref={box} className="canvas-frame-box">
+        <div key="box" ref={box} className="canvas-frame-box" tabIndex={-1} data-keyboard={keyboard ? "" : undefined}>
           <iframe
             key={page.n}
             ref={frame}
@@ -166,6 +164,11 @@ export function CanvasFrame({ artifactId, title, version, connected, onMount, on
             src={artifactApi.renderUrl(artifactId)}
             onLoad={() => loaded(page.n)}
           />
+          {keyboard && (
+            <p className="badge accent canvas-frame-keyboard" role="status">
+              {vi.canvas.page.keyboard}
+            </p>
+          )}
         </div>
       )}
     </>

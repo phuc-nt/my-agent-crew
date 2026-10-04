@@ -1800,6 +1800,18 @@ tên một test thì sửa dòng của nó trong cùng commit.
     trang không parse được thì không báo gì; một lời từ chối không phải `Error` (Mermaid từ chối sơ
     đồ không parse được bằng object thường `{str, message, hash}`) được báo bằng `message` của nó
     chứ không phải `[object Object]`;
+    "test_the_reporter_hands_the_app_a_port_before_it_listens_for_anything": reporter mở một
+    `MessageChannel`, giữ `postMessage` của đầu kênh nó giữ trong một biến cục bộ đã `bind`, gửi
+    `canvas-hello` kèm đầu kia trong danh sách chuyển giao đúng một lần và trước mọi
+    `addEventListener`, sau lời chào không còn chỗ nào nhắc tới `port1`;
+    "test_a_browser_without_message_channels_still_reports_what_goes_wrong": mọi thứ về kênh nằm
+    trong một `try` bốn dòng, phần báo lỗi nằm ngoài nó;
+    "test_the_reporter_tells_of_a_press_only_when_the_browser_says_a_person_made_it": reporter nói
+    `press` ở đúng một chỗ và chỉ khi `event.isTrusted === true`; listener của nó trên `window` đúng
+    là `pointerdown`, `mousedown` (cùng hàm ấy, pha capture) rồi `error`, `unhandledrejection`,
+    `securitypolicyviolation`, không có `focus`, `pointermove`, `wheel` hay `keydown` là những sự
+    kiện trang tự khiến trình duyệt bắn ra được;
+    "test_the_hello_is_no_report_and_counts_against_none": lời chào không tính vào hai mươi lời báo;
     "test_the_work_on_a_page_does_not_grow_with_the_square_of_what_it_holds": hai đầu vào mà bản cũ
     tốn hàng giây hoặc vô tận (28 chú thích liền nhau trước một doctype không có, 64.000 khoảng
     trắng trong sơ đồ có rào) phải xong dưới 0,5 s, vì cả hai chạy trên event loop; sơ đồ đóng
@@ -2502,7 +2514,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     câu hỏi, Gửi và Huỷ ≥40px mỗi chiều ở 390 px)
 - **Canvas trên web: trang html và mermaid chạy trong khung sandbox không dính gì tới app; bản mới
   thay khung sau một giây đứng yên, trang tự đi sang địa chỉ khác thì bị gỡ**
-  - vitest: `web/src/components/canvas/canvas-frame.test.tsx` nhóm "the page of a canvas, in its
+  - vitest: `web/src/components/canvas/canvas-frame.test.tsx` (khung, cửa sổ của nó và các tin nó
+    gửi dựng bằng `web/src/test/canvas-frame.tsx`, dùng chung với `canvas-frame-keyboard.test.tsx`)
+    nhóm "the page of a canvas, in its
     frame" ("runs the page in a frame that has a script and nothing of the app": `sandbox` đúng bằng
     `allow-scripts` — thêm `allow-same-origin` là test đỏ —, `allow` là `fullscreen`, `referrerpolicy`
     là `no-referrer`, tiêu đề của canvas; địa chỉ là route `render` không kèm phiên bản; nói đang tải
@@ -2534,7 +2548,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     thôi nói chờ, lần chuyển sau thắng lần đang chờ, huỷ thì bỏ lần đang chờ)
   - Playwright: `canvas-render.spec.ts`, trang html do `web/e2e/mock-render.ts` trả kèm đúng chính
     sách và reporter của server (hai tệp mà `tests/test_render_fixtures.py` giữ bằng server từng byte;
-    mermaid không được phục vụ vì trang ấy tải thư viện từ CDN). Mở thẳng địa chỉ render: "has an
+    mermaid không được phục vụ vì trang ấy tải thư viện từ CDN); `web/e2e/render-page.ts` dựng trang
+    và mở nó trong canvas, dùng chung với `canvas-keyboard.spec.ts`. Mở thẳng địa chỉ render: "has an
     origin of its own and no storage, by the policy it comes with" (`window.origin` là `null`, đọc
     `localStorage` ném `SecurityError`; bỏ `sandbox` khỏi `render-policy.txt` là test đỏ). Trong khung
     ở 1440×900: "runs under an origin that is not the app's, and what it throws is listed"; "fills
@@ -2552,50 +2567,96 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `web/e2e/canvas-overflow.ts` là hàm đo cuộn ngang dùng chung với `canvas.spec.ts`, đo cả
     `.canvas-errors-list`
 - **Canvas trên web: trang trong khung tự lấy focus thì bàn phím về lại chỗ người đang gõ; người đưa
-  bàn phím cho trang bằng con trỏ hoặc Tab; trang giành tới lần thứ năm thì bị gỡ**
+  bàn phím cho trang bằng một cú bấm trong trang hoặc Tab; trang giành tới lần thứ năm thì bị gỡ; khung
+  nói khi bàn phím đang ở trang**
+  - pytest: `tests/test_render_pages.py`, bốn test của reporter về lời chào và cú bấm (xem mục trang
+    render ở trên): cú bấm chỉ được nói khi trình duyệt bảo một người đã bấm
   - vitest: `web/src/hooks/use-frame-focus-guard.test.tsx` nhóm "the keyboard a page took unasked"
-    (một lần giành là khung có focus rồi cửa sổ app nhận `blur`; bàn phím về đúng phần tử vừa mất
-    focus, ở task kế tiếp chứ không ngay trong `blur`, bằng `focus({ preventScroll: true })`; không
-    phần tử nào giữ focus, phần tử ấy đã bị gỡ hoặc đã bị khoá thì khung bị `blur`; phần tử mất focus
-    từ task trước không được trả focus; không bao giờ trả focus cho chính khung; trang bị gỡ ở lần thứ
-    năm thì bàn phím vẫn về chỗ cũ; cửa sổ mất focus vì người sang cửa sổ khác thì không tính và không
-    đụng tới focus), nhóm "the keyboard the person offers the page" (`pointermove`, `pointerdown`,
-    `wheel` trên hộp chứa khung, con trỏ trên chính khung, hoặc phím Tab thì trang giữ bàn phím; hộp
-    mang `data-offered` đúng trong lúc ấy; con trỏ ở chỗ khác, một phím khác Tab bấm trong app, hay
-    focus tới một nút của app thì lời mời hết và lần giành kế tiếp bị trả lại), nhóm "what the app's
-    own handlers keep to themselves" (bốn loại sự kiện vẫn được thấy khi handler của app gọi
-    `stopPropagation`: nghe ở pha capture), nhóm "a page that goes on taking the keyboard" (bốn lần
-    thì chưa báo, lần thứ năm báo đúng một lần; "is reported again each time it does after that,
-    where the app left the page up": app chưa gỡ khung thì mỗi lần giành sau lần thứ năm lại báo một
-    lần nữa và bàn phím vẫn được trả; app nhận `blur` nhiều lần trước khi bàn phím về thì vẫn là một
-    lần giành; bàn phím do người đưa thì bao nhiêu lần cũng không tính; khung mới thay khung cũ bắt
-    đầu từ không; báo cho callback mới nhất), nhóm "a guard that is put up" (ba listener con trỏ gắn
-    với `passive: true`, nên guard không bao giờ giữ một cú cuộn lại), nhóm "a guard that is taken
-    down" (không để lại timer nào, gỡ đủ bảy listener đã gắn với đúng cờ capture);
-    `web/src/components/canvas/canvas-frame.test.tsx` nhóm "a page that takes the keyboard" (khung
-    nằm trong `div.canvas-frame-box`, hộp chưa có `data-offered` cho tới khi con trỏ tới; một lần
-    giành thì trang vẫn còn và ô đang gõ có lại focus; lần thứ năm khung bị gỡ, lời báo là "Trang liên
-    tục giành bàn phím nên đã bị dừng." kèm nút Nạp lại, panel được báo như khi trang tự đổi địa chỉ;
-    đã gỡ thì đứng yên qua bản mới, nối lại và tab hiện lại; Nạp lại đưa khung mới lên và khung ấy
-    lại có đủ năm lần; bàn phím người đưa thì không bị gỡ và bản mới chờ sau nút "Có bản mới"; trang
-    tự giành thì không được coi là đang dùng, bản mới thay khung không cần nút; nút mời bản mới mất
-    khi trang bị gỡ)
-  - Playwright: `canvas-render.spec.ts` ở 1440×900, Chromium thật: "does not take the keyboard from a
-    message being written when it focuses itself" (trang gọi `window.focus()` rồi focus ô của nó; khi
-    trang đã thấy `blur` của chính nó thì ba mươi phím gõ vào đủ ô soạn tin và trang không nghe phím
-    nào); "does not keep the keyboard it takes while nothing in the app holds it" (không phần tử nào
-    của app giữ focus, trang tự giành: khung bị `blur`, trang thấy bàn phím rời nó, ba mươi phím gõ
-    sau đó trang không nghe phím nào và focus của app ở `body`; bỏ `frame.blur()` trong guard là test
-    đỏ); "is given the keyboard by a click in it, however often the person goes back and forth" (sáu
-    vòng bấm ô soạn tin, đưa con trỏ lên trang, bấm vào ô của trang, mũi tên tới trang; trang không bị
-    gỡ); "is given the keyboard by Tab"; "is stopped when it goes on taking the keyboard, which stays
-    where the person had it" (trang `setInterval(window.focus, 100)` bị gỡ kèm lời báo, ba mươi phím
-    gõ sau đó vào đủ ô soạn tin mà không cần bấm lại, Nạp lại đưa trang mới lên). Trước khi bấm vào
-    trong khung, test phải đưa con trỏ lên hộp (`pointAt`): chưa có lời mời thì khung không nhận con
-    trỏ (`.canvas-frame-box:not([data-offered]) > .canvas-frame` trong `canvas-page.css`); bỏ luật
-    CSS ấy thì test bấm vào trang đỏ, vì app không thấy con trỏ tới trang nên coi cú bấm là một lần
-    trang tự giành. Phần còn lại đã ghi nhận: phím bấm trong khoảng một task giữa lúc trang giành và
-    lúc bàn phím được trả lại thì tới trang
+    (một lần giành là khung có focus rồi cửa sổ app nhận `blur`; app chờ `ATTEST_GRACE_MS` (50 ms)
+    xem reporter có nói tới cú bấm không, tới mili giây cuối khung vẫn giữ focus, rồi bàn phím về
+    đúng phần tử vừa mất focus bằng `focus({ preventScroll: true })`; "is waited on for no longer
+    than a tenth of a second, in which the keys go to the page": khoảng chờ không bao giờ quá 100 ms;
+    không phần tử nào giữ focus, phần tử ấy đã bị gỡ hoặc đã bị khoá thì khung bị `blur`; phần tử mất
+    focus từ task trước không được trả focus; không bao giờ trả focus cho chính khung; người tự đưa
+    focus đi chỗ khác trong lúc chờ thì focus ở yên đó và lần giành vẫn tính; trang tự buông trước khi
+    hết giờ vẫn bị tính; trang bị gỡ ở lần thứ năm thì bàn phím vẫn về chỗ cũ; cửa sổ mất focus vì
+    người sang cửa sổ khác thì không tính và không đụng tới focus), nhóm "the keyboard the person
+    offers the page" (reporter nói tới cú bấm trước khi trang lấy focus, hoặc trong lúc chờ, thì trang
+    giữ bàn phím và không lần nào bị tính, nói bao nhiêu lần cũng vậy; "comes too late once the
+    keyboard is back": cú bấm nói sau khoảng chờ không xoá lần giành đã tính; Tab là phím cuối thì
+    trang giữ bàn phím; `pointermove`, `pointerover`, `pointerenter`, `wheel`, `scroll`, `mousemove`
+    trên khung không phải lời mời, và `pointerdown` trên hộp của khung trong app, cái reporter không
+    nói tới, cũng không; lời mời đứng vững khi con trỏ di chuyển, rời đi hay cuộn ở chỗ khác và khi
+    bấm lên hộp của khung; `pointerdown` ở chỗ khác trong app, một phím khác Tab bấm trong app, Tab
+    đưa focus tới một nút của app, hay focus tới một phần tử của app thì lời mời hết và lần giành kế
+    tiếp bị trả lại; focus tới chính khung thì không), nhóm "what the app's own handlers keep to
+    themselves" (bốn loại sự kiện vẫn được thấy khi handler của app gọi `stopPropagation`: nghe ở pha
+    capture), nhóm "a page that goes on taking the keyboard" (bốn lần thì chưa báo, lần thứ năm báo
+    đúng một lần và chỉ khi hết khoảng chờ; "is reported again each time it does after that, where
+    the app left the page up"; app nhận `blur` nhiều lần trước khi bàn phím về thì vẫn là một lần
+    giành; bàn phím do người đưa thì bao nhiêu lần cũng không tính; khung mới thay khung cũ bắt đầu
+    từ không, và không phải trả lời cho khung cũ đang được chờ; báo cho callback mới nhất), nhóm "a
+    page that held the app up while it had the keyboard" (bàn phím về trễ ba giây thì trang bị báo
+    ngay lần đầu; trễ đúng `LATE_MS` (100 ms) thì chưa, quá một mili giây thì có; khoảng chờ kết thúc
+    bằng một cú bấm thì dù cú bấm tới trễ cũng không báo), nhóm "a guard that is put up" (listener
+    `pointerdown` gắn với `passive: true` và không có listener `wheel` nào, nên guard không bao giờ
+    giữ một cú cuộn lại), nhóm "a guard that is taken down" (không để lại timer nào, không còn nghe
+    cú bấm, gỡ đủ từng listener đã gắn với đúng cờ capture);
+    `web/src/components/canvas/canvas-frame-keyboard.test.tsx` nhóm "a page that takes the keyboard"
+    (hộp `div.canvas-frame-box` chỉ mang `class` và `tabindex="-1"`, không còn thuộc tính nào tắt con
+    trỏ của khung; một lần giành thì trang vẫn còn và ô đang gõ có lại focus; lần thứ năm khung bị
+    gỡ, lời báo là "Trang liên tục giành bàn phím nên đã bị dừng." kèm nút Nạp lại, panel được báo
+    như khi trang tự đổi địa chỉ; đã gỡ thì đứng yên qua bản mới, nối lại và tab hiện lại; Nạp lại
+    đưa khung mới lên và khung ấy lại có đủ năm lần; bàn phím người đưa bằng cú bấm trong trang thì
+    sáu vòng cũng không bị gỡ và bản mới chờ sau nút "Có bản mới"; trang tự giành thì không được coi
+    là đang dùng, bản mới thay khung không cần nút; nút mời bản mới mất khi trang bị gỡ), nhóm "the
+    press a page's reporter tells of" (cổng chỉ được nhận từ tin đầu tiên khung nói, và tin ấy phải
+    là lời chào từ chính cửa sổ của khung dưới origin `null`: sau một lời báo, một tin bất kỳ hay một
+    lời chào khác thì cổng tới sau bị bỏ, cổng đầu vẫn được nghe khi tin sau mang cổng khác, lời chào
+    từ cửa sổ khác hay từ không đâu không được nhận còn lời chào của chính khung sau đó vẫn được,
+    lời chào dưới origin khác `null` không được nhận mà vẫn là tin đầu của khung; "is nothing the
+    page can say to the window: only the port tells of it": `{type: "press"}` gửi lên cửa sổ không
+    bao giờ là lời mời; qua cổng chỉ đúng `{type: "press"}` mới là cú bấm; một nghìn cú bấm qua cổng
+    không tính vào năm mươi tin của khung, sau đó trang vẫn được nghe đủ bốn mươi chín lời báo; cổng
+    của khung bị thay được đóng và handler cũ của nó không nói thay cho khung mới; cổng đóng khi
+    trang bị gỡ vì đổi địa chỉ hay vì giành bàn phím; cổng đóng khi khung đi và không đóng khi khung
+    chỉ được vẽ lại), nhóm "the page that has the keyboard" (khung giữ focus thì hộp mang
+    `data-keyboard` và dòng "Bàn phím đang ở trang" với `role="status"` nằm trong hộp, khung vẫn là
+    đúng phần tử cũ, focus về app thì cả hai mất; được xét lại ở `blur` và `focus` của cửa sổ, ở
+    `focusin` và `focusout` của tài liệu; khung thay khung đang giữ bàn phím thì không mang dấu ấy;
+    khung đi thì gỡ đủ listener đã gắn lên `window` và `document`), nhóm "a stopped page the person
+    asks for again" (lời báo đã dừng là một nút DOM khác với hộp của khung cũ và của khung mới; sau
+    Nạp lại, nút vừa bấm mất nên focus được đặt lên hộp của khung mới bằng `focus({ preventScroll:
+    true })` đúng một lần; trình duyệt không cho nút nhận focus khi bấm thì focus ở yên chỗ người để
+    nó; các khung sau không kéo focus về nữa; khung không ai xin thì không dời focus)
+  - Playwright: `canvas-keyboard.spec.ts`, Chromium thật với reporter thật của server. Ở 1440×900:
+    "goes to the page with a click in it and stays there, however often the person goes back and
+    forth" (sáu vòng bấm ô soạn tin rồi bấm vào ô của trang và gõ ngay mười phím cách nhau 30 ms, lâu
+    hơn khoảng chờ: trang nghe đủ mười phím mỗi vòng, bàn phím rời trang đúng số lần người lấy nó đi,
+    ô soạn tin không nhận phím nào và trang không bị gỡ; đây là test giữ thứ tự giữa cú bấm reporter
+    nói và `blur` của app: bỏ khoảng chờ thì cú bấm tới sau `blur` bị coi là trang tự giành); "is
+    shown to be with the page by a line around it and a word over it, which move nothing and let the
+    pointer through" (khung không đổi vị trí hay kích thước, viền là `solid 2px`, dòng chữ nằm góc
+    trên bên phải trong khung, bấm lên dòng chữ là bấm vào trang bên dưới; về ô soạn tin thì viền và
+    dòng chữ mất); "stays with a message being written when the page focuses itself" (trang gọi
+    `window.focus()` rồi focus ô của nó; khi trang đã thấy `blur` của chính nó thì ba mươi phím gõ
+    vào đủ ô soạn tin và trang không nghe phím nào); "is not kept by a page that takes it while
+    nothing in the app holds it" (khung bị `blur`, focus của app ở `body`; bỏ `taker.blur()` trong
+    guard là test đỏ); "stays with the message when the page takes it as the pointer passes over"
+    (trang gọi `window.focus()` trong `pointermove` của nó: con trỏ đi qua trang không phải lời mời,
+    chữ gõ trước và sau đều vào ô soạn tin); "stays with the message while the wheel turned over the
+    page scrolls the page" (ngay sau khi gõ, lăn chuột trên trang thì trang cuộn và chữ gõ tiếp vẫn
+    vào ô soạn tin: khung luôn nhận con trỏ); "goes to the page with Tab"; "stays where the person
+    had it while a page that goes on taking it is stopped" (trang `setInterval(window.focus, 100)` bị
+    gỡ kèm lời báo, ba mươi phím gõ sau đó vào đủ ô soạn tin mà không cần bấm lại, Nạp lại đưa trang
+    mới lên và focus nằm trên `canvas-frame-box` chứ không ở `body`); "is not given to a page that
+    wrote itself anew, whose presses nothing vouches for" (trang gọi `document.open()`, xoá mọi
+    listener trên cửa sổ của nó kể cả của reporter: bốn cú bấm vào trang đều bị trả bàn phím về ô
+    soạn tin, cú thứ năm gỡ trang, năm phím gõ xen giữa vào đủ ô soạn tin). Ở 390×844 cảm ứng: "goes
+    to the page with the first tap, which the page hears as a pointer pressed" (cú chạm đầu tới trang
+    như một `pointerdown`, mười phím gõ sau đó trang nghe đủ, dòng chữ nằm trong bề ngang của khung,
+    khung không dời và không có cuộn ngang). Phần còn lại đã ghi nhận: phím bấm trong khoảng chờ, tối
+    đa 50 ms giữa lúc trang giành và lúc bàn phím được trả lại, thì tới trang
 - **Canvas trên web: svg và ảnh hiện thành hình từ bản đã lưu; ảnh chỉ để xem; hình không tải được
   thì phân biệt hình hỏng, bản đã mất, server lỗi và mất mạng**
   - vitest: `web/src/components/canvas/canvas-image.test.tsx` nhóm "a picture of a canvas" (hình là
@@ -2633,8 +2694,14 @@ tên một test thì sửa dòng của nó trong cùng commit.
     ký tự và tên tệp ở 300, không bao giờ cắt giữa hai nửa một ký tự ngoài mặt phẳng cơ bản; vị trí
     không phải số đếm thành 0; "turns a position too large to be a count into 0, and keeps the
     largest that is one": `1e308`, `2 ** 53` thành 0 nên danh sách không hiện `1e+308`, còn
-    `Number.MAX_SAFE_INTEGER` được giữ; không giữ gì của trang ngoài bốn trường), nhóm "where a page
-    says its error is" và nhóm "a file the page asked for that did not arrive";
+    `Number.MAX_SAFE_INTEGER` được giữ; không giữ gì của trang ngoài bốn trường), nhóm "the hello of
+    a page's reporter" (lời chào trao cổng nó mang và không phải lời báo; nhiều cổng thì lấy cổng
+    đầu, không cổng thì không có gì; không nhận từ cửa sổ khác, từ không đâu hay dưới origin khác
+    `null`; lời báo mang cổng thì cổng bị bỏ; "reads what a message carries once, whatever the
+    message is" và "reads nothing of a message that is not the frame's own" đếm số lần `data` bị đọc
+    bằng một getter), nhóm "what a page's reporter says over the port" (chỉ object `{type: "press"}`
+    là cú bấm; chữ `press` gửi lên cửa sổ không là gì cả), nhóm "where a page says its error is" và
+    nhóm "a file the page asked for that did not arrive";
     `web/src/lib/clip-text.test.ts` (chữ vừa chỗ thì để nguyên, giữ các đơn vị đầu, bỏ cả cặp chứ
     không để lại nửa đầu của nó); `web/src/components/canvas/canvas-frame.test.tsx` nhóm "what the
     page reports" (chuyển đi lời báo từ cửa sổ của trang; không nhận gì từ cửa sổ khác, từ trang đã
@@ -2643,9 +2710,16 @@ tên một test thì sửa dòng của nó trong cùng commit.
     vẫn giữ, có mạng lại thì liệt kê; mỗi khung chỉ được nghe năm mươi tin: "hears fifty messages of
     a page that sends ten thousand, and reads nothing of the rest" đếm số lần `data` bị đọc bằng một
     getter, tin không phải lời báo cũng tính vào năm mươi tin ấy, khung mới có năm mươi tin của riêng
-    nó, tin từ cửa sổ khác không tính cho trang); `web/src/components/canvas/canvas-errors.test.tsx`
+    nó, tin từ cửa sổ khác không tính cho trang; "tells the panel when it has heard the last of the
+    fifty, reports or not, and not before": `onSilenced` được gọi đúng một lần ở tin thứ năm mươi,
+    dù đó là lời báo, một tin bất kỳ hay chữ `press`, và không lần nào ở tin thứ bốn mươi chín; lời
+    báo thứ năm mươi vừa được chuyển đi vừa được nói là tin cuối; mỗi khung được nói một lần của
+    riêng nó; tin từ cửa sổ khác không làm panel được nói; chỉ listener mới nhất của panel được
+    nói); `web/src/components/canvas/canvas-errors.test.tsx`
     nhóm "the errors a page reported" (không hiện gì khi trang chưa báo gì, nói số lỗi và giữ danh
-    sách đóng tới khi được hỏi, từ lời báo thứ năm mươi thì ghi "50+" còn bốn mươi chín thì chưa,
+    sách đóng tới khi được hỏi, dấu "+" theo việc khung đã thôi nghe trang chứ không theo số lời
+    báo: bốn mươi chín hay năm mươi lời báo mà trang còn được nghe thì không có "+", đã thôi nghe thì
+    "50+", "49+" hay "1+",
     liệt kê cũ trước mới sau, "draws what the page wrote as text and never as markup, with hidden
     characters as marks": cả lời báo lẫn tên tệp ở dòng vị trí, `app[U+202E]gnp.js:3`) và nhóm
     "sending the errors to the agent" (chỉ có nút
@@ -2670,7 +2744,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     đã gửi; trang bị gỡ vì tự đi nơi khác thì quên lỗi của nó; "counts every report the page makes
     and keeps the newest five to list"; "stops counting at fifty, says the page reported more, and
     lists the newest five of the fifty": mười nghìn lời báo thì thanh ghi "50+" và danh sách là lỗi
-    46 tới 50; luồng nối lại thì trang được đưa lên lại và không lỗi nào
+    46 tới 50; bốn mươi chín lời báo thì chưa có "+"; lời chào của reporter tới trước thì mười nghìn
+    lời báo sau nó ra "49+" và danh sách là lỗi 45 tới 49, vì lời chào là một trong năm mươi tin;
+    trang kế tiếp chưa nói gì thì không mang dấu "+" của trang trước; luồng nối lại thì trang được
+    đưa lên lại và không lỗi nào
     tính cho nó; chat không nhận tin được thì nút gửi tắt và nói lý do; "does not send the errors
     when what was typed could not be saved, and says so")
   - vitest, cả App trên `FakeCanvas`: `web/src/app-canvas-ask.test.tsx` nhóm "sending the errors a
@@ -2679,9 +2756,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
   - Playwright: `canvas-render.spec.ts` ở 1440×900 ("is the only window whose reports are listed:
     one the app posts to itself is not"; "is heard for twenty of the twenty-five errors it throws,
     and the list keeps the newest five": reporter dừng ở hai mươi, test chờ bằng một lời báo trang tự
-    gửi sau đợt lỗi nên số đếm là 21; "is heard out on fifty of the ten thousand reports it posts past
-    the reporter": trang gọi thẳng `parent.postMessage` mười nghìn lần, thanh ghi "50+" và đứng yên,
-    danh sách là tin 46 tới 50; "reports a picture from elsewhere that the policy keeps it from
+    gửi sau đợt lỗi nên số đếm là 21; "is heard out on fifty messages of the ten thousand reports it
+    posts past the reporter": trang gọi thẳng `parent.postMessage` mười nghìn lần, tin đầu trong năm
+    mươi tin là lời chào của reporter nên thanh ghi "49+" và đứng yên, danh sách là tin 45 tới 49;
+    "reports a picture from elsewhere that the policy keeps it from
     loading": cả dòng `img-src blocked` lẫn dòng `failed to load`, và request kết thúc với lỗi `csp`
     trước khi ra mạng; "reports a promise nothing caught as one error"; "shows at most two thousand
     characters of an error of five thousand": cái reporter gửi đi cũng đã chỉ dài 2000, đo ngay trên

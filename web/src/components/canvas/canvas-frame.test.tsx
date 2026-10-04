@@ -1,81 +1,18 @@
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
 import { artifactApi } from "../../api/artifact-client";
-import { GRABS_MAX, OFFERED } from "../../hooks/use-frame-focus-guard";
 import { vi } from "../../i18n/vi";
 import { FRAME_REPORTS_MAX, type FrameError } from "../../lib/frame-messages";
+import { deliver, failure, flood, focusOn, frameIn, PRESS, setup, startFrame, stopFrame, windowOf } from "../../test/canvas-frame";
 import { setVisibility, wait } from "../../test/canvas-hook";
 import { CanvasFrame, RELOAD_DELAY_MS } from "./canvas-frame";
 
-beforeEach(() => {
-  vitest.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
-});
+/** The page in its frame: what is put up and when, and what the page says. Who has the keyboard
+ *  beside it is in `canvas-frame-keyboard.test.tsx`. */
 
-afterEach(() => {
-  cleanup();
-  vitest.useRealTimers();
-  vitest.restoreAllMocks();
-});
+beforeEach(startFrame);
+afterEach(stopFrame);
 
-type Setup = { version?: number; connected?: boolean };
-
-/** The frame with `onMount` and `onError` as spies; `show` puts it up again with other props. */
-function setup(first: Setup = {}) {
-  const onMount = vitest.fn();
-  const onError = vitest.fn();
-  const element = (now: Setup) => (
-    <CanvasFrame
-      artifactId="a1"
-      title="Trang chủ"
-      version={now.version ?? first.version ?? 1}
-      connected={now.connected ?? first.connected ?? true}
-      onMount={onMount}
-      onError={onError}
-    />
-  );
-  const view = render(element(first));
-  const show = (now: Setup) => view.rerender(element(now));
-  return { ...view, onMount, onError, show };
-}
-
-function frameIn(container: HTMLElement): HTMLIFrameElement {
-  const found = container.querySelector("iframe");
-  if (!found) throw new Error("the page is not in a frame");
-  return found;
-}
-
-/** The page's own window, which is what a report must come from. */
-function windowOf(frame: HTMLIFrameElement): Window {
-  if (!frame.contentWindow) throw new Error("the frame has no window");
-  return frame.contentWindow;
-}
-
-/** A report as the browser delivers it: from a window, with the origin a sandboxed page is given. */
-function deliver(source: Window | null, data: unknown, origin = "null") {
-  act(() => {
-    window.dispatchEvent(Object.assign(new Event("message"), { source, origin, data }));
-  });
-}
-
-const failure = { type: "canvas-error", message: "boom", source: "page.html", line: 3, column: 7 };
-
-/** `times` messages from `source`, one after another. The answer is how often what they carry was read. */
-function flood(source: Window | null, times: number, data: unknown = failure): number {
-  let read = 0;
-  const carried = {
-    get() {
-      read += 1;
-      return data;
-    },
-  };
-  act(() => {
-    for (let n = 0; n < times; n++) {
-      const event = Object.assign(new Event("message"), { source, origin: "null" });
-      window.dispatchEvent(Object.defineProperty(event, "data", carried));
-    }
-  });
-  return read;
-}
 const unreached = {
   type: "canvas-error",
   message: "failed to load https://cdn.test/a.png",
@@ -83,11 +20,6 @@ const unreached = {
   line: 0,
   column: 0,
 };
-
-/** The person has the frame's focus: what the browser says of `document.activeElement` once they click in. */
-function focusOn(frame: HTMLIFrameElement) {
-  vitest.spyOn(document, "activeElement", "get").mockReturnValue(frame);
-}
 
 function goOffline(offline: boolean) {
   vitest.spyOn(navigator, "onLine", "get").mockReturnValue(!offline);
@@ -392,185 +324,6 @@ describe("a page that moves to another address", () => {
   });
 });
 
-describe("a page that takes the keyboard", () => {
-  afterEach(() => {
-    for (const field of document.body.querySelectorAll(":scope > input")) field.remove();
-  });
-
-  /** A field of the app's beside the canvas, which the person is writing in. */
-  function writing(): HTMLInputElement {
-    const field = document.body.appendChild(document.createElement("input"));
-    field.focus();
-    return field;
-  }
-
-  /** The page takes the keyboard: its frame has the focus, and the app's window is told it lost it. */
-  function grab(frame: HTMLIFrameElement) {
-    act(() => {
-      frame.focus();
-      fireEvent.blur(window);
-    });
-  }
-
-  function boxOf(frame: HTMLIFrameElement): HTMLElement {
-    if (!frame.parentElement) throw new Error("the frame is in no box");
-    return frame.parentElement;
-  }
-
-  it("sits in a box that keeps the pointer for the app until the person points at the page", () => {
-    const { container } = setup();
-    const box = boxOf(frameIn(container));
-
-    expect(box.className).toBe("canvas-frame-box");
-    expect(box.hasAttribute(OFFERED)).toBe(false);
-
-    fireEvent.pointerMove(box);
-    expect(box.hasAttribute(OFFERED)).toBe(true);
-  });
-
-  it("does not keep it: the keyboard is back where the person was writing, and the page stays", () => {
-    const { container } = setup();
-    const first = frameIn(container);
-    fireEvent.load(first);
-    const field = writing();
-
-    grab(first);
-    wait(0);
-
-    expect(document.activeElement).toBe(field);
-    expect(frameIn(container)).toBe(first);
-    expect(screen.queryByRole("status")).toBeNull();
-  });
-
-  it("is taken out the fifth time it does, the person is told why, and the keyboard is theirs", () => {
-    const { container, onMount } = setup();
-    const first = frameIn(container);
-    fireEvent.load(first);
-    const field = writing();
-
-    for (let take = 1; take < GRABS_MAX; take++) {
-      grab(first);
-      wait(0);
-    }
-    expect(frameIn(container)).toBe(first);
-    expect(onMount.mock.calls).toEqual([[1]]);
-
-    grab(first);
-    expect(container.querySelector("iframe")).toBeNull();
-    expect(screen.getByRole("status").textContent).toBe(`${vi.canvas.page.grabbing}${vi.canvas.page.reload}`);
-    expect(vi.canvas.page.grabbing).toBe("Trang liên tục giành bàn phím nên đã bị dừng.");
-    expect(onMount.mock.calls).toEqual([[1], [1]]);
-
-    wait(0);
-    expect(document.activeElement).toBe(field);
-  });
-
-  it("stays stopped for it, whatever else happens, until the person asks for the page again", () => {
-    const { container, onMount, show } = setup();
-    const first = frameIn(container);
-    fireEvent.load(first);
-    for (let take = 0; take < GRABS_MAX; take++) {
-      grab(first);
-      wait(0);
-    }
-
-    show({ version: 2 });
-    wait(RELOAD_DELAY_MS * 3);
-    show({ version: 2, connected: false });
-    show({ version: 2, connected: true });
-    setVisibility("hidden");
-    setVisibility("visible");
-
-    expect(container.querySelector("iframe")).toBeNull();
-    expect(screen.getByRole("status").textContent).toBe(`${vi.canvas.page.grabbing}${vi.canvas.page.reload}`);
-    expect(onMount.mock.calls).toEqual([[1], [1]]);
-  });
-
-  it("is put up again when the person asks, with nothing held against the new frame", () => {
-    const { container, onMount } = setup();
-    const first = frameIn(container);
-    fireEvent.load(first);
-    for (let take = 0; take < GRABS_MAX; take++) {
-      grab(first);
-      wait(0);
-    }
-
-    fireEvent.click(screen.getByRole("button", { name: vi.canvas.page.reload }));
-    const again = frameIn(container);
-    expect(again).not.toBe(first);
-    expect(onMount.mock.calls).toEqual([[1], [1], [1]]);
-    expect(screen.getByRole("status").textContent).toBe(vi.canvas.page.loading);
-    fireEvent.load(again);
-
-    for (let take = 1; take < GRABS_MAX; take++) {
-      grab(again);
-      wait(0);
-    }
-    expect(frameIn(container)).toBe(again);
-
-    grab(again);
-    expect(container.querySelector("iframe")).toBeNull();
-  });
-
-  it("keeps the keyboard the person gave it, however often, and a newer version waits for them", () => {
-    const { container, show } = setup();
-    const first = frameIn(container);
-    fireEvent.load(first);
-
-    for (let round = 0; round <= GRABS_MAX; round++) {
-      writing();
-      fireEvent.pointerMove(boxOf(first));
-      grab(first);
-      wait(0);
-      expect(document.activeElement).toBe(first);
-    }
-    show({ version: 2 });
-    wait(RELOAD_DELAY_MS);
-
-    expect(frameIn(container)).toBe(first);
-    expect(screen.queryByRole("status")).toBeNull();
-    expect(screen.getByRole("button", { name: vi.canvas.page.newer })).toBeTruthy();
-  });
-
-  it("is not a page the person is using: a newer version replaces it without a button", () => {
-    const { container, onMount, show } = setup();
-    const first = frameIn(container);
-    fireEvent.load(first);
-    const field = writing();
-
-    show({ version: 2 });
-    wait(RELOAD_DELAY_MS - 1);
-    grab(first);
-    wait(1);
-
-    expect(frameIn(container)).not.toBe(first);
-    expect(onMount.mock.calls).toEqual([[1], [2]]);
-    expect(screen.queryByRole("button", { name: vi.canvas.page.newer })).toBeNull();
-    expect(document.activeElement).toBe(field);
-  });
-
-  it("drops the button for a newer version when the page is stopped for it", () => {
-    const { container, show } = setup();
-    const first = frameIn(container);
-    fireEvent.load(first);
-    fireEvent.pointerMove(boxOf(first));
-    grab(first);
-    show({ version: 2 });
-    wait(RELOAD_DELAY_MS);
-    expect(screen.getByRole("button", { name: vi.canvas.page.newer })).toBeTruthy();
-
-    // The person goes back to writing, and the page takes the keyboard from them time after time.
-    writing();
-    for (let take = 0; take < GRABS_MAX; take++) {
-      grab(first);
-      wait(0);
-    }
-
-    expect(screen.queryByRole("button", { name: vi.canvas.page.newer })).toBeNull();
-    expect(screen.getByRole("button", { name: vi.canvas.page.reload })).toBeTruthy();
-  });
-});
-
 describe("what the page reports", () => {
   it("passes on a report from the page's own window", () => {
     const { container, onError } = setup();
@@ -663,6 +416,68 @@ describe("what the page reports", () => {
     expect(onError).toHaveBeenCalledTimes(50);
   });
 
+  it("tells the panel when it has heard the last of the fifty, reports or not, and not before", () => {
+    for (const said of [failure, "not a report", PRESS]) {
+      const { container, onSilenced, unmount } = setup();
+      const own = windowOf(frameIn(container));
+
+      flood(own, FRAME_REPORTS_MAX - 1, said);
+      expect(onSilenced).not.toHaveBeenCalled();
+
+      deliver(own, said);
+      expect(onSilenced).toHaveBeenCalledTimes(1);
+
+      flood(own, 10_000, said);
+      expect(onSilenced).toHaveBeenCalledTimes(1);
+      unmount();
+    }
+  });
+
+  it("tells the panel of the fiftieth report and that it was the last one heard, both", () => {
+    const { container, onError, onSilenced } = setup();
+
+    flood(windowOf(frameIn(container)), FRAME_REPORTS_MAX);
+
+    expect(onError).toHaveBeenCalledTimes(50);
+    expect(onSilenced).toHaveBeenCalledTimes(1);
+  });
+
+  it("tells the panel so for each frame, which is heard out on fifty of its own", () => {
+    const { container, onSilenced, show } = setup();
+    flood(windowOf(frameIn(container)), 10_000);
+    show({ version: 2 });
+    wait(RELOAD_DELAY_MS);
+    const second = windowOf(frameIn(container));
+
+    flood(second, FRAME_REPORTS_MAX - 1);
+    expect(onSilenced).toHaveBeenCalledTimes(1);
+    deliver(second, failure);
+    expect(onSilenced).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not tell the panel so for what another window sends", () => {
+    const { onSilenced } = setup();
+
+    flood(window, 10_000);
+    flood(null, 10_000);
+
+    expect(onSilenced).not.toHaveBeenCalled();
+  });
+
+  it("tells the panel's newest listener alone that the page is no longer heard", () => {
+    const [early, late, other] = [vitest.fn(), vitest.fn(), vitest.fn()];
+    const element = (onSilenced: () => void) => (
+      <CanvasFrame artifactId="a1" title="Trang chủ" version={1} connected onMount={other} onError={other} onSilenced={onSilenced} />
+    );
+    const { container, rerender } = render(element(early));
+    rerender(element(late));
+
+    flood(windowOf(frameIn(container)), FRAME_REPORTS_MAX);
+
+    expect(early).not.toHaveBeenCalled();
+    expect(late).toHaveBeenCalledTimes(1);
+  });
+
   it("stops listening when the frame goes", () => {
     const { container, onError, unmount } = setup();
     const own = windowOf(frameIn(container));
@@ -676,7 +491,7 @@ describe("what the page reports", () => {
   it("tells the panel's newest listener alone, once the panel has given it another", () => {
     const [early, late, onMount] = [vitest.fn(), vitest.fn(), vitest.fn()];
     const element = (onError: (error: FrameError) => void) => (
-      <CanvasFrame artifactId="a1" title="Trang chủ" version={1} connected onMount={onMount} onError={onError} />
+      <CanvasFrame artifactId="a1" title="Trang chủ" version={1} connected onMount={onMount} onError={onError} onSilenced={onMount} />
     );
     const { container, rerender } = render(element(early));
     rerender(element(late));

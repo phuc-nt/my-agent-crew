@@ -1,8 +1,12 @@
 /**
  * What a page running in the canvas frame tells the panel. The page can say anything: it is code an
- * agent wrote, in a frame of its own origin. So a report counts only when it came from this frame's
+ * agent wrote, in a frame of its own origin. So a message counts only when it came from this frame's
  * own window, which is an origin the browser writes as "null", and only the parts of it the panel
- * can show safely are kept, each with a ceiling. Nothing here posts into the frame.
+ * can show safely are kept, each with a ceiling.
+ *
+ * Two things are taken. A report of what went wrong. And the hello of the page's own reporter, which
+ * hands over one end of a message channel: over that port, and nowhere else, the reporter says when
+ * a person presses inside the page. Nothing here posts into the frame or over the port.
  *
  * How often a page speaks has a ceiling too, and the panel keeps it: the page's own reporter stops
  * at twenty, but a page can post without it.
@@ -18,6 +22,9 @@ export const SOURCE_MAX = 300;
 export const FRAME_REPORTS_MAX = 50;
 
 export type FrameError = { message: string; source: string; line: number; column: number };
+
+/** What one message of the frame comes to: a report, or the port its hello hands over. */
+export type FrameMessage = { error: FrameError; port?: undefined } | { port: MessagePort; error?: undefined };
 
 /** A position the page named: a count, its fraction cut off, or 0 for anything else. A number too
  *  large to count with is no position either, and would be shown as `1e+308`. */
@@ -46,17 +53,32 @@ export function isFromFrame(event: MessageEvent, frame: HTMLIFrameElement | null
   return !!own && event.source === own;
 }
 
-/** The report `event` carries, if it is one and came from `frame`'s window; otherwise null. */
-export function parseFrameMessage(event: MessageEvent, frame: HTMLIFrameElement | null): FrameError | null {
+/**
+ * What `event` comes to, if it came from `frame`'s window and is a report or a hello with a port;
+ * otherwise null. What the message carries is read once. Whether a port may still be taken from
+ * this frame is for the caller to say: only the first message of a frame hands one over.
+ */
+export function readFrameMessage(event: MessageEvent, frame: HTMLIFrameElement | null): FrameMessage | null {
   if (!isFromFrame(event, frame) || event.origin !== "null") return null;
   const data: unknown = event.data;
   if (typeof data !== "object" || data === null) return null;
   const { type, message, source, line, column } = data as Record<string, unknown>;
+  if (type === "canvas-hello") {
+    const port = event.ports[0];
+    return port ? { port } : null;
+  }
   if (type !== "canvas-error" || typeof message !== "string") return null;
   return {
-    message: clip(message, REPORT_MAX),
-    source: typeof source === "string" ? clip(source, SOURCE_MAX) : "",
-    line: position(line),
-    column: position(column),
+    error: {
+      message: clip(message, REPORT_MAX),
+      source: typeof source === "string" ? clip(source, SOURCE_MAX) : "",
+      line: position(line),
+      column: position(column),
+    },
   };
+}
+
+/** Whether what came over the port says a person pressed inside the page. */
+export function isPress(data: unknown): boolean {
+  return typeof data === "object" && data !== null && (data as Record<string, unknown>).type === "press";
 }

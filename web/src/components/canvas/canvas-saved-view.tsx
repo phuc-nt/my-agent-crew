@@ -34,7 +34,7 @@ export function CanvasSavedView({ canvas, artifactId, kind, connected, askDisabl
   const { state } = canvas;
   const { version } = state.base;
   const title = state.summary?.title || vi.canvas.untitled;
-  const { report, add, reset } = usePageReport(version);
+  const { report, add, silence, reset } = usePageReport(version);
   return (
     <div className="canvas-saved">
       {isDirty(state) && (
@@ -43,7 +43,15 @@ export function CanvasSavedView({ canvas, artifactId, kind, connected, askDisabl
         </p>
       )}
       {showsPage(kind) ? (
-        <CanvasFrame artifactId={artifactId} title={title} version={version} connected={connected} onMount={reset} onError={add} />
+        <CanvasFrame
+          artifactId={artifactId}
+          title={title}
+          version={version}
+          connected={connected}
+          onMount={reset}
+          onError={add}
+          onSilenced={silence}
+        />
       ) : (
         <CanvasImage
           // Named apart from the list below: both are counted from one, and two children of one

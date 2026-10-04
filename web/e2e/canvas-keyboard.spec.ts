@@ -1,0 +1,258 @@
+import { expect, type Page, test } from "@playwright/test";
+import { vi } from "../src/i18n/vi";
+import { overflowing } from "./canvas-overflow";
+import { composer, frame, html, inside, openPage, PAGE, script } from "./render-page";
+
+/**
+ * Who has the keyboard while a page an agent wrote runs beside the conversation. A page may focus
+ * itself whenever it likes; only a pointer the person presses inside it, or Tab, gives it the
+ * keyboard to keep. Which window the keys go to is the browser's doing, so only a browser shows it.
+ */
+
+const { page: words } = vi.canvas;
+
+/** What has the focus in the app: `IFRAME` while the page has the keyboard, `BODY` while nothing has. */
+const holder = (page: Page) => page.evaluate(() => document.activeElement?.tagName);
+/** The line that says the keys typed now go to the page. */
+const marker = (page: Page) => page.getByText(words.keyboard);
+
+/** Thirty keys a person types. */
+const TYPED = "the quick brown fox jumps over";
+
+const count = (id: string) => `var at = document.getElementById("${id}"); at.textContent = String(Number(at.textContent) + 1);`;
+
+/** A page with a field of its own, which shows the keys it heard and how often the keyboard left it. */
+const LISTENING = [
+  '<input id="field" autofocus>',
+  '<p id="heard"></p>',
+  '<p id="left">0</p>',
+  script(
+    [
+      'document.addEventListener("keydown", function (event) { document.getElementById("heard").textContent += event.key; });',
+      `window.addEventListener("blur", function () { ${count("left")} });`,
+    ].join("\n"),
+  ),
+].join("\n");
+
+/** Where the frame and the word over it are laid out. */
+async function laidOut(page: Page) {
+  const [around, word] = [await frame(page).boundingBox(), await marker(page).boundingBox()];
+  if (around === null || word === null) throw new Error("the page or the word over it is not laid out");
+  return { around, word };
+}
+
+/** The line drawn around the page: its style and how wide it is. */
+const edge = (page: Page) =>
+  frame(page).evaluate((shown) => {
+    const { outlineStyle, outlineWidth } = getComputedStyle(shown);
+    return outlineStyle === "none" ? "none" : `${outlineStyle} ${outlineWidth}`;
+  });
+
+/** The page takes the keyboard for the field it has, as a script of its own would. */
+const grab = (page: Page) =>
+  inside(page)
+    .locator("body")
+    .evaluate(() => {
+      window.focus();
+      document.getElementById("field")?.focus();
+    });
+
+test.describe("the keyboard beside a page in the canvas", () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  test("goes to the page with a click in it and stays there, however often the person goes back and forth", async ({ page }) => {
+    await openPage(page, LISTENING);
+
+    // One time more than a page may take the keyboard unasked: what the person does is never counted.
+    for (let round = 1; round <= 6; round++) {
+      await composer(page).click();
+      await expect(marker(page)).toHaveCount(0);
+      await inside(page).locator("#field").click();
+      // Typed straight after the click and on for longer than the page is waited on: a keyboard
+      // taken back in between would send the rest of the keys to the message.
+      await page.keyboard.type("abcdefghij", { delay: 30 });
+
+      await expect(inside(page).locator("#heard")).toHaveText("abcdefghij".repeat(round));
+      // The keyboard left the page as often as the person took it away, and not once more.
+      await expect(inside(page).locator("#left")).toHaveText(String(round - 1));
+      await expect(marker(page)).toBeVisible();
+    }
+
+    await expect(composer(page)).toHaveValue("");
+    await expect(frame(page)).toHaveCount(1);
+    await expect(page.getByText(words.grabbing)).toHaveCount(0);
+  });
+
+  test("is shown to be with the page by a line around it and a word over it, which move nothing and let the pointer through", async ({ page }) => {
+    const pressed = `window.addEventListener("pointerdown", function () { ${count("presses")} });`;
+    await openPage(page, `${LISTENING}<p id="presses">0</p>${script(pressed)}`);
+    await composer(page).click();
+    const before = await frame(page).boundingBox();
+    expect(await edge(page)).toBe("none");
+
+    await inside(page).locator("#field").click();
+    await expect(marker(page)).toBeVisible();
+
+    const { around, word } = await laidOut(page);
+    expect(around).toEqual(before);
+    expect(await edge(page)).toBe("solid 2px");
+    expect(word.x).toBeGreaterThan(around.x + around.width / 2);
+    expect(word.x + word.width).toBeLessThan(around.x + around.width);
+    expect(word.y).toBeGreaterThan(around.y);
+    expect(word.y + word.height).toBeLessThan(around.y + around.height / 2);
+
+    // A press on the word is a press on the page under it.
+    await page.mouse.click(word.x + word.width / 2, word.y + word.height / 2);
+    await expect(inside(page).locator("#presses")).toHaveText("2");
+    await expect(marker(page)).toBeVisible();
+
+    await composer(page).click();
+    await expect(marker(page)).toHaveCount(0);
+    expect(await edge(page)).toBe("none");
+    expect(await frame(page).boundingBox()).toEqual(before);
+  });
+
+  test("stays with a message being written when the page focuses itself", async ({ page }) => {
+    await openPage(page, LISTENING);
+    await composer(page).click();
+
+    await grab(page);
+
+    // The page saw the keyboard leave it again: from here on no key can be on its way to it.
+    await expect(inside(page).locator("#left")).toHaveText("1");
+    await page.keyboard.type(TYPED);
+    await expect(composer(page)).toHaveValue(TYPED);
+    await expect(inside(page).locator("#heard")).toHaveText("");
+    await expect(page.getByText(words.grabbing)).toHaveCount(0);
+  });
+
+  test("is not kept by a page that takes it while nothing in the app holds it", async ({ page }) => {
+    await openPage(page, LISTENING);
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    expect(await holder(page)).toBe("BODY");
+
+    await grab(page);
+
+    // There is no element to give it back to: it is taken off the frame, and the page saw it go.
+    await expect(inside(page).locator("#left")).toHaveText("1");
+    await page.keyboard.type(TYPED);
+    await expect(inside(page).locator("#heard")).toHaveText("");
+    expect(await holder(page)).toBe("BODY");
+  });
+
+  test("stays with the message when the page takes it as the pointer passes over", async ({ page }) => {
+    const taking = 'window.addEventListener("pointermove", function () { window.focus(); document.getElementById("field").focus(); });';
+    await openPage(page, LISTENING + script(taking));
+    await composer(page).click();
+    await page.keyboard.type("một ");
+
+    await frame(page).hover();
+    await expect(inside(page).locator("#left")).toHaveText("1");
+    await composer(page).hover();
+    await page.keyboard.type("hai");
+
+    await expect(composer(page)).toHaveValue("một hai");
+    await expect(inside(page).locator("#heard")).toHaveText("");
+    expect(await holder(page)).toBe("TEXTAREA");
+  });
+
+  test("stays with the message while the wheel turned over the page scrolls the page", async ({ page }) => {
+    await openPage(page, '<div style="height: 4000px">Dài</div>');
+    await composer(page).click();
+    await page.keyboard.type("một ");
+
+    await frame(page).hover();
+    await page.mouse.wheel(0, 600);
+
+    await expect.poll(() => inside(page).locator("body").evaluate(() => window.scrollY)).toBeGreaterThan(0);
+    await page.keyboard.type("hai");
+    await expect(composer(page)).toHaveValue("một hai");
+  });
+
+  test("goes to the page with Tab", async ({ page }) => {
+    await openPage(page, LISTENING);
+    await composer(page).click();
+
+    // Tab by Tab through the app's controls, until the one that goes into the page.
+    for (let presses = 0; presses < 60 && (await holder(page)) !== "IFRAME"; presses++) await page.keyboard.press("Tab");
+    await page.keyboard.type("ab", { delay: 100 });
+
+    await expect(inside(page).locator("#heard")).toHaveText("ab");
+    expect(await holder(page)).toBe("IFRAME");
+    await expect(marker(page)).toBeVisible();
+    await expect(page.getByText(words.grabbing)).toHaveCount(0);
+  });
+
+  test("stays where the person had it while a page that goes on taking it is stopped", async ({ page }) => {
+    const grabbing = `<input autofocus>${script("setInterval(function () { window.focus(); }, 100);")}`;
+    const { fake } = await openPage(page, grabbing);
+    await composer(page).click();
+
+    await expect(page.getByText(words.grabbing)).toBeVisible();
+    await expect(frame(page)).toHaveCount(0);
+    // Nothing is clicked again: the thirty keys go where the person was writing.
+    await page.keyboard.type(TYPED);
+    await expect(composer(page)).toHaveValue(TYPED);
+
+    // The agent has written the page again by the time the person asks for it.
+    fake.write(PAGE, html("<p>Đã yên</p>"));
+    await page.getByRole("button", { name: words.reload, exact: true }).click();
+
+    await expect(inside(page).getByText("Đã yên")).toBeVisible();
+    await expect(page.getByText(words.grabbing)).toHaveCount(0);
+    // The button that was pressed is gone: the focus is on the box of the page, not on nothing.
+    expect(await page.evaluate(() => document.activeElement?.className)).toBe("canvas-frame-box");
+  });
+
+  test("is not given to a page that wrote itself anew, whose presses nothing vouches for", async ({ page }) => {
+    // `document.open()` takes every listener off the page's window, the reporter's among them.
+    const anew = [
+      'window.addEventListener("load", function () { setTimeout(function () {',
+      "  document.open();",
+      "  document.write('<input id=\"field\"><p id=\"heard\"></p>');",
+      '  document.addEventListener("keydown", function (event) { document.getElementById("heard").textContent += event.key; });',
+      "}, 0); });",
+    ].join("\n");
+    await openPage(page, script(anew));
+    await expect(inside(page).locator("#field")).toBeVisible();
+    await composer(page).click();
+
+    for (let press = 1; press <= 4; press++) {
+      await inside(page).locator("#field").click();
+      await expect.poll(() => holder(page)).toBe("TEXTAREA");
+      await page.keyboard.type(String(press));
+    }
+    await inside(page).locator("#field").click();
+
+    await expect(page.getByText(words.grabbing)).toBeVisible();
+    await expect(frame(page)).toHaveCount(0);
+    await page.keyboard.type("5");
+    await expect(composer(page)).toHaveValue("12345");
+  });
+});
+
+test.describe("the keyboard beside a page on a phone", () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+  test("goes to the page with the first tap, which the page hears as a pointer pressed", async ({ page }) => {
+    const tapped = `window.addEventListener("pointerdown", function () { ${count("taps")} });`;
+    await openPage(page, `${LISTENING}<p id="taps">0</p>${script(tapped)}`);
+    const before = await frame(page).boundingBox();
+
+    await inside(page).locator("#field").tap();
+    await expect(inside(page).locator("#taps")).toHaveText("1");
+    await page.keyboard.type("abcdefghij", { delay: 30 });
+
+    await expect(inside(page).locator("#heard")).toHaveText("abcdefghij");
+    await expect(inside(page).locator("#left")).toHaveText("0");
+    await expect(marker(page)).toBeVisible();
+    await expect(page.getByText(words.grabbing)).toHaveCount(0);
+
+    // The word that says so is over the page: nothing moved for it, and nothing scrolls sideways.
+    const { around, word } = await laidOut(page);
+    expect(around).toEqual(before);
+    expect(word.x).toBeGreaterThanOrEqual(around.x);
+    expect(word.x + word.width).toBeLessThanOrEqual(around.x + around.width);
+    expect(await overflowing(page)).toEqual([]);
+  });
+});

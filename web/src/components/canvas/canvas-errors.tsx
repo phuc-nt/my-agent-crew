@@ -14,7 +14,7 @@ import type { MessageCanvas } from "../../api/artifact-types";
 import type { PageReport } from "../../hooks/use-page-report";
 import { vi } from "../../i18n/vi";
 import { errorReport } from "../../lib/error-report";
-import { FRAME_REPORTS_MAX, type FrameError, where } from "../../lib/frame-messages";
+import { type FrameError, where } from "../../lib/frame-messages";
 import { showHiddenChars } from "../../lib/hidden-chars";
 import type { SendResult } from "../../lib/send-result";
 import type { AskDisabled } from "./canvas-ask";
@@ -66,12 +66,10 @@ export function CanvasErrors({ artifactId, title, report, disabled, flush, onAsk
 
   if (report.count === 0) return null;
   const { pageErrors } = vi.canvas;
-  // The frame stops hearing a page there, so that many may be fewer than the page reported.
-  const more = report.count >= FRAME_REPORTS_MAX;
   return (
     <div className="canvas-errors" role="group" aria-label={pageErrors.group}>
       <div className="canvas-errors-bar">
-        <span className="canvas-errors-count">{pageErrors.count(report.count, more)}</span>
+        <span className="canvas-errors-count">{pageErrors.count(report.count, report.silenced)}</span>
         <button type="button" className="ghost" aria-expanded={open} onClick={() => setOpen(!open)}>
           {open ? pageErrors.hide : pageErrors.show}
         </button>

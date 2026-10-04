@@ -29,6 +29,7 @@
 }
 
 .canvas-frame-box {
+  position: relative;
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
@@ -44,9 +45,19 @@
   background: #fff;
 }
 
-/* Until the person points at the page, the pointer over it is the app's to see: that is how the
-   app knows they did (use-frame-focus-guard.ts). */
-.canvas-frame-box:not([data-offered]) > .canvas-frame {
+/* While the page has the keyboard: a line drawn over the edge of the page and a word in its
+   corner. Neither takes room, so nothing moves when the keyboard comes and goes, and the word lets
+   the pointer through to the page under it. */
+.canvas-frame-box[data-keyboard] > .canvas-frame {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.canvas-frame-keyboard {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  margin: 0;
   pointer-events: none;
 }
 

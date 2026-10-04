@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { REPORT_MAX, SOURCE_MAX, isLoadFailure, parseFrameMessage, where } from "./frame-messages";
+import { REPORT_MAX, SOURCE_MAX, isLoadFailure, isPress, readFrameMessage, where } from "./frame-messages";
 
 /** A frame whose window is a stand-in that only has to be told apart from another. */
 function frameOf(own: Window | null): HTMLIFrameElement {
@@ -12,6 +12,9 @@ function messageFrom(source: unknown, data: unknown, origin = "null"): MessageEv
 
 const own = {} as Window;
 const report = { type: "canvas-error", message: "boom", source: "page.html", line: 3, column: 7 };
+
+/** The report `event` comes to, if it comes to one. */
+const parseFrameMessage = (event: MessageEvent, frame: HTMLIFrameElement | null) => readFrameMessage(event, frame)?.error ?? null;
 
 describe("what a page in the canvas frame may tell the panel", () => {
   it("takes a report from the frame's own window, whose origin the browser writes as null", () => {
@@ -115,6 +118,97 @@ describe("what a page in the canvas frame may tell the panel", () => {
     const taken = parseFrameMessage(messageFrom(own, { ...report, html: "<img onerror=x>", extra: 1 }), frameOf(own));
 
     expect(Object.keys(taken ?? {}).sort()).toEqual(["column", "line", "message", "source"]);
+  });
+});
+
+describe("the hello of a page's reporter", () => {
+  const port = { name: "first" } as unknown as MessagePort;
+  const other = { name: "second" } as unknown as MessagePort;
+  const hello = (ports: MessagePort[], source: unknown = own, origin = "null") =>
+    ({ source, origin, data: { type: "canvas-hello" }, ports }) as unknown as MessageEvent;
+
+  it("hands over the port it carries, and is no report", () => {
+    const read = readFrameMessage(hello([port]), frameOf(own));
+
+    expect(read?.port).toBe(port);
+    expect(read?.error).toBeUndefined();
+  });
+
+  it("hands over the first port of several, and nothing when it carries none", () => {
+    expect(readFrameMessage(hello([port, other]), frameOf(own))?.port).toBe(port);
+    expect(readFrameMessage(hello([]), frameOf(own))).toBeNull();
+  });
+
+  it("hands nothing over from another window, from nowhere, or under an origin that is not null", () => {
+    const frame = frameOf(own);
+
+    expect(readFrameMessage(hello([port], {} as Window), frame)).toBeNull();
+    expect(readFrameMessage(hello([port], null), frame)).toBeNull();
+    expect(readFrameMessage(hello([port], null), frameOf(null))).toBeNull();
+    expect(readFrameMessage(hello([port], own, window.location.origin), frame)).toBeNull();
+    expect(readFrameMessage(hello([port], own, ""), frame)).toBeNull();
+  });
+
+  it("takes no port from a report that carries one", () => {
+    const carrying = { source: own, origin: "null", data: report, ports: [port] } as unknown as MessageEvent;
+    const read = readFrameMessage(carrying, frameOf(own));
+
+    expect(read?.error).toEqual({ message: "boom", source: "page.html", line: 3, column: 7 });
+    expect(read?.port).toBeUndefined();
+  });
+
+  it("reads what a message carries once, whatever the message is", () => {
+    for (const data of [{ type: "canvas-hello" }, report, { type: "press" }, "x"]) {
+      let read = 0;
+      const event = {
+        source: own,
+        origin: "null",
+        ports: [port],
+        get data() {
+          read += 1;
+          return data;
+        },
+      } as unknown as MessageEvent;
+
+      readFrameMessage(event, frameOf(own));
+
+      expect(read).toBe(1);
+    }
+  });
+
+  it("reads nothing of a message that is not the frame's own", () => {
+    let read = 0;
+    const event = (source: Window, origin: string) =>
+      ({
+        source,
+        origin,
+        ports: [port],
+        get data() {
+          read += 1;
+          return report;
+        },
+      }) as unknown as MessageEvent;
+
+    expect(readFrameMessage(event({} as Window, "null"), frameOf(own))).toBeNull();
+    expect(readFrameMessage(event(own, "https://example.com"), frameOf(own))).toBeNull();
+    expect(read).toBe(0);
+  });
+});
+
+describe("what a page's reporter says over the port", () => {
+  it("is a press when it is an object of that type", () => {
+    expect(isPress({ type: "press" })).toBe(true);
+    expect(isPress({ type: "press", more: 1 })).toBe(true);
+  });
+
+  it("is nothing else", () => {
+    for (const data of ["press", null, undefined, 1, true, {}, ["press"], { type: "Press" }, { type: "canvas-hello" }, { kind: "press" }]) {
+      expect(isPress(data)).toBe(false);
+    }
+  });
+
+  it("is not a report: the word press on the window comes to nothing", () => {
+    expect(readFrameMessage(messageFrom(own, { type: "press" }), frameOf(own))).toBeNull();
   });
 });
 

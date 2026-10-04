@@ -1,93 +1,17 @@
 import { expect, type Page, test } from "@playwright/test";
 import { vi } from "../src/i18n/vi";
-import { FakeCanvas } from "../src/test/fake-canvas";
 import { overflowing } from "./canvas-overflow";
-import { type Conversation, mockApi } from "./mock-api";
+import { frame, inside, OTHER, openPage, PAGE, script, serve, TITLE } from "./render-page";
 import { smallTargets } from "./small-targets";
 
 /**
  * A page an agent wrote, run by a real browser: in the frame the panel puts it in, and on its own
  * at the address the frame loads. What the page is kept from is the browser's doing, so only a
- * browser can show it; the page here comes with the policy and the reporter the server sends
- * (`mock-render.ts`).
+ * browser can show it. Who has the keyboard beside such a page is in `canvas-keyboard.spec.ts`.
  */
 
-const PAGE = "0a0b0c0d0e0f";
-const OTHER = "f0e0d0c0b0a0";
-const TITLE = "Trang thử";
 const { page: words, pageErrors } = vi.canvas;
 
-const html = (body: string) =>
-  `<!doctype html>\n<html lang="vi">\n<head><meta charset="utf-8"><title>${TITLE}</title></head>\n<body>\n${body}\n</body>\n</html>\n`;
-const script = (code: string) => `<script>${code}</script>`;
-
-/** What the server streams for a message: an answer, so the send ends as sent. */
-const TURN = [
-  { type: "assistant_message", message_id: "a1", content: "Để tôi xem.", tool_calls: [], provider: "fake", model: "echo", cost_usd: 0 },
-  { type: "done", spent_usd: 0, unknown_cost_calls: 0 },
-];
-
-/** A conversation with nothing said in it yet, which the canvas is shared with. */
-function quiet(): Conversation {
-  return {
-    id: "c1", agent_id: "default", channel: "", title: "Trang", summary: "", created_at: "", updated_at: "",
-    autonomous: false, cost_cap_usd: 1, skills: [], auto_approve: [], spent_usd: 0, unknown_cost_calls: 0,
-    status: "idle", over_budget: false, parent_call_id: "", pending_approval: null, messages: [],
-  };
-}
-
-/** A server holding the agent's page whose body is `body`, and another page it could move to. */
-async function serve(page: Page, body: string): Promise<FakeCanvas> {
-  const fake = new FakeCanvas();
-  fake.add({ id: PAGE, title: TITLE, kind: "html", agent_id: "master", content: html(body), conversationIds: ["c1"] });
-  fake.add({ id: OTHER, title: "Trang khác", kind: "html", agent_id: "master", content: html("<p>Trang khác</p>") });
-  await mockApi(page, { conversations: [quiet()], canvas: fake, turns: [TURN] });
-  return fake;
-}
-
-/**
- * The page on show in the canvas beside or over the conversation, with the messages the browser
- * sends and every request the page itself makes after the one that loads it.
- */
-async function openPage(page: Page, body: string) {
-  await serve(page, body);
-  const messages: unknown[] = [];
-  const fromFrame: string[] = [];
-  page.on("request", (request) => {
-    const { pathname } = new URL(request.url());
-    if (request.method() === "POST" && pathname === "/api/conversations/c1/messages") messages.push(request.postDataJSON());
-    if (!request.isNavigationRequest() && request.frame() !== page.mainFrame()) fromFrame.push(`${request.method()} ${request.url()}`);
-  });
-  await page.goto("/#/chat/c1");
-  await page.getByRole("button", { name: vi.canvas.buttonLabel(1) }).click();
-  await page.getByRole("button", { name: new RegExp(TITLE) }).click();
-  await expect(frame(page)).toBeVisible();
-  return { messages, fromFrame };
-}
-
-const frame = (page: Page) => page.locator("iframe.canvas-frame");
-const inside = (page: Page) => page.frameLocator("iframe.canvas-frame");
-const composer = (page: Page) => page.getByRole("textbox", { name: vi.composerPlaceholder });
-/** The person brings the pointer over the page: until they do, the app keeps the pointer from it. */
-const pointAt = (page: Page) => page.locator(".canvas-frame-box").hover();
-/** What has the focus in the app: `IFRAME` while the page has the keyboard, `BODY` while nothing has. */
-const holder = (page: Page) => page.evaluate(() => document.activeElement?.tagName);
-
-/** Thirty keys a person types. */
-const TYPED = "the quick brown fox jumps over";
-
-/** A page with a field of its own, which shows the keys it heard and how often the keyboard left it. */
-const LISTENING = [
-  '<input id="field" autofocus>',
-  '<p id="heard"></p>',
-  '<p id="left">0</p>',
-  script(
-    [
-      'document.addEventListener("keydown", function (event) { document.getElementById("heard").textContent += event.key; });',
-      'window.addEventListener("blur", function () { var left = document.getElementById("left"); left.textContent = String(Number(left.textContent) + 1); });',
-    ].join("\n"),
-  ),
-].join("\n");
 const errors = (page: Page) => page.getByRole("group", { name: pageErrors.group });
 const lines = (page: Page) => errors(page).locator(".canvas-error-message");
 
@@ -214,96 +138,9 @@ test.describe("a page in the canvas beside a wide conversation", () => {
           window.postMessage({ type: "canvas-error", message: "giả", source: "", line: 1, column: 1 }, "*");
         }),
     );
-    await pointAt(page);
     await inside(page).getByRole("button", { name: "Hỏng" }).click();
 
     expect(await listed(page, 1)).toEqual(["Uncaught Error: thật"]);
-  });
-
-  test("does not take the keyboard from a message being written when it focuses itself", async ({ page }) => {
-    await openPage(page, LISTENING);
-    await composer(page).click();
-
-    await inside(page).locator("body").evaluate(() => {
-      window.focus();
-      document.getElementById("field")?.focus();
-    });
-
-    // The page saw the keyboard leave it again: from here on no key can be on its way to it.
-    await expect(inside(page).locator("#left")).toHaveText("1");
-    await page.keyboard.type(TYPED);
-    await expect(composer(page)).toHaveValue(TYPED);
-    await expect(inside(page).locator("#heard")).toHaveText("");
-    await expect(page.getByText(words.grabbing)).toHaveCount(0);
-  });
-
-  test("does not keep the keyboard it takes while nothing in the app holds it", async ({ page }) => {
-    await openPage(page, LISTENING);
-    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
-    expect(await holder(page)).toBe("BODY");
-
-    await inside(page).locator("body").evaluate(() => {
-      window.focus();
-      document.getElementById("field")?.focus();
-    });
-
-    // There is no element to give it back to: it is taken off the frame, and the page saw it go.
-    await expect(inside(page).locator("#left")).toHaveText("1");
-    await page.keyboard.type(TYPED);
-    await expect(inside(page).locator("#heard")).toHaveText("");
-    expect(await holder(page)).toBe("BODY");
-  });
-
-  test("is given the keyboard by a click in it, however often the person goes back and forth", async ({ page }) => {
-    await openPage(page, LISTENING);
-
-    // One time more than a page may take the keyboard unasked: what the person does is never counted.
-    for (let round = 1; round <= 6; round++) {
-      await composer(page).click();
-      await pointAt(page);
-      await inside(page).locator("#field").click();
-      await page.keyboard.press("ArrowRight");
-      await expect(inside(page).locator("#heard")).toHaveText("ArrowRight".repeat(round));
-    }
-
-    await expect(composer(page)).toHaveValue("");
-    await expect(frame(page)).toHaveCount(1);
-    await expect(page.getByText(words.grabbing)).toHaveCount(0);
-  });
-
-  test("is given the keyboard by Tab", async ({ page }) => {
-    await openPage(page, LISTENING);
-    await composer(page).click();
-
-    // Tab by Tab through the app's controls, until the one that goes into the page.
-    for (let presses = 0; presses < 60 && (await holder(page)) !== "IFRAME"; presses++) await page.keyboard.press("Tab");
-    await page.keyboard.type("ab");
-
-    await expect(inside(page).locator("#heard")).toHaveText("ab");
-    expect(await holder(page)).toBe("IFRAME");
-    await expect(page.getByText(words.grabbing)).toHaveCount(0);
-  });
-
-  test("is stopped when it goes on taking the keyboard, which stays where the person had it", async ({ page }) => {
-    const grabbing = `<input autofocus>${script("setInterval(function () { window.focus(); }, 100);")}`;
-    const fake = await serve(page, grabbing);
-    await page.goto("/#/chat/c1");
-    await page.getByRole("button", { name: vi.canvas.buttonLabel(1) }).click();
-    await page.getByRole("button", { name: new RegExp(TITLE) }).click();
-    await composer(page).click();
-
-    await expect(page.getByText(words.grabbing)).toBeVisible();
-    await expect(frame(page)).toHaveCount(0);
-    // Nothing is clicked again: the thirty keys go where the person was writing.
-    await page.keyboard.type(TYPED);
-    await expect(composer(page)).toHaveValue(TYPED);
-
-    // The agent has written the page again by the time the person asks for it.
-    fake.write(PAGE, html("<p>Đã yên</p>"));
-    await page.getByRole("button", { name: words.reload, exact: true }).click();
-
-    await expect(inside(page).getByText("Đã yên")).toBeVisible();
-    await expect(page.getByText(words.grabbing)).toHaveCount(0);
   });
 
   test("is heard for twenty of the twenty-five errors it throws, and the list keeps the newest five", async ({ page }) => {
@@ -324,12 +161,15 @@ test.describe("a page in the canvas beside a wide conversation", () => {
     ]);
   });
 
-  test("is heard out on fifty of the ten thousand reports it posts past the reporter", async ({ page }) => {
+  test("is heard out on fifty messages of the ten thousand reports it posts past the reporter", async ({ page }) => {
     const flood =
       'for (var n = 1; n <= 10000; n++) parent.postMessage({ type: "canvas-error", message: "tin " + n, source: "", line: 0, column: 0 }, "*");';
     await openPage(page, script(flood));
 
-    expect(await listed(page, 50, true)).toEqual(["tin 46", "tin 47", "tin 48", "tin 49", "tin 50"]);
+    // The first of the fifty was the hello of the reporter, which ran before the page: forty-nine
+    // reports are left, and the panel says the page may have made more.
+    const newest = ["tin 45", "tin 46", "tin 47", "tin 48", "tin 49"];
+    expect(await listed(page, 49, true)).toEqual(newest);
     // A message of the app's own later, the count has not moved: the page was not heard further.
     await page.evaluate(
       () =>
@@ -338,8 +178,8 @@ test.describe("a page in the canvas beside a wide conversation", () => {
           window.postMessage("sau cùng", "*");
         }),
     );
-    await expect(errors(page).locator(".canvas-errors-count")).toHaveText(pageErrors.count(50, true));
-    expect(await lines(page).allTextContents()).toEqual(["tin 46", "tin 47", "tin 48", "tin 49", "tin 50"]);
+    await expect(errors(page).locator(".canvas-errors-count")).toHaveText(pageErrors.count(49, true));
+    expect(await lines(page).allTextContents()).toEqual(newest);
   });
 
   test("reports a picture from elsewhere that the policy keeps it from loading", async ({ page }) => {

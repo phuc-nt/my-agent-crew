@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { useRef, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
 import { wait } from "../test/canvas-hook";
-import { GRABS_MAX, OFFERED, useFrameFocusGuard } from "./use-frame-focus-guard";
+import { ATTEST_GRACE_MS, GRABS_MAX, LATE_MS, useFrameFocusGuard } from "./use-frame-focus-guard";
 
 beforeEach(() => {
   vitest.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
@@ -24,20 +24,24 @@ type Shown = {
   onGrabbing?: () => void;
 };
 
+/** What the guard on show is told with when the page's reporter says a person pressed inside the page. */
+let attest: () => void = () => {};
+
 /** An app with a field to write in and a button, beside a page in a frame the guard watches. */
 function App({ n = 0, field = "there", stops = false, onGrabbing }: Shown) {
   const frame = useRef<HTMLIFrameElement>(null);
   const [stopped, setStopped] = useState(false);
-  const box = useFrameFocusGuard(frame, () => {
+  const guard = useFrameFocusGuard(frame, () => {
     onGrabbing?.();
     if (stops) setStopped(true);
   });
+  attest = guard.attest;
   return (
     <>
       {field !== "gone" && <textarea aria-label="message" disabled={field === "locked"} />}
       <button type="button">knob</button>
       {!stopped && (
-        <div ref={box} data-testid="box">
+        <div ref={guard.box} data-testid="box">
           <iframe key={n} ref={frame} title="page" />
         </div>
       )}
@@ -66,27 +70,44 @@ function grab() {
   });
 }
 
+/** The page's reporter tells of a pointer the person pressed inside the page. */
+function press() {
+  act(() => attest());
+}
+
+/** The page takes the keyboard `times` over, and each time is waited on for as long as a page is. */
+function takes(times: number) {
+  for (let take = 0; take < times; take++) {
+    grab();
+    wait(ATTEST_GRACE_MS);
+  }
+}
+
 describe("the keyboard a page took unasked", () => {
-  it("goes back to the element it was taken from, in the next task and without a scroll", () => {
+  it("goes back to the element it was taken from, once the page was given its time to tell of a press", () => {
     setup();
     message().focus();
     const focused = vitest.spyOn(message(), "focus");
 
     grab();
-    // A browser ignores a focus set while it still tells of the blur.
+    wait(ATTEST_GRACE_MS - 1);
     expect(holder()).toBe(page());
     expect(focused).not.toHaveBeenCalled();
 
-    wait(0);
+    wait(1);
     expect(holder()).toBe(message());
+    // Without a scroll: the field may be out of sight, and the person did not ask to be taken to it.
     expect(focused.mock.calls).toEqual([[{ preventScroll: true }]]);
+  });
+
+  it("is waited on for no longer than a tenth of a second, in which the keys go to the page", () => {
+    expect(ATTEST_GRACE_MS).toBeLessThanOrEqual(100);
   });
 
   it("is taken off the frame when nothing held it", () => {
     setup();
 
-    grab();
-    wait(0);
+    takes(1);
 
     expect(holder()).toBe(document.body);
   });
@@ -97,7 +118,7 @@ describe("the keyboard a page took unasked", () => {
 
     grab();
     show({ field: "gone" });
-    wait(0);
+    wait(ATTEST_GRACE_MS);
 
     expect(holder()).toBe(document.body);
   });
@@ -108,7 +129,7 @@ describe("the keyboard a page took unasked", () => {
 
     grab();
     show({ field: "locked" });
-    wait(0);
+    wait(ATTEST_GRACE_MS);
 
     expect(holder()).toBe(document.body);
   });
@@ -120,8 +141,7 @@ describe("the keyboard a page took unasked", () => {
     wait(0);
     const focused = vitest.spyOn(message(), "focus");
 
-    grab();
-    wait(0);
+    takes(1);
 
     expect(holder()).toBe(document.body);
     expect(focused).not.toHaveBeenCalled();
@@ -130,28 +150,54 @@ describe("the keyboard a page took unasked", () => {
   it("is not handed to the frame it is being taken from", () => {
     setup();
     // The person had the page, and the page let the keyboard go.
-    fireEvent.pointerMove(box());
+    press();
     grab();
     page().blur();
-    fireEvent.pointerMove(message());
+    fireEvent.pointerDown(message());
     const handed = vitest.spyOn(page(), "focus");
 
     // It takes the keyboard again before the task is over.
-    grab();
-    wait(0);
+    takes(1);
 
     expect(handed).not.toHaveBeenCalledWith({ preventScroll: true });
     expect(holder()).toBe(document.body);
+  });
+
+  it("stays where the person moved it while the page was waited on, and the page still took it", () => {
+    const { onGrabbing } = setup();
+    message().focus();
+    const focused = vitest.spyOn(message(), "focus");
+
+    grab();
+    knob().focus();
+    wait(ATTEST_GRACE_MS);
+
+    expect(holder()).toBe(knob());
+    expect(focused).not.toHaveBeenCalled();
+    // One grab is against it: three more go unreported, and the one after is the fifth.
+    takes(GRABS_MAX - 2);
+    expect(onGrabbing).not.toHaveBeenCalled();
+    takes(1);
+    expect(onGrabbing).toHaveBeenCalledTimes(1);
+  });
+
+  it("counts against a page that let it go again before its time was up", () => {
+    const { onGrabbing } = setup();
+
+    for (let take = 0; take < GRABS_MAX; take++) {
+      grab();
+      act(() => page().blur());
+      wait(ATTEST_GRACE_MS);
+    }
+
+    expect(onGrabbing).toHaveBeenCalledTimes(1);
   });
 
   it("is given back once the page is out, where the app took it out for this", () => {
     setup({ stops: true });
     message().focus();
 
-    for (let take = 0; take < GRABS_MAX; take++) {
-      grab();
-      wait(0);
-    }
+    takes(GRABS_MAX);
 
     expect(screen.queryByTitle("page")).toBeNull();
     expect(holder()).toBe(message());
@@ -165,7 +211,7 @@ describe("the keyboard a page took unasked", () => {
     // The person goes to another window and comes back, more often than a page may take the keyboard.
     for (let away = 0; away < GRABS_MAX * 2; away++) {
       fireEvent.blur(window);
-      wait(0);
+      wait(ATTEST_GRACE_MS);
     }
 
     expect(onGrabbing).not.toHaveBeenCalled();
@@ -175,27 +221,61 @@ describe("the keyboard a page took unasked", () => {
 });
 
 describe("the keyboard the person offers the page", () => {
-  it.each(["pointerMove", "pointerDown", "wheel"] as const)("stays with the page after a %s over the frame's box", (over) => {
+  it("stays with the page whose reporter told of a press before the page took it", () => {
     const { onGrabbing } = setup();
     message().focus();
 
-    fireEvent[over](box());
-    grab();
-    wait(0);
+    press();
+    takes(1);
 
     expect(holder()).toBe(page());
     expect(onGrabbing).not.toHaveBeenCalled();
+    // Nothing is waited on: the offer stood when the page took the keyboard.
+    expect(vitest.getTimerCount()).toBe(0);
   });
 
-  it("stays with the page after a pointer over the frame itself, as a drag begun in the app sends it", () => {
-    setup();
+  it("stays with the page whose reporter tells of the press while the page is waited on", () => {
+    const { onGrabbing } = setup();
     message().focus();
+    const focused = vitest.spyOn(message(), "focus");
 
-    fireEvent.pointerMove(page());
     grab();
-    wait(0);
+    wait(ATTEST_GRACE_MS - 1);
+    press();
+    wait(ATTEST_GRACE_MS);
 
     expect(holder()).toBe(page());
+    expect(focused).not.toHaveBeenCalled();
+    expect(onGrabbing).not.toHaveBeenCalled();
+  });
+
+  it("is never held against the page, however often the press is told while the page is waited on", () => {
+    const { onGrabbing } = setup();
+
+    for (let round = 0; round < GRABS_MAX * 2; round++) {
+      message().focus();
+      grab();
+      press();
+      wait(ATTEST_GRACE_MS);
+      expect(holder()).toBe(page());
+    }
+
+    expect(onGrabbing).not.toHaveBeenCalled();
+  });
+
+  it("comes too late once the keyboard is back: a press told after the wait does not undo the grab", () => {
+    const { onGrabbing } = setup();
+    message().focus();
+
+    takes(1);
+    press();
+
+    expect(holder()).toBe(message());
+    fireEvent.pointerDown(message());
+    takes(GRABS_MAX - 2);
+    expect(onGrabbing).not.toHaveBeenCalled();
+    takes(1);
+    expect(onGrabbing).toHaveBeenCalledTimes(1);
   });
 
   it("stays with the page after Tab", () => {
@@ -203,52 +283,93 @@ describe("the keyboard the person offers the page", () => {
     message().focus();
 
     fireEvent.keyDown(message(), { key: "Tab" });
-    grab();
-    wait(0);
+    takes(1);
 
     expect(holder()).toBe(page());
     expect(onGrabbing).not.toHaveBeenCalled();
   });
 
-  it("is marked on the box, which is what lets the pointer through to the page, while the offer stands", () => {
-    setup();
-    expect(box().hasAttribute(OFFERED)).toBe(false);
+  it.each(["pointerMove", "pointerOver", "pointerEnter", "wheel", "scroll", "mouseMove"] as const)(
+    "is not made by a %s over the frame's box: the page that takes the keyboard then has a grab against it",
+    (over) => {
+      const { onGrabbing } = setup();
+      message().focus();
 
-    fireEvent.pointerMove(box());
-    expect(box().hasAttribute(OFFERED)).toBe(true);
-    expect(OFFERED).toBe("data-offered");
+      fireEvent[over](box());
+      fireEvent[over](page());
+      takes(1);
 
-    fireEvent.pointerMove(knob());
-    expect(box().hasAttribute(OFFERED)).toBe(false);
+      expect(holder()).toBe(message());
+      takes(GRABS_MAX - 2);
+      expect(onGrabbing).not.toHaveBeenCalled();
+      takes(1);
+      expect(onGrabbing).toHaveBeenCalledTimes(1);
+    },
+  );
 
-    fireEvent.keyDown(knob(), { key: "Tab" });
-    expect(box().hasAttribute(OFFERED)).toBe(true);
-  });
-
-  it.each(["pointerMove", "pointerDown", "wheel"] as const)("is taken back by a %s anywhere else", (elsewhere) => {
-    setup();
+  it("is not made by a pointer pressed on the frame's box in the app, which the page's reporter did not tell of", () => {
+    const { onGrabbing } = setup();
     message().focus();
-    fireEvent.pointerMove(box());
 
-    fireEvent[elsewhere](knob());
-    expect(box().hasAttribute(OFFERED)).toBe(false);
-    grab();
-    wait(0);
+    fireEvent.pointerDown(box());
+    fireEvent.pointerDown(page());
+    fireEvent.mouseDown(page());
+    takes(1);
 
     expect(holder()).toBe(message());
+    takes(GRABS_MAX - 1);
+    expect(onGrabbing).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(["pointerMove", "pointerOut", "pointerLeave", "wheel"] as const)("stands when a %s follows anywhere else", (elsewhere) => {
+    const { onGrabbing } = setup();
+    message().focus();
+    press();
+
+    fireEvent[elsewhere](knob());
+    fireEvent[elsewhere](document.body);
+    takes(1);
+
+    expect(holder()).toBe(page());
+    expect(onGrabbing).not.toHaveBeenCalled();
+  });
+
+  it("stands when a pointer is pressed on the frame's box", () => {
+    setup();
+    message().focus();
+    press();
+
+    fireEvent.pointerDown(box());
+    fireEvent.pointerDown(page());
+    takes(1);
+
+    expect(holder()).toBe(page());
+  });
+
+  it("is taken back by a pointer pressed anywhere else in the app", () => {
+    const { onGrabbing } = setup();
+    message().focus();
+    press();
+
+    fireEvent.pointerDown(knob());
+    takes(1);
+
+    expect(holder()).toBe(message());
+    takes(GRABS_MAX - 1);
+    expect(onGrabbing).toHaveBeenCalledTimes(1);
   });
 
   it.each(["a", "Enter", "ArrowRight", "Shift"])("is taken back by the key %s pressed in the app", (key) => {
-    setup();
+    const { onGrabbing } = setup();
     message().focus();
-    fireEvent.pointerMove(box());
+    press();
 
     fireEvent.keyDown(message(), { key });
-    expect(box().hasAttribute(OFFERED)).toBe(false);
-    grab();
-    wait(0);
+    takes(1);
 
     expect(holder()).toBe(message());
+    takes(GRABS_MAX - 1);
+    expect(onGrabbing).toHaveBeenCalledTimes(1);
   });
 
   it("is taken back when Tab brings the focus to one of the app's controls, not to the page", () => {
@@ -257,11 +378,31 @@ describe("the keyboard the person offers the page", () => {
 
     fireEvent.keyDown(message(), { key: "Tab" });
     knob().focus();
-    expect(box().hasAttribute(OFFERED)).toBe(false);
-    grab();
-    wait(0);
+    takes(1);
 
     expect(holder()).toBe(knob());
+  });
+
+  it("is taken back when the focus arrives on one of the app's elements", () => {
+    setup();
+    press();
+
+    knob().focus();
+    takes(1);
+
+    expect(holder()).toBe(knob());
+  });
+
+  it("stands when the focus arrives on the frame", () => {
+    setup();
+    message().focus();
+    press();
+
+    act(() => page().focus());
+    act(() => fireEvent.blur(window));
+    wait(ATTEST_GRACE_MS);
+
+    expect(holder()).toBe(page());
   });
 });
 
@@ -269,33 +410,39 @@ describe("what the app's own handlers keep to themselves", () => {
   /** A handler of the app's that lets nothing of `type` on `element` go further up. */
   const keep = (element: Element, type: string) => element.addEventListener(type, (event) => event.stopPropagation());
 
-  it("is seen all the same: a pointer over the box", () => {
+  it("is seen all the same: a pointer pressed in the app", () => {
     setup();
-    keep(box(), "pointermove");
+    keep(knob(), "pointerdown");
+    message().focus();
+    press();
 
-    fireEvent.pointerMove(box());
+    fireEvent.pointerDown(knob());
+    takes(1);
 
-    expect(box().hasAttribute(OFFERED)).toBe(true);
+    expect(holder()).toBe(message());
   });
 
   it("is seen all the same: a key pressed in the app", () => {
     setup();
     keep(message(), "keydown");
-    fireEvent.pointerMove(box());
+    message().focus();
+    press();
 
     fireEvent.keyDown(message(), { key: "a" });
+    takes(1);
 
-    expect(box().hasAttribute(OFFERED)).toBe(false);
+    expect(holder()).toBe(message());
   });
 
   it("is seen all the same: the focus arriving on a control", () => {
     setup();
     keep(knob(), "focusin");
-    fireEvent.keyDown(message(), { key: "Tab" });
+    press();
 
     knob().focus();
+    takes(1);
 
-    expect(box().hasAttribute(OFFERED)).toBe(false);
+    expect(holder()).toBe(knob());
   });
 
   it("is seen all the same: the focus leaving the element the page took it from", () => {
@@ -303,45 +450,40 @@ describe("what the app's own handlers keep to themselves", () => {
     keep(message(), "focusout");
     message().focus();
 
-    grab();
-    wait(0);
+    takes(1);
 
     expect(holder()).toBe(message());
   });
 });
 
 describe("a page that goes on taking the keyboard", () => {
-  it("is reported the fifth time it does, and not before", () => {
+  it("is reported the fifth time it does, once it was waited on, and not before", () => {
     const { onGrabbing } = setup();
     message().focus();
     expect(GRABS_MAX).toBe(5);
 
     for (let take = 1; take < GRABS_MAX; take++) {
-      grab();
-      wait(0);
+      takes(1);
       expect(holder()).toBe(message());
     }
     expect(onGrabbing).not.toHaveBeenCalled();
 
     grab();
+    expect(onGrabbing).not.toHaveBeenCalled();
+    wait(ATTEST_GRACE_MS);
     expect(onGrabbing).toHaveBeenCalledTimes(1);
+    expect(holder()).toBe(message());
   });
 
   it("is reported again each time it does after that, where the app left the page up", () => {
     const { onGrabbing } = setup();
     message().focus();
-    for (let take = 0; take < GRABS_MAX; take++) {
-      grab();
-      wait(0);
-    }
+    takes(GRABS_MAX);
     expect(onGrabbing).toHaveBeenCalledTimes(1);
 
-    grab();
-    wait(0);
-    grab();
+    takes(2);
 
     expect(onGrabbing).toHaveBeenCalledTimes(3);
-    wait(0);
     expect(holder()).toBe(message());
   });
 
@@ -352,13 +494,16 @@ describe("a page that goes on taking the keyboard", () => {
     for (let take = 1; take < GRABS_MAX; take++) {
       grab();
       fireEvent.blur(window);
+      wait(ATTEST_GRACE_MS - 1);
       fireEvent.blur(window);
-      wait(0);
+      wait(1);
+      expect(holder()).toBe(message());
+      // A wait of its own that a later blur had started would end here, and count once more.
+      wait(ATTEST_GRACE_MS);
     }
     expect(onGrabbing).not.toHaveBeenCalled();
-    expect(holder()).toBe(message());
 
-    grab();
+    takes(1);
     expect(onGrabbing).toHaveBeenCalledTimes(1);
   });
 
@@ -367,40 +512,45 @@ describe("a page that goes on taking the keyboard", () => {
 
     for (let round = 0; round < GRABS_MAX * 2; round++) {
       message().focus();
-      fireEvent.pointerMove(box());
-      grab();
-      wait(0);
+      press();
+      takes(1);
       expect(holder()).toBe(page());
     }
     expect(onGrabbing).not.toHaveBeenCalled();
 
     // What it was given does not count against it afterwards either.
     message().focus();
-    fireEvent.pointerMove(message());
-    for (let take = 1; take < GRABS_MAX; take++) {
-      grab();
-      wait(0);
-    }
+    takes(GRABS_MAX - 1);
     expect(onGrabbing).not.toHaveBeenCalled();
   });
 
   it("has nothing against it in the frame that replaces it", () => {
     const { onGrabbing, show } = setup();
     message().focus();
-    for (let take = 1; take < GRABS_MAX; take++) {
-      grab();
-      wait(0);
-    }
+    takes(GRABS_MAX - 1);
 
     show({ n: 1 });
-    for (let take = 1; take < GRABS_MAX; take++) {
-      grab();
-      wait(0);
-    }
+    takes(GRABS_MAX - 1);
     expect(onGrabbing).not.toHaveBeenCalled();
 
-    grab();
+    takes(1);
     expect(onGrabbing).toHaveBeenCalledTimes(1);
+  });
+
+  it("is not answered for by the frame that replaces it while it is waited on", () => {
+    const { onGrabbing, show } = setup();
+    message().focus();
+    takes(GRABS_MAX - 1);
+    const focused = vitest.spyOn(message(), "focus");
+
+    grab();
+    show({ n: 1 });
+    wait(ATTEST_GRACE_MS);
+
+    expect(onGrabbing).not.toHaveBeenCalled();
+    expect(focused).not.toHaveBeenCalled();
+    takes(GRABS_MAX - 1);
+    expect(onGrabbing).not.toHaveBeenCalled();
   });
 
   it("is reported to whoever asks now, not to whoever asked when the guard was put up", () => {
@@ -408,13 +558,55 @@ describe("a page that goes on taking the keyboard", () => {
     const asksNow = vitest.fn();
     show({ onGrabbing: asksNow });
 
-    for (let take = 0; take < GRABS_MAX; take++) {
-      grab();
-      wait(0);
-    }
+    takes(GRABS_MAX);
 
     expect(asksNow).toHaveBeenCalledTimes(1);
     expect(onGrabbing).not.toHaveBeenCalled();
+  });
+});
+
+describe("a page that held the app up while it had the keyboard", () => {
+  /** The page takes the keyboard, and the wait on it ends `late` ms after it was due. */
+  function takesAndHolds(late: number) {
+    const clock = vitest.spyOn(performance, "now").mockReturnValue(1000);
+    grab();
+    clock.mockReturnValue(1000 + ATTEST_GRACE_MS + late);
+    wait(ATTEST_GRACE_MS);
+  }
+
+  it("is reported the first time, when the keyboard goes back three seconds late", () => {
+    const { onGrabbing } = setup();
+    message().focus();
+
+    takesAndHolds(3000);
+
+    expect(onGrabbing).toHaveBeenCalledTimes(1);
+    expect(holder()).toBe(message());
+  });
+
+  it("is reported from the first millisecond past what a busy app may be late by, and not at it", () => {
+    const { onGrabbing } = setup();
+    message().focus();
+
+    takesAndHolds(LATE_MS);
+    expect(onGrabbing).not.toHaveBeenCalled();
+
+    takesAndHolds(LATE_MS + 1);
+    expect(onGrabbing).toHaveBeenCalledTimes(1);
+  });
+
+  it("is not reported for a wait that a press ended, however late the press was told", () => {
+    const { onGrabbing } = setup();
+    message().focus();
+    const clock = vitest.spyOn(performance, "now").mockReturnValue(1000);
+
+    grab();
+    clock.mockReturnValue(1000 + 3000);
+    press();
+    wait(ATTEST_GRACE_MS);
+
+    expect(onGrabbing).not.toHaveBeenCalled();
+    expect(holder()).toBe(page());
   });
 });
 
@@ -428,7 +620,8 @@ describe("a guard that is put up", () => {
       put.mock.calls
         .filter(([told]) => told === type)
         .map(([, , options]) => typeof options === "object" && options.passive === true);
-    expect(["pointermove", "pointerdown", "wheel"].map(passive)).toEqual([[true], [true], [true]]);
+    expect(passive("pointerdown")).toEqual([true]);
+    expect(passive("wheel")).toEqual([]);
   });
 });
 
@@ -441,7 +634,7 @@ describe("a guard that is taken down", () => {
     fireEvent.focusOut(knob());
     vitest.spyOn(document, "activeElement", "get").mockReturnValue(page());
     fireEvent.blur(window);
-    // One to forget what the focus left, one to give the keyboard back.
+    // One to forget what the focus left, one to wait on the page.
     expect(vitest.getTimerCount()).toBe(2);
 
     unmount();
@@ -449,8 +642,17 @@ describe("a guard that is taken down", () => {
     expect(vitest.getTimerCount()).toBe(0);
   });
 
+  it("hears of no press any more", () => {
+    const { unmount, onGrabbing } = setup();
+    const told = attest;
+    unmount();
+
+    expect(() => told()).not.toThrow();
+    expect(onGrabbing).not.toHaveBeenCalled();
+  });
+
   it("takes every listener it put up away again", () => {
-    const WATCHED = ["pointermove", "pointerdown", "wheel", "keydown", "focusin", "focusout", "blur"];
+    const WATCHED = ["pointermove", "pointerdown", "wheel", "keydown", "focusin", "focusout", "blur", "focus", "visibilitychange"];
     type Call = [type: string, listener: unknown, options?: boolean | { capture?: boolean }];
     const told = (calls: unknown[][]) =>
       (calls as Call[])
@@ -470,9 +672,7 @@ describe("a guard that is taken down", () => {
     const onDocument = told(put.document.mock.calls);
     const onWindow = told(put.window.mock.calls);
     expect(onDocument.map((one) => `${one.type} ${one.capture}`)).toEqual([
-      "pointermove true",
       "pointerdown true",
-      "wheel true",
       "keydown true",
       "focusin true",
       "focusout true",

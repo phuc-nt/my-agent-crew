@@ -2,6 +2,19 @@
   var MAX_MESSAGES = 20;
   var MAX_CHARS = 2000;
   var sent = 0;
+  var tell = null;
+  try {
+    var channel = new MessageChannel();
+    tell = channel.port1.postMessage.bind(channel.port1);
+    parent.postMessage({type: "canvas-hello"}, "*", [channel.port2]);
+  } catch (ignored) {}
+  function pressed(event) {
+    if (tell && event.isTrusted === true) {
+      tell({type: "press"});
+    }
+  }
+  window.addEventListener("pointerdown", pressed, true);
+  window.addEventListener("mousedown", pressed, true);
   function text(value) {
     return typeof value === "string" ? value : "";
   }

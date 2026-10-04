@@ -133,6 +133,59 @@ def test_a_rejection_that_is_a_plain_object_is_told_by_its_message():
     assert "typeof value.message" in REPORTER_JS
 
 
+HELLO = 'parent.postMessage({type: "canvas-hello"}, "*", [channel.port2]);'
+PRESSED = """\
+  function pressed(event) {
+    if (tell && event.isTrusted === true) {
+      tell({type: "press"});
+    }
+  }
+"""
+
+
+def test_the_reporter_hands_the_app_a_port_before_it_listens_for_anything():
+    # The port goes over in the transfer list of the first message a page can send, and the end
+    # kept here is reached through a local alone: no name a page could look up leads to it.
+    assert "    var channel = new MessageChannel();\n" in REPORTER_JS
+    assert "    tell = channel.port1.postMessage.bind(channel.port1);\n" in REPORTER_JS
+    assert REPORTER_JS.count(HELLO) == 1
+    assert REPORTER_JS.index(HELLO) < REPORTER_JS.index("addEventListener")
+    assert "port1" not in REPORTER_JS.split(HELLO)[1]
+
+
+def test_a_browser_without_message_channels_still_reports_what_goes_wrong():
+    # Everything about the port is inside one `try`, and nothing the reports need is.
+    start = REPORTER_JS.index("  try {\n    var channel")
+    end = REPORTER_JS.index("  } catch (ignored) {}\n", start)
+    assert HELLO in REPORTER_JS[start:end]
+    assert "function report(" in REPORTER_JS[end:]
+    assert REPORTER_JS[start:end].count("\n") == 4
+
+
+def test_the_reporter_tells_of_a_press_only_when_the_browser_says_a_person_made_it():
+    # `isTrusted` is the one thing about an event no script can set, and the handler reads that
+    # and its own locals: what a page replaced after it ran is never looked up.
+    assert PRESSED in REPORTER_JS
+    assert REPORTER_JS.count("tell(") == 1
+    listened = re.findall(r'window\.addEventListener\("(\w+)", (\w+)', REPORTER_JS)
+    # A page can make the browser fire `focus`, `pointermove`, `wheel` and `keydown` for it.
+    assert listened == [
+        ("pointerdown", "pressed"),
+        ("mousedown", "pressed"),
+        ("error", "function"),
+        ("unhandledrejection", "function"),
+        ("securitypolicyviolation", "function"),
+    ]
+    for kind in ("pointerdown", "mousedown"):
+        assert f'  window.addEventListener("{kind}", pressed, true);\n' in REPORTER_JS
+
+
+def test_the_hello_is_no_report_and_counts_against_none():
+    assert REPORTER_JS.count("sent += 1;") == 1
+    assert REPORTER_JS.index("sent += 1;") > REPORTER_JS.index("function report(")
+    assert REPORTER_JS.count("parent.postMessage(") == 2
+
+
 @pytest.mark.parametrize(
     "make",
     [

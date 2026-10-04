@@ -6,9 +6,13 @@ page an opaque origin, so it cannot call the app's API or read its storage, and 
 `form-action` and `img-src` leave it no way to send anything out. `allow-scripts` is never
 combined with `allow-same-origin`: together they let a page remove its own sandbox.
 
-The page tells whoever frames it what went wrong, through the reporter below: a script error, a
-file that did not load, a request the policy blocked, a rejected promise. It only sends; the app
-never posts anything into the frame.
+The reporter below is the first script of every such page, so it runs before anything the page
+wrote. It does two things. It tells whoever frames the page what went wrong: a script error, a
+file that did not load, a request the policy blocked, a rejected promise. And it hands the app
+one end of a message channel in the first message of the load, then says over the end it kept
+each time a person presses a pointer inside the page. That press is what the app takes as leave
+for the page to hold the keyboard. The frame only sends: the app listens to the window and to
+the port it was handed, and never posts anything into the frame.
 """
 
 from __future__ import annotations
@@ -25,11 +29,31 @@ FONT_FILES = "https://fonts.gstatic.com"
 #: page that fails in a loop cannot flood the panel. A rejection that is no `Error` is told by
 #: its `message`, else as JSON: Mermaid rejects a diagram it cannot parse with a plain object
 #: `{str, message, hash}`, which `String()` turns into "[object Object]".
+#:
+#: The hello goes out as the script runs, ahead of any report and outside their count, with one
+#: end of a channel in its transfer list. The other end is kept as `tell`, a local already bound
+#: to its port, so a press is told without looking up a name the page could have replaced since.
+#: Only a press is told, and only one the browser marks as a person's (`isTrusted`, which no
+#: script can set): a page can make the browser fire `focus`, `pointermove`, `wheel` and `scroll`
+#: on its own. A browser without `MessageChannel` tells of no press and still reports.
 REPORTER_JS = """\
 (function () {
   var MAX_MESSAGES = 20;
   var MAX_CHARS = 2000;
   var sent = 0;
+  var tell = null;
+  try {
+    var channel = new MessageChannel();
+    tell = channel.port1.postMessage.bind(channel.port1);
+    parent.postMessage({type: "canvas-hello"}, "*", [channel.port2]);
+  } catch (ignored) {}
+  function pressed(event) {
+    if (tell && event.isTrusted === true) {
+      tell({type: "press"});
+    }
+  }
+  window.addEventListener("pointerdown", pressed, true);
+  window.addEventListener("mousedown", pressed, true);
   function text(value) {
     return typeof value === "string" ? value : "";
   }
