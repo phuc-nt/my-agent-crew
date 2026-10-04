@@ -2,7 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vites
 import { landed, startServer, stopServer, wait } from "../test/canvas-hook";
 import type { FakeBackend } from "../test/fake-backend";
 import type { CanvasSeed } from "../test/fake-canvas";
+import { slowUploads } from "../test/slow-link";
 import { CanvasRunner } from "./canvas-runner";
+
+const MB = 1024 * 1024;
 
 let backend: FakeBackend;
 
@@ -96,5 +99,130 @@ describe("how long the save in flight may still go unanswered", () => {
     expect(runner.state.saving).toBeNull();
     expect(runner.state.slow).toBe(true);
     expect(runner.waitMs()).toBe(0);
+  });
+});
+
+describe("a save the link was too slow for", () => {
+  /** A 4 MB page typed into an html canvas and sent, its save still out. */
+  async function bigSaveOut(): Promise<CanvasRunner> {
+    const runner = await opened({ kind: "html", content: "<p>a</p>" });
+    runner.edit("x".repeat(4 * MB));
+    save(runner);
+    return runner;
+  }
+
+  /** The save out gets no reply by its deadline, and the next one goes out `retryMs` later. */
+  async function timesOut(runner: CanvasRunner, retryMs: number): Promise<void> {
+    wait(runner.waitMs());
+    await landed();
+    expect(runner.state.slow).toBe(true);
+    wait(retryMs);
+    await landed();
+  }
+
+  it("gets through in the end with nobody touching the canvas: 4 MB over a link that takes 150 seconds", async () => {
+    const runner = await opened({ kind: "html", content: "<p>a</p>" });
+    const page = "x".repeat(4 * MB);
+    slowUploads(150_000);
+    runner.edit(page);
+    save(runner);
+    expect(runner.waitMs()).toBe(111_921);
+
+    // Ten minutes, a second at a time, so that a reply and a deadline never share a step.
+    for (let second = 0; second < 600; second++) {
+      wait(1000);
+      await landed();
+    }
+
+    // Compared outside `expect`, which would print all 4 MB of a page that did not arrive.
+    expect(backend.canvas.content("a1") === page).toBe(true);
+    expect(runner.state.base.version).toBe(2);
+    expect(runner.state.failures).toBe(0);
+    expect(runner.waitMs()).toBe(0);
+  });
+
+  it("may go unanswered for twice the time its body needs when it is sent again, and waitMs says so", async () => {
+    backend.canvas.holdNext("PUT");
+    const runner = await bigSaveOut();
+    expect(runner.waitMs()).toBe(111_921);
+    backend.canvas.holdNext("PUT");
+
+    await timesOut(runner, 2_000);
+
+    expect(runner.waitMs()).toBe(193_842);
+    // Past the first deadline the save is still inside its own: nothing calls it slow yet.
+    wait(111_921);
+    await landed();
+    expect(runner.state.saving).not.toBeNull();
+    expect(runner.waitMs()).toBe(81_921);
+  });
+
+  it("is given twice as long again after a second one in a row", async () => {
+    backend.canvas.holdNext("PUT");
+    const runner = await bigSaveOut();
+    backend.canvas.holdNext("PUT");
+    await timesOut(runner, 2_000);
+    backend.canvas.holdNext("PUT");
+
+    await timesOut(runner, 5_000);
+
+    expect(runner.waitMs()).toBe(357_683);
+  });
+
+  it("is back to the first deadline once a save has landed", async () => {
+    backend.canvas.holdNext("PUT");
+    const runner = await bigSaveOut();
+    await timesOut(runner, 2_000);
+    expect(runner.state.base.version).toBe(2);
+    backend.canvas.holdNext("PUT");
+
+    runner.edit("y".repeat(4 * MB));
+    save(runner);
+
+    expect(runner.waitMs()).toBe(111_921);
+  });
+
+  it("keeps the longer deadline through a save the server refused: only one that lands resets it", async () => {
+    backend.canvas.holdNext("PUT");
+    const runner = await bigSaveOut();
+    backend.canvas.refuseNext("PUT", 500);
+    await timesOut(runner, 2_000);
+    expect(runner.state.slow).toBe(false);
+    backend.canvas.holdNext("PUT");
+
+    wait(5_000);
+    await landed();
+
+    expect(runner.waitMs()).toBe(193_842);
+  });
+
+  it("is not given more time after saves that were lost or refused: the link was not what was slow", async () => {
+    backend.canvas.loseNext("PUT");
+    const runner = await bigSaveOut();
+    await landed();
+    backend.canvas.refuseNext("PUT", 500);
+    wait(2_000);
+    await landed();
+    expect(runner.state.failures).toBe(2);
+    backend.canvas.holdNext("PUT");
+
+    wait(5_000);
+    await landed();
+
+    expect(runner.state.saving).not.toBeNull();
+    expect(runner.waitMs()).toBe(111_921);
+  });
+
+  it("still has half a minute when it is small: only the time for its body grows", async () => {
+    const runner = await opened();
+    backend.canvas.holdNext("PUT");
+    runner.edit("ab");
+    save(runner);
+    expect(runner.waitMs()).toBe(30_001);
+    backend.canvas.holdNext("PUT");
+
+    await timesOut(runner, 2_000);
+
+    expect(runner.waitMs()).toBe(30_002);
   });
 });

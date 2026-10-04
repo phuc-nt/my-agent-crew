@@ -1872,14 +1872,23 @@ tên một test thì sửa dòng của nó trong cùng commit.
     riêng ở `web/src/lib/canvas-requests.test.ts`: 30 giây cộng một giây cho mỗi 50 KiB thân, làm tròn
     lên; đo trên byte UTF-8 của thân nên 100000 chữ "ệ" chờ lâu hơn 100000 chữ "x"; không reply tới hạn
     thì báo `saveTimedOut` chứ không báo mất, trước hạn một mili giây thì chưa, 3 MB html không bị cắt
-    ở giây 31, reply mất không mang status, 413 mang trần của loại canvas. Lần đọc có nhóm "a read
+    ở giây 31, reply mất không mang status, 413 mang trần của loại canvas. Nhóm "how long a save may go
+    unanswered after saves in a row had no reply in time" giữ việc nới hạn cho đường truyền chậm: sau
+    mỗi lần lưu hết hạn liên tiếp thì phần thời gian cho thân gấp đôi còn 30 giây chờ reply giữ nguyên
+    (4 MB: 111920, 193840, 357680, 685360 ms), dừng ở 8 lần dù hết hạn bao nhiêu lần, thân 34 byte vẫn
+    là nửa phút chứ không thành một phút, và request thật sống tới đúng hạn đã nới. Lần đọc có nhóm "a read
     coming back" ở cùng tệp: gửi đi cái server giữ và không để timer nào lại, "says the canvas could
     not be read when what came back cannot be taken in, instead of leaving it loading" (thân trả về
     mà máy trạng thái không nhận được thì báo đọc hỏng chứ không treo ở "đang tải"), lần đọc bị từ
     chối báo hỏng kèm status đúng một lần.
     `web/src/lib/canvas-runner-wait.test.ts` giữ `waitMs` của runner (0 khi chưa có lần lưu nào, cả
     hạn lúc lần lưu đi rồi ít dần, dài hơn với lần lưu lớn, về 0 khi lần lưu xong hay hết hạn, và vẫn là
-    0 chứ không âm khi đồng hồ nhảy qua hạn trước lúc timer chạy).
+    0 chứ không âm khi đồng hồ nhảy qua hạn trước lúc timer chạy) và nhóm "a save the link was too slow
+    for": đường truyền mất 150 giây cho 4 MB (`web/src/test/slow-link.ts`, PUT bị bỏ trước lúc tới thì
+    server không nhận) vẫn lưu xong mà không ai chạm vào canvas, lần gửi lại có `waitMs` 193842 ms và
+    còn trong hạn khi hạn đầu đã qua, hết hạn hai lần liên tiếp thì gấp bốn, lưu xong thì về hạn đầu,
+    lần bị server từ chối ở giữa không xoá mức nới, lần mất hay bị từ chối không làm hạn dài ra, canvas
+    nhỏ vẫn nửa phút. Dock chờ theo `waitMs` nên theo luôn hạn đã nới.
     `web/src/lib/unload-guard.test.ts` giữ câu hỏi trước khi đóng trang (không hỏi khi chưa ai giữ,
     hỏi khi có người giữ và đặt cả `returnValue` cho engine cũ, thôi hỏi khi nhả và nhả hai lần không
     hại, còn hỏi khi còn người giữ khác), `web/src/hooks/use-saving-note.test.ts` giữ lời báo đang lưu

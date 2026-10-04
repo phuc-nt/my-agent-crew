@@ -32,6 +32,8 @@ export class CanvasRunner {
   private tickets = 0;
   /** When the save in flight reaches its deadline. */
   private putEndsAt = 0;
+  /** The saves in a row that had no reply by their deadline: the next one is given longer. */
+  private timeouts = 0;
   private readonly settles = new Map<number, (version: number | null) => void>();
 
   constructor(
@@ -174,7 +176,13 @@ export class CanvasRunner {
   }
 
   private put(content: string, baseVersion: number, hidden: boolean): void {
-    this.putEndsAt = Date.now() + requestSave(this.id, content, baseVersion, hidden, (input) => this.send(input));
+    const heard = (input: CanvasInput) => {
+      // Only a save that lands says the link carries one in time again.
+      if (input.type === "saveTimedOut") this.timeouts++;
+      else if (input.type === "saved") this.timeouts = 0;
+      this.send(input);
+    };
+    this.putEndsAt = Date.now() + requestSave(this.id, content, baseVersion, hidden, heard, this.timeouts);
   }
 
   private get(): void {

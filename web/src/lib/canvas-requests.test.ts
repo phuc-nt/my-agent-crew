@@ -1,7 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
 import { landed, startServer, stopServer, wait } from "../test/canvas-hook";
 import type { FakeBackend } from "../test/fake-backend";
-import { REQUEST_TIMEOUT_MS, UPLOAD_BYTES_PER_S, requestRead, requestSave, saveDeadlineMs } from "./canvas-requests";
+import {
+  MAX_STRETCH,
+  REQUEST_TIMEOUT_MS,
+  UPLOAD_BYTES_PER_S,
+  requestRead,
+  requestSave,
+  saveDeadlineMs,
+} from "./canvas-requests";
 import type { CanvasInput } from "./canvas-types";
 
 const MB = 1024 * 1024;
@@ -39,6 +46,51 @@ describe("how long a save may go unanswered", () => {
     // The same count in one-byte characters would give a fifth of the wait.
     expect(requestSave("a1", "x".repeat(100_000), 1, false, send)).toBe(31_954);
     await landed();
+  });
+});
+
+describe("how long a save may go unanswered after saves in a row had no reply in time", () => {
+  it("is twice the time for the body after each of them, and the same 30 seconds to answer", () => {
+    expect(saveDeadlineMs(4 * MB, 0)).toBe(111_920);
+    expect(saveDeadlineMs(4 * MB, 1)).toBe(193_840);
+    expect(saveDeadlineMs(4 * MB, 2)).toBe(357_680);
+    expect(saveDeadlineMs(4 * MB, 3)).toBe(685_360);
+    // Nothing to carry is nothing to stretch.
+    expect(saveDeadlineMs(0, 3)).toBe(30_000);
+  });
+
+  it("stops growing at eight times the body's time, however many there were", () => {
+    expect(MAX_STRETCH).toBe(8);
+
+    expect(saveDeadlineMs(4 * MB, 4)).toBe(685_360);
+    expect(saveDeadlineMs(4 * MB, 40)).toBe(685_360);
+    expect(saveDeadlineMs(4 * MB, 4000)).toBe(685_360);
+  });
+
+  it("leaves a small save at half a minute: 34 bytes get milliseconds more, never a minute", () => {
+    expect(saveDeadlineMs(34, 0)).toBe(30_001);
+    expect(saveDeadlineMs(34, 1)).toBe(30_002);
+    expect(saveDeadlineMs(34, 9)).toBe(30_006);
+  });
+
+  it("is what the request is given: the longer deadline is answered, and kept to", async () => {
+    backend.canvas.add({ kind: "html", content: "<p>a</p>" });
+    backend.canvas.holdNext("PUT");
+
+    const deadline = requestSave("a1", "x".repeat(3 * MB), 1, false, send, 1);
+    expect(deadline).toBe(152_882);
+
+    // The first try's deadline passes, and the request is still out.
+    wait(91_441);
+    await landed();
+    wait(deadline - 91_441 - 1);
+    await landed();
+    expect(heard).toEqual([]);
+
+    wait(1);
+    await landed();
+    expect(heard).toEqual([{ type: "saveTimedOut" }]);
+    expect(vitest.getTimerCount()).toBe(0);
   });
 });
 
