@@ -9,7 +9,7 @@
     parent.postMessage({type: "canvas-hello"}, "*", [channel.port2]);
   } catch (ignored) {}
   function pressed(event) {
-    if (tell && event.isTrusted === true && (event.type !== "click" || event.detail > 0)) {
+    if (tell && event.isTrusted === true) {
       tell({type: "press"});
     }
   }
@@ -17,7 +17,6 @@
   window.addEventListener("mousedown", pressed, true);
   window.addEventListener("pointerup", pressed, true);
   window.addEventListener("mouseup", pressed, true);
-  window.addEventListener("click", pressed, true);
   function text(value) {
     return typeof value === "string" ? value : "";
   }

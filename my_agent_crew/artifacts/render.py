@@ -35,11 +35,13 @@ FONT_FILES = "https://fonts.gstatic.com"
 #: to its port, so a press is told without looking up a name the page could have replaced since.
 #: Only a press is told, and only one the browser marks as a person's (`isTrusted`, which no
 #: script can set): a page can make the browser fire `focus`, `pointermove`, `wheel` and `scroll`
-#: on its own. A press is told when it begins and again when it ends, at the pointer coming up
-#: and at the click: a person holds a button longer than the app waits on a press, and a page may
-#: take the keyboard only at the click. A click no pointer made (`detail` 0: Enter or the space
-#: bar on a button) is not told, since a page that took the keyboard gets the keys a person
-#: meant for the app. A browser without `MessageChannel` tells of no press and still reports.
+#: on its own. A press is told when it begins and again when the pointer comes up: a person
+#: holds a button longer than the app waits on a press, and a page may take the keyboard only at
+#: the click that follows. The click itself is not told. Enter or the space bar on a button
+#: makes one the browser vouches for too, a page that took the keyboard gets the keys a person
+#: meant for the app, and what else an event says of itself (`type`, `detail`) is read off a
+#: prototype the page can write to: a press is known by the listener it comes to, never by
+#: those. A browser without `MessageChannel` tells of no press and still reports.
 REPORTER_JS = """\
 (function () {
   var MAX_MESSAGES = 20;
@@ -52,7 +54,7 @@ REPORTER_JS = """\
     parent.postMessage({type: "canvas-hello"}, "*", [channel.port2]);
   } catch (ignored) {}
   function pressed(event) {
-    if (tell && event.isTrusted === true && (event.type !== "click" || event.detail > 0)) {
+    if (tell && event.isTrusted === true) {
       tell({type: "press"});
     }
   }
@@ -60,7 +62,6 @@ REPORTER_JS = """\
   window.addEventListener("mousedown", pressed, true);
   window.addEventListener("pointerup", pressed, true);
   window.addEventListener("mouseup", pressed, true);
-  window.addEventListener("click", pressed, true);
   function text(value) {
     return typeof value === "string" ? value : "";
   }

@@ -48,15 +48,15 @@ const edge = (page: Page) =>
     return outlineStyle === "none" ? "none" : `${outlineStyle} ${outlineWidth}`;
   });
 
-/** What a press is to a page, from the pointer going down to the click it comes to. */
-const PRESS_KINDS = ["pointerdown", "mousedown", "pointerup", "mouseup", "click"];
+/** What a page's reporter takes for a press: the pointer going down and coming up, each also as the mouse the browser makes of it. */
+const PRESS_KINDS = ["pointerdown", "mousedown", "pointerup", "mouseup"];
 
-/** The page presses its own field and lets it go again, as a script can and no person did. */
+/** The page presses its own field and lets it go again, down to the click that comes of it, as a script can and no person did. */
 const pressItself = (page: Page) =>
   inside(page)
     .locator("#field")
     .evaluate((field, kinds) => {
-      for (const kind of kinds) {
+      for (const kind of [...kinds, "click"]) {
         const made = { bubbles: true, composed: true, detail: 1 };
         field.dispatchEvent(kind.startsWith("pointer") ? new PointerEvent(kind, { ...made, isPrimary: true }) : new MouseEvent(kind, made));
       }
@@ -85,6 +85,26 @@ const grab = (page: Page) =>
       window.focus();
       document.getElementById("field")?.focus();
     });
+
+/** A page that goes on taking the keyboard for its button, which the keys meant for the message then press. */
+const TAKING = 'setInterval(function () { window.focus(); document.getElementById("go").focus(); }, 100);';
+
+/** What a page can have every event in it say of itself: each is read off a prototype the page may write to. */
+const DRESSED = {
+  "a pointer made it": 'Object.defineProperty(UIEvent.prototype, "detail", { get: function () { return 1; } });',
+  "it is a pointer coming up": 'Object.defineProperty(Event.prototype, "type", { get: function () { return "pointerup"; } });',
+};
+
+/** The person goes on pressing Enter for the message: the page is stopped all the same, and the keys after it are the message's. */
+async function entersUntilStopped(page: Page) {
+  const stopped = page.getByText(words.grabbing);
+  for (let key = 0; key < 150 && !(await stopped.isVisible()); key++) await page.keyboard.press("Enter");
+
+  await expect(stopped).toBeVisible();
+  await expect(frame(page)).toHaveCount(0);
+  await page.keyboard.type(TYPED);
+  await expect(composer(page)).toHaveValue(TYPED);
+}
 
 test.describe("the keyboard beside a page in the canvas", () => {
   test.use({ viewport: { width: 1440, height: 900 } });
@@ -204,19 +224,23 @@ test.describe("the keyboard beside a page in the canvas", () => {
 
   test("stays with the message when the keys meant for it press a button of a page that goes on taking it", async ({ page }) => {
     // Enter on a button is a click the browser vouches for, and a page that took the keyboard gets
-    // the keys typed while it is waited on. No pointer made that click: it is no press.
-    const taking = 'setInterval(function () { window.focus(); document.getElementById("go").focus(); }, 100);';
-    await openPage(page, BUTTON + script(taking));
+    // the keys typed while it is waited on. No pointer went down or came up for it: it is no press.
+    await openPage(page, BUTTON + script(TAKING));
     await composer(page).click();
 
-    const stopped = page.getByText(words.grabbing);
-    for (let key = 0; key < 150 && !(await stopped.isVisible()); key++) await page.keyboard.press("Enter");
-
-    await expect(stopped).toBeVisible();
-    await expect(frame(page)).toHaveCount(0);
-    await page.keyboard.type(TYPED);
-    await expect(composer(page)).toHaveValue(TYPED);
+    await entersUntilStopped(page);
   });
+
+  for (const [said, dressing] of Object.entries(DRESSED)) {
+    test(`stays with the message when that page has the click those keys make say ${said}`, async ({ page }) => {
+      // The browser vouches for who made an event and for nothing else it says: the rest is read
+      // off a prototype, which the page wrote to before it took the keyboard.
+      await openPage(page, BUTTON + script(`${dressing}\n${TAKING}`));
+      await composer(page).click();
+
+      await entersUntilStopped(page);
+    });
+  }
 
   test("stays with the message when the page makes up a press of its own before it takes it", async ({ page }) => {
     const made = PRESS_KINDS.map((kind) => `window.addEventListener("${kind}", function () { ${count("presses")} });`).join("\n");
