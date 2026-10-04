@@ -145,6 +145,8 @@ describe("the person settling a conflict", () => {
     expect(canvas.state.base.version).toBe(6);
     expect(canvas.state.conflict).toBeNull();
     expect(effects).toContainEqual({ type: "dropDraft" });
+    // It is the newest version the canvas has heard of: there is nothing to read after it.
+    expect(getsIn(effects)).toBe(0);
     expect(statusOf(canvas.state, true)).toBe("saved");
 
     canvas.send({ type: "undo" });
@@ -163,6 +165,39 @@ describe("the person settling a conflict", () => {
     canvas.send({ type: "undo" });
 
     expect(canvas.state.text).toBe("one?\ntwo and more");
+  });
+
+  it("ends on the newest version when it loads theirs while a newer one is being read", () => {
+    const canvas = inConflict();
+    const newest = detailAt(7, "one??\ntwo", { head_author: "agent:ming" });
+    // v7 is heard of, and its read is out when the person presses.
+    expect(getsIn(canvas.send({ type: "event", artifact: summaryAt(7) }))).toBe(1);
+
+    expect(getsIn(canvas.send({ type: "loadTheirs" }))).toBe(0);
+    expect(canvas.state.text).toBe("one?\ntwo");
+    expect(statusOf(canvas.state, true)).toBe("newer");
+
+    // That read answers for the text as it was before the press and is not applied: one more is
+    // asked, and no third after it.
+    expect(getsIn(canvas.send({ type: "read", detail: newest }))).toBe(1);
+    expect(canvas.state.text).toBe("one?\ntwo");
+    expect(getsIn(canvas.send({ type: "read", detail: newest }))).toBe(0);
+
+    expect(canvas.state.text).toBe("one??\ntwo");
+    expect(canvas.state.base.version).toBe(7);
+    expect(statusOf(canvas.state, true)).toBe("saved");
+  });
+
+  it("reads at once when it loads theirs knowing of a newer version that no read is out for", () => {
+    const canvas = inConflict();
+    canvas.send({ type: "event", artifact: summaryAt(7) });
+    canvas.send({ type: "readFailed", status: 500 });
+
+    expect(getsIn(canvas.send({ type: "loadTheirs" }))).toBe(1);
+    canvas.send({ type: "read", detail: detailAt(7, "one??\ntwo", { head_author: "agent:ming" }) });
+
+    expect(canvas.state.text).toBe("one??\ntwo");
+    expect(statusOf(canvas.state, true)).toBe("saved");
   });
 
   it("shows the newest version in the conflict when another one arrives", () => {
@@ -228,6 +263,8 @@ describe("restoring an older version", () => {
     expect(canvas.state.text).toBe("old text");
     expect(canvas.state.base).toEqual({ version: 9, content: "old text", author: "user" });
     expect(effects).toContainEqual({ type: "dropDraft" });
+    // The version the restore made is the newest the canvas has heard of: nothing is read.
+    expect(getsIn(effects)).toBe(0);
     expect(putsIn(typeAndPause(canvas, "old text!"))).toEqual([
       { type: "put", content: "old text!", baseVersion: 9, hidden: false },
     ]);
@@ -240,6 +277,37 @@ describe("restoring an older version", () => {
 
     expect(statusOf(canvas.state, true)).toBe("saved");
     expect(canvas.state.conflict).toBeNull();
+  });
+
+  it("ends on a version written over the restore, whose read was out when the restore's reply came", () => {
+    const canvas = openOn("a");
+    const newest = detailAt(7, "old, and more", { head_author: "agent:ming" });
+    // The restore made v6 and an agent wrote v7 over it; the canvas hears of v7 first.
+    expect(getsIn(canvas.send({ type: "event", artifact: summaryAt(7) }))).toBe(1);
+
+    expect(getsIn(canvas.send({ type: "restored", version: 6, content: "old" }))).toBe(0);
+    expect(canvas.state.text).toBe("old");
+    expect(statusOf(canvas.state, true)).toBe("newer");
+
+    expect(getsIn(canvas.send({ type: "read", detail: newest }))).toBe(1);
+    expect(canvas.state.text).toBe("old");
+    expect(getsIn(canvas.send({ type: "read", detail: newest }))).toBe(0);
+
+    expect(canvas.state.text).toBe("old, and more");
+    expect(canvas.state.base.version).toBe(7);
+    expect(statusOf(canvas.state, true)).toBe("saved");
+  });
+
+  it("reads at once after a restore under a version it has heard of, when no read is out", () => {
+    const canvas = openOn("a");
+    canvas.send({ type: "event", artifact: summaryAt(7) });
+    canvas.send({ type: "readFailed", status: 500 });
+
+    expect(getsIn(canvas.send({ type: "restored", version: 6, content: "old" }))).toBe(1);
+    canvas.send({ type: "read", detail: detailAt(7, "old, and more", { head_author: "agent:ming" }) });
+
+    expect(canvas.state.text).toBe("old, and more");
+    expect(statusOf(canvas.state, true)).toBe("saved");
   });
 
   it("ignores a restore reply older than a version it already has", () => {

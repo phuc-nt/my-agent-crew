@@ -2121,7 +2121,15 @@ tên một test thì sửa dòng của nó trong cùng commit.
     (409 của chính lần lưu mất reply là base chứ không phải xung đột, phím gõ trong lúc lưu được trộn,
     "merges again when the merged save meets yet another version, and loses nothing", `keepMine` và
     `loadTheirs` rồi lấy lại chữ của mình được cho tới khi gõ, 409 giữa lúc soạn IME chờ
-    `compositionend`, khôi phục đặt chữ và base không chờ luồng); `web/src/lib/canvas-draft.test.ts`
+    `compositionend`, khôi phục đặt chữ và base không chờ luồng; "ends on the newest version when it
+    loads theirs while a newer one is being read": bấm "Nạp bản mới" lúc lần đọc bản mới hơn nữa
+    đang bay thì lần đọc đó không được áp vào chữ vừa thay, máy hỏi đúng một lần đọc nữa, không có
+    lần thứ ba, và canvas dừng ở bản mới nhất với trạng thái đã lưu; "reads at once when it loads
+    theirs knowing of a newer version that no read is out for": lần đọc trước đó hỏng thì "Nạp bản
+    mới" hỏi đọc ngay; nạp đúng bản mới nhất đã nghe tới thì không đọc gì; "ends on a version
+    written over the restore, whose read was out when the restore's reply came" và "reads at once
+    after a restore under a version it has heard of, when no read is out": khôi phục cũng vậy, còn
+    khôi phục thành bản mới nhất thì không đọc gì); `web/src/lib/canvas-draft.test.ts`
     (nháp chỉ của đúng canvas, xoá khoá cũ trước khi ghi nên kho đầy không để lại nháp, trình duyệt từ
     chối thì báo và tab giữ nháp, "clears a draft only while it still holds the text that was saved",
     giữ mười nháp mới nhất, bỏ nháp quá ba mươi ngày và nháp hỏng; hết quota thì bỏ nháp cũ nhất từng
@@ -2197,7 +2205,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     sau đang tải không lưu gì cho nó, "lets a canvas left behind finish its save without reading it
     again or showing it", cờ nháp hỏng không theo sang canvas sau);
     `web/src/hooks/use-canvas-sync.test.ts` (đọc lại khi luồng nối lại sau lần rớt mà không đọc lúc mới
-    nối, khi tab hiện, khi event báo bản mới; lần lưu không reply tới hạn (30 giây, thêm một giây cho mỗi
+    nối, khi tab hiện, khi event báo bản mới; "ends on the newest version when the newer one is
+    loaded while a read of one newer still is out": với server giả, xung đột đang đứng ở v2, v3 được
+    báo và lần đọc nó bị giữ lại, bấm "Nạp bản mới" rồi thả lần đọc thì hook đọc thêm đúng một lần
+    (ba `GET` cả thảy) và dừng ở chữ của v3, trạng thái đã lưu; lần lưu không reply tới hạn (30 giây, thêm một giây cho mỗi
     50 KiB thân) là chậm chứ không phải mất và được gửi lại;
     nháp qua lần mount thử của StrictMode; "opens text typed after a save that landed unheard as the
     person's draft, not as a clash"; năm test `flush`); `web/src/lib/canvas-handoff.test.ts` (lần lưu

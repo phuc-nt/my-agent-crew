@@ -58,6 +58,36 @@ describe("keeping an open canvas up with the server", () => {
     expect(result.current.status).toBe("saved");
   });
 
+  it("ends on the newest version when the newer one is loaded while a read of one newer still is out", async () => {
+    backend.canvas.add({ content: "a" });
+    const { result } = await openCanvas();
+    const tell = backend.canvas.onEvent;
+    // v2 is written unheard, so the person's save meets it and the choice is asked.
+    backend.canvas.onEvent = null;
+    backend.canvas.write("a1", "x");
+    act(() => result.current.edit("ab"));
+    expect(await act(() => result.current.flush())).toBeNull();
+    expect(result.current.status).toBe("conflict");
+    // v3 is heard of, and its read is still on the wire when "Nạp bản mới" is pressed.
+    backend.canvas.onEvent = tell;
+    const release = backend.canvas.holdNext("GET /artifacts/a1", "request");
+    act(() => {
+      backend.canvas.write("a1", "y");
+    });
+    expect(sent(backend, "GET")).toHaveLength(2);
+
+    act(() => result.current.loadTheirs());
+    expect(result.current.state.text).toBe("x");
+    expect(result.current.status).toBe("newer");
+    await act(release);
+    await landed();
+
+    expect(result.current.state.text).toBe("y");
+    expect(result.current.state.base.version).toBe(3);
+    expect(result.current.status).toBe("saved");
+    expect(sent(backend, "GET")).toHaveLength(3);
+  });
+
   it("takes a save with no reply at its deadline as slow, not failed, and sends it again", async () => {
     backend.canvas.add({ content: "a" });
     const { result } = await openCanvas();

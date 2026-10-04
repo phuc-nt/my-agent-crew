@@ -104,6 +104,7 @@ function loadTheirs(state: CanvasState, effects: CanvasEffect[]): void {
   state.conflict = null;
   state.undo = mine;
   effects.push({ type: "dropDraft" });
+  readNewer(state, effects);
 }
 
 /** A restore went through: its version is the text and the base, without waiting for the stream. */
@@ -118,6 +119,16 @@ function restored(state: CanvasState, effects: CanvasEffect[], version: number, 
   state.seen = Math.max(state.seen, version);
   effects.push({ type: "dropDraft" });
   settleAll(state, effects, version);
+  readNewer(state, effects);
+}
+
+/**
+ * The text was just replaced by a version handed to the canvas, so a read that is out answers for
+ * text that is gone and will not be applied. A version heard of that is newer still is asked for
+ * again: nothing else would, and the canvas would rest behind it.
+ */
+function readNewer(state: CanvasState, effects: CanvasEffect[]): void {
+  if (state.seen > state.base.version) requestRead(state, effects);
 }
 
 function composition(state: CanvasState, effects: CanvasEffect[], composing: boolean): void {
