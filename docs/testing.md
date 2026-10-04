@@ -1879,8 +1879,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     là nửa phút chứ không thành một phút, và request thật sống tới đúng hạn đã nới. Lần đọc có nhóm "a read
     coming back" ở cùng tệp: gửi đi cái server giữ và không để timer nào lại, "says the canvas could
     not be read when what came back cannot be taken in, instead of leaving it loading" (thân trả về
-    mà máy trạng thái không nhận được thì báo đọc hỏng chứ không treo ở "đang tải"), lần đọc bị từ
-    chối báo hỏng kèm status đúng một lần.
+    mà máy trạng thái không nhận được thì báo đọc hỏng chứ không treo ở "đang tải"), "says in the
+    console what it could not take in" (lỗi ấy được ghi ra console đúng một lần kèm chính exception,
+    vì canvas chỉ nói là không đọc được), lần đọc bị từ chối báo hỏng kèm status đúng một lần và không
+    ghi gì ra console.
     `web/src/lib/canvas-runner-wait.test.ts` giữ `waitMs` của runner (0 khi chưa có lần lưu nào, cả
     hạn lúc lần lưu đi rồi ít dần, dài hơn với lần lưu lớn, về 0 khi lần lưu xong hay hết hạn, và vẫn là
     0 chứ không âm khi đồng hồ nhảy qua hạn trước lúc timer chạy) và nhóm "a save the link was too slow

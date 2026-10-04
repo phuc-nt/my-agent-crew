@@ -91,9 +91,10 @@ export function requestRead(id: string, send: Send): AbortController {
     clearTimeout(timer);
     try {
       send(input);
-    } catch {
+    } catch (error) {
       // A reply the machine cannot take in leaves the canvas loading for good: it says it could
-      // not be read, and offers to try again.
+      // not be read, and offers to try again. Why is said in the console, the only place it shows.
+      console.error("a canvas reply could not be taken in", error);
       send({ type: "readFailed", status: null });
     }
   };

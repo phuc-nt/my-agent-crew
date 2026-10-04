@@ -181,6 +181,7 @@ describe("a read coming back", () => {
 
   it("says the canvas could not be read when what came back cannot be taken in, instead of leaving it loading", async () => {
     backend.canvas.add({ content: "a" });
+    vitest.spyOn(console, "error").mockImplementation(() => {});
     const unreadable = (input: CanvasInput) => {
       heard.push(input);
       if (input.type === "read") throw new Error("a detail the machine cannot take in");
@@ -194,10 +195,29 @@ describe("a read coming back", () => {
     expect(vitest.getTimerCount()).toBe(0);
   });
 
-  it("says a read the server refused failed, with its status, once", async () => {
+  it("says in the console what it could not take in: the canvas only says it could not be read", async () => {
+    backend.canvas.add({ content: "a" });
+    const logged = vitest.spyOn(console, "error").mockImplementation(() => {});
+    const crash = new Error("a detail the machine cannot take in");
+    const unreadable = (input: CanvasInput) => {
+      heard.push(input);
+      if (input.type === "read") throw crash;
+    };
+
+    requestRead("a1", unreadable);
+    await landed();
+
+    expect(logged).toHaveBeenCalledTimes(1);
+    expect(logged).toHaveBeenCalledWith("a canvas reply could not be taken in", crash);
+  });
+
+  it("says a read the server refused failed, with its status, once, and nothing in the console", async () => {
+    const logged = vitest.spyOn(console, "error").mockImplementation(() => {});
+
     requestRead("gone", send);
     await landed();
 
     expect(heard).toEqual([{ type: "readFailed", status: 404 }]);
+    expect(logged).not.toHaveBeenCalled();
   });
 });
