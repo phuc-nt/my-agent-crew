@@ -1566,7 +1566,21 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "test_a_write_that_fails_leaves_the_old_file_whole_and_no_other_behind": `os.replace` ném
     `OSError` thì tệp cũ nguyên vẹn, không sót tệp tạm, lời báo không có đường dẫn của máy,
     "test_a_file_marked_read_only_is_not_replaced",
-    "test_a_new_file_gets_the_mode_of_any_written_file_and_an_old_one_keeps_its_own")
+    "test_a_new_file_gets_the_mode_of_any_written_file_and_an_old_one_keeps_its_own");
+    `tests/test_kit_hooks_canvas_files.py` (hook của kit và hai tool canvas chạm tệp:
+    "test_a_hook_that_guards_files_is_asked_about_the_canvas_tools_that_carry_them": hook có
+    matcher `Read|Write|Edit|Bash` hay `workspace_read|workspace_write` chặn cả `workspace_read`,
+    `workspace_write`, `artifact_import` và `artifact_export`,
+    "test_a_hook_is_asked_only_about_the_canvas_tool_that_does_what_it_guards": hook chỉ nêu
+    `Write` không được hỏi về lần nhập, hook chỉ nêu `Read` không được hỏi về lần xuất, cả trước
+    lẫn sau lời gọi, hook nêu tên tool canvas chỉ được hỏi về đúng tool đó,
+    "test_front_matter_still_reads_a_harness_name_as_the_plain_file_tool": `Read` trong front
+    matter vẫn là `workspace_read`, payload giữ `tool_name` thật và mang `tool_alias` là `Write` /
+    `Read`, "test_a_hook_that_refuses_writes_stops_an_export_before_any_file_is_made" và
+    "test_a_hook_that_refuses_reads_stops_an_import_before_any_canvas_is_made": qua sổ đăng ký
+    tool thật, hook chặn thì không tệp nào được ghi và không canvas nào được tạo,
+    "test_the_hooks_of_an_agents_kit_stand_before_its_canvas_file_tools": hook trong profile của
+    agent đứng trước hai tool đó trong sổ đăng ký lắp từ profile)
 - **Canvas: kênh nào ghi được, agent với tới canvas nào, một lượt ghi bao nhiêu, ai viết các bản
   chưa thấy**
   - pytest: `tests/test_artifact_scope.py`

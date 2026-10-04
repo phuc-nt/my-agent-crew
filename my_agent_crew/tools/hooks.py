@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from my_agent_crew import texts
-from my_agent_crew.agents.kit_hooks import POST, PRE, TOOL_ALIASES, Hook
+from my_agent_crew.agents.kit_hooks import POST, PRE, Hook, tool_alias
 
 logger = logging.getLogger(__name__)
 BLOCK_EXIT = 2
@@ -96,7 +96,7 @@ class HookRunner:
         return {
             "hook_event_name": event,
             "tool_name": name,
-            "tool_alias": TOOL_ALIASES.get(name, name),
+            "tool_alias": tool_alias(name),
             "tool_input": arguments,
             "agent_id": self.agent_id,
             "cwd": cwd,

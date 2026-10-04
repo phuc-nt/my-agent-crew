@@ -364,7 +364,11 @@ Mỗi phần ánh xạ sang gì:
 **Hook** chạy lệnh với cùng JSON trên stdin mà các harness gửi:
 `hook_event_name`, `tool_name`, `tool_alias` (tên bên harness, `Bash` cho `shell_run`),
 `tool_input`, `agent_id`, `cwd`, và `tool_response` sau lời gọi. Matcher là regex
-trên cả hai tên, nên hook viết cho `Bash` sẽ kích hoạt với `shell_run`. Mã thoát 2, hoặc JSON
+trên cả hai tên, nên hook viết cho `Bash` sẽ kích hoạt với `shell_run`. Hai tool canvas chạm
+tệp trong workspace được hỏi như tool tệp tương ứng: hook nêu `Read` hay `workspace_read` cũng
+được hỏi về `artifact_import`, hook nêu `Write` hay `workspace_write` cũng được hỏi về
+`artifact_export`; `tool_name` vẫn là tên thật, `tool_alias` là `Read` / `Write`, và
+`tool_input.path` là đường dẫn tệp. Mã thoát 2, hoặc JSON
 với `decision: block` / `permissionDecision: deny`, chặn lời gọi và model thấy
 lý do; `additionalContext` được nối vào kết quả; mọi thứ khác — thoát 1, hết giờ
 (`timeout` giây, mặc định 30), thiếu binary — cho qua, vì hàng rào mà hỏng

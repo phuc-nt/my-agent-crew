@@ -5,8 +5,9 @@
 
 A hook is a command run before (`PreToolUse`) or after (`PostToolUse`) a tool whose name
 matches. The matcher is written against the harness's tool names, so each of ours is also
-matched under the name the harness would give it (`shell_run` is `Bash`). Running them is
-`tools/hooks.py`; this module only reads the files."""
+matched under the name the harness would give it (`shell_run` is `Bash`), and a tool that
+reads or writes a workspace file by another road under the names of the one that does it
+plainly. Running them is `tools/hooks.py`; this module only reads the files."""
 
 from __future__ import annotations
 
@@ -37,6 +38,15 @@ TOOL_ALIASES = {
     "web_search": "WebSearch",
     "delegate": "Task",
 }
+# Tools that do to a workspace file what another tool does: a hook that guards the other is
+# asked about these too. Not in `TOOL_ALIASES`, which front matter reads the other way round
+# to give an agent the one tool a harness name stands for.
+ACTS_AS = {"artifact_import": "workspace_read", "artifact_export": "workspace_write"}
+
+
+def tool_alias(tool_name: str) -> str:
+    """What a harness calls the tool, or the tool it acts as; its own name when it has none."""
+    return TOOL_ALIASES.get(ACTS_AS.get(tool_name, tool_name), tool_name)
 
 
 @dataclass(frozen=True)
@@ -50,9 +60,9 @@ class Hook:
     def matches(self, tool_name: str) -> bool:
         if self.matcher in ("", "*"):
             return True
-        names = (tool_name, TOOL_ALIASES.get(tool_name, ""))
+        names = (tool_name, ACTS_AS.get(tool_name, tool_name), tool_alias(tool_name))
         try:
-            return any(name and re.fullmatch(self.matcher, name) for name in names)
+            return any(re.fullmatch(self.matcher, name) for name in names)
         except re.error:
             return self.matcher in names
 
