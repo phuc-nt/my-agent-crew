@@ -2508,8 +2508,11 @@ tên một test thì sửa dòng của nó trong cùng commit.
     giây và đi ở đúng 45 giây, ô soạn tin mở lại, server chưa có chữ mới; "leaves the save the
     longer time it was given": lần lưu ấy vẫn hạ cánh ở giây 100 và dòng báo còn đó; dòng báo mang
     đúng câu chữ, lớp `notice warn canvas-notice` và nằm trong cột chat; tin sau gửi lúc canvas đã lưu
-    thì dòng báo đi; nút "Ẩn thông báo" cất nó mà không gửi gì thêm; tin server không nhận thì không
-    báo; canvas lưu kịp hay không mở canvas nào thì không báo)
+    thì dòng báo đi; "goes with a question about a passage of the canvas, which went with the canvas
+    saved": câu hỏi về một đoạn của canvas, đi kèm bản panel vừa lưu, cũng làm dòng báo đi; câu hỏi
+    ấy không tới được server thì dòng báo còn, vì tin gửi gần nhất vẫn là tin cũ; nút "Ẩn thông báo"
+    cất nó mà không gửi gì thêm; tin server không nhận thì không báo; canvas lưu kịp hay không mở
+    canvas nào thì không báo)
 - **Canvas mà server đang mở ở hội thoại: vào hội thoại thì web mở lại nó mà không giành focus và không
   ghi gì; chỉ báo server khi người đóng canvas trên màn rộng**
   - vitest, hook: `web/src/hooks/use-canvas-focus.test.ts` nhóm "coming into a conversation" (màn rộng

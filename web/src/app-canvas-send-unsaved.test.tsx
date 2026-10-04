@@ -9,8 +9,10 @@ import { saveDeadlineMs } from "./lib/canvas-requests";
 import { SAVE_DELAY_MS } from "./lib/canvas-runner";
 import { RETRY_DELAYS_MS } from "./lib/canvas-types";
 import { bodies, box, openChat, openNote, posts, say, startApp, typeInCanvas } from "./test/canvas-app";
+import { openBox, pressSend, typeQuestion } from "./test/canvas-ask";
 import { landed, stopServer, wait } from "./test/canvas-hook";
-import { saveState } from "./test/canvas-panel";
+import { editor, saveState } from "./test/canvas-panel";
+import { pickIn } from "./test/canvas-pick";
 import type { FakeBackend } from "./test/fake-backend";
 import { slowUploads } from "./test/slow-link";
 
@@ -139,6 +141,44 @@ describe("the line saying a message went before its canvas was saved", () => {
     expect(posts(backend)).toHaveLength(2);
     expect(backend.canvas.content("a1")).toBe("đang gõ thêm");
     expect(unsavedNote()).toBeNull();
+  });
+
+  /** The person asks about the words they typed in the canvas, and the question is let run. */
+  async function askAboutTyping() {
+    pickIn(editor() as HTMLTextAreaElement, "đang gõ");
+    openBox();
+    typeQuestion("đoạn này ổn chưa?");
+    pressSend();
+    await settle();
+    await landed();
+  }
+
+  it("goes with a question about a passage of the canvas, which went with the canvas saved", async () => {
+    await sentOverFailedSave();
+    expect(unsavedNote()).not.toBeNull();
+
+    await askAboutTyping();
+
+    expect(bodies(backend)[1]).toEqual({
+      text: "đoạn này ổn chưa?",
+      canvas: { artifact_id: "a1", selection: { version: 2, text: "đang gõ", line_start: 1, line_end: 1 } },
+    });
+    expect(backend.canvas.content("a1")).toBe("đang gõ");
+    expect(unsavedNote()).toBeNull();
+  });
+
+  it("stays when that question did not reach the server: the last message that went is still the one it tells of", async () => {
+    await sentOverFailedSave();
+    const real = backend.fetch;
+    vitest.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) =>
+      String(input).endsWith("/messages") ? Promise.reject(new TypeError("Failed to fetch")) : real(input, init),
+    );
+
+    await askAboutTyping();
+
+    expect(posts(backend)).toHaveLength(1);
+    expect(backend.canvas.content("a1")).toBe("đang gõ");
+    expect(unsavedNote()).not.toBeNull();
   });
 
   it("is put away by its own button, and by nothing else on the way", async () => {

@@ -194,6 +194,8 @@ export function ChatScreen({
     const id = list.activeId;
     if (activeRef.current !== id) return { status: "failed", error: vi.canvas.ask.elsewhere };
     const result = await sendRef.current(question, canvas);
+    // It went with the canvas as the panel saved it: the message that went unsaved is no longer the last.
+    if (result.status !== "failed") dock.noteSentUnsaved(false);
     // Only the conversation the question went to has an overlay to put away.
     if (!wide && result.status !== "failed" && activeRef.current === id) void closeDock();
     return result;
