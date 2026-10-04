@@ -2375,7 +2375,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     sổ khác, từ không đâu — kể cả khi khung đã đi —, từ origin khác `null`, dữ liệu không phải object
     hay không phải `canvas-error`, `message` không phải chữ; giữ `message` rỗng; cắt `message` ở 2000
     ký tự và tên tệp ở 300, không bao giờ cắt giữa hai nửa một ký tự ngoài mặt phẳng cơ bản; vị trí
-    không phải số đếm thành 0; không giữ gì của trang ngoài bốn trường), nhóm "where a page says its
+    không phải số đếm thành 0; "turns a position too large to be a count into 0, and keeps the
+    largest that is one": `1e308`, `2 ** 53` thành 0 nên danh sách không hiện `1e+308`, còn
+    `Number.MAX_SAFE_INTEGER` được giữ; không giữ gì của trang ngoài bốn trường), nhóm "where a page says its
     error is" và nhóm "a file the page asked for that did not arrive";
     `web/src/lib/clip-text.test.ts` (chữ vừa chỗ thì để nguyên, giữ các đơn vị đầu, bỏ cả cặp chứ
     không để lại nửa đầu của nó); `web/src/components/canvas/canvas-frame.test.tsx` nhóm "what the

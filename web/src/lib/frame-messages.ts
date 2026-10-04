@@ -19,9 +19,12 @@ export const FRAME_REPORTS_MAX = 50;
 
 export type FrameError = { message: string; source: string; line: number; column: number };
 
-/** A position the page named: a count, or 0 for anything else. */
-const position = (value: unknown): number =>
-  typeof value === "number" && Number.isFinite(value) && value >= 0 ? Math.floor(value) : 0;
+/** A position the page named: a count, its fraction cut off, or 0 for anything else. A number too
+ *  large to count with is no position either, and would be shown as `1e+308`. */
+function position(value: unknown): number {
+  const whole = typeof value === "number" ? Math.floor(value) : 0;
+  return Number.isSafeInteger(whole) && whole > 0 ? whole : 0;
+}
 
 /** Whether the report says a file the page asked for did not arrive: its own reporter words those
  *  with no line, where a script's error names the line it was thrown on. */

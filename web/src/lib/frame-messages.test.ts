@@ -97,6 +97,20 @@ describe("what a page in the canvas frame may tell the panel", () => {
     expect(fraction).toMatchObject({ line: 3, column: 7 });
   });
 
+  it("turns a position too large to be a count into 0, and keeps the largest that is one", () => {
+    const frame = frameOf(own);
+    for (const value of [1e308, Number.MAX_VALUE, 1e21, 2 ** 53]) {
+      const taken = parseFrameMessage(messageFrom(own, { ...report, line: value, column: value }), frame);
+      expect(taken).toMatchObject({ line: 0, column: 0 });
+      // What the list would show for it: the file alone, and no `1e+308` after it.
+      expect(taken && where(taken)).toBe("page.html");
+    }
+    const largest = Number.MAX_SAFE_INTEGER;
+    const kept = parseFrameMessage(messageFrom(own, { ...report, line: largest, column: largest }), frame);
+    expect(kept).toMatchObject({ line: largest, column: largest });
+    expect(kept && where(kept)).toBe("page.html:9007199254740991:9007199254740991");
+  });
+
   it("keeps nothing of the page beyond the four fields", () => {
     const taken = parseFrameMessage(messageFrom(own, { ...report, html: "<img onerror=x>", extra: 1 }), frameOf(own));
 
