@@ -13,11 +13,13 @@
  * Moving the frame to another address is not something a policy can stop. A second `load` of one
  * frame means it happened (a change of hash fires none), so the frame is taken out and the person is
  * told. That is a defence on top, not a barrier: an address can carry the page's data away before
- * it. A stopped page stays stopped until the person asks for it again.
+ * it. A page that goes on taking the keyboard the person did not offer it is taken out the same
+ * way (`use-frame-focus-guard.ts`). A stopped page stays stopped until the person asks for it again.
  */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { artifactApi } from "../../api/artifact-client";
+import { useFrameFocusGuard } from "../../hooks/use-frame-focus-guard";
 import { useOnline } from "../../hooks/use-online";
 import { useReloadOnReconnect } from "../../hooks/use-reload-on-reconnect";
 import { vi } from "../../i18n/vi";
@@ -44,14 +46,19 @@ type Props = {
   onError(error: FrameError): void;
 };
 
+/** What a page was stopped for: it moved itself to another address, or went on taking the keyboard. */
+type Stop = "navigated" | "grabbing";
+
 type Page = {
   /** Tells one frame from the next. */
   n: number;
   version: number;
-  phase: "loading" | "shown" | "stopped";
+  phase: "loading" | "shown" | Stop;
   /** A newer version is waiting, offered by a button because the person has the frame's focus. */
   held: boolean;
 };
+
+const isStop = (phase: Page["phase"]): phase is Stop => phase === "navigated" || phase === "grabbing";
 
 export function CanvasFrame({ artifactId, title, version, connected, onMount, onError }: Props) {
   const online = useOnline();
@@ -70,14 +77,14 @@ export function CanvasFrame({ artifactId, title, version, connected, onMount, on
   // since the last change or the tab is back in sight.
   const refresh = useCallback(() => {
     const now = latest.current;
-    if (now.page.phase === "stopped" || now.version === now.page.version) return;
+    if (isStop(now.page.phase) || now.version === now.page.version) return;
     if (document.visibilityState === "hidden") return;
     if (document.activeElement === frame.current) setPage((was) => ({ ...was, held: true }));
     else mount(now.version);
   }, [mount]);
 
   // Before the page can say anything: layout effects run before the frame's first request is answered.
-  const stopped = page.phase === "stopped";
+  const stopped = isStop(page.phase);
   useLayoutEffect(() => {
     onMount(page.version);
   }, [page.n, stopped, onMount]);
@@ -95,8 +102,11 @@ export function CanvasFrame({ artifactId, title, version, connected, onMount, on
   }, [refresh]);
 
   useReloadOnReconnect(connected, () => {
-    if (latest.current.page.phase !== "stopped") mount(latest.current.version);
+    if (!isStop(latest.current.page.phase)) mount(latest.current.version);
   });
+
+  const grabbing = useCallback(() => setPage((was) => ({ ...was, phase: "grabbing", held: false })), []);
+  const box = useFrameFocusGuard(frame, grabbing);
 
   useEffect(() => {
     const heard = (event: MessageEvent) => {
@@ -121,7 +131,7 @@ export function CanvasFrame({ artifactId, title, version, connected, onMount, on
   const loaded = (n: number) =>
     setPage((was) => {
       if (was.n !== n) return was;
-      return was.phase === "loading" ? { ...was, phase: "shown" } : { ...was, phase: "stopped", held: false };
+      return was.phase === "loading" ? { ...was, phase: "shown" } : { ...was, phase: "navigated", held: false };
     });
 
   return (
@@ -136,25 +146,27 @@ export function CanvasFrame({ artifactId, title, version, connected, onMount, on
           {vi.canvas.page.newer}
         </button>
       )}
-      {page.phase === "stopped" ? (
+      {isStop(page.phase) ? (
         <div className="notice canvas-frame-note" role="status">
-          <span>{vi.canvas.page.navigated}</span>
+          <span>{vi.canvas.page[page.phase]}</span>
           <button type="button" className="ghost" onClick={() => mount(version)}>
             {vi.canvas.page.reload}
           </button>
         </div>
       ) : (
-        <iframe
-          key={page.n}
-          ref={frame}
-          className="canvas-frame"
-          title={title}
-          sandbox="allow-scripts"
-          allow="fullscreen"
-          referrerPolicy="no-referrer"
-          src={artifactApi.renderUrl(artifactId)}
-          onLoad={() => loaded(page.n)}
-        />
+        <div ref={box} className="canvas-frame-box">
+          <iframe
+            key={page.n}
+            ref={frame}
+            className="canvas-frame"
+            title={title}
+            sandbox="allow-scripts"
+            allow="fullscreen"
+            referrerPolicy="no-referrer"
+            src={artifactApi.renderUrl(artifactId)}
+            onLoad={() => loaded(page.n)}
+          />
+        </div>
       )}
     </>
   );

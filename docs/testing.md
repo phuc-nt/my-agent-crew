@@ -2372,6 +2372,45 @@ tên một test thì sửa dòng của nó trong cùng commit.
     mọi nút trong dock ≥40px, một từ 300 ký tự trong danh sách lỗi không làm cuộn ngang).
     `web/e2e/canvas-overflow.ts` là hàm đo cuộn ngang dùng chung với `canvas.spec.ts`, đo cả
     `.canvas-errors-list`
+- **Canvas trên web: trang trong khung tự lấy focus thì bàn phím về lại chỗ người đang gõ; người đưa
+  bàn phím cho trang bằng con trỏ hoặc Tab; trang giành tới lần thứ năm thì bị gỡ**
+  - vitest: `web/src/hooks/use-frame-focus-guard.test.tsx` nhóm "the keyboard a page took unasked"
+    (một lần giành là khung có focus rồi cửa sổ app nhận `blur`; bàn phím về đúng phần tử vừa mất
+    focus, ở task kế tiếp chứ không ngay trong `blur`, bằng `focus({ preventScroll: true })`; không
+    phần tử nào giữ focus, phần tử ấy đã bị gỡ hoặc đã bị khoá thì khung bị `blur`; phần tử mất focus
+    từ task trước không được trả focus; không bao giờ trả focus cho chính khung; trang bị gỡ ở lần thứ
+    năm thì bàn phím vẫn về chỗ cũ; cửa sổ mất focus vì người sang cửa sổ khác thì không tính và không
+    đụng tới focus), nhóm "the keyboard the person offers the page" (`pointermove`, `pointerdown`,
+    `wheel` trên hộp chứa khung, con trỏ trên chính khung, hoặc phím Tab thì trang giữ bàn phím; hộp
+    mang `data-offered` đúng trong lúc ấy; con trỏ ở chỗ khác, một phím khác Tab bấm trong app, hay
+    focus tới một nút của app thì lời mời hết và lần giành kế tiếp bị trả lại), nhóm "what the app's
+    own handlers keep to themselves" (bốn loại sự kiện vẫn được thấy khi handler của app gọi
+    `stopPropagation`: nghe ở pha capture), nhóm "a page that goes on taking the keyboard" (bốn lần
+    thì chưa báo, lần thứ năm báo đúng một lần; app nhận `blur` nhiều lần trước khi bàn phím về thì
+    vẫn là một lần giành; bàn phím do người đưa thì bao nhiêu lần cũng không tính; khung mới thay
+    khung cũ bắt đầu từ không; báo cho callback mới nhất), nhóm "a guard that is taken down" (không
+    để lại timer nào, gỡ đủ bảy listener đã gắn với đúng cờ capture);
+    `web/src/components/canvas/canvas-frame.test.tsx` nhóm "a page that takes the keyboard" (khung
+    nằm trong `div.canvas-frame-box`, hộp chưa có `data-offered` cho tới khi con trỏ tới; một lần
+    giành thì trang vẫn còn và ô đang gõ có lại focus; lần thứ năm khung bị gỡ, lời báo là "Trang liên
+    tục giành bàn phím nên đã bị dừng." kèm nút Nạp lại, panel được báo như khi trang tự đổi địa chỉ;
+    đã gỡ thì đứng yên qua bản mới, nối lại và tab hiện lại; Nạp lại đưa khung mới lên và khung ấy
+    lại có đủ năm lần; bàn phím người đưa thì không bị gỡ và bản mới chờ sau nút "Có bản mới"; trang
+    tự giành thì không được coi là đang dùng, bản mới thay khung không cần nút; nút mời bản mới mất
+    khi trang bị gỡ)
+  - Playwright: `canvas-render.spec.ts` ở 1440×900, Chromium thật: "does not take the keyboard from a
+    message being written when it focuses itself" (trang gọi `window.focus()` rồi focus ô của nó; khi
+    trang đã thấy `blur` của chính nó thì ba mươi phím gõ vào đủ ô soạn tin và trang không nghe phím
+    nào); "is given the keyboard by a click in it, however often the person goes back and forth" (sáu
+    vòng bấm ô soạn tin, đưa con trỏ lên trang, bấm vào ô của trang, mũi tên tới trang; trang không bị
+    gỡ); "is given the keyboard by Tab"; "is stopped when it goes on taking the keyboard, which stays
+    where the person had it" (trang `setInterval(window.focus, 100)` bị gỡ kèm lời báo, ba mươi phím
+    gõ sau đó vào đủ ô soạn tin mà không cần bấm lại, Nạp lại đưa trang mới lên). Trước khi bấm vào
+    trong khung, test phải đưa con trỏ lên hộp (`pointAt`): chưa có lời mời thì khung không nhận con
+    trỏ (`.canvas-frame-box:not([data-offered]) > .canvas-frame` trong `canvas-page.css`); bỏ luật
+    CSS ấy thì test bấm vào trang đỏ, vì app không thấy con trỏ tới trang nên coi cú bấm là một lần
+    trang tự giành. Phần còn lại đã ghi nhận: phím bấm trong khoảng một task giữa lúc trang giành và
+    lúc bàn phím được trả lại thì tới trang
 - **Canvas trên web: svg và ảnh hiện thành hình từ bản đã lưu; ảnh chỉ để xem; hình không tải được
   thì phân biệt hình hỏng, bản đã mất, server lỗi và mất mạng**
   - vitest: `web/src/components/canvas/canvas-image.test.tsx` nhóm "a picture of a canvas" (hình là

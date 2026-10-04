@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
 import { artifactApi } from "../../api/artifact-client";
+import { GRABS_MAX, OFFERED } from "../../hooks/use-frame-focus-guard";
 import { vi } from "../../i18n/vi";
 import { FRAME_REPORTS_MAX, type FrameError } from "../../lib/frame-messages";
 import { setVisibility, wait } from "../../test/canvas-hook";
@@ -385,6 +386,185 @@ describe("a page that moves to another address", () => {
     expect(screen.getByRole("button", { name: vi.canvas.page.newer })).toBeTruthy();
 
     fireEvent.load(first);
+
+    expect(screen.queryByRole("button", { name: vi.canvas.page.newer })).toBeNull();
+    expect(screen.getByRole("button", { name: vi.canvas.page.reload })).toBeTruthy();
+  });
+});
+
+describe("a page that takes the keyboard", () => {
+  afterEach(() => {
+    for (const field of document.body.querySelectorAll(":scope > input")) field.remove();
+  });
+
+  /** A field of the app's beside the canvas, which the person is writing in. */
+  function writing(): HTMLInputElement {
+    const field = document.body.appendChild(document.createElement("input"));
+    field.focus();
+    return field;
+  }
+
+  /** The page takes the keyboard: its frame has the focus, and the app's window is told it lost it. */
+  function grab(frame: HTMLIFrameElement) {
+    act(() => {
+      frame.focus();
+      fireEvent.blur(window);
+    });
+  }
+
+  function boxOf(frame: HTMLIFrameElement): HTMLElement {
+    if (!frame.parentElement) throw new Error("the frame is in no box");
+    return frame.parentElement;
+  }
+
+  it("sits in a box that keeps the pointer for the app until the person points at the page", () => {
+    const { container } = setup();
+    const box = boxOf(frameIn(container));
+
+    expect(box.className).toBe("canvas-frame-box");
+    expect(box.hasAttribute(OFFERED)).toBe(false);
+
+    fireEvent.pointerMove(box);
+    expect(box.hasAttribute(OFFERED)).toBe(true);
+  });
+
+  it("does not keep it: the keyboard is back where the person was writing, and the page stays", () => {
+    const { container } = setup();
+    const first = frameIn(container);
+    fireEvent.load(first);
+    const field = writing();
+
+    grab(first);
+    wait(0);
+
+    expect(document.activeElement).toBe(field);
+    expect(frameIn(container)).toBe(first);
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("is taken out the fifth time it does, the person is told why, and the keyboard is theirs", () => {
+    const { container, onMount } = setup();
+    const first = frameIn(container);
+    fireEvent.load(first);
+    const field = writing();
+
+    for (let take = 1; take < GRABS_MAX; take++) {
+      grab(first);
+      wait(0);
+    }
+    expect(frameIn(container)).toBe(first);
+    expect(onMount.mock.calls).toEqual([[1]]);
+
+    grab(first);
+    expect(container.querySelector("iframe")).toBeNull();
+    expect(screen.getByRole("status").textContent).toBe(`${vi.canvas.page.grabbing}${vi.canvas.page.reload}`);
+    expect(vi.canvas.page.grabbing).toBe("Trang liên tục giành bàn phím nên đã bị dừng.");
+    expect(onMount.mock.calls).toEqual([[1], [1]]);
+
+    wait(0);
+    expect(document.activeElement).toBe(field);
+  });
+
+  it("stays stopped for it, whatever else happens, until the person asks for the page again", () => {
+    const { container, onMount, show } = setup();
+    const first = frameIn(container);
+    fireEvent.load(first);
+    for (let take = 0; take < GRABS_MAX; take++) {
+      grab(first);
+      wait(0);
+    }
+
+    show({ version: 2 });
+    wait(RELOAD_DELAY_MS * 3);
+    show({ version: 2, connected: false });
+    show({ version: 2, connected: true });
+    setVisibility("hidden");
+    setVisibility("visible");
+
+    expect(container.querySelector("iframe")).toBeNull();
+    expect(screen.getByRole("status").textContent).toBe(`${vi.canvas.page.grabbing}${vi.canvas.page.reload}`);
+    expect(onMount.mock.calls).toEqual([[1], [1]]);
+  });
+
+  it("is put up again when the person asks, with nothing held against the new frame", () => {
+    const { container, onMount } = setup();
+    const first = frameIn(container);
+    fireEvent.load(first);
+    for (let take = 0; take < GRABS_MAX; take++) {
+      grab(first);
+      wait(0);
+    }
+
+    fireEvent.click(screen.getByRole("button", { name: vi.canvas.page.reload }));
+    const again = frameIn(container);
+    expect(again).not.toBe(first);
+    expect(onMount.mock.calls).toEqual([[1], [1], [1]]);
+    expect(screen.getByRole("status").textContent).toBe(vi.canvas.page.loading);
+    fireEvent.load(again);
+
+    for (let take = 1; take < GRABS_MAX; take++) {
+      grab(again);
+      wait(0);
+    }
+    expect(frameIn(container)).toBe(again);
+
+    grab(again);
+    expect(container.querySelector("iframe")).toBeNull();
+  });
+
+  it("keeps the keyboard the person gave it, however often, and a newer version waits for them", () => {
+    const { container, show } = setup();
+    const first = frameIn(container);
+    fireEvent.load(first);
+
+    for (let round = 0; round <= GRABS_MAX; round++) {
+      writing();
+      fireEvent.pointerMove(boxOf(first));
+      grab(first);
+      wait(0);
+      expect(document.activeElement).toBe(first);
+    }
+    show({ version: 2 });
+    wait(RELOAD_DELAY_MS);
+
+    expect(frameIn(container)).toBe(first);
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.getByRole("button", { name: vi.canvas.page.newer })).toBeTruthy();
+  });
+
+  it("is not a page the person is using: a newer version replaces it without a button", () => {
+    const { container, onMount, show } = setup();
+    const first = frameIn(container);
+    fireEvent.load(first);
+    const field = writing();
+
+    show({ version: 2 });
+    wait(RELOAD_DELAY_MS - 1);
+    grab(first);
+    wait(1);
+
+    expect(frameIn(container)).not.toBe(first);
+    expect(onMount.mock.calls).toEqual([[1], [2]]);
+    expect(screen.queryByRole("button", { name: vi.canvas.page.newer })).toBeNull();
+    expect(document.activeElement).toBe(field);
+  });
+
+  it("drops the button for a newer version when the page is stopped for it", () => {
+    const { container, show } = setup();
+    const first = frameIn(container);
+    fireEvent.load(first);
+    fireEvent.pointerMove(boxOf(first));
+    grab(first);
+    show({ version: 2 });
+    wait(RELOAD_DELAY_MS);
+    expect(screen.getByRole("button", { name: vi.canvas.page.newer })).toBeTruthy();
+
+    // The person goes back to writing, and the page takes the keyboard from them time after time.
+    writing();
+    for (let take = 0; take < GRABS_MAX; take++) {
+      grab(first);
+      wait(0);
+    }
 
     expect(screen.queryByRole("button", { name: vi.canvas.page.newer })).toBeNull();
     expect(screen.getByRole("button", { name: vi.canvas.page.reload })).toBeTruthy();

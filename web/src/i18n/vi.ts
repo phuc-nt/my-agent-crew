@@ -1102,6 +1102,7 @@ export const vi = {
       newer: "Có bản mới · Nạp lại",
       reload: "Nạp lại",
       navigated: "Trang vừa tự chuyển sang địa chỉ khác nên đã bị dừng.",
+      grabbing: "Trang liên tục giành bàn phím nên đã bị dừng.",
       savedVersion: (version: number) => `Đang xem bản đã lưu v${version}; thay đổi chưa lưu chưa hiện.`,
       imageBroken: "Không hiện được ảnh",
       imageWaiting: "Chờ có mạng để tải ảnh…",

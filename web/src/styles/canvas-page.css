@@ -28,6 +28,13 @@
   align-self: flex-start;
 }
 
+.canvas-frame-box {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 /* White, as the page would be in a tab of its own: the app's colour scheme is not the page's. */
 .canvas-frame {
   flex: 1 1 auto;
@@ -37,8 +44,14 @@
   background: #fff;
 }
 
+/* Until the person points at the page, the pointer over it is the app's to see: that is how the
+   app knows they did (use-frame-focus-guard.ts). */
+.canvas-frame-box:not([data-offered]) > .canvas-frame {
+  pointer-events: none;
+}
+
 @media (max-width: 720px) {
-  .canvas-frame {
+  .canvas-frame-box {
     min-height: 60vh;
   }
 }
