@@ -55,12 +55,12 @@ describe("a canvas write in the thread", () => {
 
   it("says a write left the canvas as it was, for an edit and a rewrite alike", () => {
     const edit = shown(call("artifact_edit", { output: `${tag(NOTE, 3, true)}\nNothing to change.` }));
-    expect(root()).toHaveTextContent(card.version(card.unchanged, 3));
+    expect(root()).toHaveTextContent("Không đổi · v3");
     expect(root()).not.toHaveTextContent(card.edited);
     edit.unmount();
 
     shown(call("artifact_rewrite", { output: `${tag(NOTE, 5, true)}\nSame text.` }));
-    expect(root()).toHaveTextContent(card.version(card.unchanged, 5));
+    expect(root()).toHaveTextContent("Không đổi · v5");
     expect(root()).not.toHaveTextContent(card.rewritten);
   });
 

@@ -70,11 +70,11 @@ describe("a file read into a canvas, in the thread", () => {
 
   it("says the file held what the canvas does, whether or not the call named the canvas", () => {
     const named = shown(imported({ arguments: { path: "thuc-don.md", id: NOTE }, output: tag(3, true) }));
-    expect(line()).toBe(card.version(card.unchanged, 3));
+    expect(line()).toBe("Không đổi · v3");
     named.unmount();
 
     shown(imported({ arguments: { path: "thuc-don.md" }, output: tag(1, true) }));
-    expect(line()).toBe(card.version(card.unchanged, 1));
+    expect(line()).toBe("Không đổi · v1");
   });
 
   it("says what was done without a version when the result carries no tag", () => {

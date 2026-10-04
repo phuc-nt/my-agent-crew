@@ -214,10 +214,13 @@ describe("where the canvas came from", () => {
 
     act(() => backend.canvas.remove("a1"));
 
+    // The line, the place a re-import says its news in, then the panel's own words.
     const body = container.querySelector(".canvas-body");
     expect(body?.children[0]).toHaveClass("canvas-source");
-    expect(body?.children[1]).toBe(screen.getByRole("alert"));
-    expect(body?.children[1].textContent).toBe(`${vi.canvas.gone} ${vi.canvas.goneHint}`);
+    expect(body?.children[1]).toHaveAttribute("role", "status");
+    expect(body?.children[1].textContent).toBe("");
+    expect(body?.children[2]).toBe(screen.getByRole("alert"));
+    expect(body?.children[2].textContent).toBe(`${vi.canvas.gone} ${vi.canvas.goneHint}`);
   });
 
   it("saves the typing through the dock before the file is read, and asks for nothing when the dock could not", async () => {
@@ -230,7 +233,7 @@ describe("where the canvas came from", () => {
     await landed();
 
     expect(flush).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole("alert").textContent).toBe(vi.canvas.source.unsaved);
+    expect(screen.getByRole("alert").textContent).toBe("Chưa lưu được bản đang sửa nên chưa nhập lại.");
     expect(backend.requests.filter((request) => request.method === "POST")).toEqual([]);
     expect(editor()?.value).toBe("a");
   });

@@ -33,3 +33,25 @@
   align-items: center;
   overflow-wrap: anywhere;
 }
+
+/* Held off while the file is read, yet still focusable: a disabled button would drop the keyboard
+   onto the page. It looks as a disabled one does, and gives nothing under the pointer. */
+.canvas-source button.ghost[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.canvas-source button.ghost[aria-disabled="true"]:hover {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.canvas-source button.ghost[aria-disabled="true"]:active {
+  transform: none;
+}
+
+/* The place a re-import says its news in stays in the panel while it has none, so the news is
+   announced when it comes. Empty, it gives back the gap the panel's body puts before it. */
+.canvas-source-news {
+  margin-top: calc(-1 * var(--space-2));
+}

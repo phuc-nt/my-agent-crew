@@ -7,6 +7,11 @@
  * drawn from it: only an http or https address that leads off this app becomes a link, named by
  * the host it leads to and by the tab it opens in, with the whole address on hover; and a path
  * shows as marks the characters nobody would see in it.
+ *
+ * The button is held off, never locked, while the file is read, on a canvas not read yet and on
+ * one that is gone: a locked button drops the keyboard that pressed it onto the page. What the
+ * read came to is said under the line, news in a place that is there before it has any, for a
+ * screen reader announces what changes inside a region it already knows.
  */
 
 import type { CanvasController } from "../../hooks/use-canvas";
@@ -40,6 +45,9 @@ export function CanvasSource({ canvas, artifactId, agentName, flush }: Props) {
   // The folder gives way on a narrow panel; the name of the file is the part that tells files apart.
   const path = `${showHiddenChars(agentName(source.agentId))}/${showPathChars(source.path)}`;
   const cut = path.lastIndexOf("/") + 1;
+  // A canvas still loading stands on no version to read the file over.
+  const off = busy || canvas.state.gone || canvas.state.phase !== "ready";
+  const news = note?.tone === "info";
   return (
     <>
       <div className="canvas-source">
@@ -48,12 +56,22 @@ export function CanvasSource({ canvas, artifactId, agentName, flush }: Props) {
           <span className="canvas-source-dir">{path.slice(0, cut)}</span>
           <span className="canvas-source-file">{path.slice(cut)}</span>
         </span>
-        <button type="button" className="ghost" disabled={busy || canvas.state.gone} onClick={() => void reimport()}>
+        <button
+          type="button"
+          className="ghost"
+          aria-disabled={off}
+          onClick={() => {
+            if (!off) void reimport();
+          }}
+        >
           {busy ? text.reimporting : text.reimport}
         </button>
       </div>
-      {note && (
-        <div className={`notice ${note.tone} canvas-notice`} role={note.tone === "error" ? "alert" : "status"}>
+      <div className={news ? "notice info canvas-notice" : "canvas-source-news"} role="status">
+        {news && note.text}
+      </div>
+      {note?.tone === "error" && (
+        <div className="notice error canvas-notice" role="alert">
           {note.text}
         </div>
       )}

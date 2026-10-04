@@ -52,6 +52,11 @@ const editor = (page: Page) => page.getByRole("textbox", { name: vi.canvas.edito
 const shown = (page: Page) => page.locator(".canvas-view");
 const line = (page: Page) => page.locator(".canvas-source");
 const again = (page: Page) => page.getByRole("button", { name: source.reimport, exact: true });
+/** The line's one button, whatever it reads at the moment. */
+const button = (page: Page) => line(page).getByRole("button");
+/** Where a re-import says its news: under the line, in the panel before there is any. */
+const place = (page: Page) => page.locator('.canvas-source + [role="status"]');
+const REIMPORT = "POST /artifacts/a1/reimport";
 const height = async (page: Page, selector: string) => (await page.locator(selector).boundingBox())?.height ?? 0;
 
 /**
@@ -117,7 +122,7 @@ test.describe("a canvas read from a workspace file, beside a wide conversation",
     await again(page).click();
 
     await expect(editor(page)).toHaveValue("Sáng: bún\n");
-    await expect(page.locator(".canvas-notice[role=status]")).toHaveText(source.changed(3));
+    await expect(page.locator(".canvas-notice[role=status]")).toHaveText("Đã nhập lại thành v3. Bản trước ở Lịch sử.");
     await expect(page.locator(".canvas-version")).toContainText("v3 · bạn");
     expect(writes).toEqual([
       { method: "PUT", path: "/artifacts/a1", body: { content: "Sáng: phở\nTrưa: cơm\n", base_version: 1 } },
@@ -136,9 +141,92 @@ test.describe("a canvas read from a workspace file, beside a wide conversation",
 
     await again(page).click();
 
-    await expect(page.locator(".canvas-notice[role=status]")).toHaveText(source.unchanged);
+    await expect(page.locator(".canvas-notice[role=status]")).toHaveText("Tệp nguồn không đổi.");
     expect(writes).toEqual([{ method: "POST", path: "/artifacts/a1/reimport", body: { base_version: 1 } }]);
     expect(fake.canvases.get("a1")?.versions).toHaveLength(1);
+  });
+
+  test("says its news in a place that was in the panel before, which takes no room while it has none", async ({ page }) => {
+    await openImported(page, FILE, "Sáng: phở\n");
+    /** The place's height, and how far under the line what follows the place begins, in row gaps. */
+    const room = () =>
+      place(page).evaluate((el) => {
+        const body = el.parentElement as Element;
+        const under = (body.querySelector(".canvas-source") as Element).getBoundingClientRect().bottom;
+        const next = (el.nextElementSibling as Element).getBoundingClientRect().top;
+        return { height: el.getBoundingClientRect().height, gaps: (next - under) / Number.parseFloat(getComputedStyle(body).rowGap) };
+      });
+
+    await expect(place(page)).toBeAttached();
+    await expect(place(page)).toHaveText("");
+    // Empty, it is no row of the panel: the text begins one gap under the line.
+    const empty = await room();
+    expect(empty.height).toBe(0);
+    expect(empty.gaps).toBeCloseTo(1, 1);
+    const before = await place(page).elementHandle();
+
+    await again(page).click();
+
+    // The same element, now with words in it: a screen reader announces what changes in a region
+    // it already knows, and not always one that arrives with its words.
+    await expect(place(page)).toHaveText("Tệp nguồn không đổi.");
+    expect(await place(page).evaluate((el, was) => el === was, before)).toBe(true);
+    await expect(place(page)).toHaveClass("notice info canvas-notice");
+    const told = await room();
+    expect(told.height).toBeGreaterThan(20);
+    expect(told.gaps).toBeGreaterThan(2);
+  });
+
+  test("keeps the keyboard on the button while the file is read, and takes no second press", async ({ page }) => {
+    const { fake, writes } = await openImported(page, FILE, "Sáng: bún\n");
+    const release = fake.holdNext(REIMPORT, "request");
+    await again(page).focus();
+
+    await page.keyboard.press("Enter");
+
+    // Held off for as long as the read is out, and not locked: a locked button gives up the focus.
+    await expect(button(page)).toHaveText("Đang nhập…");
+    await expect(button(page)).toHaveAttribute("aria-disabled", "true");
+    await expect(button(page)).toBeFocused();
+    expect(await button(page).evaluate((el) => (el as HTMLButtonElement).disabled)).toBe(false);
+    await expect(button(page)).toHaveCSS("opacity", "0.45");
+    await expect(button(page)).toHaveCSS("cursor", "not-allowed");
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("Space");
+    // The pointer too: forced, for the test's own driver holds its click back from a button held off.
+    await button(page).click({ force: true });
+    await release();
+
+    await expect(button(page)).toHaveText("Nhập lại");
+    await expect(button(page)).toHaveAttribute("aria-disabled", "false");
+    await expect(button(page)).toBeFocused();
+    await expect(button(page)).toHaveCSS("opacity", "1");
+    await expect(shown(page)).toHaveText("Sáng: bún");
+    expect(writes).toEqual([{ method: "POST", path: "/artifacts/a1/reimport", body: { base_version: 1 } }]);
+  });
+
+  test("gives up a read that never answers, says the server did not, and offers the button again", async ({ page }) => {
+    // Thirty seconds in the app; here the same deadline, asked for by the same number, runs out sooner.
+    await page.addInitScript(() => {
+      const timeout = AbortSignal.timeout.bind(AbortSignal);
+      AbortSignal.timeout = (ms: number) => timeout(ms === 30_000 ? 400 : ms);
+    });
+    const { fake, writes } = await openImported(page, FILE, "Sáng: bún\n");
+    // Never released: the request stays on the wire until the page lets go of it.
+    fake.holdNext(REIMPORT, "request");
+    const dropped: string[] = [];
+    page.on("requestfailed", (request) => dropped.push(`${request.method()} ${new URL(request.url()).pathname}`));
+
+    await again(page).click();
+    await expect(button(page)).toHaveText("Đang nhập…");
+
+    await expect(page.locator(".canvas-notice[role=alert]")).toHaveText("Không nhập lại được: máy chủ không phản hồi");
+    await expect(button(page)).toHaveText("Nhập lại");
+    await expect(button(page)).toHaveAttribute("aria-disabled", "false");
+    await expect(place(page)).toHaveText("");
+    await expect(shown(page)).toHaveText("Sáng: phở");
+    expect(dropped).toEqual(["POST /api/artifacts/a1/reimport"]);
+    expect(writes).toEqual([{ method: "POST", path: "/artifacts/a1/reimport", body: { base_version: 1 } }]);
   });
 
   test("links the page a canvas was taken from, named by its host, in a tab that cannot reach back", async ({ page }) => {
@@ -178,7 +266,7 @@ test.describe("where a canvas came from, on a phone", () => {
 
     // What the re-import says is held to the same width.
     await again(page).tap();
-    await expect(page.locator(".canvas-notice[role=status]")).toHaveText(source.changed(2));
+    await expect(page.locator(".canvas-notice[role=status]")).toHaveText("Đã nhập lại thành v2. Bản trước ở Lịch sử.");
     await expect(shown(page)).toHaveText("Sáng: bún");
     expect(await smallTargets(page, ".canvas-dock")).toEqual([]);
     expect(await overflowing(page)).toEqual([]);

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi as vitest } from "vitest";
-import { artifactApi, conflictOf, sizeCapOf, storageFullOf, versionGoneOf } from "./artifact-client";
+import { artifactApi, conflictHeadOf, conflictOf, sizeCapOf, storageFullOf, versionGoneOf } from "./artifact-client";
 import type { ArtifactDetail } from "./artifact-types";
 import { ApiError } from "./client";
 
@@ -84,16 +84,19 @@ describe("artifactApi", () => {
     expect(sent()).toMatchObject({ url: "/api/artifacts/a%2F1/reimport", method: "POST", body: { base_version: 3 } });
   });
 
-  it("passes a read's signal, and a save's signal and keepalive, through to fetch", async () => {
+  it("passes a read's signal, a re-import's, and a save's signal and keepalive, through to fetch", async () => {
     fetchMock.mockImplementation(async () => jsonResponse({}));
     const read = new AbortController();
     const save = new AbortController();
+    const again = new AbortController();
     await artifactApi.get("a1", read.signal);
     await artifactApi.save("a1", "x", 1, { signal: save.signal, keepalive: true });
     await artifactApi.save("a1", "y", 2);
+    await artifactApi.reimport("a1", 2, again.signal);
     expect(sent(0).init?.signal).toBe(read.signal);
     expect(sent(1).init).toMatchObject({ signal: save.signal, keepalive: true });
     expect(sent(2).init?.keepalive).toBeFalsy();
+    expect(sent(3).init?.signal).toBe(again.signal);
   });
 
   it("links the raw text of the newest version, of one version, and as a download", () => {
@@ -165,6 +168,16 @@ describe("canvas error shapes", () => {
     expect(conflictOf(new ApiError(409, "", { ...body, head_version: "7" }))).toBeNull();
     expect(conflictOf(new ApiError(409, "", { ...body, content: null }))).toBeNull();
     expect(conflictOf(new TypeError("Failed to fetch"))).toBeNull();
+  });
+
+  it("reads the newest version alone from a 409, which a picture's carries with no text", () => {
+    const body = { head_version: 7, content: null, author: "user" };
+    expect(conflictHeadOf(new ApiError(409, JSON.stringify(body), body))).toBe(7);
+    expect(conflictHeadOf(new ApiError(409, "", { head_version: 7 }))).toBe(7);
+    expect(conflictHeadOf(new ApiError(409, "", { ...body, head_version: "7" }))).toBeNull();
+    expect(conflictHeadOf(new ApiError(409, "conversation is busy", "conversation is busy"))).toBeNull();
+    expect(conflictHeadOf(new ApiError(412, "", body))).toBeNull();
+    expect(conflictHeadOf(new TypeError("Failed to fetch"))).toBeNull();
   });
 
   it("reads a full store's usage and its largest canvases from a 507", () => {

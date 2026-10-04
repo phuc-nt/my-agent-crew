@@ -1082,7 +1082,7 @@ export const vi = {
       outside: "Tệp nằm ngoài thư mục làm việc của agent.",
       missing: "Không còn tệp nguồn hoặc agent.",
       tooLarge: "Tệp nguồn vượt trần cỡ của loại canvas này.",
-      unfit: "Tệp nguồn không hợp với loại canvas này.",
+      unfit: "Tệp nguồn không đọc được, không phải tệp thường, hoặc không hợp với loại canvas này.",
       failed: (reason: string) => `Không nhập lại được: ${reason}`,
     },
     // The card the thread draws for each canvas write, in place of the plain tool card.

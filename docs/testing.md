@@ -3029,7 +3029,11 @@ tên một test thì sửa dòng của nó trong cùng commit.
     có khi `path` thiếu, toàn dấu `/`, không phải chữ hay trống theo cách server đọc; đoạn cuối chỉ
     gồm dấu cách vẫn là tên tệp, vì server đọc đúng tệp tên đó; cả hai chỉ hỏi về lệnh nhập);
     `web/src/api/artifact-client.test.ts` ("asks for a canvas's file to be read again, on the version
-    the text stands on": `POST …/reimport` dưới id đã mã hoá, body chỉ có `base_version`)
+    the text stands on": `POST …/reimport` dưới id đã mã hoá, body chỉ có `base_version`; "passes a
+    read's signal, a re-import's, and a save's signal and keepalive, through to fetch": `signal` của
+    lần nhập lại tới đúng `fetch`; "reads the newest version alone from a 409, which a picture's
+    carries with no text": `conflictHeadOf` lấy `head_version` của 409 kể cả khi `content` là null,
+    số viết thành chữ, 409 không phải của canvas, mã khác hay lỗi mạng thì không có gì)
   - vitest, máy trạng thái và hook: `web/src/lib/canvas-machine-sync.test.ts` ("reads once for a
     version it hears of twice while the read is out", "reads again for a version it hears of during
     a read that was asked for before it", "reads once for a version heard of twice across a
@@ -3037,7 +3041,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     luồng báo; lần đọc đó hỏng thì trạng thái là "Có thay đổi mới" chứ không phải "Đã lưu"; luồng
     báo trước rồi reply tới, hay reply tới trước rồi luồng báo, đều chỉ một lần đọc và đúng chữ;
     được báo về bản đang hiện thì không đọc gì; người đang gõ thì giữ chữ của họ và nói có thay đổi
-    đang chờ)
+    đang chờ); `web/src/hooks/use-canvas-reimport.test.ts` ("sends nothing and says the text is
+    not saved, whether the flush names none or one below the first": `flush` trả null, 0 hay -1 thì
+    không có request nào và lời báo là "Chưa lưu được bản đang sửa nên chưa nhập lại."; "asks on the
+    first version, which is one": `flush` trả 1 thì `POST` mang `base_version: 1`)
   - vitest, thành phần: `web/src/components/canvas/canvas-source.test.tsx` nhóm "where a canvas came
     from" (dòng nguồn nêu tên agent và tệp, thư mục và tên tệp tách riêng, cả đường dẫn ở `title`,
     nút nhập lại là nút phụ `ghost`;
@@ -3058,13 +3065,38 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `POST` nào và nói vậy; tệp không đổi thì nói vậy và không đọc lại; "reads a version saved
     unheard that holds what the file does, so what it calls the same is what shows": tệp giống một
     bản đã lưu mà canvas chưa nghe tới thì vẫn nói không đổi, và canvas đọc bản đó chứ không đứng ở
-    chữ cũ; nút khoá và ghi "Đang nhập…"
-    trong lúc đọc, lời báo trước biến mất; 403, 410, 413, 422 mỗi cái một câu của web, so nguyên
-    văn nên hai lời từ chối không lẫn chữ của nhau, vẻ `error`, không bao
-    giờ hiện chữ của server, và không lần nào đọc lại canvas; 413 đúng một câu dù server trả câu chữ hay object cỡ; tệp không còn là
-    410; 409 thì đọc lại canvas và không hiện gì của body từ chối; canvas đã xoá thì chỉ còn lời
-    báo đã xoá và nút khoá; 500, 507 và mất mạng nói bằng lý do của web, 500 đúng chữ "Không nhập
-    lại được: máy chủ không phản hồi", và cũng không đọc lại canvas);
+    chữ cũ; "says the typing is not saved when the save met a version written meanwhile, beside the
+    choice that version asks for": lần lưu gặp 409 thì không có `POST` nào, thanh xung đột hiện và
+    lời "Chưa lưu được bản đang sửa nên chưa nhập lại." vẫn đứng cạnh nó; "is held off while the
+    file is read, takes no second press, and forgets what it said last": nút mang
+    `aria-disabled="true"` chứ không bao giờ có thuộc tính `disabled`, ghi "Đang nhập…", bấm lần
+    nữa không thành request thứ hai, lời báo trước biến mất; "is held off until the canvas has been
+    read, and a press before then asks for nothing": luồng báo tên canvas trước khi lần đọc đầu về
+    thì dòng nguồn đã hiện nhưng nút bị giữ, bấm không gửi gì và không nói gì, đọc xong thì bấm
+    được; "stays held off on a canvas whose first read failed, which stands on no version to ask
+    on": lần đọc đầu hỏng thì nút vẫn bị giữ và lần bấm không thêm câu nào vào lời panel đang nói;
+    "gives a read that never answers thirty seconds, then says so and offers the button again":
+    `AbortSignal.timeout` được gọi đúng với 30 000, ở 29 999 ms nút còn "Đang nhập…", thêm 1 ms thì
+    nút trở lại và lời báo đúng chữ "Không nhập lại được: máy chủ không phản hồi", không đọc lại
+    canvas; "cuts no read that answers in time, however long after the deadline was set"; "says its
+    news in a place that was there before it had any, and an error apart from it": phần tử
+    `role="status"` nằm ngay sau dòng nguồn từ trước khi có lời nào, rỗng và không mang lớp
+    `notice`, lời báo tin hiện trong chính phần tử đó, còn lời báo lỗi là một `role="alert"` khác;
+    403, 410, 413, 422 mỗi cái một câu của web, so nguyên văn nên hai lời từ chối không lẫn chữ của
+    nhau, vẻ `error`, không bao giờ hiện chữ của server, và không lần nào đọc lại canvas; câu của
+    422 là "Tệp nguồn không đọc được, không phải tệp thường, hoặc không hợp với loại canvas này.",
+    đúng cho mọi lý do server trả 422; 413 đúng một câu dù server trả câu chữ hay object cỡ; tệp
+    không còn là 410; 409 thì đọc lại canvas, nói đúng chữ "Không nhập lại được: máy chủ có bản mới
+    hơn" và không hiện gì của body từ chối; canvas đã xoá thì chỉ còn lời báo đã xoá, nút bị giữ và
+    bấm lần nữa không gửi gì; 500, 507 và mất mạng nói bằng lý do của web, đúng chữ "Không nhập lại
+    được: máy chủ không phản hồi", "…: hết chỗ lưu canvas trên máy chủ" và "…: mất kết nối", và
+    cũng không đọc lại canvas) và nhóm "what a re-import said, once the canvas has a newer version"
+    (lời báo tin lẫn lời từ chối đều biến mất khi agent ghi một bản mới hơn hay khi lần lưu của
+    chính người dùng tạo ra một bản, và chỗ nói tin trở lại rỗng; "stands when a refusal follows a
+    save of the typing, for that version is the one it was said on": bản do lần lưu trước khi nhập
+    lại tạo ra không xoá lời từ chối vừa nói; "is taken back by a version newer than the one a
+    conflict told of, not by that one": lời báo 409 đứng qua lần đọc bản mà 409 nêu và chỉ biến mất
+    ở bản sau đó; "is said again by the next press, on the version the canvas has by then");
     `web/src/components/canvas/canvas-card-import.test.tsx` nhóm "a file read into a canvas, in the
     thread" (là thẻ canvas khi đang chạy và khi xong, thẻ thường khi hỏng, bị từ chối, bị dừng hay
     chờ duyệt; "Đang nhập…" kèm vòng quay; "Đã nhập · v1" khi lệnh không nêu canvas, "Đã nhập lại ·
@@ -3081,7 +3113,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `web/src/hooks/use-canvas-auto-open-import.test.ts` (nhập không nêu canvas thì mở lặng lẽ, `id`
     rỗng, không phải chữ hay chỉ gồm ký tự `strip()` của server bỏ đi cũng vậy; nhập vào canvas có nêu thì không tự mở; thẻ `unchanged` thì
     không tự mở; chờ lệnh xong, lệnh hỏng hay bị từ chối thì không; `artifact_export` không bao giờ
-    tự mở dù kết quả viết gì); `web/src/components/tool-call-card-canvas.test.tsx` ("keeps the plain
+    tự mở dù kết quả viết gì; "does not open for an import the conversation's saved history holds,
+    only for one of this turn": lệnh nhập đã nằm trong lịch sử server trả về thì không tự mở, lệnh
+    nhập của lượt này thì mở); `web/src/components/tool-call-card-canvas.test.tsx` ("keeps the plain
     card for a canvas written out to a file, which shows the canvas and the file it names": lệnh
     xuất giữ thẻ thường khi chờ duyệt, đang chạy và đã xong, nên người duyệt thấy `id` và `path`; bốn
     lệnh ghi, kể cả nhập, thành thẻ canvas); `web/src/components/canvas/canvas-history.test.tsx`
@@ -3090,22 +3124,36 @@ tên một test thì sửa dòng của nó trong cùng commit.
     server keeps for a re-import as it is written": ghi chú `imported by hand` hiện nguyên văn);
     `web/src/components/canvas/canvas-panel.test.tsx`
     nhóm "where the canvas came from" (dòng nguồn đứng đầu thân panel, trên chữ của canvas, và vẫn
-    ở đó khi mở lịch sử; "stays above what the panel says of the canvas": lời báo canvas đã xoá nằm
-    ngay dưới dòng nguồn chứ không chen lên trên; "saves the typing through the dock before the file
+    ở đó khi mở lịch sử; "stays above what the panel says of the canvas": dòng nguồn, rồi chỗ nói
+    tin của lần nhập lại (rỗng), rồi mới tới lời báo canvas đã xoá, chứ lời đó không chen lên trên; "saves the typing through the dock before the file
     is read, and asks for nothing when the dock could not": nút gọi đúng `flush` của dock một lần,
     dock trả null thì không có `POST` nào; canvas tạo ở đây thì không có dòng nguồn và không có nút
     nhập lại)
   - Playwright: `canvas-import.spec.ts` ở 1440×900 ("saves the typing first, then reads the file
     again on the version that save made": request `PUT` đi trước `POST …/reimport` và `POST` mang
     `base_version` của `PUT` đó, chữ người gõ còn lại là phiên bản ngay dưới bản nhập, và nút "Nhập
-    lại" nằm sát cuối dòng dù đường dẫn ngắn; "says the
-    file holds what the canvas does, and writes nothing"; "links the page a canvas was taken from,
+    lại" nằm sát cuối dòng dù đường dẫn ngắn, lời báo đúng chữ "Đã nhập lại thành v3. Bản trước ở
+    Lịch sử."; "says the file holds what the canvas does, and writes nothing": đúng chữ "Tệp nguồn
+    không đổi."; "says its news in a place that was in the panel before, which takes no room while
+    it has none": phần tử `role="status"` đã gắn trong trang và rỗng trước lần bấm, cao 0 px, chữ
+    của canvas bắt đầu đúng một khoảng `row-gap` dưới dòng nguồn như khi không có phần tử đó, và
+    lời báo hiện ra trong chính phần tử ấy (so cùng một node); "keeps the keyboard on the button
+    while the file is read, and takes no second press": trong Chromium thật, nhấn Enter khi nút
+    đang giữ focus và request bị giữ lại thì nút ghi "Đang nhập…", `aria-disabled="true"`, thuộc
+    tính `disabled` là false, focus vẫn ở nút, `opacity` 0.45 và con trỏ `not-allowed`; Enter, phím
+    cách và một cú bấm chuột nữa không thành request thứ hai; thả request thì nút trở lại "Nhập
+    lại", vẫn giữ focus; "gives up a read that never answers, says the server did not, and offers
+    the button again": `AbortSignal.timeout(30 000)` của trang được rút ngắn bằng `addInitScript`,
+    request không bao giờ được trả lời thì trình duyệt huỷ đúng request `POST …/reimport`, lời báo
+    là "Không nhập lại được: máy chủ không phản hồi", nút trở lại và chữ của canvas còn nguyên;
+    "links the page a canvas was taken from,
     named by its host, in a tab that cannot reach back": tìm link bằng đúng tên truy cập "Mở nguồn
     (tin-tuc.example.com) (mở trong tab mới)", chữ trên dòng không có đoạn sau, `title` là cả địa
     chỉ) và ở 390×844 cảm ứng ("keeps the name of
     the file in view and gives the folder up, with a button a finger can hit": đường dẫn dài thì
     thư mục bị cắt còn tên tệp nguyên tới chữ cuối và nút "Nhập lại" nằm trọn trong màn, nút cao ít nhất 40 px, không
-    phần nào của canvas cuộn ngang, kể cả sau khi lời báo nhập lại hiện ra, nhãn, tên tệp và nút
+    phần nào của canvas cuộn ngang, kể cả sau khi lời báo "Đã nhập lại thành v2. Bản trước ở Lịch
+    sử." hiện ra, nhãn, tên tệp và nút
     nằm trên một hàng có chung đường giữa và có khoảng hở giữa các phần; "shows the link to a
     page as a control a finger can hit, inside the width": link "Mở nguồn" cao ít nhất 40 px và chữ
     của nó nằm giữa chiều cao đó; "cuts a name too long for the width with an ellipsis, and nothing

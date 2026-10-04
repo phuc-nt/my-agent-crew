@@ -1,14 +1,17 @@
 import { act, fireEvent, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
 import { vi } from "../../i18n/vi";
-import { landed, sent, startServer, stopServer } from "../../test/canvas-hook";
+import { emitArtifactEvent } from "../../lib/artifact-events";
+import { SAVE_DELAY_MS } from "../../lib/canvas-runner";
+import { landed, sent, startServer, stopServer, wait } from "../../test/canvas-hook";
 import { historyShown, openHistory, rows, writes } from "../../test/canvas-history";
 import { editor, openPanel, typeInto, versionLine } from "../../test/canvas-panel";
 import type { FakeBackend } from "../../test/fake-backend";
 
 const FILE = "workspace:ming/notes/tuần 1/thuc-don.md";
 const REIMPORT = "POST /artifacts/a1/reimport";
-const { source, reasons } = vi.canvas;
+const READ = "GET /artifacts/a1";
+const { source } = vi.canvas;
 
 let backend: FakeBackend;
 
@@ -26,6 +29,37 @@ const said = (role: "alert" | "status") =>
 
 /** The one notice of `role`, to read how it is drawn and where. */
 const notice = (role: "alert" | "status") => document.querySelector(`.canvas-notice[role="${role}"]`);
+
+/** The place the line says its news in, mounted with the line whether or not it has any. */
+const place = () => document.querySelector('.canvas-source + [role="status"]');
+
+/**
+ * Whether the button is held off. It never takes the browser's own lock: a button locked while it
+ * holds the keyboard drops the keyboard onto the page.
+ */
+function heldOff(): boolean {
+  expect(again()).not.toHaveAttribute("disabled");
+  return again().getAttribute("aria-disabled") === "true";
+}
+
+/** The stream's word of a1, as it is on the server now. */
+function told(): void {
+  const summary = backend.canvas.canvases.get("a1")?.summary;
+  if (!summary) throw new Error("a1 is not on the server");
+  act(() => emitArtifactEvent({ type: "artifact", artifact: { ...summary }, conversation_ids: [] }));
+}
+
+/**
+ * `AbortSignal.timeout` on the test's clock. The real one counts on a clock no test can move, and
+ * ends as this one does: the signal aborts with a `TimeoutError`.
+ */
+function deadlineOnTestClock() {
+  return vitest.spyOn(AbortSignal, "timeout").mockImplementation((ms) => {
+    const deadline = new AbortController();
+    setTimeout(() => deadline.abort(new DOMException("The operation timed out.", "TimeoutError")), ms);
+    return deadline.signal;
+  });
+}
 
 /** a1 came from FILE, which now holds `text`; the panel is open on it. */
 async function openImported(text: string | null, content = "a") {
@@ -47,7 +81,7 @@ describe("where a canvas came from", () => {
     expect(line()?.querySelector(".canvas-source-dir")?.textContent).toBe("Ming/notes/tuần 1/");
     expect(line()?.querySelector(".canvas-source-file")?.textContent).toBe("thuc-don.md");
     expect(line()?.querySelector(".canvas-source-path")).toHaveAttribute("title", "Ming/notes/tuần 1/thuc-don.md");
-    expect(again()).toBeEnabled();
+    expect(heldOff()).toBe(false);
     // A quiet button: the main actions of a canvas are the ones in its header.
     expect(again()).toHaveClass("ghost");
   });
@@ -141,7 +175,7 @@ describe("reading a canvas's file again", () => {
     expect(line()?.nextElementSibling).toBe(notice("status"));
 
     await openHistory();
-    expect(rows()[0]).toMatch(new RegExp(`^v3 · bạn · .*${vi.canvas.importedNote}$`));
+    expect(rows()[0]).toMatch(/^v3 · bạn · .*Nhập từ tệp$/);
   });
 
   it("shows the version the file became on the reply alone, when the stream says nothing of it", async () => {
@@ -153,6 +187,13 @@ describe("reading a canvas's file again", () => {
     expect(sent(backend, "GET")).toHaveLength(2);
     expect(editor()?.value).toBe("từ tệp");
     expect(versionLine()).toMatch(/^v2 · bạn · /);
+    expect(said("status")).toEqual(["Đã nhập lại thành v2. Bản trước ở Lịch sử."]);
+
+    // The stream's word of that same version, come late, takes nothing back.
+    told();
+    await landed();
+    expect(said("status")).toEqual(["Đã nhập lại thành v2. Bản trước ở Lịch sử."]);
+    expect(sent(backend, "GET")).toHaveLength(2);
   });
 
   it("asks the server for nothing while the typing cannot be saved, and says so", async () => {
@@ -163,9 +204,23 @@ describe("reading a canvas's file again", () => {
     await reimport();
 
     expect(writes(backend).map((write) => write.method)).toEqual(["PUT"]);
-    expect(said("alert")).toContain(source.unsaved);
+    expect(said("alert")).toContain("Chưa lưu được bản đang sửa nên chưa nhập lại.");
     expect(editor()?.value).toBe("a!");
-    expect(again()).toBeEnabled();
+    expect(heldOff()).toBe(false);
+  });
+
+  it("says the typing is not saved when the save met a version written meanwhile, beside the choice that version asks for", async () => {
+    await openImported("từ tệp");
+    backend.canvas.onEvent = null;
+    backend.canvas.write("a1", "của agent");
+    typeInto("a!");
+
+    await reimport();
+
+    expect(writes(backend).map((write) => write.method)).toEqual(["PUT"]);
+    expect(screen.getByRole("button", { name: vi.canvas.loadTheirs })).toBeInTheDocument();
+    expect(said("alert")).toContain("Chưa lưu được bản đang sửa nên chưa nhập lại.");
+    expect(editor()?.value).toBe("a!");
   });
 
   it("says the file holds what the canvas does, and reads nothing again", async () => {
@@ -174,7 +229,7 @@ describe("reading a canvas's file again", () => {
     await reimport();
 
     expect(writes(backend)).toEqual([{ method: "POST", path: "/artifacts/a1/reimport", body: { base_version: 1 } }]);
-    expect(said("status")).toEqual([source.unchanged]);
+    expect(said("status")).toEqual(["Tệp nguồn không đổi."]);
     expect(sent(backend, "GET")).toHaveLength(1);
     expect(versionLine()).toMatch(/^v1 · /);
   });
@@ -187,29 +242,136 @@ describe("reading a canvas's file again", () => {
     await reimport();
 
     expect(writes(backend)).toEqual([{ method: "POST", path: "/artifacts/a1/reimport", body: { base_version: 1 } }]);
-    expect(said("status")).toEqual([source.unchanged]);
+    expect(said("status")).toEqual(["Tệp nguồn không đổi."]);
     expect(said("alert")).toEqual([]);
     expect(sent(backend, "GET")).toHaveLength(2);
     expect(editor()?.value).toBe("của agent");
     expect(versionLine()).toMatch(/^v2 · /);
   });
 
-  it("is locked while the file is read, and forgets what it said last", async () => {
+  it("is held off while the file is read, takes no second press, and forgets what it said last", async () => {
     await openImported("a");
     await reimport();
     const release = backend.canvas.holdNext(REIMPORT, "request");
 
     fireEvent.click(again());
     await landed();
-    expect(again()).toBeDisabled();
-    expect(again().textContent).toBe(source.reimporting);
+    expect(heldOff()).toBe(true);
+    expect(again().textContent).toBe("Đang nhập…");
     expect(said("status")).toEqual([]);
+
+    // A press while it is held off is not a second request.
+    fireEvent.click(again());
+    await landed();
+    expect(writes(backend)).toHaveLength(2);
 
     await act(release);
     await landed();
-    expect(again()).toBeEnabled();
-    expect(again().textContent).toBe(source.reimport);
-    expect(said("status")).toEqual([source.unchanged]);
+    expect(heldOff()).toBe(false);
+    expect(again().textContent).toBe("Nhập lại");
+    expect(said("status")).toEqual(["Tệp nguồn không đổi."]);
+    expect(writes(backend)).toHaveLength(2);
+  });
+
+  it("is held off until the canvas has been read, and a press before then asks for nothing", async () => {
+    backend.canvas.add({ title: "Thực đơn", content: "a", source: FILE });
+    backend.canvas.files.put(FILE, "từ tệp");
+    const release = backend.canvas.holdNext(READ, "request");
+    await openPanel();
+    // The stream names the canvas before its first read lands: the line is drawn from that.
+    told();
+    expect(line()?.querySelector(".canvas-source-file")?.textContent).toBe("thuc-don.md");
+
+    expect(heldOff()).toBe(true);
+    await reimport();
+    expect(writes(backend)).toEqual([]);
+    expect(said("alert")).toEqual([]);
+    expect(again().textContent).toBe("Nhập lại");
+
+    await act(release);
+    await landed();
+    expect(heldOff()).toBe(false);
+    await reimport();
+    expect(writes(backend)).toEqual([{ method: "POST", path: "/artifacts/a1/reimport", body: { base_version: 1 } }]);
+    expect(editor()?.value).toBe("từ tệp");
+  });
+
+  it("stays held off on a canvas whose first read failed, which stands on no version to ask on", async () => {
+    backend.canvas.add({ title: "Thực đơn", content: "a", source: FILE });
+    backend.canvas.files.put(FILE, "từ tệp");
+    backend.canvas.refuseNext(READ, 500);
+    await openPanel();
+    told();
+
+    expect(heldOff()).toBe(true);
+    // The panel says the read failed; the press adds no sentence of its own to that.
+    const before = said("alert");
+    await reimport();
+
+    expect(writes(backend)).toEqual([]);
+    expect(said("status")).toEqual([]);
+    expect(said("alert")).toEqual(before);
+    expect(document.body.textContent).not.toContain("nhập lại");
+    expect(again().textContent).toBe("Nhập lại");
+  });
+
+  it("gives a read that never answers thirty seconds, then says so and offers the button again", async () => {
+    const deadline = deadlineOnTestClock();
+    await openImported("từ tệp");
+    backend.canvas.holdNext(REIMPORT, "request");
+
+    await reimport();
+    expect(deadline.mock.calls).toEqual([[30_000]]);
+    wait(29_999);
+    await landed();
+    expect(again().textContent).toBe("Đang nhập…");
+    expect(heldOff()).toBe(true);
+    expect(said("alert")).toEqual([]);
+
+    wait(1);
+    await landed();
+    expect(again().textContent).toBe("Nhập lại");
+    expect(heldOff()).toBe(false);
+    expect(said("alert")).toEqual(["Không nhập lại được: máy chủ không phản hồi"]);
+    expect(editor()?.value).toBe("a");
+    expect(sent(backend, "GET")).toHaveLength(1);
+  });
+
+  it("cuts no read that answers in time, however long after the deadline was set", async () => {
+    deadlineOnTestClock();
+    await openImported("từ tệp");
+
+    await reimport();
+    wait(30_000);
+    await landed();
+
+    expect(said("status")).toEqual(["Đã nhập lại thành v2. Bản trước ở Lịch sử."]);
+    expect(said("alert")).toEqual([]);
+    expect(editor()?.value).toBe("từ tệp");
+  });
+
+  it("says its news in a place that was there before it had any, and an error apart from it", async () => {
+    await openImported("a");
+    const there = place();
+    expect(there).not.toBeNull();
+    expect(line()?.nextElementSibling).toBe(there);
+    // Nothing is drawn while it has nothing to say.
+    expect(there?.textContent).toBe("");
+    expect(there?.childNodes).toHaveLength(0);
+    expect(there).not.toHaveClass("notice");
+
+    await reimport();
+    expect(place()).toBe(there);
+    expect(there?.textContent).toBe("Tệp nguồn không đổi.");
+    expect(there).toHaveClass("notice", "info", "canvas-notice");
+
+    backend.canvas.refuseNext(REIMPORT, 500);
+    await reimport();
+    expect(place()).toBe(there);
+    expect(there?.textContent).toBe("");
+    expect(there).not.toHaveClass("notice");
+    expect(said("alert")).toEqual(["Không nhập lại được: máy chủ không phản hồi"]);
+    expect(notice("alert")).not.toBe(there);
   });
 
   it("says in its own words why the server would not read the file, never in the server's", async () => {
@@ -217,7 +379,8 @@ describe("reading a canvas's file again", () => {
       [403, "Tệp nằm ngoài thư mục làm việc của agent."],
       [410, "Không còn tệp nguồn hoặc agent."],
       [413, "Tệp nguồn vượt trần cỡ của loại canvas này."],
-      [422, "Tệp nguồn không hợp với loại canvas này."],
+      // One sentence for a file that cannot be read, is no plain file, or is not what the kind holds.
+      [422, "Tệp nguồn không đọc được, không phải tệp thường, hoặc không hợp với loại canvas này."],
     ];
     await openImported("từ tệp");
     for (const [status, sentence] of refusals) {
@@ -228,6 +391,7 @@ describe("reading a canvas's file again", () => {
       expect(said("alert"), String(status)).toEqual([sentence]);
       expect(said("status"), String(status)).toEqual([]);
       expect(notice("alert"), String(status)).toHaveClass("error");
+      expect(document.body.textContent, String(status)).not.toContain("secret.md");
     }
     expect(editor()?.value).toBe("a");
     // None of them is a version saved meanwhile: the canvas is not read again.
@@ -251,7 +415,7 @@ describe("reading a canvas's file again", () => {
 
     await reimport();
 
-    expect(said("alert")).toEqual([source.missing]);
+    expect(said("alert")).toEqual(["Không còn tệp nguồn hoặc agent."]);
     expect(historyShown()).toBe(false);
   });
 
@@ -262,13 +426,14 @@ describe("reading a canvas's file again", () => {
 
     await reimport();
 
-    expect(said("alert")).toEqual([source.failed(reasons.conflict)]);
+    // Said of the version the canvas then reads: reading it takes nothing back.
+    expect(said("alert")).toEqual(["Không nhập lại được: máy chủ có bản mới hơn"]);
     expect(sent(backend, "GET")).toHaveLength(2);
     expect(editor()?.value).toBe("của agent");
     expect(versionLine()).toMatch(/^v2 · /);
   });
 
-  it("takes a canvas deleted meanwhile for the deletion, and locks the button", async () => {
+  it("takes a canvas deleted meanwhile for the deletion, and holds the button off for good", async () => {
     await openImported("từ tệp");
     backend.canvas.onEvent = null;
     backend.canvas.remove("a1");
@@ -276,24 +441,107 @@ describe("reading a canvas's file again", () => {
     await reimport();
 
     expect(said("alert")).toEqual([`${vi.canvas.gone} ${vi.canvas.goneHint}`]);
-    expect(again()).toBeDisabled();
-    expect(again().textContent).toBe(source.reimport);
+    expect(heldOff()).toBe(true);
+    expect(again().textContent).toBe("Nhập lại");
+
+    await reimport();
+    expect(writes(backend)).toHaveLength(1);
   });
 
   it("says why in the app's words for any other refusal and for a lost connection", async () => {
     await openImported("a");
     backend.canvas.refuseNext(REIMPORT, 500);
     await reimport();
-    expect(said("alert")).toEqual([source.failed(reasons.server)]);
     expect(said("alert")).toEqual(["Không nhập lại được: máy chủ không phản hồi"]);
 
     backend.canvas.refuseNext(REIMPORT, 507);
     await reimport();
-    expect(said("alert")).toEqual([source.failed(reasons.full)]);
+    expect(said("alert")).toEqual(["Không nhập lại được: hết chỗ lưu canvas trên máy chủ"]);
 
     backend.canvas.loseNext(REIMPORT);
     await reimport();
-    expect(said("alert")).toEqual([source.failed(reasons.offline)]);
+    expect(said("alert")).toEqual(["Không nhập lại được: mất kết nối"]);
     expect(sent(backend, "GET")).toHaveLength(1);
+  });
+});
+
+describe("what a re-import said, once the canvas has a newer version", () => {
+  it("is taken back when an agent writes over the version the file became", async () => {
+    await openImported("từ tệp");
+    await reimport();
+    expect(said("status")).toEqual(["Đã nhập lại thành v2. Bản trước ở Lịch sử."]);
+
+    act(() => void backend.canvas.write("a1", "của agent", { author: "agent:ming" }));
+    await landed();
+
+    expect(versionLine()).toMatch(/^v3 · Ming · /);
+    expect(said("status")).toEqual([]);
+    expect(place()?.textContent).toBe("");
+  });
+
+  it("is taken back when the person's own save makes one", async () => {
+    await openImported("a");
+    await reimport();
+    expect(said("status")).toEqual(["Tệp nguồn không đổi."]);
+
+    typeInto("a!");
+    expect(said("status")).toEqual(["Tệp nguồn không đổi."]);
+    wait(SAVE_DELAY_MS);
+    await landed();
+
+    expect(versionLine()).toMatch(/^v2 · bạn · /);
+    expect(said("status")).toEqual([]);
+  });
+
+  it("is taken back when it was a refusal, the same as news", async () => {
+    await openImported("từ tệp");
+    backend.canvas.refuseNext(REIMPORT, 403);
+    await reimport();
+    expect(said("alert")).toEqual(["Tệp nằm ngoài thư mục làm việc của agent."]);
+
+    act(() => void backend.canvas.write("a1", "của agent", { author: "agent:ming" }));
+    await landed();
+
+    expect(said("alert")).toEqual([]);
+  });
+
+  it("stands when a refusal follows a save of the typing, for that version is the one it was said on", async () => {
+    await openImported("từ tệp");
+    typeInto("a!");
+    backend.canvas.refuseNext(REIMPORT, 403);
+
+    await reimport();
+
+    expect(versionLine()).toMatch(/^v2 · bạn · /);
+    expect(said("alert")).toEqual(["Tệp nằm ngoài thư mục làm việc của agent."]);
+  });
+
+  it("is taken back by a version newer than the one a conflict told of, not by that one", async () => {
+    await openImported("từ tệp");
+    backend.canvas.onEvent = null;
+    backend.canvas.write("a1", "của agent");
+    await reimport();
+    expect(versionLine()).toMatch(/^v2 · /);
+    expect(said("alert")).toEqual(["Không nhập lại được: máy chủ có bản mới hơn"]);
+
+    backend.canvas.write("a1", "của agent, lần nữa");
+    told();
+    await landed();
+
+    expect(versionLine()).toMatch(/^v3 · /);
+    expect(said("alert")).toEqual([]);
+  });
+
+  it("is said again by the next press, on the version the canvas has by then", async () => {
+    await openImported("a");
+    await reimport();
+    act(() => void backend.canvas.write("a1", "của agent", { author: "agent:ming" }));
+    await landed();
+    expect(said("status")).toEqual([]);
+
+    backend.canvas.files.put(FILE, "của agent");
+    await reimport();
+
+    expect(said("status")).toEqual(["Tệp nguồn không đổi."]);
   });
 });

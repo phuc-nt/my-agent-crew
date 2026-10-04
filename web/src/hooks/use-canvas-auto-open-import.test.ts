@@ -15,10 +15,16 @@ function imported(id: string, args: Record<string, unknown>, options: { status?:
   return { kind: "tool", id, name: "artifact_import", arguments: { path: "notes/thuc-don.md", ...args }, output, status };
 }
 
-/** The hook as the chat screen runs it on a wide screen, with nobody typing; `open` is recorded. */
-function mount() {
+/** The conversation as the server gave it, holding the calls `ids` name. */
+const history = (...ids: string[]) => ({ messages: [{ tool_calls: ids.map((id) => ({ id })) }] });
+
+/**
+ * The hook as the chat screen runs it on a wide screen, with nobody typing; `open` is recorded.
+ * `detail` is the conversation read from the server, null for one just made.
+ */
+function mount(detail: ReturnType<typeof history> | null = null) {
   const dock = { open: vitest.fn(), typing: vitest.fn(() => false) };
-  const view = renderHook((items: ThreadItem[]) => useCanvasAutoOpen({ state: { items }, detail: null }, dock, true), {
+  const view = renderHook((items: ThreadItem[]) => useCanvasAutoOpen({ state: { items }, detail }, dock, true), {
     initialProps: [] as ThreadItem[],
   });
   return { dock, draw: (items: ThreadItem[]) => view.rerender(items) };
@@ -73,6 +79,15 @@ describe("opening the canvas a file was just read into", () => {
 
     draw([imported("c1", {}), imported("c2", {}, { status: "failed" }), imported("c3", {}, { status: "denied" })]);
     expect(dock.open.mock.calls).toEqual([[NOTE, { quiet: true }]]);
+  });
+
+  it("does not open for an import the conversation's saved history holds, only for one of this turn", () => {
+    const { dock, draw } = mount(history("c1"));
+
+    // Both arrive after the screen was drawn; the server's copy of the conversation names the first.
+    draw([imported("c1", {}), imported("c2", {}, { canvas: SHOP })]);
+
+    expect(dock.open.mock.calls).toEqual([[SHOP, { quiet: true }]]);
   });
 
   it("does not open for a canvas written out to a file, whatever its result says", () => {

@@ -59,7 +59,7 @@ describe("the versions of a canvas", () => {
 
     await openHistory();
 
-    expect(rows()).toEqual([`v2 · bạn · 4 phút · 10 B${vi.canvas.importedNote}`, "v1 · bạn · 5 phút · 1 B"]);
+    expect(rows()).toEqual(["v2 · bạn · 4 phút · 10 BNhập từ tệp", "v1 · bạn · 5 phút · 1 B"]);
     expect(history().textContent).not.toMatch(/import/);
   });
 

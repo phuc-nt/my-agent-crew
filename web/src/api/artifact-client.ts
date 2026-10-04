@@ -50,10 +50,11 @@ export const artifactApi = {
     }),
   /** Reads the canvas's workspace file again. `changed` is false when the file holds what the
    *  newest version does, and no version is added; `artifact` is the canvas as that left it. */
-  reimport: (id: string, baseVersion: number) =>
+  reimport: (id: string, baseVersion: number, signal?: AbortSignal) =>
     request<{ changed: boolean; artifact: ArtifactSummary }>(`${artifactPath(id)}/reimport`, {
       method: "POST",
       body: JSON.stringify({ base_version: baseVersion }),
+      signal,
     }),
   versions: (id: string) => request<ArtifactVersionMeta[]>(`${artifactPath(id)}/versions`),
   version: (id: string, version: number) =>
@@ -86,6 +87,12 @@ export function conflictOf(error: unknown): ArtifactConflict | null {
   return typeof head_version === "number" && typeof content === "string" && typeof author === "string"
     ? { head_version, content, author }
     : null;
+}
+
+/** The newest version alone, for a caller that shows none of the text: a picture's 409 has none. */
+export function conflictHeadOf(error: unknown): number | null {
+  const head = detailOf(error, 409)?.head_version;
+  return typeof head === "number" ? head : null;
 }
 
 /** What a canvas was held to when the server refused it as too large, in bytes. */
