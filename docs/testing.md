@@ -3908,3 +3908,11 @@ tên một test thì sửa dòng của nó trong cùng commit.
     ẩn, nửa cặp surrogate, cổng không đọc được, path có ký tự phải mã hoá, giá trị không phải chuỗi);
     `tests/test_config.py::test_a_refused_web_address_stops_the_load_and_is_not_repeated` (câu lỗi
     nêu khoá `web_url` và không lặp lại giá trị, vì giá trị có thể mang mật khẩu)
+- **Dòng báo một đính kèm không gửi được mà chính nó cũng không gửi được thì chỉ vào log; các đính
+  kèm đứng sau vẫn tới chat**
+  - pytest:
+    `tests/test_reply_file_line.py::test_a_notice_that_cannot_be_sent_does_not_stop_the_next_attachment`
+    (`sendMessage` trả 500 trong lúc một tệp và một ảnh không có: `ok.pdf` vẫn tới, `send` không ném,
+    mỗi dòng báo hỏng một dòng log mức `warning`); bản giả Telegram (`tests/telegram_fake.py`) cho
+    một method trả lỗi bằng `fail`, giữ một lời gọi bằng `hold`, và đọc tên tệp, caption, bytes của
+    mỗi lời tải lên vào `uploads`

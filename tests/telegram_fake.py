@@ -1,19 +1,45 @@
 """A fake Telegram Bot API, shared by every test that drives the channel.
 
 It answers the handful of methods the channel calls and records what was sent, so a test
-can assert on the messages a person would actually see in the chat.
+can assert on the messages a person would actually see in the chat. A test can also make a
+method fail, or hold one call unanswered while it changes something behind the channel's back.
 """
 
 from __future__ import annotations
 
 import asyncio
 import json
+import re
+from collections.abc import Awaitable
+from typing import NamedTuple
 from urllib.parse import parse_qsl
 
 import httpx
 
 TOKEN = "123:secret-token"
 CHAT = 42
+_FIELD = re.compile(r'name="([^"]*)"(?:; filename="([^"]*)")?')
+
+
+class Upload(NamedTuple):
+    """A photo or a document as the chat received it."""
+
+    method: str
+    name: str
+    caption: str
+    data: bytes
+
+
+def multipart(request: httpx.Request) -> dict[str, tuple[str, bytes]]:
+    """The parts of an upload by field: the file name ("" for a plain field) and the bytes."""
+    boundary = request.headers["content-type"].split("boundary=", 1)[1].encode()
+    parts: dict[str, tuple[str, bytes]] = {}
+    for chunk in request.content.split(b"--" + boundary)[1:-1]:
+        head, _, body = chunk[2:-2].partition(b"\r\n\r\n")  # each part sits between two CRLF
+        field = _FIELD.search(head.decode())
+        assert field is not None, head
+        parts[field[1]] = (field[2] or "", body)
+    return parts
 
 
 class FakeTelegram:
@@ -22,14 +48,23 @@ class FakeTelegram:
         self.sent: list[str] = []
         self.photos: list[bytes] = []
         self.documents: list[bytes] = []
+        self.uploads: list[Upload] = []
         self.calls: list[str] = []
         self.menu: list[dict] = []
         self.files: dict[str, str] = {}  # file_id -> remote path Telegram serves it at
         self.reject_actions = False
         self.status: int | None = None
         self.raise_connect = False
+        self.fail: dict[str, int] = {}  # method -> the HTTP status it is refused with
+        self._held: dict[str, asyncio.Event] = {}
 
-    def handler(self, request: httpx.Request) -> httpx.Response:
+    def hold(self, method: str) -> asyncio.Event:
+        """The next call of `method` shows in `calls` and then waits, unanswered, until the
+        returned event is set."""
+        gate = self._held[method] = asyncio.Event()
+        return gate
+
+    def handler(self, request: httpx.Request) -> httpx.Response | Awaitable[httpx.Response]:
         assert f"/bot{TOKEN}/" in str(request.url)
         if request.url.path.startswith("/file/"):
             return self.serve_file(request)
@@ -37,6 +72,17 @@ class FakeTelegram:
         self.calls.append(method)
         if self.raise_connect:
             raise httpx.ConnectError(f"cannot reach {request.url}", request=request)
+        gate = self._held.pop(method, None)
+        return self.answer(request, method) if gate is None else self.late(gate, request, method)
+
+    async def late(self, gate: asyncio.Event, request: httpx.Request, method: str):
+        await gate.wait()
+        return self.answer(request, method)
+
+    def answer(self, request: httpx.Request, method: str) -> httpx.Response:
+        if method in self.fail:
+            refusal = {"ok": False, "description": "refused by the fake"}
+            return httpx.Response(self.fail[method], json=refusal)
         if method == "getFile":
             form = dict(parse_qsl(request.content.decode()))
             remote = self.files.get(form["file_id"])
@@ -53,10 +99,8 @@ class FakeTelegram:
             form = dict(parse_qsl(request.content.decode()))
             assert form["chat_id"] == str(CHAT)
             self.sent.append(form["text"])
-        elif method == "sendPhoto":
-            self.photos.append(request.content)
-        elif method == "sendDocument":
-            self.documents.append(request.content)
+        elif method in ("sendPhoto", "sendDocument"):
+            self.receive(request, method)
         elif method == "sendChatAction":
             form = dict(parse_qsl(request.content.decode()))
             assert form["chat_id"] == str(CHAT) and form["action"] == "typing"
@@ -66,6 +110,15 @@ class FakeTelegram:
             form = dict(parse_qsl(request.content.decode()))
             self.menu = json.loads(form["commands"])
         return httpx.Response(200, json={"ok": True, "result": {}})
+
+    def receive(self, request: httpx.Request, method: str) -> None:
+        """An upload to the one chat, in the field its method reads the file from."""
+        parts = multipart(request)
+        assert parts["chat_id"] == ("", str(CHAT).encode())
+        name, data = parts["photo" if method == "sendPhoto" else "document"]
+        caption = parts.get("caption", ("", b""))[1].decode()
+        self.uploads.append(Upload(method, name, caption, data))
+        (self.photos if method == "sendPhoto" else self.documents).append(request.content)
 
     def serve_file(self, request: httpx.Request) -> httpx.Response:
         """`GET /file/bot<token>/<remote path>`: the bytes of a file the person sent."""

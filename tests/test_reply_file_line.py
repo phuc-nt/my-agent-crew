@@ -155,6 +155,23 @@ async def test_one_bad_attachment_does_not_stop_the_next(make_channel, fake):
     assert texts.TELEGRAM_FILE_MISSING.format(path="missing.pdf") in fake.sent
 
 
+async def test_a_notice_that_cannot_be_sent_does_not_stop_the_next_attachment(
+    make_channel, fake, caplog
+):
+    """The notice is one more call to a Telegram that may be the thing failing. It is logged,
+    and the attachments named after it still go out."""
+    channel = make_channel()
+    write(channel, "ok.pdf", b"%PDF-1.4\n")
+    fake.fail["sendMessage"] = 500
+    with caplog.at_level(logging.WARNING, logger="my_agent_crew.channels"):
+        await channel.outbound().send("FILE: missing.pdf\nMEDIA: gone.png\nFILE: ok.pdf")
+    assert [(upload.method, upload.name) for upload in fake.uploads] == [("sendDocument", "ok.pdf")]
+    assert fake.sent == [] and fake.calls.count("sendMessage") == 2
+    unsent = [r for r in caplog.records if "notice not sent" in r.getMessage()]
+    assert [r.levelno for r in unsent] == [logging.WARNING, logging.WARNING]
+    assert "HTTP 500" in unsent[0].getMessage()
+
+
 async def test_a_photo_failure_still_says_it_was_a_photo(make_channel, fake):
     """The two kinds share one code path now; they must not share one message."""
     channel = make_channel()

@@ -21,6 +21,16 @@ from my_agent_crew.tools.workspace import resolve_inside
 logger = logging.getLogger(__name__)
 
 
+async def tell(api: TelegramApi, chat_id: int, text: str) -> None:
+    """Sends a line saying why an attachment did not arrive. It is one more call to a
+    Telegram that may be the thing failing, so a line that cannot be sent is logged, not
+    raised: the attachments after it still go out, and the turn is not called broken."""
+    try:
+        await api.send_message(chat_id, text)
+    except TelegramError as exc:
+        logger.warning("telegram: notice not sent: %s", exc)
+
+
 class TelegramFiles:
     def __init__(self, deps: AgentDeps, api: TelegramApi, chat_id: int):
         self._deps = deps
@@ -55,7 +65,7 @@ class TelegramFiles:
             logger.info("telegram %s: sent %s %s", agent_id, label, relative)
         except (ToolError, OSError, TelegramError) as exc:
             logger.warning("telegram %s: %s %s: %s", agent_id, label, relative, exc)
-            await self._api.send_message(self._chat_id, failure.format(path=relative))
+            await tell(self._api, self._chat_id, failure.format(path=relative))
 
     async def _send_document(self, chat_id: int, path: Path) -> None:
         """The two guards a photo does not need: the format, because a `FILE:` line can
