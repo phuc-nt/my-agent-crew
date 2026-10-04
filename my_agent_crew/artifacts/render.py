@@ -10,9 +10,9 @@ The reporter below is the first script of every such page, so it runs before any
 wrote. It does two things. It tells whoever frames the page what went wrong: a script error, a
 file that did not load, a request the policy blocked, a rejected promise. And it hands the app
 one end of a message channel in the first message of the load, then says over the end it kept
-each time a person presses a pointer inside the page. That press is what the app takes as leave
-for the page to hold the keyboard. The frame only sends: the app listens to the window and to
-the port it was handed, and never posts anything into the frame.
+each time a person presses a pointer inside the page or lets it go again. That press is what the
+app takes as leave for the page to hold the keyboard. The frame only sends: the app listens to
+the window and to the port it was handed, and never posts anything into the frame.
 """
 
 from __future__ import annotations
@@ -35,7 +35,11 @@ FONT_FILES = "https://fonts.gstatic.com"
 #: to its port, so a press is told without looking up a name the page could have replaced since.
 #: Only a press is told, and only one the browser marks as a person's (`isTrusted`, which no
 #: script can set): a page can make the browser fire `focus`, `pointermove`, `wheel` and `scroll`
-#: on its own. A browser without `MessageChannel` tells of no press and still reports.
+#: on its own. A press is told when it begins and again when it ends, at the pointer coming up
+#: and at the click: a person holds a button longer than the app waits on a press, and a page may
+#: take the keyboard only at the click. A click no pointer made (`detail` 0: Enter or the space
+#: bar on a button) is not told, since a page that took the keyboard gets the keys a person
+#: meant for the app. A browser without `MessageChannel` tells of no press and still reports.
 REPORTER_JS = """\
 (function () {
   var MAX_MESSAGES = 20;
@@ -48,12 +52,15 @@ REPORTER_JS = """\
     parent.postMessage({type: "canvas-hello"}, "*", [channel.port2]);
   } catch (ignored) {}
   function pressed(event) {
-    if (tell && event.isTrusted === true) {
+    if (tell && event.isTrusted === true && (event.type !== "click" || event.detail > 0)) {
       tell({type: "press"});
     }
   }
   window.addEventListener("pointerdown", pressed, true);
   window.addEventListener("mousedown", pressed, true);
+  window.addEventListener("pointerup", pressed, true);
+  window.addEventListener("mouseup", pressed, true);
+  window.addEventListener("click", pressed, true);
   function text(value) {
     return typeof value === "string" ? value : "";
   }

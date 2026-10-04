@@ -1965,8 +1965,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "test_a_browser_without_message_channels_still_reports_what_goes_wrong": mọi thứ về kênh nằm
     trong một `try` bốn dòng, phần báo lỗi nằm ngoài nó;
     "test_the_reporter_tells_of_a_press_only_when_the_browser_says_a_person_made_it": reporter nói
-    `press` ở đúng một chỗ và chỉ khi `event.isTrusted === true`; listener của nó trên `window` đúng
-    là `pointerdown`, `mousedown` (cùng hàm ấy, pha capture) rồi `error`, `unhandledrejection`,
+    `press` ở đúng một chỗ và chỉ khi `event.isTrusted === true` (đúng một lần đọc `isTrusted`), và
+    một `click` chỉ được nói khi `event.detail > 0`, tức do con trỏ tạo ra chứ không phải Enter hay
+    phím cách trên một nút; listener của nó trên `window` đúng là `pointerdown`, `mousedown`,
+    `pointerup`, `mouseup`, `click` (cùng hàm ấy, pha capture) rồi `error`, `unhandledrejection`,
     `securitypolicyviolation`, không có `focus`, `pointermove`, `wheel` hay `keydown` là những sự
     kiện trang tự khiến trình duyệt bắn ra được;
     "test_the_hello_is_no_report_and_counts_against_none": lời chào không tính vào hai mươi lời báo;
@@ -2821,7 +2823,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
   phím về lại khi người quay lại, kể cả khi quay lại chỉ bằng bàn phím; khung nói khi bàn phím đang ở
   trang**
   - pytest: `tests/test_render_pages.py`, bốn test của reporter về lời chào và cú bấm (xem mục trang
-    render ở trên): cú bấm chỉ được nói khi trình duyệt bảo một người đã bấm
+    render ở trên): cú bấm chỉ được nói khi trình duyệt bảo một người đã bấm, lúc con trỏ xuống và
+    lần nữa lúc nó lên (`pointerup`, `mouseup`, `click` do con trỏ tạo ra)
   - vitest: `web/src/hooks/use-frame-focus-guard.test.tsx` nhóm "the keyboard a page took unasked"
     (một lần giành là khung có focus rồi cửa sổ app nhận `blur`; app chờ `ATTEST_GRACE_MS` (50 ms)
     xem reporter có nói tới cú bấm không, tới mili giây cuối khung vẫn giữ focus, rồi bàn phím về
@@ -2844,8 +2847,13 @@ tên một test thì sửa dòng của nó trong cùng commit.
     bấm thì lời mời còn, và cú bấm được nói 30 ms sau khi trang lấy focus vẫn là lời mời (hai test
     neo vào tình huống trình duyệt bận, không neo vào hằng số: rút khoảng chờ xuống vài mili giây là
     đỏ); "is made anew by the second telling of one tap, long after the first was over": ngón tay
-    trên điện thoại được nói hai lần, lần đầu hết hạn rồi lần hai vẫn đưa được bàn phím; hạn tính từ
-    cú bấm được nói sau cùng; "is made to the frame on show and to no other": lời mời bằng cú bấm
+    trên điện thoại được nói hai lần, lần đầu hết hạn rồi lần hai vẫn đưa được bàn phím; "is made
+    anew when the press is told to be over, for the page that takes the keyboard at the click of a
+    button a person held": cú bấm được nói, 150 ms sau (người giữ nút chuột chừng ấy) ô đang gõ vẫn
+    giữ focus, lúc nhả được nói thêm một lần rồi khung mới lấy focus thì trang giữ bàn phím và không
+    lần nào bị tính; "is not made by a button that is still held": cùng tình huống mà không có lời
+    nào lúc nhả thì bàn phím về ô đang gõ và tính một lần giành, tức luật hết hạn không bị nới; hạn
+    tính từ cú bấm được nói sau cùng; "is made to the frame on show and to no other": lời mời bằng cú bấm
     hay bằng Tab không theo sang khung thay thế; `pointermove`, `pointerover`, `pointerenter`,
     `wheel`, `scroll`, `mousemove`
     trên khung không phải lời mời, và `pointerdown` trên hộp của khung trong app, cái reporter không
@@ -2951,12 +2959,27 @@ tên một test thì sửa dòng của nó trong cùng commit.
     trên bên phải trong khung, bấm lên dòng chữ là bấm vào trang bên dưới; về ô soạn tin thì viền và
     dòng chữ mất); "stays with a message being written when the page focuses itself" (trang gọi
     `window.focus()` rồi focus ô của nó; khi trang đã thấy `blur` của chính nó thì ba mươi phím gõ
-    vào đủ ô soạn tin và trang không nghe phím nào); "stays with the message when the page makes up
-    a press of its own before it takes it" (script của trang tự `dispatchEvent` một `pointerdown` và
-    một `mousedown` lên ô của nó, trang nghe được cú bấm ấy, rồi lấy focus: reporter không nói tới cú
-    bấm trình duyệt không bảo là của người, bàn phím về ô soạn tin, ba mươi phím gõ vào đủ ô soạn
-    tin, trang không nghe phím nào và dòng "Bàn phím đang ở trang" không hiện; bỏ điều kiện
-    `isTrusted` trong reporter là test đỏ); "is not kept by a page that takes it while
+    vào đủ ô soạn tin và trang không nghe phím nào); "goes to a page that takes it at the click,
+    however long the person held the button and however often" (nút của trang gọi `preventDefault()`
+    ở `mousedown` nên cú bấm không dời focus, rồi trang focus ô của nó trong `click`; sáu vòng bấm ô
+    soạn tin, `mouse.down()` lên nút, giữ 150 ms trong lúc ô soạn tin vẫn giữ focus, `mouse.up()`
+    rồi gõ ngay mười phím: trang nghe đủ mười phím mỗi vòng, bàn phím rời trang đúng số lần người
+    lấy nó đi, ô soạn tin không nhận phím nào và trang không bị gỡ; reporter chỉ nói lúc con trỏ
+    xuống là test đỏ); "stays with the message when the page takes it while the button is still
+    held, long after the press" (đối chứng: cùng nút ấy nhưng trang tự focus bằng timer 150 ms sau
+    `mousedown`, nút vẫn đang giữ: bốn lần bàn phím về ô soạn tin, phím gõ lúc còn giữ nút vào ô
+    soạn tin, lần thứ năm trang bị gỡ, tức lần nào cũng bị tính); "stays with the message when the
+    keys meant for it press a button of a page that goes on taking it" (trang cứ 100 ms lại focus
+    một nút của nó, người gõ Enter liên tục: Enter rơi vào nút ấy trong khoảng chờ là một `click`
+    trình duyệt bảo là của người, nhưng không con trỏ nào tạo ra nó nên reporter không nói, trang
+    bị gỡ sau năm lần và ba mươi phím gõ sau đó vào đủ ô soạn tin; để reporter nói mọi `click`
+    `isTrusted` là test đỏ: trang giữ được bàn phím và không bao giờ bị gỡ); "stays with the
+    message when the page makes up a press of its own before it takes it" (script của trang tự
+    `dispatchEvent` đủ năm sự kiện của một cú bấm, `pointerdown`, `mousedown`, `pointerup`,
+    `mouseup` và `click` với `detail: 1`, lên ô của nó, trang nghe đủ cả năm, rồi lấy focus:
+    reporter không nói tới cú bấm trình duyệt không bảo là của người, bàn phím về ô soạn tin, ba
+    mươi phím gõ vào đủ ô soạn tin, trang không nghe phím nào và dòng "Bàn phím đang ở trang" không
+    hiện; bỏ điều kiện `isTrusted` trong reporter là test đỏ); "is not kept by a page that takes it while
     nothing in the app holds it" (khung bị `blur`, focus của app ở `body`; bỏ `taker.blur()` trong
     guard là test đỏ); "stays with the message when the page takes it as the pointer passes over"
     (trang gọi `window.focus()` trong `pointermove` của nó: con trỏ đi qua trang không phải lời mời,
@@ -2987,8 +3010,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     trỏ không động, thì phím tới trang tối đa một nhịp cộng khoảng chờ (250 ms) rồi bàn phím về; khung
     được dựng lên khi cửa sổ đã ở phía sau từ trước (guard và dấu chưa từng thấy `blur` của cửa sổ)
     thì không có nhịp nào, và vẫn chờ một trong ba sự kiện ấy; trang chặn hành vi mặc định của cú bấm
-    (khung không nhận focus) rồi tự focus sau hơn 50 ms, chẳng hạn trong `click`, thì bị coi là tự
-    giành: lời mời của cú bấm ấy đã hết
+    (khung không nhận focus) rồi tự focus hơn 50 ms sau lúc con trỏ xuống mà nút vẫn đang giữ, hoặc
+    hơn 50 ms sau lúc nhả (chẳng hạn sau một hoạt cảnh), thì bị coi là tự giành: lời mời của cú bấm
+    ấy đã hết; ba sự kiện lúc nhả thừa nhau với chuột trong Chromium (bỏ riêng một cái thì test
+    trình duyệt vẫn xanh), từng cái chỉ được giữ bằng test chữ của reporter
 - **Canvas trên web: svg và ảnh hiện thành hình từ bản đã lưu; ảnh chỉ để xem; hình không tải được
   thì phân biệt hình hỏng, bản đã mất, server lỗi và mất mạng**
   - vitest: `web/src/components/canvas/canvas-image.test.tsx` nhóm "a picture of a canvas" (hình là

@@ -48,14 +48,34 @@ const edge = (page: Page) =>
     return outlineStyle === "none" ? "none" : `${outlineStyle} ${outlineWidth}`;
   });
 
-/** The page presses its own field, as a script can and no person did. */
+/** What a press is to a page, from the pointer going down to the click it comes to. */
+const PRESS_KINDS = ["pointerdown", "mousedown", "pointerup", "mouseup", "click"];
+
+/** The page presses its own field and lets it go again, as a script can and no person did. */
 const pressItself = (page: Page) =>
   inside(page)
     .locator("#field")
-    .evaluate((field) => {
-      field.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, composed: true, isPrimary: true }));
-      field.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, composed: true }));
-    });
+    .evaluate((field, kinds) => {
+      for (const kind of kinds) {
+        const made = { bubbles: true, composed: true, detail: 1 };
+        field.dispatchEvent(kind.startsWith("pointer") ? new PointerEvent(kind, { ...made, isPrimary: true }) : new MouseEvent(kind, made));
+      }
+    }, PRESS_KINDS);
+
+/** How long a person holds the button of a mouse down in a click: well past the time a page is waited on. */
+const HELD_MS = 150;
+
+/** A button of the page that keeps the browser from moving the focus when it is pressed. */
+const BUTTON = '<button id="go" style="display: block; width: 200px; height: 80px">go</button>';
+const KEEPS = 'document.getElementById("go").addEventListener("mousedown", function (event) { event.preventDefault(); });';
+
+/** The person presses the page's button and holds it down. */
+async function pressAndHold(page: Page) {
+  const at = await inside(page).locator("#go").boundingBox();
+  if (at === null) throw new Error("the button of the page is not laid out");
+  await page.mouse.move(at.x + at.width / 2, at.y + at.height / 2);
+  await page.mouse.down();
+}
 
 /** The page takes the keyboard for the field it has, as a script of its own would. */
 const grab = (page: Page) =>
@@ -135,14 +155,77 @@ test.describe("the keyboard beside a page in the canvas", () => {
     await expect(page.getByText(words.grabbing)).toHaveCount(0);
   });
 
+  test("goes to a page that takes it at the click, however long the person held the button and however often", async ({ page }) => {
+    const atTheClick = 'document.getElementById("go").addEventListener("click", function () { document.getElementById("field").focus(); });';
+    await openPage(page, LISTENING + BUTTON + script(`${KEEPS}\n${atTheClick}`));
+
+    // One time more than a page may take the keyboard unasked.
+    for (let round = 1; round <= 6; round++) {
+      await composer(page).click();
+      await pressAndHold(page);
+      await page.waitForTimeout(HELD_MS);
+      // The press moved nothing, and what it offered is long over: only its end offers again.
+      expect(await holder(page)).toBe("TEXTAREA");
+      await page.mouse.up();
+      await page.keyboard.type("abcdefghij", { delay: 30 });
+
+      await expect(inside(page).locator("#heard")).toHaveText("abcdefghij".repeat(round));
+      await expect(inside(page).locator("#left")).toHaveText(String(round - 1));
+      await expect(marker(page)).toBeVisible();
+    }
+
+    await expect(composer(page)).toHaveValue("");
+    await expect(frame(page)).toHaveCount(1);
+    await expect(page.getByText(words.grabbing)).toHaveCount(0);
+  });
+
+  test("stays with the message when the page takes it while the button is still held, long after the press", async ({ page }) => {
+    const later = `document.getElementById("go").addEventListener("mousedown", function () { setTimeout(function () { document.getElementById("field").focus(); }, ${HELD_MS}); });`;
+    await openPage(page, LISTENING + BUTTON + script(`${KEEPS}\n${later}`));
+    await composer(page).click();
+
+    for (let press = 1; press <= 4; press++) {
+      await pressAndHold(page);
+      // The page had the keyboard and saw it go again, with the button down all the while.
+      await expect(inside(page).locator("#left")).toHaveText(String(press));
+      await page.keyboard.type(String(press));
+      await page.mouse.up();
+      expect(await holder(page)).toBe("TEXTAREA");
+    }
+    await pressAndHold(page);
+
+    // Each of the five was held against the page.
+    await expect(page.getByText(words.grabbing)).toBeVisible();
+    await expect(frame(page)).toHaveCount(0);
+    await page.mouse.up();
+    await page.keyboard.type("5");
+    await expect(composer(page)).toHaveValue("12345");
+  });
+
+  test("stays with the message when the keys meant for it press a button of a page that goes on taking it", async ({ page }) => {
+    // Enter on a button is a click the browser vouches for, and a page that took the keyboard gets
+    // the keys typed while it is waited on. No pointer made that click: it is no press.
+    const taking = 'setInterval(function () { window.focus(); document.getElementById("go").focus(); }, 100);';
+    await openPage(page, BUTTON + script(taking));
+    await composer(page).click();
+
+    const stopped = page.getByText(words.grabbing);
+    for (let key = 0; key < 150 && !(await stopped.isVisible()); key++) await page.keyboard.press("Enter");
+
+    await expect(stopped).toBeVisible();
+    await expect(frame(page)).toHaveCount(0);
+    await page.keyboard.type(TYPED);
+    await expect(composer(page)).toHaveValue(TYPED);
+  });
+
   test("stays with the message when the page makes up a press of its own before it takes it", async ({ page }) => {
-    const made = `window.addEventListener("pointerdown", function () { ${count("presses")} });`;
+    const made = PRESS_KINDS.map((kind) => `window.addEventListener("${kind}", function () { ${count("presses")} });`).join("\n");
     await openPage(page, `${LISTENING}<p id="presses">0</p>${script(made)}`);
     await composer(page).click();
 
     await pressItself(page);
-    // The page heard the press it made, as it would one of the person's.
-    await expect(inside(page).locator("#presses")).toHaveText("1");
+    // The page heard the press it made from beginning to end, as it would one of the person's.
+    await expect(inside(page).locator("#presses")).toHaveText(String(PRESS_KINDS.length));
     await grab(page);
 
     await expect(inside(page).locator("#left")).toHaveText("1");

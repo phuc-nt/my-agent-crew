@@ -136,11 +136,14 @@ def test_a_rejection_that_is_a_plain_object_is_told_by_its_message():
 HELLO = 'parent.postMessage({type: "canvas-hello"}, "*", [channel.port2]);'
 PRESSED = """\
   function pressed(event) {
-    if (tell && event.isTrusted === true) {
+    if (tell && event.isTrusted === true && (event.type !== "click" || event.detail > 0)) {
       tell({type: "press"});
     }
   }
 """
+# A press from its beginning to its end: the pointer down and up, each also as the mouse the
+# browser makes of it, and the click the two come to.
+PRESS_KINDS = ("pointerdown", "mousedown", "pointerup", "mouseup", "click")
 
 
 def test_the_reporter_hands_the_app_a_port_before_it_listens_for_anything():
@@ -164,19 +167,21 @@ def test_a_browser_without_message_channels_still_reports_what_goes_wrong():
 
 def test_the_reporter_tells_of_a_press_only_when_the_browser_says_a_person_made_it():
     # `isTrusted` is the one thing about an event no script can set, and the handler reads that
-    # and its own locals: what a page replaced after it ran is never looked up.
+    # and its own locals: what a page replaced after it ran is never looked up. A click is told
+    # only when a pointer made it (`detail` counts its presses): Enter on a button is a click the
+    # browser vouches for too, and a page that took the keyboard gets the keys meant for the app.
     assert PRESSED in REPORTER_JS
     assert REPORTER_JS.count("tell(") == 1
+    assert REPORTER_JS.count("isTrusted") == 1
     listened = re.findall(r'window\.addEventListener\("(\w+)", (\w+)', REPORTER_JS)
     # A page can make the browser fire `focus`, `pointermove`, `wheel` and `keydown` for it.
     assert listened == [
-        ("pointerdown", "pressed"),
-        ("mousedown", "pressed"),
+        *((kind, "pressed") for kind in PRESS_KINDS),
         ("error", "function"),
         ("unhandledrejection", "function"),
         ("securitypolicyviolation", "function"),
     ]
-    for kind in ("pointerdown", "mousedown"):
+    for kind in PRESS_KINDS:
         assert f'  window.addEventListener("{kind}", pressed, true);\n' in REPORTER_JS
 
 

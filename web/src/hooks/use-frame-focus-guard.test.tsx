@@ -76,6 +76,9 @@ function press() {
   act(() => attest());
 }
 
+/** How long a person holds the button of a mouse down in a click: several times what a page is waited on. */
+const HELD_MS = 150;
+
 /** The page takes the keyboard `times` over, and each time is waited on for as long as a page is. */
 function takes(times: number) {
   for (let take = 0; take < times; take++) {
@@ -407,6 +410,34 @@ describe("the keyboard the person offers the page", () => {
 
     expect(holder()).toBe(page());
     expectNoGrab(onGrabbing);
+  });
+
+  it("is made anew when the press is told to be over, for the page that takes the keyboard at the click of a button a person held", () => {
+    const { onGrabbing } = setup();
+    message().focus();
+
+    // A mouse: the button goes down on something that keeps the focus from moving, stays down for
+    // as long as a person holds it, and the page focuses its field when the button comes up.
+    press();
+    wait(HELD_MS);
+    expect(holder()).toBe(message());
+    press();
+    takes(1);
+
+    expect(holder()).toBe(page());
+    expectNoGrab(onGrabbing);
+  });
+
+  it("is not made by a button that is still held: a page that takes the keyboard then, with nothing told since the press, took it", () => {
+    const { onGrabbing } = setup();
+    message().focus();
+
+    press();
+    wait(HELD_MS);
+    takes(1);
+
+    expect(holder()).toBe(message());
+    expectOneGrab(onGrabbing);
   });
 
   it("lasts from the press told last, not from the one before it", () => {

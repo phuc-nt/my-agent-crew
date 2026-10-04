@@ -4,14 +4,14 @@
  * typed next would go to the page, which hears them, and not to the message being written.
  *
  * The page has the keyboard only while the person offers it. Two things make the offer. One is a
- * pointer pressed inside the page: the page's own reporter tells of it over a port the app was
- * handed before any of the page's code ran (`use-frame-messages.ts`), and a page cannot make that
- * press up. The other is Tab pressed in the app, alone or with shift. The offer is for the focus
- * that moves with it (`keyboard-offer.ts`): a frame that does not have the focus a task after Tab,
- * or `ATTEST_GRACE_MS` after the press was told, has no offer any more. A key that is not that Tab
- * pressed in the app, a pointer pressed in the app outside the frame's box, and the focus arriving
- * on one of the app's elements each take the offer back. Moving the pointer or scrolling says
- * nothing either way, over the page or off it: a page can make the browser do both.
+ * pointer pressed inside the page, told when it goes down and again when it comes up: the page's
+ * own reporter tells of it over a port the app was handed before any of the page's code ran
+ * (`use-frame-messages.ts`), and a page cannot make it up. The other is Tab pressed in the app,
+ * alone or with shift. The offer is for the focus that moves with it (`keyboard-offer.ts`): a frame
+ * that does not have the focus a task after Tab, or `ATTEST_GRACE_MS` after the press was last
+ * told, has no offer any more. A key that is not that Tab pressed in the app, a pointer pressed in
+ * the app outside the frame's box, and the focus arriving on one of the app's elements each take it
+ * back. Moving the pointer or scrolling says nothing: a page can make the browser do both.
  *
  * The app learns that the frame has the focus from its own window's `blur`. With an offer standing
  * it leaves the focus there. Without one it waits `ATTEST_GRACE_MS` for the press to be told: the
