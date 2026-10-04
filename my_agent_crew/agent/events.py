@@ -132,6 +132,18 @@ class UserContextEvent:
     context: str
 
 
+@dataclass(frozen=True)
+class ToolCallDeltaEvent:
+    """Arguments of a canvas write as the model streams them, sent only to the request that
+    streams the turn. `attempt` counts the route attempts this model call gave up, from 0;
+    an empty `name` calls an attempt off, and whoever drew its pieces drops them."""
+
+    index: int
+    name: str
+    chunk: str
+    attempt: int
+
+
 Event = (
     TextDeltaEvent
     | ThinkingEvent
@@ -147,12 +159,19 @@ Event = (
     | QueuedEvent
     | SteerEvent
     | UserContextEvent
+    | ToolCallDeltaEvent
 )
 
 # Events that flow through a turn but are not worth a write or a broadcast on their own: the
-# run they belong to is stored and sent at the next step boundary. The canvas note is here for
-# another reason as well: it quotes the person's canvas, so only their own stream carries it.
-STREAMING_EVENTS = (TextDeltaEvent, ThinkingEvent, ModelCallEvent, UserContextEvent)
+# run they belong to is stored and sent at the next step boundary. The canvas note and the
+# pieces of a canvas write also quote a canvas, so only their own stream may carry them.
+STREAMING_EVENTS = (
+    TextDeltaEvent,
+    ThinkingEvent,
+    ModelCallEvent,
+    UserContextEvent,
+    ToolCallDeltaEvent,
+)
 
 _KIND = {
     TextDeltaEvent: "text_delta",
@@ -169,6 +188,7 @@ _KIND = {
     QueuedEvent: "queued",
     SteerEvent: "steer",
     UserContextEvent: "user_context",
+    ToolCallDeltaEvent: "tool_call_delta",
 }
 
 

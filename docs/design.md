@@ -239,7 +239,10 @@ thay vì mở run thứ hai; run chờ duyệt không còn yêu cầu nào để
 khi không tiến trình nào giữ run) bị đóng như trên, và xoá một cuộc trò chuyện cũng đóng
 ngay run đang chờ duyệt trong đó. Run được ghi và phát ở ranh giới step: token stream (`text_delta`,
 `thinking`) chỉ cộng dồn vào step đang dựng trong bộ nhớ, không ghi SQLite và không lên
-luồng activity (rail không hiện từng chữ). Mỗi watcher có hàng đợi 256 frame; một tab
+luồng activity (rail không hiện từng chữ). Mảnh đối số của một lời viết canvas
+(`tool_call_delta`) cũng là event chỉ stream: nó tới request đang stream lượt ấy để tab
+thấy tài liệu hiện dần, không đổi run, không ghi SQLite và không lên luồng activity.
+Mỗi watcher có hàng đợi 256 frame; một tab
 ngừng đọc bị cắt và trình duyệt kết nối lại với `snapshot` mới, thay vì giữ mọi event
 của mọi run trong bộ nhớ server. `/api/stats` giữ câu trả lời cuối cùng theo số lần ghi
 của store và chỉ tính lại khi có gì đó được ghi.

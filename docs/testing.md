@@ -1391,6 +1391,30 @@ tên một test thì sửa dòng của nó trong cùng commit.
     không bị đổi thành mã escape, lượt chỉ gọi tool không còn mảnh chữ rỗng, `fake:slow` chờ
     giữa hai mảnh chữ hay hai mảnh lời gọi và không chờ quanh câu trả lời một mảnh, `fake:echo`
     không bao giờ chờ, mặc định chờ bằng `asyncio.sleep`)
+- **Lời viết canvas hiện dần trên luồng của tab đang chờ khi model còn đang viết nó; đối số của
+  tool khác không rời server trước khi lời gọi chạy**
+  - pytest: `tests/test_draft_preview.py` (chỉ `artifact_create` và `artifact_rewrite` được xem
+    trước; mảnh đầu phát ngay dù đồng hồ đọc số nào; mảnh tới trong 3 giây được gom, mảnh tới
+    đúng 3 giây sau event trước mang ra mọi thứ đã gom, và khoảng chờ tính lại từ event ấy; mảnh
+    tới trước tên thì chờ tên rồi đi cùng; lời gọi mang tên tool khác, kể cả `artifact_import`,
+    bị bỏ hẳn dù tên đổi về sau; hai lời gọi trong một câu trả lời được tính giờ và gom riêng;
+    phần còn giữ khi lần thử kết thúc bị bỏ chứ không gửi; `reset` quên cả lời gọi đã bỏ; đồng hồ
+    mặc định là `time.monotonic`); `tests/test_model_stream.py`
+    ("test_a_canvas_write_is_shown_ahead_of_the_answer_that_carries_it"; phần còn giữ không được
+    xả sau câu trả lời; bước gọi model đi theo đồng hồ được tiêm; `workspace_write` với đối số
+    dài không cho event nào;
+    "test_an_attempt_cut_off_mid_document_is_called_off_before_the_next_one_shows": tuyến bị cắt
+    giữa chừng đối số cho một event tên rỗng mang `attempt=1`, rồi lần thử mới bắt đầu lại từ
+    mảnh đầu và mọi event của nó mang `attempt=1`; lần thử chưa hiện gì thì không có event tên
+    rỗng nhưng vẫn được đếm; tuyến hỏng hẳn vẫn cho `route_fallback` và cũng được đếm;
+    "test_on_the_slow_model_a_document_of_a_few_kilobytes_is_seen_filling_in": trên `fake:slow`
+    một tài liệu vài KB được phát nhiều lần chứ không phải một);
+    `tests/test_tool_call_delta_event.py` (event `tool_call_delta` chỉ có `type`, `index`, `name`,
+    `chunk`, `attempt`; "test_the_activity_hub_neither_writes_nor_broadcasts_it";
+    "test_it_leaves_a_run_exactly_as_it_was": `apply_event` không mở step và không đổi số nào;
+    "test_a_reply_reads_the_same_with_the_pieces_in_the_chain_or_without_them": Telegram và job
+    đọc cùng một câu trả lời; qua API nó là một khối SSE riêng đứng trước `assistant_message`,
+    còn lượt gọi tool khác không có khối ấy)
 - **Tham số lời gọi tool không phải JSON object thành lỗi tool, lượt vẫn chạy tiếp**
   - pytest: `tests/test_tool_args_invalid.py` (tham số bị cắt giữa chừng báo vị trí chỗ dừng
     chứ không phải chỗ chuỗi bắt đầu, lỗi giữa chừng báo vị trí và vài chục ký tự quanh đó với

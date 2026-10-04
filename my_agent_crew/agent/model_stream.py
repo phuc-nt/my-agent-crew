@@ -1,11 +1,15 @@
 """One model call of a turn: what the provider streams becomes the events a turn shows, and
-the answer it ends with is stored before the event that announces it."""
+the answer it ends with is stored before the event that announces it. A canvas write is
+shown while it is still being written; an attempt the chain gives up is called off, so no
+reader joins the pieces of two attempts into one document."""
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Sequence
+import time
+from collections.abc import AsyncIterator, Callable, Sequence
 from typing import TYPE_CHECKING
 
+from my_agent_crew.agent.draft_preview import DraftPreview
 from my_agent_crew.agent.events import (
     AssistantMessageEvent,
     Event,
@@ -13,6 +17,7 @@ from my_agent_crew.agent.events import (
     RouteFallbackEvent,
     TextDeltaEvent,
     ThinkingEvent,
+    ToolCallDeltaEvent,
 )
 from my_agent_crew.agent.prompt import turn_messages
 from my_agent_crew.agent.reply_checks import with_dropped_attachments
@@ -21,8 +26,10 @@ from my_agent_crew.llm.types import (
     Completion,
     ReasoningDelta,
     RouteFailed,
+    RouteRetry,
     StreamStarted,
     TextDelta,
+    ToolCallDelta,
     ToolSpec,
 )
 from my_agent_crew.store import Conversation, StoredMessage
@@ -37,22 +44,35 @@ async def complete_step(
     history: Sequence[StoredMessage],
     tools: Sequence[ToolSpec],
     turn_start: int,
+    clock: Callable[[], float] = time.monotonic,
 ) -> AsyncIterator[Event]:
     messages = turn_messages(deps, conv, history, turn_start)
     completion: Completion | None = None
     thinking = False
+    # `attempt` counts the attempts the chain gave up, so a reader tells a piece of the
+    # answer being written now from a piece of one that was abandoned.
+    preview, attempt = DraftPreview(clock), 0
     yield ModelCallEvent(stage="sent")
     async for item in deps.chain.stream(messages, tools):
         if isinstance(item, TextDelta):
             yield TextDeltaEvent(text=item.text)
+        elif isinstance(item, ToolCallDelta):
+            event = preview.feed(item, attempt)
+            if event is not None:
+                yield event
         elif isinstance(item, ReasoningDelta):
             if not thinking:
                 thinking = True
                 yield ThinkingEvent()
         elif isinstance(item, StreamStarted):
             yield ModelCallEvent(stage="first_token")
-        elif isinstance(item, RouteFailed):
-            yield RouteFallbackEvent(provider=item.provider, model=item.model, error=item.error)
+        elif isinstance(item, RouteFailed | RouteRetry):
+            if isinstance(item, RouteFailed):
+                yield RouteFallbackEvent(provider=item.provider, model=item.model, error=item.error)
+            attempt += 1
+            if preview.emitted:  # an event with no name: drop what was shown of that attempt
+                yield ToolCallDeltaEvent(index=0, name="", chunk="", attempt=attempt)
+            preview.reset()
         elif isinstance(item, Completion):
             completion = item
     if completion is None:
