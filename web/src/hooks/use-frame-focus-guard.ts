@@ -34,8 +34,9 @@ const POINTER_EVENTS = ["pointermove", "pointerdown", "wheel"] as const;
 
 /**
  * Guards the keyboard against the page in `frame`, and returns the ref of the box to put the frame
- * in. `onGrabbing` is called when the frame on show has taken the keyboard `GRABS_MAX` times; a
- * frame that replaces it starts with no grab against it.
+ * in. `onGrabbing` is called when the frame on show has taken the keyboard `GRABS_MAX` times, and
+ * each time it does after that while it is left up; a frame that replaces it starts with no grab
+ * against it.
  */
 export function useFrameFocusGuard(
   frame: RefObject<HTMLIFrameElement | null>,

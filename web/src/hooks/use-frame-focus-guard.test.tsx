@@ -327,6 +327,24 @@ describe("a page that goes on taking the keyboard", () => {
     expect(onGrabbing).toHaveBeenCalledTimes(1);
   });
 
+  it("is reported again each time it does after that, where the app left the page up", () => {
+    const { onGrabbing } = setup();
+    message().focus();
+    for (let take = 0; take < GRABS_MAX; take++) {
+      grab();
+      wait(0);
+    }
+    expect(onGrabbing).toHaveBeenCalledTimes(1);
+
+    grab();
+    wait(0);
+    grab();
+
+    expect(onGrabbing).toHaveBeenCalledTimes(3);
+    wait(0);
+    expect(holder()).toBe(message());
+  });
+
   it("took it once when the app is told of it more than once before the keyboard is back", () => {
     const { onGrabbing } = setup();
     message().focus();
@@ -397,6 +415,20 @@ describe("a page that goes on taking the keyboard", () => {
 
     expect(asksNow).toHaveBeenCalledTimes(1);
     expect(onGrabbing).not.toHaveBeenCalled();
+  });
+});
+
+describe("a guard that is put up", () => {
+  it("holds no scroll back: it tells the browser it only listens to the pointer", () => {
+    const put = vitest.spyOn(document, "addEventListener");
+
+    setup();
+
+    const passive = (type: string) =>
+      put.mock.calls
+        .filter(([told]) => told === type)
+        .map(([, , options]) => typeof options === "object" && options.passive === true);
+    expect(["pointermove", "pointerdown", "wheel"].map(passive)).toEqual([[true], [true], [true]]);
   });
 });
 

@@ -2366,9 +2366,12 @@ tên một test thì sửa dòng của nó trong cùng commit.
     mermaid không được phục vụ vì trang ấy tải thư viện từ CDN). Mở thẳng địa chỉ render: "has an
     origin of its own and no storage, by the policy it comes with" (`window.origin` là `null`, đọc
     `localStorage` ném `SecurityError`; bỏ `sandbox` khỏi `render-policy.txt` là test đỏ). Trong khung
-    ở 1440×900: "runs under an origin that is not the app's, and what it throws is listed"; "cannot
-    call the api: the policy stops the request before it leaves, and says so" (không request nào đi
-    từ khung, lời báo là `connect-src blocked`); "cannot keep anything in the browser's storage";
+    ở 1440×900: "runs under an origin that is not the app's, and what it throws is listed"; "fills
+    the panel, down to the lower edge of the room the canvas has" (mép dưới của khung trùng mép dưới
+    của `.canvas-saved` và khung cao hơn nửa cửa sổ; hộp `.canvas-frame-box` không co giãn hoặc
+    không còn là flex cột thì khung chỉ cao 150px và test đỏ); "cannot call the api: the policy
+    stops the request before it leaves, and says so" (không request nào đi từ khung, lời báo là
+    `connect-src blocked`); "cannot keep anything in the browser's storage";
     "cannot put a dialog over the app"; "cannot move the app to another address" (`top.location` ném
     `SecurityError`, app vẫn ở địa chỉ cũ); "is taken out when it moves itself to another address,
     and the person is told" (trang đổi `location` sau khi tải xong; trang tự đi ngay lúc còn đang
@@ -2391,10 +2394,13 @@ tên một test thì sửa dòng của nó trong cùng commit.
     focus tới một nút của app thì lời mời hết và lần giành kế tiếp bị trả lại), nhóm "what the app's
     own handlers keep to themselves" (bốn loại sự kiện vẫn được thấy khi handler của app gọi
     `stopPropagation`: nghe ở pha capture), nhóm "a page that goes on taking the keyboard" (bốn lần
-    thì chưa báo, lần thứ năm báo đúng một lần; app nhận `blur` nhiều lần trước khi bàn phím về thì
-    vẫn là một lần giành; bàn phím do người đưa thì bao nhiêu lần cũng không tính; khung mới thay
-    khung cũ bắt đầu từ không; báo cho callback mới nhất), nhóm "a guard that is taken down" (không
-    để lại timer nào, gỡ đủ bảy listener đã gắn với đúng cờ capture);
+    thì chưa báo, lần thứ năm báo đúng một lần; "is reported again each time it does after that,
+    where the app left the page up": app chưa gỡ khung thì mỗi lần giành sau lần thứ năm lại báo một
+    lần nữa và bàn phím vẫn được trả; app nhận `blur` nhiều lần trước khi bàn phím về thì vẫn là một
+    lần giành; bàn phím do người đưa thì bao nhiêu lần cũng không tính; khung mới thay khung cũ bắt
+    đầu từ không; báo cho callback mới nhất), nhóm "a guard that is put up" (ba listener con trỏ gắn
+    với `passive: true`, nên guard không bao giờ giữ một cú cuộn lại), nhóm "a guard that is taken
+    down" (không để lại timer nào, gỡ đủ bảy listener đã gắn với đúng cờ capture);
     `web/src/components/canvas/canvas-frame.test.tsx` nhóm "a page that takes the keyboard" (khung
     nằm trong `div.canvas-frame-box`, hộp chưa có `data-offered` cho tới khi con trỏ tới; một lần
     giành thì trang vẫn còn và ô đang gõ có lại focus; lần thứ năm khung bị gỡ, lời báo là "Trang liên
@@ -2406,7 +2412,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
   - Playwright: `canvas-render.spec.ts` ở 1440×900, Chromium thật: "does not take the keyboard from a
     message being written when it focuses itself" (trang gọi `window.focus()` rồi focus ô của nó; khi
     trang đã thấy `blur` của chính nó thì ba mươi phím gõ vào đủ ô soạn tin và trang không nghe phím
-    nào); "is given the keyboard by a click in it, however often the person goes back and forth" (sáu
+    nào); "does not keep the keyboard it takes while nothing in the app holds it" (không phần tử nào
+    của app giữ focus, trang tự giành: khung bị `blur`, trang thấy bàn phím rời nó, ba mươi phím gõ
+    sau đó trang không nghe phím nào và focus của app ở `body`; bỏ `frame.blur()` trong guard là test
+    đỏ); "is given the keyboard by a click in it, however often the person goes back and forth" (sáu
     vòng bấm ô soạn tin, đưa con trỏ lên trang, bấm vào ô của trang, mũi tên tới trang; trang không bị
     gỡ); "is given the keyboard by Tab"; "is stopped when it goes on taking the keyboard, which stays
     where the person had it" (trang `setInterval(window.focus, 100)` bị gỡ kèm lời báo, ba mươi phím

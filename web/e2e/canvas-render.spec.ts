@@ -70,6 +70,8 @@ const inside = (page: Page) => page.frameLocator("iframe.canvas-frame");
 const composer = (page: Page) => page.getByRole("textbox", { name: vi.composerPlaceholder });
 /** The person brings the pointer over the page: until they do, the app keeps the pointer from it. */
 const pointAt = (page: Page) => page.locator(".canvas-frame-box").hover();
+/** What has the focus in the app: `IFRAME` while the page has the keyboard, `BODY` while nothing has. */
+const holder = (page: Page) => page.evaluate(() => document.activeElement?.tagName);
 
 /** Thirty keys a person types. */
 const TYPED = "the quick brown fox jumps over";
@@ -139,6 +141,19 @@ test.describe("a page in the canvas beside a wide conversation", () => {
     await openPage(page, script('throw new Error("origin=" + window.origin);'));
 
     expect(await listed(page, 1)).toEqual(["Uncaught Error: origin=null"]);
+  });
+
+  test("fills the panel, down to the lower edge of the room the canvas has", async ({ page }) => {
+    await openPage(page, "<p>Yên</p>");
+    await expect(inside(page).getByText("Yên")).toBeVisible();
+    await expect(page.getByText(words.loading)).toHaveCount(0);
+
+    const room = await page.locator(".canvas-saved").boundingBox();
+    const shown = await frame(page).boundingBox();
+    if (room === null || shown === null) throw new Error("the page or the room it has is not laid out");
+    expect(shown.y + shown.height).toBeCloseTo(room.y + room.height, 0);
+    // The room is the panel's own height: a frame as low as one is by default would be a strip of it.
+    expect(shown.height).toBeGreaterThan(900 / 2);
   });
 
   test("cannot call the api: the policy stops the request before it leaves, and says so", async ({ page }) => {
@@ -222,6 +237,23 @@ test.describe("a page in the canvas beside a wide conversation", () => {
     await expect(page.getByText(words.grabbing)).toHaveCount(0);
   });
 
+  test("does not keep the keyboard it takes while nothing in the app holds it", async ({ page }) => {
+    await openPage(page, LISTENING);
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    expect(await holder(page)).toBe("BODY");
+
+    await inside(page).locator("body").evaluate(() => {
+      window.focus();
+      document.getElementById("field")?.focus();
+    });
+
+    // There is no element to give it back to: it is taken off the frame, and the page saw it go.
+    await expect(inside(page).locator("#left")).toHaveText("1");
+    await page.keyboard.type(TYPED);
+    await expect(inside(page).locator("#heard")).toHaveText("");
+    expect(await holder(page)).toBe("BODY");
+  });
+
   test("is given the keyboard by a click in it, however often the person goes back and forth", async ({ page }) => {
     await openPage(page, LISTENING);
 
@@ -244,12 +276,11 @@ test.describe("a page in the canvas beside a wide conversation", () => {
     await composer(page).click();
 
     // Tab by Tab through the app's controls, until the one that goes into the page.
-    const holder = () => page.evaluate(() => document.activeElement?.tagName);
-    for (let presses = 0; presses < 60 && (await holder()) !== "IFRAME"; presses++) await page.keyboard.press("Tab");
+    for (let presses = 0; presses < 60 && (await holder(page)) !== "IFRAME"; presses++) await page.keyboard.press("Tab");
     await page.keyboard.type("ab");
 
     await expect(inside(page).locator("#heard")).toHaveText("ab");
-    expect(await holder()).toBe("IFRAME");
+    expect(await holder(page)).toBe("IFRAME");
     await expect(page.getByText(words.grabbing)).toHaveCount(0);
   });
 
