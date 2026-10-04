@@ -127,6 +127,16 @@ describe("whether a message about to go names a canvas with text no version hold
     expect(answer).toEqual({ settled: true, value: false });
   });
 
+  it("is not so where the message names no canvas, though a panel whose save failed still answers", async () => {
+    const { result } = await openDock();
+    // The canvas is out of the dock and its panel has not been taken down yet.
+    act(() => {
+      result.current.bind(panel(Promise.resolve(null)));
+    });
+
+    await expect(result.current.flushForMessage()).resolves.toBe(false);
+  });
+
   it("is not so where a save is still out and the message names no canvas", async () => {
     const { result } = await openDock();
     leaveSaveOut(NOTE);

@@ -584,4 +584,37 @@ describe("a stopped page the person asks for again", () => {
     expect(focus).not.toHaveBeenCalled();
     expect(document.activeElement).toBe(field);
   });
+
+  it("does not have the focus put on the box of a frame nobody asked for, though nothing else has it", () => {
+    const focus = vitest.spyOn(HTMLElement.prototype, "focus");
+    const { container, show } = setup();
+    const first = frameIn(container);
+    fireEvent.load(first);
+    expect(document.activeElement).toBe(document.body);
+
+    show({ version: 2 });
+    wait(RELOAD_DELAY_MS);
+
+    expect(frameIn(container)).not.toBe(first);
+    expect(focus).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(document.body);
+  });
+
+  it("has the focus put there once, though nothing has it when the frame that follows comes", () => {
+    const { container, button, show } = stopped();
+    fireEvent.click(button);
+    const again = frameIn(container);
+    fireEvent.load(again);
+    const box = boxOf(again);
+    expect(document.activeElement).toBe(box);
+    // The person lets the focus go: nothing in the app holds it.
+    act(() => box.blur());
+    expect(document.activeElement).toBe(document.body);
+
+    show({ version: 2 });
+    wait(RELOAD_DELAY_MS);
+
+    expect(frameIn(container)).not.toBe(again);
+    expect(document.activeElement).toBe(document.body);
+  });
 });

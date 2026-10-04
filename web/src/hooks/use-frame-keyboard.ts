@@ -10,7 +10,7 @@ import { type RefObject, useLayoutEffect, useState } from "react";
 export function useFrameKeyboard(frame: RefObject<HTMLIFrameElement | null>, shown: number | null): boolean {
   const [held, setHeld] = useState(false);
   useLayoutEffect(() => {
-    const look = () => setHeld(frame.current !== null && document.activeElement === frame.current);
+    const look = () => setHeld(document.activeElement === frame.current);
     look();
     window.addEventListener("blur", look);
     window.addEventListener("focus", look);

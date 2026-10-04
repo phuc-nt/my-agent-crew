@@ -2317,7 +2317,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     cũng vậy; nhóm "whether a message about to go names a canvas with text no version holds":
     `flushForMessage` trả `false` khi chưa mở canvas nào, khi lần lưu của canvas đang mở đã xong, khi
     canvas đã bị xoá, khi lần lưu còn bay là của canvas khác với canvas tin nêu, khi tin không nêu
-    canvas nào, và khi người mở canvas khác trong lúc tin còn chờ; trả `true` khi lần lưu hỏng, khi
+    canvas nào (kể cả khi một panel có lần lưu hỏng vẫn còn gắn vào dock), và khi người mở canvas
+    khác trong lúc tin còn chờ; trả `true` khi lần lưu hỏng, khi
     hết lượt chờ mà lần lưu chưa về (và không trả gì trước đó), khi canvas tin nêu đã được cất đi trên
     màn hẹp mà lần lưu cuối còn bay; nhóm "the note that a message went before the canvas it names
     was saved": `sentUnsaved` bật và tắt theo `noteSentUnsaved`, thuộc về hội thoại tin đã đi (sang
@@ -2716,19 +2717,28 @@ tên một test thì sửa dòng của nó trong cùng commit.
     asks for again" (lời báo đã dừng là một nút DOM khác với hộp của khung cũ và của khung mới; sau
     Nạp lại, nút vừa bấm mất nên focus được đặt lên hộp của khung mới bằng `focus({ preventScroll:
     true })` đúng một lần; trình duyệt không cho nút nhận focus khi bấm thì focus ở yên chỗ người để
-    nó; các khung sau không kéo focus về nữa; khung không ai xin thì không dời focus)
+    nó; các khung sau không kéo focus về nữa, kể cả khi người đã buông focus và không phần tử nào
+    giữ nó; khung không ai xin thì không dời focus, kể cả khi focus đang ở `body`)
   - Playwright: `canvas-keyboard.spec.ts`, Chromium thật với reporter thật của server. Ở 1440×900:
     "goes to the page with a click in it and stays there, however often the person goes back and
     forth" (sáu vòng bấm ô soạn tin rồi bấm vào ô của trang và gõ ngay mười phím cách nhau 30 ms, lâu
     hơn khoảng chờ: trang nghe đủ mười phím mỗi vòng, bàn phím rời trang đúng số lần người lấy nó đi,
     ô soạn tin không nhận phím nào và trang không bị gỡ; đây là test giữ thứ tự giữa cú bấm reporter
-    nói và `blur` của app: bỏ khoảng chờ thì cú bấm tới sau `blur` bị coi là trang tự giành); "is
+    nói và `blur` của app: xét khung ngay trong `blur`, không chờ, thì cú bấm tới sau `blur` bị coi
+    là trang tự giành. Trong Chromium của Playwright cú bấm đã nằm trong hàng đợi trước khi cửa sổ
+    app nhận `blur`, nên ở đây một timer 0 ms cũng đủ: độ dài 50 ms của khoảng chờ chỉ được giữ bằng
+    các test vitest ở trên); "is
     shown to be with the page by a line around it and a word over it, which move nothing and let the
     pointer through" (khung không đổi vị trí hay kích thước, viền là `solid 2px`, dòng chữ nằm góc
     trên bên phải trong khung, bấm lên dòng chữ là bấm vào trang bên dưới; về ô soạn tin thì viền và
     dòng chữ mất); "stays with a message being written when the page focuses itself" (trang gọi
     `window.focus()` rồi focus ô của nó; khi trang đã thấy `blur` của chính nó thì ba mươi phím gõ
-    vào đủ ô soạn tin và trang không nghe phím nào); "is not kept by a page that takes it while
+    vào đủ ô soạn tin và trang không nghe phím nào); "stays with the message when the page makes up
+    a press of its own before it takes it" (script của trang tự `dispatchEvent` một `pointerdown` và
+    một `mousedown` lên ô của nó, trang nghe được cú bấm ấy, rồi lấy focus: reporter không nói tới cú
+    bấm trình duyệt không bảo là của người, bàn phím về ô soạn tin, ba mươi phím gõ vào đủ ô soạn
+    tin, trang không nghe phím nào và dòng "Bàn phím đang ở trang" không hiện; bỏ điều kiện
+    `isTrusted` trong reporter là test đỏ); "is not kept by a page that takes it while
     nothing in the app holds it" (khung bị `blur`, focus của app ở `body`; bỏ `taker.blur()` trong
     guard là test đỏ); "stays with the message when the page takes it as the pointer passes over"
     (trang gọi `window.focus()` trong `pointermove` của nó: con trỏ đi qua trang không phải lời mời,

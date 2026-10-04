@@ -48,6 +48,15 @@ const edge = (page: Page) =>
     return outlineStyle === "none" ? "none" : `${outlineStyle} ${outlineWidth}`;
   });
 
+/** The page presses its own field, as a script can and no person did. */
+const pressItself = (page: Page) =>
+  inside(page)
+    .locator("#field")
+    .evaluate((field) => {
+      field.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, composed: true, isPrimary: true }));
+      field.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, composed: true }));
+    });
+
 /** The page takes the keyboard for the field it has, as a script of its own would. */
 const grab = (page: Page) =>
   inside(page)
@@ -124,6 +133,23 @@ test.describe("the keyboard beside a page in the canvas", () => {
     await expect(composer(page)).toHaveValue(TYPED);
     await expect(inside(page).locator("#heard")).toHaveText("");
     await expect(page.getByText(words.grabbing)).toHaveCount(0);
+  });
+
+  test("stays with the message when the page makes up a press of its own before it takes it", async ({ page }) => {
+    const made = `window.addEventListener("pointerdown", function () { ${count("presses")} });`;
+    await openPage(page, `${LISTENING}<p id="presses">0</p>${script(made)}`);
+    await composer(page).click();
+
+    await pressItself(page);
+    // The page heard the press it made, as it would one of the person's.
+    await expect(inside(page).locator("#presses")).toHaveText("1");
+    await grab(page);
+
+    await expect(inside(page).locator("#left")).toHaveText("1");
+    await page.keyboard.type(TYPED);
+    await expect(composer(page)).toHaveValue(TYPED);
+    await expect(inside(page).locator("#heard")).toHaveText("");
+    await expect(marker(page)).toHaveCount(0);
   });
 
   test("is not kept by a page that takes it while nothing in the app holds it", async ({ page }) => {

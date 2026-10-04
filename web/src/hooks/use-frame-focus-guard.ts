@@ -157,7 +157,6 @@ export function useFrameFocusGuard(frame: RefObject<HTMLIFrameElement | null>, o
       document.removeEventListener("visibilitychange", shown);
       window.removeEventListener("blur", blurred);
       window.removeEventListener("focus", returned);
-      told.current = undefined;
       for (const timer of [forgetting, returning, waiting]) clearTimeout(timer);
     };
   }, [frame]);
