@@ -68,9 +68,10 @@ const frame = (page: Page) => page.locator("iframe.canvas-frame");
 const errors = (page: Page) => page.getByRole("group", { name: pageErrors.group });
 const lines = (page: Page) => errors(page).locator(".canvas-error-message");
 
-/** Waits for the page to have made `reported` reports, opens the list and reads each as shown. */
-async function listed(page: Page, reported: number): Promise<string[]> {
-  await expect(errors(page).locator(".canvas-errors-count")).toHaveText(pageErrors.count(reported));
+/** Waits for the page to have made `reported` reports, and `more` when the panel stopped hearing
+ *  it there, opens the list and reads each as shown. */
+async function listed(page: Page, reported: number, more = false): Promise<string[]> {
+  await expect(errors(page).locator(".canvas-errors-count")).toHaveText(pageErrors.count(reported, more));
   await errors(page).getByRole("button", { name: pageErrors.show, exact: true }).click();
   await expect(lines(page).first()).toBeVisible();
   return lines(page).allTextContents();
@@ -198,6 +199,24 @@ test.describe("a page in the canvas beside a wide conversation", () => {
       "Uncaught Error: lỗi 20",
       "hết đợt",
     ]);
+  });
+
+  test("is heard out on fifty of the ten thousand reports it posts past the reporter", async ({ page }) => {
+    const flood =
+      'for (var n = 1; n <= 10000; n++) parent.postMessage({ type: "canvas-error", message: "tin " + n, source: "", line: 0, column: 0 }, "*");';
+    await openPage(page, script(flood));
+
+    expect(await listed(page, 50, true)).toEqual(["tin 46", "tin 47", "tin 48", "tin 49", "tin 50"]);
+    // A message of the app's own later, the count has not moved: the page was not heard further.
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) => {
+          window.addEventListener("message", () => resolve(), { once: true });
+          window.postMessage("sau cùng", "*");
+        }),
+    );
+    await expect(errors(page).locator(".canvas-errors-count")).toHaveText(pageErrors.count(50, true));
+    expect(await lines(page).allTextContents()).toEqual(["tin 46", "tin 47", "tin 48", "tin 49", "tin 50"]);
   });
 
   test("reports a picture from elsewhere that the policy keeps it from loading", async ({ page }) => {

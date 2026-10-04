@@ -1110,7 +1110,8 @@ export const vi = {
     // What the page said went wrong, and the message that sends it to the agent.
     pageErrors: {
       group: "Lỗi do trang báo",
-      count: (count: number) => `Trang báo ${count} lỗi`,
+      // `more` once the page has said all one page is heard out on: it may have reported more.
+      count: (count: number, more = false) => `Trang báo ${count}${more ? "+" : ""} lỗi`,
       show: "Xem",
       hide: "Ẩn",
       send: "Gửi lỗi cho agent",

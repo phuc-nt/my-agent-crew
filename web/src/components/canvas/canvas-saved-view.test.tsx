@@ -164,6 +164,22 @@ describe("what the page of a canvas reports, in the panel", () => {
     expect(listed()).toEqual(["lỗi 3", "lỗi 4", "lỗi 5", "lỗi 6", "lỗi 7"]);
   });
 
+  it("stops counting at fifty, says the page reported more, and lists the newest five of the fifty", async () => {
+    await openPage();
+
+    act(() => {
+      for (let n = 1; n <= 10_000; n++) {
+        const data = { type: "canvas-error", ...FIRST, message: `lỗi ${n}` };
+        window.dispatchEvent(Object.assign(new Event("message"), { source: frame().contentWindow, origin: "null", data }));
+      }
+    });
+
+    expect(count()).toBe(pageErrors.count(50, true));
+    expect(count()).toContain("50+");
+    fireEvent.click(within(errors() as HTMLElement).getByRole("button", { name: pageErrors.show }));
+    expect(listed()).toEqual(["lỗi 46", "lỗi 47", "lỗi 48", "lỗi 49", "lỗi 50"]);
+  });
+
   it("puts the page up again when the activity stream comes back, with nothing listed against it", async () => {
     backend.canvas.add({ ...SAMPLES.html, agent_id: "ming" });
     const view = await openPanel();

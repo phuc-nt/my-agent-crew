@@ -100,6 +100,16 @@ describe("the errors a page reported", () => {
     expect(container.querySelector(".canvas-errors-list")).toBeNull();
   });
 
+  it("says the page reported more once it has used up what one page is heard out on, and not before", () => {
+    const counted = (count: number) =>
+      setup({ report: reportOf([error("boom")], { count }) }).container.querySelector(".canvas-errors-count")?.textContent;
+
+    expect(counted(49)).toBe(pageErrors.count(49));
+    expect(counted(49)).not.toContain("+");
+    expect(counted(50)).toBe(pageErrors.count(50, true));
+    expect(counted(50)).toContain("50+");
+  });
+
   it("lists the errors it keeps, oldest first, when asked, and closes the list again", () => {
     const { container } = setup({
       report: reportOf([error("first"), error("second", { source: "app.js", line: 3, column: 7 })], { count: 9 }),

@@ -2382,10 +2382,14 @@ tên một test thì sửa dòng của nó trong cùng commit.
     page reports" (chuyển đi lời báo từ cửa sổ của trang; không nhận gì từ cửa sổ khác, từ trang đã
     gỡ hay từ khung đã bị thay; thôi nghe khi khung đi; "tells the panel's newest listener alone,
     once the panel has given it another"; tệp không tới lúc máy mất mạng thì bỏ qua còn lời báo khác
-    vẫn giữ, có mạng lại thì liệt kê); `web/src/components/canvas/canvas-errors.test.tsx` nhóm "the
-    errors a page reported" (không hiện gì khi trang chưa báo gì, nói số lỗi và giữ danh sách đóng
-    tới khi được hỏi, liệt kê cũ trước mới sau, "draws what the page wrote as text and never as
-    markup, with hidden characters as marks") và nhóm "sending the errors to the agent" (chỉ có nút
+    vẫn giữ, có mạng lại thì liệt kê; mỗi khung chỉ được nghe năm mươi tin: "hears fifty messages of
+    a page that sends ten thousand, and reads nothing of the rest" đếm số lần `data` bị đọc bằng một
+    getter, tin không phải lời báo cũng tính vào năm mươi tin ấy, khung mới có năm mươi tin của riêng
+    nó, tin từ cửa sổ khác không tính cho trang); `web/src/components/canvas/canvas-errors.test.tsx`
+    nhóm "the errors a page reported" (không hiện gì khi trang chưa báo gì, nói số lỗi và giữ danh
+    sách đóng tới khi được hỏi, từ lời báo thứ năm mươi thì ghi "50+" còn bốn mươi chín thì chưa,
+    liệt kê cũ trước mới sau, "draws what the page wrote as text and never as markup, with hidden
+    characters as marks") và nhóm "sending the errors to the agent" (chỉ có nút
     gửi khi có chat để gửi; "sends nothing until the button is pressed, however many errors arrive";
     lưu canvas rồi gửi một tin nêu trang và bản của nó; gửi năm lỗi mới nhất; nút bị giữ trong lúc
     lưu và gửi nên bấm bao nhiêu lần cũng gửi một lần; canvas chưa lưu được thì nói, không gửi và cho
@@ -2405,7 +2409,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     errors as those of the version the page was put up for, while a newer one waits its second";
     bản mới được đưa lên thì quên lỗi của trang cũ và đếm lại từ không, và gửi lại được dù lỗi trước
     đã gửi; trang bị gỡ vì tự đi nơi khác thì quên lỗi của nó; "counts every report the page makes
-    and keeps the newest five to list"; luồng nối lại thì trang được đưa lên lại và không lỗi nào
+    and keeps the newest five to list"; "stops counting at fifty, says the page reported more, and
+    lists the newest five of the fifty": mười nghìn lời báo thì thanh ghi "50+" và danh sách là lỗi
+    46 tới 50; luồng nối lại thì trang được đưa lên lại và không lỗi nào
     tính cho nó; chat không nhận tin được thì nút gửi tắt và nói lý do; "does not send the errors
     when what was typed could not be saved, and says so")
   - vitest, cả App trên `FakeCanvas`: `web/src/app-canvas-ask.test.tsx` nhóm "sending the errors a
@@ -2414,7 +2420,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
   - Playwright: `canvas-render.spec.ts` ở 1440×900 ("is the only window whose reports are listed:
     one the app posts to itself is not"; "is heard for twenty of the twenty-five errors it throws,
     and the list keeps the newest five": reporter dừng ở hai mươi, test chờ bằng một lời báo trang tự
-    gửi sau đợt lỗi nên số đếm là 21; "reports a picture from elsewhere that the policy keeps it from
+    gửi sau đợt lỗi nên số đếm là 21; "is heard out on fifty of the ten thousand reports it posts past
+    the reporter": trang gọi thẳng `parent.postMessage` mười nghìn lần, thanh ghi "50+" và đứng yên,
+    danh sách là tin 46 tới 50; "reports a picture from elsewhere that the policy keeps it from
     loading": cả dòng `img-src blocked` lẫn dòng `failed to load`, và request kết thúc với lỗi `csp`
     trước khi ra mạng; "reports a promise nothing caught as one error"; "shows at most two thousand
     characters of an error of five thousand": cái reporter gửi đi cũng đã chỉ dài 2000, đo ngay trên

@@ -3,7 +3,7 @@
  * app: `sandbox="allow-scripts"` without `allow-same-origin` gives the page an origin of its own,
  * written "null", from which it reads nothing of the app's; the policy the server sends with the
  * page says the same. The panel never posts into the frame, and takes only the reports its own
- * window makes.
+ * window makes, fifty messages of one frame at most: a page that goes on posting is not read.
  *
  * The frame shows the version it was put up with. A newer one replaces it a second after the last
  * change, unless the person has the frame's focus, who is using the page, when a button offers it
@@ -21,7 +21,13 @@ import { artifactApi } from "../../api/artifact-client";
 import { useOnline } from "../../hooks/use-online";
 import { useReloadOnReconnect } from "../../hooks/use-reload-on-reconnect";
 import { vi } from "../../i18n/vi";
-import { type FrameError, isLoadFailure, parseFrameMessage } from "../../lib/frame-messages";
+import {
+  FRAME_REPORTS_MAX,
+  type FrameError,
+  isFromFrame,
+  isLoadFailure,
+  parseFrameMessage,
+} from "../../lib/frame-messages";
 
 /** How long the version must stand still before the page is put up again. */
 export const RELOAD_DELAY_MS = 1000;
@@ -52,6 +58,8 @@ export function CanvasFrame({ artifactId, title, version, connected, onMount, on
   const [page, setPage] = useState<Page>({ n: 0, version, phase: "loading", held: false });
   const frame = useRef<HTMLIFrameElement>(null);
   const loads = useRef(0);
+  // How many messages each frame was heard out on. A frame that replaces another starts from none.
+  const [heardOf] = useState(() => new WeakMap<HTMLIFrameElement, number>());
   const latest = useRef({ version, page, online });
   latest.current = { version, page, online };
 
@@ -94,14 +102,21 @@ export function CanvasFrame({ artifactId, title, version, connected, onMount, on
 
   useEffect(() => {
     const heard = (event: MessageEvent) => {
-      const error = parseFrameMessage(event, frame.current);
+      const from = frame.current;
+      // Whose message it is and whether the page may still speak are settled before any of it is
+      // read. A message that is no report counts too, or a page could be read without end.
+      if (!isFromFrame(event, from)) return;
+      const before = heardOf.get(from) ?? 0;
+      if (before >= FRAME_REPORTS_MAX) return;
+      heardOf.set(from, before + 1);
+      const error = parseFrameMessage(event, from);
       // With no network at all, the files a page asks for cannot arrive and there is nothing to tell.
       if (error === null || (!latest.current.online && isLoadFailure(error))) return;
       onError(error);
     };
     window.addEventListener("message", heard);
     return () => window.removeEventListener("message", heard);
-  }, [onError]);
+  }, [onError, heardOf]);
 
   const loaded = () => {
     const first = ++loads.current === 1;

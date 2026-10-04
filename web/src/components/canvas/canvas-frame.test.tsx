@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
 import { artifactApi } from "../../api/artifact-client";
 import { vi } from "../../i18n/vi";
-import type { FrameError } from "../../lib/frame-messages";
+import { FRAME_REPORTS_MAX, type FrameError } from "../../lib/frame-messages";
 import { setVisibility, wait } from "../../test/canvas-hook";
 import { CanvasFrame, RELOAD_DELAY_MS } from "./canvas-frame";
 
@@ -57,6 +57,24 @@ function deliver(source: Window | null, data: unknown, origin = "null") {
 }
 
 const failure = { type: "canvas-error", message: "boom", source: "page.html", line: 3, column: 7 };
+
+/** `times` messages from `source`, one after another. The answer is how often what they carry was read. */
+function flood(source: Window | null, times: number, data: unknown = failure): number {
+  let read = 0;
+  const carried = {
+    get() {
+      read += 1;
+      return data;
+    },
+  };
+  act(() => {
+    for (let n = 0; n < times; n++) {
+      const event = Object.assign(new Event("message"), { source, origin: "null" });
+      window.dispatchEvent(Object.defineProperty(event, "data", carried));
+    }
+  });
+  return read;
+}
 const unreached = {
   type: "canvas-error",
   message: "failed to load https://cdn.test/a.png",
@@ -399,6 +417,46 @@ describe("what the page reports", () => {
 
     deliver(windowOf(second), failure);
     expect(onError).toHaveBeenCalledTimes(1);
+  });
+
+  it("hears fifty messages of a page that sends ten thousand, and reads nothing of the rest", () => {
+    const { container, onError } = setup();
+
+    const read = flood(windowOf(frameIn(container)), 10_000);
+
+    expect(FRAME_REPORTS_MAX).toBe(50);
+    expect(onError).toHaveBeenCalledTimes(50);
+    expect(read).toBe(50);
+  });
+
+  it("counts a message that is no report against the page too, and so reads fifty of those at most", () => {
+    const { container, onError } = setup();
+    const own = windowOf(frameIn(container));
+
+    expect(flood(own, 10_000, "not a report")).toBe(50);
+    deliver(own, failure);
+
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("hears a new frame out on fifty of its own, whatever the one before it sent", () => {
+    const { container, onError, show } = setup();
+    flood(windowOf(frameIn(container)), 10_000);
+    show({ version: 2 });
+    wait(RELOAD_DELAY_MS);
+
+    expect(flood(windowOf(frameIn(container)), 10_000)).toBe(50);
+    expect(onError).toHaveBeenCalledTimes(100);
+  });
+
+  it("does not count what another window sends against the page", () => {
+    const { container, onError } = setup();
+
+    expect(flood(window, 10_000)).toBe(0);
+    expect(flood(null, 10_000)).toBe(0);
+    flood(windowOf(frameIn(container)), 10_000);
+
+    expect(onError).toHaveBeenCalledTimes(50);
   });
 
   it("stops listening when the frame goes", () => {

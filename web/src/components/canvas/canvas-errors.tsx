@@ -1,8 +1,8 @@
 /**
- * What the page on show said went wrong: how many reports it made, the newest few as text, and a
- * button that sends them to the agent. The page wrote every word of them, so they are drawn as
- * text and nothing else, and they reach the agent only when the person presses the button, in a
- * message that says what they are (`lib/error-report.ts`).
+ * What the page on show said went wrong: how many reports it made, as far as the panel heard it
+ * out, the newest few as text, and a button that sends them to the agent. The page wrote every
+ * word of them, so they are drawn as text and nothing else, and they reach the agent only when the
+ * person presses the button, in a message that says what they are (`lib/error-report.ts`).
  *
  * Sending saves the canvas first, like the question about a passage, so the agent reads what the
  * person sees. The errors sent are the ones listed when the button is pressed. Once they are sent
@@ -14,7 +14,7 @@ import type { MessageCanvas } from "../../api/artifact-types";
 import type { PageReport } from "../../hooks/use-page-report";
 import { vi } from "../../i18n/vi";
 import { errorReport } from "../../lib/error-report";
-import { type FrameError, where } from "../../lib/frame-messages";
+import { FRAME_REPORTS_MAX, type FrameError, where } from "../../lib/frame-messages";
 import { showHiddenChars } from "../../lib/hidden-chars";
 import type { SendResult } from "../../lib/send-result";
 import type { AskDisabled } from "./canvas-ask";
@@ -66,10 +66,12 @@ export function CanvasErrors({ artifactId, title, report, disabled, flush, onAsk
 
   if (report.count === 0) return null;
   const { pageErrors } = vi.canvas;
+  // The frame stops hearing a page there, so that many may be fewer than the page reported.
+  const more = report.count >= FRAME_REPORTS_MAX;
   return (
     <div className="canvas-errors" role="group" aria-label={pageErrors.group}>
       <div className="canvas-errors-bar">
-        <span className="canvas-errors-count">{pageErrors.count(report.count)}</span>
+        <span className="canvas-errors-count">{pageErrors.count(report.count, more)}</span>
         <button type="button" className="ghost" aria-expanded={open} onClick={() => setOpen(!open)}>
           {open ? pageErrors.hide : pageErrors.show}
         </button>

@@ -3,6 +3,9 @@
  * agent wrote, in a frame of its own origin. So a report counts only when it came from this frame's
  * own window, which is an origin the browser writes as "null", and only the parts of it the panel
  * can show safely are kept, each with a ceiling. Nothing here posts into the frame.
+ *
+ * How often a page speaks has a ceiling too, and the panel keeps it: the page's own reporter stops
+ * at twenty, but a page can post without it.
  */
 
 import { clip } from "./clip-text";
@@ -11,6 +14,8 @@ import { clip } from "./clip-text";
 export const REPORT_MAX = 2000;
 /** The most characters kept of the file a report names. */
 export const SOURCE_MAX = 300;
+/** The most messages heard from one frame, reports or not; nothing of a later one is read. */
+export const FRAME_REPORTS_MAX = 50;
 
 export type FrameError = { message: string; source: string; line: number; column: number };
 
@@ -30,12 +35,17 @@ export function where({ source, line, column }: FrameError): string {
   return parts.join(":");
 }
 
-/** The report `event` carries, if it is one and came from `frame`'s window; otherwise null. */
-export function parseFrameMessage(event: MessageEvent, frame: HTMLIFrameElement | null): FrameError | null {
+/** Whether `event` came from `frame`'s own window, told without reading what it carries. */
+export function isFromFrame(event: MessageEvent, frame: HTMLIFrameElement | null): frame is HTMLIFrameElement {
   const own = frame?.contentWindow;
   // A frame taken out of the page has no window, and a message from nowhere has no source: the two
   // must not be taken for each other.
-  if (!own || event.source !== own || event.origin !== "null") return null;
+  return !!own && event.source === own;
+}
+
+/** The report `event` carries, if it is one and came from `frame`'s window; otherwise null. */
+export function parseFrameMessage(event: MessageEvent, frame: HTMLIFrameElement | null): FrameError | null {
+  if (!isFromFrame(event, frame) || event.origin !== "null") return null;
   const data: unknown = event.data;
   if (typeof data !== "object" || data === null) return null;
   const { type, message, source, line, column } = data as Record<string, unknown>;

@@ -4,8 +4,9 @@ import type { FrameError } from "../lib/frame-messages";
 
 /**
  * What the page on show has reported since it was put up. `version` is the one it shows, `count`
- * how many reports it made, and `recent` the newest few, which is all there is room to keep: a
- * page can report as often as it likes. `mount` tells one page from the next.
+ * how many reports it made, and `recent` the newest few, which is all there is room to keep. The
+ * frame hears a page out on `FRAME_REPORTS_MAX` messages, so `count` goes no higher than that.
+ * `mount` tells one page from the next.
  */
 export type PageReport = { mount: number; version: number; count: number; recent: FrameError[] };
 
