@@ -139,6 +139,9 @@ export function App() {
           replayRunId={route.section === "activity" ? route.param : undefined}
           editFocus={route.section === "crew" ? route.focus : undefined}
           focusJob={route.section === "jobs" ? route.param : undefined}
+          canvasId={route.section === "canvas" ? route.param : undefined}
+          conversations={list.conversations}
+          onOpenCanvas={(id) => navigate({ kind: "manage", section: "canvas", param: id ?? undefined })}
           fromJob={fromJob !== undefined}
           onEditSchedules={(agentId, job) =>
             navigate({ kind: "manage", section: "crew", param: agentId, focus: "schedules", fromJob: job })

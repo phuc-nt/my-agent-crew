@@ -1058,6 +1058,12 @@ export const vi = {
     deleteLabel: (title: string) => `Xoá canvas ${title}`,
     deleteConfirm: (title: string) => `Xoá canvas "${title}" cùng mọi phiên bản của nó? Không thể hoàn tác.`,
     deleteFailed: "Không xoá được canvas. Thử lại sau.",
+    // One canvas on a page of its own, reached from the library or from its panel beside a chat.
+    back: "← Canvas",
+    openStandalone: "Mở riêng",
+    usedIn: (count: number) => `Dùng trong ${count} hội thoại`,
+    // A conversation the list on this device does not hold, named by the start of its id.
+    conversationFallback: (id: string) => `Hội thoại ${id.slice(0, 6)}`,
     conflictBy: (author: string, version: number) => `${author} đã lưu v${version} trong lúc bạn sửa.`,
     keepMine: "Giữ bản của tôi",
     loadTheirs: "Nạp bản mới",

@@ -14,9 +14,12 @@ const NAMES: Record<string, string> = { coach: "HLV", user: "Trợ lý", ghost: 
 const name = (id: string) => NAMES[id] ?? id;
 
 let backend: FakeBackend;
+/** The canvases the library asked to open, oldest first. */
+let opened: string[];
 
 beforeEach(() => {
   backend = startServer();
+  opened = [];
   // The fake stamps its first canvas at 03:00:00 and each later write a second on.
   vitest.setSystemTime(new Date("2026-10-02T03:10:00Z"));
 });
@@ -26,7 +29,7 @@ afterEach(stopServer);
 /** The library over `seeds`, the last of them the newest, once its first read is in. */
 async function show(...seeds: CanvasSeed[]) {
   for (const seed of seeds) backend.canvas.add(seed);
-  render(<CanvasLibrary connected agentName={name} />);
+  render(<CanvasLibrary connected agentName={name} onOpen={(id) => opened.push(id)} />);
   await landed();
 }
 
@@ -52,6 +55,19 @@ describe("a row of the library", () => {
     expect(within(row).getByText(canvas.kinds.markdown)).toHaveClass("badge");
     expect(row).toHaveTextContent(`v3 · ${canvas.libraryCreatedBy} HLV · ${vi.time.minutes(10)}`);
     expect(row).toHaveTextContent(`3 B ${canvas.libraryAllVersions}`);
+  });
+
+  it("opens the canvas whose name is clicked, one with no name too, and deletes nothing by it", async () => {
+    vitest.spyOn(window, "confirm").mockReturnValue(true);
+    await show({ id: ONE, title: "Kế hoạch" }, { id: "ba9876543210", title: "" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Kế hoạch" }));
+    expect(opened).toEqual([ONE]);
+    fireEvent.click(screen.getByRole("button", { name: canvas.untitled }));
+
+    expect(opened).toEqual([ONE, "ba9876543210"]);
+    expect(deletes()).toEqual([]);
+    expect(rows()).toHaveLength(2);
   });
 
   it("names each of the six kinds, a code canvas with its language, and any other kind as the server does", async () => {

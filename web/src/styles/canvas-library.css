@@ -54,12 +54,26 @@
   min-width: 0;
 }
 
-/* A title is as long as its writer made it, and a path has no spaces to break at. */
-.canvas-library-title {
+/* The name opens the canvas: a button that reads as the row's heading. A title is as long as its
+   writer made it, and a path has no spaces to break at. */
+button.canvas-library-title {
   flex: 1;
   min-width: 0;
+  justify-content: flex-start;
+  margin-left: calc(var(--space-2) * -1);
+  padding: var(--space-1) var(--space-2);
+  border-color: transparent;
+  background: none;
+  box-shadow: none;
   font-weight: 600;
+  text-align: left;
   overflow-wrap: anywhere;
+}
+
+button.canvas-library-title:hover:not(:disabled) {
+  background: var(--surface-hover);
+  border-color: transparent;
+  color: var(--accent);
 }
 
 .canvas-library-row-head > .badge {
@@ -72,4 +86,62 @@
 
 .canvas-library-refused {
   color: var(--danger-text);
+}
+
+/* ── One canvas on a page of its own ────────────────────────────────────── */
+/* The section becomes a column, so the page takes the height its title and the way back leave and
+   the canvas's text scrolls inside the panel, as it does beside a chat. */
+.manage-body:has(> .canvas-page) {
+  display: flex;
+  flex-direction: column;
+}
+
+.manage-body > .canvas-back {
+  flex: none;
+  align-self: flex-start;
+  margin: 0 0 var(--space-2) calc(var(--space-2) * -1);
+}
+
+/* Never shorter than a canvas can be read in: on a screen with less left, the section scrolls.
+   No floor from its content, or a long text would stretch the page instead of scrolling. */
+.manage-body > .canvas-page {
+  flex: 1 0 24rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  min-height: 0;
+}
+
+.canvas-page > .canvas-panel {
+  overflow: hidden;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+}
+
+.canvas-page-used {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  min-width: 0;
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+/* A conversation's name is as long as its writer made it. */
+.canvas-page-used > button {
+  max-width: 100%;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+/* And as short: one letter is still a finger wide. */
+@media (max-width: 720px), (pointer: coarse) {
+  .canvas-page-used > button {
+    min-width: var(--touch-target);
+  }
 }

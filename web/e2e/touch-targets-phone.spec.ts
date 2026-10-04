@@ -128,3 +128,25 @@ test("the buttons of the bar that asks about a passage of the canvas are big eno
   await expect(bar.getByRole("button", { name: vi.canvas.ask.cancel })).toBeVisible();
   expect(await smallTargets(page, ".canvas-ask")).toEqual([]);
 });
+
+test("every control on a canvas's own page is big enough for a finger, a conversation named in one letter too", async ({ page }) => {
+  const fake = new FakeCanvas();
+  fake.add({ id: PLAN, title: "Kế hoạch tuần", content: "Việc một", conversationIds: ["c1", "c2"] });
+  await mockApi(page, { conversations: [conversation("c1", "A"), conversation("c2", "Việc nhà")], canvas: fake });
+  await page.goto(`/#/manage/canvas/${PLAN}`);
+  await expect(page.getByRole("textbox", { name: vi.canvas.editor })).toHaveValue("Việc một");
+  await expect(page.locator(".canvas-page-used").getByRole("button")).toHaveText(["A", "Việc nhà"]);
+  await expect(page.getByRole("button", { name: vi.canvas.back })).toBeVisible();
+
+  expect(await smallTargets(page)).toEqual([]);
+});
+
+test("the name that opens a canvas from the library is big enough for a finger, one letter long too", async ({ page }) => {
+  const fake = new FakeCanvas();
+  fake.add({ id: PLAN, title: "A" });
+  await mockApi(page, { canvas: fake });
+  await page.goto("/#/manage/canvas");
+  await expect(page.getByRole("button", { name: "A", exact: true })).toBeVisible();
+
+  expect(await smallTargets(page, ".canvas-library")).toEqual([]);
+});

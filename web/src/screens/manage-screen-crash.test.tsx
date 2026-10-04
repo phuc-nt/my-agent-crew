@@ -40,6 +40,8 @@ function screenAt(section: ManageSection) {
       onNavigate={() => undefined}
       onBackToChat={() => undefined}
       onOpenConversation={() => undefined}
+      onOpenCanvas={() => undefined}
+      conversations={[]}
       onRunJob={() => undefined}
       onToggleJob={() => undefined}
       onDeleteJob={() => undefined}

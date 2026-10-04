@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { useRef } from "react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
 import { type CanvasDock, useCanvasDock } from "../../hooks/use-canvas-dock";
 import { vi } from "../../i18n/vi";
 import { saveInBackground } from "../../lib/canvas-handoff";
@@ -242,5 +242,18 @@ describe("the line saying a message went before its canvas was saved", () => {
     fireEvent.click(within(screen.getByRole("alert")).getByRole("button", { name: vi.canvas.dismiss }));
     expect(screen.queryByRole("alert")).toBeNull();
     expect(screen.getByRole("status")).toBeInTheDocument();
+  });
+});
+
+describe("the open canvas's own page", () => {
+  it.each(["column", "overlay"] as const)("is one click from its panel in the %s, at the canvas's address on the manage screen", async (mode) => {
+    await openChat(mode);
+    const open = vitest.spyOn(window, "open").mockReturnValue(null);
+    act(() => seen.dock?.open("a1"));
+    await landed();
+
+    fireEvent.click(screen.getByRole("button", { name: vi.canvas.openStandalone }));
+
+    expect(open.mock.calls).toEqual([["#/manage/canvas/a1", "_blank", "noopener,noreferrer"]]);
   });
 });

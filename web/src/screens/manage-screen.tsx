@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState, type UIEvent } from "react";
-import type { AgentInfo, InstallResult, JobInfo, SettingsInfo, StatsInfo, TemplateInfo } from "../api/types";
+import type { AgentInfo, Conversation, InstallResult, JobInfo, SettingsInfo, StatsInfo, TemplateInfo } from "../api/types";
 import type { RunInfo } from "../api/types";
 import { AgentEditor } from "../components/agent-editor/agent-editor";
 import { ApprovalHistory } from "../components/approval-history";
@@ -70,6 +70,12 @@ interface Props {
   onEditSchedules?: (agentId: string, fromJob: string) => void;
   /** The row of the jobs list to bring into view, when the URL names one. */
   focusJob?: string;
+  /** What the URL names under the canvas section; the section decides whether it is a canvas's id. */
+  canvasId?: string;
+  /** Opens a canvas on its own page, or the library for none, by rewriting the route. */
+  onOpenCanvas: (canvasId: string | null) => void;
+  /** The conversations this tab has listed, for the names of those a canvas is used in. */
+  conversations: Conversation[];
   /** The open editor or run was reached from a job's row, and its back link returns there. */
   fromJob?: boolean;
   /** The live stream the pages follow; absent leaves out the notice of a drop. */
@@ -387,7 +393,14 @@ export function ManageScreen(props: Props) {
             />
           )}
           {props.section === "canvas" && (
-            <CanvasSection connected={props.connection?.connected ?? true} agentName={props.agentName} />
+            <CanvasSection
+              connected={props.connection?.connected ?? true}
+              agentName={props.agentName}
+              canvasId={props.canvasId}
+              onOpenCanvas={props.onOpenCanvas}
+              conversations={props.conversations}
+              onOpenConversation={props.onOpenConversation}
+            />
           )}
           {props.section === "costs" && (
             <StatsPanel stats={props.stats} agentName={props.agentName} />

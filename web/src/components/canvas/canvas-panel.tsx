@@ -47,6 +47,8 @@ export type CanvasPanelProps = {
   onShowList(): void;
   onClose(): void;
   onForceClose(): void;
+  /** The address of this canvas's own page; where it is absent, as on that page, no way there is offered. */
+  standaloneHref?: string;
   /** Asks the agent about a passage of this canvas; where it is absent, no way to ask is offered. */
   onAsk?(canvas: MessageCanvas, question: string): Promise<SendResult>;
   /** Why asking is off for now, if it is. */
@@ -63,7 +65,7 @@ function firstMode(state: CanvasState, created: boolean): CanvasMode {
 
 export function CanvasPanel(props: CanvasPanelProps) {
   const { artifactId, created, connected, stuck, agentName, bind, flush, onShowList, onClose, onForceClose } = props;
-  const { onAsk, askDisabled = null } = props;
+  const { onAsk, askDisabled = null, standaloneHref } = props;
   const canvas = useCanvas(artifactId, connected);
   const { state } = canvas;
   const latest = useRef(state);
@@ -117,6 +119,7 @@ export function CanvasPanel(props: CanvasPanelProps) {
         artifactId={artifactId}
         created={created}
         agentName={agentName}
+        standaloneHref={standaloneHref}
         mode={chosen}
         switching={waiting}
         history={history}

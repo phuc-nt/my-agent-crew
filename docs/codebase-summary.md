@@ -83,7 +83,7 @@ riêng: `#/manage/activity/<run_id>` mở đúng lượt đó, tải lại vẫn
 | Thư mục | Nội dung |
 |---|---|
 | `src/api/` | client HTTP, đọc SSE, kiểu dữ liệu |
-| `src/screens/` | hai màn: chat và quản lý (mười mục, trong đó Canvas là thư viện mọi canvas) |
+| `src/screens/` | hai màn: chat và quản lý (mười mục, trong đó Canvas là thư viện mọi canvas và trang riêng của từng canvas ở `#/manage/canvas/<id>`) |
 | `src/hooks/` | tải và giữ trạng thái từng mảng: hội thoại, luồng chat của cuộc đang mở, hoạt động và lịch sử run đã lưu, agent và bản nháp của trình sửa agent (kèm các kiểm tra trước khi gửi và id của từng lịch), trí nhớ, wiki, kết nối, route hash, phím tắt; cùng những mảnh nhỏ của màn hình: cuộc nào đã xem tới đâu, bản nháp của từng cuộc, đồng hồ cho nhãn thời gian tương đối, số việc chờ trên tiêu đề tab và badge app, tải lại cuộc đang mở khi kênh khác chạy trong nó, yêu cầu mà một run chờ duyệt đang giữ, run do một nút trên màn vừa khởi chạy, và dò bản build mới |
 | `src/state/` | reducer cho luồng chat và hoạt động |
 | `src/components/` | mọi thành phần giao diện, mỗi mảng quản lý một nhóm |

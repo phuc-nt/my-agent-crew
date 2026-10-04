@@ -3270,6 +3270,62 @@ tên một test thì sửa dòng của nó trong cùng commit.
     bản giả của `GET /api/artifacts/usage` nằm ở `web/src/test/fake-canvas-usage.ts`
     (`web/src/test/fake-canvas.test.ts`, "counts what every version of each canvas holds, on a path
     no canvas's id answers")
+- **Canvas trên web: mỗi canvas có trang riêng ở `#/manage/canvas/<id>`, mở từ tên của nó trong thư
+  viện hoặc nút "Mở riêng" của panel; rời trang không mất chữ; trang nói canvas dùng trong những hội
+  thoại nào**
+  - vitest, mục Canvas: `web/src/components/canvas/canvas-section.test.tsx` ("shows the library for %j,
+    which is no canvas's id, and asks the server nothing about it": `a1`, chữ in hoa, thừa hay thiếu
+    một ký tự, `..%2F..%2Fsettings`, id kèm `?x=1` và chuỗi rỗng đều ra thư viện, và chỉ hai lần đọc
+    của thư viện được gửi; "is shown on its page instead of the
+    library, with the way back above it"; "is read anew when the address names another, and nothing
+    typed in the first is lost"; "a save that fails after its page was left": câu "lưu hỏng, nháp còn
+    giữ" hiện phía trên thư viện vừa quay về, hoặc phía trên canvas vừa chuyển sang, và ở lại qua lần
+    chuyển kế; "is not said of a canvas deleted from the library before the save got there": xoá
+    canvas ngay sau khi rời nó thì không có câu báo nào và nháp đi theo; "opens the canvas whose name
+    is clicked in the library"); `web/src/components/canvas/canvas-section-crash.test.tsx` (trang vỡ
+    thì nút "← Canvas" vẫn đứng phía trên chỗ vỡ vì nó nằm ngoài `ErrorBoundary`; địa chỉ đổi sang
+    canvas khác hoặc về thư viện thì chỗ vỡ bị bỏ lại)
+  - vitest, trang: `web/src/components/canvas/canvas-page.test.tsx` (trang dùng đúng panel mà hội
+    thoại dùng; không có thanh hỏi agent, không có "Mở riêng", không ghi "canvas đang mở" cho hội
+    thoại nào; "goes back to the library at once with words unsaved, and their save goes on behind";
+    nút đóng và nút về danh sách của panel đều là đường về; canvas không có hay bị xoá lúc đang mở thì
+    panel nói "đã bị xoá" và đường về còn; "Nhập lại" gửi đi không kèm hội thoại nào; dòng "Dùng trong
+    <n> hội thoại" gọi từng hội thoại bằng tiêu đề, hội thoại không tên hay tab chưa liệt kê thì bằng
+    sáu ký tự đầu của id, không hội thoại nào hay đọc hỏng thì không có dòng; trang không mở và không
+    đóng gì trong dock nó mượn; đổi canvas thì không còn gì của canvas trước trong lúc đọc canvas
+    sau); `web/src/hooks/use-canvas-conversations.test.ts` (đọc một lần theo thứ tự server trả; đọc
+    lại khi stream báo đúng canvas ấy đổi, không đọc vì canvas khác; lần đọc sau hỏng thì thôi nêu
+    tên; canvas bị xoá thì hết tên mà không hỏi gì và câu trả lời còn bay bị bỏ; câu trả lời cũ về sau
+    câu mới thì bỏ; đổi canvas thì câu trả lời về canvas trước bị bỏ; rời trang thì thôi hỏi)
+  - vitest, panel và dock: `web/src/components/canvas/canvas-panel.test.tsx` ("the way from the panel
+    to the canvas's own page": `window.open(<địa chỉ>, "_blank", "noopener,noreferrer")` và không lưu
+    gì trên đường; nút tắt khi còn chữ chưa lưu và bật lại khi một phiên bản giữ chúng; đứng cạnh nút
+    "Mở trang" của canvas trang, mỗi nút một tên; không có khi panel không được cho địa chỉ, khi
+    canvas mới biết tên chưa đọc xong, và khi canvas bị xoá);
+    `web/src/components/canvas/canvas-dock-view.test.tsx` ("the open canvas's own page": ở cột lẫn lớp
+    phủ, địa chỉ là `#/manage/canvas/<id>` của canvas đang mở);
+    `web/src/components/canvas/canvas-library.test.tsx` ("opens the canvas whose name is clicked, one
+    with no name too, and deletes nothing by it")
+  - vitest, cả app: `web/src/app-canvas-page.test.tsx` (link tới trang mở đúng trang, "← Canvas" đưa
+    địa chỉ về `#/manage/canvas`, tên trong thư viện đưa địa chỉ về lại `#/manage/canvas/<id>`; bấm
+    tên hội thoại thì sang `#/chat/<id>`; chọn mục khác rồi quay lại mục Canvas thì là thư viện, id đã
+    rời địa chỉ; link có id không hợp lệ thì chỉ `/artifacts/usage` được hỏi dưới `/artifacts/`; "Mở
+    riêng" từ dock của hội thoại gọi `window.open` với đúng địa chỉ trang)
+  - Playwright: `web/e2e/canvas-page.spec.ts` (ở 1440×900 và 390×844: bấm tên trong thư viện thì địa
+    chỉ có id, trang chạm đúng chân mục mà mục không cuộn dọc, panel là cả trang trừ dòng "Dùng
+    trong…" và cao hơn nửa màn, ô soạn chiếm phần panel mà đầu panel để lại, không chỗ nào tràn
+    ngang, tải lại vẫn ở trang đó; rời trang ngay khi chữ chưa lưu thì lần lưu vẫn tới server và không
+    có câu báo; lần lưu bị từ chối thì câu báo hiện phía trên thư viện, mở lại canvas là thấy nháp;
+    dòng hội thoại đúng thứ tự và mở đúng cuộc; tiêu đề dài không ngắt được vẫn nằm trong màn; canvas
+    không còn thì nói đã xoá và "← Canvas" vẫn về thư viện; địa chỉ `..%2F..%2Fsettings` ra thư viện
+    và không địa chỉ nào dưới `/api/artifacts/` ngoài `usage` được hỏi; "opens on its own page in a
+    new tab cut off from this one, once what was typed is saved": nút tắt cho tới khi lần lưu xong,
+    tab mới có `window.opener` là `null` và `document.referrer` rỗng, tab cũ vẫn ở cuộc trò chuyện);
+    `web/e2e/touch-targets-phone.spec.ts` ("every control on a canvas's own page is big enough for a
+    finger, a conversation named in one letter too"; "the name that opens a canvas from the library is
+    big enough for a finger, one letter long too"); nút "Mở riêng" trong dock ở 390 px và 1000 px nằm
+    trong phép kiểm sẵn có của `web/e2e/canvas.spec.ts` (`smallTargets(page, ".canvas-dock")`, không
+    tràn ngang)
 - **Mã agent khớp cả chuỗi: chữ thường, số và gạch ngang, không cả xuống dòng ở cuối**
   - pytest: `tests/test_api_agents_edit.py::test_an_id_that_is_not_a_safe_folder_name_is_refused`
     (`../escape` và `coder` có xuống dòng ở cuối đều bị từ chối, không thư mục nào được tạo);

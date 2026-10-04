@@ -41,6 +41,8 @@ function show(section: ManageSection, overrides: ScreenProps = {}) {
       onNavigate={onNavigate}
       onBackToChat={onBackToChat}
       onOpenConversation={() => undefined}
+      onOpenCanvas={() => undefined}
+      conversations={[]}
       onRunJob={() => undefined}
       onToggleJob={() => undefined}
       onDeleteJob={() => undefined}

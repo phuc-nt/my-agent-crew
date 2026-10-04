@@ -14,6 +14,7 @@
 import { type CSSProperties, type ReactNode, type RefObject, useEffect, useRef } from "react";
 import type { CanvasDock, DockView } from "../../hooks/use-canvas-dock";
 import { useCanvasWidth } from "../../hooks/use-canvas-width";
+import { routeHash } from "../../hooks/use-route";
 import { vi } from "../../i18n/vi";
 import { Icon } from "../ui/icon";
 import { CanvasHandle } from "./canvas-handle";
@@ -136,6 +137,7 @@ export function CanvasDockView({ dock, mode, activity, connected, agentName, tri
               onShowList={() => void dock.showList()}
               onClose={() => void dock.close()}
               onForceClose={dock.forceClose}
+              standaloneHref={routeHash({ kind: "manage", section: "canvas", param: dock.artifactId })}
               onAsk={onAsk}
               askDisabled={askDisabled}
             />

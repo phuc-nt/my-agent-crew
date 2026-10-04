@@ -20,7 +20,9 @@ import { statusText } from "./canvas-status";
 
 export type CanvasMode = "view" | "edit";
 
-type Props = Pick<CanvasPanelProps, "artifactId" | "created" | "agentName" | "onShowList" | "onClose"> & {
+type Shared = "artifactId" | "created" | "agentName" | "standaloneHref" | "onShowList" | "onClose";
+
+type Props = Pick<CanvasPanelProps, Shared> & {
   canvas: CanvasController;
   mode: CanvasMode | null;
   /** A turn to View is waiting for the canvas to be saved. */
@@ -31,7 +33,7 @@ type Props = Pick<CanvasPanelProps, "artifactId" | "created" | "agentName" | "on
   onRename(title: string): void;
 };
 
-export function CanvasHeader({ canvas, artifactId, created, agentName, mode, switching, history, ...on }: Props) {
+export function CanvasHeader({ canvas, artifactId, created, agentName, standaloneHref, mode, switching, history, ...on }: Props) {
   const now = useNow(60_000);
   const { state, status } = canvas;
   const { summary, gone } = state;
@@ -100,6 +102,18 @@ export function CanvasHeader({ canvas, artifactId, created, agentName, mode, swi
           >
             <Icon name="arrow-right" />
             {vi.canvas.page.open}
+          </button>
+        )}
+        {state.phase === "ready" && !gone && standaloneHref !== undefined && (
+          <button
+            type="button"
+            className="ghost"
+            // The page that opens reads the canvas from the server: words not yet saved would not be on it.
+            disabled={isDirty(state)}
+            onClick={() => window.open(standaloneHref, "_blank", "noopener,noreferrer")}
+          >
+            <Icon name="document" />
+            {vi.canvas.openStandalone}
           </button>
         )}
         {!hasNoText(kind) && <CopyButton text={state.text} label={vi.canvas.copy} />}

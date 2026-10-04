@@ -1,7 +1,7 @@
 /**
  * Every canvas there is, newest first, whatever conversation it was written in: what each one is,
  * who made it, where it came from and what all its versions hold, with a search by name and a
- * delete.
+ * delete. A canvas's name opens it on a page of its own.
  *
  * A title, a path and an agent's name are words someone else chose: they are drawn as text, with
  * the characters nobody would see in them written out. Where a canvas came from is said, never
@@ -23,9 +23,9 @@ import { Icon } from "../ui/icon";
 const { canvas } = vi;
 
 type AgentName = (id: string) => string;
-type Props = { connected: boolean; agentName: AgentName };
+type Props = { connected: boolean; agentName: AgentName; onOpen(id: string): void };
 
-export function CanvasLibrary({ connected, agentName }: Props) {
+export function CanvasLibrary({ connected, agentName, onOpen }: Props) {
   const library = useCanvasLibrary(connected);
   const now = useNow(60_000);
   const { items, usage, searched, failed } = library;
@@ -69,6 +69,7 @@ export function CanvasLibrary({ connected, agentName }: Props) {
                 when={timeAgo(item.updated_at, now)}
                 agentName={agentName}
                 refused={library.refused.has(item.id)}
+                onOpen={() => onOpen(item.id)}
                 onDelete={() => void library.remove(item.id)}
               />
             ))}
@@ -98,10 +99,11 @@ type RowProps = {
   when: string;
   agentName: AgentName;
   refused: boolean;
+  onOpen(): void;
   onDelete(): void;
 };
 
-function Row({ item, size, when, agentName, refused, onDelete }: RowProps) {
+function Row({ item, size, when, agentName, refused, onOpen, onDelete }: RowProps) {
   const title = showHiddenChars(item.title || canvas.untitled);
   const kind = canvas.kinds[item.kind] ?? item.kind;
   // The server writes "" for a canvas a person made, so an agent whose id is "user" stays an agent.
@@ -110,7 +112,9 @@ function Row({ item, size, when, agentName, refused, onDelete }: RowProps) {
   return (
     <li className="canvas-library-row" data-testid="canvas-library-row">
       <div className="canvas-library-row-head">
-        <span className="canvas-library-title">{title}</span>
+        <button type="button" className="canvas-library-title" onClick={onOpen}>
+          {title}
+        </button>
         <span className="badge">{item.kind === "code" && item.language ? `${kind} · ${item.language}` : kind}</span>
         <button
           type="button"

@@ -291,3 +291,92 @@ describe("the header and the dock", () => {
     expect(unbind).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("the way from the panel to the canvas's own page", () => {
+  const HREF = "#/manage/canvas/a1";
+  const own = () => screen.queryByRole("button", { name: vi.canvas.openStandalone }) as HTMLButtonElement | null;
+
+  it("opens the address the panel was given in a new tab cut off from this one, and saves nothing on the way", async () => {
+    backend.canvas.add({ title: "Ghi chú", content: "a" });
+    const flush = vitest.fn(async () => null);
+    await openPanel({ standaloneHref: HREF, flush });
+    const open = vitest.spyOn(window, "open").mockReturnValue(null);
+
+    fireEvent.click(own() as HTMLButtonElement);
+
+    expect(open.mock.calls).toEqual([[HREF, "_blank", "noopener,noreferrer"]]);
+    expect(flush).not.toHaveBeenCalled();
+    expect(backend.requests.filter((request) => request.method === "PUT")).toEqual([]);
+  });
+
+  // A second editor opened on words this one has not saved would start from older text.
+  it("cannot be taken while words are unsaved, and can again once a version holds them", async () => {
+    backend.canvas.add({ title: "Ghi chú", content: "a" });
+    await openPanel({ standaloneHref: HREF });
+    const open = vitest.spyOn(window, "open").mockReturnValue(null);
+    expect(own()?.disabled).toBe(false);
+
+    typeInto("ab");
+    expect(own()?.disabled).toBe(true);
+    fireEvent.click(own() as HTMLButtonElement);
+    expect(open).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(editor() as HTMLTextAreaElement, { key: "s", ctrlKey: true });
+    await landed();
+    expect(own()?.disabled).toBe(false);
+    fireEvent.click(own() as HTMLButtonElement);
+    expect(open).toHaveBeenCalledTimes(1);
+  });
+
+  it("stands beside the way to the page a page canvas runs as, each under its own name", async () => {
+    backend.canvas.add({ title: "Trang", kind: "html", content: "<p>Chào</p>" });
+    await openPanel({ standaloneHref: HREF });
+    const open = vitest.spyOn(window, "open").mockReturnValue(null);
+    const runs = screen.getByRole("button", { name: vi.canvas.page.open });
+
+    expect(vi.canvas.openStandalone).not.toBe(vi.canvas.page.open);
+    expect(runs.compareDocumentPosition(own() as Element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    fireEvent.click(runs);
+    fireEvent.click(own() as HTMLButtonElement);
+
+    expect(open.mock.calls.map(([href]) => href)).toEqual(["/api/artifacts/a1/render", HREF]);
+  });
+
+  it("is not there where the panel was given no address", async () => {
+    backend.canvas.add({ title: "Ghi chú", content: "a" });
+    await openPanel();
+
+    expect(editor()?.value).toBe("a");
+    expect(own()).toBeNull();
+  });
+
+  it("is not there while the canvas is known by name only and not yet read", async () => {
+    backend.canvas.add({ title: "Ghi chú", content: "a" });
+    const release = backend.canvas.holdNext("GET /artifacts/a1");
+    await openPanel({ standaloneHref: HREF });
+    // The stream names the canvas before the read has answered.
+    act(() => {
+      backend.canvas.write("a1", "ab", { author: "agent:ming" });
+    });
+    await landed();
+    expect(screen.getByRole("heading", { name: "Ghi chú" })).toBeTruthy();
+    expect(own()).toBeNull();
+
+    await act(async () => {
+      await release();
+    });
+    await landed();
+    expect(own()?.disabled).toBe(false);
+  });
+
+  it("goes when the canvas is deleted", async () => {
+    backend.canvas.add({ title: "Ghi chú", content: "a" });
+    await openPanel({ standaloneHref: HREF });
+    expect(own()).not.toBeNull();
+
+    act(() => backend.canvas.remove("a1"));
+
+    expect(screen.getByRole("alert").textContent).toBe(`${vi.canvas.gone} ${vi.canvas.goneHint}`);
+    expect(own()).toBeNull();
+  });
+});
