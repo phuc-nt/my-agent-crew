@@ -1654,7 +1654,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     bị từ chối và tệp nó trỏ tới không đổi,
     "test_a_write_that_fails_leaves_the_old_file_whole_and_no_other_behind": `os.replace` ném
     `OSError` thì tệp cũ nguyên vẹn, không sót tệp tạm, lời báo không có đường dẫn của máy,
-    "test_a_file_marked_read_only_is_not_replaced",
+    "test_a_file_marked_read_only_is_not_replaced": tệp chỉ đọc không bị thay, và dòng `warning`
+    trong log mang số lỗi của "permission denied" như một lần ghi thường, không phải `None`,
     "test_a_new_file_gets_the_mode_of_any_written_file_and_an_old_one_keeps_its_own");
     `tests/test_artifact_export_write.py`
     ("test_a_failure_no_disk_reports_is_worded_like_any_other_and_leaves_nothing_behind":

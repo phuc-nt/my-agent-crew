@@ -6,6 +6,7 @@ closed to: a reader who opened it early would go on reading as the payload went 
 
 from __future__ import annotations
 
+import errno
 import os
 import secrets
 import stat
@@ -45,10 +46,10 @@ def _make_folders(folder: Path, made: list[Path]) -> None:
 
 def _move_in(target: Path, payload: bytes) -> bool:
     """Moving a file into place needs no leave from the one it replaces, so a file marked
-    read-only is refused here, as a plain write would be."""
+    read-only is refused here, with the error a plain write would raise."""
     old = stat.S_IMODE(target.stat().st_mode) if target.exists() else None
     if old is not None and not os.access(target, os.W_OK):
-        raise PermissionError(target.name)
+        raise PermissionError(errno.EACCES, os.strerror(errno.EACCES), str(target))
     temp = target.with_name(f".export-{secrets.token_hex(8)}.tmp")
     # A new file is made as any written file is, so the umask has shaped its mode before a
     # byte goes in. One that replaces another starts closed to everyone else and takes the

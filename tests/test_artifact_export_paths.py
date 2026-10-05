@@ -4,6 +4,8 @@ never written through; and a write that fails leaves the old file whole and no o
 
 from __future__ import annotations
 
+import errno
+import logging
 import os
 import stat
 from collections.abc import Iterator
@@ -159,13 +161,17 @@ async def test_a_write_that_fails_leaves_the_old_file_whole_and_no_other_behind(
 
 
 @pytest.mark.skipif(os.geteuid() == 0, reason="root may write any file")
-async def test_a_file_marked_read_only_is_not_replaced(store: Store, root: Path, art: str):
-    """Moving a new file into its place needs no leave from the old one, so the tool looks."""
+async def test_a_file_marked_read_only_is_not_replaced(store: Store, root: Path, art: str, caplog):
+    """Moving a new file into its place needs no leave from the old one, so the tool looks, and
+    tells the log what a plain write would have: permission denied, by its number."""
     (root / OLD).chmod(0o444)
     before = _tree(root)
-    result = await _export(store, root, art, OLD)
+    with caplog.at_level(logging.WARNING):
+        result = await _export(store, root, art, OLD)
     assert result.output == _failed(EXPORT_FAILED.format(path=OLD))
     assert _tree(root) == before
+    [record] = caplog.records
+    assert record.getMessage().endswith(f": PermissionError errno {errno.EACCES}")
 
 
 async def test_a_new_file_gets_the_mode_of_any_written_file_and_an_old_one_keeps_its_own(
