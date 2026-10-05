@@ -2584,6 +2584,11 @@ tên một test thì sửa dòng của nó trong cùng commit.
     trước làm của nó, nên canvas chưa biết không bị hỏi trước khi danh sách mới về);
     `web/src/hooks/use-canvas-dock-typing.test.ts` (`typing()` là không khi chưa có panel,
     là điều panel nói và hỏi lại mỗi lần, lại là không khi panel buông, một hàm duy nhất);
+    `web/src/components/canvas/canvas-dock-keyboard.test.tsx` (dock thật trong cột: `typing()` là
+    không khi bàn phím không ở đâu hay ở ô soạn tin dù canvas đang mở; là có khi bàn phím ở một nút
+    của canvas đang mở, ở một tab của dock, ở một dòng trong danh sách canvas, ở khung của trang
+    HTML mà app chỉ thấy là `iframe`, và ở phần hoạt động dock đang hiện khi chưa mở canvas nào;
+    lại là không khi bàn phím về ô soạn tin; chữ chưa lưu thì vẫn là có sau khi bàn phím đã rời dock);
     `web/src/hooks/use-canvas-auto-open.test.ts` (mở lặng lẽ khi lệnh tạo xong ở lượt tab này đang
     xem, đúng một lần dù thread vẽ lại bao nhiêu, hai canvas trong một lần vẽ thì mở theo thứ tự tạo,
     lấy canvas thẻ nêu chứ không lấy tham số, cần thẻ ở đầu kết quả, mở được cả khi chưa tải chi tiết
@@ -2618,7 +2623,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
   - vitest, cả App trên `FakeCanvas`: `web/src/app-canvas-thread.test.tsx` ("opens beside the thread at
     once, leaves the keyboard in the box and writes nothing", "goes with the next message the person
     sends as the canvas they have open", "does not take the panel from a canvas the person has the
-    keyboard in", "opens only the once, however the person goes from the chat to the crew and back";
+    keyboard in", "does not take the panel from a canvas the person has the keyboard on a button of,
+    and still opens from its card" (bàn phím ở nút "Xem" chứ không ở ô soạn của canvas: canvas mới
+    không tự mở, bàn phím ở nguyên, nút Mở trên thẻ vẫn mở nó), "opens only the once, however the
+    person goes from the chat to the crew and back";
     màn hẹp chỉ hiện thẻ có nút mở và không tự mở gì; lượt trước tạo canvas thì thẻ nằm trong thread đã
     lưu, chỉ mở khi được bấm và kéo bàn phím vào dock; server không còn canvas thì thẻ nói vậy và không
     có nút)
@@ -2991,7 +2999,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     nói và `blur` của app: xét khung ngay trong `blur`, không chờ, thì cú bấm tới sau `blur` bị coi
     là trang tự giành. Trong Chromium của Playwright cú bấm đã nằm trong hàng đợi trước khi cửa sổ
     app nhận `blur`, nên ở đây một timer 0 ms cũng đủ: độ dài 50 ms của khoảng chờ chỉ được giữ bằng
-    các test vitest ở trên); "is
+    các test vitest ở trên); "is, for the app, with the page's frame inside the dock once the person
+    clicks in the page" (sau một cú bấm thật vào ô của trang, `document.activeElement` của app chính
+    là `iframe` của canvas và nằm trong phần tử của dock: đó là thứ duy nhất dock dựa vào để biết
+    người đang giữ bàn phím trong nó, nên canvas tự mở không thay trang ấy); "is
     shown to be with the page by a line around it and a word over it, which move nothing and let the
     pointer through" (khung không đổi vị trí hay kích thước, viền là `solid 2px`, dòng chữ nằm góc
     trên bên phải trong khung, bấm lên dòng chữ là bấm vào trang bên dưới; về ô soạn tin thì viền và
@@ -3502,8 +3513,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
   - vitest, cả app: `web/src/app-canvas-delegate.test.tsx` (ở 1440 px: hai dòng trên thẻ, canvas đầu
     mở cạnh thread, bàn phím ở lại ô soạn, không lần ghi "canvas đang mở" nào; tên trên dòng là tên
     server đang giữ, mỗi canvas được hỏi đúng một lần; tin kế tiếp mang canvas vừa tự mở; nút "Mở" của
-    dòng khác thay canvas đang mở và tin kế tiếp mang canvas ấy; thay canvas người đang mở mà không
-    gõ, không thay canvas người đang đặt con trỏ; canvas bị xoá lúc đang hiện thì dòng thôi mời mở;
+    dòng khác thay canvas đang mở và tin kế tiếp mang canvas ấy; thay canvas người đang mở khi bàn
+    phím đã về ô soạn tin, không thay canvas người đang đặt con trỏ, không thay trang HTML mà khung
+    của nó đang giữ bàn phím — dòng của canvas mới vẫn mở nó khi bấm —, không thay canvas mà bàn
+    phím đang ở một nút của nó; canvas bị xoá lúc đang hiện thì dòng thôi mời mở;
     khối rỗng và câu trả lời giống thẻ thì không dòng, không mở, không hỏi server; việc hết giờ có
     dòng mà không tự mở; ở 1000 px có dòng, không tự mở, bấm thì thành lớp phủ; lượt đã lưu từ trước
     có dòng, chỉ mở khi bấm và khi đó bàn phím vào dock; canvas server không còn thì "Canvas đã bị

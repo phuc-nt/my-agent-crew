@@ -159,8 +159,9 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   that id. A canvas the agent creates, or imports as a new one, during a turn the tab is showing
   opens beside the thread on a wide screen, without taking the keyboard and without writing
   anything; an import into a canvas the call named, or one that changed nothing, opens nothing.
-  Each call is judged once, as it ends: not while the person is typing in a canvas, not on a
-  narrow screen, and never for a call the saved history holds.
+  Each call is judged once, as it ends: not while the person is typing in a canvas or has the
+  keyboard anywhere in the canvas column, the frame of a page included, not on a narrow screen,
+  and never for a call the saved history holds. The card still opens a canvas held back this way.
 - A passage selected in a canvas, in the editor or in the page being read, can be asked about:
   a bar at the foot of the panel names the lines the selection lies on and offers a box for a
   question, which goes as one message with the passage as of the version just saved, so the

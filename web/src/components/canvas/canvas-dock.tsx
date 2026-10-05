@@ -60,7 +60,8 @@ function useDockFocus(root: RefObject<HTMLDivElement | null>, trigger: Props["tr
 
 export function CanvasDockView({ dock, mode, activity, connected, agentName, trigger, onAsk, askDisabled }: Props) {
   const size = useCanvasWidth();
-  const root = useRef<HTMLDivElement>(null);
+  // The dock looks in its own element to learn whether the person has the keyboard there.
+  const root = dock.box;
   useDockFocus(root, trigger, dock.view, dock.quiet);
   const open = dock.view !== "closed";
   const column = mode === "column";

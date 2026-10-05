@@ -10,6 +10,8 @@ import { type FakeBackend, storedMessage } from "./test/fake-backend";
 const PLAN = "00ff00ff00ff";
 const SHOP = "ba9876543210";
 const LOST = "0000000000ff";
+const FORM = "0000000000f0";
+const FORM_TITLE = "Biểu mẫu";
 const REPORT = "Báo cáo tuần";
 const ANNEX = "Phụ lục";
 const TASK = { agent: "coach", task: "viết báo cáo tuần" };
@@ -151,11 +153,13 @@ describe("the canvases a task handed off in a turn this tab is showing wrote", (
     expect(bodies(backend).at(-1)).toEqual({ text: "rút gọn giúp tôi", canvas: { artifact_id: SHOP, selection: null } });
   });
 
-  it("take the place of a canvas the person had open and was not writing in", async () => {
+  it("take the place of a canvas the person had open, once the keyboard is back in the box", async () => {
     written();
     await openChat(1440);
     await openNote();
     expect(panelTitle("Ghi chú")).toBeInTheDocument();
+    // Opening the canvas by hand took the keyboard into the dock; writing the message takes it out.
+    act(() => box().focus());
 
     await handOff(WROTE);
 
@@ -174,6 +178,47 @@ describe("the canvases a task handed off in a turn this tab is showing wrote", (
     expect(panelTitle("Ghi chú")).toBeInTheDocument();
     expect(panelTitle(REPORT)).toBeNull();
     expect(editor()).toHaveFocus();
+    expect(chips()).toHaveLength(2);
+  });
+
+  it("do not take the panel from a page the person has the keyboard in, and still open from their card when asked", async () => {
+    written();
+    backend.canvas.add({ id: FORM, title: FORM_TITLE, kind: "html", agent_id: "coach", content: "<input>", conversationIds: ["c1"] });
+    await openChat(1440);
+    fireEvent.click(screen.getByRole("button", { name: vi.canvas.buttonLabel(2) }));
+    await landed();
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(FORM_TITLE) }));
+    await landed();
+    // All the app sees of a person typing in a page is that the page's frame has the keyboard.
+    const page = document.querySelector("iframe");
+    act(() => page?.focus());
+
+    await handOff(WROTE);
+
+    expect(panelTitle(FORM_TITLE)).toBeInTheDocument();
+    expect(panelTitle(REPORT)).toBeNull();
+    expect(page).toHaveFocus();
+    expect(chips()).toHaveLength(2);
+
+    fireEvent.click(openButton(REPORT));
+    await landed();
+
+    expect(panelTitle(REPORT)).toBeInTheDocument();
+    expect(panelTitle(FORM_TITLE)).toBeNull();
+  });
+
+  it("do not take the panel from a canvas the person has the keyboard on a button of", async () => {
+    written();
+    await openChat(1440);
+    await openNote();
+    const view = screen.getByRole("button", { name: vi.canvas.view });
+    act(() => view.focus());
+
+    await handOff(WROTE);
+
+    expect(panelTitle("Ghi chú")).toBeInTheDocument();
+    expect(panelTitle(REPORT)).toBeNull();
+    expect(view).toHaveFocus();
     expect(chips()).toHaveLength(2);
   });
 

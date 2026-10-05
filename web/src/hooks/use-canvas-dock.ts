@@ -21,7 +21,7 @@
  * message that names it, so opening a canvas tells the server nothing.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CreatableKind, MessageCanvas } from "../api/artifact-types";
 import { isArtifactId } from "../lib/artifact-tag";
 import { closedFor, type DockState, type DockTab, type DockView } from "../lib/canvas-dock-state";
@@ -65,7 +65,10 @@ export type CanvasDock = Omit<DockState, "conversationId"> & Omit<CanvasChatNoti
   flush(): Promise<number | null>;
   /** The same wait, for a message about to go: whether the canvas it names still has text no version holds. */
   flushForMessage(): Promise<boolean>;
-  /** Whether the person is typing in the open canvas, which a canvas opened now must not take from them. */
+  /** The dock's own element, which its view fills in. */
+  box: RefObject<HTMLDivElement | null>;
+  /** Whether the person is typing in the open canvas or has the keyboard anywhere in the dock, in a
+   *  page's frame too: either way a canvas opened now must not take the dock from them. */
   typing(): boolean;
   /** What a message sent now says of the canvas: nothing until one is opened here. */
   messageCanvas(): MessageCanvas | undefined;
@@ -81,6 +84,7 @@ export function useCanvasDock(conversationId: string | null, connected: boolean,
   const list = useCanvasList(conversationId, connected);
   const moves = useRef(0);
   const panel = useRef<PanelHandle | null>(null);
+  const box = useRef<HTMLDivElement | null>(null);
   const shown = state.conversationId === conversationId ? state : closedFor(conversationId);
   const latest = useRef(shown);
   latest.current = shown;
@@ -104,7 +108,7 @@ export function useCanvasDock(conversationId: string | null, connected: boolean,
     const open = version === null && asked !== null && panel.current === asked && !asked.gone();
     return open || handoffOut(focusId);
   }, [flush]);
-  const typing = useCallback(() => panel.current?.typing() ?? false, []);
+  const typing = useCallback(() => Boolean(panel.current?.typing() || box.current?.contains(document.activeElement)), []);
   const messageCanvas = useCallback((): MessageCanvas | undefined => {
     const { focusId } = latest.current;
     if (focusId === undefined) return undefined;
@@ -185,5 +189,5 @@ export function useCanvasDock(conversationId: string | null, connected: boolean,
 
   const { conversationId: _, ...view } = shown;
   const saves = { flush, flushForMessage };
-  return { ...view, list, ...notices, ...actions, create, bind, ...saves, typing, messageCanvas, ticket: readTicket };
+  return { ...view, list, ...notices, ...actions, create, bind, box, ...saves, typing, messageCanvas, ticket: readTicket };
 }

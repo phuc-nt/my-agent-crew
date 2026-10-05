@@ -4,9 +4,9 @@
  *
  * Only a canvas this tab watched being made opens. The screen may be drawn with calls already in
  * the thread, and a conversation read from the server brings its calls with it: neither is news.
- * Each call is judged once, as it ends: when the person is typing in a canvas, or the screen is
- * too narrow to hold one beside the thread, that canvas never opens by itself, however things
- * change afterwards. Edits and rewrites never open one, for the canvas may not be the one the
+ * Each call is judged once, as it ends: when the person is typing in a canvas or has the keyboard
+ * anywhere in the dock, or the screen is too narrow to hold one beside the thread, that canvas
+ * never opens by itself, however things change afterwards. Edits and rewrites never open one, for the canvas may not be the one the
  * person is reading; neither does a call that failed or was refused. The card in the thread still
  * opens any of them on request.
  *

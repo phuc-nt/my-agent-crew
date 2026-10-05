@@ -112,6 +112,27 @@ describe("a canvas the agent makes in a turn this tab is showing", () => {
     expect(card()).toBeInTheDocument();
   });
 
+  it("does not take the panel from a canvas the person has the keyboard on a button of, and still opens from its card", async () => {
+    await openChat(1440);
+    await openNote();
+    plan();
+    const view = screen.getByRole("button", { name: vi.canvas.view });
+    act(() => view.focus());
+    backend.nextTurn = createTurn();
+
+    await say("viết kế hoạch tuần");
+
+    expect(panelTitle()).toBeNull();
+    expect(panelTitle("Ghi chú")).toBeInTheDocument();
+    expect(view).toHaveFocus();
+
+    fireEvent.click(openButton());
+    await landed();
+
+    expect(panelTitle()).toBeInTheDocument();
+    expect(panelTitle("Ghi chú")).toBeNull();
+  });
+
   it("opens only the once, however the person goes from the chat to the crew and back", async () => {
     plan();
     await openChat(1440);

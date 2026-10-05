@@ -132,6 +132,22 @@ test.describe("the keyboard beside a page in the canvas", () => {
     await expect(page.getByText(words.grabbing)).toHaveCount(0);
   });
 
+  test("is, for the app, with the page's frame inside the dock once the person clicks in the page", async ({ page }) => {
+    await openPage(page, LISTENING);
+    await composer(page).click();
+
+    await inside(page).locator("#field").click();
+    await expect(marker(page)).toBeVisible();
+
+    // This is all the dock has to go by when it is asked whether the person has the keyboard in it.
+    const held = await page.evaluate(() => {
+      const active = document.activeElement;
+      const dock = document.querySelector(".canvas-dock");
+      return { frame: active !== null && active === document.querySelector("iframe.canvas-frame"), inDock: dock?.contains(active) ?? false };
+    });
+    expect(held).toEqual({ frame: true, inDock: true });
+  });
+
   test("is shown to be with the page by a line around it and a word over it, which move nothing and let the pointer through", async ({ page }) => {
     const pressed = `window.addEventListener("pointerdown", function () { ${count("presses")} });`;
     await openPage(page, `${LISTENING}<p id="presses">0</p>${script(pressed)}`);
