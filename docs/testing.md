@@ -4011,7 +4011,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     không chip, không câu "đã bị xoá", không nút, không link tệp, không ảnh và không gây lời hỏi
     `/artifacts/` nào)
   - Playwright: `web/e2e/canvas-thread.spec.ts` (ở 1440 px chip nằm trong câu trả lời, tên đứng
-    trước nút, chữ của nút trên một dòng, không link tệp, bấm thì canvas mở cạnh thread; ở 390 px
+    trước nút, chữ của nút trên một dòng, không link tệp, bấm thì canvas mở cạnh thread; cũng ở
+    1440 px chip của một canvas tên ngắn là một khung nhỏ, hẹp hơn nửa bề ngang câu trả lời, nên bỏ
+    luật `.bubble .canvas-ref` thì chip thành một thanh ngang suốt câu trả lời và test đỏ; ở 390 px
     `smallTargets(page, ".canvas-ref")` rỗng, nút cao ít nhất 40 px và chạm thì canvas phủ lên
     thread; tiêu đề một từ rất dài thì chính tiêu đề xuống dòng trong câu trả lời, nút vẫn nguyên
     một dòng và không chỗ nào tràn ngang)

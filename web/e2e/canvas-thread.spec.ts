@@ -80,6 +80,14 @@ function placed(page: Page) {
   });
 }
 
+/** How wide the chip is, and the reply it stands in. */
+function widths(page: Page) {
+  return page.evaluate(() => {
+    const width = (selector: string) => (document.querySelector(selector) as HTMLElement).getBoundingClientRect().width;
+    return { chip: width(".canvas-ref"), reply: width('[data-testid="message-assistant"]') };
+  });
+}
+
 test.describe("on a wide screen", () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -123,6 +131,13 @@ test.describe("on a wide screen", () => {
     await open.click();
 
     await expect(page.getByRole("heading", { level: 2, name: TITLE })).toBeVisible();
+  });
+
+  test("the chip of a canvas with a short name is a small box in its reply, not a bar across it", async ({ page }) => {
+    await openSent(page);
+
+    const { chip, reply } = await widths(page);
+    expect(chip).toBeLessThan(reply / 2);
   });
 });
 
