@@ -1394,7 +1394,7 @@ tên một test thì sửa dòng của nó trong cùng commit.
     giữa hai mảnh chữ hay hai mảnh lời gọi và không chờ quanh câu trả lời một mảnh, `fake:echo`
     không bao giờ chờ, mặc định chờ bằng `asyncio.sleep`)
 - **Lời viết canvas hiện dần trên luồng của tab đang chờ khi model còn đang viết nó; đối số của
-  tool khác không rời server trước khi lời gọi chạy**
+  tool khác không đi ra dưới dạng mảnh khi model còn đang viết chúng**
   - pytest: `tests/test_draft_preview.py` (chỉ `artifact_create` và `artifact_rewrite` được xem
     trước; mảnh đầu phát ngay dù đồng hồ đọc số nào; mảnh tới trong 3 giây được gom, mảnh tới
     đúng 3 giây sau event trước mang ra mọi thứ đã gom, và khoảng chờ tính lại từ event ấy; mảnh

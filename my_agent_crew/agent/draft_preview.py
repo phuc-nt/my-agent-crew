@@ -1,7 +1,7 @@
 """Which pieces of a tool call being written a turn shows, and how often. A canvas write is
 one long argument that nobody could see until the model had finished it; here its pieces
 become events for the tab that is waiting. Only the two tools that write a whole document are
-let through, so no other call's arguments leave the server before the call is run."""
+let through, so no other call's arguments go out piece by piece while they are written."""
 
 from __future__ import annotations
 
