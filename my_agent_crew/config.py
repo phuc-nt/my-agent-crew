@@ -27,6 +27,7 @@ from my_agent_crew.config_parse import (
 )
 from my_agent_crew.config_secrets import secrets_from
 from my_agent_crew.config_yaml import from_yaml
+from my_agent_crew.mcp.config import McpServer, parse_servers
 
 __all__ = ["Route", "Settings", "home_from", "load_settings"]
 
@@ -86,6 +87,8 @@ class Settings:
     # workspace. Empty means anywhere in it; set, a guessed path cannot scatter files
     # through a repo.
     write_paths: tuple[str, ...] = ()
+    # MCP servers `config.yaml` names; an agent uses one by naming it in its own file.
+    mcp_servers: tuple[McpServer, ...] = ()
 
     @property
     def zone(self) -> tzinfo:
@@ -168,6 +171,7 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
                 file_values.get("openrouter_provider_fallbacks", True),
             )
         ),
+        mcp_servers=parse_servers(file_values.get("mcp_servers")),
     )
     positive = (settings.max_steps, settings.approval_ttl_seconds, settings.tool_output_chars)
     if min(positive) < 1 or settings.cost_cap_usd < 0:

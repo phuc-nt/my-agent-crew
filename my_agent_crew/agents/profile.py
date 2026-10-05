@@ -47,6 +47,7 @@ PROFILE_KEYS = {
     "mode",
     "delegates",
     "tools",
+    "mcp",
 }
 # An assistant answers a person; a work agent is pointed at a repository and left to
 # finish a job, so it gets the editing tools, a wider budget and no approval pauses.
@@ -77,6 +78,8 @@ class AgentProfile:
     # When non-empty, the only tools this agent gets. Empty means every tool its mode
     # brings.
     tools: tuple[str, ...] = ()
+    # MCP servers of `config.yaml` whose tools this agent is handed. None unless named.
+    mcp: tuple[str, ...] = ()
     # What the agent's kits (`.agents/`, `.claude/`, `.opencode/`) add: slash commands the
     # person types, hooks run around tool calls, and the kit roots they came from.
     commands: tuple[Command, ...] = ()
@@ -137,6 +140,7 @@ class AgentProfile:
             "memory_consolidate": self.memory_consolidate,
             "mode": self.mode,
             "delegates": list(self.delegates),
+            "mcp": list(self.mcp),
             "is_master": self.is_master,
             "commands": [c.to_dict() for c in self.commands],
             "hooks": len(self.hooks),

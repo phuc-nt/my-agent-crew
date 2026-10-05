@@ -16,9 +16,10 @@ from my_agent_crew.activity import ActivityHub
 from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.agents import DEFAULT_AGENT_ID, AgentProfile
 from my_agent_crew.channels import TelegramChannel
-from my_agent_crew.config import Route, Settings
+from my_agent_crew.config import Settings
 from my_agent_crew.inbound import Inbound
 from my_agent_crew.inbound_queue import QueueDrain
+from my_agent_crew.mcp.hub import McpHub
 from my_agent_crew.memory.session_summary import schedule_summary
 from my_agent_crew.scheduler import Scheduler
 from my_agent_crew.server.agent_assembly import build_agent_deps
@@ -42,6 +43,7 @@ class Runtime:
     # runtime made without them (tests around one agent) cannot grow, and says so.
     providers: dict[str, Any] = field(default_factory=dict)
     client: httpx.AsyncClient | None = None
+    mcp: McpHub = field(default_factory=McpHub)
     # Agents whose MEMORY.md is being rewritten right now; a second request is a conflict.
     consolidating: set[str] = field(default_factory=set)
     # Whether the channel was started by the app's lifespan; a rebuilt one follows suit
@@ -122,6 +124,8 @@ class Runtime:
             if deps.tools.get(DELEGATE_TOOL_NAME) is not None:
                 deps.tools = deps.tools.without(DELEGATE_TOOL_NAME)
             deps.tools.register(build_delegate_tool(self, deps.agent))
+        # Every path that rebuilds an agent ends here, so its MCP tools come back too.
+        self.mcp.attach(self.agents)
 
     def add_agents(self, profiles: Iterable[AgentProfile]) -> list[str]:
         """Brings agents installed while the server runs into this runtime: deps built
@@ -136,7 +140,7 @@ class Runtime:
             if profile.id in self.agents:
                 continue
             deps = build_agent_deps(
-                profile, self.providers, self.client, self.store, self.fallback_routes
+                profile, self.providers, self.client, self.store, self.settings.routes
             )
             deps.peers = peers
             self.agents[profile.id] = deps
@@ -153,7 +157,7 @@ class Runtime:
         if self.client is None:
             raise RuntimeError(texts.RUNTIME_CANNOT_GROW)
         deps = build_agent_deps(
-            profile, self.providers, self.client, self.store, self.fallback_routes
+            profile, self.providers, self.client, self.store, self.settings.routes
         )
         peers = self.default.peers if isinstance(self.default.peers, dict) else {}
         deps.peers = peers
@@ -171,10 +175,6 @@ class Runtime:
         self.agents.pop(agent_id, None)
         peers.pop(agent_id, None)
         self.wire_delegation()
-
-    @property
-    def fallback_routes(self) -> tuple[Route, ...]:
-        return self.settings.routes
 
     def deps_for_conversation(self, conv_id: str) -> AgentDeps:
         """Raises KeyError for an unknown conversation; a conversation whose agent profile

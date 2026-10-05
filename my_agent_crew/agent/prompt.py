@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 from my_agent_crew import texts
 from my_agent_crew.agent.context_trim import trim_tool_outputs
+from my_agent_crew.agent.declared_tools import declared_names
 from my_agent_crew.agent.payload_trim import attach_canvas_notes, trim_canvas_payloads
 from my_agent_crew.agent.prompt_frame import frame_text, today_line
 from my_agent_crew.agent.turn_context import canvas_reader_is_away, may_write_canvas
@@ -131,7 +132,7 @@ def system_prompt_for(deps: AgentDeps, conv: Conversation | None = None) -> str:
     active_names = {s.name for s in skills}
     index = [s for s in deps.skills if s.name not in active_names]
     profile = deps.agent
-    tool_names = deps.tools.names()
+    tool_names = declared_names(deps.tools)
     # An agent only hears about its crew when it holds the tool to reach them: a child
     # turn runs without `delegate`, and a roster it cannot act on would only mislead it.
     roster = crew_roster_section(profile, deps.peers) if DELEGATE_TOOL_NAME in tool_names else None

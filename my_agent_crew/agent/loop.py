@@ -9,6 +9,7 @@ from functools import partial
 
 from my_agent_crew import texts
 from my_agent_crew.agent.child_wrap_up import nudge_to_conclude, wrap_up_due
+from my_agent_crew.agent.declared_tools import declared_specs
 from my_agent_crew.agent.escalation import ERROR, LOOP, Escalation
 from my_agent_crew.agent.events import (
     ApprovalRequiredEvent,
@@ -130,7 +131,7 @@ async def run_turn(
         if guard.redirect_due:
             history = guard.redirect(deps.store, conv_id)
         # A delegated child near its soft cap is told to conclude and given no tools.
-        tools: Sequence[ToolSpec] = deps.tools.specs()
+        tools: Sequence[ToolSpec] = declared_specs(deps.tools)
         if wrap_up_due(conv, history, deps.settings.max_steps):
             history, tools = nudge_to_conclude(deps.store, conv, history), ()
         verdict = OK

@@ -115,6 +115,7 @@ def parse_profile(
         mode=mode,
         delegates=names(raw, "delegates", agent_id),
         tools=names(raw, "tools", agent_id),
+        mcp=names(raw, "mcp", agent_id),
     )
 
 

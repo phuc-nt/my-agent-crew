@@ -43,6 +43,7 @@ from my_agent_crew.server.routes_agents import describe_listed
 from my_agent_crew.server.runtime import Runtime
 from my_agent_crew.server.runtime_build import check_delegates
 from my_agent_crew.server.runtime_connections import channel_key, sync_channel
+from my_agent_crew.texts_mcp import MCP_AGENT_UNKNOWN_SERVER
 
 router = APIRouter(tags=["agents"])
 ROUTE_KEYS = {"routes", "escalation_route"}
@@ -84,6 +85,10 @@ def save(
         problem = escalation_problem(profile.settings, rt.providers)
         if problem and ROUTE_KEYS & set(edited):
             raise ValueError(problem)
+        unknown = [name for name in profile.mcp if name not in rt.mcp.links]
+        if unknown and "mcp" in edited:
+            # A file naming a server that is gone still loads; an edit may not add one.
+            raise ValueError(MCP_AGENT_UNKNOWN_SERVER.format(name=unknown[0]))
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
     peers = [p for p in rt.profiles() if p.id != agent_id] + [profile]

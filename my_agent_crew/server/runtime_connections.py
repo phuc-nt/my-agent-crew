@@ -75,6 +75,8 @@ async def commit(rt: Runtime, prepared: Prepared, before: ChannelKey) -> None:
         rt.agents[agent_id] = deps
         peers[agent_id] = deps.profile
     rt.wire_delegation()
+    # A key that changed may be the one a server that is down was waiting for.
+    rt.mcp.wake.set()
     await sync_channel(rt, before)
 
 

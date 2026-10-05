@@ -24,6 +24,7 @@ YAML_KEYS = (
     "tool_output_chars",
     "openrouter_providers",
     "openrouter_provider_fallbacks",
+    "mcp_servers",
 )
 
 

@@ -4,7 +4,7 @@ peer map shared, the master's channel attached, delegation wired."""
 from __future__ import annotations
 
 import os
-from collections.abc import Mapping, Sequence
+from collections.abc import MutableMapping, Sequence
 
 import httpx
 
@@ -14,6 +14,8 @@ from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.agents import AgentProfile, load_profiles
 from my_agent_crew.channels import build_channel
 from my_agent_crew.config import Settings, ensure_home
+from my_agent_crew.mcp.hub import McpHub
+from my_agent_crew.mcp.tokens import TokenStore
 from my_agent_crew.server.agent_assembly import build_agent_deps, build_providers
 from my_agent_crew.server.runtime import PROVIDER_TIMEOUT_SECONDS, Runtime
 from my_agent_crew.store import Store
@@ -36,10 +38,11 @@ def check_delegates(profiles: Sequence[AgentProfile]) -> None:
 def build_runtime(
     settings: Settings,
     client: httpx.AsyncClient | None = None,
-    env: Mapping[str, str] | None = None,
+    env: MutableMapping[str, str] | None = None,
 ) -> Runtime:
     """`env` is where channel tokens are read from (the process environment by default);
-    settings never hold them, so a profile can be committed while its token stays out."""
+    settings never hold them, so a profile can be committed while its token stays out.
+    A sign-in to an MCP server writes its tokens there too."""
     settings = ensure_home(settings)
     client = client or httpx.AsyncClient(timeout=httpx.Timeout(PROVIDER_TIMEOUT_SECONDS))
     store = Store(settings.db_path)
@@ -54,7 +57,9 @@ def build_runtime(
     for deps in agents.values():
         deps.peers = peers  # the roster a delegating agent is shown
     hub = ActivityHub(store)
-    channel = build_channel(agents, hub, client, os.environ if env is None else env)
+    environ = os.environ if env is None else env
+    channel = build_channel(agents, hub, client, environ)
+    tokens = TokenStore(settings.home, environ)
     runtime = Runtime(
         settings=settings,
         store=store,
@@ -63,6 +68,7 @@ def build_runtime(
         channel=channel,
         providers=providers,
         client=client,
+        mcp=McpHub(settings.mcp_servers, client, tokens, environ=environ),
     )
     runtime.wire_delegation()
     return runtime

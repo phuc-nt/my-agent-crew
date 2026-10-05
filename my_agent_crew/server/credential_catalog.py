@@ -16,6 +16,7 @@ from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
 from my_agent_crew.env_file import NAME_RE, env_path, read_env
+from my_agent_crew.mcp.tokens import managed_names
 from my_agent_crew.server.credential_checks import SPENDING_KINDS, default_value
 from my_agent_crew.server.runtime import Runtime
 
@@ -80,8 +81,14 @@ def catalog(rt: Runtime) -> dict[str, Known]:
                 profile.telegram.token_env,
                 Known(profile.telegram.token_env, "telegram", check="telegram"),
             )
+    servers = rt.settings.mcp_servers
+    for name in (name for server in servers for name in server.env_names()):
+        entries.setdefault(name, Known(name, "mcp"))
+    # A sign-in's tokens are the MCP screen's to keep and to drop, not a key to retype.
+    signed = managed_names(servers)
     for name in read_env(env_path(rt.settings.home)):
-        entries.setdefault(name, Known(name, "other"))
+        if name not in signed:
+            entries.setdefault(name, Known(name, "other"))
     return entries
 
 
@@ -136,5 +143,8 @@ def describe(rt: Runtime) -> dict[str, Any]:
                 for p in rt.profiles()
                 if p.telegram is not None and p.telegram.token_env == known.name
             ]
+        if known.group == "mcp":
+            servers = rt.settings.mcp_servers
+            item["servers"] = [s.name for s in servers if known.name in s.env_names()]
         items.append(item)
     return {"file": str(env_path(rt.settings.home)), "items": items}

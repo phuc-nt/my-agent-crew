@@ -121,6 +121,14 @@ def test_a_refused_name_is_told_how_to_allow_it_and_logged_once(tmp_path: Path, 
         ("/api/artifacts/abc/raw", "same-site", True),
         ("/api/artifacts/abc/versions", "cross-site", True),
         ("/api/conversations/render", "cross-site", True),
+        # A sign-in to an MCP server ends with the other site sending the person back.
+        ("/api/mcp/oauth/callback", "cross-site", False),
+        ("/api/mcp/oauth/callback", "same-site", False),
+        ("/api/mcp/oauth/callback/", "cross-site", True),
+        ("/api/mcp/oauth/callback/x", "cross-site", True),
+        ("/api/mcp/oauth/callback\n", "cross-site", True),
+        ("/api/mcp/notion/login", "cross-site", True),
+        ("/api/mcp", "cross-site", True),
     ],
 )
 def test_a_browser_request_to_the_api_must_not_say_it_came_from_elsewhere(

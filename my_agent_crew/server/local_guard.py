@@ -62,6 +62,10 @@ OWN_REQUESTS = frozenset({"same-origin", "none"})
 # The one API address a request from elsewhere may reach, matched whole: `[^/]+` takes a newline,
 # which `$` would let trail the address.
 RENDER_PATH = re.compile(r"/api/artifacts/[^/]+/render")
+# Where an authorization server sends the owner back after a sign-in to an MCP server
+# (`routes_mcp.py`). The request comes from that site by design, and what it carries is
+# acted on only when it names a state this process made and has not seen used.
+OAUTH_CALLBACK_PATH = "/api/mcp/oauth/callback"
 
 
 def allowed_hosts(env: Mapping[str, str]) -> frozenset[str]:
@@ -115,7 +119,9 @@ def cross_site_refusal(path: str, fetch_site: str | None) -> str | None:
     """
     if fetch_site is None or fetch_site in OWN_REQUESTS or not path.startswith("/api/"):
         return None
-    return None if RENDER_PATH.fullmatch(path) else CROSS_SITE_REQUEST
+    if path == OAUTH_CALLBACK_PATH or RENDER_PATH.fullmatch(path):
+        return None
+    return CROSS_SITE_REQUEST
 
 
 def install_local_guard(app: FastAPI, extra: frozenset[str]) -> None:

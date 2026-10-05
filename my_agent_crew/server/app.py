@@ -34,6 +34,7 @@ from my_agent_crew.server import (
     routes_fork,
     routes_inbound,
     routes_jobs,
+    routes_mcp,
     routes_memory_agent,
     routes_memory_user,
     routes_memory_wiki,
@@ -46,6 +47,7 @@ from my_agent_crew.server import (
 from my_agent_crew.server.agent_assembly import build_providers
 from my_agent_crew.server.housekeeping import sweep_loop
 from my_agent_crew.server.local_guard import allowed_hosts, install_local_guard
+from my_agent_crew.server.mcp_lifecycle import connect_at_start, retry_loop
 from my_agent_crew.server.runtime import Runtime
 from my_agent_crew.server.runtime_build import build_deps, build_runtime
 from my_agent_crew.server.security_headers import SecuredApp
@@ -86,6 +88,7 @@ ROUTERS = (
     routes_artifact_render.router,
     routes_canvas_focus.router,
     routes_artifact_import.router,
+    routes_mcp.router,
 )
 
 
@@ -110,9 +113,13 @@ def create_app(runtime: Runtime | AgentDeps | None = None, schedule: bool = True
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         sweeper: asyncio.Task[None] | None = None
+        servers: asyncio.Task[None] | None = None
         if schedule:
             runtime.scheduler.start()
             runtime.start_channel()
+            # Before a cut turn is taken up again: it may be about to call one of their tools.
+            await connect_at_start(runtime)
+            servers = asyncio.create_task(retry_loop(runtime)) if runtime.mcp.links else None
             # After the channel, whose bot answers its own chats; before the drain, so
             # what waited in a conversation stays behind the turn it was waiting on.
             resume_cut_turns(runtime)
@@ -121,6 +128,8 @@ def create_app(runtime: Runtime | AgentDeps | None = None, schedule: bool = True
         try:
             yield
         finally:
+            if servers is not None:
+                servers.cancel()
             if sweeper is not None:
                 sweeper.cancel()
                 # A turn this stop cuts is left for the server that starts next.
