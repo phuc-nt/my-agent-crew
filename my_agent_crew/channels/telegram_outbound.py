@@ -1,21 +1,24 @@
 """Outbound half of a Telegram channel: replies, `MEDIA:` photos and `FILE:` documents to
 the one allowed chat, plus the "typing…" indicator shown while a turn runs. Telegram drops
 the indicator after about five seconds, so it is re-sent on an interval until the reply
-goes out. The files themselves are sent by `telegram_files`, and the canvases a line names
-in place of a file by `telegram_canvas_file`."""
+goes out. The files themselves are sent by `telegram_files`, the canvases a line names in
+place of a file by `telegram_canvas_file`, and the list of the canvases a turn wrote is
+worded by `telegram_canvas_notice`."""
 
 from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager, suppress
 
 from my_agent_crew import texts
 from my_agent_crew.agent.loop import AgentDeps
+from my_agent_crew.artifacts.tag import Tag
 from my_agent_crew.channels.telegram_api import TelegramApi, TelegramError, split_reply
 from my_agent_crew.channels.telegram_canvas_file import send_canvases
-from my_agent_crew.channels.telegram_files import TelegramFiles
+from my_agent_crew.channels.telegram_canvas_notice import notice_text, written_by
+from my_agent_crew.channels.telegram_files import TelegramFiles, tell
 from my_agent_crew.reply_attachments import artifact_ref
 from my_agent_crew.store.runs import DONE, FAILED, HALTED, RunRecord
 
@@ -50,7 +53,8 @@ class TelegramOutbound:
     async def deliver(self, conv_id: str) -> bool:
         """Sends every assistant text of the conversation's last turn (the messages after
         the last user message, in order); False when there is none yet. Text written next
-        to a tool call counts: a brief often ends with a bare `MEDIA:` message."""
+        to a tool call counts: a brief often ends with a bare `MEDIA:` message. The canvases
+        the run wrote are listed after its words, and stand for them when it left none."""
         parts: list[str] = []
         expired: list[str] = []
         for stored in reversed(self._deps.store.history(conv_id)):
@@ -62,29 +66,35 @@ class TelegramOutbound:
             elif message.role == "tool" and message.content == texts.EXPIRED_TOOL:
                 expired.append(message.name or "")
         run = self._deps.store.runs.latest_for_conversation(conv_id)
+        # Read before anything is sent: sending takes a while, and what the run, or the
+        # next one, writes meanwhile belongs to a later delivery.
+        tags = written_by(self._deps.store, conv_id, run)
         # A refusal nobody chose deserves a line of its own: the answer below was shaped
         # by a guard that timed out, not by the person.
         for name in reversed(expired):
-            await self.send(texts.TELEGRAM_APPROVAL_EXPIRED.format(name=name))
+            await self.send(texts.TELEGRAM_APPROVAL_EXPIRED.format(name=name), conv_id)
         if parts:
-            await self.send("\n\n".join(reversed(parts)))
+            await self.send("\n\n".join(reversed(parts)), conv_id)
+            await self.send_written(tags, conv_id)
             # A run out of steps or budget still leaves text behind; without this the
             # half-finished answer reads like a complete one.
             if run is not None and run.status in (HALTED, FAILED):
-                await self.send(
-                    texts.TELEGRAM_RUN_CUT_SHORT.format(reason=_ending(run), spent=run.spent_usd)
-                )
+                cut = texts.TELEGRAM_RUN_CUT_SHORT.format(reason=_ending(run), spent=run.spent_usd)
+                await self.send(cut, conv_id)
             return True
         if run is None:
             logger.info("telegram %s: nothing to deliver for %s", self.agent_id, conv_id)
             return False
         if run.status == DONE:
+            if await self.send_written(tags, conv_id):
+                return True  # it wrote canvases and said nothing: their list is its answer
             # The job ran to the end and produced no text. Saying so beats a brief that
             # simply never arrives, which looks the same as a broken schedule.
             logger.info("telegram %s: run for %s finished empty", self.agent_id, conv_id)
-            await self.send(texts.REPLY_EMPTY.format(steps=len(run.steps)))
+            await self.send(texts.REPLY_EMPTY.format(steps=len(run.steps)), conv_id)
             return True
-        await self.send(texts.TELEGRAM_RUN_UNFINISHED.format(reason=_ending(run)))
+        await self.send_written(tags, conv_id)
+        await self.send(texts.TELEGRAM_RUN_UNFINISHED.format(reason=_ending(run)), conv_id)
         return True
 
     async def send(self, text: str, conv_id: str | None = None) -> None:
@@ -102,6 +112,21 @@ class TelegramOutbound:
                 await self._files.document(relative)
         refs = [ref for ref in map(artifact_ref, (*media, *files)) if ref is not None]
         await send_canvases(self._deps, self._api, self._chat_id, refs, conv_id)
+
+    async def send_written(self, tags: Sequence[Tag], conv_id: str | None) -> bool:
+        """Lists the canvases a turn wrote, those the agent reaches from the conversation;
+        False when there is none to name, and nothing is sent. The list goes out as it is
+        worded, never read for attachment lines: a title is the model's text. One that cannot
+        be sent costs the turn a line saying so and no more, since its answer is out already."""
+        notice = notice_text(self._deps, tags, conv_id)
+        if not notice:
+            return False
+        try:
+            await self._say(notice)
+        except TelegramError as exc:
+            logger.warning("telegram %s: canvas notice not sent: %s", self.agent_id, exc)
+            await tell(self._api, self._chat_id, texts.TELEGRAM_CANVAS_NOTICE_FAILED)
+        return True
 
     async def _say(self, prose: str) -> None:
         if self._prefix:

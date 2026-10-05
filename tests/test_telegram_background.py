@@ -135,7 +135,7 @@ async def test_a_broken_turn_is_logged_and_the_chat_hears_only_its_kind(
         yield  # an async generator, like a turn's events
 
     with caplog.at_level(logging.ERROR):
-        await channel.reply_to(broken())
+        await channel.reply_to(broken(), channel.conversation().id)
     assert fake.sent == [texts.TELEGRAM_TURN_FAILED.format(error="RuntimeError")]
     assert "a turn failed" in caplog.text
 

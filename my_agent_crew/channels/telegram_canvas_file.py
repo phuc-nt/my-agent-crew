@@ -88,12 +88,12 @@ async def _upload(
         await api.send_bytes(chat_id, name, data, caption)
 
 
-def _read(
+def canvas_in_reach(
     deps: AgentDeps, artifact_id: str, conv_id: str | None
-) -> tuple[ArtifactSummary, ArtifactVersion] | None:
-    """The canvas and its newest version, when the agent reaches it from the conversation the
-    reply belongs to. None both for a canvas out of reach and for one that is not there, so
-    the chat is told the same of each and a reply cannot find out which ids exist."""
+) -> ArtifactSummary | None:
+    """The canvas, when the agent reaches it from the conversation the reply belongs to. None
+    both for a canvas out of reach and for one that is not there, so the chat is told the
+    same of each and a reply cannot find out which ids exist."""
     store, agent = deps.store, deps.agent
     conversation_id = root_id = ""
     if conv_id is not None:
@@ -108,11 +108,20 @@ def _read(
         conversation_id=conversation_id,
         root_id=root_id,
     )
-    if not reached:
-        return None
     try:
-        return store.artifacts.get(artifact_id), store.artifacts.head(artifact_id)
+        return store.artifacts.get(artifact_id) if reached else None
     except KeyError:
+        return None
+
+
+def _read(
+    deps: AgentDeps, artifact_id: str, conv_id: str | None
+) -> tuple[ArtifactSummary, ArtifactVersion] | None:
+    """The canvas within reach, with its newest version."""
+    summary = canvas_in_reach(deps, artifact_id, conv_id)
+    try:
+        return (summary, deps.store.artifacts.head(artifact_id)) if summary else None
+    except KeyError:  # deleted between the two reads
         return None
 
 

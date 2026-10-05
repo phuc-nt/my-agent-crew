@@ -27,6 +27,17 @@ TELEGRAM_CANVAS_SOURCE = (
 TELEGRAM_CANVAS_FAILED = "(không gửi được canvas {id}; mở web UI để xem nó)"
 # Under the file a canvas arrives as: its title and the version that was sent.
 TELEGRAM_CANVAS_CAPTION = '"{title}" v{version}'
+# The list a chat is sent of the canvases a turn wrote: a canvas shows on the web alone, so
+# the chat is told what to look for there. The address is on a line of its own, so a title
+# cannot run into it; without one the last line says where to look.
+TELEGRAM_CANVAS_HEADER = "Canvas vừa ghi:"
+TELEGRAM_CANVAS_LINE = '• "{title}" v{version}'
+TELEGRAM_CANVAS_LINK_LINE = "  {link}"
+TELEGRAM_CANVAS_MORE = "… và {n} canvas khác."
+TELEGRAM_CANVAS_OPEN_WEB = "Mở web UI để xem."
+TELEGRAM_CANVAS_NOTICE_FAILED = (
+    "(lượt này có ghi canvas nhưng không gửi được danh sách; mở web UI để xem)"
+)
 # What the agent reads when the person sends photos or a file: one line per saved path,
 # the caption (if any) after them, so the model treats the attachments as part of the message.
 # The web thread finds these lines by their words (`attachmentSaved` in web/src/i18n/vi.ts)

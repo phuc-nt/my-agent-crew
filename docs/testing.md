@@ -3999,3 +3999,72 @@ tên một test thì sửa dòng của nó trong cùng commit.
     trước dòng `MEDIA:` và dòng `FILE: artifact:`: tệp được chép, canvas được hỏi);
     `::test_the_childs_last_words_are_read_line_by_line_the_same_way`;
     `::test_dropped_lines_are_looked_for_line_by_line_the_same_way`
+- **Sau câu trả lời trên Telegram, chat nhận danh sách các canvas lượt đó đã ghi: tiêu đề, phiên
+  bản lượt để lại, và đường dẫn mở trên web khi có `web_url`. Danh sách đọc từ kết quả tool của
+  chính lượt đó, không đọc từ lời của model, và chỉ nêu canvas agent còn với tới**
+  - pytest (`tests/test_telegram_canvas_notice.py`, đọc thẻ):
+    `::test_a_tag_reads_back_as_what_it_was_built_from`;
+    `::test_a_line_that_does_not_open_with_a_tag_reads_as_none`;
+    `::test_the_web_reads_a_tag_by_the_pattern_the_server_writes_it_to` (mẫu `TAG_RE` của server
+    trùng mẫu ở `web/src/lib/artifact-tag.ts`, đọc từ tệp TS)
+  - pytest (`tags_of`, `merged`, `WrittenCanvases`):
+    `::test_each_tool_that_writes_a_canvas_names_the_version_it_left` (bốn tool ghi, chạy thật);
+    `::test_a_tool_that_writes_no_canvas_names_none_whatever_its_result_says`;
+    `::test_a_write_that_was_refused_names_nothing`;
+    `::test_a_write_that_changed_nothing_names_nothing`;
+    `::test_a_delegated_task_names_what_its_child_wrote_even_when_the_wait_ran_out`;
+    `::test_a_canvas_written_twice_is_named_once_at_its_newest_version_where_it_first_stood`;
+    `::test_a_live_turn_is_watched_without_changing_what_passes`;
+    `::test_a_turn_that_breaks_is_still_broken_and_keeps_what_it_wrote_by_then`
+  - pytest (`written_by`, đọc từ tin tool run đã lưu):
+    `::test_a_run_with_no_lapsed_approval_names_everything_it_wrote` (thẻ trong lời của model
+    không tính);
+    `::test_a_run_whose_approval_lapsed_names_only_what_it_wrote_after_the_last_one` (lần gửi
+    trong lúc chờ duyệt đã nêu phần trước mốc; lời từ chối không phải mốc);
+    `::test_a_person_who_quotes_the_lapsed_sentence_marks_nothing`;
+    `::test_what_another_run_of_the_conversation_wrote_is_not_this_runs`;
+    `::test_no_run_and_a_run_that_does_not_know_where_it_began_name_nothing`
+  - pytest (`notice_text`, lời của danh sách):
+    `::test_the_notice_names_each_canvas_with_the_version_written_and_its_page`;
+    `::test_without_an_address_the_notice_says_where_to_look`;
+    `::test_the_notice_names_only_what_the_agent_still_reaches` (canvas đã xoá và canvas ngoài
+    tầm bị bỏ; không còn canvas nào thì không có danh sách);
+    `::test_a_long_list_is_cut_at_ten_and_the_rest_counted`;
+    `::test_a_canvas_renamed_since_is_named_by_its_new_title`;
+    `::test_a_secret_in_a_title_is_covered`
+  - pytest (`tests/test_delegate_outcome.py`, khối canvas trong kết quả giao việc):
+    `::test_the_canvases_a_result_names_are_read_back_as_they_were_written`;
+    `::test_a_result_that_names_no_canvas_reads_as_none`;
+    `::test_a_tag_in_the_childs_own_words_is_not_a_canvas_it_wrote`;
+    `::test_anything_but_the_block_as_the_tool_writes_it_names_no_canvas` (cùng luật với thẻ
+    giao việc trên web: dòng outcome, dòng trống bên dưới, mọi dòng ở giữa mở bằng thẻ)
+  - pytest (`tests/test_telegram_canvas_notice_sent.py`, run gửi sau qua `deliver`):
+    `::test_a_brief_is_followed_by_its_files_then_its_canvases_then_why_it_stopped`;
+    `::test_a_run_that_only_wrote_canvases_is_answered_by_their_list` (không còn canvas nào để
+    nêu thì vẫn là câu "không có nội dung" như trước);
+    `::test_a_run_that_stopped_without_a_word_names_what_it_wrote_before_saying_so`;
+    `::test_a_run_that_wrote_no_canvas_gets_no_list`;
+    `::test_what_no_run_is_known_to_have_written_is_not_named`;
+    `::test_a_crew_members_list_goes_out_under_its_name`;
+    `::test_a_brief_sends_and_names_what_its_own_conversation_holds`;
+    `::test_a_wordless_brief_names_what_its_own_conversation_holds`;
+    `::test_a_run_delivered_twice_names_each_canvas_once` (chờ duyệt rồi hết hạn: hai lần gửi,
+    mỗi canvas nêu một lần);
+    `::test_the_list_is_of_what_the_run_had_written_when_delivery_began` (thứ run ghi thêm, hay
+    run sau ghi, trong lúc đang gửi thuộc về lần gửi sau)
+  - pytest (lượt sống qua `reply_to`):
+    `::test_a_turn_names_its_canvases_after_its_reply_and_the_files_it_attached`;
+    `::test_a_turn_that_only_wrote_canvases_is_answered_by_their_list`;
+    `::test_a_wordless_turn_that_wrote_nothing_is_answered_as_it_always_was`;
+    `::test_a_turn_that_breaks_still_names_what_it_wrote`;
+    `::test_a_turn_sends_and_names_what_its_own_conversation_holds`;
+    `::test_each_leg_of_a_turn_that_waited_for_approval_names_its_own` (vòng lặp thật, `/approve`)
+  - pytest (job và lúc Telegram từ chối):
+    `::test_a_job_names_what_it_wrote_unless_it_has_nothing_to_report` (job trả lời `OK` vẫn im
+    lặng dù có ghi canvas);
+    `::test_a_list_that_cannot_be_sent_costs_the_turn_one_line` (một dòng báo, lượt không bị coi
+    là hỏng);
+    `::test_a_wordless_run_whose_list_cannot_be_sent_is_not_called_empty`;
+    `::test_with_nothing_to_name_nothing_is_sent_and_with_nothing_written_nothing_is_read`;
+    `::test_a_title_that_reads_like_an_attachment_line_attaches_nothing` (tiêu đề là `FILE: …`
+    không làm Telegram nhận một lời tải lên nào)

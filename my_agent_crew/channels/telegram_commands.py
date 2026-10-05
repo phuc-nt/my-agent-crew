@@ -143,6 +143,6 @@ async def decide(channel: TelegramChannel, approve: bool) -> str:
         if pending is None or channel.hub.busy.busy(conv.id):
             continue
         events = channel.inbound.decide(conv.id, pending.id, approve, source=TELEGRAM)
-        channel.spawn(channel.reply_to(events))
+        channel.spawn(channel.reply_to(events, conv.id))
         return ""
     return texts.TELEGRAM_NO_APPROVAL

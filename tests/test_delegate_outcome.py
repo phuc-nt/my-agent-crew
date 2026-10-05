@@ -7,6 +7,7 @@ from dataclasses import replace
 
 import pytest
 
+from my_agent_crew.artifacts.tag import Tag, artifact_tag
 from my_agent_crew.store.approvals import APPROVED, DENIED, EXPIRED
 from my_agent_crew.store.models import QUESTION, Approval
 from my_agent_crew.store.runs import DONE, FAILED, HALTED, RunRecord
@@ -16,6 +17,7 @@ from my_agent_crew.tools.delegate_outcome import (
     DONE_WITH_CONCERNS,
     NEEDS_CONTEXT,
     Outcome,
+    canvas_tags,
     decide,
     declared_outcome,
     outcome_line,
@@ -260,3 +262,54 @@ def test_the_blank_line_is_there_whether_or_not_a_canvas_was_written():
     assert result_text("h", "o", [], "", "lời") == "h\no\n\nlời"
     assert result_text("h", "o", ("c1", "c2"), "", "lời\n\nthêm") == "h\no\nc1\nc2\n\nlời\n\nthêm"
     assert result_text("h", "o", ["c1"], "còn 2", "lời") == "h\no\nc1\n\ncòn 2\n\nlời"
+
+
+CHILD = "conversation=c9 status=done spent=$0.0100 steps=2"
+DRAFT, FIGURES = f"{artifact_tag('3f9a1c2b7d40', 2)} Dàn ý", f"{artifact_tag('0123456789ab', 1)} "
+WRITTEN = [Tag("3f9a1c2b7d40", 2), Tag("0123456789ab", 1)]
+
+
+def test_the_canvases_a_result_names_are_read_back_as_they_were_written():
+    more = DELEGATE_CANVAS_MORE.format(n=2)
+    block = [DRAFT, FIGURES]
+    assert canvas_tags(result_text(CHILD, "outcome=done", block, "", "Xong.")) == WRITTEN
+    short = result_text(CHILD, "outcome=blocked reason=cần duyệt", [DRAFT], more, "Chưa xong.")
+    assert canvas_tags(short) == WRITTEN[:1]
+    assert canvas_tags(timed_out("c9", None, block, more).output) == WRITTEN
+
+
+def test_a_result_that_names_no_canvas_reads_as_none():
+    assert canvas_tags(result_text(CHILD, "outcome=done", [], "", "Xong.")) == []
+    more = DELEGATE_CANVAS_MORE.format(n=2)
+    assert canvas_tags(result_text(CHILD, "outcome=done", [], more, "Xong.")) == []
+
+
+def test_a_tag_in_the_childs_own_words_is_not_a_canvas_it_wrote():
+    """Under the blank line stands what the child said, and a child may quote a tag, or be
+    talked into writing one."""
+    quoted = f"{artifact_tag('00ff00ff00ff', 9)} tôi đã ghi"
+    assert canvas_tags(result_text(CHILD, "outcome=done", [], "", quoted)) == []
+    assert canvas_tags(result_text(CHILD, "outcome=done", [DRAFT], "", quoted)) == WRITTEN[:1]
+    wordy = result_text(CHILD, "outcome=done", [DRAFT], "", f"lời\n\n{quoted}\n\nthêm")
+    assert canvas_tags(wordy) == WRITTEN[:1]
+
+
+@pytest.mark.parametrize(
+    "output",
+    [
+        "",
+        "Không có agent nào tên x.",
+        CHILD,
+        f"{CHILD}\noutcome=done",
+        f"{CHILD}\noutcome=done\n{DRAFT}",  # no blank line under the block
+        f"{CHILD}\n{DRAFT}\n\nXong.",  # stored before the outcome line existed
+        f"outcome=done\n{DRAFT}\n\nXong.",  # the outcome is line 2, never line 1
+        f"{CHILD}\noutcome=done\n{DRAFT}\nlời của agent con\n\nXong.",
+        f"{CHILD}\noutcome=done\nlời của agent con\n{DRAFT}\n\nXong.",
+        f"{CHILD}\noutcome=done\n {DRAFT}\n\nXong.",
+    ],
+)
+def test_anything_but_the_block_as_the_tool_writes_it_names_no_canvas(output):
+    """The rule the web card reads the block by: an outcome line, a blank line somewhere
+    under it, and nothing between the two that does not open with a tag."""
+    assert canvas_tags(output) == []

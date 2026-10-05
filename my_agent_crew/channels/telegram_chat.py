@@ -20,8 +20,9 @@ from my_agent_crew.agent.events import Event
 from my_agent_crew.agent.turn_context import TELEGRAM
 from my_agent_crew.agents.kit_commands import EmptySteer
 from my_agent_crew.channels.telegram_answers import answer_text
+from my_agent_crew.channels.telegram_canvas_notice import WrittenCanvases
 from my_agent_crew.channels.telegram_polling import TelegramPolling
-from my_agent_crew.inbound import Inbound, InboundBusy, collect_reply
+from my_agent_crew.inbound import Inbound, InboundBusy, TurnReply, collect_reply
 from my_agent_crew.store.queue import QueueFull
 
 if TYPE_CHECKING:
@@ -81,30 +82,41 @@ class TelegramChat(TelegramPolling):
                 return await self.say(str(exc))
         if busy:  # it waits in line: say so at once, with no "typing…" for a turn not begun
             return await self.say((await collect_reply(events)).text)
-        self.spawn(self.reply_to(events))
+        self.spawn(self.reply_to(events, conv.id))
 
-    async def answer(self, events: AsyncIterator[Event]) -> str:
+    async def answer(self, events: AsyncIterator[Event]) -> TurnReply:
         """The turn as one message, read with "typing…" showing."""
         async with self.outbound().typing():
-            reply = await collect_reply(events, texts.TELEGRAM_APPROVAL_HOW)
-        return reply.text
+            return await collect_reply(events, texts.TELEGRAM_APPROVAL_HOW)
 
-    async def reply_to(self, events: AsyncIterator[Event]) -> None:
-        """A turn in the background, its answer sent to the chat when it ends. What breaks
-        it is logged, and the chat hears of it by the error's kind only: the error's text
-        may quote a request the chat has no business seeing."""
+    async def reply_to(self, events: AsyncIterator[Event], conv_id: str) -> None:
+        """A turn of the conversation `conv_id` in the background, its answer sent to the
+        chat when it ends, then the list of the canvases it wrote. What breaks it is logged,
+        and the chat hears of it by the error's kind only: the error's text may quote a
+        request the chat has no business seeing. What it wrote before it broke is still
+        listed."""
+        out, seen = self.outbound(), WrittenCanvases()
+        unsaid = ""
         try:
-            await self.outbound().send(await self.answer(events))
+            reply = await self.answer(seen.watch(events))
+            if seen.tags and reply.text == texts.REPLY_EMPTY.format(steps=reply.steps):
+                # It wrote canvases and said nothing: their list is its answer, and the
+                # line calling the turn empty is kept for when none of them can be named.
+                unsaid = reply.text
+            else:
+                await out.send(reply.text, conv_id)
         except Exception as exc:
             logger.exception("telegram %s: a turn failed", self.agent_id)
             with suppress(Exception):
                 await self.say(texts.TELEGRAM_TURN_FAILED.format(error=type(exc).__name__))
+        if not await out.send_written(seen.tags, conv_id) and unsaid:
+            await out.send(unsaid, conv_id)
 
     async def run_delivered(self, conv_id: str, source: str) -> None:
         """The drain's runner: what waited is written into the conversation already, and
         its turn runs in the background like any other. Returning at once keeps the
         drain's claim on the conversation until the run takes it over."""
-        self.spawn(self.reply_to(self.inbound.stream_delivered(conv_id, source)))
+        self.spawn(self.reply_to(self.inbound.stream_delivered(conv_id, source), conv_id))
 
     def in_flight(self) -> Conversation | None:
         """The chat's latest conversation while a turn runs in it or messages wait in its

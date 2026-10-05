@@ -151,3 +151,14 @@ def make_channel(deps_factory, fake, tmp_path: Path):
         return TelegramChannel(agents, deps.agent.id, hub, api, CHAT, offset, clock=clock)
 
     return factory
+
+
+@pytest.fixture
+def crew(make_channel, deps_factory, tmp_path: Path) -> TelegramChannel:
+    """A channel whose master shares the bot, and the store, with the coach."""
+    master = deps_factory(routes=(Route("fake", "echo"),))
+    coach = deps_factory(routes=(Route("fake", "echo"),), home=tmp_path / "coach-home")
+    coach.profile = replace(coach.agent, id="coach", name="HLV")
+    channel = make_channel(master)
+    channel.agents["coach"] = coach
+    return channel

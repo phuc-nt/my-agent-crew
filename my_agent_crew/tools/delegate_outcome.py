@@ -17,6 +17,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from my_agent_crew import texts
+from my_agent_crew.artifacts.tag import Tag, parse_artifact_tag
 from my_agent_crew.store.approvals import DENIED, EXPIRED
 from my_agent_crew.store.models import TOOL, Approval
 from my_agent_crew.store.runs import DONE as RUN_DONE
@@ -122,6 +123,26 @@ def result_text(header: str, outcome: str, canvases: Sequence[str], more: str, b
     it is never read as one more canvas, and outside the answer handed to the person."""
     rest = f"{more}\n\n{body}" if more else body
     return "\n".join([header, outcome, *canvases, "", rest])
+
+
+def canvas_tags(output: str) -> list[Tag]:
+    """The canvases a result names as written by the child, read by the rule the web card
+    reads them by: line 2 is the outcome, a blank line stands somewhere under it, and every
+    line between the two opens with a tag. Short of any of those the result names none, so a
+    tag the child quoted in its own words, under the blank line, is never one of them."""
+    lines = output.split("\n")
+    if len(lines) < 2 or not lines[1].startswith("outcome="):
+        return []
+    rest = lines[2:]
+    if "" not in rest:
+        return []
+    tags: list[Tag] = []
+    for line in rest[: rest.index("")]:
+        tag = parse_artifact_tag(line)
+        if tag is None:
+            return []
+        tags.append(tag)
+    return tags
 
 
 def timed_out(

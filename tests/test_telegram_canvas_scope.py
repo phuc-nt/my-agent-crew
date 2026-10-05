@@ -13,27 +13,13 @@ must not be a way round it.
 
 from __future__ import annotations
 
-from dataclasses import replace
-
 import pytest
 
 from my_agent_crew import texts
-from my_agent_crew.config import Route
 from my_agent_crew.store.artifact_models import USER
 from tests.canvas_helpers import PLAN, PNG, agents_canvas, persons_canvas
 
 ID = "0123456789ab"
-
-
-@pytest.fixture
-def crew(make_channel, deps_factory, tmp_path):
-    """A channel whose master shares the bot, and the store, with the coach."""
-    master = deps_factory(routes=(Route("fake", "echo"),))
-    coach = deps_factory(routes=(Route("fake", "echo"),), home=tmp_path / "coach-home")
-    coach.profile = replace(coach.agent, id="coach", name="HLV")
-    channel = make_channel(master)
-    channel.agents["coach"] = coach
-    return channel
 
 
 def missing(artifact_id: str) -> str:
