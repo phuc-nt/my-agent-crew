@@ -1657,6 +1657,21 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "test_a_file_marked_read_only_is_not_replaced": tệp chỉ đọc không bị thay, và dòng `warning`
     trong log mang số lỗi của "permission denied" như một lần ghi thường, không phải `None`,
     "test_a_new_file_gets_the_mode_of_any_written_file_and_an_old_one_keeps_its_own");
+    `tests/test_artifact_export_disk.py`
+    ("test_a_name_longer_than_the_disk_takes_is_an_export_that_failed": tên tệp hay tên thư mục
+    dài hơn hệ tệp nhận, ở thư mục có sẵn hay thư mục lần ghi sẽ tạo, đều cho agent câu không ghi
+    được chứ không phải tên lớp lỗi, cây thư mục không đổi và log có đúng một dòng `warning` nêu
+    chỗ thật tệp định tới, lớp lỗi và `errno`, không có dòng `error` của một tool sập,
+    "test_a_folder_the_process_may_not_enter_is_an_export_that_failed": thư mục mode 000, tệp
+    trong đó có sẵn hay chưa, cũng vậy; bỏ qua khi chạy bằng root,
+    "test_a_folder_that_is_a_link_back_to_itself_is_an_export_that_failed": thư mục là symlink
+    trỏ về chính nó, có hay không có `write_paths`, cho cùng một kết quả trên Python 3.12 (nơi
+    `Path.resolve` ném `RuntimeError`) và 3.13,
+    "test_a_write_path_that_is_a_link_back_to_itself_holds_no_folder": `write_paths` có một
+    symlink như thế thì tệp rơi ngoài các đường dẫn còn lại vẫn bị từ chối bằng câu cũ,
+    "test_where_a_path_leads_is_judged_before_the_disk_is_asked_about_its_name": tên quá dài nằm
+    ngoài workspace, sau một thư mục liên kết ra ngoài hay ngoài `write_paths` vẫn nhận lời từ
+    chối về vị trí như trước, không ghi gì và không để lại dòng log nào);
     `tests/test_artifact_export_write.py`
     ("test_a_failure_no_disk_reports_is_worded_like_any_other_and_leaves_nothing_behind":
     `os.replace` ném `ValueError` thì agent vẫn nhận câu không ghi được, tệp cũ nguyên vẹn, không

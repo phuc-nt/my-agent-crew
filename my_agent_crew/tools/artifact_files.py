@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from collections.abc import Sequence
 from functools import partial
 from pathlib import Path
@@ -83,25 +84,32 @@ async def run_export(
 def _target(root: Path, path: str, write_paths: Sequence[str]) -> tuple[Path, str]:
     """Where the export will really land, and that place as the result names it. The path as
     written may pass through a folder linked elsewhere, so the checks `resolve_writable` made
-    on it are made again on the folder the file would truly be put in."""
+    on it are made again on the folder the file would truly be put in. A place the disk will
+    not tell about (a name too long for it, a folder closed to this process, a link that leads
+    back to itself) is no link and no folder here: it is the write the disk refuses, and that
+    is answered in the words of any export that failed."""
     try:
         target = resolve_writable(root, path, write_paths)
     except RuntimeError:  # "~name" for a user this machine lacks
         raise ToolError(WORKSPACE_ESCAPE) from None
     base = root.resolve()
-    real = target.parent.resolve() / target.name
+    real = _followed(target.parent) / target.name
     if not real.is_relative_to(base):
         raise ToolError(WORKSPACE_ESCAPE)
-    if write_paths and not any(
-        real.is_relative_to((base / held).resolve()) for held in write_paths
-    ):
+    if write_paths and not any(real.is_relative_to(_followed(base / held)) for held in write_paths):
         refusal = WORKSPACE_WRITE_OUTSIDE.format(paths=", ".join(write_paths), path=path)
         raise ToolError(refusal)
-    if real.is_symlink():
+    if os.path.islink(real):
         raise ToolError(EXPORT_TARGET_IS_LINK.format(path=path))
-    if real.is_dir():
+    if os.path.isdir(real):
         raise ToolError(WORKSPACE_IS_DIR.format(path=path))
     return real, workspace_path(root, target)
+
+
+def _followed(folder: Path) -> Path:
+    """`folder` with every link on the way to it followed. `Path.resolve` raises, on some
+    Pythons, for a link that leads back to itself; this leaves such a link where it stands."""
+    return Path(os.path.realpath(folder))
 
 
 def build_artifact_file_tools(
