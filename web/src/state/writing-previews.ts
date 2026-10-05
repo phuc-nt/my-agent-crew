@@ -74,3 +74,26 @@ export function bindCalls(previews: WritingPreview[], toolCalls: ToolCall[]): Wr
   }
   return bound;
 }
+
+/** What a thread holds of the canvases being written: the previews, and whether the person put one away. */
+type Held = { previews: WritingPreview[]; previewsMuted: boolean };
+
+/** How a turn that is over leaves the thread: no canvas being written, and none put away. */
+export const noPreviews: Held = { previews: [], previewsMuted: false };
+
+/**
+ * How the thread is left where the stream of a turn stops or starts: no canvas being written, and
+ * what the person put away counting only while the turn waits for them.
+ *
+ * Putting a canvas away holds for the turn it happened in. A turn that waits for the person's
+ * answer is not over, and the stream that takes it up once they have answered is not a new turn:
+ * while a request waits, it counts. `pending` is the request a load found, which is this turn's
+ * only when it is the very one that waited.
+ */
+export function betweenStreams(
+  was: { previewsMuted: boolean; pending: { approvalId: string } | null },
+  pending: { approvalId: string } | null = was.pending,
+): Held {
+  const waits = pending !== null && pending.approvalId === was.pending?.approvalId;
+  return { previews: [], previewsMuted: was.previewsMuted && waits };
+}

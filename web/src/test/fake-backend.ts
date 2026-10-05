@@ -717,18 +717,22 @@ export class FakeBackend {
     const events = this.nextTurn;
     this.nextTurn = [];
     // A turn that pauses leaves its request open on the conversation, as the server's
-    // does: the decide that follows must find it there, and a stale one must not.
-    for (const e of events) {
-      if (e.type !== "approval_required") continue;
-      const { approval_id: id, tool_call_id, name: tool_name, arguments: args, expires_at, kind, options, reason } = e;
-      c.pending_approval = { id, conversation_id: c.id, message_id: "", tool_call_id, tool_name, arguments: args, status: "pending", created_at: "", expires_at, resolved_at: null, kind, options, reason };
-    }
+    // does: the decide that follows must find it there, and a stale one must not. That
+    // holds for a turn kept open too, whose request comes with a later `push()`.
+    const pause = (more: AgentEvent[]) => {
+      for (const e of more) {
+        if (e.type !== "approval_required") continue;
+        const { approval_id: id, tool_call_id, name: tool_name, arguments: args, expires_at, kind, options, reason } = e;
+        c.pending_approval = { id, conversation_id: c.id, message_id: "", tool_call_id, tool_name, arguments: args, status: "pending", created_at: "", expires_at, resolved_at: null, kind, options, reason };
+      }
+    };
     const encoder = new TextEncoder();
     const held = this.willHold === c.id;
     this.willHold = null;
     const stream = new ReadableStream<Uint8Array>({
       start: (controller) => {
         const push = (more: AgentEvent[]) => {
+          pause(more);
           for (const e of more) controller.enqueue(encoder.encode(`event: ${e.type}\r\ndata: ${JSON.stringify(e)}\r\n\r\n`));
         };
         push(events);

@@ -44,7 +44,8 @@ const tag = (id: string, version = 1) => `[artifact ${id} v${version}]\nCanvas w
 type Props = {
   previews: WritingPreview[];
   items: ThreadItem[];
-  busy: boolean;
+  /** What the thread says of the turn: the person put a canvas being written away in it. */
+  muted: boolean;
   wide: boolean;
   enabled: boolean;
   view: DockView;
@@ -55,9 +56,11 @@ type Props = {
 
 /** The hook beside a dock that stands where the test puts it, with a person who may have the
  *  keyboard in the dock (`typing`) or text of their own in its canvas (`editing`, which is both).
- *  The dock's list is another object each time the screen is drawn, as the real one is. */
+ *  The dock's list is another object each time the screen is drawn, as the real one is. The thread
+ *  is told when the person puts a canvas away and says so from then on, until the test ends the turn. */
 function mount(initial: Partial<Props> = {}) {
   const person = { typing: false, editing: false };
+  const mutePreviews = vitest.fn(() => set({ muted: true }));
   const dock = {
     open: vitest.fn(),
     typing: vitest.fn(() => person.typing || person.editing),
@@ -68,7 +71,7 @@ function mount(initial: Partial<Props> = {}) {
   let props: Props = {
     previews: [],
     items: [],
-    busy: true,
+    muted: false,
     wide: true,
     enabled: true,
     view: "closed",
@@ -79,7 +82,7 @@ function mount(initial: Partial<Props> = {}) {
   const view = renderHook(
     (now: Props) => {
       const writing = useCanvasWriting(
-        { state: { previews: now.previews, items: now.items, busy: now.busy } },
+        { state: { previews: now.previews, items: now.items, previewsMuted: now.muted }, mutePreviews },
         { ...dock, list: { ...dock.list }, view: now.view, artifactId: now.artifactId },
         now.wide,
         now.enabled,
@@ -96,7 +99,7 @@ function mount(initial: Partial<Props> = {}) {
     props = { ...props, ...next };
     view.rerender(props);
   };
-  return { result: view.result, dock, person, set };
+  return { result: view.result, dock, person, set, mutePreviews };
 }
 
 describe("the canvases being written, for the thread", () => {
@@ -328,12 +331,13 @@ describe("a canvas being written shown on request", () => {
 });
 
 describe("leaving a canvas being written", () => {
-  it("puts it away and keeps the rest of the turn from coming up by itself", () => {
-    const { result, set } = mount({ previews: [making()] });
+  it("puts it away, tells the thread, and keeps the rest of the turn from coming up by itself", () => {
+    const { result, set, mutePreviews } = mount({ previews: [making()] });
 
     act(() => result.current.leave());
     expect(result.current.shown).toBeNull();
     expect(result.current.items.map((item) => item.key)).toEqual([1]);
+    expect(mutePreviews).toHaveBeenCalledTimes(1);
 
     // The model starts its answer over: another canvas, in the same turn.
     set({ previews: [making({ key: 2, attempt: 1 })] });
@@ -343,24 +347,53 @@ describe("leaving a canvas being written", () => {
     expect(result.current.shown).toMatchObject({ key: 2 });
   });
 
-  it("lets the next turn's canvas come up again", () => {
+  it("lets the next turn's canvas come up again, once the thread has forgotten the one put away", () => {
     const { result, set } = mount({ previews: [making()] });
     act(() => result.current.leave());
 
-    set({ previews: [], busy: false });
-    set({ previews: [making({ key: 2 })], busy: true });
+    set({ previews: [], muted: false });
+    set({ previews: [making({ key: 2 })] });
 
     expect(result.current.shown).toMatchObject({ key: 2 });
     expect(result.current.asked).toBeNull();
   });
 
-  it("silences nothing when no turn is running", () => {
-    const { result, set } = mount({ previews: [making()], busy: false });
+  it("holds for a screen drawn anew in that turn, which has seen none of it: the thread remembers", () => {
+    const { result, dock, set } = mount({ previews: [making()], muted: true });
+    expect(result.current.shown).toBeNull();
+    expect(result.current.items.map((item) => item.key)).toEqual([1]);
+
+    set({ previews: [making({ updates: 3 }), making({ key: 2, index: 1 })] });
+    expect(result.current.shown).toBeNull();
+    expect(dock.selectTab).not.toHaveBeenCalled();
+
+    act(() => result.current.show(1));
+    expect(result.current.shown).toMatchObject({ key: 1 });
+  });
+
+  it("tells the thread again each time one shown on request is put away", () => {
+    const { result, mutePreviews } = mount({ previews: [making()] });
+    act(() => result.current.leave());
+    act(() => result.current.show(1));
+
     act(() => result.current.leave());
 
-    set({ previews: [making({ key: 2 })] });
+    expect(result.current.shown).toBeNull();
+    expect(mutePreviews).toHaveBeenCalledTimes(2);
+  });
 
+  it("tells the thread nothing when a canvas goes by itself", () => {
+    const { result, set, mutePreviews } = mount({ previews: [making()] });
+
+    // The model starts over, and the dock moves on from the next one: neither is the person's doing.
+    set({ previews: [] });
+    expect(result.current.shown).toBeNull();
+    set({ previews: [making({ key: 2 })] });
     expect(result.current.shown).toMatchObject({ key: 2 });
+    set({ view: "list" });
+
+    expect(result.current.shown).toBeNull();
+    expect(mutePreviews).not.toHaveBeenCalled();
   });
 });
 

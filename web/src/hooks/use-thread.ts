@@ -34,6 +34,8 @@ export interface ThreadController {
   reloadWhenIdle: () => void;
   /** Marks calls no run will answer any more as stopped; a no-op while a turn runs. */
   settle: () => void;
+  /** The person put away a canvas being written: none comes up by itself for the rest of the turn. */
+  mutePreviews: () => void;
   /** Counts decisions refused as already taken elsewhere: each resumed nothing here. */
   handledElsewhere: number;
 }
@@ -222,6 +224,7 @@ export function useThread(conversationId: string | null): ThreadController {
   );
 
   const settle = useCallback(() => dispatch({ type: "settled" }), []);
+  const mutePreviews = useCallback(() => dispatch({ type: "previews_muted" }), []);
 
-  return { state, detail, send, decide, answer, stop, reload, reloadWhenIdle, settle, handledElsewhere };
+  return { state, detail, send, decide, answer, stop, reload, reloadWhenIdle, settle, mutePreviews, handledElsewhere };
 }

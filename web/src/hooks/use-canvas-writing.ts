@@ -11,7 +11,8 @@
  * only where it is in nobody's way: on a wide screen, with nothing else shown, and not while the
  * person types in a canvas or has the keyboard anywhere in the dock. One written again comes up
  * only over the very canvas it rewrites. A person who put one away is left alone for the rest of
- * the turn; the card still shows any of them.
+ * the turn; the card still shows any of them. The thread remembers that they did, not this hook: it
+ * has to outlast a wait for the person's word, and this screen being left and drawn anew mid-turn.
  *
  * When the call it became ends, the canvas the result names opens quietly in its place, unless the
  * dock is on it already or the canvas behind holds what the person typed meanwhile. The keyboard
@@ -25,8 +26,9 @@ import type { DockView } from "../lib/canvas-dock-state";
 import { describeWriting, type KnownCanvases, type WritingItem } from "../lib/canvas-writing";
 import type { ThreadState } from "../state/thread-reducer";
 import type { CanvasDock } from "./use-canvas-dock";
+import type { ThreadController } from "./use-thread";
 
-type Thread = { state: Pick<ThreadState, "previews" | "items" | "busy"> };
+type Thread = Pick<ThreadController, "mutePreviews"> & { state: Pick<ThreadState, "previews" | "items" | "previewsMuted"> };
 type Dock = Pick<CanvasDock, "view" | "artifactId" | "open" | "typing" | "editing" | "selectTab"> & { list: KnownCanvases };
 
 /** The canvas on show, how it got there, and where the dock stood when it did. */
@@ -46,7 +48,8 @@ export type CanvasWriting = {
 };
 
 export function useCanvasWriting(thread: Thread, dock: Dock, wide: boolean, enabled: boolean): CanvasWriting {
-  const { previews, items: calls, busy } = thread.state;
+  const { mutePreviews } = thread;
+  const { previews, items: calls, previewsMuted: muted } = thread.state;
   // Read once for each piece that arrives: what the tab learns of a canvas later waits for the next.
   const all = useMemo(() => previews.map((preview) => describeWriting(preview, dock.list)), [previews]);
   const items = useMemo(() => (enabled ? all.filter((item) => item.callId === null) : []), [all, enabled]);
@@ -56,28 +59,23 @@ export function useCanvasWriting(thread: Thread, dock: Dock, wide: boolean, enab
   const shown = (stands && all.find((item) => item.key === held.key)) || null;
   const callId = shown?.callId ?? null;
 
-  const latest = useRef({ dock, wide, enabled, busy, shown });
-  latest.current = { dock, wide, enabled, busy, shown };
-  // Each canvas once it has been judged, the person's requests so far, and whether they put one away this turn.
+  const latest = useRef({ dock, wide, enabled, muted, shown });
+  latest.current = { dock, wide, enabled, muted, shown };
+  // Each canvas once it has been judged, and the person's requests so far.
   const [judged] = useState(() => new Set<number>());
   const asks = useRef(0);
-  const muted = useRef(false);
 
   useEffect(() => {
     if (held !== null && shown === null) setHeld((now) => (now === held ? null : now));
   }, [held, shown]);
 
   useEffect(() => {
-    if (!busy) muted.current = false;
-  }, [busy]);
-
-  useEffect(() => {
-    const { dock, wide, enabled, shown } = latest.current;
+    const { dock, wide, enabled, muted, shown } = latest.current;
     let free = shown === null;
     for (const item of all) {
       if (item.updates < 2 || item.content === "" || judged.has(item.key)) continue;
       judged.add(item.key);
-      if (!free || item.callId !== null || !enabled || !wide || muted.current || dock.typing()) continue;
+      if (!free || item.callId !== null || !enabled || !wide || muted || dock.typing()) continue;
       if (item.rewrite && (item.id === null || dock.view !== "canvas" || dock.artifactId !== item.id)) continue;
       free = false;
       setHeld({ key: item.key, asked: null, view: dock.view, artifactId: dock.artifactId });
@@ -110,8 +108,8 @@ export function useCanvasWriting(thread: Thread, dock: Dock, wide: boolean, enab
 
   const leave = useCallback(() => {
     setHeld(null);
-    muted.current = latest.current.busy;
-  }, []);
+    mutePreviews();
+  }, [mutePreviews]);
 
   return { items, shown, asked: stands && shown !== null ? held.asked : null, callId, show, leave };
 }

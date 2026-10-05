@@ -1444,7 +1444,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `artifact_create`, bỏ bản không có lời gọi ở vị trí ấy và bỏ bản của bước trước; bước sau mở
     bản mới bên cạnh bản đã gắn dù cùng vị trí và cùng số lần thử, vẫn nối tiếp vào bản của chính
     nó khi bản đã gắn được viết ở lần thử khác, và lần thử lại của bước sau không đụng tới bản đã
-    gắn);
+    gắn; "what the person put away, where the stream of a turn stops or starts": việc người đã
+    cất một bản chỉ còn tính khi lượt đang chờ họ trả lời, không tự có ở nơi chưa ai cất gì, và
+    qua một lần tải lại chỉ còn tính khi đúng yêu cầu đã chờ ấy vẫn chờ; lượt đã xong thì không
+    còn bản nào và không còn gì đã cất);
     `web/src/state/thread-reducer-previews.test.ts` (luồng theo từng mảnh mà không đổi `thinking`
     hay chữ đang tới; `route_fallback` rồi event tên rỗng bỏ bản và giữ dòng báo đổi tuyến;
     `assistant_message` gắn lời gọi và bản ở lại qua `tool_call` lẫn `tool_result`;
@@ -1452,6 +1455,15 @@ tên một test thì sửa dòng của nó trong cùng commit.
     từng mang tên `artifact_create` mà lời gọi là `workspace_write` thì không còn bản nào; tám cách
     một lượt kết thúc, mỗi cách không để lại bản nào dù bản đã gắn hay chưa; lượt sau, cuộc khác
     và lần tải lại không dùng lại khoá cũ);
+    `web/src/state/thread-reducer-put-away.test.ts` (luồng nhớ việc người đã cất một bản đang viết
+    và không đổi gì khác, thẻ vẫn còn; dấu ấy ở lại qua mọi thứ lượt nói tiếp, kể cả khi model bắt
+    đầu lại; "a canvas put away in a turn that then waits for the person": dấu còn khi yêu cầu
+    duyệt đang chờ và stream đã đóng sau nó, còn khi người trả lời rồi lượt viết canvas khác, còn
+    khi câu trả lời không gửi được, còn sau lần tải lại thấy đúng yêu cầu ấy; mất khi lần tải lại
+    thấy yêu cầu đã đóng hay thấy một yêu cầu khác, khi người bấm dừng, và khi server báo lượt
+    xong, bị chặn hay lỗi dù trang còn hiện yêu cầu; tám cách một lượt kết thúc đều xoá dấu, mở
+    cuộc khác trong lúc đang chờ cũng vậy, và lượt bắt đầu sau đó không nợ gì dấu được đặt khi
+    không có lượt nào chạy);
     `web/src/lib/partial-json-content.test.ts` (đọc `title`, `kind`, `id`, `content` ở tầng ngoài
     cùng của object chưa đóng: `content` có ngay khi chuỗi mở, ba khoá kia chỉ có khi chuỗi đóng;
     mọi escape của JSON cho đúng chữ `JSON.parse` cho; ký tự viết bằng hai escape đọc thành một ký
@@ -1484,7 +1496,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     bấm xem thì hiện ngay từ mảnh đầu, trên màn hẹp và cả khi đang gõ, thay bản tự hiện, đếm số lần
     hỏi và không tự hiện lại về sau; "shows the one asked for in the very drawing that dropped the
     one on show": lời bấm xem tới đúng lần vẽ làm mất bản đang hiện thì bản được hỏi vẫn hiện; rời
-    khung thì phần còn lại của lượt im, lượt sau lại tự hiện; khung
+    khung thì hook báo cho luồng đúng một lần và phần còn lại của lượt im, luồng quên thì bản kế
+    lại tự hiện; "holds for a screen drawn anew in that turn, which has seen none of it: the thread
+    remembers": màn chat dựng lại giữa lượt mà luồng còn nhớ thì bản mới chỉ là thẻ; mỗi lần cất
+    một bản được bấm xem đều báo lại, còn khung tự đi thì không báo gì; khung
     tự đi khi model bắt đầu lại, khi dock chuyển chỗ và không quay lại khi dock trở về, khi tắt xem
     trước; nó ở lại suốt lời gọi, rồi mở lặng lẽ đúng một lần canvas mà kết quả nêu dù đối số nói
     gì; lời gọi hỏng, bị từ chối hay bị dừng, và kết quả không nêu canvas, chỉ cất khung; không mở
@@ -1535,6 +1550,11 @@ tên một test thì sửa dòng của nó trong cùng commit.
     người đang gõ trong canvas khác thì khung không tự hiện, và bấm thẻ lưu chữ của họ như mọi lần
     rời ô soạn: đúng một `PUT` mang chữ của họ; lưu được thì canvas của agent mở khi xong, lưu
     hỏng thì canvas của họ trở lại cùng chữ đã gõ);
+    `web/src/app-canvas-writing-put-away.test.tsx` (người cất khung, lượt dừng lại hỏi duyệt một
+    lời ghi tệp, người duyệt, rồi canvas kế của lượt ấy chỉ là thẻ và thẻ vẫn gọi được khung;
+    không cất gì thì canvas kế tự hiện như trước; người cất khung, sang Quản lý rồi quay lại chat
+    giữa lượt: bản ấy vẫn là thẻ ở lúc quay lại và ở mọi mảnh sau, còn không cất thì nó hiện lại;
+    lượt xong hay bị người dừng thì canvas của lượt sau lại tự hiện);
     `web/src/app-canvas-writing-safety.test.tsx` (lời viết lại hiện trên canvas nó viết lại, canvas
     ấy chờ phía sau rồi hiện lại; bấm thẻ của chính canvas ấy trong luồng thì khung được cất và
     canvas dock đang giữ hiện lại; canvas khác đang mở hay không mở gì thì chỉ là thẻ; id trong bản
@@ -1550,7 +1570,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     phím, rồi canvas thật thế chỗ; trang `html` là mã nguồn và `window.pwned` không được đặt; điện
     thoại 390×844: chỉ có thẻ cho tới khi chạm, khung phủ cả màn, nút cao ít nhất 40 px, Escape
     rời khung). Luồng còn mở của các test này dựng bằng `web/src/test/canvas-writing-turn.ts`
-    (vitest) và `web/e2e/live-stream.ts` (e2e, vì route của Playwright trả cả thân một lần)
+    (vitest) và `web/e2e/live-stream.ts` (e2e, vì route của Playwright trả cả thân một lần); yêu
+    cầu duyệt đẩy vào một luồng còn mở được `web/src/test/fake-backend.ts` ghi lại trên cuộc trò
+    chuyện như server làm, để lời duyệt theo sau tìm thấy nó
 - **Xem trước canvas đang viết tắt được bằng một công tắc ở Cài đặt, riêng cho thiết bị đang dùng:
   trình duyệt chỉ lưu một chữ `off`, và trình duyệt không cho lưu thì lựa chọn vẫn có hiệu lực
   trong tab kèm dòng nói rõ**

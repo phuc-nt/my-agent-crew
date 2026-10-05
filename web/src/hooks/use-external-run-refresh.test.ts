@@ -43,6 +43,7 @@ function fakeThread(overrides: Partial<ThreadState> = {}): { reloadWhenIdle: Ret
     reload: vitest.fn(async () => undefined),
     reloadWhenIdle,
     settle: vitest.fn(),
+    mutePreviews: vitest.fn(),
     handledElsewhere: 0,
   };
   return { reloadWhenIdle, controller };

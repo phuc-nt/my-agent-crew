@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ToolCall } from "../api/types";
-import { applyDelta, bindCalls, type ToolCallDelta, type WritingPreview } from "./writing-previews";
+import { applyDelta, betweenStreams, bindCalls, noPreviews, type ToolCallDelta, type WritingPreview } from "./writing-previews";
 
 const delta = (partial: Partial<ToolCallDelta> = {}): ToolCallDelta => ({
   type: "tool_call_delta",
@@ -171,5 +171,37 @@ describe("the step after one that wrote a canvas", () => {
     const bound = { previews: bindCalls(first.previews, [call("w1")]), seq: first.seq };
     const next = feed([delta({ chunk: "hai" }), delta({ name: "", attempt: 1 })], bound);
     expect(next.previews.map((p) => [p.key, p.callId])).toEqual([[1, "w1"]]);
+  });
+});
+
+describe("what the person put away, where the stream of a turn stops or starts", () => {
+  const request = (approvalId: string) => ({ approvalId });
+  const muted = (...given: Parameters<typeof betweenStreams>) => betweenStreams(...given).previewsMuted;
+
+  it("still counts while the turn waits for their answer", () => {
+    expect(betweenStreams({ previewsMuted: true, pending: request("ap1") })).toEqual({ previews: [], previewsMuted: true });
+  });
+
+  it("counts no longer once nothing waits for them: the turn is over, or another is starting", () => {
+    expect(betweenStreams({ previewsMuted: true, pending: null })).toEqual({ previews: [], previewsMuted: false });
+  });
+
+  it("is not made up where nothing was put away", () => {
+    expect(muted({ previewsMuted: false, pending: request("ap1") })).toBe(false);
+    expect(muted({ previewsMuted: false, pending: null })).toBe(false);
+  });
+
+  it("still counts across a load only when the very request that waited still does", () => {
+    const was = { previewsMuted: true, pending: request("ap1") };
+    expect(muted(was, request("ap1"))).toBe(true);
+    expect(muted(was, request("ap2"))).toBe(false);
+    expect(muted(was, null)).toBe(false);
+    // A request that turns up where none waited is not this turn's.
+    expect(muted({ previewsMuted: true, pending: null }, request("ap1"))).toBe(false);
+    expect(muted({ previewsMuted: false, pending: request("ap1") }, request("ap1"))).toBe(false);
+  });
+
+  it("is forgotten, with every canvas being written, where a turn is over", () => {
+    expect(noPreviews).toEqual({ previews: [], previewsMuted: false });
   });
 });
