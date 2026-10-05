@@ -4004,12 +4004,14 @@ tên một test thì sửa dòng của nó trong cùng commit.
     là đúng dòng đã viết, trong một đoạn chữ)
   - vitest, cả app: `web/src/app-canvas-ref-chip.test.tsx` (câu trả lời đã lưu: chip mang tên canvas
     và bấm thì canvas mở cạnh thread; bấm lúc khung "đang viết" của một canvas khác đang hiện thì
-    khung ấy rời đi, panel hiện canvas của chip và thẻ "đang viết" vẫn còn; canvas không gắn với
-    hội thoại lấy tên server đang giữ sau đúng một lần hỏi; canvas server không còn thì "Canvas đã
-    bị xoá" cạnh một chip còn mở được; ba dòng ghi sai mã, `FILE: artifact:xyz`, mã của một canvas
-    đang có kèm đuôi `.md` và mã ấy kèm dấu chấm cuối, mỗi dòng là một đoạn chữ đúng như đã viết,
-    không chip, không câu "đã bị xoá", không nút, không link tệp, không ảnh và không gây lời hỏi
-    `/artifacts/` nào)
+    khung ấy rời đi, panel hiện canvas của chip và thẻ "đang viết" vẫn còn; sau lần bấm ấy khung
+    không tự nổi lại trong cả lượt, kể cả khi model viết lại câu trả lời và bản nháp mới đã đủ dài
+    để tự hiện, còn nút trên thẻ "đang viết" vẫn gọi được khung ra với bản nháp mới; canvas không
+    gắn với hội thoại lấy tên server đang giữ sau đúng một lần hỏi; canvas server không còn thì
+    "Canvas đã bị xoá" cạnh một chip còn mở được; ba dòng ghi sai mã, `FILE: artifact:xyz`, mã của
+    một canvas đang có kèm đuôi `.md` và mã ấy kèm dấu chấm cuối, mỗi dòng là một đoạn chữ đúng như
+    đã viết, không chip, không câu "đã bị xoá", không nút, không link tệp, không ảnh và không gây
+    lời hỏi `/artifacts/` nào)
   - Playwright: `web/e2e/canvas-thread.spec.ts` (ở 1440 px chip nằm trong câu trả lời, tên đứng
     trước nút, chữ của nút trên một dòng, không link tệp, bấm thì canvas mở cạnh thread; cũng ở
     1440 px chip của một canvas tên ngắn là một khung nhỏ, hẹp hơn nửa bề ngang câu trả lời, nên bỏ

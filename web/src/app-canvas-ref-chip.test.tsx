@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { vi } from "./i18n/vi";
 import { layout, openChat, startApp } from "./test/canvas-app";
 import { landed, stopServer } from "./test/canvas-hook";
-import { frame, panel, piece, shownFrame, startTurn, stream, writingCards } from "./test/canvas-writing-turn";
+import { frame, panel, piece, shownFrame, startOver, startTurn, stream, writingCards } from "./test/canvas-writing-turn";
 import { type FakeBackend, storedMessage } from "./test/fake-backend";
 
 const BOOK = "0123456789ab";
@@ -14,6 +14,7 @@ const { card } = vi.canvas;
 /** The arguments of a canvas the agent is making, as the model writes them, in two pieces. */
 const HEAD = '{"title":"Kế hoạch tuần","kind":"markdown","content":"Việc';
 const MORE = " một\\n\\nViệc";
+const LAST = ' hai"}';
 
 let backend: FakeBackend;
 
@@ -73,6 +74,36 @@ describe("a line of a saved reply that sends a canvas", () => {
     expect(frame()).toBeNull();
     expect(shownTitle("Sổ tay")).toBeVisible();
     expect(writingCards()).toHaveLength(1);
+  });
+
+  it("keeps what the agent writes away for the rest of the turn once pressed, with its card left to bring it back", async () => {
+    // Opening another canvas by hand while the agent's shows is putting the agent's away by hand.
+    backend.canvas.add({ id: BOOK, title: "Sổ tay", agent_id: "master", content: "Bản cũ", conversationIds: ["c1"] });
+    sentAsFiles(BOOK);
+    await openChat(1440);
+    const turn = await startTurn(backend);
+    await stream(turn, piece(HEAD));
+    await stream(turn, piece(MORE));
+    fireEvent.click(openButton("Sổ tay"));
+    await landed();
+
+    await stream(turn, piece(LAST));
+    expect(frame()).toBeNull();
+
+    // The model starts its answer over and writes another canvas, far enough for one to come up by itself.
+    await stream(turn, ...startOver(1));
+    await stream(turn, piece('{"title":"Bản mới","content":"A', { attempt: 1 }));
+    await stream(turn, piece("B", { attempt: 1 }));
+
+    expect(frame()).toBeNull();
+    expect(shownTitle("Sổ tay")).toBeVisible();
+    expect(writingCards()).toHaveLength(1);
+
+    fireEvent.click(within(writingCards()[0]).getByRole("button", { name: vi.canvas.writing.showLabel("Bản mới") }));
+    await landed();
+
+    expect(within(shownFrame()).getByRole("heading", { level: 2, name: "Bản mới" })).toBeInTheDocument();
+    expect(shownFrame().querySelector("pre.canvas-code")?.textContent).toBe("AB");
   });
 
   it("goes by the name the server has for a canvas that is not this conversation's, asked of it once", async () => {
