@@ -11,6 +11,15 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+### Fixed
+
+- The whole app no longer slides up and leaves a blank band under it. The labels a screen
+  reader hears inside a message were positioned against the frame around the thread instead of
+  the thread itself, so they stayed where the unscrolled thread put them, thousands of pixels
+  below the window, and made the page itself scrollable. A wheel or trackpad that ran off the
+  end of another column, a long canvas above all, then dragged the page. The thread now holds
+  its own labels and the page has nothing to scroll.
+
 ## [0.11.0] — 2026-10-05
 
 This release adds the canvas: a versioned document that a person and an agent edit together. An

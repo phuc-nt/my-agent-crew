@@ -42,7 +42,11 @@
   pointer-events: none;
 }
 
+/* Positioned, so the screen-reader-only labels inside a message scroll with it. Left to the
+   frame, they would stay where the unscrolled thread put them, thousands of pixels below the
+   window, and give the whole page something to scroll. */
 .thread {
+  position: relative;
   flex: 1;
   overflow-y: auto;
   padding: var(--space-5) var(--gutter) var(--space-6);

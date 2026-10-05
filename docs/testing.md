@@ -4357,3 +4357,16 @@ tên một test thì sửa dòng của nó trong cùng commit.
     trạng thái);
     `::test_a_child_whose_error_names_files_hands_the_parent_no_attachment_to_send` (con thật có
     provider lỗi, `dropped_attachments` của cha trả về rỗng)
+
+## Trang không tự cuộn
+
+Ứng dụng cao đúng một cửa sổ, mỗi cột tự cuộn. Lỗi thật thấy trên live ngày 2026-10-05 (v0.11.0, canvas
+dài mở cạnh chat): cuộn hết một cột thì cả ứng dụng bị kéo lên, bên dưới là một dải trắng. Nguyên nhân: nhãn
+`.sr-only` trong tin nhắn lấy khung ngoài thread làm mốc, nên nằm lại ở chỗ của thread chưa cuộn, cách cửa
+sổ hàng nghìn pixel, và làm chính trang cuộn được. Sửa: `.thread` có `position: relative`.
+
+  - Playwright: `web/e2e/page-scroll.spec.ts` (ở 1440×900 và 390×844, hội thoại 30 tin, 40 hội thoại ở
+    thanh bên, một canvas 60 mục: "has nothing to scroll under a long thread and a long list of
+    conversations": trang không có gì để cuộn; "stays put when a wheel runs off the end of a long
+    canvas": lăn chuột quá cuối canvas rồi lăn ngược, trang vẫn ở 0; "has nothing to scroll on the
+    manage screen"). Bỏ dòng `position: relative` thì bốn trong sáu test đỏ, trang cuộn được hơn 8.000 px.
