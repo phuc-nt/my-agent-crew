@@ -4096,3 +4096,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     hết hạn thật)
   - Các bước dựng dùng chung ở `tests/lapse_helpers.py`: lời gọi của model, yêu cầu nó mở, và tin
     tool đóng yêu cầu bằng chính lời của vòng lặp (`close_interrupted`).
+- **Dòng khép một lượt trên Telegram (danh sách canvas, hay câu "không có nội dung" được giữ lại
+  cho lúc không còn canvas nào để nêu) mà không gửi được thì chat vẫn nghe báo lượt hỏng theo loại
+  lỗi, như mọi lỗi khác của lượt**
+  - pytest (`tests/test_telegram_canvas_notice_sent.py`):
+    `::test_a_closing_line_that_cannot_be_sent_is_a_failure_the_chat_hears_of` (lượt không lời có
+    ghi canvas, canvas bị xoá trước khi lượt xong, Telegram từ chối câu còn lại: chat nhận
+    `TELEGRAM_TURN_FAILED`, log ghi lỗi kèm nguyên nhân)

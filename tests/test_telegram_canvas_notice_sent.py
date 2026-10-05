@@ -411,6 +411,28 @@ async def test_a_wordless_turn_that_wrote_nothing_is_answered_as_it_always_was(
     assert fake.sent == [texts.TELEGRAM_TURN_FAILED.format(error="TelegramError")]
 
 
+async def test_a_closing_line_that_cannot_be_sent_is_a_failure_the_chat_hears_of(
+    make_channel, fake, monkeypatch, caplog
+):
+    """The turn wrote a canvas and said nothing, the canvas is gone by its end, and so its
+    one sentence goes out after all, where the list would have. Telegram refusing it there is
+    what it is anywhere else: logged, and said to the chat by the error's kind."""
+    channel = make_channel()
+    plan = canvas(channel.store, "Dàn ý")
+    conv = channel.conversation()
+
+    async def turn():
+        yield result(plan)
+        channel.store.artifacts.delete(plan)
+        yield DoneEvent(0.0, 0)
+
+    refuse(fake, monkeypatch, texts.REPLY_EMPTY.format(steps=0))
+    with caplog.at_level(logging.ERROR):
+        await channel.reply_to(turn(), conv.id)
+    assert fake.sent == [texts.TELEGRAM_TURN_FAILED.format(error="TelegramError")]
+    assert "a turn failed" in caplog.text and "refused" in caplog.text
+
+
 async def test_a_turn_that_breaks_still_names_what_it_wrote(make_channel, fake):
     channel = make_channel()
     plan = canvas(channel.store, "Dàn ý")

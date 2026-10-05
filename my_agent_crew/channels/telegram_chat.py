@@ -94,7 +94,7 @@ class TelegramChat(TelegramPolling):
         chat when it ends, then the list of the canvases it wrote. What breaks it is logged,
         and the chat hears of it by the error's kind only: the error's text may quote a
         request the chat has no business seeing. What it wrote before it broke is still
-        listed."""
+        listed, and what breaks the lines that close it is told the same way."""
         out, seen = self.outbound(), WrittenCanvases()
         unsaid = ""
         try:
@@ -106,11 +106,19 @@ class TelegramChat(TelegramPolling):
             else:
                 await out.send(reply.text, conv_id)
         except Exception as exc:
-            logger.exception("telegram %s: a turn failed", self.agent_id)
-            with suppress(Exception):
-                await self.say(texts.TELEGRAM_TURN_FAILED.format(error=type(exc).__name__))
-        if not await out.send_written(seen.tags, conv_id) and unsaid:
-            await out.send(unsaid, conv_id)
+            await self._turn_failed(exc)
+        try:
+            if not await out.send_written(seen.tags, conv_id) and unsaid:
+                await out.send(unsaid, conv_id)
+        except Exception as exc:
+            await self._turn_failed(exc)
+
+    async def _turn_failed(self, exc: Exception) -> None:
+        """Logs what broke a turn and tells the chat its kind. A chat that cannot be told
+        either is left with the log."""
+        logger.error("telegram %s: a turn failed", self.agent_id, exc_info=exc)
+        with suppress(Exception):
+            await self.say(texts.TELEGRAM_TURN_FAILED.format(error=type(exc).__name__))
 
     async def run_delivered(self, conv_id: str, source: str) -> None:
         """The drain's runner: what waited is written into the conversation already, and
