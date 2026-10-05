@@ -339,8 +339,10 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   itself while the keyboard is anywhere in the canvas column, though its card still offers it;
   once the person puts it away by hand, every canvas written in the rest of that turn stays a
   card; and markdown of 100 000 characters or more is shown as its source, with a line saying so.
-- A `FILE: artifact:<id>` line in a reply shows in the web chat as a chip that names the canvas
-  and opens it with "Mở", where it used to be a download link to no file.
+- A `FILE: artifact:<id>` or `MEDIA: artifact:<id>` line in a reply shows in the web chat as a
+  chip that names the canvas and opens it with "Mở", where it used to be a download link or an
+  image that pointed at no file. A line whose id is miswritten, `artifact:<id>.md` for one, stays
+  the text the reply has.
 
 ### Fixed
 
