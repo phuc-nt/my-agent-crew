@@ -13,7 +13,7 @@ from zoneinfo import ZoneInfo
 import httpx
 import pytest
 
-from my_agent_crew import texts
+from my_agent_crew import reply_attachments, texts
 from my_agent_crew.channels import TelegramApi
 from my_agent_crew.channels.telegram_api import (
     TelegramError,
@@ -106,6 +106,17 @@ def test_the_web_tells_a_line_that_sends_a_canvas_by_the_prefix_the_channel_read
     found = re.search(r'^export const ARTIFACT_REF = "([^"]+)";$', source.read_text("utf-8"), re.M)
     assert found is not None, "ARTIFACT_REF is no longer a one-line constant in artifact-ref.ts"
     assert found.group(1) == ARTIFACT_REF
+
+
+def test_the_web_takes_for_a_canvas_id_what_the_channel_takes_for_one():
+    """`web/src/lib/artifact-tag.ts` holds the pattern of an id a second time, and the web reads
+    what follows the prefix by it. Changed on one side alone, a line the chat answers with the
+    canvas would be a miswritten line in the web thread, or the other way round. The web tests a
+    whole string against it, as `fullmatch` does here, so it is anchored at both ends there."""
+    source = Path(__file__).resolve().parents[1] / "web" / "src" / "lib" / "artifact-tag.ts"
+    found = re.search(r"^const ID_RE = /\^(.+)\$/;$", source.read_text("utf-8"), re.M)
+    assert found is not None, "ID_RE is no longer a one-line regex held at both its ends"
+    assert found.group(1) == reply_attachments._ARTIFACT_ID.pattern
 
 
 def album(update_id: int, file_id: str, group: str, caption: str = "") -> dict:

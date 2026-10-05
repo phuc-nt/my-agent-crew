@@ -3983,7 +3983,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     phần sau không phải đúng một mã thì là `""`; còn lại là `null`, kể cả `Artifact:` viết hoa,
     `artifact:` đứng giữa đường dẫn hay sau một dấu cách)
   - pytest: `tests/test_channels_telegram.py::test_the_web_tells_a_line_that_sends_a_canvas_by_the_prefix_the_channel_reads`
-    (tiền tố `ARTIFACT_REF` trong `web/src/lib/artifact-ref.ts` bằng đúng hằng của Python)
+    (tiền tố `ARTIFACT_REF` trong `web/src/lib/artifact-ref.ts` bằng đúng hằng của Python);
+    `tests/test_channels_telegram.py::test_the_web_takes_for_a_canvas_id_what_the_channel_takes_for_one`
+    (mẫu mã `ID_RE` trong `web/src/lib/artifact-tag.ts`, neo ở cả hai đầu và không cờ, bằng đúng
+    mẫu `_ARTIFACT_ID` mà `my_agent_crew/reply_attachments.py` so bằng `fullmatch`)
   - vitest, tách dòng: `web/src/lib/reply-blocks.test.ts` (`splitMedia`, nay ở
     `web/src/lib/reply-blocks.ts`: dòng `MEDIA:` và `FILE:` tách khỏi lời, giữ đúng thứ tự, câu chỉ
     nhắc tới tiền tố và tiền tố trần vẫn là lời; dòng gửi canvas dưới cả hai tiền tố thành khối
