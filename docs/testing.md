@@ -673,8 +673,17 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `tests/test_memory_fact_review.py::test_a_forget_supersedes_a_pending_update_of_the_same_fact`
     (một đề xuất quên thay chỗ đề xuất cập nhật cùng fact, còn đề xuất tạo từ cuộc trò chuyện giữ
     nguyên)
-- **Ảnh từ trang khác trong câu trả lời và trang wiki chỉ tải khi bấm, không gửi referrer**
-  - vitest: `components/markdown-body.test.tsx` "an image in a reply"
+- **Ảnh từ trang khác trong câu trả lời và trang wiki chỉ tải khi bấm, không gửi referrer; lời đồng
+  ý chỉ cho đúng địa chỉ đã bấm**
+  - vitest: `components/markdown-body.test.tsx` "an image in a reply" (kể cả
+    "asks again when the image it showed gives way to one at another address": trang vẽ lại với
+    ảnh ở địa chỉ khác tại cùng chỗ, dù cùng site, thì nút hỏi quay lại và ảnh mới không tải;
+    "shows an image again unasked when the page comes back to the address agreed to, and takes no
+    focus for it": quay về đúng địa chỉ đã đồng ý thì ảnh hiện lại mà không hỏi, vì người dùng đã
+    đồng ý với chính địa chỉ đó, và focus ở yên chỗ cũ;
+    "never holds the app's own image, and showing one agrees to nothing from outside";
+    "asks about each image of a page on its own": hai ảnh trong một trang được hỏi riêng, một ảnh
+    đổi địa chỉ thì chỉ ảnh đó hỏi lại)
 - **Wiki đọc được: link, đánh dấu ổn, câu hỏi mở, ghi chú hôm nay; theo dõi compile và consolidate**
   - vitest: `components/wiki-read-view.test.tsx`; `lib/wiki-links.test.ts`;
     `components/wiki-section.test.tsx` ("WikiSection read mode", "WikiSection compile tracking");

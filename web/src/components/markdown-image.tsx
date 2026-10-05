@@ -20,18 +20,21 @@ export function remoteHost(src: string): string | null {
  * tell whoever serves it — a tracking pixel's owner — that this was read, when and from
  * where. The app's own images load as usual. Once asked for, the image
  * loads without a referrer, and takes the focus its button held.
+ *
+ * The yes is to the address the button showed, and what is kept is that address: a page drawn
+ * again with another image in this place, as one being written or edited is, asks again.
  */
 export function MarkdownImage({ src, alt, title }: { src?: string; alt?: string; title?: string }) {
-  const [asked, setAsked] = useState(false);
+  const [asked, setAsked] = useState<string | null>(null);
   const image = useRef<HTMLImageElement>(null);
   useEffect(() => {
     if (asked) image.current?.focus();
   }, [asked]);
   if (!src) return null;
   const host = remoteHost(src);
-  if (host && !asked) {
+  if (host && asked !== src) {
     return (
-      <button type="button" className="md-image-hold" title={src} onClick={() => setAsked(true)}>
+      <button type="button" className="md-image-hold" title={src} onClick={() => setAsked(src)}>
         {vi.markdownImage.show(host)}
         {alt && " "}
         {alt && <span className="md-image-alt">{alt}</span>}

@@ -126,6 +126,95 @@ describe("an image in a reply", () => {
     expect(screen.queryByRole("img")).toBeNull();
     expect(screen.getByRole("button", { name: vi.markdownImage.show("elsewhere.test") + " ảnh" })).toBeInTheDocument();
   });
+
+  // A page is drawn again as it is written or edited, and the image at one place in it may by
+  // then come from another address. The yes a person gave was to the address they were shown.
+  const FIRST = "https://tracker.example/a.png";
+  const offer = (host: string, alt: string) => screen.getByRole("button", { name: `${vi.markdownImage.show(host)} ${alt}` });
+  const drawn = (src: string) => document.querySelector(`img[src="${src}"]`);
+
+  it("asks again when the image it showed gives way to one at another address", () => {
+    const { rerender } = render(<MarkdownBody text={`![biểu đồ](${FIRST})`} />);
+    fireEvent.click(offer("tracker.example", "biểu đồ"));
+    expect(drawn(FIRST)).toBeInTheDocument();
+
+    // The same site, and still not the address that was agreed to.
+    const next = "https://tracker.example/b.png?id=7";
+    rerender(<MarkdownBody text={`![biểu đồ](${next})`} />);
+    expect(screen.queryByRole("img")).toBeNull();
+    expect(drawn(next)).toBeNull();
+    expect(offer("tracker.example", "biểu đồ")).toHaveAttribute("title", next);
+
+    fireEvent.click(offer("tracker.example", "biểu đồ"));
+    expect(screen.getByRole("img", { name: "biểu đồ" })).toHaveAttribute("src", next);
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+
+  it("shows an image again unasked when the page comes back to the address agreed to, and takes no focus for it", () => {
+    const page = (src: string) => (
+      <>
+        <input aria-label="ô soạn" />
+        <MarkdownBody text={`![biểu đồ](${src})`} />
+      </>
+    );
+    const { rerender } = render(page(FIRST));
+    fireEvent.click(offer("tracker.example", "biểu đồ"));
+
+    const other = "https://elsewhere.test/a.png";
+    rerender(page(other));
+    expect(drawn(other)).toBeNull();
+    expect(offer("elsewhere.test", "biểu đồ")).toHaveAttribute("title", other);
+    const box = screen.getByRole("textbox", { name: "ô soạn" });
+    box.focus();
+    expect(box).toHaveFocus();
+
+    // The person said yes to this very address and it was fetched then: asking a second time
+    // would keep nothing from whoever serves it. No button was pressed now, so the focus stays
+    // where the person has it.
+    rerender(page(FIRST));
+    expect(screen.getByRole("img", { name: "biểu đồ" })).toHaveAttribute("src", FIRST);
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(box).toHaveFocus();
+  });
+
+  it("never holds the app's own image, and showing one agrees to nothing from outside", () => {
+    const own = `${window.location.origin}/api/agents/coach/files/chart.png`;
+    const { rerender } = render(<MarkdownBody text={`![ảnh](${FIRST})`} />);
+    fireEvent.click(offer("tracker.example", "ảnh"));
+
+    for (const mine of [own, "/files/a.png"]) {
+      rerender(<MarkdownBody text={`![ảnh](${mine})`} />);
+      expect(screen.getByRole("img", { name: "ảnh" })).toHaveAttribute("src", mine);
+      expect(screen.queryByRole("button")).toBeNull();
+    }
+
+    const outside = "https://elsewhere.test/pixel.png";
+    rerender(<MarkdownBody text={`![ảnh](${outside})`} />);
+    expect(drawn(outside)).toBeNull();
+    expect(offer("elsewhere.test", "ảnh")).toHaveAttribute("title", outside);
+  });
+
+  it("asks about each image of a page on its own", () => {
+    const second = "https://tracker.example/b.png";
+    const page = (one: string, two: string) => `![một](${one})\n\n![hai](${two})`;
+    const { rerender } = render(<MarkdownBody text={page(FIRST, second)} />);
+    expect(screen.queryByRole("img")).toBeNull();
+
+    // A yes to one image of a site is no yes to the next one from it.
+    fireEvent.click(offer("tracker.example", "một"));
+    expect(screen.getAllByRole("img").map((img) => img.getAttribute("src"))).toEqual([FIRST]);
+    expect(offer("tracker.example", "hai")).toHaveAttribute("title", second);
+
+    fireEvent.click(offer("tracker.example", "hai"));
+    expect(screen.getAllByRole("img").map((img) => img.getAttribute("src"))).toEqual([FIRST, second]);
+
+    // One of the two changes its address: that one asks again, and the other stays as it is.
+    const third = "https://tracker.example/c.png";
+    rerender(<MarkdownBody text={page(FIRST, third)} />);
+    expect(screen.getAllByRole("img").map((img) => img.getAttribute("src"))).toEqual([FIRST]);
+    expect(drawn(third)).toBeNull();
+    expect(offer("tracker.example", "hai")).toHaveAttribute("title", third);
+  });
 });
 
 describe("the source lines a canvas needs to place a selection", () => {
