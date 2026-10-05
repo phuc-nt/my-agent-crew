@@ -84,36 +84,9 @@ async def test_a_failure_no_disk_reports_is_worded_like_any_other_and_leaves_not
             assert str(root.parent) not in result.output
     assert _tree(root) == before
     assert caplog.text.count("ValueError: embedded null byte") == 3
-    places = [record.getMessage().rpartition(" ")[2] for record in caplog.records]
-    assert places == [str(root.resolve() / path) for path in paths]
-
-
-@pytest.mark.parametrize(
-    ("error", "told"),
-    [
-        (OSError(*FULL), "OSError errno 28"),
-        (
-            PermissionError(13, "Permission denied", "/Users/someone/ws/notes/old.md"),
-            "PermissionError errno 13",
-        ),
-        (OSError("no number given"), "OSError errno None"),
-    ],
-)
-async def test_a_disk_that_refuses_is_worded_for_the_agent_and_leaves_one_warning_in_the_log(
-    store: Store, root: Path, art: str, monkeypatch, caplog, error: OSError, told: str
-):
-    """The agent hears what became of the file, in its own words for the place. Whoever reads
-    the log learns where on this machine the file was going, which error stopped it and its
-    number; the system's own sentence goes to neither."""
-    monkeypatch.setattr(os, "replace", _failing(error))
-    with caplog.at_level(logging.WARNING):
-        result = await _export(store, root, art, OLD)
-    assert result.output == TOOL_FAILED.format(error=EXPORT_FAILED.format(path=OLD))
-    assert str(root.parent) not in result.output
-    [record] = caplog.records
-    assert record.levelno == logging.WARNING and record.exc_info is None
-    assert record.name == "my_agent_crew.tools.artifact_files"
-    assert record.getMessage() == f"artifact_export could not write {root.resolve() / OLD}: {told}"
+    logged = [record.getMessage() for record in caplog.records]
+    places = [str(root.resolve() / path) for path in paths]
+    assert logged == [f"artifact_export could not write {place!r}" for place in places]
 
 
 @pytest.mark.parametrize("error", [OSError(*FULL), MemoryError(), Stopped()])

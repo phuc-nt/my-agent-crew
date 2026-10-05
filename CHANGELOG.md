@@ -266,10 +266,11 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   inside the workspace, and inside the agent's `write_paths` when it has any, also once the
   folders it passes through are resolved, and may be neither a symlink nor a directory. The file
   is written whole or not at all, so a failed export leaves the old file as it was, and the
-  server log names where the write was going with the error's class and number. An export the
-  disk refuses before the file is opened is answered the same way: a name longer than the disk
-  takes, a folder the server may not enter and a link that leads back to itself each get the
-  sentence for an export that failed, not the name of an error.
+  server log names where the write was going with the error's class and number. The place is
+  logged quoted, with any line break in it escaped, so a folder's name cannot start a log line
+  of its own. An export the disk refuses before the file is opened fails the same way: a name
+  longer than the disk takes, a folder the server may not enter and a link that leads back to
+  itself each get the sentence for an export that failed, not the name of an error.
 - A canvas keeps where it was imported from: the workspace file of the agent that imported it,
   or the link the import gave as `source_url`, which must be an http or https address of at most
   2000 characters with no user name or password in it. An import that finds the file unchanged

@@ -73,7 +73,7 @@ def _warned(caplog: pytest.LogCaptureFixture, place: Path, told: str) -> None:
     [record] = caplog.records
     assert record.levelno == logging.WARNING and record.exc_info is None
     assert record.name == "my_agent_crew.tools.artifact_files"
-    assert record.getMessage() == f"artifact_export could not write {place}: {told}"
+    assert record.getMessage() == f"artifact_export could not write {str(place)!r}: {told}"
 
 
 @pytest.mark.parametrize("path", [LONG, "notes/" + LONG, "fresh/" + LONG, "b" * 300 + "/x.md"])

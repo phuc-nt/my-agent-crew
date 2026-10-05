@@ -1676,10 +1676,7 @@ tên một test thì sửa dòng của nó trong cùng commit.
     ("test_a_failure_no_disk_reports_is_worded_like_any_other_and_leaves_nothing_behind":
     `os.replace` ném `ValueError` thì agent vẫn nhận câu không ghi được, tệp cũ nguyên vẹn, không
     sót tệp tạm hay thư mục, nguyên nhân nằm trong log cùng chỗ thật trên máy mà tệp định tới,
-    "test_a_disk_that_refuses_is_worded_for_the_agent_and_leaves_one_warning_in_the_log": đĩa
-    đầy, mất quyền ghi hay `OSError` không có số đều cho agent câu không ghi được với đường dẫn
-    tương đối, và để lại đúng một dòng `warning` trong log nêu chỗ thật tệp định tới, tên lớp lỗi
-    và `errno`, không kèm lời của hệ điều hành,
+    viết ở dạng `repr`,
     "test_a_write_cut_short_takes_its_half_written_file_away": lần ghi đứt giữa chừng vì
     `OSError`, `MemoryError` hay một `BaseException` đều dọn tệp ghi dở,
     "test_the_folders_made_for_a_file_that_was_not_written_are_taken_away_again": chỉ những thư
@@ -1689,6 +1686,18 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "test_a_name_someone_put_a_link_at_first_is_never_written_through": tên tệp tạm đã có sẵn
     một symlink thì lần ghi dừng, tệp symlink trỏ tới không đổi và symlink không bị dọn,
     "test_a_folder_another_write_made_first_is_used_and_is_not_this_ones_to_take_away");
+    `tests/test_artifact_export_log.py`
+    ("test_a_disk_that_refuses_is_worded_for_the_agent_and_leaves_one_warning_in_the_log": đĩa
+    đầy, mất quyền ghi hay `OSError` không có số đều cho agent câu không ghi được với đường dẫn
+    tương đối, và để lại đúng một dòng `warning` trong log nêu chỗ thật tệp định tới ở dạng
+    `repr`, tên lớp lỗi và `errno`, không kèm lời của hệ điều hành,
+    "test_a_folder_whose_name_holds_a_line_break_starts_no_line_of_its_own_in_the_log": thư mục
+    thật mode 555 có tên chứa `\n`, `\r` hay U+2028 rồi tới một dòng trông như bản ghi log, đi
+    tới qua một symlink tên thường, vẫn chỉ để lại một bản ghi nằm trên một dòng khi ghi ra theo
+    đúng định dạng log của server; bỏ qua khi chạy bằng root,
+    "test_a_failure_no_disk_reports_names_such_a_folder_on_the_line_it_began_too": nhánh lỗi
+    không do đĩa, ghi kèm traceback, cũng không để dòng nào của log mở đầu bằng chữ trong tên
+    thư mục);
     `tests/test_artifact_export_modes.py`
     ("test_the_file_being_written_is_open_to_no_reader_the_finished_one_is_closed_to": dưới umask
     022 và 077, từ lúc được tạo tới lúc chữ đi vào, tệp tạm không mở cho ai mà tệp cuối đóng, tệp

@@ -68,11 +68,13 @@ async def run_export(
         existed = await asyncio.to_thread(write_whole, target, payload)
     except OSError as exc:  # worded here: the error's own text names the path on this machine
         # The log is told where the file was going and which error, never the error's words.
-        told = (target, type(exc).__name__, exc.errno)
-        logger.warning("artifact_export could not write %s: %s errno %s", *told)
+        # The place is a name found on disk, so it goes out as its `repr`: a folder named
+        # with a line break in it would otherwise begin a line of the log with its own words.
+        told = (str(target), type(exc).__name__, exc.errno)
+        logger.warning("artifact_export could not write %r: %s errno %s", *told)
         raise ToolError(EXPORT_FAILED.format(path=shown)) from None
     except Exception:  # no failure of a disk: worded the same, and logged with the real place
-        logger.exception("artifact_export could not write %s", target)
+        logger.exception("artifact_export could not write %r", str(target))
         raise ToolError(EXPORT_FAILED.format(path=shown)) from None
     agent.link(conv, artifact_id)
     done = EXPORT_DONE.format(
