@@ -51,6 +51,7 @@ Secrets are read **only** from environment variables; `config.yaml` holds only n
 | `MY_AGENT_APPROVAL_TTL_SECONDS` | an approval request nobody answers within this window is auto-denied and the turn continues | `600` |
 | `MY_AGENT_TIMEZONE` | your timezone (IANA name, e.g. `Asia/Ho_Chi_Minh`) for schedules, "today" in the prompt and statistics; the DB still stores UTC | machine timezone |
 | `MY_AGENT_ALLOWED_HOSTS` | host names (besides `localhost` and IPs) allowed to call the API, comma-separated — e.g. a Tailscale MagicDNS name | empty |
+| `MY_AGENT_WEB_URL` | the address you open the web UI at (plain `http`/`https`: host, port and path only), used for the canvas links sent to Telegram; wins over `web_url` in `config.yaml`; a host name here also needs `MY_AGENT_ALLOWED_HOSTS` | empty (no links) |
 | `OLLAMA_BASE_URL` | where local ollama listens; no key needed, so this provider is always available | `http://127.0.0.1:11434/v1` |
 | `OPENROUTER_API_KEY` | enables the OpenRouter provider | — |
 | `TAVILY_API_KEY` / `BRAVE_API_KEY` | paid search sources; if unset, `web_search` still runs via DuckDuckGo | — |
@@ -61,7 +62,7 @@ Secrets are read **only** from environment variables; `config.yaml` holds only n
 `config.yaml` in `MY_AGENT_HOME` accepts exactly these keys: `routes`, `vision_routes`,
 `audio_routes`, `cost_cap_usd`, `max_steps`, `language`, `timezone`, `autonomous_default`,
 `approval_ttl_seconds`, `tool_output_chars`, `shell_ask_patterns`, `shell_allow_patterns`,
-`openrouter_providers`, `openrouter_provider_fallbacks`.
+`openrouter_providers`, `openrouter_provider_fallbacks`, `web_url`.
 An unknown key makes the server fail at startup, so one typo does not silently disable a setting.
 Details of each key: [docs/agents.md](docs/agents.md#agentyaml).
 Your own skills: add a `.md` file with `name` in its frontmatter to `skills/`.
@@ -186,6 +187,40 @@ always fit the cap, instead of running the command again. It reads only its own 
 a conversation's spill goes with it, a fork gets its own copy, and a daily sweep removes files
 older than seven days. Agents without a `tools:` list have it; an agent with its own list needs
 `tool_output_read` added there.
+
+## Canvas
+
+A canvas is a versioned document that you and an agent edit together. The agent writes one for
+anything you will keep working on — a plan, a report, a script, a page, a diagram — and keeps
+answers you read once in the chat. The kinds are `markdown`, `code`, `html`, `svg` and
+`mermaid`, plus `image`, which only comes in by import.
+
+Agents work through seven tools: `artifact_create`, `artifact_list`, `artifact_read`,
+`artifact_edit`, `artifact_rewrite`, `artifact_import` and `artifact_export`. Only
+`artifact_export` asks for approval, because it writes over a workspace file; the others do
+not, since every version of a canvas is kept. `artifact_import` turns a workspace file into a
+canvas, or into a new version of one, and `artifact_export` writes a canvas out to a workspace
+file. Agents without a `tools:` list have all seven; an agent with its own list has only the
+ones named there.
+
+On the web a canvas opens in a panel beside the chat, where you read it or edit it yourself.
+Your next message tells the agent what you changed, so it does not write over your work.
+**Lịch sử** (history) lists the versions, and **Khôi phục bản này** (restore this version)
+brings an old one back as a new version, so nothing in between is lost. An HTML or Mermaid
+canvas runs as a page in an isolated frame: it cannot reach the app or send anything out, and
+loads scripts, styles and fonts only from a few public CDNs. An SVG shows as a picture, so
+nothing in it runs. While the agent writes, the canvas fills in as a live preview; the switch
+**Xem trước canvas khi agent đang viết** under **Cài đặt** turns that off for the device in
+hand. The **Canvas** tab of the manage screen is the library: every canvas, whichever
+conversation it was written in.
+
+On Telegram a reply line `FILE: artifact:<id>` sends that canvas as a file, and a turn that
+wrote canvases ends with a list of them ("Canvas vừa ghi:"), at most ten by name. Each gets a
+link to the web UI when `web_url` is set. A turn from the web chat, Telegram or a scheduled
+job may write canvases, and so may an agent delegated from one; a turn from
+`POST /api/inbound` can only list, read and export.
+
+Details: [docs/canvas.md](docs/canvas.md).
 
 ## One assistant directs the whole crew
 
@@ -331,6 +366,8 @@ they appear on screen:
 - **Ghi nhớ** (memory — split further into **Về bạn**, **Của agent**, **Wiki**, **Tìm** and
   **Đề xuất**): a proposal shows the lines it drops beside those it adds, or the exact fact it
   touches, before it is approved.
+- **Canvas**: the library of every canvas, searched by name, with the space they take; a canvas
+  opens on a page of its own from there. See [Canvas](#canvas).
 - **Đội** (crew), **Công cụ** (tools), **Kết nối** (connections), **Cài đặt** (settings, which
   also names the page's build and the server's).
 
