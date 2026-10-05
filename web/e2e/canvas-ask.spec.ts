@@ -2,6 +2,7 @@ import { expect, type Locator, type Page, test } from "@playwright/test";
 import { vi } from "../src/i18n/vi";
 import { FakeCanvas } from "../src/test/fake-canvas";
 import { type Conversation, mockApi } from "./mock-api";
+import { sentMessage } from "./sent-message";
 
 const PLAN = "00ff00ff00ff";
 const TITLE = "Kế hoạch tuần";
@@ -39,7 +40,7 @@ async function openCanvas(page: Page, writer: "person" | "agent") {
   const messages: unknown[] = [];
   page.on("request", (request) => {
     const { pathname } = new URL(request.url());
-    if (request.method() === "POST" && pathname === "/api/conversations/c1/messages") messages.push(request.postDataJSON());
+    if (request.method() === "POST" && pathname === "/api/conversations/c1/messages") messages.push(sentMessage(request));
   });
   await page.goto("/#/chat/c1");
   await page.getByRole("button", { name: vi.canvas.buttonLabel(1) }).click();

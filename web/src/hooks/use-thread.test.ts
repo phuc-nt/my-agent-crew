@@ -221,7 +221,14 @@ describe("send while this tab's own turn is running", () => {
     expect(queuedResult).toEqual({ status: "queued" });
     // A busy-send never runs `runTurn`, `user_sent` or `turn_started`: the thread's own
     // items are untouched but for the chip, and `busy` still reflects the first stream.
-    expect(queueing).toHaveBeenCalledWith("c1", "chen ngang khi bận", expect.any(Function), expect.anything(), undefined);
+    expect(queueing).toHaveBeenCalledWith(
+      "c1",
+      "chen ngang khi bận",
+      expect.any(Function),
+      expect.anything(),
+      undefined,
+      expect.stringMatching(/^[0-9a-f]{32}$/),
+    );
     expect(result.current.state.busy).toBe(true);
     expect(result.current.state.items).toHaveLength(itemsAfterFirst);
     expect(result.current.state.waiting).toEqual([{ id: 1, kind: "follow_up", text: "chen ngang khi bận" }]);

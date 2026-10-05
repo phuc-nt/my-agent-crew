@@ -67,8 +67,16 @@ export const traffic = (backend: FakeBackend) => backend.requests.map((r) => `${
 export const posts = (backend: FakeBackend, id = "c1") =>
   backend.requests.filter((r) => r.method === "POST" && r.path === `/conversations/${id}/messages`);
 
-/** The bodies of those messages. */
-export const bodies = (backend: FakeBackend, id = "c1") => posts(backend, id).map((r) => r.body);
+/** What each of those messages said. Every send goes under a name of its own, which is
+ *  checked here and left out, so a test reads only the text and the canvas it is about. */
+export const bodies = (backend: FakeBackend, id = "c1") =>
+  posts(backend, id).map((r) => {
+    const { request_id: name, ...said } = r.body as { request_id?: unknown };
+    if (typeof name !== "string" || !/^[0-9a-f]{32}$/.test(name)) {
+      throw new Error(`a message went with no name of its own: ${JSON.stringify(r.body)}`);
+    }
+    return said;
+  });
 
 /** The writes to the conversation's open canvas. */
 export const focusWrites = (backend: FakeBackend, id = "c1") =>

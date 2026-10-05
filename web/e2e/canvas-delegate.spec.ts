@@ -2,6 +2,7 @@ import { expect, type Page, test } from "@playwright/test";
 import { vi } from "../src/i18n/vi";
 import { FakeCanvas } from "../src/test/fake-canvas";
 import { type Conversation, coachAgent, defaultAgent, mockApi } from "./mock-api";
+import { sentMessage } from "./sent-message";
 
 const { card } = vi.canvas;
 const PLAN = "00ff00ff00ff";
@@ -170,7 +171,7 @@ test.describe("on a wide screen", () => {
     const messages: unknown[] = [];
     page.on("request", (request) => {
       const { pathname } = new URL(request.url());
-      if (request.method() === "POST" && pathname === "/api/conversations/c1/messages") messages.push(request.postDataJSON());
+      if (request.method() === "POST" && pathname === "/api/conversations/c1/messages") messages.push(sentMessage(request));
     });
     const { box } = await handOff(page, WROTE);
 

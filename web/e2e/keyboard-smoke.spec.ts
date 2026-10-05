@@ -71,7 +71,7 @@ test("'/' lists the agent's commands and Enter puts the chosen one in the box", 
   await page.keyboard.press("Enter");
   await expect
     .poll(() => posted.find((p) => p.path.endsWith("/messages"))?.body)
-    .toEqual({ text: "/plan tuần này" });
+    .toEqual({ text: "/plan tuần này", request_id: expect.stringMatching(/^[0-9a-f]{32}$/) });
 });
 
 // Esc only reaches the list from the box, so a list left open after a click elsewhere

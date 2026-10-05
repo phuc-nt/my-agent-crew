@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { vi } from "../src/i18n/vi";
 import { FakeCanvas } from "../src/test/fake-canvas";
 import { type Conversation, mockApi } from "./mock-api";
+import { sentMessage } from "./sent-message";
 
 const NOTE = "Dòng một\nDòng hai\n";
 
@@ -34,7 +35,7 @@ test("a message sent over typing the canvas has not saved yet waits for the save
     if (request.method() === "PUT" && pathname === "/api/artifacts/a1") order.push("save");
     if (request.method() === "POST" && pathname === "/api/conversations/c1/messages") {
       order.push("message");
-      messages.push(request.postDataJSON());
+      messages.push(sentMessage(request));
     }
   });
   await page.goto("/#/chat/c1");

@@ -174,6 +174,9 @@ export interface MockOptions {
   contentHits?: ContentHit[];
   /** The canvases the canvas routes answer from; a fresh, empty one when omitted. */
   canvas?: FakeCanvas;
+  /** How many messages, from the first, the server takes and then fails to answer: the turn
+   *  runs and is stored, and the connection drops before a byte of it reaches the page. */
+  lostAnswers?: number;
 }
 
 export function sse(events: object[], retryMs = 60_000): string {
@@ -194,6 +197,9 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
   // Saved routes live per page, so one test's save never shows in the next.
   let routes = connections.routes;
   const posted: { path: string; body: unknown }[] = [];
+  /** The `request_id`s of the messages stored, as "<conversation>/<request_id>". */
+  const taken = new Set<string>();
+  let lostAnswers = options.lostAnswers ?? 0;
   /** Persona bodies written by PUT, keyed "<agent>/<name>". */
   const personaFiles = new Map<string, string>();
   const credentials: Array<Record<string, unknown> & { name: string; present: boolean; secret: boolean; group: string }> =
@@ -421,9 +427,16 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
       if (sent) {
         // The canvas the tab had open goes with the message, as the server takes it: a selection
         // the note would drop refuses the message before it is stored or a turn is spent on it.
-        const { canvas: carried } = route.request().postDataJSON() as { canvas?: unknown };
+        const { canvas: carried, request_id: name } = route.request().postDataJSON() as { canvas?: unknown; request_id?: string };
+        // A send the server took before starts nothing: it is answered with the conversation
+        // as it stands, ahead of anything that could refuse a new message.
+        if (name && taken.has(`${sent.id}/${name}`)) {
+          const standing = [{ type: "watching", running: false, detail: sent }];
+          return route.fulfill({ status: 200, contentType: "text/event-stream", body: sse(standing) });
+        }
         const refusal = canvas.applyMessageCanvas(sent.id, carried);
         if (refusal) return fulfillCanvas(route, refusal);
+        if (name) taken.add(`${sent.id}/${name}`);
       }
       const events = turns.shift() ?? [];
       if (sendingMessage) {
@@ -452,6 +465,10 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
             });
           }
         }
+      }
+      if (sent && lostAnswers > 0) {
+        lostAnswers -= 1;
+        return route.abort("connectionreset");
       }
       return route.fulfill({ status: 200, contentType: "text/event-stream", body: sse(events) });
     }

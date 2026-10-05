@@ -11,6 +11,27 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+### Changed
+
+- A turn started from the web now belongs to the server, not to the tab that sent the message.
+  Closing the tab, reloading or opening another conversation no longer cuts the turn short: the
+  server reads it to its end, and Stop is what ends it. A tab opened in the middle of a turn,
+  whoever started it (another tab, Telegram, a job), now shows what the turn has written so far
+  and follows it live through `GET /api/conversations/{id}/turn`, instead of showing nothing
+  until the answer is stored. The text being written is kept in memory only; after a restart the
+  stored conversation is the whole truth. `POST /api/conversations/{id}/stop` now also answers
+  `cancelled`, and ends a turn the web started from any tab.
+
+### Added
+
+- A message sent twice is said once. Each send from the web carries a `request_id`; when the
+  answer to a send is lost on the way back and the same words are sent again, the server stores
+  nothing new and starts no second turn. It answers with what became of the first send: the same
+  place in line while the message waits, or the conversation as it stands and the turn under way.
+  The name is stored in the same transaction as the message it names, is kept across a restart,
+  and is left unused by a send the server refused or a message Stop handed back. `POST
+  /api/inbound` takes no `request_id`.
+
 ## [0.11.1] — 2026-10-05
 
 ### Changed

@@ -4454,3 +4454,47 @@ chuyện lại là toàn bộ sự thật.
     hết ở 1440/1000/390 mà không tràn ngang; tải lại giữa lượt thì vào lại đúng chỗ, không gửi `stop`; rời
     cuộc thì số người xem về 0, quay lại thấy phần viết thêm; Dừng từ tab chỉ xem. Bỏ `useTurnWatch` khỏi
     `app.tsx` thì cả sáu test đỏ.
+
+## Tin gửi lại không nói hai lần
+
+Tab gửi tin, server đã nhận và chạy lượt, nhưng câu trả lời rớt trên đường về: chữ quay lại ô nhập như mọi
+lần gửi không nghe thấy gì, và người dùng bấm gửi lần nữa. Trước đây đó là hai tin và hai lượt. Từ nay mỗi
+lần gửi từ web mang một `request_id` (32 ký tự hex, `web/src/lib/request-id.ts`); server lưu tên đó trong
+cùng một commit với tin mà nó đặt tên (bảng `message_requests`, hoặc cột `queued_messages.request_id` khi
+tin còn xếp hàng), nên không thể nhớ tên mà mất tin hay giữ tin mà quên tên. Gửi lại cùng tên thì không lưu
+gì và không chạy gì: tin còn xếp hàng được đáp lại đúng sự kiện `queued` cũ (cùng `item_id`, vị trí hiện
+tại); tin đã vào nhật ký được đáp bằng khung `watching` rồi lượt đang chạy, hoặc `running: false` nếu lượt
+đã xong. Tên theo từng cuộc trò chuyện và còn nguyên sau khi restart. Lần gửi bị từ chối (409, 422, 429) hay
+tin bị Dừng rút khỏi hàng thì tên chưa dùng, gửi lại là tin mới. `POST /api/inbound` không nhận
+`request_id`.
+
+  - pytest: `tests/test_message_request_id.py` (gửi lại khi lượt đang chạy thì vào xem đúng lượt đó; gửi lại
+    sau khi lượt xong thì không chạy gì; gửi lại khi còn xếp hàng thì giữ đúng một chỗ; tin bị Dừng rút
+    gửi lại được dưới tên cũ; lượt bị dừng trước bước đầu tiên để tên chưa dùng và không để lại lượt treo;
+    bị từ chối vì đang chờ quyết định hay vì hàng đầy thì tên chưa dùng; lần gửi không tên luôn là tin mới;
+    tên thuộc riêng từng cuộc; tên không phải token trơn hay dài quá 64 ký tự bị 422; hai lần gửi sát nhau
+    trước khi lượt kịp bước là một lượt; server khởi động lại vẫn biết tên; gửi lại khi tool call của chính
+    nó đang chờ quyết định thì thấy lời chờ chứ không bị 409; gửi lại không kiểm và không đổi canvas đang
+    mở; tên được lưu cùng tin hoặc không lưu gì; xoá cuộc trò chuyện là quên các tên của nó).
+  - pytest: `tests/test_queue_store.py` (tìm tin đang chờ theo tên kèm vị trí; lúc giao, mọi tên của các
+    tin được gộp đều được nhớ; giao hỏng thì không nhớ tên nào; tin bị rút để tên chưa dùng; tin có tên
+    vẫn chờ sau restart; database cũ giữ nguyên tin đang chờ và nhận được tin có tên).
+  - Kiểm chứng đột biến: mười sửa đổi ở server (bỏ ghi tên lúc lưu, lúc giao, bỏ kiểm tên ở hàng chờ, đáp
+    trước khi kiểm canvas, v.v.) và mười hai ở web, mỗi cái đều làm một test đỏ.
+  - vitest: `lib/request-id.test.ts` (32 ký tự hex, khớp mẫu server nhận, mỗi lần một tên, không cần
+    `randomUUID`); `api/client.test.ts` (thân POST mang `request_id` khi có, bên cạnh canvas, và không mang
+    gì khi không có); `state/thread-reducer.test.ts` (`queued` cho tin đã có chip không thêm chip thứ hai,
+    vẫn bỏ bong bóng tạm); `hooks/use-thread-send.test.ts` nhóm "the name a message is sent under" (mỗi lần
+    gửi một tên; cùng chữ gửi lại sau lần không nghe thấy gì thì giữ tên; sửa chữ hay sang cuộc khác là tên
+    mới; lỗi sau khi server đã đáp thì không giữ tên, ở cả đường gửi thường và đường xếp hàng) và nhóm "a
+    send made again behind this tab's own turn" (server đáp bằng lượt đang chạy thì coi là đã gửi, buông
+    request đó, không thêm chip hay thông báo); `app-send-again.test.tsx` (cả App: mất câu trả lời rồi gửi
+    lại thì một bong bóng, một tin trong nhật ký, hai POST cùng `request_id`; lượt còn chạy thì vào xem
+    tới hết; màn hình đã tự xem lượt đó thì không đổi gì; tin đang xếp hàng giữ một chip; còn tin server
+    chưa từng nhận thì gửi lại như tin mới).
+  - Playwright: `send-again.spec.ts` (mock lưu tin và chạy lượt rồi cắt kết nối: chữ quay lại ô nhập, gửi
+    lại thì một câu hỏi, một câu trả lời, hai POST cùng tên; kèm đối chứng không mất gì). Cho lần gửi lại
+    lấy tên mới thì test này đỏ.
+  - Các test cũ so khớp nguyên thân POST (`test/canvas-app.tsx::bodies`, `app.test.tsx`,
+    `hooks/use-thread.test.ts`, `keyboard-smoke.spec.ts`, `canvas-writing.spec.ts`, và các spec canvas
+    đọc thân qua `e2e/sent-message.ts`) nay đòi thêm một `request_id` đúng dạng; không test nào bị nới.

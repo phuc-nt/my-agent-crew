@@ -67,7 +67,10 @@ describe("App", () => {
     expect(await screen.findByTestId("message-assistant")).toHaveTextContent("Xin chào");
     expect(screen.getByTestId("message-user")).toHaveTextContent("hello");
     expect(backend.conversations.size).toBe(1);
-    expect(backend.requests.filter((r) => r.path.endsWith("/messages"))[0].body).toEqual({ text: "hello" });
+    expect(backend.requests.filter((r) => r.path.endsWith("/messages"))[0].body).toEqual({
+      text: "hello",
+      request_id: expect.stringMatching(/^[0-9a-f]{32}$/),
+    });
     expect(screen.getByTestId("budget")).toHaveTextContent("$0.02 / $1.00");
     expect(within(screen.getByRole("navigation")).getByRole("button", { current: "page" })).toHaveTextContent(vi.newConversation);
   });

@@ -219,8 +219,14 @@ export const api = {
     onEvent: (e: AgentEvent) => void,
     signal?: AbortSignal,
     canvas?: MessageCanvas,
+    requestId?: string,
   ) =>
-    stream(`/conversations/${id}/messages`, canvas === undefined ? { text } : { text, canvas }, onEvent, signal),
+    stream(
+      `/conversations/${id}/messages`,
+      { text, ...(canvas === undefined ? {} : { canvas }), ...(requestId ? { request_id: requestId } : {}) },
+      onEvent,
+      signal,
+    ),
   /** Reads along with the turn under way in a conversation, whoever started it: first a
    *  `watching` event to rebuild the thread from, then the turn's own events to its end.
    *  Resolves false at once when no turn is under way. */

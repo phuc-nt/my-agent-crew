@@ -214,6 +214,10 @@ export class FakeBackend {
   /** Messages queued behind a held turn, oldest first, keyed by conversation id. */
   private queues = new Map<string, QueuedMessage[]>();
   private queueCounter = 0;
+  /** The `request_id` each waiting message was sent under, by its queue id. */
+  private queuedAs = new Map<number, string>();
+  /** The `request_id`s of the sends each conversation stored a message for. */
+  private taken = new Map<string, Set<string>>();
   requests: { method: string; path: string; body: unknown; keepalive?: true }[] = [];
   private counter = 0;
 
@@ -334,18 +338,26 @@ export class FakeBackend {
     }
     if (conv && path.endsWith("/messages") && method === "POST") {
       const c = this.conversations.get(conv)!;
+      const name: string = body.request_id ?? "";
+      // A send the server already took is answered with what became of it, before anything
+      // that could refuse a new one: a refused send leaves its name unused.
+      const again = this.repeated(c, name, init.signal);
+      if (again) return again;
       if (c.status === "awaiting_approval") return json({ detail: "conversation is awaiting approval" }, 409);
       if (this.refuseMessage) return json({ detail: this.refuseMessage.detail }, this.refuseMessage.status);
       const refusal = this.canvas.applyMessageCanvas(conv, body.canvas);
       if (refusal) return this.canvasReply(refusal);
       // A turn is already being held open for this conversation: the message it found
       // busy is queued, and its own stream carries the one `queued` event this sends it.
-      if (this.held.has(conv)) return this.queueMessage(c, body.text);
+      if (this.held.has(conv)) return this.queueMessage(c, body.text, name);
       c.messages.push(storedMessage("user", body.text));
+      if (name) this.taken.set(conv, new Set([...(this.taken.get(conv) ?? []), name]));
       return this.streamTurn(c);
     }
     if (conv && path.endsWith("/stop") && method === "POST") {
       const cleared = this.queues.get(conv) ?? [];
+      // A message handed back was never said: the name it was sent under is free again.
+      for (const item of cleared) this.queuedAs.delete(item.id);
       this.queues.set(conv, []);
       this.conversations.get(conv)!.queued = [];
       // A turn the server reads itself ends for everyone watching it, with no last event.
@@ -825,22 +837,46 @@ export class FakeBackend {
   /** A message that found a held turn busy: queued exactly as the server queues one,
    *  with the one `queued` event on its own stream and nothing added to the transcript
    *  yet — the transcript only gains it once the turn that is holding runs it. */
-  private queueMessage(c: ConversationDetail, text: string): Response {
+  private queueMessage(c: ConversationDetail, text: string, name = ""): Response {
     const kind: QueuedMessage["kind"] = text.trim().startsWith("/steer") ? "steer" : "follow_up";
     const item: QueuedMessage = { id: ++this.queueCounter, kind, text };
     const queue = [...(this.queues.get(c.id) ?? []), item];
     this.queues.set(c.id, queue);
     c.queued = queue;
-    const event: AgentEvent = { type: "queued", item_id: item.id, kind: item.kind, position: queue.length };
-    const encoder = new TextEncoder();
-    const stream = new ReadableStream<Uint8Array>({
-      start(controller) {
-        controller.enqueue(encoder.encode(`event: ${event.type}\r\ndata: ${JSON.stringify(event)}\r\n\r\n`));
-        controller.close();
-      },
-    });
-    return new Response(stream, { status: 200, headers: { "content-type": "text/event-stream" } });
+    if (name) this.queuedAs.set(item.id, name);
+    return said([{ type: "queued", item_id: item.id, kind: item.kind, position: queue.length }]);
   }
+
+  /** What a send gets when the server took one of the same `request_id` before: its place in
+   *  line again while the message waits, else the conversation as it stands and the turn
+   *  `serveTurn()` has going there, if any. Null for a send the server has not seen. */
+  private repeated(c: ConversationDetail, name: string, signal?: AbortSignal | null): Response | null {
+    if (!name) return null;
+    const queue = this.queues.get(c.id) ?? [];
+    const place = queue.findIndex((item) => this.queuedAs.get(item.id) === name);
+    if (place >= 0) {
+      const { id, kind } = queue[place];
+      return said([{ type: "queued", item_id: id, kind, position: place + 1 }]);
+    }
+    if (!this.taken.get(c.id)?.has(name)) return null;
+    if (this.served.has(c.id)) return this.watchTurn(c.id, signal);
+    // The stream a held turn answers on is the one POST that opened it, which no second
+    // reader can join here: a test of a repeated send serves its turn instead.
+    if (this.held.has(c.id)) throw new Error(`a send repeated while ${c.id} is held open: use serveTurn()`);
+    return said([{ type: "watching", running: false, detail: structuredClone(c) }]);
+  }
+}
+
+/** A stream that says `events` and ends. */
+function said(events: AgentEvent[]): Response {
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      for (const e of events) controller.enqueue(encoder.encode(`event: ${e.type}\r\ndata: ${JSON.stringify(e)}\r\n\r\n`));
+      controller.close();
+    },
+  });
+  return new Response(stream, { status: 200, headers: { "content-type": "text/event-stream" } });
 }
 
 interface ServedTurn {

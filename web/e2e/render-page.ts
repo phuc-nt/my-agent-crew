@@ -2,6 +2,7 @@ import { expect, type Page } from "@playwright/test";
 import { vi } from "../src/i18n/vi";
 import { FakeCanvas } from "../src/test/fake-canvas";
 import { type Conversation, mockApi } from "./mock-api";
+import { sentMessage } from "./sent-message";
 
 /**
  * A page an agent wrote, on show in the canvas of a real browser. It comes with the policy and the
@@ -54,7 +55,7 @@ export async function openPage(page: Page, body: string) {
   const fromFrame: string[] = [];
   page.on("request", (request) => {
     const { pathname } = new URL(request.url());
-    if (request.method() === "POST" && pathname === "/api/conversations/c1/messages") messages.push(request.postDataJSON());
+    if (request.method() === "POST" && pathname === "/api/conversations/c1/messages") messages.push(sentMessage(request));
     if (!request.isNavigationRequest() && request.frame() !== page.mainFrame()) fromFrame.push(`${request.method()} ${request.url()}`);
   });
   await page.goto("/#/chat/c1");

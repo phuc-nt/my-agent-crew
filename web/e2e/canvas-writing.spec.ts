@@ -57,7 +57,7 @@ test.describe("on a wide screen", () => {
     await expect(page.getByRole("heading", { level: 2, name: TITLE })).toBeVisible();
     await expect(page.getByTestId("canvas-card")).toContainText(TITLE);
     await expect(box).toBeFocused();
-    expect(await turn.posted()).toEqual([{ text: ASKED }]);
+    expect(await turn.posted()).toEqual([{ text: ASKED, request_id: expect.stringMatching(/^[0-9a-f]{32}$/) }]);
   });
 
   test("a page being written shows as its source, and nothing in it runs", async ({ page }) => {

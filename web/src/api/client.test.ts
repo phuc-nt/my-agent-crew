@@ -119,6 +119,22 @@ describe("api", () => {
     expect(JSON.parse(bodies[4])).toEqual({ text: "asking", canvas: { artifact_id: "0123456789ab", selection: pick } });
   });
 
+  // The name is what lets the server take a send once. A send with none is a new one each
+  // time, and must not go out naming itself "".
+  it("carries the name of the send when it is given one, beside the canvas, and none otherwise", async () => {
+    const done = 'event: done\r\ndata: {"type":"done","spent_usd":0,"unknown_cost_calls":0}\r\n\r\n';
+    fetchMock.mockImplementation(async () => sseResponse(done));
+
+    await api.sendMessage("c1", "named", () => undefined, undefined, undefined, "send-0001");
+    await api.sendMessage("c1", "named, canvas closed", () => undefined, undefined, { artifact_id: null }, "send-0002");
+    await api.sendMessage("c1", "no name", () => undefined, undefined, undefined, "");
+
+    const bodies = fetchMock.mock.calls.map(([, init]) => JSON.parse(String(init?.body)));
+    expect(bodies[0]).toEqual({ text: "named", request_id: "send-0001" });
+    expect(bodies[1]).toEqual({ text: "named, canvas closed", canvas: { artifact_id: null }, request_id: "send-0002" });
+    expect(bodies[2]).toEqual({ text: "no name" });
+  });
+
   it("posts the decision to the approval endpoint", async () => {
     fetchMock.mockResolvedValueOnce(sseResponse('data: {"type":"done","spent_usd":0,"unknown_cost_calls":0}\n\n'));
     await api.resolveApproval("c1", "ap1", false, () => undefined);

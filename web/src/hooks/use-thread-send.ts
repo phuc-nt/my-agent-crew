@@ -1,9 +1,10 @@
-import { useCallback, type Dispatch, type MutableRefObject } from "react";
+import { useCallback, useRef, type Dispatch, type MutableRefObject } from "react";
 import type { MessageCanvas } from "../api/artifact-types";
 import { api } from "../api/client";
 import type { AgentEvent } from "../api/types";
 import { vi } from "../i18n/vi";
 import { turnErrorText } from "../lib/error-text";
+import { newRequestId } from "../lib/request-id";
 import { settlement, type SendResult, type Settlement } from "../lib/send-result";
 import type { ThreadAction } from "../state/thread-reducer";
 
@@ -11,6 +12,9 @@ import type { ThreadAction } from "../state/thread-reducer";
  *  message that names the canvas alone, as the page's errors do, can be refused for nothing the
  *  person selected. */
 const hasSelection = (canvas?: MessageCanvas): boolean => canvas?.selection != null;
+
+/** A send the server was never heard to answer: it may have taken the message all the same. */
+type Unheard = { conversationId: string; text: string; name: string };
 
 /** What a send needs from the conversation it belongs to. */
 interface SendParts {
@@ -34,11 +38,21 @@ interface SendParts {
  * they were typed — is known by then.
  */
 export function useThreadSend({ conversationId, busy, dispatch, runTurn, queueing }: SendParts) {
+  // The last send that failed with nothing heard. The same words sent again to the same
+  // conversation go under the same name, so a message that did arrive is not said twice:
+  // the server answers with what became of it. Any other send is a new one.
+  const unheard = useRef<Unheard | null>(null);
+  const nameFor = useCallback((id: string, text: string) => {
+    const last = unheard.current;
+    unheard.current = null;
+    return last !== null && last.conversationId === id && last.text === text ? last.name : newRequestId();
+  }, []);
+
   /** This tab's own stream is running: a second POST joins the queue behind it without ever
    *  touching `runTurn`, `abortRef` or `turns` — the turn already on screen must keep
    *  receiving events and stay abortable by Stop exactly as if this send had not happened. */
   const queueBehindTurn = useCallback(
-    async (id: string, text: string, answer: Settlement, canvas?: MessageCanvas) => {
+    async (id: string, text: string, name: string, answer: Settlement, canvas?: MessageCanvas) => {
       const controller = new AbortController();
       queueing.current.add(controller);
       try {
@@ -48,12 +62,17 @@ export function useThreadSend({ conversationId, busy, dispatch, runTurn, queuein
           (event) => {
             if (event.type === "queued") dispatch({ type: "queued", item: { id: event.item_id, kind: event.kind, text } });
             answer.heard(event);
+            // Anything else answers a send the server had already taken, with the turn on
+            // screen as it stands: this tab reads that turn on its own stream already.
+            if (event.type !== "queued") controller.abort();
           },
           controller.signal,
           canvas,
+          name,
         );
       } catch (error) {
         if (controller.signal.aborted) return;
+        if (!answer.done) unheard.current = { conversationId: id, text, name };
         // `queue_failed` only sets the notice, leaving `busy`, `streaming` and `items` exactly
         // as the running stream left them. The notice is worded as for any other send: the
         // server's own sentence when it wrote one, as a full queue does, and ours for what a
@@ -74,7 +93,7 @@ export function useThreadSend({ conversationId, busy, dispatch, runTurn, queuein
    *  cannot see — another tab, a job, the schedule — in which case the server queues the
    *  message and this stream's only event is `queued`. */
   const startTurn = useCallback(
-    async (id: string, text: string, answer: Settlement, canvas?: MessageCanvas) => {
+    async (id: string, text: string, name: string, answer: Settlement, canvas?: MessageCanvas) => {
       dispatch({ type: "user_sent", text });
       const describe = (error: unknown) => turnErrorText(error, hasSelection(canvas));
       await runTurn(async (emit, signal) => {
@@ -92,6 +111,7 @@ export function useThreadSend({ conversationId, busy, dispatch, runTurn, queuein
             },
             signal,
             canvas,
+            name,
           );
         } catch (error) {
           // Nothing the server said has reached this tab, so the message may never have got
@@ -101,6 +121,7 @@ export function useThreadSend({ conversationId, busy, dispatch, runTurn, queuein
           if (!signal.aborted && !answer.done) {
             dispatch({ type: "user_unsent", text });
             answer.failed(error);
+            unheard.current = { conversationId: id, text, name };
           }
           throw error;
         } finally {
@@ -116,9 +137,9 @@ export function useThreadSend({ conversationId, busy, dispatch, runTurn, queuein
       if (!conversationId) return Promise.resolve({ status: "failed", error: vi.sendFailed.other });
       const answer = settlement(hasSelection(canvas));
       const go = busy ? queueBehindTurn : startTurn;
-      void go(conversationId, text, answer, canvas);
+      void go(conversationId, text, nameFor(conversationId, text), answer, canvas);
       return answer.promise;
     },
-    [conversationId, busy, queueBehindTurn, startTurn],
+    [conversationId, busy, queueBehindTurn, startTurn, nameFor],
   );
 }

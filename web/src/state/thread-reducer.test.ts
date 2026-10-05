@@ -691,6 +691,19 @@ describe("threadReducer queue and steer", () => {
     expect(busyPath.items).toEqual([]);
   });
 
+  it("queued for a message already waiting adds no second chip, and still drops the local bubble", () => {
+    // A send made again finds its message where the first left it: the server says the same
+    // place in line, and a thread read meanwhile already shows that chip.
+    const waiting = { ...emptyThread, busy: true, waiting: [steerItem, followUp] };
+    const sent = threadReducer(waiting, { type: "user_sent", text: followUp.text });
+    const again = threadReducer(sent, { type: "queued", item: followUp });
+    expect(again.waiting).toEqual([steerItem, followUp]);
+    expect(again.items).toEqual([]);
+    // Another message with the same words is a message of its own.
+    const twin = threadReducer(again, { type: "queued", item: { ...followUp, id: 9 } });
+    expect(twin.waiting).toEqual([steerItem, followUp, { ...followUp, id: 9 }]);
+  });
+
   it("user_unsent takes back the local bubble for that text, and only that one", () => {
     const earlier: ThreadItem = { kind: "user", id: "m-1", text: "câu cũ" };
     const sent = threadReducer(

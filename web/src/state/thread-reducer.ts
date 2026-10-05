@@ -270,10 +270,12 @@ export function threadReducer(state: ThreadState, action: ThreadAction): ThreadS
       // A local bubble for this text was added optimistically by `user_sent` on the plain
       // send path; drop it once the server's own chip stands for it. A busy-send POST never
       // adds that bubble, so there is nothing to drop on that path — only to add here.
+      // A send made again is answered with the chip it already has: one stands for it.
+      const known = state.waiting.some((item) => item.id === action.item.id);
       return {
         ...state,
         items: withoutLocalBubble(state.items, action.item.text),
-        waiting: [...state.waiting, action.item],
+        waiting: known ? state.waiting : [...state.waiting, action.item],
       };
     }
     case "queue_cleared":
