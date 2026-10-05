@@ -156,10 +156,10 @@ describe("what never opens by itself", () => {
   });
 
   it("is a canvas made before this screen was drawn, which is not this tab's turn to announce", () => {
-    const { dock, update } = mount({ items: [made("c1"), made("c2", SHOP, "running")], detail: null });
+    const { dock, update } = mount({ items: [made("c1"), handed("d1", [SHOP])], detail: null });
+    expect(opened(dock)).toEqual([]);
 
-    update({ items: [made("c1"), made("c2", SHOP)] });
-    update({ items: [made("c1"), made("c2", SHOP), made("c3", PLAN)] });
+    update({ items: [made("c1"), handed("d1", [SHOP]), made("c3", PLAN)] });
 
     expect(opened(dock)).toEqual([[PLAN, { quiet: true }]]);
   });
@@ -221,6 +221,73 @@ describe("a call that is not finished", () => {
     update({ items: [made("c1")] });
 
     expect(opened(dock)).toEqual([[NOTE, { quiet: true }]]);
+  });
+});
+
+describe("a call still going when the screen was drawn, as when the person comes back to the chat mid-turn", () => {
+  it("opens its canvas when it ends, for this tab watched it being made", () => {
+    const { dock, update } = mount({ items: [made("c1"), made("c2", SHOP, "running")], detail: null });
+    expect(opened(dock)).toEqual([]);
+
+    update({ items: [made("c1"), made("c2", SHOP)] });
+
+    expect(opened(dock)).toEqual([[SHOP, { quiet: true }]]);
+  });
+
+  it("opens the canvas of one that waited to be allowed, once it is done", () => {
+    const { dock, update } = mount({ items: [made("c1", NOTE, "awaiting")], detail: null });
+
+    update({ items: [made("c1", NOTE, "running")] });
+    expect(opened(dock)).toEqual([]);
+    update({ items: [made("c1")] });
+
+    expect(opened(dock)).toEqual([[NOTE, { quiet: true }]]);
+  });
+
+  it("opens the canvas a task handed off before the screen was drawn wrote, once the task ends", () => {
+    const { dock, update } = mount({ items: [handed("d1", [PLAN], "running")], detail: null });
+
+    update({ items: [handed("d1", [PLAN, SHOP])] });
+
+    expect(opened(dock)).toEqual([[PLAN, { quiet: true }]]);
+  });
+
+  it("opens only the once, however often the thread draws again", () => {
+    const { dock, update } = mount({ items: [made("c1", NOTE, "running")], detail: null });
+    update({ items: [made("c1")] });
+
+    update({ items: [{ ...made("c1") }, { kind: "assistant", id: "m2", text: "xong", model: null }] });
+
+    expect(opened(dock)).toEqual([[NOTE, { quiet: true }]]);
+  });
+
+  it("opens nothing when the saved history holds it, which is another screen's turn", () => {
+    const { dock, update } = mount({ items: [made("c1", NOTE, "running"), handed("d1", [PLAN], "running")], detail: history("c1", "d1") });
+
+    update({ items: [made("c1"), handed("d1", [PLAN])] });
+
+    expect(opened(dock)).toEqual([]);
+  });
+
+  it.each<ToolStatus>(["failed", "denied", "stopped"])("opens nothing when it %s", (status) => {
+    const { dock, update } = mount({ items: [made("c1", NOTE, "running")], detail: null });
+
+    update({ items: [{ ...made("c1"), status, output: `${tag(NOTE)}\nok` }] });
+
+    expect(opened(dock)).toEqual([]);
+  });
+
+  it("opens nothing on a screen too narrow, nor while the person has the keyboard in the dock", () => {
+    const narrow = mount({ items: [made("c1", NOTE, "running")], wide: false });
+    const busy = mount({ items: [made("c1", NOTE, "running")] });
+    busy.person.typing = true;
+
+    narrow.update({ items: [made("c1")] });
+    busy.update({ items: [made("c1")] });
+
+    expect(opened(narrow.dock)).toEqual([]);
+    expect(opened(busy.dock)).toEqual([]);
+    expect(busy.dock.typing).toHaveBeenCalledTimes(1);
   });
 });
 

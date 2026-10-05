@@ -153,6 +153,32 @@ describe("a canvas the agent makes in a turn this tab is showing", () => {
     expect(layout()).not.toHaveClass("with-canvas");
     expect(panelTitle()).toBeNull();
   });
+
+  it("opens when its call ends after the person left the chat mid-turn and came back", async () => {
+    plan();
+    await openChat(1440);
+    const [asks, , ...rest] = createTurn();
+    const waits = { approval_id: "ap1", tool_call_id: "w1", name: "artifact_create", arguments: WRITE, reason: "", expires_at: "2099-01-01T00:00:00Z" };
+    backend.nextTurn = [asks, { type: "approval_required", ...waits }];
+    await say("viết kế hoạch tuần");
+    fireEvent.click(screen.getByRole("button", { name: /Quản lý/ }));
+    await landed();
+    fireEvent.click(screen.getByRole("button", { name: vi.manage.backToChat }));
+    await landed();
+    await landed();
+    expect(panelTitle()).toBeNull();
+    backend.nextTurn = rest;
+
+    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: vi.approve }));
+    await landed();
+    await landed();
+    await landed();
+
+    expect(layout()).toHaveClass("with-canvas");
+    expect(panelTitle()).toBeInTheDocument();
+    expect(card()).toBeInTheDocument();
+    expect(focusWrites(backend)).toEqual([]);
+  });
 });
 
 describe("a canvas the agent makes on a screen too narrow to hold it beside the thread", () => {

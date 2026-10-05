@@ -2,13 +2,15 @@
  * Opens the canvas an agent has just made beside the thread, so the person sees it grow without
  * asking. It opens quietly: the keyboard stays where it is and nothing is written to the server.
  *
- * Only a canvas this tab watched being made opens. The screen may be drawn with calls already in
- * the thread, and a conversation read from the server brings its calls with it: neither is news.
+ * Only a canvas this tab watched being made opens. The screen may be drawn with calls that have
+ * ended already, and a conversation read from the server brings its calls with it: neither is
+ * news. A call still going when the screen is drawn is: the person came back to the chat while the
+ * turn ran, and its canvas opens when it ends, unless the conversation as read holds the call.
  * Each call is judged once, as it ends: when the person is typing in a canvas or has the keyboard
  * anywhere in the dock, or the screen is too narrow to hold one beside the thread, that canvas
- * never opens by itself, however things change afterwards. Edits and rewrites never open one, for the canvas may not be the one the
- * person is reading; neither does a call that failed or was refused. The card in the thread still
- * opens any of them on request.
+ * never opens by itself, however things change afterwards. Edits and rewrites never open one, for
+ * the canvas may not be the one the person is reading; neither does a call that failed or was
+ * refused. The card in the thread still opens any of them on request.
  *
  * A file read into a canvas makes one when the call names none, and that canvas opens as any made
  * does. Read into a canvas the call names it is a rewrite, and a file that left its canvas as it
@@ -34,7 +36,10 @@ type Thread = {
 
 type Tool = Extract<ThreadItem, { kind: "tool" }>;
 
-const toolIds = (items: ThreadItem[]) => items.flatMap((item) => (item.kind === "tool" ? [item.id] : []));
+/** A call that has not ended is judged when it does. */
+const going = (item: Tool) => item.status === "running" || item.status === "awaiting";
+
+const endedIds = (items: ThreadItem[]) => items.flatMap((item) => (item.kind === "tool" && !going(item) ? [item.id] : []));
 
 /** The canvas a finished call leaves to show: the one it made, or the first a handed-off task wrote. */
 function shows(item: Tool): string | null {
@@ -46,17 +51,15 @@ function shows(item: Tool): string | null {
 
 export function useCanvasAutoOpen(thread: Thread, dock: Pick<CanvasDock, "open" | "typing">, wide: boolean): void {
   const { items } = thread.state;
-  // The calls the screen was drawn with, then each call once it has been judged.
-  const [judged] = useState(() => new Set(toolIds(items)));
+  // The calls that had ended when the screen was drawn, then each call once it has been judged.
+  const [judged] = useState(() => new Set(endedIds(items)));
   const latest = useRef({ dock, wide, detail: thread.detail });
   latest.current = { dock, wide, detail: thread.detail };
 
   useEffect(() => {
     const { dock, wide, detail } = latest.current;
     for (const item of items) {
-      if (item.kind !== "tool" || judged.has(item.id)) continue;
-      // A call that has not ended is judged when it does.
-      if (item.status === "running" || item.status === "awaiting") continue;
+      if (item.kind !== "tool" || judged.has(item.id) || going(item)) continue;
       judged.add(item.id);
       const id = item.status === "done" ? shows(item) : null;
       const history = detail?.messages.some((message) => message.tool_calls.some((call) => call.id === item.id));

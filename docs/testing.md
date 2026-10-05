@@ -2593,10 +2593,15 @@ tên một test thì sửa dòng của nó trong cùng commit.
     xem, đúng một lần dù thread vẽ lại bao nhiêu, hai canvas trong một lần vẽ thì mở theo thứ tự tạo,
     lấy canvas thẻ nêu chứ không lấy tham số, cần thẻ ở đầu kết quả, mở được cả khi chưa tải chi tiết
     hội thoại; không bao giờ tự mở: sửa hay viết lại, lệnh tạo hỏng hay bị từ chối hay bị dừng, canvas
-    của hội thoại tab chỉ mới đọc dù lúc gắn hay lúc tải, canvas có trước khi màn hình được vẽ, canvas
-    trên màn quá hẹp kể cả khi màn rộng ra sau đó, canvas xong lúc người đang gõ kể cả khi họ ngừng;
+    của hội thoại tab chỉ mới đọc dù lúc gắn hay lúc tải, canvas của lệnh đã xong trước khi màn hình
+    được vẽ, canvas trên màn quá hẹp kể cả khi màn rộng ra sau đó, canvas xong lúc người đang gõ kể
+    cả khi họ ngừng;
     lệnh chưa xong thì bỏ qua và xét một lần khi xong, đang chờ duyệt thì bỏ qua rồi mở khi xong, xét
-    theo lúc kết thúc chứ không lúc bắt đầu; lệnh đã có trong lịch sử đã lưu thì không phải của lượt
+    theo lúc kết thúc chứ không lúc bắt đầu; nhóm "a call still going when the screen was drawn, as
+    when the person comes back to the chat mid-turn": lệnh đang chạy hay đang chờ duyệt lúc màn hình
+    được vẽ thì mở canvas khi xong, lệnh giao việc cũng vậy, đúng một lần dù vẽ lại; không mở khi
+    lịch sử đã đọc có lệnh ấy, khi lệnh hỏng, bị từ chối hay bị dừng, khi màn quá hẹp hay khi người
+    đang giữ bàn phím trong dock; lệnh đã có trong lịch sử đã lưu thì không phải của lượt
     này, không chặn lệnh của lượt này mà lịch sử chưa có, phân biệt theo lệnh chứ không theo canvas nó
     tạo)
   - vitest, thành phần: `web/src/components/canvas/canvas-card.test.tsx` (thẻ nói canvas đã tạo, tên
@@ -2626,7 +2631,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     keyboard in", "does not take the panel from a canvas the person has the keyboard on a button of,
     and still opens from its card" (bàn phím ở nút "Xem" chứ không ở ô soạn của canvas: canvas mới
     không tự mở, bàn phím ở nguyên, nút Mở trên thẻ vẫn mở nó), "opens only the once, however the
-    person goes from the chat to the crew and back";
+    person goes from the chat to the crew and back", "opens when its call ends after the person left
+    the chat mid-turn and came back" (lệnh tạo đang chờ duyệt, người sang Quản lý rồi về chat và cho
+    phép: canvas mở cạnh thread khi lệnh xong, không lần ghi "canvas đang mở" nào);
     màn hẹp chỉ hiện thẻ có nút mở và không tự mở gì; lượt trước tạo canvas thì thẻ nằm trong thread đã
     lưu, chỉ mở khi được bấm và kéo bàn phím vào dock; server không còn canvas thì thẻ nói vậy và không
     có nút)
@@ -3506,7 +3513,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     wrote": mở lặng lẽ khi lệnh giao việc xong, chỉ canvas đầu tiên, một lần dù vẽ lại, bất kể
     `outcome` là gì miễn lệnh gọi xong; hai việc giao song song thì việc xong sau là canvas còn mở; "a
     handed-off task that opens nothing by itself": không viết canvas nào; hết giờ, hỏng, bị từ chối
-    hay bị dừng; lệnh đã có trong lịch sử hay có sẵn lúc mở cuộc; màn hẹp, kể cả khi sau đó rộng ra;
+    hay bị dừng; lệnh đã có trong lịch sử hay đã xong lúc màn hình được vẽ; màn hẹp, kể cả khi sau đó
+    rộng ra;
     người đang gõ trong canvas, kể cả khi sau đó thôi gõ; dòng thẻ chỉ nằm dưới dòng trống, khối lẫn
     dòng lạ, khối không có dòng trống, kết quả không có dòng `outcome`, output rỗng hay rác; tool
     canvas có output trông như kết quả giao việc)
