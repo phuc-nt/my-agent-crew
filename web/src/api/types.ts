@@ -164,7 +164,12 @@ export type AgentEvent =
   /** The canvas note stored with the message that started this turn, the first thing the
    *  stream of the tab that sent it carries. It names no message: the bubble is that tab's
    *  latest. */
-  | { type: "user_context"; context: string };
+  | { type: "user_context"; context: string }
+  /** One more piece of the arguments of a canvas write the model is still writing. `index` is
+   *  where the call stands in the answer, and `attempt` which try of this step's answer it is:
+   *  a step counts its tries from nothing again. An empty `name` only says the answer was
+   *  started over, so what the try before had written is not coming. */
+  | { type: "tool_call_delta"; index: number; name: string; chunk: string; attempt: number };
 
 export interface ToolInfo {
   name: string;

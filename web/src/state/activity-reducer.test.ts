@@ -155,6 +155,16 @@ describe("applyRunEvent", () => {
     expect(applyRunEvent(midTurn, { type: "user_context", context: "[Canvas]\n> chạy 5 km" })).toEqual(midTurn);
   });
 
+  it("takes nothing from the pieces of a canvas being written: they are no step of the run", () => {
+    const midTurn = run({
+      summary: "đang làm",
+      spent_usd: 0.1,
+      steps: [{ kind: "model", chars: 0, first_token_ms: 300, duration_ms: null }],
+    });
+    const piece ={ type: "tool_call_delta", index: 0, name: "artifact_create", chunk: '{"title":"Kế', attempt: 0 } as const;
+    expect(applyRunEvent(midTurn, piece)).toEqual(midTurn);
+  });
+
   it("labels a paused question by what it asked and leaves its step open, as the server does", () => {
     const asked = applyRunEvent(run(), {
       type: "approval_required",

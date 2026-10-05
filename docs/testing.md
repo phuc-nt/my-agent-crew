@@ -1424,6 +1424,38 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "test_a_reply_reads_the_same_with_the_pieces_in_the_chain_or_without_them": Telegram và job
     đọc cùng một câu trả lời; qua API nó là một khối SSE riêng đứng trước `assistant_message`,
     còn lượt gọi tool khác không có khối ấy)
+- **Web giữ các mảnh ấy thành bản đang viết của lượt và đọc được đối số khi JSON chưa đóng; bản
+  đang viết không sống quá lượt của nó, và không ở lại cho lời gọi hoá ra là tool khác**
+  - vitest: `web/src/state/writing-previews.test.ts` (mảnh đầu mở một bản với khoá riêng, mảnh sau
+    nối vào và đếm thêm một lần; hai lời gọi trong một câu trả lời tách nhau theo vị trí; event tên
+    rỗng hay mảnh mang số lần thử khác bỏ mọi bản chưa có lời gọi, lần thử mới nhận khoá mới;
+    event tên rỗng của chính lần thử ấy không đổi gì; `bindCalls` gắn bản với lời gọi đứng đúng vị
+    trí khi cùng tên tool, bỏ bản mà lời gọi là tool khác, kể cả `artifact_rewrite` thay cho
+    `artifact_create`, bỏ bản không có lời gọi ở vị trí ấy và bỏ bản của bước trước; bước sau mở
+    bản mới bên cạnh bản đã gắn dù cùng vị trí và cùng số lần thử, và lần thử lại của bước sau
+    không đụng tới bản đã gắn);
+    `web/src/state/thread-reducer-previews.test.ts` (luồng theo từng mảnh mà không đổi `thinking`
+    hay chữ đang tới; `route_fallback` rồi event tên rỗng bỏ bản và giữ dòng báo đổi tuyến;
+    `assistant_message` gắn lời gọi và bản ở lại qua `tool_call` lẫn `tool_result`;
+    "drops a preview whose call turned out to be another tool, with all it had read of it": vị trí
+    từng mang tên `artifact_create` mà lời gọi là `workspace_write` thì không còn bản nào; tám cách
+    một lượt kết thúc, mỗi cách không để lại bản nào dù bản đã gắn hay chưa; lượt sau, cuộc khác
+    và lần tải lại không dùng lại khoá cũ);
+    `web/src/lib/partial-json-content.test.ts` (đọc `title`, `kind`, `id`, `content` ở tầng ngoài
+    cùng của object chưa đóng: `content` có ngay khi chuỗi mở, ba khoá kia chỉ có khi chuỗi đóng;
+    mọi escape của JSON cho đúng chữ `JSON.parse` cho; escape bị cắt ở cuối thì bỏ lại chờ mảnh
+    sau, kể cả nửa đầu của ký tự viết bằng hai escape; nửa ký tự không bao giờ đủ thành U+FFFD và
+    đọc tiếp; escape sai không làm mất phần sau; giá trị không phải chữ bị bỏ qua dù bên trong có
+    ngoặc, nháy hay khoá trùng tên; khoá lặp lấy lần cuối như server; khoá lạ, kể cả `__proto__`
+    và `constructor`, không được đọc; object hỏng chỉ đọc tới chỗ hỏng; chuỗi một megabyte đọc
+    trong một lượt);
+    `web/src/lib/canvas-writing.test.ts` (tiêu đề đi qua đúng phép làm sạch của server, tiêu đề
+    trống hay quá 200 ký tự thì không có; `kind` chỉ nhận tên một loại canvas, `constructor` và
+    `toString` không phải; lời viết lại chỉ nêu canvas khi id đủ 12 ký tự hex, lấy tiêu đề và loại
+    của canvas ấy, và không hỏi tab về id sai dạng; lời tạo mới không nêu canvas nào dù đối số
+    mang id; kích thước tính theo byte UTF-8);
+    `web/src/state/activity-reducer.test.ts` ("takes nothing from the pieces of a canvas being
+    written: they are no step of the run")
 - **Tham số lời gọi tool không phải JSON object thành lỗi tool, lượt vẫn chạy tiếp**
   - pytest: `tests/test_tool_args_invalid.py` (tham số bị cắt giữa chừng báo vị trí chỗ dừng
     chứ không phải chỗ chuỗi bắt đầu, lỗi giữa chừng báo vị trí và vài chục ký tự quanh đó với

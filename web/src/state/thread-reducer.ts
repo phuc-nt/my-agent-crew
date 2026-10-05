@@ -9,6 +9,7 @@ import type {
   StoredMessage,
   ToolCall,
 } from "../api/types";
+import { applyDelta, bindCalls, type WritingPreview } from "./writing-previews";
 
 /** `stopped`: the turn ended before the call answered — stopped here, cut off, or left
  *  behind by a run that is no longer going. Nothing is running it any more. */
@@ -81,6 +82,10 @@ export interface ThreadState {
   notice: { kind: "error" | "halted" | "fallback" | "stopped" | "handled" | "elsewhere"; text: string } | null;
   /** Messages that found this conversation busy and wait: a chip each, confirmation only. */
   waiting: QueuedMessage[];
+  /** The canvases the model is writing in the turn that is going. None outlives its turn. */
+  previews: WritingPreview[];
+  /** The last key a preview was given. It outlives the thread, so no key comes twice in a tab. */
+  previewSeq: number;
 }
 
 export type ThreadAction =
@@ -125,6 +130,8 @@ export const emptyThread: ThreadState = {
   unknownCostCalls: 0,
   notice: null,
   waiting: [],
+  previews: [],
+  previewSeq: 0,
 };
 
 export function itemsFromMessages(messages: StoredMessage[]): ThreadItem[] {
@@ -211,7 +218,7 @@ function updateTool(
 export function threadReducer(state: ThreadState, action: ThreadAction): ThreadState {
   switch (action.type) {
     case "opened":
-      return emptyThread;
+      return { ...emptyThread, previewSeq: state.previewSeq };
     case "loaded": {
       const d = action.detail;
       let items = itemsFromMessages(d.messages);
@@ -232,6 +239,7 @@ export function threadReducer(state: ThreadState, action: ThreadAction): ThreadS
         unknownCostCalls: d.unknown_cost_calls,
         notice: handled,
         waiting: d.queued ?? [],
+        previewSeq: state.previewSeq,
       };
     }
     case "user_sent":
@@ -243,9 +251,9 @@ export function threadReducer(state: ThreadState, action: ThreadAction): ThreadS
     case "user_unsent":
       return { ...state, items: withoutLocalBubble(state.items, action.text) };
     case "turn_started":
-      return { ...state, busy: true, streaming: null, notice: null };
+      return { ...state, busy: true, streaming: null, notice: null, previews: [] };
     case "turn_finished":
-      return { ...state, busy: false, streaming: null, thinking: false, items: settle(state) };
+      return { ...state, busy: false, streaming: null, thinking: false, items: settle(state), previews: [] };
     case "turn_stopped": {
       // Stopping cuts the stream, and the server gives up the turn with it: a decision
       // already sent is spent, so its call stops with the rest instead of asking again.
@@ -253,7 +261,8 @@ export function threadReducer(state: ThreadState, action: ThreadAction): ThreadS
       const items = settle(cut).map((it) =>
         it.kind === "tool" && it.status === "awaiting" ? { ...it, status: "stopped" as const } : it,
       );
-      return { ...cut, items, busy: false, streaming: null, thinking: false, notice: { kind: "stopped", text: "" } };
+      const notice = { kind: "stopped" as const, text: "" };
+      return { ...cut, items, busy: false, streaming: null, thinking: false, notice, previews: [] };
     }
     case "settled": {
       if (state.busy) return state;
@@ -268,6 +277,7 @@ export function threadReducer(state: ThreadState, action: ThreadAction): ThreadS
         thinking: false,
         items: settle(state),
         notice: { kind: "error", text: action.message },
+        previews: [],
       };
     case "handled":
       // A turn begun since has the thread: a note about the earlier decision would be stale.
@@ -295,8 +305,9 @@ export function threadReducer(state: ThreadState, action: ThreadAction): ThreadS
 
 function applyEvent(given: ThreadState, e: AgentEvent): ThreadState {
   // Whatever the model does next — words, a tool call, an end — ends its thinking. A
-  // model_call marker is not something the model does; it only times the call.
-  const keeps = e.type === "thinking" || e.type === "model_call";
+  // model_call marker is not something the model does; it only times the call. A piece of a
+  // canvas being written says nothing of it either way: some models think while they write.
+  const keeps = e.type === "thinking" || e.type === "model_call" || e.type === "tool_call_delta";
   const state = keeps ? given : { ...given, thinking: false };
   switch (e.type) {
     case "thinking":
@@ -305,11 +316,15 @@ function applyEvent(given: ThreadState, e: AgentEvent): ThreadState {
       return state;
     case "text_delta":
       return { ...state, streaming: (state.streaming ?? "") + e.text };
+    case "tool_call_delta": {
+      const { previews, seq } = applyDelta(state.previews, state.previewSeq, e);
+      return { ...state, previews, previewSeq: seq };
+    }
     case "assistant_message": {
       const items = [...state.items];
       if (e.content) items.push({ kind: "assistant", id: e.message_id, text: e.content, model: e.model });
       for (const call of e.tool_calls) items.push(threadItemFor(call));
-      return { ...state, items, streaming: null };
+      return { ...state, items, streaming: null, previews: bindCalls(state.previews, e.tool_calls) };
     }
     case "tool_call":
       return state.items.some((it) => it.id === e.tool_call_id)
@@ -343,13 +358,18 @@ function applyEvent(given: ThreadState, e: AgentEvent): ThreadState {
           ...(e.expires_at ? { expiresAt: e.expires_at } : {}),
         },
         items: updateTool(state.items, e.tool_call_id, { status: "awaiting" }),
+        previews: [],
       };
-    case "done":
-      return { ...state, busy: false, streaming: null, spentUsd: e.spent_usd, unknownCostCalls: e.unknown_cost_calls };
-    case "halted":
-      return { ...state, busy: false, streaming: null, spentUsd: e.spent_usd, notice: { kind: "halted", text: e.reason } };
+    case "done": {
+      const { spent_usd: spentUsd, unknown_cost_calls: unknownCostCalls } = e;
+      return { ...state, busy: false, streaming: null, spentUsd, unknownCostCalls, previews: [] };
+    }
+    case "halted": {
+      const notice = { kind: "halted" as const, text: e.reason };
+      return { ...state, busy: false, streaming: null, spentUsd: e.spent_usd, notice, previews: [] };
+    }
     case "error":
-      return { ...state, busy: false, streaming: null, notice: { kind: "error", text: e.message } };
+      return { ...state, busy: false, streaming: null, notice: { kind: "error", text: e.message }, previews: [] };
     case "route_fallback":
       return { ...state, notice: { kind: "fallback", text: `${e.provider}:${e.model} — ${e.error}` } };
     // The hook that sent the message intercepts its own `queued` event before the reducer
