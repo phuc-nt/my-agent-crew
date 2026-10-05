@@ -1,4 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
+import { useLayoutEffect } from "react";
 import { describe, expect, it, vi as vitest } from "vitest";
 import type { DockView } from "../lib/canvas-dock-state";
 import type { ThreadItem, ToolStatus } from "../state/thread-reducer";
@@ -48,10 +49,13 @@ type Props = {
   enabled: boolean;
   view: DockView;
   artifactId: string | null;
+  /** A canvas asked for as the screen is drawn, before the hook has seen to what that drawing changed. */
+  ask: number | null;
 };
 
 /** The hook beside a dock that stands where the test puts it, with a person who may have the
- *  keyboard in the dock (`typing`) or text of their own in its canvas (`editing`, which is both). */
+ *  keyboard in the dock (`typing`) or text of their own in its canvas (`editing`, which is both).
+ *  The dock's list is another object each time the screen is drawn, as the real one is. */
 function mount(initial: Partial<Props> = {}) {
   const person = { typing: false, editing: false };
   const dock = {
@@ -69,16 +73,23 @@ function mount(initial: Partial<Props> = {}) {
     enabled: true,
     view: "closed",
     artifactId: null,
+    ask: null,
     ...initial,
   };
   const view = renderHook(
-    (now: Props) =>
-      useCanvasWriting(
+    (now: Props) => {
+      const writing = useCanvasWriting(
         { state: { previews: now.previews, items: now.items, busy: now.busy } },
-        { ...dock, view: now.view, artifactId: now.artifactId },
+        { ...dock, list: { ...dock.list }, view: now.view, artifactId: now.artifactId },
         now.wide,
         now.enabled,
-      ),
+      );
+      const { show } = writing;
+      useLayoutEffect(() => {
+        if (now.ask !== null) show(now.ask);
+      }, [now.ask, show]);
+      return writing;
+    },
     { initialProps: props },
   );
   const set = (next: Partial<Props>) => {
@@ -121,6 +132,17 @@ describe("the canvases being written, for the thread", () => {
     expect(result.current.items).toEqual([]);
     expect(result.current.shown).toBeNull();
     expect(dock.selectTab).not.toHaveBeenCalled();
+  });
+
+  it("stops listing them the moment the preview is turned off, and lists them again once it is back on", () => {
+    const { result, set } = mount({ previews: [making({ updates: 1 })] });
+    expect(result.current.items.map((item) => item.key)).toEqual([1]);
+
+    set({ enabled: false });
+    expect(result.current.items).toEqual([]);
+
+    set({ enabled: true });
+    expect(result.current.items.map((item) => item.key)).toEqual([1]);
   });
 });
 
@@ -224,6 +246,9 @@ describe("a canvas written again coming up by itself", () => {
     const unnamed = rewriting(NOTE, { text: '{"content":"Bản mới' });
     const { result } = mount({ previews: [unnamed], view: "canvas", artifactId: NOTE });
     expect(result.current.shown).toBeNull();
+    // Naming no canvas is not naming the one a dock that holds none has open.
+    expect(mount({ previews: [unnamed] }).result.current.shown).toBeNull();
+    expect(mount({ previews: [unnamed], view: "list" }).result.current.shown).toBeNull();
   });
 
   it("does not show over what the person is typing there", () => {
@@ -278,6 +303,18 @@ describe("a canvas being written shown on request", () => {
 
     set({ view: "closed", previews: [making()] });
     expect(result.current.shown).toBeNull();
+  });
+
+  it("shows the one asked for in the very drawing that dropped the one on show", () => {
+    const { result, set } = mount({ previews: [making()] });
+    expect(result.current.shown).toMatchObject({ key: 1 });
+
+    // The model starts over with another canvas, and the request lands before the hook has
+    // put away the one that is gone: putting that away must not take the one asked for with it.
+    set({ previews: [making({ key: 2, attempt: 1, updates: 1 })], ask: 2 });
+
+    expect(result.current.shown).toMatchObject({ key: 2 });
+    expect(result.current.asked).toBe(1);
   });
 
   it("shows nothing for a canvas that is no longer being written", () => {

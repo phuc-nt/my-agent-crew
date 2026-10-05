@@ -19,7 +19,7 @@ import {
   stream,
   writingCards,
 } from "./test/canvas-writing-turn";
-import type { FakeBackend } from "./test/fake-backend";
+import { type FakeBackend, storedMessage } from "./test/fake-backend";
 
 const BOOK = "0123456789ab";
 const UNKNOWN = "feedfeedfeed";
@@ -81,6 +81,40 @@ describe("a canvas the agent is writing again", () => {
     expect(frame()).toBeNull();
     expect(panel()).toBe(held);
     expect(panel()).toBeVisible();
+  });
+
+  it("is put away by the card of the canvas it stands over, which the dock holds already and shows again", async () => {
+    // The conversation holds the turn that made the canvas, saved in an earlier visit.
+    const made = { id: "old1", name: "artifact_create", arguments: { title: "Sổ tay", content: "Bản cũ" } };
+    const TAGGED = `[artifact ${BOOK} v1]\nCanvas "Sổ tay" was created.`;
+    backend.canvas.add({ id: BOOK, title: "Sổ tay", agent_id: "master", content: "Bản cũ", conversationIds: ["c1"] });
+    backend.conversations
+      .get("c1")
+      ?.messages.push(
+        storedMessage("user", "viết sổ tay"),
+        storedMessage("assistant", "", { tool_calls: [made] }),
+        storedMessage("tool", TAGGED, { tool_call_id: "old1", name: "artifact_create" }),
+        storedMessage("assistant", "Đã viết sổ tay."),
+      );
+    await openChat(1440);
+    const openCard = () => screen.getByRole("button", { name: vi.canvas.card.openLabel("Sổ tay") });
+    fireEvent.click(openCard());
+    await landed();
+    const held = panel();
+    expect(held).toBeVisible();
+    const turn = await startTurn(backend, "viết lại sổ tay");
+    await stream(turn, piece(`{"id":"${BOOK}","content":"Bản`, REWRITE));
+    await stream(turn, piece(" mới", REWRITE));
+    expect(shownFrame()).toHaveTextContent("Bản mới");
+    expect(panel()).not.toBeVisible();
+
+    fireEvent.click(openCard());
+    await landed();
+
+    expect(frame()).toBeNull();
+    expect(panel()).toBe(held);
+    expect(panel()).toBeVisible();
+    expect(writingCards()).toHaveLength(1);
   });
 
   it("stays a card while another canvas is open, or none", async () => {

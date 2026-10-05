@@ -208,6 +208,17 @@ describe("putting away a canvas the agent is writing", () => {
     expect(writingCards()).toHaveLength(1);
   });
 
+  it("is not what Escape does on a wide screen, where the canvas covers none of the chat", async () => {
+    await watching();
+
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    await landed();
+
+    expect(shownFrame()).toHaveTextContent("Việc một");
+    expect(layout()).toHaveClass("with-canvas");
+    expect(canvasToggle()).toHaveAttribute("aria-expanded", "true");
+  });
+
   it("leaves its card to bring it back, and the Canvas button to open the list afterwards", async () => {
     await watching();
     fireEvent.click(within(shownFrame()).getByRole("button", { name: text.close }));

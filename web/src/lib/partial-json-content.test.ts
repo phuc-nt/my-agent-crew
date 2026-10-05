@@ -53,6 +53,9 @@ describe("the arguments of a canvas write, read before they are whole", () => {
   it("reads a character written as two escapes as the one character", () => {
     expect(readPartialArgs('{"content":"vui \\ud83d\\ude00 quá')).toEqual({ content: "vui 😀 quá" });
     expect(readPartialArgs('{"content":"vui \\uD83D\\uDE00"}')).toEqual({ content: "vui 😀" });
+    // The first and the last of the characters written that way: both halves at each end of their range.
+    expect(readPartialArgs('{"content":"\\ud800\\udc00"}')).toEqual({ content: String.fromCodePoint(0x10000) });
+    expect(readPartialArgs('{"content":"\\udbff\\udfff"}')).toEqual({ content: String.fromCodePoint(0x10ffff) });
   });
 
   it("drops an escape the cut left unfinished, and reads all that came before it", () => {
@@ -72,6 +75,8 @@ describe("the arguments of a canvas write, read before they are whole", () => {
     expect(readPartialArgs('{"content":"a\\ud83d\\u0041b"}')).toEqual({ content: `a${LOST}Ab` });
     expect(readPartialArgs('{"content":"a\\ude00b"}')).toEqual({ content: `a${LOST}b` });
     expect(readPartialArgs('{"content":"a\\ud83d\\nb"}')).toEqual({ content: `a${LOST}\nb` });
+    // What follows the first half only looks like the end of an escape: no backslash opens it.
+    expect(readPartialArgs('{"content":"a\\ud83dxude00b"}')).toEqual({ content: `a${LOST}xude00b` });
   });
 
   it("reads past an escape that is no escape of JSON without losing the rest", () => {
@@ -124,6 +129,9 @@ describe("the arguments of a canvas write, read before they are whole", () => {
     for (const text of ["", "   ", "rác", '"content"', '["content"]', "nul", "12", '"{\\"content\\":\\"x\\"}"']) {
       expect(readPartialArgs(text)).toEqual({});
     }
+    // What stands first is no opening brace, though a key and its text follow as they would in an object.
+    expect(readPartialArgs('["content":"x"]')).toEqual({});
+    expect(readPartialArgs('x"content":"y"')).toEqual({});
   });
 
   it("reads what it can from an object that goes wrong, and nothing after the place it does", () => {
@@ -134,6 +142,9 @@ describe("the arguments of a canvas write, read before they are whole", () => {
     expect(readPartialArgs('{"title":"T","n":,"content":"x"}')).toEqual({ title: "T" });
     expect(readPartialArgs('{"title":"T","n":true false,"content":"x"}')).toEqual({ title: "T" });
     expect(readPartialArgs('{"title" "T","content":"x"}')).toEqual({});
+    // Another mark where the colon or the comma belongs is not that colon or comma.
+    expect(readPartialArgs('{"title"="T"}')).toEqual({});
+    expect(readPartialArgs('{"title":"T";"content":"x"}')).toEqual({ title: "T" });
     // Nothing is read past the end of the object.
     expect(readPartialArgs('{"title":"T"}{"content":"x"}')).toEqual({ title: "T" });
     expect(readPartialArgs('{"title":"T"},"content":"x"')).toEqual({ title: "T" });

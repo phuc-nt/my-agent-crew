@@ -86,6 +86,12 @@ describe("an answer the model starts over", () => {
     expect(again.previews).toMatchObject([{ key: 2, text: "mới", attempt: 1, updates: 1 }]);
   });
 
+  it("drops what a try with a higher number had written: another try is another answer, whichever way the count went", () => {
+    const written = feed([delta({ chunk: "cũ", attempt: 2 })]);
+    const again = feed([delta({ chunk: "mới", attempt: 0 })], written);
+    expect(again.previews).toMatchObject([{ key: 2, text: "mới", attempt: 0, updates: 1 }]);
+  });
+
   it("makes nothing of an event without a name while nothing is being written", () => {
     expect(feed([delta({ name: "", chunk: "rác" })])).toEqual({ previews: [], seq: 0 });
   });
@@ -145,6 +151,18 @@ describe("the step after one that wrote a canvas", () => {
     expect(more.previews.map((p) => [p.key, p.text])).toEqual([
       [1, "một"],
       [2, "hai ba"],
+    ]);
+  });
+
+  it("goes on adding to its own preview when the one given its call was written in another try", () => {
+    const first = feed([delta({ chunk: "một", attempt: 1 })]);
+    const bound = { previews: bindCalls(first.previews, [call("w1")]), seq: first.seq };
+
+    const next = feed([delta({ chunk: "hai" }), delta({ chunk: " ba" })], bound);
+
+    expect(next.previews.map((p) => [p.key, p.callId, p.text, p.updates])).toEqual([
+      [1, "w1", "một", 1],
+      [2, null, "hai ba", 2],
     ]);
   });
 

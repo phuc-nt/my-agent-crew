@@ -1428,12 +1428,14 @@ tên một test thì sửa dòng của nó trong cùng commit.
   đang viết không sống quá lượt của nó, và không ở lại cho lời gọi hoá ra là tool khác**
   - vitest: `web/src/state/writing-previews.test.ts` (mảnh đầu mở một bản với khoá riêng, mảnh sau
     nối vào và đếm thêm một lần; hai lời gọi trong một câu trả lời tách nhau theo vị trí; event tên
-    rỗng hay mảnh mang số lần thử khác bỏ mọi bản chưa có lời gọi, lần thử mới nhận khoá mới;
+    rỗng hay mảnh mang số lần thử khác, lớn hơn hay nhỏ hơn, bỏ mọi bản chưa có lời gọi, lần thử
+    mới nhận khoá mới;
     event tên rỗng của chính lần thử ấy không đổi gì; `bindCalls` gắn bản với lời gọi đứng đúng vị
     trí khi cùng tên tool, bỏ bản mà lời gọi là tool khác, kể cả `artifact_rewrite` thay cho
     `artifact_create`, bỏ bản không có lời gọi ở vị trí ấy và bỏ bản của bước trước; bước sau mở
-    bản mới bên cạnh bản đã gắn dù cùng vị trí và cùng số lần thử, và lần thử lại của bước sau
-    không đụng tới bản đã gắn);
+    bản mới bên cạnh bản đã gắn dù cùng vị trí và cùng số lần thử, vẫn nối tiếp vào bản của chính
+    nó khi bản đã gắn được viết ở lần thử khác, và lần thử lại của bước sau không đụng tới bản đã
+    gắn);
     `web/src/state/thread-reducer-previews.test.ts` (luồng theo từng mảnh mà không đổi `thinking`
     hay chữ đang tới; `route_fallback` rồi event tên rỗng bỏ bản và giữ dòng báo đổi tuyến;
     `assistant_message` gắn lời gọi và bản ở lại qua `tool_call` lẫn `tool_result`;
@@ -1443,12 +1445,15 @@ tên một test thì sửa dòng của nó trong cùng commit.
     và lần tải lại không dùng lại khoá cũ);
     `web/src/lib/partial-json-content.test.ts` (đọc `title`, `kind`, `id`, `content` ở tầng ngoài
     cùng của object chưa đóng: `content` có ngay khi chuỗi mở, ba khoá kia chỉ có khi chuỗi đóng;
-    mọi escape của JSON cho đúng chữ `JSON.parse` cho; escape bị cắt ở cuối thì bỏ lại chờ mảnh
-    sau, kể cả nửa đầu của ký tự viết bằng hai escape; nửa ký tự không bao giờ đủ thành U+FFFD và
-    đọc tiếp; escape sai không làm mất phần sau; giá trị không phải chữ bị bỏ qua dù bên trong có
-    ngoặc, nháy hay khoá trùng tên; khoá lặp lấy lần cuối như server; khoá lạ, kể cả `__proto__`
-    và `constructor`, không được đọc; object hỏng chỉ đọc tới chỗ hỏng; chuỗi một megabyte đọc
-    trong một lượt);
+    mọi escape của JSON cho đúng chữ `JSON.parse` cho; ký tự viết bằng hai escape đọc thành một ký
+    tự, đúng ở cả hai đầu dải của mỗi nửa; escape bị cắt ở cuối thì bỏ lại chờ mảnh sau, kể cả nửa
+    đầu của ký tự viết bằng hai escape; nửa ký tự không bao giờ đủ thành U+FFFD và đọc tiếp, kể cả
+    khi chữ theo sau chỉ trông giống đuôi một escape mà không có dấu gạch chéo ngược mở đầu; escape
+    sai không làm mất phần sau; giá trị không phải chữ bị bỏ qua dù bên trong có ngoặc, nháy hay
+    khoá trùng tên; khoá lặp lấy lần cuối như server; khoá lạ, kể cả `__proto__` và `constructor`,
+    không được đọc; thứ không mở bằng `{` thì không đọc gì dù theo sau là khoá và chữ; object hỏng
+    chỉ đọc tới chỗ hỏng, và dấu khác đứng ở chỗ của `:` hay `,` cũng là chỗ hỏng; chuỗi một
+    megabyte đọc trong một lượt);
     `web/src/lib/canvas-writing.test.ts` (tiêu đề đi qua đúng phép làm sạch của server, tiêu đề
     trống hay quá 200 ký tự thì không có; `kind` chỉ nhận tên một loại canvas, `constructor` và
     `toString` không phải; lời viết lại chỉ nêu canvas khi id đủ 12 ký tự hex, lấy tiêu đề và loại
@@ -1460,12 +1465,17 @@ tên một test thì sửa dòng của nó trong cùng commit.
   đọc ở chỗ của dock; khung tự hiện một lần ở nơi không cản ai, không lấy bàn phím, không ghi gì
   lên server hay vào bộ nhớ trình duyệt, và nhường chỗ cho canvas thật khi lời gọi xong**
   - vitest: `web/src/hooks/use-canvas-writing.test.tsx` (thẻ chỉ có cho bản chưa gắn lời gọi; mỗi
-    mảnh được đọc một lần dù màn hình vẽ lại bao nhiêu lần; canvas mới tự hiện từ mảnh thứ hai có
+    mảnh được đọc một lần dù màn hình vẽ lại bao nhiêu lần và danh sách canvas của dock là object
+    mới ở mỗi lần vẽ; tắt xem trước thì hết thẻ ngay, bật lại thì có lại, không chờ mảnh kế; canvas
+    mới tự hiện từ mảnh thứ hai có
     chữ, không trên màn hẹp kể cả khi màn rộng ra sau, không khi người đang gõ trong một canvas kể
     cả khi họ ngừng, không cho lời gọi đã gắn, không thay bản đang hiện, và hai bản sẵn sàng cùng
-    lúc thì hiện bản đầu; lời viết lại chỉ tự hiện trên chính canvas nó viết lại đang mở; bấm xem
-    thì hiện ngay từ mảnh đầu, trên màn hẹp và cả khi đang gõ, thay bản tự hiện, đếm số lần hỏi và
-    không tự hiện lại về sau; rời khung thì phần còn lại của lượt im, lượt sau lại tự hiện; khung
+    lúc thì hiện bản đầu; lời viết lại chỉ tự hiện trên chính canvas nó viết lại đang mở, và lời
+    chưa nêu canvas nào thì không tự hiện dù dock đang giữ canvas, đang ở danh sách hay đang đóng;
+    bấm xem thì hiện ngay từ mảnh đầu, trên màn hẹp và cả khi đang gõ, thay bản tự hiện, đếm số lần
+    hỏi và không tự hiện lại về sau; "shows the one asked for in the very drawing that dropped the
+    one on show": lời bấm xem tới đúng lần vẽ làm mất bản đang hiện thì bản được hỏi vẫn hiện; rời
+    khung thì phần còn lại của lượt im, lượt sau lại tự hiện; khung
     tự đi khi model bắt đầu lại, khi dock chuyển chỗ và không quay lại khi dock trở về, khi tắt xem
     trước; nó ở lại suốt lời gọi, rồi mở lặng lẽ đúng một lần canvas mà kết quả nêu dù đối số nói
     gì; lời gọi hỏng, bị từ chối hay bị dừng, và kết quả không nêu canvas, chỉ cất khung; không mở
@@ -1474,10 +1484,12 @@ tên một test thì sửa dòng của nó trong cùng commit.
     vốn đang mở thì không mở lại; lời gọi hỏng không làm im canvas sau);
     `web/src/components/canvas/canvas-writing-card.test.tsx` (thẻ nói đang viết hay viết lại dưới
     tiêu đề tới lúc này hoặc một chữ thay, ký tự ẩn trong tiêu đề hiện thành dấu, loại chỉ có khi
-    đã biết, kích thước nằm ở dòng không bị đọc lên mỗi lần đổi, ba chấm ẩn với trình đọc màn
-    hình, nút xem nêu tên canvas và hỏi đúng bản ấy, thẻ không hiện chữ đang viết);
+    đã biết, kích thước đã viết nằm ở dòng không bị đọc lên mỗi lần đổi và nêu đúng con số, ba
+    chấm ẩn với trình đọc màn hình, nhãn của nút xem có tên canvas và nút hỏi đúng bản ấy, thẻ
+    không hiện chữ đang viết);
     `web/src/components/canvas/canvas-writing-view.test.tsx` (đầu khung nêu tên và loại, nói chưa
-    lưu khi agent còn viết và đang lưu khi lời gọi đã có; trong khung chỉ có nút đóng, không ô gõ;
+    lưu khi agent còn viết và đang lưu khi lời gọi đã có, ở cùng một dòng `status` để trình đọc màn
+    hình đọc lên lúc nó đổi; trong khung chỉ có nút đóng, không ô gõ;
     markdown đi qua cùng view của canvas đã lưu, HTML viết trong markdown hiện thành chữ; `html`,
     `svg`, `mermaid` hiện mã nguồn kèm dòng nói vì sao và không dựng phần tử nào; loại chưa biết,
     `code` và `image` là chữ thường; ký tự ẩn hiện thành dấu; bàn phím ở yên khi khung tự hiện,
@@ -1501,12 +1513,14 @@ tên một test thì sửa dòng của nó trong cùng commit.
     same column, having written nothing to the server": không request ghi nào tới `/artifacts`,
     không ghi canvas đang mở; tin gửi khi khung đang hiện không mang gì của nó; model bắt đầu lại
     thì khung đi ngay và bản sau dựng từ đầu; dừng lượt thì không còn gì; nút Canvas cất khung
-    trước và phần còn lại của lượt im; thẻ gọi khung lại; canvas thật vẫn tự mở sau khi cất;
+    trước và phần còn lại của lượt im; Escape trên màn rộng không cất khung, vì ở đó khung không
+    che chat; thẻ gọi khung lại; canvas thật vẫn tự mở sau khi cất;
     người đang gõ trong canvas khác thì khung không tự hiện, và bấm thẻ lưu chữ của họ như mọi lần
     rời ô soạn: đúng một `PUT` mang chữ của họ; lưu được thì canvas của agent mở khi xong, lưu
     hỏng thì canvas của họ trở lại cùng chữ đã gõ);
     `web/src/app-canvas-writing-safety.test.tsx` (lời viết lại hiện trên canvas nó viết lại, canvas
-    ấy chờ phía sau rồi hiện lại; canvas khác đang mở hay không mở gì thì chỉ là thẻ; id trong bản
+    ấy chờ phía sau rồi hiện lại; bấm thẻ của chính canvas ấy trong luồng thì khung được cất và
+    canvas dock đang giữ hiện lại; canvas khác đang mở hay không mở gì thì chỉ là thẻ; id trong bản
     đang viết không vào request nào; bộ nhớ trình duyệt giữ chữ người gõ cho canvas ấy và không có
     chữ nào của agent; bản hoá ra là tool khác bị gỡ, đối số của nó không ở lại trong dock; trang
     `html` hiện mã nguồn và không gì trong nó chạy; markdown vẽ như canvas đã lưu; loại lạ là chữ;
@@ -2656,7 +2670,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     thì dock vẫn hỏi panel mới); `web/src/components/canvas/canvas-dock-view.test.tsx` (focus đi từ nút
     Canvas vào cột mở ra, sang nút về chat khi dock phủ cuộc trò chuyện, và đứng yên khi dock chuyển từ
     danh sách sang canvas; hoạt động hiện khi chưa mở gì, tab hoạt động theo cú bấm, lớp phủ hiện cả
-    dock; cột rộng đúng như cạnh nói; nút Canvas đếm canvas và nói dock mở hay đóng; lần lưu không về
+    dock; cột rộng đúng như cạnh nói; nút Canvas đếm canvas, không hiện số khi chưa biết canvas
+    nào, và nói dock mở hay đóng; lần lưu không về
     của canvas chưa có tên gọi là canvas không tên, và thông báo nói bản nháp vẫn trên máy khi giữ được,
     nói nháp chỉ còn trong tab và mở lại canvas để lưu khi máy không giữ được; nhóm "making a canvas of
     a kind from the list": "asks for the kind chosen with what it starts from, and opens it to edit as

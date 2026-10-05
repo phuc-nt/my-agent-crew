@@ -74,6 +74,7 @@ describe("the card of a canvas the agent is still writing", () => {
 
     const size = within(card()).getByText(text.written("2 KB"));
     expect(size).toHaveAttribute("aria-live", "off");
+    expect(size).toHaveTextContent("2 KB");
   });
 
   it("keeps its moving dots from being read out", () => {
@@ -86,6 +87,7 @@ describe("the card of a canvas the agent is still writing", () => {
 
     const button = within(card()).getByRole("button", { name: text.showLabel("Kế hoạch tuần") });
     expect(button).toHaveTextContent(text.show);
+    expect(button.getAttribute("aria-label")).toContain("Kế hoạch tuần");
     fireEvent.click(button);
 
     expect(onShow).toHaveBeenCalledTimes(1);

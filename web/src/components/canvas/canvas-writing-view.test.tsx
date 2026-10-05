@@ -76,6 +76,17 @@ describe("the head of a canvas being written", () => {
     expect(within(frame()).queryByText(text.unsaved)).toBeNull();
   });
 
+  it("has the change from writing to saving read out, in the one place that says it", () => {
+    const { again } = open();
+    const band = within(frame()).getByRole("status");
+    expect(band).toHaveTextContent(text.unsaved);
+
+    again({ callId: "w1" });
+
+    expect(within(frame()).getByRole("status")).toBe(band);
+    expect(band).toHaveTextContent(text.saving);
+  });
+
   it("is left by its close button", () => {
     const { onLeave } = open();
 

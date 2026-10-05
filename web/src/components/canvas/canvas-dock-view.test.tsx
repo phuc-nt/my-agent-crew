@@ -192,6 +192,17 @@ describe("the Canvas button", () => {
 
     expect(canvasButton()).toHaveAttribute("aria-expanded", "true");
   });
+
+  it("shows no count until it knows of a canvas", async () => {
+    render(<Chat mode="column" />);
+    const before = screen.getByRole("button", { name: vi.canvas.buttonLabel(0) });
+    expect(before.querySelector(".badge")).toBeNull();
+
+    await landed();
+
+    expect(canvasButton()).toBe(before);
+    expect(before.querySelector(".badge")).toHaveTextContent("1");
+  });
 });
 
 describe("a save handed off that did not land", () => {
