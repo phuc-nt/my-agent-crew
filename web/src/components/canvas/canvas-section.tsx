@@ -13,7 +13,7 @@ import { useCanvasDock } from "../../hooks/use-canvas-dock";
 import { vi } from "../../i18n/vi";
 import { isArtifactId } from "../../lib/artifact-tag";
 import { ErrorBoundary } from "../error-boundary";
-import { CanvasChatNotices } from "./canvas-dock";
+import { CanvasChatNotices } from "./canvas-dock-controls";
 import { CanvasLibrary } from "./canvas-library";
 import { CanvasPage } from "./canvas-page";
 

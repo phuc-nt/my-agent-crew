@@ -4,7 +4,8 @@ import type { AgentInfo, Conversation, RunInfo, SettingsInfo } from "../api/type
 import { ApprovalBar } from "../components/approval-bar";
 import { RaiseCapButton } from "../components/budget-indicator";
 import type { AskDisabled } from "../components/canvas/canvas-ask";
-import { CanvasButton, CanvasChatNotices, CanvasDockView } from "../components/canvas/canvas-dock";
+import { CanvasDockView } from "../components/canvas/canvas-dock";
+import { CanvasButton, CanvasChatNotices } from "../components/canvas/canvas-dock-controls";
 import { QuestionCard } from "../components/question-card";
 import { Composer, type RestoreRequest } from "../components/composer";
 import { ConversationActivity } from "../components/conversation-activity";

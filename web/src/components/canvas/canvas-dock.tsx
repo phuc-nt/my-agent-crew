@@ -16,7 +16,6 @@ import type { CanvasDock, DockView } from "../../hooks/use-canvas-dock";
 import { useCanvasWidth } from "../../hooks/use-canvas-width";
 import { routeHash } from "../../hooks/use-route";
 import { vi } from "../../i18n/vi";
-import { Icon } from "../ui/icon";
 import { CanvasHandle } from "./canvas-handle";
 import { CanvasPanel, type CanvasPanelProps } from "./canvas-panel";
 import { CanvasPicker } from "./canvas-picker";
@@ -146,51 +145,5 @@ export function CanvasDockView({ dock, mode, activity, connected, agentName, tri
         </section>
       )}
     </div>
-  );
-}
-
-/** The way to the conversation's canvases, counted on the way; focus comes back here on closing. */
-export function CanvasButton({ dock, ref }: { dock: CanvasDock; ref: Props["trigger"] }) {
-  const count = dock.list.items?.length ?? 0;
-  return (
-    <button
-      type="button"
-      className="pill canvas-button"
-      ref={ref}
-      aria-label={vi.canvas.buttonLabel(count)}
-      aria-expanded={dock.view !== "closed"}
-      onClick={() => void dock.toggle()}
-    >
-      <Icon name="document" />
-      {vi.canvas.button}
-      {count > 0 && <span className="badge"> {count}</span>}
-    </button>
-  );
-}
-
-/** What the canvases have to say in the chat: the saves handed off as the person moved on that
- *  did not land, and that the last message went before the canvas it names was saved. */
-export function CanvasChatNotices({ dock }: { dock: CanvasDock }) {
-  return (
-    <>
-      {dock.handoffs.map((failure) => (
-        <div key={failure.id} className="notice error canvas-notice" role="alert">
-          <Icon name="alert" />
-          <span>{vi.canvas.handoffFailed(failure.title || vi.canvas.untitled, failure.draft)}</span>
-          <button type="button" className="link-button" onClick={() => dock.dismissHandoff(failure.id)}>
-            {vi.canvas.dismiss}
-          </button>
-        </div>
-      ))}
-      {dock.sentUnsaved && (
-        <div className="notice warn canvas-notice" role="status">
-          <Icon name="info" />
-          <span>{vi.canvas.sentUnsaved}</span>
-          <button type="button" className="link-button" onClick={() => dock.noteSentUnsaved(false)}>
-            {vi.canvas.dismiss}
-          </button>
-        </div>
-      )}
-    </>
   );
 }

@@ -6,7 +6,8 @@ import { vi } from "../../i18n/vi";
 import { landed, startServer, stopServer } from "../../test/canvas-hook";
 import { editor, typeInto } from "../../test/canvas-panel";
 import type { FakeBackend } from "../../test/fake-backend";
-import { CanvasButton, CanvasDockView } from "./canvas-dock";
+import { CanvasDockView } from "./canvas-dock";
+import { CanvasButton } from "./canvas-dock-controls";
 
 const ACTIVITY = "Các bước của lượt chạy";
 const NOTE = "a1";

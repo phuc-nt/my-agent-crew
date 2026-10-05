@@ -9,7 +9,8 @@ import { landed, startServer, stopServer } from "../../test/canvas-hook";
 import { leftCanvas } from "../../test/canvas-left";
 import { editor, mode } from "../../test/canvas-panel";
 import type { FakeBackend } from "../../test/fake-backend";
-import { CanvasButton, CanvasChatNotices, CanvasDockView } from "./canvas-dock";
+import { CanvasDockView } from "./canvas-dock";
+import { CanvasButton, CanvasChatNotices } from "./canvas-dock-controls";
 
 const ACTIVITY = "Các bước của lượt chạy";
 
