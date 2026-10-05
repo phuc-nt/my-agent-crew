@@ -27,8 +27,8 @@ my-agent-crew: một tiến trình Python, một tệp SQLite, một thư mục 
 
 - Nhiều agent với persona, tool, model, lịch riêng; master giao việc qua `delegate`.
 - Web UI hai khu: **khung chat** (chat SSE có markdown, tiêu đề tự đặt, tiến trình lượt chạy và
-  hoạt động của riêng cuộc đang mở) và **khu quản lý** chín tab định tuyến bằng hash — Hoạt động,
-  Duyệt, Đội, Công cụ, Lịch chạy, Ghi nhớ, Chi phí, Kết nối, Cài đặt.
+  hoạt động của riêng cuộc đang mở) và **khu quản lý** mười tab định tuyến bằng hash — Hoạt động,
+  Duyệt, Đội, Công cụ, Lịch chạy, Ghi nhớ, Canvas, Chi phí, Kết nối, Cài đặt.
 - Quản lý đội ngay trên web: thêm/sửa/xoá agent, sửa tệp tính cách, xem lời nhắc hệ thống đã ghép,
   ma trận ai dùng tool nào, trang kết nối.
 - Telegram cho master: tin, ảnh, album; đội trả lời qua master.
