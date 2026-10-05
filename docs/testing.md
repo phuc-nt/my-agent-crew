@@ -2887,7 +2887,11 @@ tên một test thì sửa dòng của nó trong cùng commit.
     window was behind" (cửa sổ app mất focus về thứ không phải khung thì phần tử đang giữ bàn phím
     được nhớ; trang lấy focus trong lúc ấy, cửa sổ không được báo gì: khi cửa sổ nhận `blur` về khung
     mà không phần tử nào vừa mất focus thì bàn phím về phần tử đã nhớ chứ không rơi xuống `body`;
-    `focus` rồi `blur` liền nhau chỉ là một lần giành; cửa sổ nhận `focus` thì một task sau khung
+    `focus` rồi `blur` liền nhau chỉ là một lần giành, và cửa sổ khi ấy đã ở phía trước vì thứ nó mất
+    focus về là chính trang của nó: "does not go to what had it before the window said it is in
+    front and that it lost the focus to the page, once the person let that go" (người buông phần tử
+    đã nhớ rồi thì lần giành sau không đưa bàn phím về nó nữa; huỷ task 0 ms của `focus` ở mọi
+    `blur`, kể cả `blur` về khung, là test đỏ); cửa sổ nhận `focus` thì một task sau khung
     được xét lại, chờ đủ khoảng chờ rồi bàn phím về phần tử đã nhớ và tính một lần giành; "is looked
     for a task after the window says it is in front, when the browser has put the focus back": xét
     ngay trong `focus` là test đỏ; người đã quay lại và tự buông focus thì phần tử đã nhớ bị quên;

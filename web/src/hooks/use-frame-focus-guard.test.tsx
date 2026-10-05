@@ -962,6 +962,28 @@ describe("the keyboard a page took while the window was behind", () => {
     expectOneGrab(onGrabbing);
   });
 
+  it("does not go to what had it before the window said it is in front and that it lost the focus to the page, once the person let that go", () => {
+    setup();
+    message().focus();
+    leave();
+    takesBehind();
+    // The window is in front for all that: what it lost the focus to is its own page.
+    act(() => {
+      fireEvent.focus(window);
+      fireEvent.blur(window);
+    });
+    wait(ATTEST_GRACE_MS);
+    expect(holder()).toBe(message());
+    message().blur();
+    wait(0);
+    const focused = vitest.spyOn(message(), "focus");
+
+    takes(1);
+
+    expect(holder()).toBe(document.body);
+    expect(focused).not.toHaveBeenCalled();
+  });
+
   it("goes back once the window is in front again, and is held against the page", () => {
     const { onGrabbing } = setup();
     message().focus();
