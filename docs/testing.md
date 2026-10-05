@@ -3942,9 +3942,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     vuông kể cả dạng bọc IPv4);
     `tests/test_config.py::test_a_web_address_that_is_not_a_plain_one_is_refused` (scheme khác
     `http`/`https`, thiếu scheme, thiếu host, có tên đăng nhập, query, fragment, khoảng trắng và ký
-    tự ẩn ở path lẫn ở host, nửa cặp surrogate, cổng không đọc được, path có ký tự phải mã hoá, giá
-    trị không phải chuỗi; host có `\`, `*`, chữ có dấu, dấu `:` không kèm cổng, ngoặc vuông chứa
-    thứ không phải IPv6 trơn; câu lỗi của hàng nào cũng không lặp lại giá trị);
+    tự ẩn ở path lẫn ở host, ký tự điều khiển đứng đầu mà phép tách địa chỉ sẽ lặng lẽ bỏ, nửa
+    cặp surrogate, cổng không đọc được, path có ký tự phải mã hoá, giá trị không phải chuỗi; host
+    có `\`, `*`, chữ có dấu, dấu `:` không kèm cổng, ngoặc vuông chứa thứ không phải IPv6 trơn;
+    câu lỗi của hàng nào cũng không lặp lại giá trị);
     `tests/test_config.py::test_a_refused_web_address_stops_the_load_and_is_not_repeated` (câu lỗi
     nêu khoá `web_url` và không lặp lại giá trị, vì giá trị có thể mang mật khẩu)
 - **Dòng báo một đính kèm không gửi được mà chính nó cũng không gửi được thì chỉ vào log; các đính

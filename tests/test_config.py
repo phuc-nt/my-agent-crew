@@ -150,6 +150,7 @@ def test_a_web_address_keeps_its_scheme_host_port_and_path_without_the_last_slas
         "http://h\x00x",
         "http://h\u200b",
         "http://h/\x00",
+        "\x01http://h",  # splitting drops it from the front and reads the rest
         "http://h\udc80",
         "http://h:port",
         "http://h:99999",

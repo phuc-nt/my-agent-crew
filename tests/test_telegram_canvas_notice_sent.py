@@ -401,8 +401,8 @@ async def test_a_turn_that_only_wrote_canvases_is_answered_by_their_list(make_ch
 async def test_a_wordless_turn_that_wrote_nothing_is_answered_as_it_always_was(
     make_channel, fake, monkeypatch
 ):
-    """Its one sentence is the turn's answer, sent where a failure to send it is caught and
-    said: only a turn that wrote canvases has that sentence held back for the list."""
+    """Its one sentence is the turn's answer, and Telegram refusing it is said to the chat
+    like any other failure of the turn."""
     channel = make_channel()
     conv = channel.conversation()
     empty = texts.REPLY_EMPTY.format(steps=1)
