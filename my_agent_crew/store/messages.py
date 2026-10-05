@@ -11,7 +11,7 @@ import json
 import logging
 import sqlite3
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING
 
 from my_agent_crew.llm.types import Message
@@ -73,10 +73,13 @@ class MessageStore:
         cached_tokens: int | None = None,
         *,
         note_source: str | None = None,
+        request_ids: Sequence[str] = (),
     ) -> StoredMessage:
         """Raises KeyError for an unknown conversation, with nothing written. A person's
         message from `note_source` is stored with its canvas note; the loop's own notes to
-        the model pass no source and get none."""
+        the model pass no source and get none. `request_ids` name the sends this message
+        came from, remembered in the same commit: a message is in the log exactly when its
+        send is known to have been taken."""
         tool_calls = json.dumps([tc.to_dict() for tc in message.tool_calls])
         values = [conv_id, message.role, message.content, tool_calls, message.tool_call_id]
         values += [message.name, provider, model, cost_usd, stamp]
@@ -90,6 +93,10 @@ class MessageStore:
                     raise KeyError(conv_id)
                 for mark in note.marks if note is not None else ():
                     mark()
+                self._conn.executemany(
+                    "INSERT OR IGNORE INTO message_requests VALUES (?, ?, ?)",
+                    [(conv_id, request_id, stamp) for request_id in request_ids if request_id],
+                )
                 self._conn.execute(
                     "UPDATE conversations SET updated_at = ? WHERE id = ?", (stamp, conv_id)
                 )
@@ -98,6 +105,12 @@ class MessageStore:
                 self._conn.rollback()
                 raise
         return StoredMessage.from_row(rows[0])
+
+    def took(self, conv_id: str, request_id: str) -> bool:
+        """Whether a message of the conversation's log came from the send of this name."""
+        sql = "SELECT 1 FROM message_requests WHERE conversation_id = ? AND request_id = ?"
+        with self._lock:
+            return self._conn.execute(sql, (conv_id, request_id)).fetchone() is not None
 
     def _note(self, conv_id: str, message: Message, source: str | None) -> Note | None:
         """The canvas note for a person's message, or None when there is none to build or

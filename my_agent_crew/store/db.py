@@ -38,7 +38,7 @@ LIST_FIELDS = ("skills", "auto_approve")  # stored as JSON arrays
 # Rows that go with a conversation. A canvas it linked to stays: other conversations
 # and the library may still use it.
 OWNED_BY_CONVERSATION = ("messages", "approvals", "queued_messages")
-OWNED_BY_CONVERSATION += ("conversation_artifacts", "canvas_focus")
+OWNED_BY_CONVERSATION += ("conversation_artifacts", "canvas_focus", "message_requests")
 
 
 class Store(ConversationLookups, Forks, MessageLog, Spending):

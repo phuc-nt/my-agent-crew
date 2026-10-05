@@ -37,6 +37,7 @@ class QueuedItem:
     text: str
     source: str
     created_at: str
+    request_id: str = ""  # the name its sender gave the send, "" when it gave none
 
     @classmethod
     def from_row(cls, row: sqlite3.Row) -> QueuedItem:
@@ -47,6 +48,7 @@ class QueuedItem:
             text=row["text"],
             source=row["source"],
             created_at=row["created_at"],
+            request_id=row["request_id"],
         )
 
     def to_dict(self) -> dict[str, object]:
@@ -68,19 +70,30 @@ class QueueStore:
         self._lock = lock
         self._messages = messages
 
-    def add(self, conv_id: str, kind: str, text: str, source: str) -> tuple[QueuedItem, int]:
+    def add(
+        self, conv_id: str, kind: str, text: str, source: str, request_id: str = ""
+    ) -> tuple[QueuedItem, int]:
         """Queues one message and returns it with its place in line, 1 for the first."""
         with self._lock:
             waiting = self.count(conv_id)
             if waiting >= QUEUE_LIMIT:
                 raise QueueFull(texts.QUEUE_FULL.format(limit=QUEUE_LIMIT))
             [row] = self._conn.execute(
-                "INSERT INTO queued_messages (conversation_id, kind, text, source, created_at)"
-                " VALUES (?, ?, ?, ?, ?) RETURNING *",
-                (conv_id, kind, text, source, _stamp()),
+                "INSERT INTO queued_messages"
+                " (conversation_id, kind, text, source, created_at, request_id)"
+                " VALUES (?, ?, ?, ?, ?, ?) RETURNING *",
+                (conv_id, kind, text, source, _stamp(), request_id),
             ).fetchall()
             self._conn.commit()
         return QueuedItem.from_row(row), waiting + 1
+
+    def waiting(self, conv_id: str, request_id: str) -> tuple[QueuedItem, int] | None:
+        """The message still waiting from the send of this name, with its place in line."""
+        items = self.peek_all(conv_id)
+        for place, item in enumerate(items, start=1):
+            if request_id and item.request_id == request_id:
+                return item, place
+        return None
 
     def peek_all(self, conv_id: str) -> list[QueuedItem]:
         with self._lock:
@@ -125,9 +138,15 @@ class QueueStore:
                     text = "\n\n".join(item.text for item in items)
                     # Its commit carries the DELETE above: both land, or neither does. The
                     # batch hears the open canvas only when its first message came from the
-                    # web chat.
+                    # web chat, and the log remembers every send the batch came from.
                     message = Message(role="user", content=text)
-                    self._messages.append(conv_id, message, _stamp(), note_source=items[0].source)
+                    self._messages.append(
+                        conv_id,
+                        message,
+                        _stamp(),
+                        note_source=items[0].source,
+                        request_ids=[item.request_id for item in items],
+                    )
                 else:
                     self._conn.commit()
             except BaseException:

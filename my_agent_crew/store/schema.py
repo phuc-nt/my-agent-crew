@@ -49,6 +49,10 @@ CREATE TABLE IF NOT EXISTS queued_messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT, conversation_id TEXT NOT NULL, kind TEXT NOT NULL,
     text TEXT NOT NULL, source TEXT NOT NULL, created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS message_requests (
+    conversation_id TEXT NOT NULL, request_id TEXT NOT NULL, created_at TEXT NOT NULL,
+    PRIMARY KEY (conversation_id, request_id)
+);
 CREATE TABLE IF NOT EXISTS created_schedules (
     id TEXT PRIMARY KEY, agent_id TEXT NOT NULL, name TEXT NOT NULL, cron TEXT, every TEXT,
     prompt TEXT NOT NULL, skills TEXT NOT NULL DEFAULT '[]',
@@ -128,6 +132,9 @@ ADDED_COLUMNS = (
     # write them, follow from these.
     ("conversations", "root_id", "TEXT NOT NULL DEFAULT ''"),
     ("conversations", "root_source", "TEXT NOT NULL DEFAULT ''"),
+    # The name its sender gave a waiting message, "" when it gave none: the same send made
+    # again finds the message here, and in `message_requests` once it is in the log.
+    ("queued_messages", "request_id", "TEXT NOT NULL DEFAULT ''"),
 )
 
 

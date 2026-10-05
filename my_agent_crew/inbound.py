@@ -17,14 +17,14 @@ from typing import Any
 
 from my_agent_crew import texts
 from my_agent_crew.activity import ActivityHub, tracked
-from my_agent_crew.activity.turn_watch import Frame
+from my_agent_crew.activity.turn_watch import Frame, Resync
 from my_agent_crew.agent.events import Event
 from my_agent_crew.agent.loop import AgentDeps, run_turn
 from my_agent_crew.agent.resume import answer_question, resolve_approval
 from my_agent_crew.agent.turn_context import CHAT
 from my_agent_crew.agents.kit_commands import steer_text
 from my_agent_crew.inbound_conversations import ConversationOpening, OnReplaced, channel_label
-from my_agent_crew.inbound_queue import enqueue
+from my_agent_crew.inbound_queue import enqueue, in_line
 from my_agent_crew.memory.conversation_title import title_on_first_message
 from my_agent_crew.store.models import AWAITING_APPROVAL
 from my_agent_crew.turn_host import TurnHost
@@ -42,6 +42,11 @@ TITLE_AFTER_TURN_TIMEOUT_S = 300.0
 class InboundBusy(Exception):
     """The conversation waits for a decision on a tool call, or a decision was already
     taken and its turn has not started yet; a new message or decision must wait too."""
+
+
+async def _as_it_stands() -> AsyncIterator[Frame]:
+    """A view with no turn to follow: the stored conversation, and nothing after it."""
+    yield Resync(replay=(), under_way=False)
 
 
 class Inbound(ConversationOpening):
@@ -63,18 +68,21 @@ class Inbound(ConversationOpening):
         # Reads the web's turns to their end, so a closed tab only stops watching.
         self.host = TurnHost(hub.turns)
 
-    def stream(self, conv_id: str, text: str, source: str = CHAT) -> AsyncIterator[Event]:
+    def stream(
+        self, conv_id: str, text: str, source: str = CHAT, request_id: str = ""
+    ) -> AsyncIterator[Event]:
         """A person's message as a tracked turn or, while the conversation is busy, as its
         place in the queue: one `QueuedEvent`. Raises `InboundBusy` while a tool call of
         this conversation waits for a decision: the loop would refuse the message too, but
-        only once the stream is read, which is too late for a status code."""
+        only once the stream is read, which is too late for a status code. `request_id` is
+        the name its sender gave the send, stored with the message (`repeated`)."""
         deps = self.deps_for_conversation(conv_id)
         conv = deps.store.get(conv_id)
         # `/steer text` and `/name args` from the agent's kit ask to jump the queue; idle,
         # they are simply the text the agent reads. A bare `/steer` is refused either way.
         steer = steer_text(text, deps.agent.commands)
         if self.hub.busy.busy(conv_id):
-            return enqueue(deps, conv_id, text, steer, source)
+            return enqueue(deps, conv_id, text, steer, source, request_id)
         if conv.status == AWAITING_APPROVAL or deps.store.approvals.pending(conv_id) is not None:
             raise InboundBusy(conv_id)
         text = text if steer is None else steer
@@ -83,16 +91,34 @@ class Inbound(ConversationOpening):
         self.hub.turn_starting(conv_id)
         title = self._name_conversation(deps, conv_id, text)
         self.hub.busy.claim(conv_id)
-        events = run_turn(deps, conv_id, text, source=source)
+        events = run_turn(deps, conv_id, text, source=source, request_id=request_id)
         return tracked(self.hub, events, deps.agent.id, source, title, conv.id)
 
-    def stream_hosted(self, conv_id: str, text: str) -> AsyncIterator[Frame]:
+    def stream_hosted(self, conv_id: str, text: str, request_id: str = "") -> AsyncIterator[Frame]:
         """`stream` for the web: the server reads the turn to its end and the sender gets
         its view of it. A message that joins the queue starts no turn, so its one event
         comes back as it is."""
         queued = self.hub.busy.busy(conv_id)  # what `stream` is about to find, in this step
-        events = self.stream(conv_id, text)
-        return events if queued else self.host.run(conv_id, events)
+        events = self.stream(conv_id, text, request_id=request_id)
+        return events if queued else self.host.run(conv_id, events, request_id)
+
+    def repeated(self, conv_id: str, request_id: str) -> AsyncIterator[Frame] | None:
+        """What a send already taken is answered with when it is made again, so a sender
+        that never heard the first answer cannot say the same thing twice: its place in
+        line while it still waits there, otherwise the conversation as it stands and the
+        turn under way. None for a send not taken before, a nameless one among them. A
+        message withdrawn from the queue was not taken, and neither was one refused."""
+        store = self.deps_for_conversation(conv_id).store
+        if not request_id:
+            return None
+        waiting = store.queue.waiting(conv_id, request_id)
+        if waiting is not None:
+            return in_line(*waiting)
+        if not (
+            self.host.answering(conv_id, request_id) or store.messages.took(conv_id, request_id)
+        ):
+            return None
+        return self.hub.turns.join(conv_id) or _as_it_stands()
 
     def stream_delivered(self, conv_id: str, source: str = CHAT) -> AsyncIterator[Event]:
         """The turn that answers what the queue already wrote into the conversation. The

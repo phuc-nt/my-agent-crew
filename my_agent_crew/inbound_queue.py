@@ -36,14 +36,19 @@ Runner = Callable[[str, str], Awaitable[None]]
 
 
 def enqueue(
-    deps: AgentDeps, conv_id: str, text: str, steer: str | None, source: str
+    deps: AgentDeps, conv_id: str, text: str, steer: str | None, source: str, request_id: str = ""
 ) -> AsyncIterator[Event]:
     """Queues a message that found its conversation busy — for the running turn itself when
     `steer` holds what it asks — and returns its place in line as the only event. Raises
     `QueueFull` before anything is stored."""
     kind = FOLLOW_UP if steer is None else STEER
-    item, position = deps.store.queue.add(conv_id, kind, text if steer is None else steer, source)
-    return _one(QueuedEvent(item_id=item.id, kind=kind, position=position))
+    queued = text if steer is None else steer
+    return in_line(*deps.store.queue.add(conv_id, kind, queued, source, request_id))
+
+
+def in_line(item: QueuedItem, position: int) -> AsyncIterator[Event]:
+    """A waiting message's place in line, as the one event its sender is answered with."""
+    return _one(QueuedEvent(item_id=item.id, kind=item.kind, position=position))
 
 
 async def _one(event: Event) -> AsyncIterator[Event]:

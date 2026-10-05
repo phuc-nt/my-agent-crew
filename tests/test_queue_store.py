@@ -3,6 +3,8 @@ one transaction with the message log."""
 
 from __future__ import annotations
 
+import sqlite3
+
 import pytest
 
 from my_agent_crew import texts
@@ -148,3 +150,96 @@ def test_the_queue_survives_a_restart(tmp_path):
     [item] = again.queue.peek_all(conv.id)
     assert (item.kind, item.text, item.source) == (STEER, "còn chờ", "telegram")
     again.close()
+
+
+def test_a_waiting_message_is_found_by_the_name_of_its_send_with_its_place(store: Store):
+    conv, other = store.create(), store.create()
+    store.queue.add(conv.id, FOLLOW_UP, "không tên", "chat")
+    named, place = store.queue.add(conv.id, STEER, "có tên", "chat", "send-1")
+    assert (named.request_id, place) == ("send-1", 2)
+    assert store.queue.waiting(conv.id, "send-1") == (named, 2)
+    # No name is not a name: it finds neither the nameless message nor anything else.
+    assert store.queue.waiting(conv.id, "") is None
+    assert store.queue.waiting(conv.id, "send-2") is None
+    assert store.queue.waiting(other.id, "send-1") is None
+    # The place is where it stands now, not where it stood when it joined.
+    store.queue.deliver(conv.id, [store.queue.peek_all(conv.id)[0].id])
+    assert store.queue.waiting(conv.id, "send-1") == (named, 1)
+
+
+def test_delivery_remembers_every_send_the_message_came_from(store: Store):
+    conv = store.create()
+    sends = [("a", "send-1"), ("b", ""), ("c", "send-3")]
+    ids = [store.queue.add(conv.id, FOLLOW_UP, text, "chat", name)[0].id for text, name in sends]
+    assert not store.messages.took(conv.id, "send-1")  # waiting is not taken
+    store.queue.deliver(conv.id, ids)
+    assert store.messages.took(conv.id, "send-1") and store.messages.took(conv.id, "send-3")
+    assert not store.messages.took(conv.id, "") and not store.messages.took(conv.id, "send-2")
+    assert store.queue.waiting(conv.id, "send-1") is None
+
+
+def test_a_delivery_that_fails_remembers_no_send(store: Store, monkeypatch: pytest.MonkeyPatch):
+    conv = store.create()
+    ids = [store.queue.add(conv.id, FOLLOW_UP, "a", "chat", "send-1")[0].id]
+    # The note is read inside the append, after which the name and the message are written.
+    real = store.messages._conn
+
+    class FailsOnTouch:
+        def __getattr__(self, name):
+            return getattr(real, name)
+
+        def execute(self, sql, *args):
+            if sql.startswith("UPDATE conversations SET updated_at"):
+                raise RuntimeError("disk gone")
+            return real.execute(sql, *args)
+
+    monkeypatch.setattr(store.messages, "_conn", FailsOnTouch())
+    with pytest.raises(RuntimeError):
+        store.queue.deliver(conv.id, ids)
+    monkeypatch.undo()
+    assert not store.messages.took(conv.id, "send-1") and user_messages(store, conv.id) == []
+    assert store.queue.waiting(conv.id, "send-1") is not None  # still in line, to try again
+
+
+def test_messages_taken_back_leave_their_names_unused(store: Store):
+    conv = store.create()
+    store.queue.add(conv.id, FOLLOW_UP, "a", "chat", "send-1")
+    store.queue.take_all(conv.id)
+    assert store.queue.waiting(conv.id, "send-1") is None
+    assert not store.messages.took(conv.id, "send-1")
+
+
+def test_a_named_message_still_waits_after_a_restart(tmp_path):
+    path = tmp_path / "agent.sqlite3"
+    first = Store(path)
+    conv = first.create()
+    first.queue.add(conv.id, FOLLOW_UP, "trước", "chat")
+    first.queue.add(conv.id, FOLLOW_UP, "còn chờ", "chat", "send-1")
+    first.close()
+    again = Store(path)
+    item, place = again.queue.waiting(conv.id, "send-1")
+    assert (item.text, place) == ("còn chờ", 2)
+    again.queue.deliver(conv.id, [item.id])
+    again.close()
+    assert Store(path).messages.took(conv.id, "send-1")
+
+
+def test_an_older_database_keeps_its_waiting_messages_and_takes_named_ones(tmp_path):
+    path = tmp_path / "old.sqlite3"
+    conn = sqlite3.connect(path)
+    conn.executescript(
+        "CREATE TABLE queued_messages (id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        " conversation_id TEXT NOT NULL, kind TEXT NOT NULL, text TEXT NOT NULL,"
+        " source TEXT NOT NULL, created_at TEXT NOT NULL);"
+        "INSERT INTO queued_messages (conversation_id, kind, text, source, created_at)"
+        " VALUES ('c1', 'follow_up', 'từ bản cũ', 'chat', 't');"
+    )
+    conn.commit()
+    conn.close()
+    store = Store(path)
+    [old] = store.queue.peek_all("c1")
+    assert (old.text, old.request_id) == ("từ bản cũ", "")
+    assert store.queue.add("c1", FOLLOW_UP, "mới", "chat", "send-1")[1] == 2
+    assert store.queue.waiting("c1", "send-1")[0].text == "mới"
+    assert not store.messages.took("c1", "send-1")
+    store.close()

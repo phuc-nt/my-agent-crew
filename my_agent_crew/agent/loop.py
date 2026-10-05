@@ -63,7 +63,12 @@ class AgentDeps:
 
 
 async def run_turn(
-    deps: AgentDeps, conv_id: str, user_text: str | None, source: str = CHAT, depth: int = 0
+    deps: AgentDeps,
+    conv_id: str,
+    user_text: str | None,
+    source: str = CHAT,
+    depth: int = 0,
+    request_id: str = "",
 ) -> AsyncIterator[Event]:
     conv = deps.store.get(conv_id)
     set_turn_source(source)
@@ -75,9 +80,8 @@ async def run_turn(
         if conv.status == AWAITING_APPROVAL:
             raise ConversationBusy(conv_id)
         close_interrupted(deps.store, conv_id)
-        stored = deps.store.append(
-            conv_id, Message(role="user", content=user_text), note_source=source
-        )
+        message = Message(role="user", content=user_text)
+        stored = deps.store.append(conv_id, message, note_source=source, request_id=request_id)
         if stored.context:
             yield UserContextEvent(stored.context)
 

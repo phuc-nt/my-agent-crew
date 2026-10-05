@@ -19,6 +19,7 @@ class MessageLog:
         cost_usd: float | None = None,
         *,
         note_source: str | None = None,
+        request_id: str = "",
         **tokens: int | None,
     ) -> StoredMessage:
         """`tokens` are the message's prompt_tokens, completion_tokens, reasoning_tokens and
@@ -33,6 +34,7 @@ class MessageLog:
             model,
             cost_usd,
             note_source=note_source,
+            request_ids=(request_id,),
             **tokens,
         )
 

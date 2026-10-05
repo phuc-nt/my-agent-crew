@@ -26,6 +26,9 @@ router = APIRouter(tags=["chat"])
 class ChatBody(BaseModel):
     text: str = Field(min_length=1, max_length=20000)
     canvas: FocusBody | None = None  # the canvas open in the sending tab; absent leaves it
+    # The sender's own name for this send. One it makes again under the same name, having
+    # never heard the answer, starts nothing new; without a name every POST is a new send.
+    request_id: str = Field(default="", max_length=64, pattern=r"^[A-Za-z0-9_-]*$")
 
 
 @router.post("/conversations/{conv_id}/messages")
@@ -33,11 +36,18 @@ async def post_message(conv_id: str, body: ChatBody, deps: ConvDeps, rt: Rt) -> 
     """The sending tab's canvas is checked before the gate, so a selection the note would
     drop stores and queues nothing, and applied right after it with no `await` in between:
     a message the gate refuses leaves the open canvas, and the turn's note, built only as
-    the stream is read or the queued message delivered, names the new one."""
+    the stream is read or the queued message delivered, names the new one. A send made
+    again is answered with what became of the first, and changes nothing."""
     canvas = body.canvas
+    try:
+        again = rt.inbound.repeated(conv_id, body.request_id)
+    except KeyError as exc:
+        raise HTTPException(404, "conversation not found") from exc
+    if again is not None:
+        return EventSourceResponse(sse_frames(deps, conv_id, again))
     present = False if canvas is None else check_focus(rt.store, canvas)
     try:
-        frames = rt.inbound.stream_hosted(conv_id, body.text)
+        frames = rt.inbound.stream_hosted(conv_id, body.text, body.request_id)
     except KeyError as exc:
         raise HTTPException(404, "conversation not found") from exc
     except InboundBusy as exc:
