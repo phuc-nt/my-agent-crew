@@ -95,15 +95,23 @@ describe("a line of a saved reply that sends a canvas", () => {
     expect(within(chips()[0]).queryByRole("button")).toBeNull();
   });
 
-  it("asks the server nothing about a line whose name could be no canvas's, and offers nothing to open", async () => {
+  it("leaves a line whose id is not one canvas's as it was written, and says nothing was deleted", async () => {
+    // The canvas is there all along: only the line that meant it is written wrong.
+    backend.canvas.add({ id: BOOK, title: "Sổ tay", agent_id: "master", content: "Bản cũ" });
+    const lines = ["FILE: artifact:xyz", `FILE: artifact:${BOOK}.md`, `MEDIA: artifact:${BOOK}.`];
     backend.conversations
       .get("c1")
-      ?.messages.push(storedMessage("user", "gửi sổ tay"), storedMessage("assistant", "Sổ tay đây:\nFILE: artifact:xyz"));
+      ?.messages.push(storedMessage("user", "gửi sổ tay"), storedMessage("assistant", ["Sổ tay đây:", ...lines].join("\n")));
     await openChat(1440);
     await landed();
 
-    expect(chips().map((chip) => chip.textContent)).toEqual([`${card.untitled}${vi.canvas.gone}`]);
+    const reply = screen.getByTestId("message-assistant");
+    expect(lines.map((line) => within(reply).getByText(line).tagName)).toEqual(["P", "P", "P"]);
+    expect(chips()).toEqual([]);
+    expect(reply).not.toHaveTextContent(vi.canvas.gone);
+    expect(within(reply).queryByRole("button", { name: card.openLabel(card.untitled) })).toBeNull();
     expect(screen.queryByTestId("message-file")).toBeNull();
+    expect(reply.querySelector("img.media")).toBeNull();
     expect(backend.requests.filter((r) => r.path.startsWith("/artifacts/"))).toEqual([]);
   });
 });

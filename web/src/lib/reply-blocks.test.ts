@@ -60,4 +60,13 @@ describe("splitMedia", () => {
       { kind: "canvas", id: "", line: "MEDIA: artifact:" },
     ]);
   });
+
+  it("reads an id with anything written after it as no id, and keeps the line for the thread to show", () => {
+    expect(splitMedia(`Đây:\n  FILE: artifact:${PLAN}.md\nMEDIA: artifact:${NOTE}.\nXong.`)).toEqual([
+      { kind: "text", value: "Đây:" },
+      { kind: "canvas", id: "", line: `FILE: artifact:${PLAN}.md` },
+      { kind: "canvas", id: "", line: `MEDIA: artifact:${NOTE}.` },
+      { kind: "text", value: "Xong." },
+    ]);
+  });
 });

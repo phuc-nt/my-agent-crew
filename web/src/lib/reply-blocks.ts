@@ -7,6 +7,10 @@ import { artifactRef } from "./artifact-ref";
 const MEDIA_PREFIX = "MEDIA:";
 const FILE_PREFIX = "FILE:";
 
+/**
+ * A `canvas` block keeps its line as the reply has it. That is what the thread shows where it
+ * draws no canvas: an `id` of "" is a line that meant a canvas and did not write one canvas's id.
+ */
 export type ReplyBlock = { kind: "text" | "media" | "file"; value: string } | { kind: "canvas"; id: string; line: string };
 
 /** What a line that sends something sends: the canvas its path names, or else the file at that path. */

@@ -90,12 +90,15 @@ describe("a line of a reply that sends a canvas", () => {
     expect(canvas.open).not.toHaveBeenCalled();
   });
 
-  it("reads a name that could be no canvas's as one that is not there, and asks the server nothing", () => {
-    const canvas = links({ titles: { "": "Không phải canvas" } });
-    show("", canvas, "FILE: artifact:xyz");
+  it("is the line as it was written when what it names is not one canvas's id, and asks the thread nothing", () => {
+    // The canvas the line meant may well be there, so nothing here may say it was deleted.
+    const canvas = links({ titles: { "": "Không phải canvas", [PLAN]: "Kế hoạch tuần" } });
+    const { container } = show("", canvas, `FILE: artifact:${PLAN}.md`);
 
-    expect(chip().textContent).toBe(`${card.untitled}${vi.canvas.gone}`);
-    expect(within(chip()).queryByRole("button")).toBeNull();
+    expect(screen.queryByTestId("canvas-ref")).toBeNull();
+    expect(container.querySelector("button, a")).toBeNull();
+    expect(container.textContent).toBe(`FILE: artifact:${PLAN}.md`);
+    expect(container.querySelector("p")?.textContent).toBe(`FILE: artifact:${PLAN}.md`);
     expect(canvas.verify).not.toHaveBeenCalled();
     expect(canvas.titleOf).not.toHaveBeenCalled();
     expect(canvas.isGone).not.toHaveBeenCalled();

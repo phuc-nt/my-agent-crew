@@ -370,6 +370,29 @@ describe("a line of a reply that sends a canvas", () => {
     expect(open).toEqual([PLAN]);
   });
 
+  it("is the line as it was written when its id is not one canvas's, beside the chip of a line that names one", () => {
+    const asked: string[] = [];
+    const text = `Sổ tay đây:\nFILE: artifact:${PLAN}.md\nFILE: artifact:${PLAN}\nXong.`;
+    render(
+      <MessageThread
+        items={[{ ...reply, text }]}
+        streaming={null}
+        busy={false}
+        onSuggestion={() => {}}
+        echoOnly={false}
+        agentId="master"
+        canvas={{ titleOf: () => "Sổ tay", isGone: () => false, verify: (id) => asked.push(id), open: () => {} }}
+      />,
+    );
+
+    const bubble = screen.getByTestId("message-assistant");
+    expect(within(bubble).getByText(`FILE: artifact:${PLAN}.md`).tagName).toBe("P");
+    expect(within(bubble).getAllByTestId("canvas-ref").map((chip) => chip.textContent)).toEqual([`Sổ tay${vi.canvas.card.open}`]);
+    expect(bubble).not.toHaveTextContent(vi.canvas.gone);
+    expect(screen.queryByTestId("message-file")).toBeNull();
+    expect(asked).toEqual([PLAN]);
+  });
+
   it("is the line as it was written where the thread is given nothing to open a canvas with", () => {
     thread();
 
