@@ -36,6 +36,22 @@ describe("splitMedia", () => {
     expect(splitMedia("FILE:")).toEqual([{ kind: "text", value: "FILE:" }]);
   });
 
+  it("leaves a line that has MEDIA: after other words, or either word in other letters than capitals, as prose", () => {
+    // The channel that sends the file reads a line the same way: by the word in capitals at its start.
+    const text = "Xem MEDIA: out/chart.png\nmedia: out/chart.png\nfile: a.csv\nFile: a.csv";
+    expect(splitMedia(text)).toEqual([{ kind: "text", value: text }]);
+  });
+
+  it("keeps a stretch of prose as it was written: its line breaks, its empty lines, the spaces round each line", () => {
+    // Markdown reads all three: an empty line ends a paragraph, an indent nests a list, two spaces at an end break a line.
+    const prose = "Việc hôm nay:  \n\n- một\n  - hai\n\nXong.";
+    expect(splitMedia(`${prose}\nFILE: a.csv\n  cuối  `)).toEqual([
+      { kind: "text", value: prose },
+      { kind: "file", value: "a.csv" },
+      { kind: "text", value: "  cuối  " },
+    ]);
+  });
+
   it("reads a line that sends a canvas as that canvas, under either prefix, and keeps the line as written", () => {
     expect(splitMedia(`a\n  FILE: artifact:${PLAN}\nb\nMEDIA:artifact: ${NOTE} \nc`)).toEqual([
       { kind: "text", value: "a" },

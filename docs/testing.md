@@ -3989,10 +3989,12 @@ tên một test thì sửa dòng của nó trong cùng commit.
     mẫu `_ARTIFACT_ID` mà `my_agent_crew/reply_attachments.py` so bằng `fullmatch`)
   - vitest, tách dòng: `web/src/lib/reply-blocks.test.ts` (`splitMedia`, nay ở
     `web/src/lib/reply-blocks.ts`: dòng `MEDIA:` và `FILE:` tách khỏi lời, giữ đúng thứ tự, câu chỉ
-    nhắc tới tiền tố và tiền tố trần vẫn là lời; dòng gửi canvas dưới cả hai tiền tố thành khối
-    `canvas` mang mã và nguyên dòng đã viết; dòng tệp workspace không đổi; mã sai thành khối
-    `canvas` có mã rỗng, kể cả mã đúng có đuôi `.md` hay dấu chấm theo sau, và khối vẫn giữ nguyên
-    dòng đã viết)
+    nhắc tới tiền tố và tiền tố trần vẫn là lời; dòng có `MEDIA:` đứng sau chữ khác, hay tiền tố
+    không viết hoa hết (`media:`, `file:`, `File:`), cũng vẫn là lời như phía kênh đọc; một đoạn
+    lời giữ nguyên chỗ xuống dòng, dòng trống và khoảng trắng đầu cuối từng dòng, là những thứ
+    Markdown đọc; dòng gửi canvas dưới cả hai tiền tố thành khối `canvas` mang mã và nguyên dòng
+    đã viết; dòng tệp workspace không đổi; mã sai thành khối `canvas` có mã rỗng, kể cả mã đúng
+    có đuôi `.md` hay dấu chấm theo sau, và khối vẫn giữ nguyên dòng đã viết)
   - vitest, trong thread: `web/src/components/message-thread.test.tsx` ("a line of a reply that
     sends a canvas": thread có đường mở canvas thì câu trả lời có chip, không link tệp, không chữ
     `FILE:`, lời quanh dòng còn nguyên và nút gọi đúng mã; dòng ghi mã kèm đuôi `.md` là một đoạn
