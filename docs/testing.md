@@ -678,6 +678,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
   - vitest: `components/markdown-body.test.tsx` "an image in a reply" (kể cả
     "asks again when the image it showed gives way to one at another address": trang vẽ lại với
     ảnh ở địa chỉ khác tại cùng chỗ, dù cùng site, thì nút hỏi quay lại và ảnh mới không tải;
+    "asks again when the address only adds to the one agreed to, or is that one cut short": địa
+    chỉ đang viết dở tới từng mảnh, đồng ý với một mảnh không phải đồng ý với địa chỉ dài hơn hay
+    ngắn hơn nó, và ảnh được hỏi lần hai cũng nhận focus của nút như ảnh đầu;
     "shows an image again unasked when the page comes back to the address agreed to, and takes no
     focus for it": quay về đúng địa chỉ đã đồng ý thì ảnh hiện lại mà không hỏi, vì người dùng đã
     đồng ý với chính địa chỉ đó, và focus ở yên chỗ cũ;

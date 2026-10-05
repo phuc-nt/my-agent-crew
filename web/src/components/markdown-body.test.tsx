@@ -150,6 +150,30 @@ describe("an image in a reply", () => {
     expect(screen.queryByRole("button")).toBeNull();
   });
 
+  it("asks again when the address only adds to the one agreed to, or is that one cut short", async () => {
+    // An address still being written arrives a piece at a time, and each piece is an address
+    // someone could be told of: a yes to one of them is no yes to the longer or the shorter.
+    const { rerender } = render(<MarkdownBody text={`![biểu đồ](${FIRST})`} />);
+    fireEvent.click(offer("tracker.example", "biểu đồ"));
+    expect(drawn(FIRST)).toBeInTheDocument();
+
+    const longer = `${FIRST}?id=7`;
+    rerender(<MarkdownBody text={`![biểu đồ](${longer})`} />);
+    expect(screen.queryByRole("img")).toBeNull();
+    expect(offer("tracker.example", "biểu đồ")).toHaveAttribute("title", longer);
+
+    fireEvent.click(offer("tracker.example", "biểu đồ"));
+    const image = screen.getByRole("img", { name: "biểu đồ" });
+    expect(image).toHaveAttribute("src", longer);
+    // The second image asked for takes the focus its button held, as the first one did.
+    await waitFor(() => expect(image).toHaveFocus());
+
+    const shorter = "https://tracker.example/a";
+    rerender(<MarkdownBody text={`![biểu đồ](${shorter})`} />);
+    expect(screen.queryByRole("img")).toBeNull();
+    expect(offer("tracker.example", "biểu đồ")).toHaveAttribute("title", shorter);
+  });
+
   it("shows an image again unasked when the page comes back to the address agreed to, and takes no focus for it", () => {
     const page = (src: string) => (
       <>
