@@ -122,6 +122,20 @@ describe("deleting a canvas from the library", () => {
     expect([...result.current.refused]).toEqual([two]);
   });
 
+  it("answers whether the canvas is gone: no when the server kept it, yes when it deleted it or had none", async () => {
+    const { result } = await openLibrary();
+    const two = result.current.items?.find((item) => item.title === "Hai")?.id as string;
+    const answers: boolean[] = [];
+    backend.canvas.refuseNext("DELETE", 503);
+
+    await act(async () => void answers.push(await result.current.remove(ONE)));
+    await act(async () => void answers.push(await result.current.remove(ONE)));
+    backend.canvas.refuseNext("DELETE", 404);
+    await act(async () => void answers.push(await result.current.remove(two)));
+
+    expect(answers).toEqual([false, true, true]);
+  });
+
   it("keeps a canvas when the request never reached the server", async () => {
     const { result } = await openLibrary();
     vitest.stubGlobal("fetch", () => Promise.reject(new TypeError("Failed to fetch")));

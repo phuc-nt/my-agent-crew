@@ -309,6 +309,8 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   address by its host, as the agent's word for it. The list follows the canvas changes the
   activity stream announces. A canvas is deleted with all its versions after a confirmation; one
   the server no longer has counts as deleted, and any other refusal keeps the row and says so.
+  Once a canvas is gone a line says which, and the keyboard moves to the name of the row after
+  it, the row before when it was the last, or the search box when none is left.
 - A canvas has a page of its own (`#/manage/canvas/<id>`), reached from its name in the library
   or from "Mở riêng" in the panel beside a chat, which opens it in a new tab once nothing is
   unsaved. The page shows the canvas in the panel a conversation shows it in, without the bar

@@ -38,8 +38,8 @@ export type CanvasLibrary = {
   /** The last read of the list failed; `items` still holds what an earlier one found. */
   failed: boolean;
   retry(): void;
-  /** Resolves once the server has answered, whatever it said. */
-  remove(id: string): Promise<void>;
+  /** Resolves once the server has answered: whether the canvas is gone, now or already. */
+  remove(id: string): Promise<boolean>;
   /** The canvases whose last delete did not go through. */
   refused: ReadonlySet<string>;
 };
@@ -116,12 +116,13 @@ export function useCanvasLibrary(connected: boolean): CanvasLibrary {
     } catch (error) {
       if (!(error instanceof ApiError) || error.status !== 404) {
         setRefused((was) => new Set(was).add(id));
-        return;
+        return false;
       }
     }
     setListed((was) => ({ ...was, items: was.items?.filter((item) => item.id !== id) ?? null }));
     setUsage((was) => was && without(was, id));
     announceDeletion(id);
+    return true;
   }, []);
 
   return { query, setQuery, ...listed, usage, retry: load, remove, refused };

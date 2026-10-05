@@ -77,6 +77,14 @@ for (const [name, screen] of SCREENS) {
     test("deletes a canvas only after the person says yes", async ({ page }) => {
       const fake = await openLibrary(page);
       const rows = page.getByTestId("canvas-library-row");
+      const said = page.getByTestId("canvas-library").getByRole("status");
+      // The room between the search box's line and the list, against the gap the column keeps.
+      const spare = () =>
+        page.getByTestId("canvas-library").evaluate((library) => {
+          const head = library.querySelector(".canvas-library-head")?.getBoundingClientRect().bottom ?? 0;
+          const list = library.querySelector(".canvas-library-list")?.getBoundingClientRect().top ?? 0;
+          return Math.round(list - head - Number.parseFloat(getComputedStyle(library).rowGap));
+        });
       const asked: string[] = [];
       let answer = false;
       page.on("dialog", (dialog) => {
@@ -89,12 +97,21 @@ for (const [name, screen] of SCREENS) {
       await expect.poll(() => asked).toEqual([canvas.deleteConfirm("Kế hoạch tuần")]);
       await expect(rows).toHaveCount(3);
       expect(fake.canvases.has(PLAN)).toBe(true);
+      // The line that says what was deleted takes no room until it has something to say.
+      await expect(said).toHaveText("");
+      expect(await spare()).toBe(0);
 
       answer = true;
       await remove.click();
       await expect(rows).toHaveCount(2);
-      await expect(page.getByText("Kế hoạch tuần")).toHaveCount(0);
+      await expect(rows.filter({ hasText: "Kế hoạch tuần" })).toHaveCount(0);
       expect(fake.canvases.has(PLAN)).toBe(false);
+      // The row the keyboard was on was the last: the keyboard is on the row before it, and a line
+      // says which canvas went.
+      await expect(page.getByRole("button", { name: "Ghi chú họp", exact: true })).toBeFocused();
+      await expect(said).toHaveText(canvas.libraryDeleted("Kế hoạch tuần"));
+      await expect(said).toBeVisible();
+      expect(await spare()).toBeGreaterThan(0);
       await expect(page.locator(".canvas-library-total")).toHaveText(canvas.libraryTotal(2, "11 B", "1 GB"));
     });
   });

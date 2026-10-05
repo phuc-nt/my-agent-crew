@@ -78,7 +78,8 @@ describe("the canvas section of the manage screen", () => {
     await act(() => saveInBackground(leftCanvas("a9", async () => null)));
 
     expect(screen.queryByText(canvas.sentUnsaved)).toBeNull();
-    expect(screen.queryByRole("status")).toBeNull();
+    // The one line that could say something is the library's, for a canvas deleted, and it is empty.
+    expect(screen.queryAllByRole("status").map((line) => line.textContent)).toEqual([""]);
   });
 
   it("reads the library again when the stream comes back", async () => {

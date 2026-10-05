@@ -3407,7 +3407,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     rời danh sách và tổng khi server trả lời, không sớm hơn; 404 cũng là đã xoá; 500 hay mất mạng thì
     giữ canvas và ghi nhận nó bị từ chối cho tới lần thử sau; hai canvas cùng bị từ chối thì cả hai
     được ghi nhận, thử lại một canvas chỉ gỡ ghi nhận của chính nó; canvas chưa đọc được cỡ thì tổng
-    giữ nguyên; nơi khác đang hiện canvas ấy được báo)
+    giữ nguyên; nơi khác đang hiện canvas ấy được báo; lời đáp nói canvas đã hết hay chưa: không khi
+    server giữ nó, có khi server xoá hay đã không còn nó)
   - vitest, thành phần: `web/src/components/canvas/canvas-library.test.tsx` (mỗi dòng nói loại, phiên
     bản, ai tạo, lúc nào và cỡ mọi phiên bản; sáu loại, canvas mã kèm ngôn ngữ, loại lạ in nguyên;
     ngôn ngữ chỉ nói ở canvas mã dù server giữ ngôn ngữ cho loại nào cũng được; thời điểm là lần ghi
@@ -3419,7 +3420,12 @@ tên một test thì sửa dòng của nó trong cùng commit.
     đa 200 ký tự; bốn trạng thái: đang tải,
     lỗi kèm "Thử lại", trống, không khớp tên; "Hiện 200 canvas mới nhất…" khi còn canvas cũ hơn và
     không đang tìm; xoá hỏi `window.confirm` với đúng tiêu đề đang hiện, từ chối thì không gọi server,
-    server không xoá thì câu báo nằm dưới đúng dòng đó);
+    server không xoá thì câu báo nằm dưới đúng dòng đó; nhóm "once a canvas is deleted from the
+    library": bàn phím sang tên của dòng kế sau, sang dòng trước khi dòng bị xoá là dòng cuối, vào ô
+    tìm khi không còn dòng nào, và dòng `role="status"` nói "Đã xoá canvas <tên>" với tên đúng như
+    dòng đã hiện, kể cả ký tự ẩn và canvas không tên; 404 cũng vậy; server không xoá thì bàn phím ở
+    nguyên nút xoá và dòng ấy không nói gì; lần xoá kế tiếp vừa bấm thì thôi nói về canvas trước;
+    người đã đưa bàn phím đi chỗ khác trong lúc chờ server thì bàn phím ở lại chỗ đó);
     `web/src/components/canvas/canvas-section.test.tsx` (mục Canvas chỉ hỏi `/artifacts?limit=200`,
     không hỏi canvas của hội thoại nào; lần lưu để lại phía sau mà hỏng thì câu "lưu hỏng, nháp còn
     giữ" hiện phía trên thư viện và cất đi được; câu "tin đi kèm bản đã lưu gần nhất" không hiện ở
@@ -3428,7 +3434,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     cỡ và dòng tổng, không link nào, tiêu đề và đường dẫn dài không làm trang, mục, thư viện hay dòng
     nào tràn ngang; tìm không dấu "ke hoach" ra đúng một canvas, tên lạ ra câu không khớp, xoá ô thì
     đủ lại; bấm xoá rồi từ chối thì canvas còn, đồng ý thì dòng mất, server giả hết canvas ấy và tổng
-    giảm; "the canvas library is reached from the crew's part of the manage screen");
+    giảm; trong Chromium thật, dòng nói "Đã xoá canvas…" không chiếm chỗ nào khi còn trống, và sau khi
+    xoá dòng cuối thì bàn phím nằm ở tên của dòng trước, dòng ấy hiện đúng tên canvas vừa xoá; "the
+    canvas library is reached from the crew's part of the manage screen");
     `web/e2e/touch-targets-phone.spec.ts` (trang "the canvas library": nút xoá của một dòng đủ 40 px);
     bản giả của `GET /api/artifacts/usage` nằm ở `web/src/test/fake-canvas-usage.ts`
     (`web/src/test/fake-canvas.test.ts`, "counts what every version of each canvas holds, on a path

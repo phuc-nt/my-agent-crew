@@ -1058,6 +1058,7 @@ export const vi = {
     deleteLabel: (title: string) => `Xoá canvas ${title}`,
     deleteConfirm: (title: string) => `Xoá canvas "${title}" cùng mọi phiên bản của nó? Không thể hoàn tác.`,
     deleteFailed: "Không xoá được canvas. Thử lại sau.",
+    libraryDeleted: (title: string) => `Đã xoá canvas ${title}`,
     // One canvas on a page of its own, reached from the library or from its panel beside a chat.
     back: "← Canvas",
     openStandalone: "Mở riêng",

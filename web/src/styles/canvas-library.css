@@ -21,9 +21,16 @@
 
 .canvas-library-total,
 .canvas-library-capped,
+.canvas-library-said,
 .canvas-library-row > p {
   margin: 0;
   font-size: var(--text-sm);
+}
+
+/* The line that says a canvas is gone is in the page before it has anything to say. Empty, it
+   leaves the column, so it takes no room and no gap, and stays where a screen reader finds it. */
+.canvas-library-said:empty {
+  position: absolute;
 }
 
 .canvas-library-list {

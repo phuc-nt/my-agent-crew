@@ -306,3 +306,110 @@ describe("deleting from the library", () => {
     expect(rows()).toHaveLength(2);
   });
 });
+
+describe("once a canvas is deleted from the library", () => {
+  beforeEach(() => {
+    vitest.spyOn(window, "confirm").mockReturnValue(true);
+  });
+
+  const nameOf = (title: string) => screen.getByRole("button", { name: title });
+  const deleteOf = (title: string) => screen.getByRole("button", { name: canvas.deleteLabel(title) });
+  const said = () => screen.getByRole("status").textContent;
+
+  /** The person has the keyboard on a row's delete button, presses it and says yes. */
+  async function remove(title: string) {
+    const button = deleteOf(title);
+    act(() => button.focus());
+    fireEvent.click(button);
+    await landed();
+  }
+
+  it("puts the keyboard on the name of the row after it, and says which canvas is gone", async () => {
+    await show({ title: "Một" }, { title: "Hai" }, { title: "Ba" });
+    expect(said()).toBe("");
+
+    await remove("Hai");
+
+    expect(rows()).toHaveLength(2);
+    expect(nameOf("Một")).toHaveFocus();
+    expect(said()).toBe(canvas.libraryDeleted("Hai"));
+  });
+
+  it("puts the keyboard on the name of the row before it when it was the last", async () => {
+    await show({ title: "Một" }, { title: "Hai" }, { title: "Ba" });
+
+    await remove("Một");
+
+    expect(nameOf("Hai")).toHaveFocus();
+    expect(said()).toBe(canvas.libraryDeleted("Một"));
+  });
+
+  it("puts the keyboard in the search box when no canvas is left", async () => {
+    await show({ title: "Một" });
+
+    await remove("Một");
+
+    expect(rows()).toHaveLength(0);
+    expect(box()).toHaveFocus();
+    expect(said()).toBe(canvas.libraryDeleted("Một"));
+  });
+
+  it("does as much for a canvas the server no longer has", async () => {
+    await show({ title: "Một" }, { title: "Hai" }, { title: "Ba" });
+    backend.canvas.refuseNext("DELETE", 404);
+
+    await remove("Ba");
+
+    expect(rows()).toHaveLength(2);
+    expect(nameOf("Hai")).toHaveFocus();
+    expect(said()).toBe(canvas.libraryDeleted("Ba"));
+  });
+
+  it("leaves the keyboard on the button and says nothing when the server would not delete it", async () => {
+    await show({ title: "Một" }, { title: "Hai" });
+    backend.canvas.refuseNext("DELETE", 503);
+
+    await remove("Hai");
+
+    expect(rows()).toHaveLength(2);
+    expect(deleteOf("Hai")).toHaveFocus();
+    expect(said()).toBe("");
+    expect(within(rowOf("Hai")).getByRole("alert")).toHaveTextContent(canvas.deleteFailed);
+  });
+
+  it("stops saying one canvas is gone as soon as the next delete is asked for", async () => {
+    await show({ title: "Một" }, { title: "Hai" }, { title: "Ba" });
+    await remove("Ba");
+    expect(said()).toBe(canvas.libraryDeleted("Ba"));
+    backend.canvas.refuseNext("DELETE", 503);
+
+    await remove("Hai");
+
+    expect(said()).toBe("");
+    expect(deleteOf("Hai")).toHaveFocus();
+  });
+
+  it("names the canvas that is gone as its row did, one with no name too", async () => {
+    await show({ title: "" }, { title: "a‮b" });
+
+    await remove("a[U+202E]b");
+    expect(said()).toBe(canvas.libraryDeleted("a[U+202E]b"));
+    await remove(canvas.untitled);
+
+    expect(said()).toBe(canvas.libraryDeleted(canvas.untitled));
+  });
+
+  it("leaves the keyboard where the person took it while the server was answering", async () => {
+    await show({ title: "Một" }, { title: "Hai" });
+    const answer = backend.canvas.holdNext("DELETE", "reply");
+    await remove("Hai");
+    act(() => box().focus());
+
+    await act(() => answer());
+    await landed();
+
+    expect(rows()).toHaveLength(1);
+    expect(box()).toHaveFocus();
+    expect(said()).toBe(canvas.libraryDeleted("Hai"));
+  });
+});
