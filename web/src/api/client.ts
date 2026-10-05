@@ -171,7 +171,7 @@ export const api = {
       { method: "PUT", body: JSON.stringify({ content }) },
     ),
   agentPrompt: (agentId: string) =>
-    request<{ prompt: string; chars: number }>(
+    request<{ prompt: string; chars: number; opening: string; opening_chars: number }>(
       `/agents/${encodeURIComponent(agentId)}/prompt`,
     ),
   reloadAgents: () => request<{ added: string[] }>("/agents/reload", { method: "POST" }),

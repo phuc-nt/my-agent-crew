@@ -166,6 +166,9 @@ export class FakeBackend {
   indexHtml = '<script type="module" crossorigin src="/assets/index-first.js"></script>';
   /** Persona files written by PUT /agents/{id}/files/{name}, keyed "<agent>/<name>". */
   personaFiles = new Map<string, string>();
+  /** What GET /agents/{id}/prompt says a new conversation's first message is read after:
+   *  the agent's daily notes, empty for one that has written none. */
+  promptOpening = "";
   connections: ConnectionsInfo = {
     providers: [{ name: "fake", built: true }],
     routes: [{ provider: "fake", model: "echo" }],
@@ -278,7 +281,8 @@ export class FakeBackend {
         .filter(([key]) => key.startsWith(`${agentId}/`))
         .map(([key, content]) => `\n## ${key.split("/")[1]}\n${content}\n`);
       const prompt = `Bạn là một trợ lý.\n${sections.join("")}`;
-      return json({ prompt, chars: prompt.length });
+      const opening = this.promptOpening;
+      return json({ prompt, chars: prompt.length, opening, opening_chars: opening.length });
     }
     const edited = path.match(/^\/agents\/([^/]+)$/)?.[1];
     if (edited && method === "PATCH") return this.patchAgent(decodeURIComponent(edited), body.profile);

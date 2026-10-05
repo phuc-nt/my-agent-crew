@@ -69,6 +69,50 @@ describe("PromptSection", () => {
     expect(await screen.findByTestId("prompt-preview")).toHaveTextContent("Giọng điềm tĩnh.");
   });
 
+  // The daily notes are read beside a turn's first message and are no part of the prompt.
+  // Shown apart, with their own length, a note the agent saved is found where it is read.
+  it("shows what a new conversation is first told of the agent's notes, apart from the prompt", async () => {
+    backend.promptOpening = "[Bộ nhớ của bạn]\n## memory/2026-10-06.md\n- 07:00 dậy sớm\n[Hết phần bộ nhớ]";
+    render(<PromptSection agentId="default" />);
+
+    await userEvent.click(screen.getByRole("button", { name: vi.editor.promptShow }));
+
+    const opening = await screen.findByTestId("prompt-opening");
+    expect(opening.textContent).toBe(backend.promptOpening);
+    expect(screen.getByTestId("prompt-preview")).not.toHaveTextContent("dậy sớm");
+    expect(screen.getByRole("heading", { name: vi.editor.promptOpening })).toBeInTheDocument();
+    expect(screen.getByText(vi.editor.promptChars(backend.promptOpening.length))).toBeInTheDocument();
+    // The copy button hands over the prompt, which is what its label names.
+    const writeText = vitest.fn(() => Promise.resolve());
+    installClipboard(writeText);
+    await userEvent.click(screen.getByRole("button", { name: vi.copy.prompt }));
+    expect(writeText).toHaveBeenCalledWith(screen.getByTestId("prompt-preview").textContent);
+
+    await userEvent.click(screen.getByRole("button", { name: vi.editor.promptHide }));
+    expect(screen.queryByTestId("prompt-opening")).not.toBeInTheDocument();
+  });
+
+  it("shows nothing more for an agent with no notes, and follows the notes on each open", async () => {
+    render(<PromptSection agentId="default" />);
+    const toggle = () => screen.getByRole("button", { name: /Xem lời nhắc|Ẩn/ });
+
+    await userEvent.click(toggle());
+    await screen.findByTestId("prompt-preview");
+    expect(screen.queryByTestId("prompt-opening")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: vi.editor.promptOpening })).not.toBeInTheDocument();
+    await userEvent.click(toggle());
+
+    backend.promptOpening = "## memory/2026-10-06.md\n- 09:00 chạy 5 km";
+    await userEvent.click(toggle());
+    expect(await screen.findByTestId("prompt-opening")).toHaveTextContent("chạy 5 km");
+    await userEvent.click(toggle());
+
+    backend.promptOpening = "";
+    await userEvent.click(toggle());
+    await screen.findByTestId("prompt-preview");
+    expect(screen.queryByTestId("prompt-opening")).not.toBeInTheDocument();
+  });
+
   it("says so when the prompt cannot be read", async () => {
     vitest.stubGlobal(
       "fetch",

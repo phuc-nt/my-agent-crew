@@ -7,16 +7,26 @@ interface Props {
   agentId: string;
 }
 
+interface Shown {
+  prompt: string;
+  chars: number;
+  opening: string;
+  openingChars: number;
+}
+
 /**
  * What the agent is actually told, assembled by the server from the same code a turn uses.
  *
  * Loaded on demand rather than with the rest of the form: it is the largest thing on the
  * screen and the one least often read, and every section above it is what changes it.
  * Re-fetched on each open so it reflects a persona file saved a moment ago.
+ *
+ * The daily notes are no part of the system prompt: a turn reads them in front of the
+ * message that opens it. They are shown under the prompt, as what they are, so a note the
+ * agent saved is not looked for in the prompt and taken as lost.
  */
 export function PromptSection({ agentId }: Props) {
-  const [prompt, setPrompt] = useState<string | null>(null);
-  const [chars, setChars] = useState(0);
+  const [shown, setShown] = useState<Shown | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -25,8 +35,12 @@ export function PromptSection({ agentId }: Props) {
     setError("");
     try {
       const got = await api.agentPrompt(agentId);
-      setPrompt(got.prompt);
-      setChars(got.chars);
+      setShown({
+        prompt: got.prompt,
+        chars: got.chars,
+        opening: got.opening,
+        openingChars: got.opening_chars,
+      });
     } catch {
       setError(vi.editor.promptFailed);
     } finally {
@@ -50,24 +64,35 @@ export function PromptSection({ agentId }: Props) {
           className="ghost"
           disabled={loading}
           onClick={() => {
-            if (prompt === null) void open();
-            else setPrompt(null);
+            if (shown === null) void open();
+            else setShown(null);
           }}
         >
-          {loading ? vi.manage.loading : prompt === null ? vi.editor.promptShow : vi.editor.promptHide}
+          {loading ? vi.manage.loading : shown === null ? vi.editor.promptShow : vi.editor.promptHide}
         </button>
-        {prompt !== null && (
+        {shown !== null && (
           <>
-            <span className="muted">{vi.editor.promptChars(chars)}</span>
+            <span className="muted">{vi.editor.promptChars(shown.chars)}</span>
             {/* Mounted with each read, so a new read never starts out saying it was copied. */}
-            <CopyButton text={prompt} label={vi.copy.prompt} />
+            <CopyButton text={shown.prompt} label={vi.copy.prompt} />
           </>
         )}
       </div>
-      {prompt !== null && (
+      {shown !== null && (
         <pre className="prompt-preview" data-testid="prompt-preview">
-          {prompt}
+          {shown.prompt}
         </pre>
+      )}
+      {/* An agent with no notes is told nothing there, and is shown nothing. */}
+      {shown !== null && shown.opening !== "" && (
+        <div className="prompt-opening">
+          <h4>{vi.editor.promptOpening}</h4>
+          <p className="muted">{vi.editor.promptOpeningHint}</p>
+          <span className="muted">{vi.editor.promptChars(shown.openingChars)}</span>
+          <pre className="prompt-preview" data-testid="prompt-opening">
+            {shown.opening}
+          </pre>
+        </div>
       )}
     </section>
   );

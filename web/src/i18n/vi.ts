@@ -409,7 +409,10 @@ export const vi = {
     personaEmpty: "(trống)",
     sectionPrompt: "Lời nhắc hệ thống",
     promptHint:
-      "Toàn bộ nội dung agent được đọc ở đầu mỗi lượt: khung chung, các tệp tính cách, trí nhớ và kỹ năng.",
+      "Nội dung agent được đọc ở đầu mỗi lượt: khung chung, các tệp tính cách, trí nhớ dài hạn và kỹ năng.",
+    promptOpening: "Đọc ngay trước tin đầu của cuộc mới",
+    promptOpeningHint:
+      "Ghi chú hôm qua và hôm nay không nằm trong lời nhắc hệ thống: agent đọc chúng ngay trước tin mở đầu lượt, và lượt sau chỉ đọc phần mới thêm. Tóm tắt cuộc trò chuyện trước của từng kênh cũng được đọc ở đó.",
     promptChars: (chars: number) => `${chars.toLocaleString("vi-VN")} ký tự`,
     promptShow: "Xem lời nhắc",
     promptHide: "Ẩn",

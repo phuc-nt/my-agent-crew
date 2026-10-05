@@ -137,6 +137,30 @@ test("the editor shows what the agent is actually told, including a persona just
   // The prompt is assembled server-side from the same code a turn uses, so the line that
   // was just saved is in it — which is how the person confirms the edit took effect.
   await expect(prompt.getByTestId("prompt-preview")).toContainText("Luôn trả lời ngắn.");
+  // This agent has saved no note, so there is nothing a first message would be read after.
+  await expect(prompt.getByTestId("prompt-opening")).toHaveCount(0);
+});
+
+test("the notes an agent reads beside its first message are shown apart from its prompt", async ({ page }) => {
+  const opening = "[Bộ nhớ của bạn]\n## memory/2026-10-06.md\n- 07:00 dậy sớm\n[Hết phần bộ nhớ]";
+  await mockApi(page, { agents: [master, coachAgent], promptOpening: opening });
+  await page.goto("/#/manage/crew/coach");
+  const prompt = page.getByTestId("agent-editor").getByTestId("section-prompt");
+
+  await prompt.getByRole("button", { name: "Xem lời nhắc" }).click();
+
+  // A note saved today is no longer in the system prompt; looked for there it would seem
+  // lost. It is under the prompt, named for what it is, with a length of its own.
+  await expect(prompt.getByTestId("prompt-preview")).not.toContainText("dậy sớm");
+  await expect(prompt.getByRole("heading", { name: "Đọc ngay trước tin đầu của cuộc mới" })).toBeVisible();
+  await expect(prompt.getByTestId("prompt-opening")).toHaveText(opening);
+  await expect(prompt.getByText(`${opening.length} ký tự`, { exact: true })).toBeVisible();
+  // Both boxes scroll inside the section; neither may push the page sideways.
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+
+  await prompt.getByRole("button", { name: "Ẩn" }).click();
+  await expect(prompt.getByTestId("prompt-opening")).toHaveCount(0);
 });
 
 test("the routes every agent falls back on are edited and saved", async ({ page }) => {

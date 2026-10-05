@@ -177,6 +177,9 @@ export interface MockOptions {
   /** How many messages, from the first, the server takes and then fails to answer: the turn
    *  runs and is stored, and the connection drops before a byte of it reaches the page. */
   lostAnswers?: number;
+  /** What the prompt preview says a new conversation's first message is read after: the
+   *  agent's daily notes. Empty when omitted, as for an agent that has written none. */
+  promptOpening?: string;
 }
 
 export function sse(events: object[], retryMs = 60_000): string {
@@ -307,7 +310,8 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
         .filter(([key]) => key.startsWith(`${agentId}/`))
         .map(([key, content]) => `\n## ${key.split("/")[1]}\n${content}\n`);
       const prompt = `Bạn là một trợ lý.\n${sections.join("")}`;
-      return json({ prompt, chars: prompt.length });
+      const opening = options.promptOpening ?? "";
+      return json({ prompt, chars: prompt.length, opening, opening_chars: opening.length });
     }
     const vault = path.match(/^\/agents\/([^/]+)\/memory\/wiki(?:\/(report)|\/pages\/([^/]+))?$/);
     if (vault && (method === "GET" || method === "PUT")) {

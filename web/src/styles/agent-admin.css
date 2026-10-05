@@ -243,6 +243,19 @@
   color: var(--text);
 }
 
+/* What a turn reads beside its first message, set apart from the prompt above it. */
+.prompt-opening {
+  margin-top: var(--space-4);
+}
+
+.prompt-opening h4 {
+  margin: 0 0 var(--space-1);
+}
+
+.prompt-opening p {
+  margin: 0 0 var(--space-1);
+}
+
 .route-editor,
 .schedule-editor {
   list-style: none;
