@@ -49,8 +49,9 @@ def unfinished_note(run: RunRecord) -> str:
 def canvas_lines(artifacts: ArtifactUsage, conversation_id: str) -> tuple[list[str], str]:
     """A line for each canvas an agent wrote in the conversation, the first written first and
     MAX_LISTED at most, then the sentence that counts the rest, empty when none are left out.
-    A line is the tag a canvas tool's own result opens with, then the title; the title is the
-    child's wording, and `cut` keeps it to that one line."""
+    A line is the tag a canvas tool's own result opens with, then the title the canvas has
+    now, which a person may have changed since the child wrote it; `cut` keeps it to that one
+    line."""
     written = artifacts.written_in(conversation_id)
     lines = [f"{artifact_tag(w.id, w.version)} {cut(w.title)}" for w in written[:MAX_LISTED]]
     hidden = len(written) - MAX_LISTED

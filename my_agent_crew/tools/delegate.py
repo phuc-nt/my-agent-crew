@@ -37,6 +37,7 @@ from my_agent_crew.tools.delegate_open import open_child
 from my_agent_crew.tools.delegate_outcome import (
     decide,
     declared_outcome,
+    deleted_text,
     header_line,
     outcome_line,
     relays,
@@ -118,7 +119,8 @@ async def _delegate(
     """Opens (or re-finds) the child conversation, runs it, and reports what came back.
     A finished child's answer also rides along whole as `reply`, so the loop can hand it
     to the person without another model call when nothing else happened this turn. The
-    canvases the child wrote are named in the result alone, however the wait ended."""
+    canvases the child wrote are named in the result alone, however the wait ended: a child
+    deleted meanwhile fails the call, and the error it fails with still names them."""
     parent_id = turn_conversation_id()
     parent = runtime.store.get(parent_id) if parent_id else None
     call_id = tool_call_id()
@@ -142,7 +144,7 @@ async def _delegate(
         spent = runtime.store.get(child.id).spent_usd
     except KeyError:
         # Deleted from the sidebar while this call waited, which also ends the child's run.
-        raise ToolError(texts.DELEGATE_CHILD_DELETED.format(conv_id=child.id)) from None
+        raise ToolError(deleted_text(child.id, canvases, more)) from None
     if parent is not None:
         # What the child spent is the parent's spend too, or a fan-out would cost the
         # parent's budget nothing and its cap would stop meaning anything.

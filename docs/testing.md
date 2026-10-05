@@ -894,6 +894,11 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "test_a_child_stopped_short_names_its_canvases_above_the_unfinished_note",
     "test_a_wait_that_runs_out_still_names_what_the_child_had_written": mười hai dòng đầu và câu
     đếm phần còn lại, như mọi kết quả khác,
+    "test_a_child_deleted_mid_wait_still_names_what_it_had_written": người dùng xoá cuộc con trong
+    lúc agent cha còn chờ thì lời gọi vẫn lỗi và vẫn mở đầu bằng câu báo đã xoá, các dòng canvas
+    nằm ngay dưới câu ấy, câu đếm phần còn lại dưới một dòng trống,
+    "test_a_child_deleted_mid_wait_that_wrote_nothing_is_the_sentence_alone": con chưa viết canvas
+    nào thì kết quả đúng là câu ấy, không thêm gì,
     "test_carrying_a_canvas_to_or_from_a_file_unchanged_names_nothing": xuất và nhập không đổi
     không sinh dòng, cũng không chia sẻ canvas sang cuộc gốc,
     "test_naming_a_canvas_to_the_master_is_not_the_master_having_read_it": lượt kế của cuộc gốc vẫn

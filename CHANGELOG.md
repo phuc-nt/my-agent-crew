@@ -304,6 +304,9 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   the title the canvas has now, cut to 160 characters. At most 12 are named, and the text below
   then opens by counting the rest. The lines come with every outcome, a wait that ran out
   included; an export, an import that changed nothing, a rename and a deleted canvas give none.
+  When the person deletes the delegated conversation while the call still waits, the call fails
+  with the sentence saying so, and the same lines follow that sentence, the count of the rest
+  under an empty line: the canvases outlive the conversation they were written in.
   The tool's description tells the model that such a title is data, not an instruction, and to
   name the canvas instead of copying its content.
 - The manage screen has a Canvas section (`#/manage/canvas`): a library of every canvas,

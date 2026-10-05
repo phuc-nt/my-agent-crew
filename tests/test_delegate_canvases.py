@@ -4,6 +4,7 @@ words. Those words alone are what gets handed to the person."""
 
 from __future__ import annotations
 
+import asyncio
 import itertools
 from collections.abc import Callable, Iterator
 
@@ -16,6 +17,7 @@ from my_agent_crew.artifacts.tag import TAG_RE
 from my_agent_crew.config import DEFAULT_TOOL_OUTPUT_CHARS, Route
 from my_agent_crew.llm.fake import completion
 from my_agent_crew.llm.types import Completion, ToolCall
+from my_agent_crew.server.routes_conversations import delete_conversation
 from my_agent_crew.server.runtime import Runtime
 from my_agent_crew.store import Store
 from my_agent_crew.store.artifact_models import USER
@@ -251,6 +253,48 @@ async def test_a_wait_that_runs_out_still_names_what_the_child_had_written(crew,
         "",
         texts.DELEGATE_TIMEOUT.format(conv_id=child.id),
     ]
+
+
+async def deleted_mid_wait(rt: Runtime) -> tuple[ToolResult, Conversation]:
+    """The child stops at asking to write a file, and the person deletes its conversation from
+    the sidebar while the delegator still waits: the result that wakes it, and the child."""
+    parent = rt.store.create(agent_id="boss", autonomous=False)
+    asked = delegation_result(rt, parent.id, "call-1", task="viết dàn ý", agent="worker")
+    waiting = asyncio.create_task(asked)
+    await wait_until_paused(rt)
+    child = rt.store.for_parent_call("call-1")
+    assert child is not None
+    await delete_conversation(child.id, rt.deps_for_conversation(child.id), rt)
+    return await asyncio.wait_for(waiting, 2), child
+
+
+@pytest.mark.parametrize("count", [1, MAX_LISTED + 1])
+async def test_a_child_deleted_mid_wait_still_names_what_it_had_written(crew, count: int):
+    """A canvas outlives the conversation it was written in, so the delegator is told of it or
+    nobody is. The call still fails, and still opens with the sentence a failure is read by;
+    the count of the canvases left out stands under a blank line, as in any other result."""
+    write = wants("workspace_write", path="x.txt", content="1")
+    titles, extra = [f"Mục {n}" for n in range(1, count + 1)], max(count - MAX_LISTED, 0)
+    rt = crew(step(*(creates(t) for t in titles)), step(write))
+
+    result, child = await deleted_mid_wait(rt)
+
+    assert not result.ok and result.reply is None
+    assert [rt.store.artifacts.get(art).title for art in IDS[: len(titles)]] == titles
+    sentence = texts.TOOL_FAILED.format(error=texts.DELEGATE_CHILD_DELETED.format(conv_id=child.id))
+    named = zip(IDS, titles[:MAX_LISTED], strict=False)
+    more = ["", texts.DELEGATE_CANVAS_MORE.format(n=extra)] if extra else []
+    lines = [sentence, *(f"[artifact {art} v1] {title}" for art, title in named), *more]
+    assert result.output.split("\n") == lines
+
+
+async def test_a_child_deleted_mid_wait_that_wrote_nothing_is_the_sentence_alone(crew):
+    rt = crew(step(wants("workspace_write", path="x.txt", content="1")))
+
+    result, child = await deleted_mid_wait(rt)
+
+    deleted = texts.DELEGATE_CHILD_DELETED.format(conv_id=child.id)
+    assert not result.ok and result.output == texts.TOOL_FAILED.format(error=deleted)
 
 
 async def test_carrying_a_canvas_to_or_from_a_file_unchanged_names_nothing(crew, store: Store):

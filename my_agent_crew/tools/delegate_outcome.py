@@ -145,6 +145,15 @@ def canvas_tags(output: str) -> list[Tag]:
     return tags
 
 
+def deleted_text(conv_id: str, canvases: Sequence[str], more: str) -> str:
+    """The person deleted the child's conversation while the call waited. A canvas outlives
+    the conversation it was written in, so the ones the child wrote are still named: under the
+    sentence, which has to open a failed result, with the count of the rest under a blank line
+    as in any other result. A child that wrote none leaves the sentence alone."""
+    named = "\n".join([texts.DELEGATE_CHILD_DELETED.format(conv_id=conv_id), *canvases])
+    return f"{named}\n\n{more}" if more else named
+
+
 def timed_out(
     conv_id: str, run: RunRecord | None, canvases: Sequence[str], more: str
 ) -> ToolResult:
