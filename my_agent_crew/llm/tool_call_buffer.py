@@ -27,9 +27,12 @@ class ToolCallBuffer:
 
     def feed(self, deltas: list[dict[str, Any]]) -> list[ToolCallDelta]:
         """Takes the deltas in and hands back the pieces of arguments they brought, each
-        with its call's index and the name assembled for that call so far. A delta that
-        brought only an id or a name is no piece. A name or arguments that are not text
-        are a broken stream, said as the error the provider already turns into its own."""
+        with the name assembled for its call so far and the call's position in the answer:
+        the rank of the number the stream gave the call among the numbers seen so far, which
+        is where `calls` puts it. A stream may number its calls from 1 or leave gaps, and
+        opens them in rising order, so a call keeps its position. A delta that brought only
+        an id or a name is no piece. A name or arguments that are not text are a broken
+        stream, said as the error the provider already turns into its own."""
         pieces = []
         for d in deltas:
             index = d.get("index", 0)
@@ -42,7 +45,8 @@ class ToolCallBuffer:
             slot["name"] = name or slot["name"]
             slot["args"] += chunk
             if chunk:
-                pieces.append(ToolCallDelta(index=index, name=slot["name"], chunk=chunk))
+                place = sorted(self._parts).index(index)
+                pieces.append(ToolCallDelta(index=place, name=slot["name"], chunk=chunk))
         return pieces
 
     def calls(self, cut_off: bool = False) -> tuple[ToolCall, ...]:

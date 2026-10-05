@@ -1385,6 +1385,14 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "test_arguments_sent_ahead_of_the_name_come_back_with_no_name_yet",
     "test_pieces_of_two_calls_keep_their_own_index_and_name_in_the_order_they_came",
     "test_a_delta_that_states_no_index_is_a_piece_of_the_first_call");
+    `tests/test_tool_call_position.py` (mỗi mảnh mang vị trí của lời gọi trong câu trả lời chứ
+    không mang số provider gửi: stream đánh số từ 1, bỏ cách số hay cả hai vẫn cho vị trí 0 rồi
+    1, trùng chỗ của lời gọi trong `calls()`; lời gọi giữ vị trí khi lời gọi sau mở ra; mảnh
+    tới trước tên cũng được xếp như vậy; lời gọi mới chỉ có id và tên vẫn giữ chỗ của nó;
+    stream ghi `"index": null` cho lời gọi duy nhất vẫn được vị trí 0;
+    "test_the_piece_a_turn_shows_names_the_place_of_its_call_in_the_answer": qua cả một lượt
+    với stream đánh số 1 và 2, event `tool_call_delta` mang `index` đúng bằng chỗ của lời gọi
+    trong `tool_calls` của `assistant_message`);
     `tests/test_openrouter.py::test_each_fragment_of_a_tool_call_is_passed_on_as_it_arrives`
     (mảnh xen với chữ theo đúng thứ tự gửi, `Completion` cuối y như cũ) và
     "test_a_delta_that_brings_words_and_a_fragment_passes_both_on_the_words_first" (một delta

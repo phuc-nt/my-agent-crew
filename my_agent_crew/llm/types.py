@@ -97,9 +97,11 @@ class ReasoningDelta:
 @dataclass(frozen=True)
 class ToolCallDelta:
     """One piece of the arguments of a tool call the model is still writing. `index` is the
-    call's place in the answer; `name` is the call's name as assembled so far, empty while
-    a stream that sends arguments ahead of the name has not said it yet. The whole call
-    still arrives in the `Completion`: a piece is for following along, never for running."""
+    call's position among the calls of the answer, counted from 0 whatever number the
+    provider gave it: the place the finished call has in the `Completion`'s `tool_calls`.
+    `name` is the call's name as assembled so far, empty while a stream that sends
+    arguments ahead of the name has not said it yet. The whole call still arrives in the
+    `Completion`: a piece is for following along, never for running."""
 
     index: int
     name: str
