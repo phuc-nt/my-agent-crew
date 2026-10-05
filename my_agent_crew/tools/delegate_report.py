@@ -29,10 +29,13 @@ FIELD_CHARS = 160
 
 def unfinished_note(run: RunRecord) -> str:
     """Empty for a finished run. Otherwise the stop reason plus the calls that went
-    through, so the delegator reads the answer as a fragment, not a conclusion."""
+    through, so the delegator reads the answer as a fragment, not a conclusion. The reason
+    is free text, a provider's error or the question the child stopped at, so it is quoted
+    like the calls under it: `cut` keeps it from adding lines of its own to the result."""
     if run.status == DONE:
         return ""
-    head = texts.DELEGATE_UNFINISHED.format(status=run.status, reason=run.summary or run.status)
+    reason = cut(run.summary or run.status)
+    head = texts.DELEGATE_UNFINISHED.format(status=run.status, reason=reason)
     succeeded = [s for s in run.steps if s.get("kind") == "tool" and s.get("ok")]
     if not succeeded:
         return f"{head}\n{texts.DELEGATE_UNFINISHED_NOTHING}"

@@ -4122,3 +4122,12 @@ tên một test thì sửa dòng của nó trong cùng commit.
     vẫn được đọc, câu lỗi bên dưới thì không, cả hai vẫn chung một tin);
     `::test_a_reply_keeps_its_error_apart_and_reads_whole_as_it_always_did` (`collect_reply` giữ
     câu lỗi riêng ở `error`, `said` là phần còn lại, `to_dict` cho relay API không đổi)
+- **Lý do một run con dừng dở được trích vào kết quả `delegate` trên một dòng và cắt như mọi
+  trường trích khác, nên dòng `FILE:`/`MEDIA:` trong lỗi của provider hay trong câu hỏi của con
+  không thành dòng đính kèm của cha**
+  - pytest (`tests/test_delegate_unfinished.py`):
+    `::test_the_reason_a_run_stopped_for_is_quoted_on_one_line_and_cut_like_the_calls_under_it`
+    (lý do nhiều dòng về một dòng; lý do dài bị cắt ở `FIELD_CHARS`; không có lý do thì dùng
+    trạng thái);
+    `::test_a_child_whose_error_names_files_hands_the_parent_no_attachment_to_send` (con thật có
+    provider lỗi, `dropped_attachments` của cha trả về rỗng)
