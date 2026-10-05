@@ -3236,24 +3236,35 @@ tên một test thì sửa dòng của nó trong cùng commit.
     canvas a page is opened on, out of a manage link": `#/manage/canvas` và `#/manage/canvas/<id>` đi
     về qua `parseRoute`/`routeHash`, mục viết khác đi thì về Hoạt động);
     `web/src/screens/manage-screen.test.tsx` ("lists the canvases under the crew, after the memory, and
-    opens their library": mục Canvas đứng cuối nhóm Đội, sau Trí nhớ)
+    opens their library": mục Canvas đứng cuối nhóm Đội, sau Trí nhớ; "names the agent that made a
+    canvas as the rest of the screen names it": thư viện gọi agent bằng tên mà màn Quản lý đang dùng;
+    "reads the canvases again when the stream comes back": màn Quản lý báo cho thư viện biết stream
+    vừa nối lại)
+  - vitest, client: `web/src/api/artifact-client.test.ts` ("deletes a canvas under an encoded id, and
+    reads nothing from the server's empty answer": `DELETE /api/artifacts/<id đã mã hoá>`, 204 không
+    có thân)
   - vitest, hook: `web/src/hooks/use-canvas-library.test.ts` (đọc mọi canvas bất kể hội thoại, với
     `limit=200` và không `conversation_id`; 201 canvas thì hiện 200 và số đếm vẫn là 201; danh sách và
     dung lượng là hai lần đọc gửi cùng lúc, cái nào về trước hiện trước; không đọc được dung lượng thì
     vẫn có danh sách; lần đọc đầu hỏng thì báo và đọc lại khi thử lại, lần đọc sau hỏng thì giữ danh
-    sách cũ cùng chữ đã tìm; tìm theo tên chờ 250 ms sau phím cuối và gửi tên thành tham số `q` riêng;
+    sách cũ cùng chữ đã tìm; tìm theo tên chờ 250 ms sau phím cuối (249 ms thì chưa hỏi, con số viết
+    thẳng trong test) và gửi tên thành tham số `q` riêng;
     ô chỉ khác dấu cách thì không hỏi lại; câu trả lời hay lỗi về sau lần hỏi mới hơn thì bỏ; một loạt
     thay đổi gom thành một lần đọc sau nửa giây; stream nối lại và tab hiện lại thì đọc lại với chữ
     đang tìm; rời thư viện thì thôi đọc); `web/src/hooks/use-canvas-library-delete.test.ts` (canvas
     rời danh sách và tổng khi server trả lời, không sớm hơn; 404 cũng là đã xoá; 500 hay mất mạng thì
-    giữ canvas và ghi nhận nó bị từ chối cho tới lần thử sau; canvas chưa đọc được cỡ thì tổng giữ
-    nguyên; nơi khác đang hiện canvas ấy được báo)
+    giữ canvas và ghi nhận nó bị từ chối cho tới lần thử sau; hai canvas cùng bị từ chối thì cả hai
+    được ghi nhận, thử lại một canvas chỉ gỡ ghi nhận của chính nó; canvas chưa đọc được cỡ thì tổng
+    giữ nguyên; nơi khác đang hiện canvas ấy được báo)
   - vitest, thành phần: `web/src/components/canvas/canvas-library.test.tsx` (mỗi dòng nói loại, phiên
     bản, ai tạo, lúc nào và cỡ mọi phiên bản; sáu loại, canvas mã kèm ngôn ngữ, loại lạ in nguyên;
-    người là "bạn", agent là tên của nó kể cả agent có mã `user`; tiêu đề là chữ thuần, ký tự ẩn được
+    ngôn ngữ chỉ nói ở canvas mã dù server giữ ngôn ngữ cho loại nào cũng được; thời điểm là lần ghi
+    cuối, không phải lúc tạo; người là "bạn", agent là tên của nó kể cả agent có mã `user`, ký tự ẩn
+    trong tên agent được viết ra; tiêu đề là chữ thuần, ký tự ẩn được
     viết ra, thẻ HTML không thành phần tử; nguồn tệp là `<agent>/<đường dẫn>`, nguồn web là "agent ghi
     nguồn: <host>", không có link nào; thiếu cỡ thì không có dòng cỡ và không có "NaN", cỡ 0 là "0 B";
-    dòng tổng "<n> canvas · <đã dùng> / <trần>"; ô tìm dài tối đa 200 ký tự; bốn trạng thái: đang tải,
+    dòng tổng "<n> canvas · <đã dùng> / <trần>" đếm mọi canvas dù lần tìm chỉ ra ít hơn; ô tìm dài tối
+    đa 200 ký tự; bốn trạng thái: đang tải,
     lỗi kèm "Thử lại", trống, không khớp tên; "Hiện 200 canvas mới nhất…" khi còn canvas cũ hơn và
     không đang tìm; xoá hỏi `window.confirm` với đúng tiêu đề đang hiện, từ chối thì không gọi server,
     server không xoá thì câu báo nằm dưới đúng dòng đó);
@@ -3282,12 +3293,17 @@ tên một test thì sửa dòng của nó trong cùng commit.
     giữ" hiện phía trên thư viện vừa quay về, hoặc phía trên canvas vừa chuyển sang, và ở lại qua lần
     chuyển kế; "is not said of a canvas deleted from the library before the save got there": xoá
     canvas ngay sau khi rời nó thì không có câu báo nào và nháp đi theo; "opens the canvas whose name
-    is clicked in the library"); `web/src/components/canvas/canvas-section-crash.test.tsx` (trang vỡ
+    is clicked in the library"; "shows what was written to it while the stream was down, once the
+    stream is back": bản ghi lúc mất stream không ai báo, stream nối lại thì trang đọc lại và hiện
+    chữ mới); `web/src/components/canvas/canvas-section-crash.test.tsx` (trang vỡ
     thì nút "← Canvas" vẫn đứng phía trên chỗ vỡ vì nó nằm ngoài `ErrorBoundary`; địa chỉ đổi sang
     canvas khác hoặc về thư viện thì chỗ vỡ bị bỏ lại)
   - vitest, trang: `web/src/components/canvas/canvas-page.test.tsx` (trang dùng đúng panel mà hội
     thoại dùng; không có thanh hỏi agent, không có "Mở riêng", không ghi "canvas đang mở" cho hội
-    thoại nào; "goes back to the library at once with words unsaved, and their save goes on behind";
+    thoại nào; "opens a canvas an agent wrote to be read, under its name and not a box to name it in":
+    trang mở canvas như một canvas có sẵn, không như canvas vừa tạo; "opens the next canvas the way
+    that one opens, not the way the one before it was left": đổi id thì chế độ xem hay sửa tính lại
+    từ đầu; "goes back to the library at once with words unsaved, and their save goes on behind";
     nút đóng và nút về danh sách của panel đều là đường về; canvas không có hay bị xoá lúc đang mở thì
     panel nói "đã bị xoá" và đường về còn; "Nhập lại" gửi đi không kèm hội thoại nào; dòng "Dùng trong
     <n> hội thoại" gọi từng hội thoại bằng tiêu đề, hội thoại không tên hay tab chưa liệt kê thì bằng
@@ -3332,8 +3348,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     quả, mỗi dòng có tên, `v<n>` và nút "Mở" gọi đúng id; là một danh sách có tên; tên lấy từ thread
     trước, rồi từ dòng kết quả, rồi "Canvas"; ký tự ẩn được viết ra, thẻ HTML không thành phần tử; mỗi
     canvas được hỏi `verify` một lần, vẽ lại không hỏi lại; canvas đã xoá chỉ còn tên và "Canvas đã bị
-    xoá", không phiên bản, không nút; kết quả nêu một canvas hai lần thì vẽ cả hai dòng; không canvas
-    nào thì không vẽ gì và không hỏi gì)
+    xoá", không phiên bản, không nút; kết quả nêu một canvas hai lần thì vẽ cả hai dòng, và khi kết
+    quả được đọc lại với một dòng chen lên đầu thì các dòng vẫn đúng theo kết quả, không dòng nào
+    thừa; không canvas nào thì không vẽ gì và không hỏi gì)
   - vitest, thẻ: `web/src/components/delegate-cards.test.tsx` ("the canvases a handed-off task wrote,
     on its card": danh sách đứng dưới dòng trạng thái và chi phí, trên nút xem kết quả; thread không
     đưa đường mở canvas thì không có dòng nào; khối canvas rỗng là ca đối chứng: không dòng nào và

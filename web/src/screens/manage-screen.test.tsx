@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi as vitest } from "vitest";
 import { vi } from "../i18n/vi";
@@ -373,6 +373,30 @@ describe("the manage screen", () => {
     expect(within(crew).getByRole("button", { name: vi.canvas.tab })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent(vi.canvas.tab);
     expect(await screen.findByTestId("canvas-library")).toBeInTheDocument();
+  });
+
+  it("names the agent that made a canvas as the rest of the screen names it", async () => {
+    const backend = new FakeBackend();
+    backend.canvas.add({ title: "Kế hoạch", agent_id: "coach" });
+    vitest.stubGlobal("fetch", backend.fetch);
+    show("canvas");
+
+    expect(await screen.findByTestId("canvas-library-row")).toHaveTextContent(`${vi.canvas.libraryCreatedBy} HLV ·`);
+  });
+
+  // A canvas made while the stream was down was announced to nobody: the library asks again.
+  it("reads the canvases again when the stream comes back", async () => {
+    const backend = new FakeBackend();
+    vitest.stubGlobal("fetch", backend.fetch);
+    const lists = () => backend.requests.filter((r) => r.path.startsWith("/artifacts?")).length;
+    const stream = (connected: boolean) => ({ connection: { connected, connecting: false, onRetry: () => undefined } });
+    const { rerender } = show("canvas", stream(true));
+    await waitFor(() => expect(lists()).toBe(1));
+
+    rerender(stream(false));
+    rerender(stream(true));
+
+    await waitFor(() => expect(lists()).toBe(2));
   });
 });
 

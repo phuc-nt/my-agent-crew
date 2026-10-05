@@ -112,6 +112,20 @@ describe("the canvases a handed-off task wrote", () => {
     expect(chips().map((chip) => chip.textContent)).toEqual([`Báo cáo tuầnv2${card.open}`, `Báo cáo tuầnv3${card.open}`]);
   });
 
+  it("keep to the lines of the result when it is read again with one more, a canvas named twice among them", () => {
+    const canvas = links();
+    const twice = [REPORT, { ...REPORT, version: 3 }];
+    const view = show(twice, canvas);
+
+    view.rerender(<DelegateCanvases canvases={[ANNEX, ...twice]} canvas={canvas} />);
+
+    expect(chips().map((chip) => chip.textContent)).toEqual([
+      `Phụ lụcv1${card.open}`,
+      `Báo cáo tuầnv2${card.open}`,
+      `Báo cáo tuầnv3${card.open}`,
+    ]);
+  });
+
   it("draw nothing for a task that wrote none, and ask the server nothing", () => {
     const canvas = links();
     const { container } = show([], canvas);

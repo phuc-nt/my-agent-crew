@@ -83,6 +83,26 @@ describe("a row of the library", () => {
     expect(badges).toEqual([kinds.code, `${kinds.code} · python`, kinds.image, "sheet", kinds.mermaid, kinds.svg, kinds.html, kinds.markdown]);
   });
 
+  // The server keeps a language for a canvas of any kind; it means something for code alone.
+  it("says a language of a code canvas only, whatever one the server keeps for another kind", async () => {
+    await show({ title: "note", kind: "markdown", language: "python" });
+
+    expect(rows()[0].querySelector(".badge")?.textContent).toBe(canvas.kinds.markdown);
+  });
+
+  it("says when a canvas was last written, not when it was made", async () => {
+    await show({ title: "Sửa gần đây", created_at: "2026-09-30T03:10:00Z" });
+
+    expect(rowOf("Sửa gần đây")).toHaveTextContent(`· ${vi.time.minutes(10)}`);
+  });
+
+  // An agent's name is its profile's wording, shown here beside what the agent itself wrote.
+  it("writes out what nobody would see in the name of the agent that made a canvas", async () => {
+    await show({ title: "Của agent lạ", agent_id: "ghost" });
+
+    expect(rowOf("Của agent lạ")).toHaveTextContent(`${canvas.libraryCreatedBy} Bóng[U+200B]ma ·`);
+  });
+
   it("calls the person who made a canvas \"bạn\" and an agent by its name, even one whose id is user", async () => {
     await show({ title: "Của người" }, { title: "Của agent", agent_id: "coach" }, { title: "Của agent user", agent_id: "user" });
 
@@ -137,6 +157,15 @@ describe("the head of the library", () => {
     await show({ content: "a".repeat(2048) }, { content: "abc" });
 
     expect(library().querySelector(".canvas-library-total")).toHaveTextContent(canvas.libraryTotal(2, "2 KB", "1 GB"));
+  });
+
+  it("counts every canvas in the total, however few a search shows", async () => {
+    await show({ title: "Kế hoạch tuần", content: "abc" }, { title: "Ghi chú", content: "de" });
+
+    await type("kế");
+
+    expect(rows()).toHaveLength(1);
+    expect(library().querySelector(".canvas-library-total")).toHaveTextContent(canvas.libraryTotal(2, "5 B", "1 GB"));
   });
 
   it("shows the canvases with no sizes and no total when what they hold could not be read", async () => {

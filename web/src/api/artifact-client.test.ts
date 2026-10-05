@@ -46,6 +46,14 @@ describe("artifactApi", () => {
     ]);
   });
 
+  it("deletes a canvas under an encoded id, and reads nothing from the server's empty answer", async () => {
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    await expect(artifactApi.remove("a/1")).resolves.toBeUndefined();
+
+    expect(sent()).toMatchObject({ url: "/api/artifacts/a%2F1", method: "DELETE" });
+  });
+
   it("creates a canvas in a conversation and returns its detail", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(detail, 201));
     const made = await artifactApi.create({ title: "Kế hoạch", kind: "markdown", content: "", conversation_id: "c1" });

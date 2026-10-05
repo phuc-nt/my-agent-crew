@@ -156,6 +156,24 @@ describe("the canvas the address names", () => {
     expect(backend.canvas.content(NOTE)).toBe("ab");
     expect(sent(backend, "PUT", SHOP)).toEqual([]);
   });
+
+  it("shows what was written to it while the stream was down, once the stream is back", async () => {
+    const view = render(section({ canvasId: NOTE }));
+    await landed();
+    view.rerender(section({ canvasId: NOTE, connected: false }));
+    // With the stream down, the server's news of this write reaches nobody.
+    const stream = backend.canvas.onEvent;
+    backend.canvas.onEvent = null;
+    backend.canvas.write(NOTE, "viết lúc mất kết nối");
+    backend.canvas.onEvent = stream;
+    await landed();
+    expect(editor()?.value).toBe("a");
+
+    view.rerender(section({ canvasId: NOTE }));
+    await landed();
+
+    expect(editor()?.value).toBe("viết lúc mất kết nối");
+  });
 });
 
 describe("a save that fails after its page was left", () => {

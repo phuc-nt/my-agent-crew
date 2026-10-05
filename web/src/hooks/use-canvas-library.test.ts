@@ -138,9 +138,9 @@ describe("searching the library by name", () => {
 
     act(() => result.current.setQuery("kế"));
     expect(result.current.query).toBe("kế");
-    wait(SEARCH_WAIT_MS - 1);
+    wait(249);
     act(() => result.current.setQuery("kế h&limit=1"));
-    wait(SEARCH_WAIT_MS - 1);
+    wait(249);
     expect(lists()).toHaveLength(1);
     wait(1);
     await landed();

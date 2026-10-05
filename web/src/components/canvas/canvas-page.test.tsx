@@ -89,6 +89,17 @@ describe("a canvas on a page of its own", () => {
     expect(backend.requests.some((r) => r.path.includes("/conversations"))).toBe(false);
   });
 
+  // The page shows a canvas somebody made earlier: it is opened as found, not as one just made here.
+  it("opens a canvas an agent wrote to be read, under its name and not a box to name it in", async () => {
+    backend.canvas.add({ id: "0000000000ee", title: "Của HLV", content: "đọc thôi", agent_id: "coach" });
+    await openPage("0000000000ee");
+
+    expect(screen.getByRole("heading", { level: 2, name: "Của HLV" })).toBeTruthy();
+    expect(editor()).toBeNull();
+    expect(panel()).toHaveTextContent("đọc thôi");
+    expect(screen.queryByRole("textbox", { name: canvas.rename })).toBeNull();
+  });
+
   it("goes back to the library at once with words unsaved, and their save goes on behind", async () => {
     await openPage();
     typeInto("ab");
@@ -308,5 +319,20 @@ describe("the page and the dock it borrows", () => {
     await landed();
     expect(editor()?.value).toBe("b");
     expect(usedButtons()).toEqual([canvas.conversationFallback("c2")]);
+  });
+
+  it("opens the next canvas the way that one opens, not the way the one before it was left", async () => {
+    backend.canvas.add({ id: "0000000000ee", title: "Của HLV", content: "đọc thôi", agent_id: "coach" });
+    const watch = watched();
+    const view = render(<Alone id={NOTE} watch={watch} />);
+    await landed();
+    // The person's own canvas opened to be written in.
+    expect(editor()?.value).toBe("a");
+
+    view.rerender(<Alone id="0000000000ee" watch={watch} />);
+    await landed();
+
+    expect(editor()).toBeNull();
+    expect(panel()).toHaveTextContent("đọc thôi");
   });
 });
