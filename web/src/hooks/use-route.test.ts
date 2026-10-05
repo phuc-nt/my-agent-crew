@@ -100,6 +100,42 @@ describe("reading a route from the address bar", () => {
     expect(parseRoute("#/manage/canvases/0123456789ab")).toEqual({ kind: "manage", section: "activity" });
   });
 
+  // A link cut short, or mangled by whatever carried it, still has to land somewhere: the app
+  // reads the address as it starts, and one it could not read would leave a blank screen.
+  it.each(["%", "%E0%A4%A", "%zz", "ghi%2"])(
+    "opens the section alone when what it is opened on is written %j, an escape that cannot be read",
+    (broken) => {
+      expect(parseRoute(`#/manage/canvas/${broken}`)).toEqual({ kind: "manage", section: "canvas" });
+      // What hangs under it goes with it: neither belongs to a section opened on nothing.
+      expect(parseRoute(`#/manage/crew/${broken}/schedules?job=coach%2Fbrief`)).toEqual({ kind: "manage", section: "crew" });
+    },
+  );
+
+  it("keeps what the section is opened on and drops the part to show, when only that part cannot be read", () => {
+    expect(parseRoute("#/manage/canvas/0123456789ab/%zz")).toEqual({
+      kind: "manage",
+      section: "canvas",
+      param: "0123456789ab",
+    });
+    expect(parseRoute("#/manage/crew/coach/%E0%A4%A?job=coach%2Fbrief")).toEqual({
+      kind: "manage",
+      section: "crew",
+      param: "coach",
+      fromJob: "coach/brief",
+    });
+  });
+
+  it("reads a broken escape anywhere else in the address as the letters it is written in", () => {
+    expect(parseRoute("#/manage/%zz/coach")).toEqual({ kind: "manage", section: "activity" });
+    expect(parseRoute("#/chat/%zz")).toEqual({ kind: "chat", conversationId: "%zz" });
+    expect(parseRoute("#/manage/activity/r-1?job=%zz")).toEqual({
+      kind: "manage",
+      section: "activity",
+      param: "r-1",
+      fromJob: "%zz",
+    });
+  });
+
   it("writes a hash that reads back as the same route", () => {
     const routes = [
       { kind: "chat", conversationId: null },
@@ -121,6 +157,20 @@ describe("moving between screens", () => {
 
     act(() => result.current.navigate({ kind: "chat", conversationId: "c9" }));
     expect(result.current.route).toEqual({ kind: "chat", conversationId: "c9" });
+  });
+
+  it("starts on the section, and follows the address bar to one, when the address holds an escape that cannot be read", () => {
+    window.location.hash = "#/manage/canvas/%";
+    const { result } = renderHook(() => useRoute());
+    expect(result.current.route).toEqual({ kind: "manage", section: "canvas" });
+
+    act(() => {
+      window.location.hash = "#/manage/crew/%E0%A4%A";
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    });
+
+    expect(window.location.hash).toBe("#/manage/crew/%E0%A4%A");
+    expect(result.current.route).toEqual({ kind: "manage", section: "crew" });
   });
 
   // Reflecting a conversation the app chose on its own should not give the person a Back

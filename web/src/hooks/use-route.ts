@@ -46,6 +46,19 @@ function isSection(value: string): value is ManageSection {
 }
 
 /**
+ * A segment as it read before it was escaped, or nothing when its escapes cannot be read: a link
+ * cut short ends in half an escape, and the address is read as the app starts, where throwing
+ * would leave a blank screen.
+ */
+function unescaped(segment: string | undefined): string | undefined {
+  try {
+    return segment ? decodeURIComponent(segment) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Read a route out of a hash.
  *
  * Anything unrecognised falls back to the chat with no conversation chosen, so a stale or
@@ -60,8 +73,8 @@ export function parseRoute(hash: string): Route {
     // too: landing on the default section with someone else's id still attached would
     // open something the person did not ask for.
     if (!isSection(section)) return { kind: "manage", section: DEFAULT_SECTION };
-    const param = parts[2] ? decodeURIComponent(parts[2]) : undefined;
-    const focus = parts[3] ? decodeURIComponent(parts[3]) : undefined;
+    const param = unescaped(parts[2]);
+    const focus = unescaped(parts[3]);
     const fromJob = new URLSearchParams(query).get("job") ?? undefined;
     if (!param) return { kind: "manage", section };
     return { kind: "manage", section, param, ...(focus && { focus }), ...(fromJob && { fromJob }) };

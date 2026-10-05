@@ -90,6 +90,14 @@ describe("a canvas's own page in the app", () => {
     expect(backend.requests.filter((r) => r.path.startsWith("/artifacts/")).map((r) => r.path)).toEqual(["/artifacts/usage"]);
   });
 
+  it.each(["%", "%E0%A4%A", "%zz"])("shows the library, not a blank screen, for a link whose canvas is written %j", async (broken) => {
+    await openAt(`#/manage/canvas/${broken}`);
+
+    expect(rows()).toHaveLength(2);
+    expect(screen.queryByRole("button", { name: canvas.back })).toBeNull();
+    expect(backend.requests.filter((r) => r.path.startsWith("/artifacts/")).map((r) => r.path)).toEqual(["/artifacts/usage"]);
+  });
+
   it("is one click from the canvas open beside a conversation, in a tab of its own", async () => {
     await openChat(1440);
     await openNote();

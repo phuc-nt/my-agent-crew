@@ -200,6 +200,18 @@ test("an address naming what is no canvas's id shows the library and asks the se
   expect([...new Set(asked)]).toEqual(["/api/artifacts/usage"]);
 });
 
+test("an address cut short in the middle of an escape shows the library instead of a blank screen", async ({ page }) => {
+  await serve(page);
+  const broke: string[] = [];
+  page.on("pageerror", (error) => broke.push(error.message));
+
+  await page.goto("/#/manage/canvas/%E0%A4%A");
+
+  await expect(rows(page)).toHaveCount(2);
+  await expect(back(page)).toHaveCount(0);
+  expect(broke).toEqual([]);
+});
+
 test.describe("the canvas open beside a conversation", () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 

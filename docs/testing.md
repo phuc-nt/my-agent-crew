@@ -3491,8 +3491,18 @@ tên một test thì sửa dòng của nó trong cùng commit.
   - vitest, cả app: `web/src/app-canvas-page.test.tsx` (link tới trang mở đúng trang, "← Canvas" đưa
     địa chỉ về `#/manage/canvas`, tên trong thư viện đưa địa chỉ về lại `#/manage/canvas/<id>`; bấm
     tên hội thoại thì sang `#/chat/<id>`; chọn mục khác rồi quay lại mục Canvas thì là thư viện, id đã
-    rời địa chỉ; link có id không hợp lệ thì chỉ `/artifacts/usage` được hỏi dưới `/artifacts/`; "Mở
-    riêng" từ dock của hội thoại gọi `window.open` với đúng địa chỉ trang)
+    rời địa chỉ; link có id không hợp lệ thì chỉ `/artifacts/usage` được hỏi dưới `/artifacts/`;
+    "shows the library, not a blank screen, for a link whose canvas is written %j": link cụt giữa một
+    ký tự mã hoá (`%`, `%E0%A4%A`, `%zz`) ra thư viện thay vì màn trắng, và cũng chỉ `/artifacts/usage`
+    được hỏi; "Mở riêng" từ dock của hội thoại gọi `window.open` với đúng địa chỉ trang)
+  - vitest, đường dẫn: `web/src/hooks/use-route.test.ts` ("opens the section alone when what it is
+    opened on is written %j, an escape that cannot be read": `%`, `%E0%A4%A`, `%zz`, `ghi%2` ở chỗ
+    của id thì chỉ còn mục, phần cần hiện và `?job=` đi theo nó; "keeps what the section is opened on
+    and drops the part to show, when only that part cannot be read"; "reads a broken escape anywhere
+    else in the address as the letters it is written in": ở tên mục, ở id hội thoại và trong `?job=`
+    không có gì phải giải mã nên không gì ném lỗi; "starts on the section, and follows the address
+    bar to one, when the address holds an escape that cannot be read": `useRoute` lúc khởi động và
+    lúc `hashchange` đều ra mục chứ không ném lỗi)
   - Playwright: `web/e2e/canvas-page.spec.ts` (ở 1440×900 và 390×844: bấm tên trong thư viện thì địa
     chỉ có id, trang chạm đúng chân mục mà mục không cuộn dọc, panel là cả trang trừ dòng "Dùng
     trong…" và cao hơn nửa màn, ô soạn chiếm phần panel mà đầu panel để lại, không chỗ nào tràn
@@ -3500,7 +3510,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     có câu báo; lần lưu bị từ chối thì câu báo hiện phía trên thư viện, mở lại canvas là thấy nháp;
     dòng hội thoại đúng thứ tự và mở đúng cuộc; tiêu đề dài không ngắt được vẫn nằm trong màn; canvas
     không còn thì nói đã xoá và "← Canvas" vẫn về thư viện; địa chỉ `..%2F..%2Fsettings` ra thư viện
-    và không địa chỉ nào dưới `/api/artifacts/` ngoài `usage` được hỏi; "opens on its own page in a
+    và không địa chỉ nào dưới `/api/artifacts/` ngoài `usage` được hỏi; "an address cut short in the
+    middle of an escape shows the library instead of a blank screen": `#/manage/canvas/%E0%A4%A` ra
+    thư viện và trang không ném lỗi nào; "opens on its own page in a
     new tab cut off from this one, once what was typed is saved": nút tắt cho tới khi lần lưu xong,
     tab mới có `window.opener` là `null` và `document.referrer` rỗng, tab cũ vẫn ở cuộc trò chuyện);
     `web/e2e/touch-targets-phone.spec.ts` ("every control on a canvas's own page is big enough for a

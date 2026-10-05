@@ -412,6 +412,10 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 - A tool call that failed stays failed when the conversation is read back. The web drew every
   stored call that was not denied as done, so a failed call, a call to a tool that does not
   exist and one a hook blocked showed a done mark, with the error only inside the result.
+- A link whose address holds an escape that cannot be read, `#/manage/crew/%` or one cut short
+  in the middle of a letter, no longer opens the web app on a blank screen. The part that cannot
+  be read is taken as not there: the section opens on its list, and when only the part to show
+  is broken, what the section is opened on is kept.
 
 ### Changed
 
