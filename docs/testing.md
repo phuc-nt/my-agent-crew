@@ -3984,11 +3984,14 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `artifact:` đứng giữa đường dẫn hay sau một dấu cách)
   - pytest: `tests/test_channels_telegram.py::test_the_web_tells_a_line_that_sends_a_canvas_by_the_prefix_the_channel_reads`
     (tiền tố `ARTIFACT_REF` trong `web/src/lib/artifact-ref.ts` bằng đúng hằng của Python)
-  - vitest, tách dòng: `web/src/components/message-thread.test.tsx` (`splitMedia`: dòng gửi canvas
-    dưới cả hai tiền tố thành khối `canvas` mang mã và nguyên dòng đã viết; dòng tệp workspace không
-    đổi; mã sai thành khối `canvas` có mã rỗng; "a line of a reply that sends a canvas": thread có
-    đường mở canvas thì câu trả lời có chip, không link tệp, không chữ `FILE:`, lời quanh dòng còn
-    nguyên và nút gọi đúng mã; thread không có thì dòng là một đoạn chữ)
+  - vitest, tách dòng: `web/src/lib/reply-blocks.test.ts` (`splitMedia`, nay ở
+    `web/src/lib/reply-blocks.ts`: dòng `MEDIA:` và `FILE:` tách khỏi lời, giữ đúng thứ tự, câu chỉ
+    nhắc tới tiền tố và tiền tố trần vẫn là lời; dòng gửi canvas dưới cả hai tiền tố thành khối
+    `canvas` mang mã và nguyên dòng đã viết; dòng tệp workspace không đổi; mã sai thành khối
+    `canvas` có mã rỗng)
+  - vitest, trong thread: `web/src/components/message-thread.test.tsx` ("a line of a reply that
+    sends a canvas": thread có đường mở canvas thì câu trả lời có chip, không link tệp, không chữ
+    `FILE:`, lời quanh dòng còn nguyên và nút gọi đúng mã; thread không có thì dòng là một đoạn chữ)
   - vitest, chip: `web/src/components/canvas/canvas-ref-chip.test.tsx` (tên thread đang giữ, biểu
     tượng, đúng một nút và nút gọi đúng mã; không in lại dòng hay mã; chưa biết tên thì là "Canvas"
     và vẫn mở được; ký tự ẩn được viết ra; `verify` được gọi một lần, vẽ lại không gọi lại, đổi mã

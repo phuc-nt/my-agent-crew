@@ -3,7 +3,6 @@ import { describe, expect, it, vi as vitest } from "vitest";
 import { vi } from "../i18n/vi";
 import { emptyThread } from "../state/thread-reducer";
 import { ErrorBoundary } from "./error-boundary";
-import { splitMedia } from "./message-thread";
 import { StatusLine } from "./status-line";
 
 describe("StatusLine", () => {
@@ -43,17 +42,6 @@ describe("StatusLine", () => {
     expect(line).not.toHaveTextContent("Đang đọc dữ liệu");
     rerender(<StatusLine thread={{ ...thread, busy: true, thinking: true }} connected liveCount={0} overBudget />);
     expect(line).toHaveTextContent(vi.statusThinking);
-  });
-});
-
-describe("splitMedia", () => {
-  it("separates MEDIA: lines from text and keeps ordinary lines together", () => {
-    expect(splitMedia("Đây là ảnh:\nMEDIA: out/chart.png\nxong")).toEqual([
-      { kind: "text", value: "Đây là ảnh:" },
-      { kind: "media", value: "out/chart.png" },
-      { kind: "text", value: "xong" },
-    ]);
-    expect(splitMedia("MEDIA:")).toEqual([{ kind: "text", value: "MEDIA:" }]);
   });
 });
 

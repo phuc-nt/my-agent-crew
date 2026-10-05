@@ -2,8 +2,8 @@ import { agentFileUrl } from "../api/client";
 import type { RunInfo } from "../api/types";
 import { useAutoScroll } from "../hooks/use-auto-scroll";
 import { vi } from "../i18n/vi";
-import { artifactRef } from "../lib/artifact-ref";
 import type { WritingItem } from "../lib/canvas-writing";
+import { type ReplyBlock, splitMedia } from "../lib/reply-blocks";
 import type { ThreadItem } from "../state/thread-reducer";
 import { AttachmentChip, fileName, splitAttachments, type AttachmentBlock } from "./attachment-chip";
 import type { CanvasLinks } from "./canvas/canvas-card";
@@ -46,9 +46,6 @@ interface Props {
    *  new ones would throw off mid-click. */
   onFork?: (item: ThreadItem) => void;
 }
-
-const MEDIA_PREFIX = "MEDIA:";
-const FILE_PREFIX = "FILE:";
 
 export function MessageThread({
   items,
@@ -155,49 +152,6 @@ export function MessageThread({
       )}
     </div>
   );
-}
-
-export type ReplyBlock = { kind: "text" | "media" | "file"; value: string } | { kind: "canvas"; id: string; line: string };
-
-/** What a line that sends something sends: the canvas its path names, or else the file at that path. */
-function sent(kind: "media" | "file", line: string, path: string): ReplyBlock {
-  const id = artifactRef(path);
-  return id === null ? { kind, value: path } : { kind: "canvas", id, line };
-}
-
-/**
- * Splits a reply into text blocks, `MEDIA:<path>` lines, which become inline images, and
- * `FILE:<path>` lines, which become download links. Either line names a canvas when its path is
- * `artifact:<id>`, and becomes that canvas.
- *
- * Both prefixes are handled here rather than only on the Telegram side, because the same
- * reply text is what the web shows. Leaving `FILE:` unparsed would print the raw line in
- * the chat, so the person on the web would read a path where the person on Telegram got
- * the file itself.
- */
-export function splitMedia(text: string): ReplyBlock[] {
-  const blocks: ReplyBlock[] = [];
-  const pending: string[] = [];
-  const flush = () => {
-    if (pending.length > 0) blocks.push({ kind: "text", value: pending.join("\n") });
-    pending.length = 0;
-  };
-  for (const line of text.split("\n")) {
-    const trimmed = line.trim();
-    // A bare prefix with nothing after it is not a path, so it stays prose rather than
-    // becoming a link to the workspace root.
-    if (trimmed.startsWith(MEDIA_PREFIX) && trimmed.length > MEDIA_PREFIX.length) {
-      flush();
-      blocks.push(sent("media", trimmed, trimmed.slice(MEDIA_PREFIX.length).trim()));
-    } else if (trimmed.startsWith(FILE_PREFIX) && trimmed.length > FILE_PREFIX.length) {
-      flush();
-      blocks.push(sent("file", trimmed, trimmed.slice(FILE_PREFIX.length).trim()));
-    } else {
-      pending.push(line);
-    }
-  }
-  flush();
-  return blocks;
 }
 
 /** Who said the reply: the agent's tile and name, and the model that wrote it when known. */
