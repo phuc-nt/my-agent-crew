@@ -5,8 +5,11 @@ import type { RunInfo, RunStep } from "../api/types";
 import { vi } from "../i18n/vi";
 import type { ThreadItem } from "../state/thread-reducer";
 import { fakeRun } from "../test/fake-backend";
+import type { CanvasLinks } from "./canvas/canvas-card";
 import { MessageThread, splitMedia } from "./message-thread";
 
+const PLAN = "00ff00ff00ff";
+const NOTE = "0123456789ab";
 const userItem: ThreadItem = { id: "m1", kind: "user", text: "tìm sách đi" };
 
 function waiting(liveRun: RunInfo | null) {
@@ -366,5 +369,62 @@ describe("splitMedia", () => {
   it("leaves a bare prefix with no path as prose", () => {
     // Otherwise it would become a download link aimed at the workspace root.
     expect(splitMedia("FILE:")).toEqual([{ kind: "text", value: "FILE:" }]);
+  });
+
+  it("reads a line that sends a canvas as that canvas, under either prefix, and keeps the line as written", () => {
+    expect(splitMedia(`a\n  FILE: artifact:${PLAN}\nb\nMEDIA:artifact: ${NOTE} \nc`)).toEqual([
+      { kind: "text", value: "a" },
+      { kind: "canvas", id: PLAN, line: `FILE: artifact:${PLAN}` },
+      { kind: "text", value: "b" },
+      { kind: "canvas", id: NOTE, line: `MEDIA:artifact: ${NOTE}` },
+      { kind: "text", value: "c" },
+    ]);
+  });
+
+  it("still reads a line that sends a file of the workspace as the file, a canvas named inside its path too", () => {
+    expect(splitMedia(`FILE: a.csv\nFILE: notes/artifact:${PLAN}\nMEDIA: Artifact:${PLAN}`)).toEqual([
+      { kind: "file", value: "a.csv" },
+      { kind: "file", value: `notes/artifact:${PLAN}` },
+      { kind: "media", value: `Artifact:${PLAN}` },
+    ]);
+  });
+
+  it("reads a line that sets out to name a canvas and names none as a canvas with no id, not as a file", () => {
+    expect(splitMedia("FILE: artifact:xyz\nMEDIA: artifact:")).toEqual([
+      { kind: "canvas", id: "", line: "FILE: artifact:xyz" },
+      { kind: "canvas", id: "", line: "MEDIA: artifact:" },
+    ]);
+  });
+});
+
+describe("a line of a reply that sends a canvas", () => {
+  const reply: ThreadItem = { id: "a1", kind: "assistant", text: `Sổ tay đây:\nFILE: artifact:${PLAN}\nXong.`, model: null };
+
+  function thread(canvas?: CanvasLinks) {
+    return render(
+      <MessageThread items={[reply]} streaming={null} busy={false} onSuggestion={() => {}} echoOnly={false} agentId="master" canvas={canvas} />,
+    );
+  }
+
+  it("is a chip inside the reply that opens the canvas, not a link to a file the workspace does not have", () => {
+    const open: string[] = [];
+    thread({ titleOf: () => "Sổ tay", isGone: () => false, verify: () => {}, open: (id) => open.push(id) });
+
+    const chip = within(screen.getByTestId("message-assistant")).getByTestId("canvas-ref");
+    expect(screen.queryByTestId("message-file")).toBeNull();
+    expect(screen.getByTestId("message-assistant")).not.toHaveTextContent("FILE:");
+    expect(screen.getByTestId("message-assistant")).toHaveTextContent("Sổ tay đây:");
+    expect(screen.getByTestId("message-assistant")).toHaveTextContent("Xong.");
+    fireEvent.click(within(chip).getByRole("button", { name: vi.canvas.card.openLabel("Sổ tay") }));
+
+    expect(open).toEqual([PLAN]);
+  });
+
+  it("is the line as it was written where the thread is given nothing to open a canvas with", () => {
+    thread();
+
+    expect(screen.queryByTestId("canvas-ref")).toBeNull();
+    expect(screen.queryByTestId("message-file")).toBeNull();
+    expect(screen.getByText(`FILE: artifact:${PLAN}`).tagName).toBe("P");
   });
 });

@@ -55,7 +55,7 @@ describe("the canvases a handed-off task wrote", () => {
     const canvas = links({ titles: { [PLAN]: "Báo cáo đã đổi tên" } });
     show([REPORT, ANNEX, { id: SHOP, version: 4, title: "" }], canvas);
 
-    expect(chips().map((chip) => chip.querySelector(".delegate-canvas-title")?.textContent)).toEqual([
+    expect(chips().map((chip) => chip.querySelector(".canvas-chip-title")?.textContent)).toEqual([
       "Báo cáo đã đổi tên",
       "Phụ lục",
       card.untitled,
@@ -73,7 +73,7 @@ describe("the canvases a handed-off task wrote", () => {
       links(),
     );
 
-    const titles = chips().map((chip) => chip.querySelector(".delegate-canvas-title") as HTMLElement);
+    const titles = chips().map((chip) => chip.querySelector(".canvas-chip-title") as HTMLElement);
     expect(titles[0].textContent).toBe("an[U+202E]toàn");
     expect(screen.getByRole("button", { name: card.openLabel("an[U+202E]toàn") })).toBeInTheDocument();
     expect(titles[1].textContent).toBe('<img src=x onerror="alert(1)"><b>đậm</b>');

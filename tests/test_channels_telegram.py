@@ -26,6 +26,7 @@ from my_agent_crew.config import Route
 from my_agent_crew.llm.fake import completion
 from my_agent_crew.llm.provider import ProviderError
 from my_agent_crew.llm.types import Message, ToolCall
+from my_agent_crew.reply_attachments import ARTIFACT_REF
 from my_agent_crew.store.models import AWAITING_APPROVAL
 from my_agent_crew.store.runs import DONE, HALTED, RunRecord
 from tests.telegram_fake import CHAT, TOKEN, document, message, photo, poll_each, settle
@@ -96,6 +97,15 @@ def test_the_web_finds_saved_file_lines_by_the_words_the_channel_writes():
     assert words is not None
     path = "/w/inbox/20260921-140509-file_7.jpg"
     assert texts.TELEGRAM_ATTACHMENT_LINE.format(path=path) == f"[{words.group(1)}: {path}]"
+
+
+def test_the_web_tells_a_line_that_sends_a_canvas_by_the_prefix_the_channel_reads():
+    """`web/src/lib/artifact-ref.ts` holds the prefix a second time. Changed on one side alone,
+    a line the chat answers with the canvas would be a link to no file in the web thread."""
+    source = Path(__file__).resolve().parents[1] / "web" / "src" / "lib" / "artifact-ref.ts"
+    found = re.search(r'^export const ARTIFACT_REF = "([^"]+)";$', source.read_text("utf-8"), re.M)
+    assert found is not None, "ARTIFACT_REF is no longer a one-line constant in artifact-ref.ts"
+    assert found.group(1) == ARTIFACT_REF
 
 
 def album(update_id: int, file_id: str, group: str, caption: str = "") -> dict:

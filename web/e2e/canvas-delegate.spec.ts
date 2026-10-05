@@ -90,7 +90,7 @@ function placed(page: Page) {
     const all = (selector: string) => [...document.querySelectorAll<HTMLElement>(selector)];
     const box = (selector: string) => all(selector)[0].getBoundingClientRect();
     const lines = (el: HTMLElement) => Math.round(el.getBoundingClientRect().height / Number.parseFloat(getComputedStyle(el).lineHeight));
-    const [cardBox, chip, title, icon] = [".delegate-card", ".delegate-canvas", ".delegate-canvas-title", ".delegate-canvas .tool-icon"].map(box);
+    const [cardBox, chip, title, icon] = [".delegate-card", ".delegate-canvas", ".delegate-canvas .canvas-chip-title", ".delegate-canvas .tool-icon"].map(box);
     const button = all(".delegate-canvas button")[0]?.getBoundingClientRect();
     const tops = all(".delegate-canvas").map((el) => el.getBoundingClientRect());
     return {
@@ -99,7 +99,7 @@ function placed(page: Page) {
       underCost: chip.top >= box(".delegate-result").bottom,
       stacked: tops.every((at, i) => i === 0 || (at.top >= tops[i - 1].bottom && at.left === tops[0].left)),
       iconWhole: icon.width > 0 && Math.abs(icon.width - icon.height) < 0.5,
-      titleLines: lines(all(".delegate-canvas-title")[0]),
+      titleLines: lines(all(".delegate-canvas .canvas-chip-title")[0]),
       besideLines: all(".delegate-canvas > .muted").map(lines),
     };
   });

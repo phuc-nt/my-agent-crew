@@ -2,9 +2,12 @@ import { expect, type Page, test } from "@playwright/test";
 import { vi } from "../src/i18n/vi";
 import { FakeCanvas } from "../src/test/fake-canvas";
 import { type Conversation, mockApi } from "./mock-api";
+import { smallTargets } from "./small-targets";
 
 const PLAN = "00ff00ff00ff";
 const TITLE = "Kế hoạch tuần";
+// A title with nowhere to break, wider than a phone.
+const LONG_TITLE = `Biên bản ${"kéodàikhôngngắt".repeat(8)}`;
 const WRITE = { title: TITLE, content: "Việc một\n\nViệc hai" };
 const REPLY = "Đã viết kế hoạch.";
 
@@ -45,6 +48,38 @@ async function askForPlan(page: Page) {
   return box;
 }
 
+/** A saved conversation whose reply sent the canvas to the chat as a file, opened with the canvas named `title`. */
+async function openSent(page: Page, title = TITLE) {
+  const stored = { tool_calls: [], tool_call_id: null, name: null, provider: null, model: null, cost_usd: null, created_at: "" };
+  const fake = new FakeCanvas();
+  fake.add({ id: PLAN, title, agent_id: "master", content: WRITE.content, conversationIds: ["c1"] });
+  const messages = [
+    { ...stored, id: "m1", seq: 1, role: "user", content: "gửi kế hoạch cho tôi" },
+    { ...stored, id: "m2", seq: 2, role: "assistant", content: `Kế hoạch đây:\nFILE: artifact:${PLAN}\nXem nhé.` },
+  ];
+  await mockApi(page, { conversations: [{ ...quiet(), messages }], canvas: fake });
+  await page.goto("/#/chat/c1");
+  const chip = page.getByTestId("message-assistant").getByTestId("canvas-ref");
+  await expect(chip).toHaveText(`${title}${vi.canvas.card.open}`);
+  return { chip, open: chip.getByRole("button", { name: vi.canvas.card.openLabel(title) }) };
+}
+
+/** How the chip sits in its reply: inside it, the name in front of a button at the chip's end whose word is on one line. */
+function placed(page: Page) {
+  return page.evaluate(() => {
+    const box = (selector: string) => (document.querySelector(selector) as HTMLElement).getBoundingClientRect();
+    const [bubble, chip, title, button] = ['[data-testid="message-assistant"]', ".canvas-ref", ".canvas-ref .canvas-chip-title", ".canvas-ref button"].map(box);
+    const word = document.createRange();
+    word.selectNodeContents(document.querySelector(".canvas-ref button") as HTMLElement);
+    return {
+      inside: chip.left >= bubble.left && chip.right <= bubble.right,
+      buttonAfterName: button.left >= title.right && button.right <= chip.right,
+      buttonLines: word.getClientRects().length,
+      sideways: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+    };
+  });
+}
+
 test.describe("on a wide screen", () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -78,6 +113,17 @@ test.describe("on a wide screen", () => {
 
     await expect(page.getByRole("heading", { level: 2, name: TITLE })).toBeVisible();
   });
+
+  test("a line of a reply that sends a canvas is a chip in the reply, which opens the canvas beside the thread", async ({ page }) => {
+    const { open } = await openSent(page);
+    await expect(page.getByTestId("message-file")).toHaveCount(0);
+    await expect(page.getByTestId("message-assistant")).not.toContainText("FILE:");
+    expect(await placed(page)).toEqual({ inside: true, buttonAfterName: true, buttonLines: 1, sideways: false });
+
+    await open.click();
+
+    await expect(page.getByRole("heading", { level: 2, name: TITLE })).toBeVisible();
+  });
 });
 
 test.describe("on a phone", () => {
@@ -93,5 +139,25 @@ test.describe("on a phone", () => {
 
     await expect(page.getByRole("region", { name: vi.canvas.button })).toBeVisible();
     await expect(page.getByRole("heading", { level: 2, name: TITLE })).toBeVisible();
+  });
+
+  test("the chip of a line that sends a canvas is big enough for a finger, and a tap covers the thread with the canvas", async ({ page }) => {
+    const { open } = await openSent(page);
+
+    expect(await smallTargets(page, ".canvas-ref")).toEqual([]);
+    expect((await open.boundingBox())?.height).toBeGreaterThanOrEqual(40);
+    expect(await placed(page)).toEqual({ inside: true, buttonAfterName: true, buttonLines: 1, sideways: false });
+
+    await open.tap();
+
+    await expect(page.getByRole("region", { name: vi.canvas.button })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: TITLE })).toBeVisible();
+  });
+
+  test("a chip named in one long word wraps inside its reply, and keeps a button a finger can press", async ({ page }) => {
+    await openSent(page, LONG_TITLE);
+
+    expect(await placed(page)).toEqual({ inside: true, buttonAfterName: true, buttonLines: 1, sideways: false });
+    expect(await smallTargets(page, ".canvas-ref")).toEqual([]);
   });
 });

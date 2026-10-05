@@ -3975,6 +3975,37 @@ tên một test thì sửa dòng của nó trong cùng commit.
     canvas nào tự mở và chạm "Mở" thì canvas phủ lên thread); `web/e2e/touch-targets-phone.spec.ts`
     ("the Open button of each canvas a handed-off task wrote is big enough for a finger, beside a name
     one letter long too")
+- **Canvas trên web: dòng `FILE: artifact:<id>` hoặc `MEDIA: artifact:<id>` của một câu trả lời hiện
+  thành chip tên canvas kèm nút "Mở", không thành link tải tệp; mã sai thì chip nói canvas không còn
+  và không hỏi server**
+  - vitest, đọc đường dẫn: `web/src/lib/artifact-ref.test.ts` (cùng bảng với `artifact_ref` của
+    Python: mã 12 ký tự hex thường là canvas, khoảng trắng quanh mã được bỏ; mở bằng `artifact:` mà
+    phần sau không phải đúng một mã thì là `""`; còn lại là `null`, kể cả `Artifact:` viết hoa,
+    `artifact:` đứng giữa đường dẫn hay sau một dấu cách)
+  - pytest: `tests/test_channels_telegram.py::test_the_web_tells_a_line_that_sends_a_canvas_by_the_prefix_the_channel_reads`
+    (tiền tố `ARTIFACT_REF` trong `web/src/lib/artifact-ref.ts` bằng đúng hằng của Python)
+  - vitest, tách dòng: `web/src/components/message-thread.test.tsx` (`splitMedia`: dòng gửi canvas
+    dưới cả hai tiền tố thành khối `canvas` mang mã và nguyên dòng đã viết; dòng tệp workspace không
+    đổi; mã sai thành khối `canvas` có mã rỗng; "a line of a reply that sends a canvas": thread có
+    đường mở canvas thì câu trả lời có chip, không link tệp, không chữ `FILE:`, lời quanh dòng còn
+    nguyên và nút gọi đúng mã; thread không có thì dòng là một đoạn chữ)
+  - vitest, chip: `web/src/components/canvas/canvas-ref-chip.test.tsx` (tên thread đang giữ, biểu
+    tượng, đúng một nút và nút gọi đúng mã; không in lại dòng hay mã; chưa biết tên thì là "Canvas"
+    và vẫn mở được; ký tự ẩn được viết ra; `verify` được gọi một lần, vẽ lại không gọi lại, đổi mã
+    thì gọi lại; canvas đã xoá còn tên và "Canvas đã bị xoá", không nút; mã rỗng thì "Canvas đã bị
+    xoá", không nút, không hỏi `verify`, `titleOf` hay `isGone`; không có đường mở canvas thì là
+    đúng dòng đã viết, trong một đoạn chữ)
+  - vitest, cả app: `web/src/app-canvas-ref-chip.test.tsx` (câu trả lời đã lưu: chip mang tên canvas
+    và bấm thì canvas mở cạnh thread; bấm lúc khung "đang viết" của một canvas khác đang hiện thì
+    khung ấy rời đi, panel hiện canvas của chip và thẻ "đang viết" vẫn còn; canvas không gắn với
+    hội thoại lấy tên server đang giữ sau đúng một lần hỏi; canvas server không còn thì "Canvas đã
+    bị xoá" cạnh một chip còn mở được; `FILE: artifact:xyz` không thành link tệp và không gây lời
+    hỏi `/artifacts/` nào)
+  - Playwright: `web/e2e/canvas-thread.spec.ts` (ở 1440 px chip nằm trong câu trả lời, tên đứng
+    trước nút, chữ của nút trên một dòng, không link tệp, bấm thì canvas mở cạnh thread; ở 390 px
+    `smallTargets(page, ".canvas-ref")` rỗng, nút cao ít nhất 40 px và chạm thì canvas phủ lên
+    thread; tiêu đề một từ rất dài thì chính tiêu đề xuống dòng trong câu trả lời, nút vẫn nguyên
+    một dòng và không chỗ nào tràn ngang)
 - **Mã agent khớp cả chuỗi: chữ thường, số và gạch ngang, không cả xuống dòng ở cuối**
   - pytest: `tests/test_api_agents_edit.py::test_an_id_that_is_not_a_safe_folder_name_is_refused`
     (`../escape` và `coder` có xuống dòng ở cuối đều bị từ chối, không thư mục nào được tạo);

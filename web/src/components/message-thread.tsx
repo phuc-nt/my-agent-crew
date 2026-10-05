@@ -2,11 +2,13 @@ import { agentFileUrl } from "../api/client";
 import type { RunInfo } from "../api/types";
 import { useAutoScroll } from "../hooks/use-auto-scroll";
 import { vi } from "../i18n/vi";
+import { artifactRef } from "../lib/artifact-ref";
 import type { WritingItem } from "../lib/canvas-writing";
 import type { ThreadItem } from "../state/thread-reducer";
 import { AttachmentChip, fileName, splitAttachments, type AttachmentBlock } from "./attachment-chip";
 import type { CanvasLinks } from "./canvas/canvas-card";
 import { CanvasNoteChip } from "./canvas/canvas-note-chip";
+import { CanvasRefChip } from "./canvas/canvas-ref-chip";
 import { CanvasWritingCard } from "./canvas/canvas-writing-card";
 import { BubbleActions } from "./copy-button";
 import { ForkButton } from "./fork-button";
@@ -155,11 +157,18 @@ export function MessageThread({
   );
 }
 
-export type ReplyBlock = { kind: "text" | "media" | "file"; value: string };
+export type ReplyBlock = { kind: "text" | "media" | "file"; value: string } | { kind: "canvas"; id: string; line: string };
+
+/** What a line that sends something sends: the canvas its path names, or else the file at that path. */
+function sent(kind: "media" | "file", line: string, path: string): ReplyBlock {
+  const id = artifactRef(path);
+  return id === null ? { kind, value: path } : { kind: "canvas", id, line };
+}
 
 /**
  * Splits a reply into text blocks, `MEDIA:<path>` lines, which become inline images, and
- * `FILE:<path>` lines, which become download links.
+ * `FILE:<path>` lines, which become download links. Either line names a canvas when its path is
+ * `artifact:<id>`, and becomes that canvas.
  *
  * Both prefixes are handled here rather than only on the Telegram side, because the same
  * reply text is what the web shows. Leaving `FILE:` unparsed would print the raw line in
@@ -179,10 +188,10 @@ export function splitMedia(text: string): ReplyBlock[] {
     // becoming a link to the workspace root.
     if (trimmed.startsWith(MEDIA_PREFIX) && trimmed.length > MEDIA_PREFIX.length) {
       flush();
-      blocks.push({ kind: "media", value: trimmed.slice(MEDIA_PREFIX.length).trim() });
+      blocks.push(sent("media", trimmed, trimmed.slice(MEDIA_PREFIX.length).trim()));
     } else if (trimmed.startsWith(FILE_PREFIX) && trimmed.length > FILE_PREFIX.length) {
       flush();
-      blocks.push({ kind: "file", value: trimmed.slice(FILE_PREFIX.length).trim() });
+      blocks.push(sent("file", trimmed, trimmed.slice(FILE_PREFIX.length).trim()));
     } else {
       pending.push(line);
     }
@@ -251,6 +260,8 @@ function Item({
       {blocks.map((block, i) =>
         block.kind === "attachment" ? (
           <AttachmentChip key={i} agentId={agentId} path={block.value} />
+        ) : block.kind === "canvas" ? (
+          <CanvasRefChip key={i} id={block.id} line={block.line} canvas={canvas} />
         ) : block.kind === "media" ? (
           <img
             key={i}
