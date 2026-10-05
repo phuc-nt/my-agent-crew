@@ -33,10 +33,7 @@ export function useCanvasConversations(id: string): string[] {
       ticket.current += 1;
       setFound({ of: id, ids: [] });
     });
-    return () => {
-      ticket.current += 1;
-      stop();
-    };
+    return stop;
   }, [id]);
 
   return found.of === id ? found.ids : [];
