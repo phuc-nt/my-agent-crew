@@ -97,6 +97,37 @@ describe("whether a canvas being written is shown on this device", () => {
 
     expect(heard(removed)).toEqual(heard(added));
   });
+
+  it("asks a reader that is gone nothing more: a choice made after it reads nothing on its behalf", () => {
+    const gone = use();
+    const { set } = gone.result.current;
+    gone.unmount();
+    const reads = vitest.spyOn(window.localStorage, "getItem");
+
+    act(() => set(false));
+
+    // The choice is stored, and nobody is left to be told and to look it up.
+    expect([...store]).toEqual([[KEY, "off"]]);
+    expect(reads).not.toHaveBeenCalled();
+  });
+
+  it("asks only the readers still there, however many came and went", () => {
+    const view = use();
+    const reads = vitest.spyOn(window.localStorage, "getItem");
+    /** How often the stored choice is looked up for one turning off, starting from on. */
+    const lookups = () => {
+      choose(view, true);
+      reads.mockClear();
+      choose(view, false);
+      return reads.mock.calls.length;
+    };
+    const alone = lookups();
+    expect(alone).toBeGreaterThan(0);
+
+    for (let i = 0; i < 5; i++) use().unmount();
+
+    expect(lookups()).toBe(alone);
+  });
 });
 
 describe("a choice the browser will not store", () => {

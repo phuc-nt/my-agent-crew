@@ -1589,7 +1589,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
   - vitest: `web/src/hooks/use-live-preview.test.tsx` (mặc định bật và không lưu gì; tắt thì lưu
     đúng một chữ `off` dưới `canvas.livePreview`, bật lại thì xoá; chữ khác `off` vẫn là bật; mọi
     nơi đọc trong tab thấy cùng một lựa chọn; lựa chọn ở tab khác tới qua event `storage`, và hook
-    thôi nghe khi không còn ai đọc; trình duyệt từ chối lưu thì lựa chọn vẫn được nhận, `tabOnly`
+    thôi nghe khi không còn ai đọc; "asks a reader that is gone nothing more": nơi đọc đã rời đi
+    không còn được báo, lựa chọn sau đó vẫn được lưu mà không lần đọc bộ nhớ nào xảy ra thay cho
+    nó, và bao nhiêu nơi đọc đến rồi đi thì số lần đọc cho nơi còn lại vẫn như khi chỉ có một
+    mình nó; trình duyệt từ chối lưu thì lựa chọn vẫn được nhận, `tabOnly`
     bật, nơi đọc kế tiếp trong tab vẫn thấy nó, nó đứng trên thứ trình duyệt đang lưu, và được bỏ
     khi trình duyệt lại lưu được);
     `web/src/components/canvas/live-preview-setting.test.tsx` (ô chọn gọi theo tên, mặc định bật,
