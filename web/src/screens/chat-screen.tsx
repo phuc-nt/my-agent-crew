@@ -26,6 +26,7 @@ import { useCanvasWriting } from "../hooks/use-canvas-writing";
 import type { useConversations } from "../hooks/use-conversations";
 import { useDrawer } from "../hooks/use-drawer";
 import { useFork } from "../hooks/use-fork";
+import { useLivePreview } from "../hooks/use-live-preview";
 import { useMediaQuery } from "../hooks/use-media-query";
 import type { ManageSection } from "../hooks/use-route";
 import { useSavingNote } from "../hooks/use-saving-note";
@@ -163,9 +164,10 @@ export function ChatScreen({
   const dock = useCanvasDock(active?.id ?? null, activity.state.connected, wide);
   const saving = useSavingNote();
   useCanvasFocus(active?.id ?? null, wide, dock);
-  // A canvas the agent is still writing shows where the dock is without opening it. It comes
-  // first: the canvas it turns into is its to open, not the hook's that opens what an agent made.
-  const writing = useCanvasWriting(thread, dock, wide, true);
+  // A canvas the agent is still writing shows where the dock is without opening it, on a device
+  // that has not turned that off. It comes first: the canvas it turns into is its to open, not
+  // the hook's that opens what an agent made.
+  const writing = useCanvasWriting(thread, dock, wide, useLivePreview().enabled);
   useCanvasAutoOpen(thread, dock, wide, writing.callId);
   const showing = writing.shown !== null;
   const { leave: leaveWriting } = writing;

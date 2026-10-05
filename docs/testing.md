@@ -1520,6 +1520,25 @@ tên một test thì sửa dòng của nó trong cùng commit.
     thoại 390×844: chỉ có thẻ cho tới khi chạm, khung phủ cả màn, nút cao ít nhất 40 px, Escape
     rời khung). Luồng còn mở của các test này dựng bằng `web/src/test/canvas-writing-turn.ts`
     (vitest) và `web/e2e/live-stream.ts` (e2e, vì route của Playwright trả cả thân một lần)
+- **Xem trước canvas đang viết tắt được bằng một công tắc ở Cài đặt, riêng cho thiết bị đang dùng:
+  trình duyệt chỉ lưu một chữ `off`, và trình duyệt không cho lưu thì lựa chọn vẫn có hiệu lực
+  trong tab kèm dòng nói rõ**
+  - vitest: `web/src/hooks/use-live-preview.test.tsx` (mặc định bật và không lưu gì; tắt thì lưu
+    đúng một chữ `off` dưới `canvas.livePreview`, bật lại thì xoá; chữ khác `off` vẫn là bật; mọi
+    nơi đọc trong tab thấy cùng một lựa chọn; lựa chọn ở tab khác tới qua event `storage`, và hook
+    thôi nghe khi không còn ai đọc; trình duyệt từ chối lưu thì lựa chọn vẫn được nhận, `tabOnly`
+    bật, nơi đọc kế tiếp trong tab vẫn thấy nó, nó đứng trên thứ trình duyệt đang lưu, và được bỏ
+    khi trình duyệt lại lưu được);
+    `web/src/components/canvas/live-preview-setting.test.tsx` (ô chọn gọi theo tên, mặc định bật,
+    có dòng "chỉ trên thiết bị này", nằm trong thẻ Canvas; bấm thì ghi rồi xoá chữ `off`; thiết bị
+    đã tắt thì hiện là tắt; trình duyệt từ chối lưu thì ô vẫn đổi và có dòng báo chỉ giữ trong tab);
+    `web/src/screens/manage-screen.test.tsx` ("offers the switch for watching a canvas be written
+    ahead of the machine's settings", "keeps that switch off the … section" cho chín mục còn lại)
+  - vitest cấp App: `web/src/app-canvas-writing-off.test.tsx` (thiết bị đã tắt: không thẻ, không
+    khung, dòng "đang nghĩ" và dòng trạng thái như trước mảnh đầu, ô chat giữ bàn phím; canvas agent
+    viết xong vẫn tự mở cạnh chat trên màn rộng và không request ghi nào; màn hẹp cũng không có
+    thẻ; tắt bằng công tắc trong Cài đặt thì chỉ chữ `off` được lưu và canvas viết sau đó không
+    hiện; bật lại thì canvas kế tiếp hiện dần)
 - **Tham số lời gọi tool không phải JSON object thành lỗi tool, lượt vẫn chạy tiếp**
   - pytest: `tests/test_tool_args_invalid.py` (tham số bị cắt giữa chừng báo vị trí chỗ dừng
     chứ không phải chỗ chuỗi bắt đầu, lỗi giữa chừng báo vị trí và vài chục ký tự quanh đó với

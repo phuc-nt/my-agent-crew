@@ -5,6 +5,7 @@ import { AgentEditor } from "../components/agent-editor/agent-editor";
 import { ApprovalHistory } from "../components/approval-history";
 import { AttentionCenter } from "../components/attention-center";
 import { CanvasSection } from "../components/canvas/canvas-section";
+import { LivePreviewSetting } from "../components/canvas/live-preview-setting";
 import { ConnectionNotice } from "../components/connection-notice";
 import { ConnectionsPanel } from "../components/connections-panel";
 import { CrewPanel } from "../components/crew-panel";
@@ -416,12 +417,17 @@ export function ManageScreen(props: Props) {
               <p className="muted">{registry.error ?? vi.manage.loading}</p>
             ))}
           {props.section === "settings" && (
-            <SettingsPanel
-              settings={props.settings}
-              agents={props.agents}
-              onNavigate={props.onNavigate}
-              versions={props.versions}
-            />
+            <>
+              {/* The one thing here the person sets, and for this device alone, comes before the
+                  machine's configuration, which is read on this page and changed elsewhere. */}
+              <LivePreviewSetting />
+              <SettingsPanel
+                settings={props.settings}
+                agents={props.agents}
+                onNavigate={props.onNavigate}
+                versions={props.versions}
+              />
+            </>
           )}
         </ErrorBoundary>
       </main>

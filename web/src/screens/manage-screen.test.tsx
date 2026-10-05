@@ -240,6 +240,26 @@ describe("the manage screen", () => {
     expect(screen.getByText(vi.loadFailed)).toBeInTheDocument();
   });
 
+  // The one thing on the settings page a person sets is this device's, so it comes before the
+  // machine's configuration and does not wait on it: the panel below is read, and may fail to load.
+  it("offers the switch for watching a canvas be written ahead of the machine's settings", () => {
+    show("settings");
+
+    const preview = screen.getByRole("checkbox", { name: vi.canvas.writing.preview });
+    const machine = screen.getByRole("complementary", { name: vi.settings });
+    expect(machine).not.toContainElement(preview);
+    expect(preview.compareDocumentPosition(machine) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it.each(MANAGE_SECTIONS.filter((section) => section !== "settings"))(
+    "keeps that switch off the %s section",
+    (section) => {
+      show(section);
+
+      expect(screen.queryByRole("checkbox", { name: vi.canvas.writing.preview })).toBeNull();
+    },
+  );
+
   it("counts the work waiting on a person next to the approvals section", () => {
     show("activity", { attention: [fakeRun({ id: "waiting", status: "awaiting_approval" })] });
 

@@ -241,7 +241,8 @@ ngay run đang chờ duyệt trong đó. Run được ghi và phát ở ranh gi�
 `thinking`) chỉ cộng dồn vào step đang dựng trong bộ nhớ, không ghi SQLite và không lên
 luồng activity (rail không hiện từng chữ). Mảnh đối số của một lời viết canvas
 (`tool_call_delta`) cũng là event chỉ stream: nó tới request đang stream lượt ấy để tab
-thấy tài liệu hiện dần, không đổi run, không ghi SQLite và không lên luồng activity.
+thấy tài liệu hiện dần, không đổi run, không ghi SQLite và không lên luồng activity. Tắt
+xem trước trong Cài đặt chỉ tắt việc hiện ở thiết bị đó: server vẫn gửi các mảnh.
 Mỗi watcher có hàng đợi 256 frame; một tab
 ngừng đọc bị cắt và trình duyệt kết nối lại với `snapshot` mới, thay vì giữ mọi event
 của mọi run trong bộ nhớ server. `/api/stats` giữ câu trả lời cuối cùng theo số lần ghi
@@ -478,10 +479,12 @@ của openhuman — không mượn code.)
 
 Vài thứ chỉ thuộc về người đang nhìn màn hình này, nên sống trong `localStorage` của trình
 duyệt chứ không ở server: mỗi cuộc trò chuyện đã được xem tới đâu (chấm chưa đọc), bản nháp
-chưa gửi của từng cuộc, các chip lọc của lịch sử run, những lỗi đã bấm "Đã xem", và dải
-activity đang mở hay gập. Mọi lần đọc và ghi đi qua một helper lưu trữ cục bộ bọc try/catch,
-vì trình duyệt có thể từ chối hẳn (cửa sổ riêng tư, chặn dữ liệu trang, đầy quota): khi đó
-không gì được lưu và trang chạy tiếp trên bản trong bộ nhớ của nó cho tới lần tải lại. Lần
+chưa gửi của từng cuộc, các chip lọc của lịch sử run, những lỗi đã bấm "Đã xem", dải
+activity đang mở hay gập, và việc có xem trước canvas agent đang viết hay không (công tắc
+ở mục Cài đặt, lưu đúng một chữ `off`). Mọi lần đọc và ghi đi qua một helper lưu trữ cục
+bộ bọc try/catch, vì trình duyệt có thể từ chối hẳn (cửa sổ riêng tư, chặn dữ liệu trang,
+đầy quota): khi đó không gì được lưu và trang chạy tiếp trên bản trong bộ nhớ của nó cho
+tới lần tải lại. Lần
 dùng đầu coi mọi cuộc có từ trước là đã đọc, dấu đã xem của các tab cùng một trình duyệt
 được gộp chứ không ghi đè nhau, và bản nháp của một cuộc bị xoá đi cùng cuộc đó. Trình duyệt
 khác, hay máy khác, bắt đầu lại từ đầu — đó là cái giá của việc không bắt server nhớ một

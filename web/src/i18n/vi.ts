@@ -1140,6 +1140,10 @@ export const vi = {
       saving: "Agent đã viết xong, đang lưu…",
       source: "Đang hiện mã nguồn. Canvas sẽ hiện khi agent viết xong.",
       close: "Đóng bản đang viết",
+      // The switch on the settings page that turns all of the above off, for the device in hand.
+      preview: "Xem trước canvas khi agent đang viết",
+      previewDevice: "Chỉ áp dụng trên thiết bị này.",
+      previewTabOnly: "Trình duyệt không cho lưu lựa chọn; nó chỉ giữ trong tab này.",
     },
     // What the list of canvases on the card of a handed-off task is called.
     delegateCanvases: "Canvas viết trong việc này",
