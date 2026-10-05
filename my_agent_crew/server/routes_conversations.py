@@ -5,6 +5,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.agent.tool_gate import ask_reason_text
 from my_agent_crew.agents import DEFAULT_AGENT_ID
 from my_agent_crew.memory.session_summary import summarize_conversation
@@ -67,6 +68,12 @@ async def resummarize_conversation(conv_id: str, deps: ConvDeps) -> dict[str, An
 
 @router.get("/conversations/{conv_id}")
 def get_conversation(conv_id: str, deps: ConvDeps) -> dict[str, Any]:
+    return conversation_detail(deps, conv_id)
+
+
+def conversation_detail(deps: AgentDeps, conv_id: str) -> dict[str, Any]:
+    """The conversation as it is stored now: its messages, the request it waits on and what
+    is queued behind its turn. A tab that joins a running turn is sent the same thing."""
     conv = deps.store.get(conv_id)
     data = conv.to_dict()
     data["messages"] = [m.to_dict() for m in deps.store.history(conv_id)]

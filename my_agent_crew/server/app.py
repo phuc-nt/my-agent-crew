@@ -41,6 +41,7 @@ from my_agent_crew.server import (
     routes_registry,
     routes_search,
     routes_settings,
+    routes_turn,
 )
 from my_agent_crew.server.agent_assembly import build_providers
 from my_agent_crew.server.housekeeping import sweep_loop
@@ -63,6 +64,7 @@ ROUTERS = (
     routes_conversations.router,
     routes_fork.router,
     routes_chat.router,
+    routes_turn.router,
     routes_inbound.router,
     routes_approvals.router,
     routes_settings.router,
@@ -119,6 +121,7 @@ def create_app(runtime: Runtime | AgentDeps | None = None, schedule: bool = True
                 sweeper.cancel()
             # First: a turn the shutdown cuts short must not start the next one in line.
             await runtime.drain.stop()
+            await runtime.inbound.host.stop()
             await runtime.stop_channel()
             await runtime.scheduler.stop()
             runtime.hub.close()

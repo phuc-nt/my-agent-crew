@@ -17,6 +17,7 @@ from typing import Any
 
 from my_agent_crew import texts
 from my_agent_crew.activity import ActivityHub, tracked
+from my_agent_crew.activity.turn_watch import Frame
 from my_agent_crew.agent.events import Event
 from my_agent_crew.agent.loop import AgentDeps, run_turn
 from my_agent_crew.agent.resume import answer_question, resolve_approval
@@ -26,6 +27,7 @@ from my_agent_crew.inbound_conversations import ConversationOpening, OnReplaced,
 from my_agent_crew.inbound_queue import enqueue
 from my_agent_crew.memory.conversation_title import title_on_first_message
 from my_agent_crew.store.models import AWAITING_APPROVAL
+from my_agent_crew.turn_host import TurnHost
 
 # Re-exported: a turn collapsed to one message lives in its own module now, but every
 # platform adapter reaches for it through this door.
@@ -58,6 +60,8 @@ class Inbound(ConversationOpening):
         self.hub = hub
         self.on_replaced = on_replaced
         self.keep = keep
+        # Reads the web's turns to their end, so a closed tab only stops watching.
+        self.host = TurnHost(hub.turns)
 
     def stream(self, conv_id: str, text: str, source: str = CHAT) -> AsyncIterator[Event]:
         """A person's message as a tracked turn or, while the conversation is busy, as its
@@ -81,6 +85,14 @@ class Inbound(ConversationOpening):
         self.hub.busy.claim(conv_id)
         events = run_turn(deps, conv_id, text, source=source)
         return tracked(self.hub, events, deps.agent.id, source, title, conv.id)
+
+    def stream_hosted(self, conv_id: str, text: str) -> AsyncIterator[Frame]:
+        """`stream` for the web: the server reads the turn to its end and the sender gets
+        its view of it. A message that joins the queue starts no turn, so its one event
+        comes back as it is."""
+        queued = self.hub.busy.busy(conv_id)  # what `stream` is about to find, in this step
+        events = self.stream(conv_id, text)
+        return events if queued else self.host.run(conv_id, events)
 
     def stream_delivered(self, conv_id: str, source: str = CHAT) -> AsyncIterator[Event]:
         """The turn that answers what the queue already wrote into the conversation. The

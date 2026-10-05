@@ -17,6 +17,8 @@ from my_agent_crew.config import Route, Settings
 from my_agent_crew.llm.fake import EchoProvider, ScriptedProvider
 from my_agent_crew.llm.provider import Provider, ProviderChain, ProviderError
 from my_agent_crew.llm.types import Completion
+from my_agent_crew.server import create_app
+from my_agent_crew.server.runtime import Runtime
 from my_agent_crew.skills import BUILTIN_DIR, load_skills
 from my_agent_crew.store import Store
 from my_agent_crew.tools import Tool, ToolRegistry
@@ -25,7 +27,7 @@ from my_agent_crew.tools.memory import build_memory_tools
 from my_agent_crew.tools.shell import build_shell_tool
 from my_agent_crew.tools.skills import build_skill_tools
 from my_agent_crew.tools.workspace import build_workspace_tools
-from tests.queue_helpers import Rig, make_rig
+from tests.queue_helpers import GatedProvider, Rig, Served, SlowTool, make_rig
 from tests.telegram_fake import CHAT, TOKEN, FakeTelegram
 
 
@@ -130,6 +132,32 @@ async def rigs(deps_factory):
     yield build
     for rig in made:
         await rig.drain.stop()
+
+
+@pytest.fixture
+async def served(deps_factory):
+    """The app on the test's own event loop, where the server reads its turns, so `stop`
+    and a watcher reach the same turns a live server's would. Whatever a test leaves
+    running is stopped afterwards."""
+    made: list[Served] = []
+
+    def build(script, held=(), paused=()) -> Served:
+        provider, slow = GatedProvider(script, held, paused), SlowTool()
+        guarded = SlowTool("guarded", requires_approval=True)
+        guarded.release.set()
+        deps = deps_factory(providers={"scripted": provider}, extra_tools=[slow.tool, guarded.tool])
+        runtime = Runtime.single(deps)
+        transport = httpx.ASGITransport(app=create_app(runtime, schedule=False))
+        client = httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1")
+        conv = runtime.store.create("Việc thử", agent_id=deps.agent.id)
+        made.append(Served(client, runtime, provider, slow, guarded, conv))
+        return made[-1]
+
+    yield build
+    for app in made:
+        await app.runtime.drain.stop()
+        await app.runtime.inbound.host.stop()
+        await app.client.aclose()
 
 
 # The Telegram fake lives here rather than in a test module so every test that drives the

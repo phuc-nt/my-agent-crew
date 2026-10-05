@@ -23,3 +23,6 @@ LOOP_HALTED_TOOL = (
 )
 # The result of a call the last allowed model call asked for: the turn ran out of steps first.
 STEPS_HALTED_TOOL = "Không chạy: lượt đã hết số bước tối đa nên dừng trước lệnh này."
+# Shown to whoever watches a turn that an unexpected error cut short: its reader got the
+# exception, and the server's log has the detail.
+TURN_BROKE = "Lượt này bị ngắt vì một lỗi trong server. Chi tiết nằm trong log của server."

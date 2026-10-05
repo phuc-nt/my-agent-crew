@@ -10,6 +10,7 @@ from typing import Any
 
 from my_agent_crew.activity.busy import Busy
 from my_agent_crew.activity.steps import apply_event
+from my_agent_crew.activity.turn_watch import TurnWatch
 from my_agent_crew.activity.watchers import Watchers
 from my_agent_crew.agent.events import STREAMING_EVENTS, Event, kind_of, to_dict
 from my_agent_crew.store import Store
@@ -32,6 +33,8 @@ class ActivityHub:
         # a delegated turn wakes up instead of polling.
         self._finished: dict[str, asyncio.Event] = {}
         self.busy = Busy(self._running)
+        # Who reads along with each turn under way (`turn_watch.py`).
+        self.turns = TurnWatch()
 
     # --- runs ----------------------------------------------------------------------------
 

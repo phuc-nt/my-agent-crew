@@ -1003,7 +1003,7 @@ tên một test thì sửa dòng của nó trong cùng commit.
     chuyện và đọc hai lần không đổi; `/steer` trơn nhận 422, tin quá trần nhận 429 ở cả `/messages`
     lẫn `/api/inbound`, kèm câu lý do;
     `stop` trả lại chữ và làm rỗng hàng, 404 cho cuộc không có; relay nghe mình đã xếp hàng; quyết
-    định thứ hai nhận 409; `stop` huỷ lượt do hàng chạy và để nguyên lượt web đang đọc; server khởi
+    định thứ hai nhận 409; `stop` huỷ lượt do hàng chạy và lượt do web khởi động; server khởi
     động thì trả lời tin đã chờ qua restart, còn server `--no-schedule` để tin ấy tới sau lượt kế);
     `tests/test_kit_commands.py::test_steer_text_renders_kit_commands_and_leaves_everything_else_alone`,
     `::test_inbound_expands_a_kit_command_before_the_turn` (lúc rảnh `/steer X` là tin `X`)
@@ -4401,3 +4401,34 @@ tệp: hinhtron.png)". Từ nay dòng `FILE:` trỏ vào png, jpg, jpeg hay webp
     thành tài liệu; ảnh và tài liệu trong cùng câu trả lời đi hai đường; ảnh thiếu và ảnh ngoài workspace
     nhận câu báo của ảnh; `.svg` vẫn bị từ chối; danh sách tài liệu không thêm đuôi ảnh). Tắt nhánh ảnh
     trong `TelegramFiles.document` thì bảy test đỏ.
+
+## Lượt do server giữ, tab chỉ xem
+
+Trước đây lượt web sống nhờ chính kết nối SSE của tab gửi: đóng tab hay đổi cuộc trò chuyện là lượt dừng giữa
+chừng, và tab mở sau không thấy gì cho tới khi lượt xong. Từ nay server tự đọc lượt tới hết
+(`turn_host.py`); luồng SSE chỉ là một góc nhìn. Mọi lượt đi qua `tracked()` đều phát sự kiện vào
+`hub.turns` (`activity/turn_watch.py`), nên lượt của Telegram và job cũng xem được qua
+`GET /api/conversations/{id}/turn`. Chữ đang viết chỉ nằm trong bộ nhớ: restart là mất, và nhật ký cuộc trò
+chuyện lại là toàn bộ sự thật.
+
+  - pytest: `tests/test_turn_watch.py` (người xem có mặt từ đầu đọc đủ mọi sự kiện rồi dừng; cuộc không có
+    lượt thì không có gì để xem; người vào trễ bắt đầu bằng một khung `Resync` mang chữ đang viết gộp làm
+    một, cờ đang nghĩ và bản canvas đang nháp gộp theo vị trí; lượt thử bị bỏ thì bản nháp của nó cũng bỏ;
+    câu trả lời đã lưu không còn là "đang viết"; `Resync` thay cho những sự kiện cuối nói rõ lượt đã xong;
+    người xem quá `WATCH_BACKLOG` sự kiện nhận một `Resync` thay vì bị cắt, không lặp và không sót; trong
+    ngưỡng thì không mất gì; người xem bỏ đi thì không còn bị giữ sự kiện; chỉ lượt đang chạy mới bị chính
+    lượt đó kết thúc; lượt xong hay dừng chờ người là buông người xem ngay dù bên đọc còn nán lại; lượt vỡ
+    vì lỗi server báo `TURN_BROKE` cho người xem; bên đọc bỏ giữa chừng thì người xem được buông). Bỏ kiểm
+    tra danh tính trong `TurnWatch.end`, bỏ nhánh kết thúc ở `tracked`, hay chỉ coi `AssistantMessageEvent`
+    là mốc "hết đang viết" thì mỗi lần một test đỏ.
+  - pytest: `tests/test_hosted_turns_api.py` (`GET …/turn` trả 204 khi không có lượt và 404 cho cuộc không
+    có; người gửi đọc lượt của mình như cũ, không có `watching`; tab mở trễ nhận `watching` kèm chi tiết
+    cuộc trò chuyện đúng lúc đó (tool call chưa có kết quả), rồi chữ đang viết thành một `text_delta`, rồi
+    theo tới `done`; cái được trao cộng cái theo sau là đúng một lần mỗi tin; người gửi bỏ đi thì lượt vẫn
+    chạy tới `done`; `stop` kết thúc lượt cho mọi người đang xem; tin xếp hàng không giành lượt của người
+    đang xem; quyết định và câu trả lời cũng do server đọc tới hết; lượt do bên khác đọc xem được nhưng
+    `stop` của web không huỷ; lượt vỡ trong server báo `TURN_BROKE` lên tab và ghi nguyên nhân vào log;
+    server tắt thì dừng các lượt nó đang đọc). Cho `post_message` đọc thẳng `inbound.stream`, cho tin xếp
+    hàng cũng đi qua host, hay bỏ dòng `host.cancel` trong `stop` thì mỗi lần một test đỏ.
+  - pytest: `tests/test_busy_queue_api.py::test_stop_ends_a_turn_the_web_started` (thay cho test cũ "stop
+    để nguyên lượt web đang đọc": đây là đổi hành vi có chủ ý, vì lượt web giờ là của server).

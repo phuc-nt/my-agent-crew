@@ -1,17 +1,15 @@
 """The busy queue over HTTP: a message the web or a relay sends while its conversation is
 busy is answered with its place in line, the conversation shows what waits, and `stop`
-hands the waiting messages back and ends the turn the queue runs, never a turn that
-someone else is reading. A server answers what waited through a restart as it starts,
-unless it was started to start nothing on its own."""
+hands the waiting messages back and ends the turn the server reads: one the queue runs or
+one the web started. A server answers what waited through a restart as it starts, unless
+it was started to start nothing on its own."""
 
 from __future__ import annotations
 
 import asyncio
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
 
-import httpx
 import pytest
 from fastapi.testclient import TestClient
 
@@ -22,10 +20,9 @@ from my_agent_crew.llm.fake import ScriptedProvider, completion
 from my_agent_crew.llm.types import ToolCall
 from my_agent_crew.server import create_app
 from my_agent_crew.server.runtime import Runtime
-from my_agent_crew.store import Conversation
 from my_agent_crew.store.queue import FOLLOW_UP, QUEUE_LIMIT, STEER
 from my_agent_crew.tools.ask_user import ASK_USER_TOOL_NAME
-from tests.queue_helpers import GatedProvider, SlowTool, until
+from tests.queue_helpers import SlowTool, until
 from tests.test_server_api import parse_sse
 
 SLOW = ToolCall("c1", "slow", {})
@@ -205,49 +202,6 @@ def test_a_server_started_with_no_schedule_leaves_it_for_the_next_turn(deps_fact
         ]
 
 
-@dataclass
-class Served:
-    client: httpx.AsyncClient
-    runtime: Runtime
-    provider: GatedProvider
-    slow: SlowTool
-    conv: Conversation
-
-    @property
-    def messages(self) -> str:
-        return f"/api/conversations/{self.conv.id}/messages"
-
-    @property
-    def stop(self) -> str:
-        return f"/api/conversations/{self.conv.id}/stop"
-
-    def statuses(self) -> list[str]:
-        runs = self.runtime.hub.recent(conversation_ids=[self.conv.id])
-        return sorted(run.status for run in runs)
-
-
-@pytest.fixture
-async def served(deps_factory):
-    """The app on the test's own event loop, where the queue runs its turns, so `stop`
-    reaches the same turns a live server's would."""
-    made: list[Served] = []
-
-    def build(script, held=()) -> Served:
-        provider, slow = GatedProvider(script, held), SlowTool()
-        deps = deps_factory(providers={"scripted": provider}, extra_tools=[slow.tool])
-        runtime = Runtime.single(deps)
-        transport = httpx.ASGITransport(app=create_app(runtime, schedule=False))
-        client = httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1")
-        conv = runtime.store.create("Việc thử", agent_id=deps.agent.id)
-        made.append(Served(client, runtime, provider, slow, conv))
-        return made[-1]
-
-    yield build
-    for app in made:
-        await app.runtime.drain.stop()
-        await app.client.aclose()
-
-
 async def test_stop_ends_the_turn_the_queue_runs(served):
     app = served(
         [completion(tool_calls=[SLOW]), completion("xong 1"), completion("trả lời 2")], held=(2,)
@@ -265,12 +219,15 @@ async def test_stop_ends_the_turn_the_queue_runs(served):
     assert not app.runtime.hub.busy.busy(app.conv.id)
 
 
-async def test_stop_leaves_a_turn_the_web_is_reading(served):
+async def test_stop_ends_a_turn_the_web_started(served):
     app = served([completion("một")], held=(0,))
     first = asyncio.create_task(app.client.post(app.messages, json={"text": "tin 1"}))
     await asyncio.wait_for(app.provider.started(0).wait(), 2)
     stopped = await app.client.post(app.stop)
-    assert stopped.json() == {"cleared": [], "cancelled": False}
-    app.provider.release(0)
-    assert parse_sse((await asyncio.wait_for(first, 2)).text)[-1]["type"] == "done"
-    assert app.statuses() == ["done"]
+    assert stopped.json() == {"cleared": [], "cancelled": True}
+    # The sender's stream ends with the turn, with nothing more to say.
+    events = parse_sse((await asyncio.wait_for(first, 2)).text)
+    assert "done" not in [event["type"] for event in events]
+    await until(lambda: app.statuses() == ["error"])
+    assert not app.runtime.hub.busy.busy(app.conv.id)
+    assert app.provider.calls == 1  # nothing asked the model again

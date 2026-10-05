@@ -1,6 +1,7 @@
-"""A turn held open on purpose: a provider that waits at a gate before answering, a tool
-that runs until released, and a rig wiring one agent to a hub, the inbound door and the
-queue drain the way the runtime does. Waits are on events, never on long sleeps."""
+"""A turn held open on purpose: a provider that waits at a gate before answering or with
+its answer half written, a tool that runs until released, a rig wiring one agent to a hub,
+the inbound door and the queue drain the way the runtime does, and the app served on the
+test's own loop. Waits are on events, never on long sleeps."""
 
 from __future__ import annotations
 
@@ -8,6 +9,8 @@ import asyncio
 from collections.abc import AsyncIterator, Callable, Sequence
 from dataclasses import dataclass, replace
 from typing import Any
+
+import httpx
 
 from my_agent_crew.activity import ActivityHub
 from my_agent_crew.agent.events import Event
@@ -18,6 +21,7 @@ from my_agent_crew.inbound_queue import QueueDrain
 from my_agent_crew.llm.fake import ScriptedProvider
 from my_agent_crew.llm.provider import ProviderError
 from my_agent_crew.llm.types import Completion
+from my_agent_crew.server.runtime import Runtime
 from my_agent_crew.store import Conversation, Store
 from my_agent_crew.store.runs import RunRecord
 from my_agent_crew.tools import Tool, ToolResult
@@ -25,19 +29,34 @@ from my_agent_crew.tools import Tool, ToolResult
 
 class GatedProvider(ScriptedProvider):
     """A scripted provider whose calls listed in `held` wait for `release(i)` before
-    answering. `started(i)` is set as soon as call `i` begins."""
+    answering, and whose calls listed in `paused` stream their whole answer and then wait
+    for `finish(i)` before ending it. `started(i)` is set as soon as call `i` begins,
+    `written(i)` once a paused call has streamed all it has."""
 
-    def __init__(self, script: Sequence[Completion | ProviderError], held: Sequence[int] = ()):
+    def __init__(
+        self,
+        script: Sequence[Completion | ProviderError],
+        held: Sequence[int] = (),
+        paused: Sequence[int] = (),
+    ):
         super().__init__(script)
         self.calls = 0
         self._gates = {index: asyncio.Event() for index in held}
+        self._pauses = {index: asyncio.Event() for index in paused}
         self._started: dict[int, asyncio.Event] = {}
+        self._written: dict[int, asyncio.Event] = {}
 
     def started(self, index: int) -> asyncio.Event:
         return self._started.setdefault(index, asyncio.Event())
 
+    def written(self, index: int) -> asyncio.Event:
+        return self._written.setdefault(index, asyncio.Event())
+
     def release(self, index: int) -> None:
         self._gates[index].set()
+
+    def finish(self, index: int) -> None:
+        self._pauses[index].set()
 
     async def stream(self, messages, tools, model, reasoning=""):
         index = self.calls
@@ -46,7 +65,11 @@ class GatedProvider(ScriptedProvider):
         gate = self._gates.get(index)
         if gate is not None:
             await gate.wait()
+        pause = self._pauses.get(index)
         async for item in super().stream(messages, tools, model, reasoning):
+            if pause is not None and isinstance(item, Completion):
+                self.written(index).set()
+                await pause.wait()
             yield item
 
 
@@ -161,3 +184,36 @@ async def while_the_tool_runs(rig: Rig, *messages: str) -> tuple[list, list]:
 
 async def _collect(events: AsyncIterator[Event]) -> list[Event]:
     return [event async for event in events]
+
+
+@dataclass
+class Served:
+    """The app on the test's own event loop (`served` in `conftest.py`), with one
+    conversation that already has a title."""
+
+    client: httpx.AsyncClient
+    runtime: Runtime
+    provider: GatedProvider
+    slow: SlowTool
+    guarded: SlowTool  # a person must allow each call; it runs at once when allowed
+    conv: Conversation
+
+    @property
+    def detail(self) -> str:
+        return f"/api/conversations/{self.conv.id}"
+
+    @property
+    def messages(self) -> str:
+        return f"{self.detail}/messages"
+
+    @property
+    def stop(self) -> str:
+        return f"{self.detail}/stop"
+
+    @property
+    def turn(self) -> str:
+        return f"{self.detail}/turn"
+
+    def statuses(self) -> list[str]:
+        runs = self.runtime.hub.recent(conversation_ids=[self.conv.id])
+        return sorted(run.status for run in runs)

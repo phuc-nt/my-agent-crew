@@ -1,5 +1,6 @@
-"""Approve or deny a pending tool call; the turn resumes as SSE either way. The history
-of decided requests is listed across agents, so what was allowed can be reviewed later.
+"""Approve or deny a pending tool call; the turn resumes as SSE either way, read to its
+end by the server like the turn a message starts. The history of decided requests is listed
+across agents, so what was allowed can be reviewed later.
 
 A question the agent asked is a row in the same table and resumes down the same stream,
 but it is closed on its own route: its outcome is the person's words, and a yes with no
@@ -15,7 +16,7 @@ from sse_starlette.sse import EventSourceResponse
 
 from my_agent_crew.inbound import InboundBusy
 from my_agent_crew.server.deps import ConvDeps, Rt
-from my_agent_crew.server.routes_chat import sse_events
+from my_agent_crew.server.routes_turn import sse_frames
 from my_agent_crew.store.models import QUESTION
 
 router = APIRouter(tags=["approvals"])
@@ -68,7 +69,7 @@ async def decide(
         events = rt.inbound.decide(conv_id, approval_id, body.approve, always=body.always)
     except InboundBusy as exc:  # a decision taken a moment ago holds it, still unapplied
         raise HTTPException(409, "approval already resolved") from exc
-    return EventSourceResponse(sse_events(events))
+    return EventSourceResponse(sse_frames(deps, conv_id, rt.inbound.host.run(conv_id, events)))
 
 
 @router.post("/conversations/{conv_id}/approvals/{approval_id}/answer")
@@ -89,4 +90,4 @@ async def answer(
         events = rt.inbound.answer(conv_id, approval_id, body.answer)
     except InboundBusy as exc:
         raise HTTPException(409, "approval already resolved") from exc
-    return EventSourceResponse(sse_events(events))
+    return EventSourceResponse(sse_frames(deps, conv_id, rt.inbound.host.run(conv_id, events)))
