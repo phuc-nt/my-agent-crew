@@ -4370,3 +4370,13 @@ sổ hàng nghìn pixel, và làm chính trang cuộn được. Sửa: `.thread`
     conversations": trang không có gì để cuộn; "stays put when a wheel runs off the end of a long
     canvas": lăn chuột quá cuối canvas rồi lăn ngược, trang vẫn ở 0; "has nothing to scroll on the
     manage screen"). Bỏ dòng `position: relative` thì bốn trong sáu test đỏ, trang cuộn được hơn 8.000 px.
+
+Rà các cột cuộn còn lại cùng ngày tìm ra hai chỗ nữa mắc đúng lỗi này, đều đã sửa bằng `position: relative`
+trên chính cột cuộn: `.conversation-list` (chấm chưa đọc mang một nhãn `.sr-only`) và `.manage-body` (huy
+hiệu, dòng trạng thái và `.canvas-library-said:empty`). Các cột khác đã có mốc sẵn: mỗi `.step` của dòng thời
+gian và mỗi `.md-code` tự là mốc cho nhãn của mình.
+
+  - Playwright: `web/e2e/page-scroll.spec.ts` ("has nothing to scroll under a long list of unread
+    conversations": 60 hội thoại, 59 chấm chưa đọc; "has nothing to scroll under an agent's editor": trang
+    sửa agent với lời nhắc đã mở). Bỏ từng dòng `position: relative` thì test tương ứng đỏ: danh sách dư
+    2.496 px ở 1440 px, trang sửa agent dư 2.106 px ở 1440 px và 2.686 px ở 390 px.

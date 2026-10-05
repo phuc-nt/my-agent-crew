@@ -19,6 +19,10 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   below the window, and made the page itself scrollable. A wheel or trackpad that ran off the
   end of another column, a long canvas above all, then dragged the page. The thread now holds
   its own labels and the page has nothing to scroll.
+- The same slide could start from two other columns, and no longer does: a long list of
+  conversations with unread ones below the fold, whose dot carries such a label, and the manage
+  screen, where an agent's editor with its prompt opened, or the canvas library, reached past
+  the window. Each of those columns now holds its own labels as well.
 
 ## [0.11.0] — 2026-10-05
 

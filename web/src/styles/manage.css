@@ -127,6 +127,9 @@
   /* Named because a sticky bar inside would stop this far down, short of the edge,
      and has to rise over it. */
   --manage-pad-top: var(--space-6);
+  /* Positioned for the same reason as the thread: a screen-reader-only label below the fold
+     scrolls with this column instead of giving the page something to scroll. */
+  position: relative;
   overflow-y: auto;
   padding: var(--manage-pad-top) var(--space-7) var(--space-7);
   min-width: 0;

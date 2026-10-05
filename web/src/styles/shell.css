@@ -101,6 +101,8 @@
 }
 
 .conversation-list {
+  /* Positioned, so an unread row's spoken label scrolls with the list and not with the page. */
+  position: relative;
   list-style: none;
   flex: 1 1 0;
   min-height: 96px;
