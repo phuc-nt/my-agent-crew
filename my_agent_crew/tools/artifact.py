@@ -12,7 +12,7 @@ from datetime import tzinfo
 from functools import partial
 from typing import TYPE_CHECKING, Any
 
-from my_agent_crew.agent.turn_context import note_canvas_write
+from my_agent_crew.agent.turn_context import canvas_reader_is_away, note_canvas_write
 from my_agent_crew.artifacts.kinds import prepare
 from my_agent_crew.artifacts.tag import artifact_tag
 from my_agent_crew.clock import day_and_time
@@ -32,10 +32,12 @@ from my_agent_crew.tools.artifact_scope import (
     check_agent_kind,
     check_budget,
     check_channel,
+    send_lines,
 )
 from my_agent_crew.tools.artifact_texts import (
     ARTIFACT_CREATE_DESCRIPTION,
     ARTIFACT_CREATED,
+    ARTIFACT_CREATED_AWAY,
     ARTIFACT_EDIT_DESCRIPTION,
     ARTIFACT_LIST_DESCRIPTION,
     ARTIFACT_LIST_EMPTY,
@@ -85,8 +87,10 @@ async def _create(agent: CanvasAgent, args: dict[str, Any]) -> str:
     agent.share(conv, summary.id)
     agent.store.artifact_links.mark_seen(conv.id, summary.id, 1)
     lines = line_count(text)
-    done = ARTIFACT_CREATED.format(title=summary.title, kind=kind, size=size, lines=lines)
-    return f"{artifact_tag(summary.id, 1)}\n{done}"
+    away = canvas_reader_is_away(conv)
+    told = ARTIFACT_CREATED_AWAY if away else ARTIFACT_CREATED
+    done = told.format(title=summary.title, kind=kind, size=size, lines=lines)
+    return "\n".join([artifact_tag(summary.id, 1), done, *send_lines(conv, summary.id)])
 
 
 async def _list(agent: CanvasAgent, args: dict[str, Any]) -> str:

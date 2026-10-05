@@ -9,7 +9,11 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
-from my_agent_crew.agent.turn_context import canvas_writes, may_write_canvas
+from my_agent_crew.agent.turn_context import (
+    canvas_reader_is_away,
+    canvas_writes,
+    may_write_canvas,
+)
 from my_agent_crew.artifacts.kinds import (
     CREATABLE_KINDS,
     LANGUAGE_MAX,
@@ -39,6 +43,7 @@ from my_agent_crew.texts_canvas import (
     ARTIFACT_VERSION_GONE,
     ARTIFACT_WRITE_BUDGET,
 )
+from my_agent_crew.tools.artifact_texts import ARTIFACT_SEND_LINE
 from my_agent_crew.tools.registry import ToolError
 
 if TYPE_CHECKING:
@@ -136,3 +141,11 @@ def canvas_errors(artifact_id: str = "") -> Iterator[None]:
         if artifact_id and exc.args == (artifact_id,):
             raise not_found(artifact_id) from None
         raise
+
+
+def send_lines(conv: Conversation, artifact_id: str) -> list[str]:
+    """What a turn read away from the web chat is told after making a canvas: the line that
+    sends it along with the answer. A turn at the web chat is told nothing more."""
+    if not canvas_reader_is_away(conv):
+        return []
+    return [ARTIFACT_SEND_LINE.format(id=artifact_id)]

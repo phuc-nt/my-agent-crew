@@ -4380,3 +4380,14 @@ gian và mỗi `.md-code` tự là mốc cho nhãn của mình.
     conversations": 60 hội thoại, 59 chấm chưa đọc; "has nothing to scroll under an agent's editor": trang
     sửa agent với lời nhắc đã mở). Bỏ từng dòng `position: relative` thì test tương ứng đỏ: danh sách dư
     2.496 px ở 1440 px, trang sửa agent dư 2.106 px ở 1440 px và 2.686 px ở 390 px.
+
+## Kết quả tạo canvas ở lượt đọc xa web
+
+Lỗi thật thấy trên Telegram ngày 2026-10-05: được nhờ "viết vào canvas rồi gửi tệp", agent gọi
+`artifact_export` rồi viết `FILE: <tệp workspace>` ở cả bốn lượt, không lần nào dùng `FILE: artifact:<id>`.
+Kết quả tool nó vừa đọc nói "người thấy nó ngay cạnh khung chat". Sửa: lượt Telegram và job nhận câu khác và
+một dòng nêu đúng `FILE: artifact:<id>`.
+
+  - pytest: `tests/test_canvas_away_result.py` (lượt Telegram và job: kết quả tạo có dòng gửi với đúng mã,
+    không còn chữ "cạnh khung"; lượt web chat giữ nguyên câu cũ; `artifact_import` thêm cùng dòng ở lượt xa
+    và không thêm ở web chat). Đảo điều kiện trong `send_lines` thì cả sáu test đỏ.

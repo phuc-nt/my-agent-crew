@@ -283,6 +283,11 @@ liên kết nếu cả hai vừa 1024 ký tự. Tệp quá 20 MB không được
 với tới; canvas ngoài tầm và canvas không tồn tại nhận cùng một câu trả lời. Canvas nhập từ một
 tệp workspace có đuôi không thuộc loại gửi qua chat được thì không gửi.
 
+Ở lượt Telegram và lượt job, kết quả của `artifact_create` và `artifact_import` nhắc lại đúng dòng
+này kèm mã của canvas vừa tạo, và không nói "người thấy nó cạnh khung chat". Lần kiểm trên Telegram
+thật ngày 2026-10-05 cho thấy thiếu lời nhắc ấy thì agent xuất canvas ra workspace rồi gửi tệp
+đó: mất chú thích, và trang HTML hay ảnh bị từ chối vì đuôi tệp.
+
 **Lọc bí mật.** Nội dung chữ, tiêu đề và chú thích đi qua bộ lọc trước khi rời máy chủ. Bộ lọc
 che giá trị của các biến môi trường có tên chứa `KEY`, `TOKEN`, `SECRET`, `PASSWORD` hoặc
 `CREDENTIAL` khi giá trị dài từ 8 ký tự, cùng chuỗi có dạng token `Bearer`, khoá `sk-` và JWT.

@@ -35,6 +35,7 @@ from my_agent_crew.tools.artifact_scope import (
     canvas_errors,
     check_budget,
     check_channel,
+    send_lines,
 )
 from my_agent_crew.tools.artifact_source import (
     SourceFile,
@@ -117,7 +118,8 @@ async def _create(agent: CanvasAgent, root: Path, conv: Conversation, asked: _As
     agent.store.artifact_links.mark_seen(conv.id, summary.id, 1)
     done = imported_line(IMPORT_CREATED, relative, summary, file)
     shown = asked.url or SOURCE_WORKSPACE.format(path=relative)
-    return "\n".join([artifact_tag(summary.id, 1), done, *source_lines(kind, shown, refs)])
+    told = [*source_lines(kind, shown, refs), *send_lines(conv, summary.id)]
+    return "\n".join([artifact_tag(summary.id, 1), done, *told])
 
 
 async def _replace(

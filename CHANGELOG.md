@@ -23,6 +23,12 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   conversations with unread ones below the fold, whose dot carries such a label, and the manage
   screen, where an agent's editor with its prompt opened, or the canvas library, reached past
   the window. Each of those columns now holds its own labels as well.
+- An agent asked over Telegram to write a canvas and send it now sends the canvas itself. The
+  result of creating or importing one told every turn that the person saw the canvas beside the
+  chat and named no way to send it, so the agent exported the canvas to its workspace and sent
+  that file: a note arrived without its caption, and a page or a picture was refused for its
+  suffix. A turn read over Telegram, or a job's, is now told that its reader does not see the
+  canvas and given the `FILE: artifact:<id>` line that sends it.
 
 ## [0.11.0] — 2026-10-05
 

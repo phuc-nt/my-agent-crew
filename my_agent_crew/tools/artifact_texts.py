@@ -94,6 +94,17 @@ ARTIFACT_CREATED = (
     "Đã tạo canvas «{title}» ({kind}, {size} byte, {lines} dòng). Người thấy nó ngay cạnh khung"
     " chat: trong câu trả lời chỉ nói ngắn bạn đã viết gì, đừng chép lại nội dung."
 )
+# The same news for a turn read away from the web chat. Told only that a canvas opens beside
+# the chat, a model asked to send one over Telegram exported it to the workspace and sent that
+# file, which drops the caption and refuses a page or a picture by its suffix.
+ARTIFACT_CREATED_AWAY = (
+    "Đã tạo canvas «{title}» ({kind}, {size} byte, {lines} dòng). Người nhận lượt này không"
+    " thấy canvas mở ra: đừng chép lại nội dung vào câu trả lời."
+)
+ARTIFACT_SEND_LINE = (
+    "Muốn người nhận được canvas này thành tệp thì viết một dòng riêng `FILE: artifact:{id}`"
+    " trong câu trả lời; đừng xuất nó ra workspace để gửi."
+)
 # An edit says how long the canvas now is: a model growing one toward a length it was asked
 # for otherwise reads it back, or measures it with a shell, after every edit.
 ARTIFACT_EDITED = "Đã thay {count} chỗ; canvas giờ có {size} byte, {lines} dòng."
