@@ -356,6 +356,15 @@
   transition: width var(--duration-slow) var(--ease-out);
 }
 
+/* Why this run looks unlike the others: it was cut by a restart and carried on. Quiet,
+   and allowed to wrap, since the strip it sits in can be as narrow as a phone. */
+.run-progress-note {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-xs);
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
 /* Reduced motion: the state must survive without any of the above moving.
    The running node keeps a static ring, and the live label keeps its accent
    colour instead of the sweep. */

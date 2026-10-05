@@ -123,4 +123,26 @@ describe("RunProgressHeader", () => {
     render(<RunProgressHeader run={settled} />);
     expect(screen.getByTestId("run-progress")).toHaveTextContent(vi.runElapsed(2000));
   });
+
+  it("says a run was carried on after a restart, while it runs and once it is over", () => {
+    // Without the line, a step closed as cut off and a clock older than the server read
+    // as a fault of this run instead of as what a restart did to it.
+    const { rerender } = render(
+      <RunProgressHeader run={run([toolStep()], "running", { resumed: true })} />,
+    );
+    expect(screen.getByTestId("run-resumed")).toHaveTextContent(vi.runResumed);
+
+    rerender(<RunProgressHeader run={run([toolStep()], "done", { resumed: true })} />);
+    expect(screen.getByTestId("run-resumed")).toHaveTextContent(vi.runResumed);
+  });
+
+  it("says nothing of a restart on a run that was never cut", () => {
+    const { rerender } = render(<RunProgressHeader run={run([toolStep()], "running")} />);
+    expect(screen.queryByTestId("run-resumed")).toBeNull();
+
+    // What the server sends for every other run, and what an older server leaves out.
+    rerender(<RunProgressHeader run={run([toolStep()], "running", { resumed: false })} />);
+    expect(screen.queryByTestId("run-resumed")).toBeNull();
+    expect(screen.getByTestId("run-progress")).not.toHaveTextContent(vi.runResumed);
+  });
 });

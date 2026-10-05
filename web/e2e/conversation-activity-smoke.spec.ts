@@ -58,6 +58,10 @@ const options = {
   stream: [{ type: "snapshot", runs: [mine, theirs, delegated] }],
 };
 
+// The same conversation after a restart: its turn was cut and the server carried it on.
+const carriedOn = { ...options, stream: [{ type: "snapshot", runs: [{ ...mine, resumed: true }, theirs] }] };
+const RESUMED = "Tiếp tục sau khi server khởi động lại";
+
 // Below the 1100px breakpoint the activity is a strip under the thread.
 test.describe("on a narrow screen", () => {
   test.use({ viewport: { width: 1024, height: 768 } });
@@ -93,6 +97,19 @@ test.describe("on a narrow screen", () => {
     await expect(strip.getByTestId("run-children")).toContainText("HLV sức khoẻ");
   });
 
+  test("a run carried on after a restart says so on its line, and no other run does", async ({ page }) => {
+    await mockApi(page, carriedOn);
+    await page.goto("/");
+    await page.getByRole("navigation").getByRole("button", { name: /Cuộc một/ }).click();
+
+    const strip = page.getByTestId("conversation-activity");
+    await expect(strip.getByTestId("run-resumed")).toHaveText(RESUMED);
+
+    await page.getByRole("navigation").getByRole("button", { name: /Cuộc hai/ }).click();
+    await expect(strip.getByTestId("run-progress")).toHaveCount(1);
+    await expect(strip.getByTestId("run-resumed")).toHaveCount(0);
+  });
+
   test("a conversation that has never run shows no strip at all", async ({ page }) => {
     await mockApi(page, { ...options, stream: [{ type: "snapshot", runs: [theirs] }] });
     await page.goto("/");
@@ -124,11 +141,38 @@ test.describe("on a wide screen", () => {
     expect(box && chat && box.x >= chat.x + chat.width - 1).toBe(true);
   });
 
+  test("a run carried on after a restart says so in the column", async ({ page }) => {
+    await mockApi(page, carriedOn);
+    await page.goto("/");
+    await page.getByRole("navigation").getByRole("button", { name: /Cuộc một/ }).click();
+
+    const column = page.getByRole("complementary", { name: "Hoạt động của cuộc trò chuyện này" });
+    await expect(column.getByTestId("run-resumed").first()).toHaveText(RESUMED);
+  });
+
   test("a conversation that has never run keeps the column, saying so", async ({ page }) => {
     await mockApi(page, { ...options, stream: [{ type: "snapshot", runs: [theirs] }] });
     await page.goto("/");
     await page.getByRole("navigation").getByRole("button", { name: /Cuộc một/ }).click();
 
     await expect(page.getByTestId("conversation-activity")).toContainText("Chưa có lượt chạy nào.");
+  });
+});
+
+// On a phone the strip is as wide as the screen and the line has to fit in it.
+test.describe("on a phone", () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test("the line about the restart fits the strip and does not widen the page", async ({ page }) => {
+    await mockApi(page, carriedOn);
+    // Straight to the conversation: on a phone the list is behind the menu.
+    await page.goto("/#/chat/c1");
+
+    const note = page.getByTestId("conversation-activity").getByTestId("run-resumed");
+    await expect(note).toHaveText(RESUMED);
+    const box = await note.boundingBox();
+    expect(box && box.x >= 0 && box.x + box.width <= 390).toBe(true);
+    const page_width = await page.evaluate(() => document.documentElement.scrollWidth);
+    expect(page_width).toBeLessThanOrEqual(390);
   });
 });

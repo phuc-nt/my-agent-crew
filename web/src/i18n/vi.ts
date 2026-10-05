@@ -156,6 +156,10 @@ export const vi = {
   runEndedDone: "Đã xong",
   runEndedHalted: "Đã dừng",
   runEndedError: "Đã lỗi",
+  // Under the header of a run the server carried on after a restart. It explains the two
+  // things that would otherwise look wrong: a step closed as cut off, and a clock that
+  // started before the server did.
+  runResumed: "Tiếp tục sau khi server khởi động lại",
   runStepCount: (done: number, total: number) => `${done}/${total} bước`,
   runElapsed: (ms: number) =>
     ms >= 60_000

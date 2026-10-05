@@ -63,6 +63,11 @@ export function RunProgressHeader({ run }: { run: RunInfo }) {
       >
         <div className="run-progress-fill" style={{ width: `${filled}%` }} />
       </div>
+      {run.resumed && (
+        <p className="run-progress-note" data-testid="run-resumed">
+          {vi.runResumed}
+        </p>
+      )}
     </div>
   );
 }

@@ -103,6 +103,9 @@ export interface RunInfo {
   unknown_cost_calls: number;
   summary: string;
   steps: RunStep[];
+  /** True once the server has carried this run on after a restart cut it, which it does
+   *  once. Absent from a server older than the bundle, which never does. */
+  resumed?: boolean;
 }
 
 /** The payloads that describe runs, and so change the activity state. */
