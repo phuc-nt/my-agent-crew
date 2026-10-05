@@ -189,6 +189,20 @@ async def test_a_live_turn_is_watched_without_changing_what_passes():
     assert seen.tags == [Tag(A, 2), Tag(C, 1)]
 
 
+async def test_a_live_turn_keeps_what_a_child_wrote_before_its_wait_ran_out():
+    """That result is a failure, and the message it is stored as keeps no such mark: read
+    live or read back from the run, a turn names the same canvases."""
+    late = timed_out("c9", None, [f"{artifact_tag(A, 2)} Dàn ý"], "")
+
+    async def events():
+        yield ToolResultEvent("d1", "delegate", late.ok, late.output)
+        yield DoneEvent(0.0, 0)
+
+    seen = WrittenCanvases()
+    await collect(seen.watch(events()))
+    assert not late.ok and seen.tags == [Tag(A, 2)]
+
+
 async def test_a_turn_that_breaks_is_still_broken_and_keeps_what_it_wrote_by_then():
     async def events():
         yield ToolResultEvent("c1", "artifact_create", True, f"{artifact_tag(A, 1)} Đã tạo.")

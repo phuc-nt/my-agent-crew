@@ -13,13 +13,20 @@ must not be a way round it.
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 
 from my_agent_crew import texts
+from my_agent_crew.agent.turn_context import TELEGRAM
+from my_agent_crew.llm.fake import completion
+from my_agent_crew.llm.types import Message, ToolCall
 from my_agent_crew.store.artifact_models import USER
 from tests.canvas_helpers import PLAN, PNG, agents_canvas, persons_canvas
+from tests.telegram_fake import message, poll_each, settle
 
 ID = "0123456789ab"
+WRITE = ToolCall("w1", "workspace_write", {"path": "out.txt", "content": "ok"})
 
 
 def missing(artifact_id: str) -> str:
@@ -69,6 +76,42 @@ async def test_a_linked_canvas_is_sent_for_its_conversation_alone(crew, fake):
     store.delete(conv.id)
     await out.send(f"FILE: artifact:{art}", conv.id)
     assert fake.sent == [missing(art)] * 3 and len(fake.uploads) == 1
+
+
+async def asked(channel, fake) -> None:
+    await poll_each(channel, fake, message(1, "gửi ghi chú"))
+
+
+async def approved(channel, fake) -> None:
+    await poll_each(channel, fake, message(1, "gửi ghi chú"), message(2, "/approve"))
+
+
+async def waited_in_line(channel, fake) -> None:
+    """What the queue's drain does once it has written the waiting message down."""
+    conv = channel.conversation()
+    channel.store.append(conv.id, Message(role="user", content="gửi ghi chú"))
+    await channel.run_delivered(conv.id, TELEGRAM)
+    await settle(channel)
+
+
+@pytest.mark.parametrize(
+    ("begins", "first"),
+    [(asked, ()), (approved, (completion(tool_calls=(WRITE,)),)), (waited_in_line, ())],
+)
+async def test_a_turn_in_the_chat_sends_what_its_conversation_holds_however_it_began(
+    make_channel, deps_factory, store, fake, begins, first
+):
+    """A message, an approval that lets a stopped turn go on, a message that waited in line:
+    each reply is sent for the conversation its turn ran in. The agent is not the master,
+    and the canvas is a person's, so nothing but that conversation puts it within reach."""
+    notes = persons_canvas(store, PLAN)
+    deps = deps_factory(script=(*first, completion(f"Đây.\nFILE: artifact:{notes}")))
+    deps.profile = replace(deps.agent, id="coach", name="HLV")
+    channel = make_channel(deps)
+    store.artifact_links.link(channel.conversation().id, notes)
+    await begins(channel, fake)
+    assert [upload.data for upload in fake.uploads] == [PLAN.encode()]
+    assert fake.sent[-1] == "Đây." and missing(notes) not in fake.sent
 
 
 async def test_what_the_root_of_a_delegation_shares_reaches_its_child(crew, fake):

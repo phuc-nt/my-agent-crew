@@ -141,6 +141,8 @@ def test_a_web_address_keeps_its_scheme_host_port_and_path_without_the_last_slas
         "http://h/#x",
         "http://h/a b",
         "http://h/a\tb",
+        "http://h x",
+        "http://h\x00x",
         "http://h\u200b",
         "http://h/\x00",
         "http://h\udc80",

@@ -172,6 +172,18 @@ async def test_a_notice_that_cannot_be_sent_does_not_stop_the_next_attachment(
     assert "HTTP 500" in unsent[0].getMessage()
 
 
+async def test_an_upload_telegram_refuses_is_said_and_does_not_stop_the_next(make_channel, fake):
+    """The file is there and Telegram is what says no: a picture it will not show."""
+    channel = make_channel()
+    write(channel, "chart.png", b"not a picture")
+    write(channel, "ok.pdf", b"%PDF-1.4\n")
+    fake.fail["sendPhoto"] = 400
+    await channel.outbound().send("MEDIA: chart.png\nFILE: ok.pdf")
+    assert fake.calls == ["sendPhoto", "sendMessage", "sendDocument"]
+    assert fake.sent == [texts.TELEGRAM_MEDIA_MISSING.format(path="chart.png")]
+    assert [upload.name for upload in fake.uploads] == ["ok.pdf"]
+
+
 async def test_a_photo_failure_still_says_it_was_a_photo(make_channel, fake):
     """The two kinds share one code path now; they must not share one message."""
     channel = make_channel()

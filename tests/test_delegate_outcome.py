@@ -303,6 +303,8 @@ def test_a_tag_in_the_childs_own_words_is_not_a_canvas_it_wrote():
         f"{CHILD}\noutcome=done",
         f"{CHILD}\noutcome=done\n{DRAFT}",  # no blank line under the block
         f"{CHILD}\n{DRAFT}\n\nXong.",  # stored before the outcome line existed
+        f"{CHILD}\n{DRAFT}\n{FIGURES}\n\nXong.",
+        f"{CHILD}\n{DRAFT}\n{FIGURES}\n\noutcome=done",  # said by the child, under the blank line
         f"outcome=done\n{DRAFT}\n\nXong.",  # the outcome is line 2, never line 1
         f"{CHILD}\noutcome=done\n{DRAFT}\nlời của agent con\n\nXong.",
         f"{CHILD}\noutcome=done\nlời của agent con\n{DRAFT}\n\nXong.",

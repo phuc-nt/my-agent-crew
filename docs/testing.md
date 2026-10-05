@@ -3904,18 +3904,21 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `tests/test_config.py::test_no_web_address_reads_as_empty`;
     `tests/test_config.py::test_a_web_address_keeps_its_scheme_host_port_and_path_without_the_last_slash`;
     `tests/test_config.py::test_a_web_address_that_is_not_a_plain_one_is_refused` (scheme khác
-    `http`/`https`, thiếu scheme, thiếu host, có tên đăng nhập, query, fragment, khoảng trắng, ký tự
-    ẩn, nửa cặp surrogate, cổng không đọc được, path có ký tự phải mã hoá, giá trị không phải chuỗi);
+    `http`/`https`, thiếu scheme, thiếu host, có tên đăng nhập, query, fragment, khoảng trắng và ký
+    tự ẩn ở path lẫn ở host, nửa cặp surrogate, cổng không đọc được, path có ký tự phải mã hoá, giá
+    trị không phải chuỗi);
     `tests/test_config.py::test_a_refused_web_address_stops_the_load_and_is_not_repeated` (câu lỗi
     nêu khoá `web_url` và không lặp lại giá trị, vì giá trị có thể mang mật khẩu)
 - **Dòng báo một đính kèm không gửi được mà chính nó cũng không gửi được thì chỉ vào log; các đính
   kèm đứng sau vẫn tới chat**
-  - pytest:
-    `tests/test_reply_file_line.py::test_a_notice_that_cannot_be_sent_does_not_stop_the_next_attachment`
+  - pytest (`tests/test_reply_file_line.py`):
+    `::test_a_notice_that_cannot_be_sent_does_not_stop_the_next_attachment`
     (`sendMessage` trả 500 trong lúc một tệp và một ảnh không có: `ok.pdf` vẫn tới, `send` không ném,
-    mỗi dòng báo hỏng một dòng log mức `warning`); bản giả Telegram (`tests/telegram_fake.py`) cho
-    một method trả lỗi bằng `fail`, giữ một lời gọi bằng `hold`, và đọc tên tệp, caption, bytes của
-    mỗi lời tải lên vào `uploads`
+    mỗi dòng báo hỏng một dòng log mức `warning`);
+    `::test_an_upload_telegram_refuses_is_said_and_does_not_stop_the_next` (tệp có thật mà Telegram
+    từ chối lúc tải lên: chat nhận một dòng báo, `ok.pdf` vẫn tới); bản giả Telegram
+    (`tests/telegram_fake.py`) cho một method trả lỗi bằng `fail`, giữ một lời gọi bằng `hold`, và
+    đọc tên tệp, caption, bytes của mỗi lời tải lên vào `uploads`
 - **Dòng `FILE: artifact:<id>` hoặc `MEDIA: artifact:<id>` của một câu trả lời gửi canvas đó tới
   chat Telegram dưới dạng tệp, dựng trong bộ nhớ, sau các tệp workspace**
   - pytest (đọc dòng, `tests/test_telegram_canvas_file.py`):
@@ -3948,6 +3951,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `::test_a_canvas_that_cannot_be_sent_does_not_stop_the_next` (lý do chỉ vào log);
     `::test_a_canvas_over_what_a_chat_takes_is_not_uploaded` (đo bằng byte, bằng đúng mức trần thì
     vẫn gửi); `::test_a_canvas_that_is_not_there_is_said_so`;
+    `::test_a_canvas_deleted_while_it_is_read_reads_as_one_that_is_not_there` (bị xoá giữa lúc tìm
+    thấy và lúc đọc nội dung: cùng câu với canvas không có, không có lời tải lên nào);
     `::test_a_notice_about_a_canvas_that_cannot_be_sent_stops_nothing`;
     `::test_the_log_names_the_canvas_by_id_version_and_size_alone` (log không mang tiêu đề hay nội
     dung)
@@ -3963,7 +3968,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `.pem`, tệp không đuôi);
     `::test_a_canvas_imported_from_a_file_of_a_known_kind_or_a_link_is_sent`;
     `::test_a_picture_is_sent_whatever_its_file_was_called`;
-    `::test_reach_is_checked_before_where_a_canvas_came_from`
+    `::test_reach_is_checked_before_where_a_canvas_came_from`;
+    `::test_a_turn_in_the_chat_sends_what_its_conversation_holds_however_it_began` (lượt mở bằng
+    một tin nhắn, bằng `/approve` cho lượt đang dừng, hay bằng tin đã chờ trong hàng: câu trả lời
+    nào cũng được gửi theo hội thoại của lượt, nên canvas gắn với hội thoại đó tới được chat)
 - **Dòng `FILE: artifact:<id>` trong câu trả lời của agent con đi tiếp tới agent cha theo tầm với
   của agent con, không qua đường chép tệp workspace**
   - pytest (`tests/test_delegate_canvas_lines.py`):
@@ -4013,6 +4021,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `::test_a_write_that_was_refused_names_nothing`;
     `::test_a_write_that_changed_nothing_names_nothing`;
     `::test_a_delegated_task_names_what_its_child_wrote_even_when_the_wait_ran_out`;
+    `::test_a_live_turn_keeps_what_a_child_wrote_before_its_wait_ran_out` (kết quả giao việc hết
+    giờ là một kết quả hỏng: xem lúc lượt đang chạy hay đọc lại từ run đều nêu cùng canvas);
     `::test_a_canvas_written_twice_is_named_once_at_its_newest_version_where_it_first_stood`;
     `::test_a_live_turn_is_watched_without_changing_what_passes`;
     `::test_a_turn_that_breaks_is_still_broken_and_keeps_what_it_wrote_by_then`
@@ -4037,7 +4047,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `::test_a_result_that_names_no_canvas_reads_as_none`;
     `::test_a_tag_in_the_childs_own_words_is_not_a_canvas_it_wrote`;
     `::test_anything_but_the_block_as_the_tool_writes_it_names_no_canvas` (cùng luật với thẻ
-    giao việc trên web: dòng outcome, dòng trống bên dưới, mọi dòng ở giữa mở bằng thẻ)
+    giao việc trên web: dòng outcome, dòng trống bên dưới, mọi dòng ở giữa mở bằng thẻ; chữ
+    `outcome=` agent con tự viết bên dưới dòng trống không phải dòng outcome)
   - pytest (`tests/test_telegram_canvas_notice_sent.py`, run gửi sau qua `deliver`):
     `::test_a_brief_is_followed_by_its_files_then_its_canvases_then_why_it_stopped`;
     `::test_a_run_that_only_wrote_canvases_is_answered_by_their_list` (không còn canvas nào để

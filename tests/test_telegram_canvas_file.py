@@ -92,6 +92,25 @@ async def test_a_markdown_canvas_arrives_as_a_document_with_its_secrets_covered(
     assert fake.sent == ["Đây nhé."]
 
 
+async def test_a_canvas_deleted_while_it_is_read_reads_as_one_that_is_not_there(
+    make_channel, fake, monkeypatch
+):
+    """Found, and gone before its text is read: the web deletes while a reply is on its way."""
+    channel = make_channel()
+    store = channel.store
+    art = canvas(store)
+    found = store.artifacts.get
+
+    def found_then_deleted(artifact_id: str):
+        summary = found(artifact_id)
+        store.artifacts.delete(artifact_id)
+        return summary
+
+    monkeypatch.setattr(store.artifacts, "get", found_then_deleted)
+    await channel.outbound().send(f"Đây nhé.\nFILE: artifact:{art}")
+    assert fake.sent == ["Đây nhé.", missing(art)] and fake.uploads == []
+
+
 @pytest.mark.parametrize(
     ("kind", "language", "name"),
     [
