@@ -46,11 +46,19 @@ def question_notice(event: ApprovalRequiredEvent) -> str:
 @dataclass(frozen=True)
 class TurnReply:
     """A whole turn as one message: the assistant's text with the halt, error or
-    approval notice appended, how many model steps it took, and how it ended."""
+    approval notice appended, how many model steps it took, and how it ended. `error` is
+    the sentence the text ends with when the turn broke. It quotes the provider, so a
+    channel that reads a reply for attachment lines reads `said` and adds `error` as is."""
 
     text: str
     steps: int
     status: str  # done | halted | error | approval_required | queued
+    error: str = ""
+
+    @property
+    def said(self) -> str:
+        """The text without the error it ends with."""
+        return self.text.removesuffix(self.error).rstrip("\n")
 
     def to_dict(self) -> dict[str, Any]:
         return {"text": self.text, "steps": self.steps, "status": self.status}
@@ -65,6 +73,7 @@ async def collect_reply(
     notice. A turn that ends without a word still gets a line: silence reads like a dead
     bot."""
     parts: list[str] = []
+    error = ""  # kept apart from the parts; an error ends the turn, so it reads last anyway
     steps = 0
     status = kind_of(DoneEvent(0.0, 0))
     async for event in events:
@@ -76,7 +85,7 @@ async def collect_reply(
             parts.append(texts.REPLY_HALTED.format(reason=reason, spent=event.spent_usd))
             status = kind_of(event)
         elif isinstance(event, ErrorEvent):
-            parts.append(texts.REPLY_ERROR.format(message=event.message))
+            error = texts.REPLY_ERROR.format(message=event.message)
             status = kind_of(event)
         elif isinstance(event, ApprovalRequiredEvent):
             if event.kind == QUESTION:
@@ -94,5 +103,5 @@ async def collect_reply(
             # for, so the reply only says it was received and when it will be read.
             parts.append(texts.QUEUED_STEER if event.kind == STEER else texts.QUEUED_FOLLOW_UP)
             status = kind_of(event)
-    answer = "\n\n".join(part for part in parts if part)
-    return TurnReply(answer or texts.REPLY_EMPTY.format(steps=steps), steps, status)
+    answer = "\n\n".join(part for part in (*parts, error) if part)
+    return TurnReply(answer or texts.REPLY_EMPTY.format(steps=steps), steps, status, error)

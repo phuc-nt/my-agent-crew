@@ -54,7 +54,9 @@ class TelegramOutbound:
         """Sends every assistant text of the conversation's last turn (the messages after
         the last user message, in order); False when there is none yet. Text written next
         to a tool call counts: a brief often ends with a bare `MEDIA:` message. The canvases
-        the run wrote are listed after its words, and stand for them when it left none."""
+        the run wrote are listed after its words, and stand for them when it left none. What
+        the runtime adds around them is said as it stands: why a run stopped quotes an error
+        or a question, and a line of that shaped like an attachment line names no file."""
         parts: list[str] = []
         expired: list[str] = []
         for stored in reversed(self._deps.store.history(conv_id)):
@@ -72,7 +74,7 @@ class TelegramOutbound:
         # A refusal nobody chose deserves a line of its own: the answer below was shaped
         # by a guard that timed out, not by the person.
         for name in reversed(expired):
-            await self.send(texts.TELEGRAM_APPROVAL_EXPIRED.format(name=name), conv_id)
+            await self._say(texts.TELEGRAM_APPROVAL_EXPIRED.format(name=name))
         if parts:
             await self.send("\n\n".join(reversed(parts)), conv_id)
             await self.send_written(tags, conv_id)
@@ -80,7 +82,7 @@ class TelegramOutbound:
             # half-finished answer reads like a complete one.
             if run is not None and run.status in (HALTED, FAILED):
                 cut = texts.TELEGRAM_RUN_CUT_SHORT.format(reason=_ending(run), spent=run.spent_usd)
-                await self.send(cut, conv_id)
+                await self._say(cut)
             return True
         if run is None:
             logger.info("telegram %s: nothing to deliver for %s", self.agent_id, conv_id)
@@ -91,17 +93,20 @@ class TelegramOutbound:
             # The job ran to the end and produced no text. Saying so beats a brief that
             # simply never arrives, which looks the same as a broken schedule.
             logger.info("telegram %s: run for %s finished empty", self.agent_id, conv_id)
-            await self.send(texts.REPLY_EMPTY.format(steps=len(run.steps)), conv_id)
+            await self._say(texts.REPLY_EMPTY.format(steps=len(run.steps)))
             return True
         await self.send_written(tags, conv_id)
-        await self.send(texts.TELEGRAM_RUN_UNFINISHED.format(reason=_ending(run)), conv_id)
+        await self._say(texts.TELEGRAM_RUN_UNFINISHED.format(reason=_ending(run)))
         return True
 
-    async def send(self, text: str, conv_id: str | None = None) -> None:
+    async def send(self, text: str, conv_id: str | None = None, plain: str = "") -> None:
         """The prose, then the workspace files its lines name, then the canvases they name.
         `conv_id` is the conversation the reply belongs to, which decides the canvases it may
-        send. It comes with each call: one sender serves an agent's every turn."""
+        send. It comes with each call: one sender serves an agent's every turn. `plain` ends
+        the same message and is never read for attachment lines: it is the runtime's sentence
+        about the turn, not the agent's words."""
         prose, media, files = split_reply(text)
+        prose = "\n\n".join(part for part in (prose, plain) if part)
         if prose:
             await self._say(prose)
         for relative in media:

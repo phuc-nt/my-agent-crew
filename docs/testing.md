@@ -4103,3 +4103,22 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `::test_a_closing_line_that_cannot_be_sent_is_a_failure_the_chat_hears_of` (lượt không lời có
     ghi canvas, canvas bị xoá trước khi lượt xong, Telegram từ chối câu còn lại: chat nhận
     `TELEGRAM_TURN_FAILED`, log ghi lỗi kèm nguyên nhân)
+- **Câu của chính runtime gửi lên Telegram (báo duyệt hết hạn, lượt dừng sớm, lượt chưa có câu
+  trả lời, lượt không có nội dung, lỗi của lượt đang chạy) được gửi nguyên văn, không đọc để tìm
+  dòng `FILE:`/`MEDIA:`: dòng trông như vậy nằm lại trong câu và không tệp, ảnh hay canvas nào
+  được gửi theo**
+  - pytest (`tests/test_telegram_runtime_sentences.py`):
+    `::test_why_a_failed_run_stopped_is_said_whole_and_attaches_nothing` (run hỏng, lý do là lỗi
+    của provider có ba dòng đính kèm trỏ tới thứ có thật; có lời và không lời);
+    `::test_the_question_a_job_waits_on_is_said_whole_and_attaches_nothing` (job thật được giao
+    lúc đang chờ câu hỏi của chính nó);
+    `::test_no_sentence_of_a_delivery_is_read_for_attachment_lines_whatever_it_says` (từng câu
+    trong bốn câu của `deliver`, đổi hẳn lời thành một dòng `FILE:`);
+    `::test_a_reason_longer_than_one_message_arrives_whole` (lý do dài hơn một tin vẫn tới đủ,
+    cắt ở chỗ xuống dòng);
+    `::test_a_live_turn_that_broke_says_the_error_whole_and_attaches_nothing` (vòng lặp thật,
+    provider lỗi);
+    `::test_a_turn_that_spoke_before_it_broke_attaches_what_it_named_and_no_more` (lời của agent
+    vẫn được đọc, câu lỗi bên dưới thì không, cả hai vẫn chung một tin);
+    `::test_a_reply_keeps_its_error_apart_and_reads_whole_as_it_always_did` (`collect_reply` giữ
+    câu lỗi riêng ở `error`, `said` là phần còn lại, `to_dict` cho relay API không đổi)

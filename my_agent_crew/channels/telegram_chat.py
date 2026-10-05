@@ -94,7 +94,8 @@ class TelegramChat(TelegramPolling):
         chat when it ends, then the list of the canvases it wrote. What breaks it is logged,
         and the chat hears of it by the error's kind only: the error's text may quote a
         request the chat has no business seeing. What it wrote before it broke is still
-        listed, and what breaks the lines that close it is told the same way."""
+        listed, and what breaks the lines that close it is told the same way. A provider's
+        error is the reply's last sentence and is sent unread: only the agent names files."""
         out, seen = self.outbound(), WrittenCanvases()
         unsaid = ""
         try:
@@ -104,7 +105,7 @@ class TelegramChat(TelegramPolling):
                 # line calling the turn empty is kept for when none of them can be named.
                 unsaid = reply.text
             else:
-                await out.send(reply.text, conv_id)
+                await out.send(reply.said, conv_id, reply.error)
         except Exception as exc:
             await self._turn_failed(exc)
         try:
