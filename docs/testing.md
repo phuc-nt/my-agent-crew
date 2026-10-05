@@ -2086,20 +2086,26 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `artifact_import` bị từ chối và có tên trong mục, `artifact_export` vẫn ghi được tệp và không
     có tên, "test_the_refusal_names_no_channel_as_the_only_one_that_opens_a_canvas": lời từ chối
     không còn nói chỉ web chat mở được canvas)
-- **Canvas: lượt Telegram và job ghi được canvas; system prompt của lượt có người đọc trên
-  Telegram dặn khi nào nên tạo canvas và dòng nào gửi canvas thành tệp**
+- **Canvas: lượt Telegram và job ghi được canvas; system prompt của lượt có người đọc không
+  ngồi ở web chat dặn khi nào nên tạo canvas và dòng nào gửi canvas kèm tin nhắn, mà không nói
+  người đọc đang ở Telegram**
   - pytest: `tests/test_canvas_prompt_tail.py`
-    ("test_a_turn_whose_reader_is_on_telegram_is_told_how_a_canvas_reaches_them": lượt Telegram,
-    job và con trong chuỗi bắt đầu từ đó nghe mục **Canvas** với lời dặn này, ở cùng chỗ với mục
-    của kênh đóng, sau ghi chú trong ngày và ngay trước dòng ngày; prompt của lượt web chat là prompt đó bỏ đi mục này, đúng từng ký tự, cùng bộ
-    tool; con của chuỗi API hay chuỗi không có gốc không nghe lời dặn này,
+    ("test_a_turn_whose_reader_is_away_from_the_web_chat_is_told_how_a_canvas_reaches_them": lượt
+    Telegram, job và con trong chuỗi bắt đầu từ đó nghe mục **Canvas** với lời dặn này, ở cùng
+    chỗ với mục của kênh đóng, sau ghi chú trong ngày và ngay trước dòng ngày; prompt của lượt
+    web chat là prompt đó bỏ đi mục này, đúng từng ký tự, cùng bộ tool; lượt job nghe đúng từng
+    chữ lượt Telegram nghe; con của chuỗi API hay chuỗi không có gốc không nghe lời dặn này,
     "test_an_agent_that_writes_no_canvas_is_told_nothing_about_making_one": agent không giữ tool
     ghi canvas nào thì không có mục,
     "test_the_line_a_telegram_turn_is_taught_is_one_the_chat_sends_a_canvas_for": dòng
     `FILE: artifact:<id>` trong lời dặn, thay mã canvas vào, được đọc thành một canvas để gửi,
-    "test_the_note_for_a_reader_on_telegram_says_who_reads_and_when_a_canvas_is_worth_making":
-    lời dặn nói rõ người nhận đọc trên Telegram nên không thấy canvas, và chỉ tạo canvas khi được
-    dặn hay khi tài liệu dài và sẽ còn sửa tiếp, còn lại trả lời thẳng trong tin nhắn)
+    "test_the_note_says_who_reads_then_when_a_canvas_is_worth_making_then_how_one_is_sent": lời
+    dặn nói, theo đúng thứ tự, người nhận không ngồi ở web chat nên không thấy canvas, chỉ tạo
+    canvas khi được dặn hay khi tài liệu dài và sẽ còn sửa tiếp, còn lại trả lời thẳng trong tin
+    nhắn, rồi dòng `FILE: artifact:<id>` gửi canvas kèm tin nhắn,
+    "test_the_note_never_says_its_reader_is_on_telegram": Telegram chỉ được nhắc hai lần, là một
+    trong hai cách lượt được đọc và là điều kiện để dòng đó gửi canvas; job trên máy không có
+    bot cũng nghe lời này nên nó không khẳng định người đọc ở Telegram)
   - pytest: `tests/test_telegram_canvas_turn.py`, qua vòng lặp và tool thật
     ("test_a_telegram_turn_writes_a_canvas_and_sends_it_as_the_file_its_reply_names": chat nhận
     lời của lượt, rồi tệp canvas, rồi danh sách canvas; canvas nằm trong kho dưới tên agent và

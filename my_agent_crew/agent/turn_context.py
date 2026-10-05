@@ -25,7 +25,7 @@ PRESENT_SOURCES = (CHAT, TELEGRAM, API)
 # Telegram chat is sent it as a file and told what the turn wrote, a job's brief included.
 # Nothing carries one back through the inbound API, so a turn from there writes none.
 CANVAS_WRITE_SOURCES = (CHAT, TELEGRAM, JOB)
-# Of those, the ones whose reader is in a Telegram chat, not in front of the canvas.
+# Of those, the ones whose reader is away from the web chat, not in front of the canvas.
 CANVAS_AWAY_SOURCES = (TELEGRAM, JOB)
 
 _turn_source: ContextVar[str] = ContextVar("turn_source", default=CHAT)
@@ -108,8 +108,8 @@ def may_write_canvas(conv: Conversation) -> bool:
 
 
 def canvas_reader_is_away(conv: Conversation) -> bool:
-    """Whether what this turn writes is read in a Telegram chat, where a canvas does not
-    open beside the answer."""
+    """Whether what this turn writes is read away from the web chat, where no canvas opens
+    beside the answer."""
     return _canvas_source(conv) in CANVAS_AWAY_SOURCES
 
 

@@ -81,8 +81,8 @@ def canvas_closed_section(
 def canvas_away_section(
     conv: Conversation | None, tool_names: Sequence[str]
 ) -> list[tuple[str, str]]:
-    """A turn that may write a canvas while its reader is in a Telegram chat hears when one
-    is worth making and how to send it. An agent holding no canvas write has nothing to be
+    """A turn that may write a canvas while its reader is away from the web chat hears when
+    one is worth making and how to send it. An agent holding no canvas write has nothing to be
     advised on, and the standing prompt, with no turn, has no reader to speak of."""
     holds_a_write = any(name in tool_names for name in CANVAS_WRITE_TOOLS)
     if conv is None or not holds_a_write or not canvas_reader_is_away(conv):

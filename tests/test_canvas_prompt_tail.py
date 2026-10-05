@@ -1,10 +1,10 @@
 """What the tail of the system prompt says about canvases, by where the turn's reader is.
 
 A turn that cannot write a canvas is told so before the model puts a whole document into a
-call only to have it refused. A turn whose reader is on Telegram, not at the web, is told when
-a canvas is worth making and how to put one in front of them. A turn of the web chat is told
-neither. Every turn of an agent keeps the same tools and the same prompt up to that tail, so
-the cached prefix is shared."""
+call only to have it refused. A turn whose reader is away from the web chat, a Telegram turn
+or a job, is told when a canvas is worth making and how one is sent along. A turn of the web
+chat is told neither. Every turn of an agent keeps the same tools and the same prompt up to
+that tail, so the cached prefix is shared."""
 
 from __future__ import annotations
 
@@ -77,13 +77,14 @@ async def test_a_turn_that_cannot_write_a_canvas_is_told_so_with_the_same_tools(
         assert (note() in prompt) is closed, root_source
 
 
-async def test_a_turn_whose_reader_is_on_telegram_is_told_how_a_canvas_reaches_them(
+async def test_a_turn_whose_reader_is_away_from_the_web_chat_is_told_how_a_canvas_reaches_them(
     deps_factory, store: Store, tmp_path: Path
 ):
     """A Telegram turn, a job and a child whose chain began in either hear it in the same
     place, after the day's notes and right before the date, as the only thing said about
     canvases. The web chat's prompt is theirs without it, to the character, so it is what
-    it was before Telegram could write a canvas."""
+    it was before Telegram could write a canvas. A job hears what a Telegram turn hears, word
+    for word: nothing in it can say which of the two its reader is."""
     tools = canvas_tools(store, tmp_path)
     deps = deps_factory(script=[completion("được")] * 8, extra_tools=tools)
     note_path = daily_note_path(deps.agent.memory_dir, deps.settings.today())
@@ -93,10 +94,13 @@ async def test_a_turn_whose_reader_is_on_telegram_is_told_how_a_canvas_reaches_t
     date = today_line(deps.settings, deps.settings.today().isoformat())
     assert system.endswith(date) and "lịch chạy sáng thứ bảy" in system
     assert CANVAS_CLOSED_TITLE not in system and CANVAS_AWAY_BODY not in system
+    heard = []
     for source in (TELEGRAM, "job:default/brief"):
         request = await _first_request(deps, store.create().id, source)
         head, tail = request.messages[0].content.split(AWAY)
         assert (head + tail, tail, request.tools) == (system, date, chat.tools), source
+        heard.append(request.messages[0].content)
+    assert heard[0] == heard[1]
     for root_source, away in ((TELEGRAM, True), (JOB, True), (CHAT, False)):
         prompt = await _child_prompt(deps, store, root_source)
         assert prompt.count(f"## {CANVAS_CLOSED_TITLE}\n") == int(away), root_source
@@ -165,18 +169,33 @@ def test_the_line_a_telegram_turn_is_taught_is_one_the_chat_sends_a_canvas_for()
     assert [artifact_ref(path) for path in files] == ["0123456789ab"]
 
 
-def test_the_note_for_a_reader_on_telegram_says_who_reads_and_when_a_canvas_is_worth_making():
-    """The line to add is the third thing it says. Without who reads the turn the advice has
-    no reason; without when to write one, every long answer becomes a canvas the chat never
-    sees open."""
-    for said in (
-        "đọc trên Telegram",
+def test_the_note_says_who_reads_then_when_a_canvas_is_worth_making_then_how_one_is_sent():
+    """Three things, in this order. Without who reads the turn the advice has no reason;
+    without when to write one, every long answer becomes a canvas nobody sees open; and the
+    line that sends one along comes last, for the canvas that was worth making."""
+    said = (
+        "không ngồi ở web chat",
         "không thấy canvas",
         "khi được dặn",
         "dài và sẽ còn sửa tiếp",
         "trả lời thẳng trong tin nhắn",
-    ):
-        assert said in CANVAS_AWAY_BODY, said
+        "FILE: artifact:<id>",
+        "gửi canvas kèm tin nhắn",
+    )
+    found = [CANVAS_AWAY_BODY.find(words) for words in said]
+    assert -1 not in found and found == sorted(found), dict(zip(said, found, strict=True))
+
+
+def test_the_note_never_says_its_reader_is_on_telegram():
+    """A job hears it too, on a machine with no bot or when its brief is never pushed, and
+    its reader then has the web alone. So the reader is said to be away from the web chat,
+    and Telegram is named twice and no more: as one of two ways the turn gets read, and as
+    the condition the line sends a canvas under."""
+    who_reads = CANVAS_AWAY_BODY.partition(". ")[0]
+    assert "qua Telegram hoặc xem lại sau" in who_reads
+    assert "khi lượt được gửi qua Telegram" in CANVAS_AWAY_BODY
+    assert CANVAS_AWAY_BODY.count("Telegram") == 2
+    assert "đọc trên Telegram" not in CANVAS_AWAY_BODY
 
 
 def test_the_refusal_names_no_channel_as_the_only_one_that_opens_a_canvas():

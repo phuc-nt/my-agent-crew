@@ -74,13 +74,16 @@ ARTIFACT_CHANNEL_CLOSED = (
 # the model puts a whole document into a call only to hear `ARTIFACT_CHANNEL_CLOSED`.
 CANVAS_CLOSED_TITLE = "Canvas"
 CANVAS_CLOSED_BODY = "Kênh này chưa mở được canvas: trả lời thẳng trong tin nhắn, đừng gọi {tools}."
-# Under the same title, for a turn that may write a canvas while its reader is in a Telegram
-# chat: who reads it, when a canvas is worth making, and the line that sends one as a file.
+# Under the same title, for a turn that may write a canvas while its reader is away from the
+# web chat: who reads it, when a canvas is worth making, and the line that sends one along. A
+# job hears it too, with or without a bot to push its brief, so it names no channel as the
+# reader's and says what the line does only for a turn delivered over Telegram.
 CANVAS_AWAY_BODY = (
-    "Người nhận lượt này đọc trên Telegram, không ngồi ở web, nên không thấy canvas mở ra bên"
-    " cạnh. Chỉ tạo canvas khi được dặn, hoặc khi tài liệu dài và sẽ còn sửa tiếp; còn lại trả"
-    " lời thẳng trong tin nhắn. Muốn người đọc ngay nội dung canvas thì thêm vào câu trả lời"
-    " một dòng riêng `FILE: artifact:<id>`."
+    "Người nhận lượt này không ngồi ở web chat lúc bạn viết (họ đọc qua Telegram hoặc xem lại"
+    " sau), nên không thấy canvas mở ra bên cạnh. Chỉ tạo canvas khi được dặn, hoặc khi tài liệu"
+    " dài và sẽ còn sửa tiếp; còn lại trả lời thẳng trong tin nhắn. Một dòng riêng"
+    " `FILE: artifact:<id>` trong câu trả lời gửi canvas kèm tin nhắn khi lượt được gửi qua"
+    " Telegram."
 )
 ARTIFACT_WRITE_BUDGET = (
     "Lượt này đã ghi {limit} bản cho canvas này, chạm trần của một lượt, nên chưa ghi gì. Dừng"

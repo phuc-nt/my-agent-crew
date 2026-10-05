@@ -134,14 +134,16 @@ tin nhắn đầu tiên của ngày mới tiếp nối chỗ
 cuộc trước dừng lại mà không phát lại các message của nó.
 
 Lượt từ Telegram, lượt job, và agent được giao việc trong các lượt đó, tạo, sửa và viết lại
-được canvas như lượt web. Người đọc ở đây không thấy canvas mở ra bên cạnh, nên system prompt
-của lượt kết thúc bằng mục **Canvas** dặn chỉ tạo canvas khi được dặn hoặc khi tài liệu dài và
-sẽ còn sửa, còn lại trả lời thẳng trong tin nhắn. Canvas tới chat theo hai đường: một dòng
-riêng `FILE: artifact:<id>` trong câu trả lời gửi canvas đó thành tệp, và sau câu trả lời chat
-nhận danh sách các canvas lượt đã ghi. Job trả lời `OK` thì không gửi gì, kể cả danh sách đó;
-canvas nó ghi vẫn nằm trong kho và mở được trên web. Lượt qua `/api/inbound` vẫn chỉ liệt kê
-và đọc được canvas, và system prompt của nó dặn trả lời thẳng trong tin nhắn; xem
-[tools.md](tools.md#canvas).
+được canvas như lượt web. Người nhận các lượt này không ngồi ở web chat lúc agent viết (họ đọc
+qua Telegram hoặc xem lại sau) nên không thấy canvas mở ra bên cạnh; vì vậy system prompt của
+lượt kết thúc bằng mục **Canvas** dặn chỉ tạo canvas khi được dặn hoặc khi tài liệu dài và sẽ
+còn sửa, còn lại trả lời thẳng trong tin nhắn. Mục đó không nói người đọc đang ở kênh nào: job
+trên máy không có bot cũng nghe đúng lời ấy. Canvas tới chat theo hai đường: một dòng riêng
+`FILE: artifact:<id>` trong câu trả lời gửi canvas đó thành tệp, và sau câu trả lời chat nhận
+danh sách các canvas lượt đã ghi. Job trả lời `OK` thì không gửi gì, kể cả khi nó vừa tạo hay
+vừa sửa canvas: danh sách đó cũng không tới chat. Canvas nó ghi vẫn nằm trong kho và mở được
+trên web. Lượt qua `/api/inbound` vẫn chỉ liệt kê và đọc được canvas, và system prompt của nó
+dặn trả lời thẳng trong tin nhắn; xem [tools.md](tools.md#canvas).
 
 ## Lệnh
 

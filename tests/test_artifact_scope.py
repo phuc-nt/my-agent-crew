@@ -119,7 +119,7 @@ def test_a_person_typing_in_a_childs_own_conversation_writes_from_there(store: S
     [(CHAT, False), (TELEGRAM, True), ("job:coach/brief", True), (API, False)],
 )
 def test_the_reader_of_a_telegram_turn_or_a_job_is_away_from_the_web(store: Store, source, away):
-    """Whoever gets the answer in a Telegram chat does not see a canvas open beside it."""
+    """Whoever gets the answer away from the web chat does not see a canvas open beside it."""
     set_turn_source(source)
     assert canvas_reader_is_away(store.create()) is away
 

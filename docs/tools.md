@@ -516,14 +516,15 @@ nhận thêm quyền ghi.
   khoá cấu hình.
 - **Kênh.** Lượt từ web chat, từ Telegram và job ghi được canvas, cùng agent được giao việc
   trong chuỗi bắt đầu từ một lượt như vậy: canvas mở cạnh web chat, còn chat Telegram nhận nó
-  thành tệp và được báo lượt đã ghi gì. Lượt Telegram và job có người đọc không ngồi ở web, nên
-  system prompt của chúng kết thúc bằng mục **Canvas** dặn chỉ tạo canvas khi được dặn hoặc
-  khi tài liệu dài và sẽ còn sửa, và muốn người đọc ngay thì thêm một dòng riêng
-  `FILE: artifact:<id>`. Lượt qua `/api/inbound` chưa có đường mang canvas về cho người: nó vẫn
-  có các tool canvas để phần đầu prompt giống lượt web, nhưng lời gọi tạo, sửa, viết lại hay
-  nhập tệp bị từ chối và không gì được ghi; system prompt của lượt đó kết thúc bằng mục
-  **Canvas** dặn trả lời thẳng trong tin nhắn, nêu tên những tool ghi agent đang có. Đọc và
-  liệt kê chạy ở mọi kênh. Xem [channels.md](channels.md#cuộc-trò-chuyện).
+  thành tệp và được báo lượt đã ghi gì. Lượt Telegram và job có người đọc không ngồi ở web
+  chat lúc agent viết, nên system prompt của chúng kết thúc bằng mục **Canvas** dặn chỉ tạo
+  canvas khi được dặn hoặc khi tài liệu dài và sẽ còn sửa, và cho biết một dòng riêng
+  `FILE: artifact:<id>` gửi canvas kèm tin nhắn khi lượt được gửi qua Telegram. Lượt qua
+  `/api/inbound` chưa có đường mang canvas về cho người: nó vẫn có các tool canvas để phần đầu
+  prompt giống lượt web, nhưng lời gọi tạo, sửa, viết lại hay nhập tệp bị từ chối và không gì
+  được ghi; system prompt của lượt đó kết thúc bằng mục **Canvas** dặn trả lời thẳng trong tin
+  nhắn, nêu tên những tool ghi agent đang có. Đọc và liệt kê chạy ở mọi kênh. Xem
+  [channels.md](channels.md#cuộc-trò-chuyện).
 - **Tầm với.** Master với tới mọi canvas. Agent khác với tới canvas gắn với cuộc trò chuyện của
   nó, canvas chuỗi giao việc của nó đã chia sẻ, và canvas nó tự tạo. Canvas do người tạo chỉ vào
   tầm của agent khi đã gắn vào cuộc trò chuyện. Đọc chỉ gắn canvas vào cuộc trò chuyện đang đọc;
