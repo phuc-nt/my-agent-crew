@@ -75,12 +75,20 @@ class WrittenCanvases:
             yield event
 
 
-def _closes_a_lapse(store: Store, conv_id: str, message: Message) -> bool:
+def _closes_a_lapse(store: Store, conv_id: str, message: Message, asked_in: int | None) -> bool:
     """Whether the tool message answers a call whose request, an approval or a question, ran
     out of time. The request is found by the call, never by what the message says: a tool
-    that prints the sentence a lapse is told in has not lapsed."""
+    that prints the sentence a lapse is told in has not lapsed. `asked_in` is the message
+    whose call this is the first result of, and a request is closed by the first result of
+    the message that opened it alone: a model may send a call id again, and the answer to that
+    new call, whatever it says, is not the request running out a second time."""
     request = store.approvals.find_for_call(conv_id, message.tool_call_id or "")
-    return request is not None and request.status == EXPIRED and request.tool_name == message.name
+    return (
+        request is not None
+        and request.status == EXPIRED
+        and request.tool_name == message.name
+        and request.message_id == asked_in
+    )
 
 
 def written_by(store: Store, conv_id: str, run: RunRecord | None) -> list[Tag]:
@@ -93,10 +101,18 @@ def written_by(store: Store, conv_id: str, run: RunRecord | None) -> list[Tag]:
     began names nothing."""
     if run is None or run.after_seq is None:
         return []
-    stored = store.messages.of_run(conv_id, run.id, run.after_seq, run.started_at)
-    tools = [s.message for s in stored if s.message.role == "tool"]
-    lapsed = [i for i, message in enumerate(tools) if _closes_a_lapse(store, conv_id, message)]
-    since = tools[lapsed[-1] + 1 :] if lapsed else tools
+    asked: dict[str, int] = {}  # per call id, the message whose call still has no result
+    since: list[Message] = []
+    for stored in store.messages.of_run(conv_id, run.id, run.after_seq, run.started_at):
+        message = stored.message
+        if message.role == "assistant":
+            asked.update((call.id, stored.id) for call in message.tool_calls)
+        elif message.role == "tool":
+            asked_in = asked.pop(message.tool_call_id or "", None)
+            if _closes_a_lapse(store, conv_id, message, asked_in):
+                since = []
+            else:
+                since.append(message)
     return merged(tag for message in since for tag in tags_of(message.name or "", message.content))
 
 

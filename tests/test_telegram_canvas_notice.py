@@ -29,6 +29,7 @@ from my_agent_crew.channels.telegram_canvas_notice import (
     written_by,
 )
 from my_agent_crew.llm.types import Message, ToolCall
+from my_agent_crew.store.approvals import EXPIRED
 from my_agent_crew.store.runs import DONE, RunRecord
 from my_agent_crew.tools.ask_user import unanswered_result
 from my_agent_crew.tools.delegate_outcome import result_text, timed_out
@@ -41,6 +42,7 @@ from tests.lapse_helpers import (
     answered,
     nobody_answered,
     refused,
+    sent_again,
     waits_on,
 )
 
@@ -288,6 +290,55 @@ def test_only_a_request_nobody_answered_is_a_mark_whatever_a_result_says(store):
     tool_said(store, conv.id, "artifact_create", f"{artifact_tag(B, 1)} Đã tạo.", "s1")
     tool_said(store, conv.id, "artifact_edit", f"{artifact_tag(A, 2)} Đã sửa.")
     assert written_by(store, conv.id, run) == [Tag(B, 1), Tag(A, 2)]
+
+
+@pytest.mark.parametrize("asks_again", [True, False])
+@pytest.mark.parametrize(
+    ("call", "result"),
+    [
+        (WRITE, "ok"),
+        (WRITE, texts.EXPIRED_TOOL),
+        (WRITE, texts.APPROVAL_CALL_MISMATCH),
+        (ASK, unanswered_result(ASK.arguments)),
+    ],
+    ids=["ran", "refused again", "id taken", "asked again"],
+)
+def test_a_request_is_closed_once_whatever_comes_under_its_call_id_afterwards(
+    store, call, result, asks_again
+):
+    """A model may send a call id it has used before, and the loop answers the new call under
+    it: the tool runs, it is refused as the first was, it is told the id is taken, or the
+    question is answered once more with what nobody said. None of those is the request running
+    out a second time, with the model's call stored in front of the result or without, so
+    what the run wrote since the lapse is still to be named. A message's id is the store's
+    own, not its place in the conversation: an earlier conversation keeps the two apart."""
+    elsewhere = store.create()
+    store.append(elsewhere.id, Message(role="user", content="chuyện khác"))
+    conv = store.create()
+    run = began(store, conv.id)
+    tool_said(store, conv.id, "artifact_create", f"{artifact_tag(A, 1)} Đã tạo.")
+    nobody_answered(store, conv.id, waits_on(store, conv.id, call))
+    tool_said(store, conv.id, "artifact_create", f"{artifact_tag(B, 1)} Đã tạo.")
+    assert written_by(store, conv.id, run) == [Tag(B, 1)]
+    if asks_again:
+        sent_again(store, conv.id, call, result)
+    else:
+        tool_said(store, conv.id, call.name, result, call.id)
+    assert written_by(store, conv.id, run) == [Tag(B, 1)]
+    tool_said(store, conv.id, "artifact_edit", f"{artifact_tag(A, 2)} Đã sửa.")
+    assert written_by(store, conv.id, run) == [Tag(B, 1), Tag(A, 2)]
+
+
+def test_a_result_under_another_tools_name_closes_no_request(store):
+    """A request is its call: the message that asked, the id it asked under and the tool it
+    asked for. The loop stores no result under another tool's name; one that stands first
+    under the id of a lapsed call all the same is read as that tool's own."""
+    conv = store.create()
+    run = began(store, conv.id)
+    request = waits_on(store, conv.id, ToolCall("s1", "shell", {}))
+    store.approvals.resolve(request.id, approve=False, status=EXPIRED)
+    tool_said(store, conv.id, "artifact_create", f"{artifact_tag(A, 1)} Đã tạo.", "s1")
+    assert written_by(store, conv.id, run) == [Tag(A, 1)]
 
 
 def test_a_person_who_quotes_the_lapsed_sentence_marks_nothing(store):

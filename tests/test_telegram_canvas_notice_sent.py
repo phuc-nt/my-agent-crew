@@ -32,7 +32,7 @@ from my_agent_crew.store.runs import AWAITING, DONE, HALTED, RunRecord
 from my_agent_crew.tools.delegate_outcome import result_text
 from my_agent_crew.tools.registry import Tool, ToolResult
 from tests.canvas_helpers import PLAN, persons_canvas
-from tests.lapse_helpers import ASK, WRITE, nobody_answered, waits_on
+from tests.lapse_helpers import ASK, WRITE, nobody_answered, sent_again, waits_on
 from tests.queue_helpers import until
 from tests.telegram_fake import message, poll_each
 from tests.test_scheduler import with_schedules
@@ -347,6 +347,72 @@ async def test_a_job_that_asked_and_went_on_unanswered_names_each_canvas_once(
     later = datetime.now(UTC) + timedelta(seconds=deps.settings.approval_ttl_seconds + 1)
     assert len(await expire_overdue({"default": deps}, channel.hub, deliver, now=later)) == 1
     assert fake.sent == ["Xong.", listed(("Số liệu", 1))]
+
+
+async def test_a_job_whose_model_asks_again_under_the_same_id_names_what_it_wrote_between(
+    make_channel, deps_factory, fake
+):
+    """A model may send a call id it has used before. The loop answers the question again
+    from the request that ran out, and that is no second lapse: what the run wrote between
+    the two answers is named with what it wrote after them."""
+    child = Delegated()
+    check = Schedule("deadline-check", "Nhắc hạn", cron="30 7 * * *", prompt="Có hạn nào không?")
+    asks = completion(tool_calls=(ASK,))
+    script = [hands_on("d1"), asks, hands_on("d2"), asks, hands_on("d3"), completion("Xong.")]
+    deps = with_schedules(deps_factory(script=script, extra_tools=[child.tool]), check)
+    channel = make_channel(deps)
+    titles = ("Dàn ý", "Số liệu", "Lịch")
+    child.written = [(canvas(deps.store, title), 1) for title in titles]
+
+    async def deliver(agent_id: str, conv_id: str) -> bool:
+        return await channel.deliver(conv_id)
+
+    run = await Scheduler({"default": deps}, channel.hub, deliver=deliver).run_job(
+        "default/deadline-check"
+    )
+    assert run.status == AWAITING and fake.sent[0] == listed(("Dàn ý", 1))
+    later = datetime.now(UTC) + timedelta(seconds=deps.settings.approval_ttl_seconds + 1)
+    assert len(await expire_overdue({"default": deps}, channel.hub, deliver, now=later)) == 1
+    assert fake.sent[2:] == ["Xong.", listed(("Số liệu", 1), ("Lịch", 1))]
+    answers = deps.store.messages.tool_results(run.conversation_id, ASK.id)
+    assert len(answers) == 2  # the loop did answer the id twice
+    assert all("\n".join(fake.sent).count(f'"{title}"') == 1 for title in titles)
+
+
+async def test_a_later_run_that_sends_a_lapsed_calls_id_again_names_all_it_wrote(
+    make_channel, fake
+):
+    """A request that ran out in one run was closed there. A later run of the conversation
+    whose model sends that call's id again has a new call answered, and names what it wrote on
+    both sides of the answer; across the deliveries each canvas is named once."""
+    channel = make_channel()
+    store = channel.store
+    titles = ("Lịch", "Dàn ý", "Số liệu")
+    earlier, canvas_a, canvas_b = (canvas(store, title) for title in titles)
+    conv = asked(store)
+    first = began(store, conv.id, AWAITING)
+    wrote(store, conv.id, earlier)
+    request = waits_on(store, conv.id, WRITE)
+    assert await channel.deliver(conv.id) is True
+    nobody_answered(store, conv.id, request)
+    said(store, conv.id, "Thôi vậy.")
+    store.runs.save(replace(first, status=DONE))
+    assert await channel.deliver(conv.id) is True
+    assert fake.sent == [
+        listed(("Lịch", 1)),
+        texts.TELEGRAM_RUN_UNFINISHED.format(reason=AWAITING),
+        texts.TELEGRAM_APPROVAL_EXPIRED.format(name="workspace_write"),
+        "Thôi vậy.",
+    ]
+    store.append(conv.id, Message(role="user", content="làm tiếp"))
+    began(store, conv.id, run_id="r2")
+    wrote(store, conv.id, canvas_a)
+    sent_again(store, conv.id, WRITE, "ok")
+    wrote(store, conv.id, canvas_b)
+    said(store, conv.id, "Xong.")
+    assert await channel.deliver(conv.id) is True
+    assert fake.sent[4:] == ["Xong.", listed(("Dàn ý", 1), ("Số liệu", 1))]
+    assert all("\n".join(fake.sent).count(f'"{title}"') == 1 for title in titles)
 
 
 async def test_the_list_is_of_what_the_run_had_written_when_delivery_began(make_channel, fake):

@@ -38,3 +38,12 @@ def answered(store: Store, conv_id: str, request: Approval, answer: str) -> None
     """The person answered the question, and the turn is handed their words."""
     store.approvals.answer(request.id, answer)
     close_interrupted(store, conv_id)
+
+
+def sent_again(store: Store, conv_id: str, call: ToolCall, result: str) -> None:
+    """The model sends a call under an id it has used before, and the loop answers the new
+    call with `result`: it ran, or it was told what became of the request the id once opened."""
+    store.append(conv_id, Message(role="assistant", content="", tool_calls=(call,)))
+    store.append(
+        conv_id, Message(role="tool", content=result, tool_call_id=call.id, name=call.name)
+    )

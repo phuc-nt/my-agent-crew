@@ -4135,6 +4135,20 @@ tên một test thì sửa dòng của nó trong cùng commit.
     hết hạn thật)
   - Các bước dựng dùng chung ở `tests/lapse_helpers.py`: lời gọi của model, yêu cầu nó mở, và tin
     tool đóng yêu cầu bằng chính lời của vòng lặp (`close_interrupted`).
+- **Một yêu cầu hết hạn chỉ là mốc một lần: kết quả đầu tiên của chính tin assistant đã mở nó. Model
+  gửi lại mã lời gọi ấy thì kết quả của lời gọi mới không phải mốc thứ hai, nên canvas ghi giữa hai
+  kết quả vẫn được nêu**
+  - pytest (`tests/test_telegram_canvas_notice.py`):
+    `::test_a_request_is_closed_once_whatever_comes_under_its_call_id_afterwards` (tool chạy được,
+    bị từ chối lần nữa, bị báo trùng mã, câu hỏi được đáp lại như lần trước; có và không có lời gọi
+    của model đứng trước kết quả; id của tin nhắn khác thứ tự của nó trong hội thoại);
+    `::test_a_result_under_another_tools_name_closes_no_request` (kết quả đứng đầu dưới mã ấy mà
+    mang tên tool khác thì không đóng yêu cầu)
+  - pytest (`tests/test_telegram_canvas_notice_sent.py`):
+    `::test_a_job_whose_model_asks_again_under_the_same_id_names_what_it_wrote_between` (job thật,
+    lượt quét hết hạn thật, vòng lặp thật đáp cùng một mã hai lần);
+    `::test_a_later_run_that_sends_a_lapsed_calls_id_again_names_all_it_wrote` (hết hạn ở run
+    trước, run sau dùng lại mã: qua ba lần gửi mỗi canvas được nêu đúng một lần)
 - **Dòng khép một lượt trên Telegram (danh sách canvas, hay câu "không có nội dung" được giữ lại
   cho lúc không còn canvas nào để nêu) mà không gửi được thì chat vẫn nghe báo lượt hỏng theo loại
   lỗi, như mọi lỗi khác của lượt**
