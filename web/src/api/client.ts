@@ -72,21 +72,31 @@ async function failure(response: Response): Promise<ApiError> {
   }
 }
 
+/** Reads a turn's events off `path`. False when the server had none to send. */
+async function follow(
+  path: string,
+  init: RequestInit,
+  onEvent: (event: AgentEvent) => void,
+): Promise<boolean> {
+  const response = await fetch(`/api${path}`, {
+    ...init,
+    headers: { ...init.headers, accept: "text/event-stream" },
+  });
+  if (!response.ok) throw await failure(response);
+  if (response.status === 204) return false;
+  if (!response.body) throw new ApiError(response.status, "empty stream");
+  await readSse(response.body, onEvent);
+  return true;
+}
+
 async function stream(
   path: string,
   body: unknown,
   onEvent: (event: AgentEvent) => void,
   signal?: AbortSignal,
 ): Promise<void> {
-  const response = await fetch(`/api${path}`, {
-    method: "POST",
-    headers: { "content-type": "application/json", accept: "text/event-stream" },
-    body: JSON.stringify(body),
-    signal,
-  });
-  if (!response.ok) throw await failure(response);
-  if (!response.body) throw new ApiError(response.status, "empty stream");
-  await readSse(response.body, onEvent);
+  const init = { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal };
+  if (!(await follow(path, init, onEvent))) throw new ApiError(204, "empty stream");
 }
 
 export function query(params: Record<string, string | number | undefined>): string {
@@ -211,6 +221,11 @@ export const api = {
     canvas?: MessageCanvas,
   ) =>
     stream(`/conversations/${id}/messages`, canvas === undefined ? { text } : { text, canvas }, onEvent, signal),
+  /** Reads along with the turn under way in a conversation, whoever started it: first a
+   *  `watching` event to rebuild the thread from, then the turn's own events to its end.
+   *  Resolves false at once when no turn is under way. */
+  watchTurn: (id: string, onEvent: (e: AgentEvent) => void, signal?: AbortSignal) =>
+    follow(`/conversations/${id}/turn`, { signal }, onEvent),
   /** Takes every message still waiting for this conversation's turn back out of the queue,
    *  and stops the turn too where the server can reach it — see `StopResult`. */
   stopConversation: (id: string, signal?: AbortSignal) =>

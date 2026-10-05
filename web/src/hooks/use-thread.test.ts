@@ -823,3 +823,268 @@ describe("Stop, redesigned: server first, then abort, chip text back in order", 
     expect(stopSpy).toHaveBeenCalledTimes(1);
   });
 });
+
+/** A watch the test feeds: what `api.watchTurn` reads until the test ends it, breaks it, or
+ *  its fetch is aborted. */
+function heldWatch() {
+  const held: {
+    emit: (e: AgentEvent) => void;
+    signal?: AbortSignal;
+    end: () => void;
+    fail: (error: unknown) => void;
+  } = { emit: () => {}, end: () => {}, fail: () => {} };
+  const open = (emit: (e: AgentEvent) => void, signal?: AbortSignal) =>
+    new Promise<boolean>((resolve, reject) => {
+      Object.assign(held, { emit, signal, end: () => resolve(true), fail: reject });
+      signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+    });
+  return { held, open };
+}
+
+describe("a turn this tab reads along with", () => {
+  /** The stored conversation mid-turn: two calls made, neither answered yet. */
+  const midTurn = (overrides: Partial<ConversationDetail> = {}) => idle(overrides);
+  const watching = (detail: ConversationDetail = midTurn(), running = true): AgentEvent => ({ type: "watching", running, detail });
+
+  /** An idle thread with a watch asked for and the server's stream in the test's hands. */
+  async function watchOpened(loaded: ConversationDetail = idle({ messages: [] })) {
+    vitest.spyOn(api, "getConversation").mockResolvedValue(loaded);
+    const { held, open } = heldWatch();
+    const spy = vitest.spyOn(api, "watchTurn").mockImplementation((_id, emit, signal) => open(emit, signal));
+    const hook = renderHook(({ id }) => useThread(id), { initialProps: { id: "c1" } });
+    await waitFor(() => expect(hook.result.current.detail).not.toBeNull());
+    let watched: Promise<boolean> = Promise.resolve(false);
+    act(() => {
+      watched = hook.result.current.watch();
+    });
+    await waitFor(() => expect(held.signal).toBeDefined());
+    return { ...hook, held, spy, watched: () => watched };
+  }
+
+  it("joins the turn as it stands and follows it to its end", async () => {
+    const { result, held, watched } = await watchOpened();
+    // Asked, not answered yet: nothing on screen says a turn began.
+    expect(result.current).toMatchObject({ watching: false, unowned: 0, state: { busy: false, items: [] } });
+
+    act(() => {
+      held.emit(watching(midTurn({ spent_usd: 0.5 })));
+      held.emit({ type: "text_delta", text: "đang viết" });
+    });
+    expect(result.current).toMatchObject({ watching: true, unowned: 1, state: { busy: true, streaming: "đang viết" } });
+    expect(statuses(result.current.state.items)).toEqual(["running", "running"]);
+    expect(result.current.detail?.spent_usd).toBe(0.5); // the header reads the same handover
+
+    act(() => held.emit({ type: "done", spent_usd: 0.7, unknown_cost_calls: 0 }));
+    expect(result.current.state).toMatchObject({ busy: false, spentUsd: 0.7 });
+    await act(async () => held.end());
+    expect(await watched()).toBe(true);
+    expect(result.current).toMatchObject({ watching: false, unowned: 1 });
+  });
+
+  it("says there was nothing to read, and the thread never looks busy for having asked", async () => {
+    vitest.spyOn(api, "getConversation").mockResolvedValue(idle());
+    vitest.spyOn(api, "watchTurn").mockResolvedValue(false);
+    const seen: boolean[] = [];
+    const { result } = renderHook(() => {
+      const thread = useThread("c1");
+      seen.push(thread.state.busy || thread.watching);
+      return thread;
+    });
+    await waitFor(() => expect(result.current.detail).not.toBeNull());
+    let found = true;
+    await act(async () => {
+      found = await result.current.watch();
+    });
+    expect(found).toBe(false);
+    expect(seen).not.toContain(true);
+    expect(result.current).toMatchObject({ unowned: 0, state: { notice: null } });
+    expect(statuses(result.current.state.items)).toEqual(["running", "running"]);
+  });
+
+  it("says nothing to the person when the server could not be asked", async () => {
+    vitest.spyOn(api, "getConversation").mockResolvedValue(idle());
+    vitest.spyOn(api, "watchTurn").mockRejectedValue(new TypeError("Failed to fetch"));
+    const { result } = renderHook(() => useThread("c1"));
+    await waitFor(() => expect(result.current.detail).not.toBeNull());
+    let found = true;
+    await act(async () => {
+      found = await result.current.watch();
+    });
+    expect(found).toBe(false);
+    expect(result.current).toMatchObject({ watching: false, unowned: 0, state: { busy: false, notice: null } });
+  });
+
+  it("stops the calls spinning when the stream ends with no last event: the turn was stopped elsewhere", async () => {
+    const { result, held, watched } = await watchOpened();
+    act(() => {
+      held.emit(watching());
+      held.emit({ type: "text_delta", text: "dở dang" });
+    });
+    await act(async () => held.end());
+    expect(await watched()).toBe(true);
+    expect(result.current).toMatchObject({ watching: false, state: { busy: false, streaming: null, notice: null } });
+    expect(statuses(result.current.state.items)).toEqual(["stopped", "stopped"]);
+  });
+
+  it("ends the same way, with no error shown, when the connection drops mid-turn", async () => {
+    const { result, held, watched } = await watchOpened();
+    act(() => held.emit(watching()));
+    await act(async () => held.fail(new TypeError("network error")));
+    // It did join: the run may still be going, and is worth asking about again.
+    expect(await watched()).toBe(true);
+    expect(result.current).toMatchObject({ watching: false, state: { busy: false, notice: null } });
+  });
+
+  it("does not ask while this tab reads a turn of its own", async () => {
+    vitest.spyOn(api, "getConversation").mockResolvedValue(idle());
+    const { held, open } = heldStream();
+    vitest.spyOn(api, "sendMessage").mockImplementation((_id, _text, emit, signal) => open(emit, signal));
+    const spy = vitest.spyOn(api, "watchTurn").mockResolvedValue(false);
+    const { result } = renderHook(() => useThread("c1"));
+    await waitFor(() => expect(result.current.detail).not.toBeNull());
+    act(() => {
+      void result.current.send("việc đầu tiên");
+    });
+    await waitFor(() => expect(held.signal).toBeDefined());
+    let found = false;
+    await act(async () => {
+      found = await result.current.watch();
+    });
+    expect(spy).not.toHaveBeenCalled();
+    expect(found).toBe(true); // not "nothing to read": this tab is reading it
+    expect(result.current.watching).toBe(false);
+  });
+
+  it("gives way to a turn this tab starts before the watch has joined: one stream feeds the thread", async () => {
+    const { result, held, watched } = await watchOpened();
+    vitest.spyOn(api, "sendMessage").mockImplementation(oneShot({ type: "queued", item_id: 7, kind: "follow_up", position: 1 }));
+    await act(async () => {
+      await result.current.send("chen vào");
+    });
+    expect(held.signal?.aborted).toBe(true);
+    expect(await watched()).toBe(true); // cut by this tab, not answered "nothing"
+    // What the watch still delivers belongs to a stream this tab let go of.
+    act(() => held.emit(watching()));
+    expect(result.current).toMatchObject({ watching: false, state: { busy: false, items: [] } });
+    expect(result.current.state.waiting).toEqual([{ id: 7, kind: "follow_up", text: "chen vào" }]);
+  });
+
+  it("lets go of the watch when the person opens another conversation, and the turn is not touched", async () => {
+    const stop = vitest.spyOn(api, "stopConversation");
+    const { result, rerender, held } = await watchOpened();
+    act(() => held.emit(watching()));
+    expect(result.current.watching).toBe(true);
+    rerender({ id: "c2" });
+    await waitFor(() => expect(held.signal?.aborted).toBe(true));
+    await waitFor(() => expect(result.current.watching).toBe(false));
+    expect(stop).not.toHaveBeenCalled();
+    act(() => held.emit({ type: "text_delta", text: "của cuộc cũ" }));
+    expect(result.current.state.streaming).toBeNull();
+  });
+
+  it("drops a load older than what the server handed over, and loads again once the turn is over", async () => {
+    const { result, held } = await watchOpened();
+    let answerLoad: (detail: ConversationDetail) => void = () => {};
+    const load = vitest.spyOn(api, "getConversation").mockImplementationOnce(() => new Promise((resolve) => (answerLoad = resolve)));
+    act(() => {
+      void result.current.reload();
+    });
+    act(() => held.emit(watching()));
+    await act(async () => answerLoad(idle({ messages: [] }))); // read before the turn stored its calls
+    expect(statuses(result.current.state.items)).toEqual(["running", "running"]);
+    expect(result.current.state.busy).toBe(true);
+
+    const calls = load.mock.calls.length;
+    load.mockResolvedValue(idle({ spent_usd: 0.9 }));
+    act(() => held.emit({ type: "done", spent_usd: 0.9, unknown_cost_calls: 0 }));
+    await waitFor(() => expect(load.mock.calls.length).toBe(calls + 1));
+    await waitFor(() => expect(result.current.detail?.spent_usd).toBe(0.9));
+  });
+
+  describe("and Stop", () => {
+    it("leaves a turn the server could not end going, still watched, under a note saying so", async () => {
+      vitest.spyOn(api, "stopConversation").mockResolvedValue({ cleared: [], cancelled: false });
+      const { result, held } = await watchOpened();
+      act(() => held.emit(watching()));
+      await act(async () => {
+        await result.current.stop();
+      });
+      expect(held.signal?.aborted).toBe(false);
+      expect(result.current).toMatchObject({ watching: true, state: { busy: true, notice: { kind: "elsewhere" } } });
+      act(() => held.emit({ type: "text_delta", text: "vẫn đang viết" }));
+      expect(result.current.state.streaming).toBe("vẫn đang viết");
+    });
+
+    it("cuts the watch of a turn the server ended, and says it stopped", async () => {
+      vitest.spyOn(api, "stopConversation").mockResolvedValue({ cleared: [], cancelled: true });
+      const { result, held, watched } = await watchOpened();
+      act(() => held.emit(watching()));
+      await act(async () => {
+        await result.current.stop();
+        await watched();
+      });
+      expect(held.signal?.aborted).toBe(true);
+      expect(result.current).toMatchObject({ watching: false, unowned: 1, state: { busy: false, notice: { kind: "stopped" } } });
+      expect(statuses(result.current.state.items)).toEqual(["stopped", "stopped"]);
+    });
+
+    it("cuts the watch when the server does not answer, and gives the run up to be asked about again", async () => {
+      vitest.spyOn(api, "stopConversation").mockRejectedValue(new Error("network"));
+      const { result, held, watched } = await watchOpened();
+      act(() => held.emit(watching()));
+      await act(async () => {
+        await result.current.stop();
+        await watched();
+      });
+      expect(held.signal?.aborted).toBe(true);
+      expect(result.current).toMatchObject({ watching: false, unowned: 2, state: { busy: false, notice: { kind: "stopped" } } });
+    });
+  });
+});
+
+describe("a run this tab's stream no longer reads", () => {
+  it("is given up when a turn of its own fails mid-stream, and not when the tab itself stopped reading", async () => {
+    vitest.spyOn(api, "getConversation").mockResolvedValue(idle({ messages: [] }));
+    vitest.spyOn(api, "stopConversation").mockResolvedValue({ cleared: [], cancelled: true });
+    const send = vitest.spyOn(api, "sendMessage");
+    const { result } = renderHook(() => useThread("c1"));
+    await waitFor(() => expect(result.current.detail).not.toBeNull());
+
+    send.mockImplementationOnce(async (_id, _text, emit) => {
+      emit({ type: "text_delta", text: "nửa chừng" });
+      throw new TypeError("network error");
+    });
+    await act(async () => {
+      await result.current.send("việc một");
+    });
+    expect(result.current).toMatchObject({ unowned: 1, state: { busy: false, notice: { kind: "error" } } });
+
+    const { held, open } = heldStream();
+    send.mockImplementationOnce((_id, _text, emit, signal) => open(emit, signal));
+    act(() => {
+      void result.current.send("việc hai");
+    });
+    await waitFor(() => expect(held.signal).toBeDefined());
+    await act(async () => {
+      await result.current.stop();
+    });
+    expect(result.current).toMatchObject({ unowned: 1, state: { notice: { kind: "stopped" } } });
+  });
+
+  it("is given up when Stop got no answer: the turn may still be going on the server", async () => {
+    vitest.spyOn(api, "getConversation").mockResolvedValue(idle({ messages: [] }));
+    vitest.spyOn(api, "stopConversation").mockRejectedValue(new Error("network"));
+    const { held, open } = heldStream();
+    vitest.spyOn(api, "sendMessage").mockImplementation((_id, _text, emit, signal) => open(emit, signal));
+    const { result } = renderHook(() => useThread("c1"));
+    await waitFor(() => expect(result.current.detail).not.toBeNull());
+    act(() => {
+      void result.current.send("việc đầu tiên");
+    });
+    await waitFor(() => expect(held.signal).toBeDefined());
+    await act(async () => {
+      await result.current.stop();
+    });
+    expect(result.current).toMatchObject({ unowned: 1, state: { busy: false, notice: { kind: "stopped" } } });
+  });
+});

@@ -209,6 +209,8 @@ export class FakeBackend {
    *  does not close its SSE stream until the test releases it, and every POST that
    *  reaches the conversation before that queues instead of starting a second turn. */
   private held = new Map<string, { push(events: AgentEvent[]): void; close(): void }>();
+  /** Turns `serveTurn()` has going, by conversation: what `GET …/turn` reads along with. */
+  private served = new Map<string, ServedTurn>();
   /** Messages queued behind a held turn, oldest first, keyed by conversation id. */
   private queues = new Map<string, QueuedMessage[]>();
   private queueCounter = 0;
@@ -346,8 +348,12 @@ export class FakeBackend {
       const cleared = this.queues.get(conv) ?? [];
       this.queues.set(conv, []);
       this.conversations.get(conv)!.queued = [];
-      return json({ cleared, cancelled: false });
+      // A turn the server reads itself ends for everyone watching it, with no last event.
+      const cancelled = this.served.get(conv)?.stoppable ?? false;
+      if (cancelled) this.endServed(conv);
+      return json({ cleared, cancelled });
     }
+    if (conv && path.endsWith("/turn") && method === "GET") return this.watchTurn(conv, init.signal);
     if (conv && path.endsWith("/summary") && method === "POST") {
       const c = this.conversations.get(conv)!;
       c.summary = this.nextSummary;
@@ -767,6 +773,55 @@ export class FakeBackend {
     };
   }
 
+  /** A turn going in the conversation that this tab did not start — another tab's, a bot's,
+   *  a job's. Until `end()`, `GET …/turn` hands whoever asks the conversation as it is stored
+   *  at that moment and `writing`, what the turn has written since its last stored message,
+   *  then every event `push()` sends. `stoppable` is a turn the server reads itself, which
+   *  `POST …/stop` ends; any other is its own reader's, and Stop leaves it going. */
+  serveTurn(
+    conversationId: string,
+    { writing = [], stoppable = false }: { writing?: AgentEvent[]; stoppable?: boolean } = {},
+  ): { push: (events: AgentEvent[]) => void; end: () => void; watchers: () => number } {
+    const turn: ServedTurn = { writing, stoppable, streams: new Set() };
+    this.served.set(conversationId, turn);
+    return {
+      push: (events) => {
+        for (const stream of turn.streams) stream.push(events);
+      },
+      end: () => this.endServed(conversationId, turn),
+      watchers: () => turn.streams.size,
+    };
+  }
+
+  private endServed(conversationId: string, turn = this.served.get(conversationId)): void {
+    if (!turn) return;
+    if (this.served.get(conversationId) === turn) this.served.delete(conversationId);
+    for (const stream of turn.streams) stream.close();
+    turn.streams.clear();
+  }
+
+  private watchTurn(conversationId: string, signal?: AbortSignal | null): Response {
+    const turn = this.served.get(conversationId);
+    if (!turn) return new Response(null, { status: 204 });
+    const detail = structuredClone(this.conversations.get(conversationId)!);
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream<Uint8Array>({
+      start: (controller) => {
+        const push = (events: AgentEvent[]) => {
+          for (const e of events) controller.enqueue(encoder.encode(`event: ${e.type}\r\ndata: ${JSON.stringify(e)}\r\n\r\n`));
+        };
+        const watcher = { push, close: () => controller.close() };
+        turn.streams.add(watcher);
+        // A tab that stops reading drops its connection, and the turn goes on without it.
+        signal?.addEventListener("abort", () => {
+          if (turn.streams.delete(watcher)) controller.error(new DOMException("aborted", "AbortError"));
+        });
+        push([{ type: "watching", running: true, detail }, ...turn.writing]);
+      },
+    });
+    return new Response(stream, { status: 200, headers: { "content-type": "text/event-stream" } });
+  }
+
   /** A message that found a held turn busy: queued exactly as the server queues one,
    *  with the one `queued` event on its own stream and nothing added to the transcript
    *  yet — the transcript only gains it once the turn that is holding runs it. */
@@ -786,6 +841,12 @@ export class FakeBackend {
     });
     return new Response(stream, { status: 200, headers: { "content-type": "text/event-stream" } });
   }
+}
+
+interface ServedTurn {
+  writing: AgentEvent[];
+  stoppable: boolean;
+  streams: Set<{ push(events: AgentEvent[]): void; close(): void }>;
 }
 
 /** Minimal EventSource the activity hook can subscribe to; tests push payloads through `emit`. */

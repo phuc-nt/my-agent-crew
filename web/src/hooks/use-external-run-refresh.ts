@@ -31,8 +31,8 @@ export function useExternalRunRefresh(
   const wasBusy = useRef(false);
   const [, redraw] = useReducer((n: number) => n + 1, 0);
   const busy = thread.state.busy;
-  const { reload, reloadWhenIdle, settle, handledElsewhere } = thread;
-  const handledSeen = useRef(handledElsewhere);
+  const { reload, reloadWhenIdle, settle, unowned } = thread;
+  const unownedSeen = useRef(unowned);
   const { synced } = activity;
   const runs = conversationId ? runsForConversation(activity.state, conversationId) : [];
   const key = runs.map((r) => `${r.id}:${r.status}`).join(",");
@@ -69,11 +69,13 @@ export function useExternalRunRefresh(
   useEffect(() => {
     if (busy && !wasBusy.current) claim.current = { taken: false, run: null };
     wasBusy.current = busy;
-    // A decision refused as already taken elsewhere resumed nothing here: the run seen
-    // resuming meanwhile is the other channel's, to show as going and to load once over.
-    // The render that ended the turn still counted it as this tab's, hence the redraw.
-    if (handledSeen.current !== handledElsewhere) {
-      handledSeen.current = handledElsewhere;
+    // A decision refused as already taken elsewhere resumed nothing here, a turn joined by
+    // watching was started by someone else, and a stream lost mid-turn reads its run no
+    // more: the run put down to this tab meanwhile is not its own, to show as going and to
+    // load once over, and none is claimed for the rest of this busy spell. The render that
+    // ended the turn still counted it as this tab's, hence the redraw.
+    if (unownedSeen.current !== unowned) {
+      unownedSeen.current = unowned;
       if (claim.current.run && ours.current.delete(claim.current.run)) redraw();
       claim.current = { taken: true, run: null };
     }
@@ -109,7 +111,7 @@ export function useExternalRunRefresh(
     if (changed && !behind.current) reloadWhenIdle();
     // `key` stands for `runs`, which is a new array on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, busy, handledElsewhere, reloadWhenIdle]);
+  }, [key, busy, unowned, reloadWhenIdle]);
 
   // Once the stream has said what is live, a call still spinning in a conversation with
   // nothing going is one no run will ever answer — a turn cut off before its result.
@@ -119,6 +121,7 @@ export function useExternalRunRefresh(
     if (synced && !busy && !live) settle();
   }, [synced, busy, live, items, settle]);
 
-  if (busy) return null;
+  // A turn this tab watches is still another's: the thread says whose while it follows it.
+  if (busy && !thread.watching) return null;
   return runs.find((r) => r.status === "running" && !ours.current.has(r.id)) ?? null;
 }

@@ -143,6 +143,31 @@ describe("api", () => {
     expect(answerInit?.signal).toBe(answer.signal);
   });
 
+  it("reads along with a turn under way, and says when there is none to read", async () => {
+    fetchMock.mockResolvedValueOnce(
+      sseResponse(
+        'event: watching\r\ndata: {"type":"watching","running":true,"detail":{"id":"c1","messages":[]}}\r\n\r\n',
+        'event: text_delta\r\ndata: {"type":"text_delta","text":"đang viết"}\r\n\r\n',
+      ),
+    );
+    const seen: AgentEvent[] = [];
+    const controller = new AbortController();
+    expect(await api.watchTurn("c1", (e) => seen.push(e), controller.signal)).toBe(true);
+    expect(seen.map((e) => e.type)).toEqual(["watching", "text_delta"]);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/conversations/c1/turn");
+    expect(init?.method).toBeUndefined(); // a read: nothing here starts a turn
+    expect(init?.signal).toBe(controller.signal);
+
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }));
+    const none: AgentEvent[] = [];
+    expect(await api.watchTurn("c1", (e) => none.push(e))).toBe(false);
+    expect(none).toEqual([]);
+
+    fetchMock.mockResolvedValueOnce(jsonResponse({ detail: "not found" }, 404));
+    await expect(api.watchTurn("nope", () => undefined)).rejects.toMatchObject({ status: 404 });
+  });
+
   it("rejects a streaming call whose response is an error", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ detail: "busy" }, 409));
     await expect(api.sendMessage("c1", "x", () => undefined)).rejects.toMatchObject({

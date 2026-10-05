@@ -398,6 +398,101 @@ describe("threadReducer streaming turn", () => {
   });
 });
 
+describe("threadReducer on a turn joined from the stored conversation", () => {
+  const call = { id: "tc1", name: "read_file", arguments: { path: "a.md" } };
+  const stored = detail({
+    messages: [
+      message({ id: "u1", role: "user", content: "làm đi" }),
+      message({ id: "a1", role: "assistant", tool_calls: [call] }),
+    ],
+    queued: [{ id: 4, kind: "follow_up", text: "việc sau" }],
+  });
+  const watching = (running = true, of: ConversationDetail = stored): AgentEvent => ({ type: "watching", running, detail: of });
+  const kinds = (s: ThreadState) => s.items.map((it) => (it.kind === "tool" ? `${it.name}:${it.status}` : it.kind));
+
+  it("draws the turn as it stands for a tab that opens on it: stored messages, then what is being written", () => {
+    const joined = run([watching()], emptyThread);
+    expect(joined.busy).toBe(true);
+    expect(kinds(joined)).toEqual(["user", "read_file:running"]);
+    expect(joined.items.map((it) => it.id)).toEqual(["u1", "tc1"]);
+    expect(joined).toMatchObject({ spentUsd: 0.2, unknownCostCalls: 1, waiting: stored.queued, notice: null });
+    // The answer being written arrives as one piece, and the turn goes on from there.
+    const writing = run([{ type: "thinking" }, { type: "text_delta", text: "Đã đọc " }, { type: "text_delta", text: "xong" }], joined);
+    expect(writing).toMatchObject({ streaming: "Đã đọc xong", thinking: false, busy: true });
+    const answered = run([{ type: "tool_result", tool_call_id: "tc1", name: "read_file", ok: true, output: "nội dung" }], writing);
+    expect(kinds(answered)).toEqual(["user", "read_file:done"]);
+  });
+
+  it("puts back nothing a tab that fell behind had drawn of the answer: the stored conversation has it now", () => {
+    const behind = run([
+      { type: "text_delta", text: "nửa câu đã cũ" },
+      { type: "thinking" },
+      { type: "tool_call", tool_call_id: "tc1", name: "read_file", arguments: {} },
+    ]);
+    const caught = run([watching()], behind);
+    expect(caught).toMatchObject({ busy: true, streaming: null, thinking: false });
+    expect(kinds(caught)).toEqual(["user", "read_file:running"]); // once, not twice
+  });
+
+  it("keeps what is the tab's own through it: a canvas put away, a note still standing", () => {
+    const fallback: AgentEvent = { type: "route_fallback", provider: "p", model: "m", error: "hết hạn mức" };
+    const piece: AgentEvent = { type: "tool_call_delta", index: 0, name: "artifact_create", chunk: '{"title":"A', attempt: 0 };
+    const muted = threadReducer(run([fallback, piece]), { type: "previews_muted" });
+    expect(muted).toMatchObject({ previewsMuted: true, notice: { kind: "fallback" } });
+    const caught = run([watching()], muted);
+    expect(caught).toMatchObject({ previewsMuted: true, notice: { kind: "fallback" }, previews: [] });
+    // The draft is drawn again from what the server replays, under a key never used before.
+    const redrawn = run([piece], caught);
+    expect(redrawn.previews).toHaveLength(1);
+    expect(redrawn.previews[0].key).toBeGreaterThan(muted.previews[0].key);
+    expect(redrawn.previewsMuted).toBe(true);
+  });
+
+  it("starts clean for a tab that was not on the turn: an old note and an old mute are not this turn's", () => {
+    const failed = threadReducer({ ...emptyThread, previewsMuted: true }, { type: "failed", message: "mất mạng" });
+    const joined = run([watching()], failed);
+    expect(joined).toMatchObject({ busy: true, notice: null, previewsMuted: false });
+    // The note that a decision was taken elsewhere answers the person's own click: it stays.
+    const handled = threadReducer(emptyThread, { type: "handled" });
+    expect(run([watching()], handled).notice).toEqual({ kind: "handled", text: "" });
+  });
+
+  it("is not busy when the turn ended in the events it stands in for", () => {
+    const over = detail({
+      messages: [
+        message({ id: "u1", role: "user", content: "làm đi" }),
+        message({ id: "a2", role: "assistant", content: "xong rồi" }),
+      ],
+    });
+    const caught = run([watching(false, over)], run([{ type: "text_delta", text: "xong" }]));
+    expect(caught).toMatchObject({ busy: false, streaming: null });
+    expect(kinds(caught)).toEqual(["user", "assistant"]);
+  });
+
+  it("shows the request a turn stopped on, when that is where the tab catches up", () => {
+    const asking = detail({
+      status: "awaiting_approval",
+      messages: stored.messages,
+      pending_approval: {
+        id: "ap1",
+        conversation_id: "c1",
+        message_id: "a1",
+        tool_call_id: "tc1",
+        tool_name: "read_file",
+        arguments: {},
+        status: "pending",
+        created_at: "",
+        expires_at: null,
+        resolved_at: null,
+      },
+    });
+    const caught = run([watching(false, asking)]);
+    expect(caught.busy).toBe(false);
+    expect(caught.pending?.approvalId).toBe("ap1");
+    expect(kinds(caught)).toEqual(["user", "read_file:awaiting"]);
+  });
+});
+
 describe("threadReducer on an event of a kind this build does not know", () => {
   // A server newer than the bundle sends kinds of event added since. The name is made up so that
   // no later build comes to know it.

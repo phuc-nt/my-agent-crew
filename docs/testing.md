@@ -4432,3 +4432,25 @@ chuyện lại là toàn bộ sự thật.
     hàng cũng đi qua host, hay bỏ dòng `host.cancel` trong `stop` thì mỗi lần một test đỏ.
   - pytest: `tests/test_busy_queue_api.py::test_stop_ends_a_turn_the_web_started` (thay cho test cũ "stop
     để nguyên lượt web đang đọc": đây là đổi hành vi có chủ ý, vì lượt web giờ là của server).
+  - vitest: `api/client.test.ts` (`watchTurn` trả `false` khi server đáp 204 và đọc luồng tới hết khi có
+    lượt); `state/thread-reducer.test.ts` (khung `watching` dựng lại luồng từ chi tiết server trao, đặt
+    `busy` theo `running`, và giữ thông báo cùng lựa chọn "đừng tự mở canvas" khi tab đang bận sẵn);
+    `hooks/use-thread.test.ts` nhóm "a turn this tab reads along with" (vào giữa lượt và theo tới hết;
+    204 thì không hề hiện bận; không hỏi được server thì im lặng; luồng xem hết mà không có sự kiện cuối
+    thì các tool call thôi quay; rớt kết nối giữa lượt không báo lỗi; đang đọc lượt của mình thì không
+    hỏi; lượt tab này gửi giành chỗ của lần xem chưa kịp vào; đổi cuộc là buông chứ không dừng; lần tải cũ
+    hơn lúc trao bị bỏ và tải lại sau lượt; Dừng: `cancelled: true` thì cắt và báo đã dừng, `false` thì
+    vẫn xem dưới dòng "đang chạy ở nơi khác", server không đáp thì cắt và trả run về cho việc xem) và nhóm
+    "a run this tab's stream no longer reads"; `hooks/use-turn-watch.test.ts` (hỏi một lần cho mỗi run,
+    quên chữ "không có gì" khi run hết, đổi cuộc hay luồng hoạt động nối lại);
+    `hooks/use-external-run-refresh.test.ts` (run đang xem vẫn là run "ở nơi khác" để nút Dừng và chỉ báo
+    đang nghĩ dựa vào); `app-turn-watch.test.tsx` (cả App: lượt Telegram hiện đúng lúc đang viết, không có
+    nút Dừng, không vẽ gì hai lần và chỉ hỏi `…/turn` một lần; sang cuộc khác thì lượt vẫn chạy, quay lại
+    thấy phần viết thêm; Dừng từ tab chỉ xem dừng được lượt server giữ; server không còn gì để đọc thì
+    vẫn báo đang chạy và không hỏi lại; lượt của chính tab không bị xem thêm lần nữa; mất luồng của mình
+    giữa lượt thì chuyển sang xem, không để lại thông báo lỗi).
+  - Playwright: `turn-watch.spec.ts` với `served-turn.ts` (lượt và luồng hoạt động dựng ngay trong trang,
+    vì Playwright trả cả thân route một lần): lượt bắt đầu ở nơi khác hiện đúng lúc đang viết và theo tới
+    hết ở 1440/1000/390 mà không tràn ngang; tải lại giữa lượt thì vào lại đúng chỗ, không gửi `stop`; rời
+    cuộc thì số người xem về 0, quay lại thấy phần viết thêm; Dừng từ tab chỉ xem. Bỏ `useTurnWatch` khỏi
+    `app.tsx` thì cả sáu test đỏ.

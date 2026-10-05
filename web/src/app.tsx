@@ -11,6 +11,7 @@ import { useExternalRunRefresh } from "./hooks/use-external-run-refresh";
 import { useReloadOnReconnect } from "./hooks/use-reload-on-reconnect";
 import { type ManageSection, type Route, useRoute } from "./hooks/use-route";
 import { useThread } from "./hooks/use-thread";
+import { useTurnWatch } from "./hooks/use-turn-watch";
 import { useVersionCheck } from "./hooks/use-version-check";
 import { onArtifactEvent } from "./lib/artifact-events";
 import { clearDraft, pruneDrafts } from "./lib/canvas-draft";
@@ -33,6 +34,7 @@ export function App() {
   const crew = useCrew();
   const activity = useActivity(true, list.applyUpdate);
   const externalRun = useExternalRunRefresh(list.activeId, thread, activity);
+  useTurnWatch(list.activeId, thread, activity, externalRun);
   const version = useVersionCheck(activity.state.connected);
   useReloadOnReconnect(activity.state.connected, () => {
     void crew.reload();

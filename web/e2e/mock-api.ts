@@ -500,6 +500,14 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
       if (!conversations.some((c) => c.id === id)) return json({ detail: "conversation not found" }, 404);
       return fulfillCanvas(route, await canvas.focusRoute(id, method, route.request().postDataJSON()));
     }
+    // Reading along with a turn under way: none is, unless a spec serves one in the page
+    // (see `served-turn.ts`). Before the conversation routes below, which match on the start
+    // of the path alone and would answer with the conversation.
+    const watched = path.match(/^\/conversations\/([^/]+)\/turn$/)?.[1];
+    if (watched && method === "GET") {
+      const known = conversations.some((c) => c.id === decodeURIComponent(watched));
+      return known ? route.fulfill({ status: 204 }) : json({ detail: "conversation not found" }, 404);
+    }
     const conv = conversations.find((c) => path.startsWith(`/conversations/${c.id}`));
     if (conv && method === "GET") return json(conv);
     if (conv && method === "PATCH") {

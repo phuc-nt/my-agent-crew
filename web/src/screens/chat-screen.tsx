@@ -269,9 +269,10 @@ export function ChatScreen({
   // only sitting in the queue with nothing running yet, or a turn another chat tab or the
   // Telegram channel started. Only the last of those needs asking the server whether
   // anything was even there to stop — `chat` and `api` are the sources a person, not a
-  // schedule or a delegate, could plausibly be running from right now.
+  // schedule or a delegate, could plausibly be running from right now. A turn this tab
+  // watches is that last kind too, however much of it is on screen.
   const stoppable =
-    state.busy ||
+    (state.busy && !thread.watching) ||
     state.waiting.length > 0 ||
     (externalRun !== null && ["chat", "api"].includes(externalRun.source));
   const onStop = async () => {

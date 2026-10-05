@@ -31,7 +31,10 @@ function run(overrides: Partial<RunInfo> = {}): RunInfo {
 
 const chip: QueuedMessage = { id: 1, kind: "follow_up", text: "việc đầu tiên" };
 
-function fakeThread(overrides: Partial<ThreadState> = {}): { reloadWhenIdle: ReturnType<typeof vitest.fn>; controller: ThreadController } {
+function fakeThread(
+  overrides: Partial<ThreadState> = {},
+  own: Partial<Pick<ThreadController, "watching" | "unowned" | "reloadWhenIdle">> = {},
+): { reloadWhenIdle: ReturnType<typeof vitest.fn>; controller: ThreadController } {
   const reloadWhenIdle = vitest.fn();
   const controller: ThreadController = {
     state: { ...emptyThread, ...overrides },
@@ -40,11 +43,14 @@ function fakeThread(overrides: Partial<ThreadState> = {}): { reloadWhenIdle: Ret
     decide: vitest.fn(),
     answer: vitest.fn(),
     stop: vitest.fn(),
+    watch: vitest.fn(async () => true),
+    watching: false,
     reload: vitest.fn(async () => undefined),
     reloadWhenIdle,
     settle: vitest.fn(),
     mutePreviews: vitest.fn(),
-    handledElsewhere: 0,
+    unowned: 0,
+    ...own,
   };
   return { reloadWhenIdle, controller };
 }
@@ -104,5 +110,70 @@ describe("a run first seen running while a drain's chip is still on screen", () 
     rerender({ activity: fakeActivity([], { synced: false }) });
     rerender({ activity: fakeActivity([run()], { synced: false }) });
     expect(reloadWhenIdle).not.toHaveBeenCalled();
+  });
+});
+
+describe("a turn this tab reads along with", () => {
+  const telegram = run({ source: "telegram" });
+  const over = run({ source: "telegram", status: "done", finished_at: "2026-09-19T08:00:09Z" });
+
+  /** The hook over a thread and runs a test moves on, keeping one `reloadWhenIdle` to count on. */
+  function follow(first: { busy: boolean; watching: boolean; unowned: number; runs: RunInfo[] }) {
+    const reloadWhenIdle = vitest.fn();
+    const props = (p: typeof first) => ({
+      thread: fakeThread({ busy: p.busy }, { watching: p.watching, unowned: p.unowned, reloadWhenIdle }).controller,
+      activity: fakeActivity(p.runs),
+    });
+    const hook = renderHook(({ thread, activity }) => useExternalRunRefresh("c1", thread, activity), {
+      initialProps: props(first),
+    });
+    return { reloadWhenIdle, result: hook.result, move: (next: typeof first) => hook.rerender(props(next)) };
+  }
+
+  it("goes on naming the run while the thread follows it: the thread still says whose turn it is", () => {
+    const { result, move } = follow({ busy: false, watching: false, unowned: 0, runs: [telegram] });
+    expect(result.current?.id).toBe("r1");
+    move({ busy: true, watching: true, unowned: 1, runs: [telegram] });
+    expect(result.current).toMatchObject({ id: "r1", source: "telegram" });
+  });
+
+  it("names no run while the tab reads a turn of its own", () => {
+    const { result, move } = follow({ busy: false, watching: false, unowned: 0, runs: [] });
+    move({ busy: true, watching: false, unowned: 0, runs: [run({ source: "chat" })] });
+    expect(result.current).toBeNull();
+  });
+
+  it("does not put a watched run down to this tab: it is loaded once over, like any run elsewhere", () => {
+    // The run starts while the tab is already watching — a queued message's turn begins the
+    // moment the turn before it ends, before the watch on that one has let go.
+    const { reloadWhenIdle, result, move } = follow({ busy: false, watching: false, unowned: 0, runs: [] });
+    move({ busy: true, watching: true, unowned: 1, runs: [] });
+    move({ busy: true, watching: true, unowned: 1, runs: [telegram] });
+    expect(result.current?.id).toBe("r1");
+    expect(reloadWhenIdle).not.toHaveBeenCalled();
+    move({ busy: false, watching: false, unowned: 1, runs: [over] });
+    expect(reloadWhenIdle).toHaveBeenCalledTimes(1);
+  });
+
+  it("claims the run a turn of this tab's own starts, as before, and loads nothing when it ends", () => {
+    const { reloadWhenIdle, result, move } = follow({ busy: false, watching: false, unowned: 0, runs: [] });
+    move({ busy: true, watching: false, unowned: 0, runs: [] });
+    move({ busy: true, watching: false, unowned: 0, runs: [run({ source: "chat" })] });
+    move({ busy: false, watching: false, unowned: 0, runs: [run({ source: "chat" })] });
+    expect(result.current).toBeNull(); // its own stream ended a moment before the run did
+    move({ busy: false, watching: false, unowned: 0, runs: [run({ source: "chat", status: "done" })] });
+    expect(reloadWhenIdle).not.toHaveBeenCalled();
+  });
+
+  it("gives up a run whose stream this tab lost: the run goes on, to be watched and loaded once over", () => {
+    const chat = run({ source: "chat" });
+    const { reloadWhenIdle, result, move } = follow({ busy: false, watching: false, unowned: 0, runs: [] });
+    move({ busy: true, watching: false, unowned: 0, runs: [] });
+    move({ busy: true, watching: false, unowned: 0, runs: [chat] });
+    // The stream failed: the thread is idle, and the run is no longer this tab's.
+    move({ busy: false, watching: false, unowned: 1, runs: [chat] });
+    expect(result.current?.id).toBe("r1");
+    move({ busy: false, watching: false, unowned: 1, runs: [run({ source: "chat", status: "done" })] });
+    expect(reloadWhenIdle).toHaveBeenCalledTimes(1);
   });
 });

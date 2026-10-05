@@ -224,30 +224,8 @@ export function threadReducer(state: ThreadState, action: ThreadAction): ThreadS
   switch (action.type) {
     case "opened":
       return { ...emptyThread, previewSeq: state.previewSeq };
-    case "loaded": {
-      const d = action.detail;
-      let items = itemsFromMessages(d.messages);
-      let pending: PendingApproval | null = null;
-      if (d.pending_approval) {
-        pending = pendingFromApproval(d.pending_approval);
-        items = updateTool(items, pending.toolCallId, { status: "awaiting" });
-      }
-      // The note that a decision met a request already settled answers the person's own
-      // click, and the loads that follow it — the run it resumed, the stream coming back —
-      // do not answer it again. A load that brings a new request has moved past it.
-      const handled = state.notice?.kind === "handled" && pending === null ? state.notice : null;
-      return {
-        ...emptyThread,
-        items,
-        pending,
-        spentUsd: d.spent_usd,
-        unknownCostCalls: d.unknown_cost_calls,
-        notice: handled,
-        waiting: d.queued ?? [],
-        previewSeq: state.previewSeq,
-        ...betweenStreams(state, pending),
-      };
-    }
+    case "loaded":
+      return fromDetail(state, action.detail);
     case "user_sent":
       return {
         ...state,
@@ -309,6 +287,45 @@ export function threadReducer(state: ThreadState, action: ThreadAction): ThreadS
     case "event":
       return applyEvent(state, action.event);
   }
+}
+
+/** The thread as the stored conversation `d` has it: its messages, the request it waits
+ *  on, its queue. Nothing of a turn's stream survives it, so it is for between turns, or
+ *  for a turn about to be followed from here on. */
+function fromDetail(state: ThreadState, d: ConversationDetail): ThreadState {
+  let items = itemsFromMessages(d.messages);
+  let pending: PendingApproval | null = null;
+  if (d.pending_approval) {
+    pending = pendingFromApproval(d.pending_approval);
+    items = updateTool(items, pending.toolCallId, { status: "awaiting" });
+  }
+  // The note that a decision met a request already settled answers the person's own
+  // click, and the loads that follow it — the run it resumed, the stream coming back —
+  // do not answer it again. A load that brings a new request has moved past it.
+  const handled = state.notice?.kind === "handled" && pending === null ? state.notice : null;
+  return {
+    ...emptyThread,
+    items,
+    pending,
+    spentUsd: d.spent_usd,
+    unknownCostCalls: d.unknown_cost_calls,
+    notice: handled,
+    waiting: d.queued ?? [],
+    previewSeq: state.previewSeq,
+    ...betweenStreams(state, pending),
+  };
+}
+
+/** A turn this tab now follows from the stored conversation on: it opened late, or fell
+ *  too far behind to be sent every event. What the turn is writing comes next, as events.
+ *
+ *  A tab already on the turn keeps what is its own and no stored conversation holds: the
+ *  canvas the person put away stays away, and a note still standing — the route that
+ *  stepped in, the message that would not queue — stays up. */
+function watchingFrom(given: ThreadState, e: Extract<AgentEvent, { type: "watching" }>): ThreadState {
+  const rebuilt = { ...fromDetail(given, e.detail), busy: e.running };
+  if (!given.busy) return rebuilt;
+  return { ...rebuilt, notice: rebuilt.notice ?? given.notice, previewsMuted: given.previewsMuted };
 }
 
 function applyEvent(given: ThreadState, e: AgentEvent): ThreadState {
@@ -401,6 +418,8 @@ function applyEvent(given: ThreadState, e: AgentEvent): ThreadState {
       }
       return { ...state, items, waiting };
     }
+    case "watching":
+      return watchingFrom(given, e);
     // A server newer than this bundle sends kinds of event added since. Nothing here knows what
     // one means, so nothing changes, the thinking included: the very state given goes back.
     default:

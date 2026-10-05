@@ -169,7 +169,12 @@ export type AgentEvent =
    *  where the call stands in the answer, and `attempt` which try of this step's answer it is:
    *  a step counts its tries from nothing again. An empty `name` only says the answer was
    *  started over, so what the try before had written is not coming. */
-  | { type: "tool_call_delta"; index: number; name: string; chunk: string; attempt: number };
+  | { type: "tool_call_delta"; index: number; name: string; chunk: string; attempt: number }
+  /** For a tab that has not read the turn from its first event — it opened late, or fell too
+   *  far behind: the conversation as it is stored now, to rebuild the thread from. What the
+   *  turn is writing follows as ordinary events. `running` is false when the turn ended within
+   *  the events this stands in for, so nothing more is coming. */
+  | { type: "watching"; running: boolean; detail: ConversationDetail };
 
 export interface ToolInfo {
   name: string;
