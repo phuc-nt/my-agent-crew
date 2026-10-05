@@ -77,6 +77,14 @@ describe("the card of a canvas the agent is still writing", () => {
     expect(size).toHaveTextContent("2 KB");
   });
 
+  it("parts the size from the words with a dot that is not read out", () => {
+    draw({ bytes: 12 });
+
+    const dot = within(card()).getByText("·");
+    expect(dot).toHaveAttribute("aria-hidden", "true");
+    expect(dot.parentElement).toBe(within(card()).getByText(text.written("12 B")));
+  });
+
   it("keeps its moving dots from being read out", () => {
     draw();
     expect(card().querySelector(".writing-dots")).toHaveAttribute("aria-hidden", "true");

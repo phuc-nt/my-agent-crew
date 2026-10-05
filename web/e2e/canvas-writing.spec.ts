@@ -1,13 +1,10 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { vi } from "../src/i18n/vi";
-import { FakeCanvas } from "../src/test/fake-canvas";
-import { holdTurn } from "./live-stream";
-import { type Conversation, mockApi } from "./mock-api";
+import { ASKED, ask, card, frame, piece } from "./writing-turn";
 
 const PLAN = "00ff00ff00ff";
 const TITLE = "Kế hoạch tuần";
 const WRITE = { title: TITLE, kind: "markdown", content: "Việc một\n\nViệc hai" };
-const ASKED = "viết kế hoạch tuần";
 const text = vi.canvas.writing;
 
 /** The call's arguments as the model writes them, in three pieces. */
@@ -15,7 +12,6 @@ const HEAD = '{"title":"Kế hoạch tuần","kind":"markdown","content":"Việc
 const MORE = " một\\n\\nViệc";
 const LAST = ' hai"}';
 
-const piece = (chunk: string) => ({ type: "tool_call_delta", index: 0, name: "artifact_create", chunk, attempt: 0 });
 const CALL = { id: "w1", name: "artifact_create", arguments: WRITE };
 const ANSWER = {
   type: "assistant_message", message_id: "a1", content: "", provider: null, model: null, cost_usd: null,
@@ -26,31 +22,6 @@ const ENDED = {
   type: "tool_result", tool_call_id: "w1", name: "artifact_create", ok: true,
   output: `[artifact ${PLAN} v1]\nCanvas "${TITLE}" was created.`,
 };
-
-/** A conversation with nothing said in it yet. */
-function quiet(): Conversation {
-  return {
-    id: "c1", agent_id: "default", channel: "", title: "Kế hoạch", summary: "", created_at: "", updated_at: "",
-    autonomous: false, cost_cap_usd: 1, skills: [], auto_approve: [], spent_usd: 0, unknown_cost_calls: 0,
-    status: "idle", over_budget: false, parent_call_id: "", pending_approval: null, messages: [],
-  };
-}
-
-/** The first message is sent, and the turn it starts stays open for the test to feed. */
-async function ask(page: Page) {
-  const canvas = new FakeCanvas();
-  const turn = await holdTurn(page, "c1");
-  await mockApi(page, { conversations: [quiet()], canvas });
-  await page.goto("/#/chat/c1");
-  const box = page.getByRole("textbox", { name: vi.composerPlaceholder });
-  await box.fill(ASKED);
-  await box.press("Enter");
-  await expect(page.getByTestId("message-user")).toContainText(ASKED);
-  return { box, canvas, turn };
-}
-
-const frame = (page: Page) => page.getByTestId("canvas-writing");
-const card = (page: Page) => page.getByTestId("canvas-writing-card");
 
 test.describe("on a wide screen", () => {
   test.use({ viewport: { width: 1440, height: 900 } });

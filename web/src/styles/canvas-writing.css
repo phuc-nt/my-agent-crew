@@ -57,17 +57,32 @@
   min-width: 0;
 }
 
-/* The line wraps on a narrow thread: the size goes under the words rather than off the card. */
+/* The line wraps on a narrow thread: the size goes under the words rather than off the card.
+   The dot that parts the two hangs before the size, in room the size gives up again, so the size
+   starts where a row starts and its dot falls outside the line, which cuts it off. Beside the
+   words, that room is the gap the words leave after them. */
 .canvas-writing-card .canvas-card-line {
+  --dot-room: 1em;
   flex-wrap: wrap;
+  overflow-x: clip;
+}
+
+.canvas-writing-words {
+  margin-right: calc(var(--dot-room) - 4px);
 }
 
 .canvas-writing-size {
+  position: relative;
+  margin-left: calc(-1 * var(--dot-room));
+  padding-left: var(--dot-room);
   font-variant-numeric: tabular-nums;
 }
 
-.canvas-writing-size::before {
-  content: "· ";
+.canvas-writing-dot {
+  position: absolute;
+  left: 0;
+  width: var(--dot-room);
+  text-align: center;
 }
 
 /* Three dots that swell in turn while the agent writes. */

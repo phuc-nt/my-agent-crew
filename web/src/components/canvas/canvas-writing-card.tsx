@@ -33,8 +33,11 @@ export function CanvasWritingCard({ item, onShow }: Props) {
             <span />
             <span />
           </span>
-          <span>{item.rewrite ? text.rewriting : text.creating}</span>
+          <span className="canvas-writing-words">{item.rewrite ? text.rewriting : text.creating}</span>
           <span className="canvas-writing-size" aria-live="off">
+            <span className="canvas-writing-dot" aria-hidden="true">
+              ·
+            </span>
             {text.written(formatBytes(item.bytes))}
           </span>
         </span>

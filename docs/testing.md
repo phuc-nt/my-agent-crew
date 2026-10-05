@@ -1606,8 +1606,12 @@ tên một test thì sửa dòng của nó trong cùng commit.
     đầu thì không, vì vùng cuộn là thân khung như với markdown được vẽ chứ không phải khối mã;
     người cuộn lên rồi thì 150 dòng kế không kéo khung xuống nữa; điện
     thoại 390×844: chỉ có thẻ cho tới khi chạm, khung phủ cả màn, nút cao ít nhất 40 px, Escape
-    rời khung). Luồng còn mở của các test này dựng bằng `web/src/test/canvas-writing-turn.ts`
-    (vitest) và `web/e2e/live-stream.ts` (e2e, vì route của Playwright trả cả thân một lần); yêu
+    rời khung); `web/e2e/canvas-writing-card.spec.ts` (dòng trạng thái của thẻ: ở 390 px kích
+    thước xuống hàng riêng và hàng ấy không mở đầu bằng dấu chấm ngăn cách, dấu chấm nằm ngoài
+    vùng dòng được vẽ; ở 1440 px chữ và kích thước cùng một hàng, dấu chấm hiện trọn giữa hai
+    phần). Luồng còn mở của các test này dựng bằng `web/src/test/canvas-writing-turn.ts`
+    (vitest), `web/e2e/writing-turn.ts` và `web/e2e/live-stream.ts` (e2e, vì route của Playwright
+    trả cả thân một lần); yêu
     cầu duyệt đẩy vào một luồng còn mở được `web/src/test/fake-backend.ts` ghi lại trên cuộc trò
     chuyện như server làm, để lời duyệt theo sau tìm thấy nó
 - **Xem trước canvas đang viết tắt được bằng một công tắc ở Cài đặt, riêng cho thiết bị đang dùng:
