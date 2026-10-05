@@ -1117,7 +1117,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     hàng không kèm "đang gõ…" rồi được trả lời riêng, `/new` bị từ chối khi đang chạy; `/steer`
     tới lượt đang chạy, `/steer` trơn bị từ chối và không vào hàng; lượt qua nửa đêm giữ cuộc trò
     chuyện; dừng bot chờ lượt xong trong hạn, quá hạn thì huỷ và báo một lần; lượt hỏng chỉ nêu tên
-    loại lỗi; bot trả lời tin chờ từ lúc start tới lúc stop; "đang gõ…" treo không giữ câu trả
+    loại lỗi; Telegram từ chối cả câu báo lượt hỏng thì lượt vẫn kết thúc, không lỗi nào thoát ra
+    và log ghi một lần kèm nguyên nhân; bot trả lời tin chờ từ lúc start tới lúc stop; "đang gõ…" treo không giữ câu trả
     lời; `/approve` tìm cuộc chờ duyệt nằm sau cuộc mới hơn, gửi hai lần chỉ tiếp tục một lần);
     `tests/test_queue_drain.py::test_a_telegram_chat_hears_its_answer_from_its_bot_and_waits_while_there_is_none`
     (claim của drain giữ cuộc trò chuyện tới khi run nhận);
@@ -2090,12 +2091,15 @@ tên một test thì sửa dòng của nó trong cùng commit.
   - pytest: `tests/test_canvas_prompt_tail.py`
     ("test_a_turn_whose_reader_is_on_telegram_is_told_how_a_canvas_reaches_them": lượt Telegram,
     job và con trong chuỗi bắt đầu từ đó nghe mục **Canvas** với lời dặn này, ở cùng chỗ với mục
-    của kênh đóng; prompt của lượt web chat là prompt đó bỏ đi mục này, đúng từng ký tự, cùng bộ
+    của kênh đóng, sau ghi chú trong ngày và ngay trước dòng ngày; prompt của lượt web chat là prompt đó bỏ đi mục này, đúng từng ký tự, cùng bộ
     tool; con của chuỗi API hay chuỗi không có gốc không nghe lời dặn này,
     "test_an_agent_that_writes_no_canvas_is_told_nothing_about_making_one": agent không giữ tool
     ghi canvas nào thì không có mục,
     "test_the_line_a_telegram_turn_is_taught_is_one_the_chat_sends_a_canvas_for": dòng
-    `FILE: artifact:<id>` trong lời dặn, thay mã canvas vào, được đọc thành một canvas để gửi)
+    `FILE: artifact:<id>` trong lời dặn, thay mã canvas vào, được đọc thành một canvas để gửi,
+    "test_the_note_for_a_reader_on_telegram_says_who_reads_and_when_a_canvas_is_worth_making":
+    lời dặn nói rõ người nhận đọc trên Telegram nên không thấy canvas, và chỉ tạo canvas khi được
+    dặn hay khi tài liệu dài và sẽ còn sửa tiếp, còn lại trả lời thẳng trong tin nhắn)
   - pytest: `tests/test_telegram_canvas_turn.py`, qua vòng lặp và tool thật
     ("test_a_telegram_turn_writes_a_canvas_and_sends_it_as_the_file_its_reply_names": chat nhận
     lời của lượt, rồi tệp canvas, rồi danh sách canvas; canvas nằm trong kho dưới tên agent và
@@ -4155,7 +4159,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `::test_a_turn_that_spoke_before_it_broke_attaches_what_it_named_and_no_more` (lời của agent
     vẫn được đọc, câu lỗi bên dưới thì không, cả hai vẫn chung một tin);
     `::test_a_reply_keeps_its_error_apart_and_reads_whole_as_it_always_did` (`collect_reply` giữ
-    câu lỗi riêng ở `error`, `said` là phần còn lại, `to_dict` cho relay API không đổi)
+    câu lỗi riêng ở `error`, `said` là phần còn lại, `to_dict` cho relay API không đổi);
+    `::test_only_the_error_a_reply_ends_with_is_kept_out_of_what_was_said` (agent tự trích đúng
+    câu lỗi đó trong lời của mình thì `said` vẫn giữ đủ lời: chỉ câu lỗi ở cuối bị tách ra)
 - **Lý do một run con dừng dở được trích vào kết quả `delegate` trên một dòng và cắt như mọi
   trường trích khác, nên dòng `FILE:`/`MEDIA:` trong lỗi của provider hay trong câu hỏi của con
   không thành dòng đính kèm của cha**

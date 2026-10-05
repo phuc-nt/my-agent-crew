@@ -140,6 +140,24 @@ async def test_a_broken_turn_is_logged_and_the_chat_hears_only_its_kind(
     assert "a turn failed" in caplog.text
 
 
+async def test_a_chat_that_cannot_be_told_a_turn_broke_leaves_it_ended_and_logged(
+    make_channel, deps_factory, fake, caplog
+):
+    """Telegram refuses every message, the one telling of the break among them. A turn is a
+    task nobody awaits: nothing escapes it, and the log is where what broke it is found."""
+    channel, *_ = build(make_channel, deps_factory, [])
+
+    async def broken():
+        raise RuntimeError("model down")
+        yield  # an async generator, like a turn's events
+
+    fake.fail["sendMessage"] = 500
+    with caplog.at_level(logging.ERROR):
+        await channel.reply_to(broken(), channel.conversation().id)
+    assert fake.sent == [] and "sendMessage" in fake.calls
+    assert caplog.text.count("a turn failed") == 1 and "model down" in caplog.text
+
+
 async def test_the_bot_answers_what_waited_for_it_from_its_start_until_its_stop(
     make_channel, deps_factory, fake
 ):

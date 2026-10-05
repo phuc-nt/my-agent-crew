@@ -172,3 +172,12 @@ async def test_a_reply_keeps_its_error_apart_and_reads_whole_as_it_always_did():
     assert (fine.said, fine.error, fine.text) == ("Đây.", "", "Đây.")
     empty = await collect_reply(stream(DoneEvent(0.0, 0)))
     assert empty.said == empty.text == texts.REPLY_EMPTY.format(steps=0) and empty.error == ""
+
+
+async def test_only_the_error_a_reply_ends_with_is_kept_out_of_what_was_said():
+    """An agent that quoted the same sentence in its own words keeps every one of them."""
+    notice = texts.REPLY_ERROR.format(message="model down")
+    words = f"Lần trước nó báo:\n{notice}\nGiờ thử lại."
+    broke = await collect_reply(stream(spoke(words), ErrorEvent(message="model down")))
+    assert (broke.said, broke.error) == (words, notice)
+    assert broke.text == f"{words}\n\n{notice}"

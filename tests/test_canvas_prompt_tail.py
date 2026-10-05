@@ -81,14 +81,17 @@ async def test_a_turn_whose_reader_is_on_telegram_is_told_how_a_canvas_reaches_t
     deps_factory, store: Store, tmp_path: Path
 ):
     """A Telegram turn, a job and a child whose chain began in either hear it in the same
-    place, as the only thing said about canvases. The web chat's prompt is theirs without
-    it, to the character, so it is what it was before Telegram could write a canvas."""
+    place, after the day's notes and right before the date, as the only thing said about
+    canvases. The web chat's prompt is theirs without it, to the character, so it is what
+    it was before Telegram could write a canvas."""
     tools = canvas_tools(store, tmp_path)
     deps = deps_factory(script=[completion("được")] * 8, extra_tools=tools)
+    note_path = daily_note_path(deps.agent.memory_dir, deps.settings.today())
+    note_path.write_text("- đã chốt lịch chạy sáng thứ bảy\n")
     chat = await _first_request(deps, store.create().id, CHAT)
     system = chat.messages[0].content
     date = today_line(deps.settings, deps.settings.today().isoformat())
-    assert system.endswith(date)
+    assert system.endswith(date) and "lịch chạy sáng thứ bảy" in system
     assert CANVAS_CLOSED_TITLE not in system and CANVAS_AWAY_BODY not in system
     for source in (TELEGRAM, "job:default/brief"):
         request = await _first_request(deps, store.create().id, source)
@@ -160,6 +163,20 @@ def test_the_line_a_telegram_turn_is_taught_is_one_the_chat_sends_a_canvas_for()
     prose, media, files = split_reply(f"Xong.\n{taught.replace('<id>', '0123456789ab')}")
     assert (prose, media) == ("Xong.", [])
     assert [artifact_ref(path) for path in files] == ["0123456789ab"]
+
+
+def test_the_note_for_a_reader_on_telegram_says_who_reads_and_when_a_canvas_is_worth_making():
+    """The line to add is the third thing it says. Without who reads the turn the advice has
+    no reason; without when to write one, every long answer becomes a canvas the chat never
+    sees open."""
+    for said in (
+        "đọc trên Telegram",
+        "không thấy canvas",
+        "khi được dặn",
+        "dài và sẽ còn sửa tiếp",
+        "trả lời thẳng trong tin nhắn",
+    ):
+        assert said in CANVAS_AWAY_BODY, said
 
 
 def test_the_refusal_names_no_channel_as_the_only_one_that_opens_a_canvas():
