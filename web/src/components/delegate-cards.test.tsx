@@ -134,6 +134,102 @@ describe("the card for a handed-off task", () => {
   });
 });
 
+describe("the canvases a handed-off task wrote, on its card", () => {
+  const PLAN = "00ff00ff00ff";
+  const NOTE = "0123456789ab";
+  const { card } = vi.canvas;
+  /** A finished task's result as the server writes it: the canvases, a blank line, then the reply. */
+  const wrote = (...lines: string[]) => [HEADER, "outcome=done", ...lines, "", "Đã viết báo cáo."].join("\n");
+  const WROTE_TWO = wrote(`[artifact ${PLAN} v2] Báo cáo tuần`, `[artifact ${NOTE} v1] Phụ lục`);
+
+  function links(gone: string[] = []) {
+    return {
+      titleOf: vitest.fn(() => null),
+      isGone: vitest.fn((id: string) => gone.includes(id)),
+      verify: vitest.fn(),
+      open: vitest.fn(),
+    };
+  }
+  const chips = () => screen.queryAllByTestId("delegate-canvas");
+
+  it("are chips under the cost line, each opening its canvas", async () => {
+    const canvas = links();
+    render(<ToolCallCard item={delegateCall({ output: WROTE_TWO })} canvas={canvas} onOpenConversation={() => {}} />);
+
+    expect(chips().map((chip) => chip.textContent)).toEqual([`Báo cáo tuầnv2${card.open}`, `Phụ lụcv1${card.open}`]);
+    // Under the line that says how it went and what it cost, above the reply that unfolds.
+    const parts = [...screen.getByTestId("delegate-card").children].map((part) => part.className);
+    expect(parts).toEqual(["tool-header", "tool-arguments", "delegate-result", "delegate-canvases", "link-button"]);
+
+    await userEvent.click(screen.getByRole("button", { name: card.openLabel("Phụ lục") }));
+    expect(canvas.open.mock.calls).toEqual([[NOTE]]);
+  });
+
+  it("are each asked about, so one deleted since says so and offers nothing to open", () => {
+    const canvas = links([PLAN]);
+    render(<ToolCallCard item={delegateCall({ output: WROTE_TWO })} canvas={canvas} />);
+
+    expect(canvas.verify.mock.calls).toEqual([[PLAN], [NOTE]]);
+    const [gone, kept] = chips();
+    expect(within(gone).getByText(vi.canvas.gone)).toBeInTheDocument();
+    expect(within(gone).queryByRole("button")).toBeNull();
+    expect(within(kept).getByRole("button", { name: card.openLabel("Phụ lục") })).toBeInTheDocument();
+  });
+
+  it("are not drawn where the thread was given no way to open a canvas", () => {
+    render(<ToolCallCard item={delegateCall({ output: WROTE_TWO })} />);
+
+    expect(screen.getByTestId("delegate-status")).toHaveTextContent(vi.delegateOutcome.done);
+    expect(chips()).toEqual([]);
+    expect(screen.queryByRole("list", { name: vi.canvas.delegateCanvases })).toBeNull();
+  });
+
+  it("are none for a task that wrote none", () => {
+    const canvas = links();
+    render(<ToolCallCard item={delegateCall({ output: wrote() })} canvas={canvas} />);
+
+    expect(screen.getByTestId("delegate-status")).toHaveTextContent(vi.delegateOutcome.done);
+    expect(chips()).toEqual([]);
+    expect(screen.queryByRole("list", { name: vi.canvas.delegateCanvases })).toBeNull();
+    expect(canvas.verify).not.toHaveBeenCalled();
+  });
+
+  it("are none for a reply that only opens with what looks like a canvas's line", () => {
+    const canvas = links();
+    const output = [HEADER, "outcome=done", "", `[artifact ${PLAN} v2] Báo cáo tuần`, "", "Đã viết báo cáo."].join("\n");
+    render(<ToolCallCard item={delegateCall({ output })} canvas={canvas} />);
+
+    expect(chips()).toEqual([]);
+    expect(canvas.verify).not.toHaveBeenCalled();
+  });
+
+  it("are shown for a task whose wait ran out, which had written them by then", () => {
+    const canvas = links();
+    const header = "conversation=c-child status=running spent=$0.0250 steps=4";
+    const lines = [header, "outcome=failed reason=timeout", `[artifact ${PLAN} v1] Báo cáo tuần`, "", "Hết thời gian chờ agent con."];
+    render(<ToolCallCard item={delegateCall({ status: "failed", output: lines.join("\n") })} canvas={canvas} />);
+
+    expect(screen.getByTestId("delegate-reason")).toHaveTextContent(vi.delegateTimeout);
+    expect(chips().map((chip) => chip.textContent)).toEqual([`Báo cáo tuầnv1${card.open}`]);
+  });
+
+  it("are not there while the task still runs, and nothing is asked of the server", () => {
+    const canvas = links();
+    render(<ToolCallCard item={delegateCall({ status: "running", output: null })} canvas={canvas} />);
+
+    expect(chips()).toEqual([]);
+    expect(canvas.verify).not.toHaveBeenCalled();
+  });
+
+  it("keep the lines that name them out of the reply the card unfolds", async () => {
+    render(<ToolCallCard item={delegateCall({ output: WROTE_TWO })} canvas={links()} />);
+
+    await userEvent.click(screen.getByRole("button", { name: vi.showOutput }));
+
+    expect(document.querySelector(".tool-output")?.textContent).toBe("Đã viết báo cáo.");
+  });
+});
+
 describe("the conversation a work agent is in", () => {
   it("is marked as work, with its cap and step budget in reach", () => {
     render(

@@ -9,6 +9,7 @@ import {
 } from "../lib/delegate-result";
 import type { ThreadItem, ToolStatus } from "../state/thread-reducer";
 import { CanvasCard, type CanvasLinks, isCanvasWrite } from "./canvas/canvas-card";
+import { DelegateCanvases } from "./canvas/delegate-canvases";
 import { SUMMARY_CUT, ToolArgsDetail } from "./tool-args-detail";
 import { AgentAvatar } from "./ui/agent-avatar";
 import { Icon, type IconName } from "./ui/icon";
@@ -82,6 +83,7 @@ export function ToolCallCard({ item, agentName, onOpenConversation, canvas }: Pr
         item={item}
         agentName={agentName}
         onOpenConversation={onOpenConversation}
+        canvas={canvas}
         open={open}
         setOpen={setOpen}
       />
@@ -115,13 +117,15 @@ export function ToolCallCard({ item, agentName, onOpenConversation, canvas }: Pr
 
 /**
  * A handed-off task, shown as the job rather than as a tool call: who took it, what they
- * were asked, and — once they answer — how it went and what it cost. The child runs as
- * its own conversation, so the card offers a way in rather than inlining the whole thing.
+ * were asked, and — once they answer — how it went, what it cost and the canvases they
+ * wrote. The child runs as its own conversation, so the card offers a way in rather than
+ * inlining the whole thing.
  */
 function DelegateCard({
   item,
   agentName,
   onOpenConversation,
+  canvas,
   open,
   setOpen,
 }: Props & { open: boolean; setOpen: (fn: (o: boolean) => boolean) => void }) {
@@ -178,6 +182,7 @@ function DelegateCard({
           )}
         </div>
       )}
+      {canvas && result && <DelegateCanvases canvases={result.canvases} canvas={canvas} />}
       {item.output && (
         <>
           <button type="button" className="link-button" onClick={() => setOpen((o) => !o)}>

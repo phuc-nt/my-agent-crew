@@ -3326,6 +3326,46 @@ tên một test thì sửa dòng của nó trong cùng commit.
     big enough for a finger, one letter long too"); nút "Mở riêng" trong dock ở 390 px và 1000 px nằm
     trong phép kiểm sẵn có của `web/e2e/canvas.spec.ts` (`smallTargets(page, ".canvas-dock")`, không
     tràn ngang)
+- **Canvas trên web: thẻ giao việc nêu từng canvas agent con viết kèm nút "Mở"; canvas đầu tiên tự mở
+  cạnh thread ở màn rộng mà không lấy bàn phím; canvas đã xoá thì nói đã xoá và không có nút**
+  - vitest, dòng canvas: `web/src/components/canvas/delegate-canvases.test.tsx` (đúng thứ tự của kết
+    quả, mỗi dòng có tên, `v<n>` và nút "Mở" gọi đúng id; là một danh sách có tên; tên lấy từ thread
+    trước, rồi từ dòng kết quả, rồi "Canvas"; ký tự ẩn được viết ra, thẻ HTML không thành phần tử; mỗi
+    canvas được hỏi `verify` một lần, vẽ lại không hỏi lại; canvas đã xoá chỉ còn tên và "Canvas đã bị
+    xoá", không phiên bản, không nút; kết quả nêu một canvas hai lần thì vẽ cả hai dòng; không canvas
+    nào thì không vẽ gì và không hỏi gì)
+  - vitest, thẻ: `web/src/components/delegate-cards.test.tsx` ("the canvases a handed-off task wrote,
+    on its card": danh sách đứng dưới dòng trạng thái và chi phí, trên nút xem kết quả; thread không
+    đưa đường mở canvas thì không có dòng nào; khối canvas rỗng là ca đối chứng: không dòng nào và
+    không hỏi server; câu trả lời của agent con mở đầu bằng một dòng giống thẻ canvas thì không thành
+    dòng nào; việc hết giờ vẫn nêu canvas đã viết kèm lý do; việc đang chạy thì chưa có; kết quả mở ra
+    chỉ còn lời của agent con)
+  - vitest, tự mở: `web/src/hooks/use-canvas-auto-open.test.ts` ("opening the canvas a handed-off task
+    wrote": mở lặng lẽ khi lệnh giao việc xong, chỉ canvas đầu tiên, một lần dù vẽ lại, bất kể
+    `outcome` là gì miễn lệnh gọi xong; hai việc giao song song thì việc xong sau là canvas còn mở; "a
+    handed-off task that opens nothing by itself": không viết canvas nào; hết giờ, hỏng, bị từ chối
+    hay bị dừng; lệnh đã có trong lịch sử hay có sẵn lúc mở cuộc; màn hẹp, kể cả khi sau đó rộng ra;
+    người đang gõ trong canvas, kể cả khi sau đó thôi gõ; dòng thẻ chỉ nằm dưới dòng trống, khối lẫn
+    dòng lạ, khối không có dòng trống, kết quả không có dòng `outcome`, output rỗng hay rác; tool
+    canvas có output trông như kết quả giao việc)
+  - vitest, cả app: `web/src/app-canvas-delegate.test.tsx` (ở 1440 px: hai dòng trên thẻ, canvas đầu
+    mở cạnh thread, bàn phím ở lại ô soạn, không lần ghi "canvas đang mở" nào; tên trên dòng là tên
+    server đang giữ, mỗi canvas được hỏi đúng một lần; tin kế tiếp mang canvas vừa tự mở; nút "Mở" của
+    dòng khác thay canvas đang mở và tin kế tiếp mang canvas ấy; thay canvas người đang mở mà không
+    gõ, không thay canvas người đang đặt con trỏ; canvas bị xoá lúc đang hiện thì dòng thôi mời mở;
+    khối rỗng và câu trả lời giống thẻ thì không dòng, không mở, không hỏi server; việc hết giờ có
+    dòng mà không tự mở; ở 1000 px có dòng, không tự mở, bấm thì thành lớp phủ; lượt đã lưu từ trước
+    có dòng, chỉ mở khi bấm và khi đó bàn phím vào dock; canvas server không còn thì "Canvas đã bị
+    xoá")
+  - Playwright: `web/e2e/canvas-delegate.spec.ts` (ở 1440×900 và 390×844: hai dòng đúng tên và phiên
+    bản, nằm dưới dòng chi phí, xếp chồng, nút ở cuối dòng, không chỗ nào tràn ngang; khối rỗng và câu
+    trả lời giống thẻ thì không dòng nào và không canvas nào mở; canvas server không có thì "Canvas đã
+    bị xoá" và không nút; tiêu đề dài không ngắt được thì chính tiêu đề xuống dòng, còn phiên bản, nút
+    và chữ "đã bị xoá" giữ nguyên một dòng; ở màn rộng canvas đầu mở cạnh thread, ô soạn vẫn giữ focus
+    và tin kế tiếp mang canvas ấy, nút "Mở" của dòng thứ hai thay canvas đang hiện; ở điện thoại không
+    canvas nào tự mở và chạm "Mở" thì canvas phủ lên thread); `web/e2e/touch-targets-phone.spec.ts`
+    ("the Open button of each canvas a handed-off task wrote is big enough for a finger, beside a name
+    one letter long too")
 - **Mã agent khớp cả chuỗi: chữ thường, số và gạch ngang, không cả xuống dòng ở cuối**
   - pytest: `tests/test_api_agents_edit.py::test_an_id_that_is_not_a_safe_folder_name_is_refused`
     (`../escape` và `coder` có xuống dòng ở cuối đều bị từ chối, không thư mục nào được tạo);

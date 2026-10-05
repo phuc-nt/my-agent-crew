@@ -145,3 +145,34 @@ button.canvas-library-title:hover:not(:disabled) {
     min-width: var(--touch-target);
   }
 }
+
+/* ── The canvases a handed-off task wrote, on its card in the thread ────── */
+.delegate-canvases {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.delegate-canvas {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* A title is the other agent's wording, of any length: it is what wraps, so that the button stays on the
+   card and what is said beside the title stays whole. */
+.delegate-canvas-title {
+  font-weight: 550;
+  overflow-wrap: anywhere;
+}
+
+.delegate-canvas > .muted {
+  flex: none;
+}
+
+.delegate-canvas > button {
+  margin-left: auto;
+}

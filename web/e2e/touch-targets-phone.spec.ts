@@ -150,3 +150,39 @@ test("the name that opens a canvas from the library is big enough for a finger, 
 
   expect(await smallTargets(page, ".canvas-library")).toEqual([]);
 });
+
+/** A saved conversation in which the agent handed a task to another, which wrote two canvases, one named in a letter. */
+function withHandOff(): Conversation {
+  const call = { id: "d1", name: "delegate", arguments: { agent: "coach", task: "viết báo cáo tuần" } };
+  const stored = { tool_calls: [], tool_call_id: null, name: null, provider: null, model: null, cost_usd: null, created_at: "" };
+  const output = [
+    "conversation=c-child status=done spent=$0.0100 steps=3",
+    "outcome=done",
+    `[artifact ${PLAN} v2] Kế hoạch tuần`,
+    "[artifact ba9876543210 v1] A",
+    "",
+    "Đã viết báo cáo.",
+  ].join("\n");
+  return {
+    ...conversation("c1", "Báo cáo"),
+    messages: [
+      { ...stored, id: "m1", seq: 1, role: "user", content: "giao việc viết báo cáo" },
+      { ...stored, id: "m2", seq: 2, role: "assistant", content: "", tool_calls: [call] },
+      { ...stored, id: "m3", seq: 3, role: "tool", content: output, tool_call_id: "d1", name: "delegate" },
+      { ...stored, id: "m4", seq: 4, role: "assistant", content: "Xong." },
+    ],
+  };
+}
+
+test("the Open button of each canvas a handed-off task wrote is big enough for a finger, beside a name one letter long too", async ({ page }) => {
+  const fake = new FakeCanvas();
+  fake.add({ id: PLAN, title: "Kế hoạch tuần", agent_id: "coach" });
+  fake.add({ id: "ba9876543210", title: "A", agent_id: "coach" });
+  await mockApi(page, { agents: [{ ...defaultAgent, delegates: ["coach"] }, coachAgent], conversations: [withHandOff()], canvas: fake });
+  await page.goto("/#/chat/c1");
+  const chips = page.getByTestId("delegate-card").getByTestId("delegate-canvas");
+  await expect(chips.getByRole("button")).toHaveCount(2);
+  await expect(page.getByRole("button", { name: vi.canvas.card.openLabel("A") })).toBeVisible();
+
+  expect(await smallTargets(page, ".delegate-card")).toEqual([]);
+});

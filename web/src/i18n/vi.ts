@@ -1123,6 +1123,8 @@ export const vi = {
       open: "Mở",
       openLabel: (title: string) => `Mở canvas ${title}`,
     },
+    // What the list of canvases on the card of a handed-off task is called.
+    delegateCanvases: "Canvas viết trong việc này",
     // The bar at the foot of the panel that asks the agent about the passage selected in it.
     ask: {
       group: "Hỏi về đoạn đã chọn",

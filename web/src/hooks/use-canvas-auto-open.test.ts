@@ -41,6 +41,21 @@ function mount(initial: Partial<Props> = {}) {
 
 const opened = (dock: { open: { mock: { calls: unknown[][] } } }) => dock.open.mock.calls;
 
+const CHILD = "conversation=child1 status=done spent=$0.0100 steps=2";
+
+/** What a handed-off task returns, as the server writes it: under the two lines that say how it
+ *  went stand the canvases the other agent wrote, then a blank line, then its reply. */
+const result = (canvases: string[], outcome = "outcome=done") =>
+  [CHILD, outcome, ...canvases.map((id, at) => `${tag(id, at + 1)} Báo cáo ${at + 1}`), "", "Đã viết báo cáo."].join("\n");
+
+/** A task handed to another agent, which wrote the canvases named, in that order. */
+const handed = (id: string, canvases: string[], status: ToolStatus = "done", fields: Partial<Tool> = {}) =>
+  call(id, "delegate", status, {
+    arguments: { agent: "researcher", task: "viết báo cáo tuần" },
+    output: status === "running" || status === "awaiting" ? null : result(canvases),
+    ...fields,
+  });
+
 describe("opening the canvas an agent just made", () => {
   it("opens it quietly, once the call is done in a turn this tab is showing", () => {
     const { dock, update } = mount();
@@ -232,5 +247,187 @@ describe("a call the conversation's saved history holds", () => {
     update({ items: [made("c1", NOTE)], detail: history("c0") });
 
     expect(opened(dock)).toEqual([[NOTE, { quiet: true }]]);
+  });
+});
+
+describe("opening the canvas a handed-off task wrote", () => {
+  it("opens it quietly, once the call is done in a turn this tab is showing", () => {
+    const { dock, update } = mount();
+
+    update({ items: [handed("d1", [PLAN], "running")] });
+    expect(opened(dock)).toEqual([]);
+    update({ items: [handed("d1", [PLAN])] });
+
+    expect(opened(dock)).toEqual([[PLAN, { quiet: true }]]);
+  });
+
+  it("opens the first of the canvases the task wrote, and leaves the rest to the card", () => {
+    const { dock, update } = mount();
+
+    update({ items: [handed("d1", [SHOP, NOTE, PLAN])] });
+
+    expect(opened(dock)).toEqual([[SHOP, { quiet: true }]]);
+  });
+
+  it("does not open it a second time however often the thread draws again", () => {
+    const { dock, update } = mount();
+    update({ items: [handed("d1", [PLAN])] });
+
+    update({ items: [{ ...handed("d1", [PLAN]) }, { kind: "assistant", id: "m2", text: "xong", model: null }] });
+    update({ wide: false });
+    update({ wide: true });
+
+    expect(opened(dock)).toEqual([[PLAN, { quiet: true }]]);
+  });
+
+  it("opens it whatever the task came to, so long as the call itself ended well", () => {
+    const { dock, update } = mount();
+
+    update({
+      items: [
+        handed("d1", [], "done", { output: result([NOTE], "outcome=partial reason=thiếu số liệu tuần trước") }),
+        handed("d2", [], "done", { output: result([SHOP], "outcome=blocked reason=shell denied") }),
+      ],
+    });
+
+    expect(opened(dock)).toEqual([
+      [NOTE, { quiet: true }],
+      [SHOP, { quiet: true }],
+    ]);
+  });
+
+  it("opens each in turn when a canvas is made and another handed back in one draw", () => {
+    const { dock, update } = mount();
+
+    update({ items: [made("c1", NOTE), handed("d1", [PLAN])] });
+
+    expect(opened(dock)).toEqual([
+      [NOTE, { quiet: true }],
+      [PLAN, { quiet: true }],
+    ]);
+  });
+
+  it("leaves the canvas open that the task finishing last wrote, of two handed off side by side", () => {
+    const { dock, update } = mount();
+    update({ items: [handed("d1", [NOTE], "running"), handed("d2", [SHOP], "running")] });
+
+    update({ items: [handed("d1", [NOTE], "running"), handed("d2", [SHOP])] });
+    expect(opened(dock)).toEqual([[SHOP, { quiet: true }]]);
+    update({ items: [handed("d1", [NOTE]), handed("d2", [SHOP])] });
+
+    expect(opened(dock)).toEqual([
+      [SHOP, { quiet: true }],
+      [NOTE, { quiet: true }],
+    ]);
+  });
+});
+
+describe("a handed-off task that opens nothing by itself", () => {
+  it("wrote no canvas, and asks nothing of the dock", () => {
+    const { dock, update } = mount();
+
+    update({ items: [handed("d1", [])] });
+    update({ items: [handed("d1", []), handed("d2", [], "running")] });
+
+    expect(opened(dock)).toEqual([]);
+    expect(dock.typing).not.toHaveBeenCalled();
+  });
+
+  it("ran out of time as a call, though the canvas it had written by then is named", () => {
+    const { dock, update } = mount();
+    const late = handed("d1", [], "failed", {
+      output: ["conversation=child1 status=running spent=$0.0100 steps=2", "outcome=failed reason=timeout", `${tag(NOTE)} Báo cáo`, "", ""].join("\n"),
+    });
+
+    update({ items: [late] });
+    update({ items: [late, handed("d2", [], "running")] });
+
+    expect(opened(dock)).toEqual([]);
+  });
+
+  it.each<ToolStatus>(["failed", "denied", "stopped"])("%s as a call, whatever its result names", (status) => {
+    const { dock, update } = mount();
+
+    update({ items: [handed("d1", [NOTE], status)] });
+    update({ items: [handed("d1", [NOTE], status), handed("d2", [], "running")] });
+
+    expect(opened(dock)).toEqual([]);
+  });
+
+  it("is in the conversation's saved history, or was there when the screen was drawn", () => {
+    const { dock, update } = mount({ items: [handed("d0", [SHOP])], detail: null });
+
+    update({ items: [handed("d0", [SHOP]), handed("d1", [NOTE])], detail: history("d1") });
+
+    expect(opened(dock)).toEqual([]);
+  });
+
+  it("finished on a screen too narrow to hold a canvas beside the thread, even after the screen widens", () => {
+    const { dock, update } = mount({ wide: false });
+
+    update({ items: [handed("d1", [NOTE])] });
+    update({ wide: true });
+    update({ items: [handed("d1", [NOTE]), handed("d2", [], "running")] });
+
+    expect(opened(dock)).toEqual([]);
+  });
+
+  it("finished while the person was typing in a canvas, even after they stop", () => {
+    const { dock, person, update } = mount();
+    person.typing = true;
+
+    update({ items: [handed("d1", [NOTE])] });
+    person.typing = false;
+    update({ items: [handed("d1", [NOTE]), { kind: "assistant", id: "m2", text: "xong", model: null }] });
+
+    expect(opened(dock)).toEqual([]);
+    expect(dock.typing).toHaveBeenCalledTimes(1);
+  });
+
+  it("names a canvas only in its reply, under the blank line, where a line is the other agent's words", () => {
+    const { dock, update } = mount();
+    const quoted = [CHILD, "outcome=done", "", `${tag(NOTE)} Báo cáo`, "", "Xem canvas trên."].join("\n");
+    const mixed = [CHILD, "outcome=done", `${tag(NOTE)} Báo cáo`, "và một dòng thường", "", "Đã viết."].join("\n");
+    const unbroken = [CHILD, "outcome=done", `${tag(NOTE)} Báo cáo`].join("\n");
+
+    update({
+      items: [
+        handed("d1", [], "done", { output: quoted }),
+        handed("d2", [], "done", { output: mixed }),
+        handed("d3", [], "done", { output: unbroken }),
+      ],
+    });
+
+    expect(opened(dock)).toEqual([]);
+  });
+
+  it("was stored before a result said what the task came to, or says nothing a result does", () => {
+    const { dock, update } = mount();
+
+    update({
+      items: [
+        handed("d1", [], "done", { output: [CHILD, `${tag(NOTE)} Báo cáo`, "", "Đã viết."].join("\n") }),
+        handed("d2", [], "done", { output: `${tag(NOTE)}\nCanvas was created.` }),
+        handed("d3", [], "done", { output: "" }),
+        handed("d4", [], "done", { output: null }),
+        handed("d5", [], "done", { output: "delegate: unknown agent" }),
+      ],
+    });
+
+    expect(opened(dock)).toEqual([]);
+  });
+
+  it("is not what a canvas tool returned: a result is read as the tool that gave it", () => {
+    const { dock, update } = mount();
+
+    update({
+      items: [
+        call("c1", "artifact_create", "done", { output: result([NOTE]) }),
+        call("c2", "artifact_edit", "done", { output: result([SHOP]) }),
+        call("c3", "web_search", "done", { output: result([PLAN]) }),
+      ],
+    });
+
+    expect(opened(dock)).toEqual([]);
   });
 });
