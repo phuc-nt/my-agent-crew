@@ -341,6 +341,37 @@ def test_a_result_under_another_tools_name_closes_no_request(store):
     assert written_by(store, conv.id, run) == [Tag(A, 1)]
 
 
+@pytest.mark.parametrize("place", [0, 1, 2], ids=["first", "between", "last"])
+def test_a_request_is_closed_by_its_own_call_wherever_that_stands_in_the_message(store, place):
+    """A model may ask for several tools in one message, and the loop answers them in the
+    order asked: those in front of the call that waits ran before the turn stopped, those
+    behind it once the request had run out. The waiting call's result is where the reading
+    ended, wherever among them it stands."""
+    conv = store.create()
+    run = began(store, conv.id)
+    tool_said(store, conv.id, "artifact_create", f"{artifact_tag(C, 1)} Đã tạo.", "c0")
+    writes = [
+        (ToolCall("a1", "artifact_create", {}), A),
+        (ToolCall("b1", "artifact_create", {}), B),
+    ]
+    before, after = writes[:place], writes[place:]
+
+    def ran(some: list[tuple[ToolCall, str]]) -> list[Tag]:
+        for asked, canvas in some:
+            tool_said(store, conv.id, asked.name, f"{artifact_tag(canvas, 1)} Đã tạo.", asked.id)
+        return [Tag(canvas, 1) for _, canvas in some]
+
+    every = [*(asked for asked, _ in before), WRITE, *(asked for asked, _ in after)]
+    request = waits_on(store, conv.id, WRITE, every)
+    named_at_the_stop = ran(before)
+    assert written_by(store, conv.id, run) == [Tag(C, 1), *named_at_the_stop]
+    store.approvals.resolve(request.id, approve=False, status=EXPIRED)
+    tool_said(store, conv.id, WRITE.name, texts.EXPIRED_TOOL, WRITE.id)
+    assert written_by(store, conv.id, run) == []
+    still_to_name = ran(after)
+    assert written_by(store, conv.id, run) == still_to_name
+
+
 def test_a_person_who_quotes_the_lapsed_sentence_marks_nothing(store):
     conv = store.create()
     run = began(store, conv.id)

@@ -4156,7 +4156,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     bị từ chối lần nữa, bị báo trùng mã, câu hỏi được đáp lại như lần trước; có và không có lời gọi
     của model đứng trước kết quả; id của tin nhắn khác thứ tự của nó trong hội thoại);
     `::test_a_result_under_another_tools_name_closes_no_request` (kết quả đứng đầu dưới mã ấy mà
-    mang tên tool khác thì không đóng yêu cầu)
+    mang tên tool khác thì không đóng yêu cầu);
+    `::test_a_request_is_closed_by_its_own_call_wherever_that_stands_in_the_message` (một tin của
+    model gọi ba tool, lời gọi phải chờ đứng đầu, giữa hay cuối: kết quả của chính nó là mốc,
+    canvas ghi trước nó đã được nêu lúc dừng, canvas ghi sau nó còn phải nêu)
   - pytest (`tests/test_telegram_canvas_notice_sent.py`):
     `::test_a_job_whose_model_asks_again_under_the_same_id_names_what_it_wrote_between` (job thật,
     lượt quét hết hạn thật, vòng lặp thật đáp cùng một mã hai lần);

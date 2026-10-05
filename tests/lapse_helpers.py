@@ -4,6 +4,8 @@ told the outcome in. The words of that message are the loop's own."""
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from my_agent_crew.agent.tool_calls import close_interrupted
 from my_agent_crew.llm.types import Message, ToolCall
 from my_agent_crew.store.approvals import EXPIRED
@@ -15,9 +17,13 @@ ASK_WITH_DEFAULT = ToolCall("q2", "ask_user", {"question": "Chạy hay bơi?", "
 WRITE = ToolCall("w1", "workspace_write", {"path": "out.txt", "content": "ok"})
 
 
-def waits_on(store: Store, conv_id: str, call: ToolCall) -> Approval:
-    """The turn stops at `call`: a question when it asks the person, an approval otherwise."""
-    stored = store.append(conv_id, Message(role="assistant", content="", tool_calls=(call,)))
+def waits_on(
+    store: Store, conv_id: str, call: ToolCall, asked: Sequence[ToolCall] = ()
+) -> Approval:
+    """The turn stops at `call`: a question when it asks the person, an approval otherwise.
+    `asked` is every call of the model's message, when it asked for more than this one."""
+    calls = tuple(asked) or (call,)
+    stored = store.append(conv_id, Message(role="assistant", content="", tool_calls=calls))
     kind = QUESTION if call.name == "ask_user" else TOOL
     return store.approvals.create(conv_id, stored.id, call, kind=kind)
 
