@@ -157,6 +157,9 @@ def name_list(from_env: str | None, from_file: object) -> tuple[str, ...]:
 
 # A path is written into links as it stands, so it holds nothing that would need escaping.
 _WEB_URL_PATH = re.compile(r"[A-Za-z0-9._~/-]*")
+# So is the host: a plain name or an IPv6 address in brackets, and digits after a colon. A
+# name with other letters is written in punycode.
+_WEB_URL_HOST = re.compile(r"(?:[A-Za-z0-9._-]+|\[[0-9A-Fa-f:.]+\])(?::[0-9]+)?")
 
 
 def _plain_address(text: str) -> str | None:
@@ -167,10 +170,10 @@ def _plain_address(text: str) -> str | None:
         return None
     try:
         parts = urlsplit(text)
-        host, _port = parts.hostname, parts.port
-    except ValueError:  # a bracket left open, a port that is no number
+        _port = parts.port
+    except ValueError:  # a bracket left open, a port that is no number or out of range
         return None
-    if parts.scheme not in ("http", "https") or not host or "@" in parts.netloc:
+    if parts.scheme not in ("http", "https") or not _WEB_URL_HOST.fullmatch(parts.netloc):
         return None
     if parts.query or parts.fragment or not _WEB_URL_PATH.fullmatch(parts.path):
         return None

@@ -121,6 +121,11 @@ def test_no_web_address_reads_as_empty(value):
         ("  https://crew.example/  ", "https://crew.example"),
         ("HTTPS://crew.example/a-b/c_d.e~f/", "https://crew.example/a-b/c_d.e~f"),
         ("http://[::1]:8765//", "http://[::1]:8765"),
+        ("http://localhost:8765/", "http://localhost:8765"),
+        ("https://My-Crew.example:8443/app", "https://My-Crew.example:8443/app"),
+        ("http://h_h/", "http://h_h"),  # the name of a compose service
+        ("http://[2001:DB8::ff00:42]", "http://[2001:DB8::ff00:42]"),
+        ("http://[::ffff:10.0.0.7]:80/", "http://[::ffff:10.0.0.7]:80"),
     ],
 )
 def test_a_web_address_keeps_its_scheme_host_port_and_path_without_the_last_slash(value, kept):
@@ -151,13 +156,23 @@ def test_a_web_address_keeps_its_scheme_host_port_and_path_without_the_last_slas
         "http://[h",
         "http://h/a%2Fb",
         "http://h/a;b",
+        "http://h\\x",
+        "http://h*x/",
+        "http://exämple.com/",
+        "http://h:",
+        "http://[::1]:/",
+        "http://[v1.x]/",
+        "http://[fe80::1%eth0]/",
         8765,
         ["http://h"],
     ],
 )
 def test_a_web_address_that_is_not_a_plain_one_is_refused(value):
-    with pytest.raises(ValueError, match="web_url"):
+    """A host is letters, digits, dots, hyphens and underscores, or an IPv6 address in
+    brackets; a name with other letters is written in punycode. A colon comes with a port."""
+    with pytest.raises(ValueError, match="web_url") as refused:
         parse_web_url(value)
+    assert str(value) not in str(refused.value)
 
 
 def test_a_refused_web_address_stops_the_load_and_is_not_repeated(tmp_path: Path):

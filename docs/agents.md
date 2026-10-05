@@ -88,6 +88,7 @@ và `config.yaml`:
 | `MY_AGENT_SHELL_ALLOW_PATTERNS` | `shell_allow_patterns` | rỗng; phân cách bằng `;` như danh sách hỏi. Mẫu dưới hai ký tự, hoặc mẫu chỉ trông như ký tự đại diện, bị loại thay vì được chấp nhận |
 | `MY_AGENT_TOOL_OUTPUT_CHARS` | `tool_output_chars` | `8000`; phải ≥ 1 |
 | `MY_AGENT_LANGUAGE` | `language` | `vi` (ngôn ngữ khung prompt; `en` là lựa chọn còn lại) |
+| `MY_AGENT_WEB_URL` | `web_url` | rỗng; địa chỉ người dùng mở web (`http://127.0.0.1:8765`), để tin gửi ra kênh viết được link về web. Chỉ nhận `http`/`https`, host, cổng và path trơn; giá trị khác thì hỏng lúc khởi động, xem [deployment-guide.md](deployment-guide.md) |
 | `MY_AGENT_TIMEZONE` | `timezone` | múi giờ của máy; một tên IANA (`Asia/Ho_Chi_Minh`) đặt múi giờ mà lịch, "hôm nay" trong prompt và ghi chú trí nhớ, `/status` và thống kê được đọc theo. Tên lạ thì hỏng lúc khởi động |
 | `MY_AGENT_OPENROUTER_PROVIDERS` | `openrouter_providers` | rỗng; danh sách (hoặc chuỗi phân cách bằng dấu phẩy) tên provider phía sau OpenRouter (`DeepSeek`, `OpenInference`…) thử theo thứ tự, gửi đi dưới `provider.order`. Ghim một provider để cache prompt không mất mỗi khi OpenRouter đổi bên phục vụ |
 | `MY_AGENT_OPENROUTER_PROVIDER_FALLBACKS` | `openrouter_provider_fallbacks` | bật; `false` cấm OpenRouter rơi sang provider ngoài danh sách trên. Không có tác dụng khi danh sách rỗng |

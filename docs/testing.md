@@ -3902,11 +3902,14 @@ tên một test thì sửa dòng của nó trong cùng commit.
   - pytest: `tests/test_config.py::test_the_web_address_comes_from_yaml_or_env_and_defaults_to_none`
     (env thắng tệp, `/` cuối được bỏ, chưa đặt là rỗng, khoá có trong `YAML_KEYS`);
     `tests/test_config.py::test_no_web_address_reads_as_empty`;
-    `tests/test_config.py::test_a_web_address_keeps_its_scheme_host_port_and_path_without_the_last_slash`;
+    `tests/test_config.py::test_a_web_address_keeps_its_scheme_host_port_and_path_without_the_last_slash`
+    (`127.0.0.1`, `localhost`, tên miền có cổng, tên có gạch nối và gạch dưới, IPv6 trong ngoặc
+    vuông kể cả dạng bọc IPv4);
     `tests/test_config.py::test_a_web_address_that_is_not_a_plain_one_is_refused` (scheme khác
     `http`/`https`, thiếu scheme, thiếu host, có tên đăng nhập, query, fragment, khoảng trắng và ký
     tự ẩn ở path lẫn ở host, nửa cặp surrogate, cổng không đọc được, path có ký tự phải mã hoá, giá
-    trị không phải chuỗi);
+    trị không phải chuỗi; host có `\`, `*`, chữ có dấu, dấu `:` không kèm cổng, ngoặc vuông chứa
+    thứ không phải IPv6 trơn; câu lỗi của hàng nào cũng không lặp lại giá trị);
     `tests/test_config.py::test_a_refused_web_address_stops_the_load_and_is_not_repeated` (câu lỗi
     nêu khoá `web_url` và không lặp lại giá trị, vì giá trị có thể mang mật khẩu)
 - **Dòng báo một đính kèm không gửi được mà chính nó cũng không gửi được thì chỉ vào log; các đính
