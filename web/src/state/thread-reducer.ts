@@ -144,7 +144,8 @@ export function itemsFromMessages(messages: StoredMessage[]): ThreadItem[] {
     if (m.role === "tool" && m.tool_call_id !== null) {
       const at = toolIndex.get(m.tool_call_id);
       if (at !== undefined) {
-        items[at] = { ...(items[at] as ThreadItem & { kind: "tool" }), output: m.content, status: storedStatus(m.content) };
+        const call = items[at] as ThreadItem & { kind: "tool" };
+        items[at] = { ...call, output: m.content, status: storedStatus(call.name, m.content) };
       }
     }
   }

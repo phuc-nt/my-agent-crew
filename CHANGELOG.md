@@ -415,8 +415,13 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   browser sends, passes as before, and a canvas's render page, which its sandboxed frame asks
   for, is the one address such a request still reaches.
 - A tool call that failed stays failed when the conversation is read back. The web drew every
-  stored call that was not denied as done, so a failed call, a call to a tool that does not
-  exist and one a hook blocked showed a done mark, with the error only inside the result.
+  stored call that was not denied as done, so a failed call showed a done mark, with the error
+  only inside the result. That holds now for every way a call fails: a tool that raised, a call
+  to a tool that does not exist, one a hook blocked, arguments that were not valid JSON or were
+  cut off, a call the turn stopped at for being out of steps or for repeating itself, a call
+  whose id had been approved for another, a call the conversation was branched away from or
+  that was cut short before it answered, and a handed-off task whose wait ran out, whose card
+  still lists the canvases the child had written.
 - A link whose address holds an escape that cannot be read, `#/manage/crew/%` or one cut short
   in the middle of a letter, no longer opens the web app on a blank screen. The part that cannot
   be read is taken as not there: the section opens on its list, and when only the part to show

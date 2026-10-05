@@ -442,11 +442,38 @@ tên một test thì sửa dòng của nó trong cùng commit.
     arrives": lời đáp chỉ trích lại câu từ chối ở giữa chữ thì thẻ là `done`, cả khi dựng lại từ tin
     đã lưu lẫn khi lời đáp vừa tới,
     "gives a reply the same status read back as it had when it arrived": cùng một lời đáp cho
-    cùng một trạng thái ở luồng trực tiếp và khi dựng lại từ tin đã lưu)
-  - pytest: `tests/test_tool_reply_openings.py` (mỗi tiền tố web dùng trong
-    `web/src/lib/tool-reply.ts` đúng là phần mở đầu của chuỗi server tương ứng: `DENIED_TOOL` và
-    `EXPIRED_TOOL`, `TOOL_FAILED`, `UNKNOWN_TOOL`, `TOOL_BLOCKED_BY_HOOK`, và registry chạy thật
-    trả đúng các lời mở đó, nên hai bên không lệch nhau khi một bên đổi chữ)
+    cùng một trạng thái ở luồng trực tiếp và khi dựng lại từ tin đã lưu);
+    `state/thread-stored-status.test.tsx` nhóm "a call that failed, read back from the stored
+    thread" ("stays failed when …": mười một kiểu server làm hỏng một lời gọi — tool báo lỗi,
+    không có tool tên đó, hook chặn, tham số không phải JSON hợp lệ, tham số bị cắt, lượt hết số
+    bước, lượt bị dừng vì lặp, id đã được duyệt cho lời gọi khác, hết thời gian chờ agent con,
+    hội thoại rẽ nhánh trước khi lệnh chạy, lời gọi bị ngắt giữa chừng — đều cho thẻ `failed` và
+    dấu lỗi trên thẻ; "has the status it had as it arrived when …": chín kiểu có lời đáp tới
+    trong luồng trực tiếp cho cùng một trạng thái ở cả hai đường; "is not a reply that only holds
+    the words further in, as when …" và "reads a reply that only resembles one as a call that
+    finished": lời đáp chỉ chứa câu đó ở phía sau, câu thiếu ký tự cuối, hay kết quả hết thời
+    gian chờ nằm dưới một tool không phải `delegate` thì thẻ là `done`) và nhóm "a handed-off
+    task whose wait ran out, read back from the stored thread" ("is failed, and still names its
+    canvases, with the sentence …": kết quả `delegate` hết thời gian chờ là `failed` mà vẫn hiện
+    đủ chip canvas, cả khi câu báo đứng sau dòng đếm canvas bị lược lẫn ở dạng đã lưu trước khi
+    kết quả có dòng canvas; "is not …": agent con dừng dở, agent con tự viết lại đúng câu đó, kết
+    quả `done` hay `blocked`, câu đứng một mình không có kết quả phía trên thì thẻ là `done`)
+  - pytest: `tests/test_tool_reply_openings.py` (mỗi lời mở web dùng trong
+    `web/src/lib/tool-reply.ts` đúng là phần chữ cố định của chuỗi server tương ứng, tính tới giá
+    trị đầu tiên server điền vào, hoặc là cả câu khi câu không điền gì: `DENIED_TOOL` và
+    `EXPIRED_TOOL`, `TOOL_FAILED`, `UNKNOWN_TOOL`, `TOOL_BLOCKED_BY_HOOK`, `TOOL_ARGS_INVALID`,
+    `TOOL_ARGS_CUT_OFF`, `STEPS_HALTED_TOOL`, `LOOP_HALTED_TOOL`, `APPROVAL_CALL_MISMATCH`,
+    `FORK_CALL_NOT_RUN`, `INTERRUPTED_TOOL`
+    (`test_each_opening_the_web_reads_as_a_failure_is_how_the_server_words_one`), và registry
+    chạy thật trả đúng các lời mở đó, nên hai bên không lệch nhau khi một bên đổi chữ);
+    `tests/test_tool_reply_openings_turn.py` (qua cả một lượt: tham số không đọc được hoặc bị
+    cắt, lượt hết số bước, lượt bị dừng vì lặp, id đã được duyệt cho lời gọi khác đều phát ra với
+    `ok=False`, mở đúng lời web chờ và được lưu nguyên văn);
+    `tests/test_tool_reply_delegate_wait.py` (bốn hằng web dùng để nhận ra `delegate` hết thời
+    gian chờ khớp tên tool, giá trị `outcome` và phần chữ cố định của `DELEGATE_TIMEOUT`,
+    `DELEGATE_CANVAS_MORE`; kết quả `timed_out` là `ok=False` với câu báo đứng đầu thân hoặc ngay
+    sau dòng đếm canvas bị lược; một lượt thật lưu đúng kết quả đó dưới tên tool; agent con dừng
+    dở thì `ok=True` và thân mở bằng `DELEGATE_UNFINISHED`, không phải câu web đọc)
 - **Dừng thật, thread tự làm mới, pill kết nối lại**
   - vitest: `hooks/use-thread.test.ts` "Stop on a stream that resumed after a person answered";
     `state/thread-reducer.test.ts`

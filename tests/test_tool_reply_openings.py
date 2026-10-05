@@ -8,25 +8,63 @@ import re
 from pathlib import Path
 from typing import Any
 
-from my_agent_crew.texts import DENIED_TOOL, EXPIRED_TOOL, TOOL_FAILED, UNKNOWN_TOOL
+from my_agent_crew.texts import (
+    APPROVAL_CALL_MISMATCH,
+    DENIED_TOOL,
+    EXPIRED_TOOL,
+    FORK_CALL_NOT_RUN,
+    INTERRUPTED_TOOL,
+    LOOP_HALTED_TOOL,
+    STEPS_HALTED_TOOL,
+    TOOL_ARGS_CUT_OFF,
+    TOOL_ARGS_INVALID,
+    TOOL_FAILED,
+    UNKNOWN_TOOL,
+)
 from my_agent_crew.texts_kit import TOOL_BLOCKED_BY_HOOK
 from my_agent_crew.tools.registry import Tool, ToolError, ToolRegistry
 
 SOURCE = Path(__file__).resolve().parents[1] / "web" / "src" / "lib" / "tool-reply.ts"
+# Every sentence the server fails a call with that is a sentence and nothing more, in the
+# order the web lists their openings: the registry's three, arguments that were not valid or
+# were cut off, a turn out of steps, a turn stopped for repeating itself, an id approved for
+# another call, a conversation branched before the call ran, a run cut before it answered.
+WRITTEN = [
+    TOOL_FAILED,
+    UNKNOWN_TOOL,
+    TOOL_BLOCKED_BY_HOOK,
+    TOOL_ARGS_INVALID,
+    TOOL_ARGS_CUT_OFF,
+    STEPS_HALTED_TOOL,
+    LOOP_HALTED_TOOL,
+    APPROVAL_CALL_MISMATCH,
+    FORK_CALL_NOT_RUN,
+    INTERRUPTED_TOOL,
+]
 
 
 def _source() -> str:
     return SOURCE.read_text(encoding="utf-8")
 
 
-def _denied() -> str:
-    [opening] = re.findall(r'^const DENIED = "([^"]+)";$', _source(), re.MULTILINE)
-    return opening
+def fixed_words(template: str) -> str:
+    """What every reply made from `template` opens with: the words before the first value
+    filled in, and the whole sentence when none is."""
+    return template.partition("{")[0]
 
 
-def _failed() -> list[str]:
-    [listed] = re.findall(r"^const FAILED = \[(.+)\];$", _source(), re.MULTILINE)
-    return re.findall(r'"([^"]+)"', listed)
+def web_constant(name: str) -> str:
+    """A string the web reads a reply with, taken from its source."""
+    found = re.findall(rf'^const {name} = "([^"]+)";$', _source(), re.MULTILINE)
+    assert len(found) == 1, f"{name} is no longer a one-line string constant in {SOURCE.name}"
+    return found[0]
+
+
+def web_failed() -> list[str]:
+    """The openings the web reads as a failure, in the order it lists them."""
+    listed = re.findall(r"^const FAILED = \[(.+?)\];$", _source(), re.MULTILINE | re.DOTALL)
+    assert len(listed) == 1, f"FAILED is no longer a list of strings in {SOURCE.name}"
+    return re.findall(r'"([^"]+)"', listed[0])
 
 
 class _Blocker:
@@ -52,16 +90,21 @@ async def _answers(args: dict[str, Any]) -> str:
 
 
 def test_the_web_tells_a_refusal_by_the_opening_both_refusals_share():
-    assert DENIED_TOOL.startswith(_denied()) and EXPIRED_TOOL.startswith(_denied())
+    denied = web_constant("DENIED")
+    assert DENIED_TOOL.startswith(denied) and EXPIRED_TOOL.startswith(denied)
 
 
-def test_each_opening_the_web_reads_as_a_failure_is_how_the_registry_words_one():
-    """Exactly the words before the first thing filled in: a shorter opening would catch
-    replies that are not failures, a longer one could never match."""
-    written = [TOOL_FAILED, UNKNOWN_TOOL, TOOL_BLOCKED_BY_HOOK]
-    assert _failed() == [template.partition("{")[0] for template in written]
-    assert all(opening.endswith(" ") and len(opening) > 8 for opening in _failed())
-    assert not any(opening.startswith(_denied()) for opening in _failed())
+def test_each_opening_the_web_reads_as_a_failure_is_how_the_server_words_one():
+    """Exactly the words before the first thing filled in, and the whole sentence when nothing
+    is: a shorter opening would catch replies that are not failures, a longer one could never
+    match. Two sentences that open alike before their first value share the one opening."""
+    assert web_failed() == list(dict.fromkeys(fixed_words(template) for template in WRITTEN))
+    whole = [template for template in WRITTEN if "{" not in template]
+    for opening in web_failed():
+        # One that stops before a value ends with the space the value follows, so it cannot
+        # match a longer word; one that stops nowhere is a sentence the server writes whole.
+        assert len(opening) > 8 and (opening.endswith(" ") or opening in whole), opening
+    assert not any(opening.startswith(web_constant("DENIED")) for opening in web_failed())
 
 
 async def test_every_reply_the_registry_fails_a_call_with_opens_as_the_web_expects():
@@ -75,7 +118,8 @@ async def test_every_reply_the_registry_fails_a_call_with_opens_as_the_web_expec
         )
     ]
     registry = ToolRegistry(tools, hooks=_Blocker())
-    raised, crashed, unknown, blocked = _failed()[0], _failed()[0], _failed()[1], _failed()[2]
+    failed = web_failed()
+    raised, crashed, unknown, blocked = failed[0], failed[0], failed[1], failed[2]
     for name, opening in (
         ("refuses", raised),
         ("crashes", crashed),
@@ -85,4 +129,4 @@ async def test_every_reply_the_registry_fails_a_call_with_opens_as_the_web_expec
         result = await registry.execute(name, {})
         assert not result.ok and result.output.startswith(opening), name
     done = await registry.execute("answers", {})
-    assert done.ok and not any(done.output.startswith(opening) for opening in _failed())
+    assert done.ok and not any(done.output.startswith(opening) for opening in failed)
