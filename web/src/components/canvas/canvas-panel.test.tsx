@@ -295,6 +295,9 @@ describe("the header and the dock", () => {
 describe("the way from the panel to the canvas's own page", () => {
   const HREF = "#/manage/canvas/a1";
   const own = () => screen.queryByRole("button", { name: vi.canvas.openStandalone }) as HTMLButtonElement | null;
+  /** Whether the button says it cannot be taken now, which is all that holds it: it is never disabled. */
+  const heldOff = () => (own() as HTMLButtonElement).getAttribute("aria-disabled") === "true";
+  const WHY = vi.canvas.standaloneUnsaved;
 
   it("opens the address the panel was given in a new tab cut off from this one, and saves nothing on the way", async () => {
     backend.canvas.add({ title: "Ghi chú", content: "a" });
@@ -314,18 +317,54 @@ describe("the way from the panel to the canvas's own page", () => {
     backend.canvas.add({ title: "Ghi chú", content: "a" });
     await openPanel({ standaloneHref: HREF });
     const open = vitest.spyOn(window, "open").mockReturnValue(null);
-    expect(own()?.disabled).toBe(false);
+    expect(heldOff()).toBe(false);
 
     typeInto("ab");
-    expect(own()?.disabled).toBe(true);
+    expect(heldOff()).toBe(true);
     fireEvent.click(own() as HTMLButtonElement);
     expect(open).not.toHaveBeenCalled();
 
     fireEvent.keyDown(editor() as HTMLTextAreaElement, { key: "s", ctrlKey: true });
     await landed();
-    expect(own()?.disabled).toBe(false);
+    expect(heldOff()).toBe(false);
     fireEvent.click(own() as HTMLButtonElement);
     expect(open).toHaveBeenCalledTimes(1);
+  });
+
+  // A disabled button takes no keyboard and gives no reason: Tab would pass it by in silence.
+  it("stays within the keyboard's reach while words are unsaved, and says why it cannot be taken yet", async () => {
+    backend.canvas.add({ title: "Ghi chú", content: "a" });
+    await openPanel({ standaloneHref: HREF });
+    const open = vitest.spyOn(window, "open").mockReturnValue(null);
+    const button = own() as HTMLButtonElement;
+    expect(button).not.toHaveAttribute("title");
+    expect(button).not.toHaveAccessibleDescription();
+    expect(screen.queryByText(WHY)).toBeNull();
+
+    typeInto("ab");
+    act(() => button.focus());
+
+    expect(own()).toBe(button);
+    expect(button.disabled).toBe(false);
+    expect(button).toHaveFocus();
+    expect(button).toHaveAccessibleName(vi.canvas.openStandalone);
+    expect(button).toHaveAttribute("title", WHY);
+    expect(button).toHaveAccessibleDescription(WHY);
+    // The reason is words of the page the button points at, which a reader of the screen is read.
+    expect(document.getElementById(button.getAttribute("aria-describedby") ?? "")?.textContent).toBe(WHY);
+    // Enter and Space reach a button that has the keyboard as a click.
+    fireEvent.click(button);
+    expect(open).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(editor() as HTMLTextAreaElement, { key: "s", ctrlKey: true });
+    await landed();
+
+    expect(own()).toBe(button);
+    expect(button).toHaveFocus();
+    expect(button).not.toHaveAttribute("title");
+    expect(button).not.toHaveAttribute("aria-describedby");
+    expect(button).not.toHaveAccessibleDescription();
+    expect(screen.queryByText(WHY)).toBeNull();
   });
 
   it("stands beside the way to the page a page canvas runs as, each under its own name", async () => {
@@ -366,7 +405,8 @@ describe("the way from the panel to the canvas's own page", () => {
       await release();
     });
     await landed();
-    expect(own()?.disabled).toBe(false);
+    expect(own()).not.toBeNull();
+    expect(heldOff()).toBe(false);
   });
 
   it("goes when the canvas is deleted", async () => {

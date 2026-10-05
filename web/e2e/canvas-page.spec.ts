@@ -227,9 +227,26 @@ test.describe("the canvas open beside a conversation", () => {
     const release = fake.holdNext("PUT", "request");
     await editor(page).fill(`${TEXT}Dòng ba\n`);
     await expect(own).toBeDisabled();
+    // Held off rather than disabled: the keyboard reaches it, it says why, and no press opens anything.
+    await own.focus();
+    await expect(own).toBeFocused();
+    await expect(own).toHaveAttribute("aria-disabled", "true");
+    expect(await own.evaluate((el) => (el as HTMLButtonElement).disabled)).toBe(false);
+    await expect(own).toHaveAttribute("title", canvas.standaloneUnsaved);
+    await expect(own).toHaveAccessibleDescription(canvas.standaloneUnsaved);
+    await expect(own).toHaveCSS("opacity", "0.45");
+    await expect(own).toHaveCSS("cursor", "not-allowed");
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("Space");
+    // The pointer too: forced, for the test's own driver holds its click back from a button held off.
+    await own.click({ force: true });
     await release();
     await expect.poll(() => fake.content(NOTE)).toBe(`${TEXT}Dòng ba\n`);
     await expect(own).toBeEnabled();
+    await expect(own).toBeFocused();
+    await expect(own).toHaveAccessibleDescription("");
+    await expect(own).toHaveCSS("opacity", "1");
+    expect(context.pages()).toHaveLength(1);
 
     const opening = context.waitForEvent("page");
     await own.click();

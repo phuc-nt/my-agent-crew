@@ -182,6 +182,22 @@
   align-self: center;
 }
 
+/* Held off while words are unsaved, yet still focusable, so the reason on it can be read. It looks
+   as a disabled button does, and gives nothing under the pointer. */
+.canvas-toolbar button.ghost[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.canvas-toolbar button.ghost[aria-disabled="true"]:hover {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.canvas-toolbar button.ghost[aria-disabled="true"]:active {
+  transform: none;
+}
+
 /* Copy and download sit among the ghost buttons, so they take the ghost buttons' size. */
 .canvas-toolbar button.copy-button {
   min-height: 36px;

@@ -3481,9 +3481,12 @@ tên một test thì sửa dòng của nó trong cùng commit.
     việc đọc lại canvas đang được gọi tên)
   - vitest, panel và dock: `web/src/components/canvas/canvas-panel.test.tsx` ("the way from the panel
     to the canvas's own page": `window.open(<địa chỉ>, "_blank", "noopener,noreferrer")` và không lưu
-    gì trên đường; nút tắt khi còn chữ chưa lưu và bật lại khi một phiên bản giữ chúng; đứng cạnh nút
-    "Mở trang" của canvas trang, mỗi nút một tên; không có khi panel không được cho địa chỉ, khi
-    canvas mới biết tên chưa đọc xong, và khi canvas bị xoá);
+    gì trên đường; còn chữ chưa lưu thì nút bị giữ lại bằng `aria-disabled`, bấm không mở gì, và nhận
+    lại khi một phiên bản giữ chúng; "stays within the keyboard's reach while words are unsaved, and
+    says why it cannot be taken yet": nút không `disabled` nên vẫn nhận bàn phím, lý do "Lưu trước khi
+    mở riêng" nằm ở `title` và ở dòng mà `aria-describedby` trỏ tới, lưu xong thì lý do không còn và
+    bàn phím vẫn ở nút; đứng cạnh nút "Mở trang" của canvas trang, mỗi nút một tên; không có khi
+    panel không được cho địa chỉ, khi canvas mới biết tên chưa đọc xong, và khi canvas bị xoá);
     `web/src/components/canvas/canvas-dock-view.test.tsx` ("the open canvas's own page": ở cột lẫn lớp
     phủ, địa chỉ là `#/manage/canvas/<id>` của canvas đang mở);
     `web/src/components/canvas/canvas-library.test.tsx` ("opens the canvas whose name is clicked, one
@@ -3513,8 +3516,11 @@ tên một test thì sửa dòng của nó trong cùng commit.
     và không địa chỉ nào dưới `/api/artifacts/` ngoài `usage` được hỏi; "an address cut short in the
     middle of an escape shows the library instead of a blank screen": `#/manage/canvas/%E0%A4%A` ra
     thư viện và trang không ném lỗi nào; "opens on its own page in a
-    new tab cut off from this one, once what was typed is saved": nút tắt cho tới khi lần lưu xong,
-    tab mới có `window.opener` là `null` và `document.referrer` rỗng, tab cũ vẫn ở cuộc trò chuyện);
+    new tab cut off from this one, once what was typed is saved": nút bị giữ lại cho tới khi lần lưu
+    xong mà vẫn nhận bàn phím: `aria-disabled`, không `disabled`, lý do ở `title` và ở mô tả, mờ như
+    nút tắt, Enter, Space và cú bấm chuột đều không mở tab nào; lưu xong thì bàn phím vẫn ở nút và
+    lý do không còn; tab mới có `window.opener` là `null` và `document.referrer` rỗng, tab cũ vẫn ở
+    cuộc trò chuyện);
     `web/e2e/touch-targets-phone.spec.ts` ("every control on a canvas's own page is big enough for a
     finger, a conversation named in one letter too"; "the name that opens a canvas from the library is
     big enough for a finger, one letter long too"); nút "Mở riêng" trong dock ở 390 px và 1000 px nằm

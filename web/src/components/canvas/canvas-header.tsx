@@ -4,6 +4,7 @@
  * name to read and its text to copy, and offers nothing that needs the canvas.
  */
 
+import { useId } from "react";
 import { artifactApi } from "../../api/artifact-client";
 import type { CanvasController } from "../../hooks/use-canvas";
 import { useNow } from "../../hooks/use-now";
@@ -35,10 +36,12 @@ type Props = Pick<CanvasPanelProps, Shared> & {
 
 export function CanvasHeader({ canvas, artifactId, created, agentName, standaloneHref, mode, switching, history, ...on }: Props) {
   const now = useNow(60_000);
+  const whyNotOwnPage = useId();
   const { state, status } = canvas;
   const { summary, gone } = state;
   const kind = summary?.kind ?? "markdown";
   const modes = hasNoText(kind) ? (["view"] as const) : (["view", "edit"] as const);
+  const unsaved = isDirty(state);
   return (
     <header className="canvas-header">
       <div className="canvas-title-row">
@@ -97,7 +100,7 @@ export function CanvasHeader({ canvas, artifactId, created, agentName, standalon
             type="button"
             className="ghost"
             // Only text that is saved is on the server to open, and the opening happens in this click.
-            disabled={isDirty(state)}
+            disabled={unsaved}
             onClick={() => window.open(artifactApi.renderUrl(artifactId), "_blank", "noopener,noreferrer")}
           >
             <Icon name="arrow-right" />
@@ -105,16 +108,29 @@ export function CanvasHeader({ canvas, artifactId, created, agentName, standalon
           </button>
         )}
         {state.phase === "ready" && !gone && standaloneHref !== undefined && (
-          <button
-            type="button"
-            className="ghost"
-            // The page that opens reads the canvas from the server: words not yet saved would not be on it.
-            disabled={isDirty(state)}
-            onClick={() => window.open(standaloneHref, "_blank", "noopener,noreferrer")}
-          >
-            <Icon name="document" />
-            {vi.canvas.openStandalone}
-          </button>
+          <>
+            <button
+              type="button"
+              className="ghost"
+              // The page that opens reads the canvas from the server: words not yet saved would not be
+              // on it. aria-disabled rather than disabled: the keyboard still reaches the button, and
+              // there the reason is said.
+              aria-disabled={unsaved}
+              aria-describedby={unsaved ? whyNotOwnPage : undefined}
+              title={unsaved ? vi.canvas.standaloneUnsaved : undefined}
+              onClick={() => {
+                if (!unsaved) window.open(standaloneHref, "_blank", "noopener,noreferrer");
+              }}
+            >
+              <Icon name="document" />
+              {vi.canvas.openStandalone}
+            </button>
+            {unsaved && (
+              <span id={whyNotOwnPage} className="sr-only">
+                {vi.canvas.standaloneUnsaved}
+              </span>
+            )}
+          </>
         )}
         {!hasNoText(kind) && <CopyButton text={state.text} label={vi.canvas.copy} />}
         {!gone && (

@@ -1062,6 +1062,8 @@ export const vi = {
     // One canvas on a page of its own, reached from the library or from its panel beside a chat.
     back: "← Canvas",
     openStandalone: "Mở riêng",
+    // Why "Mở riêng" cannot be taken yet: the page it opens would not have the words still unsaved.
+    standaloneUnsaved: "Lưu trước khi mở riêng",
     usedIn: (count: number) => `Dùng trong ${count} hội thoại`,
     // A conversation the list on this device does not hold, named by the start of its id.
     conversationFallback: (id: string) => `Hội thoại ${id.slice(0, 6)}`,

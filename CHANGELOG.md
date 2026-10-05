@@ -313,7 +313,8 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   it, the row before when it was the last, or the search box when none is left.
 - A canvas has a page of its own (`#/manage/canvas/<id>`), reached from its name in the library
   or from "Mở riêng" in the panel beside a chat, which opens it in a new tab once nothing is
-  unsaved. The page shows the canvas in the panel a conversation shows it in, without the bar
+  unsaved; until then the button stays within the keyboard's reach and says "Lưu trước khi mở
+  riêng". The page shows the canvas in the panel a conversation shows it in, without the bar
   that asks about a selected passage and without the button that sends page errors to an agent,
   since no conversation is open there. A line under it counts the conversations the canvas is
   used in and names each, as a button that opens it, and is read again when the live stream comes
