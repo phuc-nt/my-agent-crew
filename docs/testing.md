@@ -1575,7 +1575,23 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `web/src/app-canvas-writing-narrow.test.tsx` (màn hẹp chỉ có thẻ; bấm xem thì khung phủ chat
     và bàn phím ở nút đóng; Escape hoặc đường quay lại trả chat, bàn phím về nút Canvas; Escape
     rời khung trước rồi mới cất canvas dock đang giữ; canvas thật phủ chat khi người đang xem, và
-    không phủ khi họ không xem)
+    không phủ khi họ không xem);
+    `web/src/app-canvas-writing-keyboard.test.tsx` (luật tự hiện hỏi `typing()` của dock chứ không
+    hỏi `editing()`: bàn phím ở một nút của canvas đang mở, ở một tab của cột, trong danh sách
+    canvas hay trong cột hoạt động khi chưa mở gì, không gõ chữ nào, thì bản đang viết vẫn chỉ là
+    thẻ, bàn phím ở yên và không có `PUT` nào; bàn phím về ô chat rồi thì bản ấy vẫn không tự
+    hiện, thẻ vẫn gọi được khung; bàn phím ở ô chat và canvas đang mở không có chữ gõ dở thì
+    khung hiện đè lên như trước; màn 1000 px nới ra 1440 px khi bàn phím còn ở canvas vừa phủ
+    chat thì mảnh kế không làm khung hiện, còn bàn phím ở ô chat thì khung hiện ở mảnh kế);
+    `web/src/app-canvas-writing-handover.test.tsx` (lúc lời gọi xong, khung nhường chỗ theo
+    `editing()` chứ không theo `typing()`, và mỗi lần dock được bảo mở đều được đếm qua một lớp
+    bọc quanh `useCanvasDock` thật: màn rộng, canvas của agent được mở đúng một lần, lặng lẽ, bởi
+    hook đã hiện nó, và hook tự mở không mở lại ở lúc ấy hay ở phần còn lại của lượt; bàn phím ở
+    nút đóng của khung hay ở một tab của cột thì canvas vẫn mở; chữ người gõ mà lần lưu bị từ
+    chối thì không gì mở canvas của agent, kể cả sau khi lần lưu lại thành công và bàn phím đã về
+    ô chat; màn hẹp, người đang xem thì canvas mở đúng một lần phủ chat và bàn phím tới đường
+    quay lại, người chỉ có thẻ thì không gì được mở, và chữ chưa lưu được thì canvas của họ vẫn
+    phủ chat cùng chữ ấy)
   - e2e: `web/e2e/canvas-writing.spec.ts` (màn rộng: khung hiện dần cạnh luồng, ô chat giữ bàn
     phím, rồi canvas thật thế chỗ; trang `html` là mã nguồn và `window.pwned` không được đặt; điện
     thoại 390×844: chỉ có thẻ cho tới khi chạm, khung phủ cả màn, nút cao ít nhất 40 px, Escape
@@ -2767,7 +2783,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     khi người mở canvas khác, canvas mở lại mà lần lưu cuối hỏng thì được báo lại, panel cũ buông muộn
     thì dock vẫn hỏi panel mới); `web/src/components/canvas/canvas-dock-view.test.tsx` (focus đi từ nút
     Canvas vào cột mở ra, sang nút về chat khi dock phủ cuộc trò chuyện, và đứng yên khi dock chuyển từ
-    danh sách sang canvas; hoạt động hiện khi chưa mở gì, tab hoạt động theo cú bấm, lớp phủ hiện cả
+    danh sách sang canvas; cột hoạt động nằm trong phần tử của dock nên bàn phím đang ở đó thì ở
+    yên khi cột mở ra từ một cú bấm không lấy bàn phím, dù hoạt động lùi về sau tab của nó, và về
+    nút Canvas khi dock đóng; hoạt động hiện khi chưa mở gì, tab hoạt động theo cú bấm, lớp phủ hiện cả
     dock; cột rộng đúng như cạnh nói; nút Canvas đếm canvas, không hiện số khi chưa biết canvas
     nào, và nói dock mở hay đóng; lần lưu không về
     của canvas chưa có tên gọi là canvas không tên, và thông báo nói bản nháp vẫn trên máy khi giữ được,

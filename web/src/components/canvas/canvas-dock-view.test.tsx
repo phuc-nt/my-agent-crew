@@ -28,7 +28,7 @@ afterEach(stopServer);
 const seen: { dock: CanvasDock | null } = { dock: null };
 
 /** The dock as the chat lays it out: the Canvas button, a composer outside the dock, what the
- *  canvases have to say in the chat, and the dock itself. */
+ *  canvases have to say in the chat, and the dock itself, whose activity can hold the keyboard. */
 function Chat({ mode }: { mode: "column" | "overlay" }) {
   const dock = useCanvasDock("c1", true, true);
   seen.dock = dock;
@@ -38,7 +38,7 @@ function Chat({ mode }: { mode: "column" | "overlay" }) {
       <CanvasButton dock={dock} ref={trigger} />
       <textarea aria-label="Soạn tin" />
       <CanvasChatNotices dock={dock} />
-      <CanvasDockView dock={dock} mode={mode} activity={<p>{ACTIVITY}</p>} connected agentName={(id) => id} trigger={trigger} />
+      <CanvasDockView dock={dock} mode={mode} activity={<p tabIndex={-1}>{ACTIVITY}</p>} connected agentName={(id) => id} trigger={trigger} />
     </>
   );
 }
@@ -103,6 +103,34 @@ describe("focus in the canvas dock", () => {
     await landed();
 
     expect(composer()).toHaveFocus();
+  });
+
+  // The activity is part of the dock's element whether the dock is open or not, so a keyboard
+  // there is in the dock already when it opens and still in it when it closes.
+  it("is left in the activity when the column opens from a press that did not take it, the activity going behind its tab", async () => {
+    await openChat("column");
+    const activity = screen.getByText(ACTIVITY);
+    activity.focus();
+
+    await openList();
+
+    expect(screen.getByRole("tab", { name: vi.canvas.tabs.canvas })).toHaveAttribute("aria-selected", "true");
+    expect(activity).toHaveFocus();
+  });
+
+  it("goes back to the Canvas button from the activity when the dock closes", async () => {
+    await openChat("column");
+    await openList();
+    fireEvent.click(screen.getByRole("tab", { name: vi.canvas.tabs.activity }));
+    const activity = screen.getByText(ACTIVITY);
+    activity.focus();
+
+    await act(async () => seen.dock?.close());
+    await landed();
+
+    expect(screen.queryByRole("tab")).toBeNull();
+    expect(screen.getByText(ACTIVITY)).toBe(activity);
+    expect(canvasButton()).toHaveFocus();
   });
 });
 
