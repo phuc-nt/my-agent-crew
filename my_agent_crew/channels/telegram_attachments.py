@@ -3,7 +3,9 @@
 Two prefixes, because Telegram shows the two kinds differently and the model has to be
 able to choose. `MEDIA:` is a photo, shown inline and re-encoded by Telegram, which is
 what a chart wants and what a spreadsheet must never get. `FILE:` is a document, kept
-byte for byte with its name, which is what a PDF or a CSV wants.
+byte for byte with its name, which is what a PDF or a CSV wants. A `FILE:` line that names a
+picture is sent as the photo it is: the model asked for the file to arrive, and refusing it
+over the prefix leaves a person with nothing.
 
 The extension list is a guard on the reply, not on the workspace. Anything the agent can
 write it can also name on a `FILE:` line, so a reply is one sentence away from mailing out
@@ -28,6 +30,7 @@ __all__ = [
     "MAX_DOCUMENT_BYTES",
     "MEDIA_PREFIX",
     "allowed_suffix_list",
+    "is_photo",
     "document_suffix_allowed",
     "split_reply",
 ]
@@ -35,6 +38,8 @@ __all__ = [
 DOCUMENT_SUFFIXES = frozenset(
     {".pdf", ".csv", ".md", ".txt", ".xlsx", ".json", ".zip"},
 )
+# The pictures Telegram shows inline. An SVG is not among them: it is markup, not a photo.
+PHOTO_SUFFIXES = frozenset({".png", ".jpg", ".jpeg", ".webp"})
 
 
 def split_reply(text: str) -> tuple[str, list[str], list[str]]:
@@ -58,6 +63,11 @@ def split_reply(text: str) -> tuple[str, list[str], list[str]]:
 def document_suffix_allowed(relative: str) -> bool:
     """Case folded, since a reply naming `Brief.PDF` means the same file as `brief.pdf`."""
     return Path(relative).suffix.lower() in DOCUMENT_SUFFIXES
+
+
+def is_photo(relative: str) -> bool:
+    """Whether a `FILE:` line names a picture, which goes out the way a `MEDIA:` line does."""
+    return Path(relative).suffix.lower() in PHOTO_SUFFIXES
 
 
 def allowed_suffix_list() -> str:

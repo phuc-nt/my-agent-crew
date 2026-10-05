@@ -100,7 +100,9 @@ bot chết, và bản tin được giao mà run kết thúc rỗng cũng vậy. 
 khúc 4 096 ký tự, sau khi bỏ dấu markdown mà Telegram sẽ hiện nguyên: `**đậm**`, `*nghiêng*`,
 `#` tiêu đề, đường kẻ `---` (thành một dòng trống), và bảng (mỗi hàng một dòng, các ô nối
 bằng ` · `, bỏ dòng `|---|`); dòng `MEDIA:<path>` trở thành `sendPhoto` từ workspace của
-agent có cuộc trò chuyện đang được gửi.
+agent có cuộc trò chuyện đang được gửi. Dòng `FILE:<path>` gửi một tài liệu (csv, json,
+md, pdf, txt, xlsx, zip); nếu nó trỏ vào một ảnh (png, jpg, jpeg, webp) thì ảnh đi bằng
+`sendPhoto` như một dòng `MEDIA:`, không bị từ chối vì sai tiền tố.
 
 Ảnh hoặc tài liệu người dùng gửi được tải về (cỡ ảnh lớn nhất, hoặc tài liệu
 dưới tên của nó rút gọn thành tên tệp thường) vào `<master workspace>/inbox/` dưới dạng

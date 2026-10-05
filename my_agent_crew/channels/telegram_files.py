@@ -14,6 +14,7 @@ from my_agent_crew.channels.telegram_attachments import (
     MAX_DOCUMENT_BYTES,
     allowed_suffix_list,
     document_suffix_allowed,
+    is_photo,
 )
 from my_agent_crew.tools.registry import ToolError
 from my_agent_crew.tools.workspace import resolve_inside
@@ -41,6 +42,9 @@ class TelegramFiles:
         await self._attach(relative, self._api.send_photo, "photo", texts.TELEGRAM_MEDIA_MISSING)
 
     async def document(self, relative: str) -> None:
+        if is_photo(relative):
+            await self.photo(relative)
+            return
         await self._attach(relative, self._send_document, "file", texts.TELEGRAM_FILE_MISSING)
 
     async def _attach(

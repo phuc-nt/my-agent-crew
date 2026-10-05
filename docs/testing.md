@@ -4391,3 +4391,13 @@ một dòng nêu đúng `FILE: artifact:<id>`.
   - pytest: `tests/test_canvas_away_result.py` (lượt Telegram và job: kết quả tạo có dòng gửi với đúng mã,
     không còn chữ "cạnh khung"; lượt web chat giữ nguyên câu cũ; `artifact_import` thêm cùng dòng ở lượt xa
     và không thêm ở web chat). Đảo điều kiện trong `send_lines` thì cả sáu test đỏ.
+
+## Dòng `FILE:` trỏ vào ảnh trên Telegram
+
+Thấy trên Telegram thật ngày 2026-10-05: agent viết `FILE: hinhtron.png` và chat chỉ nhận "(không gửi được
+tệp: hinhtron.png)". Từ nay dòng `FILE:` trỏ vào png, jpg, jpeg hay webp trong workspace đi bằng `sendPhoto`.
+
+  - pytest: `tests/test_reply_file_line_image.py` (bốn đuôi ảnh, kể cả chữ hoa, đi bằng `sendPhoto` và không
+    thành tài liệu; ảnh và tài liệu trong cùng câu trả lời đi hai đường; ảnh thiếu và ảnh ngoài workspace
+    nhận câu báo của ảnh; `.svg` vẫn bị từ chối; danh sách tài liệu không thêm đuôi ảnh). Tắt nhánh ảnh
+    trong `TelegramFiles.document` thì bảy test đỏ.

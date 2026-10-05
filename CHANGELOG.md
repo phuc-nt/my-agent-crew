@@ -11,6 +11,13 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+### Changed
+
+- On Telegram a `FILE:` line that names a picture in the workspace (png, jpg, jpeg, webp) now
+  sends it as a photo, the way a `MEDIA:` line does. It used to be refused as a format a chat
+  does not take, so an agent that reached for the wrong prefix left the person with a line
+  saying the file could not be sent. The list of documents a `FILE:` line may send is unchanged.
+
 ### Fixed
 
 - The whole app no longer slides up and leaves a blank band under it. The labels a screen
