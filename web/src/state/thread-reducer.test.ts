@@ -385,7 +385,7 @@ describe("threadReducer streaming turn", () => {
     };
     const next = run([{ type: "user_context", context: NOTE }], state);
     expect(next.items).toBe(state.items);
-    // The outer case clears `thinking` for every event that is not a marker; nothing else moved.
+    // Every known event that is not a marker clears `thinking`; nothing else moved.
     expect(next).toEqual({ ...state, thinking: false });
   });
 
@@ -395,6 +395,64 @@ describe("threadReducer streaming turn", () => {
     expect(sent.items).toEqual([{ kind: "user", id: "local-0", text: "hello" }]);
     expect(sent.notice).toBeNull();
     expect(threadReducer(sent, { type: "turn_started" })).toMatchObject({ busy: true, streaming: null });
+  });
+});
+
+describe("threadReducer on an event of a kind this build does not know", () => {
+  // A server newer than the bundle sends kinds of event added since. The name is made up so that
+  // no later build comes to know it.
+  const UNKNOWN = { type: "kind_added_since", index: 0, chunk: '{"ti' } as unknown as AgentEvent;
+  const unknown = (state: ThreadState) => threadReducer(state, { type: "event", event: UNKNOWN });
+
+  it("hands an idle thread back as the very state it was given, and the next event still applies", () => {
+    const idle: ThreadState = {
+      ...emptyThread,
+      items: [{ kind: "assistant", id: "a-1", text: "xin chào", model: null }],
+      notice: { kind: "handled", text: "" },
+    };
+    const after = unknown(idle);
+    expect(after).toBe(idle);
+    const next = run([{ type: "text_delta", text: "Xin" }], after);
+    expect(next).toEqual({ ...idle, streaming: "Xin" });
+  });
+
+  it("leaves a reply that is arriving as it was, and the reply goes on to its end", () => {
+    const mid = run([{ type: "text_delta", text: "Xin " }]);
+    const after = unknown(mid);
+    expect(after).toBe(mid);
+    const more = run([{ type: "text_delta", text: "chào" }], after);
+    expect(more.streaming).toBe("Xin chào");
+    const end = run(
+      [
+        { type: "assistant_message", message_id: "a1", content: "Xin chào", tool_calls: [], provider: "p", model: "m", cost_usd: 0.01 },
+        { type: "done", spent_usd: 0.01, unknown_cost_calls: 0 },
+      ],
+      more,
+    );
+    expect(end).toMatchObject({ busy: false, streaming: null, notice: null, spentUsd: 0.01 });
+    expect(end.items).toEqual([{ kind: "assistant", id: "a1", text: "Xin chào", model: "m" }]);
+  });
+
+  it("leaves a model that is thinking shown as thinking, until an event this build knows ends it", () => {
+    const thinking = run([{ type: "thinking" }]);
+    const after = unknown(thinking);
+    // Nothing here can tell whether the model did something: only a known event ends the thinking.
+    expect(after).toBe(thinking);
+    expect(after.thinking).toBe(true);
+    expect(run([{ type: "text_delta", text: "HRV" }], after).thinking).toBe(false);
+  });
+
+  it("leaves a request that waits for an answer waiting", () => {
+    const paused = run([
+      { type: "assistant_message", message_id: "a", content: "", tool_calls: [{ id: "tc", name: "write_file", arguments: {} }], provider: null, model: null, cost_usd: null },
+      { type: "approval_required", approval_id: "ap", tool_call_id: "tc", name: "write_file", arguments: {}, reason: "", expires_at: "2026-09-20T03:10:00Z" },
+    ]);
+    const after = unknown(paused);
+    expect(after).toBe(paused);
+    expect(after.pending?.approvalId).toBe("ap");
+    const resumed = run([{ type: "tool_result", tool_call_id: "tc", name: "write_file", ok: true, output: "xong" }], after);
+    expect(resumed.pending).toBeNull();
+    expect(resumed.items[0]).toMatchObject({ status: "done" });
   });
 });
 

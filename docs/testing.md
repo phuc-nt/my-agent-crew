@@ -475,6 +475,14 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `DELEGATE_CANVAS_MORE`; kết quả `timed_out` là `ok=False` với câu báo đứng đầu thân hoặc ngay
     sau dòng đếm canvas bị lược; một lượt thật lưu đúng kết quả đó dưới tên tool; agent con dừng
     dở thì `ok=True` và thân mở bằng `DELEGATE_UNFINISHED`, không phải câu web đọc)
+- **Sự kiện của luồng mà bản web đang chạy chưa biết thì bị bỏ qua, thread không vỡ**
+  - vitest: `state/thread-reducer.test.ts` nhóm
+    "threadReducer on an event of a kind this build does not know" (server mới hơn bundle gửi một
+    loại sự kiện thêm về sau: reducer trả lại đúng state đã nhận, vẫn là object đó, ở thread đang
+    rảnh, đang nhận chữ, đang suy nghĩ và đang chờ duyệt, và sự kiện đã biết tới sau vẫn có tác
+    dụng); `app-unknown-event.test.tsx` (một lượt có sự kiện lạ nằm giữa hai mảnh chữ vẫn kết bằng
+    cả câu trả lời và không có thông báo lỗi nào; bong bóng đang viết có chữ ở cả hai phía của sự
+    kiện; dòng trạng thái vẫn nói agent đang suy nghĩ)
 - **Dừng thật, thread tự làm mới, pill kết nối lại**
   - vitest: `hooks/use-thread.test.ts` "Stop on a stream that resumed after a person answered";
     `state/thread-reducer.test.ts`

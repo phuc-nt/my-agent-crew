@@ -288,16 +288,16 @@ export function threadReducer(state: ThreadState, action: ThreadAction): ThreadS
       return { ...state, notice: { kind: "elsewhere", text: "" } };
     case "queue_failed":
       return { ...state, notice: { kind: "error", text: action.message } };
-    case "event": {
-      // Whatever the model does next — words, a tool call, an end — ends its thinking. A
-      // model_call marker is not something the model does; it only times the call.
-      const keeps = action.event.type === "thinking" || action.event.type === "model_call";
-      return applyEvent(keeps ? state : { ...state, thinking: false }, action.event);
-    }
+    case "event":
+      return applyEvent(state, action.event);
   }
 }
 
-function applyEvent(state: ThreadState, e: AgentEvent): ThreadState {
+function applyEvent(given: ThreadState, e: AgentEvent): ThreadState {
+  // Whatever the model does next — words, a tool call, an end — ends its thinking. A
+  // model_call marker is not something the model does; it only times the call.
+  const keeps = e.type === "thinking" || e.type === "model_call";
+  const state = keeps ? given : { ...given, thinking: false };
   switch (e.type) {
     case "thinking":
       return { ...state, thinking: true };
@@ -373,5 +373,10 @@ function applyEvent(state: ThreadState, e: AgentEvent): ThreadState {
       }
       return { ...state, items, waiting };
     }
+    // A server newer than this bundle sends kinds of event added since. Nothing here knows what
+    // one means, so nothing changes, the thinking included: the very state given goes back.
+    default:
+      e satisfies never; // every kind in the union has a case above
+      return given;
   }
 }
