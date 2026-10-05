@@ -57,7 +57,8 @@ describe("the head of a canvas being written", () => {
     expect(onLeave).toHaveBeenCalledTimes(1);
   });
 
-  it("offers nothing else to press, type in or follow", () => {
+  // What a markdown canvas offers in its text is in `canvas-writing-view-offers.test.tsx`.
+  it("offers only its close button where the text holds no link, image or code: nothing to type in or follow", () => {
     open({ content: "chữ thường" });
 
     expect(within(frame()).getAllByRole("button")).toEqual([closeButton()]);

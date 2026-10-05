@@ -1513,12 +1513,22 @@ tên một test thì sửa dòng của nó trong cùng commit.
     không hiện chữ đang viết);
     `web/src/components/canvas/canvas-writing-view.test.tsx` (đầu khung nêu tên và loại, nói chưa
     lưu khi agent còn viết và đang lưu khi lời gọi đã có, ở cùng một dòng `status` để trình đọc màn
-    hình đọc lên lúc nó đổi; trong khung chỉ có nút đóng, không ô gõ;
+    hình đọc lên lúc nó đổi; đầu khung chỉ có nút đóng, và bản không có link, ảnh hay khối mã thì
+    cả khung chỉ có nút ấy, không ô gõ, không link;
     markdown đi qua cùng view của canvas đã lưu, HTML viết trong markdown hiện thành chữ; `html`,
     `svg`, `mermaid` hiện mã nguồn kèm dòng nói vì sao và không dựng phần tử nào; loại chưa biết,
     `code` và `image` là chữ thường; ký tự ẩn hiện thành dấu; bàn phím ở yên khi khung tự hiện,
     tới nút đóng khi người bấm xem, không bị kéo lại khi chữ tới thêm, quay lại khi bấm lần nữa,
     và không bị lấy khỏi link trong khung; khung theo dòng cuối cho tới khi người cuộn lên);
+    `web/src/components/canvas/canvas-writing-view-offers.test.tsx` (bản markdown đang viết có
+    đúng những thứ canvas đã lưu có trong phần chữ: link mở ở tab khác với `noopener noreferrer`,
+    nút giữ ảnh của trang ngoài và nút "Sao chép mã", ngoài nút đóng; "draws that text exactly as a
+    saved canvas draws it": phần chữ là đúng HTML mà view của canvas đã lưu vẽ ra; không có gì để
+    gõ vào dù bản chứa gì; bản thuộc loại hiện mã nguồn, và bản markdown đã quá dài, chỉ có nút
+    đóng vì link, ảnh và mã trong chúng là chữ; "is asked about again when a later piece lengthens
+    the address the person agreed to": người đã đồng ý với `http://a.test/x`, mảnh sau nối địa chỉ
+    thành `http://a.test/xy` thì ảnh không được tải và nút hỏi lại với địa chỉ mới; mảnh sau không
+    đụng tới địa chỉ thì ảnh ở yên);
     `web/src/components/canvas/canvas-writing-view-long.test.tsx` (bản markdown dài 99 999 ký tự
     vẫn đọc như markdown; từ 100 000 ký tự trở lên, ở đúng ngưỡng, hơn một ký tự hay gấp mấy lần,
     khung hiện mã nguồn kèm một dòng nói vì sao và không kèm dòng của trang hay hình vẽ; ký tự ẩn
