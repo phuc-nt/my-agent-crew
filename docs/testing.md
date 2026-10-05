@@ -1387,7 +1387,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "test_a_delta_that_states_no_index_is_a_piece_of_the_first_call");
     `tests/test_tool_call_position.py` (mỗi mảnh mang vị trí của lời gọi trong câu trả lời chứ
     không mang số provider gửi: stream đánh số từ 1, bỏ cách số hay cả hai vẫn cho vị trí 0 rồi
-    1, trùng chỗ của lời gọi trong `calls()`; lời gọi giữ vị trí khi lời gọi sau mở ra; mảnh
+    1, trùng chỗ của lời gọi trong `calls()`; lời gọi giữ vị trí khi lời gọi sau mở ra; lời gọi
+    mở trước một lời gọi mang số nhỏ hơn thì từ lúc lời gọi kia mở, mảnh của nó mang đúng chỗ
+    theo thứ hạng của số, là chỗ nó đứng trong `calls()`, chứ không theo thứ tự tới; mảnh
     tới trước tên cũng được xếp như vậy; lời gọi mới chỉ có id và tên vẫn giữ chỗ của nó;
     stream ghi `"index": null` cho lời gọi duy nhất vẫn được vị trí 0;
     "test_the_piece_a_turn_shows_names_the_place_of_its_call_in_the_answer": qua cả một lượt

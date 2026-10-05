@@ -68,6 +68,22 @@ def test_a_call_keeps_its_position_while_later_calls_open_after_it():
     assert [call.arguments for call in buffer.calls()] == [{"a": 1}, {"b": 2}, {"c": 3}]
 
 
+def test_a_call_opened_ahead_of_one_with_a_lower_number_moves_to_the_place_its_number_ranks():
+    """The finished calls stand in the order of their numbers, not of their arrival: once the
+    lower number has opened, a piece of the call that came first names the second place."""
+    buffer = ToolCallBuffer()
+
+    alone = buffer.feed([_opening(5, "artifact_rewrite", '{"b"')])
+    buffer.feed([_opening(2, "artifact_create", '{"a"')])
+    late = buffer.feed([_more(5, ": 2}"), _more(2, ": 1}")])
+
+    assert _places(alone) == [(0, "artifact_rewrite")]
+    assert _places(late) == [(1, "artifact_rewrite"), (0, "artifact_create")]
+    calls = buffer.calls()
+    assert [call.arguments for call in calls] == [{"a": 1}, {"b": 2}]
+    assert all(calls[piece.index].name == piece.name for piece in late)
+
+
 def test_arguments_ahead_of_the_name_are_placed_like_any_other_piece():
     buffer = ToolCallBuffer()
     buffer.feed([_opening(1, "workspace_list", "{}")])
