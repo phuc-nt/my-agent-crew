@@ -1427,6 +1427,11 @@ tên một test thì sửa dòng của nó trong cùng commit.
     dạng hàng cũ, lời gọi hỏng không chạy mà trả lỗi rồi lượt chạy tiếp, `ask_user` và tool cần
     duyệt có tham số hỏng không hỏi ai); `tests/test_openrouter.py`
     ("test_malformed_tool_arguments_complete_as_an_invalid_call")
+- **Tên hay đối số của lời gọi tool không phải chữ là luồng hỏng: lượt nhận lỗi provider, không
+  đứt lặng vì một lỗi không lớp nào bắt**
+  - pytest: `tests/test_openrouter.py`
+    ("test_a_tool_call_field_that_is_not_text_is_a_malformed_stream", hai ca: đối số là object,
+    tên là mảng)
 - **Lời gọi tool bị cắt vì chạm giới hạn đầu ra được bảo chia nhỏ, các lần hỏng khác chỗ không
   bị coi là lặp**
   - pytest: `tests/test_tool_args_cut_off.py` (stream dừng với `finish_reason` `length` chỉ

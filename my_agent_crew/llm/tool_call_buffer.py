@@ -28,15 +28,18 @@ class ToolCallBuffer:
     def feed(self, deltas: list[dict[str, Any]]) -> list[ToolCallDelta]:
         """Takes the deltas in and hands back the pieces of arguments they brought, each
         with its call's index and the name assembled for that call so far. A delta that
-        brought only an id or a name is no piece."""
+        brought only an id or a name is no piece. A name or arguments that are not text
+        are a broken stream, said as the error the provider already turns into its own."""
         pieces = []
         for d in deltas:
             index = d.get("index", 0)
             slot = self._parts.setdefault(index, {"id": "", "name": "", "args": ""})
             slot["id"] = d.get("id") or slot["id"]
             fn = d.get("function") or {}
-            slot["name"] = fn.get("name") or slot["name"]
-            chunk = fn.get("arguments") or ""
+            name, chunk = fn.get("name") or "", fn.get("arguments") or ""
+            if not isinstance(name, str) or not isinstance(chunk, str):
+                raise ValueError("a tool call's name or arguments are not text")
+            slot["name"] = name or slot["name"]
             slot["args"] += chunk
             if chunk:
                 pieces.append(ToolCallDelta(index=index, name=slot["name"], chunk=chunk))

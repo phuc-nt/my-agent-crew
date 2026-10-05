@@ -203,6 +203,19 @@ async def test_malformed_tool_arguments_complete_as_an_invalid_call():
     assert done.finish_reason == "tool_calls"
 
 
+@pytest.mark.parametrize(
+    "function",
+    [{"name": "t", "arguments": {"a": 1}}, {"name": ["t"], "arguments": "{}"}],
+    ids=["arguments", "name"],
+)
+async def test_a_tool_call_field_that_is_not_text_is_a_malformed_stream(function):
+    """An object where text belongs has broken the stream. The turn is told so as a provider
+    error, where an error of another kind would pass every layer that waits for one."""
+    body = sse(delta(tool_calls=[{"index": 0, "id": "c1", "function": function}]))
+    with pytest.raises(ProviderError, match="malformed stream from m"):
+        await collect(provider_with(body).stream([Message(role="user", content="hi")], [], "m"))
+
+
 async def test_http_error_status_raises_provider_error():
     p = provider_with('{"error": {"message": "no credit"}}', status=402)
     with pytest.raises(ProviderError, match="402"):
