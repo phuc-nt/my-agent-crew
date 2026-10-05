@@ -9,6 +9,7 @@ from functools import partial
 
 from my_agent_crew import texts
 from my_agent_crew.agent.child_wrap_up import nudge_to_conclude, wrap_up_due
+from my_agent_crew.agent.escalation import ERROR, LOOP, Escalation
 from my_agent_crew.agent.events import (
     ApprovalRequiredEvent,
     AssistantMessageEvent,
@@ -58,6 +59,8 @@ class AgentDeps:
     profile: AgentProfile | None = None
     # The other agents on this machine, by id: the roster a delegating agent is shown.
     peers: Mapping[str, AgentProfile] = field(default_factory=dict)
+    # Where a stuck turn moves to, when the agent names such a route (`escalation.py`).
+    escalation: ProviderChain | None = None
 
     @property
     def agent(self) -> AgentProfile:
@@ -94,8 +97,9 @@ async def run_turn(
             yield UserContextEvent(stored.context)
 
     empty_replies = 0
-    guard = LoopGuard()
-    for _ in range(deps.settings.max_steps):
+    guard, escalation = LoopGuard(), Escalation(deps.chain, deps.escalation)
+    for step in range(deps.settings.max_steps):
+        calls_left = deps.settings.max_steps - step - 1  # after the one this step makes
         async for event in settle_tool_calls(deps, conv_id):
             yield event
             if isinstance(event, ApprovalRequiredEvent):
@@ -131,17 +135,28 @@ async def run_turn(
             history, tools = nudge_to_conclude(deps.store, conv, history), ()
         verdict = OK
         try:
-            async for event in complete_step(deps, conv, history, tools, turn_start):
+            asked = complete_step(deps, conv, history, tools, turn_start, chain=escalation.chain)
+            async for event in asked:
+                escalation.watch(event)
                 yield event
                 if isinstance(event, AssistantMessageEvent):
                     verdict = guard.observe(event.tool_calls)
         except ProviderError as exc:
-            yield ErrorEvent(message=str(exc))
-            return
+            # Nothing was stored for the call that failed, so the next step asks the same
+            # thing of the route the turn moved to.
+            moved = escalation.move(ERROR, calls_left, str(exc))
+            yield moved or ErrorEvent(message=str(exc))
+            if moved is None:
+                return
         if verdict == HALT:  # the repeated calls stay unrun, each closed with a refusal
-            async for event in refuse_unanswered(deps, conv_id, texts.LOOP_HALTED_TOOL):
+            moved = escalation.move(LOOP, calls_left)
+            refusal = texts.LOOP_ESCALATED_TOOL if moved else texts.LOOP_HALTED_TOOL
+            async for event in refuse_unanswered(deps, conv_id, refusal):
                 yield event
-            yield HaltedEvent(reason="loop", spent_usd=deps.store.get(conv_id).spent_usd)
-            return
+            if moved is None:
+                yield HaltedEvent(reason="loop", spent_usd=deps.store.get(conv_id).spent_usd)
+                return
+            guard.reset()  # the model it moved to gets the count from the start
+            yield moved
     async for event in out_of_steps(deps, conv_id):
         yield event

@@ -13,6 +13,7 @@ kit rather than edit it — a surprise worth refusing instead of performing.
 from __future__ import annotations
 
 import os
+from collections.abc import Collection
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +30,7 @@ from my_agent_crew.agents.profile_edit import (
     validated,
 )
 from my_agent_crew.agents.profile_write import create_agent_dir, trash_agent, write_raw
+from my_agent_crew.server.agent_assembly import escalation_problem
 from my_agent_crew.server.agent_edit_common import (
     check_editable,
     existing,
@@ -43,6 +45,7 @@ from my_agent_crew.server.runtime_build import check_delegates
 from my_agent_crew.server.runtime_connections import channel_key, sync_channel
 
 router = APIRouter(tags=["agents"])
+ROUTE_KEYS = {"routes", "escalation_route"}
 
 
 class CreateRequest(BaseModel):
@@ -55,7 +58,12 @@ class PatchRequest(BaseModel):
 
 
 def save(
-    rt: Runtime, agent_id: str, raw: Any, agent_dir: Path, before: AgentProfile | None = None
+    rt: Runtime,
+    agent_id: str,
+    raw: Any,
+    agent_dir: Path,
+    before: AgentProfile | None = None,
+    edited: Collection[str] = (),
 ) -> AgentProfile:
     """Validate, then wire, then write — in that order, so a refused edit leaves both the
     file and the running crew as they were. `before` is the agent as it runs now, which
@@ -65,10 +73,17 @@ def save(
     can still fail on a profile that parsed cleanly — an unusable route, a directory that
     cannot be made — and a file already written at that point would say the edit worked
     while the answer said it did not, then take effect at the next restart.
+
+    `edited` names the keys the edit sets. One that touches the agent's routes may not
+    leave it an escalation route no turn could move to; a file that already holds such a
+    route loads with it unused, and does not hold up a save about something else.
     """
     try:
         profile = validated(agent_id, agent_dir, raw, rt.settings, before)
         check_inside_home(profile, rt.settings.home)
+        problem = escalation_problem(profile.settings, rt.providers)
+        if problem and ROUTE_KEYS & set(edited):
+            raise ValueError(problem)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
     peers = [p for p in rt.profiles() if p.id != agent_id] + [profile]
@@ -98,7 +113,7 @@ async def create_agent(body: CreateRequest, rt: Rt) -> dict[str, Any]:
         agent_dir = create_agent_dir(rt.settings.home, body.agent_id)
         raw = patched(rt, body.agent_id, body.profile)
         before = channel_key(rt.agents, os.environ)
-        profile = save(rt, body.agent_id, raw, agent_dir)
+        profile = save(rt, body.agent_id, raw, agent_dir, edited=body.profile)
         await sync_channel(rt, before)
     return {
         "profile": describe_listed(rt, rt.deps_for(profile.id)),
@@ -113,7 +128,7 @@ async def patch_agent(agent_id: str, body: PatchRequest, rt: Rt) -> dict[str, An
         check_editable(rt, old)
         raw = patched(rt, agent_id, body.profile)
         before = channel_key(rt.agents, os.environ)
-        profile = save(rt, agent_id, raw, old.dir, old)
+        profile = save(rt, agent_id, raw, old.dir, old, body.profile)
         # The bot is built from the master's block; a changed chat or token takes effect
         # now rather than after a restart nobody remembers to do. Any other edit only
         # hands the running bot the rebuilt agent, without cutting off its poll.

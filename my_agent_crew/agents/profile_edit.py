@@ -88,6 +88,8 @@ def apply_patch(raw: Any, patch: dict[str, Any]) -> Any:
             raise ValueError(texts.PROFILE_KEY_NEEDS_LIST.format(key=key))
     if isinstance(patch.get("routes"), list):
         patch = patch | {"routes": [route_text(route) for route in patch["routes"]]}
+    if "escalation_route" in patch:
+        patch = patch | {"escalation_route": route_text(patch["escalation_route"])}
     for key, value in patch.items():
         if value is None:
             raw.pop(key, None)

@@ -47,6 +47,8 @@ class Settings:
     # Routes a voice note is sent to for transcription; empty means Telegram voice notes
     # get a "not configured" reply instead of a chat turn.
     audio_routes: tuple[Route, ...] = ()
+    # The one route a stuck turn of this agent moves to; set only by an agent's own file.
+    escalation_route: Route | None = None
     openrouter_api_key: str | None = None
     brave_api_key: str | None = None
     tavily_api_key: str | None = None

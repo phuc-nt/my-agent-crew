@@ -26,6 +26,7 @@ PROFILE_KEYS = {
     "name",
     "description",
     "routes",
+    "escalation_route",
     "workspace",
     "persona_files",
     "skills_dirs",
@@ -104,6 +105,7 @@ class AgentProfile:
         return self.dir / "MEMORY.md"
 
     def to_dict(self) -> dict[str, Any]:
+        spare = self.settings.escalation_route
         return {
             "id": self.id,
             "name": self.name,
@@ -111,6 +113,9 @@ class AgentProfile:
             "dir": str(self.dir),
             "workspace": str(self.workspace),
             "routes": [{"provider": r.provider, "model": r.model} for r in self.settings.routes],
+            "escalation_route": {"provider": spare.provider, "model": spare.model}
+            if spare
+            else None,
             "cost_cap_usd": self.settings.cost_cap_usd,
             "max_steps": self.settings.max_steps,
             "autonomous": self.settings.autonomous_default,

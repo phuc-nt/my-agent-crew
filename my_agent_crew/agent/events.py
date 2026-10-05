@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
+from my_agent_crew.agent.route_events import EscalatedEvent, RouteFallbackEvent
+
 
 @dataclass(frozen=True)
 class TextDeltaEvent:
@@ -97,15 +99,6 @@ class ErrorEvent:
 
 
 @dataclass(frozen=True)
-class RouteFallbackEvent:
-    """One route failed before answering and the next one is being tried."""
-
-    provider: str
-    model: str
-    error: str
-
-
-@dataclass(frozen=True)
 class QueuedEvent:
     """The message waits instead of starting a turn, because one is running: a follow-up
     runs once that turn ends, a steer is read by it before its next model call."""
@@ -156,6 +149,7 @@ Event = (
     | HaltedEvent
     | ErrorEvent
     | RouteFallbackEvent
+    | EscalatedEvent
     | QueuedEvent
     | SteerEvent
     | UserContextEvent
@@ -185,6 +179,7 @@ _KIND = {
     HaltedEvent: "halted",
     ErrorEvent: "error",
     RouteFallbackEvent: "route_fallback",
+    EscalatedEvent: "escalated",
     QueuedEvent: "queued",
     SteerEvent: "steer",
     UserContextEvent: "user_context",

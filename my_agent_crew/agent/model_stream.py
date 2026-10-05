@@ -21,7 +21,7 @@ from my_agent_crew.agent.events import (
 )
 from my_agent_crew.agent.prompt import turn_messages
 from my_agent_crew.agent.reply_checks import with_dropped_attachments
-from my_agent_crew.llm.provider import ProviderError
+from my_agent_crew.llm.provider import ProviderChain, ProviderError
 from my_agent_crew.llm.types import (
     Completion,
     ReasoningDelta,
@@ -45,7 +45,9 @@ async def complete_step(
     tools: Sequence[ToolSpec],
     turn_start: int,
     clock: Callable[[], float] = time.monotonic,
+    chain: ProviderChain | None = None,
 ) -> AsyncIterator[Event]:
+    """`chain` is the one to ask when the turn is not on the agent's usual routes."""
     messages = turn_messages(deps, conv, history, turn_start)
     completion: Completion | None = None
     thinking = False
@@ -53,7 +55,7 @@ async def complete_step(
     # answer being written now from a piece of one that was abandoned.
     preview, attempt = DraftPreview(clock), 0
     yield ModelCallEvent(stage="sent")
-    async for item in deps.chain.stream(messages, tools):
+    async for item in (chain or deps.chain).stream(messages, tools):
         if isinstance(item, TextDelta):
             yield TextDeltaEvent(text=item.text)
         elif isinstance(item, ToolCallDelta):

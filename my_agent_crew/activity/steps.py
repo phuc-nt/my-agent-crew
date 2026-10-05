@@ -5,6 +5,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from my_agent_crew.activity.route_steps import apply_route_event
+from my_agent_crew.activity.step_clock import close_step, instant, open_model_step, open_step
 from my_agent_crew.activity.step_lookup import (
     CLOCK_KEY,
     find_tool_step,
@@ -18,6 +20,7 @@ from my_agent_crew.agent.events import (
     AssistantMessageEvent,
     DoneEvent,
     ErrorEvent,
+    EscalatedEvent,
     Event,
     HaltedEvent,
     ModelCallEvent,
@@ -33,29 +36,11 @@ from my_agent_crew.store.runs import AWAITING, DONE, FAILED, HALTED, RUNNING, Ru
 from my_agent_crew.tools.progress_note import PROGRESS_NOTE_TOOL_NAME, note_text
 
 
-def _open_step(run: RunRecord, step: dict[str, Any], clock: float) -> None:
-    step[CLOCK_KEY] = clock
-    step["duration_ms"] = None
-    run.steps.append(step)
-
-
-def _close_step(step: dict[str, Any], clock: float) -> None:
-    started = step.pop(CLOCK_KEY, clock)
-    # A paused run outlives its process, and a reboot restarts the clock it was timed on.
-    step["duration_ms"] = max(0, int((clock - started) * 1000))
-
-
-def _instant(run: RunRecord, step: dict[str, Any], clock: float) -> None:
-    """A step with no duration worth reading, opened and closed on the same clock."""
-    _open_step(run, step, clock)
-    _close_step(step, clock)
-
-
 def _model_step(run: RunRecord, clock: float) -> dict[str, Any]:
     """The open model step, opened now when the call sent no event before this one."""
     pending = pending_model_step(run)
     if pending is None:
-        _open_step(run, {"kind": "model", "chars": 0, "first_token_ms": None}, clock)
+        open_model_step(run, clock)
         pending = run.steps[-1]
     return pending
 
@@ -108,7 +93,7 @@ def apply_event(run: RunRecord, event: Event, clock: float) -> None:
             tool_calls=[tc["name"] for tc in event.tool_calls],
             preview=preview(event.content),
         )
-        _close_step(step, clock)
+        close_step(step, clock)
         _bill(run, event.cost_usd)
         run.status = RUNNING
         return
@@ -117,7 +102,7 @@ def apply_event(run: RunRecord, event: Event, clock: float) -> None:
             # A note is the agent saying what it is doing, so it belongs on the timeline
             # the moment it is said — not when the call returns. It carries no ok flag
             # because it cannot fail.
-            _instant(run, {"kind": "note", "text": note_text(event.arguments)}, clock)
+            instant(run, {"kind": "note", "text": note_text(event.arguments)}, clock)
             return
         again = unanswered_tool_step(run, event.tool_call_id)
         if again is not None:
@@ -125,7 +110,7 @@ def apply_event(run: RunRecord, event: Event, clock: float) -> None:
             return
         step = {"kind": "tool", "name": event.name, "tool_call_id": event.tool_call_id}
         shown = argument_preview(event.arguments)
-        _open_step(run, step | {"arguments": shown, "ok": None}, clock)
+        open_step(run, step | {"arguments": shown, "ok": None}, clock)
         return
     if isinstance(event, ToolResultEvent):
         if event.name == PROGRESS_NOTE_TOOL_NAME:
@@ -134,7 +119,7 @@ def apply_event(run: RunRecord, event: Event, clock: float) -> None:
             return
         step = find_tool_step(run, event.tool_call_id)
         if step is None:
-            _open_step(run, {"kind": "tool", "name": event.name, "ok": None}, clock)
+            open_step(run, {"kind": "tool", "name": event.name, "ok": None}, clock)
             step = run.steps[-1]
         step["ok"] = event.ok
         step["output"] = preview(event.output)
@@ -143,11 +128,11 @@ def apply_event(run: RunRecord, event: Event, clock: float) -> None:
         if event.metered:  # a tool that paid a model is billed with the run, like a completion
             step["cost_usd"] = event.cost_usd
             _bill(run, event.cost_usd)
-        _close_step(step, clock)
+        close_step(step, clock)
         return
     if isinstance(event, SteerEvent):
         # What the person handed the running turn, shown in one line the way a note is.
-        _instant(run, {"kind": "steer", "text": note_text({"text": event.text})}, clock)
+        instant(run, {"kind": "steer", "text": note_text({"text": event.text})}, clock)
         return
     if isinstance(event, ApprovalRequiredEvent):
         run.status = AWAITING
@@ -157,7 +142,7 @@ def apply_event(run: RunRecord, event: Event, clock: float) -> None:
         if asked:
             # The step stays open: a timeline that showed no pause would make the gap
             # before the answer look like the agent thinking for an hour.
-            _open_step(run, {"kind": "question", "question": preview(asked)}, clock)
+            open_step(run, {"kind": "question", "question": preview(asked)}, clock)
             run.summary = asked
             return
         # The reason says why an autonomous run stopped anyway; without it the card only
@@ -180,16 +165,5 @@ def apply_event(run: RunRecord, event: Event, clock: float) -> None:
         run.status = FAILED
         run.summary = event.message
         return
-    if isinstance(event, RouteFallbackEvent):
-        # The request's model step was timing the route that just failed. That wait is the
-        # fallback's, and the step moves after it to time the next route, so a run that
-        # recovered keeps one model step per call and none of them left open.
-        pending = pending_model_step(run)
-        if pending is not None:
-            run.steps.pop()
-        step = {"kind": "fallback", "provider": event.provider, "model": event.model}
-        step["error"] = preview(event.error)
-        _open_step(run, step, pending[CLOCK_KEY] if pending is not None else clock)
-        _close_step(step, clock)
-        if pending is not None:
-            _open_step(run, {"kind": "model", "chars": 0, "first_token_ms": None}, clock)
+    if isinstance(event, RouteFallbackEvent | EscalatedEvent):
+        apply_route_event(run, event, clock)

@@ -29,12 +29,13 @@ def names(raw: dict[str, Any], key: str, agent_id: str) -> tuple[str, ...]:
 def settings_from(
     raw: dict[str, Any], agent_id: str, base: Settings, defaults: dict[str, Any]
 ) -> Settings:
+    effort = _reasoning(raw, agent_id)
     return replace(
         base,
         routes=_with_reasoning(
-            parse_routes(raw["routes"]) if raw.get("routes") else base.routes,
-            _reasoning(raw, agent_id),
+            parse_routes(raw["routes"]) if raw.get("routes") else base.routes, effort
         ),
+        escalation_route=_escalation_route(raw, agent_id, effort),
         cost_cap_usd=float(
             raw.get("cost_cap_usd", defaults.get("cost_cap_usd", base.cost_cap_usd))
         ),
@@ -76,6 +77,19 @@ def _reasoning(raw: dict[str, Any], agent_id: str) -> str:
             f"agent {agent_id}: reasoning must be one of {list(REASONING_EFFORTS)}, got {value!r}"
         )
     return str(value)
+
+
+def _escalation_route(raw: dict[str, Any], agent_id: str, effort: str) -> Route | None:
+    """The route a stuck turn of this agent moves to (`agent/escalation.py`), thinking as
+    hard as its other routes. Read from the agent's own file and never from the settings
+    it inherits, so it is on only where somebody wrote it."""
+    value = raw.get("escalation_route")
+    if not value:
+        return None
+    try:
+        return replace(Route.parse(value), reasoning=effort)
+    except ValueError as exc:
+        raise ValueError(f"agent {agent_id}: escalation_route: {exc}") from exc
 
 
 def _with_reasoning(routes: tuple[Route, ...], effort: str) -> tuple[Route, ...]:

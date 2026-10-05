@@ -78,6 +78,32 @@ def vision_chain(settings: Settings, providers: dict[str, Provider]) -> Provider
     return ProviderChain(providers, routes)
 
 
+def escalation_problem(settings: Settings, providers: Mapping[str, Provider]) -> str:
+    """Why a stuck turn could not move to the route the agent names for it; empty when it
+    can, or when the agent names none. A route the turn is already on is no way out."""
+    spare = settings.escalation_route
+    if spare is None:
+        return ""
+    route = f"{spare.provider}:{spare.model}"
+    if spare.provider not in providers:
+        return texts.ESCALATION_ROUTE_UNUSABLE.format(route=route)
+    if any((r.provider, r.model) == (spare.provider, spare.model) for r in settings.routes):
+        return texts.ESCALATION_ROUTE_SAME.format(route=route)
+    return ""
+
+
+def escalation_chain(settings: Settings, providers: dict[str, Provider]) -> ProviderChain | None:
+    """The chain a stuck turn moves to, or None. A file written for a key this machine
+    lacks must still load, so a route that cannot be used is left out with a warning; an
+    edit that sets one is refused where it is saved."""
+    problem = escalation_problem(settings, providers)
+    if problem:
+        logger.warning("escalation route left unused: %s", problem)
+    if problem or settings.escalation_route is None:
+        return None
+    return ProviderChain(providers, [settings.escalation_route])
+
+
 def warn_unknown_schedule_skills(profile: AgentProfile, skills: Sequence[Skill]) -> None:
     """A schedule naming a skill that no longer loads would silently run without it."""
     known = {skill.name for skill in skills}
@@ -116,4 +142,5 @@ def build_agent_deps(
         store=store,
         skills=skills,
         profile=profile,
+        escalation=escalation_chain(profile.settings, providers),
     )
