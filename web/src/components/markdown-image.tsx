@@ -44,7 +44,7 @@ export function MarkdownImage({ src, alt, title }: { src?: string; alt?: string;
     onImage.current = false;
   }, [held]);
   if (!src) return null;
-  if (host !== null && held) {
+  if (held) {
     return (
       <button ref={hold} type="button" className="md-image-hold" title={src} onClick={() => setAsked(src)}>
         {vi.markdownImage.show(host)}
