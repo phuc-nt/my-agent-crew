@@ -684,6 +684,12 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "shows an image again unasked when the page comes back to the address agreed to, and takes no
     focus for it": quay về đúng địa chỉ đã đồng ý thì ảnh hiện lại mà không hỏi, vì người dùng đã
     đồng ý với chính địa chỉ đó, và focus ở yên chỗ cũ;
+    nhóm "when the image the keyboard is on gives way to its button": ảnh đang giữ focus mà đổi địa
+    chỉ thì nút hỏi lại nhận focus thay vì để focus rơi về trang ("puts the keyboard on the button,
+    not on the page"), focus người dùng đã chuyển đi chỗ khác thì ở yên ("leaves the keyboard where
+    the person has since put it"), và ảnh hiện lại không hỏi sau đó không kéo focus về nút khi nó
+    đổi địa chỉ lần nữa ("takes the keyboard for the image it replaced only, not for one shown
+    unasked later");
     "never holds the app's own image, and showing one agrees to nothing from outside";
     "asks about each image of a page on its own": hai ảnh trong một trang được hỏi riêng, một ảnh
     đổi địa chỉ thì chỉ ảnh đó hỏi lại)

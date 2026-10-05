@@ -201,6 +201,60 @@ describe("an image in a reply", () => {
     expect(box).toHaveFocus();
   });
 
+  describe("when the image the keyboard is on gives way to its button", () => {
+    const page = (src: string) => (
+      <>
+        <input aria-label="ô soạn" />
+        <MarkdownBody text={`![biểu đồ](${src})`} />
+      </>
+    );
+    const shorter = "https://tracker.example/a";
+    const box = () => screen.getByRole("textbox", { name: "ô soạn" });
+
+    /** The image is asked for and takes the focus its button held. */
+    async function showFirst() {
+      const view = render(page(FIRST));
+      fireEvent.click(offer("tracker.example", "biểu đồ"));
+      const image = screen.getByRole("img", { name: "biểu đồ" });
+      await waitFor(() => expect(image).toHaveFocus());
+      return view;
+    }
+
+    it("puts the keyboard on the button, not on the page", async () => {
+      const { rerender } = await showFirst();
+
+      rerender(page(shorter));
+
+      expect(screen.queryByRole("img")).toBeNull();
+      await waitFor(() => expect(offer("tracker.example", "biểu đồ")).toHaveFocus());
+    });
+
+    it("leaves the keyboard where the person has since put it", async () => {
+      const { rerender } = await showFirst();
+      box().focus();
+
+      rerender(page(shorter));
+
+      expect(offer("tracker.example", "biểu đồ")).toHaveAttribute("title", shorter);
+      expect(box()).toHaveFocus();
+    });
+
+    it("takes the keyboard for the image it replaced only, not for one shown unasked later", async () => {
+      const { rerender } = await showFirst();
+      rerender(page(shorter));
+      await waitFor(() => expect(offer("tracker.example", "biểu đồ")).toHaveFocus());
+      box().focus();
+
+      // The agreed address comes back and goes again: the image shown meanwhile never had the keyboard.
+      rerender(page(FIRST));
+      expect(screen.getByRole("img", { name: "biểu đồ" })).toHaveAttribute("src", FIRST);
+      rerender(page(shorter));
+
+      expect(offer("tracker.example", "biểu đồ")).toHaveAttribute("title", shorter);
+      expect(box()).toHaveFocus();
+    });
+  });
+
   it("never holds the app's own image, and showing one agrees to nothing from outside", () => {
     const own = `${window.location.origin}/api/agents/coach/files/chart.png`;
     const { rerender } = render(<MarkdownBody text={`![ảnh](${FIRST})`} />);
