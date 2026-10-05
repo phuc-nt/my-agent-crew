@@ -1,6 +1,6 @@
 # Tool
 
-**Phiên bản**: 0.11.0 · **Cập nhật**: 2026-10-05
+**Phiên bản**: 0.11.1 · **Cập nhật**: 2026-10-05
 
 Tool là một hàm mà model có thể gọi trong một lượt. Bộ tool của mỗi agent
 được lắp lúc khởi động từ đường dẫn workspace và memory của agent, rồi được định hình bởi
@@ -367,7 +367,9 @@ không tin cậy ([design.md](design.md#tool-shell-và-tệp-của-agent)); Tele
 `FILE:<path>` là anh em của nó dành cho tài liệu, vì Telegram xử lý hai loại khác nhau: ảnh
 được mã hoá lại, đúng với biểu đồ nhưng phá hỏng CSV. Dòng `FILE:` tới
 dưới dạng `sendDocument`, giữ nguyên byte và tên tệp; web hiện link tải xuống
-thay vì ảnh nhúng.
+thay vì ảnh nhúng. Ngoại lệ trên Telegram: dòng `FILE:` trỏ vào một ảnh (`png`, `jpg`, `jpeg`,
+`webp`) đi bằng `sendPhoto` như một dòng `MEDIA:`, vì từ chối nó chỉ vì sai tiền tố để người
+nhận không có gì. `svg` không thuộc nhóm này: nó là mã đánh dấu, không phải ảnh.
 
 Tài liệu bị giới hạn 20 MB và phải là một trong `pdf`, `csv`, `md`, `txt`, `xlsx`, `json`
 hoặc `zip`. Danh sách là rào trên câu trả lời, không phải trên workspace: agent có thể ghi

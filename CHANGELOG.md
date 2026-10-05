@@ -11,6 +11,8 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+## [0.11.1] — 2026-10-05
+
 ### Changed
 
 - On Telegram a `FILE:` line that names a picture in the workspace (png, jpg, jpeg, webp) now
@@ -1554,6 +1556,7 @@ restarting the process.
 
 - One agent, `run_turn` loop with a tool approval gate, web UI, memory on disk.
 
+[0.11.1]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.11.1
 [0.11.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.11.0
 [0.10.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.10.0
 [0.9.2]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.9.2

@@ -110,7 +110,8 @@ A `prompt` job opens a new conversation and runs as if the user had sent a messa
 The result of a `prompt` job is sent to the Telegram chat (if there is a bot, see below) with a first line `[Agent name]`;
 a `MEDIA:` line becomes an image taken from that agent's workspace, a `FILE:` line becomes an attached file
 (`pdf`, `csv`, `md`, `txt`, `xlsx`, `json`, `zip`, up to 20 MB) — images get recompressed, so charts are
-sent with `MEDIA:`, while tables of numbers must be sent with `FILE:` to keep the bytes intact.
+sent with `MEDIA:`, while tables of numbers must be sent with `FILE:` to keep the bytes intact. A `FILE:`
+line that names a picture (`png`, `jpg`, `jpeg`, `webp`) is sent as a photo too, not refused.
 
 ## Bring your `.claude/` / `.opencode/` kit over
 
