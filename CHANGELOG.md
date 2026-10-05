@@ -316,10 +316,10 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   unsaved. The page shows the canvas in the panel a conversation shows it in, without the bar
   that asks about a selected passage and without the button that sends page errors to an agent,
   since no conversation is open there. A line under it counts the conversations the canvas is
-  used in and names each, as a button that opens it, and "← Canvas" leads back to the library at
-  once, the save of what was typed going on behind; a save that then fails is told above
-  whatever the section shows, as in the chat. An address that names no canvas id shows the
-  library.
+  used in and names each, as a button that opens it, and is read again when the live stream comes
+  back after a drop. "← Canvas" leads back to the library at once, the save of what was typed
+  going on behind; a save that then fails is told above whatever the section shows, as in the
+  chat. An address that names no canvas id shows the library.
 - The card of a delegation in the web thread names the canvases the delegated agent wrote: under
   the line that says how the task went, one chip for each canvas the result names, with its
   title, hidden characters written as marks, its version and a "Mở" button. A canvas the server

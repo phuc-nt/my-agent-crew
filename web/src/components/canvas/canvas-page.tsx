@@ -29,7 +29,7 @@ type Props = {
 };
 
 export function CanvasPage({ id, connected, dock, agentName, conversations, onBack, onOpenConversation }: Props) {
-  const usedIn = useCanvasConversations(id);
+  const usedIn = useCanvasConversations(id, connected);
   return (
     <div className="canvas-page">
       {/* Keyed by the canvas: the next one starts from nothing of this one's. */}

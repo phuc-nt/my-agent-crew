@@ -15,8 +15,10 @@ beforeEach(() => {
 
 afterEach(stopServer);
 
-async function used(id = NOTE) {
-  const view = renderHook((p: { id: string }) => useCanvasConversations(p.id), { initialProps: { id } });
+type Props = { id: string; connected: boolean };
+
+async function used(id = NOTE, connected = true) {
+  const view = renderHook((p: Props) => useCanvasConversations(p.id, p.connected), { initialProps: { id, connected } });
   await landed();
   return view;
 }
@@ -26,6 +28,14 @@ const linked = (id = NOTE) => backend.canvas.canvases.get(id)?.conversationIds a
 const hold = (id = NOTE) => backend.canvas.holdNext(`GET /artifacts/${id}`, "reply");
 /** The stream's word that the canvas changed, as a save by someone else would bring it. */
 const changed = (id = NOTE) => act(() => void backend.canvas.write(id, "khác"));
+
+/** The stream drops and comes back, as it does around a server that was restarted. */
+async function reconnect(view: { rerender(props: Props): void }, id = NOTE) {
+  view.rerender({ id, connected: false });
+  await landed();
+  view.rerender({ id, connected: true });
+  await landed();
+}
 
 /** Lets a held reply through. */
 async function release(gate: () => Promise<void>) {
@@ -116,7 +126,7 @@ describe("the conversations a canvas is used in", () => {
     changed();
     const next = hold(SHOP);
 
-    rerender({ id: SHOP });
+    rerender({ id: SHOP, connected: true });
     expect(result.current).toEqual([]);
     await release(late);
     expect(result.current).toEqual([]);
@@ -138,5 +148,74 @@ describe("the conversations a canvas is used in", () => {
     await landed();
 
     expect(reads()).toBe(1);
+  });
+});
+
+describe("the conversations a canvas is used in, when the stream comes back after a drop", () => {
+  it("are read again, which makes good a read that failed while the server was away", async () => {
+    backend.canvas.refuseNext(`GET /artifacts/${NOTE}`, 503);
+    const view = await used();
+    expect(view.result.current).toEqual([]);
+
+    view.rerender({ id: NOTE, connected: false });
+    await landed();
+    expect(reads()).toBe(1);
+    expect(view.result.current).toEqual([]);
+
+    view.rerender({ id: NOTE, connected: true });
+    await landed();
+
+    expect(reads()).toBe(2);
+    expect(view.result.current).toEqual(["c2", "c1"]);
+  });
+
+  it("name a conversation the canvas came to be used in while no news of it could arrive", async () => {
+    const view = await used();
+    view.rerender({ id: NOTE, connected: false });
+    // With the stream down nothing says the canvas changed.
+    linked().push("c9");
+    await landed();
+    expect(view.result.current).toEqual(["c2", "c1"]);
+
+    view.rerender({ id: NOTE, connected: true });
+    await landed();
+
+    expect(view.result.current).toEqual(["c2", "c1", "c9"]);
+  });
+
+  it("are not read a second time by the stream's first connection, the page's own read being out already", async () => {
+    const view = await used(NOTE, false);
+    expect(reads()).toBe(1);
+
+    view.rerender({ id: NOTE, connected: true });
+    await landed();
+
+    expect(reads()).toBe(1);
+    expect(view.result.current).toEqual(["c2", "c1"]);
+  });
+
+  it("are not asked about once the canvas is deleted: nothing is left to ask", async () => {
+    const view = await used();
+    act(() => backend.canvas.remove(NOTE));
+
+    await reconnect(view);
+
+    expect(reads()).toBe(1);
+    expect(view.result.current).toEqual([]);
+  });
+
+  it("are read for the canvas named now, though the one named before it was deleted", async () => {
+    const view = await used();
+    act(() => backend.canvas.remove(NOTE));
+    view.rerender({ id: SHOP, connected: true });
+    await landed();
+    expect(reads(SHOP)).toBe(1);
+    linked(SHOP).push("c9");
+
+    await reconnect(view, SHOP);
+
+    expect(reads(SHOP)).toBe(2);
+    expect(reads(NOTE)).toBe(1);
+    expect(view.result.current).toEqual(["c3", "c9"]);
   });
 });

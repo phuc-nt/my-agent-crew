@@ -175,6 +175,23 @@ describe("the canvas the address names", () => {
 
     expect(editor()?.value).toBe("viết lúc mất kết nối");
   });
+
+  it("names a conversation it came to be used in while the stream was down, once the stream is back", async () => {
+    const used = () => document.querySelector(".canvas-page-used");
+    const view = render(section({ canvasId: NOTE }));
+    await landed();
+    view.rerender(section({ canvasId: NOTE, connected: false }));
+    // With the stream down, nothing says a conversation took the canvas up.
+    backend.canvas.canvases.get(NOTE)?.conversationIds.push("c7");
+    await landed();
+    expect(used()).toBeNull();
+
+    view.rerender(section({ canvasId: NOTE }));
+    await landed();
+
+    expect(used()?.firstElementChild?.textContent).toBe(canvas.usedIn(1));
+    expect(within(used() as HTMLElement).getByRole("button").textContent).toBe(canvas.conversationFallback("c7"));
+  });
 });
 
 describe("a save that fails after its page was left", () => {

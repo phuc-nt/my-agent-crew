@@ -3455,7 +3455,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     canvas ngay sau khi rời nó thì không có câu báo nào và nháp đi theo; "opens the canvas whose name
     is clicked in the library"; "shows what was written to it while the stream was down, once the
     stream is back": bản ghi lúc mất stream không ai báo, stream nối lại thì trang đọc lại và hiện
-    chữ mới); `web/src/components/canvas/canvas-section-crash.test.tsx` (trang vỡ
+    chữ mới; "names a conversation it came to be used in while the stream was down, once the stream
+    is back": hội thoại nhận canvas lúc mất stream không ai báo, stream nối lại thì dòng "Dùng
+    trong…" có tên nó); `web/src/components/canvas/canvas-section-crash.test.tsx` (trang vỡ
     thì nút "← Canvas" vẫn đứng phía trên chỗ vỡ vì nó nằm ngoài `ErrorBoundary`; địa chỉ đổi sang
     canvas khác hoặc về thư viện thì chỗ vỡ bị bỏ lại)
   - vitest, trang: `web/src/components/canvas/canvas-page.test.tsx` (trang dùng đúng panel mà hội
@@ -3472,7 +3474,11 @@ tên một test thì sửa dòng của nó trong cùng commit.
     sau); `web/src/hooks/use-canvas-conversations.test.ts` (đọc một lần theo thứ tự server trả; đọc
     lại khi stream báo đúng canvas ấy đổi, không đọc vì canvas khác; lần đọc sau hỏng thì thôi nêu
     tên; canvas bị xoá thì hết tên mà không hỏi gì và câu trả lời còn bay bị bỏ; câu trả lời cũ về sau
-    câu mới thì bỏ; đổi canvas thì câu trả lời về canvas trước bị bỏ; rời trang thì thôi hỏi)
+    câu mới thì bỏ; đổi canvas thì câu trả lời về canvas trước bị bỏ; rời trang thì thôi hỏi; "when
+    the stream comes back after a drop": stream nối lại thì đọc lại, nên lần đọc hỏng lúc server vắng
+    được bù và hội thoại nhận canvas lúc mất stream có tên; lần nối đầu tiên của stream không đọc
+    thêm lần nào; canvas đã bị xoá thì stream nối lại không hỏi gì; canvas trước bị xoá không chặn
+    việc đọc lại canvas đang được gọi tên)
   - vitest, panel và dock: `web/src/components/canvas/canvas-panel.test.tsx` ("the way from the panel
     to the canvas's own page": `window.open(<địa chỉ>, "_blank", "noopener,noreferrer")` và không lưu
     gì trên đường; nút tắt khi còn chữ chưa lưu và bật lại khi một phiên bản giữ chúng; đứng cạnh nút
