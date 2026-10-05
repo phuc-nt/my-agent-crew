@@ -11,7 +11,7 @@ from my_agent_crew.agent.context_trim import MIN_TRIM_CHARS
 from my_agent_crew.agent.events import ApprovalRequiredEvent, DoneEvent
 from my_agent_crew.agent.loop import run_turn
 from my_agent_crew.agent.payload_trim import CANVAS_PAYLOADS, trim_canvas_payloads, turn_boundary
-from my_agent_crew.agent.turn_context import CHAT, TELEGRAM
+from my_agent_crew.agent.turn_context import API, CHAT
 from my_agent_crew.agents.profile import DEFAULT_AGENT_ID
 from my_agent_crew.config import DEFAULT_TOOL_OUTPUT_CHARS
 from my_agent_crew.llm.fake import completion
@@ -130,8 +130,8 @@ async def test_an_earlier_write_that_failed_leaves_a_note_that_nothing_was_saved
     script = [completion(tool_calls=[CREATE]), completion("Gửi thẳng ở đây."), completion("Ừ.")]
     deps = deps_factory(script=script, extra_tools=canvas_tools(store))
     conv = store.create()
-    await collect(run_turn(deps, conv.id, "lập kế hoạch tuần", source=TELEGRAM))
-    await collect(run_turn(deps, conv.id, "được", source=TELEGRAM))
+    await collect(run_turn(deps, conv.id, "lập kế hoạch tuần", source=API))
+    await collect(run_turn(deps, conv.id, "được", source=API))
     calls = sent_calls(deps.chain.providers["scripted"].requests[-1])
     failed = CANVAS_PAYLOAD_FAILED.format(chars=len(DOC))
     assert calls["w1"].arguments == {**CREATE.arguments, "content": failed}

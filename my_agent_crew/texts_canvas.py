@@ -68,13 +68,20 @@ REIMPORT_AGENT_GONE = (
 # answer never tells an agent which canvases exist beyond its reach.
 ARTIFACT_NOT_FOUND = "Không tìm thấy canvas {id}. Xem các canvas bạn mở được bằng artifact_list."
 ARTIFACT_CHANNEL_CLOSED = (
-    "Kênh của lượt này chưa mở được canvas (mới chỉ web chat mở được), nên chưa ghi gì. Viết"
-    " thẳng nội dung vào câu trả lời."
+    "Kênh của lượt này chưa mở được canvas, nên chưa ghi gì. Viết thẳng nội dung vào câu trả lời."
 )
 # The tail of the system prompt for a turn whose channel cannot write a canvas, said before
 # the model puts a whole document into a call only to hear `ARTIFACT_CHANNEL_CLOSED`.
 CANVAS_CLOSED_TITLE = "Canvas"
 CANVAS_CLOSED_BODY = "Kênh này chưa mở được canvas: trả lời thẳng trong tin nhắn, đừng gọi {tools}."
+# Under the same title, for a turn that may write a canvas while its reader is in a Telegram
+# chat: who reads it, when a canvas is worth making, and the line that sends one as a file.
+CANVAS_AWAY_BODY = (
+    "Người nhận lượt này đọc trên Telegram, không ngồi ở web, nên không thấy canvas mở ra bên"
+    " cạnh. Chỉ tạo canvas khi được dặn, hoặc khi tài liệu dài và sẽ còn sửa tiếp; còn lại trả"
+    " lời thẳng trong tin nhắn. Muốn người đọc ngay nội dung canvas thì thêm vào câu trả lời"
+    " một dòng riêng `FILE: artifact:<id>`."
+)
 ARTIFACT_WRITE_BUDGET = (
     "Lượt này đã ghi {limit} bản cho canvas này, chạm trần của một lượt, nên chưa ghi gì. Dừng"
     " sửa và báo người những gì đã làm; lượt sau ghi tiếp được."

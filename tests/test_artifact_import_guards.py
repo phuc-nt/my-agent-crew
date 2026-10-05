@@ -80,14 +80,24 @@ def _failed(message: str) -> str:
     return TOOL_FAILED.format(error=message)
 
 
-@pytest.mark.parametrize("source", [TELEGRAM, JOB, API])
 async def test_a_turn_on_a_channel_with_no_canvas_is_refused_before_the_file_is_read(
-    store: Store, root: Path, reads: list[str], source: str
+    store: Store, root: Path, reads: list[str]
 ):
-    turn(store, source=source)
+    turn(store, source=API)
     result = await _import(store, root)
     assert result.output == _failed(ARTIFACT_CHANNEL_CLOSED)
     assert reads == [] and store.artifacts.list() == []
+
+
+@pytest.mark.parametrize("source", [TELEGRAM, JOB])
+async def test_a_telegram_turn_and_a_job_bring_a_file_in_as_a_canvas(
+    store: Store, root: Path, reads: list[str], source: str
+):
+    conv = turn(store, source=source)
+    art, version, _ = tagged(await _import(store, root))
+    assert version == 1 and reads == [FILE]
+    assert store.artifacts.head(art).content == PLAN
+    assert store.artifact_links.get(conv.id, art) is not None
 
 
 async def test_a_turn_that_made_its_share_of_canvases_imports_no_more(

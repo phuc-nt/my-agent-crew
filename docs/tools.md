@@ -514,12 +514,16 @@ nhận thêm quyền ghi.
   Một canvas nặng tối đa 512 KB, tiêu đề tối đa 200 ký tự. Mọi canvas cộng lại có trần 1 GiB;
   agent dừng ở chín phần mười trần đó để người vẫn còn chỗ lưu. Trần nằm trong code, không có
   khoá cấu hình.
-- **Kênh.** Chỉ lượt từ web chat, và agent được giao việc trong chuỗi bắt đầu từ web chat, ghi
-  được canvas, vì người chưa mở được canvas ở kênh khác. Lượt Telegram, job và `/api/inbound`
-  vẫn có năm tool để phần đầu prompt giống lượt web, nhưng lời gọi tạo, sửa hay viết lại bị từ
-  chối và không gì được ghi; system prompt của các lượt đó kết thúc bằng mục **Canvas** dặn trả
-  lời thẳng trong tin nhắn, nêu tên những tool ghi agent đang có. Đọc và liệt kê chạy ở mọi
-  kênh. Xem [channels.md](channels.md#cuộc-trò-chuyện).
+- **Kênh.** Lượt từ web chat, từ Telegram và job ghi được canvas, cùng agent được giao việc
+  trong chuỗi bắt đầu từ một lượt như vậy: canvas mở cạnh web chat, còn chat Telegram nhận nó
+  thành tệp và được báo lượt đã ghi gì. Lượt Telegram và job có người đọc không ngồi ở web, nên
+  system prompt của chúng kết thúc bằng mục **Canvas** dặn chỉ tạo canvas khi được dặn hoặc
+  khi tài liệu dài và sẽ còn sửa, và muốn người đọc ngay thì thêm một dòng riêng
+  `FILE: artifact:<id>`. Lượt qua `/api/inbound` chưa có đường mang canvas về cho người: nó vẫn
+  có các tool canvas để phần đầu prompt giống lượt web, nhưng lời gọi tạo, sửa, viết lại hay
+  nhập tệp bị từ chối và không gì được ghi; system prompt của lượt đó kết thúc bằng mục
+  **Canvas** dặn trả lời thẳng trong tin nhắn, nêu tên những tool ghi agent đang có. Đọc và
+  liệt kê chạy ở mọi kênh. Xem [channels.md](channels.md#cuộc-trò-chuyện).
 - **Tầm với.** Master với tới mọi canvas. Agent khác với tới canvas gắn với cuộc trò chuyện của
   nó, canvas chuỗi giao việc của nó đã chia sẻ, và canvas nó tự tạo. Canvas do người tạo chỉ vào
   tầm của agent khi đã gắn vào cuộc trò chuyện. Đọc chỉ gắn canvas vào cuộc trò chuyện đang đọc;

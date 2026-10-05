@@ -21,9 +21,12 @@ API = "api"
 # A turn another agent asked for; the rest of the source names the parent conversation.
 DELEGATE = "delegate"
 PRESENT_SOURCES = (CHAT, TELEGRAM, API)
-# Narrower than PRESENT_SOURCES: a person is there on Telegram and the API too, but can
-# open a canvas only in the web chat, so only a turn from there may write one.
-CANVAS_WRITE_SOURCES = (CHAT,)
+# Where a canvas a turn writes gets back to a person: it opens beside the web chat, and a
+# Telegram chat is sent it as a file and told what the turn wrote, a job's brief included.
+# Nothing carries one back through the inbound API, so a turn from there writes none.
+CANVAS_WRITE_SOURCES = (CHAT, TELEGRAM, JOB)
+# Of those, the ones whose reader is in a Telegram chat, not in front of the canvas.
+CANVAS_AWAY_SOURCES = (TELEGRAM, JOB)
 
 _turn_source: ContextVar[str] = ContextVar("turn_source", default=CHAT)
 _turn_conversation_id: ContextVar[str] = ContextVar("turn_conversation_id", default="")
@@ -91,11 +94,23 @@ def person_is_present() -> bool:
     return turn_source() in PRESENT_SOURCES
 
 
+def _canvas_source(conv: Conversation) -> str:
+    """The channel a turn's canvas rules go by. A delegated child's own turn names its
+    parent, not a channel, so it goes by the turn its chain began from; a chain with no
+    recorded root has none."""
+    return conv.root_source if turn_source() == DELEGATE else turn_source()
+
+
 def may_write_canvas(conv: Conversation) -> bool:
-    """A delegated child's own turn names its parent, not a channel, so it writes only when
-    the turn its chain began from could; a chain with no recorded root never does."""
-    source = conv.root_source if turn_source() == DELEGATE else turn_source()
-    return source in CANVAS_WRITE_SOURCES
+    """A child writes only when the turn its chain began from could; a chain with no
+    recorded root never does."""
+    return _canvas_source(conv) in CANVAS_WRITE_SOURCES
+
+
+def canvas_reader_is_away(conv: Conversation) -> bool:
+    """Whether what this turn writes is read in a Telegram chat, where a canvas does not
+    open beside the answer."""
+    return _canvas_source(conv) in CANVAS_AWAY_SOURCES
 
 
 def canvas_writes(artifact_id: str) -> int:

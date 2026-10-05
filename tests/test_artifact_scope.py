@@ -9,7 +9,9 @@ import pytest
 from my_agent_crew.agent.turn_context import (
     API,
     CHAT,
+    JOB,
     TELEGRAM,
+    canvas_reader_is_away,
     canvas_writes,
     may_write_canvas,
     note_canvas_write,
@@ -73,10 +75,12 @@ def _canvas(store: Store, agent_id: str = "") -> str:
 
 @pytest.mark.parametrize(
     ("source", "writes"),
-    [(CHAT, True), (TELEGRAM, False), ("job:coach/brief", False), (API, False)],
+    [(CHAT, True), (TELEGRAM, True), ("job:coach/brief", True), (API, False)],
 )
-def test_only_a_turn_from_the_web_chat_writes_a_canvas(store: Store, source, writes):
-    """A person is there on Telegram and the API too, but cannot open a canvas there."""
+def test_a_turn_from_the_web_chat_telegram_or_a_job_writes_a_canvas(store: Store, source, writes):
+    """What is written on Telegram or by a job reaches the person as a file and a list in
+    the chat. Nothing carries a canvas back through the inbound API, so a turn from there
+    writes none."""
     set_turn_source(source)
     conv = store.create()
     assert may_write_canvas(conv) is writes
@@ -88,8 +92,11 @@ def test_only_a_turn_from_the_web_chat_writes_a_canvas(store: Store, source, wri
         assert str(caught.value) == ARTIFACT_CHANNEL_CLOSED
 
 
-@pytest.mark.parametrize(("root_source", "writes"), [(CHAT, True), (TELEGRAM, False), ("", False)])
-def test_a_delegated_child_writes_only_when_its_chain_began_in_the_web_chat(
+@pytest.mark.parametrize(
+    ("root_source", "writes"),
+    [(CHAT, True), (TELEGRAM, True), (JOB, True), (API, False), ("", False)],
+)
+def test_a_delegated_child_writes_when_the_turn_its_chain_began_from_could(
     store: Store, root_source, writes
 ):
     """A child's own turn names its parent, not a channel; a child opened before chains
@@ -102,9 +109,37 @@ def test_a_delegated_child_writes_only_when_its_chain_began_in_the_web_chat(
 
 def test_a_person_typing_in_a_childs_own_conversation_writes_from_there(store: Store):
     root = store.create()
-    child = store.create(root_id=root.id, root_source=TELEGRAM)
+    child = store.create(root_id=root.id, root_source=API)
     set_turn_source(CHAT)
     assert may_write_canvas(child) is True
+
+
+@pytest.mark.parametrize(
+    ("source", "away"),
+    [(CHAT, False), (TELEGRAM, True), ("job:coach/brief", True), (API, False)],
+)
+def test_the_reader_of_a_telegram_turn_or_a_job_is_away_from_the_web(store: Store, source, away):
+    """Whoever gets the answer in a Telegram chat does not see a canvas open beside it."""
+    set_turn_source(source)
+    assert canvas_reader_is_away(store.create()) is away
+
+
+@pytest.mark.parametrize(
+    ("root_source", "away"),
+    [(CHAT, False), (TELEGRAM, True), (JOB, True), (API, False), ("", False)],
+)
+def test_a_delegated_childs_reader_is_where_its_chain_began(store: Store, root_source, away):
+    root = store.create()
+    child = store.create(root_id=root.id, root_source=root_source)
+    set_turn_source(f"delegate:{root.id}")
+    assert canvas_reader_is_away(child) is away
+
+
+def test_a_person_typing_in_a_childs_own_conversation_reads_from_there(store: Store):
+    root = store.create()
+    child = store.create(root_id=root.id, root_source=TELEGRAM)
+    set_turn_source(CHAT)
+    assert canvas_reader_is_away(child) is False
 
 
 @pytest.mark.parametrize("kind", ["image", "pdf", "", "HTML"])

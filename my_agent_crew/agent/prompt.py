@@ -10,7 +10,7 @@ from my_agent_crew import texts
 from my_agent_crew.agent.context_trim import trim_tool_outputs
 from my_agent_crew.agent.payload_trim import attach_canvas_notes, trim_canvas_payloads
 from my_agent_crew.agent.prompt_frame import frame_text, today_line
-from my_agent_crew.agent.turn_context import may_write_canvas
+from my_agent_crew.agent.turn_context import canvas_reader_is_away, may_write_canvas
 from my_agent_crew.agents.context import bootstrap_sections, turn_tail_sections
 from my_agent_crew.agents.kit_commands import commands_section
 from my_agent_crew.agents.roster import DELEGATE_TOOL_NAME, crew_roster_section
@@ -19,7 +19,7 @@ from my_agent_crew.config import Settings
 from my_agent_crew.llm.types import Message
 from my_agent_crew.skills import Skill
 from my_agent_crew.store import Conversation, StoredMessage
-from my_agent_crew.texts_canvas import CANVAS_CLOSED_BODY, CANVAS_CLOSED_TITLE
+from my_agent_crew.texts_canvas import CANVAS_AWAY_BODY, CANVAS_CLOSED_BODY, CANVAS_CLOSED_TITLE
 from my_agent_crew.tools.artifact_scope import CANVAS_WRITE_TOOLS
 from my_agent_crew.tools.output_spill import READ_TOOL
 
@@ -76,6 +76,18 @@ def canvas_closed_section(
     if conv is None or not held or may_write_canvas(conv):
         return []
     return [(CANVAS_CLOSED_TITLE, CANVAS_CLOSED_BODY.format(tools=", ".join(held)))]
+
+
+def canvas_away_section(
+    conv: Conversation | None, tool_names: Sequence[str]
+) -> list[tuple[str, str]]:
+    """A turn that may write a canvas while its reader is in a Telegram chat hears when one
+    is worth making and how to send it. An agent holding no canvas write has nothing to be
+    advised on, and the standing prompt, with no turn, has no reader to speak of."""
+    holds_a_write = any(name in tool_names for name in CANVAS_WRITE_TOOLS)
+    if conv is None or not holds_a_write or not canvas_reader_is_away(conv):
+        return []
+    return [(CANVAS_CLOSED_TITLE, CANVAS_AWAY_BODY)]
 
 
 def build_system_prompt(
@@ -157,6 +169,7 @@ def system_prompt_for(deps: AgentDeps, conv: Conversation | None = None) -> str:
                 else "",
             ),
             *canvas_closed_section(conv, tool_names),
+            *canvas_away_section(conv, tool_names),
         ],
     )
 

@@ -7,6 +7,7 @@ import pytest
 from my_agent_crew.agent.turn_context import (
     API,
     CHAT,
+    JOB,
     TELEGRAM,
     set_turn_conversation,
     set_turn_source,
@@ -181,11 +182,10 @@ async def test_create_refuses_a_kind_agents_do_not_write(store: Store, kind: str
     assert store.artifacts.list() == []
 
 
-@pytest.mark.parametrize("source", [TELEGRAM, "job:coach/brief", API])
-async def test_only_the_web_chat_writes_a_canvas_yet_any_channel_reads_one(store: Store, source):
-    """A person is there on Telegram and the API too, but cannot see a canvas there."""
+async def test_a_turn_from_the_inbound_api_writes_no_canvas_yet_reads_one(store: Store):
+    """A person is there behind the API too, but nothing carries a canvas back to them."""
     art = agents_canvas(store, "coach", "# Kế hoạch\n- chạy\n")
-    conv = turn(store, source=source)
+    conv = turn(store, source=API)
     writes = [
         ("artifact_create", _create_args()),
         ("artifact_edit", {"id": art, "old": "chạy", "new": "bơi"}),
@@ -200,8 +200,28 @@ async def test_only_the_web_chat_writes_a_canvas_yet_any_channel_reads_one(store
     assert (await call(store, "artifact_list", {})).ok
 
 
-@pytest.mark.parametrize(("root_source", "writes"), [(CHAT, True), (TELEGRAM, False), ("", False)])
-async def test_a_delegated_child_writes_only_in_a_chain_begun_in_the_web_chat(
+@pytest.mark.parametrize("source", [CHAT, TELEGRAM, "job:coach/brief"])
+async def test_a_turn_from_the_web_chat_telegram_or_a_job_writes_and_reads_canvases(
+    store: Store, source
+):
+    art = agents_canvas(store, "coach", "# Kế hoạch\n- chạy\n")
+    conv = turn(store, source=source)
+    made, version, _ = tagged(await call(store, "artifact_create", _create_args()))
+    assert version == 1 and store.artifact_links.get(conv.id, made) is not None
+    assert (await call(store, "artifact_read", {"id": art})).ok
+    edit = {"id": art, "old": "chạy", "new": "bơi"}
+    assert tagged(await call(store, "artifact_edit", edit))[:2] == (art, 2)
+    rewrite = {"id": art, "content": "# Khác\n"}
+    assert tagged(await call(store, "artifact_rewrite", rewrite))[:2] == (art, 3)
+    assert (await call(store, "artifact_list", {})).ok
+    assert {summary.id for summary in store.artifacts.list()} == {art, made}
+
+
+@pytest.mark.parametrize(
+    ("root_source", "writes"),
+    [(CHAT, True), (TELEGRAM, True), (JOB, True), (API, False), ("", False)],
+)
+async def test_a_delegated_child_writes_when_the_turn_its_chain_began_from_could(
     store: Store, root_source: str, writes: bool
 ):
     child_turn(store, store.create(), root_source)

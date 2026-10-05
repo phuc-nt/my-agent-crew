@@ -1738,8 +1738,12 @@ tên một test thì sửa dòng của nó trong cùng commit.
     mermaid như mọi canvas và html được lớn hơn tài liệu nhưng có trần riêng, mô tả của tool tạo
     (và chỉ nó) nói cho trang html biết khung cách ly không cho gì: không `localStorage`, không
     mạng ngoài ba CDN, không `alert`, không mở cửa sổ,
-    "test_only_the_web_chat_writes_a_canvas_yet_any_channel_reads_one", con chỉ ghi được trong
-    chuỗi bắt đầu từ web chat, canvas master đã đọc không vào tầm của con, lần đọc của một con
+    "test_a_turn_from_the_web_chat_telegram_or_a_job_writes_and_reads_canvases": lượt web chat,
+    Telegram và job tạo, đọc, sửa, viết lại và liệt kê được,
+    "test_a_turn_from_the_inbound_api_writes_no_canvas_yet_reads_one": lượt API chỉ đọc và liệt
+    kê, "test_a_delegated_child_writes_when_the_turn_its_chain_began_from_could": con ghi được
+    khi chuỗi bắt đầu từ web chat, Telegram hay job, không ghi được khi bắt đầu từ API hay không
+    có gốc, canvas master đã đọc không vào tầm của con, lần đọc của một con
     không mở rộng tầm của con kế tiếp, canvas do người tạo chỉ vào tầm qua liên kết, canvas không
     tồn tại trả lời như canvas ngoài tầm,
     "test_a_turn_writes_at_most_thirty_versions_of_one_canvas": lần ghi không đổi gì không tính
@@ -1832,8 +1836,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     nguồn không mời đọc, `source_url` được giữ làm nguồn,
     "test_an_absolute_path_inside_the_workspace_is_stored_relative_to_it");
     `tests/test_artifact_import_guards.py`
-    ("test_a_turn_on_a_channel_with_no_canvas_is_refused_before_the_file_is_read": lượt Telegram,
-    job hay API bị từ chối, tệp không được đọc, không canvas nào được tạo,
+    ("test_a_turn_on_a_channel_with_no_canvas_is_refused_before_the_file_is_read": lượt API bị
+    từ chối, tệp không được đọc, không canvas nào được tạo,
+    "test_a_telegram_turn_and_a_job_bring_a_file_in_as_a_canvas": lượt Telegram và job mang tệp
+    vào thành canvas gắn với cuộc trò chuyện của lượt,
     "test_a_turn_that_made_its_share_of_canvases_imports_no_more" và
     "test_a_turn_that_wrote_its_share_of_one_canvas_imports_into_it_no_more": lần thứ 31 bị từ
     chối mà không đọc tệp, `kind` lạ, URL xấu, đường dẫn giấu ký tự hay chỉ có khoảng trắng, đường
@@ -1981,13 +1987,18 @@ tên một test thì sửa dòng của nó trong cùng commit.
     tool thật, hook chặn thì không tệp nào được ghi và không canvas nào được tạo,
     "test_the_hooks_of_an_agents_kit_stand_before_its_canvas_file_tools": hook trong profile của
     agent đứng trước hai tool đó trong sổ đăng ký lắp từ profile)
-- **Canvas: kênh nào ghi được, agent với tới canvas nào, một lượt ghi bao nhiêu, ai viết các bản
-  chưa thấy**
+- **Canvas: kênh nào ghi được, người đọc của lượt có ngồi ở web không, agent với tới canvas nào,
+  một lượt ghi bao nhiêu, ai viết các bản chưa thấy**
   - pytest: `tests/test_artifact_scope.py`
-    ("test_only_a_turn_from_the_web_chat_writes_a_canvas",
-    "test_a_delegated_child_writes_only_when_its_chain_began_in_the_web_chat": con mở trước khi
-    chuỗi ghi gốc thì không bao giờ ghi, người gõ thẳng vào cuộc trò chuyện của con thì ghi được từ
-    đó, agent ghi được năm loại chữ (markdown, code, html, svg, mermaid) chứ không ghi ảnh, lời từ
+    ("test_a_turn_from_the_web_chat_telegram_or_a_job_writes_a_canvas": lượt API thì không,
+    "test_a_delegated_child_writes_when_the_turn_its_chain_began_from_could": con theo nguồn của
+    lượt mở đầu chuỗi, con mở trước khi chuỗi ghi gốc thì không bao giờ ghi, người gõ thẳng vào
+    cuộc trò chuyện của con thì ghi được từ đó,
+    "test_the_reader_of_a_telegram_turn_or_a_job_is_away_from_the_web",
+    "test_a_delegated_childs_reader_is_where_its_chain_began" và
+    "test_a_person_typing_in_a_childs_own_conversation_reads_from_there": người đọc của lượt
+    Telegram, của job và của con trong chuỗi bắt đầu từ đó không ngồi ở web; lượt web chat, lượt
+    API và chuỗi không có gốc thì không tính là vắng, agent ghi được năm loại chữ (markdown, code, html, svg, mermaid) chứ không ghi ảnh, lời từ
     chối kể đủ năm loại, lần ghi thứ 31 cho một canvas trong lượt bị từ chối, một
     lượt tạo tối đa 30 canvas,
     "test_a_batched_call_counts_toward_its_turn_and_a_child_turn_counts_apart", master với tới mọi
@@ -2064,15 +2075,35 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "test_a_note_is_always_shorter_than_the_text_it_stands_for")
 - **Canvas: lượt không ghi được canvas được báo trước trong system prompt**
   - pytest: `tests/test_canvas_prompt_tail.py`
-    ("test_a_turn_that_cannot_write_a_canvas_is_told_so_with_the_same_tools": Telegram, job, API và
-    con có chuỗi bắt đầu từ Telegram nghe mục này, sau ghi chú ngày và ngay trước dòng ngày, cùng
-    bộ tool; web chat và con của nó thì không,
+    ("test_a_turn_that_cannot_write_a_canvas_is_told_so_with_the_same_tools": lượt API, con có
+    chuỗi bắt đầu từ API và con của chuỗi không có gốc nghe mục này, sau ghi chú ngày và ngay
+    trước dòng ngày, cùng bộ tool; web chat và con của nó thì không,
     "test_the_note_names_only_the_canvas_writes_the_agent_holds": agent chỉ có `artifact_import`
     và `artifact_export` được nhắc đúng một tên `artifact_import`, agent chỉ xuất và đọc thì không
-    có mục này, prompt thường trực không có mục
-    này, "test_the_note_lists_exactly_the_tools_a_closed_channel_refuses": trên Telegram
+    có mục này, "test_the_standing_prompt_has_no_canvas_note": prompt thường trực không có mục
+    này, "test_the_note_lists_exactly_the_tools_a_closed_channel_refuses": ở lượt API
     `artifact_import` bị từ chối và có tên trong mục, `artifact_export` vẫn ghi được tệp và không
-    có tên)
+    có tên, "test_the_refusal_names_no_channel_as_the_only_one_that_opens_a_canvas": lời từ chối
+    không còn nói chỉ web chat mở được canvas)
+- **Canvas: lượt Telegram và job ghi được canvas; system prompt của lượt có người đọc trên
+  Telegram dặn khi nào nên tạo canvas và dòng nào gửi canvas thành tệp**
+  - pytest: `tests/test_canvas_prompt_tail.py`
+    ("test_a_turn_whose_reader_is_on_telegram_is_told_how_a_canvas_reaches_them": lượt Telegram,
+    job và con trong chuỗi bắt đầu từ đó nghe mục **Canvas** với lời dặn này, ở cùng chỗ với mục
+    của kênh đóng; prompt của lượt web chat là prompt đó bỏ đi mục này, đúng từng ký tự, cùng bộ
+    tool; con của chuỗi API hay chuỗi không có gốc không nghe lời dặn này,
+    "test_an_agent_that_writes_no_canvas_is_told_nothing_about_making_one": agent không giữ tool
+    ghi canvas nào thì không có mục,
+    "test_the_line_a_telegram_turn_is_taught_is_one_the_chat_sends_a_canvas_for": dòng
+    `FILE: artifact:<id>` trong lời dặn, thay mã canvas vào, được đọc thành một canvas để gửi)
+  - pytest: `tests/test_telegram_canvas_turn.py`, qua vòng lặp và tool thật
+    ("test_a_telegram_turn_writes_a_canvas_and_sends_it_as_the_file_its_reply_names": chat nhận
+    lời của lượt, rồi tệp canvas, rồi danh sách canvas; canvas nằm trong kho dưới tên agent và
+    gắn với cuộc trò chuyện của lượt,
+    "test_a_job_writes_a_canvas_and_its_brief_names_it": brief mang danh sách canvas job đã ghi)
+  - pytest: `tests/test_scheduler_reporting.py`
+    ("test_a_job_that_wrote_a_canvas_and_answered_ok_is_not_pushed_and_keeps_the_canvas": job trả
+    lời đúng `OK` sau khi ghi canvas thì Telegram không nhận gì và canvas vẫn ở trong kho)
 - **Canvas: ghi chú canvas báo agent những gì đã đổi từ lần nó nghe gần nhất, cùng canvas đang
   mở và đoạn người chọn trên web**
   - pytest: `tests/test_canvas_note.py` (hội thoại không có canvas không lưu ghi chú, canvas agent
