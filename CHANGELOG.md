@@ -15,12 +15,14 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 - Agents can write canvases: versioned documents next to a web chat, through `artifact_create`,
   `artifact_list`, `artifact_read`, `artifact_edit` and `artifact_rewrite`. None of the five
-  asks for approval, since every version stays restorable. Their descriptions send any document
-  the person will keep editing to a canvas, however short, keep answers read once and questions
-  in the chat, and say how an edit adds text after a passage. Only a web-chat turn, or an agent
-  delegated from one, may write; a Telegram, job or inbound-API turn can list and read, and its
-  system prompt says so before the model tries. Such a turn can also write a canvas out to a
-  workspace file with `artifact_export`, which asks for approval wherever it runs. The master
+  asks for approval, since every version stays restorable; with `artifact_import` and
+  `artifact_export`, further down, there are seven canvas tools, and only `artifact_export`
+  asks. The descriptions of the five send any document the person will keep editing to a
+  canvas, however short, keep answers read once and questions in the chat, and say how an edit
+  adds text after a passage. Only a web-chat, Telegram or job turn, or an agent delegated from
+  one, may write; a turn from the inbound API can list and read, and its system prompt says so
+  before the model tries. Such a turn can also write a canvas out to a workspace file with
+  `artifact_export`, which asks for approval wherever it runs. The master
   reaches every canvas; another agent reaches those linked to its conversation, shared down its
   delegation chain or made by itself, and one out of reach reads as missing. A canvas is read a
   page at a time within the output cap; an edit replaces one exact passage, reports the canvas's
@@ -261,7 +263,7 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   to a path in the agent's workspace: text as UTF-8 without a byte-order mark and with LF line
   ends, a picture byte for byte, over a file already there. It is the only canvas tool that asks
   for approval, since a file written over is not kept the way a canvas version is. It writes no
-  canvas, so it is open on every channel, a Telegram, job or inbound-API turn included, adds no
+  canvas, so it is open on every channel, a turn from the inbound API included, adds no
   version and counts toward none of the turn's limits on canvas writes. The target must lie
   inside the workspace, and inside the agent's `write_paths` when it has any, also once the
   folders it passes through are resolved, and may be neither a symlink nor a directory. The file
@@ -339,10 +341,71 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   itself while the keyboard is anywhere in the canvas column, though its card still offers it;
   once the person puts it away by hand, every canvas written in the rest of that turn stays a
   card; and markdown of 100 000 characters or more is shown as its source, with a line saying so.
+- The stream a web-chat message is answered with carries a new event, `tool_call_delta`, for a
+  canvas being written: a piece of the arguments of an `artifact_create` or `artifact_rewrite`
+  call, with `index` (the call's place in the answer), `name`, `chunk` and `attempt` (how many
+  attempts at this answer were given up before it). A call's first piece goes out as soon as
+  the call is named, later ones at most once every 3 seconds with all that gathered since, and
+  what is still held when the answer arrives is not sent: the whole call comes with
+  `assistant_message` as before. When an attempt that showed pieces is given up, for a retry or
+  another route, an event with an empty `name` calls it off, and whoever drew its pieces drops
+  them. The arguments of no other tool are streamed. The event goes only to the request that
+  streams the turn: it is neither stored nor sent on the activity stream, and leaves the run's
+  record as it was. The offline `fake:slow` model answers as `fake:echo` does, with 0.1 seconds
+  between two pieces, so a canvas can be watched filling in without a model key.
 - A `FILE: artifact:<id>` or `MEDIA: artifact:<id>` line in a reply shows in the web chat as a
   chip that names the canvas and opens it with "Mở", where it used to be a download link or an
   image that pointed at no file. A line whose id is miswritten, `artifact:<id>.md` for one, stays
   the text the reply has.
+- A reply sent over Telegram can attach a canvas. A line `FILE: artifact:<id>` or
+  `MEDIA: artifact:<id>` uploads the newest version, and the kind decides how, not the prefix: a
+  picture as a photo, any other canvas as a document. The file is named after the title, with
+  `.md` for markdown and `.txt` last for every other text kind (`.py.txt`, `.html.txt`,
+  `.svg.txt`, `.mmd.txt`), so a phone opens it as text. The caption is the title in quotes and
+  the version, `"<title>" v<n>`, with the link to the canvas's own page under it when `web_url`
+  is set and the two fit Telegram's 1024 characters; a link that does not fit is left out
+  whole. Secrets the server knows are covered in the text, the caption and the file name, and a
+  picture's bytes go as they are. A picture Telegram refuses as a photo is sent once more as a
+  document. The workspace files a reply names go first, then its canvases, each once however
+  often it is named. A reply sends only what the agent's canvas tools would let it read in the
+  conversation the turn ran in, and a canvas out of reach is answered like one that does not
+  exist: "(không gửi được canvas {id}: không tìm thấy canvas này)". Lines whose id is miswritten
+  get one "(không gửi được canvas: dòng đính kèm ghi sai mã canvas)" between them, which repeats
+  none of them. A text canvas imported from a workspace file whose extension is neither one a
+  `FILE:` line sends nor one that names a kind of canvas is not sent, so importing a file is no
+  way round the list of formats a reply may send: "(không gửi được canvas {id}: nó được nhập từ
+  một tệp thuộc loại không gửi qua chat được)". A canvas over 20 MB, or one whose upload fails,
+  gets "(không gửi được canvas {id}; mở web UI để xem nó)", with the reason in the server log
+  only. A canvas that cannot be sent does not stop the next one, and neither does a notice
+  that cannot be sent.
+- After a Telegram turn or a job's brief, the chat is told which canvases the turn wrote. A
+  message headed "Canvas vừa ghi:" follows the reply and its attachments with one line for
+  each, `• "<title>" v<n>`: a canvas once, at the newest version written, in the order first
+  written, what a delegated agent wrote included, under the title the canvas has now with
+  secrets covered, and only when the agent still reaches it. Under each line comes the link to
+  the canvas's page when `web_url` is set; without it the message ends "Mở web UI để xem.". At
+  most ten are listed and the rest counted, "… và {n} canvas khác.". A write that changed
+  nothing, a read and an export name nothing. A turn or a run that wrote canvases and said
+  nothing is answered by the list instead of the sentence for an empty reply; a turn that
+  broke and a run that stopped early still name what they wrote, the run before it says why it
+  stopped. Each reply of a turn that waited for approval names what was written on its own
+  stretch, and a run delivered again after an approval or a question nobody answered names
+  only what it wrote since. A job that answers `OK`, which is not sent to the chat, sends no
+  list either. A list that cannot be sent is replaced by "(lượt này có ghi canvas nhưng không
+  gửi được danh sách; mở web UI để xem)".
+- `web_url` in `config.yaml`, or `MY_AGENT_WEB_URL`, which wins, is the address people open the
+  web UI at. It is empty by default and is used for the links above, which read
+  `<web_url>/#/manage/canvas/<id>`. It must be a plain http or https address: a host of
+  letters, digits, dots, hyphens and underscores or an IPv6 address in brackets, a port if any,
+  and a path of letters, digits and `._~/-`, with no user name or password, no query and no
+  fragment. A final slash is dropped. Any other value stops the settings from loading, with an
+  error that names the key and never the value.
+- A `FILE: artifact:<id>` or `MEDIA: artifact:<id>` line in a delegated agent's answer reaches
+  the agent that delegated. When the delegated agent reaches the canvas, the line rides on as
+  written and the canvas is linked to the delegating conversation, so the reply there can send
+  it, and it is put back when that reply leaves it out, as a relayed file's line is. Otherwise
+  the line becomes "(agent con có đính kèm {path} nhưng không chuyển được tệp)", whether or not
+  the two agents share a workspace.
 
 ### Fixed
 
@@ -452,6 +515,30 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 - A `delegate` result always has an empty line between its `outcome=` line, with the canvas
   lines under it, and the text that follows, whether or not a canvas was written. Whatever reads
   a result line by line should expect it. The tool's description is two sentences longer.
+- A `FILE:` or `MEDIA:` line whose path opens with `artifact:` names a canvas and is no longer
+  looked up as a workspace file, in a Telegram reply or in a delegated agent's answer, even
+  when the workspace holds a file of that name.
+- The system prompt of a Telegram or job turn, and of an agent delegated from one, ends with a
+  "Canvas" section when the agent holds a canvas write tool, after the day's notes and right
+  before the date. It says the reader is not at the web chat and sees no canvas open beside
+  the answer, to make a canvas only when told to or when the document is long and will be
+  edited further, and that a line `FILE: artifact:<id>` of its own in the reply sends the
+  canvas with the message when the turn goes out over Telegram. A Telegram turn and a job read
+  the same words. A turn from the inbound API reads one line there instead, "Kênh này chưa mở
+  được canvas: trả lời thẳng trong tin nhắn, đừng gọi {tools}.", naming the canvas write tools
+  the agent holds. A web-chat turn's prompt has neither.
+- What the runtime itself says in a Telegram chat goes out as it stands and is no longer read
+  for `FILE:` and `MEDIA:` lines: the answer to a slash command, `/status` with the
+  conversation's title among them, that an approval ran out, why a run was cut short or did
+  not finish, that a reply was empty, and the error a turn broke with. A line of such a
+  sentence shaped like an attachment line used to send the file it named. What the agent said
+  before a turn broke is still read for the files it names.
+- A Telegram notice about an attachment that could not be sent no longer stops the attachments
+  named after it when the notice itself cannot be sent; it is logged instead.
+- A delegated agent's answer is read for `FILE:` and `MEDIA:` lines at every line break a
+  string knows, as a Telegram reply already was, where only `\n` counted before. The reason an
+  unfinished delegated run stopped for is quoted in the `delegate` result on one line, cut at
+  160 characters, so a provider's error can add no lines of its own to the result.
 
 ## [0.10.0] — 2026-09-30
 
