@@ -41,6 +41,24 @@ const editor = (page: Page) => page.getByRole("textbox", { name: canvas.editor }
 const back = (page: Page) => page.getByRole("button", { name: canvas.back });
 const rows = (page: Page) => page.getByTestId("canvas-library-row");
 
+/**
+ * Records each address the page asks the browser to open, as it asks; the tab opens all the same.
+ * A tab that opened shows up among the browser's pages only some time later, so counting those
+ * would pass for a tab still on its way.
+ */
+async function watchOpens(page: Page) {
+  await page.addInitScript(() => {
+    const open = window.open.bind(window);
+    const asked: string[] = [];
+    window.open = (...args) => {
+      asked.push(String(args[0]));
+      return open(...args);
+    };
+    Object.assign(window, { asked });
+  });
+  return () => page.evaluate(() => (window as unknown as { asked: string[] }).asked);
+}
+
 /** What a person would have to scroll sideways to read: the page, the section, or a part of the canvas's page. */
 function overflowing(page: Page): Promise<string[]> {
   return page.evaluate(() =>
@@ -217,6 +235,7 @@ test.describe("the canvas open beside a conversation", () => {
 
   test("opens on its own page in a new tab cut off from this one, once what was typed is saved", async ({ page, context }) => {
     const fake = await serve(page);
+    const opens = await watchOpens(page);
     await page.goto("/#/chat/c1");
     await page.getByRole("button", { name: canvas.buttonLabel(1) }).click();
     await page.getByRole("button", { name: /Ghi chú họp/ }).click();
@@ -240,22 +259,62 @@ test.describe("the canvas open beside a conversation", () => {
     await page.keyboard.press("Space");
     // The pointer too: forced, for the test's own driver holds its click back from a button held off.
     await own.click({ force: true });
+    expect(await opens()).toEqual([]);
     await release();
     await expect.poll(() => fake.content(NOTE)).toBe(`${TEXT}Dòng ba\n`);
     await expect(own).toBeEnabled();
     await expect(own).toBeFocused();
     await expect(own).toHaveAccessibleDescription("");
     await expect(own).toHaveCSS("opacity", "1");
-    expect(context.pages()).toHaveLength(1);
 
     const opening = context.waitForEvent("page");
     await own.click();
     const tab = await opening;
 
+    // The one tab asked for, and by this click: nothing pressed before it opened any.
+    expect(await opens()).toEqual([`#/manage/canvas/${NOTE}`]);
     await tab.waitForLoadState("domcontentloaded");
     expect(new URL(tab.url()).hash).toBe(`#/manage/canvas/${NOTE}`);
     // The new tab was opened cut off from the one that opened it: it cannot reach back, nor tell where it came from.
     expect(await tab.evaluate(() => ({ opener: window.opener, referrer: document.referrer }))).toEqual({ opener: null, referrer: "" });
     await expect(page).toHaveURL(/#\/chat\/c1$/);
+  });
+
+  test("gives nothing under the pointer or under a press while words are unsaved", async ({ page }) => {
+    const fake = await serve(page);
+    const opens = await watchOpens(page);
+    await page.goto("/#/chat/c1");
+    await page.getByRole("button", { name: canvas.buttonLabel(1) }).click();
+    await page.getByRole("button", { name: /Ghi chú họp/ }).click();
+    await expect(editor(page)).toHaveValue(TEXT);
+    const own = page.getByRole("button", { name: canvas.openStandalone });
+    /** How the button is drawn, once every transition on it has run out. */
+    const drawn = () =>
+      own.evaluate(async (el) => {
+        await Promise.all(el.getAnimations().map((animation) => animation.finished));
+        const { backgroundColor, color, transform } = getComputedStyle(el);
+        return { backgroundColor, color, transform };
+      });
+    const release = fake.holdNext("PUT", "request");
+    await editor(page).fill(`${TEXT}Dòng ba\n`);
+    await expect(own).toHaveAttribute("aria-disabled", "true");
+    // Off the button, so that what is measured first is the button with no pointer on it.
+    await page.mouse.move(0, 0);
+    const resting = await drawn();
+    expect(resting).toMatchObject({ backgroundColor: "rgba(0, 0, 0, 0)", transform: "none" });
+
+    await own.hover();
+    expect(await drawn()).toEqual(resting);
+    await page.mouse.down();
+    expect(await drawn()).toEqual(resting);
+    await page.mouse.up();
+    expect(await opens()).toEqual([]);
+    await release();
+
+    // Saved with the pointer still on it, it lights up as any button of its kind does.
+    await expect(own).toHaveAttribute("aria-disabled", "false");
+    const ready = await drawn();
+    expect(ready.backgroundColor).not.toBe(resting.backgroundColor);
+    expect(ready.color).not.toBe(resting.color);
   });
 });

@@ -1,4 +1,4 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 import { vi } from "../src/i18n/vi";
 import { FakeCanvas } from "../src/test/fake-canvas";
 import { coachAgent, defaultAgent, mockApi } from "./mock-api";
@@ -85,6 +85,12 @@ for (const [name, screen] of SCREENS) {
           const list = library.querySelector(".canvas-library-list")?.getBoundingClientRect().top ?? 0;
           return Math.round(list - head - Number.parseFloat(getComputedStyle(library).rowGap));
         });
+      /** How a line of the library is set: the size of its letters and the room it keeps around it. */
+      const set = (line: Locator) =>
+        line.evaluate((el) => {
+          const { fontSize, marginTop, marginBottom } = getComputedStyle(el);
+          return { fontSize, marginTop, marginBottom };
+        });
       const asked: string[] = [];
       let answer = false;
       page.on("dialog", (dialog) => {
@@ -112,6 +118,8 @@ for (const [name, screen] of SCREENS) {
       await expect(said).toHaveText(canvas.libraryDeleted("Kế hoạch tuần"));
       await expect(said).toBeVisible();
       expect(await spare()).toBeGreaterThan(0);
+      // Set as the line that gives the total is, which the gap of the column spaces like any other.
+      expect(await set(said)).toEqual(await set(page.locator(".canvas-library-total")));
       await expect(page.locator(".canvas-library-total")).toHaveText(canvas.libraryTotal(2, "11 B", "1 GB"));
     });
   });

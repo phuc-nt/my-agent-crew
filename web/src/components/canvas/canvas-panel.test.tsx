@@ -352,6 +352,8 @@ describe("the way from the panel to the canvas's own page", () => {
     expect(button).toHaveAccessibleDescription(WHY);
     // The reason is words of the page the button points at, which a reader of the screen is read.
     expect(document.getElementById(button.getAttribute("aria-describedby") ?? "")?.textContent).toBe(WHY);
+    // Read out, not drawn: the toolbar shows the button and no line of words beside it.
+    expect(screen.getByText(WHY)).toHaveClass("sr-only");
     // Enter and Space reach a button that has the keyboard as a click.
     fireEvent.click(button);
     expect(open).not.toHaveBeenCalled();

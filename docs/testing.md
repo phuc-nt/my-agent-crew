@@ -3445,8 +3445,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     nào tràn ngang; tìm không dấu "ke hoach" ra đúng một canvas, tên lạ ra câu không khớp, xoá ô thì
     đủ lại; bấm xoá rồi từ chối thì canvas còn, đồng ý thì dòng mất, server giả hết canvas ấy và tổng
     giảm; trong Chromium thật, dòng nói "Đã xoá canvas…" không chiếm chỗ nào khi còn trống, và sau khi
-    xoá dòng cuối thì bàn phím nằm ở tên của dòng trước, dòng ấy hiện đúng tên canvas vừa xoá; "the
-    canvas library is reached from the crew's part of the manage screen");
+    xoá dòng cuối thì bàn phím nằm ở tên của dòng trước, dòng ấy hiện đúng tên canvas vừa xoá, cùng
+    cỡ chữ và không lề riêng như dòng tổng; "the canvas library is reached from the crew's part of
+    the manage screen");
     `web/e2e/touch-targets-phone.spec.ts` (trang "the canvas library": nút xoá của một dòng đủ 40 px);
     bản giả của `GET /api/artifacts/usage` nằm ở `web/src/test/fake-canvas-usage.ts`
     (`web/src/test/fake-canvas.test.ts`, "counts what every version of each canvas holds, on a path
@@ -3494,8 +3495,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     gì trên đường; còn chữ chưa lưu thì nút bị giữ lại bằng `aria-disabled`, bấm không mở gì, và nhận
     lại khi một phiên bản giữ chúng; "stays within the keyboard's reach while words are unsaved, and
     says why it cannot be taken yet": nút không `disabled` nên vẫn nhận bàn phím, lý do "Lưu trước khi
-    mở riêng" nằm ở `title` và ở dòng mà `aria-describedby` trỏ tới, lưu xong thì lý do không còn và
-    bàn phím vẫn ở nút; đứng cạnh nút "Mở trang" của canvas trang, mỗi nút một tên; không có khi
+    mở riêng" nằm ở `title` và ở dòng mà `aria-describedby` trỏ tới, dòng ấy mang lớp `sr-only` nên
+    chỉ được đọc lên chứ không vẽ ra, lưu xong thì lý do không còn và bàn phím vẫn ở nút; đứng cạnh
+    nút "Mở trang" của canvas trang, mỗi nút một tên; không có khi
     panel không được cho địa chỉ, khi canvas mới biết tên chưa đọc xong, và khi canvas bị xoá);
     `web/src/components/canvas/canvas-dock-view.test.tsx` ("the open canvas's own page": ở cột lẫn lớp
     phủ, địa chỉ là `#/manage/canvas/<id>` của canvas đang mở);
@@ -3528,9 +3530,13 @@ tên một test thì sửa dòng của nó trong cùng commit.
     thư viện và trang không ném lỗi nào; "opens on its own page in a
     new tab cut off from this one, once what was typed is saved": nút bị giữ lại cho tới khi lần lưu
     xong mà vẫn nhận bàn phím: `aria-disabled`, không `disabled`, lý do ở `title` và ở mô tả, mờ như
-    nút tắt, Enter, Space và cú bấm chuột đều không mở tab nào; lưu xong thì bàn phím vẫn ở nút và
-    lý do không còn; tab mới có `window.opener` là `null` và `document.referrer` rỗng, tab cũ vẫn ở
-    cuộc trò chuyện);
+    nút tắt, Enter, Space và cú bấm chuột đều không gọi `window.open` lần nào (trang ghi lại từng
+    lần gọi, vì tab mới chỉ hiện trong danh sách trang của trình duyệt sau một lúc); lưu xong thì bàn
+    phím vẫn ở nút và lý do không còn, cú bấm lúc này là lần gọi duy nhất và đúng địa chỉ; tab mới có
+    `window.opener` là `null` và `document.referrer` rỗng, tab cũ vẫn ở cuộc trò chuyện; "gives
+    nothing under the pointer or under a press while words are unsaved": lúc bị giữ lại, nút không
+    đổi nền, màu chữ hay `transform` khi rê chuột vào và khi nhấn giữ, cú nhấn không mở gì; lưu xong
+    mà chuột còn trên nút thì nút sáng lên như mọi nút cùng loại);
     `web/e2e/touch-targets-phone.spec.ts` ("every control on a canvas's own page is big enough for a
     finger, a conversation named in one letter too"; "the name that opens a canvas from the library is
     big enough for a finger, one letter long too"); nút "Mở riêng" trong dock ở 390 px và 1000 px nằm
