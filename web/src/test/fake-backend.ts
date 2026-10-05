@@ -33,6 +33,7 @@ export const fakeAgent: AgentInfo = {
   dir: "/tmp/home",
   workspace: "/tmp/home/workspace",
   routes: [{ provider: "fake", model: "echo" }],
+  escalation_route: null,
   cost_cap_usd: 1,
   max_steps: 20,
   autonomous: false,

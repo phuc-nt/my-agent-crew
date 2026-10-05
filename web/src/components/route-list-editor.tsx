@@ -11,7 +11,7 @@ interface Props {
 }
 
 /** A new row starts on a real provider: `fake` only echoes the prompt back, and sorts first. */
-const firstReal = (providers: string[]) => providers.find((name) => name !== "fake") ?? providers[0] ?? "";
+export const firstReal = (providers: string[]) => providers.find((name) => name !== "fake") ?? providers[0] ?? "";
 
 /**
  * An ordered list of provider + model pairs, tried top to bottom: an agent's own routes,

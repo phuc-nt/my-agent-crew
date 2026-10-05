@@ -4601,3 +4601,61 @@ prompt chỉ còn dòng ngày là đổi, và lịch sử là một prefix chỉ
   - Playwright: `manage-smoke.spec.ts` (màn sửa agent hiện khối ghi chú dưới lời nhắc, đúng nội dung và độ
     dài, lời nhắc không chứa ghi chú, trang không rộng ra, Ẩn thì khối mất; agent chưa có ghi chú thì không
     có khối).
+
+## Tuyến leo thang cho lượt bị kẹt
+
+Một agent có thể nêu `escalation_route` trong `agent.yaml`: một `provider:model` mà lượt của nó chỉ chuyển
+sang khi bị kẹt — bộ chặn lặp sắp dừng lượt, hoặc một lần gọi model hỏng trên mọi tuyến chính trước khi
+hiện chữ nào. Tắt theo mặc định, không thừa hưởng, mỗi lượt chuyển tối đa một lần và lượt sau quay về
+tuyến chính. Việc chuyển phát event `escalated`, web hiện dòng báo và run có step `escalation`.
+
+- **lượt bị kẹt chuyển sang tuyến leo thang, một lần, rồi quay về**:
+  - pytest: `tests/test_escalation.py` (lượt sắp dừng vì lặp thì chuyển: lệnh lặp bị từ chối bằng câu nói
+    lượt được chuyển, lần gọi kế tiếp đi trên tuyến leo thang và lượt xong; lặp tiếp trên tuyến đó thì dừng
+    `loop`; lần gọi model mà mọi tuyến đều hỏng được hỏi lại trên tuyến leo thang với đúng yêu cầu cũ; phần
+    còn lại của lượt ở lại tuyến đó và lượt sau bắt đầu trên tuyến chính; chỉ chuyển một lần, lỗi ở đó kết
+    thúc lượt; chuyển vì lỗi rồi lặp thì dừng; agent không nêu tuyến thì kết thúc bằng lỗi như cũ; lần gọi
+    đã hiện chữ không được hỏi lại ở nơi khác, còn chữ của một lần gọi trước trong cùng lượt thì không bị
+    tính; không còn lần gọi model nào thì dừng hay báo lỗi chứ không chuyển, còn đúng một lần thì lần đó đi
+    trên tuyến leo thang; lượt vừa nói vừa lặp vẫn được chuyển; lượt đã chuyển vẫn dừng ở giới hạn bước và
+    ở trần chi phí, và lượt đã quá trần thì không chuyển).
+  - pytest: `tests/test_escalation_setup.py` (step `escalation` đứng vào chỗ step model đang chờ khi lý do
+    là lỗi, mang lý do, tuyến và lỗi rút gọn, và lần gọi kế tiếp mở step riêng; chuyển vì lặp là một step
+    riêng 0 ms không có lỗi, step model trước nó giữ nguyên; event ra dây đúng năm khoá; một lượt thật qua
+    API cho `route_fallback` rồi `escalated` rồi `done`, và run giữ đủ ba step; khoá trong `agent.yaml`
+    được đọc kèm `reasoning` của agent; agent không nêu thì không có, dù cài đặt chung có; giá trị không
+    phải một `provider:model` báo lỗi nêu tên agent và khoá; tuyến dùng được thành chuỗi một tuyến; tuyến
+    của provider chưa dựng và tuyến trùng tuyến chính bị bỏ kèm cảnh báo, còn cùng model trên provider khác
+    thì dùng được).
+  - pytest: `tests/test_api_agents_escalation.py` (màn sửa đặt và bỏ tuyến, tệp ghi đúng một dòng
+    `provider:model` và agent đang chạy dùng ngay; agent mới tạo kèm tuyến; tuyến không phải lối ra bị từ
+    chối 422 trước khi ghi tệp; đổi `routes` trùng tuyến leo thang cũng bị từ chối; agent mới nêu tuyến
+    như thế không được tạo; hình dạng khác bị từ chối; tệp viết tay có tuyến như thế không chặn một sửa
+    đổi khác).
+  - vitest: `state/escalated-event.test.ts` (dòng báo mang lý do và tuyến, thay dòng báo đổi tuyến và còn
+    đó sau `done`; trên run, chuyển vì lặp là step sau lần gọi đã trả lời, chuyển vì lỗi thay step model
+    đang mở, lỗi rút còn 160 ký tự), `app-escalated-notice.test.tsx` (cả ứng dụng: dòng báo đúng câu và
+    đúng lớp cho từng lý do), `components/escalation-step.test.tsx` (dòng trên timeline có tuyến, chữ "leo
+    thang", lý do, lỗi; trạng thái xong; không gộp với dòng khác; có thời gian khi mất thời gian, không có
+    khi 0 ms hay chưa biết).
+  - vitest: `components/agent-editor/escalation-route-editor.test.tsx` (chưa đặt thì nói rõ lượt kẹt sẽ
+    dừng như trước; thêm trên một provider thật, gõ model, lưu gửi đúng `escalation_route`; chỉ hỏi tên
+    model khi bấm lưu; trùng một tuyến ở trên thì giữ lưu và nói vì sao; tuyến tệp nêu vẫn hiện kể cả
+    provider chưa dựng; bỏ thì gửi `null`; đổi một tuyến ở trên trùng nó cũng bị giữ; lời từ chối của
+    server hiện ra; agent chỉ đọc thì khoá; server cũ không trả khoá thì coi như chưa đặt),
+    `hooks/agent-draft-escalation.test.ts` (các kiểm tra của bản nháp và phần gửi đi: cắt khoảng trắng,
+    gửi `null`, không gửi khi không đụng tới), `hooks/use-agent-draft.test.ts` (bản nháp mở đầu mang khoá).
+  - Playwright: `escalation-route.spec.ts` (đặt tuyến trong màn sửa agent: hỏi tên model khi lưu, từ chối
+    tuyến trùng, lưu gửi đúng thân PATCH với tên model đã cắt khoảng trắng, không đòi khởi động lại, tải
+    lại vẫn còn, bỏ thì gửi `null`; trên điện thoại 390px hàng không tràn, ô đủ 16px và đủ cao để chạm;
+    lượt đã chuyển hiện dòng báo đúng câu cho từng lý do; timeline của run nêu bước chuyển, lý do, lỗi và
+    model trả lời sau nó).
+  - Kiểm chứng đột biến: bốn mươi ba sửa đổi ở server (không chuyển khi lặp hay khi lỗi; chuyển hai lần;
+    chuyển khi không còn lần gọi model nào hay khi lần gọi đã hiện chữ; đã chuyển mà vẫn hỏi tuyến chính,
+    hoặc hỏi tuyến leo thang ngay từ đầu; không đặt lại bộ đếm lặp; nhận tuyến trùng hay thiếu khoá; cho
+    thừa hưởng từ cài đặt chung; bỏ `reasoning`; bỏ kiểm tra khi sửa `routes`; step không thay step model
+    đang chờ; bỏ lý do, tuyến hay lỗi) và bốn mươi bảy ở web (bỏ lý do khỏi dòng báo hay dùng kiểu đổi
+    tuyến; step không thay step đang mở, hoặc thay cả step đã trả lời; sai trạng thái; hiện thời gian
+    0 ms; bỏ chữ "leo thang", lý do hay lỗi trên timeline; bỏ từng kiểm tra của bản nháp; không cắt khoảng
+    trắng; nút bỏ không gửi `null`; bỏ khoá khỏi bản nháp), mỗi cái đều làm ít nhất một test đỏ. Một sửa
+    đổi ở web từng sống sót vì một mặc định `?? null` thừa trong bản nháp; mặc định đó đã được bỏ.

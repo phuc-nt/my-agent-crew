@@ -678,7 +678,8 @@ button.suggestion:hover:not(:disabled) {
 }
 
 .notice.halted,
-.notice.fallback {
+.notice.fallback,
+.notice.escalated {
   background: var(--warn-bg);
   color: var(--warn-text);
 }

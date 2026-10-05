@@ -125,6 +125,17 @@ export function applyRunEvent(run: RunInfo, e: AgentEvent): RunInfo {
       else steps.push(fallback);
       break;
     }
+    case "escalated": {
+      // As on the server, the move takes the place of a call left open: no route of the
+      // agent's own answered it, and the call made next on the new route is a step of its
+      // own. A move made for a loop finds no call open and stands after the refused one.
+      const moved: RunStep = { kind: "escalation", reason: e.reason, provider: e.provider, model: e.model, duration_ms: null };
+      if (e.error) moved.error = preview(e.error);
+      const last = steps[steps.length - 1];
+      if (last?.kind === "model" && !isAnswered(last)) steps[steps.length - 1] = moved;
+      else steps.push(moved);
+      break;
+    }
     case "steer":
       // Shown the way a note is, and shortened by the same function the server shortens
       // it with (`note_text` in `activity/steps.py`), so the row does not change text

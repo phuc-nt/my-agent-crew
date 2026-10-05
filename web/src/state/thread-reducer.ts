@@ -5,6 +5,7 @@ import type {
   Approval,
   ApprovalKind,
   ConversationDetail,
+  EscalationReason,
   QueuedMessage,
   StoredMessage,
   ToolCall,
@@ -79,7 +80,12 @@ export interface ThreadState {
   pending: PendingApproval | null;
   spentUsd: number;
   unknownCostCalls: number;
-  notice: { kind: "error" | "halted" | "fallback" | "stopped" | "handled" | "elsewhere"; text: string } | null;
+  /** `reason` is set on "escalated" only: why the turn moved, beside the route it moved to. */
+  notice: {
+    kind: "error" | "halted" | "fallback" | "escalated" | "stopped" | "handled" | "elsewhere";
+    text: string;
+    reason?: EscalationReason;
+  } | null;
   /** Messages that found this conversation busy and wait: a chip each, confirmation only. */
   waiting: QueuedMessage[];
   /** The canvases the model is writing in the turn that is going. None outlives its turn. */
@@ -399,6 +405,10 @@ function applyEvent(given: ThreadState, e: AgentEvent): ThreadState {
       return { ...state, busy: false, streaming: null, notice: { kind: "error", text: e.message }, ...noPreviews };
     case "route_fallback":
       return { ...state, notice: { kind: "fallback", text: `${e.provider}:${e.model} — ${e.error}` } };
+    // The turn goes on, so nothing else changes: the notice says which model the rest of it
+    // is answered by, and takes the place of the fallback notice the failed routes left.
+    case "escalated":
+      return { ...state, notice: { kind: "escalated", text: `${e.provider}:${e.model}`, reason: e.reason } };
     // The hook that sent the message intercepts its own `queued` event before the reducer
     // ever sees it — only the hook knows which text was just sent. Reaching here means the
     // event arrived on a stream nothing is watching for it; nothing to do.

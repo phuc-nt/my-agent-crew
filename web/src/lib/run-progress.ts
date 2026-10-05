@@ -51,6 +51,9 @@ export function isAnswered(step: ModelStep): step is ModelStep & { tool_calls: s
  */
 export function stepState(step: RunStep, runStatus: RunStatus): StepState {
   if (step.kind === "fallback") return "failed";
+  // The move itself went through: what failed is the step before it, and whether the new
+  // route answers is the step after.
+  if (step.kind === "escalation") return "done";
   if (step.kind === "model" && isAnswered(step)) return "done";
   if (step.kind === "model") return isSettled(runStatus) ? "stalled" : "running";
   // A note is finished the instant it is written, and it can neither run nor fail.

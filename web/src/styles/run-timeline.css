@@ -76,6 +76,12 @@
 .step.fallback::before {
   background: var(--step-fallback);
 }
+.step.escalation::before {
+  /* The colour of the route that gave up, hollow like a hand-off: the turn does not stop
+     here, it carries on through the node on another model. */
+  background: transparent;
+  border: 2px solid var(--step-fallback);
+}
 .step.question::before {
   /* Hollow, like delegate: the run does not end here, it hands the next move to
      someone else and the line carries on through the node. */

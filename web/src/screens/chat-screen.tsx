@@ -65,6 +65,7 @@ const PHONE_QUERY = "(max-width: 720px)";
 
 const NOTICE_ICON: Record<string, IconName> = {
   fallback: "refresh",
+  escalated: "arrow-up",
   halted: "pause",
   stopped: "stop",
   handled: "info",
@@ -326,13 +327,15 @@ export function ChatScreen({
           : runSummaryText({ status: "halted", summary: state.notice.text })
         : state.notice.kind === "fallback"
           ? vi.routeFallback(state.notice.text)
-          : state.notice.kind === "stopped"
-            ? vi.stopped
-            : state.notice.kind === "handled"
-              ? vi.attentionHandled
-              : state.notice.kind === "elsewhere"
-                ? vi.stopElsewhere
-                : vi.errorPrefix + state.notice.text}
+          : state.notice.kind === "escalated"
+            ? vi.routeEscalated(state.notice.reason ?? "error", state.notice.text)
+            : state.notice.kind === "stopped"
+              ? vi.stopped
+              : state.notice.kind === "handled"
+                ? vi.attentionHandled
+                : state.notice.kind === "elsewhere"
+                  ? vi.stopElsewhere
+                  : vi.errorPrefix + state.notice.text}
       {state.notice.kind === "halted" && state.notice.text === "budget" && active && !overBudget && capReached && (
         <RaiseCapButton capUsd={active.cost_cap_usd} onSave={raiseFromNotice} />
       )}

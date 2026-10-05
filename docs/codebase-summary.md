@@ -49,7 +49,7 @@ my-agent-crew/
 | `__main__.py` | CLI: `python -m my_agent_crew`, `agent list-templates`, `agent add` |
 
 Một lượt phát ra một chuỗi sự kiện (chữ, tin trợ lý, gọi tool, kết quả tool, cần duyệt, xong,
-dừng, lỗi, đổi tuyến). Cùng một chuỗi vừa là SSE cho web, vừa là step ghi vào run. Vài sự kiện
+dừng, lỗi, đổi tuyến, leo thang). Cùng một chuỗi vừa là SSE cho web, vừa là step ghi vào run. Vài sự kiện
 chỉ để hiển thị (chữ đang chảy, `user_context`, `tool_call_delta`) đi qua SSE của lượt mà không
 được lưu; xem [system-architecture.md](system-architecture.md#28-canvas-tài-liệu-người-và-agent-cùng-sửa).
 

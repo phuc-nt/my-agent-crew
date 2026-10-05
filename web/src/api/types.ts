@@ -156,6 +156,9 @@ export type AgentEvent =
   | { type: "halted"; reason: "budget" | "max_steps" | "loop"; spent_usd: number }
   | { type: "error"; message: string }
   | { type: "route_fallback"; provider: string; model: string; error: string }
+  /** The turn was stuck and goes on with the agent's escalation route: it kept making the
+   *  same call ("loop"), or none of its own routes answered ("error", with what they said). */
+  | { type: "escalated"; reason: EscalationReason; provider: string; model: string; error: string }
   /** The message that started this stream found its conversation busy and waits instead:
    *  the only event this stream will ever carry. */
   | { type: "queued"; item_id: number; kind: "follow_up" | "steer"; position: number }
@@ -259,6 +262,10 @@ export interface TelegramBlock {
   approval_ttl_seconds?: number;
 }
 
+/** Why a turn moved to its escalation route. Must match `LOOP` and `ERROR` in the
+ * backend's `agent/escalation.py`. */
+export type EscalationReason = "loop" | "error";
+
 /** One agent profile as listed by GET /api/agents. */
 export interface AgentInfo {
   id: string;
@@ -267,6 +274,9 @@ export interface AgentInfo {
   dir: string;
   workspace: string;
   routes: RouteInfo[];
+  /** The one route a stuck turn moves to, as the agent's file names it; null when it names
+   * none, which is how every agent starts. */
+  escalation_route: RouteInfo | null;
   cost_cap_usd: number;
   max_steps: number;
   autonomous: boolean;
@@ -338,6 +348,7 @@ export interface AgentPatch {
   name?: string;
   description?: string;
   routes?: RouteInfo[] | null;
+  escalation_route?: RouteInfo | null;
   workspace?: string | null;
   persona_files?: string[] | null;
   skills_dirs?: string[] | null;

@@ -84,6 +84,20 @@ tiếp được. Chỉ lặp liền nhau mới tính: "chạy test, sửa, chạ
 cách làm việc. `progress_note` và `ask_user` không tính; một lần gọi model không có tool, hay tin
 mới của người, đếm lại từ đầu.
 
+**Leo thang.** Agent nào nêu `escalation_route` trong `agent.yaml` thì hai kiểu kẹt không dừng lượt
+ngay mà chuyển lượt sang tuyến đó (`agent/escalation.py`); mặc định không agent nào nêu. Khi bộ
+chặn lặp sắp dừng lượt: các lệnh lặp vẫn không chạy, nhưng kết quả từ chối nói rằng lượt được
+chuyển sang model khác, bộ đếm lặp về không và lần gọi model kế tiếp đi trên tuyến leo thang. Khi
+một lần gọi model hỏng trên mọi tuyến trong `routes` mà chưa hiện chữ nào (một mẩu bản nháp canvas
+cũng tính là đã hiện): chính yêu cầu đó được hỏi lại trên tuyến leo thang ở bước kế tiếp, và lần
+gọi hỏng vẫn tính một bước của `max_steps`. Lượt chỉ chuyển một lần và ở lại tuyến đó tới hết;
+lặp tiếp hay lỗi tiếp ở đó thì lượt dừng đúng như agent không có tuyến leo thang. Không chuyển khi
+lượt không còn lần gọi model nào, khi hết bước, hay khi hết ngân sách: model mạnh hơn không chữa
+được ba việc đó. Lượt sau bắt đầu lại trên `routes`, và phần lượt đi tiếp sau khi chờ duyệt hay
+sau khi server khởi động lại cũng vậy. Việc chuyển phát event `escalated` (lý do `loop` hoặc
+`error`, tuyến, và lỗi nếu có): web hiện một dòng báo phía trên ô nhập, còn run có step
+`escalation`, đứng vào chỗ step model đang chờ khi lý do là lỗi.
+
 Điểm cần nhớ với người mới: **model không "chạy" gì cả**. Nó chỉ trả về JSON nói "tôi muốn gọi `workspace_read` với path này". Harness quyết định có chạy không, chạy rồi đưa kết quả vào message tiếp theo. Mọi cổng kiểm soát nằm ở chỗ này.
 
 ### 2.4 Sổ đăng ký tool: tay chân của agent

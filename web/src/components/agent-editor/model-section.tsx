@@ -1,6 +1,7 @@
 import type { AgentDraft } from "../../hooks/use-agent-draft";
 import { vi } from "../../i18n/vi";
 import { RouteListEditor } from "../route-list-editor";
+import { EscalationRouteEditor } from "./escalation-route-editor";
 
 interface Props {
   form: AgentDraft;
@@ -11,7 +12,8 @@ interface Props {
 
 /**
  * The models the agent tries, in order — the second route only runs when the first one
- * fails. Saved with the rest of the agent's profile.
+ * fails — and under them the one a stuck turn moves to, if the agent names one. Saved with
+ * the rest of the agent's profile.
  */
 export function ModelSection({ form, readOnly, providers }: Props) {
   return (
@@ -23,6 +25,13 @@ export function ModelSection({ form, readOnly, providers }: Props) {
         providers={providers}
         readOnly={readOnly}
         onChange={(next) => form.set("routes", next)}
+      />
+      <EscalationRouteEditor
+        route={form.draft.escalation_route ?? null}
+        providers={providers}
+        readOnly={readOnly}
+        error={form.problems.escalationRoute}
+        onChange={(next) => form.set("escalation_route", next)}
       />
     </section>
   );

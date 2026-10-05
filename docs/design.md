@@ -194,6 +194,15 @@ any platform ──POST /api/inbound (JSON, sync)─────┴─▶ Inboun
   mặt như cũ. Hỏi lại vẫn hỏng thì mới rơi sang tuyến kế (hoặc báo mọi tuyến hỏng). Đây không
   phải tuyến dự phòng: cùng model, cùng provider, nên quyết định một tuyến của chủ vẫn nguyên.
   Lời gọi bên cạnh lượt bị bỏ dở sau chunk đầu rồi được hỏi lại vẫn ghi vào sổ với giá không rõ.
+- **Tuyến leo thang là lối ra cho lượt bị kẹt, không phải định tuyến theo vai.** Đội chạy một
+  tuyến rẻ và không chia model theo vai; quyết định đó vẫn nguyên. Phần được nới, theo lựa chọn
+  của chủ: một agent có thể nêu `escalation_route`, một `provider:model` chỉ dùng khi lượt của nó
+  kẹt — sắp bị bộ chặn lặp dừng, hoặc mọi tuyến chính đều hỏng trước khi hiện chữ nào. Tắt theo
+  mặc định, chỉ đặt cho từng agent, không thừa hưởng. Lượt chuyển tối đa một lần, phần còn lại
+  chạy trên tuyến đó, lượt sau quay về tuyến chính; hết bước và hết ngân sách không bao giờ leo
+  thang. Một tuyến trùng tuyến chính hay thiếu khoá không phải là lối ra nên không được dùng. Việc
+  chuyển luôn nhìn thấy được: event `escalated`, một dòng báo trên web và step `escalation` trên
+  run, để chi phí của model đắt hơn không bao giờ đến âm thầm.
 - **Chi phí trung thực.** Mỗi message assistant lưu `cost_usd` hoặc `None`. Cuộc trò chuyện giữ
   `spent_usd` và `unknown_cost_calls`; `cost_cap_usd` dừng trước lần gọi model kế tiếp
   (0 = không giới hạn). Mọi lần gọi model nằm ngoài vòng lặp lượt — đặt tiêu đề, tóm tắt

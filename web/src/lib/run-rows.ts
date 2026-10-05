@@ -14,7 +14,7 @@ import type { RunInfo, RunStatus, RunStep } from "../api/types";
 import { vi } from "../i18n/vi";
 
 /** The visual family of a row, which decides its colour and glyph. */
-export type RowKind = "model" | "tool" | "delegate" | "fallback" | "question" | "note" | "steer";
+export type RowKind = "model" | "tool" | "delegate" | "fallback" | "escalation" | "question" | "note" | "steer";
 
 export interface RunRow {
   /** Stable within one run: the index of the first step this row covers. */
@@ -69,6 +69,7 @@ export function noteText(args: Record<string, unknown> | string): string {
 function rowKind(step: RunStep): RowKind {
   if (step.kind === "model") return "model";
   if (step.kind === "fallback") return "fallback";
+  if (step.kind === "escalation") return "escalation";
   if (step.kind === "question") return "question";
   if (step.kind === "note") return "note";
   if (step.kind === "steer") return "steer";
@@ -82,7 +83,8 @@ function rowLabel(step: RunStep, status: RunStatus): string {
     if (isAnswered(step)) return step.model ?? "?";
     return isSettled(status) ? vi.stepModelUnnamed : vi.runThinking;
   }
-  if (step.kind === "fallback") return `${step.provider}:${step.model}`;
+  // A route given up on and the route moved to are both named the way a route is written.
+  if (step.kind === "fallback" || step.kind === "escalation") return `${step.provider}:${step.model}`;
   // The question itself, not "ask_user": the label is what the row is about.
   if (step.kind === "question") return step.question;
   // Likewise a note is its sentence; there is no other name it could go by.
@@ -112,7 +114,8 @@ function mergeable(prev: RunRow, next: RunRow): boolean {
 function hasBody(step: RunStep): boolean {
   if (step.kind === "tool") return step.output !== null && step.output !== "";
   if (step.kind === "model") return Boolean(step.preview);
-  // A fallback carries its error text, a question carries what was asked and a note
+  // A fallback carries its error text, a move to the escalation route says why it was
+  // made, a question carries what was asked and a note
   // carries its sentence; each is always worth its own row. Two notes in a row say
   // different things even when they look alike to the merge rule.
   return true;

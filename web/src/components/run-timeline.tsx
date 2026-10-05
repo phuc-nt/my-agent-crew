@@ -135,10 +135,10 @@ function StepRow({ row }: { row: RunRow }) {
   // A note's duration is always zero — it is stamped and closed on the same clock. "0 ms"
   // on every note row is noise that says nothing about the work the note describes. A
   // steer step is the same: said and done in the same instant, by a person instead.
-  const duration =
-    row.durationMs !== null && row.kind !== "note" && row.kind !== "steer"
-      ? vi.stepDuration(row.durationMs)
-      : null;
+  // A move to the escalation route made for a loop is decided on the spot and takes no
+  // time either; one made for an error took as long as the call that never answered.
+  const instant = row.kind === "note" || row.kind === "steer" || (row.kind === "escalation" && !row.durationMs);
+  const duration = row.durationMs !== null && !instant ? vi.stepDuration(row.durationMs) : null;
 
   return (
     <li className={`step ${row.kind} ${row.state}`} data-testid="run-step" data-state={row.state}>
@@ -151,6 +151,7 @@ function StepRow({ row }: { row: RunRow }) {
               its name is a verb already. */}
           {row.kind === "model" && row.state !== "running" && <span className="step-role muted">{vi.stepModel}</span>}
           {row.kind === "fallback" && <span className="step-role muted">{vi.stepFallback}</span>}
+          {row.kind === "escalation" && <span className="step-role muted">{vi.stepEscalation}</span>}
           {row.kind === "delegate" && <span className="step-role muted">{vi.stepDelegate}</span>}
           {/* The label is the question itself, so without this the row reads as a
               statement the agent made rather than one it is waiting on. */}
@@ -188,6 +189,12 @@ function StepRow({ row }: { row: RunRow }) {
       )}
       {step.kind === "model" && step.preview && <span className="step-preview muted">{step.preview}</span>}
       {step.kind === "fallback" && <span className="step-detail">{step.error}</span>}
+      {step.kind === "escalation" && (
+        <span className="step-detail">
+          {vi.stepEscalationReason[step.reason]}
+          {step.error && ` — ${step.error}`}
+        </span>
+      )}
       {step.kind === "tool" && (
         <span className="tool-arguments">
           {(step.arguments !== undefined && summarizeArguments(step.arguments)) || "—"}

@@ -19,6 +19,7 @@ describe("useAgentDraft", () => {
       mode: fakeAgent.mode,
       workspace: fakeAgent.workspace,
       routes: fakeAgent.routes,
+      escalation_route: fakeAgent.escalation_route,
       cost_cap_usd: fakeAgent.cost_cap_usd,
       max_steps: fakeAgent.max_steps,
       autonomous: fakeAgent.autonomous,

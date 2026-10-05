@@ -273,6 +273,24 @@
   min-width: 0;
 }
 
+/* The route a stuck turn moves to sits under the list it is the way out of, set apart
+   from it: it is not one more route tried in order. */
+.escalation-route {
+  margin-top: var(--space-4);
+}
+
+.escalation-route h4 {
+  margin: 0 0 var(--space-1);
+}
+
+.escalation-route p {
+  margin: 0 0 var(--space-2);
+}
+
+.escalation-route .route-editor {
+  margin-bottom: var(--space-2);
+}
+
 /* ── Pickers ────────────────────────────────────────────────────────────── */
 .tool-picker {
   list-style: none;

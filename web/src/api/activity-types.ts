@@ -1,6 +1,6 @@
 // Shapes of the activity stream, the job list and the cost summary (GET /api/activity/*, /jobs, /stats).
 import type { ArtifactEvent } from "./artifact-types";
-import type { AgentEvent, Conversation, ScheduleInfo } from "./types";
+import type { AgentEvent, Conversation, EscalationReason, ScheduleInfo } from "./types";
 
 export type RunStatus = "running" | "awaiting_approval" | "done" | "halted" | "error";
 
@@ -63,6 +63,16 @@ export type RunStep =
       provider: string;
       model: string;
       error: string;
+      duration_ms: number | null;
+    }
+  | {
+      /** The turn was stuck and moved to the agent's escalation route for the rest of it.
+       *  `error` is what its own routes said, and is absent on a move made for a loop. */
+      kind: "escalation";
+      reason: EscalationReason;
+      provider: string;
+      model: string;
+      error?: string;
       duration_ms: number | null;
     }
   | {

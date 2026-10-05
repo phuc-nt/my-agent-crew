@@ -401,6 +401,14 @@ export const vi = {
     provider: "Nhà cung cấp",
     model: "Mô hình",
     addRoute: "+ Thêm tuyến",
+    escalationRoute: "Tuyến leo thang",
+    escalationRouteHint:
+      "Chỉ dùng khi một lượt bị kẹt: gọi cùng một lệnh nhiều lần liên tiếp, hoặc mọi tuyến ở trên đều lỗi. Phần còn lại của lượt đó chạy trên tuyến này; lượt sau quay về các tuyến ở trên.",
+    escalationRouteNone: "Chưa đặt: lượt bị kẹt sẽ dừng như trước.",
+    addEscalationRoute: "+ Đặt tuyến leo thang",
+    removeEscalationRoute: "Bỏ tuyến leo thang",
+    escalationModelMissing: "Nhập tên mô hình, hoặc bỏ tuyến leo thang.",
+    escalationSameAsRoute: "Tuyến leo thang phải khác mọi tuyến ở trên.",
     remove: "Xoá",
     persona: "Tệp tính cách",
     personaHint: "Nội dung các tệp này được ghép vào lời nhắc hệ thống mỗi lượt.",
@@ -634,6 +642,12 @@ export const vi = {
   // it is still going. Read with the role and state beside it: "Mô hình trả lời dở dang".
   stepModelUnnamed: "Mô hình",
   stepFallback: "đổi tuyến",
+  stepEscalation: "leo thang",
+  // Why a turn moved to its escalation route, said under the row that names the route.
+  stepEscalationReason: {
+    loop: "Lượt gọi cùng một lệnh nhiều lần liên tiếp.",
+    error: "Không tuyến chính nào trả lời.",
+  },
   stepQuestion: "hỏi bạn",
   // Not "ghi chú": that would suggest something was written down and kept. The note only
   // reports what is happening right now, and disappears with the run.
@@ -642,6 +656,10 @@ export const vi = {
   // as "you cut in", the same instant it happened.
   stepSteer: "bạn chèn",
   routeFallback: (detail: string) => `Tuyến ${detail} không trả lời, đã chuyển sang tuyến dự phòng.`,
+  routeEscalated: (reason: "loop" | "error", route: string) =>
+    reason === "loop"
+      ? `Lượt này gọi cùng một lệnh nhiều lần liên tiếp; phần còn lại chạy trên tuyến leo thang ${route}.`
+      : `Không tuyến chính nào trả lời; phần còn lại của lượt chạy trên tuyến leo thang ${route}.`,
   stepDuration: (ms: number) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)} giây` : `${ms} ms`),
   stepChars: (n: number) => `${n} ký tự`,
   stepCostUnknown: "không rõ giá",

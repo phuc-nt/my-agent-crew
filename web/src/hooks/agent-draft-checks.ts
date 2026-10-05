@@ -20,6 +20,7 @@ export interface RowProblems {
 export interface DraftProblems {
   chatId?: string;
   memoryConsolidate?: string;
+  escalationRoute?: string;
   /** Index-aligned with the draft's rows; a row with nothing wrong has no entry. */
   schedules?: Record<number, RowProblems>;
   /**
@@ -98,6 +99,24 @@ function rowProblems(row: ScheduleRow, reveal: boolean, unfilled: () => void): R
 }
 
 /**
+ * What is wrong with the escalation route, given the routes it is a way out of. The server
+ * refuses both: a route with no model is no route, and a turn stuck on a model gains
+ * nothing from being sent to the same one.
+ */
+function escalationProblem(draft: AgentPatch, reveal: boolean, unfilled: () => void): string | undefined {
+  const route = draft.escalation_route;
+  if (!route) return undefined;
+  const model = route.model.trim();
+  if (!model) {
+    if (reveal) return vi.editor.escalationModelMissing;
+    unfilled();
+    return undefined;
+  }
+  const own = (draft.routes ?? []).some((r) => r.provider === route.provider && r.model.trim() === model);
+  return own ? vi.editor.escalationSameAsRoute : undefined;
+}
+
+/**
  * What is wrong with the keys the person changed.
  *
  * Only changed keys: a profile edited by hand may already hold something this form would
@@ -121,6 +140,11 @@ export function draftProblems(
     const chatId = draft.telegram.chat_id;
     if (chatId === 0 && !base.telegram?.chat_id && !reveal) unfilled();
     else if (!Number.isSafeInteger(chatId) || chatId === 0) problems.chatId = vi.editor.chatIdInvalid;
+  }
+  // Either key changing can make the two the same route, so either one brings the check.
+  if (dirty.includes("escalation_route") || dirty.includes("routes")) {
+    const found = escalationProblem(draft, reveal, unfilled);
+    if (found) problems.escalationRoute = found;
   }
   const consolidate = draft.memory_consolidate?.trim() ?? "";
   if (dirty.includes("memory_consolidate") && consolidate && !isCron(consolidate))
@@ -172,6 +196,8 @@ export function toPatch(draft: AgentPatch, dirty: (keyof AgentPatch)[]): AgentPa
   const patch: AgentPatch = {};
   for (const key of dirty) Object.assign(patch, { [key]: draft[key] });
   if ("memory_consolidate" in patch) patch.memory_consolidate = draft.memory_consolidate?.trim() || null;
+  // The model as it was checked, without the space a paste left around it.
+  if (patch.escalation_route) patch.escalation_route = { ...patch.escalation_route, model: patch.escalation_route.model.trim() };
   if (Array.isArray(patch.schedules)) {
     const rows = patch.schedules as ScheduleRow[];
     const ids = idsToSend(rows);

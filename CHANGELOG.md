@@ -68,6 +68,19 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   sends or pays is done twice unseen. A call that never ran (it still had to ask, was refused,
   or could not be run) is settled the way it always was.
 
+- An agent may name an escalation route: one `provider:model` its turn moves to only when the
+  turn is stuck (`escalation_route` in `agent.yaml`, or "Tuyến leo thang" under the routes in the
+  agent editor). Off unless an agent's own file sets it, and never inherited. A turn moves when
+  the loop guard is about to halt it for making the same call again and again, or when a model
+  call failed on every one of the agent's routes before any text was shown; the rest of that
+  turn runs on the escalation route and the next turn starts on the usual ones. A turn moves at
+  most once: stuck there too, it halts or fails as it did before. Running out of steps or of
+  budget never moves a turn. A route that is one of the agent's own, or whose provider has no
+  key, is no way out: it is left unused at start with a warning in the log, and saving one from
+  the editor is refused (422) with the reason. The move is a new event, `escalated`, with why it
+  was made; the web says so above the message box, and the run's timeline gains an `escalation`
+  step naming the route.
+
 ### Fixed
 
 - Saving an agent's own routes from the agent editor no longer fails. The editor holds a route
