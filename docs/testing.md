@@ -1995,6 +1995,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "test_a_delegated_child_writes_when_the_turn_its_chain_began_from_could": con theo nguồn của
     lượt mở đầu chuỗi, con mở trước khi chuỗi ghi gốc thì không bao giờ ghi, người gõ thẳng vào
     cuộc trò chuyện của con thì ghi được từ đó,
+    "test_an_api_turn_in_a_childs_own_conversation_writes_none": chiều ngược lại, lượt API trong
+    cuộc trò chuyện của con thì không ghi và không tính là vắng, dù chuỗi bắt đầu từ web chat,
+    Telegram hay job,
     "test_the_reader_of_a_telegram_turn_or_a_job_is_away_from_the_web",
     "test_a_delegated_childs_reader_is_where_its_chain_began" và
     "test_a_person_typing_in_a_childs_own_conversation_reads_from_there": người đọc của lượt
@@ -2079,6 +2082,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     ("test_a_turn_that_cannot_write_a_canvas_is_told_so_with_the_same_tools": lượt API, con có
     chuỗi bắt đầu từ API và con của chuỗi không có gốc nghe mục này, sau ghi chú ngày và ngay
     trước dòng ngày, cùng bộ tool; web chat và con của nó thì không,
+    "test_an_api_turn_in_a_childs_own_conversation_is_told_the_channel_is_closed": lượt API trong
+    cuộc trò chuyện của con nghe mục này đúng một lần và không nghe lời dặn của lượt vắng mặt, dù
+    chuỗi bắt đầu từ web chat, Telegram hay job,
     "test_the_note_names_only_the_canvas_writes_the_agent_holds": agent chỉ có `artifact_import`
     và `artifact_export` được nhắc đúng một tên `artifact_import`, agent chỉ xuất và đọc thì không
     có mục này, "test_the_standing_prompt_has_no_canvas_note": prompt thường trực không có mục

@@ -109,6 +109,21 @@ async def test_a_turn_whose_reader_is_away_from_the_web_chat_is_told_how_a_canva
         assert CANVAS_AWAY_BODY not in await _child_prompt(deps, store, root_source)
 
 
+@pytest.mark.parametrize("root_source", [CHAT, TELEGRAM, JOB])
+async def test_an_api_turn_in_a_childs_own_conversation_is_told_the_channel_is_closed(
+    deps_factory, store: Store, tmp_path: Path, root_source: str
+):
+    """A turn posted to the inbound API goes by its own channel, not by where the child's
+    chain once began: it hears that no canvas is written from here, once, and nothing about
+    a reader away from the web chat or a line that sends a canvas along."""
+    deps = deps_factory(script=[completion("được")], extra_tools=canvas_tools(store, tmp_path))
+    root = store.create()
+    child = store.create(parent_call_id="call-1", root_id=root.id, root_source=root_source)
+    system = (await _first_request(deps, child.id, API)).messages[0].content
+    assert system.count(f"## {CANVAS_CLOSED_TITLE}\n") == 1
+    assert note() in system and CANVAS_AWAY_BODY not in system
+
+
 async def test_the_note_names_only_the_canvas_writes_the_agent_holds(
     deps_factory, store: Store, tmp_path: Path
 ):

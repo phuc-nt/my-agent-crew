@@ -114,6 +114,21 @@ def test_a_person_typing_in_a_childs_own_conversation_writes_from_there(store: S
     assert may_write_canvas(child) is True
 
 
+@pytest.mark.parametrize("root_source", [CHAT, TELEGRAM, JOB])
+def test_an_api_turn_in_a_childs_own_conversation_writes_none(store: Store, root_source):
+    """The other way round: the turn's own channel decides, not where the chain once began.
+    Nothing carries a canvas back through the inbound API, whatever the child's root could
+    write, and nobody is told to send one from there."""
+    root = store.create()
+    child = store.create(root_id=root.id, root_source=root_source)
+    set_turn_source(API)
+    assert may_write_canvas(child) is False
+    assert canvas_reader_is_away(child) is False
+    with pytest.raises(ToolError) as caught:
+        check_channel(child)
+    assert str(caught.value) == ARTIFACT_CHANNEL_CLOSED
+
+
 @pytest.mark.parametrize(
     ("source", "away"),
     [(CHAT, False), (TELEGRAM, True), ("job:coach/brief", True), (API, False)],
