@@ -21,6 +21,7 @@ from my_agent_crew.tools.registry import ToolResult
 from tests.canvas_helpers import PLAN, call, created, put, turn
 
 OLD = "notes/old.md"
+NAMED = "notes/thực-đơn tuần.md"
 FULL = (28, "No space left on device")
 LOGGER = "my_agent_crew.tools.artifact_files"
 # The server's own format for a line of its log, and a line made to be read as one of them.
@@ -106,6 +107,24 @@ async def test_a_disk_that_refuses_is_worded_for_the_agent_and_leaves_one_warnin
     assert record.name == LOGGER
     place = str(root.resolve() / OLD)
     assert record.getMessage() == f"artifact_export could not write {place!r}: {told}"
+
+
+@pytest.mark.parametrize(
+    ("error", "level"),
+    [(OSError(*FULL), logging.WARNING), (ValueError("embedded null byte"), logging.ERROR)],
+)
+async def test_the_letters_of_a_name_are_logged_as_letters_whatever_the_alphabet(
+    store: Store, root: Path, art: str, monkeypatch, caplog, error: Exception, level: int
+):
+    """Only what would break the line is written as a code. A name in the owner's language
+    stays one a person can read, for a failure of the disk and for one of any other kind."""
+    monkeypatch.setattr(os, "replace", _failing(error))
+    with caplog.at_level(logging.WARNING):
+        result = await _export(store, root, art, NAMED)
+    assert result.output == TOOL_FAILED.format(error=EXPORT_FAILED.format(path=NAMED))
+    [record] = caplog.records
+    assert record.levelno == level
+    assert f"could not write '{root.resolve() / NAMED}'" in record.getMessage()
 
 
 @pytest.mark.skipif(os.geteuid() == 0, reason="root may write in any folder")

@@ -134,11 +134,13 @@ async def test_a_folder_linked_out_of_the_write_paths_takes_no_export(
 
 
 async def test_a_link_is_never_written_through(store: Store, root: Path, art: str):
-    """Neither onto the file it points at, nor into the place it only names."""
+    """Neither onto the file it points at, nor into the place it only names; and one that leads
+    to a folder is told as the link it is, not as that folder."""
     (root / "notes" / "link.md").symlink_to(root / OLD)
     (root / "notes" / "dangling.md").symlink_to(root.parent / "outside" / "new.md")
+    (root / "notes" / "folder.md").symlink_to(root / "out", target_is_directory=True)
     before = _tree(root)
-    for path in ("notes/link.md", "notes/dangling.md"):
+    for path in ("notes/link.md", "notes/dangling.md", "notes/folder.md"):
         result = await _export(store, root, art, path)
         assert result.output == _failed(EXPORT_TARGET_IS_LINK.format(path=path)), path
     assert _tree(root) == before

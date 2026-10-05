@@ -139,6 +139,19 @@ async def test_a_write_path_that_is_a_link_back_to_itself_holds_no_folder(
     assert _tree(root) == before
 
 
+async def test_a_write_path_that_is_a_link_to_a_folder_holds_what_that_folder_holds(
+    store: Store, root: Path, art: str
+):
+    """A write path is followed as the path written is: the owner may keep one as a link to a
+    folder elsewhere in the workspace, and a file sent under it lands in that folder."""
+    (root / "kept").mkdir()
+    (root / "out").symlink_to(root / "kept", target_is_directory=True)
+    result = await _export(store, root, art, "out/x.md", ("out",))
+    assert result.ok, result.output
+    assert (root / "kept" / "x.md").read_text(encoding="utf-8") == PLAN
+    assert (root / "out").is_symlink()
+
+
 async def test_where_a_path_leads_is_judged_before_the_disk_is_asked_about_its_name(
     store: Store, root: Path, art: str, caplog: pytest.LogCaptureFixture
 ):

@@ -457,7 +457,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     canvases, with the sentence …": kết quả `delegate` hết thời gian chờ là `failed` mà vẫn hiện
     đủ chip canvas, cả khi câu báo đứng sau dòng đếm canvas bị lược lẫn ở dạng đã lưu trước khi
     kết quả có dòng canvas; "is not …": agent con dừng dở, agent con tự viết lại đúng câu đó, kết
-    quả `done` hay `blocked`, câu đứng một mình không có kết quả phía trên thì thẻ là `done`)
+    quả `done` hay `blocked`, câu đứng một mình không có kết quả phía trên, câu bị trích lại ở
+    giữa một đoạn, hay câu đứng sau một đoạn chỉ chứa `(+` ở giữa chữ thì thẻ là `done`)
   - pytest: `tests/test_tool_reply_openings.py` (mỗi lời mở web dùng trong
     `web/src/lib/tool-reply.ts` đúng là phần chữ cố định của chuỗi server tương ứng, tính tới giá
     trị đầu tiên server điền vào, hoặc là cả câu khi câu không điền gì: `DENIED_TOOL` và
@@ -1678,7 +1679,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "test_a_folder_linked_out_of_the_workspace_takes_no_export",
     "test_a_folder_linked_out_of_the_write_paths_takes_no_export",
     "test_a_link_is_never_written_through": đích là symlink, kể cả symlink trỏ tới chỗ chưa có,
-    bị từ chối và tệp nó trỏ tới không đổi,
+    bị từ chối và tệp nó trỏ tới không đổi; symlink dẫn tới một thư mục được báo là symlink, không
+    phải là thư mục,
     "test_a_write_that_fails_leaves_the_old_file_whole_and_no_other_behind": `os.replace` ném
     `OSError` thì tệp cũ nguyên vẹn, không sót tệp tạm, lời báo không có đường dẫn của máy,
     "test_a_file_marked_read_only_is_not_replaced": tệp chỉ đọc không bị thay, và dòng `warning`
@@ -1696,6 +1698,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `Path.resolve` ném `RuntimeError`) và 3.13,
     "test_a_write_path_that_is_a_link_back_to_itself_holds_no_folder": `write_paths` có một
     symlink như thế thì tệp rơi ngoài các đường dẫn còn lại vẫn bị từ chối bằng câu cũ,
+    "test_a_write_path_that_is_a_link_to_a_folder_holds_what_that_folder_holds": `write_paths`
+    là symlink tới một thư mục khác trong workspace thì tệp gửi dưới nó vẫn được ghi, vào đúng
+    thư mục symlink dẫn tới,
     "test_where_a_path_leads_is_judged_before_the_disk_is_asked_about_its_name": tên quá dài nằm
     ngoài workspace, sau một thư mục liên kết ra ngoài hay ngoài `write_paths` vẫn nhận lời từ
     chối về vị trí như trước, không ghi gì và không để lại dòng log nào);
@@ -1718,6 +1723,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     đầy, mất quyền ghi hay `OSError` không có số đều cho agent câu không ghi được với đường dẫn
     tương đối, và để lại đúng một dòng `warning` trong log nêu chỗ thật tệp định tới ở dạng
     `repr`, tên lớp lỗi và `errno`, không kèm lời của hệ điều hành,
+    "test_the_letters_of_a_name_are_logged_as_letters_whatever_the_alphabet": tên tệp tiếng
+    Việt vào log vẫn là chữ đọc được chứ không thành mã `\u…`, ở nhánh lỗi do đĩa lẫn nhánh
+    lỗi không do đĩa,
     "test_a_folder_whose_name_holds_a_line_break_starts_no_line_of_its_own_in_the_log": thư mục
     thật mode 555 có tên chứa `\n`, `\r` hay U+2028 rồi tới một dòng trông như bản ghi log, đi
     tới qua một symlink tên thường, vẫn chỉ để lại một bản ghi nằm trên một dòng khi ghi ra theo
