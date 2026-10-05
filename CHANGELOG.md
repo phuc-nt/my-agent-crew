@@ -333,6 +333,12 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   a wide screen, whether the agent made it or only changed it, without taking the keyboard and
   under the rules a created canvas opens by; of two delegations side by side, the one to finish
   last stays open.
+- A canvas the agent is still writing shows in the web chat as it is written: a card in the
+  thread from its first piece and, beside a wide conversation, its text filling in read-only
+  where the canvas column is, nothing of it stored until the call ends. It does not come up by
+  itself while the keyboard is anywhere in the canvas column, though its card still offers it;
+  once the person puts it away by hand, every canvas written in the rest of that turn stays a
+  card; and markdown of 100 000 characters or more is shown as its source, with a line saying so.
 
 ### Fixed
 
