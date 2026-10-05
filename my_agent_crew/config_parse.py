@@ -37,6 +37,8 @@ class Route:
 
     @classmethod
     def parse(cls, text: str) -> Route:
+        if not isinstance(text, str):  # a yaml mapping or number where a route was meant
+            raise ValueError(f"route must look like provider:model, got {text!r}")
         provider, sep, model = text.strip().partition(":")
         if not sep or not provider or not model:
             raise ValueError(f"route must look like provider:model, got {text!r}")

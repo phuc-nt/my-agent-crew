@@ -20,7 +20,7 @@ from my_agent_crew import texts
 from my_agent_crew.agent_ids import is_agent_id
 from my_agent_crew.agents.profile import PROFILE_KEYS, AgentProfile, Schedule
 from my_agent_crew.agents.profile_yaml import parse_profile
-from my_agent_crew.config import Settings
+from my_agent_crew.config import Route, Settings
 from my_agent_crew.scheduler.cron import CronSpec, parse_every
 
 # What the scheduler reads once at startup and never again. The Telegram bridge is not
@@ -55,6 +55,18 @@ def check_inside_home(profile: AgentProfile, home: Path) -> None:
             raise ValueError(texts.PATH_OUTSIDE_HOME.format(path=str(path)))
 
 
+def route_text(value: Any) -> Any:
+    """A route as the manifest writes it. The web edits a route as a provider and a model
+    apart and sends it so; the file keeps the one line a person would write by hand."""
+    if not isinstance(value, dict):
+        return value
+    provider, model = value.get("provider"), value.get("model")
+    if set(value) != {"provider", "model"} or not all(isinstance(v, str) for v in value.values()):
+        raise ValueError(f"route must look like provider:model, got {value!r}")
+    route = Route.parse(f"{provider.strip()}:{model.strip()}")
+    return f"{route.provider}:{route.model}"
+
+
 def apply_patch(raw: Any, patch: dict[str, Any]) -> Any:
     """The manifest with the patch's keys set, mutated in place so ruamel keeps the
     comments and the key order of everything the patch did not mention."""
@@ -74,6 +86,8 @@ def apply_patch(raw: Any, patch: dict[str, Any]) -> Any:
         value = patch.get(key)
         if key != "workspace" and value is not None and not isinstance(value, list):
             raise ValueError(texts.PROFILE_KEY_NEEDS_LIST.format(key=key))
+    if isinstance(patch.get("routes"), list):
+        patch = patch | {"routes": [route_text(route) for route in patch["routes"]]}
     for key, value in patch.items():
         if value is None:
             raw.pop(key, None)

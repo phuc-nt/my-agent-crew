@@ -68,6 +68,14 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   sends or pays is done twice unseen. A call that never ran (it still had to ask, was refused,
   or could not be run) is settled the way it always was.
 
+### Fixed
+
+- Saving an agent's own routes from the agent editor no longer fails. The editor holds a route
+  as a provider and a model apart and sent it so, while the server read only the
+  `provider:model` line a person writes in `agent.yaml`, and answered 500. A route sent either
+  way is now saved as that one line, and anything else is refused with a 422 that says what a
+  route looks like.
+
 ## [0.11.1] — 2026-10-05
 
 ### Changed

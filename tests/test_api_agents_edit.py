@@ -72,6 +72,50 @@ def test_a_patch_changes_only_the_keys_it_names(crew) -> None:
     assert "dọn mã" in written
 
 
+def test_routes_sent_as_a_provider_and_a_model_are_saved_the_way_a_person_writes_them(
+    crew,
+) -> None:
+    """The agent editor holds a route as a provider and a model apart and sends it so."""
+    client, runtime, home = crew
+    client.post("/api/agents", json={"agent_id": "coder", "profile": {}})
+
+    reply = client.patch(
+        "/api/agents/coder",
+        json={"profile": {"routes": [{"provider": " fake ", "model": "two"}, "fake:three"]}},
+    )
+
+    assert reply.status_code == 200
+    wanted = [{"provider": "fake", "model": "two"}, {"provider": "fake", "model": "three"}]
+    assert reply.json()["profile"]["routes"] == wanted
+    asked = [(r.provider, r.model) for r in runtime.deps_for("coder").chain.routes]
+    assert asked == [("fake", "two"), ("fake", "three")]
+    written = (home / "agents" / "coder" / "agent.yaml").read_text(encoding="utf-8")
+    assert "- fake:two\n" in written and "provider" not in written
+
+
+@pytest.mark.parametrize(
+    "route",
+    [
+        {"provider": "fake"},
+        {"provider": "", "model": "two"},
+        {"provider": "fake", "model": 3},
+        {"provider": "fake", "model": "two", "reasoning": "high"},
+        7,
+    ],
+)
+def test_a_route_that_is_not_a_provider_and_a_model_is_refused_before_it_is_written(
+    crew, route
+) -> None:
+    client, runtime, home = crew
+    client.post("/api/agents", json={"agent_id": "coder", "profile": {}})
+
+    reply = client.patch("/api/agents/coder", json={"profile": {"routes": [route]}})
+
+    assert reply.status_code == 422 and "provider:model" in reply.json()["detail"]
+    assert "routes" not in (home / "agents" / "coder" / "agent.yaml").read_text(encoding="utf-8")
+    assert [r.model for r in runtime.deps_for("coder").chain.routes] == ["echo"]
+
+
 def test_clearing_a_key_takes_an_explicit_null(crew) -> None:
     client, runtime, _ = crew
     client.post("/api/agents", json={"agent_id": "coder", "profile": {"description": "dọn mã"}})
