@@ -4029,8 +4029,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
   - pytest (`written_by`, đọc từ tin tool run đã lưu):
     `::test_a_run_with_no_lapsed_approval_names_everything_it_wrote` (thẻ trong lời của model
     không tính);
-    `::test_a_run_whose_approval_lapsed_names_only_what_it_wrote_after_the_last_one` (lần gửi
-    trong lúc chờ duyệt đã nêu phần trước mốc; lời từ chối không phải mốc);
+    `::test_a_run_whose_approval_lapsed_names_only_what_it_wrote_after_the_last_one` (phần trước
+    mốc đã được nêu lúc run dừng lại; yêu cầu bị từ chối không phải mốc);
     `::test_a_person_who_quotes_the_lapsed_sentence_marks_nothing`;
     `::test_what_another_run_of_the_conversation_wrote_is_not_this_runs`;
     `::test_no_run_and_a_run_that_does_not_know_where_it_began_name_nothing`
@@ -4079,3 +4079,20 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `::test_with_nothing_to_name_nothing_is_sent_and_with_nothing_written_nothing_is_read`;
     `::test_a_title_that_reads_like_an_attachment_line_attaches_nothing` (tiêu đề là `FILE: …`
     không làm Telegram nhận một lời tải lên nào)
+- **Mốc "đã nêu tới đây" của một run là yêu cầu không ai trả lời, dù đó là duyệt tool hay câu hỏi
+  `ask_user`, và được nhận ra bằng chính yêu cầu đã hết hạn của lời gọi (`tool_call_id`), không bằng
+  chữ của kết quả tool. Run dừng để hỏi, được gửi lúc chờ rồi tự đi tiếp, nêu mỗi canvas đúng một
+  lần**
+  - pytest (`tests/test_telegram_canvas_notice.py`):
+    `::test_a_question_nobody_answered_marks_the_run_like_an_approval_that_lapsed` (câu hỏi có và
+    không có mặc định);
+    `::test_only_a_request_nobody_answered_is_a_mark_whatever_a_result_says` (kết quả tool chứa
+    hay trùng hẳn câu báo hết hạn, câu hỏi được trả lời, tool bị từ chối, mã lời gọi lặp lại dưới
+    tool khác: không cái nào là mốc)
+  - pytest (`tests/test_telegram_canvas_notice_sent.py`):
+    `::test_a_run_whose_question_lapsed_between_two_deliveries_names_each_canvas_once` (lần gửi
+    thứ hai là lời của run rồi danh sách chỉ có canvas thứ hai; không có dòng báo hết hạn duyệt);
+    `::test_a_job_that_asked_and_went_on_unanswered_names_each_canvas_once` (job thật và lượt quét
+    hết hạn thật)
+  - Các bước dựng dùng chung ở `tests/lapse_helpers.py`: lời gọi của model, yêu cầu nó mở, và tin
+    tool đóng yêu cầu bằng chính lời của vòng lặp (`close_interrupted`).

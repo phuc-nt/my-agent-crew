@@ -24,7 +24,9 @@ from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.agents.roster import DELEGATE_TOOL_NAME
 from my_agent_crew.artifacts.tag import Tag, parse_artifact_tag
 from my_agent_crew.channels.telegram_canvas_file import canvas_in_reach, canvas_link
+from my_agent_crew.llm.types import Message
 from my_agent_crew.store import Store
+from my_agent_crew.store.approvals import EXPIRED
 from my_agent_crew.store.runs import RunRecord
 from my_agent_crew.tools.artifact_scope import CANVAS_WRITE_TOOLS
 from my_agent_crew.tools.delegate_outcome import canvas_tags
@@ -73,17 +75,27 @@ class WrittenCanvases:
             yield event
 
 
+def _closes_a_lapse(store: Store, conv_id: str, message: Message) -> bool:
+    """Whether the tool message answers a call whose request, an approval or a question, ran
+    out of time. The request is found by the call, never by what the message says: a tool
+    that prints the sentence a lapse is told in has not lapsed."""
+    request = store.approvals.find_for_call(conv_id, message.tool_call_id or "")
+    return request is not None and request.status == EXPIRED and request.tool_name == message.name
+
+
 def written_by(store: Store, conv_id: str, run: RunRecord | None) -> list[Tag]:
-    """What `run` wrote in the conversation, from the tool messages it stored. A run that
-    stopped for an approval nobody answered was delivered once while it waited, and that
-    delivery named what it had written by then: the tool message saying the approval lapsed
-    marks where it read up to, and only what follows the last one is named now. A run from
-    before runs knew where they began names nothing."""
+    """What `run` wrote in the conversation and nobody has been told of, from the tool
+    messages it stored. A run that stopped for an approval or a question nobody answered has
+    had what it wrote by then told already: named by the delivery made while a job waited,
+    named by the reply the chat got when its own turn stopped, or shown on the web where the
+    turn ran. The tool message closing such a request marks where that reading ended, and
+    only what follows the last one is named now. A run from before runs knew where they
+    began names nothing."""
     if run is None or run.after_seq is None:
         return []
     stored = store.messages.of_run(conv_id, run.id, run.after_seq, run.started_at)
     tools = [s.message for s in stored if s.message.role == "tool"]
-    lapsed = [i for i, message in enumerate(tools) if message.content == texts.EXPIRED_TOOL]
+    lapsed = [i for i, message in enumerate(tools) if _closes_a_lapse(store, conv_id, message)]
     since = tools[lapsed[-1] + 1 :] if lapsed else tools
     return merged(tag for message in since for tag in tags_of(message.name or "", message.content))
 

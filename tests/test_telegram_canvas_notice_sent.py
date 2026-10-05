@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import replace
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from urllib.parse import parse_qsl
 
@@ -19,6 +20,7 @@ import httpx
 import pytest
 
 from my_agent_crew import texts
+from my_agent_crew.agent.approval_expiry import expire_overdue
 from my_agent_crew.agent.events import AssistantMessageEvent, DoneEvent, ToolResultEvent
 from my_agent_crew.agents.profile import Schedule
 from my_agent_crew.artifacts.tag import Tag, artifact_tag
@@ -30,12 +32,12 @@ from my_agent_crew.store.runs import AWAITING, DONE, HALTED, RunRecord
 from my_agent_crew.tools.delegate_outcome import result_text
 from my_agent_crew.tools.registry import Tool, ToolResult
 from tests.canvas_helpers import PLAN, persons_canvas
+from tests.lapse_helpers import ASK, WRITE, nobody_answered, waits_on
 from tests.queue_helpers import until
 from tests.telegram_fake import message, poll_each
 from tests.test_scheduler import with_schedules
 
 STAMP = "2026-10-01T03:00:00+00:00"
-WRITE = ToolCall("w1", "workspace_write", {"path": "out.txt", "content": "ok"})
 OUT_OF_STEPS = texts.HALT_REASONS["max_steps"]
 
 
@@ -272,17 +274,14 @@ async def test_a_run_delivered_twice_names_each_canvas_once(make_channel, fake):
     conv = asked(store)
     run = began(store, conv.id, AWAITING)
     wrote(store, conv.id, canvas_a)
-    store.append(conv.id, Message(role="assistant", content="", tool_calls=(WRITE,)))
+    request = waits_on(store, conv.id, WRITE)
     assert await channel.deliver(conv.id) is True
     assert fake.sent == [
         listed(("Dàn ý", 1)),
         texts.TELEGRAM_RUN_UNFINISHED.format(reason=AWAITING),
     ]
     fake.sent.clear()
-    lapsed = Message(
-        role="tool", content=texts.EXPIRED_TOOL, tool_call_id="w1", name="workspace_write"
-    )
-    store.append(conv.id, lapsed)
+    nobody_answered(store, conv.id, request)
     wrote(store, conv.id, canvas_b)
     said(store, conv.id, "Xong.")
     store.runs.save(replace(run, status=DONE))
@@ -292,6 +291,62 @@ async def test_a_run_delivered_twice_names_each_canvas_once(make_channel, fake):
         "Xong.",
         listed(("Số liệu", 1)),
     ]
+
+
+async def test_a_run_whose_question_lapsed_between_two_deliveries_names_each_canvas_once(
+    make_channel, fake
+):
+    """A job that stops to ask is delivered while it waits too, and goes on by itself when
+    nobody answers. Nothing was refused, so no line says a guard timed out; the first
+    canvas was named by the first delivery and is not named again."""
+    channel = make_channel()
+    store = channel.store
+    canvas_a, canvas_b = canvas(store, "Dàn ý"), canvas(store, "Số liệu")
+    conv = asked(store)
+    run = began(store, conv.id, AWAITING)
+    wrote(store, conv.id, canvas_a)
+    request = waits_on(store, conv.id, ASK)
+    assert await channel.deliver(conv.id) is True
+    assert fake.sent == [
+        listed(("Dàn ý", 1)),
+        texts.TELEGRAM_RUN_UNFINISHED.format(reason=AWAITING),
+    ]
+    fake.sent.clear()
+    nobody_answered(store, conv.id, request)
+    wrote(store, conv.id, canvas_b)
+    said(store, conv.id, "Xong.")
+    store.runs.save(replace(run, status=DONE))
+    assert await channel.deliver(conv.id) is True
+    assert fake.sent == ["Xong.", listed(("Số liệu", 1))]
+
+
+async def test_a_job_that_asked_and_went_on_unanswered_names_each_canvas_once(
+    make_channel, deps_factory, fake
+):
+    """The same through a real job and the sweep that closes what nobody answered: the run
+    is one run across both stretches, and its two deliveries name one canvas each."""
+    child = Delegated()
+    check = Schedule("deadline-check", "Nhắc hạn", cron="30 7 * * *", prompt="Có hạn nào không?")
+    script = [hands_on("d1"), completion(tool_calls=(ASK,)), hands_on("d2"), completion("Xong.")]
+    deps = with_schedules(deps_factory(script=script, extra_tools=[child.tool]), check)
+    channel = make_channel(deps)
+    child.written = [(canvas(deps.store, "Dàn ý"), 1), (canvas(deps.store, "Số liệu"), 1)]
+
+    async def deliver(agent_id: str, conv_id: str) -> bool:
+        return await channel.deliver(conv_id)
+
+    run = await Scheduler({"default": deps}, channel.hub, deliver=deliver).run_job(
+        "default/deadline-check"
+    )
+    assert run.status == AWAITING
+    assert fake.sent == [
+        listed(("Dàn ý", 1)),
+        texts.TELEGRAM_RUN_UNFINISHED.format(reason=ASK.arguments["question"]),
+    ]
+    fake.sent.clear()
+    later = datetime.now(UTC) + timedelta(seconds=deps.settings.approval_ttl_seconds + 1)
+    assert len(await expire_overdue({"default": deps}, channel.hub, deliver, now=later)) == 1
+    assert fake.sent == ["Xong.", listed(("Số liệu", 1))]
 
 
 async def test_the_list_is_of_what_the_run_had_written_when_delivery_began(make_channel, fake):

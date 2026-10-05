@@ -28,11 +28,21 @@ from my_agent_crew.channels.telegram_canvas_notice import (
     tags_of,
     written_by,
 )
-from my_agent_crew.llm.types import Message
+from my_agent_crew.llm.types import Message, ToolCall
 from my_agent_crew.store.runs import DONE, RunRecord
+from my_agent_crew.tools.ask_user import unanswered_result
 from my_agent_crew.tools.delegate_outcome import result_text, timed_out
 from tests.canvas_helpers import PLAN, SWIM, agents_canvas, call, persons_canvas, put, tagged, turn
 from tests.conftest import collect
+from tests.lapse_helpers import (
+    ASK,
+    ASK_WITH_DEFAULT,
+    WRITE,
+    answered,
+    nobody_answered,
+    refused,
+    waits_on,
+)
 
 A, B, C = "0123456789ab", "ba9876543210", "00ff00ff00ff"
 WEB = "http://127.0.0.1:8765"
@@ -64,8 +74,8 @@ def began(store, conv_id: str, run_id: str = "r1") -> RunRecord:
     return run
 
 
-def tool_said(store, conv_id: str, name: str, content: str) -> None:
-    store.append(conv_id, Message(role="tool", content=content, tool_call_id="c1", name=name))
+def tool_said(store, conv_id: str, name: str, content: str, call_id: str = "c1") -> None:
+    store.append(conv_id, Message(role="tool", content=content, tool_call_id=call_id, name=name))
 
 
 @pytest.mark.parametrize("unchanged", [False, True])
@@ -228,20 +238,56 @@ def test_a_run_with_no_lapsed_approval_names_everything_it_wrote(store):
 
 
 def test_a_run_whose_approval_lapsed_names_only_what_it_wrote_after_the_last_one(store):
-    """The run was delivered once while it waited, and that delivery named what it had
-    written by then. The tool message saying nobody answered marks where it read up to."""
+    """What the run wrote before it stopped was named when it stopped. The result closing a
+    request nobody answered marks where that reading ended."""
     conv = store.create()
     run = began(store, conv.id)
     tool_said(store, conv.id, "artifact_create", f"{artifact_tag(A, 1)} Đã tạo.")
-    tool_said(store, conv.id, "workspace_write", texts.EXPIRED_TOOL)
+    nobody_answered(store, conv.id, waits_on(store, conv.id, WRITE))
     tool_said(store, conv.id, "artifact_create", f"{artifact_tag(B, 1)} Đã tạo.")
     assert written_by(store, conv.id, run) == [Tag(B, 1)]
-    tool_said(store, conv.id, "shell", texts.EXPIRED_TOOL)
+    nobody_answered(store, conv.id, waits_on(store, conv.id, ToolCall("s1", "shell", {})))
     assert written_by(store, conv.id, run) == []
     tool_said(store, conv.id, "artifact_edit", f"{artifact_tag(A, 2)} Đã sửa.")
-    tool_said(store, conv.id, "workspace_write", texts.DENIED_TOOL)  # refused, not lapsed
+    again = ToolCall("w2", "workspace_write", {"path": "out.txt", "content": "ok"})
+    refused(store, conv.id, waits_on(store, conv.id, again))  # refused, not lapsed
     tool_said(store, conv.id, "artifact_edit", f"{artifact_tag(B, 2)} Đã sửa.")
     assert written_by(store, conv.id, run) == [Tag(A, 2), Tag(B, 2)]
+
+
+@pytest.mark.parametrize("ask", [ASK, ASK_WITH_DEFAULT])
+def test_a_question_nobody_answered_marks_the_run_like_an_approval_that_lapsed(store, ask):
+    """The turn goes on with the question's default, or with none, and is told so in other
+    words than a tool refused for want of an answer; what it wrote before it asked was named
+    when it stopped all the same."""
+    conv = store.create()
+    run = began(store, conv.id)
+    tool_said(store, conv.id, "artifact_create", f"{artifact_tag(A, 1)} Đã tạo.")
+    nobody_answered(store, conv.id, waits_on(store, conv.id, ask))
+    assert written_by(store, conv.id, run) == []
+    tool_said(store, conv.id, "artifact_create", f"{artifact_tag(B, 1)} Đã tạo.")
+    assert written_by(store, conv.id, run) == [Tag(B, 1)]
+
+
+def test_only_a_request_nobody_answered_is_a_mark_whatever_a_result_says(store):
+    """A mark is found by the request its call opened, never by its words. A tool may print
+    the sentence a lapse is told in, or answer with nothing else; a person may answer the
+    question or refuse the tool; and a call id may come round again under another tool."""
+    conv = store.create()
+    run = began(store, conv.id)
+    silence = unanswered_result(ASK.arguments)
+    tool_said(store, conv.id, "artifact_create", f"{artifact_tag(A, 1)} Đã tạo.")
+    tool_said(store, conv.id, "shell", f"$ tail agent.log\n{texts.EXPIRED_TOOL}\n{silence}")
+    tool_said(store, conv.id, "shell", texts.EXPIRED_TOOL, "c2")
+    tool_said(store, conv.id, "ask_user", silence, "c3")
+    answered(store, conv.id, waits_on(store, conv.id, ASK), "bơi")
+    refused(store, conv.id, waits_on(store, conv.id, WRITE))
+    assert written_by(store, conv.id, run) == [Tag(A, 1)]
+    nobody_answered(store, conv.id, waits_on(store, conv.id, ToolCall("s1", "shell", {})))
+    assert written_by(store, conv.id, run) == []
+    tool_said(store, conv.id, "artifact_create", f"{artifact_tag(B, 1)} Đã tạo.", "s1")
+    tool_said(store, conv.id, "artifact_edit", f"{artifact_tag(A, 2)} Đã sửa.")
+    assert written_by(store, conv.id, run) == [Tag(B, 1), Tag(A, 2)]
 
 
 def test_a_person_who_quotes_the_lapsed_sentence_marks_nothing(store):
