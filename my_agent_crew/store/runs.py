@@ -7,74 +7,21 @@ import json
 import sqlite3
 import threading
 from collections.abc import Sequence
-from dataclasses import dataclass, field
 from typing import Any
 
-from my_agent_crew.store.approvals import PENDING
+from my_agent_crew.store.run_record import (
+    ACTIVE_STATUSES,
+    AWAITING,
+    DONE,
+    FAILED,
+    HALTED,
+    RUNNING,
+    RunRecord,
+)
+from my_agent_crew.store.run_restart import Settled, settle_after_restart
 
-RUNNING = "running"
-AWAITING = "awaiting_approval"
-DONE = "done"
-HALTED = "halted"
-FAILED = "error"
-ACTIVE_STATUSES = (RUNNING, AWAITING)
-
-
-@dataclass
-class RunRecord:
-    id: str
-    agent_id: str
-    conversation_id: str | None
-    source: str
-    title: str
-    status: str
-    started_at: str
-    finished_at: str | None = None
-    steps: list[dict[str, Any]] = field(default_factory=list)
-    spent_usd: float = 0.0
-    unknown_cost_calls: int = 0
-    summary: str = ""
-    after_seq: int | None = None
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "id": self.id,
-            "agent_id": self.agent_id,
-            "conversation_id": self.conversation_id,
-            "source": self.source,
-            "title": self.title,
-            "status": self.status,
-            "started_at": self.started_at,
-            "finished_at": self.finished_at,
-            # Copies, not the live list: a payload waits in a watcher's queue and is
-            # serialised later, by which time the run has moved on. Keys starting with
-            # "_" are the step builder's own bookkeeping and never leave the process.
-            "steps": [
-                {key: value for key, value in step.items() if not key.startswith("_")}
-                for step in self.steps
-            ],
-            "spent_usd": self.spent_usd,
-            "unknown_cost_calls": self.unknown_cost_calls,
-            "summary": self.summary,
-        }
-
-    @classmethod
-    def from_row(cls, row: sqlite3.Row) -> RunRecord:
-        return cls(
-            id=row["id"],
-            agent_id=row["agent_id"],
-            conversation_id=row["conversation_id"],
-            source=row["source"],
-            title=row["title"],
-            status=row["status"],
-            started_at=row["started_at"],
-            finished_at=row["finished_at"],
-            steps=json.loads(row["steps"]),
-            spent_usd=row["spent_usd"],
-            unknown_cost_calls=row["unknown_cost_calls"],
-            summary=row["summary"],
-            after_seq=row["after_seq"],
-        )
+__all__ = ["ACTIVE_STATUSES", "AWAITING", "DONE", "FAILED", "HALTED", "RUNNING"]
+__all__ += ["RunRecord", "RunStore", "Settled"]
 
 
 class RunStore:
@@ -89,13 +36,14 @@ class RunStore:
             self._conn.execute(
                 "INSERT INTO runs (id, agent_id, conversation_id, source, title, status,"
                 " started_at, finished_at, steps, spent_usd, unknown_cost_calls, summary,"
-                " after_seq) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET"
+                " after_seq, resumed) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+                " ON CONFLICT(id) DO UPDATE SET"
                 " agent_id = excluded.agent_id, conversation_id = excluded.conversation_id,"
                 " source = excluded.source, title = excluded.title, status = excluded.status,"
                 " started_at = excluded.started_at, finished_at = excluded.finished_at,"
                 " steps = excluded.steps, spent_usd = excluded.spent_usd,"
                 " unknown_cost_calls = excluded.unknown_cost_calls, summary = excluded.summary,"
-                " after_seq = excluded.after_seq",
+                " after_seq = excluded.after_seq, resumed = excluded.resumed",
                 (
                     run.id,
                     run.agent_id,
@@ -110,6 +58,7 @@ class RunStore:
                     run.unknown_cost_calls,
                     run.summary,
                     run.after_seq,
+                    int(run.resumed),
                 ),
             )
             self._conn.commit()
@@ -167,30 +116,6 @@ class RunStore:
             ).fetchone()
         return RunRecord.from_row(row) if row else None
 
-    def settle_after_restart(self, stamp: str) -> list[RunRecord]:
-        """Closes the runs the previous process left open, and returns the paused ones a
-        decision can still continue.
-
-        A run still 'running' died with that process. A paused run outlives it only while
-        its conversation holds a pending request: the newest such run per conversation is
-        handed back for the hub to hold, and every other paused row, whose request was
-        settled while nothing held the run, is closed too instead of waiting forever."""
-        with self._lock:
-            rows = self._conn.execute(
-                "SELECT * FROM runs WHERE status = ? AND conversation_id IN"
-                " (SELECT conversation_id FROM approvals WHERE status = ?)"
-                " ORDER BY started_at DESC, rowid DESC",
-                (AWAITING, PENDING),
-            ).fetchall()
-            paused: dict[str, RunRecord] = {}
-            for row in rows:
-                if row["conversation_id"] not in paused:
-                    paused[row["conversation_id"]] = RunRecord.from_row(row)
-            kept = [run.id for run in paused.values()]
-            self._conn.execute(
-                "UPDATE runs SET status = ?, finished_at = ?, summary = 'interrupted'"
-                f" WHERE status IN (?, ?) AND id NOT IN ({','.join('?' * len(kept))})",
-                (FAILED, stamp, RUNNING, AWAITING, *kept),
-            )
-            self._conn.commit()
-        return list(paused.values())
+    def settle_after_restart(self, stamp: str) -> Settled:
+        """Closes the runs the previous process left open (`run_restart.py`)."""
+        return settle_after_restart(self._conn, self._lock, stamp)

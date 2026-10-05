@@ -113,4 +113,5 @@ def build_image_tool(
         },
         run=run,
         parallel=True,
+        replay_safe=True,
     )

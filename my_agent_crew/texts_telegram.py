@@ -95,6 +95,13 @@ TELEGRAM_AGENT_PREFIX = "[{name}]"
 # Sent when a stop (the bot's token or chat changed from the web) cut off a turn.
 # Said whether the stop came from a connection change or the server shutting down, and
 # whether or not part of the reply had already gone out — hence "may" and "if".
+# Said in place of TELEGRAM_CUT_OFF when it is the server that is going down: the turn it cut
+# is taken up again when the server is back, once, if nothing stands in its way.
+TELEGRAM_CUT_RESUMES = (
+    "Server đang khởi động lại nên lượt vừa rồi bị ngắt giữa chừng. Khi server chạy lại, lượt "
+    "này sẽ được làm tiếp một lần nếu còn làm tiếp được; nếu sau đó vẫn không thấy câu trả lời "
+    "thì gửi lại giúp mình nhé."
+)
 TELEGRAM_CUT_OFF = (
     "Tin nhắn vừa rồi có thể chưa được trả lời trọn vẹn vì bot vừa khởi động lại. "
     "Nếu bạn chưa nhận đủ câu trả lời, gửi lại giúp mình nhé."

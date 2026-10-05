@@ -112,6 +112,7 @@ def build_wiki_tools(memory_dir: Path) -> list[Tool]:
                 "required": ["page"],
             },
             run=get,
+            replay_safe=True,
         ),
         Tool(
             name="wiki_search",
@@ -122,6 +123,7 @@ def build_wiki_tools(memory_dir: Path) -> list[Tool]:
                 "required": ["query"],
             },
             run=find,
+            replay_safe=True,
         ),
         Tool(
             name="wiki_apply",

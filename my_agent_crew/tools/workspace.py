@@ -101,6 +101,7 @@ def build_workspace_tools(root: Path, write_paths: Sequence[str] = ()) -> list[T
                 "properties": {"path": {"type": "string", "description": "Đường dẫn tương đối"}},
             },
             run=list_dir,
+            replay_safe=True,
         ),
         Tool(
             name="workspace_read",
@@ -115,6 +116,7 @@ def build_workspace_tools(root: Path, write_paths: Sequence[str] = ()) -> list[T
                 "required": ["path"],
             },
             run=read_file,
+            replay_safe=True,
         ),
         Tool(
             name="workspace_write",

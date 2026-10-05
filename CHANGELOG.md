@@ -21,6 +21,9 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   until the answer is stored. The text being written is kept in memory only; after a restart the
   stored conversation is the whole truth. `POST /api/conversations/{id}/stop` now also answers
   `cancelled`, and ends a turn the web started from any tab.
+- When the server stops under a Telegram turn, the bot now says the turn will be carried on once
+  the server is back, instead of saying it was cut off. A bot restarted while the server stays
+  up still says the turn was cut off, since nothing will carry it on.
 
 ### Added
 
@@ -31,6 +34,24 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   The name is stored in the same transaction as the message it names, is kept across a restart,
   and is left unused by a send the server refused or a message Stop handed back. `POST
   /api/inbound` takes no `request_id`.
+- A turn cut by a server restart is carried on when the server is back, once. The run that was
+  cut is reopened as the same run, with its timeline and what it had spent, and goes on from the
+  stored conversation; whoever was reading that kind of turn reads the rest (the bot answers a
+  Telegram chat, a job's answer is pushed as usual, a tab can watch and Stop any other). Two
+  guards cannot be turned off: a run is marked `resumed` before its turn takes a step, so a turn
+  that brings the server down again is closed at the next start instead of being tried for ever,
+  and a turn carried on stays under the conversation's cost cap. A turn is not carried on when
+  its conversation waits on a decision, was deleted, has had a later turn or has spent its
+  budget, when it is a Telegram turn and no bot is up, or when the server runs with
+  `--no-schedule`. Stop, a failed turn and a bot restarted under a running server close the run
+  as before. The web says "Tiếp tục sau khi server khởi động lại" under the progress bar of a
+  run that was carried on (`resumed` on a run in `/api/activity/runs`).
+- Each tool says whether a call cut by a restart may be made again (`Tool.replay_safe`, off
+  unless declared). The eighteen tools that only read declare it and are simply called again. A
+  call to any other tool that may already have run is closed with a note saying it was cut and
+  that nobody knows whether it ran, and the model decides after looking; nothing that writes,
+  sends or pays is done twice unseen. A call that never ran (it still had to ask, was refused,
+  or could not be run) is settled the way it always was.
 
 ## [0.11.1] — 2026-10-05
 

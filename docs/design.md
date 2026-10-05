@@ -44,6 +44,24 @@ any platform ──POST /api/inbound (JSON, sync)─────┴─▶ Inboun
   `POST /api/inbound` nhận `TurnReply` đã gom (text, status, steps). Không nền tảng nào đặc
   biệt, nên một thay đổi ở backend tới được tất cả và một tính năng được test bằng cách post
   vào API.
+- **Lượt của web do server giữ, tab chỉ xem.** Một lượt là một generator: nó chỉ tiến khi có
+  người đọc. Trước đây người đọc là request SSE của tab, nên đóng tab, tải lại hay sang cuộc
+  khác là cắt lượt giữa chừng. Nay `TurnHost` (`turn_host.py`) đọc lượt trong một task của
+  server tới hết; tab gửi tin chỉ là người xem đầu tiên. `TurnWatch`
+  (`activity/turn_watch.py`) phát event của mọi lượt được theo dõi theo cuộc trò chuyện, nên
+  tab mở giữa chừng — bất kể lượt do tab khác, Telegram hay job khởi chạy — gọi
+  `GET /api/conversations/{id}/turn` và nhận khung `watching` (cuộc trò chuyện như đang lưu
+  cùng cờ `running`) rồi phần chữ đang viết và các event tiếp theo; 204 khi không có lượt nào.
+  Người xem tụt quá 256 event được đưa một khung `watching` mới thay cho phần bỏ lỡ, nên tab
+  treo không giữ bộ nhớ vô hạn và không bị cắt. Phần chữ đang viết chỉ nằm trong bộ nhớ: sau
+  restart, cuộc trò chuyện đã lưu là toàn bộ sự thật.
+- **Tin gửi lại không nói hai lần.** Mỗi lần gửi từ web mang một `request_id` (token trơn, tối
+  đa 64 ký tự). Server lưu tên đó trong cùng transaction với tin nó đặt tên (bảng
+  `message_requests`, hoặc cột `queued_messages.request_id` khi tin còn xếp hàng), nên khi câu
+  trả lời rớt trên đường về và tab gửi lại cùng tên, server không lưu gì và không chạy lượt
+  thứ hai: nó đáp bằng chỗ cũ trong hàng, hoặc bằng khung `watching` và lượt đang chạy. Tên
+  theo từng cuộc trò chuyện, còn nguyên qua restart, và chưa dùng nếu lần gửi bị từ chối hay
+  tin bị Dừng rút khỏi hàng. `POST /api/inbound` không nhận `request_id`.
 
 - **Một lượt một lúc; tin đến sau thì chờ hoặc rẽ lượt.** Cổng inbound giữ cuộc trò chuyện từ lúc
   trao ra một lượt: một claim, thành run sống khi lượt được đọc lần đầu; claim không ai đọc hết hạn
@@ -69,16 +87,48 @@ any platform ──POST /api/inbound (JSON, sync)─────┴─▶ Inboun
   thứ khác nên không lượt mới nào bắt đầu giữa chừng. Xoá cuộc trò chuyện xoá luôn hàng của nó.
   `GET /api/conversations/{id}` liệt kê tin đang chờ trong `queued`, và
   `POST /api/conversations/{id}/stop` lấy hết hàng, trả lại chữ trong `cleared` và huỷ lượt nền mà
-  hàng đang chạy (`cancelled`). Nó chỉ với tới lượt do chính hàng khởi chạy: lượt mà một tab đang
-  đọc, lượt bot Telegram chạy cho tin vừa đến hay lượt của một job không phải của nó để dừng, và khi
-  đó `cancelled` là `false`.
+  hàng đang chạy (`cancelled`). Nó với tới mọi lượt do server tự đọc: lượt nền của hàng, lượt gửi
+  từ web (dừng được từ bất kỳ tab nào) và lượt được nối lại sau restart mà không do bot đọc. Lượt
+  bot Telegram chạy cho tin vừa đến hay lượt của một job đang chạy theo lịch không phải của nó để
+  dừng, và khi đó `cancelled` là `false`.
 
 - **Trạng thái bền là nhật ký message.** Một lượt tiếp tục từ message assistant cuối cùng đã lưu:
   các tool call chưa xong được giải quyết trước, nên crash giữa lượt là khôi phục được. Tin mới
-  của người thì khác: call nào lượt trước bỏ lại không có kết quả (tab đóng, server tắt giữa lúc
-  tool chạy) được đóng trước khi tin được ghi, bằng quyết định đã biết của nó (từ chối, hết hạn,
-  câu trả lời) hoặc bằng một kết quả nói nó bị ngắt và không rõ đã chạy hay chưa. Không call nào
-  chạy lại mà không ai hỏi, và thứ tự tin vẫn hợp lệ với provider; call còn chờ duyệt thì để nguyên.
+  của người thì khác: call nào lượt trước bỏ lại không có kết quả (lượt bị Dừng, server tắt giữa
+  lúc tool chạy mà lượt không được nối lại) được đóng trước khi tin được ghi, bằng quyết định đã
+  biết của nó (từ chối, hết hạn, câu trả lời) hoặc bằng một kết quả nói nó bị ngắt và không rõ đã
+  chạy hay chưa. Không call nào có thể đổi trạng thái được chạy lại mà không ai hỏi, và thứ tự tin
+  vẫn hợp lệ với provider; call còn chờ duyệt thì để nguyên.
+- **Lượt bị restart cắt được nối lại một lần.** Lượt sống trong một tiến trình: run của nó là một
+  task và task chết cùng server. Việc lượt đã làm nằm trong nhật ký, nên server khởi động kế tiếp
+  nối được. Lúc dựng, hub đóng mọi run còn mở (`store/run_restart.py`) và giữ lại trong `hub.cut`
+  run `running` mới nhất, chưa từng được nối, của mỗi cuộc trò chuyện. Trong lifespan của app có
+  lịch, sau khi bot lên và trước khi hàng đợi drain, `resume_cut_turns` (`turn_resume.py`) mở lại
+  từng run đó — cùng id, cùng timeline, cùng `after_seq` và số tiền đã tiêu — rồi cho lượt chạy
+  tiếp từ nhật ký. Hai rào chắn không tắt được: (1) mở lại là ghi `resumed` xuống SQLite ngay,
+  trước bước đầu tiên của lượt, nên lượt làm sập server sẽ bị đóng ở lần khởi động sau chứ không
+  bị thử mãi; (2) lượt nối lại nằm dưới trần chi phí của cuộc trò chuyện — đã hết ngân sách thì
+  không nối, đang nối mà chạm trần thì dừng như mọi lượt. Run không được nối khi cuộc trò chuyện
+  đã bị xoá, đang chờ một quyết định (quyết định ấy sẽ nối lượt), đã có run mới hơn, là lượt con
+  mà lượt giao việc không đi tiếp, hoặc là lượt Telegram mà không có bot nào lên để trả lời; nó ở
+  lại `interrupted` và tin kế tiếp thấy nhật ký như sau mọi lượt bị ngắt. Người đọc lượt nối lại
+  là người vốn đọc loại lượt đó: bot cho lượt Telegram (câu trả lời tới chat), bước giao của
+  scheduler cho job (đẩy đúng một lần, `last_run` vẫn là run đó), còn lại là `TurnHost` nên tab
+  xem được và Dừng với tới. Lượt giao việc được nối trước lượt con; cha gọi lại `delegate`, tìm
+  thấy đúng cuộc con đã mở và chờ nó, hoặc đọc kết quả từ store nếu con đã xong ở tiến trình
+  trước. Server chỉ để run ở `running` cho lần khởi động sau khi chính nó đang tắt
+  (`hub.going_down`) hoặc bị giết; Dừng do người bấm, lượt lỗi hay bot khởi động lại khi server
+  vẫn chạy thì đóng run như cũ. Lúc tắt, bot báo trong chat rằng lượt sẽ được làm tiếp khi
+  server lên lại. Không có cửa sổ tuổi: lượt bị cắt hôm qua vẫn được nối khi server lên hôm nay.
+- **Tool tự nói có chạy lại được không.** Call chưa có kết quả lúc server tắt có thể đã chạy.
+  `Tool.replay_safe` (mặc định `False`) là lời tool khai rằng chạy lại không đổi gì; chỉ mười tám
+  tool đọc khai nó (đọc workspace, tìm kiếm, web, trí nhớ, wiki, canvas, PDF, ảnh, `delegate`,
+  `progress_note`). `replayable` (`agent/replay.py`) quyết từng call: tool lạ hay đối số hỏng,
+  call còn phải hỏi người, còn chờ hay đã bị từ chối thì chưa hề chạy và được lượt xử như thường;
+  call đã được cho phép hoặc chạy không cần hỏi thì chỉ gọi lại khi tool khai `replay_safe`. Các
+  call còn lại được đóng bằng một kết quả nói nó bị cắt giữa chừng và không rõ đã chạy hay chưa,
+  để model kiểm rồi quyết — ghi, gửi hay trả tiền hai lần mà không ai thấy là điều phải tránh.
+  Tool mới (kể cả tool từ nguồn ngoài) không khai gì thì được coi là đổi trạng thái.
   SQLite mở ở chế độ WAL với `synchronous=NORMAL` (`store/connection.py`): mỗi commit chỉ
   nối vào log thay vì ép tệp chính xuống đĩa, nên hàng chục lần ghi nhỏ của một lượt rẻ;
   mất điện có thể mất vài commit cuối nhưng không hỏng tệp, crash tiến trình không mất gì.
@@ -233,7 +283,10 @@ cuộc trò chuyện, trạng thái, các step (lần gọi model kèm chi phí,
 và một tóm tắt. Run đang chạy được giữ trong bộ nhớ và phát dạng SSE trên `/api/activity/stream`
 (`snapshot` khi kết nối, rồi các frame `run` và `event`); run đã xong được đọc từ SQLite.
 Khi server khởi động, run còn đánh dấu đang chạy bị đóng là `error` với tóm tắt
-`interrupted`. Run đang dừng chờ duyệt mà cuộc trò chuyện còn một yêu cầu chưa quyết thì
+`interrupted`; run mới nhất chưa từng được nối của mỗi cuộc trò chuyện được trao lại để
+server nối tiếp đúng một lần (mục "Lượt bị restart cắt được nối lại một lần" ở trên), và
+khi đó `/api/activity/runs` và luồng activity trả nó với `resumed: true` để web ghi "Tiếp tục sau khi server khởi
+động lại" dưới thanh tiến độ. Run đang dừng chờ duyệt mà cuộc trò chuyện còn một yêu cầu chưa quyết thì
 được giữ lại trong bộ nhớ, nên quyết định đến sau lần khởi động lại chạy tiếp chính run đó
 thay vì mở run thứ hai; run chờ duyệt không còn yêu cầu nào để chờ (yêu cầu đã được quyết
 khi không tiến trình nào giữ run) bị đóng như trên, và xoá một cuộc trò chuyện cũng đóng

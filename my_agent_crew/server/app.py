@@ -49,6 +49,7 @@ from my_agent_crew.server.local_guard import allowed_hosts, install_local_guard
 from my_agent_crew.server.runtime import Runtime
 from my_agent_crew.server.runtime_build import build_deps, build_runtime
 from my_agent_crew.server.security_headers import SecuredApp
+from my_agent_crew.turn_resume import resume_cut_turns
 
 __all__ = ["build_deps", "build_providers", "build_runtime", "create_app"]
 
@@ -112,13 +113,18 @@ def create_app(runtime: Runtime | AgentDeps | None = None, schedule: bool = True
         if schedule:
             runtime.scheduler.start()
             runtime.start_channel()
-            runtime.drain.start()  # after the channel, whose bot answers its own chats
+            # After the channel, whose bot answers its own chats; before the drain, so
+            # what waited in a conversation stays behind the turn it was waiting on.
+            resume_cut_turns(runtime)
+            runtime.drain.start()
             sweeper = asyncio.create_task(sweep_loop(runtime.settings.home))
         try:
             yield
         finally:
             if sweeper is not None:
                 sweeper.cancel()
+                # A turn this stop cuts is left for the server that starts next.
+                runtime.hub.going_down = True
             # First: a turn the shutdown cuts short must not start the next one in line.
             await runtime.drain.stop()
             await runtime.inbound.host.stop()

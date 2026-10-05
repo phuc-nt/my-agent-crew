@@ -74,12 +74,15 @@ class TelegramPolling(TelegramTurns):
         if cut_off:
             await self._say_cut_off()
 
+    def cut_notice(self) -> str:
+        return tt.TELEGRAM_CUT_OFF
+
     async def _say_cut_off(self) -> None:
         """Tell the chat its message was dropped. Best effort and short: the bot being
         stopped may have a token that no longer works, and the stop must still end."""
         logger.warning("telegram %s: a message was cut off by a stop", self.agent_id)
         try:
-            notice = self._api.send_message(self.chat_id, tt.TELEGRAM_CUT_OFF)
+            notice = self._api.send_message(self.chat_id, self.cut_notice())
             await asyncio.wait_for(notice, CUT_OFF_NOTICE_SECONDS)
         except Exception as exc:
             # A TelegramError is already redacted; anything else is named, not quoted.

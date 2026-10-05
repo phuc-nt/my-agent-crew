@@ -180,8 +180,15 @@ def build_artifact_tools(
             ARTIFACT_LIST_DESCRIPTION,
             schema([], query=text_param(PARAM_QUERY)),
             partial(_list, agent),
+            replay_safe=True,
         ),
-        Tool("artifact_read", ARTIFACT_READ_DESCRIPTION, read, partial(run_read, agent)),
+        Tool(
+            "artifact_read",
+            ARTIFACT_READ_DESCRIPTION,
+            read,
+            partial(run_read, agent),
+            replay_safe=True,
+        ),
         Tool("artifact_edit", ARTIFACT_EDIT_DESCRIPTION, edit, partial(run_edit, agent)),
         Tool(
             "artifact_rewrite", ARTIFACT_REWRITE_DESCRIPTION, rewrite, partial(run_rewrite, agent)

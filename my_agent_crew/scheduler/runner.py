@@ -170,12 +170,12 @@ class Scheduler:
         try:
             run = await dispatch(job, deps, self._hub, self._clock)
             if job.schedule.kind == PROMPT:
-                await self._deliver_run(job, run)
+                await self.deliver_run(job, run)
             return run
         finally:
             self._running.discard(job.id)
 
-    async def _deliver_run(self, job: Job, run: RunRecord) -> None:
+    async def deliver_run(self, job: Job, run: RunRecord) -> None:
         """Pushes the job's answer to the agent's channel; a failed send is logged, not
         raised, because the run itself already succeeded."""
         if self._deliver is None or run.conversation_id is None:

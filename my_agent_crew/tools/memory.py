@@ -144,6 +144,7 @@ def build_memory_tools(
                 "required": ["query"],
             },
             run=search,
+            replay_safe=True,
         ),
     ]
 

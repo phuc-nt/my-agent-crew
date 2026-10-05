@@ -59,6 +59,10 @@ class TelegramChat(TelegramPolling):
             self._drain.unregister(TELEGRAM)  # first: no queued turn starts while it waits
         await super().stop()
 
+    def cut_notice(self) -> str:
+        """A turn cut by the server going down is taken up again when it is back."""
+        return texts.TELEGRAM_CUT_RESUMES if self.hub.going_down else texts.TELEGRAM_CUT_OFF
+
     async def chat(self, text: str) -> None:
         conv = self.conversation()
         busy = self.hub.busy.busy(conv.id)

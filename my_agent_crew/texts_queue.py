@@ -16,3 +16,11 @@ INTERRUPTED_TOOL = (
     "Lời gọi này bị ngắt giữa chừng: không rõ nó đã chạy hay chưa. Nếu vẫn cần, hãy kiểm tra "
     "trước rồi mới gọi lại."
 )
+# The result a call that changes something gets when the server restarted before its result and
+# its turn is taken up again (`agent/replay.py`): made a second time unseen, it could write,
+# send or pay twice, so the model is told to look first.
+RESTART_CUT_TOOL = (
+    "Server khởi động lại khi lời gọi này đang chạy: không rõ nó đã có hiệu lực hay chưa, và nó "
+    "không được tự chạy lại vì có thể làm thay đổi hai lần. Hãy kiểm tra kết quả trước, rồi "
+    "gọi lại nếu thật sự còn cần."
+)

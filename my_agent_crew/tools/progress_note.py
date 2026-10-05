@@ -81,4 +81,5 @@ def build_progress_note_tool() -> Tool:
         PROGRESS_NOTE_SCHEMA,
         _run,
         requires_approval=False,
+        replay_safe=True,
     )

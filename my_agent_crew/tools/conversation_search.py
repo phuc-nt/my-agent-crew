@@ -106,4 +106,5 @@ def build_conversation_search_tool(store: Store, agent_id: str, is_master: bool)
         description=description,
         parameters={"type": "object", "properties": properties, "required": ["query"]},
         run=run,
+        replay_safe=True,
     )

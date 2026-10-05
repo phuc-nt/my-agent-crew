@@ -28,4 +28,6 @@ def build_skill_tools(skills: Sequence[Skill]) -> list[Tool]:
             raise ToolError(texts.SKILL_UNKNOWN.format(name=name, names=", ".join(by_name)))
         return skill.body
 
-    return [Tool("skill_read", texts.SKILL_READ_DESCRIPTION, READ_PARAMETERS, read)]
+    return [
+        Tool("skill_read", texts.SKILL_READ_DESCRIPTION, READ_PARAMETERS, read, replay_safe=True)
+    ]

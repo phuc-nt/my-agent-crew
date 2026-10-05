@@ -9,6 +9,7 @@ from my_agent_crew.activity.step_lookup import (
     CLOCK_KEY,
     find_tool_step,
     pending_model_step,
+    unanswered_tool_step,
     unsent_after_fallback,
 )
 from my_agent_crew.activity.step_previews import argument_preview, preview
@@ -118,17 +119,13 @@ def apply_event(run: RunRecord, event: Event, clock: float) -> None:
             # because it cannot fail.
             _instant(run, {"kind": "note", "text": note_text(event.arguments)}, clock)
             return
-        _open_step(
-            run,
-            {
-                "kind": "tool",
-                "name": event.name,
-                "tool_call_id": event.tool_call_id,
-                "arguments": argument_preview(event.arguments),
-                "ok": None,
-            },
-            clock,
-        )
+        again = unanswered_tool_step(run, event.tool_call_id)
+        if again is not None:
+            again[CLOCK_KEY] = clock  # made again after a restart: timed from here
+            return
+        step = {"kind": "tool", "name": event.name, "tool_call_id": event.tool_call_id}
+        shown = argument_preview(event.arguments)
+        _open_step(run, step | {"arguments": shown, "ok": None}, clock)
         return
     if isinstance(event, ToolResultEvent):
         if event.name == PROGRESS_NOTE_TOOL_NAME:

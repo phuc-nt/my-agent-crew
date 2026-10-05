@@ -121,6 +121,7 @@ def build_web_tools(
                 "required": ["url"],
             },
             run=fetch_url,
+            replay_safe=True,
         ),
         Tool(
             name="web_search",
@@ -131,6 +132,7 @@ def build_web_tools(
                 "required": ["query"],
             },
             run=web_search,
+            replay_safe=True,
         ),
     ]
     return tools

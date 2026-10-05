@@ -134,6 +134,7 @@ def build_search_tools(root: Path) -> list[Tool]:
                 "required": ["pattern"],
             },
             run=grep,
+            replay_safe=True,
         ),
         Tool(
             name="workspace_glob",
@@ -147,5 +148,6 @@ def build_search_tools(root: Path) -> list[Tool]:
                 "required": ["pattern"],
             },
             run=find_files,
+            replay_safe=True,
         ),
     ]

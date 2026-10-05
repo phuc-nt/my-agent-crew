@@ -83,4 +83,5 @@ def build_output_read_tool(store: Store, spill: Spill, cap: int) -> Tool:
         },
         run=run,
         parallel=True,
+        replay_safe=True,
     )

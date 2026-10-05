@@ -4498,3 +4498,58 @@ tin bị Dừng rút khỏi hàng thì tên chưa dùng, gửi lại là tin m�
   - Các test cũ so khớp nguyên thân POST (`test/canvas-app.tsx::bodies`, `app.test.tsx`,
     `hooks/use-thread.test.ts`, `keyboard-smoke.spec.ts`, `canvas-writing.spec.ts`, và các spec canvas
     đọc thân qua `e2e/sent-message.ts`) nay đòi thêm một `request_id` đúng dạng; không test nào bị nới.
+
+## Lượt dang dở được nối lại sau khi server khởi động lại
+
+Server tắt giữa một lượt (kickstart, crash, mất điện) từng để lại run `interrupted` và một câu hỏi không ai
+trả lời cho tới khi người dùng nhắn tiếp. Từ nay server khởi động xong thì tự nối lại lượt đó, **đúng một
+lần**: run cũ được mở lại (cùng id, cùng timeline, cùng số tiền đã tiêu), được đánh dấu `resumed` và lưu
+ngay trước khi lượt bước bước đầu tiên, nên một lượt làm sập server sẽ không được nối lần thứ hai. Lượt nối
+lại vẫn nằm dưới trần chi phí của cuộc trò chuyện: đã hết ngân sách thì không nối, đang nối mà chạm trần thì
+dừng như mọi lượt. Tool call chưa có kết quả lúc server tắt được xử theo chính sách của tool: tool khai
+`replay_safe` (chỉ đọc) được gọi lại; tool không khai gì coi như có đổi trạng thái, call được đóng bằng một
+kết quả nói nó bị cắt và không rõ đã chạy hay chưa, để model tự kiểm rồi quyết. Call chưa kịp chạy (còn phải
+hỏi người, tool không tồn tại, đối số hỏng) được lượt xử như thường lệ. Chỉ server có lịch (`schedule=True`)
+mới tự nối; Dừng do người bấm, lượt lỗi hay bot Telegram khởi động lại khi server vẫn chạy thì đóng run như
+cũ.
+
+  - pytest: `tests/test_run_restart_settlement.py` (run đang chạy được đóng trong store và trao lại đúng một
+    lần; run đã nối một lần bị đóng hẳn; mỗi cuộc trò chuyện chỉ trao lại run mới nhất; run không có cuộc trò
+    chuyện không có gì để nối; cuộc đang chờ quyết định chỉ giữ run đang dừng; cờ `resumed` được lưu và có
+    trong `to_dict`; database cũ nhận thêm cột; run mở lại được ghi `running` + `resumed` trước bước đầu tiên
+    và giữ cuộc trò chuyện ở trạng thái bận; lần gọi model chết cùng server không để lại step; step đã xong
+    được giữ; lượt bắt đầu kế tiếp nối đúng run đó và chỉ lượt đó; buông run khi server còn chạy thì đóng,
+    khi server đang tắt thì để mở cho lần khởi động sau; người đọc bỏ đi khi server còn chạy thì run đóng,
+    khi server đang tắt thì run ở lại `running`; chờ một run đã xong ở tiến trình trước được trả lời từ
+    store; chờ một run vừa mở lại thì kéo tới khi nó xong; chờ một cuộc chưa từng chạy vẫn hết giờ).
+  - pytest: `tests/test_tool_replay.py` (tool không khai gì thì không được gọi lại; đúng mười tám tool chỉ
+    đọc khai `replay_safe`, không tool nào cần duyệt nằm trong đó, và các tool ghi/shell thì không; một lần
+    ghi đã được người cho phép và đang chạy lúc server tắt không chạy lại, call đóng bằng
+    `RESTART_CUT_TOOL`; call bị cắt trước khi kịp hỏi thì vẫn được hỏi; tool lạ hay đối số hỏng thì lỗi như
+    chính nó; `replayable` theo từng trường hợp quyết định của người: chưa hỏi, đang chờ, từ chối, đã cho
+    phép, quyết định của call khác cùng id, và `ask_user`).
+  - pytest: `tests/test_turn_resume.py` (lượt bị cắt giữa tool đi tiếp bằng chính run đó và call không chạy
+    lại; call chỉ đọc được gọi lại và giữ chỗ trên timeline; lần gọi model chết cùng server được hỏi lại;
+    lượt chỉ được nối một lần, bị cắt lần nữa thì đóng; cuộc đã tiêu hết ngân sách không được nối; lượt nối
+    lại dừng ở trần như mọi lượt; Dừng kết thúc lượt nối lại; tab đọc theo được lượt nối lại; tin gửi trong
+    lúc đó chờ sau nó).
+  - pytest: `tests/test_turn_resume_readers.py` (lượt Telegram bị server cắt được bot khởi động kế tiếp trả
+    lời, và lời báo lúc tắt hứa sẽ làm tiếp; bot khởi động lại khi server vẫn chạy thì không hứa gì và run
+    đóng; không có bot thì lượt Telegram để đóng; job bị cắt được nối và câu trả lời tới chat đúng một lần,
+    `last_run` vẫn là run đó; job đã bị gỡ thì nối mà không báo ai; lượt giao việc và lượt con cùng được
+    nối, cha trước con sau, gặp lại nhau qua cùng một cuộc con, tiền cộng một lần, con không được trao
+    `delegate`; con đã xong trước khi cắt thì cha đọc kết quả từ store; con không được nối nếu cha không đi
+    tiếp).
+  - pytest: `tests/test_turn_resume_startup.py` (lượt đã hỏi người thì chờ người, không khởi chạy lại; run cũ
+    dưới một lượt đã xong sau nó thì để đóng; cuộc trò chuyện đã xoá thì để đóng; danh sách run bị cắt chỉ
+    được lấy một lần mỗi lần khởi động; app thật với lifespan để lại run `running` khi tắt và tự nối ở lần
+    khởi động sau; app không có lịch thì không nối gì).
+  - Kiểm chứng đột biến: hai mươi sáu sửa đổi ở server (bỏ ghi `resumed` lúc mở lại, trao lại cả run đã
+    nối, bỏ kiểm ngân sách, gọi lại mọi tool, coi mọi call là đã chạy, đóng run khi server đang tắt, bỏ
+    `deps_for_child` cho lượt con, `settled_run` trả về rỗng, v.v.), mỗi cái đều làm ít nhất một test đỏ.
+  - vitest: `components/run-progress-header.test.tsx` (run có `resumed` hiện dòng "Tiếp tục sau khi server
+    khởi động lại" cả lúc đang chạy lẫn khi đã xong; run chưa từng bị cắt không nói gì về khởi động lại).
+  - Playwright: `conversation-activity-smoke.spec.ts` (run được nối hiện dòng đó trên dải ở 1024, trong cột
+    ở 1440, và ở 390 thì vừa dải, không làm trang rộng ra; run khác trong cùng danh sách không có dòng đó).
+  - `tests/test_store.py` được sửa theo kiểu trả về mới của bước dọn lúc khởi động (`Settled(paused, cut)`
+    thay cho danh sách run đang dừng); các khẳng định giữ nguyên.

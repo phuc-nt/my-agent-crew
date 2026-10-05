@@ -74,14 +74,19 @@ class GatedProvider(ScriptedProvider):
 
 
 class SlowTool:
-    """A tool that runs until released, counting how often it ran."""
+    """A tool that runs until released, counting how often it ran. `replay_safe` makes it
+    one that only reads, which a restart may make again (`agent/replay.py`)."""
 
-    def __init__(self, name: str = "slow", requires_approval: bool = False):
+    def __init__(
+        self, name: str = "slow", requires_approval: bool = False, replay_safe: bool = False
+    ):
         self.started = asyncio.Event()
         self.release = asyncio.Event()
         self.runs = 0
         schema = {"type": "object", "properties": {}}
-        self.tool = Tool(name, "Chạy chậm.", schema, self._run, requires_approval)
+        self.tool = Tool(
+            name, "Chạy chậm.", schema, self._run, requires_approval, replay_safe=replay_safe
+        )
 
     async def _run(self, args: dict[str, Any]) -> ToolResult:
         self.runs += 1

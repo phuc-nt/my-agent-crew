@@ -9,6 +9,7 @@ from collections.abc import AsyncIterator, Sequence
 from typing import Any
 
 from my_agent_crew.activity.busy import Busy
+from my_agent_crew.activity.cut_runs import CutRuns
 from my_agent_crew.activity.steps import apply_event
 from my_agent_crew.activity.turn_watch import TurnWatch
 from my_agent_crew.activity.watchers import Watchers
@@ -22,12 +23,14 @@ RECENT_LIMIT = 100
 # written and announced at step boundaries, and a delta only moves a counter in memory.
 
 
-class ActivityHub:
+class ActivityHub(CutRuns):
     def __init__(self, store: Store):
         self._store = store
         # A run paused on a request that still waits is held again, so the decision
         # continues it; everything else the previous process left open is closed.
-        self._live = {run.id: run for run in store.runs.settle_after_restart(now_iso())}
+        settled = store.runs.settle_after_restart(now_iso())
+        self._live = {run.id: run for run in settled.paused}
+        self.cut, self._held = settled.cut, set()
         self._watchers = Watchers()
         # Set when a conversation's run reaches a terminal status, so a caller waiting on
         # a delegated turn wakes up instead of polling.
@@ -56,13 +59,16 @@ class ActivityHub:
     def start(
         self, agent_id: str, source: str, title: str, conversation_id: str | None
     ) -> RunRecord:
-        """A turn that resumes after an approval continues the run that paused. Either way
-        the run takes over the claim the door made on its conversation."""
+        """A turn that resumes after an approval continues the run that paused, and one
+        taken up after a restart the run that was cut. Either way the run takes over the
+        claim the door made on its conversation."""
         if conversation_id:
             self.turn_starting(conversation_id)
             self.busy.release(conversation_id)
         for live in self._live.values():
-            if live.conversation_id == conversation_id and live.status == AWAITING:
+            paused = live.status == AWAITING or live.id in self._held
+            if live.conversation_id == conversation_id and paused:
+                self._held.discard(live.id)
                 live.status = RUNNING
                 self._store.runs.save(live)
                 self._watchers.broadcast({"type": "run", "run": live.to_dict()})
@@ -106,6 +112,7 @@ class ActivityHub:
             run.summary = summary
         run.finished_at = run.finished_at or now_iso()
         self._live.pop(run.id, None)
+        self._held.discard(run.id)
         self._store.runs.save(run)
         self._watchers.broadcast({"type": "run", "run": run.to_dict()})
         if run.conversation_id:
@@ -117,7 +124,11 @@ class ActivityHub:
 
         A run that pauses for an approval is not finished: the wait continues while the
         person decides, and ends when the resumed run does. `None` means the timeout ran
-        out with the run still going, which the caller reports rather than hangs on."""
+        out with the run still going, which the caller reports rather than hangs on. A run
+        that ended in an earlier process raises no signal here, so it is read from the store."""
+        over = None if conversation_id in self._finished else self.settled_run(conversation_id)
+        if over is not None:
+            return over
         event = self._finished.setdefault(conversation_id, asyncio.Event())
         try:
             await asyncio.wait_for(event.wait(), timeout)

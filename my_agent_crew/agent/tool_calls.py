@@ -12,7 +12,7 @@ time hands it a default instead of a refusal. Which calls pause is `tool_gate`'s
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator, Callable, Sequence
 from typing import TYPE_CHECKING
 
 from my_agent_crew.agent.approval_lookup import matches, open_new
@@ -88,12 +88,15 @@ def _unanswered(history: Sequence[StoredMessage]) -> tuple[StoredMessage | None,
     return last, [c for c in last.message.tool_calls if c.id not in answered]
 
 
-async def refuse_unanswered(deps: AgentDeps, conv_id: str, output: str) -> AsyncIterator[Event]:
+async def refuse_unanswered(
+    deps: AgentDeps, conv_id: str, output: str, only: Callable[[ToolCall], bool] | None = None
+) -> AsyncIterator[Event]:
     """Closes each call still without a result with `output`, never running it, so the log
-    stays one a later turn can carry on from."""
+    stays one a later turn can carry on from. `only` narrows it to the calls it picks."""
     _, pending = _unanswered(deps.store.history(conv_id))
     for call in pending:
-        yield await _record(deps, conv_id, call, ToolResult(ok=False, output=output))
+        if only is None or only(call):
+            yield await _record(deps, conv_id, call, ToolResult(ok=False, output=output))
 
 
 def _question_result(approval: Approval, call: ToolCall) -> str:

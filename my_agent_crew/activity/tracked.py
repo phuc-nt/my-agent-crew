@@ -21,9 +21,9 @@ async def tracked(
 ) -> AsyncIterator[Event]:
     """Re-yields the loop's events while recording them on a run, and passes them to
     whoever watches the conversation. A reader that stops reading leaves the run marked as
-    failed, not running forever. The watchers are let go the moment the run is over or
-    pauses for a decision: from then on the conversation may start its next turn, which is
-    not this one's to end."""
+    failed, not running forever, unless the server is going down (`cut_runs.py`). The
+    watchers are let go the moment the run is over or pauses for a decision: from then on
+    the conversation may start its next turn, which is not this one's to end."""
     run = hub.start(agent_id, source, title, conversation_id)
     turn = hub.turns.begin(conversation_id) if conversation_id else None
     try:
@@ -43,4 +43,4 @@ async def tracked(
         if turn is not None and conversation_id:
             hub.turns.end(conversation_id, turn)
         if run.status == RUNNING:
-            hub.finish(run, status="error", summary="interrupted")
+            hub.interrupt(run)

@@ -4,7 +4,8 @@ A turn is a generator: it advances only while someone reads it. The web used to 
 reader, so closing the tab, switching conversation or losing the connection ended the turn
 halfway. Here the server is the reader, in a task of its own, and the tab that sent the
 message is only the first to watch (`activity/turn_watch.py`). Telegram, jobs and the queue
-drain already read their turns on the server and do not come through here."""
+drain already read their turns on the server and do not come through here; a turn taken up
+again after a restart does, whoever started it, unless a bot is there to answer it."""
 
 from __future__ import annotations
 
@@ -35,13 +36,24 @@ class TurnHost:
         that view to its end stops the watching and nothing else."""
         turn = self._turns.open(conv_id)
         frames = turn.join(behind=False)
+        self._start(conv_id, turn, events, request_id)
+        return frames
+
+    def read(self, conv_id: str, events: AsyncIterator[Event]) -> asyncio.Task[None]:
+        """Reads to its end a turn nobody is sending right now: one taken up again after a
+        restart (`turn_resume.py`). Stop reaches it like any turn read here."""
+        return self._start(conv_id, self._turns.open(conv_id), events, "")
+
+    def _start(
+        self, conv_id: str, turn: Turn, events: AsyncIterator[Event], request_id: str
+    ) -> asyncio.Task[None]:
         task = asyncio.get_running_loop().create_task(self._read(conv_id, events))
         self._tasks.add(task)
         # Not a `finally` in `_read`: a task cancelled before its first step never enters one.
         task.add_done_callback(lambda done: self._over(conv_id, turn, done))
         self._reading[conv_id] = task
         self._answering[conv_id] = request_id
-        return frames
+        return task
 
     def answering(self, conv_id: str, request_id: str) -> bool:
         """Whether the turn being read answers the send of this name. True from the moment

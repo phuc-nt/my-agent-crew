@@ -67,6 +67,8 @@ class Tool:
     # treats a non-empty return here as a reason to ask, ahead of the allow list, autonomy
     # and `auto_approve` — none of which can waive it. None means the ordinary rules apply.
     ask_reason: Callable[[dict[str, Any]], str] | None = None
+    # May be made again when a restart cut it before its result: it only reads (`replay.py`).
+    replay_safe: bool = False
 
     @property
     def spec(self) -> ToolSpec:

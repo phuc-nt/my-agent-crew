@@ -141,11 +141,12 @@ async def served(deps_factory):
     running is stopped afterwards."""
     made: list[Served] = []
 
-    def build(script, held=(), paused=()) -> Served:
+    def build(script, held=(), paused=(), extra_tools=()) -> Served:
         provider, slow = GatedProvider(script, held, paused), SlowTool()
         guarded = SlowTool("guarded", requires_approval=True)
         guarded.release.set()
-        deps = deps_factory(providers={"scripted": provider}, extra_tools=[slow.tool, guarded.tool])
+        tools = [slow.tool, guarded.tool, *extra_tools]
+        deps = deps_factory(providers={"scripted": provider}, extra_tools=tools)
         runtime = Runtime.single(deps)
         transport = httpx.ASGITransport(app=create_app(runtime, schedule=False))
         client = httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1")

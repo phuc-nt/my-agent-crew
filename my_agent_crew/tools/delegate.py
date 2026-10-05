@@ -110,6 +110,7 @@ def build_delegate_tool(runtime: Runtime, profile: AgentProfile) -> Tool:
         },
         run=run,
         parallel=True,
+        replay_safe=True,
     )
 
 

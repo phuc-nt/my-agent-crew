@@ -1,5 +1,6 @@
-"""Finding a step on a run: the model step still open, the tool step a result closes, and
-whether an open model step is still waiting on a route that took over after a fallback."""
+"""Finding a step on a run: the model step still open, the tool step a result closes or a
+repeated call opens again, and whether an open model step is still waiting on a route that
+took over after a fallback."""
 
 from __future__ import annotations
 
@@ -29,3 +30,10 @@ def find_tool_step(run: RunRecord, tool_call_id: str) -> dict[str, Any] | None:
         if step.get("kind") == "tool" and step.get("tool_call_id") == tool_call_id:
             return step
     return None
+
+
+def unanswered_tool_step(run: RunRecord, tool_call_id: str) -> dict[str, Any] | None:
+    """The step of a call that is being made again: a restart cut it before its result, and
+    it is one that may be repeated. The call keeps its one place on the timeline."""
+    step = find_tool_step(run, tool_call_id) if tool_call_id else None
+    return step if step is not None and step.get("ok") is None else None

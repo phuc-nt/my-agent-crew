@@ -166,6 +166,7 @@ def build_pdf_tool(roots: Sequence[Path], vision: ProviderChain | None) -> Tool:
         },
         run=run,
         parallel=True,
+        replay_safe=True,
     )
 
 
