@@ -90,6 +90,42 @@ describe("the title of a canvas a card names", () => {
   });
 });
 
+describe("the kind of a canvas the tab knows", () => {
+  it("is the kind the list holds", async () => {
+    backend.canvas.add({ id: NOTE, title: "Ghi chú", kind: "code", conversationIds: ["c1"] });
+    const { result } = await openList();
+
+    expect(result.current.kindOf(NOTE)).toBe("code");
+    expect(canvasReads(NOTE)).toEqual([]);
+  });
+
+  it("is not known for a canvas nobody has read, then comes from a read of it", async () => {
+    backend.canvas.add({ id: SHOP, title: "Mua sắm", kind: "html", conversationIds: ["c2"] });
+    const { result } = await openList();
+    expect(result.current.kindOf(SHOP)).toBeNull();
+
+    act(() => result.current.verify(SHOP));
+    await landed();
+
+    expect(result.current.kindOf(SHOP)).toBe("html");
+  });
+
+  it("goes by the list once the list holds the canvas", async () => {
+    backend.canvas.add({ id: SHOP, title: "Mua sắm", kind: "html", conversationIds: [] });
+    const { result } = await openList();
+    act(() => result.current.verify(SHOP));
+    await landed();
+
+    const canvas = backend.canvas.canvases.get(SHOP);
+    if (canvas) canvas.summary.kind = "svg";
+    canvas?.conversationIds.push("c1");
+    act(() => result.current.retry());
+    await landed();
+
+    expect(result.current.kindOf(SHOP)).toBe("svg");
+  });
+});
+
 describe("asking whether a canvas is still there", () => {
   it("waits for the list to be read, so a canvas it holds is never asked about", async () => {
     backend.canvas.add({ id: NOTE, title: "Ghi chú", conversationIds: ["c1"] });

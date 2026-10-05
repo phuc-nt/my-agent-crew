@@ -4,10 +4,24 @@
 import type { RefObject } from "react";
 import type { CanvasDock } from "../../hooks/use-canvas-dock";
 import { vi } from "../../i18n/vi";
+import { dockShowing } from "../../lib/canvas-dock-state";
 import { Icon } from "../ui/icon";
 
-/** The way to the conversation's canvases, counted on the way; focus comes back here on closing. */
-export function CanvasButton({ dock, ref }: { dock: CanvasDock; ref: RefObject<HTMLButtonElement | null> }) {
+type ButtonProps = {
+  dock: CanvasDock;
+  ref: RefObject<HTMLButtonElement | null>;
+  /** The dock shows a canvas the agent is still writing. */
+  showing?: boolean;
+  /** Puts that canvas away. */
+  onLeave?: () => void;
+};
+
+/**
+ * The way to the conversation's canvases, counted on the way; focus comes back here on closing.
+ * While the dock shows a canvas being written, a press puts that away and does nothing else: the
+ * dock had not been opened, so there is nothing of the person's to close or open in its place.
+ */
+export function CanvasButton({ dock, ref, showing = false, onLeave }: ButtonProps) {
   const count = dock.list.items?.length ?? 0;
   return (
     <button
@@ -15,8 +29,8 @@ export function CanvasButton({ dock, ref }: { dock: CanvasDock; ref: RefObject<H
       className="pill canvas-button"
       ref={ref}
       aria-label={vi.canvas.buttonLabel(count)}
-      aria-expanded={dock.view !== "closed"}
-      onClick={() => void dock.toggle()}
+      aria-expanded={dockShowing(dock.view, showing)}
+      onClick={() => (showing && onLeave ? onLeave() : void dock.toggle())}
     >
       <Icon name="document" />
       {vi.canvas.button}

@@ -1456,6 +1456,70 @@ tên một test thì sửa dòng của nó trong cùng commit.
     mang id; kích thước tính theo byte UTF-8);
     `web/src/state/activity-reducer.test.ts` ("takes nothing from the pieces of a canvas being
     written: they are no step of the run")
+- **Canvas agent còn đang viết hiện dần trên web: mỗi canvas một thẻ trong luồng, và một khung chỉ
+  đọc ở chỗ của dock; khung tự hiện một lần ở nơi không cản ai, không lấy bàn phím, không ghi gì
+  lên server hay vào bộ nhớ trình duyệt, và nhường chỗ cho canvas thật khi lời gọi xong**
+  - vitest: `web/src/hooks/use-canvas-writing.test.tsx` (thẻ chỉ có cho bản chưa gắn lời gọi; mỗi
+    mảnh được đọc một lần dù màn hình vẽ lại bao nhiêu lần; canvas mới tự hiện từ mảnh thứ hai có
+    chữ, không trên màn hẹp kể cả khi màn rộng ra sau, không khi người đang gõ trong một canvas kể
+    cả khi họ ngừng, không cho lời gọi đã gắn, không thay bản đang hiện, và hai bản sẵn sàng cùng
+    lúc thì hiện bản đầu; lời viết lại chỉ tự hiện trên chính canvas nó viết lại đang mở; bấm xem
+    thì hiện ngay từ mảnh đầu, trên màn hẹp và cả khi đang gõ, thay bản tự hiện, đếm số lần hỏi và
+    không tự hiện lại về sau; rời khung thì phần còn lại của lượt im, lượt sau lại tự hiện; khung
+    tự đi khi model bắt đầu lại, khi dock chuyển chỗ và không quay lại khi dock trở về, khi tắt xem
+    trước; nó ở lại suốt lời gọi, rồi mở lặng lẽ đúng một lần canvas mà kết quả nêu dù đối số nói
+    gì; lời gọi hỏng, bị từ chối hay bị dừng, và kết quả không nêu canvas, chỉ cất khung; không mở
+    đè lên chữ người vừa gõ trong canvas phía sau, nhưng vẫn mở khi bàn phím chỉ đang ở trong dock
+    mà người không gõ gì ở đó, vì bàn phím ấy đang ở chính khung sắp nhường chỗ; canvas viết lại
+    vốn đang mở thì không mở lại; lời gọi hỏng không làm im canvas sau);
+    `web/src/components/canvas/canvas-writing-card.test.tsx` (thẻ nói đang viết hay viết lại dưới
+    tiêu đề tới lúc này hoặc một chữ thay, ký tự ẩn trong tiêu đề hiện thành dấu, loại chỉ có khi
+    đã biết, kích thước nằm ở dòng không bị đọc lên mỗi lần đổi, ba chấm ẩn với trình đọc màn
+    hình, nút xem nêu tên canvas và hỏi đúng bản ấy, thẻ không hiện chữ đang viết);
+    `web/src/components/canvas/canvas-writing-view.test.tsx` (đầu khung nêu tên và loại, nói chưa
+    lưu khi agent còn viết và đang lưu khi lời gọi đã có; trong khung chỉ có nút đóng, không ô gõ;
+    markdown đi qua cùng view của canvas đã lưu, HTML viết trong markdown hiện thành chữ; `html`,
+    `svg`, `mermaid` hiện mã nguồn kèm dòng nói vì sao và không dựng phần tử nào; loại chưa biết,
+    `code` và `image` là chữ thường; ký tự ẩn hiện thành dấu; bàn phím ở yên khi khung tự hiện,
+    tới nút đóng khi người bấm xem, không bị kéo lại khi chữ tới thêm, quay lại khi bấm lần nữa,
+    và không bị lấy khỏi link trong khung; khung theo dòng cuối cho tới khi người cuộn lên);
+    `web/src/components/canvas/canvas-dock-writing.test.tsx` (dock hiện khung trên tab canvas dù
+    chưa mở gì và trả cột hoạt động lại sau đó; canvas dock đang giữ chờ phía sau cùng chữ người
+    đã gõ; danh sách bị che; trên màn hẹp khung phủ lên chat với đường quay lại đứng đầu; đường
+    quay lại, nút Canvas và nút đóng đều rời khung trước khi làm việc cũ; bàn phím ở yên trong ô
+    chat khi khung tới và khi nó đi, về nút Canvas khi dock đóng lại, ở lại trong cột hoạt động,
+    và tới control đầu của dock khi canvas thật thế chỗ khung; canvas thứ hai theo dòng cuối của
+    chính nó); `web/src/lib/canvas-dock-state.test.ts` (dock đóng vẫn là đang hiện khi có khung);
+    `web/src/components/message-thread-writing.test.tsx` (mỗi canvas một thẻ theo thứ tự bắt đầu,
+    đứng sau chữ đang tới; thẻ thay dòng "đang nghĩ"; không thẻ ở màn không theo việc viết);
+    `web/src/hooks/use-canvas-auto-open-writing.test.ts` (lời gọi mà dock đã hiện khi còn viết
+    không được mở lần nữa ở hook tự mở, các canvas khác của lượt vẫn mở);
+    `web/src/hooks/use-canvas-list-verify.test.ts` (`kindOf` lấy loại từ danh sách rồi từ lần đọc
+    gần nhất)
+  - vitest cấp App: `web/src/app-canvas-writing.test.tsx` (mảnh đầu chỉ là thẻ; từ mảnh thứ hai
+    khung hiện cạnh luồng, ô chat giữ bàn phím; "gives way to the canvas the agent made, in the
+    same column, having written nothing to the server": không request ghi nào tới `/artifacts`,
+    không ghi canvas đang mở; tin gửi khi khung đang hiện không mang gì của nó; model bắt đầu lại
+    thì khung đi ngay và bản sau dựng từ đầu; dừng lượt thì không còn gì; nút Canvas cất khung
+    trước và phần còn lại của lượt im; thẻ gọi khung lại; canvas thật vẫn tự mở sau khi cất;
+    người đang gõ trong canvas khác thì khung không tự hiện, và bấm thẻ lưu chữ của họ như mọi lần
+    rời ô soạn: đúng một `PUT` mang chữ của họ; lưu được thì canvas của agent mở khi xong, lưu
+    hỏng thì canvas của họ trở lại cùng chữ đã gõ);
+    `web/src/app-canvas-writing-safety.test.tsx` (lời viết lại hiện trên canvas nó viết lại, canvas
+    ấy chờ phía sau rồi hiện lại; canvas khác đang mở hay không mở gì thì chỉ là thẻ; id trong bản
+    đang viết không vào request nào; bộ nhớ trình duyệt giữ chữ người gõ cho canvas ấy và không có
+    chữ nào của agent; bản hoá ra là tool khác bị gỡ, đối số của nó không ở lại trong dock; trang
+    `html` hiện mã nguồn và không gì trong nó chạy; markdown vẽ như canvas đã lưu; loại lạ là chữ;
+    tiêu đề theo đúng giới hạn của canvas đã lưu);
+    `web/src/app-canvas-writing-narrow.test.tsx` (màn hẹp chỉ có thẻ; bấm xem thì khung phủ chat
+    và bàn phím ở nút đóng; Escape hoặc đường quay lại trả chat, bàn phím về nút Canvas; Escape
+    rời khung trước rồi mới cất canvas dock đang giữ; canvas thật phủ chat khi người đang xem, và
+    không phủ khi họ không xem)
+  - e2e: `web/e2e/canvas-writing.spec.ts` (màn rộng: khung hiện dần cạnh luồng, ô chat giữ bàn
+    phím, rồi canvas thật thế chỗ; trang `html` là mã nguồn và `window.pwned` không được đặt; điện
+    thoại 390×844: chỉ có thẻ cho tới khi chạm, khung phủ cả màn, nút cao ít nhất 40 px, Escape
+    rời khung). Luồng còn mở của các test này dựng bằng `web/src/test/canvas-writing-turn.ts`
+    (vitest) và `web/e2e/live-stream.ts` (e2e, vì route của Playwright trả cả thân một lần)
 - **Tham số lời gọi tool không phải JSON object thành lỗi tool, lượt vẫn chạy tiếp**
   - pytest: `tests/test_tool_args_invalid.py` (tham số bị cắt giữa chừng báo vị trí chỗ dừng
     chứ không phải chỗ chuỗi bắt đầu, lỗi giữa chừng báo vị trí và vài chục ký tự quanh đó với
@@ -2758,7 +2822,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     không khi bàn phím không ở đâu hay ở ô soạn tin dù canvas đang mở; là có khi bàn phím ở một nút
     của canvas đang mở, ở một tab của dock, ở một dòng trong danh sách canvas, ở khung của trang
     HTML mà app chỉ thấy là `iframe`, và ở phần hoạt động dock đang hiện khi chưa mở canvas nào;
-    lại là không khi bàn phím về ô soạn tin; chữ chưa lưu thì vẫn là có sau khi bàn phím đã rời dock);
+    lại là không khi bàn phím về ô soạn tin; chữ chưa lưu thì vẫn là có sau khi bàn phím đã rời dock;
+    nhóm "whether the open canvas holds the person's typing…": `editing()` hẹp hơn, là không khi bàn
+    phím ở một nút của canvas, ở một tab, trong khung trang hay khi chưa mở canvas nào dù `typing()`
+    là có, là có khi bàn phím ở ô chữ của canvas và khi còn chữ chưa lưu);
     `web/src/hooks/use-canvas-auto-open.test.ts` (mở lặng lẽ khi lệnh tạo xong ở lượt tab này đang
     xem, đúng một lần dù thread vẽ lại bao nhiêu, hai canvas trong một lần vẽ thì mở theo thứ tự tạo,
     lấy canvas thẻ nêu chứ không lấy tham số, cần thẻ ở đầu kết quả, mở được cả khi chưa tải chi tiết

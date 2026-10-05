@@ -1,0 +1,108 @@
+/*
+ * A canvas the agent is still writing: the frame that shows it fill in where the dock is, the
+ * dock's own content waiting behind it, and its card in the thread.
+ */
+
+/* ── The frame ──────────────────────────────────────────────────────────── */
+/* It takes the place of a canvas panel, and is laid out as one. */
+.canvas-writing {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/* The kind sits between the name and the way out, and never squeezes either. */
+.canvas-writing .canvas-title-row > .badge {
+  flex: none;
+}
+
+/* Says what the person is looking at before they read a word of it: nothing here is saved. */
+.canvas-writing-band {
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--accent-softer);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+}
+
+/* ── What the dock holds, behind the frame ──────────────────────────────── */
+/* The list or the open canvas keeps its place in the dock, so the wrapper is laid out as the
+   section it fills. The class sets `display`, which would otherwise show a hidden wrapper. */
+.dock-held {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.dock-held[hidden] {
+  display: none;
+}
+
+/* ── The card in the thread ─────────────────────────────────────────────── */
+.canvas-writing-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  min-width: 0;
+}
+
+/* The line wraps on a narrow thread: the size goes under the words rather than off the card. */
+.canvas-writing-card .canvas-card-line {
+  flex-wrap: wrap;
+}
+
+.canvas-writing-size {
+  font-variant-numeric: tabular-nums;
+}
+
+.canvas-writing-size::before {
+  content: "· ";
+}
+
+/* Three dots that swell in turn while the agent writes. */
+.writing-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.writing-dots > span {
+  width: 4px;
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  animation: writing-dot 1.2s ease-in-out infinite;
+}
+
+.writing-dots > span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.writing-dots > span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes writing-dot {
+  0%,
+  60%,
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(1.4);
+  }
+}
+
+/* Asked for less motion, the dots stand still, all alike: the words beside them say the rest. */
+@media (prefers-reduced-motion: reduce) {
+  .writing-dots > span {
+    animation: none;
+    opacity: 0.6;
+  }
+}

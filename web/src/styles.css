@@ -18,6 +18,8 @@
  *   canvas  → the canvas dock beside the chat: its column, overlay, panel and history, and the
  *             note a message carries from it, under the message in the thread.
  *   canvas-library → the library of every canvas on the manage screen.
+ *   canvas-writing → a canvas the agent is still writing: its frame in the dock and its card
+ *             in the thread.
  *
  * A rule belongs to exactly one of these. If a new rule fits none of them, that
  * is the signal to add a region rather than to append it here.
@@ -46,4 +48,5 @@
 @import "./styles/canvas-page.css";
 @import "./styles/canvas-source.css";
 @import "./styles/canvas-library.css";
+@import "./styles/canvas-writing.css";
 @import "./styles/touch-targets.css";

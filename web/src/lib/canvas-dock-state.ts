@@ -20,6 +20,12 @@ export type DockState = {
   createFailed: boolean;
 };
 
+/**
+ * Whether the dock has something on show. A canvas the agent is still writing shows there without
+ * the dock having been opened, so a dock that is closed may be showing all the same.
+ */
+export const dockShowing = (view: DockView, writing: boolean): boolean => view !== "closed" || writing;
+
 /** The dock of a conversation nothing has been opened in. */
 export const closedFor = (conversationId: string | null): DockState => ({
   conversationId,

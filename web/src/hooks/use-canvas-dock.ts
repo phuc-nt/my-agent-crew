@@ -70,6 +70,9 @@ export type CanvasDock = Omit<DockState, "conversationId"> & Omit<CanvasChatNoti
   /** Whether the person is typing in the open canvas or has the keyboard anywhere in the dock, in a
    *  page's frame too: either way a canvas opened now must not take the dock from them. */
   typing(): boolean;
+  /** Whether the open canvas holds the person's typing: text no version has yet, or the keyboard in
+   *  its editor. Narrower than `typing`, for what already covers the dock and is about to leave it. */
+  editing(): boolean;
   /** What a message sent now says of the canvas: nothing until one is opened here. */
   messageCanvas(): MessageCanvas | undefined;
   /** A mark of the moves made so far, for `restore`. */
@@ -108,7 +111,8 @@ export function useCanvasDock(conversationId: string | null, connected: boolean,
     const open = version === null && asked !== null && panel.current === asked && !asked.gone();
     return open || handoffOut(focusId);
   }, [flush]);
-  const typing = useCallback(() => Boolean(panel.current?.typing() || box.current?.contains(document.activeElement)), []);
+  const editing = useCallback(() => Boolean(panel.current?.typing()), []);
+  const typing = useCallback(() => editing() || Boolean(box.current?.contains(document.activeElement)), [editing]);
   const messageCanvas = useCallback((): MessageCanvas | undefined => {
     const { focusId } = latest.current;
     if (focusId === undefined) return undefined;
@@ -189,5 +193,5 @@ export function useCanvasDock(conversationId: string | null, connected: boolean,
 
   const { conversationId: _, ...view } = shown;
   const saves = { flush, flushForMessage };
-  return { ...view, list, ...notices, ...actions, create, bind, box, ...saves, typing, messageCanvas, ticket: readTicket };
+  return { ...view, list, ...notices, ...actions, create, bind, box, ...saves, typing, editing, messageCanvas, ticket: readTicket };
 }

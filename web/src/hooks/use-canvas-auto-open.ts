@@ -19,6 +19,9 @@
  * A task handed to another agent opens the first canvas its result says that agent wrote, made
  * or only changed: the result does not say which, and the person asked for the work either way.
  * Of two tasks handed off side by side, the one to finish last is the one left open.
+ *
+ * A call whose canvas the dock showed while it was written is not opened here: what showed it
+ * decides what follows (`use-canvas-writing.ts`), so the canvas opens once and not twice.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -49,18 +52,25 @@ function shows(item: Tool): string | null {
   return tag === null || tag.unchanged ? null : tag.id;
 }
 
-export function useCanvasAutoOpen(thread: Thread, dock: Pick<CanvasDock, "open" | "typing">, wide: boolean): void {
+export function useCanvasAutoOpen(
+  thread: Thread,
+  dock: Pick<CanvasDock, "open" | "typing">,
+  wide: boolean,
+  /** The call whose canvas the dock is showing as it is written, if any. */
+  shownCallId: string | null = null,
+): void {
   const { items } = thread.state;
   // The calls that had ended when the screen was drawn, then each call once it has been judged.
   const [judged] = useState(() => new Set(endedIds(items)));
-  const latest = useRef({ dock, wide, detail: thread.detail });
-  latest.current = { dock, wide, detail: thread.detail };
+  const latest = useRef({ dock, wide, detail: thread.detail, shownCallId });
+  latest.current = { dock, wide, detail: thread.detail, shownCallId };
 
   useEffect(() => {
-    const { dock, wide, detail } = latest.current;
+    const { dock, wide, detail, shownCallId } = latest.current;
     for (const item of items) {
       if (item.kind !== "tool" || judged.has(item.id) || going(item)) continue;
       judged.add(item.id);
+      if (item.id === shownCallId) continue;
       const id = item.status === "done" ? shows(item) : null;
       const history = detail?.messages.some((message) => message.tool_calls.some((call) => call.id === item.id));
       if (id === null || !wide || history || dock.typing()) continue;

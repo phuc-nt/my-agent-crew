@@ -2,10 +2,12 @@ import { agentFileUrl } from "../api/client";
 import type { RunInfo } from "../api/types";
 import { useAutoScroll } from "../hooks/use-auto-scroll";
 import { vi } from "../i18n/vi";
+import type { WritingItem } from "../lib/canvas-writing";
 import type { ThreadItem } from "../state/thread-reducer";
 import { AttachmentChip, fileName, splitAttachments, type AttachmentBlock } from "./attachment-chip";
 import type { CanvasLinks } from "./canvas/canvas-card";
 import { CanvasNoteChip } from "./canvas/canvas-note-chip";
+import { CanvasWritingCard } from "./canvas/canvas-writing-card";
 import { BubbleActions } from "./copy-button";
 import { ForkButton } from "./fork-button";
 import { MarkdownBody } from "./markdown-body";
@@ -30,6 +32,9 @@ interface Props {
   onOpenConversation?: (conversationId: string) => void;
   /** Draws a write to a canvas as the canvas, with a way to open it; absent keeps the plain tool card. */
   canvas?: CanvasLinks;
+  /** The canvases the agent is writing right now, a card each, and the way to watch one fill in;
+   *  absent where the screen does not follow the writing. */
+  writing?: { items: WritingItem[]; onShow(key: number): void };
   /** The master introduces itself by name and names the team it can hand work to. */
   masterName?: string;
   crewNames?: string[];
@@ -54,6 +59,7 @@ export function MessageThread({
   agentName,
   onOpenConversation,
   canvas,
+  writing,
   masterName,
   crewNames = [],
   onFork,
@@ -116,12 +122,16 @@ export function MessageThread({
           <MarkdownBody text={streaming} />
         </div>
       )}
+      {writing?.items.map((item) => (
+        <CanvasWritingCard key={item.key} item={item} onShow={writing.onShow} />
+      ))}
       {/* While the turn is blocked, the thread says what it is blocked on. The
           rail has this already; repeating it here means you do not have to open
           a second panel to learn whether anything is still happening. Without a
           run to read — the very first moment of a turn — it falls back to the
-          plain word, which is all that is true yet. */}
-      {busy && streaming === null && (
+          plain word, which is all that is true yet. A canvas being written says
+          what is happening by its card, so the wait has nothing to add. */}
+      {busy && streaming === null && !writing?.items.length && (
         <div className="thinking" data-testid="thinking">
           <AgentAvatar id={agentId} name={speaker} size="sm" />
           {liveRun ? <RunProgressHeader run={liveRun} /> : <span className="thinking-text">{vi.thinking}</span>}

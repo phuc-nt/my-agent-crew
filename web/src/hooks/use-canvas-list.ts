@@ -37,6 +37,8 @@ export type CanvasList = {
   retry(): void;
   /** The title the list gives a canvas, or else the one a read of it did; null when neither has. */
   titleOf(id: string): string | null;
+  /** The kind of a canvas, from the same two places as its title. */
+  kindOf(id: string): string | null;
   /** The stream or a read said the canvas is deleted. */
   isGone(id: string): boolean;
   /** Asks the server about canvas `id` as soon as the list is in, and after each later read of it,
@@ -150,6 +152,7 @@ export function useCanvasList(conversationId: string | null, connected: boolean)
     failed: current?.failed ?? false,
     retry: load,
     titleOf: (id) => items?.find((item) => item.id === id)?.title ?? known.read.get(id)?.title ?? null,
+    kindOf: (id) => items?.find((item) => item.id === id)?.kind ?? known.read.get(id)?.kind ?? null,
     isGone: (id) => known.gone.has(id),
     verify,
   };

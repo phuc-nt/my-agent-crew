@@ -208,7 +208,7 @@ export class FakeBackend {
   /** A conversation whose turn `holdTurn()` is keeping open: its first POST /messages
    *  does not close its SSE stream until the test releases it, and every POST that
    *  reaches the conversation before that queues instead of starting a second turn. */
-  private held = new Map<string, () => void>();
+  private held = new Map<string, { push(events: AgentEvent[]): void; close(): void }>();
   /** Messages queued behind a held turn, oldest first, keyed by conversation id. */
   private queues = new Map<string, QueuedMessage[]>();
   private queueCounter = 0;
@@ -728,11 +728,14 @@ export class FakeBackend {
     this.willHold = null;
     const stream = new ReadableStream<Uint8Array>({
       start: (controller) => {
-        for (const e of events) controller.enqueue(encoder.encode(`event: ${e.type}\r\ndata: ${JSON.stringify(e)}\r\n\r\n`));
+        const push = (more: AgentEvent[]) => {
+          for (const e of more) controller.enqueue(encoder.encode(`event: ${e.type}\r\ndata: ${JSON.stringify(e)}\r\n\r\n`));
+        };
+        push(events);
         // An ordinary turn ends its stream at once. A held one leaves it open — this is
         // what `state.busy` reads as true on — and only `release()` closes it, the way
         // the real connection stays open until the tool it is waiting on returns.
-        if (held) this.held.set(c.id, () => controller.close());
+        if (held) this.held.set(c.id, { push, close: () => controller.close() });
         else controller.close();
       },
     });
@@ -743,12 +746,18 @@ export class FakeBackend {
    *  call would: send the message that starts it and the returned SSE stream will not
    *  close on its own. Every POST that reaches the conversation before `release()` is
    *  queued instead of starting a second turn, exactly as the real server queues one
-   *  behind a turn that is still going. */
-  holdTurn(conversationId: string): { release: () => void } {
+   *  behind a turn that is still going. While it is open, `push()` sends more events down
+   *  it, as the server does while the model is still answering. */
+  holdTurn(conversationId: string): { release: () => void; push: (events: AgentEvent[]) => void } {
     this.willHold = conversationId;
     return {
+      push: (events) => {
+        const turn = this.held.get(conversationId);
+        if (!turn) throw new Error(`no turn is held open for ${conversationId}`);
+        turn.push(events);
+      },
       release: () => {
-        this.held.get(conversationId)?.();
+        this.held.get(conversationId)?.close();
         this.held.delete(conversationId);
       },
     };

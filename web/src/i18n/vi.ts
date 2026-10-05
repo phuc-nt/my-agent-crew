@@ -1126,6 +1126,21 @@ export const vi = {
       open: "Mở",
       openLabel: (title: string) => `Mở canvas ${title}`,
     },
+    // A canvas the agent is still writing: its card in the thread, and the frame that shows it fill in.
+    writing: {
+      creating: "Agent đang viết…",
+      rewriting: "Agent đang viết lại…",
+      // What a canvas being made, and one being written again, go by until a title is known.
+      untitledNew: "Canvas mới",
+      untitled: "Canvas",
+      written: (size: string) => `Đã viết ${size}`,
+      show: "Xem bản đang viết",
+      showLabel: (title: string) => `Xem bản đang viết: ${title}`,
+      unsaved: "Agent đang viết, chưa lưu",
+      saving: "Agent đã viết xong, đang lưu…",
+      source: "Đang hiện mã nguồn. Canvas sẽ hiện khi agent viết xong.",
+      close: "Đóng bản đang viết",
+    },
     // What the list of canvases on the card of a handed-off task is called.
     delegateCanvases: "Canvas viết trong việc này",
     // The bar at the foot of the panel that asks the agent about the passage selected in it.

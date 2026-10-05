@@ -62,6 +62,7 @@ async function shown(id: string) {
 
 const composer = () => screen.getByRole("textbox", { name: "Soạn tin" });
 const typing = () => seen.dock?.typing();
+const editing = () => seen.dock?.editing();
 const focus = (element: HTMLElement | null) => act(() => element?.focus());
 
 describe("whether the person has the keyboard in the dock, which a canvas opening by itself would take from them", () => {
@@ -145,5 +146,41 @@ describe("whether the person has the keyboard in the dock, which a canvas openin
     focus(composer());
 
     expect(typing()).toBe(true);
+  });
+});
+
+describe("whether the open canvas holds the person's typing, which the keyboard being in the dock does not say", () => {
+  it("is no on a button of the open canvas, on a tab and in a page's frame, where the dock still has the keyboard", async () => {
+    await openChat();
+    await shown(NOTE);
+
+    focus(screen.getByRole("button", { name: vi.canvas.view }));
+    expect([typing(), editing()]).toEqual([true, false]);
+    focus(screen.getByRole("tab", { name: vi.canvas.tabs.activity }));
+    expect([typing(), editing()]).toEqual([true, false]);
+
+    await shown(PAGE);
+    focus(document.querySelector("iframe"));
+    expect([typing(), editing()]).toEqual([true, false]);
+  });
+
+  it("is no while no canvas is open, wherever the keyboard is", async () => {
+    await openChat();
+
+    focus(screen.getByRole("button", { name: ACTIVITY }));
+
+    expect([typing(), editing()]).toEqual([true, false]);
+  });
+
+  it("is yes with the keyboard in the canvas's text, and stays yes for words no version holds", async () => {
+    await openChat();
+    await shown(NOTE);
+
+    focus(editor());
+    expect(editing()).toBe(true);
+    typeInto("Bước một và hai");
+    focus(composer());
+
+    expect(editing()).toBe(true);
   });
 });

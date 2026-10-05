@@ -2,6 +2,7 @@ import { vi } from "../i18n/vi";
 import type { WritingPreview } from "../state/writing-previews";
 import { isArtifactId } from "./artifact-tag";
 import { cleanTitle } from "./canvas-title";
+import { showHiddenChars } from "./hidden-chars";
 import { readPartialArgs } from "./partial-json-content";
 
 /**
@@ -70,3 +71,16 @@ export function describeWriting(preview: WritingPreview, known: KnownCanvases): 
     bytes: encoder.encode(content).length,
   };
 }
+
+/** What a canvas being written goes by on the screen: its title with what hides in it written out,
+ *  or a plain word until it has one. */
+export function writingTitle(item: WritingItem): string {
+  const { untitled, untitledNew } = vi.canvas.writing;
+  return showHiddenChars(item.title ?? (item.rewrite ? untitled : untitledNew));
+}
+
+/** The kinds a stored canvas shows as a page or a drawing. One being written shows as its source. */
+const DRAWN = ["html", "svg", "mermaid"];
+
+/** Whether the canvas will look different once stored than the source shown while it is written. */
+export const writtenAsSource = (item: WritingItem): boolean => item.kind !== null && DRAWN.includes(item.kind);

@@ -22,6 +22,7 @@ import type { useCrew } from "../hooks/use-agents";
 import { useCanvasAutoOpen } from "../hooks/use-canvas-auto-open";
 import { useCanvasDock } from "../hooks/use-canvas-dock";
 import { useCanvasFocus } from "../hooks/use-canvas-focus";
+import { useCanvasWriting } from "../hooks/use-canvas-writing";
 import type { useConversations } from "../hooks/use-conversations";
 import { useDrawer } from "../hooks/use-drawer";
 import { useFork } from "../hooks/use-fork";
@@ -31,6 +32,7 @@ import { useSavingNote } from "../hooks/use-saving-note";
 import { useShortcuts } from "../hooks/use-shortcuts";
 import type { useThread } from "../hooks/use-thread";
 import { vi } from "../i18n/vi";
+import { dockShowing } from "../lib/canvas-dock-state";
 import { runSummaryText } from "../lib/run-summary";
 import type { SendResult } from "../lib/send-result";
 import { conversationFamilyRuns, liveRuns, runningRuns, sortedRuns } from "../state/activity-reducer";
@@ -161,9 +163,20 @@ export function ChatScreen({
   const dock = useCanvasDock(active?.id ?? null, activity.state.connected, wide);
   const saving = useSavingNote();
   useCanvasFocus(active?.id ?? null, wide, dock);
-  useCanvasAutoOpen(thread, dock, wide);
+  // A canvas the agent is still writing shows where the dock is without opening it. It comes
+  // first: the canvas it turns into is its to open, not the hook's that opens what an agent made.
+  const writing = useCanvasWriting(thread, dock, wide, true);
+  useCanvasAutoOpen(thread, dock, wide, writing.callId);
+  const showing = writing.shown !== null;
+  const { leave: leaveWriting } = writing;
   const { titleOf, isGone, verify } = dock.list;
-  const canvasLinks = { titleOf, isGone, verify, open: dock.open };
+  // Opening the canvas the dock already holds moves nothing, so a card pressed while a canvas
+  // being written stands before it has to put that away itself.
+  const openCanvas = (id: string) => {
+    if (showing) leaveWriting();
+    dock.open(id);
+  };
+  const canvasLinks = { titleOf, isGone, verify, open: openCanvas };
 
   // The composer keeps the words until this answers. A conversation that does not exist yet is
   // made first, and the words wait for it to load; one that does waits for the open canvas's
@@ -184,7 +197,8 @@ export function ChatScreen({
     if (result.status !== "failed") dock.noteSentUnsaved(unsaved);
     return result.status !== "failed";
   };
-  const overlayOpen = !wide && dock.view !== "closed";
+  const dockOpen = dockShowing(dock.view, showing);
+  const overlayOpen = !wide && dockOpen;
   const { close: closeDock } = dock;
   const canvasTrigger = useRef<HTMLButtonElement>(null);
 
@@ -205,8 +219,8 @@ export function ChatScreen({
   // The search box only exists once the list is long enough to need it, so focusing it is
   // a request that can go unanswered — hence a ref that may hold nothing. On a phone it
   // lives in the drawer, which has to open around it first. Escape closes the topmost
-  // layer only: the drawer, else a canvas covering the chat (once its typing is saved),
-  // and only then the strip under the thread.
+  // layer only: the drawer, else a canvas being written that covers the chat, else a canvas
+  // covering the chat (once its typing is saved), and only then the strip under the thread.
   useShortcuts({
     onSearch: useCallback(() => {
       const box = searchRef.current;
@@ -216,9 +230,10 @@ export function ChatScreen({
     onNew: useCallback(() => void create(), [create]),
     onEscape: useCallback(() => {
       if (drawerOpen) hideDrawer();
+      else if (overlayOpen && showing) leaveWriting();
       else if (overlayOpen) void closeDock();
       else setCollapseSignal((n) => n + 1);
-    }, [drawerOpen, hideDrawer, overlayOpen, closeDock]),
+    }, [drawerOpen, hideDrawer, overlayOpen, showing, leaveWriting, closeDock]),
   });
 
   const remove = (id: string) => {
@@ -381,7 +396,7 @@ export function ChatScreen({
   );
 
   return (
-    <div className={`layout${docked ? (dock.view === "closed" ? " with-activity" : " with-canvas") : ""}`}>
+    <div className={`layout${docked ? (dockOpen ? " with-canvas" : " with-activity") : ""}`}>
       {drawer.open && <div className="scrim" aria-hidden="true" onClick={drawer.hide} />}
       <ConversationList
         conversations={list.conversations}
@@ -438,7 +453,7 @@ export function ChatScreen({
               })
             }
             onSetCap={onRaiseCap}
-            first={<CanvasButton dock={dock} ref={canvasTrigger} />}
+            first={<CanvasButton dock={dock} ref={canvasTrigger} showing={showing} onLeave={leaveWriting} />}
             extra={crewChip}
             lead={menuButton}
             sourceTitle={list.conversations.find((c) => c.id === forkSource)?.title}
@@ -482,6 +497,7 @@ export function ChatScreen({
             agentName={crew.agentName}
             onOpenConversation={onSelectConversation}
             canvas={canvasLinks}
+            writing={{ items: writing.items, onShow: writing.show }}
             onSuggestion={(text) => setDraft(text)}
             masterName={master?.name}
             crewNames={crewNames}
@@ -559,6 +575,7 @@ export function ChatScreen({
         trigger={canvasTrigger}
         onAsk={ask}
         askDisabled={askDisabled}
+        writing={writing.shown && { item: writing.shown, asked: writing.asked, onLeave: leaveWriting }}
       />
     </div>
   );

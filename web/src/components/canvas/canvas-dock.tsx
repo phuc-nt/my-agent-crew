@@ -9,6 +9,11 @@
  * already, a move inside the dock picks it up only when it was dropped, and closing gives it back
  * to the Canvas button when it was in the dock or nowhere. A canvas opened without being asked for
  * (quietly) leaves it where it is, even when it was nowhere: the person is typing in the chat.
+ *
+ * A canvas the agent is still writing stands in the dock before whatever the dock holds, which
+ * waits behind it unseen and unchanged; with nothing held, the dock shows for it all the same. It
+ * never moves the keyboard by coming up, and once it goes the keyboard is picked up only when it
+ * went with it.
  */
 
 import { type CSSProperties, type ReactNode, type RefObject, useEffect, useRef } from "react";
@@ -16,9 +21,12 @@ import type { CanvasDock, DockView } from "../../hooks/use-canvas-dock";
 import { useCanvasWidth } from "../../hooks/use-canvas-width";
 import { routeHash } from "../../hooks/use-route";
 import { vi } from "../../i18n/vi";
+import { dockShowing } from "../../lib/canvas-dock-state";
+import type { WritingItem } from "../../lib/canvas-writing";
 import { CanvasHandle } from "./canvas-handle";
 import { CanvasPanel, type CanvasPanelProps } from "./canvas-panel";
 import { CanvasPicker } from "./canvas-picker";
+import { CanvasWritingView } from "./canvas-writing-view";
 
 type Props = {
   dock: CanvasDock;
@@ -34,13 +42,17 @@ type Props = {
   onAsk?: CanvasPanelProps["onAsk"];
   /** Why asking is off for now, if it is. */
   askDisabled?: CanvasPanelProps["askDisabled"];
+  /** The canvas the agent is writing that the dock shows; `asked` counts the person's requests for it. */
+  writing?: { item: WritingItem; asked: number | null; onLeave(): void } | null;
 };
 
 // Every move resets "Canvas mới", and the overlay's way back, the list's first button and the
 // loading panel's way to the list each come before any field.
 const FIRST_CONTROL = ".dock-canvas button";
 
-function useDockFocus(root: RefObject<HTMLDivElement | null>, trigger: Props["trigger"], view: DockView, quiet: boolean) {
+type Shown = DockView | "writing";
+
+function useDockFocus(root: RefObject<HTMLDivElement | null>, trigger: Props["trigger"], view: Shown, quiet: boolean) {
   const was = useRef(view);
   useEffect(() => {
     const before = was.current;
@@ -50,19 +62,21 @@ function useDockFocus(root: RefObject<HTMLDivElement | null>, trigger: Props["tr
     const dropped = active === null || active === document.body;
     const node = root.current;
     if (view === "closed") {
-      if (dropped || node?.contains(active)) trigger.current?.focus();
-    } else if (!quiet && (dropped || (before === "closed" && !node?.contains(active)))) {
+      // The activity shows again where the canvas being written stood: the keyboard may be in it.
+      if (dropped || (before !== "writing" && node?.contains(active))) trigger.current?.focus();
+    } else if ((!quiet || before === "writing") && (dropped || (before === "closed" && !node?.contains(active)))) {
       node?.querySelector<HTMLElement>(FIRST_CONTROL)?.focus();
     }
   }, [root, trigger, view, quiet]);
 }
 
-export function CanvasDockView({ dock, mode, activity, connected, agentName, trigger, onAsk, askDisabled }: Props) {
+export function CanvasDockView({ dock, mode, activity, connected, agentName, trigger, onAsk, askDisabled, writing }: Props) {
   const size = useCanvasWidth();
   // The dock looks in its own element to learn whether the person has the keyboard there.
   const root = dock.box;
-  useDockFocus(root, trigger, dock.view, dock.quiet);
-  const open = dock.view !== "closed";
+  const showing = writing != null;
+  useDockFocus(root, trigger, showing ? "writing" : dock.view, showing || dock.quiet);
+  const open = dockShowing(dock.view, showing);
   const column = mode === "column";
   if (!open && (!column || activity === null)) return null;
 
@@ -111,37 +125,41 @@ export function CanvasDockView({ dock, mode, activity, connected, agentName, tri
           hidden={tabs && dock.tab !== "canvas"}
         >
           {!column && (
-            <button type="button" className="ghost dock-back" onClick={() => void dock.close()}>
+            <button type="button" className="ghost dock-back" onClick={() => (writing ? writing.onLeave() : void dock.close())}>
               {vi.canvas.backToChat}
             </button>
           )}
-          {dock.view === "list" && (
-            <CanvasPicker
-              list={dock.list}
-              creating={dock.creating}
-              createFailed={dock.createFailed}
-              onOpen={dock.open}
-              onCreate={(kind) => void dock.create(kind)}
-            />
-          )}
-          {dock.view === "canvas" && dock.artifactId !== null && (
-            <CanvasPanel
-              key={dock.artifactId}
-              artifactId={dock.artifactId}
-              created={dock.created}
-              connected={connected}
-              stuck={dock.stuck}
-              agentName={agentName}
-              bind={dock.bind}
-              flush={dock.flush}
-              onShowList={() => void dock.showList()}
-              onClose={() => void dock.close()}
-              onForceClose={dock.forceClose}
-              standaloneHref={routeHash({ kind: "manage", section: "canvas", param: dock.artifactId })}
-              onAsk={onAsk}
-              askDisabled={askDisabled}
-            />
-          )}
+          {writing && <CanvasWritingView key={writing.item.key} item={writing.item} asked={writing.asked} onLeave={writing.onLeave} />}
+          {/* What the dock holds keeps its place behind a canvas being written, typing and all. */}
+          <div className="dock-held" hidden={showing}>
+            {dock.view === "list" && (
+              <CanvasPicker
+                list={dock.list}
+                creating={dock.creating}
+                createFailed={dock.createFailed}
+                onOpen={dock.open}
+                onCreate={(kind) => void dock.create(kind)}
+              />
+            )}
+            {dock.view === "canvas" && dock.artifactId !== null && (
+              <CanvasPanel
+                key={dock.artifactId}
+                artifactId={dock.artifactId}
+                created={dock.created}
+                connected={connected}
+                stuck={dock.stuck}
+                agentName={agentName}
+                bind={dock.bind}
+                flush={dock.flush}
+                onShowList={() => void dock.showList()}
+                onClose={() => void dock.close()}
+                onForceClose={dock.forceClose}
+                standaloneHref={routeHash({ kind: "manage", section: "canvas", param: dock.artifactId })}
+                onAsk={onAsk}
+                askDisabled={askDisabled}
+              />
+            )}
+          </div>
         </section>
       )}
     </div>
