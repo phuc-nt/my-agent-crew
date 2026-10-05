@@ -17,6 +17,13 @@
   flex: none;
 }
 
+/* Source is as tall as its lines here, so the frame's body is what scrolls, as it is under drawn
+   markdown, and the same following keeps the newest line in sight. Left to shrink, the block would
+   scroll inside itself and stay at its first line. */
+.canvas-writing .canvas-code {
+  flex: none;
+}
+
 /* Says what the person is looking at before they read a word of it: nothing here is saved. */
 .canvas-writing-band {
   margin: 0;

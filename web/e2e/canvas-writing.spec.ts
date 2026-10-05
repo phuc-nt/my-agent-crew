@@ -105,6 +105,34 @@ test.describe("on a wide screen", () => {
     await expect(frame(page).locator("script, img, b")).toHaveCount(0);
     expect(await page.evaluate(() => (window as { pwned?: number }).pwned)).toBeUndefined();
   });
+
+  test("a page being written as its source keeps its newest line in sight until the person scrolls up", async ({ page }) => {
+    const { turn } = await ask(page);
+    /** Lines `from + 1` to `to` of the page, as the model writes them inside the call's arguments. */
+    const lines = (from: number, to: number) =>
+      Array.from({ length: to - from }, (_, at) => `<p>dòng ${from + at + 1}</p>`).join("\\n");
+    const line = (number: number) => frame(page).locator(`[data-line-start="${number}"]`);
+    /** Long enough for the frame to have followed, had it meant to. */
+    const drawn = () => page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+
+    await turn.push(piece(`{"title":"Trang","kind":"html","content":"${lines(0, 150)}`));
+    await turn.push(piece(`\\n${lines(150, 300)}`));
+    await expect(line(300)).toBeInViewport();
+    await expect(line(1)).not.toBeInViewport();
+
+    await turn.push(piece(`\\n${lines(300, 450)}`));
+    await expect(line(450)).toBeInViewport();
+
+    await frame(page).locator(".canvas-body").hover();
+    await page.mouse.wheel(0, -3000);
+    await expect(line(450)).not.toBeInViewport();
+    await turn.push(piece(`\\n${lines(450, 600)}`));
+
+    await expect(line(600)).toHaveText("<p>dòng 600</p>");
+    await drawn();
+    await expect(line(600)).not.toBeInViewport();
+    await expect(line(450)).not.toBeInViewport();
+  });
 });
 
 test.describe("on a phone", () => {

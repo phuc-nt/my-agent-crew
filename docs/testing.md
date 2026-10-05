@@ -1600,7 +1600,11 @@ tên một test thì sửa dòng của nó trong cùng commit.
     quay lại, người chỉ có thẻ thì không gì được mở, và chữ chưa lưu được thì canvas của họ vẫn
     phủ chat cùng chữ ấy)
   - e2e: `web/e2e/canvas-writing.spec.ts` (màn rộng: khung hiện dần cạnh luồng, ô chat giữ bàn
-    phím, rồi canvas thật thế chỗ; trang `html` là mã nguồn và `window.pwned` không được đặt; điện
+    phím, rồi canvas thật thế chỗ; trang `html` là mã nguồn và `window.pwned` không được đặt; "a
+    page being written as its source keeps its newest line in sight until the person scrolls up":
+    bản hiện dưới dạng mã nguồn dài 300 rồi 450 dòng thì dòng mới nhất nằm trong màn hình và dòng
+    đầu thì không, vì vùng cuộn là thân khung như với markdown được vẽ chứ không phải khối mã;
+    người cuộn lên rồi thì 150 dòng kế không kéo khung xuống nữa; điện
     thoại 390×844: chỉ có thẻ cho tới khi chạm, khung phủ cả màn, nút cao ít nhất 40 px, Escape
     rời khung). Luồng còn mở của các test này dựng bằng `web/src/test/canvas-writing-turn.ts`
     (vitest) và `web/e2e/live-stream.ts` (e2e, vì route của Playwright trả cả thân một lần); yêu
