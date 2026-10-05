@@ -3,9 +3,10 @@
 A reply is read line by line for `MEDIA:` and `FILE:` lines, because the reply is the agent's
 and what to attach is the agent's to choose. The sentences the runtime says around it are not
 the agent's: why a run stopped, that a guard timed out, that a run was empty, that the
-provider failed. Several quote free text, a provider's error or the question a job stopped
-at, and a line of that text shaped like an attachment line would send a file nobody chose to
-send. So none of them is read: such a line stays in the sentence, and nothing is uploaded.
+provider failed, what a slash command is answered with. Several quote free text, a provider's
+error, the question a job stopped at or the title of a conversation, and a line of that text
+shaped like an attachment line would send a file nobody chose to send. So none of them is
+read: such a line stays in the sentence, and nothing is uploaded.
 """
 
 from __future__ import annotations
@@ -14,13 +15,16 @@ import pytest
 
 from my_agent_crew import texts
 from my_agent_crew.agent.events import DoneEvent, ErrorEvent
+from my_agent_crew.agent.turn_context import TELEGRAM
 from my_agent_crew.agents.profile import Schedule
 from my_agent_crew.channels.telegram_api import split_message
+from my_agent_crew.channels.telegram_commands import status_text
 from my_agent_crew.inbound import collect_reply
 from my_agent_crew.llm.fake import completion
 from my_agent_crew.llm.provider import ProviderError
 from my_agent_crew.llm.types import ToolCall
 from my_agent_crew.scheduler import Scheduler
+from my_agent_crew.store.queue import FOLLOW_UP
 from my_agent_crew.store.runs import AWAITING, DONE, FAILED, HALTED
 from tests.canvas_helpers import PNG
 from tests.lapse_helpers import WRITE, nobody_answered, waits_on
@@ -158,6 +162,76 @@ async def test_a_turn_that_spoke_before_it_broke_attaches_what_it_named_and_no_m
     assert messages_and_files(fake) == ["sendMessage", "sendDocument"]
     assert [upload.name for upload in fake.uploads] == ["brief.pdf"]
     assert fake.sent == [f"Đây.\n\n{texts.REPLY_ERROR.format(message=error)}"]
+
+
+async def test_a_status_is_said_whole_whatever_the_conversation_is_titled(make_channel, fake):
+    """`/status` opens with the conversation's title, and a title is free text: whoever
+    renames the conversation on the web words it."""
+    channel = make_channel()
+    titles = attachable(channel).splitlines()[1:4]  # the canvas, the photo, the document
+    conv = channel.conversation()
+    for number, title in enumerate(titles, start=1):
+        channel.store.update(conv.id, title=title)
+        await poll_each(channel, fake, message(number, "/status"))
+        assert fake.sent[-1] == status_text(channel)
+        assert fake.sent[-1].splitlines()[0] == title
+    assert fake.uploads == [] and len(fake.sent) == len(titles) == 3
+
+
+@pytest.mark.parametrize(
+    ("typed", "sentence"),
+    [
+        ("/tools", "TELEGRAM_TOOLS"),
+        ("/new", "TELEGRAM_NEW_CONVERSATION"),
+        ("/new", "TELEGRAM_NEW_BUSY"),
+        ("/loop 5m", "TELEGRAM_UNKNOWN_COMMAND"),
+        ("/approve", "TELEGRAM_NO_APPROVAL"),
+        ("/deny", "TELEGRAM_NO_APPROVAL"),
+    ],
+)
+async def test_no_answer_to_a_command_is_read_for_attachment_lines_whatever_it_says(
+    make_channel, fake, monkeypatch, typed, sentence
+):
+    """Each answer the runtime words itself, worded as an attachment line would be: it is
+    said, not obeyed."""
+    monkeypatch.setattr(texts, sentence, "FILE: brief.pdf")
+    channel = make_channel()
+    attachable(channel)
+    if sentence == "TELEGRAM_NEW_BUSY":  # a message waits in line, so the chat stays put
+        channel.store.queue.add(channel.conversation().id, FOLLOW_UP, "tin đang chờ", TELEGRAM)
+    await poll_each(channel, fake, message(1, typed))
+    assert fake.uploads == [] and fake.sent == ["FILE: brief.pdf"]
+
+
+async def test_a_command_is_answered_under_no_name_in_a_chat_a_crew_shares(crew, fake):
+    """The agent the chat talks to answers, by the sender its replies go out by: a crew
+    member's name opens only what that member delivers."""
+    await poll_each(crew, fake, message(1, "/tools"), message(2, "/loop 5m"), message(3, "/new"))
+    names = crew.deps.tools.names()
+    assert fake.sent == [
+        texts.TELEGRAM_TOOLS.format(count=len(names), names="\n".join(names)),
+        texts.TELEGRAM_UNKNOWN_COMMAND.format(command="loop"),
+        texts.TELEGRAM_NEW_CONVERSATION,
+    ]
+
+
+@pytest.mark.parametrize("decision", ["/approve", "/deny"])
+async def test_a_decision_says_nothing_itself_and_the_reply_it_resumes_is_the_agents(
+    make_channel, deps_factory, fake, decision
+):
+    """`/approve` and `/deny` hand the turn on and leave the talking to it. The reply that
+    follows is the agent's own, so the file it names is still sent."""
+    script = [completion(tool_calls=(WRITE,)), completion("Đây.\nFILE: brief.pdf")]
+    channel = make_channel(deps_factory(script=script))
+    attachable(channel)
+    await poll_each(channel, fake, message(1, "ghi file"), message(2, decision))
+    waiting = texts.REPLY_APPROVAL.format(
+        name=WRITE.name, reason="", how=texts.TELEGRAM_APPROVAL_HOW
+    )
+    assert fake.sent == [waiting, "Đây."]
+    assert [upload.name for upload in fake.uploads] == ["brief.pdf"]
+    written = channel.deps.agent.workspace / WRITE.arguments["path"]
+    assert written.exists() is (decision == "/approve")
 
 
 async def test_a_reply_keeps_its_error_apart_and_reads_whole_as_it_always_did():

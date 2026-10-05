@@ -120,7 +120,9 @@ async def handle_updates(channel: TelegramChannel, updates: list[dict[str, Any]]
     if bot_answers(command):
         await channel.say(answer)
     else:
-        await channel.outbound().send(answer)
+        # The runtime's own sentence, sent as it stands: a status quotes the conversation's
+        # title, and a title shaped like an attachment line names no file.
+        await channel.outbound().send("", plain=answer)
 
 
 async def receive_attachments(

@@ -4177,6 +4177,20 @@ tên một test thì sửa dòng của nó trong cùng commit.
     câu lỗi riêng ở `error`, `said` là phần còn lại, `to_dict` cho relay API không đổi);
     `::test_only_the_error_a_reply_ends_with_is_kept_out_of_what_was_said` (agent tự trích đúng
     câu lỗi đó trong lời của mình thì `said` vẫn giữ đủ lời: chỉ câu lỗi ở cuối bị tách ra)
+- **Câu trả lời của `/status`, `/tools`, `/new` và lệnh lạ trên Telegram cũng là câu của runtime:
+  gửi nguyên văn, không đọc để tìm dòng `FILE:`/`MEDIA:`, nên tiêu đề hội thoại trông như dòng
+  đính kèm vẫn nằm trong `/status` và không tệp nào được gửi theo. `/approve` và `/deny` như cũ:
+  tự nó không nói gì, còn câu trả lời của lượt chạy tiếp là lời của agent nên vẫn được đọc**
+  - pytest (`tests/test_telegram_runtime_sentences.py`):
+    `::test_a_status_is_said_whole_whatever_the_conversation_is_titled` (tiêu đề lần lượt là dòng
+    trỏ tới một canvas, một ảnh, một tài liệu đều có thật);
+    `::test_no_answer_to_a_command_is_read_for_attachment_lines_whatever_it_says` (`/tools`,
+    `/new` lúc rảnh và lúc còn tin xếp hàng, lệnh lạ, `/approve` và `/deny` khi không có gì chờ
+    duyệt: đổi hẳn lời thành một dòng `FILE:`);
+    `::test_a_command_is_answered_under_no_name_in_a_chat_a_crew_shares` (chat cả đội dùng chung:
+    câu trả lời không mang tên thành viên nào ở đầu);
+    `::test_a_decision_says_nothing_itself_and_the_reply_it_resumes_is_the_agents` (`/approve` và
+    `/deny` khi một tool đang chờ: chat chỉ nhận lời của lượt, tệp lời ấy nêu vẫn được gửi)
 - **Lý do một run con dừng dở được trích vào kết quả `delegate` trên một dòng và cắt như mọi
   trường trích khác, nên dòng `FILE:`/`MEDIA:` trong lỗi của provider hay trong câu hỏi của con
   không thành dòng đính kèm của cha**
