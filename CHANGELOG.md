@@ -11,537 +11,456 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+This release adds the canvas: a versioned document that a person and an agent edit together. An
+agent writes one with its tools, the person edits it in a panel beside the web chat, and each is
+told what the other changed. A canvas can be markdown, code, an HTML page, an SVG drawing, a
+Mermaid diagram or a picture, moves to and from workspace files, and reaches Telegram chats and
+scheduled jobs as an attached file with a list of what the turn wrote.
+
 ### Added
 
-- Agents can write canvases: versioned documents next to a web chat, through `artifact_create`,
-  `artifact_list`, `artifact_read`, `artifact_edit` and `artifact_rewrite`. None of the five
-  asks for approval, since every version stays restorable; with `artifact_import` and
-  `artifact_export`, further down, there are seven canvas tools, and only `artifact_export`
-  asks. The descriptions of the five send any document the person will keep editing to a
-  canvas, however short, keep answers read once and questions in the chat, and say how an edit
-  adds text after a passage. Only a web-chat, Telegram or job turn, or an agent delegated from
-  one, may write; a turn from the inbound API can list and read, and its system prompt says so
-  before the model tries. Such a turn can also write a canvas out to a workspace file with
-  `artifact_export`, which asks for approval wherever it runs. The master
-  reaches every canvas; another agent reaches those linked to its conversation, shared down its
-  delegation chain or made by itself, and one out of reach reads as missing. A canvas is read a
-  page at a time within the output cap; an edit replaces one exact passage, reports the canvas's
-  new length and, when it misses, quotes the closest one; a rewrite needs the newest version
-  read whole and is refused with a diff when someone saved since. An edit also quotes what it
-  changed as a diff; a change spread over too many lines to show one by one, in an edit or in a
-  refused rewrite, is said to be so instead, and the agent is sent to read the canvas again. A
-  page or a write over versions the agent has not seen names who wrote them: at most the six
-  newest runs of one author, and a restore as a run of its own naming the version it brought
-  back. A version or line number sent as `Infinity` or `NaN` is refused with a sentence naming
-  the argument and nothing done, and a version number too large to exist reads as a version that
-  is gone. A turn writes at most 30 versions of one canvas and creates at most 30 canvases,
-  imports counted with the rest, and later turns carry a note of where a write went instead of
-  the document it sent. An agent with a `tools:` allow-list gets only the canvas tools it lists.
+- Agents write canvases: versioned documents kept beside a conversation, in six kinds. Markdown,
+  code, HTML pages, SVG drawings and Mermaid diagrams are written by an agent or a person; a
+  picture (PNG, JPEG, GIF or WebP, told by its bytes and not by its name) comes in only when a
+  workspace file is imported, and `artifact_read` says it cannot read one. One version holds at
+  most 512 KB of markdown, code or Mermaid, 2 MB of SVG or picture and 4 MB of HTML, and a write
+  past that is refused with the size and the cap. All versions of all canvases share 1 GiB, which
+  a person may fill and where an agent is refused at nine tenths. Seven tools work on canvases:
+  `artifact_create`, `artifact_list`, `artifact_read`, `artifact_edit`, `artifact_rewrite`,
+  `artifact_import` and `artifact_export`. Only `artifact_export` asks for approval, since a
+  canvas version stays restorable and a file written over does not. A web-chat, Telegram or job
+  turn, or an agent delegated from one, may write; a turn from the inbound API lists, reads and
+  exports, and its system prompt says so before the model tries. The master reaches every canvas;
+  another agent reaches those linked to its conversation, shared down its delegation chain or made
+  by itself, and one out of reach reads as missing. A canvas is read a page at a time within the
+  output cap. An edit replaces one exact passage, quotes what it changed as a diff, reports the
+  canvas's new length and, when it misses, quotes the closest passage. A rewrite needs the newest
+  version read whole and is refused with a diff when someone saved since. A change spread over too
+  many lines to show one by one is said to be so, and the agent is sent to read the canvas again.
+  A page or a write over versions the agent has not seen names who wrote them: at most the six
+  newest runs of one author, a restore as a run of its own naming the version it brought back. A
+  version or line number sent as `Infinity` or `NaN` is refused with a sentence naming the
+  argument, and a version number too large to exist reads as a version that is gone. A turn writes
+  at most 30 versions of one canvas and creates at most 30 canvases, and later turns carry a note
+  of where a write went instead of the document it sent. The tool descriptions send any document
+  the person will keep editing to a canvas, however short, keep answers read once and questions in
+  the chat, say how an edit adds text after a passage, and give the rules of a page: a Mermaid
+  canvas is the diagram's syntax alone, with no code fence around it. An agent with a `tools:`
+  allow-list gets only the canvas tools it lists.
 - What a person changed in a canvas reaches the agent with their next message, without a tool
   call. The message is stored with a canvas note, built in the same transaction, naming each
-  linked canvas that moved since the agent last saw or was told of it: a diff of the person's
-  own edits for at most three canvases, the most recently changed first, or one line asking the
-  agent to read again for another agent's versions, a restore or a very long change. Each diff
-  and the whole note have a size cap, and canvases that do not fit are counted in a last line.
-  Only a web-chat message also names the canvas open there and quotes the passage selected in
-  it. The model reads the note right before the message in every call of the turn that message
-  opened, and a fixed stub in later turns, so the system prompt and the cached prompt prefix do
-  not change. A diff from the version seen whole that shows every change counts as seeing the
-  new version; otherwise the agent reads again before a rewrite. A note that fails to build
-  leaves the message stored without one. Forking a conversation copies each message's note and
-  the canvases linked by the fork point, with nothing seen or read; the run trajectory carries
-  the note with its secrets redacted.
-- Canvases over REST for the web: `GET/POST /api/artifacts` lists (newest first, by conversation
-  or title) and creates markdown, code, HTML, SVG and Mermaid canvases, and
-  `GET/PUT/PATCH/DELETE /api/artifacts/{id}` reads, saves, renames and deletes one. A save names
-  the version it was made on, and a save on any older version is refused with 409 and the newest
-  version's number, author and text instead of overwriting it. `GET …/versions[/{n}]` lists the
-  history and reads one version whole, `POST …/restore` writes an old version back as the
-  newest, and `GET …/raw` serves a version sandboxed with no scripts: text as plain text
-  whatever the canvas holds, an SVG as an image that an `<img>` draws and that downloads when
-  opened by itself, a picture as its own bytes under the type they give; or as a download named
-  after its title in any script. An HTML page, an SVG drawing and HTML code download as
-  `.html.txt` or `.svg.txt`, so opening the file shows the code instead of running it. Every
-  write over REST is the person's: no body names an author or a conversation for it. A refusal
-  from the store answers with its own status (404, 409, 413, 422, 507) and a structured body,
-  never a 500. Text holding half of a surrogate pair is refused with 422 naming the part of the
-  request that holds it, and a version number too large to exist is a version that is gone: 404
-  with the newest number on a read or a restore, and the conflict of a stale save on a save.
-- The activity stream announces every canvas change as an `artifact` event with the
-  conversations linked to the canvas: a create, a save, a rename, a restore, a delete, a source
-  an import recorded, and a write an agent makes with its tool, from whichever thread wrote it.
-- `GET/PUT /api/conversations/{id}/canvas` reads and sets the canvas open in a conversation,
-  with the passage selected in it. Every chat message may also carry the canvas open in the tab
-  that sent it, so the canvas note names what that device shows even when another device opened
-  a different canvas since; a message without one leaves the open canvas as it was. Opening a
-  canvas shares it with the conversation, so the agents it delegates to reach it too. A
-  selection the note would drop is refused with 422 and changes nothing, and a message the
-  approval gate refuses leaves the open canvas alone.
-- Behaviour evals can work on a canvas between two messages, as the person would in the web
-  panel and over the same routes: `create_canvas`, `edit_canvas` (replaces one exact passage and
-  saves on the version it read) and `select_canvas` (the next message carries the selection's
-  lines). Every message sent once a canvas is open carries it, as a web message does. A step
-  that cannot be done fails the run before the next message; a lost server stops the eval as a
-  lost turn does. New expectations judge the canvases linked to the conversation when the run
-  ends: `canvas_count`, `canvas_contains`, `canvas_not_contains`, and `canvas_not_in_chat`,
-  which fails when the agent's messages in the conversation repeat half or more of a canvas's
-  three-word runs, whatever the markup or layout; the title, the heading the canvas opens with
-  and a quote that stays within one line do not count. A run also fails when a message after
-  canvas steps reaches the agent without a canvas note telling of each canvas the person made
-  or saved since the message before, at the version they left it, and quoting the passage the
-  message carried: the expectations would judge an agent that never heard of the step. An
-  `edit_canvas` whose `new` is its `old` is refused. The dry run plays a canvas case through
-  the real server.
+  linked canvas that moved since the agent last saw or was told of it: a diff of the person's own
+  edits for at most three canvases, the most recently changed first, or one line asking the agent
+  to read again for another agent's versions, a restore or a very long change. Each diff and the
+  whole note have a size cap, and canvases that do not fit are counted in a last line. The model
+  reads the note right before the message in every call of the turn that message opened, and a
+  fixed stub in later turns, so the system prompt and the cached prompt prefix do not change. A
+  diff from the version seen whole that shows every change counts as seeing the new version;
+  otherwise the agent reads again before a rewrite. A note that fails to build leaves the message
+  stored without one. Forking a conversation copies each message's note and the canvases linked by
+  the fork point, with nothing seen or read, and the run trajectory carries the note with its
+  secrets redacted. A web-chat message also names the canvas open in the tab that sent it, so the
+  note names what that device shows even when another device opened a different canvas since, and
+  quotes the passage selected there. Opening a canvas shares it with the conversation, so the
+  agents it delegates to reach it too. A selected passage, in the editor or in the page being
+  read, can be asked about: a bar at the foot of the panel names the lines the selection lies on
+  and offers a box for a question, which goes as one message with the passage as of the version
+  just saved. In the page being read, a paragraph, a list item, a table row or a code block counts
+  as the whole of its source lines; a passage longer than a message is cut at a line end, and a
+  selection made with a touch screen's handles or select-all counts too. Asking is off while a
+  turn runs, while the conversation waits for a decision and once the budget is spent, and the bar
+  says which. A question the server refuses, or that cannot be saved or reached, stays in the box
+  with the reason; on a phone, where the canvas covers the chat, the canvas is put away once the
+  question went through, so the answer shows. A 422 for a message that carried a selected passage
+  reads as a passage that no longer matches the canvas. In the thread, a message that carries a
+  note shows a chip, closed until pressed: it shows the note as text with hidden characters
+  written out as marks, and a button copies the note exactly as the agent read it.
+- Typing in a canvas is saved, merged and kept. A save goes out 1.5 seconds after the last key, at
+  once on Cmd/Ctrl+S, when the tab hides, when the canvas closes and before a message is sent from
+  the chat, and names the version it was made on. A version saved elsewhere meanwhile merges with
+  the typing when the two change different lines, and otherwise raises a conflict bar with a diff:
+  keeping mine saves over it, and loading theirs can be undone. Typing not yet saved stays in a
+  draft on the device, reopened with the canvas and dropped after 30 days or beyond the ten
+  newest. A draft the device refuses first frees the drafts of other canvases, oldest first; when
+  that makes no room the typing stays in the tab's memory, the panel says so, and the browser asks
+  before the tab is closed. A failed save is tried again after 2 to 60 seconds. A read unanswered
+  for 30 seconds counts as lost, and so does a save once 30 seconds and the time its size takes at
+  50 KB a second have gone by; each save in a row that goes unanswered doubles the time for its
+  size, up to eight times. The header says where the save stands, from saving and saved to waiting
+  for a network, a slow network, the server not answering, too large (naming the kind's cap), the
+  server full (naming the largest canvases) or deleted. The composer keeps a message's words
+  read-only until the save has landed and the server has answered, then empties, or leaves the
+  words in place when the message was refused. The wait for the save ends 5 seconds past the
+  deadline the save was first given, with "Đang lưu canvas…" shown from 300 ms on; a message that
+  goes before the save landed goes with the last saved version, and the chat says so. The history
+  lists every version, newest first, with its author, age and size, compares one with the version
+  before it or with the oldest, and restores one as the newest once the typing is saved. Opening
+  another conversation saves the typing and closes the canvas; a save that fails after the switch
+  is told in the chat until dismissed or saved after all, saying whether the typing is kept in the
+  draft on the device or only in the tab. A canvas deleted elsewhere keeps its text to read and
+  copy.
 - The web chat opens canvases beside the conversation. A Canvas button leads the conversation
   header with the number of canvases linked to it and opens their list, newest first, each with
   its kind, version and last change; a button there makes an untitled canvas of the kind picked
-  beside it (markdown unless changed, code, HTML, SVG or Mermaid) and opens its name to type
-  over. An HTML or SVG canvas made this way starts as an empty page or drawing to write into,
-  and a Mermaid one as a flowchart of two boxes. From 1101 px wide the canvas takes a column, in
-  a tab beside the activity with both kept mounted, whose edge widens or narrows it by dragging
-  or with the arrow keys; it is never narrower than 360 px, leaves the chat as much when there
-  is room, and keeps its width for the next visit. Narrower, it covers the chat column, the chat
-  under it takes no focus, and Escape or "← Chat" closes it and gives focus back to the button.
-- A canvas opens to edit when a person wrote its newest version and to read when an agent did, a
-  picture always to read, and switches between the two without losing the typing. Reading shows
-  markdown as the thread does and code as text, never running markup, an HTML or Mermaid canvas
-  as its sandboxed page and an SVG or a picture as a picture; bidi and zero-width characters
-  show as visible marks with a notice, while copy and download keep the text as it is. Typing
-  saves 1.5 seconds after the last key, at once on Cmd/Ctrl+S, when the tab hides and when the
-  canvas closes, each save naming the version it was made on. A version saved elsewhere
-  meanwhile merges with the typing when the two change different lines, and otherwise raises a
-  conflict bar with a diff: keeping mine saves over it, and loading theirs can be undone. After
-  loading theirs, or a restore, the panel reads the newest version when it has already heard of
-  a newer one. The header says where the save stands, from saving and saved to waiting for a
-  network, a slow network, the server not answering, too large (naming the kind's cap), the
-  server full (naming the largest canvases) or deleted. Typing not yet saved stays in a draft on
-  this device, reopened with the canvas and dropped after 30 days or beyond the ten newest. A
-  draft the device refuses first frees the drafts of other canvases, oldest first, and puts them
-  back when that makes no room; the typing then stays in the tab's memory, the panel says so,
-  and the browser asks before the tab is closed. A failed save is tried again after 2 to 60
-  seconds. A read unanswered for 30 seconds counts as lost, and a save once 30 seconds and the
-  time its size takes at 50 KB a second have gone by; each save in a row that goes unanswered
-  doubles the time for its size, up to eight times. The history lists every version, newest
-  first, with its author, age and size, compares one with the version before it or with the
-  oldest, and restores one as the newest once the typing is saved. A canvas renames in place and
-  downloads its newest version. Opening another conversation saves the typing and closes the
-  canvas; a save that fails after the switch is told in the chat until dismissed or saved after
-  all, saying whether its typing is kept in the draft on this device or only in the tab. A
-  canvas deleted elsewhere keeps its text to read and copy.
-- A message sent from the web chat names the canvas open in the tab, and what was typed into
-  that canvas is saved before the message goes out, so the agent's note is built from what the
-  person is looking at. The composer keeps the words read-only until the save has landed and the
-  server has said anything about the message; then it empties, or leaves the words where they
-  were typed when the message was refused. The wait for the save ends 5 seconds past the
-  deadline the save was first given, with "Đang lưu canvas…" shown from 300 ms on; a message
-  that goes before the save landed goes with the last saved version, and the chat says so. The
-  dock remembers which canvas it opened in each conversation. Closing the canvas on a wide
-  screen tells the server once that none is open; opening one, changing conversation or putting
-  the overlay of a narrow screen away tells it nothing. Entering a conversation on a wide screen
-  opens again the canvas the server has open there, without taking focus from the composer and
-  without writing anything. A 422 for a message that carried a selected passage reads as a
-  passage that no longer matches the canvas, not as the server's own sentence; a 422 for any
-  other message reads as the general sentence for a send that failed.
-- A message that carries a canvas note shows it. A turn opens with a `user_context` event
-  carrying the note stored with the message, only when the message has one, and the tab that
-  sent the message attaches it to its latest bubble. The event is streamed, neither stored nor
-  broadcast, so a tab that merely watches the conversation never receives a passage someone
-  quoted from their canvas. Under such a message the thread draws a chip, closed until pressed:
-  opened, it shows the note as text with hidden characters written out as marks, and a button
-  copies the note exactly as the agent read it. A conversation loaded from the server shows the
-  same chips, from its stored messages.
-- A canvas write shows in the web thread as the canvas it touched: its title, what was done to
-  which version, and a button that opens it. An import shows the same way, as "Đã nhập" or, into
-  a canvas the call named, "Đã nhập lại"; an export, which changes no canvas, keeps the plain
-  tool card. A card still running asks the server nothing, and a canvas the server no longer has
-  says so and offers no button. A write that failed, was refused, was stopped or waits for
-  approval keeps the plain tool card, which shows why, and a card never shows arguments or
-  content. The canvas a card opens is the one the tag at the start of the result names; an edit,
-  a rewrite or an import without a tag falls back to the id it was given, when the server makes
-  that id. A canvas the agent creates, or imports as a new one, during a turn the tab is showing
-  opens beside the thread on a wide screen, without taking the keyboard and without writing
-  anything; an import into a canvas the call named, or one that changed nothing, opens nothing.
-  Each call is judged once, as it ends: not while the person is typing in a canvas or has the
-  keyboard anywhere in the canvas column, the frame of a page included, not on a narrow screen,
-  and never for a call the saved history holds. A call still running when the person comes back
-  to the chat from another section is judged when it ends, as one they stayed to watch is. The
-  card still opens a canvas held back this way.
-- A passage selected in a canvas, in the editor or in the page being read, can be asked about:
-  a bar at the foot of the panel names the lines the selection lies on and offers a box for a
-  question, which goes as one message with the passage as of the version just saved, so the
-  lines named are those the person saw. In the page being read, the passage is placed by the
-  source lines the rendered blocks carry: a paragraph, a list item, a table row or a code
-  block counts as the whole of its lines, and code as the lines a selection touches. A passage
-  longer than a message is cut at a line end, with the end line lowered to match. The editor
-  also hears a selection the browser reports only as a `selectionchange` on the field, which
-  React does not pass on: the handles of a touch screen's selection, `setSelectionRange` and
-  select-all from the menu. Asking is off while a turn runs, while the conversation waits for
-  a decision and once the budget is spent, and the bar says which. A question the server
-  refuses, or that cannot be saved or reached, stays in the box with the reason; on a phone,
-  where the canvas covers the chat, the canvas is put away once the question went through, so
-  the answer shows. The server now refuses, with 422 and before queueing anything, a selection
-  cut through a character, since a lone half of a pair could not be stored.
-- Canvases come in six kinds. Besides markdown and code, `artifact_create` and the web make
-  HTML pages, SVG drawings and Mermaid diagrams, and a picture (PNG, JPEG, GIF or WebP) becomes
-  a canvas when a workspace file is imported. One version holds at most 512 KB of markdown, code
-  or Mermaid, 2 MB of SVG or picture, and 4 MB of HTML; a write past that is refused with the
-  size and the cap. A picture is told by its bytes, not by its name, and bytes that are none of
-  the four formats are refused; `artifact_read` says it cannot read one. The description of
-  `artifact_create` carries the rules of a page: scripts and styles inline or from three CDNs, a
-  CDN script pinned to a version and carrying an integrity hash, fonts from Google Fonts, no
-  other network, no storage, no forms, dialogs or new windows; an SVG shows as an image, where
-  scripts, links and outside resources do nothing; a Mermaid canvas is the diagram's syntax
-  alone, with no code fence around it.
-- `GET /api/artifacts/{id}/render` serves an HTML or Mermaid canvas as the page it is: the
-  newest version, or the one `version` names; any other kind answers 404. This is the only place
-  a canvas runs, and it runs sandboxed with scripts allowed and nothing else, in an origin of
-  its own that is not the app's. Its policy lets scripts, styles and fonts come inline or from
-  cdnjs.cloudflare.com, cdn.jsdelivr.net and unpkg.com (styles and fonts also from Google
-  Fonts), images and media only from `data:` and `blob:` addresses, and allows no `fetch`,
-  `XMLHttpRequest` or WebSocket, no form target and no `<base>`. The response may be framed by
-  the app alone and is sent with `nosniff`, no referrer, DNS prefetching off and `no-store`. A
-  Mermaid canvas is drawn by Mermaid 11.17.2, loaded from jsDelivr under an integrity hash and
-  run at its strict security level; when the library cannot load, the page shows the diagram's
-  source as text. The first script of every such page is a small reporter that tells the panel
-  of script errors, rejected promises, resources that failed to load, requests the policy
-  blocked and a real pointer press inside the page.
-- The web panel shows an HTML or Mermaid canvas as its page and an SVG or picture canvas as a
-  picture, where a text canvas shows its text. View shows the saved version, saving what was
-  typed first, and says so when typing is not in the version on show; Edit still holds the
-  source, and a picture has neither Edit nor a copy button. A page sits in a frame sandboxed to
-  scripts only. It reloads a second after a newer version arrives; while the frame has the
-  keyboard the newer version waits behind a "Có bản mới · Nạp lại" button, a hidden tab waits
-  until it is looked at again, and a connection that comes back puts the page up again. A page
-  that leaves for another address is stopped once the new page has loaded, with the reason and a
-  reload button. "Mở trang" opens the saved page in a tab of its own once nothing is unsaved. An
-  SVG that cannot be drawn says it is not valid, and a picture that does not load says whether
-  it waits for the network or cannot be shown. The history shows a picture's version as a
-  picture, with nothing to compare, and the bar that asks about a selected passage is hidden
-  over a page or a picture.
-- A canvas page cannot keep the keyboard it takes. A page in a frame may focus itself at will,
-  and the keys typed next would go to it instead of the message being written. So a page has the
-  keyboard only while the person offers it, and two things make the offer. One is a real press
-  inside the page: the page's own reporter tells the app when a pointer or a mouse button goes
-  down and again when it comes up, only for events the browser marks as a person's, over a port
-  the app was handed before any of the page's code ran. The other is Tab pressed in the app,
-  alone or with Shift; Tab with Ctrl, Meta or Alt is no offer, and neither is hovering or
-  scrolling. An offer is for the focus that moves with it and lapses when the page does not have
-  the focus right after. Any other key, a press in the app outside the page, or focus arriving
-  on one of the app's controls takes it back. A page that has the focus with no offer is given
-  50 ms for a press to be told, while keys still reach it, and then loses the keyboard to the
-  element it was taken from. The fifth such grab stops the page, which says why and has a reload
-  button; a page that holds the app up, so that the wait ends more than 100 ms late, is stopped
-  the second time it does. A page that takes the keyboard while the window is behind, or is put
-  up in a window that is behind already, is watched too and held to the same count once the
-  person is back. A badge on the frame, "Bàn phím đang ở trang", says when the keyboard is in
-  the page.
-- What a canvas page reports going wrong shows in the panel. The reporter sends at most 20
-  messages of at most 2000 characters, and the panel hears at most 50 messages from one page;
-  past that the count of errors carries a "+", or, when none was told, the panel says the page
-  is no longer heard. A button beside the count opens the list of the five newest, with hidden
-  characters written as marks, and load failures told while the browser is offline are dropped.
-  "Gửi lỗi cho agent" saves the canvas and sends those errors as one message, inside a code
-  fence the message calls the page's own words, data and not a request; the button is off again
-  until the page reports anew.
-- `artifact_import` reads a file in the agent's workspace into a canvas, so a built page, an
-  exported drawing, a picture or a document reaches a canvas without its content passing through
-  a message. Without `id` it makes a canvas, titled after the file unless `title` says
-  otherwise; with `id` the file becomes the newest version of that canvas, whose kind it cannot
-  change. The kind follows the file's extension (`.md`, `.html`, `.svg`, `.mmd`, a picture's, or
-  a code extension with its language) unless `kind` names one, and an extension that names none
-  is refused. The path must stay inside the workspace by the rule the file-reading tools keep,
-  and one that leaves is refused before its kind is guessed or any file opened. The file must be
-  a regular file within its kind's cap and, for a text kind, UTF-8 without a NUL byte; a
-  byte-order mark is dropped. A file equal to the newest version writes no version. A file that
-  would go over versions the agent has not seen is refused, naming who wrote them, unless
-  `replace` is set, and those versions stay in the history. The result names the file, its size
-  and the first 12 characters of its SHA-256, never what the file holds, and counts the relative
-  addresses in an HTML or SVG file, which a canvas does not load. An import is a canvas write:
-  it runs only where the other write tools do and counts toward the turn's 30 versions of one
-  canvas and 30 new canvases.
-- `artifact_export` writes one version of a canvas, the newest unless `version` names another,
-  to a path in the agent's workspace: text as UTF-8 without a byte-order mark and with LF line
-  ends, a picture byte for byte, over a file already there. It is the only canvas tool that asks
-  for approval, since a file written over is not kept the way a canvas version is. It writes no
-  canvas, so it is open on every channel, a turn from the inbound API included, adds no
-  version and counts toward none of the turn's limits on canvas writes. The target must lie
-  inside the workspace, and inside the agent's `write_paths` when it has any, also once the
-  folders it passes through are resolved, and may be neither a symlink nor a directory. The file
-  is written whole or not at all, so a failed export leaves the old file as it was, and the
-  server log names where the write was going with the error's class and number. The place is
-  logged quoted, with any line break in it escaped, so a folder's name cannot start a log line
-  of its own. An export the disk refuses before the file is opened fails the same way: a name
-  longer than the disk takes, a folder the server may not enter and a link that leads back to
-  itself each get the sentence for an export that failed, not the name of an error.
-- A canvas keeps where it was imported from: the workspace file of the agent that imported it,
-  or the link the import gave as `source_url`, which must be an http or https address of at most
-  2000 characters with no user name or password in it. An import that finds the file unchanged
-  still records a source that differs, without writing a version.
-- Kit hooks hear of the two file tools as the workspace tools they act as. A hook that names
-  `Read` or `workspace_read` is asked about `artifact_import`, and one that names `Write` or
-  `workspace_write` about `artifact_export`; the payload keeps the real name in `tool_name`,
-  gives `Read` or `Write` as `tool_alias`, and holds the file path in `tool_input.path`.
-- `POST /api/artifacts/{id}/reimport` reads a canvas's workspace file again and, when it differs
-  from the newest version, writes it as the person's new version on the version the body names
-  (`base_version`); the answer says whether anything changed and returns the canvas. A canvas
-  with no workspace source answers 422, a source file or agent that is gone 410, a path outside
-  the workspace 403, a file over the kind's cap 413, a version saved since 409, and a file that
-  cannot be read as the canvas's kind 422.
-- The canvas panel names where a canvas came from. A link source shows as its host and opens in
-  a new tab; only a plain http or https address with no login, on another origin than the app's,
-  becomes a link. A workspace source shows the agent and the path, with characters nobody would
-  see written as marks, beside "Nhập lại": it saves the typing, reads the file again and says
-  whether a new version was made, the one before staying in the history, or the file had not
-  changed. The button is held, without leaving the tab order, while the file is read, until the
-  canvas has loaded and once it is deleted; a request unanswered for 30 seconds says the server
-  did not answer, and each refusal has a sentence of its own. What the button said goes once a
-  newer version is heard of. The history marks such a version "Nhập từ tệp".
-- `GET /api/artifacts/usage` reports what the canvases hold: how many there are, the bytes all
-  their versions take together, the 1 GB ceiling they share, and the bytes of each canvas.
-- A `delegate` result names the canvases the delegated agent wrote. Under the `outcome=` line
-  comes one `[artifact <id> v<n>] <title>` line for each canvas an agent added a version to in
-  the delegated conversation, first written first: the newest version an agent wrote there and
-  the title the canvas has now, cut to 160 characters. At most 12 are named, and the text below
-  then opens by counting the rest. The lines come with every outcome, a wait that ran out
-  included; an export, an import that changed nothing, a rename and a deleted canvas give none.
-  When the person deletes the delegated conversation while the call still waits, the call fails
-  with the sentence saying so, and the same lines follow that sentence, the count of the rest
-  under an empty line: the canvases outlive the conversation they were written in.
-  The tool's description tells the model that such a title is data, not an instruction, and to
-  name the canvas instead of copying its content.
-- The manage screen has a Canvas section (`#/manage/canvas`): a library of every canvas,
-  whatever conversation it was written in. It lists the 200 most recently changed, each with its
-  kind, newest version, who made it, when it last changed and the size of all its versions
-  together, under a line with the number of canvases and the space they take against the limit;
-  when there are more, it says so, and a box that searches by name finds an older one. Where a
-  canvas was imported from is said, never linked: a workspace file by its agent and path, a web
-  address by its host, as the agent's word for it. The list follows the canvas changes the
-  activity stream announces. A canvas is deleted with all its versions after a confirmation; one
-  the server no longer has counts as deleted, and any other refusal keeps the row and says so.
-  Once a canvas is gone a line says which, and the keyboard moves to the name of the row after
-  it, the row before when it was the last, or the search box when none is left.
-- A canvas has a page of its own (`#/manage/canvas/<id>`), reached from its name in the library
-  or from "Mở riêng" in the panel beside a chat, which opens it in a new tab once nothing is
-  unsaved; until then the button stays within the keyboard's reach and says "Lưu trước khi mở
-  riêng". The page shows the canvas in the panel a conversation shows it in, without the bar
-  that asks about a selected passage and without the button that sends page errors to an agent,
-  since no conversation is open there. A line under it counts the conversations the canvas is
-  used in and names each, as a button that opens it, and is read again when the live stream comes
-  back after a drop. "← Canvas" leads back to the library at once, the save of what was typed
-  going on behind; a save that then fails is told above whatever the section shows, as in the
-  chat. An address that names no canvas id shows the library.
-- The card of a delegation in the web thread names the canvases the delegated agent wrote: under
-  the line that says how the task went, one chip for each canvas the result names, with its
-  title, hidden characters written as marks, its version and a "Mở" button. A canvas the server
-  no longer has says "Canvas đã bị xoá" and offers no button. When a delegation call succeeds
-  during a turn the tab is showing, the first canvas its result names opens beside the thread on
-  a wide screen, whether the agent made it or only changed it, without taking the keyboard and
-  under the rules a created canvas opens by; of two delegations side by side, the one to finish
-  last stays open.
-- A canvas the agent is still writing shows in the web chat as it is written: a card in the
-  thread from its first piece and, beside a wide conversation, its text filling in read-only
-  where the canvas column is, nothing of it stored until the call ends. It does not come up by
-  itself while the keyboard is anywhere in the canvas column, though its card still offers it;
-  once the person puts it away by hand, every canvas written in the rest of that turn stays a
-  card; and markdown of 100 000 characters or more is shown as its source, with a line saying so.
-- The stream a web-chat message is answered with carries a new event, `tool_call_delta`, for a
-  canvas being written: a piece of the arguments of an `artifact_create` or `artifact_rewrite`
-  call, with `index` (the call's place in the answer), `name`, `chunk` and `attempt` (how many
-  attempts at this answer were given up before it). A call's first piece goes out as soon as
-  the call is named, later ones at most once every 3 seconds with all that gathered since, and
-  what is still held when the answer arrives is not sent: the whole call comes with
-  `assistant_message` as before. When an attempt that showed pieces is given up, for a retry or
-  another route, an event with an empty `name` calls it off, and whoever drew its pieces drops
-  them. The arguments of no other tool are streamed. The event goes only to the request that
-  streams the turn: it is neither stored nor sent on the activity stream, and leaves the run's
-  record as it was. The offline `fake:slow` model answers as `fake:echo` does, with 0.1 seconds
-  between two pieces, so a canvas can be watched filling in without a model key.
-- A `FILE: artifact:<id>` or `MEDIA: artifact:<id>` line in a reply shows in the web chat as a
-  chip that names the canvas and opens it with "Mở", where it used to be a download link or an
-  image that pointed at no file. A line whose id is miswritten, `artifact:<id>.md` for one, stays
-  the text the reply has.
-- A reply sent over Telegram can attach a canvas. A line `FILE: artifact:<id>` or
-  `MEDIA: artifact:<id>` uploads the newest version, and the kind decides how, not the prefix: a
-  picture as a photo, any other canvas as a document. The file is named after the title, with
-  `.md` for markdown and `.txt` last for every other text kind (`.py.txt`, `.html.txt`,
-  `.svg.txt`, `.mmd.txt`), so a phone opens it as text. The caption is the title in quotes and
-  the version, `"<title>" v<n>`, with the link to the canvas's own page under it when `web_url`
-  is set and the two fit Telegram's 1024 characters; a link that does not fit is left out
-  whole. Secrets the server knows are covered in the text, the caption and the file name, and a
-  picture's bytes go as they are. A picture Telegram refuses as a photo is sent once more as a
-  document. The workspace files a reply names go first, then its canvases, each once however
-  often it is named. A reply sends only what the agent's canvas tools would let it read in the
-  conversation the turn ran in, and a canvas out of reach is answered like one that does not
-  exist: "(không gửi được canvas {id}: không tìm thấy canvas này)". Lines whose id is miswritten
-  get one "(không gửi được canvas: dòng đính kèm ghi sai mã canvas)" between them, which repeats
-  none of them. A text canvas imported from a workspace file whose extension is neither one a
-  `FILE:` line sends nor one that names a kind of canvas is not sent, so importing a file is no
-  way round the list of formats a reply may send: "(không gửi được canvas {id}: nó được nhập từ
-  một tệp thuộc loại không gửi qua chat được)". A canvas over 20 MB, or one whose upload fails,
-  gets "(không gửi được canvas {id}; mở web UI để xem nó)", with the reason in the server log
-  only. A canvas that cannot be sent does not stop the next one, and neither does a notice
-  that cannot be sent.
-- After a Telegram turn or a job's brief, the chat is told which canvases the turn wrote. A
-  message headed "Canvas vừa ghi:" follows the reply and its attachments with one line for
-  each, `• "<title>" v<n>`: a canvas once, at the newest version written, in the order first
-  written, what a delegated agent wrote included, under the title the canvas has now with
-  secrets covered, and only when the agent still reaches it. Under each line comes the link to
-  the canvas's page when `web_url` is set; without it the message ends "Mở web UI để xem.". At
-  most ten are listed and the rest counted, "… và {n} canvas khác.". A write that changed
-  nothing, a read and an export name nothing. A turn or a run that wrote canvases and said
-  nothing is answered by the list instead of the sentence for an empty reply; a turn that
-  broke and a run that stopped early still name what they wrote, the run before it says why it
-  stopped. Each reply of a turn that waited for approval names what was written on its own
-  stretch, and a run delivered again after an approval or a question nobody answered names
-  only what it wrote since. A job that answers `OK`, which is not sent to the chat, sends no
-  list either. A list that cannot be sent is replaced by "(lượt này có ghi canvas nhưng không
-  gửi được danh sách; mở web UI để xem)".
-- `web_url` in `config.yaml`, or `MY_AGENT_WEB_URL`, which wins, is the address people open the
-  web UI at. It is empty by default and is used for the links above, which read
-  `<web_url>/#/manage/canvas/<id>`. It must be a plain http or https address: a host of
-  letters, digits, dots, hyphens and underscores or an IPv6 address in brackets, a port if any,
-  and a path of letters, digits and `._~/-`, with no user name or password, no query and no
-  fragment. A final slash is dropped. Any other value stops the settings from loading, with an
-  error that names the key and never the value.
-- A `FILE: artifact:<id>` or `MEDIA: artifact:<id>` line in a delegated agent's answer reaches
-  the agent that delegated. When the delegated agent reaches the canvas, the line rides on as
-  written and the canvas is linked to the delegating conversation, so the reply there can send
-  it, and it is put back when that reply leaves it out, as a relayed file's line is. Otherwise
-  the line becomes "(agent con có đính kèm {path} nhưng không chuyển được tệp)", whether or not
-  the two agents share a workspace.
-
-### Fixed
-
-- Each behaviour eval run now starts from the server as the first run found it. The runs share
-  one server, so a new conversation opened with a summary of an earlier run's, `conversation_search`
-  and `artifact_list` found earlier chats and canvases, and notes an agent saved stayed: a later
-  run was judged on what an earlier one left. Before every run the runner deletes every canvas
-  and conversation, checks none is left, and puts the memory files back as they were, never
-  outside the run dir and without following a link; when it cannot, the run is not played and
-  the eval stops. What a deleted conversation's turns cost still counts toward the budget. Each
-  run also leaves a JSON transcript of its conversation, child conversations, canvases and
-  approvals in `results/transcripts/`; it can hold what the agents know, so delete it by hand.
-- An eval expectation pinned to a turn now counts turns by the messages the case sent. A note
-  the server stores as the person's message, the loop guard's after three identical calls above
-  all, started a turn of its own, so a tool called after it was judged as the next turn's and
-  the reply stopped at the note. A conversation that does not hold every message the case sent
-  now fails the run instead of numbering its turns wrong.
-- A file in an agent's workspace no longer opens as a page of the app. `GET
-  /api/agents/{id}/files` served each file with the type its extension suggested, so an HTML or
-  SVG file an agent wrote, opened from its link, ran its scripts with the app's origin and could
-  call every API route. Now only raster images, PDF and plain text open in place; any other file
-  downloads as `application/octet-stream`. Every response but a PDF's is sandboxed with no
-  scripts, and every one carries `X-Content-Type-Options: nosniff` and
-  `Cross-Origin-Resource-Policy: same-origin`. The types are pinned in code rather than read
-  from the machine's MIME table. Images in a thread still show, and a download keeps the file's
-  name in any script, with a plain ASCII fallback.
-- A model call that hits a passing upstream failure before any text is shown is now asked
-  again once on the same route, after a two-second pause, instead of ending the run. This
-  covers OpenRouter's `provider_unavailable` error sent mid-stream after a 200, HTTP
-  408/425/429/5xx and transport failures; a refused request (other 4xx), an error without a
-  code and a malformed stream still fail at once, and a failure after text has been shown
-  still surfaces rather than being hidden. A retried side call that had already been served is
-  written to the cost ledger at an unknown cost. No model fallback is added: the retry uses the
-  same model and provider.
-- A tool call whose arguments are not a JSON object (a raw line break or unescaped quote inside
-  a long document, or output cut off mid-call) no longer ends the run with a provider error. The
-  call is answered, without running, with its length, where the JSON broke (where the text
-  stopped, for a cut-off call) and the few characters around that spot, and the turn carries on
-  so the model can send it again. Such a call never asks a person for approval or an answer, and
-  the broken text itself is not stored.
-- A delegated agent picked up again after an approval, a question or a restart can no longer
-  hand work on to another agent. Resuming started its turn as if a person had opened it, so the
-  one-level limit on delegation did not apply.
-- A tool call cut off because the reply reached the model's output limit is now answered with a
-  request to split the content into smaller calls, not to send it again, which would stop at the
-  same place. Calls broken at different places no longer count as one repeated call, so a model
-  working through a long document is not told it is looping or halted; the same broken call sent
-  three times in a row still is. A tool error longer than the output cap is cut like any output.
-- `POST /api/inbound` now answers 422 when `source` names one of the server's own channels
-  (`chat`, `telegram`, `web`, `job` or `job:<id>`, `delegate:<…>`, `memory:<…>`). A relay could
-  otherwise pass for the person in the web chat, or post a run that showed up as a scheduled
-  job's last run and in its history. Any other label, `api` included, is recorded as before.
-- A turn whose last allowed model call answered now ends as done, not halted at the step
-  limit. A turn that does run out of steps answers the tool calls it never ran with a note
-  that the step limit stopped them, so the next message no longer closes them as interrupted
-  and tells the model it cannot know whether they ran.
-- The bench and eval servers now get only what a program needs to run from the caller's
-  environment (`PATH`, `HOME`, the locale, `TERM`, `TMPDIR`, `USER`, `LOGNAME`, `SHELL`, `TZ`)
-  and `OPENROUTER_API_KEY`. Before, they got the rest of the operator's shell but for a short
-  list of dropped names, and so did every hook they ran: another service's key, a messaging
-  token or the ssh-agent socket reached an eval driven by a real model.
-- A message the server queued, because the conversation was busy somewhere the web tab could not
-  see, no longer comes back to the composer: a chip stood for it while the same words returned
-  to the box. A message the server refused neither gave its words back nor took its bubble back,
-  and now does both. A send cut off on purpose, by Stop or by leaving the conversation, counts
-  as sent, not as failed.
-- The conversation no longer stops following its newest line while a reply arrives. A reply that
-  came in a burst, or a turn whose start removed the fork buttons above the view (the browser
-  then shifted the scroll position to hold the lines in view still), could read as the reader
-  scrolling up: the thread stayed where it was, "Tin mới nhất" appeared and the answer sat below
-  the screen. Only a move up lets go of the newest line now, and the browser's own scroll
-  anchoring is off while the thread follows; a reader who has scrolled back keeps it, so what
-  they are reading holds still.
-- The web app can no longer be shown in a frame on another site. Every response, an unhandled
-  error's included, now carries `Content-Security-Policy: frame-ancestors 'self'`.
-- A browser request to the API that says it comes from elsewhere is now refused. The local guard
-  judged where a browser request came from by its `Origin` header alone; it now also reads
-  `Sec-Fetch-Site` and answers 403 to a request under `/api/` whose value is anything but
-  `same-origin` or `none`. A request without the header, as `curl` or another program that is no
-  browser sends, passes as before, and a canvas's render page, which its sandboxed frame asks
-  for, is the one address such a request still reaches.
-- A tool call that failed stays failed when the conversation is read back. The web drew every
-  stored call that was not denied as done, so a failed call showed a done mark, with the error
-  only inside the result. That holds now for every way a call fails: a tool that raised, a call
-  to a tool that does not exist, one a hook blocked, arguments that were not valid JSON or were
-  cut off, a call the turn stopped at for being out of steps or for repeating itself, a call
-  whose id had been approved for another, a call the conversation was branched away from or
-  that was cut short before it answered, and a handed-off task whose wait ran out, whose card
-  still lists the canvases the child had written.
-- A link whose address holds an escape that cannot be read, `#/manage/crew/%` or one cut short
-  in the middle of a letter, no longer opens the web app on a blank screen. The part that cannot
-  be read is taken as not there: the section opens on its list, and when only the part to show
-  is broken, what the section is opened on is kept.
+  beside it (markdown unless changed) and opens its name to type over. A new HTML or SVG canvas
+  starts as an empty page or drawing, and a Mermaid one as a flowchart of two boxes. From 1101 px
+  wide the canvas takes a column, in a tab beside the activity, whose edge widens or narrows it by
+  dragging or with the arrow keys; it is never narrower than 360 px and keeps its width for the
+  next visit. Narrower, it covers the chat column, and Escape or "← Chat" closes it and gives
+  focus back to the button. A canvas opens to edit when a person wrote its newest version and to
+  read when an agent did, a picture always to read, and switches between the two without losing
+  the typing. Reading shows markdown as the thread does, code as text, an HTML or Mermaid canvas
+  as its page and an SVG or a picture as a picture; bidi and zero-width characters show as visible
+  marks with a notice, while copy and download keep the text as it is. A canvas renames in place
+  and downloads its newest version. The dock remembers which canvas it opened in each
+  conversation, and entering a conversation on a wide screen opens again the canvas the server has
+  open there, without taking focus from the composer. In the thread, a canvas write shows as a
+  card for the canvas it touched: its title, what was done to which version, and a button that
+  opens it. An import shows the same way, as "Đã nhập" or "Đã nhập lại"; an export, and a write
+  that failed, was refused, was stopped or waits for approval, keep the plain tool card, and a
+  card never shows arguments or content. A canvas the server no longer has says so and offers no
+  button. A canvas the agent creates, or imports as a new one, during a turn the tab is showing
+  opens beside the thread on a wide screen without taking the keyboard, unless the person is
+  typing in a canvas or has the keyboard anywhere in the canvas column; the card still opens a
+  canvas held back this way.
+- An HTML page and a Mermaid diagram run as pages, apart from the app. `GET
+  /api/artifacts/{id}/render` serves the newest version, or the one `version` names, and is the
+  only place a canvas runs; any other kind answers 404, and an SVG or a picture is shown as a
+  picture, where scripts, links and outside resources do nothing. The page cannot reach the app or
+  send anything out, and loads scripts, styles and fonts only from a few public CDNs
+  (cdnjs.cloudflare.com, cdn.jsdelivr.net, unpkg.com, and Google Fonts for styles and fonts); the
+  policy is listed under Security. A Mermaid canvas is drawn by Mermaid 11.17.2 at its strict
+  security level, and shows the diagram's source as text when the library cannot load. In the
+  panel, View shows the saved version, saving what was typed first, and Edit holds the source; a
+  picture has neither Edit nor a copy button, and the history shows a picture's version as a
+  picture, with nothing to compare. The page reloads a second after a newer version arrives; while
+  the page has the keyboard the newer version waits behind a "Có bản mới · Nạp lại" button, and a
+  hidden tab waits until it is looked at again. A page that leaves for another address is stopped
+  once the new page has loaded, with the reason and a reload button, and "Mở trang" opens the
+  saved page in a tab of its own once nothing is unsaved. A page cannot keep a keyboard it takes
+  by itself. It has the keyboard only while the person offers it, by a real press inside the page
+  or by Tab or Shift+Tab in the app; hovering and scrolling are no offer. Any other key, a press
+  outside the page or focus arriving on one of the app's controls takes it back. A page that holds
+  the focus without an offer loses it after 50 ms to the element it was taken from, the fifth such
+  grab stops the page with the reason and a reload button, and a page that holds the app up is
+  stopped the second time. A badge on the frame, "Bàn phím đang ở trang", says when the keyboard
+  is in the page. What a page reports going wrong shows in the panel: script errors, rejected
+  promises, resources that failed to load and requests the policy blocked. A page tells at most 20
+  messages of at most 2000 characters, a button beside the count opens the five newest, and "Gửi
+  lỗi cho agent" saves the canvas and sends those errors as one message, inside a code fence the
+  message calls the page's own words, data and not a request. An SVG that cannot be drawn says it
+  is not valid, and a picture that does not load says whether it waits for the network or cannot
+  be shown.
+- Canvases move to and from workspace files. `artifact_import` reads a file in the agent's
+  workspace into a canvas, so a built page, a drawing, a picture or a document reaches a canvas
+  without its content passing through a message. Without `id` it makes a canvas, titled after the
+  file unless `title` says otherwise; with `id` the file becomes the newest version of that
+  canvas, whose kind it cannot change. The kind follows the file's extension (`.md`, `.html`,
+  `.svg`, `.mmd`, a picture's, or a code extension with its language) unless `kind` names one, and
+  an extension that names none is refused. The path stays inside the workspace by the rule the
+  file-reading tools keep; the file must be a regular file within its kind's cap and, for a text
+  kind, UTF-8 without a NUL byte; a byte-order mark is dropped. A file equal to the newest version
+  writes no version, and one that would go over versions the agent has not seen is refused, naming
+  who wrote them, unless `replace` is set, and those versions stay in the history. The result
+  names the file, its size and the first 12 characters of its SHA-256, never what the file holds,
+  and counts the relative addresses in an HTML or SVG file, which a canvas does not load. An
+  import is a canvas write: it runs only where the other write tools do and counts toward the
+  turn's limits. `artifact_export` writes one version, the newest unless `version` names another,
+  to a path in the workspace: text as UTF-8 with LF line ends and no byte-order mark, a picture
+  byte for byte, over a file already there. It writes no canvas, so it is open on every channel
+  and counts toward none of the turn's limits. The target must lie inside the workspace, and
+  inside the agent's `write_paths` when it has any, and may be neither a symlink nor a directory;
+  the file is written whole or not at all, and a failed export leaves the old file as it was. A
+  canvas keeps where it was imported from: the workspace file, or the link the import gave as
+  `source_url`, an http or https address of at most 2000 characters. The panel names that source.
+  A link shows as its host and opens in a new tab; a workspace source shows the agent and the path
+  beside "Nhập lại", which saves the typing, reads the file again and says whether a new version
+  was made or the file had not changed, and the history marks such a version "Nhập từ tệp". `POST
+  /api/artifacts/{id}/reimport` does the same over REST, on the version the body names as
+  `base_version`: a canvas with no workspace source answers 422, a source file or agent that is
+  gone 410, a path outside the workspace 403, a file over the cap 413, a version saved since 409,
+  and a file that cannot be read as the canvas's kind 422. Kit hooks hear of the two tools as the
+  workspace tools they act as: a hook that names `Read` or `workspace_read` is asked about
+  `artifact_import`, and one that names `Write` or `workspace_write` about `artifact_export`, with
+  the real name in `tool_name`, `Read` or `Write` as `tool_alias` and the file path in
+  `tool_input.path`.
+- The manage screen has a Canvas section (`#/manage/canvas`): a library of every canvas, whatever
+  conversation it was written in. It lists the 200 most recently changed, each with its kind,
+  newest version, who made it, when it last changed and the size of all its versions, under a line
+  with the number of canvases and the space they take against the limit; when there are more it
+  says so, and a box that searches by name finds an older one. Where a canvas was imported from is
+  said, never linked. The list follows the canvas changes the activity stream announces. A canvas
+  is deleted with all its versions after a confirmation, and the keyboard then moves to the row
+  after it, the row before, or the search box. A canvas also has a page of its own
+  (`#/manage/canvas/<id>`), reached from its name in the library or from "Mở riêng" in the panel,
+  which opens it in a new tab once nothing is unsaved. The page shows the canvas in the same
+  panel, without the bar that asks about a selection and without the button that sends page
+  errors, since no conversation is open there. A line under it counts the conversations the canvas
+  is used in and names each as a button that opens it. "← Canvas" leads back to the library, and a
+  save that then fails is told above whatever the section shows.
+- A delegated agent's canvases come back with its result. A child writes canvases only when the
+  turn its chain began from could, and reaches what its chain shares. Under the `outcome=` line of
+  a `delegate` result comes one `[artifact <id> v<n>] <title>` line for each canvas an agent added
+  a version to in the delegated conversation, first written first, with the title cut to 160
+  characters; at most 12 are named and the rest counted. The lines come with every outcome, a wait
+  that ran out included, and after the sentence that says the delegated conversation was deleted
+  while the call waited; an export, an import that changed nothing, a rename and a deleted canvas
+  give none. The tool's description tells the model that such a title is data, not an instruction,
+  and to name the canvas instead of copying its content. A `FILE: artifact:<id>` or `MEDIA:
+  artifact:<id>` line in the child's answer rides on as written when the child reaches the canvas,
+  which is then linked to the delegating conversation so the reply there can send it, and the line
+  is put back when that reply leaves it out, as a relayed file's line is; otherwise the line
+  becomes "(agent con có đính kèm {path} nhưng không chuyển được tệp)". In the web thread the
+  delegation card shows one chip for each canvas the result names, with its title, its version and
+  a "Mở" button, or "Canvas đã bị xoá" for one the server no longer has. When a delegation
+  succeeds during a turn the tab is showing, the first canvas its result names opens beside the
+  thread under the rules a created canvas opens by.
+- A canvas the agent is still writing shows in the web chat as it is written: a card in the thread
+  from its first piece and, beside a wide conversation, its text filling in read-only where the
+  canvas column is, nothing of it stored until the call ends. HTML, SVG and Mermaid show as source
+  while they are written, and so does markdown of 100 000 characters or more, with a line saying
+  so. The preview does not come up by itself while the keyboard is anywhere in the canvas column,
+  and once the person puts it away by hand, every canvas written in the rest of that turn stays a
+  card. A switch on the Settings page turns the preview off for the device. Only `artifact_create`
+  and `artifact_rewrite` are previewed; the arguments of no other tool are streamed. The offline
+  `fake:slow` model answers as `fake:echo` does, with 0.1 seconds between two pieces, so a canvas
+  can be watched filling in without a model key.
+- Canvases reach Telegram and jobs. A line `FILE: artifact:<id>` or `MEDIA: artifact:<id>` in a
+  reply uploads the newest version, and the kind decides how, not the prefix: a picture as a
+  photo, any other canvas as a document named after the title, with `.md` for markdown and `.txt`
+  last for every other text kind (`.py.txt`, `.html.txt`, `.svg.txt`, `.mmd.txt`), so a phone
+  opens it as text. The caption is `"<title>" v<n>`, with the link to the canvas's own page under
+  it when `web_url` is set and the two fit Telegram's 1024 characters; a link that does not fit is
+  left out whole. A picture Telegram refuses as a photo is sent once more as a document. Workspace
+  files go first, then canvases, each once however often it is named. A reply sends only what the
+  agent's canvas tools would let it read in that conversation; a canvas out of reach, one over 20
+  MB, a failed upload and a miswritten id each get a one-line notice in the chat and do not stop
+  the next attachment. A text canvas imported from a workspace file of a type a `FILE:` line would
+  not send is not sent either. After a Telegram turn or a job's brief, a message headed "Canvas
+  vừa ghi:" follows the reply with one line `• "<title>" v<n>` for each canvas the turn wrote,
+  what a delegated agent wrote included, at the newest version written and only when the agent
+  still reaches it. Under each comes the link to its page when `web_url` is set; without it the
+  message ends "Mở web UI để xem.". At most ten are listed and the rest counted. A write that
+  changed nothing, a read and an export name nothing, and a job that answers `OK` sends no list. A
+  turn that wrote canvases and said nothing is answered by the list, a turn that broke or a run
+  that stopped early still names what it wrote, and each reply of a turn that waited for approval
+  names what was written on its own stretch. In the web chat the same attachment line shows as a
+  chip that names the canvas and opens it with "Mở". `web_url` in `config.yaml`, or
+  `MY_AGENT_WEB_URL`, which wins, is the address people open the web UI at, and the links read
+  `<web_url>/#/manage/canvas/<id>`. It must be a plain http or https address with a host, an
+  optional port and a plain path, with no user name, password, query or fragment; any other value
+  stops the settings from loading, with an error that names the key and never the value. A final
+  slash is dropped.
+- Canvases over REST and on the streams. `GET/POST /api/artifacts` lists (newest first, by
+  conversation or title) and creates the five text kinds, and `GET/PUT/PATCH/DELETE
+  /api/artifacts/{id}` reads, saves, renames and deletes one. A save names the version it was made
+  on, and a save on an older version is refused with 409 and the newest version's number, author
+  and text. `GET …/versions[/{n}]` lists the history and reads one version, `POST …/restore`
+  writes an old version back as the newest (a version number too large to exist is a version that
+  is gone: 404 on a read or a restore, the conflict of a stale save on a save), `GET …/raw` serves
+  a version as text, as a picture or as a download named after its title, and `GET
+  /api/artifacts/usage` reports the number of canvases, the bytes their versions take, the ceiling
+  they share and the bytes of each. `GET/PUT /api/conversations/{id}/canvas` reads and sets the
+  canvas open in a conversation, with the passage selected in it; a selection the note would drop,
+  or one cut through a character, is refused with 422 and changes nothing. Every write over REST
+  is the person's: no body names an author or a conversation for it. A refusal from the store
+  answers with its own status (404, 409, 413, 422, 507) and a structured body, never a 500, and
+  text holding half of a surrogate pair is refused with 422 naming the part of the request that
+  holds it. The activity stream announces every canvas change as an `artifact` event with the
+  conversations linked to the canvas. The stream a web-chat message is answered with carries two
+  new events, neither stored nor sent on the activity stream. `user_context` opens a turn with the
+  note stored with the message, when it has one, so a tab that merely watches the conversation
+  never receives a passage someone quoted. `tool_call_delta` carries a piece of the arguments of
+  an `artifact_create` or `artifact_rewrite` call, with `index`, `name`, `chunk` and `attempt`:
+  the first piece as soon as the call is named, later ones at most once every 3 seconds, and an
+  event with an empty `name` calls off an attempt that was given up. The whole call still comes
+  with `assistant_message`.
+- Behaviour evals can work on a canvas between two messages, as the person would in the web panel
+  and over the same routes: `create_canvas`, `edit_canvas` (replaces one exact passage and saves
+  on the version it read) and `select_canvas` (the next message carries the selection's lines). A
+  step that cannot be done fails the run before the next message. New expectations judge the
+  canvases linked to the conversation when the run ends: `canvas_count`, `canvas_contains`,
+  `canvas_not_contains`, and `canvas_not_in_chat`, which fails when the agent's messages repeat
+  half or more of a canvas's three-word runs; the title, the heading the canvas opens with and a
+  quote that stays within one line do not count. A run also fails when a message after canvas
+  steps reaches the agent without a canvas note telling of each canvas the person made or saved
+  since, and an `edit_canvas` whose `new` is its `old` is refused. The dry run plays a canvas case
+  through the real server.
 
 ### Changed
 
+- `POST /api/inbound` answers 422 when `source` names one of the server's own channels (`chat`,
+  `telegram`, `web`, `job` or `job:<id>`, `delegate:<…>`, `memory:<…>`). A relay could otherwise
+  pass for the person in the web chat, or post a run that showed up as a scheduled job's last run
+  and in its history. Any other label, `api` included, is recorded as before.
+- A `delegate` result always has an empty line between its `outcome=` line, with the canvas lines
+  under it, and the text that follows, whether or not a canvas was written. Whatever reads a
+  result line by line should expect it.
+- A `FILE:` or `MEDIA:` line whose path opens with `artifact:` names a canvas and is no longer
+  looked up as a workspace file, in a Telegram reply or in a delegated agent's answer, even when
+  the workspace holds a file of that name.
+- The system prompt of a Telegram or job turn, and of an agent delegated from one, ends with a
+  "Canvas" section when the agent holds a canvas write tool, after the day's notes and right
+  before the date. It says the reader is not at the web chat, to make a canvas only when told to
+  or when the document is long and will be edited further, and that a line `FILE: artifact:<id>`
+  of its own sends the canvas with the message. A turn from the inbound API reads one line there
+  instead, naming the canvas write tools it should not call. A web-chat turn's prompt has neither.
+- The system prompt's rule that web and file content is data now names canvas content and what a
+  canvas note quotes.
 - The offline `fake:echo` model calls the tool named on a message's last line that starts with
   `/tool`, when that line and its arguments end the message, whatever comes above it, so a
   self-test can drive a canvas tool from a message stored with a canvas note. A tool line inside
-  the note, above what the person wrote, calls nothing.
-- The system prompt's rule that web and file content is data now names canvas content and what
-  a canvas note quotes.
-- The README now covers what 0.10.0 added beyond voice notes: messages to a busy agent (queue or
-  `/steer`), reading a shortened tool output back, dated `MEMORY.md` lines and the rewrite gate,
-  searching past conversations, forking a conversation, agent-proposed schedules, cost by purpose
-  and the run trajectory download.
-- A `delegate` result always has an empty line between its `outcome=` line, with the canvas
-  lines under it, and the text that follows, whether or not a canvas was written. Whatever reads
-  a result line by line should expect it. The tool's description is two sentences longer.
-- A `FILE:` or `MEDIA:` line whose path opens with `artifact:` names a canvas and is no longer
-  looked up as a workspace file, in a Telegram reply or in a delegated agent's answer, even
-  when the workspace holds a file of that name.
-- The system prompt of a Telegram or job turn, and of an agent delegated from one, ends with a
-  "Canvas" section when the agent holds a canvas write tool, after the day's notes and right
-  before the date. It says the reader is not at the web chat and sees no canvas open beside
-  the answer, to make a canvas only when told to or when the document is long and will be
-  edited further, and that a line `FILE: artifact:<id>` of its own in the reply sends the
-  canvas with the message when the turn goes out over Telegram. A Telegram turn and a job read
-  the same words. A turn from the inbound API reads one line there instead, "Kênh này chưa mở
-  được canvas: trả lời thẳng trong tin nhắn, đừng gọi {tools}.", naming the canvas write tools
-  the agent holds. A web-chat turn's prompt has neither.
-- What the runtime itself says in a Telegram chat goes out as it stands and is no longer read
-  for `FILE:` and `MEDIA:` lines: the answer to a slash command, `/status` with the
-  conversation's title among them, that an approval ran out, why a run was cut short or did
-  not finish, that a reply was empty, and the error a turn broke with. A line of such a
-  sentence shaped like an attachment line used to send the file it named. What the agent said
-  before a turn broke is still read for the files it names.
+  the note calls nothing.
+- The README now covers what 0.10.0 added beyond voice notes.
+
+### Fixed
+
+- A model call that hits a passing upstream failure before any text is shown is asked again once
+  on the same route, after a two-second pause, instead of ending the run. This covers OpenRouter's
+  `provider_unavailable` error sent mid-stream after a 200, HTTP 408/425/429/5xx and transport
+  failures; a refused request (other 4xx), an error without a code and a malformed stream still
+  fail at once, and a failure after text has been shown still surfaces. A retried side call that
+  had already been served is written to the cost ledger at an unknown cost. No model fallback is
+  added.
+- A tool call whose arguments are not a JSON object (a raw line break or unescaped quote inside a
+  long document, or output cut off mid-call) no longer ends the run with a provider error. The
+  call is answered, without running, with its length, where the JSON broke and the few characters
+  around that spot, and the turn carries on. Such a call never asks a person for approval, and the
+  broken text itself is not stored.
+- A tool call cut off because the reply reached the model's output limit is answered with a
+  request to split the content into smaller calls, not to send it again. Calls broken at different
+  places no longer count as one repeated call; the same broken call sent three times in a row
+  still does. A tool error longer than the output cap is cut like any output.
+- A tool call whose name or arguments arrive as something other than text is reported as a
+  malformed stream from the provider. Before, the turn's stream broke off with no error event.
+- A turn whose last allowed model call answered ends as done, not halted at the step limit. A turn
+  that does run out of steps answers the tool calls it never ran with a note that the step limit
+  stopped them, so the next message no longer closes them as interrupted.
+- A delegated agent picked up again after an approval, a question or a restart can no longer hand
+  work on to another agent. Resuming started its turn as if a person had opened it, so the
+  one-level limit on delegation did not apply.
+- A delegated agent's answer is read for `FILE:` and `MEDIA:` lines at every line break a string
+  knows, as a Telegram reply already was, where only `\n` counted before. The reason an unfinished
+  delegated run stopped for is quoted in the `delegate` result on one line, cut at 160 characters,
+  so a provider's error can add no lines of its own to the result.
 - A Telegram notice about an attachment that could not be sent no longer stops the attachments
   named after it when the notice itself cannot be sent; it is logged instead.
-- A delegated agent's answer is read for `FILE:` and `MEDIA:` lines at every line break a
-  string knows, as a Telegram reply already was, where only `\n` counted before. The reason an
-  unfinished delegated run stopped for is quoted in the `delegate` result on one line, cut at
-  160 characters, so a provider's error can add no lines of its own to the result.
+- Deleting a conversation is all or nothing. A delete that failed midway is rolled back, where the
+  next unrelated write used to finish it and take the messages of a conversation reported as still
+  there.
+- An agent id that ends in a line break is refused. `coder` followed by a newline passed the check
+  and named a directory.
+- The web app ignores a stream event of a kind it does not know. A tab older than the server broke
+  on the first such event; a tab still open from 0.10.0 has this fault until it is reloaded.
+- An image from another site, which waits for a tap before it loads, asks again when its address
+  changes. One agreed image used to let any later image in the same place load unasked.
+- A message the server queued, because the conversation was busy somewhere the web tab could not
+  see, no longer comes back to the composer while a chip stands for it. A message the server
+  refused now gives its words back and takes its bubble back. A send cut off on purpose, by Stop
+  or by leaving the conversation, counts as sent, not as failed.
+- The conversation no longer stops following its newest line while a reply arrives. A reply that
+  came in a burst, or a turn whose start removed the fork buttons above the view, could read as
+  the reader scrolling up, and the answer sat below the screen. Only a move up lets go of the
+  newest line now; a reader who has scrolled back keeps their place.
+- A tool call that failed stays failed when the conversation is read back. The web drew every
+  stored call that was not denied as done, with the error only inside the result. That holds now
+  for every way a call fails: a tool that raised, a tool that does not exist, a hook's block,
+  arguments that were not valid JSON or were cut off, the step limit, a repeated call, an approval
+  given to another call, a branch away, a call cut short, and a handed-off task whose wait ran
+  out.
+- A link whose address holds an escape that cannot be read, `#/manage/crew/%` for one, no longer
+  opens the web app on a blank screen. The part that cannot be read is taken as not there, and the
+  section opens on its list.
+- Each behaviour eval run starts from the server as the first run found it. The runs share one
+  server, so a later run was judged on the conversations, canvases and notes an earlier one left.
+  Before every run the runner deletes every canvas and conversation, checks none is left and puts
+  the memory files back, never outside the run dir and without following a link; when it cannot,
+  the eval stops. What a deleted conversation's turns cost still counts toward the budget. Each
+  run also leaves a JSON transcript of its conversation, child conversations, canvases and
+  approvals in `results/transcripts/`; it can hold what the agents know, so delete it by hand.
+- An eval expectation pinned to a turn counts turns by the messages the case sent. A note the
+  server stores as the person's message, the loop guard's above all, started a turn of its own, so
+  a tool called after it was judged as the next turn's. A conversation that does not hold every
+  message the case sent now fails the run.
+
+### Security
+
+- A file in an agent's workspace no longer opens as a page of the app. `GET
+  /api/agents/{id}/files` served each file with the type its extension suggested, so an HTML or
+  SVG file an agent wrote, opened from its link, ran its scripts with the app's origin and could
+  call every API route. Now only raster images, PDF and plain text open in place, and any other
+  file downloads as `application/octet-stream`. Every response but a PDF's is sandboxed with no
+  scripts, and every one carries `X-Content-Type-Options: nosniff` and
+  `Cross-Origin-Resource-Policy: same-origin`. The types are pinned in code, not read from the
+  machine's MIME table.
+- A browser request to the API that says it comes from elsewhere is refused. The local guard
+  judged a browser request by its `Origin` header alone; it now also reads `Sec-Fetch-Site` and
+  answers 403 to a request under `/api/` whose value is anything but `same-origin` or `none`. A
+  request without the header, as `curl` or another program that is no browser sends, passes as
+  before, and a canvas's render page is the one address such a request still reaches.
+- The web app can no longer be shown in a frame on another site. Every response, an unhandled
+  error's included, carries `Content-Security-Policy: frame-ancestors 'self'`.
+- A canvas page runs under a policy of its own. The render route answers with `sandbox
+  allow-scripts` and never `allow-same-origin`, so the page has an origin that is not the app's.
+  Scripts, styles and fonts come inline or from the three CDNs (styles and fonts also from Google
+  Fonts), images and media only from `data:` and `blob:` addresses, and the policy allows no
+  `fetch`, `XMLHttpRequest` or WebSocket, no form target and no `<base>`. The response may be
+  framed by the app alone and is sent with `nosniff`, no referrer, DNS prefetching off and
+  `no-store`. Mermaid is loaded under an integrity hash. The raw route serves a version with no
+  scripts, and an HTML page, an SVG drawing and HTML code download as `.html.txt` or `.svg.txt`,
+  so opening the file shows the code.
+- What the runtime itself says in a Telegram chat goes out as it stands and is no longer read for
+  `FILE:` and `MEDIA:` lines: the answer to a slash command, `/status` with the conversation's
+  title among them, that an approval ran out, why a run was cut short or did not finish, that a
+  reply was empty, and the error a turn broke with. A line of such a sentence shaped like an
+  attachment line used to send the file it named. What the agent said before a turn broke is still
+  read for the files it names.
+- A canvas sent to Telegram passes the secret filter the run trajectory uses: secrets the server
+  knows are covered in the text, the caption, the file name and the titles in the list of written
+  canvases. A picture's bytes go as they are.
+- A source link with a user name or a password in it is refused by `artifact_import`, since it
+  would be stored and shown to everyone the canvas is. In the panel only a plain http or https
+  address on another origin than the app's becomes a link.
+- The export log names where a write was going with the place quoted and any line break in it
+  escaped, so a folder's name cannot start a log line of its own.
+- The bench and eval servers get only what a program needs to run from the caller's environment
+  (`PATH`, `HOME`, the locale, `TERM`, `TMPDIR`, `USER`, `LOGNAME`, `SHELL`, `TZ`) and
+  `OPENROUTER_API_KEY`. Before, they got the rest of the operator's shell but for a short list of
+  dropped names, and so did every hook they ran.
+
+### Upgrade notes
+
+- The database gains four tables (`artifacts`, `artifact_versions`, `conversation_artifacts`,
+  `canvas_focus`) and three columns (`messages.context`, `conversations.root_id`,
+  `conversations.root_source`), all added on start and empty for existing rows. Nothing is
+  rewritten or removed, but back up `agent.sqlite3` before the first start.
+- Agents with their own `tools:` list in `agent.yaml` get no canvas tool until its name is added
+  to that list; agents without a list get all seven on start.
+- `web_url` (`MY_AGENT_WEB_URL`) is empty by default, and without it Telegram messages carry no
+  link to a canvas. A host that is neither `localhost` nor an IP address must also be listed in
+  `MY_AGENT_ALLOWED_HOSTS`, or the server refuses the request the link leads to.
+- Reload browser tabs left open from 0.10.0. The old page breaks on the stream events this version
+  adds, and the update bar only offers the reload.
+- The system prompt of a Telegram or job turn gains a "Canvas" section for an agent that holds a
+  canvas write tool, and a turn from the inbound API gains one line telling it not to call them. A
+  web-chat turn's prompt is unchanged.
+- A `FILE:` or `MEDIA:` line whose path opens with `artifact:` is no longer a workspace file.
+  Rename a workspace file or folder of that name.
+- A `delegate` result always has an empty line before the answer. Anything that reads the result
+  line by line should expect it.
+- `POST /api/inbound` answers 422 for a `source` of `chat`, `telegram`, `web`, `job`, `job:<id>`,
+  `delegate:<…>` or `memory:<…>`. A caller that sent one of these needs another label.
+- A workspace file that is not a raster image, a PDF or plain text now downloads from its link
+  instead of opening in the browser. This includes HTML and SVG files.
+- A browser request to `/api/` from another origin, another local port included, gets 403. A
+  browser tool served from elsewhere that called the API no longer can; programs that are no
+  browser are not affected.
+- The eval and bench servers no longer inherit the caller's `MY_AGENT_*` variables or any key but
+  `OPENROUTER_API_KEY`. A hook or a case that relied on another variable will not find it.
+- A delegated conversation opened before the upgrade has no record of the channel its chain began
+  from, so an agent resumed in it cannot write canvases. A new delegation can.
+- `write_paths` now also holds `artifact_export`: an agent with the key exports only inside the
+  paths it lists.
 
 ## [0.10.0] — 2026-09-30
 
