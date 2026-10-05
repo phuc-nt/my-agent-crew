@@ -30,9 +30,9 @@ browser ──/api/conversations/{id}/messages (SSE)──┐
 Telegram poller ──────────────────────────────────┤
 any platform ──POST /api/inbound (JSON, sync)─────┴─▶ Inbound ──▶ agent loop (one turn on one conversation)
                                                         │           │  provider chain (ordered routes, fallback before first item)
-                                                        │           │  tool registry (workspace, web, memory, shell, delegate)
+                                                        │           │  tool registry (workspace, web, memory, shell, delegate, canvas)
                                                         │           │  skills + persona/memory + crew roster (system prompt)
-                                                        │           └─ store (SQLite: conversations, messages, approvals, runs)
+                                                        │           └─ store (SQLite: conversations, messages, approvals, runs, canvases)
                                                         ├─ activity hub (live runs → SSE /api/activity/stream)
                                                         ├─ QueueDrain   (what waited while busy → a turn of its own)
                                                         └─ Scheduler    (cron/every jobs per agent, 20 s tick)
@@ -330,6 +330,38 @@ chọn vì giá và văn bản, nên tool gửi tệp xuống một chuỗi `vis
 kèm một câu hỏi và trả câu trả lời dạng text. Agent nào cũng có nó, master đọc một lần
 để định tuyến bức ảnh và chuyên gia đọc lại để lấy chi tiết mình cần, và lần gọi
 được tính vào cuộc trò chuyện như một completion. [tools.md](tools.md#ảnh).
+
+## Canvas
+
+Chat hợp với câu trả lời đọc một lần. Một kế hoạch, một báo cáo hay một trang web mà người còn
+đọc lại và sửa tiếp thì cần một chỗ đứng riêng, nơi người và agent cùng sửa một tài liệu thay vì
+agent chép lại cả bài mỗi lần đổi một dòng. Đó là canvas; hướng dẫn đầy đủ ở
+[canvas.md](canvas.md). Những quyết định định hình nó:
+
+- **Kho có phiên bản, trong cùng tệp SQLite.** Mỗi lần ghi là một phiên bản và bản cũ nào cũng
+  khôi phục được, nên một lần agent sửa hỏng không mất gì. Canvas không phải tệp trong workspace
+  và không phải trí nhớ: nó sống lâu hơn cuộc trò chuyện sinh ra nó, và chỉ ra workspace khi
+  được xuất.
+- **Phần người sửa tới agent như một ghi chú đi kèm tin nhắn, không qua tool.** Ghi chú được lưu
+  cùng tin kế tiếp của người và model đọc nó ngay trước tin đó, nên agent không phải nhớ gọi tool
+  để biết canvas đã đổi, và system prompt cùng phần đầu prompt mà provider cache vẫn giữ nguyên.
+  Cách dựng ghi chú: [system-architecture.md](system-architecture.md#6-ngữ-cảnh-đi-vào-trí-nhớ-đi-ra).
+- **Chỉ `artifact_export` hỏi duyệt.** Duyệt tồn tại để chặn thay đổi không lùi lại được. Ghi
+  canvas thì lùi được bằng lịch sử, nên bốn tool ghi canvas không hỏi; xuất thì ghi đè một tệp
+  trong workspace, nên luôn hỏi. Bảy tool: [canvas.md](canvas.md#6-bảy-tool-của-agent).
+- **Kênh nào mang được canvas về cho người thì lượt từ kênh đó mới được ghi.** Web chat mở canvas
+  cạnh khung chat; Telegram nhận nó như một tệp cùng danh sách những gì lượt đã ghi, bản tin của
+  job cũng vậy. `POST /api/inbound` chưa có đường nào mang canvas về cho người gọi, nên lượt từ
+  đó không tạo, sửa, viết lại hay nhập; nó vẫn liệt kê, đọc và xuất ra tệp, lần xuất vẫn chờ
+  duyệt. Agent được giao việc theo kênh của cuộc trò chuyện gốc của chuỗi.
+  [canvas.md](canvas.md#7-phạm-vi-và-kênh).
+- **Trang agent viết chạy thật, nhưng cách ly.** Canvas `html` và `mermaid` là hai loại duy nhất
+  có trang để chạy. Trang đó chạy trong một origin mờ: không với tới ứng dụng và không gửi được
+  gì ra ngoài, chỉ tải script, style và font từ vài CDN công khai. Đây là ngoại lệ có chủ đích so
+  với đường phục vụ tệp workspace ở mục trên, nơi không script nào được chạy. Canvas `svg` và
+  ảnh hiện như một bức hình nên không chạy gì. [canvas.md](canvas.md#8-html-và-mermaid-chạy-cách-ly).
+- **Agent dừng ghi trước người.** Kho canvas có một trần chung; agent bị từ chối khi kho đã dùng
+  chín phần mười trần, để một agent kẹt trong vòng lặp ghi vẫn chừa chỗ cho người lưu.
 
 ## Web UI
 

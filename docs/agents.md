@@ -66,12 +66,12 @@ không bao giờ âm thầm vô hiệu một cài đặt.
 | `shell_network` | bool | `true` | `false` chạy mọi lệnh `shell_run` trong một profile `sandbox-exec` của macOS: không mạng theo mọi hướng, không có các helper kiểu `open`/`launchctl`, chỉ ghi được dưới `shell_write_paths` và thư mục tạm (quy tắc ghi này cũng áp dụng khi còn mạng mà `shell_write_paths` được đặt), xem [tools.md](tools.md#shell). Chỉ đặt theo từng agent; `"false"` trong dấu nháy là lỗi khởi động |
 | `shell_write_paths` | danh sách | `[]` | đường dẫn bên trong workspace mà lệnh `shell_run` được ghi. Đặt danh sách này là bật sandbox kể cả khi còn mạng: lệnh chỉ ghi được ở đây và thư mục tạm, không gọi được `open`/`launchctl`/`osascript`, nên agent lấy và ghi dữ liệu được nhưng không sửa được code, script hay cấu hình quanh nó. Với `shell_network: false` mà danh sách rỗng thì workspace chỉ đọc với shell; đường dẫn ra ngoài workspace là lỗi khởi động |
 | `shell_deny_patterns` | danh sách | `[]` | mảnh lệnh (chuỗi con, không phân biệt hoa thường) mà `shell_run` từ chối thẳng, không hỏi duyệt, kèm lời dặn dừng lại và báo cần gì để người dùng quyết. Dùng để giữ agent làm việc trong repo người khác khỏi DDL, SQL ghi tay, `python3 -c`. Rào mềm như `shell_ask_patterns` |
-| `write_paths` | danh sách | `[]` | đường dẫn bên trong workspace mà `workspace_write` và `workspace_edit` được ghi; ghi chỗ khác bị từ chối với lỗi nêu danh sách này, và không thư mục nào được tạo. Rỗng thì ghi được mọi nơi trong workspace. Dùng cho agent autonomous có workspace là một repo, nơi tệp lạc chỗ có thể bị commit lên; đường dẫn ra ngoài workspace là lỗi khởi động. Không ảnh hưởng `shell_run`, xem `shell_write_paths` |
+| `write_paths` | danh sách | `[]` | đường dẫn bên trong workspace mà `workspace_write`, `workspace_edit` và `artifact_export` (xuất một canvas ra tệp) được ghi; ghi chỗ khác bị từ chối với lỗi nêu danh sách này, và không thư mục nào được tạo. Rỗng thì ghi được mọi nơi trong workspace. Dùng cho agent autonomous có workspace là một repo, nơi tệp lạc chỗ có thể bị commit lên; đường dẫn ra ngoài workspace là lỗi khởi động. Không ảnh hưởng `shell_run`, xem `shell_write_paths` |
 | `schedules` | danh sách | `[]` | job, xem [Lịch](#lịch) |
 | `memory_consolidate` | chuỗi cron | không có | theo lịch này, viết lại `MEMORY.md` từ ghi chú ngày rồi biên dịch wiki vault từ chính các ghi chú đó, xem [memory.md](memory.md) |
 | `telegram` | map | không có | `token_env` + `chat_id`, tuỳ chọn `approval_ttl_seconds` (60–43200) cho cuộc trò chuyện mở từ chat đó; chỉ đọc trên `agent.yaml` của master, ở nơi khác bị bỏ qua kèm cảnh báo, xem [channels.md](channels.md) |
 | `delegates` | danh sách id agent | `[]` | agent mà agent này được giao việc cho; id không trỏ tới agent nào là lỗi khởi động. Rỗng trên master nghĩa là mọi agent khác, xem [Agent master](#agent-master) |
-| `tools` | danh sách tên tool | `[]` | khi đặt, là những tool duy nhất agent này có; rỗng nghĩa là mọi thứ mode của nó mang lại. Tên lạ là cảnh báo, nên profile viết cho phiên bản mới hơn vẫn khởi động được |
+| `tools` | danh sách tên tool | `[]` | khi đặt, là những tool duy nhất agent này có; rỗng nghĩa là mọi thứ mode của nó mang lại. Tên lạ là cảnh báo, nên profile viết cho phiên bản mới hơn vẫn khởi động được. Tool canvas cũng theo danh sách này: agent có `tools:` chỉ dùng được những tool canvas nó liệt kê ([canvas.md](canvas.md#6-bảy-tool-của-agent)) |
 
 Mọi giá trị không đặt sẽ rơi về cài đặt toàn cục, lấy từ biến môi trường
 và `config.yaml`:
@@ -300,6 +300,15 @@ Mỗi lượt, system prompt của master mang một mục roster: một
 dòng cho mỗi agent nó với tới được, gồm id, tên, mode, mô tả và workspace, theo sau là hướng dẫn
 khi nào tự làm và khi nào chuyển đi. Agent không với tới ai thì
 không có roster. Lượt con mở bởi `delegate` không bao giờ thấy roster, vì nó không thể giao việc.
+
+Agent nào cầm một tool ghi canvas thì system prompt của nó có thể kết thúc bằng một mục
+**Canvas**, tuỳ lượt đến từ đâu. Lượt từ Telegram và job (người đọc không ngồi ở web) được dặn
+chỉ tạo canvas khi được yêu cầu hoặc khi tài liệu dài và còn sửa tiếp, và rằng một dòng
+`FILE: artifact:<id>` gửi canvas đi như một tệp. Lượt từ kênh không ghi được canvas được dặn trả
+lời thẳng trong tin nhắn. Lượt từ web chat không có mục này. Agent được giao việc không có kênh
+riêng: nó theo kênh của cuộc trò chuyện gốc của chuỗi, nên cùng một agent con ghi được canvas
+khi master nhận việc từ web chat và không ghi được khi việc đến qua `POST /api/inbound`. Bảng
+kênh ở [canvas.md](canvas.md#7-phạm-vi-và-kênh).
 
 Các agent assistant của home ví dụ (`pong`, `health-coach`) được với tới cùng một cách
 từ điện thoại như từ trình duyệt: bot của master nhận tin và master

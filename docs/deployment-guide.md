@@ -64,7 +64,7 @@ Server tự nạp `<home>/env` lúc khởi động; biến đã có sẵn trong 
 
 **Tuyến mô hình chung** (tuyến agent không có tuyến riêng dùng, và tuyến agent có tuyến riêng quay về khi không tuyến nào của nó có khoá) sửa ở thẻ Tuyến mô hình cùng trang: thêm/bớt/sửa dòng rồi **Lưu tuyến**. Server từ chối (409) nhà cung cấp chưa có khoá, danh sách đội không chạy được, và `fake` (chỉ lặp lại tin nhắn) khi tuyến đang lưu chưa dùng nó, rồi mới ghi `routes` vào `<home>/config.yaml` kiểu round-trip (giữ chú thích và khoá khác) và áp dụng từ lượt kế tiếp. `/api/connections` trả `routes_source`: `env` khi `MY_AGENT_ROUTES` đang đặt — biến thắng tệp nên trang chỉ cho xem —, `config` hoặc `default`. Xoá khoá mà tuyến duy nhất cần bị từ chối kèm tên tuyến dạng `provider:model` và cách gỡ (thêm tuyến khác trước).
 
-**Chỉ nhận request cục bộ.** Mọi đường dẫn (API lẫn trang) từ chối (403) request có `Host` không phải `localhost` hay địa chỉ IP, hoặc `Origin` khác đúng host:port đang gọi (kể cả trang local ở cổng khác) — để trang web lạ trỏ tên miền về 127.0.0.1 (DNS rebinding) không đọc hay sửa được đội. Mở UI qua tên máy (vd. Tailscale MagicDNS) thì thêm tên đó vào `MY_AGENT_ALLOWED_HOSTS` (phân cách dấu phẩy) trong môi trường khởi động server; truy cập bằng IP không cần. Trang 403 nêu đúng tên host bị từ chối và biến cần thêm, log server ghi tên đó một lần.
+**Chỉ nhận request cục bộ.** Mọi đường dẫn (API lẫn trang) từ chối (403) request có `Host` không phải `localhost` hay địa chỉ IP, hoặc `Origin` khác đúng host:port đang gọi (kể cả trang local ở cổng khác) — để trang web lạ trỏ tên miền về 127.0.0.1 (DNS rebinding) không đọc hay sửa được đội. Mở UI qua tên máy (vd. Tailscale MagicDNS) thì thêm tên đó vào `MY_AGENT_ALLOWED_HOSTS` (phân cách dấu phẩy) trong môi trường khởi động server; truy cập bằng IP không cần. Trang 403 nêu đúng tên host bị từ chối và biến cần thêm, log server ghi tên đó một lần. `web_url` đi cùng hàng rào này: nếu nó dùng một tên máy thì tên đó cũng phải có trong `MY_AGENT_ALLOWED_HOSTS`, không thì link trong tin gửi ra kênh mở ra trang 403. Server không đối chiếu hai giá trị lúc khởi động, nên hãy bấm thử một link sau khi đặt.
 
 **Không có đăng nhập.** Ai tới được cổng là điều khiển được đội: đọc hội thoại, sửa agent, đặt khoá, và `POST /api/inbound` chạy một lượt không cần xác thực (header `Origin` không có ở `curl` nên hàng rào Origin không chặn). Hàng rào Host chỉ chống trang web lạ trong trình duyệt, không phải kiểm soát truy cập. Vì vậy chỉ mở cổng trên máy hoặc trong tailnet riêng; đừng đưa ra ngoài bằng Tailscale Funnel, ngrok, Cloudflare Tunnel hay reverse proxy công khai — tên của đường hầm công khai cũng đừng thêm vào `MY_AGENT_ALLOWED_HOSTS`.
 
@@ -111,6 +111,26 @@ launchctl kickstart -k gui/$(id -u)/com.my-agent-crew.server
 ```
 
 Schema SQLite tự thêm cột/bảng khi khởi động; không có bước migrate tay. Đọc `docs/agents.md` khi nâng phiên bản lớn vì bố cục persona có thể đổi.
+
+**Sao lưu `agent.sqlite3` trước.** Schema chỉ đi một chiều: bản mới thêm bảng và cột (canvas thêm bốn bảng và ba cột, xem [system-architecture.md](system-architecture.md#28-canvas-tài-liệu-người-và-agent-cùng-sửa)) và không có bước lùi. Tệp chạy ở chế độ WAL, nên chép tệp bằng `cp` khi server đang chạy có thể thiếu những lần ghi còn nằm trong tệp `-wal`. Dùng API backup của SQLite, mở nguồn chỉ đọc bằng `mode=ro` (đừng dùng `immutable=1` trên tệp đang chạy):
+
+```bash
+mkdir -p "$HOME/.my-agent-crew/backups/truoc-nang-cap"
+python3 - <<'EOF'
+import os, sqlite3
+home = os.path.expanduser("~/.my-agent-crew")
+src = sqlite3.connect(f"file:{home}/agent.sqlite3?mode=ro", uri=True)
+dst = sqlite3.connect(f"{home}/backups/truoc-nang-cap/agent.sqlite3")
+src.backup(dst)
+dst.close(); src.close()
+EOF
+```
+
+Kiểm bản sao bằng cách mở nó bình thường và chạy `PRAGMA integrity_check`; mở bản sao ở chế độ chỉ đọc có thể báo lỗi dù bản sao vẫn tốt.
+
+**Sau khi khởi động lại, tải lại các tab đang mở.** Tab mở từ trước vẫn chạy bản web cũ cho tới khi tải lại; thanh "Có bản mới" mời tải lại chứ không ép.
+
+**Agent có danh sách `tools:`.** Agent khai `tools:` trong `agent.yaml` chỉ có đúng những tool nó liệt kê, nên muốn nó dùng canvas thì thêm tên các tool canvas vào danh sách ([canvas.md](canvas.md#6-bảy-tool-của-agent)); agent không khai `tools:` thì có sẵn. Cuộc trò chuyện giao việc đã mở từ trước lần nâng cấp không có kênh gốc được ghi lại, nên agent con trong đó không ghi được canvas ([canvas.md](canvas.md#7-phạm-vi-và-kênh)).
 
 Bản này khác bản trước ở đâu: [CHANGELOG.md](../CHANGELOG.md).
 

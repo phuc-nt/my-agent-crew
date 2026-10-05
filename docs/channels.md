@@ -1,6 +1,6 @@
 # Kênh
 
-**Phiên bản**: 0.10.0 · **Cập nhật**: 2026-09-30
+**Phiên bản**: 0.10.0 · **Cập nhật**: 2026-10-05
 
 Kênh cho phép người dùng nói chuyện với đội ở nơi khác ngoài web UI. Hiện nay đó là
 Telegram. Mọi nền tảng đều đưa tin nhắn tới cùng một cổng inbound: cổng tìm agent,
@@ -138,12 +138,41 @@ Lượt từ Telegram, lượt job, và agent được giao việc trong các l�
 qua Telegram hoặc xem lại sau) nên không thấy canvas mở ra bên cạnh; vì vậy system prompt của
 lượt kết thúc bằng mục **Canvas** dặn chỉ tạo canvas khi được dặn hoặc khi tài liệu dài và sẽ
 còn sửa, còn lại trả lời thẳng trong tin nhắn. Mục đó không nói người đọc đang ở kênh nào: job
-trên máy không có bot cũng nghe đúng lời ấy. Canvas tới chat theo hai đường: một dòng riêng
-`FILE: artifact:<id>` trong câu trả lời gửi canvas đó thành tệp, và sau câu trả lời chat nhận
-danh sách các canvas lượt đã ghi. Job trả lời `OK` thì không gửi gì, kể cả khi nó vừa tạo hay
-vừa sửa canvas: danh sách đó cũng không tới chat. Canvas nó ghi vẫn nằm trong kho và mở được
-trên web. Lượt qua `/api/inbound` vẫn chỉ liệt kê và đọc được canvas, và system prompt của nó
-dặn trả lời thẳng trong tin nhắn; xem [tools.md](tools.md#canvas).
+trên máy không có bot cũng nghe đúng lời ấy. Lượt qua `/api/inbound` không tạo, sửa, viết lại
+hay nhập tệp vào canvas được, vì chưa có đường mang canvas về cho người gọi; nó vẫn liệt kê,
+đọc và xuất canvas ra tệp (có duyệt), và system prompt của nó dặn trả lời thẳng trong tin nhắn.
+Tool và giới hạn ở [tools.md](tools.md#canvas); canvas nói chung ở [canvas.md](canvas.md).
+
+Canvas tới chat theo hai đường.
+
+- **Gửi thành tệp.** Một dòng riêng `FILE: artifact:<id>` hay `MEDIA: artifact:<id>` trong câu
+  trả lời gửi bản mới nhất của canvas đó, và caption ghi tiêu đề cùng số phiên bản. Đường dẫn mở
+  đầu bằng `artifact:` luôn được hiểu là canvas, không bao giờ là tệp trong workspace: mã viết
+  sai thì chat nhận một câu báo, không tệp nào được tìm theo tên đó. Tên tệp là tên canvas tải
+  về trên web; canvas `markdown` giữ đuôi `.md`, ảnh giữ đuôi thật và hiện thành ảnh, mọi loại
+  khác thêm `.txt` để mở ra là thấy chữ chứ không chạy gì. Ảnh Telegram không nhận làm ảnh thì
+  tới dưới dạng tài liệu. Mỗi canvas chỉ gửi một lần trong một câu trả lời. Canvas ngoài tầm
+  của agent và canvas không có nhận cùng một câu báo. Tệp quá 20 MB, hay Telegram từ chối, thì
+  chat được bảo mở web để xem.
+- **Tin "Canvas vừa ghi:".** Sau câu trả lời, chat nhận một tin liệt kê những canvas lượt đã
+  ghi, kể cả do agent được giao việc ghi: mỗi canvas một dòng tiêu đề kèm số phiên bản. Tin nêu
+  tối đa 10 canvas, phần còn lại gom vào một dòng đếm. Lần ghi không đổi gì không có trong tin.
+  Lượt xong mà không có chữ nào nhưng có ghi canvas thì tin này là câu trả lời.
+
+Link về web chỉ có khi `web_url` được đặt (xem
+[deployment-guide.md](deployment-guide.md#4-biến-môi-trường-và-bí-mật)): mỗi canvas trong tin
+thêm một dòng link tới trang riêng của nó, và caption của tệp cũng mang link ấy khi còn chỗ. Để
+trống thì tin kết thúc bằng lời bảo mở web UI.
+
+Job trả lời `OK` thì không gửi gì, kể cả khi nó vừa tạo hay vừa sửa canvas: tin liệt kê cũng
+không tới chat. Canvas nó ghi vẫn nằm trong kho và mở được trên web.
+
+Chữ rời máy qua đường này được che như log: tiêu đề và nội dung canvas chữ bị che giá trị của
+biến môi trường có tên mang `KEY`, `TOKEN`, `SECRET`, `PASSWORD` hay `CREDENTIAL`, cùng chuỗi
+có dạng `Bearer …`, khoá `sk-…` và JWT. Đó là giới hạn của nó: bí mật không khớp các dạng này
+không bị che, ảnh không được lọc, và người nhận không được báo chỗ nào đã che. Canvas chữ nhập
+từ một tệp workspace thuộc loại không gửi qua chat được thì không gửi. Chat nhóm thì mọi thành
+viên cùng nhận tệp.
 
 ## Lệnh
 

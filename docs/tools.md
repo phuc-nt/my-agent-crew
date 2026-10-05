@@ -1,6 +1,6 @@
 # Tool
 
-**Phiên bản**: 0.10.0 · **Cập nhật**: 2026-09-30
+**Phiên bản**: 0.10.0 · **Cập nhật**: 2026-10-05
 
 Tool là một hàm mà model có thể gọi trong một lượt. Bộ tool của mỗi agent
 được lắp lúc khởi động từ đường dẫn workspace và memory của agent, rồi được định hình bởi
@@ -86,11 +86,13 @@ System prompt liệt kê tên các tool có sẵn; model thấy JSON schema củ
 | `ask_user` | **có, luôn luôn** | một câu hỏi mở mỗi cuộc trò chuyện | hỏi người dùng một điều và tạm dừng lượt cho tới khi họ trả lời, xem [Hỏi người dùng](#hỏi-người-dùng) |
 | `tool_output_read` | không | mỗi lần đọc vừa trần đầu ra của agent, `offset` và `limit` tính bằng ký tự | đọc lại toàn văn một kết quả tool đã bị rút ngắn theo id lời gọi, xem [Đọc lại đầu ra dài](#đọc-lại-đầu-ra-dài) |
 | `progress_note` | không | 200 ký tự | nói trong một dòng agent sắp làm gì; trở thành một step `note` trên run, xem [Nói mình đang làm gì](#nói-mình-đang-làm-gì) |
-| `artifact_create` | không | `markdown` và `code`, 512 KB mỗi canvas; 30 canvas mỗi lượt | tạo một canvas cạnh khung chat từ `title`, `kind`, `content` và `language` tuỳ chọn; kết quả mở đầu bằng thẻ `[artifact <id> v1]` và không trả lại nội dung, xem [Canvas](#canvas) |
+| `artifact_create` | không | năm loại chữ (`markdown`, `code`, `html`, `svg`, `mermaid`), trần theo loại; 30 canvas mới mỗi lượt | tạo một canvas cạnh khung chat từ `title`, `kind`, `content` và `language` tuỳ chọn; kết quả mở đầu bằng thẻ `[artifact <id> v1]` và không trả lại nội dung, xem [Canvas](#canvas) |
 | `artifact_list` | không | 30 canvas | liệt kê các canvas agent với tới, mới sửa trước, đánh dấu canvas chưa đọc hay có bản mới; `query` lọc theo tiêu đề, không phân biệt hoa thường và dấu |
 | `artifact_read` | không | mỗi trang vừa trần đầu ra của agent | đọc một canvas theo trang, chữ nguyên văn; chân trang là lệnh đọc tiếp đúng bản đó |
 | `artifact_edit` | không | 30 bản mỗi canvas mỗi lượt; diff 1 500 ký tự | thay một đoạn `old` chép nguyên văn bằng `new`; kết quả có diff của phần đã đổi và cỡ mới của canvas |
 | `artifact_rewrite` | không | như `artifact_edit`; diff xung đột 4 000 ký tự | viết lại cả canvas khi bản mới nhất là bản agent đã thấy trọn; nếu không thì từ chối kèm diff của phần người khác đã đổi |
+| `artifact_import` | không | tệp thường trong workspace, vừa trần của loại; tính chung ngân sách ghi của lượt | đưa một tệp trong workspace vào canvas mới, hoặc vào canvas đã có khi nêu `id`; loại đoán theo đuôi tệp, đuôi lạ thì phải nêu `kind`; tệp không đổi thì không thêm phiên bản. Là đường duy nhất tạo canvas ảnh |
+| `artifact_export` | **có** | chỉ dưới `write_paths` nếu profile đặt khoá này | ghi một phiên bản của canvas ra một tệp trong workspace; ghi đè tệp đã có và nói rõ điều đó, từ chối thư mục và symlink |
 
 Bốn tool nữa chỉ đi kèm `mode: work`, vì trợ lý chỉ trò chuyện không cần
 chúng và mỗi spec tool thêm vào đều tốn token prompt:
@@ -181,7 +183,7 @@ trả lời chuyển thẳng cho người dùng không mang khối này, vẫn �
 của con, nên mô tả tool dặn bên giao coi nó là dữ liệu chứ không phải chỉ dẫn, và nhắc tên canvas
 cho người dùng thay vì đọc rồi chép nội dung vào câu trả lời. Được nêu tên chưa phải là đã đọc:
 lượt kế của cuộc gốc vẫn nhận ghi chú canvas mới, và `artifact_rewrite` của master vẫn bị từ chối
-cho tới khi nó đọc canvas. Web đọc khối bằng cùng dạng dòng (`lib/delegate-result.ts`); kết quả lưu
+cho tới khi nó đọc canvas. Web đọc khối bằng cùng dạng dòng; kết quả lưu
 từ trước khi có dòng trống thì đọc như cũ, không có canvas nào.
 Ngữ cảnh của cha chỉ lớn thêm một kết quả tool thay vì cả công việc, và
 kết quả đó không bao giờ bị cắt gọn bởi cơ chế tỉa đầu ra tool cũ: master hỏi Pong,
@@ -209,7 +211,7 @@ thoát ra ngoài bị từ chối, symlink ở lại bên trong được đi the
 `agent.yaml: workspace`, mặc định `<agent dir>/workspace`. Không gì bên ngoài nó chạm tới được
 qua các tool này; `shell_run` là lối thoát, và nó cần duyệt.
 
-`write_paths` thu hẹp thêm chỗ `workspace_write` và `workspace_edit` được ghi. Cuộc trò
+`write_paths` thu hẹp thêm chỗ `workspace_write`, `workspace_edit` và `artifact_export` được ghi. Cuộc trò
 chuyện autonomous (và mọi cuộc được giao việc từ một master autonomous) không dừng để duyệt,
 nên với một workspace là repo git, đây là rào duy nhất giữa một đường dẫn đoán sai và một
 thư mục dữ liệu cá nhân mới nằm ngoài `.gitignore`. Đường dẫn so theo dạng chữ, nên
@@ -504,16 +506,21 @@ vào danh sách đó mới dùng được; master không có allow-list nên có
 
 ### Canvas
 
-Canvas là tài liệu có phiên bản đi cạnh cuộc trò chuyện, người và agent cùng sửa. Năm tool
-`artifact_*` không hỏi duyệt: mỗi lần ghi thêm một phiên bản và bản cũ vẫn khôi phục được, nên
-không lần ghi nào của agent làm mất chữ của người. Mọi agent có đủ năm tool; agent có allow-list
-`tools:` chỉ có những tool canvas nó liệt kê, nên một danh sách viết trước khi có canvas không tự
-nhận thêm quyền ghi.
+Canvas là tài liệu có phiên bản đi cạnh cuộc trò chuyện, người và agent cùng sửa. Mục này là
+tham chiếu cho bảy tool `artifact_*`; canvas là gì, người dùng nó trên web ra sao và vì sao nó
+được thiết kế như vậy nằm ở [canvas.md](canvas.md). Sáu tool không hỏi duyệt: mỗi lần ghi thêm
+một phiên bản và bản cũ vẫn khôi phục được, nên không lần ghi nào của agent làm mất chữ của
+người. Chỉ `artifact_export` cần duyệt, như `workspace_write` và ở kênh nào cũng vậy, vì nó ghi đè
+một tệp trong workspace, thứ không có lịch sử phiên bản. Agent không có allow-list `tools:` có đủ bảy tool; agent có allow-list
+chỉ có những tool canvas nó liệt kê, nên một danh sách viết trước khi có canvas không tự nhận
+thêm quyền ghi.
 
-- **Loại và trần.** Agent tạo được canvas `markdown` và `code` (kèm `language`, ví dụ `python`).
-  Một canvas nặng tối đa 512 KB, tiêu đề tối đa 200 ký tự. Mọi canvas cộng lại có trần 1 GiB;
-  agent dừng ở chín phần mười trần đó để người vẫn còn chỗ lưu. Trần nằm trong code, không có
-  khoá cấu hình.
+- **Loại và trần.** `artifact_create` tạo được năm loại chữ: `markdown`, `code` (kèm `language`,
+  ví dụ `python`), `html`, `svg` và `mermaid`. Loại thứ sáu, `image` (PNG, JPEG, GIF, WebP), chỉ
+  vào canvas qua `artifact_import`. Trần tính cho mỗi phiên bản và theo loại: 512 KB cho
+  `markdown`, `code` và `mermaid`, 2 MB cho `svg` và `image`, 4 MB cho `html`. Tiêu đề tối đa
+  200 ký tự. Mọi phiên bản của mọi canvas cộng lại có trần 1 GiB; agent dừng ở chín phần mười
+  trần đó để người vẫn còn chỗ lưu. Trần nằm trong code, không có khoá cấu hình.
 - **Kênh.** Lượt từ web chat, từ Telegram và job ghi được canvas, cùng agent được giao việc
   trong chuỗi bắt đầu từ một lượt như vậy: canvas mở cạnh web chat, còn chat Telegram nhận nó
   thành tệp và được báo lượt đã ghi gì. Lượt Telegram và job có người đọc không ngồi ở web
@@ -523,16 +530,26 @@ nhận thêm quyền ghi.
   `/api/inbound` chưa có đường mang canvas về cho người: nó vẫn có các tool canvas để phần đầu
   prompt giống lượt web, nhưng lời gọi tạo, sửa, viết lại hay nhập tệp bị từ chối và không gì
   được ghi; system prompt của lượt đó kết thúc bằng mục **Canvas** dặn trả lời thẳng trong tin
-  nhắn, nêu tên những tool ghi agent đang có. Đọc và liệt kê chạy ở mọi kênh. Xem
+  nhắn, nêu tên những tool ghi agent đang có. Đọc, liệt kê và xuất ra tệp (`artifact_export`,
+  vẫn cần duyệt) chạy ở mọi kênh. Agent được giao việc theo kênh của lượt mở đầu chuỗi giao việc
+  chứ không theo cuộc trò chuyện của riêng nó; chuỗi không ghi nhận được lượt mở đầu, như cuộc
+  trò chuyện con mở trước khi nâng cấp, thì không ghi được. Xem
   [channels.md](channels.md#cuộc-trò-chuyện).
 - **Tầm với.** Master với tới mọi canvas. Agent khác với tới canvas gắn với cuộc trò chuyện của
   nó, canvas chuỗi giao việc của nó đã chia sẻ, và canvas nó tự tạo. Canvas do người tạo chỉ vào
-  tầm của agent khi đã gắn vào cuộc trò chuyện. Đọc chỉ gắn canvas vào cuộc trò chuyện đang đọc;
-  tạo, sửa và viết lại chia sẻ nó với cả chuỗi, nên agent được giao việc sau trong chuỗi mở được.
+  tầm của agent khi đã gắn vào cuộc trò chuyện. Đọc và xuất ra tệp chỉ gắn canvas vào cuộc trò chuyện
+  đang gọi, không chia sẻ; tạo, sửa, viết lại và nhập tệp có thay đổi chia sẻ nó với cả chuỗi,
+  nên agent được giao việc sau trong chuỗi mở được.
   Canvas ngoài tầm nhận đúng câu trả lời của canvas không tồn tại, nên agent không dò được canvas
   nằm ngoài tầm.
-- **Ngân sách của một lượt.** Tối đa 30 bản cho mỗi canvas và 30 canvas mới; lần ghi không đổi
-  gì không tính. Chạm trần thì tool bảo agent dừng và báo người những gì đã làm.
+- **Ngân sách của một lượt.** Tối đa 30 bản cho mỗi canvas và 30 canvas mới, lần nhập tệp tính
+  chung với lần tạo và lần ghi; lần ghi không đổi gì và lần xuất ra tệp không tính. Chạm trần
+  thì tool bảo agent dừng và báo người những gì đã làm.
+- **Nhập và xuất tệp.** `artifact_import` chỉ đọc tệp thường nằm trong workspace, vừa trần của
+  loại, và chữ phải là UTF-8. Nhập vào canvas đã có mà canvas đó có bản agent chưa thấy thì bị
+  từ chối, trừ khi lời gọi nêu `replace`. Canvas nhớ tệp nó được nhập từ, nên web hiện nguồn và
+  cho người nhập lại. `artifact_export` ghi trọn tệp hoặc không ghi gì, và tuân `write_paths`
+  như các tool ghi tệp; xem [Tool workspace](#tool-workspace).
 - **Đọc theo trang.** Mỗi trang là chữ nguyên văn, không đánh số dòng, vừa trần đầu ra của agent
   kể cả khi hook nối thêm ghi chú. Đầu trang ghi bản và khoảng dòng; chân trang là lệnh đọc tiếp
   với đúng bản đó, để mọi trang thuộc cùng một bản. Chỉ một lần đọc liền từ dòng đầu tới dòng cuối

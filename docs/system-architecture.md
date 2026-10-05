@@ -99,6 +99,8 @@ Gói `tools/` giữ danh sách tool mà agent được dùng (`tools:` trong `ag
 | Web | `fetch_url`, `web_search` | không |
 | Trí nhớ | `memory_save`, `memory_search`, `user_memory_save`, `user_memory_forget`, `wiki_get`, `wiki_search`, `wiki_apply` | không |
 | Đội | `delegate` | không |
+| Canvas | `artifact_create`, `artifact_read`, `artifact_edit`, `artifact_rewrite`, `artifact_list`, `artifact_import` | không (bản cũ nào cũng khôi phục được) |
+| Canvas | `artifact_export` (ghi đè một tệp trong workspace) | có |
 | Đầu ra dài | `tool_output_read` (đọc lại bản gốc của kết quả đã bị rút ngắn, chỉ trong cuộc trò chuyện hiện tại) | không |
 | Với người | `ask_user` (dừng lượt, chờ câu trả lời), `progress_note` (một câu "đang làm gì" lên timeline) | không |
 | Khác | `image_read`, `pdf_read`, `skill_read` | không |
@@ -131,6 +133,18 @@ Mọi thứ làm nên một agent là tệp văn bản trong `~/.my-agent-crew/a
 | `workspace/` | nơi tool đọc/ghi | khi tool chạy |
 
 Dùng chung cho mọi agent: `config.yaml`, `agent.sqlite3`, `users/owner/` (USER.md + facts), `skills/` và `.agents/` cấp home. Bố cục đầy đủ ở [agents.md](agents.md).
+
+### 2.8 Canvas: tài liệu người và agent cùng sửa
+
+Canvas là tài liệu có phiên bản nằm cạnh cuộc trò chuyện; vì sao nó có hình dạng này ở [design.md](design.md#canvas), cách dùng ở [canvas.md](canvas.md).
+
+**Kho.** Canvas sống trong cùng `agent.sqlite3`, ở bốn bảng: `artifacts` (mỗi canvas một dòng), `artifact_versions` (mọi phiên bản từng ghi), `conversation_artifacts` (canvas nào thuộc cuộc trò chuyện nào) và `canvas_focus` (cuộc nào đang mở canvas nào, đang chọn đoạn nào). Ba cột đi kèm: `messages.context` giữ ghi chú canvas của một tin (mục 6), còn `conversations.root_id` và `conversations.root_source` ghi cuộc trò chuyện gốc của một chuỗi giao việc và kênh của nó, để agent được giao việc biết mình có được ghi canvas hay không. Bảng và cột được thêm tự động lúc khởi động.
+
+**Bề mặt.** Web làm mọi việc với canvas qua `/api/artifacts` (liệt kê, tạo, đọc, lưu, đổi tên, xoá, lịch sử, khôi phục, tải về, nhập lại từ tệp nguồn) và báo canvas đang mở của một cuộc qua `/api/conversations/{id}/canvas`; mọi lần ghi qua REST là của người, còn agent ghi bằng tool. Bảng đầy đủ ở [canvas.md](canvas.md#13-api).
+
+**Trang chạy cách ly.** `GET /api/artifacts/{id}/render` chỉ có cho canvas `html` và `mermaid`. Trang trả về chạy trong một origin mờ: không với tới ứng dụng và không gửi được gì ra ngoài, chỉ tải script, style và font từ vài CDN công khai. Các loại khác không có đường này; `svg` và ảnh hiện như hình. Xem [canvas.md](canvas.md#8-html-và-mermaid-chạy-cách-ly).
+
+**Event.** Luồng SSE của một lượt có thêm hai event chỉ để hiển thị, không lưu và không lên luồng hoạt động: `user_context` đưa ghi chú canvas của tin vừa gửi về tab đã gửi nó, và `tool_call_delta` đưa từng phần đối số của một lời gọi tool khi model còn đang viết, để web hiện canvas đang được viết. Luồng hoạt động có thêm event `artifact` mỗi lần một canvas được tạo, ghi, đổi tên, khôi phục hay xoá, nên mọi tab đang mở cập nhật theo.
 
 ## 3. Một lượt chat: từ Telegram đến câu trả lời
 
@@ -309,6 +323,7 @@ Không có điểm cắm cho "thay vòng lặp": vòng lặp lượt là bất b
 - [tools.md](tools.md) — từng tool và cổng duyệt
 - [memory.md](memory.md) — ghi chú ngày, facts, consolidate
 - [channels.md](channels.md) — Telegram
+- [canvas.md](canvas.md) — canvas: vòng sửa chung, bảy tool, kênh, API
 - [testing.md](testing.md) — chạy test
 - [codebase-summary.md](codebase-summary.md) — bản đồ mã nguồn
 - [diagrams/README.md](diagrams/README.md) — tái tạo sơ đồ

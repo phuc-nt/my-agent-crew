@@ -18,7 +18,7 @@ my-agent-crew là một agent harness nhỏ chạy trên máy cá nhân: nhiều
 | 3 | [Cài đặt và vận hành](deployment-guide.md) | muốn cài, chạy thường trực, thêm agent, publish doc |
 | 4 | [Bản đồ mã nguồn](codebase-summary.md) | sắp mở code, cần định hướng theo gói và bảng API (không phải bản đồ từng tệp) |
 | 5 | [Chuẩn viết code](code-standards.md) | sắp commit |
-| — | [Thiết kế](design.md) · [Agent](agents.md) · [Tool](tools.md) · [Trí nhớ](memory.md) · [Kênh](channels.md) · [Kiểm thử](testing.md) | tham chiếu sâu từng mảng |
+| — | [Thiết kế](design.md) · [Agent](agents.md) · [Tool](tools.md) · [Trí nhớ](memory.md) · [Kênh](channels.md) · [Canvas](canvas.md) · [Kiểm thử](testing.md) | tham chiếu sâu từng mảng |
 | — | [Nhật ký thay đổi](../CHANGELOG.md) | muốn biết bản này khác bản trước ở đâu |
 
 ## Năm sơ đồ động

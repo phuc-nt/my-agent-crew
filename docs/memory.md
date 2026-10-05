@@ -271,6 +271,9 @@ Telegram, cổng HTTP), nên một chủ đề mang từ Pong sang HLV đi bên 
 master và tới HLV như một phần của task giao việc. Phạm vi `users/owner/` dùng chung ở trên
 là nơi duy nhất một fact do một agent học được được mọi agent đọc.
 
+Canvas không phải trí nhớ, nhưng là thứ thứ hai đi theo một lần giao việc: agent được giao việc
+đọc được canvas đã chia sẻ ở cuộc trò chuyện gốc, xem [canvas.md](canvas.md#7-phạm-vi-và-kênh).
+
 ## Qua HTTP và trong web UI
 
 Mọi thứ agent thấy trong prompt của nó đều sửa được bởi người dùng, nên họ không bao giờ
