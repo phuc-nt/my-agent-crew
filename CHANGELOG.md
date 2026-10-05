@@ -13,23 +13,28 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ### Added
 
-- Agents can write canvases: versioned markdown and code documents next to a web chat, through
-  `artifact_create`, `artifact_list`, `artifact_read`, `artifact_edit` and `artifact_rewrite`.
-  None of them asks for approval, since every version stays restorable. Their descriptions send
-  any document the person will keep editing to a canvas, however short, keep answers read once
-  and questions in the chat, and say how an edit adds text after a passage. Only a web-chat turn,
-  or an agent delegated from one, may write; a Telegram, job or inbound-API turn can list and
-  read, and its system prompt says so before the model tries. The master reaches every canvas;
-  another agent reaches those linked to its conversation, shared down its delegation chain or
-  made by itself, and one out of reach reads as missing. A canvas is read a page at a time
-  within the output cap; an edit replaces one exact passage, reports the canvas's new length
-  and, when it misses, quotes the closest one; a rewrite needs the newest version read whole
-  and is refused with a diff when someone saved since. A page or a write over versions the agent
-  has not seen names who wrote them: at most the six newest runs of one author, and a restore
-  as a run of its own naming the version it brought back. A turn writes at most 30 versions of
-  one canvas and creates at most 30 canvases, and later turns carry a note of where a write went
-  instead of the document it sent. An agent with a `tools:` allow-list gets only the canvas
-  tools it lists.
+- Agents can write canvases: versioned documents next to a web chat, through `artifact_create`,
+  `artifact_list`, `artifact_read`, `artifact_edit` and `artifact_rewrite`. None of the five
+  asks for approval, since every version stays restorable. Their descriptions send any document
+  the person will keep editing to a canvas, however short, keep answers read once and questions
+  in the chat, and say how an edit adds text after a passage. Only a web-chat turn, or an agent
+  delegated from one, may write; a Telegram, job or inbound-API turn can list and read, and its
+  system prompt says so before the model tries. Such a turn can also write a canvas out to a
+  workspace file with `artifact_export`, which asks for approval wherever it runs. The master
+  reaches every canvas; another agent reaches those linked to its conversation, shared down its
+  delegation chain or made by itself, and one out of reach reads as missing. A canvas is read a
+  page at a time within the output cap; an edit replaces one exact passage, reports the canvas's
+  new length and, when it misses, quotes the closest one; a rewrite needs the newest version
+  read whole and is refused with a diff when someone saved since. An edit also quotes what it
+  changed as a diff; a change spread over too many lines to show one by one, in an edit or in a
+  refused rewrite, is said to be so instead, and the agent is sent to read the canvas again. A
+  page or a write over versions the agent has not seen names who wrote them: at most the six
+  newest runs of one author, and a restore as a run of its own naming the version it brought
+  back. A version or line number sent as `Infinity` or `NaN` is refused with a sentence naming
+  the argument and nothing done, and a version number too large to exist reads as a version that
+  is gone. A turn writes at most 30 versions of one canvas and creates at most 30 canvases,
+  imports counted with the rest, and later turns carry a note of where a write went instead of
+  the document it sent. An agent with a `tools:` allow-list gets only the canvas tools it lists.
 - What a person changed in a canvas reaches the agent with their next message, without a tool
   call. The message is stored with a canvas note, built in the same transaction, naming each
   linked canvas that moved since the agent last saw or was told of it: a diff of the person's
@@ -44,20 +49,25 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   leaves the message stored without one. Forking a conversation copies each message's note and
   the canvases linked by the fork point, with nothing seen or read; the run trajectory carries
   the note with its secrets redacted.
-- Canvases over REST for the web: `GET/POST /api/artifacts` lists (newest first, by
-  conversation or title) and creates markdown and code canvases, and `GET/PUT/PATCH/DELETE
-  /api/artifacts/{id}` reads, saves, renames and deletes one. A save names the version it was
-  made on, and a save on any older version is refused with 409 and the newest version's
-  number, author and text instead of overwriting it. `GET …/versions[/{n}]` lists the history
-  and reads one version whole, `POST …/restore` writes an old version back as the newest, and
-  `GET …/raw` serves a version's text, always as sandboxed plain text whatever the canvas holds,
-  or as a download named after its title in any script; HTML code downloads as `.html.txt`, so
-  opening the file shows the code instead of running it. Every write over REST is the person's:
-  no body names an author or a conversation for it. A refusal from the store answers with its
-  own status (404, 409, 413, 422, 507) and a structured body, never a 500.
+- Canvases over REST for the web: `GET/POST /api/artifacts` lists (newest first, by conversation
+  or title) and creates markdown, code, HTML, SVG and Mermaid canvases, and
+  `GET/PUT/PATCH/DELETE /api/artifacts/{id}` reads, saves, renames and deletes one. A save names
+  the version it was made on, and a save on any older version is refused with 409 and the newest
+  version's number, author and text instead of overwriting it. `GET …/versions[/{n}]` lists the
+  history and reads one version whole, `POST …/restore` writes an old version back as the
+  newest, and `GET …/raw` serves a version sandboxed with no scripts: text as plain text
+  whatever the canvas holds, an SVG as an image that an `<img>` draws and that downloads when
+  opened by itself, a picture as its own bytes under the type they give; or as a download named
+  after its title in any script. An HTML page, an SVG drawing and HTML code download as
+  `.html.txt` or `.svg.txt`, so opening the file shows the code instead of running it. Every
+  write over REST is the person's: no body names an author or a conversation for it. A refusal
+  from the store answers with its own status (404, 409, 413, 422, 507) and a structured body,
+  never a 500. Text holding half of a surrogate pair is refused with 422 naming the part of the
+  request that holds it, and a version number too large to exist is a version that is gone: 404
+  with the newest number on a read or a restore, and the conflict of a stale save on a save.
 - The activity stream announces every canvas change as an `artifact` event with the
-  conversations linked to the canvas: a create, a save, a rename, a restore, a delete, and a
-  write an agent makes with its tool, from whichever thread wrote it.
+  conversations linked to the canvas: a create, a save, a rename, a restore, a delete, a source
+  an import recorded, and a write an agent makes with its tool, from whichever thread wrote it.
 - `GET/PUT /api/conversations/{id}/canvas` reads and sets the canvas open in a conversation,
   with the passage selected in it. Every chat message may also carry the canvas open in the tab
   that sent it, so the canvas note names what that device shows even when another device opened
@@ -82,41 +92,54 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   the real server.
 - The web chat opens canvases beside the conversation. A Canvas button leads the conversation
   header with the number of canvases linked to it and opens their list, newest first, each with
-  its kind, version and last change; a button there makes an untitled markdown canvas and opens its
-  name to type over. From 1101 px wide the canvas takes a column, in a tab beside the activity
-  with both kept mounted, whose edge widens or narrows it by dragging or with the arrow keys; it
-  is never narrower than 360 px, leaves the chat as much when there is room, and keeps its width
-  for the next visit. Narrower, it covers the chat column, the chat under it takes no focus, and
-  Escape or "← Chat" closes it and gives focus back to the button.
-- A canvas opens to edit when a person wrote its newest version and to read when an agent did,
-  and switches between the two without losing the typing. Reading shows markdown as the thread
-  does and code as text, never running markup; bidi and zero-width characters show as visible
-  marks with a notice, while copy and download keep the text as it is. Typing saves 1.5 seconds
-  after the last key, at once on Cmd/Ctrl+S, when the tab hides and when the canvas closes, each
-  save naming the version it was made on. A version saved elsewhere meanwhile merges with the
-  typing when the two change different lines, and otherwise raises a conflict bar with a diff:
-  keeping mine saves over it, and loading theirs can be undone. The header says where the save
-  stands, from saving and saved to waiting for a network, the server not answering, too large,
-  the server full (naming the largest canvases) or deleted. Typing not yet saved stays in a
-  draft on this device, reopened with the canvas and dropped after 30 days or beyond the ten
-  newest. A failed save is tried again after 2 to 60 seconds, and a request unanswered for 30
-  seconds counts as lost. The history lists every version, newest first, with its author, age
-  and size, compares one with the version before it or with the oldest, and restores one as the
-  newest once the typing is saved. A canvas renames in place and downloads its newest version.
-  Opening another conversation saves the typing and closes the canvas; a save that fails after
-  the switch is told in the chat until dismissed, its typing kept in the draft. A canvas deleted
-  elsewhere keeps its text to read and copy.
+  its kind, version and last change; a button there makes an untitled canvas of the kind picked
+  beside it (markdown unless changed, code, HTML, SVG or Mermaid) and opens its name to type
+  over. An HTML or SVG canvas made this way starts as an empty page or drawing to write into,
+  and a Mermaid one as a flowchart of two boxes. From 1101 px wide the canvas takes a column, in
+  a tab beside the activity with both kept mounted, whose edge widens or narrows it by dragging
+  or with the arrow keys; it is never narrower than 360 px, leaves the chat as much when there
+  is room, and keeps its width for the next visit. Narrower, it covers the chat column, the chat
+  under it takes no focus, and Escape or "← Chat" closes it and gives focus back to the button.
+- A canvas opens to edit when a person wrote its newest version and to read when an agent did, a
+  picture always to read, and switches between the two without losing the typing. Reading shows
+  markdown as the thread does and code as text, never running markup, an HTML or Mermaid canvas
+  as its sandboxed page and an SVG or a picture as a picture; bidi and zero-width characters
+  show as visible marks with a notice, while copy and download keep the text as it is. Typing
+  saves 1.5 seconds after the last key, at once on Cmd/Ctrl+S, when the tab hides and when the
+  canvas closes, each save naming the version it was made on. A version saved elsewhere
+  meanwhile merges with the typing when the two change different lines, and otherwise raises a
+  conflict bar with a diff: keeping mine saves over it, and loading theirs can be undone. After
+  loading theirs, or a restore, the panel reads the newest version when it has already heard of
+  a newer one. The header says where the save stands, from saving and saved to waiting for a
+  network, a slow network, the server not answering, too large (naming the kind's cap), the
+  server full (naming the largest canvases) or deleted. Typing not yet saved stays in a draft on
+  this device, reopened with the canvas and dropped after 30 days or beyond the ten newest. A
+  draft the device refuses first frees the drafts of other canvases, oldest first, and puts them
+  back when that makes no room; the typing then stays in the tab's memory, the panel says so,
+  and the browser asks before the tab is closed. A failed save is tried again after 2 to 60
+  seconds. A read unanswered for 30 seconds counts as lost, and a save once 30 seconds and the
+  time its size takes at 50 KB a second have gone by; each save in a row that goes unanswered
+  doubles the time for its size, up to eight times. The history lists every version, newest
+  first, with its author, age and size, compares one with the version before it or with the
+  oldest, and restores one as the newest once the typing is saved. A canvas renames in place and
+  downloads its newest version. Opening another conversation saves the typing and closes the
+  canvas; a save that fails after the switch is told in the chat until dismissed or saved after
+  all, saying whether its typing is kept in the draft on this device or only in the tab. A
+  canvas deleted elsewhere keeps its text to read and copy.
 - A message sent from the web chat names the canvas open in the tab, and what was typed into
   that canvas is saved before the message goes out, so the agent's note is built from what the
-  person is looking at. The composer keeps the words read-only until the save has landed (at
-  most 5 seconds) and the server has said anything about the message; then it empties, or
-  leaves the words where they were typed when the message was refused. The dock remembers which
-  canvas it opened in each conversation. Closing the canvas on a wide screen tells the server
-  once that none is open; opening one, changing conversation or putting the overlay of a narrow
-  screen away tells it nothing. Entering a conversation on a wide screen opens again the canvas
-  the server has open there, without taking focus from the composer and without writing
-  anything. A 422 for a message that carried a canvas reads as a passage that no longer matches
-  the canvas, not as the server's own sentence.
+  person is looking at. The composer keeps the words read-only until the save has landed and the
+  server has said anything about the message; then it empties, or leaves the words where they
+  were typed when the message was refused. The wait for the save ends 5 seconds past the
+  deadline the save was first given, with "Đang lưu canvas…" shown from 300 ms on; a message
+  that goes before the save landed goes with the last saved version, and the chat says so. The
+  dock remembers which canvas it opened in each conversation. Closing the canvas on a wide
+  screen tells the server once that none is open; opening one, changing conversation or putting
+  the overlay of a narrow screen away tells it nothing. Entering a conversation on a wide screen
+  opens again the canvas the server has open there, without taking focus from the composer and
+  without writing anything. A 422 for a message that carried a selected passage reads as a
+  passage that no longer matches the canvas, not as the server's own sentence; a 422 for any
+  other message reads as the general sentence for a send that failed.
 - A message that carries a canvas note shows it. A turn opens with a `user_context` event
   carrying the note stored with the message, only when the message has one, and the tab that
   sent the message attaches it to its latest bubble. The event is streamed, neither stored nor
@@ -126,15 +149,18 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   copies the note exactly as the agent read it. A conversation loaded from the server shows the
   same chips, from its stored messages.
 - A canvas write shows in the web thread as the canvas it touched: its title, what was done to
-  which version, and a button that opens it. A card still running asks the server nothing, and
-  a canvas the server no longer has says so and offers no button. A write that failed, was
-  refused, was stopped or waits for approval keeps the plain tool card, which shows why, and a
-  card never shows arguments or content. The canvas a card opens is the one the tag at the
-  start of the result names; an edit or rewrite without a tag falls back to the id it was
-  given, when the server makes that id. A canvas the agent creates during a turn the tab is
-  showing opens beside the thread on a wide screen, without taking the keyboard and without
-  writing anything. Each call is judged once, as it ends: not while the person is typing in a
-  canvas, not on a narrow screen, and never for a call the saved history holds.
+  which version, and a button that opens it. An import shows the same way, as "Đã nhập" or, into
+  a canvas the call named, "Đã nhập lại"; an export, which changes no canvas, keeps the plain
+  tool card. A card still running asks the server nothing, and a canvas the server no longer has
+  says so and offers no button. A write that failed, was refused, was stopped or waits for
+  approval keeps the plain tool card, which shows why, and a card never shows arguments or
+  content. The canvas a card opens is the one the tag at the start of the result names; an edit,
+  a rewrite or an import without a tag falls back to the id it was given, when the server makes
+  that id. A canvas the agent creates, or imports as a new one, during a turn the tab is showing
+  opens beside the thread on a wide screen, without taking the keyboard and without writing
+  anything; an import into a canvas the call named, or one that changed nothing, opens nothing.
+  Each call is judged once, as it ends: not while the person is typing in a canvas, not on a
+  narrow screen, and never for a call the saved history holds.
 - A passage selected in a canvas, in the editor or in the page being read, can be asked about:
   a bar at the foot of the panel names the lines the selection lies on and offers a box for a
   question, which goes as one message with the passage as of the version just saved, so the
@@ -150,6 +176,153 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   where the canvas covers the chat, the canvas is put away once the question went through, so
   the answer shows. The server now refuses, with 422 and before queueing anything, a selection
   cut through a character, since a lone half of a pair could not be stored.
+- Canvases come in six kinds. Besides markdown and code, `artifact_create` and the web make
+  HTML pages, SVG drawings and Mermaid diagrams, and a picture (PNG, JPEG, GIF or WebP) becomes
+  a canvas when a workspace file is imported. One version holds at most 512 KB of markdown, code
+  or Mermaid, 2 MB of SVG or picture, and 4 MB of HTML; a write past that is refused with the
+  size and the cap. A picture is told by its bytes, not by its name, and bytes that are none of
+  the four formats are refused; `artifact_read` says it cannot read one. The description of
+  `artifact_create` carries the rules of a page: scripts and styles inline or from three CDNs, a
+  CDN script pinned to a version and carrying an integrity hash, fonts from Google Fonts, no
+  other network, no storage, no forms, dialogs or new windows; an SVG shows as an image, where
+  scripts, links and outside resources do nothing; a Mermaid canvas is the diagram's syntax
+  alone, with no code fence around it.
+- `GET /api/artifacts/{id}/render` serves an HTML or Mermaid canvas as the page it is: the
+  newest version, or the one `version` names; any other kind answers 404. This is the only place
+  a canvas runs, and it runs sandboxed with scripts allowed and nothing else, in an origin of
+  its own that is not the app's. Its policy lets scripts, styles and fonts come inline or from
+  cdnjs.cloudflare.com, cdn.jsdelivr.net and unpkg.com (styles and fonts also from Google
+  Fonts), images and media only from `data:` and `blob:` addresses, and allows no `fetch`,
+  `XMLHttpRequest` or WebSocket, no form target and no `<base>`. The response may be framed by
+  the app alone and is sent with `nosniff`, no referrer, DNS prefetching off and `no-store`. A
+  Mermaid canvas is drawn by Mermaid 11.17.2, loaded from jsDelivr under an integrity hash and
+  run at its strict security level; when the library cannot load, the page shows the diagram's
+  source as text. The first script of every such page is a small reporter that tells the panel
+  of script errors, rejected promises, resources that failed to load, requests the policy
+  blocked and a real pointer press inside the page.
+- The web panel shows an HTML or Mermaid canvas as its page and an SVG or picture canvas as a
+  picture, where a text canvas shows its text. View shows the saved version, saving what was
+  typed first, and says so when typing is not in the version on show; Edit still holds the
+  source, and a picture has neither Edit nor a copy button. A page sits in a frame sandboxed to
+  scripts only. It reloads a second after a newer version arrives; while the frame has the
+  keyboard the newer version waits behind a "Có bản mới · Nạp lại" button, a hidden tab waits
+  until it is looked at again, and a connection that comes back puts the page up again. A page
+  that leaves for another address is stopped once the new page has loaded, with the reason and a
+  reload button. "Mở trang" opens the saved page in a tab of its own once nothing is unsaved. An
+  SVG that cannot be drawn says it is not valid, and a picture that does not load says whether
+  it waits for the network or cannot be shown. The history shows a picture's version as a
+  picture, with nothing to compare, and the bar that asks about a selected passage is hidden
+  over a page or a picture.
+- A canvas page cannot keep the keyboard it takes. A page in a frame may focus itself at will,
+  and the keys typed next would go to it instead of the message being written. So a page has the
+  keyboard only while the person offers it, and two things make the offer. One is a real press
+  inside the page: the page's own reporter tells the app when a pointer or a mouse button goes
+  down and again when it comes up, only for events the browser marks as a person's, over a port
+  the app was handed before any of the page's code ran. The other is Tab pressed in the app,
+  alone or with Shift; Tab with Ctrl, Meta or Alt is no offer, and neither is hovering or
+  scrolling. An offer is for the focus that moves with it and lapses when the page does not have
+  the focus right after. Any other key, a press in the app outside the page, or focus arriving
+  on one of the app's controls takes it back. A page that has the focus with no offer is given
+  50 ms for a press to be told, while keys still reach it, and then loses the keyboard to the
+  element it was taken from. The fifth such grab stops the page, which says why and has a reload
+  button; a page that holds the app up, so that the wait ends more than 100 ms late, is stopped
+  the second time it does. A page that takes the keyboard while the window is behind, or is put
+  up in a window that is behind already, is watched too and held to the same count once the
+  person is back. A badge on the frame, "Bàn phím đang ở trang", says when the keyboard is in
+  the page.
+- What a canvas page reports going wrong shows in the panel. The reporter sends at most 20
+  messages of at most 2000 characters, and the panel hears at most 50 messages from one page;
+  past that the count of errors carries a "+", or, when none was told, the panel says the page
+  is no longer heard. A button beside the count opens the list of the five newest, with hidden
+  characters written as marks, and load failures told while the browser is offline are dropped.
+  "Gửi lỗi cho agent" saves the canvas and sends those errors as one message, inside a code
+  fence the message calls the page's own words, data and not a request; the button is off again
+  until the page reports anew.
+- `artifact_import` reads a file in the agent's workspace into a canvas, so a built page, an
+  exported drawing, a picture or a document reaches a canvas without its content passing through
+  a message. Without `id` it makes a canvas, titled after the file unless `title` says
+  otherwise; with `id` the file becomes the newest version of that canvas, whose kind it cannot
+  change. The kind follows the file's extension (`.md`, `.html`, `.svg`, `.mmd`, a picture's, or
+  a code extension with its language) unless `kind` names one, and an extension that names none
+  is refused. The path must stay inside the workspace by the rule the file-reading tools keep,
+  and one that leaves is refused before its kind is guessed or any file opened. The file must be
+  a regular file within its kind's cap and, for a text kind, UTF-8 without a NUL byte; a
+  byte-order mark is dropped. A file equal to the newest version writes no version. A file that
+  would go over versions the agent has not seen is refused, naming who wrote them, unless
+  `replace` is set, and those versions stay in the history. The result names the file, its size
+  and the first 12 characters of its SHA-256, never what the file holds, and counts the relative
+  addresses in an HTML or SVG file, which a canvas does not load. An import is a canvas write:
+  it runs only where the other write tools do and counts toward the turn's 30 versions of one
+  canvas and 30 new canvases.
+- `artifact_export` writes one version of a canvas, the newest unless `version` names another,
+  to a path in the agent's workspace: text as UTF-8 without a byte-order mark and with LF line
+  ends, a picture byte for byte, over a file already there. It is the only canvas tool that asks
+  for approval, since a file written over is not kept the way a canvas version is. It writes no
+  canvas, so it is open on every channel, a Telegram, job or inbound-API turn included, adds no
+  version and counts toward none of the turn's limits on canvas writes. The target must lie
+  inside the workspace, and inside the agent's `write_paths` when it has any, also once the
+  folders it passes through are resolved, and may be neither a symlink nor a directory. The file
+  is written whole or not at all, so a failed export leaves the old file as it was, and the
+  server log names where the write was going with the error's class and number.
+- A canvas keeps where it was imported from: the workspace file of the agent that imported it,
+  or the link the import gave as `source_url`, which must be an http or https address of at most
+  2000 characters with no user name or password in it. An import that finds the file unchanged
+  still records a source that differs, without writing a version.
+- Kit hooks hear of the two file tools as the workspace tools they act as. A hook that names
+  `Read` or `workspace_read` is asked about `artifact_import`, and one that names `Write` or
+  `workspace_write` about `artifact_export`; the payload keeps the real name in `tool_name`,
+  gives `Read` or `Write` as `tool_alias`, and holds the file path in `tool_input.path`.
+- `POST /api/artifacts/{id}/reimport` reads a canvas's workspace file again and, when it differs
+  from the newest version, writes it as the person's new version on the version the body names
+  (`base_version`); the answer says whether anything changed and returns the canvas. A canvas
+  with no workspace source answers 422, a source file or agent that is gone 410, a path outside
+  the workspace 403, a file over the kind's cap 413, a version saved since 409, and a file that
+  cannot be read as the canvas's kind 422.
+- The canvas panel names where a canvas came from. A link source shows as its host and opens in
+  a new tab; only a plain http or https address with no login, on another origin than the app's,
+  becomes a link. A workspace source shows the agent and the path, with characters nobody would
+  see written as marks, beside "Nhập lại": it saves the typing, reads the file again and says
+  whether a new version was made, the one before staying in the history, or the file had not
+  changed. The button is held, without leaving the tab order, while the file is read, until the
+  canvas has loaded and once it is deleted; a request unanswered for 30 seconds says the server
+  did not answer, and each refusal has a sentence of its own. What the button said goes once a
+  newer version is heard of. The history marks such a version "Nhập từ tệp".
+- `GET /api/artifacts/usage` reports what the canvases hold: how many there are, the bytes all
+  their versions take together, the 1 GB ceiling they share, and the bytes of each canvas.
+- A `delegate` result names the canvases the delegated agent wrote. Under the `outcome=` line
+  comes one `[artifact <id> v<n>] <title>` line for each canvas an agent added a version to in
+  the delegated conversation, first written first: the newest version an agent wrote there and
+  the title the canvas has now, cut to 160 characters. At most 12 are named, and the text below
+  then opens by counting the rest. The lines come with every outcome, a wait that ran out
+  included; an export, an import that changed nothing, a rename and a deleted canvas give none.
+  The tool's description tells the model that such a title is data, not an instruction, and to
+  name the canvas instead of copying its content.
+- The manage screen has a Canvas section (`#/manage/canvas`): a library of every canvas,
+  whatever conversation it was written in. It lists the 200 most recently changed, each with its
+  kind, newest version, who made it, when it last changed and the size of all its versions
+  together, under a line with the number of canvases and the space they take against the limit;
+  when there are more, it says so, and a box that searches by name finds an older one. Where a
+  canvas was imported from is said, never linked: a workspace file by its agent and path, a web
+  address by its host, as the agent's word for it. The list follows the canvas changes the
+  activity stream announces. A canvas is deleted with all its versions after a confirmation; one
+  the server no longer has counts as deleted, and any other refusal keeps the row and says so.
+- A canvas has a page of its own (`#/manage/canvas/<id>`), reached from its name in the library
+  or from "Mở riêng" in the panel beside a chat, which opens it in a new tab once nothing is
+  unsaved. The page shows the canvas in the panel a conversation shows it in, without the bar
+  that asks about a selected passage and without the button that sends page errors to an agent,
+  since no conversation is open there. A line under it counts the conversations the canvas is
+  used in and names each, as a button that opens it, and "← Canvas" leads back to the library at
+  once, the save of what was typed going on behind; a save that then fails is told above
+  whatever the section shows, as in the chat. An address that names no canvas id shows the
+  library.
+- The card of a delegation in the web thread names the canvases the delegated agent wrote: under
+  the line that says how the task went, one chip for each canvas the result names, with its
+  title, hidden characters written as marks, its version and a "Mở" button. A canvas the server
+  no longer has says "Canvas đã bị xoá" and offers no button. When a delegation call succeeds
+  during a turn the tab is showing, the first canvas its result names opens beside the thread on
+  a wide screen, whether the agent made it or only changed it, without taking the keyboard and
+  under the rules a created canvas opens by; of two delegations side by side, the one to finish
+  last stays open.
 
 ### Fixed
 
@@ -223,6 +396,17 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   the screen. Only a move up lets go of the newest line now, and the browser's own scroll
   anchoring is off while the thread follows; a reader who has scrolled back keeps it, so what
   they are reading holds still.
+- The web app can no longer be shown in a frame on another site. Every response, an unhandled
+  error's included, now carries `Content-Security-Policy: frame-ancestors 'self'`.
+- A browser request to the API that says it comes from elsewhere is now refused. The local guard
+  judged where a browser request came from by its `Origin` header alone; it now also reads
+  `Sec-Fetch-Site` and answers 403 to a request under `/api/` whose value is anything but
+  `same-origin` or `none`. A request without the header, as `curl` or another program that is no
+  browser sends, passes as before, and a canvas's render page, which its sandboxed frame asks
+  for, is the one address such a request still reaches.
+- A tool call that failed stays failed when the conversation is read back. The web drew every
+  stored call that was not denied as done, so a failed call, a call to a tool that does not
+  exist and one a hook blocked showed a done mark, with the error only inside the result.
 
 ### Changed
 
@@ -236,6 +420,9 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   `/steer`), reading a shortened tool output back, dated `MEMORY.md` lines and the rewrite gate,
   searching past conversations, forking a conversation, agent-proposed schedules, cost by purpose
   and the run trajectory download.
+- A `delegate` result always has an empty line between its `outcome=` line, with the canvas
+  lines under it, and the text that follows, whether or not a canvas was written. Whatever reads
+  a result line by line should expect it. The tool's description is two sentences longer.
 
 ## [0.10.0] — 2026-09-30
 
