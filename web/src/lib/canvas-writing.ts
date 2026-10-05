@@ -84,3 +84,12 @@ const DRAWN = ["html", "svg", "mermaid"];
 
 /** Whether the canvas will look different once stored than the source shown while it is written. */
 export const writtenAsSource = (item: WritingItem): boolean => item.kind !== null && DRAWN.includes(item.kind);
+
+/** From this many characters on, a markdown canvas being written is shown as its source. Reading it as
+ *  markdown takes time in step with its length, and every piece pays that again for the whole text:
+ *  below here a piece is drawn in under half a second on a busy machine, and past it the page would
+ *  stall at each one. Source costs about a tenth of that and stays quick at twenty times the length. */
+const DRAWN_UP_TO = 100_000;
+
+/** Whether a markdown canvas being written has grown too long to be read as markdown at every piece. */
+export const writtenTooLong = (item: WritingItem): boolean => item.kind === "markdown" && item.content.length >= DRAWN_UP_TO;

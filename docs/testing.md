@@ -1504,6 +1504,14 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `code` và `image` là chữ thường; ký tự ẩn hiện thành dấu; bàn phím ở yên khi khung tự hiện,
     tới nút đóng khi người bấm xem, không bị kéo lại khi chữ tới thêm, quay lại khi bấm lần nữa,
     và không bị lấy khỏi link trong khung; khung theo dòng cuối cho tới khi người cuộn lên);
+    `web/src/components/canvas/canvas-writing-view-long.test.tsx` (bản markdown dài 99 999 ký tự
+    vẫn đọc như markdown; từ 100 000 ký tự trở lên, ở đúng ngưỡng, hơn một ký tự hay gấp mấy lần,
+    khung hiện mã nguồn kèm một dòng nói vì sao và không kèm dòng của trang hay hình vẽ; ký tự ẩn
+    trong bản dài vẫn hiện thành dấu; `code`, `image` và loại chưa biết dài cỡ ấy không có thêm
+    dòng nào, vì chúng vốn là chữ thường; `html`, `svg`, `mermaid` giữ đúng một dòng như bản
+    ngắn; "keeps its frame, its place to scroll and the keyboard on its close button": bản vượt
+    ngưỡng trong lúc đang hiện thì khung, vùng cuộn và nút đóng vẫn là các phần tử cũ, bàn phím ở
+    yên trên nút đóng; mảnh sau không đưa bản trở lại markdown và dòng báo không lặp);
     `web/src/components/canvas/canvas-dock-writing.test.tsx` (dock hiện khung trên tab canvas dù
     chưa mở gì và trả cột hoạt động lại sau đó; canvas dock đang giữ chờ phía sau cùng chữ người
     đã gõ; danh sách bị che; trên màn hẹp khung phủ lên chat với đường quay lại đứng đầu; đường

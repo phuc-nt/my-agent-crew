@@ -1139,6 +1139,8 @@ export const vi = {
       unsaved: "Agent đang viết, chưa lưu",
       saving: "Agent đã viết xong, đang lưu…",
       source: "Đang hiện mã nguồn. Canvas sẽ hiện khi agent viết xong.",
+      // Said of a markdown canvas once it is too long to be read as markdown at every piece.
+      long: "Bản đang viết đã dài nên hiện mã nguồn. Canvas sẽ hiện khi agent viết xong.",
       close: "Đóng bản đang viết",
       // The switch on the settings page that turns all of the above off, for the device in hand.
       preview: "Xem trước canvas khi agent đang viết",

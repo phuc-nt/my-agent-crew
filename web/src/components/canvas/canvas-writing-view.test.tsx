@@ -1,47 +1,9 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi as vitest } from "vitest";
 import { vi } from "../../i18n/vi";
-import type { WritingItem } from "../../lib/canvas-writing";
-import { CanvasWritingView } from "./canvas-writing-view";
+import { closeButton, frame, frameBody as body, openFrame as open, outside } from "../../test/canvas-writing-frame";
 
 const text = vi.canvas.writing;
-
-const item = (fields: Partial<WritingItem> = {}): WritingItem => ({
-  key: 7,
-  callId: null,
-  updates: 2,
-  rewrite: false,
-  id: null,
-  title: "Kế hoạch tuần",
-  kind: "markdown",
-  content: "# Việc một\n\n- mua rau",
-  bytes: 24,
-  ...fields,
-});
-
-/** The frame with a button outside it, where a person's keyboard may be. */
-function Screen({ fields, asked, onLeave }: { fields: Partial<WritingItem>; asked: number | null; onLeave(): void }) {
-  return (
-    <>
-      <button type="button">Ngoài khung</button>
-      <CanvasWritingView item={item(fields)} asked={asked} onLeave={onLeave} />
-    </>
-  );
-}
-
-function open(fields: Partial<WritingItem> = {}, asked: number | null = null) {
-  const onLeave = vitest.fn();
-  const view = render(<Screen fields={fields} asked={asked} onLeave={onLeave} />);
-  const again = (next: Partial<WritingItem>, nextAsked: number | null = asked) =>
-    view.rerender(<Screen fields={next} asked={nextAsked} onLeave={onLeave} />);
-  return { onLeave, again };
-}
-
-const frame = () => screen.getByTestId("canvas-writing");
-const outside = () => screen.getByRole("button", { name: "Ngoài khung" });
-const closeButton = () => within(frame()).getByRole("button", { name: text.close });
-/** Where the canvas's text is drawn, apart from the frame's own head and its icon. */
-const body = () => frame().querySelector(".canvas-body") as HTMLElement;
 
 afterEach(() => vitest.unstubAllGlobals());
 

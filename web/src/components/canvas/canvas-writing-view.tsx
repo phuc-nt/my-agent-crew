@@ -5,8 +5,9 @@
  * The text is what the model has written and nothing has checked it, so it is only ever read:
  * markdown goes through the same view as a stored canvas, and every other kind is shown as its
  * source. A page, a drawing or a diagram is not built from text that may stop anywhere, and says
- * that the canvas itself comes once the agent is done. There is nothing here to type in, save,
- * download or ask about, for no canvas is stored yet.
+ * that the canvas itself comes once the agent is done. Markdown that has grown long is shown as
+ * its source too, and says so: the whole text is drawn again at every piece. There is nothing here
+ * to type in, save, download or ask about, for no canvas is stored yet.
  *
  * It takes the keyboard only when the person asked to see it, and then only to its close button.
  */
@@ -14,7 +15,7 @@
 import { useEffect, useRef } from "react";
 import { useAutoScroll } from "../../hooks/use-auto-scroll";
 import { vi } from "../../i18n/vi";
-import { type WritingItem, writingTitle, writtenAsSource } from "../../lib/canvas-writing";
+import { type WritingItem, writingTitle, writtenAsSource, writtenTooLong } from "../../lib/canvas-writing";
 import { Icon } from "../ui/icon";
 import { CanvasView } from "./canvas-view";
 
@@ -30,6 +31,7 @@ export function CanvasWritingView({ item, asked, onLeave }: Props) {
   const frame = useRef<HTMLDivElement>(null);
   const close = useRef<HTMLButtonElement>(null);
   const scroll = useAutoScroll<HTMLDivElement>();
+  const long = writtenTooLong(item);
 
   useEffect(() => {
     if (asked === null) return;
@@ -52,7 +54,8 @@ export function CanvasWritingView({ item, asked, onLeave }: Props) {
       </header>
       <div className="canvas-body" ref={scroll.ref} onScroll={scroll.onScroll}>
         {writtenAsSource(item) && <div className="notice canvas-notice info">{text.source}</div>}
-        <CanvasView text={item.content} kind={item.kind ?? "code"} />
+        {long && <div className="notice canvas-notice info">{text.long}</div>}
+        <CanvasView text={item.content} kind={long ? "code" : (item.kind ?? "code")} />
       </div>
     </div>
   );
