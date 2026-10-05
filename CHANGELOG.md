@@ -11,6 +11,8 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+## [0.11.0] — 2026-10-05
+
 This release adds the canvas: a versioned document that a person and an agent edit together. An
 agent writes one with its tools, the person edits it in a panel beside the web chat, and each is
 told what the other changed. A canvas can be markdown, code, an HTML page, an SVG drawing, a
@@ -1526,6 +1528,7 @@ restarting the process.
 
 - One agent, `run_turn` loop with a tool approval gate, web UI, memory on disk.
 
+[0.11.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.11.0
 [0.10.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.10.0
 [0.9.2]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.9.2
 [0.9.1]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.9.1

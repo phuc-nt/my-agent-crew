@@ -5,7 +5,7 @@ title: Cài đặt, vận hành và publish tài liệu
 
 # Cài đặt, vận hành và publish tài liệu
 
-**Phiên bản**: 0.10.0 · **Cập nhật**: 2026-09-30
+**Phiên bản**: 0.11.0 · **Cập nhật**: 2026-10-05
 
 ## 1. Yêu cầu
 
@@ -177,19 +177,19 @@ uv lock --check        # uv.lock khớp pyproject.toml chưa; CI chạy `uv sync
 #    không chép nguyên commit message.
 
 # 5. Commit rồi đẩy — để CI chạy thật trước khi tag
-git add -A && git commit -m "chore(release): v0.10.0"
+git add -A && git commit -m "chore(release): v0.11.0"
 git push origin main
 
 # 6. Đợi CI xanh. Chỉ tag khi đã xanh: tag trỏ vào commit đỏ là thứ khó gỡ.
 gh run watch
 
 # 7. Tag có chú thích (mọi tag cũ đều là annotated — giữ cho đồng nhất)
-git tag -a v0.10.0 -m "v0.10.0"
-git push origin v0.10.0
+git tag -a v0.11.0 -m "v0.11.0"
+git push origin v0.11.0
 
 # 8. GitHub Release: ghi chú là mục của bản này trong CHANGELOG (bỏ dòng tiêu đề), cộng một
 #    dòng kết quả eval nếu đã chạy — chỉ số ca đạt và chi phí, không nội dung ca.
-gh release create v0.10.0 --title "v0.10.0 — <một câu nói bản này làm gì>" --notes-file notes.md
+gh release create v0.11.0 --title "v0.11.0 — <một câu nói bản này làm gì>" --notes-file notes.md
 ```
 
 **Không nên**: tag trước khi push (tag trỏ tới commit chưa ai thấy); tag khi CI đang đỏ; nâng số

@@ -5,7 +5,7 @@ title: Tài liệu my-agent-crew
 
 # Tài liệu my-agent-crew
 
-**Phiên bản**: 0.10.0 · **Cập nhật**: 2026-09-30
+**Phiên bản**: 0.11.0 · **Cập nhật**: 2026-10-05
 
 my-agent-crew là một agent harness nhỏ chạy trên máy cá nhân: nhiều agent, mỗi agent là một thư mục tệp, một vòng lặp chung có cổng duyệt tool, trí nhớ trên đĩa, web UI và Telegram. Bộ tài liệu này viết cho người chưa từng xây harness, minh hoạ bằng một bộ cài thật.
 
