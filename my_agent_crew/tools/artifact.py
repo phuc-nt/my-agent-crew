@@ -1,9 +1,10 @@
 """The canvas tools an agent is given: creating a canvas and listing those it reaches here,
 built with reading (`artifact_read`) and changing (`artifact_edit`) one. Each acts for one
 agent in the conversation the turn belongs to. None asks for approval: a canvas keeps every
-version, so nothing an agent writes there is lost to the person, and only a turn from the web
-chat, where the person sees the canvas open beside the reply, may write at all. The two tools
-that carry a canvas to and from a workspace file are built in `artifact_files`."""
+version, so nothing an agent writes there is lost to the person, and only a turn the person or
+their own schedule started (web chat, Telegram, a job) may write at all; a turn from the
+inbound API reads and lists. The two tools that carry a canvas to and from a workspace file
+are built in `artifact_files`."""
 
 from __future__ import annotations
 
