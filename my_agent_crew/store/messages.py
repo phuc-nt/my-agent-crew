@@ -3,7 +3,9 @@ so messages are append-only and ordered by a per-conversation sequence number ra
 by timestamp: two messages written in the same millisecond must still keep their order.
 
 A person's message is stored with its canvas note, and what the note marks as told is
-written in the same transaction: when any step fails, none of it lands."""
+written in the same transaction: when any step fails, none of it lands. A message that
+opens a turn is also stored with what it tells of the agent's memory, which is never
+written to a message afterwards."""
 
 from __future__ import annotations
 
@@ -12,6 +14,7 @@ import logging
 import sqlite3
 import threading
 from collections.abc import Callable, Sequence
+from functools import partial
 from typing import TYPE_CHECKING
 
 from my_agent_crew.llm.types import Message
@@ -28,9 +31,9 @@ log = logging.getLogger(__name__)
 _INSERT = (
     "INSERT INTO messages (conversation_id, seq, role, content, tool_calls, tool_call_id,"
     " name, provider, model, cost_usd, created_at, prompt_tokens, completion_tokens,"
-    " reasoning_tokens, cached_tokens, context)"
+    " reasoning_tokens, cached_tokens, context, turn_notes)"
     " SELECT id, COALESCE((SELECT MAX(seq) FROM messages WHERE conversation_id = ?), 0) + 1,"
-    " ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? FROM conversations WHERE id = ? RETURNING *"
+    " ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? FROM conversations WHERE id = ? RETURNING *"
 )
 
 
@@ -74,21 +77,28 @@ class MessageStore:
         *,
         note_source: str | None = None,
         request_ids: Sequence[str] = (),
+        turn_notes: Callable[[], str] | None = None,
     ) -> StoredMessage:
         """Raises KeyError for an unknown conversation, with nothing written. A person's
         message from `note_source` is stored with its canvas note; the loop's own notes to
         the model pass no source and get none. `request_ids` name the sends this message
         came from, remembered in the same commit: a message is in the log exactly when its
-        send is known to have been taken."""
+        send is known to have been taken. `turn_notes` builds what the message tells of the
+        agent's memory (`agent/turn_notes.py`)."""
         tool_calls = json.dumps([tc.to_dict() for tc in message.tool_calls])
         values = [conv_id, message.role, message.content, tool_calls, message.tool_call_id]
         values += [message.name, provider, model, cost_usd, stamp]
         values += [prompt_tokens, completion_tokens, reasoning_tokens, cached_tokens]
         with self._lock:
-            note = self._note(conv_id, message, note_source)
+            canvas = None
+            if note_source is not None and message.role == "user" and self._notes is not None:
+                canvas = partial(self._notes, conv_id, note_source)
+            note = self._built("canvas note", conv_id, canvas)
+            told = self._built("turn notes", conv_id, turn_notes) or ""
             try:
                 context = note.text if note is not None else ""
-                rows = self._conn.execute(_INSERT, [*values, context, conv_id]).fetchall()
+                values += [context, told, conv_id]
+                rows = self._conn.execute(_INSERT, values).fetchall()
                 if not rows:
                     raise KeyError(conv_id)
                 for mark in note.marks if note is not None else ():
@@ -112,18 +122,25 @@ class MessageStore:
         with self._lock:
             return self._conn.execute(sql, (conv_id, request_id)).fetchone() is not None
 
-    def _note(self, conv_id: str, message: Message, source: str | None) -> Note | None:
-        """The canvas note for a person's message, or None when there is none to build or
-        it failed: a note never costs the person their message."""
-        if source is None or message.role != "user" or self._notes is None:
+    def _built[T](self, what: str, conv_id: str, build: Callable[[], T] | None) -> T | None:
+        """What `build` makes, or None when there is nothing to build or it failed: a note
+        never costs the person their message."""
+        if build is None:
             return None
         try:
-            return self._notes(conv_id, source)
+            return build()
         except Exception:
-            log.exception(
-                "canvas note for conversation %s failed; storing the message bare", conv_id
-            )
+            log.exception("%s for conversation %s failed; storing the message bare", what, conv_id)
             return None
+
+    def turn_notes(self, conv_id: str) -> list[str]:
+        """What the conversation's messages told of the agent's memory, oldest first."""
+        sql = (
+            "SELECT turn_notes FROM messages WHERE conversation_id = ? AND turn_notes != ''"
+            " ORDER BY seq"
+        )
+        with self._lock:
+            return [row[0] for row in self._conn.execute(sql, (conv_id,)).fetchall()]
 
     def history(self, conv_id: str) -> list[StoredMessage]:
         with self._lock:

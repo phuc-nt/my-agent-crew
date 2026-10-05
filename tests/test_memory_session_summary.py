@@ -7,6 +7,7 @@ import pytest
 
 from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.agent.prompt import system_prompt_for
+from my_agent_crew.agent.turn_notes import notes_for, render
 from my_agent_crew.llm.fake import completion
 from my_agent_crew.llm.types import Message
 from my_agent_crew.memory.session_summary import (
@@ -169,15 +170,21 @@ def test_the_next_conversation_reads_when_the_previous_one_ended(deps_factory):
     )
     second = deps.store.create(agent_id="default", channel="telegram:42")
 
-    prompt = system_prompt_for(deps, deps.store.get(second.id))
+    told = told_before(deps, second.id)
 
-    assert "## Cuộc trước (lần cuối 24/9 23:30)\nNgười dùng ghi 2 lon bia ngày 24/9." in prompt
+    assert "## Cuộc trước (lần cuối 24/9 23:30)\nNgười dùng ghi 2 lon bia ngày 24/9." in told
+    assert "Cuộc trước" not in system_prompt_for(deps, deps.store.get(second.id))
 
 
-def test_what_changes_between_turns_closes_the_prompt_so_the_prefix_stays_cacheable(deps_factory):
-    """Persona, memory and skills first; the previous summary, the daily notes and the date
-    last. A provider caches the prompt by prefix, so a new day or a new summary must not
-    invalidate everything after the first line."""
+def told_before(deps: AgentDeps, conv_id: str) -> str:
+    """What the conversation's next opening message would be read after."""
+    return render(notes_for(deps, conv_id))
+
+
+def test_what_changes_between_turns_is_read_beside_the_message_and_not_in_the_prompt(deps_factory):
+    """Persona, memory and skills, then the date: nothing in the prompt changes within a
+    day. The previous summary and the daily notes are read in front of the message, summary
+    first, so a note saved mid-conversation leaves the provider's cached prefix whole."""
     deps = deps_factory(timezone="Asia/Ho_Chi_Minh")
     deps.agent.memory_dir.mkdir(parents=True, exist_ok=True)
     (deps.agent.dir / "SOUL.md").write_text("Tôi kiên nhẫn.")
@@ -188,11 +195,14 @@ def test_what_changes_between_turns_closes_the_prompt_so_the_prefix_stays_cachea
     second = deps.store.create(agent_id="default", channel="telegram:42")
 
     prompt = system_prompt_for(deps, deps.store.get(second.id))
+    told = told_before(deps, second.id)
 
-    order = ["Tôi kiên nhẫn.", "## Cuộc trước", "- 07:00 dậy sớm", f"Hôm nay: {today.isoformat()}."]
-    positions = [prompt.index(part) for part in order]
-    assert positions == sorted(positions)
+    assert "Tôi kiên nhẫn." in prompt
     assert prompt.rstrip().endswith(f"Hôm nay: {today.isoformat()}.")
+    assert "Cuộc trước" not in prompt and "dậy sớm" not in prompt
+    assert told.index("## Cuộc trước") < told.index("Đã bàn về giấc ngủ.")
+    assert told.index("Đã bàn về giấc ngủ.") < told.index("- 07:00 dậy sớm")
+    assert "Tôi kiên nhẫn." not in told
 
 
 def test_a_delegated_turn_is_not_told_about_the_previous_conversation(deps_factory):
@@ -204,8 +214,8 @@ def test_a_delegated_turn_is_not_told_about_the_previous_conversation(deps_facto
     child = deps.store.create(agent_id="default", channel="", parent_call_id="call-1")
     plain = deps.store.create(agent_id="default", channel="")
 
-    assert "Việc cũ đã xong." not in system_prompt_for(deps, deps.store.get(child.id))
-    assert "Việc cũ đã xong." in system_prompt_for(deps, deps.store.get(plain.id))
+    assert "Việc cũ đã xong." not in told_before(deps, child.id)
+    assert "Việc cũ đã xong." in told_before(deps, plain.id)
 
 
 def test_a_fork_is_not_told_about_the_conversation_it_was_cut_from(deps_factory):
@@ -220,4 +230,7 @@ def test_a_fork_is_not_told_about_the_conversation_it_was_cut_from(deps_factory)
     fork, _ = deps.store.fork(source.id, cut, autonomous=False)
 
     assert deps.store.previous_for_channel("default", "", fork.id).id == source.id
-    assert "Phần sau điểm cắt." not in system_prompt_for(deps, deps.store.get(fork.id))
+    assert "Phần sau điểm cắt." not in told_before(deps, fork.id)
+    # The same lookup does tell a conversation that is not a fork.
+    deps.store._conn.execute("UPDATE conversations SET forked_from = '' WHERE id = ?", (fork.id,))
+    assert "Phần sau điểm cắt." in told_before(deps, fork.id)

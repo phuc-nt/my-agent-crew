@@ -67,7 +67,7 @@ chỉ để hiển thị (chữ đang chảy, `user_context`, `tool_call_delta`)
 | Canvas đang mở | `GET/PUT /api/conversations/{id}/canvas` (`{"artifact_id", "selection"}`, `null` là đóng); mỗi tin chat mang `canvas` của tab gửi nó, nên ghi chú nói đúng canvas thiết bị đó đang mở |
 | Agent | `GET /api/agents`, `GET …/{id}`, `GET …/{id}/files`, `POST /api/agents/install`, `GET /api/templates` |
 | Sửa agent | `POST /api/agents`, `PATCH …/{id}`, `DELETE …/{id}` |
-| Tệp tính cách | `PUT /api/agents/{id}/files/{name}`, `GET …/{id}/prompt` (lời nhắc hệ thống đã ghép), `POST /api/agents/reload` |
+| Tệp tính cách | `PUT /api/agents/{id}/files/{name}`, `GET …/{id}/prompt` (lời nhắc hệ thống đã ghép, và khối ghi chú đọc trước tin đầu), `POST /api/agents/reload` |
 | Tool & kết nối | `GET /api/tools`, `GET /api/connections` |
 | Khoá & biến môi trường | `GET /api/credentials`, `PUT/DELETE …/{name}` (ghi `<home>/env`, áp dụng ngay), `POST …/{name}/check`; không trả giá trị bí mật; thay đổi làm đội không chạy được bị từ chối 409, không ghi gì |
 | Tuyến mô hình chung | `PUT /api/connections/routes` (lưu vào `config.yaml` giữ chú thích; khi `MY_AGENT_ROUTES` đặt thì chỉ xem, không sửa) |

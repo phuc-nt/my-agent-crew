@@ -4553,3 +4553,51 @@ cũ.
     ở 1440, và ở 390 thì vừa dải, không làm trang rộng ra; run khác trong cùng danh sách không có dòng đó).
   - `tests/test_store.py` được sửa theo kiểu trả về mới của bước dọn lúc khởi động (`Settled(paused, cut)`
     thay cho danh sách run đang dừng); các khẳng định giữ nguyên.
+
+## Trí nhớ đổi theo lượt đứng cạnh tin mở lượt
+
+Tóm tắt cuộc trước và ghi chú hôm qua, hôm nay từng khép system prompt, nên một dòng `memory_save` đổi
+văn bản đứng trước cả cuộc trò chuyện và provider bỏ cache của mọi thứ đã nói (đo trên bộ cài thật: 15,1%
+token prompt được tính giá cache ở lần gọi ngay sau `memory_save`, so với 85,5% ở các lần khác). Nay chúng
+được lưu cùng tin mở lượt, trong cột `messages.turn_notes`, và model đọc chúng trong một khối có khung
+ngay trước tin đó. Mỗi tin chỉ mang phần đã đổi so với lần gần nhất cuộc trò chuyện được kể: trọn mục lần
+đầu, các dòng mới của ghi chú chỉ dài thêm, bản mới của mục bị viết lại, một dòng cho mục đã trống. System
+prompt chỉ còn dòng ngày là đổi, và lịch sử là một prefix chỉ dài thêm.
+
+  - pytest: `tests/test_turn_notes.py` (một ghi chú lưu giữa hai lượt để nguyên system prompt và mọi tin đã
+    gửi, lượt sau chỉ nghe dòng mới; tin đầu mang đúng khối có khung gồm tóm tắt cuộc trước, hôm qua, hôm
+    nay; không có gì mới thì tin được đọc đúng như người viết và lưu `{"sections": []}`; agent không có ghi
+    chú và tóm tắt chỉ có khoảng trắng thì không khối nào; ghi chú bị viết lại được kể trọn với ba trường
+    hợp cùng độ dài, ngắn hơn, dài hơn nhưng đầu khác; ghi chú biến mất thì nói vậy, sau đó im, có lại thì
+    kể trọn; sang ngày mới chỉ kể ghi chú của ngày mới và dòng ngày trong system prompt đổi theo; một lượt
+    tự `memory_save` không làm đổi prefix của chính nó và tin mở lượt kế tiếp mang dòng đó; ghi chú dài
+    hơn trần được kể tới trần đúng một lần).
+  - pytest: `tests/test_turn_notes_carriers.py` (tin chen ngang mang phần đổi từ lúc lượt bắt đầu; loạt tin
+    chờ được giao kèm phần đổi; lượt đi tiếp sau duyệt không kể gì, chỉ tin của người mang khối, và
+    `GET /api/conversations/{id}` không có khoá `turn_notes`; khối đứng trước ghi chú canvas rồi mới tới
+    tin; fork giữ khối của các tin chép sang, chỉ nghe phần đổi, tóm tắt xuất hiện một lần và không bao giờ
+    bị gọi là đã trống; cuộc trò chuyện bắt đầu trước khi có cột đọc trí nhớ hiện tại trước tin đầu và thôi
+    ngay khi tin kế tiếp được lưu; database cũ nhận thêm cột; dựng khối lỗi thì tin vẫn lưu và có log; khối
+    lưu hỏng được đọc như không có gì).
+  - pytest: `tests/test_memory_session_summary.py` (tóm tắt cuộc trước được kể trước tin mở lượt và không
+    nằm trong system prompt; lượt được giao việc và fork không có mục này, kèm đối chứng: bỏ `forked_from`
+    thì mục xuất hiện), `tests/test_agent_context.py` (hai mục ghi chú đúng tên và thứ tự, ngày không có
+    ghi chú vẫn được nêu tên với thân rỗng), `tests/test_canvas_prompt_tail.py` (ghi chú ngày nằm cạnh tin,
+    không nằm trong system prompt có mục canvas).
+  - pytest: `tests/test_api_agent_prompt.py` (`opening` rỗng khi agent chưa có ghi chú; có ghi chú thì bằng
+    đúng khối mà tin đầu của một cuộc thật được đọc sau, `opening_chars` là độ dài của nó, và ghi chú không
+    nằm trong `prompt`), `tests/test_trajectory.py` (trajectory mang khối đã che secret, tin không có gì mới
+    thì không có khoá, bản Markdown xếp khối, ghi chú canvas rồi tin).
+  - Kiểm chứng đột biến: ba mươi ba sửa đổi ở server (bỏ `turn_notes` ở từng chỗ trong ba chỗ lưu tin mở
+    lượt và ở từng tầng store; không gắn khối khi đọc lịch sử; đổi chỗ khối với ghi chú canvas; fork không
+    chép cột; coi mọi ghi chú dài hơn là "chỉ thêm"; coi cùng độ dài là không đổi; không nói mục đã trống;
+    ghi độ dài của phần đã kể thay cho cả mục; cho fork hay con mục "Cuộc trước"; lưu chuỗi rỗng khi không
+    có gì mới; bỏ hay giữ mãi đường lùi cho cuộc cũ; bỏ khung; trajectory bỏ khối hay để JSON thô; preview
+    bỏ `opening`; chỉ đọc ghi chú hôm nay), mỗi cái đều làm ít nhất một test đỏ.
+  - vitest: `components/agent-editor/prompt-section.test.tsx` (khối hiện dưới lời nhắc với tiêu đề và độ
+    dài riêng, không lẫn vào lời nhắc, nút chép vẫn chép đúng lời nhắc, Ẩn thì khối cũng ẩn; agent chưa có
+    ghi chú thì không hiện gì thêm, và mỗi lần mở đọc lại). Năm sửa đổi ở component (luôn hiện, không bao
+    giờ hiện, hiện lời nhắc vào chỗ khối, sai độ dài, chép cả khối) đều làm test đỏ.
+  - Playwright: `manage-smoke.spec.ts` (màn sửa agent hiện khối ghi chú dưới lời nhắc, đúng nội dung và độ
+    dài, lời nhắc không chứa ghi chú, trang không rộng ra, Ẩn thì khối mất; agent chưa có ghi chú thì không
+    có khối).

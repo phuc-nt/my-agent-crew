@@ -28,6 +28,9 @@ class StoredMessage:
     # The canvas note stored with a person's message: what changed in the conversation's
     # canvases since the agent last heard. The model reads it in front of the message.
     context: str = ""
+    # What the message tells of the agent's memory that changed since the conversation was
+    # last told, as JSON (`agent/turn_notes.py`). Read by the model, not sent to the web.
+    turn_notes: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         m = self.message
@@ -73,4 +76,5 @@ class StoredMessage:
             reasoning_tokens=row["reasoning_tokens"],
             cached_tokens=row["cached_tokens"],
             context=row["context"],
+            turn_notes=row["turn_notes"],
         )

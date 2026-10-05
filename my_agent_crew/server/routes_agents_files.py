@@ -15,6 +15,7 @@ from ruamel.yaml import YAMLError
 
 from my_agent_crew import texts
 from my_agent_crew.agent.prompt import system_prompt_for
+from my_agent_crew.agent.turn_notes import opening_block
 from my_agent_crew.agents import load_profiles
 from my_agent_crew.agents.profile import PERSONA_FILES
 from my_agent_crew.server.agent_edit_common import check_editable, existing, write_lock
@@ -41,15 +42,21 @@ def get_prompt(agent_id: str, rt: Rt) -> dict[str, Any]:
 
     Built by the same function the turn uses, so what the person reads here is what the
     model is told — not a rendering of the profile that happens to look similar. It is
-    "as of now": the persona files and daily notes are re-read on every turn, so a prompt
-    shown for a past turn would be a guess.
+    "as of now": the persona files are re-read on every turn, so a prompt shown for a
+    past turn would be a guess. `opening` is what the first message of that conversation
+    would be read after: the daily notes, which are no part of the system prompt.
     """
     try:
         deps = rt.deps_for(agent_id)
     except KeyError as exc:
         raise HTTPException(404, "agent not found") from exc
-    text = system_prompt_for(deps)
-    return {"prompt": text, "chars": len(text)}
+    text, opening = system_prompt_for(deps), opening_block(deps)
+    return {
+        "prompt": text,
+        "chars": len(text),
+        "opening": opening,
+        "opening_chars": len(opening),
+    }
 
 
 @router.get("/agents/{agent_id}/files/{name}")

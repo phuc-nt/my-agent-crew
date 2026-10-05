@@ -10,7 +10,7 @@ from my_agent_crew.agents.context import (
     MAX_SECTION_CHARS,
     MAX_USER_SECTION_CHARS,
     bootstrap_sections,
-    turn_tail_sections,
+    daily_note_sections,
 )
 from my_agent_crew.config import Settings
 from my_agent_crew.llm.fake import completion
@@ -32,20 +32,27 @@ def test_sections_follow_persona_memory_daily_order(settings: Settings):
     sections = bootstrap_sections(profile)
     assert [title for title, _ in sections] == ["SOUL.md", "MEMORY.md"]
     assert sections[0][1] == "Tôi kiên nhẫn."
-    # The notes of yesterday and today change daily, so they ride at the tail instead.
-    tail = turn_tail_sections(profile, today=date(2026, 9, 19))
-    assert [title for title, _ in tail] == ["memory/2026-09-18.md", "memory/2026-09-19.md"]
+    # The notes of yesterday and today change daily, so they are read beside the message.
+    notes = daily_note_sections(profile, today=date(2026, 9, 19))
+    assert notes == [
+        ("memory/2026-09-18.md", "# 2026-09-18\n- 08:00 chạy bộ"),
+        ("memory/2026-09-19.md", "# 2026-09-19\n- 07:00 dậy sớm"),
+    ]
 
 
-def test_the_previous_summary_opens_the_tail_and_is_absent_when_empty(settings: Settings):
+def test_a_day_without_a_note_is_named_with_nothing_in_it(settings: Settings):
+    """Both days are always there, so a note that was read and is gone can be said to be."""
     profile = default_profile(settings)
     (settings.home / "memory").mkdir(parents=True)
     (settings.home / "memory" / "2026-09-19.md").write_text("- 07:00 dậy sớm")
-    tail = turn_tail_sections(profile, date(2026, 9, 19), "Đã bàn về giấc ngủ.", "18/9 22:00")
-    assert tail[0] == ("Cuộc trước (lần cuối 18/9 22:00)", "Đã bàn về giấc ngủ.")
-    assert [title for title, _ in tail[1:]] == ["memory/2026-09-19.md"]
-    assert turn_tail_sections(profile, date(2026, 9, 19), "   ", "") == [
-        ("memory/2026-09-19.md", "- 07:00 dậy sớm")
+    (settings.home / "memory" / "2026-09-18.md").write_text("  \n")
+    assert daily_note_sections(profile, date(2026, 9, 19)) == [
+        ("memory/2026-09-18.md", ""),
+        ("memory/2026-09-19.md", "- 07:00 dậy sớm"),
+    ]
+    assert daily_note_sections(profile, date(2026, 9, 21)) == [
+        ("memory/2026-09-20.md", ""),
+        ("memory/2026-09-21.md", ""),
     ]
 
 

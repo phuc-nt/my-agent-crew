@@ -31,7 +31,7 @@ MY_AGENT_HOME/                      ~/.my-agent-crew by default
         ├── AGENTS.md  SOUL.md      persona files, read every turn
         ├── IDENTITY.md  USER.md
         ├── MEMORY.md               durable memory, read every turn
-        ├── memory/YYYY-MM-DD.md    daily notes, today + yesterday read every turn
+        ├── memory/YYYY-MM-DD.md    daily notes, today + yesterday read beside a turn's first message
         ├── workspace/              default tool sandbox (overridable)
         ├── skills/                 always on the skill path
         └── .agents/                this agent's own kit (optional)
@@ -192,7 +192,7 @@ POST   /api/agents           {"agent_id": "coder", "profile": {…}}
 PATCH  /api/agents/{id}      {"profile": {…}}   → {"profile": {…}, "restart_required": […]}
 DELETE /api/agents/{id}                         → {"removed": "coder", "kept_at": "…"}
 PUT    /api/agents/{id}/files/{name}  {"content": "…"}
-GET    /api/agents/{id}/prompt                  → system prompt assembled this turn
+GET    /api/agents/{id}/prompt                  → system prompt assembled this turn, and `opening`: the notes read beside a first message
 POST   /api/agents/reload                       → {"added": ["…"]}
 ```
 

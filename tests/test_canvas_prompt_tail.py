@@ -57,9 +57,9 @@ async def _child_prompt(deps, store: Store, root_source: str) -> str:
 async def test_a_turn_that_cannot_write_a_canvas_is_told_so_with_the_same_tools(
     deps_factory, store: Store, tmp_path: Path
 ):
-    """The inbound API and a child whose chain began there hear it, after the day's notes
-    and right before the date, so a turn on any channel shares the prefix up to there; the
-    web chat and a child of it do not."""
+    """The inbound API and a child whose chain began there hear it right before the date,
+    so a turn on any channel shares the prefix up to there; the web chat and a child of it
+    do not. The day's notes are read in front of the message and are in neither prompt."""
     tools = canvas_tools(store, tmp_path)
     deps = deps_factory(script=[completion("được")] * 5, extra_tools=tools)
     note_path = daily_note_path(deps.agent.memory_dir, deps.settings.today())
@@ -68,7 +68,8 @@ async def test_a_turn_that_cannot_write_a_canvas_is_told_so_with_the_same_tools(
     system = chat.messages[0].content
     date = today_line(deps.settings, deps.settings.today().isoformat())
     assert system.endswith(date) and CANVAS_CLOSED_TITLE not in system
-    assert "lịch chạy sáng thứ bảy" in system
+    assert "lịch chạy sáng thứ bảy" not in system
+    assert "lịch chạy sáng thứ bảy" in chat.messages[1].content
     request = await _first_request(deps, store.create().id, API)
     head, tail = request.messages[0].content.split(note())
     assert (head + tail, tail, request.tools) == (system, date, chat.tools)
@@ -81,10 +82,10 @@ async def test_a_turn_whose_reader_is_away_from_the_web_chat_is_told_how_a_canva
     deps_factory, store: Store, tmp_path: Path
 ):
     """A Telegram turn, a job and a child whose chain began in either hear it in the same
-    place, after the day's notes and right before the date, as the only thing said about
-    canvases. The web chat's prompt is theirs without it, to the character, so it is what
-    it was before Telegram could write a canvas. A job hears what a Telegram turn hears, word
-    for word: nothing in it can say which of the two its reader is."""
+    place, right before the date, as the only thing said about canvases. The web chat's
+    prompt is theirs without it, to the character, so it is what it was before Telegram could
+    write a canvas. A job hears what a Telegram turn hears, word for word: nothing in it can
+    say which of the two its reader is."""
     tools = canvas_tools(store, tmp_path)
     deps = deps_factory(script=[completion("được")] * 8, extra_tools=tools)
     note_path = daily_note_path(deps.agent.memory_dir, deps.settings.today())
@@ -92,7 +93,8 @@ async def test_a_turn_whose_reader_is_away_from_the_web_chat_is_told_how_a_canva
     chat = await _first_request(deps, store.create().id, CHAT)
     system = chat.messages[0].content
     date = today_line(deps.settings, deps.settings.today().isoformat())
-    assert system.endswith(date) and "lịch chạy sáng thứ bảy" in system
+    assert system.endswith(date) and "lịch chạy sáng thứ bảy" not in system
+    assert "lịch chạy sáng thứ bảy" in chat.messages[1].content
     assert CANVAS_CLOSED_TITLE not in system and CANVAS_AWAY_BODY not in system
     heard = []
     for source in (TELEGRAM, "job:default/brief"):

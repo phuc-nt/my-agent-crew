@@ -4856,7 +4856,7 @@
         <!-- Flow paths -->
         <path data-edge-from="yaml" data-edge-to="prompt" data-edge-label="routes, tools" data-edge-key="0" data-edge-id="yaml-prompt" data-composition-points="165,157;315,157;315,242" d="M 165 157 L 315 157 L 315 242" class="a-emphasis" data-animate="edge" style="--step:0" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         <path data-edge-from="persona" data-edge-to="prompt" data-edge-label="persona" data-edge-key="1" data-edge-id="persona-prompt" data-composition-points="165,271;250,271" d="M 165 271 L 250 271" class="a-emphasis" data-animate="edge" style="--step:1" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="memory" data-edge-to="prompt" data-edge-label="MEMORY.md + 2 ngày" data-edge-key="2" data-edge-id="memory-prompt" data-composition-points="165,385;315,385;315,300" d="M 165 385 L 315 385 L 315 300" class="a-default" data-animate="edge" style="--step:2" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="memory" data-edge-to="prompt" data-edge-label="MEMORY.md" data-edge-key="2" data-edge-id="memory-prompt" data-composition-points="165,385;315,385;315,300" d="M 165 385 L 315 385 L 315 300" class="a-default" data-animate="edge" style="--step:2" stroke-width="1.4" marker-end="url(#arrowhead)"/>
         <path data-edge-from="user" data-edge-to="prompt" data-edge-label="USER.md, facts" data-edge-key="3" data-edge-id="user-prompt" data-composition-points="165,499;315,499;315,300" d="M 165 499 L 315 499 L 315 300" class="a-default" data-animate="edge" style="--step:3" stroke-width="1.4" marker-end="url(#arrowhead)"/>
         <path data-edge-from="prompt" data-edge-to="turn" data-edge-label="system prompt" data-edge-key="4" data-edge-id="prompt-turn" data-composition-points="380,271;465,271" d="M 380 271 L 465 271" class="a-emphasis" data-animate="edge" style="--step:4" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         <path data-edge-from="skills" data-edge-to="child" data-edge-label="skill_read" data-edge-key="5" data-edge-id="skills-child" data-composition-points="165,613;420,613;420,499;465,499" d="M 165 613 L 420 613 L 420 499 L 465 499" class="a-dashed" data-animate="edge" style="--step:5" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
@@ -5066,9 +5066,9 @@
           <text x="207.5" y="261" class="t-backend" font-size="8" text-anchor="middle">persona</text>
         <text data-detail="fine" x="207.5" y="272" class="t-dim" font-size="7" text-anchor="middle">luôn</text>
         </g>
-        <g data-detail="context" data-edge-from="memory" data-edge-to="prompt" data-edge-label="MEMORY.md + 2 ngày" data-edge-key="2" data-edge-id="memory-prompt">
-          <rect x="189.9" y="364" width="100.2" height="27" rx="4" class="c-mask"/>
-          <text x="240" y="375" class="t-muted" font-size="8" text-anchor="middle">MEMORY.md + 2 ngày</text>
+        <g data-detail="context" data-edge-from="memory" data-edge-to="prompt" data-edge-label="MEMORY.md" data-edge-key="2" data-edge-id="memory-prompt">
+          <rect x="207.05" y="364" width="65.9" height="27" rx="4" class="c-mask"/>
+          <text x="240" y="375" class="t-muted" font-size="8" text-anchor="middle">MEMORY.md</text>
         <text data-detail="fine" x="240" y="386" class="t-dim" font-size="7" text-anchor="middle">riêng agent</text>
         </g>
         <g data-detail="context" data-edge-from="user" data-edge-to="prompt" data-edge-label="USER.md, facts" data-edge-key="3" data-edge-id="user-prompt">
@@ -5122,9 +5122,9 @@
         <text data-detail="fine" x="885" y="158" class="t-dim" font-size="7" text-anchor="middle">Cuộc trước</text>
         </g>
         <g data-detail="context" data-edge-from="notes" data-edge-to="next" data-edge-label="hôm qua" data-edge-key="13" data-edge-id="notes-next">
-          <rect x="824.45" y="250" width="56.1" height="27" rx="4" class="c-mask"/>
+          <rect x="809.75" y="250" width="85.5" height="27" rx="4" class="c-mask"/>
           <text x="852.5" y="261" class="t-backend" font-size="8" text-anchor="middle">hôm qua</text>
-        <text data-detail="fine" x="852.5" y="272" class="t-dim" font-size="7" text-anchor="middle">bootstrap</text>
+        <text data-detail="fine" x="852.5" y="272" class="t-dim" font-size="7" text-anchor="middle">kèm tin mở lượt</text>
         </g>
         <g data-detail="context" data-edge-from="proposal" data-edge-to="next" data-edge-label="MEMORY.md mới" data-edge-key="14" data-edge-id="proposal-next">
           <rect x="847.15" y="364" width="75.7" height="27" rx="4" class="c-mask"/>

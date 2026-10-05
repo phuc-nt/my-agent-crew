@@ -27,23 +27,31 @@ Frontmatter của một fact ghi `name`, `description`, `type` (một trong `pro
 
 ## Phạm vi riêng của một agent
 
-| Tệp | Vai trò | Đọc vào prompt |
+| Tệp | Vai trò | Model đọc khi nào |
 |---|---|---|
-| `MEMORY.md` | sự thật bền: người dùng là ai, sở thích lâu dài, quyết định, mọi thứ được cài đặt ra sao | mỗi lượt |
-| `memory/YYYY-MM-DD.md` | ghi chú ngày: chuyện gì đã xảy ra, số đo, ai đã nói gì | tệp hôm nay và hôm qua, mỗi lượt |
+| `MEMORY.md` | sự thật bền: người dùng là ai, sở thích lâu dài, quyết định, mọi thứ được cài đặt ra sao | mỗi lượt, trong system prompt |
+| `memory/YYYY-MM-DD.md` | ghi chú ngày: chuyện gì đã xảy ra, số đo, ai đã nói gì | tệp hôm nay và hôm qua, ngay trước tin mở lượt; từ lần thứ hai chỉ phần mới |
 | `memory/*.md` cũ hơn | lịch sử | chỉ qua `memory_search` |
 
 Một ghi chú được đặt tên theo ngày của nó, kèm hậu tố tuỳ chọn — `2026-09-19.md` và
 `2026-09-19-1030.md` đều là ghi chú của ngày 19 tháng 9; đó là cách một workspace do tool
 khác viết giữ nhiều ghi chú trong một ngày. Hậu tố gồm chữ thường, chữ số và gạch nối, nên
 một tên không bao giờ trỏ được ra ngoài thư mục. `memory_save` luôn ghi vào tệp
-`YYYY-MM-DD.md` trơn, và chỉ tên đó được đọc vào prompt; ghi chú có hậu tố là lịch sử, tới
+`YYYY-MM-DD.md` trơn, và chỉ tên đó được đọc trước tin mở lượt; ghi chú có hậu tố là lịch sử, tới
 được qua `memory_search`, tab Ghi nhớ và cô đọng.
 
-Mỗi tệp trở thành một mục `## <file name>` trong system prompt, giới hạn 24 000 ký tự (cắt
-kèm dấu `…` ở cuối). Tệp thiếu thì đơn giản là bỏ qua. Các tệp nằm ở
-`<agent dir>/MEMORY.md` và `<agent dir>/memory/` (tạo lúc khởi động); agent mặc định giữ
-chúng ngay trong `MY_AGENT_HOME`.
+Mỗi tệp trở thành một mục `## <file name>`, giới hạn 24 000 ký tự (cắt kèm dấu `…` ở cuối).
+Tệp thiếu thì đơn giản là bỏ qua. Các tệp nằm ở `<agent dir>/MEMORY.md` và
+`<agent dir>/memory/` (tạo lúc khởi động); agent mặc định giữ chúng ngay trong `MY_AGENT_HOME`.
+
+`MEMORY.md` nằm trong system prompt. Hai ghi chú ngày thì không: một dòng `memory_save` đổi
+văn bản của chúng, và nếu chúng đứng trong system prompt thì provider bỏ cache của cả cuộc trò
+chuyện sau mỗi lần ghi. Model đọc chúng trong một khối đứng ngay trước tin mở lượt, lưu cùng
+tin đó: lần đầu trọn tệp, các lần sau chỉ những dòng mới thêm (hoặc bản mới, nếu tệp bị viết
+lại). Vì vậy một lượt biết điều nó vừa ghi qua chính lần gọi `memory_save`, còn cuộc trò chuyện
+thấy dòng đó từ tin mở lượt kế tiếp. Màn sửa agent hiện khối này dưới lời nhắc hệ thống, mục
+"Đọc ngay trước tin đầu của cuộc mới". Cơ chế đầy đủ:
+[system-architecture.md](system-architecture.md#6-ngữ-cảnh-đi-vào-trí-nhớ-đi-ra).
 
 ## Ghi trí nhớ
 

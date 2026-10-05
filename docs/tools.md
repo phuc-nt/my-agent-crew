@@ -615,7 +615,7 @@ smoke và test trình duyệt điều khiển tool mà không cần khoá.
 
 ```
 GET /api/tools → [{"name": "workspace_read", …, "agents": ["fullstack-developer", "default"], "optional": false}]
-GET /api/agents/{id}/prompt → assembled system prompt this turn (includes persona, memory, skills, roster)
+GET /api/agents/{id}/prompt → assembled system prompt this turn (includes persona, memory, skills, roster), plus `opening`
 ```
 
 Hợp của các tool là registry của mọi agent, không phải bộ riêng của master — profile có danh sách
@@ -625,7 +625,9 @@ những tool phần còn lại của đội vẫn dùng. `agents` là ai giữ n
 khoá hoặc tuyến của nó được cấu hình (`image_read`).
 
 Endpoint `/prompt` trả về system prompt đầy đủ như đã lắp cho agent (hữu ích để
-debug agent thấy gì, hoặc cho người dùng xem agent biết gì).
+debug agent thấy gì, hoặc cho người dùng xem agent biết gì). Trường `opening` (kèm
+`opening_chars`) là khối ghi chú ngày mà tin đầu của một cuộc mới sẽ được đọc sau; chuỗi rỗng
+khi agent chưa có ghi chú. Ghi chú ngày không nằm trong `prompt`.
 
 ```
 GET /api/connections → {"providers": […], "routes": […], "vision_routes": […],

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass, field
+from functools import partial
 
 from my_agent_crew import texts
 from my_agent_crew.agent.child_wrap_up import nudge_to_conclude, wrap_up_due
@@ -29,6 +30,7 @@ from my_agent_crew.agent.turn_context import (
     set_turn_conversation,
     set_turn_source,
 )
+from my_agent_crew.agent.turn_notes import notes_for
 from my_agent_crew.agents.profile import AgentProfile, default_profile
 from my_agent_crew.config import Settings
 from my_agent_crew.llm.provider import ProviderChain, ProviderError
@@ -81,7 +83,13 @@ async def run_turn(
             raise ConversationBusy(conv_id)
         close_interrupted(deps.store, conv_id)
         message = Message(role="user", content=user_text)
-        stored = deps.store.append(conv_id, message, note_source=source, request_id=request_id)
+        stored = deps.store.append(
+            conv_id,
+            message,
+            note_source=source,
+            request_id=request_id,
+            turn_notes=partial(notes_for, deps, conv_id),
+        )
         if stored.context:
             yield UserContextEvent(stored.context)
 

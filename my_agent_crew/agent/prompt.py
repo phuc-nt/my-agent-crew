@@ -11,10 +11,10 @@ from my_agent_crew.agent.context_trim import trim_tool_outputs
 from my_agent_crew.agent.payload_trim import attach_canvas_notes, trim_canvas_payloads
 from my_agent_crew.agent.prompt_frame import frame_text, today_line
 from my_agent_crew.agent.turn_context import canvas_reader_is_away, may_write_canvas
-from my_agent_crew.agents.context import bootstrap_sections, turn_tail_sections
+from my_agent_crew.agent.turn_notes import attach_turn_notes
+from my_agent_crew.agents.context import bootstrap_sections
 from my_agent_crew.agents.kit_commands import commands_section
 from my_agent_crew.agents.roster import DELEGATE_TOOL_NAME, crew_roster_section
-from my_agent_crew.clock import day_and_time
 from my_agent_crew.config import Settings
 from my_agent_crew.llm.types import Message
 from my_agent_crew.skills import Skill
@@ -101,8 +101,10 @@ def build_system_prompt(
     tail_sections: Sequence[tuple[str, str]] = (),
 ) -> str:
     """`skills` ride in full; `skill_index` are only named, to be read on demand.
-    `tail_sections` are the parts that change between turns; they and the date come last
-    so the long stable prefix before them stays cacheable."""
+    `tail_sections` go by the channel a conversation is read on; they and the date come
+    last so the long prefix every conversation of the agent shares stays cacheable. What
+    changes between turns is not here at all: `agent/turn_notes.py` tells it in front of
+    the message that opens a turn."""
     text = frame_text(settings, name, tool_names)
     for title, body in sections:
         text += f"\n## {title}\n{body}\n"
@@ -122,23 +124,13 @@ def system_prompt_for(deps: AgentDeps, conv: Conversation | None = None) -> str:
     construction rather than by being reimplemented.
 
     Without a conversation it is the agent's standing prompt — the skills it always
-    carries, no per-conversation attachments and no summary of a previous session.
+    carries and no per-conversation attachments. The daily notes and the summary of the
+    previous conversation are not part of it: a turn reads them beside its opening message.
     """
     skills = active_skills(deps.skills, conv.skills if conv else ())
     active_names = {s.name for s in skills}
     index = [s for s in deps.skills if s.name not in active_names]
     profile = deps.agent
-    # A delegated turn is one job with a fresh brief; the summary of some earlier job on
-    # the same channel is noise to it, and a different one for every child breaks the
-    # prefix all the children of one master could otherwise share. A fork is newest on its
-    # channel by rowid, so "the conversation before it" usually is the very one it was cut
-    # from — whose summary covers the part after the cut that the fork exists to drop.
-    previous = (
-        deps.store.previous_for_channel(conv.agent_id, conv.channel, conv.id)
-        if conv is not None and not conv.parent_call_id and not conv.forked_from
-        else None
-    )
-    today = deps.settings.today()
     tool_names = deps.tools.names()
     # An agent only hears about its crew when it holds the tool to reach them: a child
     # turn runs without `delegate`, and a roster it cannot act on would only mislead it.
@@ -157,17 +149,9 @@ def system_prompt_for(deps: AgentDeps, conv: Conversation | None = None) -> str:
         tool_names,
         sections=bootstrap_sections(profile, extra_sections=extra),
         name=profile.name,
-        today=today.isoformat(),
+        today=deps.settings.today().isoformat(),
         skill_index=index,
         tail_sections=[
-            *turn_tail_sections(
-                profile,
-                today=today,
-                previous_summary=previous.summary if previous else "",
-                previous_at=day_and_time(previous.updated_at, deps.settings.zone)
-                if previous
-                else "",
-            ),
             *canvas_closed_section(conv, tool_names),
             *canvas_away_section(conv, tool_names),
         ],
@@ -182,11 +166,12 @@ def turn_messages(
 ) -> list[Message]:
     """The exact message list one model call is given: the system frame this module
     builds, then the conversation so far with old tool output trimmed out and each person's
-    message after its canvas note. When `turn_start` names the last message before this
-    turn, the canvas writes made up to it lose their document text and the notes stored
-    before it become a stub."""
+    message after its canvas note and after what it tells of the agent's memory. When
+    `turn_start` names the last message before this turn, the canvas writes made up to it
+    lose their document text and the canvas notes stored before it become a stub."""
     system = Message(role="system", content=system_prompt_for(deps, conv))
     can_reread = deps.tools.get(READ_TOOL) is not None
     messages = trim_canvas_payloads(history, turn_start)
     messages = attach_canvas_notes(history, messages, turn_start)
+    messages = attach_turn_notes(deps, conv, history, messages)
     return [system, *trim_tool_outputs(messages, can_reread=can_reread)]

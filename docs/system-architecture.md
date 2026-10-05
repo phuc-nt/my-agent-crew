@@ -127,7 +127,7 @@ Mọi thứ làm nên một agent là tệp văn bản trong `~/.my-agent-crew/a
 | `AGENTS.md` | vai trò và cách làm việc | mỗi lượt, đầu system prompt |
 | `SOUL.md` | giọng và tính cách | mỗi lượt |
 | `MEMORY.md` | điều agent tự đúc kết | mỗi lượt |
-| `memory/YYYY-MM-DD.md` | ghi chú ngày | hôm qua + hôm nay mỗi lượt; 7 ngày khi consolidate |
+| `memory/YYYY-MM-DD.md` | ghi chú ngày | hôm qua + hôm nay, ngay trước tin mở lượt (chỉ phần mới); 7 ngày khi consolidate |
 | `skills/*.md` | kỹ năng | chỉ mục mỗi lượt, nội dung khi `skill_read` |
 | `.agents/` | kit lệnh/agent/hook kiểu Claude Code | lệnh vào roster; hook chạy quanh tool |
 | `workspace/` | nơi tool đọc/ghi | khi tool chạy |
@@ -221,11 +221,41 @@ phần đổi theo lượt đứng sau, để cache prompt của provider giữ 
 2. người dùng: `users/owner/USER.md` + `facts/*.md`
 3. `MEMORY.md` của agent
 4. roster và lệnh kit (`.agents/commands/*.md`, ví dụ `/tongket` trong bộ cài thật)
-5. "Cuộc trước (lần cuối 24/9 23:30)": tóm tắt cuộc trò chuyện gần nhất (bảng `conversations`). Mỗi dòng transcript đưa đi tóm tắt mở đầu bằng ngày giờ theo múi giờ người dùng, và bản tóm tắt ghi ngày cụ thể thay cho "hôm nay", "hôm qua": nó được đọc vào một ngày khác. Lượt được giao việc (con) không nhận mục này: nó làm một việc với đề bài mới, và mọi con của một master dùng chung một prefix
-6. ghi chú `memory/<hôm qua>.md` và `memory/<hôm nay>.md`
-7. dòng ngày: "Hôm nay: 2026-09-26." — dòng cuối cùng, vì nó đổi mỗi ngày
+5. dòng ngày: "Hôm nay: 2026-09-26." — dòng cuối cùng, vì nó đổi mỗi ngày
 
 Skill không vào toàn văn: chỉ chỉ mục tên + mô tả; agent gọi `skill_read` khi cần. Skill có `always: true` thì vào toàn văn.
+
+**Trí nhớ đổi theo lượt** đi cùng tin mở lượt, không vào system prompt. Đó là hai thứ có thể
+đổi giữa hai lượt của cùng một cuộc trò chuyện: mục "Cuộc trước (lần cuối 24/9 23:30)", tức
+tóm tắt cuộc trò chuyện gần nhất trên cùng kênh (bảng `conversations`), và ghi chú
+`memory/<hôm qua>.md`, `memory/<hôm nay>.md`. Khi còn nằm cuối system prompt, một lần
+`memory_save` đổi văn bản đứng trước cả cuộc trò chuyện, và provider bỏ cache của mọi thứ đã nói.
+Nay khi lưu một tin mở lượt (tin của `run_turn`, loạt tin chờ được giao, tin chen ngang), trong
+cùng giao dịch, hệ thống so từng mục với lần gần nhất cuộc trò chuyện được kể (độ dài và digest
+của cả mục, đọc lại từ chính các tin đã lưu) rồi lưu kèm tin đúng phần đã đổi, vào cột
+`messages.turn_notes`, và không bao giờ viết lại: mục chưa kể thì kể trọn; ghi chú chỉ dài thêm
+thì chỉ kể các dòng mới; mục bị viết lại thì kể bản mới và nói nó thay bản cũ; mục nay trống thì
+một dòng nói vậy. Không có gì mới thì tin được đọc đúng như người viết. Model đọc khối đó, trong
+khung `[Bộ nhớ của bạn — hệ thống chèn trước tin này, không phải lời người dùng]`, ngay trước
+tin, trước cả ghi chú canvas, ở mọi lần gọi về sau; lịch sử vì thế là một prefix chỉ dài thêm.
+Mấy điều đi kèm:
+
+- Một lượt biết điều chính nó vừa `memory_save` qua lần gọi tool của nó; ghi chú đó tới cuộc
+  trò chuyện cùng tin mở lượt kế tiếp, không chen vào trước tin đang mở lượt này.
+- Tin do vòng lặp tự viết (nhắc khi lặp, nhắc con gói việc) và lượt đi tiếp sau duyệt hay sau
+  restart không kể gì: chúng không mở lượt.
+- Lượt được giao việc (con) và cuộc tách nhánh (fork) không có mục "Cuộc trước": con làm một việc
+  với đề bài mới, còn cuộc đứng trước một fork thường chính là cuộc nó tách ra. Fork giữ nguyên
+  khối của các tin nó chép sang, nên chỉ nghe phần đổi từ đó.
+- Cuộc trò chuyện bắt đầu trước khi có cột này (không tin nào mang khối) đọc trí nhớ hiện tại
+  trước tin đầu tiên của nó, cho tới khi tin kế tiếp được lưu kèm trọn vẹn.
+- Dựng khối lỗi thì tin vẫn được lưu, chỉ không có khối. Mỗi mục có trần 24 000 ký tự.
+- Payload tin nhắn gửi web không mang khối; trajectory của run thì có (`turn_notes`, đã che
+  secret), và `GET /api/agents/{id}/prompt` trả thêm `opening`: khối mà tin đầu của một cuộc
+  mới sẽ được đọc sau, để màn sửa agent hiện nó dưới lời nhắc hệ thống.
+
+Mỗi dòng transcript đưa đi tóm tắt mở đầu bằng ngày giờ theo múi giờ người dùng, và bản tóm tắt
+ghi ngày cụ thể thay cho "hôm nay", "hôm qua": nó được đọc vào một ngày khác.
 
 **Ghi chú canvas** đi cùng tin của người, không vào system prompt. Khi lưu một tin mở lượt,
 trong cùng giao dịch, hệ thống so từng canvas gắn với cuộc trò chuyện với bản agent đã thấy

@@ -1,6 +1,6 @@
 """A run written out whole, for a person debugging it or a case built from it: the run's
-record, the messages it wrote into its conversation, each with the canvas note it was read
-after, and what it delegated.
+record, the messages it wrote into its conversation, each with the canvas note and the
+memory it was read after, and what it delegated.
 
 Unlike the conversation export this carries every tool call's arguments and result, so
 whatever a tool touched comes along. Secrets are covered on the way out, long results are
@@ -16,6 +16,7 @@ from typing import Any
 from my_agent_crew import texts
 from my_agent_crew.activity.redact import redact_tree
 from my_agent_crew.agent.turn_context import DELEGATE
+from my_agent_crew.agent.turn_notes import render
 from my_agent_crew.agents.roster import DELEGATE_TOOL_NAME
 from my_agent_crew.store import Conversation, Store, StoredMessage
 from my_agent_crew.store.runs import RunRecord
@@ -118,6 +119,9 @@ def _message(stored: StoredMessage) -> dict[str, Any]:
     }
     if stored.context:
         data["context"] = stored.context
+    # What the model read in front of the message, as it read it.
+    if told := render(stored.turn_notes):
+        data["turn_notes"] = told
     return data
 
 

@@ -9,17 +9,19 @@ cut short: the steer waits for its result."""
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from functools import partial
 from typing import TYPE_CHECKING
 
 from my_agent_crew.agent.events import Event, SteerEvent
 from my_agent_crew.agent.loop_guard import LoopGuard
+from my_agent_crew.agent.turn_notes import notes_for
 
 if TYPE_CHECKING:  # the loop owns the deps; importing it back would be a cycle
     from my_agent_crew.agent.loop import AgentDeps
 
 
 async def take_steers(deps: AgentDeps, conv_id: str, guard: LoopGuard) -> AsyncIterator[Event]:
-    steered = deps.store.queue.take_steers(conv_id)
+    steered = deps.store.queue.take_steers(conv_id, partial(notes_for, deps, conv_id))
     if not steered:
         return
     # New words from the person are a new direction: repeats before them no longer count.

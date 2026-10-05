@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING
 from my_agent_crew.agent.events import Event, QueuedEvent
 from my_agent_crew.agent.tool_calls import close_interrupted
 from my_agent_crew.agent.turn_context import TELEGRAM
+from my_agent_crew.agent.turn_notes import notes_for
 from my_agent_crew.inbound_conversations import channel_label
 from my_agent_crew.store.models import AWAITING_APPROVAL
 from my_agent_crew.store.queue import FOLLOW_UP, STEER, QueuedItem
@@ -166,7 +167,13 @@ class QueueDrain:
         token = busy.claim(conv_id)
         try:
             close_interrupted(self._store, conv_id)
-            delivered = self._store.queue.deliver(conv_id, [item.id for item in items])
+            # Read from the agent only once a message is certain to be written, and inside
+            # the store's guard: an agent that cannot be built costs the notes, not the words.
+            delivered = self._store.queue.deliver(
+                conv_id,
+                [item.id for item in items],
+                lambda: notes_for(self._inbound.deps_for_conversation(conv_id), conv_id),
+            )
         except BaseException:
             busy.release(conv_id, token)
             raise

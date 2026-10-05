@@ -12,11 +12,7 @@ from my_agent_crew.agents.kit import split_front_matter
 from my_agent_crew.agents.profile import AgentProfile
 from my_agent_crew.memory import user_store
 from my_agent_crew.memory.wiki_index import wiki_section
-from my_agent_crew.texts import (
-    PREVIOUS_SUMMARY_SECTION_TITLE,
-    USER_FACTS_SECTION_TITLE,
-    USER_MD_SECTION_TITLE,
-)
+from my_agent_crew.texts import USER_FACTS_SECTION_TITLE, USER_MD_SECTION_TITLE
 
 MAX_SECTION_CHARS = 24000
 # The user sections ride along in every agent's prompt, so they stay far smaller.
@@ -93,26 +89,15 @@ def bootstrap_sections(
     return sections
 
 
-def turn_tail_sections(
-    profile: AgentProfile,
-    today: date | None = None,
-    previous_summary: str = "",
-    previous_at: str = "",
-) -> list[tuple[str, str]]:
-    """What changes between turns: the summary of the previous conversation and the notes
-    of yesterday and today. They go at the end of the prompt so an edit to them, or the
-    turn of a day, invalidates only the tail of the cached prefix and not all of it.
-    """
+def daily_note_sections(profile: AgentProfile, today: date | None = None) -> list[tuple[str, str]]:
+    """(title, body) of the notes of yesterday and today, the body empty for a day with no
+    note. One line saved to them changes their text, so they are not in the system prompt:
+    a turn reads them in front of the message that opens it (`agent/turn_notes.py`)."""
     today = today or date.today()
     sections: list[tuple[str, str]] = []
-    if previous_summary.strip():
-        title = PREVIOUS_SUMMARY_SECTION_TITLE.format(when=previous_at or "?")
-        sections.append((title, previous_summary.strip()))
     for day in (today - timedelta(days=1), today):
         path = daily_note_path(profile.memory_dir, day)
-        body = _read_capped(path)
-        if body:
-            sections.append((f"memory/{path.name}", body))
+        sections.append((f"memory/{path.name}", _read_capped(path) or ""))
     return sections
 
 

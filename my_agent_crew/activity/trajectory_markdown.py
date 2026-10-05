@@ -65,8 +65,10 @@ def _blocks(messages: list[dict[str, Any]]) -> list[str]:
         if message["role"] == "tool":
             lines += [fenced(message["content"]), ""]
             continue
-        if message.get("context"):
-            lines += [fenced(message["context"]), ""]
+        # In the order the model read them: its memory, the canvas note, the message.
+        for ahead in ("turn_notes", "context"):
+            if message.get(ahead):
+                lines += [fenced(message[ahead]), ""]
         if message["content"]:
             lines += [_closed(message["content"]), ""]
         for call in message["tool_calls"]:

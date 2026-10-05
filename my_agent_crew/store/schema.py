@@ -128,6 +128,10 @@ ADDED_COLUMNS = (
     # last looked, the passage they selected), sent to the model ahead of `content` but kept
     # apart from it, so search and the chat bubble show only what the person wrote.
     ("messages", "context", "TEXT NOT NULL DEFAULT ''"),
+    # What a message that opens a turn tells of the agent's memory that changed since the
+    # conversation was last told (`agent/turn_notes.py`), as JSON; '' on a message nobody
+    # looked at for it.
+    ("messages", "turn_notes", "TEXT NOT NULL DEFAULT ''"),
     # On a delegated child, the conversation at the root of its chain and where the turn
     # that opened the chain came from; "" on a conversation a person or a job opened.
     # Set once when the child opens: which canvases it reaches, and whether it may

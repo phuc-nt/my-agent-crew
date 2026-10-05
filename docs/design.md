@@ -275,6 +275,22 @@ một job theo lịch ghi đè profile của người dùng bằng một phỏng
 Cùng lý lẽ đó khiến **hợp nhất** — lần ghi lại `MEMORY.md` theo lịch từ các ghi chú gần đây —
 là một đề xuất giữ lại văn bản nó thay thế, nên lùi một bước luôn khả thi.
 
+**Phần đổi theo lượt đứng cạnh tin, không đứng trong system prompt.** Ghi chú hôm qua, hôm nay
+và tóm tắt cuộc trước từng khép system prompt. Đo trên mười ngày của bộ cài thật: lần gọi model
+ngay sau một `memory_save` chỉ còn 15,1% token prompt được provider tính giá cache, so với
+85,5% ở các lần gọi khác, vì một dòng ghi chú mới đổi văn bản đứng trước toàn bộ cuộc trò
+chuyện. Số lần như vậy ít (4 trên 334 lần gọi, khoảng 1,6% token prompt), nên đây là sửa một
+chỗ sai về cấu trúc hơn là một khoản tiết kiệm lớn. Nay hai thứ đó được lưu cùng tin mở lượt và model đọc ngay trước tin ấy, mỗi lần chỉ
+phần đã đổi, nên system prompt giống nhau từ lượt này sang lượt khác và lịch sử là một prefix
+chỉ dài thêm. Ba lựa chọn đáng ghi lại. Dòng ngày ở lại cuối system prompt: nó đổi một lần mỗi
+ngày, mất cache một lần mỗi ngày là cái giá nhỏ để model luôn thấy ngày ở một chỗ cố định. Khối
+được lưu lúc INSERT và không bao giờ sửa, đúng như ghi chú canvas, nên những gì model đã đọc
+không đổi dưới chân nó và một cuộc trò chuyện đang dở lúc nâng cấp vẫn đọc đủ trí nhớ (cuộc
+không có tin nào mang khối thì đọc bản hiện tại trước tin đầu). Và một lượt không đọc lại
+ghi chú chính nó vừa ghi: nó đã biết qua lần gọi tool, còn chèn lại trước tin đang mở lượt
+chính là thứ làm vỡ cache. Cách dựng khối:
+[system-architecture.md](system-architecture.md#6-ngữ-cảnh-đi-vào-trí-nhớ-đi-ra).
+
 ## Activity hub và run
 
 Mọi lượt model — chat, tiếp tục sau duyệt, prompt theo lịch, command theo lịch — là một **run**.

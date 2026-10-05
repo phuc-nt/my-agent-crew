@@ -30,9 +30,9 @@ from my_agent_crew.texts_fork import FORK_TITLE_SUFFIX
 # fine here, an UPDATE never is.
 _COPY_MESSAGES = """
 INSERT INTO messages (conversation_id, seq, role, content, tool_calls, tool_call_id, name,
-                       model, created_at, context)
+                       model, created_at, context, turn_notes)
 SELECT ?, ROW_NUMBER() OVER (ORDER BY seq), role, content, tool_calls, tool_call_id, name,
-       model, created_at, context
+       model, created_at, context, turn_notes
 FROM messages WHERE conversation_id = ? AND seq < ? ORDER BY seq
 """
 # The marks of what was seen, read and told start again at 0 from the column defaults.

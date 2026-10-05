@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import sqlite3
 import threading
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -118,10 +118,12 @@ class QueueStore:
             ).fetchall()
         return [row[0] for row in rows]
 
-    def deliver(self, conv_id: str, ids: Sequence[int]) -> list[QueuedItem]:
-        """Moves these waiting messages into the conversation's log as one user message.
-        Returns what moved: fewer than asked when a row was already taken, none when all were.
-        """
+    def deliver(
+        self, conv_id: str, ids: Sequence[int], turn_notes: Callable[[], str] | None = None
+    ) -> list[QueuedItem]:
+        """Moves these waiting messages into the conversation's log as one user message,
+        stored with what `turn_notes` builds. Returns what moved: fewer than asked when a
+        row was already taken, none when all were."""
         if not ids:
             return []
         marks = ", ".join("?" * len(ids))
@@ -146,6 +148,7 @@ class QueueStore:
                         _stamp(),
                         note_source=items[0].source,
                         request_ids=[item.request_id for item in items],
+                        turn_notes=turn_notes,
                     )
                 else:
                     self._conn.commit()
@@ -154,11 +157,13 @@ class QueueStore:
                 raise
         return items
 
-    def take_steers(self, conv_id: str) -> list[QueuedItem]:
+    def take_steers(
+        self, conv_id: str, turn_notes: Callable[[], str] | None = None
+    ) -> list[QueuedItem]:
         """Delivers the conversation's waiting steers, leaving its follow-ups in line."""
         with self._lock:
             steers = [item.id for item in self.peek_all(conv_id) if item.kind == STEER]
-            return self.deliver(conv_id, steers)
+            return self.deliver(conv_id, steers, turn_notes)
 
     def take_all(self, conv_id: str) -> list[QueuedItem]:
         """Removes every waiting message without delivering it: the sender withdrew them, or

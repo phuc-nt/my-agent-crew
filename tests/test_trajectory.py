@@ -8,6 +8,7 @@ from my_agent_crew.activity.trajectory import RESULT_LIMIT, build
 from my_agent_crew.activity.trajectory_markdown import to_markdown
 from my_agent_crew.agent.loop import run_turn
 from my_agent_crew.agent.resume import resolve_approval
+from my_agent_crew.agent.turn_notes import render
 from my_agent_crew.artifacts.diff import fenced
 from my_agent_crew.config import Route
 from my_agent_crew.llm.fake import completion
@@ -289,6 +290,31 @@ def test_the_markdown_keeps_the_title_on_one_line_and_closes_a_block_left_open(s
     assert "Đây:\n```python\nprint(1)\n```\n\n### #3" in markdown
     # A block that closes itself, and code written inline, are left as they were.
     assert "Dùng ```x``` nhé:\n```\nok\n```\n\n### #4" in markdown
+
+
+def test_a_message_read_after_the_agents_memory_carries_it_with_secrets_covered(store: Store):
+    """As the model read it: the block, then the canvas note, then the message. A message
+    that told nothing has no such field."""
+    conv = store.create()
+    run = run_from(store, conv.id, 0)
+    secret = "note-secret-" + "klmnopqrstuvwxyz" * 2
+    section = {"key": "memory/2026-10-06.md", "title": "memory/2026-10-06.md", "mode": "whole"}
+    section |= {"body": f"- 07:00 mật khẩu {secret}", "chars": 60, "digest": "0" * 16}
+    raw = json.dumps({"sections": [section]}, ensure_ascii=False)
+    store.append(conv.id, Message(role="user", content="tiếp nhé"), turn_notes=lambda: raw)
+    nothing = '{"sections": []}'
+    store.append(conv.id, Message(role="user", content="nữa"), turn_notes=lambda: nothing)
+
+    data = build(store, run, secrets=[secret])
+
+    block = render(raw).replace(secret, TRAJECTORY_REDACTED)
+    first, second = data["messages"]
+    assert secret in render(raw) and first["turn_notes"] == block
+    assert first["content"] == "tiếp nhé" and "turn_notes" not in second
+    heading = f"### #{first['seq']} · {TRAJECTORY_ROLES['user']}"
+    assert f"{heading}\n\n{fenced(block)}\n\ntiếp nhé\n" in to_markdown(data)
+    first["context"] = "ghi chú canvas"
+    assert f"{fenced(block)}\n\n{fenced('ghi chú canvas')}\n\ntiếp nhé\n" in to_markdown(data)
 
 
 def test_a_message_read_after_a_canvas_note_carries_the_note_with_secrets_covered(store: Store):

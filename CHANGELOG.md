@@ -24,6 +24,21 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 - When the server stops under a Telegram turn, the bot now says the turn will be carried on once
   the server is back, instead of saying it was cut off. A bot restarted while the server stays
   up still says the turn was cut off, since nothing will carry it on.
+- The summary of the previous conversation and the daily notes of yesterday and today are no
+  longer part of the system prompt. A turn reads them in a framed block in front of the message
+  that opens it, stored with that message, and a later message carries only what changed since:
+  the lines added to a note, the new text of one that was rewritten, or a line saying a note is
+  gone. One `memory_save` used to change the text in front of the whole conversation, so the
+  provider's cache of everything said so far was lost: on the owner's install the model call
+  right after a `memory_save` had 15.1% of its prompt tokens billed as cached, against 85.5% for
+  the others (4 of 334 calls in ten days). The system prompt now changes only with the date,
+  and the history is a prefix that only grows. A turn learns of a note it saved itself from its
+  own tool call; the conversation is told with the next message that opens a turn. A
+  conversation begun before this reads the memory as it is now in front of its first message
+  until its next message is stored. `GET /api/agents/{id}/prompt` also returns `opening` and
+  `opening_chars`, what a new conversation's first message would be read after, and the agent
+  editor shows it under the prompt; a run's trajectory carries each message's block as
+  `turn_notes`. The messages the web is sent are unchanged.
 
 ### Added
 

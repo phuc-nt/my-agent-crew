@@ -12,9 +12,12 @@ import pytest
 from fastapi.testclient import TestClient
 
 from my_agent_crew.agent.prompt import system_prompt_for, turn_messages
+from my_agent_crew.agent.turn_notes import notes_for
 from my_agent_crew.config import load_settings
+from my_agent_crew.llm.types import Message
 from my_agent_crew.server.app import create_app
 from my_agent_crew.server.runtime_build import build_runtime
+from tests.turn_notes_helpers import EARLY, WHOLE, before, framed, told, write_note
 
 
 @pytest.fixture
@@ -52,9 +55,33 @@ def test_the_preview_matches_what_the_loop_sends_for_a_real_conversation(crew) -
     sent = turn_messages(deps, deps.store.get(conv.id), [])[0].content
     preview = client.get("/api/agents/default/prompt").json()["prompt"]
 
-    # A fresh conversation attaches no skills and has no previous session to summarise,
-    # so the standing prompt and the turn's prompt are the same text.
+    # A fresh conversation attaches no skills, so the standing prompt and the turn's prompt
+    # are the same text.
     assert sent == preview
+
+
+def test_the_preview_reports_what_a_new_conversation_is_first_told_of_the_agents_memory(
+    crew,
+) -> None:
+    """The daily notes are read in front of the first message and are not in the prompt, so
+    the screen is given them apart, as the turn's own builder would store them."""
+    client, runtime, _ = crew
+    deps = runtime.deps_for("default")
+    assert client.get("/api/agents/default/prompt").json()["opening"] == ""
+
+    title = write_note(deps, EARLY)
+    reported = client.get("/api/agents/default/prompt").json()
+
+    assert reported["opening"] == framed(told(WHOLE, title, EARLY))
+    assert reported["opening_chars"] == len(reported["opening"])
+    assert "dậy sớm" not in reported["prompt"] and reported["chars"] == len(reported["prompt"])
+    # The same text a real first message is read after.
+    conv = deps.store.create(agent_id="default", channel="", title="thử")
+    opening = deps.store.append(
+        conv.id, Message(role="user", content="chào"), turn_notes=lambda: notes_for(deps, conv.id)
+    )
+    sent = turn_messages(deps, deps.store.get(conv.id), [opening])[1].content
+    assert sent == before("chào", told(WHOLE, title, EARLY)) == f"{reported['opening']}\n\nchào"
 
 
 def test_an_agent_that_has_written_no_persona_still_offers_every_file_to_write(crew) -> None:
