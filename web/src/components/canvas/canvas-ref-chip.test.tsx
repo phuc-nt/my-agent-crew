@@ -69,6 +69,18 @@ describe("a line of a reply that sends a canvas", () => {
     expect(canvas.verify.mock.calls).toEqual([[PLAN], [NOTE]]);
   });
 
+  it("asks about the same canvas again when the thread hands it another way to ask", () => {
+    // What was asked through the first way is not known to the second, which would never say the canvas is gone.
+    const first = links();
+    const view = show(PLAN, first);
+    const next = links();
+
+    view.rerender(<CanvasRefChip id={PLAN} line={LINE} canvas={next} />);
+
+    expect(first.verify).toHaveBeenCalledTimes(1);
+    expect(next.verify.mock.calls).toEqual([[PLAN]]);
+  });
+
   it("says a canvas the server no longer has is deleted, by its name, with nothing to open", () => {
     const canvas = links({ titles: { [PLAN]: "Kế hoạch tuần" }, gone: [PLAN] });
     show(PLAN, canvas);

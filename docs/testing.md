@@ -3992,9 +3992,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
   - vitest, chip: `web/src/components/canvas/canvas-ref-chip.test.tsx` (tên thread đang giữ, biểu
     tượng, đúng một nút và nút gọi đúng mã; không in lại dòng hay mã; chưa biết tên thì là "Canvas"
     và vẫn mở được; ký tự ẩn được viết ra; `verify` được gọi một lần, vẽ lại không gọi lại, đổi mã
-    thì gọi lại; canvas đã xoá còn tên và "Canvas đã bị xoá", không nút; mã rỗng thì "Canvas đã bị
-    xoá", không nút, không hỏi `verify`, `titleOf` hay `isGone`; không có đường mở canvas thì là
-    đúng dòng đã viết, trong một đoạn chữ)
+    thì gọi lại, và được đưa một `verify` khác thì hỏi lại qua `verify` ấy; canvas đã xoá còn tên
+    và "Canvas đã bị xoá", không nút; mã rỗng thì "Canvas đã bị xoá", không nút, không hỏi `verify`,
+    `titleOf` hay `isGone`; không có đường mở canvas thì là đúng dòng đã viết, trong một đoạn chữ)
   - vitest, cả app: `web/src/app-canvas-ref-chip.test.tsx` (câu trả lời đã lưu: chip mang tên canvas
     và bấm thì canvas mở cạnh thread; bấm lúc khung "đang viết" của một canvas khác đang hiện thì
     khung ấy rời đi, panel hiện canvas của chip và thẻ "đang viết" vẫn còn; canvas không gắn với
