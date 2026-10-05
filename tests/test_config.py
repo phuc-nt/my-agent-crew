@@ -126,6 +126,9 @@ def test_no_web_address_reads_as_empty(value):
         ("http://h_h/", "http://h_h"),  # the name of a compose service
         ("http://[2001:DB8::ff00:42]", "http://[2001:DB8::ff00:42]"),
         ("http://[::ffff:10.0.0.7]:80/", "http://[::ffff:10.0.0.7]:80"),
+        ("http://h/?", "http://h"),  # a mark with nothing after it names no query or fragment
+        ("http://h/app/#", "http://h/app"),
+        ("\thttp://h?#\n", "http://h"),
     ],
 )
 def test_a_web_address_keeps_its_scheme_host_port_and_path_without_the_last_slash(value, kept):

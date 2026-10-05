@@ -3945,7 +3945,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `tests/test_config.py::test_no_web_address_reads_as_empty`;
     `tests/test_config.py::test_a_web_address_keeps_its_scheme_host_port_and_path_without_the_last_slash`
     (`127.0.0.1`, `localhost`, tên miền có cổng, tên có gạch nối và gạch dưới, IPv6 trong ngoặc
-    vuông kể cả dạng bọc IPv4);
+    vuông kể cả dạng bọc IPv4; khoảng trắng ở hai đầu và dấu `?` hay `#` không có gì theo sau
+    được bỏ đi cùng dấu `/` cuối);
     `tests/test_config.py::test_a_web_address_that_is_not_a_plain_one_is_refused` (scheme khác
     `http`/`https`, thiếu scheme, thiếu host, có tên đăng nhập, query, fragment, khoảng trắng và ký
     tự ẩn ở path lẫn ở host, ký tự điều khiển đứng đầu mà phép tách địa chỉ sẽ lặng lẽ bỏ, nửa
