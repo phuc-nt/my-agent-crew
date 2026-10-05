@@ -7,8 +7,10 @@
  *
  * Focus follows the person: opening moves it into the dock unless something there took it
  * already, a move inside the dock picks it up only when it was dropped, and closing gives it back
- * to the Canvas button when it was in the dock or nowhere. A canvas opened without being asked for
- * (quietly) leaves it where it is, even when it was nowhere: the person is typing in the chat.
+ * when it was in the dock or nowhere: to where it was as the dock opened, a card's button in the
+ * thread or the chat box, while that is still in the document, and to the Canvas button otherwise.
+ * A canvas opened without being asked for (quietly) leaves it where it is, even when it was
+ * nowhere: the person is typing in the chat.
  *
  * A canvas the agent is still writing stands in the dock before whatever the dock holds, which
  * waits behind it unseen and unchanged; with nothing held, the dock shows for it all the same. It
@@ -16,7 +18,7 @@
  * went with it.
  */
 
-import { type CSSProperties, type ReactNode, type RefObject, useEffect, useRef } from "react";
+import { type CSSProperties, type ReactNode, type RefObject, useEffect, useLayoutEffect, useRef } from "react";
 import type { CanvasDock, DockView } from "../../hooks/use-canvas-dock";
 import { useCanvasWidth } from "../../hooks/use-canvas-width";
 import { routeHash } from "../../hooks/use-route";
@@ -36,7 +38,7 @@ type Props = {
   activity: ReactNode;
   connected: boolean;
   agentName(id: string): string;
-  /** The Canvas button, which focus goes back to on closing. */
+  /** The Canvas button, which focus goes back to on closing when what opened the dock cannot take it. */
   trigger: RefObject<HTMLButtonElement | null>;
   /** Asks the agent about a passage of the open canvas; where it is absent, no way to ask is offered. */
   onAsk?: CanvasPanelProps["onAsk"];
@@ -54,6 +56,14 @@ type Shown = DockView | "writing";
 
 function useDockFocus(root: RefObject<HTMLDivElement | null>, trigger: Props["trigger"], view: Shown, quiet: boolean) {
   const was = useRef(view);
+  const opener = useRef<HTMLElement | null>(null);
+  // Read before anything in the opening dock takes the keyboard, which the effects below it do.
+  useLayoutEffect(() => {
+    if (was.current !== "closed" || view === "closed") return;
+    const active = document.activeElement;
+    const outside = active instanceof HTMLElement && active !== document.body && !root.current?.contains(active);
+    opener.current = outside ? active : null;
+  }, [root, view]);
   useEffect(() => {
     const before = was.current;
     was.current = view;
@@ -63,7 +73,8 @@ function useDockFocus(root: RefObject<HTMLDivElement | null>, trigger: Props["tr
     const node = root.current;
     if (view === "closed") {
       // The activity shows again where the canvas being written stood: the keyboard may be in it.
-      if (dropped || (before !== "writing" && node?.contains(active))) trigger.current?.focus();
+      const back = opener.current?.isConnected ? opener.current : trigger.current;
+      if (dropped || (before !== "writing" && node?.contains(active))) back?.focus();
     } else if ((!quiet || before === "writing") && (dropped || (before === "closed" && !node?.contains(active)))) {
       node?.querySelector<HTMLElement>(FIRST_CONTROL)?.focus();
     }

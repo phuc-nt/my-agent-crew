@@ -1580,9 +1580,16 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `html` hiện mã nguồn và không gì trong nó chạy; markdown vẽ như canvas đã lưu; loại lạ là chữ;
     tiêu đề theo đúng giới hạn của canvas đã lưu);
     `web/src/app-canvas-writing-narrow.test.tsx` (màn hẹp chỉ có thẻ; bấm xem thì khung phủ chat
-    và bàn phím ở nút đóng; Escape hoặc đường quay lại trả chat, bàn phím về nút Canvas; Escape
-    rời khung trước rồi mới cất canvas dock đang giữ; canvas thật phủ chat khi người đang xem, và
+    và bàn phím ở nút đóng; Escape, nút đóng hoặc đường quay lại trả chat, bàn phím về đúng nút
+    của thẻ đã mở khung chứ không về nút Canvas; Escape rời khung trước rồi mới cất canvas dock
+    đang giữ; canvas thật phủ chat khi người đang xem, và
     không phủ khi họ không xem);
+    `web/src/components/canvas/canvas-dock-opener.test.tsx` (dock ở cả hai dạng, lớp phủ và cột:
+    lúc dock mở, hook nhớ bàn phím đang ở đâu ngoài dock, và lúc đóng trả về đó nếu chỗ ấy còn
+    trong trang: nút của thẻ trong luồng, với bản đang viết lẫn canvas đã lưu; ô chat khi một lần
+    chạm không lấy bàn phím đã mở dock; nút ấy không còn thì về nút Canvas; bàn phím không ở đâu
+    lúc mở thì về nút Canvas, không về nút của một lần mở trước; người đã tự đưa bàn phím về ô
+    chat trước khi đóng thì nó ở yên đó);
     `web/src/app-canvas-writing-keyboard.test.tsx` (luật tự hiện hỏi `typing()` của dock chứ không
     hỏi `editing()`: bàn phím ở một nút của canvas đang mở, ở một tab của cột, trong danh sách
     canvas hay trong cột hoạt động khi chưa mở gì, không gõ chữ nào, thì bản đang viết vẫn chỉ là
@@ -1606,7 +1613,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     đầu thì không, vì vùng cuộn là thân khung như với markdown được vẽ chứ không phải khối mã;
     người cuộn lên rồi thì 150 dòng kế không kéo khung xuống nữa; điện
     thoại 390×844: chỉ có thẻ cho tới khi chạm, khung phủ cả màn, nút cao ít nhất 40 px, Escape
-    rời khung); `web/e2e/canvas-writing-card.spec.ts` (dòng trạng thái của thẻ: ở 390 px kích
+    rời khung và bàn phím về nút của thẻ, mở bằng Enter rồi đóng bằng nút đóng cũng về nút ấy);
+    `web/e2e/canvas-writing-card.spec.ts` (dòng trạng thái của thẻ: ở 390 px kích
     thước xuống hàng riêng và hàng ấy không mở đầu bằng dấu chấm ngăn cách, dấu chấm nằm ngoài
     vùng dòng được vẽ; ở 1440 px chữ và kích thước cùng một hàng, dấu chấm hiện trọn giữa hai
     phần). Luồng còn mở của các test này dựng bằng `web/src/test/canvas-writing-turn.ts`
@@ -3044,7 +3052,7 @@ tên một test thì sửa dòng của nó trong cùng commit.
     có nút)
   - Playwright: `canvas-thread.spec.ts` (ở 1440 px canvas agent tạo mở bên cạnh thread trong khi bàn
     phím ở ô soạn tin, nút Mở của thẻ đưa canvas đã đóng trở lại; ở 390 px thẻ có nút Mở và một lần
-    chạm phủ canvas lên thread); `touch-targets-phone.spec.ts` ("the canvas card's Open button and the
+    chạm phủ canvas lên thread, Escape cất canvas và bàn phím về nút Mở ấy); `touch-targets-phone.spec.ts` ("the canvas card's Open button and the
     note chip in the thread are big enough for a finger": ≥40px mỗi chiều ở 390 px)
 - **Chọn một đoạn của canvas rồi hỏi agent về đoạn ấy: tin gửi đi mang đoạn trích đúng các dòng người đã
   chọn, ở chế độ Sửa lẫn chế độ Xem**
@@ -4035,7 +4043,7 @@ tên một test thì sửa dòng của nó trong cùng commit.
     1440 px chip của một canvas tên ngắn là một khung nhỏ, hẹp hơn nửa bề ngang câu trả lời, nên bỏ
     luật `.bubble .canvas-ref` thì chip thành một thanh ngang suốt câu trả lời và test đỏ; ở 390 px
     `smallTargets(page, ".canvas-ref")` rỗng, nút cao ít nhất 40 px và chạm thì canvas phủ lên
-    thread; tiêu đề một từ rất dài thì chính tiêu đề xuống dòng trong câu trả lời, nút vẫn nguyên
+    thread, Escape cất canvas và bàn phím về nút của chip; tiêu đề một từ rất dài thì chính tiêu đề xuống dòng trong câu trả lời, nút vẫn nguyên
     một dòng và không chỗ nào tràn ngang)
 - **Mã agent khớp cả chuỗi: chữ thường, số và gạch ngang, không cả xuống dòng ở cuối**
   - pytest: `tests/test_api_agents_edit.py::test_an_id_that_is_not_a_safe_folder_name_is_refused`

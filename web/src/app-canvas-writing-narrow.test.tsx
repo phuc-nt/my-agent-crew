@@ -82,7 +82,7 @@ describe("a canvas the agent is writing on a screen too narrow to hold it beside
     expect(bodies(backend)).toEqual([{ text: "viết kế hoạch tuần" }]);
   });
 
-  it("is left with Escape, which gives back the chat and puts the keyboard on the Canvas button", () => {
+  it("is left with Escape, which gives back the chat and puts the keyboard back on the card's button", () => {
     ask();
 
     fireEvent.keyDown(document.body, { key: "Escape" });
@@ -90,11 +90,11 @@ describe("a canvas the agent is writing on a screen too narrow to hold it beside
     expect(frame()).toBeNull();
     expect(overlay()).toBeNull();
     expect(main()).not.toHaveAttribute("inert");
-    expect(canvasToggle()).toHaveFocus();
+    expect(showButton()).toHaveFocus();
     expect(writingCards()).toHaveLength(1);
   });
 
-  it("is left by the way back to the chat", () => {
+  it("is left by the way back to the chat and by its own close button, the keyboard going back to the card's button", () => {
     ask();
 
     fireEvent.click(screen.getByRole("button", { name: vi.canvas.backToChat }));
@@ -102,6 +102,13 @@ describe("a canvas the agent is writing on a screen too narrow to hold it beside
     expect(frame()).toBeNull();
     expect(overlay()).toBeNull();
     expect(main()).not.toHaveAttribute("inert");
+    expect(showButton()).toHaveFocus();
+
+    ask();
+    fireEvent.click(closeButton());
+
+    expect(frame()).toBeNull();
+    expect(showButton()).toHaveFocus();
   });
 
   it("is left by Escape for the canvas the dock held, which Escape then puts away", async () => {

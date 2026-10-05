@@ -154,6 +154,10 @@ test.describe("on a phone", () => {
 
     await expect(page.getByRole("region", { name: vi.canvas.button })).toBeVisible();
     await expect(page.getByRole("heading", { level: 2, name: TITLE })).toBeVisible();
+
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("region", { name: vi.canvas.button })).toHaveCount(0);
+    await expect(open).toBeFocused();
   });
 
   test("the chip of a line that sends a canvas is big enough for a finger, and a tap covers the thread with the canvas", async ({ page }) => {
@@ -167,6 +171,10 @@ test.describe("on a phone", () => {
 
     await expect(page.getByRole("region", { name: vi.canvas.button })).toBeVisible();
     await expect(page.getByRole("heading", { level: 2, name: TITLE })).toBeVisible();
+
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("region", { name: vi.canvas.button })).toHaveCount(0);
+    await expect(open).toBeFocused();
   });
 
   test("a chip named in one long word wraps inside its reply, and keeps a button a finger can press", async ({ page }) => {

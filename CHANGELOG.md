@@ -222,8 +222,11 @@ scheduled jobs as an attached file with a list of what the turn wrote.
   while they are written, and so does markdown of 100 000 characters or more, with a line saying so.
   Drawn or shown as source, the text keeps its newest line in sight until the person scrolls up. The
   preview does not come up by itself while the keyboard is anywhere in the canvas column, and once
-  the person puts it away by hand, every canvas written in the rest of that turn stays a card. A
-  switch on the Settings page turns the preview off for the device. Only `artifact_create` and
+  the person puts it away by hand, every canvas written in the rest of that turn stays a card.
+  Closing the preview, or a saved canvas opened from a card or a chip in the thread, puts the
+  keyboard back where it was when that opened, the button pressed or the chat box, and on the
+  Canvas button only when that is gone. A switch on the Settings page turns the preview off for the
+  device. Only `artifact_create` and
   `artifact_rewrite` are previewed; the arguments of no other tool are streamed. The offline
   `fake:slow` model answers as `fake:echo` does, with 0.1 seconds between two pieces, so a canvas
   can be watched filling in without a model key.

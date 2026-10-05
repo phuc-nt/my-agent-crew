@@ -137,6 +137,13 @@ test.describe("on a phone", () => {
 
     await expect(frame(page)).toHaveCount(0);
     await expect(page.getByRole("region", { name: vi.canvas.button })).toHaveCount(0);
-    await expect(show).toBeVisible();
+    await expect(show).toBeFocused();
+
+    // Opened from the keyboard and left by the frame's own button, it is the same way back.
+    await page.keyboard.press("Enter");
+    await expect(close).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(frame(page)).toHaveCount(0);
+    await expect(show).toBeFocused();
   });
 });
