@@ -2630,7 +2630,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     sends as the canvas they have open", "does not take the panel from a canvas the person has the
     keyboard in", "does not take the panel from a canvas the person has the keyboard on a button of,
     and still opens from its card" (bàn phím ở nút "Xem" chứ không ở ô soạn của canvas: canvas mới
-    không tự mở, bàn phím ở nguyên, nút Mở trên thẻ vẫn mở nó), "opens only the once, however the
+    không tự mở, bàn phím ở nguyên, nút Mở trên thẻ vẫn mở nó), "does not take the panel for a file
+    read into a new canvas either, with the keyboard on a tab of the dock, and still opens from its
+    card" (lệnh `artifact_import` tạo canvas mới lúc bàn phím ở tab "Hoạt động" của dock: cũng không
+    tự mở, bàn phím ở nguyên, nút Mở trên thẻ vẫn mở nó), "opens only the once, however the
     person goes from the chat to the crew and back", "opens when its call ends after the person left
     the chat mid-turn and came back" (lệnh tạo đang chờ duyệt, người sang Quản lý rồi về chat và cho
     phép: canvas mở cạnh thread khi lệnh xong, không lần ghi "canvas đang mở" nào);
@@ -3329,7 +3332,14 @@ tên một test thì sửa dòng của nó trong cùng commit.
     không tự mở; chờ lệnh xong, lệnh hỏng hay bị từ chối thì không; `artifact_export` không bao giờ
     tự mở dù kết quả viết gì; "does not open for an import the conversation's saved history holds,
     only for one of this turn": lệnh nhập đã nằm trong lịch sử server trả về thì không tự mở, lệnh
-    nhập của lượt này thì mở); `web/src/components/tool-call-card-canvas.test.tsx` ("keeps the plain
+    nhập của lượt này thì mở; "a file read into a new canvas while the person has the keyboard
+    inside the dock": dock nói bàn phím đang ở trong nó thì canvas vừa nhập không tự mở, bàn phím
+    rời đi rồi cũng không, lệnh nhập kế tiếp thì mở, còn nhập vào canvas có nêu thì không hỏi bàn
+    phím ở đâu; "a file still being read into a new canvas when the screen was drawn, as when the
+    person comes back to the chat mid-turn": lệnh nhập còn chạy hay còn chờ duyệt lúc màn hình được
+    vẽ thì xong là mở `{ quiet: true }`, trừ khi lịch sử server trả về có lệnh ấy, lệnh kết thúc
+    hỏng hay bị từ chối, hoặc lúc ấy bàn phím đang trong dock; lệnh nhập đã xong lúc màn hình được
+    vẽ thì không tự mở); `web/src/components/tool-call-card-canvas.test.tsx` ("keeps the plain
     card for a canvas written out to a file, which shows the canvas and the file it names": lệnh
     xuất giữ thẻ thường khi chờ duyệt, đang chạy và đã xong, nên người duyệt thấy `id` và `path`; bốn
     lệnh ghi, kể cả nhập, thành thẻ canvas); `web/src/components/canvas/canvas-history.test.tsx`

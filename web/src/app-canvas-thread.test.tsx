@@ -24,19 +24,23 @@ afterEach(stopServer);
 const plan = () =>
   backend.canvas.add({ id: PLAN, title: TITLE, agent_id: "master", content: WRITE.content, conversationIds: ["c1"] });
 
+/** The call that makes the canvas: written by the agent, unless a test has it read from a file. */
+const CREATE = { name: "artifact_create", arguments: WRITE as Record<string, unknown>, output: TAGGED };
+const IMPORT = { name: "artifact_import", arguments: { path: "notes/ke-hoach.md" }, output: `[artifact ${PLAN} v1]\nImported.` };
+
 /** A turn in which the agent makes the canvas and says so, as the server streams it. */
-const createTurn = (): AgentEvent[] => [
+const createTurn = ({ name, arguments: args, output } = CREATE): AgentEvent[] => [
   {
     type: "assistant_message",
     message_id: "a1",
     content: "",
-    tool_calls: [{ id: "w1", name: "artifact_create", arguments: WRITE }],
+    tool_calls: [{ id: "w1", name, arguments: args }],
     provider: null,
     model: null,
     cost_usd: null,
   },
-  { type: "tool_call", tool_call_id: "w1", name: "artifact_create", arguments: WRITE },
-  { type: "tool_result", tool_call_id: "w1", name: "artifact_create", ok: true, output: TAGGED },
+  { type: "tool_call", tool_call_id: "w1", name, arguments: args },
+  { type: "tool_result", tool_call_id: "w1", name, ok: true, output },
   {
     type: "assistant_message",
     message_id: "a2",
@@ -125,6 +129,27 @@ describe("a canvas the agent makes in a turn this tab is showing", () => {
     expect(panelTitle()).toBeNull();
     expect(panelTitle("Ghi chú")).toBeInTheDocument();
     expect(view).toHaveFocus();
+
+    fireEvent.click(openButton());
+    await landed();
+
+    expect(panelTitle()).toBeInTheDocument();
+    expect(panelTitle("Ghi chú")).toBeNull();
+  });
+
+  it("does not take the panel for a file read into a new canvas either, with the keyboard on a tab of the dock, and still opens from its card", async () => {
+    await openChat(1440);
+    await openNote();
+    plan();
+    const tab = screen.getByRole("tab", { name: vi.canvas.tabs.activity });
+    act(() => tab.focus());
+    backend.nextTurn = createTurn(IMPORT);
+
+    await say("nhập tệp kế hoạch");
+
+    expect(panelTitle()).toBeNull();
+    expect(panelTitle("Ghi chú")).toBeInTheDocument();
+    expect(tab).toHaveFocus();
 
     fireEvent.click(openButton());
     await landed();
