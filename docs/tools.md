@@ -626,14 +626,14 @@ mcp_servers:
 
 | Khoá | Ý nghĩa |
 | --- | --- |
-| tên máy chủ | chữ, số, `-`, `_`, tối đa 32 ký tự; hai tên chỉ khác nhau ở hoa/thường hay `-`/`_` bị từ chối vì dùng chung tên biến môi trường |
-| `url` | bắt buộc, `https`. `http` chỉ cho máy chủ trên chính máy này (`localhost`, `127.0.0.1`, `::1`). Không user, mật khẩu hay `#fragment` |
+| tên máy chủ | chữ và số, có thể ngăn bằng **một** dấu `-` hoặc `_` mỗi chỗ (`my-notes`, `team_wiki`); không có dấu ở đầu, ở cuối hay hai dấu liền nhau; tối đa 32 ký tự. Một tên như `work__crm` hay `work_` bị từ chối vì nó làm tool của hai máy chủ ra cùng một tên (xem [Tên, duyệt và gọi lại](#tên-duyệt-và-gọi-lại)). Hai tên chỉ khác nhau ở hoa/thường hay `-`/`_` cũng bị từ chối, vì dùng chung tên biến môi trường |
+| `url` | bắt buộc, `https`. `http` chỉ cho máy chủ trên chính máy này (`localhost`, `127.0.0.1`, `::1`). Không user, mật khẩu hay `#fragment`. Địa chỉ được dùng và được hiện đúng như đã viết: nó **không** đọc `${TÊN_BIẾN}` (viết vậy bị từ chối, vì máy chủ sẽ nhận nguyên mấy chữ đó thay cho khoá), nên đừng đặt khoá vào địa chỉ. Máy chủ chỉ nhận khoá qua địa chỉ thì chưa dùng được |
 | `description` | một dòng cho người đọc, hiện ở Kết nối và ở ô chọn của agent |
 | `headers` | header gửi kèm mỗi request. Giá trị **phải** lấy từ môi trường, viết `${TÊN_BIẾN}`: giá trị viết thẳng bị từ chối, vì tệp này không bao giờ giữ khoá. Biến được đọc lại ở mỗi request, nên đổi khoá là có hiệu lực ngay |
 | `exposure` | mức mở mặc định cho tool của máy chủ, xem bảng dưới; mặc định `deferred` |
 | `tool_exposure` | mức mở riêng cho từng tool: tên đúng thắng, rồi tới pattern đầu tiên khớp, rồi mới tới `exposure` |
 | `read_only` | tên hoặc pattern những tool **chủ** khẳng định chỉ đọc: chạy không hỏi, và được gọi lại sau khi server khởi động lại giữa lượt |
-| `timeout` | số giây chờ một request, mặc định 60 |
+| `timeout` | số giây cho một request, tính cả lúc chờ lẫn lúc đọc câu trả lời; mặc định 60, tối đa 600. Cũng là hạn cho cả một lần kết nối (mở phiên rồi đọc hết danh sách tool) |
 
 Một lỗi trong mục này làm crew không khởi động và nói rõ khoá nào sai, như mọi lỗi khác của
 `config.yaml`. Thêm, bớt hay sửa máy chủ cần khởi động lại; đăng nhập, đổi khoá và bật máy chủ
@@ -659,7 +659,16 @@ log lúc khởi động và không chặn những sửa đổi khác của agent
 
 - **Tên.** Tool của máy chủ mang tên `mcp__<máy chủ>__<tool>`; ký tự ngoài chữ, số và `_` thành
   `_`. Tên dài quá 64 ký tự (giới hạn của provider) bị cắt và đóng bằng tám ký tự băm của tên gốc.
-  Hai tool của cùng máy chủ ra cùng một tên thì cái sau bị bỏ, và Kết nối nêu tên nó.
+  Hai tool của cùng máy chủ ra cùng một tên thì cái sau bị bỏ, và Kết nối nêu tên nó. Hai máy
+  chủ thì không bao giờ ra cùng một tên: quy tắc đặt tên máy chủ bảo đảm `mcp__<máy chủ>__<tool>`
+  chỉ đọc ngược lại được theo một cách. Điều đó quan trọng vì "luôn cho phép" được nhớ theo
+  tên này: nếu hai máy chủ chung một tên, lời cho phép dành cho tool của máy chủ này sẽ áp sang
+  tool của máy chủ kia.
+- **Giới hạn.** Crew chỉ nhận của một máy chủ tới một mức: tool có tên dài quá 128 ký tự, hoặc
+  có phần tham số lớn quá 50.000 ký tự JSON (hay lồng sâu tới mức không viết lại được), bị bỏ
+  và được nêu tên ở Kết nối như tool trùng tên; log của server ghi lý do của từng cái. Máy chủ
+  liệt kê quá 1.000 tool thì không tool nào của nó được nhận: nó ở trạng thái không kết nối
+  được, kèm đúng lý do đó. Một câu trả lời lớn hơn 4 MB bị từ chối.
 - **Duyệt.** Mọi tool MCP hỏi trước khi chạy, trừ những tool chủ ghi vào `read_only`. Máy chủ có
   thể tự nhận một tool chỉ đọc (`readOnlyHint`); lời đó được **hiện** bên cạnh tool và không
   quyết định gì, vì bên nói ra chính là bên đang được tin. Cổng duyệt, `autonomous` và
@@ -842,12 +851,33 @@ Hai cách, tuỳ máy chủ:
 - **Khoá trong header.** Khai `headers` như trên rồi đặt biến ở Quản lý → Kết nối: thẻ **Máy
   chủ MCP** liệt kê những biến mà header của các máy chủ đọc, kèm tên máy chủ dùng chúng. Lưu
   biến là crew thử lại ngay những máy chủ đang hỏng. Máy chủ từ chối khoá thì hiện "Máy chủ từ
-  chối khoá trong header Authorization.".
+  chối khoá trong header Authorization.", kể cả khi khoá bị từ chối giữa một lời gọi. Một khoá
+  có dấu xuống dòng ở giữa không gửi được trong header: lỗi nói đúng điều đó và không chép lại
+  giá trị của khoá.
 - **Đăng nhập OAuth.** Máy chủ trả lời 401 mà không có khoá riêng thì hiện "cần đăng nhập" và nút
   **Đăng nhập**. Bấm nút, crew tự đăng ký làm một ứng dụng công khai với máy chủ đăng nhập
   (RFC 7591), mở trang đồng ý của máy chủ, rồi đổi mã lấy token (OAuth 2.1, PKCE S256). Đây là
   cách Notion (`https://mcp.notion.com/mcp`) dùng. Máy chủ đăng nhập không cho tự đăng ký thì
   đặt `MCP_<MÁY_CHỦ>_CLIENT_ID` bằng client id bạn đã đăng ký tay.
+
+Một lần đăng nhập chỉ đổi điều gì đó khi bạn quay về với mã hợp lệ: bấm **Đăng nhập** rồi bỏ
+dở không đụng tới phiên đang dùng. Lúc quay về, token, client id và tên nơi đã cấp chúng được
+ghi cùng một lần, hoặc không ghi gì.
+
+Token hết hạn được gia hạn tự động bằng token làm mới, một lần cho mọi lời gọi bị từ chối
+cùng lúc. Ba điều quyết định một phiên đăng nhập còn hay mất:
+
+- **Chỉ nơi đã cấp mới nhận token làm mới.** Crew nhớ máy chủ đăng nhập nào đã cấp phiên đang
+  giữ. Nếu máy chủ MCP về sau chỉ sang một nơi đăng nhập khác, token làm mới không được gửi
+  tới đó: phiên bị bỏ, dòng của máy chủ nói nơi mới và nơi cũ, và bạn bấm Đăng nhập lại nếu
+  máy chủ thật sự đã đổi.
+- **Chỉ một lời từ chối rõ ràng mới kết thúc phiên.** Đó là khi máy chủ đăng nhập trả lời
+  `invalid_grant` hoặc `invalid_client`. Mọi trục trặc khác (mất mạng, hết giờ, lỗi 5xx, một
+  lời từ chối kiểu khác) giữ nguyên phiên; lý do hiện trên dòng của máy chủ và lần gọi sau thử
+  lại. Lúc khởi động cũng vậy: lần gia hạn hỏng tạm thời để máy chủ ở trạng thái không kết nối
+  được kèm lý do, và các vòng thử lại tự làm tiếp.
+- **Mỗi bước có hạn.** Một request của việc đăng nhập có 15 giây, cả việc tìm máy chủ đăng
+  nhập có 30 giây, tính từ lúc bắt đầu chứ không phải từ byte gần nhất.
 
 Vài ràng buộc nằm trong code và không tắt được:
 
@@ -857,25 +887,30 @@ Vài ràng buộc nằm trong code và không tắt được:
 - Mọi địa chỉ của việc đăng nhập phải là `https` và không trỏ vào mạng nội bộ; không đi theo
   chuyển hướng; máy chủ đăng nhập phải hỗ trợ PKCE S256 và tự nhận đúng tên đã khai. Máy chủ MCP
   trên mạng nội bộ hay trên chính máy này vì thế chỉ dùng khoá trong header.
+- Mã chỉ được đổi ở nơi đã phát nó. Máy chủ đăng nhập có nêu tên mình khi trả bạn về (`iss`,
+  RFC 9207) thì tên đó phải đúng là nơi bạn được gửi tới; nơi đã hứa nêu tên mà không nêu thì
+  mã bị từ chối. Lớp chắn này chỉ có tác dụng với máy chủ đăng nhập có gửi `iss`.
 - Token được giữ ở cùng chỗ với khoá của provider: tệp env trong home (chỉ chủ đọc được) và môi
-  trường của tiến trình, dưới tên `MCP_<MÁY_CHỦ>_ACCESS_TOKEN` và `MCP_<MÁY_CHỦ>_REFRESH_TOKEN`.
-  Hai biến này không hiện trong danh sách khoá và không API nào trả giá trị của chúng: về một
-  máy chủ, crew chỉ nói đã đăng nhập hay chưa. **Đăng xuất** xoá cả hai.
+  trường của tiến trình, dưới tên `MCP_<MÁY_CHỦ>_ACCESS_TOKEN`, `MCP_<MÁY_CHỦ>_REFRESH_TOKEN`
+  và `MCP_<MÁY_CHỦ>_ISSUER` (tên nơi đã cấp). Ba biến này không hiện trong danh sách khoá và
+  không API nào trả giá trị của chúng: về một máy chủ, crew chỉ nói đã đăng nhập hay chưa.
+  **Đăng xuất** xoá cả ba và giữ lại client id, vì đó là tên của crew ở máy chủ ấy.
 
 ### Trạng thái và thử lại
 
 | Trạng thái | Trên web | Nghĩa là |
 | --- | --- | --- |
 | `idle` | đang kết nối | chưa có câu trả lời của lần thử này |
-| `connected` | đã kết nối | đã mở phiên và đọc được danh sách tool |
-| `signed_out` | cần đăng nhập | máy chủ đòi đăng nhập; chỉ chủ làm được, nên crew không tự thử lại |
-| `failed` | không kết nối được | kèm lý do: thiếu biến, khoá bị từ chối, hết giờ, HTTP lỗi, trả lời sai giao thức |
+| `connected` | đã kết nối | đã mở phiên và đọc được danh sách tool. Dòng vẫn có thể mang một lý do: lần gia hạn đăng nhập gần nhất hỏng mà chưa bị từ chối hẳn |
+| `signed_out` | cần đăng nhập | máy chủ đòi đăng nhập, phiên đã bị từ chối hẳn, hoặc máy chủ chỉ sang một nơi đăng nhập khác; chỉ chủ làm được, nên crew không tự thử lại |
+| `failed` | không kết nối được | kèm lý do: thiếu biến, khoá bị từ chối, hết giờ (một request hoặc cả lần kết nối), HTTP lỗi, trả lời sai giao thức, liệt kê quá nhiều tool, gia hạn đăng nhập hỏng tạm thời |
 
 Một máy chủ hỏng là một dòng nói vì sao, không bao giờ là một crew không khởi động được. Lúc khởi
 động crew chờ các máy chủ tối đa 10 giây; cái nào chưa xong được thử tiếp ở nền, lần đầu sau 30
 giây rồi thưa dần tới 10 phút một lần, và thử ngay khi một khoá được lưu hay xoá. Nút **Kết nối
 lại** thử ngay một máy chủ. Mỗi lần một máy chủ lên, xuống hay đổi danh sách tool, từng agent
-được giao lại đúng những tool các máy chủ đang có.
+được giao lại đúng những tool các máy chủ đang có. Máy chủ bỏ phiên làm việc giữa chừng (nó
+khởi động lại, hay phiên hết hạn) thì lời gọi kế tiếp tự mở phiên mới; không cần bấm gì.
 
 ### API và màn hình
 
@@ -891,7 +926,9 @@ GET    /api/mcp/oauth/callback     → máy chủ đăng nhập trả người d
 ```
 
 Tên không có trong `config.yaml` là 404. Danh sách không bao giờ mang giá trị header hay token;
-`env` chỉ là **tên** các biến mà header đọc.
+`env` chỉ là **tên** các biến mà header đọc. `url` là địa chỉ đúng như `config.yaml` viết.
+`skipped` là tên những tool máy chủ có liệt kê mà crew không nhận (trùng tên, tên quá dài, tham
+số quá lớn); tên quá dài được cắt bớt khi hiện.
 
 - **Kết nối.** Thẻ **Máy chủ MCP** có một dòng cho mỗi máy chủ: trạng thái, địa chỉ, lý do hỏng,
   agent nào đang bật nó, các tool (mức mở, có hỏi trước không, máy chủ có tự nhận chỉ đọc không)

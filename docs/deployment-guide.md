@@ -44,7 +44,7 @@ Thử không tốn tiền: `MY_AGENT_ROUTES=fake:echo uv run python -m my_agent_
 
 Đổi home bằng `MY_AGENT_HOME`. Mỗi lần thử nghiệm nên trỏ `MY_AGENT_HOME` sang thư mục tạm thay vì đụng home thật.
 
-`config.yaml` chỉ nhận những khoá nó biết; một khoá lạ làm server dừng lúc khởi động. Máy chủ MCP khai dưới `mcp_servers` không mang bí mật nào: giá trị header lấy từ biến môi trường, còn đăng nhập OAuth từ thẻ Kết nối ghi token vào `env` dưới tên `MCP_<MÁY_CHỦ>_ACCESS_TOKEN`, `MCP_<MÁY_CHỦ>_REFRESH_TOKEN` và `MCP_<MÁY_CHỦ>_CLIENT_ID` ([tools.md](tools.md#máy-chủ-mcp)).
+`config.yaml` chỉ nhận những khoá nó biết; một khoá lạ làm server dừng lúc khởi động. Máy chủ MCP khai dưới `mcp_servers` không mang bí mật nào: giá trị header lấy từ biến môi trường, còn đăng nhập OAuth từ thẻ Kết nối ghi token vào `env` dưới tên `MCP_<MÁY_CHỦ>_ACCESS_TOKEN` và `MCP_<MÁY_CHỦ>_REFRESH_TOKEN`, kèm nơi đã cấp chúng (`MCP_<MÁY_CHỦ>_ISSUER`) và tên của crew ở nơi đó (`MCP_<MÁY_CHỦ>_CLIENT_ID`) ([tools.md](tools.md#máy-chủ-mcp)).
 
 ## 4. Biến môi trường và bí mật
 

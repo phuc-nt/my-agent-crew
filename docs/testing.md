@@ -4676,7 +4676,10 @@ hình không giữ khoá; đăng nhập OAuth chỉ bắt đầu từ chính má
     thiếu hay rỗng được nêu tên chứ không gửi rỗng; viết sai thì dừng khởi động và nói sai ở đâu; `http`
     chỉ cho máy chủ trên máy này; tên phải đặt được cho tool và cho biến; hai tên dùng chung biến bị từ
     chối; một khoá viết thẳng vào tệp làm dừng khởi động; agent không nêu máy chủ nào thì không có tool
-    nào).
+    nào; giá trị header được gửi không kèm khoảng trắng hay dấu xuống dòng quanh nó; địa chỉ được giữ
+    đúng như đã viết, còn địa chỉ nêu một biến thì bị từ chối mà không được nhắc lại; tên máy chủ là
+    các đoạn chữ và số ngăn nhau bằng một dấu mỗi chỗ, tên quá dài bị từ chối dù ghép từ gì, và không
+    hai máy chủ nào tệp nhận lại ra cùng một tên tool).
 - **một phiên với máy chủ: mỗi request gửi một lần**:
   - pytest: `tests/test_mcp_session.py` (mở phiên, đọc tool và gọi tool dù máy chủ trả JSON hay SSE;
     header đọc lại ở mỗi request; đọc tool theo trang tới khi hết, bỏ thứ không phải tool, dừng một máy
@@ -4686,7 +4689,13 @@ hình không giữ khoá; đăng nhập OAuth chỉ bắt đầu từ chính má
     được trả lời; luồng sự kiện kết thúc thiếu dòng trống vẫn cho câu trả lời; câu trả lời sai là lỗi
     model đọc được; chuyển hướng bị từ chối; câu trả lời quá lớn bị cắt khi đang đến; hết giờ và không
     với tới được đều nói rõ; phiên bản lạ thì không dùng; lời từ chối 401 mang nơi đăng nhập, được gia
-    hạn đúng một lần, và gia hạn hỏng thì lời từ chối là câu trả lời).
+    hạn đúng một lần, và gia hạn hỏng thì lời từ chối là câu trả lời; phiên không mở lại được thì lời
+    gọi kế tiếp mở, lời gọi chờ sau một lần mở hỏng tự mở lấy, phiên chưa được báo sẵn sàng không được
+    dùng, lời gọi bị dừng giữa lúc mở không để lại phiên dở, máy chủ không giữ phiên không bị mở lại ở
+    mỗi lời gọi, lời gọi trên phiên chưa từng mở thì mở trước; luồng sự kiện xuống dòng theo cả ba
+    cách, dấu xuống dòng bị cắt đôi trên đường vẫn là một, ký tự chỉ trông giống dấu xuống dòng không
+    cắt sự kiện, một dòng đến thành nhiều mảnh được ghép lại, luồng không bao giờ xuống dòng bị cắt ở
+    ngưỡng; máy chủ được liệt kê một nghìn tool và không hơn, quá số đó thì không bị hỏi phần còn lại).
 - **tool MCP là tool của agent: tên, duyệt, mức mở, kết quả**:
   - pytest: `tests/test_mcp_tools.py` (tên chỉ gồm ký tự provider nào cũng nhận, tên dài bị cắt kèm băm;
     mô tả nói tool ở máy chủ nào; mọi tool hỏi trước cho tới khi chủ ghi là chỉ đọc; tool mang mức mở
@@ -4697,7 +4706,13 @@ hình không giữ khoá; đăng nhập OAuth chỉ bắt đầu từ chính má
     chủ không agent nào biết chỉ là cảnh báo; chỉ tool `direct` được khai cho model ở mọi lần gọi; máy
     chủ không kết nối được là một dòng nói vì sao và không cản máy chủ khác; khoá thiếu được nêu tên,
     khoá bị từ chối không phải là "cần đăng nhập"; khoá trong tệp thắng phiên đăng nhập đang giữ; lần
-    thử bị cắt để máy chủ ở trạng thái còn phải thử; thứ chủ được xem không mang khoá nào).
+    thử bị cắt để máy chủ ở trạng thái còn phải thử; thứ chủ được xem không mang khoá nào; tool có tên
+    quá dài hay tham số quá lớn bị bỏ ra và được nêu tên, tên bị bỏ vì quá dài không chiếm chỗ của tên
+    nó rút gọn thành, tool vừa quá lớn vừa trùng tên được ghi là quá lớn, tham số lồng quá sâu tính là
+    quá lớn, mỗi tool bị bỏ là một dòng log dù tên nó chứa gì; giao lại thu mọi tool về trong một lần
+    dựng sổ; máy chủ liệt kê quá nhiều tool thì hỏng và nói vì sao; cả lần kết nối chỉ có thời gian
+    của một request; header không viết được bị từ chối mà không lộ giá trị),
+    `tests/test_tools_registry.py` (thu hẹp sổ theo nhiều tên một lần giữ nguyên thứ tự phần còn lại).
   - pytest: `tests/test_mcp_turns.py` (một lượt thật: tool chủ ghi chỉ đọc chạy không hỏi và chữ của nó
     là kết quả; tool khác chờ người và chỉ tới máy chủ khi được cho phép; lời gọi bị từ chối không bao
     giờ tới máy chủ; máy chủ tự nhận chỉ đọc không làm tool chạy không hỏi; model chỉ được khai tool
@@ -4715,7 +4730,22 @@ hình không giữ khoá; đăng nhập OAuth chỉ bắt đầu từ chính má
     gửi một lần, nhiều lời gọi bị từ chối cùng lúc chỉ gia hạn một lần; gia hạn bị từ chối thì máy chủ
     thành "cần đăng nhập" và không lời gọi nào được gửi lại; máy chủ đăng nhập sập hay không với tới được
     làm lời gọi hỏng mà vẫn giữ phiên; đăng xuất quên token và giữ client id; không có home thì phiên
-    đăng nhập sống theo tiến trình).
+    đăng nhập sống theo tiến trình; khoá trong tệp bị từ chối giữa lời gọi là khoá phải sửa chứ không
+    phải đăng nhập; lời gọi bị từ chối sau khi lời gọi khác đã gia hạn được gửi lại bằng token đó; chỉ
+    lời từ chối chính grant hay chính client mới kết thúc phiên đăng nhập, lỗi khác giữ phiên; token
+    mới không lưu được thì giữ phiên cũ và nói vì sao; refresh token chỉ được nói với nơi đã cấp, kể
+    cả giữa lời gọi, và không nói với ai khi không biết nơi cấp; đăng nhập bắt đầu rồi bỏ dở không đổi
+    gì của phiên đang dùng; đăng nhập ở nơi khác thay trọn phiên đang giữ; phiên mới không ghi được
+    hay không giữ được thì phiên đang dùng còn nguyên; client id chủ tự viết được để nguyên; phiên
+    không gia hạn được lúc khởi động được giữ và thử lại; máy chủ từ chối token vừa gia hạn thì cần
+    đăng nhập; mã quay về từ nơi khác không được đổi, từ đúng nơi thì được, nơi nói sẽ xưng tên thì
+    phải xưng, và nơi đăng nhập được nhận theo tên nó tự xưng; tên nơi đăng nhập và tên nơi gửi người
+    về được cắt ngắn trước khi hiện; lần gia hạn đang dở không ghi đè phiên chủ vừa mang về và không
+    đăng nhập lại sau khi chủ đăng xuất; máy chủ từng hỏng nay cần đăng nhập không còn nói là hỏng; nơi
+    cấp token, nơi đăng ký hay tài liệu dò đường trả lời nhỏ giọt thì bị bỏ, và việc dò nơi đăng nhập
+    có hạn chót dù bao nhiêu nơi trả lời muộn; đăng xuất không ghi được thì phiên còn như tệp đang
+    giữ), `tests/test_env_file.py` (nhiều tên được ghi và bỏ trong một lần thay tệp; bỏ những tên không
+    có thì không ghi gì; lần thay hỏng để tệp nguyên như cũ và không để lại gì bên cạnh).
 - **lúc khởi động và về sau: máy chủ chậm hay hỏng không giữ crew lại**:
   - pytest: `tests/test_mcp_lifecycle.py` (khởi động kết nối các máy chủ và giao tool; crew không có máy
     chủ không hỏi ai; không chờ máy chủ chậm; máy chủ hỏng lúc đầu được thử lại, thưa dần khi vẫn hỏng,
@@ -4730,7 +4760,8 @@ hình không giữ khoá; đăng nhập OAuth chỉ bắt đầu từ chính má
     sửa đổi khác; kết nối lại giao tool cho agent đang nêu máy chủ; đăng nhập từ web kết thúc với máy
     chủ đã kết nối và không token nào hiện ra; đăng xuất bỏ token và thu tool về; đăng nhập hỏng vẫn về
     đúng màn nói vì sao; callback không ai chờ không đổi gì; chỉ bắt đầu đăng nhập được từ chính máy
-    chạy crew, với tên nào của máy đó cũng được; đăng nhập không bắt đầu được thì nói vì sao),
+    chạy crew, với tên nào của máy đó cũng được; đăng nhập không bắt đầu được thì nói vì sao; đường
+    quay về chuyển tiếp lời xưng tên của nơi cấp mã),
     `tests/test_local_guard.py` (chỉ đường quay về từ đăng nhập nhận một lượt điều hướng từ trang khác).
 - **web: thẻ Máy chủ MCP ở Kết nối**:
   - vitest: `hooks/use-mcp-servers.test.ts` (đọc một lần khi mở và không đọc lại khi mọi máy chủ đã có
@@ -4742,7 +4773,8 @@ hình không giữ khoá; đăng nhập OAuth chỉ bắt đầu từ chính má
     thì không đi đâu; các hàm giữ nguyên qua mỗi lần vẽ), `components/mcp-servers-card.test.tsx` (chưa
     khai máy chủ nào thì nói cách khai; trạng thái đúng chữ và đúng màu; địa chỉ, mô tả, lý do hỏng, và
     lý do của lần thử trước còn đó khi đang thử lại; agent nào dùng; tool với mức mở, hỏi trước hay
-    không, lời tự nhận chỉ đọc; tool bị bỏ vì trùng tên; nút nào hiện ở trạng thái nào; mỗi thao tác
+    không, lời tự nhận chỉ đọc; tool bị bỏ, kèm đủ ba lý do có thể (trùng tên, tên quá dài, tham số quá
+    lớn); nút nào hiện ở trạng thái nào; mỗi thao tác
     giữ mọi nút của đúng dòng đó tới khi xong và nói đang làm gì; lời từ chối hiện dưới dòng; đăng xuất
     chỉ sau khi người đồng ý, và không nói "đã đăng xuất" khi hỏng), `components/connections-panel.test.tsx`
     (thẻ nằm trong màn Kết nối, biến của header nằm dưới thẻ kèm tên máy chủ đọc chúng),
@@ -4776,6 +4808,17 @@ hình không giữ khoá; đăng nhập OAuth chỉ bắt đầu từ chính má
   khoá, lý do của lần thử trước, chữ "đang đăng xuất", và hai luật CSS mà bề rộng trang không lộ ra vì
   khung ngoài cắt phần tràn; mỗi cái giờ có test riêng, và việc đặt lại vòng theo dõi sau kết nối lại
   và sau đăng xuất được gộp về một chỗ.
+- Đợt sửa sau khi rà soát độc lập được kiểm thêm bằng một trăm bảy mươi tám sửa đổi ở server, mỗi cái
+  đều làm ít nhất một test đỏ: gia hạn hai lần cho hai lời gọi bị từ chối cùng lúc; không mở lại phiên
+  sau một lần mở hỏng; cắt dòng của luồng sự kiện ở ký tự chỉ trông giống dấu xuống dòng, hoặc không
+  ghép dấu bị cắt đôi; bỏ ngưỡng của luồng không xuống dòng; nhắc lại giá trị header trong lời báo lỗi;
+  kết thúc phiên đăng nhập vì một lỗi không nói gì về grant; bỏ hạn chót của một request đăng nhập,
+  của việc dò nơi đăng nhập hay của cả lần kết nối; nói refresh token với nơi không cấp nó; giữ lại gì
+  đó từ một lần đăng nhập bỏ dở; ghi phiên đăng nhập từng biến một thay vì một lần; đổi mã quay về từ
+  nơi khác; để lần gia hạn đang dở ghi đè phiên mới hay đăng nhập lại sau đăng xuất; nhận tool thứ một
+  nghìn lẻ một, tên quá dài hay tham số quá lớn; dựng lại sổ một lần cho mỗi tool; nhận tên máy chủ có
+  hai dấu liền nhau hay dấu ở cuối; nhận hoặc nhắc lại địa chỉ nêu một biến. Hai sửa đổi từng sống sót
+  ở vòng đầu (một ở việc đăng nhập, một ở giới hạn của danh sách tool) và mỗi cái giờ có test riêng.
 
 ## Tìm và nạp tool MCP (`tool_search`)
 

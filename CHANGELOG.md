@@ -79,26 +79,40 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   the editor is refused (422) with the reason. The move is a new event, `escalated`, with why it
   was made; the web says so above the message box, and the run's timeline gains an `escalation`
   step naming the route.
-- Agents can use the tools of remote MCP servers. A server is declared once under `mcp_servers`
-  in `config.yaml` (its address, a description, headers, how far its tools are let in, which of
-  them only read, a timeout) and an agent is handed it by name: `mcp:` in `agent.yaml`, or the
-  "Máy chủ MCP" boxes in the agent editor, which apply at once. The client speaks streamable
-  HTTP and is written on `httpx`; stdio servers are not run. A server's tools are named
-  `mcp__<server>__<tool>` and follow `mcp:`, not the `tools` allow-list or the mode. Every one
-  of them asks before it runs and is never made again after a restart, until the owner lists it
-  under `read_only`; a server saying its own tool only reads is shown and decides nothing. The
-  file holds no key: a header takes its value from the environment as `${NAME}`, the variables
-  are set from Connections, and saving one has the servers that are down tried at once. A server
-  that answers 401 with no key of its own can be signed in to from Connections (OAuth 2.1 as a
-  public client: discovery, dynamic registration, PKCE), which is how the hosted Notion server
-  is reached. A sign-in starts only from a browser on the machine the crew runs on, goes only
-  to public `https` addresses, and its tokens are kept beside the provider keys and shown by no
-  API. A server that is down is a row that says why, never a crew that does not start: the crew
-  waits ten seconds for its servers as it starts and keeps trying the rest behind, at growing
-  intervals. New routes: `GET /api/mcp`, `POST /api/mcp/{name}/reconnect`, `POST` and `DELETE
-  /api/mcp/{name}/login`, `GET /api/mcp/oauth/callback`. Connections gains a card with each
-  server's state, reason, tools and who uses it; the Tools matrix lists MCP tools with their
-  server and marks an agent that has not been handed the server apart from every other reason.
+- Agents can use the tools of remote MCP servers. A server is declared once under `mcp_servers` in
+  `config.yaml` (its address, a description, headers, how far its tools are let in, which of them
+  only read, a timeout) and an agent is handed it by name: `mcp:` in `agent.yaml`, or the "Máy chủ
+  MCP" boxes in the agent editor, which apply at once. The client speaks streamable HTTP and is
+  written on `httpx`; stdio servers are not run. A server's tools are named
+  `mcp__<server>__<tool>` and follow `mcp:`, not the `tools` allow-list or the mode. A server's
+  name is runs of letters and digits set apart by a single `-` or `_`, at most 32 characters, so
+  no two servers' tools can come to one name. Every one of them asks before it runs and is never
+  made again after a restart, until the owner lists it under `read_only`; a server saying its own
+  tool only reads is shown and decides nothing. The file holds no key: a header takes its value
+  from the environment as `${NAME}`, the variables are set from Connections, and saving one has
+  the servers that are down tried at once. An address is used and shown as it is written: one that
+  names a variable stops the start, since the server would be sent those very characters in place
+  of a key. A server that answers 401 with no key of its own can be signed in to from Connections
+  (OAuth 2.1 as a public client: discovery, dynamic registration, PKCE), which is how the hosted
+  Notion server is reached. A sign-in starts only from a browser on the machine the crew runs on,
+  goes only to public `https` addresses, and its tokens are kept beside the provider keys and
+  shown by no API. A refresh token is said only to the authorization server that granted it, and a
+  server that comes to name another is signed out instead; the code a person comes back with is
+  traded only when it comes from the place that was asked (`iss`, RFC 9207); a sign-in begun and
+  left changes nothing of the one in use; and only the authorization server saying the grant is
+  spent or the client unknown ends a sign-in, so one that is merely down leaves it as it was. What
+  a server may send is bounded: 4 MB an answer, a thousand tools, 128 characters a tool's name and
+  50,000 characters of JSON its parameters. A tool past either of the last two is left out and
+  named on the server's row; a server past the thousand is not connected and says so. `timeout`
+  (60 seconds, 600 at most) is what one request gets and what connecting as a whole gets; a
+  sign-in request gets 15 seconds and looking for where to sign in 30. A session the server has
+  forgotten is opened again, and one that could not be is opened by the next call. A server that
+  is down is a row that says why, never a crew that does not start: the crew waits ten seconds for
+  its servers as it starts and keeps trying the rest behind, at growing intervals. New routes:
+  `GET /api/mcp`, `POST /api/mcp/{name}/reconnect`, `POST` and `DELETE /api/mcp/{name}/login`,
+  `GET /api/mcp/oauth/callback`. Connections gains a card with each server's state, reason, tools
+  and who uses it; the Tools matrix lists MCP tools with their server and marks an agent that has
+  not been handed the server apart from every other reason.
 - An agent finds the MCP tools it was not told of with `tool_search`. A server's tools are let
   in `deferred` unless the file says otherwise: the model is not told of them on every call, and
   an agent that holds any such tool is handed `tool_search` with them. It asks in a few words or
