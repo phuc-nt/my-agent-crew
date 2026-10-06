@@ -83,9 +83,11 @@ async def logout(name: str, rt: Rt) -> dict[str, Any]:
 
 
 @router.get("/mcp/oauth/callback")
-async def callback(rt: Rt, code: str = "", state: str = "", error: str = "") -> RedirectResponse:
+async def callback(
+    rt: Rt, code: str = "", state: str = "", error: str = "", iss: str = ""
+) -> RedirectResponse:
     """Where the authorization server sends the owner back. Whatever happened, they land
     on the screen that lists the servers, which shows it."""
-    if await sign_in.finish(rt.mcp, state, code, error) is not None:
+    if await sign_in.finish(rt.mcp, state, code, error, iss) is not None:
         rt.mcp.attach(rt.agents)
     return RedirectResponse(AFTER_SIGN_IN, status_code=303)

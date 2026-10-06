@@ -63,6 +63,13 @@ MCP_OAUTH_URL = "Địa chỉ đăng nhập {url} bị từ chối: phải là h
 MCP_OAUTH_DISCOVERY = "Không đọc được thông tin đăng nhập của máy chủ: {error}"
 MCP_OAUTH_SLOW = "quá {seconds:g} giây vẫn chưa trả lời xong"
 MCP_OAUTH_ISSUER = "Máy chủ đăng nhập tự nhận là {got}, không khớp với {expected}."
+MCP_OAUTH_NO_ISS = (
+    "Máy chủ đăng nhập hứa tự xưng tên khi trả mã nhưng đã không làm; từ chối mã này."
+)
+MCP_OAUTH_MOVED = (
+    "Máy chủ giờ chỉ sang nơi đăng nhập {got}, khác nơi đã cấp phiên đang giữ ({expected}). "
+    "Phiên cũ đã bỏ; nếu máy chủ thật sự đổi nơi đăng nhập thì bấm đăng nhập lại."
+)
 MCP_OAUTH_NO_PKCE = "Máy chủ đăng nhập không hỗ trợ PKCE S256; từ chối đăng nhập."
 MCP_OAUTH_RESOURCE = "Máy chủ khai tài nguyên {resource} không cùng nguồn với địa chỉ đã cấu hình."
 MCP_OAUTH_NO_REGISTRATION = (

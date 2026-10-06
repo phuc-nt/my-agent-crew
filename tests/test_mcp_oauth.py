@@ -6,6 +6,7 @@ and what comes back with them, where the tokens are kept, and what renews or end
 from __future__ import annotations
 
 import asyncio
+import os
 from pathlib import Path
 from urllib.parse import parse_qsl, urlsplit
 
@@ -31,11 +32,13 @@ from tests.mcp_fakes import (
     server,
 )
 
-ACCESS, REFRESH, CLIENT = (
+ACCESS, REFRESH, CLIENT, ISSUER = (
     "MCP_NOTION_ACCESS_TOKEN",
     "MCP_NOTION_REFRESH_TOKEN",
     "MCP_NOTION_CLIENT_ID",
+    "MCP_NOTION_ISSUER",
 )
+ELSEWHERE = "https://login.elsewhere.test"
 HOST_DOC = "https://mcp.example.test/.well-known/oauth-protected-resource"
 OWN_AUTH_DOC = "https://mcp.example.test/.well-known/oauth-authorization-server"
 OWN_OPENID_DOC = "https://mcp.example.test/.well-known/openid-configuration"
@@ -125,7 +128,8 @@ async def test_a_sign_in_goes_out_with_the_person_and_comes_back_as_a_connected_
     assert link.status == CONNECTED and link.error == "" and link.challenge == ""
     assert [tool.remote for tool in link.tools] == ["search", "create-page"]
     assert fake.seen[-1].headers["authorization"] == "Bearer access-1"
-    kept = {ACCESS: "access-1", REFRESH: "refresh-1", CLIENT: "client-1"}
+    # Where it was granted is kept beside it: the one place it is ever renewed.
+    kept = {ACCESS: "access-1", REFRESH: "refresh-1", CLIENT: "client-1", ISSUER: AUTH}
     assert environ == kept and read_env(env_path(tmp_path)) == kept
     assert env_path(tmp_path).stat().st_mode & 0o777 == 0o600
     [row] = hub.describe({})
@@ -472,6 +476,11 @@ async def test_a_sign_in_that_ran_out_while_the_crew_was_down_is_renewed_as_it_s
     assert fake.token_requests[-1]["grant_type"] == "refresh_token"
     assert len(fake.fetched) > fetched
 
+    # What was looked up then is remembered: the next renewal asks nowhere.
+    fake.required, looked = "ran-out-again", len(gets(fake))
+    await hub.links["notion"].session.call_tool("create-page", {"title": "Báo cáo"})
+    assert started[ACCESS] == "access-3" and len(gets(fake)) == looked
+
 
 @pytest.mark.parametrize(
     ("code", "error", "said"),
@@ -524,7 +533,7 @@ async def test_a_token_sent_with_a_failure_is_not_kept():
     await sign_in.finish(hub, state, code)
 
     assert link.error == t.MCP_OAUTH_TOKEN.format(error="HTTP 500") and link.status == SIGNED_OUT
-    assert set(environ) == {CLIENT}
+    assert environ == {}
 
 
 @pytest.mark.parametrize(
@@ -552,7 +561,7 @@ async def test_a_grant_that_cannot_be_kept_is_not_half_kept(granted, said):
     await sign_in.finish(hub, state, code)
 
     assert said in link.error and link.status == SIGNED_OUT
-    assert set(environ) == {CLIENT}
+    assert environ == {} and link.auth is None
 
 
 async def test_an_access_token_that_ran_out_is_renewed_and_the_call_made_once(tmp_path: Path):
@@ -574,7 +583,7 @@ async def test_an_access_token_that_ran_out_is_renewed_and_the_call_made_once(tm
         "client_id": "client-1",
         "resource": "https://mcp.example.test",
     }
-    kept = {ACCESS: "access-2", REFRESH: "refresh-2", CLIENT: "client-1"}
+    kept = {ACCESS: "access-2", REFRESH: "refresh-2", CLIENT: "client-1", ISSUER: AUTH}
     assert environ == kept and read_env(env_path(tmp_path)) == kept
     assert fake.seen[-1].headers["authorization"] == "Bearer access-2"
 
@@ -750,7 +759,8 @@ def token_endpoint_says(hub: McpHub, fake: FakeMcp, status: int, **answer) -> li
             else None
         ),
     )
-    hub.links["notion"].session.client = hub.client
+    if hub.links["notion"].session is not None:
+        hub.links["notion"].session.client = hub.client
     return saying
 
 
@@ -825,6 +835,430 @@ async def test_a_no_to_the_grant_or_to_this_client_ends_the_sign_in(status, erro
         await link.session.call_tool("search", {})
 
     assert link.status == SIGNED_OUT and ACCESS not in environ and REFRESH not in environ
+
+
+def named_elsewhere(hub: McpHub, fake: FakeMcp, **granted: str) -> list[dict[str, str]]:
+    """The server now says its sign-in is at another place, which this plays. What that
+    place's token endpoint was sent."""
+    publish(fake, RESOURCE_DOC, authorization_servers=[ELSEWHERE])
+    fake.documents[f"{ELSEWHERE}/.well-known/oauth-authorization-server"] = {
+        "issuer": ELSEWHERE,
+        "authorization_endpoint": f"{ELSEWHERE}/authorize",
+        "token_endpoint": f"{ELSEWHERE}/token",
+        "registration_endpoint": f"{ELSEWHERE}/register",
+        "code_challenge_methods_supported": ["S256"],
+    }
+    sent: list[dict[str, str]] = []
+
+    def elsewhere(request: httpx.Request) -> httpx.Response | None:
+        if str(request.url) == f"{ELSEWHERE}/register":
+            return httpx.Response(201, json={"client_id": "client-elsewhere"})
+        if str(request.url) == f"{ELSEWHERE}/token":
+            sent.append(dict(parse_qsl(request.content.decode("utf-8"))))
+            answer = {"access_token": "from-elsewhere", "token_type": "Bearer", **granted}
+            return httpx.Response(200, json=answer)
+        return None
+
+    intercepting(hub, fake, elsewhere)
+    if hub.links["notion"].session is not None:
+        hub.links["notion"].session.client = hub.client
+    return sent
+
+
+def came_back(url: str) -> str:
+    """The state a person sent to `url` comes back with."""
+    return dict(parse_qsl(urlsplit(url).query))["state"]
+
+
+def replacing(monkeypatch, fail: str = "") -> list[tuple[str, str]]:
+    """Watches the env file being replaced, which with `fail` it cannot be. Each time it
+    was tried."""
+    tried, replace = [], os.replace
+
+    def watched(src, dst):
+        tried.append((str(src), str(dst)))
+        if fail:
+            raise OSError(fail)
+        replace(src, dst)
+
+    monkeypatch.setattr("my_agent_crew.env_file.os.replace", watched)
+    return tried
+
+
+def holding_renewals(hub: McpHub, fake: FakeMcp) -> tuple[asyncio.Event, asyncio.Event]:
+    """Keeps a renewal at the door of the token endpoint until the second event is set;
+    the first says one has got there."""
+    arrived, go = asyncio.Event(), asyncio.Event()
+
+    async def handle(request: httpx.Request) -> httpx.Response:
+        if str(request.url) == f"{AUTH}/token" and b"grant_type=refresh_token" in request.content:
+            arrived.set()
+            await go.wait()
+        return await fake.handle(request)
+
+    hub.client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
+    hub.links["notion"].session.client = hub.client
+    return arrived, go
+
+
+async def test_a_refresh_token_is_said_only_where_it_was_granted(tmp_path: Path):
+    """A server that was taken over can name any place as its sign-in. What the owner's
+    own sign-in left here is never said there."""
+    fake = FakeMcp(oauth=True)
+    await signed_in(fake, environ={}, home=tmp_path)
+    started: dict[str, str] = {}
+    load_env_file(tmp_path, started)
+    fake.required, asked_before = "ran-out", len(fake.token_requests)
+    hub = make_hub(fake, environ=started, home=tmp_path)
+    sent = named_elsewhere(hub, fake)
+
+    await hub.connect()
+
+    link = hub.links["notion"]
+    assert sent == [] and len(fake.token_requests) == asked_before
+    assert ("POST", f"{ELSEWHERE}/token") not in fake.fetched
+    assert link.status == SIGNED_OUT and hub.waiting() == []
+    assert link.error == t.MCP_OAUTH_MOVED.format(got=ELSEWHERE, expected=AUTH)
+    assert started == {CLIENT: "client-1"} and read_env(env_path(tmp_path)) == started
+
+
+async def test_a_refresh_token_is_not_said_elsewhere_in_the_middle_of_a_call():
+    fake, environ = FakeMcp(oauth=True), {}
+    await signed_in(fake, environ=environ)
+    # Started again with a token that still opened the server, which then ran out.
+    hub = make_hub(fake, environ=environ)
+    await hub.connect()
+    link = hub.links["notion"]
+    assert link.status == CONNECTED and link.auth is None
+    sent = named_elsewhere(hub, fake)
+    fake.required = "ran-out"
+
+    with pytest.raises(Unauthorized):
+        await link.session.call_tool("search", {})
+
+    assert sent == [] and len(fake.token_requests) == 1
+    assert link.status == SIGNED_OUT and environ == {CLIENT: "client-1"}
+    assert link.error == t.MCP_OAUTH_MOVED.format(got=ELSEWHERE, expected=AUTH)
+    # Nothing learnt of the other place is kept either: the next look starts afresh.
+    assert link.auth is None
+
+
+async def test_a_refresh_token_with_no_word_of_where_it_was_granted_is_said_nowhere():
+    fake, environ = FakeMcp(oauth=True), {}
+    hub = await signed_in(fake, environ=environ)
+    link = hub.links["notion"]
+    del environ[ISSUER]
+    fake.required, asked_before = "ran-out", len(fake.token_requests)
+
+    with pytest.raises(Unauthorized):
+        await link.session.call_tool("search", {})
+
+    assert len(fake.token_requests) == asked_before
+    assert link.status == SIGNED_OUT and link.error == "" and environ == {CLIENT: "client-1"}
+
+
+async def test_a_sign_in_begun_and_left_changes_nothing_of_the_one_in_use(tmp_path: Path):
+    fake, environ = FakeMcp(oauth=True), {}
+    hub = await signed_in(fake, environ=environ, home=tmp_path)
+    link = hub.links["notion"]
+    kept, auth = dict(environ), link.auth
+    sent = named_elsewhere(hub, fake)
+
+    await sign_in.begin(hub, link, REDIRECT)  # and the owner never comes back
+
+    assert environ == kept and read_env(env_path(tmp_path)) == kept and link.auth is auth
+    fake.required = "ran-out"
+    result = await link.session.call_tool("search", {})
+    assert result["content"][0]["text"] == "ran search" and sent == []
+    assert fake.token_requests[-1]["client_id"] == "client-1"
+    assert fake.token_requests[-1]["refresh_token"] == "refresh-1"
+
+
+async def test_a_sign_in_made_elsewhere_takes_the_place_of_the_one_kept_whole(
+    tmp_path: Path, monkeypatch
+):
+    """The new place gave no refresh token. The one the old place gave is not left beside
+    the new place's name, to be said there the first time its access token runs out."""
+    fake, environ = FakeMcp(oauth=True), {}
+    hub = await signed_in(fake, environ=environ, home=tmp_path)
+    link = hub.links["notion"]
+    sent = named_elsewhere(hub, fake)
+    state = came_back(await sign_in.begin(hub, link, REDIRECT))
+    fake.required = "from-elsewhere"
+    tried = replacing(monkeypatch)
+
+    assert await sign_in.finish(hub, state, "a-code") == "notion"
+
+    kept = {ACCESS: "from-elsewhere", CLIENT: "client-elsewhere", ISSUER: ELSEWHERE}
+    assert environ == kept and read_env(env_path(tmp_path)) == kept
+    # Written in one go: a crash between two writes would leave half of each sign-in.
+    assert len(tried) == 1
+    assert link.status == CONNECTED and link.auth.issuer == ELSEWHERE
+    assert [form["grant_type"] for form in sent] == ["authorization_code"]
+    fake.required = "ran-out"
+    hub.links["notion"].session.client = hub.client
+    with pytest.raises(Unauthorized):
+        await link.session.call_tool("search", {})
+    assert [form["grant_type"] for form in sent] == ["authorization_code"]
+    assert link.status == SIGNED_OUT and len(fake.token_requests) == 1
+
+
+async def test_a_new_sign_in_that_cannot_be_written_down_leaves_the_one_in_use_whole(
+    tmp_path: Path, monkeypatch
+):
+    fake, environ = FakeMcp(oauth=True), {}
+    hub = await signed_in(fake, environ=environ, home=tmp_path)
+    link = hub.links["notion"]
+    kept, auth = dict(environ), link.auth
+    sent = named_elsewhere(hub, fake, refresh_token="refresh-elsewhere")
+    state = came_back(await sign_in.begin(hub, link, REDIRECT))
+    tried = replacing(monkeypatch, fail="no room left")
+
+    await sign_in.finish(hub, state, "a-code")
+
+    monkeypatch.undo()
+    assert len(tried) == 1 and link.error == t.MCP_OAUTH_STORE.format(error="no room left")
+    assert environ == kept and read_env(env_path(tmp_path)) == kept and link.auth is auth
+    # What was in use still is, and is renewed where it was granted and nowhere else.
+    fake.required = "ran-out"
+    result = await link.session.call_tool("search", {})
+    assert result["content"][0]["text"] == "ran search"
+    assert fake.token_requests[-1]["refresh_token"] == "refresh-1"
+    assert [form["grant_type"] for form in sent] == ["authorization_code"]
+
+
+async def test_a_new_sign_in_that_cannot_be_kept_leaves_the_one_in_use_whole(tmp_path: Path):
+    fake, environ = FakeMcp(oauth=True), {}
+    hub = await signed_in(fake, environ=environ, home=tmp_path)
+    link = hub.links["notion"]
+    kept, auth = dict(environ), link.auth
+    named_elsewhere(hub, fake, refresh_token="line\nbreak")
+    state = came_back(await sign_in.begin(hub, link, REDIRECT))
+
+    await sign_in.finish(hub, state, "a-code")
+
+    assert environ == kept and read_env(env_path(tmp_path)) == kept and link.auth is auth
+    assert link.error.startswith(t.MCP_OAUTH_STORE.format(error=""))
+    assert link.status == CONNECTED
+
+
+async def test_the_owners_own_client_id_is_left_as_they_wrote_it(tmp_path: Path):
+    fake, environ = FakeMcp(oauth=True), {CLIENT: "registered-by-hand"}
+    del fake.documents[AUTH_DOC]["registration_endpoint"]
+    hub = await asked(fake, environ=environ, home=tmp_path)
+    code, state = fake.approve(await sign_in.begin(hub, hub.links["notion"], REDIRECT))
+
+    await sign_in.finish(hub, state, code)
+
+    assert hub.links["notion"].status == CONNECTED
+    assert environ[CLIENT] == "registered-by-hand" and environ[ISSUER] == AUTH
+    # It was set for this run, not saved from the web: the file is not made to hold it.
+    assert CLIENT not in read_env(env_path(tmp_path))
+
+
+async def test_a_sign_in_that_cannot_be_renewed_as_the_crew_starts_is_kept_and_tried_again(
+    tmp_path: Path,
+):
+    fake = FakeMcp(oauth=True)
+    await signed_in(fake, environ={}, home=tmp_path)
+    started: dict[str, str] = {}
+    load_env_file(tmp_path, started)
+    fake.required, kept = "ran-out", dict(started)
+    hub = make_hub(fake, environ=started, home=tmp_path)
+    saying_no = token_endpoint_says(hub, fake, 503)
+
+    await hub.connect()
+
+    link = hub.links["notion"]
+    assert link.status == FAILED and hub.waiting() == ["notion"]
+    assert link.error == t.MCP_OAUTH_TOKEN.format(error="HTTP 503")
+    assert started == kept and read_env(env_path(tmp_path)) == kept
+    saying_no[0] = False
+    await hub.connect(hub.waiting())
+    assert link.status == CONNECTED and link.error == "" and started[ACCESS] == "access-2"
+
+
+async def test_a_server_that_refuses_a_token_just_renewed_wants_a_sign_in():
+    fake, environ = FakeMcp(oauth=True), {}
+    await signed_in(fake, environ=environ)
+    hub = make_hub(fake, environ=environ)
+    fake.required = "ran-out"
+    answer = {"access_token": "not-what-it-wants", "token_type": "Bearer"}
+    token_endpoint_says(hub, fake, 200, json=answer)
+
+    await hub.connect()
+
+    link = hub.links["notion"]
+    assert link.status == SIGNED_OUT and link.error == "" and hub.waiting() == []
+
+
+async def test_a_code_that_comes_back_from_another_place_is_not_traded():
+    """A server can send the owner to another service's consent page and wait for the
+    code. A place that says who it is when it sends them back is believed (RFC 9207)."""
+    fake = FakeMcp(oauth=True)
+    hub = await asked(fake)
+    link = hub.links["notion"]
+    code, state = fake.approve(await sign_in.begin(hub, link, REDIRECT))
+
+    assert await sign_in.finish(hub, state, code, iss=ELSEWHERE) == "notion"
+
+    assert fake.token_requests == [] and link.status == SIGNED_OUT
+    assert link.error == t.MCP_OAUTH_ISSUER.format(got=ELSEWHERE, expected=AUTH)
+    # The state went with it: the code is not tried again under the right name.
+    assert await sign_in.finish(hub, state, code, iss=AUTH) is None
+
+
+async def test_a_code_that_comes_back_from_the_place_asked_is_traded():
+    fake = FakeMcp(oauth=True)
+    hub = await asked(fake)
+    code, state = fake.approve(await sign_in.begin(hub, hub.links["notion"], REDIRECT))
+
+    await sign_in.finish(hub, state, code, iss=AUTH)
+
+    assert hub.links["notion"].status == CONNECTED
+
+
+@pytest.mark.parametrize(
+    ("promised", "iss", "status", "said"),
+    [
+        (True, "", SIGNED_OUT, t.MCP_OAUTH_NO_ISS),
+        (True, AUTH, CONNECTED, ""),
+        ("false", "", CONNECTED, ""),
+        (False, "", CONNECTED, ""),
+    ],
+    ids=["promised and missing", "promised and given", "a word that is not a yes", "not promised"],
+)
+async def test_a_place_that_says_it_will_name_itself_must(promised, iss, status, said):
+    fake = FakeMcp(oauth=True)
+    publish(fake, AUTH_DOC, authorization_response_iss_parameter_supported=promised)
+    hub = await asked(fake)
+    link = hub.links["notion"]
+    code, state = fake.approve(await sign_in.begin(hub, link, REDIRECT))
+
+    await sign_in.finish(hub, state, code, iss=iss)
+
+    assert (link.status, link.error) == (status, said)
+    assert len(fake.token_requests) == (1 if status == CONNECTED else 0)
+
+
+async def test_a_sign_in_place_is_known_by_the_name_it_gives_itself(tmp_path: Path):
+    """A server may spell its sign-in place with a slash the place itself does not use.
+    What is kept, and what comes back with a code is held against, is the place's word."""
+    fake = FakeMcp(oauth=True)
+    publish(fake, RESOURCE_DOC, authorization_servers=[f"{AUTH}/"])
+    hub = await asked(fake, environ={}, home=tmp_path)
+    code, state = fake.approve(await sign_in.begin(hub, hub.links["notion"], REDIRECT))
+
+    await sign_in.finish(hub, state, code, iss=AUTH)
+
+    assert hub.links["notion"].status == CONNECTED
+    started: dict[str, str] = {}
+    load_env_file(tmp_path, started)
+    assert started[ISSUER] == AUTH
+    # Spelt the other way at the next start, it is still the place that granted it.
+    publish(fake, RESOURCE_DOC, authorization_servers=[AUTH])
+    fake.required = "ran-out"
+    again = make_hub(fake, environ=started, home=tmp_path)
+    await again.connect()
+    assert again.links["notion"].status == CONNECTED and started[ACCESS] == "access-2"
+
+
+async def test_the_names_of_a_place_and_of_who_came_back_are_cut_before_they_are_shown():
+    fake = FakeMcp(oauth=True)
+    place = f"{AUTH}/{'p' * 300}"
+    publish(fake, RESOURCE_DOC, authorization_servers=[place])
+    there = f"{AUTH}/.well-known/oauth-authorization-server/{'p' * 300}"
+    fake.documents[there] = {**fake.documents[AUTH_DOC], "issuer": place}
+    hub = await asked(fake)
+    link = hub.links["notion"]
+    code, state = fake.approve(await sign_in.begin(hub, link, REDIRECT))
+    long = "https://" + "a" * 5000
+
+    await sign_in.finish(hub, state, code, iss=long)
+
+    assert link.error == t.MCP_OAUTH_ISSUER.format(got=long[:200], expected=place[:200])
+    assert fake.token_requests == []
+
+
+async def test_the_places_named_when_a_sign_in_has_moved_are_cut_before_they_are_shown():
+    fake, environ = FakeMcp(oauth=True), {}
+    await signed_in(fake, environ=environ)
+    kept_under = environ[ISSUER] = "https://" + "k" * 300
+    moved_to = f"{ELSEWHERE}/{'m' * 300}"
+    publish(fake, RESOURCE_DOC, authorization_servers=[moved_to])
+    there = f"{ELSEWHERE}/.well-known/oauth-authorization-server/{'m' * 300}"
+    fake.documents[there] = {**fake.documents[AUTH_DOC], "issuer": moved_to}
+    fake.required = "ran-out"
+    hub = make_hub(fake, environ=environ)
+
+    await hub.connect()
+
+    link = hub.links["notion"]
+    said = t.MCP_OAUTH_MOVED.format(got=moved_to[:200], expected=kept_under[:200])
+    assert (link.status, link.error) == (SIGNED_OUT, said)
+    assert len(fake.token_requests) == 1
+
+
+async def test_a_renewal_on_its_way_does_not_write_over_the_sign_in_the_owner_comes_back_with(
+    tmp_path: Path,
+):
+    """Whichever of the two ends last, what is kept is one sign-in: a refresh token is
+    never left beside a client id it was not granted to."""
+    fake, environ = FakeMcp(oauth=True), {}
+    hub = await signed_in(fake, environ=environ, home=tmp_path)
+    link = hub.links["notion"]
+    arrived, go = holding_renewals(hub, fake)
+    fake.required = "ran-out"
+    calling = asyncio.create_task(link.session.call_tool("search", {}))
+    await arrived.wait()
+    code, state = fake.approve(await sign_in.begin(hub, link, REDIRECT))
+    finishing = asyncio.create_task(sign_in.finish(hub, state, code))
+    async with asyncio.timeout(5):
+        while len(fake.token_requests) < 2:  # the code is traded while the renewal waits
+            await asyncio.sleep(0)
+
+    go.set()
+    _, finished = await asyncio.gather(calling, finishing, return_exceptions=True)
+
+    assert finished == "notion" and link.status == CONNECTED
+    assert environ[ISSUER] == AUTH and read_env(env_path(tmp_path)) == environ
+    granted = fake.token_requests[int(environ[REFRESH].removeprefix("refresh-")) - 1]
+    assert granted["client_id"] == environ[CLIENT] == "client-2"
+
+
+async def test_a_renewal_on_its_way_does_not_sign_the_owner_back_in_after_they_sign_out(
+    tmp_path: Path,
+):
+    fake, environ = FakeMcp(oauth=True), {}
+    hub = await signed_in(fake, environ=environ, home=tmp_path)
+    link = hub.links["notion"]
+    arrived, go = holding_renewals(hub, fake)
+    fake.required = "ran-out"
+    calling = asyncio.create_task(link.session.call_tool("search", {}))
+    await arrived.wait()
+    leaving = asyncio.create_task(hub.sign_out("notion"))
+    await asyncio.sleep(0)
+
+    go.set()
+    _, left = await asyncio.gather(calling, leaving, return_exceptions=True)
+
+    assert left is None and len(fake.token_requests) == 2
+    assert environ == {CLIENT: "client-1"} and read_env(env_path(tmp_path)) == environ
+    assert link.status == SIGNED_OUT and link.auth is None
+
+
+async def test_a_server_that_was_down_and_now_wants_a_sign_in_no_longer_says_it_was_down():
+    fake = FakeMcp(oauth=True)
+    fake.before = lambda request, message: httpx.Response(503)
+    hub = make_hub(fake)
+    await hub.connect()
+    link = hub.links["notion"]
+    assert link.status == FAILED and link.error
+
+    fake.before = None
+    await hub.connect(hub.waiting())
+
+    assert (link.status, link.error) == (SIGNED_OUT, "")
 
 
 async def dripping():
@@ -929,6 +1363,22 @@ async def test_signing_out_forgets_the_tokens_and_keeps_the_crews_name(tmp_path:
     assert environ == {CLIENT: "client-1"} and read_env(env_path(tmp_path)) == environ
     assert hub.describe({})[0]["signed_in"] is False
     assert MCP_URL in [url for _, url in fake.fetched[-1:]]  # it asked, and was refused
+
+
+async def test_a_sign_out_that_cannot_be_written_down_leaves_the_sign_in_as_the_file_has_it(
+    tmp_path: Path, monkeypatch
+):
+    """Forgotten here and read back at the next start, it would be a sign-out that lasts
+    until the crew restarts."""
+    fake, environ = FakeMcp(oauth=True), {}
+    hub = await signed_in(fake, environ=environ, home=tmp_path)
+    kept = dict(environ)
+    tried = replacing(monkeypatch, fail="a home that cannot be written")
+
+    await hub.sign_out("notion")
+
+    assert len(tried) == 1 and environ == kept and read_env(env_path(tmp_path)) == kept
+    assert hub.links["notion"].status == CONNECTED
 
 
 async def test_a_sign_in_with_no_home_lasts_as_long_as_the_process():

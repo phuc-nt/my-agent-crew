@@ -110,7 +110,10 @@ class McpHub:
             if sign_in.has_own_key(link):
                 link.status, link.error = FAILED, t.MCP_KEY_REFUSED
             else:
-                link.status, link.error, link.challenge = SIGNED_OUT, "", exc.challenge
+                # A renewal that was not told no left its reason and the sign-in, and the
+                # next round tries it again. Otherwise only the owner can sign in.
+                again = link.status != SIGNED_OUT and link.error
+                link.status, link.challenge = FAILED if again else SIGNED_OUT, exc.challenge
         except MissingEnv as exc:
             link.status = FAILED
             link.error = t.MCP_MISSING_ENV.format(names=", ".join(exc.names))
@@ -142,8 +145,10 @@ class McpHub:
 
     async def sign_out(self, name: str) -> None:
         link = self.links[name]
-        sign_in.forget(self, link)
-        link.auth = None
+        # After any renewal on its way, which would otherwise sign the server in again.
+        async with link.renewing:
+            sign_in.forget(self, link)
+            link.auth = None
         await self.connect([name])
 
     def describe(self, agents: Mapping[str, AgentDeps]) -> list[dict[str, Any]]:

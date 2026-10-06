@@ -40,6 +40,8 @@ class AuthServer:
     # What a token is asked for (RFC 8707), as the server names itself.
     resource: str = ""
     scopes: tuple[str, ...] = ()
+    # Whether it says who it is as it sends a person back with a code (RFC 9207).
+    names_itself: bool = False
 
 
 def origin(url: str) -> str:
@@ -170,10 +172,13 @@ async def _discover(
     scopes = resource.get("scopes_supported")
     registration = metadata.get("registration_endpoint")
     return AuthServer(
-        issuer=issuer,
+        # As it names itself, not as the server spelled it: this is what a sign-in is kept
+        # under, and what comes back with a code is held against.
+        issuer=said,
         authorization_endpoint=await checked(metadata.get("authorization_endpoint"), resolver),
         token_endpoint=await checked(metadata.get("token_endpoint"), resolver),
         registration_endpoint=await checked(registration, resolver) if registration else "",
         resource=target,
         scopes=tuple(s for s in scopes if isinstance(s, str)) if isinstance(scopes, list) else (),
+        names_itself=metadata.get("authorization_response_iss_parameter_supported") is True,
     )

@@ -11,6 +11,7 @@ from my_agent_crew.env_file import (
     read_env,
     remove_env,
     set_env,
+    set_many,
 )
 
 
@@ -40,6 +41,58 @@ def test_hand_written_lines_survive_an_edit_byte_for_byte(tmp_path: Path) -> Non
         "# my keys\nFIRST='new'\n\nSECOND=two # note\nTHIRD='3'\n"
     )
     assert read_env(path) == {"FIRST": "new", "SECOND": "two", "THIRD": "3"}
+
+
+def test_several_names_are_written_and_dropped_as_one_replacement_of_the_file(
+    tmp_path: Path, monkeypatch
+) -> None:
+    path = env_path(tmp_path)
+    path.write_text("# my keys\nKEEP=1\nOLD=stale\nGOES=2\n\nexport OLD=again\n", encoding="utf-8")
+    os.chmod(path, 0o644)
+    replaced, replace = [], os.replace
+    monkeypatch.setattr(
+        "my_agent_crew.env_file.os.replace", lambda *a: (replaced.append(a), replace(*a))[1]
+    )
+
+    set_many(path, {"OLD": "it's new", "GOES": "", "FRESH": "f", "NEVER_THERE": ""})
+
+    assert len(replaced) == 1
+    # Each name stands where its first line stood, a new one at the end, as one at a time.
+    assert path.read_text(encoding="utf-8") == (
+        "# my keys\nKEEP=1\nOLD='it'\\''s new'\n\nFRESH='f'\n"
+    )
+    assert read_env(path) == {"KEEP": "1", "OLD": "it's new", "FRESH": "f"}
+    assert stat.S_IMODE(path.stat().st_mode) == 0o600
+
+
+def test_dropping_names_that_are_not_there_writes_nothing(tmp_path: Path) -> None:
+    path = env_path(tmp_path)
+
+    set_many(path, {"GONE": "", "NEVER_THERE": ""})
+
+    assert not path.exists()
+    # Not even to give a hand-written file the line end it lacks.
+    path.write_text("# mine, with no line end", encoding="utf-8")
+    set_many(path, {"GONE": "", "NEVER_THERE": ""})
+    assert path.read_text(encoding="utf-8") == "# mine, with no line end"
+
+
+def test_a_replacement_that_fails_leaves_the_file_as_it_was_and_nothing_beside_it(
+    tmp_path: Path, monkeypatch
+) -> None:
+    path = env_path(tmp_path)
+    path.write_text("KEEP=1\nOLD=stale\n", encoding="utf-8")
+
+    def no_room(src, dst):
+        raise OSError("no room left")
+
+    monkeypatch.setattr("my_agent_crew.env_file.os.replace", no_room)
+
+    with pytest.raises(OSError, match="no room left"):
+        set_many(path, {"OLD": "new", "KEEP": "", "FRESH": "f"})
+
+    assert path.read_text(encoding="utf-8") == "KEEP=1\nOLD=stale\n"
+    assert [entry.name for entry in tmp_path.iterdir()] == ["env"]
 
 
 def test_the_file_is_owner_only_even_when_it_was_not(tmp_path: Path) -> None:

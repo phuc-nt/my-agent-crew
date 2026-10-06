@@ -22,10 +22,11 @@ from my_agent_crew.server.runtime_build import build_runtime
 from my_agent_crew.texts_credentials import CROSS_SITE_REQUEST
 from tests.mcp_fakes import AUTH, MCP_URL, REDIRECT, FakeMcp, public
 
-ACCESS, REFRESH, CLIENT = (
+ACCESS, REFRESH, CLIENT, ISSUER = (
     "MCP_NOTION_ACCESS_TOKEN",
     "MCP_NOTION_REFRESH_TOKEN",
     "MCP_NOTION_CLIENT_ID",
+    "MCP_NOTION_ISSUER",
 )
 NOTION = f"mcp_servers:\n  notion:\n    url: {MCP_URL}\n    description: Sổ tay của nhóm\n"
 TRACKER = (
@@ -66,7 +67,7 @@ def environ() -> Iterator[None]:
     """A sign-in and a saved key are written to the process environment, as they must be
     for the crew to use them; each test gets it back as it was."""
     saved = dict(os.environ)
-    for name in (ACCESS, REFRESH, CLIENT, "TRACKER_KEY"):
+    for name in (ACCESS, REFRESH, CLIENT, ISSUER, "TRACKER_KEY"):
         os.environ.pop(name, None)
     yield
     os.environ.clear()
@@ -316,12 +317,13 @@ def test_signing_in_from_the_web_ends_with_the_server_connected_and_no_token_sho
     assert (row["status"], row["signed_in"], row["uses_key"]) == ("connected", True, False)
     assert crew.tools_of("coder") == [SEARCH, CREATE]
     kept = read_env(env_path(crew.home))
-    assert kept == {ACCESS: "access-1", REFRESH: "refresh-1", CLIENT: "client-1"}
+    assert kept == {ACCESS: "access-1", REFRESH: "refresh-1", CLIENT: "client-1", ISSUER: AUTH}
     assert os.environ[ACCESS] == "access-1"
     listed = client.get("/api/credentials")
     names = [item["name"] for item in listed.json()["items"]]
     # A sign-in is kept and dropped on this screen, not retyped as a key on the other.
-    assert ACCESS not in names and REFRESH not in names and CLIENT in names
+    assert ACCESS not in names and REFRESH not in names and ISSUER not in names
+    assert CLIENT in names
     for reply in (client.get("/api/mcp"), listed, client.get("/api/agents/coder")):
         assert "access-1" not in reply.text and "refresh-1" not in reply.text
 
@@ -366,6 +368,26 @@ def test_a_sign_in_that_fails_still_lands_on_the_screen_that_says_why(
     assert (back.status_code, back.headers["location"]) == (303, "/#/manage/connections")
     row = crew.server()
     assert (row["status"], row["error"], row["signed_in"]) == ("signed_out", said, False)
+
+
+def test_the_callback_hands_on_who_says_the_code_is_theirs(crew_with) -> None:
+    crew = crew_with(NOTION, FakeMcp(oauth=True))
+    crew.client.post("/api/mcp/notion/reconnect")
+    url = crew.client.post("/api/mcp/notion/login").json()["authorize_url"]
+    code, state = crew.fake.approve(url)
+    elsewhere = "https://login.elsewhere.test"
+
+    back = crew.client.get(
+        "/api/mcp/oauth/callback",
+        params={"code": code, "state": state, "iss": elsewhere},
+        follow_redirects=False,
+    )
+
+    assert (back.status_code, back.headers["location"]) == (303, "/#/manage/connections")
+    row = crew.server()
+    said = t.MCP_OAUTH_ISSUER.format(got=elsewhere, expected=AUTH)
+    assert (row["status"], row["error"], row["signed_in"]) == ("signed_out", said, False)
+    assert crew.fake.token_requests == [] and read_env(env_path(crew.home)) == {}
 
 
 def test_a_callback_nobody_was_waiting_for_changes_nothing(crew_with) -> None:

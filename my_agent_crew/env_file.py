@@ -18,7 +18,7 @@ import os
 import re
 import tempfile
 import unicodedata
-from collections.abc import MutableMapping
+from collections.abc import Mapping, MutableMapping
 from pathlib import Path
 
 ENV_FILE = "env"
@@ -100,9 +100,8 @@ def _write(path: Path, lines: list[str]) -> None:
         raise
 
 
-def _lines_without(path: Path, name: str) -> tuple[list[str], int | None]:
-    """The file's lines minus every assignment to `name`, and where the first one was."""
-    lines = _read_lines(path)
+def _without(lines: list[str], name: str) -> tuple[list[str], int | None]:
+    """`lines` minus every assignment to `name`, and where the first one was."""
     kept: list[str] = []
     first: int | None = None
     for line in lines:
@@ -116,7 +115,7 @@ def _lines_without(path: Path, name: str) -> tuple[list[str], int | None]:
 
 def set_env(path: Path, name: str, value: str) -> None:
     """Write `name` in place of its old line, or at the end when it is new."""
-    kept, first = _lines_without(path, name)
+    kept, first = _without(_read_lines(path), name)
     line = f"{name}={_quote(value)}"
     if first is None:
         kept.append(line)
@@ -127,11 +126,25 @@ def set_env(path: Path, name: str, value: str) -> None:
 
 def remove_env(path: Path, name: str) -> bool:
     """Drop every assignment to `name`; False when there was none."""
-    kept, first = _lines_without(path, name)
+    kept, first = _without(_read_lines(path), name)
     if first is None:
         return False
     _write(path, kept)
     return True
+
+
+def set_many(path: Path, values: Mapping[str, str]) -> None:
+    """Write each name as `set_env` would and drop the ones whose value is empty, as one
+    replacement of the file: all of it is written or none is. Nothing to change writes
+    nothing."""
+    lines, changed = _read_lines(path), False
+    for name, value in values.items():
+        lines, first = _without(lines, name)
+        if value:
+            lines.insert(len(lines) if first is None else first, f"{name}={_quote(value)}")
+        changed = changed or bool(value) or first is not None
+    if changed:
+        _write(path, lines)
 
 
 def load_env_file(home: Path, environ: MutableMapping[str, str]) -> list[str]:

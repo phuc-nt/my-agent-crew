@@ -3,6 +3,9 @@
 Two answers end a sign-in: the authorization server saying the grant is spent, or that it
 no longer knows this client. Whatever else it says, and whatever keeps it from saying a
 thing, leaves what is kept as it was, and the next call tries again.
+
+A refresh token is said only to the place that granted it. A server can come to name any
+place as its sign-in; one that names another than the one kept ends the sign-in unsaid.
 """
 
 from __future__ import annotations
@@ -12,8 +15,8 @@ from typing import TYPE_CHECKING
 from my_agent_crew import texts_mcp as t
 from my_agent_crew.mcp.oauth import GrantRefused, token
 from my_agent_crew.mcp.oauth_discovery import discover
-from my_agent_crew.mcp.sign_in import FAILED, SIGNED_OUT, forget, has_own_key, keep
-from my_agent_crew.mcp.tokens import ACCESS, CLIENT_ID, REFRESH, bearer
+from my_agent_crew.mcp.sign_in import FAILED, SIGNED_OUT, forget, has_own_key
+from my_agent_crew.mcp.tokens import ACCESS, CLIENT_ID, ISSUER, REFRESH, bearer
 from my_agent_crew.mcp.wire import McpError
 
 if TYPE_CHECKING:
@@ -33,25 +36,35 @@ async def renew(hub: McpHub, link: Link, refused: str) -> bool:
         current = hub.tokens.get(server, ACCESS)
         if current and refused != bearer(current):
             return True
-        refresh, client_id = hub.tokens.get(server, REFRESH), hub.tokens.get(server, CLIENT_ID)
+        refresh, client_id, issuer = (
+            hub.tokens.get(server, kind) for kind in (REFRESH, CLIENT_ID, ISSUER)
+        )
+        moved = ""
         try:
-            if not refresh or not client_id or hub.client is None:
+            if not (refresh and client_id and issuer) or hub.client is None:
                 raise GrantRefused(t.MCP_UNAUTHORIZED.format(server=server.name))
-            if link.auth is None:
-                link.auth = await discover(hub.client, server.url, link.challenge, hub.resolver)
+            auth = link.auth
+            if auth is None:
+                auth = await discover(hub.client, server.url, link.challenge, hub.resolver)
+            if auth.issuer != issuer:
+                moved = t.MCP_OAUTH_MOVED.format(got=auth.issuer[:200], expected=issuer[:200])
+                raise GrantRefused(moved)
+            link.auth = auth
             tokens = await token(
                 hub.client,
-                link.auth,
+                auth,
                 hub.resolver,
                 grant_type="refresh_token",
                 refresh_token=refresh,
                 client_id=client_id,
             )
-            keep(hub, link, tokens)
+            # A server may renew the access token and leave the refresh token as it was.
+            kept = {ACCESS: tokens.access, REFRESH: tokens.refresh or refresh}
+            hub.tokens.put(server, kept)
         except GrantRefused:
             # Nothing kept can sign in again: only the owner can, and the screen says so.
             forget(hub, link)
-            link.status = SIGNED_OUT
+            link.status, link.error = SIGNED_OUT, moved
             return False
         except McpError as exc:
             # No word that the grant is spent. The row says what was heard instead, since
