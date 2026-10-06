@@ -131,7 +131,7 @@ async def run_turn(
         if guard.redirect_due:
             history = guard.redirect(deps.store, conv_id)
         # A delegated child near its soft cap is told to conclude and given no tools.
-        tools: Sequence[ToolSpec] = declared_specs(deps.tools)
+        tools: Sequence[ToolSpec] = declared_specs(deps.tools, history)
         if wrap_up_due(conv, history, deps.settings.max_steps):
             history, tools = nudge_to_conclude(deps.store, conv, history), ()
         verdict = OK

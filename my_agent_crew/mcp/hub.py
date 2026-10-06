@@ -19,11 +19,12 @@ import httpx
 
 from my_agent_crew import texts_mcp as t
 from my_agent_crew.mcp import sign_in
-from my_agent_crew.mcp.config import HIDDEN, McpServer, MissingEnv
+from my_agent_crew.mcp.config import McpServer, MissingEnv
+from my_agent_crew.mcp.handout import hand_out
 from my_agent_crew.mcp.oauth_discovery import AuthServer
 from my_agent_crew.mcp.session import McpSession
 from my_agent_crew.mcp.tokens import ACCESS, TokenStore
-from my_agent_crew.mcp.tools import PREFIX, McpTool, build_tools
+from my_agent_crew.mcp.tools import McpTool, build_tools, summary
 from my_agent_crew.mcp.wire import McpError, Unauthorized
 from my_agent_crew.tools.web import Resolver, resolve_host
 
@@ -34,7 +35,6 @@ logger = logging.getLogger(__name__)
 
 # Never tried, working, waiting for the owner to sign in, and tried without success.
 IDLE, CONNECTED, SIGNED_OUT, FAILED = "idle", sign_in.CONNECTED, sign_in.SIGNED_OUT, "failed"
-SUMMARY_CHARS = 200
 
 
 @dataclass
@@ -131,19 +131,9 @@ class McpHub:
 
     def attach(self, agents: Mapping[str, AgentDeps]) -> None:
         """Hand each agent the tools of the servers its profile names, and take back every
-        MCP tool it held before. Hidden tools are handed to nobody."""
+        MCP tool it held before (`handout`)."""
         for deps in agents.values():
-            for name in deps.tools.names():
-                if name.startswith(PREFIX):
-                    deps.tools = deps.tools.without(name)
-            for server in deps.agent.mcp:
-                link = self.links.get(server)
-                if link is None:
-                    logger.warning("agent %s: no MCP server named %s", deps.agent.id, server)
-                    continue
-                for tool in link.tools:
-                    if tool.exposure != HIDDEN and deps.tools.get(tool.name) is None:
-                        deps.tools.register(tool)
+            hand_out(deps, self.links)
 
     async def sign_out(self, name: str) -> None:
         link = self.links[name]
@@ -170,7 +160,7 @@ class McpHub:
                     {
                         "name": tool.name,
                         "remote": tool.remote,
-                        "description": _summary(tool.description),
+                        "description": summary(tool.description),
                         "exposure": tool.exposure,
                         "requires_approval": tool.requires_approval,
                         "read_only_hint": tool.read_only_hint,
@@ -180,8 +170,3 @@ class McpHub:
             }
             for name, link in self.links.items()
         ]
-
-
-def _summary(description: str) -> str:
-    line = " ".join(description.split())
-    return line if len(line) <= SUMMARY_CHARS else line[: SUMMARY_CHARS - 1] + "…"

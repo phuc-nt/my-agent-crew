@@ -20,6 +20,27 @@ MCP_TOOL_FAILED = "Công cụ báo lỗi mà không nói lý do."
 MCP_BLOCK = "[{kind}: {detail}]"
 MCP_DESCRIPTION = "[MCP {server}] {description}"
 
+# `tool_search`: what the model reads of it, and what it answers.
+TOOL_SEARCH_DESCRIPTION = (
+    "Tìm và nạp công cụ của các máy chủ MCP được giao cho bạn: {servers}. Các công cụ này "
+    "không khai sẵn: phải tìm ở đây trước, rồi mới gọi được với đúng tham số. Hãy tìm trước "
+    "khi kết luận rằng bạn không làm được một việc thuộc các máy chủ đó. Dùng vài từ khoá "
+    "tiếng Anh ngắn gọn nói việc cần làm (ví dụ: search pages, create database), hoặc ghi "
+    "đúng tên công cụ nếu đã biết."
+)
+TOOL_SEARCH_QUERY = "Vài từ khoá tiếng Anh nói việc cần làm, hoặc tên công cụ."
+TOOL_SEARCH_LIMIT = "Số công cụ nạp tối đa (mặc định {default}, nhiều nhất {most})."
+TOOL_SEARCH_SERVER = "{name} ({description})"
+TOOL_SEARCH_COUNT = "{name} ({count} công cụ)"
+TOOL_SEARCH_NO_QUERY = "Thiếu `query`: vài từ khoá nói việc cần làm."
+TOOL_SEARCH_LOADED = "Đã nạp {count} công cụ, gọi trực tiếp bằng tên:"
+TOOL_SEARCH_MORE = (
+    "Còn {count} công cụ khác khớp; tìm lại với từ khoá hẹp hơn nếu chưa thấy cái cần."
+)
+TOOL_SEARCH_NONE = (
+    "Không có công cụ nào khớp, chưa nạp gì. Đang có: {servers}. Thử từ khoá tiếng Anh khác."
+)
+
 # Why a server is not connected, as the Connections screen shows it.
 MCP_MISSING_ENV = "Thiếu biến môi trường: {names}."
 MCP_KEY_REFUSED = "Máy chủ từ chối khoá trong header Authorization."

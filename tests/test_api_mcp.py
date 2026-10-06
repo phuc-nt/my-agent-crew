@@ -179,7 +179,7 @@ def test_an_agent_names_a_server_from_its_editor_and_holds_its_tools_at_once(cre
     reply = crew.client.patch("/api/agents/coder", json={"profile": {"mcp": ["notion"]}})
 
     assert reply.status_code == 200 and reply.json()["profile"]["mcp"] == ["notion"]
-    assert reply.json()["profile"]["tools"][-2:] == [SEARCH, CREATE]
+    assert reply.json()["profile"]["tools"][-3:] == ["tool_search", SEARCH, CREATE]
     assert crew.tools_of("coder") == [SEARCH, CREATE] and crew.tools_of("default") == []
     manifest = (crew.home / "agents" / "coder" / "agent.yaml").read_text(encoding="utf-8")
     assert "mcp:\n- notion\n" in manifest or "mcp:\n  - notion\n" in manifest
@@ -196,10 +196,21 @@ def test_an_agent_names_a_server_from_its_editor_and_holds_its_tools_at_once(cre
         }
     ]
 
+    # The search that finds them is the agent's too, and says what it came with.
+    [search] = [tool for tool in shown if tool["name"] == "tool_search"]
+    assert search["with_mcp"] is True and search["requires_approval"] is False
+    assert "notion (Sổ tay của nhóm)" in search["description"]
+    listed = {tool["name"]: tool for tool in crew.client.get("/api/tools").json()}
+    assert listed["tool_search"] == {**search, "agents": ["coder"], "optional": False}
+    assert [name for name, tool in listed.items() if "with_mcp" in tool] == ["tool_search"]
+
     cleared = crew.client.patch("/api/agents/coder", json={"profile": {"mcp": []}})
 
     assert cleared.status_code == 200 and crew.tools_of("coder") == []
     assert crew.server()["agents"] == []
+    # With no server left to search, the search goes too.
+    assert "tool_search" not in cleared.json()["profile"]["tools"]
+    assert "tool_search" not in [tool["name"] for tool in crew.client.get("/api/tools").json()]
 
 
 def test_an_agent_may_not_be_given_a_server_the_crew_does_not_have(crew_with) -> None:

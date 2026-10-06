@@ -280,7 +280,7 @@ async def test_a_server_no_agent_was_told_of_is_a_warning_not_a_failure(deps_fac
     deps = deps_factory()
     deps.profile = replace(deps.agent, mcp=("jira", "notion"))
 
-    with caplog.at_level(logging.WARNING, logger="my_agent_crew.mcp.hub"):
+    with caplog.at_level(logging.WARNING, logger="my_agent_crew.mcp.handout"):
         hub.attach({"default": deps})
 
     assert "agent default: no MCP server named jira" in caplog.text
@@ -296,8 +296,9 @@ async def test_only_tools_let_in_directly_are_told_to_the_model_on_every_call(de
     deps.profile = replace(deps.agent, mcp=("notion",))
     hub.attach({"default": deps})
 
-    assert declared_names(deps.tools) == [*own, SEARCH_NAME]
-    assert [spec.name for spec in declared_specs(deps.tools)] == [*own, SEARCH_NAME]
+    # `tool_search` is how the one held back is found (`test_mcp_tool_search.py`).
+    assert declared_names(deps.tools) == [*own, "tool_search", SEARCH_NAME]
+    assert [spec.name for spec in declared_specs(deps.tools)] == [*own, "tool_search", SEARCH_NAME]
     assert CREATE_NAME in deps.tools.names() and deps.tools.get(CREATE_NAME) is not None
     prompt = system_prompt_for(deps)
     assert SEARCH_NAME in prompt and CREATE_NAME not in prompt
@@ -449,6 +450,19 @@ async def test_connecting_again_replaces_what_was_learnt_before(deps_factory):
     held = [n for n in deps.tools.names() if n.startswith("mcp__")]
     assert held == [SEARCH_NAME, "mcp__notion__archive"]
     assert CREATE["name"] not in [tool.remote for tool in hub.links["notion"].tools]
+
+
+async def test_the_owner_is_shown_one_line_of_what_a_tool_says_of_itself():
+    wordy = {"name": "wordy", "description": "First line.\n\n  Second   line.\n" + "x" * 300}
+    hub = await connected(FakeMcp([wordy]))
+
+    [row] = hub.describe({})
+    [tool] = row["tools"]
+
+    assert tool["description"].startswith("[MCP notion] First line. Second line. xxx")
+    assert len(tool["description"]) == 200 and tool["description"].endswith("x…")
+    # The model is still told all of it.
+    assert "\n" in hub.links["notion"].tools[0].description
 
 
 async def test_what_the_owner_is_shown_of_a_server_holds_no_key(deps_factory):

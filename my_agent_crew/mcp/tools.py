@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from my_agent_crew import texts_mcp as t
-from my_agent_crew.mcp.config import DEFERRED, McpServer, MissingEnv
+from my_agent_crew.mcp.config import DEFERRED, DIRECT, McpServer, MissingEnv
 from my_agent_crew.mcp.wire import McpError
 from my_agent_crew.tools.registry import Tool, ToolError
 
@@ -26,6 +26,8 @@ PREFIX = "mcp__"
 # The longest name every provider accepts for a tool.
 MAX_NAME_CHARS = 64
 MAX_DESCRIPTION_CHARS = 2000
+# A tool's description where it is one line of a list.
+SUMMARY_CHARS = 200
 HASH_CHARS = 8
 EMPTY_SCHEMA: dict[str, Any] = {"type": "object", "properties": {}}
 
@@ -43,6 +45,16 @@ class McpTool(Tool):
 
     def to_dict(self) -> dict[str, Any]:
         return {**super().to_dict(), "server": self.server, "exposure": self.exposure}
+
+
+def held_back(tool: Tool | None) -> bool:
+    """Not told to the model up front: the agent holds it, and finds it with `tool_search`."""
+    return isinstance(tool, McpTool) and tool.exposure != DIRECT
+
+
+def summary(description: str) -> str:
+    line = " ".join(description.split())
+    return line if len(line) <= SUMMARY_CHARS else line[: SUMMARY_CHARS - 1] + "…"
 
 
 def _safe(text: str) -> str:
