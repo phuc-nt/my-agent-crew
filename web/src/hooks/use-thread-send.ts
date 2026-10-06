@@ -23,10 +23,12 @@ interface SendParts {
   busy: boolean;
   dispatch: Dispatch<ThreadAction>;
   /** Runs a turn on this tab's own stream: busy while it lasts, cut by Stop, its errors
-   *  put on screen as a notice, worded by `describe` when the caller knows better. */
+   *  put on screen as a notice, worded by `describe` when the caller knows better. `turnless`
+   *  says, once the stream has closed, that the server answered with no turn on it. */
   runTurn: (
     run: (emit: (e: AgentEvent) => void, signal: AbortSignal) => Promise<void>,
     describe?: (error: unknown) => string,
+    turnless?: () => boolean,
   ) => Promise<void>;
   /** The queueing POSTs still in flight, each cut when the conversation is left. */
   queueing: MutableRefObject<Set<AbortController>>;
@@ -96,38 +98,46 @@ export function useThreadSend({ conversationId, busy, dispatch, runTurn, queuein
     async (id: string, text: string, name: string, answer: Settlement, canvas?: MessageCanvas) => {
       dispatch({ type: "user_sent", text });
       const describe = (error: unknown) => turnErrorText(error, hasSelection(canvas));
-      await runTurn(async (emit, signal) => {
-        try {
-          await api.sendMessage(
-            id,
-            text,
-            (event) => {
-              answer.heard(event);
-              // Not passed on to the reducer's own `event` action: `applyEvent`'s `case
-              // "queued"` is a documented no-op, since only this caller knows which text was
-              // just sent and needs its temp bubble replaced with a chip.
-              if (event.type === "queued") dispatch({ type: "queued", item: { id: event.item_id, kind: event.kind, text } });
-              else emit(event);
-            },
-            signal,
-            canvas,
-            name,
-          );
-        } catch (error) {
-          // Nothing the server said has reached this tab, so the message may never have got
-          // there: its bubble goes and the words stay with whoever typed them. A cut-off —
-          // Stop, or leaving the conversation — is no failure, and once the server has said
-          // anything the bubble stays with the error `runTurn` puts beside it.
-          if (!signal.aborted && !answer.done) {
-            dispatch({ type: "user_unsent", text });
-            answer.failed(error);
-            unheard.current = { conversationId: id, text, name };
+      // The message was put in line: this stream reads no turn, and has said all it had to.
+      let inLine = false;
+      await runTurn(
+        async (emit, signal) => {
+          try {
+            await api.sendMessage(
+              id,
+              text,
+              (event) => {
+                answer.heard(event);
+                // Not passed on to the reducer's own `event` action: `applyEvent`'s `case
+                // "queued"` is a documented no-op, since only this caller knows which text was
+                // just sent and needs its temp bubble replaced with a chip.
+                if (event.type === "queued") {
+                  inLine = true;
+                  dispatch({ type: "queued", item: { id: event.item_id, kind: event.kind, text } });
+                } else emit(event);
+              },
+              signal,
+              canvas,
+              name,
+            );
+          } catch (error) {
+            // Nothing the server said has reached this tab, so the message may never have got
+            // there: its bubble goes and the words stay with whoever typed them. A cut-off —
+            // Stop, or leaving the conversation — is no failure, and once the server has said
+            // anything the bubble stays with the error `runTurn` puts beside it.
+            if (!signal.aborted && !answer.done) {
+              dispatch({ type: "user_unsent", text });
+              answer.failed(error);
+              unheard.current = { conversationId: id, text, name };
+            }
+            throw error;
+          } finally {
+            answer.ended();
           }
-          throw error;
-        } finally {
-          answer.ended();
-        }
-      }, describe);
+        },
+        describe,
+        () => inLine,
+      );
     },
     [dispatch, runTurn],
   );

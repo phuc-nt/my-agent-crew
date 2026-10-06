@@ -70,10 +70,10 @@ export function useExternalRunRefresh(
     if (busy && !wasBusy.current) claim.current = { taken: false, run: null };
     wasBusy.current = busy;
     // A decision refused as already taken elsewhere resumed nothing here, a turn joined by
-    // watching was started by someone else, and a stream lost mid-turn reads its run no
-    // more: the run put down to this tab meanwhile is not its own, to show as going and to
-    // load once over, and none is claimed for the rest of this busy spell. The render that
-    // ended the turn still counted it as this tab's, hence the redraw.
+    // watching was started by someone else, and a stream lost or closed mid-turn reads its
+    // run no more: the run put down to this tab meanwhile is not its own, to show as going
+    // and to load once over, and none is claimed for the rest of this busy spell. The render
+    // that ended the turn still counted it as this tab's, hence the redraw.
     if (unownedSeen.current !== unowned) {
       unownedSeen.current = unowned;
       if (claim.current.run && ours.current.delete(claim.current.run)) redraw();

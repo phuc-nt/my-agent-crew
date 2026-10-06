@@ -216,4 +216,117 @@ describe("a turn this tab started", () => {
     expect(screen.queryByTestId("notice")).not.toBeInTheDocument(); // the turn is fine, and on screen
     expect(screen.getByRole("button", { name: vi.stop })).toBeInTheDocument(); // still this person's to end
   });
+
+  /** The answer to this tab's send in the test's hands — what it says and when it ends — and
+   *  a server that can be made to stop answering anything at all. */
+  function ownStream() {
+    const encoder = new TextEncoder();
+    let body: ReadableStreamDefaultController<Uint8Array> | null = null;
+    let down = false;
+    vitest.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (down) throw new TypeError("Failed to fetch");
+      if (!String(input).endsWith("/messages") || init?.method !== "POST") return backend.fetch(input, init);
+      const stream = new ReadableStream<Uint8Array>({ start: (controller) => void (body = controller) });
+      return new Response(stream, { status: 200, headers: { "content-type": "text/event-stream" } });
+    });
+    return {
+      say: (events: AgentEvent[]) => {
+        for (const e of events) body?.enqueue(encoder.encode(`event: ${e.type}\r\ndata: ${JSON.stringify(e)}\r\n\r\n`));
+      },
+      end: () => body?.close(),
+      serverDown: (gone: boolean) => void (down = gone),
+    };
+  }
+
+  /** Sends a message whose run is seen to start, and has the turn write its first words. */
+  async function sendAndRead(conversationId: string, own: ReturnType<typeof ownStream>) {
+    await userEvent.type(screen.getByRole("textbox", { name: vi.composerPlaceholder }), "làm đi{Enter}");
+    act(() => stream().emit({ type: "run", run: run(conversationId, "chat") }));
+    await act(async () => own.say([{ type: "text_delta", text: "nửa " }]));
+    expect(await screen.findByTestId("streaming")).toHaveTextContent("nửa");
+  }
+
+  it.each<[string, ("stream" | "activity")[]]>([
+    ["its stream ends before the activity stream drops", ["stream", "activity"]],
+    ["the activity stream drops before its stream ends", ["activity", "stream"]],
+  ])("is followed to its end on the server that carries it on after a restart: %s", async (_name, order) => {
+    const c = backend.create({ title: "Khởi động lại" });
+    const own = ownStream();
+    await openConversation("Khởi động lại");
+    await sendAndRead(c.id, own);
+
+    // A server told to go ends the stream with no last word and no error, and is gone.
+    c.messages.push(storedMessage("user", "làm đi"));
+    own.serverDown(true);
+    const leaves = { stream: () => own.end(), activity: () => stream().onerror?.() };
+    for (const step of order) await act(async () => leaves[step]());
+    await waitFor(() => expect(screen.queryByTestId("streaming")).not.toBeInTheDocument());
+    expect(screen.queryByTestId("notice")).not.toBeInTheDocument(); // nothing failed that the person can act on
+
+    // The next server carries the same run on, and the tab hears of it once it answers again.
+    const turn = backend.serveTurn(c.id, { writing: [{ type: "text_delta", text: "nửa câu sau" }], stoppable: true });
+    own.serverDown(false);
+    act(() => {
+      stream().open();
+      stream().emit({ type: "snapshot", runs: [{ ...run(c.id, "chat"), resumed: true }] });
+    });
+    await waitFor(() => expect(turn.watchers()).toBe(1));
+    expect(await screen.findByTestId("streaming")).toHaveTextContent("nửa câu sau");
+    expect(screen.getByRole("button", { name: vi.stop })).toBeInTheDocument(); // still this person's to end
+
+    c.messages.push(storedMessage("assistant", "Nửa câu sau, hết.", { id: "a1" }));
+    await act(async () => {
+      turn.push(answer("Nửa câu sau, hết."));
+      turn.end();
+    });
+    act(() => stream().emit({ type: "run", run: run(c.id, "chat", "done") }));
+    await waitFor(() => expect(screen.queryByTestId("streaming")).not.toBeInTheDocument());
+    expect(await screen.findByTestId("message-assistant")).toHaveTextContent("Nửa câu sau, hết.");
+    await act(async () => {});
+    expect(screen.getAllByTestId("message-assistant")).toHaveLength(1);
+    expect(screen.getAllByTestId("message-user")).toHaveLength(1);
+    expect(screen.queryByTestId("thinking")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("notice")).not.toBeInTheDocument();
+  });
+
+  it("is asked about once when its stream ends before the turn's last word, and ends there when the server has no turn under way", async () => {
+    const c = backend.create({ title: "Dừng ở nơi khác" });
+    const own = ownStream();
+    await openConversation("Dừng ở nơi khác");
+    await sendAndRead(c.id, own);
+
+    // Someone stopped the turn elsewhere: the server ends the stream with no last word.
+    c.messages.push(storedMessage("user", "làm đi"));
+    await act(async () => own.end());
+    await waitFor(() => expect(asked(c.id, "turn")).toBe(1));
+    act(() => stream().emit({ type: "run", run: { ...run(c.id, "chat", "error"), summary: "interrupted" } }));
+    await waitFor(() => expect(screen.queryByTestId("thinking")).not.toBeInTheDocument());
+    await act(async () => {});
+    expect(screen.queryByTestId("streaming")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("notice")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: vi.stop })).not.toBeInTheDocument();
+    expect(screen.getAllByTestId("message-user")).toHaveLength(1);
+    expect(asked(c.id, "turn")).toBe(1);
+  });
+
+  it("is not asked about when its stream ended on the turn's last word, though its run is said to be going a while longer", async () => {
+    const c = backend.create({ title: "Xong trước" });
+    const own = ownStream();
+    await openConversation("Xong trước");
+    await sendAndRead(c.id, own);
+
+    c.messages.push(storedMessage("user", "làm đi"), storedMessage("assistant", "Nửa câu sau, hết.", { id: "a1" }));
+    await act(async () => {
+      own.say(answer("Nửa câu sau, hết."));
+      own.end();
+    });
+    expect(await screen.findByTestId("message-assistant")).toHaveTextContent("Nửa câu sau, hết.");
+    await act(async () => {});
+    expect(screen.queryByTestId("thinking")).not.toBeInTheDocument();
+    const loads = asked(c.id, "");
+    act(() => stream().emit({ type: "run", run: run(c.id, "chat", "done") }));
+    await act(async () => {});
+    expect(asked(c.id, "turn")).toBe(0);
+    expect(asked(c.id, "")).toBe(loads); // read to its end on its own stream: nothing to load again
+  });
 });

@@ -4,6 +4,7 @@ import { api, ApiError } from "../api/client";
 import type { AgentEvent, ConversationDetail, StopResult } from "../api/types";
 import { turnErrorText } from "../lib/error-text";
 import type { SendResult } from "../lib/send-result";
+import { endsTurn } from "../lib/turn-end";
 import { emptyThread, threadReducer, type ThreadState } from "../state/thread-reducer";
 import { useThreadSend } from "./use-thread-send";
 
@@ -44,7 +45,8 @@ export interface ThreadController {
   mutePreviews: () => void;
   /** Counts the times a run turned out not to be read by a stream this tab started: a
    *  decision refused as already taken elsewhere, a turn joined by watching, a stream lost
-   *  while its turn went on. Whatever run was put down to this tab then is not its own. */
+   *  while its turn went on, a stream that closed before its turn's last word. Whatever run
+   *  was put down to this tab then is not its own. */
   unowned: number;
   /** Counts the Stops the server answered by ending the turn. The run going here then is
    *  over, though the activity stream says so only once the turn has let go of its work. */
@@ -125,25 +127,38 @@ export function useThread(conversationId: string | null): ThreadController {
     dispatch({ type: "event", event });
   }, []);
 
+  /** Runs a turn on a stream this tab starts. `turnless` is asked once the stream has closed,
+   *  and says the server answered with no turn on it: the message was only put in line, or
+   *  the decision was refused. */
   const runTurn = useCallback(
     async (
       run: (onEvent: (e: AgentEvent) => void, signal: AbortSignal) => Promise<void>,
       describe: (error: unknown) => string = turnErrorText,
+      turnless: () => boolean = () => false,
     ) => {
       const controller = new AbortController();
       watchRef.current?.abort(); // one stream feeds the thread: this one takes over
       abortRef.current = controller;
       turns.current += 1;
       dispatch({ type: "turn_started" });
+      const said = { last: false };
       // An aborted stream is one this tab stopped reading — Stop, or another conversation
       // opened — so nothing it still delivers may land in the thread on screen. The turn
       // itself is the server's: only Stop ends it.
       const emit = (event: AgentEvent) => {
-        if (!controller.signal.aborted) onEvent(event);
+        if (controller.signal.aborted) return;
+        said.last ||= endsTurn(event);
+        onEvent(event);
       };
       try {
         await run(emit, controller.signal);
-        if (!controller.signal.aborted) dispatch({ type: "turn_finished" });
+        if (controller.signal.aborted) return;
+        dispatch({ type: "turn_finished" });
+        // A stream that closed before its turn's last word says nothing of the turn: a
+        // server told to go ends its streams so and the next one carries the turn on, or
+        // the turn was stopped elsewhere. Its run is this tab's no more, so the server is
+        // asked about it, as it is of any run this tab does not read.
+        if (!said.last && !turnless()) setUnowned((n) => n + 1);
       } catch (error) {
         if (controller.signal.aborted) return;
         dispatch({ type: "failed", message: describe(error) });
@@ -165,17 +180,22 @@ export function useThread(conversationId: string | null): ThreadController {
     async (run: (onEvent: (e: AgentEvent) => void, signal: AbortSignal) => Promise<void>) => {
       const opening = opened.current;
       let handled = false;
-      await runTurn(async (emit, signal) => {
-        try {
-          await run(emit, signal);
-        } catch (error) {
-          if (!(error instanceof ApiError && error.status === 409)) throw error;
-          if (opening !== opened.current) return;
-          handled = true;
-          setOwed(false);
-          setUnowned((n) => n + 1);
-        }
-      });
+      await runTurn(
+        async (emit, signal) => {
+          try {
+            await run(emit, signal);
+          } catch (error) {
+            if (!(error instanceof ApiError && error.status === 409)) throw error;
+            if (opening !== opened.current) return;
+            handled = true;
+            setOwed(false);
+            setUnowned((n) => n + 1);
+          }
+        },
+        undefined,
+        // The refusal is counted above, where a Stop pressed meanwhile cannot leave it out.
+        () => handled,
+      );
       if (!handled) return;
       await reload();
       if (opening === opened.current) dispatch({ type: "handled" });

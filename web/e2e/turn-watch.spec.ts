@@ -1,5 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import { vi } from "../src/i18n/vi";
+import { holdTurn } from "./live-stream";
 import { type Conversation, mockApi, run } from "./mock-api";
 import { liveActivity, serveTurn } from "./served-turn";
 
@@ -121,4 +122,46 @@ test("Stop ends a turn the server reads itself, from a tab that only watches it"
   await page.reload();
   await expect(page.getByTestId("message-assistant")).toContainText(kept);
   await expect(page.getByTestId("notice")).toHaveCount(0);
+});
+
+test("a turn this tab started is read on when its stream closes before the turn's last word", async ({ page }) => {
+  // A server told to go closes the stream of the tab that started the turn, and the next
+  // server carries the turn on: it is there to join, and has written more meanwhile.
+  const own = await holdTurn(page, "c1");
+  const turn = await serveTurn(page, "c1", { writing: [text("nửa đầu, nửa sau")], stoppable: true });
+  const activity = await liveActivity(page);
+  const mock = await mockApi(page, { conversations: [conversation("c1", "Chuyện kể")] });
+  await page.goto("/#/chat/c1");
+  await activity.emit({ type: "snapshot", runs: [] });
+
+  const box = page.getByRole("textbox", { name: vi.composerPlaceholder });
+  await box.fill(ASKED);
+  await box.press("Enter");
+  await expect(page.getByTestId("message-user")).toContainText(ASKED);
+  await activity.emit({ type: "run", run: going("chat") });
+  await own.push(text("nửa đầu"));
+  const writing = page.getByTestId("streaming");
+  await expect(writing).toContainText("nửa đầu");
+  expect(await turn.watchers()).toBe(0); // its own stream is all it reads
+
+  mock.conversations[0].messages.push({ ...STORED, id: "1", seq: 1, role: "user", content: ASKED });
+  await own.close();
+  await expect(writing).toContainText("nửa đầu, nửa sau");
+  await expect.poll(() => turn.watchers()).toBe(1);
+  await expect(page.getByTestId("notice")).toHaveCount(0);
+
+  const answer = "Nửa đầu, nửa sau, hết.";
+  mock.conversations[0].messages.push({ ...STORED, id: "2", seq: 2, role: "assistant", content: answer, provider: "fake", model: "echo" });
+  await turn.push(
+    { type: "assistant_message", message_id: "2", content: answer, tool_calls: [], provider: "fake", model: "echo", cost_usd: 0 },
+    { type: "done", spent_usd: 0, unknown_cost_calls: 0 },
+  );
+  await turn.end();
+  await activity.emit({ type: "run", run: over("chat") });
+
+  await expect(writing).toHaveCount(0);
+  await expect(page.getByTestId("thinking")).toHaveCount(0);
+  await expect(page.getByTestId("message-assistant")).toHaveCount(1);
+  await expect(page.getByTestId("message-assistant")).toContainText(answer);
+  await expect(page.getByTestId("message-user")).toHaveCount(1);
 });

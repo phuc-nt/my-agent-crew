@@ -1115,4 +1115,74 @@ describe("a run this tab's stream no longer reads", () => {
     });
     expect(result.current).toMatchObject({ unowned: 1, state: { busy: false, notice: { kind: "stopped" } } });
   });
+
+  /** An idle thread whose next send is answered by a stream that says `events` and ends. */
+  async function sendAnswered(events: AgentEvent[]) {
+    vitest.spyOn(api, "getConversation").mockResolvedValue(idle({ messages: [] }));
+    vitest.spyOn(api, "sendMessage").mockImplementation(async (_id, _text, emit) => {
+      for (const event of events) emit(event);
+    });
+    const hook = renderHook(() => useThread("c1"));
+    await waitFor(() => expect(hook.result.current.detail).not.toBeNull());
+    await act(async () => {
+      await hook.result.current.send("việc một");
+    });
+    return hook;
+  }
+
+  const call: AgentEvent = { type: "tool_call", tool_call_id: "tc1", name: "write_file", arguments: {} };
+
+  it.each<[string, AgentEvent[], (string | undefined)[]]>([
+    ["with the turn half written", [call, { type: "text_delta", text: "nửa chừng" }], ["stopped"]],
+    ["with nothing said at all", [], []],
+  ])("is given up when the stream of its own turn ends before the turn's last word, %s", async (_name, events, calls) => {
+    const { result } = await sendAnswered(events);
+    // The server ended the stream, which is no failure to tell the person of. The turn may
+    // be going on all the same: a server told to go ends its streams like this.
+    expect(result.current).toMatchObject({ unowned: 1, state: { busy: false, streaming: null, notice: null } });
+    expect(statuses(result.current.state.items)).toEqual(calls);
+  });
+
+  it.each<[string, AgentEvent]>([
+    ["done", { type: "done", spent_usd: 0, unknown_cost_calls: 0 }],
+    ["halted", { type: "halted", reason: "budget", spent_usd: 0 }],
+    ["an error", { type: "error", message: "model down" }],
+    ["a request to the person", { type: "approval_required", approval_id: "ap", tool_call_id: "tc1", name: "write_file", arguments: {}, reason: "", expires_at: "" }],
+  ])("stays this tab's own when its stream ends on the turn's last word: %s", async (_name, last) => {
+    const { result } = await sendAnswered([call, last]);
+    expect(result.current).toMatchObject({ unowned: 0, state: { busy: false } });
+  });
+
+  it("is given up when its stream ends on the server's word that nothing is going: a turn cut off is spoken of the same way", async () => {
+    // The word stands in for events this tab was never given. The turn's own last word is
+    // not among what it did read, so the stream has not shown the turn over.
+    const { result } = await sendAnswered([call, { type: "watching", running: false, detail: idle({ messages: [] }) }]);
+    expect(result.current).toMatchObject({ unowned: 1, state: { busy: false, notice: null } });
+  });
+
+  it("stays as it is when the server only put the message in line: that stream has said all it had to", async () => {
+    const { result } = await sendAnswered([{ type: "queued", item_id: 7, kind: "follow_up", position: 1 }]);
+    expect(result.current).toMatchObject({ unowned: 0, state: { busy: false, notice: null } });
+    expect(result.current.state.waiting).toEqual([{ id: 7, kind: "follow_up", text: "việc một" }]);
+  });
+
+  it("is given up when the stream of a decision ends before the turn's last word", async () => {
+    vitest.spyOn(api, "resolveApproval").mockImplementation(async (_id, _ap, _ok, emit) => {
+      emit({ type: "text_delta", text: "làm tiếp" });
+    });
+    const { result } = await openPaused("tool");
+    await act(async () => {
+      await result.current.decide(true);
+    });
+    expect(result.current).toMatchObject({ unowned: 1, state: { busy: false, streaming: null, notice: null } });
+  });
+
+  it("is given up once when a decision was refused as already taken elsewhere", async () => {
+    vitest.spyOn(api, "resolveApproval").mockRejectedValue(new ApiError(409, "approval already resolved"));
+    const { result } = await openPaused("tool");
+    await act(async () => {
+      await result.current.decide(true);
+    });
+    expect(result.current).toMatchObject({ unowned: 1, state: { busy: false, notice: { kind: "handled" } } });
+  });
 });
