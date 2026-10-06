@@ -3,6 +3,7 @@ where it came from — never the process environment itself."""
 
 import json
 import os
+from dataclasses import asdict, replace
 
 import pytest
 from fastapi.testclient import TestClient
@@ -12,10 +13,12 @@ from my_agent_crew.activity.step_previews import argument_preview, preview
 from my_agent_crew.activity.trajectory import RESULT_LIMIT
 from my_agent_crew.config import Route
 from my_agent_crew.llm.types import Message, ToolCall
+from my_agent_crew.script.tool import SCRIPT_TOOL
 from my_agent_crew.server import create_app
 from my_agent_crew.store.db import now_iso
 from my_agent_crew.store.runs import DONE, RunRecord
 from my_agent_crew.texts import TRAJECTORY_REDACTED
+from my_agent_crew.tools.result import NestedCall
 from tests.trajectory_fake import delegating_turn
 
 FAKE_KEY = "sk-or-v1-" + "0123456789abcdef" * 4
@@ -236,6 +239,39 @@ def test_a_secret_cut_short_anywhere_in_a_runs_record_is_covered_in_both(client,
     for body in (as_json.text, as_md.text):
         assert not [piece for piece in pieces(PLANTED) if piece in body]
         assert TRAJECTORY_REDACTED in body
+
+
+def test_a_secret_in_what_a_script_called_is_covered_with_the_rest_of_the_record(
+    client, monkeypatch
+):
+    """A script's own calls are kept on its step, each with a preview of what it was called
+    with and of what came back. No message holds them, so the step is the one place an
+    export has them from."""
+    c, store = client
+    monkeypatch.setenv("TRAJECTORY_TEST_API_KEY", PLANTED)
+    conv = store.create()
+    cut = NestedCall(
+        "workspace_read",
+        argument_preview({"path": "notes/" + "x" * 140 + PLANTED, PLANTED: "v"}),
+        True,
+        preview("khoá: " + "y" * 140 + PLANTED),
+        3,
+    )
+    whole = replace(cut, arguments={"path": "khoa.txt"}, output=f"khoá là {PLANTED}")
+    step = {"kind": "tool", "name": SCRIPT_TOOL, "ok": True, "output": "xong", "duration_ms": 9}
+    step["calls"] = [asdict(cut), asdict(whole)]
+    run = RunRecord("r3", "default", conv.id, "chat", "Đọc", DONE, now_iso(), steps=[step])
+    run.after_seq = 0
+    store.runs.save(run)
+
+    as_json, as_md = download(c, "r3"), download(c, "r3", format="md")
+
+    [exported] = as_json.json()["run"]["steps"]
+    assert [call["name"] for call in exported["calls"]] == ["workspace_read", "workspace_read"]
+    assert exported["calls"][1] == {**asdict(whole), "output": f"khoá là {TRAJECTORY_REDACTED}"}
+    for body in (as_json.text, as_md.text):
+        assert not [piece for piece in pieces(PLANTED) if piece in body]
+        assert "workspace_read" in body and TRAJECTORY_REDACTED in body
 
 
 def test_a_secret_with_quotes_or_backslashes_is_covered_where_json_escaped_it(client, monkeypatch):

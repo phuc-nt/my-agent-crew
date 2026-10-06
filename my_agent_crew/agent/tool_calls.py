@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterator, Callable, Sequence
+from dataclasses import asdict
 from typing import TYPE_CHECKING
 
 from my_agent_crew.agent.approval_lookup import matches, open_new
@@ -62,6 +63,9 @@ async def _execute(deps: AgentDeps, call: ToolCall) -> ToolResult:
 async def _record(deps: AgentDeps, conv_id: str, call: ToolCall, result: ToolResult) -> Event:
     if result.metered:  # a tool that paid a model is charged like a completion
         deps.store.add_spend(conv_id, result.cost_usd)
+    for nested in result.calls:  # and so is each call a script made that paid one
+        if nested.metered:
+            deps.store.add_spend(conv_id, nested.cost_usd)
     deps.store.append(
         conv_id,
         Message(role="tool", content=result.output, tool_call_id=call.id, name=call.name),
@@ -75,6 +79,7 @@ async def _record(deps: AgentDeps, conv_id: str, call: ToolCall, result: ToolRes
         original_chars=result.original_chars,
         cost_usd=result.cost_usd if result.metered else None,
         metered=result.metered,
+        calls=[asdict(nested) for nested in result.calls],
     )
 
 

@@ -1,9 +1,10 @@
 """What an agent is handed of the MCP servers its profile names.
 
-Every tool of those servers but the hidden ones, and `tool_search` ahead of them when some
-are not told up front. Handing out starts by taking back what was handed before, so it can
-be done whenever a server or a profile changes: an agent is always left with what the
-servers hold now, each tool once and in the same place.
+Every tool of those servers but the hidden ones. Ahead of them come `tool_search`, when
+some are not told up front, and `tool_script`, when some may be called from a script.
+Handing out starts by taking back what was handed before, so it can be done whenever a
+server or a profile changes: an agent is always left with what the servers hold now, each
+tool once and in the same place.
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ from typing import TYPE_CHECKING
 from my_agent_crew.mcp.config import HIDDEN
 from my_agent_crew.mcp.tool_search import SEARCH_TOOL, search_tool
 from my_agent_crew.mcp.tools import PREFIX, McpTool, held_back
+from my_agent_crew.script.tool import SCRIPT_TOOL, script_tool, scriptable
 
 if TYPE_CHECKING:
     from my_agent_crew.agent.loop import AgentDeps
@@ -25,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 def hand_out(deps: AgentDeps, links: Mapping[str, Link]) -> None:
     for name in deps.tools.names():
-        if name.startswith(PREFIX) or name == SEARCH_TOOL:
+        if name.startswith(PREFIX) or name in (SEARCH_TOOL, SCRIPT_TOOL):
             deps.tools = deps.tools.without(name)
     handed: dict[str, McpTool] = {}
     for server in deps.agent.mcp:
@@ -42,5 +44,9 @@ def hand_out(deps: AgentDeps, links: Mapping[str, Link]) -> None:
         # Before the tools themselves: the built-ins and it are what never moves.
         about = {tool.server: links[tool.server].server.description for tool in waiting}
         deps.tools.register(search_tool(waiting, about))
+    scripted = [tool for tool in handed.values() if scriptable(tool)]
+    if scripted:
+        # Read when a script runs, not now: the registry is replaced on the next hand-out.
+        deps.tools.register(script_tool(lambda: deps.tools, scripted))
     for tool in handed.values():
         deps.tools.register(tool)

@@ -56,16 +56,22 @@ def _quoted(path: Path) -> str:
     return '"' + str(path).replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
+def helper_rules() -> str:
+    """The rules that keep a process from getting something unsandboxed to act for it."""
+    programs = " ".join(f'(literal "{p}")' for p in DENIED_PROGRAMS)
+    services = " ".join(f'(global-name "{s}")' for s in DENIED_SERVICES)
+    return (
+        f"(deny process-exec {programs})"
+        f'(deny mach-lookup {services} (global-name-regex #"^com\\.apple\\.lsd\\."))'
+    )
+
+
 def sandbox_profile(write_paths: Sequence[Path], *, network: bool = False) -> str:
     """The sandbox profile text. `write_paths` must already be resolved."""
     writable = " ".join(f"(subpath {_quoted(p)})" for p in (*write_paths, *temp_dirs()))
-    programs = " ".join(f'(literal "{p}")' for p in DENIED_PROGRAMS)
-    services = " ".join(f'(global-name "{s}")' for s in DENIED_SERVICES)
     offline = "" if network else "(deny network*)"
     return (
         f"(version 1)(allow default){offline}"
         # Later rules win, so the allow carves the writable paths out of the deny.
-        f"(deny file-write*)(allow file-write* {writable} {DEVICE_RULES})"
-        f"(deny process-exec {programs})"
-        f'(deny mach-lookup {services} (global-name-regex #"^com\\.apple\\.lsd\\."))'
+        f"(deny file-write*)(allow file-write* {writable} {DEVICE_RULES})" + helper_rules()
     )

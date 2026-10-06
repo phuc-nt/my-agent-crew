@@ -128,6 +128,11 @@ def apply_event(run: RunRecord, event: Event, clock: float) -> None:
         if event.metered:  # a tool that paid a model is billed with the run, like a completion
             step["cost_usd"] = event.cost_usd
             _bill(run, event.cost_usd)
+        if event.calls:  # what a script called on its own, which no other step shows
+            step["calls"] = event.calls
+            for nested in event.calls:
+                if nested["metered"]:
+                    _bill(run, nested["cost_usd"])
         close_step(step, clock)
         return
     if isinstance(event, SteerEvent):

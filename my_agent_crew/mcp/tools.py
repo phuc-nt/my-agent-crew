@@ -47,6 +47,16 @@ class McpTool(Tool):
         return {**super().to_dict(), "server": self.server, "exposure": self.exposure}
 
 
+@dataclass(frozen=True)
+class CompanionTool(Tool):
+    """A tool that comes with an agent's servers instead of from its own list: the one
+    that finds their tools, and the one that calls them from a script."""
+
+    def to_dict(self) -> dict[str, Any]:
+        # For the owner's screens: it follows the servers, not the agent's allow-list.
+        return {**super().to_dict(), "with_mcp": True}
+
+
 def held_back(tool: Tool | None) -> bool:
     """Not told to the model up front: the agent holds it, and finds it with `tool_search`."""
     return isinstance(tool, McpTool) and tool.exposure != DIRECT

@@ -33,6 +33,8 @@ TRACKER = (
     "    headers:\n      Authorization: Bearer ${TRACKER_KEY}\n"
 )
 SEARCH, CREATE = "mcp__notion__search", "mcp__notion__create_page"
+# `search` is said to only read and is opened for scripts: the one way a script gets a tool.
+SCRIPTED = NOTION + "    read_only: [search]\n    tool_exposure:\n      search: codemode\n"
 
 
 @dataclass
@@ -211,6 +213,35 @@ def test_an_agent_names_a_server_from_its_editor_and_holds_its_tools_at_once(cre
     # With no server left to search, the search goes too.
     assert "tool_search" not in cleared.json()["profile"]["tools"]
     assert "tool_search" not in [tool["name"] for tool in crew.client.get("/api/tools").json()]
+
+
+def test_an_agent_with_a_tool_opened_for_scripts_holds_the_script_tool_too(crew_with) -> None:
+    crew = crew_with(SCRIPTED, FakeMcp())
+    crew.client.post("/api/mcp/notion/reconnect")
+    crew.client.post("/api/agents", json={"agent_id": "coder", "profile": {}})
+
+    reply = crew.client.patch("/api/agents/coder", json={"profile": {"mcp": ["notion"]}})
+
+    held = reply.json()["profile"]["tools"]
+    assert held[-4:] == ["tool_search", "tool_script", SEARCH, CREATE]
+    shown = {tool["name"]: tool for tool in crew.client.get("/api/agents/coder").json()["tools"]}
+    script = shown["tool_script"]
+    assert script["with_mcp"] is True and script["requires_approval"] is False
+    assert f"- {SEARCH}(query: string): [MCP notion] Find pages by words." in script["description"]
+    assert (shown[SEARCH]["exposure"], shown[SEARCH]["requires_approval"]) == ("codemode", False)
+    assert (shown[CREATE]["exposure"], shown[CREATE]["requires_approval"]) == ("deferred", True)
+    # The tools list of the crew says the same, and marks both tools that follow a server.
+    listed = {tool["name"]: tool for tool in crew.client.get("/api/tools").json()}
+    assert listed["tool_script"] == {**script, "agents": ["coder"], "optional": False}
+    marked = [name for name, tool in listed.items() if "with_mcp" in tool]
+    assert marked == ["tool_script", "tool_search"]  # listed by name
+
+    cleared = crew.client.patch("/api/agents/coder", json={"profile": {"mcp": []}})
+
+    # With no server left to read from, the script tool goes with the search.
+    assert not {"tool_search", "tool_script"} & set(cleared.json()["profile"]["tools"])
+    names = [tool["name"] for tool in crew.client.get("/api/tools").json()]
+    assert "tool_script" not in names and "tool_search" not in names
 
 
 def test_an_agent_may_not_be_given_a_server_the_crew_does_not_have(crew_with) -> None:

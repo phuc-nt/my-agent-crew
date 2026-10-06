@@ -18,11 +18,10 @@ import re
 import unicodedata
 from collections import Counter
 from collections.abc import Iterator, Mapping, Sequence
-from dataclasses import dataclass
 from typing import Any
 
 from my_agent_crew import texts_mcp as t
-from my_agent_crew.mcp.tools import McpTool, summary
+from my_agent_crew.mcp.tools import CompanionTool, McpTool, summary
 from my_agent_crew.tools.registry import Tool, ToolError
 
 SEARCH_TOOL = "tool_search"
@@ -53,13 +52,6 @@ PARAMETERS: dict[str, Any] = {
     },
     "required": ["query"],
 }
-
-
-@dataclass(frozen=True)
-class SearchTool(Tool):
-    def to_dict(self) -> dict[str, Any]:
-        # For the owner's screens: it comes with an agent's servers, not its allow-list.
-        return {**super().to_dict(), "with_mcp": True}
 
 
 def _singular(word: str) -> str:
@@ -170,7 +162,7 @@ def search_tool(tools: Sequence[McpTool], about: Mapping[str, str]) -> Tool:
             lines.append(t.TOOL_SEARCH_MORE.format(count=len(found) - len(loaded)))
         return "\n".join(lines)
 
-    return SearchTool(
+    return CompanionTool(
         name=SEARCH_TOOL,
         description=t.TOOL_SEARCH_DESCRIPTION.format(servers=_servers(about)),
         parameters=PARAMETERS,

@@ -13,6 +13,7 @@ from my_agent_crew.llm.types import ToolSpec
 from my_agent_crew.texts import TOOL_BLOCKED_BY_HOOK, TOOL_FAILED, UNKNOWN_TOOL
 from my_agent_crew.tools.output_shaping import cut
 from my_agent_crew.tools.output_spill import shape_with_spill
+from my_agent_crew.tools.result import ToolResult
 
 if TYPE_CHECKING:
     from my_agent_crew.tools.hooks import HookRunner
@@ -27,26 +28,6 @@ MAX_OUTPUT_CHARS = DEFAULT_TOOL_OUTPUT_CHARS
 
 class ToolError(Exception):
     """A failure the model should read about and react to, not a bug."""
-
-
-@dataclass(frozen=True)
-class ToolResult:
-    ok: bool
-    output: str
-    # Set by a tool that paid a model itself (`image_read`): the price, or None when the
-    # upstream reported none. `metered` says the call is to be charged at all.
-    cost_usd: float | None = None
-    metered: bool = False
-    # How the output was brought under the cap: "none", "json" (structure kept), "summary"
-    # (middle paraphrased by a model) or "cut", with the size before shaping. The run card
-    # shows this so a short answer built on a shortened tool output is not mistaken for one
-    # built on the whole thing.
-    shaped_kind: str = "none"
-    original_chars: int = 0
-    # Set by a tool whose output already is an answer for the person (`delegate`, when the
-    # child finished): the answer whole, untouched by shaping. When that call was the
-    # turn's only one, the loop hands it on instead of paying a model to retell it.
-    reply: str | None = None
 
 
 # A runner returns its text, or a `ToolResult` when it has more to say than text.

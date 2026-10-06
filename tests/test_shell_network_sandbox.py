@@ -96,6 +96,34 @@ async def test_an_offline_command_cannot_ask_an_unsandboxed_helper(tmp_path: Pat
     assert result.ok is False and "Operation not permitted" in result.output
 
 
+# Asks the system for a service by its name, as a program does before it speaks to one,
+# and prints what came of it: 0 when the service was found.
+LOOKS_UP = (
+    "import ctypes; lib = ctypes.CDLL(None); port = ctypes.c_uint();"
+    " print('lookup', lib.bootstrap_look_up(ctypes.c_uint.in_dll(lib, 'bootstrap_port'),"
+    " b'{service}', ctypes.byref(port)))"
+)
+# What the system answers a lookup the sandbox denies.
+NOT_PRIVILEGED = 1100
+
+
+@needs_sandbox
+@pytest.mark.parametrize("service", [*shell_sandbox.DENIED_SERVICES, "com.apple.lsd.mapdb"])
+async def test_an_offline_command_cannot_reach_a_helpers_service_by_its_name(
+    tmp_path: Path, service
+):
+    """What `open` and `pbcopy` do for a command is asked of a service, and any language
+    can ask it without them."""
+    lookup = python(LOOKS_UP.format(service=service))
+    found = await run(tmp_path, lookup)
+    if "lookup 0" not in found.output:
+        pytest.skip("the service is not there to find, so a refused lookup would prove nothing")
+
+    offline = await run(tmp_path, lookup, network=False)
+
+    assert f"lookup {NOT_PRIVILEGED}" in offline.output
+
+
 @needs_sandbox
 async def test_an_offline_command_writes_only_where_its_profile_says(tmp_path: Path, monkeypatch):
     """A write elsewhere is a delayed command: a script a scheduled job runs with the
