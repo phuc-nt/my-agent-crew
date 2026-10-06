@@ -5,7 +5,8 @@ the turn had done is in the message log, so the server that starts next can carr
 The hub closed every run the previous process was still working on and kept the ones never
 taken up before (`store/run_restart.py`); each of those that may still go on is reopened as
 the same run and read to its end by whoever reads that kind of turn — the bot for a chat's,
-the scheduler's delivery for a job's, the server itself for the rest.
+the scheduler's delivery for a job's, the server itself for the rest. The bot answers a turn
+once, so it is handed what the turn wrote before the cut as well (`turn_unsent.py`).
 
 A run is taken up once. Reopening it writes that down before the turn takes a step, so a
 turn that brings the server down again is closed at the next start instead of being tried
@@ -25,6 +26,7 @@ from my_agent_crew.agent.replay import continue_cut_turn
 from my_agent_crew.agent.turn_context import DELEGATE, JOB, TELEGRAM, normalize_source
 from my_agent_crew.store.models import AWAITING_APPROVAL
 from my_agent_crew.store.runs import RunRecord
+from my_agent_crew.turn_unsent import after, unsent
 
 if TYPE_CHECKING:
     from my_agent_crew.server.runtime import Runtime
@@ -83,7 +85,9 @@ def _take_up(runtime: Runtime, run: RunRecord) -> None:
     rest = continue_cut_turn(deps, conv_id, kind)
     events = tracked(hub, rest, run.agent_id, run.source, run.title, conv_id)
     if kind == TELEGRAM and runtime.channel is not None:
-        task = runtime.channel.spawn(runtime.channel.reply_to(events, conv_id))
+        # The bot that read the turn went down with it, and what it had read went unsent.
+        whole = after(unsent(runtime.store, run), events)
+        task = runtime.channel.spawn(runtime.channel.reply_to(whole, conv_id))
     else:
         if kind == JOB:
             events = _then_delivered(runtime, run, events)

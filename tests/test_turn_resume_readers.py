@@ -20,6 +20,7 @@ from my_agent_crew.server.runtime import Runtime
 from my_agent_crew.store.runs import DONE, FAILED, RUNNING, RunRecord
 from my_agent_crew.tools.delegate import DELEGATE_TOOL_NAME
 from my_agent_crew.turn_resume import resume_cut_turns
+from tests.lapse_helpers import WRITE
 from tests.queue_helpers import GatedProvider, SlowTool, settle_loop, until
 from tests.restart_helpers import (
     carried_on,
@@ -31,6 +32,7 @@ from tests.restart_helpers import (
 )
 from tests.telegram_fake import message, settle
 from tests.test_scheduler import with_schedules
+from tests.test_telegram_canvas_notice_sent import Delegated, canvas, hands_on, listed
 
 SLOW = ToolCall("c1", "slow", {})
 PEEK = ToolCall("p1", "peek", {})
@@ -38,10 +40,12 @@ BRIEF = Schedule("brief", "Bản tin sáng", cron="0 7 * * *", prompt="soạn b�
 JOB_ID = "default/brief"
 
 
-def crew_with_bot(make_channel, deps_factory, script, *schedules: Schedule):
+def crew_with_bot(make_channel, deps_factory, script, *schedules: Schedule, tools=()):
     """One agent, its bot and the runtime around both, as a server start builds them."""
     slow = SlowTool()
-    deps = deps_factory(providers={"scripted": GatedProvider(script)}, extra_tools=[slow.tool])
+    deps = deps_factory(
+        providers={"scripted": GatedProvider(script)}, extra_tools=[slow.tool, *tools]
+    )
     deps = with_schedules(deps, *schedules)
     channel = make_channel(deps)
     runtime = Runtime(
@@ -67,6 +71,20 @@ async def bot_stops(channel, fake) -> None:
     channel.start()
     await channel.stop()
     fake.status = None
+
+
+async def cut_then_carried_on(first, channel, fake, make_channel, deps_factory, script) -> None:
+    """The server goes down under the chat's turn, and the one that starts next reads the
+    rest of it to its end."""
+    first.hub.going_down = True
+    await bot_stops(channel, fake)
+    second, bot, _ = crew_with_bot(make_channel, deps_factory, script)
+    assert len(resume_cut_turns(second)) == 1
+    await settle(bot)
+
+
+def asks_to(tool: str) -> str:
+    return texts.REPLY_APPROVAL.format(name=tool, reason="", how=texts.TELEGRAM_APPROVAL_HOW)
 
 
 def chat_history(runtime: Runtime, conv_id: str) -> list[tuple[str, str]]:
@@ -99,6 +117,86 @@ async def test_a_chat_turn_cut_by_the_server_is_answered_by_the_bot_that_starts_
         ("tool", texts.RESTART_CUT_TOOL),
         ("assistant", "đã kiểm tra"),
     ]
+
+
+async def test_a_chat_turn_carried_on_is_answered_with_what_it_said_before_the_cut_too(
+    make_channel, deps_factory, fake, monkeypatch
+):
+    """The bot that read the first part went down with it, unsent. One reply, as the turn
+    would have been answered had nothing cut it."""
+    monkeypatch.setattr(telegram_polling, "STOP_GRACE_SECONDS", 0.05)
+    said_first = completion("Đã tra xong ba nguồn.", tool_calls=[SLOW])
+    first, channel, slow = crew_with_bot(make_channel, deps_factory, [said_first])
+    await chat_turn_under_way(channel, fake, slow)
+
+    rest = [completion("Tổng hợp ở dưới.")]
+    await cut_then_carried_on(first, channel, fake, make_channel, deps_factory, rest)
+
+    assert fake.sent == [texts.TELEGRAM_CUT_RESUMES, "Đã tra xong ba nguồn.\n\nTổng hợp ở dưới."]
+
+
+async def test_a_chat_turn_carried_on_names_the_canvas_it_wrote_before_the_cut(
+    make_channel, deps_factory, fake, monkeypatch
+):
+    monkeypatch.setattr(telegram_polling, "STOP_GRACE_SECONDS", 0.05)
+    child = Delegated()
+    script = [hands_on("d1"), completion("Đang soát.", tool_calls=[SLOW])]
+    first, channel, slow = crew_with_bot(make_channel, deps_factory, script, tools=[child.tool])
+    child.written = [(canvas(first.store, "Dàn ý"), 1)]
+    await chat_turn_under_way(channel, fake, slow)
+
+    rest = [completion("Xong.")]
+    await cut_then_carried_on(first, channel, fake, make_channel, deps_factory, rest)
+
+    assert fake.sent[1:] == ["Đang soát.\n\nXong.", listed(("Dàn ý", 1))]
+
+
+async def test_a_chat_turn_carried_on_does_not_repeat_what_it_sent_when_it_stopped_to_ask(
+    make_channel, deps_factory, fake, monkeypatch
+):
+    """The reply sent at the stop said what the turn had written until then. The chat is
+    owed what followed the person's yes, and no more."""
+    monkeypatch.setattr(telegram_polling, "STOP_GRACE_SECONDS", 0.05)
+    script = [
+        completion("Trước khi hỏi.", tool_calls=(WRITE,)),
+        completion("Đang làm.", tool_calls=[SLOW]),
+    ]
+    first, channel, slow = crew_with_bot(make_channel, deps_factory, script)
+    fake.updates = [message(1, "làm đi")]
+    await channel.poll_once()
+    await settle(channel)
+    stopped = f"Trước khi hỏi.\n\n{asks_to('workspace_write')}"
+    assert fake.sent == [stopped]
+    fake.updates = [message(2, "/approve")]
+    await channel.poll_once()
+    await asyncio.wait_for(slow.started.wait(), 2)
+
+    rest = [completion("Xong.")]
+    await cut_then_carried_on(first, channel, fake, make_channel, deps_factory, rest)
+
+    assert fake.sent == [stopped, texts.TELEGRAM_CUT_RESUMES, "Đang làm.\n\nXong."]
+
+
+async def test_a_chat_turn_cut_while_the_call_it_asked_about_ran_repeats_nothing(
+    make_channel, deps_factory, fake, monkeypatch
+):
+    monkeypatch.setattr(telegram_polling, "STOP_GRACE_SECONDS", 0.05)
+    gated = SlowTool("gated", requires_approval=True)
+    script = [completion("Sắp ghi.", tool_calls=[ToolCall("g1", "gated", {})])]
+    first, channel, _ = crew_with_bot(make_channel, deps_factory, script, tools=[gated.tool])
+    fake.updates = [message(1, "làm đi")]
+    await channel.poll_once()
+    await settle(channel)
+    stopped = f"Sắp ghi.\n\n{asks_to('gated')}"
+    assert fake.sent == [stopped]
+    fake.updates = [message(2, "/approve")]
+    await channel.poll_once()
+    await asyncio.wait_for(gated.started.wait(), 2)
+
+    rest = [completion("Xong.")]
+    await cut_then_carried_on(first, channel, fake, make_channel, deps_factory, rest)
+
+    assert fake.sent == [stopped, texts.TELEGRAM_CUT_RESUMES, "Xong."]
 
 
 async def test_a_bot_restarted_while_the_server_stays_up_promises_nothing(
