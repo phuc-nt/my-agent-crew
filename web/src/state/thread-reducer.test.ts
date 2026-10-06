@@ -457,6 +457,15 @@ describe("threadReducer on a turn joined from the stored conversation", () => {
     expect(run([watching()], handled).notice).toEqual({ kind: "handled", text: "" });
   });
 
+  it("does not carry the word that a turn was stopped into a turn found going", () => {
+    const stopped = threadReducer(run([{ type: "text_delta", text: "đang viết" }]), { type: "turn_stopped" });
+    expect(stopped.notice).toEqual({ kind: "stopped", text: "" });
+    // Another turn has the thread now: the word was of the one before.
+    expect(run([watching()], stopped)).toMatchObject({ busy: true, notice: null });
+    // Found over, the conversation is only read again, and the word stands as through any load.
+    expect(run([watching(false)], stopped)).toMatchObject({ busy: false, notice: { kind: "stopped", text: "" } });
+  });
+
   it("is not busy when the turn ended in the events it stands in for", () => {
     const over = detail({
       messages: [
@@ -617,7 +626,7 @@ describe("threadReducer turn end", () => {
       },
     });
     expect(threadReducer(again, { type: "loaded", detail: asking }).notice).toBeNull();
-    // Any other note still belongs to the thread as it was before the load.
+    // A note that the turn failed still belongs to the thread as it was before the load.
     const failed = threadReducer(noted, { type: "failed", message: "net" });
     expect(threadReducer(failed, { type: "loaded", detail: detail() }).notice).toBeNull();
   });
@@ -641,6 +650,42 @@ describe("threadReducer turn end", () => {
       expect(stopped).toMatchObject({ busy: false, streaming: null, pending: null, notice: { kind: "stopped", text: "" } });
       expect(statuses(stopped)).toEqual(["stopped", "stopped"]);
     }
+  });
+
+  it("keeps the word that the turn was stopped through the loads that follow it, until one brings a request", () => {
+    // A tab that only read along reads the conversation again when the run it stopped ends:
+    // that load says nothing of how the turn ended, and the person's click is still answered.
+    const stopped = threadReducer(run([twoCalls]), { type: "turn_stopped" });
+    const kept = [message({ id: "a9", role: "assistant", content: "phần đã viết" })];
+    const again = threadReducer(stopped, { type: "loaded", detail: detail({ messages: kept }) });
+    expect(again.items).toEqual([{ kind: "assistant", id: "a9", text: "phần đã viết", model: null }]);
+    expect(again.notice).toEqual({ kind: "stopped", text: "" });
+    expect(threadReducer(again, { type: "loaded", detail: detail() }).notice).toEqual({ kind: "stopped", text: "" });
+    const calls = [message({ role: "assistant", tool_calls: [{ id: "tc3", name: "write_file", arguments: {} }] })];
+    const asking = detail({
+      messages: calls,
+      pending_approval: {
+        id: "ap6",
+        conversation_id: "c1",
+        message_id: "m",
+        tool_call_id: "tc3",
+        tool_name: "write_file",
+        arguments: {},
+        status: "pending",
+        created_at: "",
+        expires_at: null,
+        resolved_at: null,
+      },
+    });
+    // The conversation asks something new: it has moved past the turn that was stopped.
+    expect(threadReducer(again, { type: "loaded", detail: asking }).notice).toBeNull();
+  });
+
+  it("drops that word with the rest when another conversation is opened, or a message is sent", () => {
+    const stopped = threadReducer(run([twoCalls]), { type: "turn_stopped" });
+    expect(threadReducer(stopped, { type: "opened" })).toEqual(emptyThread);
+    expect(threadReducer(stopped, { type: "user_sent", text: "làm lại" }).notice).toBeNull();
+    expect(threadReducer(stopped, { type: "turn_started" }).notice).toBeNull();
   });
 
   it("settling stops leftover calls only when no turn is going", () => {

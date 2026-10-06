@@ -98,7 +98,7 @@ test("leaving the conversation leaves the turn going, and coming back joins it a
 });
 
 test("Stop ends a turn the server reads itself, from a tab that only watches it", async ({ page }) => {
-  const { turn, activity } = await openMidTurn(page, "chat", "đang viết", true);
+  const { turn, activity, mock } = await openMidTurn(page, "chat", "đang viết", true);
   await expect(page.getByTestId("streaming")).toContainText("đang viết");
 
   await page.getByRole("button", { name: vi.stop }).click();
@@ -107,7 +107,18 @@ test("Stop ends a turn the server reads itself, from a tab that only watches it"
   expect(await turn.stops()).toBe(1);
   expect(await turn.watchers()).toBe(0);
 
+  // The turn was never this tab's own, so its run ending makes the tab read the conversation
+  // again. What the server stored as the turn stopped comes only with that read.
+  const kept = "phần đã viết trước khi dừng";
+  mock.conversations[0].messages.push({ ...STORED, id: "2", seq: 2, role: "assistant", content: kept, provider: "fake", model: "echo" });
   await activity.emit({ type: "run", run: run({ id: "r1", conversation_id: "c1", source: "chat", status: "error", summary: "interrupted" }) });
   await expect(page.getByTestId("thinking")).toHaveCount(0);
   await expect(page.getByRole("button", { name: vi.stop })).toHaveCount(0);
+  await expect(page.getByTestId("message-assistant")).toContainText(kept);
+  await expect(page.getByTestId("notice")).toContainText(vi.stopped);
+
+  // The word is the page's own and nothing stored holds it: a page loaded again does not say it.
+  await page.reload();
+  await expect(page.getByTestId("message-assistant")).toContainText(kept);
+  await expect(page.getByTestId("notice")).toHaveCount(0);
 });

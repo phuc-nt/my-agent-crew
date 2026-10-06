@@ -112,6 +112,25 @@ describe("a turn under way that this tab did not start", () => {
     expect(asked(c.id, "stop")).toBe(1);
   });
 
+  it("is still said to have been stopped once its run has ended and the conversation has been read again", async () => {
+    const c = backend.create({ title: "Dừng khi đang xem", messages: [storedMessage("user", "làm đi")] });
+    backend.serveTurn(c.id, { writing: [{ type: "text_delta", text: "đang viết" }], stoppable: true });
+    await openConversation("Dừng khi đang xem");
+    act(() => stream().emit({ type: "run", run: run(c.id, "chat") }));
+    await screen.findByTestId("streaming");
+    await userEvent.click(screen.getByRole("button", { name: vi.stop }));
+    expect(await screen.findByTestId("notice")).toHaveTextContent(vi.stopped);
+
+    // The turn was never this tab's own, so its run ending makes the tab read the conversation
+    // again. What the server stored as the turn stopped comes only with that read.
+    c.messages.push(storedMessage("assistant", "phần đã viết", { id: "a1" }));
+    act(() => stream().emit({ type: "run", run: { ...run(c.id, "chat", "error"), summary: "interrupted" } }));
+    expect(await screen.findByTestId("message-assistant")).toHaveTextContent("phần đã viết");
+    expect(screen.getByTestId("notice")).toHaveTextContent(vi.stopped);
+    expect(screen.queryByTestId("thinking")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: vi.stop })).not.toBeInTheDocument();
+  });
+
   it("is still said to be going when the server has nothing of it to read, and is asked about once", async () => {
     const c = backend.create({ title: "Vừa xong", messages: [storedMessage("user", "chào")] });
     await openConversation("Vừa xong");
