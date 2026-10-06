@@ -80,11 +80,14 @@ export interface ThreadState {
   pending: PendingApproval | null;
   spentUsd: number;
   unknownCostCalls: number;
-  /** `reason` is set on "escalated" only: why the turn moved, beside the route it moved to. */
+  /** `reason` is set on "escalated" only: why the turn moved, beside the route it moved to.
+   *  `ofTurn` is set on an "error" the turn itself ended in. One without it is of a request
+   *  this tab made, a load or a send, that failed. */
   notice: {
     kind: "error" | "halted" | "fallback" | "escalated" | "stopped" | "handled" | "elsewhere";
     text: string;
     reason?: EscalationReason;
+    ofTurn?: true;
   } | null;
   /** Messages that found this conversation busy and wait: a chip each, confirmation only. */
   waiting: QueuedMessage[];
@@ -312,8 +315,17 @@ function fromDetail(state: ThreadState, d: ConversationDetail): ThreadState {
   // that follow do not answer the click again — the run the decision resumed, the run the
   // Stop ended in a tab that only read along, the stream coming back. A load that brings a
   // new request has moved past either.
+  //
+  // No stored conversation holds what a turn said of itself either: that it ended in an
+  // error, stopped short, or went on by another route. A load follows the turn's own end
+  // whenever the message overtook the conversation's opening load, and always in a tab that
+  // only read along. So that word stays while the stored thread ends where the thread on
+  // screen ends, and goes with a load that brings anything after it. An error of a request
+  // this tab made is answered by any load that comes back.
   const kind = state.notice?.kind;
-  const answered = pending === null && (kind === "handled" || kind === "stopped") ? state.notice : null;
+  const click = kind === "handled" || kind === "stopped";
+  const said = kind === "halted" || kind === "fallback" || kind === "escalated" || state.notice?.ofTurn === true;
+  const answered = (click ? pending === null : said && endsWhereItDid(state.items, items)) ? state.notice : null;
   return {
     ...emptyThread,
     items,
@@ -327,17 +339,28 @@ function fromDetail(state: ThreadState, d: ConversationDetail): ThreadState {
   };
 }
 
+/** Whether the stored thread ends on what the thread on screen ends on. A message the
+ *  person sent from here has no stored id until it is loaded, so its words stand for it.
+ *  Anything else is known by its id, a note the same as the call it is stored as. */
+function endsWhereItDid(shown: ThreadItem[], stored: ThreadItem[]): boolean {
+  const a = shown[shown.length - 1];
+  const b = stored[stored.length - 1];
+  if (!a || !b) return false;
+  return a.kind === "user" && b.kind === "user" ? a.text === b.text : a.id === b.id;
+}
+
 /** A turn this tab now follows from the stored conversation on: it opened late, or fell
  *  too far behind to be sent every event. What the turn is writing comes next, as events.
  *
  *  A tab already on the turn keeps what is its own and no stored conversation holds: the
  *  canvas the person put away stays away, and a note still standing — the route that
  *  stepped in, the message that would not queue — stays up. A tab that was not on it finds
- *  another turn going than the one it said was stopped: that word was of the turn before. */
+ *  another turn going than the one its note was of, whether that one was stopped or said
+ *  something of itself: only the word that a decision was already made is not of a turn. */
 function watchingFrom(given: ThreadState, e: Extract<AgentEvent, { type: "watching" }>): ThreadState {
   const rebuilt = { ...fromDetail(given, e.detail), busy: e.running };
   if (given.busy) return { ...rebuilt, notice: rebuilt.notice ?? given.notice, previewsMuted: given.previewsMuted };
-  return e.running && rebuilt.notice?.kind === "stopped" ? { ...rebuilt, notice: null } : rebuilt;
+  return e.running && rebuilt.notice !== null && rebuilt.notice.kind !== "handled" ? { ...rebuilt, notice: null } : rebuilt;
 }
 
 function applyEvent(given: ThreadState, e: AgentEvent): ThreadState {
@@ -406,7 +429,7 @@ function applyEvent(given: ThreadState, e: AgentEvent): ThreadState {
       return { ...state, busy: false, streaming: null, spentUsd: e.spent_usd, notice, ...noPreviews };
     }
     case "error":
-      return { ...state, busy: false, streaming: null, notice: { kind: "error", text: e.message }, ...noPreviews };
+      return { ...state, busy: false, streaming: null, notice: { kind: "error", text: e.message, ofTurn: true }, ...noPreviews };
     case "route_fallback":
       return { ...state, notice: { kind: "fallback", text: `${e.provider}:${e.model} — ${e.error}` } };
     // The turn goes on, so nothing else changes: the notice says which model the rest of it

@@ -329,7 +329,7 @@ describe("threadReducer streaming turn", () => {
     const halted = run([{ type: "halted", reason: "budget", spent_usd: 0.5 }]);
     expect(halted).toMatchObject({ busy: false, spentUsd: 0.5, notice: { kind: "halted", text: "budget" } });
     const errored = run([{ type: "error", message: "all routes failed" }]);
-    expect(errored.notice).toEqual({ kind: "error", text: "all routes failed" });
+    expect(errored.notice).toEqual({ kind: "error", text: "all routes failed", ofTurn: true });
     expect(errored.busy).toBe(false);
   });
 
