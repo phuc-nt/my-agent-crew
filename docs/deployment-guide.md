@@ -31,8 +31,8 @@ Thử không tốn tiền: `MY_AGENT_ROUTES=fake:echo uv run python -m my_agent_
 
 ```
 ~/.my-agent-crew/
-├── config.yaml        # routes, cost_cap_usd, max_steps, language, timezone, web_url, autonomous_default, approval_ttl_seconds
-├── env                # KEY=value, chmod 600, KHÔNG nằm trong repo
+├── config.yaml        # routes, cost_cap_usd, max_steps, language, timezone, web_url, autonomous_default, approval_ttl_seconds, mcp_servers
+├── env                # KEY=value, chmod 600, KHÔNG nằm trong repo; token đăng nhập MCP cũng ghi ở đây
 ├── agent.yaml         # master
 ├── agent.sqlite3
 ├── users/owner/       # USER.md + facts/
@@ -43,6 +43,8 @@ Thử không tốn tiền: `MY_AGENT_ROUTES=fake:echo uv run python -m my_agent_
 ```
 
 Đổi home bằng `MY_AGENT_HOME`. Mỗi lần thử nghiệm nên trỏ `MY_AGENT_HOME` sang thư mục tạm thay vì đụng home thật.
+
+`config.yaml` chỉ nhận những khoá nó biết; một khoá lạ làm server dừng lúc khởi động. Máy chủ MCP khai dưới `mcp_servers` không mang bí mật nào: giá trị header lấy từ biến môi trường, còn đăng nhập OAuth từ thẻ Kết nối ghi token vào `env` dưới tên `MCP_<MÁY_CHỦ>_ACCESS_TOKEN`, `MCP_<MÁY_CHỦ>_REFRESH_TOKEN` và `MCP_<MÁY_CHỦ>_CLIENT_ID` ([tools.md](tools.md#máy-chủ-mcp)).
 
 ## 4. Biến môi trường và bí mật
 
@@ -112,7 +114,9 @@ launchctl kickstart -k gui/$(id -u)/com.my-agent-crew.server
 
 Schema SQLite tự thêm cột/bảng khi khởi động; không có bước migrate tay. Đọc `docs/agents.md` khi nâng phiên bản lớn vì bố cục persona có thể đổi.
 
-**Sao lưu `agent.sqlite3` trước.** Schema chỉ đi một chiều: bản mới thêm bảng và cột (canvas thêm bốn bảng và ba cột, xem [system-architecture.md](system-architecture.md#28-canvas-tài-liệu-người-và-agent-cùng-sửa)) và không có bước lùi. Tệp chạy ở chế độ WAL, nên chép tệp bằng `cp` khi server đang chạy có thể thiếu những lần ghi còn nằm trong tệp `-wal`. Dùng API backup của SQLite, mở nguồn chỉ đọc bằng `mode=ro` (đừng dùng `immutable=1` trên tệp đang chạy):
+**Lượt đang chạy lúc khởi động lại được làm tiếp một lần.** `kickstart -k` giữa một lượt cắt lượt đó: lượt web bị cắt ngay, lượt Telegram được chờ tối đa 30 s rồi chat nhận lời báo sẽ làm tiếp ([channels.md](channels.md#offset-và-restart)). Server khởi động kế tiếp mở lại đúng run đó, cùng số tiền đã tiêu và dưới cùng trần chi phí, rồi chạy tiếp từ nhật ký; tool chỉ đọc được gọi lại, còn lệnh gọi nào có thể đã chạy mà đổi trạng thái thì được đóng bằng một ghi chú "không rõ đã chạy hay chưa" để model tự kiểm, không chạy lại ngầm. Lượt đang chờ một quyết định thì vẫn chờ quyết định đó; lượt của cuộc đã hết ngân sách, đã có lượt mới hơn, hoặc đã từng được làm tiếp một lần thì ở lại trạng thái bị ngắt. Chi tiết ở [design.md](design.md#hình-dạng-runtime). Vẫn nên khởi động lại lúc không có lượt nào đang chạy khi chọn được. Server chạy với `--no-schedule` không làm tiếp lượt nào và đóng hẳn những lượt bị cắt, nên dùng cờ đó khi cần xem dữ liệu sau một lần sập mà không muốn lượt cũ chạy tiếp.
+
+**Sao lưu `agent.sqlite3` trước.** Schema chỉ đi một chiều: bản mới thêm bảng và cột (canvas thêm bốn bảng và ba cột, xem [system-architecture.md](system-architecture.md#28-canvas-tài-liệu-người-và-agent-cùng-sửa); bản 0.12.0 thêm bảng `message_requests` và ba cột `runs.resumed`, `messages.turn_notes`, `queued_messages.request_id`) và không có bước lùi. Tệp chạy ở chế độ WAL, nên chép tệp bằng `cp` khi server đang chạy có thể thiếu những lần ghi còn nằm trong tệp `-wal`. Dùng API backup của SQLite, mở nguồn chỉ đọc bằng `mode=ro` (đừng dùng `immutable=1` trên tệp đang chạy):
 
 ```bash
 mkdir -p "$HOME/.my-agent-crew/backups/truoc-nang-cap"

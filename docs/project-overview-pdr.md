@@ -39,6 +39,14 @@ my-agent-crew: một tiến trình Python, một tệp SQLite, một thư mục 
 - Canvas: tài liệu có phiên bản mà người và agent cùng sửa, mở cạnh khung chat; agent ghi bằng
   bảy tool và chỉ việc xuất ra tệp workspace cần duyệt, trang `html` và sơ đồ `mermaid` chạy
   cách ly, Telegram nhận canvas như một tệp. Xem [canvas.md](canvas.md).
+- Lượt bền: lượt web thuộc về server chứ không thuộc về tab (tải lại trang, mở tab thứ hai, rời đi
+  rồi quay lại đều thấy cùng một lượt), tin gửi lại hai lần chỉ được nói một lần, và lượt bị
+  cắt vì server khởi động lại được làm tiếp đúng một lần mà không chạy lại ngầm lệnh gọi nào đổi
+  trạng thái. Agent có thể khai một tuyến leo thang, chỉ dùng khi lượt bị kẹt. Xem
+  [design.md](design.md#hình-dạng-runtime).
+- Tool từ máy chủ MCP qua HTTP, giao cho từng agent: tool nào cũng hỏi trước trừ khi chủ ghi nó
+  là chỉ đọc; `tool_search` để agent tìm rồi mới nạp tool, `tool_script` để gọi nối các tool chỉ
+  đọc trong một bước. Xem [tools.md](tools.md#máy-chủ-mcp).
 - Vault wiki trong trí nhớ agent: trang theo chủ đề có nguồn và liên kết `[[...]]`, dựng lại từ ghi chú.
 - `shell_network: false`: sandbox hệ điều hành cho agent giữ dữ liệu không được rời máy.
 - Kit `.agents/` kiểu Claude Code: lệnh, agent, skill, hook.

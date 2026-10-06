@@ -254,9 +254,22 @@ Dừng bot (dựng lại sau khi token hoặc chat đổi, hoặc server tắt) 
 mọi lượt đang chạy xong (bot thôi nhận tin chờ trước), tối đa 30 s, để các tin nhắn xếp sau nó chưa xác nhận cho
 bot tiếp theo, và chỉ trả về khi vòng poll đã kết thúc, nên
 bot mới không bao giờ poll song song với bot cũ. Long poll đang rảnh bị cắt ngay. Lượt
-vẫn chạy sau 30 s bị huỷ, và chat được báo ("…có thể chưa được trả
-lời trọn vẹn… gửi lại giúp mình nhé") để người dùng gửi lại thay vì chờ câu trả lời
-sẽ không tới. Nó nói "có thể": nhát cắt có thể rơi sau khi text của câu trả lời đã đi, trong lúc
+vẫn chạy sau 30 s bị huỷ, và chat được báo. Lời báo tuỳ vào cái gì đang dừng:
+
+- **Server đang tắt** (`kickstart`, nâng cấp): "Server đang khởi động lại nên lượt vừa rồi bị
+  ngắt giữa chừng. Khi server chạy lại, lượt này sẽ được làm tiếp một lần nếu còn làm tiếp
+  được…". Server khởi động kế tiếp mở lại đúng run đó và bot đọc phần còn lại của lượt vào cùng
+  chat, nên người dùng không phải gửi lại. Lượt chỉ được làm tiếp một lần, và không được làm
+  tiếp khi lúc server lên không có bot nào chạy (thiếu token, `--no-schedule`), khi cuộc trò
+  chuyện đang chờ một quyết định, đã có lượt mới hơn hoặc đã hết ngân sách; lệnh gọi tool nào
+  được chạy lại và lệnh nào không thì xem [design.md](design.md#hình-dạng-runtime). Server bị
+  giết không kịp báo (`kill -9`, mất điện) thì chat không nhận lời nào, nhưng lượt vẫn được làm
+  tiếp theo cùng luật.
+- **Chỉ bot được dựng lại** dưới một server vẫn chạy (token hoặc chat đổi): "…có thể chưa được
+  trả lời trọn vẹn… gửi lại giúp mình nhé", để người dùng gửi lại thay vì chờ câu trả lời sẽ
+  không tới. Lượt này không được làm tiếp.
+
+Cả hai lời đều nói dè dặt: nhát cắt có thể rơi sau khi text của câu trả lời đã đi, trong lúc
 tệp đính kèm vẫn đang tải lên. Thông báo là best effort, giới hạn 5 s, và gửi thất bại được ghi log
 không kèm token.
 

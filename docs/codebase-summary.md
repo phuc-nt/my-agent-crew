@@ -61,7 +61,8 @@ chỉ để hiển thị (chữ đang chảy, `user_context`, `tool_call_delta`)
 |---|---|
 | Sức khoẻ | `GET /api/health` |
 | Cổng vào | `POST /api/inbound` |
-| Cuộc trò chuyện | `GET/POST/DELETE /api/conversations[/{id}]`, `POST …/{id}/messages` (SSE), `GET …/{id}/summary` |
+| Cuộc trò chuyện | `GET/POST/DELETE /api/conversations[/{id}]`, `POST …/{id}/messages` (SSE; `request_id` do tab đặt để một lần gửi lặp lại không tạo tin thứ hai), `GET …/{id}/summary` |
+| Lượt đang chạy | `GET /api/conversations/{id}/turn` (SSE: xem lượt server đang đọc, kể cả lượt của Telegram hay job; `204` khi không có lượt nào), `POST …/{id}/stop` (trả các tin còn chờ và dừng lượt server đang đọc cho cuộc đó; `cancelled` cho biết có lượt nào bị dừng không) |
 | Tìm trong hội thoại | `GET /api/messages/search?q=&agent_id=&limit=` (FTS5 trên nội dung tin, `conversation_search` là bản cho model) |
 | Duyệt | `GET /api/approvals`, `POST /api/conversations/{id}/approvals/{aid}` (`{"approve": bool}`), `POST …/approvals/{aid}/answer` (câu hỏi của `ask_user`) |
 | Run | `GET /api/activity/runs`, `GET …/runs/{id}`, `GET …/runs/{id}/trajectory?format=json\|md[&full=1]` (cả lượt chạy thành tệp để lưu), `GET …/stream` (SSE: run, step, và event `artifact` mỗi lần một canvas được tạo, ghi, đổi tên, khôi phục hay xoá), `GET /api/stats` |

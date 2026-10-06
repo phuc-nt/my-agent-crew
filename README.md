@@ -62,7 +62,7 @@ Secrets are read **only** from environment variables; `config.yaml` holds only n
 `config.yaml` in `MY_AGENT_HOME` accepts exactly these keys: `routes`, `vision_routes`,
 `audio_routes`, `cost_cap_usd`, `max_steps`, `language`, `timezone`, `autonomous_default`,
 `approval_ttl_seconds`, `tool_output_chars`, `shell_ask_patterns`, `shell_allow_patterns`,
-`openrouter_providers`, `openrouter_provider_fallbacks`, `web_url`.
+`openrouter_providers`, `openrouter_provider_fallbacks`, `web_url`, `mcp_servers`.
 An unknown key makes the server fail at startup, so one typo does not silently disable a setting.
 Details of each key: [docs/agents.md](docs/agents.md#agentyaml).
 Your own skills: add a `.md` file with `name` in its frontmatter to `skills/`.
@@ -105,6 +105,11 @@ An agent holding data that must not leave the machine (a ledger, say) sets `shel
 runs inside `sandbox-exec` with no network and can only write under `shell_write_paths` — see [agents.md](docs/agents.md).
 `shell_write_paths` alone keeps the network but still confines writes, for an agent that works inside a repo it
 must not edit; `shell_deny_patterns` refuses command shapes outright.
+
+An agent may also name one `escalation_route` (a `provider:model` that is not one of its own routes): a turn moves
+to it only when it is stuck — the loop guard is about to halt it for repeating one call, or every route failed before
+any text was shown — and at most once; the next turn starts on the usual routes again. It is off unless the agent's
+own file sets it, and running out of steps or budget never moves a turn.
 
 A `prompt` job opens a new conversation and runs as if the user had sent a message; a `command` job only runs the shell.
 The result of a `prompt` job is sent to the Telegram chat (if there is a bot, see below) with a first line `[Agent name]`;
@@ -171,6 +176,26 @@ counts the queue, and turns run in the background so the bot keeps answering mea
 `/new` is refused while a turn runs or messages wait. `POST /api/inbound` answers a queued
 message with `"status": "queued"` — read the conversation back for the reply.
 
+## A turn outlives its tab and a restart
+
+A turn started from the web belongs to the server, not to the tab that sent the message. Reload
+the page, close it, open a second tab or come back from another conversation: the turn is read
+to its end, and a tab opened in the middle shows what has been written so far and follows it
+live, whoever started it (another tab, Telegram, a job). Stop is what ends a turn, from any tab.
+The text being written is kept in memory only; the stored conversation is the whole truth.
+
+A message sent twice is said once: each send from the web carries a `request_id`, so when the
+answer to a send is lost on the way back and the same words are sent again, nothing new is
+stored and no second turn starts.
+
+A turn cut by a server restart is carried on when the server is back, once. The run is reopened
+as the same run and goes on from the stored conversation. A tool call that only reads is simply
+made again; a call to anything else that may already have run is closed with a note saying
+nobody knows whether it ran, and the model decides after looking, so nothing that writes, sends
+or pays is done twice unseen. A turn is not carried on when its conversation waits on a
+decision, was deleted, has had a later turn or has spent its budget, when it is a Telegram turn
+and no bot is up, or when the server runs with `--no-schedule`.
+
 ## Ask instead of guessing
 
 At a real fork in the road, the agent calls `ask_user` to ask rather than choosing on its own — even when `autonomous` is
@@ -188,6 +213,40 @@ always fit the cap, instead of running the command again. It reads only its own 
 a conversation's spill goes with it, a fork gets its own copy, and a daily sweep removes files
 older than seven days. Agents without a `tools:` list have it; an agent with its own list needs
 `tool_output_read` added there.
+
+## Tools from MCP servers
+
+An agent can use the tools of remote MCP servers (streamable HTTP; stdio servers are not run).
+A server is declared once under `mcp_servers` in `config.yaml` and handed to an agent by name,
+with `mcp:` in its `agent.yaml` or the **Máy chủ MCP** boxes in the agent editor:
+
+```yaml
+# config.yaml — no key lives here: a header takes its value from the environment
+mcp_servers:
+  notion:
+    url: https://mcp.notion.com/mcp
+    description: Trang và cơ sở dữ liệu Notion
+    read_only: [notion-search, notion-fetch]   # only these run without asking
+```
+
+A server's tools are named `mcp__<server>__<tool>`. Every one of them asks before it runs, and
+is never made again after a restart, until you list it under `read_only`; what a server says
+about its own tools decides nothing. A server that answers 401 with no key of its own can be
+signed in to from **Kết nối** (OAuth as a public client), from a browser on the machine the
+crew runs on; tokens are kept beside the provider keys and shown by no API. A server that is
+down is a row that says why, never a crew that does not start.
+
+To keep the prompt small, a server's tools are `deferred` unless the file says otherwise: the
+model is not told of them on every call, and finds them with `tool_search`, which loads the best
+matches for the rest of the conversation. A tool that is both listed under `read_only` and let
+in as `codemode` (set per tool with `tool_exposure`) can also be called from `tool_script`: the
+model writes a short Python-like script that makes up to 25 read-only calls and only what it
+prints comes back, so a job that needs one tool twenty times does not pay for twenty answers in
+context. A script may call only tools that read and ask nobody; anything that
+writes ends the script with a line saying to call it directly, where the approval gate sees it.
+The script runs in a process of its own with an empty environment and limits on memory, CPU and
+time, and on macOS inside a sandbox with no network and no writes.
+Details: [docs/tools.md](docs/tools.md#máy-chủ-mcp).
 
 ## Canvas
 

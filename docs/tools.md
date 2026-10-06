@@ -971,8 +971,11 @@ nói vậy thay vì hiện một kênh không bao giờ chạy.
 ## Thêm tool
 
 Tool nằm dưới `tools/` và gồm tên, mô tả và JSON schema cho model,
-một hàm run, và hai cờ: có cần duyệt không và hai lời gọi trong cùng một
-message có được chồng lên nhau an toàn không (đọc thì được, ghi vào cùng tệp thì không). Nó được nối
+một hàm run, và ba cờ: có cần duyệt không, hai lời gọi trong cùng một
+message có được chồng lên nhau an toàn không (đọc thì được, ghi vào cùng tệp thì không), và gọi
+lại lần nữa có an toàn không (`replay_safe`, mặc định là không). Chỉ tool chỉ đọc mới khai cờ thứ
+ba: lượt bị server khởi động lại cắt chỉ gọi lại những tool khai nó, và script của `tool_script`
+chỉ gọi được những tool khai nó mà không cần duyệt. Nó được nối
 vào bộ tool của từng agent ở chỗ server lắp tool. Chữ mô tả và tham số
 được đưa cho model, nên chúng nằm cùng các chuỗi prompt khác, không nằm trong code. Đánh dấu
 tool cần duyệt bất cứ khi nào nó thay đổi trạng thái bên ngoài cuộc trò chuyện, thêm một dòng
