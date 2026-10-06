@@ -1,12 +1,34 @@
 import { act, renderHook } from "@testing-library/react";
+import { type ReactNode, useLayoutEffect } from "react";
 import { afterEach, describe, expect, it, vi as vitest } from "vitest";
 import { memoryStorage, refusingStorage } from "../test/memory-storage";
-import { forgetDraft, saveDraft, useDraft } from "./use-draft";
+import { forgetDraft, holdDraft, saveDraft, useDraft, withdrawDraft } from "./use-draft";
 
-afterEach(() => vitest.unstubAllGlobals());
+// The holds a test took: what holds a box lives with the module, so each is let go again.
+const holds: (() => void)[] = [];
+
+function hold(key: string): () => void {
+  const release = holdDraft(key);
+  holds.push(release);
+  return release;
+}
+
+afterEach(() => {
+  for (const release of holds.splice(0)) release();
+  vitest.unstubAllGlobals();
+});
 
 function draft(key: string | null) {
   return renderHook(({ key }) => useDraft(key), { initialProps: { key } });
+}
+
+/** Takes the words back out of a conversation's box, and says whether they are taken. */
+function withdraw(key: string, words: string): boolean {
+  let taken = false;
+  act(() => {
+    taken = withdrawDraft(key, words);
+  });
+  return taken;
 }
 
 describe("the unsent text kept per conversation", () => {
@@ -82,5 +104,135 @@ describe("saveDraft: seeding a draft before its useDraft ever mounts", () => {
     forgetDraft("c-fork");
     expect(draft("c-fork").result.current[0]).toBe("");
     expect(store.size).toBe(0);
+  });
+});
+
+describe("withdrawDraft: words the page handed back, taken out of the box again", () => {
+  it("empties the kept draft and the box on screen that hold those very words", () => {
+    const store = memoryStorage();
+    const hook = draft("c1");
+    act(() => hook.result.current[1]("gửi đi"));
+
+    expect(withdraw("c1", "gửi đi")).toBe(true);
+    expect(hook.result.current[0]).toBe("");
+    expect(store.size).toBe(0);
+  });
+
+  it("takes the words whatever space stands around them in the box", () => {
+    const store = memoryStorage();
+    const hook = draft("c1");
+    act(() => hook.result.current[1]("  gửi đi\n"));
+
+    expect(withdraw("c1", "gửi đi")).toBe(true);
+    expect(hook.result.current[0]).toBe("");
+    expect(store.size).toBe(0);
+  });
+
+  it("leaves a box the person changed, and still answers that the words are taken", () => {
+    const store = memoryStorage();
+    const hook = draft("c1");
+    act(() => hook.result.current[1]("gửi đi nhé"));
+
+    expect(withdraw("c1", "gửi đi")).toBe(true);
+    expect(hook.result.current[0]).toBe("gửi đi nhé");
+    expect(store.get("composer-draft:c1")).toBe("gửi đi nhé");
+  });
+
+  it("empties the draft of a conversation off screen, and leaves the box that is on it", () => {
+    const store = memoryStorage();
+    const hook = draft("c1");
+    act(() => hook.result.current[1]("gửi đi"));
+    hook.rerender({ key: "c2" });
+    act(() => hook.result.current[1]("gửi đi"));
+
+    expect(withdraw("c1", "gửi đi")).toBe(true);
+    // The other conversation's own words, the same ones, are not what was handed back.
+    expect(hook.result.current[0]).toBe("gửi đi");
+    expect(store.get("composer-draft:c2")).toBe("gửi đi");
+    expect(store.has("composer-draft:c1")).toBe(false);
+    hook.rerender({ key: "c1" });
+    expect(hook.result.current[0]).toBe("");
+  });
+
+  it("empties the box on screen where the browser refuses storage", () => {
+    refusingStorage();
+    const hook = draft("c1");
+    act(() => hook.result.current[1]("gửi đi"));
+
+    expect(withdraw("c1", "gửi đi")).toBe(true);
+    expect(hook.result.current[0]).toBe("");
+  });
+
+  it("empties a box that comes on screen in the very commit its words are taken back in", () => {
+    const store = memoryStorage();
+    saveDraft("c1", "gửi đi");
+    // What takes the words back stands above the box, and does so as the box first shows.
+    const wrapper = ({ children }: { children: ReactNode }) => {
+      useLayoutEffect(() => {
+        withdrawDraft("c1", "gửi đi");
+      }, []);
+      return children;
+    };
+    const hook = renderHook(() => useDraft("c1"), { wrapper });
+
+    expect(hook.result.current[0]).toBe("");
+    expect(store.size).toBe(0);
+  });
+
+  it("answers that the words are taken where there was no draft at all", () => {
+    const store = memoryStorage();
+    expect(withdraw("c1", "gửi đi")).toBe(true);
+    expect(store.size).toBe(0);
+  });
+});
+
+describe("holdDraft: a box whose words a send is carrying", () => {
+  it("is not the page's to empty until the send lets go", () => {
+    const store = memoryStorage();
+    const hook = draft("c1");
+    act(() => hook.result.current[1]("gửi đi"));
+    const release = hold("c1");
+
+    expect(withdraw("c1", "gửi đi")).toBe(false);
+    expect(hook.result.current[0]).toBe("gửi đi");
+    expect(store.get("composer-draft:c1")).toBe("gửi đi");
+
+    release();
+    expect(withdraw("c1", "gửi đi")).toBe(true);
+    expect(hook.result.current[0]).toBe("");
+    expect(store.size).toBe(0);
+  });
+
+  it("stays held until every send that holds it has let go", () => {
+    memoryStorage();
+    const first = hold("c1");
+    const second = hold("c1");
+
+    first();
+    expect(withdraw("c1", "gửi đi")).toBe(false);
+    second();
+    expect(withdraw("c1", "gửi đi")).toBe(true);
+  });
+
+  it("is let go once by a send that lets go twice", () => {
+    memoryStorage();
+    const first = hold("c1");
+    const second = hold("c1");
+
+    first();
+    first();
+    expect(withdraw("c1", "gửi đi")).toBe(false);
+    second();
+    expect(withdraw("c1", "gửi đi")).toBe(true);
+  });
+
+  it("holds the box of its own conversation only", () => {
+    const store = memoryStorage();
+    saveDraft("c2", "gửi đi");
+    hold("c1");
+
+    expect(withdraw("c2", "gửi đi")).toBe(true);
+    expect(store.size).toBe(0);
+    expect(withdraw("c1", "gửi đi")).toBe(false);
   });
 });

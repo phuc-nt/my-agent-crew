@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
 import type { CommandInfo } from "../api/types";
 import { vi } from "../i18n/vi";
+import { withdrawDraft } from "../hooks/use-draft";
 import { memoryStorage } from "../test/memory-storage";
 import { Composer, type RestoreRequest } from "./composer";
 
@@ -181,5 +182,79 @@ describe("the composer while a send is on its way", () => {
     await userEvent.keyboard("{Enter}");
     expect(box()).toHaveValue("/pla");
     expect(send.onSend).toHaveBeenCalledTimes(1);
+  });
+});
+
+/** Takes the words back out of a conversation's box, and says whether they are taken. */
+function withdraw(key: string, words: string): boolean {
+  let taken = false;
+  act(() => {
+    taken = withdrawDraft(key, words);
+  });
+  return taken;
+}
+
+// What holds a box lives with the module, so each test here has a conversation of its own.
+describe("the box of a send on its way, when the page would take its words back", () => {
+  it("is held until the send settles", async () => {
+    const send = pending();
+    render(composer("held-1", send.onSend));
+    await userEvent.type(box(), "gửi đi{Enter}");
+
+    expect(withdraw("held-1", "gửi đi")).toBe(false);
+    expect(box()).toHaveValue("gửi đi");
+    expect(draftOf("held-1")).toBe("gửi đi");
+
+    await send.answer(false);
+    expect(withdraw("held-1", "gửi đi")).toBe(true);
+    expect(box()).toHaveValue("");
+    expect(draftOf("held-1")).toBeUndefined();
+  });
+
+  it("is let go when the send rejects", async () => {
+    vitest.spyOn(console, "error").mockImplementation(() => undefined);
+    render(composer("held-2", () => Promise.reject(new Error("boom"))));
+    await userEvent.type(box(), "gửi đi{Enter}");
+    await waitFor(() => expect(box()).not.toHaveAttribute("readonly"));
+
+    expect(withdraw("held-2", "gửi đi")).toBe(true);
+    expect(box()).toHaveValue("");
+  });
+
+  it("is let go when the send was taken", async () => {
+    const send = pending();
+    render(composer("held-3", send.onSend));
+    await userEvent.type(box(), "gửi đi{Enter}");
+    await send.answer(true);
+    await userEvent.type(box(), "gửi đi");
+
+    expect(withdraw("held-3", "gửi đi")).toBe(true);
+    expect(box()).toHaveValue("");
+  });
+
+  it("is not held by a send whose handler answers nothing", async () => {
+    render(composer("held-4", vitest.fn()));
+    await userEvent.type(box(), "gửi đi{Enter}");
+    await userEvent.type(box(), "gửi đi");
+
+    expect(withdraw("held-4", "gửi đi")).toBe(true);
+    expect(box()).toHaveValue("");
+  });
+
+  it("is the box the words were typed in, though the person moved to another conversation", async () => {
+    const send = pending();
+    const view = render(composer("held-5", send.onSend));
+    await userEvent.type(box(), "gửi đi{Enter}");
+    view.rerender(composer("held-6", send.onSend));
+    await userEvent.type(box(), "gửi đi");
+
+    expect(withdraw("held-5", "gửi đi")).toBe(false);
+    expect(draftOf("held-5")).toBe("gửi đi");
+    expect(withdraw("held-6", "gửi đi")).toBe(true);
+    expect(box()).toHaveValue("");
+
+    await send.answer(false);
+    expect(withdraw("held-5", "gửi đi")).toBe(true);
+    expect(draftOf("held-5")).toBeUndefined();
   });
 });

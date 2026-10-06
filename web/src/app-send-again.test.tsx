@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vites
 import type { AgentEvent } from "./api/types";
 import { App } from "./app";
 import { vi } from "./i18n/vi";
-import { FakeBackend, FakeEventSource, fakeRun, storedMessage } from "./test/fake-backend";
+import { FakeBackend, FakeEventSource, storedMessage } from "./test/fake-backend";
 
 /**
  * A send the server took, whose answer never reached this tab. The words go back to the box,
@@ -103,35 +103,6 @@ describe("a message the server took, sent again because its answer was lost", ()
     await waitFor(() => expect(screen.queryByTestId("streaming")).not.toBeInTheDocument());
     expect(screen.getAllByTestId("message-assistant")).toHaveLength(1);
     expect(bubbles()).toEqual(["kể chuyện đi"]);
-    expect(c.messages.filter((m) => m.role === "user")).toHaveLength(1);
-    expect(sends(c.id)[1].request_id).toBe(sends(c.id)[0].request_id);
-  });
-
-  it("changes nothing on a screen that already reads the turn it started", async () => {
-    const c = backend.create({ title: "Đã xem lại" });
-    loseAnswers();
-    await openConversation("Đã xem lại");
-    const stream = FakeEventSource.instances.at(-1)!;
-    act(() => {
-      stream.open();
-      stream.emit({ type: "snapshot", runs: [] });
-    });
-    await sendUnheard("làm đi");
-    const turn = backend.serveTurn(c.id, { writing: [{ type: "text_delta", text: "đang làm" }], stoppable: true });
-    // The run is known to be going, so the tab reads along with it by itself.
-    act(() => stream.emit({ type: "run", run: fakeRun({ id: "r1", conversation_id: c.id, source: "chat", status: "running", finished_at: null }) }));
-    expect(await screen.findByTestId("streaming")).toHaveTextContent("đang làm");
-    expect(bubbles()).toEqual(["làm đi"]);
-    expect(box()).toHaveValue("làm đi"); // still there to send again
-
-    await userEvent.type(box(), "{Enter}");
-
-    await waitFor(() => expect(box()).toHaveValue(""));
-    // The second request was let go as soon as the server said the message had arrived.
-    await waitFor(() => expect(turn.watchers()).toBe(1));
-    expect(screen.getByTestId("streaming")).toHaveTextContent("đang làm");
-    expect(bubbles()).toEqual(["làm đi"]);
-    expect(screen.queryByRole("list", { name: vi.queuedLabel })).not.toBeInTheDocument();
     expect(c.messages.filter((m) => m.role === "user")).toHaveLength(1);
     expect(sends(c.id)[1].request_id).toBe(sends(c.id)[0].request_id);
   });

@@ -1,5 +1,5 @@
 import { useReducer, useRef } from "react";
-import { forgetDraft } from "./use-draft";
+import { forgetDraft, holdDraft } from "./use-draft";
 
 /** What the box hands its words to. A promise answers later whether they were taken. */
 export type SendWords = (text: string) => Promise<boolean> | void;
@@ -15,7 +15,8 @@ export type SendWords = (text: string) => Promise<boolean> | void;
  *
  * The hold belongs to the draft `key` the words were typed under, not to the component: another
  * conversation's box is free to write in meanwhile, and the one that was left is found holding
- * its words on return.
+ * its words on return. It is also told to the draft itself, so nothing else takes the words out
+ * of a box whose send has yet to say what becomes of them.
  */
 export function useSendLock(key: string | null, text: string, setText: (text: string) => void) {
   const sending = useRef(new Set<string | null>());
@@ -46,6 +47,7 @@ export function useSendLock(key: string | null, text: string, setText: (text: st
       return;
     }
     sending.current.add(key);
+    const release = key === null ? () => {} : holdDraft(key);
     redraw();
     void answer
       .catch((error: unknown) => {
@@ -54,6 +56,7 @@ export function useSendLock(key: string | null, text: string, setText: (text: st
       })
       .then((spent) => {
         sending.current.delete(key);
+        release();
         redraw();
         if (spent) spend(key, typed);
       });

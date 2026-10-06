@@ -30,9 +30,9 @@ import { liveRuns, needsAttention, runningRuns, sortedRuns } from "./state/activ
 export function App() {
   const { route, navigate } = useRoute();
   const list = useConversations();
-  const activity = useActivity(true, list.applyUpdate);
-  const thread = useThread(list.activeId, activity.state);
+  const thread = useThread(list.activeId);
   const crew = useCrew();
+  const activity = useActivity(true, list.applyUpdate);
   const externalRun = useExternalRunRefresh(list.activeId, thread, activity);
   useTurnWatch(list.activeId, thread, activity, externalRun);
   const version = useVersionCheck(activity.state.connected);

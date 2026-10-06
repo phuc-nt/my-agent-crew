@@ -1,52 +1,65 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
 import { api } from "../api/client";
-import type { AgentEvent, ConversationDetail, RunInfo } from "../api/types";
+import type { AgentEvent, ConversationDetail } from "../api/types";
+import type { SendNames, SentName } from "../lib/send-names";
 import type { SendResult } from "../lib/send-result";
-import type { ActivityState } from "../state/activity-reducer";
-import { FakeBackend, fakeApproval, fakeRun } from "../test/fake-backend";
+import { FakeBackend, storedMessage } from "../test/fake-backend";
+import { memoryStorage } from "../test/memory-storage";
+import { holdDraft, saveDraft } from "./use-draft";
 import { type ThreadController, useThread } from "./use-thread";
+import { useThreadSend } from "./use-thread-send";
 
 /**
- * The name a send nothing was heard of goes out under when the same words are sent again,
- * in a thread that went on reading its conversation meanwhile: the same one while the turn
- * the message may have got is open, a new one once that turn is seen to end.
+ * The name a send nothing was heard of goes out under when the same words are sent again, in
+ * a thread that went on reading its conversation meanwhile: the same one until the page shows
+ * the message as said, a new one from then on. And what becomes of the words the page handed
+ * back, which a composer keeps as the conversation's draft.
  */
 
 const WORDS = "tiếp tục";
+const HEX = /^[0-9a-f]{32}$/;
 const DONE: AgentEvent = { type: "done", spent_usd: 0, unknown_cost_calls: 0 };
-const ASKING: AgentEvent = { type: "approval_required", approval_id: "ap", tool_call_id: "tc1", name: "write_file", arguments: {}, reason: "", expires_at: "" };
 
-const stored = (overrides: Partial<ConversationDetail> = {}) => new FakeBackend().create(overrides);
-const going = (id: string) => fakeRun({ id, status: "running", finished_at: null });
-const asking = (id: string) => fakeRun({ id, status: "awaiting_approval", finished_at: null });
-const over = (id: string) => fakeRun({ id, status: "done" });
-/** The activity as a tab in step with the server has it. */
-const activity = (...runs: RunInfo[]): ActivityState => ({ runs: Object.fromEntries(runs.map((r) => [r.id, r])), connected: true, synced: true });
+const stored = (overrides: Partial<ConversationDetail> = {}) => new FakeBackend().create({ id: "c1", ...overrides });
+const person = (text: string, id: string) => storedMessage("user", text, { id });
+const answer = (text: string, id: string) => storedMessage("assistant", text, { id });
+/** The conversation as the server has it once it took the message. */
+const taken = () => stored({ messages: [person(WORDS, "m-taken")] });
 
-interface Props {
-  id?: string;
-  activity?: ActivityState;
-}
 type Thread = { current: ThreadController };
 
+let store: Map<string, string>;
+/** What reading c1 answers with now. */
+let conversation: ConversationDetail;
+/** What reading any other conversation answers with. */
+let elsewhere: (id: string) => ConversationDetail;
+
+const draft = () => store.get("composer-draft:c1");
+
 beforeEach(() => {
-  vitest.spyOn(api, "getConversation").mockImplementation(async (id) => stored({ id }));
+  store = memoryStorage();
+  conversation = stored();
+  elsewhere = (id) => stored({ id });
+  vitest.spyOn(api, "getConversation").mockImplementation(async (id) => (id === "c1" ? conversation : elsewhere(id)));
 });
 
-afterEach(() => vitest.restoreAllMocks());
+afterEach(() => {
+  vitest.restoreAllMocks();
+  vitest.unstubAllGlobals();
+});
 
 /** A thread open on c1 whose send of the words failed with nothing heard. Every later send
- *  is answered. */
-async function unheard(props: Props = {}) {
+ *  is answered. `read: false` sends before the conversation's opening load has landed. */
+async function unheard({ read = true }: { read?: boolean } = {}) {
   let lost = false;
   const sent = vitest.spyOn(api, "sendMessage").mockImplementation(async (_id, _text, onEvent) => {
     if (lost) return onEvent(DONE);
     lost = true;
     throw new TypeError("Failed to fetch");
   });
-  const hook = renderHook(({ id = "c1", activity }: Props) => useThread(id, activity), { initialProps: props });
-  await waitFor(() => expect(hook.result.current.detail?.id).toBe("c1"));
+  const hook = renderHook(({ id }: { id: string }) => useThread(id), { initialProps: { id: "c1" } });
+  if (read) await waitFor(() => expect(hook.result.current.state.conversationId).toBe("c1"));
   let outcome: SendResult | undefined;
   await act(async () => {
     outcome = await hook.result.current.send(WORDS);
@@ -63,145 +76,215 @@ async function sendAgain(thread: Thread) {
   });
 }
 
+/** The thread reads its conversation again and finds `now` there. */
+async function readAgain(thread: Thread, now: ConversationDetail) {
+  conversation = now;
+  await act(async () => {
+    await thread.current.reload();
+  });
+}
+
 /** The thread reading along with a turn found going, whose stream the test holds. */
-async function readAlong(thread: Thread) {
+async function readAlong(thread: Thread, detail: ConversationDetail) {
   const turn: { emit: (e: AgentEvent) => void; end: () => void } = { emit: () => {}, end: () => {} };
   vitest.spyOn(api, "watchTurn").mockImplementation(
     (_id, emit) => new Promise<boolean>((resolve) => Object.assign(turn, { emit, end: () => resolve(true) })),
   );
   act(() => void thread.current.watch());
-  await act(async () => turn.emit({ type: "watching", running: true, detail: stored() }));
+  await act(async () => turn.emit({ type: "watching", running: true, detail }));
   expect(thread.current.watching).toBe(true);
   return turn;
 }
 
-describe("the name of a send nothing was heard of, as the thread reads a turn in its conversation", () => {
-  it("is kept while a turn read along with is still going", async () => {
+const kept = (names: () => (string | undefined)[]) => expect(names()[1]).toBe(names()[0]);
+function renewed(names: () => (string | undefined)[]) {
+  expect(names()[1]).toMatch(HEX);
+  expect(names()[1]).not.toBe(names()[0]);
+}
+
+describe("the name of a send nothing was heard of, as the thread reads its conversation again", () => {
+  it("is kept while the conversation does not show the message", async () => {
     const { result, names } = await unheard();
-    await readAlong(result);
+    await readAgain(result, stored({ messages: [person("việc khác", "m9"), answer("xong", "a9")] }));
     await sendAgain(result);
-    expect(names()[1]).toBe(names()[0]);
+    kept(names);
   });
 
-  it("is a new one once a turn read along with has said it is over", async () => {
+  it("is a new one once the conversation shows the message", async () => {
     const { result, names } = await unheard();
-    const turn = await readAlong(result);
+    await readAgain(result, taken());
+    await sendAgain(result);
+    renewed(names);
+  });
+
+  it("is a new one once the message shows waiting in line", async () => {
+    const { result, names } = await unheard();
+    await readAgain(result, stored({ queued: [{ id: 7, kind: "follow_up", text: WORDS }] }));
+    await sendAgain(result);
+    renewed(names);
+  });
+
+  it("is kept while the words show only as often as they did before the send", async () => {
+    const before = [person(WORDS, "m0"), answer("được", "a0")];
+    conversation = stored({ messages: before });
+    const { result, names } = await unheard();
+    await readAgain(result, stored({ messages: [...before, person("việc khác", "m9")] }));
+    await sendAgain(result);
+    kept(names);
+  });
+
+  it("is a new one once the words show one more time than before the send", async () => {
+    const before = [person(WORDS, "m0"), answer("được", "a0")];
+    conversation = stored({ messages: before });
+    const { result, names } = await unheard();
+    await readAgain(result, stored({ messages: [...before, person(WORDS, "m-taken")] }));
+    await sendAgain(result);
+    renewed(names);
+  });
+
+  it("is kept for a send made before the conversation had been read, whatever is read then", async () => {
+    let land: (detail: ConversationDetail) => void = () => {};
+    vitest.spyOn(api, "getConversation").mockImplementationOnce(() => new Promise((resolve) => (land = resolve)));
+    conversation = taken();
+    const { result, names } = await unheard({ read: false });
+    // The opening load lands behind the send, so the thread reads the conversation once more.
+    await act(async () => land(stored()));
+    await waitFor(() => expect(result.current.state.conversationId).toBe("c1"));
+    expect(result.current.state.items.map((item) => item.kind)).toEqual(["user"]);
+
+    await sendAgain(result);
+    kept(names);
+  });
+
+  it("is kept for its conversation while another one, opened meanwhile, shows the same words", async () => {
+    elsewhere = (id) => stored({ id, messages: [person(WORDS, "x1")] });
+    const { result, rerender, names } = await unheard();
+    rerender({ id: "c2" });
+    await waitFor(() => expect(result.current.state.conversationId).toBe("c2"));
+    expect(result.current.state.items).toHaveLength(1);
+
+    rerender({ id: "c1" });
+    await waitFor(() => expect(result.current.state.conversationId).toBe("c1"));
+    await sendAgain(result);
+    kept(names);
+  });
+
+  it("is kept, with its words, as its conversation is opened while the one left still shows them", async () => {
+    elsewhere = (id) => stored({ id, messages: [person(WORDS, "x1")] });
+    const { result, rerender, names } = await unheard();
+    saveDraft("c1", WORDS);
+    rerender({ id: "c2" });
+    await waitFor(() => expect(result.current.state.conversationId).toBe("c2"));
+
+    // The thread left changes in the very render that asks for c1: what is on screen is
+    // still the other conversation's, and says nothing of this one's message.
+    act(() => {
+      result.current.mutePreviews();
+      rerender({ id: "c1" });
+    });
+    await waitFor(() => expect(result.current.state.conversationId).toBe("c1"));
+    expect(draft()).toBe(WORDS);
+    await sendAgain(result);
+    kept(names);
+  });
+});
+
+describe("the name of a send nothing was heard of, as the thread reads along with a turn", () => {
+  it("is kept through a turn that never shows the message, to its end", async () => {
+    const { result, names } = await unheard();
+    const turn = await readAlong(result, stored());
     await act(async () => {
       turn.emit(DONE);
       turn.end();
     });
     await sendAgain(result);
-    expect(names()[1]).toMatch(/^[0-9a-f]{32}$/);
-    expect(names()[1]).not.toBe(names()[0]);
+    kept(names);
   });
 
-  it("is kept when the turn read along with stops to wait on the person", async () => {
+  it("is a new one once the turn read along with shows the message", async () => {
     const { result, names } = await unheard();
-    const turn = await readAlong(result);
-    await act(async () => {
-      turn.emit(ASKING);
-      turn.end();
-    });
+    await readAlong(result, taken());
     await sendAgain(result);
-    expect(names()[1]).toBe(names()[0]);
-  });
-
-  it("is kept when the stream read along with closes with nothing said of the turn's end", async () => {
-    const { result, names } = await unheard();
-    const turn = await readAlong(result);
-    await act(async () => turn.end());
-    await sendAgain(result);
-    expect(names()[1]).toBe(names()[0]);
-  });
-
-  it("is a new one once the turn has ended on this tab's own stream, after the answer it waited on", async () => {
-    const { result, names } = await unheard();
-    // The turn the message got stopped to ask, and the thread read again shows the request.
-    const request = fakeApproval({ id: "ap", status: "pending", resolved_at: null });
-    vitest.spyOn(api, "getConversation").mockResolvedValue(stored({ status: "awaiting_approval", pending_approval: request }));
-    await act(() => result.current.reload());
-    expect(result.current.state.pending?.approvalId).toBe("ap");
-    vitest.spyOn(api, "resolveApproval").mockImplementation(async (_id, _approval, _approve, onEvent) => onEvent(DONE));
-    await act(() => result.current.decide(true));
-    await sendAgain(result);
-    expect(names()[1]).not.toBe(names()[0]);
-  });
-
-  it("is kept when the turn that says it is over was going on this tab's own stream as the name went out", async () => {
-    // The message was sent behind that turn: found busy, it waits for a turn of its own.
-    const own: { emit: (e: AgentEvent) => void; end: () => void } = { emit: () => {}, end: () => {} };
-    let nth = 0;
-    const sent = vitest.spyOn(api, "sendMessage").mockImplementation((_id, _text, onEvent) => {
-      nth += 1;
-      if (nth === 1) return new Promise<void>((resolve) => Object.assign(own, { emit: onEvent, end: resolve }));
-      if (nth === 2) return Promise.reject(new TypeError("Failed to fetch"));
-      onEvent(DONE);
-      return Promise.resolve();
-    });
-    const { result } = renderHook(() => useThread("c1"));
-    await waitFor(() => expect(result.current.detail?.id).toBe("c1"));
-    act(() => void result.current.send("việc một"));
-    await act(async () => own.emit({ type: "text_delta", text: "đang làm" }));
-    expect(result.current.state.busy).toBe(true);
-    let outcome: SendResult | undefined;
-    await act(async () => {
-      outcome = await result.current.send(WORDS);
-    });
-    expect(outcome?.status).toBe("failed");
-
-    await act(async () => {
-      own.emit(DONE);
-      own.end();
-    });
-    expect(result.current.state.busy).toBe(false);
-    await sendAgain(result);
-    const names = sent.mock.calls.map((call) => call[5]);
-    expect(names[2]).toBe(names[1]);
+    renewed(names);
   });
 });
 
-describe("the name of a send nothing was heard of, as the runs of its conversation come and go", () => {
-  it("is kept while a run that began there after it is going", async () => {
-    const { result, rerender, names } = await unheard({ activity: activity() });
-    rerender({ activity: activity(going("r1")) });
-    await sendAgain(result);
-    expect(names()[1]).toBe(names()[0]);
+describe("the words handed back after a send nothing was heard of", () => {
+  it("leave the conversation's draft once the thread shows the message", async () => {
+    const { result } = await unheard();
+    saveDraft("c1", WORDS);
+    await readAgain(result, taken());
+    expect(draft()).toBeUndefined();
   });
 
-  it("is a new one once a run that began there after it is over", async () => {
-    const { result, rerender, names } = await unheard({ activity: activity() });
-    rerender({ activity: activity(going("r1")) });
-    rerender({ activity: activity(over("r1")) });
+  it("stay in the draft while the thread does not show the message", async () => {
+    const { result, names } = await unheard();
+    saveDraft("c1", WORDS);
+    await readAgain(result, stored());
+    expect(draft()).toBe(WORDS);
     await sendAgain(result);
-    expect(names()[1]).toMatch(/^[0-9a-f]{32}$/);
-    expect(names()[1]).not.toBe(names()[0]);
+    kept(names);
   });
 
-  it("is kept while that run waits on the person", async () => {
-    const { result, rerender, names } = await unheard({ activity: activity() });
-    rerender({ activity: activity(going("r1")) });
-    rerender({ activity: activity(asking("r1")) });
+  it("are left as the person changed them, and are a new message from then on", async () => {
+    const { result, names } = await unheard();
+    saveDraft("c1", `${WORDS} nhé`);
+    await readAgain(result, taken());
+    expect(draft()).toBe(`${WORDS} nhé`);
     await sendAgain(result);
-    expect(names()[1]).toBe(names()[0]);
+    renewed(names);
   });
 
-  it("is kept when the run that ends was there as the name went out, waiting on the person and taken up since", async () => {
-    const { result, rerender, names } = await unheard({ activity: activity(asking("r0")) });
-    rerender({ activity: activity(going("r0")) });
-    rerender({ activity: activity(over("r0")) });
-    await sendAgain(result);
-    expect(names()[1]).toBe(names()[0]);
+  it("stay, with their name, while a send holds the box", async () => {
+    const { result, names } = await unheard();
+    saveDraft("c1", WORDS);
+    const release = holdDraft("c1");
+    try {
+      await readAgain(result, taken());
+      expect(draft()).toBe(WORDS);
+      await sendAgain(result);
+      kept(names);
+    } finally {
+      release();
+    }
+  });
+});
+
+describe("the count a name is taken with", () => {
+  const sent: SentName = { name: "0".repeat(32), said: null };
+
+  /** A send whose names the test watches, in a thread that counts as `said` says. */
+  async function send(said?: (text: string) => number | null) {
+    const names: SendNames = { take: vitest.fn(() => sent), keep: vitest.fn(), shown: vitest.fn(() => null), forget: vitest.fn() };
+    const post = vitest.spyOn(api, "sendMessage").mockImplementation(async (_id, _text, onEvent) => onEvent(DONE));
+    const runTurn = async (run: (emit: (e: AgentEvent) => void, signal: AbortSignal) => Promise<void>) => {
+      await run(() => {}, new AbortController().signal);
+    };
+    const { result } = renderHook(() =>
+      useThreadSend({ conversationId: "c1", busy: false, dispatch: vitest.fn(), runTurn, queueing: { current: new Set() }, names, said }),
+    );
+    await act(async () => {
+      await result.current(WORDS);
+    });
+    expect(post.mock.calls[0][5]).toBe(sent.name);
+    return names.take;
+  }
+
+  it("is how many times the page shows those words", async () => {
+    const said = vitest.fn((_text: string) => 3);
+    expect(await send(said)).toHaveBeenCalledWith("c1", WORDS, 3);
+    expect(said).toHaveBeenCalledWith(WORDS);
   });
 
-  it("is a new one for a run that came and went while another conversation was open", async () => {
-    const { result, rerender, names } = await unheard({ activity: activity() });
-    rerender({ id: "c2", activity: activity() });
-    await waitFor(() => expect(result.current.detail?.id).toBe("c2"));
-    rerender({ id: "c2", activity: activity(going("r1")) });
-    rerender({ id: "c2", activity: activity(over("r1")) });
-    rerender({ id: "c1", activity: activity(over("r1")) });
-    await waitFor(() => expect(result.current.detail?.id).toBe("c1"));
-    await sendAgain(result);
-    expect(names()[1]).not.toBe(names()[0]);
+  it("is zero, and not unknown, for words the page does not show", async () => {
+    expect(await send(() => 0)).toHaveBeenCalledWith("c1", WORDS, 0);
+  });
+
+  it("is unknown where the page cannot count", async () => {
+    expect(await send(() => null)).toHaveBeenCalledWith("c1", WORDS, null);
+  });
+
+  it("is unknown where nothing counts for the send", async () => {
+    expect(await send()).toHaveBeenCalledWith("c1", WORDS, null);
   });
 });

@@ -72,6 +72,9 @@ export function questionText(pending: PendingApproval): string {
 }
 
 export interface ThreadState {
+  /** The conversation whose stored thread is on screen: none from the moment one is opened
+   *  until what the server holds of it has landed, by a load or with a turn read along. */
+  conversationId: string | null;
   items: ThreadItem[];
   streaming: string | null;
   /** The model is thinking before its first word: a long silence that is not a hang. */
@@ -134,6 +137,7 @@ export type ThreadAction =
   | { type: "event"; event: AgentEvent };
 
 export const emptyThread: ThreadState = {
+  conversationId: null,
   items: [],
   streaming: null,
   thinking: false,
@@ -328,6 +332,7 @@ function fromDetail(state: ThreadState, d: ConversationDetail): ThreadState {
   const answered = (click ? pending === null : said && endsWhereItDid(state.items, items)) ? state.notice : null;
   return {
     ...emptyThread,
+    conversationId: d.id,
     items,
     pending,
     spentUsd: d.spent_usd,

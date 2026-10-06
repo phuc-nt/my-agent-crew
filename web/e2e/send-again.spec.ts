@@ -58,10 +58,11 @@ for (const lostAnswers of [1, 0]) {
   });
 }
 
-test("the same words sent again once the turn they started has ended are a new message", async ({ page }) => {
+test("the words handed back leave the box once the page shows the message, and typed again they are a new message", async ({ page }) => {
   // The answer to the first send is lost and its turn runs on the server all the same. The
-  // page reads along with it to its end, and the words it handed back are sent again: the
-  // next step the person asks for, which the name of the first send would start no turn for.
+  // page reads along with it and finds the message said: the words it handed back leave the
+  // box, so nothing stands there to send by mistake. Typed again after the answer, they are
+  // the next step the person asks for, which the name of the first send would start no turn for.
   const NEXT = "Đây là bản tóm tắt thứ hai.";
   const turn = await serveTurn(page, "c1", { writing: [{ type: "text_delta", text: "Đang tóm tắt" }], stoppable: true });
   const activity = await liveActivity(page);
@@ -81,6 +82,12 @@ test("the same words sent again once the turn they started has ended are a new m
 
   await activity.emit({ type: "run", run: run({ id: "r1", conversation_id: "c1", source: "chat", status: "running", finished_at: null, summary: "" }) });
   await expect(page.getByTestId("streaming")).toContainText("Đang tóm tắt");
+  await expect(page.getByTestId("message-user")).toHaveCount(1);
+  await expect(page.getByTestId("message-user")).toContainText(ASKED);
+  await expect(box).toHaveValue("");
+  await expect(page.getByTestId("notice")).toHaveCount(0);
+  // Nothing is left to send again: Enter in the empty box asks the server for nothing.
+  await box.press("Enter");
   mock.conversations[0].messages.push({
     id: "2", seq: 2, role: "assistant", content: ANSWER, tool_calls: [], tool_call_id: null, name: null,
     provider: "fake", model: "echo", cost_usd: 0, created_at: "",
@@ -90,8 +97,11 @@ test("the same words sent again once the turn they started has ended are a new m
   await activity.emit({ type: "run", run: run({ id: "r1", conversation_id: "c1", source: "chat", status: "done" }) });
   await expect(page.getByTestId("streaming")).toHaveCount(0);
   await expect(page.getByTestId("message-assistant")).toContainText(ANSWER);
-  await expect(box).toHaveValue(ASKED);
+  await expect(page.getByTestId("message-user")).toHaveCount(1);
+  await expect(box).toHaveValue("");
+  expect(sends()).toHaveLength(1);
 
+  await box.fill(ASKED);
   await box.press("Enter");
 
   await expect.poll(() => sends().length).toBe(2);

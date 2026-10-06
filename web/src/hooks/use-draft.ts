@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useLayoutEffect, useState } from "react";
 import { readText, writeText } from "../lib/local-store";
 
 // Kept as the text itself, not JSON: switching would lose every draft already saved.
@@ -26,6 +26,40 @@ export function saveDraft(key: string, text: string): void {
   write(key, text);
 }
 
+// The boxes a send is holding: until it settles, their words are not the page's to take.
+const held = new Map<string, number>();
+// The boxes on screen, told when words are taken back out of a draft.
+const listeners = new Set<(key: string, words: string) => void>();
+
+/** Marks a conversation's box as held by a send, until the function it answers with is
+ *  called. A second call of that function changes nothing. */
+export function holdDraft(key: string): () => void {
+  held.set(key, (held.get(key) ?? 0) + 1);
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    const left = (held.get(key) ?? 1) - 1;
+    if (left > 0) held.set(key, left);
+    else held.delete(key);
+  };
+}
+
+/**
+ * Takes `words` back out of a conversation's box: a send that seemed to fail handed them
+ * back, and the thread shows them said after all. Only those very words go. A box the person
+ * has changed since is theirs and stays as it is.
+ *
+ * Answers `false`, with nothing touched, while a send holds the box: that send may be the
+ * same words on their way again, and has yet to say what becomes of them.
+ */
+export function withdrawDraft(key: string, words: string): boolean {
+  if (held.has(key)) return false;
+  if (read(key).trim() === words) write(key, "");
+  for (const tell of listeners) tell(key, words);
+  return true;
+}
+
 /**
  * The composer's text, kept per conversation so a half-written message survives switching
  * away and back — on a phone the drawer makes that switch constant — and a reload.
@@ -50,5 +84,15 @@ export function useDraft(key: string | null): [string, (text: string) => void] {
     },
     [key],
   );
+  // A layout effect, so a box that comes on screen in the very commit its words are taken
+  // back in has heard of it: the thread that takes them is above it and runs after it.
+  useLayoutEffect(() => {
+    const told = (of: string, words: string) =>
+      setState((now) => (now.key === of && now.text.trim() === words ? { key: of, text: "" } : now));
+    listeners.add(told);
+    return () => {
+      listeners.delete(told);
+    };
+  }, []);
   return [current.text, setText];
 }

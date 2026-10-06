@@ -29,9 +29,12 @@ interface SendParts {
   ) => Promise<void>;
   /** The queueing POSTs still in flight, each cut when the conversation is left. */
   queueing: MutableRefObject<Set<AbortController>>;
-  /** The names the sends go out under, when the caller follows what becomes of the turns
-   *  they may have started. Left out, the hook keeps its own. */
+  /** The names the sends go out under, when the caller follows whether the thread comes to
+   *  show their messages. Left out, the hook keeps its own. */
   names?: SendNames;
+  /** How many times the thread on screen shows the words as the person's, or `null` when
+   *  the conversation's stored thread is not the one on screen. */
+  said?: (text: string) => number | null;
 }
 
 /**
@@ -39,7 +42,7 @@ interface SendParts {
  * that, and what the caller has to decide — are the words spent, or do they go back where
  * they were typed — is known by then.
  */
-export function useThreadSend({ conversationId, busy, dispatch, runTurn, queueing, names: given }: SendParts) {
+export function useThreadSend({ conversationId, busy, dispatch, runTurn, queueing, names: given, said }: SendParts) {
   // A send that failed with nothing heard may have been taken all the same. The same words
   // sent again to the same conversation go under the same name, so a message that did arrive
   // is not said twice: the server answers with what became of it. `SendNames` says for how
@@ -144,9 +147,9 @@ export function useThreadSend({ conversationId, busy, dispatch, runTurn, queuein
       if (!conversationId) return Promise.resolve({ status: "failed", error: vi.sendFailed.other });
       const answer = settlement(hasSelection(canvas));
       const go = busy ? queueBehindTurn : startTurn;
-      void go(conversationId, text, names.take(conversationId, text, busy), answer, canvas);
+      void go(conversationId, text, names.take(conversationId, text, said?.(text) ?? null), answer, canvas);
       return answer.promise;
     },
-    [conversationId, busy, queueBehindTurn, startTurn, names],
+    [conversationId, busy, queueBehindTurn, startTurn, names, said],
   );
 }

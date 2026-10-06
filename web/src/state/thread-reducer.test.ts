@@ -5,6 +5,7 @@ import {
   itemsFromMessages,
   questionText,
   threadReducer,
+  type ThreadAction,
   type ThreadItem,
   type ThreadState,
 } from "./thread-reducer";
@@ -817,5 +818,46 @@ describe("threadReducer queue and steer", () => {
     expect(failed.busy).toBe(true);
     expect(failed.streaming).toBe("đang trả lời");
     expect(failed.items).toBe(running.items);
+  });
+});
+
+describe("threadReducer: the conversation whose stored thread is on screen", () => {
+  it("is none before anything was read", () => {
+    expect(emptyThread.conversationId).toBeNull();
+  });
+
+  it("is the conversation a load answered with", () => {
+    const loaded = threadReducer(emptyThread, { type: "loaded", detail: detail({ id: "c7" }) });
+    expect(loaded.conversationId).toBe("c7");
+  });
+
+  it("is the conversation of a turn found going", () => {
+    const joined = run([{ type: "watching", running: true, detail: detail({ id: "c7" }) }], emptyThread);
+    expect(joined.conversationId).toBe("c7");
+  });
+
+  it("is none again once another conversation is opened", () => {
+    const loaded = threadReducer(emptyThread, { type: "loaded", detail: detail() });
+    expect(threadReducer(loaded, { type: "opened" }).conversationId).toBeNull();
+  });
+
+  it("stays through what the tab does and hears in that conversation", () => {
+    const actions: ThreadAction[] = [
+      { type: "user_sent", text: "chào" },
+      { type: "turn_started" },
+      { type: "event", event: { type: "text_delta", text: "xin" } },
+      { type: "user_unsent", text: "chào" },
+      { type: "failed", message: "mất mạng" },
+      { type: "queued", item: { id: 1, kind: "follow_up", text: "chào" } },
+      { type: "queue_failed", message: "hàng đầy" },
+      { type: "event", event: { type: "done", spent_usd: 0, unknown_cost_calls: 0 } },
+      { type: "turn_finished" },
+      { type: "settled" },
+    ];
+    let state = threadReducer(emptyThread, { type: "loaded", detail: detail() });
+    for (const action of actions) {
+      state = threadReducer(state, action);
+      expect(state.conversationId).toBe("c1");
+    }
   });
 });
