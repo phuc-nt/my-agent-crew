@@ -6,15 +6,17 @@ interface Props {
   agents: AgentInfo[];
 }
 
-/** Why an agent does or does not hold a tool. The four cases are genuinely different
- * problems: two are the person's own choice, one needs a key, one needs a mode change. */
-type Cell = "on" | "excluded" | "missing-key" | "work-mode";
+/** Why an agent does or does not hold a tool. The cases are genuinely different
+ * problems: two are the person's own choice, one needs a key, one needs a mode change,
+ * and a tool of an MCP server comes with the server or not at all. */
+type Cell = "on" | "excluded" | "missing-key" | "work-mode" | "mcp-off";
 
 const MARK: Record<Cell, string> = {
   on: "✓",
   excluded: "–",
   "missing-key": "○",
   "work-mode": "▫",
+  "mcp-off": "◇",
 };
 
 const TITLE: Record<Cell, string> = {
@@ -22,6 +24,7 @@ const TITLE: Record<Cell, string> = {
   excluded: vi.tools.legendExcluded,
   "missing-key": vi.tools.legendMissingKey,
   "work-mode": vi.tools.legendWorkMode,
+  "mcp-off": vi.tools.legendMcpOff,
 };
 
 /**
@@ -33,6 +36,9 @@ const TITLE: Record<Cell, string> = {
  */
 function cellFor(tool: RegistryTool, agent: AgentInfo): Cell {
   if (tool.agents.includes(agent.id)) return "on";
+  // The allow-list, the keys and the mode have no say over a server's tools: an agent
+  // holds them once the server is switched on for it, so that is the one thing to name.
+  if (tool.server) return "mcp-off";
   if (agent.tools.length > 0 && !agent.tools.includes(tool.name)) return "excluded";
   if (tool.optional) return "missing-key";
   return "work-mode";
@@ -52,6 +58,8 @@ function approval(tool: RegistryTool): string {
  */
 export function ToolsMatrix({ tools, agents }: Props) {
   const ordered = [...agents].sort((a, b) => Number(b.is_master) - Number(a.is_master));
+  // A mark nobody can meet is not worth a line of legend.
+  const legend = (Object.keys(MARK) as Cell[]).filter((cell) => cell !== "mcp-off" || tools.some((t) => t.server));
 
   if (tools.length === 0) return <p className="muted">{vi.tools.empty}</p>;
 
@@ -77,6 +85,12 @@ export function ToolsMatrix({ tools, agents }: Props) {
                 <th scope="row">
                   <code>{tool.name}</code>
                   {tool.optional && <span className="badge">{vi.tools.optional}</span>}
+                  {tool.server && <span className="badge">{vi.tools.fromServer(tool.server)}</span>}
+                  {tool.exposure && (
+                    <span className="badge" title={vi.mcp.exposureTitle[tool.exposure]}>
+                      {vi.mcp.exposure[tool.exposure]}
+                    </span>
+                  )}
                   {/* Held to two lines so the grid stays a grid; the whole text is on hover. */}
                   <div className="muted tool-description" title={tool.description}>
                     {tool.description}
@@ -98,7 +112,7 @@ export function ToolsMatrix({ tools, agents }: Props) {
       </div>
       <dl className="matrix-legend">
         <dt>{vi.tools.legend}</dt>
-        {(Object.keys(MARK) as Cell[]).map((cell) => (
+        {legend.map((cell) => (
           <dd key={cell}>
             <span className={`legend-mark ${cell}`} aria-hidden="true">
               {MARK[cell]}

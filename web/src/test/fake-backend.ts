@@ -23,6 +23,7 @@ import type {
 import type { ArtifactEvent } from "../api/artifact-types";
 import { fold } from "../components/conversation-search";
 import { FakeCanvas, type FakeReply } from "./fake-canvas";
+import { FakeMcp } from "./fake-mcp";
 import { FakeWiki } from "./fake-wiki";
 import { applyAgentPatch, restartRequired } from "./schedule-contract";
 
@@ -47,6 +48,7 @@ export const fakeAgent: AgentInfo = {
   delegates: [],
   schedules: [],
   tools: ["write_file"],
+  mcp: [],
   skills: ["core", "writer"],
   is_master: true,
   editable: true,
@@ -189,6 +191,8 @@ export class FakeBackend {
   };
   /** The wiki vault, empty until a test puts pages in it. */
   wiki = new FakeWiki();
+  /** The MCP servers of `config.yaml`: none until a test declares one. */
+  mcp: FakeMcp = Object.assign(new FakeMcp(), { crew: () => this.agents });
   /** The canvases, empty until a test seeds one. Each change reaches every open activity
    *  stream, unless a test points `canvas.onEvent` elsewhere to deliver it on its own time. */
   canvas: FakeCanvas = Object.assign(new FakeCanvas(), {
@@ -251,6 +255,8 @@ export class FakeBackend {
     if (path === "/templates") return json(this.templates);
     if (path === "/agents/install" && method === "POST") return this.install(body.template, body.agent_id);
     if (path === "/tools") return json(this.tools());
+    const mcp = this.mcp.route(path, method);
+    if (mcp) return json(mcp.body, mcp.status);
     if (path === "/connections") return json(this.connections);
     if (path === "/connections/routes" && method === "PUT") {
       this.connections = { ...this.connections, routes: body.routes, routes_source: "config" };
@@ -445,13 +451,14 @@ export class FakeBackend {
   /** Like the server: the union over the crew, each tool naming the agents that hold it. */
   private tools(): RegistryTool[] {
     const names = [...new Set(this.agents.flatMap((a) => a.tools))].sort();
-    return names.map((name) => ({
+    const own = names.map((name) => ({
       name,
       description: this.settings.tools.find((t) => t.name === name)?.description ?? "",
       requires_approval: this.settings.tools.find((t) => t.name === name)?.requires_approval ?? false,
       optional: name === "web_search" || name === "image_read",
       agents: this.agents.filter((a) => a.tools.includes(name)).map((a) => a.id),
     }));
+    return [...own, ...this.mcp.registryTools()];
   }
 
   private createAgent(agentId: string, profile: Record<string, unknown>): Response {
@@ -474,6 +481,8 @@ export class FakeBackend {
     const found = this.agents.find((a) => a.id === agentId);
     if (!found) return json({ detail: `agent ${agentId} not found` }, 404);
     if (this.refuseEdit) return json({ detail: this.refuseEdit }, 422);
+    const stray = "mcp" in profile ? this.mcp.refusal(profile.mcp) : null;
+    if (stray) return json({ detail: stray }, 422);
     const patched = applyAgentPatch(found, profile);
     if ("error" in patched) return json({ detail: patched.error }, 422);
     this.agents = this.agents.map((a) => (a.id === agentId ? patched.ok : a));

@@ -22,6 +22,7 @@ import type {
   InstallRequest,
   InstallResult,
   JobInfo,
+  McpServerInfo,
   MemoryHit,
   MemoryProposal,
   RegistryTool,
@@ -37,6 +38,8 @@ import type {
   WikiPageEdit,
   WikiReport,
 } from "./types";
+
+type McpServers = { servers: McpServerInfo[] };
 
 const wikiPath = (agentId: string) => `/agents/${encodeURIComponent(agentId)}/memory/wiki`;
 
@@ -192,6 +195,14 @@ export const api = {
     request<CredentialsInfo>(`/credentials/${encodeURIComponent(name)}`, { method: "DELETE" }),
   checkCredential: (name: string) =>
     request<CredentialCheck>(`/credentials/${encodeURIComponent(name)}/check`, { method: "POST" }),
+  mcpServers: () => request<McpServers>("/mcp"),
+  mcpReconnect: (name: string) =>
+    request<McpServers>(`/mcp/${encodeURIComponent(name)}/reconnect`, { method: "POST" }),
+  /** Where to send the person to sign in; the server answers this only to a loopback address. */
+  mcpSignIn: (name: string) =>
+    request<{ authorize_url: string }>(`/mcp/${encodeURIComponent(name)}/login`, { method: "POST" }),
+  mcpSignOut: (name: string) =>
+    request<McpServers>(`/mcp/${encodeURIComponent(name)}/login`, { method: "DELETE" }),
   listConversations: (agentId?: string) =>
     request<Conversation[]>(`/conversations${query({ agent_id: agentId })}`),
   createConversation: (body: ConversationPatch & { agent_id?: string } = {}) =>

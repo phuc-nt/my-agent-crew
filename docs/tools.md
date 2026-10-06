@@ -594,6 +594,168 @@ thêm quyền ghi.
   ghi lại. Lượt đang chạy giữ nguyên mọi chữ đến hết lượt, kể cả sau khi người chen tin hay sau
   một lần chờ duyệt; kho vẫn giữ lời gọi đúng như đã gọi.
 
+## Máy chủ MCP
+
+Ngoài các tool có sẵn, agent dùng được tool của một máy chủ MCP (Model Context Protocol) ở xa:
+Notion, một wiki nội bộ, bất cứ dịch vụ nào nói giao thức này qua HTTP. Client viết tay trên
+`httpx` (`my_agent_crew/mcp/`), không kéo thêm SDK nào. Chỉ hỗ trợ kiểu truyền **streamable
+HTTP**; máy chủ kiểu stdio không dùng được, vì chạy nó nghĩa là chạy chương trình của người khác
+trên máy này với quyền của crew.
+
+### Khai máy chủ trong config.yaml
+
+```yaml
+mcp_servers:
+  notion:
+    url: https://mcp.notion.com/mcp
+    description: Ghi chú và cơ sở dữ liệu của nhà
+    exposure: deferred            # direct | deferred | codemode | hidden
+    tool_exposure:                # theo tên tool của máy chủ, * là một đoạn bất kỳ
+      notion-search: direct
+      "notion-delete-*": hidden
+    read_only:                    # những tool chạy không hỏi
+      - notion-search
+      - notion-fetch
+    timeout: 60                   # giây cho một request, tối đa 600
+  wiki:
+    url: https://wiki.example.com/mcp
+    headers:
+      Authorization: "Bearer ${WIKI_TOKEN}"
+```
+
+| Khoá | Ý nghĩa |
+| --- | --- |
+| tên máy chủ | chữ, số, `-`, `_`, tối đa 32 ký tự; hai tên chỉ khác nhau ở hoa/thường hay `-`/`_` bị từ chối vì dùng chung tên biến môi trường |
+| `url` | bắt buộc, `https`. `http` chỉ cho máy chủ trên chính máy này (`localhost`, `127.0.0.1`, `::1`). Không user, mật khẩu hay `#fragment` |
+| `description` | một dòng cho người đọc, hiện ở Kết nối và ở ô chọn của agent |
+| `headers` | header gửi kèm mỗi request. Giá trị **phải** lấy từ môi trường, viết `${TÊN_BIẾN}`: giá trị viết thẳng bị từ chối, vì tệp này không bao giờ giữ khoá. Biến được đọc lại ở mỗi request, nên đổi khoá là có hiệu lực ngay |
+| `exposure` | mức mở mặc định cho tool của máy chủ, xem bảng dưới; mặc định `deferred` |
+| `tool_exposure` | mức mở riêng cho từng tool: tên đúng thắng, rồi tới pattern đầu tiên khớp, rồi mới tới `exposure` |
+| `read_only` | tên hoặc pattern những tool **chủ** khẳng định chỉ đọc: chạy không hỏi, và được gọi lại sau khi server khởi động lại giữa lượt |
+| `timeout` | số giây chờ một request, mặc định 60 |
+
+Một lỗi trong mục này làm crew không khởi động và nói rõ khoá nào sai, như mọi lỗi khác của
+`config.yaml`. Thêm, bớt hay sửa máy chủ cần khởi động lại; đăng nhập, đổi khoá và bật máy chủ
+cho agent thì không.
+
+### Bật cho từng agent
+
+Khai máy chủ chưa giao tool cho ai. Agent nhận tool của một máy chủ khi `agent.yaml` của nó nêu
+tên máy chủ đó:
+
+```yaml
+mcp: [notion]
+```
+
+hoặc khi bạn tích máy chủ ở Quản lý → Đội → agent → Công cụ → **Máy chủ MCP**. Thay đổi có hiệu
+lực ngay, không cần khởi động lại. Tool MCP **không** theo danh sách cho phép `tools` và không
+theo `mode`: chúng đến cùng máy chủ hoặc không đến. Sửa `mcp` mà còn để lại một tên `config.yaml`
+không khai thì bị từ chối (422, "Không có máy chủ MCP tên … trong config.yaml."); ô chọn giữ một
+dòng cho tên ấy để bỏ tích. Một tên như thế viết tay trong `agent.yaml` chỉ là một cảnh báo trong
+log lúc khởi động và không chặn những sửa đổi khác của agent.
+
+### Tên, duyệt và gọi lại
+
+- **Tên.** Tool của máy chủ mang tên `mcp__<máy chủ>__<tool>`; ký tự ngoài chữ, số và `_` thành
+  `_`. Tên dài quá 64 ký tự (giới hạn của provider) bị cắt và đóng bằng tám ký tự băm của tên gốc.
+  Hai tool của cùng máy chủ ra cùng một tên thì cái sau bị bỏ, và Kết nối nêu tên nó.
+- **Duyệt.** Mọi tool MCP hỏi trước khi chạy, trừ những tool chủ ghi vào `read_only`. Máy chủ có
+  thể tự nhận một tool chỉ đọc (`readOnlyHint`); lời đó được **hiện** bên cạnh tool và không
+  quyết định gì, vì bên nói ra chính là bên đang được tin. Cổng duyệt, `autonomous` và
+  `auto_approve` áp dụng như với mọi tool khác.
+- **Gọi lại.** Một lời gọi chỉ được gửi một lần. Hết giờ hay đứt kết nối thì không gửi lại: máy
+  chủ có thể đã làm rồi. Hai ngoại lệ là hai lời từ chối mà chính máy chủ nói nó chưa chạy gì:
+  phiên làm việc nó không còn nhớ (mở phiên mới rồi gửi lại) và phiên đăng nhập hết hạn (gia hạn
+  một lần nếu được). Sau khi server khởi động lại giữa lượt, chỉ tool trong `read_only` được gọi
+  lại; lời gọi tới tool khác được đóng bằng ghi chú "không rõ đã chạy chưa" như mọi tool ghi.
+- **Kết quả.** Chữ được đưa cho model; ảnh, âm thanh và liên kết tài nguyên chỉ được gọi tên
+  (`[image: image/png]`), vì một lượt đọc chữ. Kết quả không có chữ nhưng có `structuredContent`
+  thì là JSON của phần đó. Trần đầu ra và ba cách rút ngắn ở [Quy tắc chung](#quy-tắc-chung) áp
+  dụng nguyên vẹn. Kết quả là dữ liệu, không bao giờ là chỉ thị.
+
+### Mức mở
+
+Một máy chủ có thể liệt kê hàng chục tool, và khai hết cho model ở mọi lượt là trả tiền cho
+những tool hiếm khi dùng. Mức mở nói mỗi tool được đưa tới model bằng cách nào:
+
+| Mức | Model thấy gì |
+| --- | --- |
+| `direct` | tool được khai ở mọi lượt, như tool có sẵn |
+| `deferred` (mặc định) | không khai sẵn và không nằm trong danh sách tool của system prompt |
+| `codemode` | không khai sẵn, như `deferred` |
+| `hidden` | không giao cho agent nào; vẫn hiện ở Kết nối để chủ biết máy chủ có nó |
+
+Tool không khai sẵn vẫn chạy khi được gọi đúng tên, qua cùng cổng duyệt.
+
+### Xác thực
+
+Hai cách, tuỳ máy chủ:
+
+- **Khoá trong header.** Khai `headers` như trên rồi đặt biến ở Quản lý → Kết nối: thẻ **Máy
+  chủ MCP** liệt kê những biến mà header của các máy chủ đọc, kèm tên máy chủ dùng chúng. Lưu
+  biến là crew thử lại ngay những máy chủ đang hỏng. Máy chủ từ chối khoá thì hiện "Máy chủ từ
+  chối khoá trong header Authorization.".
+- **Đăng nhập OAuth.** Máy chủ trả lời 401 mà không có khoá riêng thì hiện "cần đăng nhập" và nút
+  **Đăng nhập**. Bấm nút, crew tự đăng ký làm một ứng dụng công khai với máy chủ đăng nhập
+  (RFC 7591), mở trang đồng ý của máy chủ, rồi đổi mã lấy token (OAuth 2.1, PKCE S256). Đây là
+  cách Notion (`https://mcp.notion.com/mcp`) dùng. Máy chủ đăng nhập không cho tự đăng ký thì
+  đặt `MCP_<MÁY_CHỦ>_CLIENT_ID` bằng client id bạn đã đăng ký tay.
+
+Vài ràng buộc nằm trong code và không tắt được:
+
+- Chỉ đăng nhập được khi trang mở bằng `localhost` hoặc `127.0.0.1` trên chính máy chạy crew:
+  địa chỉ quay về sau khi đồng ý là địa chỉ đó, và một máy khác không nên khởi động được việc
+  đăng nhập thay chủ. Mở từ nơi khác, nút trả lời 409 kèm đúng câu giải thích.
+- Mọi địa chỉ của việc đăng nhập phải là `https` và không trỏ vào mạng nội bộ; không đi theo
+  chuyển hướng; máy chủ đăng nhập phải hỗ trợ PKCE S256 và tự nhận đúng tên đã khai. Máy chủ MCP
+  trên mạng nội bộ hay trên chính máy này vì thế chỉ dùng khoá trong header.
+- Token được giữ ở cùng chỗ với khoá của provider: tệp env trong home (chỉ chủ đọc được) và môi
+  trường của tiến trình, dưới tên `MCP_<MÁY_CHỦ>_ACCESS_TOKEN` và `MCP_<MÁY_CHỦ>_REFRESH_TOKEN`.
+  Hai biến này không hiện trong danh sách khoá và không API nào trả giá trị của chúng: về một
+  máy chủ, crew chỉ nói đã đăng nhập hay chưa. **Đăng xuất** xoá cả hai.
+
+### Trạng thái và thử lại
+
+| Trạng thái | Trên web | Nghĩa là |
+| --- | --- | --- |
+| `idle` | đang kết nối | chưa có câu trả lời của lần thử này |
+| `connected` | đã kết nối | đã mở phiên và đọc được danh sách tool |
+| `signed_out` | cần đăng nhập | máy chủ đòi đăng nhập; chỉ chủ làm được, nên crew không tự thử lại |
+| `failed` | không kết nối được | kèm lý do: thiếu biến, khoá bị từ chối, hết giờ, HTTP lỗi, trả lời sai giao thức |
+
+Một máy chủ hỏng là một dòng nói vì sao, không bao giờ là một crew không khởi động được. Lúc khởi
+động crew chờ các máy chủ tối đa 10 giây; cái nào chưa xong được thử tiếp ở nền, lần đầu sau 30
+giây rồi thưa dần tới 10 phút một lần, và thử ngay khi một khoá được lưu hay xoá. Nút **Kết nối
+lại** thử ngay một máy chủ. Mỗi lần một máy chủ lên, xuống hay đổi danh sách tool, từng agent
+được giao lại đúng những tool các máy chủ đang có.
+
+### API và màn hình
+
+```
+GET    /api/mcp                    → {"servers": [{"name", "url", "description", "status", "error",
+                                       "exposure", "signed_in", "uses_key", "env", "agents",
+                                       "skipped", "tools": [{"name", "remote", "description",
+                                       "exposure", "requires_approval", "read_only_hint"}]}]}
+POST   /api/mcp/{name}/reconnect   → cùng danh sách, sau khi thử lại máy chủ đó
+POST   /api/mcp/{name}/login       → {"authorize_url"}; 409 kèm lý do khi không đăng nhập được
+DELETE /api/mcp/{name}/login       → cùng danh sách, sau khi đăng xuất
+GET    /api/mcp/oauth/callback     → máy chủ đăng nhập trả người dùng về đây; chuyển tới #/manage/connections
+```
+
+Tên không có trong `config.yaml` là 404. Danh sách không bao giờ mang giá trị header hay token;
+`env` chỉ là **tên** các biến mà header đọc.
+
+- **Kết nối.** Thẻ **Máy chủ MCP** có một dòng cho mỗi máy chủ: trạng thái, địa chỉ, lý do hỏng,
+  agent nào đang bật nó, các tool (mức mở, có hỏi trước không, máy chủ có tự nhận chỉ đọc không)
+  và các nút Đăng nhập, Kết nối lại, Đăng xuất. Máy chủ đang được thử thì trang tự đọc lại mỗi 2
+  giây cho tới khi có câu trả lời; sau khi lưu một khoá, những máy chủ đang hỏng cũng được theo
+  dõi như vậy trong chốc lát.
+- **Công cụ.** Tool MCP nằm trong bảng cùng các tool khác, kèm nhãn `MCP <máy chủ>` và mức mở.
+  Ô của agent chưa bật máy chủ mang dấu `◇` ("agent chưa bật máy chủ MCP này"), không bao giờ
+  được giải thích bằng danh sách cho phép, khoá hay chế độ.
+- **Trình sửa agent.** Mục Công cụ có ô chọn máy chủ; danh sách cho phép ở trên nó không liệt kê
+  tool MCP.
+
 ## Provider không cần khoá
 
 Hai trong số các provider không cần thông tin xác thực, và cả hai tồn tại để vẫn có thứ hữu ích
@@ -622,7 +784,9 @@ Hợp của các tool là registry của mọi agent, không phải bộ riêng 
 cho phép `tools` giữ ít tool hơn master, và đọc registry của một agent sẽ giấu
 những tool phần còn lại của đội vẫn dùng. `agents` là ai giữ nó, tức câu trả lời cho
 "cố vấn có thực sự sửa được tệp không"; `optional` đánh dấu tool chỉ tồn tại khi
-khoá hoặc tuyến của nó được cấu hình (`image_read`).
+khoá hoặc tuyến của nó được cấu hình (`image_read`). Tool của một máy chủ MCP có thêm `server` và
+`exposure`, chỉ được liệt kê khi có agent bật máy chủ đó, và tool `hidden` không bao giờ có mặt
+(xem [Máy chủ MCP](#máy-chủ-mcp)).
 
 Endpoint `/prompt` trả về system prompt đầy đủ như đã lắp cho agent (hữu ích để
 debug agent thấy gì, hoặc cho người dùng xem agent biết gì). Trường `opening` (kèm

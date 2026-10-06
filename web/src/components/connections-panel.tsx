@@ -1,27 +1,31 @@
 import type { ConnectionsInfo, CredentialGroup } from "../api/types";
 import type { CredentialsController } from "../hooks/use-credentials";
+import type { McpController } from "../hooks/use-mcp-servers";
 import { vi } from "../i18n/vi";
 import { CredentialAddForm } from "./credential-add-form";
 import { CredentialRow } from "./credential-row";
 import { GlobalRoutesEditor } from "./global-routes-editor";
+import { McpServerList } from "./mcp-servers-card";
 import { MetricCard } from "./ui/metric-card";
 
 interface Props {
   connections: ConnectionsInfo;
   credentials: CredentialsController;
+  mcp: McpController;
   /** Reload the registry after the page changes the crew: new routes, a new provider. */
   onChanged: () => Promise<void> | void;
 }
 
 /**
  * What the crew talks to outside itself, one card per kind: model providers, the routes
- * tried in order, web search, Telegram, and whatever other variables skills read. Each
+ * tried in order, web search, Telegram, MCP servers, and whatever other variables skills
+ * read. Each
  * card carries the keys and hosts that kind needs, set and checked where they are used.
  *
  * Values go one way. A key is typed into a password field, saved to the env file and
  * applied to the running crew; the page is only ever told whether it is set.
  */
-export function ConnectionsPanel({ connections, credentials, onChanged }: Props) {
+export function ConnectionsPanel({ connections, credentials, mcp, onChanged }: Props) {
   const t = vi.connectionsPage;
   const rows = (group: CredentialGroup) => {
     const items = credentials.info?.items.filter((item) => item.group === group) ?? [];
@@ -119,6 +123,13 @@ export function ConnectionsPanel({ connections, credentials, onChanged }: Props)
             <p className="muted">{t.telegramHint}</p>
           </>
         )}
+      </MetricCard>
+
+      <MetricCard title={vi.mcp.title} testId="mcp-card">
+        <p className="muted">{vi.mcp.hint}</p>
+        <McpServerList mcp={mcp} />
+        {rows("mcp") && <h4 className="connections-subtitle">{vi.mcp.keys}</h4>}
+        {rows("mcp")}
       </MetricCard>
 
       {credentials.info && (

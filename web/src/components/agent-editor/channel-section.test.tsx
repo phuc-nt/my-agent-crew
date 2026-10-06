@@ -14,7 +14,7 @@ function open(shown: AgentInfo) {
   backend.agents = [shown];
   vitest.stubGlobal("fetch", backend.fetch);
   render(
-    <AgentEditor agent={shown} agents={[shown]} tools={[]} providers={[]} onBack={() => {}} onChanged={() => {}} />,
+    <AgentEditor agent={shown} agents={[shown]} tools={[]} mcpServers={[]} providers={[]} onBack={() => {}} onChanged={() => {}} />,
   );
 }
 

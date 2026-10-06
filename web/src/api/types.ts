@@ -298,6 +298,9 @@ export interface AgentInfo {
   /** Agents this one can hand work to; for the master that is everyone else. */
   delegates: string[];
   tools: string[];
+  /** The MCP servers whose tools the agent is handed, by the names `config.yaml` gives
+   * them. One the file no longer declares stays listed until an edit takes it out. */
+  mcp: string[];
   skills: string[];
   /** The one agent the person talks to; it does the work or delegates it. */
   is_master: boolean;
@@ -363,6 +366,7 @@ export interface AgentPatch {
   mode?: string;
   delegates?: string[] | null;
   tools?: string[] | null;
+  mcp?: string[] | null;
 }
 
 /**
@@ -381,6 +385,54 @@ export interface RegistryTool extends ToolInfo {
   agents: string[];
   /** Needs an API key: absent without one, even for an agent that names it. */
   optional: boolean;
+  /** Only on a tool of an MCP server: the server's name, and how far the tool is let in. */
+  server?: string;
+  exposure?: McpExposure;
+}
+
+/**
+ * How far a server's tool is let in. `direct` is declared to the model every turn;
+ * `deferred` and `codemode` are held back until the agent asks for them; `hidden` is
+ * handed to nobody. Must match the exposures in the backend's `mcp/config.py`.
+ */
+export type McpExposure = "direct" | "deferred" | "codemode" | "hidden";
+
+/** Never tried or being tried, working, waiting for the owner to sign in, and tried
+ * without success. Must match the statuses in the backend's `mcp/hub.py`. */
+export type McpStatus = "idle" | "connected" | "signed_out" | "failed";
+
+export interface McpToolInfo {
+  /** The name an agent calls it by: `mcp__<server>__<tool>`. */
+  name: string;
+  /** The name the server knows it by. */
+  remote: string;
+  description: string;
+  exposure: McpExposure;
+  requires_approval: boolean;
+  /** What the server says of its own tool. Shown, never what decides the approval. */
+  read_only_hint: boolean;
+}
+
+/** One MCP server of `config.yaml` as GET /api/mcp reports it. No header value and no
+ * token is among it. */
+export interface McpServerInfo {
+  name: string;
+  url: string;
+  description: string;
+  status: McpStatus;
+  /** Why it is not connected, or what the last sign-in ended in; "" when nothing is wrong. */
+  error: string;
+  exposure: McpExposure;
+  /** A sign-in is kept for it. */
+  signed_in: boolean;
+  /** The file gives it an Authorization header, so it never signs in. */
+  uses_key: boolean;
+  /** The environment variables its headers are read from. */
+  env: string[];
+  agents: string[];
+  /** Tools left out because another took the name they come to. */
+  skipped: string[];
+  tools: McpToolInfo[];
 }
 
 /** An API key by the name of its environment variable. The value never leaves the server. */
@@ -416,7 +468,7 @@ export interface ConnectionsInfo {
 }
 
 /** Which card of the connections page an environment variable sits on. */
-export type CredentialGroup = "model" | "search" | "telegram" | "other";
+export type CredentialGroup = "model" | "search" | "telegram" | "mcp" | "other";
 
 /**
  * One environment variable the connections page can set. A secret's value never comes
@@ -444,6 +496,8 @@ export interface CredentialInfo {
   default?: string;
   /** Telegram only: the agents whose profile names this token. */
   agents?: string[];
+  /** MCP only: the servers whose headers read this variable. */
+  servers?: string[];
 }
 
 export interface CredentialsInfo {

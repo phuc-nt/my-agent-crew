@@ -203,6 +203,18 @@ any platform ──POST /api/inbound (JSON, sync)─────┴─▶ Inboun
   thang. Một tuyến trùng tuyến chính hay thiếu khoá không phải là lối ra nên không được dùng. Việc
   chuyển luôn nhìn thấy được: event `escalated`, một dòng báo trên web và step `escalation` trên
   run, để chi phí của model đắt hơn không bao giờ đến âm thầm.
+- **Tool của máy chủ MCP là tool của người lạ, và được đối xử như thế.** Agent dùng được tool của
+  một máy chủ MCP ở xa, nhưng địa chỉ của máy chủ chỉ đến từ `config.yaml`: không đối số tool nào
+  và không câu trả lời nào của máy chủ chọn được nơi một request đi tới. Chỉ streamable HTTP;
+  stdio là chạy chương trình của người khác bằng quyền của crew nên không có. Mọi tool MCP hỏi
+  trước khi chạy và không bao giờ được gọi lại sau một lần restart, cho tới khi **chủ** ghi nó vào
+  `read_only`; lời máy chủ tự nhận "chỉ đọc" được hiện ra và không quyết định gì. Tệp cấu hình
+  không giữ khoá: header lấy giá trị từ môi trường, còn token đăng nhập nằm cùng chỗ với khoá
+  provider và không API nào trả lại. Đăng nhập OAuth chỉ bắt đầu được từ trình duyệt trên chính
+  máy chạy crew, chỉ với địa chỉ `https` công khai, không đi theo chuyển hướng. Một máy chủ hỏng
+  là một dòng nói vì sao ở Kết nối, không phải một crew không khởi động được. Tool MCP theo `mcp:`
+  của agent chứ không theo `tools`, và mặc định không khai sẵn cho model (`deferred`) để một máy
+  chủ vài chục tool không đội giá mọi lượt. Client viết tay trên `httpx`, không thêm SDK.
 - **Chi phí trung thực.** Mỗi message assistant lưu `cost_usd` hoặc `None`. Cuộc trò chuyện giữ
   `spent_usd` và `unknown_cost_calls`; `cost_cap_usd` dừng trước lần gọi model kế tiếp
   (0 = không giới hạn). Mọi lần gọi model nằm ngoài vòng lặp lượt — đặt tiêu đề, tóm tắt
@@ -633,6 +645,8 @@ quản lý thành một hàng pill, tự cuộn tới mục đang mở.
   agent.
 - Tool (`tools/`): một spec cho model cộng một hàm chạy; đánh dấu cần duyệt khi
   nó thay đổi trạng thái, và nối vào nơi server dựng bộ tool cho mỗi agent.
+- Máy chủ MCP: một mục trong `mcp_servers` của `config.yaml` và tên nó trong `mcp:` của agent;
+  không cần code. Xem [tools.md](tools.md#máy-chủ-mcp).
 - Skill: một tệp Markdown có `name` (và tuỳ chọn `always`, `description`) trong `MY_AGENT_HOME/skills`
   hoặc trong `skills_dirs` của một agent.
 - Agent: một thư mục dưới `MY_AGENT_HOME/agents/` với `agent.yaml` và các tệp persona.

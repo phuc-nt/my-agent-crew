@@ -87,6 +87,9 @@ export function CredentialRow({ item, credentials }: Props) {
             {item.agents && item.agents.length > 0 && (
               <span className="muted">{t.usedBy(item.agents.join(", "))}</span>
             )}
+            {item.servers && item.servers.length > 0 && (
+              <span className="muted">{t.usedByServers(item.servers.join(", "))}</span>
+            )}
           </>
         }
         value={

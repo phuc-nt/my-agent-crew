@@ -2,6 +2,7 @@ import type { Page, Route } from "@playwright/test";
 import type { AgentEvent, AgentInfo, ContentHit, QueuedMessage, WikiPage, WikiPageEdit } from "../src/api/types";
 import { fold } from "../src/components/conversation-search";
 import { FakeCanvas, type FakeReply } from "../src/test/fake-canvas";
+import { FakeMcp } from "../src/test/fake-mcp";
 import { applyAgentPatch, restartRequired } from "../src/test/schedule-contract";
 import { renderRoute } from "./mock-render";
 
@@ -41,6 +42,7 @@ export const defaultAgent: AgentInfo = {
   mode: "assistant",
   delegates: [],
   tools: ["write_file"],
+  mcp: [],
   skills: ["core"],
   is_master: true,
   editable: true,
@@ -169,6 +171,11 @@ export interface MockOptions {
   conversations?: Conversation[];
   templates?: object[];
   tools?: object[];
+  /** The MCP servers of `config.yaml`; none when omitted. A spec keeps the object to say
+   *  what a server reads as next, or that a sign-in went through. */
+  mcp?: FakeMcp;
+  /** Keys listed after the usual ones, such as the variable an MCP server's header reads. */
+  credentials?: object[];
   /** Each agent's wiki as whole pages; the list and the report are derived from them. */
   wiki?: Record<string, WikiPage[]>;
   /** The universe GET /messages/search filters by query, folded the same way as title search. */
@@ -198,6 +205,8 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
     queued: c.queued ?? [],
   }));
   const agents = options.agents ?? [defaultAgent];
+  const mcp = options.mcp ?? new FakeMcp();
+  mcp.crew = () => agents as { id: string; mcp?: string[] }[];
   // Saved routes live per page, so one test's save never shows in the next.
   let routes = connections.routes;
   const posted: { path: string; body: unknown }[] = [];
@@ -207,7 +216,7 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
   /** Persona bodies written by PUT, keyed "<agent>/<name>". */
   const personaFiles = new Map<string, string>();
   const credentials: Array<Record<string, unknown> & { name: string; present: boolean; secret: boolean; group: string }> =
-    credentialItems.map((c) => ({ ...c }));
+    [...credentialItems, ...((options.credentials ?? []) as typeof credentialItems)].map((c) => ({ ...c }));
   let created = conversations.length;
   // Copied, so a page marked ok in one test is not already ok in the next.
   const wiki = new Map(Object.entries(options.wiki ?? {}).map(([id, pages]) => [id, pages.map((p) => ({ ...p }))]));
@@ -252,7 +261,9 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
       agents.push({ ...defaultAgent, ...found, is_master: false });
       return json({ installed: [template], live: [template], needs_restart: false }, 201);
     }
-    if (path === "/tools") return json(options.tools ?? registryTools);
+    if (path === "/tools") return json([...(options.tools ?? registryTools), ...mcp.registryTools()]);
+    const mcpReply = mcp.route(path, method);
+    if (mcpReply) return json(mcpReply.body, mcpReply.status);
     if (path === "/connections") return json({ ...connections, routes });
     if (path === "/connections/routes" && method === "PUT") {
       const body = route.request().postDataJSON() as { routes: typeof routes };
@@ -279,6 +290,8 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
         if (!next.secret) Object.assign(next, { value });
         if (known) credentials[at] = next;
         else credentials.push(next);
+        // A key that changed is when the servers that are down are tried again.
+        mcp.wake();
         return answer();
       }
       if (method === "DELETE") {
@@ -345,6 +358,8 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
         return json({ removed: id, kept_at: `/h/removed/${id}` });
       }
       const { profile } = route.request().postDataJSON() as { profile: Record<string, unknown> };
+      const stray = "mcp" in profile ? mcp.refusal(profile.mcp) : null;
+      if (stray) return json({ detail: stray }, 422);
       const patched = applyAgentPatch(agents[at], profile);
       if ("error" in patched) return json({ detail: patched.error }, 422);
       agents[at] = patched.ok;

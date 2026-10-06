@@ -80,6 +80,26 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   the editor is refused (422) with the reason. The move is a new event, `escalated`, with why it
   was made; the web says so above the message box, and the run's timeline gains an `escalation`
   step naming the route.
+- Agents can use the tools of remote MCP servers. A server is declared once under `mcp_servers`
+  in `config.yaml` (its address, a description, headers, how far its tools are let in, which of
+  them only read, a timeout) and an agent is handed it by name: `mcp:` in `agent.yaml`, or the
+  "Máy chủ MCP" boxes in the agent editor, which apply at once. The client speaks streamable
+  HTTP and is written on `httpx`; stdio servers are not run. A server's tools are named
+  `mcp__<server>__<tool>` and follow `mcp:`, not the `tools` allow-list or the mode. Every one
+  of them asks before it runs and is never made again after a restart, until the owner lists it
+  under `read_only`; a server saying its own tool only reads is shown and decides nothing. The
+  file holds no key: a header takes its value from the environment as `${NAME}`, the variables
+  are set from Connections, and saving one has the servers that are down tried at once. A server
+  that answers 401 with no key of its own can be signed in to from Connections (OAuth 2.1 as a
+  public client: discovery, dynamic registration, PKCE), which is how the hosted Notion server
+  is reached. A sign-in starts only from a browser on the machine the crew runs on, goes only
+  to public `https` addresses, and its tokens are kept beside the provider keys and shown by no
+  API. A server that is down is a row that says why, never a crew that does not start: the crew
+  waits ten seconds for its servers as it starts and keeps trying the rest behind, at growing
+  intervals. New routes: `GET /api/mcp`, `POST /api/mcp/{name}/reconnect`, `POST` and `DELETE
+  /api/mcp/{name}/login`, `GET /api/mcp/oauth/callback`. Connections gains a card with each
+  server's state, reason, tools and who uses it; the Tools matrix lists MCP tools with their
+  server and marks an agent that has not been handed the server apart from every other reason.
 
 ### Fixed
 

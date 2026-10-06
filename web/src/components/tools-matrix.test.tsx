@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { vi } from "../i18n/vi";
 import { ToolsMatrix } from "./tools-matrix";
@@ -229,5 +229,62 @@ describe("ToolsMatrix", () => {
 
     const cells = screen.getAllByText("✓");
     expect(cells.length).toBeGreaterThan(0);
+  });
+
+  describe("the tools of an MCP server", () => {
+    const search: RegistryTool = {
+      name: "mcp__notion__search",
+      description: "Tìm trang",
+      requires_approval: true,
+      optional: false,
+      agents: ["default"],
+      server: "notion",
+      exposure: "deferred",
+    };
+    const coach: AgentInfo = { ...fakeAgent, id: "coach", name: "HLV", is_master: false };
+    const cell = (row: HTMLElement, column: number) => within(row).getAllByRole("cell")[column];
+
+    it("are held by the agents the server is switched on for, and marked off for the rest", () => {
+      render(<ToolsMatrix tools={[search]} agents={[fakeAgent, coach]} />);
+
+      const row = screen.getByTestId("tool-row");
+      expect(within(cell(row, 1)).getByText("✓")).toHaveAttribute("aria-label", vi.tools.legendOn);
+      expect(within(cell(row, 2)).getByText("◇")).toHaveAttribute("aria-label", vi.tools.legendMcpOff);
+      expect(cell(row, 2)).toHaveClass("cell", "mcp-off");
+    });
+
+    it("are not explained by the allow-list or the mode, which have no say over them", () => {
+      // An agent with an allow-list that leaves the tool out, in the mode that lacks tools.
+      const picky: AgentInfo = { ...coach, tools: ["write_file"], mode: "assistant" };
+      render(<ToolsMatrix tools={[{ ...search, agents: [] }]} agents={[picky]} />);
+
+      const row = within(screen.getByTestId("tool-row"));
+      expect(row.getByText("◇")).toHaveAttribute("aria-label", vi.tools.legendMcpOff);
+      expect(row.queryByText("–")).not.toBeInTheDocument();
+      expect(row.queryByText("▫")).not.toBeInTheDocument();
+    });
+
+    it("name their server and how they reach an agent", () => {
+      render(<ToolsMatrix tools={[search]} agents={[fakeAgent]} />);
+
+      const head = within(screen.getByTestId("tool-row")).getByRole("rowheader");
+      expect(within(head).getByText(vi.tools.fromServer("notion"))).toHaveClass("badge");
+      expect(within(head).getByText(vi.mcp.exposure.deferred)).toHaveAttribute("title", vi.mcp.exposureTitle.deferred);
+    });
+
+    it("add their mark to the legend, which a crew without MCP never sees", () => {
+      const own: RegistryTool = { name: "shell_run", description: "Run", requires_approval: false, optional: false, agents: ["default"] };
+      const legend = () => screen.getByText(vi.tools.legend).parentElement as HTMLElement;
+
+      const { unmount } = render(<ToolsMatrix tools={[own]} agents={[fakeAgent]} />);
+      expect(legend()).not.toHaveTextContent(vi.tools.legendMcpOff);
+      expect(within(legend()).getAllByRole("definition")).toHaveLength(4);
+      expect(within(screen.getByTestId("tool-row")).queryByText(/^MCP /)).not.toBeInTheDocument();
+      unmount();
+
+      render(<ToolsMatrix tools={[own, search]} agents={[fakeAgent]} />);
+      expect(legend()).toHaveTextContent(vi.tools.legendMcpOff);
+      expect(within(legend()).getAllByRole("definition")).toHaveLength(5);
+    });
   });
 });

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type UIEvent } from "react";
+import { useCallback, useLayoutEffect, useRef, useState, type UIEvent } from "react";
 import type { AgentInfo, Conversation, InstallResult, JobInfo, SettingsInfo, StatsInfo, TemplateInfo } from "../api/types";
 import type { RunInfo } from "../api/types";
 import { AgentEditor } from "../components/agent-editor/agent-editor";
@@ -23,6 +23,7 @@ import { ToolsMatrix } from "../components/tools-matrix";
 import { Brand } from "../components/ui/brand-mark";
 import { Icon, type IconName } from "../components/ui/icon";
 import { useCredentials } from "../hooks/use-credentials";
+import { useMcpServers } from "../hooks/use-mcp-servers";
 import { useRegistry } from "../hooks/use-registry";
 import type { ManageSection } from "../hooks/use-route";
 import { vi } from "../i18n/vi";
@@ -132,8 +133,15 @@ export const NAV_GROUPS: { key: keyof typeof vi.manage.groups; sections: ManageS
  */
 export function ManageScreen(props: Props) {
   const registry = useRegistry();
-  // A saved key can build a provider or a search backend; the registry shows which.
-  const credentials = useCredentials(registry.refresh);
+  const mcp = useMcpServers();
+  const { refresh: refreshRegistry } = registry;
+  const { keysChanged: mcpKeysChanged } = mcp;
+  // A saved key can build a provider or a search backend, and bring up an MCP server
+  // whose header reads it; the registry and the server list show which.
+  const keysChanged = useCallback(async () => {
+    await Promise.all([refreshRegistry(), mcpKeysChanged()]);
+  }, [refreshRegistry, mcpKeysChanged]);
+  const credentials = useCredentials(keysChanged);
   const editing = props.agents.find((a) => a.id === props.editingAgentId) ?? null;
   const pendingProposals = props.stats?.pending_proposals ?? 0;
   const failing = failingJobs(props.jobs);
@@ -349,6 +357,7 @@ export function ManageScreen(props: Props) {
                 agent={editing}
                 agents={props.agents}
                 tools={registry.tools}
+                mcpServers={mcp.servers}
                 providers={registry.connections?.providers.map((p) => p.name) ?? []}
                 onBack={() => props.onEditAgent(null)}
                 backLabel={props.fromJob ? vi.jobRow.back : undefined}
@@ -411,6 +420,7 @@ export function ManageScreen(props: Props) {
               <ConnectionsPanel
                 connections={registry.connections}
                 credentials={credentials}
+                mcp={mcp}
                 onChanged={registry.refresh}
               />
             ) : (

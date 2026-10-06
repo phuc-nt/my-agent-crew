@@ -4659,3 +4659,120 @@ tuyến chính. Việc chuyển phát event `escalated`, web hiện dòng báo v
     0 ms; bỏ chữ "leo thang", lý do hay lỗi trên timeline; bỏ từng kiểm tra của bản nháp; không cắt khoảng
     trắng; nút bỏ không gửi `null`; bỏ khoá khỏi bản nháp), mỗi cái đều làm ít nhất một test đỏ. Một sửa
     đổi ở web từng sống sót vì một mặc định `?? null` thừa trong bản nháp; mặc định đó đã được bỏ.
+
+## Máy chủ MCP
+
+Agent dùng được tool của các máy chủ MCP ở xa. Máy chủ khai trong `mcp_servers` của `config.yaml`, agent
+nêu tên máy chủ trong `mcp:`, và mỗi tool vào sổ đăng ký dưới tên `mcp__<máy chủ>__<tool>`. Mọi tool MCP
+hỏi trước khi chạy và không được gọi lại sau restart, trừ những tool chủ ghi vào `read_only`. Tệp cấu
+hình không giữ khoá; đăng nhập OAuth chỉ bắt đầu từ chính máy chạy crew. Chi tiết ở
+[tools.md](tools.md#máy-chủ-mcp). Mọi test nói chuyện với một máy chủ MCP giả trong tiến trình
+(`tests/mcp_fakes.py`), không test nào ra mạng.
+
+- **máy chủ khai trong `config.yaml`, không khoá nào nằm trong tệp**:
+  - pytest: `tests/test_mcp_config.py` (chỉ cần địa chỉ, mặc định `deferred` và hỏi trước; đọc đủ mọi
+    khoá; mức mở của một tool là tên đúng, rồi pattern đầu tiên khớp, rồi mức của máy chủ; `*` là một
+    đoạn bất kỳ và không ký tự nào khác là pattern; header được điền từ môi trường ở mỗi lần hỏi; biến
+    thiếu hay rỗng được nêu tên chứ không gửi rỗng; viết sai thì dừng khởi động và nói sai ở đâu; `http`
+    chỉ cho máy chủ trên máy này; tên phải đặt được cho tool và cho biến; hai tên dùng chung biến bị từ
+    chối; một khoá viết thẳng vào tệp làm dừng khởi động; agent không nêu máy chủ nào thì không có tool
+    nào).
+- **một phiên với máy chủ: mỗi request gửi một lần**:
+  - pytest: `tests/test_mcp_session.py` (mở phiên, đọc tool và gọi tool dù máy chủ trả JSON hay SSE;
+    header đọc lại ở mỗi request; đọc tool theo trang tới khi hết, bỏ thứ không phải tool, dừng một máy
+    chủ phân trang mãi; phiên máy chủ đã quên được mở lại và lời gọi gửi đúng một lần, nhiều lời gọi cùng
+    biết phiên mất chỉ mở một phiên, lời gọi đến giữa lúc mở lại thì chờ, máy chủ quên mọi phiên thì lời
+    gọi hỏng chứ không lặp; `ping` của máy chủ được trả lời, yêu cầu khác bị từ chối, thông báo không
+    được trả lời; luồng sự kiện kết thúc thiếu dòng trống vẫn cho câu trả lời; câu trả lời sai là lỗi
+    model đọc được; chuyển hướng bị từ chối; câu trả lời quá lớn bị cắt khi đang đến; hết giờ và không
+    với tới được đều nói rõ; phiên bản lạ thì không dùng; lời từ chối 401 mang nơi đăng nhập, được gia
+    hạn đúng một lần, và gia hạn hỏng thì lời từ chối là câu trả lời).
+- **tool MCP là tool của agent: tên, duyệt, mức mở, kết quả**:
+  - pytest: `tests/test_mcp_tools.py` (tên chỉ gồm ký tự provider nào cũng nhận, tên dài bị cắt kèm băm;
+    mô tả nói tool ở máy chủ nào; mọi tool hỏi trước cho tới khi chủ ghi là chỉ đọc; tool mang mức mở
+    của nó; hai tool ra cùng tên thì giữ cái đầu và nêu tên cái kia; kết quả đọc thành chữ, thứ không
+    phải chữ được gọi tên; lời gọi qua sổ đăng ký tới máy chủ và trả chữ; tool hỏng là kết quả hỏng model
+    đọc được; tool không nói gì vẫn báo đã chạy; khoá bị lấy đi sau khi kết nối làm lời gọi hỏng và nêu
+    tên biến; agent chỉ giữ tool của máy chủ nó nêu, giao lại thì thu về thứ profile không còn nêu; máy
+    chủ không agent nào biết chỉ là cảnh báo; chỉ tool `direct` được khai cho model ở mọi lần gọi; máy
+    chủ không kết nối được là một dòng nói vì sao và không cản máy chủ khác; khoá thiếu được nêu tên,
+    khoá bị từ chối không phải là "cần đăng nhập"; khoá trong tệp thắng phiên đăng nhập đang giữ; lần
+    thử bị cắt để máy chủ ở trạng thái còn phải thử; thứ chủ được xem không mang khoá nào).
+  - pytest: `tests/test_mcp_turns.py` (một lượt thật: tool chủ ghi chỉ đọc chạy không hỏi và chữ của nó
+    là kết quả; tool khác chờ người và chỉ tới máy chủ khi được cho phép; lời gọi bị từ chối không bao
+    giờ tới máy chủ; máy chủ tự nhận chỉ đọc không làm tool chạy không hỏi; model chỉ được khai tool
+    `direct`; dựng lại đội để mỗi tool đúng một lần ở đúng chỗ cũ; lời gọi bị restart cắt không được gọi
+    lại trừ khi tool chỉ đọc, còn tool chỉ đọc thì được gọi lại).
+- **đăng nhập OAuth: đi cùng người, về thành máy chủ đã kết nối, token không lộ**:
+  - pytest: `tests/test_mcp_oauth.py` (đăng nhập trọn vòng; lần khởi động sau đọc lại phiên đăng nhập;
+    máy chủ không nói nơi đăng nhập thì tìm ở chỗ nó công bố; phiên đăng nhập không tin được thì không
+    bắt đầu: thiếu PKCE S256, sai tên, không `https`; nơi đăng ký được kiểm khi biết; đăng ký bị từ chối
+    không thành client id; địa chỉ trỏ vào mạng nội bộ không bao giờ được gọi; tài liệu dò đường chuyển
+    hướng không được đi theo; máy chủ trên máy này và máy chủ có khoá trong tệp không đăng nhập OAuth;
+    nơi không cho tự đăng ký thì dùng client id của chủ; `state` dùng một lần và chỉ cho lần bấm mới
+    nhất, về quá muộn thì được bảo bắt đầu lại; lời từ chối kèm mã vẫn là từ chối; token gửi kèm lỗi
+    không được giữ; grant không giữ trọn được thì không giữ nửa; token hết hạn được gia hạn và lời gọi
+    gửi một lần, nhiều lời gọi bị từ chối cùng lúc chỉ gia hạn một lần; gia hạn bị từ chối thì máy chủ
+    thành "cần đăng nhập" và không lời gọi nào được gửi lại; máy chủ đăng nhập sập hay không với tới được
+    làm lời gọi hỏng mà vẫn giữ phiên; đăng xuất quên token và giữ client id; không có home thì phiên
+    đăng nhập sống theo tiến trình).
+- **lúc khởi động và về sau: máy chủ chậm hay hỏng không giữ crew lại**:
+  - pytest: `tests/test_mcp_lifecycle.py` (khởi động kết nối các máy chủ và giao tool; crew không có máy
+    chủ không hỏi ai; không chờ máy chủ chậm; máy chủ hỏng lúc đầu được thử lại, thưa dần khi vẫn hỏng,
+    đặt lại nhịp khi lên lại hay khi chủ tự kết nối; khoá đổi thì thử ngay; được đánh thức khi mọi máy
+    chủ đang lên thì không hỏi gì; máy chủ cần đăng nhập không được thử lại; app kết nối máy chủ trước
+    khi tiếp tục một lượt bị cắt, chỉ thử lại trong lúc đang phục vụ, và không dựng gì khi không có máy
+    chủ).
+- **API và màn sửa agent**:
+  - pytest: `tests/test_api_mcp.py` (danh sách trước và sau khi thử; tên lạ là 404; khoá bị máy chủ từ
+    chối nói rõ và khoá đúng lưu từ màn Kết nối làm máy chủ lên; agent được giao máy chủ từ trình sửa
+    và giữ tool ngay; tên không có trong tệp bị từ chối 422, còn tệp đã nêu sẵn tên như thế không chặn
+    sửa đổi khác; kết nối lại giao tool cho agent đang nêu máy chủ; đăng nhập từ web kết thúc với máy
+    chủ đã kết nối và không token nào hiện ra; đăng xuất bỏ token và thu tool về; đăng nhập hỏng vẫn về
+    đúng màn nói vì sao; callback không ai chờ không đổi gì; chỉ bắt đầu đăng nhập được từ chính máy
+    chạy crew, với tên nào của máy đó cũng được; đăng nhập không bắt đầu được thì nói vì sao),
+    `tests/test_local_guard.py` (chỉ đường quay về từ đăng nhập nhận một lượt điều hướng từ trang khác).
+- **web: thẻ Máy chủ MCP ở Kết nối**:
+  - vitest: `hooks/use-mcp-servers.test.ts` (đọc một lần khi mở và không đọc lại khi mọi máy chủ đã có
+    câu trả lời; máy chủ đang thử thì đọc lại mỗi 2 giây tới khi có; thôi hỏi máy chủ không bao giờ trả
+    lời và bắt đầu lại khi làm mới; máy chủ hỏng chỉ được theo dõi sau khi một khoá đổi và trong chốc
+    lát, còn máy chủ cần đăng nhập thì không; hai câu trả lời chéo nhau thì giữ câu của request sau cùng;
+    kết nối lại và đăng xuất lấy danh sách request trả về, không đọc thêm, và theo dõi lại máy chủ khác
+    còn đang thử; tên lạ thì nêu đúng lời server; đăng nhập đưa người tới địa chỉ server trả, bị từ chối
+    thì không đi đâu; các hàm giữ nguyên qua mỗi lần vẽ), `components/mcp-servers-card.test.tsx` (chưa
+    khai máy chủ nào thì nói cách khai; trạng thái đúng chữ và đúng màu; địa chỉ, mô tả, lý do hỏng, và
+    lý do của lần thử trước còn đó khi đang thử lại; agent nào dùng; tool với mức mở, hỏi trước hay
+    không, lời tự nhận chỉ đọc; tool bị bỏ vì trùng tên; nút nào hiện ở trạng thái nào; mỗi thao tác
+    giữ mọi nút của đúng dòng đó tới khi xong và nói đang làm gì; lời từ chối hiện dưới dòng; đăng xuất
+    chỉ sau khi người đồng ý, và không nói "đã đăng xuất" khi hỏng), `components/connections-panel.test.tsx`
+    (thẻ nằm trong màn Kết nối, biến của header nằm dưới thẻ kèm tên máy chủ đọc chúng),
+    `test/fake-mcp.test.ts` (máy chủ giả của test giữ đúng luật của server).
+- **web: giao máy chủ cho agent, và bảng Công cụ**:
+  - vitest: `components/agent-editor/tools-section.test.tsx` (danh sách cho phép không liệt kê tool MCP;
+    ô chọn nêu từng máy chủ đã khai; tích và bỏ tích sửa `mcp`; tên tệp không còn khai có một dòng riêng
+    nói phải bỏ; chưa khai máy chủ nào thì nói thế; agent chỉ đọc thì khoá),
+    `hooks/use-agent-draft.test.ts` (bản nháp mở đầu mang `mcp`, chỉ gửi khi đổi, gửi `[]` khi bỏ hết),
+    `components/tools-matrix.test.tsx` (tool MCP mang nhãn máy chủ và mức mở; ô của agent chưa bật máy
+    chủ có dấu và chú giải riêng, không bị giải thích bằng danh sách cho phép, khoá hay chế độ).
+  - Playwright: `mcp-servers.spec.ts` (đăng nhập từ Kết nối: lần đầu bị từ chối thì hiện đúng lời và
+    không rời trang, lần sau đi tới máy chủ đăng nhập rồi về với máy chủ đã kết nối và các tool; bảng
+    Công cụ nêu tool cùng máy chủ; đăng xuất sau khi đồng ý; máy chủ hỏng nói vì sao và lên lại từ nút
+    trên dòng; máy chủ đang thử tự có câu trả lời mà không bấm gì; lưu biến của header làm máy chủ lên
+    không cần tải lại và giá trị không hiện trên trang; giao máy chủ cho agent trong trình sửa, tên tệp
+    không còn khai phải bỏ trước, lưu gửi đúng `mcp`, không đòi khởi động lại, tải lại vẫn còn; trên
+    điện thoại 390px thẻ và ô chọn không tràn, địa chỉ và tên dài xuống dòng, nhãn không bị ép thành
+    nhiều dòng, mọi nút đủ lớn để chạm).
+- Kiểm chứng đột biến: một trăm tám mươi mốt sửa đổi ở server (gửi lại lời gọi hết giờ; không mở lại
+  phiên đã mất, hoặc mở lại mãi; đi theo chuyển hướng; nhận `http` ngoài máy này; nhận header viết thẳng
+  giá trị; cho tool chạy không hỏi vì máy chủ tự nhận chỉ đọc; gọi lại tool ghi sau restart; khai tool
+  `deferred` cho model; giao tool `hidden`; bỏ kiểm PKCE, tên máy chủ đăng nhập hay `state`; cho đăng
+  nhập từ máy khác; gọi địa chỉ trong mạng nội bộ; giữ token gửi kèm lỗi; trả token trong danh sách; thử
+  lại máy chủ cần đăng nhập; chờ máy chủ chậm lúc khởi động) và một trăm hai mươi ở web (bỏ việc đọc lại
+  khi đang thử; theo dõi mãi; theo dõi máy chủ cần đăng nhập; nhận câu trả lời chéo; không rời trang khi
+  đăng nhập; đăng xuất không hỏi; nói "đã đăng xuất" khi hỏng; sai màu trạng thái; bỏ lý do hỏng, nhãn
+  hỏi trước, lời tự nhận chỉ đọc; liệt kê tool MCP trong danh sách cho phép; không gửi `mcp`; bỏ dấu của
+  ô chưa bật máy chủ; bỏ luật xuống dòng của địa chỉ; ép nhãn trên một hàng), mỗi cái đều làm ít nhất một
+  test đỏ. Sáu sửa đổi ở web từng sống sót ở vòng đầu: máy chủ cần đăng nhập bị theo dõi sau khi đổi
+  khoá, lý do của lần thử trước, chữ "đang đăng xuất", và hai luật CSS mà bề rộng trang không lộ ra vì
+  khung ngoài cắt phần tràn; mỗi cái giờ có test riêng, và việc đặt lại vòng theo dõi sau kết nối lại
+  và sau đăng xuất được gộp về một chỗ.

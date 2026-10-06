@@ -411,8 +411,10 @@
 
 .matrix td.cell.excluded,
 .matrix td.cell.work-mode,
+.matrix td.cell.mcp-off,
 .legend-mark.excluded,
-.legend-mark.work-mode {
+.legend-mark.work-mode,
+.legend-mark.mcp-off {
   color: var(--muted);
 }
 
@@ -497,6 +499,70 @@
 }
 .credential-note.danger {
   color: var(--danger-text);
+}
+
+/* One MCP server per block: its name and state on a line, then what it is, who uses it
+   and what it offers. */
+.mcp-servers {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.mcp-server {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--border);
+  min-width: 0;
+}
+
+.mcp-server:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.mcp-server > p {
+  margin: 0;
+}
+
+.mcp-server-head,
+.mcp-tool-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* An address or a tool's name has no space to break at. */
+.mcp-server-url,
+.mcp-tool-head code,
+.mcp-tools .muted {
+  overflow-wrap: anywhere;
+}
+
+.mcp-server-url {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.mcp-tools summary {
+  cursor: pointer;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.mcp-tools ul {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
 }
 
 .route-list,

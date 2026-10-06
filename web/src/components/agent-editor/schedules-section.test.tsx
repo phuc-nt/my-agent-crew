@@ -21,7 +21,7 @@ function open(agent: AgentInfo = fakeAgent, focus?: string) {
     <AgentEditor
       agent={agent}
       agents={[agent]}
-      tools={[]}
+      tools={[]} mcpServers={[]}
       providers={["fake"]}
       onBack={() => {}}
       onChanged={() => {}}

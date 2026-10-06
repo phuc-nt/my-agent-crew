@@ -30,6 +30,7 @@ const EDITABLE: DraftKey[] = [
   "memory_consolidate",
   "delegates",
   "tools",
+  "mcp",
   "schedules",
   "telegram",
 ];
@@ -85,6 +86,9 @@ function toDraft(agent: AgentInfo): AgentPatch {
     memory_consolidate: agent.memory_consolidate,
     delegates: agent.declared.delegates,
     tools: agent.tools,
+    // A crew still running the code from before MCP reports none: an empty list, so that
+    // ticking a box and unticking it leaves nothing to save.
+    mcp: agent.mcp ?? [],
     schedules: agent.declared.schedules,
     telegram: agent.telegram,
   };

@@ -38,6 +38,7 @@ my-agent-crew/
 | `channels/` | Telegram: poll, tin vào, ảnh và album, tin ra, lệnh `/…`, câu trả lời cho `ask_user`, gửi canvas như một tệp và báo lượt đã ghi canvas nào, offset, che token |
 | `inbound.py` | một cổng vào chung cho mọi nền tảng |
 | `llm/` | provider: OpenRouter, Ollama, provider giả; chuỗi tuyến và fallback |
+| `mcp/` | client MCP viết tay trên `httpx`: đọc `mcp_servers` của `config.yaml`, một request JSON-RPC qua streamable HTTP (JSON hoặc SSE), phiên làm việc và danh sách tool, tool MCP thành tool của agent (tên, duyệt, mức mở, kết quả thành chữ), hub giữ trạng thái từng máy chủ và giao tool cho agent, đăng nhập OAuth 2.1 (dò metadata, tự đăng ký, PKCE, gia hạn) và nơi giữ token |
 | `memory/` | ghi chú ngày, facts chung, gom 7 ngày thành đề xuất, tìm kiếm, tóm tắt cuộc trước, vault wiki |
 | `scheduler/` | cron: phân tích lịch, job đến hạn, chạy job, giao kết quả ra kênh |
 | `server/` | FastAPI: dựng runtime, lắp provider và tool cho từng agent, áp dụng kết nối không cần restart, kiểm tra khoá, ghi `<home>/env`, hàng rào Host/Origin, phục vụ tệp agent viết như nội dung không tin cậy, đổi lời từ chối của kho canvas thành mã HTTP, các nhóm route |
@@ -69,6 +70,7 @@ chỉ để hiển thị (chữ đang chảy, `user_context`, `tool_call_delta`)
 | Sửa agent | `POST /api/agents`, `PATCH …/{id}`, `DELETE …/{id}` |
 | Tệp tính cách | `PUT /api/agents/{id}/files/{name}`, `GET …/{id}/prompt` (lời nhắc hệ thống đã ghép, và khối ghi chú đọc trước tin đầu), `POST /api/agents/reload` |
 | Tool & kết nối | `GET /api/tools`, `GET /api/connections` |
+| Máy chủ MCP | `GET /api/mcp`, `POST …/{name}/reconnect`, `POST/DELETE …/{name}/login` (bắt đầu đăng nhập chỉ từ `localhost`/`127.0.0.1`; đăng xuất), `GET /api/mcp/oauth/callback` (đường duy nhất nhận một lượt điều hướng từ trang khác); không bao giờ trả giá trị header hay token |
 | Khoá & biến môi trường | `GET /api/credentials`, `PUT/DELETE …/{name}` (ghi `<home>/env`, áp dụng ngay), `POST …/{name}/check`; không trả giá trị bí mật; thay đổi làm đội không chạy được bị từ chối 409, không ghi gì |
 | Tuyến mô hình chung | `PUT /api/connections/routes` (lưu vào `config.yaml` giữ chú thích; khi `MY_AGENT_ROUTES` đặt thì chỉ xem, không sửa) |
 | Trí nhớ agent | `GET/PUT /api/agents/{id}/memory`, `GET/PUT …/memory/notes/{day}`, `POST …/memory/consolidate` |

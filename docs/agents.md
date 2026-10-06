@@ -73,6 +73,7 @@ không bao giờ âm thầm vô hiệu một cài đặt.
 | `telegram` | map | không có | `token_env` + `chat_id`, tuỳ chọn `approval_ttl_seconds` (60–43200) cho cuộc trò chuyện mở từ chat đó; chỉ đọc trên `agent.yaml` của master, ở nơi khác bị bỏ qua kèm cảnh báo, xem [channels.md](channels.md) |
 | `delegates` | danh sách id agent | `[]` | agent mà agent này được giao việc cho; id không trỏ tới agent nào là lỗi khởi động. Rỗng trên master nghĩa là mọi agent khác, xem [Agent master](#agent-master) |
 | `tools` | danh sách tên tool | `[]` | khi đặt, là những tool duy nhất agent này có; rỗng nghĩa là mọi thứ mode của nó mang lại. Tên lạ là cảnh báo, nên profile viết cho phiên bản mới hơn vẫn khởi động được. Tool canvas cũng theo danh sách này: agent có `tools:` chỉ dùng được những tool canvas nó liệt kê ([canvas.md](canvas.md#6-bảy-tool-của-agent)) |
+| `mcp` | danh sách tên máy chủ MCP | `[]` | những máy chủ khai ở `mcp_servers` của `config.yaml` mà agent này dùng tool. Tool của chúng đến theo danh sách này, không theo `tools` hay `mode`, và hỏi trước khi chạy trừ khi chủ ghi là chỉ đọc. Sửa từ web có hiệu lực ngay; tên không có trong `config.yaml` bị từ chối khi sửa, và chỉ là cảnh báo khi viết tay. Xem [Máy chủ MCP](tools.md#máy-chủ-mcp) |
 
 Mọi giá trị không đặt sẽ rơi về cài đặt toàn cục, lấy từ biến môi trường
 và `config.yaml`:

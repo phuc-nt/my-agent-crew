@@ -119,6 +119,11 @@ Gói `tools/` giữ danh sách tool mà agent được dùng (`tools:` trong `ag
 | Với người | `ask_user` (dừng lượt, chờ câu trả lời), `progress_note` (một câu "đang làm gì" lên timeline) | không |
 | Khác | `image_read`, `pdf_read`, `skill_read` | không |
 
+Ngoài bộ có sẵn, agent nhận thêm tool của những **máy chủ MCP** mà `agent.yaml` của nó nêu trong
+`mcp:`. Máy chủ được khai một lần trong `config.yaml` (`mcp_servers`), gói `mcp/` nói chuyện với
+chúng qua streamable HTTP, và mỗi tool vào sổ đăng ký dưới tên `mcp__<máy chủ>__<tool>`. Chúng đi
+qua cùng cổng duyệt: mọi tool MCP hỏi trước khi chạy, trừ những tool chủ ghi là chỉ đọc.
+
 Chi tiết từng tool ở [tools.md](tools.md).
 
 ### 2.5 Provider: model là dịch vụ ngoài
@@ -348,12 +353,13 @@ Kit `.agents/` cấp home cho master lệnh `/tongket` — ví dụ về việc 
 
 ## 9. Mở rộng harness
 
-Năm điểm cắm, theo [design.md](design.md) "Extension points":
+Sáu điểm cắm, theo [design.md](design.md) "Extension points":
 
 | Muốn thêm | Làm gì | Ở đâu |
 |---|---|---|
 | Model/provider mới | một provider biết stream; lắp vào chỗ server dựng provider cho từng agent | `llm/`, `server/` |
 | Tool mới | mô tả cho model + hàm chạy; lắp vào chỗ server dựng bộ tool cho từng agent | `tools/`, `server/` |
+| Tool của dịch vụ ngoài | khai máy chủ MCP trong `mcp_servers`, bật cho agent bằng `mcp:`; không cần code | `config.yaml`, `agent.yaml` |
 | Kỹ năng | tệp `.md` có front matter `name`, `description`, `always` | `skills/` của home hoặc agent |
 | Agent mới | một thư mục có `agent.yaml` + persona | `agents/<id>/`, hoặc `agent add` |
 | Kênh mới | start / stop / deliver; dựng từ khối trên hồ sơ master | `channels/` |

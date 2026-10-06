@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef } from "react";
-import type { AgentInfo, RegistryTool } from "../../api/types";
+import type { AgentInfo, McpServerInfo, RegistryTool } from "../../api/types";
 import { problemsShown } from "../../hooks/agent-draft-checks";
 import { useAgentDraft } from "../../hooks/use-agent-draft";
 import { vi } from "../../i18n/vi";
@@ -18,6 +18,8 @@ interface Props {
   agent: AgentInfo;
   agents: AgentInfo[];
   tools: RegistryTool[];
+  /** The MCP servers `config.yaml` declares, for the agent to be handed or not. */
+  mcpServers: McpServerInfo[];
   providers: string[];
   onBack: () => void;
   /** What the back link says when it leads somewhere other than the crew list. */
@@ -35,7 +37,7 @@ interface Props {
  * needs to know there is something unsaved while they are still scrolling through them,
  * not after they have left.
  */
-export function AgentEditor({ agent, agents, tools, providers, onBack, backLabel, onChanged, focus }: Props) {
+export function AgentEditor({ agent, agents, tools, mcpServers, providers, onBack, backLabel, onChanged, focus }: Props) {
   const form = useAgentDraft(agent, onChanged);
   const readOnly = !agent.editable;
   // A box left empty holds the save without a banner until Lưu is pressed; pressing it
@@ -122,7 +124,7 @@ export function AgentEditor({ agent, agents, tools, providers, onBack, backLabel
       <IdentitySection form={form} readOnly={readOnly} />
       <ModelSection form={form} readOnly={readOnly} providers={providers} />
       <PersonaSection agent={agent} readOnly={readOnly} />
-      <ToolsSection form={form} readOnly={readOnly} tools={tools} />
+      <ToolsSection form={form} readOnly={readOnly} tools={tools} mcpServers={mcpServers} />
       <LimitsSection
         form={form}
         readOnly={readOnly}

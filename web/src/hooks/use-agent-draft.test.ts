@@ -3,6 +3,7 @@ import { describe, expect, it, vi as vitest, beforeEach } from "vitest";
 import { useAgentDraft } from "./use-agent-draft";
 import type { AgentInfo } from "../api/types";
 import { FakeBackend, fakeAgent } from "../test/fake-backend";
+import { mcpServer, unknownServer } from "../test/fake-mcp";
 
 describe("useAgentDraft", () => {
   beforeEach(() => {
@@ -28,6 +29,7 @@ describe("useAgentDraft", () => {
       memory_consolidate: fakeAgent.memory_consolidate,
       delegates: fakeAgent.delegates,
       tools: fakeAgent.tools,
+      mcp: fakeAgent.mcp,
       schedules: fakeAgent.schedules,
       telegram: fakeAgent.telegram,
     });
@@ -495,6 +497,65 @@ describe("useAgentDraft", () => {
 
     expect(saved).toBe(false);
     expect(backend.requests.some((r) => r.method === "PATCH")).toBe(false);
+  });
+
+  it("sends the MCP servers an agent is handed, and an empty list once the last is taken away", async () => {
+    const backend = new FakeBackend();
+    backend.mcp.servers = [mcpServer()];
+    vitest.stubGlobal("fetch", backend.fetch);
+    const { result } = renderHook(() => useAgentDraft(fakeAgent));
+    const sent = () => backend.requests.filter((r) => r.method === "PATCH").map((r) => r.body);
+
+    act(() => result.current.set("mcp", ["notion"]));
+    expect(result.current.dirty).toEqual(["mcp"]);
+    await act(async () => {
+      await result.current.save();
+    });
+
+    expect(sent()).toEqual([{ profile: { mcp: ["notion"] } }]);
+    expect(result.current.original?.mcp).toEqual(["notion"]);
+    expect(result.current.dirty).toEqual([]);
+    expect(result.current.restartRequired).toEqual([]);
+
+    act(() => result.current.set("mcp", []));
+    await act(async () => {
+      await result.current.save();
+    });
+
+    expect(sent()[1]).toEqual({ profile: { mcp: [] } });
+    expect(result.current.original?.mcp).toEqual([]);
+  });
+
+  it("keeps the ticks and shows the server's reason when a server the file dropped is still on", async () => {
+    const backend = new FakeBackend();
+    const agent: AgentInfo = { ...fakeAgent, mcp: ["old"] };
+    backend.agents = [agent];
+    backend.mcp.servers = [mcpServer()];
+    vitest.stubGlobal("fetch", backend.fetch);
+    const { result } = renderHook(() => useAgentDraft(agent));
+
+    act(() => result.current.set("mcp", ["old", "notion"]));
+    let saved: boolean | undefined;
+    await act(async () => {
+      saved = await result.current.save();
+    });
+
+    expect(saved).toBe(false);
+    expect(result.current.error).toBe(unknownServer("old"));
+    expect(result.current.draft.mcp).toEqual(["old", "notion"]);
+    expect(backend.agents[0].mcp).toEqual(["old"]);
+  });
+
+  it("has nothing to save for an agent whose crew reports no MCP list, ticked and unticked", () => {
+    const old = { ...fakeAgent } as Partial<AgentInfo>;
+    delete old.mcp;
+    const { result } = renderHook(() => useAgentDraft(old as AgentInfo));
+
+    expect(result.current.draft.mcp).toEqual([]);
+    act(() => result.current.set("mcp", ["notion"]));
+    act(() => result.current.set("mcp", []));
+
+    expect(result.current.dirty).toEqual([]);
   });
 
   it("resets to a different agent when the agent id changes", () => {

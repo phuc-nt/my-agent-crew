@@ -4,6 +4,8 @@ import { vi } from "../i18n/vi";
 import { ConnectionsPanel } from "./connections-panel";
 import type { ConnectionsInfo, CredentialInfo, CredentialsInfo } from "../api/types";
 import type { CredentialsController } from "../hooks/use-credentials";
+import type { McpController } from "../hooks/use-mcp-servers";
+import { mcpServer, mcpTool } from "../test/fake-mcp";
 
 const base: ConnectionsInfo = {
   providers: [],
@@ -43,6 +45,19 @@ function controller(items: CredentialInfo[], overrides: Partial<CredentialsContr
   } satisfies CredentialsController;
 }
 
+function mcp(overrides: Partial<McpController> = {}): McpController {
+  return {
+    servers: [],
+    error: null,
+    refresh: mock.fn(async () => undefined),
+    keysChanged: mock.fn(async () => undefined),
+    reconnect: mock.fn(async () => undefined),
+    signIn: mock.fn(async () => undefined),
+    signOut: mock.fn(async () => undefined),
+    ...overrides,
+  };
+}
+
 describe("ConnectionsPanel", () => {
   it("shows the providers that were built and the routes in order", () => {
     const connections = {
@@ -56,7 +71,7 @@ describe("ConnectionsPanel", () => {
         { provider: "ollama", model: "qwen" },
       ],
     };
-    render(<ConnectionsPanel connections={connections} credentials={controller([])} onChanged={noop} />);
+    render(<ConnectionsPanel connections={connections} credentials={controller([])} mcp={mcp()} onChanged={noop} />);
 
     expect(screen.getByTestId("providers")).toHaveTextContent("openrouter");
     expect(screen.getByTestId("providers")).toHaveTextContent("ollama");
@@ -71,7 +86,7 @@ describe("ConnectionsPanel", () => {
       ...base,
       audio_routes: [{ provider: "openrouter", model: "google/gemini-2.5-flash-lite" }],
     };
-    render(<ConnectionsPanel connections={connections} credentials={controller([])} onChanged={noop} />);
+    render(<ConnectionsPanel connections={connections} credentials={controller([])} mcp={mcp()} onChanged={noop} />);
 
     expect(screen.getByTestId("audio-routes")).toHaveTextContent("google/gemini-2.5-flash-lite");
     expect(screen.queryByText(vi.connectionsPage.noAudioRoutes)).not.toBeInTheDocument();
@@ -83,7 +98,7 @@ describe("ConnectionsPanel", () => {
       item({ name: "BRAVE_API_KEY", group: "search" }),
       item({ name: "GOODREADS_ID", group: "other", present: true, source: "file" }),
     ]);
-    render(<ConnectionsPanel connections={base} credentials={credentials} onChanged={noop} />);
+    render(<ConnectionsPanel connections={base} credentials={credentials} mcp={mcp()} onChanged={noop} />);
 
     expect(screen.getByText(vi.connectionsPage.hint("/h/env"))).toBeInTheDocument();
     expect(screen.getByTestId("credentials-model")).toHaveTextContent("OPENROUTER_API_KEY");
@@ -96,7 +111,7 @@ describe("ConnectionsPanel", () => {
 
   it("saves a key through a password field that is empty again afterwards", async () => {
     const credentials = controller([item({})]);
-    render(<ConnectionsPanel connections={base} credentials={credentials} onChanged={noop} />);
+    render(<ConnectionsPanel connections={base} credentials={credentials} mcp={mcp()} onChanged={noop} />);
     const row = within(screen.getByTestId("credential-OPENROUTER_API_KEY"));
 
     fireEvent.click(row.getByRole("button", { name: vi.connectionsPage.set }));
@@ -117,7 +132,7 @@ describe("ConnectionsPanel", () => {
         throw new Error("Giá trị không được xuống dòng.");
       }),
     });
-    render(<ConnectionsPanel connections={base} credentials={credentials} onChanged={noop} />);
+    render(<ConnectionsPanel connections={base} credentials={credentials} mcp={mcp()} onChanged={noop} />);
     const row = within(screen.getByTestId("credential-OPENROUTER_API_KEY"));
 
     fireEvent.click(row.getByRole("button", { name: vi.connectionsPage.set }));
@@ -133,7 +148,7 @@ describe("ConnectionsPanel", () => {
     const credentials = controller([
       item({ name: "BRAVE_API_KEY", group: "search", present: true, source: "file", checkable: true, check_spends: true }),
     ]);
-    render(<ConnectionsPanel connections={base} credentials={credentials} onChanged={noop} />);
+    render(<ConnectionsPanel connections={base} credentials={credentials} mcp={mcp()} onChanged={noop} />);
     const row = within(screen.getByTestId("credential-BRAVE_API_KEY"));
 
     expect(row.getByRole("button", { name: vi.connectionsPage.checkSpends })).toBeInTheDocument();
@@ -143,7 +158,7 @@ describe("ConnectionsPanel", () => {
     const credentials = controller([
       item({ present: true, source: "file", checkable: true }),
     ]);
-    render(<ConnectionsPanel connections={base} credentials={credentials} onChanged={noop} />);
+    render(<ConnectionsPanel connections={base} credentials={credentials} mcp={mcp()} onChanged={noop} />);
     const row = within(screen.getByTestId("credential-OPENROUTER_API_KEY"));
 
     fireEvent.click(row.getByRole("button", { name: vi.connectionsPage.check }));
@@ -160,7 +175,7 @@ describe("ConnectionsPanel", () => {
 
   it("offers no removal for a key the server was started with", () => {
     const credentials = controller([item({ present: true, source: "process" })]);
-    render(<ConnectionsPanel connections={base} credentials={credentials} onChanged={noop} />);
+    render(<ConnectionsPanel connections={base} credentials={credentials} mcp={mcp()} onChanged={noop} />);
     const row = within(screen.getByTestId("credential-OPENROUTER_API_KEY"));
 
     expect(row.queryByRole("button", { name: vi.connectionsPage.remove })).toBeNull();
@@ -171,7 +186,7 @@ describe("ConnectionsPanel", () => {
     const credentials = controller([
       item({ name: "lower_case", group: "other", present: true, source: "file", editable: false }),
     ]);
-    render(<ConnectionsPanel connections={base} credentials={credentials} onChanged={noop} />);
+    render(<ConnectionsPanel connections={base} credentials={credentials} mcp={mcp()} onChanged={noop} />);
     const row = within(screen.getByTestId("credential-lower_case"));
 
     expect(row.queryByRole("button")).toBeNull();
@@ -183,7 +198,7 @@ describe("ConnectionsPanel", () => {
       item({ name: "OLLAMA_BASE_URL", secret: false, url: true, value: "", default: "http://127.0.0.1:11434/v1" }),
       item({ name: "FIRECRAWL_BASE_URL", group: "search", secret: false, url: true, present: true, source: "file", value: "http://127.0.0.1:3002" }),
     ]);
-    render(<ConnectionsPanel connections={base} credentials={credentials} onChanged={noop} />);
+    render(<ConnectionsPanel connections={base} credentials={credentials} mcp={mcp()} onChanged={noop} />);
 
     expect(screen.getByTestId("credential-OLLAMA_BASE_URL")).toHaveTextContent("Mặc định: http://127.0.0.1:11434/v1");
     expect(screen.getByTestId("credential-FIRECRAWL_BASE_URL")).toHaveTextContent("http://127.0.0.1:3002");
@@ -191,7 +206,7 @@ describe("ConnectionsPanel", () => {
 
   it("adds a variable of the person's own, upper-casing the name as it is typed", async () => {
     const credentials = controller([]);
-    render(<ConnectionsPanel connections={base} credentials={credentials} onChanged={noop} />);
+    render(<ConnectionsPanel connections={base} credentials={credentials} mcp={mcp()} onChanged={noop} />);
     const form = within(screen.getByTestId("credential-add"));
     const add = form.getByRole("button", { name: vi.connectionsPage.add });
 
@@ -213,23 +228,72 @@ describe("ConnectionsPanel", () => {
     const credentials = controller([
       item({ name: "CREW_BOT", group: "telegram", present: true, source: "file", agents: ["default"] }),
     ]);
-    render(<ConnectionsPanel connections={connections} credentials={credentials} onChanged={noop} />);
+    render(<ConnectionsPanel connections={connections} credentials={credentials} mcp={mcp()} onChanged={noop} />);
 
     expect(screen.getByTestId("telegram-list")).toHaveTextContent("CREW_BOT");
     expect(screen.getByTestId("credentials-telegram")).toHaveTextContent(vi.connectionsPage.usedBy("default"));
   });
 
   it("explains how to turn Telegram on when no agent has it", () => {
-    render(<ConnectionsPanel connections={base} credentials={controller([])} onChanged={noop} />);
+    render(<ConnectionsPanel connections={base} credentials={controller([])} mcp={mcp()} onChanged={noop} />);
 
     expect(screen.getByText(vi.connectionsPage.noTelegram)).toBeInTheDocument();
   });
 
   it("says the list could not load instead of showing no keys", () => {
     const credentials = { ...controller([]), info: null, error: "HTTP 403" };
-    render(<ConnectionsPanel connections={base} credentials={credentials} onChanged={noop} />);
+    render(<ConnectionsPanel connections={base} credentials={credentials} mcp={mcp()} onChanged={noop} />);
 
     expect(screen.getByText("HTTP 403")).toBeInTheDocument();
     expect(screen.queryByTestId("credential-add")).toBeNull();
+  });
+
+  describe("the MCP card", () => {
+    const card = () => within(screen.getByTestId("mcp-card"));
+
+    it("says how servers are declared, and that none is", () => {
+      render(<ConnectionsPanel connections={base} credentials={controller([])} mcp={mcp()} onChanged={noop} />);
+
+      expect(card().getByText(vi.mcp.title)).toBeInTheDocument();
+      expect(card().getByText(vi.mcp.hint)).toBeInTheDocument();
+      expect(card().getByText(vi.mcp.empty)).toBeInTheDocument();
+      expect(card().queryByText(vi.mcp.keys)).not.toBeInTheDocument();
+    });
+
+    it("lists the servers, each with what can be done to it", async () => {
+      const servers = [mcpServer({ status: "signed_out", tools: [] }), mcpServer({ name: "wiki", tools: [mcpTool("wiki", "read")] })];
+      const controls = mcp({ servers });
+      render(<ConnectionsPanel connections={base} credentials={controller([])} mcp={controls} onChanged={noop} />);
+
+      const notion = within(card().getByTestId("mcp-server-notion"));
+      expect(notion.getByTestId("mcp-status")).toHaveTextContent(vi.mcp.status.signed_out);
+      expect(card().getByTestId("mcp-server-wiki")).toHaveTextContent(vi.mcp.tools(1));
+      fireEvent.click(notion.getByRole("button", { name: vi.mcp.signIn }));
+
+      await waitFor(() => expect(controls.signIn).toHaveBeenCalledWith("notion"));
+    });
+
+    it("keeps the variables a server's headers read in the card, naming the server", () => {
+      const credentials = controller([
+        item({ name: "WIKI_TOKEN", group: "mcp", present: true, source: "file", servers: ["wiki", "notes"] }),
+        item({ name: "OPENROUTER_API_KEY" }),
+      ]);
+      render(<ConnectionsPanel connections={base} credentials={credentials} mcp={mcp({ servers: [mcpServer({ name: "wiki", uses_key: true })] })} onChanged={noop} />);
+
+      expect(card().getByText(vi.mcp.keys)).toBeInTheDocument();
+      const rows = card().getByTestId("credentials-mcp");
+      expect(within(rows).getByTestId("credential-WIKI_TOKEN")).toHaveTextContent(vi.connectionsPage.usedByServers("wiki, notes"));
+      expect(rows).not.toHaveTextContent("OPENROUTER_API_KEY");
+      // The model's key stays under the providers, and says nothing of a server.
+      expect(screen.getByTestId("credential-OPENROUTER_API_KEY")).not.toHaveTextContent("header của");
+      expect(card().queryByTestId("credential-OPENROUTER_API_KEY")).not.toBeInTheDocument();
+    });
+
+    it("names no server on a variable that none reads", () => {
+      const credentials = controller([item({ name: "WIKI_TOKEN", group: "mcp", servers: [] })]);
+      render(<ConnectionsPanel connections={base} credentials={credentials} mcp={mcp()} onChanged={noop} />);
+
+      expect(screen.getByTestId("credential-WIKI_TOKEN")).not.toHaveTextContent("header của");
+    });
   });
 });
