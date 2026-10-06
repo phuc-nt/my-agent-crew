@@ -11,6 +11,8 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+## [0.12.0] — 2026-10-07
+
 ### Changed
 
 - A turn started from the web now belongs to the server, not to the tab that sent the message.
@@ -1745,6 +1747,7 @@ restarting the process.
 
 - One agent, `run_turn` loop with a tool approval gate, web UI, memory on disk.
 
+[0.12.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.12.0
 [0.11.1]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.11.1
 [0.11.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.11.0
 [0.10.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.10.0
