@@ -4475,6 +4475,33 @@ chuyện lại là toàn bộ sự thật.
     hết ở 1440/1000/390 mà không tràn ngang; tải lại giữa lượt thì vào lại đúng chỗ, không gửi `stop`; rời
     cuộc thì số người xem về 0, quay lại thấy phần viết thêm; Dừng từ tab chỉ xem. Bỏ `useTurnWatch` khỏi
     `app.tsx` thì cả sáu test đỏ.
+  - Tab chỉ xem vẫn nói lượt đã bị dừng sau khi đọc lại cuộc trò chuyện. vitest: `state/thread-reducer.test.ts`
+    ("does not carry the word that a turn was stopped into a turn found going", "keeps the word that the turn was
+    stopped through the loads that follow it, until one brings a request", "drops that word with the rest when
+    another conversation is opened, or a message is sent"); `app-turn-watch.test.tsx` ("is still said to have been
+    stopped once its run has ended and the conversation has been read again"). Playwright: `turn-watch.spec.ts`
+    ("Stop ends a turn the server reads itself, from a tab that only watches it") kiểm dòng "Đã dừng lượt này."
+    thêm một lần sau khi run hết và cuộc trò chuyện được đọc lại, là lúc trước đây dòng ấy bị xoá.
+  - Tab không vào lại lượt mà server vừa dừng theo nút Dừng của chính nó. vitest: `hooks/use-thread.test.ts`
+    ("counts the Stops the server answered by ending the turn, and no other"); `hooks/use-turn-watch.test.ts`
+    ("does not ask again about a run the server said it ended on this tab's Stop", "asks about a run it ended once
+    the activity stream comes back: the next server may carry it on"); `app-turn-watch.test.tsx` ("is not joined
+    again while the server lets go of a turn it ended on this tab's Stop").
+  - Lời lượt tự nói về mình (kết thúc bằng lỗi, dừng giữa chừng, đổi tuyến, leo thang) còn đó sau lần tải theo sau
+    lúc lượt hết. Dòng báo chỉ nằm trong tab; tin gửi trước khi lần tải mở đầu về tới làm tab đọc lại cuộc trò
+    chuyện khi lượt xong, và tab chỉ xem thì luôn đọc lại, nên bản đã phát hành để mất dòng báo lỗi và dòng dừng
+    theo cách này. vitest: `state/thread-reducer-turn-notice.test.ts` (dòng báo ở lại khi luồng server lưu kết
+    thúc đúng chỗ luồng trên màn hình kết thúc, kể cả khi lần tải ấy là lần đầu về tới và mang theo lịch sử, và
+    qua mọi lần tải như thế; mất khi lần tải mang về bất cứ gì đứng sau; tin của chính người dùng được nhận ra
+    bằng lời, mọi thứ khác bằng id, nên ghi chú tiến độ lưu như một tool call vẫn khớp; lỗi của một yêu cầu do
+    chính tab gửi không mang `ofTurn` và bị lần tải kế tiếp xoá; tab đang rảnh mà thấy một lượt khác đang chạy thì
+    bỏ mọi dòng báo trừ dòng "đã quyết ở nơi khác"; hai dòng báo của cú bấm giữ quy tắc riêng) và
+    `app-turn-notice-after-load.test.tsx` (cả App: tin gửi sớm vẫn giữ dòng báo lỗi và dòng leo thang sau lần tải
+    nợ, và buông khi lần tải ấy mang về tin đến sau; tab chỉ xem giữ cả hai sau khi đọc lại lúc run hết, và buông
+    khi thấy một lượt khác đang chạy). Kiểm chứng đột biến: hai mươi sửa đổi ở `thread-reducer.ts` (không đánh dấu
+    lỗi của lượt; đánh dấu cả lỗi của yêu cầu; giữ bất kể lần tải mang gì; bỏ từng loại dòng báo; so bằng id cho
+    mọi thứ hay bằng lời cho mọi thứ; so phần tử đầu thay vì phần tử cuối; tab thấy lượt khác chỉ bỏ dòng "đã
+    dừng", hoặc bỏ luôn dòng "đã quyết"), mỗi cái đều làm ít nhất một test đỏ.
 
 ## Tin gửi lại không nói hai lần
 
@@ -4603,6 +4630,24 @@ cũ.
     ở 1440, và ở 390 thì vừa dải, không làm trang rộng ra; run khác trong cùng danh sách không có dòng đó).
   - `tests/test_store.py` được sửa theo kiểu trả về mới của bước dọn lúc khởi động (`Settled(paused, cut)`
     thay cho danh sách run đang dừng); các khẳng định giữ nguyên.
+  - Tab đã gửi tin tự đọc tiếp phần còn lại, không cần tải lại. vitest: `lib/turn-end.test.ts` (nhóm "the last
+    word of a turn on a stream that reads it": `done`, `halted`, `error` và `approval_required` là lời cuối của
+    lượt; câu server nói không có gì đang chạy thì không phải, vì lượt bị cắt cũng được nói y như vậy);
+    `hooks/use-thread.test.ts` ("is given up when its stream ends on the server's word that nothing is going: a
+    turn cut off is spoken of the same way", "stays as it is when the server only put the message in line: that
+    stream has said all it had to", "is given up when the stream of a decision ends before the turn's last word",
+    "is given up once when a decision was refused as already taken elsewhere"); `app-turn-watch.test.tsx` ("is
+    asked about once when its stream ends before the turn's last word, and ends there when the server has no turn
+    under way", "is not asked about when its stream ended on the turn's last word, though its run is said to be
+    going a while longer"). Playwright: `turn-watch.spec.ts` ("a turn this tab started is read on when its stream
+    closes before the turn's last word").
+  - pytest: `tests/test_hosted_turns_api.py::test_a_server_told_to_stop_begins_no_stream_of_a_turn_it_still_reads`
+    (server đã nhận lệnh dừng thì `GET …/turn` đáp 204 như với cuộc trò chuyện không có lượt nào để xem, không
+    ghép ai vào lượt, và lượt vẫn chạy tới hết. Tab hỏi câu này ngay khi luồng của nó bị đóng, tức là đúng lúc
+    server vừa nhận lệnh dừng; sse-starlette cắt một luồng mở lúc ấy trước byte đầu tiên, nên trước khi sửa tab
+    nhận 500 và log có traceback ở mỗi lần khởi động lại dưới một lượt đang mở). Bốn sửa đổi ở `watch_turn` (vẫn
+    mở luồng; ghép vào lượt rồi mới đáp; đảo điều kiện; không bao giờ mở luồng), mỗi cái đều làm ít nhất một test
+    đỏ.
 
 ## Trí nhớ đổi theo lượt đứng cạnh tin mở lượt
 
@@ -4705,6 +4750,8 @@ tuyến chính. Việc chuyển phát event `escalated`, web hiện dòng báo v
     lại vẫn còn, bỏ thì gửi `null`; trên điện thoại 390px hàng không tràn, ô đủ 16px và đủ cao để chạm;
     lượt đã chuyển hiện dòng báo đúng câu cho từng lý do; timeline của run nêu bước chuyển, lý do, lỗi và
     model trả lời sau nó).
+  - Dòng báo "đã chuyển sang tuyến leo thang" còn đó sau lần tải theo sau lúc lượt hết: xem mục "Lượt do server
+    giữ, tab chỉ xem" (`state/thread-reducer-turn-notice.test.ts`, `app-turn-notice-after-load.test.tsx`).
   - Kiểm chứng đột biến: bốn mươi ba sửa đổi ở server (không chuyển khi lặp hay khi lỗi; chuyển hai lần;
     chuyển khi không còn lần gọi model nào hay khi lần gọi đã hiện chữ; đã chuyển mà vẫn hỏi tuyến chính,
     hoặc hỏi tuyến leo thang ngay từ đầu; không đặt lại bộ đếm lặp; nhận tuyến trùng hay thiếu khoá; cho
@@ -4951,6 +4998,29 @@ giao `tool_search` để tìm bằng vài từ khoá; tool tìm thấy được 
     của máy chủ và `tool_search` mà không tải lại trang; đăng xuất rồi mở Công cụ thì các dòng của
     máy chủ đã mất; đang mở Công cụ mà máy chủ vừa nối xong thì các dòng của nó và `tool_search`
     hiện ra, không bấm gì).
+- **web: bảng Công cụ theo một lần thử kết thúc, dòng "dùng bởi" theo đội**: trong lúc một máy chủ
+  được thử lại, danh sách máy chủ nêu nó không có tool nào trong khi các agent vẫn giữ tool cũ; thử
+  hỏng thì vẫn không có tool nào mà agent mất tool. "Máy chủ đang giao gì" vì thế không đổi qua một
+  lần thử hỏng, và bảng Công cụ đang mở giữ mãi các dòng của máy chủ đã mất. Còn dòng "dùng bởi …"
+  trên thẻ máy chủ đi theo danh sách máy chủ, thứ không ai đọc lại khi một agent được lưu, tạo hay xoá.
+  - vitest: `hooks/use-mcp-servers.test.ts` nhóm "where the servers stand, as one value" (giá trị
+    "các máy chủ đang đứng ở đâu" đổi khi một lần thử kết thúc theo cả bốn kiểu: hỏng, cần đăng nhập,
+    nối được mà không có tool, nối được kèm tool; đổi khi máy chủ không có tool rớt, khi máy chủ
+    hỏng chuyển sang cần đăng nhập hay bắt đầu được thử, khi một lần thử kết thúc đúng lúc lần khác
+    bắt đầu, khi một tool đến mà không có lần thử nào ở giữa, khi một tool đổi mức mở; không đổi cho
+    một danh sách đọc lại, cũng không đổi theo lý do hỏng, agent dùng, đã đăng nhập hay mô tả; và mọi
+    máy chủ còn đang thử thì đọc như chưa có danh sách) và nhóm "when the crew changes" (đọc lại danh
+    sách, thứ nói ai đang dùng máy chủ nào; vẫn theo dõi tiếp máy chủ đang hỏng sau khi một khoá đổi;
+    đọc hỏng thì nói vì sao và giữ danh sách đang có); `screens/manage-screen.test.tsx` ("is read
+    again when the list it opens with finds the try already over", và nhóm "who uses a server, on the
+    manage screen": xoá agent thì dòng thôi nêu agent đó, tạo agent thì ai dùng máy chủ nào được đọc
+    lại); `test/fake-mcp.test.ts` (máy chủ giả của test vẫn nêu tool của một máy chủ trong lúc nó
+    được thử lại, tới khi lần thử kết thúc, và nêu tool mà lần thử thứ hai tìm thấy chứ không phải
+    tool các agent giữ suốt lúc đó).
+  - Playwright: `mcp-servers.spec.ts` ("the tools grid lets go of a server whose try failed while the
+    grid was open": đang mở Công cụ mà lần thử lại hỏng thì các dòng của máy chủ mất đi, không bấm
+    gì; "a server's card follows who uses it as an agent is saved and removed, with the page never
+    loaded again").
 - Kiểm chứng đột biến: tám mươi chín sửa đổi ở server (bỏ trọng số của tên; đổi công thức idf và độ
   dài trung bình; bỏ tên máy chủ, mô tả hay tham số khỏi chỗ so; đọc schema sai hình; bỏ xếp khớp
   tên lên đầu; đổi giới hạn mặc định và tối đa; giao `tool_search` khi không có gì để tìm, sau tool

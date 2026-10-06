@@ -196,7 +196,9 @@ answer to a send is lost on the way back and the same words are sent again, noth
 stored and no second turn starts.
 
 A turn cut by a server restart is carried on when the server is back, once. The run is reopened
-as the same run and goes on from the stored conversation. A tool call that only reads is simply
+as the same run and goes on from the stored conversation. The tab that sent the message needs no
+reload: when the server closes its stream before the turn's last word, it asks about the turn
+and reads the rest from the server that carries it on. A tool call that only reads is simply
 made again; a call to anything else that may already have run is closed with a note saying
 nobody knows whether it ran, and the model decides after looking, so nothing that writes, sends
 or pays is done twice unseen. A turn is not carried on when its conversation waits on a

@@ -22,7 +22,10 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   stored conversation is the whole truth. `POST /api/conversations/{id}/stop` now also answers
   `cancelled`, and ends a turn the web started from any tab. Deleting a conversation ends the turn
   the web started or the queue runs for it, once the delete has held, and that run closes as
-  interrupted; a turn a bot or a job reads is not ended by it, as it is not by Stop.
+  interrupted; a turn a bot or a job reads is not ended by it, as it is not by Stop. A tab that only
+  reads a turn along still says how it ended once the run's end has been read back: that it was
+  stopped from that tab, ended in an error, stopped short or went on by another route. A tab does
+  not join again a turn the server has just ended on its own Stop.
 - When the server stops under a Telegram turn, the bot now says the turn will be carried on once
   the server is back, instead of saying it was cut off. A bot restarted while the server stays
   up still says the turn was cut off, since nothing will carry it on.
@@ -75,7 +78,11 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   budget, when it is a Telegram turn and no bot is up, or when the server runs with
   `--no-schedule`. Stop, a failed turn and a bot restarted under a running server close the run
   as before. The web says "Tiếp tục sau khi server khởi động lại" under the progress bar of a
-  run that was carried on (`resumed` on a run in `/api/activity/runs`).
+  run that was carried on (`resumed` on a run in `/api/activity/runs`). The tab that sent the
+  message reads the rest too, with no reload: a stream the server closed before the turn's last word
+  is not taken for the turn's end, and the tab asks the server about the turn at once and again when
+  the activity stream is back. A server that has been told to stop answers that question as it does
+  for a conversation with no turn to watch (204).
 - Each tool says whether a call cut by a restart may be made again (`Tool.replay_safe`, off
   unless declared). The eighteen tools that only read declare it and are simply called again. A
   call to any other tool that may already have run is closed with a note saying it was cut and
@@ -95,7 +102,7 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   key, is no way out: it is left unused at start with a warning in the log, and saving one from
   the editor is refused (422) with the reason. The move is a new event, `escalated`, with why it
   was made; the web says so above the message box, and the run's timeline gains an `escalation`
-  step naming the route.
+  step naming the route. The notice stays through the load that follows the turn's end.
 - Agents can use the tools of remote MCP servers. A server is declared once under `mcp_servers` in
   `config.yaml` (its address, a description, headers, how far its tools are let in, which of them
   only read, a timeout) and an agent is handed it by name: `mcp:` in `agent.yaml`, or the "Máy chủ
@@ -130,8 +137,9 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   and a connect asked for under another waits for it and then tries afresh. New routes:
   `GET /api/mcp`, `POST /api/mcp/{name}/reconnect`, `POST` and `DELETE /api/mcp/{name}/login`,
   `GET /api/mcp/oauth/callback`. Connections gains a card with each server's state, reason, tools
-  and who uses it; the Tools matrix lists MCP tools with their server and marks an agent that has
-  not been handed the server apart from every other reason.
+  and who uses it, and that last line follows an agent being saved, made or removed with no
+  reload; the Tools matrix lists MCP tools with their server and marks an agent that has not been
+  handed the server apart from every other reason.
 - An agent finds the MCP tools it was not told of with `tool_search`. A server's tools are let
   in `deferred` unless the file says otherwise: the model is not told of them on every call, and
   an agent that holds any such tool is handed `tool_search` with them. It asks in a few words or
@@ -171,12 +179,21 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 - The Tools matrix no longer goes on showing who held a tool when the manage screen was opened.
   It was read once, so after an agent was edited, made or removed, or an MCP server was signed
   out of or tried again, the grid kept the old holders until the page was reloaded. It is now
-  read again each time it is opened, and while it is open when a server's tools change.
+  read again each time it is opened, and while it is open when a server's tools change or a try
+  of one ends, with tools or with none.
 - Saving an agent's own routes from the agent editor no longer fails. The editor holds a route
   as a provider and a model apart and sent it so, while the server read only the
   `provider:model` line a person writes in `agent.yaml`, and answered 500. A route sent either
   way is now saved as that one line, and anything else is refused with a 422 that says what a
   route looks like.
+- What a turn said of itself no longer goes when the conversation is read again right after it. That
+  a turn ended in an error, stopped short (out of steps, of budget, or halted by the loop guard) or
+  went on by a fallback route is told by a notice above the message box that only the tab holds. A
+  message sent before the conversation had finished loading made the tab read the conversation again
+  once the turn was over, and that load cleared the notice, leaving a message with no answer and no
+  word of why. The notice now stays while the stored conversation ends where the thread on screen
+  ends, and goes once a load brings anything after it. An error of a request the tab itself made, a
+  load or a send that failed, is still cleared by the next load that answers.
 
 ## [0.11.1] — 2026-10-05
 
