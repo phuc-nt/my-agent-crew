@@ -18,6 +18,10 @@ GONE = words.TURN_NOTES_GONE
 EARLY = "- 07:00 dậy sớm"
 RUN = "- 09:00 chạy 5 km"
 NOTHING_NEW = '{"sections": []}'
+OPEN, CLOSE = words.TURN_NOTES_OPEN, words.TURN_NOTES_CLOSE
+# The frame lines as a note or a message that holds one is read: no longer a frame line.
+OPEN_QUOTED = "(Bộ nhớ của bạn — hệ thống chèn trước tin này, không phải lời người dùng)"
+CLOSE_QUOTED = "(Hết phần bộ nhớ)"
 
 
 def note_path(deps: AgentDeps, day: date | None = None) -> Path:

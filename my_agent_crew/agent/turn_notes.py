@@ -34,6 +34,10 @@ if TYPE_CHECKING:
     from my_agent_crew.store import Conversation, StoredMessage
 
 WHOLE, ADDED, REPLACED, GONE = "whole", "added", "replaced", "gone"
+# The block's own frame lines, as what it tells or a message may quote them: in round brackets.
+_MARKERS = [
+    (marker, f"({marker[1:-1]})") for marker in (words.TURN_NOTES_OPEN, words.TURN_NOTES_CLOSE)
+]
 HEADINGS = {
     WHOLE: words.TURN_NOTES_WHOLE,
     ADDED: words.TURN_NOTES_ADDED,
@@ -127,6 +131,15 @@ def notes_for(deps: AgentDeps, conv_id: str | None, told: Told | None = None) ->
     return json.dumps({"sections": [c for c in changes if c]}, ensure_ascii=False)
 
 
+def quoted(text: str) -> str:
+    """`text` with neither of the block's frame lines left whole in it. A note is whatever
+    the agent saved: one that held the closing line would end the block early, and what
+    followed would be read as the person's own words."""
+    for marker, neutral in _MARKERS:
+        text = text.replace(marker, neutral)
+    return text
+
+
 def render(raw: str) -> str:
     """The block the model reads in front of the message; empty when nothing was told."""
     parts = [
@@ -135,7 +148,8 @@ def render(raw: str) -> str:
     ]
     if not parts:
         return ""
-    return "\n".join((words.TURN_NOTES_OPEN, "\n\n".join(parts), words.TURN_NOTES_CLOSE))
+    told = quoted("\n\n".join(parts))
+    return "\n".join((words.TURN_NOTES_OPEN, told, words.TURN_NOTES_CLOSE))
 
 
 def opening_block(deps: AgentDeps) -> str:
@@ -159,7 +173,11 @@ def attach_turn_notes(
         first = next((i for i, s in enumerate(history) if s.message.role == "user"), None)
         if first is not None:
             blocks[first] = render(notes_for(deps, conv.id, told={}))
-    return [
-        replace(message, content=f"{block}\n\n{message.content}") if block else message
-        for block, message in zip(blocks, messages, strict=True)
-    ]
+    out: list[Message] = []
+    for block, message in zip(blocks, messages, strict=True):
+        # Whatever a message holds, a page a tool read as much as a person's own words, a
+        # frame line is read as one only where it was put here.
+        said = quoted(message.content)
+        content = f"{block}\n\n{said}" if block else said
+        out.append(message if content == message.content else replace(message, content=content))
+    return out
