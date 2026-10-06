@@ -131,6 +131,33 @@ describe("a turn under way that this tab did not start", () => {
     expect(screen.queryByRole("button", { name: vi.stop })).not.toBeInTheDocument();
   });
 
+  it("is not joined again while the server lets go of a turn it ended on this tab's Stop", async () => {
+    const c = backend.create({ title: "Dừng giữa lệnh", messages: [storedMessage("user", "làm đi")] });
+    const turn = backend.serveTurn(c.id, { writing: [{ type: "text_delta", text: "đang viết" }], stoppable: true });
+    // The server says at once that it ended the turn, which is there to join a while longer:
+    // it has a script to kill, a call to close, before its run is said to be over.
+    vitest.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (!String(input).endsWith("/stop") || init?.method !== "POST") return backend.fetch(input, init);
+      return new Response(JSON.stringify({ cleared: [], cancelled: true }), { status: 200, headers: { "content-type": "application/json" } });
+    });
+    await openConversation("Dừng giữa lệnh");
+    act(() => stream().emit({ type: "run", run: run(c.id, "chat") }));
+    await screen.findByTestId("streaming");
+    await userEvent.click(screen.getByRole("button", { name: vi.stop }));
+    expect(await screen.findByTestId("notice")).toHaveTextContent(vi.stopped);
+    await waitFor(() => expect(turn.watchers()).toBe(0));
+
+    // The run's end and the read it causes come after anything the tab did on being told.
+    c.messages.push(storedMessage("assistant", "phần đã viết", { id: "a1" }));
+    act(() => stream().emit({ type: "run", run: { ...run(c.id, "chat", "error"), summary: "interrupted" } }));
+    expect(await screen.findByTestId("message-assistant")).toHaveTextContent("phần đã viết");
+    expect(asked(c.id, "turn")).toBe(1);
+    expect(turn.watchers()).toBe(0);
+    expect(screen.getByTestId("notice")).toHaveTextContent(vi.stopped);
+    expect(screen.queryByTestId("streaming")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: vi.stop })).not.toBeInTheDocument();
+  });
+
   it("is still said to be going when the server has nothing of it to read, and is asked about once", async () => {
     const c = backend.create({ title: "Vừa xong", messages: [storedMessage("user", "chào")] });
     await openConversation("Vừa xong");

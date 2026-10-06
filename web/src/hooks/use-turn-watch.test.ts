@@ -15,15 +15,17 @@ interface Scene {
   busy?: boolean;
   synced?: boolean;
   run?: RunInfo | null;
+  /** The Stops the server has answered by ending the turn. */
+  stops?: number;
 }
 
 /** The hook over a thread whose `watch` answers what the test says each time it is asked. */
 function scene(first: Scene, found: boolean[] = []) {
   const answers = [...found];
   const watch = vitest.fn(async () => answers.shift() ?? true);
-  const props = ({ conversationId = "c1", busy = false, synced = true, run = RUN }: Scene) => ({
+  const props = ({ conversationId = "c1", busy = false, synced = true, run = RUN, stops = 0 }: Scene) => ({
     conversationId,
-    thread: { state: { ...emptyThread, busy }, watch } as unknown as ThreadController,
+    thread: { state: { ...emptyThread, busy }, watch, stops } as unknown as ThreadController,
     activity: { state: emptyActivity, synced } as unknown as ActivityController,
     run,
   });
@@ -63,6 +65,29 @@ describe("reading along with a turn this tab did not start", () => {
     await move({ busy: true });
     await move({ busy: false });
     expect(watch).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not ask again about a run the server said it ended on this tab's Stop", async () => {
+    // The activity stream says the run is over only once the turn has let go of what it was
+    // doing. Asked meanwhile, the server would hand back a turn on its way out.
+    const { watch, move } = scene({});
+    await move({ busy: true });
+    await move({ busy: false, stops: 1 });
+    await move({ busy: false, stops: 1 });
+    expect(watch).toHaveBeenCalledTimes(1);
+    // Another run here is another turn.
+    await move({ run: OTHER, stops: 1 });
+    expect(watch).toHaveBeenCalledTimes(2);
+  });
+
+  it("asks about a run it ended once the activity stream comes back: the next server may carry it on", async () => {
+    const { watch, move } = scene({}, [true, false, false]);
+    await move({ busy: true });
+    await move({ busy: false, stops: 1 });
+    expect(watch).toHaveBeenCalledTimes(1);
+    await move({ synced: false, stops: 1 });
+    await move({ synced: true, stops: 1 });
+    expect(watch).toHaveBeenCalledTimes(3);
   });
 
   it("does not ask twice about a run the server had nothing to read of", async () => {

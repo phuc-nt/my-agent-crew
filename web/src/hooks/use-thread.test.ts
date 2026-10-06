@@ -1035,6 +1035,27 @@ describe("a turn this tab reads along with", () => {
       expect(statuses(result.current.state.items)).toEqual(["stopped", "stopped"]);
     });
 
+    it("counts the Stops the server answered by ending the turn, and no other", async () => {
+      const stop = vitest.spyOn(api, "stopConversation").mockResolvedValue({ cleared: [], cancelled: false });
+      const { result, held, watched } = await watchOpened();
+      act(() => held.emit(watching()));
+      await act(async () => {
+        await result.current.stop();
+      });
+      expect(result.current.stops).toBe(0); // another reader's turn: it goes on
+      stop.mockResolvedValue({ cleared: [], cancelled: true });
+      await act(async () => {
+        await result.current.stop();
+        await watched();
+      });
+      expect(result.current.stops).toBe(1);
+      stop.mockRejectedValue(new Error("network"));
+      await act(async () => {
+        await result.current.stop();
+      });
+      expect(result.current.stops).toBe(1); // not answered: the turn may still be going
+    });
+
     it("cuts the watch when the server does not answer, and gives the run up to be asked about again", async () => {
       vitest.spyOn(api, "stopConversation").mockRejectedValue(new Error("network"));
       const { result, held, watched } = await watchOpened();

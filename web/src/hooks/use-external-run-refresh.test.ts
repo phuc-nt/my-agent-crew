@@ -50,6 +50,7 @@ function fakeThread(
     settle: vitest.fn(),
     mutePreviews: vitest.fn(),
     unowned: 0,
+    stops: 0,
     ...own,
   };
   return { reloadWhenIdle, controller };

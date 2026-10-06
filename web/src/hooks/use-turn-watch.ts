@@ -14,6 +14,10 @@ import type { ThreadController } from "./use-thread";
  * and then there is nothing to read. It is asked again when the run is seen going after it
  * was not — a pause someone answered — when a watch that did join has ended with the run
  * still going, and when the activity stream comes back, which a restarted server brings.
+ *
+ * A run the server said it ended on this tab's Stop is not asked about. The server answers
+ * the Stop at once, and the turn is there to join a while longer — it has a script to kill,
+ * a call to close — so asking then would put a turn on its way out back on screen as going.
  */
 export function useTurnWatch(
   conversationId: string | null,
@@ -23,7 +27,8 @@ export function useTurnWatch(
 ): void {
   // The run the server had nothing to read of when last asked.
   const nothing = useRef<string | null>(null);
-  const { watch } = thread;
+  const { watch, stops } = thread;
+  const stopsSeen = useRef(stops);
   const busy = thread.state.busy;
   const { synced } = activity;
   const run = externalRun?.id ?? null;
@@ -31,6 +36,13 @@ export function useTurnWatch(
   useEffect(() => {
     nothing.current = null;
   }, [conversationId, synced]);
+
+  // Declared before the effect that asks, so the run this Stop ended is put aside first.
+  useEffect(() => {
+    if (stopsSeen.current === stops) return;
+    stopsSeen.current = stops;
+    nothing.current = run;
+  }, [stops, run]);
 
   useEffect(() => {
     if (run === null) {

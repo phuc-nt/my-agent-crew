@@ -46,6 +46,9 @@ export interface ThreadController {
    *  decision refused as already taken elsewhere, a turn joined by watching, a stream lost
    *  while its turn went on. Whatever run was put down to this tab then is not its own. */
   unowned: number;
+  /** Counts the Stops the server answered by ending the turn. The run going here then is
+   *  over, though the activity stream says so only once the turn has let go of its work. */
+  stops: number;
 }
 
 /** Owns one conversation: loads its history, streams turns, resolves approvals. */
@@ -66,6 +69,7 @@ export function useThread(conversationId: string | null): ThreadController {
   const stoppingRef = useRef(false);
   const [owed, setOwed] = useState(false);
   const [unowned, setUnowned] = useState(0);
+  const [stops, setStops] = useState(0);
   // A fresh object each time a conversation is opened: whatever answers for an opening
   // that is no longer the one on screen belongs to a thread the person has left.
   const opened = useRef<{ id: string | null }>({ id: null });
@@ -278,6 +282,7 @@ export function useThread(conversationId: string | null): ThreadController {
           if (result.cancelled || (reading !== null && !watched)) {
             reading?.abort();
             dispatch({ type: "turn_stopped" });
+            if (result.cancelled) setStops((n) => n + 1);
           } else if (watched || externalRunning) dispatch({ type: "elsewhere" });
           return result.cleared.map((c) => c.text);
         }
@@ -311,5 +316,6 @@ export function useThread(conversationId: string | null): ThreadController {
     settle,
     mutePreviews,
     unowned,
+    stops,
   };
 }
