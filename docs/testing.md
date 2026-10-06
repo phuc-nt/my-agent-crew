@@ -4547,6 +4547,39 @@ tin bị Dừng rút khỏi hàng thì tên chưa dùng, gửi lại là tin m�
     `hooks/use-thread.test.ts`, `keyboard-smoke.spec.ts`, `canvas-writing.spec.ts`, và các spec canvas
     đọc thân qua `e2e/sent-message.ts`) nay đòi thêm một `request_id` đúng dạng; không test nào bị nới.
 
+Tên của lần gửi không nghe hồi âm chỉ được giữ trong lúc lượt mà tin ấy có thể đã nhận còn mở
+(`web/src/lib/send-names.ts`). Lúc đầu tên được giữ tới khi có tin khác được gửi: đọc xong câu trả lời rồi gõ
+lại đúng câu đó cho bước kế tiếp ("tiếp tục") thì tin đi dưới tên cũ, server đáp rằng đã có tin ấy và không
+lượt nào bắt đầu. Server không nói tên nào nhận lượt nào, nên tab suy từ điều nó thấy. Lúc tên đi lần đầu, nó
+ghi lại các run đang chạy hoặc đang chờ trong chính cuộc trò chuyện đó, và việc nó có đang đọc một lượt ở đó
+không. Tên được buông khi một run không nằm trong số ấy được thấy đang chạy sau lần gửi lỗi rồi không còn
+chạy, hoặc khi một luồng đọc ở đó báo lượt đã hết hẳn (`done`, `halted`, `error`) mà lúc gửi không có gì đang
+chạy. Mọi trường hợp khác đều giữ tên: lượt dừng chờ người, cuối của lượt mà tin xếp hàng phía sau, run mà
+tab chưa từng thấy chạy, luồng đóng khi chưa có lời cuối. Không có hạn theo thời gian. Giữ tên quá lâu tốn
+một lần gửi bị nuốt, buông quá sớm thì agent làm việc hai lần, nên chỗ không chắc đều nghiêng về giữ.
+
+  - vitest: `lib/send-names.test.ts` (quy tắc thuần: buông khi lượt bắt đầu sau lần gửi được thấy kết thúc;
+    giữ qua lúc run dừng chờ người; giữ khi lượt kết thúc là lượt đã chạy từ trước, tin còn xếp hàng sau nó,
+    rồi buông ở cuối lượt kế tiếp; giữ dù run ở cuộc khác đến rồi đi; run đang chạy ở cuộc khác lúc gửi không
+    được tính là "đang chạy ở đây", ở cả đường luồng báo hết lẫn đường tab đang đọc một lượt chưa biết run;
+    lượt hết trước khi biết gửi lỗi thì giữ); `lib/turn-end.test.ts` nhóm "a turn that is over for good"
+    (`done`, `halted`, `error` là hết hẳn, `approval_required` thì không); `hooks/use-thread-send-name.test.ts`
+    (qua hook thật: lượt đọc theo báo hết thì tên mới; dừng chờ người hay luồng đóng không lời cuối thì giữ;
+    run bắt đầu sau lần gửi kết thúc thì tên mới, kể cả khi nó đến rồi đi lúc đang mở cuộc khác; lượt chạy
+    trên luồng của chính tab lúc gửi báo hết thì giữ); `app-send-again-turn-over.test.tsx` (cả App: tin
+    server đã nhận mà mất câu trả lời, gửi lại sau khi đọc theo lượt tới hết, hoặc sau khi run của lượt được
+    biết là đã xong dù không đọc luồng nào, là tin mới với lượt riêng; tin xếp hàng sau một lượt thì vẫn chỉ
+    nói một lần trong lúc lượt của nó chạy, và là tin mới khi lượt đó cũng xong).
+  - Playwright: `send-again.spec.ts` "the same words sent again once the turn they started has ended are a
+    new message".
+  - Kiểm chứng đột biến: 26 sửa đổi ở `send-names.ts`, `turn-end.ts` và chỗ nối trong hai hook (buông dù tab
+    đang đọc, buông dù có lượt đang chạy, tính run của cuộc khác, không tiêu tên đã dùng, coi lúc dừng chờ
+    người là hết lượt, v.v.), mỗi cái đều làm một test đỏ.
+  - Chấp nhận: lượt đang chạy mà tab chưa biết lúc gửi (luồng activity chưa kịp báo) bị coi là lượt của tin,
+    nên cuối lượt đó buông tên trong khi tin còn chờ lượt riêng; sau khi tab đã thấy lượt kết thúc, chữ còn
+    nằm trong ô nhập mà bấm gửi thì là tin mới. Muốn quyết định chính xác thì server phải nói tên nào nhận
+    lượt nào.
+
 ## Lượt dang dở được nối lại sau khi server khởi động lại
 
 Server tắt giữa một lượt (kickstart, crash, mất điện) từng để lại run `interrupted` và một câu hỏi không ai
