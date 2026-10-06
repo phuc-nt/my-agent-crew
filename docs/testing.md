@@ -4538,8 +4538,7 @@ tin bị Dừng rút khỏi hàng thì tên chưa dùng, gửi lại là tin m�
     send made again behind this tab's own turn" (server đáp bằng lượt đang chạy thì coi là đã gửi, buông
     request đó, không thêm chip hay thông báo); `app-send-again.test.tsx` (cả App: mất câu trả lời rồi gửi
     lại thì một bong bóng, một tin trong nhật ký, hai POST cùng `request_id`; lượt còn chạy thì vào xem
-    tới hết; màn hình đã tự xem lượt đó thì không đổi gì; tin đang xếp hàng giữ một chip; còn tin server
-    chưa từng nhận thì gửi lại như tin mới).
+    tới hết; tin đang xếp hàng giữ một chip; còn tin server chưa từng nhận thì gửi lại như tin mới).
   - Playwright: `send-again.spec.ts` (mock lưu tin và chạy lượt rồi cắt kết nối: chữ quay lại ô nhập, gửi
     lại thì một câu hỏi, một câu trả lời, hai POST cùng tên; kèm đối chứng không mất gì). Cho lần gửi lại
     lấy tên mới thì test này đỏ.
@@ -4547,38 +4546,83 @@ tin bị Dừng rút khỏi hàng thì tên chưa dùng, gửi lại là tin m�
     `hooks/use-thread.test.ts`, `keyboard-smoke.spec.ts`, `canvas-writing.spec.ts`, và các spec canvas
     đọc thân qua `e2e/sent-message.ts`) nay đòi thêm một `request_id` đúng dạng; không test nào bị nới.
 
-Tên của lần gửi không nghe hồi âm chỉ được giữ trong lúc lượt mà tin ấy có thể đã nhận còn mở
-(`web/src/lib/send-names.ts`). Lúc đầu tên được giữ tới khi có tin khác được gửi: đọc xong câu trả lời rồi gõ
-lại đúng câu đó cho bước kế tiếp ("tiếp tục") thì tin đi dưới tên cũ, server đáp rằng đã có tin ấy và không
-lượt nào bắt đầu. Server không nói tên nào nhận lượt nào, nên tab suy từ điều nó thấy. Lúc tên đi lần đầu, nó
-ghi lại các run đang chạy hoặc đang chờ trong chính cuộc trò chuyện đó, và việc nó có đang đọc một lượt ở đó
-không. Tên được buông khi một run không nằm trong số ấy được thấy đang chạy sau lần gửi lỗi rồi không còn
-chạy, hoặc khi một luồng đọc ở đó báo lượt đã hết hẳn (`done`, `halted`, `error`) mà lúc gửi không có gì đang
-chạy. Mọi trường hợp khác đều giữ tên: lượt dừng chờ người, cuối của lượt mà tin xếp hàng phía sau, run mà
-tab chưa từng thấy chạy, luồng đóng khi chưa có lời cuối. Không có hạn theo thời gian. Giữ tên quá lâu tốn
-một lần gửi bị nuốt, buông quá sớm thì agent làm việc hai lần, nên chỗ không chắc đều nghiêng về giữ.
+Tên của lần gửi không nghe hồi âm được giữ cho tới khi trang hiện tin ấy là đã nói
+(`web/src/lib/send-names.ts`). Người dùng chỉ biết điều trang cho thấy: chừng nào trang còn nói gửi lỗi và trả
+chữ về ô nhập, cùng những chữ ấy gửi lại là cùng một tin và đi dưới cùng một tên. Khi cuộc trò chuyện đã hiện
+tin đó, ngay trong lần vẽ ấy trang rút những chữ nó đã trả về ra khỏi ô nhập (trừ khi người dùng đã sửa chúng)
+và buông tên; cùng những chữ ấy gõ lại sau đó là tin mới với lượt riêng, như khi đọc xong câu trả lời rồi gõ
+"tiếp tục" lần nữa.
 
-  - vitest: `lib/send-names.test.ts` (quy tắc thuần: buông khi lượt bắt đầu sau lần gửi được thấy kết thúc;
-    giữ qua lúc run dừng chờ người; giữ khi lượt kết thúc là lượt đã chạy từ trước, tin còn xếp hàng sau nó,
-    rồi buông ở cuối lượt kế tiếp; giữ dù run ở cuộc khác đến rồi đi; run đang chạy ở cuộc khác lúc gửi không
-    được tính là "đang chạy ở đây", ở cả đường luồng báo hết lẫn đường tab đang đọc một lượt chưa biết run;
-    lượt hết trước khi biết gửi lỗi thì giữ); `lib/turn-end.test.ts` nhóm "a turn that is over for good"
-    (`done`, `halted`, `error` là hết hẳn, `approval_required` thì không); `hooks/use-thread-send-name.test.ts`
-    (qua hook thật: lượt đọc theo báo hết thì tên mới; dừng chờ người hay luồng đóng không lời cuối thì giữ;
-    run bắt đầu sau lần gửi kết thúc thì tên mới, kể cả khi nó đến rồi đi lúc đang mở cuộc khác; lượt chạy
-    trên luồng của chính tab lúc gửi báo hết thì giữ); `app-send-again-turn-over.test.tsx` (cả App: tin
-    server đã nhận mà mất câu trả lời, gửi lại sau khi đọc theo lượt tới hết, hoặc sau khi run của lượt được
-    biết là đã xong dù không đọc luồng nào, là tin mới với lượt riêng; tin xếp hàng sau một lượt thì vẫn chỉ
-    nói một lần trong lúc lượt của nó chạy, và là tin mới khi lượt đó cũng xong).
-  - Playwright: `send-again.spec.ts` "the same words sent again once the turn they started has ended are a
-    new message".
-  - Kiểm chứng đột biến: 26 sửa đổi ở `send-names.ts`, `turn-end.ts` và chỗ nối trong hai hook (buông dù tab
-    đang đọc, buông dù có lượt đang chạy, tính run của cuộc khác, không tiêu tên đã dùng, coi lúc dừng chờ
-    người là hết lượt, v.v.), mỗi cái đều làm một test đỏ.
-  - Chấp nhận: lượt đang chạy mà tab chưa biết lúc gửi (luồng activity chưa kịp báo) bị coi là lượt của tin,
-    nên cuối lượt đó buông tên trong khi tin còn chờ lượt riêng; sau khi tab đã thấy lượt kết thúc, chữ còn
-    nằm trong ô nhập mà bấm gửi thì là tin mới. Muốn quyết định chính xác thì server phải nói tên nào nhận
-    lượt nào.
+Bản đầu của quy tắc này suy từ các run: buông tên khi tab thấy lượt mà tin có thể đã nhận kết thúc. Nó sai ở
+đúng trường hợp chính. Tab nghe tin run của mình xong và tin lần gửi hỏng gần như cùng lúc, buông tên trong
+khi trang vẫn nói gửi lỗi và vẫn giữ chữ trong ô, nên bấm gửi lại thì tin đi dưới tên mới và server chạy lượt
+thứ hai. Self-test trên trình duyệt thật bắt được lỗi này (15 trong 358 phép kiểm, ở cả ba bề rộng); các test
+đơn vị lúc đó thì không, vì hai tin ấy chỉ cách nhau vài mili giây bên trong trang. Quy tắc mới không nhìn run
+nào nữa.
+
+Server không nói tên nào nhận lượt nào, nên "đã hiện" là một phép đếm: số tin của người dùng có đúng những chữ
+ấy trong thread trên màn hình, kể cả bong bóng tạm của chính tab và các chip đang xếp hàng, so với con số lúc
+tên đi lần đầu. Đếm được nhiều hơn tức là tin đã có mặt. Lúc tên đi mà thread đã lưu của cuộc trò chuyện chưa
+lên màn hình (lần tải mở đầu chưa về) thì không có con số gốc, và tên ấy không bao giờ bị coi là đã hiện. Mỗi
+cuộc trò chuyện giữ một tên, của lần gửi không hồi âm gần nhất ở đó; gửi chữ khác vào cuộc ấy thì buông, gửi
+sang cuộc khác thì không. Lần gửi đang trên đường giữ ô nhập của nó (`holdDraft` trong
+`web/src/hooks/use-draft.ts`, gọi từ `use-send-lock.ts`): trong lúc đó trang không rút chữ và không buông tên,
+để lần gửi ấy lấy đúng tên cũ. Không có hạn theo thời gian. Giữ tên quá lâu tốn một lần gửi bị nuốt, buông quá
+sớm thì agent làm việc hai lần, nên chỗ không chắc đều nghiêng về giữ.
+
+  - vitest: `lib/send-names.test.ts` (phép đếm: tin của người dùng đúng từng chữ, bong bóng tạm, chip xếp hàng
+    dù thuộc loại nào; không đếm câu trả lời, ghi chú, hay tin chỉ chứa những chữ ấy. Tên: mỗi lần gửi một
+    tên, giữ cho cùng chữ ở cùng cuộc, lần gửi lấy tên thì tiêu tên, chữ khác thì buông, mỗi cuộc một tên
+    riêng. "Đã hiện": chỉ khi đếm được nhiều hơn lúc tên đi, không bao giờ khi lúc ấy không đếm được, hỏi
+    không làm buông, đang gửi lại thì không tính, `forget` chỉ buông đúng cuộc ấy);
+    `hooks/use-thread-send-name.test.ts` (qua hook thật: tải lại mà chưa thấy tin thì giữ tên; thấy tin, hoặc
+    thấy tin đang xếp hàng, thì tên mới; chữ đã có từ trước thì phải hiện thêm một lần; lần gửi trước khi cuộc
+    trò chuyện được đọc thì giữ mãi; cuộc khác hiện cùng chữ không làm buông, kể cả khi thread của cuộc vừa
+    rời đổi trong đúng lần vẽ mở lại cuộc này; đọc theo một lượt cũng theo đúng phép đếm ấy; chữ trả về rời
+    bản nháp khi tin hiện, ở lại khi chưa hiện, để nguyên khi người dùng đã sửa và từ đó là tin mới, ở lại
+    cùng với tên khi một lần gửi đang giữ ô; con số đi kèm tên là số lần trang hiện những chữ ấy, và 0 khác
+    với không biết); `hooks/use-draft.test.ts` nhóm `withdrawDraft` (xoá bản nháp và ô đang mở, bỏ qua khoảng
+    trắng bao quanh, để yên ô đã sửa mà vẫn đáp là đã rút, xoá bản nháp của cuộc không ở trên màn hình, chạy
+    được khi trình duyệt từ chối lưu, ô vừa lên màn hình trong chính lần vẽ chữ bị rút cũng trống, không có
+    bản nháp nào vẫn đáp là đã rút) và nhóm `holdDraft` (ô đang bị giữ thì trang không rút; giữ tới khi mọi
+    lần gửi buông; buông hai lần chỉ tính một; mỗi cuộc giữ riêng); `components/composer-send-lock.test.tsx`
+    nhóm "the box of a send on its way, when the page would take its words back" (giữ tới khi lần gửi xong,
+    buông khi lần gửi hỏng hay được nhận, lần gửi không hứa hẹn gì thì không giữ, và ô bị giữ là ô nơi chữ
+    được gõ dù người dùng đã sang cuộc khác); `state/thread-reducer.test.ts` nhóm "the conversation whose
+    stored thread is on screen" (rỗng lúc chưa đọc gì, có sau một lần tải và sau khi vào xem một lượt, rỗng
+    lại khi mở cuộc khác, giữ nguyên qua mọi việc tab làm và nghe trong cuộc ấy);
+    `app-send-again-shown.test.tsx` (cả App, 11 trường hợp: trang tự đọc theo lượt mà tin đã bắt đầu thì chữ
+    rời ô ngay trong khung hình tin hiện và không có lần gửi thứ hai; tải lại sau run thì chữ rời ô và gõ lại
+    là tin mới; tab nghe run xong và gửi lỗi cùng lúc thì vẫn chỉ nói một lần, là trường hợp bản đầu sai; thấy
+    run xong trước khi biết gửi lỗi cũng vậy; ô đã sửa thì để yên và lần gửi sau là tin mới; tin xếp hàng thì
+    chữ rời ô khi trang đọc theo lượt nhận nó, hoặc khi chip của nó hiện; tên còn nguyên sau một tin gửi ở
+    cuộc khác; tin cũ cùng chữ đã hiện sẵn không làm buông; gửi trước khi cuộc trò chuyện được đọc thì giữ
+    tên, và gửi lại không đổi gì trên màn hình đang đọc lượt ấy; rời cuộc rồi quay lại thì chữ đã không còn
+    trong ô).
+  - Playwright: `send-again.spec.ts` "the words handed back leave the box once the page shows the message, and
+    typed again they are a new message".
+  - Kiểm chứng đột biến: 61 sửa đổi ở `send-names.ts`, `use-draft.ts`, `use-send-lock.ts`, `use-thread.ts`,
+    `use-thread-send.ts` và `thread-reducer.ts` (đếm sai, không tiêu tên, giữ chung một tên cho mọi cuộc, coi
+    "bằng" là "đã hiện", rút chữ dù ô đang bị giữ, buông tên mà không rút chữ, xét sau khi vẽ, v.v.). Lần chạy
+    đầu 60 cái làm test đỏ và một cái sống sót: xét "đã hiện" theo cuộc được yêu cầu chứ không theo cuộc có
+    thread trên màn hình. Test "is kept, with its words, as its conversation is opened while the one left
+    still shows them" được thêm cho nó. Cái xét sau khi vẽ lúc đầu chỉ bị bắt nhờ thời điểm (6 trong 9 lần
+    chạy), nên hai trường hợp đọc theo lượt nay đọc ô nhập bằng `MutationObserver` ngay trong khung hình tin
+    hiện, và bắt nó 6 trên 6 lần. Ngoài bộ này, đổi chỗ đăng ký nghe của `useDraft` sang `useEffect` (cần hai
+    chỗ sửa nên làm tay) làm đỏ đúng test ô vừa lên màn hình.
+  - Test bỏ có chủ ý: trường hợp "changes nothing on a screen that already reads the turn it started" của
+    `app-send-again.test.tsx` khẳng định chữ còn trong ô sau khi tab tự vào xem lượt, điều quy tắc mới cố ý
+    đổi. Kịch bản ấy nay là trường hợp đầu của `app-send-again-shown.test.tsx` (chữ rời ô, không có lần gửi
+    thứ hai), và các khẳng định cũ của nó (gửi lại không đổi gì trên màn hình đang đọc lượt) được giữ ở trường
+    hợp "is kept for a message sent before the conversation had been read, and sent again changes nothing on a
+    screen that reads its turn". `app-send-again-turn-over.test.tsx` và nhóm "a turn that is over for good"
+    của `lib/turn-end.test.ts` thuộc về quy tắc cũ nên được gỡ cùng với nó.
+  - Chấp nhận: kênh khác nói đúng những chữ ấy trong lúc chờ thì bị coi là đã hiện; nhiều chip được giao cùng
+    lúc thành một tin gộp nên không bao giờ hiện riêng (tốn một lần gửi bị nuốt); lần gửi trước khi lần tải mở
+    đầu về, và tin mà server không lưu đúng nguyên chữ (ví dụ lời `/steer`), không bao giờ bị coi là đã hiện;
+    tải lại trang thì mất tên (chỉ ở trong bộ nhớ) trong khi bản nháp còn; lần gửi không bao giờ kết thúc thì
+    giữ ô của nó mãi; người dùng sửa chữ đúng lúc tin hiện thì ô được để yên và chữ đã sửa là tin mới. Muốn
+    quyết định chính xác thì server phải nói tên nào nhận lượt nào.
 
 ## Lượt dang dở được nối lại sau khi server khởi động lại
 

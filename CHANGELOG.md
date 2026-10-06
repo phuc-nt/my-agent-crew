@@ -60,9 +60,11 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   answer to a send is lost on the way back and the same words are sent again, the server stores
   nothing new and starts no second turn. It answers with what became of the first send: the same
   place in line while the message waits, or the conversation as it stands and the turn under way.
-  The web keeps the name of an unanswered send only while the turn that message may have got is
-  open: once the tab has seen that turn end, the same words are a new message with a turn of its
-  own, as when a person reads the answer and sends "go on" a second time.
+  The web keeps the name of an unanswered send until the page shows that message as said: sent again
+  before then, the same words are the same message. Once the conversation shows the message, the
+  page takes the words it handed back out of the box again, unless the person has changed them; the
+  same words typed after that are a new message with a turn of its own, as when a person reads the
+  answer and sends "go on" a second time.
   The name is stored in the same transaction as the message it names, is kept across a restart,
   and is left unused by a send the server refused or a message Stop handed back. `POST
   /api/inbound` takes no `request_id`.
