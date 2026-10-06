@@ -13,6 +13,7 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 import pytest
+from sse_starlette.sse import AppStatus
 
 from my_agent_crew import texts
 from my_agent_crew.llm.fake import completion
@@ -282,6 +283,28 @@ async def test_a_turn_that_breaks_inside_the_server_says_so_to_the_tab(served, m
     assert "failed while the server was reading it" in caplog.text
     assert "hỏng trong server" in caplog.text  # the cause is in the log, not on the page
     assert not app.runtime.hub.busy.busy(app.conv.id)
+
+
+async def test_a_server_told_to_stop_begins_no_stream_of_a_turn_it_still_reads(served, monkeypatch):
+    app = served(WORK)
+    sender = app.runtime.inbound.stream_hosted(app.conv.id, "làm đi")
+    await asyncio.wait_for(app.slow.started.wait(), 2)
+    watched = app.runtime.hub.turns._turns[app.conv.id]._watchers
+    before = set(watched)
+    # What uvicorn's exit handler sets through sse-starlette, a moment before the server
+    # begins to let go: from then on a stream is cut before its first byte, while the turn
+    # itself goes on until the server stops reading it.
+    monkeypatch.setattr(AppStatus, "should_exit", True)
+
+    asked = await app.client.get(app.turn)
+
+    # Said as a conversation with nothing to watch is, and nobody is put on the turn.
+    assert (asked.status_code, asked.content) == (204, b"")
+    assert watched == before and len(before) == 1
+    app.slow.release.set()
+    async with asyncio.timeout(2):
+        assert [type(frame).__name__ async for frame in sender][-1] == "DoneEvent"
+    assert app.statuses() == ["done"]
 
 
 async def test_a_server_that_shuts_down_ends_the_turns_it_reads(served):

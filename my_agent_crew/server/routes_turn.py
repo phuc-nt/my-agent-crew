@@ -11,7 +11,7 @@ import json
 from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, Response
-from sse_starlette.sse import EventSourceResponse
+from sse_starlette.sse import AppStatus, EventSourceResponse
 
 from my_agent_crew.activity.turn_watch import Frame, Resync
 from my_agent_crew.agent.events import Event, kind_of, to_dict
@@ -58,8 +58,10 @@ async def sse_frames(
 @router.get("/conversations/{conv_id}/turn")
 async def watch_turn(conv_id: str, deps: ConvDeps, rt: Rt) -> Response:
     """The turn under way: `watching` first, then its events as they come, ending when the
-    turn does or pauses for a decision. 204 when the conversation has no turn to watch."""
-    frames = rt.hub.turns.join(conv_id)
+    turn does or pauses for a decision. 204 when the conversation has no turn to watch, and
+    from a server told to stop: sse-starlette cuts a stream begun then before its first
+    byte, a 500 to the tab that asked, and the turn is the next server's to carry on."""
+    frames = None if AppStatus.should_exit else rt.hub.turns.join(conv_id)
     if frames is None:
         return Response(status_code=204)
     return EventSourceResponse(sse_frames(deps, conv_id, frames))
