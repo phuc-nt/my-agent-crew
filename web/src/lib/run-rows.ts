@@ -112,7 +112,9 @@ function mergeable(prev: RunRow, next: RunRow): boolean {
 }
 
 function hasBody(step: RunStep): boolean {
-  if (step.kind === "tool") return step.output !== null && step.output !== "";
+  // A script that printed nothing still made its calls, and they are listed on its row:
+  // folded into the row before it, the calls of every script but the first would go.
+  if (step.kind === "tool") return (step.output !== null && step.output !== "") || Boolean(step.calls?.length);
   if (step.kind === "model") return Boolean(step.preview);
   // A fallback carries its error text, a move to the escalation route says why it was
   // made, a question carries what was asked and a note

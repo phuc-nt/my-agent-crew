@@ -88,7 +88,10 @@ export function applyRunEvent(run: RunInfo, e: AgentEvent): RunInfo {
       // harmless — but the step must not be patched with an ok flag either way.
       if (e.name === PROGRESS_NOTE_TOOL) break;
       const at = steps.findIndex((s) => s.kind === "tool" && s.tool_call_id === e.tool_call_id);
-      const patch = { ok: e.ok, output: preview(e.output) };
+      const patch: Partial<Extract<RunStep, { kind: "tool" }>> = { ok: e.ok, output: preview(e.output) };
+      // As on the server, what a script called on its own is kept on the script's step:
+      // none of those calls had a step, so this is the one place they show.
+      if (e.calls && e.calls.length > 0) patch.calls = e.calls;
       if (at >= 0) steps[at] = { ...(steps[at] as Extract<RunStep, { kind: "tool" }>), ...patch };
       break;
     }

@@ -111,6 +111,24 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   before it runs; the search asks nobody and calls no server. `GET /api/tools` marks its row
   `with_mcp`; the Tools matrix gives it a "đi kèm MCP" badge and a mark of its own for an agent
   with nothing to find, and the agent editor's allow-list leaves it out.
+- An agent can call its read-only tools from a short script with `tool_script`. A turn that
+  needs one tool twenty times, or three lines out of a long answer, used to pay for every call
+  and every answer in context; now the model writes that work as a script, the script makes
+  the calls, and only what it prints comes back. The script is a small part of Python
+  (variables, `if`/`for`/`while`, functions, lists, dicts, sets, tuples, f-strings,
+  comprehensions, `try`/`except`, `json`, a fixed list of functions): no imports, classes or
+  attribute reads, no files and no network. It runs in a process of its own with an empty
+  environment, under limits on calls (25), steps, memory, CPU seconds, time and output, and on
+  macOS inside a sandbox that denies the network, every write and a second process. A script
+  may call only what reads and asks nobody: the built-in tools that declare a call may be made
+  again, and of a server's tools the ones the owner both listed under `read_only` and let in
+  as `codemode`. Anything that writes or asks first ends the script with a line saying to
+  call it directly, where the approval gate sees it; so a script never waits on a person and
+  is simply run again after a restart. The tool comes with such MCP tools and goes with them
+  (an agent with no `read_only` + `codemode` tool has no `tool_script`), follows `mcp:` and
+  not the `tools` allow-list, and each call a script made is charged like a call made
+  directly and listed under the script's step on the run card (`calls` on a tool step in
+  `/api/activity/runs` and on the `tool_result` event), folded until opened.
 
 ### Fixed
 

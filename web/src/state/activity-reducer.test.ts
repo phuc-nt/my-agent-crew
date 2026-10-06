@@ -136,6 +136,29 @@ describe("applyRunEvent", () => {
     expect(stray.steps).toHaveLength(1);
   });
 
+  it("keeps what a script called on the step of the script, as the server stores it", () => {
+    const calls = [
+      { name: "mcp__notion__search", arguments: { query: "kế hoạch" }, ok: true, output: "3 trang", ms: 120, cost_usd: 0.004, metered: true },
+      { name: "workspace_read", arguments: { path: "a.md" }, ok: false, output: "không có tệp", ms: 4, cost_usd: null, metered: false },
+    ];
+    const opened = applyRunEvent(run(), { type: "tool_call", tool_call_id: "s1", name: "tool_script", arguments: { script: "…" } });
+    const result = { type: "tool_result", tool_call_id: "s1", name: "tool_script", ok: true, output: "xong" } as const;
+
+    const scripted = applyRunEvent(opened, { ...result, calls });
+    expect(scripted.steps).toHaveLength(1);
+    expect(scripted.steps[0]).toMatchObject({ kind: "tool", name: "tool_script", ok: true, output: "xong", calls });
+    // A call that paid a model is in the totals the turn ends on, like every tool that did.
+    expect(scripted).toMatchObject({ spent_usd: 0, unknown_cost_calls: 0 });
+
+    // A tool that called nothing has no list, whether the server sent an empty one or,
+    // being older than the bundle, none at all: the server stores none either.
+    for (const none of [{}, { calls: [] }]) {
+      const plain = applyRunEvent(opened, { ...result, ...none });
+      expect(plain.steps[0]).toMatchObject({ ok: true, output: "xong" });
+      expect(plain.steps[0]).not.toHaveProperty("calls");
+    }
+  });
+
   it("copies final totals from done/halted and messages from errors and approvals", () => {
     expect(applyRunEvent(run(), { type: "done", spent_usd: 0.5, unknown_cost_calls: 2 })).toMatchObject({ spent_usd: 0.5, unknown_cost_calls: 2 });
     expect(applyRunEvent(run(), { type: "halted", reason: "budget", spent_usd: 1 })).toMatchObject({ summary: "budget", spent_usd: 1 });

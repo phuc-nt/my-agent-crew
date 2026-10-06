@@ -4,7 +4,7 @@ import { vi } from "../i18n/vi";
 import { ToolsMatrix } from "./tools-matrix";
 import type { AgentInfo, RegistryTool } from "../api/types";
 import { fakeAgent } from "../test/fake-backend";
-import { searchTool } from "../test/fake-mcp";
+import { scriptTool, searchTool } from "../test/fake-mcp";
 
 describe("ToolsMatrix", () => {
   it("shows the empty state when there are no tools", () => {
@@ -273,6 +273,17 @@ describe("ToolsMatrix", () => {
       expect(within(head).getByText(vi.mcp.exposure.deferred)).toHaveAttribute("title", vi.mcp.exposureTitle.deferred);
     });
 
+    it("say of one opened for scripts that it is found like the rest, and called from a script when it only reads", () => {
+      render(<ToolsMatrix tools={[{ ...search, exposure: "codemode" }]} agents={[fakeAgent]} />);
+
+      const badge = within(screen.getByTestId("tool-row")).getByText("gọi qua script");
+      expect(badge).toHaveClass("badge");
+      expect(badge).toHaveAttribute(
+        "title",
+        "Không khai sẵn; agent tìm và nạp bằng tool_search như mức nạp khi cần. Công cụ nằm trong read_only thì còn gọi được từ script (tool_script).",
+      );
+    });
+
     it("add their mark to the legend, which a crew without MCP never sees", () => {
       const own: RegistryTool = { name: "shell_run", description: "Run", requires_approval: false, optional: false, agents: ["default"] };
       const legend = () => screen.getByText(vi.tools.legend).parentElement as HTMLElement;
@@ -348,6 +359,64 @@ describe("ToolsMatrix", () => {
       render(<ToolsMatrix tools={[own, find]} agents={[fakeAgent]} />);
       expect(legend()).toHaveTextContent(vi.tools.legendMcpNone);
       expect(legend()).not.toHaveTextContent(vi.tools.legendMcpOff);
+    });
+  });
+
+  describe("the script that calls the MCP tools opened for scripts", () => {
+    const coach: AgentInfo = { ...fakeAgent, id: "coach", name: "HLV", is_master: false };
+    const find = searchTool(["coach", "default"]);
+    const script = scriptTool(["default"]);
+    const cell = (row: HTMLElement, column: number) => within(row).getAllByRole("cell")[column];
+
+    it("is held only by the agents with such a tool, whatever else they can find", () => {
+      render(<ToolsMatrix tools={[find, script]} agents={[fakeAgent, coach]} />);
+
+      const [finding, scripting] = screen.getAllByTestId("tool-row");
+      expect(within(scripting).getByRole("rowheader")).toHaveTextContent(/^tool_script/);
+      expect(within(cell(scripting, 0)).getByText(vi.tools.never)).toBeInTheDocument();
+      expect(within(cell(scripting, 1)).getByText("✓")).toHaveAttribute("aria-label", vi.tools.legendOn);
+      // The coach has tools to find and none a script may call.
+      expect(within(cell(finding, 2)).getByText("✓")).toBeInTheDocument();
+      expect(within(cell(scripting, 2)).getByText("·")).toHaveAttribute("aria-label", vi.tools.legendMcpNone);
+      expect(cell(scripting, 2)).toHaveClass("cell", "mcp-none");
+      expect(cell(scripting, 2)).toHaveAttribute("title", vi.tools.legendMcpNone);
+    });
+
+    it("is not explained by the allow-list, a key or the mode, which have no say over it", () => {
+      const picky: AgentInfo = { ...coach, tools: ["write_file"], mode: "assistant" };
+      render(<ToolsMatrix tools={[{ ...script, agents: [], optional: true }]} agents={[picky]} />);
+
+      const row = within(screen.getByTestId("tool-row"));
+      expect(row.getByText("·")).toBeInTheDocument();
+      for (const mark of ["–", "○", "▫", "◇"]) expect(row.queryByText(mark)).not.toBeInTheDocument();
+    });
+
+    it("wears the badge of the search, whose title says when an agent holds each of the two", () => {
+      render(<ToolsMatrix tools={[find, script]} agents={[fakeAgent]} />);
+
+      const badges = screen.getAllByTestId("tool-row").map((row) => within(row).getByText("đi kèm MCP"));
+      expect(badges).toHaveLength(2);
+      for (const badge of badges) {
+        expect(badge).toHaveClass("badge");
+        expect(badge).toHaveAttribute(
+          "title",
+          "Không thuộc danh sách công cụ của agent. Agent có tool_search khi được giao công cụ MCP không khai sẵn, và có tool_script khi một công cụ MCP chỉ đọc được mở cho script.",
+        );
+      }
+    });
+
+    it("shares the one line the legend has for a tool that comes with MCP tools", () => {
+      const legend = () => screen.getByText(vi.tools.legend).parentElement as HTMLElement;
+      const lines = () => within(legend()).getAllByRole("definition").filter((line) => line.querySelector(".mcp-none"));
+
+      const alone = render(<ToolsMatrix tools={[script]} agents={[fakeAgent, coach]} />);
+      expect(lines()).toHaveLength(1);
+      expect(lines()[0]).toHaveTextContent(/^·agent không có công cụ MCP nào cần tới công cụ này$/);
+      alone.unmount();
+
+      render(<ToolsMatrix tools={[find, script]} agents={[fakeAgent, coach]} />);
+      expect(lines()).toHaveLength(1);
+      expect(within(legend()).getAllByRole("definition")).toHaveLength(5);
     });
   });
 });

@@ -155,6 +155,19 @@ describe("the tools of a server", () => {
     expect(badge("purge", t.exposure.hidden)).toHaveAttribute("title", t.exposureTitle.hidden);
   });
 
+  // Being opened for scripts is not the same as being called from one: the tool must
+  // also be one the owner listed as only reading, and the badge has to say both halves.
+  it("say of one opened for scripts what else it takes before a script may call it", () => {
+    show([mcpServer({ tools: [mcpTool("notion", "list", { exposure: "codemode" })] })]);
+
+    const badge = within(row().getByTestId("mcp-tool-list")).getByText("gọi qua script");
+    expect(badge).toHaveClass("badge");
+    expect(badge).toHaveAttribute("title", t.exposureTitle.codemode);
+    expect(t.exposureTitle.codemode).toContain("tool_search");
+    expect(t.exposureTitle.codemode).toContain("read_only");
+    expect(t.exposureTitle.codemode).toContain("tool_script");
+  });
+
   it("are left out for a server that offers none, and the ones passed over are named", () => {
     show([mcpServer({ skipped: ["search", "fetch"] })]);
 

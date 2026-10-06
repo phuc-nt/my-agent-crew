@@ -8,8 +8,9 @@ interface Props {
 
 /** Why an agent does or does not hold a tool. The cases are genuinely different
  * problems: two are the person's own choice, one needs a key, one needs a mode change,
- * a tool of an MCP server comes with the server or not at all, and the search for such
- * tools comes with having some to find. */
+ * a tool of an MCP server comes with the server or not at all, and the two tools that
+ * come with such tools (the search for them, the script that calls them) are held only
+ * while one of them needs it. */
 type Cell = "on" | "excluded" | "missing-key" | "work-mode" | "mcp-off" | "mcp-none";
 
 const MARK: Record<Cell, string> = {
@@ -48,7 +49,8 @@ function cellFor(tool: RegistryTool, agent: AgentInfo): Cell {
   // The allow-list, the keys and the mode have no say over a server's tools: an agent
   // holds them once the server is switched on for it, so that is the one thing to name.
   if (tool.server) return "mcp-off";
-  // Nor over the search for them: it is missing only where there is nothing to find.
+  // Nor over the search for them or the script that calls them: each is missing only
+  // where no tool of a server needs it.
   if (tool.with_mcp) return "mcp-none";
   if (agent.tools.length > 0 && !agent.tools.includes(tool.name)) return "excluded";
   if (tool.optional) return "missing-key";

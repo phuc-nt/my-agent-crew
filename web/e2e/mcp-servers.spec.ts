@@ -3,6 +3,7 @@ import { vi } from "../src/i18n/vi";
 import { FakeMcp, SIGN_IN_LOCAL_ONLY, mcpServer, mcpTool, unknownServer } from "../src/test/fake-mcp";
 import { coachAgent, defaultAgent, mockApi } from "./mock-api";
 import { smallTargets } from "./small-targets";
+import { spills } from "./spills";
 
 const t = vi.mcp;
 const master = { ...defaultAgent, name: "Trợ lý", delegates: ["coach"] };
@@ -156,6 +157,40 @@ test("the tools grid takes in a server that came up while the grid was open", as
   await expect(rows("tool_search").getByLabel(vi.tools.legendOn)).toHaveCount(1);
 });
 
+// A script calls a tool nobody is asked about, so it is the owner who opens one for it:
+// the tool has to be among those that only read, and set to be called from a script.
+test("the tools grid shows the script tool with the agent whose server opened a tool for scripts", async ({ page }) => {
+  const opened = mcpTool("notion", "search", { description: "Tìm trang trong Notion", exposure: "codemode", requires_approval: false });
+  const asking = mcpTool("wiki", "query", { description: "Hỏi wiki", exposure: "codemode" });
+  const mcp = new FakeMcp([mcpServer({ tools: [opened, TOOLS[1]] }), mcpServer({ name: "wiki", url: "https://wiki.example.test/mcp", tools: [asking] })]);
+  await mockApi(page, { agents: [{ ...master, mcp: ["notion"] }, { ...coachAgent, mcp: ["wiki"] }], mcp });
+  await page.goto("/#/manage/tools");
+  const rows = (name: string) => page.getByTestId("tool-row").filter({ hasText: name });
+  // The master's column comes first, then the coach's.
+  const cells = (name: string) => rows(name).locator("td.cell span");
+
+  const script = rows("tool_script");
+  await expect(script).toHaveCount(1);
+  await expect(script.getByText(vi.tools.withMcp)).toHaveAttribute("title", vi.tools.withMcpTitle);
+  await expect(cells("tool_script").nth(0)).toHaveAttribute("aria-label", vi.tools.legendOn);
+  // Opened for scripts and still asking first is not a script's to call, so the agent
+  // whose only server has such a tool is marked as having no use for the script tool.
+  await expect(cells("tool_script").nth(1)).toHaveAttribute("aria-label", vi.tools.legendMcpNone);
+  // Both find their tools the same way, opened for scripts or not.
+  await expect(cells("tool_search").nth(0)).toHaveAttribute("aria-label", vi.tools.legendOn);
+  await expect(cells("tool_search").nth(1)).toHaveAttribute("aria-label", vi.tools.legendOn);
+
+  await expect(rows("mcp__notion__search").getByText(t.exposure.codemode)).toHaveAttribute("title", t.exposureTitle.codemode);
+  await expect(rows("mcp__wiki__query").getByText(t.exposure.codemode)).toHaveAttribute("title", t.exposureTitle.codemode);
+  await expect(rows("mcp__notion__create_pages")).toContainText(t.exposure.deferred);
+  await expect(page.locator(".matrix-legend")).toContainText(vi.tools.legendMcpNone);
+
+  // The server's own page says the same of the tool, where the owner reads what it offers.
+  await page.goto("/#/manage/connections");
+  await row(page).getByText(t.tools(2)).click();
+  await expect(row(page).getByTestId("mcp-tool-search").getByText(t.exposure.codemode)).toHaveAttribute("title", t.exposureTitle.codemode);
+});
+
 test("saving the key a server's header reads brings the server up without a reload", async ({ page }) => {
   const key = { name: "WIKI_TOKEN", group: "mcp", secret: true, url: false, present: false, source: null, checkable: false, editable: true, servers: ["wiki"] };
   const mcp = new FakeMcp([mcpServer({ name: "wiki", url: "https://wiki.example.test/mcp", status: "failed", error: "wiki: HTTP 401", uses_key: true, env: ["WIKI_TOKEN"] })]);
@@ -229,18 +264,6 @@ test("an agent is handed a server in its editor, and a server the file dropped h
   await expect(row(page).getByTestId("mcp-agents")).toHaveText(vi.connectionsPage.usedBy("coach"));
 });
 
-/** Boxes under `within` whose content reaches past their own edge: text with nowhere to
- *  break. A box further out may clip what spills, so the page's own width does not show it. */
-const spills = (page: Page, within: string) =>
-  page.evaluate((within) => {
-    const found: string[] = [];
-    for (const el of document.querySelectorAll<HTMLElement>(`${within}, ${within} *`)) {
-      if (el.clientWidth === 0 || el.scrollWidth <= el.clientWidth + 1) continue;
-      found.push(`${el.tagName.toLowerCase()}.${String(el.className).split(" ")[0]} ${el.scrollWidth}>${el.clientWidth}`);
-    }
-    return found;
-  }, within);
-
 /** Badges under `within` squeezed onto more than one line by what stands beside them. */
 const squeezedBadges = (page: Page, within: string) =>
   page.evaluate((within) => {
@@ -290,13 +313,19 @@ test.describe("on a phone", () => {
 
   test("the tools grid keeps the badges of a server's tools and of their search whole", async ({ page }) => {
     const connected = servers().map((server) => ({ ...server, status: "connected" as const }));
+    // One tool more than the card's own test counts: read-only and opened for scripts.
+    const scripted = mcpTool("notion", `${QUERY}_for_scripts`, { exposure: "codemode", requires_approval: false });
+    connected[0].tools.push(scripted);
     await mockApi(page, { agents: [{ ...master, mcp: ["notion"] }, coachAgent], mcp: new FakeMcp(connected) });
     await page.goto("/#/manage/tools");
     const grid = page.getByTestId("tools-matrix");
     const find = grid.getByTestId("tool-row").filter({ hasText: "tool_search" });
     await find.scrollIntoViewIfNeeded();
     await expect(find.getByText(vi.tools.withMcp)).toBeVisible();
-    await expect(grid.getByTestId("tool-row").filter({ hasText: QUERY })).toContainText(t.exposure.deferred);
+    await expect(grid.getByTestId("tool-row").filter({ hasText: "tool_script" }).getByText(vi.tools.withMcp)).toBeVisible();
+    await expect(grid.getByTestId("tool-row").filter({ hasText: scripted.name })).toContainText(t.exposure.codemode);
+    // The tool beside it, left as the server has it: its name ends where the other's goes on.
+    await expect(grid.getByTestId("tool-row").filter({ hasText: new RegExp(`${QUERY}(?!_)`) })).toContainText(t.exposure.deferred);
 
     // The grid scrolls inside its own box; the page itself never goes sideways.
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);

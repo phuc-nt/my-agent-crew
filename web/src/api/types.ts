@@ -1,4 +1,5 @@
 // Mirrors the JSON shapes produced by my_agent_crew.server.
+import type { NestedToolCall } from "./activity-types";
 
 export type Role = "system" | "user" | "assistant" | "tool";
 export type ConversationStatus = "idle" | "awaiting_approval";
@@ -140,7 +141,16 @@ export type AgentEvent =
       cached_tokens?: number | null;
     }
   | { type: "tool_call"; tool_call_id: string; name: string; arguments: Record<string, unknown> }
-  | { type: "tool_result"; tool_call_id: string; name: string; ok: boolean; output: string }
+  | {
+      type: "tool_result";
+      tool_call_id: string;
+      name: string;
+      ok: boolean;
+      output: string;
+      /** What a script called on its own; empty for every other tool, and absent from a
+       *  server older than the bundle. */
+      calls?: NestedToolCall[];
+    }
   | {
       type: "approval_required";
       approval_id: string;
@@ -388,14 +398,16 @@ export interface RegistryTool extends ToolInfo {
   /** Only on a tool of an MCP server: the server's name, and how far the tool is let in. */
   server?: string;
   exposure?: McpExposure;
-  /** Only on `tool_search`: an agent holds it while it has MCP tools that are not declared
-   * up front, whatever its allow-list and mode say. */
+  /** Only on `tool_search` and `tool_script`: an agent holds the first while it has MCP
+   * tools that are not declared up front, and the second while one of them is opened for
+   * scripts, whatever its allow-list and mode say. */
   with_mcp?: boolean;
 }
 
 /**
  * How far a server's tool is let in. `direct` is declared to the model every turn;
- * `deferred` and `codemode` are held back until the agent asks for them; `hidden` is
+ * `deferred` and `codemode` are held back until the agent asks for them, and a `codemode`
+ * tool the owner listed as read-only can be called from a script as well; `hidden` is
  * handed to nobody. Must match the exposures in the backend's `mcp/config.py`.
  */
 export type McpExposure = "direct" | "deferred" | "codemode" | "hidden";

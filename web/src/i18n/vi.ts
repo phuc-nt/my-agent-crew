@@ -301,11 +301,11 @@ export const vi = {
     legendMissingKey: "thiếu khoá API nên không hoạt động",
     legendWorkMode: "chỉ có ở chế độ làm việc",
     legendMcpOff: "agent chưa bật máy chủ MCP này",
-    legendMcpNone: "agent không có công cụ MCP nào phải tìm",
+    legendMcpNone: "agent không có công cụ MCP nào cần tới công cụ này",
     fromServer: (name: string) => `MCP ${name}`,
     withMcp: "đi kèm MCP",
     withMcpTitle:
-      "Không thuộc danh sách công cụ của agent: agent có nó khi được giao công cụ MCP không khai sẵn.",
+      "Không thuộc danh sách công cụ của agent. Agent có tool_search khi được giao công cụ MCP không khai sẵn, và có tool_script khi một công cụ MCP chỉ đọc được mở cho script.",
   },
   connectionsPage: {
     title: "Kết nối dùng chung",
@@ -399,7 +399,8 @@ export const vi = {
     exposureTitle: {
       direct: "Khai cho mô hình ở mọi lượt.",
       deferred: "Không khai sẵn; agent tìm và nạp bằng tool_search khi cần tới.",
-      codemode: "Không khai sẵn; agent gọi từ script khi công cụ không cần duyệt.",
+      codemode:
+        "Không khai sẵn; agent tìm và nạp bằng tool_search như mức nạp khi cần. Công cụ nằm trong read_only thì còn gọi được từ script (tool_script).",
       hidden: "Không giao cho agent nào.",
     },
     skipped: (names: string) => `Bỏ qua vì trùng tên với công cụ khác: ${names}`,
@@ -720,6 +721,10 @@ export const vi = {
   stepCostUnknown: "không rõ giá",
   // A tool that asked a model itself (a picture read, a long output summarised), priced.
   stepToolCost: (price: string) => `Có gọi model · ${price}`,
+  // Under the step of a script (`tool_script`): the calls it made on its own, which the
+  // model never read. Counted in calls, since a script may call one tool many times.
+  scriptCalls: (count: number, failed: number) =>
+    failed > 0 ? `Script đã gọi công cụ ${count} lần · ${failed} lần lỗi` : `Script đã gọi công cụ ${count} lần`,
   // The usage half of a model step's detail line: "openrouter:deepseek · TTFT 1.2s ·
   // 12.3k tok (8.1k cache) · suy nghĩ". TTFT is the wait before the first word came back.
   stepTtft: (ms: number) => `TTFT ${ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`}`,

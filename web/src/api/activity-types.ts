@@ -4,6 +4,24 @@ import type { AgentEvent, Conversation, EscalationReason, ScheduleInfo } from ".
 
 export type RunStatus = "running" | "awaiting_approval" | "done" | "halted" | "error";
 
+/**
+ * One call a script made on its own (`tool_script`). The model read none of these, only
+ * what its script printed, so the step of the script is the one place they show. Must
+ * match `NestedCall` in the backend's `tools/result.py`.
+ */
+export interface NestedToolCall {
+  name: string;
+  /** Shortened the way a step's own arguments are. */
+  arguments: Record<string, unknown>;
+  ok: boolean;
+  /** The start of what came back to the script. */
+  output: string;
+  ms: number;
+  /** Read only when `metered`: what the call paid a model, null when no price came with it. */
+  cost_usd: number | null;
+  metered: boolean;
+}
+
 export type RunStep =
   | {
       kind: "model";
@@ -56,6 +74,11 @@ export type RunStep =
        * price on the call. The run's total already includes it.
        */
       cost_usd?: number | null;
+      /**
+       * Only on the step of a script that called something: each call it made, in order.
+       * None of them is a step of its own. One that paid a model is in the run's total.
+       */
+      calls?: NestedToolCall[];
       duration_ms: number | null;
     }
   | {

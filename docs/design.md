@@ -219,6 +219,13 @@ any platform ──POST /api/inbound (JSON, sync)─────┴─▶ Inboun
   tiếp, nối vào cuối danh sách đã khai để phần đầu request mà provider cache không đổi. Cái đã
   nạp không nằm trong bộ nhớ của server mà trong chính hội thoại (các câu trả lời `tool_search`
   đã lưu), nên một lần restart không làm mất nó. Client viết tay trên `httpx`, không thêm SDK.
+  Việc phải gọi một tool nhiều lần, hay chỉ cần vài dòng của một câu trả lời dài, agent viết
+  thành script cho `tool_script`: script gọi tool và chỉ phần nó in ra mới vào ngữ cảnh. Script
+  chỉ gọi được thứ chỉ đọc và không hỏi ai (tool có sẵn tự khai gọi lại được, và tool MCP chủ
+  vừa ghi `read_only` vừa mở `codemode`), nên nó không bao giờ đứng chờ duyệt và mọi lời gọi có
+  ghi vẫn qua cổng duyệt. Ngôn ngữ là một phần của Python do chính crew thông dịch, không
+  `eval`, không import, không đọc thuộc tính; script chạy trong một tiến trình con với môi
+  trường rỗng và các giới hạn cứng, trên macOS trong sandbox không mạng, không ghi, không fork.
 - **Chi phí trung thực.** Mỗi message assistant lưu `cost_usd` hoặc `None`. Cuộc trò chuyện giữ
   `spent_usd` và `unknown_cost_calls`; `cost_cap_usd` dừng trước lần gọi model kế tiếp
   (0 = không giới hạn). Mọi lần gọi model nằm ngoài vòng lặp lượt — đặt tiêu đề, tóm tắt

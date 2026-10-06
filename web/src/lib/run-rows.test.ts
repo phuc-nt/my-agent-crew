@@ -64,6 +64,23 @@ describe("runRows", () => {
     expect(rows).toHaveLength(2);
   });
 
+  // The calls are listed on the row of the script: folded into the row before it, the
+  // calls of every script but the first would be gone from the page.
+  it("never collapses a script that called something, though it printed nothing", () => {
+    const calls = [{ name: "workspace_read", arguments: {}, ok: true, output: "a", ms: 3, cost_usd: null, metered: false }];
+    const script = (overrides: Parameters<typeof toolStep>[0] = {}) => toolStep({ name: "tool_script", output: "", ...overrides });
+
+    const both = runRows(run([script({ calls }), script({ calls })]));
+    expect(both.map((row) => row.repeat)).toEqual([1, 1]);
+    // One of the two is enough, whichever side it is on.
+    expect(runRows(run([script(), script({ calls })]))).toHaveLength(2);
+    expect(runRows(run([script({ calls }), script()]))).toHaveLength(2);
+    // A script that called nothing and said nothing is a plain repeat, with or without
+    // an empty list.
+    const idle = runRows(run([script(), script({ calls: [] }), script({ output: null })]));
+    expect(idle.map((row) => row.repeat)).toEqual([3]);
+  });
+
   it("keeps rows apart when they differ in name or in outcome", () => {
     const byName = runRows(run([toolStep({ name: "a" }), toolStep({ name: "b" })]));
     expect(byName).toHaveLength(2);

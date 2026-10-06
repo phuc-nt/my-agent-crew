@@ -290,6 +290,76 @@
   overflow-wrap: anywhere;
 }
 
+/* ── What a script called on its own ────────────────────────────────────── */
+/* Lines up under the head like every other part of the row. Quieter than a step: these
+   calls sit inside one, and the rail above already counts the script as a single stop. */
+.script-calls {
+  grid-column: 2;
+  min-width: 0;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+.script-calls summary {
+  cursor: pointer;
+  width: fit-content;
+  max-width: 100%;
+  color: var(--text-secondary);
+}
+
+/* A summary grows to the touch target there (touch-targets.css). Height from padding
+   rather than flex, which would cost it the triangle: the only sign that it opens. */
+@media (max-width: 720px), (pointer: coarse) {
+  .script-calls summary {
+    padding-block: calc((var(--touch-target) - 1lh) / 2);
+  }
+}
+
+/* Numbered, so a person can say "the third call" and mean one row. */
+.script-calls ol {
+  margin: var(--space-1) 0 0;
+  padding-left: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* The same two columns as a step's head, for the same reason: the time stays pinned
+   right however long a server's tool name runs. */
+.script-call-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: baseline;
+  column-gap: var(--space-2);
+  min-width: 0;
+}
+
+/* The time keeps the last column whether or not a word for a failure stands before
+   it, so the times of a list line up down their right edge. */
+.script-call-head .step-time {
+  grid-column: 3;
+}
+
+.script-call-name {
+  min-width: 0;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.script-call-line {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* What came back, set off from what was asked. Left to wrap rather than kept as
+   written: it is the start of an answer, and its line breaks would spend a row each. */
+.script-call-output {
+  padding-left: var(--space-2);
+  border-left: 2px solid var(--border);
+}
+
 /* ── The live header: one line answering "what is it doing right now" ───── */
 .run-progress {
   display: flex;

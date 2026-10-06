@@ -612,6 +612,7 @@ mcp_servers:
     exposure: deferred            # direct | deferred | codemode | hidden
     tool_exposure:                # theo tên tool của máy chủ, * là một đoạn bất kỳ
       notion-search: direct
+      notion-fetch: codemode      # gọi được từ script, vì cũng nằm trong read_only
       "notion-delete-*": hidden
     read_only:                    # những tool chạy không hỏi
       - notion-search
@@ -682,7 +683,7 @@ những tool hiếm khi dùng. Mức mở nói mỗi tool được đưa tới m
 | --- | --- |
 | `direct` | tool được khai ở mọi lượt, như tool có sẵn |
 | `deferred` (mặc định) | không khai sẵn và không nằm trong danh sách tool của system prompt; agent tìm và nạp bằng `tool_search` khi cần |
-| `codemode` | không khai sẵn, như `deferred` |
+| `codemode` | không khai sẵn, tìm và nạp như `deferred`; tool cũng nằm trong `read_only` thì agent còn gọi được nó từ script bằng `tool_script` |
 | `hidden` | không giao cho agent nào; vẫn hiện ở Kết nối để chủ biết máy chủ có nó |
 
 Tool không khai sẵn vẫn chạy khi được gọi đúng tên, qua cùng cổng duyệt.
@@ -721,6 +722,118 @@ tool_search(query, limit?)   →  Đã nạp 2 công cụ, gọi trực tiếp b
   giữ (máy chủ bỏ nó, chủ ẩn nó) thì thôi được khai.
 - **Duyệt.** Nạp không đổi gì về duyệt: tool đã nạp vẫn hỏi trước khi chạy như cũ, trừ khi chủ
   ghi nó vào `read_only`.
+
+### Gọi tool từ script
+
+Một lượt cần cùng một tool hai chục lần, hoặc chỉ cần ba dòng trong một câu trả lời dài, phải trả
+tiền cho từng lời gọi và cho từng câu trả lời nằm lại trong ngữ cảnh. `tool_script` cho model viết
+việc đó thành một đoạn script ngắn: script tự gọi tool, tự lọc và gộp, và **chỉ những gì nó in ra**
+mới quay về cho model.
+
+```
+tool_script(script)   →   những gì script in ra bằng print
+```
+
+Ví dụ dưới đây chỉ để minh hoạ cách viết; tên tool và hình dạng câu trả lời là của máy chủ. Nó đi
+với cấu hình mẫu ở trên: `notion-search` được khai sẵn nên model gọi nó trực tiếp để lấy danh sách
+trang, còn script đọc từng trang bằng `notion-fetch`, tool duy nhất được mở cho script:
+
+```python
+pages = ["trang-a", "trang-b", "trang-c"]  # id các trang, lấy từ lời gọi notion_search trước đó
+late = []
+for page in pages:
+    body = tools.mcp__notion__notion_fetch(id=page)
+    if "quá hạn" in body:
+        late.append(body.split("\n")[0])
+print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
+```
+
+- **Ai được giao.** Agent giữ ít nhất một tool MCP **vừa nằm trong `read_only` vừa ở mức
+  `codemode`** thì được giao `tool_script`, đứng ngay sau `tool_search`. Như `tool_search`, nó đến
+  cùng máy chủ: không theo danh sách cho phép `tools`, không theo `mode`, và mất đi khi agent không
+  còn tool nào như thế. Crew không mở `codemode` cho tool nào thì không agent nào có nó.
+- **Script gọi được gì.** Chỉ những tool chỉ đọc và không hỏi ai, trong số tool agent đang giữ:
+  - tool có sẵn tự khai là gọi lại được sau restart: `workspace_read`, `workspace_list`,
+    `workspace_grep`, `workspace_glob`, `fetch_url`, `web_search`, `memory_search`,
+    `conversation_search`, `wiki_get`, `wiki_search`, `artifact_read`, `artifact_list`,
+    `skill_read`, `pdf_read`, `image_read`, `tool_output_read`. Bốn tool cũng chỉ đọc nhưng không
+    gọi được từ script là `progress_note`, `delegate`, `tool_search` và chính `tool_script`: chúng
+    nói thay agent hoặc làm việc qua cuộc trò chuyện, thứ mà lời gọi của script không thuộc về;
+  - tool MCP mà chủ vừa ghi vào `read_only` vừa mở `codemode`. Chỉ `read_only` thôi chưa đủ: mở
+    một tool cho script là một quyết định riêng của chủ.
+
+  Lời mô tả của `tool_script` nêu tên cả hai nhóm. Mỗi tool MCP là một dòng gồm tên, các tham số
+  theo tên và kiểu (`query: string, limit?: integer`) và một câu mô tả, tối đa 30 tool và 12 tham
+  số mỗi tool; cần schema đầy đủ thì model nạp tool đó bằng `tool_search`.
+- **Lời gọi bị từ chối.** Gọi một tool phải hỏi trước hoặc có ghi dữ liệu, một tool MCP chưa được
+  mở cho script, hay một tên không có, thì script **dừng ngay tại đó**: không `try/except` nào bắt
+  được, và câu trả lời nói phải làm gì thay ("gọi trực tiếp", hoặc "nạp bằng tool_search rồi gọi
+  trực tiếp"). Vì vậy script không bao giờ chờ người duyệt, và mọi lời gọi có ghi vẫn đi qua cổng
+  duyệt như cũ.
+- **Ngôn ngữ.** Một phần của Python: biến, `if`/`for`/`while`, hàm và `lambda`, list, dict, set,
+  tuple, f-string, comprehension (kể cả dạng `(x for x in ...)`, được dựng thành list),
+  `try`/`except`/`finally`, `raise`, `assert`, `json.loads` và `json.dumps`, cùng `len`, `str`,
+  `int`, `float`, `bool`, `list`, `dict`, `set`, `tuple`, `repr`, `range`, `enumerate`, `zip`,
+  `sorted`, `reversed`, `min`, `max`, `sum`, `any`, `all`, `abs`, `round`, `isinstance`, `print`.
+  Phương thức gọi được là một danh sách cố định cho từng kiểu str, list, dict, set và tuple.
+  Không có `import` (riêng `import json` được bỏ qua), class, luỹ thừa `**`, `del`, `with`,
+  `global`, `yield`, hay đọc thuộc tính (`x.y` không kèm lời gọi). Script được xét cả đoạn trước
+  khi chạy: dùng thứ không có thì bị từ chối kèm số dòng, không chạy nửa chừng. Giá trị của biểu
+  thức ở dòng cuối cũng được in, như ở dấu nhắc Python.
+- **Kết quả của tool trong script.** `tools.TÊN(tham_số=giá_trị)` hoặc `tools.TÊN({...})` trả về
+  chữ của kết quả (là JSON thì `json.loads`). Script nhận tới 200.000 ký tự của mỗi câu trả lời,
+  nhiều hơn hẳn trần của một lượt, vì nó có mặt là để cắt câu trả lời xuống; dài hơn nữa thì bị
+  cắt. Tool lỗi thì ném lỗi, bắt được bằng `try/except`. Hook của agent vẫn được hỏi trước và sau
+  từng lời gọi, và một lời gọi bị hook chặn là một lỗi bắt được.
+- **Chạy ở đâu.** Trong một tiến trình con riêng (`python -I -S -B`) với **môi trường rỗng**: không
+  biến môi trường nào, nên không khoá nào. Nó chỉ nói chuyện với server qua stdin/stdout, mỗi dòng
+  một JSON, và chính server là bên chạy tool. Trên macOS tiến trình đó nằm trong một sandbox riêng
+  của hệ điều hành: không mạng, không ghi được tệp nào, không sinh được tiến trình thứ hai.
+  Sandbox đó không chặn việc đọc tệp, và Linux không có sandbox của hệ điều hành; ở cả hai chỗ
+  hàng rào là chính trình thông dịch: script chỉ cầm dữ liệu thường, không import và không đọc
+  thuộc tính, nên không có đường nào dẫn tới tệp hay mạng.
+- **Tiền và thẻ run.** Một lời gọi có trả tiền cho model (`image_read`, hay `pdf_read` trên trang
+  scan) được tính riêng vào cuộc trò chuyện và vào run, như khi gọi trực tiếp. Model không đọc
+  các lời gọi của script, nên thẻ run liệt kê chúng dưới bước của script cho người xem: tên tool,
+  tham số rút gọn, thời gian, có lỗi không, giá nếu có, và phần đầu câu trả lời. Danh sách gấp
+  lại cho tới khi bấm mở, dưới một dòng như "Script đã gọi công cụ 12 lần · 1 lần lỗi". Một lời
+  gọi bị từ chối không nằm trong danh sách vì nó chưa chạy gì. Trên API đó là `calls` của step
+  tool trong `/api/activity/runs` và của sự kiện `tool_result`.
+- **Sau restart.** `tool_script` tự khai là gọi lại được: mọi thứ một script làm đều là lời gọi
+  vốn đã gọi lại được, nên script bị cắt giữa chừng được chạy lại từ đầu.
+
+Giới hạn nằm trong code, không cấu hình nào nới được:
+
+| Giới hạn | Mức |
+| --- | --- |
+| lời gọi tool trong một script | 25 |
+| độ dài mã script | 20.000 ký tự |
+| số bước tính toán | 2.000.000 |
+| CPU | 20 giây |
+| script tự chạy một mạch, không gọi tool và không kết thúc | 60 giây |
+| tổng thời gian, kể cả lúc chờ tool | 300 giây |
+| bộ nhớ đang giữ | 256 MB |
+| một giá trị | 8.000.000 phần tử hoặc ký tự |
+| đầu ra in ra | 60.000 ký tự |
+| tham số của một lời gọi tool | 100.000 ký tự |
+| hàm gọi lồng nhau | 40 tầng |
+| số nguyên | 256 bit |
+
+Chạm một giới hạn thì script dừng và không bắt được; câu trả lời gồm phần đã in kèm lý do, viết
+cho model biết phải làm khác đi thế nào ("Xử lý ít dữ liệu hơn hoặc bỏ vòng lặp thừa."). Riêng khi
+tiến trình con bị dừng từ bên ngoài (hết CPU, chạy một mạch quá 60 giây, hết tổng thời gian) hoặc
+tự chết thì phần đã in mất theo nó và chỉ còn lý do; các lời gọi đã chạy vẫn được ghi trên thẻ
+run.
+
+Vài điều chưa làm, nêu ra để không ai phải đoán:
+
+- Lời gọi trong script không đi qua bộ đếm bước và bộ phát hiện lặp của lượt; trần của chúng là 25
+  lời gọi mỗi script. Ngân sách của cuộc trò chuyện chỉ được xét giữa các lời gọi của chính lượt,
+  nên một script có thể tiêu quá ngân sách tối đa bằng 25 lời gọi của nó.
+- Câu trả lời dài của một tool trong script chỉ bị cắt, không được tóm tắt và không được giữ bản
+  gốc để đọc lại bằng `tool_output_read`.
+- Thẻ tool trong khung chat và bản xuất Markdown của một run không liệt kê lời gọi của script; thẻ
+  run và bản xuất JSON thì có. Thẻ run đang chạy chỉ cộng giá của các lời gọi đó khi lượt xong.
 
 ### Xác thực
 
@@ -787,12 +900,13 @@ Tên không có trong `config.yaml` là 404. Danh sách không bao giờ mang gi
   dõi như vậy trong chốc lát.
 - **Công cụ.** Tool MCP nằm trong bảng cùng các tool khác, kèm nhãn `MCP <máy chủ>` và mức mở.
   Ô của agent chưa bật máy chủ mang dấu `◇` ("agent chưa bật máy chủ MCP này"), không bao giờ
-  được giải thích bằng danh sách cho phép, khoá hay chế độ. `tool_search` có nhãn "đi kèm MCP";
-  ô của agent không giữ nó mang dấu `·` ("agent không có công cụ MCP nào phải tìm"). Bảng được
+  được giải thích bằng danh sách cho phép, khoá hay chế độ. `tool_search` và `tool_script` có
+  nhãn "đi kèm MCP"; ô của agent không giữ tool đó mang dấu `·` ("agent không có công cụ MCP
+  nào cần tới công cụ này"). Bảng được
   đọc lại mỗi lần mở mục này, và ngay khi danh sách tool của một máy chủ đổi trong lúc đang mở,
   nên nó luôn cho thấy ai đang giữ gì sau khi sửa một agent hay đăng xuất một máy chủ.
 - **Trình sửa agent.** Mục Công cụ có ô chọn máy chủ; danh sách cho phép ở trên nó không liệt kê
-  tool MCP và cũng không liệt kê `tool_search`.
+  tool MCP và cũng không liệt kê `tool_search` hay `tool_script`.
 
 ## Provider không cần khoá
 
@@ -824,9 +938,9 @@ những tool phần còn lại của đội vẫn dùng. `agents` là ai giữ n
 "cố vấn có thực sự sửa được tệp không"; `optional` đánh dấu tool chỉ tồn tại khi
 khoá hoặc tuyến của nó được cấu hình (`image_read`). Tool của một máy chủ MCP có thêm `server` và
 `exposure`, chỉ được liệt kê khi có agent bật máy chủ đó, và tool `hidden` không bao giờ có mặt
-(xem [Máy chủ MCP](#máy-chủ-mcp)). Dòng của `tool_search` mang `with_mcp: true`: agent giữ nó
-nhờ các tool MCP không khai sẵn, không nhờ danh sách cho phép (xem
-[Tìm và nạp tool](#tìm-và-nạp-tool)).
+(xem [Máy chủ MCP](#máy-chủ-mcp)). Dòng của `tool_search` và của `tool_script` mang
+`with_mcp: true`: agent giữ chúng nhờ các tool MCP của nó, không nhờ danh sách cho phép (xem
+[Tìm và nạp tool](#tìm-và-nạp-tool) và [Gọi tool từ script](#gọi-tool-từ-script)).
 
 Endpoint `/prompt` trả về system prompt đầy đủ như đã lắp cho agent (hữu ích để
 debug agent thấy gì, hoặc cho người dùng xem agent biết gì). Trường `opening` (kèm

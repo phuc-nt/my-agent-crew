@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FakeMcp, SIGN_IN_LOCAL_ONLY, authorizeUrl, mcpServer, mcpTool, searchTool, unknownServer } from "./fake-mcp";
+import { FakeMcp, SIGN_IN_LOCAL_ONLY, authorizeUrl, mcpServer, mcpTool, scriptTool, searchTool, unknownServer } from "./fake-mcp";
 
 type Listed = { servers: ReturnType<typeof mcpServer>[] };
 const list = (mcp: FakeMcp) => (mcp.route("/mcp", "GET")?.body as Listed).servers;
@@ -116,6 +116,65 @@ describe("the MCP routes both fakes answer", () => {
     expect(search).not.toHaveProperty("server");
     expect(rest.map((tool) => tool.name)).toEqual(["mcp__wiki__read", "mcp__notion__search", "mcp__tracker__list"]);
     expect(rest.every((tool) => !("with_mcp" in tool))).toBe(true);
+  });
+
+  it("lists the script tool for the agents with a tool that only reads and is opened for scripts", () => {
+    const reads = { requires_approval: false };
+    const tracker = mcpServer({
+      name: "tracker",
+      tools: [mcpTool("tracker", "list", { exposure: "codemode", ...reads }), mcpTool("tracker", "close", { exposure: "codemode" })],
+    });
+    // Neither of these opens a script: one asks first, the other is not opened for scripts.
+    const asks = mcpServer({ name: "wiki", tools: [mcpTool("wiki", "edit", { exposure: "codemode" })] });
+    const plain = mcpServer({ tools: [mcpTool("notion", "search", reads), mcpTool("notion", "fetch", { exposure: "direct", ...reads })] });
+    const mcp = new FakeMcp([asks, plain, tracker]);
+    let crew = [{ id: "default", mcp: ["wiki", "notion"] }, { id: "coach" }];
+    mcp.crew = () => crew;
+    const names = () => mcp.registryTools().map((tool) => tool.name);
+
+    expect(names()).toEqual(["tool_search", "mcp__wiki__edit", "mcp__notion__search", "mcp__notion__fetch"]);
+
+    crew = [{ id: "ledger", mcp: ["tracker"] }, { id: "default", mcp: ["wiki", "tracker"] }, { id: "coach", mcp: ["notion"] }];
+    const [search, script, ...rest] = mcp.registryTools();
+    expect(search).toEqual(searchTool(["coach", "default", "ledger"]));
+    // The coach can find tools and call none from a script.
+    expect(script).toEqual(scriptTool(["default", "ledger"]));
+    expect(script).toMatchObject({ name: "tool_script", with_mcp: true, requires_approval: false, optional: false });
+    expect(script).not.toHaveProperty("server");
+    expect(rest.map((tool) => tool.name)).toEqual([
+      "mcp__wiki__edit",
+      "mcp__notion__search",
+      "mcp__notion__fetch",
+      "mcp__tracker__list",
+      "mcp__tracker__close",
+    ]);
+    expect(rest.every((tool) => !("with_mcp" in tool))).toBe(true);
+  });
+
+  it("names who holds the script tool in the order of their names, whichever server opened it first", () => {
+    const opened = { exposure: "codemode", requires_approval: false } as const;
+    const mcp = new FakeMcp([
+      mcpServer({ name: "board", tools: [mcpTool("board", "read", opened)] }),
+      mcpServer({ name: "tracker", tools: [mcpTool("tracker", "list", opened)] }),
+    ]);
+    // The first server is the one the later name holds.
+    mcp.crew = () => [{ id: "ledger", mcp: ["board"] }, { id: "default", mcp: ["tracker"] }];
+
+    const [search, script] = mcp.registryTools();
+
+    expect(search).toEqual(searchTool(["default", "ledger"]));
+    expect(script).toEqual(scriptTool(["default", "ledger"]));
+  });
+
+  it("opens no script for a tool that is hidden, or for a server nobody uses", () => {
+    const hidden = mcpTool("notion", "purge", { exposure: "hidden", requires_approval: false });
+    const mcp = new FakeMcp([
+      mcpServer({ tools: [hidden, mcpTool("notion", "create-page", { exposure: "direct" })] }),
+      mcpServer({ name: "tracker", tools: [mcpTool("tracker", "list", { exposure: "codemode", requires_approval: false })] }),
+    ]);
+    mcp.crew = () => [{ id: "default", mcp: ["notion"] }];
+
+    expect(mcp.registryTools().map((tool) => tool.name)).toEqual(["mcp__notion__create_page"]);
   });
 
   it("refuses an agent's list that names a server the file does not declare", () => {

@@ -116,6 +116,37 @@ describe("RunCard", () => {
     expect(within(plain).queryByTestId("step-tool-cost")).toBeNull();
   });
 
+  it("lists what a script called under the step of the script, above what the script printed", () => {
+    const calls = [
+      { name: "mcp__notion__search", arguments: { query: "kế hoạch" }, ok: true, output: "3 trang", ms: 120, cost_usd: null, metered: false },
+      { name: "workspace_read", arguments: { path: "a.md" }, ok: false, output: "không có tệp", ms: 4, cost_usd: null, metered: false },
+    ];
+    const run = fakeRun({
+      steps: [
+        { kind: "tool", name: "tool_script", tool_call_id: "a", arguments: { script: "…" }, ok: true, output: "tìm được 3 trang", calls, duration_ms: 300 },
+        { kind: "tool", name: "workspace_read", tool_call_id: "b", arguments: {}, ok: true, output: "vừa", duration_ms: 10 },
+        { kind: "tool", name: "tool_script", tool_call_id: "c", arguments: {}, ok: true, output: "không gọi gì", calls: [], duration_ms: 10 },
+      ],
+    });
+    render(<RunCard run={run} agentName="HLV" expanded />);
+    const [script, plain, idle] = screen.getAllByTestId("run-step");
+
+    const list = within(script).getByTestId("script-calls");
+    expect(list.querySelector("summary")).toHaveTextContent(vi.scriptCalls(2, 1));
+    expect(within(list).getAllByTestId("script-call").map((row) => row.querySelector("code")?.textContent)).toEqual([
+      "mcp__notion__search",
+      "workspace_read",
+    ]);
+    // The row reads top to bottom: what the script was, what it did, what it said of it.
+    const after = (first: Element, second: Element) => first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING;
+    expect(after(script.querySelector(".tool-arguments")!, list)).toBeTruthy();
+    expect(after(list, within(script).getByRole("button", { name: vi.showOutput }))).toBeTruthy();
+    // A call the script made is no step of the run: three steps, three rows.
+    expect(screen.getAllByTestId("run-step")).toHaveLength(3);
+    expect(within(plain).queryByTestId("script-calls")).toBeNull();
+    expect(within(idle).queryByTestId("script-calls")).toBeNull();
+  });
+
   it("stops showing a step as running once its run has died under it", async () => {
     // The step is recorded open (`ok: null`) because it was open when the row
     // was written. The run then errored without ever closing it. Painting that

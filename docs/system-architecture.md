@@ -125,6 +125,9 @@ chúng qua streamable HTTP, và mỗi tool vào sổ đăng ký dưới tên `mc
 qua cùng cổng duyệt: mọi tool MCP hỏi trước khi chạy, trừ những tool chủ ghi là chỉ đọc. Mặc định
 chúng không được khai sẵn cho model: agent tìm bằng `tool_search`, tool tìm thấy được khai từ lời
 gọi model kế tiếp, và cái đã nạp được đọc lại từ chính hội thoại nên còn nguyên sau restart.
+Agent giữ một tool MCP chỉ đọc được mở cho script (`codemode`) thì có thêm `tool_script`: gói
+`script/` chạy đoạn script của model trong một tiến trình con, script gọi các tool chỉ đọc qua
+chính server, và chỉ phần nó in ra mới quay về model; từng lời gọi được ghi vào step của run.
 
 Chi tiết từng tool ở [tools.md](tools.md).
 

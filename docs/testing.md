@@ -4857,3 +4857,153 @@ giao `tool_search` để tìm bằng vài từ khoá; tool tìm thấy được 
   (trước đó nó đọc bảng `properties` như một schema, nên tham số tên `properties` làm lộ từ khoá
   của schema thành tên tham số). Một sửa đổi chỉ đổi con số độ sâu bị loại vì test đọc chính hằng
   số ấy. Sau đó tất cả đều bị test bắt.
+
+## Gọi tool từ script (`tool_script`)
+
+Agent giữ một tool MCP vừa nằm trong `read_only` vừa ở mức `codemode` được giao `tool_script`. Model
+viết một đoạn script ngắn; script chạy trong một tiến trình con, tự gọi các tool chỉ đọc, và chỉ
+những gì nó in ra mới quay về cho model ([tools.md](tools.md#gọi-tool-từ-script)).
+
+- **Ngôn ngữ: giống Python ở đâu, khác ở đâu**:
+  - pytest: `tests/test_script_language.py` (mỗi đoạn trong bảng in ra đúng điều Python in với cùng
+    những dòng ấy; mỗi chỗ cố ý khác Python là một dòng của bảng thứ hai; tool được gọi theo tên và
+    lời gọi có giá trị là chữ tool trả về; tham số gửi đi là thứ JSON chở được; câu trả lời là JSON
+    thì được dùng như dữ liệu; script rỗng không làm gì và không nói gì).
+- **Từ chối trước khi chạy và lỗi trong khi chạy**:
+  - pytest: `tests/test_script_refusals.py` (thứ không có trong ngôn ngữ bị từ chối trước khi dòng
+    nào chạy, kèm số dòng, và script bị từ chối không gọi tool nào; thuộc tính không bao giờ được
+    đọc hay gán; script Python không đọc nổi được nói bằng lời của Python, kể cả byte rỗng, biểu
+    thức lồng quá sâu, script nhiều tới mức Python bỏ cuộc và chữ không mã hoá được; cảnh báo của
+    Python không lọt ra ngoài và không làm script hỏng; tên của Python vươn ra ngoài dữ liệu thường
+    thì không có; lỗi dừng script ở đúng dòng với điều sai, giữ những gì đã in, và bắt được bằng
+    `except` theo tên Python đặt cho nó; Python hết bộ nhớ hay hết độ sâu thì script dừng ở dòng
+    đang chạy và `except` không bắt được; tool hỏng là lỗi script bắt được nhưng không mang tên lỗi
+    nào của Python; `raise`, `raise` trần và `finally` đi như Python; lời gọi script không được
+    phép làm dừng script dù nó viết gì, kể cả từ trong một hàm; gọi tool sai cách là lỗi và tool
+    không được hỏi).
+- **Giới hạn của một script**:
+  - pytest: `tests/test_script_limits.py` (vòng lặp vô tận bị dừng và những gì đã in được giữ; số
+    bước tính trên cả script, ghi một giá trị ra tốn một bước cho mỗi thứ trong nó; `range` dài
+    bằng số bước; không giá trị nào dài quá mức dù được tạo bằng cách nào, viết ra từng phần tử
+    cũng vậy, và phép lặp quá dài bị từ chối trước khi Python được nhờ làm; dict được trải ra dài
+    quá mức thì script dừng trước khi cái đứng sau chỗ trải được tính; dữ liệu được ghi ra sâu năm
+    mươi tầng và dài hai trăm nghìn thứ, dữ liệu chứa chính nó thì không bao giờ; in sáu mươi
+    nghìn ký tự rồi dừng tại dòng đã in, không bắt được; số nguyên 256 bit; hàm gọi lồng bốn mươi
+    tầng, độ sâu được trả lại khi lời gọi kết thúc theo cách nào đi nữa; hai mươi lăm lời gọi
+    tool, lời gọi hỏng vẫn tính còn lời gọi chưa gửi thì không; tham số dài tới đúng mức thì gửi,
+    thêm một ký tự thì không; JSON sâu quá sức Python là lỗi script sửa được; lỗi được kể trong hai
+    nghìn ký tự; không giá trị nào được ghi ra dài hơn mức đã tính cho nó; script bị dừng vì cái nó
+    đang giữ chứ không vì cái nó đã tạo, bộ nhớ được xem mỗi khi có thêm năm mươi nghìn ký tự hay
+    phần tử, mức là 256 MB không hơn một byte, cái có từ trước khi script chạy không tính, và cách
+    tạo giá trị nào cũng được đếm).
+- **Tiến trình con**:
+  - pytest: `tests/test_script_runner.py` (script chạy ở tiến trình khác còn lời gọi của nó được
+    trả lời ở tiến trình này; chữ đi và về giữ nguyên, câu trả lời dài hơn hẳn sức chứa của pipe
+    vẫn tới đủ, nửa cặp ký tự thành dấu hỏi ở cả hai chiều; tiến trình được báo script và số giây
+    CPU; vòng lặp vô tận dừng vì số bước, thứ số bước không thấy thì dừng vì giây CPU, giữ quá
+    nhiều thì dừng vì bộ nhớ; script gọi lồng hết mức vẫn đủ độ sâu của Python; tiến trình vốn bị
+    giữ ở mức CPU thấp hơn vẫn chạy; im lặng quá lâu thì bị giết, thời gian tool chạy không tính là
+    im lặng, và có một mức cho cả script; lượt bị huỷ không để lại tiến trình nào; tiến trình kết
+    thúc không trả lời, nói điều vô nghĩa, nói JSON không đúng thoả thuận, bị hệ thống dừng vì CPU
+    ngay sau khi im, bỏ đi khi câu trả lời dài còn trên đường, hay bỏ đi trước khi tool kịp trả
+    lời đều được kể đúng là thế, có ghi log kể cả khi lời cuối bị cắt giữa một chữ; tiến trình
+    mất cha thì dừng chứ không chạy tiếp;
+    dòng dài hơn mọi thứ script viết được thì không được đọc; stderr nhiều không làm nghẽn; tiến
+    trình không nhận gì của server: môi trường rỗng, và không module nào đứng cạnh gói chen vào
+    chỗ module của Python được; trên macOS sandbox chặn mạng, mọi tệp ghi và tiến trình thứ hai, và
+    không cho tiến trình biến thành một helper ngoài sandbox).
+  - pytest: `tests/test_shell_network_sandbox.py` (lệnh không mạng cũng không tra được dịch vụ của
+    một helper theo tên; luật ấy dùng chung cho sandbox của shell và của script).
+- **Tool `tool_script`: script gọi được gì, ghi lại gì, nói gì với model**:
+  - pytest: `tests/test_script_tool.py` (tool chỉ đọc và không hỏi ai thì script gọi được; bốn tool
+    nói thay agent thì không, dù cũng chỉ đọc; tool của máy chủ chỉ khi chủ vừa ghi `read_only` vừa
+    mở `codemode`; chỉ những gì script in ra mới quay về; tool của máy chủ được gọi bằng tên agent
+    giữ nó; mỗi lời gọi được giữ lại cho thẻ run, lời gọi trả tiền cho model mang giá của nó; hai
+    script cùng lúc mỗi cái giữ lời gọi của mình; lời gọi không được phép làm dừng script và nói
+    phải gọi thế nào thay, và được trả cho tiến trình con như một lời gọi hỏng chứ không như lời
+    tool nói; tên không có thì được trả danh sách tên gọi được; hook của agent được hỏi về từng
+    lời gọi; script gọi tool agent đang giữ lúc nó chạy; script nhận câu trả lời dài hơn hẳn một
+    lượt, dài quá thì cũng bị cắt; cái script in ra được cắt theo trần của agent mà vẫn giữ các
+    lời gọi; thiếu `script` thì không khởi động gì; script dài đúng mức thì chạy, dài hơn một chữ
+    thì không; `tool_script` không hỏi ai và được gọi lại sau restart; lời mô tả nêu tool nào gọi
+    được, mỗi tool của máy chủ một dòng với tham số theo tên và kiểu, ba mươi tool đầu và mười hai
+    tham số đầu, tham số có tên không phải một từ thường thì bỏ, schema hình gì cũng đọc được; tool
+    ngoài ba mươi cái được nêu vẫn gọi được).
+- **Ai được giao `tool_script`**:
+  - pytest: `tests/test_script_tool.py` (agent có tool mở cho script được giao nó, sau `tool_search`
+    và trước các tool của máy chủ, lời mô tả chỉ nêu tool script gọi được; không có gì mở cho script
+    thì không giao; agent không nêu máy chủ nào thì không giao; giao lại không lặp; hết tool mở cho
+    script thì thu về; script của agent đọc được tệp của agent và máy chủ của agent; lượt được uỷ
+    thác giữ bản sao danh sách tool lúc nó bắt đầu, còn script của nó chỉ gọi được cái agent đang
+    giữ), `tests/test_api_mcp.py` (agent có tool mở cho script giữ luôn `tool_script` trên API).
+- **Trong một lượt**:
+  - pytest: `tests/test_script_turns.py` (script chạy không hỏi ai và model chỉ đọc cái nó in; run
+    giữ từng lời gọi của script; step của tool mang `calls` và tính tiền những lời gọi có trả cho
+    model như khi gọi trực tiếp; model được khai `tool_script` chứ không được khai các tool nó gọi;
+    lời gọi không được phép không tới máy chủ và không hỏi ai; script hỏng báo cho model cái đã in
+    và lý do; script bị restart cắt ngang được chạy lại từ đầu), `tests/test_trajectory_redact.py`
+    (bí mật nằm trong lời gọi của script được che cùng phần còn lại của bản ghi).
+- **web: lời gọi của script trên thẻ run**:
+  - vitest: `components/script-calls.test.tsx` (dòng tóm tắt nói có bao nhiêu lời gọi, và bao nhiêu
+    lần lỗi chỉ khi có; danh sách gấp lại cho tới khi bấm và gấp lại ở lần bấm sau; mỗi lời gọi một
+    dòng theo thứ tự script gọi, cùng một lời gọi hai lần là hai dòng; mỗi dòng có tên, tham số và
+    thời gian; chỉ lời gọi lỗi mang dấu lỗi; lời gọi trả tiền cho model có giá, nói rõ khi không có
+    giá, lời gọi miễn phí thì không nói gì; hiện cái trả về cho script và không để dòng trống khi
+    không có gì; giá đứng giữa tham số và cái trả về), `components/activity-cards.test.tsx` (thẻ run
+    liệt kê lời gọi của script dưới bước của script, trên cái script in ra), `lib/run-rows.test.ts`
+    (script đã gọi gì đó thì không bao giờ bị gộp dòng, dù không in gì),
+    `state/activity-reducer.test.ts` (lời gọi của script được giữ trên step của script như server
+    lưu).
+  - Playwright: `script-calls.spec.ts` (lời gọi của script tới cùng kết quả và được liệt kê, gấp
+    lại, dưới bước của nó; run đọc lại từ server vẫn liệt kê, chữ của mỗi thời gian kết thúc ở mép
+    phải của dòng nên các thời gian thẳng hàng, danh sách đứng thẳng dưới tham số của bước, dòng mở
+    danh sách chỉ rộng bằng chữ của nó, và lời gọi đứng giữa tham số với cái script in ra; trên
+    điện thoại 390px dòng mở danh sách đủ lớn cho ngón tay, và danh sách vừa màn hình dù tên, tham
+    số hay câu trả lời dài tới đâu).
+- **web: `tool_script` ở bảng Công cụ và màn Kết nối**:
+  - vitest: `components/tools-matrix.test.tsx` (tool mở cho script được nói là tìm như các tool
+    khác và gọi được từ script khi nó chỉ đọc; chỉ agent có tool như thế giữ `tool_script`, dù nó
+    còn tìm được gì khác; ô đó không bị giải thích bằng danh sách cho phép, khoá hay chế độ; nó mang
+    cùng nhãn với `tool_search`, và lời giải thích của nhãn nói khi nào agent giữ mỗi cái; chú giải
+    có một dòng chung cho tool đi kèm MCP), `components/mcp-servers-card.test.tsx` (tool mở cho
+    script được nói còn cần gì nữa thì script mới gọi được), `test/fake-mcp.test.ts` (máy chủ giả
+    của test giao `tool_script` đúng luật của server: chỉ cho agent có tool chỉ đọc mở cho script,
+    nêu người giữ theo thứ tự tên dù máy chủ nào mở trước, không cho tool ẩn hay máy chủ không ai
+    dùng).
+  - Playwright: `mcp-servers.spec.ts` (bảng Công cụ có dòng `tool_script` với agent mà máy chủ của
+    nó mở một tool cho script).
+- Kiểm chứng đột biến: sáu trăm bốn mươi sáu sửa đổi ở server. Chín mươi ở chính tool (mở cho
+  script một tool hỏi trước, có lý do hỏi, không gọi lại được, hay một trong bốn tool nói thay
+  agent; mở tool của máy chủ thiếu `read_only` hay thiếu `codemode`; lời gọi không được phép không
+  làm dừng script, được ghi như một lời gọi, hay nói sai phải gọi thế nào thay; bỏ hook; không
+  giữ lời gọi, hay giữ sai thời gian, giá và kết quả của nó; đổi mức cắt câu trả lời, số tool và
+  số tham số lời mô tả nêu, độ dài script; đọc schema sai hình). Năm mươi lăm ở tiến trình con
+  (bỏ từng luật của sandbox, từng cờ khởi động, môi trường rỗng; đổi từng mức giây; kể sai vì sao
+  một tiến trình kết thúc; để tiến trình sống sau khi lượt bị huỷ; bỏ mức CPU, bộ đếm bộ nhớ hay
+  độ sâu của tiến trình con). Hai mươi bốn ở chỗ nối (giao `tool_script` khi không có gì mở cho
+  script, sau tool của máy chủ hay trước `tool_search`; script giữ danh sách tool lúc được giao
+  thay vì lúc chạy; bỏ `calls` khỏi step; tính tiền lời gọi miễn phí hay không tính lời gọi có
+  trả). Bốn trăm bảy mươi bảy ở mười một module của ngôn ngữ (cho qua từng thứ bị từ chối trước
+  khi chạy; đổi mỗi mức lên một và xuống một; bỏ từng chỗ đo và từng chỗ tính bước; đổi nghĩa
+  toán tử, hàm dựng sẵn và phương thức; đổi cách gán, bắt lỗi, `finally` và cách một giá trị
+  thành JSON).
+- Vòng đầu ở server sót một trăm linh sáu trên sáu trăm bốn mươi bốn: mười tám ở tool, tiến
+  trình con và chỗ nối, tám mươi tám ở ngôn ngữ (hai sửa đổi nữa được thêm sau đó). Mỗi cái được
+  thêm test, trừ ba điều kiện hoá ra không bao giờ quyết định gì và bị bỏ kèm chứng minh: một ở
+  `script/limits.py`, một ở `script/tool.py`, và `max(times, 0)` trong phép lặp ở
+  `script/operators.py`. Vòng ấy cũng cho thấy test đầu tiên cho "tiến trình bỏ đi trước khi nhận
+  câu trả lời" không thể hỏng; nó được thay bằng hai test cho hai thời điểm mà việc gửi thật sự
+  báo lỗi. Sau đó sáu trăm bốn mươi lăm bị test bắt. Cái còn lại là tương đương:
+  `outcome if outcome is not None else …` thành `outcome or …`, mà `Outcome` thì luôn được coi
+  là đúng.
+- Sáu mươi ba sửa đổi ở web. Năm mươi qua vitest (thẻ đang chạy bỏ hay cắt `calls`; dòng của
+  script bị gộp; danh sách không hiện, hiện khi rỗng, hay đứng sau cái script in ra; dòng tóm tắt
+  đếm sai; danh sách mở sẵn hay không đánh số; tên, dấu lỗi, thời gian, tham số, giá và câu trả
+  lời của từng lời gọi mất hay sai; máy chủ giả của test giao `tool_script` sai luật). Mười ba qua
+  Playwright: năm cái trong số trên lặp lại trong trình duyệt, tám cái ở CSS (cột của đầu dòng,
+  chỗ đứng của thời gian, vùng chạm trên điện thoại, chỗ xuống dòng của tên và của từng dòng,
+  cột của danh sách, bề rộng của dòng mở danh sách). Vòng đầu sót bốn: thứ tự tên người giữ
+  `tool_script` ở máy chủ giả, và ba cái ở CSS. Phép kiểm cũ đo hộp của thời gian, mà hộp vẫn
+  chạm mép phải khi cột bị đổi, nên giờ nó đo chỗ chữ kết thúc; chỗ danh sách đứng và bề rộng của
+  dòng mở danh sách thì trước đó chưa có phép kiểm nào. Sau khi thêm test, cả sáu mươi ba đều bị
+  bắt.

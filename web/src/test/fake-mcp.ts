@@ -60,6 +60,18 @@ export function searchTool(agents: string[]): RegistryTool {
   };
 }
 
+/** The row of `tool_script` (`script/tool.py`), held by `agents`. */
+export function scriptTool(agents: string[]): RegistryTool {
+  return {
+    name: "tool_script",
+    description: "Chạy một đoạn script Python ngắn để gọi nhiều công cụ chỉ đọc rồi tự lọc, gộp kết quả.",
+    requires_approval: false,
+    agents,
+    optional: false,
+    with_mcp: true,
+  };
+}
+
 export class FakeMcp {
   /** Set to the server's words to refuse the next sign-in; cleared once it has. */
   refuseSignIn: string | null = null;
@@ -80,13 +92,18 @@ export class FakeMcp {
 
   /** The rows GET /tools adds: a tool is listed once an agent holds it, and a hidden one
    *  is handed to nobody. An agent with a tool that is not declared up front holds the
-   *  search for it too (`mcp/handout.py`). */
+   *  search for it too, and one with a tool that only reads and is opened for scripts
+   *  holds the script tool as well (`mcp/handout.py`). */
   registryTools(): RegistryTool[] {
     const searching = new Set<string>();
+    const scripting = new Set<string>();
     const rows = this.servers.flatMap((server) => {
       const agents = this.usedBy(server.name, server.agents);
       const handed = server.tools.filter((tool) => tool.exposure !== "hidden");
       if (handed.some((tool) => tool.exposure !== "direct")) for (const agent of agents) searching.add(agent);
+      // A tool that asks first is never a script's to call, whatever it is opened as.
+      if (handed.some((tool) => tool.exposure === "codemode" && !tool.requires_approval))
+        for (const agent of agents) scripting.add(agent);
       return handed.map((tool) => ({
         name: tool.name,
         description: tool.description,
@@ -98,7 +115,11 @@ export class FakeMcp {
       }));
     });
     const held = rows.filter((row) => row.agents.length > 0);
-    return searching.size > 0 ? [searchTool([...searching].sort()), ...held] : held;
+    const companions = [
+      ...(searching.size > 0 ? [searchTool([...searching].sort())] : []),
+      ...(scripting.size > 0 ? [scriptTool([...scripting].sort())] : []),
+    ];
+    return [...companions, ...held];
   }
 
   /** The next reconnect of `name`, or the next read of the list after a key changed, finds it so. */
