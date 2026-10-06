@@ -1,10 +1,10 @@
-import { useCallback, useRef, type Dispatch, type MutableRefObject } from "react";
+import { useCallback, useState, type Dispatch, type MutableRefObject } from "react";
 import type { MessageCanvas } from "../api/artifact-types";
 import { api } from "../api/client";
 import type { AgentEvent } from "../api/types";
 import { vi } from "../i18n/vi";
 import { turnErrorText } from "../lib/error-text";
-import { newRequestId } from "../lib/request-id";
+import { sendNames, type SendNames, type SentName } from "../lib/send-names";
 import { settlement, type SendResult, type Settlement } from "../lib/send-result";
 import type { ThreadAction } from "../state/thread-reducer";
 
@@ -12,9 +12,6 @@ import type { ThreadAction } from "../state/thread-reducer";
  *  message that names the canvas alone, as the page's errors do, can be refused for nothing the
  *  person selected. */
 const hasSelection = (canvas?: MessageCanvas): boolean => canvas?.selection != null;
-
-/** A send the server was never heard to answer: it may have taken the message all the same. */
-type Unheard = { conversationId: string; text: string; name: string };
 
 /** What a send needs from the conversation it belongs to. */
 interface SendParts {
@@ -32,6 +29,9 @@ interface SendParts {
   ) => Promise<void>;
   /** The queueing POSTs still in flight, each cut when the conversation is left. */
   queueing: MutableRefObject<Set<AbortController>>;
+  /** The names the sends go out under, when the caller follows what becomes of the turns
+   *  they may have started. Left out, the hook keeps its own. */
+  names?: SendNames;
 }
 
 /**
@@ -39,22 +39,19 @@ interface SendParts {
  * that, and what the caller has to decide — are the words spent, or do they go back where
  * they were typed — is known by then.
  */
-export function useThreadSend({ conversationId, busy, dispatch, runTurn, queueing }: SendParts) {
-  // The last send that failed with nothing heard. The same words sent again to the same
-  // conversation go under the same name, so a message that did arrive is not said twice:
-  // the server answers with what became of it. Any other send is a new one.
-  const unheard = useRef<Unheard | null>(null);
-  const nameFor = useCallback((id: string, text: string) => {
-    const last = unheard.current;
-    unheard.current = null;
-    return last !== null && last.conversationId === id && last.text === text ? last.name : newRequestId();
-  }, []);
+export function useThreadSend({ conversationId, busy, dispatch, runTurn, queueing, names: given }: SendParts) {
+  // A send that failed with nothing heard may have been taken all the same. The same words
+  // sent again to the same conversation go under the same name, so a message that did arrive
+  // is not said twice: the server answers with what became of it. `SendNames` says for how
+  // long the name is kept.
+  const [own] = useState(sendNames);
+  const names = given ?? own;
 
   /** This tab's own stream is running: a second POST joins the queue behind it without ever
    *  touching `runTurn`, `abortRef` or `turns` — the turn already on screen must keep
    *  receiving events and stay abortable by Stop exactly as if this send had not happened. */
   const queueBehindTurn = useCallback(
-    async (id: string, text: string, name: string, answer: Settlement, canvas?: MessageCanvas) => {
+    async (id: string, text: string, sent: SentName, answer: Settlement, canvas?: MessageCanvas) => {
       const controller = new AbortController();
       queueing.current.add(controller);
       try {
@@ -70,11 +67,11 @@ export function useThreadSend({ conversationId, busy, dispatch, runTurn, queuein
           },
           controller.signal,
           canvas,
-          name,
+          sent.name,
         );
       } catch (error) {
         if (controller.signal.aborted) return;
-        if (!answer.done) unheard.current = { conversationId: id, text, name };
+        if (!answer.done) names.keep(id, text, sent);
         // `queue_failed` only sets the notice, leaving `busy`, `streaming` and `items` exactly
         // as the running stream left them. The notice is worded as for any other send: the
         // server's own sentence when it wrote one, as a full queue does, and ours for what a
@@ -88,14 +85,14 @@ export function useThreadSend({ conversationId, busy, dispatch, runTurn, queuein
         queueing.current.delete(controller);
       }
     },
-    [dispatch, queueing],
+    [dispatch, queueing, names],
   );
 
   /** This tab believes the conversation is idle. It may still be busy somewhere this tab
    *  cannot see — another tab, a job, the schedule — in which case the server queues the
    *  message and this stream's only event is `queued`. */
   const startTurn = useCallback(
-    async (id: string, text: string, name: string, answer: Settlement, canvas?: MessageCanvas) => {
+    async (id: string, text: string, sent: SentName, answer: Settlement, canvas?: MessageCanvas) => {
       dispatch({ type: "user_sent", text });
       const describe = (error: unknown) => turnErrorText(error, hasSelection(canvas));
       // The message was put in line: this stream reads no turn, and has said all it had to.
@@ -118,7 +115,7 @@ export function useThreadSend({ conversationId, busy, dispatch, runTurn, queuein
               },
               signal,
               canvas,
-              name,
+              sent.name,
             );
           } catch (error) {
             // Nothing the server said has reached this tab, so the message may never have got
@@ -128,7 +125,7 @@ export function useThreadSend({ conversationId, busy, dispatch, runTurn, queuein
             if (!signal.aborted && !answer.done) {
               dispatch({ type: "user_unsent", text });
               answer.failed(error);
-              unheard.current = { conversationId: id, text, name };
+              names.keep(id, text, sent);
             }
             throw error;
           } finally {
@@ -139,7 +136,7 @@ export function useThreadSend({ conversationId, busy, dispatch, runTurn, queuein
         () => inLine,
       );
     },
-    [dispatch, runTurn],
+    [dispatch, runTurn, names],
   );
 
   return useCallback(
@@ -147,9 +144,9 @@ export function useThreadSend({ conversationId, busy, dispatch, runTurn, queuein
       if (!conversationId) return Promise.resolve({ status: "failed", error: vi.sendFailed.other });
       const answer = settlement(hasSelection(canvas));
       const go = busy ? queueBehindTurn : startTurn;
-      void go(conversationId, text, nameFor(conversationId, text), answer, canvas);
+      void go(conversationId, text, names.take(conversationId, text, busy), answer, canvas);
       return answer.promise;
     },
-    [conversationId, busy, queueBehindTurn, startTurn, nameFor],
+    [conversationId, busy, queueBehindTurn, startTurn, names],
   );
 }

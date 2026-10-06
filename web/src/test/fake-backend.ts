@@ -861,6 +861,22 @@ export class FakeBackend {
     return said([{ type: "queued", item_id: item.id, kind: item.kind, position: queue.length }]);
   }
 
+  /** Hands the messages waiting in the conversation to the turn that runs them, as the
+   *  server does once the turn they waited behind is over: they are stored as one message,
+   *  and each name they were sent under is one the server has taken. The turn itself is the
+   *  test's to serve. */
+  drain(conversationId: string): void {
+    const c = this.conversations.get(conversationId)!;
+    const waiting = this.queues.get(conversationId) ?? [];
+    this.queues.set(conversationId, []);
+    c.queued = [];
+    if (waiting.length === 0) return;
+    const names = waiting.flatMap((item) => this.queuedAs.get(item.id) ?? []);
+    for (const item of waiting) this.queuedAs.delete(item.id);
+    this.taken.set(conversationId, new Set([...(this.taken.get(conversationId) ?? []), ...names]));
+    c.messages.push(storedMessage("user", waiting.map((item) => item.text).join("\n\n")));
+  }
+
   /** What a send gets when the server took one of the same `request_id` before: its place in
    *  line again while the message waits, else the conversation as it stands and the turn
    *  `serveTurn()` has going there, if any. Null for a send the server has not seen. */

@@ -1,6 +1,14 @@
 import type { AgentEvent } from "../api/types";
 
 /**
+ * Whether `event` says its turn is over for good: it finished, gave up, or broke. A turn that
+ * stopped to wait on the person is not over, since an answer takes it up again.
+ */
+export function turnOver(event: AgentEvent): boolean {
+  return event.type === "done" || event.type === "halted" || event.type === "error";
+}
+
+/**
  * Whether `event` is the last a turn says on a stream that reads it: the turn finished, gave
  * up, broke, or stopped to wait on the person. A stream that closes without one says nothing
  * of its turn — the server was told to go, or the turn was stopped elsewhere.
@@ -9,5 +17,5 @@ import type { AgentEvent } from "../api/types";
  * not given, and a server on its way out says it of a turn the next server carries on.
  */
 export function endsTurn(event: AgentEvent): boolean {
-  return event.type === "done" || event.type === "halted" || event.type === "error" || event.type === "approval_required";
+  return turnOver(event) || event.type === "approval_required";
 }

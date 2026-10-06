@@ -3,8 +3,10 @@ import type { MessageCanvas } from "../api/artifact-types";
 import { api, ApiError } from "../api/client";
 import type { AgentEvent, ConversationDetail, StopResult } from "../api/types";
 import { turnErrorText } from "../lib/error-text";
+import { sendNames } from "../lib/send-names";
 import type { SendResult } from "../lib/send-result";
-import { endsTurn } from "../lib/turn-end";
+import { endsTurn, turnOver } from "../lib/turn-end";
+import { type ActivityState, liveRuns } from "../state/activity-reducer";
 import { emptyThread, threadReducer, type ThreadState } from "../state/thread-reducer";
 import { useThreadSend } from "./use-thread-send";
 
@@ -53,8 +55,10 @@ export interface ThreadController {
   stops: number;
 }
 
-/** Owns one conversation: loads its history, streams turns, resolves approvals. */
-export function useThread(conversationId: string | null): ThreadController {
+/** Owns one conversation: loads its history, streams turns, resolves approvals. `activity`
+ *  holds the runs known to be going, which tell a send that was not heard back whether the
+ *  turn it may have started is over. */
+export function useThread(conversationId: string | null, activity?: ActivityState): ThreadController {
   const [state, dispatch] = useReducer(threadReducer, emptyThread);
   const [detail, setDetail] = useState<ConversationDetail | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -75,6 +79,12 @@ export function useThread(conversationId: string | null): ThreadController {
   // A fresh object each time a conversation is opened: whatever answers for an opening
   // that is no longer the one on screen belongs to a thread the person has left.
   const opened = useRef<{ id: string | null }>({ id: null });
+  // The names this tab's sends go out under. One the server may have taken is kept while the
+  // turn it may have got is open, which the runs going and the streams read here tell.
+  const [names] = useState(sendNames);
+  useEffect(() => {
+    names.going(activity ? liveRuns(activity) : []);
+  }, [names, activity]);
 
   const reload = useCallback(async () => {
     if (!conversationId) {
@@ -117,15 +127,20 @@ export function useThread(conversationId: string | null): ThreadController {
   }, [owed, state.busy, reload]);
   const reloadWhenIdle = useCallback(() => setOwed(true), []);
 
-  const onEvent = useCallback((event: AgentEvent) => {
-    if (event.type === "watching") {
-      // The server hands over the conversation as it is stored now: a load still on its
-      // way is older than that, and loads again once the turn is over.
-      turns.current += 1;
-      setDetail(event.detail);
-    }
-    dispatch({ type: "event", event });
-  }, []);
+  const onEvent = useCallback(
+    (event: AgentEvent) => {
+      if (event.type === "watching") {
+        // The server hands over the conversation as it is stored now: a load still on its
+        // way is older than that, and loads again once the turn is over.
+        turns.current += 1;
+        setDetail(event.detail);
+      }
+      // A stream is read only while its conversation is the one open: leaving cuts it.
+      if (turnOver(event) && opened.current.id) names.ended(opened.current.id);
+      dispatch({ type: "event", event });
+    },
+    [names],
+  );
 
   /** Runs a turn on a stream this tab starts. `turnless` is asked once the stream has closed,
    *  and says the server answered with no turn on it: the message was only put in line, or
@@ -203,7 +218,7 @@ export function useThread(conversationId: string | null): ThreadController {
     [runTurn, reload],
   );
 
-  const send = useThreadSend({ conversationId, busy: state.busy, dispatch, runTurn, queueing: queueingRef });
+  const send = useThreadSend({ conversationId, busy: state.busy, dispatch, runTurn, queueing: queueingRef, names });
 
   const decide = useCallback(
     async (approve: boolean, always = false) => {
