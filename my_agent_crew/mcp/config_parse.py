@@ -17,7 +17,11 @@ from my_agent_crew.mcp.config import (
 )
 
 MAX_TIMEOUT = 600.0
-NAME_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,31}")
+MAX_NAME_CHARS = 32
+# Runs of letters and digits, set apart by one - or _ at a time. A tool is known here as
+# `mcp__<server>__<tool>`: a name with two marks together, or one at its end, could be read
+# as another server's name and the start of its tool's.
+NAME_RE = re.compile(r"[A-Za-z0-9]+(?:[_-][A-Za-z0-9]+)*")
 HEADER_RE = re.compile(r"[A-Za-z0-9-]{1,64}")
 # Headers the client writes itself; one set from the file would break the protocol.
 OWN_HEADERS = frozenset(
@@ -36,6 +40,13 @@ def _url(name: str, raw: Any) -> str:
     if not isinstance(raw, str) or not raw.strip():
         raise _fail(name, "url is required")
     url = raw.strip()
+    if "${" in url:
+        # Not said back: what stands there may be the key itself, put where a name was meant.
+        raise _fail(
+            name,
+            "url is used as written, and shown as written: only a header's value is read "
+            "from the environment",
+        )
     try:
         parts = urlsplit(url)
         host = parts.hostname
@@ -100,9 +111,11 @@ def _timeout(name: str, raw: Any) -> float:
 
 
 def parse_server(name: str, raw: Any) -> McpServer:
-    if not NAME_RE.fullmatch(name):
+    if len(name) > MAX_NAME_CHARS or not NAME_RE.fullmatch(name):
         raise _fail(
-            name, "a name is letters, digits, - and _, at most 32, starting with none of - _"
+            name,
+            "a name is letters and digits, with a single - or _ between them where wanted, "
+            f"at most {MAX_NAME_CHARS}",
         )
     if not isinstance(raw, dict):
         raise _fail(name, "must be a mapping with at least a url")

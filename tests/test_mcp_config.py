@@ -21,6 +21,7 @@ from my_agent_crew.mcp.config import (
     matches,
 )
 from my_agent_crew.mcp.config_parse import parse_servers
+from my_agent_crew.mcp.tools import tool_name
 
 URL = "https://mcp.notion.com/mcp"
 
@@ -136,6 +137,11 @@ def test_a_header_whose_variable_is_unset_or_empty_is_named_not_sent_blank():
         ({"url": "https://mcp.notion.com/mcp#frag"}, "plain address"),
         ({"url": "https:///mcp"}, "plain address"),
         ({"url": "https://[::1/mcp"}, "does not parse"),
+        # Sent as written, the server would be handed the five letters and not the key.
+        ({"url": "https://mcp.notion.com/mcp?key=${NOTION_KEY}"}, "url is used as written"),
+        ({"url": "https://mcp.notion.com/${TEAM}/mcp"}, "url is used as written"),
+        ({"url": "https://${MCP_HOST}/mcp"}, "url is used as written"),
+        ({"url": "https://mcp.notion.com/mcp?key=${"}, "url is used as written"),
         # A key written into the file is a key in a backup, a diff and a screenshot.
         ({"headers": {"Authorization": "Bearer sk-live-123"}}, "from the environment"),
         ({"headers": {"Authorization": ""}}, "from the environment"),
@@ -173,10 +179,87 @@ def test_plain_http_is_allowed_only_for_a_server_on_this_machine(host):
         parse_servers({"lan": {"url": "http://192.168.1.20:3000/mcp"}})
 
 
-@pytest.mark.parametrize("name", ["", "-notion", "_notion", "no tion", "n" * 33, "nốt"])
+def test_an_address_is_kept_as_it_is_written_whatever_else_it_holds():
+    """A query, a port and a `$` that names no variable are the server's own business."""
+    for url in (f"{URL}?team=7&view=all", "https://mcp.notion.com:8443/v1/mcp", f"{URL}?price=$5"):
+        assert one(url=url).url == url
+    assert one(url=f"  {URL}\n").url == URL
+
+
+def test_an_address_that_names_a_variable_is_refused_without_being_repeated():
+    """What was written there may be the key itself, put where a name was meant."""
+    with pytest.raises(ValueError) as failure:
+        parse_servers({"notion": {"url": f"{URL}?key=${{sk-live-123}}"}})
+
+    said = str(failure.value)
+    assert said.startswith("config.yaml: mcp_servers.notion: url is used as written")
+    assert "only a header" in said and "sk-live" not in said and "mcp.notion.com" not in said
+    # Before anything else is looked at: an address that does not parse is said back whole.
+    with pytest.raises(ValueError, match="url is used as written") as unread:
+        parse_servers({"notion": {"url": "https://[::1/mcp?key=${sk-live-123}"}})
+    assert "sk-live" not in str(unread.value)
+
+
+NAME_RULE = "a name is letters and digits"
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "",
+        "-notion",
+        "_notion",
+        "no tion",
+        "n" * 33,
+        "nốt",
+        # Each of these could be read as another server's name and the start of its tool's.
+        "work__crm",
+        "work--crm",
+        "work-_crm",
+        "work_-crm",
+        "work_",
+        "work-",
+        "a_b__c",
+        "a__",
+    ],
+)
 def test_a_servers_name_is_one_a_tool_and_a_variable_can_be_named_after(name):
-    with pytest.raises(ValueError, match="a name is letters, digits"):
+    with pytest.raises(ValueError, match=NAME_RULE):
         parse_servers({name: {"url": URL}})
+
+
+@pytest.mark.parametrize("name", ["notion", "my-notes", "a_b", "a-b_c-d", "N2", "7", "n" * 32])
+def test_a_name_in_runs_of_letters_and_digits_set_apart_one_mark_at_a_time_is_taken(name):
+    [server] = parse_servers({name: {"url": URL}})
+
+    assert server.name == name
+
+
+def test_a_name_too_long_is_refused_however_it_is_made_up():
+    """The length is its own rule: thirty-two letters, marks counted."""
+    assert parse_servers({"a-" * 15 + "ab": {"url": URL}})[0].name == "a-" * 15 + "ab"
+    with pytest.raises(ValueError, match=NAME_RULE):
+        parse_servers({"a-" * 16 + "a": {"url": URL}})
+
+
+@pytest.mark.parametrize(
+    ("first", "its_tool", "second", "other_tool"),
+    [
+        ("work", "crm__delete", "work__crm", "delete"),
+        ("work", "_delete", "work_", "delete"),
+        ("work", "_delete", "work-", "delete"),
+        ("work", "crm__delete", "work-_crm", "delete"),
+    ],
+)
+def test_no_two_servers_the_file_takes_come_to_one_tool_name(first, its_tool, second, other_tool):
+    """A tool is `mcp__<server>__<tool>` here, and what the owner allowed for good is kept
+    under that name. Two servers that came to one name would each run on the other's leave,
+    so a name that could be read two ways is not taken."""
+    assert tool_name(first, its_tool) == tool_name(second, other_tool)
+
+    assert parse_servers({first: {"url": URL}})[0].name == first
+    with pytest.raises(ValueError, match=f"mcp_servers.{second}: {NAME_RULE}"):
+        parse_servers({first: {"url": URL}, second: {"url": URL}})
 
 
 @pytest.mark.parametrize("raw", [["notion"], "notion", {"notion": URL}, {"notion": None}])

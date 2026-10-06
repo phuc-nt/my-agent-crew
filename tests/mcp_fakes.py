@@ -58,6 +58,12 @@ def server(name: str = "notion", **settings: Any) -> McpServer:
     return parse_server(name, {"url": MCP_URL, **settings})
 
 
+def unparsed(name: str) -> McpServer:
+    """A server under a name the file would not take: for what holds should one ever be
+    there all the same."""
+    return McpServer(name=name, url=MCP_URL)
+
+
 @dataclass
 class Seen:
     headers: dict[str, str]

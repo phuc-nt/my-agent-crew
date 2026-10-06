@@ -24,7 +24,7 @@ from my_agent_crew.mcp.tokens import TokenStore
 from my_agent_crew.mcp.tools import McpTool, build_tools, render, tool_name
 from my_agent_crew.texts import TOOL_FAILED
 from my_agent_crew.tools.registry import ToolRegistry
-from tests.mcp_fakes import CREATE, SEARCH, TOOLS, FakeMcp, make_hub, public, server
+from tests.mcp_fakes import CREATE, SEARCH, TOOLS, FakeMcp, make_hub, public, server, unparsed
 
 SEARCH_NAME, CREATE_NAME = "mcp__notion__search", "mcp__notion__create_page"
 
@@ -333,9 +333,11 @@ async def test_an_agent_holds_only_the_tools_of_the_servers_its_profile_names(de
 
 
 async def test_two_servers_whose_tools_come_to_one_name_give_the_agent_the_first(deps_factory):
-    """`a` with a tool `b__c` and `a__b` with a tool `c` are both mcp__a__b__c."""
+    """`a` with a tool `b__c` and `a__b` with a tool `c` are both mcp__a__b__c. The file
+    takes no such pair of names; were one ever there, neither tool would stand in for the
+    other."""
     fake = FakeMcp([{"name": "b__c"}, {"name": "c"}])
-    hub = await connected(fake, server("a"), server("a__b"))
+    hub = await connected(fake, server("a"), unparsed("a__b"))
     deps = deps_factory()
     deps.profile = replace(deps.agent, mcp=("a", "a__b"))
 

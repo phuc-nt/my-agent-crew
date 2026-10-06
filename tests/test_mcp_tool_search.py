@@ -24,7 +24,7 @@ from my_agent_crew.mcp.tool_search import (
 from my_agent_crew.mcp.tools import McpTool, build_tools
 from my_agent_crew.texts import TOOL_FAILED
 from my_agent_crew.tools.registry import ToolRegistry
-from tests.mcp_fakes import CREATE, SEARCH, TOOLS, FakeMcp, make_hub, server
+from tests.mcp_fakes import CREATE, SEARCH, TOOLS, FakeMcp, make_hub, server, unparsed
 
 SEARCH_NAME, CREATE_NAME = "mcp__notion__search", "mcp__notion__create_page"
 
@@ -411,7 +411,7 @@ async def test_the_search_speaks_of_each_server_with_tools_held_back(deps_factor
 async def test_two_servers_that_come_to_one_name_are_searched_as_they_are_held(deps_factory):
     fake = FakeMcp([{"name": "b__c", "description": "Fold."}, {"name": "c", "description": "Cut."}])
     deps, _, _ = await handed(
-        deps_factory, server("a"), server("a__b"), mcp=("a", "a__b"), fake=fake
+        deps_factory, server("a"), unparsed("a__b"), mcp=("a", "a__b"), fake=fake
     )
 
     found = await deps.tools.execute(SEARCH_TOOL, {"query": "fold"})
