@@ -48,18 +48,16 @@ function waitRanOut(reply: string): boolean {
   return (first.startsWith(LEFT_OUT) ? second : first).startsWith(WAIT_RAN_OUT);
 }
 
-// A script that was stopped where it stood fails with whatever it had printed and then, on
-// a line of its own, where it was stopped and why (`script/tool.py`). So the sentence does
-// not open the reply: it is its last line, and a script may print the same words on any line
-// before it. The sentence is `texts_script.SCRIPT_HALTED`, as far as its fixed words go; the
-// number of the line follows them, then a colon and the reason, which is one line long.
+// A script that did not run to its end fails with whatever it had printed and then why it
+// ended, and a script prints what it likes: nothing in that tells it from one that ran well.
+// So the tool says it on a line of its own before anything else (`script/tool.py`), and that
+// line is read here, for that tool alone. Each is a one-line constant the Python tests read
+// (`tests/test_tool_reply_script_failed.py`).
 const SCRIPT = "tool_script";
-const SCRIPT_HALTED = "Dừng ở dòng ";
-const LINE_AND_REASON = /^\d+: /;
+const SCRIPT_FAILED = "Script không chạy xong.";
 
-function scriptHalted(reply: string): boolean {
-  const last = reply.slice(reply.lastIndexOf("\n") + 1);
-  return last.startsWith(SCRIPT_HALTED) && LINE_AND_REASON.test(last.slice(SCRIPT_HALTED.length));
+function scriptFailed(reply: string): boolean {
+  return reply === SCRIPT_FAILED || reply.startsWith(`${SCRIPT_FAILED}\n`);
 }
 
 export const isDenied = (reply: string): boolean => reply.startsWith(DENIED);
@@ -68,6 +66,6 @@ export const isDenied = (reply: string): boolean => reply.startsWith(DENIED);
 export function storedStatus(name: string, reply: string): "denied" | "failed" | "done" {
   if (isDenied(reply)) return "denied";
   if (name === DELEGATE && waitRanOut(reply)) return "failed";
-  if (name === SCRIPT && scriptHalted(reply)) return "failed";
+  if (name === SCRIPT && scriptFailed(reply)) return "failed";
   return FAILED.some((opening) => reply.startsWith(opening)) ? "failed" : "done";
 }

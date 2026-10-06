@@ -458,7 +458,16 @@ tên một test thì sửa dòng của nó trong cùng commit.
     đủ chip canvas, cả khi câu báo đứng sau dòng đếm canvas bị lược lẫn ở dạng đã lưu trước khi
     kết quả có dòng canvas; "is not …": agent con dừng dở, agent con tự viết lại đúng câu đó, kết
     quả `done` hay `blocked`, câu đứng một mình không có kết quả phía trên, câu bị trích lại ở
-    giữa một đoạn, hay câu đứng sau một đoạn chỉ chứa `(+` ở giữa chữ thì thẻ là `done`)
+    giữa một đoạn, hay câu đứng sau một đoạn chỉ chứa `(+` ở giữa chữ thì thẻ là `done`) và nhóm
+    "a script that did not run to its end, read back from the stored thread" ("is failed, as it
+    was when it arrived, when it was …": kết quả `tool_script` mở bằng dòng "Script không chạy
+    xong." là `failed` như lúc nó tới, dù script bị dừng ở một lời gọi không được phép, dừng sau
+    khi đã in, chạm giới hạn, gặp lỗi không bắt, lỗi dài nhiều dòng, không đọc được, bị từ chối
+    trước khi chạy, hết thời gian, hay không còn gì theo sau; "is not a script that …": script
+    chạy xong mà in lại câu báo dừng, một số dòng kèm lý do, một lỗi nó đã bắt, hay in dòng mở
+    đầu ở dưới, ở cuối, có chữ nối tiếp trên cùng dòng, viết hoa hoặc sau một khoảng trắng thì
+    thẻ là `done`; "is not a reply of … that opens the same way": cùng lời đáp dưới tool khác là
+    `done`)
   - pytest: `tests/test_tool_reply_openings.py` (mỗi lời mở web dùng trong
     `web/src/lib/tool-reply.ts` đúng là phần chữ cố định của chuỗi server tương ứng, tính tới giá
     trị đầu tiên server điền vào, hoặc là cả câu khi câu không điền gì: `DENIED_TOOL` và
@@ -474,7 +483,12 @@ tên một test thì sửa dòng của nó trong cùng commit.
     gian chờ khớp tên tool, giá trị `outcome` và phần chữ cố định của `DELEGATE_TIMEOUT`,
     `DELEGATE_CANVAS_MORE`; kết quả `timed_out` là `ok=False` với câu báo đứng đầu thân hoặc ngay
     sau dòng đếm canvas bị lược; một lượt thật lưu đúng kết quả đó dưới tên tool; agent con dừng
-    dở thì `ok=True` và thân mở bằng `DELEGATE_UNFINISHED`, không phải câu web đọc)
+    dở thì `ok=True` và thân mở bằng `DELEGATE_UNFINISHED`, không phải câu web đọc);
+    `tests/test_tool_reply_script_failed.py` (hai hằng web dùng để nhận ra một script không chạy
+    xong khớp tên tool và `SCRIPT_FAILED`, câu đó không điền gì, nằm trên một dòng và không mở
+    giống lời mở nào khác; một lượt thật lưu kết quả của script bị dừng, gặp lỗi, không đọc được
+    hay bị từ chối dưới tên tool với đúng dòng đó ở đầu rồi mới tới phần còn lại; script chạy
+    xong thì không có dòng đó)
 - **Sự kiện của luồng mà bản web đang chạy chưa biết thì bị bỏ qua, thread không vỡ**
   - vitest: `state/thread-reducer.test.ts` nhóm
     "threadReducer on an event of a kind this build does not know" (server mới hơn bundle gửi một
@@ -5020,7 +5034,10 @@ những gì nó in ra mới quay về cho model ([tools.md](tools.md#gọi-tool-
     lời gọi; script gọi tool agent đang giữ lúc nó chạy; script nhận câu trả lời dài hơn hẳn một
     lượt, dài quá thì cũng bị cắt; cái script in ra được cắt theo trần của agent mà vẫn giữ các
     lời gọi; thiếu `script` thì không khởi động gì; script dài đúng mức thì chạy, dài hơn một chữ
-    thì không; `tool_script` không hỏi ai và được gọi lại sau restart; lời mô tả nêu tool nào gọi
+    thì không; script không chạy xong, dù bị dừng, gặp lỗi, không đọc được, bị từ chối, hết giờ,
+    hết CPU hay tiến trình con chết, đều nói "Script không chạy xong." trên một dòng riêng trước
+    mọi thứ khác, còn script chạy xong thì không, kể cả khi chính nó in câu đó;
+    `tool_script` không hỏi ai và được gọi lại sau restart; lời mô tả nêu tool nào gọi
     được, mỗi tool của máy chủ một dòng với tham số theo tên và kiểu, ba mươi tool đầu và mười hai
     tham số đầu, tham số có tên không phải một từ thường thì bỏ, schema hình gì cũng đọc được; tool
     ngoài ba mươi cái được nêu vẫn gọi được).
@@ -5091,6 +5108,15 @@ những gì nó in ra mới quay về cho model ([tools.md](tools.md#gọi-tool-
   báo lỗi. Sau đó sáu trăm bốn mươi lăm bị test bắt. Cái còn lại là tương đương:
   `outcome if outcome is not None else …` thành `outcome or …`, mà `Outcome` thì luôn được coi
   là đúng.
+- Dòng mở đầu của script không chạy xong: hai mươi sáu sửa đổi, đều bị bắt. Tám ở server (không
+  bao giờ nói; nói cả với script chạy xong; nói với mọi script; chỉ nói khi có lý do; nói ở
+  cuối; nói chung dòng với phần theo sau; để hở một dòng khi không có gì theo sau; nói thay cho
+  phần còn lại). Mười hai ở web qua vitest (không đọc; đọc với mọi tool; đọc với mọi tool trừ
+  `tool_script`; đọc ở bất kỳ dòng nào; đọc cả ở dòng cuối; đọc khi còn chữ trên cùng dòng;
+  không đọc khi không có gì theo sau; chỉ đọc khi không có gì theo sau; bỏ qua khoảng trắng
+  đứng trước; không phân biệt hoa thường; đổi câu; đổi tên tool). Sáu ở chỗ hai bên phải khớp
+  nhau (web đọc câu khác hay tool khác; server nói câu khác, không nói, nói với script chạy
+  xong, nói ở cuối).
 - Sáu mươi ba sửa đổi ở web. Năm mươi qua vitest (thẻ đang chạy bỏ hay cắt `calls`; dòng của
   script bị gộp; danh sách không hiện, hiện khi rỗng, hay đứng sau cái script in ra; dòng tóm tắt
   đếm sai; danh sách mở sẵn hay không đánh số; tên, dấu lỗi, thời gian, tham số, giá và câu trả

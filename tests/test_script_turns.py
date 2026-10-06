@@ -196,7 +196,8 @@ async def test_a_call_a_script_may_not_make_never_reaches_the_server_and_asks_no
 
     result = the_result(events)
     reason = t.SCRIPT_ASKS_FIRST.format(name=CREATE_NAME, instead=t.SCRIPT_LOAD_THEN_CALL)
-    refused = "trước\n" + t.SCRIPT_HALTED.format(line=2, reason=reason)
+    halted = t.SCRIPT_HALTED.format(line=2, reason=reason)
+    refused = f"{t.SCRIPT_FAILED}\ntrước\n{halted}"
     assert (result["name"], result["ok"], result["output"]) == (SCRIPT_TOOL, False, refused)
     assert result["calls"] == []
     assert history(app)[-2] == ("tool", refused)
@@ -215,8 +216,9 @@ async def test_a_script_that_fails_tells_the_model_what_it_printed_and_why(serve
     result = the_result(await say(app))
 
     why = t.SCRIPT_ERROR.format(line=2, error=t.SCRIPT_NO_NAME.format(name="undefined_name"))
-    assert (result["ok"], result["output"]) == (False, f"ran search\n{why}")
-    assert history(app)[-2:] == [("tool", f"ran search\n{why}"), ("assistant", "Để tôi sửa.")]
+    said = f"{t.SCRIPT_FAILED}\nran search\n{why}"
+    assert (result["ok"], result["output"]) == (False, said)
+    assert history(app)[-2:] == [("tool", said), ("assistant", "Để tôi sửa.")]
     # The call it made before failing was made, and the run says so.
     assert fake.calls == [("search", {"query": "kế hoạch"})]
     step = the_step(app)

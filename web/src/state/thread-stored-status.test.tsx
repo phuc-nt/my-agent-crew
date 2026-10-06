@@ -172,20 +172,27 @@ describe("a handed-off task whose wait ran out, read back from the stored thread
   });
 });
 
-describe("a script that was stopped where it stood, read back from the stored thread", () => {
-  // `tool_script` fails such a run with whatever the script had printed, then the line that
-  // says where it was stopped and why: the sentence is the last line of the reply, not its opening.
+describe("a script that did not run to its end, read back from the stored thread", () => {
+  // `tool_script` opens the result of such a run with a line of its own, then whatever the
+  // script had printed, then why it ended. The opening is all that tells it from a script that
+  // ran well, which prints what it likes.
+  const DID_NOT_END = "Script không chạy xong.";
   const ASKS_FIRST = "Dừng ở dòng 2: `mcp__cards__add_card` phải hỏi trước hoặc có ghi dữ liệu nên không gọi được từ script: nạp bằng tool_search rồi gọi trực tiếp.";
-  const OUT_OF_STEPS = "Dừng ở dòng 14: script chạy quá 2000000 bước. Xử lý ít dữ liệu hơn hoặc bỏ vòng lặp thừa.";
-  const TOO_MANY_CALLS = "Dừng ở dòng 31: Script đã gọi công cụ quá 25 lần. Gộp việc lại hoặc chia nhiều script.";
-  const STOPPED: [where: string, reply: string][] = [
-    ["alone, the script having printed nothing", ASKS_FIRST],
-    ["under the one line the script had printed", `LINE-ONE-RAN\n${ASKS_FIRST}`],
-    ["under several lines, a blank one among them", `3 thẻ\n\n- Mua sữa\n- Gọi mẹ\n${OUT_OF_STEPS}`],
-    ["under a printed line that reads like it", `Dừng ở dòng 1: thử\n${TOO_MANY_CALLS}`],
+  const ENDED: [how: string, said: string][] = [
+    ["stopped at a call it may not make", ASKS_FIRST],
+    ["stopped under what it had printed, a blank line in it", `3 thẻ\n\n- Mua sữa\n${ASKS_FIRST}`],
+    ["stopped at a limit", "Dừng ở dòng 14: script chạy quá 2000000 bước. Xử lý ít dữ liệu hơn hoặc bỏ vòng lặp thừa."],
+    ["broken by an error nothing caught", "3 thẻ\nLỗi ở dòng 4: chưa có tên `total`"],
+    ["broken by an error of several lines", "Lỗi ở dòng 3: [MCP cards] không đọc được thẻ\nthử lại sau\n(mã 503)"],
+    ["not a script that can be read", "Lỗi cú pháp ở dòng 1: '(' was never closed"],
+    ["refused before it ran", "Dòng 1: script không dùng được import."],
+    ["out of time", "Script bị dừng: quá 60 giây mà chưa xong."],
+    ["ended with nothing said of it", ""],
   ];
+  const stored = (said: string) => (said ? `${DID_NOT_END}\n${said}` : DID_NOT_END);
 
-  it.each(STOPPED)("is failed, as it was when it arrived, with the line %s", (_where, reply) => {
+  it.each(ENDED)("is failed, as it was when it arrived, when it was %s", (_how, said) => {
+    const reply = stored(said);
     expect(readBack("tool_script", reply)).toEqual(settled("tool_script", reply, "failed"));
     expect(readBack("tool_script", reply)).toEqual(arrived("tool_script", reply, false));
 
@@ -194,16 +201,21 @@ describe("a script that was stopped where it stood, read back from the stored th
     expect(mark()).toHaveTextContent(vi.toolFailed);
   });
 
-  // A script that ran to its end prints what it likes, the sentence included: only the line the
-  // tool itself ends the result with says the script was stopped.
+  // A script that ran to its end prints what it likes, the words a failure is told in
+  // included: only the line the tool itself opens the result with says it did not.
   it.each([
     ["printed its result", "3 thẻ\n- Mua sữa"],
     ["printed nothing", "(script chạy xong, không in ra gì: dùng print để lấy kết quả)"],
-    ["printed the sentence and went on", `${ASKS_FIRST}\nĐã thử lại bằng cách khác.`],
-    ["ended on words that open like the sentence, with no line number", "Dừng ở dòng cuối: hết việc"],
-    ["ended on the sentence cut before its reason", "Dừng ở dòng 2"],
-    ["ended on a line that holds the sentence further in", `Ghi chú: ${ASKS_FIRST}`],
-    ["ended on the sentence in other letters", ASKS_FIRST.toLowerCase()],
+    ["printed where one would have been stopped", ASKS_FIRST],
+    ["printed that under what it had found", `3 thẻ\n${ASKS_FIRST}`],
+    ["printed a line number and a reason", "Dòng 1: ba thẻ"],
+    ["printed an error it caught", "Lỗi ở dòng 4: chưa có tên `total`\nđã thử lại"],
+    ["printed the opening further down", `3 thẻ\n${DID_NOT_END}\n${ASKS_FIRST}`],
+    ["printed the opening last", `3 thẻ\n${DID_NOT_END}`],
+    ["printed the opening and went on along the line", `${DID_NOT_END} Nhưng có 3 thẻ.\n${ASKS_FIRST}`],
+    ["printed the opening in other letters", `${DID_NOT_END.toUpperCase()}\n${ASKS_FIRST}`],
+    ["printed the opening after a blank", ` ${DID_NOT_END}\n${ASKS_FIRST}`],
+    ["printed the opening after a blank and no more", `\n${DID_NOT_END}`],
   ])("is not a script that %s", (_what, reply) => {
     expect(readBack("tool_script", reply)).toEqual(settled("tool_script", reply, "done"));
     expect(readBack("tool_script", reply)).toEqual(arrived("tool_script", reply, true));
@@ -213,12 +225,13 @@ describe("a script that was stopped where it stood, read back from the stored th
     expect(mark()).toHaveTextContent(vi.toolDone);
   });
 
-  // A file, a page or another tool's answer may end on the very line: it is the script tool's
-  // way of failing a call, and no other tool's.
-  it.each(["workspace_read", "shell_run", "tool_search", "mcp__cards__list_cards"])("is not a reply of %s that ends the same way", (tool) => {
-    for (const [where, reply] of STOPPED) {
-      expect(readBack(tool, reply), where).toEqual(settled(tool, reply, "done"));
-      expect(readBack(tool, reply), where).toEqual(arrived(tool, reply, true));
+  // A file, a page or another tool's answer may open with the very line: it is the script
+  // tool's way of failing a call, and no other tool's.
+  it.each(["workspace_read", "shell_run", "tool_search", "mcp__cards__list_cards"])("is not a reply of %s that opens the same way", (tool) => {
+    for (const [how, said] of ENDED) {
+      const reply = stored(said);
+      expect(readBack(tool, reply), how).toEqual(settled(tool, reply, "done"));
+      expect(readBack(tool, reply), how).toEqual(arrived(tool, reply, true));
     }
   });
 });

@@ -107,6 +107,11 @@ def halted(line: int, reason: str) -> str:
     return t.SCRIPT_HALTED.format(line=line, reason=reason)
 
 
+def unfinished(*said: str) -> str:
+    """The answer of a script that did not run to its end: that it did not, then `said`."""
+    return "\n".join((t.SCRIPT_FAILED, *said))
+
+
 def test_a_script_may_call_a_tool_that_only_reads_and_asks_nobody():
     assert scriptable(Reads("notes_read").tool)
     assert not scriptable(Reads("notes_write", replay_safe=False).tool)
@@ -261,7 +266,7 @@ async def test_a_script_that_calls_too_often_is_stopped_before_the_call_too_many
 
     printed = "\n".join(str(page) for page in range(25))
     reason = "Script đã gọi công cụ quá 25 lần. Gộp việc lại hoặc chia nhiều script."
-    assert (result.ok, result.output) == (False, f"{printed}\n{halted(3, reason)}")
+    assert (result.ok, result.output) == (False, unfinished(printed, halted(3, reason)))
     assert rows.asked == [{"page": page} for page in range(25)]
     assert len(result.calls) == 25
 
@@ -346,7 +351,7 @@ async def test_a_call_a_script_may_not_make_ends_it_and_says_how_to_make_it(
 
     # Not a failure the script can catch and carry on from: it ends where it asked.
     reason = why.format(name=name, instead=instead)
-    assert (result.ok, result.output) == (False, f"trước\n{halted(4, reason)}")
+    assert (result.ok, result.output) == (False, unfinished("trước", halted(4, reason)))
     assert name in reason and reason.endswith(f": {instead}.")
     assert [one.asked for one in held] == [[]] * 5 and reached == []
     assert result.calls == ()
@@ -365,7 +370,7 @@ async def test_a_tool_the_agent_does_not_hold_is_answered_with_the_ones_a_script
 
     names = f"rows_read, notes_read, {SEARCH_NAME}"
     reason = f"Không có công cụ `nope` để gọi từ script. Gọi được: {names}."
-    assert (result.ok, result.output, result.calls) == (False, halted(1, reason), ())
+    assert (result.ok, result.output, result.calls) == (False, unfinished(halted(1, reason)), ())
 
 
 async def test_the_agents_hooks_are_asked_about_each_call_a_script_makes():
@@ -429,7 +434,7 @@ async def test_a_script_calls_the_tools_the_agent_holds_when_it_runs():
 
     assert (result.ok, result.output) == (True, "mới")
     reason = t.SCRIPT_UNKNOWN_TOOL.format(name="old_read", names="new_read")
-    assert (gone.ok, gone.output) == (False, halted(1, reason))
+    assert (gone.ok, gone.output) == (False, unfinished(halted(1, reason)))
     assert old.asked == []
 
 
@@ -513,17 +518,54 @@ async def test_a_script_as_long_as_the_most_is_run_and_one_letter_longer_is_not(
         # The end of what was printed is trimmed, the start is the script's own.
         ("print('  thụt vào')\nprint()\nprint()", True, "  thụt vào"),
         ("1 + 2", True, "3"),
-        ("print('trước')\nnope", False, "trước\nLỗi ở dòng 2: chưa có tên `nope`."),
-        ("print('trước')\nprint()\nnope", False, "trước\nLỗi ở dòng 3: chưa có tên `nope`."),
-        ("nope", False, "Lỗi ở dòng 1: chưa có tên `nope`."),
-        ("import os", False, "Dòng 1: `import os` không dùng được trong script."),
-        ("x = = 1", False, "Lỗi cú pháp ở dòng 1: invalid syntax"),
+        # One that did not run to its end says so first, whatever ended it.
+        ("print('trước')\nnope", False, unfinished("trước", "Lỗi ở dòng 2: chưa có tên `nope`.")),
+        (
+            "print('trước')\nprint()\nnope",
+            False,
+            unfinished("trước", "Lỗi ở dòng 3: chưa có tên `nope`."),
+        ),
+        ("nope", False, unfinished("Lỗi ở dòng 1: chưa có tên `nope`.")),
+        ("import os", False, unfinished("Dòng 1: `import os` không dùng được trong script.")),
+        ("x = = 1", False, unfinished("Lỗi cú pháp ở dòng 1: invalid syntax")),
+        # Saying the same words does not make a script that ran to its end one that did not.
+        ("print('Script không chạy xong.')", True, "Script không chạy xong."),
     ],
 )
 async def test_what_comes_back_is_what_was_printed_and_then_why_it_ended(source, ok, output):
     result = await toolbox().execute(SCRIPT_TOOL, {"script": source})
 
     assert (result.ok, result.output) == (ok, output)
+
+
+@pytest.mark.parametrize(
+    "ended",
+    [
+        Outcome(False, "", t.SCRIPT_DIED),
+        Outcome(False, "", t.SCRIPT_OUT_OF_CPU),
+        Outcome(False, "", t.SCRIPT_TIMED_OUT.format(seconds=60)),
+        # What a tool answered a failed call with may run over many lines, and so may what
+        # the script had printed: the line that says it failed is still the first one.
+        Outcome(False, "một\nhai\n", "Lỗi ở dòng 3: không đọc được\nthử lại sau"),
+        Outcome(False, "", ""),
+    ],
+    ids=["died", "out of cpu", "timed out", "failed over many lines", "no reason given"],
+)
+async def test_a_script_that_did_not_run_to_its_end_says_so_before_anything_else(
+    monkeypatch, ended
+):
+    """The web reads a stored answer by how it opens, and a script prints what it likes: only
+    this line tells the two kinds of answer apart once the turn is over."""
+
+    async def ends(source, call, **limits):
+        return ended
+
+    monkeypatch.setattr(script_module, "run_script", ends)
+
+    result = await toolbox().execute(SCRIPT_TOOL, {"script": "x = 1"})
+
+    rest = [part for part in (ended.output.rstrip(), ended.error) if part]
+    assert (result.ok, result.output) == (False, unfinished(*rest))
 
 
 def test_the_script_tool_asks_nobody_and_may_be_run_again():
@@ -794,7 +836,7 @@ async def test_a_script_of_an_agents_reads_its_files_and_its_servers(deps_factor
     assert (result.ok, result.output) == (True, "ran search\n['ba', 'bốn']")
     assert [call.name for call in result.calls] == [SEARCH_NAME, "workspace_read"]
     reason = t.SCRIPT_ASKS_FIRST.format(name=CREATE_NAME, instead=t.SCRIPT_LOAD_THEN_CALL)
-    assert (refused.ok, refused.output) == (False, halted(1, reason))
+    assert (refused.ok, refused.output) == (False, unfinished(halted(1, reason)))
     assert fake.calls == [("search", {"query": "kế hoạch"})]
 
 
@@ -811,5 +853,5 @@ async def test_a_delegated_run_calls_from_a_script_what_its_agent_holds_now(deps
     refused = await play(delegated, 'tools.mcp__notion__search(query="kế hoạch")')
 
     reason = t.SCRIPT_NOT_OPENED.format(name=SEARCH_NAME, instead=t.SCRIPT_LOAD_THEN_CALL)
-    assert (refused.ok, refused.output) == (False, halted(1, reason))
+    assert (refused.ok, refused.output) == (False, unfinished(halted(1, reason)))
     assert fake.calls == []

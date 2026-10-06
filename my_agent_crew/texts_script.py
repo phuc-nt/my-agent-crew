@@ -34,6 +34,11 @@ SCRIPT_NO_OUTPUT = "(script chạy xong, không in ra gì: dùng print để l�
 SCRIPT_TIMED_OUT = "Script bị dừng: quá {seconds:g} giây mà chưa xong."
 SCRIPT_OUT_OF_CPU = "Script bị dừng: tính toán quá lâu. Chia nhỏ việc hoặc xử lý ít dữ liệu hơn."
 SCRIPT_DIED = "Script bị dừng giữa chừng mà không trả kết quả."
+# Opens the answer of a script that did not run to its end, whatever ended it; what it had
+# printed and why it ended follow. A stored answer keeps no word of whether the call failed,
+# and a script prints what it likes, so the web knows such an answer by this line alone
+# (`web/src/lib/tool-reply.ts`).
+SCRIPT_FAILED = "Script không chạy xong."
 
 # A call a script may not make. None of these can be caught: the script ends there.
 SCRIPT_UNKNOWN_TOOL = "Không có công cụ `{name}` để gọi từ script. Gọi được: {names}."

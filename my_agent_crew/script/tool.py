@@ -159,6 +159,8 @@ def script_tool(registry: Callable[[], ToolRegistry], scripted: Sequence[McpTool
         said = outcome.output.rstrip()
         if outcome.error:
             said = f"{said}\n{outcome.error}" if said else outcome.error
+        if not outcome.ok:
+            said = f"{t.SCRIPT_FAILED}\n{said}".rstrip()
         return ToolResult(ok=outcome.ok, output=said or t.SCRIPT_NO_OUTPUT, calls=tuple(made.calls))
 
     builtins = [

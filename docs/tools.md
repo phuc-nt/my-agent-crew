@@ -836,6 +836,13 @@ tiến trình con bị dừng từ bên ngoài (hết CPU, chạy một mạch q
 tự chết thì phần đã in mất theo nó và chỉ còn lý do; các lời gọi đã chạy vẫn được ghi trên thẻ
 run.
 
+Script không chạy được đến hết, dù vì lý do gì (không đọc được, bị từ chối trước khi chạy, gặp
+lỗi không bắt, chạm giới hạn, tiến trình con bị dừng), thì câu trả lời mở đầu bằng một dòng riêng
+"Script không chạy xong.", sau đó mới tới phần đã in và lý do. Tin nhắn tool được lưu không ghi
+lời gọi thành hay hỏng, còn script thì in gì tuỳ nó, nên web chỉ dựa vào đúng dòng mở đầu ấy, và
+chỉ với `tool_script`, để thẻ của lời gọi vẫn báo "lỗi" sau khi tải lại trang. Hệ quả: một script
+chạy xong mà dòng đầu tiên nó in ra đúng nguyên câu đó thì sau khi tải lại thẻ cũng báo "lỗi".
+
 Vài điều chưa làm, nêu ra để không ai phải đoán:
 
 - Lời gọi trong script không đi qua bộ đếm bước và bộ phát hiện lặp của lượt; trần của chúng là 25

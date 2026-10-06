@@ -157,11 +157,14 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   again, and of a server's tools the ones the owner both listed under `read_only` and let in
   as `codemode`. Anything that writes or asks first ends the script with a line saying to
   call it directly, where the approval gate sees it; so a script never waits on a person and
-  is simply run again after a restart. The tool comes with such MCP tools and goes with them
-  (an agent with no `read_only` + `codemode` tool has no `tool_script`), follows `mcp:` and
-  not the `tools` allow-list, and each call a script made is charged like a call made
-  directly and listed under the script's step on the run card (`calls` on a tool step in
-  `/api/activity/runs` and on the `tool_result` event), folded until opened.
+  is simply run again after a restart. A script that does not run to its end, whatever ended
+  it, answers with the line "Script không chạy xong." before what it had printed and why it
+  ended; a stored answer keeps no word of whether the call failed, so that line is what
+  keeps the call's card saying "lỗi" after a reload. The tool comes with such MCP tools and
+  goes with them (an agent with no `read_only` + `codemode` tool has no `tool_script`),
+  follows `mcp:` and not the `tools` allow-list, and each call a script made is charged like
+  a call made directly and listed under the script's step on the run card (`calls` on a tool
+  step in `/api/activity/runs` and on the `tool_result` event), folded until opened.
 
 ### Fixed
 
