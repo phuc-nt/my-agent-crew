@@ -19,8 +19,8 @@ from my_agent_crew.mcp.config import (
     McpServer,
     MissingEnv,
     matches,
-    parse_servers,
 )
+from my_agent_crew.mcp.config_parse import parse_servers
 
 URL = "https://mcp.notion.com/mcp"
 
@@ -95,6 +95,24 @@ def test_a_header_is_filled_from_the_environment_each_time_it_is_asked_for():
     assert server.request_headers(env) == {"Authorization": "Bearer first", "X-Both": "ops-ops"}
     env["NOTION_KEY"] = "second"
     assert server.request_headers(env)["Authorization"] == "Bearer second"
+
+
+@pytest.mark.parametrize(
+    ("written", "key"),
+    [
+        ("Bearer ${NOTION_KEY}\n", "first"),
+        ("Bearer ${NOTION_KEY}", "first\n"),
+        ("Bearer ${NOTION_KEY}", "first "),
+        ("  Bearer ${NOTION_KEY}", "first\r\n"),
+    ],
+    ids=["a YAML block ends in a line break", "key then a line break", "key then a blank", "both"],
+)
+def test_a_header_is_sent_without_the_blanks_and_line_ends_around_its_value(written, key):
+    """A key pasted with the line break that followed it is still the key. Sent as it
+    stands, the request could not be written at all."""
+    server = one(headers={"Authorization": written})
+
+    assert server.request_headers({"NOTION_KEY": key}) == {"Authorization": "Bearer first"}
 
 
 def test_a_header_whose_variable_is_unset_or_empty_is_named_not_sent_blank():

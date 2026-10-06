@@ -5,9 +5,11 @@ of it, when it asks first, and who is handed it (`mcp/tools.py`, `mcp/hub.py`,
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from dataclasses import replace
 
+import httpcore
 import httpx
 import pytest
 
@@ -18,9 +20,10 @@ from my_agent_crew.agent.tool_gate import pauses_for_a_person
 from my_agent_crew.llm.types import ToolCall
 from my_agent_crew.mcp.config import DEFERRED, DIRECT, HIDDEN
 from my_agent_crew.mcp.hub import CONNECTED, FAILED, IDLE, SIGNED_OUT, McpHub
+from my_agent_crew.mcp.tokens import TokenStore
 from my_agent_crew.mcp.tools import McpTool, build_tools, render, tool_name
 from my_agent_crew.texts import TOOL_FAILED
-from tests.mcp_fakes import CREATE, SEARCH, TOOLS, FakeMcp, make_hub, server
+from tests.mcp_fakes import CREATE, SEARCH, TOOLS, FakeMcp, make_hub, public, server
 
 SEARCH_NAME, CREATE_NAME = "mcp__notion__search", "mcp__notion__create_page"
 
@@ -404,6 +407,28 @@ async def test_a_key_the_environment_lacks_is_named_and_one_refused_is_not_a_sig
     await hub.connect(["notion", "no-such-server"])
     assert hub.links["notion"].status == CONNECTED and hub.links["notion"].error == ""
     assert fake.seen[-1].headers["authorization"] == "Bearer right"
+
+
+def writing_for_real() -> httpx.AsyncClient:
+    """A client whose requests go through the real HTTP/1.1 writer and no further: no socket
+    is opened. `MockTransport` skips that writer, and it is the writer that refuses a header."""
+    transport = httpx.AsyncHTTPTransport()
+    backend = httpcore.AsyncMockBackend([])
+    transport._pool = httpcore.AsyncConnectionPool(network_backend=backend)
+    return httpx.AsyncClient(transport=transport)
+
+
+async def test_a_header_that_cannot_be_written_is_refused_without_showing_its_value():
+    """The writer's own refusal quotes the value it would not write, and that value is a key."""
+    keyed = server(headers={"Authorization": "Bearer ${NOTION_KEY}"})
+    environ = {"NOTION_KEY": "the-first-half\nthe-second-half"}
+    hub = McpHub((keyed,), writing_for_real(), TokenStore(None, environ), public, environ)
+
+    await hub.connect()
+
+    row = hub.describe({})[0]
+    assert (row["status"], row["error"]) == ("failed", t.MCP_BAD_HEADER.format(server="notion"))
+    assert "half" not in json.dumps(row)
 
 
 async def test_a_key_in_the_file_is_what_is_sent_even_with_a_sign_in_kept():

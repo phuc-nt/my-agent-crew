@@ -5,6 +5,10 @@ rather than through `texts`, which is at its line budget."""
 # One call to a server, as the model or the owner reads its failure.
 MCP_TIMEOUT = "Máy chủ MCP {server} không trả lời trong {seconds:g} giây."
 MCP_UNREACHABLE = "Không kết nối được máy chủ MCP {server}: {error}"
+MCP_BAD_HEADER = (
+    "Không gửi được yêu cầu tới máy chủ MCP {server}: một header có giá trị không viết được "
+    "lên đường truyền. Kiểm tra khoá trong biến môi trường, nhất là dấu xuống dòng ở giữa."
+)
 MCP_HTTP_STATUS = "Máy chủ MCP {server} trả về HTTP {status}{detail}."
 MCP_REDIRECT = "Máy chủ MCP {server} chuyển hướng sang địa chỉ khác; không đi theo."
 MCP_TOO_LARGE = "Máy chủ MCP {server} trả về quá nhiều dữ liệu (hơn {megabytes} MB)."

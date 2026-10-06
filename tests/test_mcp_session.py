@@ -5,12 +5,13 @@ costs the turn that called it (`mcp/wire.py`, `mcp/session.py`)."""
 from __future__ import annotations
 
 import asyncio
+import json
 
 import httpx
 import pytest
 
 from my_agent_crew import texts_mcp as t
-from my_agent_crew.mcp import wire
+from my_agent_crew.mcp import answer_body
 from my_agent_crew.mcp.session import VERSIONS, McpSession
 from my_agent_crew.mcp.wire import McpError, Unauthorized
 from tests.mcp_fakes import CREATE, MCP_URL, SEARCH, FakeMcp, server
@@ -451,7 +452,7 @@ async def test_a_redirect_is_refused_not_followed():
 
 
 async def test_an_answer_too_large_to_hold_is_cut_off_while_it_arrives(monkeypatch):
-    monkeypatch.setattr(wire, "MAX_ANSWER_BYTES", 1000)
+    monkeypatch.setattr(answer_body, "MAX_ANSWER_BYTES", 1000)
     big = {"content": [{"type": "text", "text": "x" * 5000}]}
     fake = FakeMcp()
     fake.results["search"] = big
@@ -464,6 +465,140 @@ async def test_an_answer_too_large_to_hold_is_cut_off_while_it_arrives(monkeypat
     fake.sse = True
     with pytest.raises(McpError, match="quá nhiều dữ liệu"):
         await session.call_tool("search", {})
+
+
+def stream(body) -> httpx.Response:
+    """An event stream made of `body`: bytes, or a generator of the pieces it comes in."""
+    return httpx.Response(200, content=body, headers={"Content-Type": "text/event-stream"})
+
+
+def answer_to(message: dict, result: dict) -> str:
+    """The answer to `message` on one line, every character of it as it is."""
+    answer = {"jsonrpc": "2.0", "id": message["id"], "result": result}
+    return json.dumps(answer, ensure_ascii=False)
+
+
+def in_two_lines(message: dict, result: dict, end: str) -> bytes:
+    """The answer as an event whose data takes two lines, after a comment that is an event
+    of its own, every line ended by `end`."""
+    answer = answer_to(message, result)
+    cut = answer.index('"result"')
+    lines = [
+        ": still here",
+        "",
+        "event: message",
+        f"data: {answer[:cut]}",
+        f"data: {answer[cut:]}",
+        "",
+    ]
+    return "".join(line + end for line in lines).encode()
+
+
+@pytest.mark.parametrize("mark", ["\u2028", "\u2029", "\u0085"], ids=["U+2028", "U+2029", "U+0085"])
+async def test_a_character_that_only_looks_like_a_line_end_does_not_cut_an_event(mark):
+    """Only CR and LF end a line of an event stream. JSON may hold these three as they are,
+    and a client that cut the line at one would drop the answer of a call that did run."""
+    result = {"content": [{"type": "text", "text": f"dòng một{mark}dòng hai"}]}
+    fake = answering(lambda m: stream(f"data: {answer_to(m, result)}\n\n".encode()))
+    session = session_for(fake)
+    await session.start()
+
+    assert await session.call_tool("search", {}) == result
+    assert fake.methods().count("tools/call") == 1
+
+
+@pytest.mark.parametrize("end", ["\n", "\r\n", "\r"], ids=["LF", "CRLF", "CR"])
+async def test_an_event_stream_may_end_its_lines_in_any_of_the_three_ways(end):
+    result = {"content": [{"type": "text", "text": "ran"}]}
+    fake = answering(lambda m: stream(in_two_lines(m, result, end)))
+    session = session_for(fake)
+    await session.start()
+
+    assert await session.call_tool("search", {}) == result
+
+
+async def test_a_line_end_cut_in_two_on_the_way_is_still_one_line_end():
+    """The CR that ends one piece and the LF that opens the next are one line end. Read as
+    two, the blank line between them would end the event half way through its data."""
+    result = {"content": [{"type": "text", "text": "ran"}]}
+
+    def in_pieces(message):
+        first, *rest = in_two_lines(message, result, "\r\n").split(b"\n")
+
+        async def pieces():
+            yield first
+            for piece in rest:
+                yield b"\n" + piece
+
+        return stream(pieces())
+
+    fake = answering(in_pieces)
+    session = session_for(fake)
+    await session.start()
+
+    assert await session.call_tool("search", {}) == result
+
+
+async def test_a_line_end_that_opens_a_piece_counts_when_no_cr_came_before_it():
+    """Only the LF after a CR is the other half of a line end. Dropped after anything else,
+    the blank line between two events would go, and the two be read as one."""
+    result = {"content": [{"type": "text", "text": "ran"}]}
+
+    def in_pieces(message):
+        told = json.dumps({"jsonrpc": "2.0", "method": "notifications/progress"})
+
+        async def pieces():
+            yield f"data: {told}\n".encode()
+            yield f"\ndata: {answer_to(message, result)}\n\n".encode()
+
+        return stream(pieces())
+
+    fake = answering(in_pieces)
+    session = session_for(fake)
+    await session.start()
+
+    assert await session.call_tool("search", {}) == result
+
+
+@pytest.mark.parametrize("end", ["\n\n", ""], ids=["ended", "cut off before its line end"])
+async def test_a_line_that_comes_in_many_pieces_is_put_together(end):
+    result = {"content": [{"type": "text", "text": "một dòng dài, đến từng mẩu"}]}
+
+    def in_pieces(message):
+        whole = f"data: {answer_to(message, result)}{end}".encode()
+
+        async def pieces():
+            for start in range(0, len(whole), 7):
+                yield whole[start : start + 7]
+
+        return stream(pieces())
+
+    fake = answering(in_pieces)
+    session = session_for(fake)
+    await session.start()
+
+    assert await session.call_tool("search", {}) == result
+
+
+async def test_an_event_stream_that_never_ends_a_line_is_cut_off_at_the_cap(monkeypatch):
+    """What an answer may hold is counted as it arrives, not line by line: a stream that
+    never ends a line would otherwise be held whole, however much of it there is."""
+    monkeypatch.setattr(answer_body, "MAX_ANSWER_BYTES", 1000)
+    pulled = []
+
+    async def endless():
+        for _ in range(50):
+            pulled.append(400)
+            yield b"x" * 400
+
+    fake = answering(lambda m: stream(endless()))
+    session = session_for(fake)
+    await session.start()
+
+    with pytest.raises(McpError, match="quá nhiều dữ liệu"):
+        await session.call_tool("search", {})
+
+    assert len(pulled) == 3
 
 
 async def test_a_server_that_does_not_answer_in_time_fails_the_call():

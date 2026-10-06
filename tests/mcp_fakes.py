@@ -19,7 +19,8 @@ from urllib.parse import parse_qsl, urlsplit
 
 import httpx
 
-from my_agent_crew.mcp.config import McpServer, parse_server
+from my_agent_crew.mcp.config import McpServer
+from my_agent_crew.mcp.config_parse import parse_server
 from my_agent_crew.mcp.hub import McpHub
 from my_agent_crew.mcp.tokens import TokenStore
 

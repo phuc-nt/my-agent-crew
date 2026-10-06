@@ -27,7 +27,8 @@ from my_agent_crew.config_parse import (
 )
 from my_agent_crew.config_secrets import secrets_from
 from my_agent_crew.config_yaml import from_yaml
-from my_agent_crew.mcp.config import McpServer, parse_servers
+from my_agent_crew.mcp.config import McpServer
+from my_agent_crew.mcp.config_parse import parse_servers
 
 __all__ = ["Route", "Settings", "home_from", "load_settings"]
 

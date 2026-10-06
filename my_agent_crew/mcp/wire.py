@@ -19,31 +19,14 @@ from typing import Any
 import httpx
 
 from my_agent_crew import texts_mcp as t
+from my_agent_crew.mcp.answer_body import read_body, read_events
+from my_agent_crew.mcp.errors import McpError, SessionGone, Unauthorized
 
-MAX_ANSWER_BYTES = 4_000_000
 CONNECT_SECONDS = 10.0
 SESSION_HEADER = "Mcp-Session-Id"
 ERROR_SNIPPET_CHARS = 200
 
 Reply = Callable[[dict[str, Any]], Awaitable[None]]
-
-
-class McpError(Exception):
-    """A call to a server that did not work, in words the model and the owner can read."""
-
-
-class Unauthorized(McpError):
-    """The server wants a sign-in, or the one it was shown has run out. `challenge` is what
-    it said of where to get one, `sent` the authorization the refused request carried."""
-
-    def __init__(self, message: str, challenge: str = "", sent: str = ""):
-        super().__init__(message)
-        self.challenge = challenge
-        self.sent = sent
-
-
-class SessionGone(McpError):
-    """The server no longer knows the session the request named. The request did not run."""
 
 
 @dataclass(frozen=True)
@@ -68,50 +51,14 @@ def _pick(payload: Any, wanted: Any) -> tuple[dict[str, Any] | None, list[dict[s
     return answer, asked
 
 
-async def _capped(chunks: Any, server: str) -> Any:
-    """The chunks as they come, until they add up to more than an answer may hold."""
-    total = 0
-    async for chunk in chunks:
-        total += len(chunk)
-        if total > MAX_ANSWER_BYTES:
-            megabytes = MAX_ANSWER_BYTES // 1_000_000
-            raise McpError(t.MCP_TOO_LARGE.format(server=server, megabytes=megabytes))
-        yield chunk
-
-
-async def _events(response: httpx.Response, server: str) -> Any:
-    """The data of each event in the stream, parsed. A line that is not `data:` (an id, a
-    comment kept to hold the connection open) carries nothing this client uses."""
-    data: list[str] = []
-    async for line in _capped(response.aiter_lines(), server):
-        if line.startswith("data:"):
-            data.append(line[5:].removeprefix(" "))
-        elif not line.strip() and data:
-            text, data = "\n".join(data), []
-            try:
-                yield json.loads(text)
-            except ValueError:
-                continue
-    if data:
-        # A stream that closed without the blank line that ends its last event.
-        try:
-            yield json.loads("\n".join(data))
-        except ValueError:
-            return
-
-
-async def _body(response: httpx.Response, server: str) -> bytes:
-    return b"".join([chunk async for chunk in _capped(response.aiter_bytes(), server)])
-
-
 async def _read(
     response: httpx.Response, server: str, wanted: Any, reply: Reply | None
 ) -> dict[str, Any]:
     if "text/event-stream" in response.headers.get("content-type", ""):
-        payloads = _events(response, server)
+        payloads = read_events(response, server)
     else:
         try:
-            parsed = json.loads(await _body(response, server))
+            parsed = json.loads(await read_body(response, server))
         except ValueError:
             raise McpError(t.MCP_BAD_ANSWER.format(server=server)) from None
 
@@ -139,7 +86,7 @@ async def _refuse(response: httpx.Response, server: str, sent: httpx.Headers) ->
     if 300 <= status < 400:
         raise McpError(t.MCP_REDIRECT.format(server=server))
     if status >= 400:
-        text = (await _body(response, server)).decode("utf-8", "replace").strip()
+        text = (await read_body(response, server)).decode("utf-8", "replace").strip()
         detail = f": {text[:ERROR_SNIPPET_CHARS]}" if text else ""
         raise McpError(t.MCP_HTTP_STATUS.format(server=server, status=status, detail=detail))
 
@@ -177,6 +124,9 @@ async def exchange(
                 await response.aclose()
     except TimeoutError:
         raise McpError(t.MCP_TIMEOUT.format(server=server, seconds=timeout)) from None
+    except httpx.LocalProtocolError:
+        # What the writer says of a header it will not write quotes the header's value.
+        raise McpError(t.MCP_BAD_HEADER.format(server=server)) from None
     except httpx.HTTPError as exc:
         error = str(exc) or type(exc).__name__
         raise McpError(t.MCP_UNREACHABLE.format(server=server, error=error)) from exc
