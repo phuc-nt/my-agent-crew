@@ -23,7 +23,7 @@ from my_agent_crew.mcp.config import McpServer, MissingEnv
 from my_agent_crew.mcp.handout import hand_out
 from my_agent_crew.mcp.oauth_discovery import AuthServer
 from my_agent_crew.mcp.session import McpSession
-from my_agent_crew.mcp.tokens import ACCESS, TokenStore
+from my_agent_crew.mcp.tokens import ACCESS, TokenStore, bearer
 from my_agent_crew.mcp.tools import McpTool, build_tools, summary
 from my_agent_crew.mcp.wire import McpError, Unauthorized
 from my_agent_crew.tools.web import Resolver, resolve_host
@@ -75,7 +75,7 @@ class McpHub:
         headers = server.request_headers(self.environ)
         access = self.tokens.get(server, ACCESS)
         if access and not any(name.lower() == "authorization" for name in headers):
-            headers["Authorization"] = f"Bearer {access}"
+            headers["Authorization"] = bearer(access)
         return headers
 
     async def connect(self, names: Iterable[str] | None = None) -> None:
@@ -96,7 +96,7 @@ class McpHub:
             server,
             self.client,
             lambda: self.headers_for(server),
-            lambda: sign_in.renew(self, link),
+            lambda refused: sign_in.renew(self, link, refused),
         )
         try:
             await session.start()

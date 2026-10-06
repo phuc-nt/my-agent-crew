@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 from my_agent_crew import texts_mcp as t
 from my_agent_crew.mcp.oauth import GrantRefused, Tokens, authorize_url, pkce, register, token
 from my_agent_crew.mcp.oauth_discovery import AuthServer, discover
-from my_agent_crew.mcp.tokens import ACCESS, CLIENT_ID, REFRESH, env_name
+from my_agent_crew.mcp.tokens import ACCESS, CLIENT_ID, REFRESH, bearer, env_name
 from my_agent_crew.mcp.wire import McpError
 
 if TYPE_CHECKING:
@@ -140,14 +140,15 @@ async def finish(hub: McpHub, state: str, code: str, error: str = "") -> str | N
     return pending.server
 
 
-async def renew(hub: McpHub, link: Link) -> bool:
+async def renew(hub: McpHub, link: Link, refused: str) -> bool:
     """Get a new access token with the refresh token; whether the request is worth
-    sending again. Calls that were refused together renew once between them."""
-    server, refused = link.server, hub.tokens.get(link.server, ACCESS)
+    sending again. `refused` is the authorization the server said no to: calls refused
+    together renew once between them, however late each one hears of it."""
+    server = link.server
     async with link.renewing:
         current = hub.tokens.get(server, ACCESS)
-        if current != refused:
-            return bool(current)
+        if current and refused != bearer(current):
+            return True
         refresh, client_id = hub.tokens.get(server, REFRESH), hub.tokens.get(server, CLIENT_ID)
         try:
             if not refresh or not client_id or hub.client is None:

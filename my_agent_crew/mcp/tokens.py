@@ -22,6 +22,11 @@ def env_name(server: McpServer, kind: str) -> str:
     return f"MCP_{server.env_key}_{kind}"
 
 
+def bearer(access: str) -> str:
+    """The Authorization header an access token is sent in."""
+    return f"Bearer {access}"
+
+
 def managed_names(servers: Iterable[McpServer]) -> frozenset[str]:
     """The variables a sign-in keeps its tokens in, so the screen that lists keys leaves
     them to the screen that signs in and out. The client id is no secret and is listed."""

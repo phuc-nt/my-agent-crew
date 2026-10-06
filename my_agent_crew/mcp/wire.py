@@ -33,11 +33,13 @@ class McpError(Exception):
 
 
 class Unauthorized(McpError):
-    """The server wants a sign-in, or the one it was shown has run out."""
+    """The server wants a sign-in, or the one it was shown has run out. `challenge` is what
+    it said of where to get one, `sent` the authorization the refused request carried."""
 
-    def __init__(self, message: str, challenge: str = ""):
+    def __init__(self, message: str, challenge: str = "", sent: str = ""):
         super().__init__(message)
         self.challenge = challenge
+        self.sent = sent
 
 
 class SessionGone(McpError):
@@ -126,12 +128,13 @@ async def _read(
     raise McpError(t.MCP_NO_ANSWER.format(server=server))
 
 
-async def _refuse(response: httpx.Response, server: str, in_session: bool) -> None:
+async def _refuse(response: httpx.Response, server: str, sent: httpx.Headers) -> None:
     status = response.status_code
     if status == 401:
         challenge = response.headers.get("www-authenticate", "")
-        raise Unauthorized(t.MCP_UNAUTHORIZED.format(server=server), challenge)
-    if status == 404 and in_session:
+        said = t.MCP_UNAUTHORIZED.format(server=server)
+        raise Unauthorized(said, challenge, sent.get("authorization", ""))
+    if status == 404 and SESSION_HEADER in sent:
         raise SessionGone(t.MCP_SESSION_GONE.format(server=server))
     if 300 <= status < 400:
         raise McpError(t.MCP_REDIRECT.format(server=server))
@@ -165,7 +168,7 @@ async def exchange(
             request = client.build_request("POST", url, json=message, headers=sent, timeout=limits)
             response = await client.send(request, stream=True, follow_redirects=False)
             try:
-                await _refuse(response, server, SESSION_HEADER in headers)
+                await _refuse(response, server, request.headers)
                 session_id = response.headers.get(SESSION_HEADER, "")
                 if wanted is None:
                     return Answer(None, session_id)

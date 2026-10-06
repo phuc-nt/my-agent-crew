@@ -575,6 +575,39 @@ async def test_calls_refused_together_renew_once_between_them():
     assert sorted(arguments["query"] for _, arguments in fake.calls) == ["a", "b", "c"]
 
 
+async def test_a_call_told_no_after_another_has_renewed_is_sent_again_with_what_that_one_got():
+    """What it was refused for is the sign-in it was sent with. Renewing the one held now
+    would spend a refresh token for nothing, and take the new access token away from the
+    call that had just been given it."""
+    fake, environ = FakeMcp(oauth=True), {}
+    hub = await signed_in(fake, environ=environ)
+    session = hub.links["notion"].session
+    fake.required = "the-old-one-ran-out"
+    late: list[httpx.Request] = []
+
+    async def handle(request: httpx.Request) -> httpx.Response:
+        response = await fake.handle(request)
+        if response.status_code == 401 and not late:
+            late.append(request)
+            # This refusal is on its way for as long as the other call's renewal takes.
+            while environ[ACCESS] == "access-1":
+                await asyncio.sleep(0)
+        return response
+
+    hub.client = session.client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
+
+    results = await asyncio.gather(
+        session.call_tool("search", {"query": "a"}),
+        session.call_tool("search", {"query": "b"}),
+    )
+
+    assert [r["content"][0]["text"] for r in results] == ["ran search"] * 2
+    renewals = [r for r in fake.token_requests if r["grant_type"] == "refresh_token"]
+    assert len(renewals) == 1 and hub.links["notion"].status == CONNECTED
+    assert environ[ACCESS] == "access-2" and environ[REFRESH] == "refresh-2"
+    assert late[0].headers["authorization"] == "Bearer access-1"
+
+
 async def test_a_server_that_keeps_the_refresh_token_as_it_was_leaves_it_kept():
     fake, environ = FakeMcp(oauth=True), {}
     hub = await signed_in(fake, environ=environ)

@@ -15,6 +15,8 @@ from my_agent_crew.mcp.session import VERSIONS, McpSession
 from my_agent_crew.mcp.wire import McpError, Unauthorized
 from tests.mcp_fakes import CREATE, MCP_URL, SEARCH, FakeMcp, server
 
+OPENED = {"protocolVersion": VERSIONS[0], "capabilities": {"tools": {}}}
+
 
 def session_for(fake: FakeMcp, headers=None, renew=None, **settings) -> McpSession:
     return McpSession(server(**settings), fake.client(), lambda: dict(headers or {}), renew)
@@ -183,6 +185,135 @@ async def test_a_server_that_forgets_every_session_fails_the_call_instead_of_loo
         await session.call_tool("search", {})
 
     assert fake.methods().count("tools/call") == 2 and fake.methods().count("initialize") == 2
+
+
+def refusing_once(method: str):
+    """Answers the first `method` it sees with a server that is still starting."""
+    refused: list[str] = []
+
+    def before(request: httpx.Request, message: dict) -> httpx.Response | None:
+        if message.get("method") != method or refused:
+            return None
+        refused.append(method)
+        return httpx.Response(503, text="starting")
+
+    return before
+
+
+async def test_a_session_that_could_not_be_opened_again_is_opened_by_the_next_call():
+    """The server restarted and was not ready when the session was opened again. Sent with
+    no session at all, every later call would be refused for a reason nothing here reads
+    as "open one", and the server would stay unusable until someone reconnected it."""
+    fake = FakeMcp()
+    session = session_for(fake)
+    await session.start()
+    fake.live.clear()  # the server restarted
+    fake.before = refusing_once("initialize")
+
+    with pytest.raises(McpError, match="HTTP 503"):
+        await session.call_tool("search", {"query": "a"})
+    result = await session.call_tool("search", {"query": "b"})
+
+    assert result["content"][0]["text"] == "ran search"
+    assert fake.calls == [("search", {"query": "b"})]
+    assert fake.sessions == ["s1", "s2"]
+    assert fake.seen[-1].headers["mcp-session-id"] == "s2"
+    # The call that found no session open did not go out before one was.
+    assert fake.methods()[-3:] == ["initialize", "notifications/initialized", "tools/call"]
+
+
+async def test_a_call_waiting_behind_an_opening_that_failed_opens_the_session_itself():
+    fake = FakeMcp()
+    session = session_for(fake)
+    await session.start()
+    fake.live.clear()
+    fake.delay = 0.01  # both are on their way before either is told
+    fake.before = refusing_once("initialize")
+
+    results = await asyncio.gather(
+        session.call_tool("search", {"query": "a"}),
+        session.call_tool("search", {"query": "b"}),
+        return_exceptions=True,
+    )
+
+    failed = [r for r in results if isinstance(r, Exception)]
+    assert len(failed) == 1 and "HTTP 503" in str(failed[0])
+    assert fake.sessions == ["s1", "s2"] and len(fake.calls) == 1
+
+
+async def test_a_session_the_server_was_never_told_is_ready_is_not_used():
+    """A server may refuse everything in a session until it hears `initialized`."""
+    fake = FakeMcp()
+    session = session_for(fake)
+    await session.start()
+    fake.live.clear()
+    fake.before = refusing_once("notifications/initialized")
+
+    with pytest.raises(McpError, match="HTTP 503"):
+        await session.call_tool("search", {})
+    result = await session.call_tool("search", {})
+
+    assert result["content"][0]["text"] == "ran search"
+    assert fake.sessions == ["s1", "s2", "s3"]
+    assert fake.seen[-1].headers["mcp-session-id"] == "s3"
+
+
+async def test_a_call_stopped_while_its_session_was_being_opened_leaves_none_half_open():
+    """The owner stops a turn at any moment, this one included."""
+    fake = FakeMcp()
+    reached = asyncio.Event()
+
+    async def handle(request: httpx.Request) -> httpx.Response:
+        if b"notifications/initialized" in request.content and len(fake.sessions) == 2:
+            reached.set()
+            await asyncio.sleep(3600)
+        return await fake.handle(request)
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
+    session = McpSession(server(), client, dict)
+    await session.start()
+    fake.live.clear()
+
+    stopped = asyncio.ensure_future(session.call_tool("search", {"query": "a"}))
+    await reached.wait()
+    stopped.cancel()
+    await asyncio.gather(stopped, return_exceptions=True)
+    result = await session.call_tool("search", {"query": "b"})
+
+    assert stopped.cancelled() and result["content"][0]["text"] == "ran search"
+    assert fake.sessions == ["s1", "s2", "s3"]
+    assert fake.seen[-1].headers["mcp-session-id"] == "s3"
+
+
+async def test_a_server_that_keeps_no_session_is_not_opened_again_for_every_call():
+    fake = FakeMcp()
+    fake.before = lambda request, message: (
+        httpx.Response(200, json={"jsonrpc": "2.0", "id": message["id"], "result": OPENED})
+        if message.get("method") == "initialize"
+        else httpx.Response(202)
+        if message.get("method") == "notifications/initialized"
+        else httpx.Response(
+            200, json={"jsonrpc": "2.0", "id": message["id"], "result": {"content": []}}
+        )
+    )
+    session = session_for(fake)
+    await session.start()
+
+    await session.call_tool("search", {})
+    await session.call_tool("search", {})
+
+    assert fake.methods().count("initialize") == 1
+    assert all("mcp-session-id" not in seen.headers for seen in fake.seen)
+
+
+async def test_a_call_on_a_session_never_started_opens_it_first():
+    fake = FakeMcp()
+    session = session_for(fake)
+
+    result = await session.call_tool("search", {})
+
+    assert result["content"][0]["text"] == "ran search"
+    assert fake.methods() == ["initialize", "notifications/initialized", "tools/call"]
 
 
 async def test_a_ping_from_the_server_is_answered_while_the_call_waits():
@@ -383,8 +514,8 @@ async def test_a_refusal_is_renewed_once_and_the_request_sent_again():
     held = {"Authorization": "Bearer stale"}
     renewals = []
 
-    async def renew() -> bool:
-        renewals.append(1)
+    async def renew(refused: str) -> bool:
+        renewals.append(refused)
         fake.required = "fresh"
         held["Authorization"] = "Bearer fresh"
         return True
@@ -393,7 +524,8 @@ async def test_a_refusal_is_renewed_once_and_the_request_sent_again():
 
     await session.start()
 
-    assert renewals == [1]
+    # It is told which sign-in the server refused: the one held may be newer by now.
+    assert renewals == ["Bearer stale"]
     assert [seen.headers["authorization"] for seen in fake.seen[:2]] == [
         "Bearer stale",
         "Bearer fresh",
@@ -404,22 +536,24 @@ async def test_a_renewal_that_does_not_help_is_not_tried_a_second_time():
     fake = FakeMcp(oauth=True)
     renewals = []
 
-    async def renew() -> bool:
-        renewals.append(1)
+    async def renew(refused: str) -> bool:
+        renewals.append(refused)
         return True
 
     session = McpSession(server(), fake.client(), dict, renew)
 
-    with pytest.raises(Unauthorized):
+    with pytest.raises(Unauthorized) as failure:
         await session.start()
 
-    assert renewals == [1] and fake.methods() == ["initialize", "initialize"]
+    # Sent with no sign-in at all, and refused: that is what the renewal is told.
+    assert renewals == [""] and fake.methods() == ["initialize", "initialize"]
+    assert failure.value.sent == ""
 
 
 async def test_a_renewal_that_fails_leaves_the_refusal_as_the_answer():
     fake = FakeMcp(oauth=True)
 
-    async def renew() -> bool:
+    async def renew(refused: str) -> bool:
         return False
 
     with pytest.raises(Unauthorized):

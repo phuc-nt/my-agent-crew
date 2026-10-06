@@ -37,7 +37,8 @@ MAX_TOOL_PAGES = 20
 
 T = TypeVar("T")
 Headers = Callable[[], Mapping[str, str]]
-Renew = Callable[[], Awaitable[bool]]
+# Told the authorization that was refused; whether the request is worth sending again.
+Renew = Callable[[str], Awaitable[bool]]
 
 
 class McpSession:
@@ -94,8 +95,8 @@ class McpSession:
     async def _signed(self, send: Callable[[], Awaitable[T]]) -> T:
         try:
             return await send()
-        except Unauthorized:
-            if self._renew is None or not await self._renew():
+        except Unauthorized as refusal:
+            if self._renew is None or not await self._renew(refusal.sent):
                 raise
             return await send()
 
@@ -135,7 +136,12 @@ class McpSession:
             name = self.server.name
             raise McpError(t.MCP_VERSION.format(server=name, version=version))
         self._session_id, self._version = answer.session_id, version
-        await self._send({"jsonrpc": "2.0", "method": "notifications/initialized"})
+        try:
+            await self._send({"jsonrpc": "2.0", "method": "notifications/initialized"})
+        except BaseException:
+            # A session the server was never told is ready is not one to send calls to.
+            self._session_id = self._version = ""
+            raise
 
     async def start(self) -> None:
         """Open a session, renewing the sign-in once if the server asks for one."""
@@ -144,13 +150,17 @@ class McpSession:
 
     async def _reopen(self, gone: str) -> None:
         async with self._opening:
-            # Several calls can learn at once that the session is gone; one opens the next.
-            if self._session_id == gone:
+            # Several calls can learn at once that the session is gone; one opens the next,
+            # unless that one failed and left none open.
+            if self._session_id == gone or not self._version:
                 await self._signed(self._open)
 
     async def request(self, method: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
         async with self._opening:
-            # Wait for a session that is being opened: sent now, this would name none.
+            # Wait for a session that is being opened: sent now, this would name none. And
+            # open one when the last opening failed, or the server stays lost for good.
+            if not self._version:
+                await self._signed(self._open)
             used = self._session_id
         try:
             return await self._signed(lambda: self._ask(method, params))
