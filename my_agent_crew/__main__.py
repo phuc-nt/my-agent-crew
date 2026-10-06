@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import sys
 from pathlib import Path
 
 import uvicorn
@@ -12,6 +13,7 @@ import uvicorn
 from my_agent_crew.agents.templates_cli import add_template, list_templates
 from my_agent_crew.config import home_from, load_settings
 from my_agent_crew.env_file import load_env_file
+from my_agent_crew.home_lock import HomeHeld, hold
 from my_agent_crew.server import build_runtime, create_app
 
 
@@ -71,17 +73,29 @@ def _add(args: argparse.Namespace) -> int:
     return 0
 
 
-def _serve(args: argparse.Namespace) -> None:
+def _serve(args: argparse.Namespace) -> int:
     # Keys saved from the web live in the home's env file; read it here too, so a server
     # started by hand sees them the same as one started by the launchd script.
     load_env_file(home_from(os.environ), os.environ)
     settings = load_settings()
+    try:
+        # Before the runtime is built, which closes the runs the last server left running:
+        # under one that is still up, those are its turns. Held until this process is gone.
+        hold(settings.home)
+    except HomeHeld:
+        print(
+            f"không khởi động: home {settings.home} đang có một server khác chạy. Dừng server"
+            " đó trước, hoặc đặt MY_AGENT_HOME sang một thư mục khác để chạy thử.",
+            file=sys.stderr,
+        )
+        return 1
     runtime = build_runtime(settings)
     app = create_app(runtime, schedule=not args.no_schedule)
     routes = ", ".join(f"{r.provider}:{r.model}" for r in settings.routes)
     agents = ", ".join(runtime.agents)
     print(f"my-agent-crew · home={settings.home} · routes={routes} · agents={agents}")
     uvicorn.run(app, host=args.host, port=args.port, log_level="info")
+    return 0
 
 
 def main() -> int:
@@ -93,8 +107,7 @@ def main() -> int:
     )
     if args.command == "agent":
         return _list_templates() if args.agent_command == "list-templates" else _add(args)
-    _serve(args)
-    return 0
+    return _serve(args)
 
 
 if __name__ == "__main__":
