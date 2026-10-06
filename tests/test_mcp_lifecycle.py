@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import json
 import logging
 from dataclasses import replace
 from types import SimpleNamespace
@@ -48,6 +49,40 @@ class Wiki:
             await asyncio.sleep(30)
         there = httpx.Request("POST", MCP_URL, headers=request.headers, content=request.content)
         return await self.fake.handle(there)
+
+
+class Door:
+    """In front of the first server: each opening of a session waits here until the test
+    answers it, let in or turned away. So a test decides what a try that is under way gets
+    to see, and sees whether a second one came while it stood there."""
+
+    def __init__(self, inner) -> None:
+        self.inner = inner
+        self.came: list[asyncio.Future[bool]] = []  # one per opening, in the order they came
+        self.standing = 0
+        self.most = 0  # the most openings that stood here at one time
+
+    def client(self) -> httpx.AsyncClient:
+        return httpx.AsyncClient(transport=httpx.MockTransport(self.handle))
+
+    async def handle(self, request: httpx.Request) -> httpx.Response:
+        opening = (
+            request.method == "POST"
+            and str(request.url) == MCP_URL
+            and json.loads(request.content).get("method") == "initialize"
+        )
+        if not opening:
+            return await self.inner(request)
+        let_in = asyncio.get_running_loop().create_future()
+        self.came.append(let_in)
+        self.standing += 1
+        self.most = max(self.most, self.standing)
+        try:
+            if await let_in:
+                return await self.inner(request)
+            return httpx.Response(503, text="one session at a time")
+        finally:
+            self.standing -= 1
 
 
 def crew(deps_factory, fake: FakeMcp, *servers: McpServer, script=()) -> Runtime:
@@ -248,6 +283,114 @@ async def test_a_server_that_wants_a_sign_in_is_not_tried_again(deps_factory, ro
     noted = await rounds(rt, 5, at={2: rt.mcp.wake.set})
 
     assert noted == [30, 30, 30, 30, 30] and len(fake.fetched) == fetched
+
+
+async def test_a_server_the_start_did_not_wait_for_is_tried_by_the_round(deps_factory, rounds):
+    """Cut off, its try let go of the server: nothing is left that keeps the next one out."""
+    rt, wiki = with_wiki(deps_factory, FakeMcp())
+    wiki.slow = True
+    await connect_at_start(rt, limit=0.05)
+    assert status(rt, "wiki") == "idle"
+    wiki.slow = False
+
+    await rounds(rt, 2)
+
+    assert status(rt, "wiki") == "connected" and held(rt) == NOTION_TOOLS + WIKI_TOOLS
+
+
+async def test_a_server_someone_is_connecting_is_not_tried_by_the_round_as_well(
+    deps_factory, rounds
+):
+    """The owner pressed connect on a server that is slow to open a session, and the wait
+    ran out while it did. Tried again under that try, the server is told of two sessions for
+    one press, and the row is left as whichever of the two ended last."""
+    fake = FakeMcp()
+    rt = crew(deps_factory, fake)
+    door = Door(fake.handle)
+    rt.mcp.client = door.client()
+    by_hand = asyncio.create_task(rt.mcp.connect(["notion"]))
+    await until(lambda: len(door.came) == 1)
+    assert status(rt) == "idle"  # down as far as its row says, and not for the round to try
+
+    noted = await rounds(rt, 3)
+
+    assert noted == [30, 30, 30] and len(door.came) == 1
+    door.came[0].set_result(True)
+    await by_hand
+    rt.mcp.attach(rt.agents)
+    assert status(rt) == "connected" and held(rt) == NOTION_TOOLS
+    assert fake.methods().count("initialize") == 1
+
+
+async def test_a_server_is_spoken_for_from_the_moment_a_connect_is_asked_for(deps_factory):
+    """The round may look at who is waiting in the very turn of the loop a press came in,
+    before that press has got as far as trying the server."""
+    fake = FakeMcp()
+    rt = crew(deps_factory, fake)
+    assert rt.mcp.waiting() == ["notion"]
+
+    by_hand = asyncio.create_task(rt.mcp.connect(["notion"]))
+    await asyncio.sleep(0)  # asked for, and nothing sent yet
+
+    assert fake.fetched == [] and rt.mcp.waiting() == []
+    await by_hand
+    assert status(rt) == "connected" and rt.mcp.waiting() == []
+
+
+async def test_the_round_tries_the_other_servers_while_one_is_being_connected(deps_factory, rounds):
+    fake = FakeMcp()
+    rt, wiki = with_wiki(deps_factory, fake)
+    wiki.down = True
+    await connect_at_start(rt)
+    door = Door(wiki.handle)
+    rt.mcp.client = door.client()
+    by_hand = asyncio.create_task(rt.mcp.connect(["notion"]))
+    await until(lambda: len(door.came) == 1)
+    wiki.down = False
+
+    await rounds(rt, 2)
+
+    assert status(rt, "wiki") == "connected" and len(door.came) == 1
+    door.came[0].set_result(True)
+    await by_hand
+    rt.mcp.attach(rt.agents)
+    assert held(rt) == NOTION_TOOLS + WIKI_TOOLS
+
+
+@pytest.mark.parametrize(
+    ("first", "second", "stands", "holds"),
+    [(True, False, "failed", []), (False, True, "connected", NOTION_TOOLS)],
+    ids=["then-refused", "then-let-in"],
+)
+async def test_a_server_asked_for_again_is_tried_after_the_try_under_way(
+    deps_factory, first, second, stands, holds
+):
+    """Two tries at once leave the session and tools of the one that worked under the word
+    of the one that did not. The one asked for later waits its turn and then tries afresh,
+    not taking the answer the first one got: it may have been asked for because a key or a
+    sign-in changed after the first one began. The server stands as the later one left it."""
+    fake = FakeMcp()
+    rt = crew(deps_factory, fake)
+    door = Door(fake.handle)
+    rt.mcp.client = door.client()
+    link = rt.mcp.links["notion"]
+    earlier = asyncio.create_task(rt.mcp.connect(["notion"]))
+    await until(lambda: len(door.came) == 1)
+    later = asyncio.create_task(rt.mcp.connect(["notion"]))
+    await settle_loop()
+    assert len(door.came) == 1 and not later.done()
+
+    door.came[0].set_result(first)
+    await earlier
+    await until(lambda: len(door.came) == 2)
+    door.came[1].set_result(second)
+    await later
+
+    rt.mcp.attach(rt.agents)
+    assert door.most == 1
+    assert (link.status, link.session is not None, held(rt)) == (stands, bool(holds), holds)
+    assert bool(link.error) == (stands == "failed")
+    assert rt.mcp.waiting() == ([] if holds else ["notion"])
 
 
 async def test_the_served_app_connects_its_servers_before_it_takes_up_a_cut_turn(

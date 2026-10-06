@@ -50,6 +50,10 @@ class Link:
     challenge: str = ""
     auth: AuthServer | None = None
     renewing: asyncio.Lock = field(default_factory=asyncio.Lock)
+    # One try at a time. `asked` counts the connects that have this server, each from the
+    # moment it is asked for: the one that is trying and the ones waiting behind it.
+    trying: asyncio.Lock = field(default_factory=asyncio.Lock)
+    asked: int = 0
 
 
 class McpHub:
@@ -83,9 +87,22 @@ class McpHub:
         tools. Never raises: what went wrong is on the server's row."""
         wanted = self.links if names is None else names
         links = [self.links[name] for name in wanted if name in self.links]
-        await asyncio.gather(*(self._connect(link) for link in links))
+        for link in links:
+            link.asked += 1  # before anything is awaited: `waiting` leaves it out at once
+        try:
+            await asyncio.gather(*(self._connect(link) for link in links))
+        finally:
+            for link in links:
+                link.asked -= 1
 
     async def _connect(self, link: Link) -> None:
+        # Never two tries on a server at once: the one that ended last would leave its word
+        # over the session and tools of the other. One asked for meanwhile waits, then tries
+        # afresh, since a key or a sign-in may have changed after the first one began.
+        async with link.trying:
+            await self._try(link)
+
+    async def _try(self, link: Link) -> None:
         server = link.server
         # Idle until it answers: a try that is cut off must not leave it looking connected.
         link.session, link.tools, link.skipped, link.status = None, (), (), IDLE
@@ -130,8 +147,9 @@ class McpHub:
 
     def waiting(self) -> list[str]:
         """Servers worth trying again without anyone asking. One that wants a sign-in is
-        not among them: only the owner can give it that."""
-        return [name for name, link in self.links.items() if link.status in (IDLE, FAILED)]
+        not among them: only the owner can give it that. Nor is one a connect already has."""
+        down = (IDLE, FAILED)
+        return [n for n, link in self.links.items() if link.status in down and not link.asked]
 
     def attach(self, agents: Mapping[str, AgentDeps]) -> None:
         """Hand each agent the tools of the servers its profile names, and take back every
