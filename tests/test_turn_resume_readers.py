@@ -283,6 +283,36 @@ async def test_a_child_that_had_ended_is_read_from_the_store_by_the_parent_carri
     ]
 
 
+async def test_a_child_done_before_the_cut_costs_its_parent_what_it_spent_once(served):
+    """The delegation itself had ended and only the read beside it was still running. Made
+    again by the parent carried on, it finds the same child and the same spend: a call
+    costs its conversation what its result does, when that is written and not before."""
+    peek = reading_alongside()
+    calls = [delegating(relay=False), PEEK]
+    first = served([completion(tool_calls=calls), completion("con xong")], extra_tools=[peek.tool])
+    store = first.runtime.store
+    sender = asyncio.create_task(first.client.post(first.messages, json={"text": "làm đi"}))
+    await asyncio.wait_for(peek.started.wait(), 2)
+    child = child_of(first)
+    await until(lambda: stored_run(first, child.id).status == DONE)
+    await settle_loop()  # the delegation returns once its child's run is closed
+    assert [role for role, _ in history(first)] == ["user", "assistant"]  # no result stored
+    assert store.get(child.id).spent_usd == pytest.approx(0.001)
+    assert store.get(first.conv.id).spent_usd == pytest.approx(0.001)  # its own call so far
+    await go_down(first.runtime)
+    await asyncio.wait_for(sender, 2)
+
+    again = reading_alongside()
+    again.release.set()
+    second = next_server(served, first, [completion("cha xong")], extra_tools=[again.tool])
+    await carried_on(second)
+
+    assert history(second)[-1] == ("assistant", "cha xong")
+    # Three model calls in all: the parent's two and the child's one.
+    assert first.provider.calls + second.provider.calls == 3
+    assert store.get(first.conv.id).spent_usd == pytest.approx(0.003)
+
+
 async def test_a_delegated_task_is_not_carried_on_without_the_turn_that_waits_for_it(served):
     """Its answer goes to the parent's call and nowhere else: with no parent turn to take
     it, the work would be paid for and read by nobody."""

@@ -66,6 +66,8 @@ async def _record(deps: AgentDeps, conv_id: str, call: ToolCall, result: ToolRes
     for nested in result.calls:  # and so is each call a script made that paid one
         if nested.metered:
             deps.store.add_spend(conv_id, nested.cost_usd)
+    if result.child_spent_usd:  # what a conversation it delegated to spent is its own too
+        deps.store.add_spend(conv_id, result.child_spent_usd)
     deps.store.append(
         conv_id,
         Message(role="tool", content=result.output, tool_call_id=call.id, name=call.name),

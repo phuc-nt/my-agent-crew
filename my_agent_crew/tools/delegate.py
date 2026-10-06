@@ -146,10 +146,6 @@ async def _delegate(
     except KeyError:
         # Deleted from the sidebar while this call waited, which also ends the child's run.
         raise ToolError(deleted_text(child.id, canvases, more)) from None
-    if parent is not None:
-        # What the child spent is the parent's spend too, or a fan-out would cost the
-        # parent's budget nothing and its cap would stop meaning anything.
-        runtime.store.add_spend(parent.id, spent)
     said = child_answer(runtime.store.history(child.id))
     decided = runtime.store.approvals.recent(limit=1, conversation_id=child.id, kind=TOOL)
     outcome = decide(run, declared_outcome(said), decided[0] if decided else None)
@@ -160,7 +156,10 @@ async def _delegate(
     body = f"{note}\n\n{answer}" if note else answer
     relay = relays(outcome) and args.get("relay", True) is not False
     output = result_text(header_line(child.id, run), outcome_line(outcome), canvases, more, body)
-    return ToolResult(ok=True, output=output, reply=answer if relay else None)
+    # What the child spent is the parent's spend too, or a fan-out would cost the parent's
+    # budget nothing and its cap would stop meaning anything. The result carries it there.
+    reply = answer if relay else None
+    return ToolResult(ok=True, output=output, reply=reply, child_spent_usd=spent)
 
 
 def _children(runtime: Runtime, parent: Conversation | None) -> list[Conversation]:

@@ -42,3 +42,8 @@ class ToolResult:
     reply: str | None = None
     # The calls a script made on its own, in order. Empty for every other tool.
     calls: tuple[NestedCall, ...] = ()
+    # Set by a tool whose work was another conversation's (`delegate`): what that one
+    # spent, which is this conversation's spend too. It is added as the result is written,
+    # so a call made again after a restart costs its conversation once. No part of
+    # `cost_usd`: the other conversation's own run already carries what it paid.
+    child_spent_usd: float = 0.0
