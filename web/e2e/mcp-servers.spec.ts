@@ -157,6 +157,27 @@ test("the tools grid takes in a server that came up while the grid was open", as
   await expect(rows("tool_search").getByLabel(vi.tools.legendOn)).toHaveCount(1);
 });
 
+test("the tools grid lets go of a server whose try failed while the grid was open", async ({ page }) => {
+  const mcp = new FakeMcp([mcpServer({ tools: TOOLS })]);
+  // The crew is trying the server again: its row names no tool, and the agent keeps the ones
+  // it had until the try ends.
+  mcp.tries("notion");
+  await mockApi(page, { agents: [{ ...master, mcp: ["notion"] }, coachAgent], mcp });
+  await page.goto("/#/manage/tools");
+  const rows = (name: string) => page.getByTestId("tool-row").filter({ hasText: name });
+  await expect(rows("mcp__notion__create_pages").getByLabel(vi.tools.legendOn)).toHaveCount(1);
+  await expect(rows("tool_search").getByLabel(vi.tools.legendOn)).toHaveCount(1);
+
+  mcp.becomes("notion", { status: "failed", error: "notion: HTTP 503" });
+  mcp.wake();
+
+  // The row named no tool before the try ended and names none after it: only the way the
+  // try ended tells the grid that the agent has lost them.
+  await expect(rows("mcp__notion")).toHaveCount(0, { timeout: 8_000 });
+  await expect(rows("tool_search")).toHaveCount(0);
+  await expect(rows("write_file")).toHaveCount(1);
+});
+
 // A script calls a tool nobody is asked about, so it is the owner who opens one for it:
 // the tool has to be among those that only read, and set to be called from a script.
 test("the tools grid shows the script tool with the agent whose server opened a tool for scripts", async ({ page }) => {
@@ -262,6 +283,35 @@ test("an agent is handed a server in its editor, and a server the file dropped h
   await expect(page.getByTestId("tool-picker")).not.toContainText("tool_search");
   await page.goto("/#/manage/connections");
   await expect(row(page).getByTestId("mcp-agents")).toHaveText(vi.connectionsPage.usedBy("coach"));
+});
+
+// Who uses a server is said on its card, a page away from the editor that changes it.
+test("a server's card follows who uses it as an agent is saved and removed, with the page never loaded again", async ({ page }) => {
+  const mcp = new FakeMcp([mcpServer({ tools: TOOLS })]);
+  await mockApi(page, { agents: [master, coachAgent], mcp });
+  await page.goto("/#/manage/connections");
+  const users = row(page).getByTestId("mcp-agents");
+  await expect(users).toHaveText(t.noAgents);
+  // A mark on the document, which a page that is loaded again would come back without.
+  await page.evaluate(() => document.documentElement.setAttribute("data-kept", ""));
+
+  await page.goto("/#/manage/crew/coach");
+  const editor = page.getByTestId("agent-editor");
+  await editor.getByTestId("mcp-picker").getByRole("checkbox").check();
+  await editor.getByRole("button", SAVE).click();
+  await expect(editor.getByRole("button", SAVE)).toBeDisabled();
+  await page.goto("/#/manage/connections");
+  await expect(users).toHaveText(vi.connectionsPage.usedBy("coach"));
+
+  await page.goto("/#/manage/crew/coach");
+  const removal = editor.getByTestId("delete-agent");
+  await removal.getByRole("textbox", { name: vi.editor.deleteTitle }).fill("coach");
+  await removal.getByRole("button", { name: vi.editor.deleteConfirm }).click();
+  await expect(page.getByTestId("crew-list")).toBeVisible();
+  await page.goto("/#/manage/connections");
+  await expect(users).toHaveText(t.noAgents);
+
+  await expect(page.locator("html[data-kept]")).toHaveCount(1);
 });
 
 /** Badges under `within` squeezed onto more than one line by what stands beside them. */

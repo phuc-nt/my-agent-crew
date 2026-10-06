@@ -5,7 +5,8 @@
 // as `idle`, and nobody tells the page when the try ends, so the list is read again every
 // couple of seconds until it has: a card must not sit on "connecting" for a server that
 // came up a moment later. A key that changed makes the crew try the servers that are down
-// on its own time, so those are watched the same way for a short while.
+// on its own time, so those are watched the same way for a short while. Each row also names
+// the agents that use the server, which no try changes: the page says when the crew did.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 import type { McpServerInfo } from "../api/types";
@@ -24,6 +25,9 @@ export interface McpController {
   refresh: () => Promise<void>;
   /** A key was saved or removed: read the list, and watch the servers that are down. */
   keysChanged: () => Promise<void>;
+  /** An agent was written, made or removed: read the list, which says who uses each server.
+   *  No server is tried for it, so what is being watched stays as it is. */
+  crewChanged: () => Promise<void>;
   /** Rejects with the request's error, which the card puts in words. */
   reconnect: (name: string) => Promise<void>;
   /** Sends the person to the address the server answers. Rejects when it refuses to. */
@@ -34,10 +38,23 @@ export interface McpController {
 type Watch = { left: number; down: boolean };
 
 /** What the servers hand out, as one value: it changes when a tool comes, goes or reads
- *  another way, which is when the list of every tool has gone stale. A server with no
- *  tools adds nothing to it, so a list that holds none reads like no list at all. */
+ *  another way. A server with no tools adds nothing to it, so a list that holds none reads
+ *  like no list at all. It is one half of what makes the list of every tool stale, and
+ *  says nothing of a try that ended with no tool: `standing` is the whole of it. */
 export const handedOut = (servers: McpServerInfo[]): string =>
   JSON.stringify(servers.flatMap((server) => server.tools));
+
+/** Where the servers stand, as one value: what they hand out, and how the last try of each
+ *  ended. It changes when either does, which is when the list of every tool has gone stale.
+ *  The tools alone do not tell: a server is listed with none for as long as it is tried,
+ *  while the agents keep the ones it had, and with none still when the try fails and they
+ *  lose them. A server that is being tried adds nothing of its own, so a list read before
+ *  any try has ended reads like no list at all. */
+export const standing = (servers: McpServerInfo[]): string =>
+  JSON.stringify([
+    handedOut(servers),
+    servers.filter((server) => server.status !== "idle").map((server) => [server.name, server.status]),
+  ]);
 
 const leavePage = (url: string) => window.location.assign(url);
 
@@ -110,5 +127,5 @@ export function useMcpServers(leave: (url: string) => void = leavePage): McpCont
 
   const signOut = useCallback((name: string) => change(() => api.mcpSignOut(name)), [change]);
 
-  return { servers, error, refresh, keysChanged, reconnect, signIn, signOut };
+  return { servers, error, refresh, keysChanged, crewChanged: read, reconnect, signIn, signOut };
 }

@@ -177,6 +177,38 @@ describe("the MCP routes both fakes answer", () => {
     expect(mcp.registryTools().map((tool) => tool.name)).toEqual(["mcp__notion__create_page"]);
   });
 
+  // The server's row and the tool list part ways for as long as a try lasts: the row is the
+  // server's, the tool list is what the agents hold, and they are handed anew only at its end.
+  it("goes on naming a server's tools while it is tried again, until the try ends", () => {
+    const tools = [mcpTool("notion", "search")];
+    const mcp = new FakeMcp([mcpServer({ tools, skipped: ["mcp__notion__find"] }), mcpServer({ name: "wiki" })]);
+    mcp.crew = () => [{ id: "default", mcp: ["notion"] }];
+    const names = () => mcp.registryTools().map((tool) => tool.name);
+
+    mcp.tries("notion");
+    mcp.tries("ghost");
+
+    expect(list(mcp).map((s) => s.status)).toEqual(["idle", "connected"]);
+    expect(list(mcp)[0]).toMatchObject({ tools: [], skipped: [] });
+    expect(names()).toEqual(["tool_search", "mcp__notion__search"]);
+
+    mcp.becomes("notion", { status: "failed", error: "connection refused" });
+    mcp.wake();
+    expect(list(mcp)[0]).toMatchObject({ status: "failed", error: "connection refused", tools: [] });
+    expect(names()).toEqual([]);
+  });
+
+  it("names the tools a second try found, not the ones the agents held through it", () => {
+    const mcp = new FakeMcp([mcpServer({ tools: [mcpTool("notion", "search")] })]);
+    mcp.crew = () => [{ id: "default", mcp: ["notion"] }];
+
+    mcp.tries("notion");
+    mcp.becomes("notion", { status: "connected", tools: [mcpTool("notion", "fetch", { exposure: "direct" })] });
+    mcp.wake();
+
+    expect(mcp.registryTools().map((tool) => tool.name)).toEqual(["mcp__notion__fetch"]);
+  });
+
   it("refuses an agent's list that names a server the file does not declare", () => {
     const mcp = new FakeMcp([mcpServer()]);
 

@@ -1,6 +1,8 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
+import { api } from "../api/client";
+import type { McpServerInfo } from "../api/types";
 import { vi } from "../i18n/vi";
 import { FakeBackend, coachAgent, fakeAgent, fakeApproval, fakeRun } from "../test/fake-backend";
 import { mcpServer, mcpTool } from "../test/fake-mcp";
@@ -496,6 +498,71 @@ describe("the tools grid of the manage screen", () => {
     expect(reads("/tools")).toBe(2);
   });
 
+  // While a server is tried again its row names no tool, and the agents keep the ones it had
+  // until the try ends. A try that ends with none leaves the row's tools as they were read.
+  it.each<[string, Partial<McpServerInfo>]>([
+    ["fails", { status: "failed", error: "connection refused" }],
+    ["ends at a sign-in", { status: "signed_out" }],
+    ["finds no tool", { status: "connected" }],
+  ])("loses a server's tools under the person's eyes when a try that was going on %s", async (_, ended) => {
+    vitest.useFakeTimers({ shouldAdvanceTime: true });
+    backend.agents = [{ ...fakeAgent, mcp: ["notion"] }];
+    backend.mcp.servers = [mcpServer({ tools: [mcpTool("notion", "search")] })];
+    backend.mcp.tries("notion");
+    show("tools", { agents: backend.agents });
+    await waitFor(() => expect(holders("mcp__notion__search")).toBe(1));
+    await waitFor(() => expect(reads("/mcp")).toBe(1));
+
+    // The try is still going on at the next read: the list has not changed, and nothing is
+    // read for it.
+    await act(async () => {
+      await vitest.advanceTimersByTimeAsync(POLL_MS);
+    });
+    await waitFor(() => expect(reads("/mcp")).toBe(2));
+    expect(reads("/tools")).toBe(1);
+
+    backend.mcp.becomes("notion", ended);
+    backend.mcp.wake();
+    await act(async () => {
+      await vitest.advanceTimersByTimeAsync(POLL_MS);
+    });
+
+    await waitFor(() => expect(screen.queryByText("mcp__notion__search")).not.toBeInTheDocument());
+    expect(screen.queryByText("tool_search")).not.toBeInTheDocument();
+    expect(reads("/mcp")).toBe(3);
+    expect(reads("/tools")).toBe(2);
+  });
+
+  // The grid and the list are asked for side by side when the screen opens, and a try can end
+  // between the two answers: the grid was then read with the tools the agents still held.
+  it("is read again when the list it opens with finds the try already over", async () => {
+    backend.agents = [{ ...fakeAgent, mcp: ["notion"] }];
+    backend.mcp.servers = [mcpServer({ tools: [mcpTool("notion", "search")] })];
+    backend.mcp.tries("notion");
+    let land: (answer: { servers: McpServerInfo[] }) => void = () => {};
+    const slow = new Promise<{ servers: McpServerInfo[] }>((resolve) => {
+      land = resolve;
+    });
+    const asked = vitest.spyOn(api, "mcpServers").mockReturnValueOnce(slow);
+    try {
+      show("tools", { agents: backend.agents });
+      await waitFor(() => expect(holders("mcp__notion__search")).toBe(1));
+      expect(reads("/tools")).toBe(1);
+
+      backend.mcp.becomes("notion", { status: "failed", error: "connection refused" });
+      backend.mcp.wake();
+      await act(async () => {
+        land({ servers: backend.mcp.servers });
+        await slow;
+      });
+
+      await waitFor(() => expect(screen.queryByText("mcp__notion__search")).not.toBeInTheDocument());
+      expect(reads("/tools")).toBe(2);
+    } finally {
+      asked.mockRestore();
+    }
+  });
+
   it("is not read for a server's tools while another page is open, only once it is opened", async () => {
     vitest.useFakeTimers({ shouldAdvanceTime: true });
     backend.agents = [{ ...fakeAgent, mcp: ["notion"] }];
@@ -515,6 +582,77 @@ describe("the tools grid of the manage screen", () => {
     rerender({ agents: backend.agents, section: "tools" });
     await waitFor(() => expect(holders("mcp__notion__search")).toBe(1));
     expect(reads("/tools")).toBe(2);
+  });
+});
+
+// Who uses a server is the agents' to say, and it is changed on the crew's page while the card
+// that shows it sits on another: the card must not go on naming the crew as the screen found it.
+describe("who uses a server, on the manage screen", () => {
+  let backend: FakeBackend;
+  const reads = (path: string) => backend.requests.filter((r) => r.method === "GET" && r.path === path).length;
+  /** The servers an agent can be handed, once the editor has the list to offer them from. */
+  const offered = async () => {
+    const picker = await screen.findByTestId("mcp-picker");
+    await within(picker).findByText(vi.mcp.status.connected);
+    return within(picker);
+  };
+  const usedBy = () => within(screen.getByTestId("mcp-server-notion")).getByTestId("mcp-agents");
+  const withServer = { ...coachAgent, mcp: ["notion"] };
+
+  beforeEach(() => {
+    backend = new FakeBackend();
+    backend.mcp.servers = [mcpServer({ tools: [mcpTool("notion", "search")] })];
+    vitest.stubGlobal("fetch", backend.fetch);
+  });
+
+  it.each<[string, typeof coachAgent, string]>([
+    ["names an agent its editor handed the server to", coachAgent, vi.connectionsPage.usedBy("coach")],
+    ["no longer names an agent its editor took the server from", withServer, vi.mcp.noAgents],
+  ])("%s, with no reload and no click", async (_, coach, says) => {
+    backend.agents = [fakeAgent, coach];
+    const { rerender } = show("crew", { agents: backend.agents, editingAgentId: "coach" });
+    const box = (await offered()).getByRole("checkbox", { name: /^notion/ });
+
+    await userEvent.click(box);
+    await userEvent.click(screen.getByRole("button", { name: vi.editor.save }));
+    await waitFor(() => expect(screen.getByText(vi.editor.clean)).toBeInTheDocument());
+
+    // The person goes to the card. Nothing on it is pressed, and the page is not loaded again.
+    rerender({ agents: backend.agents, section: "connections" });
+    await waitFor(() => expect(usedBy()).toHaveTextContent(says));
+    // One read for the save, on top of the one the screen opened with.
+    expect(reads("/mcp")).toBe(2);
+  });
+
+  it("no longer names an agent that was removed", async () => {
+    backend.agents = [fakeAgent, withServer];
+    const onEditAgent = vitest.fn();
+    const { rerender } = show("crew", { agents: backend.agents, editingAgentId: "coach", onEditAgent });
+    await offered();
+
+    const removal = within(screen.getByTestId("delete-agent"));
+    await userEvent.type(removal.getByRole("textbox", { name: vi.editor.deleteTitle }), "coach");
+    await userEvent.click(removal.getByRole("button", { name: vi.editor.deleteConfirm }));
+    // The editor of an agent that is gone closes, as the app closes it.
+    await waitFor(() => expect(onEditAgent).toHaveBeenCalledWith(null));
+
+    rerender({ agents: backend.agents, editingAgentId: undefined, section: "connections" });
+    await waitFor(() => expect(usedBy()).toHaveTextContent(vi.mcp.noAgents));
+    expect(reads("/mcp")).toBe(2);
+  });
+
+  it("reads who uses each server again when an agent is made", async () => {
+    const onEditAgent = vitest.fn();
+    show("crew", { agents: backend.agents, onEditAgent });
+    await waitFor(() => expect(reads("/mcp")).toBe(1));
+
+    await userEvent.click(screen.getByRole("button", { name: vi.crew.add }));
+    const form = within(screen.getByTestId("add-agent"));
+    await userEvent.type(form.getByLabelText(vi.crew.addId), "scribe");
+    await userEvent.click(form.getByRole("button", { name: vi.crew.create }));
+    await waitFor(() => expect(onEditAgent).toHaveBeenCalledWith("scribe"));
+
+    await waitFor(() => expect(reads("/mcp")).toBe(2));
   });
 });
 

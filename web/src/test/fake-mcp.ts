@@ -78,6 +78,8 @@ export class FakeMcp {
   /** What each server reads as once it is tried again, by name: a server that came up, or
    *  one that is still down for another reason. Used once. */
   private next = new Map<string, Partial<McpServerInfo>>();
+  /** What the agents go on holding of a server whose try has not ended, by its name. */
+  private held = new Map<string, McpToolInfo[]>();
 
   /** The crew, when the fake has one: who uses a server is then read off the agents'
    *  own lists, as the server reads it, and not off the row a test seeded. */
@@ -99,7 +101,9 @@ export class FakeMcp {
     const scripting = new Set<string>();
     const rows = this.servers.flatMap((server) => {
       const agents = this.usedBy(server.name, server.agents);
-      const handed = server.tools.filter((tool) => tool.exposure !== "hidden");
+      // The agents are handed what a try found only once it has ended (`mcp_lifecycle`).
+      const tools = server.status === "idle" ? (this.held.get(server.name) ?? server.tools) : server.tools;
+      const handed = tools.filter((tool) => tool.exposure !== "hidden");
       if (handed.some((tool) => tool.exposure !== "direct")) for (const agent of agents) searching.add(agent);
       // A tool that asks first is never a script's to call, whatever it is opened as.
       if (handed.some((tool) => tool.exposure === "codemode" && !tool.requires_approval))
@@ -125,6 +129,15 @@ export class FakeMcp {
   /** The next reconnect of `name`, or the next read of the list after a key changed, finds it so. */
   becomes(name: string, change: Partial<McpServerInfo>): void {
     this.next.set(name, change);
+  }
+
+  /** A try of `name` begins, as `hub._connect` begins one: the list names the server as being
+   *  tried, with no tool, while the agents keep the ones it had until the try ends. */
+  tries(name: string): void {
+    const server = this.servers.find((s) => s.name === name);
+    if (!server) return;
+    this.held.set(name, server.tools);
+    this.change(name, { status: "idle", tools: [], skipped: [] });
   }
 
   /** What `mcp_lifecycle.retry_loop` does when a key changes: try the servers that wait. */

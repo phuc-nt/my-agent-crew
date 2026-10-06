@@ -23,7 +23,7 @@ import { ToolsMatrix } from "../components/tools-matrix";
 import { Brand } from "../components/ui/brand-mark";
 import { Icon, type IconName } from "../components/ui/icon";
 import { useCredentials } from "../hooks/use-credentials";
-import { handedOut, useMcpServers } from "../hooks/use-mcp-servers";
+import { standing, useMcpServers } from "../hooks/use-mcp-servers";
 import { useRegistry } from "../hooks/use-registry";
 import type { ManageSection } from "../hooks/use-route";
 import { vi } from "../i18n/vi";
@@ -135,7 +135,7 @@ export function ManageScreen(props: Props) {
   const registry = useRegistry();
   const mcp = useMcpServers();
   const { refresh: refreshRegistry } = registry;
-  const { keysChanged: mcpKeysChanged } = mcp;
+  const { keysChanged: mcpKeysChanged, crewChanged: mcpCrewChanged } = mcp;
   // A saved key can build a provider or a search backend, and bring up an MCP server
   // whose header reads it; the registry and the server list show which.
   const keysChanged = useCallback(async () => {
@@ -144,15 +144,21 @@ export function ManageScreen(props: Props) {
   const credentials = useCredentials(keysChanged);
   // Who holds which tool changes on the other pages: an agent is edited, made or removed,
   // a server is signed out of or tried again. So the grid is read again each time it is
-  // opened, and under the person's eyes when a server's tools change while it is open. The
-  // read the screen opens with is the registry's own.
+  // opened, and under the person's eyes when a server's tools change or a try of it ends
+  // while it is open. The read the screen opens with is the registry's own.
   const onTools = props.section === "tools";
-  const handed = handedOut(mcp.servers);
+  const stand = standing(mcp.servers);
   const opened = useRef(false);
   useEffect(() => {
     if (!opened.current) opened.current = true;
     else if (onTools) void refreshRegistry();
-  }, [onTools, handed, refreshRegistry]);
+  }, [onTools, stand, refreshRegistry]);
+  // An agent that is written, made or removed changes who uses a server, which the list of
+  // servers says on the connections page: it is read again along with the crew.
+  const crewChanged = () => {
+    props.onReloadCrew();
+    void mcpCrewChanged();
+  };
   const editing = props.agents.find((a) => a.id === props.editingAgentId) ?? null;
   const pendingProposals = props.stats?.pending_proposals ?? 0;
   const failing = failingJobs(props.jobs);
@@ -372,7 +378,7 @@ export function ManageScreen(props: Props) {
                 providers={registry.connections?.providers.map((p) => p.name) ?? []}
                 onBack={() => props.onEditAgent(null)}
                 backLabel={props.fromJob ? vi.jobRow.back : undefined}
-                onChanged={props.onReloadCrew}
+                onChanged={crewChanged}
                 focus={props.editFocus}
               />
             ) : (
@@ -384,7 +390,7 @@ export function ManageScreen(props: Props) {
                 onInstall={props.onInstall}
                 onEdit={(id) => props.onEditAgent(id)}
                 onCreated={(id) => {
-                  props.onReloadCrew();
+                  crewChanged();
                   props.onEditAgent(id);
                 }}
               />

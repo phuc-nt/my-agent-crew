@@ -3,9 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vites
 import { api } from "../api/client";
 import type { McpServerInfo } from "../api/types";
 import { vi } from "../i18n/vi";
-import { FakeBackend } from "../test/fake-backend";
+import { FakeBackend, coachAgent, fakeAgent } from "../test/fake-backend";
 import { SIGN_IN_LOCAL_ONLY, authorizeUrl, mcpServer, mcpTool } from "../test/fake-mcp";
-import { KEY_POLLS, POLL_MS, TRY_POLLS, handedOut, useMcpServers } from "./use-mcp-servers";
+import { KEY_POLLS, POLL_MS, TRY_POLLS, handedOut, standing, useMcpServers } from "./use-mcp-servers";
 
 let backend: FakeBackend;
 
@@ -264,6 +264,54 @@ describe("signing in and out", () => {
   });
 });
 
+// Who uses a server is read off the agents' own lists, and no try of a server changes it:
+// it changes when an agent is written, made or removed, which the page is the one to say.
+describe("when the crew changes", () => {
+  it("reads the list again, which says who uses each server now", async () => {
+    backend.agents = [{ ...fakeAgent, mcp: ["notion"] }, coachAgent];
+    seed(mcpServer());
+    const hook = await opened();
+    expect(hook.result.current.servers[0].agents).toEqual(["default"]);
+
+    backend.agents = [fakeAgent, { ...coachAgent, mcp: ["notion"] }];
+    await act(() => hook.result.current.crewChanged());
+
+    expect(reads()).toBe(2);
+    expect(hook.result.current.servers[0].agents).toEqual(["coach"]);
+    // No server was tried for it, so there is nothing to watch.
+    await pass(3);
+    expect(reads()).toBe(2);
+  });
+
+  // After a key changed the crew tries the servers that are down on its own time, and an
+  // agent saved meanwhile is no reason to stop looking.
+  it("goes on watching the servers that are down after a key changed", async () => {
+    seed(mcpServer({ status: "failed", error: "HTTP 401" }));
+    const hook = await opened();
+    await act(() => hook.result.current.keysChanged());
+
+    await act(() => hook.result.current.crewChanged());
+    expect(reads()).toBe(3);
+    await pass(KEY_POLLS + 4);
+
+    expect(reads()).toBe(3 + KEY_POLLS);
+  });
+
+  it("says why the list could not be read, and keeps the one it has", async () => {
+    backend.agents = [{ ...fakeAgent, mcp: ["notion"] }];
+    seed(mcpServer());
+    const hook = await opened();
+    vitest.stubGlobal("fetch", async () => {
+      throw new TypeError("Failed to fetch");
+    });
+
+    await act(() => hook.result.current.crewChanged());
+
+    expect(hook.result.current.error).toBe(vi.requestErrors.network);
+    expect(hook.result.current.servers[0].agents).toEqual(["default"]);
+  });
+});
+
 // The manage screen hands `keysChanged` to the credentials hook, which reads the keys again
 // whenever the callback it was given changes.
 describe("what the servers hand out, as one value", () => {
@@ -298,6 +346,53 @@ describe("what the servers hand out, as one value", () => {
   });
 });
 
+// A server that is tried again is listed with no tool while the agents keep the ones it had,
+// and with none still when the try fails: its tools read the same before and after, and only
+// the way the try ended says that the agents have lost them.
+describe("where the servers stand, as one value", () => {
+  const search = mcpTool("notion", "search");
+  const wiki = mcpServer({ name: "wiki", tools: [mcpTool("wiki", "read")] });
+  const tried = [mcpServer({ status: "idle" }), wiki];
+
+  it.each<[string, McpServerInfo]>([
+    ["failed", mcpServer({ status: "failed", error: "connection refused" })],
+    ["at a sign-in", mcpServer({ status: "signed_out" })],
+    ["connected, with no tool", mcpServer()],
+    ["connected, with its tools", mcpServer({ tools: [search] })],
+  ])("changes when a try ends %s", (_, ended) => {
+    expect(standing([ended, wiki])).not.toBe(standing(tried));
+  });
+
+  it.each<[string, McpServerInfo[], McpServerInfo[]]>([
+    ["a server with no tool goes down", [mcpServer()], [mcpServer({ status: "failed" })]],
+    ["a server that was down asks for a sign-in", [mcpServer({ status: "failed" })], [mcpServer({ status: "signed_out" })]],
+    ["a server that was down starts being tried", [mcpServer({ status: "failed" })], [mcpServer({ status: "idle" })]],
+    [
+      "one try ends as another begins",
+      [mcpServer({ status: "idle" }), mcpServer({ name: "wiki", status: "failed" })],
+      [mcpServer({ status: "failed" }), mcpServer({ name: "wiki", status: "idle" })],
+    ],
+    ["a tool comes with no try in between", [mcpServer()], [mcpServer({ tools: [search] })]],
+    ["a tool reads another way", [mcpServer({ tools: [search] })], [mcpServer({ tools: [{ ...search, exposure: "direct" }] })]],
+  ])("changes when %s", (_, before, after) => {
+    expect(standing(after)).not.toBe(standing(before));
+  });
+
+  it("stays the same for a list read again, whatever else a server reads as", () => {
+    const again = [mcpServer({ status: "idle" }), mcpServer({ name: "wiki", tools: wiki.tools.map((tool) => ({ ...tool })) })];
+    expect(standing(again)).toBe(standing(tried));
+
+    const down = mcpServer({ status: "failed", error: "connection refused" });
+    const later = { ...down, error: "hết giờ", agents: ["coach"], signed_in: true, description: "Ghi chú" };
+    expect(standing([later, wiki])).toBe(standing([down, wiki]));
+  });
+
+  // Nothing has been handed out anew before the first try ends, so there is nothing to read.
+  it("reads a list in which every server is still being tried like no list at all", () => {
+    expect(standing([mcpServer({ status: "idle" }), mcpServer({ name: "wiki", status: "idle" })])).toBe(standing([]));
+  });
+});
+
 it("hands out the same functions on every render", async () => {
   seed(mcpServer({ status: "idle" }));
   const hook = await opened();
@@ -306,7 +401,7 @@ it("hands out the same functions on every render", async () => {
   await pass(2);
   hook.rerender();
 
-  for (const name of ["refresh", "keysChanged", "reconnect", "signIn", "signOut"] as const) {
+  for (const name of ["refresh", "keysChanged", "crewChanged", "reconnect", "signIn", "signOut"] as const) {
     expect(hook.result.current[name], name).toBe(first[name]);
   }
 });

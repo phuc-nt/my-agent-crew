@@ -51,6 +51,7 @@ function mcp(overrides: Partial<McpController> = {}): McpController {
     error: null,
     refresh: mock.fn(async () => undefined),
     keysChanged: mock.fn(async () => undefined),
+    crewChanged: mock.fn(async () => undefined),
     reconnect: mock.fn(async () => undefined),
     signIn: mock.fn(async () => undefined),
     signOut: mock.fn(async () => undefined),
