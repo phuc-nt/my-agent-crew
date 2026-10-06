@@ -173,6 +173,10 @@ describe("the tools of a server", () => {
 
     expect(row().queryByText(t.tools(0))).not.toBeInTheDocument();
     expect(row().getByText(t.skipped("search, fetch"))).toBeInTheDocument();
+    // The names come with no reason apiece, so the line gives every reason there is.
+    for (const reason of ["trùng tên", "tên quá dài", "tham số quá lớn"]) {
+      expect(t.skipped("search")).toContain(reason);
+    }
   });
 
   it("name nothing as passed over when nothing was", () => {

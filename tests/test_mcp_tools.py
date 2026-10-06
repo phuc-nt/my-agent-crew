@@ -23,6 +23,7 @@ from my_agent_crew.mcp.hub import CONNECTED, FAILED, IDLE, SIGNED_OUT, McpHub
 from my_agent_crew.mcp.tokens import TokenStore
 from my_agent_crew.mcp.tools import McpTool, build_tools, render, tool_name
 from my_agent_crew.texts import TOOL_FAILED
+from my_agent_crew.tools.registry import ToolRegistry
 from tests.mcp_fakes import CREATE, SEARCH, TOOLS, FakeMcp, make_hub, public, server
 
 SEARCH_NAME, CREATE_NAME = "mcp__notion__search", "mcp__notion__create_page"
@@ -99,12 +100,95 @@ def test_a_tool_carries_how_far_it_is_let_in():
     }
 
 
-def test_two_tools_that_come_to_one_name_keep_the_first_and_name_the_other():
+def left_out(caplog) -> list[str]:
+    return [r.getMessage() for r in caplog.records if r.name == "my_agent_crew.mcp.tools"]
+
+
+def test_two_tools_that_come_to_one_name_keep_the_first_and_name_the_other(caplog):
     listed = [{"name": "get page"}, {"name": "get_page"}, {"name": ""}, "junk", {"title": "x"}]
+
+    with caplog.at_level(logging.WARNING, logger="my_agent_crew.mcp.tools"):
+        tools, skipped = build_tools(server(), listed, never_called)
+
+    assert [tool.remote for tool in tools] == ["get page"] and skipped == ("get_page",)
+    assert left_out(caplog) == ["MCP server notion: tool 'get_page' left out, its name is taken"]
+
+
+def sized(chars: int) -> dict:
+    """An object schema whose JSON is exactly this many letters long."""
+    schema = {"type": "object", "description": ""}
+    schema["description"] = "x" * (chars - len(json.dumps(schema)))
+    assert len(json.dumps(schema)) == chars
+    return schema
+
+
+def test_a_tool_with_more_name_or_parameters_than_is_taken_is_left_out_and_named(caplog):
+    fits, long = "n" * 128, "n" * 129
+    listed = [
+        {"name": fits},
+        {"name": long},
+        {"name": "wide", "inputSchema": sized(50_000)},
+        {"name": "wider", "inputSchema": sized(50_001)},
+        # Measured in letters, whatever the language they are in.
+        {"name": "việt", "inputSchema": {"type": "object", "description": "ữ" * 49_000}},
+        SEARCH,
+    ]
+
+    with caplog.at_level(logging.WARNING, logger="my_agent_crew.mcp.tools"):
+        tools, skipped = build_tools(server(), listed, never_called)
+
+    assert [tool.remote for tool in tools] == [fits, "wide", "việt", "search"]
+    # Named in few enough letters to read: a name can be as long as a page of the list.
+    cut = "n" * 59 + "…"
+    assert skipped == (cut, "wider")
+    assert left_out(caplog) == [
+        f"MCP server notion: tool '{cut}' left out, its name is too long",
+        "MCP server notion: tool 'wider' left out, its parameters are too large",
+    ]
+
+
+def test_a_name_left_out_for_being_too_long_does_not_keep_others_from_the_name_it_comes_to():
+    """Cut to the letters a provider takes, a long name can meet a short one's."""
+    long = "a" * 200
+
+    tools, skipped = build_tools(server(), [{"name": long}, {"name": long}], never_called)
+
+    assert tools == () and skipped == ("a" * 59 + "…",) * 2
+
+
+def test_a_tool_too_large_is_said_to_be_that_even_where_its_name_is_taken_too(caplog):
+    """Its size is looked at first, so a name of any length is never worked on."""
+    listed = [SEARCH, {"name": "search", "inputSchema": sized(50_001)}]
+
+    with caplog.at_level(logging.WARNING, logger="my_agent_crew.mcp.tools"):
+        tools, skipped = build_tools(server(), listed, never_called)
+
+    assert [tool.remote for tool in tools] == ["search"] and skipped == ("search",)
+    assert left_out(caplog) == [
+        "MCP server notion: tool 'search' left out, its parameters are too large"
+    ]
+
+
+def test_a_tool_left_out_is_logged_on_one_line_whatever_its_name_holds(caplog):
+    listed = [{"name": "a b"}, {"name": "a\nb"}]  # both come to mcp__notion__a_b
+
+    with caplog.at_level(logging.WARNING, logger="my_agent_crew.mcp.tools"):
+        _, skipped = build_tools(server(), listed, never_called)
+
+    assert skipped == ("a\nb",)
+    assert left_out(caplog) == ["MCP server notion: tool 'a\\nb' left out, its name is taken"]
+
+
+def test_parameters_nested_too_deep_to_write_out_again_are_too_large():
+    schema = inner = {"type": "object"}
+    for _ in range(20_000):
+        inner["properties"] = {"a": {"type": "object"}}
+        inner = inner["properties"]["a"]
+    listed = [{"name": "deep", "inputSchema": schema}, SEARCH]
 
     tools, skipped = build_tools(server(), listed, never_called)
 
-    assert [tool.remote for tool in tools] == ["get page"] and skipped == ("get_page",)
+    assert [tool.remote for tool in tools] == ["search"] and skipped == ("deep",)
 
 
 @pytest.mark.parametrize(
@@ -276,6 +360,43 @@ async def test_handing_out_again_takes_back_what_a_profile_no_longer_names(deps_
     hub.attach(agents)
 
     assert not [n for n in deps.tools.names() if n.startswith("mcp__")]
+
+
+async def test_handing_out_again_takes_every_tool_back_in_one_build_of_the_toolbox(
+    deps_factory, monkeypatch
+):
+    hub = await connected(FakeMcp([{"name": f"tool-{n}"} for n in range(50)]))
+    deps, plain = deps_factory(), deps_factory()
+    deps.profile = replace(deps.agent, mcp=("notion",))
+    agents = {"default": deps, "plain": plain}
+    hub.attach(agents)
+    untouched, held = plain.tools, deps.tools.names()
+    assert len([name for name in held if name.startswith("mcp__")]) == 50
+    builds: list[ToolRegistry] = []
+    init = ToolRegistry.__init__
+
+    def counted(self, *args, **kwargs) -> None:
+        builds.append(self)
+        init(self, *args, **kwargs)
+
+    monkeypatch.setattr(ToolRegistry, "__init__", counted)
+
+    hub.attach(agents)
+
+    # A build for each tool taken back is time that grows with the square of what a server
+    # lists, spent on the loop every turn runs on.
+    assert len(builds) == 1 and deps.tools.names() == held
+    # An agent with nothing to take back keeps the toolbox it had.
+    assert plain.tools is untouched
+
+
+async def test_a_server_that_lists_too_many_tools_is_down_and_says_why():
+    hub = await connected(FakeMcp([{"name": f"tool-{n}"} for n in range(1001)]))
+
+    link = hub.links["notion"]
+    assert (link.status, link.tools) == (FAILED, ())
+    assert link.error == t.MCP_TOO_MANY_TOOLS.format(server="notion", limit=1000)
+    assert hub.waiting() == ["notion"]
 
 
 async def test_a_server_no_agent_was_told_of_is_a_warning_not_a_failure(deps_factory, caplog):

@@ -127,10 +127,6 @@ class McpHub:
             link.session = session
             link.tools, link.skipped = build_tools(server, listed, session.call_tool)
             link.status, link.error, link.challenge = CONNECTED, "", ""
-            for name in link.skipped:
-                logger.warning(
-                    "MCP server %s: tool %s left out, its name is taken", server.name, name
-                )
 
     def waiting(self) -> list[str]:
         """Servers worth trying again without anyone asking. One that wants a sign-in is

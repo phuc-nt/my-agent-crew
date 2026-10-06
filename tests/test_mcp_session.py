@@ -112,6 +112,36 @@ async def test_a_server_that_never_stops_paging_is_stopped(monkeypatch):
     assert len(tools) == 20 and fake.methods().count("tools/list") == 20
 
 
+def listing(count: int) -> FakeMcp:
+    return FakeMcp([{"name": f"tool-{n}"} for n in range(count)])
+
+
+async def test_a_server_may_list_a_thousand_tools_and_not_one_more():
+    session = session_for(listing(1000))
+    await session.start()
+    assert len(await session.list_tools()) == 1000
+
+    session = session_for(listing(1001))
+    await session.start()
+    with pytest.raises(McpError) as refused:
+        await session.list_tools()
+
+    assert str(refused.value) == t.MCP_TOO_MANY_TOOLS.format(server="notion", limit=1000)
+    assert "1000" in str(refused.value) and "notion" in str(refused.value)
+
+
+async def test_a_server_that_has_listed_too_many_tools_is_not_asked_for_the_rest():
+    fake = listing(1500)
+    fake.page_size = 600
+    session = session_for(fake)
+    await session.start()
+
+    with pytest.raises(McpError):
+        await session.list_tools()
+
+    assert fake.methods().count("tools/list") == 2
+
+
 async def test_a_session_the_server_forgot_is_opened_again_and_the_call_made_once():
     fake = FakeMcp()
     session = session_for(fake)

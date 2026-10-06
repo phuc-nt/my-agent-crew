@@ -120,10 +120,11 @@ class ToolRegistry:
     def names(self) -> list[str]:
         return list(self._tools)
 
-    def without(self, name: str) -> ToolRegistry:
-        """A copy missing one tool. How a delegated agent is handed the same toolbox minus
-        `delegate`, so the chain stops one level down."""
-        kept = [t for t in self._tools.values() if t.name != name]
+    def without(self, *names: str) -> ToolRegistry:
+        """A copy missing the tools named. How a delegated agent is handed the same toolbox
+        minus `delegate`, so the chain stops one level down."""
+        gone = set(names)
+        kept = [t for t in self._tools.values() if t.name not in gone]
         return ToolRegistry(kept, self.limit, self.hooks, self.summariser, self.spill)
 
     def specs(self) -> list[ToolSpec]:

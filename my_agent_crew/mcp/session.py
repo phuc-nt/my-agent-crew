@@ -19,6 +19,7 @@ import httpx
 from my_agent_crew import __version__
 from my_agent_crew import texts_mcp as t
 from my_agent_crew.mcp.config import McpServer
+from my_agent_crew.mcp.tool_limits import MAX_TOOLS
 from my_agent_crew.mcp.wire import (
     SESSION_HEADER,
     Answer,
@@ -177,6 +178,9 @@ class McpSession:
             if not isinstance(listed, list):
                 raise McpError(t.MCP_BAD_ANSWER.format(server=self.server.name))
             tools += [tool for tool in listed if isinstance(tool, dict)]
+            if len(tools) > MAX_TOOLS:
+                refused = t.MCP_TOO_MANY_TOOLS.format(server=self.server.name, limit=MAX_TOOLS)
+                raise McpError(refused)
             cursor = page.get("nextCursor")
             if not cursor:
                 break

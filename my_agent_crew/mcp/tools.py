@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
@@ -19,6 +20,7 @@ from typing import Any
 
 from my_agent_crew import texts_mcp as t
 from my_agent_crew.mcp.config import DEFERRED, DIRECT, McpServer, MissingEnv
+from my_agent_crew.mcp.tool_limits import NAME_TAKEN, shown, unfit
 from my_agent_crew.mcp.wire import McpError
 from my_agent_crew.tools.registry import Tool, ToolError
 
@@ -32,6 +34,7 @@ HASH_CHARS = 8
 EMPTY_SCHEMA: dict[str, Any] = {"type": "object", "properties": {}}
 
 Call = Callable[[str, dict[str, Any]], Awaitable[dict[str, Any]]]
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -145,25 +148,32 @@ def _description(server: McpServer, raw: dict[str, Any]) -> str:
 def build_tools(
     server: McpServer, listed: Sequence[dict[str, Any]], call: Call
 ) -> tuple[tuple[McpTool, ...], tuple[str, ...]]:
-    """(the server's tools, the names left out). A tool is left out when another already
-    took the name it comes to here; one that is hidden is built, so the owner sees it
-    listed, and is kept from the agents where they are handed their tools."""
+    """(the server's tools, the names left out). A tool is left out when it is more than
+    is taken (`tool_limits`) or another already took the name it comes to here; one that
+    is hidden is built, so the owner sees it listed, and is kept from the agents where
+    they are handed their tools."""
     tools: dict[str, McpTool] = {}
     skipped: list[str] = []
     for raw in listed:
         remote = raw.get("name") if isinstance(raw, dict) else None
         if not isinstance(remote, str) or not remote:
             continue
-        name = tool_name(server.name, remote)
+        schema = _schema(raw.get("inputSchema"))
+        why = unfit(remote, schema)
+        name = "" if why else tool_name(server.name, remote)
         if name in tools:
-            skipped.append(remote)
+            why = NAME_TAKEN
+        if why:
+            skipped.append(shown(remote))
+            # %r: a name is the server's to choose, line breaks and all.
+            logger.warning("MCP server %s: tool %r left out, %s", server.name, skipped[-1], why)
             continue
         reads = server.reads_only(remote)
         annotations = raw.get("annotations")
         tools[name] = McpTool(
             name=name,
             description=_description(server, raw),
-            parameters=_schema(raw.get("inputSchema")),
+            parameters=schema,
             run=_runner(call, remote),
             requires_approval=not reads,
             replay_safe=reads,

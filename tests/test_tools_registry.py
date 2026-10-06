@@ -61,6 +61,14 @@ async def test_a_registry_can_carry_its_own_output_cap_and_keeps_it_when_narrowe
     assert reg.without("other").limit == 16000
 
 
+def test_a_registry_narrowed_by_several_names_keeps_the_rest_in_their_order():
+    reg = ToolRegistry([tool("a"), tool("b"), tool("c"), tool("d")])
+
+    narrowed = reg.without("b", "d", "never-there")
+
+    assert narrowed.names() == ["a", "c"] and reg.names() == ["a", "b", "c", "d"]
+
+
 async def test_a_summariser_rewrites_the_middle_of_a_long_text_output():
     async def big(args):
         return "MỞ ĐẦU. " + ("dòng nhật ký lặp lại. " * 3000) + " KẾT THÚC."

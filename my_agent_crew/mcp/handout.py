@@ -26,9 +26,11 @@ logger = logging.getLogger(__name__)
 
 
 def hand_out(deps: AgentDeps, links: Mapping[str, Link]) -> None:
-    for name in deps.tools.names():
-        if name.startswith(PREFIX) or name in (SEARCH_TOOL, SCRIPT_TOOL):
-            deps.tools = deps.tools.without(name)
+    companions = (SEARCH_TOOL, SCRIPT_TOOL)
+    back = [n for n in deps.tools.names() if n.startswith(PREFIX) or n in companions]
+    if back:
+        # In one build of the toolbox, however many there are to take back.
+        deps.tools = deps.tools.without(*back)
     handed: dict[str, McpTool] = {}
     for server in deps.agent.mcp:
         link = links.get(server)

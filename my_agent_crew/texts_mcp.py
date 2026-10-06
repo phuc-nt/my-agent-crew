@@ -14,6 +14,9 @@ MCP_REDIRECT = "Máy chủ MCP {server} chuyển hướng sang địa chỉ khá
 MCP_TOO_LARGE = "Máy chủ MCP {server} trả về quá nhiều dữ liệu (hơn {megabytes} MB)."
 MCP_NO_ANSWER = "Máy chủ MCP {server} đóng kết nối mà không trả lời."
 MCP_BAD_ANSWER = "Máy chủ MCP {server} trả lời không đúng giao thức."
+MCP_TOO_MANY_TOOLS = (
+    "Máy chủ MCP {server} liệt kê hơn {limit} công cụ nên không công cụ nào của nó được nhận."
+)
 MCP_VERSION = "Máy chủ MCP {server} dùng phiên bản giao thức {version!r} chưa được hỗ trợ."
 MCP_SESSION_GONE = "Máy chủ MCP {server} đã bỏ phiên làm việc."
 MCP_RPC_ERROR = "Máy chủ MCP {server} báo lỗi: {message}"

@@ -403,7 +403,8 @@ export const vi = {
         "Không khai sẵn; agent tìm và nạp bằng tool_search như mức nạp khi cần. Công cụ nằm trong read_only thì còn gọi được từ script (tool_script).",
       hidden: "Không giao cho agent nào.",
     },
-    skipped: (names: string) => `Bỏ qua vì trùng tên với công cụ khác: ${names}`,
+    skipped: (names: string) =>
+      `Bỏ qua vì trùng tên với công cụ khác, tên quá dài hoặc tham số quá lớn: ${names}`,
     reconnect: "Kết nối lại",
     reconnecting: "Đang kết nối…",
     signIn: "Đăng nhập",
