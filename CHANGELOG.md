@@ -20,10 +20,19 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   and follows it live through `GET /api/conversations/{id}/turn`, instead of showing nothing
   until the answer is stored. The text being written is kept in memory only; after a restart the
   stored conversation is the whole truth. `POST /api/conversations/{id}/stop` now also answers
-  `cancelled`, and ends a turn the web started from any tab.
+  `cancelled`, and ends a turn the web started from any tab. Deleting a conversation ends the turn
+  the web started or the queue runs for it, once the delete has held, and that run closes as
+  interrupted; a turn a bot or a job reads is not ended by it, as it is not by Stop.
 - When the server stops under a Telegram turn, the bot now says the turn will be carried on once
   the server is back, instead of saying it was cut off. A bot restarted while the server stays
   up still says the turn was cut off, since nothing will carry it on.
+- A home runs one server at a time. A server takes its home directory for itself before it opens
+  what is kept there and holds it until its process is gone, however that ends. A start that
+  finds the home held reads nothing of it, says which home it is and exits 1, whatever port it
+  was given and with `--no-schedule` too. Such a start used to close the running server's runs
+  in the record before it failed to bind the port, and would now have carried each of its
+  turns on a second time. Trying things out beside a crew that is up wants its own
+  `MY_AGENT_HOME` and port. The `agent` subcommands hold nothing and work as before.
 - The summary of the previous conversation and the daily notes of yesterday and today are no
   longer part of the system prompt. A turn reads them in a framed block in front of the message
   that opens it, stored with that message, and a later message carries only what changed since:
@@ -38,7 +47,9 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   until its next message is stored. `GET /api/agents/{id}/prompt` also returns `opening` and
   `opening_chars`, what a new conversation's first message would be read after, and the agent
   editor shows it under the prompt; a run's trajectory carries each message's block as
-  `turn_notes`. The messages the web is sent are unchanged.
+  `turn_notes`. A line of the frame counts only where the block was put: inside a note, a tool
+  result or a message it is read in round brackets, so nothing a person or a tool wrote can end
+  the block early or pass for one. The messages the web is sent are unchanged.
 
 ### Added
 
@@ -52,7 +63,11 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 - A turn cut by a server restart is carried on when the server is back, once. The run that was
   cut is reopened as the same run, with its timeline and what it had spent, and goes on from the
   stored conversation; whoever was reading that kind of turn reads the rest (the bot answers a
-  Telegram chat, a job's answer is pushed as usual, a tab can watch and Stop any other). Two
+  Telegram chat, a job's answer is pushed as usual, a tab can watch and Stop any other). The
+  chat of a Telegram turn carried on is answered with all the turn wrote, before the cut and
+  after it, a canvas written before the cut among it, and is not told again what it was sent
+  when the turn stopped to ask a person. What a delegated child spent reaches its parent as the
+  delegation's result is written, so a child that had ended before the cut is charged once. Two
   guards cannot be turned off: a run is marked `resumed` before its turn takes a step, so a turn
   that brings the server down again is closed at the next start instead of being tried for ever,
   and a turn carried on stays under the conversation's cost cap. A turn is not carried on when
@@ -65,7 +80,9 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   unless declared). The eighteen tools that only read declare it and are simply called again. A
   call to any other tool that may already have run is closed with a note saying it was cut and
   that nobody knows whether it ran, and the model decides after looking; nothing that writes,
-  sends or pays is done twice unseen. A call that never ran (it still had to ask, was refused,
+  sends or pays is done twice unseen. A canvas write closed that way is remembered by later
+  turns as cut off, to be looked up before it is written again, not as a write that saved
+  nothing. A call that never ran (it still had to ask, was refused,
   or could not be run) is settled the way it always was.
 - An agent may name an escalation route: one `provider:model` its turn moves to only when the
   turn is stuck (`escalation_route` in `agent.yaml`, or "Tuyến leo thang" under the routes in the
@@ -108,7 +125,9 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   sign-in request gets 15 seconds and looking for where to sign in 30. A session the server has
   forgotten is opened again, and one that could not be is opened by the next call. A server that
   is down is a row that says why, never a crew that does not start: the crew waits ten seconds for
-  its servers as it starts and keeps trying the rest behind, at growing intervals. New routes:
+  its servers as it starts and keeps trying the rest behind, at growing intervals. A server is
+  tried by one connect at a time: the round behind leaves out a server someone is connecting,
+  and a connect asked for under another waits for it and then tries afresh. New routes:
   `GET /api/mcp`, `POST /api/mcp/{name}/reconnect`, `POST` and `DELETE /api/mcp/{name}/login`,
   `GET /api/mcp/oauth/callback`. Connections gains a card with each server's state, reason, tools
   and who uses it; the Tools matrix lists MCP tools with their server and marks an agent that has

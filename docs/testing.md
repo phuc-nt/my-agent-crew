@@ -4432,6 +4432,13 @@ chuyện lại là toàn bộ sự thật.
     hàng cũng đi qua host, hay bỏ dòng `host.cancel` trong `stop` thì mỗi lần một test đỏ.
   - pytest: `tests/test_busy_queue_api.py::test_stop_ends_a_turn_the_web_started` (thay cho test cũ "stop
     để nguyên lượt web đang đọc": đây là đổi hành vi có chủ ý, vì lượt web giờ là của server).
+  - pytest: xoá cuộc trò chuyện thì lượt của nó dừng. `tests/test_hosted_turns_api.py` (xoá cuộc đang có
+    lượt do server đọc: luồng của người đang xem đóng lại, tool đang chạy bị cắt, model không được hỏi
+    thêm, run đóng là bị ngắt, cuộc thôi bận và không dòng lỗi nào vào log; lời gọi model đang dở bị cắt
+    chứ không chạy tới hết; lần xoá hỏng thì lượt vẫn chạy tới `done`) và
+    `tests/test_busy_queue_api.py::test_deleting_a_conversation_ends_the_turn_the_queue_runs` (lượt nền
+    của hàng đợi cũng dừng). Ba sửa đổi ở server (để nguyên lượt của web, để nguyên lượt của hàng, dừng
+    lượt trước khi biết lần xoá có thành không), mỗi cái đều làm ít nhất một test đỏ.
   - vitest: `api/client.test.ts` (`watchTurn` trả `false` khi server đáp 204 và đọc luồng tới hết khi có
     lượt); `state/thread-reducer.test.ts` (khung `watching` dựng lại luồng từ chi tiết server trao, đặt
     `busy` theo `running`, và giữ thông báo cùng lựa chọn "đừng tự mở canvas" khi tab đang bận sẵn);
@@ -4540,6 +4547,35 @@ cũ.
     nối, cha trước con sau, gặp lại nhau qua cùng một cuộc con, tiền cộng một lần, con không được trao
     `delegate`; con đã xong trước khi cắt thì cha đọc kết quả từ store; con không được nối nếu cha không đi
     tiếp).
+  - pytest: chat của lượt được nối nhận trọn câu trả lời. `tests/test_turn_resume_readers.py` (lượt
+    Telegram được nối trả lời bằng cả phần nó viết trước lúc cắt; nêu canvas nó đã viết trước lúc cắt;
+    không nhắc lại phần đã gửi khi nó dừng để hỏi người; bị cắt đúng lúc lời gọi vừa được hỏi đang chạy
+    thì không nhắc lại gì) và `tests/test_turn_unsent.py` (phần chat chưa nhận được đọc lại từ nhật ký
+    thành đúng những sự kiện người đọc cũ đã cầm: tin của model với lời gọi, tuyến, giá và số token, rồi
+    kết quả tool; chỉ lượt bị cắt, không phải lượt trước hay lượt sau nó; run từ trước khi run biết nó
+    bắt đầu ở đâu thì không nợ gì; tin người viết giữa lượt không phải lời của lượt; phần viết trước một
+    lần dừng để hỏi người đã được gửi lúc đó, dù yêu cầu được duyệt, bị từ chối, hết hạn hay được trả
+    lời; hai lời gọi trong cùng một tin, cái phải hỏi đứng sau hay đứng trước; mã lời gọi model dùng
+    lại không phải lần dừng cũ; phần nợ được đọc trước phần lượt viết tiếp, và lượt vỡ sau phần nợ vẫn
+    vỡ). Hai mươi tám sửa đổi ở server, mỗi cái đều làm ít nhất một test đỏ.
+  - pytest: `tests/test_turn_resume_readers.py::test_a_child_done_before_the_cut_costs_its_parent_what_it_spent_once`
+    (con đã xong trước lúc cắt mà kết quả giao việc chưa kịp ghi: lượt cha được nối gọi lại `delegate`,
+    gặp đúng cuộc con đó, và tiền của con vào cuộc cha đúng một lần) và
+    `tests/test_canvas_payload_trim.py::test_a_write_closed_by_a_restart_leaves_the_same_note_as_one_cut_off`
+    (lần ghi canvas bị một lần khởi động lại đóng để lại cùng ghi chú như lần ghi bị người dừng: xem
+    lại trước khi ghi nữa, không phải "chưa lưu gì"). Bảy sửa đổi ở server (cộng tiền ngay lúc con
+    xong, không cộng lúc ghi kết quả, cộng hai lần, kết quả không mang số tiền; chỉ coi một trong hai
+    kiểu ghi bị cắt là bị cắt), mỗi cái đều làm ít nhất một test đỏ.
+  - pytest: `tests/test_home_lock.py` (một home mỗi lúc chỉ một server: home tiến trình khác đang giữ thì
+    không giữ được, và rảnh lại khi tiến trình ấy mất dù bị giết; tiến trình con mà bên giữ khởi chạy
+    không giữ home theo; hai home không chặn nhau; home tới bằng một đường dẫn khác vẫn là home đó; home
+    chưa có thì được tạo rồi giữ; hệ thống không khoá được vì lý do khác thì nói đúng lý do đó, không gọi
+    là home đang dùng; server giữ home trước khi dựng runtime và suốt lúc phục vụ; gặp home đang bị giữ
+    thì không đọc gì, không phục vụ gì, thoát mã 1 và nói home nào cùng `MY_AGENT_HOME`, dù được cho cổng
+    khác hay `--no-schedule`; một home khác đang bị giữ không cản; các lệnh con `agent` vẫn chạy trên
+    home server đang giữ; và chính lệnh trong README chạy thật, bị từ chối khi một server đang lên rồi
+    lên được ngay sau khi server kia bị giết). Mười chín sửa đổi ở server, mỗi cái đều làm ít nhất một
+    test đỏ.
   - pytest: `tests/test_turn_resume_startup.py` (lượt đã hỏi người thì chờ người, không khởi chạy lại; run cũ
     dưới một lượt đã xong sau nó thì để đóng; cuộc trò chuyện đã xoá thì để đóng; danh sách run bị cắt chỉ
     được lấy một lần mỗi lần khởi động; app thật với lifespan để lại run `running` khi tắt và tự nối ở lần
@@ -4572,6 +4608,11 @@ prompt chỉ còn dòng ngày là đổi, và lịch sử là một prefix chỉ
     kể trọn; sang ngày mới chỉ kể ghi chú của ngày mới và dòng ngày trong system prompt đổi theo; một lượt
     tự `memory_save` không làm đổi prefix của chính nó và tin mở lượt kế tiếp mang dòng đó; ghi chú dài
     hơn trần được kể tới trần đúng một lần).
+  - pytest: `tests/test_turn_notes.py` còn giữ khung của khối (một ghi chú không đóng được khối đang chứa
+    nó, cũng không mở được khối khác; tin nhắn chép lại các dòng khung được đọc với các dòng ấy trong
+    ngoặc tròn; một dòng khung chỉ là khung ở đúng chỗ khối được đặt). Bốn sửa đổi ở server (không đổi
+    dòng khung trong phần được kể, trong tin nhắn; chỉ đổi dòng mở; chỉ đổi dòng đóng), mỗi cái đều làm
+    ít nhất một test đỏ.
   - pytest: `tests/test_turn_notes_carriers.py` (tin chen ngang mang phần đổi từ lúc lượt bắt đầu; loạt tin
     chờ được giao kèm phần đổi; lượt đi tiếp sau duyệt không kể gì, chỉ tin của người mang khối, và
     `GET /api/conversations/{id}` không có khoá `turn_notes`; khối đứng trước ghi chú canvas rồi mới tới
@@ -4753,6 +4794,12 @@ hình không giữ khoá; đăng nhập OAuth chỉ bắt đầu từ chính má
     chủ đang lên thì không hỏi gì; máy chủ cần đăng nhập không được thử lại; app kết nối máy chủ trước
     khi tiếp tục một lượt bị cắt, chỉ thử lại trong lúc đang phục vụ, và không dựng gì khi không có máy
     chủ).
+  - pytest: `tests/test_mcp_lifecycle.py` cũng giữ cho mỗi máy chủ chỉ một lần thử mỗi lúc (lần thử bị
+    cắt lúc khởi động không cản vòng thử lại kế tiếp; máy chủ đang được ai đó kết nối thì vòng thử lại
+    không thử thêm, và máy chủ chỉ nghe một lần mở phiên; máy chủ đã có người nhận ngay từ lúc lần kết
+    nối được yêu cầu, trước khi bất cứ gì được gửi đi; trong lúc đó vòng thử lại vẫn thử các máy chủ
+    khác; lần kết nối được yêu cầu giữa chừng thì chờ lần đang chạy rồi thử lại từ đầu, và dòng của máy
+    chủ là kết quả của lần thử sau, dù lần ấy bị từ chối hay được nhận).
 - **API và màn sửa agent**:
   - pytest: `tests/test_api_mcp.py` (danh sách trước và sau khi thử; tên lạ là 404; khoá bị máy chủ từ
     chối nói rõ và khoá đúng lưu từ màn Kết nối làm máy chủ lên; agent được giao máy chủ từ trình sửa
@@ -4819,6 +4866,11 @@ hình không giữ khoá; đăng nhập OAuth chỉ bắt đầu từ chính má
   nghìn lẻ một, tên quá dài hay tham số quá lớn; dựng lại sổ một lần cho mỗi tool; nhận tên máy chủ có
   hai dấu liền nhau hay dấu ở cuối; nhận hoặc nhắc lại địa chỉ nêu một biến. Hai sửa đổi từng sống sót
   ở vòng đầu (một ở việc đăng nhập, một ở giới hạn của danh sách tool) và mỗi cái giờ có test riêng.
+- Việc mỗi máy chủ chỉ có một lần thử mỗi lúc được kiểm bằng mười lăm sửa đổi ở server (không đếm lần
+  kết nối đã nhận máy chủ, đếm hai lần, không trả lại, chỉ đếm khi lần thử bắt đầu; vòng thử lại thử
+  cả máy chủ đã có người nhận; cho hai lần thử chồng nhau; bỏ lần thử được yêu cầu giữa chừng, hoặc cho
+  nó lấy luôn kết quả của lần trước; giữ cả khoá gia hạn trong lúc thử; bắt mọi máy chủ chờ chung một
+  lần thử), mỗi cái đều làm ít nhất một test đỏ.
 
 ## Tìm và nạp tool MCP (`tool_search`)
 

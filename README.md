@@ -29,6 +29,13 @@ MY_AGENT_ROUTES=fake:echo uv run python -m my_agent_crew
 In echo mode, type `/tool <name> {json}` to call a tool directly, for example
 `/tool workspace_list {"path":"."}`.
 
+A home runs one server at a time. On a machine whose crew is already up, the commands above stop
+with a message that names the home; give a trial its own home and port:
+
+```bash
+MY_AGENT_HOME=/tmp/crew-trial MY_AGENT_ROUTES=fake:echo uv run python -m my_agent_crew --port 8799
+```
+
 To check that your own agents still behave after a change to a persona, a prompt or a tool set,
 play written cases against a throwaway copy of your home with the real model (costs money; the
 live crew is not touched):

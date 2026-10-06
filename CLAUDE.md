@@ -34,4 +34,6 @@ earn their complexity. Read [docs/design.md](docs/design.md) before changing arc
 uv run ruff check . && uv run ruff format --check . && uv run pytest -q
 cd web && npm run typecheck && npm test && npm run e2e && npm run bundle
 MY_AGENT_ROUTES=fake:echo uv run python -m my_agent_crew   # local run without a model key
+# a home runs one server at a time: beside a crew that is up, give the trial its own home and port
+MY_AGENT_HOME=/tmp/crew-trial MY_AGENT_ROUTES=fake:echo uv run python -m my_agent_crew --port 8799
 ```

@@ -201,7 +201,8 @@ một chuyên gia vẫn là chuyên gia thay vì lặng lẽ thành người d�
 tool từ chối chạy khi lượt nó đang ở trong đã là một lượt được giao — hai rào,
 vì một fan-out xổng ra tiêu tiền thật. Con thừa kế lập trường duyệt của cha
 và phần ngân sách còn lại của cha, và những gì con tiêu được cộng vào
-cha, nên trần vẫn đúng nghĩa của nó. Lượt bị ngắt giữa chừng khi đang giao việc tìm lại
+cha lúc kết quả giao việc được ghi, nên trần vẫn đúng nghĩa của nó và một lần giao việc được gọi
+lại sau khi server khởi động lại không tính con hai lần. Lượt bị ngắt giữa chừng khi đang giao việc tìm lại
 con của nó qua id của tool call thay vì mở một con thứ hai.
 
 ### Tool workspace
@@ -591,7 +592,8 @@ thêm quyền ghi.
 - **Lượt sau không mang lại tài liệu.** Khi lượt đã xong, chữ một lần ghi gửi đi (`content` của
   tạo và viết lại, `old` và `new` của sửa) được thay trong prompt bằng một ghi chú: đã vào canvas
   nào bản mấy, thất bại nên chưa lưu gì, hoặc bị ngắt giữa chừng nên phải xem danh sách trước khi
-  ghi lại. Lượt đang chạy giữ nguyên mọi chữ đến hết lượt, kể cả sau khi người chen tin hay sau
+  ghi lại. Lần ghi bị một lần khởi động lại cắt cũng để lại ghi chú bị ngắt ấy chứ không phải ghi
+  chú thất bại, vì nó có thể đã chạy. Lượt đang chạy giữ nguyên mọi chữ đến hết lượt, kể cả sau khi người chen tin hay sau
   một lần chờ duyệt; kho vẫn giữ lời gọi đúng như đã gọi.
 
 ## Máy chủ MCP
@@ -908,7 +910,9 @@ Vài ràng buộc nằm trong code và không tắt được:
 Một máy chủ hỏng là một dòng nói vì sao, không bao giờ là một crew không khởi động được. Lúc khởi
 động crew chờ các máy chủ tối đa 10 giây; cái nào chưa xong được thử tiếp ở nền, lần đầu sau 30
 giây rồi thưa dần tới 10 phút một lần, và thử ngay khi một khoá được lưu hay xoá. Nút **Kết nối
-lại** thử ngay một máy chủ. Mỗi lần một máy chủ lên, xuống hay đổi danh sách tool, từng agent
+lại** thử ngay một máy chủ. Mỗi máy chủ chỉ có một lần thử mỗi lúc: vòng thử ở nền bỏ qua máy chủ
+đang có người kết nối, còn lần kết nối được yêu cầu khi một lần khác đang chạy thì chờ lần ấy xong
+rồi thử lại từ đầu, vì khoá hay phiên đăng nhập có thể vừa đổi. Mỗi lần một máy chủ lên, xuống hay đổi danh sách tool, từng agent
 được giao lại đúng những tool các máy chủ đang có. Máy chủ bỏ phiên làm việc giữa chừng (nó
 khởi động lại, hay phiên hết hạn) thì lời gọi kế tiếp tự mở phiên mới; không cần bấm gì.
 

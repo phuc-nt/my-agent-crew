@@ -84,13 +84,16 @@ any platform ──POST /api/inbound (JSON, sync)─────┴─▶ Inboun
   qua restart: khởi động xong, server drain mọi cuộc trò chuyện còn tin, trừ cuộc đang chờ duyệt
   (lượt tiếp tục sau quyết định sẽ drain nó). Server chạy `--no-schedule` không tự bắt đầu việc gì,
   nên hàng còn lại nằm đó tới khi lượt kế của cuộc trò chuyện ấy xong. Lúc tắt, drain dừng trước mọi
-  thứ khác nên không lượt mới nào bắt đầu giữa chừng. Xoá cuộc trò chuyện xoá luôn hàng của nó.
+  thứ khác nên không lượt mới nào bắt đầu giữa chừng. Xoá cuộc trò chuyện xoá luôn hàng của nó và, khi lần
+  xoá đã thành, dừng lượt mà web hay hàng đang chạy cho nó: run ấy đóng là bị ngắt, vì cuộc đã mất
+  thì không nút Dừng nào còn với tới lượt.
   `GET /api/conversations/{id}` liệt kê tin đang chờ trong `queued`, và
   `POST /api/conversations/{id}/stop` lấy hết hàng, trả lại chữ trong `cleared` và huỷ lượt nền mà
   hàng đang chạy (`cancelled`). Nó với tới mọi lượt do server tự đọc: lượt nền của hàng, lượt gửi
   từ web (dừng được từ bất kỳ tab nào) và lượt được nối lại sau restart mà không do bot đọc. Lượt
   bot Telegram chạy cho tin vừa đến hay lượt của một job đang chạy theo lịch không phải của nó để
-  dừng, và khi đó `cancelled` là `false`.
+  dừng, và khi đó `cancelled` là `false`. Lệnh xoá cũng không dừng hai loại lượt ấy: chúng chạy tới lần
+  ghi kế tiếp, và lần ghi đó hỏng vì cuộc đã mất.
 
 - **Trạng thái bền là nhật ký message.** Một lượt tiếp tục từ message assistant cuối cùng đã lưu:
   các tool call chưa xong được giải quyết trước, nên crash giữa lượt là khôi phục được. Tin mới
@@ -114,12 +117,26 @@ any platform ──POST /api/inbound (JSON, sync)─────┴─▶ Inboun
   lại `interrupted` và tin kế tiếp thấy nhật ký như sau mọi lượt bị ngắt. Người đọc lượt nối lại
   là người vốn đọc loại lượt đó: bot cho lượt Telegram (câu trả lời tới chat), bước giao của
   scheduler cho job (đẩy đúng một lần, `last_run` vẫn là run đó), còn lại là `TurnHost` nên tab
-  xem được và Dừng với tới. Lượt giao việc được nối trước lượt con; cha gọi lại `delegate`, tìm
+  xem được và Dừng với tới. Bot đọc lượt khi nó chạy và trả lời một lần, nên người đọc cũ mất
+  cùng tiến trình mang theo đoạn chat chưa từng nhận: đoạn ấy được đọc lại từ nhật ký
+  (`turn_unsent.py`) thành đúng những event người đọc cũ đã cầm và đặt trước các event còn tới,
+  kể từ chỗ lượt bắt đầu hoặc từ lần gần nhất lượt dừng để hỏi người (lời gửi lúc dừng đã nói
+  hết phần trước đó). Chat nhận trọn câu trả lời, kể cả canvas viết trước lúc cắt, và không nghe
+  gì hai lần. Lượt giao việc được nối trước lượt con; cha gọi lại `delegate`, tìm
   thấy đúng cuộc con đã mở và chờ nó, hoặc đọc kết quả từ store nếu con đã xong ở tiến trình
-  trước. Server chỉ để run ở `running` cho lần khởi động sau khi chính nó đang tắt
+  trước. Tiền con tiêu vào cuộc cha lúc kết quả giao việc được ghi chứ không phải lúc con xong,
+  nên lời gọi được gọi lại sau nhát cắt không tính con hai lần. Server chỉ để run ở `running` cho lần khởi động sau khi chính nó đang tắt
   (`hub.going_down`) hoặc bị giết; Dừng do người bấm, lượt lỗi hay bot khởi động lại khi server
   vẫn chạy thì đóng run như cũ. Lúc tắt, bot báo trong chat rằng lượt sẽ được làm tiếp khi
   server lên lại. Không có cửa sổ tuổi: lượt bị cắt hôm qua vẫn được nối khi server lên hôm nay.
+- **Một home, một server.** Server lên là đóng mọi run còn mở và nối các lượt bị cắt; làm vậy dưới
+  một server còn đang chạy thì các lượt của server ấy bị đóng trong sổ rồi chạy thêm lần nữa. Nên
+  server giữ một khoá độc quyền trên chính thư mục home (`home_lock.py`) từ trước khi dựng runtime
+  tới khi tiến trình mất, kiểu khoá hệ điều hành tự nhả theo tiến trình dù nó kết thúc thế nào:
+  không tệp nào được tạo, và không tệp nào bị bỏ quên sau một lần sập. Lần khởi động gặp home đang
+  bị giữ không đọc gì của home, nói home nào rồi thoát mã 1, dù được cho cổng khác hay
+  `--no-schedule`. Tiến trình server khởi chạy không được trao khoá, nên một lệnh agent để lại
+  không giữ home sau khi server mất; các lệnh con `agent` không giữ gì.
 - **Tool tự nói có chạy lại được không.** Call chưa có kết quả lúc server tắt có thể đã chạy.
   `Tool.replay_safe` (mặc định `False`) là lời tool khai rằng chạy lại không đổi gì; chỉ mười tám
   tool đọc khai nó (đọc workspace, tìm kiếm, web, trí nhớ, wiki, canvas, PDF, ảnh, `delegate`,

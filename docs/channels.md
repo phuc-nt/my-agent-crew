@@ -258,8 +258,9 @@ vẫn chạy sau 30 s bị huỷ, và chat được báo. Lời báo tuỳ vào 
 
 - **Server đang tắt** (`kickstart`, nâng cấp): "Server đang khởi động lại nên lượt vừa rồi bị
   ngắt giữa chừng. Khi server chạy lại, lượt này sẽ được làm tiếp một lần nếu còn làm tiếp
-  được…". Server khởi động kế tiếp mở lại đúng run đó và bot đọc phần còn lại của lượt vào cùng
-  chat, nên người dùng không phải gửi lại. Lượt chỉ được làm tiếp một lần, và không được làm
+  được…". Server khởi động kế tiếp mở lại đúng run đó và bot trả lời vào cùng chat bằng trọn
+  những gì lượt đã viết, cả phần trước lúc bị cắt lẫn canvas viết khi ấy, nên người dùng không
+  phải gửi lại; phần đã gửi lúc lượt dừng để hỏi người thì không được nhắc lại. Lượt chỉ được làm tiếp một lần, và không được làm
   tiếp khi lúc server lên không có bot nào chạy (thiếu token, `--no-schedule`), khi cuộc trò
   chuyện đang chờ một quyết định, đã có lượt mới hơn hoặc đã hết ngân sách; lệnh gọi tool nào
   được chạy lại và lệnh nào không thì xem [design.md](design.md#hình-dạng-runtime). Server bị
