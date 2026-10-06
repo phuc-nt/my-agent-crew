@@ -48,11 +48,26 @@ function waitRanOut(reply: string): boolean {
   return (first.startsWith(LEFT_OUT) ? second : first).startsWith(WAIT_RAN_OUT);
 }
 
+// A script that was stopped where it stood fails with whatever it had printed and then, on
+// a line of its own, where it was stopped and why (`script/tool.py`). So the sentence does
+// not open the reply: it is its last line, and a script may print the same words on any line
+// before it. The sentence is `texts_script.SCRIPT_HALTED`, as far as its fixed words go; the
+// number of the line follows them, then a colon and the reason, which is one line long.
+const SCRIPT = "tool_script";
+const SCRIPT_HALTED = "Dừng ở dòng ";
+const LINE_AND_REASON = /^\d+: /;
+
+function scriptHalted(reply: string): boolean {
+  const last = reply.slice(reply.lastIndexOf("\n") + 1);
+  return last.startsWith(SCRIPT_HALTED) && LINE_AND_REASON.test(last.slice(SCRIPT_HALTED.length));
+}
+
 export const isDenied = (reply: string): boolean => reply.startsWith(DENIED);
 
 /** The status of a call to the tool `name` whose stored reply is `reply`. */
 export function storedStatus(name: string, reply: string): "denied" | "failed" | "done" {
   if (isDenied(reply)) return "denied";
   if (name === DELEGATE && waitRanOut(reply)) return "failed";
+  if (name === SCRIPT && scriptHalted(reply)) return "failed";
   return FAILED.some((opening) => reply.startsWith(opening)) ? "failed" : "done";
 }

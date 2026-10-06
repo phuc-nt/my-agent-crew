@@ -171,3 +171,54 @@ describe("a handed-off task whose wait ran out, read back from the stored thread
     expect(mark()).toHaveClass("tool-status", "done");
   });
 });
+
+describe("a script that was stopped where it stood, read back from the stored thread", () => {
+  // `tool_script` fails such a run with whatever the script had printed, then the line that
+  // says where it was stopped and why: the sentence is the last line of the reply, not its opening.
+  const ASKS_FIRST = "Dừng ở dòng 2: `mcp__cards__add_card` phải hỏi trước hoặc có ghi dữ liệu nên không gọi được từ script: nạp bằng tool_search rồi gọi trực tiếp.";
+  const OUT_OF_STEPS = "Dừng ở dòng 14: script chạy quá 2000000 bước. Xử lý ít dữ liệu hơn hoặc bỏ vòng lặp thừa.";
+  const TOO_MANY_CALLS = "Dừng ở dòng 31: Script đã gọi công cụ quá 25 lần. Gộp việc lại hoặc chia nhiều script.";
+  const STOPPED: [where: string, reply: string][] = [
+    ["alone, the script having printed nothing", ASKS_FIRST],
+    ["under the one line the script had printed", `LINE-ONE-RAN\n${ASKS_FIRST}`],
+    ["under several lines, a blank one among them", `3 thẻ\n\n- Mua sữa\n- Gọi mẹ\n${OUT_OF_STEPS}`],
+    ["under a printed line that reads like it", `Dừng ở dòng 1: thử\n${TOO_MANY_CALLS}`],
+  ];
+
+  it.each(STOPPED)("is failed, as it was when it arrived, with the line %s", (_where, reply) => {
+    expect(readBack("tool_script", reply)).toEqual(settled("tool_script", reply, "failed"));
+    expect(readBack("tool_script", reply)).toEqual(arrived("tool_script", reply, false));
+
+    drawn("tool_script", reply);
+    expect(mark()).toHaveClass("tool-status", "failed");
+    expect(mark()).toHaveTextContent(vi.toolFailed);
+  });
+
+  // A script that ran to its end prints what it likes, the sentence included: only the line the
+  // tool itself ends the result with says the script was stopped.
+  it.each([
+    ["printed its result", "3 thẻ\n- Mua sữa"],
+    ["printed nothing", "(script chạy xong, không in ra gì: dùng print để lấy kết quả)"],
+    ["printed the sentence and went on", `${ASKS_FIRST}\nĐã thử lại bằng cách khác.`],
+    ["ended on words that open like the sentence, with no line number", "Dừng ở dòng cuối: hết việc"],
+    ["ended on the sentence cut before its reason", "Dừng ở dòng 2"],
+    ["ended on a line that holds the sentence further in", `Ghi chú: ${ASKS_FIRST}`],
+    ["ended on the sentence in other letters", ASKS_FIRST.toLowerCase()],
+  ])("is not a script that %s", (_what, reply) => {
+    expect(readBack("tool_script", reply)).toEqual(settled("tool_script", reply, "done"));
+    expect(readBack("tool_script", reply)).toEqual(arrived("tool_script", reply, true));
+
+    drawn("tool_script", reply);
+    expect(mark()).toHaveClass("tool-status", "done");
+    expect(mark()).toHaveTextContent(vi.toolDone);
+  });
+
+  // A file, a page or another tool's answer may end on the very line: it is the script tool's
+  // way of failing a call, and no other tool's.
+  it.each(["workspace_read", "shell_run", "tool_search", "mcp__cards__list_cards"])("is not a reply of %s that ends the same way", (tool) => {
+    for (const [where, reply] of STOPPED) {
+      expect(readBack(tool, reply), where).toEqual(settled(tool, reply, "done"));
+      expect(readBack(tool, reply), where).toEqual(arrived(tool, reply, true));
+    }
+  });
+});
