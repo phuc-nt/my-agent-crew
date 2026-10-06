@@ -388,6 +388,9 @@ export interface RegistryTool extends ToolInfo {
   /** Only on a tool of an MCP server: the server's name, and how far the tool is let in. */
   server?: string;
   exposure?: McpExposure;
+  /** Only on `tool_search`: an agent holds it while it has MCP tools that are not declared
+   * up front, whatever its allow-list and mode say. */
+  with_mcp?: boolean;
 }
 
 /**

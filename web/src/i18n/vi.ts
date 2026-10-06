@@ -301,7 +301,11 @@ export const vi = {
     legendMissingKey: "thiếu khoá API nên không hoạt động",
     legendWorkMode: "chỉ có ở chế độ làm việc",
     legendMcpOff: "agent chưa bật máy chủ MCP này",
+    legendMcpNone: "agent không có công cụ MCP nào phải tìm",
     fromServer: (name: string) => `MCP ${name}`,
+    withMcp: "đi kèm MCP",
+    withMcpTitle:
+      "Không thuộc danh sách công cụ của agent: agent có nó khi được giao công cụ MCP không khai sẵn.",
   },
   connectionsPage: {
     title: "Kết nối dùng chung",
@@ -394,7 +398,7 @@ export const vi = {
     },
     exposureTitle: {
       direct: "Khai cho mô hình ở mọi lượt.",
-      deferred: "Không khai sẵn; agent tìm và nạp khi cần tới.",
+      deferred: "Không khai sẵn; agent tìm và nạp bằng tool_search khi cần tới.",
       codemode: "Không khai sẵn; agent gọi từ script khi công cụ không cần duyệt.",
       hidden: "Không giao cho agent nào.",
     },

@@ -5,7 +5,7 @@ import type { McpServerInfo } from "../api/types";
 import { vi } from "../i18n/vi";
 import { FakeBackend } from "../test/fake-backend";
 import { SIGN_IN_LOCAL_ONLY, authorizeUrl, mcpServer, mcpTool } from "../test/fake-mcp";
-import { KEY_POLLS, POLL_MS, TRY_POLLS, useMcpServers } from "./use-mcp-servers";
+import { KEY_POLLS, POLL_MS, TRY_POLLS, handedOut, useMcpServers } from "./use-mcp-servers";
 
 let backend: FakeBackend;
 
@@ -266,6 +266,38 @@ describe("signing in and out", () => {
 
 // The manage screen hands `keysChanged` to the credentials hook, which reads the keys again
 // whenever the callback it was given changes.
+describe("what the servers hand out, as one value", () => {
+  const search = mcpTool("notion", "search");
+  const create = mcpTool("notion", "create-pages");
+  const base = [mcpServer({ tools: [search, create] }), mcpServer({ name: "wiki", tools: [] })];
+
+  it("stays the same for the same tools, whatever else a server reads as", () => {
+    const later = [
+      mcpServer({ tools: [{ ...search }, { ...create }], status: "failed", error: "hết giờ", agents: ["coach"] }),
+      mcpServer({ name: "wiki", tools: [], status: "idle", signed_in: true }),
+    ];
+
+    expect(handedOut(later)).toBe(handedOut(base));
+  });
+
+  it("is the same with and without the servers that hold no tool", () => {
+    expect(handedOut([base[0]])).toBe(handedOut(base));
+    expect(handedOut([mcpServer({ status: "idle" }), base[1]])).toBe(handedOut([]));
+  });
+
+  it.each<[string, McpServerInfo[]]>([
+    ["a tool gone", [mcpServer({ tools: [search] }), base[1]]],
+    ["every tool gone", [mcpServer({ tools: [] }), base[1]]],
+    ["a tool let in another way", [mcpServer({ tools: [{ ...search, exposure: "direct" }, create] }), base[1]]],
+    ["a tool that no longer asks", [mcpServer({ tools: [search, { ...create, requires_approval: false }] }), base[1]]],
+    ["a tool described anew", [mcpServer({ tools: [{ ...search, description: "Tìm" }, create] }), base[1]]],
+    ["a tool of another server", [base[0], mcpServer({ name: "wiki", tools: [mcpTool("wiki", "search")] })]],
+    ["the server and its tools gone", [base[1]]],
+  ])("changes with %s", (_, servers) => {
+    expect(handedOut(servers)).not.toBe(handedOut(base));
+  });
+});
+
 it("hands out the same functions on every render", async () => {
   seed(mcpServer({ status: "idle" }));
   const hook = await opened();

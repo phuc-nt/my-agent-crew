@@ -149,11 +149,15 @@ describe("the allow-list beside a server's tools", () => {
   it("lists the crew's own tools only: a server's tools come with the server", () => {
     open(handed, [notion]);
 
+    // The agent holds the server's tools and the search that finds them; neither is the
+    // allow-list's to give.
+    expect(backend.mcp.registryTools().map((tool) => tool.name)).toEqual(["tool_search", "mcp__notion__search", "mcp__notion__fetch"]);
     expect(names()).toEqual(["write_file", "web_search"]);
   });
 
   it("starts from the crew's own tools when it is switched on, never a server's", async () => {
     open(handed, [notion]);
+    expect(backend.mcp.registryTools()[0]).toMatchObject({ name: "tool_search", agents: ["default"] });
 
     await userEvent.click(section().getByRole("radio", { name: t.toolsPick }));
     await userEvent.click(saveButton());

@@ -71,6 +71,14 @@ test("a server that wants a sign-in is signed in to from Connections, used, and 
   await expect(tool).toContainText(vi.tools.fromServer("notion"));
   await expect(tool.getByLabel(vi.tools.legendOn)).toHaveCount(1);
   await expect(tool.getByLabel(vi.tools.legendMcpOff)).toHaveCount(1);
+  // Neither tool is declared up front, so the search that finds them comes with them:
+  // held by the same agent, and marked as not needed for the one with nothing to find.
+  const find = page.getByTestId("tool-row").filter({ hasText: "tool_search" });
+  await expect(find.getByText(vi.tools.withMcp)).toHaveAttribute("title", vi.tools.withMcpTitle);
+  await expect(find.getByLabel(vi.tools.legendOn)).toHaveCount(1);
+  await expect(find.getByLabel(vi.tools.legendMcpNone)).toHaveCount(1);
+  await expect(find.getByLabel(vi.tools.legendExcluded)).toHaveCount(0);
+  await expect(page.locator(".matrix-legend")).toContainText(vi.tools.legendMcpNone);
 
   await page.goto("/#/manage/connections");
   await expect(status(page)).toHaveText(t.status.connected);
@@ -84,6 +92,13 @@ test("a server that wants a sign-in is signed in to from Connections, used, and 
   await expect(row(page)).not.toContainText(t.signedIn);
   await expect(row(page).getByText(t.tools(2))).toHaveCount(0);
   await expect(row(page).getByRole("button", { name: t.signIn })).toBeVisible();
+
+  // Signed out there is nothing left to find, and no search for it either.
+  await page.goto("/#/manage/tools");
+  await expect(page.getByTestId("tools-matrix")).toBeVisible();
+  await expect(page.getByTestId("tool-row").filter({ hasText: "mcp__notion" })).toHaveCount(0);
+  await expect(page.getByTestId("tool-row").filter({ hasText: "tool_search" })).toHaveCount(0);
+  await expect(page.locator(".matrix-legend")).not.toContainText(vi.tools.legendMcpNone);
 });
 
 test("a server that is down says why, and is tried again from its row", async ({ page }) => {
@@ -122,6 +137,23 @@ test("a server still being tried is watched until it has an answer, with nothing
 
   await expect(status(page)).toHaveText(t.status.connected, { timeout: 8_000 });
   await expect(row(page)).toContainText(t.tools(2));
+});
+
+test("the tools grid takes in a server that came up while the grid was open", async ({ page }) => {
+  const mcp = new FakeMcp([mcpServer({ status: "idle" })]);
+  await mockApi(page, { agents: [{ ...master, mcp: ["notion"] }, coachAgent], mcp });
+  await page.goto("/#/manage/tools");
+  const rows = (name: string) => page.getByTestId("tool-row").filter({ hasText: name });
+  await expect(page.getByTestId("tools-matrix")).toBeVisible();
+  await expect(rows("mcp__notion")).toHaveCount(0);
+
+  mcp.servers = [mcpServer({ status: "connected", tools: TOOLS })];
+
+  // Nothing is clicked and no page is left: the watch that saw the server come up is
+  // what tells the grid its rows have gone stale.
+  await expect(rows("mcp__notion__create_pages")).toHaveCount(1, { timeout: 8_000 });
+  await expect(rows("mcp__notion__create_pages").getByLabel(vi.tools.legendOn)).toHaveCount(1);
+  await expect(rows("tool_search").getByLabel(vi.tools.legendOn)).toHaveCount(1);
 });
 
 test("saving the key a server's header reads brings the server up without a reload", async ({ page }) => {
@@ -179,8 +211,20 @@ test("an agent is handed a server in its editor, and a server the file dropped h
   // A server is handed over on the spot: nothing asks for a restart.
   await expect(editor.getByTestId("restart-banner")).toHaveCount(0);
 
+  // The grid of every tool shows it without the page being loaded again: the server's
+  // tools and the search for them, held by this agent and not by the other.
+  await page.goto("/#/manage/tools");
+  for (const name of ["mcp__notion__search", "mcp__notion__create_pages", "tool_search"]) {
+    const held = page.getByTestId("tool-row").filter({ hasText: name });
+    await expect(held.getByLabel(vi.tools.legendOn)).toHaveCount(1);
+  }
+  await page.goto("/#/manage/crew/coach");
+
   await page.reload();
   await expect(page.getByTestId("mcp-picker").getByRole("checkbox")).toBeChecked();
+  // The search comes with the server like its tools do: it is not the allow-list's to give.
+  await expect(page.getByTestId("tool-picker").getByRole("listitem")).not.toHaveCount(0);
+  await expect(page.getByTestId("tool-picker")).not.toContainText("tool_search");
   await page.goto("/#/manage/connections");
   await expect(row(page).getByTestId("mcp-agents")).toHaveText(vi.connectionsPage.usedBy("coach"));
 });
@@ -242,6 +286,24 @@ test.describe("on a phone", () => {
     // name moves below it whole rather than being squeezed.
     expect(await spills(page, '[data-testid="mcp-card"]')).toEqual([]);
     expect(await squeezedBadges(page, '[data-testid="mcp-card"]')).toEqual([]);
+  });
+
+  test("the tools grid keeps the badges of a server's tools and of their search whole", async ({ page }) => {
+    const connected = servers().map((server) => ({ ...server, status: "connected" as const }));
+    await mockApi(page, { agents: [{ ...master, mcp: ["notion"] }, coachAgent], mcp: new FakeMcp(connected) });
+    await page.goto("/#/manage/tools");
+    const grid = page.getByTestId("tools-matrix");
+    const find = grid.getByTestId("tool-row").filter({ hasText: "tool_search" });
+    await find.scrollIntoViewIfNeeded();
+    await expect(find.getByText(vi.tools.withMcp)).toBeVisible();
+    await expect(grid.getByTestId("tool-row").filter({ hasText: QUERY })).toContainText(t.exposure.deferred);
+
+    // The grid scrolls inside its own box; the page itself never goes sideways.
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+    expect(await squeezedBadges(page, '[data-testid="tools-matrix"]')).toEqual([]);
+    const legend = (await page.locator(".matrix-legend").boundingBox())!;
+    expect(legend.x + legend.width).toBeLessThanOrEqual(390);
+    await expect(page.locator(".matrix-legend")).toContainText(vi.tools.legendMcpNone);
   });
 
   test("the MCP boxes of an agent fit the screen and are big enough to tap", async ({ page }) => {

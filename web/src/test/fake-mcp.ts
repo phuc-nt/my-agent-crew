@@ -48,6 +48,18 @@ export function mcpServer(overrides: Partial<McpServerInfo> = {}): McpServerInfo
   };
 }
 
+/** The row of `tool_search` (`mcp/tool_search.py`), held by `agents`. */
+export function searchTool(agents: string[]): RegistryTool {
+  return {
+    name: "tool_search",
+    description: "Tìm và nạp công cụ của các máy chủ MCP được giao cho bạn.",
+    requires_approval: false,
+    agents,
+    optional: false,
+    with_mcp: true,
+  };
+}
+
 export class FakeMcp {
   /** Set to the server's words to refuse the next sign-in; cleared once it has. */
   refuseSignIn: string | null = null;
@@ -67,23 +79,26 @@ export class FakeMcp {
   }
 
   /** The rows GET /tools adds: a tool is listed once an agent holds it, and a hidden one
-   *  is handed to nobody. */
+   *  is handed to nobody. An agent with a tool that is not declared up front holds the
+   *  search for it too (`mcp/handout.py`). */
   registryTools(): RegistryTool[] {
-    return this.servers.flatMap((server) => {
+    const searching = new Set<string>();
+    const rows = this.servers.flatMap((server) => {
       const agents = this.usedBy(server.name, server.agents);
-      if (agents.length === 0) return [];
-      return server.tools
-        .filter((tool) => tool.exposure !== "hidden")
-        .map((tool) => ({
-          name: tool.name,
-          description: tool.description,
-          requires_approval: tool.requires_approval,
-          agents,
-          optional: false,
-          server: server.name,
-          exposure: tool.exposure,
-        }));
+      const handed = server.tools.filter((tool) => tool.exposure !== "hidden");
+      if (handed.some((tool) => tool.exposure !== "direct")) for (const agent of agents) searching.add(agent);
+      return handed.map((tool) => ({
+        name: tool.name,
+        description: tool.description,
+        requires_approval: tool.requires_approval,
+        agents,
+        optional: false,
+        server: server.name,
+        exposure: tool.exposure,
+      }));
     });
+    const held = rows.filter((row) => row.agents.length > 0);
+    return searching.size > 0 ? [searchTool([...searching].sort()), ...held] : held;
   }
 
   /** The next reconnect of `name`, or the next read of the list after a key changed, finds it so. */

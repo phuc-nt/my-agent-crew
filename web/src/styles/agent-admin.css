@@ -412,9 +412,11 @@
 .matrix td.cell.excluded,
 .matrix td.cell.work-mode,
 .matrix td.cell.mcp-off,
+.matrix td.cell.mcp-none,
 .legend-mark.excluded,
 .legend-mark.work-mode,
-.legend-mark.mcp-off {
+.legend-mark.mcp-off,
+.legend-mark.mcp-none {
   color: var(--muted);
 }
 

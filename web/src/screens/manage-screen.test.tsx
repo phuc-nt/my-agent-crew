@@ -1,8 +1,10 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi as vitest } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
 import { vi } from "../i18n/vi";
-import { FakeBackend, fakeAgent, fakeApproval, fakeRun } from "../test/fake-backend";
+import { FakeBackend, coachAgent, fakeAgent, fakeApproval, fakeRun } from "../test/fake-backend";
+import { mcpServer, mcpTool } from "../test/fake-mcp";
+import { POLL_MS } from "../hooks/use-mcp-servers";
 import { ManageScreen, NAV_GROUPS } from "./manage-screen";
 import { MANAGE_SECTIONS, type ManageSection } from "../hooks/use-route";
 
@@ -417,6 +419,102 @@ describe("the manage screen", () => {
     rerender(stream(true));
 
     await waitFor(() => expect(lists()).toBe(2));
+  });
+});
+
+// Who holds which tool is decided on the other pages, and by servers that come and go on
+// their own time. The grid is the one place that shows it, so it must not show it as it was.
+describe("the tools grid of the manage screen", () => {
+  let backend: FakeBackend;
+  const reads = (path: string) => backend.requests.filter((r) => r.method === "GET" && r.path === path).length;
+  const row = (tool: string) => screen.getByText(tool, { selector: "code" }).closest("tr") as HTMLElement;
+  const holders = (tool: string) => within(row(tool)).queryAllByLabelText(vi.tools.legendOn).length;
+
+  beforeEach(() => {
+    backend = new FakeBackend();
+    vitest.stubGlobal("fetch", backend.fetch);
+  });
+  afterEach(() => {
+    vitest.useRealTimers();
+  });
+
+  it("is read once when the screen opens on it", async () => {
+    show("tools");
+
+    expect(await screen.findByTestId("tools-matrix")).toBeInTheDocument();
+    await waitFor(() => expect(reads("/mcp")).toBe(1));
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(reads("/tools")).toBe(1);
+  });
+
+  it("is read again each time it is opened, and shows what was changed on another page", async () => {
+    const coach = { ...coachAgent, tools: ["read_file"] };
+    backend.agents = [fakeAgent, coach];
+    const { rerender } = show("crew", { agents: backend.agents });
+    await waitFor(() => expect(reads("/tools")).toBe(1));
+
+    // The editor gave the second agent a tool the first one had to itself.
+    backend.agents = [fakeAgent, { ...coach, tools: ["read_file", "write_file"] }];
+    rerender({ agents: backend.agents });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(reads("/tools")).toBe(1);
+
+    rerender({ agents: backend.agents, section: "tools" });
+    await waitFor(() => expect(holders("write_file")).toBe(2));
+    expect(reads("/tools")).toBe(2);
+
+    // Leaving reads nothing; coming back does.
+    rerender({ agents: backend.agents, section: "jobs" });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(reads("/tools")).toBe(2);
+    rerender({ agents: backend.agents, section: "tools" });
+    await waitFor(() => expect(reads("/tools")).toBe(3));
+  });
+
+  it("gains a server's tools under the person's eyes when the server comes up", async () => {
+    vitest.useFakeTimers({ shouldAdvanceTime: true });
+    backend.agents = [{ ...fakeAgent, mcp: ["notion"] }];
+    backend.mcp.servers = [mcpServer({ status: "idle" })];
+    show("tools", { agents: backend.agents });
+    await waitFor(() => expect(reads("/mcp")).toBe(1));
+    await waitFor(() => expect(reads("/tools")).toBe(1));
+    expect(screen.queryByText("mcp__notion__search")).not.toBeInTheDocument();
+
+    backend.mcp.servers = [mcpServer({ tools: [mcpTool("notion", "search")] })];
+    await act(async () => {
+      await vitest.advanceTimersByTimeAsync(POLL_MS);
+    });
+
+    await waitFor(() => expect(holders("mcp__notion__search")).toBe(1));
+    expect(holders("tool_search")).toBe(1);
+    expect(reads("/tools")).toBe(2);
+  });
+
+  it("is not read for a server's tools while another page is open, only once it is opened", async () => {
+    vitest.useFakeTimers({ shouldAdvanceTime: true });
+    backend.agents = [{ ...fakeAgent, mcp: ["notion"] }];
+    backend.mcp.servers = [mcpServer({ status: "idle" })];
+    const { rerender } = show("connections", { agents: backend.agents });
+    await waitFor(() => expect(reads("/mcp")).toBe(1));
+    await waitFor(() => expect(reads("/tools")).toBe(1));
+
+    backend.mcp.servers = [mcpServer({ tools: [mcpTool("notion", "search")] })];
+    await act(async () => {
+      await vitest.advanceTimersByTimeAsync(POLL_MS);
+    });
+    await waitFor(() => expect(reads("/mcp")).toBe(2));
+    expect(await screen.findByText(vi.mcp.tools(1))).toBeInTheDocument();
+    expect(reads("/tools")).toBe(1);
+
+    rerender({ agents: backend.agents, section: "tools" });
+    await waitFor(() => expect(holders("mcp__notion__search")).toBe(1));
+    expect(reads("/tools")).toBe(2);
   });
 });
 

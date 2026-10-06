@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useRef, useState, type UIEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type UIEvent } from "react";
 import type { AgentInfo, Conversation, InstallResult, JobInfo, SettingsInfo, StatsInfo, TemplateInfo } from "../api/types";
 import type { RunInfo } from "../api/types";
 import { AgentEditor } from "../components/agent-editor/agent-editor";
@@ -23,7 +23,7 @@ import { ToolsMatrix } from "../components/tools-matrix";
 import { Brand } from "../components/ui/brand-mark";
 import { Icon, type IconName } from "../components/ui/icon";
 import { useCredentials } from "../hooks/use-credentials";
-import { useMcpServers } from "../hooks/use-mcp-servers";
+import { handedOut, useMcpServers } from "../hooks/use-mcp-servers";
 import { useRegistry } from "../hooks/use-registry";
 import type { ManageSection } from "../hooks/use-route";
 import { vi } from "../i18n/vi";
@@ -142,6 +142,17 @@ export function ManageScreen(props: Props) {
     await Promise.all([refreshRegistry(), mcpKeysChanged()]);
   }, [refreshRegistry, mcpKeysChanged]);
   const credentials = useCredentials(keysChanged);
+  // Who holds which tool changes on the other pages: an agent is edited, made or removed,
+  // a server is signed out of or tried again. So the grid is read again each time it is
+  // opened, and under the person's eyes when a server's tools change while it is open. The
+  // read the screen opens with is the registry's own.
+  const onTools = props.section === "tools";
+  const handed = handedOut(mcp.servers);
+  const opened = useRef(false);
+  useEffect(() => {
+    if (!opened.current) opened.current = true;
+    else if (onTools) void refreshRegistry();
+  }, [onTools, handed, refreshRegistry]);
   const editing = props.agents.find((a) => a.id === props.editingAgentId) ?? null;
   const pendingProposals = props.stats?.pending_proposals ?? 0;
   const failing = failingJobs(props.jobs);

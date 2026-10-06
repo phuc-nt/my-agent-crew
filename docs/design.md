@@ -214,7 +214,11 @@ any platform ──POST /api/inbound (JSON, sync)─────┴─▶ Inboun
   máy chạy crew, chỉ với địa chỉ `https` công khai, không đi theo chuyển hướng. Một máy chủ hỏng
   là một dòng nói vì sao ở Kết nối, không phải một crew không khởi động được. Tool MCP theo `mcp:`
   của agent chứ không theo `tools`, và mặc định không khai sẵn cho model (`deferred`) để một máy
-  chủ vài chục tool không đội giá mọi lượt. Client viết tay trên `httpx`, không thêm SDK.
+  chủ vài chục tool không đội giá mọi lượt. Agent tìm chúng bằng `tool_search`, một lần tìm BM25
+  trên những tool nó đang giữ, không gọi máy chủ nào; tool tìm thấy được khai từ lời gọi model kế
+  tiếp, nối vào cuối danh sách đã khai để phần đầu request mà provider cache không đổi. Cái đã
+  nạp không nằm trong bộ nhớ của server mà trong chính hội thoại (các câu trả lời `tool_search`
+  đã lưu), nên một lần restart không làm mất nó. Client viết tay trên `httpx`, không thêm SDK.
 - **Chi phí trung thực.** Mỗi message assistant lưu `cost_usd` hoặc `None`. Cuộc trò chuyện giữ
   `spent_usd` và `unknown_cost_calls`; `cost_cap_usd` dừng trước lần gọi model kế tiếp
   (0 = không giới hạn). Mọi lần gọi model nằm ngoài vòng lặp lượt — đặt tiêu đề, tóm tắt

@@ -681,11 +681,46 @@ những tool hiếm khi dùng. Mức mở nói mỗi tool được đưa tới m
 | Mức | Model thấy gì |
 | --- | --- |
 | `direct` | tool được khai ở mọi lượt, như tool có sẵn |
-| `deferred` (mặc định) | không khai sẵn và không nằm trong danh sách tool của system prompt |
+| `deferred` (mặc định) | không khai sẵn và không nằm trong danh sách tool của system prompt; agent tìm và nạp bằng `tool_search` khi cần |
 | `codemode` | không khai sẵn, như `deferred` |
 | `hidden` | không giao cho agent nào; vẫn hiện ở Kết nối để chủ biết máy chủ có nó |
 
 Tool không khai sẵn vẫn chạy khi được gọi đúng tên, qua cùng cổng duyệt.
+
+### Tìm và nạp tool
+
+Agent giữ ít nhất một tool MCP không khai sẵn thì được giao thêm `tool_search`. Tool này đến cùng
+máy chủ như chính các tool MCP: không theo danh sách cho phép `tools`, không theo `mode`, và mất
+đi khi agent không còn tool nào phải tìm (bỏ máy chủ, máy chủ đăng xuất, hay mọi tool của nó đã
+là `direct` hoặc `hidden`).
+
+```
+tool_search(query, limit?)   →  Đã nạp 2 công cụ, gọi trực tiếp bằng tên:
+                                - mcp__notion__notion_search: [MCP notion] Search the workspace…
+                                - mcp__notion__notion_fetch: [MCP notion] Read a page by id…
+                                Còn 3 công cụ khác khớp; tìm lại với từ khoá hẹp hơn nếu chưa thấy cái cần.
+```
+
+- **Tìm ở đâu.** Chỉ trong những tool không khai sẵn mà **chính agent đó** đang giữ; không hỏi
+  máy chủ, nên không chờ ai và không bao giờ hỏi duyệt. Mô tả của tool nói với model nó tìm được
+  ở máy chủ nào, kèm dòng `description` chủ viết cho máy chủ đó trong `config.yaml`: dòng này là
+  thứ duy nhất model biết về máy chủ trước khi tìm, nên đáng viết cho rõ.
+- **Khớp thế nào.** BM25 trên tên tool (nặng gấp ba), tên máy chủ, mô tả, và tên cùng mô tả của
+  các tham số (đọc sâu tối đa 8 tầng schema). Chữ được so không phân biệt hoa thường và dấu,
+  `createPage` và `create_page` đều là hai từ, `pages` khớp `page`. Từ khoá viết đúng tên tool
+  (tên đầy đủ hoặc tên của máy chủ) đưa tool đó lên đầu. Máy chủ mô tả tool bằng tiếng Anh thì
+  từ khoá tiếng Anh mới khớp.
+- **Nạp bao nhiêu.** Mặc định 5 tool khớp nhất, `limit` từ 1 tới 10. Câu trả lời nói còn bao
+  nhiêu tool khớp chưa nạp; không khớp gì thì nói mỗi máy chủ đang có bao nhiêu tool.
+- **Nạp nghĩa là gì.** Từ lời gọi model kế tiếp, tool được khai kèm schema đầy đủ, **nối vào
+  cuối** danh sách đã khai, nên phần đầu request mà provider đã cache vẫn nguyên; system prompt
+  không đổi. Mỗi lần nạp vì thế tốn một lần ghi lại cache của phần đuôi, không hơn.
+- **Nhớ ở đâu.** Trong chính cuộc trò chuyện: danh sách đã nạp được đọc lại từ những câu trả lời
+  của `tool_search` đã lưu, theo đúng thứ tự nạp. Vì vậy nó sống qua một lần khởi động lại giữa
+  lượt, kéo dài hết cuộc trò chuyện, và không lan sang cuộc khác. Tool đã nạp mà agent không còn
+  giữ (máy chủ bỏ nó, chủ ẩn nó) thì thôi được khai.
+- **Duyệt.** Nạp không đổi gì về duyệt: tool đã nạp vẫn hỏi trước khi chạy như cũ, trừ khi chủ
+  ghi nó vào `read_only`.
 
 ### Xác thực
 
@@ -752,9 +787,12 @@ Tên không có trong `config.yaml` là 404. Danh sách không bao giờ mang gi
   dõi như vậy trong chốc lát.
 - **Công cụ.** Tool MCP nằm trong bảng cùng các tool khác, kèm nhãn `MCP <máy chủ>` và mức mở.
   Ô của agent chưa bật máy chủ mang dấu `◇` ("agent chưa bật máy chủ MCP này"), không bao giờ
-  được giải thích bằng danh sách cho phép, khoá hay chế độ.
+  được giải thích bằng danh sách cho phép, khoá hay chế độ. `tool_search` có nhãn "đi kèm MCP";
+  ô của agent không giữ nó mang dấu `·` ("agent không có công cụ MCP nào phải tìm"). Bảng được
+  đọc lại mỗi lần mở mục này, và ngay khi danh sách tool của một máy chủ đổi trong lúc đang mở,
+  nên nó luôn cho thấy ai đang giữ gì sau khi sửa một agent hay đăng xuất một máy chủ.
 - **Trình sửa agent.** Mục Công cụ có ô chọn máy chủ; danh sách cho phép ở trên nó không liệt kê
-  tool MCP.
+  tool MCP và cũng không liệt kê `tool_search`.
 
 ## Provider không cần khoá
 
@@ -786,7 +824,9 @@ những tool phần còn lại của đội vẫn dùng. `agents` là ai giữ n
 "cố vấn có thực sự sửa được tệp không"; `optional` đánh dấu tool chỉ tồn tại khi
 khoá hoặc tuyến của nó được cấu hình (`image_read`). Tool của một máy chủ MCP có thêm `server` và
 `exposure`, chỉ được liệt kê khi có agent bật máy chủ đó, và tool `hidden` không bao giờ có mặt
-(xem [Máy chủ MCP](#máy-chủ-mcp)).
+(xem [Máy chủ MCP](#máy-chủ-mcp)). Dòng của `tool_search` mang `with_mcp: true`: agent giữ nó
+nhờ các tool MCP không khai sẵn, không nhờ danh sách cho phép (xem
+[Tìm và nạp tool](#tìm-và-nạp-tool)).
 
 Endpoint `/prompt` trả về system prompt đầy đủ như đã lắp cho agent (hữu ích để
 debug agent thấy gì, hoặc cho người dùng xem agent biết gì). Trường `opening` (kèm

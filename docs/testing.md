@@ -4776,3 +4776,84 @@ hình không giữ khoá; đăng nhập OAuth chỉ bắt đầu từ chính má
   khoá, lý do của lần thử trước, chữ "đang đăng xuất", và hai luật CSS mà bề rộng trang không lộ ra vì
   khung ngoài cắt phần tràn; mỗi cái giờ có test riêng, và việc đặt lại vòng theo dõi sau kết nối lại
   và sau đăng xuất được gộp về một chỗ.
+
+## Tìm và nạp tool MCP (`tool_search`)
+
+Tool của máy chủ MCP mặc định không được khai cho model ở mỗi lời gọi. Agent giữ tool như thế được
+giao `tool_search` để tìm bằng vài từ khoá; tool tìm thấy được khai từ lời gọi model kế tiếp, và cái
+đã nạp được đọc lại từ chính hội thoại nên còn nguyên sau restart
+([tools.md](tools.md#tìm-và-nạp-tool)).
+
+- **Tìm: so cái gì, xếp thế nào**:
+  - pytest: `tests/test_mcp_tool_search.py` (từ được so không phân biệt hoa thường, dấu, `đ` và `s`
+    số nhiều, `createPage` là hai từ; một từ trong tên tool nặng hơn hai lần trong mô tả; từ hiếm
+    nặng hơn từ tool nào cũng có; mô tả dài hay ngắn là so với các tool khác; tìm được theo tên máy
+    chủ, theo tên và mô tả tham số dù lồng sâu, kể cả tham số tên là `description` hay `properties`;
+    schema sai dạng không làm hỏng lần tìm và từ khoá của schema không phải là từ của tool; schema
+    chỉ được đọc tới một độ sâu; tool được gọi đúng tên đứng đầu dù không từ nào khớp; khớp ngang
+    nhau thì xếp theo tên; truy vấn tiếng Việt tìm được mô tả tiếng Việt).
+- **Trả lời: nạp bao nhiêu, nói gì**:
+  - pytest: `tests/test_mcp_tool_search.py` (mỗi tool nạp một dòng; mặc định 5, nhiều nhất 10, ít
+    nhất 1, `limit` sai kiểu thì về mặc định; nói còn bao nhiêu tool khác khớp và không nói khi đã
+    nạp hết; thiếu `query` là lỗi model đọc được; không tìm thấy thì không nạp gì và nói mỗi máy chủ
+    có bao nhiêu tool; không gì máy chủ viết trong mô tả giả được một dòng nạp, mô tả cắt còn một
+    dòng 200 ký tự; lần tìm giữ danh sách tool lúc nó được dựng; lời mô tả của `tool_search` nêu
+    từng máy chủ bằng lời của chủ; nó không hỏi trước và được gọi lại sau restart).
+- **Ai được giao `tool_search`**:
+  - pytest: `tests/test_mcp_tool_search.py` (agent có tool chưa khai được giao nó, đứng sau tool có
+    sẵn và trước các tool MCP, giao lại không lặp, bỏ máy chủ thì thu về; mọi tool đều `direct` hoặc
+    `hidden` thì không giao; tool mức `codemode` cũng chờ được tìm; chỉ tìm trong tool chưa khai của
+    máy chủ agent được giao; lời mô tả chỉ nêu máy chủ còn tool để tìm; hai máy chủ ra cùng một tên
+    thì tìm theo cái agent đang giữ; không bao giờ chờ người duyệt), `tests/test_mcp_tools.py` (tool
+    `deferred` không được khai mà `tool_search` thì có; màn Kết nối hiện một dòng mô tả của mỗi tool,
+    còn model vẫn được nói đủ), `tests/test_api_mcp.py` (`GET /api/tools` nêu `tool_search` kèm
+    `with_mcp` và agent nào giữ; bỏ máy chủ khỏi agent thì dòng đó mất), `tests/test_mcp_turns.py`
+    (hồ sơ agent sau khi giao máy chủ có `tool_search` trước các tool của máy chủ).
+- **Nạp: khai cho model từ lúc nào, nhớ ở đâu**:
+  - pytest: `tests/test_mcp_tool_search.py` (cái đã nạp đọc từ các câu trả lời `tool_search` trong
+    hội thoại, theo thứ tự nạp, mỗi tool một lần, không lẫn sang hội thoại khác; chỉ câu trả lời của
+    chính `tool_search` mới nạp, dòng gần giống không tính; tool agent không còn giữ thì thôi khai;
+    tool sau đó được mở `direct` chỉ khai một lần), `tests/test_mcp_tool_search_turns.py` (tool tìm
+    được khai từ lời gọi model kế tiếp và nối vào cuối, phần đã khai và system prompt giữ nguyên;
+    lần tìm không hỏi ai và không gọi máy chủ; tool đã nạp vẫn chờ người duyệt, và lượt chạy tiếp sau
+    khi duyệt vẫn khai nó; cái đã nạp theo hội thoại sang lượt sau, không sang hội thoại khác; sau
+    restart lượt được tiếp tục khai đúng các tool đó theo đúng thứ tự; tool máy chủ thôi liệt kê thì
+    thôi khai).
+- **web: `tool_search` ở bảng Công cụ và trình sửa agent**:
+  - vitest: `components/tools-matrix.test.tsx` (agent có tool để tìm thì giữ nó, agent khác có dấu
+    riêng; ô đó không bị giải thích bằng danh sách cho phép, khoá hay chế độ; nhãn "đi kèm MCP" nói
+    nó đến từ đâu; chú giải chỉ có dấu ấy khi crew có `tool_search`),
+    `components/agent-editor/tools-section.test.tsx` (danh sách cho phép không liệt kê `tool_search`,
+    và "chọn tất cả" không gửi nó), `test/fake-mcp.test.ts` (máy chủ giả của test giao `tool_search`
+    đúng luật của server: chỉ cho agent có tool chưa khai, đứng trước tool của máy chủ).
+  - Playwright: `mcp-servers.spec.ts` (bảng Công cụ có dòng `tool_search` với nhãn và lời giải thích
+    của nhãn, agent giữ nó và agent không có gì để tìm, chú giải có dấu riêng; đăng xuất máy chủ thì
+    dòng đó và dấu trong chú giải cùng mất; trình sửa agent không liệt kê nó trong danh sách cho
+    phép; trên điện thoại 390px nhãn của dòng `tool_search` và của tool MCP không bị ép, bảng và
+    chú giải không làm trang tràn).
+- **web: bảng Công cụ đọc lại khi có thay đổi ở trang khác**:
+  - vitest: `screens/manage-screen.test.tsx` (mở màn ở mục Công cụ thì đọc một lần; mỗi lần mở mục
+    đó đọc lại và hiện đúng điều vừa đổi ở trang khác, rời mục thì không đọc; đang mở mà tool của
+    máy chủ đổi thì đọc lại ngay; đang ở trang khác thì không đọc, tới khi mở),
+    `hooks/use-mcp-servers.test.ts` (giá trị "máy chủ đang giao gì" không đổi theo trạng thái, lý do
+    hỏng hay agent dùng, không đổi vì máy chủ không có tool, và đổi khi một tool mất, hết tool, đổi
+    mức mở, thôi hỏi trước, đổi mô tả, thêm tool của máy chủ khác, hay cả máy chủ mất).
+  - Playwright: `mcp-servers.spec.ts` (giao máy chủ cho agent rồi mở Công cụ thấy agent đó giữ tool
+    của máy chủ và `tool_search` mà không tải lại trang; đăng xuất rồi mở Công cụ thì các dòng của
+    máy chủ đã mất; đang mở Công cụ mà máy chủ vừa nối xong thì các dòng của nó và `tool_search`
+    hiện ra, không bấm gì).
+- Kiểm chứng đột biến: tám mươi chín sửa đổi ở server (bỏ trọng số của tên; đổi công thức idf và độ
+  dài trung bình; bỏ tên máy chủ, mô tả hay tham số khỏi chỗ so; đọc schema sai hình; bỏ xếp khớp
+  tên lên đầu; đổi giới hạn mặc định và tối đa; giao `tool_search` khi không có gì để tìm, sau tool
+  của máy chủ, hay giao lại mà không thu về trước; giao tool `hidden`; coi tool `codemode` là đã
+  khai; đọc lời nạp từ tin không phải của `tool_search`; giữ tool máy chủ đã thôi liệt kê; đổi thứ
+  tự khai; không cho gọi lại `tool_search` sau restart; bỏ việc rút mô tả về một dòng) và
+  ba mươi tư sửa đổi ở web (bỏ, đổi chỗ hay đổi chữ của dấu "không có gì để tìm"; chú giải hiện dấu
+  ấy khi không có `tool_search`; nhãn "đi kèm MCP" mất, sai chữ hay hiện ở mọi dòng; danh sách cho
+  phép liệt kê `tool_search`; bảng Công cụ không đọc lại, đọc lại ở lần mở đầu, đọc lại khi đang ở
+  trang khác, hay không theo tool của máy chủ). Vòng đầu ở server sót mười một, ở web sót một (chỉ
+  thiếu ở Playwright: bảng đang mở mà máy chủ vừa nối xong); mỗi cái được thêm test, một số hạng
+  thừa (tên máy chủ, vốn đã nằm ở đầu mô tả) bị bỏ, và phép đọc schema được viết lại cho đúng hình
+  (trước đó nó đọc bảng `properties` như một schema, nên tham số tên `properties` làm lộ từ khoá
+  của schema thành tên tham số). Một sửa đổi chỉ đổi con số độ sâu bị loại vì test đọc chính hằng
+  số ấy. Sau đó tất cả đều bị test bắt.

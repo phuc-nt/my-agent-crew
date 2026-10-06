@@ -19,12 +19,12 @@ const STATUS_TONE: Record<McpStatus, string> = { connected: "ok", idle: "warn", 
  * own radio pair above them; ticking nothing would otherwise silently mean the opposite
  * of what it looks like.
  *
- * The tools of an MCP server are not in that list. They come with the server, which is
- * switched on below, so the picker leaves them out: ticking one would promise a say the
- * allow-list does not have.
+ * The tools of an MCP server are not in that list, and neither is the search that finds
+ * them. They come with the server, which is switched on below, so the picker leaves them
+ * out: ticking one would promise a say the allow-list does not have.
  */
 export function ToolsSection({ form, readOnly, tools, mcpServers }: Props) {
-  const own = tools.filter((tool) => !tool.server);
+  const own = tools.filter((tool) => !tool.server && !tool.with_mcp);
   const picked = form.draft.tools ?? [];
   const restricted = picked.length > 0;
   const servers = form.draft.mcp ?? [];

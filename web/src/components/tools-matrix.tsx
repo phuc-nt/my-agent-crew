@@ -8,8 +8,9 @@ interface Props {
 
 /** Why an agent does or does not hold a tool. The cases are genuinely different
  * problems: two are the person's own choice, one needs a key, one needs a mode change,
- * and a tool of an MCP server comes with the server or not at all. */
-type Cell = "on" | "excluded" | "missing-key" | "work-mode" | "mcp-off";
+ * a tool of an MCP server comes with the server or not at all, and the search for such
+ * tools comes with having some to find. */
+type Cell = "on" | "excluded" | "missing-key" | "work-mode" | "mcp-off" | "mcp-none";
 
 const MARK: Record<Cell, string> = {
   on: "✓",
@@ -17,6 +18,7 @@ const MARK: Record<Cell, string> = {
   "missing-key": "○",
   "work-mode": "▫",
   "mcp-off": "◇",
+  "mcp-none": "·",
 };
 
 const TITLE: Record<Cell, string> = {
@@ -25,6 +27,13 @@ const TITLE: Record<Cell, string> = {
   "missing-key": vi.tools.legendMissingKey,
   "work-mode": vi.tools.legendWorkMode,
   "mcp-off": vi.tools.legendMcpOff,
+  "mcp-none": vi.tools.legendMcpNone,
+};
+
+/** A mark only some crews can meet, and the tools that bring it. */
+const ONLY_WITH: Partial<Record<Cell, (tool: RegistryTool) => boolean>> = {
+  "mcp-off": (tool) => Boolean(tool.server),
+  "mcp-none": (tool) => Boolean(tool.with_mcp),
 };
 
 /**
@@ -39,6 +48,8 @@ function cellFor(tool: RegistryTool, agent: AgentInfo): Cell {
   // The allow-list, the keys and the mode have no say over a server's tools: an agent
   // holds them once the server is switched on for it, so that is the one thing to name.
   if (tool.server) return "mcp-off";
+  // Nor over the search for them: it is missing only where there is nothing to find.
+  if (tool.with_mcp) return "mcp-none";
   if (agent.tools.length > 0 && !agent.tools.includes(tool.name)) return "excluded";
   if (tool.optional) return "missing-key";
   return "work-mode";
@@ -59,7 +70,10 @@ function approval(tool: RegistryTool): string {
 export function ToolsMatrix({ tools, agents }: Props) {
   const ordered = [...agents].sort((a, b) => Number(b.is_master) - Number(a.is_master));
   // A mark nobody can meet is not worth a line of legend.
-  const legend = (Object.keys(MARK) as Cell[]).filter((cell) => cell !== "mcp-off" || tools.some((t) => t.server));
+  const legend = (Object.keys(MARK) as Cell[]).filter((cell) => {
+    const brings = ONLY_WITH[cell];
+    return !brings || tools.some(brings);
+  });
 
   if (tools.length === 0) return <p className="muted">{vi.tools.empty}</p>;
 
@@ -86,6 +100,11 @@ export function ToolsMatrix({ tools, agents }: Props) {
                   <code>{tool.name}</code>
                   {tool.optional && <span className="badge">{vi.tools.optional}</span>}
                   {tool.server && <span className="badge">{vi.tools.fromServer(tool.server)}</span>}
+                  {tool.with_mcp && (
+                    <span className="badge" title={vi.tools.withMcpTitle}>
+                      {vi.tools.withMcp}
+                    </span>
+                  )}
                   {tool.exposure && (
                     <span className="badge" title={vi.mcp.exposureTitle[tool.exposure]}>
                       {vi.mcp.exposure[tool.exposure]}

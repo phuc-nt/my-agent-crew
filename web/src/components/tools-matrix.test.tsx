@@ -4,6 +4,7 @@ import { vi } from "../i18n/vi";
 import { ToolsMatrix } from "./tools-matrix";
 import type { AgentInfo, RegistryTool } from "../api/types";
 import { fakeAgent } from "../test/fake-backend";
+import { searchTool } from "../test/fake-mcp";
 
 describe("ToolsMatrix", () => {
   it("shows the empty state when there are no tools", () => {
@@ -284,7 +285,69 @@ describe("ToolsMatrix", () => {
 
       render(<ToolsMatrix tools={[own, search]} agents={[fakeAgent]} />);
       expect(legend()).toHaveTextContent(vi.tools.legendMcpOff);
+      expect(legend()).not.toHaveTextContent(vi.tools.legendMcpNone);
       expect(within(legend()).getAllByRole("definition")).toHaveLength(5);
+    });
+  });
+
+  describe("the search for the MCP tools that are not declared up front", () => {
+    const find = searchTool(["default"]);
+    const coach: AgentInfo = { ...fakeAgent, id: "coach", name: "HLV", is_master: false };
+    const cell = (row: HTMLElement, column: number) => within(row).getAllByRole("cell")[column];
+
+    it("is held by the agents with such tools, and marked as not needed for the rest", () => {
+      render(<ToolsMatrix tools={[find]} agents={[fakeAgent, coach]} />);
+
+      const row = screen.getByTestId("tool-row");
+      expect(within(cell(row, 0)).getByText(vi.tools.never)).toBeInTheDocument();
+      expect(within(cell(row, 1)).getByText("✓")).toHaveAttribute("aria-label", vi.tools.legendOn);
+      expect(within(cell(row, 2)).getByText("·")).toHaveAttribute("aria-label", vi.tools.legendMcpNone);
+      expect(cell(row, 2)).toHaveClass("cell", "mcp-none");
+      expect(cell(row, 2)).toHaveAttribute("title", vi.tools.legendMcpNone);
+    });
+
+    it("is not explained by the allow-list, a key or the mode, which have no say over it", () => {
+      // An agent whose allow-list leaves it out, in the mode that lacks tools; and the
+      // same row marked as needing a key, which nothing the server sends would do.
+      const picky: AgentInfo = { ...coach, tools: ["write_file"], mode: "assistant" };
+      const open: AgentInfo = { ...coach, id: "open", tools: [] };
+      render(<ToolsMatrix tools={[{ ...find, agents: [], optional: true }]} agents={[picky, open]} />);
+
+      const row = within(screen.getByTestId("tool-row"));
+      expect(row.getAllByText("·")).toHaveLength(2);
+      for (const mark of ["–", "○", "▫", "◇"]) expect(row.queryByText(mark)).not.toBeInTheDocument();
+    });
+
+    it("says it comes with the servers and not with the allow-list", () => {
+      render(<ToolsMatrix tools={[find]} agents={[fakeAgent]} />);
+
+      const head = within(screen.getByTestId("tool-row")).getByRole("rowheader");
+      expect(within(head).getByText(vi.tools.withMcp)).toHaveClass("badge");
+      expect(within(head).getByText(vi.tools.withMcp)).toHaveAttribute("title", vi.tools.withMcpTitle);
+      expect(within(head).queryByText(/^MCP /)).not.toBeInTheDocument();
+    });
+
+    it("adds its mark to the legend, which a crew with nothing to find never sees", () => {
+      const own: RegistryTool = { name: "shell_run", description: "Run", requires_approval: false, optional: false, agents: ["default"] };
+      const direct: RegistryTool = { ...own, name: "mcp__wiki__read", server: "wiki", exposure: "direct" };
+      const legend = () => screen.getByText(vi.tools.legend).parentElement as HTMLElement;
+
+      const nothing = render(<ToolsMatrix tools={[own, direct]} agents={[fakeAgent]} />);
+      expect(legend()).not.toHaveTextContent(vi.tools.legendMcpNone);
+      expect(within(legend()).getAllByRole("definition")).toHaveLength(5);
+      expect(screen.queryByText(vi.tools.withMcp)).not.toBeInTheDocument();
+      nothing.unmount();
+
+      const both = render(<ToolsMatrix tools={[own, direct, find]} agents={[fakeAgent]} />);
+      const marks = within(legend()).getAllByRole("definition");
+      expect(marks).toHaveLength(6);
+      expect(marks[5]).toHaveTextContent(`·${vi.tools.legendMcpNone}`);
+      expect(marks[5].querySelector(".legend-mark")).toHaveClass("mcp-none");
+      // Without a server's tool on the page, its own mark stays and the server's goes.
+      both.unmount();
+      render(<ToolsMatrix tools={[own, find]} agents={[fakeAgent]} />);
+      expect(legend()).toHaveTextContent(vi.tools.legendMcpNone);
+      expect(legend()).not.toHaveTextContent(vi.tools.legendMcpOff);
     });
   });
 });

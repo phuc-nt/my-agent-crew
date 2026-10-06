@@ -38,7 +38,7 @@ my-agent-crew/
 | `channels/` | Telegram: poll, tin vào, ảnh và album, tin ra, lệnh `/…`, câu trả lời cho `ask_user`, gửi canvas như một tệp và báo lượt đã ghi canvas nào, offset, che token |
 | `inbound.py` | một cổng vào chung cho mọi nền tảng |
 | `llm/` | provider: OpenRouter, Ollama, provider giả; chuỗi tuyến và fallback |
-| `mcp/` | client MCP viết tay trên `httpx`: đọc `mcp_servers` của `config.yaml`, một request JSON-RPC qua streamable HTTP (JSON hoặc SSE), phiên làm việc và danh sách tool, tool MCP thành tool của agent (tên, duyệt, mức mở, kết quả thành chữ), hub giữ trạng thái từng máy chủ và giao tool cho agent, đăng nhập OAuth 2.1 (dò metadata, tự đăng ký, PKCE, gia hạn) và nơi giữ token |
+| `mcp/` | client MCP viết tay trên `httpx`: đọc `mcp_servers` của `config.yaml`, một request JSON-RPC qua streamable HTTP (JSON hoặc SSE), phiên làm việc và danh sách tool, tool MCP thành tool của agent (tên, duyệt, mức mở, kết quả thành chữ), hub giữ trạng thái từng máy chủ và giao tool cho agent, `tool_search` để agent tìm và nạp tool chưa khai sẵn (BM25 trên tên, mô tả, tham số), đăng nhập OAuth 2.1 (dò metadata, tự đăng ký, PKCE, gia hạn) và nơi giữ token |
 | `memory/` | ghi chú ngày, facts chung, gom 7 ngày thành đề xuất, tìm kiếm, tóm tắt cuộc trước, vault wiki |
 | `scheduler/` | cron: phân tích lịch, job đến hạn, chạy job, giao kết quả ra kênh |
 | `server/` | FastAPI: dựng runtime, lắp provider và tool cho từng agent, áp dụng kết nối không cần restart, kiểm tra khoá, ghi `<home>/env`, hàng rào Host/Origin, phục vụ tệp agent viết như nội dung không tin cậy, đổi lời từ chối của kho canvas thành mã HTTP, các nhóm route |

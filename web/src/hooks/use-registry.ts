@@ -1,6 +1,7 @@
 // The crew's registry: every tool, and everything the crew talks to on the outside.
-// Both are read-only and change only when an agent is edited or the server restarts, so
-// they load once and refresh on demand rather than polling.
+// Both are read-only and change only with something else: an agent edited, a key saved, a
+// server's tools coming or going. So they load once and are read again by whoever knows
+// of such a change, rather than polled.
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api/client";
 import type { ConnectionsInfo, RegistryTool } from "../api/types";

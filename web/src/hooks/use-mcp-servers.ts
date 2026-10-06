@@ -33,6 +33,12 @@ export interface McpController {
 
 type Watch = { left: number; down: boolean };
 
+/** What the servers hand out, as one value: it changes when a tool comes, goes or reads
+ *  another way, which is when the list of every tool has gone stale. A server with no
+ *  tools adds nothing to it, so a list that holds none reads like no list at all. */
+export const handedOut = (servers: McpServerInfo[]): string =>
+  JSON.stringify(servers.flatMap((server) => server.tools));
+
 const leavePage = (url: string) => window.location.assign(url);
 
 export function useMcpServers(leave: (url: string) => void = leavePage): McpController {

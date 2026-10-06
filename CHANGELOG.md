@@ -67,7 +67,6 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   that nobody knows whether it ran, and the model decides after looking; nothing that writes,
   sends or pays is done twice unseen. A call that never ran (it still had to ask, was refused,
   or could not be run) is settled the way it always was.
-
 - An agent may name an escalation route: one `provider:model` its turn moves to only when the
   turn is stuck (`escalation_route` in `agent.yaml`, or "Tuyến leo thang" under the routes in the
   agent editor). Off unless an agent's own file sets it, and never inherited. A turn moves when
@@ -100,9 +99,25 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   /api/mcp/{name}/login`, `GET /api/mcp/oauth/callback`. Connections gains a card with each
   server's state, reason, tools and who uses it; the Tools matrix lists MCP tools with their
   server and marks an agent that has not been handed the server apart from every other reason.
+- An agent finds the MCP tools it was not told of with `tool_search`. A server's tools are let
+  in `deferred` unless the file says otherwise: the model is not told of them on every call, and
+  an agent that holds any such tool is handed `tool_search` with them. It asks in a few words or
+  by a tool's name; the tools it holds are ranked by BM25 over each one's name, description and
+  parameters, and the answer names the best five (ten at most) on a line each. From the next
+  model call on those are told to the model like any other tool, after the ones it already
+  knew, so the part of a request a provider keeps from call to call stays as it was. What a
+  conversation loaded is read back from its stored `tool_search` answers: it lasts the
+  conversation, reaches no other, and is the same after a restart. A loaded tool still asks
+  before it runs; the search asks nobody and calls no server. `GET /api/tools` marks its row
+  `with_mcp`; the Tools matrix gives it a "đi kèm MCP" badge and a mark of its own for an agent
+  with nothing to find, and the agent editor's allow-list leaves it out.
 
 ### Fixed
 
+- The Tools matrix no longer goes on showing who held a tool when the manage screen was opened.
+  It was read once, so after an agent was edited, made or removed, or an MCP server was signed
+  out of or tried again, the grid kept the old holders until the page was reloaded. It is now
+  read again each time it is opened, and while it is open when a server's tools change.
 - Saving an agent's own routes from the agent editor no longer fails. The editor holds a route
   as a provider and a model apart and sent it so, while the server read only the
   `provider:model` line a person writes in `agent.yaml`, and answered 500. A route sent either

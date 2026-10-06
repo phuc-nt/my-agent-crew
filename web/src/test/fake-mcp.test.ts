@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FakeMcp, SIGN_IN_LOCAL_ONLY, authorizeUrl, mcpServer, mcpTool, unknownServer } from "./fake-mcp";
+import { FakeMcp, SIGN_IN_LOCAL_ONLY, authorizeUrl, mcpServer, mcpTool, searchTool, unknownServer } from "./fake-mcp";
 
 type Listed = { servers: ReturnType<typeof mcpServer>[] };
 const list = (mcp: FakeMcp) => (mcp.route("/mcp", "GET")?.body as Listed).servers;
@@ -86,6 +86,7 @@ describe("the MCP routes both fakes answer", () => {
     mcp.crew = () => [{ id: "default", mcp: ["notion"] }];
 
     expect(mcp.registryTools()).toEqual([
+      searchTool(["default"]),
       {
         name: "mcp__notion__search",
         description: "",
@@ -96,6 +97,25 @@ describe("the MCP routes both fakes answer", () => {
         exposure: "deferred",
       },
     ]);
+  });
+
+  it("lists the search for the agents that hold a tool not declared up front, and only then", () => {
+    const direct = mcpServer({ name: "wiki", tools: [mcpTool("wiki", "read", { exposure: "direct" }), mcpTool("wiki", "purge", { exposure: "hidden" })] });
+    const scripted = mcpServer({ name: "tracker", tools: [mcpTool("tracker", "list", { exposure: "codemode" })] });
+    const mcp = new FakeMcp([direct, mcpServer({ tools: [mcpTool("notion", "search")] }), scripted]);
+    let crew = [{ id: "default", mcp: ["wiki"] }, { id: "coach" }];
+    mcp.crew = () => crew;
+    const names = () => mcp.registryTools().map((tool) => tool.name);
+
+    // Every tool the one agent holds is declared to the model: there is nothing to find.
+    expect(names()).toEqual(["mcp__wiki__read"]);
+
+    crew = [{ id: "ledger", mcp: ["tracker"] }, { id: "default", mcp: ["wiki", "notion"] }, { id: "coach" }];
+    const [search, ...rest] = mcp.registryTools();
+    expect(search).toEqual({ ...searchTool(["default", "ledger"]), with_mcp: true, requires_approval: false, optional: false });
+    expect(search).not.toHaveProperty("server");
+    expect(rest.map((tool) => tool.name)).toEqual(["mcp__wiki__read", "mcp__notion__search", "mcp__tracker__list"]);
+    expect(rest.every((tool) => !("with_mcp" in tool))).toBe(true);
   });
 
   it("refuses an agent's list that names a server the file does not declare", () => {

@@ -122,7 +122,9 @@ Gói `tools/` giữ danh sách tool mà agent được dùng (`tools:` trong `ag
 Ngoài bộ có sẵn, agent nhận thêm tool của những **máy chủ MCP** mà `agent.yaml` của nó nêu trong
 `mcp:`. Máy chủ được khai một lần trong `config.yaml` (`mcp_servers`), gói `mcp/` nói chuyện với
 chúng qua streamable HTTP, và mỗi tool vào sổ đăng ký dưới tên `mcp__<máy chủ>__<tool>`. Chúng đi
-qua cùng cổng duyệt: mọi tool MCP hỏi trước khi chạy, trừ những tool chủ ghi là chỉ đọc.
+qua cùng cổng duyệt: mọi tool MCP hỏi trước khi chạy, trừ những tool chủ ghi là chỉ đọc. Mặc định
+chúng không được khai sẵn cho model: agent tìm bằng `tool_search`, tool tìm thấy được khai từ lời
+gọi model kế tiếp, và cái đã nạp được đọc lại từ chính hội thoại nên còn nguyên sau restart.
 
 Chi tiết từng tool ở [tools.md](tools.md).
 
