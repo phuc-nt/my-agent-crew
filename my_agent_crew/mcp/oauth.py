@@ -23,10 +23,13 @@ from my_agent_crew.mcp.wire import McpError
 from my_agent_crew.tools.web import Resolver
 
 CLIENT_NAME = "my-agent-crew"
+# What a token endpoint says when the grant is spent or this client is unknown to it
+# (RFC 6749 §5.2). Every other no leaves the grant as good as it was.
+SPENT = ("invalid_grant", "invalid_client")
 
 
 class GrantRefused(McpError):
-    """The authorization server answered and said no: what was traded is no longer good."""
+    """The authorization server said that what was traded is no longer good."""
 
 
 @dataclass(frozen=True)
@@ -99,7 +102,8 @@ async def token(
         raise McpError(t.MCP_OAUTH_TOKEN.format(error=exc)) from exc
     access = body.get("access_token")
     if status != 200 or not isinstance(access, str) or not access:
-        failure = GrantRefused if 400 <= status < 500 else McpError
+        spent = 400 <= status < 500 and body.get("error") in SPENT
+        failure = GrantRefused if spent else McpError
         raise failure(t.MCP_OAUTH_TOKEN.format(error=_said(status, body)))
     kind = str(body.get("token_type") or "")
     if kind.lower() != "bearer":

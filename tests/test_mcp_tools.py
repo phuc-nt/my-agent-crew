@@ -385,6 +385,22 @@ async def test_one_server_down_does_not_keep_the_others_from_connecting(deps_fac
     assert [n for n in deps.tools.names() if n.startswith("mcp__")] == [SEARCH_NAME, CREATE_NAME]
 
 
+async def test_connecting_as_a_whole_gets_the_time_one_request_gets():
+    """Requests that each come in time can add up to a start that does not end, and the
+    round that tries the servers that are down waits for every one of them."""
+    fake = FakeMcp()
+    fake.delay = 0.06  # three requests open a session and list its tools
+    hub = make_hub(fake, server(timeout=0.15))
+
+    await asyncio.wait_for(hub.connect(), 3)
+
+    link = hub.links["notion"]
+    assert link.status == FAILED
+    assert link.error == t.MCP_TIMEOUT.format(server="notion", seconds=0.15)
+    assert link.session is None and link.tools == ()
+    assert hub.waiting() == ["notion"]
+
+
 async def test_a_key_the_environment_lacks_is_named_and_one_refused_is_not_a_sign_in():
     keyed = server(headers={"Authorization": "Bearer ${NOTION_KEY}"})
     environ: dict[str, str] = {}

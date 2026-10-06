@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Any
 import httpx
 
 from my_agent_crew import texts_mcp as t
-from my_agent_crew.mcp import sign_in
+from my_agent_crew.mcp import renewal, sign_in
 from my_agent_crew.mcp.config import McpServer, MissingEnv
 from my_agent_crew.mcp.handout import hand_out
 from my_agent_crew.mcp.oauth_discovery import AuthServer
@@ -34,7 +34,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Never tried, working, waiting for the owner to sign in, and tried without success.
-IDLE, CONNECTED, SIGNED_OUT, FAILED = "idle", sign_in.CONNECTED, sign_in.SIGNED_OUT, "failed"
+IDLE, CONNECTED, SIGNED_OUT, FAILED = "idle", sign_in.CONNECTED, sign_in.SIGNED_OUT, sign_in.FAILED
 
 
 @dataclass
@@ -96,11 +96,16 @@ class McpHub:
             server,
             self.client,
             lambda: self.headers_for(server),
-            lambda refused: sign_in.renew(self, link, refused),
+            lambda refused: renewal.renew(self, link, refused),
         )
         try:
-            await session.start()
-            listed = await session.list_tools()
+            # Requests that each come in time can still add up to a start with no end.
+            async with asyncio.timeout(server.timeout):
+                await session.start()
+                listed = await session.list_tools()
+        except TimeoutError:
+            link.status = FAILED
+            link.error = t.MCP_TIMEOUT.format(server=server.name, seconds=server.timeout)
         except Unauthorized as exc:
             if sign_in.has_own_key(link):
                 link.status, link.error = FAILED, t.MCP_KEY_REFUSED

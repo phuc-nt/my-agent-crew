@@ -1,4 +1,4 @@
-"""A sign-in from its first click to the token kept, and the renewal of one that ran out.
+"""A sign-in from its first click to the token kept (`renewal` renews one that ran out).
 
 The owner starts it from the web on the machine the crew runs on; the authorization server
 sends them back to this process with a code. What ties the two ends together is a `state`
@@ -15,16 +15,16 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from my_agent_crew import texts_mcp as t
-from my_agent_crew.mcp.oauth import GrantRefused, Tokens, authorize_url, pkce, register, token
+from my_agent_crew.mcp.oauth import Tokens, authorize_url, pkce, register, token
 from my_agent_crew.mcp.oauth_discovery import AuthServer, discover
-from my_agent_crew.mcp.tokens import ACCESS, CLIENT_ID, REFRESH, bearer, env_name
+from my_agent_crew.mcp.tokens import ACCESS, CLIENT_ID, REFRESH, env_name
 from my_agent_crew.mcp.wire import McpError
 
 if TYPE_CHECKING:
     from my_agent_crew.mcp.hub import Link, McpHub
 
 STATE_SECONDS = 600.0
-CONNECTED, SIGNED_OUT = "connected", "signed_out"
+CONNECTED, SIGNED_OUT, FAILED = "connected", "signed_out", "failed"
 
 
 @dataclass(frozen=True)
@@ -72,7 +72,7 @@ def has_own_key(link: Link) -> bool:
     return any(name.lower() == "authorization" for name, _ in link.server.headers)
 
 
-def _keep(hub: McpHub, link: Link, tokens: Tokens) -> None:
+def keep(hub: McpHub, link: Link, tokens: Tokens) -> None:
     hub.tokens.put(link.server, ACCESS, tokens.access)
     # A server may renew the access token and leave the refresh token as it was.
     if tokens.refresh:
@@ -130,7 +130,7 @@ async def finish(hub: McpHub, state: str, code: str, error: str = "") -> str | N
             client_id=pending.client_id,
             code_verifier=pending.verifier,
         )
-        _keep(hub, link, tokens)
+        keep(hub, link, tokens)
     except McpError as exc:
         link.error = str(exc)
     except (ValueError, OSError) as exc:
@@ -138,41 +138,6 @@ async def finish(hub: McpHub, state: str, code: str, error: str = "") -> str | N
     else:
         await hub.connect([pending.server])
     return pending.server
-
-
-async def renew(hub: McpHub, link: Link, refused: str) -> bool:
-    """Get a new access token with the refresh token; whether the request is worth
-    sending again. `refused` is the authorization the server said no to: calls refused
-    together renew once between them, however late each one hears of it."""
-    server = link.server
-    async with link.renewing:
-        current = hub.tokens.get(server, ACCESS)
-        if current and refused != bearer(current):
-            return True
-        refresh, client_id = hub.tokens.get(server, REFRESH), hub.tokens.get(server, CLIENT_ID)
-        try:
-            if not refresh or not client_id or hub.client is None:
-                raise GrantRefused(t.MCP_UNAUTHORIZED.format(server=server.name))
-            if link.auth is None:
-                link.auth = await discover(hub.client, server.url, link.challenge, hub.resolver)
-            tokens = await token(
-                hub.client,
-                link.auth,
-                hub.resolver,
-                grant_type="refresh_token",
-                refresh_token=refresh,
-                client_id=client_id,
-            )
-            _keep(hub, link, tokens)
-        except GrantRefused:
-            # Nothing kept can sign in again: only the owner can, and the screen says so.
-            forget(hub, link)
-            link.status = SIGNED_OUT
-            return False
-        except (McpError, ValueError, OSError):
-            # The authorization server could not be reached; the next call tries again.
-            return False
-        return True
 
 
 def forget(hub: McpHub, link: Link) -> None:

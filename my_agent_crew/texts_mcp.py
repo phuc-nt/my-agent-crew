@@ -61,6 +61,7 @@ MCP_LOGIN_HEADER_KEY = "Máy chủ này dùng khoá trong header, không đăng 
 MCP_LOGIN_NOT_ASKED = "Máy chủ này không yêu cầu đăng nhập."
 MCP_OAUTH_URL = "Địa chỉ đăng nhập {url} bị từ chối: phải là https và không trỏ vào mạng nội bộ."
 MCP_OAUTH_DISCOVERY = "Không đọc được thông tin đăng nhập của máy chủ: {error}"
+MCP_OAUTH_SLOW = "quá {seconds:g} giây vẫn chưa trả lời xong"
 MCP_OAUTH_ISSUER = "Máy chủ đăng nhập tự nhận là {got}, không khớp với {expected}."
 MCP_OAUTH_NO_PKCE = "Máy chủ đăng nhập không hỗ trợ PKCE S256; từ chối đăng nhập."
 MCP_OAUTH_RESOURCE = "Máy chủ khai tài nguyên {resource} không cùng nguồn với địa chỉ đã cấu hình."

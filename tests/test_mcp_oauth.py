@@ -1,6 +1,7 @@
 """Signing in to a server with OAuth: where the sign-in is found, what goes with the person
 and what comes back with them, where the tokens are kept, and what renews or ends them
-(`mcp/oauth_discovery.py`, `mcp/oauth.py`, `mcp/sign_in.py`, `mcp/tokens.py`)."""
+(`mcp/oauth_discovery.py`, `mcp/oauth.py`, `mcp/sign_in.py`, `mcp/renewal.py`,
+`mcp/tokens.py`)."""
 
 from __future__ import annotations
 
@@ -13,8 +14,8 @@ import pytest
 
 from my_agent_crew import texts_mcp as t
 from my_agent_crew.env_file import env_path, load_env_file, read_env
-from my_agent_crew.mcp import sign_in
-from my_agent_crew.mcp.hub import CONNECTED, SIGNED_OUT, McpHub
+from my_agent_crew.mcp import oauth_discovery, sign_in
+from my_agent_crew.mcp.hub import CONNECTED, FAILED, SIGNED_OUT, McpHub
 from my_agent_crew.mcp.oauth_discovery import discover
 from my_agent_crew.mcp.wire import McpError, Unauthorized
 from tests.mcp_fakes import (
@@ -338,6 +339,29 @@ async def test_a_server_authorised_by_a_key_in_the_file_has_no_sign_in():
         await sign_in.begin(hub, hub.links["notion"], REDIRECT)
 
     assert str(failure.value) == t.MCP_LOGIN_HEADER_KEY and fake.fetched == []
+
+
+async def test_a_key_refused_in_the_middle_of_a_call_is_a_key_to_mend_not_a_sign_in():
+    """The row must not offer a sign-in that cannot start."""
+    fake, environ = FakeMcp(oauth=True), {"K": "first"}
+    fake.required = "first"
+    hub = make_hub(fake, server(headers={"Authorization": "Bearer ${K}"}), environ=environ)
+    await hub.connect()
+    link = hub.links["notion"]
+    assert link.status == CONNECTED
+    fake.required = "second"  # the key was changed at the server
+
+    with pytest.raises(Unauthorized):
+        await link.session.call_tool("search", {})
+
+    assert (link.status, link.error) == (FAILED, t.MCP_KEY_REFUSED)
+    assert fake.token_requests == [] and gets(fake) == []
+    assert fake.methods().count("tools/call") == 1
+    # A failed server is tried again without being asked, so a mended key is picked up.
+    assert hub.waiting() == ["notion"]
+    environ["K"] = "second"
+    await hub.connect(hub.waiting())
+    assert link.status == CONNECTED and link.error == ""
 
 
 async def test_where_no_client_may_register_itself_the_owners_client_id_is_used(tmp_path: Path):
@@ -711,6 +735,187 @@ async def test_a_sign_in_server_that_cannot_be_reached_is_not_a_refusal():
 
     assert environ[REFRESH] == "refresh-1" and hub.links["notion"].status == CONNECTED
     assert len(fake.seen) - sent == 1
+
+
+def token_endpoint_says(hub: McpHub, fake: FakeMcp, status: int, **answer) -> list[bool]:
+    """Makes the token endpoint answer with `status` for as long as the flag given back
+    holds true."""
+    saying = [True]
+    intercepting(
+        hub,
+        fake,
+        lambda request: (
+            httpx.Response(status, **answer)
+            if saying[0] and str(request.url) == f"{AUTH}/token"
+            else None
+        ),
+    )
+    hub.links["notion"].session.client = hub.client
+    return saying
+
+
+@pytest.mark.parametrize(
+    ("status", "answer"),
+    [
+        (429, {"json": {"error": "slow_down"}}),
+        (403, {"text": "<html>blocked on the way in</html>"}),
+        (400, {"json": {"error": "temporarily_unavailable"}}),
+        (400, {"json": {"error": "invalid_request", "error_description": "invalid_grant"}}),
+        (400, {"text": "invalid_grant"}),
+        (400, {"json": {"error": ["invalid_grant"]}}),
+        (500, {"json": {"error": "invalid_grant"}}),
+        (503, {"json": {"error": "invalid_grant"}}),
+    ],
+    ids=["too-many", "blocked", "busy", "unreadable", "no-json", "not-a-word", "broken", "down"],
+)
+async def test_only_a_no_to_the_grant_itself_ends_a_sign_in(status, answer, tmp_path: Path):
+    """A token endpoint says no for many reasons that leave the refresh token as good as
+    it was: too many requests, a wall in front of it, a request it could not read."""
+    fake, environ = FakeMcp(oauth=True), {}
+    hub = await signed_in(fake, environ=environ, home=tmp_path)
+    link = hub.links["notion"]
+    fake.required = "ran-out"
+    saying_no = token_endpoint_says(hub, fake, status, **answer)
+    kept = dict(environ)
+
+    with pytest.raises(Unauthorized):
+        await link.session.call_tool("search", {})
+
+    assert environ == kept and read_env(env_path(tmp_path)) == kept
+    assert link.status == CONNECTED
+    # The row says why, since the calls themselves only say the sign-in ran out.
+    assert link.error.startswith(t.MCP_OAUTH_TOKEN.format(error=f"HTTP {status}"))
+    saying_no[0] = False
+    result = await link.session.call_tool("search", {})
+    assert result["content"][0]["text"] == "ran search"
+    assert environ[REFRESH] == "refresh-2" and link.error == ""
+
+
+async def test_a_renewed_token_that_cannot_be_kept_leaves_the_sign_in_and_says_why(tmp_path: Path):
+    fake, environ = FakeMcp(oauth=True), {}
+    hub = await signed_in(fake, environ=environ, home=tmp_path)
+    link = hub.links["notion"]
+    fake.required = "ran-out"
+    granted = {"access_token": "line\nbreak", "refresh_token": "next", "token_type": "Bearer"}
+    answering = token_endpoint_says(hub, fake, 200, json=granted)
+    kept = dict(environ)
+
+    with pytest.raises(Unauthorized):
+        await link.session.call_tool("search", {})
+
+    assert environ == kept and read_env(env_path(tmp_path)) == kept
+    assert link.status == CONNECTED
+    assert link.error.startswith(t.MCP_OAUTH_STORE.format(error=""))
+    answering[0] = False
+    await link.session.call_tool("search", {})
+    assert environ[REFRESH] == "refresh-2" and link.error == ""
+
+
+@pytest.mark.parametrize(
+    ("status", "error"), [(400, "invalid_grant"), (401, "invalid_client"), (400, "invalid_client")]
+)
+async def test_a_no_to_the_grant_or_to_this_client_ends_the_sign_in(status, error):
+    fake, environ = FakeMcp(oauth=True), {}
+    hub = await signed_in(fake, environ=environ)
+    link = hub.links["notion"]
+    fake.required = "ran-out"
+    token_endpoint_says(hub, fake, status, json={"error": error})
+
+    with pytest.raises(Unauthorized):
+        await link.session.call_tool("search", {})
+
+    assert link.status == SIGNED_OUT and ACCESS not in environ and REFRESH not in environ
+
+
+async def dripping():
+    """A body that comes a byte at a time and never ends. Every byte is in time for a
+    limit that is counted from the byte before it."""
+    while True:
+        yield b" "
+        await asyncio.sleep(0.005)
+
+
+async def test_a_token_endpoint_that_drips_its_answer_is_given_up_on(monkeypatch):
+    """A renewal holds the server's lock. Left waiting, it would keep every call to that
+    server, and the owner's sign-out, waiting behind it."""
+    fake, environ = FakeMcp(oauth=True), {}
+    hub = await signed_in(fake, environ=environ)
+    link = hub.links["notion"]
+    fake.required = "ran-out"
+    token_endpoint_says(hub, fake, 200, content=dripping())
+    monkeypatch.setattr(oauth_discovery, "TIMEOUT_SECONDS", 0.05)
+    kept = dict(environ)
+
+    with pytest.raises(Unauthorized):
+        await asyncio.wait_for(link.session.call_tool("search", {}), 3)
+
+    assert environ == kept and link.status == CONNECTED and not link.renewing.locked()
+    slow = t.MCP_OAUTH_SLOW.format(seconds=0.05)
+    assert link.error == t.MCP_OAUTH_TOKEN.format(error=slow)
+
+
+async def test_a_registration_that_drips_its_answer_is_given_up_on(monkeypatch):
+    fake = FakeMcp(oauth=True)
+    hub = await asked(fake)
+    intercepting(
+        hub,
+        fake,
+        lambda request: (
+            httpx.Response(201, content=dripping())
+            if str(request.url) == f"{AUTH}/register"
+            else None
+        ),
+    )
+    monkeypatch.setattr(oauth_discovery, "TIMEOUT_SECONDS", 0.05)
+
+    with pytest.raises(McpError) as failure:
+        await asyncio.wait_for(sign_in.begin(hub, hub.links["notion"], REDIRECT), 3)
+
+    slow = t.MCP_OAUTH_SLOW.format(seconds=0.05)
+    assert str(failure.value) == t.MCP_OAUTH_REGISTER.format(error=slow)
+
+
+async def test_a_document_that_drips_is_given_up_on_and_the_next_place_asked(monkeypatch):
+    fake = FakeMcp(oauth=True)
+    hub = await asked(fake)
+    intercepting(
+        hub,
+        fake,
+        lambda request: (
+            httpx.Response(200, content=dripping()) if str(request.url) == RESOURCE_DOC else None
+        ),
+    )
+    fake.documents[HOST_DOC] = fake.documents[RESOURCE_DOC]
+    monkeypatch.setattr(oauth_discovery, "TIMEOUT_SECONDS", 0.05)
+    link = hub.links["notion"]
+
+    found = await asyncio.wait_for(discover(hub.client, MCP_URL, link.challenge, hub.resolver), 3)
+
+    # What the server publishes for its own path never came whole; what its host
+    # publishes did.
+    assert found.issuer == AUTH and gets(fake)[-2:] == [HOST_DOC, AUTH_DOC]
+
+
+async def test_looking_for_a_sign_in_has_an_end_however_many_places_answer_late(monkeypatch):
+    """Each place may take its time, and there are several: together they get one limit."""
+    fake = FakeMcp(oauth=True)
+    hub = await asked(fake)
+    places: list[str] = []
+
+    async def late_and_empty(request: httpx.Request) -> httpx.Response:
+        places.append(str(request.url))
+        await asyncio.sleep(0.05)
+        return httpx.Response(404)
+
+    hub.client = httpx.AsyncClient(transport=httpx.MockTransport(late_and_empty))
+    monkeypatch.setattr(oauth_discovery, "DISCOVERY_SECONDS", 0.12)
+
+    with pytest.raises(McpError) as failure:
+        await asyncio.wait_for(sign_in.begin(hub, hub.links["notion"], REDIRECT), 3)
+
+    slow = t.MCP_OAUTH_SLOW.format(seconds=0.12)
+    assert str(failure.value) == t.MCP_OAUTH_DISCOVERY.format(error=slow)
+    assert 0 < len(places) < 5  # five places would have been asked, a twentieth of a second each
 
 
 async def test_signing_out_forgets_the_tokens_and_keeps_the_crews_name(tmp_path: Path):

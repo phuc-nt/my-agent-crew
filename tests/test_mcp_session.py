@@ -1,6 +1,6 @@
 """One session with an MCP server over streamable HTTP: what is sent, how an answer is
 read whichever of the two ways the server gives it, and what a server that misbehaves
-costs the turn that called it (`mcp/wire.py`, `mcp/session.py`)."""
+costs the turn that called it (`mcp/wire.py`, `mcp/answer_body.py`, `mcp/session.py`)."""
 
 from __future__ import annotations
 

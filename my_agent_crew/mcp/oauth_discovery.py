@@ -10,8 +10,10 @@ address has no other protection.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import re
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlsplit
@@ -22,7 +24,9 @@ from my_agent_crew import texts_mcp as t
 from my_agent_crew.mcp.wire import McpError
 from my_agent_crew.tools.web import Resolver, is_private
 
+# One request and its answer, and all that is asked to learn where to sign in.
 TIMEOUT_SECONDS = 15.0
+DISCOVERY_SECONDS = 30.0
 MAX_BODY_BYTES = 200_000
 RESOURCE_METADATA = re.compile(r'resource_metadata="([^"]+)"')
 
@@ -62,21 +66,35 @@ async def checked(url: Any, resolver: Resolver) -> str:
     return url
 
 
+@contextlib.asynccontextmanager
+async def within(seconds: float) -> AsyncIterator[None]:
+    """A limit on all that is done inside, counted from its start. The one httpx is given
+    is counted from each byte to the next, so an answer that drips in never reaches it."""
+    try:
+        async with asyncio.timeout(seconds):
+            yield
+    except TimeoutError:
+        raise httpx.ReadTimeout(t.MCP_OAUTH_SLOW.format(seconds=seconds)) from None
+
+
 async def fetch_json(
     client: httpx.AsyncClient, method: str, url: str, resolver: Resolver, **kwargs: Any
 ) -> tuple[int, dict[str, Any]]:
-    await checked(url, resolver)
     headers = {"Accept": "application/json"}
-    request = client.build_request(method, url, headers=headers, timeout=TIMEOUT_SECONDS, **kwargs)
-    response = await client.send(request, stream=True, follow_redirects=False)
-    try:
-        raw = b""
-        async for chunk in response.aiter_bytes():
-            raw += chunk
-            if len(raw) > MAX_BODY_BYTES:
-                return response.status_code, {}
-    finally:
-        await response.aclose()
+    async with within(TIMEOUT_SECONDS):
+        await checked(url, resolver)
+        request = client.build_request(
+            method, url, headers=headers, timeout=TIMEOUT_SECONDS, **kwargs
+        )
+        response = await client.send(request, stream=True, follow_redirects=False)
+        try:
+            raw = b""
+            async for chunk in response.aiter_bytes():
+                raw += chunk
+                if len(raw) > MAX_BODY_BYTES:
+                    return response.status_code, {}
+        finally:
+            await response.aclose()
     try:
         body = json.loads(raw)
     except ValueError:
@@ -121,17 +139,24 @@ async def discover(
 ) -> AuthServer:
     """Where to sign in for the server at `server_url`, from what it publishes."""
     try:
-        named = RESOURCE_METADATA.search(challenge)
-        places = [named.group(1)] if named else []
-        places += _resource_places(server_url)
-        resource = await _first(client, places, resolver)
-        issuers = resource.get("authorization_servers")
-        # A server that publishes nothing of its own is its own authorization server.
-        issuer = issuers[0] if isinstance(issuers, list) and issuers else origin(server_url)
-        await checked(issuer, resolver)
-        metadata = await _first(client, _issuer_places(issuer), resolver)
+        async with within(DISCOVERY_SECONDS):
+            return await _discover(client, server_url, challenge, resolver)
     except httpx.HTTPError as exc:
         raise McpError(t.MCP_OAUTH_DISCOVERY.format(error=exc)) from exc
+
+
+async def _discover(
+    client: httpx.AsyncClient, server_url: str, challenge: str, resolver: Resolver
+) -> AuthServer:
+    named = RESOURCE_METADATA.search(challenge)
+    places = [named.group(1)] if named else []
+    places += _resource_places(server_url)
+    resource = await _first(client, places, resolver)
+    issuers = resource.get("authorization_servers")
+    # A server that publishes nothing of its own is its own authorization server.
+    issuer = issuers[0] if isinstance(issuers, list) and issuers else origin(server_url)
+    await checked(issuer, resolver)
+    metadata = await _first(client, _issuer_places(issuer), resolver)
     if not metadata:
         raise McpError(t.MCP_OAUTH_DISCOVERY.format(error=issuer))
     said = str(metadata.get("issuer") or "")
