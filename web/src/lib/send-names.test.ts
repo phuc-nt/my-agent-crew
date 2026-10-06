@@ -139,6 +139,15 @@ describe("the name of a send nothing was heard of, as runs come and go in its co
     expect(again(names, "việc ba")).not.toBe(told);
   });
 
+  it("is not told apart from the turn the tab was reading by a run known in another conversation", () => {
+    const names = sendNames();
+    names.going([run("r8", "c2")]);
+    const blind = unheard(names, "việc hai", true);
+    names.going([run("r8", "c2"), run("r1")]);
+    names.going([run("r8", "c2")]);
+    expect(again(names, "việc hai")).toBe(blind);
+  });
+
   it("goes by what was going when the name first went out, however often it is sent again", () => {
     const names = sendNames();
     const first = unheard(names);
@@ -155,6 +164,14 @@ describe("the name of a send nothing was heard of, as runs come and go in its co
 describe("the name of a send nothing was heard of, as a stream read in its conversation says its turn is over", () => {
   it("is dropped when nothing was going there as the name went out", () => {
     const names = sendNames();
+    const first = unheard(names);
+    names.ended("c1");
+    expect(again(names)).not.toBe(first);
+  });
+
+  it("is dropped all the same when turns were going in other conversations as the name went out", () => {
+    const names = sendNames();
+    names.going([run("r8", "c2"), run("r9", null)]);
     const first = unheard(names);
     names.ended("c1");
     expect(again(names)).not.toBe(first);
