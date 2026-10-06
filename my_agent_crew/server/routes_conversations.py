@@ -101,8 +101,12 @@ def patch_conversation(conv_id: str, body: ConversationPatch, deps: ConvDeps) ->
 @router.delete("/conversations/{conv_id}", status_code=204)
 async def delete_conversation(conv_id: str, deps: ConvDeps, rt: Rt) -> None:
     deps.store.delete(conv_id)
-    # After the store: an unknown id never reaches here, and a failed delete keeps its files.
+    # After the store: an unknown id never reaches here, and a failed delete keeps its files
+    # and its turn.
     remove_conversation(deps.settings.home, conv_id)
+    # The turn the server reads for it ends with it: nothing on the web can stop it after.
+    rt.drain.cancel(conv_id)
+    rt.inbound.host.cancel(conv_id)
     # Its pending requests went with it, so a run paused on one can never be continued.
     for run in rt.hub.live():
         if run.conversation_id == conv_id and run.status == AWAITING:

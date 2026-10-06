@@ -7,8 +7,12 @@ reader owns (a bot, a job, a relay) can be watched the same way and stays its re
 from __future__ import annotations
 
 import asyncio
+import logging
+import sqlite3
 from collections.abc import AsyncIterator
 from typing import Any
+
+import pytest
 
 from my_agent_crew import texts
 from my_agent_crew.llm.fake import completion
@@ -150,6 +154,56 @@ async def test_stop_ends_the_turn_for_everyone_watching_it(served):
     assert (await app.client.get(app.turn)).status_code == 204
     again = await app.client.post(app.stop)
     assert again.json() == {"cleared": [], "cancelled": False}
+
+
+async def test_deleting_a_conversation_ends_the_turn_the_server_reads_for_it(served, caplog):
+    """Once it is gone nothing on the web could stop its turn, so the delete does: the call
+    under way is cut, and no model is asked what to make of it."""
+    app = served(WORK)
+    sender = asyncio.create_task(app.client.post(app.messages, json={"text": "làm đi"}))
+    await asyncio.wait_for(app.slow.started.wait(), 2)
+    other = watching(app)
+    assert kinds(await read(other, 1)) == ["watching"]
+    deleted = await app.client.delete(app.detail)
+    assert deleted.status_code == 204
+    assert await rest(other) == []
+    assert "done" not in kinds(parse_sse((await asyncio.wait_for(sender, 2)).text))
+    await until(lambda: app.statuses() == ["error"])
+    [run] = app.runtime.hub.recent(conversation_ids=[app.conv.id])
+    assert run.summary == "interrupted"
+    assert not app.runtime.hub.busy.busy(app.conv.id)
+    assert (app.slow.runs, app.provider.calls) == (1, 1)
+    # A turn cut under a conversation that is gone ends quietly: it has nothing left to write.
+    assert not [record for record in caplog.records if record.levelno >= logging.ERROR]
+
+
+async def test_deleting_a_conversation_cuts_the_model_call_under_way(served):
+    app = served([completion("không ai đọc")], held=(0,))
+    sender = asyncio.create_task(app.client.post(app.messages, json={"text": "hỏi"}))
+    await asyncio.wait_for(app.provider.started(0).wait(), 2)
+    assert (await app.client.delete(app.detail)).status_code == 204
+    # The call is never let go: one that ran on would keep its sender here for good.
+    assert "done" not in kinds(parse_sse((await asyncio.wait_for(sender, 2)).text))
+    await until(lambda: app.statuses() == ["error"])
+    assert not app.runtime.hub.busy.busy(app.conv.id)
+
+
+async def test_a_delete_that_fails_leaves_the_turn_running(served, monkeypatch):
+    app = served(WORK)
+    sender = asyncio.create_task(app.client.post(app.messages, json={"text": "làm đi"}))
+    await asyncio.wait_for(app.slow.started.wait(), 2)
+
+    def locked(conv_id: str) -> None:
+        raise sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr(app.runtime.store, "delete", locked)
+    with pytest.raises(sqlite3.OperationalError):
+        await app.client.delete(app.detail)
+    await settle_loop()
+    assert app.statuses() == ["running"]
+    app.slow.release.set()
+    assert kinds(parse_sse((await asyncio.wait_for(sender, 2)).text))[-1] == "done"
+    assert history(app)[-1] == ("assistant", "xong rồi")
 
 
 async def test_a_message_that_waits_does_not_take_the_turn_from_those_watching_it(served):

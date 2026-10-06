@@ -219,6 +219,22 @@ async def test_stop_ends_the_turn_the_queue_runs(served):
     assert not app.runtime.hub.busy.busy(app.conv.id)
 
 
+async def test_deleting_a_conversation_ends_the_turn_the_queue_runs(served):
+    app = served(
+        [completion(tool_calls=[SLOW]), completion("xong 1"), completion("trả lời 2")], held=(2,)
+    )
+    first = asyncio.create_task(app.client.post(app.messages, json={"text": "việc 1"}))
+    await asyncio.wait_for(app.slow.started.wait(), 2)
+    [queued] = parse_sse((await app.client.post(app.messages, json={"text": "tin 2"})).text)
+    assert queued["kind"] == FOLLOW_UP
+    app.slow.release.set()
+    assert parse_sse((await asyncio.wait_for(first, 2)).text)[-1]["type"] == "done"
+    await asyncio.wait_for(app.provider.started(2).wait(), 2)  # the queue's turn is under way
+    assert (await app.client.delete(app.detail)).status_code == 204
+    await until(lambda: app.statuses() == ["done", "error"])
+    assert not app.runtime.hub.busy.busy(app.conv.id)
+
+
 async def test_stop_ends_a_turn_the_web_started(served):
     app = served([completion("một")], held=(0,))
     first = asyncio.create_task(app.client.post(app.messages, json={"text": "tin 1"}))
