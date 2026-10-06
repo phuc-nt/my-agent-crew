@@ -19,7 +19,7 @@ from my_agent_crew.llm.types import Message, ToolCall
 from my_agent_crew.store.db import Store
 from my_agent_crew.store.runs import DONE, RUNNING, RunRecord
 from my_agent_crew.store.stamps import new_id, now_iso
-from my_agent_crew.texts import DELEGATE_WRAP_UP
+from my_agent_crew.texts import DELEGATE_WRAP_UP, RESTART_CUT_TOOL
 from my_agent_crew.texts_canvas import (
     CANVAS_PAYLOAD_CUT_OFF,
     CANVAS_PAYLOAD_FAILED,
@@ -150,6 +150,29 @@ async def test_a_write_cut_off_mid_call_leaves_a_note_to_look_before_writing_aga
         conv.id,
         Message(role="user", content="lập kế hoạch tuần"),
         Message(role="assistant", tool_calls=(CREATE,)),
+    )
+    await collect(run_turn(deps, conv.id, "sao rồi?"))
+    calls = sent_calls(deps.chain.providers["scripted"].requests[-1])
+    cut_off = CANVAS_PAYLOAD_CUT_OFF.format(chars=len(DOC))
+    assert calls["w1"].arguments == {**CREATE.arguments, "content": cut_off}
+
+
+async def test_a_write_closed_by_a_restart_leaves_the_same_note_as_one_cut_off(
+    deps_factory, store: Store
+):
+    """A turn carried on after a restart does not make a canvas write again: it closes the
+    call with a line saying nobody knows whether it took effect. The write saves before it
+    answers, so its text may well be on the canvas, and a later turn must not be told that
+    nothing was saved."""
+    deps = deps_factory(script=[completion("Để tôi xem lại.")], extra_tools=canvas_tools(store))
+    conv = store.create()
+    _append(
+        store,
+        conv.id,
+        Message(role="user", content="lập kế hoạch tuần"),
+        Message(role="assistant", tool_calls=(CREATE,)),
+        Message(role="tool", content=RESTART_CUT_TOOL, tool_call_id="w1"),
+        Message(role="assistant", content="Tôi sẽ xem canvas trước khi ghi lại."),
     )
     await collect(run_turn(deps, conv.id, "sao rồi?"))
     calls = sent_calls(deps.chain.providers["scripted"].requests[-1])

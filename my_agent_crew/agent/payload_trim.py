@@ -35,7 +35,7 @@ from my_agent_crew.texts_canvas import (
     CANVAS_PAYLOAD_FAILED,
     CANVAS_PAYLOAD_SAVED,
 )
-from my_agent_crew.texts_queue import INTERRUPTED_TOOL
+from my_agent_crew.texts_queue import INTERRUPTED_TOOL, RESTART_CUT_TOOL
 
 if TYPE_CHECKING:
     from my_agent_crew.store import Store, StoredMessage
@@ -125,10 +125,11 @@ def _trimmed(call: ToolCall, result: str | None) -> ToolCall:
 def _note(result: str, chars: int) -> str:
     """Only a write that saved opens its result with the canvas tag (`artifacts/tag.py`). A
     call the turn left unanswered is closed as interrupted (`close_interrupted`) when the
-    next message comes: it may have run, so the note must not say nothing was saved."""
+    next message comes, or as cut by a restart when its turn is carried on: either may have
+    run, so the note must not say nothing was saved."""
     tag = TAG_RE.match(result)
     if tag is not None:
         return CANVAS_PAYLOAD_SAVED.format(chars=chars, id=tag[1], version=tag[2])
-    if result == INTERRUPTED_TOOL:
+    if result in (INTERRUPTED_TOOL, RESTART_CUT_TOOL):
         return CANVAS_PAYLOAD_CUT_OFF.format(chars=chars)
     return CANVAS_PAYLOAD_FAILED.format(chars=chars)
