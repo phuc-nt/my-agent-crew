@@ -180,7 +180,7 @@ Ví dụ thật: người dùng nhắn bot "hôm nay ăn thế nào cho hợp l�
 
 1. **Poller Telegram** nhận update, chuyển thành `POST /api/inbound {text}`. Ảnh (nếu có) được tải về `workspace/inbox/` và đưa vào tin nhắn dưới dạng đường dẫn.
 2. **Inbound** tìm cuộc trò chuyện `telegram:<chat>` của hôm nay, thấy rảnh, chạy một lượt cho master.
-3. **Master** lắp system prompt: persona của "Trợ lý", `USER.md` + facts, `MEMORY.md`, tóm tắt cuộc hôm qua, roster (sáu agent, mỗi agent một dòng mô tả), lệnh kit, ghi chú ngày. Model thấy trong roster có "HLV sức khoẻ" và gọi tool `delegate(agent="health-coach", task=…)`.
+3. **Master** lắp system prompt: persona của "Trợ lý", `USER.md` + facts, `MEMORY.md`, tóm tắt cuộc hôm qua, roster (sáu agent, mỗi agent một dòng mô tả và các dòng hệ thống tự đọc từ đội đang chạy: máy chủ MCP, kỹ năng, lịch, công cụ, model), lệnh kit, ghi chú ngày. Model thấy trong roster có "HLV sức khoẻ" và gọi tool `delegate(agent="health-coach", task=…)`.
 4. **Delegate** chạy một lượt con: agent con có persona riêng, tool riêng, workspace riêng, và *chỉ nhận brief* — không thấy lịch sử chat của master. Lượt con là cuộc trò chuyện autonomous nên tool cần duyệt không dừng.
 5. Kết quả lượt con quay về master dưới dạng tool result. Master viết câu trả lời cuối, harness lưu message, phát `Done`, poller gửi về Telegram.
 

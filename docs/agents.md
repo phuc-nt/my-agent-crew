@@ -49,7 +49,7 @@ không bao giờ âm thầm vô hiệu một cài đặt.
 | Khoá | Kiểu | Mặc định | Ý nghĩa |
 |---|---|---|---|
 | `name` | chuỗi | id | tên hiển thị; cũng là tiền tố `[Name]` trên bản tin gửi tới Telegram |
-| `description` | chuỗi | `""` | hiện trên card của agent trong tab **Đội** và trong roster của master |
+| `description` | chuỗi | `""` | hiện trên card của agent trong tab **Đội** và trong roster của master; nói vai trò và lĩnh vực, còn dịch vụ, kỹ năng, lịch, công cụ và model thì roster [tự kể](#master-được-kể-mỗi-agent-đang-có-gì) |
 | `mode` | `assistant` hoặc `work` | `assistant` | `work` thêm các tool lập trình và đổi ba mặc định, xem [Chế độ work](#chế-độ-work) |
 | `routes` | danh sách hoặc chuỗi phân cách bằng dấu phẩy dạng `provider:model` | `routes` toàn cục | thử theo thứ tự; tuyến nào hỏng trước khi sinh ra output thì rơi xuống tuyến kế tiếp |
 | `escalation_route` | một `provider:model` | trống: tắt | tuyến mà một lượt **bị kẹt** chuyển sang: khi lượt sắp bị dừng vì gọi y hệt một lệnh nhiều lần liên tiếp, hoặc khi mọi tuyến trong `routes` đều hỏng trước khi hiện chữ nào. Phần còn lại của lượt đó chạy trên tuyến này (cùng `reasoning` của agent), lượt sau quay về `routes`. Chỉ đặt cho từng agent: không có khoá toàn cục, không có biến môi trường và không agent nào thừa hưởng của agent khác. Tuyến trùng một tuyến trong `routes`, hay của provider chưa có khoá, không dùng được: lúc khởi động nó bị bỏ qua kèm một dòng cảnh báo trong log, còn lưu từ màn sửa agent thì bị từ chối (422). Sửa có hiệu lực từ lượt kế tiếp, không cần khởi động lại. Xem [Vòng lặp agent](system-architecture.md#23-vòng-lặp-agent) |
@@ -298,10 +298,61 @@ bị xoá. Hai điều khiến nó khác một người dẫn đầu work:
   thứ trả về là một câu trả lời chứ không phải một mảnh bị trần bước cắt. Ghi chú nằm trong cuộc
   trò chuyện của con. Lượt do người dùng mở giữ tool tới trần cứng như trước.
 
-Mỗi lượt, system prompt của master mang một mục roster: một
-dòng cho mỗi agent nó với tới được, gồm id, tên, mode, mô tả và workspace, theo sau là hướng dẫn
-khi nào tự làm và khi nào chuyển đi. Agent không với tới ai thì
-không có roster. Lượt con mở bởi `delegate` không bao giờ thấy roster, vì nó không thể giao việc.
+Mỗi lượt, system prompt của master mang một mục roster ("Đội của bạn"): hướng dẫn khi nào tự
+làm và khi nào chuyển đi, rồi một dòng cho mỗi agent nó với tới được, gồm id, tên, mode và mô
+tả. Agent không với tới ai thì không có roster. Lượt con mở bởi `delegate` không bao giờ thấy
+roster, vì nó không thể giao việc.
+
+### Master được kể mỗi agent đang có gì
+
+Dòng mô tả là thứ chủ viết tay, nên nó chỉ đúng chừng nào còn có người nhớ sửa. Vì thế dưới
+dòng của mỗi agent, roster có thêm các dòng thụt vào do hệ thống tự đọc từ đội đang chạy, mỗi
+lần lắp system prompt (tức là trước mỗi lần gọi model, không lưu lại ở đâu):
+
+```text
+- pong — Pong (assistant): thư ký riêng, lo lịch, thư và sách
+  · Dịch vụ ngoài (MCP): notion (đọc và ghi) — Sổ ghi chú của người dùng
+  · Kỹ năng: như của bạn, thêm: goodreads (Tra sách trên Goodreads), gws (Lịch và thư Google)
+  · Việc tự chạy theo lịch: Bản tin sáng, Tổng kết tuần
+  · Công cụ: như của bạn, thêm: tool_search, tool_script
+  · Mô hình: deepseek-v4-flash; khi bí thì tự chuyển sang deepseek-v4-pro
+```
+
+| Dòng | Đọc từ đâu | Ghi chú |
+|---|---|---|
+| Dịch vụ ngoài (MCP) | khoá `mcp` của agent, đối chiếu với tool MCP nó đang cầm và trạng thái kết nối | xem bảng dưới |
+| Kỹ năng | các skill agent nạp được | skill master không có thì kèm mô tả, cắt còn 80 ký tự |
+| Việc tự chạy theo lịch | job của agent trong bộ lập lịch, cả job khai trong `agent.yaml` lẫn job tạo từ chat | chỉ job đang bật; bỏ job gom trí nhớ, vì agent nào cũng có |
+| Công cụ | tool trong hộp đồ của agent | bỏ `delegate` (lượt được giao việc không bao giờ cầm nó) và tool MCP (đã có dòng dịch vụ) |
+| Mô hình | tuyến đầu trong `routes` | kèm model của `escalation_route` khi tuyến đó dùng được |
+
+Một máy chủ MCP được kể theo đúng thứ agent với tới lúc đó:
+
+| Tình trạng | Roster nói |
+|---|---|
+| agent cầm ít nhất một tool của nó cần duyệt | `đọc và ghi` |
+| mọi tool agent cầm đều thuộc `read_only` | `chỉ đọc` |
+| nối được nhưng mọi tool đều `hidden` | không kể, vì không có gì để giao việc |
+| chờ đăng nhập OAuth | `chưa dùng được: người dùng cần đăng nhập ở trang Máy chủ MCP` |
+| không nối được | `chưa kết nối được lúc này` |
+| agent nêu tên một máy chủ không có trong `mcp_servers` | không kể |
+
+Tên kỹ năng và tên công cụ được kể so với của chính master ("như của bạn", "thêm: …", "không có:
+…") khi số tên khác nhau không quá một nửa số tên phải kể; khác nhiều hơn thì kể cả danh sách.
+Loại nào agent không có thì không có dòng. Khi có ít nhất một dòng như thế, roster kết thúc bằng
+một lời dặn: các dòng này là điều đang đúng, đáng tin hơn mô tả và hơn điều master từng nói trong
+cuộc trò chuyện, và việc cần một dịch vụ, kỹ năng hay công cụ mà master không có thì giao cho
+agent có nó chứ không trả lời là không làm được.
+
+Hệ quả: nối một máy chủ MCP cho một agent, đăng nhập xong OAuth, thêm một skill, bật tắt hay tạo
+một job, đổi `tools` hay `routes` của một agent, thêm hoặc xoá một agent đều tới tay master ở lần
+gọi model kế tiếp mà không ai phải sửa mô tả. Xem đúng thứ master đang đọc bằng
+`GET /api/agents/default/prompt`.
+
+Phần các dòng này không kể được là việc agent làm trong lĩnh vực của nó mà không lộ ra thành
+tool, skill, job hay máy chủ: điều chỉ nằm trong persona, hay script trong workspace mà agent
+chạy bằng `shell_run`. Phần đó vẫn do `description` nói, nên mô tả nên nói về vai trò và lĩnh
+vực, không cần liệt kê lại dịch vụ hay công cụ.
 
 Agent nào cầm một tool ghi canvas thì system prompt của nó có thể kết thúc bằng một mục
 **Canvas**, tuỳ lượt đến từ đâu. Lượt từ Telegram và job (người đọc không ngồi ở web) được dặn

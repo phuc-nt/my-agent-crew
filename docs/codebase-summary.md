@@ -32,7 +32,7 @@ my-agent-crew/
 | Gói | Chịu trách nhiệm |
 |---|---|
 | `agent/` | vòng lặp một lượt: ghép lời nhắc, gọi mô hình, chạy tool, dừng chờ duyệt, chạy tiếp, cắt ngữ cảnh dài, sự kiện của lượt, lượt đến từ kênh nào (và vì thế có được ghi canvas không), phần canvas model còn đang viết để web xem trước |
-| `agents/` | hồ sơ agent từ đĩa: đọc/ghi `agent.yaml` giữ chú thích, vá và kiểm tra, roster cho master, đọc kit `.agents/`, mẫu agent |
+| `agents/` | hồ sơ agent từ đĩa: đọc/ghi `agent.yaml` giữ chú thích, vá và kiểm tra, roster cho master và cách kể mỗi agent đang có gì, đọc kit `.agents/`, mẫu agent |
 | `activity/` | run và step của mọi lượt cùng mọi thay đổi canvas, phát cho web qua SSE từ bất kỳ luồng nào |
 | `artifacts/` | canvas: loại nào giữ chữ hay byte và trần của mỗi loại, áp và định vị một lần sửa, diff gọn trong ngân sách, tên tệp khi tải về, trang chạy cách ly của canvas `html` và `mermaid` |
 | `channels/` | Telegram: poll, tin vào, ảnh và album, tin ra, lệnh `/…`, câu trả lời cho `ask_user`, gửi canvas như một tệp và báo lượt đã ghi canvas nào, offset, che token |
@@ -42,7 +42,7 @@ my-agent-crew/
 | `memory/` | ghi chú ngày, facts chung, gom 7 ngày thành đề xuất, tìm kiếm, tóm tắt cuộc trước, vault wiki |
 | `scheduler/` | cron: phân tích lịch, job đến hạn, chạy job, giao kết quả ra kênh |
 | `script/` | `tool_script`: một trình thông dịch nhỏ cho một phần của Python (kiểm cả đoạn trước khi chạy, biểu thức, câu lệnh, hàm có sẵn, phương thức của từng kiểu, `json`), các giới hạn về bước, bộ nhớ, đầu ra và số lời gọi, tiến trình con chạy script với môi trường rỗng (trên macOS trong sandbox riêng), bên chạy nói chuyện với nó từng dòng JSON, và tool giao cho agent: chỉ gọi được tool chỉ đọc, ghi lại từng lời gọi |
-| `server/` | FastAPI: dựng runtime, lắp provider và tool cho từng agent, áp dụng kết nối không cần restart, kiểm tra khoá, ghi `<home>/env`, hàng rào Host/Origin, phục vụ tệp agent viết như nội dung không tin cậy, đổi lời từ chối của kho canvas thành mã HTTP, các nhóm route |
+| `server/` | FastAPI: dựng runtime, lắp provider và tool cho từng agent, đọc mỗi agent của đội đang chạy có gì để roster kể lại, áp dụng kết nối không cần restart, kiểm tra khoá, ghi `<home>/env`, hàng rào Host/Origin, phục vụ tệp agent viết như nội dung không tin cậy, đổi lời từ chối của kho canvas thành mã HTTP, các nhóm route |
 | `skills/` | nạp skill markdown, chỉ mục trong lời nhắc |
 | `store/` | SQLite: cuộc trò chuyện, tin, duyệt, run, trạng thái job, đề xuất trí nhớ, sổ chi tiêu; canvas với phiên bản, liên kết canvas với cuộc trò chuyện, canvas đang mở cùng đoạn được chọn, ghi chú canvas đi kèm tin |
 | `tools/` | mọi tool: workspace, shell và sandbox, web, trí nhớ, wiki, giao việc, canvas (kèm nhập từ và xuất ra tệp workspace, và agent nào với tới canvas nào), hỏi người dùng, PDF, ảnh, skill, hook |

@@ -5275,3 +5275,50 @@ những gì nó in ra mới quay về cho model ([tools.md](tools.md#gọi-tool-
   chạm mép phải khi cột bị đổi, nên giờ nó đo chỗ chữ kết thúc; chỗ danh sách đứng và bề rộng của
   dòng mở danh sách thì trước đó chưa có phép kiểm nào. Sau khi thêm test, cả sáu mươi ba đều bị
   bắt.
+
+## Master được kể mỗi agent đang có gì
+
+Dưới dòng của mỗi agent trong roster ("Đội của bạn"), system prompt của master mang các dòng hệ
+thống tự đọc từ đội đang chạy mỗi lần lắp prompt: máy chủ MCP kèm mức với tới, kỹ năng, job đang
+bật, công cụ, model và model leo thang. Không lưu ở đâu, nên thứ một agent vừa được thêm hay vừa
+mất có mặt ngay ở lần gọi model kế tiếp ([agents.md](agents.md#master-được-kể-mỗi-agent-đang-có-gì)).
+
+- **cách kể một agent có gì**:
+  - pytest: `tests/test_crew_abilities_told.py` (tên được kể so với của người đọc khi số tên khác
+    nhau không quá một nửa số tên phải kể, đúng ở mốc một nửa, và kể cả danh sách khi khác nhiều
+    hơn hay khi không có người đọc để so; mỗi loại một dòng theo một thứ tự; loại không có thì
+    không có dòng; model leo thang không tự đứng một mình; bốn mức với tới của một máy chủ; skill
+    người đọc cũng có thì chỉ nêu tên, skill người đọc có mà agent không có thì nêu tên không kèm
+    mô tả; mô tả gộp khoảng trắng và cắt ở 80 ký tự, đúng 80 thì giữ nguyên; các dòng đứng ngay
+    dưới dòng của agent và lời dặn đứng cuối; chỉ một agent có gì để kể cũng đủ để có lời dặn, dù
+    nó đứng đầu danh sách; đội không kể gì thì roster chỉ còn dòng của chủ, không có lời dặn;
+    không hỏi đội khi không có ai để liệt kê; lời dặn nói ai viết các dòng và rằng chúng đáng tin
+    hơn điều đã nói).
+- **đọc từ đội đang chạy, mỗi lần lắp prompt**:
+  - pytest: `tests/test_crew_roster_abilities.py` (tool vừa được thêm hay vừa mất có ngay ở prompt
+    kế tiếp, không nối lại gì; `delegate` không bị đem ra so; skill mới kèm mô tả; chỉ job đang bật
+    và không phải job gom trí nhớ được kể, bật tắt là thấy ngay; job không tên được kể bằng id; job
+    tạo từ chat có ngay khi tồn tại và job của master không bị kể dưới agent khác; model là tuyến
+    đầu, model leo thang chỉ được kể khi tuyến đó dùng được; máy chủ agent nêu tên, kể cả nêu hai
+    lần, được kể một lần với mô tả và `đọc và ghi`, tool `mcp__…` không lẫn vào dòng công cụ và
+    master không cầm tool nào của nó; `read_only` toàn bộ thì `chỉ đọc`, và tool ghi bị `hidden`
+    cũng vậy; máy chủ `hidden` cả thì không kể dù nối được; chờ đăng nhập và không nối được có câu
+    riêng, nối lại được thì quay về `đọc và ghi`; máy chủ không có trong cấu hình thì bỏ qua; một
+    lượt thật của master mang các dòng và lời dặn trong system message, còn lượt được giao việc
+    thì không).
+  - pytest: `tests/test_crew_roster.py::test_an_agent_added_edited_or_removed_while_running_is_told_as_it_now_is`
+    (runtime dựng thật trên home tạm: agent thêm khi đang chạy được kể với công cụ của nó, sửa
+    `tools` là dòng đổi theo, mọi agent đều được nối với đội, agent bị xoá thì mất dòng).
+  - Kiểm chứng đột biến: bốn mươi bốn sửa đổi (đổi mốc một nửa, bỏ phần thiếu hay phần thừa khỏi
+    phép so, cắt mô tả lệch một ký tự, không gộp khoảng trắng, mô tả cả skill người đọc đã có, kể
+    model leo thang khi không có model hay khi tuyến không dùng được, không so với người đọc, giữ
+    dòng rỗng, đem `delegate` ra so, kể tool MCP như công cụ, kể job gom trí nhớ hay job đang tắt,
+    kể job bằng id hay chỉ bằng tên, kể job của agent khác, đổi chỗ "chờ đăng nhập" với "không nối
+    được", luôn hay không bao giờ `đọc và ghi`, kể máy chủ `hidden` như không nối được, bỏ qua
+    tool đang cầm, kể hai lần máy chủ nêu hai lần, bỏ mô tả máy chủ, lấy tuyến cuối, bỏ kỹ năng,
+    hỏi đội khi không có ai để liệt kê, không biết người đọc là ai, luôn hay không bao giờ có lời
+    dặn, lời dặn theo agent đứng cuối, bỏ các dòng, chỉ nối đội cho agent giao việc được, đọc đội
+    một lần lúc nối rồi giữ lại, prompt không đưa đội vào roster). Vòng đầu sót năm; bốn cái được
+    thêm test (job không tên, máy chủ nêu hai lần, tuyến thứ hai, lời dặn khi agent có dòng không
+    đứng cuối). Cái còn lại là tương đương: đưa tên "không có" qua hàm mô tả skill, mà một tên
+    như thế thì người đọc luôn có, nên hàm chỉ trả lại tên.
