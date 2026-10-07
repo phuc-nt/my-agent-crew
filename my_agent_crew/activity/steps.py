@@ -133,6 +133,12 @@ def apply_event(run: RunRecord, event: Event, clock: float) -> None:
             for nested in event.calls:
                 if nested["metered"]:
                     _bill(run, nested["cost_usd"])
+        # Kept only where a script set them: a step written before these existed has none,
+        # and the card says nothing of what it cannot know.
+        if event.received_chars is not None:
+            step["received_chars"] = event.received_chars
+        if event.printed_chars is not None:
+            step["printed_chars"] = event.printed_chars
         close_step(step, clock)
         return
     if isinstance(event, SteerEvent):

@@ -42,6 +42,11 @@ class ToolResult:
     reply: str | None = None
     # The calls a script made on its own, in order. Empty for every other tool.
     calls: tuple[NestedCall, ...] = ()
+    # What a script took in and gave back, in characters: the answers of its calls it was
+    # handed, and what it printed. They are what a script saves the model from reading, so
+    # the run card shows both. None for every other tool.
+    received_chars: int | None = None
+    printed_chars: int | None = None
     # Set by a tool whose work was another conversation's (`delegate`): what that one
     # spent, which is this conversation's spend too. It is added as the result is written,
     # so a call made again after a restart costs its conversation once. No part of
