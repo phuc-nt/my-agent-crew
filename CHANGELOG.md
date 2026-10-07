@@ -11,6 +11,8 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+## [0.13.0] — 2026-10-07
+
 ### Changed
 
 - The master is now told what every agent it can hand work to holds at that moment, instead of
@@ -1774,6 +1776,7 @@ restarting the process.
 
 - One agent, `run_turn` loop with a tool approval gate, web UI, memory on disk.
 
+[0.13.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.13.0
 [0.12.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.12.0
 [0.11.1]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.11.1
 [0.11.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.11.0
