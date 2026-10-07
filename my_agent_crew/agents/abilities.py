@@ -51,8 +51,14 @@ class Abilities:
     escalation: str = ""
 
 
+def _name(text: str) -> str:
+    """A name as one item of a line. A job is named in a chat and a skill in a file, and a
+    line break inside either would read as a line of the roster nobody wrote."""
+    return " ".join(text.split())
+
+
 def _short(text: str) -> str:
-    line = " ".join(text.split())
+    line = _name(text)
     if len(line) <= DESCRIPTION_CHARS:
         return line
     return line[: DESCRIPTION_CHARS - 1].rstrip() + "…"
@@ -61,7 +67,7 @@ def _short(text: str) -> str:
 def told_against(
     theirs: Sequence[str],
     mine: Sequence[str] | None,
-    label: Callable[[str], str] = str,
+    label: Callable[[str], str] = _name,
 ) -> str:
     """`theirs` as one line. Against `mine` when the names that differ are at most half as
     many as the names there are to list; whole otherwise, or when there is no reader to
@@ -75,7 +81,8 @@ def told_against(
             if extra:
                 differs.append(texts.CREW_NAMES_EXTRA.format(names=", ".join(map(label, extra))))
             if missing:
-                differs.append(texts.CREW_NAMES_MISSING.format(names=", ".join(missing)))
+                names = ", ".join(map(_name, missing))
+                differs.append(texts.CREW_NAMES_MISSING.format(names=names))
             same = texts.CREW_NAMES_SAME
             return f"{same}, {'; '.join(differs)}" if differs else same
     return ", ".join(label(name) for name in theirs)
@@ -96,8 +103,8 @@ def ability_lines(theirs: Abilities, mine: Abilities | None = None) -> list[str]
     def skill(name: str) -> str:
         # A skill the reader holds too is already in its own index, described.
         if name in own_skills or not about[name]:
-            return name
-        return texts.CREW_SKILL_ABOUT.format(name=name, description=about[name])
+            return _name(name)
+        return texts.CREW_SKILL_ABOUT.format(name=_name(name), description=about[name])
 
     model = theirs.model
     if model and theirs.escalation:
@@ -112,7 +119,7 @@ def ability_lines(theirs: Abilities, mine: Abilities | None = None) -> list[str]
                 skill,
             ),
         ),
-        (texts.CREW_JOBS, ", ".join(theirs.jobs)),
+        (texts.CREW_JOBS, ", ".join(map(_name, theirs.jobs))),
         (texts.CREW_TOOLS, told_against(theirs.tools, mine.tools if mine else None)),
         (texts.CREW_MODEL, model),
     ]

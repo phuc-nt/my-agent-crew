@@ -17,18 +17,26 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   only the description its owner wrote. Under each agent's line of the crew roster the system
   prompt carries lines read from the running crew each time a prompt is built: the MCP servers
   the agent reaches and whether it reads and writes there, only reads, waits for the owner to
-  sign in or cannot connect; its skills, with what a skill the master lacks is for; the scheduled
-  jobs that are switched on, those made in a chat included; its tools; its model and the model a
-  stuck turn moves to. Tools and skills are told against the master's own ("như của bạn, thêm:
-  …") where that is shorter. Nothing is cached, so a server given to an agent, an OAuth sign-in,
-  a new skill, a job switched on or off, a changed `tools` or `routes` list and an agent added
-  or removed all reach the master on its next model call with nobody editing a description. A
+  sign in or cannot connect; its skills, with what a skill the master lacks is for and whether
+  a command it needs is missing on this machine; the scheduled jobs that are switched on, those
+  made in a chat included; its tools; its model and the model a stuck turn moves to. Tools and
+  skills are told against the master's own ("như của bạn, thêm: …") where that is shorter. A
+  server is told by its connection first, so a sign-in that ran out or a key the server stopped
+  taking shows as out of reach although the agent still holds the tools; one whose tools the
+  owner (`read_only`) or the server itself (`readOnlyHint`) all mark as only reading is told as
+  read-only. Nothing is cached, so the lines change when what the agent can use changes: a
+  server that connected or dropped, an OAuth sign-in, a job made in a chat or switched on or
+  off, and an agent added, removed or edited through the web UI or the API (`mcp`, `tools`,
+  `routes`) reach the master on its next model call with nobody editing a description; a new
+  skill file is told once the agent is built again (such an edit, or a restart), which is also
+  when the agent itself first holds it. A
   closing note tells the master that these lines outrank the description and what it said
   earlier in the conversation, to hand over work that needs something another agent holds
   rather than answer that it cannot be done, and, when the server such work needs is waiting
   for a sign-in or cannot connect, to say so to the person instead of handing the work to an
-  agent that cannot reach it. What an agent does only through its persona or
-  through scripts in its workspace is still told by `description` alone.
+  agent that cannot reach it. A job or skill name is told on one line whatever it contains, so
+  a job named in a chat cannot add lines to the roster. What an agent does only through its
+  persona or through scripts in its workspace is still told by `description` alone.
 
 ## [0.12.0] — 2026-10-07
 
