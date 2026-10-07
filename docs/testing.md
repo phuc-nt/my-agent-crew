@@ -5289,41 +5289,57 @@ mất có mặt ngay ở lần gọi model kế tiếp ([agents.md](agents.md#ma
     hơn hay khi không có người đọc để so; mỗi loại một dòng theo một thứ tự; loại không có thì
     không có dòng; model leo thang không tự đứng một mình; bốn mức với tới của một máy chủ; skill
     người đọc cũng có thì chỉ nêu tên, skill người đọc có mà agent không có thì nêu tên không kèm
-    mô tả; mô tả gộp khoảng trắng và cắt ở 80 ký tự, đúng 80 thì giữ nguyên; các dòng đứng ngay
+    mô tả; mô tả gộp khoảng trắng và cắt ở 80 ký tự, đúng 80 thì giữ nguyên; tên job, tên skill
+    và tên công cụ có xuống dòng vẫn chỉ là một mục của dòng nó thuộc về, dù được kể cả danh sách
+    hay so với người đọc, ở phía "thêm" hay phía "không có"; các dòng đứng ngay
     dưới dòng của agent và lời dặn đứng cuối; chỉ một agent có gì để kể cũng đủ để có lời dặn, dù
     nó đứng đầu danh sách; đội không kể gì thì roster chỉ còn dòng của chủ, không có lời dặn;
     không hỏi đội khi không có ai để liệt kê; lời dặn nói ai viết các dòng và rằng chúng đáng tin
     hơn điều đã nói; lời dặn gọi đúng hai tình trạng ngoài tầm với bằng chữ mở đầu của chính câu
     kể chúng, dặn không giao việc cần dịch vụ đó mà nói rõ với người dùng, và không nhắc tới hai
-    tình trạng dùng được).
+    tình trạng dùng được; lời dặn nói dòng Công cụ không tính tool của dịch vụ ngoài và ai gọi
+    được dịch vụ nào thì chỉ xem ở dòng Dịch vụ ngoài của chính agent đó).
 - **đọc từ đội đang chạy, mỗi lần lắp prompt**:
   - pytest: `tests/test_crew_roster_abilities.py` (tool vừa được thêm hay vừa mất có ngay ở prompt
-    kế tiếp, không nối lại gì; `delegate` không bị đem ra so; skill mới kèm mô tả; chỉ job đang bật
+    kế tiếp, không nối lại gì; `delegate` không bị đem ra so; skill mới kèm mô tả; skill thiếu lệnh
+    trên máy mang `[thiếu: …]` đứng trước mô tả nên phép cắt 80 ký tự không làm mất nó, kể đủ mọi
+    lệnh thiếu, và skill đủ lệnh thì không mang gì; chỉ job đang bật
     và không phải job gom trí nhớ được kể, bật tắt là thấy ngay; job không tên được kể bằng id; job
-    tạo từ chat có ngay khi tồn tại và job của master không bị kể dưới agent khác; model là tuyến
+    tạo từ chat có ngay khi tồn tại và job của master không bị kể dưới agent khác; job tạo từ chat
+    với tên có xuống dòng chỉ thêm đúng một dòng vào prompt của master, không dựng được dòng agent
+    hay dòng công cụ giả; model là tuyến
     đầu, model leo thang chỉ được kể khi tuyến đó dùng được; máy chủ agent nêu tên, kể cả nêu hai
     lần, được kể một lần với mô tả và `đọc và ghi`, tool `mcp__…` không lẫn vào dòng công cụ và
     master không cầm tool nào của nó; `read_only` toàn bộ thì `chỉ đọc`, và tool ghi bị `hidden`
-    cũng vậy; máy chủ `hidden` cả thì không kể dù nối được; chờ đăng nhập và không nối được có câu
-    riêng, nối lại được thì quay về `đọc và ghi`; máy chủ không có trong cấu hình thì bỏ qua; một
+    cũng vậy; máy chủ chỉ có tool mang `readOnlyHint` thì `chỉ đọc` dù chủ không khai `read_only`
+    và tool ấy vẫn cần duyệt, còn tool không ai nói là chỉ đọc thì `đọc và ghi`; máy chủ `hidden`
+    cả thì không kể dù nối được; chờ đăng nhập và không nối được có câu riêng, nối lại được thì
+    quay về `đọc và ghi`; máy chủ chưa nối lần nào được kể là không nối được; phiên đăng nhập hết
+    hạn giữa chừng (token hết, máy chủ không cấp lại) được kể là chờ đăng nhập dù agent vẫn cầm
+    tool, và khoá riêng bị từ chối giữa chừng được kể là không nối được, cả hai đi qua đúng lời gọi
+    tool phát hiện ra chuyện đó; máy chủ không có trong cấu hình thì bỏ qua; một agent được thêm
+    vào giữa lúc đội đang được đọc không làm hỏng prompt; một
     lượt thật của master mang các dòng và lời dặn trong system message, còn lượt được giao việc
     thì không).
   - pytest: `tests/test_crew_roster.py::test_an_agent_added_edited_or_removed_while_running_is_told_as_it_now_is`
     (runtime dựng thật trên home tạm: agent thêm khi đang chạy được kể với công cụ của nó, sửa
     `tools` là dòng đổi theo, mọi agent đều được nối với đội, agent bị xoá thì mất dòng).
-  - Kiểm chứng đột biến: bốn mươi bốn sửa đổi (đổi mốc một nửa, bỏ phần thiếu hay phần thừa khỏi
+  - Kiểm chứng đột biến: sáu mươi hai sửa đổi (đổi mốc một nửa, bỏ phần thiếu hay phần thừa khỏi
     phép so, cắt mô tả lệch một ký tự, không gộp khoảng trắng, mô tả cả skill người đọc đã có, kể
     model leo thang khi không có model hay khi tuyến không dùng được, không so với người đọc, giữ
     dòng rỗng, đem `delegate` ra so, kể tool MCP như công cụ, kể job gom trí nhớ hay job đang tắt,
     kể job bằng id hay chỉ bằng tên, kể job của agent khác, đổi chỗ "chờ đăng nhập" với "không nối
-    được", luôn hay không bao giờ `đọc và ghi`, kể máy chủ `hidden` như không nối được, bỏ qua
-    tool đang cầm, kể hai lần máy chủ nêu hai lần, bỏ mô tả máy chủ, lấy tuyến cuối, bỏ kỹ năng,
+    được", bỏ qua trạng thái kết nối khi agent còn cầm tool, chỉ coi link hỏng là không nối được,
+    luôn hay không bao giờ `đọc và ghi`, bỏ qua gợi ý chỉ đọc của máy chủ hay bỏ qua lời của chủ,
+    kể máy chủ `hidden`, không gộp tên ở từng chỗ tên được kể, không kể lệnh thiếu, đặt lệnh thiếu
+    sau mô tả, chỉ kể lệnh thiếu đầu tiên, đọc đội không qua bản chép,
+    kể hai lần máy chủ nêu hai lần, bỏ mô tả máy chủ, lấy tuyến cuối, bỏ kỹ năng,
     hỏi đội khi không có ai để liệt kê, không biết người đọc là ai, luôn hay không bao giờ có lời
     dặn, lời dặn theo agent đứng cuối, bỏ các dòng, chỉ nối đội cho agent giao việc được, đọc đội
     một lần lúc nối rồi giữ lại, prompt không đưa đội vào roster). Vòng đầu sót năm; bốn cái được
     thêm test (job không tên, máy chủ nêu hai lần, tuyến thứ hai, lời dặn khi agent có dòng không
     đứng cuối). Cái còn lại là tương đương: đưa tên "không có" qua hàm mô tả skill, mà một tên
-    như thế thì người đọc luôn có, nên hàm chỉ trả lại tên.
+    như thế thì người đọc luôn có, nên hàm chỉ trả lại tên. Sáu mươi mốt cái còn lại đều bị bắt.
 - **master có làm theo các dòng đó không** (model thật, không nằm trong CI):
   - `scripts/run_evals.py` trên một home tạm có master và một agent nêu `mcp: [notion]` trỏ tới
     một máy chủ MCP giả ở loopback, mô tả của agent không nhắc Notion, model của đội thật, mỗi ca ba

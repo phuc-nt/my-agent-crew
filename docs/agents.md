@@ -321,37 +321,58 @@ lần lắp system prompt (tức là trước mỗi lần gọi model, không l�
 | Dòng | Đọc từ đâu | Ghi chú |
 |---|---|---|
 | Dịch vụ ngoài (MCP) | khoá `mcp` của agent, đối chiếu với tool MCP nó đang cầm và trạng thái kết nối | xem bảng dưới |
-| Kỹ năng | các skill agent nạp được | skill master không có thì kèm mô tả, cắt còn 80 ký tự |
+| Kỹ năng | các skill agent nạp được | skill master không có thì kèm mô tả, cắt còn 80 ký tự; skill cần một lệnh máy này không có thì mang `[thiếu: …]` đứng trước mô tả, như trong mục lục skill của chính agent đó |
 | Việc tự chạy theo lịch | job của agent trong bộ lập lịch, cả job khai trong `agent.yaml` lẫn job tạo từ chat | chỉ job đang bật; bỏ job gom trí nhớ, vì agent nào cũng có |
 | Công cụ | tool trong hộp đồ của agent | bỏ `delegate` (lượt được giao việc không bao giờ cầm nó) và tool MCP (đã có dòng dịch vụ) |
 | Mô hình | tuyến đầu trong `routes` | kèm model của `escalation_route` khi tuyến đó dùng được |
 
-Một máy chủ MCP được kể theo đúng thứ agent với tới lúc đó:
+Một máy chủ MCP được kể theo đúng thứ agent với tới lúc đó. Trạng thái kết nối được xét trước,
+rồi mới tới các tool agent đang cầm:
 
 | Tình trạng | Roster nói |
 |---|---|
-| agent cầm ít nhất một tool của nó cần duyệt | `đọc và ghi` |
-| mọi tool agent cầm đều thuộc `read_only` | `chỉ đọc` |
+| chờ đăng nhập OAuth, kể cả khi phiên đăng nhập hết hạn giữa chừng | `chưa dùng được: người dùng cần đăng nhập ở trang Máy chủ MCP` |
+| không nối được: chưa nối lần nào, máy chủ rớt, hay khoá riêng bị từ chối | `chưa kết nối được lúc này` |
+| nối được, agent cầm ít nhất một tool mà cả chủ lẫn máy chủ đều không nói là chỉ đọc | `đọc và ghi` |
+| nối được, mọi tool agent cầm đều được chủ (`read_only`) hoặc máy chủ (`readOnlyHint`) nói là chỉ đọc | `chỉ đọc` |
 | nối được nhưng mọi tool đều `hidden` | không kể, vì không có gì để giao việc |
-| chờ đăng nhập OAuth | `chưa dùng được: người dùng cần đăng nhập ở trang Máy chủ MCP` |
-| không nối được | `chưa kết nối được lúc này` |
 | agent nêu tên một máy chủ không có trong `mcp_servers` | không kể |
+
+Xét kết nối trước là vì một phiên đăng nhập hết hạn hay một khoá bị từ chối không lấy lại tool
+khỏi hộp đồ của agent: agent vẫn cầm đủ tool mà không gọi được cái nào, và nếu chỉ nhìn tool thì
+roster sẽ kể máy chủ ấy là `đọc và ghi` cho tới khi có người đăng nhập lại. Còn `readOnlyHint`
+của máy chủ chỉ đổi câu kể, không đổi việc duyệt: tool nào chủ không đưa vào `read_only` thì vẫn
+hỏi trước khi chạy.
 
 Tên kỹ năng và tên công cụ được kể so với của chính master ("như của bạn", "thêm: …", "không có:
 …") khi số tên khác nhau không quá một nửa số tên phải kể; khác nhiều hơn thì kể cả danh sách.
-Loại nào agent không có thì không có dòng. Khi có ít nhất một dòng như thế, roster kết thúc bằng
+Loại nào agent không có thì không có dòng. Tên job và tên skill được gộp khoảng trắng về một
+dòng trước khi kể: tên job do một cuộc chat đặt, và một tên có xuống dòng sẽ đọc như một dòng
+roster không ai viết. Khi có ít nhất một dòng như thế, roster kết thúc bằng
 một lời dặn: các dòng này là điều đang đúng, đáng tin hơn mô tả và hơn điều master từng nói trong
 cuộc trò chuyện, và việc cần một dịch vụ, kỹ năng hay công cụ mà master không có thì giao cho
 agent có nó chứ không trả lời là không làm được. Lời dặn cũng nói điều ngược lại cho hai tình
-trạng cuối của bảng trên: máy chủ đang chờ đăng nhập hay không nối được thì agent ấy không gọi
+trạng đầu của bảng trên: máy chủ đang chờ đăng nhập hay không nối được thì agent ấy không gọi
 được nó, nên master không giao việc cần máy chủ đó mà nói rõ tình trạng với người dùng, kèm việc
 họ cần làm (đăng nhập ở trang Máy chủ MCP). Thiếu câu này, master giao việc cho một agent không
-còn cầm tool nào của máy chủ, rồi thuật lại lời agent ấy rằng "không có công cụ".
+gọi được tool nào của máy chủ, rồi thuật lại lời agent ấy rằng "không có công cụ". Câu cuối của
+lời dặn nói dòng Công cụ không tính tool của dịch vụ ngoài: agent nào gọi được dịch vụ nào thì
+chỉ xem ở dòng Dịch vụ ngoài của chính agent đó. Câu này dành cho master tự cầm một máy chủ MCP,
+kẻo nó đọc "như của bạn" ở dòng Công cụ thành "cũng cầm máy chủ của tôi".
 
-Hệ quả: nối một máy chủ MCP cho một agent, đăng nhập xong OAuth, thêm một skill, bật tắt hay tạo
-một job, đổi `tools` hay `routes` của một agent, thêm hoặc xoá một agent đều tới tay master ở lần
-gọi model kế tiếp mà không ai phải sửa mô tả. Xem đúng thứ master đang đọc bằng
+Hệ quả: roster kể đúng thứ agent dùng được lúc đó và đổi cùng lúc với nó, không ai phải sửa mô
+tả. Tới tay master ngay ở lần gọi model kế tiếp: một máy chủ MCP vừa nối hay vừa rớt, đăng nhập
+OAuth vừa xong hay vừa hết hạn, job tạo từ chat, job bật hay tắt, và mọi sửa đổi một agent qua web
+hay API (`mcp`, `tools`, `routes`, thêm hoặc xoá agent). Thứ chỉ có hiệu lực khi agent được dựng
+lại thì roster cũng kể từ lúc đó, tức là cùng lúc chính agent ấy dùng được nó: một tệp skill mới
+thả vào thư mục skill (cần sửa agent qua web hay API, hoặc khởi động lại), và `agent.yaml` sửa
+tay, kể cả job khai trong đó (cần khởi động lại). Xem đúng thứ master đang đọc bằng
 `GET /api/agents/default/prompt`.
+
+Hai chỗ roster cố ý không nói khác đi. Một máy chủ vừa nối xong có thể vắng mặt trong chốc lát,
+cho tới khi tool của nó được gắn vào agent: lúc đó agent chưa cầm tool nào, nên chưa có gì để
+giao. Và job vẫn được kể trên một server chạy `--no-schedule` (bộ eval, bản chạy thử), để prompt
+ở đó giống prompt của bản chạy thật.
 
 Phần các dòng này không kể được là việc agent làm trong lĩnh vực của nó mà không lộ ra thành
 tool, skill, job hay máy chủ: điều chỉ nằm trong persona, hay script trong workspace mà agent
