@@ -778,8 +778,8 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
     đó hay không, không quyết định script có gọi được nó hay không: chủ đã khẳng định tool chỉ đọc
     thì không cần thêm một lần cho phép riêng.
 
-  Lời mô tả của `tool_script` nêu nhóm tool có sẵn, những tool MCP ở mức `codemode` và một đoạn
-  nói script tra tool ra sao. Mỗi tool MCP là một dòng gồm tên, các tham số theo tên và kiểu
+  Lời mô tả của `tool_script` nêu nhóm tool có sẵn, những tool MCP ở mức `codemode`, một đoạn nói
+  script tra tool ra sao và một đoạn dạy gọi theo lô kèm ví dụ. Mỗi tool MCP là một dòng gồm tên, các tham số theo tên và kiểu
   (`query: string, limit?: integer`) và một câu mô tả, tối đa 30 tool và 12 tham số mỗi tool. Tool
   MCP còn lại mà script gọi được (mức khác, hoặc quá 30) chỉ được đếm trong một dòng "và N công
   cụ nữa"; script tra chúng bằng `tools.search` và `tools.describe` (bullet kế tiếp). Model muốn
@@ -799,9 +799,41 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
   không hiện trên thẻ run, nhưng mỗi script tra tối đa 40 lần (lần thứ 41 là một lỗi bắt được).
   Tham số sai, hay `tools.describe` một tool mà script không được gọi, cũng là lỗi bắt được. Nhờ
   thế một tool chủ không mở ở mức `codemode` vẫn dùng được trong một lượt: một script tìm nó bằng
-  `tools.search`, model đọc kết quả rồi viết lời gọi theo tên ở script sau. Ba tên `names`,
-  `search` và `describe` thuộc về phần tra cứu, nên không tool có sẵn nào được đặt tên như vậy
-  (một test giữ chỗ đó); tool MCP thì luôn mang tiền tố `mcp__`.
+  `tools.search`, model đọc kết quả rồi viết lời gọi theo tên ở script sau. Bốn tên `names`,
+  `search`, `describe` và `batch` (bullet kế tiếp) thuộc về `tools`, nên không tool có sẵn nào
+  được đặt tên như vậy (một test giữ chỗ đó); tool MCP thì luôn mang tiền tố `mcp__`.
+- **Gọi theo lô.** Nhiều lời gọi không cần kết quả của nhau thì script gộp thành một lô, chạy cùng
+  lúc thay vì lần lượt:
+
+  ```python
+  answers = tools.batch([{"tool": "mcp__notion__notion_fetch", "args": {"id": p}} for p in pages])
+  for answer in answers:
+      print(answer["output"] if answer["ok"] else answer["error"])
+  ```
+
+  - `tools.batch(list)` hoặc `tools.batch(calls=list)` nhận list từ 1 đến 10 phần tử, mỗi phần tử
+    là dict `{"tool": "tên", "args": {...}}` (`args` bỏ được; không khoá nào khác). Kết quả là một
+    list **đúng thứ tự đã viết**: `{"ok": True, "output": chữ}` hoặc `{"ok": False, "error":
+    lời_lỗi}`. Một lời gọi lỗi chỉ là phần tử `ok: False` của nó: lô không ném lỗi và các lời gọi
+    kia vẫn chạy; script muốn dừng thì tự xét `answer["ok"]`.
+  - Lô chạy tối đa 4 lời gọi cùng một lúc, phần còn lại chờ tới lượt. Mỗi lời gọi vẫn đi qua hook
+    của agent, vẫn được tính tiền riêng khi có trả tiền cho model và vẫn nằm trên thẻ run, theo
+    thứ tự đã viết chứ không theo thứ tự xong. Script chỉ gọi được tool chỉ đọc nên các lời gọi
+    không cần xếp hàng cho nhau, và crew không giữ gì từ lời gọi này sang lời gọi sau: mỗi hook là
+    một tiến trình riêng, mỗi lời gọi MCP một yêu cầu HTTP riêng. (Lô của chính model, nhiều lời
+    gọi trong một tin, vẫn chỉ chạy song song ở tool tự khai `parallel`: ở đó lời gọi có thể ghi
+    và thứ tự ghi phải không phụ thuộc thời gian.)
+  - Mỗi lời gọi của lô tính vào 25 lời gọi của script, trả lời được hay lỗi. Lô sai thì bị từ chối
+    nguyên lô, **không tính lời gọi nào**, và là lỗi bắt được: không phải một list (hay `calls=`)
+    một mình, list rỗng, dài hơn 10, một phần tử sai dạng (câu lỗi nêu số thứ tự của nó, từ 0),
+    tham số của một phần tử dài quá 100.000 ký tự hay không phải JSON, hoặc còn ít lời gọi hơn số
+    phần tử (câu lỗi nói script "chỉ còn gọi được N trong 25 lần" và bảo bỏ bớt hay chia nhỏ lô).
+    Hết sạch 25 lời gọi rồi mới gọi lô thì script dừng, không bắt được, như lời gọi thứ 26 của một
+    lời gọi lẻ.
+  - Tên tool không có trong lô chỉ là phần tử `ok: False` của nó ("Ý bạn là …?"), và vẫn tính một
+    lời gọi. Tool script không được gọi (phải hỏi trước, có ghi dữ liệu, `hidden`) thì cả script
+    dừng như khi gọi lẻ, và dừng **trước khi bất kỳ lời gọi nào của lô chạy**: không có lô chạy
+    nửa chừng rồi mới bị từ chối.
 - **Lời gọi bị từ chối.** Gọi một tool phải hỏi trước hoặc có ghi dữ liệu, hay một tool chỉ đọc
   mà script không được gọi (`delegate`, một tool MCP `hidden`), thì script **dừng ngay tại đó**:
   không `try/except` nào bắt được, và câu trả lời nói phải làm gì thay ("gọi trực tiếp", hoặc "nạp
@@ -852,6 +884,8 @@ Giới hạn nằm trong code, không cấu hình nào nới được:
 | lời gọi tool trong một script | 25 |
 | lần tra tool (`tools.names`, `search`, `describe`) trong một script | 40 |
 | chữ đưa vào một lần tra (từ khoá, tên tool) | 1.000 ký tự |
+| lời gọi trong một lô (`tools.batch`) | 10 |
+| lời gọi của một lô chạy cùng một lúc | 4 |
 | độ dài mã script | 20.000 ký tự |
 | số bước tính toán | 2.000.000 |
 | CPU | 20 giây |

@@ -20,8 +20,9 @@ import pytest
 
 from my_agent_crew import texts_script as t
 from my_agent_crew.script import runner
-from my_agent_crew.script.limits import ScriptError
-from my_agent_crew.script.runner import Answer, Outcome, run_script
+from my_agent_crew.script.limits import MAX_BATCH, ScriptError
+from my_agent_crew.script.replies import Answer
+from my_agent_crew.script.runner import Outcome, run_script
 from tests.test_shell_network_sandbox import needs_sandbox
 
 # One long operation after another: the step count sees little of it, the clocks all of it.
@@ -92,6 +93,15 @@ print(json.dumps({"ask": {"kind": "names", "arguments": {}}}), flush=True)
 second = json.loads(sys.stdin.readline())
 print(json.dumps({"done": {"ok": True, "output": json.dumps([first, second])}}), flush=True)
 """
+# Asks for two calls together, and tells how they were answered.
+BATCHES = """
+import json, sys
+sys.stdin.readline()
+calls = [{"name": "read", "arguments": {"n": 1}}, {"name": "write", "arguments": {}}]
+print(json.dumps({"calls": calls}), flush=True)
+reply = json.loads(sys.stdin.readline())
+print(json.dumps({"done": {"ok": True, "output": json.dumps(reply)}}), flush=True)
+"""
 BABBLES = """
 import time
 print("not a line anyone agreed on", flush=True)
@@ -152,6 +162,14 @@ except OSError as error:
 
 async def nobody(name: str, arguments: dict[str, Any]) -> Answer:
     raise AssertionError(f"the script was not written to call {name}")
+
+
+def unasked(kind: str, arguments: dict[str, Any]) -> Any:
+    raise AssertionError(f"the script was not written to look up {kind}")
+
+
+async def unbatched(calls: list[tuple[str, dict[str, Any]]]) -> list[Answer]:
+    raise AssertionError(f"the script was not written to make {len(calls)} calls together")
 
 
 def gone(pid: int) -> bool:
@@ -375,6 +393,119 @@ async def test_an_answer_to_a_lookup_far_longer_than_a_pipe_holds_reaches_the_sc
     assert outcome == Outcome(True, "6000 mcp__server__tool_05999\n")
 
 
+# --- what a script batches -------------------------------------------------------------------
+
+
+async def test_a_script_batches_calls_through_this_process_and_each_is_answered(children):
+    asked = []
+
+    async def many(calls):
+        asked.append(calls)
+        return [
+            Answer(True, f"đọc {arguments['n']}") if name == "read" else Answer(False, "hỏng")
+            for name, arguments in calls
+        ]
+
+    source = dedent(
+        """\
+        for answer in tools.batch([
+            {"tool": "read", "args": {"n": 1}},
+            {"tool": "write"},
+            {"tool": "read", "args": {"n": 3}},
+        ]):
+            print(answer)
+        """
+    )
+
+    outcome = await run_script(source, nobody, call_many=many)
+
+    assert outcome == Outcome(
+        True,
+        "{'ok': True, 'output': 'đọc 1'}\n{'ok': False, 'error': 'hỏng'}\n"
+        "{'ok': True, 'output': 'đọc 3'}\n",
+    )
+    # The three came together, as they were written, and a call written without `args` is
+    # one with none.
+    assert asked == [[("read", {"n": 1}), ("write", {}), ("read", {"n": 3})]]
+
+
+async def test_what_a_batch_answered_is_a_list_of_answers_and_what_it_refused_is_a_failure(
+    monkeypatch,
+):
+    """The two replies the process is written to read, as they go over the pipe."""
+    monkeypatch.setattr(runner, "BOOT", BATCHES)
+    asked = []
+    refused = []
+
+    async def many(calls):
+        asked.append(calls)
+        if refused:
+            raise ScriptError("không gọi được")
+        return [Answer(True, "đọc"), Answer(False, "không ghi được", halt=True)]
+
+    answered = await run_script("", nobody, call_many=many)
+    refused.append(True)
+    failed = await run_script("", nobody, call_many=many)
+
+    assert answered.ok and json.loads(answered.output) == {
+        "answers": [
+            {"ok": True, "output": "đọc", "halt": False},
+            {"ok": False, "output": "không ghi được", "halt": True},
+        ]
+    }
+    assert failed.ok and json.loads(failed.output) == {"failed": "không gọi được"}
+    assert asked == [[("read", {"n": 1}), ("write", {})]] * 2
+
+
+async def test_a_batch_that_was_refused_is_the_scripts_to_catch():
+    async def many(calls):
+        raise ScriptError("không gọi được")
+
+    source = dedent(
+        """\
+        try:
+            tools.batch([{"tool": "a"}])
+        except Exception as e:
+            print("caught:", e)
+        tools.batch([{"tool": "a"}])
+        print("after")
+        """
+    )
+
+    outcome = await run_script(source, nobody, call_many=many)
+
+    assert outcome == Outcome(False, "caught: không gọi được\n", "Lỗi ở dòng 5: không gọi được")
+
+
+async def test_the_first_answer_of_a_batch_that_halts_ends_the_script_whatever_it_wrote():
+    async def many(calls):
+        return [
+            Answer(False, "hỏng"),
+            Answer(False, "không gọi được", halt=True),
+            Answer(False, "cũng không", halt=True),
+        ]
+
+    source = dedent(
+        """\
+        try:
+            tools.batch([{"tool": "a"}, {"tool": "b"}, {"tool": "c"}])
+        except Exception as e:
+            print("caught:", e)
+        print("after")
+        """
+    )
+
+    outcome = await run_script(source, nobody, call_many=many)
+
+    assert outcome == Outcome(False, "", "Dừng ở dòng 2: không gọi được")
+
+
+async def test_a_script_run_without_a_way_to_batch_is_told_there_is_none():
+    outcome = await run_script('tools.batch([{"tool": "a"}])', nobody)
+
+    assert outcome == Outcome(False, "", "Lỗi ở dòng 1: " + t.SCRIPT_NO_BATCHES)
+
+
 async def test_the_process_is_told_the_script_and_its_seconds_of_cpu(monkeypatch):
     monkeypatch.setattr(runner, "BOOT", ECHOES)
     told = json.loads((await run_script('print("ơ")', nobody)).output)
@@ -540,6 +671,19 @@ OUT_OF_SHAPE = [
     '{"ask": {"kind": "names"}}',
     '{"ask": {"kind": 3, "arguments": {}}}',
     '{"ask": {"kind": "names", "arguments": [1]}}',
+    '{"calls": []}',
+    '{"calls": {}}',
+    '{"calls": 3}',
+    '{"calls": [3]}',
+    '{"calls": [{}]}',
+    '{"calls": [[]]}',
+    '{"calls": [{"name": "read"}]}',
+    '{"calls": [{"arguments": {}}]}',
+    '{"calls": [{"name": 3, "arguments": {}}]}',
+    '{"calls": [{"name": "read", "arguments": [1]}]}',
+    '{"calls": [{"name": "read", "arguments": {}}, 3]}',
+    '{"calls": [{"name": "read", "arguments": {}}, {"name": "read"}]}',
+    json.dumps({"calls": [{"name": "read", "arguments": {}}] * (MAX_BATCH + 1)}),
     '{"done": 3}',
     '{"done": {"ok": true}}',
     '{"done": {"ok": true, "output": "", "more": 1}}',
@@ -548,9 +692,30 @@ OUT_OF_SHAPE = [
 
 @pytest.mark.parametrize("line", OUT_OF_SHAPE)
 async def test_a_line_that_is_json_and_nothing_agreed_on_is_a_process_that_died(monkeypatch, line):
+    """Whatever the process asked for, nothing of it is made: a stand-in that was asked
+    anything at all fails the test, where the refusal a script is given by default would
+    leave a line wrongly taken for a question looking just like one that was not."""
     monkeypatch.setattr(runner, "BOOT", SAYS.replace("LINE", repr(line)))
 
-    assert await run_script("", nobody) == Outcome(False, "", t.SCRIPT_DIED)
+    outcome = await run_script("", nobody, lookup=unasked, call_many=unbatched)
+
+    assert outcome == Outcome(False, "", t.SCRIPT_DIED)
+
+
+async def test_a_batch_of_the_most_calls_each_with_the_longest_arguments_arrives_whole(children):
+    """The longest arguments, in the form that takes most room on the line: each character
+    of this text is six on it."""
+    asked = []
+
+    async def many(calls):
+        asked.append([len(arguments["text"]) for _, arguments in calls])
+        return [Answer(True, "đọc") for _ in calls]
+
+    call = '{"tool": "a", "args": {"text": "\\x01" * 99000}}'
+    source = f"answers = tools.batch([{call}] * {MAX_BATCH})\nprint(len(answers))"
+
+    assert await run_script(source, nobody, call_many=many) == Outcome(True, f"{MAX_BATCH}\n")
+    assert asked == [[99000] * MAX_BATCH]
 
 
 async def test_last_words_cut_in_the_middle_of_a_letter_are_logged_all_the_same(

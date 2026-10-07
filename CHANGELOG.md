@@ -21,6 +21,16 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   runs no tool: it is not one of the 25 calls and not on the run card, and a script may make 40
   of them. A tool the description of `tool_script` does not name is found by one script and
   called by name from the next.
+- A script can ask for calls that do not wait on one another together. `tools.batch([{"tool":
+  "name", "args": {...}}, ...])` takes up to 10 calls, makes them side by side (four at a
+  time, each through the agent's own hooks as a call made alone is) and returns a list with one
+  answer per call, in the order they were written: `{"ok": true, "output": ...}` or
+  `{"ok": false, "error": ...}`. One call that fails is its own answer and spoils none of the
+  others. Each call of a batch is one of the 25, and the run card lists them in written order.
+  A batch asked for the wrong way (empty, longer than 10 or than the calls left, an element that
+  is not `{"tool", "args"}`) is a mistake the script can catch and costs no call. A batch with a
+  call the script may not make (it writes, asks first, or is hidden) runs none of its calls and
+  ends the script, as that call would alone.
 
 ### Changed
 
@@ -42,7 +52,7 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   parameter was left out, or one the tool has no place for was given, is answered with the
   tool's own words and a line saying how the tool is called. Refusing a tool the agent holds but
   a script may not call (it writes, asks first, or is hidden) still ends the script. The names
-  `names`, `search` and `describe` belong to the lookups, so no built-in tool can take them.
+  `names`, `search`, `describe` and `batch` belong to `tools`, so no built-in tool can take them.
 
 ## [0.13.0] — 2026-10-07
 

@@ -2,10 +2,10 @@
 
 Of the MCP tools every one the owner listed under `read_only` that is not hidden, however far
 it is let in. Of the others every one that reads, but the few that speak for the agent or
-work through the conversation, which a script's calls are not part of, and any that bears the
-name of one of the script's own lookups (`tools.search` is a lookup, whatever else is called
-`search`). A tool a script may not call still exists: it is told so, and what to do instead,
-where the approval gate sees it.
+work through the conversation, which a script's calls are not part of, and any that bears a
+name `tools` answers to itself (`tools.search` is a lookup and `tools.batch` a batch, whatever
+else is called `search` or `batch`). A tool a script may not call still exists: it is told so,
+and what to do instead, where the approval gate sees it.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from my_agent_crew.agents.roster import DELEGATE_TOOL_NAME
 from my_agent_crew.mcp.config import HIDDEN
 from my_agent_crew.mcp.tool_search import SEARCH_TOOL
 from my_agent_crew.mcp.tools import McpTool, held_back
-from my_agent_crew.script.namespaces import LOOKUPS
+from my_agent_crew.script.namespaces import RESERVED
 from my_agent_crew.tools.progress_note import PROGRESS_NOTE_TOOL_NAME
 from my_agent_crew.tools.registry import Tool, ToolRegistry
 
@@ -38,7 +38,7 @@ def scriptable(tool: Tool) -> bool:
         return False
     if isinstance(tool, McpTool):
         return tool.exposure != HIDDEN
-    return tool.name not in NOT_FROM_SCRIPT and tool.name not in LOOKUPS
+    return tool.name not in NOT_FROM_SCRIPT and tool.name not in RESERVED
 
 
 def callable_tools(held: ToolRegistry) -> list[Tool]:

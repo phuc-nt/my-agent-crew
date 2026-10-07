@@ -174,6 +174,46 @@ async def test_each_call_of_a_script_that_paid_a_model_is_charged_like_one_made_
     ]
 
 
+async def test_each_call_of_a_batch_is_charged_and_kept_like_one_made_alone(served):
+    source = dedent(
+        """
+        answers = tools.batch([
+            {"tool": "paid_read"},
+            {"tool": "unpriced_read"},
+            {"tool": "paid_read"},
+            {"tool": "free_read"},
+        ])
+        for answer in answers:
+            print(answer["output"])
+        """
+    )
+    held = [
+        reading("paid_read", cost_usd=0.004, metered=True),
+        reading("unpriced_read", metered=True),
+        reading("free_read", cost_usd=0.5),
+    ]
+    script = [completion(tool_calls=[running(source)]), completion("Xong.")]
+    app, _ = await scripting(served, script, extra_tools=held)
+
+    result = the_result(await say(app))
+
+    assert result["output"] == "paid_read\nunpriced_read\npaid_read\nfree_read"
+    assert (result["cost_usd"], result["metered"]) == (None, False)
+    # The same two answers of the model and the same two reads that named their price as when
+    # the four were called one after another, and the run keeps them in the order written.
+    conv, run = app.runtime.store.get(app.conv.id), stored_run(app)
+    assert conv.spent_usd == pytest.approx(0.010) and conv.unknown_cost_calls == 1
+    assert run.spent_usd == pytest.approx(0.010) and run.unknown_cost_calls == 1
+    step = the_step(app)
+    assert "cost_usd" not in step
+    assert [(call["name"], call["cost_usd"], call["metered"]) for call in step["calls"]] == [
+        ("paid_read", 0.004, True),
+        ("unpriced_read", None, True),
+        ("paid_read", 0.004, True),
+        ("free_read", None, False),
+    ]
+
+
 async def test_the_model_is_told_of_the_script_tool_and_not_of_the_tools_it_calls(served):
     app, _ = await scripting(served, [completion(tool_calls=[RUN]), completion("Xong.")])
     own = [name for name in app.runtime.default.tools.names() if not name.startswith("mcp__")]

@@ -17,6 +17,14 @@ SCRIPT_DESCRIPTION = (
     'gọi: `tools.names()` liệt kê tên mọi công cụ gọi được, `tools.search("từ khoá")` tìm theo '
     'việc (trả list các dict có `name` và `description`), `tools.describe("ten")` cho tham số '
     "đầy đủ.\n"
+    "Nhiều lời gọi không phụ thuộc nhau (kết quả cái này không cần cho cái kia) thì gộp một lô "
+    "để chạy cùng lúc, nhanh hơn gọi lần lượt: "
+    '`tools.batch([{{"tool": "TEN", "args": {{...}}}}, ...])` nhận tối đa {batch} lời gọi, trả '
+    "về list kết quả đúng thứ tự đã viết; mỗi phần tử là "
+    '`{{"ok": True, "output": văn_bản}}` hoặc `{{"ok": False, "error": lời_lỗi}}`, và một lời '
+    "gọi lỗi không làm hỏng các lời gọi còn lại. Mỗi lời gọi trong lô vẫn tính vào {calls} lần. "
+    "Ví dụ:\n"
+    "{example}\n"
     "Đây là một phần của Python: biến, if/for/while, hàm, list/dict/set/tuple, f-string, "
     "comprehension, try/except, `json`, và len, str, int, float, bool, range, enumerate, zip, "
     "sorted, reversed, min, max, sum, any, all, abs, round, isinstance. Không có import, class, "
@@ -29,6 +37,13 @@ SCRIPT_MCP = (
     "\nCông cụ MCP gọi được từ script (cần tham số chi tiết thì tra bằng tools.describe):\n{lines}"
 )
 SCRIPT_MCP_MORE = "- … và {count} công cụ nữa, tìm bằng tools.search."
+# Shown to the model inside `SCRIPT_DESCRIPTION`, and run as written by a test: `TEN` stands
+# for a tool's name.
+SCRIPT_BATCH_EXAMPLE = (
+    'answers = tools.batch([{"tool": "TEN", "args": {"id": n}} for n in (1, 2, 3)])\n'
+    "for answer in answers:\n"
+    '    print(answer["output"] if answer["ok"] else answer["error"])'
+)
 SCRIPT_SOURCE = "Mã script Python. Kết quả là những gì script in ra bằng print."
 
 # The tool's own answers.
@@ -61,6 +76,27 @@ SCRIPT_DESCRIBE_PARAMS = "Tham số:"
 SCRIPT_DESCRIBE_NONE = "Không có tham số."
 SCRIPT_DESCRIBE_REQUIRED = ", bắt buộc"
 SCRIPT_DESCRIBE_CUT = "… (còn nữa, đã cắt bớt)"
+
+# `tools.batch`: several calls made at once. A batch asked for the wrong way is a mistake the
+# script may catch, and none of its calls is made or counted. The first two are never formatted.
+SCRIPT_BATCH_USAGE = (
+    'tools.batch nhận một list các lời gọi: tools.batch([{"tool": "TEN", "args": {...}}, ...]).'
+)
+SCRIPT_BATCH_EMPTY = "lô rỗng: tools.batch cần ít nhất một lời gọi."
+SCRIPT_BATCH_TOO_MANY = "lô dài quá {most} lời gọi: chia thành nhiều lô."
+SCRIPT_BATCH_ITEM = (
+    'phần tử {index} của lô (đếm từ 0) phải là {{"tool": "TEN", "args": {{...}}}}: '
+    "`tool` là chuỗi, `args` là dict hoặc bỏ trống, không có khoá nào khác."
+)
+SCRIPT_BATCH_AT = "lời gọi {index} trong lô: {error}"
+SCRIPT_BATCH_ROOM = (
+    "lô có {count} lời gọi mà script chỉ còn gọi được {left} trong {most} lần: "
+    "bỏ bớt hoặc chia nhỏ lô."
+)
+SCRIPT_NO_BATCHES = "không gọi theo lô được ở đây."
+# The answer of a call that was not made because another call of its batch is one the script
+# may not make: the script ends there, so it is never read, but each call has one.
+SCRIPT_BATCH_NOT_RUN = "không chạy: lô này có lời gọi mà script không được gọi."
 
 # A call a script may not make although the tool exists. None of these can be caught: the
 # script ends there.

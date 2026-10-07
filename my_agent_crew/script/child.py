@@ -2,9 +2,10 @@
 
 It is started with nothing: no environment, no site packages, and on macOS a sandbox with
 no network, no file writes and no forking. It reads the script as one JSON line, runs it,
-and writes one JSON line back for each tool call it makes and one for how it ended. A tool
-is never run here: the call is asked of the parent, which answers with what it gave. So is
-what a script asks to know of the tools it may call: the parent holds them, and answers.
+and writes one JSON line back for each tool call it makes, one for each batch of them, and
+one for how it ended. A tool is never run here: the call is asked of the parent, which
+answers with what it gave. So is what a script asks to know of the tools it may call: the
+parent holds them, and answers.
 
 The process sets its own CPU limit before the script starts, and counts the memory it
 allocates so `limits.Budget` has something to measure.
@@ -42,8 +43,13 @@ def _write(message: dict[str, Any]) -> None:
 
 
 def _exchange(message: dict[str, Any]) -> dict[str, Any]:
+    """One message to the parent and its reply; a reply that is a refusal is a mistake of the
+    script's, which it may catch."""
     _write(message)
-    return _read()
+    reply = _read()
+    if "failed" in reply:
+        raise ScriptError(reply["failed"])
+    return reply
 
 
 def _call_tool(name: str, arguments: dict[str, Any]) -> str:
@@ -55,12 +61,20 @@ def _call_tool(name: str, arguments: dict[str, Any]) -> str:
     return answer["output"]
 
 
+def _call_tools(calls: list[tuple[str, dict[str, Any]]]) -> list[tuple[bool, str]]:
+    """Several calls made together: whether each succeeded, and what it gave or said. The
+    parent answers every call of the batch; the first it halts on ends the script."""
+    asked = [{"name": name, "arguments": arguments} for name, arguments in calls]
+    answers = _exchange({"calls": asked})["answers"]
+    for answer in answers:
+        if answer.get("halt"):
+            raise Halt(answer["output"])
+    return [(answer["ok"], answer["output"]) for answer in answers]
+
+
 def _ask(kind: str, arguments: dict[str, Any]) -> Any:
     """A question about the tools the script may call, answered with a value or a refusal."""
-    reply = _exchange({"ask": {"kind": kind, "arguments": arguments}})
-    if "failed" in reply:
-        raise ScriptError(reply["failed"])
-    return reply["answer"]
+    return _exchange({"ask": {"kind": kind, "arguments": arguments}})["answer"]
 
 
 def _limit_cpu(seconds: int) -> None:
@@ -76,4 +90,4 @@ def main() -> None:
     request = _read()
     _limit_cpu(request["cpu_s"])
     tracemalloc.start()
-    _write({"done": run(request["source"], _call_tool, _ask)})
+    _write({"done": run(request["source"], _call_tool, _ask, _call_tools)})

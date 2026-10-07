@@ -16,6 +16,7 @@ from my_agent_crew import texts_script as t
 from my_agent_crew.mcp.tool_search import SEARCH_TOOL
 from my_agent_crew.mcp.tools import CompanionTool, McpTool, build_tools
 from my_agent_crew.script import tool as script_module
+from my_agent_crew.script.limits import MAX_BATCH
 from my_agent_crew.script.runner import Outcome
 from my_agent_crew.script.scope import NOT_FROM_SCRIPT, SCRIPT_TOOL, scriptable, unknown_tool
 from my_agent_crew.script.signature import JSON_TYPES, signature
@@ -712,11 +713,20 @@ def test_the_model_is_told_which_tools_a_script_can_call():
 
     assert told == t.SCRIPT_DESCRIPTION.format(
         calls=25,
+        batch=MAX_BATCH,
+        example=t.SCRIPT_BATCH_EXAMPLE,
         builtins="\nCông cụ có sẵn gọi được từ script: rows_read, notes_read.",
         mcp="\nCông cụ MCP gọi được từ script (cần tham số chi tiết thì tra bằng tools.describe):\n"
         f"- {SEARCH_NAME}(query: string): [MCP notion] Find pages by words.",
     )
     assert "Mỗi script gọi công cụ tối đa 25 lần." in told
+    # How to ask for several calls at once, how many, and a script that does it.
+    assert "tools.batch(" in told and f"tối đa {MAX_BATCH} lời gọi" in told
+    assert t.SCRIPT_BATCH_EXAMPLE in told
+    # What a batch does not change: one call that failed spoils none of the others, and each
+    # call still counts among the most a script may make.
+    assert "một lời gọi lỗi không làm hỏng các lời gọi còn lại." in told
+    assert "Mỗi lời gọi trong lô vẫn tính vào 25 lần." in told
     # A tool is named once, where it belongs; one a script may not call is not named.
     assert told.count(SEARCH_NAME) == 1 and CREATE_NAME not in told
     assert "notes_write" not in told and "progress_note" not in told
@@ -727,7 +737,9 @@ def test_a_part_with_nothing_to_list_is_left_out_of_what_the_model_is_told():
     own = toolbox(Reads("rows_read").tool).get(SCRIPT_TOOL).description
     served = toolbox(*built(**OPENED)).get(SCRIPT_TOOL).description
 
-    assert nothing == t.SCRIPT_DESCRIPTION.format(calls=25, builtins="", mcp="")
+    assert nothing == t.SCRIPT_DESCRIPTION.format(
+        calls=25, batch=MAX_BATCH, example=t.SCRIPT_BATCH_EXAMPLE, builtins="", mcp=""
+    )
     assert "Công cụ có sẵn" not in nothing and "Công cụ MCP" not in nothing
     assert "Công cụ có sẵn gọi được từ script: rows_read." in own and "Công cụ MCP" not in own
     assert "Công cụ có sẵn" not in served and f"- {SEARCH_NAME}(" in served

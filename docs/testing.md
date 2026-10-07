@@ -5226,6 +5226,36 @@ những gì nó in ra mới quay về cho model ([tools.md](tools.md#gọi-tool-
     `tests/test_script_turns.py` (một lượt
     tra tool xong thì máy chủ không bị hỏi và run không giữ lời gọi nào; tool model chưa được
     khai được một script tìm ra và script sau gọi).
+- **Gọi theo lô (`tools.batch`)**:
+  - pytest: `tests/test_script_batch.py` (một lô được trả lời từng lời gọi, đúng thứ tự đã viết,
+    viết theo vị trí hay theo tên `calls` đều được; một lời gọi lỗi là câu trả lời riêng của nó và
+    các lời gọi kia được giữ; thứ gửi đi là thứ JSON mang được, như với lời gọi lẻ; lô dài đúng
+    mười thì chạy, dài hơn một lời gọi thì không; mỗi cách hỏi sai (không có gì, hai thứ, thêm
+    tham số lạ, tên tham số khác, không phải list kể cả tuple hay chữ, rỗng, dài quá, phần tử
+    không phải dict, thiếu hay sai kiểu `tool`, `args` sai kiểu, khoá lạ trong phần tử, tham số quá
+    100.000 ký tự hay không phải JSON) là một lỗi bắt được, không lời gọi nào được gửi, và câu lỗi
+    nêu đúng số thứ tự của phần tử đầu tiên sai, đếm từ 0; lô bị từ chối không tốn lời gọi nào;
+    mỗi lời gọi của lô là một trong 25, kể cả lời gọi lỗi; lô nhiều hơn số lời gọi còn lại là lỗi
+    bắt được và không tốn gì, còn hết sạch thì script dừng như lời gọi lẻ thứ 26; lời gọi script
+    không được gọi làm dừng script dù nó đã in gì; câu trả lời của cả lô tính chung vào bộ nhớ như
+    mọi giá trị script cầm, dù từng câu đều nhỏ; ví dụ trong lời mô tả chạy đúng như được viết),
+    `tests/test_script_batch_run.py` (các lời gọi của lô chạy cùng lúc, nhiều nhất bốn và đủ bốn;
+    câu trả lời và các lời gọi giữ lại cho thẻ run theo thứ tự viết chứ không theo thứ tự xong;
+    mỗi lời gọi được tính giờ từ lúc nó bắt đầu chứ không từ lúc cả lô được hỏi; lời gọi lỗi là
+    câu trả lời riêng và các lời gọi kia vẫn chạy; tên không có là một lời gọi lỗi mà không nằm
+    trong các lời gọi giữ lại; hook của agent được hỏi về từng lời gọi; mỗi câu trả lời giao nguyên
+    tới mức script nhận; lời gọi trả tiền cho model mang giá của nó; lô có một lời gọi script không
+    được gọi thì không lời gọi nào chạy, script dừng, câu nói là của lời gọi đầu tiên theo thứ tự
+    viết trong số bị từ chối, và mỗi lời gọi của lô đều có đúng một câu trả lời),
+    `tests/test_script_runner.py` (tiến trình con gửi một lô và từng lời gọi được trả lời ở tiến
+    trình này; lô bị từ chối là lỗi để script bắt; câu trả lời đầu tiên mang cờ dừng thì dừng
+    script dù nó đã in gì; chạy không có nơi gọi theo lô thì được nói là không gọi được; lô dài
+    đúng mức mà mỗi lời gọi mang tham số dài nhất, nặng nhất khi viết ra, vẫn tới đủ; dòng nói về
+    lô mà sai thoả thuận làm tiến trình bị coi là đã chết), `tests/test_script_turns.py` (mỗi lời
+    gọi của lô được tính tiền và giữ lại như khi gọi lẻ), `tests/test_script_tool.py` (lời mô tả
+    dạy `tools.batch`, nêu mức tối đa và có ví dụ), `tests/test_script_discovery.py` (tên `batch`
+    thuộc về `tools` như ba tên tra cứu: tool đặt tên vậy không gọi được từ script, và không tool
+    có sẵn nào của sản phẩm mang một trong bốn tên đó).
 - **Ai được giao `tool_script`**:
   - pytest: `tests/test_script_tool.py` (agent có tool chủ ghi chỉ đọc, ở mức mở nào cũng được,
     được giao nó, sau `tool_search` và trước các tool của máy chủ, lời mô tả chỉ nêu tool script
@@ -5315,7 +5345,7 @@ những gì nó in ra mới quay về cho model ([tools.md](tools.md#gọi-tool-
   `script/tool.py` (thêm dòng chỉ cách gọi sau lời gọi thành công hay sau mọi lỗi; thay lời của
   tool bằng dòng ấy, hay bỏ nó khỏi thẻ run hoặc khỏi câu trả lời; tên không có làm dừng script
   hay không gợi ý tên gần nhất; lời từ chối không bắt được; không nối lời tra vào script). Năm ở
-  `script/runner.py` (đọc lời tra như lời gọi; gửi lời từ chối như câu trả lời; không xét kiểu
+  `script/runner.py` (nay ở `script/replies.py`; đọc lời tra như lời gọi; gửi lời từ chối như câu trả lời; không xét kiểu
   tên và tham số của một lời gọi; chạy không có nơi tra mà vẫn trả lời), một ở `script/child.py`
   (bỏ qua lời từ chối) và một ở `mcp/tool_search.py` (tool có sẵn không đưa tên vào xếp hạng).
   Vòng đầu sót mười ba: bốn ở `script/discovery.py` (kiểu của `limit`, `query` và `name`, và câu
@@ -5324,6 +5354,36 @@ những gì nó in ra mới quay về cho model ([tools.md](tools.md#gọi-tool-
   của `describe`, hạn số giá trị và độ dài giá trị của enum, enum có giá trị không phải chữ hay
   số nguyên, tên chỉ khớp phần đầu, độ sâu, lời của tham số và lời mô tả không bị cắt). Mỗi cái
   được thêm test, rồi cả bảy mươi chín đều bị bắt.
+- Gọi theo lô (`tools.batch`): bảy mươi hai sửa đổi, bảy mươi mốt bị bắt, một tương đương. Ba
+  mươi bốn ở `script/calls.py` (mốc 100.000 ký tự và mốc 25 lần lệch một; tham số không đi qua
+  JSON; cho qua cách viết lẫn vị trí với tên, tuple, lô rỗng, lô dài quá, phần tử thừa khoá, thiếu
+  `args` hay sai kiểu `tool` và `args`; lỗi không nêu số thứ tự của phần tử, nêu luôn số 0 hay đếm
+  từ một; chỗ còn lại tính lệch một, hết sạch chỗ mà vẫn chỉ là lỗi bắt được, thiếu chỗ mà làm
+  dừng script; lô đếm như một lời gọi hay không đếm; câu trả lời của lô tính theo cái lớn nhất
+  hay không tính; câu trả lời và lời gọi gửi đi bị đảo). Hai ở `script/namespaces.py` (đem `batch`
+  đi gọi như một tool, hay không giữ tên ấy) và một ở `script/scope.py` (tool đặt tên giống một
+  lời tra vẫn gọi được). Mười một ở `script/replies.py` (không xét kiểu của cặp, tên, tham số, lô
+  hay thông điệp; lô rỗng hay lô dài tối đa không được trả lời; lô không giới hạn độ dài; lời gọi
+  sai hình bị bỏ qua; lô bị từ chối không được nói ra; câu trả lời bị đảo). Ba ở `script/child.py`
+  (lô bị từ chối không thành lỗi cho script bắt; cờ dừng của lô bị bỏ qua; câu trả lời bị đảo). Hai ở
+  `script/runner.py` (dòng nói về lô bị giới hạn ở 4 MiB và 5 MiB, trong khi lô dài nhất mà mỗi
+  lời gọi mang tham số dài nhất, nặng nhất khi viết ra, cần hơn 5 MiB). Mười ba ở `script/tool.py`
+  (nhiều hơn bốn lời gọi cùng lúc, chỉ một, hay không giới hạn; từ chối chỉ khi mọi lời gọi bị từ
+  chối, không làm dừng script, coi lời gọi chưa chạy là thành công, hay chỉ xét trong số tool
+  script được gọi thay vì mọi tool agent giữ; giữ lời gọi theo thứ tự xong; tên không có bị ghi như một
+  lời gọi hay được coi là thành công; tính giờ từ lúc lô được hỏi; lời mô tả không nêu mức tối đa
+  hay ví dụ) và hai ở `texts_script.py` (lời mô tả không nói lô vẫn tính vào số lần gọi, hay nói
+  một lời gọi lỗi làm hỏng cả lô). Vòng đầu sót bốn. Ba trong số đó là chỗ test hở: `t8` (giữ lời
+  gọi theo thời gian giảm dần, mà test viết lời gọi lâu nhất trước nên trùng đúng thứ tự viết), và
+  hai câu trong lời mô tả vì test so lời mô tả với chính hằng số tạo ra nó nên đổi chữ vẫn qua.
+  Test thứ tự nay viết ba lời gọi theo thứ tự mà không cách xếp nào khác trùng (không ngắn nhất
+  trước, không dài nhất trước, không theo tên, không đảo của những thứ ấy), và test lời mô tả so
+  hai câu ấy nguyên văn; thêm bốn sửa đổi quanh `t8` (ngắn nhất trước, theo lúc xong, đảo, theo
+  tên) và cả bảy đều bị bắt. Cái còn lại là tương đương: `except (TypeError, ValueError)` thành
+  `except TypeError` quanh `json.dumps` ở `script/calls.py`. `ValueError` không tới được đó:
+  `Budget.measure` đã báo TOO_NESTED với giá trị chứa chính nó trước khi tới đây, `json.dumps` cho
+  NaN và vô cực qua, và số nguyên của script bị chặn ở 256 bit nên không đủ dài để bị từ chối. Vế
+  ấy được giữ lại như lớp phòng thủ, đúng như đoạn code cũ mà nó được chuyển từ đó sang.
 - Vòng đầu ở server sót một trăm linh sáu trên sáu trăm bốn mươi bốn: mười tám ở tool, tiến
   trình con và chỗ nối, tám mươi tám ở ngôn ngữ (hai sửa đổi nữa được thêm sau đó). Mỗi cái được
   thêm test, trừ ba điều kiện hoá ra không bao giờ quyết định gì và bị bỏ kèm chứng minh: một ở

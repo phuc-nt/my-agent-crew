@@ -29,6 +29,10 @@ from my_agent_crew.script.values import Builtin, Env, Function, Return, kind_nam
 # Hands back a tool's output; raises `ScriptError` when the tool failed, and `Halt` when
 # the script may not make that call at all.
 CallTool = Callable[[str, dict[str, Any]], str]
+# Makes several calls together and hands back, for each in the order given, whether it
+# succeeded and its output or its error; raises `Halt` when one is a call the script may not
+# make.
+CallTools = Callable[[list[tuple[str, dict[str, Any]]]], list[tuple[bool, str]]]
 # Hands back what a script asked to know of the tools it may call (a list, a text);
 # raises `ScriptError` when the answer is a refusal.
 Ask = Callable[[str, dict[str, Any]], Any]
@@ -65,9 +69,10 @@ def _bind(called: Function, args: list[Any], kwargs: dict[str, Any], scope: Env)
 
 
 class Machine:
-    def __init__(self, call_tool: CallTool, ask: Ask):
+    def __init__(self, call_tool: CallTool, ask: Ask, call_tools: CallTools):
         self.call_tool = call_tool
         self.ask = ask
+        self.call_tools = call_tools
         self.budget = Budget()
         self.globals = Env()
         self.out: list[str] = []
@@ -142,14 +147,14 @@ def _line(error: Exception, machine: Machine) -> int:
     return getattr(error, "script_line", machine.line)
 
 
-def run(source: str, call_tool: CallTool, ask: Ask) -> dict[str, Any]:
+def run(source: str, call_tool: CallTool, ask: Ask, call_tools: CallTools) -> dict[str, Any]:
     """Runs a script to its end: `ok`, the `output` it printed, and the `error` line when
     it was refused, failed or was stopped."""
     try:
         tree = parse(source)
     except ScriptError as refused:
         return {"ok": False, "output": "", "error": str(refused)}
-    machine = Machine(call_tool, ask)
+    machine = Machine(call_tool, ask, call_tools)
     error: str | None = None
     try:
         machine.run(tree)
