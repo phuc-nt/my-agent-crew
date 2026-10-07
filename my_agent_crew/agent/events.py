@@ -62,8 +62,11 @@ class ToolResultEvent:
     # when `metered`; None there means the provider gave no price. The run adds it up.
     cost_usd: float | None = None
     metered: bool = False
-    # The calls a script made on its own (`tool_script`), each as a timeline row keeps one.
+    # The calls a script made on its own (`tool_script`), each as a timeline row keeps one,
+    # and how much of their answers it was handed and how much it printed back.
     calls: list[dict[str, Any]] = field(default_factory=list)
+    received_chars: int | None = None
+    printed_chars: int | None = None
 
 
 @dataclass(frozen=True)

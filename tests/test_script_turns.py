@@ -126,6 +126,49 @@ async def test_the_run_keeps_each_call_the_script_made(served):
     assert tools == [SCRIPT_TOOL]
 
 
+async def test_the_run_keeps_what_the_script_was_handed_and_what_it_printed(served):
+    app, _ = await scripting(served, [completion(tool_calls=[RUN]), completion("Xong.")])
+
+    result = the_result(await say(app))
+
+    # Two answers of ten characters went in, and thirty-three came out.
+    assert (result["received_chars"], result["printed_chars"]) == (20, 33)
+    step = the_step(app)
+    assert (step["received_chars"], step["printed_chars"]) == (20, 33)
+
+
+async def test_a_tool_that_is_no_script_leaves_the_step_without_the_two_numbers(served):
+    held = [reading("rows_read")]
+    app, _ = await scripting(
+        served,
+        [completion(tool_calls=[ToolCall("r1", "rows_read", {})]), completion("Xong.")],
+        extra_tools=held,
+    )
+
+    result = the_result(await say(app))
+
+    assert (result["received_chars"], result["printed_chars"]) == (None, None)
+    [step] = [step for step in stored_run(app).steps if step.get("name") == "rows_read"]
+    assert "received_chars" not in step and "printed_chars" not in step
+
+
+def test_a_step_keeps_the_two_numbers_when_they_are_zero_and_has_none_when_they_are_unset():
+    run = RunRecord("r1", "default", "c1", "chat", "t", RUNNING, "2026-10-06T08:00:00")
+    apply_event(run, ToolCallEvent("p1", SCRIPT_TOOL, {"script": "pass"}), 10.0)
+    apply_event(
+        run,
+        ToolResultEvent("p1", SCRIPT_TOOL, True, "x", received_chars=0, printed_chars=0),
+        11.0,
+    )
+    # A step written before the numbers existed, read back and shown as it is.
+    apply_event(run, ToolCallEvent("p2", SCRIPT_TOOL, {"script": "pass"}), 12.0)
+    apply_event(run, ToolResultEvent("p2", SCRIPT_TOOL, True, "x"), 13.0)
+
+    counted, uncounted = run.steps
+    assert (counted["received_chars"], counted["printed_chars"]) == (0, 0)
+    assert "received_chars" not in uncounted and "printed_chars" not in uncounted
+
+
 def test_a_step_keeps_the_calls_of_a_script_and_bills_the_ones_that_paid_a_model():
     run = RunRecord("r1", "default", "c1", "chat", "t", RUNNING, "2026-10-06T08:00:00")
     made = [

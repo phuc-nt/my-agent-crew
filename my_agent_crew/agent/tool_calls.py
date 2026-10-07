@@ -82,6 +82,8 @@ async def _record(deps: AgentDeps, conv_id: str, call: ToolCall, result: ToolRes
         cost_usd=result.cost_usd if result.metered else None,
         metered=result.metered,
         calls=[asdict(nested) for nested in result.calls],
+        received_chars=result.received_chars,
+        printed_chars=result.printed_chars,
     )
 
 

@@ -55,6 +55,8 @@ class _Run:
 
     held: ToolRegistry
     calls: list[NestedCall] = field(default_factory=list)
+    # The characters of tool answers the script was handed.
+    received: int = 0
 
     def __post_init__(self) -> None:
         self.allowed = ToolRegistry(callable_tools(self.held), RAW_LIMIT, self.held.hooks)
@@ -110,6 +112,7 @@ class _Run:
         if not result.ok and misfits(tool, arguments):
             # The tool's own words for what went wrong stay; how it is called comes after.
             output = f"{output}\n{t.SCRIPT_CALL_LIKE.format(line=call_line(tool))}"
+        self.received += len(output)
         nested = NestedCall(
             name=name,
             arguments=argument_preview(arguments),
@@ -153,11 +156,18 @@ def script_tool(registry: Callable[[], ToolRegistry], scripted: Sequence[McpTool
             source, made.answer, lookup=made.lookup, call_many=made.answer_many
         )
         said = outcome.output.rstrip()
+        printed = len(said)
         if outcome.error:
             said = f"{said}\n{outcome.error}" if said else outcome.error
         if not outcome.ok:
             said = f"{t.SCRIPT_FAILED}\n{said}".rstrip()
-        return ToolResult(ok=outcome.ok, output=said or t.SCRIPT_NO_OUTPUT, calls=tuple(made.calls))
+        return ToolResult(
+            ok=outcome.ok,
+            output=said or t.SCRIPT_NO_OUTPUT,
+            calls=tuple(made.calls),
+            received_chars=made.received,
+            printed_chars=printed,
+        )
 
     builtins = [tool.name for tool in callable_tools(registry()) if not isinstance(tool, McpTool)]
     return CompanionTool(

@@ -229,6 +229,79 @@ async def test_each_call_a_script_made_is_kept_for_the_run_card():
     assert 0 <= second.ms < 290
 
 
+async def test_a_script_reports_what_its_calls_handed_it_and_what_it_printed():
+    rows = Reads("rows_read", "dòng\n" * 100)
+    note = Reads("note_read", "ghi chú")
+
+    result = await play(
+        toolbox(rows.tool, note.tool),
+        """
+        text = tools.rows_read()
+        short = tools.note_read()
+        print(len(text.split()), short)
+        """,
+    )
+
+    assert result.output == "100 ghi chú"
+    # 500 characters of rows and 7 of the note went in; 11 came out.
+    assert (result.received_chars, result.printed_chars) == (507, 11)
+
+
+async def test_a_script_that_calls_nothing_received_nothing():
+    result = await play(toolbox(Reads("rows_read").tool), 'print("không gọi gì")')
+
+    assert (result.received_chars, result.printed_chars) == (0, 12)
+
+
+async def test_a_call_that_failed_counts_as_what_the_script_was_handed():
+    gone = Reads("gone_read", ToolError("không có trang"))
+    failed = TOOL_FAILED.format(error="không có trang")
+
+    result = await play(
+        toolbox(gone.tool),
+        """
+        try:
+            tools.gone_read()
+        except Exception as e:
+            print("lỗi")
+        """,
+    )
+
+    assert result.ok and result.output == "lỗi"
+    assert (result.received_chars, result.printed_chars) == (len(failed), 3)
+
+
+async def test_a_name_that_is_no_tool_hands_the_script_no_answer_to_count():
+    result = await play(
+        toolbox(Reads("rows_read").tool),
+        """
+        try:
+            tools.rows_raed()
+        except Exception as e:
+            print("sai tên")
+        """,
+    )
+
+    assert result.ok and result.output == "sai tên" and result.calls == ()
+    assert (result.received_chars, result.printed_chars) == (0, 7)
+
+
+async def test_a_script_that_failed_printed_only_what_it_printed_before_it_did():
+    rows = Reads("rows_read", "mười chữ.")
+
+    result = await play(
+        toolbox(rows.tool),
+        """
+        print("trước", len(tools.rows_read()))
+        tools.rows_raed()
+        """,
+    )
+
+    assert not result.ok and result.output.startswith(f"{t.SCRIPT_FAILED}\ntrước 9\n")
+    # The report of the failure is not something the script printed, nor is the line's end.
+    assert (result.received_chars, result.printed_chars) == (9, 7)
+
+
 async def test_a_call_that_paid_a_model_carries_its_price_and_a_free_one_carries_none():
     priced = Reads("priced_read", ToolResult(ok=True, output="một", cost_usd=0.004, metered=True))
     unpriced = Reads("unpriced_read", ToolResult(ok=True, output="hai", metered=True))
