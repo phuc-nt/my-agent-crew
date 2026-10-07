@@ -5349,7 +5349,9 @@ mất có mặt ngay ở lần gọi model kế tiếp ([agents.md](agents.md#ma
     lại kết quả; câu hỏi thường vẫn tự trả lời 3/3. Bản này, máy chủ ngoài tầm với: 5/6 lượt
     master nói rõ dịch vụ chưa kết nối được mà không giao việc, một lượt vẫn giao. Trước khi lời
     dặn có câu về dịch vụ ngoài tầm với thì cả 6/6 lượt đều giao và 5 lượt thuật lại là "không có
-    công cụ".
+    công cụ". Chạy lại cả hai trạng thái sau khi lời dặn có thêm câu về dòng Công cụ: máy chủ đã
+    nối 6/6 lượt giao đúng agent và câu hỏi thường 3/3, máy chủ ngoài tầm với 6/6 lượt nói rõ mà
+    không giao. Mỗi ca chỉ ba lượt, nên các con số này cho biết chiều hướng chứ không phải tỉ lệ.
   - Server của bộ eval chạy `--no-schedule` nên không tự nối máy chủ MCP lúc khởi động: muốn có
     trạng thái đã nối thì gọi `POST /api/mcp/<tên>/reconnect` ngay khi server lên, và đặt một ca
     không dính tới máy chủ ở đầu tệp ca.
