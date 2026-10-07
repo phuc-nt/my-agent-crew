@@ -90,6 +90,36 @@ CREW_ROSTER_INTRO = (
 # No workspace path: a master that knows where a peer keeps its files starts telling it
 # which file to write, and invents the ones it does not know.
 CREW_ROSTER_LINE = "- {id} — {name} ({mode}): {description}"
+# Under an agent's line, one for each kind of thing it holds (`agents/abilities.py`).
+CREW_ABILITY_LINE = "  · {kind}: {held}"
+CREW_SERVICES = "Dịch vụ ngoài (MCP)"
+CREW_SKILLS = "Kỹ năng"
+CREW_JOBS = "Việc tự chạy theo lịch"
+CREW_TOOLS = "Công cụ"
+CREW_MODEL = "Mô hình"
+CREW_MODEL_ESCALATES = "{model}; khi bí thì tự chuyển sang {escalation}"
+CREW_SERVICE = "{name} ({standing})"
+CREW_SERVICE_ABOUT = "{service} — {description}"
+CREW_SERVICE_READ_WRITE = "đọc và ghi"
+CREW_SERVICE_READ_ONLY = "chỉ đọc"
+CREW_SERVICE_SIGNED_OUT = "chưa dùng được: người dùng cần đăng nhập ở trang Máy chủ MCP"
+CREW_SERVICE_DOWN = "chưa kết nối được lúc này"
+CREW_SKILL_ABOUT = "{name} ({description})"
+CREW_NAMES_SAME = "như của bạn"
+CREW_NAMES_EXTRA = "thêm: {names}"
+CREW_NAMES_MISSING = "không có: {names}"
+# Closes the roster when some agent has such lines. Without it a master that once said the
+# crew could not do a thing keeps saying so after an agent was given what the thing needs.
+CREW_ROSTER_ABILITIES_NOTE = (
+    "Các dòng thụt vào dưới mỗi agent không do ai viết tay: hệ thống đọc từ đội đang chạy "
+    "mỗi lần bạn được gọi, nên đó là thứ agent ấy thật sự có ngay lúc này (dịch vụ ngoài, kỹ "
+    "năng, việc theo lịch, công cụ, mô hình). Khi chúng khác với phần mô tả hay với điều bạn "
+    "từng nói trong cuộc trò chuyện này thì tin chúng: nếu trước đó bạn bảo không làm được "
+    "một việc mà nay có agent nắm đúng thứ việc đó cần, hãy giao cho agent ấy. Việc cần một "
+    "dịch vụ, kỹ năng hay công cụ bạn không có mà một agent có: giao cho agent đó, đừng trả "
+    "lời là không làm được. Các dòng này không kể hết việc một agent làm được trong lĩnh vực "
+    "của nó; phần đó xem ở mô tả."
+)
 
 DELEGATED_TURN_TITLE = "Việc được giao"
 DELEGATED_TURN_BODY = (

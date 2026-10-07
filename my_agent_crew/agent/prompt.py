@@ -135,7 +135,11 @@ def system_prompt_for(deps: AgentDeps, conv: Conversation | None = None) -> str:
     tool_names = declared_names(deps.tools)
     # An agent only hears about its crew when it holds the tool to reach them: a child
     # turn runs without `delegate`, and a roster it cannot act on would only mislead it.
-    roster = crew_roster_section(profile, deps.peers) if DELEGATE_TOOL_NAME in tool_names else None
+    roster = (
+        crew_roster_section(profile, deps.peers, deps.crew)
+        if DELEGATE_TOOL_NAME in tool_names
+        else None
+    )
     # A delegated turn opens with another agent's words, not the person's; without saying
     # so the child obeys a guessed file path as if the person had asked for it.
     delegated = (

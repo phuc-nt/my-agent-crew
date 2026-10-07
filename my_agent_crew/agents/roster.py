@@ -7,9 +7,10 @@ enough to put it at the master's disposal. Any other agent reaches only what it 
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 
 from my_agent_crew import texts
+from my_agent_crew.agents.abilities import Abilities, ability_lines
 from my_agent_crew.agents.profile import AgentProfile
 
 # The name of the tool that hands a task over. It lives here rather than in the tool
@@ -27,22 +28,33 @@ def delegate_targets(profile: AgentProfile, peers: Mapping[str, AgentProfile]) -
 
 
 def crew_roster_section(
-    profile: AgentProfile, peers: Mapping[str, AgentProfile]
+    profile: AgentProfile,
+    peers: Mapping[str, AgentProfile],
+    crew: Callable[[], Mapping[str, Abilities]] | None = None,
 ) -> tuple[str, str] | None:
     """A system-prompt section listing each agent this one may hand work to, with the
     guidance on when to. None when there is nobody to list: the tool then only offers a
-    clean second context of the agent itself, which needs no roster."""
+    clean second context of the agent itself, which needs no roster.
+
+    The line of an agent is what its owner wrote of it. `crew`, asked only when there is
+    somebody to list, says what each agent holds right now, and that goes under its line."""
     ids = delegate_targets(profile, peers)
     targets = [peers[agent_id] for agent_id in ids if agent_id in peers]
     if not targets:
         return None
-    lines = [
-        texts.CREW_ROSTER_LINE.format(
-            id=peer.id,
-            name=peer.name,
-            mode=peer.mode,
-            description=peer.description or texts.CREW_ROSTER_NO_DESCRIPTION,
+    known = crew() if crew is not None else {}
+    lines, told = [], False
+    for peer in targets:
+        lines.append(
+            texts.CREW_ROSTER_LINE.format(
+                id=peer.id,
+                name=peer.name,
+                mode=peer.mode,
+                description=peer.description or texts.CREW_ROSTER_NO_DESCRIPTION,
+            )
         )
-        for peer in targets
-    ]
-    return texts.CREW_ROSTER_TITLE, "\n".join([texts.CREW_ROSTER_INTRO, *lines])
+        held = ability_lines(known[peer.id], known.get(profile.id)) if peer.id in known else []
+        lines.extend(held)
+        told = told or bool(held)
+    closing = ["", texts.CREW_ROSTER_ABILITIES_NOTE] if told else []
+    return texts.CREW_ROSTER_TITLE, "\n".join([texts.CREW_ROSTER_INTRO, *lines, *closing])

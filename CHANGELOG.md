@@ -11,6 +11,23 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+### Changed
+
+- The master is now told what every agent it can hand work to holds at that moment, instead of
+  only the description its owner wrote. Under each agent's line of the crew roster the system
+  prompt carries lines read from the running crew each time a prompt is built: the MCP servers
+  the agent reaches and whether it reads and writes there, only reads, waits for the owner to
+  sign in or cannot connect; its skills, with what a skill the master lacks is for; the scheduled
+  jobs that are switched on, those made in a chat included; its tools; its model and the model a
+  stuck turn moves to. Tools and skills are told against the master's own ("như của bạn, thêm:
+  …") where that is shorter. Nothing is cached, so a server given to an agent, an OAuth sign-in,
+  a new skill, a job switched on or off, a changed `tools` or `routes` list and an agent added
+  or removed all reach the master on its next model call with nobody editing a description. A
+  closing note tells the master that these lines outrank the description and what it said
+  earlier in the conversation, and to hand over work that needs something another agent holds
+  rather than answer that it cannot be done. What an agent does only through its persona or
+  through scripts in its workspace is still told by `description` alone.
+
 ## [0.12.0] — 2026-10-07
 
 ### Changed

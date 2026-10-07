@@ -23,6 +23,7 @@ from my_agent_crew.mcp.hub import McpHub
 from my_agent_crew.memory.session_summary import schedule_summary
 from my_agent_crew.scheduler import Scheduler
 from my_agent_crew.server.agent_assembly import build_agent_deps
+from my_agent_crew.server.crew_abilities import crew_abilities
 from my_agent_crew.store import Store
 from my_agent_crew.tools.delegate import DELEGATE_TOOL_NAME, build_delegate_tool
 
@@ -119,6 +120,8 @@ class Runtime:
         made. Called again after `add_agents`, it rebuilds every tool so the targets each
         one offers include the newcomers."""
         for deps in self.agents.values():
+            # Read when a prompt is built, so a roster tells what the crew holds by then.
+            deps.crew = lambda: crew_abilities(self)
             if not self.delegates(deps):
                 continue
             if deps.tools.get(DELEGATE_TOOL_NAME) is not None:

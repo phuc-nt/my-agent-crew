@@ -12,6 +12,7 @@ import yaml
 from my_agent_crew import texts
 from my_agent_crew.activity import ActivityHub
 from my_agent_crew.agent.loop import AgentDeps, run_turn
+from my_agent_crew.agent.prompt import system_prompt_for
 from my_agent_crew.agents import DEFAULT_AGENT_ID, load_profiles
 from my_agent_crew.agents.profile import ASSISTANT, WORK, default_profile
 from my_agent_crew.agents.profile_yaml import MASTER_MANIFEST, load_master_profile
@@ -152,6 +153,28 @@ def test_agents_added_while_running_join_the_master_roster(tmp_path: Path):
     assert enum == [DEFAULT_AGENT_ID, "pong", "coder"]
     assert rt.deps_for("coder").peers is rt.default.peers  # one shared map, not a copy
     assert rt.add_agents(load_profiles(rt.settings)) == []  # nothing new the second time
+
+
+def test_an_agent_added_edited_or_removed_while_running_is_told_as_it_now_is(tmp_path: Path):
+    home = tmp_path / "home"
+    home.mkdir()
+    _write_agent(home, "pong", name="Pong")
+    env = {"MY_AGENT_HOME": str(home), "MY_AGENT_ROUTES": "fake:echo"}
+    rt = build_runtime(load_settings(env=env))
+    pong = f"- pong — Pong (assistant): {texts.CREW_ROSTER_NO_DESCRIPTION}\n  · Kỹ năng: "
+    assert pong in system_prompt_for(rt.default)
+
+    _write_agent(home, "coder", name="Coder", mode=WORK, tools=["workspace_read", "shell_run"])
+    rt.add_agents(load_profiles(rt.settings))
+    assert "\n  · Công cụ: workspace_read, shell_run\n" in system_prompt_for(rt.default)
+
+    rt.replace_agent(replace(rt.deps_for("coder").agent, tools=("workspace_read",)))
+    assert "\n  · Công cụ: workspace_read\n" in system_prompt_for(rt.default)
+    assert all(deps.crew is not None for deps in rt.agents.values())
+
+    rt.remove_agent("coder")
+    assert "- coder — " not in system_prompt_for(rt.default)
+    assert pong in system_prompt_for(rt.default)
 
 
 def test_a_runtime_built_around_one_agent_refuses_to_grow(settings: Settings, store: Store):

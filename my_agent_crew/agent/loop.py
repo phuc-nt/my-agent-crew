@@ -3,7 +3,7 @@ function: settle unfinished tool calls, then either finish or ask the model agai
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Mapping, Sequence
+from collections.abc import AsyncIterator, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from functools import partial
 
@@ -33,6 +33,7 @@ from my_agent_crew.agent.turn_context import (
     set_turn_source,
 )
 from my_agent_crew.agent.turn_notes import notes_for
+from my_agent_crew.agents.abilities import Abilities
 from my_agent_crew.agents.profile import AgentProfile, default_profile
 from my_agent_crew.config import Settings
 from my_agent_crew.llm.provider import ProviderChain, ProviderError
@@ -62,6 +63,9 @@ class AgentDeps:
     peers: Mapping[str, AgentProfile] = field(default_factory=dict)
     # Where a stuck turn moves to, when the agent names such a route (`escalation.py`).
     escalation: ProviderChain | None = None
+    # What every agent of the running crew holds right now, by id (`agents/abilities.py`).
+    # The runtime sets it; without one the roster tells only what each owner wrote.
+    crew: Callable[[], Mapping[str, Abilities]] | None = None
 
     @property
     def agent(self) -> AgentProfile:
