@@ -273,14 +273,14 @@ describe("ToolsMatrix", () => {
       expect(within(head).getByText(vi.mcp.exposure.deferred)).toHaveAttribute("title", vi.mcp.exposureTitle.deferred);
     });
 
-    it("say of one opened for scripts that it is found like the rest, and called from a script when it only reads", () => {
+    it("say of one opened for scripts that it is found like the rest, and named by the script tool when it only reads", () => {
       render(<ToolsMatrix tools={[{ ...search, exposure: "codemode" }]} agents={[fakeAgent]} />);
 
       const badge = within(screen.getByTestId("tool-row")).getByText("gọi qua script");
       expect(badge).toHaveClass("badge");
       expect(badge).toHaveAttribute(
         "title",
-        "Không khai sẵn; agent tìm và nạp bằng tool_search như mức nạp khi cần. Công cụ nằm trong read_only thì còn gọi được từ script (tool_script).",
+        "Không khai sẵn; agent tìm và nạp bằng tool_search như mức nạp khi cần. Công cụ nằm trong read_only thì lời mô tả của tool_script còn nêu tên và tham số của nó.",
       );
     });
 
@@ -362,7 +362,7 @@ describe("ToolsMatrix", () => {
     });
   });
 
-  describe("the script that calls the MCP tools opened for scripts", () => {
+  describe("the script that calls the MCP tools that only read", () => {
     const coach: AgentInfo = { ...fakeAgent, id: "coach", name: "HLV", is_master: false };
     const find = searchTool(["coach", "default"]);
     const script = scriptTool(["default"]);
@@ -400,7 +400,7 @@ describe("ToolsMatrix", () => {
         expect(badge).toHaveClass("badge");
         expect(badge).toHaveAttribute(
           "title",
-          "Không thuộc danh sách công cụ của agent. Agent có tool_search khi được giao công cụ MCP không khai sẵn, và có tool_script khi một công cụ MCP chỉ đọc được mở cho script.",
+          "Không thuộc danh sách công cụ của agent. Agent có tool_search khi được giao công cụ MCP không khai sẵn, và có tool_script khi được giao một công cụ MCP nằm trong read_only (không ẩn).",
         );
       }
     });

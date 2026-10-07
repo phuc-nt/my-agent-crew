@@ -239,7 +239,7 @@ any platform ──POST /api/inbound (JSON, sync)─────┴─▶ Inboun
   Việc phải gọi một tool nhiều lần, hay chỉ cần vài dòng của một câu trả lời dài, agent viết
   thành script cho `tool_script`: script gọi tool và chỉ phần nó in ra mới vào ngữ cảnh. Script
   chỉ gọi được thứ chỉ đọc và không hỏi ai (tool có sẵn tự khai gọi lại được, và tool MCP chủ
-  vừa ghi `read_only` vừa mở `codemode`), nên nó không bao giờ đứng chờ duyệt và mọi lời gọi có
+  ghi `read_only` mà không ẩn), nên nó không bao giờ đứng chờ duyệt và mọi lời gọi có
   ghi vẫn qua cổng duyệt. Ngôn ngữ là một phần của Python do chính crew thông dịch, không
   `eval`, không import, không đọc thuộc tính; script chạy trong một tiến trình con với môi
   trường rỗng và các giới hạn cứng, trên macOS trong sandbox không mạng, không ghi, không fork.

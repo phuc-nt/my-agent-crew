@@ -399,16 +399,17 @@ export interface RegistryTool extends ToolInfo {
   server?: string;
   exposure?: McpExposure;
   /** Only on `tool_search` and `tool_script`: an agent holds the first while it has MCP
-   * tools that are not declared up front, and the second while one of them is opened for
-   * scripts, whatever its allow-list and mode say. */
+   * tools that are not declared up front, and the second while one of them is listed as
+   * read-only and not hidden, whatever its allow-list and mode say. */
   with_mcp?: boolean;
 }
 
 /**
  * How far a server's tool is let in. `direct` is declared to the model every turn;
  * `deferred` and `codemode` are held back until the agent asks for them, and a `codemode`
- * tool the owner listed as read-only can be called from a script as well; `hidden` is
- * handed to nobody. Must match the exposures in the backend's `mcp/config.py`.
+ * tool the owner listed as read-only is named in the description of the script tool; any
+ * read-only tool can be called from a script, however far it is let in, except `hidden`,
+ * which is handed to nobody. Must match the exposures in the backend's `mcp/config.py`.
  */
 export type McpExposure = "direct" | "deferred" | "codemode" | "hidden";
 

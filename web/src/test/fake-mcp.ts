@@ -94,8 +94,8 @@ export class FakeMcp {
 
   /** The rows GET /tools adds: a tool is listed once an agent holds it, and a hidden one
    *  is handed to nobody. An agent with a tool that is not declared up front holds the
-   *  search for it too, and one with a tool that only reads and is opened for scripts
-   *  holds the script tool as well (`mcp/handout.py`). */
+   *  search for it too, and one with a tool that only reads holds the script tool as well,
+   *  however far that tool is let in (`mcp/handout.py`). */
   registryTools(): RegistryTool[] {
     const searching = new Set<string>();
     const scripting = new Set<string>();
@@ -105,9 +105,8 @@ export class FakeMcp {
       const tools = server.status === "idle" ? (this.held.get(server.name) ?? server.tools) : server.tools;
       const handed = tools.filter((tool) => tool.exposure !== "hidden");
       if (handed.some((tool) => tool.exposure !== "direct")) for (const agent of agents) searching.add(agent);
-      // A tool that asks first is never a script's to call, whatever it is opened as.
-      if (handed.some((tool) => tool.exposure === "codemode" && !tool.requires_approval))
-        for (const agent of agents) scripting.add(agent);
+      // A tool that asks first is never a script's to call, however far it is let in.
+      if (handed.some((tool) => !tool.requires_approval)) for (const agent of agents) scripting.add(agent);
       return handed.map((tool) => ({
         name: tool.name,
         description: tool.description,

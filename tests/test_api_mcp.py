@@ -34,7 +34,8 @@ TRACKER = (
     "    headers:\n      Authorization: Bearer ${TRACKER_KEY}\n"
 )
 SEARCH, CREATE = "mcp__notion__search", "mcp__notion__create_page"
-# `search` is said to only read and is opened for scripts: the one way a script gets a tool.
+# `search` is said to only read, which is what makes it a script's to call, and is opened for
+# scripts, which is what lists it in the description of the script tool.
 SCRIPTED = NOTION + "    read_only: [search]\n    tool_exposure:\n      search: codemode\n"
 
 

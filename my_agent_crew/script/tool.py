@@ -4,11 +4,13 @@ A turn that needs the same tool twenty times, or three lines out of a long answe
 for every call and every answer in context. Here the model writes that work as a script:
 the script makes the calls, and only what it prints comes back.
 
-A script may call a tool that only reads and asks nobody, and of the MCP tools only the
-ones the owner let in as `codemode`. Anything that writes, or stops for a person, is
-called the ordinary way, where the approval gate sees it. So the script never asks for
-approval, and after a restart it is simply run again. Each call goes through a registry
-with the agent's own hooks, and is listed on the run card, since no other step shows it.
+A script may call a tool that only reads and asks nobody: of the MCP tools every one the
+owner listed under `read_only` that is not hidden, however far it is let in. How far decides
+only whether the description below names it or the model finds it with `tool_search`.
+Anything that writes, or stops for a person, is called the ordinary way, where the approval
+gate sees it. So the script never asks for approval, and after a restart it is simply run
+again. Each call goes through a registry with the agent's own hooks, and is listed on the
+run card, since no other step shows it.
 """
 
 from __future__ import annotations
@@ -22,7 +24,7 @@ from typing import Any
 from my_agent_crew import texts_script as t
 from my_agent_crew.activity.step_previews import argument_preview, preview
 from my_agent_crew.agents.roster import DELEGATE_TOOL_NAME
-from my_agent_crew.mcp.config import CODEMODE
+from my_agent_crew.mcp.config import CODEMODE, HIDDEN
 from my_agent_crew.mcp.tool_search import SEARCH_TOOL
 from my_agent_crew.mcp.tools import CompanionTool, McpTool, held_back, summary
 from my_agent_crew.script.limits import MAX_CALLS, MAX_SOURCE_CHARS
@@ -57,7 +59,7 @@ def scriptable(tool: Tool) -> bool:
     if not _reads(tool):
         return False
     if isinstance(tool, McpTool):
-        return tool.exposure == CODEMODE
+        return tool.exposure != HIDDEN
     return tool.name not in NOT_FROM_SCRIPT
 
 
@@ -72,10 +74,7 @@ def _refusal(held: ToolRegistry, name: str) -> str | None:
         return t.SCRIPT_UNKNOWN_TOOL.format(name=name, names=", ".join(_callable(held)))
     if scriptable(tool):
         return None
-    if not _reads(tool):
-        why = t.SCRIPT_ASKS_FIRST
-    else:
-        why = t.SCRIPT_NOT_OPENED if isinstance(tool, McpTool) else t.SCRIPT_NOT_FROM_SCRIPT
+    why = t.SCRIPT_NOT_FROM_SCRIPT if _reads(tool) else t.SCRIPT_ASKS_FIRST
     instead = t.SCRIPT_LOAD_THEN_CALL if held_back(tool) else t.SCRIPT_CALL_DIRECTLY
     return why.format(name=name, instead=instead)
 
@@ -134,9 +133,12 @@ def signature(tool: McpTool) -> str:
 
 
 def _description(builtins: Sequence[str], scripted: Sequence[McpTool]) -> str:
-    lines = [signature(tool) for tool in scripted[:MAX_LISTED]]
-    if len(scripted) > MAX_LISTED:
-        lines.append(t.SCRIPT_MCP_MORE.format(count=len(scripted) - MAX_LISTED))
+    """The tools the owner opened for scripts are named with their parameters; the model is
+    only told how many more a script may call, past the thirtieth or never opened."""
+    opened = [tool for tool in scripted if tool.exposure == CODEMODE]
+    lines = [signature(tool) for tool in opened[:MAX_LISTED]]
+    if len(scripted) > len(lines):
+        lines.append(t.SCRIPT_MCP_MORE.format(count=len(scripted) - len(lines)))
     return t.SCRIPT_DESCRIPTION.format(
         calls=MAX_CALLS,
         builtins=t.SCRIPT_BUILTINS.format(names=", ".join(builtins)) if builtins else "",

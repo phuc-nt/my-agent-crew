@@ -46,7 +46,6 @@ SCRIPT_NOT_FROM_SCRIPT = "`{name}` không gọi được từ script: {instead}.
 SCRIPT_ASKS_FIRST = (
     "`{name}` phải hỏi trước hoặc có ghi dữ liệu nên không gọi được từ script: {instead}."
 )
-SCRIPT_NOT_OPENED = "`{name}` chưa được mở cho script: {instead}."
 # What to do instead, for a tool told up front and for one that waits to be found.
 SCRIPT_CALL_DIRECTLY = "gọi trực tiếp"
 SCRIPT_LOAD_THEN_CALL = "nạp bằng tool_search rồi gọi trực tiếp"

@@ -247,11 +247,13 @@ down is a row that says why, never a crew that does not start.
 
 To keep the prompt small, a server's tools are `deferred` unless the file says otherwise: the
 model is not told of them on every call, and finds them with `tool_search`, which loads the best
-matches for the rest of the conversation. A tool that is both listed under `read_only` and let
-in as `codemode` (set per tool with `tool_exposure`) can also be called from `tool_script`: the
-model writes a short Python-like script that makes up to 25 read-only calls and only what it
-prints comes back, so a job that needs one tool twenty times does not pay for twenty answers in
-context. A script may call only tools that read and ask nobody; anything that
+matches for the rest of the conversation. A tool listed under `read_only` (and not `hidden`)
+can also be called from `tool_script`, however far it is let in: the model writes a short
+Python-like script that makes up to 25 read-only calls and only what it prints comes back, so a
+job that needs one tool twenty times does not pay for twenty answers in context. Letting a tool
+in as `codemode` (set per tool with `tool_exposure`) names it, with its parameters, in the
+description of `tool_script`; the others are found with `tool_search` as usual. A script may
+call only tools that read and ask nobody; anything that
 writes ends the script with a line saying to call it directly, where the approval gate sees it.
 The script runs in a process of its own with an empty environment and limits on memory, CPU and
 time, and on macOS inside a sandbox with no network and no writes.

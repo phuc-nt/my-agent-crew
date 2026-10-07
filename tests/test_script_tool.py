@@ -139,15 +139,25 @@ def test_the_tools_kept_from_scripts_are_these_four():
             {"read_only": ["search", "create-page"], "exposure": "codemode"},
             [SEARCH_NAME, CREATE_NAME],
         ),
-        # Said to read, and not opened: found with the search, or told up front.
-        ({"read_only": ["search"]}, []),
-        ({"read_only": ["search"], "exposure": "direct"}, []),
+        # The owner saying it reads is what lets a script call it; how far it is let in only
+        # decides whether the script is told of it up front or finds it.
+        ({"read_only": ["search"]}, [SEARCH_NAME]),
+        ({"read_only": ["search"], "exposure": "deferred"}, [SEARCH_NAME]),
+        ({"read_only": ["search"], "exposure": "direct"}, [SEARCH_NAME]),
+        ({"read_only": ["search"], "tool_exposure": {"search": "direct"}}, [SEARCH_NAME]),
+        ({"read_only": ["search", "create-page"]}, [SEARCH_NAME, CREATE_NAME]),
+        # A hidden tool is no agent's, so no script's.
         ({"read_only": ["search"], "tool_exposure": {"search": "hidden"}}, []),
-        # Opened, and only the server says it reads: that decides nothing.
+        ({"read_only": ["search"], "exposure": "hidden"}, []),
+        # Only the server says it reads, or the owner opened it without saying so: that
+        # decides nothing.
         ({"exposure": "codemode"}, []),
+        ({"exposure": "direct"}, []),
+        ({}, []),
+        ({"tool_exposure": {"search": "codemode"}}, []),
     ],
 )
-def test_a_servers_tool_is_a_scripts_when_the_owner_says_it_reads_and_opens_it(opened, may):
+def test_a_servers_tool_is_a_scripts_when_the_owner_says_it_reads_and_does_not_hide_it(opened, may):
     assert [tool.name for tool in built(**opened) if scriptable(tool)] == may
 
 
@@ -306,19 +316,20 @@ REFUSED = [
         "nạp bằng tool_search rồi gọi trực tiếp",
         {"tool_exposure": {"create-page": "codemode"}},
     ),
+    # Opening a tool does not make it a read: only the owner's `read_only` does.
     (
         f"tools.{SEARCH_NAME}(query='x')",
         SEARCH_NAME,
-        t.SCRIPT_NOT_OPENED,
-        "nạp bằng tool_search rồi gọi trực tiếp",
-        {"read_only": ["search"]},
+        t.SCRIPT_ASKS_FIRST,
+        "gọi trực tiếp",
+        {"tool_exposure": {"search": "direct"}},
     ),
     (
         f"tools.{SEARCH_NAME}(query='x')",
         SEARCH_NAME,
-        t.SCRIPT_NOT_OPENED,
-        "gọi trực tiếp",
-        {"read_only": ["search"], "tool_exposure": {"search": "direct"}},
+        t.SCRIPT_ASKS_FIRST,
+        "nạp bằng tool_search rồi gọi trực tiếp",
+        {"tool_exposure": {"search": "codemode"}},
     ),
 ]
 
@@ -355,6 +366,71 @@ async def test_a_call_a_script_may_not_make_ends_it_and_says_how_to_make_it(
     assert name in reason and reason.endswith(f": {instead}.")
     assert [one.asked for one in held] == [[]] * 5 and reached == []
     assert result.calls == ()
+
+
+@pytest.mark.parametrize(
+    "opened",
+    [
+        OPENED,
+        {"read_only": ["search"]},
+        {"read_only": ["search"], "exposure": "deferred"},
+        {"read_only": ["search"], "exposure": "direct"},
+        {"read_only": ["search"], "tool_exposure": {"search": "direct"}},
+    ],
+)
+async def test_a_tool_the_owner_says_reads_is_run_from_a_script_whatever_its_exposure(opened):
+    calls: list = []
+
+    result = await play(
+        toolbox(*notion(calls, **opened)), f"print(tools.{SEARCH_NAME}(query='kế hoạch'))"
+    )
+
+    assert (result.ok, result.output) == (True, "ran search")
+    assert calls == [("search", {"query": "kế hoạch"})]
+    assert [(call.name, call.ok) for call in result.calls] == [(SEARCH_NAME, True)]
+
+
+async def test_a_tool_left_out_of_the_listing_for_scripts_is_a_scripts_to_call_all_the_same():
+    """Being listed in the description is a convenience for the model, not a gate: a name it
+    learned from `tool_search` is as good as a listed one."""
+    calls: list = []
+    registry = toolbox(*notion(calls, read_only=["search"]))
+
+    result = await play(registry, f"print(tools.{SEARCH_NAME}(query='x'))")
+
+    assert (result.ok, result.output) == (True, "ran search")
+    assert SEARCH_NAME not in registry.get(SCRIPT_TOOL).description
+
+
+@pytest.mark.parametrize(
+    "opened",
+    [
+        {"read_only": ["search"], "tool_exposure": {"search": "hidden"}},
+        {"read_only": ["search"], "exposure": "hidden"},
+    ],
+)
+async def test_a_hidden_tool_is_not_run_from_a_script_even_when_one_holds_it(opened):
+    """No agent is handed a hidden tool, so the script tool never meets one outside a test;
+    were one registered it would still be refused, not run."""
+    reached: list = []
+    registry = toolbox(*notion(reached, **opened), Reads("rows_read").tool)
+
+    result = await play(
+        registry,
+        f"""
+        print("trước")
+        try:
+            tools.{SEARCH_NAME}(query='x')
+        except Exception as e:
+            print("bắt được")
+        print("sau")
+        """,
+    )
+
+    assert not result.ok and result.output.startswith(t.SCRIPT_FAILED)
+    assert result.output.splitlines()[1] == "trước" and SEARCH_NAME in result.output
+    assert "bắt được" not in result.output and "sau" not in result.output
+    assert reached == [] and result.calls == ()
 
 
 async def test_a_tool_the_agent_does_not_hold_is_answered_with_the_ones_a_script_can_call():
@@ -745,6 +821,44 @@ def test_a_script_is_told_of_thirty_tools_and_of_how_many_more_there_are():
     assert lines[30] == "- … và 2 công cụ nữa, tìm bằng tool_search."
 
 
+def test_a_script_is_told_up_front_only_of_the_tools_the_owner_opened_for_scripts():
+    listed = [{"name": f"read-{i}", "description": f"Reads {i}."} for i in range(5)]
+    names = [raw["name"] for raw in listed]
+    opened = {"read-1": "codemode", "read-3": "codemode"}
+
+    lines = listed_lines(built(listed, read_only=names, tool_exposure=opened))
+
+    # The other three are the script's to call as well: it is told how many there are.
+    assert lines == [
+        "- mcp__notion__read_1(): [MCP notion] Reads 1.",
+        "- mcp__notion__read_3(): [MCP notion] Reads 3.",
+        "- … và 3 công cụ nữa, tìm bằng tool_search.",
+    ]
+
+
+def test_a_script_with_no_tool_opened_for_it_is_still_told_how_many_it_may_call():
+    listed = [{"name": f"read-{i}", "description": f"Reads {i}."} for i in range(4)]
+    names = [raw["name"] for raw in listed]
+
+    told = toolbox(*built(listed, read_only=names)).get(SCRIPT_TOOL).description
+
+    assert [line for line in told.splitlines() if line.startswith("- ")] == [
+        "- … và 4 công cụ nữa, tìm bằng tool_search."
+    ]
+    assert "Công cụ MCP gọi được từ script" in told
+
+
+def test_the_tools_not_listed_are_counted_with_those_past_the_thirtieth():
+    listed = [{"name": f"read-{i:02}", "description": f"Reads {i}."} for i in range(35)]
+    names = [raw["name"] for raw in listed]
+    opened = {f"read-{i:02}": "codemode" for i in range(32)}
+
+    lines = listed_lines(built(listed, read_only=names, tool_exposure=opened))
+
+    assert len(lines) == 31 and lines[:30] == listed_lines(many(30))
+    assert lines[30] == "- … và 5 công cụ nữa, tìm bằng tool_search."
+
+
 async def test_a_tool_past_the_thirty_listed_is_a_scripts_to_call_all_the_same():
     calls: list = []
     listed = [{"name": f"read-{i:02}", "description": f"Reads {i}."} for i in range(32)]
@@ -771,19 +885,53 @@ async def test_an_agent_with_a_tool_opened_for_scripts_is_handed_the_script_tool
 
 
 @pytest.mark.parametrize(
+    ("opened", "told"),
+    [
+        ({"read_only": ["search"]}, [SEARCH_TOOL, SCRIPT_TOOL, SEARCH_NAME, CREATE_NAME]),
+        (
+            {"read_only": ["search"], "exposure": "deferred"},
+            [SEARCH_TOOL, SCRIPT_TOOL, SEARCH_NAME, CREATE_NAME],
+        ),
+        (
+            {"read_only": ["search"], "tool_exposure": {"search": "direct"}},
+            [SEARCH_TOOL, SCRIPT_TOOL, SEARCH_NAME, CREATE_NAME],
+        ),
+        # Every tool let in directly: nothing waits to be found, and the script tool is
+        # still there for the one that reads.
+        (
+            {"read_only": ["search"], "exposure": "direct"},
+            [SCRIPT_TOOL, SEARCH_NAME, CREATE_NAME],
+        ),
+    ],
+)
+async def test_an_agent_with_a_tool_that_reads_is_handed_the_script_tool_however_far_it_is_let_in(
+    deps_factory, opened, told
+):
+    deps, own, _ = await handed(deps_factory, server(**opened))
+
+    assert deps.tools.names() == [*own, *told]
+    description = deps.tools.get(SCRIPT_TOOL).description
+    # Not opened for scripts, so not listed; the script is told how many it may call.
+    assert SEARCH_NAME not in description
+    assert "- … và 1 công cụ nữa, tìm bằng tool_search." in description
+    assert CREATE_NAME not in description
+
+
+@pytest.mark.parametrize(
     "opened",
     [
         {},
-        {"read_only": ["search"]},
-        {"read_only": ["search"], "exposure": "direct"},
         # Opened for scripts without the owner saying it only reads: a script may not
         # call it, so there is nothing to hand a script tool for.
         {"tool_exposure": {"search": "codemode"}},
         {"exposure": "codemode"},
+        {"exposure": "direct"},
+        # What reads is hidden: no agent holds it.
         {"read_only": ["search"], "tool_exposure": {"search": "hidden"}},
+        {"read_only": ["search"], "exposure": "hidden"},
     ],
 )
-async def test_an_agent_with_nothing_opened_for_scripts_is_handed_no_script_tool(
+async def test_an_agent_with_no_tool_a_script_may_call_is_handed_no_script_tool(
     deps_factory, opened
 ):
     deps, _, _ = await handed(deps_factory, server(**opened))
@@ -806,9 +954,10 @@ async def test_handing_out_again_leaves_one_script_tool_in_its_place(deps_factor
     assert deps.tools.names() == first and first.count(SCRIPT_TOOL) == 1
 
 
-async def test_the_script_tool_goes_once_nothing_is_opened_for_scripts(deps_factory):
+async def test_the_script_tool_goes_once_no_tool_a_script_may_call_is_left(deps_factory):
     deps, own, _ = await handed(deps_factory, server(**OPENED))
-    closed = make_hub(FakeMcp(), server(read_only=["search"]))
+    # The owner took `read_only` off: the search asks first again, and is no script's.
+    closed = make_hub(FakeMcp(), server())
     await closed.connect()
 
     closed.attach({"default": deps})
@@ -842,16 +991,17 @@ async def test_a_script_of_an_agents_reads_its_files_and_its_servers(deps_factor
 
 async def test_a_delegated_run_calls_from_a_script_what_its_agent_holds_now(deps_factory):
     """A delegated run keeps the copy of the tools it was handed when it began. A tool the
-    owner closed for scripts meanwhile is not reached through the script tool of that copy."""
+    owner stopped calling a read meanwhile is not reached through the script tool of that
+    copy."""
     fake = FakeMcp()
     deps, _, _ = await handed(deps_factory, server(**OPENED), fake=fake)
     delegated = deps.tools.without(DELEGATE_TOOL_NAME)
-    closed = make_hub(FakeMcp(), server(read_only=["search"]))
+    closed = make_hub(FakeMcp(), server())
     await closed.connect()
     closed.attach({"default": deps})
 
     refused = await play(delegated, 'tools.mcp__notion__search(query="kế hoạch")')
 
-    reason = t.SCRIPT_NOT_OPENED.format(name=SEARCH_NAME, instead=t.SCRIPT_LOAD_THEN_CALL)
+    reason = t.SCRIPT_ASKS_FIRST.format(name=SEARCH_NAME, instead=t.SCRIPT_LOAD_THEN_CALL)
     assert (refused.ok, refused.output) == (False, unfinished(halted(1, reason)))
     assert fake.calls == []
