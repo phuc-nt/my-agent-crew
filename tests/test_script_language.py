@@ -574,10 +574,10 @@ def test_an_answer_that_is_json_is_worked_on_as_data():
 
     said = printed(
         """
-        pages = json.loads(tools.search(query="kế hoạch"))["results"]
+        pages = json.loads(tools.find_pages(query="kế hoạch"))["results"]
         print([page["title"] for page in pages if page.get("words", 0) > 100])
         """,
-        {"search": lambda arguments: pages},
+        {"find_pages": lambda arguments: pages},
     )
 
     assert said == "['Kế hoạch']\n"

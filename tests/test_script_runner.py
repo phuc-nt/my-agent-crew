@@ -20,6 +20,7 @@ import pytest
 
 from my_agent_crew import texts_script as t
 from my_agent_crew.script import runner
+from my_agent_crew.script.limits import ScriptError
 from my_agent_crew.script.runner import Answer, Outcome, run_script
 from tests.test_shell_network_sandbox import needs_sandbox
 
@@ -80,6 +81,16 @@ sys.stdin.readline()
 print(json.dumps({"call": {"name": "here", "arguments": {"pid": os.getpid()}}}), flush=True)
 sys.stdin.readline()
 time.sleep(600)
+"""
+# Asks which tools it may call after asking how one is called, and tells how it was answered.
+ASKS = """
+import json, sys
+sys.stdin.readline()
+print(json.dumps({"ask": {"kind": "describe", "arguments": {"name": "read"}}}), flush=True)
+first = json.loads(sys.stdin.readline())
+print(json.dumps({"ask": {"kind": "names", "arguments": {}}}), flush=True)
+second = json.loads(sys.stdin.readline())
+print(json.dumps({"done": {"ok": True, "output": json.dumps([first, second])}}), flush=True)
 """
 BABBLES = """
 import time
@@ -274,6 +285,96 @@ async def test_half_a_character_pair_in_an_answer_reaches_the_script_as_a_questi
     assert outcome == Outcome(True, "True\n")
 
 
+# --- what a script looks up -------------------------------------------------------------
+
+
+async def test_a_script_looks_up_its_tools_in_this_process_and_none_of_it_is_a_call():
+    looked = []
+
+    def lookup(kind, arguments):
+        looked.append((kind, arguments))
+        return {"names": ["a", "b"], "search": [{"name": "a", "description": "đọc"}]}.get(
+            kind, "cách gọi"
+        )
+
+    source = dedent(
+        """\
+        print(tools.names())
+        print(tools.search("đọc", limit=2))
+        print(tools.search("đọc"))
+        print(tools.describe("a"))
+        """
+    )
+
+    outcome = await run_script(source, nobody, lookup=lookup)
+
+    assert outcome == Outcome(
+        True,
+        "['a', 'b']\n[{'name': 'a', 'description': 'đọc'}]\n"
+        "[{'name': 'a', 'description': 'đọc'}]\ncách gọi\n",
+    )
+    # What the script wrote positionally comes here by the parameter's name.
+    assert looked == [
+        ("names", {}),
+        ("search", {"query": "đọc", "limit": 2}),
+        ("search", {"query": "đọc"}),
+        ("describe", {"name": "a"}),
+    ]
+
+
+async def test_a_lookup_that_was_refused_is_the_scripts_to_catch():
+    def lookup(kind, arguments):
+        raise ScriptError("không có công cụ đó")
+
+    source = dedent(
+        """\
+        try:
+            tools.describe("x")
+        except Exception as e:
+            print("caught:", e)
+        tools.names()
+        print("after")
+        """
+    )
+
+    outcome = await run_script(source, nobody, lookup=lookup)
+
+    assert outcome == Outcome(
+        False, "caught: không có công cụ đó\n", "Lỗi ở dòng 5: không có công cụ đó"
+    )
+
+
+async def test_a_script_run_without_a_lookup_is_told_there_is_none_to_make():
+    outcome = await run_script("tools.names()", nobody)
+
+    assert outcome == Outcome(False, "", "Lỗi ở dòng 1: " + t.SCRIPT_NO_LOOKUPS)
+
+
+async def test_what_a_lookup_answered_is_a_value_and_what_it_refused_is_a_failure(monkeypatch):
+    """The two replies the process is written to read, as they go over the pipe."""
+    monkeypatch.setattr(runner, "BOOT", ASKS)
+
+    def lookup(kind, arguments):
+        if kind == "describe":
+            raise ScriptError("không có")
+        return ["a"]
+
+    outcome = await run_script("", nobody, lookup=lookup)
+
+    assert outcome.ok
+    assert json.loads(outcome.output) == [{"failed": "không có"}, {"answer": ["a"]}]
+
+
+async def test_an_answer_to_a_lookup_far_longer_than_a_pipe_holds_reaches_the_script_whole():
+    names = [f"mcp__server__tool_{i:05}" for i in range(6000)]
+
+    outcome = await run_script(
+        "names = tools.names()\nprint(len(names), names[-1])", nobody, lookup=lambda k, a: names
+    )
+
+    assert outcome == Outcome(True, "6000 mcp__server__tool_05999\n")
+
+
 async def test_the_process_is_told_the_script_and_its_seconds_of_cpu(monkeypatch):
     monkeypatch.setattr(runner, "BOOT", ECHOES)
     told = json.loads((await run_script('print("ơ")', nobody)).output)
@@ -432,6 +533,13 @@ OUT_OF_SHAPE = [
     '{"call": {}}',
     '{"call": []}',
     '{"call": {"name": "read"}}',
+    '{"call": {"name": 3, "arguments": {}}}',
+    '{"call": {"name": "read", "arguments": [1]}}',
+    '{"ask": {}}',
+    '{"ask": []}',
+    '{"ask": {"kind": "names"}}',
+    '{"ask": {"kind": 3, "arguments": {}}}',
+    '{"ask": {"kind": "names", "arguments": [1]}}',
     '{"done": 3}',
     '{"done": {"ok": true}}',
     '{"done": {"ok": true, "output": "", "more": 1}}',

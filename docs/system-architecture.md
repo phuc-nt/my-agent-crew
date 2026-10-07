@@ -128,6 +128,9 @@ gọi model kế tiếp, và cái đã nạp được đọc lại từ chính h
 Agent giữ một tool MCP chủ ghi là chỉ đọc (`read_only`, không `hidden`) thì có thêm `tool_script`:
 gói `script/` chạy đoạn script của model trong một tiến trình con, script gọi các tool chỉ đọc qua
 chính server, và chỉ phần nó in ra mới quay về model; từng lời gọi được ghi vào step của run.
+Chưa rõ tên hay tham số của một tool thì script tra bằng `tools.names`, `tools.search` và
+`tools.describe`: những lời tra đó chỉ hỏi tiến trình giữ tool, không chạy tool nào và không
+phải một lời gọi.
 
 Chi tiết từng tool ở [tools.md](tools.md).
 

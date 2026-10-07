@@ -5180,8 +5180,9 @@ những gì nó in ra mới quay về cho model ([tools.md](tools.md#gọi-tool-
     giữ nó; mỗi lời gọi được giữ lại cho thẻ run, lời gọi trả tiền cho model mang giá của nó; hai
     script cùng lúc mỗi cái giữ lời gọi của mình; lời gọi không được phép làm dừng script và nói
     phải gọi thế nào thay, và được trả cho tiến trình con như một lời gọi hỏng chứ không như lời
-    tool nói; tên không có thì được trả danh sách tên gọi được; hook của agent được hỏi về từng
-    lời gọi; script gọi tool agent đang giữ lúc nó chạy; script nhận câu trả lời dài hơn hẳn một
+    tool nói; tên không có là một lỗi bắt được kèm tên gần nhất trong số tool gọi được (tool
+    script không được gọi thì không bao giờ được gợi ý) và chỗ tìm tiếp, rồi script gọi lại được;
+    hook của agent được hỏi về từng lời gọi; script gọi tool agent đang giữ lúc nó chạy; script nhận câu trả lời dài hơn hẳn một
     lượt, dài quá thì cũng bị cắt; cái script in ra được cắt theo trần của agent mà vẫn giữ các
     lời gọi; thiếu `script` thì không khởi động gì; script dài đúng mức thì chạy, dài hơn một chữ
     thì không; script không chạy xong, dù bị dừng, gặp lỗi, không đọc được, bị từ chối, hết giờ,
@@ -5192,6 +5193,39 @@ những gì nó in ra mới quay về cho model ([tools.md](tools.md#gọi-tool-
     đầu và mười hai tham số đầu, tham số có tên không phải một từ thường thì bỏ, schema hình gì
     cũng đọc được; tool ở mức mở khác, và tool ngoài ba mươi cái được nêu, được đếm chung trong
     một dòng "và N công cụ nữa" mà vẫn gọi được).
+- **Tra cứu tool trong script (`tools.names`, `tools.search`, `tools.describe`)**:
+  - pytest: `tests/test_script_discovery.py` (một lời tra tới tiến trình giữ tool kèm tham số theo
+    tên, dù script viết theo vị trí hay theo tên; câu trả lời là dữ liệu script dùng tiếp; mỗi
+    cách viết sai (thừa, thiếu hay sai kiểu tham số, `True` thay cho số, chữ dài quá 1.000 ký
+    tự) là một lỗi bắt được và không hỏi ai, còn chữ dài đúng 1.000 thì được hỏi nguyên; lời tra
+    và lời gọi đếm riêng, đủ 40 lời tra cùng 25 lời gọi vẫn qua, lời tra thứ 41 bắt được còn lời
+    gọi thứ 26 vẫn dừng script; tiến trình cha từ chối một lời tra thì script bắt được; tool đặt
+    tên giống một lời tra không bao giờ được gọi như tool; câu trả lời quá lớn tính như mọi giá
+    trị script cầm; `names` là những tool gọi được theo thứ tự agent giữ chúng, kể cả tool mức
+    `deferred`, không có tool phải hỏi, ghi dữ liệu, nói thay agent hay bị ẩn; `search` xếp tool
+    khớp nhất lên đầu và chỉ trong số tool gọi được, mặc định năm, nhiều nhất mười, rỗng khi không
+    khớp, mô tả gọn một dòng và cắt ở 200 ký tự; tool chưa được nêu tìm được bằng một script rồi
+    gọi được bằng tên ở script sau; `describe` ghi đúng từng dòng cho tham số lồng nhau, enum,
+    mảng và tool không tham số, cắt ở dòng nguyên khi quá 2.000 ký tự, gợi ý tên gần nhất khi tên
+    không có, và nói phải làm gì thay với tool đang giữ mà script không được gọi; lời gọi hỏng vì
+    thiếu hay thừa tham số được thêm dòng cách gọi, lời gọi hỏng vì lý do khác hay lời gọi thành
+    công thì không; không tool có sẵn nào của sản phẩm, ở chế độ trợ lý, làm việc, master hay
+    không, mang tên của một lời tra; xếp hạng chạy được trên tool có sẵn và tên nêu nguyên văn
+    đứng đầu; một câu hỏi tới tiến trình cha mà `query`, `limit` hay `name` sai kiểu hay thiếu,
+    hoặc là câu hỏi không có, vẫn bị từ chối dù script không bao giờ hỏi thế),
+    `tests/test_script_signature.py` (`describe` chỉ cắt khi một dòng vượt quá mức nó được viết,
+    dòng vừa khít thì giữ; enum chỉ liệt kê giá trị khi có không quá tám giá trị, mỗi giá trị
+    ngắn và là chữ hay số nguyên, thiếu một trong ba điều ấy thì chỉ ghi kiểu; tham số có tên
+    không phải một từ dài tới bốn mươi ký tự, kể cả tên có dấu cách, gạch nối hay xuống dòng
+    giả một dòng khác, thì không hiện, ở trong object cũng vậy; schema chỉ đọc sâu bằng mức
+    `tool_search` đọc; lời của tham số gộp một dòng và cắt ở 120 ký tự, lời mô tả tool bỏ khoảng
+    trắng hai đầu và cắt ở 600), `tests/test_script_runner.py` (lời tra được trả lời ở tiến
+    trình này và không tính là lời gọi; lời tra bị từ chối là việc của script để bắt; script chạy
+    không có nơi tra thì được nói là không tra được; cái lời tra trả về là một giá trị, cái nó từ
+    chối là một lỗi; câu trả lời dài hơn một ống dẫn vẫn tới script nguyên vẹn),
+    `tests/test_script_turns.py` (một lượt
+    tra tool xong thì máy chủ không bị hỏi và run không giữ lời gọi nào; tool model chưa được
+    khai được một script tìm ra và script sau gọi).
 - **Ai được giao `tool_script`**:
   - pytest: `tests/test_script_tool.py` (agent có tool chủ ghi chỉ đọc, ở mức mở nào cũng được,
     được giao nó, sau `tool_search` và trước các tool của máy chủ, lời mô tả chỉ nêu tool script
@@ -5260,6 +5294,36 @@ những gì nó in ra mới quay về cho model ([tools.md](tools.md#gọi-tool-
   cả khi không còn gì; đếm số tool còn lại theo tool đã mở; đổi lời khuyên gọi trực tiếp với nạp
   rồi gọi; đổi lý do từ chối; cho bốn tool nói thay agent qua). Hai ở `mcp/handout.py` (giao
   `tool_script` chỉ cho tool `codemode`; giao cả khi không có tool nào).
+- Tra cứu tool trong script và dòng chỉ cách gọi khi gọi sai: bảy mươi chín sửa đổi, đều bị bắt.
+  Mười ba ở `script/namespaces.py` (mốc bốn mươi lời tra và mốc 1.000 ký tự lệch một; không đếm
+  lời tra hay đếm nó như lời gọi; bỏ hạn độ dài chữ; coi `True` là số; cho qua tham số thừa,
+  tham số đưa hai lần hay thiếu tham số bắt buộc; bỏ tham số viết theo vị trí, hay đòi viết đủ
+  mọi tham số; không tính câu trả lời vào giá trị script cầm; đem lời tra đi gọi như tool). Mười
+  ba ở `script/discovery.py`
+  (liệt kê mọi tool thay vì tool gọi được, hay xếp lại thứ tự; mặc định, trần và sàn của `limit`,
+  cho `limit` bằng không; không xét kiểu của `query`, `limit`, `name`, hay trả lời câu hỏi lạ;
+  mô tả không gộp một dòng; `describe` bỏ lời từ chối hay không gợi ý tên gần nhất). Mười ba ở
+  `script/scope.py` (cho tool ẩn, tool chỉ `codemode`, tool không `read_only`, tool nói thay
+  agent hay tên của một lời tra qua; đổi lời khuyên với lý do từ chối; bỏ điều kiện hỏi trước,
+  không gọi lại được hay có lý do hỏi; không lọc tool gọi được; gợi ý tên nào cũng được hay
+  không gợi ý tên nào). Hai mươi bốn ở `script/signature.py` (cắt lệch một ký tự hay không cắt;
+  mất tiền tố của tham số lồng nhau, đường dẫn mảng thành đường dẫn object, hay kiểu phần tử của
+  mảng; enum không hạn số giá trị hay độ dài giá trị, liệt kê một phần hay mọi giá trị, viết giá
+  trị không theo JSON; tên chỉ khớp phần đầu hay dài quá; thừa một tham số, bỏ dấu "…"; đọc sâu
+  thêm một mức; không đánh dấu bắt buộc; không cắt lời tham số hay lời mô tả; bỏ dòng không có
+  tham số; ba cách xét lời gọi không khớp tool; kiểu lạ không thành `any`). Chín ở
+  `script/tool.py` (thêm dòng chỉ cách gọi sau lời gọi thành công hay sau mọi lỗi; thay lời của
+  tool bằng dòng ấy, hay bỏ nó khỏi thẻ run hoặc khỏi câu trả lời; tên không có làm dừng script
+  hay không gợi ý tên gần nhất; lời từ chối không bắt được; không nối lời tra vào script). Năm ở
+  `script/runner.py` (đọc lời tra như lời gọi; gửi lời từ chối như câu trả lời; không xét kiểu
+  tên và tham số của một lời gọi; chạy không có nơi tra mà vẫn trả lời), một ở `script/child.py`
+  (bỏ qua lời từ chối) và một ở `mcp/tool_search.py` (tool có sẵn không đưa tên vào xếp hạng).
+  Vòng đầu sót mười ba: bốn ở `script/discovery.py` (kiểu của `limit`, `query` và `name`, và câu
+  hỏi lạ vẫn được trả lời; tiến trình con không bao giờ gửi những câu ấy nên không test nào chạm
+  tới, trong khi tiến trình cha vẫn phải từ chối chúng) và chín ở `script/signature.py` (mốc cắt
+  của `describe`, hạn số giá trị và độ dài giá trị của enum, enum có giá trị không phải chữ hay
+  số nguyên, tên chỉ khớp phần đầu, độ sâu, lời của tham số và lời mô tả không bị cắt). Mỗi cái
+  được thêm test, rồi cả bảy mươi chín đều bị bắt.
 - Vòng đầu ở server sót một trăm linh sáu trên sáu trăm bốn mươi bốn: mười tám ở tool, tiến
   trình con và chỗ nối, tám mươi tám ở ngôn ngữ (hai sửa đổi nữa được thêm sau đó). Mỗi cái được
   thêm test, trừ ba điều kiện hoá ra không bao giờ quyết định gì và bị bỏ kèm chứng minh: một ở

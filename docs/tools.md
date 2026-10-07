@@ -778,16 +778,39 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
     đó hay không, không quyết định script có gọi được nó hay không: chủ đã khẳng định tool chỉ đọc
     thì không cần thêm một lần cho phép riêng.
 
-  Lời mô tả của `tool_script` nêu nhóm tool có sẵn và những tool MCP ở mức `codemode`. Mỗi tool MCP
-  là một dòng gồm tên, các tham số theo tên và kiểu (`query: string, limit?: integer`) và một câu
-  mô tả, tối đa 30 tool và 12 tham số mỗi tool. Tool MCP còn lại mà script gọi được (mức khác, hoặc
-  quá 30) chỉ được đếm trong một dòng "và N công cụ nữa"; cần schema đầy đủ thì model nạp tool đó
-  bằng `tool_search`.
-- **Lời gọi bị từ chối.** Gọi một tool phải hỏi trước hoặc có ghi dữ liệu, một tool chỉ đọc mà
-  script không được gọi (`delegate`, một tool MCP `hidden`), hay một tên không có, thì script
-  **dừng ngay tại đó**: không `try/except` nào bắt được, và câu trả lời nói phải làm gì thay ("gọi
-  trực tiếp", hoặc "nạp bằng tool_search rồi gọi trực tiếp"). Vì vậy script không bao giờ chờ người
-  duyệt, và mọi lời gọi có ghi vẫn đi qua cổng duyệt như cũ.
+  Lời mô tả của `tool_script` nêu nhóm tool có sẵn, những tool MCP ở mức `codemode` và một đoạn
+  nói script tra tool ra sao. Mỗi tool MCP là một dòng gồm tên, các tham số theo tên và kiểu
+  (`query: string, limit?: integer`) và một câu mô tả, tối đa 30 tool và 12 tham số mỗi tool. Tool
+  MCP còn lại mà script gọi được (mức khác, hoặc quá 30) chỉ được đếm trong một dòng "và N công
+  cụ nữa"; script tra chúng bằng `tools.search` và `tools.describe` (bullet kế tiếp). Model muốn
+  tự gọi trực tiếp một tool như thế thì nạp nó bằng `tool_search`.
+- **Tra cứu tool trong script.** Script chưa rõ tên hay tham số của một tool thì hỏi ngay trong
+  script, trước khi gọi, thay vì đoán rồi chạy lại:
+  - `tools.names()` trả list tên mọi tool script gọi được, theo thứ tự agent giữ chúng;
+  - `tools.search("từ khoá", limit=5)` trả list các dict `{"name", "description"}` của những tool
+    khớp nhất: cùng cách xếp hạng với `tool_search`, nhưng chỉ xét tool script gọi được. Tối đa
+    10 tool, mô tả rút về một dòng không quá 200 ký tự, list rỗng nếu không tool nào khớp;
+  - `tools.describe("tên")` trả một đoạn chữ về một tool: dòng cách gọi
+    (`tên(a: string, b?: integer)`), mô tả, rồi từng tham số với kiểu, "bắt buộc" và một câu mô
+    tả. Tham số nằm trong object hay mảng được ghi theo đường dẫn (`filter.owner`,
+    `pages[].title`). Quá 2.000 ký tự thì cắt, mỗi lần một dòng nguyên, kèm một dòng báo đã cắt.
+
+  Cả ba chỉ hỏi tiến trình đang giữ tool, **không chạy tool nào**: không tính vào 25 lời gọi và
+  không hiện trên thẻ run, nhưng mỗi script tra tối đa 40 lần (lần thứ 41 là một lỗi bắt được).
+  Tham số sai, hay `tools.describe` một tool mà script không được gọi, cũng là lỗi bắt được. Nhờ
+  thế một tool chủ không mở ở mức `codemode` vẫn dùng được trong một lượt: một script tìm nó bằng
+  `tools.search`, model đọc kết quả rồi viết lời gọi theo tên ở script sau. Ba tên `names`,
+  `search` và `describe` thuộc về phần tra cứu, nên không tool có sẵn nào được đặt tên như vậy
+  (một test giữ chỗ đó); tool MCP thì luôn mang tiền tố `mcp__`.
+- **Lời gọi bị từ chối.** Gọi một tool phải hỏi trước hoặc có ghi dữ liệu, hay một tool chỉ đọc
+  mà script không được gọi (`delegate`, một tool MCP `hidden`), thì script **dừng ngay tại đó**:
+  không `try/except` nào bắt được, và câu trả lời nói phải làm gì thay ("gọi trực tiếp", hoặc "nạp
+  bằng tool_search rồi gọi trực tiếp"). Vì vậy script không bao giờ chờ người duyệt, và mọi lời
+  gọi có ghi vẫn đi qua cổng duyệt như cũ.
+- **Tên không có.** Gọi `tools.TÊN` khi agent không giữ tool nào tên đó (thường là gõ nhầm) chỉ là
+  một lỗi bắt được: câu trả lời nêu tool gần tên nhất trong số tool script gọi được ("Ý bạn là
+  …?") và chỉ sang `tools.names()` và `tools.search`. Không tool nào chạy, nhưng lời gọi vẫn tính
+  vào 25 lời gọi của script.
 - **Ngôn ngữ.** Một phần của Python: biến, `if`/`for`/`while`, hàm và `lambda`, list, dict, set,
   tuple, f-string, comprehension (kể cả dạng `(x for x in ...)`, được dựng thành list),
   `try`/`except`/`finally`, `raise`, `assert`, `json.loads` và `json.dumps`, cùng `len`, `str`,
@@ -801,8 +824,10 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
 - **Kết quả của tool trong script.** `tools.TÊN(tham_số=giá_trị)` hoặc `tools.TÊN({...})` trả về
   chữ của kết quả (là JSON thì `json.loads`). Script nhận tới 200.000 ký tự của mỗi câu trả lời,
   nhiều hơn hẳn trần của một lượt, vì nó có mặt là để cắt câu trả lời xuống; dài hơn nữa thì bị
-  cắt. Tool lỗi thì ném lỗi, bắt được bằng `try/except`. Hook của agent vẫn được hỏi trước và sau
-  từng lời gọi, và một lời gọi bị hook chặn là một lỗi bắt được.
+  cắt. Tool lỗi thì ném lỗi, bắt được bằng `try/except`; nếu lời gọi thiếu một tham số bắt buộc hay
+  đưa một tham số tool không có, câu lỗi của tool được thêm một dòng `Cách gọi: tên(a: string,
+  b?: integer)` để lần sau gọi đúng. Hook của agent vẫn được hỏi trước và sau từng lời gọi, và một
+  lời gọi bị hook chặn là một lỗi bắt được.
 - **Chạy ở đâu.** Trong một tiến trình con riêng (`python -I -S -B`) với **môi trường rỗng**: không
   biến môi trường nào, nên không khoá nào. Nó chỉ nói chuyện với server qua stdin/stdout, mỗi dòng
   một JSON, và chính server là bên chạy tool. Trên macOS tiến trình đó nằm trong một sandbox riêng
@@ -825,6 +850,8 @@ Giới hạn nằm trong code, không cấu hình nào nới được:
 | Giới hạn | Mức |
 | --- | --- |
 | lời gọi tool trong một script | 25 |
+| lần tra tool (`tools.names`, `search`, `describe`) trong một script | 40 |
+| chữ đưa vào một lần tra (từ khoá, tên tool) | 1.000 ký tự |
 | độ dài mã script | 20.000 ký tự |
 | số bước tính toán | 2.000.000 |
 | CPU | 20 giây |

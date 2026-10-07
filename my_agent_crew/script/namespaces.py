@@ -1,7 +1,9 @@
 """The two names a script reaches out through: `tools` and `json`.
 
 Neither is a value. `tools.NAME(...)` and `json.loads(...)` are read as calls where they
-are written, so a script cannot hold either, pass it on or look inside it.
+are written, so a script cannot hold either, pass it on or look inside it. Beside a tool's
+own name `tools` has three of its own: `names`, `search` and `describe`, which look at the
+tools a script may call and run none.
 """
 
 from __future__ import annotations
@@ -15,12 +17,23 @@ from my_agent_crew.script.limits import (
     MAX_ARGUMENT_CHARS,
     MAX_CALLS,
     MAX_INDENT,
+    MAX_LOOKUP_CHARS,
+    MAX_LOOKUPS,
     Halt,
     ScriptError,
 )
 
 if TYPE_CHECKING:
     from my_agent_crew.script.machine import Machine
+
+# What a script may look into besides calling a tool: each as it is written, and its
+# parameters in order with their type and whether a call needs them. The parent answers (see
+# `discovery.py`), so a tool that is given one of these names is not one a script can call.
+LOOKUPS: dict[str, tuple[str, dict[str, tuple[type, bool]]]] = {
+    "names": ("tools.names()", {}),
+    "search": ("tools.search(query, limit=5)", {"query": (str, True), "limit": (int, False)}),
+    "describe": ("tools.describe(name)", {"name": (str, True)}),
+}
 
 
 def _tool(machine: Machine, name: str, args: list[Any], kwargs: dict[str, Any]) -> str:
@@ -42,6 +55,37 @@ def _tool(machine: Machine, name: str, args: list[Any], kwargs: dict[str, Any]) 
     output = machine.call_tool(name, arguments)
     machine.budget.charge(len(output))
     return output
+
+
+def _lookup(machine: Machine, kind: str, args: list[Any], kwargs: dict[str, Any]) -> Any:
+    """Which tools there are, which fit a job, how one is called: asked of the parent, which
+    holds them. No tool runs, so none of it is counted among the calls."""
+    shape, params = LOOKUPS[kind]
+    asked = {**dict(zip(params, args, strict=False)), **kwargs}
+    valid = (
+        # Each parameter given once, and only this lookup's own.
+        len(asked) == len(args) + len(kwargs)
+        and asked.keys() <= params.keys()
+        and all(name in asked for name, (_, required) in params.items() if required)
+        and all(
+            type(value) is params[name][0]
+            and (type(value) is not str or len(value) <= MAX_LOOKUP_CHARS)
+            for name, value in asked.items()
+        )
+    )
+    if not valid:
+        raise ScriptError(t.SCRIPT_LOOKUP_USAGE.format(shape=shape))
+    machine.budget.lookups += 1
+    if machine.budget.lookups > MAX_LOOKUPS:
+        raise ScriptError(t.SCRIPT_TOO_MANY_LOOKUPS.format(most=MAX_LOOKUPS))
+    return machine.budget.made(machine.ask(kind, asked))
+
+
+def _tools(machine: Machine, name: str, args: list[Any], kwargs: dict[str, Any]) -> Any:
+    """`tools.names`, `tools.search` and `tools.describe` look; any other name is a tool."""
+    if name in LOOKUPS:
+        return _lookup(machine, name, args, kwargs)
+    return _tool(machine, name, args, kwargs)
 
 
 def _loads(machine: Machine, text: Any) -> Any:
@@ -81,4 +125,4 @@ def _json(machine: Machine, name: str, args: list[Any], kwargs: dict[str, Any]) 
     raise ScriptError(t.SCRIPT_NO_JSON)
 
 
-NAMESPACES: dict[str, Callable[..., Any]] = {"tools": _tool, "json": _json}
+NAMESPACES: dict[str, Callable[..., Any]] = {"tools": _tools, "json": _json}

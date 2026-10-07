@@ -13,6 +13,10 @@ SCRIPT_DESCRIPTION = (
     "của công cụ (là JSON thì `json.loads`); công cụ lỗi thì ném lỗi, bắt được bằng "
     "try/except. In ra cái cần bằng `print(...)`; giá trị của biểu thức ở dòng cuối cũng được "
     "in. Mỗi script gọi công cụ tối đa {calls} lần.\n"
+    "Chưa rõ tên hay tham số của một công cụ thì tra ngay trong script, không tính vào số lần "
+    'gọi: `tools.names()` liệt kê tên mọi công cụ gọi được, `tools.search("từ khoá")` tìm theo '
+    'việc (trả list các dict có `name` và `description`), `tools.describe("ten")` cho tham số '
+    "đầy đủ.\n"
     "Đây là một phần của Python: biến, if/for/while, hàm, list/dict/set/tuple, f-string, "
     "comprehension, try/except, `json`, và len, str, int, float, bool, range, enumerate, zip, "
     "sorted, reversed, min, max, sum, any, all, abs, round, isinstance. Không có import, class, "
@@ -22,9 +26,9 @@ SCRIPT_DESCRIPTION = (
 )
 SCRIPT_BUILTINS = "\nCông cụ có sẵn gọi được từ script: {names}."
 SCRIPT_MCP = (
-    "\nCông cụ MCP gọi được từ script (cần tham số chi tiết thì nạp bằng tool_search):\n{lines}"
+    "\nCông cụ MCP gọi được từ script (cần tham số chi tiết thì tra bằng tools.describe):\n{lines}"
 )
-SCRIPT_MCP_MORE = "- … và {count} công cụ nữa, tìm bằng tool_search."
+SCRIPT_MCP_MORE = "- … và {count} công cụ nữa, tìm bằng tools.search."
 SCRIPT_SOURCE = "Mã script Python. Kết quả là những gì script in ra bằng print."
 
 # The tool's own answers.
@@ -40,8 +44,26 @@ SCRIPT_DIED = "Script bị dừng giữa chừng mà không trả kết quả."
 # (`web/src/lib/tool-reply.ts`).
 SCRIPT_FAILED = "Script không chạy xong."
 
-# A call a script may not make. None of these can be caught: the script ends there.
-SCRIPT_UNKNOWN_TOOL = "Không có công cụ `{name}` để gọi từ script. Gọi được: {names}."
+# A name that is no tool of the agent's. The script may catch it and look for the right one.
+SCRIPT_UNKNOWN_TOOL = (
+    "Không có công cụ `{name}`.{near} `tools.names()` liệt kê mọi công cụ gọi được; "
+    '`tools.search("từ khoá")` tìm theo việc.'
+)
+SCRIPT_DID_YOU_MEAN = " Ý bạn là `{near}`?"
+# Added to the answer of a call that failed on the wrong parameters: what to call it with.
+SCRIPT_CALL_LIKE = "Cách gọi: {line}"
+
+# What a script asks to know of the tools it may call: `tools.names`, `search`, `describe`.
+SCRIPT_LOOKUP_USAGE = "`{shape}`: tham số sai."
+SCRIPT_TOO_MANY_LOOKUPS = "đã tra công cụ quá {most} lần: dùng lại kết quả đã có."
+SCRIPT_NO_LOOKUPS = "không tra được công cụ ở đây."
+SCRIPT_DESCRIBE_PARAMS = "Tham số:"
+SCRIPT_DESCRIBE_NONE = "Không có tham số."
+SCRIPT_DESCRIBE_REQUIRED = ", bắt buộc"
+SCRIPT_DESCRIBE_CUT = "… (còn nữa, đã cắt bớt)"
+
+# A call a script may not make although the tool exists. None of these can be caught: the
+# script ends there.
 SCRIPT_NOT_FROM_SCRIPT = "`{name}` không gọi được từ script: {instead}."
 SCRIPT_ASKS_FIRST = (
     "`{name}` phải hỏi trước hoặc có ghi dữ liệu nên không gọi được từ script: {instead}."

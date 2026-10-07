@@ -16,7 +16,8 @@ from typing import TYPE_CHECKING
 from my_agent_crew.mcp.config import HIDDEN
 from my_agent_crew.mcp.tool_search import SEARCH_TOOL, search_tool
 from my_agent_crew.mcp.tools import PREFIX, McpTool, held_back
-from my_agent_crew.script.tool import SCRIPT_TOOL, script_tool, scriptable
+from my_agent_crew.script.scope import SCRIPT_TOOL, scriptable
+from my_agent_crew.script.tool import script_tool
 
 if TYPE_CHECKING:
     from my_agent_crew.agent.loop import AgentDeps

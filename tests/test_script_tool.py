@@ -17,15 +17,9 @@ from my_agent_crew.mcp.tool_search import SEARCH_TOOL
 from my_agent_crew.mcp.tools import CompanionTool, McpTool, build_tools
 from my_agent_crew.script import tool as script_module
 from my_agent_crew.script.runner import Outcome
-from my_agent_crew.script.tool import (
-    JSON_TYPES,
-    NOT_FROM_SCRIPT,
-    RAW_LIMIT,
-    SCRIPT_TOOL,
-    script_tool,
-    scriptable,
-    signature,
-)
+from my_agent_crew.script.scope import NOT_FROM_SCRIPT, SCRIPT_TOOL, scriptable, unknown_tool
+from my_agent_crew.script.signature import JSON_TYPES, signature
+from my_agent_crew.script.tool import RAW_LIMIT, script_tool
 from my_agent_crew.texts import TOOL_FAILED
 from my_agent_crew.texts_kit import TOOL_BLOCKED_BY_HOOK
 from my_agent_crew.tools.delegate import DELEGATE_TOOL_NAME
@@ -105,6 +99,10 @@ async def never_run(source, call, **limits):
 
 def halted(line: int, reason: str) -> str:
     return t.SCRIPT_HALTED.format(line=line, reason=reason)
+
+
+def erred(line: int, error: str) -> str:
+    return t.SCRIPT_ERROR.format(line=line, error=error)
 
 
 def unfinished(*said: str) -> str:
@@ -433,7 +431,7 @@ async def test_a_hidden_tool_is_not_run_from_a_script_even_when_one_holds_it(ope
     assert reached == [] and result.calls == ()
 
 
-async def test_a_tool_the_agent_does_not_hold_is_answered_with_the_ones_a_script_can_call():
+async def test_a_tool_the_agent_does_not_hold_fails_the_call_and_says_where_to_look():
     held = [
         Reads("rows_read").tool,
         Reads("notes_write", replay_safe=False).tool,
@@ -444,9 +442,42 @@ async def test_a_tool_the_agent_does_not_hold_is_answered_with_the_ones_a_script
 
     result = await play(toolbox(*held), "tools.nope()")
 
-    names = f"rows_read, notes_read, {SEARCH_NAME}"
-    reason = f"Không có công cụ `nope` để gọi từ script. Gọi được: {names}."
-    assert (result.ok, result.output, result.calls) == (False, unfinished(halted(1, reason)), ())
+    reason = t.SCRIPT_UNKNOWN_TOOL.format(name="nope", near="")
+    assert (result.ok, result.output, result.calls) == (False, unfinished(erred(1, reason)), ())
+    assert "tools.names()" in reason and "tools.search(" in reason
+
+
+async def test_a_script_told_the_nearest_name_may_catch_the_mistake_and_call_again():
+    rows = Reads("rows_read", "ba dòng")
+    held = [rows.tool, Reads("notes_read").tool, Reads("progress_note").tool]
+
+    result = await play(
+        toolbox(*held),
+        """
+        try:
+            tools.row_read()
+        except Exception as e:
+            print(e)
+        print(tools.rows_read())
+        """,
+    )
+
+    near = t.SCRIPT_DID_YOU_MEAN.format(near="rows_read")
+    mistake = t.SCRIPT_UNKNOWN_TOOL.format(name="row_read", near=near)
+    assert (result.ok, result.output) == (True, f"{mistake}\nba dòng")
+    assert "Ý bạn là `rows_read`?" in mistake
+    # The slip made no call; the one that followed did.
+    assert [call.name for call in result.calls] == ["rows_read"] and rows.asked == [{}]
+
+
+async def test_a_name_near_only_to_a_tool_a_script_may_not_call_is_not_offered():
+    held = [Reads("notes_write", replay_safe=False).tool, Reads("rows_read").tool]
+
+    result = await play(toolbox(*held), "tools.notes_writes()")
+
+    assert result.output == unfinished(
+        erred(1, t.SCRIPT_UNKNOWN_TOOL.format(name="notes_writes", near=""))
+    )
 
 
 async def test_the_agents_hooks_are_asked_about_each_call_a_script_makes():
@@ -495,7 +526,9 @@ async def test_a_call_a_script_may_not_make_is_answered_as_one_that_went_wrong(m
 
     await play(toolbox(writes.tool), "pass")
 
-    assert [(answer.ok, answer.halt) for answer in answers] == [(False, True), (False, True)]
+    # A tool that exists and may not be called ends the script; a name that is no tool's is
+    # an error it can catch.
+    assert [(answer.ok, answer.halt) for answer in answers] == [(False, True), (False, False)]
     assert writes.asked == []
 
 
@@ -509,8 +542,10 @@ async def test_a_script_calls_the_tools_the_agent_holds_when_it_runs():
     gone = await registry.execute(SCRIPT_TOOL, {"script": "tools.old_read()"})
 
     assert (result.ok, result.output) == (True, "mới")
-    reason = t.SCRIPT_UNKNOWN_TOOL.format(name="old_read", names="new_read")
-    assert (gone.ok, gone.output) == (False, unfinished(halted(1, reason)))
+    assert (gone.ok, gone.output) == (
+        False,
+        unfinished(erred(1, unknown_tool("old_read", [new.tool]))),
+    )
     assert old.asked == []
 
 
@@ -678,7 +713,7 @@ def test_the_model_is_told_which_tools_a_script_can_call():
     assert told == t.SCRIPT_DESCRIPTION.format(
         calls=25,
         builtins="\nCông cụ có sẵn gọi được từ script: rows_read, notes_read.",
-        mcp="\nCông cụ MCP gọi được từ script (cần tham số chi tiết thì nạp bằng tool_search):\n"
+        mcp="\nCông cụ MCP gọi được từ script (cần tham số chi tiết thì tra bằng tools.describe):\n"
         f"- {SEARCH_NAME}(query: string): [MCP notion] Find pages by words.",
     )
     assert "Mỗi script gọi công cụ tối đa 25 lần." in told
@@ -818,7 +853,7 @@ def test_a_script_is_told_of_thirty_tools_and_of_how_many_more_there_are():
     lines = listed_lines(many(32))
 
     assert len(lines) == 31 and lines[:30] == listed_lines(many(30))
-    assert lines[30] == "- … và 2 công cụ nữa, tìm bằng tool_search."
+    assert lines[30] == "- … và 2 công cụ nữa, tìm bằng tools.search."
 
 
 def test_a_script_is_told_up_front_only_of_the_tools_the_owner_opened_for_scripts():
@@ -832,7 +867,7 @@ def test_a_script_is_told_up_front_only_of_the_tools_the_owner_opened_for_script
     assert lines == [
         "- mcp__notion__read_1(): [MCP notion] Reads 1.",
         "- mcp__notion__read_3(): [MCP notion] Reads 3.",
-        "- … và 3 công cụ nữa, tìm bằng tool_search.",
+        "- … và 3 công cụ nữa, tìm bằng tools.search.",
     ]
 
 
@@ -843,7 +878,7 @@ def test_a_script_with_no_tool_opened_for_it_is_still_told_how_many_it_may_call(
     told = toolbox(*built(listed, read_only=names)).get(SCRIPT_TOOL).description
 
     assert [line for line in told.splitlines() if line.startswith("- ")] == [
-        "- … và 4 công cụ nữa, tìm bằng tool_search."
+        "- … và 4 công cụ nữa, tìm bằng tools.search."
     ]
     assert "Công cụ MCP gọi được từ script" in told
 
@@ -856,7 +891,7 @@ def test_the_tools_not_listed_are_counted_with_those_past_the_thirtieth():
     lines = listed_lines(built(listed, read_only=names, tool_exposure=opened))
 
     assert len(lines) == 31 and lines[:30] == listed_lines(many(30))
-    assert lines[30] == "- … và 5 công cụ nữa, tìm bằng tool_search."
+    assert lines[30] == "- … và 5 công cụ nữa, tìm bằng tools.search."
 
 
 async def test_a_tool_past_the_thirty_listed_is_a_scripts_to_call_all_the_same():
@@ -913,7 +948,7 @@ async def test_an_agent_with_a_tool_that_reads_is_handed_the_script_tool_however
     description = deps.tools.get(SCRIPT_TOOL).description
     # Not opened for scripts, so not listed; the script is told how many it may call.
     assert SEARCH_NAME not in description
-    assert "- … và 1 công cụ nữa, tìm bằng tool_search." in description
+    assert "- … và 1 công cụ nữa, tìm bằng tools.search." in description
     assert CREATE_NAME not in description
 
 

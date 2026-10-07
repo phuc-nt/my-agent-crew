@@ -11,19 +11,38 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+### Added
+
+- A script can look up the tools it may call instead of guessing. `tools.names()` lists their
+  names, `tools.search("words", limit=5)` ranks them the way `tool_search` does (only tools a
+  script may call, ten at most, each with a one-line description) and `tools.describe("name")`
+  gives how the tool is called, what it does and every parameter with its kind, whether it is
+  required and what it is for, nested ones by path (`filter.owner`, `pages[].title`). A lookup
+  runs no tool: it is not one of the 25 calls and not on the run card, and a script may make 40
+  of them. A tool the description of `tool_script` does not name is found by one script and
+  called by name from the next.
+
 ### Changed
 
 - A script (`tool_script`) may now call every MCP tool the owner lists under `read_only` and does
   not hide, however far the tool is let in. Until now such a tool also had to be set to
   `codemode`, which made letting a script in a second decision on top of saying the tool only
   reads. The level now decides only whether the description of `tool_script` names the tool
-  with its parameters (`codemode`) or the model finds it with `tool_search`; the tools it does
-  not name are counted on one line, and a name learned from a search is as good as a listed one.
+  with its parameters (`codemode`) or it has to be found, by a script with `tools.search` or by
+  the model with `tool_search`; the tools it does not name are counted on one line, and a name
+  learned from a search is as good as a listed one.
   An agent holding at least one such tool is handed `tool_script` even when none of its tools is
   set to `codemode`. Tools that write or ask first, and tools set to `hidden`, are refused as
   before: the script ends there with a line saying to call the tool directly, where the
   approval gate sees it. The Tools table and the Connections card say who holds `tool_script`
   by the new rule.
+- A script that calls a name no tool has no longer ends there. The call fails in a way the
+  script can catch, naming the nearest tool it may call and pointing to `tools.names()` and
+  `tools.search`; it still counts toward the 25 calls. A call that failed because a required
+  parameter was left out, or one the tool has no place for was given, is answered with the
+  tool's own words and a line saying how the tool is called. Refusing a tool the agent holds but
+  a script may not call (it writes, asks first, or is hidden) still ends the script. The names
+  `names`, `search` and `describe` belong to the lookups, so no built-in tool can take them.
 
 ## [0.13.0] — 2026-10-07
 
