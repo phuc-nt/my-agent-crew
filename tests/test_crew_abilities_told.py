@@ -196,3 +196,18 @@ def test_the_note_says_whose_word_the_lines_are_and_that_they_outrank_what_was_s
     assert "hệ thống đọc từ đội đang chạy" in note
     assert "điều bạn từng nói trong cuộc trò chuyện này" in note
     assert "đừng trả lời là không làm được" in note
+
+
+def test_the_note_says_a_service_out_of_reach_is_told_to_the_person_not_handed_over():
+    note = texts.CREW_ROSTER_ABILITIES_NOTE
+    # By the words each such server is told with, so the master matches the line to the rule.
+    for standing, opens_with in (
+        (texts.CREW_SERVICE_SIGNED_OUT, "chưa dùng được"),
+        (texts.CREW_SERVICE_DOWN, "chưa kết nối được"),
+    ):
+        assert standing.startswith(opens_with) and opens_with in note
+    assert "đừng giao việc cần dịch vụ đó" in note
+    assert "nói rõ tình trạng ấy với người dùng" in note
+    # A server that works is still handed work for: the rule names only the two that do not.
+    for standing in (texts.CREW_SERVICE_READ_WRITE, texts.CREW_SERVICE_READ_ONLY):
+        assert standing not in note

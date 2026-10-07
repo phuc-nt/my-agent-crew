@@ -24,8 +24,10 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   a new skill, a job switched on or off, a changed `tools` or `routes` list and an agent added
   or removed all reach the master on its next model call with nobody editing a description. A
   closing note tells the master that these lines outrank the description and what it said
-  earlier in the conversation, and to hand over work that needs something another agent holds
-  rather than answer that it cannot be done. What an agent does only through its persona or
+  earlier in the conversation, to hand over work that needs something another agent holds
+  rather than answer that it cannot be done, and, when the server such work needs is waiting
+  for a sign-in or cannot connect, to say so to the person instead of handing the work to an
+  agent that cannot reach it. What an agent does only through its persona or
   through scripts in its workspace is still told by `description` alone.
 
 ## [0.12.0] — 2026-10-07

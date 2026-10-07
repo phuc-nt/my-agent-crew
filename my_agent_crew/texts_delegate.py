@@ -117,8 +117,10 @@ CREW_ROSTER_ABILITIES_NOTE = (
     "từng nói trong cuộc trò chuyện này thì tin chúng: nếu trước đó bạn bảo không làm được "
     "một việc mà nay có agent nắm đúng thứ việc đó cần, hãy giao cho agent ấy. Việc cần một "
     "dịch vụ, kỹ năng hay công cụ bạn không có mà một agent có: giao cho agent đó, đừng trả "
-    "lời là không làm được. Các dòng này không kể hết việc một agent làm được trong lĩnh vực "
-    "của nó; phần đó xem ở mô tả."
+    "lời là không làm được. Dịch vụ ghi là chưa dùng được hay chưa kết nối được thì lúc này "
+    "agent ấy không gọi được nó: đừng giao việc cần dịch vụ đó, hãy nói rõ tình trạng ấy với "
+    "người dùng, kèm việc họ cần làm nếu dòng đó có nêu. Các dòng này không kể hết việc một "
+    "agent làm được trong lĩnh vực của nó; phần đó xem ở mô tả."
 )
 
 DELEGATED_TURN_TITLE = "Việc được giao"
