@@ -5293,7 +5293,9 @@ mất có mặt ngay ở lần gọi model kế tiếp ([agents.md](agents.md#ma
     dưới dòng của agent và lời dặn đứng cuối; chỉ một agent có gì để kể cũng đủ để có lời dặn, dù
     nó đứng đầu danh sách; đội không kể gì thì roster chỉ còn dòng của chủ, không có lời dặn;
     không hỏi đội khi không có ai để liệt kê; lời dặn nói ai viết các dòng và rằng chúng đáng tin
-    hơn điều đã nói).
+    hơn điều đã nói; lời dặn gọi đúng hai tình trạng ngoài tầm với bằng chữ mở đầu của chính câu
+    kể chúng, dặn không giao việc cần dịch vụ đó mà nói rõ với người dùng, và không nhắc tới hai
+    tình trạng dùng được).
 - **đọc từ đội đang chạy, mỗi lần lắp prompt**:
   - pytest: `tests/test_crew_roster_abilities.py` (tool vừa được thêm hay vừa mất có ngay ở prompt
     kế tiếp, không nối lại gì; `delegate` không bị đem ra so; skill mới kèm mô tả; chỉ job đang bật
@@ -5322,3 +5324,16 @@ mất có mặt ngay ở lần gọi model kế tiếp ([agents.md](agents.md#ma
     thêm test (job không tên, máy chủ nêu hai lần, tuyến thứ hai, lời dặn khi agent có dòng không
     đứng cuối). Cái còn lại là tương đương: đưa tên "không có" qua hàm mô tả skill, mà một tên
     như thế thì người đọc luôn có, nên hàm chỉ trả lại tên.
+- **master có làm theo các dòng đó không** (model thật, không nằm trong CI):
+  - `scripts/run_evals.py` trên một home tạm có master và một agent nêu `mcp: [notion]` trỏ tới
+    một máy chủ MCP giả ở loopback, mô tả của agent không nhắc Notion, model của đội thật, mỗi ca ba
+    lượt. Hai yêu cầu: tạo một trang Notion và tìm một trang trong Notion. Bản phát hành trước
+    (roster chỉ có mô tả): 0/6 lượt giao việc, cả sáu trả lời là không có công cụ Notion. Bản này,
+    máy chủ đã nối: 6/6 lượt giao cho agent cầm Notion, agent gọi tool của máy chủ và master báo
+    lại kết quả; câu hỏi thường vẫn tự trả lời 3/3. Bản này, máy chủ ngoài tầm với: 5/6 lượt
+    master nói rõ dịch vụ chưa kết nối được mà không giao việc, một lượt vẫn giao. Trước khi lời
+    dặn có câu về dịch vụ ngoài tầm với thì cả 6/6 lượt đều giao và 5 lượt thuật lại là "không có
+    công cụ".
+  - Server của bộ eval chạy `--no-schedule` nên không tự nối máy chủ MCP lúc khởi động: muốn có
+    trạng thái đã nối thì gọi `POST /api/mcp/<tên>/reconnect` ngay khi server lên, và đặt một ca
+    không dính tới máy chủ ở đầu tệp ca.

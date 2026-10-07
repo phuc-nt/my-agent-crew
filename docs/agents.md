@@ -342,7 +342,11 @@ Tên kỹ năng và tên công cụ được kể so với của chính master (
 Loại nào agent không có thì không có dòng. Khi có ít nhất một dòng như thế, roster kết thúc bằng
 một lời dặn: các dòng này là điều đang đúng, đáng tin hơn mô tả và hơn điều master từng nói trong
 cuộc trò chuyện, và việc cần một dịch vụ, kỹ năng hay công cụ mà master không có thì giao cho
-agent có nó chứ không trả lời là không làm được.
+agent có nó chứ không trả lời là không làm được. Lời dặn cũng nói điều ngược lại cho hai tình
+trạng cuối của bảng trên: máy chủ đang chờ đăng nhập hay không nối được thì agent ấy không gọi
+được nó, nên master không giao việc cần máy chủ đó mà nói rõ tình trạng với người dùng, kèm việc
+họ cần làm (đăng nhập ở trang Máy chủ MCP). Thiếu câu này, master giao việc cho một agent không
+còn cầm tool nào của máy chủ, rồi thuật lại lời agent ấy rằng "không có công cụ".
 
 Hệ quả: nối một máy chủ MCP cho một agent, đăng nhập xong OAuth, thêm một skill, bật tắt hay tạo
 một job, đổi `tools` hay `routes` của một agent, thêm hoặc xoá một agent đều tới tay master ở lần
