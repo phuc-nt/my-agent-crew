@@ -178,9 +178,9 @@ test("the tools grid lets go of a server whose try failed while the grid was ope
   await expect(rows("write_file")).toHaveCount(1);
 });
 
-// A script calls a tool nobody is asked about, so it is the owner who opens one for it:
-// the tool has to be among those that only read, and set to be called from a script.
-test("the tools grid shows the script tool with the agent whose server opened a tool for scripts", async ({ page }) => {
+// A script calls a tool nobody is asked about, so it is the owner who lets one in: the tool
+// has to be among those the owner listed as only reading, and not hidden.
+test("the tools grid shows the script tool with the agent whose server has a tool that only reads", async ({ page }) => {
   const opened = mcpTool("notion", "search", { description: "Tìm trang trong Notion", exposure: "codemode", requires_approval: false });
   const asking = mcpTool("wiki", "query", { description: "Hỏi wiki", exposure: "codemode" });
   const mcp = new FakeMcp([mcpServer({ tools: [opened, TOOLS[1]] }), mcpServer({ name: "wiki", url: "https://wiki.example.test/mcp", tools: [asking] })]);

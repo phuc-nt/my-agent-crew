@@ -11,6 +11,20 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+### Changed
+
+- A script (`tool_script`) may now call every MCP tool the owner lists under `read_only` and does
+  not hide, however far the tool is let in. Until now such a tool also had to be set to
+  `codemode`, which made letting a script in a second decision on top of saying the tool only
+  reads. The level now decides only whether the description of `tool_script` names the tool
+  with its parameters (`codemode`) or the model finds it with `tool_search`; the tools it does
+  not name are counted on one line, and a name learned from a search is as good as a listed one.
+  An agent holding at least one such tool is handed `tool_script` even when none of its tools is
+  set to `codemode`. Tools that write or ask first, and tools set to `hidden`, are refused as
+  before: the script ends there with a line saying to call the tool directly, where the
+  approval gate sees it. The Tools table and the Connections card say who holds `tool_script`
+  by the new rule.
+
 ## [0.13.0] — 2026-10-07
 
 ### Changed

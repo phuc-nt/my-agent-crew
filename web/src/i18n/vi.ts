@@ -305,7 +305,7 @@ export const vi = {
     fromServer: (name: string) => `MCP ${name}`,
     withMcp: "đi kèm MCP",
     withMcpTitle:
-      "Không thuộc danh sách công cụ của agent. Agent có tool_search khi được giao công cụ MCP không khai sẵn, và có tool_script khi một công cụ MCP chỉ đọc được mở cho script.",
+      "Không thuộc danh sách công cụ của agent. Agent có tool_search khi được giao công cụ MCP không khai sẵn, và có tool_script khi được giao một công cụ MCP nằm trong read_only (không ẩn).",
   },
   connectionsPage: {
     title: "Kết nối dùng chung",
@@ -400,7 +400,7 @@ export const vi = {
       direct: "Khai cho mô hình ở mọi lượt.",
       deferred: "Không khai sẵn; agent tìm và nạp bằng tool_search khi cần tới.",
       codemode:
-        "Không khai sẵn; agent tìm và nạp bằng tool_search như mức nạp khi cần. Công cụ nằm trong read_only thì còn gọi được từ script (tool_script).",
+        "Không khai sẵn; agent tìm và nạp bằng tool_search như mức nạp khi cần. Công cụ nằm trong read_only thì lời mô tả của tool_script còn nêu tên và tham số của nó.",
       hidden: "Không giao cho agent nào.",
     },
     skipped: (names: string) =>

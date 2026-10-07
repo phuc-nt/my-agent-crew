@@ -85,8 +85,10 @@ describe("the MCP routes both fakes answer", () => {
     const mcp = new FakeMcp([mcpServer({ tools }), mcpServer({ name: "wiki", tools: [mcpTool("wiki", "read")] })]);
     mcp.crew = () => [{ id: "default", mcp: ["notion"] }];
 
+    // The one tool that reads is the agent's to call from a script, so it holds that tool too.
     expect(mcp.registryTools()).toEqual([
       searchTool(["default"]),
+      scriptTool(["default"]),
       {
         name: "mcp__notion__search",
         description: "",
@@ -118,27 +120,33 @@ describe("the MCP routes both fakes answer", () => {
     expect(rest.every((tool) => !("with_mcp" in tool))).toBe(true);
   });
 
-  it("lists the script tool for the agents with a tool that only reads and is opened for scripts", () => {
+  it("lists the script tool for the agents with a tool that only reads, however far it is let in", () => {
     const reads = { requires_approval: false };
     const tracker = mcpServer({
       name: "tracker",
       tools: [mcpTool("tracker", "list", { exposure: "codemode", ...reads }), mcpTool("tracker", "close", { exposure: "codemode" })],
     });
-    // Neither of these opens a script: one asks first, the other is not opened for scripts.
+    // Opened for scripts and still asking first: not a script's to call, so it opens none.
     const asks = mcpServer({ name: "wiki", tools: [mcpTool("wiki", "edit", { exposure: "codemode" })] });
+    // Let in as they are, and read-only: a script may call them.
     const plain = mcpServer({ tools: [mcpTool("notion", "search", reads), mcpTool("notion", "fetch", { exposure: "direct", ...reads })] });
     const mcp = new FakeMcp([asks, plain, tracker]);
     let crew = [{ id: "default", mcp: ["wiki", "notion"] }, { id: "coach" }];
     mcp.crew = () => crew;
     const names = () => mcp.registryTools().map((tool) => tool.name);
 
-    expect(names()).toEqual(["tool_search", "mcp__wiki__edit", "mcp__notion__search", "mcp__notion__fetch"]);
+    expect(names()).toEqual(["tool_search", "tool_script", "mcp__wiki__edit", "mcp__notion__search", "mcp__notion__fetch"]);
 
-    crew = [{ id: "ledger", mcp: ["tracker"] }, { id: "default", mcp: ["wiki", "tracker"] }, { id: "coach", mcp: ["notion"] }];
+    crew = [
+      { id: "ledger", mcp: ["tracker"] },
+      { id: "default", mcp: ["wiki", "tracker"] },
+      { id: "coach", mcp: ["notion"] },
+      { id: "intern", mcp: ["wiki"] },
+    ];
     const [search, script, ...rest] = mcp.registryTools();
-    expect(search).toEqual(searchTool(["coach", "default", "ledger"]));
-    // The coach can find tools and call none from a script.
-    expect(script).toEqual(scriptTool(["default", "ledger"]));
+    expect(search).toEqual(searchTool(["coach", "default", "intern", "ledger"]));
+    // The intern can find tools and call none from a script: the only one it holds asks first.
+    expect(script).toEqual(scriptTool(["coach", "default", "ledger"]));
     expect(script).toMatchObject({ name: "tool_script", with_mcp: true, requires_approval: false, optional: false });
     expect(script).not.toHaveProperty("server");
     expect(rest.map((tool) => tool.name)).toEqual([
@@ -166,7 +174,7 @@ describe("the MCP routes both fakes answer", () => {
     expect(script).toEqual(scriptTool(["default", "ledger"]));
   });
 
-  it("opens no script for a tool that is hidden, or for a server nobody uses", () => {
+  it("opens no script for a tool that is hidden or asks first, or for a server nobody uses", () => {
     const hidden = mcpTool("notion", "purge", { exposure: "hidden", requires_approval: false });
     const mcp = new FakeMcp([
       mcpServer({ tools: [hidden, mcpTool("notion", "create-page", { exposure: "direct" })] }),
