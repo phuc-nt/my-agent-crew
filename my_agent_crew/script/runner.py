@@ -7,8 +7,9 @@ no such sandbox; there the interpreter is the wall.) The child keeps its own CPU
 counts its own memory; the clock is kept here.
 
 One JSON line each way. The child asks for a tool call, the caller's `call` carries it out
-in this process, and the answer goes back. It may also ask what it can call (`lookup`): that
-runs nothing and is answered at once. Whatever happens, the child is gone when `run_script`
+in this process, and the answer goes back. It may ask for several calls together (`call_many`),
+answered by one line holding them all; or what it can call (`lookup`): that runs nothing and
+is answered at once (`replies.py`). Whatever happens, the child is gone when `run_script`
 returns: it is killed if it is still there.
 """
 
@@ -21,13 +22,12 @@ import logging
 import signal
 import sys
 from asyncio.subprocess import PIPE, Process
-from collections.abc import Awaitable, Callable
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from my_agent_crew import texts_script as t
-from my_agent_crew.script.limits import ScriptError
+from my_agent_crew.script.replies import CallMany, CallTool, Lookup, no_batches, no_lookups, reply
 from my_agent_crew.tools.shell_sandbox import SANDBOX_EXEC, helper_rules
 
 logger = logging.getLogger(__name__)
@@ -37,7 +37,9 @@ logger = logging.getLogger(__name__)
 CPU_S = 20
 IDLE_S = 60.0
 TOTAL_S = 300.0
-# The longest line the child may write: what it printed and one error, with room to spare.
+# The longest line the child may write: what it printed and one error, or a batch of the most
+# calls each with the longest arguments (a control character takes six on the line), with room
+# to spare.
 LINE_LIMIT = 8 * 1024 * 1024
 STDERR_KEPT = 4000
 EXIT_S = 5.0
@@ -55,30 +57,10 @@ SEALED = (
 
 
 @dataclass(frozen=True)
-class Answer:
-    """What one tool call of a script came to. `halt` ends the script there, uncatchable:
-    it is for a call the script may not make at all, not for one that failed."""
-
-    ok: bool
-    output: str
-    halt: bool = False
-
-
-@dataclass(frozen=True)
 class Outcome:
     ok: bool
     output: str
     error: str | None = None
-
-
-CallTool = Callable[[str, dict[str, Any]], Awaitable[Answer]]
-# Answers what a script asks to know of the tools it may call: a value, or `ScriptError`
-# to refuse. It is the caller's to give, since the caller holds the tools.
-Lookup = Callable[[str, dict[str, Any]], Any]
-
-
-def no_lookups(kind: str, arguments: dict[str, Any]) -> Any:
-    raise ScriptError(t.SCRIPT_NO_LOOKUPS)
 
 
 def command() -> list[str]:
@@ -105,15 +87,14 @@ async def _tail(stream: asyncio.StreamReader, kept: bytearray) -> None:
         del kept[:-STDERR_KEPT]
 
 
-def _looked_up(lookup: Lookup, kind: str, arguments: dict[str, Any]) -> dict[str, Any]:
-    try:
-        return {"answer": lookup(kind, arguments)}
-    except ScriptError as refused:
-        return {"failed": str(refused)}
-
-
 async def _converse(
-    proc: Process, source: str, call: CallTool, lookup: Lookup, cpu_s: int, idle_s: float
+    proc: Process,
+    source: str,
+    call: CallTool,
+    many: CallMany,
+    lookup: Lookup,
+    cpu_s: int,
+    idle_s: float,
 ) -> Outcome | None:
     """Speaks with the child until it is done. None when it stopped making sense, which
     is what a dead child's silence reads as."""
@@ -130,18 +111,12 @@ async def _converse(
             message = json.loads(line)
             if "done" in message:
                 return Outcome(**message["done"])
-            verb = "ask" if "ask" in message else "call"
-            # An ask names the kind of lookup, a call the tool.
-            name = message[verb]["kind" if verb == "ask" else "name"]
-            arguments = message[verb]["arguments"]
-        except (ValueError, KeyError, TypeError):
+        except (ValueError, TypeError):
             return None
-        if type(name) is not str or type(arguments) is not dict:
+        answer = await reply(message, call, many, lookup)
+        if answer is None:
             return None
-        if verb == "ask":
-            await _send(proc, _looked_up(lookup, name, arguments))
-        else:
-            await _send(proc, asdict(await call(name, arguments)))
+        await _send(proc, answer)
 
 
 async def _died(proc: Process, tail: asyncio.Task[None], errors: bytearray) -> Outcome:
@@ -157,6 +132,7 @@ async def run_script(
     source: str,
     call: CallTool,
     lookup: Lookup = no_lookups,
+    call_many: CallMany = no_batches,
     *,
     cpu_s: int = CPU_S,
     idle_s: float = IDLE_S,
@@ -171,7 +147,7 @@ async def run_script(
     try:
         try:
             async with asyncio.timeout(total_s):
-                outcome = await _converse(proc, source, call, lookup, cpu_s, idle_s)
+                outcome = await _converse(proc, source, call, call_many, lookup, cpu_s, idle_s)
         except TimeoutError:
             return Outcome(False, "", t.SCRIPT_TIMED_OUT.format(seconds=total_s))
         return outcome if outcome is not None else await _died(proc, tail, errors)

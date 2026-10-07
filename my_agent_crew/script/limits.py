@@ -31,6 +31,10 @@ ROOM_CHECK_EVERY = 50_000
 # Calls of the script's own functions, one inside another.
 MAX_DEPTH = 40
 MAX_CALLS = 25
+# The most calls one `tools.batch` holds, and the most of them made at the same moment. Each
+# call of a batch is one of the `MAX_CALLS`, however it ends.
+MAX_BATCH = 10
+MAX_PARALLEL = 4
 # Looks into the tools a script may call (`tools.names`, `tools.search`, `tools.describe`).
 # They run nothing, so they are not counted among the calls, and have a count of their own.
 MAX_LOOKUPS = 40

@@ -27,7 +27,7 @@ from my_agent_crew.script.limits import (
     MAX_VALUE,
     ScriptError,
 )
-from my_agent_crew.script.namespaces import LOOKUPS
+from my_agent_crew.script.namespaces import LOOKUPS, RESERVED
 from my_agent_crew.script.scope import scriptable, why_not
 from my_agent_crew.script.signature import MAX_DESCRIBED
 from my_agent_crew.server.tool_assembly import build_tools
@@ -547,29 +547,36 @@ async def test_a_call_that_worked_is_told_nothing_more_though_it_did_not_fit():
 # A name a script cannot use for a tool, and a tool that is searched without a server.
 
 
-@pytest.mark.parametrize("kind", sorted(LOOKUPS))
-async def test_a_tool_named_like_a_lookup_is_not_one_a_script_may_call(kind):
-    named = Reads(kind).tool
+def test_the_names_tools_answers_to_itself_are_the_lookups_and_the_batch():
+    assert RESERVED == {"names", "search", "describe", "batch"}
+    assert set(LOOKUPS) < RESERVED
+
+
+@pytest.mark.parametrize("name", sorted(RESERVED))
+async def test_a_tool_named_like_one_tools_answers_to_itself_is_not_one_a_script_may_call(name):
+    named = Reads(name).tool
 
     result = await play(toolbox(named, Reads("rows_read").tool), "print(tools.names())")
 
     assert not scriptable(named)
     assert why_not(named) == t.SCRIPT_NOT_FROM_SCRIPT.format(
-        name=kind, instead=t.SCRIPT_CALL_DIRECTLY
+        name=name, instead=t.SCRIPT_CALL_DIRECTLY
     )
     assert result.output == "['rows_read']"
 
 
 @pytest.mark.parametrize("mode", [ASSISTANT, WORK])
 @pytest.mark.parametrize("master", [True, False])
-def test_no_tool_the_product_builds_has_the_name_of_a_lookup(settings, store, mode, master):
+def test_no_tool_the_product_builds_has_a_name_tools_answers_to_itself(
+    settings, store, mode, master
+):
     """A built-in so named would be shut out of every script, and no one would see it
-    go: the lookups own those names, and a new tool takes another."""
+    go: the lookups and the batch own those names, and a new tool takes another."""
     profile = replace(default_profile(settings), mode=mode, id="default" if master else "other")
 
     held = build_tools(profile, httpx.AsyncClient(), store, []).names()
 
-    assert held and not set(held) & set(LOOKUPS)
+    assert held and not set(held) & RESERVED
 
 
 def test_tools_that_are_not_an_mcp_servers_are_searched_the_same_way():

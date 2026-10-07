@@ -2,8 +2,8 @@
 
 Neither is a value. `tools.NAME(...)` and `json.loads(...)` are read as calls where they
 are written, so a script cannot hold either, pass it on or look inside it. Beside a tool's
-own name `tools` has three of its own: `names`, `search` and `describe`, which look at the
-tools a script may call and run none.
+own name `tools` has four of its own: `names`, `search` and `describe`, which look at the
+tools a script may call and run none, and `batch`, which calls several at once (`calls.py`).
 """
 
 from __future__ import annotations
@@ -13,13 +13,11 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from my_agent_crew import texts_script as t
+from my_agent_crew.script.calls import call_batch, call_one
 from my_agent_crew.script.limits import (
-    MAX_ARGUMENT_CHARS,
-    MAX_CALLS,
     MAX_INDENT,
     MAX_LOOKUP_CHARS,
     MAX_LOOKUPS,
-    Halt,
     ScriptError,
 )
 
@@ -34,27 +32,8 @@ LOOKUPS: dict[str, tuple[str, dict[str, tuple[type, bool]]]] = {
     "search": ("tools.search(query, limit=5)", {"query": (str, True), "limit": (int, False)}),
     "describe": ("tools.describe(name)", {"name": (str, True)}),
 }
-
-
-def _tool(machine: Machine, name: str, args: list[Any], kwargs: dict[str, Any]) -> str:
-    """One call of a tool: its output as text. A tool that failed raises, and the script
-    may catch that; a tool it may not call ends the script, where `call_tool` says so."""
-    if args and (len(args) != 1 or type(args[0]) is not dict or kwargs):
-        raise ScriptError(t.SCRIPT_TOOL_ARGS)
-    arguments = args[0] if args else kwargs
-    if machine.budget.measure(arguments) > MAX_ARGUMENT_CHARS:
-        raise ScriptError(t.SCRIPT_ARGS_TOO_BIG.format(most=MAX_ARGUMENT_CHARS))
-    try:
-        # What the tool is given is what JSON can carry, the same in a test as over a pipe.
-        arguments = json.loads(json.dumps(arguments))
-    except (TypeError, ValueError) as exc:
-        raise ScriptError(t.SCRIPT_TOOL_ARGS_JSON) from exc
-    machine.budget.calls += 1
-    if machine.budget.calls > MAX_CALLS:
-        raise Halt(t.SCRIPT_TOO_MANY_CALLS.format(most=MAX_CALLS))
-    output = machine.call_tool(name, arguments)
-    machine.budget.charge(len(output))
-    return output
+# Every name `tools` answers to itself, which a tool cannot be called as from a script.
+RESERVED = frozenset({*LOOKUPS, "batch"})
 
 
 def _lookup(machine: Machine, kind: str, args: list[Any], kwargs: dict[str, Any]) -> Any:
@@ -82,10 +61,13 @@ def _lookup(machine: Machine, kind: str, args: list[Any], kwargs: dict[str, Any]
 
 
 def _tools(machine: Machine, name: str, args: list[Any], kwargs: dict[str, Any]) -> Any:
-    """`tools.names`, `tools.search` and `tools.describe` look; any other name is a tool."""
+    """`tools.names`, `tools.search` and `tools.describe` look, `tools.batch` calls several
+    tools at once; any other name is a tool."""
     if name in LOOKUPS:
         return _lookup(machine, name, args, kwargs)
-    return _tool(machine, name, args, kwargs)
+    if name == "batch":
+        return call_batch(machine, args, kwargs)
+    return call_one(machine, name, args, kwargs)
 
 
 def _loads(machine: Machine, text: Any) -> Any:

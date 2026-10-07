@@ -130,7 +130,10 @@ gói `script/` chạy đoạn script của model trong một tiến trình con, 
 chính server, và chỉ phần nó in ra mới quay về model; từng lời gọi được ghi vào step của run.
 Chưa rõ tên hay tham số của một tool thì script tra bằng `tools.names`, `tools.search` và
 `tools.describe`: những lời tra đó chỉ hỏi tiến trình giữ tool, không chạy tool nào và không
-phải một lời gọi.
+phải một lời gọi. Nhiều lời gọi không cần nhau thì script gộp một lô bằng `tools.batch`: server
+chạy chúng cùng lúc (tối đa bốn, một lô tối đa mười lời gọi), vẫn qua hook của agent từng cái một,
+trả lời và ghi lên thẻ run theo đúng thứ tự đã viết; mỗi lời gọi của lô vẫn là một trong 25 lần,
+và lô có một lời gọi script không được gọi thì không lời gọi nào chạy.
 
 Chi tiết từng tool ở [tools.md](tools.md).
 
