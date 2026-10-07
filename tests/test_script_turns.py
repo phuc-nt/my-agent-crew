@@ -16,6 +16,7 @@ from my_agent_crew.agent.events import ToolCallEvent, ToolResultEvent
 from my_agent_crew.llm.fake import completion
 from my_agent_crew.llm.types import ToolCall
 from my_agent_crew.mcp.tool_search import SEARCH_TOOL
+from my_agent_crew.script.scope import callable_tools
 from my_agent_crew.script.tool import SCRIPT_TOOL
 from my_agent_crew.store.runs import DONE, RUNNING, RunRecord
 from my_agent_crew.tools import Tool, ToolResult
@@ -185,6 +186,50 @@ async def test_the_model_is_told_of_the_script_tool_and_not_of_the_tools_it_call
     [spec] = [spec for spec in app.provider.requests[0].tools if spec.name == SCRIPT_TOOL]
     assert f"- {SEARCH_NAME}(query: string): [MCP notion] Find pages by words." in spec.description
     assert spec.parameters["required"] == ["script"]
+
+
+async def test_a_script_looks_a_tool_up_and_the_server_is_not_asked_and_no_call_is_kept(served):
+    source = dedent(
+        """
+        hit = tools.search("notion")[0]["name"]
+        print(hit, "|", tools.describe(hit).splitlines()[0], "|", len(tools.names()))
+        """
+    )
+    script = [completion(tool_calls=[running(source)]), completion("Có một công cụ.")]
+    app, fake = await scripting(served, script, read_only=["search"])
+    held = len(callable_tools(app.runtime.default.tools))
+
+    result = the_result(await say(app))
+
+    # The agent's own tools that only read are among the names beside the server's.
+    looked = f"{SEARCH_NAME} | {SEARCH_NAME}(query: string) | {held}"
+    assert held > 1 and (result["ok"], result["output"]) == (True, looked)
+    # Looking a tool up only reads what the agent holds: the server is not asked, and no call
+    # is kept under the script for it.
+    assert fake.calls == [] and "tools/call" not in fake.methods()
+    assert result["calls"] == [] and "calls" not in the_step(app)
+    assert history(app)[-2:] == [("tool", looked), ("assistant", "Có một công cụ.")]
+
+
+async def test_a_tool_the_model_was_not_told_of_is_found_by_a_script_and_called_by_the_next(served):
+    find = 'print([hit["name"] for hit in tools.search("notion")])'
+    call = f"print(tools.{SEARCH_NAME}(query='kế hoạch'))"
+    script = [
+        completion(tool_calls=[running(find)]),
+        completion(tool_calls=[ToolCall("p2", SCRIPT_TOOL, {"script": call})]),
+        completion("Xong."),
+    ]
+    app, fake = await scripting(served, script, read_only=["search"])
+
+    await say(app)
+
+    # Nothing of the server is told to the model, yet the second script calls the tool the
+    # first found: it only reads, so a script may, however far it was let in.
+    assert declared(app) == declared(app, 1) == declared(app, 2)
+    assert SEARCH_NAME not in [spec.name for spec in app.provider.requests[0].tools]
+    said = [text for role, text in history(app) if role == "tool"]
+    assert said == [f"['{SEARCH_NAME}']", "ran search"]
+    assert fake.calls == [("search", {"query": "kế hoạch"})]
 
 
 async def test_a_call_a_script_may_not_make_never_reaches_the_server_and_asks_nobody(served):

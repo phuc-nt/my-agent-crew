@@ -3,7 +3,8 @@
 It is started with nothing: no environment, no site packages, and on macOS a sandbox with
 no network, no file writes and no forking. It reads the script as one JSON line, runs it,
 and writes one JSON line back for each tool call it makes and one for how it ended. A tool
-is never run here: the call is asked of the parent, which answers with what it gave.
+is never run here: the call is asked of the parent, which answers with what it gave. So is
+what a script asks to know of the tools it may call: the parent holds them, and answers.
 
 The process sets its own CPU limit before the script starts, and counts the memory it
 allocates so `limits.Budget` has something to measure.
@@ -40,14 +41,26 @@ def _write(message: dict[str, Any]) -> None:
     sys.stdout.buffer.flush()
 
 
+def _exchange(message: dict[str, Any]) -> dict[str, Any]:
+    _write(message)
+    return _read()
+
+
 def _call_tool(name: str, arguments: dict[str, Any]) -> str:
-    _write({"call": {"name": name, "arguments": arguments}})
-    answer = _read()
+    answer = _exchange({"call": {"name": name, "arguments": arguments}})
     if answer.get("halt"):
         raise Halt(answer["output"])
     if not answer["ok"]:
         raise ScriptError(answer["output"])
     return answer["output"]
+
+
+def _ask(kind: str, arguments: dict[str, Any]) -> Any:
+    """A question about the tools the script may call, answered with a value or a refusal."""
+    reply = _exchange({"ask": {"kind": kind, "arguments": arguments}})
+    if "failed" in reply:
+        raise ScriptError(reply["failed"])
+    return reply["answer"]
 
 
 def _limit_cpu(seconds: int) -> None:
@@ -63,4 +76,4 @@ def main() -> None:
     request = _read()
     _limit_cpu(request["cpu_s"])
     tracemalloc.start()
-    _write({"done": run(request["source"], _call_tool)})
+    _write({"done": run(request["source"], _call_tool, _ask)})

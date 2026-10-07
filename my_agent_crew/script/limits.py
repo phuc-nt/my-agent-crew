@@ -31,6 +31,11 @@ ROOM_CHECK_EVERY = 50_000
 # Calls of the script's own functions, one inside another.
 MAX_DEPTH = 40
 MAX_CALLS = 25
+# Looks into the tools a script may call (`tools.names`, `tools.search`, `tools.describe`).
+# They run nothing, so they are not counted among the calls, and have a count of their own.
+MAX_LOOKUPS = 40
+# The longest text a lookup is asked with: a tool's name, a few words to search by.
+MAX_LOOKUP_CHARS = 1_000
 MAX_OUTPUT_CHARS = 60_000
 MAX_ARGUMENT_CHARS = 100_000
 # The most of an error's own words that is kept: one may carry a whole text of the script's.
@@ -62,6 +67,7 @@ def _traced() -> int | None:
 class Budget:
     steps: int = 0
     calls: int = 0
+    lookups: int = 0
     depth: int = 0
     made_so_far: int = 0
     check_at: int = ROOM_CHECK_EVERY

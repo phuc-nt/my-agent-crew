@@ -91,13 +91,19 @@ def _schema_text(schema: Any, depth: int = 0) -> Iterator[str]:
                 yield from _schema_text(value, depth + 1)
 
 
-def _document(tool: McpTool) -> Counter[str]:
+def _remote(tool: Tool) -> str:
+    """The name a tool has on its server: an MCP tool is named `mcp__server__remote` here, and
+    a built-in has no other name than its own."""
+    return tool.remote if isinstance(tool, McpTool) else tool.name
+
+
+def _document(tool: Tool) -> Counter[str]:
     # The description opens with the name of the tool's server, so that is a word of it.
     rest = " ".join((tool.description, *_schema_text(tool.parameters)))
-    return Counter(words(tool.remote) * NAME_WEIGHT + words(rest))
+    return Counter(words(_remote(tool)) * NAME_WEIGHT + words(rest))
 
 
-def rank(tools: Sequence[McpTool], query: str) -> list[McpTool]:
+def rank[T: Tool](tools: Sequence[T], query: str) -> list[T]:
     """Every tool the query matches, best first: the ones it names outright, then by BM25."""
     documents = [_document(tool) for tool in tools]
     sizes = [sum(document.values()) for document in documents]
@@ -116,7 +122,7 @@ def rank(tools: Sequence[McpTool], query: str) -> list[McpTool]:
             for word, idf in weight.items()
             if (seen := document[word])
         )
-        exact = tool.name in named or tool.remote in named
+        exact = tool.name in named or _remote(tool) in named
         if exact or score > 0:
             found.append((not exact, -score, tool.name, tool))
     return [row[3] for row in sorted(found, key=lambda row: row[:3])]
