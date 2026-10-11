@@ -31,7 +31,10 @@ def body(word: str) -> str:
 
 @pytest.fixture
 def canvas():
-    """A canvas the agent made and read whole, which the person then saved a version of."""
+    """A canvas the agent made and read whole, which the person then saved a version of.
+
+    The turn it stands in is process-wide state, so it is put back on the way out: a test
+    elsewhere in the suite must never run inside this conversation."""
     store = Store(":memory:")
     registry = ToolRegistry(build_artifact_tools(store, "coach", False, CAP), CAP)
     registry.register(script_tool(lambda: registry, []))
@@ -39,7 +42,11 @@ def canvas():
     set_turn_source(CHAT)
     set_turn_conversation(conv.id)
     set_tool_call_id("c1")
-    return store, registry, conv
+    try:
+        yield store, registry, conv
+    finally:
+        set_turn_conversation("", 0)
+        set_tool_call_id("")
 
 
 async def made_then_saved_by_the_person(store, registry) -> str:
