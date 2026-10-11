@@ -47,7 +47,7 @@ export const defaultAgent: AgentInfo = {
   is_master: true,
   editable: true,
   telegram: null,
-  declared: { delegates: [], schedules: [] },
+  declared: { delegates: [], schedules: [], tools: [] },
   commands: [],
   hooks: 0,
   kits: [],

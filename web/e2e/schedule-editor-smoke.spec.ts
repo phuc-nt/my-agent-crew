@@ -6,7 +6,7 @@ const { kind: _kind, ...briefRow } = coachAgent.schedules[0];
 
 /** Coach, with the schedules its profile file declares. */
 function declaring(...schedules: object[]) {
-  return { ...coachAgent, declared: { delegates: [], schedules } };
+  return { ...coachAgent, declared: { delegates: [], schedules, tools: [] } };
 }
 
 test.describe("on a phone", () => {

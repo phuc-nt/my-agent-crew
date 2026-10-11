@@ -43,7 +43,7 @@ const brief: ScheduleRow = {
 
 /** An agent whose file already declares these rows. */
 function declaring(...schedules: ScheduleRow[]): AgentInfo {
-  return { ...fakeAgent, declared: { delegates: [], schedules } };
+  return { ...fakeAgent, declared: { ...fakeAgent.declared, schedules } };
 }
 
 /** Adds a row and returns it, so each test fills only the boxes it is about. */

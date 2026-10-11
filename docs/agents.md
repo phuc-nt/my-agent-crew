@@ -202,6 +202,20 @@ POST   /api/agents/reload                       → {"added": ["…"]}
 phải nói rõ bằng `null`. Điều này quan trọng vì web gửi từng mục một —
 một form gửi cả model của nó sẽ xoá sạch mọi khoá mà form không có ô nhập.
 
+**Profile trả về nói hai điều khác nhau về cùng một khoá, và trình sửa chỉ ghi lại điều thứ hai.**
+`GET /api/agents`, `GET /api/agents/{id}` và câu trả lời của một lần lưu mô tả agent như nó đang
+chạy, kèm khối `declared` là những gì tệp viết:
+
+| Trường | Là gì | `declared.<trường>` |
+|---|---|---|
+| `tools` | những tool agent đang giữ, không bao giờ rỗng, kể cả những tool không danh sách nào trao (`delegate`, `tool_search`, `tool_script`, tool MCP): là tên trong danh sách đội và trong câu trả lời của một lần lưu, là mô tả đầy đủ từng tool ở `GET /api/agents/{id}` | danh sách cho phép như tệp viết; rỗng khi agent không liệt kê gì |
+| `delegates` | những agent nó giao việc được lúc này (master không khai ai thì là cả đội) | danh sách tệp viết |
+| `schedules` | job đang chạy, kể cả job củng cố bộ nhớ sinh từ `memory_consolidate` | lịch tệp viết, không có job sinh ra |
+
+Form của trình sửa mở từ `declared`. Ghi ngược phần "đang chạy" vào tệp sẽ biến một agent không
+có danh sách cho phép thành agent bị chốt ở bộ tool của hôm nay, biến master giao việc cho cả đội
+thành master chỉ giao cho đội của hôm nay, và lên lịch job củng cố hai lần.
+
 **Tệp giữ nguyên hình dạng.** Ghi là round-trip (ruamel), nên chú thích, thứ tự khoá và
 những khoá mà phiên bản server này không biết đều sống sót qua một lần sửa từ
 trình duyệt. Manifest được ghi qua tệp tạm rồi chuyển vào chỗ, nên sập

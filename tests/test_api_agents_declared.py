@@ -76,6 +76,50 @@ def test_a_patch_that_keeps_the_declared_delegates_still_reaches_a_later_agent(c
     assert client.get("/api/agents/default").json()["delegates"] == ["coder", "writer"]
 
 
+def listed(client: TestClient, agent_id: str) -> dict:
+    return next(row for row in client.get("/api/agents").json() if row["id"] == agent_id)
+
+
+def test_the_tools_an_agent_holds_are_not_what_its_file_lists(crew) -> None:
+    client, _, _ = crew
+    client.post(
+        "/api/agents", json={"agent_id": "reader", "profile": {"tools": ["workspace_read"]}}
+    )
+
+    open_handed, capped = listed(client, "default"), listed(client, "reader")
+
+    # The master lists nothing and holds everything. Saving what it holds back would cap
+    # it at today's toolbox, and name tools no list gives.
+    assert open_handed["declared"]["tools"] == []
+    assert {"workspace_read", "shell_run", "delegate", "tool_script"} <= set(open_handed["tools"])
+    # The script tool follows what an agent may read, not its list: held, never declared.
+    assert capped["declared"]["tools"] == ["workspace_read"]
+    assert capped["tools"] == ["workspace_read", "tool_script"]
+    assert client.get("/api/agents/reader").json()["declared"]["tools"] == ["workspace_read"]
+
+
+def test_a_save_answers_with_the_tools_the_file_now_lists(crew) -> None:
+    client, _, _ = crew
+    client.post("/api/agents", json={"agent_id": "reader", "profile": {}})
+
+    reply = client.patch("/api/agents/reader", json={"profile": {"tools": ["workspace_read"]}})
+
+    # The editor rebuilds its form from this answer, so it has to carry the same list.
+    assert reply.json()["profile"]["declared"]["tools"] == ["workspace_read"]
+    assert listed(client, "reader")["declared"]["tools"] == ["workspace_read"]
+
+
+def test_a_patch_that_keeps_the_declared_tools_leaves_the_agent_open_handed(crew) -> None:
+    client, _, _ = crew
+    before = listed(client, "default")
+
+    client.patch("/api/agents/default", json={"profile": {"tools": before["declared"]["tools"]}})
+
+    after = listed(client, "default")
+    assert after["declared"]["tools"] == []
+    assert after["tools"] == before["tools"]
+
+
 def test_the_consolidation_job_is_reported_to_run_but_never_offered_to_edit(crew) -> None:
     client, _, _ = crew
     client.post(

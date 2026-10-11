@@ -139,6 +139,56 @@ describe("the MCP servers of an agent", () => {
   });
 });
 
+describe("the allow-list an agent's file writes", () => {
+  const radio = (name: string) => section().getByRole("radio", { name });
+  const tick = (name: string) => within(section().getByTestId("tool-picker")).getByRole("checkbox", { name: new RegExp(`^${name}`) });
+  // What the crew reports for every agent: the names it holds, those no list gives among them.
+  const held = ["write_file", "delegate", "tool_search", "tool_script", "mcp__notion__search"];
+  const listing = (...tools: string[]): AgentInfo => ({ ...fakeAgent, tools: held, declared: { ...fakeAgent.declared, tools } });
+
+  it("opens on every tool for an agent that lists none, whatever it holds", () => {
+    open(listing());
+
+    expect(radio(t.toolsAll)).toBeChecked();
+    expect(radio(t.toolsPick)).not.toBeChecked();
+    expect(tick("write_file")).toBeDisabled();
+    expect(tick("write_file")).not.toBeChecked();
+  });
+
+  it("opens on the list for an agent that writes one, with its names ticked and no other", () => {
+    open(listing("web_search"));
+
+    expect(radio(t.toolsPick)).toBeChecked();
+    expect(tick("web_search")).toBeChecked();
+    // Held, and not on the list: the box says what the file says.
+    expect(tick("write_file")).not.toBeChecked();
+  });
+
+  it("saves the list with one more tick, never the names the agent holds", async () => {
+    open(listing("web_search"));
+
+    await userEvent.click(tick("write_file"));
+    await userEvent.click(saveButton());
+
+    await waitFor(() => expect(screen.getByText(t.clean)).toBeInTheDocument());
+    expect(patches()).toEqual([{ profile: { tools: ["web_search", "write_file"] } }]);
+    // The answer to the save is what the form is rebuilt from: still the list, ticked.
+    expect(radio(t.toolsPick)).toBeChecked();
+    expect(tick("write_file")).toBeChecked();
+    expect(tick("web_search")).toBeChecked();
+  });
+
+  it("has nothing to save after a tick is taken back", async () => {
+    open(listing("web_search"));
+
+    await userEvent.click(tick("write_file"));
+    expect(screen.getByText(t.dirty(1))).toBeInTheDocument();
+    await userEvent.click(tick("write_file"));
+
+    expect(screen.getByText(t.clean)).toBeInTheDocument();
+  });
+});
+
 describe("the allow-list beside a server's tools", () => {
   const handed = { ...fakeAgent, tools: [], mcp: ["notion"] };
   const names = () =>

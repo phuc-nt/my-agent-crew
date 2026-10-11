@@ -215,7 +215,8 @@ def test_a_saved_schedule_comes_back_in_the_shape_it_can_be_resent_in(crew) -> N
     profile = saved.json()["profile"]
     # The editor rebuilds its form from this answer, so it carries what the list does:
     # without `declared` the page that made the save had nothing left to diff against.
-    assert created.json()["profile"]["declared"] == {"delegates": [], "schedules": []}
+    listed_nothing = {"delegates": [], "schedules": [], "tools": []}
+    assert created.json()["profile"]["declared"] == listed_nothing
     # Names, as the list gives them, not the detail page's descriptions.
     assert profile["tools"] and all(isinstance(n, str) for n in profile["tools"])
     assert all(isinstance(n, str) for n in profile["skills"])

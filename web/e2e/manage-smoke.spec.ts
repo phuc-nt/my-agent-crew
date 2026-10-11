@@ -59,10 +59,12 @@ test("a new agent is created from its id and opens in the editor", async ({ page
 });
 
 test("the tools section says which agent has what, and connections names keys without values", async ({ page }) => {
-  // The coach keeps an allow-list; the open agent names none, so the two ways a tool can
-  // be absent are both on screen and have to read differently.
-  const open = { ...coachAgent, id: "open", name: "Mở", tools: [] };
-  await mockApi(page, { agents: [master, coachAgent, open] });
+  // The master and the coach keep an allow-list; the open agent's file lists none, though
+  // it holds a tool like every agent does. So the two ways a tool can be absent are both
+  // on screen and have to read differently.
+  const listing = { ...coachAgent.declared, tools: ["write_file"] };
+  const open = { ...coachAgent, id: "open", name: "Mở" };
+  await mockApi(page, { agents: [{ ...master, declared: listing }, { ...coachAgent, declared: listing }, open] });
   await page.goto("/#/manage/tools");
 
   const matrix = page.getByTestId("tools-matrix");
@@ -185,7 +187,7 @@ test("the routes every agent falls back on are edited and saved", async ({ page 
 
 test("a schedule is added from the jobs list through the agent's editor", async ({ page }) => {
   const { kind: _kind, ...briefRow } = coachAgent.schedules[0];
-  const coach = { ...coachAgent, declared: { delegates: [], schedules: [briefRow] } };
+  const coach = { ...coachAgent, declared: { delegates: [], schedules: [briefRow], tools: [] } };
   const briefJob = { ...coachAgent.schedules[0], id: "coach/brief", schedule_id: "brief", agent_id: "coach", next_run: null, last_run: null, running: false, paused: false };
   // What the scheduler serves. It builds the list at boot, so it changes only on a restart.
   const jobs: object[] = [briefJob];
