@@ -13,6 +13,7 @@ from my_agent_crew.artifacts.diff import fenced
 from my_agent_crew.config import Route
 from my_agent_crew.llm.fake import completion
 from my_agent_crew.llm.types import Message, ToolCall
+from my_agent_crew.script.scope import SCRIPT_TOOL
 from my_agent_crew.store import Store
 from my_agent_crew.store.artifact_models import USER
 from my_agent_crew.store.db import new_id, now_iso
@@ -211,6 +212,71 @@ def test_a_call_still_waiting_brings_the_child_it_opened_while_the_run_went_on(s
 
     assert [c["conversation_id"] for c in build(store, running)["children"]] == [child]
     assert build(store, halted)["children"] == []
+
+
+def script_call(store: Store, conv_id: str, call_id: str) -> None:
+    """The model asking for a script. What the script calls is no call of any message."""
+    store.append(conv_id, Message(role="user", content="chạy script"))
+    call = ToolCall(call_id, SCRIPT_TOOL, {"script": "tools.delegate(task='việc')"})
+    store.append(conv_id, Message(role="assistant", tool_calls=(call,)), "fake", "echo")
+
+
+def test_a_child_a_script_opened_comes_along_while_the_script_still_waits_on_it(store: Store):
+    """Nothing in the conversation names it: the script has given no result, and the call
+    that opened it was the script's own. It is linked to the call that ran the script and
+    the number of the call in it, and found by the first of the two: opened during this
+    run, and by this conversation."""
+    conv, other = store.create(), store.create()
+    halted = RunRecord(
+        "halted",
+        "default",
+        conv.id,
+        "chat",
+        "t",
+        HALTED,
+        "2020-01-01T08:00:00+00:00",
+        finished_at="2020-01-01T08:05:00+00:00",
+        after_seq=0,
+    )
+    store.runs.save(halted)
+    script_call(store, conv.id, "call_0")
+    running = run_from(store, conv.id, store.messages.max_seq(conv.id), RUNNING)
+    script_call(store, conv.id, "call_0")
+    child = child_of(store, conv.id, "call_0:2", "đang làm")
+    script_call(store, other.id, "call_0")
+    child_of(store, other.id, "call_0:2", "của người khác")
+
+    [found] = build(store, running)["children"]
+    # What a reader hangs the child under: the script's call, then which call of the script.
+    assert (found["conversation_id"], found["tool_call_id"]) == (child, "call_0:2")
+    assert contents(found) == ["việc được giao", "đang làm"]
+    assert build(store, halted)["children"] == []
+
+
+def test_the_children_a_script_opened_come_along_when_the_script_has_ended(store: Store):
+    """A script's result is what it printed, and no line of it is read for a child's name:
+    its children are found as they were while it ran, beside the one a call of the model's
+    own opened in the same run."""
+    conv = store.create()
+    run = run_from(store, conv.id, 0)
+    script_call(store, conv.id, "s1")
+    first = child_of(store, conv.id, "s1:1", "đáp một")
+    third = child_of(store, conv.id, "s1:3", "đáp ba")
+    printed = Message(role="tool", content="đã giao hai việc", tool_call_id="s1", name=SCRIPT_TOOL)
+    store.append(conv.id, printed)
+    direct = delegating_turn(store, conv.id, "d1", "tóm tắt", "bản tóm tắt")
+    # A call of a script that ran elsewhere, whose id only begins as this one's does.
+    child_of(store, conv.id, "s10:1", "không phải của script này")
+    run.finished_at = now_iso()
+    store.runs.save(run)
+
+    children = build(store, store.runs.get(run.id))["children"]
+
+    assert [(c["conversation_id"], c["tool_call_id"]) for c in children] == [
+        (direct, "d1"),
+        (first, "s1:1"),
+        (third, "s1:3"),
+    ]
 
 
 def test_a_run_with_no_conversation_exports_its_record_and_steps(store: Store):

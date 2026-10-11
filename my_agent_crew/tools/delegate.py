@@ -27,6 +27,7 @@ from my_agent_crew.agent.turn_context import (
 from my_agent_crew.agents import AgentProfile
 from my_agent_crew.agents.approval_ttl import effective_ttl
 from my_agent_crew.agents.roster import DELEGATE_TOOL_NAME, delegate_targets
+from my_agent_crew.script.scope import SCRIPT_TOOL
 from my_agent_crew.store.models import TOOL, Conversation
 from my_agent_crew.tools.delegate_attachments import (
     canvas_carrier,
@@ -163,10 +164,11 @@ async def _delegate(
 
 
 def _children(runtime: Runtime, parent: Conversation | None) -> list[Conversation]:
-    """Everything this conversation has already delegated."""
+    """Everything this conversation has already delegated, by a call of the model's or by
+    one a script of its made: the limit is the conversation's, however a task was handed."""
     if parent is None:
         return []
-    return runtime.store.delegated_children(parent.id, DELEGATE_TOOL_NAME)
+    return runtime.store.delegated_children(parent.id, DELEGATE_TOOL_NAME, SCRIPT_TOOL)
 
 
 async def _run_child(

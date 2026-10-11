@@ -330,3 +330,45 @@ def test_children_of_lists_what_a_turn_delegated_oldest_first(store: Store):
 
     assert [c.id for c in store.children_of(("call-1", "call-2"))] == [first.id, second.id]
     assert store.children_of(()) == []
+
+
+def test_children_of_finds_what_the_calls_of_a_script_opened_by_the_scripts_own_id(store: Store):
+    """Such a conversation is linked to the script's call id and the number of the call in
+    it, an id no message carries. Nothing else that looks like one is taken for it."""
+    store.create(parent_call_id="other")
+    second, tenth = store.create(parent_call_id="abc:2"), store.create(parent_call_id="abc:10")
+    direct = store.create(parent_call_id="call-1")
+    near = ("abc", "abc1", "abcd:1", "xabc:1", "ABC:1", "a_c:1", "a%c:1", "abc:x", "abc:1x", ":1")
+    for looks_like_one in near:
+        store.create(parent_call_id=looks_like_one)
+    # A script's call of a script whose id reads as another's call: its own, not that one's.
+    deeper = store.create(parent_call_id="abc:1:2")
+    store.create(parent_call_id="")
+
+    assert [c.id for c in store.children_of((), ("abc",))] == [second.id, tenth.id]
+    assert [c.id for c in store.children_of((), ("abc:1",))] == [deeper.id]
+    assert [c.id for c in store.children_of(("call-1",), ("abc",))] == [
+        second.id,
+        tenth.id,
+        direct.id,
+    ]
+    # An id with a wildcard in it names itself alone, and a call without an id names nothing,
+    # not even the conversation linked to a number and no id.
+    assert [c.parent_call_id for c in store.children_of((), ("a_c", "a%c"))] == ["a_c:1", "a%c:1"]
+    assert store.children_of((), ("",)) == [] and store.children_of((), ()) == []
+
+
+def test_what_a_conversation_delegated_includes_what_its_scripts_did_when_asked(store: Store):
+    parent, other = store.create(), store.create()
+    asked = (ToolCall("d1", "delegate", {"task": "a"}), ToolCall("s1", "tool_script", {}))
+    store.append(parent.id, Message(role="assistant", tool_calls=asked))
+    store.append(
+        other.id, Message(role="assistant", tool_calls=(ToolCall("s2", "tool_script", {}),))
+    )
+    by_model = store.create(parent_call_id="d1")
+    by_script = store.create(parent_call_id="s1:3")
+    store.create(parent_call_id="s2:1")
+
+    assert [c.id for c in store.delegated_children(parent.id, "delegate")] == [by_model.id]
+    both = store.delegated_children(parent.id, "delegate", "tool_script")
+    assert [c.id for c in both] == [by_model.id, by_script.id]

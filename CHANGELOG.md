@@ -115,6 +115,41 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   which the script can catch. On Telegram the message that lists the canvases a turn wrote names
   a canvas a script wrote as well, read from the calls the script's result lists (live, or from
   the stored run when a job's brief is delivered) and never from what the script printed.
+- A script can hand a task to another agent. `tools.delegate(task=..., agent=...)` is a call a
+  script makes where three things hold: the agent's file says `script_calls: gated`, the agent
+  holds `delegate`, and the script runs in a turn of the agent's own. Anywhere else (an agent
+  whose scripts only read, a task the agent was itself handed, the script of a schedule, which
+  has no conversation to be the parent) the call ends the script, unrun, with the line that
+  tells the model to call the tool directly, and the description of `tool_script` speaks of
+  handing tasks on only to an agent whose scripts do. The approval gate is not asked, as it is
+  not when the model calls `delegate` itself: what the other agent then does is put to the gate
+  in its own conversation. A task for an agent outside the ones this agent may hand to ends the
+  script before any call of its batch is made, with a line that names the agents it may hand to
+  and does not repeat the name it was given. Each such call is carried out under a call id of
+  its own, `<tool_script call id>:<number of the call in the script>`, which the conversation
+  it opens is linked to, so a script run again under the same id finds the conversation each of
+  its tasks opened and opens none. The tasks of one `tools.batch` are handed on side by side, at
+  most three at a time, and answered in the order written; a batch that also holds a call that
+  changes things is made one call at a time. A task a script hands on is one of the eight a
+  conversation may hand on, counted with the ones the model handed on itself, and one too many
+  is a mistake the script can catch. A script that may hand tasks on is given 1,800 seconds in
+  all where any other is given 300; how long it may compute and how long it may stay silent are
+  as they were. A task whose agent stops to ask a person holds the call as a direct one does,
+  for as long as the script has left. When the script's time is up it ends as one that ran out
+  of time, and the conversations it opened go on as the runs they are. Such a call is listed
+  with the script's calls under the name `delegate`, with the beginning of the tool's answer
+  (`conversation=<id> status=... spent=$... steps=...`) and a new key, `child_spent_usd`: what
+  the conversation it opened spent, written only when above zero and never as `null`. Its
+  `cost_usd` stays `null` and its `metered` `false`. The script's own result carries the sum
+  over the tasks that ended, however the script itself ended, and the conversation that ran it
+  is charged that once. `relay` means nothing in a script: the answer of a task is the script's
+  to use and never becomes the turn's reply. The conversations a script opened are found where
+  a direct call's are: in the count of tasks handed on, in a conversation's activity
+  (`GET /api/activity/runs` with `conversation_id`) and in the exported trajectory, where such
+  a child's `tool_call_id` is `<tool_script call id>:<number>`. On Telegram the message that
+  lists the canvases a turn wrote does not name a canvas written by an agent a script handed a
+  task to: of a script's calls it reads the ones that write a canvas, and what is kept of a
+  task handed on is the beginning of its answer only.
 
 ### Changed
 

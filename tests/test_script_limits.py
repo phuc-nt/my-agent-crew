@@ -1,5 +1,5 @@
 """How much a script may do: its steps, its values, what it prints, its calls, its memory,
-and what it may keep for a later run.
+what it may keep for a later run, and the tasks it may hand to other agents.
 
 Each limit is tried from both sides: what stays inside it runs to its end, and what goes
 past it stops with the line that says which limit that was. The limits a script cannot
@@ -8,6 +8,7 @@ catch are tried under a `try` as well, and a `finally` that must not run is ther
 
 from __future__ import annotations
 
+import asyncio
 import json
 import tracemalloc
 from functools import partial
@@ -15,14 +16,24 @@ from typing import Any
 
 import pytest
 
+from my_agent_crew import texts_script as script_texts
 from my_agent_crew import texts_script_store as kept_texts
+from my_agent_crew.llm.fake import completion
 from my_agent_crew.script import limits
+from my_agent_crew.script import tool as script_module
 from my_agent_crew.script.kept import KINDS
 from my_agent_crew.script.limits import MAX_OUTPUT_CHARS, ScriptError
 from my_agent_crew.script.printed import Printed
 from my_agent_crew.script.store_session import Kept
+from my_agent_crew.store.runs import DONE, RUNNING
 from my_agent_crew.store.script_store import ScriptStore
+from my_agent_crew.tools.registry import Tool
+from tests.queue_helpers import GatedProvider, settle_loop, until
 from tests.script_helpers import play, printed, stopped
+from tests.test_script_batch_run import answered, batch, one
+from tests.test_script_delegate import Handed, a_crew, handing, opened, played, under_way
+from tests.test_script_runner import SPINS
+from tests.test_script_tool import Reads
 
 OUT_OF_ROOM = "script tạo ra quá nhiều dữ liệu. Lọc bớt trước khi gom lại."
 OUT_OF_STEPS = "script chạy quá 300 bước. Xử lý ít dữ liệu hơn hoặc bỏ vòng lặp thừa."
@@ -1379,3 +1390,128 @@ def test_the_counts_of_what_a_model_is_asked_are_the_ones_the_owner_was_told():
         100,
     )
     assert (limits.LLM_SUMMARY_CHARS, limits.MAX_LLM_SUMMARY_CHARS) == (500, 4_000)
+
+
+# --- tasks handed to other agents ---
+
+
+async def test_no_more_tasks_than_the_most_are_handed_on_at_once_and_that_many_are():
+    """Two past the most: they wait their turn, and one begins each time one ends."""
+    most = limits.MAX_PARALLEL_DELEGATE
+    tasks = [f"việc {n}" for n in range(most + 2)]
+    handed = Handed()
+    source = batch(*(one("delegate", task=task) for task in tasks))
+
+    async with under_way(handed, handing(handed.tool), source) as running:
+        await until(lambda: len(handed.under_way) == most)
+        await settle_loop()
+        assert handed.began == tasks[:most]
+        # The one written last of those under way ends first: the next still begins.
+        handed.let_go(tasks[most - 1])
+        await until(lambda: len(handed.began) == most + 1)
+        await settle_loop()
+        assert handed.began == tasks[: most + 1] and len(handed.under_way) == most
+        handed.let_all_go()
+        result = await asyncio.wait_for(running, 10)
+
+    assert [answer["output"] for answer in answered(result)] == [f"xong {task}" for task in tasks]
+
+
+async def test_a_task_waiting_its_turn_keeps_no_other_call_of_the_batch_waiting():
+    """A task that waits to be handed on holds no place among the calls made at once: the
+    call written after it, which only reads, is made while every task before it is under
+    way or waiting."""
+    most = limits.MAX_PARALLEL_DELEGATE
+    assert most < limits.MAX_PARALLEL
+    handed, rows = Handed(), Reads("rows_read")
+    calls = [one("delegate", task=f"việc {n}") for n in range(limits.MAX_PARALLEL)]
+    source = batch(*calls, one("rows_read"))
+
+    async with under_way(handed, handing(handed.tool, rows.tool), source) as running:
+        await until(lambda: len(handed.under_way) == most)
+        await until(lambda: rows.asked == [{}])
+        assert len(handed.began) == most and not running.done()
+
+
+async def waits(arguments: dict[str, Any]) -> str:
+    await asyncio.Event().wait()
+    return "muộn"
+
+
+HUNG = Tool("hung_read", "Đọc.", {"type": "object", "properties": {}}, waits, replay_safe=True)
+
+
+async def test_a_script_that_hands_tasks_on_is_given_the_time_those_take(monkeypatch):
+    """The runner's own limit is shortened to less than the task takes: a script with a task
+    under way outlives it, and one that may hand nothing on is ended by it, though the agent
+    holds the same tools."""
+    shortened = partial(script_module.run_script, total_s=0.4)
+    monkeypatch.setattr(script_module, "run_script", shortened)
+    handed = Handed()
+    tools = handing(handed.tool, HUNG)
+
+    async with under_way(handed, tools, "print(tools.delegate(task='a'))") as running:
+        await until(lambda: handed.under_way == ["a"])
+        await asyncio.sleep(0.8)
+        assert not running.done()
+        handed.let_go("a")
+        result = await asyncio.wait_for(running, 10)
+    # A task the agent was handed itself: its script hands nothing on.
+    cut = await asyncio.wait_for(played(tools, "c1", "tools.hung_read()", depth=1), 10)
+
+    assert (result.ok, result.output) == (True, "xong a")
+    assert not cut.ok and script_texts.SCRIPT_TIMED_OUT.format(seconds=0.4) in cut.output
+
+
+@pytest.mark.parametrize(
+    ("kept_short", "ended_by"),
+    [
+        ({"idle_s": 0.2}, script_texts.SCRIPT_TIMED_OUT.format(seconds=0.2)),
+        ({"cpu_s": 1, "idle_s": 10}, script_texts.SCRIPT_OUT_OF_CPU),
+    ],
+    ids=["saying nothing", "the processor time it used"],
+)
+async def test_a_script_that_hands_tasks_on_is_still_ended_like_any_other_for(
+    monkeypatch, kept_short, ended_by
+):
+    """Only the time for the whole run is longer for such a script. The runner's own is set
+    to less than either of the other two takes, so a script kept to it would end by it."""
+    shortened = partial(script_module.run_script, total_s=0.05, **kept_short)
+    monkeypatch.setattr(script_module, "run_script", shortened)
+
+    result = await asyncio.wait_for(played(handing(Handed().tool), "c1", SPINS), 15)
+
+    assert (result.ok, result.output) == (False, f"{script_texts.SCRIPT_FAILED}\n{ended_by}")
+
+
+async def test_a_script_out_of_time_says_so_and_the_task_it_handed_on_goes_on(
+    monkeypatch, deps_factory, store
+):
+    """The time such a script is given is shortened, so it ends while the agent it handed a
+    task to has not answered. That conversation is a run of its own, and ends as one."""
+    monkeypatch.setattr(limits, "DELEGATE_TOTAL_S", 0.5)
+    provider = GatedProvider([completion("con xong", cost_usd=0.25)], held=(0,))
+    crew = a_crew(deps_factory, store, provider)
+    parent = store.create(agent_id="boss", autonomous=True)
+    source = "print(tools.delegate(task='việc', agent='worker'))"
+
+    try:
+        result = await played(crew.deps_for("boss").tools, parent.id, source)
+        [child] = opened(store)
+        still = store.runs.latest_for_conversation(child).status
+    finally:
+        provider.release(0)
+    await until(lambda: store.runs.latest_for_conversation(child).status == DONE)
+
+    timed_out = script_texts.SCRIPT_TIMED_OUT.format(seconds=0.5)
+    assert (result.ok, still) == (False, RUNNING)
+    assert result.output == f"{script_texts.SCRIPT_FAILED}\n{timed_out}"
+    # The task had not ended, so the script kept no call, and nothing spent with it.
+    assert (result.calls, result.child_spent_usd) == ((), 0.0)
+    assert store.history(child)[-1].message.content == "con xong"
+
+
+def test_how_many_tasks_at_once_and_how_long_for_them_are_what_the_owner_was_told():
+    """Each is said in the docs, and the first to the model that writes scripts: a change
+    here is a change there."""
+    assert (limits.MAX_PARALLEL_DELEGATE, limits.DELEGATE_TOTAL_S) == (3, 1_800)

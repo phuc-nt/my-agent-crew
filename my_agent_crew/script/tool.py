@@ -26,7 +26,10 @@ with its result: it is closed as cut and never run again, whatever it had called
 
 A script may also ask a model itself, to sort a text among a few labels or to shorten one
 (`llm_calls.py`). The server asks for it (`model_calls.py`), and each asking is one more of
-the script's calls on the run card, with what it cost.
+the script's calls on the run card, with what it cost. And the script of an agent that
+changes things may hand a task to another agent, in a turn of the agent's own
+(`delegation.py`): it is given the time such a task takes, and its result carries what the
+conversations it opened spent.
 
 What a script keeps for a later run (`store`, `load`) is written once, when it ended well
 (`store_session.py`). A script cut while it ran kept nothing, and is run again as if for the
@@ -42,24 +45,16 @@ from functools import partial
 from typing import TYPE_CHECKING, Any
 
 from my_agent_crew import texts_script as t
-from my_agent_crew import texts_script_llm as words
-from my_agent_crew.mcp.config import CODEMODE
 from my_agent_crew.mcp.tools import McpTool
+from my_agent_crew.script import limits
+from my_agent_crew.script.delegation import hands_on
+from my_agent_crew.script.description import description
 from my_agent_crew.script.gate import script_gate
 from my_agent_crew.script.kept import nowhere
-from my_agent_crew.script.limits import (
-    LLM_SUMMARY_CHARS,
-    MAX_BATCH,
-    MAX_CALLS,
-    MAX_LLM_CALLS,
-    MAX_LLM_TEXT_CHARS,
-    MAX_SOURCE_CHARS,
-)
 from my_agent_crew.script.model_calls import Ask, ModelCalls, agents_model
 from my_agent_crew.script.nested import Gate, ScriptRun
 from my_agent_crew.script.runner import run_script
 from my_agent_crew.script.scope import SCRIPT_TOOL, callable_tools, writes_too
-from my_agent_crew.script.signature import call_line, signature
 from my_agent_crew.script.store_session import Kept, turn_kept
 from my_agent_crew.tools.registry import Tool, ToolError, ToolRegistry
 from my_agent_crew.tools.result import ToolResult
@@ -67,8 +62,6 @@ from my_agent_crew.tools.result import ToolResult
 if TYPE_CHECKING:
     from my_agent_crew.agent.loop import AgentDeps
 
-# Lines of the description that name a tool, the agent's own and its servers' together.
-MAX_LISTED = 30
 PARAMETERS: dict[str, Any] = {
     "type": "object",
     "properties": {"script": {"type": "string", "description": t.SCRIPT_SOURCE}},
@@ -85,34 +78,6 @@ class ScriptTool(Tool):
         return {**super().to_dict(), "with_reads": True}
 
 
-def _description(
-    builtins: Sequence[Tool], scripted: Sequence[McpTool], gated: bool, asks: bool = False
-) -> str:
-    """The agent's own tools come first, each with its parameters: what one is for is in its
-    own declaration. Then the tools the owner opened for scripts, while lines are left. The
-    model is only told how many more a script may call: past the last line, or never opened.
-    `gated` for an agent told its scripts call the tools that change things as well, `asks`
-    for one whose scripts can ask a model."""
-    own = [f"- {call_line(tool)}" for tool in builtins[:MAX_LISTED]]
-    opened = [tool for tool in scripted if tool.exposure == CODEMODE]
-    served = [signature(tool) for tool in opened[: MAX_LISTED - len(own)]]
-    left = len(builtins) + len(scripted) - len(own) - len(served)
-    if left:
-        (served if scripted else own).append(t.SCRIPT_MORE.format(count=left))
-    told = (t.SCRIPT_DESCRIPTION_GATED if gated else t.SCRIPT_DESCRIPTION).format(
-        calls=MAX_CALLS,
-        batch=MAX_BATCH,
-        example=t.SCRIPT_BATCH_EXAMPLE,
-        builtins=t.SCRIPT_BUILTINS.format(lines="\n".join(own)) if own else "",
-        mcp=t.SCRIPT_MCP.format(lines="\n".join(served)) if served else "",
-    )
-    if not asks:
-        return told
-    return told + words.LLM_DESCRIPTION.format(
-        default=LLM_SUMMARY_CHARS, most=MAX_LLM_CALLS, chars=MAX_LLM_TEXT_CHARS
-    )
-
-
 async def run_source(
     source: str,
     held: ToolRegistry,
@@ -125,10 +90,17 @@ async def run_source(
     run: a turn's `tool_script` comes here, and so does the script of a schedule
     (`scheduler/script_job.py`). What it wrote with `store` is kept in `kept` once it ended
     well, and never otherwise; when even then none of it could be kept, the script failed.
-    `model` answers what the script asks a model itself; without one it can ask none."""
+    `model` answers what the script asks a model itself; without one it can ask none.
+    A script that may hand tasks to other agents is given the time those take, and what the
+    conversations they opened spent is on its result, however it ended: the conversation
+    that ran the script is charged it once, there."""
     made = ScriptRun(held, gate, keep=kept.answer if kept is not None else nowhere)
     asked = ModelCalls(made, model)
-    outcome = await run_script(source, made.answer, lookup=asked.lookup, call_many=made.answer_many)
+    # Any other script keeps the runner's own limit, which is not named here.
+    longer = {"total_s": limits.DELEGATE_TOTAL_S} if made.delegates else {}
+    outcome = await run_script(
+        source, made.answer, lookup=asked.lookup, call_many=made.answer_many, **longer
+    )
     printed = said = outcome.output.rstrip()
     if outcome.error:
         said = f"{said}\n{outcome.error}" if said else outcome.error
@@ -144,6 +116,7 @@ async def run_source(
         calls=tuple(made.calls),
         received_chars=made.received,
         printed_chars=len(printed),
+        child_spent_usd=sum(call.child_spent_usd for call in made.calls),
     )
     return result, printed
 
@@ -168,15 +141,16 @@ def script_tool(
         source = arguments.get("script")
         if not isinstance(source, str) or not source.strip():
             raise ToolError(t.SCRIPT_NO_SOURCE)
-        if len(source) > MAX_SOURCE_CHARS:
-            raise ToolError(t.SCRIPT_TOO_LONG.format(most=MAX_SOURCE_CHARS))
+        if len(source) > limits.MAX_SOURCE_CHARS:
+            raise ToolError(t.SCRIPT_TOO_LONG.format(most=limits.MAX_SOURCE_CHARS))
         kept = keeper() if keeper is not None else None
         return (await run_source(source, registry(), gate, kept, model))[0]
 
-    own = [tool for tool in callable_tools(registry(), gated) if not isinstance(tool, McpTool)]
+    held = registry()
+    own = [tool for tool in callable_tools(held, gated) if not isinstance(tool, McpTool)]
     return ScriptTool(
         name=SCRIPT_TOOL,
-        description=_description(own, scripted, gated, model is not None),
+        description=description(own, scripted, gated, model is not None, hands_on(held, gated)),
         parameters=PARAMETERS,
         run=run,
         # A script that only reads makes calls that may each be made again. One that may

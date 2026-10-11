@@ -5687,6 +5687,83 @@ khi chạy; phần đó có mục riêng ở dưới.
     hơn một thẻ, lời gọi ghi được ghi như lời gọi không đổi gì, tool ghi được coi là tool đọc,
     lượt không đếm canvas đã ghi, lượt tới từ API được ghi canvas, job giữ cuộc trò chuyện có
     trước nó) đều bị test bắt.
+- **Script giao việc cho agent khác (`tools.delegate`, `script_calls: gated`)**:
+  - pytest: `tests/test_script_delegate.py` (hai việc của một script mở hai cuộc trò chuyện, mỗi
+    cuộc dưới id lời gọi của script kèm số thứ tự của lời gọi, và run của con mang nguồn
+    `delegate:<cuộc trò chuyện cha>`; cùng script chạy lại dưới cùng id tìm lại cả hai và không
+    mở cuộc nào; script không có id lời gọi thì không lấy cuộc trò chuyện của script nào khác,
+    hai lần chạy mở bốn cuộc; id của lời gọi được trả lại sau mỗi việc, dù việc xong hay hỏng;
+    câu trả lời dài của một việc vẫn được giữ dưới id của script; script không được giao việc
+    thì dừng với dòng bảo gọi `delegate` trực tiếp, ở agent mà script chỉ đọc, trong lượt của
+    một việc được giao và trong script của một lịch; `tools.names`, `tools.search` và
+    `tools.describe` chỉ kể `delegate` ở nơi script gọi được nó; agent không giữ `delegate` thì
+    script của nó không có;
+    việc cho một agent không giao được làm script dừng, câu trả lời nêu những agent giao được
+    và không nhắc lại tên đã viết; một việc như thế trong lô thì không lời gọi nào của lô chạy;
+    các việc của một lô chạy cùng lúc và được trả lời theo thứ tự đã viết; lô có lời gọi ghi
+    thì giao từng việc một; các việc giao cùng lúc được đếm từng cái vào mức tám việc của cuộc
+    trò chuyện, việc vượt mức là lỗi của riêng nó; tiền các con tiêu nằm trên kết quả của script
+    và trên từng lời gọi được giữ, không phải là giá của lời gọi; khoá `child_spent_usd` và
+    `gated` chỉ được ghi khi có, không bao giờ là `null`, ở `to_dict()` và ở phần lưu kèm tin
+    nhắn; script hỏng vẫn mang tiền các việc của nó đã tiêu; câu trả lời của con là của script,
+    không bao giờ thành câu trả lời của lượt dù `relay` đặt thế nào; lượt thật qua server: cuộc
+    trò chuyện cha được cộng tiền của con đúng một lần, run của cha không cộng, sự kiện
+    `nested_call`, step của run và phần lưu kèm kể cùng một lời gọi, và model trả lời bằng lời
+    của nó sau khi đọc cái script in; con dừng chờ người duyệt thì script chờ tới khi con được
+    trả lời; chỉ agent mà script giao việc được mới đọc thấy câu về `tools.delegate` trong lời
+    mô tả).
+  - pytest: `tests/test_script_limits.py` (không quá ba việc được giao cùng lúc và đủ ba; việc
+    đang chờ tới lượt không làm lời gọi đọc nào của lô phải chờ; script giao việc được thì sống
+    qua hạn của một script thường, còn cũng script đó trong lượt của một việc được giao thì bị
+    cắt ở hạn thường; script giao việc được vẫn bị dừng như mọi script khi nó im lặng quá hạn
+    và khi nó dùng hết giây CPU, với hạn cả lần chạy của runner đặt ngắn hơn cả hai; script hết
+    giờ nói rõ là hết giờ, việc nó đã giao vẫn chạy tiếp như run của nó và xong sau đó; hai mức
+    đúng là con số đã nói với chủ).
+  - pytest: `tests/test_store.py` (tìm con theo id của lời gọi chạy script: chỉ những id là id đó
+    kèm dấu hai chấm và một dãy chữ số, không phải id chỉ giống phần đầu, khác hoa thường, chứa
+    ký tự đại diện của `LIKE` hay có chữ sau số; id rỗng không tìm ra gì, kể cả cuộc trò chuyện
+    ghi một con số mà không có id nào trước dấu hai chấm; một cuộc trò chuyện đã giao những gì
+    thì kể cả việc script của nó giao, khi được hỏi kèm tên tool script).
+  - pytest: `tests/test_tools_delegate.py` (việc script đã giao được đếm vào mức tám việc: bảy
+    việc của script cộng một lời gọi trực tiếp là đủ, lời gọi thứ chín bị từ chối, và con của
+    cuộc trò chuyện khác không bị đếm; mẫu `CHILD_HEADER` của web, đọc từ
+    `web/src/lib/nested-calls.ts`, tìm ra id cuộc trò chuyện con trong phần được giữ của lời
+    gọi), `tests/test_server_agents_activity_jobs.py` (run của con do script mở nằm trong hoạt
+    động của cuộc trò chuyện cha, còn con của cuộc khác có id lời gọi chỉ giống phần đầu thì
+    không), `tests/test_trajectory.py` (bản xuất của run mang con do script mở cả khi script
+    còn chờ nó lẫn khi script đã xong, `tool_call_id` là id lời gọi script kèm số thứ tự, đúng
+    thứ tự mở; con của cuộc khác và của một run trước đó không đi theo),
+    `tests/test_telegram_canvas_notice.py` (giới hạn đã biết: tin "Canvas vừa ghi:" không nêu
+    canvas mà con của một script đã viết, trong khi lời gọi `delegate` trực tiếp thì nêu).
+  - Kiểm chứng đột biến: sáu mươi sáu sửa đổi, sáu mươi ba bị bắt, ba tương đương. Chín ở id của
+    từng việc (mọi việc dùng id của script hay cùng số 1; tool nào cũng được id riêng; script
+    không có id vẫn đánh số; đổi dấu ngăn; id không được trả lại, hay chỉ được trả lại khi lời
+    gọi xong êm; đánh số theo lúc chạy thay vì thứ tự viết; câu trả lời dài giữ dưới id của
+    việc). Mười một ở chỗ tìm con (mức tám việc, hoạt động, hay bản xuất quỹ đạo bỏ con của
+    script; bản xuất đọc nhầm lời gọi nào là script; không bỏ số, hay không bỏ số 0; tìm cả id
+    rỗng; không đọc script của cuộc trò chuyện; khớp không cần dấu ngăn; khớp không phân biệt
+    hoa thường; con không cần mở trong lúc run chạy). Hai ở mức tám việc (lệch một; một nhịp chờ
+    giữa đếm và mở). Chín ở số việc cùng lúc (dùng mức của lời gọi đọc; hằng số tăng hay giảm;
+    lời gọi khác phải chờ thay cho việc; việc đang chờ giữ chỗ của lô; không giới hạn; mỗi lời
+    gọi một chỗ chờ riêng; lô việc chạy từng cái; lô có lời gọi ghi vẫn chạy song song). Bảy ở
+    thời gian (hạn dài cho mọi script, cho đúng những script không giao việc được, hay không
+    cho script nào; đổi hạn im lặng thay cho hạn cả lần chạy; hằng số bằng hạn thường; nâng
+    luôn hạn im lặng, hay hạn CPU). Tám ở tiền (kết quả không mang tổng, chỉ mang khi script
+    xong êm, hay mang một việc thay vì tổng; lời gọi được giữ không ghi tiền; tiền của con
+    thành giá của lời gọi; khoá được ghi ở số 0 hay không bao giờ được ghi; việc được ghi là có
+    tính tiền). Mười tám ở chỗ script được giao hay không và giao cho ai (bỏ từng điều trong ba
+    điều; `delegate` là của mọi script hay không của script nào; lời mô tả không nói, hay nói
+    với mọi agent `gated`; ba lời tra không biết tới nó; không xét agent đích, từ chối việc
+    không nêu agent, coi agent nào cũng sai; lời từ chối nhắc lại tên đã viết hay không nêu
+    agent nào), một ở `relay` và một ở tin canvas. Vòng đầu sót sáu. Ba là chỗ test hở, nay có
+    test: script không có id lời gọi, id rỗng trong `children_of`, và hạn im lặng bị nâng theo
+    (sửa đổi nâng hạn CPU được thêm cùng lúc); sửa đổi cho mọi script hạn dài lúc đầu chỉ bị bắt
+    vì test treo tới hết giờ, nay test hỏng trong mười giây. Ba cái tương đương: xét `delegate`
+    theo quy tắc chung khi script không được giao việc (tên nó vẫn nằm trong `NOT_FROM_SCRIPT`,
+    nên câu trả lời như nhau); xét agent đích sau khi hỏi cổng (cổng không bao giờ được hỏi về
+    `delegate`, vì theo khai báo nó chỉ đọc); và cho tin canvas đọc cả phần được giữ của một
+    việc script giao (phần đó mở đầu bằng dòng `conversation=` hay một câu báo lỗi, không bao
+    giờ bằng thẻ canvas).
 - **web: lời gọi của script trên thẻ run, thẻ tool trong khung chat và bản xuất Markdown**:
   - vitest: `components/script-calls.test.tsx` (dòng tóm tắt nói có bao nhiêu lời gọi, và bao nhiêu
     lần lỗi chỉ khi có; danh sách gấp lại cho tới khi bấm và gấp lại ở lần bấm sau; mỗi lời gọi một

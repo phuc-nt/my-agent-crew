@@ -211,6 +211,12 @@ cha lúc kết quả giao việc được ghi, nên trần vẫn đúng nghĩa c
 lại sau khi server khởi động lại không tính con hai lần. Lượt bị ngắt giữa chừng khi đang giao việc tìm lại
 con của nó qua id của tool call thay vì mở một con thứ hai.
 
+Một cuộc trò chuyện giao được tối đa tám việc, đếm trên mọi cuộc trò chuyện con nó đã mở chứ không
+riêng một tin: việc thứ chín bị từ chối, không mở cuộc trò chuyện nào. Con số đó đếm cả việc model
+tự giao lẫn việc một script của nó giao: agent `script_calls: gated` gọi được `delegate` ngay trong
+script (`tools.delegate`), xem bullet "Giao việc từ script" ở
+[Gọi tool từ script](#gọi-tool-từ-script).
+
 ### Tool workspace
 
 Đường dẫn được phân giải bên trong workspace: `..` và đường dẫn tuyệt đối
@@ -791,7 +797,9 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
     về. `artifact_read` thì để lại dấu trên cuộc trò chuyện: đọc một canvas đến hết là điều cho
     `artifact_rewrite` biết agent đã thấy bản người dùng vừa lưu, trong khi model chỉ nhận những
     gì script in ra. Script gọi `artifact_read` thì dừng với dòng bảo gọi trực tiếp, con trỏ đọc
-    đứng yên và lần ghi đè sau đó vẫn bị từ chối;
+    đứng yên và lần ghi đè sau đó vẫn bị từ chối. Riêng `delegate` có một luật của nó: script của
+    agent `script_calls: gated` gọi được nó trong lượt của chính agent (bullet "Giao việc từ
+    script"), còn ở mọi script khác nó vẫn ở ngoài;
   - tool MCP mà chủ ghi vào `read_only`, trừ tool `hidden`, ở **mọi** mức mở (`direct`,
     `deferred` hay `codemode`). Mức mở chỉ quyết định lời mô tả của `tool_script` có nêu tên tool
     đó hay không, không quyết định script có gọi được nó hay không: chủ đã khẳng định tool chỉ đọc
@@ -808,8 +816,9 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
   cuối "và N công cụ nữa, tìm bằng tools.search"; script tra chúng bằng `tools.search` và
   `tools.describe` (bullet kế tiếp). Model muốn tự gọi trực tiếp một tool MCP như thế thì nạp nó
   bằng `tool_search`. Lời mô tả khép lại bằng một câu về hai cách script tự hỏi model (bullet
-  "Script tự hỏi model"). Với agent mặc định (không máy chủ MCP nào) lời mô tả dài khoảng 3.000
-  ký tự, trong đó 12 dòng tool.
+  "Script tự hỏi model"), và ở agent mà script giao việc được thì thêm một câu về
+  `tools.delegate` sau đó (bullet "Giao việc từ script"). Với agent mặc định (không máy chủ MCP
+  nào) lời mô tả dài khoảng 3.000 ký tự, trong đó 12 dòng tool.
 - **Tra cứu tool trong script.** Script chưa rõ tên hay tham số của một tool thì hỏi ngay trong
   script, trước khi gọi, thay vì đoán rồi chạy lại:
   - `tools.names()` trả list tên mọi tool script gọi được, theo thứ tự agent giữ chúng;
@@ -864,7 +873,8 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
     dừng như khi gọi lẻ, và dừng **trước khi bất kỳ lời gọi nào của lô chạy**: không có lô chạy
     nửa chừng rồi mới bị từ chối.
 - **Lời gọi bị từ chối.** Gọi một tool phải hỏi trước hoặc có ghi dữ liệu, hay một tool chỉ đọc
-  mà script không được gọi (`delegate`, một tool MCP `hidden`), thì script **dừng ngay tại đó**:
+  mà script không được gọi (`delegate` ở script không được giao việc, một tool MCP `hidden`), thì
+  script **dừng ngay tại đó**:
   không `try/except` nào bắt được, và câu trả lời nói phải làm gì thay ("gọi trực tiếp", hoặc "nạp
   bằng tool_search rồi gọi trực tiếp"). Vì vậy script không bao giờ chờ người duyệt, và mọi lời
   gọi có ghi vẫn đi qua cổng duyệt như cũ. Điều đó đúng cả với agent `script_calls: gated`: ở đó
@@ -881,7 +891,8 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
     `artifact_export`) và tool MCP không nằm trong `read_only`, ở mọi mức mở. Vẫn ở ngoài:
     `ask_user` và `schedule_create` (hai tool luôn chờ
     một người, dù cuộc trò chuyện cho phép gì; script được nói "luôn phải hỏi người dùng nên
-    không gọi được từ script"), năm tool ở bullet "Script gọi được gì", bốn tên của `tools`, và
+    không gọi được từ script"), năm tool ở bullet "Script gọi được gì" (trừ `delegate` trong lượt
+    của chính agent, bullet "Giao việc từ script"), bốn tên của `tools`, và
     tool MCP `hidden`. `tools.names()`, `tools.search`, `tools.describe` và lời mô tả của
     `tool_script` kể cả tập rộng hơn này; lời mô tả có thêm một đoạn nói script gọi được cả tool
     ghi, cổng duyệt xét từng lời gọi, và phải làm gì khi script bị dừng.
@@ -947,6 +958,87 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
     script dừng với câu bảo gọi trực tiếp. Trong job chạy script không có cuộc trò chuyện nào để
     gắn canvas: lời gọi lỗi với "Canvas chỉ dùng được trong một cuộc trò chuyện. Chưa làm gì.",
     bắt được, và không canvas nào bị gắn nhầm vào cuộc trò chuyện của một job chạy trước đó.
+  - **Giao việc từ script (`tools.delegate`).** Hỏi ba agent cùng một việc rồi gộp ba câu trả lời
+    là việc của script: model chỉ đọc phần đã gộp. Script gọi được
+    `tools.delegate(task=..., agent=...)` khi cả ba điều sau cùng đúng **lúc script bắt đầu**:
+    `script_calls` của agent là `gated`; agent giữ `delegate`; và script chạy trong **lượt của
+    chính agent**, có cuộc trò chuyện để làm cha. Agent có hai điều đầu thì lời mô tả của
+    `tool_script` thêm một câu ở cuối: trong lượt của chính nó script giao việc được bằng
+    `tools.delegate`, và nhiều lời giao trong một `tools.batch` chạy song song, tối đa 3 việc
+    cùng lúc. Agent khác không đọc thấy câu đó.
+    - **Ở đâu thì không.** Thiếu một trong ba điều thì `delegate` ở ngoài như với mọi script: lời
+      gọi làm script dừng với câu "`delegate` không gọi được từ script: gọi trực tiếp.", và
+      `tools.names()`, `tools.search`, `tools.describe` không kể nó. Hai chỗ không bao giờ giao
+      việc từ script. Lượt của một agent đang làm việc được giao: đó không phải lượt của chính
+      nó, nên script dừng với câu trên và độ sâu vẫn dừng ở một (chính tool `delegate` cũng từ
+      chối ở độ sâu đó, là rào thứ hai). Và job chạy script: không có cuộc trò chuyện nào để
+      làm cha.
+    - **Cổng duyệt.** Cổng không xét lời gọi này, cũng như không xét một lời gọi `delegate` trực
+      tiếp: việc con làm thì cổng xét trong cuộc trò chuyện của con, với lập trường duyệt con
+      thừa kế của cha.
+    - **Giao cho ai.** `agent` phải là một agent bên gọi giao được (chính nó, hoặc một trong
+      `delegates`); bỏ trống là giao cho chính nó. Tên khác thì script dừng **trước khi lời gọi
+      nào chạy**, kể cả các lời gọi khác của cùng lô, với câu nêu những agent giao được:
+      "`delegate` chưa chạy: `agent` phải là một trong: …; bỏ trống là giao cho chính mình. Sửa
+      `agent` rồi chạy lại script." Tên script đã viết không được nhắc lại.
+    - **Mỗi việc một id lời gọi.** Việc chạy dưới id `<id lời gọi tool_script>:<số>`, `<số>` là
+      số thứ tự của lời gọi trong script, từ 1 (đúng con số ở bullet "Câu trả lời dài hơn
+      200.000 ký tự"). Cuộc trò chuyện con ghi id đó là lời gọi đã mở ra nó (`parent_call_id`),
+      và run của con mang nguồn `delegate:<cuộc trò chuyện cha>` như mọi việc được giao. Hai
+      việc của một script vì thế mở hai cuộc trò chuyện, và cùng script đó chạy lại dưới cùng
+      id lời gọi thì tìm lại cả hai chứ không mở cái thứ ba. Id riêng chỉ có trong lúc đúng lời
+      gọi đó chạy: bản đầy đủ của một câu trả lời dài vẫn được giữ dưới `<id lời gọi
+      script>.<số>`, và mọi lời gọi khác của script vẫn đọc id của script.
+    - **Nhiều việc một lúc.** Các việc trong một `tools.batch` chạy song song, **tối đa 3 việc
+      cùng lúc**, và được trả lời đúng thứ tự đã viết. `delegate` không phải lời gọi có ghi, nên
+      lô việc giao không bị ép chạy từng cái một; lô còn có một lời gọi tới tool có ghi thì cả
+      lô chạy từng lời gọi một như cũ, kể cả các việc giao. Việc đang chờ tới lượt không giữ chỗ
+      nào trong bốn chỗ của lô, nên các lời gọi đọc cùng lô không phải chờ theo.
+    - **Tám việc mỗi cuộc trò chuyện.** Mức ở [Giao việc](#giao-việc) là một con số chung cho
+      lời gọi trực tiếp và mọi script. Việc vượt mức là lỗi của riêng lời gọi đó, bắt được, và
+      các việc trước nó vẫn chạy. Các việc giao cùng lúc trong một lô được đếm từng cái một:
+      mỗi lời gọi đếm rồi mở cuộc trò chuyện con trong cùng một nhịp, nên cả lô không cùng lọt
+      qua mức.
+    - **Thời gian.** Script giao việc được có **1.800 giây** cho cả lần chạy thay cho 300 giây,
+      vì một việc được giao chạy hàng phút. Mức này được chọn lúc script bắt đầu, theo ba điều ở
+      trên, dù script rốt cuộc có giao việc nào hay không. 20 giây CPU và 60 giây chờ tiến trình
+      con không đổi; 60 giây đó chỉ đếm lúc server chờ dòng kế tiếp của tiến trình con, không
+      đếm lúc server đang chạy một lời gọi cho nó. Phía trên script không có gì cắt một lời gọi
+      tool: vòng lượt không đặt hạn cho từng tool. Một lời gọi `delegate` trực tiếp chờ hạn
+      duyệt của con cộng năm phút (mặc định 600 + 300 giây), và trong script nó chờ đúng như
+      thế, chừng nào script còn giờ.
+    - **Con dừng chờ người.** Con dừng lại chờ một người (chẳng hạn một tool cần duyệt) thì lời
+      gọi giao việc **giữ nguyên chờ** như khi gọi trực tiếp: người dùng trả lời ở cuộc trò
+      chuyện của con, và script đi tiếp khi con xong. Script vẫn không hỏi ai; nó chỉ chờ, lâu
+      nhất tới hết 1.800 giây của chính nó.
+    - **Hết giờ.** Kết quả là "Script không chạy xong." rồi "Script bị dừng: quá 1800 giây mà
+      chưa xong.". Các cuộc trò chuyện con **vẫn chạy tiếp** như những run riêng của chúng, và
+      vẫn nằm trong hoạt động của cuộc trò chuyện cha. Việc còn dở lúc đó không có dòng nào
+      trong danh sách lời gọi của script và chưa cộng tiền vào cha: tiền một con tiêu chỉ tới
+      cha khi lời gọi giao việc nhận được kết quả, như với lời gọi trực tiếp hết thời gian chờ.
+    - **Tiền.** Tiền mỗi con tiêu nằm trên lời gọi của nó (`child_spent_usd`), và tổng của chúng
+      nằm trên kết quả của script, nên cuộc trò chuyện cha được cộng **một lần**, lúc kết quả
+      của script được ghi, dù script chạy hết hay hỏng sau đó. Đó không phải giá của lời gọi:
+      `cost_usd` là `null` và `metered` là `false`, vì run của con đã tự ghi tiền của nó, và
+      run của cha không cộng nó lần nữa.
+    - **`relay` không có nghĩa trong script.** Câu trả lời của con là dữ liệu của script, **không
+      bao giờ thành câu trả lời của lượt**, dù script đặt `relay` thế nào. Model đọc cái script
+      in ra rồi trả lời bằng lời của chính nó.
+    - **Trên thẻ run.** Lời gọi mang tên `delegate` với tham số của nó (`task`, `agent`). Phần
+      đầu câu trả lời được giữ mở đầu bằng dòng `conversation=<id> status=… spent=$… steps=…`,
+      nên web mở được cuộc trò chuyện con từ dòng của lời gọi. Lời gọi không mang `gated`, vì
+      nó không qua cổng.
+    - **Canvas con viết.** Script nhận nguyên câu trả lời của `delegate`, kể cả khối canvas.
+      Nhưng phần được giữ cho thẻ run chỉ là 160 ký tự đầu, gộp thành một dòng, và trong danh
+      sách lời gọi của script tin "Canvas vừa ghi:" trên Telegram ([channels.md](channels.md))
+      chỉ đọc những lời gọi ghi canvas: tin đó **không nêu** canvas mà con của một script đã
+      viết, khác với việc giao trực tiếp. Đây là một giới hạn đã biết. Script muốn model biết
+      canvas nào thì tự in dòng đó ra: model chỉ đọc cái script in.
+    - **Sau restart.** Script bị cắt không chạy lại (bullet "Sau restart" bên dưới). Những con
+      nó đã mở vẫn được đếm vào tám việc, vẫn nằm trong hoạt động của cuộc trò chuyện
+      (`/api/activity/runs?conversation_id=`) và trong bản xuất quỹ đạo của run: cả ba tìm con
+      theo id của lời gọi `tool_script`, thứ tin nhắn của cha có ghi, vì id riêng của từng việc
+      thì không tin nhắn nào của cha mang.
   - **Trên thẻ run và API.** Lời gọi đã qua cổng mang `gated: true` ở mọi nơi lời gọi của script
     được ghi (bullet "Trên API"); lời gọi chỉ đọc không mang khoá này.
   - **Sau restart.** `tool_script` của agent `gated` không tự khai là gọi lại được. Lời gọi của
@@ -1131,7 +1223,10 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
   chỉ đọc giữ nguyên bảy khoá trên, ở sự kiện, ở step và ở phần lưu kèm. Một lần script hỏi model
   cũng là một phần tử của `calls`, với đúng bảy khoá đó: `name` là `llm.classify` hoặc
   `llm.summarise` (web nhận ra một lần hỏi model nhờ tiền tố `llm.` đó), `metered` luôn `true`,
-  `cost_usd` là giá của lời gọi hoặc `null` khi không rõ, và không bao giờ có `gated`. Với tool
+  `cost_usd` là giá của lời gọi hoặc `null` khi không rõ, và không bao giờ có `gated`. Một việc
+  script giao (`name` là `delegate`, bullet "Giao việc từ script") có thêm `child_spent_usd`, số
+  tiền cuộc trò chuyện con đã tiêu; như `gated`, khoá này **chỉ được ghi khi lớn hơn 0** và
+  không bao giờ là `null`. `cost_usd` của lời gọi đó là `null` và `metered` là `false`. Với tool
   không phải script, sự kiện mang `calls` rỗng và hai số đo
   `null`, còn step không có ba khoá đó. Mỗi lời gọi vừa xong đi trong một sự kiện riêng
   `nested_call` gồm `tool_call_id` (của lời gọi `tool_script`), `index` (thứ tự lời gọi xong, từ
@@ -1160,7 +1255,8 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
   `script_calls` của agent cho script gọi. Không lượt nào của agent được mở, nên model chỉ được
   gọi ở hai chỗ: khi chính script hỏi bằng `llm.classify` / `llm.summarise` (bullet "Script tự hỏi
   model"), và khi script in ra gì đó mà lịch có `then_prompt`. Script của job không thuộc cuộc
-  trò chuyện nào và không bao giờ chờ người. Xem [agents.md](agents.md#job-chạy-script).
+  trò chuyện nào, không bao giờ chờ người và không giao việc cho agent khác. Xem
+  [agents.md](agents.md#job-chạy-script).
 - **Giữ lại giữa các lần chạy (`store` / `load`).** Script chạy xong là quên hết: lần sau nó không
   biết lần trước đã thấy gì, đã báo việc nào. Hai tên dùng thẳng như `print`, không qua `tools.`:
   `store(khoá, giá_trị)` giữ một giá trị dưới một khoá, `store(khoá, None)` bỏ khoá đó, và

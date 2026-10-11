@@ -162,7 +162,12 @@ Canvas tới chat theo hai đường.
   Lượt xong mà không có chữ nào nhưng có ghi canvas thì tin này là câu trả lời. Canvas do một
   script ghi (`tool_script` của agent `script_calls: gated`, xem
   [tools.md](tools.md#gọi-tool-từ-script)) cũng có trong tin, đọc từ danh sách lời gọi của
-  script chứ không từ cái script in ra.
+  script chứ không từ cái script in ra. **Giới hạn đã biết:** canvas do agent được giao việc
+  ghi chỉ có trong tin khi việc được giao bằng một lời gọi `delegate` trực tiếp. Việc do script
+  giao (`tools.delegate`) thì không: trong danh sách lời gọi của script, tin chỉ đọc những lời
+  gọi ghi canvas, còn câu trả lời của một việc được giao chỉ được giữ 160 ký tự đầu, gộp thành
+  một dòng, nên khối canvas của con không còn ở đó để đọc. Canvas ấy vẫn ở trong kho và mở
+  được trên web, từ cuộc trò chuyện của agent con.
 
 Link về web chỉ có khi `web_url` được đặt (xem
 [deployment-guide.md](deployment-guide.md#4-biến-môi-trường-và-bí-mật)): mỗi canvas trong tin

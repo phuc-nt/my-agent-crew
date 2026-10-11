@@ -104,18 +104,38 @@ def for_parent_call(
     )
 
 
+# Stands between the id of a call that ran a script and the number of a call the script made.
+_NUMBERED = ":"
+
+
+def nested_call_id(call_id: str, number: int) -> str:
+    """The id one call of a script goes by where it needs one of its own: the id of the call
+    that ran the script, then the number of the call in it. A conversation such a call
+    opened is linked to this id, which no message carries (`children_of`)."""
+    return f"{call_id}{_NUMBERED}{number}"
+
+
 def children_of(
-    conn: sqlite3.Connection, lock: threading.Lock, call_ids: tuple[str, ...]
+    conn: sqlite3.Connection,
+    lock: threading.Lock,
+    call_ids: tuple[str, ...],
+    scripts: tuple[str, ...] = (),
 ) -> list[Conversation]:
     """Every conversation opened by one of these tool calls, oldest first — what a parent
-    turn spawned, for the cost rollup and for showing the tree in the UI."""
-    if not call_ids:
+    turn spawned, for the cost rollup and for showing the tree in the UI. `scripts` are the
+    calls that ran a script, each of which opened whatever a call of its own did: those are
+    linked to `nested_call_id`, so they are found by that id with its number taken off. The
+    rest of it is matched whole, as any id is: a capital is no small letter, and a `_` is
+    no other character."""
+    began = tuple(f"{script}{_NUMBERED}" for script in scripts if script)
+    if not call_ids and not began:
         return []
-    marks = ",".join("?" * len(call_ids))
+    own, nested = (",".join("?" * len(ids)) for ids in (call_ids, began))
     with lock:
         rows = conn.execute(
-            f"SELECT * FROM conversations WHERE parent_call_id IN ({marks}) ORDER BY rowid",
-            call_ids,
+            f"SELECT * FROM conversations WHERE parent_call_id IN ({own})"
+            f" OR rtrim(parent_call_id, '0123456789') IN ({nested}) ORDER BY rowid",
+            (*call_ids, *began),
         ).fetchall()
     return [Conversation.from_row(r) for r in rows]
 
@@ -158,10 +178,17 @@ class ConversationLookups:
     ) -> Conversation | None:
         return for_parent_call(self._conn, self._lock, parent_call_id, source)
 
-    def children_of(self, call_ids: tuple[str, ...]) -> list[Conversation]:
-        return children_of(self._conn, self._lock, call_ids)
+    def children_of(
+        self, call_ids: tuple[str, ...], scripts: tuple[str, ...] = ()
+    ) -> list[Conversation]:
+        return children_of(self._conn, self._lock, call_ids, scripts)
 
-    def delegated_children(self, conv_id: str, tool_name: str) -> list[Conversation]:
-        """What this conversation delegated, oldest first, found through its own tool calls."""
-        calls = delegating_call_ids(self.messages.history(conv_id), tool_name)
-        return self.children_of(calls)
+    def delegated_children(
+        self, conv_id: str, tool_name: str, script_tool: str = ""
+    ) -> list[Conversation]:
+        """What this conversation delegated, oldest first, found through its own tool calls:
+        the ones that delegated and, when `script_tool` names it, the ones that ran a script,
+        which may have delegated in their turn."""
+        history = self.messages.history(conv_id)
+        scripts = delegating_call_ids(history, script_tool) if script_tool else ()
+        return self.children_of(delegating_call_ids(history, tool_name), scripts)

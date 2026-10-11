@@ -11,7 +11,9 @@ it.
 An agent whose file says `script_calls: gated` lets its scripts call the tools that change
 things as well (`gated`, below). Each such call is put to the approval gate before it runs
 (`gate.py`), and a script waits for nobody, so the tools that always wait for a person stay
-out, with the ones kept from every script above and a server's tool the owner hid.
+out, with the ones kept from every script above and a server's tool the owner hid. Of those
+kept from every script one is let back in: such an agent's script may hand a task to another
+agent, in a turn of the agent's own and nowhere else (`delegation.py`).
 """
 
 from __future__ import annotations
@@ -56,9 +58,13 @@ def only_reads(tool: Tool) -> bool:
     return tool.replay_safe and not tool.requires_approval and tool.ask_reason is None
 
 
-def scriptable(tool: Tool, gated: bool = False) -> bool:
+def scriptable(tool: Tool, gated: bool = False, delegates: bool = False) -> bool:
     """Whether a script may call this tool; `gated` for a script that may also call the
-    tools that change things."""
+    tools that change things, `delegates` for one that may hand a task to another agent."""
+    if tool.name == DELEGATE_TOOL_NAME:
+        # By a rule of its own (`delegation.py`), and never by the test below, which it
+        # passes: it only reads by its declaration, and sets another agent to work.
+        return delegates
     if not only_reads(tool) and (not gated or tool.name in ALWAYS_ASKS):
         return False
     if isinstance(tool, McpTool):
@@ -66,16 +72,16 @@ def scriptable(tool: Tool, gated: bool = False) -> bool:
     return tool.name not in NOT_FROM_SCRIPT and tool.name not in RESERVED
 
 
-def callable_tools(held: ToolRegistry, gated: bool = False) -> list[Tool]:
+def callable_tools(held: ToolRegistry, gated: bool = False, delegates: bool = False) -> list[Tool]:
     """What a script may call of the tools held, in the order they are held."""
     tools = (held.get(name) for name in held.names())
-    return [tool for tool in tools if tool and scriptable(tool, gated)]
+    return [tool for tool in tools if tool and scriptable(tool, gated, delegates)]
 
 
-def why_not(tool: Tool, gated: bool = False) -> str | None:
+def why_not(tool: Tool, gated: bool = False, delegates: bool = False) -> str | None:
     """Why a script may not call a tool that exists, in words that say what to do instead;
     None when it may."""
-    if scriptable(tool, gated):
+    if scriptable(tool, gated, delegates):
         return None
     if only_reads(tool):
         why = t.SCRIPT_NOT_FROM_SCRIPT

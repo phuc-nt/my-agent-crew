@@ -35,6 +35,12 @@ MAX_CALLS = 25
 # call of a batch is one of the `MAX_CALLS`, however it ends.
 MAX_BATCH = 10
 MAX_PARALLEL = 4
+# A task handed to another agent from a script (`delegation.py`) is a whole turn of that
+# agent's, paid for and minutes long: fewer of those run at the same moment than of calls
+# that read. A script that may hand tasks on is given this long in all, in place of the
+# runner's own limit, which no such task would fit in.
+MAX_PARALLEL_DELEGATE = 3
+DELEGATE_TOTAL_S = 1_800
 # Looks into the tools a script may call (`tools.names`, `tools.search`, `tools.describe`).
 # They run nothing, so they are not counted among the calls, and have a count of their own.
 MAX_LOOKUPS = 40

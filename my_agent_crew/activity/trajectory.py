@@ -18,6 +18,7 @@ from my_agent_crew.activity.redact import redact_tree
 from my_agent_crew.agent.turn_context import DELEGATE
 from my_agent_crew.agent.turn_notes import render
 from my_agent_crew.agents.roster import DELEGATE_TOOL_NAME
+from my_agent_crew.script.scope import SCRIPT_TOOL
 from my_agent_crew.store import Conversation, Store, StoredMessage
 from my_agent_crew.store.runs import RunRecord
 
@@ -60,8 +61,10 @@ def _children(store: Store, run: RunRecord, said: list[StoredMessage]) -> list[d
     """What this run delegated. An answered call names its child on the first line of its
     result. A call still waiting is matched by its id, which a provider that sends none
     repeats as `call_0` in every turn of every conversation, so that child must also have
-    been opened while this run went on. Either way it counts only when its own run names
-    this conversation as the one that delegated it."""
+    been opened while this run went on. So must a child a script opened: no result names
+    it, whether the script still waits on it or has ended, and it is matched by the script's
+    call id, which its own begins with. Any of them counts only when its own run names this
+    conversation as the one that delegated it."""
     named: list[str] = []
     answered: set[str | None] = set()
     for stored in said:
@@ -76,13 +79,17 @@ def _children(store: Store, run: RunRecord, said: list[StoredMessage]) -> list[d
         for call in stored.message.tool_calls
         if call.name == DELEGATE_TOOL_NAME and call.id not in answered
     )
+    scripts = tuple(
+        call.id for stored in said for call in stored.message.tool_calls if call.name == SCRIPT_TOOL
+    )
     opened: list[Conversation] = []
     for child_id in named:
         try:
             opened.append(store.get(child_id))
         except KeyError:  # deleted since; its messages went with it
             continue
-    opened += [child for child in store.children_of(waiting) if _opened_during(child, run)]
+    during = store.children_of(waiting, scripts)
+    opened += [child for child in during if _opened_during(child, run)]
     source = f"{DELEGATE}:{run.conversation_id}"
     return [
         {
