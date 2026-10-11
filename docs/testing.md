@@ -5514,6 +5514,15 @@ khi chạy; phần đó có mục riêng ở dưới.
     ghi, xoá cuộc trò chuyện để lại cái đã giữ, nhận dict có khoá là số, tính `load` là một lần
     tra cứu, lượt của cuộc trò chuyện do job mở giữ dưới cuộc trò chuyện, lời mô tả không nói
     khi nào thì giữ, lời mô tả không nói khoá chưa có thì đọc ra gì) đều bị test bắt.
+  - Kiểm chứng đột biến lần hai, do người không viết mã làm, trên cả phần giữ lẫn job script: bốn
+    mươi hai sửa đổi. Ba mươi bảy bị test bắt ngay. Năm sửa đổi còn lại sống sót vì thiếu test,
+    và mỗi cái nay có test riêng: giá trị là tuple thì không được soi vào bên trong (dict có
+    khoá là số nằm trong tuple vẫn được nhận; `tests/test_script_limits.py`, hai ca mới trong
+    danh sách không phải JSON), `store(khoá, None)` xoá luôn khoá cùng tên ở chỗ giữ khác của
+    cùng agent hay ở agent khác (`tests/test_script_store.py`, hai test về hai cuộc trò chuyện
+    và hai agent nay xoá ở một bên rồi đếm lại bên kia), và job script chỉ báo các lời gọi của
+    nó khi script đã xong, hoặc báo lời gọi nào cũng là lời gọi đầu
+    (`tests/test_script_job.py::test_the_calls_of_a_jobs_script_are_listed_and_charged_as_each_ends`).
 - **Lịch chạy script (`script`, `then_prompt`)**:
   - pytest: `tests/test_schedule_script_rows.py` (dòng có `script` là job script, không mang
     `prompt` hay `command`, và ô trống mà form gửi kèm không được giữ; `then_prompt` vắng hay

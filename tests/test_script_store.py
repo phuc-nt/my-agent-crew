@@ -229,6 +229,10 @@ async def test_two_conversations_of_one_agent_each_keep_their_own(deps_factory):
     assert (result.ok, result.output) == (True, "None")
     assert held(deps) == {(of(first), "n"): '"một"', (of(second), "n"): '"hai"'}
 
+    # What one of them drops is its own key: the other still holds the one it wrote.
+    await ran(deps, first, 'store("n", None)')
+    assert held(deps) == {(of(second), "n"): '"hai"'}
+
 
 async def test_two_agents_keeping_under_one_name_do_not_read_each_other(deps_factory, tmp_path):
     """Two agents of one crew may each have a job called `due`, in the one database."""
@@ -243,6 +247,9 @@ async def test_two_agents_keeping_under_one_name_do_not_read_each_other(deps_fac
 
     assert result.ok and printed == "None"
     assert held(one) == {("job:due", "n"): "1"} and held(other) == {("job:due", "n"): "2"}
+
+    await run_source('store("n", None)', one.tools, None, job_kept(one, "due"))
+    assert held(one) == {} and held(other) == {("job:due", "n"): "2"}
 
 
 async def test_a_turn_of_the_conversation_a_job_opened_keeps_under_the_jobs_schedule(deps_factory):

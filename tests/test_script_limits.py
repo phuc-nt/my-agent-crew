@@ -905,6 +905,9 @@ NOT_JSON = [
     "{None: 1}",
     "{(1, 2): 3}",
     '[{"a": [{"b": {2: 1}}]}]',
+    # A tuple is written as a list, and is looked into as one.
+    "({1: 2},)",
+    '[("a", {2: 1})]',
 ]
 
 
