@@ -11,6 +11,8 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+## [0.14.0] — 2026-10-11
+
 ### Added
 
 - A script can look up the tools it may call instead of guessing. `tools.names()` lists their
@@ -1910,6 +1912,7 @@ restarting the process.
 
 - One agent, `run_turn` loop with a tool approval gate, web UI, memory on disk.
 
+[0.14.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.14.0
 [0.13.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.13.0
 [0.12.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.12.0
 [0.11.1]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.11.1
