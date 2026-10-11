@@ -31,8 +31,41 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   is not `{"tool", "args"}`) is a mistake the script can catch and costs no call. A batch with a
   call the script may not make (it writes, asks first, or is hidden) runs none of its calls and
   ends the script, as that call would alone.
+- The calls a script makes are shown as they end, not once the script is over. The turn sends a
+  `nested_call` event (`tool_call_id`, `index`, `call`) between the script's `tool_call` and its
+  `tool_result`; the run card and the tool card in the chat list each call when it ends, and the
+  run adds its cost at once. When the result arrives the list is put in the order the script
+  wrote the calls and only the calls no event told of are charged, so nothing is counted twice.
+  Stopping the turn while a script is calling ends the call it is on.
+- A script's result says what the script saved the model from reading: how many characters its
+  calls handed it and how many it printed (`received_chars` and `printed_chars` on the
+  `tool_result` event and on the run's step). Both cards show them on one line under the calls
+  once the script has ended ("Nhận 184.220 ký tự từ 12 lời gọi, trả về 640 ký tự"), with a dash
+  for a number that was not counted.
+- The tool card in the chat still lists a script's calls after a reload. The calls and the two
+  measures are stored with the script's result, beside the output and never sent to a model; a
+  branch of the conversation copies them, and the Markdown export lists them under the agent's
+  turn as a numbered list of names, failures, durations and costs, without arguments or answers.
+- A tool's answer longer than the 200,000 characters a script is handed is no longer lost past
+  the cut. The script gets the first 200,000 and a line saying how many are left and how to read
+  on: `tools.tool_output_read(id="<the script's call id>.<n>", offset=200000)`, where `n` is the
+  number of the call. The whole answer is kept, up to 5 MB, where a turn's long results are.
+  Nothing is kept for a call that failed, for an agent without `tool_output_read`, or for what
+  `tool_output_read` itself returned; those are cut as before.
 
 ### Changed
+
+- The scripts of one turn share a count of the calls they may make: ten for each call of the
+  model the turn is allowed (`max_steps` × 10, 120 by default), on top of the 25 calls of each
+  script. The script that would pass it is ended there in a way it cannot catch, a batch that
+  does not fit whole makes none of its calls, the calls the model asked for after that script
+  are closed unrun, and the turn halts with the reason `nested_calls`, which the web and
+  Telegram say in words. A name no tool has is not counted, and the next turn starts from
+  nothing.
+- A script that prints more than 60,000 characters is no longer ended at the line that passed
+  the limit. It runs on, and the model reads the first 45,000 characters and the last ones
+  around a line saying how much was printed and how much was left out, never more than 60,000
+  in all. A script that prints without end is still stopped by its steps.
 
 - A script (`tool_script`) may now call every MCP tool the owner lists under `read_only` and does
   not hide, however far the tool is let in. Until now such a tool also had to be set to
