@@ -1125,9 +1125,17 @@ số quá lớn); tên quá dài được cắt bớt khi hiện.
   giữ công cụ chỉ đọc nào để script gọi"). Hai dấu này chỉ có trong chú giải khi bảng có tool
   mang nhãn tương ứng. Bảng được đọc lại mỗi lần mở mục này, và ngay khi danh sách tool của một
   máy chủ đổi trong lúc đang mở, nên nó luôn cho thấy ai đang giữ gì sau khi sửa một agent hay
-  đăng xuất một máy chủ.
+  đăng xuất một máy chủ. Dấu `–` ("bị danh sách công cụ của agent loại ra") được xét theo danh
+  sách `tools:` mà tệp của agent viết (`declared.tools` của `GET /api/agents`), không theo những
+  tool agent đang giữ: agent nào cũng giữ vài tool, nên xét theo đó thì mọi ô trống đều thành
+  "bị loại". Agent không viết danh sách thì không bao giờ mang dấu này; tool nó thiếu là do chế
+  độ (`▫`) hoặc do thiếu khoá (`○`).
 - **Trình sửa agent.** Mục Công cụ có ô chọn máy chủ; danh sách cho phép ở trên nó không liệt kê
-  tool MCP và cũng không liệt kê `tool_search` hay `tool_script`.
+  tool MCP và cũng không liệt kê `tool_search` hay `tool_script`. Danh sách ấy mở ra từ `tools:`
+  của tệp: agent không viết danh sách thì mở ở "Dùng tất cả công cụ hợp lệ", và một lần lưu chỉ
+  ghi những tên người sửa đã chọn, không ghi những tool agent đang giữ. Ghi cả những tool đang
+  giữ sẽ biến "không liệt kê gì, nên có mọi thứ" thành một danh sách chốt ở bộ tool của hôm nay,
+  kèm những tên không danh sách nào trao (`delegate`, `tool_search`, `tool_script`, tool MCP).
 
 ## Provider không cần khoá
 

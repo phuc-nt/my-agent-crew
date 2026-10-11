@@ -234,11 +234,16 @@ test("the tools grid shows the script tool with an agent that reads on its own, 
   await expect(page.locator(".matrix-legend")).toContainText(vi.tools.legendNoReads);
   await expect(page.locator(".matrix-legend")).not.toContainText(vi.tools.legendMcpNone);
   await expect(page.locator(".matrix-legend")).not.toContainText(vi.tools.legendMcpOff);
+  // Neither agent's file lists its tools: the one the coach lacks is not one it left out.
+  await expect(cells("write_file").nth(1)).toHaveAttribute("aria-label", vi.tools.legendWorkMode);
 
   // The agent's own page does not offer it among the tools to tick.
   await page.goto("/#/manage/crew/coach");
   await expect(page.getByTestId("tool-picker").getByRole("listitem")).not.toHaveCount(0);
   await expect(page.getByTestId("tool-picker")).not.toContainText("tool_script");
+  // What the agent holds is not a list of its own: every tool, and no box to untick.
+  await expect(page.getByRole("radio", { name: vi.editor.toolsAll })).toBeChecked();
+  await expect(page.getByTestId("tool-picker").getByRole("checkbox").first()).toBeDisabled();
 });
 
 test("saving the key a server's header reads brings the server up without a reload", async ({ page }) => {

@@ -118,6 +118,19 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ### Fixed
 
+- The agent editor no longer writes the tools an agent holds into its `tools:` list. The crew
+  list reports `tools` as the names an agent holds, which is never empty and counts the tools no
+  list gives (`delegate`, `tool_search`, `tool_script`, a server's tools); the editor read it as
+  the allow-list. Every agent opened on "Chỉ dùng các công cụ được chọn" (only the chosen tools)
+  with everything ticked, and one tick saved the whole of today's toolbox as its list: an agent
+  that listed nothing, and so got every tool its mode grants, was capped from then on, and the
+  server warned of an unknown tool for each name no list gives. The Tools grid read the same
+  names and marked every tool an agent lacked as left out by its list, so the marks for a
+  missing key and for work mode never showed. `GET /api/agents` now carries the list as the file
+  writes it in `declared.tools`, beside `declared.delegates` and `declared.schedules`, and both
+  screens read that. A list an earlier save wrote stays as written: take the names it should not
+  hold out of the agent's `tools:`, or choose "Dùng tất cả công cụ hợp lệ" (every valid tool) in
+  the editor to drop the list.
 - A tool's answer holding half of a character no longer breaks the turn that reads it. A server
   that cuts its text between the two code units of an emoji sends one half (a lone surrogate),
   which no database row, file or request to a model can carry: storing the result raised, and

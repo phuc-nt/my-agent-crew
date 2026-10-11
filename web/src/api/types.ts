@@ -271,6 +271,9 @@ export interface DeclaredProfile {
   delegates: string[];
   /** Without `kind`, which is derived — the parser refuses a row that carries it back. */
   schedules: Omit<ScheduleInfo, "kind">[];
+  /** The allow-list as the file writes it: empty for an agent that lists nothing and so
+   * gets every tool its mode grants. */
+  tools: string[];
 }
 
 /** The `telegram:` block of an agent's file. It names the variable holding the token. */
@@ -317,6 +320,8 @@ export interface AgentInfo {
   mode: string;
   /** Agents this one can hand work to; for the master that is everyone else. */
   delegates: string[];
+  /** The names of the tools the agent holds, those no list gives among them. Never the
+   * allow-list: that is `declared.tools`. */
   tools: string[];
   /** The MCP servers whose tools the agent is handed, by the names `config.yaml` gives
    * them. One the file no longer declares stays listed until an edit takes it out. */

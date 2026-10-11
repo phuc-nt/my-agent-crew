@@ -56,7 +56,10 @@ function cellFor(tool: RegistryTool, agent: AgentInfo): Cell {
   if (tool.with_mcp) return "mcp-none";
   // Nor over the script tool, which is missing only where a script would have nothing to call.
   if (tool.with_reads) return "no-reads";
-  if (agent.tools.length > 0 && !agent.tools.includes(tool.name)) return "excluded";
+  // What the file lists, not what the agent holds: every agent holds something, and an
+  // agent that lists nothing has excluded nothing.
+  const listed = agent.declared.tools;
+  if (listed.length > 0 && !listed.includes(tool.name)) return "excluded";
   if (tool.optional) return "missing-key";
   return "work-mode";
 }

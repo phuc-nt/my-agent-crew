@@ -56,7 +56,7 @@ export const fakeAgent: AgentInfo = {
   commands: [],
   hooks: 0,
   kits: [],
-  declared: { delegates: [], schedules: [] },
+  declared: { delegates: [], schedules: [], tools: [] },
 };
 
 export const coderTemplate: TemplateInfo = {

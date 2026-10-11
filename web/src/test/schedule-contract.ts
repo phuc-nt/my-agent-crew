@@ -97,6 +97,8 @@ export function applyAgentPatch<T extends object>(agent: T, patch: Record<string
     next.declared = { ...declared, schedules: read.ok };
     next.schedules = read.ok.map((row) => ({ ...row, kind: row.command ? "command" : "prompt" }));
   }
+  // The list the file now writes; a null clears the key, which reads back as no list.
+  if ("tools" in patch) next.declared = { ...(next.declared as object), tools: patch.tools ?? [] };
   // A null clears the key: no server at all, as the profile reads once the key is gone.
   if ("mcp" in patch) next.mcp = patch.mcp ?? [];
   // A null clears the key, and a cleared consolidation reads back as no cron at all.

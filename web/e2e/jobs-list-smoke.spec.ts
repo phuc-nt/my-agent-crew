@@ -3,7 +3,7 @@ import { coachAgent, defaultAgent, mockApi, run } from "./mock-api";
 
 const master = { ...defaultAgent, name: "Trợ lý", delegates: ["coach"] };
 const { kind: _kind, ...briefRow } = coachAgent.schedules[0];
-const coach = { ...coachAgent, declared: { delegates: [], schedules: [briefRow] } };
+const coach = { ...coachAgent, declared: { delegates: [], schedules: [briefRow], tools: [] } };
 const briefJob = {
   ...coachAgent.schedules[0],
   id: "coach/brief",

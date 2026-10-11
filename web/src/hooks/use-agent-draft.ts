@@ -68,7 +68,9 @@ function same(a: unknown, b: unknown): boolean {
  * profile: the master with no delegates of its own reaches every agent, and writing that
  * computed list back would pin it to today's crew, leaving agents added later
  * unreachable. The consolidation job is likewise generated from `memory_consolidate`,
- * and saving it as an ordinary schedule would run it twice.
+ * and saving it as an ordinary schedule would run it twice. `tools` is the same seam:
+ * the profile reports what the agent holds, and saving that would turn an agent with no
+ * allow-list into one capped at today's toolbox, naming tools no list gives.
  */
 function toDraft(agent: AgentInfo): AgentPatch {
   return {
@@ -85,7 +87,7 @@ function toDraft(agent: AgentInfo): AgentPatch {
     tool_output_chars: agent.tool_output_chars,
     memory_consolidate: agent.memory_consolidate,
     delegates: agent.declared.delegates,
-    tools: agent.tools,
+    tools: agent.declared.tools,
     // A crew still running the code from before MCP reports none: an empty list, so that
     // ticking a box and unticking it leaves nothing to save.
     mcp: agent.mcp ?? [],

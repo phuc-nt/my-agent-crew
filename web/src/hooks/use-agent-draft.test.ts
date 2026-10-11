@@ -28,7 +28,7 @@ describe("useAgentDraft", () => {
       tool_output_chars: fakeAgent.tool_output_chars,
       memory_consolidate: fakeAgent.memory_consolidate,
       delegates: fakeAgent.delegates,
-      tools: fakeAgent.tools,
+      tools: fakeAgent.declared.tools,
       mcp: fakeAgent.mcp,
       schedules: fakeAgent.schedules,
       telegram: fakeAgent.telegram,
@@ -87,7 +87,7 @@ describe("useAgentDraft", () => {
   it("compares arrays by content, not identity", () => {
     const agent: AgentInfo = {
       ...fakeAgent,
-      tools: ["tool1", "tool2"],
+      declared: { ...fakeAgent.declared, tools: ["tool1", "tool2"] },
     };
     const { result } = renderHook(() => useAgentDraft(agent));
 
@@ -101,7 +101,7 @@ describe("useAgentDraft", () => {
   it("detects when an array changes", () => {
     const agent: AgentInfo = {
       ...fakeAgent,
-      tools: ["tool1", "tool2"],
+      declared: { ...fakeAgent.declared, tools: ["tool1", "tool2"] },
     };
     const { result } = renderHook(() => useAgentDraft(agent));
 

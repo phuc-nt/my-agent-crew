@@ -62,10 +62,13 @@ def _describe(rt: Runtime, deps: AgentDeps) -> dict[str, Any]:
     # has to diff against this: writing back a computed value turns "names nobody, so
     # reaches everyone" into a fixed list that silently stops growing with the crew, and
     # turns a consolidation job generated from `memory_consolidate` into a second real
-    # schedule on the same cron.
+    # schedule on the same cron. The list reports `tools` as the names the agent holds,
+    # which is never empty and counts what no list gives: written back, it turns "lists
+    # nothing, so gets everything" into an allow-list of today's toolbox.
     data["declared"] = {
         "delegates": list(deps.agent.delegates),
         "schedules": [_sendable(s) for s in deps.agent.schedules if not s.consolidate],
+        "tools": list(deps.agent.tools),
     }
     # Whether an edit would be accepted, so a UI can say so before the person fills in a
     # form the write route is going to refuse. It answers the same question

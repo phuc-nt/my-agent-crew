@@ -39,6 +39,7 @@ describe("ToolsMatrix", () => {
       ...fakeAgent,
       id: "selective",
       tools: ["shell_run"],
+      declared: { ...fakeAgent.declared, tools: ["shell_run"] },
     };
     const tools: RegistryTool[] = [
       { name: "workspace_write", description: "Write", requires_approval: false, optional: false, agents: [] },
@@ -48,6 +49,20 @@ describe("ToolsMatrix", () => {
     const cells = screen.getAllByText("–");
     expect(cells.length).toBeGreaterThan(0);
     expect(cells[0]).toHaveAttribute("aria-label", vi.tools.legendExcluded);
+  });
+
+  it("does not read the tools an agent holds as a list that leaves the others out", () => {
+    // What the crew reports for an agent that lists nothing: the names it holds.
+    const agent: AgentInfo = { ...fakeAgent, id: "helper", mode: "assistant", tools: ["shell_run", "tool_script"] };
+    expect(agent.declared.tools).toEqual([]);
+    const tools: RegistryTool[] = [
+      { name: "workspace_edit", description: "Edit", requires_approval: true, optional: false, agents: [] },
+    ];
+    render(<ToolsMatrix tools={tools} agents={[agent]} />);
+
+    const row = within(screen.getByTestId("tool-row"));
+    expect(row.getByText("▫")).toHaveAttribute("aria-label", vi.tools.legendWorkMode);
+    expect(row.queryByText("–")).not.toBeInTheDocument();
   });
 
   it("marks tools with the 'missing-key' symbol when optional and not listed", () => {
@@ -101,6 +116,7 @@ describe("ToolsMatrix", () => {
       ...fakeAgent,
       id: "selective",
       tools: ["shell_run"],
+      declared: { ...fakeAgent.declared, tools: ["shell_run"] },
     };
     const tools: RegistryTool[] = [
       { name: "web_search", description: "Search", requires_approval: false, optional: true, agents: [] },
@@ -256,7 +272,7 @@ describe("ToolsMatrix", () => {
 
     it("are not explained by the allow-list or the mode, which have no say over them", () => {
       // An agent with an allow-list that leaves the tool out, in the mode that lacks tools.
-      const picky: AgentInfo = { ...coach, tools: ["write_file"], mode: "assistant" };
+      const picky: AgentInfo = { ...coach, declared: { ...coach.declared, tools: ["write_file"] }, mode: "assistant" };
       render(<ToolsMatrix tools={[{ ...search, agents: [] }]} agents={[picky]} />);
 
       const row = within(screen.getByTestId("tool-row"));
@@ -320,7 +336,7 @@ describe("ToolsMatrix", () => {
     it("is not explained by the allow-list, a key or the mode, which have no say over it", () => {
       // An agent whose allow-list leaves it out, in the mode that lacks tools; and the
       // same row marked as needing a key, which nothing the server sends would do.
-      const picky: AgentInfo = { ...coach, tools: ["write_file"], mode: "assistant" };
+      const picky: AgentInfo = { ...coach, declared: { ...coach.declared, tools: ["write_file"] }, mode: "assistant" };
       const open: AgentInfo = { ...coach, id: "open", tools: [] };
       render(<ToolsMatrix tools={[{ ...find, agents: [], optional: true }]} agents={[picky, open]} />);
 
@@ -385,7 +401,7 @@ describe("ToolsMatrix", () => {
     });
 
     it("is not explained by the allow-list, a key, the mode or a server, which have no say over it", () => {
-      const picky: AgentInfo = { ...coach, tools: ["write_file"], mode: "assistant" };
+      const picky: AgentInfo = { ...coach, declared: { ...coach.declared, tools: ["write_file"] }, mode: "assistant" };
       render(<ToolsMatrix tools={[{ ...script, agents: [], optional: true }]} agents={[picky]} />);
 
       const row = within(screen.getByTestId("tool-row"));

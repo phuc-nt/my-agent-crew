@@ -426,6 +426,23 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `tests/test_api_agents_edit.py::test_a_schedule_cannot_take_the_consolidation_jobs_id`,
     `tests/test_api_agents_edit.py::test_a_saved_schedule_comes_back_in_the_shape_it_can_be_resent_in`,
     `tests/test_api_agents_edit.py::test_clearing_memory_consolidation_removes_the_key`
+- **Danh sách công cụ của agent mở từ những gì tệp viết, không từ những gì agent đang giữ**
+  - pytest: `tests/test_api_agents_declared.py::test_the_tools_an_agent_holds_are_not_what_its_file_lists`,
+    `tests/test_api_agents_declared.py::test_a_save_answers_with_the_tools_the_file_now_lists`,
+    `tests/test_api_agents_declared.py::test_a_patch_that_keeps_the_declared_tools_leaves_the_agent_open_handed`
+    (cùng tệp giữ hai mặt còn lại của `declared`: `delegates` và `schedules`)
+  - vitest: `components/agent-editor/tools-section.test.tsx`
+    ("opens on every tool for an agent that lists none, whatever it holds",
+    "opens on the list for an agent that writes one, with its names ticked and no other",
+    "saves the list with one more tick, never the names the agent holds",
+    "has nothing to save after a tick is taken back"); `hooks/use-agent-draft.test.ts`
+    (bản nháp lấy `tools` từ `declared.tools`); `components/tools-matrix.test.tsx`
+    "does not read the tools an agent holds as a list that leaves the others out". Fake server
+    của vitest trả `declared.tools` theo patch (`test/schedule-contract.ts`), như server thật
+  - Playwright: `mcp-servers.spec.ts`
+    "the tools grid shows the script tool with an agent that reads on its own, with no server at all"
+    (ô tool agent thiếu mang chú giải chế độ, không mang chú giải "bị loại"; trình sửa của agent
+    không có danh sách mở ở "Dùng tất cả công cụ hợp lệ" với các ô chọn bị khoá)
 - **Toàn bộ tham số của một tool call**
   - vitest: `components/tool-args-detail.test.tsx`; `components/components.test.tsx`
     "opens a tool row's full arguments from under its summary"
