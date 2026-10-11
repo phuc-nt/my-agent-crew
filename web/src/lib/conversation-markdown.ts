@@ -1,11 +1,11 @@
 import remarkGfm from "remark-gfm";
 import remarkParse from "remark-parse";
 import { unified } from "unified";
-import type { ConversationDetail, NestedToolCall } from "../api/types";
-import { formatUsd } from "../components/budget-indicator";
+import type { ConversationDetail } from "../api/types";
 import { vi } from "../i18n/vi";
 import { storedWork } from "./nested-calls";
 import { pad2 } from "./relative-time";
+import { scriptCallsMarkdown } from "./script-calls-markdown";
 
 /**
  * "UTC+7", "UTC+5:30", "UTC-3": the zone the export's clock readings are in.
@@ -129,23 +129,6 @@ function nested(body: string): string {
 }
 
 /**
- * What a script called on its own, as a numbered list: which tool, whether it failed, how
- * long it took, and what it cost where it was charged on its own. What each was asked and
- * what it answered stay out, being the JSON the export is kept free of.
- */
-function nestedCalls(calls: NestedToolCall[]): string {
-  const failed = calls.filter((call) => !call.ok).length;
-  const lines = calls.map((call, index) => {
-    const said = [`\`${call.name}\``];
-    if (!call.ok) said.push(vi.toolFailed);
-    said.push(vi.stepDuration(call.ms));
-    if (call.metered) said.push(call.cost_usd === null ? vi.stepCostUnknown : formatUsd(call.cost_usd));
-    return `${index + 1}. ${said.join(" · ")}`;
-  });
-  return `${vi.scriptCalls(calls.length, failed)}:\n\n${lines.join("\n")}`;
-}
-
-/**
  * The conversation as a markdown document: its title, then each turn under a heading that
  * says who spoke and when.
  *
@@ -165,7 +148,7 @@ export function conversationMarkdown(detail: ConversationDetail, agentName: stri
       const { calls } = storedWork(message.context);
       if (!calls) continue;
       if (under !== "assistant") parts.push(`## ${agentName} · ${exportStamp(message.created_at)}`);
-      parts.push(nestedCalls(calls));
+      parts.push(scriptCallsMarkdown(calls));
       under = "assistant";
       continue;
     }
