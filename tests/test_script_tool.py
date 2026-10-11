@@ -122,13 +122,16 @@ def test_a_script_may_call_a_tool_that_only_reads_and_asks_nobody():
     assert not scriptable(Reads("notes_read", ask_reason=lambda arguments: "").tool)
 
 
-@pytest.mark.parametrize("name", ["progress_note", "delegate", "tool_search", "tool_script"])
+KEPT_FROM_SCRIPTS = ["progress_note", "delegate", "tool_search", "tool_script", "artifact_read"]
+
+
+@pytest.mark.parametrize("name", KEPT_FROM_SCRIPTS)
 def test_a_tool_that_speaks_for_the_agent_is_not_a_scripts_though_it_only_reads(name):
     assert not scriptable(Reads(name).tool)
 
 
-def test_the_tools_kept_from_scripts_are_these_four():
-    assert NOT_FROM_SCRIPT == {"progress_note", "delegate", "tool_search", "tool_script"}
+def test_the_tools_kept_from_scripts_are_these_five():
+    assert set(KEPT_FROM_SCRIPTS) == NOT_FROM_SCRIPT
 
 
 @pytest.mark.parametrize(

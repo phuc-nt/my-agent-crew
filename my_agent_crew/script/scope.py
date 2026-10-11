@@ -1,11 +1,12 @@
 """What a script may call: the tools an agent holds that only read and ask nobody.
 
 Of the MCP tools every one the owner listed under `read_only` that is not hidden, however far
-it is let in. Of the others every one that reads, but the few that speak for the agent or
-work through the conversation, which a script's calls are not part of, and any that bears a
-name `tools` answers to itself (`tools.search` is a lookup and `tools.batch` a batch, whatever
-else is called `search` or `batch`). A tool a script may not call still exists: it is told so,
-and what to do instead, where the approval gate sees it.
+it is let in. Of the others every one that reads, but the few that speak for the agent, work
+through the conversation, which a script's calls are not part of, or mark what the agent has
+seen of a canvas, and any that bears a name `tools` answers to itself (`tools.search` is a
+lookup and `tools.batch` a batch, whatever else is called `search` or `batch`). A tool a script
+may not call still exists: it is told so, and what to do instead, where the approval gate sees
+it.
 """
 
 from __future__ import annotations
@@ -19,13 +20,18 @@ from my_agent_crew.mcp.config import HIDDEN
 from my_agent_crew.mcp.tool_search import SEARCH_TOOL
 from my_agent_crew.mcp.tools import McpTool, held_back
 from my_agent_crew.script.namespaces import RESERVED
+from my_agent_crew.tools.artifact_read import ARTIFACT_READ_TOOL
 from my_agent_crew.tools.progress_note import PROGRESS_NOTE_TOOL_NAME
 from my_agent_crew.tools.registry import Tool, ToolRegistry
 
 SCRIPT_TOOL = "tool_script"
 # Tools that only read and are still not a script's to call: they speak for the agent
-# (a note, a hand-off), or work through the conversation a script's calls are not part of.
-NOT_FROM_SCRIPT = frozenset({PROGRESS_NOTE_TOOL_NAME, DELEGATE_TOOL_NAME, SEARCH_TOOL, SCRIPT_TOOL})
+# (a note, a hand-off), work through the conversation a script's calls are not part of, or
+# leave a mark on it. A page of a canvas read moves the cursor that tells a rewrite the agent
+# has seen the person's version, and what a script reads the model may never be handed.
+NOT_FROM_SCRIPT = frozenset(
+    {PROGRESS_NOTE_TOOL_NAME, DELEGATE_TOOL_NAME, SEARCH_TOOL, SCRIPT_TOOL, ARTIFACT_READ_TOOL}
+)
 
 
 def _reads(tool: Tool) -> bool:

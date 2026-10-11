@@ -24,7 +24,7 @@ from my_agent_crew.tools.artifact_context import (
     text_arg,
 )
 from my_agent_crew.tools.artifact_edit import run_edit, run_rewrite
-from my_agent_crew.tools.artifact_read import run_read
+from my_agent_crew.tools.artifact_read import ARTIFACT_READ_TOOL, run_read
 from my_agent_crew.tools.artifact_scope import (
     AGENT_KINDS,
     NEW_CANVAS,
@@ -183,7 +183,7 @@ def build_artifact_tools(
             replay_safe=True,
         ),
         Tool(
-            "artifact_read",
+            ARTIFACT_READ_TOOL,
             ARTIFACT_READ_DESCRIPTION,
             read,
             partial(run_read, agent),

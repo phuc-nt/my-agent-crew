@@ -29,6 +29,8 @@ from my_agent_crew.tools.registry import ToolError
 if TYPE_CHECKING:
     from my_agent_crew.store.artifact_models import ArtifactSummary, ArtifactVersion
 
+ARTIFACT_READ_TOOL = "artifact_read"
+
 
 async def run_read(agent: CanvasAgent, args: dict[str, Any]) -> str:
     conv = agent.conversation()

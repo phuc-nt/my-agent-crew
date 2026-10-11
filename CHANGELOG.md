@@ -101,6 +101,16 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   a script may not call (it writes, asks first, or is hidden) still ends the script. The names
   `names`, `search`, `describe` and `batch` belong to `tools`, so no built-in tool can take them.
 
+### Fixed
+
+- A script can no longer make a canvas count as read. Reading a canvas to its end is what tells
+  `artifact_rewrite` that the agent has seen the version the person last saved, and a script
+  that paged through one moved that mark although the model was handed only what the script
+  printed, so a rewrite right after went over the person's edit. `artifact_read` is now one of
+  the tools a script may not call: the script ends with a line saying to call it directly, and
+  the rewrite is refused until the agent has read the canvas itself. `artifact_list` is still a
+  script's to call.
+
 ## [0.13.0] — 2026-10-07
 
 ### Changed
