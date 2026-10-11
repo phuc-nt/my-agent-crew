@@ -326,7 +326,7 @@ describe("ToolsMatrix", () => {
 
       const row = within(screen.getByTestId("tool-row"));
       expect(row.getAllByText("·")).toHaveLength(2);
-      for (const mark of ["–", "○", "▫", "◇"]) expect(row.queryByText(mark)).not.toBeInTheDocument();
+      for (const mark of ["–", "○", "▫", "◇", "∅"]) expect(row.queryByText(mark)).not.toBeInTheDocument();
     });
 
     it("says it comes with the servers and not with the allow-list", () => {
@@ -335,6 +335,7 @@ describe("ToolsMatrix", () => {
       const head = within(screen.getByTestId("tool-row")).getByRole("rowheader");
       expect(within(head).getByText(vi.tools.withMcp)).toHaveClass("badge");
       expect(within(head).getByText(vi.tools.withMcp)).toHaveAttribute("title", vi.tools.withMcpTitle);
+      expect(within(head).queryByText(vi.tools.withReads)).not.toBeInTheDocument();
       expect(within(head).queryByText(/^MCP /)).not.toBeInTheDocument();
     });
 
@@ -362,7 +363,7 @@ describe("ToolsMatrix", () => {
     });
   });
 
-  describe("the script that calls the MCP tools that only read", () => {
+  describe("the script that calls the tools that only read", () => {
     const coach: AgentInfo = { ...fakeAgent, id: "coach", name: "HLV", is_master: false };
     const find = searchTool(["coach", "default"]);
     const script = scriptTool(["default"]);
@@ -377,46 +378,66 @@ describe("ToolsMatrix", () => {
       expect(within(cell(scripting, 1)).getByText("✓")).toHaveAttribute("aria-label", vi.tools.legendOn);
       // The coach has tools to find and none a script may call.
       expect(within(cell(finding, 2)).getByText("✓")).toBeInTheDocument();
-      expect(within(cell(scripting, 2)).getByText("·")).toHaveAttribute("aria-label", vi.tools.legendMcpNone);
-      expect(cell(scripting, 2)).toHaveClass("cell", "mcp-none");
-      expect(cell(scripting, 2)).toHaveAttribute("title", vi.tools.legendMcpNone);
+      expect(within(cell(scripting, 2)).getByText("∅")).toHaveAttribute("aria-label", "agent không giữ công cụ chỉ đọc nào để script gọi");
+      expect(cell(scripting, 2)).toHaveClass("cell", "no-reads");
+      expect(cell(scripting, 2)).not.toHaveClass("mcp-none");
+      expect(cell(scripting, 2)).toHaveAttribute("title", vi.tools.legendNoReads);
     });
 
-    it("is not explained by the allow-list, a key or the mode, which have no say over it", () => {
+    it("is not explained by the allow-list, a key, the mode or a server, which have no say over it", () => {
       const picky: AgentInfo = { ...coach, tools: ["write_file"], mode: "assistant" };
       render(<ToolsMatrix tools={[{ ...script, agents: [], optional: true }]} agents={[picky]} />);
 
       const row = within(screen.getByTestId("tool-row"));
-      expect(row.getByText("·")).toBeInTheDocument();
-      for (const mark of ["–", "○", "▫", "◇"]) expect(row.queryByText(mark)).not.toBeInTheDocument();
+      expect(row.getByText("∅")).toBeInTheDocument();
+      for (const mark of ["–", "○", "▫", "◇", "·"]) expect(row.queryByText(mark)).not.toBeInTheDocument();
     });
 
-    it("wears the badge of the search, whose title says when an agent holds each of the two", () => {
+    it("wears a badge of its own, whose title says when an agent holds it", () => {
       render(<ToolsMatrix tools={[find, script]} agents={[fakeAgent]} />);
 
-      const badges = screen.getAllByTestId("tool-row").map((row) => within(row).getByText("đi kèm MCP"));
-      expect(badges).toHaveLength(2);
-      for (const badge of badges) {
-        expect(badge).toHaveClass("badge");
-        expect(badge).toHaveAttribute(
-          "title",
-          "Không thuộc danh sách công cụ của agent. Agent có tool_search khi được giao công cụ MCP không khai sẵn, và có tool_script khi được giao một công cụ MCP nằm trong read_only (không ẩn).",
-        );
-      }
+      const [finding, scripting] = screen.getAllByTestId("tool-row").map((row) => within(row));
+      const badge = scripting.getByText("đi kèm công cụ đọc");
+      expect(badge).toHaveClass("badge");
+      expect(badge).toHaveAttribute(
+        "title",
+        "Không thuộc danh sách công cụ của agent. Agent có tool_script khi giữ ít nhất một công cụ chỉ đọc, kể cả công cụ MCP nằm trong read_only (không ẩn).",
+      );
+      expect(scripting.queryByText(vi.tools.withMcp)).not.toBeInTheDocument();
+      // The search keeps the one it had, and no longer speaks for the script.
+      expect(finding.getByText("đi kèm MCP")).toHaveAttribute(
+        "title",
+        "Không thuộc danh sách công cụ của agent. Agent có tool_search khi được giao công cụ MCP không khai sẵn.",
+      );
+      expect(finding.queryByText(vi.tools.withReads)).not.toBeInTheDocument();
     });
 
-    it("shares the one line the legend has for a tool that comes with MCP tools", () => {
+    it("has a line of its own in the legend, which a crew with no server sees as well", () => {
+      const own: RegistryTool = { name: "shell_run", description: "Run", requires_approval: false, optional: false, agents: ["default"] };
       const legend = () => screen.getByText(vi.tools.legend).parentElement as HTMLElement;
-      const lines = () => within(legend()).getAllByRole("definition").filter((line) => line.querySelector(".mcp-none"));
+      const lines = (mark: string) => within(legend()).getAllByRole("definition").filter((line) => line.querySelector(`.${mark}`));
 
-      const alone = render(<ToolsMatrix tools={[script]} agents={[fakeAgent, coach]} />);
-      expect(lines()).toHaveLength(1);
-      expect(lines()[0]).toHaveTextContent(/^·agent không có công cụ MCP nào cần tới công cụ này$/);
+      const none = render(<ToolsMatrix tools={[own]} agents={[fakeAgent, coach]} />);
+      expect(lines("no-reads")).toHaveLength(0);
+      none.unmount();
+
+      const alone = render(<ToolsMatrix tools={[own, script]} agents={[fakeAgent, coach]} />);
+      expect(lines("no-reads")).toHaveLength(1);
+      expect(lines("no-reads")[0]).toHaveTextContent(/^∅agent không giữ công cụ chỉ đọc nào để script gọi$/);
+      // Nothing of a server is on the page: neither of its two marks is explained.
+      expect(lines("mcp-none")).toHaveLength(0);
+      expect(within(legend()).getAllByRole("definition")).toHaveLength(5);
       alone.unmount();
 
-      render(<ToolsMatrix tools={[find, script]} agents={[fakeAgent, coach]} />);
-      expect(lines()).toHaveLength(1);
-      expect(within(legend()).getAllByRole("definition")).toHaveLength(5);
+      render(<ToolsMatrix tools={[own, find, script]} agents={[fakeAgent, coach]} />);
+      expect(lines("no-reads")).toHaveLength(1);
+      expect(lines("mcp-none")).toHaveLength(1);
+      expect(lines("mcp-none")[0]).toHaveTextContent(/^·agent không có công cụ MCP nào cần tới công cụ này$/);
+      const marks = within(legend()).getAllByRole("definition");
+      expect(marks).toHaveLength(6);
+      // The search's line first, then the script's, as the marks are listed.
+      expect(marks[4]).toBe(lines("mcp-none")[0]);
+      expect(marks[5]).toBe(lines("no-reads")[0]);
     });
   });
 });

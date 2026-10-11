@@ -122,7 +122,7 @@ async def test_wiring_the_crew_again_leaves_each_tool_once_and_where_it_was(serv
     app, _ = await with_notion(served, [])
     deps = app.runtime.default
     before = deps.tools.names()
-    assert before[-3:] == ["tool_search", SEARCH_NAME, CREATE_NAME]
+    assert before[-4:] == ["tool_search", "tool_script", SEARCH_NAME, CREATE_NAME]
 
     app.runtime.wire_delegation()
     app.runtime.wire_delegation()

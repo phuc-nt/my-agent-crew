@@ -2,7 +2,7 @@ import type { Page, Route } from "@playwright/test";
 import type { AgentEvent, AgentInfo, ContentHit, QueuedMessage, WikiPage, WikiPageEdit } from "../src/api/types";
 import { fold } from "../src/components/conversation-search";
 import { FakeCanvas, type FakeReply } from "../src/test/fake-canvas";
-import { FakeMcp } from "../src/test/fake-mcp";
+import { FakeMcp, type CrewMember } from "../src/test/fake-mcp";
 import { applyAgentPatch, restartRequired } from "../src/test/schedule-contract";
 import { renderRoute } from "./mock-render";
 
@@ -206,7 +206,7 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
   }));
   const agents = options.agents ?? [defaultAgent];
   const mcp = options.mcp ?? new FakeMcp();
-  mcp.crew = () => agents as { id: string; mcp?: string[] }[];
+  mcp.crew = () => agents as CrewMember[];
   // Saved routes live per page, so one test's save never shows in the next.
   let routes = connections.routes;
   const posted: { path: string; body: unknown }[] = [];

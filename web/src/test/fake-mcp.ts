@@ -68,9 +68,16 @@ export function scriptTool(agents: string[]): RegistryTool {
     requires_approval: false,
     agents,
     optional: false,
-    with_mcp: true,
+    with_reads: true,
   };
 }
+
+/** The crew's own tools that only read and ask nobody: a script may call them
+ *  (`script/scope.py`). The agents of the fakes hold none until a test hands one over. */
+export const READING_TOOLS = ["workspace_list", "workspace_read", "memory_search", "skill_read"];
+
+/** What the fake reads of an agent: its servers, and the tools of the crew's own it holds. */
+export type CrewMember = { id: string; mcp?: string[]; tools?: string[] };
 
 export class FakeMcp {
   /** Set to the server's words to refuse the next sign-in; cleared once it has. */
@@ -83,7 +90,7 @@ export class FakeMcp {
 
   /** The crew, when the fake has one: who uses a server is then read off the agents'
    *  own lists, as the server reads it, and not off the row a test seeded. */
-  crew: (() => { id: string; mcp?: string[] }[]) | null = null;
+  crew: (() => CrewMember[]) | null = null;
 
   constructor(public servers: McpServerInfo[] = []) {}
 
@@ -92,13 +99,21 @@ export class FakeMcp {
     return this.crew().filter((a) => (a.mcp ?? []).includes(name)).map((a) => a.id).sort();
   }
 
-  /** The rows GET /tools adds: a tool is listed once an agent holds it, and a hidden one
-   *  is handed to nobody. An agent with a tool that is not declared up front holds the
-   *  search for it too, and one with a tool that only reads holds the script tool as well,
-   *  however far that tool is let in (`mcp/handout.py`). */
+  /** The agents with a tool of their own for a script to call, whatever their servers. */
+  private readers(): string[] {
+    const reads = (agent: CrewMember) => (agent.tools ?? []).some((name) => READING_TOOLS.includes(name));
+    return (this.crew?.() ?? []).filter(reads).map((agent) => agent.id);
+  }
+
+  /** The rows GET /tools adds to the crew's own: a server's tool is listed once an agent
+   *  holds it, and a hidden one is handed to nobody. An agent with a tool that is not
+   *  declared up front holds the search for it too (`mcp/handout.py`). The script tool is
+   *  held by every agent a script of which would have a tool to call: one of its own that
+   *  only reads, or a server's that only reads, however far that one is let in
+   *  (`script/tool.py`). */
   registryTools(): RegistryTool[] {
     const searching = new Set<string>();
-    const scripting = new Set<string>();
+    const scripting = new Set<string>(this.readers());
     const rows = this.servers.flatMap((server) => {
       const agents = this.usedBy(server.name, server.agents);
       // The agents are handed what a try found only once it has ended (`mcp_lifecycle`).
@@ -118,11 +133,12 @@ export class FakeMcp {
       }));
     });
     const held = rows.filter((row) => row.agents.length > 0);
-    const companions = [
+    // The two no list of an agent's gives: each is held by its own rule.
+    const byRule = [
       ...(searching.size > 0 ? [searchTool([...searching].sort())] : []),
       ...(scripting.size > 0 ? [scriptTool([...scripting].sort())] : []),
     ];
-    return [...companions, ...held];
+    return [...byRule, ...held];
   }
 
   /** The next reconnect of `name`, or the next read of the list after a key changed, finds it so. */

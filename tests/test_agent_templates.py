@@ -182,8 +182,10 @@ def test_an_installed_crew_starts_and_the_lead_can_reach_its_peers(tmp_path):
     assert DELEGATE_TOOL_NAME in lead.tools.names()
     assert set(lead.agent.delegates) == EXPECTED - {LEAD}
     # The allow-listed roles keep only what they asked for, and no peer may delegate on.
+    # The script tool comes with what was asked for: it calls the tools among them that read.
     counsel = rt.deps_for("kongming")
-    assert set(counsel.tools.names()) == set(counsel.agent.tools)
+    assert set(counsel.tools.names()) == {*counsel.agent.tools, "tool_script"}
+    assert counsel.tools.names()[-1] == "tool_script"
     assert DELEGATE_TOOL_NAME not in counsel.tools.names()
     # Every role reads the one shared set, so a skill is installed once, not per agent,
     # and all of them work where the master does until a workspace is pinned.

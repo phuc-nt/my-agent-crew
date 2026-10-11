@@ -41,6 +41,7 @@ READS = {
     "progress_note",
     "skill_read",
     "tool_output_read",
+    "tool_script",  # every call a script makes is one of these
     "web_search",
     "wiki_get",
     "wiki_search",

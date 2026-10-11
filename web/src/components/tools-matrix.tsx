@@ -8,10 +8,10 @@ interface Props {
 
 /** Why an agent does or does not hold a tool. The cases are genuinely different
  * problems: two are the person's own choice, one needs a key, one needs a mode change,
- * a tool of an MCP server comes with the server or not at all, and the two tools that
- * come with such tools (the search for them, the script that calls them) are held only
- * while one of them needs it. */
-type Cell = "on" | "excluded" | "missing-key" | "work-mode" | "mcp-off" | "mcp-none";
+ * a tool of an MCP server comes with the server or not at all, the search for such tools
+ * is held only while one of them has to be found, and the script tool only while the
+ * agent has a tool that only reads for a script to call. */
+type Cell = "on" | "excluded" | "missing-key" | "work-mode" | "mcp-off" | "mcp-none" | "no-reads";
 
 const MARK: Record<Cell, string> = {
   on: "✓",
@@ -20,6 +20,7 @@ const MARK: Record<Cell, string> = {
   "work-mode": "▫",
   "mcp-off": "◇",
   "mcp-none": "·",
+  "no-reads": "∅",
 };
 
 const TITLE: Record<Cell, string> = {
@@ -29,12 +30,14 @@ const TITLE: Record<Cell, string> = {
   "work-mode": vi.tools.legendWorkMode,
   "mcp-off": vi.tools.legendMcpOff,
   "mcp-none": vi.tools.legendMcpNone,
+  "no-reads": vi.tools.legendNoReads,
 };
 
 /** A mark only some crews can meet, and the tools that bring it. */
 const ONLY_WITH: Partial<Record<Cell, (tool: RegistryTool) => boolean>> = {
   "mcp-off": (tool) => Boolean(tool.server),
   "mcp-none": (tool) => Boolean(tool.with_mcp),
+  "no-reads": (tool) => Boolean(tool.with_reads),
 };
 
 /**
@@ -49,9 +52,10 @@ function cellFor(tool: RegistryTool, agent: AgentInfo): Cell {
   // The allow-list, the keys and the mode have no say over a server's tools: an agent
   // holds them once the server is switched on for it, so that is the one thing to name.
   if (tool.server) return "mcp-off";
-  // Nor over the search for them or the script that calls them: each is missing only
-  // where no tool of a server needs it.
+  // Nor over the search for them, which is missing only where no tool of a server needs it.
   if (tool.with_mcp) return "mcp-none";
+  // Nor over the script tool, which is missing only where a script would have nothing to call.
+  if (tool.with_reads) return "no-reads";
   if (agent.tools.length > 0 && !agent.tools.includes(tool.name)) return "excluded";
   if (tool.optional) return "missing-key";
   return "work-mode";
@@ -105,6 +109,11 @@ export function ToolsMatrix({ tools, agents }: Props) {
                   {tool.with_mcp && (
                     <span className="badge" title={vi.tools.withMcpTitle}>
                       {vi.tools.withMcp}
+                    </span>
+                  )}
+                  {tool.with_reads && (
+                    <span className="badge" title={vi.tools.withReadsTitle}>
+                      {vi.tools.withReads}
                     </span>
                   )}
                   {tool.exposure && (

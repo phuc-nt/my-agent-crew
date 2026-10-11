@@ -53,7 +53,7 @@ class McpTool(Tool):
 @dataclass(frozen=True)
 class CompanionTool(Tool):
     """A tool that comes with an agent's servers instead of from its own list: the one
-    that finds their tools, and the one that calls them from a script."""
+    that finds their tools."""
 
     def to_dict(self) -> dict[str, Any]:
         # For the owner's screens: it follows the servers, not the agent's allow-list.
