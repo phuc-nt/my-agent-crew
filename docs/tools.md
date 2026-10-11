@@ -1147,7 +1147,7 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
   trong cùng tin được đóng lại mà không chạy ("Không chạy: lượt đã dùng hết 120 lời gọi lồng của
   script nên dừng trước lệnh này."), và **lượt dừng luôn**, model không được hỏi thêm lần nào:
   một model đã viết script nhiều đến thế sẽ không đổi ý vì thêm một lời từ chối. Người xem thấy
-  "Đã dừng vì script dùng hết số lời gọi công cụ của một lượt."; trên API là sự kiện `halted` với
+  "Đã dừng vì script dùng hết số lời gọi của một lượt."; trên API là sự kiện `halted` với
   `reason: "nested_calls"`. Tên tool không có (gõ nhầm) không tính vào trần này, lượt sau đếm lại
   từ đầu, và script chạy ngoài một lượt không bị đếm. Một script y hệt được gọi đi gọi lại thì bị
   bộ phát hiện lặp của lượt bắt như mọi lời gọi lặp khác.
