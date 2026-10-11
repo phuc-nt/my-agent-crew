@@ -9,12 +9,11 @@ from my_agent_crew.activity.route_steps import apply_route_event
 from my_agent_crew.activity.step_clock import close_step, instant, open_model_step, open_step
 from my_agent_crew.activity.step_lookup import (
     CLOCK_KEY,
-    find_tool_step,
     pending_model_step,
-    unanswered_tool_step,
     unsent_after_fallback,
 )
-from my_agent_crew.activity.step_previews import argument_preview, preview
+from my_agent_crew.activity.step_previews import preview
+from my_agent_crew.activity.tool_steps import apply_tool_event, bill
 from my_agent_crew.agent.events import (
     ApprovalRequiredEvent,
     AssistantMessageEvent,
@@ -24,6 +23,7 @@ from my_agent_crew.agent.events import (
     Event,
     HaltedEvent,
     ModelCallEvent,
+    NestedCallEvent,
     RouteFallbackEvent,
     SteerEvent,
     TextDeltaEvent,
@@ -33,7 +33,7 @@ from my_agent_crew.agent.events import (
 )
 from my_agent_crew.store.models import QUESTION
 from my_agent_crew.store.runs import AWAITING, DONE, FAILED, HALTED, RUNNING, RunRecord
-from my_agent_crew.tools.progress_note import PROGRESS_NOTE_TOOL_NAME, note_text
+from my_agent_crew.tools.progress_note import note_text
 
 
 def _model_step(run: RunRecord, clock: float) -> dict[str, Any]:
@@ -43,14 +43,6 @@ def _model_step(run: RunRecord, clock: float) -> dict[str, Any]:
         open_model_step(run, clock)
         pending = run.steps[-1]
     return pending
-
-
-def _bill(run: RunRecord, cost_usd: float | None) -> None:
-    """A call the provider put no price on is counted apart instead of guessed at."""
-    if cost_usd is None:
-        run.unknown_cost_calls += 1
-    else:
-        run.spent_usd += cost_usd
 
 
 def _mark_first_token(step: dict[str, Any], clock: float) -> None:
@@ -94,52 +86,11 @@ def apply_event(run: RunRecord, event: Event, clock: float) -> None:
             preview=preview(event.content),
         )
         close_step(step, clock)
-        _bill(run, event.cost_usd)
+        bill(run, event.cost_usd)
         run.status = RUNNING
         return
-    if isinstance(event, ToolCallEvent):
-        if event.name == PROGRESS_NOTE_TOOL_NAME:
-            # A note is the agent saying what it is doing, so it belongs on the timeline
-            # the moment it is said — not when the call returns. It carries no ok flag
-            # because it cannot fail.
-            instant(run, {"kind": "note", "text": note_text(event.arguments)}, clock)
-            return
-        again = unanswered_tool_step(run, event.tool_call_id)
-        if again is not None:
-            again[CLOCK_KEY] = clock  # made again after a restart: timed from here
-            return
-        step = {"kind": "tool", "name": event.name, "tool_call_id": event.tool_call_id}
-        shown = argument_preview(event.arguments)
-        open_step(run, step | {"arguments": shown, "ok": None}, clock)
-        return
-    if isinstance(event, ToolResultEvent):
-        if event.name == PROGRESS_NOTE_TOOL_NAME:
-            # The note step was already written and closed by the call. Falling through
-            # would find no open tool step for this id and open a second, empty one.
-            return
-        step = find_tool_step(run, event.tool_call_id)
-        if step is None:
-            open_step(run, {"kind": "tool", "name": event.name, "ok": None}, clock)
-            step = run.steps[-1]
-        step["ok"] = event.ok
-        step["output"] = preview(event.output)
-        if event.shaped_kind != "none":
-            step["shaped"] = {"kind": event.shaped_kind, "original_chars": event.original_chars}
-        if event.metered:  # a tool that paid a model is billed with the run, like a completion
-            step["cost_usd"] = event.cost_usd
-            _bill(run, event.cost_usd)
-        if event.calls:  # what a script called on its own, which no other step shows
-            step["calls"] = event.calls
-            for nested in event.calls:
-                if nested["metered"]:
-                    _bill(run, nested["cost_usd"])
-        # Kept only where a script set them: a step written before these existed has none,
-        # and the card says nothing of what it cannot know.
-        if event.received_chars is not None:
-            step["received_chars"] = event.received_chars
-        if event.printed_chars is not None:
-            step["printed_chars"] = event.printed_chars
-        close_step(step, clock)
+    if isinstance(event, ToolCallEvent | NestedCallEvent | ToolResultEvent):
+        apply_tool_event(run, event, clock)
         return
     if isinstance(event, SteerEvent):
         # What the person handed the running turn, shown in one line the way a note is.

@@ -27,6 +27,7 @@ from typing import Any
 
 from my_agent_crew import texts_script as t
 from my_agent_crew.activity.step_previews import argument_preview, preview
+from my_agent_crew.agent.nested_calls import note_nested_call
 from my_agent_crew.mcp.config import CODEMODE
 from my_agent_crew.mcp.tools import CompanionTool, McpTool
 from my_agent_crew.script.discovery import discover
@@ -122,6 +123,7 @@ class _Run:
             cost_usd=result.cost_usd if result.metered else None,
             metered=result.metered,
         )
+        note_nested_call(nested)  # shown as it ends, though the script has not
         return Answer(result.ok, output), nested
 
 
