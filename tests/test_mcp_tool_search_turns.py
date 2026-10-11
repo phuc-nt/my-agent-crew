@@ -39,7 +39,7 @@ async def test_a_tool_the_agent_searched_for_is_told_from_the_next_call_on(serve
     ]
     app, fake = await with_notion(served, script)
     base = up_front(app)
-    assert base[-1] == SEARCH_TOOL
+    assert base[-2:] == [SEARCH_TOOL, "tool_script"]
 
     events = await say(app)
 

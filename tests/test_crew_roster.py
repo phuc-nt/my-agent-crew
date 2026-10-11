@@ -166,10 +166,12 @@ def test_an_agent_added_edited_or_removed_while_running_is_told_as_it_now_is(tmp
 
     _write_agent(home, "coder", name="Coder", mode=WORK, tools=["workspace_read", "shell_run"])
     rt.add_agents(load_profiles(rt.settings))
-    assert "\n  · Công cụ: workspace_read, shell_run\n" in system_prompt_for(rt.default)
+    # With the script tool, which an agent that reads a file holds whatever its list says.
+    told = "\n  · Công cụ: workspace_read, shell_run, tool_script\n"
+    assert told in system_prompt_for(rt.default)
 
     rt.replace_agent(replace(rt.deps_for("coder").agent, tools=("workspace_read",)))
-    assert "\n  · Công cụ: workspace_read\n" in system_prompt_for(rt.default)
+    assert "\n  · Công cụ: workspace_read, tool_script\n" in system_prompt_for(rt.default)
     assert all(deps.crew is not None for deps in rt.agents.values())
 
     rt.remove_agent("coder")

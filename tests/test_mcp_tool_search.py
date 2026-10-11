@@ -22,6 +22,7 @@ from my_agent_crew.mcp.tool_search import (
     words,
 )
 from my_agent_crew.mcp.tools import McpTool, build_tools
+from my_agent_crew.script.scope import SCRIPT_TOOL
 from my_agent_crew.texts import TOOL_FAILED
 from my_agent_crew.tools.registry import ToolRegistry
 from tests.mcp_fakes import CREATE, SEARCH, TOOLS, FakeMcp, make_hub, server, unparsed
@@ -344,8 +345,9 @@ async def handed(deps_factory, *servers, mcp=("notion",), fake: FakeMcp | None =
 async def test_an_agent_with_tools_held_back_is_handed_the_search_ahead_of_them(deps_factory):
     deps, own, hub = await handed(deps_factory, server(description="Sổ tay"))
 
-    assert deps.tools.names() == [*own, SEARCH_TOOL, SEARCH_NAME, CREATE_NAME]
-    assert declared_names(deps.tools) == [*own, SEARCH_TOOL]
+    assert deps.tools.names() == [*own, SEARCH_TOOL, SCRIPT_TOOL, SEARCH_NAME, CREATE_NAME]
+    # The script tool is the agent's with or without a server (`test_script_handout.py`).
+    assert declared_names(deps.tools) == [*own, SEARCH_TOOL, SCRIPT_TOOL]
     assert "notion (Sổ tay)" in deps.tools.get(SEARCH_TOOL).description
     prompt = system_prompt_for(deps)
     assert SEARCH_TOOL in prompt and CREATE_NAME not in prompt
@@ -353,11 +355,11 @@ async def test_an_agent_with_tools_held_back_is_handed_the_search_ahead_of_them(
     assert LOADED_LINE.findall(found.output) == [CREATE_NAME]
 
     hub.attach({"default": deps})  # handed out again, it is there once and where it was
-    assert deps.tools.names() == [*own, SEARCH_TOOL, SEARCH_NAME, CREATE_NAME]
+    assert deps.tools.names() == [*own, SEARCH_TOOL, SCRIPT_TOOL, SEARCH_NAME, CREATE_NAME]
 
     deps.profile = replace(deps.agent, mcp=())
     hub.attach({"default": deps})
-    assert deps.tools.names() == own
+    assert deps.tools.names() == [*own, SCRIPT_TOOL]
 
 
 @pytest.mark.parametrize("exposure", ["direct", "hidden"])
@@ -372,7 +374,7 @@ async def test_a_tool_let_in_for_scripts_waits_to_be_found_like_a_deferred_one(d
     exposure = {"search": "direct", "create-page": "codemode"}
     deps, own, _ = await handed(deps_factory, server(tool_exposure=exposure))
 
-    assert declared_names(deps.tools) == [*own, SEARCH_TOOL, SEARCH_NAME]
+    assert declared_names(deps.tools) == [*own, SEARCH_TOOL, SCRIPT_TOOL, SEARCH_NAME]
     found = await deps.tools.execute(SEARCH_TOOL, {"query": "page"})
     assert LOADED_LINE.findall(found.output) == [CREATE_NAME]
 
@@ -450,8 +452,8 @@ async def test_what_a_conversation_loaded_is_read_from_the_searches_it_made(deps
     # In the order they were loaded, each once.
     assert loaded_names(deps.tools, history) == [CREATE_NAME, SEARCH_NAME]
     told = [spec.name for spec in declared_specs(deps.tools, history)]
-    assert told == [*own, SEARCH_TOOL, CREATE_NAME, SEARCH_NAME]
-    assert [spec.name for spec in declared_specs(deps.tools)] == [*own, SEARCH_TOOL]
+    assert told == [*own, SEARCH_TOOL, SCRIPT_TOOL, CREATE_NAME, SEARCH_NAME]
+    assert [spec.name for spec in declared_specs(deps.tools)] == [*own, SEARCH_TOOL, SCRIPT_TOOL]
     assert loaded_names(deps.tools, store.history(other.id)) == []
 
 
@@ -491,7 +493,7 @@ async def test_a_loaded_tool_the_agent_no_longer_holds_is_no_longer_told(deps_fa
     deps.profile = replace(deps.agent, mcp=())  # the owner took the server back
     hub.attach({"default": deps})
     assert loaded_names(deps.tools, history) == []
-    assert [spec.name for spec in declared_specs(deps.tools, history)] == own
+    assert [spec.name for spec in declared_specs(deps.tools, history)] == [*own, SCRIPT_TOOL]
 
 
 async def test_a_loaded_tool_since_let_in_directly_is_told_once(deps_factory, store):
@@ -501,5 +503,5 @@ async def test_a_loaded_tool_since_let_in_directly_is_told_once(deps_factory, st
 
     told = [spec.name for spec in declared_specs(deps.tools, store.history(conv.id))]
 
-    assert told == [*own, SEARCH_TOOL, SEARCH_NAME, CREATE_NAME]
+    assert told == [*own, SEARCH_TOOL, SCRIPT_TOOL, SEARCH_NAME, CREATE_NAME]
     assert deps.tools.get(CREATE_NAME).spec.parameters == CREATE["inputSchema"]

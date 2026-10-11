@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FakeMcp, SIGN_IN_LOCAL_ONLY, authorizeUrl, mcpServer, mcpTool, scriptTool, searchTool, unknownServer } from "./fake-mcp";
+import { type CrewMember, FakeMcp, READING_TOOLS, SIGN_IN_LOCAL_ONLY, authorizeUrl, mcpServer, mcpTool, scriptTool, searchTool, unknownServer } from "./fake-mcp";
 
 type Listed = { servers: ReturnType<typeof mcpServer>[] };
 const list = (mcp: FakeMcp) => (mcp.route("/mcp", "GET")?.body as Listed).servers;
@@ -147,8 +147,11 @@ describe("the MCP routes both fakes answer", () => {
     expect(search).toEqual(searchTool(["coach", "default", "intern", "ledger"]));
     // The intern can find tools and call none from a script: the only one it holds asks first.
     expect(script).toEqual(scriptTool(["coach", "default", "ledger"]));
-    expect(script).toMatchObject({ name: "tool_script", with_mcp: true, requires_approval: false, optional: false });
+    expect(script).toMatchObject({ name: "tool_script", with_reads: true, requires_approval: false, optional: false });
     expect(script).not.toHaveProperty("server");
+    // It is no companion of the servers' tools: it has a mark of its own.
+    expect(script).not.toHaveProperty("with_mcp");
+    expect(search).not.toHaveProperty("with_reads");
     expect(rest.map((tool) => tool.name)).toEqual([
       "mcp__wiki__edit",
       "mcp__notion__search",
@@ -156,7 +159,55 @@ describe("the MCP routes both fakes answer", () => {
       "mcp__tracker__list",
       "mcp__tracker__close",
     ]);
-    expect(rest.every((tool) => !("with_mcp" in tool))).toBe(true);
+    expect(rest.every((tool) => !("with_mcp" in tool) && !("with_reads" in tool))).toBe(true);
+  });
+
+  it("lists the script tool for an agent with a tool of its own that only reads, with no server at all", () => {
+    const mcp = new FakeMcp();
+    let crew: CrewMember[] = [
+      { id: "default", tools: ["write_file", "skill_read"] },
+      { id: "scribe", tools: ["workspace_write", "shell_run"] },
+      { id: "coach", tools: ["memory_search"] },
+      { id: "idle" },
+    ];
+    mcp.crew = () => crew;
+
+    // No server, so nothing to find: the script tool stands alone, for the two that read.
+    expect(mcp.registryTools()).toEqual([scriptTool(["coach", "default"])]);
+
+    // The two that read lose the tools they read with: no script has anything to call.
+    crew = [{ id: "default", tools: ["write_file"] }, { id: "scribe", tools: ["workspace_write", "shell_run"] }, { id: "coach", tools: [] }];
+    expect(mcp.registryTools()).toEqual([]);
+  });
+
+  it.each(READING_TOOLS)("takes %s for a tool a script may call", (name) => {
+    const mcp = new FakeMcp();
+    mcp.crew = () => [{ id: "default", tools: [name] }];
+
+    expect(mcp.registryTools()).toEqual([scriptTool(["default"])]);
+  });
+
+  it("names an agent once among those with the script tool, whether it reads on its own, through a server or both", () => {
+    const reads = mcpServer({ tools: [mcpTool("notion", "search", { exposure: "direct", requires_approval: false })] });
+    const mcp = new FakeMcp([reads]);
+    mcp.crew = () => [
+      { id: "ledger", tools: ["workspace_read"], mcp: ["notion"] },
+      { id: "default", tools: ["write_file"], mcp: ["notion"] },
+      { id: "coach", tools: ["workspace_list"] },
+      { id: "scribe", tools: ["write_file"] },
+    ];
+
+    const [script, ...rest] = mcp.registryTools();
+
+    expect(script).toEqual(scriptTool(["coach", "default", "ledger"]));
+    // Declared up front, so there is no search to go with it.
+    expect(rest.map((tool) => tool.name)).toEqual(["mcp__notion__search"]);
+  });
+
+  it("knows of no tool of an agent's own when it was handed no crew", () => {
+    const mcp = new FakeMcp([mcpServer({ agents: ["default"], tools: [mcpTool("notion", "search")] })]);
+
+    expect(mcp.registryTools().map((tool) => tool.name)).toEqual(["tool_search", "mcp__notion__search"]);
   });
 
   it("names who holds the script tool in the order of their names, whichever server opened it first", () => {

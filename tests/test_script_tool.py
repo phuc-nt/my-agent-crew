@@ -1,12 +1,14 @@
 """`tool_script` as an agent holds it: which tools a script may call and what it is told
 when it may not, what is kept of each call for the run card, what comes back to the model,
-how the tool is described, and who is handed it (`script/tool.py`, `mcp/handout.py`).
+how the tool is described, and what a hand-out of its servers' tools does to it
+(`script/tool.py`, `mcp/handout.py`). Who is built with it is in `test_script_handout.py`.
 Every script here runs in a real child process."""
 
 from __future__ import annotations
 
 import asyncio
 import json
+from dataclasses import replace
 from textwrap import dedent
 from typing import Any
 
@@ -14,13 +16,13 @@ import pytest
 
 from my_agent_crew import texts_script as t
 from my_agent_crew.mcp.tool_search import SEARCH_TOOL
-from my_agent_crew.mcp.tools import CompanionTool, McpTool, build_tools
+from my_agent_crew.mcp.tools import PREFIX, CompanionTool, McpTool, build_tools
 from my_agent_crew.script import tool as script_module
 from my_agent_crew.script.limits import MAX_BATCH, RAW_LIMIT
 from my_agent_crew.script.runner import Outcome
 from my_agent_crew.script.scope import NOT_FROM_SCRIPT, SCRIPT_TOOL, scriptable, unknown_tool
 from my_agent_crew.script.signature import JSON_TYPES, signature
-from my_agent_crew.script.tool import script_tool
+from my_agent_crew.script.tool import ScriptTool, script_tool
 from my_agent_crew.texts import TOOL_FAILED
 from my_agent_crew.texts_kit import TOOL_BLOCKED_BY_HOOK
 from my_agent_crew.tools.delegate import DELEGATE_TOOL_NAME
@@ -756,13 +758,15 @@ async def test_a_script_that_did_not_run_to_its_end_says_so_before_anything_else
 def test_the_script_tool_asks_nobody_and_may_be_run_again():
     tool = toolbox().get(SCRIPT_TOOL)
 
-    assert isinstance(tool, CompanionTool) and tool.name == "tool_script"
-    # It follows the agent's servers, not its allow-list, and says so to the owner's screens.
+    assert isinstance(tool, ScriptTool) and tool.name == "tool_script"
+    # It follows what the agent may read, not its allow-list and not its servers: it says so
+    # to the owner's screens, apart from the search that comes with a server.
+    assert not isinstance(tool, CompanionTool)
     assert tool.to_dict() == {
         "name": "tool_script",
         "description": tool.description,
         "requires_approval": False,
-        "with_mcp": True,
+        "with_reads": True,
     }
     assert tool.replay_safe and tool.ask_reason is None and not tool.parallel
     assert tool.parameters == {
@@ -788,7 +792,8 @@ def test_the_model_is_told_which_tools_a_script_can_call():
         calls=25,
         batch=MAX_BATCH,
         example=t.SCRIPT_BATCH_EXAMPLE,
-        builtins="\nCông cụ có sẵn gọi được từ script: rows_read, notes_read.",
+        builtins="\nCông cụ có sẵn gọi được từ script (tham số như khi gọi trực tiếp):\n"
+        "- rows_read()\n- notes_read()",
         mcp="\nCông cụ MCP gọi được từ script (cần tham số chi tiết thì tra bằng tools.describe):\n"
         f"- {SEARCH_NAME}(query: string): [MCP notion] Find pages by words.",
     )
@@ -814,7 +819,8 @@ def test_a_part_with_nothing_to_list_is_left_out_of_what_the_model_is_told():
         calls=25, batch=MAX_BATCH, example=t.SCRIPT_BATCH_EXAMPLE, builtins="", mcp=""
     )
     assert "Công cụ có sẵn" not in nothing and "Công cụ MCP" not in nothing
-    assert "Công cụ có sẵn gọi được từ script: rows_read." in own and "Công cụ MCP" not in own
+    head = "\nCông cụ có sẵn gọi được từ script (tham số như khi gọi trực tiếp):\n- rows_read()\n"
+    assert head in own and "Công cụ MCP" not in own
     assert "Công cụ có sẵn" not in served and f"- {SEARCH_NAME}(" in served
 
 
@@ -925,7 +931,7 @@ def many(count: int) -> list[McpTool]:
     return built(listed, read_only=names, exposure="codemode")
 
 
-def listed_lines(tools: list[McpTool]) -> list[str]:
+def listed_lines(tools: list[Tool]) -> list[str]:
     told = toolbox(*tools).get(SCRIPT_TOOL).description
     return [line for line in told.splitlines() if line.startswith("- ")]
 
@@ -979,6 +985,54 @@ def test_the_tools_not_listed_are_counted_with_those_past_the_thirtieth():
     assert lines[30] == "- … và 5 công cụ nữa, tìm bằng tools.search."
 
 
+def rows(count: int) -> list[Tool]:
+    return [Reads(f"row_{i:02}_read").tool for i in range(count)]
+
+
+def test_the_agents_own_tools_are_listed_first_and_count_among_the_thirty():
+    lines = listed_lines([*rows(2), *many(30)])
+
+    assert lines[:2] == ["- row_00_read()", "- row_01_read()"]
+    assert lines[2:30] == listed_lines(many(30))[:28]
+    # The two a server's that found no room are counted, not dropped.
+    assert lines[30:] == ["- … và 2 công cụ nữa, tìm bằng tools.search."]
+
+
+def test_a_tool_of_the_agents_own_is_listed_with_its_parameters_and_no_summary():
+    schema = {
+        "type": "object",
+        "properties": {"path": {"type": "string"}, "limit": {"type": "integer"}},
+        "required": ["path"],
+    }
+    own = replace(Reads("rows_read").tool, description="Đọc các dòng.", parameters=schema)
+
+    told = toolbox(own).get(SCRIPT_TOOL).description
+
+    # The agent is told what the tool is for where the tool itself is declared.
+    assert "\n- rows_read(path: string, limit?: integer)\n" in told
+    assert "Đọc các dòng" not in told
+
+
+def test_an_agent_with_more_than_thirty_tools_of_its_own_is_told_how_many_more():
+    told = toolbox(*rows(32)).get(SCRIPT_TOOL).description
+
+    lines = [line for line in told.splitlines() if line.startswith("- ")]
+    assert lines[:30] == [f"- row_{i:02}_read()" for i in range(30)]
+    assert lines[30:] == ["- … và 2 công cụ nữa, tìm bằng tools.search."]
+    assert "Công cụ MCP" not in told
+
+
+def test_what_is_not_listed_is_counted_once_whichever_kind_it_is():
+    told = toolbox(*rows(31), *many(3)).get(SCRIPT_TOOL).description
+
+    lines = [line for line in told.splitlines() if line.startswith("- ")]
+    # One of the agent's own and the server's three, in one line that ends the list.
+    assert lines[:30] == [f"- row_{i:02}_read()" for i in range(30)]
+    assert lines[30:] == ["- … và 4 công cụ nữa, tìm bằng tools.search."]
+    assert told.count("công cụ nữa") == 1 and "mcp__notion__read_" not in told
+    assert told.index("Công cụ MCP gọi được từ script") < told.index("- … và 4 công cụ nữa")
+
+
 async def test_a_tool_past_the_thirty_listed_is_a_scripts_to_call_all_the_same():
     calls: list = []
     listed = [{"name": f"read-{i:02}", "description": f"Reads {i}."} for i in range(32)]
@@ -1000,8 +1054,14 @@ async def test_an_agent_with_a_tool_opened_for_scripts_is_handed_the_script_tool
     assert f"- {SEARCH_NAME}(query: string): [MCP notion] Find pages by words." in told
     # Only what a script may call is told of. The tool that writes is the turn's to call.
     assert CREATE_NAME not in told
-    builtins = "workspace_list, workspace_read, memory_search, skill_read"
-    assert f"\nCông cụ có sẵn gọi được từ script: {builtins}.\n" in told
+    builtins = [
+        "- workspace_list(path?: string)",
+        "- workspace_read(path: string, offset?: integer, limit?: integer)",
+        "- memory_search(query: string)",
+        "- skill_read(name: string)",
+    ]
+    assert [line for line in told.splitlines() if line.startswith("- ")][:-1] == builtins
+    assert told.index("Công cụ có sẵn gọi được từ script") < told.index("Công cụ MCP gọi được")
 
 
 @pytest.mark.parametrize(
@@ -1042,7 +1102,7 @@ async def test_an_agent_with_a_tool_that_reads_is_handed_the_script_tool_however
     [
         {},
         # Opened for scripts without the owner saying it only reads: a script may not
-        # call it, so there is nothing to hand a script tool for.
+        # call it, so the script tool has nothing of the server's to name.
         {"tool_exposure": {"search": "codemode"}},
         {"exposure": "codemode"},
         {"exposure": "direct"},
@@ -1051,18 +1111,29 @@ async def test_an_agent_with_a_tool_that_reads_is_handed_the_script_tool_however
         {"read_only": ["search"], "exposure": "hidden"},
     ],
 )
-async def test_an_agent_with_no_tool_a_script_may_call_is_handed_no_script_tool(
+async def test_an_agent_whose_server_has_no_tool_a_script_may_call_holds_it_for_its_own_tools(
     deps_factory, opened
 ):
-    deps, _, _ = await handed(deps_factory, server(**opened))
+    alone, _, _ = await handed(deps_factory, server(**opened), mcp=())
 
-    assert SCRIPT_TOOL not in deps.tools.names()
+    deps, own, _ = await handed(deps_factory, server(**opened))
+
+    held = [name for name in deps.tools.names() if not name.startswith(PREFIX)]
+    # Last of what is the agent's own, behind the search when a tool waits to be found.
+    assert held[: len(own)] == own and held[-1] == SCRIPT_TOOL and held.count(SCRIPT_TOOL) == 1
+    assert set(held[len(own) : -1]) <= {SEARCH_TOOL}
+    told = deps.tools.get(SCRIPT_TOOL).description
+    assert told == alone.tools.get(SCRIPT_TOOL).description
+    assert "Công cụ MCP" not in told and PREFIX not in told and "công cụ nữa" not in told
 
 
-async def test_an_agent_that_names_no_server_is_handed_no_script_tool(deps_factory):
+async def test_an_agent_that_names_no_server_is_handed_the_script_tool_for_its_own_tools(
+    deps_factory,
+):
     deps, own, _ = await handed(deps_factory, server(**OPENED), mcp=())
 
-    assert deps.tools.names() == own
+    assert deps.tools.names() == [*own, SCRIPT_TOOL]
+    assert SEARCH_NAME not in deps.tools.get(SCRIPT_TOOL).description
 
 
 async def test_handing_out_again_leaves_one_script_tool_in_its_place(deps_factory):
@@ -1074,15 +1145,25 @@ async def test_handing_out_again_leaves_one_script_tool_in_its_place(deps_factor
     assert deps.tools.names() == first and first.count(SCRIPT_TOOL) == 1
 
 
-async def test_the_script_tool_goes_once_no_tool_a_script_may_call_is_left(deps_factory):
+async def test_the_script_tool_stops_naming_a_tool_the_owner_no_longer_calls_a_read(
+    deps_factory,
+):
     deps, own, _ = await handed(deps_factory, server(**OPENED))
+    before = deps.tools.get(SCRIPT_TOOL).description
     # The owner took `read_only` off: the search asks first again, and is no script's.
     closed = make_hub(FakeMcp(), server())
     await closed.connect()
 
     closed.attach({"default": deps})
 
-    assert deps.tools.names() == [*own, SEARCH_TOOL, SEARCH_NAME, CREATE_NAME]
+    # Still there, in its place, for the agent's own tools. That it goes with the last tool
+    # a script may call is in `test_script_handout.py`.
+    assert deps.tools.names() == [*own, SEARCH_TOOL, SCRIPT_TOOL, SEARCH_NAME, CREATE_NAME]
+    after = deps.tools.get(SCRIPT_TOOL).description
+    assert SEARCH_NAME in before and PREFIX not in after and "Công cụ MCP" not in after
+    refused = await play(deps.tools, 'tools.mcp__notion__search(query="kế hoạch")')
+    reason = t.SCRIPT_ASKS_FIRST.format(name=SEARCH_NAME, instead=t.SCRIPT_LOAD_THEN_CALL)
+    assert (refused.ok, refused.output) == (False, unfinished(halted(1, reason)))
 
 
 async def test_a_script_of_an_agents_reads_its_files_and_its_servers(deps_factory):

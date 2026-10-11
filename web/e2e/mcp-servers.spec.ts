@@ -192,11 +192,13 @@ test("the tools grid shows the script tool with the agent whose server has a too
 
   const script = rows("tool_script");
   await expect(script).toHaveCount(1);
-  await expect(script.getByText(vi.tools.withMcp)).toHaveAttribute("title", vi.tools.withMcpTitle);
+  await expect(script.getByText(vi.tools.withReads)).toHaveAttribute("title", vi.tools.withReadsTitle);
+  await expect(script.getByText(vi.tools.withMcp)).toHaveCount(0);
   await expect(cells("tool_script").nth(0)).toHaveAttribute("aria-label", vi.tools.legendOn);
   // Opened for scripts and still asking first is not a script's to call, so the agent
-  // whose only server has such a tool is marked as having no use for the script tool.
-  await expect(cells("tool_script").nth(1)).toHaveAttribute("aria-label", vi.tools.legendMcpNone);
+  // whose only server has such a tool is marked as having nothing for a script to call.
+  await expect(cells("tool_script").nth(1)).toHaveAttribute("aria-label", vi.tools.legendNoReads);
+  await expect(cells("tool_script").nth(1)).toHaveText("∅");
   // Both find their tools the same way, opened for scripts or not.
   await expect(cells("tool_search").nth(0)).toHaveAttribute("aria-label", vi.tools.legendOn);
   await expect(cells("tool_search").nth(1)).toHaveAttribute("aria-label", vi.tools.legendOn);
@@ -205,11 +207,38 @@ test("the tools grid shows the script tool with the agent whose server has a too
   await expect(rows("mcp__wiki__query").getByText(t.exposure.codemode)).toHaveAttribute("title", t.exposureTitle.codemode);
   await expect(rows("mcp__notion__create_pages")).toContainText(t.exposure.deferred);
   await expect(page.locator(".matrix-legend")).toContainText(vi.tools.legendMcpNone);
+  await expect(page.locator(".matrix-legend")).toContainText(vi.tools.legendNoReads);
 
   // The server's own page says the same of the tool, where the owner reads what it offers.
   await page.goto("/#/manage/connections");
   await row(page).getByText(t.tools(2)).click();
   await expect(row(page).getByTestId("mcp-tool-search").getByText(t.exposure.codemode)).toHaveAttribute("title", t.exposureTitle.codemode);
+});
+
+// A script needs a tool to call and no server to have one: an agent that reads with a tool
+// of its own holds the script tool, and no list of tools gives it or takes it away.
+test("the tools grid shows the script tool with an agent that reads on its own, with no server at all", async ({ page }) => {
+  const reader = { ...coachAgent, tools: ["write_file", "workspace_read"] };
+  await mockApi(page, { agents: [master, reader] });
+  await page.goto("/#/manage/tools");
+  const rows = (name: string) => page.getByTestId("tool-row").filter({ hasText: name });
+  const cells = (name: string) => rows(name).locator("td.cell span");
+
+  await expect(rows("tool_script")).toHaveCount(1);
+  await expect(rows("tool_script").getByText(vi.tools.withReads)).toHaveAttribute("title", vi.tools.withReadsTitle);
+  // The master's column comes first: it only writes, so a script of it would call nothing.
+  await expect(cells("tool_script").nth(0)).toHaveAttribute("aria-label", vi.tools.legendNoReads);
+  await expect(cells("tool_script").nth(1)).toHaveAttribute("aria-label", vi.tools.legendOn);
+  // Nothing of a server is on the page, and nothing is said of one.
+  await expect(rows("tool_search")).toHaveCount(0);
+  await expect(page.locator(".matrix-legend")).toContainText(vi.tools.legendNoReads);
+  await expect(page.locator(".matrix-legend")).not.toContainText(vi.tools.legendMcpNone);
+  await expect(page.locator(".matrix-legend")).not.toContainText(vi.tools.legendMcpOff);
+
+  // The agent's own page does not offer it among the tools to tick.
+  await page.goto("/#/manage/crew/coach");
+  await expect(page.getByTestId("tool-picker").getByRole("listitem")).not.toHaveCount(0);
+  await expect(page.getByTestId("tool-picker")).not.toContainText("tool_script");
 });
 
 test("saving the key a server's header reads brings the server up without a reload", async ({ page }) => {
@@ -372,7 +401,7 @@ test.describe("on a phone", () => {
     const find = grid.getByTestId("tool-row").filter({ hasText: "tool_search" });
     await find.scrollIntoViewIfNeeded();
     await expect(find.getByText(vi.tools.withMcp)).toBeVisible();
-    await expect(grid.getByTestId("tool-row").filter({ hasText: "tool_script" }).getByText(vi.tools.withMcp)).toBeVisible();
+    await expect(grid.getByTestId("tool-row").filter({ hasText: "tool_script" }).getByText(vi.tools.withReads)).toBeVisible();
     await expect(grid.getByTestId("tool-row").filter({ hasText: scripted.name })).toContainText(t.exposure.codemode);
     // The tool beside it, left as the server has it: its name ends where the other's goes on.
     await expect(grid.getByTestId("tool-row").filter({ hasText: new RegExp(`${QUERY}(?!_)`) })).toContainText(t.exposure.deferred);

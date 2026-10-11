@@ -21,10 +21,11 @@ const STATUS_TONE: Record<McpStatus, string> = { connected: "ok", idle: "warn", 
  *
  * The tools of an MCP server are not in that list, and neither is the search that finds
  * them. They come with the server, which is switched on below, so the picker leaves them
- * out: ticking one would promise a say the allow-list does not have.
+ * out: ticking one would promise a say the allow-list does not have. The script tool is
+ * left out for the same reason: it follows what the agent may read, not the list.
  */
 export function ToolsSection({ form, readOnly, tools, mcpServers }: Props) {
-  const own = tools.filter((tool) => !tool.server && !tool.with_mcp);
+  const own = tools.filter((tool) => !tool.server && !tool.with_mcp && !tool.with_reads);
   const picked = form.draft.tools ?? [];
   const restricted = picked.length > 0;
   const servers = form.draft.mcp ?? [];

@@ -1,10 +1,11 @@
 """What an agent is handed of the MCP servers its profile names.
 
 Every tool of those servers but the hidden ones. Ahead of them come `tool_search`, when
-some are not told up front, and `tool_script`, when some may be called from a script.
-Handing out starts by taking back what was handed before, so it can be done whenever a
-server or a profile changes: an agent is always left with what the servers hold now, each
-tool once and in the same place.
+some are not told up front, and `tool_script`, which an agent that reads holds with no
+server at all (`script/tool.py`): it is handed again here, so that it names the tools the
+servers hold now. Handing out starts by taking back what was handed before, so it can be
+done whenever a server or a profile changes: an agent is always left with what the servers
+hold now, each tool once and in the same place.
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ from my_agent_crew.mcp.config import HIDDEN
 from my_agent_crew.mcp.tool_search import SEARCH_TOOL, search_tool
 from my_agent_crew.mcp.tools import PREFIX, McpTool, held_back
 from my_agent_crew.script.scope import SCRIPT_TOOL, scriptable
-from my_agent_crew.script.tool import script_tool
+from my_agent_crew.script.tool import hand_script
 
 if TYPE_CHECKING:
     from my_agent_crew.agent.loop import AgentDeps
@@ -47,9 +48,7 @@ def hand_out(deps: AgentDeps, links: Mapping[str, Link]) -> None:
         # Before the tools themselves: the built-ins and it are what never moves.
         about = {tool.server: links[tool.server].server.description for tool in waiting}
         deps.tools.register(search_tool(waiting, about))
-    scripted = [tool for tool in handed.values() if scriptable(tool)]
-    if scripted:
-        # Read when a script runs, not now: the registry is replaced on the next hand-out.
-        deps.tools.register(script_tool(lambda: deps.tools, scripted))
+    # Behind whatever the crew gave the agent since it was built, and ahead of the tools.
+    hand_script(deps, [tool for tool in handed.values() if scriptable(tool)])
     for tool in handed.values():
         deps.tools.register(tool)

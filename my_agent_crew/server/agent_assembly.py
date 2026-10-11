@@ -20,6 +20,7 @@ from my_agent_crew.llm.fake import EchoProvider
 from my_agent_crew.llm.ollama import OllamaProvider, base_url
 from my_agent_crew.llm.openrouter import OpenRouterProvider
 from my_agent_crew.llm.provider import Provider, ProviderChain
+from my_agent_crew.script.tool import hand_script
 from my_agent_crew.server.tool_assembly import build_tools
 from my_agent_crew.skills import BUILTIN_DIR, Skill, load_skills
 from my_agent_crew.store import Store
@@ -135,7 +136,7 @@ def build_agent_deps(
     # would be tempting, but the summary is read as if it were the tool's answer, so it is
     # written by the model the agent is already trusting rather than by a weaker one.
     tools = build_tools(profile, client, store, skills, extra_tools, vision, chain)
-    return AgentDeps(
+    deps = AgentDeps(
         settings=profile.settings,
         chain=chain,
         tools=tools,
@@ -144,3 +145,8 @@ def build_agent_deps(
         profile=profile,
         escalation=escalation_chain(profile.settings, providers),
     )
+    # Not one of the tools `tools:` and the mode choose among: it follows what they left the
+    # agent to read. Here, and not with the others, since a script reads the agent's tools as
+    # they are when it runs, and those are replaced whenever the crew is wired again.
+    hand_script(deps)
+    return deps

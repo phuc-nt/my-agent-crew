@@ -327,7 +327,9 @@ async def test_an_agent_holds_only_the_tools_of_the_servers_its_profile_names(de
     assert held(coach) == [SEARCH_NAME, CREATE_NAME]
     # In the order the profile names its servers; a hidden tool is handed to nobody.
     assert held(ledger) == ["mcp__tracker__search", SEARCH_NAME, CREATE_NAME]
-    assert plain.tools.names() == before
+    # Of an agent that names no server only the script tool is handed again, which it holds
+    # for the tools of its own that read (`test_script_handout.py`).
+    assert plain.tools.names() == [*before, "tool_script"]
     # The agent's own tools stay where they were, ahead of what the servers add.
     assert coach.tools.names()[: len(before)] == before
 
@@ -368,12 +370,15 @@ async def test_handing_out_again_takes_every_tool_back_in_one_build_of_the_toolb
     deps_factory, monkeypatch
 ):
     hub = await connected(FakeMcp([{"name": f"tool-{n}"} for n in range(50)]))
-    deps, plain = deps_factory(), deps_factory()
+    deps, plain, idle = deps_factory(), deps_factory(), deps_factory()
     deps.profile = replace(deps.agent, mcp=("notion",))
-    agents = {"default": deps, "plain": plain}
+    # Holds nothing that is handed out: no server's tool, and no tool a script may call.
+    idle.tools = ToolRegistry([idle.tools.get("workspace_write")])
+    agents = {"default": deps, "plain": plain, "idle": idle}
     hub.attach(agents)
-    untouched, held = plain.tools, deps.tools.names()
+    untouched, held = idle.tools, deps.tools.names()
     assert len([name for name in held if name.startswith("mcp__")]) == 50
+    assert plain.tools.names()[-1] == "tool_script"
     builds: list[ToolRegistry] = []
     init = ToolRegistry.__init__
 
@@ -385,11 +390,12 @@ async def test_handing_out_again_takes_every_tool_back_in_one_build_of_the_toolb
 
     hub.attach(agents)
 
-    # A build for each tool taken back is time that grows with the square of what a server
-    # lists, spent on the loop every turn runs on.
-    assert len(builds) == 1 and deps.tools.names() == held
+    # One build for an agent, whether fifty tools are taken back or the script tool alone: a
+    # build for each tool is time that grows with the square of what a server lists, spent
+    # on the loop every turn runs on.
+    assert builds == [deps.tools, plain.tools] and deps.tools.names() == held
     # An agent with nothing to take back keeps the toolbox it had.
-    assert plain.tools is untouched
+    assert idle.tools is untouched and idle.tools.names() == ["workspace_write"]
 
 
 async def test_a_server_that_lists_too_many_tools_is_down_and_says_why():
@@ -423,8 +429,9 @@ async def test_only_tools_let_in_directly_are_told_to_the_model_on_every_call(de
     hub.attach({"default": deps})
 
     # `tool_search` is how the one held back is found (`test_mcp_tool_search.py`).
-    assert declared_names(deps.tools) == [*own, "tool_search", SEARCH_NAME]
-    assert [spec.name for spec in declared_specs(deps.tools)] == [*own, "tool_search", SEARCH_NAME]
+    told = [*own, "tool_search", "tool_script", SEARCH_NAME]
+    assert declared_names(deps.tools) == told
+    assert [spec.name for spec in declared_specs(deps.tools)] == told
     assert CREATE_NAME in deps.tools.names() and deps.tools.get(CREATE_NAME) is not None
     prompt = system_prompt_for(deps)
     assert SEARCH_NAME in prompt and CREATE_NAME not in prompt

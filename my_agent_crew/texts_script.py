@@ -32,11 +32,12 @@ SCRIPT_DESCRIPTION = (
     "file hay mạng.{builtins}{mcp}\n"
     "Công cụ phải hỏi trước hoặc có ghi dữ liệu thì không gọi được từ script: gọi trực tiếp."
 )
-SCRIPT_BUILTINS = "\nCông cụ có sẵn gọi được từ script: {names}."
+SCRIPT_BUILTINS = "\nCông cụ có sẵn gọi được từ script (tham số như khi gọi trực tiếp):\n{lines}"
 SCRIPT_MCP = (
     "\nCông cụ MCP gọi được từ script (cần tham số chi tiết thì tra bằng tools.describe):\n{lines}"
 )
-SCRIPT_MCP_MORE = "- … và {count} công cụ nữa, tìm bằng tools.search."
+# Closes whichever list is the last: what is counted may be of either kind.
+SCRIPT_MORE = "- … và {count} công cụ nữa, tìm bằng tools.search."
 # Shown to the model inside `SCRIPT_DESCRIPTION`, and run as written by a test: `TEN` stands
 # for a tool's name.
 SCRIPT_BATCH_EXAMPLE = (

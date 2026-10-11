@@ -4,7 +4,7 @@ import { describe, expect, it, vi as vitest } from "vitest";
 import type { AgentInfo, McpServerInfo, RegistryTool } from "../../api/types";
 import { vi } from "../../i18n/vi";
 import { FakeBackend, fakeAgent } from "../../test/fake-backend";
-import { mcpServer, mcpTool, unknownServer } from "../../test/fake-mcp";
+import { mcpServer, mcpTool, scriptTool, unknownServer } from "../../test/fake-mcp";
 import { AgentEditor } from "./agent-editor";
 
 const t = vi.editor;
@@ -160,6 +160,34 @@ describe("the allow-list beside a server's tools", () => {
     expect(backend.mcp.registryTools()[0]).toMatchObject({ name: "tool_search", agents: ["default"] });
 
     await userEvent.click(section().getByRole("radio", { name: t.toolsPick }));
+    await userEvent.click(saveButton());
+
+    await waitFor(() => expect(screen.getByText(t.clean)).toBeInTheDocument());
+    expect(patches()).toEqual([{ profile: { tools: ["write_file", "web_search"] } }]);
+  });
+});
+
+describe("the allow-list beside the script tool", () => {
+  // Let in as it is and read-only: the agent holds the script tool, and no search for it.
+  const reads = mcpServer({ tools: [mcpTool("notion", "search", { exposure: "direct", requires_approval: false })] });
+  const names = () =>
+    within(section().getByTestId("tool-picker"))
+      .getAllByRole("listitem")
+      .map((row) => row.querySelector("code")?.textContent);
+
+  it("leaves it out for an agent that reads with a tool of its own: no list gives it", () => {
+    open({ ...fakeAgent, tools: ["write_file", "workspace_read"] });
+
+    expect(backend.mcp.registryTools()).toEqual([scriptTool(["default"])]);
+    expect(names()).toEqual(["write_file", "web_search"]);
+  });
+
+  it("starts without it when it is switched on, for an agent that reads through a server", async () => {
+    open({ ...fakeAgent, tools: [], mcp: ["notion"] }, [reads]);
+    expect(backend.mcp.registryTools().map((tool) => tool.name)).toEqual(["tool_script", "mcp__notion__search"]);
+
+    await userEvent.click(section().getByRole("radio", { name: t.toolsPick }));
+    expect(names()).toEqual(["write_file", "web_search"]);
     await userEvent.click(saveButton());
 
     await waitFor(() => expect(screen.getByText(t.clean)).toBeInTheDocument());
