@@ -5180,8 +5180,13 @@ những gì nó in ra mới quay về cho model ([tools.md](tools.md#gọi-tool-
   - pytest: `tests/test_shell_network_sandbox.py` (lệnh không mạng cũng không tra được dịch vụ của
     một helper theo tên; luật ấy dùng chung cho sandbox của shell và của script).
 - **Tool `tool_script`: script gọi được gì, ghi lại gì, nói gì với model**:
-  - pytest: `tests/test_script_tool.py` (tool chỉ đọc và không hỏi ai thì script gọi được; bốn tool
-    nói thay agent thì không, dù cũng chỉ đọc; tool của máy chủ khi chủ ghi `read_only` mà không
+  - pytest: `tests/test_script_canvas.py` (với bộ tool canvas thật, script gọi được
+    `artifact_list` nhưng không gọi được `artifact_read`: script lật từng trang một canvas thì dừng
+    ở lời gọi đầu với dòng bảo gọi trực tiếp và không lời gọi nào được ghi; con trỏ đã thấy đứng
+    yên ở bản agent tạo nên `artifact_rewrite` sau đó vẫn bị từ chối và bản người dùng lưu còn
+    nguyên; agent tự đọc đến hết bằng lời gọi thường thì ghi đè được).
+  - pytest: `tests/test_script_tool.py` (tool chỉ đọc và không hỏi ai thì script gọi được; năm tool
+    nói thay agent hoặc để lại dấu trên cuộc trò chuyện thì không, dù cũng chỉ đọc; tool của máy chủ khi chủ ghi `read_only` mà không
     ẩn, ở mức mở nào cũng được, còn tool hỏi trước hay bị ẩn thì không, dù mở `codemode`; tool chủ
     ghi chỉ đọc chạy được từ script dù lời mô tả không nêu tên nó; tool bị ẩn mà vẫn nằm trong sổ
     thì bị từ chối chứ không chạy;

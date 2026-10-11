@@ -774,10 +774,14 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
 - **Script gọi được gì.** Chỉ những tool chỉ đọc và không hỏi ai, trong số tool agent đang giữ:
   - tool có sẵn tự khai là gọi lại được sau restart: `workspace_read`, `workspace_list`,
     `workspace_grep`, `workspace_glob`, `fetch_url`, `web_search`, `memory_search`,
-    `conversation_search`, `wiki_get`, `wiki_search`, `artifact_read`, `artifact_list`,
-    `skill_read`, `pdf_read`, `image_read`, `tool_output_read`. Bốn tool cũng chỉ đọc nhưng không
-    gọi được từ script là `progress_note`, `delegate`, `tool_search` và chính `tool_script`: chúng
-    nói thay agent hoặc làm việc qua cuộc trò chuyện, thứ mà lời gọi của script không thuộc về;
+    `conversation_search`, `wiki_get`, `wiki_search`, `artifact_list`, `skill_read`, `pdf_read`,
+    `image_read`, `tool_output_read`. Năm tool cũng chỉ đọc nhưng không gọi được từ script là
+    `progress_note`, `delegate`, `tool_search`, chính `tool_script` và `artifact_read`. Bốn tool
+    đầu nói thay agent hoặc làm việc qua cuộc trò chuyện, thứ mà lời gọi của script không thuộc
+    về. `artifact_read` thì để lại dấu trên cuộc trò chuyện: đọc một canvas đến hết là điều cho
+    `artifact_rewrite` biết agent đã thấy bản người dùng vừa lưu, trong khi model chỉ nhận những
+    gì script in ra. Script gọi `artifact_read` thì dừng với dòng bảo gọi trực tiếp, con trỏ đọc
+    đứng yên và lần ghi đè sau đó vẫn bị từ chối;
   - tool MCP mà chủ ghi vào `read_only`, trừ tool `hidden`, ở **mọi** mức mở (`direct`,
     `deferred` hay `codemode`). Mức mở chỉ quyết định lời mô tả của `tool_script` có nêu tên tool
     đó hay không, không quyết định script có gọi được nó hay không: chủ đã khẳng định tool chỉ đọc
@@ -793,8 +797,8 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
   nào (tool MCP ở mức khác, hoặc phần vượt trần của cả hai nhóm) được đếm chung trong một dòng
   cuối "và N công cụ nữa, tìm bằng tools.search"; script tra chúng bằng `tools.search` và
   `tools.describe` (bullet kế tiếp). Model muốn tự gọi trực tiếp một tool MCP như thế thì nạp nó
-  bằng `tool_search`. Với agent mặc định (không máy chủ MCP nào) lời mô tả dài khoảng 2.600 ký
-  tự, trong đó 13 dòng tool.
+  bằng `tool_search`. Với agent mặc định (không máy chủ MCP nào) lời mô tả dài khoảng 2.500 ký
+  tự, trong đó 12 dòng tool.
 - **Tra cứu tool trong script.** Script chưa rõ tên hay tham số của một tool thì hỏi ngay trong
   script, trước khi gọi, thay vì đoán rồi chạy lại:
   - `tools.names()` trả list tên mọi tool script gọi được, theo thứ tự agent giữ chúng;
