@@ -10,6 +10,7 @@ the script is told the id and where to read on from.
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 from dataclasses import dataclass, field
 from typing import Any
@@ -23,10 +24,13 @@ from my_agent_crew.script.limits import MAX_PARALLEL, RAW_LIMIT
 from my_agent_crew.script.replies import Answer, Calls
 from my_agent_crew.script.scope import callable_tools, unknown_tool, why_not
 from my_agent_crew.script.signature import call_line, misfits
+from my_agent_crew.texts import TOOL_FAILED
 from my_agent_crew.tools.output_shaping import shape_output
 from my_agent_crew.tools.output_spill import MAX_SPILL_BYTES, READ_TOOL
 from my_agent_crew.tools.registry import Tool, ToolRegistry
 from my_agent_crew.tools.result import NestedCall, ToolResult
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -127,8 +131,13 @@ class ScriptRun:
     ) -> Answer:
         # Timed from here, when the call begins, and not from when it was asked for.
         started = time.monotonic()
-        result = await self.allowed.execute(name, arguments)
-        output = self._fit(name, result, number)
+        try:
+            result = await self.allowed.execute(name, arguments)
+            output = self._fit(name, result, number)
+        except Exception as exc:  # what broke around one call fails that call, not the script
+            logger.exception("a script's call of %s crashed", name)
+            output = TOOL_FAILED.format(error=type(exc).__name__)
+            result = ToolResult(ok=False, output=output)
         if not result.ok and misfits(tool, arguments):
             # The tool's own words for what went wrong stay; how it is called comes after.
             output = f"{output}\n{t.SCRIPT_CALL_LIKE.format(line=call_line(tool))}"

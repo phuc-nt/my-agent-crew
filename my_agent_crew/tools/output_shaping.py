@@ -14,6 +14,7 @@ omitted row is visibly missing, a wrong number is not.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -24,6 +25,17 @@ from my_agent_crew.texts import (
     OUTPUT_TRUNCATED,
 )
 from my_agent_crew.tools.output_summary import Summariser, summarise
+
+# Half of a character such as an emoji, left where a text was cut between the two code units
+# the character is sent as. No file, database row or request to a model can carry one.
+_HALF_CHARACTER = re.compile("[\ud800-\udfff]")
+
+
+def whole_characters(text: str) -> str:
+    """`text` with each half of a character replaced by U+FFFD, the mark of a character
+    that did not arrive whole."""
+    return _HALF_CHARACTER.sub("\ufffd", text)
+
 
 # Below this there is no room to shape anything and a plain cut is honest.
 MIN_SHAPE_CHARS = 200

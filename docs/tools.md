@@ -42,6 +42,10 @@ System prompt liệt kê tên các tool có sẵn; model thấy JSON schema củ
 - **Lỗi được báo thật.** Lỗi của chính tool được trả về cho model dưới dạng "Công cụ lỗi: …";
   mọi exception khác được ghi log kèm traceback và trả về theo tên kiểu. Khung prompt
   bảo model báo cáo tool thất bại thay vì giả vờ.
+- **Nửa ký tự.** Một máy chủ cắt chữ ngay giữa hai mã của một emoji sẽ gửi về nửa ký tự
+  (surrogate lẻ). Không dòng DB, tệp hay yêu cầu gửi model nào chứa được nó, nên registry
+  thay mỗi nửa bằng U+FFFD ngay khi nhận câu trả lời của tool, kể cả trong lời lỗi của chính
+  tool; phần còn lại của câu trả lời giữ nguyên.
 - **Duyệt.** Tool cần duyệt sẽ tạm dừng lượt bằng một sự kiện `approval_required`
   và một `Approval` được lưu. Web UI hiện một thanh, Telegram hiện `/approve` /
   `/deny`; quyết định tiếp tục đúng lượt đó. Cuộc trò chuyện (hoặc agent) đánh dấu
@@ -880,7 +884,9 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
   bắt được bằng `try/except`; nếu lời gọi thiếu một tham số bắt buộc hay đưa một tham số tool
   không có, câu lỗi của tool được thêm một dòng `Cách gọi: tên(a: string, b?: integer)` để lần sau
   gọi đúng. Hook của agent vẫn được hỏi trước và sau từng lời gọi, và một lời gọi bị hook chặn là
-  một lỗi bắt được.
+  một lỗi bắt được. Một lời gọi hỏng ở ngoài tool (chẳng hạn không giữ lại được câu trả lời dài)
+  cũng chỉ là lỗi của riêng nó: script nhận "Công cụ lỗi: <tên kiểu lỗi>", bắt được, các lời gọi
+  khác của lô vẫn chạy và mọi lời gọi vẫn nằm trên thẻ run.
 - **Câu trả lời dài hơn 200.000 ký tự.** Script nhận 200.000 ký tự đầu, còn **bản đầy đủ được giữ
   lại** (tới 5 MB, cùng kho với kết quả dài của một lượt) và câu trả lời kết thúc bằng một dòng chỉ
   cách đọc tiếp: `[còn N ký tự, đọc tiếp bằng tools.tool_output_read(id="<id lời gọi

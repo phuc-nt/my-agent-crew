@@ -318,3 +318,71 @@ async def test_in_a_turn_the_answer_is_kept_under_the_models_own_call(deps_facto
     assert spill.read(conv.id, "c7.1") == text
     assert second.ok and text[249_980:] + texts.TOOL_OUTPUT_READ_DONE in second.output
     assert isinstance(events[-1], DoneEvent)
+
+
+# --- an answer that is not whole, and a call that breaks ---
+
+HALF = "\ud83d"  # half of an emoji, as a server that cut its text between two code units sends
+
+
+async def test_a_long_answer_with_half_a_character_is_kept_and_read_with_the_half_marked(
+    tmp_path, store
+):
+    """Half of an emoji has no bytes to keep: the whole script ended on it, its calls lost."""
+    text = numbered(LONG) + HALF + "hết"
+    held = Held(tmp_path, store, reads("rows_read", text), reads("note_read", f"ghi {HALF}"))
+
+    result = await held.play(
+        """
+        note = tools.note_read()
+        got = tools.rows_read()
+        print(len(note), len(got))
+        """
+    )
+
+    whole = numbered(LONG) + "\ufffdhết"
+    handed = whole[:RAW_LIMIT] + told(len(whole) - RAW_LIMIT, "p1.2")
+    assert (result.ok, result.output) == (True, f"5 {len(handed)}")
+    assert [(call.name, call.ok) for call in result.calls] == [
+        ("note_read", True),
+        ("rows_read", True),
+    ]
+    assert result.calls[0].output == "ghi \ufffd" and held.kept("p1.2") == whole
+
+
+async def test_a_call_that_breaks_outside_its_tool_fails_alone_and_the_script_goes_on(
+    tmp_path, store, monkeypatch
+):
+    """Keeping the long answer raises what no tool raised. That call fails, in words the
+    script can catch; the calls beside it are answered and every one of them is kept."""
+    held = Held(tmp_path, store, reads("rows_read", numbered(LONG)), reads("note_read", "ghi"))
+
+    def broken(conv_id: str, call_id: str, text: str) -> bool:
+        raise RuntimeError("đĩa hỏng")
+
+    monkeypatch.setattr(held.spill, "write", broken)
+
+    result = await held.play(
+        """
+        answers = tools.batch([{"tool": "note_read"}, {"tool": "rows_read"}, {"tool": "note_read"}])
+        print([answer["ok"] for answer in answers], answers[1]["error"])
+        try:
+            tools.rows_read()
+        except Exception as error:
+            print("bắt được:", error)
+        print(tools.note_read())
+        """
+    )
+
+    failed = texts.TOOL_FAILED.format(error="RuntimeError")
+    assert result.ok and result.output == "\n".join(
+        [f"[True, False, True] {failed}", f"bắt được: {failed}", "ghi"]
+    )
+    assert [(call.name, call.ok) for call in result.calls] == [
+        ("note_read", True),
+        ("rows_read", False),
+        ("note_read", True),
+        ("rows_read", False),
+        ("note_read", True),
+    ]
+    assert result.calls[1].output == failed and result.received_chars == len(failed) * 2 + 9

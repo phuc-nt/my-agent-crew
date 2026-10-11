@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any
 from my_agent_crew.config import DEFAULT_TOOL_OUTPUT_CHARS
 from my_agent_crew.llm.types import ToolSpec
 from my_agent_crew.texts import TOOL_BLOCKED_BY_HOOK, TOOL_FAILED, UNKNOWN_TOOL
-from my_agent_crew.tools.output_shaping import cut
+from my_agent_crew.tools.output_shaping import cut, whole_characters
 from my_agent_crew.tools.output_spill import shape_with_spill
 from my_agent_crew.tools.result import ToolResult
 
@@ -153,11 +153,14 @@ class ToolRegistry:
         try:
             output = await tool.run(arguments)
         except ToolError as exc:
-            return ToolResult(ok=False, output=truncate(TOOL_FAILED.format(error=exc), self.limit))
+            failed = TOOL_FAILED.format(error=whole_characters(str(exc)))
+            return ToolResult(ok=False, output=truncate(failed, self.limit))
         except Exception as exc:  # a bug in a tool must not take the turn down with it
             logger.exception("tool %s crashed", name)
             return ToolResult(ok=False, output=TOOL_FAILED.format(error=type(exc).__name__))
-        text = output.output if isinstance(output, ToolResult) else output
+        # Whatever a tool answered is kept, stored and sent on from here: made of whole
+        # characters first, or one half of an emoji would break the turn that reads it.
+        text = whole_characters(output.output if isinstance(output, ToolResult) else output)
         shaped = await shape_with_spill(self.spill, name, text, self.limit, self.summariser)
         if isinstance(output, ToolResult):
             return replace(

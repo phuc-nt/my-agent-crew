@@ -4895,6 +4895,12 @@ hình không giữ khoá; đăng nhập OAuth chỉ bắt đầu từ chính má
     dựng sổ; máy chủ liệt kê quá nhiều tool thì hỏng và nói vì sao; cả lần kết nối chỉ có thời gian
     của một request; header không viết được bị từ chối mà không lộ giá trị),
     `tests/test_tools_registry.py` (thu hẹp sổ theo nhiều tên một lần giữ nguyên thứ tự phần còn lại).
+- **Nửa ký tự trong câu trả lời của tool**:
+  - pytest: `tests/test_tools_registry.py` (nửa ký tự trong câu trả lời, dạng chữ hay dạng kết
+    quả, được thay bằng dấu U+FFFD và kết quả ghi được vào store; trong lời lỗi của chính tool
+    cũng vậy; chỉ nửa ký tự bị thay, mỗi nửa một dấu, nửa đầu hay nửa sau),
+    `tests/test_registry_spill.py` (đầu ra dài mang nửa ký tự vẫn được giữ lại để đọc, với nửa ấy
+    đã đánh dấu).
   - pytest: `tests/test_mcp_turns.py` (một lượt thật: tool chủ ghi chỉ đọc chạy không hỏi và chữ của nó
     là kết quả; tool khác chờ người và chỉ tới máy chủ khi được cho phép; lời gọi bị từ chối không bao
     giờ tới máy chủ; máy chủ tự nhận chỉ đọc không làm tool chạy không hỏi; model chỉ được khai tool
@@ -5286,7 +5292,10 @@ những gì nó in ra mới quay về cho model ([tools.md](tools.md#gọi-tool-
     mình; agent không đọc lại được thì chỉ bị cắt, không giữ gì; script không bị chỉ sang một
     tool nó không gọi được; lỗi dài bị cắt chứ không giữ; cái `tool_output_read` trả về không bao
     giờ được giữ lần nữa; không ghi được thì cắt và không chỉ đi đâu; ngoài một lượt thì không giữ
-    gì; trong một lượt thì giữ dưới id lời gọi của chính model).
+    gì; trong một lượt thì giữ dưới id lời gọi của chính model; câu trả lời dài mang nửa ký tự
+    được giữ và đọc với nửa ấy đã đánh dấu, script chạy tiếp và giữ đủ các lời gọi; lời gọi hỏng
+    ở ngoài tool chỉ hỏng riêng nó, bằng lời script bắt được, các lời gọi cạnh nó vẫn được trả
+    lời và đều được giữ).
 - **Lời gọi của script được báo ngay khi xong**:
   - pytest: `tests/test_script_live_calls.py` (lượt phát từng lời gọi của script giữa lời gọi và
     kết quả của script; lời gọi được liệt kê, tính vào run và vào cuộc trò chuyện khi script còn
