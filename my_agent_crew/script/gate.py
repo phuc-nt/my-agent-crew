@@ -8,6 +8,10 @@ with words that say what to do: make the call directly, where a person can be as
 Those words never repeat what the call was asked to do. A command may hold a secret, and a
 refusal is kept with the run.
 
+A script holds the tools its agent held when it began. One the agent has lost since, as a
+server that signed out leaves it, is unknown to the gate, which lets an unknown tool run:
+it has none to run. The script has, so such a call ends it too.
+
 The script a schedule runs has no conversation to go by (`scheduler/script_job.py`). It is
 judged by the same rules as a job's own turn would be, one nobody watches: what would wait
 for a person ends it, and nothing waits.
@@ -52,6 +56,8 @@ def _asked(deps: AgentDeps, name: str, arguments: dict[str, Any]) -> str:
 
 def _refusal(deps: AgentDeps, allowed: Allowed, name: str, arguments: dict[str, Any]) -> str | None:
     """None for a call the gate lets run, else the words the script ends on."""
+    if deps.tools.get(name) is None:
+        return t.SCRIPT_GATE_GONE.format(name=name)
     said = verdict(deps, allowed, name, arguments)
     if said == RUN:
         return None

@@ -141,6 +141,7 @@ SCRIPT_GATE_DENIED = (
     "để chạy; dừng lại và nói rõ với người dùng cần làm gì, vì sao."
 )
 SCRIPT_GATE_NO_TURN = "`{name}` không chạy: script không thuộc lượt nào nên không duyệt được."
+SCRIPT_GATE_GONE = "`{name}` không chạy: agent không còn giữ tool này nên không duyệt được."
 # What to do instead, for a tool told up front and for one that waits to be found.
 SCRIPT_CALL_DIRECTLY = "gọi trực tiếp"
 SCRIPT_LOAD_THEN_CALL = "nạp bằng tool_search rồi gọi trực tiếp"
