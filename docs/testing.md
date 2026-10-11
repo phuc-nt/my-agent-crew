@@ -5457,7 +5457,19 @@ khi chạy; phần đó có mục riêng ở dưới.
     gì từ trần lời gọi lồng của lượt; lô có một lời gọi bị từ chối thì không lời gọi nào chạy,
     từng lời gọi vẫn được trả lời, lời bị từ chối kèm lý do; lô có lời gọi ghi chạy từng lời gọi
     một theo đúng thứ tự viết, còn lô chỉ đọc vẫn chạy song song; các lệnh của một lô chạy theo
-    thứ tự viết, mỗi lệnh có câu trả lời riêng).
+    thứ tự viết, mỗi lệnh có câu trả lời riêng; mỗi lời gọi của lô có ghi được xét lại khi tới
+    lượt nó: quyền tự chủ bị thu lại ở lời gọi thứ hai thì lời gọi thứ ba không chạy, script dừng
+    và không bắt được, cái đã chạy vẫn được kể; lời gọi bị từ chối lúc tới lượt được trả lời kèm
+    lý do, các lời gọi sau nó được trả lời là không chạy dù tự chúng vốn chạy được; cái một lời
+    gọi của lô để lại có đó khi lời gọi sau được xét, nên lệnh xoá qua một liên kết vừa được nối
+    ra ngoài thư mục tạm không chạy; tool mà agent không còn giữ lúc lời gọi tới thì không chạy
+    theo lời script, script dừng với câu nói vì sao).
+  - Kiểm chứng đột biến cho phần xét lại từng lời gọi: mười hai sửa đổi (lô có ghi chỉ được xét
+    một lần, lời gọi đầu bị xét hai lần, chỉ lời gọi thứ hai được xét lại, các lời gọi sau một
+    lời bị từ chối vẫn chạy, lời bị từ chối lúc tới lượt không làm script dừng hay được trả lời
+    như một lời không chạy, các lời không chạy được trả lời như đã chạy hay tự chúng làm script
+    dừng, lô có ghi chạy không qua lần xét thứ hai, lô chỉ đọc cũng chạy từng lời gọi một, tool
+    đã mất vẫn chạy, mọi tool đều bị coi là đã mất) đều bị test bắt.
   - pytest: `tests/test_script_gated_turns.py` (lượt thật qua server: lời gọi đã qua cổng mang
     `gated` ở mọi nơi kể lời gọi của script, tức `calls` của kết quả, sự kiện `nested_call`,
     step của run và phần lưu kèm tin nhắn, và chỉ được ghi khi đúng; trong một lô chỉ lời gọi
@@ -5542,7 +5554,33 @@ khi chạy; phần đó có mục riêng ở dưới.
     dấu cách, dòng trống, dấu của YAML, tiếng Việt; chuỗi có `\r`, tab, dấu ngắt dòng của bảng
     mã khác hay ký tự không in ra thì không thành khối và vẫn đọc lại nguyên; chuỗi có ký tự
     U+0085 đọc lại nguyên chứ không thành dấu cách; chuỗi một dòng được viết y như trước; chỉ
-    chuỗi bị đổi, ở sâu mấy tầng cũng vậy, và giá trị người gửi không bị sửa tại chỗ).
+    chuỗi bị đổi, ở sâu mấy tầng cũng vậy, và giá trị người gửi không bị sửa tại chỗ; chuỗi dài
+    viết trong ngoặc kép, có tab, `\r` lẻ, U+0085, BOM, ESC hay một dấu `\` đứng sau ký tự không
+    in ra, vẫn là chuỗi đã lưu qua cả hai trình đọc; dòng dài không bị ngắt thành một chuỗi khác,
+    kể cả dòng có hai dấu cách liền nhau; chuỗi một dòng mà lúc khởi động sẽ đọc thành thứ khác,
+    như `No`, `on`, `yes`, `1:30`, được viết trong ngoặc kép và đọc lại là chính nó).
+  - pytest: `tests/test_api_agents_edit_read_back.py` (qua đúng cửa một người dùng: script viết
+    tay thụt bằng tab vẫn là script đó sau khi lưu một dòng lịch khác, thử ở bốn mươi độ dài tên
+    vì chỗ ngắt dòng đi theo độ dài mọi tên đứng trước, và lần khởi động sau vẫn lên; prompt là
+    `No` hay `1:30` được lưu thành đúng chữ ấy; lần lưu mà lần khởi động sau sẽ đọc ra khác là
+    422 nêu khoá, tệp không đổi một byte và agent đang chạy giữ nguyên, thử bằng cách cho trình
+    ghi ngắt dòng trở lại; thứ người viết tay mà hai thư viện đọc khác nhau, như `max_steps: 010`
+    hay `enabled: no`, không chặn lần lưu nào. Và chính phép so: tệp sắp ghi là tệp hiện có với
+    các khoá của lần sửa được đặt, kể cả khoá bị gỡ và lần sửa trống; tệp của agent mới chỉ là
+    lần sửa; mọi khoá đọc lại ra khác đều được nêu tên, khoá bị đổi, khoá bị mất và khoá không
+    ai xin; tệp hiện có mà lúc khởi động không đọc nổi là việc của người sửa tay; tệp sắp ghi mà
+    lúc khởi động không đọc nổi thì không được ghi).
+  - Kiểm chứng đột biến cho cách ghi không ngắt dòng và phép đọc lại: hai mươi sửa đổi (dòng dài
+    lại bị ngắt, ngắt ở bề rộng gấp đôi, mọi chuỗi một dòng để mặc trình ghi hay đều vào ngoặc
+    kép, chuỗi được xét theo cách đọc của chính trình ghi hay theo việc lúc khởi động có đọc ra
+    một chuỗi không, chuỗi có tab thành khối, không chuỗi nào thành khối, lần lưu không nhìn lại
+    tệp, lần sửa được coi là không đặt gì, thấy khác mà vẫn lưu, một trong hai vế được đọc bằng
+    thư viện của lần lưu, tệp sắp ghi được lấy như đang giữ chứ không như sẽ viết, khoá của lần
+    sửa không được đặt lên tệp hiện có, tệp không đọc nổi bị coi là tệp trống ở cả hai vế, khoá
+    bị mất hay khoá không ai xin không được tìm, tệp của agent mới bị tìm ở nơi chưa có) đều bị
+    test bắt. Nhánh bắt lỗi YAML trong phép thử "chuỗi này để trần thì lúc khởi động đọc lại có
+    đúng nó không" không có đột biến nào: trong 3.619 chuỗi một dòng mà trình ghi để trần, không
+    chuỗi nào làm bộ đọc lúc khởi động báo lỗi, nên bỏ nhánh đó không đổi kết quả nào đã biết.
   - Kiểm chứng đột biến: tám sửa đổi của cách viết (để mặc U+0085 cho trình ghi, thành khối cả
     khi có ký tự khối không chở được, thành khối cả chuỗi một dòng, quên rằng dấu xuống dòng
     không phải ký tự in ra, không đi vào danh sách, không đi vào mapping, bọc lại chuỗi đã là
@@ -5555,9 +5593,12 @@ khi chạy; phần đó có mục riêng ở dưới.
     in ra, còn step giữ phần đầu như mọi step; job tới giờ thì đồng hồ chạy nó, một lần; script
     không in gì, hay chỉ in khoảng trắng, không mở lượt và không báo ai dù có `then_prompt`;
     không có `then_prompt` thì in gì cũng không mở lượt; có cả hai thì model nhận đúng một lượt,
-    tin nhắn là `then_prompt`, một dòng trống rồi cái đã in, lượt mở như job prompt mở, câu trả
-    lời được gửi đi và run của lượt là run của job; `then_prompt` viết thành khối trong tệp vẫn
-    cách cái đã in đúng một dòng trống; lượt nhận skill của lịch và skill mà prompt nêu; lượt
+    tin nhắn là `then_prompt`, một dòng trống, câu nói phần dưới là dữ liệu, rồi cái đã in nằm
+    giữa hai dòng đánh dấu mang cùng một số mười sáu chữ số hệ mười sáu, lượt mở như job prompt
+    mở, câu trả lời được gửi đi và run của lượt là run của job; hai lần chạy cho hai số khác
+    nhau, và câu ấy nói rõ đó là dữ liệu chứ không phải chỉ dẫn; cái in ra tự viết một dòng đóng
+    thì không đóng được gì, nó vẫn nằm trong hàng rào; `then_prompt` viết thành khối trong tệp
+    vẫn cách câu ấy đúng một dòng trống; lượt nhận skill của lịch và skill mà prompt nêu; lượt
     chỉ trả lời OK thì không gửi; cái in ra dài hơn mức của một kết quả tool thì bị cắt trước
     khi model đọc; script hỏng là run `error`, tóm tắt là phần cuối của lỗi, không mở lượt; lỗi
     dài cũng tóm bằng phần cuối; script không chạy nổi thì job hỏng, run chỉ nêu loại lỗi, và
@@ -5565,6 +5606,11 @@ khi chạy; phần đó có mục riêng ở dưới.
     lại chạy được; script của job giữ dưới lịch từ sáng này sang sáng sau; script hỏng không
     giữ gì; cái script giữ có sẵn cho lượt nó mở, và cái lượt ấy giữ có sẵn cho lần chạy sau;
     script không in gì vẫn giữ cái nó ghi).
+  - Kiểm chứng đột biến cho hàng rào quanh cái script in ra: mười sửa đổi (cái in ra được nối
+    thẳng vào prompt, hai dòng đánh dấu lần nào cũng mang một số, số ngắn hơn, dòng đóng không
+    mang số, model không được bảo hai dòng ấy là gì, cái in ra đứng trên câu nói về nó, không gì
+    đóng cái in ra, prompt viết thành khối giữ các dòng trống ở cuối, cái in ra không bị cắt, câu
+    ấy không nói đó là dữ liệu) đều bị test bắt.
   - pytest: `tests/test_script_job_gate.py` (lệnh mà không ai phải được hỏi thì chạy trong job,
     có trong danh sách cho phép hay không; lệnh khớp danh sách hỏi, kể cả khi cũng khớp danh
     sách cho phép, hay lệnh bị cấm thì script của job dừng ngay ở đó, không chạy, script không
@@ -5700,6 +5746,7 @@ khi chạy; phần đó có mục riêng ở dưới.
     script của nó không có;
     việc cho một agent không giao được làm script dừng, câu trả lời nêu những agent giao được
     và không nhắc lại tên đã viết; một việc như thế trong lô thì không lời gọi nào của lô chạy;
+    chỉ việc được giao mới bị xét theo agent nó nêu, tool khác có tham số `agent` thì không;
     các việc của một lô chạy cùng lúc và được trả lời theo thứ tự đã viết; lô có lời gọi ghi
     thì giao từng việc một; các việc giao cùng lúc được đếm từng cái vào mức tám việc của cuộc
     trò chuyện, việc vượt mức là lỗi của riêng nó; tiền các con tiêu nằm trên kết quả của script
@@ -5787,7 +5834,7 @@ khi chạy; phần đó có mục riêng ở dưới.
     không gọi gì được đếm đúng như thế; số chưa ai đếm là gạch ngang chứ không là số không; dòng
     đó chờ script xong trong khi lời gọi vẫn được liệt kê dần; tool không phải script thì không
     có gì), `components/activity-cards.test.tsx` (thẻ run có dòng hai số đo dưới lời gọi của
-    script khi script đã xong), `lib/nested-calls.test.ts` (bốn mươi bốn ca cho luật dùng chung
+    script khi script đã xong), `lib/nested-calls.test.ts` (sáu mươi tám ca cho luật dùng chung
     của thẻ run và thẻ chat: lời gọi nào của kết quả chưa được liệt kê, kể cả khi một lời gọi
     được thực hiện hai lần và khi chỉ một trường khác nhau; thêm một lời gọi vừa nghe vào danh
     sách, nghe lại thì giữ chỗ cũ và nói rõ không mới; kết quả nói gì về việc của script, số không
@@ -5814,6 +5861,95 @@ khi chạy; phần đó có mục riêng ở dưới.
     danh sách, thẳng cột với nó, và xuống dòng trong thẻ khi con số dài trên điện thoại; trên thẻ
     tool trong khung chat các lời gọi được liệt kê dần, được đếm khi có kết quả và còn đó sau khi
     tải lại trang; danh sách và dòng đếm vừa thẻ dù tên hay câu trả lời dài tới đâu).
+- **web: job chạy script ở màn Lịch và trình sửa agent, dấu "qua cổng duyệt" trên lời gọi của script**:
+  - vitest: `components/job-schedule.test.tsx` (job chạy script được gọi tên theo loại của nó; dòng
+    của job hiện script đúng như được viết, cả chỗ xuống dòng; có `then_prompt` thì hiện prompt
+    nhận kết quả, không có thì không nói gì về prompt; script của job nào nằm ở dòng của job ấy;
+    job lệnh và job prompt vẫn được gọi tên như trước; dòng vẽ ra như nhau dù hai khoá script tới
+    là `null` hay không tới), `components/agent-editor/schedule-script-row.test.tsx` (dòng script
+    trong trình sửa: sửa dòng khác thì nó được gửi lại nguyên vẹn; đổi tên, giờ chạy và công tắc
+    của nó thì script vẫn còn; không bị coi là dòng chưa có việc; nói rõ nó thuộc loại nào, sửa
+    script ở đâu và hiện cả script; không có cách đổi nó thành prompt hay lệnh, không có ô gõ
+    script; dòng do form tạo chỉ là prompt hoặc lệnh; script không có prompt nối tiếp thì không
+    gửi prompt nào; xoá được như mọi dòng), `hooks/schedule-row-shape.test.ts` (dòng script là
+    dòng tệp khai có `script`, không gì khác; thiếu prompt không làm nó thành dòng lệnh; gửi đi
+    script và prompt nối tiếp đúng như đã nhận, từng ký tự, không kèm prompt hay lệnh dù dòng lỡ
+    giữ một cái; bỏ prompt nối tiếp khi script không có; giữ giờ chạy, công tắc, kỹ năng và thời
+    hạn chờ duyệt; cái gửi đi là cái bộ đọc của server nhận, và đọc lại ra đúng dòng cũ; dòng
+    prompt và dòng lệnh không mang khoá script nào dù chúng tới là `null` hay không tới, và không
+    gửi prompt nối tiếp sót lại; lỗi của dòng script không phải là thiếu prompt hay lệnh, vẫn là
+    giờ chạy mà bộ lịch từ chối, vẫn là ô trống của dòng bên cạnh; cả danh sách vẫn gửi được, dòng
+    script đứng đúng chỗ), `test/schedule-contract.test.ts` (máy chủ giả của test theo đúng luật
+    của server: nhận prompt, lệnh hoặc script đứng một mình; từ chối dòng không có cái nào hoặc có
+    hai; prompt nối tiếp chỉ đi cùng script; `then_prompt` là `null` hay vắng đều là không có; vẫn
+    từ chối khoá lạ, kể cả `kind`; dòng script vẫn cần đúng một kiểu giờ chạy; mỗi dòng trả về có
+    đủ hai khoá script, `null` khi không có; loại của job gọi theo việc dòng của nó làm; một dòng
+    có hai việc thì cả bản sửa bị từ chối và agent giữ nguyên),
+    `components/script-call-gated.test.tsx` (lời gọi qua cổng duyệt nói điều đó bằng chữ trên dòng
+    của nó, sau dấu lỗi và trước thời gian; lời gọi không có khoá ấy, hoặc có mà là sai, đọc đúng
+    như trước; dấu có trên thẻ chat khi script còn chạy, khi đã xong và khi đọc lại từ tin đã lưu;
+    kết quả cũ không có khoá vẫn được liệt kê, không dấu; kết quả mà dấu không phải có hay không
+    thì không liệt kê; dấu có trên bước của script trong run và trên dòng của lời gọi trong bản
+    xuất Markdown; vẫn là một lời gọi dù lần nghe nào mang dấu), `hooks/use-agent-draft.test.ts`
+    (dòng lịch đọc về mang cả hai khoá script).
+  - Playwright: `script-jobs-phone.spec.ts` (điện thoại 390px, màn cảm ứng: dòng của job script
+    hiện phần đầu script và không tràn trang; dòng script trong trình sửa chỉ để đọc, không gõ
+    được, và được gửi lại như đã nhận; lời gọi qua cổng duyệt nói điều đó trên dòng riêng của nó
+    trong run, cạnh thời gian).
+- **web: lời gọi model, việc giao cho agent khác và canvas do script ghi**:
+  - vitest: `components/script-model-call.test.tsx` (lời gọi model nằm chung danh sách với các lời
+    gọi khác của script, bằng chữ nói nó là gì, kèm giá; không bao giờ được đọc bằng cái tên nó
+    mang trên đường truyền, cũng không bị tra như một tool; chưa có chữ cho việc được hỏi thì vẫn
+    nói là lời gọi model; đọc như nhau trên thẻ chat khi script còn chạy, khi đã xong và khi đọc
+    lại từ tin đã lưu; đọc như thế trên bước của script trong run, không có bước riêng; trong bản
+    xuất Markdown cũng bằng những chữ ấy, kèm giá, không phải dạng mã),
+    `components/script-delegate-call.test.tsx` (việc script giao cho agent khác nói agent kia đã
+    tiêu bao nhiêu, như thẻ của việc giao trực tiếp, và không ghi giá cho lời gọi; mở được cuộc
+    trò chuyện việc ấy chạy trong đó, đọc từ đầu câu trả lời; nơi danh sách không được trao lối
+    vào thì không có nút; đọc như nhau trên thẻ chat ở cả ba lúc; bản xuất Markdown ghi agent kia
+    tiêu bao nhiêu bằng chữ; ở Hoạt động, bước của script nói mỗi agent kia tiêu bao nhiêu và
+    không đụng tới số tiêu của chính run; run của các việc ấy treo dưới lượt đã giao, ba cái cạnh
+    nhau, mỗi lời gọi mở đúng cuộc trò chuyện của việc mình; ở danh sách cuộc trò chuyện, cuộc do
+    script mở được đánh dấu là việc của agent khác, nằm dưới cuộc của người dùng, không bao giờ
+    bị nói là chưa đọc, và đọc đúng như cuộc do việc giao trực tiếp mở),
+    `components/canvas/script-canvases.test.tsx` (mỗi canvas script ghi có thẻ riêng dưới thẻ của
+    script, như lần ghi agent tự làm; mỗi thẻ mở đúng canvas mà nhãn của nó nêu; canvas đã bị xoá
+    thì thẻ nói không còn và không có gì để mở; lần ghi hỏng không có thẻ, chỉ còn là một dòng
+    của danh sách nói nó hỏng; cái script chỉ đọc, xuất ra tệp hay giao đi thì không có thẻ; nơi
+    khung chat không được trao cách mở canvas thì không vẽ thẻ; thẻ có ngay khi nghe tin mỗi lần
+    ghi xong, dù script còn chạy; cùng một lời gọi làm hai lần là hai thẻ; ở cuộc trò chuyện đọc
+    lại từ server thẻ vẫn đứng ngay sau thẻ của script và trước lời gọi kế tiếp của lượt, mở được
+    qua các đường dẫn khung chat được trao, và không vẽ khi không được trao),
+    `hooks/use-canvas-auto-open-script.test.ts` (canvas script vừa tạo được mở lặng lẽ một lần khi
+    script xong, không mở theo từng lời gọi và không mở lại dù khung chat vẽ lại bao nhiêu lần;
+    script tạo nhiều canvas thì cái cuối cùng mở; tệp script đọc vào thành một canvas mới cũng
+    mở; canvas của nhiều script và của lời gọi trực tiếp mở theo thứ tự lời gọi; script còn chạy
+    lúc màn hình được vẽ thì mở khi nó xong; xét theo người dùng đang ở đâu lúc script xong chứ
+    không phải lúc lời gọi tạo canvas; không tự mở: lần sửa, lần viết lại, tệp đọc vào một canvas
+    được nêu tên hay lần ghi để canvas nguyên như cũ, lời gọi hỏng dù câu trả lời mở đầu bằng
+    nhãn canvas, nhãn không đứng đầu câu trả lời, canvas mà agent được giao việc đã ghi, canvas
+    trên màn hình quá hẹp dù sau đó màn hình rộng ra, canvas tạo lúc bàn phím đang ở khung canvas
+    dù sau đó người dùng rời đi, canvas ở cuộc trò chuyện tab này chỉ đọc, và canvas của script
+    đã xong từ trước khi màn hình được vẽ), `lib/nested-calls.test.ts` (trong sáu mươi tám ca:
+    việc đã giao được nhận ra là cái đã liệt kê dù lần nghe có nói số tiêu hay không, giao hai lần
+    vẫn là hai, hai việc phân biệt bằng câu trả lời; mỗi việc hỏi model có chữ riêng, không chữ
+    nào là cái tên, không bao giờ rỗng với việc chưa có chữ, và tool thì không có chữ nào; số
+    agent kia tiêu ghi tới bốn chữ số thập phân như thẻ của việc giao trực tiếp, lời gọi không
+    giao gì thì không có số; cuộc trò chuyện của việc đọc từ đầu của một dòng script giữ lại, bằng
+    bộ đọc riêng), `state/activity-reducer.test.ts` (tiền script trả cho model được cộng một lần
+    trên bước của script; lời gọi model hỏng không rõ giá được đếm trong số lời gọi chưa ai định
+    giá; việc giao đi không đổi số tiêu của run dù agent kia tiêu bao nhiêu, và không cộng gì khi
+    kết quả là nơi đầu tiên nêu nó; nhóm "children a script opened": run con treo dưới lượt có
+    script đã giao, kể cả khi lượt ấy còn chạy và script đang chờ),
+    `components/stats-panel.test.tsx` (khoản script trả cho model được gọi bằng chữ, không bằng
+    khoá của sổ chi phí).
+  - Playwright: `script-model-delegate-canvas.spec.ts` (ở 1440, 1000 và 390px: thẻ của script liệt
+    kê cả ba lời gọi, mỗi cái bằng chữ của nó, và thẻ canvas đứng dưới; ở màn rộng canvas vừa tạo
+    mở cạnh khung chat trong khi bàn phím vẫn ở ô nhập, và mở lại được từ thẻ sau khi đóng; ở màn
+    hẹp và điện thoại không canvas nào tự mở, thẻ canvas mở nó; lời gọi giao việc dẫn vào cuộc trò
+    chuyện việc ấy chạy trong đó; ở Hoạt động, run của việc treo dưới lượt đã giao và cả ba lời
+    gọi nằm trên một bước của script; trên điện thoại dòng mở danh sách, lối vào việc và thẻ canvas
+    đều đủ lớn cho ngón tay).
 - **web: `tool_script` ở bảng Công cụ, trình sửa agent và màn Kết nối**:
   - vitest: `components/tools-matrix.test.tsx` (tool mở cho script được nói là tìm như các tool
     khác và được lời mô tả của `tool_script` nêu tên khi nó chỉ đọc; chỉ agent có tool chỉ đọc giữ

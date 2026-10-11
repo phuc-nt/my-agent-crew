@@ -20,27 +20,36 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   `shell_run`, `memory_save`, the canvas tools, a server's tools not under `read_only`), beside
   the ones that read. Each such call is put to the approval gate before it runs, by the rules a
   direct call meets: it runs where a direct call would run unasked (an autonomous conversation, a
-  tool the person said to always allow, a command on `shell_allow_patterns`). A script never
-  waits for a person, so a call a person would be asked about (a supervised conversation, a
-  command on `shell_ask_patterns`) ends the script there, unrun, with a line that tells the model
-  to make the call directly; so does a command on `shell_deny_patterns`. The line names the tool
-  and the owner's pattern and never repeats the command, which may hold a secret. `ask_user` and
+  tool the person said to always allow, a command on `shell_allow_patterns`). A script never waits
+  for a person, so a call a person would be asked about (a supervised conversation, a command on
+  `shell_ask_patterns`) ends the script there, unrun, with a line that tells the model to make the
+  call directly; so does a command on `shell_deny_patterns`. The line names the tool and the
+  owner's pattern and never repeats the command, which may hold a secret. `ask_user` and
   `schedule_create` stay out of every script, as do the tools no script calls and a server's
   `hidden` tools. A batch with a call that changes things runs one call at a time in the order
-  written, and one whose call the gate refuses runs none of them. A call that went through the
-  gate carries `gated: true` wherever a script's calls are listed (`calls` on the `tool_result`
-  event and the run's step, the `nested_call` event, the stored result); a call that only reads
-  is written as before. A script of such an agent that a restart cut is closed as cut and not run
-  again, since nothing says what it had written. The master's roster says of such an agent that
-  its scripts call the tools that write. Any other value of the key stops the crew from starting
-  and is a 422 through the API.
+  written. Every call of it is put to the gate before the first is made, and one the gate refuses
+  means none of them runs. Each call after the first is put to the gate again as its turn comes,
+  since what an earlier call left behind, or a person taking back what they had allowed, may
+  change the answer: one refused then ends the script there, the calls before it ran and stay, and
+  the ones after it are not made (they still count among the calls the scripts of one turn may
+  make). A tool the agent no longer holds when its call comes, as when its server was signed out
+  while the script ran, ends the script the same way. A call that went through the gate carries
+  `gated: true` wherever a script's calls are listed (`calls` on the `tool_result` event and the
+  run's step, the `nested_call` event, the stored result); a call that only reads is written as
+  before. A script of such an agent that a restart cut is closed as cut and not run again, since
+  nothing says what it had written. The master's roster says of such an agent that its scripts
+  call the tools that write. Any other value of the key stops the crew from starting and is a 422
+  through the API.
 - A script can keep a thing from one run to the next. `store(key, value)` keeps a JSON value,
   `store(key, None)` drops the key and `load(key)` reads it back, or gives `None` when nothing
   is kept under it. The two are names of the script like `print`, not tools: they are none of
   the 25 calls or the 40 lookups, are not on the run card and are not put to the approval gate,
   so an agent whose scripts only read keeps things too. A script reads its own writes while it
   runs, and they are written only when it ends well, all of them at once: one that failed, was
-  ended by the gate or a limit, ran out of time or was stopped keeps nothing. Where a value is
+  ended by the gate or a limit, ran out of time or was stopped keeps nothing. A script whose
+  calls only read is run again when a restart cut its turn; one cut after it had ended and kept
+  its values, and before its answer was saved, runs again over what it kept, so a count kept
+  this way can count that run twice and a model it asked is paid twice. Where a value is
   kept is the server's to say and never the script's: the script of a schedule keeps under
   `job:<schedule id>` and so does the turn a job opens, a prompt job's too; any other turn,
   the one a person takes up in that conversation among them, keeps under
@@ -57,27 +66,32 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   written. Nothing writes or deletes through the API. The values live in a new table,
   `script_store`, made when the server starts; no table that was there changes.
 - A schedule can run a script instead of asking the model. A row of `schedules` in `agent.yaml`
-  takes `script` (the source, checked when the file is read as a turn's script is before it
-  runs) in place of `prompt` or `command`, and exactly one of the three; `then_prompt` may stand
-  beside `script` and nowhere else. When the job is due the script runs with what `tool_script`
-  runs with for that agent (the same tools by `script_calls`, the same limits), whether or not
-  the agent holds `tool_script`, and no turn of the agent is opened: a model is asked only if
-  the script asks one itself (`llm.classify`, `llm.summarise`, below). Nobody is there to be
-  asked either: the approval gate treats the job as an autonomous conversation, so a command on
+  takes `script` (the source, checked when the file is read as a turn's script is before it runs)
+  in place of `prompt` or `command`, and exactly one of the three; `then_prompt` may stand beside
+  `script` and nowhere else. When the job is due the script runs with what `tool_script` runs with
+  for that agent (the same tools by `script_calls`, the same limits), whether or not the agent
+  holds `tool_script`, and no turn of the agent is opened: a model is asked only if the script
+  asks one itself (`llm.classify`, `llm.summarise`, below). Nobody is there to be asked either:
+  the approval gate treats the job as an autonomous conversation, so a command on
   `shell_ask_patterns` or `shell_deny_patterns`, or a tool with a reason of its own to ask, ends
   the script there, unrun, and nothing waits. The job is a run with no conversation and one
-  `tool_script` step holding the calls it made, `done` or `error`, summed up by the end of what
-  it printed or of the error, and the calls that paid a model are charged to it. A tool that
-  works through a conversation has none there and says so. With `then_prompt`, a script that
-  ended well and printed something opens one turn the way a prompt job does: the model reads
-  `then_prompt`, a blank line and what was printed (cut to `tool_output_chars`), and its answer
-  is delivered by the rules of a prompt job. A script that printed nothing opens no turn and
-  tells nobody. What the script kept with `store` is written before that turn opens, and
-  the turn's own scripts read and keep under the same `job:<schedule id>`. A schedule row, as
-  the API reads and writes it and as `GET /api/jobs` lists it, always carries `script` and
-  `then_prompt` (`null` when unused) and says `kind: "script"`; a row that names none or two of
-  the three, or a script that could not run, stops the crew from starting and is a 422 through
-  the API. `schedule_create` still makes prompt jobs only.
+  `tool_script` step holding the calls it made, `done` or `error`, summed up by the end of what it
+  printed or of the error, and the calls that paid a model are charged to it. A tool that works
+  through a conversation has none there and says so. With `then_prompt`, a script that ended well
+  and printed something opens one turn the way a prompt job does. The turn's message is
+  `then_prompt`, then one sentence saying that what follows is what the schedule's script printed
+  and is data to work on, not instructions, then what was printed (cut to `tool_output_chars`)
+  between two marker lines. The lines carry a number made for that one message after the script
+  ended, so nothing the script printed can write the line that closes them. What a script prints
+  is what its tools read (a mail's subject, a page), and nobody is asked in that turn; the fence
+  keeps it from reading as the owner's own words, and holds no model to anything. The answer is
+  delivered by the rules of a prompt job. A script that printed nothing opens no turn and tells
+  nobody. What the script kept with `store` is written before that turn opens, and the turn's own
+  scripts read and keep under the same `job:<schedule id>`. A schedule row, as the API reads and
+  writes it and as `GET /api/jobs` lists it, always carries `script` and `then_prompt` (`null`
+  when unused) and says `kind: "script"`; a row that names none or two of the three, or a script
+  that could not run, stops the crew from starting and is a 422 through the API. `schedule_create`
+  still makes prompt jobs only.
 - A script can ask a model a small question of its own. `llm.classify(text, labels)` gives back
   one of `labels`, as the script wrote it, and `llm.summarise(text, max_chars=500)` a summary of
   at most `max_chars` characters. The server makes the call, with the agent's own model on the
@@ -150,6 +164,20 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   lists the canvases a turn wrote does not name a canvas written by an agent a script handed a
   task to: of a script's calls it reads the ones that write a canvas, and what is kept of a
   task handed on is the beginning of its answer only.
+- The web shows all of the above where a script's calls and an agent's schedules already stood.
+  **Lịch** names a script job by its kind ("chạy script") and shows the script as it was written
+  and the `then_prompt` that follows it. The agent editor shows such a row to read (the script
+  whole, with a line saying it is changed in `agent.yaml`), lets its name, timing and switch be
+  changed and the row removed, offers no box to type a script in, and sends the script back as
+  it came when anything else is saved. A call that went through the gate says "qua cổng duyệt"
+  on its row of the script's list: on the chat card, on the run's step and in the exported
+  conversation. An asking of a model is listed in words ("Phân loại bằng model", "Tóm tắt bằng
+  model") with what it cost, never as a tool, and the usage breakdown by purpose names the new
+  one ("Script gọi model"). A task a script handed to another agent says what that agent spent
+  ("Cuộc con đã chi …"), apart from what the script's own calls cost, and opens the conversation
+  the task ran in, which hangs under the turn that asked as one opened by a direct `delegate`
+  does. A canvas a script wrote has its card under the script's card and opens beside the thread
+  on a wide screen once the script is done.
 
 ### Changed
 
@@ -159,12 +187,33 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   the agent's schedules were saved. A text holding a tab, a carriage return or a character that
   does not print is still written in quotes, since a block would not hand it back whole. The
   text read back is the text saved, to the character, either way.
+- A save is looked at as the next start will read it, before anything is written or rewired.
+  `agent.yaml` is written by one YAML library and read at the start by another. The file as it
+  is about to be written is read by the start's reader and set against the file as that reader
+  reads it now with the edit's keys set. If any key would read back as something the edit did
+  not ask for, the save is a 422 that names the keys, the file stays as it was and the running
+  crew is not touched; a file the start's reader cannot read at all is refused the same way,
+  with the reader's own words. Both sides are read by the one reader, so a value a person wrote
+  by hand that the two libraries read differently (`enabled: no`, `max_steps: 010`) holds up no
+  save.
+- A save no longer wraps a long line of `agent.yaml`: a long text stays on one line of the file,
+  and a line a person had wrapped by hand is written back unwrapped the first time its key is
+  saved.
+- The line that sums up a script's calls on its card reads "Script đã thực hiện N lời gọi" (it
+  read "Script đã gọi công cụ N lần"), and a run stopped on the calls of a turn says "Đã dừng vì
+  script dùng hết số lời gọi của một lượt.": some of a script's calls now ask a model or hand a
+  task to another agent, and name no tool.
 
 ### Fixed
 
-- A text holding the next-line character (U+0085) that was saved from the web could be read back
-  with a space where the character stood. It is now written as an escape and read back as
-  itself.
+- A text saved from the web could be another text at the next start, or no text at all. A long
+  text written in quotes was wrapped at about 80 columns, and where the wrap fell right after an
+  escape (a tab, a lone carriage return, a backslash, U+0085) it was read back with a space it
+  never had; a long plain line could lose one of two spaces. No line is wrapped now. A text of
+  one line that the start's reader takes for something else was written bare: `No` or `on` was
+  read as a boolean and `1:30` as a number, and a schedule whose prompt was such a word stopped
+  the crew from starting; a bare next-line character (U+0085) was read as a space. Any one-line
+  text the start would not read back as itself is now written in quotes.
 
 ## [0.14.0] — 2026-10-11
 
