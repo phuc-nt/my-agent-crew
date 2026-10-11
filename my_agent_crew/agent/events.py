@@ -6,6 +6,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Any
 
 from my_agent_crew.agent.route_events import EscalatedEvent, RouteFallbackEvent
+from my_agent_crew.agent.tool_events import NestedCallEvent, ToolCallEvent, ToolResultEvent
 
 
 @dataclass(frozen=True)
@@ -39,34 +40,6 @@ class AssistantMessageEvent:
     cost_usd: float | None
     prompt_tokens: int | None = None
     cached_tokens: int | None = None
-
-
-@dataclass(frozen=True)
-class ToolCallEvent:
-    tool_call_id: str
-    name: str
-    arguments: dict[str, Any]
-
-
-@dataclass(frozen=True)
-class ToolResultEvent:
-    tool_call_id: str
-    name: str
-    ok: bool
-    output: str
-    # How the output was brought under the cap ("none", "json" or "cut") and how long it
-    # was first. Carried so a run card can say the model answered from a shortened output.
-    shaped_kind: str = "none"
-    original_chars: int = 0
-    # What the tool paid a model (a picture, a scanned page, a long output summarised),
-    # when `metered`; None there means the provider gave no price. The run adds it up.
-    cost_usd: float | None = None
-    metered: bool = False
-    # The calls a script made on its own (`tool_script`), each as a timeline row keeps one,
-    # and how much of their answers it was handed and how much it printed back.
-    calls: list[dict[str, Any]] = field(default_factory=list)
-    received_chars: int | None = None
-    printed_chars: int | None = None
 
 
 @dataclass(frozen=True)
@@ -148,6 +121,7 @@ Event = (
     | ModelCallEvent
     | AssistantMessageEvent
     | ToolCallEvent
+    | NestedCallEvent
     | ToolResultEvent
     | ApprovalRequiredEvent
     | DoneEvent
@@ -178,6 +152,7 @@ _KIND = {
     ModelCallEvent: "model_call",
     AssistantMessageEvent: "assistant_message",
     ToolCallEvent: "tool_call",
+    NestedCallEvent: "nested_call",
     ToolResultEvent: "tool_result",
     ApprovalRequiredEvent: "approval_required",
     DoneEvent: "done",

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterator, Callable, Sequence
+from contextlib import aclosing
 from dataclasses import asdict
 from typing import TYPE_CHECKING
 
@@ -26,8 +27,7 @@ from my_agent_crew.agent.events import (
 )
 from my_agent_crew.agent.tool_batches import split_batches
 from my_agent_crew.agent.tool_gate import ask_reason_text, pauses_for_a_person
-from my_agent_crew.agent.turn_context import set_tool_call_id
-from my_agent_crew.llm.tool_call_buffer import CUT_OFF
+from my_agent_crew.agent.tool_run import CallRun, execute
 from my_agent_crew.llm.types import Message, ToolCall
 from my_agent_crew.store import Approval, Store, StoredMessage
 from my_agent_crew.store.approvals import ANSWERED, DENIED, EXPIRED, PENDING
@@ -37,8 +37,6 @@ from my_agent_crew.texts import (
     DENIED_TOOL,
     EXPIRED_TOOL,
     INTERRUPTED_TOOL,
-    TOOL_ARGS_CUT_OFF,
-    TOOL_ARGS_INVALID,
 )
 from my_agent_crew.tools.ask_user import answer_result, unanswered_result
 from my_agent_crew.tools.registry import ToolResult
@@ -47,17 +45,6 @@ if TYPE_CHECKING:  # the loop owns the deps; importing it back would be a cycle
     from my_agent_crew.agent.loop import AgentDeps
 
 REFUSALS = {DENIED: DENIED_TOOL, EXPIRED: EXPIRED_TOOL}
-
-
-async def _execute(deps: AgentDeps, call: ToolCall) -> ToolResult:
-    """Each call runs with its own id in context. `asyncio.gather` copies the context per
-    task, so a batched call reads its own id and not whichever one was set last. A call
-    whose arguments never parsed is answered with where they broke instead of being run."""
-    if call.invalid:
-        template = TOOL_ARGS_CUT_OFF if call.invalid.startswith(CUT_OFF) else TOOL_ARGS_INVALID
-        return ToolResult(ok=False, output=template.format(name=call.name, detail=call.invalid))
-    set_tool_call_id(call.id)
-    return await deps.tools.execute(call.name, call.arguments)
 
 
 async def _record(deps: AgentDeps, conv_id: str, call: ToolCall, result: ToolResult) -> Event:
@@ -147,7 +134,7 @@ async def settle_tool_calls(deps: AgentDeps, conv_id: str) -> AsyncIterator[Even
         if len(batch) > 1:
             for call in batch:
                 yield ToolCallEvent(tool_call_id=call.id, name=call.name, arguments=call.arguments)
-            results = await asyncio.gather(*(_execute(deps, c) for c in batch))
+            results = await asyncio.gather(*(execute(deps, c) for c in batch))
             # Written back in call order, not completion order, so the history a resumed
             # turn reads is the same whichever task finished first.
             for call, result in zip(batch, results, strict=True):
@@ -189,7 +176,12 @@ async def settle_tool_calls(deps: AgentDeps, conv_id: str) -> AsyncIterator[Even
                 yield await _record(deps, conv_id, call, ToolResult(ok=False, output=refusal))
                 continue
         yield ToolCallEvent(tool_call_id=call.id, name=call.name, arguments=call.arguments)
-        result = await _execute(deps, call)
+        run = CallRun(deps, call)
+        # Closed with this turn, not whenever it is collected: closing it ends the call.
+        async with aclosing(run.events()) as said:
+            async for nested in said:  # the calls a script makes, each as it ends
+                yield nested
+        result = run.result
         yield await _record(deps, conv_id, call, result)
         # A finished delegation that was the whole turn ends it in the child's words.
         async for event in relay_reply(deps, conv_id, call, result):
