@@ -43,6 +43,24 @@ def told(left: int, kept_as: str) -> str:
     return t.SCRIPT_ANSWER_KEPT.format(left=left, id=kept_as, offset=RAW_LIMIT)
 
 
+def segment(text: str, offset: int, kept_as: str, holds: int = RAW_LIMIT) -> str:
+    """What reading `text` back from `offset` answers a caller that holds `holds` of one
+    answer: as much as fits beside the widest signposts the text can need."""
+    total, source = len(text), texts.TOOL_OUTPUT_SOURCE_ORIGINAL
+    widest = texts.TOOL_OUTPUT_READ_HEADER.format(
+        source=source, offset=total, end=total, total=total
+    ) + texts.TOOL_OUTPUT_READ_MORE.format(remaining=total, id=kept_as, next_offset=total)
+    end = min(offset + holds - len(widest), total)
+    head = texts.TOOL_OUTPUT_READ_HEADER.format(source=source, offset=offset, end=end, total=total)
+    if end == total:
+        return head + text[offset:] + texts.TOOL_OUTPUT_READ_DONE
+    return (
+        head
+        + text[offset:end]
+        + texts.TOOL_OUTPUT_READ_MORE.format(remaining=total - end, id=kept_as, next_offset=end)
+    )
+
+
 def reads(name: str, answer: Any) -> Tool:
     async def run(arguments: dict[str, Any]) -> Any:
         if isinstance(answer, Exception):
@@ -244,9 +262,44 @@ async def test_a_long_failure_is_cut_and_not_kept(tmp_path, store):
     assert result.output == "True False" and held.nothing_kept
 
 
-async def test_what_reading_back_answers_is_never_kept_again(tmp_path, store):
-    """An agent whose own cap is past what a script holds: reading a kept answer back in
-    one piece is cut like any long answer, and is not kept as another."""
+async def test_a_script_reads_a_kept_answer_to_its_end_whatever_the_agents_own_cap(tmp_path, store):
+    """A million characters at an agent handed 8,000 of anything. The script reads the rest
+    in segments as long as it holds: five reads for 800,000, where segments sized to the
+    agent would have spent every call the script may make on a fifth of it."""
+    text = numbered(1_000_000)
+    held = Held(tmp_path, store, reads("rows_read", text))
+
+    result = await held.play(
+        """
+        got = tools.rows_read()
+        parts, at, reads = [got[:200000]], 200000, 0
+        while True:
+            piece = tools.tool_output_read(id="p1.1", offset=at)
+            reads += 1
+            body = piece.split("\\n", 1)[1].rsplit("\\n[", 1)[0]
+            parts.append(body)
+            at += len(body)
+            if piece.endswith("[đã đọc hết]"):
+                break
+        lines = "".join(parts).splitlines()
+        out_of_place = 0
+        for n in range(0, 100000, 37):
+            if int(lines[n]) != n:
+                out_of_place += 1
+        print(reads, at, len(lines), out_of_place)
+        """
+    )
+
+    assert (result.ok, result.output) == (True, "5 1000000 100000 0")
+    assert [call.name for call in result.calls] == ["rows_read", *[READ_TOOL] * 5]
+    assert all(call.ok for call in result.calls) and result.received_chars > len(text)
+    assert held.kept("p1.1") == text and held.kept("p1.2") is None
+
+
+async def test_a_segment_read_back_fits_what_a_script_holds_and_is_not_kept_again(tmp_path, store):
+    """Asked for more than a script holds, at an agent whose own cap is past that too: the
+    segment is sized to the script, its way on at the end, so nothing of it is cut and it
+    is not kept as another answer. With no length asked for it is as long as fits."""
     text = numbered(LONG)
     held = Held(tmp_path, store, reads("rows_read", text), cap=400_000)
 
@@ -254,18 +307,15 @@ async def test_what_reading_back_answers_is_never_kept_again(tmp_path, store):
         """
         tools.rows_read()
         back = tools.tool_output_read(id="p1.1", offset=0, limit=260000)
-        print(len(back), "p1.2" in back)
+        print(len(back), "p1.2" in back, back == tools.tool_output_read(id="p1.1"))
+        print(back[-90:])
         """
     )
 
-    source = texts.TOOL_OUTPUT_SOURCE_ORIGINAL
-    whole = (
-        texts.TOOL_OUTPUT_READ_HEADER.format(source=source, offset=0, end=LONG, total=LONG)
-        + text
-        + texts.TOOL_OUTPUT_READ_DONE
-    )
-    assert result.output == f"{len(cut(whole, RAW_LIMIT))} False"
-    assert held.kept("p1.1") == text and held.kept("p1.2") is None
+    back = segment(text, 0, "p1.1")
+    assert len(back) <= RAW_LIMIT and "offset=" in back[-90:]
+    assert result.output == f"{len(back)} False True\n{back[-90:]}"
+    assert held.kept("p1.1") == text and held.kept("p1.2") is None and held.kept("p1.3") is None
 
 
 async def test_an_answer_that_could_not_be_kept_is_cut_and_points_nowhere(tmp_path, store):
@@ -318,6 +368,41 @@ async def test_in_a_turn_the_answer_is_kept_under_the_models_own_call(deps_facto
     assert spill.read(conv.id, "c7.1") == text
     assert second.ok and text[249_980:] + texts.TOOL_OUTPUT_READ_DONE in second.output
     assert isinstance(events[-1], DoneEvent)
+
+
+async def test_in_a_turn_the_model_reading_on_after_a_script_is_held_to_the_agents_cap(
+    deps_factory, tmp_path
+):
+    """The script was handed the rest in one segment; the model's own read is not."""
+    text = numbered(LONG)
+    source = 'tools.rows_read()\nprint(len(tools.tool_output_read(id="c7.1", offset=200000)))'
+    script = ToolCall("c7", SCRIPT_TOOL, {"script": source})
+    read_on = ToolCall("c8", READ_TOOL, {"id": "c7.1", "limit": 60_000})
+    deps = deps_factory(
+        script=[
+            completion(tool_calls=[script]),
+            completion(tool_calls=[read_on]),
+            completion("Xong."),
+        ]
+    )
+    spill = Spill(tmp_path)
+    tools = ToolRegistry(
+        [reads("rows_read", text), build_output_read_tool(deps.store, spill, 8000)],
+        8000,
+        None,
+        None,
+        spill,
+    )
+    tools.register(script_tool(lambda: tools, []))
+    deps = replace(deps, tools=tools)
+    conv = deps.store.create()
+
+    events = await collect(run_turn(deps, conv.id, "đọc hết"))
+
+    first, second = [event for event in events if isinstance(event, ToolResultEvent)]
+    assert first.ok and first.output == str(len(segment(text, 200_000, "c7.1")))
+    assert second.ok and second.output == segment(text, 0, "c7.1", holds=8000)
+    assert len(second.output) <= 8000
 
 
 # --- an answer that is not whole, and a call that breaks ---

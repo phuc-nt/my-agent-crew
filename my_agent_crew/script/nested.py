@@ -4,7 +4,8 @@ what is kept of it for the run card.
 A tool's answer is the script's to cut down, so it is handed far more of one than a turn
 would be: `RAW_LIMIT`. Past that the answer is cut at the limit, and where the agent can read
 a kept output back (`tool_output_read`) the whole of it is kept under an id of its own and
-the script is told the id and where to read on from.
+the script is told the id and where to read on from. It reads on in segments as long as it
+may hold, whatever the agent's own cap.
 """
 
 from __future__ import annotations
@@ -25,6 +26,7 @@ from my_agent_crew.script.replies import Answer, Calls
 from my_agent_crew.script.scope import callable_tools, unknown_tool, why_not
 from my_agent_crew.script.signature import call_line, misfits
 from my_agent_crew.texts import TOOL_FAILED
+from my_agent_crew.tools.output_read import reading_up_to
 from my_agent_crew.tools.output_shaping import shape_output
 from my_agent_crew.tools.output_spill import MAX_SPILL_BYTES, READ_TOOL
 from my_agent_crew.tools.registry import Tool, ToolRegistry
@@ -102,11 +104,11 @@ class ScriptRun:
             ]
         return [run.result() for run in runs]
 
-    def _fit(self, name: str, result: ToolResult, number: int) -> str:
+    def _fit(self, result: ToolResult, number: int) -> str:
         """An answer the script can hold. One too long is cut at `RAW_LIMIT`; when the agent
         can read a kept output back, all of it is kept first, under the script's own call
         id and this call's number, and the script is told how to read on. What reading
-        back answers is never kept again, or one long answer would be kept without end."""
+        back answers was sized to fit (`_execute`), so it is never kept as another."""
         text = result.output
         if len(text) <= RAW_LIMIT:
             return text
@@ -114,7 +116,6 @@ class ScriptRun:
         kept_as = f"{script_id}.{number}"
         if (
             result.ok
-            and name != READ_TOOL
             and spill is not None
             and self.allowed.get(READ_TOOL) is not None
             and script_id  # outside a turn there is no call to keep it under
@@ -132,8 +133,9 @@ class ScriptRun:
         # Timed from here, when the call begins, and not from when it was asked for.
         started = time.monotonic()
         try:
-            result = await self.allowed.execute(name, arguments)
-            output = self._fit(name, result, number)
+            with reading_up_to(RAW_LIMIT):  # a kept answer read back comes in what fits here
+                result = await self.allowed.execute(name, arguments)
+            output = self._fit(result, number)
         except Exception as exc:  # what broke around one call fails that call, not the script
             logger.exception("a script's call of %s crashed", name)
             output = TOOL_FAILED.format(error=type(exc).__name__)

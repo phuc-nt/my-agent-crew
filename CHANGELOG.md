@@ -54,8 +54,12 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   the cut. The script gets the first 200,000 and a line saying how many are left and how to read
   on: `tools.tool_output_read(id="<the script's call id>.<n>", offset=200000)`, where `n` is the
   number of the call. The whole answer is kept, up to 5 MB, where a turn's long results are.
-  Nothing is kept for a call that failed, for an agent without `tool_output_read`, or for what
-  `tool_output_read` itself returned; those are cut as before.
+  A script reads on in segments as long as it may hold, close to 200,000 characters each
+  unless it asks for fewer, whatever the agent's own `tool_output_chars`: a million characters
+  take five more calls. A call the model makes itself is held to the agent's cap as before.
+  Nothing is kept for a call that failed or for an agent without `tool_output_read`; those
+  are cut as before. What `tool_output_read` answers a script is sized to fit, so it is never
+  cut and never kept as another answer.
 
 ### Changed
 
