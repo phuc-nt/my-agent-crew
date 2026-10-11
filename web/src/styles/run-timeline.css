@@ -377,6 +377,23 @@
   border-left: 2px solid var(--border);
 }
 
+/* What a task handed to another agent came to: what that agent spent, then the way into
+   its conversation. One line that wraps, so on a narrow card the button drops under the
+   figure rather than reaching past the edge. */
+.script-call-line.script-call-child {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--space-2);
+}
+
+/* The gap sets the button off from the figure, so it gives up the offset a card or a
+   row gives its own toggle to line the text up with the edge. */
+.script-calls .script-call-child .link-button {
+  margin: 0;
+  font-size: var(--text-xs);
+}
+
 /* What the calls handed the script against what the script handed the model. A line of
    its own wherever it stands: under the head on the rail, and in a chat card, where
    nothing lays the parts out in a grid. */

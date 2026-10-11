@@ -732,12 +732,26 @@ export const vi = {
   // A tool that asked a model itself (a picture read, a long output summarised), priced.
   stepToolCost: (price: string) => `Có gọi model · ${price}`,
   // Under the step of a script (`tool_script`): the calls it made on its own, which the
-  // model never read. Counted in calls, since a script may call one tool many times.
+  // model never read. Counted in calls, since a script may call one tool many times, and
+  // said of calls rather than of tools, since some of them ask a model and name no tool.
   scriptCalls: (count: number, failed: number) =>
-    failed > 0 ? `Script đã gọi công cụ ${count} lần · ${failed} lần lỗi` : `Script đã gọi công cụ ${count} lần`,
+    failed > 0 ? `Script đã thực hiện ${count} lời gọi · ${failed} lần lỗi` : `Script đã thực hiện ${count} lời gọi`,
   // On a call that changed something and was let through by the approval gate. Said in
   // words beside the call's name, so nobody has to tell it from a colour.
   scriptCallGated: "qua cổng duyệt",
+  // A script asking a model itself rather than a tool. It is listed with the script's other
+  // calls under these words: the name such a call travels under (`llm.classify`) is no
+  // tool's, and nobody should have to read it as one.
+  scriptModelCall: {
+    "llm.classify": "Phân loại bằng model",
+    "llm.summarise": "Tóm tắt bằng model",
+  } as Record<string, string>,
+  // A model call there is no word for here yet: still said to be one, with what was asked
+  // of it as the server named it.
+  scriptModelCallOther: (what: string) => `Gọi model (${what})`,
+  // On a task a script handed to another agent: what that agent spent on it. The money is
+  // the other conversation's, so it is said apart from what the script's own calls paid.
+  scriptCallChildSpent: (price: string) => `Cuộc con đã chi ${price}`,
   // Under those calls once the script ended: what the calls handed the script, none of which
   // the model read, against what the script printed (of which the model reads what the
   // agent's cap on a tool's result lets through). A dash stands for a number nobody counted,
@@ -806,6 +820,8 @@ export const vi = {
     transcribe: "Chép lời",
     consolidate: "Cô đọng bộ nhớ",
     wiki: "Dựng wiki",
+    // A model a script asked on its own, to sort a text or to shorten one.
+    script: "Script gọi model",
   } as Record<string, string>,
   // Model calls, said as such: a bare "lượt" is how this page counts runs.
   costCalls: (n: number) => `${n} lượt gọi`,

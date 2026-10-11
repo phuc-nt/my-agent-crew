@@ -69,7 +69,7 @@ export function RunCard({ run, agentName, expanded = false, onOpenConversation, 
           ) : (
             <ol className="run-steps">
               {runRows(run).map((row) => (
-                <StepRow key={row.key} row={row} />
+                <StepRow key={row.key} row={row} onOpenConversation={onOpenConversation} />
               ))}
             </ol>
           )}
@@ -130,7 +130,7 @@ function showState(row: RunRow): boolean {
  * No glyph sits next to the label. The node is already coloured by kind, and a
  * second symbol saying the same thing only competes with it.
  */
-function StepRow({ row }: { row: RunRow }) {
+function StepRow({ row, onOpenConversation }: { row: RunRow; onOpenConversation?: (conversationId: string) => void }) {
   const [showOutput, setShowOutput] = useState(false);
   const { step } = row;
   // A note's duration is always zero — it is stamped and closed on the same clock. "0 ms"
@@ -216,8 +216,12 @@ function StepRow({ row }: { row: RunRow }) {
         </span>
       )}
       {/* What a script called on its own. Above its output, since the calls are what was
-          done and the output only what the script chose to say about it. */}
-      {step.kind === "tool" && <ScriptReport work={step} settled={step.ok !== null} />}
+          done and the output only what the script chose to say about it. A task it handed
+          to another agent has no step of its own on this rail, so the way into that
+          agent's conversation is on the call. */}
+      {step.kind === "tool" && (
+        <ScriptReport work={step} settled={step.ok !== null} onOpenConversation={onOpenConversation} />
+      )}
       {step.kind === "tool" && step.output && (
         <>
           <button type="button" className="link-button" onClick={() => setShowOutput((s) => !s)}>

@@ -10,6 +10,7 @@ import {
 import type { ThreadItem, ToolStatus } from "../state/thread-reducer";
 import { CanvasCard, type CanvasLinks, isCanvasWrite } from "./canvas/canvas-card";
 import { DelegateCanvases } from "./canvas/delegate-canvases";
+import { ScriptCanvases } from "./canvas/script-canvases";
 import { ScriptReport } from "./script-calls";
 import { summarizeArguments, ToolArgsDetail } from "./tool-args-detail";
 import { AgentAvatar } from "./ui/agent-avatar";
@@ -75,29 +76,37 @@ export function ToolCallCard({ item, agentName, onOpenConversation, canvas }: Pr
   }
   if (canvas && isCanvasWrite(item)) return <CanvasCard item={item} canvas={canvas} />;
   return (
-    <div className={`tool-card ${item.status}`} data-testid="tool-card" data-tool={item.name}>
-      <div className="tool-header">
-        <span className="tool-name">
-          <Icon name="wrench" className="tool-icon" />
-          {item.name}
-        </span>
-        <Status status={item.status} label={STATUS_LABEL[item.status]} />
+    <>
+      <div className={`tool-card ${item.status}`} data-testid="tool-card" data-tool={item.name}>
+        <div className="tool-header">
+          <span className="tool-name">
+            <Icon name="wrench" className="tool-icon" />
+            {item.name}
+          </span>
+          <Status status={item.status} label={STATUS_LABEL[item.status]} />
+        </div>
+        <div className="tool-arguments" title={vi.arguments}>
+          {summarizeArguments(item.arguments) || "—"}
+        </div>
+        <ToolArgsDetail args={item.arguments} />
+        {/* As on the run's step: what a script called on its own, above what it printed. */}
+        <ScriptReport
+          work={item}
+          settled={item.status === "done" || item.status === "failed"}
+          onOpenConversation={onOpenConversation}
+        />
+        {hasOutput && (
+          <>
+            <button type="button" className="link-button" onClick={() => setOpen((o) => !o)}>
+              {open ? vi.hideOutput : vi.showOutput}
+            </button>
+            {open && <pre className="tool-output">{item.output}</pre>}
+          </>
+        )}
       </div>
-      <div className="tool-arguments" title={vi.arguments}>
-        {summarizeArguments(item.arguments) || "—"}
-      </div>
-      <ToolArgsDetail args={item.arguments} />
-      {/* As on the run's step: what a script called on its own, above what it printed. */}
-      <ScriptReport work={item} settled={item.status === "done" || item.status === "failed"} />
-      {hasOutput && (
-        <>
-          <button type="button" className="link-button" onClick={() => setOpen((o) => !o)}>
-            {open ? vi.hideOutput : vi.showOutput}
-          </button>
-          {open && <pre className="tool-output">{item.output}</pre>}
-        </>
-      )}
-    </div>
+      {/* A canvas a script wrote has its card under the script's, as one the agent wrote itself has. */}
+      {canvas && <ScriptCanvases item={item} canvas={canvas} />}
+    </>
   );
 }
 

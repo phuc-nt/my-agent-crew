@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 import type { NestedToolCall } from "../api/types";
-import { notYetListed, storedWork, withNested, workOf } from "./nested-calls";
+import { vi } from "../i18n/vi";
+import { parseDelegateResult } from "./delegate-result";
+import {
+  childConversationId,
+  childSpentText,
+  modelCallLabel,
+  notYetListed,
+  storedWork,
+  withNested,
+  workOf,
+} from "./nested-calls";
 
 function call(overrides: Partial<NestedToolCall> = {}): NestedToolCall {
   return {
@@ -17,6 +27,24 @@ function call(overrides: Partial<NestedToolCall> = {}): NestedToolCall {
 
 const search = call({ name: "mcp__notion__search", arguments: { query: "kế hoạch" }, output: "3 trang", ms: 120 });
 const paid = call({ name: "pdf_read", output: "Tổng chi 4,2 triệu.", ms: 1_500, cost_usd: 0.004, metered: true });
+/** A model the script asked itself, as the server lists it: under a name no tool has. */
+const classify = call({
+  name: "llm.classify",
+  arguments: { text: "Kính gửi quý khách, hoá đơn tháng 10…", labels: '["hoá đơn", "quảng cáo", "khác"]' },
+  output: "hoá đơn",
+  ms: 812,
+  cost_usd: 0.00021,
+  metered: true,
+});
+/** A task the script handed to another agent: the start of its answer on one line, and what
+ *  that agent spent beside it, which is not this call's price. */
+const handedOff = call({
+  name: "delegate",
+  arguments: { task: "Soạn thư trả lời khách về hoá đơn tháng 10", agent: "writer" },
+  output: "conversation=3f9a1c0b7d2e status=done spent=$0.0123 steps=7 outcome=done Thư đã soạn xong: Kính gửi anh Minh, …",
+  ms: 48_211,
+  child_spent_usd: 0.0123,
+});
 
 describe("the calls of a result that were not listed while the script ran", () => {
   it("are all of them when none was listed", () => {
@@ -58,6 +86,98 @@ describe("the calls of a result that were not listed while the script ran", () =
     notYetListed(listed, calls);
     expect(listed).toEqual([search]);
     expect(calls).toEqual([search, paid]);
+  });
+
+  // What the other agent spent rides along only above zero, and is no part of what makes a
+  // call the one it is: a hearing that lacked it would turn one task into two on the card.
+  it("take a handed-off task for the one already listed, whether or not a hearing said what it spent", () => {
+    const { child_spent_usd: _spent, ...bare } = handedOff;
+    expect(notYetListed([bare], [handedOff])).toEqual([]);
+    expect(notYetListed([handedOff], [bare, search])).toEqual([search]);
+    expect(notYetListed([handedOff], [handedOff])).toEqual([]);
+    expect(notYetListed([{ ...handedOff, child_spent_usd: 0.5 }], [handedOff])).toEqual([]);
+  });
+
+  it("still count a task handed off twice as two, and tell two tasks apart by their answers", () => {
+    expect(notYetListed([handedOff], [handedOff, handedOff])).toEqual([handedOff]);
+    // The figure stands in the answer too, which is compared.
+    const dearer = { ...handedOff, output: handedOff.output.replace("$0.0123", "$0.0500"), child_spent_usd: 0.05 };
+    expect(notYetListed([handedOff], [dearer])).toEqual([dearer]);
+  });
+});
+
+describe("the words a model call a script made is listed under", () => {
+  it("are its own for each thing a script can ask a model, and none of them the name", () => {
+    const words = ["llm.classify", "llm.summarise"].map(modelCallLabel);
+    expect(words).toEqual([vi.scriptModelCall["llm.classify"], vi.scriptModelCall["llm.summarise"]]);
+    expect(new Set(words).size).toBe(2);
+    for (const said of words) {
+      expect(said?.trim()).not.toBe("");
+      expect(said).not.toMatch(/llm|classify|summarise/);
+    }
+  });
+
+  // Nothing looks the name up among the tools, so there is nowhere to come back from
+  // empty-handed: a model call the web has no word for yet is still said to be one.
+  it("never come back empty for a model call there is no word for yet", () => {
+    expect(modelCallLabel("llm.translate")).toBe(vi.scriptModelCallOther("translate"));
+    expect(vi.scriptModelCallOther("translate")).toContain("translate");
+    expect(vi.scriptModelCallOther("translate")).not.toContain("llm.");
+  });
+
+  it("are none for a tool, which goes by its own name", () => {
+    for (const name of ["workspace_read", "delegate", "tool_script", "llm", "llm_classify", "mcp__llm.classify"]) {
+      expect(modelCallLabel(name)).toBeNull();
+    }
+  });
+});
+
+describe("what a task a script handed off says of the other agent's work", () => {
+  it("is what that agent spent, to four places, as the card of a task handed off directly writes it", () => {
+    expect(childSpentText(handedOff)).toBe(vi.scriptCallChildSpent("$0.0123"));
+    expect(childSpentText({ ...handedOff, child_spent_usd: 0.5 })).toBe(vi.scriptCallChildSpent("$0.5000"));
+    expect(vi.scriptCallChildSpent("$0.0123")).toContain("$0.0123");
+    expect(vi.scriptCallChildSpent("$0.0123")).not.toBe("$0.0123");
+  });
+
+  // A call heard live is taken as it came, so the figure is read with care.
+  it.each<[string, unknown]>([
+    ["absent", undefined],
+    ["nought", 0],
+    ["below nought", -0.01],
+    ["no number", "0.0123"],
+    ["null", null],
+    ["not a number at all", Number.NaN],
+    ["without end", Number.POSITIVE_INFINITY],
+  ])("is nothing when the figure is %s", (_what, figure) => {
+    expect(childSpentText({ ...handedOff, child_spent_usd: figure as number })).toBeNull();
+  });
+
+  it("is nothing for a call that handed nothing off", () => {
+    expect(childSpentText(search)).toBeNull();
+    expect(childSpentText(classify)).toBeNull();
+  });
+
+  it("names the conversation the task ran in, from the head of the one line the script kept", () => {
+    expect(childConversationId(handedOff)).toBe("3f9a1c0b7d2e");
+    // Still going when the script stopped waiting: the header is the whole line.
+    const waiting = { ...handedOff, output: "conversation=77aa00bb11cc status=running spent=$0.0000 steps=0" };
+    expect(childConversationId(waiting)).toBe("77aa00bb11cc");
+  });
+
+  // The reader of a whole answer wants the header on a line of its own, and gets one line.
+  it("needs a reader of its own, since the reader of a whole answer finds no header in one line", () => {
+    expect(parseDelegateResult(handedOff.output)).toBeNull();
+  });
+
+  it.each<[string, Partial<NestedToolCall>]>([
+    ["failed before it opened one", { ok: false, output: "Không có agent nào tên writer." }],
+    ["answered nothing", { output: "" }],
+    ["names one further along its answer", { output: "Xong. conversation=3f9a1c0b7d2e status=done spent=$0.01 steps=2" }],
+    ["leads with an id and no more of the header", { output: "conversation=3f9a1c0b7d2e đã mở" }],
+    ["is another tool answering the same way", { name: "workspace_read" }],
+  ])("names no conversation for a call that %s", (_what, change) => {
+    expect(childConversationId({ ...handedOff, ...change })).toBeNull();
   });
 });
 
@@ -119,6 +239,12 @@ describe("what a stored result kept beside its output", () => {
     expect(storedWork(context)).toEqual({ calls: [search, paid], received_chars: 26, printed_chars: 8 });
   });
 
+  it("keeps a model call and a handed-off task whole, with what the other agent spent", () => {
+    const context = kept({ calls: [classify, handedOff], received_chars: 140, printed_chars: 12 });
+    expect(storedWork(context)).toEqual({ calls: [classify, handedOff], received_chars: 140, printed_chars: 12 });
+    expect(storedWork(context).calls?.[1]).toHaveProperty("child_spent_usd", 0.0123);
+  });
+
   it("is the measures alone for a script that called nothing", () => {
     expect(storedWork(kept({ calls: [], received_chars: 0, printed_chars: 8 }))).toEqual({ received_chars: 0, printed_chars: 8 });
   });
@@ -164,6 +290,8 @@ describe("what a stored result kept beside its output", () => {
     ["has a duration that is no number", { ...search, ms: "120" }],
     ["has a price that is neither a number nor unknown", { ...search, cost_usd: "0.004" }],
     ["has no word on being charged", { ...search, metered: undefined }],
+    ["has another agent's spend that is no number", { ...handedOff, child_spent_usd: "0.0123" }],
+    ["has another agent's spend written as null", { ...handedOff, child_spent_usd: null }],
   ])("lists none of the calls when one of them %s: half a list would read as the whole", (_what, broken) => {
     const context = kept({ calls: [search, broken, paid], received_chars: 26, printed_chars: 8 });
     expect(storedWork(context)).toEqual({ received_chars: 26, printed_chars: 8 });

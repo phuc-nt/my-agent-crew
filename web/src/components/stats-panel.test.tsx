@@ -140,6 +140,27 @@ describe("the costs page's usage figures", () => {
     expect(row).toHaveTextContent(vi.costPurpose.transcribe);
   });
 
+  // What a script paid a model it asked on its own. The ledger files it under a key of its
+  // own, and a key the page has no word for is set as code: a row a person cannot read.
+  it("names what a script paid a model on its own in words, never by the ledger's key", () => {
+    const purposes = [
+      { purpose: "script", ...day("x", { calls: 6, cost_usd: 0.0031 }) },
+      { purpose: "rerank", ...day("x", { calls: 1, cost_usd: 0.01 }) },
+    ];
+    render(<StatsPanel stats={stats({ purposes })} agentName={name} />);
+
+    const [, script, unnamed] = within(screen.getByTestId("stat-purposes")).getAllByRole("row");
+    const cells = Array.from(script.children, (cell) => cell.textContent);
+    expect(vi.costPurpose.script.trim()).not.toBe("");
+    expect(cells[0]).toBe(vi.costPurpose.script);
+    expect(cells[0]).not.toBe("script");
+    expect(script.querySelector("code")).toBeNull();
+    expect(cells[1]).toBe("6");
+    expect(cells.at(-1)).toBe("$0.0031");
+    // The row beside it shows what the page does with a key it has no word for.
+    expect(unnamed.querySelector("code")).toHaveTextContent("rerank");
+  });
+
   it("leaves the purpose card out while the ledger is empty or the server has none", () => {
     const { rerender } = render(<StatsPanel stats={stats()} agentName={name} />);
     expect(screen.queryByTestId("stat-purposes")).not.toBeInTheDocument();

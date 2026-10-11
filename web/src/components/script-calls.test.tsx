@@ -29,11 +29,11 @@ function show(calls: NestedToolCall[]) {
 describe("what a script called on its own", () => {
   it("says how many calls there were, and how many failed only when one did", () => {
     const clean = show([call(), call(), call()]);
-    expect(clean.summary).toHaveTextContent(/^Script đã gọi công cụ 3 lần$/);
+    expect(clean.summary).toHaveTextContent(/^Script đã thực hiện 3 lời gọi$/);
     clean.unmount();
 
     const broken = show([call(), call({ ok: false }), call({ ok: false })]);
-    expect(broken.summary).toHaveTextContent(/^Script đã gọi công cụ 3 lần · 2 lần lỗi$/);
+    expect(broken.summary).toHaveTextContent(/^Script đã thực hiện 3 lời gọi · 2 lần lỗi$/);
   });
 
   // Two dozen calls opened would push the rest of the run off the screen.
@@ -151,7 +151,7 @@ describe("what a script was handed against what it handed on", () => {
   it("waits for the script to end, while the calls it has made are listed as they come", () => {
     const { line, list } = report({ calls: [call()] }, false);
 
-    expect(list?.querySelector("summary")).toHaveTextContent(/^Script đã gọi công cụ 1 lần$/);
+    expect(list?.querySelector("summary")).toHaveTextContent(/^Script đã thực hiện 1 lời gọi$/);
     expect(line).toBeNull();
   });
 

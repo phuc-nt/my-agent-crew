@@ -94,7 +94,7 @@ describe("conversationMarkdown", () => {
           "Gom ghi chú tuần này",
           // The script was written without a word, so its calls open the agent's turn.
           "## Coach · 25/09/2026 06:30 (UTC+7)",
-          "Script đã gọi công cụ 4 lần · 1 lần lỗi:",
+          "Script đã thực hiện 4 lời gọi · 1 lần lỗi:",
           "1. `mcp__notion__search` · 120 ms\n2. `workspace_read` · lỗi · 4 ms\n3. `pdf_read` · 1.5 giây · $0.0040\n4. `image_read` · 1.5 giây · không rõ giá",
           "## Coach · 25/09/2026 06:31 (UTC+7)",
           "Có 3 trang.",
@@ -110,7 +110,7 @@ describe("conversationMarkdown", () => {
           "Gom ghi chú tuần này",
           "## Coach · 25/09/2026 06:30 (UTC+7)",
           "Để mình đọc Notion.",
-          "Script đã gọi công cụ 1 lần:",
+          "Script đã thực hiện 1 lời gọi:",
           "1. `mcp__notion__search` · 120 ms",
           "## Coach · 25/09/2026 06:31 (UTC+7)",
           "Có 3 trang.",
@@ -129,9 +129,9 @@ describe("conversationMarkdown", () => {
         [
           "# Ghi chú",
           "## Coach · 25/09/2026 06:30 (UTC+7)",
-          "Script đã gọi công cụ 1 lần:",
+          "Script đã thực hiện 1 lời gọi:",
           "1. `mcp__notion__search` · 120 ms",
-          "Script đã gọi công cụ 2 lần · 2 lần lỗi:",
+          "Script đã thực hiện 2 lời gọi · 2 lần lỗi:",
           "1. `workspace_read` · lỗi · 4 ms\n2. `workspace_read` · lỗi · 4 ms",
         ].join("\n\n") + "\n",
       );

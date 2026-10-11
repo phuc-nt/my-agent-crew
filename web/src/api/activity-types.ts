@@ -10,6 +10,8 @@ export type RunStatus = "running" | "awaiting_approval" | "done" | "halted" | "e
  * match `NestedCall` in the backend's `tools/result.py`.
  */
 export interface NestedToolCall {
+  /** A tool's name, or what a script asked a model itself (`llm.classify`,
+   *  `llm.summarise`), which is the name of no tool. */
   name: string;
   /** Shortened the way a step's own arguments are. */
   arguments: Record<string, unknown>;
@@ -23,6 +25,10 @@ export interface NestedToolCall {
   /** The call changed something and the approval gate let it through. Absent on a call
    * that changed nothing, and on every call kept from before the gate reached scripts. */
   gated?: boolean;
+  /** Only on a task handed to another agent, and only above zero: what that agent spent
+   * on it. It is the other conversation's money and no part of this run's spend, which
+   * is why it rides apart from `cost_usd`. */
+  child_spent_usd?: number;
 }
 
 export type RunStep =
@@ -210,7 +216,8 @@ export interface ModelUsage extends UsageTotals {
 
 export interface PurposeUsage extends UsageTotals {
   /** `chat` for the turns' own calls; otherwise what a call beside them was for:
-   *  `title`, `session_summary`, `tool_summary`, `image`, `pdf`, `consolidate`, `wiki`. */
+   *  `title`, `session_summary`, `tool_summary`, `image`, `pdf`, `consolidate`, `wiki`,
+   *  `script` (a model a script asked on its own). */
   purpose: string;
 }
 

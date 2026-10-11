@@ -20,6 +20,13 @@
  * or only changed: the result does not say which, and the person asked for the work either way.
  * Of two tasks handed off side by side, the one to finish last is the one left open.
  *
+ * A script may make canvases among the calls it makes on its own. The script is the call this
+ * tab watched, so it is the one judged, once, when it ends, and by the same rules: the calls
+ * heard while it ran open nothing. Each of its calls is asked what a direct call is asked, so
+ * an edit, a rewrite and a call that failed leave nothing to show. Of several canvases a script
+ * made, the last one made is the one left open, as with calls made one after another. A script
+ * that failed opens nothing, whatever it made before it did.
+ *
  * A call whose canvas the dock showed while it was written is not opened here: what showed it
  * decides what follows (`use-canvas-writing.ts`), so the canvas opens once and not twice.
  */
@@ -44,12 +51,19 @@ const going = (item: Tool) => item.status === "running" || item.status === "awai
 
 const endedIds = (items: ThreadItem[]) => items.flatMap((item) => (item.kind === "tool" && !going(item) ? [item.id] : []));
 
-/** The canvas a finished call leaves to show: the one it made, or the first a handed-off task wrote. */
+/** The canvas a call made, the agent's own or one of a script's; null when it made none. */
+function made(call: { name: string; arguments: unknown; output: string | null }): string | null {
+  const makes = call.name === "artifact_create" || (call.name === IMPORT && !importsInto(call));
+  const tag = makes ? parseArtifactTag(call.output) : null;
+  return tag === null || tag.unchanged ? null : tag.id;
+}
+
+/** The canvas a finished call leaves to show: the one it made, the first a handed-off task
+ *  wrote, or the last a script made among its own calls. */
 function shows(item: Tool): string | null {
   if (item.name === "delegate") return (item.output ? parseDelegateResult(item.output) : null)?.canvases[0]?.id ?? null;
-  const makes = item.name === "artifact_create" || (item.name === IMPORT && !importsInto(item));
-  const tag = makes ? parseArtifactTag(item.output) : null;
-  return tag === null || tag.unchanged ? null : tag.id;
+  const byScript = (item.calls ?? []).flatMap((call) => (call.ok ? (made(call) ?? []) : []));
+  return byScript.at(-1) ?? made(item);
 }
 
 export function useCanvasAutoOpen(
