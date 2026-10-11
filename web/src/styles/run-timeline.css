@@ -360,6 +360,16 @@
   border-left: 2px solid var(--border);
 }
 
+/* What the calls handed the script against what the script handed the model. A line of
+   its own wherever it stands: under the head on the rail, and in a chat card, where
+   nothing lays the parts out in a grid. */
+.script-measures {
+  display: block;
+  grid-column: 2;
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
 /* ── The live header: one line answering "what is it doing right now" ───── */
 .run-progress {
   display: flex;

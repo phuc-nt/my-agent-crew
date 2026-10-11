@@ -10,7 +10,8 @@ import {
 import type { ThreadItem, ToolStatus } from "../state/thread-reducer";
 import { CanvasCard, type CanvasLinks, isCanvasWrite } from "./canvas/canvas-card";
 import { DelegateCanvases } from "./canvas/delegate-canvases";
-import { SUMMARY_CUT, ToolArgsDetail } from "./tool-args-detail";
+import { ScriptReport } from "./script-calls";
+import { summarizeArguments, ToolArgsDetail } from "./tool-args-detail";
 import { AgentAvatar } from "./ui/agent-avatar";
 import { Icon, type IconName } from "./ui/icon";
 
@@ -45,23 +46,6 @@ function Status({ status, label }: { status: ToolStatus; label: string }) {
       {label}
     </span>
   );
-}
-
-/**
- * Tool arguments as one readable line of `name=value` pairs.
- *
- * Runs recorded before the store kept arguments as a mapping hold them as a
- * single stringified line instead. `Object.entries` walks a string by index, so
- * such a row came out as one pair per character; showing the line as it stands
- * is the closest thing to the truth we still have about those runs.
- */
-export function summarizeArguments(args: Record<string, unknown> | string): string {
-  if (typeof args === "string") return args;
-  const parts = Object.entries(args).map(([key, value]) => {
-    const text = typeof value === "string" ? value : JSON.stringify(value);
-    return `${key}=${text.length > SUMMARY_CUT ? `${text.slice(0, SUMMARY_CUT - 3)}…` : text}`;
-  });
-  return parts.join(", ");
 }
 
 interface Props {
@@ -103,6 +87,8 @@ export function ToolCallCard({ item, agentName, onOpenConversation, canvas }: Pr
         {summarizeArguments(item.arguments) || "—"}
       </div>
       <ToolArgsDetail args={item.arguments} />
+      {/* As on the run's step: what a script called on its own, above what it printed. */}
+      <ScriptReport work={item} settled={item.status === "done" || item.status === "failed"} />
       {hasOutput && (
         <>
           <button type="button" className="link-button" onClick={() => setOpen((o) => !o)}>

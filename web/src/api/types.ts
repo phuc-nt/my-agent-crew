@@ -24,7 +24,8 @@ export interface StoredMessage {
   created_at: string;
   /** The note a user message was stored with when the person's canvas came along: the passage
    *  they selected, or what they changed since the agent last saw it. Absent or empty when
-   *  there was none. */
+   *  there was none. On the result of a script it is what the script called and its two
+   *  measures, as JSON (`lib/nested-calls.ts`); the model was sent none of it. */
   context?: string;
 }
 
@@ -150,7 +151,15 @@ export type AgentEvent =
       /** What a script called on its own; empty for every other tool, and absent from a
        *  server older than the bundle. */
       calls?: NestedToolCall[];
+      /** Counted for a script that ran, null for every other tool: the characters its calls
+       *  handed back to it, and the characters of what it printed that went to the model. */
+      received_chars?: number | null;
+      printed_chars?: number | null;
     }
+  /** One call a script made on its own just ended, the `index`-th of the script whose own
+   *  call is `tool_call_id`. Sent for a script the model called alone; the calls of one made
+   *  beside other calls arrive with its result. */
+  | { type: "nested_call"; tool_call_id: string; index: number; call: NestedToolCall }
   | {
       type: "approval_required";
       approval_id: string;
@@ -163,7 +172,7 @@ export type AgentEvent =
       options?: string[];
     }
   | { type: "done"; spent_usd: number; unknown_cost_calls: number }
-  | { type: "halted"; reason: "budget" | "max_steps" | "loop"; spent_usd: number }
+  | { type: "halted"; reason: "budget" | "max_steps" | "loop" | "nested_calls"; spent_usd: number }
   | { type: "error"; message: string }
   | { type: "route_fallback"; provider: string; model: string; error: string }
   /** The turn was stuck and goes on with the agent's escalation route: it kept making the

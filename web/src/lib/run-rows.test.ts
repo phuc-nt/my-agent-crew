@@ -81,6 +81,20 @@ describe("runRows", () => {
     expect(idle.map((row) => row.repeat)).toEqual([3]);
   });
 
+  // What a script was handed and handed on is said on its row too, and differs from one
+  // script to the next though neither printed a word.
+  it("never collapses a script that was counted, though it called and printed nothing", () => {
+    const script = (overrides: Parameters<typeof toolStep>[0] = {}) => toolStep({ name: "tool_script", output: "", ...overrides });
+    const counted = { received_chars: 0, printed_chars: 0 };
+
+    expect(runRows(run([script(counted), script(counted)])).map((row) => row.repeat)).toEqual([1, 1]);
+    // Either number is enough, and one counted script beside an older one is too.
+    expect(runRows(run([script({ received_chars: 0 }), script({ received_chars: 0 })]))).toHaveLength(2);
+    expect(runRows(run([script({ printed_chars: 0 }), script({ printed_chars: 0 })]))).toHaveLength(2);
+    expect(runRows(run([script(), script(counted)]))).toHaveLength(2);
+    expect(runRows(run([script(counted), script()]))).toHaveLength(2);
+  });
+
   it("keeps rows apart when they differ in name or in outcome", () => {
     const byName = runRows(run([toolStep({ name: "a" }), toolStep({ name: "b" })]));
     expect(byName).toHaveLength(2);

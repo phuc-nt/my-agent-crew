@@ -418,6 +418,13 @@ button.suggestion:hover:not(:disabled) {
   font-size: var(--text-xs);
 }
 
+/* What a script called, inside its card: set off from the arguments above it, which the
+   rail does with the gap between the rows of a step. */
+.tool-card .script-calls,
+.tool-card .script-measures {
+  margin-top: var(--space-1);
+}
+
 .tool-output {
   margin: var(--space-1) 0 0;
   padding: var(--space-2) var(--space-3);

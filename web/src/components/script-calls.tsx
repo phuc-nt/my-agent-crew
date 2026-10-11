@@ -1,7 +1,8 @@
 import type { NestedToolCall } from "../api/types";
 import { vi } from "../i18n/vi";
+import type { ScriptWork } from "../lib/nested-calls";
 import { formatUsd } from "./budget-indicator";
-import { summarizeArguments } from "./tool-call-card";
+import { summarizeArguments } from "./tool-args-detail";
 
 /**
  * What a script called on its own, listed under the script's step.
@@ -44,5 +45,29 @@ export function ScriptCalls({ calls }: { calls: NestedToolCall[] }) {
         ))}
       </ol>
     </details>
+  );
+}
+
+/**
+ * What a script did besides print, on the run's step and on the chat card alike: the calls
+ * it made, then one line setting what those calls handed the script against what the script
+ * handed the model. The gap between the two is what the script kept out of the model's reading.
+ *
+ * The line waits for the script to end, since neither number is known before. A script
+ * that ran before the two were counted has its calls and no numbers, and the line says so
+ * with a dash instead of a nought; one with neither says nothing at all.
+ */
+export function ScriptReport({ work, settled }: { work: ScriptWork; settled: boolean }) {
+  const calls = work.calls ?? [];
+  const measured = work.received_chars !== undefined || work.printed_chars !== undefined;
+  return (
+    <>
+      {calls.length > 0 && <ScriptCalls calls={calls} />}
+      {settled && (measured || calls.length > 0) && (
+        <span className="script-measures" data-testid="script-measures">
+          {vi.scriptMeasures(work.received_chars ?? null, calls.length, work.printed_chars ?? null)}
+        </span>
+      )}
+    </>
   );
 }

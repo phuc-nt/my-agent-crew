@@ -1,7 +1,8 @@
+import { notYetListed, withNested, workOf } from "../lib/nested-calls";
 import { newestFirst } from "../lib/run-order";
 import { isAnswered } from "../lib/run-progress";
 import { noteText, PROGRESS_NOTE_TOOL } from "../lib/run-rows";
-import type { AgentEvent, RunInfo, RunPayload, RunStep } from "../api/types";
+import type { AgentEvent, NestedToolCall, RunInfo, RunPayload, RunStep } from "../api/types";
 
 /** Runs by id, live ones updated step by step from the activity stream. */
 export interface ActivityState {
@@ -26,10 +27,26 @@ function preview(text: string): string {
   return text.length > PREVIEW_CHARS ? `${text.slice(0, PREVIEW_CHARS)}…` : text;
 }
 
+type ToolStep = Extract<RunStep, { kind: "tool" }>;
+
+/** Where the step of a call stands, the latest of them: as on the server, a call made
+ *  again after a restart is told by the step it left last, not the first of its id. */
+function toolStepAt(steps: RunStep[], toolCallId: string): number {
+  return steps.findLastIndex((s) => s.kind === "tool" && s.tool_call_id === toolCallId);
+}
+
 /** Client-side twin of the server's step builder so live runs show steps before they finish. */
 export function applyRunEvent(run: RunInfo, e: AgentEvent): RunInfo {
   const steps: RunStep[] = [...run.steps];
   let { spent_usd, unknown_cost_calls, summary } = run;
+  // A call the provider put no price on is counted apart instead of guessed at.
+  const bill = (cost: number | null) => {
+    if (cost === null) unknown_cost_calls += 1;
+    else spent_usd += cost;
+  };
+  const billNested = (calls: NestedToolCall[]) => {
+    for (const call of calls) if (call.metered) bill(call.cost_usd);
+  };
   switch (e.type) {
     case "assistant_message": {
       // A child's answer handed on as this reply: no model spoke, so there is no step
@@ -59,8 +76,7 @@ export function applyRunEvent(run: RunInfo, e: AgentEvent): RunInfo {
       };
       if (open) steps[steps.length - 1] = answered;
       else steps.push(answered);
-      if (e.cost_usd === null) unknown_cost_calls += 1;
-      else spent_usd += e.cost_usd;
+      bill(e.cost_usd);
       if (e.content) summary = preview(e.content);
       break;
     }
@@ -71,6 +87,18 @@ export function applyRunEvent(run: RunInfo, e: AgentEvent): RunInfo {
         // sentence for the rest of the run.
         steps.push({ kind: "note", text: noteText(e.arguments), duration_ms: 0 });
         break;
+      }
+      {
+        // As on the server, a call made again after a restart takes the step it left open
+        // instead of a second one. What a script called before the restart is not what it
+        // calls now: those calls stay billed, since they were paid for, and leave the list.
+        const again = toolStepAt(steps, e.tool_call_id);
+        const open = again >= 0 ? (steps[again] as ToolStep) : null;
+        if (open && open.ok === null) {
+          const { calls: _before, ...reopened } = open;
+          steps[again] = reopened;
+          break;
+        }
       }
       steps.push({
         kind: "tool",
@@ -87,12 +115,28 @@ export function applyRunEvent(run: RunInfo, e: AgentEvent): RunInfo {
       // tool_call_id to find. Without this the search below would miss it, which is
       // harmless — but the step must not be patched with an ok flag either way.
       if (e.name === PROGRESS_NOTE_TOOL) break;
-      const at = steps.findIndex((s) => s.kind === "tool" && s.tool_call_id === e.tool_call_id);
-      const patch: Partial<Extract<RunStep, { kind: "tool" }>> = { ok: e.ok, output: preview(e.output) };
-      // As on the server, what a script called on its own is kept on the script's step:
-      // none of those calls had a step, so this is the one place they show.
-      if (e.calls && e.calls.length > 0) patch.calls = e.calls;
-      if (at >= 0) steps[at] = { ...(steps[at] as Extract<RunStep, { kind: "tool" }>), ...patch };
+      const at = toolStepAt(steps, e.tool_call_id);
+      if (at < 0) break;
+      const step = steps[at] as ToolStep;
+      // As on the server, what a script called on its own is kept on the script's step, as
+      // the script wrote it: none of those calls had a step, so this is the one place they
+      // show. Those heard while it ran are in the totals already; the rest are billed here,
+      // which is every one of them for a script that ran beside other calls.
+      const work = workOf(e);
+      if (work.calls) billNested(notYetListed(step.calls ?? [], work.calls));
+      steps[at] = { ...step, ok: e.ok, output: preview(e.output), ...work };
+      break;
+    }
+    case "nested_call": {
+      // As on the server: listed on the script's step by its place among the script's
+      // calls, and billed the once it is first heard. A script whose step is not here — a
+      // run this tab holds no call of — is told whole by the run the server sends next.
+      const at = toolStepAt(steps, e.tool_call_id);
+      if (at < 0) break;
+      const step = steps[at] as ToolStep;
+      const { calls, added } = withNested(step.calls, e.index, e.call);
+      steps[at] = { ...step, calls };
+      if (added) billNested([e.call]);
       break;
     }
     case "approval_required": {

@@ -1,3 +1,4 @@
+import { type ScriptWork, storedWork, withNested, workOf } from "../lib/nested-calls";
 import { noteText, PROGRESS_NOTE_TOOL } from "../lib/run-rows";
 import { isDenied, storedStatus } from "../lib/tool-reply";
 import type {
@@ -20,14 +21,16 @@ export type ThreadItem =
   /** `context`: the canvas note the message was stored with, when the person's canvas came along. */
   | { kind: "user"; id: string; text: string; context?: string }
   | { kind: "assistant"; id: string; text: string; model: string | null }
-  | {
+  /** A script's card also holds what the script called on its own and its two measures:
+   *  heard call by call while it runs, then as its result says them, live or stored. */
+  | ({
       kind: "tool";
       id: string;
       name: string;
       arguments: Record<string, unknown>;
       output: string | null;
       status: ToolStatus;
-    }
+    } & ScriptWork)
   /** The agent saying what it is about to do. It arrives as a tool call but is not shown
    *  as one: it has no output to wait for and no status to resolve, so a tool card would
    *  sit spinning next to a sentence that had already finished being said. */
@@ -170,7 +173,8 @@ export function itemsFromMessages(messages: StoredMessage[]): ThreadItem[] {
       const at = toolIndex.get(m.tool_call_id);
       if (at !== undefined) {
         const call = items[at] as ThreadItem & { kind: "tool" };
-        items[at] = { ...call, output: m.content, status: storedStatus(call.name, m.content) };
+        const status = storedStatus(call.name, m.content);
+        items[at] = { ...call, output: m.content, status, ...storedWork(m.context) };
       }
     }
   }
@@ -406,7 +410,18 @@ function applyEvent(given: ThreadState, e: AgentEvent): ThreadState {
       // through would look for a tool item that is not there and drop `pending`.
       if (e.name === PROGRESS_NOTE_TOOL) return state;
       const status: ToolStatus = isDenied(e.output) ? "denied" : e.ok ? "done" : "failed";
-      return { ...state, items: updateTool(state.items, e.tool_call_id, { output: e.output, status }), pending: null };
+      const patch = { output: e.output, status, ...workOf(e) };
+      return { ...state, items: updateTool(state.items, e.tool_call_id, patch), pending: null };
+    }
+    // One call a script made, listed on the script's card while the script still runs. A
+    // tab that joined the turn late lists the calls from where it joined; the result then
+    // names them all. A script with no card here changes nothing.
+    case "nested_call": {
+      const listed = (it: ThreadItem): ThreadItem =>
+        it.kind === "tool" && it.id === e.tool_call_id
+          ? { ...it, calls: withNested(it.calls, e.index, e.call).calls }
+          : it;
+      return { ...state, items: state.items.map(listed) };
     }
     case "approval_required":
       return {

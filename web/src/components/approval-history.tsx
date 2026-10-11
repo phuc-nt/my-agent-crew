@@ -4,8 +4,7 @@ import type { ApprovalInfo, ApprovalStatus } from "../api/types";
 import { vi } from "../i18n/vi";
 import { EmptyState } from "./empty-state";
 import { formatDateTime } from "./run-timeline";
-import { ToolArgsDetail } from "./tool-args-detail";
-import { summarizeArguments } from "./tool-call-card";
+import { summarizeArguments, ToolArgsDetail } from "./tool-args-detail";
 
 const STATUS_CLASS: Record<ApprovalStatus, string> = {
   pending: "live",

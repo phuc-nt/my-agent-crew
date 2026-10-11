@@ -147,6 +147,40 @@ describe("RunCard", () => {
     expect(within(idle).queryByTestId("script-calls")).toBeNull();
   });
 
+  it("says under a script's calls what they handed it and what it handed on, once it has ended", () => {
+    const calls = [
+      { name: "mcp__notion__search", arguments: { query: "kế hoạch" }, ok: true, output: "3 trang", ms: 120, cost_usd: null, metered: false },
+    ];
+    const script = { kind: "tool", name: "tool_script", arguments: { script: "…" }, duration_ms: 300 } as const;
+    const run = fakeRun({
+      status: "running",
+      finished_at: null,
+      steps: [
+        { ...script, tool_call_id: "a", ok: true, output: "tìm được 3 trang", calls, received_chars: 12_480, printed_chars: 16 },
+        // Kept from before the two were counted.
+        { ...script, tool_call_id: "b", ok: false, output: "hỏng", calls },
+        { ...script, tool_call_id: "c", ok: true, output: "", received_chars: 0, printed_chars: 0 },
+        { kind: "tool", name: "workspace_read", tool_call_id: "d", arguments: {}, ok: true, output: "vừa", duration_ms: 10 },
+        { ...script, tool_call_id: "e", ok: null, output: null, calls, duration_ms: null },
+      ],
+    });
+    render(<RunCard run={run} agentName="HLV" expanded />);
+    const [measured, old, idle, plain, running] = screen.getAllByTestId("run-step");
+    const line = (step: HTMLElement) => within(step).queryByTestId("script-measures");
+
+    expect(line(measured)).toHaveTextContent(/^Nhận 12\.480 ký tự từ 1 lời gọi, trả về 16 ký tự$/);
+    expect(line(old)).toHaveTextContent(/^Nhận — ký tự từ 1 lời gọi, trả về — ký tự$/);
+    expect(line(idle)).toHaveTextContent(/^Nhận 0 ký tự từ 0 lời gọi, trả về 0 ký tự$/);
+    expect(line(plain)).toBeNull();
+    // Still running: its calls are listed as they end, its numbers are not known yet.
+    expect(within(running).getByTestId("script-calls")).toBeInTheDocument();
+    expect(line(running)).toBeNull();
+    // Under the calls and above what the script printed: done, counted, then said.
+    const after = (first: Element, second: Element) => first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING;
+    expect(after(within(measured).getByTestId("script-calls"), line(measured)!)).toBeTruthy();
+    expect(after(line(measured)!, within(measured).getByRole("button", { name: vi.showOutput }))).toBeTruthy();
+  });
+
   it("stops showing a step as running once its run has died under it", async () => {
     // The step is recorded open (`ok: null`) because it was open when the row
     // was written. The run then errored without ever closing it. Painting that

@@ -1,8 +1,10 @@
 import remarkGfm from "remark-gfm";
 import remarkParse from "remark-parse";
 import { unified } from "unified";
-import type { ConversationDetail } from "../api/types";
+import type { ConversationDetail, NestedToolCall } from "../api/types";
+import { formatUsd } from "../components/budget-indicator";
 import { vi } from "../i18n/vi";
+import { storedWork } from "./nested-calls";
 import { pad2 } from "./relative-time";
 
 /**
@@ -127,21 +129,52 @@ function nested(body: string): string {
 }
 
 /**
+ * What a script called on its own, as a numbered list: which tool, whether it failed, how
+ * long it took, and what it cost where it was charged on its own. What each was asked and
+ * what it answered stay out, being the JSON the export is kept free of.
+ */
+function nestedCalls(calls: NestedToolCall[]): string {
+  const failed = calls.filter((call) => !call.ok).length;
+  const lines = calls.map((call, index) => {
+    const said = [`\`${call.name}\``];
+    if (!call.ok) said.push(vi.toolFailed);
+    said.push(vi.stepDuration(call.ms));
+    if (call.metered) said.push(call.cost_usd === null ? vi.stepCostUnknown : formatUsd(call.cost_usd));
+    return `${index + 1}. ${said.join(" · ")}`;
+  });
+  return `${vi.scriptCalls(calls.length, failed)}:\n\n${lines.join("\n")}`;
+}
+
+/**
  * The conversation as a markdown document: its title, then each turn under a heading that
  * says who spoke and when.
  *
  * Only what was said is kept. Tool results and an assistant message that only called a
  * tool are the agent's working, which the reader of an exported chat never saw in the
- * thread either; they would bury the replies under JSON.
+ * thread either; they would bury the replies under JSON. One part of that working is
+ * written all the same, as a list with no JSON in it: the calls a script made on its own,
+ * which no reply repeats and the reply after them rests on. They go under the agent's
+ * turn, the one the script was written in or, when that turn said nothing, one of their own.
  */
 export function conversationMarkdown(detail: ConversationDetail, agentName: string): string {
   const parts = [`# ${detail.title.trim() || vi.newConversation}`];
+  // Whose turn the last heading written opened.
+  let under: "user" | "assistant" | null = null;
   for (const message of detail.messages) {
+    if (message.role === "tool") {
+      const { calls } = storedWork(message.context);
+      if (!calls) continue;
+      if (under !== "assistant") parts.push(`## ${agentName} · ${exportStamp(message.created_at)}`);
+      parts.push(nestedCalls(calls));
+      under = "assistant";
+      continue;
+    }
     if (message.role !== "user" && message.role !== "assistant") continue;
     const body = message.content.trim();
     if (body === "") continue;
     const who = message.role === "user" ? vi.you : agentName;
     parts.push(`## ${who} · ${exportStamp(message.created_at)}`, nested(body));
+    under = message.role;
   }
   return `${parts.join("\n\n")}\n`;
 }
