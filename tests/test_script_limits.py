@@ -31,7 +31,7 @@ LEFT_OUT = (
     "\n…[script in ra {total} ký tự, bỏ {dropped} ký tự ở giữa. "
     "Chỉ in phần cần, đã gộp hoặc lọc.]…\n"
 )
-TOO_MANY_CALLS = "Script đã gọi công cụ quá 25 lần. Gộp việc lại hoặc chia nhiều script."
+TOO_MANY_CALLS = "Script đã dùng quá 25 lời gọi. Gộp việc lại hoặc chia nhiều script."
 TOO_DEEP = "hàm gọi lồng nhau quá sâu."
 # Whatever a script wrote around it, a limit it cannot catch ends it there.
 GUARDED = """
@@ -1093,3 +1093,286 @@ def test_what_a_script_keeps_or_reads_back_is_none_of_its_calls_or_its_lookups(t
 
     assert said == "all spent\n"
     assert kept.commit() is None and len(table.read(AGENT, PLACE)) == many
+
+
+# --- what a script asks a model ---
+
+TOO_MANY_QUESTIONS = "Script đã hỏi model quá 10 lần. Gộp việc lại hoặc chia nhiều script."
+CLASSIFY = "`llm.classify(text, labels)`: "
+SUMMARISE = "`llm.summarise(text, max_chars=500)`: "
+WRONG_ARGUMENTS = "tham số sai."
+BAD_TEXT = "`text` phải là một chuỗi không rỗng."
+TEXT_TOO_LONG = (
+    "`text` dài 20001 ký tự, quá 20000: tự cắt bớt hoặc chia nhỏ trong script trước khi gọi."
+)
+BAD_LABELS = (
+    "`labels` phải là list gồm 2 đến 20 chuỗi khác nhau, không rỗng, mỗi chuỗi dài "
+    "tối đa 100 ký tự."
+)
+BAD_MAX_CHARS = "`max_chars` phải là số nguyên từ 1 đến 4000."
+SORT = 'llm.classify("mua ngay", ["rác", "thường"])'
+
+
+def a_model(said: str = "rác") -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """A model that answers every question alike, and what it was asked."""
+    asked: list[dict[str, Any]] = []
+
+    def answer(arguments: dict[str, Any]) -> str:
+        asked.append(arguments)
+        return said
+
+    return asked, {"llm": answer}
+
+
+def test_a_script_asks_a_model_ten_times_and_not_once_more():
+    asked, model = a_model()
+
+    assert printed(f'for n in range(10):\n    {SORT}\nprint("done")', lookups=model) == "done\n"
+    assert len(asked) == 10
+
+    asked.clear()
+    over = play(f'print("before")\nfor n in range(40):\n    {SORT}\nprint("done")', lookups=model)
+
+    assert (over["output"], over["error"]) == ("before\n", halted(3, TOO_MANY_QUESTIONS))
+    assert len(asked) == 10
+
+
+def test_one_question_too_many_for_a_model_cannot_be_caught():
+    asked, model = a_model()
+
+    ended = play(guarded(f"for n in range(11):\n    {SORT}"), lookups=model)
+
+    assert (ended["output"], ended["error"]) == ("", halted(4, TOO_MANY_QUESTIONS))
+    assert len(asked) == 10
+
+
+def test_summaries_and_sortings_are_counted_together():
+    asked, model = a_model()
+    source = f'for n in range(6):\n    {SORT}\n    llm.summarise("dài lắm")'
+
+    assert stopped(source, lookups=model) == halted(2, TOO_MANY_QUESTIONS)
+    assert [question["name"] for question in asked] == ["classify", "summarise"] * 5
+
+
+def test_a_question_a_model_failed_was_still_one_asked():
+    source = f"""
+        failed = 0
+        for n in range(30):
+            try:
+                {SORT}
+            except Exception:
+                failed += 1
+    """
+
+    assert stopped(source, lookups={"llm": failing("no")}) == halted(5, TOO_MANY_QUESTIONS)
+
+
+def test_a_question_for_a_model_is_one_of_the_scripts_twenty_five_calls():
+    """Whichever the call past the count is, a tool's or a model's, the script ends on it."""
+    asked, model = a_model()
+    reads = "for n in range({reads}):\n    tools.read(n=n)\n"
+    asks = f"for n in range({{asks}}):\n    {SORT}\n"
+    read = {"read": answering("x")}
+
+    fits = reads.format(reads=16) + asks.format(asks=9) + 'print("done")'
+    assert printed(fits, read, model) == "done\n"
+
+    asked.clear()
+    a_question_over = play(reads.format(reads=17) + asks.format(asks=9), read, model)
+    assert a_question_over["error"] == halted(4, TOO_MANY_CALLS)
+    assert (len(a_question_over["asked"]), len(asked)) == (17, 8)
+
+    asked.clear()
+    a_read_over = play(asks.format(asks=9) + reads.format(reads=17), read, model)
+    assert a_read_over["error"] == halted(4, TOO_MANY_CALLS)
+    assert (len(a_read_over["asked"]), len(asked)) == (16, 9)
+
+
+def test_a_question_for_a_model_takes_room_from_a_batch():
+    asked, model = a_model()
+    batch = 'tools.batch([{{"tool": "read"}}] * {count})'
+    source = (
+        f"for n in range(9):\n    {SORT}\n"
+        + "for n in range(12):\n    tools.read(n=n)\n"
+        + CAUGHT.format(line=batch.format(count=5))
+        + batch.format(count=4)
+        + '\nprint("done")'
+    )
+
+    said = play(source, {"read": answering("x")}, model)
+
+    room = "lô có 5 lời gọi mà script chỉ còn gọi được 4 trong 25 lần: bỏ bớt hoặc chia nhỏ lô."
+    assert (said["error"], said["output"]) == (None, f"{room}\ndone\n")
+    assert (len(asked), len(said["asked"])) == (9, 16)
+
+
+def test_a_text_for_a_model_is_twenty_thousand_characters_and_not_one_more():
+    """One too long is the script's to cut: which part of it matters no limit can say, so
+    it is never cut on the way."""
+    most = limits.MAX_LLM_TEXT_CHARS
+    asked, model = a_model()
+
+    assert most == 20_000
+    assert printed(f'print(llm.classify("x" * {most}, ["a", "b"]))', lookups=model) == "rác\n"
+    assert printed(f'print(llm.summarise("x" * {most}))', lookups=model) == "rác\n"
+    assert [len(question["text"]) for question in asked] == [most, most]
+
+    asked.clear()
+    for line, shape in (
+        (f'llm.classify("x" * {most + 1}, ["a", "b"])', CLASSIFY),
+        (f'llm.summarise("x" * {most + 1})', SUMMARISE),
+        (f'llm.summarise("x" * {most + 1}, max_chars=10)', SUMMARISE),
+    ):
+        assert stopped(line, lookups=model) == mistaken(1, shape + TEXT_TOO_LONG), line
+        assert printed(guarded(line), lookups=model) == "caught\ncleanup\nafter\n", line
+    assert asked == []
+
+
+@pytest.mark.parametrize("text", ['""', '"  \\n "', "7", "None", '["mua ngay"]', '{"text": "x"}'])
+def test_what_is_put_to_a_model_is_a_text_with_something_in_it(text):
+    asked, model = a_model()
+
+    for line, shape in (
+        (f'llm.classify({text}, ["a", "b"])', CLASSIFY),
+        (f"llm.summarise({text})", SUMMARISE),
+    ):
+        assert stopped(line, lookups=model) == mistaken(1, shape + BAD_TEXT), line
+    assert asked == []
+
+
+GOOD_LABELS = {
+    "two": '["a", "b"]',
+    "twenty": "[str(n) for n in range(20)]",
+    "one a hundred characters long": '["a" * 100, "b"]',
+    "a tuple": '("a", "b")',
+    "told apart by their accents": '["ma", "má", "mà"]',
+}
+BAD_LABEL_LISTS = {
+    "none": "[]",
+    "one": '["a"]',
+    "twenty-one": "[str(n) for n in range(21)]",
+    "one a hundred and one characters long": '["a" * 101, "b"]',
+    "the same twice": '["a", "b", "a"]',
+    "the same but for its case": '["Rác", "rác"]',
+    "the same but for its spacing": '["hoá  đơn", " hoá đơn "]',
+    # One letter with its accent, and the same letter followed by the accent alone.
+    "the same but for how its accent was typed": '["\\u00e1", "a\\u0301"]',
+    "an empty one": '["a", ""]',
+    "a blank one": '["a", "   "]',
+    "a number among them": '["a", 7]',
+    "a text and not a list": '"a,b"',
+    "a dict": '{"a": 1, "b": 2}',
+    "nothing": "None",
+}
+
+
+@pytest.mark.parametrize("labels", GOOD_LABELS.values(), ids=GOOD_LABELS.keys())
+def test_labels_within_what_a_script_may_give_are_put_to_the_model(labels):
+    asked, model = a_model("a")
+
+    assert printed(f'print(llm.classify("x", {labels}))', lookups=model) == "a\n"
+    assert type(asked[0]["labels"]) is list and len(asked) == 1
+
+
+@pytest.mark.parametrize("labels", BAD_LABEL_LISTS.values(), ids=BAD_LABEL_LISTS.keys())
+def test_labels_are_two_to_twenty_short_texts_no_two_alike(labels):
+    asked, model = a_model()
+    line = f'llm.classify("x", {labels})'
+
+    assert stopped(line, lookups=model) == mistaken(1, CLASSIFY + BAD_LABELS)
+    assert printed(guarded(line), lookups=model) == "caught\ncleanup\nafter\n"
+    assert asked == []
+
+
+def test_a_summary_is_asked_for_in_one_to_four_thousand_characters_and_five_hundred_unsaid():
+    asked, model = a_model()
+    most = limits.MAX_LLM_SUMMARY_CHARS
+
+    for line in (
+        'llm.summarise("x")',
+        'llm.summarise("x", 1)',
+        f'llm.summarise("x", max_chars={most})',
+    ):
+        assert printed(line, lookups=model) == "rác\n", line
+    assert [question["max_chars"] for question in asked] == [500, 1, 4000]
+
+    asked.clear()
+    for wrong in ("0", "-5", str(most + 1), '"40"', "40.0", "True", "None", "[40]"):
+        line = f'llm.summarise("x", max_chars={wrong})'
+        assert stopped(line, lookups=model) == mistaken(1, SUMMARISE + BAD_MAX_CHARS), line
+    assert asked == []
+
+
+WRONGLY_WRITTEN = [
+    ("llm.classify()", CLASSIFY),
+    ('llm.classify("x")', CLASSIFY),
+    ('llm.classify(labels=["a", "b"])', CLASSIFY),
+    ('llm.classify("x", ["a", "b"], 3)', CLASSIFY),
+    ('llm.classify("x", ["a", "b"], max_chars=3)', CLASSIFY),
+    ('llm.classify("x", text="y", labels=["a", "b"])', CLASSIFY),
+    # Which of the two is asked is the name it was called by, never an argument.
+    ('llm.classify("x", ["a", "b"], name="summarise")', CLASSIFY),
+    ("llm.summarise()", SUMMARISE),
+    ("llm.summarise(max_chars=40)", SUMMARISE),
+    ('llm.summarise("x", 40, 50)', SUMMARISE),
+    ('llm.summarise("x", labels=["a", "b"])', SUMMARISE),
+    ('llm.summarise("x", 40, max_chars=50)', SUMMARISE),
+]
+
+
+@pytest.mark.parametrize(("line", "shape"), WRONGLY_WRITTEN)
+def test_a_question_written_wrongly_says_how_it_is_written(line, shape):
+    asked, model = a_model()
+
+    assert stopped(line, lookups=model) == mistaken(1, shape + WRONG_ARGUMENTS)
+    assert asked == []
+
+
+def test_a_model_is_asked_in_two_ways_and_no_other():
+    asked, model = a_model()
+
+    for line in ('llm.translate("x")', 'llm.batch(["x"])', "llm.names()", 'llm.name("x")'):
+        assert stopped(line, lookups=model) == mistaken(1, "llm chỉ có `classify` và `summarise`.")
+    # Not a value a script can hold or hand on, any more than `tools` is.
+    for line in ("x = llm", "print(llm)", "[llm]"):
+        assert stopped(line, lookups=model) == mistaken(1, "`llm` chỉ dùng để gọi: `llm.TEN(...)`.")
+    assert not play("ask = llm.classify", lookups=model)["ok"]
+    assert asked == []
+
+
+def test_a_question_never_put_is_counted_as_neither_kind_of_call():
+    asked, model = a_model()
+    source = f"""
+        for n in range(30):
+            for wrong in (["a"], "a,b", ["a", "a"]):
+                try:
+                    llm.classify("x", wrong)
+                except Exception:
+                    pass
+            try:
+                llm.summarise("x" * {limits.MAX_LLM_TEXT_CHARS + 1})
+            except Exception:
+                pass
+        for n in range(10):
+            {SORT}
+        for n in range(15):
+            tools.read(n=n)
+        print("done")
+    """
+
+    said = play(source, {"read": answering("x")}, model)
+
+    assert (said["error"], said["output"]) == (None, "done\n")
+    assert (len(asked), len(said["asked"])) == (10, 15)
+
+
+def test_the_counts_of_what_a_model_is_asked_are_the_ones_the_owner_was_told():
+    """Each is said to the model that writes scripts and in the docs: a change here is a
+    change there."""
+    assert (limits.MAX_LLM_CALLS, limits.MAX_LLM_TEXT_CHARS) == (10, 20_000)
+    assert (limits.MIN_LLM_LABELS, limits.MAX_LLM_LABELS, limits.MAX_LLM_LABEL_CHARS) == (
+        2,
+        20,
+        100,
+    )
+    assert (limits.LLM_SUMMARY_CHARS, limits.MAX_LLM_SUMMARY_CHARS) == (500, 4_000)

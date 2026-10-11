@@ -42,7 +42,7 @@ class Schedule:
     skills: tuple[str, ...] = ()
     # How long an approval in the conversation a prompt job opens waits; None is the setting.
     approval_ttl_seconds: int | None = None
-    # A script run as `tool_script` runs one, with no model call (`scheduler/script_job.py`).
+    # A script run as `tool_script` runs one, with no turn opened (`scheduler/script_job.py`).
     script: str | None = None
     # Beside a script only: when the script printed something, a turn is opened with this
     # and what it printed, as a prompt job opens one.

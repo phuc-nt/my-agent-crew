@@ -5,7 +5,8 @@ chat is told which canvases the turn wrote, at the version it left each, and whe
 shows them.
 
 What a turn wrote is read from the results of its own tools, never from its reply: a write's
-result opens with the tag, and a delegated task's result names what the child wrote. A live
+result opens with the tag, a delegated task's result names what the child wrote, and a script's
+result lists the calls the script made, a write among them kept opening with its tag. A live
 turn is read as its events pass; a run delivered later, a job's brief, is read from the tool
 messages it stored. The list names only what the agent still reaches, by the rule a canvas is
 sent to the chat by, so one deleted since, or written by a child and out of the delegator's
@@ -14,8 +15,10 @@ reach, is left out and not said to exist.
 
 from __future__ import annotations
 
+import json
 import os
-from collections.abc import AsyncIterator, Iterable, Sequence
+from collections.abc import AsyncIterator, Iterable, Mapping, Sequence
+from typing import Any
 
 from my_agent_crew import texts
 from my_agent_crew.activity.redact import env_secrets, redact
@@ -27,6 +30,7 @@ from my_agent_crew.channels.telegram_canvas_file import canvas_in_reach, canvas_
 from my_agent_crew.llm.types import Message
 from my_agent_crew.store import Store
 from my_agent_crew.store.approvals import EXPIRED
+from my_agent_crew.store.message_models import StoredMessage
 from my_agent_crew.store.runs import RunRecord
 from my_agent_crew.tools.artifact_scope import CANVAS_WRITE_TOOLS
 from my_agent_crew.tools.delegate_outcome import canvas_tags
@@ -34,17 +38,31 @@ from my_agent_crew.tools.delegate_outcome import canvas_tags
 MAX_LISTED = 10  # the canvases one list names; the rest are counted in its last line
 
 
-def tags_of(name: str, output: str) -> list[Tag]:
+def tags_of(name: str, output: str, calls: Iterable[Mapping[str, Any]] = ()) -> list[Tag]:
     """The canvases the result of the tool `name` says were written. A write that changed
-    nothing wrote nothing, and a tool that only reads names none whatever its result says."""
+    nothing wrote nothing, and a tool that only reads names none whatever its result says.
+    `calls` are those a script made on its own, which only a script's result lists: a write
+    among them is a write of the turn, whatever the script went on to print."""
     if name in CANVAS_WRITE_TOOLS:
         tag = parse_artifact_tag(output)
         found = [tag] if tag is not None else []
     elif name == DELEGATE_TOOL_NAME:
         found = canvas_tags(output)
     else:
-        found = []
+        wrote = [call.get("output") for call in calls if call.get("name") in CANVAS_WRITE_TOOLS]
+        found = [tag for tag in map(parse_artifact_tag, map(str, wrote)) if tag is not None]
     return [tag for tag in found if not tag.unchanged]
+
+
+def _kept_calls(stored: StoredMessage) -> list[Mapping[str, Any]]:
+    """The calls a script's stored result keeps beside its output
+    (`ToolResultEvent.stored_context`). Any other tool's message keeps none."""
+    try:
+        kept = json.loads(stored.context) if stored.context else {}
+    except ValueError:
+        return []
+    calls = kept.get("calls") if isinstance(kept, dict) else None
+    return [call for call in calls if isinstance(call, dict)] if isinstance(calls, list) else []
 
 
 def merged(tags: Iterable[Tag]) -> list[Tag]:
@@ -71,7 +89,7 @@ class WrittenCanvases:
         """The events as they came, each one and in order; what breaks the turn still does."""
         async for event in events:
             if isinstance(event, ToolResultEvent):
-                self._seen.extend(tags_of(event.name, event.output))
+                self._seen.extend(tags_of(event.name, event.output, event.calls))
             yield event
 
 
@@ -102,7 +120,7 @@ def written_by(store: Store, conv_id: str, run: RunRecord | None) -> list[Tag]:
     if run is None or run.after_seq is None:
         return []
     asked: dict[str, int] = {}  # per call id, the message whose call still has no result
-    since: list[Message] = []
+    since: list[StoredMessage] = []
     for stored in store.messages.of_run(conv_id, run.id, run.after_seq, run.started_at):
         message = stored.message
         if message.role == "assistant":
@@ -112,8 +130,12 @@ def written_by(store: Store, conv_id: str, run: RunRecord | None) -> list[Tag]:
             if _closes_a_lapse(store, conv_id, message, asked_in):
                 since = []
             else:
-                since.append(message)
-    return merged(tag for message in since for tag in tags_of(message.name or "", message.content))
+                since.append(stored)
+    return merged(
+        tag
+        for stored in since
+        for tag in tags_of(stored.message.name or "", stored.message.content, _kept_calls(stored))
+    )
 
 
 def notice_text(deps: AgentDeps, tags: Sequence[Tag], conv_id: str | None) -> str:

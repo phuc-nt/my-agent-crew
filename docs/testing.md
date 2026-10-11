@@ -609,6 +609,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `tests/test_side_calls_wiring.py` (ảnh, PDF scan, tóm tắt output, tiêu đề, tóm tắt phiên,
     cô đọng, wiki đều ghi đúng mục đích và đúng cuộc trò chuyện; bảo trì không thuộc cuộc
     nào và chỉ đếm một lần);
+    `tests/test_script_model_calls.py` (lần một script tự hỏi model được ghi dưới mục đích
+    `script`, kèm cuộc trò chuyện của lượt, hoặc không kèm cuộc nào khi là script của một
+    lịch; lần hỏi bị cắt khi model đang trả lời được ghi là một lời gọi không rõ giá);
     `tests/test_tools_registry.py::test_a_summary_without_a_price_is_charged_as_one_of_unknown_cost`;
     `tests/test_memory_session_summary.py::test_a_recap_that_came_back_blank_is_still_charged`;
     `tests/test_server_agents_activity_jobs.py::test_stats_carry_the_ledger_with_tokens_and_what_each_call_was_for`
@@ -4251,6 +4254,13 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `::test_a_write_that_was_refused_names_nothing`;
     `::test_a_write_that_changed_nothing_names_nothing`;
     `::test_a_delegated_task_names_what_its_child_wrote_even_when_the_wait_ran_out`;
+    `::test_a_script_names_what_its_own_calls_wrote_and_nothing_it_printed` (canvas do lời gọi
+    của một script ghi được nêu; lời gọi đọc, lời gọi không đổi gì, lời gọi hỏng và thẻ script
+    tự in ra thì không);
+    `::test_a_turn_names_what_a_script_wrote_the_same_live_and_read_back` (xem lúc lượt đang
+    chạy hay đọc lại từ phần lưu kèm tin tool đều nêu cùng canvas, cạnh canvas model tự ghi);
+    `::test_a_stored_result_that_lists_no_calls_names_what_its_own_text_says_and_no_more` (phần
+    lưu kèm rỗng, không phải JSON hay sai hình không làm hỏng việc đọc lại);
     `::test_a_live_turn_keeps_what_a_child_wrote_before_its_wait_ran_out` (kết quả giao việc hết
     giờ là một kết quả hỏng: xem lúc lượt đang chạy hay đọc lại từ run đều nêu cùng canvas);
     `::test_a_canvas_written_twice_is_named_once_at_its_newest_version_where_it_first_stood`;
@@ -5189,7 +5199,8 @@ khi chạy; phần đó có mục riêng ở dưới.
     nghìn ký tự; không giá trị nào được ghi ra dài hơn mức đã tính cho nó; script bị dừng vì cái nó
     đang giữ chứ không vì cái nó đã tạo, bộ nhớ được xem mỗi khi có thêm năm mươi nghìn ký tự hay
     phần tử, mức là 256 MB không hơn một byte, cái có từ trước khi script chạy không tính, và cách
-    tạo giá trị nào cũng được đếm).
+    tạo giá trị nào cũng được đếm). Các mức của một lần script tự hỏi model nằm ở mục "Script tự
+    hỏi model" bên dưới.
 - **Tiến trình con**:
   - pytest: `tests/test_script_runner.py` (script chạy ở tiến trình khác còn lời gọi của nó được
     trả lời ở tiến trình này; chữ đi và về giữ nguyên, câu trả lời dài hơn hẳn sức chứa của pipe
@@ -5528,8 +5539,8 @@ khi chạy; phần đó có mục riêng ở dưới.
     không phải ký tự in ra, không đi vào danh sách, không đi vào mapping, bọc lại chuỗi đã là
     khối, lần lưu không hỏi cách viết) đều bị test bắt.
   - pytest: `tests/test_script_job.py` (job script là một run chỉ có một step `tool_script`,
-    không gọi model, không có cuộc trò chuyện, không gửi cho ai, và lời gọi tính tiền được tính
-    vào run; step ấy được lưu y như step script của một lượt, cùng khoá, các lời gọi ở cùng một
+    không gọi model khi script không tự hỏi nó, không có cuộc trò chuyện, không gửi cho ai, và
+    lời gọi tính tiền được tính vào run; step ấy được lưu y như step script của một lượt, cùng khoá, các lời gọi ở cùng một
     chỗ; chạy được cả ở agent không giữ `tool_script`; tool cần cuộc trò chuyện thì báo lỗi
     script bắt được và không cuộc nào bị dựng ra; tóm tắt của run là phần cuối của cái script
     in ra, còn step giữ phần đầu như mọi step; job tới giờ thì đồng hồ chạy nó, một lần; script
@@ -5570,6 +5581,103 @@ khi chạy; phần đó có mục riêng ở dưới.
     `script`) đều bị test bắt. Sửa đổi còn lại, mở lượt cả khi script chỉ in khoảng trắng,
     không đổi được hành vi nào: cái script in ra đã được bỏ khoảng trắng cuối trước khi tới chỗ
     đó, nên chuỗi chỉ có khoảng trắng tới nơi đã là chuỗi rỗng.
+- **Script tự hỏi model (`llm.classify`, `llm.summarise`)**:
+  - pytest: `tests/test_script_model_calls.py` (script được trao một nhãn và một bản tóm tắt, mỗi
+    lần hỏi là một lời gọi của nó, mang tên `llm.classify` hay `llm.summarise`, có giá và luôn
+    `metered`; bản ghi của một lần hỏi có đúng các khoá của một lời gọi chỉ đọc, không `gated`,
+    không `child_spent_usd`, và model không báo giá thì giá để trống; tham số và câu trả lời được
+    giữ ở dạng rút gọn, `max_chars` không nêu được ghi là 500; lần hỏi và lời gọi tool nằm chung
+    một danh sách theo thứ tự script viết, và số ký tự script nhận đếm cả cái mỗi lần hỏi trao
+    cho nó; model không trả lời được là một lời gọi hỏng và một lỗi script bắt được, lý do chỉ
+    nằm trên thẻ run chứ không tới script; không bắt thì script dừng như mọi lỗi; cái hỏng quanh
+    một lần hỏi chỉ làm hỏng lần hỏi đó và chỉ được gọi bằng tên loại lỗi; câu trả lời không dùng
+    được vẫn tính tiền, script nghe một câu cố định còn thẻ run mới thấy model đã nói gì; model
+    không nói gì là một lời gọi hỏng; văn bản bảo model bỏ qua các nhãn mà trả lời điều khác chỉ
+    cho ra một nhãn script đã đưa hoặc một lỗi, và nó chỉ nằm trong tin của người dùng, giữa hai
+    dòng rào; bản tóm tắt bị văn bản kéo dài vẫn bị cắt đúng mức; script chạy không có model để
+    hỏi thì được nói vậy, không lời gọi nào được ghi và lời mô tả không nêu `llm.`; lời mô tả
+    của nơi hỏi được kết bằng đúng đoạn nói về hai lời hỏi, đứng sau nguyên lời mô tả cũ; agent
+    được giao `tool_script` thì được giao luôn model của chính nó, ở cả hai mức `script_calls`;
+    server tự đếm số lần hỏi và dừng script ở lần quá mức, `try` của script không giữ được; mười
+    lăm câu hỏi sai hình mà tiến trình con có thể gửi lên đều không tới model và không được đếm;
+    tiến trình con chỉ nhận lại một chuỗi, hoặc một câu lỗi cố định; câu hỏi phải chờ kết thúc
+    theo đúng ba cách của câu hỏi được trả lời ngay: một giá trị, một lỗi bắt được, một lệnh
+    dừng; model chậm hơn mức im lặng của script không làm script bị dừng; chỉ tuyến đầu của agent
+    được hỏi, nó hỏng thì tuyến dự phòng và tuyến leo thang không được hỏi; model không được
+    khai tool nào, tuyến có nêu mức suy nghĩ thì được hỏi ở mức thấp nhất, tuyến không nêu thì
+    không được bảo gì, và tuyến của agent giữ nguyên như tệp ghi; sổ cái ghi lần hỏi dưới mục
+    đích `script`; tuyến được đọc lúc script hỏi chứ không phải lúc tool được giao; lần hỏi bị
+    cắt khi model đang trả lời không nằm trên thẻ nào, còn sổ cái ghi một lời gọi không rõ giá;
+    trong một lượt thật, ở cả hai mức `script_calls`, lần hỏi được báo ngay khi xong, nằm trên
+    step của run và trong phần lưu kèm tin nhắn, không ai bị hỏi, tiền của nó vào run và cuộc
+    trò chuyện đúng một lần, sổ cái ghi nó dưới cuộc trò chuyện của lượt; lần hỏi hỏng trong một
+    lượt được tính là một lời gọi không rõ giá; mỗi lần hỏi lấy một từ trần lời gọi lồng của
+    lượt, lần hỏi quá trần không tới model và lượt dừng, lời gọi sau một lần hỏi thấy trần còn
+    ít đi một; script của một lịch hỏi model của agent ở cả hai mức, tiền vào run của job, sổ
+    cái ghi không kèm cuộc trò chuyện nào và không cuộc nào bị dựng ra).
+  - pytest: `tests/test_script_model_answers.py` (câu trả lời nêu đúng một nhãn thì thành nhãn
+    đó: viết hoa khác, cách chữ khác, dấu gõ rời, bọc trong ngoặc kép, chữ đậm, dấu code hay kèm
+    dấu chấm, hoặc là nhãn duy nhất đứng trong một câu; câu trả lời là trọn một nhãn thì là nhãn
+    ấy dù bỏ dấu bọc đi nó trùng nhãn khác; nhãn trao lại là chính chuỗi script viết chứ không
+    phải chữ của model; câu trả lời nêu hai nhãn, nêu một nhãn nằm trong nhãn dài hơn giữa một
+    câu, chỉ chứa nhãn trong lòng một từ, từ chối hay nói điều văn bản bảo nó nói đều là một
+    lỗi, không bao giờ là một lần đoán; nhãn được tìm như những từ đứng riêng; nhãn có dấu riêng
+    được so đúng từng dấu; câu trả lời rỗng là lỗi ở cả hai lời hỏi; câu lỗi script nghe không
+    lặp lại chữ nào của model; bản tóm tắt được cắt đúng mức và không hơn một ký tự, đo sau khi
+    bỏ khoảng trắng hai đầu và không kết bằng dấu cách; văn bản nằm trong một tin riêng giữa
+    hai dòng rào và không ở đâu khác, tin của server nêu đúng hai dòng ấy và nói cái ở giữa là
+    dữ liệu chứ không phải chỉ dẫn; hai dòng rào mang một con số sinh riêng cho lần hỏi đó, nên
+    văn bản tự viết một dòng đóng thì không đóng được gì; các nhãn được kể trong tin của server,
+    mỗi nhãn một dòng; độ dài script nêu được nói với model).
+  - pytest: `tests/test_script_limits.py` (mười lần hỏi model mỗi script, lần thứ mười một làm
+    script dừng ở đúng dòng và `try` không bắt được; phân loại và tóm tắt đếm chung; lần hỏi
+    hỏng vẫn tính; mỗi lần hỏi là một trong hai mươi lăm lời gọi của script, lời quá mức là lời
+    hỏi hay lời gọi tool thì script cũng dừng ở đó, và lần hỏi lấy chỗ của một lô; `text` dài
+    đúng 20.000 ký tự thì được hỏi nguyên, thêm một ký tự là lỗi bắt được nói phải tự cắt, không
+    bao giờ bị cắt hộ; `text` phải là chuỗi có chữ; `labels` là hai tới hai mươi chuỗi, mỗi chuỗi
+    tối đa 100 ký tự, không rỗng, không hai chuỗi nào trùng nhau khi bỏ qua hoa thường, khoảng
+    trắng và cách gõ dấu, còn nhãn chỉ khác nhau ở dấu thì là nhãn khác nhau; `max_chars` là số
+    nguyên từ 1 tới 4.000, không nêu thì 500; lời hỏi viết sai, thừa, thiếu hay lẫn tham số của
+    lời hỏi kia, nói lại cách viết đúng; `llm` chỉ có hai lời hỏi và không phải một giá trị
+    script cầm được; lời hỏi chưa từng được gửi thì không tính vào mức nào; các con số ấy đúng
+    là các con số đã nói với model và trong tài liệu).
+  - Kiểm chứng đột biến: hai mươi bảy sửa đổi (so nhãn có phân biệt hoa thường, lấy nhãn đầu khi
+    câu trả lời nêu hai, trao lại chữ của model, tìm nhãn trong lòng một từ, không cắt bản tóm
+    tắt, dòng rào dùng một con số cố định; tiến trình con hay server thôi đếm lần hỏi, lần hỏi
+    không tính vào hai mươi lăm lời gọi, không lấy gì của trần cả lượt, lần quá mức thành lỗi
+    bắt được; văn bản dài bị cắt hộ, hai nhãn trùng nhau lọt qua; lượt không được báo, được báo
+    hai lần, giá bị bỏ khỏi bản ghi, bản ghi không `metered`, lần hỏi hỏng được ghi là thành
+    công; ghi dưới mục đích khác, `script` không còn là một mục đích, sổ cái không được báo, ghi
+    dưới một cuộc trò chuyện không phải của lượt, khai tool của agent cho model, giữ mức suy
+    nghĩ của tuyến, hỏi mọi tuyến của agent; số ký tự script nhận không đếm lần hỏi, hay đếm chữ
+    model nói thay cho cái script được trao) đều bị test bắt.
+- **Script ghi canvas (`script_calls: gated`)**:
+  - pytest: `tests/test_script_canvas_writes.py` (canvas một script tạo đúng là canvas một lời
+    gọi trực tiếp sẽ tạo, ở cuộc tự chủ cũng như cuộc cần duyệt: cùng câu trả lời với thẻ đứng
+    đầu, cùng tác giả là agent, gắn với cuộc trò chuyện của lượt và đã được thấy ở bản vừa ghi,
+    không ai bị hỏi, và lời gọi được ghi là `gated`, không tính tiền; script sửa, viết lại và
+    nhập tệp vào một canvas, mỗi bản mang tác giả và cuộc trò chuyện của lượt, mỗi lời gọi mở
+    đầu bằng thẻ của bản nó ghi; script không đọc được trang nào nên không ghi đè lên bản người
+    lưu mà nó chưa thấy: `artifact_rewrite` bị từ chối như với model, còn `artifact_read` làm
+    script dừng với dòng bảo gọi trực tiếp; canvas script tạo được đếm chung với canvas model
+    tạo trong cùng một lượt, theo cả hai thứ tự, và lượt sau đếm lại từ đầu; số bản script ghi
+    lên một canvas đếm chung với số bản model ghi; lượt tới từ API, hay lượt con của một lượt
+    như thế, không ghi canvas nào từ script, cả bốn tool đều trả câu từ chối của kênh; script
+    ghi cho người đọc ngoài web (Telegram, job, lượt con của Telegram) được nói dòng gửi canvas
+    đi; bản rút gọn giữ nguyên thẻ đứng đầu dù sau nó là gì; cái được giữ của một lời gọi ghi mở
+    đầu bằng thẻ nguyên vẹn dù tên canvas dài và hook của agent có thêm ghi chú, lời gọi không
+    đổi gì thì thẻ nói vậy, lời gọi hỏng thì không có thẻ; trong một lượt thật, canvas script
+    tạo được nêu ở mọi nơi kể lời gọi của script, tức `calls` của kết quả, sự kiện
+    `nested_call`, step của run và phần lưu kèm tin nhắn, và tin "Canvas vừa ghi:" của Telegram
+    đọc ra đúng canvas đó từ cả hai nơi nó đọc; script của agent chưa bật
+    `script_calls: gated` không ghi canvas nào, dừng ở lời gọi với dòng bảo gọi trực tiếp, với
+    cả bốn tool; script của một lịch không có cuộc trò chuyện để ghi canvas: mỗi lời gọi hỏng
+    bằng câu nói canvas cần một cuộc trò chuyện, script bắt được, không gì được ghi vào cuộc
+    trò chuyện mà lượt của job trước để lại; không bắt thì run của job hỏng và chỉ có thế).
+  - Kiểm chứng đột biến: bảy sửa đổi (ghi chú của hook đứng trước câu trả lời, bản rút gọn ngắn
+    hơn một thẻ, lời gọi ghi được ghi như lời gọi không đổi gì, tool ghi được coi là tool đọc,
+    lượt không đếm canvas đã ghi, lượt tới từ API được ghi canvas, job giữ cuộc trò chuyện có
+    trước nó) đều bị test bắt.
 - **web: lời gọi của script trên thẻ run, thẻ tool trong khung chat và bản xuất Markdown**:
   - vitest: `components/script-calls.test.tsx` (dòng tóm tắt nói có bao nhiêu lời gọi, và bao nhiêu
     lần lỗi chỉ khi có; danh sách gấp lại cho tới khi bấm và gấp lại ở lần bấm sau; mỗi lời gọi một

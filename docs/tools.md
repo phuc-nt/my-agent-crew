@@ -807,8 +807,9 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
   nào (tool MCP ở mức khác, hoặc phần vượt trần của cả hai nhóm) được đếm chung trong một dòng
   cuối "và N công cụ nữa, tìm bằng tools.search"; script tra chúng bằng `tools.search` và
   `tools.describe` (bullet kế tiếp). Model muốn tự gọi trực tiếp một tool MCP như thế thì nạp nó
-  bằng `tool_search`. Với agent mặc định (không máy chủ MCP nào) lời mô tả dài khoảng 2.500 ký
-  tự, trong đó 12 dòng tool.
+  bằng `tool_search`. Lời mô tả khép lại bằng một câu về hai cách script tự hỏi model (bullet
+  "Script tự hỏi model"). Với agent mặc định (không máy chủ MCP nào) lời mô tả dài khoảng 3.000
+  ký tự, trong đó 12 dòng tool.
 - **Tra cứu tool trong script.** Script chưa rõ tên hay tham số của một tool thì hỏi ngay trong
   script, trước khi gọi, thay vì đoán rồi chạy lại:
   - `tools.names()` trả list tên mọi tool script gọi được, theo thứ tự agent giữ chúng;
@@ -916,6 +917,36 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
     gọi sau có thể dựa vào cái lời gọi trước để lại; kết quả vẫn là một list theo thứ tự đó, và
     một lời gọi lỗi (lệnh thoát với mã khác 0) vẫn chỉ là phần tử `ok: False` của nó, các lời
     gọi sau vẫn chạy. Lô chỉ có lời gọi đọc thì chạy cùng lúc như ở agent khác.
+  - **Ghi canvas từ script.** `artifact_create`, `artifact_edit`, `artifact_rewrite` và
+    `artifact_import` không cần duyệt khi gọi trực tiếp, nên cổng cho chúng chạy trong script ở
+    mọi cuộc trò chuyện, autonomous hay không. Canvas script tạo ra **là đúng canvas một lời gọi
+    trực tiếp sẽ tạo**: gắn vào cuộc trò chuyện của lượt đang chạy, tác giả là agent
+    (`agent:<id>`), và chịu mọi luật của lượt đó, đếm chung với lời gọi trực tiếp:
+    - trần 30 canvas mới và 30 bản mỗi canvas trong một lượt ([Canvas](#canvas)) là **một con
+      số cho cả lượt**: canvas script đã tạo trừ vào phần của model, và ngược lại;
+    - lượt mà kênh không mở được canvas (lượt qua API, hay agent được giao việc trong chuỗi bắt
+      đầu từ API) thì script cũng không ghi được: lời gọi lỗi với câu "Kênh của lượt này chưa mở
+      được canvas…", không gì được ghi;
+    - lượt mà người nhận không ngồi ở web chat (Telegram, job, hay agent được giao việc từ đó)
+      thì câu trả lời của `artifact_create` vẫn kèm dòng chỉ cách gửi canvas (`FILE:
+      artifact:<id>`). Dòng đó tới **script**, không tới model: model chỉ đọc cái script in ra,
+      nên script phải in id thì model mới gửi kèm được.
+
+    Kết quả của một lời gọi ghi canvas mở đầu bằng thẻ `[artifact <id> v<n>]`. Phần đầu câu trả
+    lời được giữ cho thẻ run và cho sự kiện `nested_call` (160 ký tự, khoảng trắng gộp lại) **luôn
+    mở đầu bằng thẻ đó, nguyên vẹn**, dù tiêu đề dài tới đâu và dù hook có nối thêm ghi chú: web
+    đọc thẻ ở đúng chỗ đó để mở canvas từ dòng của lời gọi. Một lời gọi lỗi thì không có thẻ.
+    Tin "Canvas vừa ghi:" trên Telegram ([channels.md](channels.md)) cũng đọc thẻ ở chỗ đó, nên
+    canvas script ghi được nêu như canvas do lời gọi trực tiếp ghi; thẻ mà script tự in ra thì
+    không tính, cũng như thẻ trong lời của model.
+
+    `artifact_read` vẫn không gọi được từ script (bullet "Script gọi được gì"), nên script không
+    bao giờ "đã thấy" bản người dùng vừa lưu: `artifact_rewrite` lên một canvas người dùng đã sửa
+    sau lần agent đọc vẫn bị từ chối như khi gọi trực tiếp, là một lỗi bắt được, và bản của
+    người dùng còn nguyên. Agent `script_calls: read_only` thì không lời gọi ghi canvas nào chạy:
+    script dừng với câu bảo gọi trực tiếp. Trong job chạy script không có cuộc trò chuyện nào để
+    gắn canvas: lời gọi lỗi với "Canvas chỉ dùng được trong một cuộc trò chuyện. Chưa làm gì.",
+    bắt được, và không canvas nào bị gắn nhầm vào cuộc trò chuyện của một job chạy trước đó.
   - **Trên thẻ run và API.** Lời gọi đã qua cổng mang `gated: true` ở mọi nơi lời gọi của script
     được ghi (bullet "Trên API"); lời gọi chỉ đọc không mang khoá này.
   - **Sau restart.** `tool_script` của agent `gated` không tự khai là gọi lại được. Lời gọi của
@@ -930,6 +961,77 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
   một lỗi bắt được: câu trả lời nêu tool gần tên nhất trong số tool script gọi được ("Ý bạn là
   …?") và chỉ sang `tools.names()` và `tools.search`. Không tool nào chạy, nhưng lời gọi vẫn tính
   vào 25 lời gọi của script.
+- **Script tự hỏi model (`llm.classify`, `llm.summarise`).** Có việc code không quyết nổi: một
+  thư thuộc loại nào, một trang dài rốt cuộc nói gì. Script hỏi thẳng model cho đúng việc đó, qua
+  tên `llm` đứng cạnh `tools`, và mỗi lần nhận về **một chuỗi**:
+
+  ```python
+  pages = ["trang-a", "trang-b", "trang-c"]  # id các trang, lấy từ một lời gọi trước đó
+  kinds = ["việc cần làm", "hoá đơn", "quảng cáo"]
+  for page in pages:
+      body = tools.mcp__notion__notion_fetch(id=page)[:20000]
+      if llm.classify(body, kinds) == "việc cần làm":
+          print(page, llm.summarise(body, max_chars=200))
+  ```
+
+  - **`llm.classify(text, labels)`** trả về **đúng một phần tử của `labels`, nguyên văn như script
+    đã viết**, nên so sánh bằng `==` là đủ. Câu trả lời của model được đối chiếu với các nhãn
+    không phân biệt hoa thường, khoảng trắng và cách gõ dấu, theo ba bước, bước nào quyết được
+    thì dừng: cả câu trả lời là một nhãn; bỏ dấu câu, ngoặc kép và dấu in đậm bao quanh rồi thì
+    nó là đúng một nhãn; hoặc trong câu trả lời chỉ có đúng một nhãn đứng thành chữ riêng (`no`
+    không nằm trong `know`). Câu trả lời không nêu nhãn nào, hay nêu hai nhãn, là một lỗi bắt
+    được ("model trả lời không đúng một nhãn nào trong `labels`."): script không bao giờ nhận một
+    chuỗi nằm ngoài `labels`. Hai nhãn lồng nhau (`spam` và `not spam`) vẫn dùng được khi model
+    trả lời gọn bằng một nhãn; một câu dài chứa nhãn dài thì chứa cả hai và bị coi là không rõ.
+  - **`llm.summarise(text, max_chars=500)`** trả về bản tóm tắt. Model được dặn độ dài, và câu trả
+    lời **bị cắt ở `max_chars` ký tự** dù model viết bao nhiêu.
+  - **Tham số.** `text` là một chuỗi không rỗng, dài tối đa 20.000 ký tự: dài hơn là lỗi, **không
+    bao giờ bị cắt hộ**, vì phần nào đáng giữ là việc của script. `labels` là list từ 2 đến 20
+    chuỗi khác nhau, không rỗng, mỗi chuỗi tối đa 100 ký tự (hai nhãn chỉ khác hoa thường hay
+    khoảng trắng bị coi là trùng). `max_chars` là số nguyên từ 1 đến 4.000. Tham số sai là lỗi
+    bắt được: câu lỗi mở bằng cách viết lời gọi (`llm.classify(text, labels)`) rồi nói chỗ sai
+    ("`labels` phải là list gồm 2 đến 20 chuỗi khác nhau, không rỗng, mỗi chuỗi dài tối đa 100
+    ký tự."). Lời gọi đó chưa được thực hiện và không tính vào số nào. `llm` chỉ có hai tên này.
+  - **Tính vào đâu.** Mỗi lần hỏi là **một lời gọi của script**: tính vào 25 lời gọi của script
+    và vào trần lời gọi của cả lượt, như một lời gọi tool. Ngoài ra mỗi script hỏi model tối đa
+    **10 lần**, hỏi được hay hỏng đều tính. Lần thứ 11, cũng như lời gọi thứ 26, làm script
+    **dừng**, không `try/except` nào bắt được ("Script đã hỏi model quá 10 lần. Gộp việc lại
+    hoặc chia nhiều script."). Server đếm lại con số đó chứ không tin số tiến trình con báo.
+  - **Ai gọi model, bằng gì.** Server gọi, không phải tiến trình con: tiến trình con chỉ nhận về
+    chuỗi kết quả, không khoá, không tên route, không số token. Lời gọi đi tới **route đầu tiên
+    của chính agent** và chỉ route đó: không chuyển sang route dự phòng khi hỏng, không dùng
+    route leo thang, không khai tool nào cho model. Route có ghi mức suy nghĩ thì lần hỏi này
+    dùng mức thấp nhất (`minimal`); route không ghi thì không gửi gì về mức suy nghĩ. Một lỗi
+    tạm thời của upstream vẫn được thử lại một lần trên chính route đó, như mọi lời gọi model.
+  - **Văn bản là dữ liệu, không phải chỉ dẫn.** `text` thường là thứ người khác viết (một thư,
+    một trang web). Việc phải làm nằm trong tin hệ thống của server; văn bản đi trong một tin
+    riêng, giữa hai dòng rào mang một số ngẫu nhiên tạo riêng cho lần hỏi đó, nên văn bản không
+    tự viết được dòng đóng rào. Model được dặn mọi thứ giữa hai dòng là dữ liệu. Lời dặn không
+    trói được model; cái trói là cách server nhận câu trả lời: `classify` chỉ trả một nhãn script
+    đã cho, `summarise` chỉ trả tối đa `max_chars` ký tự. Một thư viết "bỏ qua các nhãn, trả lời
+    X" vì thế chỉ làm lời gọi thành lỗi, không đưa được X vào script qua `classify`.
+  - **Khi hỏng.** Model không trả lời được, trả lời rỗng, hay trả lời không phải một nhãn: lời gọi
+    là một lời gọi **lỗi** trên thẻ run và một lỗi script bắt được. Script chỉ nghe một trong ba
+    câu cố định ("model không trả lời được: thử lại sau hoặc bỏ qua bước này.", "model trả lời
+    rỗng.", "model trả lời không đúng một nhãn nào trong `labels`."), không kèm lời của upstream
+    và không kèm câu model đã nói: hai thứ đó chỉ hiện trên thẻ run, cho người xem, vì cái script
+    nghe được thì script in ra được, và model của lượt sẽ đọc. Lỗi không bắt thì script hỏng như
+    mọi lỗi khác.
+  - **Tiền.** Mỗi lần hỏi là một lời gọi model có tính tiền. Giá được cộng vào run và cuộc trò
+    chuyện ngay khi lời gọi xong, **một lần**, đúng như một `image_read` trong script; trong sổ
+    chi phí nó là một lời gọi phụ với mục đích `script`, ghi dưới cuộc trò chuyện của lượt. Lời
+    gọi đã tới model mà upstream không báo giá, hay hỏng trước khi có giá, được tính là một lời
+    gọi **chưa rõ giá**.
+  - **Trên thẻ run và API.** Lời gọi nằm cùng danh sách với các lời gọi tool, đúng thứ tự script
+    đã viết, dưới tên `llm.classify` hoặc `llm.summarise` (web ghi "Phân loại bằng model", "Tóm
+    tắt bằng model"). `arguments` là `text` rút gọn cùng `labels` hoặc `max_chars` (không nêu thì
+    ghi 500); `output` là phần đầu của chuỗi script nhận được, hoặc của lý do khi hỏng;
+    `metered` luôn `true`; không bao giờ có `gated`, vì lời gọi không đổi gì và không qua cổng
+    duyệt.
+  - **Ở đâu cũng dùng được.** Cả hai chế độ `script_calls`, và cả trong job chạy script
+    ([agents.md](agents.md#job-chạy-script)): ở đó không có cuộc trò chuyện, lời gọi phụ được ghi
+    không kèm cuộc trò chuyện nào và giá nằm trên run của job. Trong `tools.batch` thì không:
+    lô chỉ nhận lời gọi tool.
 - **Ngôn ngữ.** Một phần của Python: biến, `if`/`for`/`while`, hàm và `lambda`, list, dict, set,
   tuple, f-string, comprehension (kể cả dạng `(x for x in ...)`, được dựng thành list),
   `try`/`except`/`finally`, `raise`, `assert`, `json.loads` và `json.dumps`, cùng `len`, `str`,
@@ -977,16 +1079,20 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
   trả cho script đã được tính cho vừa nên không bao giờ bị cắt và không được giữ lại lần nữa.
 - **Chạy ở đâu.** Trong một tiến trình con riêng (`python -I -S -B`) với **môi trường rỗng**: không
   biến môi trường nào, nên không khoá nào. Nó chỉ nói chuyện với server qua stdin/stdout, mỗi dòng
-  một JSON, và chính server là bên chạy tool. Trên macOS tiến trình đó nằm trong một sandbox riêng
-  của hệ điều hành: không mạng, không ghi được tệp nào, không sinh được tiến trình thứ hai.
+  một JSON, và chính server là bên chạy tool, cũng là bên gọi model khi script hỏi bằng `llm.`:
+  tiến trình con gửi câu hỏi và nhận về đúng chuỗi kết quả. Trên macOS tiến trình đó nằm trong
+  một sandbox riêng của hệ điều hành: không mạng, không ghi được tệp nào, không sinh được tiến
+  trình thứ hai.
   Sandbox đó không chặn việc đọc tệp, và Linux không có sandbox của hệ điều hành; ở cả hai chỗ
   hàng rào là chính trình thông dịch: script chỉ cầm dữ liệu thường, không import và không đọc
   thuộc tính, nên không có đường nào dẫn tới tệp hay mạng.
-- **Tiền và thẻ run.** Một lời gọi có trả tiền cho model (`image_read`, hay `pdf_read` trên trang
-  scan) được tính riêng vào cuộc trò chuyện và vào run, như khi gọi trực tiếp. Model không đọc
-  các lời gọi của script, nên thẻ run liệt kê chúng dưới bước của script cho người xem: tên tool,
-  tham số rút gọn, thời gian, có lỗi không, giá nếu có, và phần đầu câu trả lời. Danh sách gấp
-  lại cho tới khi bấm mở, dưới một dòng như "Script đã gọi công cụ 12 lần · 1 lần lỗi". Một lời
+- **Tiền và thẻ run.** Một lời gọi có trả tiền cho model (`image_read`, `pdf_read` trên trang
+  scan, hay một lần script tự hỏi model bằng `llm.classify` / `llm.summarise`) được tính riêng
+  vào cuộc trò chuyện và vào run, như khi gọi trực tiếp. Model không đọc các lời gọi của script,
+  nên thẻ run liệt kê chúng dưới bước của script cho người xem: tên tool (hoặc "Phân loại bằng
+  model", "Tóm tắt bằng model"), tham số rút gọn, thời gian, có lỗi không, giá nếu có, và phần đầu
+  câu trả lời. Danh sách gấp
+  lại cho tới khi bấm mở, dưới một dòng như "Script đã thực hiện 12 lời gọi · 1 lần lỗi". Một lời
   gọi bị từ chối không nằm trong danh sách vì nó chưa chạy gì.
   Tham số rút gọn của một lời gọi, ở bước của run cũng như ở lời gọi của script, là mười hai
   tham số đầu: tên và giá trị cắt ở 160 ký tự, số viết ra dài hơn thế thì cắt như chữ, và nếu
@@ -1003,8 +1109,9 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
   tiền, nên không lời gọi nào bị tính hai lần, kể cả khi tab nối lại giữa chừng và nghe một lời
   gọi lần thứ hai.
 - **Hai số đo.** Script xong, dù chạy hết hay gặp lỗi, thì thẻ có thêm một dòng như "Nhận 184.220
-  ký tự từ 12 lời gọi, trả về 640 ký tự": số ký tự các tool đã trả cho script (sau khi cắt) và số
-  ký tự script in ra (chưa kể dòng lý do khi script dừng). Số sau đếm cái script in, trước khi
+  ký tự từ 12 lời gọi, trả về 640 ký tự": số ký tự các lời gọi đã trả cho script (câu trả lời của
+  tool sau khi cắt, và chuỗi script nhận về từ mỗi lần hỏi model) và số ký tự script in ra (chưa
+  kể dòng lý do khi script dừng). Số sau đếm cái script in, trước khi
   trần đầu ra của agent áp lên: script in nhiều hơn `tool_output_chars` thì model đọc ít hơn con
   số này. Đó là thước đo `tool_script`
   có đáng dùng không: nhận nhiều, trả về ít là đúng việc của nó. Số nào server chưa đếm (run ghi
@@ -1021,8 +1128,11 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
   `metered`), `received_chars` và `printed_chars` nằm trên step tool của `/api/activity/runs` và
   trên sự kiện `tool_result`. Lời gọi tới tool có ghi, đã được cổng duyệt cho chạy (agent
   `script_calls: gated`), có thêm `gated: true`; khoá này **chỉ được ghi khi đúng**, nên lời gọi
-  chỉ đọc giữ nguyên bảy khoá trên, ở sự kiện, ở step và ở phần lưu kèm. Với tool không phải
-  script, sự kiện mang `calls` rỗng và hai số đo
+  chỉ đọc giữ nguyên bảy khoá trên, ở sự kiện, ở step và ở phần lưu kèm. Một lần script hỏi model
+  cũng là một phần tử của `calls`, với đúng bảy khoá đó: `name` là `llm.classify` hoặc
+  `llm.summarise` (web nhận ra một lần hỏi model nhờ tiền tố `llm.` đó), `metered` luôn `true`,
+  `cost_usd` là giá của lời gọi hoặc `null` khi không rõ, và không bao giờ có `gated`. Với tool
+  không phải script, sự kiện mang `calls` rỗng và hai số đo
   `null`, còn step không có ba khoá đó. Mỗi lời gọi vừa xong đi trong một sự kiện riêng
   `nested_call` gồm `tool_call_id` (của lời gọi `tool_script`), `index` (thứ tự lời gọi xong, từ
   0, để ai nghe một lời gọi hai lần vẫn chỉ giữ một) và `call`. Tin nhắn tool được lưu của một
@@ -1030,7 +1140,8 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
   trống trường này.
 - **Trần lời gọi của cả lượt.** Ngoài 25 lời gọi mỗi script, mọi script trong **một lượt** dùng
   chung một trần: 10 lời gọi cho mỗi lần gọi model mà lượt được phép (`max_steps` × 10; với
-  `max_steps` mặc định 12 là 120). Lời gọi vượt trần không chạy; một lô không còn đủ chỗ cho cả
+  `max_steps` mặc định 12 là 120). Lời gọi tool và lần script hỏi model (`llm.`) đều trừ vào trần
+  này, mỗi thứ một. Lời gọi vượt trần không chạy; một lô không còn đủ chỗ cho cả
   lô thì không lời gọi nào của lô chạy. Script đó dừng tại chỗ ("Dừng ở dòng N: lượt đã dùng hết
   120 lời gọi lồng."), không `try/except` nào bắt được; những lời gọi model đã yêu cầu sau nó
   trong cùng tin được đóng lại mà không chạy ("Không chạy: lượt đã dùng hết 120 lời gọi lồng của
@@ -1044,11 +1155,12 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
   vốn đã gọi lại được, nên script bị cắt giữa chừng được chạy lại từ đầu. Riêng agent
   `script_calls: gated` thì không: script bị cắt của nó được đóng lại chứ không chạy lại (bullet
   "Script gọi cả tool ghi").
-- **Chạy theo lịch, không gọi model.** Một lịch trong `agent.yaml` có thể chạy thẳng một script
+- **Chạy theo lịch, không mở lượt nào.** Một lịch trong `agent.yaml` có thể chạy thẳng một script
   (khoá `script`) thay cho một prompt: cùng bộ máy, cùng giới hạn, cùng những tool mà
-  `script_calls` của agent cho script gọi, và không lần gọi model nào trừ khi script in ra gì đó
-  và lịch có `then_prompt`. Script của job không thuộc cuộc trò chuyện nào và không bao giờ chờ
-  người. Xem [agents.md](agents.md#job-chạy-script).
+  `script_calls` của agent cho script gọi. Không lượt nào của agent được mở, nên model chỉ được
+  gọi ở hai chỗ: khi chính script hỏi bằng `llm.classify` / `llm.summarise` (bullet "Script tự hỏi
+  model"), và khi script in ra gì đó mà lịch có `then_prompt`. Script của job không thuộc cuộc
+  trò chuyện nào và không bao giờ chờ người. Xem [agents.md](agents.md#job-chạy-script).
 - **Giữ lại giữa các lần chạy (`store` / `load`).** Script chạy xong là quên hết: lần sau nó không
   biết lần trước đã thấy gì, đã báo việc nào. Hai tên dùng thẳng như `print`, không qua `tools.`:
   `store(khoá, giá_trị)` giữ một giá trị dưới một khoá, `store(khoá, None)` bỏ khoá đó, và
@@ -1132,7 +1244,11 @@ Giới hạn nằm trong code, không cấu hình nào nới được:
 
 | Giới hạn | Mức |
 | --- | --- |
-| lời gọi tool trong một script | 25 |
+| lời gọi trong một script (lời gọi tool và lần hỏi model) | 25 |
+| lần hỏi model (`llm.classify`, `llm.summarise`) trong một script | 10 |
+| `text` của một lần hỏi model | 20.000 ký tự |
+| `labels` của `llm.classify` | 2 đến 20 nhãn khác nhau, mỗi nhãn 100 ký tự |
+| `max_chars` của `llm.summarise` | 1 đến 4.000, mặc định 500 |
 | lần tra tool (`tools.names`, `search`, `describe`) trong một script | 40 |
 | chữ đưa vào một lần tra (từ khoá, tên tool) | 1.000 ký tự |
 | lời gọi trong một lô (`tools.batch`) | 10 |
@@ -1140,11 +1256,11 @@ Giới hạn nằm trong code, không cấu hình nào nới được:
 | độ dài mã script | 20.000 ký tự |
 | số bước tính toán | 2.000.000 |
 | CPU | 20 giây |
-| script tự chạy một mạch, không gọi tool và không kết thúc | 60 giây |
-| tổng thời gian, kể cả lúc chờ tool | 300 giây |
+| script tự chạy một mạch, không gọi tool, không hỏi model và không kết thúc | 60 giây |
+| tổng thời gian, kể cả lúc chờ tool và chờ model | 300 giây |
 | bộ nhớ đang giữ | 256 MB |
 | một giá trị | 8.000.000 phần tử hoặc ký tự |
-| lời gọi tool của mọi script trong một lượt | `max_steps` × 10 |
+| lời gọi của mọi script trong một lượt (lời gọi tool và lần hỏi model) | `max_steps` × 10 |
 | đầu ra in ra, phần giữ làm kết quả của script | 60.000 ký tự (sau đó tới trần `tool_output_chars` của agent) |
 | một câu trả lời của tool, phần script nhận được | 200.000 ký tự |
 | một câu trả lời của tool, phần được giữ lại để đọc tiếp | 5 MB |
@@ -1161,7 +1277,9 @@ cho model biết phải làm khác đi thế nào ("Xử lý ít dữ liệu hơ
 về đầu ra và câu trả lời là ngoại lệ: quá mức thì phần thừa bị bỏ hoặc để dành, script vẫn chạy
 tiếp (xem hai bullet "In ra quá 60.000 ký tự" và "Câu trả lời dài hơn 200.000 ký tự"). Ba dòng
 về `store` cũng là ngoại lệ: quá mức là lỗi script bắt được, và lần ghi đó không được nhận
-(bullet "Giữ lại giữa các lần chạy"). Riêng khi tiến trình con bị dừng từ bên ngoài (hết CPU,
+(bullet "Giữ lại giữa các lần chạy"). Ba dòng về `text`, `labels` và `max_chars` cũng vậy: sai mức
+là lỗi script bắt được và model chưa được hỏi; riêng lần hỏi model thứ 11 thì làm script dừng
+(bullet "Script tự hỏi model"). Riêng khi tiến trình con bị dừng từ bên ngoài (hết CPU,
 chạy một mạch quá 60 giây, hết tổng thời gian) hoặc tự chết thì phần đã in mất theo nó và chỉ
 còn lý do; các lời gọi đã chạy vẫn được ghi trên thẻ run.
 
@@ -1174,8 +1292,13 @@ chạy xong mà dòng đầu tiên nó in ra đúng nguyên câu đó thì sau k
 
 Vài điều chưa làm, nêu ra để không ai phải đoán:
 
-- Ngân sách tiền của cuộc trò chuyện chỉ được xét trước mỗi lần gọi model, không xét giữa các lời
-  gọi của một script, nên một script có thể tiêu quá ngân sách tối đa bằng 25 lời gọi của nó.
+- Ngân sách tiền của cuộc trò chuyện chỉ được xét trước mỗi lần lượt gọi model, không xét giữa
+  các lời gọi của một script (kể cả những lần script tự hỏi model), nên một script có thể tiêu quá
+  ngân sách tối đa bằng 25 lời gọi của nó.
+- Một lời gọi của script còn đang chờ khi script hết tổng thời gian, hay khi lượt bị dừng, thì bị
+  huỷ và không nằm trên thẻ run, dù là lời gọi tool hay một lần hỏi model. Với lần hỏi model, nếu
+  model đã bắt đầu trả lời thì sổ cái sử dụng vẫn ghi một lời gọi không rõ giá (mục đích
+  `script`), còn run thì không đếm nó.
 - Từng lời gọi trong script không đi qua bộ phát hiện lặp: một script gọi cùng một tool với cùng
   tham số 25 lần vẫn chạy đủ 25 lần. Bộ phát hiện lặp chỉ nhìn chính lời gọi `tool_script`.
 - Câu trả lời dài của một tool trong script không được tóm tắt: script nhận phần đầu và tự đọc

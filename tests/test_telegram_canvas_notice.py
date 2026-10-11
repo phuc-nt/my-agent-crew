@@ -18,6 +18,7 @@ from pathlib import Path
 import pytest
 
 from my_agent_crew import texts
+from my_agent_crew.activity.step_previews import preview
 from my_agent_crew.agent.events import AssistantMessageEvent, DoneEvent, ToolResultEvent
 from my_agent_crew.agent.turn_context import API, CHAT, set_turn_conversation, set_turn_source
 from my_agent_crew.artifacts.tag import TAG_RE, Tag, artifact_tag, parse_artifact_tag
@@ -33,6 +34,7 @@ from my_agent_crew.store.approvals import EXPIRED
 from my_agent_crew.store.runs import DONE, RunRecord
 from my_agent_crew.tools.ask_user import unanswered_result
 from my_agent_crew.tools.delegate_outcome import result_text, timed_out
+from my_agent_crew.tools.result import NestedCall
 from tests.canvas_helpers import PLAN, SWIM, agents_canvas, call, persons_canvas, put, tagged, turn
 from tests.conftest import collect
 from tests.lapse_helpers import (
@@ -167,6 +169,27 @@ def test_a_delegated_task_names_what_its_child_wrote_even_when_the_wait_ran_out(
     assert tags_of("delegate", "Không có agent nào tên x.") == []
 
 
+def nested(name: str, answered: str, ok: bool = True) -> dict:
+    """A call a script made on its own, as the script's result lists it: what the tool
+    answered is kept as a preview."""
+    return NestedCall(name, {}, ok, preview(answered), 1, gated=True).to_dict()
+
+
+def test_a_script_names_what_its_own_calls_wrote_and_nothing_it_printed():
+    """What a script wrote, the turn wrote. Its result is what it printed, which is the
+    script's own text like a reply is the model's: a tag there names nothing."""
+    calls = [
+        nested("artifact_create", f"{artifact_tag(A, 1)} Đã tạo canvas.\n" + "x" * 400),
+        nested("notes_read", f"{artifact_tag(B, 4)} nội dung"),
+        nested("artifact_rewrite", f"{artifact_tag(C, 2, unchanged=True)} Không đổi gì."),
+        nested("artifact_edit", "Không tìm thấy canvas 0123456789ab.", ok=False),
+        nested("artifact_edit", f"{artifact_tag(A, 2)} Đã sửa."),
+    ]
+    printed = f"{artifact_tag(C, 7)} script tự in ra"
+    assert tags_of("tool_script", printed, calls) == [Tag(A, 1), Tag(A, 2)]
+    assert tags_of("tool_script", printed) == tags_of("tool_script", printed, []) == []
+
+
 def test_a_canvas_written_twice_is_named_once_at_its_newest_version_where_it_first_stood():
     assert merged([Tag(A, 1), Tag(B, 1), Tag(A, 3), Tag(C, 4), Tag(A, 2)]) == [
         Tag(A, 3),
@@ -213,6 +236,49 @@ async def test_a_live_turn_keeps_what_a_child_wrote_before_its_wait_ran_out():
     seen = WrittenCanvases()
     await collect(seen.watch(events()))
     assert not late.ok and seen.tags == [Tag(A, 2)]
+
+
+async def test_a_turn_names_what_a_script_wrote_the_same_live_and_read_back(store):
+    """A script's result lists its calls as it passes, and keeps them beside the message it
+    is stored as: the chat of a live turn and the chat a job's brief is delivered to are told
+    of the same canvases, beside what the model wrote itself."""
+    conv = store.create()
+    store.append(conv.id, Message(role="user", content="lập kế hoạch"))
+    run = began(store, conv.id)
+    calls = [
+        nested("artifact_create", f"{artifact_tag(A, 1)} Đã tạo."),
+        nested("artifact_create", f"{artifact_tag(B, 1)} Đã tạo."),
+        nested("artifact_edit", f"{artifact_tag(A, 2)} Đã sửa."),
+    ]
+    script = ToolResultEvent("s1", "tool_script", True, "xong", calls=calls, printed_chars=4)
+    direct = ToolResultEvent("c2", "artifact_create", True, f"{artifact_tag(C, 1)} Đã tạo.")
+
+    async def events():
+        for event in (script, direct):
+            said = Message(role="tool", content=event.output, tool_call_id="x", name=event.name)
+            store.append(conv.id, said, context=event.stored_context())
+            yield event
+        yield DoneEvent(0.0, 0)
+
+    seen = WrittenCanvases()
+    await collect(seen.watch(events()))
+    assert seen.tags == written_by(store, conv.id, run) == [Tag(A, 2), Tag(B, 1), Tag(C, 1)]
+
+
+@pytest.mark.parametrize(
+    "context",
+    ["", "không phải JSON", "[]", '{"calls": "x"}', '{"calls": [1, null]}', '{"printed_chars": 3}'],
+)
+def test_a_stored_result_that_lists_no_calls_names_what_its_own_text_says_and_no_more(
+    store, context
+):
+    """Whatever stands beside a stored result, reading it back breaks no delivery."""
+    conv = store.create()
+    run = began(store, conv.id)
+    said = Message(role="tool", content="xong", tool_call_id="s1", name="tool_script")
+    store.append(conv.id, said, context=context)
+    tool_said(store, conv.id, "artifact_create", f"{artifact_tag(A, 1)} Đã tạo.", "c2")
+    assert written_by(store, conv.id, run) == [Tag(A, 1)]
 
 
 async def test_a_turn_that_breaks_is_still_broken_and_keeps_what_it_wrote_by_then():

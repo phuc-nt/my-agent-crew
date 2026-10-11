@@ -11,7 +11,7 @@ _SCRIPT_HOW = (
     "Cách viết: `tools.TEN(tham_so=gia_tri)` hoặc `tools.TEN({{...}})` trả về văn bản kết quả "
     "của công cụ (là JSON thì `json.loads`); công cụ lỗi thì ném lỗi, bắt được bằng "
     "try/except. In ra cái cần bằng `print(...)`; giá trị của biểu thức ở dòng cuối cũng được "
-    "in. Mỗi script gọi công cụ tối đa {calls} lần.\n"
+    "in. Mỗi script được tối đa {calls} lời gọi.\n"
     "Chưa rõ tên hay tham số của một công cụ thì tra ngay trong script, không tính vào số lần "
     'gọi: `tools.names()` liệt kê tên mọi công cụ gọi được, `tools.search("từ khoá")` tìm theo '
     'việc (trả list các dict có `name` và `description`), `tools.describe("ten")` cho tham số '
@@ -21,8 +21,8 @@ _SCRIPT_HOW = (
     '`tools.batch([{{"tool": "TEN", "args": {{...}}}}, ...])` nhận tối đa {batch} lời gọi, trả '
     "về list kết quả đúng thứ tự đã viết; mỗi phần tử là "
     '`{{"ok": True, "output": văn_bản}}` hoặc `{{"ok": False, "error": lời_lỗi}}`, và một lời '
-    "gọi lỗi không làm hỏng các lời gọi còn lại. Mỗi lời gọi trong lô vẫn tính vào {calls} lần. "
-    "Ví dụ:\n"
+    "gọi lỗi không làm hỏng các lời gọi còn lại. Mỗi lời gọi trong lô vẫn tính vào {calls} lời "
+    "gọi đó. Ví dụ:\n"
     "{example}\n"
     "`store(khoá, giá_trị)` giữ một giá trị JSON và `load(khoá)` đọc lại ở lần chạy sau (chưa có "
     "thì None); chỉ giữ khi script chạy xong không lỗi, riêng cho cuộc trò chuyện hoặc job này.\n"
@@ -144,7 +144,7 @@ SCRIPT_GATE_NO_TURN = "`{name}` không chạy: script không thuộc lượt nà
 # What to do instead, for a tool told up front and for one that waits to be found.
 SCRIPT_CALL_DIRECTLY = "gọi trực tiếp"
 SCRIPT_LOAD_THEN_CALL = "nạp bằng tool_search rồi gọi trực tiếp"
-SCRIPT_TOO_MANY_CALLS = "Script đã gọi công cụ quá {most} lần. Gộp việc lại hoặc chia nhiều script."
+SCRIPT_TOO_MANY_CALLS = "Script đã dùng quá {most} lời gọi. Gộp việc lại hoặc chia nhiều script."
 
 # How a run ends when it does not end well.
 SCRIPT_SYNTAX = "Lỗi cú pháp ở dòng {line}: {error}"

@@ -377,7 +377,7 @@ async def test_a_script_that_calls_too_often_is_stopped_before_the_call_too_many
     )
 
     printed = "\n".join(str(page) for page in range(25))
-    reason = "Script đã gọi công cụ quá 25 lần. Gộp việc lại hoặc chia nhiều script."
+    reason = "Script đã dùng quá 25 lời gọi. Gộp việc lại hoặc chia nhiều script."
     assert (result.ok, result.output) == (False, unfinished(printed, halted(3, reason)))
     assert rows.asked == [{"page": page} for page in range(25)]
     assert len(result.calls) == 25
@@ -827,14 +827,14 @@ def test_the_model_is_told_which_tools_a_script_can_call():
         mcp="\nCông cụ MCP gọi được từ script (cần tham số chi tiết thì tra bằng tools.describe):\n"
         f"- {SEARCH_NAME}(query: string): [MCP notion] Find pages by words.",
     )
-    assert "Mỗi script gọi công cụ tối đa 25 lần." in told
+    assert "Mỗi script được tối đa 25 lời gọi." in told
     # How to ask for several calls at once, how many, and a script that does it.
     assert "tools.batch(" in told and f"tối đa {MAX_BATCH} lời gọi" in told
     assert t.SCRIPT_BATCH_EXAMPLE in told
     # What a batch does not change: one call that failed spoils none of the others, and each
     # call still counts among the most a script may make.
     assert "một lời gọi lỗi không làm hỏng các lời gọi còn lại." in told
-    assert "Mỗi lời gọi trong lô vẫn tính vào 25 lần." in told
+    assert "Mỗi lời gọi trong lô vẫn tính vào 25 lời gọi đó." in told
     # A tool is named once, where it belongs; one a script may not call is not named.
     assert told.count(SEARCH_NAME) == 1 and CREATE_NAME not in told
     assert "notes_write" not in told and "progress_note" not in told

@@ -139,6 +139,12 @@ phải một lời gọi. Nhiều lời gọi không cần nhau thì script gộ
 chạy chúng cùng lúc (tối đa bốn, một lô tối đa mười lời gọi), vẫn qua hook của agent từng cái một,
 trả lời và ghi lên thẻ run theo đúng thứ tự đã viết; mỗi lời gọi của lô vẫn là một trong 25 lần,
 và lô có một lời gọi script không được gọi thì không lời gọi nào chạy.
+Việc code không quyết nổi thì script hỏi model bằng `llm.classify` và `llm.summarise`: tiến trình
+con chỉ gửi câu hỏi, còn server (`script/model_calls.py`) gọi model của chính agent trên route
+đầu tiên, không khai tool nào, đọc câu trả lời thành một nhãn script đã đưa hay một bản tóm tắt
+đã cắt (`script/model_answers.py`) rồi trả về đúng chuỗi đó. Mỗi lần hỏi là một lời gọi của
+script: tính vào 25 lần, vào trần của lượt, lên thẻ run kèm giá, và vào sổ cái sử dụng dưới mục
+đích `script`.
 
 Một script có thể chạy vài phút, nên lời gọi của nó không đợi kết quả của script mới tới người
 xem. Lượt chạy một lời gọi tool lẻ, và `tool_script` luôn là lời gọi lẻ, trong một task riêng
@@ -148,7 +154,8 @@ kiện `nested_call` xen giữa `tool_call` và `tool_result`. Lượt bị dừ
 chờ cho xong, nên tiến trình con của script không sống lâu hơn lượt. Run liệt kê lời
 gọi và cộng tiền ngay (`activity/tool_steps.py`), web thêm một dòng vào thẻ run và thẻ tool. Kết
 quả của script nêu lại toàn bộ theo thứ tự đã viết cùng hai số đo, `received_chars` (số ký tự
-tool trả cho script) và `printed_chars` (số ký tự script in ra), và chỉ lời gọi chưa được báo
+các lời gọi trả cho script, kể cả chuỗi nhận về mỗi lần hỏi model) và `printed_chars` (số ký tự
+script in ra), và chỉ lời gọi chưa được báo
 mới được cộng tiền. Cả ba được lưu kèm tin nhắn tool của script trong trường `context`, thứ model
 không bao giờ được gửi, để thẻ trong khung chat còn liệt kê sau khi tải lại trang.
 
@@ -168,7 +175,7 @@ Gói `llm/` nói chuyện với OpenRouter (và Ollama) và bọc thành một c
 
 ### 2.6 Scheduler
 
-`scheduler/` đọc `schedules:` của mọi agent, mỗi phút kiểm tra cron, đến hạn thì tạo một job run: một cuộc trò chuyện autonomous với prompt (hoặc lệnh kit) định sẵn, hoặc một script chạy không gọi model và chỉ mở lượt khi nó in ra gì đó (xem [agents.md](agents.md#job-chạy-script)). Trạng thái job lưu ở bảng `job_state`, xem ở `/api/jobs`. Ngoài `agent.yaml`, một job có thể tới từ bảng `created_schedules` — agent tự đề xuất qua tool `schedule_create`, người duyệt nguyên văn prompt, rồi job chạy ngay không cần khởi động lại (`origin: "chat"` trên job, đối lập `origin: "profile"`); xem [design.md](design.md#scheduler) và [tools.md](tools.md#đề-xuất-lịch-chạy).
+`scheduler/` đọc `schedules:` của mọi agent, mỗi phút kiểm tra cron, đến hạn thì tạo một job run: một cuộc trò chuyện autonomous với prompt (hoặc lệnh kit) định sẵn, hoặc một script chạy mà không mở lượt nào của agent, trừ khi nó in ra gì đó và lịch có `then_prompt` (xem [agents.md](agents.md#job-chạy-script)). Trạng thái job lưu ở bảng `job_state`, xem ở `/api/jobs`. Ngoài `agent.yaml`, một job có thể tới từ bảng `created_schedules` — agent tự đề xuất qua tool `schedule_create`, người duyệt nguyên văn prompt, rồi job chạy ngay không cần khởi động lại (`origin: "chat"` trên job, đối lập `origin: "profile"`); xem [design.md](design.md#scheduler) và [tools.md](tools.md#đề-xuất-lịch-chạy).
 
 Cùng vòng đời với scheduler, `server/housekeeping.py` chạy một vòng quét mỗi ngày (ngay khi khởi động, rồi mỗi 24 giờ, ngoài event loop) xoá tệp trong `spill/` cũ hơn 7 ngày; một lần quét lỗi chỉ được ghi log, vòng vẫn chạy tiếp. Xem [tools.md](tools.md#đọc-lại-đầu-ra-dài).
 
