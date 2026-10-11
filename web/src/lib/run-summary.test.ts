@@ -8,6 +8,7 @@ describe("run summary codes", () => {
     expect(runSummaryText(fakeRun({ status: "halted", summary: "budget" }))).toBe(vi.haltedBudget);
     expect(runSummaryText(fakeRun({ status: "halted", summary: "max_steps" }))).toBe(vi.haltedMaxSteps);
     expect(runSummaryText(fakeRun({ status: "halted", summary: "loop" }))).toBe(vi.haltedLoop);
+    expect(runSummaryText(fakeRun({ status: "halted", summary: "nested_calls" }))).toBe(vi.haltedNestedCalls);
     expect(runSummaryText(fakeRun({ status: "error", summary: "interrupted" }))).toBe(vi.runInterrupted);
   });
 
@@ -15,6 +16,7 @@ describe("run summary codes", () => {
     expect(runSummaryText(fakeRun({ status: "done", summary: "Xong." }))).toBe("Xong.");
     expect(runSummaryText(fakeRun({ status: "done", summary: "budget" }))).toBe("budget");
     expect(runSummaryText(fakeRun({ status: "error", summary: "max_steps" }))).toBe("max_steps");
+    expect(runSummaryText(fakeRun({ status: "done", summary: "nested_calls" }))).toBe("nested_calls");
     expect(runSummaryText(fakeRun({ status: "error", summary: "rate limited" }))).toBe("rate limited");
     // Plain-object lookups would answer these with Object's own members.
     expect(runSummaryText(fakeRun({ status: "halted", summary: "constructor" }))).toBe("constructor");

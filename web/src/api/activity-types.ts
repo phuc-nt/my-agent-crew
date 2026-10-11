@@ -79,6 +79,13 @@ export type RunStep =
        * None of them is a step of its own. One that paid a model is in the run's total.
        */
       calls?: NestedToolCall[];
+      /**
+       * Only on the step of a script that ran: how many characters its calls handed back to
+       * it, none of which the model read, and how many of what it printed went to the model.
+       * Absent on a step written before the two were counted.
+       */
+      received_chars?: number;
+      printed_chars?: number;
       duration_ms: number | null;
     }
   | {

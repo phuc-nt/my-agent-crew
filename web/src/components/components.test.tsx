@@ -11,7 +11,8 @@ import { Composer } from "./composer";
 import { ConversationList } from "./conversation-list";
 import { QuestionCard } from "./question-card";
 import { formatClock } from "./run-timeline";
-import { ToolCallCard, summarizeArguments } from "./tool-call-card";
+import { summarizeArguments } from "./tool-args-detail";
+import { ToolCallCard } from "./tool-call-card";
 
 describe("ToolCallCard", () => {
   it("shows name, status label and toggles the output", async () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { RunInfo } from "../api/types";
+import type { NestedToolCall, RunInfo } from "../api/types";
 import {
   activityReducer,
   applyRunEvent,
@@ -147,8 +147,10 @@ describe("applyRunEvent", () => {
     const scripted = applyRunEvent(opened, { ...result, calls });
     expect(scripted.steps).toHaveLength(1);
     expect(scripted.steps[0]).toMatchObject({ kind: "tool", name: "tool_script", ok: true, output: "xong", calls });
-    // A call that paid a model is in the totals the turn ends on, like every tool that did.
-    expect(scripted).toMatchObject({ spent_usd: 0, unknown_cost_calls: 0 });
+    // No event listed these while the script ran, as for calls made side by side: the
+    // one that paid a model is added to the card here, the moment the server adds it.
+    expect(scripted.spent_usd).toBeCloseTo(0.004, 10);
+    expect(scripted.unknown_cost_calls).toBe(0);
 
     // A tool that called nothing has no list, whether the server sent an empty one or,
     // being older than the bundle, none at all: the server stores none either.
@@ -157,6 +159,131 @@ describe("applyRunEvent", () => {
       expect(plain.steps[0]).toMatchObject({ ok: true, output: "xong" });
       expect(plain.steps[0]).not.toHaveProperty("calls");
     }
+  });
+
+  it("keeps the two measures of a script on its step, and none where the result has none", () => {
+    const opened = applyRunEvent(run(), { type: "tool_call", tool_call_id: "s1", name: "tool_script", arguments: { script: "…" } });
+    const result = { type: "tool_result", tool_call_id: "s1", name: "tool_script", ok: true, output: "xong" } as const;
+
+    const measured = applyRunEvent(opened, { ...result, received_chars: 1_200, printed_chars: 80 });
+    expect(measured.steps[0]).toMatchObject({ received_chars: 1_200, printed_chars: 80 });
+    // Nought is a count, and is kept as one.
+    const idle = applyRunEvent(opened, { ...result, received_chars: 0, printed_chars: 0 });
+    expect(idle.steps[0]).toMatchObject({ received_chars: 0, printed_chars: 0 });
+    // A tool that is no script, and a server older than the bundle: the step says nothing.
+    for (const none of [{}, { received_chars: null, printed_chars: null }]) {
+      const plain = applyRunEvent(opened, { ...result, ...none });
+      expect(plain.steps[0]).not.toHaveProperty("received_chars");
+      expect(plain.steps[0]).not.toHaveProperty("printed_chars");
+    }
+  });
+
+  describe("what a script calls, heard as each call ends", () => {
+    const search: NestedToolCall = { name: "mcp__notion__search", arguments: { query: "kế hoạch" }, ok: true, output: "3 trang", ms: 120, cost_usd: null, metered: false };
+    const paid: NestedToolCall = { name: "pdf_read", arguments: { path: "a.pdf" }, ok: true, output: "Tổng chi 4,2 triệu.", ms: 1_500, cost_usd: 0.004, metered: true };
+    const unpriced: NestedToolCall = { name: "image_read", arguments: { path: "a.png" }, ok: true, output: "một biểu đồ", ms: 900, cost_usd: null, metered: true };
+    const open = (id = "s1") => ({ type: "tool_call", tool_call_id: id, name: "tool_script", arguments: { script: "…" } }) as const;
+    const heard = (index: number, call: NestedToolCall, id = "s1") => ({ type: "nested_call", tool_call_id: id, index, call }) as const;
+    const result = (calls: NestedToolCall[], id = "s1") => ({ type: "tool_result", tool_call_id: id, name: "tool_script", ok: true, output: "xong", calls }) as const;
+    const after = (...events: Parameters<typeof applyRunEvent>[1][]) => events.reduce(applyRunEvent, run());
+
+    it("lists the call on the step of the script, which stays open, and adds what it paid", () => {
+      const one = after(open(), heard(0, search));
+      expect(one.steps).toHaveLength(1);
+      expect(one.steps[0]).toMatchObject({ kind: "tool", name: "tool_script", ok: null, output: null, calls: [search] });
+      expect(one).toMatchObject({ spent_usd: 0, unknown_cost_calls: 0 });
+
+      const two = applyRunEvent(one, heard(1, paid));
+      expect(two.steps[0]).toMatchObject({ ok: null, calls: [search, paid] });
+      expect(two.spent_usd).toBeCloseTo(0.004, 10);
+      expect(two.unknown_cost_calls).toBe(0);
+    });
+
+    it("counts apart a call that paid a model at a price nobody gave", () => {
+      const next = after(open(), heard(0, unpriced));
+      expect(next).toMatchObject({ spent_usd: 0, unknown_cost_calls: 1 });
+    });
+
+    it("adds nothing for a call that was not charged, whatever figure rode along", () => {
+      const next = after(open(), heard(0, { ...search, cost_usd: 0.5 }));
+      expect(next).toMatchObject({ spent_usd: 0, unknown_cost_calls: 0 });
+    });
+
+    // A tab that joined late is handed the run with the calls so far, then may hear the
+    // last of them once more on the stream: one place, one call, one charge.
+    it("keeps a call heard twice once, and adds what it paid once", () => {
+      const once = after(open(), heard(0, paid), heard(1, unpriced));
+      const twice = [heard(0, paid), heard(1, unpriced), heard(1, unpriced)].reduce(applyRunEvent, once);
+      expect(twice.steps[0]).toMatchObject({ calls: [paid, unpriced] });
+      expect(twice.spent_usd).toBeCloseTo(0.004, 10);
+      expect(twice.unknown_cost_calls).toBe(1);
+
+      const joinedLate = run({
+        spent_usd: 0.004,
+        steps: [{ kind: "tool", name: "tool_script", tool_call_id: "s1", arguments: {}, ok: null, output: null, calls: [paid], duration_ms: null }],
+      });
+      expect(applyRunEvent(joinedLate, heard(0, paid)).spent_usd).toBeCloseTo(0.004, 10);
+    });
+
+    it("adds from the result only what no event listed, and keeps the calls in the order the script made them", () => {
+      // Heard as they ended: the paid one first, though the script made it second.
+      const running = after(open(), heard(0, paid), heard(1, unpriced));
+      const later = { ...paid, arguments: { path: "b.pdf" }, cost_usd: 0.002 };
+
+      const closed = applyRunEvent(running, result([search, paid, unpriced, later]));
+
+      expect(closed.steps[0]).toMatchObject({ ok: true, calls: [search, paid, unpriced, later] });
+      expect(closed.spent_usd).toBeCloseTo(0.006, 10);
+      expect(closed.unknown_cost_calls).toBe(1);
+    });
+
+    it("adds nothing from a result whose every call was heard as it ended", () => {
+      const closed = after(open(), heard(0, paid), heard(1, unpriced), result([paid, unpriced]));
+      expect(closed.spent_usd).toBeCloseTo(0.004, 10);
+      expect(closed.unknown_cost_calls).toBe(1);
+    });
+
+    // After a restart the server makes the call again: what the script called before is
+    // not what it calls now, though what was paid for it stays paid.
+    it("reuses the open step of a call made again, with the calls gone and the totals kept", () => {
+      const before = after(open(), heard(0, paid));
+      const again = applyRunEvent(before, open());
+      expect(again.steps).toHaveLength(1);
+      expect(again.steps[0]).toMatchObject({ kind: "tool", name: "tool_script", tool_call_id: "s1", ok: null });
+      expect(again.steps[0]).not.toHaveProperty("calls");
+      expect(again.spent_usd).toBeCloseTo(0.004, 10);
+
+      // The first call of the new attempt is new, and is charged as such.
+      const anew = applyRunEvent(again, heard(0, paid));
+      expect(anew.steps[0]).toMatchObject({ calls: [paid] });
+      expect(anew.spent_usd).toBeCloseTo(0.008, 10);
+    });
+
+    it("opens a new step for an id whose step was answered, and lists on the latest of the two", () => {
+      const reused = after(open(), heard(0, search), result([search]), open(), heard(0, paid));
+      expect(reused.steps).toHaveLength(2);
+      expect(reused.steps[0]).toMatchObject({ ok: true, calls: [search] });
+      expect(reused.steps[1]).toMatchObject({ ok: null, calls: [paid] });
+
+      const closed = applyRunEvent(reused, result([paid]));
+      expect(closed.steps[0]).toMatchObject({ ok: true, calls: [search] });
+      expect(closed.steps[1]).toMatchObject({ ok: true, calls: [paid] });
+      expect(closed.spent_usd).toBeCloseTo(0.004, 10);
+    });
+
+    it("changes nothing for a call whose script has no step here", () => {
+      expect(applyRunEvent(run(), heard(0, paid))).toEqual(run());
+      const other = after(open("s2"));
+      expect(applyRunEvent(other, heard(0, paid))).toEqual(other);
+    });
+
+    it("leaves the run it was handed as it was", () => {
+      const before = after(open(), heard(0, search));
+      const kept = structuredClone(before);
+      applyRunEvent(before, heard(1, paid));
+      applyRunEvent(before, result([search, paid]));
+      expect(before).toEqual(kept);
+    });
   });
 
   it("copies final totals from done/halted and messages from errors and approvals", () => {

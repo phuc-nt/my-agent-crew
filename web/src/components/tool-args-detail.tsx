@@ -15,6 +15,23 @@ export const SUMMARY_CUT = 60;
 
 type Args = Record<string, unknown> | string;
 
+/**
+ * Tool arguments as one readable line of `name=value` pairs.
+ *
+ * Runs recorded before the store kept arguments as a mapping hold them as a
+ * single stringified line instead. `Object.entries` walks a string by index, so
+ * such a row came out as one pair per character; showing the line as it stands
+ * is the closest thing to the truth we still have about those runs.
+ */
+export function summarizeArguments(args: Args): string {
+  if (typeof args === "string") return args;
+  const pairs = Object.entries(args).map(([key, value]) => {
+    const text = typeof value === "string" ? value : JSON.stringify(value);
+    return `${key}=${text.length > SUMMARY_CUT ? `${text.slice(0, SUMMARY_CUT - 3)}…` : text}`;
+  });
+  return pairs.join(", ");
+}
+
 /** Whether the one-line summary already shows everything; if so the disclosure would
  *  only repeat it, and a link that opens nothing new teaches people to skip it. */
 function hasMore(args: Args): boolean {

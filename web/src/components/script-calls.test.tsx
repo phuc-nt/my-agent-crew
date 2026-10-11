@@ -3,7 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import type { NestedToolCall } from "../api/types";
 import { vi } from "../i18n/vi";
-import { ScriptCalls } from "./script-calls";
+import type { ScriptWork } from "../lib/nested-calls";
+import { ScriptCalls, ScriptReport } from "./script-calls";
 
 function call(overrides: Partial<NestedToolCall> = {}): NestedToolCall {
   return {
@@ -109,5 +110,58 @@ describe("what a script called on its own", () => {
 
     const lines = [...rows[0].querySelectorAll(".script-call-line")].map((line) => line.textContent);
     expect(lines).toEqual(["query=kế hoạch", "Có gọi model · $0.01", "3 trang"]);
+  });
+});
+
+describe("what a script was handed against what it handed on", () => {
+  function report(work: ScriptWork, settled = true) {
+    const { container, unmount } = render(<ScriptReport work={work} settled={settled} />);
+    return { container, line: screen.queryByTestId("script-measures"), list: screen.queryByTestId("script-calls"), unmount };
+  }
+
+  it("is one line under the calls: what they handed back, how many they were, what was printed", () => {
+    const { container, line, list } = report({ calls: [call(), call()], received_chars: 12_480, printed_chars: 96 });
+
+    expect(line).toHaveTextContent(/^Nhận 12\.480 ký tự từ 2 lời gọi, trả về 96 ký tự$/);
+    expect(list).not.toBeNull();
+    expect([...container.children]).toEqual([list, line]);
+  });
+
+  it("counts a script that called nothing as it is: nothing handed back, from no call", () => {
+    const { line, list } = report({ received_chars: 0, printed_chars: 8 });
+
+    expect(line).toHaveTextContent(/^Nhận 0 ký tự từ 0 lời gọi, trả về 8 ký tự$/);
+    expect(list).toBeNull();
+  });
+
+  // A run kept from before the two were counted: its calls are known, the numbers are not,
+  // and a nought there would say the script was handed nothing.
+  it("puts a dash for a number nobody counted, not a nought", () => {
+    const old = report({ calls: [call(), call(), call()] });
+    expect(old.line).toHaveTextContent(/^Nhận — ký tự từ 3 lời gọi, trả về — ký tự$/);
+    old.unmount();
+
+    const half = report({ calls: [call()], printed_chars: 40 });
+    expect(half.line).toHaveTextContent(/^Nhận — ký tự từ 1 lời gọi, trả về 40 ký tự$/);
+    half.unmount();
+
+    expect(report({ received_chars: 40 }).line).toHaveTextContent(/^Nhận 40 ký tự từ 0 lời gọi, trả về — ký tự$/);
+  });
+
+  it("waits for the script to end, while the calls it has made are listed as they come", () => {
+    const { line, list } = report({ calls: [call()] }, false);
+
+    expect(list?.querySelector("summary")).toHaveTextContent(/^Script đã gọi công cụ 1 lần$/);
+    expect(line).toBeNull();
+  });
+
+  it("says nothing at all of a tool that is no script, running or done", () => {
+    for (const settled of [false, true]) {
+      const { container, unmount } = report({}, settled);
+      expect(container).toBeEmptyDOMElement();
+      unmount();
+    }
+    // An empty list is no list, as on a result that called nothing.
+    expect(report({ calls: [] }).container).toBeEmptyDOMElement();
   });
 });

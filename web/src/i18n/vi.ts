@@ -232,6 +232,7 @@ export const vi = {
   haltedBudgetLifted: "Đã lưu trần mới — gửi lại tin nhắn để agent làm tiếp.",
   haltedMaxSteps: "Đã dừng vì vượt số bước tối đa trong một lượt.",
   haltedLoop: "Đã dừng vì agent gọi lại y hệt một lệnh nhiều lần liên tiếp.",
+  haltedNestedCalls: "Đã dừng vì script dùng hết số lời gọi công cụ của một lượt.",
   runInterrupted: "Bị ngắt giữa chừng: máy chủ khởi động lại hoặc kết nối bị đóng.",
   errorPrefix: "Lỗi: ",
   stopped: "Đã dừng lượt này.",
@@ -726,6 +727,13 @@ export const vi = {
   // model never read. Counted in calls, since a script may call one tool many times.
   scriptCalls: (count: number, failed: number) =>
     failed > 0 ? `Script đã gọi công cụ ${count} lần · ${failed} lần lỗi` : `Script đã gọi công cụ ${count} lần`,
+  // Under those calls once the script ended: what the calls handed the script, none of which
+  // the model read, against what the script handed the model. A dash stands for a number
+  // nobody counted, on a run from before the two were measured.
+  scriptMeasures: (received: number | null, calls: number, printed: number | null) => {
+    const chars = (n: number | null) => (n === null ? "—" : n.toLocaleString("vi-VN"));
+    return `Nhận ${chars(received)} ký tự từ ${calls} lời gọi, trả về ${chars(printed)} ký tự`;
+  },
   // The usage half of a model step's detail line: "openrouter:deepseek · TTFT 1.2s ·
   // 12.3k tok (8.1k cache) · suy nghĩ". TTFT is the wait before the first word came back.
   stepTtft: (ms: number) => `TTFT ${ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`}`,

@@ -2,8 +2,7 @@ import type { ReactNode } from "react";
 import { vi } from "../i18n/vi";
 import type { PendingApproval } from "../state/thread-reducer";
 import { formatClock } from "./run-timeline";
-import { ToolArgsDetail } from "./tool-args-detail";
-import { summarizeArguments } from "./tool-call-card";
+import { summarizeArguments, ToolArgsDetail } from "./tool-args-detail";
 import { Icon } from "./ui/icon";
 
 interface Props {

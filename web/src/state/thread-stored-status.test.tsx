@@ -11,6 +11,7 @@ type Tool = Extract<ThreadItem, { kind: "tool" }>;
 
 const STEPS = "Không chạy: lượt đã hết số bước tối đa nên dừng trước lệnh này.";
 const LOOP = "Không chạy: lệnh này đã được gọi y hệt nhiều lần liên tiếp nên lượt bị dừng tại đây.";
+const NESTED = "Không chạy: lượt đã dùng hết 120 lời gọi lồng của script nên dừng trước lệnh này.";
 const MISMATCH = "Lời gọi này trùng id với một lời gọi khác đã được duyệt cho một việc khác, nên không dùng lại quyết định đó. Hãy gọi lại nếu vẫn cần.";
 const BRANCHED = "Lệnh này chưa chạy vì hội thoại đã được rẽ nhánh trước khi nó kết thúc. Gọi lại nếu vẫn cần.";
 const CUT_SHORT = "Lời gọi này bị ngắt giữa chừng: không rõ nó đã chạy hay chưa. Nếu vẫn cần, hãy kiểm tra trước rồi mới gọi lại.";
@@ -37,13 +38,14 @@ const FAILED: [how: string, tool: string, reply: string][] = [
   ["its arguments were cut off", "artifact_create", CUT_OFF],
   ["the turn was out of steps", "shell_run", STEPS],
   ["the turn was stopped for repeating itself", "shell_run", LOOP],
+  ["the turn's scripts had made every call a turn may", "workspace_write", NESTED],
   ["its id had been approved for another call", "workspace_write", MISMATCH],
   ["the wait for a handed-off task ran out", "delegate", result(TIMED_OUT, [], WAITED)],
   ["the conversation was branched before it ran", "workspace_read", BRANCHED],
   ["the run was cut before it answered", "shell_run", CUT_SHORT],
 ];
 // The last two are written into a thread nobody is watching, so no reply of theirs ever arrives.
-const ARRIVING = FAILED.slice(0, 9);
+const ARRIVING = FAILED.slice(0, 10);
 // All but the handed-off task, which is known by more than how its reply opens.
 const BY_OPENING = FAILED.filter(([, tool]) => tool !== "delegate");
 
@@ -109,6 +111,8 @@ describe("a call that failed, read back from the stored thread", () => {
     "không chạy artifact_create: chữ thường",
     STEPS.slice(0, -1),
     LOOP.slice(0, -1),
+    "Không chạy: lượt đã dùng hết.", // the count a turn may make is not named
+    "Không chạy: lượt đã dùng hết120 lời gọi lồng của script nên dừng trước lệnh này.",
     MISMATCH.slice(0, -1),
     BRANCHED.slice(0, -1),
     CUT_SHORT.slice(0, -1),

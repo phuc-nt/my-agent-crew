@@ -112,9 +112,13 @@ function mergeable(prev: RunRow, next: RunRow): boolean {
 }
 
 function hasBody(step: RunStep): boolean {
-  // A script that printed nothing still made its calls, and they are listed on its row:
-  // folded into the row before it, the calls of every script but the first would go.
-  if (step.kind === "tool") return (step.output !== null && step.output !== "") || Boolean(step.calls?.length);
+  // A script that printed nothing still made its calls, and they are listed on its row with
+  // what it was handed and handed on: folded into the row before it, those of every script
+  // but the first would go.
+  if (step.kind === "tool") {
+    const measured = step.received_chars !== undefined || step.printed_chars !== undefined;
+    return (step.output !== null && step.output !== "") || Boolean(step.calls?.length) || measured;
+  }
   if (step.kind === "model") return Boolean(step.preview);
   // A fallback carries its error text, a move to the escalation route says why it was
   // made, a question carries what was asked and a note

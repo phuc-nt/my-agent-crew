@@ -8,8 +8,8 @@ import { runSummaryText } from "../lib/run-summary";
 import type { RunGroup } from "../state/activity-reducer";
 import { formatUsd } from "./budget-indicator";
 import { RunProgressHeader } from "./run-progress-header";
-import { ScriptCalls } from "./script-calls";
-import { summarizeArguments } from "./tool-call-card";
+import { ScriptReport } from "./script-calls";
+import { summarizeArguments } from "./tool-args-detail";
 
 export function formatClock(iso: string): string {
   const date = new Date(iso);
@@ -217,7 +217,7 @@ function StepRow({ row }: { row: RunRow }) {
       )}
       {/* What a script called on its own. Above its output, since the calls are what was
           done and the output only what the script chose to say about it. */}
-      {step.kind === "tool" && step.calls && step.calls.length > 0 && <ScriptCalls calls={step.calls} />}
+      {step.kind === "tool" && <ScriptReport work={step} settled={step.ok !== null} />}
       {step.kind === "tool" && step.output && (
         <>
           <button type="button" className="link-button" onClick={() => setShowOutput((s) => !s)}>

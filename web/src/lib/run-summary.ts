@@ -16,6 +16,7 @@ const CODES = new Map<RunStatus, Map<string, string>>([
       ["budget", vi.haltedBudget],
       ["max_steps", vi.haltedMaxSteps],
       ["loop", vi.haltedLoop],
+      ["nested_calls", vi.haltedNestedCalls],
     ]),
   ],
   ["error", new Map([["interrupted", vi.runInterrupted]])],

@@ -69,6 +69,121 @@ describe("conversationMarkdown", () => {
     expect(conversationMarkdown(detail, "Coach")).toBe("# x\n");
   });
 
+  describe("what a script called on its own", () => {
+    const search = { name: "mcp__notion__search", arguments: { query: "kế hoạch" }, ok: true, output: '{"pages": [1, 2, 3]}', ms: 120, cost_usd: null, metered: false };
+    const missing = { name: "workspace_read", arguments: { path: "a.md" }, ok: false, output: "không có tệp", ms: 4, cost_usd: null, metered: false };
+    const paid = { name: "pdf_read", arguments: { path: "a.pdf" }, ok: true, output: "Tổng chi 4,2 triệu.", ms: 1_500, cost_usd: 0.004, metered: true };
+    const unpriced = { ...paid, name: "image_read", cost_usd: null };
+    const kept = (calls: unknown, received: number | null = 60, printed: number | null = 8) =>
+      JSON.stringify({ calls, received_chars: received, printed_chars: printed });
+    const SCRIPT = { id: "s1", name: "tool_script", arguments: { script: "print(1)" } };
+    /** The turn of a script: asked, the script written (with `said` or with no word), its result, the reply. */
+    const turn = (context: string, said = "") => [
+      storedMessage("user", "Gom ghi chú tuần này", { created_at: "2026-09-24T23:30:00Z" }),
+      storedMessage("assistant", said, { created_at: "2026-09-24T23:30:05Z", tool_calls: [SCRIPT] }),
+      storedMessage("tool", "đọc xong", { created_at: "2026-09-24T23:30:09Z", tool_call_id: "s1", context }),
+      storedMessage("assistant", "Có 3 trang.", { created_at: "2026-09-24T23:31:00Z" }),
+    ];
+    const exported = (messages: ReturnType<typeof turn>) => conversationMarkdown(new FakeBackend().create({ title: "Ghi chú", messages }), "Coach");
+
+    it("is listed under the agent's name, between what was asked and the reply it rests on", () => {
+      expect(exported(turn(kept([search, missing, paid, unpriced])))).toBe(
+        [
+          "# Ghi chú",
+          "## Bạn · 25/09/2026 06:30 (UTC+7)",
+          "Gom ghi chú tuần này",
+          // The script was written without a word, so its calls open the agent's turn.
+          "## Coach · 25/09/2026 06:30 (UTC+7)",
+          "Script đã gọi công cụ 4 lần · 1 lần lỗi:",
+          "1. `mcp__notion__search` · 120 ms\n2. `workspace_read` · lỗi · 4 ms\n3. `pdf_read` · 1.5 giây · $0.0040\n4. `image_read` · 1.5 giây · không rõ giá",
+          "## Coach · 25/09/2026 06:31 (UTC+7)",
+          "Có 3 trang.",
+        ].join("\n\n") + "\n",
+      );
+    });
+
+    it("goes under what the agent said as it wrote the script, with no second heading", () => {
+      expect(exported(turn(kept([search]), "Để mình đọc Notion."))).toBe(
+        [
+          "# Ghi chú",
+          "## Bạn · 25/09/2026 06:30 (UTC+7)",
+          "Gom ghi chú tuần này",
+          "## Coach · 25/09/2026 06:30 (UTC+7)",
+          "Để mình đọc Notion.",
+          "Script đã gọi công cụ 1 lần:",
+          "1. `mcp__notion__search` · 120 ms",
+          "## Coach · 25/09/2026 06:31 (UTC+7)",
+          "Có 3 trang.",
+        ].join("\n\n") + "\n",
+      );
+    });
+
+    it("keeps two scripts of one turn under the one heading, each with its own list", () => {
+      const again = { ...SCRIPT, id: "s2" };
+      const messages = [
+        storedMessage("assistant", "", { created_at: "2026-09-24T23:30:05Z", tool_calls: [SCRIPT, again] }),
+        storedMessage("tool", "một", { created_at: "2026-09-24T23:30:09Z", tool_call_id: "s1", context: kept([search]) }),
+        storedMessage("tool", "hai", { created_at: "2026-09-24T23:30:12Z", tool_call_id: "s2", context: kept([missing, missing]) }),
+      ];
+      expect(exported(messages)).toBe(
+        [
+          "# Ghi chú",
+          "## Coach · 25/09/2026 06:30 (UTC+7)",
+          "Script đã gọi công cụ 1 lần:",
+          "1. `mcp__notion__search` · 120 ms",
+          "Script đã gọi công cụ 2 lần · 2 lần lỗi:",
+          "1. `workspace_read` · lỗi · 4 ms\n2. `workspace_read` · lỗi · 4 ms",
+        ].join("\n\n") + "\n",
+      );
+    });
+
+    it("writes neither what a call was asked nor what it answered: the export stays free of JSON", () => {
+      const text = exported(turn(kept([search, missing])));
+      for (const working of ["kế hoạch", "pages", "a.md", "không có tệp", "đọc xong", "print(1)"]) expect(text).not.toContain(working);
+    });
+
+    it("reads as a numbered list under the agent's heading, and adds no heading of its own", () => {
+      const text = exported(turn(kept([search, missing])));
+      expect(outline(text)).toEqual([
+        "h1 Ghi chú",
+        "h2 Bạn · 25/09/2026 06:30 (UTC+7)",
+        "h2 Coach · 25/09/2026 06:30 (UTC+7)",
+        "h2 Coach · 25/09/2026 06:31 (UTC+7)",
+      ]);
+      const { container } = render(createElement(MarkdownBody, { text }));
+      expect([...container.querySelectorAll("ol > li")].map((item) => item.textContent)).toEqual([
+        "mcp__notion__search · 120 ms",
+        "workspace_read · lỗi · 4 ms",
+      ]);
+      expect([...container.querySelectorAll("ol code")].map((name) => name.textContent)).toEqual(["mcp__notion__search", "workspace_read"]);
+    });
+
+    const PLAIN = [
+      "# Ghi chú",
+      "## Bạn · 25/09/2026 06:30 (UTC+7)",
+      "Gom ghi chú tuần này",
+      "## Coach · 25/09/2026 06:31 (UTC+7)",
+      "Có 3 trang.",
+    ].join("\n\n") + "\n";
+
+    // A script that called nothing did only what its reply says; a result that is no
+    // script's kept nothing; a row that is not what is expected costs the list, not the file.
+    it.each<[string, string]>([
+      ["a script that called nothing", kept([])],
+      ["a tool that is no script", ""],
+      ["a row that is no JSON", "[Canvas · Kế hoạch tuần]\n> chạy 5 km"],
+      ["calls that are not all whole", kept([search, { name: "workspace_read" }])],
+    ])("writes nothing for %s", (_what, context) => {
+      expect(exported(turn(context))).toBe(PLAIN);
+    });
+
+    it("does not read a person's canvas note as a list, though the field is the same", () => {
+      const messages = turn("");
+      messages[0] = { ...messages[0], context: kept([search]) };
+      expect(exported(messages)).toBe(PLAIN);
+    });
+  });
+
   it("names an untitled conversation the way the sidebar does", () => {
     const detail = new FakeBackend().create({ title: "" });
     expect(conversationMarkdown(detail, "Coach")).toBe(`# ${vi.newConversation}\n`);
