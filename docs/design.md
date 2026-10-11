@@ -242,7 +242,13 @@ any platform ──POST /api/inbound (JSON, sync)─────┴─▶ Inboun
   ghi `read_only` mà không ẩn), nên nó không bao giờ đứng chờ duyệt và mọi lời gọi có
   ghi vẫn qua cổng duyệt. Cũng vì thế agent nào giữ ít nhất một tool như vậy đều có
   `tool_script`, không cần máy chủ MCP nào và không theo `tools` hay `mode`: đọc mười tệp rồi
-  lọc lấy vài dòng cũng là việc của script. Ngôn ngữ là một phần của Python do chính crew thông
+  lọc lấy vài dòng cũng là việc của script. Chủ có thể mở rộng điều đó cho từng agent
+  (`script_calls: gated` trong `agent.yaml` của nó, mặc định tắt): script của agent ấy gọi được
+  cả tool có ghi, mà hai điều trên vẫn giữ. Cổng duyệt xét từng lời gọi như vậy trước khi nó
+  chạy, bằng đúng hàm xét một lời gọi trực tiếp, và lời gọi nào phải hỏi người thì script dừng
+  ở đó với lời bảo gọi trực tiếp: một lượt đang chờ duyệt không giữ gì trong bộ nhớ, nên script
+  không có cách dừng giữa chừng để hỏi. Script như thế bị restart cắt thì không chạy lại, vì
+  không gì nói nó đã ghi những gì. Ngôn ngữ là một phần của Python do chính crew thông
   dịch, không `eval`, không import, không đọc thuộc tính; script chạy trong một tiến trình con
   với môi trường rỗng và các giới hạn cứng, trên macOS trong sandbox không mạng, không ghi,
   không fork.

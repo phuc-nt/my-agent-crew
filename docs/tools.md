@@ -773,11 +773,15 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
   bật máy chủ MCP nào: chỉ cần `workspace_read` là script của nó đã có việc để làm. Như
   `tool_search`, `tool_script` **không** theo danh sách cho phép `tools` và không theo `mode`; nó
   theo những gì hai thứ đó để lại cho agent đọc. Một agent mà `tools:` chỉ có `workspace_write`,
-  và không máy chủ nào giao cho nó một tool chỉ đọc, thì không có `tool_script`. Tool đứng sau các
+  và không máy chủ nào giao cho nó một tool chỉ đọc, thì không có `tool_script`; cũng agent đó mà
+  `agent.yaml` ghi `script_calls: gated` thì có, vì script của nó gọi được `workspace_write`
+  (bullet "Script gọi cả tool ghi" bên dưới). Tool đứng sau các
   tool có sẵn, sau `delegate` và sau `tool_search` nếu agent có, trước các tool MCP. Mỗi lần máy
   chủ MCP nối, ngắt hay đổi danh sách tool, agent được giao lại `tool_script` ở đúng chỗ đó với
   lời mô tả mới.
-- **Script gọi được gì.** Chỉ những tool chỉ đọc và không hỏi ai, trong số tool agent đang giữ:
+- **Script gọi được gì.** Mặc định (`script_calls: read_only`) chỉ những tool chỉ đọc và không hỏi
+  ai, trong số tool agent đang giữ; agent bật `script_calls: gated` có thêm các tool có ghi, xem
+  bullet "Script gọi cả tool ghi":
   - tool có sẵn tự khai là gọi lại được sau restart: `workspace_read`, `workspace_list`,
     `workspace_grep`, `workspace_glob`, `fetch_url`, `web_search`, `memory_search`,
     `conversation_search`, `wiki_get`, `wiki_search`, `artifact_list`, `skill_read`, `pdf_read`,
@@ -840,9 +844,11 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
   - Lô chạy tối đa 4 lời gọi cùng một lúc, phần còn lại chờ tới lượt. Mỗi lời gọi vẫn đi qua hook
     của agent, vẫn được tính tiền riêng khi có trả tiền cho model và vẫn nằm trên thẻ run, theo
     thứ tự đã viết chứ không theo thứ tự xong. Script bị dừng khi lô còn dở (hết giờ, lượt bị
-    dừng) thì các lời gọi đã xong vẫn được giữ, đúng chỗ đã viết. Script chỉ gọi được tool chỉ đọc nên các lời gọi
-    không cần xếp hàng cho nhau, và crew không giữ gì từ lời gọi này sang lời gọi sau: mỗi hook là
-    một tiến trình riêng, mỗi lời gọi MCP một yêu cầu HTTP riêng. (Lô của chính model, nhiều lời
+    dừng) thì các lời gọi đã xong vẫn được giữ, đúng chỗ đã viết. Lô mà mọi lời gọi đều chỉ đọc
+    thì các lời gọi không cần xếp hàng cho nhau, và crew không giữ gì từ lời gọi này sang lời gọi
+    sau: mỗi hook là một tiến trình riêng, mỗi lời gọi MCP một yêu cầu HTTP riêng. Lô có ít nhất
+    một lời gọi tới tool có ghi, chỉ có ở agent `script_calls: gated`, thì chạy **từng lời gọi
+    một**, theo thứ tự đã viết (bullet "Script gọi cả tool ghi"). (Lô của chính model, nhiều lời
     gọi trong một tin, vẫn chỉ chạy song song ở tool tự khai `parallel`: ở đó lời gọi có thể ghi
     và thứ tự ghi phải không phụ thuộc thời gian.)
   - Mỗi lời gọi của lô tính vào 25 lời gọi của script, trả lời được hay lỗi. Lô sai thì bị từ chối
@@ -860,7 +866,66 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
   mà script không được gọi (`delegate`, một tool MCP `hidden`), thì script **dừng ngay tại đó**:
   không `try/except` nào bắt được, và câu trả lời nói phải làm gì thay ("gọi trực tiếp", hoặc "nạp
   bằng tool_search rồi gọi trực tiếp"). Vì vậy script không bao giờ chờ người duyệt, và mọi lời
-  gọi có ghi vẫn đi qua cổng duyệt như cũ.
+  gọi có ghi vẫn đi qua cổng duyệt như cũ. Điều đó đúng cả với agent `script_calls: gated`: ở đó
+  cổng xét lời gọi có ghi ngay trong script, trước khi nó chạy (bullet kế tiếp).
+- **Script gọi cả tool ghi (`script_calls: gated`).** Một việc gồm hai chục lần ghi hay hai chục
+  lệnh shell cũng phải trả cho từng lời gọi và từng câu trả lời nằm lại trong ngữ cảnh, dù không
+  lần nào cần người duyệt. Agent mà `agent.yaml` ghi `script_calls: gated`
+  ([agents.md](agents.md#agentyaml)) được viết việc đó thành một script. Mặc định là `read_only`,
+  và khoá chỉ đọc từ tệp của chính agent, nên không agent nào có chế độ này trừ khi chủ ghi nó ra.
+  - **Gọi thêm được gì.** Mọi thứ script vốn gọi được, cộng mọi tool agent đang giữ mà không chỉ
+    đọc: `workspace_write`, `workspace_edit` (agent work), `shell_run`, `memory_save`,
+    `user_memory_save`, `user_memory_forget`, `wiki_apply`, các tool ghi canvas
+    (`artifact_create`, `artifact_edit`, `artifact_rewrite`, `artifact_import`,
+    `artifact_export`) và tool MCP không nằm trong `read_only`, ở mọi mức mở. Vẫn ở ngoài:
+    `ask_user` và `schedule_create` (hai tool luôn chờ
+    một người, dù cuộc trò chuyện cho phép gì; script được nói "luôn phải hỏi người dùng nên
+    không gọi được từ script"), năm tool ở bullet "Script gọi được gì", bốn tên của `tools`, và
+    tool MCP `hidden`. `tools.names()`, `tools.search`, `tools.describe` và lời mô tả của
+    `tool_script` kể cả tập rộng hơn này; lời mô tả có thêm một đoạn nói script gọi được cả tool
+    ghi, cổng duyệt xét từng lời gọi, và phải làm gì khi script bị dừng.
+  - **Cổng duyệt xét trước khi chạy.** Lời gọi tới tool chỉ đọc không qua cổng, như trước. Lời
+    gọi tới tool không chỉ đọc được hỏi cổng **bằng đúng luật của một lời gọi trực tiếp** (cùng
+    một hàm, `agent/tool_gate.verdict`), với cuộc trò chuyện của chính lượt đang chạy, đọc lại ở
+    mỗi lời gọi. Cổng nói chạy thì tool chạy qua đúng sổ tool và hook của agent, và mọi hàng rào
+    trong chính tool (`write_paths`, sandbox của shell, …) vẫn nguyên. Tức là lời gọi chạy khi
+    một lời gọi trực tiếp giống hệt sẽ chạy mà không hỏi ai: tool không cần duyệt (như
+    `memory_save`); hoặc tool cần duyệt mà cuộc trò chuyện autonomous, người dùng đã chọn luôn
+    cho phép tool đó, hay lệnh shell khớp `shell_allow_patterns`. Lệnh khớp `shell_ask_patterns`
+    thì vẫn phải hỏi dù rơi vào trường hợp nào trong số đó, như khi gọi trực tiếp.
+  - **Điều gì làm script dừng.** Script không bao giờ chờ một người: một lượt đang chờ duyệt
+    không giữ gì trong bộ nhớ, nên không có cách dừng giữa script để hỏi. Lời gọi nào cổng không
+    cho chạy ngay thì script **dừng tại đó**, không `try/except` nào bắt được, tool chưa chạy,
+    và câu trả lời nói phải làm gì:
+    - lệnh `shell_run` khớp `shell_ask_patterns`: câu trả lời nêu tên tool và mẫu đã khớp, bảo
+      gọi `shell_run` trực tiếp, ngoài script, để người dùng được hỏi;
+    - cuộc trò chuyện cần người duyệt lời gọi đó (không autonomous, tool chưa được luôn cho
+      phép, lệnh không khớp `shell_allow_patterns`): cũng bảo gọi trực tiếp;
+    - lệnh `shell_run` khớp `shell_deny_patterns`: câu trả lời nêu mẫu và dặn đừng tìm đường
+      khác mà nói rõ với người dùng, như khi gọi trực tiếp;
+    - script không chạy trong lượt nào, hay cuộc trò chuyện của lượt không còn: không có luật
+      của ai để xét, nên lời gọi có ghi không chạy.
+
+    Không câu nào lặp lại lệnh hay tham số của lời gọi: lệnh có thể chứa bí mật, mà câu trả lời
+    được lưu cùng run. Chỉ mẫu trong danh sách của chủ được nêu. Lời từ chối được quyết trước
+    khi lời gọi lấy gì từ trần lời gọi của cả lượt, và lời gọi bị từ chối không nằm trên thẻ
+    run. Model đọc câu trả lời rồi gọi tool đó trực tiếp; ở đó người dùng được hỏi như mọi lần.
+  - **Lô có lời gọi ghi.** Cổng xét **mọi** lời gọi của lô trước khi lời gọi nào chạy. Một lời
+    gọi bị từ chối thì không lời gọi nào của lô chạy và script dừng. Lô qua cổng mà có ít nhất
+    một lời gọi tới tool không chỉ đọc thì chạy từng lời gọi một, đúng thứ tự đã viết, vì lời
+    gọi sau có thể dựa vào cái lời gọi trước để lại; kết quả vẫn là một list theo thứ tự đó, và
+    một lời gọi lỗi (lệnh thoát với mã khác 0) vẫn chỉ là phần tử `ok: False` của nó, các lời
+    gọi sau vẫn chạy. Lô chỉ có lời gọi đọc thì chạy cùng lúc như ở agent khác.
+  - **Trên thẻ run và API.** Lời gọi đã qua cổng mang `gated: true` ở mọi nơi lời gọi của script
+    được ghi (bullet "Trên API"); lời gọi chỉ đọc không mang khoá này.
+  - **Sau restart.** `tool_script` của agent `gated` không tự khai là gọi lại được. Lời gọi của
+    một script chỉ được lưu cùng kết quả của script, nên với script bị cắt giữa chừng không có
+    gì nói nó đã ghi những gì: lời gọi `tool_script` đó được đóng bằng câu "Server khởi động lại
+    khi lời gọi này đang chạy…" như mọi tool ghi bị cắt, và model được dặn kiểm tra trước khi
+    gọi lại. Điều này áp cho mọi script của agent `gated`, kể cả script chỉ đọc.
+  - **Tắt.** Bỏ khoá hoặc ghi `script_calls: read_only`; script của agent trở lại chỉ đọc và lời
+    mô tả của `tool_script` trở lại như cũ. Sửa qua API có hiệu lực ngay, sửa tay cần khởi động
+    lại.
 - **Tên không có.** Gọi `tools.TÊN` khi agent không giữ tool nào tên đó (thường là gõ nhầm) chỉ là
   một lỗi bắt được: câu trả lời nêu tool gần tên nhất trong số tool script gọi được ("Ý bạn là
   …?") và chỉ sang `tools.names()` và `tools.search`. Không tool nào chạy, nhưng lời gọi vẫn tính
@@ -954,7 +1019,10 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
   gian, giá nếu có), không ghi tham số và câu trả lời.
 - **Trên API.** `calls` (mỗi phần tử có `name`, `arguments`, `ok`, `output`, `ms`, `cost_usd`,
   `metered`), `received_chars` và `printed_chars` nằm trên step tool của `/api/activity/runs` và
-  trên sự kiện `tool_result`. Với tool không phải script, sự kiện mang `calls` rỗng và hai số đo
+  trên sự kiện `tool_result`. Lời gọi tới tool có ghi, đã được cổng duyệt cho chạy (agent
+  `script_calls: gated`), có thêm `gated: true`; khoá này **chỉ được ghi khi đúng**, nên lời gọi
+  chỉ đọc giữ nguyên bảy khoá trên, ở sự kiện, ở step và ở phần lưu kèm. Với tool không phải
+  script, sự kiện mang `calls` rỗng và hai số đo
   `null`, còn step không có ba khoá đó. Mỗi lời gọi vừa xong đi trong một sự kiện riêng
   `nested_call` gồm `tool_call_id` (của lời gọi `tool_script`), `index` (thứ tự lời gọi xong, từ
   0, để ai nghe một lời gọi hai lần vẫn chỉ giữ một) và `call`. Tin nhắn tool được lưu của một
@@ -973,7 +1041,9 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
   từ đầu, và script chạy ngoài một lượt không bị đếm. Một script y hệt được gọi đi gọi lại thì bị
   bộ phát hiện lặp của lượt bắt như mọi lời gọi lặp khác.
 - **Sau restart.** `tool_script` tự khai là gọi lại được: mọi thứ một script làm đều là lời gọi
-  vốn đã gọi lại được, nên script bị cắt giữa chừng được chạy lại từ đầu.
+  vốn đã gọi lại được, nên script bị cắt giữa chừng được chạy lại từ đầu. Riêng agent
+  `script_calls: gated` thì không: script bị cắt của nó được đóng lại chứ không chạy lại (bullet
+  "Script gọi cả tool ghi").
 
 Giới hạn nằm trong code, không cấu hình nào nới được:
 
@@ -1207,7 +1277,9 @@ một hàm run, và ba cờ: có cần duyệt không, hai lời gọi trong cù
 message có được chồng lên nhau an toàn không (đọc thì được, ghi vào cùng tệp thì không), và gọi
 lại lần nữa có an toàn không (`replay_safe`, mặc định là không). Chỉ tool chỉ đọc mới khai cờ thứ
 ba: lượt bị server khởi động lại cắt chỉ gọi lại những tool khai nó, và script của `tool_script`
-chỉ gọi được những tool khai nó mà không cần duyệt. Nó được nối
+chỉ gọi được những tool khai nó mà không cần duyệt (agent bật `script_calls: gated` thì gọi
+được cả tool còn lại, mỗi lời gọi qua cổng duyệt trước, xem
+[Gọi tool từ script](#gọi-tool-từ-script)). Nó được nối
 vào bộ tool của từng agent ở chỗ server lắp tool. Chữ mô tả và tham số
 được đưa cho model, nên chúng nằm cùng các chuỗi prompt khác, không nằm trong code. Đánh dấu
 tool cần duyệt bất cứ khi nào nó thay đổi trạng thái bên ngoài cuộc trò chuyện, thêm một dòng

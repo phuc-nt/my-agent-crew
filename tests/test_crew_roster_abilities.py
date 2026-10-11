@@ -19,6 +19,7 @@ from my_agent_crew.agents.schedule import Schedule
 from my_agent_crew.config_parse import Route
 from my_agent_crew.llm.fake import completion
 from my_agent_crew.mcp import hub, sign_in
+from my_agent_crew.script.scope import SCRIPT_TOOL
 from my_agent_crew.server.crew_abilities import crew_abilities
 from my_agent_crew.server.runtime import Runtime
 from my_agent_crew.skills import Skill
@@ -173,6 +174,34 @@ def test_the_model_is_told_with_where_a_stuck_turn_moves_only_when_it_can(deps_f
     assert said(rt, MODEL) == "small"
     helper.escalation = helper.chain
     assert said(rt, MODEL) == "small; khi bí thì tự chuyển sang big"
+
+
+def test_an_agent_whose_scripts_may_change_things_is_told_so_while_it_can_run_one(
+    deps_factory, store
+):
+    rt = crew_of(deps_factory, store)
+    helper = rt.deps_for("helper")
+    assert SCRIPT_TOOL in helper.tools.names() and said(rt, TOOLS) == "như của bạn"
+
+    helper.settings = replace(helper.settings, script_calls="gated")
+    assert said(rt, TOOLS) == "như của bạn; script gọi được cả công cụ ghi, kể cả shell_run"
+
+    # The shell is named only for an agent that holds one.
+    helper.tools = helper.tools.without("shell_run")
+    assert said(rt, TOOLS) == "như của bạn, không có: shell_run; script gọi được cả công cụ ghi"
+
+    # With no tool to run a script, what its scripts may call is nothing to tell.
+    helper.tools = helper.tools.without(SCRIPT_TOOL)
+    assert said(rt, TOOLS) == f"như của bạn, không có: shell_run, {SCRIPT_TOOL}"
+
+
+def test_what_the_masters_own_scripts_may_call_says_nothing_of_another_agents(deps_factory, store):
+    rt = crew_of(deps_factory, store)
+    master = rt.deps_for(DEFAULT_AGENT_ID)
+
+    master.settings = replace(master.settings, script_calls="gated")
+
+    assert said(rt, TOOLS) == "như của bạn"
 
 
 async def with_notion(

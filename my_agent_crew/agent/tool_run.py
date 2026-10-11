@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterator, Iterable, Sequence
-from dataclasses import asdict
 from typing import TYPE_CHECKING
 
 from my_agent_crew.agent.nested_calls import set_nested_sink
@@ -80,7 +79,7 @@ class CallRun:
             while (nested := await self._said.get()) is not None:
                 charge_nested(self._store, self._conv_id, [nested])
                 self.told.append(nested)
-                yield NestedCallEvent(self._call_id, len(self.told) - 1, asdict(nested))
+                yield NestedCallEvent(self._call_id, len(self.told) - 1, nested.to_dict())
         finally:
             if not self._task.done():
                 self._task.cancel()

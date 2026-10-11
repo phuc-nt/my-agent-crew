@@ -8,6 +8,7 @@ running is left to the turn, which asks, refuses or fails it as it always does."
 from __future__ import annotations
 
 import asyncio
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -17,14 +18,23 @@ from my_agent_crew.agent.replay import replayable
 from my_agent_crew.config import load_settings
 from my_agent_crew.llm.fake import completion
 from my_agent_crew.llm.types import Message, ToolCall
+from my_agent_crew.script.scope import SCRIPT_TOOL
+from my_agent_crew.script.tool import hand_script
 from my_agent_crew.server import build_runtime
 from my_agent_crew.store.runs import AWAITING, DONE, RUNNING, RunRecord
 from my_agent_crew.tools import Tool, ToolResult
 from my_agent_crew.tools.ask_user import ASK_USER_TOOL_NAME
 from my_agent_crew.tools.image import build_image_tool
 from my_agent_crew.tools.workspace_search import build_search_tools
-from tests.queue_helpers import Served
-from tests.restart_helpers import carried_on, go_down, history, next_server, stored_run
+from tests.queue_helpers import Served, SlowTool
+from tests.restart_helpers import (
+    carried_on,
+    cut_mid_tool,
+    go_down,
+    history,
+    next_server,
+    stored_run,
+)
 from tests.test_server_api import parse_sse
 
 GUARDED = ToolCall("g1", "guarded", {})
@@ -41,7 +51,9 @@ READS = {
     "progress_note",
     "skill_read",
     "tool_output_read",
-    "tool_script",  # every call a script makes is one of these
+    # Of an agent left as it was: every call its script makes is one of these. One whose
+    # scripts may change things holds a script tool that is not here (below).
+    "tool_script",
     "web_search",
     "wiki_get",
     "wiki_search",
@@ -183,3 +195,58 @@ def test_what_a_person_decided_about_a_call_says_whether_it_may_have_run(deps_fa
     # A question is answered by what the person said, which the store still holds.
     ask = ToolCall("h", ASK_USER_TOOL_NAME, {"question": "A hay B?", "options": ["A", "B"]})
     assert may_repeat(ask) is True
+
+
+SCRIPTED = ToolCall("s1", SCRIPT_TOOL, {"script": "print(tools.slowly())"})
+
+
+def changing(app: Served) -> None:
+    """The app's agent says its scripts may change things (`script_calls: gated`), and is
+    wired again the way a start wires it."""
+    deps = app.runtime.default
+    own = replace(deps.settings, script_calls="gated")
+    deps.settings, deps.profile = own, replace(deps.agent, settings=own)
+    app.runtime.wire_delegation()
+
+
+@pytest.mark.parametrize(
+    ("gated", "reads", "again"),
+    [(False, True, 1), (True, True, 0), (True, False, 0)],
+    ids=["left as it was", "may change things, cut on a read", "may change things, cut on a write"],
+)
+async def test_a_cut_script_is_run_again_only_while_no_script_of_its_agent_may_change_things(
+    served, gated, reads, again
+):
+    """The same script, cut at the same call. A call a script made is kept only with its
+    result, so nothing says what a cut one had done: where it may have written, it is closed
+    as cut, whatever the call it was cut on."""
+    cut = SlowTool("slowly", replay_safe=reads)
+    first = served([completion(tool_calls=[SCRIPTED])], extra_tools=[cut.tool])
+    if gated:
+        changing(first)
+    assert first.runtime.default.tools.get(SCRIPT_TOOL).replay_safe is not gated
+    await first.client.patch(first.detail, json={"autonomous": True})
+    assert (await cut_mid_tool(first, cut)).status == RUNNING and cut.runs == 1
+
+    later = SlowTool("slowly", replay_safe=reads)
+    later.release.set()
+    second = next_server(served, first, [completion("đã kiểm tra")], extra_tools=[later.tool])
+    if gated:
+        changing(second)
+    run = await carried_on(second)
+
+    assert run.status == DONE and later.runs == again
+    said = "xong" if again else texts.RESTART_CUT_TOOL
+    assert history(second)[-2:] == [("tool", said), ("assistant", "đã kiểm tra")]
+
+
+def test_a_script_tool_says_whether_a_restart_may_run_it_again(deps_factory):
+    call = ToolCall("s", SCRIPT_TOOL, {"script": "print(1)"})
+
+    def may_repeat(mode: str) -> bool:
+        deps = deps_factory(script_calls=mode)
+        hand_script(deps)
+        return replayable(deps, deps.store.create(), call)
+
+    assert may_repeat("read_only") is True
+    assert may_repeat("gated") is False

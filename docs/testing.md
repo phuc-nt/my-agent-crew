@@ -4675,7 +4675,8 @@ cũ.
     ghi đã được người cho phép và đang chạy lúc server tắt không chạy lại, call đóng bằng
     `RESTART_CUT_TOOL`; call bị cắt trước khi kịp hỏi thì vẫn được hỏi; tool lạ hay đối số hỏng thì lỗi như
     chính nó; `replayable` theo từng trường hợp quyết định của người: chưa hỏi, đang chờ, từ chối, đã cho
-    phép, quyết định của call khác cùng id, và `ask_user`).
+    phép, quyết định của call khác cùng id, và `ask_user`; script bị cắt chỉ chạy lại khi agent của nó
+    không bật `script_calls: gated`, xem [Gọi tool từ script](#gọi-tool-từ-script-tool_script)).
   - pytest: `tests/test_turn_resume.py` (lượt bị cắt giữa tool đi tiếp bằng chính run đó và call không chạy
     lại; call chỉ đọc được gọi lại và giữ chỗ trên timeline; lần gọi model chết cùng server được hỏi lại;
     lượt chỉ được nối một lần, bị cắt lần nữa thì đóng; cuộc đã tiêu hết ngân sách không được nối; lượt nối
@@ -5148,7 +5149,9 @@ giao `tool_search` để tìm bằng vài từ khoá; tool tìm thấy được 
 Agent giữ ít nhất một tool script gọi được (một tool có sẵn chỉ đọc, hoặc một tool MCP nằm trong
 `read_only` và không `hidden`) được giao `tool_script`, có máy chủ MCP hay không. Model viết một
 đoạn script ngắn; script chạy trong một tiến trình con, tự gọi các tool chỉ đọc, và chỉ
-những gì nó in ra mới quay về cho model ([tools.md](tools.md#gọi-tool-từ-script)).
+những gì nó in ra mới quay về cho model ([tools.md](tools.md#gọi-tool-từ-script)). Agent bật
+`script_calls: gated` thì script của nó gọi được cả tool có ghi, mỗi lời gọi qua cổng duyệt trước
+khi chạy; phần đó có mục riêng ở dưới.
 
 - **Ngôn ngữ: giống Python ở đâu, khác ở đâu**:
   - pytest: `tests/test_script_language.py` (mỗi đoạn trong bảng in ra đúng điều Python in với cùng
@@ -5397,7 +5400,7 @@ những gì nó in ra mới quay về cho model ([tools.md](tools.md#gọi-tool-
     lại), `tests/test_crew_roster.py` (roster kể `tool_script` trong dòng Công cụ),
     `tests/test_agent_templates.py` (agent dựng từ mẫu có danh sách `tools:` riêng vẫn có
     `tool_script` ở cuối, ngoài những tool danh sách ấy nêu), `tests/test_tool_replay.py` (`tool_script` nằm trong số tool được gọi lại sau
-    restart).
+    restart, trừ ở agent bật `script_calls: gated`).
 - **Trong một lượt**:
   - pytest: `tests/test_script_turns.py` (script chạy không hỏi ai và model chỉ đọc cái nó in; run
     giữ từng lời gọi của script; step của tool mang `calls` và tính tiền những lời gọi có trả cho
@@ -5407,6 +5410,62 @@ những gì nó in ra mới quay về cho model ([tools.md](tools.md#gọi-tool-
     ký tự nó in; tool không phải script thì step không có hai số đó; step giữ hai số khi chúng
     bằng không và không có khi chưa ai đặt), `tests/test_trajectory_redact.py`
     (bí mật nằm trong lời gọi của script được che cùng phần còn lại của bản ghi).
+- **Script gọi cả tool ghi (`script_calls: gated`)**:
+  - pytest: `tests/test_script_calls_setting.py` (hai giá trị là đúng hai chữ tệp ghi; mặc định
+    là chỉ đọc; chỉ đọc từ `agent.yaml` của chính agent, agent mặc định không truyền nó cho ai và
+    cấu hình chung có ghi gì cũng không được thừa hưởng; giá trị lạ, viết hoa, `true`, rỗng hay
+    bỏ trống làm tệp không nạp được, và cả đội không được đọc lên với một tệp như vậy; sửa qua
+    API thì bật, tắt được và agent đang chạy theo ngay; sửa một khoá khác thì giữ nguyên nó; tạo
+    agent mới kèm khoá này được; giá trị lạ bị từ chối 422 trước khi ghi tệp, khi sửa cũng như
+    khi tạo).
+  - pytest: `tests/test_script_gated_scope.py` (script như thế gọi được tool có ghi và tool phải
+    hỏi trước; đúng hai tool luôn chờ người, `ask_user` và `schedule_create`, đứng ngoài dù chúng
+    khai kiểu nào; năm tool không script nào gọi và bốn tên của `tools` vẫn đứng ngoài; tool ghi
+    của máy chủ MCP là của script trừ khi chủ để `hidden`, và tool không gọi được thì được chỉ
+    đường tới nó; danh sách giữ thứ tự agent đang giữ; `tools.names`, `tools.search`,
+    `tools.describe` và gợi ý tên gần đúng thấy cả tool ghi, chỉ ở agent đã bật; `describe` nói
+    vì sao một tool vẫn không gọi được; lời mô tả `tool_script` của agent đã bật nêu cả tool ghi
+    kèm đoạn nói về cổng duyệt, còn của agent khác giữ nguyên từng chữ; agent dựng thật ở hai chế
+    độ có thêm đúng các tool ghi và không tool nào khác; agent chỉ giữ tool ghi vẫn được giao
+    `tool_script` khi đã bật và không được giao khi chưa; tool ghi của máy chủ được trao cho
+    script, còn tool của máy chủ mà người phải được hỏi thì không chạy; script của agent dựng
+    thật ghi được tệp và chạy được lệnh, không đổi gì khi người phải được hỏi, và ở agent chưa
+    bật thì không ghi gì).
+  - pytest: `tests/test_script_gate.py` (bảng của cổng duyệt, theo đúng các luật của một lời gọi
+    trực tiếp: lời gọi mà cổng cho chạy không hỏi (cuộc tự chủ, lệnh khớp danh sách cho phép,
+    tool người đã bảo luôn cho phép) thì chạy và được ghi là `gated`; lời gọi mà người phải được
+    hỏi (lệnh khớp danh sách hỏi dù cuộc tự chủ hay lệnh đã được cho phép, cuộc cần duyệt) hay
+    lệnh bị cấm thì làm script dừng và không chạy, script không bắt được; lời từ chối nói phải
+    làm gì và chỉ nêu mẫu của chủ, không lặp lại lệnh; lý do hỏi của riêng một tool không được
+    chuyển cho script; tool phải hỏi trước mà không phải shell thì theo cuộc trò chuyện, không
+    theo danh sách nào của shell; tool không cần duyệt thì chạy như khi gọi trực tiếp; điều
+    người cho phép được đọc lại ở từng lời gọi; hai tool luôn chờ người vẫn đứng ngoài; agent
+    chưa bật bị từ chối như trước; lời gọi chỉ đọc không bao giờ tới cổng; không có lượt hay
+    cuộc trò chuyện không còn thì lời gọi có ghi bị từ chối; lời gọi đã chạy mà hỏng thì script
+    bắt được; hook của agent được hỏi về lời gọi cổng đã cho chạy; lời gọi bị từ chối không lấy
+    gì từ trần lời gọi lồng của lượt; lô có một lời gọi bị từ chối thì không lời gọi nào chạy,
+    từng lời gọi vẫn được trả lời, lời bị từ chối kèm lý do; lô có lời gọi ghi chạy từng lời gọi
+    một theo đúng thứ tự viết, còn lô chỉ đọc vẫn chạy song song; các lệnh của một lô chạy theo
+    thứ tự viết, mỗi lệnh có câu trả lời riêng).
+  - pytest: `tests/test_script_gated_turns.py` (lượt thật qua server: lời gọi đã qua cổng mang
+    `gated` ở mọi nơi kể lời gọi của script, tức `calls` của kết quả, sự kiện `nested_call`,
+    step của run và phần lưu kèm tin nhắn, và chỉ được ghi khi đúng; trong một lô chỉ lời gọi
+    qua cổng mang dấu; agent chưa bật thì script dừng và không lời gọi nào mang dấu; script bị
+    cổng dừng ở cuộc cần duyệt để lại lời gọi cho model gọi trực tiếp, người được hỏi, và tool
+    chạy đúng một lần sau khi được cho phép).
+  - pytest: `tests/test_tool_replay.py` (cùng một script bị restart cắt ở cùng một lời gọi: ở
+    agent chưa bật thì chạy lại từ đầu, ở agent đã bật thì lời gọi đóng bằng `RESTART_CUT_TOOL`
+    và không gì chạy lại, dù nó bị cắt ở một lời gọi đọc hay một lời gọi ghi; `tool_script` chỉ
+    được coi là gọi lại được khi script của agent không ghi được).
+  - Kiểm chứng đột biến: bốn mươi hai sửa đổi (không hỏi cổng, hỏi cổng cả lời gọi chỉ đọc, lấy
+    trần trước khi cổng từ chối, lô có lời gọi ghi chạy song song, không đánh dấu hay đánh dấu
+    mọi lời gọi, không có cuộc trò chuyện vẫn cho chạy, lời gọi phải hỏi hay lệnh bị cấm vẫn
+    chạy, chuyển lý do riêng của tool cho script, không nêu mẫu của chủ, coi cấm là hỏi, hai
+    tool luôn chờ người hay tên dành riêng lọt vào script, tool MCP `hidden` lọt vào, mọi agent
+    đều như đã bật, script của agent đã bật vẫn chạy lại sau restart, lời mô tả không đổi hay
+    chỉ nêu tool đọc, agent chỉ có tool ghi không được giao script, khoá được thừa hưởng, giá
+    trị nào cũng nạp, thiếu khoá coi là bật, trình sửa không biết khoá, dấu luôn hay không bao
+    giờ được ghi, roster đánh dấu sai agent hay sai câu) đều bị test bắt.
 - **web: lời gọi của script trên thẻ run, thẻ tool trong khung chat và bản xuất Markdown**:
   - vitest: `components/script-calls.test.tsx` (dòng tóm tắt nói có bao nhiêu lời gọi, và bao nhiêu
     lần lỗi chỉ khi có; danh sách gấp lại cho tới khi bấm và gấp lại ở lần bấm sau; mỗi lời gọi một
@@ -5696,7 +5755,10 @@ mất có mặt ngay ở lần gọi model kế tiếp ([agents.md](agents.md#ma
     hơn điều đã nói; lời dặn gọi đúng hai tình trạng ngoài tầm với bằng chữ mở đầu của chính câu
     kể chúng, dặn không giao việc cần dịch vụ đó mà nói rõ với người dùng, và không nhắc tới hai
     tình trạng dùng được; lời dặn nói dòng Công cụ không tính tool của dịch vụ ngoài và ai gọi
-    được dịch vụ nào thì chỉ xem ở dòng Dịch vụ ngoài của chính agent đó).
+    được dịch vụ nào thì chỉ xem ở dòng Dịch vụ ngoài của chính agent đó; agent mà script gọi
+    được cả tool ghi thì dòng Công cụ có thêm một câu ở cuối, câu ấy nêu `shell_run` chỉ khi
+    agent giữ nó, đứng sau cả khi tên công cụ được kể so với của người đọc, và agent không có
+    dòng Công cụ thì không có câu nào).
 - **đọc từ đội đang chạy, mỗi lần lắp prompt**:
   - pytest: `tests/test_crew_roster_abilities.py` (tool vừa được thêm hay vừa mất có ngay ở prompt
     kế tiếp, không nối lại gì; `delegate` không bị đem ra so; skill mới kèm mô tả; skill thiếu lệnh
@@ -5718,7 +5780,9 @@ mất có mặt ngay ở lần gọi model kế tiếp ([agents.md](agents.md#ma
     tool phát hiện ra chuyện đó; máy chủ không có trong cấu hình thì bỏ qua; một agent được thêm
     vào giữa lúc đội đang được đọc không làm hỏng prompt; một
     lượt thật của master mang các dòng và lời dặn trong system message, còn lượt được giao việc
-    thì không).
+    thì không; agent bật `script_calls: gated` được kể là script gọi được cả tool ghi ngay ở lần
+    đọc kế tiếp, câu ấy nêu `shell_run` chỉ khi agent còn giữ nó và mất hẳn khi agent không còn
+    `tool_script`, và điều master tự bật cho mình không nói gì về agent khác).
   - pytest: `tests/test_crew_roster.py::test_an_agent_added_edited_or_removed_while_running_is_told_as_it_now_is`
     (runtime dựng thật trên home tạm: agent thêm khi đang chạy được kể với công cụ của nó, sửa
     `tools` là dòng đổi theo, mọi agent đều được nối với đội, agent bị xoá thì mất dòng).

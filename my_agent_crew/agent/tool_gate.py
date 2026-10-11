@@ -20,6 +20,7 @@ if TYPE_CHECKING:  # the loop owns the deps; importing it back would be a cycle
     from my_agent_crew.agent.loop import AgentDeps
 
 logger = logging.getLogger(__name__)
+RUN, ASK, DENY = "run", "ask", "deny"
 
 
 def _tool_ask_reason(deps: AgentDeps, name: str, arguments: dict[str, Any]) -> str | None:
@@ -112,18 +113,28 @@ def allowed_by_pattern(deps: AgentDeps, name: str, arguments: dict[str, Any]) ->
     return ask_reason(command, deps.settings.shell_allow_patterns) is not None
 
 
+def verdict(deps: AgentDeps, conv: Conversation, name: str, arguments: dict[str, Any]) -> str:
+    """What the gate says of one call before it runs, with nobody asked yet: `RUN` it,
+    `ASK` a person first, or `DENY`, for a command the agent's shell refuses whatever a
+    person would say. A turn pauses on `ASK` and a script ends on anything but `RUN`
+    (`script/gate.py`), so the rules are written here once for both. Of `conv` only what
+    its person allowed is read."""
+    tool = deps.tools.get(name)
+    if tool is None or not tool.requires_approval:
+        return RUN
+    if name == SHELL_TOOL_NAME and deny_reason(arguments, deps.settings.shell_deny_patterns):
+        return DENY
+    asks = needs_decision(
+        conv,
+        name,
+        ask_reason_for(deps, name, arguments),
+        allowed_by_pattern(deps, name, arguments),
+    )
+    return ASK if asks else RUN
+
+
 def pauses_for_a_person(deps: AgentDeps, conv: Conversation, call: ToolCall) -> bool:
     """A call whose arguments never parsed asks nobody: a person would be shown nothing to
-    decide on, and it is answered with the parse error whatever they chose."""
-    if call.invalid:
-        return False
-    tool = deps.tools.get(call.name)
-    denied = deny_reason(call.arguments, deps.settings.shell_deny_patterns)
-    if tool is None or not tool.requires_approval or (call.name == SHELL_TOOL_NAME and denied):
-        return False
-    return needs_decision(
-        conv,
-        call.name,
-        ask_reason_for(deps, call.name, call.arguments),
-        allowed_by_pattern(deps, call.name, call.arguments),
-    )
+    decide on, and it is answered with the parse error whatever they chose. Nor does a
+    command the shell refuses: the turn does not pause to offer a yes that changes nothing."""
+    return not call.invalid and verdict(deps, conv, call.name, call.arguments) == ASK

@@ -1,0 +1,58 @@
+"""What the approval gate says of a call a script makes to a tool that changes things.
+
+A script waits for nobody: a turn that pauses keeps nothing in memory, so a call cannot stop
+half-way through a script to ask. The gate is asked before the call runs instead, with the
+rules a direct call meets (`agent/tool_gate.verdict`), and anything but "run" ends the script
+with words that say what to do: make the call directly, where a person can be asked.
+
+Those words never repeat what the call was asked to do. A command may hold a secret, and a
+refusal is kept with the run.
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
+from my_agent_crew import texts_script as t
+from my_agent_crew.agent.tool_gate import ASK, RUN, ask_reason_for, verdict
+from my_agent_crew.agent.turn_context import turn_conversation_id
+from my_agent_crew.tools.shell import deny_reason
+
+if TYPE_CHECKING:
+    from my_agent_crew.agent.loop import AgentDeps
+    from my_agent_crew.script.nested import Gate
+
+
+def _asked(deps: AgentDeps, name: str, arguments: dict[str, Any]) -> str:
+    """Why the gate would ask. A pattern of the agent's ask list is the owner's own words
+    and is named; a tool's own reason may quote the call, so it is not passed on."""
+    tool = deps.tools.get(name)
+    own = tool is not None and tool.ask_reason is not None
+    pattern = None if own else ask_reason_for(deps, name, arguments)
+    if pattern:
+        return t.SCRIPT_GATE_ASK_LIST.format(name=name, pattern=pattern)
+    return t.SCRIPT_GATE_ASKS.format(name=name)
+
+
+def script_gate(deps: AgentDeps) -> Gate:
+    """The gate for one agent's scripts. The conversation is the turn's own, read as each
+    call is asked for: what its person allows is theirs to change at any time."""
+
+    def refusal(name: str, arguments: dict[str, Any]) -> str | None:
+        conv_id = turn_conversation_id()
+        try:
+            conv = deps.store.get(conv_id) if conv_id else None
+        except KeyError:
+            conv = None
+        if conv is None:
+            # Nobody's rules to go by: a call that changes things is not made on a guess.
+            return t.SCRIPT_GATE_NO_TURN.format(name=name)
+        said = verdict(deps, conv, name, arguments)
+        if said == RUN:
+            return None
+        if said == ASK:
+            return _asked(deps, name, arguments)
+        pattern = deny_reason(arguments, deps.settings.shell_deny_patterns)
+        return t.SCRIPT_GATE_DENIED.format(name=name, pattern=pattern)
+
+    return refusal

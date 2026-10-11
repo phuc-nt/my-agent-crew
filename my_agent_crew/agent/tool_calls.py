@@ -14,7 +14,6 @@ from __future__ import annotations
 import asyncio
 from collections.abc import AsyncIterator, Callable, Sequence
 from contextlib import aclosing
-from dataclasses import asdict
 from typing import TYPE_CHECKING
 
 from my_agent_crew.agent.approval_lookup import matches, open_new
@@ -71,7 +70,7 @@ async def _record(
         original_chars=result.original_chars,
         cost_usd=result.cost_usd if result.metered else None,
         metered=result.metered,
-        calls=[asdict(nested) for nested in result.calls],
+        calls=[nested.to_dict() for nested in result.calls],
         received_chars=result.received_chars,
         printed_chars=result.printed_chars,
     )

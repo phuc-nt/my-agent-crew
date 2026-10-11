@@ -7,7 +7,7 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import Any
 
-from my_agent_crew.config import Route, Settings
+from my_agent_crew.config import SCRIPT_GATED, SCRIPT_READ_ONLY, Route, Settings
 from my_agent_crew.config_parse import parse_routes
 
 # OpenRouter's `reasoning.effort` levels. Empty means the request says nothing and the
@@ -57,6 +57,7 @@ def settings_from(
         shell_network=shell_network(raw, agent_id),
         shell_write_paths=names(raw, "shell_write_paths", agent_id),
         shell_deny_patterns=names(raw, "shell_deny_patterns", agent_id),
+        script_calls=script_calls(raw, agent_id),
         write_paths=names(raw, "write_paths", agent_id),
     )
 
@@ -67,6 +68,18 @@ def shell_network(raw: dict[str, Any], agent_id: str) -> bool:
     # exactly the agent someone meant to close it for.
     if not isinstance(value, bool):
         raise ValueError(f"agent {agent_id}: shell_network must be true or false")
+    return value
+
+
+def script_calls(raw: dict[str, Any], agent_id: str) -> str:
+    """What a script of the agent may call. Read from the agent's own file and never from
+    the settings it inherits: a script that changes things is on only where somebody
+    wrote so, and a value nobody knows is a mistake to be told of, not a default."""
+    value = raw.get("script_calls", SCRIPT_READ_ONLY)
+    if value not in (SCRIPT_READ_ONLY, SCRIPT_GATED):
+        raise ValueError(
+            f"agent {agent_id}: script_calls must be {SCRIPT_READ_ONLY} or {SCRIPT_GATED}"
+        )
     return value
 
 

@@ -93,6 +93,41 @@ def test_a_kind_an_agent_has_none_of_is_not_mentioned():
     assert ability_lines(Abilities(escalation="big")) == []
 
 
+@pytest.mark.parametrize(
+    ("tools", "marked"),
+    [
+        (("read", "shell_run"), "read, shell_run; script gọi được cả công cụ ghi, kể cả shell_run"),
+        (("read", "write"), "read, write; script gọi được cả công cụ ghi"),
+    ],
+    ids=["with a shell", "without one"],
+)
+def test_an_agent_whose_scripts_may_change_things_is_told_so_after_its_tools(tools, marked):
+    theirs = Abilities(tools=tools, script_writes=True)
+
+    assert ability_lines(theirs) == [f"  · Công cụ: {marked}"]
+    # Said of nobody whose scripts only read, whatever tools it holds.
+    plain = replace(theirs, script_writes=False)
+    assert ability_lines(plain) == [f"  · Công cụ: {', '.join(tools)}"]
+
+
+def test_scripts_that_may_change_things_are_told_after_tools_named_against_the_readers():
+    mine = Abilities(tools=("read", "write", "shell_run"), script_writes=True)
+    theirs = Abilities(tools=("read", "write", "shell_run", "glob"), script_writes=True)
+
+    assert ability_lines(theirs, mine) == [
+        "  · Công cụ: như của bạn, thêm: glob; script gọi được cả công cụ ghi, kể cả shell_run"
+    ]
+    # The reader's own scripts say nothing of anybody else's.
+    assert ability_lines(replace(theirs, script_writes=False), mine) == [
+        "  · Công cụ: như của bạn, thêm: glob"
+    ]
+
+
+def test_an_agent_with_no_tool_to_tell_is_told_nothing_of_its_scripts():
+    assert ability_lines(Abilities(script_writes=True)) == []
+    assert ability_lines(Abilities(model="small", script_writes=True)) == ["  · Mô hình: small"]
+
+
 def test_a_server_is_told_with_how_far_the_agent_reaches_it_now():
     def said(standing: str) -> str:
         [line] = ability_lines(Abilities(services=(Service("notion", standing),)))

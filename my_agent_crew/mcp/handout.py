@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 from my_agent_crew.mcp.config import HIDDEN
 from my_agent_crew.mcp.tool_search import SEARCH_TOOL, search_tool
 from my_agent_crew.mcp.tools import PREFIX, McpTool, held_back
-from my_agent_crew.script.scope import SCRIPT_TOOL, scriptable
+from my_agent_crew.script.scope import SCRIPT_TOOL, scriptable, writes_too
 from my_agent_crew.script.tool import hand_script
 
 if TYPE_CHECKING:
@@ -49,6 +49,7 @@ def hand_out(deps: AgentDeps, links: Mapping[str, Link]) -> None:
         about = {tool.server: links[tool.server].server.description for tool in waiting}
         deps.tools.register(search_tool(waiting, about))
     # Behind whatever the crew gave the agent since it was built, and ahead of the tools.
-    hand_script(deps, [tool for tool in handed.values() if scriptable(tool)])
+    gated = writes_too(deps.settings)
+    hand_script(deps, [tool for tool in handed.values() if scriptable(tool, gated)])
     for tool in handed.values():
         deps.tools.register(tool)
