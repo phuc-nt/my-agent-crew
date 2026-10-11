@@ -120,6 +120,13 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   an answer long enough to be kept for reading back raised before it was kept. Each half is now
   replaced by U+FFFD where a tool's answer comes in, in the tool's own error message too, and
   the rest of the answer is left as it was.
+- What a run keeps of a call's arguments is now held down in width as well as in length. Each
+  value was already cut at 160 characters, but every name was kept, so a call given a mapping
+  of hundreds of names was written to the store whole and sent again with every later step of
+  the run. A step, and each call a script makes, now keeps the first twelve arguments, a name
+  cut like a value and a number written out longer than that cut as text, and one last entry
+  `…` saying how many more there were ("còn 288 tham số nữa"). The tool is handed every
+  argument as before, and so is the person asked to approve a call.
 
 ## [0.13.0] — 2026-10-07
 

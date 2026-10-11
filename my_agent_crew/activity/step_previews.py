@@ -4,9 +4,17 @@ because a run's steps are written to the store and re-broadcast with every later
 from __future__ import annotations
 
 import json
+from itertools import islice
 from typing import Any
 
+from my_agent_crew.texts import TOOL_ARGUMENTS_LEFT_OUT
+
 PREVIEW_CHARS = 160
+# The most arguments one preview names. A call may be given a mapping of any width, and a
+# script's calls are each kept with theirs: the first dozen say which call it was.
+PREVIEW_KEYS = 12
+# Where a preview says how many arguments it left out, after the ones it names.
+LEFT_OUT_KEY = "…"
 
 
 def preview(text: str) -> str:
@@ -21,12 +29,15 @@ def _argument_value(value: Any) -> Any:
     web renders a number or a flag better than it renders a string of one — but a list
     or a mapping has no size limit of its own, and this preview is written to the store
     and re-broadcast with every later step of the same run. One big argument would
-    otherwise be paid for again on each of them.
+    otherwise be paid for again on each of them. A number written out longer than a cut
+    text is cut as text for the same reason.
     """
     if isinstance(value, str):
         return preview(value)
     if isinstance(value, list | dict):
         return preview(json.dumps(value, ensure_ascii=False))
+    if isinstance(value, int) and len(repr(value)) > PREVIEW_CHARS:
+        return preview(repr(value))
     return value
 
 
@@ -37,5 +48,12 @@ def argument_preview(arguments: dict[str, Any]) -> dict[str, Any]:
     these as a mapping of name to value: given a string it walks the characters and shows
     one row per character. Keeping the shape means a run read back from the store renders
     the same way as one watched live.
+
+    The mapping has no width of its own either, so only the first `PREVIEW_KEYS` are named,
+    each name cut like a value, and one more entry says how many arguments are not named.
     """
-    return {key: _argument_value(value) for key, value in arguments.items()}
+    named = islice(arguments.items(), PREVIEW_KEYS)
+    shown = {preview(str(key)): _argument_value(value) for key, value in named}
+    if left := len(arguments) - len(shown):
+        shown[LEFT_OUT_KEY] = TOOL_ARGUMENTS_LEFT_OUT.format(count=left)
+    return shown
