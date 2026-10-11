@@ -9,6 +9,12 @@ that is charged to the run. Only when the script ended well and printed somethin
 turn opened, as a prompt job opens one, with the schedule's `then_prompt` and what the
 script printed: that turn's run is then the job's, and is what is sent on to the person.
 
+What a script printed is whatever tools gave it: a mail, a page, a note somebody else
+wrote. The prompt is the person's, and that turn has nobody watching it. So the output
+stands under the prompt as a text to work on (`handed_on`), between two lines that carry
+a number made for that one message. That alone holds no model to anything; it keeps the
+output from reading as more of the prompt.
+
 Nobody watches a job and a script waits for nobody, so a call the approval gate would ask
 about ends it (`script/gate.py`). It has no conversation either: a tool that works through
 one fails there, and what the script keeps (`store`, `load`) is kept under the schedule's
@@ -19,8 +25,10 @@ turn begins.
 from __future__ import annotations
 
 import logging
+import secrets
 import time
 
+from my_agent_crew import texts_script_job as words
 from my_agent_crew.activity import ActivityHub
 from my_agent_crew.agent.events import NestedCallEvent, ToolCallEvent, ToolResultEvent
 from my_agent_crew.agent.loop import AgentDeps
@@ -39,6 +47,18 @@ from my_agent_crew.tools.registry import truncate
 from my_agent_crew.tools.result import NestedCall, ToolResult
 
 logger = logging.getLogger(__name__)
+
+
+def handed_on(then_prompt: str, printed: str) -> str:
+    """The message of the turn opened for what a script printed: the prompt, then the
+    output fenced. The number is made here, after the script ended, so nothing it
+    printed can hold the line that closes it."""
+    nonce = secrets.token_hex(8)
+    opening = words.JOB_PRINTED_OPEN.format(nonce=nonce)
+    closing = words.JOB_PRINTED_CLOSE.format(nonce=nonce)
+    fence = words.JOB_PRINTED_FENCE.format(opening=opening, closing=closing)
+    # One blank line under the prompt: one written as a block of the file ends on one.
+    return f"{then_prompt.rstrip()}\n\n{fence}\n{opening}\n{printed}\n{closing}"
 
 
 async def _carry_out(
@@ -95,5 +115,4 @@ async def run_script_job(job: Job, deps: AgentDeps, hub: ActivityHub, title: str
     if not (result.ok and printed.strip() and then_prompt):
         return run
     handed = truncate(printed, deps.settings.tool_output_chars)
-    # One blank line between the two: a prompt written as a block of the file ends on one.
-    return await open_turn(job, deps, hub, title, f"{then_prompt.rstrip()}\n\n{handed}")
+    return await open_turn(job, deps, hub, title, handed_on(then_prompt, handed))
