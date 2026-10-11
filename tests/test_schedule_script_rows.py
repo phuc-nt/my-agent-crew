@@ -25,6 +25,7 @@ from my_agent_crew.script.limits import MAX_SOURCE_CHARS, ScriptError
 from my_agent_crew.server.app import create_app
 from my_agent_crew.server.runtime_build import build_runtime
 from tests.test_approval_ttl import parsed_schedule
+from tests.test_profile_write_blocks import is_block
 
 ROOT = Path(__file__).resolve().parents[1]
 TIMED = {"id": "due", "cron": "0 7 * * *"}
@@ -256,6 +257,20 @@ def test_a_script_row_sent_back_as_it_was_read_is_written_as_it_was(crew, then_p
             assert reply.json()["profile"]["declared"]["schedules"] == [declared]
 
 
+def test_a_saved_script_stands_in_the_file_as_its_lines(crew):
+    """A person opens the file to read the job, and one line with `\\n` in it is no script
+    to read. The same for the words a job's turn opens with."""
+    serve, manifest = crew
+    told = {"id": "chao", "cron": "0 8 * * *", "prompt": "Chào buổi sáng.\nNhắc việc hôm nay.\n"}
+    with serve() as client:
+        reply = saving(client, {**TIMED, "script": SCRIPT, "then_prompt": THEN}, told)
+
+    assert reply.status_code == 200, reply.json()
+    assert all(is_block(manifest, key) for key in ("script", "then_prompt", "prompt"))
+    due, hello = in_file(manifest)
+    assert (due["script"], due["then_prompt"], hello["prompt"]) == (SCRIPT, THEN, told["prompt"])
+
+
 HAND_WRITTEN = """\
 name: Thợ mã
 schedules:
@@ -287,6 +302,7 @@ def test_a_script_a_person_wrote_in_the_file_is_still_that_script_after_a_save(c
         )
 
         assert reply.status_code == 200, reply.json()
+        assert is_block(manifest, "script")
         written, moved = in_file(manifest)
         assert (written["script"], written["then_prompt"]) == (
             WRITTEN_BY_HAND,

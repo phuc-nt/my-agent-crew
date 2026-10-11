@@ -220,7 +220,10 @@ thành master chỉ giao cho đội của hôm nay, và lên lịch job củng c
 **Tệp giữ nguyên hình dạng.** Ghi là round-trip (ruamel), nên chú thích, thứ tự khoá và
 những khoá mà phiên bản server này không biết đều sống sót qua một lần sửa từ
 trình duyệt. Manifest được ghi qua tệp tạm rồi chuyển vào chỗ, nên sập
-giữa lúc ghi không thể để lại một profile không còn parse được.
+giữa lúc ghi không thể để lại một profile không còn parse được. Chuỗi nhiều dòng mà một lần lưu
+mang tới (prompt hay script của một lịch) được viết thành khối (`prompt: |`), mỗi dòng một dòng
+trong tệp. Chuỗi có ký tự mà khối không chở nguyên vẹn được (tab, `\r`, ký tự không in ra) vẫn
+được viết trong ngoặc kép; viết kiểu nào thì lần khởi động sau cũng đọc lại đúng chuỗi đã lưu.
 
 **Kiểm tra hợp lệ bắt đầu bằng cùng đoạn code đọc tệp viết tay**, chạy
 *trước* khi ghi bất cứ gì. Profile mà server sẽ từ chối khởi động là 422 và
@@ -704,9 +707,9 @@ nhắc lại. Tệp không đọc được thì script hỏng, run là `error`, 
 chạy.
 
 Trình sửa agent trên web giữ `script` và `then_prompt` của một dòng qua các lần sửa và gửi lại
-đúng giá trị đã đọc. Một lần lưu có gửi `schedules` viết lại cả danh sách trong `agent.yaml`:
-script viết tay dạng khối (`script: |`) thành một dòng trong ngoặc kép với `\n`. Giá trị không
-đổi một ký tự, chỉ khó đọc hơn; muốn giữ dạng khối thì sửa lịch bằng tay trong tệp.
+đúng giá trị đã đọc. Một lần lưu có gửi `schedules` viết lại cả danh sách trong `agent.yaml`,
+và script vẫn là một khối (`script: |`) như người viết tay, mỗi dòng của nó một dòng trong tệp;
+chú thích nằm giữa các dòng lịch thì mất theo danh sách cũ.
 
 ### Một script mỗi job
 

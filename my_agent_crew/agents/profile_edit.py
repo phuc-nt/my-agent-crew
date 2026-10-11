@@ -19,6 +19,7 @@ from typing import Any
 from my_agent_crew import texts
 from my_agent_crew.agent_ids import is_agent_id
 from my_agent_crew.agents.profile import PROFILE_KEYS, AgentProfile, Schedule
+from my_agent_crew.agents.profile_write import as_written
 from my_agent_crew.agents.profile_yaml import parse_profile
 from my_agent_crew.config import Route, Settings
 from my_agent_crew.scheduler.cron import CronSpec, parse_every
@@ -94,7 +95,7 @@ def apply_patch(raw: Any, patch: dict[str, Any]) -> Any:
         if value is None:
             raw.pop(key, None)
         else:
-            raw[key] = value
+            raw[key] = as_written(value)
     return raw
 
 

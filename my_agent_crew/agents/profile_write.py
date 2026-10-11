@@ -17,11 +17,15 @@ from pathlib import Path
 from typing import Any
 
 from ruamel.yaml import YAML
+from ruamel.yaml.scalarstring import DoubleQuotedScalarString, LiteralScalarString
 
 from my_agent_crew import texts
 
 TRASH_DIR = ".trash"
 MANIFEST = "agent.yaml"
+# The one character the writer puts bare into a text that the reader then takes for the end
+# of a line. In double quotes it is written as an escape and comes back as itself.
+NEXT_LINE = "\x85"
 
 
 def _yaml() -> YAML:
@@ -31,6 +35,27 @@ def _yaml() -> YAML:
     # how the bundled profiles are written and how people write them by hand.
     yaml.indent(mapping=2, sequence=4, offset=2)
     return yaml
+
+
+def as_written(value: Any) -> Any:
+    """What a save brings, as a person would have written it by hand: a text of several
+    lines is a block (`script: |`), not one long line with `\\n` in it. A script is read by
+    its lines, and so is a prompt.
+
+    A block holds what prints and the ends of its lines, and nothing else. A text with a
+    tab, a carriage return or another alphabet's line separator in it would come back
+    changed, or leave a file that no longer parses, so it is written in quotes as before."""
+    if isinstance(value, dict):
+        return {key: as_written(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [as_written(item) for item in value]
+    if type(value) is not str:
+        return value
+    if NEXT_LINE in value:
+        return DoubleQuotedScalarString(value)
+    if "\n" in value and all(char == "\n" or char.isprintable() for char in value):
+        return LiteralScalarString(value)
+    return value
 
 
 def read_raw(manifest: Path) -> Any:

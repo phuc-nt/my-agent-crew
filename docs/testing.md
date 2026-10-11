@@ -5513,9 +5513,20 @@ khi chạy; phần đó có mục riêng ở dưới.
     chạy; dòng không có `id` được gọi theo vị trí; hai câu lỗi mà trình sửa trên web tự kiểm
     trùng từng chữ với câu server nói; qua API, dòng mà tệp sẽ bị từ chối thì 422 trước khi
     ghi, script không chạy được cũng vậy; dòng script gửi lại y như đã đọc thì được ghi y như
-    cũ, có hay không có `then_prompt`; script người viết tay thành một khối trong tệp vẫn là
-    script đó sau khi lưu một dòng khác; `GET /api/jobs` cho biết job script bằng chính script
-    của nó, và dòng nào cũng mang đủ `script`, `then_prompt`).
+    cũ, có hay không có `then_prompt`; script, `then_prompt` và prompt nhiều dòng lưu từ web
+    đứng trong tệp thành khối, đọc lại đúng từng ký tự; script người viết tay thành một khối
+    trong tệp vẫn là script đó, vẫn là khối, sau khi lưu một dòng khác; `GET /api/jobs` cho biết
+    job script bằng chính script của nó, và dòng nào cũng mang đủ `script`, `then_prompt`).
+  - pytest: `tests/test_profile_write_blocks.py` (chuỗi nhiều dòng được viết thành khối và cả
+    hai trình đọc đọc lại đúng nó: có hay không có dòng cuối, dòng đầu thụt vào, dòng kết bằng
+    dấu cách, dòng trống, dấu của YAML, tiếng Việt; chuỗi có `\r`, tab, dấu ngắt dòng của bảng
+    mã khác hay ký tự không in ra thì không thành khối và vẫn đọc lại nguyên; chuỗi có ký tự
+    U+0085 đọc lại nguyên chứ không thành dấu cách; chuỗi một dòng được viết y như trước; chỉ
+    chuỗi bị đổi, ở sâu mấy tầng cũng vậy, và giá trị người gửi không bị sửa tại chỗ).
+  - Kiểm chứng đột biến: tám sửa đổi của cách viết (để mặc U+0085 cho trình ghi, thành khối cả
+    khi có ký tự khối không chở được, thành khối cả chuỗi một dòng, quên rằng dấu xuống dòng
+    không phải ký tự in ra, không đi vào danh sách, không đi vào mapping, bọc lại chuỗi đã là
+    khối, lần lưu không hỏi cách viết) đều bị test bắt.
   - pytest: `tests/test_script_job.py` (job script là một run chỉ có một step `tool_script`,
     không gọi model, không có cuộc trò chuyện, không gửi cho ai, và lời gọi tính tiền được tính
     vào run; step ấy được lưu y như step script của một lượt, cùng khoá, các lời gọi ở cùng một

@@ -78,6 +78,21 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   the three, or a script that could not run, stops the crew from starting and is a 422 through
   the API. `schedule_create` still makes prompt jobs only.
 
+### Changed
+
+- A save from the web writes a text of several lines into `agent.yaml` as a block (`prompt: |`,
+  `script: |`), each of its lines on a line of the file, the way a person writes one by hand. It
+  was one quoted line with `\n` in it, and a hand-written block became that line the first time
+  the agent's schedules were saved. A text holding a tab, a carriage return or a character that
+  does not print is still written in quotes, since a block would not hand it back whole. The
+  text read back is the text saved, to the character, either way.
+
+### Fixed
+
+- A text holding the next-line character (U+0085) that was saved from the web could be read back
+  with a space where the character stood. It is now written as an escape and read back as
+  itself.
+
 ## [0.14.0] — 2026-10-11
 
 ### Added
