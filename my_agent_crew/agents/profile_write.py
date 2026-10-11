@@ -13,9 +13,11 @@ from __future__ import annotations
 
 import os
 from datetime import UTC, datetime
+from io import StringIO
 from pathlib import Path
 from typing import Any
 
+import yaml as boot_reader
 from ruamel.yaml import YAML
 from ruamel.yaml.scalarstring import DoubleQuotedScalarString, LiteralScalarString
 
@@ -23,9 +25,10 @@ from my_agent_crew import texts
 
 TRASH_DIR = ".trash"
 MANIFEST = "agent.yaml"
-# The one character the writer puts bare into a text that the reader then takes for the end
-# of a line. In double quotes it is written as an escape and comes back as itself.
-NEXT_LINE = "\x85"
+# Wider than any file: no line of one is folded. A long text in quotes, broken where a
+# line would end, was read back with a space it never had. A script's indented line
+# became another line, and the next start refused the file for it.
+NEVER_FOLDED = 2**20
 
 
 def _yaml() -> YAML:
@@ -34,6 +37,7 @@ def _yaml() -> YAML:
     # Lists indent under their key rather than hanging at the parent's column, which is
     # how the bundled profiles are written and how people write them by hand.
     yaml.indent(mapping=2, sequence=4, offset=2)
+    yaml.width = NEVER_FOLDED
     return yaml
 
 
@@ -44,18 +48,36 @@ def as_written(value: Any) -> Any:
 
     A block holds what prints and the ends of its lines, and nothing else. A text with a
     tab, a carriage return or another alphabet's line separator in it would come back
-    changed, or leave a file that no longer parses, so it is written in quotes as before."""
+    changed, or leave a file that no longer parses, so it is written in quotes as before.
+
+    The writer goes by a later YAML than the reader the server starts with. A text it
+    would leave bare may be no text to that reader (`No` a false, `1:30` a number), or
+    another text (a bare U+0085 the end of a line). Such a one is put in quotes, where
+    both read the text that was saved."""
     if isinstance(value, dict):
         return {key: as_written(item) for key, item in value.items()}
     if isinstance(value, list):
         return [as_written(item) for item in value]
     if type(value) is not str:
         return value
-    if NEXT_LINE in value:
-        return DoubleQuotedScalarString(value)
     if "\n" in value and all(char == "\n" or char.isprintable() for char in value):
         return LiteralScalarString(value)
-    return value
+    return value if _boots_as_itself(value) else DoubleQuotedScalarString(value)
+
+
+def _boots_as_itself(text: str) -> bool:
+    """Whether the text, left to the writer, is the text the next start reads."""
+    try:
+        return boot_reader.safe_load(as_text({"text": text})) == {"text": text}
+    except boot_reader.YAMLError:
+        return False
+
+
+def as_text(data: Any) -> str:
+    """The manifest as a save writes it."""
+    written = StringIO()
+    _yaml().dump(data, written)
+    return written.getvalue()
 
 
 def read_raw(manifest: Path) -> Any:
@@ -83,8 +105,7 @@ def write_raw(manifest: Path, data: Any) -> None:
     """
     manifest.parent.mkdir(parents=True, exist_ok=True)
     tmp = manifest.with_name(f".{manifest.name}.tmp")
-    with tmp.open("w", encoding="utf-8") as handle:
-        _yaml().dump(data, handle)
+    tmp.write_text(as_text(data), encoding="utf-8")
     os.replace(tmp, manifest)
 
 

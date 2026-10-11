@@ -49,7 +49,35 @@ NOT_CARRIED = [
     "a\x7fb\nc\n",
 ]
 NEXT_LINES = ["a\x85b", "a\x85b\nc\n", "\x85", "x: \x85 y"]
-ONE_LINE = ["chào", "a: b", "# x", " a ", "", "a\tb", "it's", "yes", "3"]
+ONE_LINE = ["chào", "a: b", "# x", " a ", "", "a\tb", "it's", "3", "true", "1.5", "- a"]
+# What puts a text into quotes, each with what a fold of the quoted line then tripped on:
+# the line was broken after an escape, and the reader put a space where the break stood.
+ESCAPED = ["\t", "\r", "\x85", "\ufeff", "\x1b", "\xa0\\", "\u200b\\"]
+# One line each, and to the boot's reader no text when it stands bare: a yes or a no, a
+# number, a time of day, a date, nothing at all. The writer goes by a later YAML, to
+# which each of them is a text and needs no quotes.
+NOT_A_TEXT_AT_BOOT = [
+    "No",
+    "yes",
+    "on",
+    "OFF",
+    "1:30",
+    "12:30:45",
+    "0b11",
+    "1_000",
+    "010",
+    "0o17",
+    "+1",
+    "2026-10-12",
+    "~",
+    "null",
+    "=",
+    "<<",
+    ".inf",
+    "1e3",
+    "0x1F",
+    "190:20:30.15",
+]
 
 
 def saved(tmp_path: Path, row: dict[str, Any], *, plain: bool = False) -> Path:
@@ -106,6 +134,51 @@ def test_a_text_of_one_line_is_written_as_it_always_was(tmp_path, text):
 
     assert written == saved(tmp_path, row, plain=True).read_text("utf-8")
     assert not is_block(tmp_path / "agent.yaml", "prompt")
+
+
+def long_texts(mark: str):
+    """A script and a line of words with `mark` in them, pushed along one column at a
+    time so that a line of the file would end at every place in them."""
+    for pad in range(80):
+        pushed = "x" * pad
+        yield (
+            f"{pushed} = 0\nfor amount in rows:\n"
+            f"{mark}if amount > limit and status != done and owner == me and seen < 100:\n"
+            f"{mark}{mark}seen = seen + 1\nprint(seen)\n"
+        )
+        yield f"{pushed}{mark}= 0\n" + f"w{mark} " * 30 + "end\n"
+
+
+@pytest.mark.parametrize("mark", ESCAPED)
+def test_a_long_text_in_quotes_is_still_the_text_that_was_saved(tmp_path, mark):
+    """A script indented with tabs is such a text. Read back with a space it never had,
+    its indented line is another line, and the next start refuses the file for it."""
+    changed = []
+    for text in long_texts(mark):
+        manifest = saved(tmp_path, {"id": "due", "script": text})
+        if read_back(manifest, "script") != (text, text):
+            changed.append(text)
+
+    assert changed == []
+
+
+@pytest.mark.parametrize("text", ["a" * 80 + "  b", "word " * 30 + " two  spaces", "x " * 200])
+def test_a_long_line_is_not_folded_into_another_text(tmp_path, text):
+    manifest = saved(tmp_path, {"id": "due", "prompt": text})
+
+    assert read_back(manifest, "prompt") == (text, text)
+    # The name, the list, the row's id, and the text on a line of its own.
+    assert len(manifest.read_text("utf-8").splitlines()) == 4
+
+
+@pytest.mark.parametrize("text", NOT_A_TEXT_AT_BOOT)
+def test_a_text_the_boot_would_read_as_something_else_is_written_in_quotes(tmp_path, text):
+    """`then_prompt: No` in the file is a false to the reader the server starts with, and
+    a row whose prompt is no text is a file the server does not start with."""
+    manifest = saved(tmp_path, {"id": "due", "prompt": text})
+
+    booted, again = read_back(manifest, "prompt")
+    assert (type(booted), booted, again) == (str, text, text)
 
 
 def test_only_a_text_is_looked_at_and_however_deep_it_sits():

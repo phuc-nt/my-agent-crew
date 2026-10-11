@@ -186,6 +186,7 @@ PROFILE_KEY_NEEDS_LIST = "Khoá {key} phải là một danh sách."
 PATH_OUTSIDE_HOME = "Đường dẫn {path} nằm ngoài thư mục nhà của đội."
 MANIFEST_BROKEN = "Tệp agent.yaml hỏng, sửa thẳng tệp rồi thử lại: {error}"
 MANIFEST_NOT_A_MAPPING = "Tệp {path} phải là một ánh xạ khoá–giá trị."
+SAVE_READS_BACK_CHANGED = "Chưa lưu: tệp ghi ra sẽ được đọc lại khác với nội dung vừa sửa ({what})."
 # Xếp lịch chỉ dựng một lần lúc khởi động, nên sửa xong vẫn phải
 # khởi động lại mới có hiệu lực — nói rõ thay vì để người dùng chờ một việc không chạy.
 RESTART_REASON_SCHEDULES = "Thay đổi lịch chạy chỉ có hiệu lực sau khi khởi động lại máy chủ."
