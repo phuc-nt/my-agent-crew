@@ -9,10 +9,13 @@ import pytest
 from fastapi.testclient import TestClient
 
 from my_agent_crew.config import load_settings
+from my_agent_crew.llm.types import Message, ToolCall
+from my_agent_crew.script.scope import SCRIPT_TOOL
 from my_agent_crew.server import build_runtime, create_app
 from my_agent_crew.server.routes_activity import summarize
 from my_agent_crew.store.runs import RunRecord
 from tests.test_server_api import parse_sse
+from tests.trajectory_fake import child_of, run_from
 
 MANIFEST = """
 name: Coach
@@ -142,6 +145,26 @@ def test_what_a_conversation_delegated_counts_as_its_own_activity(two_agents):
     runs = client.get(f"/api/activity/runs?conversation_id={parent['id']}").json()
 
     assert {r["conversation_id"] for r in runs} == {parent["id"], children[0].id}
+
+
+def test_what_a_script_of_a_conversation_handed_on_counts_as_its_own_activity(two_agents):
+    """Such a child is linked to a call the script made, which no message of the parent
+    carries: it is found by the call that ran the script. What a script of another
+    conversation handed on is not this one's, however alike the two calls are named."""
+    client, runtime = two_agents
+    store = runtime.store
+    parent = client.post("/api/conversations", json={"agent_id": "default"}).json()
+    other = client.post("/api/conversations", json={"agent_id": "default"}).json()
+    for conv, call_id in ((parent, "s1"), (other, "s10")):
+        ran = ToolCall(call_id, SCRIPT_TOOL, {"script": "…"})
+        store.append(conv["id"], Message(role="assistant", tool_calls=(ran,)))
+        run_from(store, conv["id"], 0)
+    mine = child_of(store, parent["id"], "s1:2", "xong")
+    child_of(store, other["id"], "s10:1", "xong")
+
+    runs = client.get(f"/api/activity/runs?conversation_id={parent['id']}").json()
+
+    assert {r["conversation_id"] for r in runs} == {parent["id"], mine}
 
 
 async def test_activity_stream_sends_snapshot_then_run_events(tmp_path: Path):

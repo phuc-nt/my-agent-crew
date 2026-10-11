@@ -190,6 +190,18 @@ def test_a_script_names_what_its_own_calls_wrote_and_nothing_it_printed():
     assert tags_of("tool_script", printed) == tags_of("tool_script", printed, []) == []
 
 
+def test_a_task_a_script_handed_on_names_none_of_what_its_child_wrote():
+    """A known limit. Of a call a script made, one line cut short is kept, and the canvases
+    a child wrote stand on lines of their own in the result whole: the chat is told of them
+    when the model handed the task on itself, and not when a script of its did."""
+    block = [f"{artifact_tag(A, 2)} Dàn ý", f"{artifact_tag(B, 1)} Số liệu"]
+    done = result_text(HEADER, "outcome=done", block, "", "Xong.")
+    handed_on = NestedCall("delegate", {"task": "viết dàn ý"}, True, preview(done), 1).to_dict()
+
+    assert tags_of("delegate", done) == [Tag(A, 2), Tag(B, 1)]
+    assert tags_of("tool_script", "đã giao việc", [handed_on]) == []
+
+
 def test_a_canvas_written_twice_is_named_once_at_its_newest_version_where_it_first_stood():
     assert merged([Tag(A, 1), Tag(B, 1), Tag(A, 3), Tag(C, 4), Tag(A, 2)]) == [
         Tag(A, 3),

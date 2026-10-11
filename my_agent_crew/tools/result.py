@@ -23,13 +23,19 @@ class NestedCall:
     # A call to a tool that does not only read: the approval gate let it run before it did
     # (`script/gate.py`). Only an agent whose scripts may make such calls has any.
     gated: bool = False
+    # As on `ToolResult`: what the conversation a script's `delegate` opened spent. Never a
+    # part of `cost_usd`, and charged with the script's own result, not as the call ends.
+    child_spent_usd: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
-        """As the run card and the stored result keep it. `gated` is written only where it
-        is set: a call that only read is kept as one was before a script could do more."""
+        """As the run card and the stored result keep it. `gated` and `child_spent_usd` are
+        written only where they are set, and never as null: a call that only read is kept
+        as one was before a script could do more."""
         kept = asdict(self)
         if not self.gated:
             del kept["gated"]
+        if not self.child_spent_usd > 0:
+            del kept["child_spent_usd"]
         return kept
 
 

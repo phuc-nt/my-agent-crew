@@ -18,6 +18,7 @@ from my_agent_crew.activity import trajectory, trajectory_markdown
 from my_agent_crew.activity.redact import env_secrets
 from my_agent_crew.agents.roster import DELEGATE_TOOL_NAME
 from my_agent_crew.clock import local_day
+from my_agent_crew.script.scope import SCRIPT_TOOL
 from my_agent_crew.server.deps import Rt
 from my_agent_crew.store import Store
 from my_agent_crew.store.runs import RunRecord
@@ -50,11 +51,12 @@ def list_runs(
 
 
 def conversation_family(rt: Rt, conversation_id: str) -> set[str]:
-    """A conversation's id together with those of the conversations it delegated.
+    """A conversation's id together with those of the conversations it delegated, the ones
+    a script of its handed a task to among them.
 
     One level deep: a delegate may not delegate again (`depth=1` in `delegate.py`), so
     there is no deeper tree to walk."""
-    children = rt.store.delegated_children(conversation_id, DELEGATE_TOOL_NAME)
+    children = rt.store.delegated_children(conversation_id, DELEGATE_TOOL_NAME, SCRIPT_TOOL)
     return {conversation_id, *(child.id for child in children)}
 
 

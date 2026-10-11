@@ -22,9 +22,10 @@ from my_agent_crew.agent.turn_context import (
     set_turn_source,
 )
 from my_agent_crew.agents.profile import WORK
-from my_agent_crew.config import Route
+from my_agent_crew.config import SCRIPT_GATED, Route
 from my_agent_crew.llm.fake import completion
 from my_agent_crew.llm.types import Message, ToolCall
+from my_agent_crew.script.scope import SCRIPT_TOOL
 from my_agent_crew.server.routes_conversations import delete_conversation
 from my_agent_crew.server.runtime import Runtime
 from my_agent_crew.store import Store
@@ -167,6 +168,33 @@ async def test_one_conversation_may_only_delegate_so_many_times(runtime: Runtime
     assert runtime.store.for_parent_call("call-over") is None
 
 
+async def test_the_tasks_a_script_handed_on_count_toward_the_most_a_conversation_may(
+    runtime: Runtime,
+):
+    """A conversation a script opened is linked to a call no message carries. Left out of
+    the count, a script would hand on eight tasks at every run and the limit would hold
+    nobody. One short of the most by a script's doing, a call of the model's opens the last;
+    what a script of another conversation handed on is not this one's."""
+    store = runtime.store
+    parent, other = (store.create(agent_id="boss", autonomous=True) for _ in range(2))
+    ran = ToolCall(id="s1", name=SCRIPT_TOOL, arguments={"script": "…"})
+    store.append(parent.id, Message(role="assistant", tool_calls=(ran,)))
+    elsewhere = ToolCall(id="s2", name=SCRIPT_TOOL, arguments={"script": "…"})
+    store.append(other.id, Message(role="assistant", tool_calls=(elsewhere,)))
+    for number in range(1, MAX_DELEGATES):
+        store.create(agent_id="worker", parent_call_id=f"s1:{number}")
+    store.create(agent_id="worker", parent_call_id="s2:1")
+
+    store.append(parent.id, _assistant_call("call-last"))
+    last = await delegate(runtime, parent.id, "call-last", task="việc cuối", agent="worker")
+    store.append(parent.id, _assistant_call("call-over"))
+    over = await delegate(runtime, parent.id, "call-over", task="một việc nữa", agent="worker")
+
+    assert "(echo) việc cuối" in last and store.for_parent_call("call-last") is not None
+    assert texts.DELEGATE_TOO_MANY.format(limit=MAX_DELEGATES) in over
+    assert store.for_parent_call("call-over") is None
+
+
 async def test_the_child_inherits_what_is_left_of_the_parent_budget(runtime: Runtime):
     parent = runtime.store.create(agent_id="boss", autonomous=True, cost_cap_usd=1.0)
     runtime.store.add_spend(parent.id, 0.75)
@@ -271,14 +299,16 @@ async def test_the_child_is_told_its_task_was_written_by_another_agent(runtime: 
 
 
 WEB_PARSER = Path(__file__).parent.parent / "web" / "src" / "lib" / "delegate-result.ts"
+# Where the web reads the calls a script made, a task it handed on among them.
+WEB_NESTED_CALLS = WEB_PARSER.with_name("nested-calls.ts")
 
 
-def web_pattern(name: str) -> re.Pattern[str]:
+def web_pattern(name: str, parser: Path = WEB_PARSER) -> re.Pattern[str]:
     """A regex the web card reads a delegate result with, taken from its source so that
     changing the lines on either side without the other turns these tests red."""
-    source = WEB_PARSER.read_text(encoding="utf-8")
+    source = parser.read_text(encoding="utf-8")
     found = re.search(rf"^const {name} = /(.+)/;$", source, re.MULTILINE)
-    assert found, f"{name} is no longer a one-line regex constant in {WEB_PARSER.name}"
+    assert found, f"{name} is no longer a one-line regex constant in {parser.name}"
     return re.compile(found.group(1))
 
 
@@ -301,6 +331,33 @@ async def test_the_first_two_lines_are_the_ones_the_web_card_reads(runtime: Runt
     # The blank line parts what the runtime wrote from what the child said.
     assert result.output.split("\n")[2:] == ["", "(echo) đếm"]
     assert body == "(echo) đếm" and result.reply == body
+
+
+async def test_the_web_finds_the_child_a_script_opened_in_what_is_kept_of_the_call(
+    deps_factory, store: Store
+):
+    """Of a task a script handed on, the run card keeps one line cut short, never the result
+    whole: the web names the conversation by how that line begins."""
+    base = deps_factory(routes=(Route("fake", "echo"),), script_calls=SCRIPT_GATED)
+    agents = {"boss": agent(base, "boss", delegates=("worker",)), "worker": agent(base, "worker")}
+    crew = Runtime(base.settings, store, agents, ActivityHub(store))
+    crew.wire_delegation()
+    # Another conversation first, so the child is not the one a count would guess.
+    store.create(agent_id="worker")
+    parent = store.create(agent_id="boss", autonomous=True)
+    set_turn_conversation(parent.id, 0)
+    set_tool_call_id("p1")
+    script = 'whole = tools.delegate(task="đếm " + "tệp " * 60, agent="worker")\nprint(len(whole))'
+
+    result = await crew.deps_for("boss").tools.execute(SCRIPT_TOOL, {"script": script})
+
+    [call] = result.calls
+    kept = call.to_dict()["output"]
+    child = store.for_parent_call("p1:1")
+    assert result.ok and len(kept) < int(result.output) and "\n" not in kept
+    assert web_pattern("CHILD_HEADER", WEB_NESTED_CALLS).match(kept).group(1) == child.id
+    # The same line a call of the model's own is read by, whole.
+    assert web_pattern("HEADER").fullmatch(kept.split(" outcome=")[0]).group(1) == child.id
 
 
 async def test_a_child_that_needs_more_context_is_not_handed_on(runtime: Runtime):

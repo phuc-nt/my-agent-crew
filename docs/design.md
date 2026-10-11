@@ -257,7 +257,18 @@ any platform ──POST /api/inbound (JSON, sync)─────┴─▶ Inboun
   route đó, không khai tool nào, rồi trả về đúng một chuỗi. Văn bản được đưa cho model như dữ
   liệu trong một hàng rào, nhưng thứ thật sự giữ là cách server đọc câu trả lời: phân loại chỉ
   trả về một nhãn script đã đưa, tóm tắt bị cắt ở độ dài script xin. Mỗi lần hỏi là một lời gọi
-  của script, đếm và tính tiền như một lời gọi tool có trả tiền cho model.
+  của script, đếm và tính tiền như một lời gọi tool có trả tiền cho model. Script của agent
+  `script_calls: gated` còn giao việc được cho agent khác (`tools.delegate`), chỉ trong lượt của
+  chính agent: không trong lượt của một việc được giao, nên độ sâu vẫn dừng ở một, và không
+  trong job, nơi không có cuộc trò chuyện nào để làm cha. `delegate` tự khai là chỉ đọc, nhưng
+  nó đặt một agent khác vào việc bằng tiền của cuộc trò chuyện, nên script gọi nó theo một luật
+  riêng chứ không theo phép xét "chỉ đọc". Mỗi việc chạy dưới một id lời gọi riêng (`<id lời
+  gọi tool_script>:<số>`), để hai việc của một script mở hai cuộc trò chuyện và script chạy lại
+  dưới cùng id tìm lại chúng. Không tin nhắn nào của cha mang id đó, nên mọi chỗ cần biết một
+  cuộc trò chuyện đã giao những gì (mức tám việc, hoạt động của cuộc trò chuyện, bản xuất quỹ
+  đạo) tìm con qua một đường duy nhất trong kho: theo id của lời gọi `delegate`, và theo id của
+  lời gọi `tool_script` mà id của con mở đầu bằng. Tiền các con tiêu nằm trên kết quả của
+  script, nên cuộc trò chuyện cha được cộng một lần.
 - **Chi phí trung thực.** Mỗi message assistant lưu `cost_usd` hoặc `None`. Cuộc trò chuyện giữ
   `spent_usd` và `unknown_cost_calls`; `cost_cap_usd` dừng trước lần gọi model kế tiếp
   (0 = không giới hạn). Mọi lần gọi model nằm ngoài vòng lặp lượt — đặt tiêu đề, tóm tắt
@@ -615,6 +626,10 @@ thì được cắt theo giờ bắt đầu và kết thúc, và bản xuất gh
 Hai lượt chạy chồng nhau trong một cuộc thì ranh giới giữa chúng chỉ gần đúng. Agent con chỉ đi
 theo khi run của nó mang nguồn `delegate:<cuộc trò chuyện của run được xuất>`: mã lời gọi do
 provider cấp có thể trùng giữa hai cuộc, và tra theo mã trần sẽ kéo bản ghi của agent khác vào.
+Agent con do một script mở (`tools.delegate`) cũng đi theo, cả khi script còn đang chờ nó lẫn
+khi script đã xong: không kết quả nào nêu tên nó, nên nó được tìm theo mã của lời gọi
+`tool_script`, phải được mở trong lúc run đang chạy, và `tool_call_id` của nó trong bản xuất là
+`<mã lời gọi tool_script>:<số>`, số thứ tự của lời gọi trong script.
 
 Bản xuất khác thứ người đã thấy trên màn hình: nó có mọi thứ tool đã chạm tới (đầu ra shell,
 trang web, tệp trong workspace, dữ liệu một agent con mang về). Server che khoá theo cách tốt

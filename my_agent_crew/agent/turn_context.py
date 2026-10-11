@@ -76,6 +76,18 @@ def tool_call_id() -> str:
 
 
 @contextmanager
+def calling_as(call_id: str) -> Iterator[None]:
+    """One call carried out under an id of its own, inside the call that asked for it: a
+    script's `delegate`, which finds the conversation it opened by that id. Put back when it
+    is over, so whatever else the outer call does still reads its own id."""
+    outer = _tool_call_id.set(call_id)
+    try:
+        yield
+    finally:
+        _tool_call_id.reset(outer)
+
+
+@contextmanager
 def job_context(call_id: str) -> Iterator[None]:
     """What a schedule's script goes by while it runs: a job's work, with no conversation
     of its own, under a call id of its own. A script is no turn, and its tools read where
