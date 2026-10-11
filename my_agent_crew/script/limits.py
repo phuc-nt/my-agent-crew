@@ -54,6 +54,11 @@ MAX_NESTING = 50
 MAX_WALK = 200_000
 # What a number, a flag or None is counted as when written.
 SCALAR_CHARS = 24
+# What a script keeps from one run to the next (`kept.py`): the longest key, the longest
+# value written as JSON, and the most one namespace holds, its keys and values together.
+MAX_STORE_KEY_CHARS = 200
+MAX_STORE_VALUE_CHARS = 65_536
+MAX_STORE_TOTAL_CHARS = 262_144
 
 SIZED = (str, list, tuple, dict, set)
 

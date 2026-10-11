@@ -613,18 +613,100 @@ chat" cho loại thứ hai và cho xoá tại chỗ (`DELETE /api/jobs/{id:path}
 `created_schedules` và `job_state`, giữ nguyên lịch sử run); lịch viết tay không có nút xoá vì
 xoá nó nghĩa là sửa yaml, còn lịch từ chat không có nút sửa lịch vì trình sửa agent chỉ chứa
 lịch trong yaml: muốn đổi thì xoá rồi để agent đề xuất lại. Lịch từ chat chỉ tạo được loại job
-prompt — không có job command hay consolidate qua chat — và luôn cần người duyệt nguyên văn
-prompt trước khi chạy lần đầu, dù cuộc trò chuyện có autonomous hay không.
+prompt — không có job command, script hay consolidate qua chat — và luôn cần người duyệt nguyên
+văn prompt trước khi chạy lần đầu, dù cuộc trò chuyện có autonomous hay không.
 
 | Khoá | Ý nghĩa |
 |---|---|
 | `id` | mặc định `job-<index>`; dùng trong tên job và trong `POST /api/jobs/{agent}/{id}/run` |
 | `name` | mặc định là id; hiện trong UI |
 | `cron` **hoặc** `every` | đúng một trong hai: cron năm trường, hoặc `30m` / `2h` / `1d` |
-| `prompt` **hoặc** `command` | đúng một trong hai: prompt mở một cuộc trò chuyện autonomous mới và chạy một lượt; command chạy qua `shell_run` trong workspace và chỉ ghi lại bước đó |
+| `prompt`, `command` **hoặc** `script` | đúng một trong ba: prompt mở một cuộc trò chuyện autonomous mới và chạy một lượt; command chạy qua `shell_run` trong workspace và chỉ ghi lại bước đó; script chạy một script như của `tool_script` mà không gọi model, xem [Job chạy script](#job-chạy-script). Không có cái nào, hay có hai, thì crew không khởi động và `PATCH /api/agents/{id}` trả 422 |
+| `then_prompt` | chỉ đứng cạnh `script`: prompt của lượt được mở khi script chạy xong và có in ra gì đó. Không đặt thì job script không bao giờ gọi model. Đặt thì phải là chuỗi có chữ; đặt cạnh `prompt` hay `command` thì bị từ chối như trên |
 | `enabled` | mặc định `true`. Lịch đang bật có thể tạm dừng và tiếp tục từ thẻ job (`PATCH /api/jobs/{agent}/{id}/state`); công tắc đó lưu trong bảng `job_state` và sống qua khởi động lại. Lịch tắt ở đây chỉ bật lại được bằng cách sửa yaml |
-| `skills` | danh sách tên skill gắn toàn văn vào cuộc trò chuyện mà job prompt mở ra; mặc định rỗng, và tên không skill nào cung cấp được ghi log cảnh báo lúc khởi động. Tên skill có gạch nối viết trong `prompt` cũng được gắn |
+| `skills` | danh sách tên skill gắn toàn văn vào cuộc trò chuyện mà job prompt mở ra; mặc định rỗng, và tên không skill nào cung cấp được ghi log cảnh báo lúc khởi động. Tên skill có gạch nối viết trong `prompt` cũng được gắn. Với job script, đó là cuộc trò chuyện mở cho `then_prompt`, và tên skill viết trong `then_prompt` cũng được gắn |
 | `approval_ttl_seconds` | số giây một yêu cầu duyệt trong cuộc trò chuyện job prompt mở ra chờ người trả lời: số nguyên từ 60 đến 43200 (12 giờ), không đặt trong ngoặc kép; không đặt thì theo `approval_ttl_seconds` của `config.yaml`. Job chạy lúc không ai thức nên đặt dài hơn, ví dụ `7200`. Cuộc trò chuyện giữ hạn này cho mọi yêu cầu về sau, kể cả sau khi server khởi động lại, và cuộc của agent con được giao việc chép lại nó. Trình sửa trên web giữ khoá này qua các lần sửa nhưng không có ô nhập; `PATCH /api/agents/{id}` gửi `schedules` mà dòng nào thiếu khoá thì dòng đó mất khoá |
+
+### Job chạy script
+
+Một việc kiểm tra mỗi tuần mới tới hạn một lần mà sáng nào cũng hỏi model thì sáng nào cũng trả
+tiền để nghe "OK". Lịch có khoá `script` làm việc kiểm tra đó bằng một script của `tool_script`
+([tools.md](tools.md#gọi-tool-từ-script)): script tự gọi tool, tự lọc, và **không lần gọi model
+nào** xảy ra trừ khi nó có điều để nói. (Đừng nhầm với mục kế tiếp, nơi một job prompt gọi một
+script shell trong workspace.)
+
+- **Chạy bằng gì.** Đúng bộ máy và đúng các giới hạn của `tool_script`: cùng ngôn ngữ, cùng tiến
+  trình con không khoá không mạng, cùng 25 lời gọi và 300 giây. Agent không cần giữ
+  `tool_script`: job chạy trên những tool script của agent gọi được, dù tool ấy có được giao hay
+  không. Script dài tối đa 20.000 ký tự và được xét cả đoạn lúc nạp, như khi model viết: sai cú
+  pháp hay dùng thứ ngôn ngữ không có thì crew không khởi động, và lần lưu qua
+  `PATCH /api/agents/{id}` trả 422, cả hai kèm tên agent, tên lịch và lời của phép xét.
+- **Gọi được gì.** Theo `script_calls` của chính agent ([agent.yaml](#agentyaml)). Mặc định
+  `read_only`: chỉ những tool đọc mà script của một lượt gọi được. Với `gated`, script gọi thêm
+  tool có ghi, và cổng duyệt xét từng lời gọi như trong cuộc trò chuyện autonomous mà một job
+  prompt mở ra: tool cần duyệt mà không có lý do hỏi riêng thì chạy, lệnh shell không khớp mẫu
+  nào cũng chạy.
+- **Không bao giờ hỏi người.** Không ai trông một job và không có cuộc trò chuyện nào để một câu
+  trả lời quay về, nên lời gọi mà cổng phải hỏi dù ai đang trông (lệnh khớp `shell_ask_patterns`,
+  hay một tool tự khai lý do phải hỏi) làm script **dừng tại đó**, tool chưa chạy; lệnh khớp
+  `shell_deny_patterns` cũng vậy. Không gì chờ, không yêu cầu duyệt nào được tạo, và run của job
+  là `error` kèm câu từ chối. `ask_user` và `schedule_create` vẫn ở ngoài mọi script.
+- **Không có cuộc trò chuyện.** Script của job chạy ngoài mọi cuộc trò chuyện, nên tool làm việc
+  qua một cuộc trò chuyện hỏng ở đó như một lỗi script bắt được: các tool canvas ("Canvas chỉ
+  dùng được trong một cuộc trò chuyện.") và `tool_output_read`; câu trả lời dài hơn 200.000 ký
+  tự cũng không được giữ lại để đọc tiếp. Việc nào cần cuộc trò chuyện thì để cho lượt của
+  `then_prompt`.
+- **Run.** Mỗi lần chạy là một run nguồn `job:<agent id>/<schedule id>`, không gắn cuộc trò
+  chuyện nào, có đúng một bước `tool_script` với các lời gọi của script liệt kê bên dưới như ở
+  một lượt. Script chạy xong thì run `done`, tóm tắt là phần cuối của cái nó in; hỏng, bị cổng
+  hay một giới hạn dừng thì run `error`, tóm tắt là phần cuối của câu lỗi; server tắt giữa lúc
+  script chạy thì run đóng lại là `error` với tóm tắt `interrupted`, như run của một lượt bị
+  cắt. Lời gọi có trả tiền cho model (`image_read`, `pdf_read` trên trang scan) được tính vào
+  run.
+- **`then_prompt`.** Script chạy xong **và** in ra thứ gì đó không trống thì crew mở một lượt như
+  job prompt mở: cuộc trò chuyện autonomous mới, `skills` và `approval_ttl_seconds` của lịch áp
+  cho nó. Tin mở lượt là `then_prompt`, một dòng trống, rồi cái script in ra (cắt theo
+  `tool_output_chars` của agent). Run của lượt đó là kết quả của job: nó là `last_run` của job,
+  và câu trả lời cuối của nó được gửi đi theo đúng luật của job prompt (kể cả luật "chỉ trả lời
+  `OK` thì không gửi"). Script không in gì, hỏng, hoặc lịch không có `then_prompt` thì không
+  lượt nào được mở và không gì được gửi.
+- **Nhớ giữa các lần chạy.** `store(khoá, giá_trị)` và `load(khoá)` giữ dữ liệu của job dưới
+  `job:<schedule id>` ([tools.md](tools.md#gọi-tool-từ-script), bullet "Giữ lại giữa các lần
+  chạy"); lượt của `then_prompt` đọc và ghi cùng chỗ đó. Cái script ghi được lưu trước khi lượt
+  ấy mở, nên lượt ấy hỏng giữa chừng thì sổ vẫn đã ghi: trong ví dụ dưới, việc đã vào `told` sẽ
+  không được nhắc lại dù tin nhắc chưa tới tay ai. Lịch nào có script cần nhớ thì khai `id`: `id`
+  mặc định theo vị trí trong danh sách, chèn một lịch phía trên là job đọc sang chỗ khác.
+
+Ví dụ: một job nhắc hạn. Bản viết bằng `prompt` gọi model mỗi sáng dù không có gì tới hạn; bản
+dưới đây chỉ gọi model vào sáng có việc mới tới hạn, và model chỉ lo phần câu chữ. Tệp
+`data/deadlines.json` là của workspace (một job `command` khác làm mới nó), mỗi dòng có `id`,
+`title` và `days_left`:
+
+```yaml
+schedules:
+  - id: due-reminders
+    name: Nhắc hạn
+    cron: "30 7 * * *"
+    script: |
+      rows = json.loads(tools.workspace_read(path="data/deadlines.json"))
+      told = load("told") or []
+      due = [row for row in rows if row["days_left"] <= 3 and row["id"] not in told]
+      for row in due:
+          print(row["title"], "- còn", row["days_left"], "ngày")
+      store("told", told + [row["id"] for row in due])
+    then_prompt: |
+      Dưới đây là các việc vừa tới hạn. Viết một tin nhắc ngắn, việc gấp nhất đứng trước.
+```
+
+Sáng không có việc nào mới tới hạn thì script không in gì: run ghi lại một bước, không model nào
+được gọi và không tin nào được gửi. Việc đã nhắc được nhớ trong `told` nên sáng hôm sau không
+nhắc lại. Tệp không đọc được thì script hỏng, run là `error`, và `told` giữ nguyên như trước lần
+chạy.
+
+Trình sửa agent trên web giữ `script` và `then_prompt` của một dòng qua các lần sửa và gửi lại
+đúng giá trị đã đọc. Một lần lưu có gửi `schedules` viết lại cả danh sách trong `agent.yaml`:
+script viết tay dạng khối (`script: |`) thành một dòng trong ngoặc kép với `\n`. Giá trị không
+đổi một ký tự, chỉ khó đọc hơn; muốn giữ dạng khối thì sửa lịch bằng tay trong tệp.
 
 ### Một script mỗi job
 
@@ -650,8 +732,8 @@ có run riêng trong Activity, và biên dịch hỏng không làm job hỏng �
 đã xong rồi, và báo cả job thất bại sẽ khiến ai đó đi tìm
 hư hại không có ở đó. Xem [memory.md](memory.md#compile).
 
-Sau một job prompt, scheduler đẩy câu trả lời cuối tới
-chat Telegram của master khi có, dưới tên của agent (bản tin sáng về
+Sau một job prompt, hay sau lượt mà một job script mở cho `then_prompt`, scheduler đẩy câu trả
+lời cuối tới chat Telegram của master khi có, dưới tên của agent (bản tin sáng về
 Telegram; xem [channels.md](channels.md)). Gửi thất bại được ghi log, không bao giờ thử lại.
 
 ## Ví dụ

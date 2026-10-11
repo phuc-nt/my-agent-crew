@@ -4,14 +4,17 @@ What makes something new charges for it. What walks its argument takes a list, n
 generator: `enumerate`, `zip` and `reversed` hand back lists, so every value a script holds
 has a length that was charged. A function the script passes as `key=` is called by the
 interpreter, one item at a time; nothing of Python's own is ever handed the script's code.
+Two of them are answered by the parent and not here: `store` and `load` (`kept.py`).
 """
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from my_agent_crew import texts_script as t
+from my_agent_crew.script.kept import LOAD, STORE, as_text, checked_key
 from my_agent_crew.script.limits import MAX_STEPS, ScriptError
 from my_agent_crew.script.operators import text_of
 from my_agent_crew.script.values import Builtin
@@ -126,6 +129,29 @@ def _print(machine: Machine, args: list[Any], kwargs: dict[str, Any]) -> None:
     machine.write(end)
 
 
+def _store(machine: Machine, args: list[Any], kwargs: dict[str, Any]) -> None:
+    """Keeps a value for a later run, or drops the key when the value is None. What cannot
+    be kept is turned away here, before it is asked for: a value the line cannot carry
+    would end the process, and this is a mistake the script may catch."""
+    if len(args) != 2 or kwargs:
+        raise _wrong("store")
+    key, value = checked_key(args[0]), args[1]
+    if value is not None:
+        machine.budget.measure(value)
+        as_text(value)
+    machine.ask(STORE, {"key": key, "value": value})
+
+
+def _load(machine: Machine, args: list[Any], kwargs: dict[str, Any]) -> Any:
+    if len(args) != 1 or kwargs:
+        raise _wrong("load")
+    text = machine.ask(LOAD, {"key": checked_key(args[0])})
+    if text is None:
+        return None
+    machine.budget.charge(len(text))  # parsed, a text is at most a value for each character
+    return json.loads(text)
+
+
 def _table() -> dict[str, Builtin]:
     kinds: dict[str, tuple[Call, type]] = {
         "str": (_text("str", str), str),
@@ -154,6 +180,8 @@ def _table() -> dict[str, Builtin]:
         "round": _plain("round", round),
         "isinstance": _isinstance,
         "print": _print,
+        STORE: _store,
+        LOAD: _load,
     }
     table = {name: Builtin(name, call, kind) for name, (call, kind) in kinds.items()}
     table.update({name: Builtin(name, call) for name, call in calls.items()})

@@ -13,7 +13,7 @@ from my_agent_crew import texts
 from my_agent_crew.activity import ActivityHub
 from my_agent_crew.agent.approval_expiry import expire_overdue
 from my_agent_crew.agent.loop import AgentDeps
-from my_agent_crew.agents.schedule import PROMPT
+from my_agent_crew.agents.schedule import DELIVERED
 from my_agent_crew.scheduler.created import chat_jobs
 from my_agent_crew.scheduler.cron import due_between
 from my_agent_crew.scheduler.describe import describe_job
@@ -169,7 +169,7 @@ class Scheduler:
         self._running.add(job.id)
         try:
             run = await dispatch(job, deps, self._hub, self._clock)
-            if job.schedule.kind == PROMPT:
+            if job.schedule.kind in DELIVERED:
                 await self.deliver_run(job, run)
             return run
         finally:

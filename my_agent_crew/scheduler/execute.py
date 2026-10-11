@@ -1,4 +1,4 @@
-"""Picking which of the three run kinds a due job needs. Split out of `Scheduler` itself
+"""Picking which of the four run kinds a due job needs. Split out of `Scheduler` itself
 only to keep that class within the file's own size budget; delivery stays in `runner.py`
 because an existing test pins the logger name that records a delivery's outcome."""
 
@@ -23,9 +23,17 @@ async def dispatch(
     job: Job, deps: AgentDeps, hub: ActivityHub, clock: Callable[[], datetime]
 ) -> RunRecord:
     """Runs the job by its kind; does not deliver the result — the caller decides that,
-    since only a prompt job's answer is worth pushing to a channel."""
+    since only an answer of the model's is worth pushing to a channel: a prompt job's, or
+    the one a script job asked for."""
     if job.schedule.consolidate:
         return await run_consolidate(job, deps, hub)
+    if job.schedule.script:
+        # Imported here, not above: what a script may call names the tool that proposes a
+        # schedule, and that tool reads this package's cron. Loaded with the package, the
+        # script job would be asked for half-way through loading what it needs itself.
+        from my_agent_crew.scheduler.script_job import run_script_job
+
+        return await run_script_job(job, deps, hub, job_title(job, clock))
     if job.schedule.command:
         return await run_command(job, deps, hub, job_title(job, clock))
     return await run_prompt(job, deps, hub, job_title(job, clock))

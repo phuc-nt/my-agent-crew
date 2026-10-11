@@ -4,12 +4,10 @@
 // line at the top of the form naming the agent and the rule in the parser's own words.
 // Checking the few fields a person types free-hand before the request goes out turns that
 // into a message next to the box that caused it, with the save held until it is fixed.
-import type { AgentPatch, DeclaredProfile } from "../api/types";
+import type { AgentPatch } from "../api/types";
 import { vi } from "../i18n/vi";
 import { clashingIds, idsToSend } from "./schedule-ids";
-
-/** One schedule as the file declares it: `kind` is derived and never written back. */
-export type ScheduleRow = DeclaredProfile["schedules"][number];
+import { type ScheduleRow, sendableRow, usesCommand, usesEvery, usesScript } from "./schedule-row-shape";
 
 export interface RowProblems {
   id?: string;
@@ -28,21 +26,6 @@ export interface DraftProblems {
    * not called an error until a save is tried: a row just added is empty, not wrong.
    */
   unfilled?: true;
-}
-
-/** A new row, in the shape the server declares rows in, so an untouched one compares equal. */
-export function blankSchedule(): ScheduleRow {
-  return { id: "", name: "", cron: "", every: null, prompt: "", command: null, enabled: true, skills: [] };
-}
-
-/** Which timing a row uses. A row switched to an interval carries `cron: null`. */
-export function usesEvery(row: ScheduleRow): boolean {
-  return row.cron === null && row.every !== null;
-}
-
-/** Which action a row takes. A row switched to a command carries `prompt: null`. */
-export function usesCommand(row: ScheduleRow): boolean {
-  return row.prompt === null && row.command !== null;
 }
 
 /** The box a row's timing is typed in, and the one its action is. */
@@ -92,7 +75,8 @@ function rowProblems(row: ScheduleRow, reveal: boolean, unfilled: () => void): R
   if (!timing.trim() && !reveal) unfilled();
   else if (usesEvery(row) ? !isEvery(timing) : !isCron(timing))
     found.timing = usesEvery(row) ? vi.editor.everyInvalid : vi.editor.cronInvalid;
-  if (actionOf(row).trim()) return found;
+  // A script row has neither box: its action is in the file, and it is not the form's to miss.
+  if (usesScript(row) || actionOf(row).trim()) return found;
   if (!reveal) unfilled();
   else found.action = usesCommand(row) ? vi.editor.commandMissing : vi.editor.promptMissing;
   return found;
@@ -172,21 +156,6 @@ export function hasProblems(problems: DraftProblems): boolean {
 /** Anything named next to a box: what the banner and the disabled save button stand for. */
 export function problemsShown(problems: DraftProblems): boolean {
   return Object.keys(problems).some((key) => key !== "unfilled");
-}
-
-/** A row as the parser wants it: a blank or switched-off key is left out rather than sent
- * as null, so the file holds one timing and one action and nothing it has to explain. */
-function sendableRow(row: ScheduleRow): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  for (const key of ["id", "name", "cron", "every", "prompt", "command"] as const) {
-    const value = row[key];
-    if (typeof value === "string" && value.trim() !== "") out[key] = value;
-  }
-  out.enabled = row.enabled;
-  out.skills = row.skills;
-  // Written in the file, not the form: a row sent without it would lose it.
-  if (typeof row.approval_ttl_seconds === "number") out.approval_ttl_seconds = row.approval_ttl_seconds;
-  return out;
 }
 
 /** The PATCH body for the changed keys. An emptied consolidation cron is sent as null,

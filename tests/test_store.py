@@ -51,6 +51,41 @@ def test_a_delete_that_fails_halfway_leaves_the_conversation_whole(store: Store)
     assert [m.message.content for m in store.history(conv.id)] == ["hi"]
 
 
+def _kept_by(store: Store, agent_id: str) -> dict[tuple[str, str], str]:
+    rows = store.script_store.kept_by(agent_id)
+    return {(row.namespace, row.key): row.text for row in rows}
+
+
+def test_deleting_a_conversation_takes_what_its_scripts_kept_and_nothing_else(store: Store):
+    gone, stays = store.create(), store.create()
+    kept = store.script_store
+    assert kept.apply("a", f"conv:{gone.id}", {"n": "1", "m": "2"}, 1000)
+    # Whoever ran the script: a conversation's own place goes whole.
+    assert kept.apply("b", f"conv:{gone.id}", {"n": "3"}, 1000)
+    assert kept.apply("a", f"conv:{stays.id}", {"n": "4"}, 1000)
+    assert kept.apply("a", "job:due", {"n": "5"}, 1000)
+
+    store.delete(gone.id)
+
+    assert _kept_by(store, "a") == {(f"conv:{stays.id}", "n"): "4", ("job:due", "n"): "5"}
+    assert _kept_by(store, "b") == {}
+
+
+def test_a_delete_that_fails_halfway_leaves_what_the_scripts_kept(store: Store):
+    """Dropped inside the same transaction, so rolled back with the rest of it: a commit of
+    its own would have taken the values of a conversation that is still there."""
+    conv = store.create(title="A")
+    assert store.script_store.apply("a", f"conv:{conv.id}", {"n": "1"}, 1000)
+    store._conn = _RemovingTheConversationFails(store._conn)
+    with pytest.raises(sqlite3.OperationalError):
+        store.delete(conv.id)
+    store._conn = store._conn._conn
+
+    store.create(title="B")
+    assert store.get(conv.id).title == "A"
+    assert _kept_by(store, "a") == {(f"conv:{conv.id}", "n"): "1"}
+
+
 def test_update_rejects_non_mutable_fields(store: Store):
     conv = store.create()
     with pytest.raises(ValueError):

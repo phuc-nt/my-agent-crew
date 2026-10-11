@@ -7,20 +7,36 @@ with words that say what to do: make the call directly, where a person can be as
 
 Those words never repeat what the call was asked to do. A command may hold a secret, and a
 refusal is kept with the run.
+
+The script a schedule runs has no conversation to go by (`scheduler/script_job.py`). It is
+judged by the same rules as a job's own turn would be, one nobody watches: what would wait
+for a person ends it, and nothing waits.
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from functools import partial
 from typing import TYPE_CHECKING, Any
 
 from my_agent_crew import texts_script as t
-from my_agent_crew.agent.tool_gate import ASK, RUN, ask_reason_for, verdict
+from my_agent_crew.agent.tool_gate import ASK, RUN, Allowed, ask_reason_for, verdict
 from my_agent_crew.agent.turn_context import turn_conversation_id
 from my_agent_crew.tools.shell import deny_reason
 
 if TYPE_CHECKING:
     from my_agent_crew.agent.loop import AgentDeps
     from my_agent_crew.script.nested import Gate
+
+
+@dataclass(frozen=True)
+class Unattended:
+    """What a schedule's script goes by where a turn has its conversation: nobody is there
+    to authorise a tool, as in the conversation a job opens, and nobody ever said of one to
+    always allow it."""
+
+    autonomous: bool = True
+    auto_approve: tuple[str, ...] = ()
 
 
 def _asked(deps: AgentDeps, name: str, arguments: dict[str, Any]) -> str:
@@ -32,6 +48,17 @@ def _asked(deps: AgentDeps, name: str, arguments: dict[str, Any]) -> str:
     if pattern:
         return t.SCRIPT_GATE_ASK_LIST.format(name=name, pattern=pattern)
     return t.SCRIPT_GATE_ASKS.format(name=name)
+
+
+def _refusal(deps: AgentDeps, allowed: Allowed, name: str, arguments: dict[str, Any]) -> str | None:
+    """None for a call the gate lets run, else the words the script ends on."""
+    said = verdict(deps, allowed, name, arguments)
+    if said == RUN:
+        return None
+    if said == ASK:
+        return _asked(deps, name, arguments)
+    pattern = deny_reason(arguments, deps.settings.shell_deny_patterns)
+    return t.SCRIPT_GATE_DENIED.format(name=name, pattern=pattern)
 
 
 def script_gate(deps: AgentDeps) -> Gate:
@@ -47,12 +74,11 @@ def script_gate(deps: AgentDeps) -> Gate:
         if conv is None:
             # Nobody's rules to go by: a call that changes things is not made on a guess.
             return t.SCRIPT_GATE_NO_TURN.format(name=name)
-        said = verdict(deps, conv, name, arguments)
-        if said == RUN:
-            return None
-        if said == ASK:
-            return _asked(deps, name, arguments)
-        pattern = deny_reason(arguments, deps.settings.shell_deny_patterns)
-        return t.SCRIPT_GATE_DENIED.format(name=name, pattern=pattern)
+        return _refusal(deps, conv, name, arguments)
 
     return refusal
+
+
+def job_gate(deps: AgentDeps) -> Gate:
+    """The gate for the script a schedule of this agent runs."""
+    return partial(_refusal, deps, Unattended())

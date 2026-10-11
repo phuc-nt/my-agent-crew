@@ -28,10 +28,34 @@ from my_agent_crew.agents.profile import (
     default_profile,
 )
 from my_agent_crew.agents.profile_settings import names, settings_from
-from my_agent_crew.agents.schedule import SCHEDULE_KEYS, Schedule
+from my_agent_crew.agents.schedule import ACTIONS, SCHEDULE_KEYS, Schedule
 from my_agent_crew.config import Settings
+from my_agent_crew.script.check import parse
+from my_agent_crew.script.limits import MAX_SOURCE_CHARS, ScriptError
 
 MASTER_MANIFEST = "agent.yaml"
+
+
+def _script(raw: dict[str, Any], where: str) -> tuple[str | None, str | None]:
+    """A script job's own two keys: the script, and the prompt what it prints goes on with.
+
+    The script is read here as far as it can be without running it, with the check a script
+    of a turn meets before it runs. One that cannot be read would fail every time its job
+    came round, long after the file was written, so the file is refused instead."""
+    script, then_prompt = raw.get("script"), raw.get("then_prompt")
+    if then_prompt is not None and not (isinstance(then_prompt, str) and then_prompt.strip()):
+        raise ValueError(f"{where}: then_prompt must be a non-empty string")
+    if not script:
+        return None, None
+    if not isinstance(script, str) or not script.strip():
+        raise ValueError(f"{where}: script must be a non-empty string")
+    if len(script) > MAX_SOURCE_CHARS:
+        raise ValueError(f"{where}: script is longer than {MAX_SOURCE_CHARS} characters")
+    try:
+        parse(script)
+    except ScriptError as exc:
+        raise ValueError(f"{where}: script: {exc}") from exc
+    return script, then_prompt
 
 
 def _schedule(raw: dict[str, Any], agent_id: str, index: int) -> Schedule:
@@ -40,21 +64,28 @@ def _schedule(raw: dict[str, Any], agent_id: str, index: int) -> Schedule:
         raise ValueError(f"agent {agent_id}: schedule has unknown keys {sorted(unknown)}")
     if bool(raw.get("cron")) == bool(raw.get("every")):
         raise ValueError(f"agent {agent_id}: schedule needs exactly one of cron / every")
-    if bool(raw.get("prompt")) == bool(raw.get("command")):
-        raise ValueError(f"agent {agent_id}: schedule needs exactly one of prompt / command")
+    if sum(bool(raw.get(action)) for action in ACTIONS) != 1:
+        raise ValueError(
+            f"agent {agent_id}: schedule needs exactly one of prompt / command / script"
+        )
+    if raw.get("then_prompt") is not None and not raw.get("script"):
+        raise ValueError(f"agent {agent_id}: schedule takes then_prompt only beside script")
     job_id = str(raw.get("id") or f"job-{index}")
+    where = f"agent {agent_id}: schedule {job_id}"
+    script, then_prompt = _script(raw, where)
     return Schedule(
         id=job_id,
         name=str(raw.get("name") or job_id),
         cron=raw.get("cron"),
         every=raw.get("every"),
-        prompt=raw.get("prompt"),
-        command=raw.get("command"),
+        # A row's two other actions are absent beside a script, not blank.
+        prompt=raw.get("prompt") if script is None else None,
+        command=raw.get("command") if script is None else None,
         enabled=bool(raw.get("enabled", True)),
         skills=tuple(str(s) for s in raw.get("skills") or []),
-        approval_ttl_seconds=parse_approval_ttl(
-            raw.get("approval_ttl_seconds"), f"agent {agent_id}: schedule {job_id}"
-        ),
+        approval_ttl_seconds=parse_approval_ttl(raw.get("approval_ttl_seconds"), where),
+        script=script,
+        then_prompt=then_prompt,
     )
 
 

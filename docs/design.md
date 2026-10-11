@@ -32,7 +32,7 @@ any platform ──POST /api/inbound (JSON, sync)─────┴─▶ Inboun
                                                         │           │  provider chain (ordered routes, fallback before first item)
                                                         │           │  tool registry (workspace, web, memory, shell, delegate, canvas)
                                                         │           │  skills + persona/memory + crew roster (system prompt)
-                                                        │           └─ store (SQLite: conversations, messages, approvals, runs, canvases)
+                                                        │           └─ store (SQLite: conversations, messages, approvals, runs, canvases, script_store)
                                                         ├─ activity hub (live runs → SSE /api/activity/stream)
                                                         ├─ QueueDrain   (what waited while busy → a turn of its own)
                                                         └─ Scheduler    (cron/every jobs per agent, 20 s tick)
@@ -379,9 +379,14 @@ của store và chỉ tính lại khi có gì đó được ghi.
 
 `scheduler/` biến mỗi lịch được bật thành một job `<agent_id>/<schedule_id>`. Một lịch có
 đúng một trong `cron` (năm trường, theo múi giờ của người dùng) hoặc `every` (`30m`, `2h`, `1d`) và đúng
-một trong `prompt` hoặc `command`. **Job prompt** mở một cuộc trò chuyện autonomous mới cho agent
+một trong `prompt`, `command` hoặc `script`. **Job prompt** mở một cuộc trò chuyện autonomous mới cho agent
 và chạy một lượt; **job command** chạy chuỗi lệnh bằng `shell_run` trong workspace của agent và
-chỉ ghi step đó; **job consolidate**, thêm bởi một cron `memory_consolidate`, đề xuất viết
+chỉ ghi step đó; **job script** chạy một script của `tool_script` mà không gọi model
+(`scheduler/script_job.py`, qua cùng `run_source` với script của một lượt): run của nó không gắn
+cuộc trò chuyện nào và có đúng một step `tool_script`, cổng duyệt coi nó là việc không ai trông
+nên không gì chờ người, và chỉ khi script chạy xong, có in ra gì đó và lịch có `then_prompt` thì
+một lượt mới được mở như job prompt mở, mang `then_prompt` và cái script in ra (chi tiết ở
+[agents.md](agents.md#job-chạy-script)); **job consolidate**, thêm bởi một cron `memory_consolidate`, đề xuất viết
 lại `MEMORY.md` của agent bằng một lần gọi model (master gọi thêm một lần để xem lại fact người
 dùng) và không mở cuộc trò chuyện nào, nên không gửi gì cả. Tick là 20 s; `POST /api/jobs/{id}/run` khởi động một job ngay lập tức và
 trả 202. Đồng hồ của lịch là múi giờ của người dùng: key `timezone` trong `config.yaml` (hoặc
@@ -392,6 +397,16 @@ prompt, `/status`, thống kê activity và sổ cái sử dụng.
 trong database, sống qua restart và chỉ áp dụng với lịch
 mà profile bật — lịch tắt trong yaml được báo là `enabled: false, paused: false` và
 không bật được từ UI. `GET /api/jobs/{id}/runs` liệt kê các run đã qua của job đó.
+
+**Sổ của script.** Bảng `script_store` (`agent_id`, `namespace`, `key`, `value_json`,
+`updated_at`; khoá chính là ba cột đầu) giữ những gì một script ghi bằng `store` để lần chạy sau
+đọc bằng `load`. Script nêu khoá, còn `namespace` do server chọn: `job:<schedule_id>` cho job
+script và cho lượt mà một job mở, `conv:<conversation_id>` cho mọi lượt khác, và dòng nào cũng
+thuộc riêng một agent. Lần ghi của một script chỉ được áp khi nó chạy xong, tất cả trong một
+transaction, và kho được đo lại ngay trong transaction đó: ghi ngay từng lần thì một script hỏng
+giữa chừng để lại nửa sổ, một trạng thái mà không lần chạy nào từng muốn có. Kho `conv:` bị xoá
+trong cùng transaction với cuộc trò chuyện của nó (`Store.delete`). Chi tiết và giới hạn ở
+[tools.md](tools.md#gọi-tool-từ-script).
 
 **Lịch từ chat.** Bên cạnh lịch viết tay trong `agent.yaml`, tool `schedule_create`
 (`origin: "chat"` trên job, đối lập `origin: "profile"`) cho agent tự đề xuất một job prompt

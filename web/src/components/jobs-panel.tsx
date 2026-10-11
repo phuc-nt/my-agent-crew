@@ -2,21 +2,15 @@ import { useEffect, useRef, useState } from "react";
 import type { JobInfo } from "../api/types";
 import { useNow } from "../hooks/use-now";
 import { vi } from "../i18n/vi";
-import { scheduleText } from "../lib/cron-text";
 import { timeUntil } from "../lib/relative-time";
 import { AtClock } from "./job-clock";
 import { JobLastRun } from "./job-last-run";
 import { JobRunHistory } from "./job-run-history";
+import { JobScript, JobTiming } from "./job-schedule";
 import { formatDateTime } from "./run-timeline";
 import { AgentAvatar } from "./ui/agent-avatar";
 import { EmptyState } from "./empty-state";
 import { Icon } from "./ui/icon";
-
-const JOB_KINDS: Record<string, string> = {
-  prompt: vi.jobKindPrompt,
-  command: vi.jobKindCommand,
-  consolidate: vi.jobKindConsolidate,
-};
 
 interface Props {
   jobs: JobInfo[] | null;
@@ -153,6 +147,7 @@ export function JobsPanel(props: Props) {
               </p>
             )}
             <JobTiming job={job} />
+            <JobScript job={job} />
             {job.skills.length > 0 && (
               <div className="job-meta muted">
                 {vi.jobSkills}: <code>{job.skills.join(", ")}</code>
@@ -199,18 +194,5 @@ export function JobsPanel(props: Props) {
         );
       })}
     </ul>
-  );
-}
-
-/** When a schedule runs, in words, with the cron or interval it was written as beside it
- *  for whoever wants to check the reading; a shape with no words shows only once. */
-function JobTiming({ job }: { job: JobInfo }) {
-  const written = job.cron ?? job.every ?? "";
-  const words = scheduleText(job.cron, job.every);
-  return (
-    <div className="job-meta muted">
-      {words !== written && <span className="job-when">{words}</span>} <code>{written}</code> ·{" "}
-      {JOB_KINDS[job.kind]}
-    </div>
   );
 }

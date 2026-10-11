@@ -222,7 +222,8 @@ def test_a_saved_schedule_comes_back_in_the_shape_it_can_be_resent_in(crew) -> N
     assert all(isinstance(n, str) for n in profile["skills"])
     declared = profile["declared"]["schedules"]
     unset = {"cron": None, "prompt": None, "enabled": True, "approval_ttl_seconds": None}
-    assert declared == [{**row, **unset}]
+    # A row that runs no script still says so, with both of a script job's keys empty.
+    assert declared == [{**row, **unset, "script": None, "then_prompt": None}]
     again = client.patch("/api/agents/coder", json={"profile": {"schedules": declared}})
     assert again.status_code == 200
     assert again.json()["profile"]["declared"]["schedules"] == declared

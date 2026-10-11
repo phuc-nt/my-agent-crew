@@ -234,7 +234,7 @@ export interface TemplateInfo {
 }
 
 /** What running a schedule does: ask the agent, run a shell command, or rewrite memory. */
-export type JobKind = "prompt" | "command" | "consolidate";
+export type JobKind = "prompt" | "command" | "script" | "consolidate";
 
 export interface ScheduleInfo {
   id: string;
@@ -244,6 +244,13 @@ export interface ScheduleInfo {
   every: string | null;
   prompt: string | null;
   command: string | null;
+  /** The source of a script the job runs with no model call. Written in `agent.yaml` only:
+   * the form shows it and sends it back as it came. Absent from a server older than script
+   * jobs, as `then_prompt` is. */
+  script?: string | null;
+  /** Beside `script` only: when the script prints something, a turn is opened with this
+   * prompt and what was printed. */
+  then_prompt?: string | null;
   enabled: boolean;
   /** Skills attached in full to the conversation this schedule opens. */
   skills: string[];

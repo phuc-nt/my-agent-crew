@@ -7,7 +7,7 @@ then does autonomy (or a per-tool always-allow) decide."""
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol
 
 from my_agent_crew.llm.types import ToolCall
 from my_agent_crew.store.models import Conversation
@@ -21,6 +21,18 @@ if TYPE_CHECKING:  # the loop owns the deps; importing it back would be a cycle
 
 logger = logging.getLogger(__name__)
 RUN, ASK, DENY = "run", "ask", "deny"
+
+
+class Allowed(Protocol):
+    """What its person allowed a conversation, which is all the gate reads of one. The
+    script a schedule runs has no conversation, and is judged by a stance of its own
+    (`script/gate.py`)."""
+
+    @property
+    def autonomous(self) -> bool: ...
+
+    @property
+    def auto_approve(self) -> tuple[str, ...]: ...
 
 
 def _tool_ask_reason(deps: AgentDeps, name: str, arguments: dict[str, Any]) -> str | None:
@@ -80,9 +92,7 @@ def ask_reason_text(deps: AgentDeps, name: str, arguments: dict[str, Any]) -> st
     return SHELL_ASK_REASON.format(pattern=pattern) if pattern else ""
 
 
-def needs_decision(
-    conv: Conversation, name: str, reason: str | None, allowed: bool = False
-) -> bool:
+def needs_decision(conv: Allowed, name: str, reason: str | None, allowed: bool = False) -> bool:
     """Whether this call stops the turn to ask a person, in strict order:
 
     1. A question never skips. Autonomy means "do not ask me to authorise your tools",
@@ -113,7 +123,7 @@ def allowed_by_pattern(deps: AgentDeps, name: str, arguments: dict[str, Any]) ->
     return ask_reason(command, deps.settings.shell_allow_patterns) is not None
 
 
-def verdict(deps: AgentDeps, conv: Conversation, name: str, arguments: dict[str, Any]) -> str:
+def verdict(deps: AgentDeps, conv: Allowed, name: str, arguments: dict[str, Any]) -> str:
     """What the gate says of one call before it runs, with nobody asked yet: `RUN` it,
     `ASK` a person first, or `DENY`, for a command the agent's shell refuses whatever a
     person would say. A turn pauses on `ASK` and a script ends on anything but `RUN`

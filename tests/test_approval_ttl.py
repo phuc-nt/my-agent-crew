@@ -180,9 +180,11 @@ def test_changing_the_chat_id_keeps_the_telegram_wait(crew) -> None:
 
 def test_the_web_editor_and_the_server_agree_on_what_a_schedule_row_holds():
     """The editor refuses a row with a key it does not know, so a key only the server knew
-    would make every agent that uses it uneditable from the web."""
+    would make every agent that uses it uneditable from the web. The editor writes its list
+    over as many lines as it takes, so it is read up to the bracket that closes it."""
     contract = (ROOT / "web" / "src" / "test" / "schedule-contract.ts").read_text()
-    [listed] = re.findall(r"^const SCHEDULE_KEYS = new Set\(\[(.+)\]\);$", contract, re.M)
+    declared = r"^const SCHEDULE_KEYS = new Set\(\[(.+?)\]\);$"
+    [listed] = re.findall(declared, contract, re.M | re.S)
 
     assert set(re.findall(r'"([a-z_]+)"', listed)) == SCHEDULE_KEYS
 

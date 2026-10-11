@@ -74,6 +74,23 @@ input.mono {
   font-size: max(16px, var(--text-md));
 }
 
+/* A script row's action: the kind where the other rows have a choice of two, with the
+   line saying where it is changed beside it, wrapping under it on a phone. */
+.schedule-script-kind {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-2);
+  min-width: 0;
+}
+
+/* Read, not typed in: the sunken surface of a box that is off, with its words left at
+   full strength, since reading them is what the box is for. It still takes focus, to be
+   scrolled and copied from, so the focus halo is left as it is. */
+.schedule-row textarea[readonly] {
+  background: var(--surface-sunken);
+}
+
 .schedule-add {
   min-height: var(--touch-target);
 }
@@ -157,6 +174,40 @@ input.mono {
 .job-when {
   color: var(--text);
   font-weight: 500;
+}
+
+/* The start of a script job's source, as written: its lines kept and long ones wrapped,
+   so the row never grows wider than the page. Six lines at most, and two of the prompt
+   its output goes on with: either at full length would turn one row of the list into a
+   page, and the whole of both is in the editor. */
+.job-script-source {
+  margin: 0;
+  font-size: var(--text-xs);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6;
+  line-clamp: 6;
+  overflow: hidden;
+}
+
+/* A `code` inside a `pre` would take the smaller size a second time. */
+.job-script-source code {
+  font-size: inherit;
+}
+
+.job-then-prompt {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.job-then-prompt span {
+  color: var(--text-secondary);
 }
 
 /* How the last run ended, when, and what it said, on the row. The badge, time and link

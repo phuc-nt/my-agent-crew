@@ -1,4 +1,5 @@
-"""How much a script may do: its steps, its values, what it prints, its calls, its memory.
+"""How much a script may do: its steps, its values, what it prints, its calls, its memory,
+and what it may keep for a later run.
 
 Each limit is tried from both sides: what stays inside it runs to its end, and what goes
 past it stops with the line that says which limit that was. The limits a script cannot
@@ -9,12 +10,18 @@ from __future__ import annotations
 
 import json
 import tracemalloc
+from functools import partial
+from typing import Any
 
 import pytest
 
+from my_agent_crew import texts_script_store as kept_texts
 from my_agent_crew.script import limits
+from my_agent_crew.script.kept import KINDS
 from my_agent_crew.script.limits import MAX_OUTPUT_CHARS, ScriptError
 from my_agent_crew.script.printed import Printed
+from my_agent_crew.script.store_session import Kept
+from my_agent_crew.store.script_store import ScriptStore
 from tests.script_helpers import play, printed, stopped
 
 OUT_OF_ROOM = "script tạo ra quá nhiều dữ liệu. Lọc bớt trước khi gom lại."
@@ -803,3 +810,286 @@ def test_whatever_makes_a_value_counts_toward_the_next_look_at_memory(little_roo
     maker, setup = MADE_EACH_ROUND[what]
 
     assert stopped(ROUNDS.format(setup=setup, maker=maker)) == halted(4, OUT_OF_ROOM)
+
+
+# --- what a script keeps from one run to the next ---
+
+AGENT, PLACE = "a", "conv:c"
+CAUGHT = """
+try:
+    {line}
+except Exception as e:
+    print(e)
+"""
+
+
+@pytest.fixture
+def table(store) -> ScriptStore:
+    return store.script_store
+
+
+def keeping(table: ScriptStore) -> tuple[Kept, dict[str, Any]]:
+    """One run's view of one place, and the two questions a script puts to it."""
+    kept = Kept(table, AGENT, PLACE)
+    return kept, {kind: partial(kept.answer, kind) for kind in KINDS}
+
+
+def mistaken(line: int, said: str) -> str:
+    return f"Lỗi ở dòng {line}: {said}"
+
+
+def test_a_key_is_a_text_as_long_as_a_key_may_be_and_no_longer(table):
+    most = limits.MAX_STORE_KEY_CHARS
+    kept, asks = keeping(table)
+    bad = mistaken(1, kept_texts.STORE_BAD_KEY.format(most=most))
+
+    assert printed(f'store("k" * {most}, 1)\nprint(load("k" * {most}))', lookups=asks) == "1\n"
+    for line in (
+        f'store("k" * {most + 1}, 1)',
+        f'load("k" * {most + 1})',
+        'store("", 1)',
+        'load("")',
+        "store(7, 1)",
+        "load(None)",
+        'store(["k"], 1)',
+        # Dropping a key is still naming one.
+        f'store("k" * {most + 1}, None)',
+    ):
+        assert stopped(line, lookups=asks) == bad, line
+    assert printed(guarded('store("", 1)'), lookups=asks) == "caught\ncleanup\nafter\n"
+    assert kept.commit() is None and table.read(AGENT, PLACE) == {"k" * most: "1"}
+
+
+def test_a_value_is_as_long_as_one_may_be_and_no_longer_and_the_one_too_long_is_not_kept(table):
+    """Two of its characters are the quotes a text is written in."""
+    most = limits.MAX_STORE_VALUE_CHARS
+    kept, asks = keeping(table)
+    too_long = kept_texts.STORE_VALUE_TOO_LONG.format(size=most + 1, most=most)
+
+    said = printed(
+        f'store("k", "x" * {most - 2})\n'
+        + CAUGHT.format(line=f'store("k", "y" * {most - 1})')
+        + 'print(len(load("k")), load("k")[:3])',
+        lookups=asks,
+    )
+
+    # The script was told, went on, and reads the value it had before the one refused.
+    assert said == f"{too_long}\n{most - 2} xxx\n"
+    assert kept.commit() is None and table.read(AGENT, PLACE) == {"k": f'"{"x" * (most - 2)}"'}
+    assert stopped(f'store("k", "y" * {most - 1})', lookups=asks) == mistaken(1, too_long)
+
+
+def test_a_value_is_measured_as_the_json_it_is_kept_as(table):
+    """By the character, so a letter of the owner's language is one like any other; and as
+    it is written, so a line end, which JSON writes as two, is two."""
+    most = limits.MAX_STORE_VALUE_CHARS
+    kept, asks = keeping(table)
+    escaped = kept_texts.STORE_VALUE_TOO_LONG.format(size=2 * (most - 2) + 2, most=most)
+
+    assert printed(f'store("k", "đ" * {most - 2})\nprint(len(load("k")))', lookups=asks) == (
+        f"{most - 2}\n"
+    )
+    assert stopped(f'store("n", "\\n" * {most - 2})', lookups=asks) == mistaken(1, escaped)
+    assert kept.commit() is None and table.read(AGENT, PLACE) == {"k": f'"{"đ" * (most - 2)}"'}
+
+
+NOT_JSON = [
+    "{1, 2}",
+    'float("nan")',
+    'float("inf")',
+    '[1, {"a": {1, 2}}]',
+    # JSON would write each of these keys as a text, and the script would read back a key
+    # it never wrote.
+    "{1: 2}",
+    "{True: 1}",
+    "{None: 1}",
+    "{(1, 2): 3}",
+    '[{"a": [{"b": {2: 1}}]}]',
+]
+
+
+@pytest.mark.parametrize("value", NOT_JSON)
+def test_a_value_that_is_not_json_is_a_mistake_the_script_may_catch(table, value):
+    kept, asks = keeping(table)
+
+    assert stopped(f'store("k", {value})', lookups=asks) == mistaken(1, kept_texts.STORE_NOT_JSON)
+    said = printed(guarded(f'store("k", {value})') + 'print(load("k"))', lookups=asks)
+    assert said == "caught\ncleanup\nafter\nNone\n"
+    assert kept.commit() is None and table.read(AGENT, PLACE) == {}
+
+
+def test_what_json_can_write_is_read_back_as_it_was_written(table):
+    kept, asks = keeping(table)
+    value = '{"1": 2, "đã nhắc": ["HP3", 1.5, True, None, {"sâu": []}], "": (1, 2)}'
+
+    said = printed(f'store("k", {value})\nprint(load("k"))', lookups=asks)
+
+    # All but the tuple, which JSON has no word for and writes as a list.
+    assert said == "{'1': 2, 'đã nhắc': ['HP3', 1.5, True, None, {'sâu': []}], '': [1, 2]}\n"
+    assert kept.commit() is None
+    assert table.read(AGENT, PLACE) == {
+        "k": '{"1":2,"đã nhắc":["HP3",1.5,true,null,{"sâu":[]}],"":[1,2]}'
+    }
+
+
+@pytest.fixture
+def small_place(monkeypatch) -> int:
+    monkeypatch.setattr(limits, "MAX_STORE_TOTAL_CHARS", 100)
+    return 100
+
+
+def test_a_place_holds_its_keys_and_values_up_to_the_most_and_not_a_character_more(
+    table, small_place
+):
+    """Counted as what the place would hold once the write was made: a value written in
+    place of another gives the other's room back, and so does a key dropped."""
+    assert table.apply(AGENT, PLACE, {"old": json.dumps("o" * 40)}, small_place)  # 3 + 42
+    kept, asks = keeping(table)
+    full = kept_texts.STORE_FULL
+
+    said = printed(
+        'store("new", "n" * 50)\n'  # 3 + 52 more: the hundred
+        + CAUGHT.format(line='store("x", 1)')
+        + 'print(load("x"))\n'
+        + 'store("old", "p" * 40)\n'  # in place of one as long: the hundred still
+        + CAUGHT.format(line='store("old", "q" * 41)')
+        + 'print(load("old")[:3], len(load("old")))\n'
+        + 'store("new", None)\n'
+        + 'store("x", 1)\n'
+        + 'print(load("x"), load("new"))',
+        lookups=asks,
+    )
+
+    assert said.splitlines() == [
+        full.format(size=102, most=100),
+        "None",
+        full.format(size=101, most=100),
+        "ppp 40",
+        "1 None",
+    ]
+    assert kept.commit() is None
+    assert table.read(AGENT, PLACE) == {"old": json.dumps("p" * 40), "x": "1"}
+
+
+def test_a_place_that_is_full_still_lets_a_key_go(table, small_place):
+    assert table.apply(AGENT, PLACE, {"k" * 49: json.dumps("v" * 49)}, small_place)
+    kept, asks = keeping(table)
+
+    said = printed(
+        CAUGHT.format(line='store("x", 1)') + f'store("{"k" * 49}", None)\nstore("x", 1)',
+        lookups=asks,
+    )
+
+    assert said == kept_texts.STORE_FULL.format(size=102, most=100) + "\n"
+    assert kept.commit() is None and table.read(AGENT, PLACE) == {"x": "1"}
+
+
+def test_another_place_and_another_agent_take_none_of_the_room(table, small_place):
+    assert table.apply(AGENT, "job:due", {"k": json.dumps("v" * 90)}, small_place)
+    assert table.apply("coach", PLACE, {"k": json.dumps("v" * 90)}, small_place)
+    kept, asks = keeping(table)
+
+    assert printed('store("k", "v" * 97)\nprint(load("k")[:2])', lookups=asks) == "vv\n"
+    assert kept.commit() is None and len(table.read(AGENT, PLACE)["k"]) == 99
+
+
+def test_what_cannot_be_kept_is_turned_away_before_it_is_asked_for():
+    """By the process that runs the script, which is asked for nothing it would refuse: a
+    value the line to the server cannot carry would end the process, where this is a
+    mistake the script may catch."""
+    asked: list[dict[str, Any]] = []
+    asks = {kind: asked.append for kind in KINDS}
+
+    for line in (
+        f'store("k" * {limits.MAX_STORE_KEY_CHARS + 1}, 1)',
+        f'load("k" * {limits.MAX_STORE_KEY_CHARS + 1})',
+        f'store("k", "x" * {limits.MAX_STORE_VALUE_CHARS - 1})',
+        'store("k", {1, 2})',
+        'store("k", {1: 2})',
+    ):
+        assert printed(guarded(line), lookups=asks) == "caught\ncleanup\nafter\n", line
+    assert asked == []
+
+
+BAD_ASKS = [
+    ("store", {"key": "", "value": 1}),
+    ("store", {"value": 1}),
+    ("store", {"key": 3, "value": 1}),
+    ("store", {"key": "k" * (limits.MAX_STORE_KEY_CHARS + 1), "value": 1}),
+    ("store", {"key": "k" * (limits.MAX_STORE_KEY_CHARS + 1), "value": None}),
+    ("store", {"key": "k", "value": "x" * (limits.MAX_STORE_VALUE_CHARS - 1)}),
+    ("store", {"key": "k", "value": float("nan")}),
+    ("store", {"key": "k", "value": {1: 2}}),
+    ("load", {"key": ""}),
+    ("load", {}),
+    ("load", {"key": "k" * (limits.MAX_STORE_KEY_CHARS + 1)}),
+]
+
+
+@pytest.mark.parametrize(("kind", "arguments"), BAD_ASKS)
+def test_the_server_measures_again_whatever_the_process_asked(table, kind, arguments):
+    """Nothing the process sends is taken on trust for having been checked there."""
+    kept = Kept(table, AGENT, PLACE)
+
+    with pytest.raises(ScriptError):
+        kept.answer(kind, arguments)
+
+    assert kept.commit() is None and table.read(AGENT, PLACE) == {}
+
+
+def test_the_server_refuses_what_would_fill_the_place_whoever_measured_before(table, small_place):
+    kept = Kept(table, AGENT, PLACE)
+    kept.answer("store", {"key": "a", "value": "x" * 97})  # 1 + 99
+
+    with pytest.raises(ScriptError) as refused:
+        kept.answer("store", {"key": "b", "value": 1})
+
+    assert str(refused.value) == kept_texts.STORE_FULL.format(size=102, most=100)
+    assert kept.commit() is None and list(table.read(AGENT, PLACE)) == ["a"]
+
+
+@pytest.mark.parametrize(
+    "line",
+    ['store("k")', 'store("k", 1, 2)', 'store(key="k", value=1)', "store()"],
+)
+def test_store_takes_a_key_and_a_value_and_nothing_else(table, line):
+    kept, asks = keeping(table)
+
+    assert stopped(line, lookups=asks) == mistaken(1, "gọi hàm `store` sai tham số.")
+    assert kept.commit() is None and table.read(AGENT, PLACE) == {}
+
+
+@pytest.mark.parametrize("line", ["load()", 'load("k", 1)', 'load(key="k")'])
+def test_load_takes_a_key_and_nothing_else(table, line):
+    _, asks = keeping(table)
+
+    assert stopped(line, lookups=asks) == mistaken(1, "gọi hàm `load` sai tham số.")
+
+
+def test_store_answers_nothing_and_load_of_a_key_never_kept_is_none(table):
+    _, asks = keeping(table)
+
+    assert printed('print(store("k", 0), load("k"), load("never"))', lookups=asks) == (
+        "None 0 None\n"
+    )
+
+
+def test_what_a_script_keeps_or_reads_back_is_none_of_its_calls_or_its_lookups(table):
+    """A script that remembers many things still has every call and lookup it came with."""
+    kept, asks = keeping(table)
+    many = limits.MAX_CALLS + limits.MAX_LOOKUPS + 1
+    source = f"""
+        for n in range({many}):
+            store("k" + str(n), n)
+            load("k" + str(n))
+        for n in range({limits.MAX_LOOKUPS}):
+            tools.names()
+        for n in range({limits.MAX_CALLS}):
+            tools.read()
+        print("all spent")
+    """
+
+    said = printed(source, {"read": answering("ok")}, {**asks, "names": lambda arguments: []})
+
+    assert said == "all spent\n"
+    assert kept.commit() is None and len(table.read(AGENT, PLACE)) == many

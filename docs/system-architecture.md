@@ -168,7 +168,7 @@ Gói `llm/` nói chuyện với OpenRouter (và Ollama) và bọc thành một c
 
 ### 2.6 Scheduler
 
-`scheduler/` đọc `schedules:` của mọi agent, mỗi phút kiểm tra cron, đến hạn thì tạo một job run: một cuộc trò chuyện autonomous với prompt (hoặc lệnh kit) định sẵn. Trạng thái job lưu ở bảng `job_state`, xem ở `/api/jobs`. Ngoài `agent.yaml`, một job có thể tới từ bảng `created_schedules` — agent tự đề xuất qua tool `schedule_create`, người duyệt nguyên văn prompt, rồi job chạy ngay không cần khởi động lại (`origin: "chat"` trên job, đối lập `origin: "profile"`); xem [design.md](design.md#scheduler) và [tools.md](tools.md#đề-xuất-lịch-chạy).
+`scheduler/` đọc `schedules:` của mọi agent, mỗi phút kiểm tra cron, đến hạn thì tạo một job run: một cuộc trò chuyện autonomous với prompt (hoặc lệnh kit) định sẵn, hoặc một script chạy không gọi model và chỉ mở lượt khi nó in ra gì đó (xem [agents.md](agents.md#job-chạy-script)). Trạng thái job lưu ở bảng `job_state`, xem ở `/api/jobs`. Ngoài `agent.yaml`, một job có thể tới từ bảng `created_schedules` — agent tự đề xuất qua tool `schedule_create`, người duyệt nguyên văn prompt, rồi job chạy ngay không cần khởi động lại (`origin: "chat"` trên job, đối lập `origin: "profile"`); xem [design.md](design.md#scheduler) và [tools.md](tools.md#đề-xuất-lịch-chạy).
 
 Cùng vòng đời với scheduler, `server/housekeeping.py` chạy một vòng quét mỗi ngày (ngay khi khởi động, rồi mỗi 24 giờ, ngoài event loop) xoá tệp trong `spill/` cũ hơn 7 ngày; một lần quét lỗi chỉ được ghi log, vòng vẫn chạy tiếp. Xem [tools.md](tools.md#đọc-lại-đầu-ra-dài).
 

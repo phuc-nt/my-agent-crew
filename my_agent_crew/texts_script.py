@@ -24,6 +24,8 @@ _SCRIPT_HOW = (
     "gọi lỗi không làm hỏng các lời gọi còn lại. Mỗi lời gọi trong lô vẫn tính vào {calls} lần. "
     "Ví dụ:\n"
     "{example}\n"
+    "`store(khoá, giá_trị)` giữ một giá trị JSON và `load(khoá)` đọc lại ở lần chạy sau (chưa có "
+    "thì None); chỉ giữ khi script chạy xong không lỗi, riêng cho cuộc trò chuyện hoặc job này.\n"
     "Đây là một phần của Python: biến, if/for/while, hàm, list/dict/set/tuple, f-string, "
     "comprehension, try/except, `json`, và len, str, int, float, bool, range, enumerate, zip, "
     "sorted, reversed, min, max, sum, any, all, abs, round, isinstance. Không có import, class, "
