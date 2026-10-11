@@ -13,13 +13,17 @@ import tracemalloc
 import pytest
 
 from my_agent_crew.script import limits
-from my_agent_crew.script.limits import ScriptError
+from my_agent_crew.script.limits import MAX_OUTPUT_CHARS, ScriptError
+from my_agent_crew.script.printed import Printed
 from tests.script_helpers import play, printed, stopped
 
 OUT_OF_ROOM = "script tạo ra quá nhiều dữ liệu. Lọc bớt trước khi gom lại."
 OUT_OF_STEPS = "script chạy quá 300 bước. Xử lý ít dữ liệu hơn hoặc bỏ vòng lặp thừa."
 TOO_NESTED = "dữ liệu lồng nhau quá sâu hoặc quá nhiều phần tử để viết ra."
-TOO_MUCH_OUTPUT = "script in ra quá 60000 ký tự. Chỉ in phần cần, đã gộp hoặc lọc."
+LEFT_OUT = (
+    "\n…[script in ra {total} ký tự, bỏ {dropped} ký tự ở giữa. "
+    "Chỉ in phần cần, đã gộp hoặc lọc.]…\n"
+)
 TOO_MANY_CALLS = "Script đã gọi công cụ quá 25 lần. Gộp việc lại hoặc chia nhiều script."
 TOO_DEEP = "hàm gọi lồng nhau quá sâu."
 # Whatever a script wrote around it, a limit it cannot catch ends it there.
@@ -348,40 +352,96 @@ def test_data_is_written_out_two_hundred_thousand_things_long_and_no_longer():
 # --- what a script prints ---
 
 
-def test_a_script_prints_sixty_thousand_characters_and_no_more():
+def test_a_script_prints_sixty_thousand_characters_whole():
     assert printed('print("x" * 59999)') == "x" * 59999 + "\n"
-    assert play('print("x" * 60000)') == {
-        "ok": False,
-        "output": "x" * 60000,
-        "error": halted(1, TOO_MUCH_OUTPUT),
+    # Whole too where it was printed in pieces that fall on both sides of what is kept
+    # of the start.
+    pieces = 'print("a" * 44990)\nprint("b" * 20)\nprint("c" * 14987)'
+    assert printed(pieces) == "a" * 44990 + "\n" + "b" * 20 + "\n" + "c" * 14987 + "\n"
+
+
+def test_a_script_that_prints_more_keeps_the_start_and_the_end_and_says_what_it_left_out():
+    ended = play('print("a" * 50000)\nprint("b" * 30000)\nprint("tổng: 42")')
+
+    note = LEFT_OUT.format(total=80011, dropped=20099)
+    assert ended == {
+        "ok": True,
+        "output": "a" * 45000 + note + "b" * 14902 + "\ntổng: 42\n",
+        "error": None,
         "asked": [],
     }
-
-
-def test_a_script_that_prints_without_end_is_stopped_with_what_fitted():
-    ended = play('for n in range(5000):\n    print(n, "x" * 100)')
-
-    assert ended["error"] == halted(2, TOO_MUCH_OUTPUT)
+    # Three parts in four of the most are the start, and the line that says what was left
+    # out is paid for out of the end: 45,000 kept, 20,099 left out, 14,912 kept.
+    assert 45000 + 20099 + 14902 + len("\ntổng: 42\n") == 80011
     assert len(ended["output"]) == 60000
-    assert ended["output"].startswith("0 " + "x" * 100 + "\n1 ")
 
 
-def test_printing_too_much_cannot_be_caught():
+def test_one_character_past_the_most_is_already_more():
+    whole = "x" * 60000 + "\n"
+
+    said = printed('print("x" * 60000)')
+
+    note = LEFT_OUT.format(total=60001, dropped=89)
+    assert said == "x" * 45000 + note + "x" * 14911 + "\n"
+    assert whole.startswith(said.split(note)[0]) and whole.endswith(said.split(note)[1])
+    # The line is sized for the widest it could be, so the whole falls a little short.
+    assert len(said) == 59997
+
+
+def test_a_script_that_prints_line_after_line_keeps_its_first_lines_and_its_last():
+    lines = "".join(f"{n} {'x' * 100}\n" for n in range(5000))
+
+    said = printed('for n in range(5000):\n    print(n, "x" * 100)')
+
+    start, end = said.split("\n…[script in ra ")[0], said.split("ở giữa. Chỉ in phần cần")[1]
+    end = end.split("]…\n", 1)[1]
+    assert len(start) == 45000 and lines.startswith(start)
+    assert lines.endswith(end) and end.endswith("4999 " + "x" * 100 + "\n")
+    dropped = len(lines) - len(start) - len(end)
+    assert said == start + LEFT_OUT.format(total=len(lines), dropped=dropped) + end
+    assert 59990 <= len(said) <= 60000
+
+
+def test_printing_more_than_is_kept_does_not_end_the_script():
     ended = play(guarded('print("x" * 70000)'))
 
-    assert (ended["output"], ended["error"]) == ("x" * 60000, halted(3, TOO_MUCH_OUTPUT))
+    assert ended["ok"] and ended["error"] is None
+    assert ended["output"].startswith("x" * 45000 + "\n…[script in ra 70015 ký tự, bỏ 10103 ")
+    assert ended["output"].endswith("x\ncleanup\nafter\n") and "caught" not in ended["output"]
+
+
+def test_a_script_that_prints_without_end_is_stopped_by_its_steps_with_both_ends_kept(
+    monkeypatch,
+):
+    monkeypatch.setattr(limits, "MAX_STEPS", 300)
+
+    ended = play('n = 0\nwhile True:\n    n = n + 1\n    print(n, "y" * 5000)')
+
+    assert (ended["ok"], ended["error"]) == (False, halted(4, OUT_OF_STEPS))
+    said = ended["output"]
+    assert said.startswith("1 " + "y" * 5000 + "\n2 ") and said.endswith("y" * 5000 + "\n")
+    assert "\n…[script in ra " in said and 59990 <= len(said) <= 60000
+
+
+def test_however_much_is_printed_little_more_than_the_most_is_held():
+    said, most = Printed(), 0
+    pieces = ["x" * 7000] * 1000 + ["y" * 500_000] + ["z"] * 40_000 + ["w" * 14_999, "v"]
+
+    for piece in pieces:
+        said.write(piece)
+        most = max(most, said.held)
+
+    assert said.total == 7_555_000
+    # The start, and of the end no more than twice what is kept of it.
+    assert MAX_OUTPUT_CHARS < most < MAX_OUTPUT_CHARS * 5 // 4
+    assert said.text().endswith("w" * 14_900 + "v") and "z" not in said.text()
+    assert MAX_OUTPUT_CHARS - 10 < len(said.text()) <= MAX_OUTPUT_CHARS
 
 
 def test_the_value_of_the_last_line_counts_as_printed():
-    assert stopped('"x" * 60000') == halted(1, TOO_MUCH_OUTPUT)
+    note = LEFT_OUT.format(total=60001, dropped=89)
+    assert printed('"x" * 60000') == "x" * 45000 + note + "x" * 14911 + "\n"
     assert printed('"x" * 59999') == "x" * 59999 + "\n"
-
-
-def test_printing_too_much_is_laid_at_the_line_that_printed_it():
-    """Not at the last line worked out before it: the text is made a line below the
-    `print` that takes it, and a line above the call whose value is shown at the end."""
-    assert stopped('print(\n    "x" * 70000\n)') == halted(1, TOO_MUCH_OUTPUT)
-    assert stopped('def big():\n    return "x" * 70000\nbig()') == halted(3, TOO_MUCH_OUTPUT)
 
 
 # --- numbers ---
@@ -670,6 +730,14 @@ def test_holding_too_much_cannot_be_caught(little_room):
     ended = play(guarded(KEEPS.strip()))
 
     assert (ended["output"], ended["error"]) == ("", halted(5, OUT_OF_ROOM))
+
+
+def test_a_script_that_prints_far_more_than_is_kept_is_not_ended_for_what_it_holds(little_room):
+    ended = play('for n in range(1600):\n    print(str(n) + "x" * 5000)')  # eight megabytes
+
+    assert ended["ok"] and ended["error"] is None
+    assert ended["output"].startswith("0xxx")
+    assert ended["output"].endswith("x\n1599" + "x" * 5000 + "\n")
 
 
 def test_where_nothing_measures_memory_only_the_other_limits_hold(monkeypatch):

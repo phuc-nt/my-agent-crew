@@ -126,7 +126,11 @@ SCRIPT_HALTED = "Dừng ở dòng {line}: {reason}"
 # Limits.
 SCRIPT_OUT_OF_STEPS = "script chạy quá {most} bước. Xử lý ít dữ liệu hơn hoặc bỏ vòng lặp thừa."
 SCRIPT_OUT_OF_ROOM = "script tạo ra quá nhiều dữ liệu. Lọc bớt trước khi gom lại."
-SCRIPT_TOO_MUCH_OUTPUT = "script in ra quá {most} ký tự. Chỉ in phần cần, đã gộp hoặc lọc."
+# Stands where the middle of what a script printed was left out: the start and the end stay.
+SCRIPT_OUTPUT_DROPPED = (
+    "\n…[script in ra {total} ký tự, bỏ {dropped} ký tự ở giữa. "
+    "Chỉ in phần cần, đã gộp hoặc lọc.]…\n"
+)
 # The scripts of one turn share this count; the turn ends with the script that passes it.
 SCRIPT_TURN_CALLS_SPENT = "lượt đã dùng hết {most} lời gọi lồng."
 SCRIPT_TOO_DEEP = "hàm gọi lồng nhau quá sâu."
