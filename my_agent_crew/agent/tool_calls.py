@@ -25,6 +25,7 @@ from my_agent_crew.agent.events import (
     ToolCallEvent,
     ToolResultEvent,
 )
+from my_agent_crew.agent.nested_calls import nested_budget
 from my_agent_crew.agent.tool_batches import split_batches
 from my_agent_crew.agent.tool_gate import ask_reason_text, pauses_for_a_person
 from my_agent_crew.agent.tool_run import CallRun, execute
@@ -131,6 +132,8 @@ async def settle_tool_calls(deps: AgentDeps, conv_id: str) -> AsyncIterator[Even
     conv = deps.store.get(conv_id)
     batches = split_batches(pending, deps.tools, lambda c: not pauses_for_a_person(deps, conv, c))
     for batch in batches:
+        if (budget := nested_budget()) is not None and budget.spent:
+            return  # a script used up the turn's nested calls: the rest is left unrun
         if len(batch) > 1:
             for call in batch:
                 yield ToolCallEvent(tool_call_id=call.id, name=call.name, arguments=call.arguments)

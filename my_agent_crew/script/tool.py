@@ -27,7 +27,7 @@ from typing import Any
 
 from my_agent_crew import texts_script as t
 from my_agent_crew.activity.step_previews import argument_preview, preview
-from my_agent_crew.agent.nested_calls import note_nested_call
+from my_agent_crew.agent.nested_calls import nested_budget, note_nested_call
 from my_agent_crew.mcp.config import CODEMODE
 from my_agent_crew.mcp.tools import CompanionTool, McpTool
 from my_agent_crew.script.discovery import discover
@@ -72,7 +72,8 @@ class _Run:
         """The calls of a batch made side by side, at most `MAX_PARALLEL` at a time, and
         answered in the order given. One call the script may not make ends the script, so
         then none is made: every call is answered all the same, the one that is refused
-        with the reason and the rest as not made."""
+        with the reason and the rest as not made. So does a call past what the scripts
+        of the turn may make between them: a batch that does not fit whole is not made."""
         tools = [self.held.get(name) for name, _ in calls]
         refusals = [None if tool is None else why_not(tool) for tool in tools]
         if any(refusal is not None for refusal in refusals):
@@ -82,6 +83,10 @@ class _Run:
                 else Answer(False, refusal, halt=True)
                 for refusal in refusals
             ]
+        budget, known = nested_budget(), sum(tool is not None for tool in tools)
+        if budget is not None and not budget.take(known):
+            spent = t.SCRIPT_TURN_CALLS_SPENT.format(most=budget.limit)
+            return [Answer(False, spent, halt=True) for _ in calls]
         gate = asyncio.Semaphore(MAX_PARALLEL)
 
         async def one(

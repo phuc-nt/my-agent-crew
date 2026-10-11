@@ -123,6 +123,8 @@ SCRIPT_HALTED = "Dừng ở dòng {line}: {reason}"
 SCRIPT_OUT_OF_STEPS = "script chạy quá {most} bước. Xử lý ít dữ liệu hơn hoặc bỏ vòng lặp thừa."
 SCRIPT_OUT_OF_ROOM = "script tạo ra quá nhiều dữ liệu. Lọc bớt trước khi gom lại."
 SCRIPT_TOO_MUCH_OUTPUT = "script in ra quá {most} ký tự. Chỉ in phần cần, đã gộp hoặc lọc."
+# The scripts of one turn share this count; the turn ends with the script that passes it.
+SCRIPT_TURN_CALLS_SPENT = "lượt đã dùng hết {most} lời gọi lồng."
 SCRIPT_TOO_DEEP = "hàm gọi lồng nhau quá sâu."
 SCRIPT_TOO_NESTED = "dữ liệu lồng nhau quá sâu hoặc quá nhiều phần tử để viết ra."
 SCRIPT_BIG_NUMBER = "số nguyên quá lớn."
