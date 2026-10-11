@@ -731,8 +731,9 @@ export const vi = {
   scriptCalls: (count: number, failed: number) =>
     failed > 0 ? `Script đã gọi công cụ ${count} lần · ${failed} lần lỗi` : `Script đã gọi công cụ ${count} lần`,
   // Under those calls once the script ended: what the calls handed the script, none of which
-  // the model read, against what the script handed the model. A dash stands for a number
-  // nobody counted, on a run from before the two were measured.
+  // the model read, against what the script printed (of which the model reads what the
+  // agent's cap on a tool's result lets through). A dash stands for a number nobody counted,
+  // on a run from before the two were measured.
   scriptMeasures: (received: number | null, calls: number, printed: number | null) => {
     const chars = (n: number | null) => (n === null ? "—" : n.toLocaleString("vi-VN"));
     return `Nhận ${chars(received)} ký tự từ ${calls} lời gọi, trả về ${chars(printed)} ký tự`;

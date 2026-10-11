@@ -45,7 +45,9 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   calls handed it and how many it printed (`received_chars` and `printed_chars` on the
   `tool_result` event and on the run's step). Both cards show them on one line under the calls
   once the script has ended ("Nhận 184.220 ký tự từ 12 lời gọi, trả về 640 ký tự"), with a dash
-  for a number that was not counted.
+  for a number that was not counted. The second number is what the script printed: a result
+  longer than the agent's `tool_output_chars` is shortened after it is counted, as any tool's
+  is, so the model may read less than that.
 - The tool card in the chat still lists a script's calls after a reload. The calls and the two
   measures are stored with the script's result, beside the output and never sent to a model; a
   branch of the conversation copies them, and the Markdown export lists them under the agent's
@@ -71,9 +73,11 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   Telegram say in words. A name no tool has is not counted, and the next turn starts from
   nothing.
 - A script that prints more than 60,000 characters is no longer ended at the line that passed
-  the limit. It runs on, and the model reads the first 45,000 characters and the last ones
+  the limit. It runs on, and its result keeps the first 45,000 characters and the last ones
   around a line saying how much was printed and how much was left out, never more than 60,000
-  in all. A script that prints without end is still stopped by its steps.
+  in all. The agent's `tool_output_chars` (8,000 unless set) still applies to that result as
+  to any tool's, so the model reads all of it only where that cap is as wide. A script that
+  prints without end is still stopped by its steps.
 - A script (`tool_script`) may now call every MCP tool the owner lists under `read_only` and does
   not hide, however far the tool is let in. Until now such a tool also had to be set to
   `codemode`, which made letting a script in a second decision on top of saying the tool only

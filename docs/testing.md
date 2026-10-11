@@ -5209,7 +5209,7 @@ những gì nó in ra mới quay về cho model ([tools.md](tools.md#gọi-tool-
     script không được gọi thì không bao giờ được gợi ý) và chỗ tìm tiếp, rồi script gọi lại được;
     hook của agent được hỏi về từng lời gọi; script gọi tool agent đang giữ lúc nó chạy; script nhận câu trả lời dài hơn hẳn một
     lượt, dài quá thì cũng bị cắt; cái script in ra được cắt theo trần của agent mà vẫn giữ các
-    lời gọi; thiếu `script` thì không khởi động gì; script dài đúng mức thì chạy, dài hơn một chữ
+    lời gọi, và số ký tự in ra vẫn đếm cái script đã in chứ không đếm phần lọt qua trần; thiếu `script` thì không khởi động gì; script dài đúng mức thì chạy, dài hơn một chữ
     thì không; script không chạy xong, dù bị dừng, gặp lỗi, không đọc được, bị từ chối, hết giờ,
     hết CPU hay tiến trình con chết, đều nói "Script không chạy xong." trên một dòng riêng trước
     mọi thứ khác, còn script chạy xong thì không, kể cả khi chính nó in câu đó;
