@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Any
 
 
@@ -20,6 +20,17 @@ class NestedCall:
     # As on `ToolResult`: a call that paid a model is charged on its own, like any other.
     cost_usd: float | None = None
     metered: bool = False
+    # A call to a tool that does not only read: the approval gate let it run before it did
+    # (`script/gate.py`). Only an agent whose scripts may make such calls has any.
+    gated: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        """As the run card and the stored result keep it. `gated` is written only where it
+        is set: a call that only read is kept as one was before a script could do more."""
+        kept = asdict(self)
+        if not self.gated:
+            del kept["gated"]
+        return kept
 
 
 @dataclass(frozen=True)

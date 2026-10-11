@@ -98,6 +98,10 @@ CREW_JOBS = "Việc tự chạy theo lịch"
 CREW_TOOLS = "Công cụ"
 CREW_MODEL = "Mô hình"
 CREW_MODEL_ESCALATES = "{model}; khi bí thì tự chuyển sang {escalation}"
+# Closes the tools of an agent whose scripts may call the ones that change things too
+# (`script_calls: gated`): work of many such calls is one it does in a single step.
+CREW_TOOLS_SCRIPT_WRITES = "{tools}; script gọi được cả công cụ ghi"
+CREW_TOOLS_SCRIPT_SHELL = "{tools}; script gọi được cả công cụ ghi, kể cả shell_run"
 CREW_SERVICE = "{name} ({standing})"
 CREW_SERVICE_ABOUT = "{service} — {description}"
 CREW_SERVICE_READ_WRITE = "đọc và ghi"

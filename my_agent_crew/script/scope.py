@@ -7,6 +7,11 @@ seen of a canvas, and any that bears a name `tools` answers to itself (`tools.se
 lookup and `tools.batch` a batch, whatever else is called `search` or `batch`). A tool a script
 may not call still exists: it is told so, and what to do instead, where the approval gate sees
 it.
+
+An agent whose file says `script_calls: gated` lets its scripts call the tools that change
+things as well (`gated`, below). Each such call is put to the approval gate before it runs
+(`gate.py`), and a script waits for nobody, so the tools that always wait for a person stay
+out, with the ones kept from every script above and a server's tool the owner hid.
 """
 
 from __future__ import annotations
@@ -16,13 +21,16 @@ from difflib import get_close_matches
 
 from my_agent_crew import texts_script as t
 from my_agent_crew.agents.roster import DELEGATE_TOOL_NAME
+from my_agent_crew.config import SCRIPT_GATED, Settings
 from my_agent_crew.mcp.config import HIDDEN
 from my_agent_crew.mcp.tool_search import SEARCH_TOOL
 from my_agent_crew.mcp.tools import McpTool, held_back
 from my_agent_crew.script.namespaces import RESERVED
 from my_agent_crew.tools.artifact_read import ARTIFACT_READ_TOOL
+from my_agent_crew.tools.ask_user import ASK_USER_TOOL_NAME
 from my_agent_crew.tools.progress_note import PROGRESS_NOTE_TOOL_NAME
 from my_agent_crew.tools.registry import Tool, ToolRegistry
+from my_agent_crew.tools.schedule_create import SCHEDULE_CREATE_TOOL_NAME
 
 SCRIPT_TOOL = "tool_script"
 # Tools that only read and are still not a script's to call: they speak for the agent
@@ -32,32 +40,51 @@ SCRIPT_TOOL = "tool_script"
 NOT_FROM_SCRIPT = frozenset(
     {PROGRESS_NOTE_TOOL_NAME, DELEGATE_TOOL_NAME, SEARCH_TOOL, SCRIPT_TOOL, ARTIFACT_READ_TOOL}
 )
+# Tools that wait for a person whoever calls them and whatever the conversation allows: a
+# question, and a schedule to be agreed to. No script's, though it may change things.
+ALWAYS_ASKS = frozenset({ASK_USER_TOOL_NAME, SCHEDULE_CREATE_TOOL_NAME})
 
 
-def _reads(tool: Tool) -> bool:
+def writes_too(settings: Settings) -> bool:
+    """Whether the agent's scripts may also call the tools that change things."""
+    return settings.script_calls == SCRIPT_GATED
+
+
+def only_reads(tool: Tool) -> bool:
+    """Whether calling the tool changes nothing and asks nobody. A call of any other is
+    the approval gate's to decide before it runs."""
     return tool.replay_safe and not tool.requires_approval and tool.ask_reason is None
 
 
-def scriptable(tool: Tool) -> bool:
-    """Whether a script may call this tool."""
-    if not _reads(tool):
+def scriptable(tool: Tool, gated: bool = False) -> bool:
+    """Whether a script may call this tool; `gated` for a script that may also call the
+    tools that change things."""
+    if not only_reads(tool) and (not gated or tool.name in ALWAYS_ASKS):
         return False
     if isinstance(tool, McpTool):
         return tool.exposure != HIDDEN
     return tool.name not in NOT_FROM_SCRIPT and tool.name not in RESERVED
 
 
-def callable_tools(held: ToolRegistry) -> list[Tool]:
+def callable_tools(held: ToolRegistry, gated: bool = False) -> list[Tool]:
     """What a script may call of the tools held, in the order they are held."""
-    return [tool for name in held.names() if (tool := held.get(name)) and scriptable(tool)]
+    tools = (held.get(name) for name in held.names())
+    return [tool for tool in tools if tool and scriptable(tool, gated)]
 
 
-def why_not(tool: Tool) -> str | None:
+def why_not(tool: Tool, gated: bool = False) -> str | None:
     """Why a script may not call a tool that exists, in words that say what to do instead;
     None when it may."""
-    if scriptable(tool):
+    if scriptable(tool, gated):
         return None
-    why = t.SCRIPT_NOT_FROM_SCRIPT if _reads(tool) else t.SCRIPT_ASKS_FIRST
+    if only_reads(tool):
+        why = t.SCRIPT_NOT_FROM_SCRIPT
+    elif not gated:
+        why = t.SCRIPT_ASKS_FIRST
+    else:
+        # Changing things is no reason here: what is left is waiting for a person, or a
+        # tool kept from every script.
+        why = t.SCRIPT_ALWAYS_ASKS if tool.name in ALWAYS_ASKS else t.SCRIPT_NOT_FROM_SCRIPT
     instead = t.SCRIPT_LOAD_THEN_CALL if held_back(tool) else t.SCRIPT_CALL_DIRECTLY
     return why.format(name=tool.name, instead=instead)
 

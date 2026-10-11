@@ -15,6 +15,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 from my_agent_crew import texts
+from my_agent_crew.tools.shell import SHELL_TOOL_NAME
 
 READ_WRITE, READ_ONLY, SIGNED_OUT, DOWN = "read_write", "read_only", "signed_out", "down"
 STANDINGS = {
@@ -49,6 +50,8 @@ class Abilities:
     model: str = ""
     # The model a stuck turn of it moves to, when it has one.
     escalation: str = ""
+    # Its scripts may call the tools that change things, not only those that read.
+    script_writes: bool = False
 
 
 def _name(text: str) -> str:
@@ -109,6 +112,11 @@ def ability_lines(theirs: Abilities, mine: Abilities | None = None) -> list[str]
     model = theirs.model
     if model and theirs.escalation:
         model = texts.CREW_MODEL_ESCALATES.format(model=model, escalation=theirs.escalation)
+    tools = told_against(theirs.tools, mine.tools if mine else None)
+    if tools and theirs.script_writes:
+        shell = SHELL_TOOL_NAME in theirs.tools
+        marked = texts.CREW_TOOLS_SCRIPT_SHELL if shell else texts.CREW_TOOLS_SCRIPT_WRITES
+        tools = marked.format(tools=tools)
     kinds = [
         (texts.CREW_SERVICES, "; ".join(_service(service) for service in theirs.services)),
         (
@@ -120,7 +128,7 @@ def ability_lines(theirs: Abilities, mine: Abilities | None = None) -> list[str]
             ),
         ),
         (texts.CREW_JOBS, ", ".join(map(_name, theirs.jobs))),
-        (texts.CREW_TOOLS, told_against(theirs.tools, mine.tools if mine else None)),
+        (texts.CREW_TOOLS, tools),
         (texts.CREW_MODEL, model),
     ]
     return [texts.CREW_ABILITY_LINE.format(kind=kind, held=held) for kind, held in kinds if held]

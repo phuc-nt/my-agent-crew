@@ -39,6 +39,7 @@ PROFILE_KEYS = {
     "shell_network",
     "shell_write_paths",
     "shell_deny_patterns",
+    "script_calls",
     "write_paths",
     "schedules",
     "telegram",
@@ -128,6 +129,7 @@ class AgentProfile:
             "shell_network": self.settings.shell_network,
             "shell_write_paths": list(self.settings.shell_write_paths),
             "shell_deny_patterns": list(self.settings.shell_deny_patterns),
+            "script_calls": self.settings.script_calls,
             "write_paths": list(self.settings.write_paths),
             "persona_files": [f for f in self.persona_files if (self.dir / f).is_file()],
             # Every name this agent would read, written or not. An editor that offered

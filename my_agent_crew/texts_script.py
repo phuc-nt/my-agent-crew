@@ -3,9 +3,8 @@ what it reads when its script is refused, fails or is stopped. Constants only, a
 imported: the child process that runs a script loads this module with the site packages
 switched off."""
 
-# What the model reads of the tool.
-SCRIPT_DESCRIPTION = (
-    "Chạy một đoạn script Python ngắn để gọi nhiều công cụ chỉ đọc rồi tự lọc, gộp kết quả; "
+# What the model reads of the tool: how a script is written, whatever it may call.
+_SCRIPT_HOW = (
     "chỉ những gì script in ra mới quay về cho bạn. Dùng khi phải gọi cùng một công cụ nhiều "
     "lần, hoặc khi kết quả dài mà bạn chỉ cần vài con số hay vài dòng trong đó. Một lời gọi "
     "đơn lẻ thì cứ gọi công cụ trực tiếp.\n"
@@ -30,7 +29,24 @@ SCRIPT_DESCRIPTION = (
     "sorted, reversed, min, max, sum, any, all, abs, round, isinstance. Không có import, class, "
     "luỹ thừa `**`, `del`, `with`, đọc thuộc tính (chỉ gọi phương thức của str/list/dict/set), "
     "file hay mạng.{builtins}{mcp}\n"
-    "Công cụ phải hỏi trước hoặc có ghi dữ liệu thì không gọi được từ script: gọi trực tiếp."
+)
+SCRIPT_DESCRIPTION = (
+    "Chạy một đoạn script Python ngắn để gọi nhiều công cụ chỉ đọc rồi tự lọc, gộp kết quả; "
+    + _SCRIPT_HOW
+    + "Công cụ phải hỏi trước hoặc có ghi dữ liệu thì không gọi được từ script: gọi trực tiếp."
+)
+# For an agent whose scripts may also call the tools that change things (`script_calls:
+# gated`): the lists above then name those too.
+SCRIPT_DESCRIPTION_GATED = (
+    "Chạy một đoạn script Python ngắn để gọi nhiều công cụ rồi tự lọc, gộp kết quả; "
+    + _SCRIPT_HOW
+    + "Script của bạn gọi được cả công cụ ghi dữ liệu hay chạy lệnh. Cổng duyệt xét từng lời "
+    "gọi như vậy trước khi nó chạy, y như khi gọi trực tiếp. Script không bao giờ chờ người "
+    "dùng: lời gọi nào cổng phải hỏi thì script dừng ngay ở đó, khi ấy hãy gọi công cụ đó "
+    "trực tiếp, ngoài script, để người dùng được hỏi. Lô có lời gọi ghi thì chạy lần lượt "
+    "theo thứ tự đã viết. Lời gọi lỗi (ví dụ lệnh shell thoát với mã khác 0) ném lỗi bắt "
+    "được bằng try/except: đã bắt thì in lỗi ra, đừng lặng lẽ bỏ qua. Công cụ luôn phải hỏi "
+    "người dùng thì vẫn gọi trực tiếp."
 )
 SCRIPT_BUILTINS = "\nCông cụ có sẵn gọi được từ script (tham số như khi gọi trực tiếp):\n{lines}"
 SCRIPT_MCP = (
@@ -105,6 +121,24 @@ SCRIPT_NOT_FROM_SCRIPT = "`{name}` không gọi được từ script: {instead}.
 SCRIPT_ASKS_FIRST = (
     "`{name}` phải hỏi trước hoặc có ghi dữ liệu nên không gọi được từ script: {instead}."
 )
+# For an agent whose scripts may call the tools that change things: one that waits for a
+# person whatever the conversation allows is still not a script's.
+SCRIPT_ALWAYS_ASKS = "`{name}` luôn phải hỏi người dùng nên không gọi được từ script: {instead}."
+# A call the approval gate did not let run (`script/gate.py`). None says what the call was
+# asked to do: a command may hold a secret, and the answer is kept with the run.
+SCRIPT_GATE_ASK_LIST = (
+    "`{name}` chưa chạy: lệnh khớp mẫu cần duyệt `{pattern}`, mà script không chờ người dùng. "
+    "Gọi `{name}` trực tiếp, ngoài script, để người dùng được hỏi."
+)
+SCRIPT_GATE_ASKS = (
+    "`{name}` chưa chạy: cuộc trò chuyện này cần người dùng duyệt lời gọi đó trước, mà script "
+    "không chờ người dùng. Gọi `{name}` trực tiếp, ngoài script, để người dùng được hỏi."
+)
+SCRIPT_GATE_DENIED = (
+    "`{name}` không chạy: agent này không được chạy lệnh chứa `{pattern}`. Đừng tìm đường khác "
+    "để chạy; dừng lại và nói rõ với người dùng cần làm gì, vì sao."
+)
+SCRIPT_GATE_NO_TURN = "`{name}` không chạy: script không thuộc lượt nào nên không duyệt được."
 # What to do instead, for a tool told up front and for one that waits to be found.
 SCRIPT_CALL_DIRECTLY = "gọi trực tiếp"
 SCRIPT_LOAD_THEN_CALL = "nạp bằng tool_search rồi gọi trực tiếp"

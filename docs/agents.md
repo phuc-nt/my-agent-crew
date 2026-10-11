@@ -68,6 +68,7 @@ không bao giờ âm thầm vô hiệu một cài đặt.
 | `shell_write_paths` | danh sách | `[]` | đường dẫn bên trong workspace mà lệnh `shell_run` được ghi. Đặt danh sách này là bật sandbox kể cả khi còn mạng: lệnh chỉ ghi được ở đây và thư mục tạm, không gọi được `open`/`launchctl`/`osascript`, nên agent lấy và ghi dữ liệu được nhưng không sửa được code, script hay cấu hình quanh nó. Với `shell_network: false` mà danh sách rỗng thì workspace chỉ đọc với shell; đường dẫn ra ngoài workspace là lỗi khởi động |
 | `shell_deny_patterns` | danh sách | `[]` | mảnh lệnh (chuỗi con, không phân biệt hoa thường) mà `shell_run` từ chối thẳng, không hỏi duyệt, kèm lời dặn dừng lại và báo cần gì để người dùng quyết. Dùng để giữ agent làm việc trong repo người khác khỏi DDL, SQL ghi tay, `python3 -c`. Rào mềm như `shell_ask_patterns` |
 | `write_paths` | danh sách | `[]` | đường dẫn bên trong workspace mà `workspace_write`, `workspace_edit` và `artifact_export` (xuất một canvas ra tệp) được ghi; ghi chỗ khác bị từ chối với lỗi nêu danh sách này, và không thư mục nào được tạo. Rỗng thì ghi được mọi nơi trong workspace. Dùng cho agent autonomous có workspace là một repo, nơi tệp lạc chỗ có thể bị commit lên; đường dẫn ra ngoài workspace là lỗi khởi động. Không ảnh hưởng `shell_run`, xem `shell_write_paths` |
+| `script_calls` | `read_only` hoặc `gated` | `read_only` | script của `tool_script` gọi được những tool nào. `read_only`: chỉ tool chỉ đọc. `gated`: thêm cả tool có ghi mà agent đang giữ (`workspace_write`, `shell_run`, tool MCP không nằm trong `read_only`, …); mỗi lời gọi như vậy được cổng duyệt xét **trước khi chạy**, theo đúng luật của một lời gọi trực tiếp, và lời gọi nào cổng phải hỏi người thì script dừng ở đó chứ không chờ ai. Hai tool luôn phải hỏi (`ask_user`, `schedule_create`) vẫn ở ngoài. Xem [tools.md](tools.md#gọi-tool-từ-script). Chỉ đọc từ `agent.yaml` của chính agent: không có khoá toàn cục, không có biến môi trường, không agent nào thừa hưởng của agent khác, kể cả của master. Giá trị nào khác hai chữ đó (`Gated`, `true`, để trống) là lỗi khởi động, còn lưu qua API thì bị từ chối (422). Tắt bằng cách bỏ khoá hoặc ghi `read_only`. Sửa qua API có hiệu lực ngay; sửa tay cần khởi động lại |
 | `schedules` | danh sách | `[]` | job, xem [Lịch](#lịch) |
 | `memory_consolidate` | chuỗi cron | không có | theo lịch này, viết lại `MEMORY.md` từ ghi chú ngày rồi biên dịch wiki vault từ chính các ghi chú đó, xem [memory.md](memory.md) |
 | `telegram` | map | không có | `token_env` + `chat_id`, tuỳ chọn `approval_ttl_seconds` (60–43200) cho cuộc trò chuyện mở từ chat đó; chỉ đọc trên `agent.yaml` của master, ở nơi khác bị bỏ qua kèm cảnh báo, xem [channels.md](channels.md) |
@@ -337,7 +338,7 @@ lần lắp system prompt (tức là trước mỗi lần gọi model, không l�
 | Dịch vụ ngoài (MCP) | khoá `mcp` của agent, đối chiếu với tool MCP nó đang cầm và trạng thái kết nối | xem bảng dưới |
 | Kỹ năng | các skill agent nạp được | skill master không có thì kèm mô tả, cắt còn 80 ký tự; skill cần một lệnh máy này không có thì mang `[thiếu: …]` đứng trước mô tả, như trong mục lục skill của chính agent đó |
 | Việc tự chạy theo lịch | job của agent trong bộ lập lịch, cả job khai trong `agent.yaml` lẫn job tạo từ chat | chỉ job đang bật; bỏ job gom trí nhớ, vì agent nào cũng có |
-| Công cụ | tool trong hộp đồ của agent | bỏ `delegate` (lượt được giao việc không bao giờ cầm nó) và tool MCP (đã có dòng dịch vụ); `tool_search` và `tool_script` được kể như mọi tool khác |
+| Công cụ | tool trong hộp đồ của agent | bỏ `delegate` (lượt được giao việc không bao giờ cầm nó) và tool MCP (đã có dòng dịch vụ); `tool_search` và `tool_script` được kể như mọi tool khác; agent có `script_calls: gated` thì dòng có thêm một câu ở cuối, xem dưới |
 | Mô hình | tuyến đầu trong `routes` | kèm model của `escalation_route` khi tuyến đó dùng được |
 
 Một máy chủ MCP được kể theo đúng thứ agent với tới lúc đó. Trạng thái kết nối được xét trước,
@@ -363,9 +364,16 @@ Tên kỹ năng và tên công cụ được kể so với của chính master (
 Loại nào agent không có thì không có dòng. `tool_script` có ở mọi agent giữ ít nhất một tool chỉ
 đọc ([tools.md](tools.md#gọi-tool-từ-script)), nên thường nó nằm trong "như của bạn"; tên nó chỉ
 hiện ra khi master và agent khác nhau ở đúng điểm đó, ví dụ một master chỉ còn tool ghi đọc thấy
-`thêm: …, tool_script` ở agent còn đọc được. Tên job và tên skill được gộp khoảng trắng về một
-dòng trước khi kể: tên job do một cuộc chat đặt, và một tên có xuống dòng sẽ đọc như một dòng
-roster không ai viết. Khi có ít nhất một dòng như thế, roster kết thúc bằng
+`thêm: …, tool_script` ở agent còn đọc được. Agent mà `agent.yaml` ghi `script_calls: gated` thì
+dòng Công cụ của nó kết thúc bằng `; script gọi được cả công cụ ghi`, hoặc
+`; script gọi được cả công cụ ghi, kể cả shell_run` khi nó giữ `shell_run`
+(`· Công cụ: như của bạn; script gọi được cả công cụ ghi, kể cả shell_run`). Tên tool không nói
+được điều này: hai agent giữ cùng một bộ tool, một agent làm được việc gồm hai chục lần ghi trong
+một bước, agent kia phải gọi từng lần. Câu ấy chỉ có khi agent còn giữ `tool_script`, và chỉ theo
+tệp của chính agent đó: master có `script_calls: gated` hay không thì dòng của agent khác không
+đổi. Tên job và tên skill được gộp khoảng trắng về một dòng trước khi kể: tên job do một cuộc
+chat đặt, và một tên có xuống dòng sẽ đọc như một dòng roster không ai viết. Khi có ít nhất một
+dòng như thế, roster kết thúc bằng
 một lời dặn: các dòng này là điều đang đúng, đáng tin hơn mô tả và hơn điều master từng nói trong
 cuộc trò chuyện, và việc cần một dịch vụ, kỹ năng hay công cụ mà master không có thì giao cho
 agent có nó chứ không trả lời là không làm được. Lời dặn cũng nói điều ngược lại cho hai tình

@@ -11,6 +11,30 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+### Added
+
+- An agent's scripts can call the tools that change things too, when its owner says so.
+  `script_calls: gated` in the agent's own `agent.yaml` (default `read_only`, read from that file
+  alone: no global key, no environment variable, inherited from nobody) lets a script run by
+  `tool_script` call every tool the agent holds that writes or asks first (`workspace_write`,
+  `shell_run`, `memory_save`, the canvas tools, a server's tools not under `read_only`), beside
+  the ones that read. Each such call is put to the approval gate before it runs, by the rules a
+  direct call meets: it runs where a direct call would run unasked (an autonomous conversation, a
+  tool the person said to always allow, a command on `shell_allow_patterns`). A script never
+  waits for a person, so a call a person would be asked about (a supervised conversation, a
+  command on `shell_ask_patterns`) ends the script there, unrun, with a line that tells the model
+  to make the call directly; so does a command on `shell_deny_patterns`. The line names the tool
+  and the owner's pattern and never repeats the command, which may hold a secret. `ask_user` and
+  `schedule_create` stay out of every script, as do the tools no script calls and a server's
+  `hidden` tools. A batch with a call that changes things runs one call at a time in the order
+  written, and one whose call the gate refuses runs none of them. A call that went through the
+  gate carries `gated: true` wherever a script's calls are listed (`calls` on the `tool_result`
+  event and the run's step, the `nested_call` event, the stored result); a call that only reads
+  is written as before. A script of such an agent that a restart cut is closed as cut and not run
+  again, since nothing says what it had written. The master's roster says of such an agent that
+  its scripts call the tools that write. Any other value of the key stops the crew from starting
+  and is a 422 through the API.
+
 ## [0.14.0] — 2026-10-11
 
 ### Added

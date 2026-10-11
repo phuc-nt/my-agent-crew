@@ -23,11 +23,12 @@ def _bad(kind: str) -> ScriptError:
     return ScriptError(t.SCRIPT_BAD_CALL.format(name=f"tools.{kind}"))
 
 
-def discover(held: ToolRegistry, kind: str, arguments: dict[str, Any]) -> Any:
+def discover(held: ToolRegistry, kind: str, arguments: dict[str, Any], gated: bool = False) -> Any:
     """The answer to one question about the tools held: `names` (what may be called),
     `search` (the ones that fit a few words) or `describe` (one in full). `ScriptError` for
-    a refusal, which the script can catch."""
-    tools = callable_tools(held)
+    a refusal, which the script can catch. `gated` for a script that may also call the
+    tools that change things."""
+    tools = callable_tools(held, gated)
     if kind == "names":
         return [tool.name for tool in tools]
     if kind == "search":
@@ -43,7 +44,7 @@ def discover(held: ToolRegistry, kind: str, arguments: dict[str, Any]) -> Any:
         tool = held.get(name)
         if tool is None:
             raise ScriptError(unknown_tool(name, tools))
-        refusal = why_not(tool)
+        refusal = why_not(tool, gated)
         if refusal is not None:
             raise ScriptError(refusal)
         return describe(tool)

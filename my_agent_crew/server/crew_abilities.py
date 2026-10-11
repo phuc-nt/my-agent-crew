@@ -28,6 +28,7 @@ from my_agent_crew.agents.roster import DELEGATE_TOOL_NAME
 from my_agent_crew.agents.schedule import CONSOLIDATE
 from my_agent_crew.mcp import hub
 from my_agent_crew.mcp.tools import PREFIX, McpTool
+from my_agent_crew.script.scope import SCRIPT_TOOL, writes_too
 
 if TYPE_CHECKING:
     from my_agent_crew.agent.loop import AgentDeps
@@ -87,6 +88,8 @@ def _abilities(deps: AgentDeps, links: Mapping[str, hub.Link], jobs: Sequence[st
         # Named and usable: a route whose provider has no key was left out when the agent
         # was built, and a turn of it never moves there.
         escalation=spare.model if spare and deps.escalation else "",
+        # Said by its file, and of use only while it holds the tool that runs a script.
+        script_writes=writes_too(deps.settings) and SCRIPT_TOOL in names,
     )
 
 
