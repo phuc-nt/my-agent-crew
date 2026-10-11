@@ -5643,7 +5643,8 @@ những gì nó in ra mới quay về cho model ([tools.md](tools.md#gọi-tool-
   đếm; tool nào xong cũng đếm; hai số đo đổi chỗ; dòng đếm đứng trên danh sách; chỉ một số đo thì
   không đếm), ba ở `components/tool-call-card.tsx` và hai ở `components/run-timeline.tsx` (chỉ
   đếm khi thành công, đếm ngay, hay không có phần báo), hai ở `i18n/vi.ts` (số không tách hàng
-  nghìn; số chưa đếm đọc thành không) và mười một ở `lib/conversation-markdown.ts` (mỗi danh
+  nghìn; số chưa đếm đọc thành không) và mười một ở `lib/conversation-markdown.ts` cùng
+  `lib/script-calls-markdown.ts`, nơi viết từng dòng của danh sách (mỗi danh
   sách một tiêu đề hay không bao giờ có tiêu đề; danh sách không mở lượt của agent; lời nói không
   mở lượt, hay lượt nào cũng đọc là của agent; dấu lỗi đặt vào lời gọi thành công; giá ghi cho
   lời gọi không tính tiền; đánh số từ không; dòng đầu không đếm lỗi hay đếm lỗi từ lời gọi thành
