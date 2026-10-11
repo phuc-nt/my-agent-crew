@@ -27,6 +27,8 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   answer per call, in the order they were written: `{"ok": true, "output": ...}` or
   `{"ok": false, "error": ...}`. One call that fails is its own answer and spoils none of the
   others. Each call of a batch is one of the 25, and the run card lists them in written order.
+  A script ended while a batch is under way (its clock ran out, the turn was stopped) keeps the
+  calls that had ended, where they were written.
   A batch asked for the wrong way (empty, longer than 10 or than the calls left, an element that
   is not `{"tool", "args"}`) is a mistake the script can catch and costs no call. A batch with a
   call the script may not make (it writes, asks first, or is hidden) runs none of its calls and
@@ -34,9 +36,10 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 - The calls a script makes are shown as they end, not once the script is over. The turn sends a
   `nested_call` event (`tool_call_id`, `index`, `call`) between the script's `tool_call` and its
   `tool_result`; the run card and the tool card in the chat list each call when it ends, and the
-  run adds its cost at once. When the result arrives the list is put in the order the script
-  wrote the calls and only the calls no event told of are charged, so nothing is counted twice.
-  Stopping the turn while a script is calling ends the call it is on.
+  run and the conversation add its cost at once. When the result arrives the list is put in the
+  order the script wrote the calls and only the calls no event told of are charged, so nothing
+  is counted twice. Stopping the turn while a script is calling ends the call it is on, and the
+  calls it had made stay charged to the conversation as they are billed to the run.
 - A script's result says what the script saved the model from reading: how many characters its
   calls handed it and how many it printed (`received_chars` and `printed_chars` on the
   `tool_result` event and on the run's step). Both cards show them on one line under the calls

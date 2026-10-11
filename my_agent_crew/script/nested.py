@@ -34,15 +34,22 @@ class ScriptRun:
     """One script's calls: what it may reach, and what it made."""
 
     held: ToolRegistry
-    calls: list[NestedCall] = field(default_factory=list)
     # The characters of tool answers the script was handed.
     received: int = 0
-    # The calls carried out so far: each answer kept whole is kept under its number.
+    # The calls asked for so far. Each is numbered as it was written: an answer kept whole
+    # is kept under its number, and so is the call once it ended.
     made: int = 0
+    _ended: dict[int, NestedCall] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         # Taken whole up to what can be kept, and cut for the script here (`_fit`).
         self.allowed = ToolRegistry(callable_tools(self.held), MAX_SPILL_BYTES, self.held.hooks)
+
+    @property
+    def calls(self) -> list[NestedCall]:
+        """The calls that ended, as the script wrote them, whichever ended first. Each is
+        kept the moment it ends: a script cut short mid-batch still made the calls it made."""
+        return [self._ended[number] for number in sorted(self._ended)]
 
     def lookup(self, kind: str, arguments: dict[str, Any]) -> Any:
         return discover(self.held, kind, arguments)
@@ -72,24 +79,24 @@ class ScriptRun:
         gate = asyncio.Semaphore(MAX_PARALLEL)
 
         async def one(
-            tool: Tool | None, name: str, arguments: dict[str, Any]
-        ) -> tuple[Answer, NestedCall | None]:
+            tool: Tool | None, name: str, arguments: dict[str, Any], number: int
+        ) -> Answer:
             if tool is None:
                 # A slip of the script's, and one it can catch: the name it meant is likely near.
-                return Answer(False, unknown_tool(name, callable_tools(self.held))), None
+                return Answer(False, unknown_tool(name, callable_tools(self.held)))
             async with gate:
-                self.made += 1
-                return await self._execute(tool, name, arguments, self.made)
+                return await self._execute(tool, name, arguments, number)
 
+        numbers = []  # given as written, before any call begins
+        for tool in tools:
+            self.made += tool is not None
+            numbers.append(self.made)
         async with asyncio.TaskGroup() as group:
             runs = [
-                group.create_task(one(tool, name, arguments))
-                for tool, (name, arguments) in zip(tools, calls, strict=True)
+                group.create_task(one(tool, name, arguments, number))
+                for tool, (name, arguments), number in zip(tools, calls, numbers, strict=True)
             ]
-        made = [run.result() for run in runs]
-        # Kept as they were written, whichever ended first.
-        self.calls.extend(nested for _, nested in made if nested is not None)
-        return [answer for answer, _ in made]
+        return [run.result() for run in runs]
 
     def _fit(self, name: str, result: ToolResult, number: int) -> str:
         """An answer the script can hold. One too long is cut at `RAW_LIMIT`; when the agent
@@ -117,7 +124,7 @@ class ScriptRun:
 
     async def _execute(
         self, tool: Tool, name: str, arguments: dict[str, Any], number: int
-    ) -> tuple[Answer, NestedCall]:
+    ) -> Answer:
         # Timed from here, when the call begins, and not from when it was asked for.
         started = time.monotonic()
         result = await self.allowed.execute(name, arguments)
@@ -135,5 +142,6 @@ class ScriptRun:
             cost_usd=result.cost_usd if result.metered else None,
             metered=result.metered,
         )
+        self._ended[number] = nested
         note_nested_call(nested)  # shown as it ends, though the script has not
-        return Answer(result.ok, output), nested
+        return Answer(result.ok, output)

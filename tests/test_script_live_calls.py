@@ -1,7 +1,7 @@
 """Each call a script makes is told the moment it ends, while the script still runs: the
-turn sends it, the run lists and bills it at once, and the script's result neither lists
-nor bills it a second time (`agent/tool_run.py`, `agent/nested_calls.py` and
-`activity/tool_steps.py` over `script/tool.py`)."""
+turn sends it, the run lists and bills it and the conversation is charged it at once, and
+the script's result neither lists nor charges it a second time (`agent/tool_run.py`,
+`agent/nested_calls.py` and `activity/tool_steps.py` over `script/tool.py`)."""
 
 from __future__ import annotations
 
@@ -15,10 +15,11 @@ import pytest
 from my_agent_crew.activity.steps import apply_event
 from my_agent_crew.agent.events import NestedCallEvent, ToolCallEvent, ToolResultEvent, to_dict
 from my_agent_crew.agent.nested_calls import note_nested_call
-from my_agent_crew.agent.tool_run import CallRun
+from my_agent_crew.agent.tool_run import CallRun, charge_nested, not_yet_told
 from my_agent_crew.llm.fake import completion
 from my_agent_crew.llm.types import ToolCall
 from my_agent_crew.script.tool import SCRIPT_TOOL
+from my_agent_crew.store import Store
 from my_agent_crew.store.runs import RUNNING, RunRecord
 from my_agent_crew.tools import Tool, ToolRegistry, ToolResult
 from my_agent_crew.tools.result import NestedCall
@@ -93,6 +94,8 @@ async def test_a_call_is_listed_and_billed_while_the_script_still_runs(served):
     step, run = the_step(app), stored_run(app)
     assert step["ok"] is None and [call["name"] for call in step["calls"]] == ["paid_read"]
     assert run.status == RUNNING and run.spent_usd == pytest.approx(0.005)
+    # And charged to the conversation, whose budget is counted on what it spent.
+    assert app.runtime.store.get(app.conv.id).spent_usd == pytest.approx(0.005)
     gate.set()
     events = await asyncio.wait_for(sender, 10)
 
@@ -201,8 +204,98 @@ def test_the_event_is_sent_under_its_own_kind_with_the_call_whole():
     }
 
 
-def nested(name: str) -> NestedCall:
-    return NestedCall(name=name, arguments={}, ok=True, output=name, ms=1)
+async def test_a_turn_stopped_while_a_script_calls_has_charged_what_the_run_billed(served):
+    """The script never comes to a result, and the calls it made were paid for all the same."""
+    gate = asyncio.Event()
+    held = [
+        reading("paid_read", cost_usd=0.004, metered=True),
+        reading("unpriced_read", metered=True),
+        waiting("slow_read", gate),
+    ]
+    source = "print(tools.paid_read(), tools.unpriced_read(), tools.paid_read(), tools.slow_read())"
+    script = [completion(tool_calls=[running(source)]), completion("Xong.")]
+    app, _ = await scripting(served, script, extra_tools=held)
+
+    sender = asyncio.create_task(say(app))
+    await until(lambda: len(listed(app)) == 3, timeout=10.0)
+    try:
+        await app.client.post(app.stop)
+        events = await asyncio.wait_for(sender, 10)
+    finally:
+        gate.set()
+
+    assert not [event for event in events if event["type"] == "tool_result"]
+    # One answer of the model at 0.001 and two reads at 0.004, on both ledgers alike.
+    conv, run = app.runtime.store.get(app.conv.id), stored_run(app)
+    assert run.spent_usd == pytest.approx(0.009) and run.unknown_cost_calls == 1
+    assert conv.spent_usd == pytest.approx(0.009) and conv.unknown_cost_calls == 1
+
+
+def nested(name: str, **paid: Any) -> NestedCall:
+    return NestedCall(name=name, arguments={}, ok=True, output=name, ms=1, **paid)
+
+
+def naming(name: str, told: list[NestedCall], named: list[NestedCall], **kind: Any) -> Tool:
+    """A tool that tells `told` while it runs and whose result names `named`."""
+
+    async def run(arguments: dict[str, Any]) -> ToolResult:
+        for call in told:
+            note_nested_call(call)
+        return ToolResult(ok=True, output=name, calls=tuple(named))
+
+    return Tool(name, f"Kể {name}.", {"type": "object", "properties": {}}, run, **kind)
+
+
+async def test_a_call_the_result_names_that_was_never_told_is_charged_from_the_result(served):
+    """One call is told and the result names two that read alike: each is paid for once."""
+    paid, alike = (nested("paid", cost_usd=0.004, metered=True) for _ in range(2))
+    quiet = naming("quiet", [paid], [paid, alike])
+    script = [completion(tool_calls=[ToolCall("q1", "quiet", {})]), completion("Xong.")]
+    app = served(script, extra_tools=[quiet])
+
+    await say(app)
+
+    # Two answers of the model at 0.001 and the two calls at 0.004, on both ledgers alike.
+    conv, run = app.runtime.store.get(app.conv.id), stored_run(app)
+    assert conv.spent_usd == pytest.approx(0.010) and run.spent_usd == pytest.approx(0.010)
+
+
+async def test_calls_run_beside_each_other_are_charged_what_their_results_name(served):
+    """Nothing listens to a call run beside others, so its result is all there is to charge."""
+    paid = nested("paid", cost_usd=0.004, metered=True)
+    beside = naming("beside", [paid], [paid], replay_safe=True, parallel=True)
+    both = [ToolCall("b1", "beside", {}), ToolCall("b2", "beside", {})]
+    app = served([completion(tool_calls=both), completion("Xong.")], extra_tools=[beside])
+
+    await say(app)
+
+    conv, run = app.runtime.store.get(app.conv.id), stored_run(app)
+    assert conv.spent_usd == pytest.approx(0.010) and run.spent_usd == pytest.approx(0.010)
+
+
+def test_only_a_call_that_paid_a_model_is_charged_and_one_with_no_price_is_counted_apart():
+    store = Store(":memory:")
+    conv = store.create()
+    calls = [
+        nested("paid", cost_usd=0.004, metered=True),
+        nested("unpriced", metered=True),
+        nested("free", cost_usd=0.5),
+    ]
+
+    charge_nested(store, conv.id, calls)
+
+    charged = store.get(conv.id)
+    assert charged.spent_usd == pytest.approx(0.004) and charged.unknown_cost_calls == 1
+
+
+def test_the_calls_left_to_charge_are_those_of_the_result_that_were_never_told():
+    paid, other = nested("paid", cost_usd=0.004, metered=True), nested("other", metered=True)
+
+    assert not_yet_told([paid, other], [other, paid]) == []
+    assert not_yet_told([paid, other], [other]) == [paid]
+    assert not_yet_told([paid, other], []) == [paid, other]
+    # Two calls that read alike are two calls: one told leaves the other to charge.
+    assert not_yet_told([paid, nested("paid", cost_usd=0.004, metered=True)], [paid]) == [paid]
 
 
 def telling(*names: str, gate: asyncio.Event | None = None, fail: bool = False) -> SimpleNamespace:
@@ -223,11 +316,16 @@ def telling(*names: str, gate: asyncio.Event | None = None, fail: bool = False) 
             raise RuntimeError("hook hỏng")
 
         tools.execute = broken  # type: ignore[method-assign]
-    return SimpleNamespace(tools=tools)
+    store = Store(":memory:")
+    return SimpleNamespace(tools=tools, store=store, conv_id=store.create().id)
+
+
+def carrying(deps: SimpleNamespace, call_id: str = "t1") -> CallRun:
+    return CallRun(deps, deps.conv_id, ToolCall(call_id, "teller", {}))
 
 
 async def test_a_call_run_hands_on_what_was_told_in_order_and_then_its_result():
-    run = CallRun(telling("a", "b", "c"), ToolCall("t1", "teller", {}))
+    run = carrying(telling("a", "b", "c"))
 
     said = [event async for event in run.events()]
 
@@ -239,9 +337,36 @@ async def test_a_call_run_hands_on_what_was_told_in_order_and_then_its_result():
     assert (run.result.ok, run.result.output) == (True, "xong")
 
 
+async def test_a_call_told_is_charged_to_the_conversation_as_it_is_told_and_kept_as_told():
+    gate = asyncio.Event()
+    deps = telling(gate=gate)
+    paid = [nested("a", cost_usd=0.004, metered=True), nested("b", cost_usd=0.002, metered=True)]
+
+    async def run(arguments: dict[str, Any]) -> str:
+        for call in paid:
+            note_nested_call(call)
+        await gate.wait()
+        return "xong"
+
+    deps.tools = ToolRegistry([Tool("teller", "Kể.", {"type": "object"}, run)])
+    carried = carrying(deps)
+    events = carried.events()
+    try:
+        assert (await anext(events)).call["name"] == "a"
+        # The second is told and not yet handed on: charged is what was handed on.
+        assert deps.store.get(deps.conv_id).spent_usd == pytest.approx(0.004)
+        assert (await anext(events)).call["name"] == "b"
+        assert deps.store.get(deps.conv_id).spent_usd == pytest.approx(0.006)
+        assert carried.told == paid
+    finally:
+        gate.set()
+    assert [event async for event in events] == []
+    assert not_yet_told(paid, carried.told) == []
+
+
 async def test_what_one_call_tells_is_not_heard_by_the_next_or_outside_any_call():
-    first = CallRun(telling("a"), ToolCall("t1", "teller", {}))
-    second = CallRun(telling(), ToolCall("t2", "teller", {}))
+    first = carrying(telling("a"))
+    second = carrying(telling(), "t2")
 
     assert [event.call["name"] for event in [e async for e in first.events()]] == ["a"]
     assert [e async for e in second.events()] == []
@@ -260,7 +385,7 @@ async def test_a_call_run_dropped_midway_cancels_the_call_and_waits_for_it_to_en
             ended.append("ended")
 
     deps.tools = ToolRegistry([Tool("teller", "Kể.", {"type": "object"}, watched)])
-    run = CallRun(deps, ToolCall("t1", "teller", {}))
+    run = carrying(deps)
     events = run.events()
 
     assert (await anext(events)).call["name"] == "a"
@@ -286,7 +411,7 @@ async def test_a_turn_stopped_while_a_script_calls_ends_the_call_with_it():
             ended.append("ended")
 
     deps.tools = ToolRegistry([Tool("teller", "Kể.", {"type": "object"}, watched)])
-    run = CallRun(deps, ToolCall("t1", "teller", {}))
+    run = carrying(deps)
 
     async def turn() -> None:
         async for _ in run.events():
@@ -303,7 +428,7 @@ async def test_a_turn_stopped_while_a_script_calls_ends_the_call_with_it():
 
 
 async def test_what_a_call_raised_is_raised_where_its_result_is_read():
-    run = CallRun(telling(fail=True), ToolCall("t1", "teller", {}))
+    run = carrying(telling(fail=True))
 
     assert [event async for event in run.events()] == []
     with pytest.raises(RuntimeError, match="hook hỏng"):

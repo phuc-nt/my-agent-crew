@@ -8,11 +8,13 @@ from __future__ import annotations
 
 import asyncio
 import json
+from functools import partial
 from typing import Any
 
 from my_agent_crew import texts_script as t
 from my_agent_crew.script import tool as script_module
 from my_agent_crew.script.limits import MAX_BATCH, MAX_PARALLEL, RAW_LIMIT
+from my_agent_crew.script.nested import ScriptRun
 from my_agent_crew.script.replies import Answer
 from my_agent_crew.script.runner import Outcome
 from my_agent_crew.script.scope import SCRIPT_TOOL, unknown_tool, why_not
@@ -132,6 +134,79 @@ async def test_a_call_is_timed_from_when_it_began_and_not_from_when_the_batch_wa
     assert [call.name for call in slowly] == [tool.name for tool in slow]
     assert all(480 <= call.ms < 2900 for call in slowly)
     assert last.name == "quick_read" and 0 <= last.ms < 450
+
+
+# --- a batch cut short ---
+
+
+async def test_a_batch_cut_short_keeps_the_calls_that_ended_in_the_order_written():
+    """Whatever ends a script mid-batch, each call that ended was made: it is kept the moment
+    it ends, where it was written, and the one still under way is not."""
+    late, hung = asyncio.Event(), asyncio.Event()
+
+    def waits_on(name: str, gate: asyncio.Event) -> Tool:
+        async def run(arguments: dict[str, Any]) -> str:
+            await gate.wait()
+            return name
+
+        return Tool(name, f"Đọc {name}.", SCHEMA, run, replay_safe=True)
+
+    quick = Reads("quick_read", ToolResult(ok=True, output="nhanh", cost_usd=0.004, metered=True))
+    made = ScriptRun(toolbox(waits_on("late_read", late), quick.tool, waits_on("hung_read", hung)))
+
+    alone = await made.answer("quick_read", {})
+    batch_of_three = asyncio.create_task(
+        made.answer_many([("late_read", {}), ("quick_read", {}), ("hung_read", {})])
+    )
+    try:
+        await asyncio.wait_for(_until(lambda: len(made.calls) == 2), 5)
+        assert [call.name for call in made.calls] == ["quick_read", "quick_read"]
+        late.set()
+        await asyncio.wait_for(_until(lambda: len(made.calls) == 3), 5)
+        batch_of_three.cancel()
+        await asyncio.wait([batch_of_three], timeout=5)
+    finally:
+        hung.set()
+
+    assert alone.ok and batch_of_three.cancelled()
+    # The one that ended last was written first of the batch, and is kept there.
+    assert [(call.name, call.cost_usd) for call in made.calls] == [
+        ("quick_read", 0.004),
+        ("late_read", None),
+        ("quick_read", 0.004),
+    ]
+    assert made.received == len("nhanh") * 2 + len("late_read")
+
+
+async def _until(ready) -> None:
+    while not ready():
+        await asyncio.sleep(0.005)
+
+
+async def test_a_script_its_clock_ends_mid_batch_keeps_the_calls_it_made(monkeypatch):
+    """The clock is shortened, so the script is ended while its last call still waits."""
+    hung = asyncio.Event()
+
+    async def wait(arguments: dict[str, Any]) -> str:
+        await hung.wait()
+        return "muộn"
+
+    shortened = partial(script_module.run_script, total_s=1.5)
+    monkeypatch.setattr(script_module, "run_script", shortened)
+    priced = Reads("priced_read", ToolResult(ok=True, output="một", cost_usd=0.004, metered=True))
+    waiting = Tool("hung_read", "Đọc.", SCHEMA, wait, replay_safe=True)
+    source = (
+        f"tools.priced_read()\n{batch(one('priced_read'), one('priced_read'), one('hung_read'))}"
+    )
+
+    try:
+        result = await scripted(toolbox(priced.tool, waiting), source)
+    finally:
+        hung.set()
+
+    assert not result.ok and t.SCRIPT_TIMED_OUT.format(seconds=1.5) in result.output
+    assert [(call.name, call.cost_usd) for call in result.calls] == [("priced_read", 0.004)] * 3
+    assert result.received_chars == len("một") * 3
 
 
 # --- each call as a call made alone ---
