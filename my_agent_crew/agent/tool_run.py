@@ -9,7 +9,7 @@ process never outlives the turn that started it.
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterable, Sequence
 from dataclasses import asdict
 from typing import TYPE_CHECKING
 
@@ -23,6 +23,7 @@ from my_agent_crew.tools.result import NestedCall, ToolResult
 
 if TYPE_CHECKING:  # the loop owns the deps; importing it back would be a cycle
     from my_agent_crew.agent.loop import AgentDeps
+    from my_agent_crew.store import Store
 
 
 async def execute(deps: AgentDeps, call: ToolCall) -> ToolResult:
@@ -36,12 +37,35 @@ async def execute(deps: AgentDeps, call: ToolCall) -> ToolResult:
     return await deps.tools.execute(call.name, call.arguments)
 
 
+def charge_nested(store: Store, conv_id: str, calls: Iterable[NestedCall]) -> None:
+    """A call a script made that paid a model is charged to the conversation like one the
+    model made itself."""
+    for nested in calls:
+        if nested.metered:
+            store.add_spend(conv_id, nested.cost_usd)
+
+
+def not_yet_told(calls: Sequence[NestedCall], told: Sequence[NestedCall]) -> list[NestedCall]:
+    """The calls of a script's result that were not told while it ran. Those were charged
+    as they were told, and the result names them again in another order."""
+    left = list(calls)
+    for heard in told:
+        if heard in left:
+            left.remove(heard)
+    return left
+
+
 class CallRun:
     """One call being carried out. `events` yields a script's calls as they end and stops
-    when the call is over; `result` is then what the call came to, or raises what it raised."""
+    when the call is over; `result` is then what the call came to, or raises what it raised.
 
-    def __init__(self, deps: AgentDeps, call: ToolCall) -> None:
-        self._call_id = call.id
+    Each call is charged to the conversation as it is told, where the run bills it too. A
+    script a stopped turn cut short has no result to charge from, and the calls it made
+    were paid for all the same."""
+
+    def __init__(self, deps: AgentDeps, conv_id: str, call: ToolCall) -> None:
+        self._store, self._conv_id, self._call_id = deps.store, conv_id, call.id
+        self.told: list[NestedCall] = []
         self._said: asyncio.Queue[NestedCall | None] = asyncio.Queue()
         self._task = asyncio.create_task(self._carry_out(deps, call))
         # Queued after everything the call said, since a task's callbacks run once it ended.
@@ -52,11 +76,11 @@ class CallRun:
         return await execute(deps, call)
 
     async def events(self) -> AsyncIterator[NestedCallEvent]:
-        index = 0
         try:
             while (nested := await self._said.get()) is not None:
-                yield NestedCallEvent(self._call_id, index, asdict(nested))
-                index += 1
+                charge_nested(self._store, self._conv_id, [nested])
+                self.told.append(nested)
+                yield NestedCallEvent(self._call_id, len(self.told) - 1, asdict(nested))
         finally:
             if not self._task.done():
                 self._task.cancel()

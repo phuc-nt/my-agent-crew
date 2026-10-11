@@ -833,7 +833,8 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
     kia vẫn chạy; script muốn dừng thì tự xét `answer["ok"]`.
   - Lô chạy tối đa 4 lời gọi cùng một lúc, phần còn lại chờ tới lượt. Mỗi lời gọi vẫn đi qua hook
     của agent, vẫn được tính tiền riêng khi có trả tiền cho model và vẫn nằm trên thẻ run, theo
-    thứ tự đã viết chứ không theo thứ tự xong. Script chỉ gọi được tool chỉ đọc nên các lời gọi
+    thứ tự đã viết chứ không theo thứ tự xong. Script bị dừng khi lô còn dở (hết giờ, lượt bị
+    dừng) thì các lời gọi đã xong vẫn được giữ, đúng chỗ đã viết. Script chỉ gọi được tool chỉ đọc nên các lời gọi
     không cần xếp hàng cho nhau, và crew không giữ gì từ lời gọi này sang lời gọi sau: mỗi hook là
     một tiến trình riêng, mỗi lời gọi MCP một yêu cầu HTTP riêng. (Lô của chính model, nhiều lời
     gọi trong một tin, vẫn chỉ chạy song song ở tool tự khai `parallel`: ở đó lời gọi có thể ghi
@@ -905,7 +906,9 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
   gọi bị từ chối không nằm trong danh sách vì nó chưa chạy gì.
 - **Thấy ngay khi script còn chạy.** Một script có thể chạy vài phút, nên mỗi lời gọi được báo
   ngay khi nó xong chứ không đợi script kết thúc: thẻ run và thẻ tool trong khung chat thêm một
-  dòng vào danh sách, và thẻ run cộng luôn giá của lời gọi có tính tiền. Khi script xong, kết quả
+  dòng vào danh sách, và thẻ run lẫn cuộc trò chuyện cộng luôn giá của lời gọi có tính tiền (lượt
+  bị dừng giữa script không có kết quả nào để tính lại, mà các lời gọi đã chạy thì đã tốn tiền, và
+  ngân sách của cuộc trò chuyện đếm trên số đã tiêu). Khi script xong, kết quả
   nêu lại toàn bộ các lời gọi theo **thứ tự script đã viết** (trong một lô, thứ tự xong có thể
   khác); danh sách được xếp lại theo đó và chỉ những lời gọi chưa từng được báo mới được cộng
   tiền, nên không lời gọi nào bị tính hai lần, kể cả khi tab nối lại giữa chừng và nghe một lời

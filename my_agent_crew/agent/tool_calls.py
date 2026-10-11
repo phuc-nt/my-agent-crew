@@ -28,7 +28,7 @@ from my_agent_crew.agent.events import (
 from my_agent_crew.agent.nested_calls import nested_budget
 from my_agent_crew.agent.tool_batches import split_batches
 from my_agent_crew.agent.tool_gate import ask_reason_text, pauses_for_a_person
-from my_agent_crew.agent.tool_run import CallRun, execute
+from my_agent_crew.agent.tool_run import CallRun, charge_nested, execute, not_yet_told
 from my_agent_crew.llm.types import Message, ToolCall
 from my_agent_crew.store import Approval, Store, StoredMessage
 from my_agent_crew.store.approvals import ANSWERED, DENIED, EXPIRED, PENDING
@@ -41,6 +41,7 @@ from my_agent_crew.texts import (
 )
 from my_agent_crew.tools.ask_user import answer_result, unanswered_result
 from my_agent_crew.tools.registry import ToolResult
+from my_agent_crew.tools.result import NestedCall
 
 if TYPE_CHECKING:  # the loop owns the deps; importing it back would be a cycle
     from my_agent_crew.agent.loop import AgentDeps
@@ -48,12 +49,17 @@ if TYPE_CHECKING:  # the loop owns the deps; importing it back would be a cycle
 REFUSALS = {DENIED: DENIED_TOOL, EXPIRED: EXPIRED_TOOL}
 
 
-async def _record(deps: AgentDeps, conv_id: str, call: ToolCall, result: ToolResult) -> Event:
+async def _record(
+    deps: AgentDeps,
+    conv_id: str,
+    call: ToolCall,
+    result: ToolResult,
+    told: Sequence[NestedCall] = (),
+) -> Event:
     if result.metered:  # a tool that paid a model is charged like a completion
         deps.store.add_spend(conv_id, result.cost_usd)
-    for nested in result.calls:  # and so is each call a script made that paid one
-        if nested.metered:
-            deps.store.add_spend(conv_id, nested.cost_usd)
+    # And so is each call a script made that paid one, unless it was charged as it was told.
+    charge_nested(deps.store, conv_id, not_yet_told(result.calls, told))
     if result.child_spent_usd:  # what a conversation it delegated to spent is its own too
         deps.store.add_spend(conv_id, result.child_spent_usd)
     event = ToolResultEvent(
@@ -178,13 +184,13 @@ async def settle_tool_calls(deps: AgentDeps, conv_id: str) -> AsyncIterator[Even
                 yield await _record(deps, conv_id, call, ToolResult(ok=False, output=refusal))
                 continue
         yield ToolCallEvent(tool_call_id=call.id, name=call.name, arguments=call.arguments)
-        run = CallRun(deps, call)
+        run = CallRun(deps, conv_id, call)
         # Closed with this turn, not whenever it is collected: closing it ends the call.
         async with aclosing(run.events()) as said:
             async for nested in said:  # the calls a script makes, each as it ends
                 yield nested
         result = run.result
-        yield await _record(deps, conv_id, call, result)
+        yield await _record(deps, conv_id, call, result, run.told)
         # A finished delegation that was the whole turn ends it in the child's words.
         async for event in relay_reply(deps, conv_id, call, result):
             yield event

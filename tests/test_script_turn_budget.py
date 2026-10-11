@@ -5,6 +5,7 @@ after it is left unrun, and the turn stops (`agent/nested_calls.py`, `agent/loop
 
 from __future__ import annotations
 
+from contextvars import copy_context
 from textwrap import dedent
 
 import pytest
@@ -78,13 +79,18 @@ def test_a_count_gives_all_that_was_asked_or_none_of_it_and_stays_spent():
 
 
 def test_a_turn_counts_ten_calls_for_each_call_of_the_model_from_nothing():
-    first = start_nested_budget(12)
-    first.take(7)
+    def one_turn_then_the_next() -> None:
+        first = start_nested_budget(12)
+        first.take(7)
 
-    assert (first.limit, NESTED_CALLS_PER_STEP) == (120, 10) and nested_budget() is first
-    second = start_nested_budget(3)
-    assert (second.limit, second.used, second.spent) == (30, 0, False)
-    assert nested_budget() is second
+        assert (first.limit, NESTED_CALLS_PER_STEP) == (120, 10) and nested_budget() is first
+        second = start_nested_budget(3)
+        assert (second.limit, second.used, second.spent) == (30, 0, False)
+        assert nested_budget() is second
+
+    # In a context of its own: a count started here is not the next test's to run under.
+    copy_context().run(one_turn_then_the_next)
+    assert nested_budget() is None
 
 
 async def test_the_script_that_passes_the_count_is_ended_there_and_the_turn_with_it(deps_factory):

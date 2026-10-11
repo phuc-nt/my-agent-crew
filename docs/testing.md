@@ -5266,7 +5266,9 @@ những gì nó in ra mới quay về cho model ([tools.md](tools.md#gọi-tool-
     trong các lời gọi giữ lại; hook của agent được hỏi về từng lời gọi; mỗi câu trả lời giao nguyên
     tới mức script nhận; lời gọi trả tiền cho model mang giá của nó; lô có một lời gọi script không
     được gọi thì không lời gọi nào chạy, script dừng, câu nói là của lời gọi đầu tiên theo thứ tự
-    viết trong số bị từ chối, và mỗi lời gọi của lô đều có đúng một câu trả lời),
+    viết trong số bị từ chối, và mỗi lời gọi của lô đều có đúng một câu trả lời; lô bị cắt giữa
+    chừng giữ các lời gọi đã xong theo thứ tự đã viết, còn lời gọi đang dở thì không; script hết
+    giờ giữa lô vẫn giữ các lời gọi nó đã làm và số ký tự nó đã nhận),
     `tests/test_script_runner.py` (tiến trình con gửi một lô và từng lời gọi được trả lời ở tiến
     trình này; lô bị từ chối là lỗi để script bắt; câu trả lời đầu tiên mang cờ dừng thì dừng
     script dù nó đã in gì; chạy không có nơi gọi theo lô thì được nói là không gọi được; lô dài
@@ -5287,7 +5289,13 @@ những gì nó in ra mới quay về cho model ([tools.md](tools.md#gọi-tool-
     gì; trong một lượt thì giữ dưới id lời gọi của chính model).
 - **Lời gọi của script được báo ngay khi xong**:
   - pytest: `tests/test_script_live_calls.py` (lượt phát từng lời gọi của script giữa lời gọi và
-    kết quả của script; lời gọi được liệt kê và tính tiền khi script còn chạy; các lời gọi của
+    kết quả của script; lời gọi được liệt kê, tính vào run và vào cuộc trò chuyện khi script còn
+    chạy; lượt bị dừng lúc script đang gọi đã tính cho cuộc trò chuyện đúng số run đã tính; lời
+    gọi kết quả kể mà chưa từng được báo thì tính từ kết quả, một lần; các lời gọi chạy cạnh nhau
+    không ai nghe nên tính theo kết quả của chúng; chỉ lời gọi trả tiền cho model mới bị tính,
+    lời gọi không có giá được đếm riêng; phần còn phải tính là những lời gọi của kết quả chưa
+    được báo, hai lời gọi giống hệt nhau là hai; lời gọi được báo thì tính cho cuộc trò chuyện
+    ngay lúc được chuyển tiếp; các lời gọi của
     một lô được báo theo thứ tự xong và giữ theo thứ tự đã viết; lời gọi nghe hai lần được giữ
     một lần và tính tiền một lần; kết quả chỉ tính tiền những lời gọi chưa sự kiện nào báo và giữ
     chúng như đã viết; hai lời gọi giống hệt nhau mỗi cái được tính tiền; script chạy lại sau
@@ -5299,7 +5307,8 @@ những gì nó in ra mới quay về cho model ([tools.md](tools.md#gọi-tool-
     đọc kết quả của nó).
 - **Trần lời gọi lồng của một lượt**:
   - pytest: `tests/test_script_turn_budget.py` (bộ đếm cho đủ số được xin hoặc không cho gì, và đã
-    hết thì vẫn hết; mỗi lượt được mười lời gọi cho mỗi lần gọi model, đếm từ không; script vượt
+    hết thì vẫn hết; mỗi lượt được mười lời gọi cho mỗi lần gọi model, đếm từ không, và bộ đếm của
+    test này không lọt sang test sau; script vượt
     trần bị dừng ngay đó và lượt dừng theo, model không được hỏi lại; script được dùng hết cả
     trần; các script của một lượt dùng chung một bộ đếm; cái model yêu cầu sau script đã tiêu hết
     trần được đóng lại không chạy, nên lời gọi nào cũng có kết quả; lô không còn đủ chỗ thì không
