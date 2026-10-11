@@ -74,11 +74,25 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   with its parameters (`codemode`) or it has to be found, by a script with `tools.search` or by
   the model with `tool_search`; the tools it does not name are counted on one line, and a name
   learned from a search is as good as a listed one.
-  An agent holding at least one such tool is handed `tool_script` even when none of its tools is
-  set to `codemode`. Tools that write or ask first, and tools set to `hidden`, are refused as
-  before: the script ends there with a line saying to call the tool directly, where the
-  approval gate sees it. The Tools table and the Connections card say who holds `tool_script`
-  by the new rule.
+  Tools that write or ask first, and tools set to `hidden`, are refused as before: the script
+  ends there with a line saying to call the tool directly, where the approval gate sees it. The
+  Connections card says what the level now decides.
+- `tool_script` no longer comes with an MCP server. Every agent that holds at least one tool a
+  script may call has it: a built-in tool that only reads (`workspace_read`, `memory_search`,
+  `skill_read`, …) or a server's tool listed under `read_only` and not hidden. Like
+  `tool_search` it follows neither the agent's `tools:` list nor its `mode`; an agent left with
+  nothing a script may call (say `tools: [workspace_write]` and no server) does not have it.
+  It stands after the agent's own tools, `delegate` and `tool_search`, ahead of the servers'
+  tools, and is handed again with a fresh description whenever a server connects, drops or
+  changes. The description names the agent's own tools first, one line each with their
+  parameters, then the servers' tools set to `codemode`, thirty lines in all; whatever is left
+  of either kind is counted on one last line that points to `tools.search`. The master's
+  roster tells `tool_script` like any other tool, so it is named only for an agent that differs
+  from the master in it.
+  In `GET /api/tools` the row of `tool_script` carries `with_reads: true` in place of
+  `with_mcp`, names every agent that reads, and shows the description the first of them is
+  given. The Tools table marks it "đi kèm công cụ đọc" and draws `∅` for an agent with no tool
+  a script may call, with a legend line of its own.
 - A script that calls a name no tool has no longer ends there. The call fails in a way the
   script can catch, naming the nearest tool it may call and pointing to `tools.names()` and
   `tools.search`; it still counts toward the 25 calls. A call that failed because a required
