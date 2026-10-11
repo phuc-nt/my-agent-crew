@@ -425,6 +425,32 @@ async def test_a_job_stopped_while_its_script_runs_is_not_left_running(deps_fact
     assert rig.sched.describe()[0]["running"] is False
 
 
+async def test_the_calls_of_a_jobs_script_are_listed_and_charged_as_each_ends(deps_factory):
+    """Whoever opens the run while the script still waits reads what it has called so far,
+    in the order it called them, and a job cut short there has paid for those calls."""
+    waits = Waits()
+    first = reading("first_read", cost_usd=0.004, metered=True)
+    second = reading("second_read", cost_usd=0.001, metered=True)
+    source = "tools.first_read()\ntools.second_read()\ntools.hung_read()"
+    rig = crew(deps_factory, source, tools=[first, second, waits.tool])
+
+    going = asyncio.create_task(rig.due())
+    await waits.entered.wait()
+
+    [run] = rig.runs()
+    [step] = run.steps
+    assert step["ok"] is None  # the script has not ended
+    assert [call["name"] for call in step["calls"]] == ["first_read", "second_read"]
+    assert run.spent_usd == pytest.approx(0.005)
+
+    waits.go.set()
+    ended = await going
+
+    names = [call["name"] for call in ended.steps[0]["calls"]]
+    assert names == ["first_read", "second_read", "hung_read"]
+    assert ended.status == DONE and ended.spent_usd == pytest.approx(0.005)
+
+
 # --- what the script keeps ---
 
 
