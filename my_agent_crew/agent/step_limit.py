@@ -1,4 +1,5 @@
-"""The end of a turn that used every model call it was allowed.
+"""The end of a turn that used every model call it was allowed, or whose scripts made
+every call they may between them.
 
 The last call may still have answered: the turn is done, not halted. If it asked for tools
 instead, those calls never ran, and each is closed with a refusal that says so; left open, a
@@ -26,3 +27,13 @@ async def out_of_steps(deps: AgentDeps, conv_id: str) -> AsyncIterator[Event]:
     async for event in refuse_unanswered(deps, conv_id, texts.STEPS_HALTED_TOOL):
         yield event
     yield HaltedEvent(reason="max_steps", spent_usd=deps.store.get(conv_id).spent_usd)
+
+
+async def out_of_nested_calls(deps: AgentDeps, conv_id: str, most: int) -> AsyncIterator[Event]:
+    """The script that asked for one call too many was ended and said so. The calls after
+    it are closed unrun, and the turn stops: a model that scripts this much is not going
+    to be talked out of it by one more refusal."""
+    refusal = texts.NESTED_HALTED_TOOL.format(most=most)
+    async for event in refuse_unanswered(deps, conv_id, refusal):
+        yield event
+    yield HaltedEvent(reason="nested_calls", spent_usd=deps.store.get(conv_id).spent_usd)

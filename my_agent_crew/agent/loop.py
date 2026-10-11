@@ -22,10 +22,11 @@ from my_agent_crew.agent.events import (
 )
 from my_agent_crew.agent.loop_guard import HALT, OK, LoopGuard
 from my_agent_crew.agent.model_stream import complete_step
+from my_agent_crew.agent.nested_calls import start_nested_budget
 from my_agent_crew.agent.payload_trim import turn_boundary
 from my_agent_crew.agent.reply_checks import blank_reply_event
 from my_agent_crew.agent.steer import take_steers
-from my_agent_crew.agent.step_limit import out_of_steps
+from my_agent_crew.agent.step_limit import out_of_nested_calls, out_of_steps
 from my_agent_crew.agent.tool_calls import close_interrupted, refuse_unanswered, settle_tool_calls
 from my_agent_crew.agent.turn_context import (
     CHAT,
@@ -103,12 +104,17 @@ async def run_turn(
 
     empty_replies = 0
     guard, escalation = LoopGuard(), Escalation(deps.chain, deps.escalation)
+    nested = start_nested_budget(deps.settings.max_steps)
     for step in range(deps.settings.max_steps):
         calls_left = deps.settings.max_steps - step - 1  # after the one this step makes
         async for event in settle_tool_calls(deps, conv_id):
             yield event
             if isinstance(event, ApprovalRequiredEvent):
                 return
+        if nested.spent:
+            async for event in out_of_nested_calls(deps, conv_id, nested.limit):
+                yield event
+            return
         async for event in take_steers(deps, conv_id, guard):
             yield event
         history = deps.store.history(conv_id)

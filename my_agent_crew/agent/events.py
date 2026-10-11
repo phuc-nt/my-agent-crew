@@ -67,7 +67,9 @@ class DoneEvent:
 
 @dataclass(frozen=True)
 class HaltedEvent:
-    reason: str  # "budget" | "max_steps" | "loop" (the same tool calls over and over)
+    # "budget" | "max_steps" | "loop" (the same tool calls over and over) | "nested_calls"
+    # (the scripts of the turn made every call they may between them)
+    reason: str
     spent_usd: float
 
 

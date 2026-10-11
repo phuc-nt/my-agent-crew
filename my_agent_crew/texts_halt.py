@@ -7,6 +7,7 @@ HALT_REASONS = {
     "budget": "chạm trần chi phí",
     "max_steps": "hết số bước tối đa",
     "loop": "gọi lại y hệt một lệnh nhiều lần liên tiếp",
+    "nested_calls": "script đã dùng hết số lời gọi lồng của lượt",
 }
 # Told to the model once a run of identical tool calls reaches the guard's threshold. It is
 # stored as a user message, so the log shows why the next call changed course; for the same
@@ -23,6 +24,11 @@ LOOP_HALTED_TOOL = (
 )
 # The result of a call the last allowed model call asked for: the turn ran out of steps first.
 STEPS_HALTED_TOOL = "Không chạy: lượt đã hết số bước tối đa nên dừng trước lệnh này."
+# The result of a call left unrun because a script before it used up what the scripts of a
+# turn may call between them.
+NESTED_HALTED_TOOL = (
+    "Không chạy: lượt đã dùng hết {most} lời gọi lồng của script nên dừng trước lệnh này."
+)
 # Shown to whoever watches a turn that an unexpected error cut short: its reader got the
 # exception, and the server's log has the detail.
 TURN_BROKE = "Lượt này bị ngắt vì một lỗi trong server. Chi tiết nằm trong log của server."

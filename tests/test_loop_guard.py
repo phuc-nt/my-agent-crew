@@ -3,14 +3,17 @@ its whole step limit; work that repeats a command with changes in between is lef
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 
 from my_agent_crew import texts
-from my_agent_crew.agent.events import HaltedEvent, ToolResultEvent
+from my_agent_crew.agent.events import DoneEvent, HaltedEvent, ToolResultEvent
 from my_agent_crew.agent.loop import run_turn
 from my_agent_crew.agent.loop_guard import HALT, OK, REDIRECT, LoopGuard
 from my_agent_crew.llm.fake import completion
 from my_agent_crew.llm.types import ToolCall
+from my_agent_crew.script.tool import SCRIPT_TOOL, script_tool
 from my_agent_crew.tools import Tool
 from my_agent_crew.turn_reply import collect_reply
 from tests.conftest import collect
@@ -170,3 +173,45 @@ async def test_a_loop_halt_reads_as_words_where_a_person_reads_it(deps_factory):
     assert reply.status == "halted"
     assert texts.REPLY_HALTED.format(reason=texts.HALT_REASONS["loop"], spent=0.006) in reply.text
     assert "(loop)" not in reply.text
+
+
+def scripting(deps_factory, sources: list[str], then: tuple = ()):
+    """Deps whose agent holds `count_up` as a tool that only reads, and `tool_script`; the
+    model asks for one script after another. Hands back the deps and the runs counted."""
+    counted, runs = counter()
+    tool = replace(counted, replay_safe=True)  # so a script may call it
+    asked = [
+        completion(tool_calls=(ToolCall(f"s{i}", SCRIPT_TOOL, {"script": source}),))
+        for i, source in enumerate(sources)
+    ]
+    deps = deps_factory(script=[*asked, *then], extra_tools=[tool], max_steps=20)
+    deps.tools.register(script_tool(lambda: deps.tools, []))
+    return deps, runs
+
+
+async def test_the_same_script_over_and_over_is_told_and_halted_like_any_other_call(deps_factory):
+    # A script is one call to the guard, and its source is that call's arguments: writing
+    # the same calls into a script does not hide the repeat.
+    deps, runs = scripting(deps_factory, ["print(tools.count_up(what='bài'))"] * 10)
+    conv = deps.store.create()
+
+    events = await collect(run_turn(deps, conv.id, "đếm bài"))
+
+    assert events[-1] == HaltedEvent(reason="loop", spent_usd=pytest.approx(0.006))
+    assert len(runs) == 5  # the sixth script was refused, not run
+    refused = [e for e in events if isinstance(e, ToolResultEvent)][-1]
+    assert (refused.tool_call_id, refused.output) == ("s5", texts.LOOP_HALTED_TOOL)
+    history = [m.message.content for m in deps.store.history(conv.id)]
+    assert history.count(texts.LOOP_REDIRECT.format(names=SCRIPT_TOOL, count=3)) == 1
+
+
+async def test_a_script_that_changes_each_time_is_not_a_repeat(deps_factory):
+    sources = [f"print(tools.count_up(page={i}))" for i in range(8)]
+    deps, runs = scripting(deps_factory, sources, then=(completion("Xong."),))
+    conv = deps.store.create()
+
+    events = await collect(run_turn(deps, conv.id, "đếm bài"))
+
+    assert len(runs) == 8 and isinstance(events[-1], DoneEvent)
+    history = [m.message.content for m in deps.store.history(conv.id)]
+    assert not any(texts.LOOP_REDIRECT[:10] in content for content in history)
