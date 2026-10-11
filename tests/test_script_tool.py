@@ -23,7 +23,7 @@ from my_agent_crew.script.runner import Outcome
 from my_agent_crew.script.scope import NOT_FROM_SCRIPT, SCRIPT_TOOL, scriptable, unknown_tool
 from my_agent_crew.script.signature import JSON_TYPES, signature
 from my_agent_crew.script.tool import ScriptTool, script_tool
-from my_agent_crew.texts import TOOL_FAILED
+from my_agent_crew.texts import TOOL_ARGUMENTS_LEFT_OUT, TOOL_FAILED
 from my_agent_crew.texts_kit import TOOL_BLOCKED_BY_HOOK
 from my_agent_crew.tools.delegate import DELEGATE_TOOL_NAME
 from my_agent_crew.tools.registry import MAX_OUTPUT_CHARS, Tool, ToolError, ToolRegistry
@@ -232,6 +232,31 @@ async def test_each_call_a_script_made_is_kept_for_the_run_card():
     assert 290 <= first.ms < 2900
     assert second == NestedCall("gone_read", {}, False, failed, second.ms)
     assert 0 <= second.ms < 290
+
+
+async def test_a_call_given_a_wide_mapping_is_kept_by_its_first_dozen_arguments():
+    rows = Reads("rows_read")
+
+    result = await play(
+        toolbox(rows.tool),
+        """
+        wide = {}
+        for n in range(300):
+            wide[f"field_{n}"] = "x" * 200
+        tools.batch([{"tool": "rows_read", "args": wide}])
+        print(len(wide))
+        """,
+    )
+
+    assert (result.ok, result.output) == (True, "300")
+    # The tool is handed every argument: only what is kept of the call is held down.
+    assert len(rows.asked[0]) == 300
+    (call,) = result.calls
+    left_out = TOOL_ARGUMENTS_LEFT_OUT.format(count=288)
+    assert call.arguments == {
+        **{f"field_{n}": "x" * 160 + "…" for n in range(12)},
+        "…": left_out,
+    }
 
 
 async def test_a_script_reports_what_its_calls_handed_it_and_what_it_printed():

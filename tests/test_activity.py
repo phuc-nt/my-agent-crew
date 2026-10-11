@@ -27,6 +27,7 @@ from my_agent_crew.llm.types import ToolCall
 from my_agent_crew.server import build_runtime, create_app
 from my_agent_crew.store import Store
 from my_agent_crew.store.runs import AWAITING, DONE, FAILED, HALTED, RUNNING, RunRecord
+from my_agent_crew.texts import TOOL_ARGUMENTS_LEFT_OUT
 from tests.conftest import collect
 
 
@@ -128,6 +129,45 @@ def test_a_big_list_argument_is_cut_down_rather_than_stored_whole():
     skills = run.steps[0]["arguments"]["skills"]
     assert isinstance(skills, str)
     assert len(skills) <= 161 and skills.endswith("…")
+
+
+def kept_arguments(arguments: dict) -> dict:
+    """What a step keeps of the arguments its call was given."""
+    run = fresh_run()
+    apply_event(run, ToolCallEvent("c1", "rows_read", arguments), 10.0)
+    return run.steps[0]["arguments"]
+
+
+def test_a_call_given_many_arguments_keeps_the_first_dozen_and_says_how_many_more():
+    # The mapping has no width of its own either: three hundred names, each a few
+    # characters, would be stored and re-broadcast as surely as one long value.
+    kept = kept_arguments({f"field_{n}": n for n in range(300)})
+    assert kept == {**{f"field_{n}": n for n in range(12)}, "…": "còn 288 tham số nữa"}
+    # In the order the call gave them, and the count after the last of them.
+    assert list(kept) == [*(f"field_{n}" for n in range(12)), "…"]
+
+
+def test_a_call_given_a_dozen_arguments_keeps_them_all_and_one_more_is_counted():
+    dozen = {f"field_{n}": n for n in range(12)}
+    assert kept_arguments(dozen) == dozen
+    left_out = TOOL_ARGUMENTS_LEFT_OUT.format(count=1)
+    assert kept_arguments({**dozen, "last": "x"}) == {**dozen, "…": left_out}
+
+
+def test_a_long_argument_name_is_cut_down_like_a_long_value():
+    assert kept_arguments({"k" * 500: 1, "n": 2}) == {"k" * 160 + "…": 1, "n": 2}
+
+
+def test_names_that_are_the_same_once_cut_are_counted_among_those_not_named():
+    alike = {"k" * 300 + str(n): n for n in range(5)}
+    left_out = TOOL_ARGUMENTS_LEFT_OUT.format(count=4)
+    assert kept_arguments(alike) == {"k" * 160 + "…": 4, "…": left_out}
+
+
+def test_a_number_written_out_longer_than_a_cut_text_is_cut_down_as_text():
+    kept = kept_arguments({"over": 10**160, "edge": 10**159, "flag": True, "none": None})
+    # 160 digits are kept as the number they are; one more and it is text, cut.
+    assert kept == {"over": "1" + "0" * 159 + "…", "edge": 10**159, "flag": True, "none": None}
 
 
 def test_route_fallback_becomes_a_step_without_touching_cost():

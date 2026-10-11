@@ -916,6 +916,11 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
   tham số rút gọn, thời gian, có lỗi không, giá nếu có, và phần đầu câu trả lời. Danh sách gấp
   lại cho tới khi bấm mở, dưới một dòng như "Script đã gọi công cụ 12 lần · 1 lần lỗi". Một lời
   gọi bị từ chối không nằm trong danh sách vì nó chưa chạy gì.
+  Tham số rút gọn của một lời gọi, ở bước của run cũng như ở lời gọi của script, là mười hai
+  tham số đầu: tên và giá trị cắt ở 160 ký tự, số viết ra dài hơn thế thì cắt như chữ, và nếu
+  còn nữa thì thêm một mục `…` ghi "còn N tham số nữa". Tool vẫn nhận đủ mọi tham số, người
+  được hỏi duyệt cũng đọc đủ; chỉ phần lưu lại cho thẻ run là có trần, vì nó được lưu và phát
+  lại cùng mỗi bước sau của run.
 - **Thấy ngay khi script còn chạy.** Một script có thể chạy vài phút, nên mỗi lời gọi được báo
   ngay khi nó xong chứ không đợi script kết thúc: thẻ run và thẻ tool trong khung chat thêm một
   dòng vào danh sách, và thẻ run lẫn cuộc trò chuyện cộng luôn giá của lời gọi có tính tiền (lượt

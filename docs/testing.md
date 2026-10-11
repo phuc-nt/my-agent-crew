@@ -5200,7 +5200,9 @@ những gì nó in ra mới quay về cho model ([tools.md](tools.md#gọi-tool-
     ghi chỉ đọc chạy được từ script dù lời mô tả không nêu tên nó; tool bị ẩn mà vẫn nằm trong sổ
     thì bị từ chối chứ không chạy;
     chỉ những gì script in ra mới quay về; tool của máy chủ được gọi bằng tên agent
-    giữ nó; mỗi lời gọi được giữ lại cho thẻ run, lời gọi trả tiền cho model mang giá của nó; hai
+    giữ nó; mỗi lời gọi được giữ lại cho thẻ run, lời gọi nhận một bảng tham số rộng thì tool vẫn
+    nhận đủ còn phần giữ lại chỉ có mười hai tham số đầu và số tham số còn lại, lời gọi trả tiền
+    cho model mang giá của nó; hai
     script cùng lúc mỗi cái giữ lời gọi của mình; lời gọi không được phép làm dừng script và nói
     phải gọi thế nào thay, và được trả cho tiến trình con như một lời gọi hỏng chứ không như lời
     tool nói; tên không có là một lỗi bắt được kèm tên gần nhất trong số tool gọi được (tool
@@ -5343,6 +5345,14 @@ những gì nó in ra mới quay về cho model ([tools.md](tools.md#gọi-tool-
     script không gọi gì vẫn giữ hai số đo; kết quả của tool khác không giữ gì; phần lưu kèm rỗng
     trừ khi một script đặt nó; nhánh rẽ chép theo; bản ghi quỹ đạo của run chỉ nói cái model đã
     đọc, còn lời gọi nằm ở step của run).
+- **Tham số rút gọn của một lời gọi có trần về số tham số**:
+  - pytest: `tests/test_activity.py` (tham số vẫn là một bảng tên và giá trị; giá trị dài và
+    danh sách lớn bị cắt; lời gọi nhiều tham số chỉ giữ mười hai tham số đầu theo đúng thứ tự,
+    rồi một mục ghi còn bao nhiêu; đúng mười hai thì giữ cả, mười ba thì ghi còn một; tên dài bị
+    cắt như giá trị; các tên trùng nhau sau khi cắt được đếm vào phần không nêu tên; số viết ra
+    dài hơn 160 chữ số bị cắt như chữ, đúng 160 thì giữ là số), `tests/test_script_tool.py` (lời
+    gọi của script cũng vậy), `tests/test_trajectory_redact.py` (bí mật nằm ở tên tham số vẫn
+    được che).
 - **Ai được giao `tool_script`**:
   - pytest: `tests/test_script_handout.py` (agent không nêu máy chủ nào được dựng với
     `tool_script` đứng cuối, và script của nó gọi các tool có sẵn chỉ đọc; tool không theo danh

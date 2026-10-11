@@ -30,6 +30,8 @@ TOOL_OUTPUT_READ_MORE = (
     "\n[còn {remaining} ký tự — gọi lại tool_output_read id={id} offset={next_offset} để đọc tiếp]"
 )
 TOOL_OUTPUT_READ_DONE = "\n[đã đọc hết]"
+# What a kept preview of a call's arguments says in place of the ones past the first few.
+TOOL_ARGUMENTS_LEFT_OUT = "còn {count} tham số nữa"
 # A tool call whose arguments were not a JSON object, so it was not run. `detail` is the
 # English diagnosis from the llm layer: length, where the JSON broke, the text around it.
 # The advice stays generic because not every agent has the tools a long document needs.
