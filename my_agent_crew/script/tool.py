@@ -19,117 +19,26 @@ them, and a hook or an MCP call keeps nothing from one call to the next.
 
 from __future__ import annotations
 
-import asyncio
-import time
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass, field
 from typing import Any
 
 from my_agent_crew import texts_script as t
-from my_agent_crew.activity.step_previews import argument_preview, preview
-from my_agent_crew.agent.nested_calls import nested_budget, note_nested_call
 from my_agent_crew.mcp.config import CODEMODE
 from my_agent_crew.mcp.tools import CompanionTool, McpTool
-from my_agent_crew.script.discovery import discover
-from my_agent_crew.script.limits import MAX_BATCH, MAX_CALLS, MAX_PARALLEL, MAX_SOURCE_CHARS
-from my_agent_crew.script.replies import Answer, Calls
+from my_agent_crew.script.limits import MAX_BATCH, MAX_CALLS, MAX_SOURCE_CHARS
+from my_agent_crew.script.nested import ScriptRun
 from my_agent_crew.script.runner import run_script
-from my_agent_crew.script.scope import SCRIPT_TOOL, callable_tools, unknown_tool, why_not
-from my_agent_crew.script.signature import call_line, misfits, signature
+from my_agent_crew.script.scope import SCRIPT_TOOL, callable_tools
+from my_agent_crew.script.signature import signature
 from my_agent_crew.tools.registry import Tool, ToolError, ToolRegistry
-from my_agent_crew.tools.result import NestedCall, ToolResult
+from my_agent_crew.tools.result import ToolResult
 
-# The most of one tool's answer a script is handed. Far above what a turn is, because
-# the script is there to cut it down.
-RAW_LIMIT = 200_000
 MAX_LISTED = 30
 PARAMETERS: dict[str, Any] = {
     "type": "object",
     "properties": {"script": {"type": "string", "description": t.SCRIPT_SOURCE}},
     "required": ["script"],
 }
-
-
-@dataclass
-class _Run:
-    """One script's calls: what it may reach, and what it made."""
-
-    held: ToolRegistry
-    calls: list[NestedCall] = field(default_factory=list)
-    # The characters of tool answers the script was handed.
-    received: int = 0
-
-    def __post_init__(self) -> None:
-        self.allowed = ToolRegistry(callable_tools(self.held), RAW_LIMIT, self.held.hooks)
-
-    def lookup(self, kind: str, arguments: dict[str, Any]) -> Any:
-        return discover(self.held, kind, arguments)
-
-    async def answer(self, name: str, arguments: dict[str, Any]) -> Answer:
-        return (await self.answer_many([(name, arguments)]))[0]
-
-    async def answer_many(self, calls: Calls) -> list[Answer]:
-        """The calls of a batch made side by side, at most `MAX_PARALLEL` at a time, and
-        answered in the order given. One call the script may not make ends the script, so
-        then none is made: every call is answered all the same, the one that is refused
-        with the reason and the rest as not made. So does a call past what the scripts
-        of the turn may make between them: a batch that does not fit whole is not made."""
-        tools = [self.held.get(name) for name, _ in calls]
-        refusals = [None if tool is None else why_not(tool) for tool in tools]
-        if any(refusal is not None for refusal in refusals):
-            return [
-                Answer(False, t.SCRIPT_BATCH_NOT_RUN)
-                if refusal is None
-                else Answer(False, refusal, halt=True)
-                for refusal in refusals
-            ]
-        budget, known = nested_budget(), sum(tool is not None for tool in tools)
-        if budget is not None and not budget.take(known):
-            spent = t.SCRIPT_TURN_CALLS_SPENT.format(most=budget.limit)
-            return [Answer(False, spent, halt=True) for _ in calls]
-        gate = asyncio.Semaphore(MAX_PARALLEL)
-
-        async def one(
-            tool: Tool | None, name: str, arguments: dict[str, Any]
-        ) -> tuple[Answer, NestedCall | None]:
-            if tool is None:
-                # A slip of the script's, and one it can catch: the name it meant is likely near.
-                return Answer(False, unknown_tool(name, callable_tools(self.held))), None
-            async with gate:
-                return await self._execute(tool, name, arguments)
-
-        async with asyncio.TaskGroup() as group:
-            runs = [
-                group.create_task(one(tool, name, arguments))
-                for tool, (name, arguments) in zip(tools, calls, strict=True)
-            ]
-        made = [run.result() for run in runs]
-        # Kept as they were written, whichever ended first.
-        self.calls.extend(nested for _, nested in made if nested is not None)
-        return [answer for answer, _ in made]
-
-    async def _execute(
-        self, tool: Tool, name: str, arguments: dict[str, Any]
-    ) -> tuple[Answer, NestedCall]:
-        # Timed from here, when the call begins, and not from when it was asked for.
-        started = time.monotonic()
-        result = await self.allowed.execute(name, arguments)
-        output = result.output
-        if not result.ok and misfits(tool, arguments):
-            # The tool's own words for what went wrong stay; how it is called comes after.
-            output = f"{output}\n{t.SCRIPT_CALL_LIKE.format(line=call_line(tool))}"
-        self.received += len(output)
-        nested = NestedCall(
-            name=name,
-            arguments=argument_preview(arguments),
-            ok=result.ok,
-            output=preview(output),
-            ms=int((time.monotonic() - started) * 1000),
-            cost_usd=result.cost_usd if result.metered else None,
-            metered=result.metered,
-        )
-        note_nested_call(nested)  # shown as it ends, though the script has not
-        return Answer(result.ok, output), nested
 
 
 def _description(builtins: Sequence[str], scripted: Sequence[McpTool]) -> str:
@@ -158,7 +67,7 @@ def script_tool(registry: Callable[[], ToolRegistry], scripted: Sequence[McpTool
             raise ToolError(t.SCRIPT_NO_SOURCE)
         if len(source) > MAX_SOURCE_CHARS:
             raise ToolError(t.SCRIPT_TOO_LONG.format(most=MAX_SOURCE_CHARS))
-        made = _Run(registry())
+        made = ScriptRun(registry())
         outcome = await run_script(
             source, made.answer, lookup=made.lookup, call_many=made.answer_many
         )

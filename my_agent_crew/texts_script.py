@@ -116,6 +116,10 @@ SCRIPT_UNSUPPORTED = "`{what}` không dùng được trong script."
 SCRIPT_NO_ATTRIBUTE = (
     "`.{name}` không đọc được: script chỉ gọi phương thức (`x.{name}(...)`), không đọc thuộc tính."
 )
+# Ends a tool's answer that was cut for the script, when the whole of it was kept.
+SCRIPT_ANSWER_KEPT = (
+    '\n[còn {left} ký tự, đọc tiếp bằng tools.tool_output_read(id="{id}", offset={offset})]'
+)
 SCRIPT_ERROR = "Lỗi ở dòng {line}: {error}"
 SCRIPT_HALTED = "Dừng ở dòng {line}: {reason}"
 
