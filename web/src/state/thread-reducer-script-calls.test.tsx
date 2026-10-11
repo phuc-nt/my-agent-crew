@@ -134,7 +134,7 @@ describe("the chat card of a script", () => {
     const card = drawn(item);
 
     const list = within(card).getByTestId("script-calls") as HTMLDetailsElement;
-    expect(list.querySelector("summary")).toHaveTextContent(/^Script đã gọi công cụ 3 lần · 1 lần lỗi$/);
+    expect(list.querySelector("summary")).toHaveTextContent(/^Script đã thực hiện 3 lời gọi · 1 lần lỗi$/);
     expect(list.open).toBe(false);
     await userEvent.click(list.querySelector("summary")!);
     const rows = within(list).getAllByTestId("script-call");

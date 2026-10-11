@@ -271,6 +271,67 @@ describe("applyRunEvent", () => {
       expect(closed.spent_usd).toBeCloseTo(0.004, 10);
     });
 
+    // A model the script asked itself is listed under a name no tool has. It paid a model
+    // like any other charged call, and nothing about its name changes how that is added.
+    const classify: NestedToolCall = { name: "llm.classify", arguments: { text: "Kính gửi quý khách…", labels: '["hoá đơn", "khác"]' }, ok: true, output: "hoá đơn", ms: 812, cost_usd: 0.00021, metered: true };
+    const summarise: NestedToolCall = { name: "llm.summarise", arguments: { text: "…", max_chars: 500 }, ok: true, output: "Khách xin hoãn hạn trả.", ms: 1_304, cost_usd: 0.0004, metered: true };
+
+    it("adds what a model the script asked itself cost, once, on the step of the script", () => {
+      const running = after(open(), heard(0, classify), heard(1, summarise), heard(1, summarise));
+      expect(running.steps).toHaveLength(1);
+      expect(running.steps[0]).toMatchObject({ name: "tool_script", calls: [classify, summarise] });
+      expect(running.spent_usd).toBeCloseTo(0.00061, 10);
+
+      const closed = applyRunEvent(running, result([classify, summarise]));
+      expect(closed.steps).toHaveLength(1);
+      expect(closed.spent_usd).toBeCloseTo(0.00061, 10);
+      expect(closed.unknown_cost_calls).toBe(0);
+    });
+
+    it("counts a model call that failed at no known price among the calls nobody priced", () => {
+      const failed = { ...classify, ok: false, output: "model không trả lời", cost_usd: null };
+      const closed = after(open(), heard(0, failed), result([failed]));
+      expect(closed).toMatchObject({ spent_usd: 0, unknown_cost_calls: 1 });
+    });
+
+    // A task the script handed to another agent. What that agent spent is its own
+    // conversation's money: it rides on the call to be shown, and is no part of this run.
+    const handedOff: NestedToolCall = { name: "delegate", arguments: { task: "Soạn thư trả lời khách", agent: "writer" }, ok: true, output: "conversation=3f9a1c0b7d2e status=done spent=$0.0123 steps=7 outcome=done Thư đã soạn xong.", ms: 48_211, cost_usd: null, metered: false, child_spent_usd: 0.0123 };
+
+    it("leaves the run's spend where it was for a task handed off, whatever the other agent spent", () => {
+      const before = after(open(), heard(0, paid));
+      const running = applyRunEvent(before, heard(1, handedOff));
+      expect(running.steps[0]).toMatchObject({ calls: [paid, handedOff] });
+      expect(running.spent_usd).toBe(before.spent_usd);
+      expect(running.unknown_cost_calls).toBe(0);
+
+      // Heard once more, then named again by the result: one call still, and nothing added.
+      const closed = [heard(1, handedOff), result([paid, handedOff])].reduce(applyRunEvent, running);
+      expect(closed.steps[0]).toMatchObject({ ok: true, calls: [paid, handedOff] });
+      expect(closed.spent_usd).toBe(before.spent_usd);
+      expect(closed.unknown_cost_calls).toBe(0);
+    });
+
+    it("adds nothing for a handed-off task no event came for, which the result is first to name", () => {
+      const closed = after(open(), result([handedOff]));
+      expect(closed.steps[0]).toMatchObject({ calls: [handedOff] });
+      expect(closed).toMatchObject({ spent_usd: 0, unknown_cost_calls: 0 });
+    });
+
+    // The figure is there only above zero, so one hearing may carry it and the other not.
+    // Were it part of what makes a call the one it is, the call would be taken for a new
+    // one when the result names it, and whatever it was charged would be added again.
+    it("takes a call for the one it heard whether or not a hearing carried another agent's spend", () => {
+      const withSpend = { ...paid, child_spent_usd: 0.0123 };
+      const eventHadIt = after(open(), heard(0, withSpend), result([paid]));
+      expect(eventHadIt.steps[0]).toMatchObject({ calls: [paid] });
+      expect(eventHadIt.spent_usd).toBeCloseTo(0.004, 10);
+
+      const resultHasIt = after(open(), heard(0, paid), result([withSpend]));
+      expect(resultHasIt.steps[0]).toMatchObject({ calls: [withSpend] });
+      expect(resultHasIt.spent_usd).toBeCloseTo(0.004, 10);
+    });
+
     it("changes nothing for a call whose script has no step here", () => {
       expect(applyRunEvent(run(), heard(0, paid))).toEqual(run());
       const other = after(open("s2"));
@@ -510,6 +571,48 @@ describe("runGroups", () => {
       ["t2", ["kid"]],
       ["t1", []],
     ]);
+  });
+
+  // A task handed off by a script. The turn that asked has no `delegate` step to hang a
+  // child on, only the step of the script, whose calls name the tasks; and a script may
+  // have three of them going side by side. The child's source and its start are all the
+  // grouping reads, so the children hang under that turn as any other does.
+  describe("children a script opened", () => {
+    const task = (child: string): NestedToolCall => ({ name: "delegate", arguments: { task: "Soạn thư", agent: "writer" }, ok: true, output: `conversation=${child} status=done spent=$0.0123 steps=7 outcome=done Xong.`, ms: 48_211, cost_usd: null, metered: false, child_spent_usd: 0.0123 });
+    const asking = run({
+      id: "t2",
+      status: "done",
+      started_at: "2026-09-19T09:00:00Z",
+      finished_at: "2026-09-19T09:05:00Z",
+      steps: [{ kind: "tool", name: "tool_script", tool_call_id: "call_7", arguments: { script: "…" }, ok: true, output: "xong", calls: [task("c-a"), task("c-b"), task("c-c")], duration_ms: 52_000 }],
+    });
+    const opened = (id: string, at: string) =>
+      run({ id, conversation_id: `c-${id}`, source: "delegate:c1", status: "done", started_at: `2026-09-19T${at}Z`, finished_at: "2026-09-19T09:01:40Z" });
+    const kids = [opened("a", "09:00:12"), opened("b", "09:00:12"), opened("c", "09:00:13")];
+
+    it("hang under the turn whose script asked, which has no step of its own for a hand-off", () => {
+      expect(asking.steps.map((step) => step.kind === "tool" && step.name)).toEqual(["tool_script"]);
+      expect(shape([turns[0], asking, turns[2], ...kids])).toEqual([
+        ["t3", []],
+        ["t2", ["a", "b", "c"]],
+        ["t1", []],
+      ]);
+      // However the runs are listed: the children before the turn that asked for them.
+      expect(shape([...kids, turns[2], asking, turns[0]])).toEqual([
+        ["t3", []],
+        ["t2", ["a", "b", "c"]],
+        ["t1", []],
+      ]);
+    });
+
+    it("hang under a turn still going, while the script waits for them", () => {
+      const going = { ...asking, status: "running" as const, finished_at: null, steps: [{ ...asking.steps[0], ok: null, output: null, calls: [], duration_ms: null }] };
+      const working = kids.map((kid) => ({ ...kid, status: "running" as const, finished_at: null }));
+      expect(shape([turns[2], going, ...working])).toEqual([
+        ["t2", ["a", "b", "c"]],
+        ["t1", []],
+      ]);
+    });
   });
 
   it("lets a delegated run stand alone when the turn that asked for it is out of view", () => {
