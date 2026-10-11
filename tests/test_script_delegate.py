@@ -414,6 +414,33 @@ async def test_one_task_for_the_wrong_agent_and_no_call_of_the_batch_is_made(dep
     assert result.calls == () and [conv.id for conv in store.list()] == [parent.id]
 
 
+async def test_only_a_task_handed_on_is_judged_by_the_agent_it_names():
+    """Another tool may take an `agent` of its own, with its own list of them. A name off
+    that list is that tool's to answer, and the script's to catch: no task was handed on."""
+    owners = {
+        "type": "object",
+        "properties": {"agent": {"type": "string", "enum": ["an", "binh"]}},
+    }
+
+    async def owner_read(arguments: dict[str, Any]) -> str:
+        return f"của {arguments.get('agent')}"
+
+    reads = Tool("owner_read", "Đọc theo người giữ.", owners, owner_read, replay_safe=True)
+    source = """
+        try:
+            print(tools.owner_read(agent="stranger"))
+        except Exception:
+            print("bắt được")
+        print("sau")
+        """
+
+    result = await played(handing(Handed().tool, reads), "c1", source)
+
+    assert result.ok, result.output
+    assert result.output.splitlines()[-1] == "sau"
+    assert "delegate" not in result.output
+
+
 # --- a batch of tasks ---
 
 
