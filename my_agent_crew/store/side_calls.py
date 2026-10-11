@@ -2,9 +2,10 @@
 
 The turn loop writes each completion to the message log, which is the usage ledger. The
 other calls — naming a conversation, recapping it, summarising a long tool output, reading
-a picture or a scanned page, consolidating memory, compiling the wiki — are billed just
-the same, so each one is written here with what it was for, and the ledger reads both
-tables. Only figures are kept: a prompt can hold anything, a ledger row never does."""
+a picture or a scanned page, consolidating memory, compiling the wiki, what a script asks
+a model itself — are billed just the same, so each one is written here with what it was
+for, and the ledger reads both tables. Only figures are kept: a prompt can hold anything,
+a ledger row never does."""
 
 from __future__ import annotations
 
@@ -25,6 +26,7 @@ PURPOSES = frozenset(
         "consolidate",
         "wiki",
         "transcribe",
+        "script",
     }
 )
 

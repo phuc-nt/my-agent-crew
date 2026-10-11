@@ -59,6 +59,18 @@ SCALAR_CHARS = 24
 MAX_STORE_KEY_CHARS = 200
 MAX_STORE_VALUE_CHARS = 65_536
 MAX_STORE_TOTAL_CHARS = 262_144
+# What a script asks a model itself (`llm_calls.py`). Each asking is paid for, so a script
+# has few of them, each over a text short enough to be read whole: a longer one is refused
+# and never cut, since which part to drop is the script's to say.
+MAX_LLM_CALLS = 10
+MAX_LLM_TEXT_CHARS = 20_000
+# The labels a text is sorted among: how few, how many, and the longest one.
+MIN_LLM_LABELS = 2
+MAX_LLM_LABELS = 20
+MAX_LLM_LABEL_CHARS = 100
+# The longest summary a script may ask for, and the one it gets when it names no length.
+MAX_LLM_SUMMARY_CHARS = 4_000
+LLM_SUMMARY_CHARS = 500
 
 SIZED = (str, list, tuple, dict, set)
 
@@ -79,6 +91,8 @@ def _traced() -> int | None:
 class Budget:
     steps: int = 0
     calls: int = 0
+    # Those of the calls that asked a model, which have a smaller count of their own.
+    model_calls: int = 0
     lookups: int = 0
     depth: int = 0
     made_so_far: int = 0

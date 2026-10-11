@@ -5,7 +5,8 @@ no network, no file writes and no forking. It reads the script as one JSON line,
 and writes one JSON line back for each tool call it makes, one for each batch of them, and
 one for how it ended. A tool is never run here: the call is asked of the parent, which
 answers with what it gave. So is what a script asks to know of the tools it may call: the
-parent holds them, and answers.
+parent holds them, and answers. So is what it asks of a model: the parent holds the model
+and its key, and this process is handed the answer as a text and nothing else.
 
 The process sets its own CPU limit before the script starts, and counts the memory it
 allocates so `limits.Budget` has something to measure.
@@ -73,8 +74,13 @@ def _call_tools(calls: list[tuple[str, dict[str, Any]]]) -> list[tuple[bool, str
 
 
 def _ask(kind: str, arguments: dict[str, Any]) -> Any:
-    """A question about the tools the script may call, answered with a value or a refusal."""
-    return _exchange({"ask": {"kind": kind, "arguments": arguments}})["answer"]
+    """A question put to the parent, answered with a value or a refusal: what the script may
+    call, what it kept, what a model makes of a text. One the parent ends the script on
+    cannot be caught, like a call it may not make."""
+    reply = _exchange({"ask": {"kind": kind, "arguments": arguments}})
+    if "halted" in reply:
+        raise Halt(reply["halted"])
+    return reply["answer"]
 
 
 def _limit_cpu(seconds: int) -> None:

@@ -1,9 +1,10 @@
-"""The two names a script reaches out through: `tools` and `json`.
+"""The three names a script reaches out through: `tools`, `llm` and `json`.
 
-Neither is a value. `tools.NAME(...)` and `json.loads(...)` are read as calls where they
-are written, so a script cannot hold either, pass it on or look inside it. Beside a tool's
-own name `tools` has four of its own: `names`, `search` and `describe`, which look at the
-tools a script may call and run none, and `batch`, which calls several at once (`calls.py`).
+None is a value. `tools.NAME(...)`, `llm.classify(...)` and `json.loads(...)` are read as
+calls where they are written, so a script cannot hold one, pass it on or look inside it.
+Beside a tool's own name `tools` has four of its own: `names`, `search` and `describe`,
+which look at the tools a script may call and run none, and `batch`, which calls several at
+once (`calls.py`). `llm` asks a model, and has two names and no other (`llm_calls.py`).
 """
 
 from __future__ import annotations
@@ -20,6 +21,7 @@ from my_agent_crew.script.limits import (
     MAX_LOOKUPS,
     ScriptError,
 )
+from my_agent_crew.script.llm_calls import LLM, call_model
 
 if TYPE_CHECKING:
     from my_agent_crew.script.machine import Machine
@@ -107,4 +109,4 @@ def _json(machine: Machine, name: str, args: list[Any], kwargs: dict[str, Any]) 
     raise ScriptError(t.SCRIPT_NO_JSON)
 
 
-NAMESPACES: dict[str, Callable[..., Any]] = {"tools": _tools, "json": _json}
+NAMESPACES: dict[str, Callable[..., Any]] = {"tools": _tools, LLM: call_model, "json": _json}

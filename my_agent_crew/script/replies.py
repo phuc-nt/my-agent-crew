@@ -1,21 +1,24 @@
 """What the parent answers when the process that runs a script asks for something.
 
 The process asks one of three things, each as one JSON line: a tool call, several calls made
-together, or what it may call (a lookup). Each is answered at once with one line, and in each
-the answer is the caller's to give, since the caller holds the tools. A line that is none of
-these, or is shaped wrongly, is not answered: the process has stopped making sense, and
-`runner.py` ends it. The calls themselves are never looked into here beyond their shape; what
-a script may call is for the caller to say.
+together, or a question (what it may call, what it kept, what a model makes of a text). Each
+is answered with one line, and in each the answer is the caller's to give, since the caller
+holds the tools. A question about the tools is answered at once; one put to a model is
+waited for, as a tool call is. A line that is none of these, or is shaped wrongly, is not
+answered: the process has stopped making sense, and `runner.py` ends it. The calls
+themselves are never looked into here beyond their shape; what a script may call is for the
+caller to say.
 """
 
 from __future__ import annotations
 
+import inspect
 from collections.abc import Awaitable, Callable
 from dataclasses import asdict, dataclass
 from typing import Any
 
 from my_agent_crew import texts_script as t
-from my_agent_crew.script.limits import MAX_BATCH, ScriptError
+from my_agent_crew.script.limits import MAX_BATCH, Halt, ScriptError
 
 
 @dataclass(frozen=True)
@@ -33,8 +36,8 @@ CallTool = Callable[[str, dict[str, Any]], Awaitable[Answer]]
 # Makes the calls of a batch and answers each, in the order given. `ScriptError` refuses the
 # batch as a whole, which the script may catch; the answers are as many as the calls.
 CallMany = Callable[[Calls], Awaitable[list[Answer]]]
-# Answers what a script asks to know of the tools it may call: a value, or `ScriptError`
-# to refuse.
+# Answers a question of the script's: a value, or `ScriptError` to refuse. What it hands back
+# may be the value or something to wait on for it; `Halt` ends the script there instead.
 Lookup = Callable[[str, dict[str, Any]], Any]
 
 
@@ -54,11 +57,18 @@ def _pair(item: Any, first: str) -> tuple[str, dict[str, Any]] | None:
     return (name, arguments) if type(name) is str and type(arguments) is dict else None
 
 
-def _looked_up(lookup: Lookup, kind: str, arguments: dict[str, Any]) -> dict[str, Any]:
+async def _looked_up(lookup: Lookup, kind: str, arguments: dict[str, Any]) -> dict[str, Any]:
+    """A question answered where it stands is answered as it was before any had to be
+    waited for; one that must be waited for is, and comes to the same three ends."""
     try:
-        return {"answer": lookup(kind, arguments)}
+        answer = lookup(kind, arguments)
+        if inspect.isawaitable(answer):
+            answer = await answer
     except ScriptError as refused:
         return {"failed": str(refused)}
+    except Halt as ended:
+        return {"halted": str(ended)}
+    return {"answer": answer}
 
 
 def _batch(raw: Any) -> Calls | None:
@@ -93,7 +103,7 @@ async def reply(
         return None
     if "ask" in message:
         asked = _pair(message["ask"], "kind")
-        return None if asked is None else _looked_up(lookup, *asked)
+        return None if asked is None else await _looked_up(lookup, *asked)
     if "calls" in message:
         calls = _batch(message["calls"])
         return None if calls is None else await _batched(calls, many)

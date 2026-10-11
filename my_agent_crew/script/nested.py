@@ -52,12 +52,12 @@ class ScriptRun:
     gate: Gate | None = None
     # Answers `store` and `load`. Where a run keeps things is its caller's to say, not here.
     keep: Lookup = nowhere
-    # The characters of tool answers the script was handed.
+    # The characters the script was handed by the calls it made, of a tool or of a model.
     received: int = 0
     # The calls asked for so far. Each is numbered as it was written: an answer kept whole
     # is kept under its number, and so is the call once it ended.
     made: int = 0
-    _ended: dict[int, NestedCall] = field(default_factory=dict)
+    ended: dict[int, NestedCall] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         self.gated = self.gate is not None
@@ -69,7 +69,7 @@ class ScriptRun:
     def calls(self) -> list[NestedCall]:
         """The calls that ended, as the script wrote them, whichever ended first. Each is
         kept the moment it ends: a script cut short mid-batch still made the calls it made."""
-        return [self._ended[number] for number in sorted(self._ended)]
+        return [self.ended[number] for number in sorted(self.ended)]
 
     def lookup(self, kind: str, arguments: dict[str, Any]) -> Any:
         if kind in KINDS:
@@ -192,6 +192,6 @@ class ScriptRun:
             metered=result.metered,
             gated=not only_reads(tool),
         )
-        self._ended[number] = nested
+        self.ended[number] = nested
         note_nested_call(nested)  # shown as it ends, though the script has not
         return Answer(result.ok, output)

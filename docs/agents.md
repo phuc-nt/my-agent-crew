@@ -602,6 +602,75 @@ chỉ đúng vì script đọc có tên khác. Kiểm tra nó theo cách kiểm 
 của bất kỳ danh sách mẫu nào — chạy các lệnh đọc thật và các lệnh ghi thật
 qua `ask_reason` rồi đếm.
 
+### Giữ lại script đã chạy tốt
+
+Một script agent viết cho `tool_script` chạy đúng rồi trôi đi cùng lượt: lần sau gặp lại việc đó
+nó viết lại từ đầu, tốn thêm một lần nghĩ và có thể viết sai. Giữ nó lại không cần tính năng nào
+riêng: một skill dạng thư mục của chính agent, mang một thư mục `scripts/`, là đủ.
+
+```text
+<agent dir>/workspace/skills/saved-scripts/
+├── SKILL.md
+└── scripts/
+    ├── deadlines-due.py
+    └── inbox-by-sender.py
+```
+
+```yaml
+skills_dirs: [workspace/skills]   # trong agent.yaml; tính từ thư mục của agent
+```
+
+`SKILL.md` là mục lục: mỗi script một dòng nói nó làm việc gì và phải sửa gì trước khi chạy.
+
+```markdown
+---
+name: saved-scripts
+description: Script tool_script đã chạy đúng; đọc trước khi viết script mới
+---
+Mỗi tệp trong `scripts/` là một script đã chạy đúng. Có tệp làm đúng việc đang cần thì đọc tệp
+đó, sửa mấy hằng số ở đầu, rồi đưa cả đoạn làm tham số `script` của `tool_script`.
+
+- `scripts/deadlines-due.py`: việc sắp tới hạn trong `data/deadlines.json`; sửa `DAYS`.
+- `scripts/inbox-by-sender.py`: đếm thư theo người gửi; sửa `SINCE`.
+```
+
+Mỗi tệp là nguyên văn một script, với những thứ hay đổi gom lên đầu:
+
+```python
+# Việc còn dưới DAYS ngày trong data/deadlines.json. Sửa DAYS rồi đưa cả đoạn cho tool_script.
+DAYS = 3
+
+rows = json.loads(tools.workspace_read(path="data/deadlines.json"))
+for row in rows:
+    if row["days_left"] <= DAYS:
+        print(row["title"], "- còn", row["days_left"], "ngày")
+```
+
+- **Persona bảo agent đọc trước.** Skill không gắn sẵn chỉ hiện một dòng trong chỉ mục, và model
+  tự quyết có đọc hay không. Muốn chắc thì viết thành một quy tắc có điều kiện trong `AGENTS.md`
+  của agent, ví dụ: "Trước khi viết một script mới cho `tool_script`, gọi `skill_read` với
+  `saved-scripts`; có script làm đúng việc thì đọc tệp đó và dùng lại, chỉ sửa tham số."
+- **Agent đọc bằng gì.** `skill_read` chỉ trả về phần thân của `SKILL.md`, mở đầu bằng dòng "Thư
+  mục kỹ năng (script, tài liệu kèm theo): …" ghi đường dẫn tuyệt đối của thư mục; các tệp trong
+  `scripts/` agent tự đọc qua đường dẫn đó. `workspace_read` chỉ nhận đường dẫn nằm trong
+  workspace, nên thư mục skill đặt trong workspace như trên thì đọc được bằng `workspace_read`.
+  Đặt dưới `<agent dir>/skills` (ngoài workspace mặc định) thì chỉ `shell_run` đọc tới, tức là
+  phải qua cổng duyệt ở cuộc trò chuyện không autonomous. Script không tự chạy từ tệp: agent đọc
+  tệp rồi chép cả đoạn vào tham số `script`.
+- **Chủ lưu bằng tay.** Crew không tự lưu script nào. Thấy một script đáng giữ thì mở thẻ
+  `tool_script` trong khung chat, bấm "Xem đầy đủ" để lấy nguyên văn, lưu thành một tệp trong
+  `scripts/` và thêm một dòng vào `SKILL.md`. Tệp trong `scripts/` có hiệu lực ngay vì nó được
+  đọc lúc cần; dòng mới trong `SKILL.md` chỉ tới agent khi agent được dựng lại (một lần sửa agent
+  qua web hay API, hoặc khởi động lại).
+- **Vì nằm trong workspace nên agent cũng ghi được vào đó.** `workspace_write` và
+  `workspace_edit` của agent với tới thư mục này như mọi tệp khác của workspace, qua cổng duyệt
+  như mọi lần ghi. Muốn chỉ chủ sửa được thì đặt `write_paths` không bao gồm thư mục skill (và
+  `shell_write_paths` nếu agent có `shell_run`).
+- **Một script đã lưu vẫn là một script.** Nó chạy trong đúng các giới hạn của `tool_script` và
+  chỉ gọi được những tool mà `script_calls` của agent cho phép lúc chạy
+  ([tools.md](tools.md#gọi-tool-từ-script)); tool đổi tên hay đổi tham số thì script cũ hỏng
+  với câu lỗi như một script mới viết sai.
+
 ## Lịch
 
 Mỗi mục trong `schedules` thành một job `<agent id>/<schedule id>` trong scheduler
@@ -624,8 +693,8 @@ văn prompt trước khi chạy lần đầu, dù cuộc trò chuyện có auton
 | `id` | mặc định `job-<index>`; dùng trong tên job và trong `POST /api/jobs/{agent}/{id}/run` |
 | `name` | mặc định là id; hiện trong UI |
 | `cron` **hoặc** `every` | đúng một trong hai: cron năm trường, hoặc `30m` / `2h` / `1d` |
-| `prompt`, `command` **hoặc** `script` | đúng một trong ba: prompt mở một cuộc trò chuyện autonomous mới và chạy một lượt; command chạy qua `shell_run` trong workspace và chỉ ghi lại bước đó; script chạy một script như của `tool_script` mà không gọi model, xem [Job chạy script](#job-chạy-script). Không có cái nào, hay có hai, thì crew không khởi động và `PATCH /api/agents/{id}` trả 422 |
-| `then_prompt` | chỉ đứng cạnh `script`: prompt của lượt được mở khi script chạy xong và có in ra gì đó. Không đặt thì job script không bao giờ gọi model. Đặt thì phải là chuỗi có chữ; đặt cạnh `prompt` hay `command` thì bị từ chối như trên |
+| `prompt`, `command` **hoặc** `script` | đúng một trong ba: prompt mở một cuộc trò chuyện autonomous mới và chạy một lượt; command chạy qua `shell_run` trong workspace và chỉ ghi lại bước đó; script chạy một script như của `tool_script` mà không mở lượt nào của agent, xem [Job chạy script](#job-chạy-script). Không có cái nào, hay có hai, thì crew không khởi động và `PATCH /api/agents/{id}` trả 422 |
+| `then_prompt` | chỉ đứng cạnh `script`: prompt của lượt được mở khi script chạy xong và có in ra gì đó. Không đặt thì job script không bao giờ mở lượt nào, và model chỉ được gọi nếu chính script hỏi nó bằng `llm.classify` / `llm.summarise`. Đặt thì phải là chuỗi có chữ; đặt cạnh `prompt` hay `command` thì bị từ chối như trên |
 | `enabled` | mặc định `true`. Lịch đang bật có thể tạm dừng và tiếp tục từ thẻ job (`PATCH /api/jobs/{agent}/{id}/state`); công tắc đó lưu trong bảng `job_state` và sống qua khởi động lại. Lịch tắt ở đây chỉ bật lại được bằng cách sửa yaml |
 | `skills` | danh sách tên skill gắn toàn văn vào cuộc trò chuyện mà job prompt mở ra; mặc định rỗng, và tên không skill nào cung cấp được ghi log cảnh báo lúc khởi động. Tên skill có gạch nối viết trong `prompt` cũng được gắn. Với job script, đó là cuộc trò chuyện mở cho `then_prompt`, và tên skill viết trong `then_prompt` cũng được gắn |
 | `approval_ttl_seconds` | số giây một yêu cầu duyệt trong cuộc trò chuyện job prompt mở ra chờ người trả lời: số nguyên từ 60 đến 43200 (12 giờ), không đặt trong ngoặc kép; không đặt thì theo `approval_ttl_seconds` của `config.yaml`. Job chạy lúc không ai thức nên đặt dài hơn, ví dụ `7200`. Cuộc trò chuyện giữ hạn này cho mọi yêu cầu về sau, kể cả sau khi server khởi động lại, và cuộc của agent con được giao việc chép lại nó. Trình sửa trên web giữ khoá này qua các lần sửa nhưng không có ô nhập; `PATCH /api/agents/{id}` gửi `schedules` mà dòng nào thiếu khoá thì dòng đó mất khoá |
@@ -634,9 +703,10 @@ văn prompt trước khi chạy lần đầu, dù cuộc trò chuyện có auton
 
 Một việc kiểm tra mỗi tuần mới tới hạn một lần mà sáng nào cũng hỏi model thì sáng nào cũng trả
 tiền để nghe "OK". Lịch có khoá `script` làm việc kiểm tra đó bằng một script của `tool_script`
-([tools.md](tools.md#gọi-tool-từ-script)): script tự gọi tool, tự lọc, và **không lần gọi model
-nào** xảy ra trừ khi nó có điều để nói. (Đừng nhầm với mục kế tiếp, nơi một job prompt gọi một
-script shell trong workspace.)
+([tools.md](tools.md#gọi-tool-từ-script)): script tự gọi tool, tự lọc, và **không lượt nào của
+agent** được mở trừ khi nó có điều để nói. Model chỉ được gọi ở lượt đó, hoặc khi chính script
+hỏi nó một việc nhỏ bằng `llm.classify` / `llm.summarise`. (Đừng nhầm với mục kế tiếp, nơi một
+job prompt gọi một script shell trong workspace.)
 
 - **Chạy bằng gì.** Đúng bộ máy và đúng các giới hạn của `tool_script`: cùng ngôn ngữ, cùng tiến
   trình con không khoá không mạng, cùng 25 lời gọi và 300 giây. Agent không cần giữ
@@ -649,6 +719,12 @@ script shell trong workspace.)
   tool có ghi, và cổng duyệt xét từng lời gọi như trong cuộc trò chuyện autonomous mà một job
   prompt mở ra: tool cần duyệt mà không có lý do hỏi riêng thì chạy, lệnh shell không khớp mẫu
   nào cũng chạy.
+- **Hỏi model từ script.** `llm.classify` và `llm.summarise` dùng được trong script của job như
+  trong một lượt, ở cả hai mức `script_calls` ([tools.md](tools.md#gọi-tool-từ-script), bullet
+  "Script tự hỏi model"): model của chính agent, route đầu tiên, tối đa 10 lần mỗi script. Mỗi
+  lần là một lần trả tiền, nên job dùng nó không còn là job "không tốn gì khi không có gì để
+  nói": script hỏi bao nhiêu lần mỗi sáng thì trả bấy nhiêu lần. Lọc bằng code trước, chỉ hỏi
+  model cho phần code không quyết được.
 - **Không bao giờ hỏi người.** Không ai trông một job và không có cuộc trò chuyện nào để một câu
   trả lời quay về, nên lời gọi mà cổng phải hỏi dù ai đang trông (lệnh khớp `shell_ask_patterns`,
   hay một tool tự khai lý do phải hỏi) làm script **dừng tại đó**, tool chưa chạy; lệnh khớp
@@ -664,8 +740,9 @@ script shell trong workspace.)
   một lượt. Script chạy xong thì run `done`, tóm tắt là phần cuối của cái nó in; hỏng, bị cổng
   hay một giới hạn dừng thì run `error`, tóm tắt là phần cuối của câu lỗi; server tắt giữa lúc
   script chạy thì run đóng lại là `error` với tóm tắt `interrupted`, như run của một lượt bị
-  cắt. Lời gọi có trả tiền cho model (`image_read`, `pdf_read` trên trang scan) được tính vào
-  run.
+  cắt. Lời gọi có trả tiền cho model (`image_read`, `pdf_read` trên trang scan, một lần script
+  hỏi model bằng `llm.`) được tính vào run; sổ cái sử dụng ghi lần hỏi model đó dưới mục đích
+  `script`, không kèm cuộc trò chuyện nào.
 - **`then_prompt`.** Script chạy xong **và** in ra thứ gì đó không trống thì crew mở một lượt như
   job prompt mở: cuộc trò chuyện autonomous mới, `skills` và `approval_ttl_seconds` của lịch áp
   cho nó. Tin mở lượt là `then_prompt`, một dòng trống, rồi cái script in ra (cắt theo

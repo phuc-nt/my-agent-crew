@@ -61,8 +61,9 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   runs) in place of `prompt` or `command`, and exactly one of the three; `then_prompt` may stand
   beside `script` and nowhere else. When the job is due the script runs with what `tool_script`
   runs with for that agent (the same tools by `script_calls`, the same limits), whether or not
-  the agent holds `tool_script`, and no model is asked. Nobody is there to be asked either: the
-  approval gate treats the job as an autonomous conversation, so a command on
+  the agent holds `tool_script`, and no turn of the agent is opened: a model is asked only if
+  the script asks one itself (`llm.classify`, `llm.summarise`, below). Nobody is there to be
+  asked either: the approval gate treats the job as an autonomous conversation, so a command on
   `shell_ask_patterns` or `shell_deny_patterns`, or a tool with a reason of its own to ask, ends
   the script there, unrun, and nothing waits. The job is a run with no conversation and one
   `tool_script` step holding the calls it made, `done` or `error`, summed up by the end of what
@@ -70,13 +71,50 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   works through a conversation has none there and says so. With `then_prompt`, a script that
   ended well and printed something opens one turn the way a prompt job does: the model reads
   `then_prompt`, a blank line and what was printed (cut to `tool_output_chars`), and its answer
-  is delivered by the rules of a prompt job. A script that printed nothing costs no model call
-  and tells nobody. What the script kept with `store` is written before that turn opens, and
+  is delivered by the rules of a prompt job. A script that printed nothing opens no turn and
+  tells nobody. What the script kept with `store` is written before that turn opens, and
   the turn's own scripts read and keep under the same `job:<schedule id>`. A schedule row, as
   the API reads and writes it and as `GET /api/jobs` lists it, always carries `script` and
   `then_prompt` (`null` when unused) and says `kind: "script"`; a row that names none or two of
   the three, or a script that could not run, stops the crew from starting and is a 422 through
   the API. `schedule_create` still makes prompt jobs only.
+- A script can ask a model a small question of its own. `llm.classify(text, labels)` gives back
+  one of `labels`, as the script wrote it, and `llm.summarise(text, max_chars=500)` a summary of
+  at most `max_chars` characters. The server makes the call, with the agent's own model on the
+  first of its routes and no other (no fallback route, no escalation route), offering no tool
+  and asking for the least reasoning where the route states an effort. The process that runs the
+  script is handed the answer as a text and nothing else of the call, and holds no key. The text
+  is put to the model in a message of its own, fenced as data to work on and not instructions;
+  what holds whatever the text says is how the answer is read. `classify` hands back a label the
+  script gave (the answer trimmed and compared without case, or the one label that occurs in it)
+  and any other answer is a mistake the script can catch, in fixed words that repeat nothing the
+  model said; a summary is cut to `max_chars`. Each asking is a call of the script: one of its
+  25, one of the calls the scripts of a turn may make between them, and one of at most 10 a
+  script may put to a model, the eleventh ending the script. `text` is at most 20,000 characters
+  and is never cut on the way: a longer one is a mistake the script can catch, as are labels
+  that are not 2 to 20 different non-empty texts of at most 100 characters each and a
+  `max_chars` outside 1 to 4,000. An asking is listed with the script's calls wherever they are
+  listed (`calls` on the `tool_result` event and the run's step, the `nested_call` event, the
+  stored result) under the name `llm.classify` or `llm.summarise`, with a preview of what was
+  asked and of what was answered, `metered: true` and what it cost; `received_chars` counts
+  what it handed the script. Its cost reaches the run and the conversation once, and the usage
+  ledger files it as a side call of a new purpose, `script`, under the turn's conversation. A
+  model that could not answer is a failed call of the script, charged as one of unknown cost,
+  and a mistake the script can catch. An agent whose scripts only read asks as one with
+  `script_calls: gated` does, and so does the script of a schedule, whose side call is written
+  with no conversation and whose cost lands on the job's run.
+- A canvas written by a script (`artifact_create`, `artifact_edit`, `artifact_rewrite`,
+  `artifact_import`, for an agent with `script_calls: gated`) is the canvas a direct call would
+  have written: linked to the turn's conversation, under the agent's name, counted with the
+  turn's own writes against what one turn may write, refused to a turn that came through the
+  inbound API, and nobody is asked, since no canvas write waits for a person. What is kept of
+  such a call opens with the canvas tag whole (`[artifact <id> v<n>]`), which is where the web
+  opens the canvas from. `artifact_read` stays out of every script, so a script cannot write
+  over a version a person saved that its conversation has not seen. The script of a schedule
+  has no conversation, and each canvas write fails there in words that say a canvas needs one,
+  which the script can catch. On Telegram the message that lists the canvases a turn wrote names
+  a canvas a script wrote as well, read from the calls the script's result lists (live, or from
+  the stored run when a job's brief is delivered) and never from what the script printed.
 
 ### Changed
 

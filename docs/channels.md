@@ -159,7 +159,10 @@ Canvas tới chat theo hai đường.
 - **Tin "Canvas vừa ghi:".** Sau câu trả lời, chat nhận một tin liệt kê những canvas lượt đã
   ghi, kể cả do agent được giao việc ghi: mỗi canvas một dòng tiêu đề kèm số phiên bản. Tin nêu
   tối đa 10 canvas, phần còn lại gom vào một dòng đếm. Lần ghi không đổi gì không có trong tin.
-  Lượt xong mà không có chữ nào nhưng có ghi canvas thì tin này là câu trả lời.
+  Lượt xong mà không có chữ nào nhưng có ghi canvas thì tin này là câu trả lời. Canvas do một
+  script ghi (`tool_script` của agent `script_calls: gated`, xem
+  [tools.md](tools.md#gọi-tool-từ-script)) cũng có trong tin, đọc từ danh sách lời gọi của
+  script chứ không từ cái script in ra.
 
 Link về web chỉ có khi `web_url` được đặt (xem
 [deployment-guide.md](deployment-guide.md#4-biến-môi-trường-và-bí-mật)): mỗi canvas trong tin

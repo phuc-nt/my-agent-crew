@@ -251,16 +251,23 @@ any platform ──POST /api/inbound (JSON, sync)─────┴─▶ Inboun
   không gì nói nó đã ghi những gì. Ngôn ngữ là một phần của Python do chính crew thông
   dịch, không `eval`, không import, không đọc thuộc tính; script chạy trong một tiến trình con
   với môi trường rỗng và các giới hạn cứng, trên macOS trong sandbox không mạng, không ghi,
-  không fork.
+  không fork. Việc code không quyết nổi (xếp một văn bản vào một trong vài nhãn, rút ngắn nó)
+  script hỏi model bằng `llm.classify` và `llm.summarise`. Tiến trình con không cầm khoá và không
+  ra mạng, nên nó chỉ gửi câu hỏi; server gọi model của chính agent, trên route đầu tiên và chỉ
+  route đó, không khai tool nào, rồi trả về đúng một chuỗi. Văn bản được đưa cho model như dữ
+  liệu trong một hàng rào, nhưng thứ thật sự giữ là cách server đọc câu trả lời: phân loại chỉ
+  trả về một nhãn script đã đưa, tóm tắt bị cắt ở độ dài script xin. Mỗi lần hỏi là một lời gọi
+  của script, đếm và tính tiền như một lời gọi tool có trả tiền cho model.
 - **Chi phí trung thực.** Mỗi message assistant lưu `cost_usd` hoặc `None`. Cuộc trò chuyện giữ
   `spent_usd` và `unknown_cost_calls`; `cost_cap_usd` dừng trước lần gọi model kế tiếp
   (0 = không giới hạn). Mọi lần gọi model nằm ngoài vòng lặp lượt — đặt tiêu đề, tóm tắt
-  phiên, tóm tắt output tool dài, đọc ảnh, đọc trang PDF scan, cô đọng bộ nhớ, dựng wiki —
+  phiên, tóm tắt output tool dài, đọc ảnh, đọc trang PDF scan, cô đọng bộ nhớ, dựng wiki, lần
+  một script tự hỏi model (mục đích `script`) —
   đi qua `MeteredChain` và để lại một dòng trong bảng `side_calls` kèm mục đích của nó (chỉ số
   liệu, không bao giờ prompt). Sổ cái sử dụng (`/api/stats`: `days`, `models`, `purposes`) cộng
   hai bảng đó và không đọc run, nên không lần gọi nào bị đếm hai lần hay bị bỏ sót. Tool có gọi
-  model (ảnh, PDF scan, bản tóm tắt được dùng) được tính vào run và cuộc trò chuyện như một
-  completion; giá không rõ được đếm riêng, không bao giờ coi là 0. Lần gọi bị bỏ dở sau chunk
+  model (ảnh, PDF scan, bản tóm tắt được dùng, lần script tự hỏi model) được tính vào run và cuộc
+  trò chuyện như một completion; giá không rõ được đếm riêng, không bao giờ coi là 0. Lần gọi bị bỏ dở sau chunk
   đầu tiên vẫn được ghi, với giá không rõ. Bản tóm tắt hết giờ hay rỗng — tool rơi về cắt —
   chỉ nằm trong sổ cái: run và cuộc trò chuyện không có con số nào để cộng.
 - **Provider echo là một tính năng sản phẩm.** `MY_AGENT_ROUTES=fake:echo` chạy cả stack mà không cần
@@ -381,8 +388,9 @@ của store và chỉ tính lại khi có gì đó được ghi.
 đúng một trong `cron` (năm trường, theo múi giờ của người dùng) hoặc `every` (`30m`, `2h`, `1d`) và đúng
 một trong `prompt`, `command` hoặc `script`. **Job prompt** mở một cuộc trò chuyện autonomous mới cho agent
 và chạy một lượt; **job command** chạy chuỗi lệnh bằng `shell_run` trong workspace của agent và
-chỉ ghi step đó; **job script** chạy một script của `tool_script` mà không gọi model
-(`scheduler/script_job.py`, qua cùng `run_source` với script của một lượt): run của nó không gắn
+chỉ ghi step đó; **job script** chạy một script của `tool_script` mà không mở lượt nào của agent
+(`scheduler/script_job.py`, qua cùng `run_source` với script của một lượt; model chỉ được gọi
+khi chính script hỏi nó bằng `llm.`): run của nó không gắn
 cuộc trò chuyện nào và có đúng một step `tool_script`, cổng duyệt coi nó là việc không ai trông
 nên không gì chờ người, và chỉ khi script chạy xong, có in ra gì đó và lịch có `then_prompt` thì
 một lượt mới được mở như job prompt mở, mang `then_prompt` và cái script in ra (chi tiết ở
