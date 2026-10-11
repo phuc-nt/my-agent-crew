@@ -23,13 +23,15 @@ class MessageLog:
         note_source: str | None = None,
         request_id: str = "",
         turn_notes: Callable[[], str] | None = None,
+        context: str = "",
         **tokens: int | None,
     ) -> StoredMessage:
         """`tokens` are the message's prompt_tokens, completion_tokens, reasoning_tokens and
         cached_tokens, each None when the provider did not report it. A person's message
         names the turn source it came from in `note_source`, so it is stored with its canvas
         note; the loop's own notes to the model pass none. `turn_notes` builds what a
-        message that opens a turn tells of the agent's memory."""
+        message that opens a turn tells of the agent's memory. `context` is what a script's
+        result keeps beside its output."""
         return self.messages.append(
             conv_id,
             message,
@@ -40,6 +42,7 @@ class MessageLog:
             note_source=note_source,
             request_ids=(request_id,),
             turn_notes=turn_notes,
+            context=context,
             **tokens,
         )
 

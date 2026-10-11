@@ -85,11 +85,11 @@ def attach_canvas_notes(
     starts at that message, not after it. A message left unchanged is the same object."""
     out: list[Message] = []
     for stored, message in zip(history, messages, strict=True):
-        if not stored.context:
+        if not stored.canvas_note:  # what a script's result keeps there is not a note
             out.append(message)
             continue
         current = turn_start is None or stored.seq >= turn_start
-        note = stored.context if current else CANVAS_NOTE_STUB
+        note = stored.canvas_note if current else CANVAS_NOTE_STUB
         out.append(replace(message, content=f"{note}\n\n{message.content}"))
     return out
 

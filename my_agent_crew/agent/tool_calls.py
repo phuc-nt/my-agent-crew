@@ -56,11 +56,7 @@ async def _record(deps: AgentDeps, conv_id: str, call: ToolCall, result: ToolRes
             deps.store.add_spend(conv_id, nested.cost_usd)
     if result.child_spent_usd:  # what a conversation it delegated to spent is its own too
         deps.store.add_spend(conv_id, result.child_spent_usd)
-    deps.store.append(
-        conv_id,
-        Message(role="tool", content=result.output, tool_call_id=call.id, name=call.name),
-    )
-    return ToolResultEvent(
+    event = ToolResultEvent(
         tool_call_id=call.id,
         name=call.name,
         ok=result.ok,
@@ -73,6 +69,9 @@ async def _record(deps: AgentDeps, conv_id: str, call: ToolCall, result: ToolRes
         received_chars=result.received_chars,
         printed_chars=result.printed_chars,
     )
+    message = Message(role="tool", content=result.output, tool_call_id=call.id, name=call.name)
+    deps.store.append(conv_id, message, context=event.stored_context())
+    return event
 
 
 def _unanswered(history: Sequence[StoredMessage]) -> tuple[StoredMessage | None, list[ToolCall]]:
