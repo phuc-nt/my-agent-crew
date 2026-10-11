@@ -853,13 +853,28 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
   `global`, `yield`, hay đọc thuộc tính (`x.y` không kèm lời gọi). Script được xét cả đoạn trước
   khi chạy: dùng thứ không có thì bị từ chối kèm số dòng, không chạy nửa chừng. Giá trị của biểu
   thức ở dòng cuối cũng được in, như ở dấu nhắc Python.
+- **In ra quá 60.000 ký tự.** Script không bị dừng vì in nhiều. Model nhận 45.000 ký tự đầu và
+  phần cuối, nơi thường có tổng hay kết luận, nối bằng một dòng nói rõ đã bỏ bao nhiêu: `…[script
+  in ra N ký tự, bỏ M ký tự ở giữa. Chỉ in phần cần, đã gộp hoặc lọc.]…`. Cả đoạn không bao giờ
+  dài quá 60.000 ký tự, và tiến trình con cũng chỉ giữ chừng đó dù script in bao nhiêu. Vòng lặp
+  in mãi không dừng thì vẫn bị chặn bởi số bước tính toán.
 - **Kết quả của tool trong script.** `tools.TÊN(tham_số=giá_trị)` hoặc `tools.TÊN({...})` trả về
   chữ của kết quả (là JSON thì `json.loads`). Script nhận tới 200.000 ký tự của mỗi câu trả lời,
-  nhiều hơn hẳn trần của một lượt, vì nó có mặt là để cắt câu trả lời xuống; dài hơn nữa thì bị
-  cắt. Tool lỗi thì ném lỗi, bắt được bằng `try/except`; nếu lời gọi thiếu một tham số bắt buộc hay
-  đưa một tham số tool không có, câu lỗi của tool được thêm một dòng `Cách gọi: tên(a: string,
-  b?: integer)` để lần sau gọi đúng. Hook của agent vẫn được hỏi trước và sau từng lời gọi, và một
-  lời gọi bị hook chặn là một lỗi bắt được.
+  nhiều hơn hẳn trần của một lượt, vì nó có mặt là để cắt câu trả lời xuống. Tool lỗi thì ném lỗi,
+  bắt được bằng `try/except`; nếu lời gọi thiếu một tham số bắt buộc hay đưa một tham số tool
+  không có, câu lỗi của tool được thêm một dòng `Cách gọi: tên(a: string, b?: integer)` để lần sau
+  gọi đúng. Hook của agent vẫn được hỏi trước và sau từng lời gọi, và một lời gọi bị hook chặn là
+  một lỗi bắt được.
+- **Câu trả lời dài hơn 200.000 ký tự.** Script nhận 200.000 ký tự đầu, còn **bản đầy đủ được giữ
+  lại** (tới 5 MB, cùng kho với kết quả dài của một lượt) và câu trả lời kết thúc bằng một dòng chỉ
+  cách đọc tiếp: `[còn N ký tự, đọc tiếp bằng tools.tool_output_read(id="<id lời gọi
+  script>.<số>", offset=200000)]`. `<số>` là số thứ tự lời gọi mà script đã thực hiện (bắt đầu từ
+  1), nên hai câu trả lời dài của một script, kể cả trong cùng một lô, không đè lên nhau, và hai
+  script của cùng một lượt cũng không. Script đọc tiếp ngay trong chính nó, từng đoạn một. Bản
+  đầy đủ chỉ được giữ khi lời gọi thành công, agent có `tool_output_read`, script đang chạy trong
+  một lượt và việc ghi xuống đĩa thành công; không thì câu trả lời bị cắt còn 200.000 ký tự như
+  trước và không chỉ đi đâu. Kết quả của chính `tool_output_read` không bao giờ được giữ lại lần
+  nữa.
 - **Chạy ở đâu.** Trong một tiến trình con riêng (`python -I -S -B`) với **môi trường rỗng**: không
   biến môi trường nào, nên không khoá nào. Nó chỉ nói chuyện với server qua stdin/stdout, mỗi dòng
   một JSON, và chính server là bên chạy tool. Trên macOS tiến trình đó nằm trong một sandbox riêng
@@ -872,8 +887,47 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
   các lời gọi của script, nên thẻ run liệt kê chúng dưới bước của script cho người xem: tên tool,
   tham số rút gọn, thời gian, có lỗi không, giá nếu có, và phần đầu câu trả lời. Danh sách gấp
   lại cho tới khi bấm mở, dưới một dòng như "Script đã gọi công cụ 12 lần · 1 lần lỗi". Một lời
-  gọi bị từ chối không nằm trong danh sách vì nó chưa chạy gì. Trên API đó là `calls` của step
-  tool trong `/api/activity/runs` và của sự kiện `tool_result`.
+  gọi bị từ chối không nằm trong danh sách vì nó chưa chạy gì.
+- **Thấy ngay khi script còn chạy.** Một script có thể chạy vài phút, nên mỗi lời gọi được báo
+  ngay khi nó xong chứ không đợi script kết thúc: thẻ run và thẻ tool trong khung chat thêm một
+  dòng vào danh sách, và thẻ run cộng luôn giá của lời gọi có tính tiền. Khi script xong, kết quả
+  nêu lại toàn bộ các lời gọi theo **thứ tự script đã viết** (trong một lô, thứ tự xong có thể
+  khác); danh sách được xếp lại theo đó và chỉ những lời gọi chưa từng được báo mới được cộng
+  tiền, nên không lời gọi nào bị tính hai lần, kể cả khi tab nối lại giữa chừng và nghe một lời
+  gọi lần thứ hai.
+- **Hai số đo.** Script xong, dù chạy hết hay gặp lỗi, thì thẻ có thêm một dòng như "Nhận 184.220
+  ký tự từ 12 lời gọi, trả về 640 ký tự": số ký tự các tool đã trả cho script (sau khi cắt) và số
+  ký tự script in ra cho model (chưa kể dòng lý do khi script dừng). Đó là thước đo `tool_script`
+  có đáng dùng không: nhận nhiều, trả về ít là đúng việc của nó. Số nào server chưa đếm (run ghi
+  trước khi có tính năng này) hiện là "—". Script còn chạy, đang chờ, hay bị dừng cùng lượt thì
+  chưa có dòng này.
+- **Sau khi tải lại trang.** Kết quả của script được lưu kèm danh sách lời gọi và hai số đo, nên
+  thẻ tool trong khung chat vẫn liệt kê chúng sau khi tải lại, không cần tới thẻ run. Phần lưu
+  kèm đó chỉ để hiển thị: model không bao giờ được gửi nó, lượt sau chỉ đọc lại phần script in
+  ra. Nhánh rẽ (fork) của cuộc trò chuyện chép nó theo. Bản xuất quỹ đạo của một run ghi các lời
+  gọi ở step của run, không chép phần lưu kèm vào tin nhắn. Bản xuất Markdown của cuộc trò chuyện
+  ghi các lời gọi thành một danh sách đánh số dưới lượt của agent (tên tool, có lỗi không, thời
+  gian, giá nếu có), không ghi tham số và câu trả lời.
+- **Trên API.** `calls` (mỗi phần tử có `name`, `arguments`, `ok`, `output`, `ms`, `cost_usd`,
+  `metered`), `received_chars` và `printed_chars` nằm trên step tool của `/api/activity/runs` và
+  trên sự kiện `tool_result`. Với tool không phải script, sự kiện mang `calls` rỗng và hai số đo
+  `null`, còn step không có ba khoá đó. Mỗi lời gọi vừa xong đi trong một sự kiện riêng
+  `nested_call` gồm `tool_call_id` (của lời gọi `tool_script`), `index` (thứ tự lời gọi xong, từ
+  0, để ai nghe một lời gọi hai lần vẫn chỉ giữ một) và `call`. Tin nhắn tool được lưu của một
+  script giữ `calls` và hai số đo dưới dạng JSON trong trường `context`; mọi tin nhắn tool khác để
+  trống trường này.
+- **Trần lời gọi của cả lượt.** Ngoài 25 lời gọi mỗi script, mọi script trong **một lượt** dùng
+  chung một trần: 10 lời gọi cho mỗi lần gọi model mà lượt được phép (`max_steps` × 10; với
+  `max_steps` mặc định 12 là 120). Lời gọi vượt trần không chạy; một lô không còn đủ chỗ cho cả
+  lô thì không lời gọi nào của lô chạy. Script đó dừng tại chỗ ("Dừng ở dòng N: lượt đã dùng hết
+  120 lời gọi lồng."), không `try/except` nào bắt được; những lời gọi model đã yêu cầu sau nó
+  trong cùng tin được đóng lại mà không chạy ("Không chạy: lượt đã dùng hết 120 lời gọi lồng của
+  script nên dừng trước lệnh này."), và **lượt dừng luôn**, model không được hỏi thêm lần nào:
+  một model đã viết script nhiều đến thế sẽ không đổi ý vì thêm một lời từ chối. Người xem thấy
+  "Đã dừng vì script dùng hết số lời gọi công cụ của một lượt."; trên API là sự kiện `halted` với
+  `reason: "nested_calls"`. Tên tool không có (gõ nhầm) không tính vào trần này, lượt sau đếm lại
+  từ đầu, và script chạy ngoài một lượt không bị đếm. Một script y hệt được gọi đi gọi lại thì bị
+  bộ phát hiện lặp của lượt bắt như mọi lời gọi lặp khác.
 - **Sau restart.** `tool_script` tự khai là gọi lại được: mọi thứ một script làm đều là lời gọi
   vốn đã gọi lại được, nên script bị cắt giữa chừng được chạy lại từ đầu.
 
@@ -893,13 +947,18 @@ Giới hạn nằm trong code, không cấu hình nào nới được:
 | tổng thời gian, kể cả lúc chờ tool | 300 giây |
 | bộ nhớ đang giữ | 256 MB |
 | một giá trị | 8.000.000 phần tử hoặc ký tự |
-| đầu ra in ra | 60.000 ký tự |
+| lời gọi tool của mọi script trong một lượt | `max_steps` × 10 |
+| đầu ra in ra, phần model nhận được | 60.000 ký tự |
+| một câu trả lời của tool, phần script nhận được | 200.000 ký tự |
+| một câu trả lời của tool, phần được giữ lại để đọc tiếp | 5 MB |
 | tham số của một lời gọi tool | 100.000 ký tự |
 | hàm gọi lồng nhau | 40 tầng |
 | số nguyên | 256 bit |
 
 Chạm một giới hạn thì script dừng và không bắt được; câu trả lời gồm phần đã in kèm lý do, viết
-cho model biết phải làm khác đi thế nào ("Xử lý ít dữ liệu hơn hoặc bỏ vòng lặp thừa."). Riêng khi
+cho model biết phải làm khác đi thế nào ("Xử lý ít dữ liệu hơn hoặc bỏ vòng lặp thừa."). Ba dòng
+về đầu ra và câu trả lời là ngoại lệ: quá mức thì phần thừa bị bỏ hoặc để dành, script vẫn chạy
+tiếp (xem hai bullet "In ra quá 60.000 ký tự" và "Câu trả lời dài hơn 200.000 ký tự"). Riêng khi
 tiến trình con bị dừng từ bên ngoài (hết CPU, chạy một mạch quá 60 giây, hết tổng thời gian) hoặc
 tự chết thì phần đã in mất theo nó và chỉ còn lý do; các lời gọi đã chạy vẫn được ghi trên thẻ
 run.
@@ -913,13 +972,12 @@ chạy xong mà dòng đầu tiên nó in ra đúng nguyên câu đó thì sau k
 
 Vài điều chưa làm, nêu ra để không ai phải đoán:
 
-- Lời gọi trong script không đi qua bộ đếm bước và bộ phát hiện lặp của lượt; trần của chúng là 25
-  lời gọi mỗi script. Ngân sách của cuộc trò chuyện chỉ được xét giữa các lời gọi của chính lượt,
-  nên một script có thể tiêu quá ngân sách tối đa bằng 25 lời gọi của nó.
-- Câu trả lời dài của một tool trong script chỉ bị cắt, không được tóm tắt và không được giữ bản
-  gốc để đọc lại bằng `tool_output_read`.
-- Thẻ tool trong khung chat và bản xuất Markdown của một run không liệt kê lời gọi của script; thẻ
-  run và bản xuất JSON thì có. Thẻ run đang chạy chỉ cộng giá của các lời gọi đó khi lượt xong.
+- Ngân sách tiền của cuộc trò chuyện chỉ được xét trước mỗi lần gọi model, không xét giữa các lời
+  gọi của một script, nên một script có thể tiêu quá ngân sách tối đa bằng 25 lời gọi của nó.
+- Từng lời gọi trong script không đi qua bộ phát hiện lặp: một script gọi cùng một tool với cùng
+  tham số 25 lần vẫn chạy đủ 25 lần. Bộ phát hiện lặp chỉ nhìn chính lời gọi `tool_script`.
+- Câu trả lời dài của một tool trong script không được tóm tắt: script nhận phần đầu và tự đọc
+  tiếp phần sau.
 
 ### Xác thực
 

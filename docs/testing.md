@@ -444,15 +444,17 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "gives a reply the same status read back as it had when it arrived": cùng một lời đáp cho
     cùng một trạng thái ở luồng trực tiếp và khi dựng lại từ tin đã lưu);
     `state/thread-stored-status.test.tsx` nhóm "a call that failed, read back from the stored
-    thread" ("stays failed when …": mười một kiểu server làm hỏng một lời gọi — tool báo lỗi,
+    thread" ("stays failed when …": mười hai kiểu server làm hỏng một lời gọi — tool báo lỗi,
     không có tool tên đó, hook chặn, tham số không phải JSON hợp lệ, tham số bị cắt, lượt hết số
-    bước, lượt bị dừng vì lặp, id đã được duyệt cho lời gọi khác, hết thời gian chờ agent con,
-    hội thoại rẽ nhánh trước khi lệnh chạy, lời gọi bị ngắt giữa chừng — đều cho thẻ `failed` và
-    dấu lỗi trên thẻ; "has the status it had as it arrived when …": chín kiểu có lời đáp tới
-    trong luồng trực tiếp cho cùng một trạng thái ở cả hai đường; "is not a reply that only holds
-    the words further in, as when …" và "reads a reply that only resembles one as a call that
-    finished": lời đáp chỉ chứa câu đó ở phía sau, câu thiếu ký tự cuối, hay kết quả hết thời
-    gian chờ nằm dưới một tool không phải `delegate` thì thẻ là `done`) và nhóm "a handed-off
+    bước, lượt bị dừng vì lặp, các script của lượt đã dùng hết số lời gọi lồng, id đã được duyệt
+    cho lời gọi khác, hết thời gian chờ agent con, hội thoại rẽ nhánh trước khi lệnh chạy, lời
+    gọi bị ngắt giữa chừng — đều cho thẻ `failed` và dấu lỗi trên thẻ; "has the status it had as
+    it arrived when …": mười kiểu có lời đáp tới trong luồng trực tiếp cho cùng một trạng thái ở
+    cả hai đường; "is not a reply that only holds the words further in, as when …" và "reads a
+    reply that only resembles one as a call that finished": lời đáp chỉ chứa câu đó ở phía sau,
+    câu thiếu ký tự cuối, câu hết lời gọi lồng mà không nêu con số hay thiếu khoảng trắng trước
+    con số, hay kết quả hết thời gian chờ nằm dưới một tool không phải `delegate` thì thẻ là
+    `done`) và nhóm "a handed-off
     task whose wait ran out, read back from the stored thread" ("is failed, and still names its
     canvases, with the sentence …": kết quả `delegate` hết thời gian chờ là `failed` mà vẫn hiện
     đủ chip canvas, cả khi câu báo đứng sau dòng đếm canvas bị lược lẫn ở dạng đã lưu trước khi
@@ -472,8 +474,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `web/src/lib/tool-reply.ts` đúng là phần chữ cố định của chuỗi server tương ứng, tính tới giá
     trị đầu tiên server điền vào, hoặc là cả câu khi câu không điền gì: `DENIED_TOOL` và
     `EXPIRED_TOOL`, `TOOL_FAILED`, `UNKNOWN_TOOL`, `TOOL_BLOCKED_BY_HOOK`, `TOOL_ARGS_INVALID`,
-    `TOOL_ARGS_CUT_OFF`, `STEPS_HALTED_TOOL`, `LOOP_HALTED_TOOL`, `APPROVAL_CALL_MISMATCH`,
-    `FORK_CALL_NOT_RUN`, `INTERRUPTED_TOOL`
+    `TOOL_ARGS_CUT_OFF`, `STEPS_HALTED_TOOL`, `LOOP_HALTED_TOOL`, `NESTED_HALTED_TOOL`,
+    `APPROVAL_CALL_MISMATCH`, `FORK_CALL_NOT_RUN`, `INTERRUPTED_TOOL`
     (`test_each_opening_the_web_reads_as_a_failure_is_how_the_server_words_one`), và registry
     chạy thật trả đúng các lời mở đó, nên hai bên không lệch nhau khi một bên đổi chữ);
     `tests/test_tool_reply_openings_turn.py` (qua cả một lượt: tham số không đọc được hoặc bị
@@ -611,7 +613,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `tests/test_channels_telegram.py::test_a_reply_from_a_run_that_stopped_early_carries_a_notice`
     (Telegram nêu lý do dừng bằng lời, không bằng mã)
   - vitest: `lib/run-summary.test.ts`
-    "reads the halt reasons and the interrupted marker as sentences"; `app.test.tsx`
+    "reads the halt reasons and the interrupted marker as sentences" (bốn lý do dừng: `budget`,
+    `max_steps`, `loop`, `nested_calls`); `app.test.tsx`
     "says in words why a turn halted on %s" (với `max_steps` và `loop`)
 - **Lượt hết số bước tối đa**
   - pytest: `tests/test_agent_loop.py` ("test_max_steps_halts_a_tool_loop",
@@ -5143,8 +5146,13 @@ những gì nó in ra mới quay về cho model ([tools.md](tools.md#gọi-tool-
     bằng số bước; không giá trị nào dài quá mức dù được tạo bằng cách nào, viết ra từng phần tử
     cũng vậy, và phép lặp quá dài bị từ chối trước khi Python được nhờ làm; dict được trải ra dài
     quá mức thì script dừng trước khi cái đứng sau chỗ trải được tính; dữ liệu được ghi ra sâu năm
-    mươi tầng và dài hai trăm nghìn thứ, dữ liệu chứa chính nó thì không bao giờ; in sáu mươi
-    nghìn ký tự rồi dừng tại dòng đã in, không bắt được; số nguyên 256 bit; hàm gọi lồng bốn mươi
+    mươi tầng và dài hai trăm nghìn thứ, dữ liệu chứa chính nó thì không bao giờ; in đúng sáu mươi
+    nghìn ký tự thì còn nguyên, thêm một ký tự là đã quá; in quá mức thì giữ phần đầu và phần cuối
+    kèm một dòng nói đã bỏ bao nhiêu, cả đoạn không dài hơn mức, script không bị dừng vì thế và
+    chạy tiếp; in từng dòng thì còn những dòng đầu và những dòng cuối; in bao nhiêu thì cái được
+    giữ cũng chỉ nhỉnh hơn mức, nên in nhiều hơn hẳn không làm script dừng vì bộ nhớ; vòng in mãi
+    thì dừng vì số bước mà hai đầu vẫn còn; giá trị của dòng cuối cũng tính là in ra; số nguyên
+    256 bit; hàm gọi lồng bốn mươi
     tầng, độ sâu được trả lại khi lời gọi kết thúc theo cách nào đi nữa; hai mươi lăm lời gọi
     tool, lời gọi hỏng vẫn tính còn lời gọi chưa gửi thì không; tham số dài tới đúng mức thì gửi,
     thêm một ký tự thì không; JSON sâu quá sức Python là lỗi script sửa được; lỗi được kể trong hai
@@ -5192,7 +5200,10 @@ những gì nó in ra mới quay về cho model ([tools.md](tools.md#gọi-tool-
     script (`codemode`), mỗi tool của máy chủ một dòng với tham số theo tên và kiểu, ba mươi tool
     đầu và mười hai tham số đầu, tham số có tên không phải một từ thường thì bỏ, schema hình gì
     cũng đọc được; tool ở mức mở khác, và tool ngoài ba mươi cái được nêu, được đếm chung trong
-    một dòng "và N công cụ nữa" mà vẫn gọi được).
+    một dòng "và N công cụ nữa" mà vẫn gọi được; script báo số ký tự các lời gọi đã trả cho nó
+    và số ký tự nó in ra; script không gọi gì thì nhận không; lời gọi hỏng cũng tính vào cái
+    script nhận; tên không có thì không có câu trả lời nào để đếm; script hỏng chỉ tính cái nó
+    in trước khi hỏng).
 - **Tra cứu tool trong script (`tools.names`, `tools.search`, `tools.describe`)**:
   - pytest: `tests/test_script_discovery.py` (một lời tra tới tiến trình giữ tool kèm tham số theo
     tên, dù script viết theo vị trí hay theo tên; câu trả lời là dữ liệu script dùng tiếp; mỗi
@@ -5256,6 +5267,49 @@ những gì nó in ra mới quay về cho model ([tools.md](tools.md#gọi-tool-
     dạy `tools.batch`, nêu mức tối đa và có ví dụ), `tests/test_script_discovery.py` (tên `batch`
     thuộc về `tools` như ba tên tra cứu: tool đặt tên vậy không gọi được từ script, và không tool
     có sẵn nào của sản phẩm mang một trong bốn tên đó).
+- **Câu trả lời dài của tool trong script được giữ lại để đọc tiếp**:
+  - pytest: `tests/test_script_kept_answer.py` (câu trả lời quá dài tới script đã cắt, kèm dòng
+    nói bản đầy đủ nằm ở đâu và đọc tiếp từ đâu; script đọc tiếp đúng từ chỗ bị cắt; dài đúng mức
+    thì tới nguyên và không giữ gì; mỗi câu trả lời dài của một script được giữ dưới một số
+    riêng, các câu trả lời dài của một lô cũng vậy, và script khác của cùng lượt giữ riêng phần
+    mình; agent không đọc lại được thì chỉ bị cắt, không giữ gì; script không bị chỉ sang một
+    tool nó không gọi được; lỗi dài bị cắt chứ không giữ; cái `tool_output_read` trả về không bao
+    giờ được giữ lần nữa; không ghi được thì cắt và không chỉ đi đâu; ngoài một lượt thì không giữ
+    gì; trong một lượt thì giữ dưới id lời gọi của chính model).
+- **Lời gọi của script được báo ngay khi xong**:
+  - pytest: `tests/test_script_live_calls.py` (lượt phát từng lời gọi của script giữa lời gọi và
+    kết quả của script; lời gọi được liệt kê và tính tiền khi script còn chạy; các lời gọi của
+    một lô được báo theo thứ tự xong và giữ theo thứ tự đã viết; lời gọi nghe hai lần được giữ
+    một lần và tính tiền một lần; kết quả chỉ tính tiền những lời gọi chưa sự kiện nào báo và giữ
+    chúng như đã viết; hai lời gọi giống hệt nhau mỗi cái được tính tiền; script chạy lại sau
+    restart liệt kê lại từ đầu và trả tiền cho cả hai lần; lời gọi không thuộc step nào của run
+    thì bỏ qua; sự kiện đi dưới tên riêng và mang đủ lời gọi; một lời gọi đang chạy chuyển tiếp
+    cái được báo theo thứ tự rồi mới tới kết quả; cái một lời gọi báo không tới lời gọi sau và
+    không tới chỗ không có lời gọi nào; lời gọi bị bỏ giữa chừng thì bị huỷ và được chờ cho xong;
+    lượt bị dừng lúc script đang gọi thì lời gọi dừng theo; lỗi của một lời gọi được ném ra ở chỗ
+    đọc kết quả của nó).
+- **Trần lời gọi lồng của một lượt**:
+  - pytest: `tests/test_script_turn_budget.py` (bộ đếm cho đủ số được xin hoặc không cho gì, và đã
+    hết thì vẫn hết; mỗi lượt được mười lời gọi cho mỗi lần gọi model, đếm từ không; script vượt
+    trần bị dừng ngay đó và lượt dừng theo, model không được hỏi lại; script được dùng hết cả
+    trần; các script của một lượt dùng chung một bộ đếm; cái model yêu cầu sau script đã tiêu hết
+    trần được đóng lại không chạy, nên lời gọi nào cũng có kết quả; lô không còn đủ chỗ thì không
+    chạy phần nào; script không bắt được việc hết trần; tên không có thì không tính; lượt sau đếm
+    lại từ đầu; lý do dừng tới người đọc bằng lời chứ không bằng mã), `tests/test_loop_guard.py`
+    (cùng một script gọi đi gọi lại thì được nhắc rồi bị dừng như mọi lời gọi lặp; script mỗi lần
+    một khác thì không phải lặp), `tests/test_tool_reply_openings.py` (lời mở của câu từ chối
+    `NESTED_HALTED_TOOL` mà web đọc là lỗi đúng là chữ server viết).
+  - vitest: `lib/run-summary.test.ts` (run dừng vì `nested_calls` đọc thành câu, còn run xong mang
+    chữ đó thì để nguyên), `state/thread-stored-status.test.tsx` (lời gọi bị đóng vì lượt hết trần
+    lời gọi lồng vẫn là thẻ `failed` sau khi tải lại; câu chỉ giống mà thiếu con số thì không).
+- **Kết quả của script được lưu kèm lời gọi và hai số đo**:
+  - pytest: `tests/test_script_stored_calls.py` (kết quả của script được lưu cùng cái nó đã gọi và
+    hai số đo, chữ có dấu giữ nguyên, còn nội dung tin nhắn chỉ là cái script in ra; model chỉ
+    được gửi cái script in ra, không gì trong phần lưu kèm; lượt sau không thấy ghi chú canvas
+    nào đứng trước kết quả của script; lượt nào đọc lại thì tin nhắn cũng là đúng tin đã lưu;
+    script không gọi gì vẫn giữ hai số đo; kết quả của tool khác không giữ gì; phần lưu kèm rỗng
+    trừ khi một script đặt nó; nhánh rẽ chép theo; bản ghi quỹ đạo của run chỉ nói cái model đã
+    đọc, còn lời gọi nằm ở step của run).
 - **Ai được giao `tool_script`**:
   - pytest: `tests/test_script_tool.py` (agent có tool chủ ghi chỉ đọc, ở mức mở nào cũng được,
     được giao nó, sau `tool_search` và trước các tool của máy chủ, lời mô tả chỉ nêu tool script
@@ -5270,9 +5324,11 @@ những gì nó in ra mới quay về cho model ([tools.md](tools.md#gọi-tool-
     giữ từng lời gọi của script; step của tool mang `calls` và tính tiền những lời gọi có trả cho
     model như khi gọi trực tiếp; model được khai `tool_script` chứ không được khai các tool nó gọi;
     lời gọi không được phép không tới máy chủ và không hỏi ai; script hỏng báo cho model cái đã in
-    và lý do; script bị restart cắt ngang được chạy lại từ đầu), `tests/test_trajectory_redact.py`
+    và lý do; script bị restart cắt ngang được chạy lại từ đầu; run giữ số ký tự script nhận và số
+    ký tự nó in; tool không phải script thì step không có hai số đó; step giữ hai số khi chúng
+    bằng không và không có khi chưa ai đặt), `tests/test_trajectory_redact.py`
     (bí mật nằm trong lời gọi của script được che cùng phần còn lại của bản ghi).
-- **web: lời gọi của script trên thẻ run**:
+- **web: lời gọi của script trên thẻ run, thẻ tool trong khung chat và bản xuất Markdown**:
   - vitest: `components/script-calls.test.tsx` (dòng tóm tắt nói có bao nhiêu lời gọi, và bao nhiêu
     lần lỗi chỉ khi có; danh sách gấp lại cho tới khi bấm và gấp lại ở lần bấm sau; mỗi lời gọi một
     dòng theo thứ tự script gọi, cùng một lời gọi hai lần là hai dòng; mỗi dòng có tên, tham số và
@@ -5280,15 +5336,48 @@ những gì nó in ra mới quay về cho model ([tools.md](tools.md#gọi-tool-
     giá, lời gọi miễn phí thì không nói gì; hiện cái trả về cho script và không để dòng trống khi
     không có gì; giá đứng giữa tham số và cái trả về), `components/activity-cards.test.tsx` (thẻ run
     liệt kê lời gọi của script dưới bước của script, trên cái script in ra), `lib/run-rows.test.ts`
-    (script đã gọi gì đó thì không bao giờ bị gộp dòng, dù không in gì),
+    (script đã gọi gì đó thì không bao giờ bị gộp dòng, dù không in gì; script đã được đếm cũng
+    vậy, dù không gọi và không in gì),
     `state/activity-reducer.test.ts` (lời gọi của script được giữ trên step của script như server
-    lưu).
+    lưu; hai số đo được giữ trên step và không có ở kết quả không mang chúng; nhóm "what a script
+    calls, heard as each call ends": lời gọi vừa nghe được liệt kê trên step còn mở của script và
+    cộng tiền ngay, lời gọi không có giá được đếm riêng, lời gọi không tính tiền thì không cộng
+    gì; nghe hai lần thì giữ một và cộng một lần; kết quả chỉ cộng cái chưa sự kiện nào báo và xếp
+    lời gọi theo thứ tự script viết, không cộng gì khi mọi lời gọi đã được nghe; lời gọi chạy lại
+    dùng lại step còn mở, danh sách về không còn tổng tiền giữ nguyên; id có step đã trả lời thì
+    mở step mới; lời gọi không có step nào ở đây không đổi gì; run đưa vào không bị sửa),
+    `components/script-calls.test.tsx` nhóm "what a script was handed against what it handed on"
+    (một dòng dưới danh sách: nhận bao nhiêu ký tự từ bao nhiêu lời gọi, trả về bao nhiêu; script
+    không gọi gì được đếm đúng như thế; số chưa ai đếm là gạch ngang chứ không là số không; dòng
+    đó chờ script xong trong khi lời gọi vẫn được liệt kê dần; tool không phải script thì không
+    có gì), `components/activity-cards.test.tsx` (thẻ run có dòng hai số đo dưới lời gọi của
+    script khi script đã xong), `lib/nested-calls.test.ts` (bốn mươi bốn ca cho luật dùng chung
+    của thẻ run và thẻ chat: lời gọi nào của kết quả chưa được liệt kê, kể cả khi một lời gọi
+    được thực hiện hai lần và khi chỉ một trường khác nhau; thêm một lời gọi vừa nghe vào danh
+    sách, nghe lại thì giữ chỗ cũ và nói rõ không mới; kết quả nói gì về việc của script, số không
+    vẫn là một số đếm còn `null` thì bỏ; đọc phần lưu kèm một cách thận trọng: ghi chú canvas,
+    JSON hỏng hay một lời gọi thiếu trường thì không liệt kê gì chứ không liệt kê nửa chừng, và
+    không làm hỏng cả luồng), `state/thread-reducer-script-calls.test.tsx` (thẻ tool trong khung
+    chat: lời gọi được liệt kê dần khi thẻ còn chạy, nghe hai lần giữ một; khi kết quả tới thì
+    theo thứ tự script viết cùng hai số đo; tool khác không có gì; lời gọi vào đúng thẻ của script
+    đã gọi nó; đọc lại từ tin đã lưu cho đúng thẻ như lúc kết quả vừa tới; script hỏng vẫn là thẻ
+    `failed` kèm danh sách; thẻ đọc từ trên xuống: được yêu cầu gì, đã gọi gì, tổng lại ra sao, in
+    ra gì; đang chạy, đang chờ, bị dừng hay bị từ chối thì liệt kê mà chưa đếm),
+    `lib/conversation-markdown.test.ts` nhóm "what a script called on its own" (lời gọi của script
+    nằm dưới tên agent, giữa câu hỏi và câu trả lời dựa vào chúng; nằm dưới lời agent nói lúc viết
+    script mà không thêm tiêu đề thứ hai; hai script của một lượt chung một tiêu đề, mỗi cái một
+    danh sách; không ghi tham số hay câu trả lời nên bản xuất không có JSON; là danh sách đánh số;
+    ghi chú canvas của người dùng không bị đọc thành danh sách dù cùng một trường).
   - Playwright: `script-calls.spec.ts` (lời gọi của script tới cùng kết quả và được liệt kê, gấp
     lại, dưới bước của nó; run đọc lại từ server vẫn liệt kê, chữ của mỗi thời gian kết thúc ở mép
     phải của dòng nên các thời gian thẳng hàng, danh sách đứng thẳng dưới tham số của bước, dòng mở
     danh sách chỉ rộng bằng chữ của nó, và lời gọi đứng giữa tham số với cái script in ra; trên
     điện thoại 390px dòng mở danh sách đủ lớn cho ngón tay, và danh sách vừa màn hình dù tên, tham
-    số hay câu trả lời dài tới đâu).
+    số hay câu trả lời dài tới đâu; mỗi lời gọi của script được liệt kê và tính tiền trên thẻ run
+    ngay khi nó xong, còn dòng hai số đo chỉ hiện khi script đã xong; dòng hai số đo đứng dưới
+    danh sách, thẳng cột với nó, và xuống dòng trong thẻ khi con số dài trên điện thoại; trên thẻ
+    tool trong khung chat các lời gọi được liệt kê dần, được đếm khi có kết quả và còn đó sau khi
+    tải lại trang; danh sách và dòng đếm vừa thẻ dù tên hay câu trả lời dài tới đâu).
 - **web: `tool_script` ở bảng Công cụ và màn Kết nối**:
   - vitest: `components/tools-matrix.test.tsx` (tool mở cho script được nói là tìm như các tool
     khác và được lời mô tả của `tool_script` nêu tên khi nó chỉ đọc; chỉ agent có tool chỉ đọc giữ
@@ -5384,6 +5473,42 @@ những gì nó in ra mới quay về cho model ([tools.md](tools.md#gọi-tool-
   `Budget.measure` đã báo TOO_NESTED với giá trị chứa chính nó trước khi tới đây, `json.dumps` cho
   NaN và vô cực qua, và số nguyên của script bị chặn ở 256 bit nên không đủ dài để bị từ chối. Vế
   ấy được giữ lại như lớp phòng thủ, đúng như đoạn code cũ mà nó được chuyển từ đó sang.
+- Lời gọi của script báo ngay, hai số đo, trần của lượt, câu trả lời được giữ, phần in ra và
+  phần lưu kèm: bảy mươi chín sửa đổi ở server, đều bị bắt. Mười bốn ở đường báo ngay: tám ở
+  `activity/tool_steps.py` (lời gọi nghe hai lần được ghi hai lần; kết quả tính tiền mọi lời gọi
+  hay không tính lời gọi nào; hai lời gọi giống nhau bị trừ cả hai; script chạy lại giữ danh sách
+  cũ; lời gọi vừa nghe không được tính tiền; kết quả giữ thứ tự đã nghe thay vì thứ tự đã viết;
+  lời gọi không thuộc step nào tự mở một step), ba ở `agent/tool_run.py` (không huỷ task khi lời
+  gọi bị bỏ; `index` đứng yên; không trao chỗ nói cho task), một ở `script/nested.py` (script
+  không nói gì khi một lời gọi xong), một ở `agent/tool_calls.py` (lượt bỏ sự kiện của lời gọi lồng) và
+  một ở `agent/events.py` (đổi tên loại sự kiện). Mười lăm ở trần của lượt: sáu ở
+  `agent/nested_calls.py` (mốc lệch một; cho một phần của lô; không bao giờ đánh dấu đã hết; chín
+  lời gọi mỗi bước thay vì mười; không đặt bộ đếm cho lượt; trần bằng số bước thay vì nhân mười),
+  ba ở `script/nested.py` (đếm cả tên không có; hết trần mà không dừng script; script không hỏi
+  bộ đếm), hai ở `agent/loop.py` (lượt không xét bộ đếm, hay xét mà không dừng), một ở
+  `agent/tool_calls.py` (những lời gọi đứng sau vẫn chạy), hai ở `agent/step_limit.py` (lý do
+  dừng sai; không đóng những lời gọi chưa chạy) và một ở `texts_halt.py` (lý do dừng không có
+  lời). Mười sáu nữa ở `script/nested.py` cho câu trả lời được giữ (mốc lệch một; giữ cả lỗi, giữ cả
+  cái `tool_output_read` trả về; không xét agent có `tool_output_read`, không xét id lời gọi;
+  ghi hỏng mà vẫn chỉ tới chỗ giữ; số ký tự còn lại nói thành cả độ dài; id thiếu số thứ tự hay
+  thiếu id của script; số thứ tự không tăng; đọc tiếp từ không; phần đầu ngắn hơn mức; registry
+  của script tự cắt câu trả lời ở mức script nhận, nên không còn bản đầy đủ để giữ; không giữ
+  được thì không cắt; đếm cái script nhận trước
+  khi cắt; giữ bản đã cắt thay vì bản đầy đủ). Mười chín ở phần in ra: mười bảy ở
+  `script/printed.py` (phần đầu còn một nửa, phần cuối thiếu một ký tự; đếm sai tổng; mảnh nằm
+  vắt qua chỗ cắt bị giữ cả, bị đếm cả, mất phần còn lại hay không bị cắt; không bao giờ bỏ gì
+  hay bỏ quá sớm; phần cuối không nhường chỗ cho dòng báo; đúng mức đã tính là quá, quá một ký tự
+  vẫn tính là nguyên; dòng báo được tính hẹp hơn thật hay không được trừ vào phần cuối; số ký tự
+  đã bỏ được đoán thay vì đếm; không có dòng báo; chỉ giữ phần đầu) và hai ở `script/machine.py`
+  (cái script in không tới chỗ giữ; cái trả về rỗng). Mười lăm ở phần lưu kèm: ba ở
+  `store/message_models.py` (ghi chú canvas được đọc ở mọi vai, không vai nào, hay ở vai tool),
+  hai ở `agent/payload_trim.py` (xét theo việc có phần lưu kèm, hay lấy ghi chú từ phần lưu kèm,
+  nên model nhận được cái script đã gọi), một ở `activity/trajectory.py` (bản ghi quỹ đạo chép
+  phần lưu kèm vào tin nhắn), một ở `agent/tool_calls.py` (kết quả không lưu gì kèm), sáu ở
+  `agent/tool_events.py` (chữ có dấu bị viết thành mã; script không có số đo hay không có lời
+  gọi thì không lưu gì; một số đo cũng đủ để bỏ trống; hai số đo đổi chỗ; bỏ danh sách lời gọi),
+  một ở `store/messages.py` và một ở `store/message_log.py` (chỗ lưu hay chỗ đọc lại bỏ phần lưu
+  kèm).
 - Vòng đầu ở server sót một trăm linh sáu trên sáu trăm bốn mươi bốn: mười tám ở tool, tiến
   trình con và chỗ nối, tám mươi tám ở ngôn ngữ (hai sửa đổi nữa được thêm sau đó). Mỗi cái được
   thêm test, trừ ba điều kiện hoá ra không bao giờ quyết định gì và bị bỏ kèm chứng minh: một ở
@@ -5413,6 +5538,33 @@ những gì nó in ra mới quay về cho model ([tools.md](tools.md#gọi-tool-
   chạm mép phải khi cột bị đổi, nên giờ nó đo chỗ chữ kết thúc; chỗ danh sách đứng và bề rộng của
   dòng mở danh sách thì trước đó chưa có phép kiểm nào. Sau khi thêm test, cả sáu mươi ba đều bị
   bắt.
+- Lời gọi báo ngay, hai số đo và phần đọc lại ở web: bảy mươi ba sửa đổi, bảy mươi hai bị bắt,
+  một tương đương. Sáu mươi chín qua vitest: mười bốn ở `state/activity-reducer.ts` (lấy step đầu
+  tiên của một id thay vì step mới nhất; lời gọi không rõ giá không được đếm hay bị cộng thành
+  tiền; lời gọi không tính tiền bị cộng; step đã trả lời bị dùng lại; step mở lại giữ danh sách
+  cũ hay thêm một step nữa; kết quả cộng lại mọi lời gọi, không cộng gì, giữ thứ tự đã nghe hay
+  bỏ việc của script; lời gọi nghe hai lần cộng hai lần, không bao giờ cộng, hay không được liệt
+  kê), hai mươi hai ở `lib/nested-calls.ts` (một lời gọi đã liệt kê trả lời thay cho mọi cái sau
+  nó, hay cái đầu tiên không bao giờ được trả lời; hai lời gọi bị coi là một dù khác giá, tham
+  số, tên, câu trả lời hay việc có tính tiền; chỗ kế tiếp bị coi là đã nghe; nghe lại bị nói là
+  mới và ngược lại; danh sách đưa vào bị sửa; danh sách rỗng được giữ; số đo bằng không bị bỏ;
+  lời gọi hỏng hay nửa danh sách vẫn được liệt kê; dòng `null` được đọc; JSON hỏng ném lỗi; giá,
+  câu trả lời hay tham số sai kiểu vẫn được nhận), hai ở `lib/run-rows.ts`, một ở
+  `lib/run-summary.ts`, hai ở `lib/tool-reply.ts` (câu từ chối vì hết lời gọi lồng không còn là
+  lỗi, hay lời mở thiếu khoảng trắng), bốn ở `state/thread-reducer.ts` (không đọc phần lưu kèm;
+  không giữ việc của script khi kết quả tới; mọi thẻ tool đều nhận lời gọi; nghe hai lần liệt kê
+  hai lần), sáu ở `components/script-calls.tsx` (đếm khi còn chạy; step cũ có lời gọi mà không
+  đếm; tool nào xong cũng đếm; hai số đo đổi chỗ; dòng đếm đứng trên danh sách; chỉ một số đo thì
+  không đếm), ba ở `components/tool-call-card.tsx` và hai ở `components/run-timeline.tsx` (chỉ
+  đếm khi thành công, đếm ngay, hay không có phần báo), hai ở `i18n/vi.ts` (số không tách hàng
+  nghìn; số chưa đếm đọc thành không) và mười một ở `lib/conversation-markdown.ts` (mỗi danh
+  sách một tiêu đề hay không bao giờ có tiêu đề; danh sách không mở lượt của agent; lời nói không
+  mở lượt, hay lượt nào cũng đọc là của agent; dấu lỗi đặt vào lời gọi thành công; giá ghi cho
+  lời gọi không tính tiền; đánh số từ không; dòng đầu không đếm lỗi hay đếm lỗi từ lời gọi thành
+  công; tên không nằm trong dấu code). Cái tương đương là phép xét kiểu của một số đo trong
+  `storedWork`: bỏ nó thì `workOf` ngay sau vẫn xét đúng điều ấy. Bốn sửa đổi ở CSS qua
+  Playwright, đều bị bắt (dòng đếm không xuống dòng, hiển thị nối dòng, đứng ở cột đầu của lưới,
+  hay sát mép trên ở thẻ trong khung chat).
 
 ## Master được kể mỗi agent đang có gì
 

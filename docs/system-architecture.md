@@ -135,6 +135,26 @@ chạy chúng cùng lúc (tối đa bốn, một lô tối đa mười lời g�
 trả lời và ghi lên thẻ run theo đúng thứ tự đã viết; mỗi lời gọi của lô vẫn là một trong 25 lần,
 và lô có một lời gọi script không được gọi thì không lời gọi nào chạy.
 
+Một script có thể chạy vài phút, nên lời gọi của nó không đợi kết quả của script mới tới người
+xem. Lượt chạy một lời gọi tool lẻ, và `tool_script` luôn là lời gọi lẻ, trong một task riêng
+(`agent/tool_run.py`) và trao cho task đó một chỗ để nói (một `ContextVar` trong
+`agent/nested_calls.py`); script nói qua chỗ đó mỗi khi một lời gọi của nó xong, và lượt phát sự
+kiện `nested_call` xen giữa `tool_call` và `tool_result`. Lượt bị dừng thì task bị huỷ và được
+chờ cho xong, nên tiến trình con của script không sống lâu hơn lượt. Run liệt kê lời
+gọi và cộng tiền ngay (`activity/tool_steps.py`), web thêm một dòng vào thẻ run và thẻ tool. Kết
+quả của script nêu lại toàn bộ theo thứ tự đã viết cùng hai số đo, `received_chars` (số ký tự
+tool trả cho script) và `printed_chars` (số ký tự script in ra), và chỉ lời gọi chưa được báo
+mới được cộng tiền. Cả ba được lưu kèm tin nhắn tool của script trong trường `context`, thứ model
+không bao giờ được gửi, để thẻ trong khung chat còn liệt kê sau khi tải lại trang.
+
+Ba rào giữ script trong khuôn khổ của lượt. Mọi script của một lượt dùng chung một trần lời gọi,
+mười cho mỗi lần gọi model lượt được phép (`max_steps` × 10): script vượt trần bị dừng tại chỗ,
+các lời gọi sau nó được đóng lại không chạy và lượt dừng với lý do `nested_calls`. Câu trả lời
+của một tool dài hơn 200.000 ký tự thì script nhận phần đầu, bản đầy đủ nằm trong kho kết quả dài
+(`tools/output_spill.py`) dưới id `<id lời gọi script>.<số>`, và script đọc tiếp bằng
+`tool_output_read`. Script in ra quá 60.000 ký tự thì model nhận phần đầu và phần cuối
+(`script/printed.py`), script không bị dừng.
+
 Chi tiết từng tool ở [tools.md](tools.md).
 
 ### 2.5 Provider: model là dịch vụ ngoài
