@@ -130,9 +130,17 @@ Agent giữ ít nhất một tool script gọi được thì có thêm `tool_scr
 một tool MCP chủ ghi là chỉ đọc (`read_only`, không `hidden`). Nó không cần máy chủ MCP nào và
 không theo `tools` hay `mode`: `server/agent_assembly.py` giao nó lúc dựng agent, và mỗi lần giao
 tool MCP (`mcp/handout.py`) nó được giao lại với lời mô tả mới, đứng sau tool có sẵn, `delegate` và
-`tool_search`. Gói `script/` chạy đoạn script của model trong một tiến trình con, script gọi các
-tool chỉ đọc qua chính server, và chỉ phần nó in ra mới quay về model; từng lời gọi được ghi vào
-step của run.
+`tool_search`. Gói `script/` chạy đoạn script của model trong một tiến trình con, script gọi tool
+qua chính server, và chỉ phần nó in ra mới quay về model; từng lời gọi được ghi vào step của run.
+Mặc định script chỉ gọi tool chỉ đọc. Agent khai `script_calls: gated` thì script gọi được cả tool
+đổi trạng thái: `script/gate.py` đưa từng lời gọi như thế qua đúng phán quyết của cổng duyệt
+(`agent/tool_gate.py`) trước khi lời gọi nào của lô chạy. Lời gọi lẽ ra phải hỏi người, hay bị chủ
+cấm, kết thúc script bằng một dòng bảo model gọi trực tiếp, vì script không bao giờ chờ người. Ở
+chế độ đó script ghi được canvas như một lời gọi trực tiếp, và script của agent giữ `delegate` giao
+được việc cho agent khác bằng `tools.delegate`: cuộc trò chuyện con treo dưới lượt đã giao, và số
+agent kia tiêu đi theo lời gọi chứ không cộng vào run.
+Script giữ giá trị JSON giữa các lần chạy bằng `store` và `load` (bảng `script_store`, theo agent
+và theo job hay cuộc trò chuyện); các lần ghi chỉ được áp khi script chạy xong.
 Chưa rõ tên hay tham số của một tool thì script tra bằng `tools.names`, `tools.search` và
 `tools.describe`: những lời tra đó chỉ hỏi tiến trình giữ tool, không chạy tool nào và không
 phải một lời gọi. Nhiều lời gọi không cần nhau thì script gộp một lô bằng `tools.batch`: server

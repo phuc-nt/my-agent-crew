@@ -105,6 +105,15 @@ schedules:
     name: Sao lưu Drive
     cron: "20 2 * * *"
     command: ./scripts/backup-to-drive.sh
+  - id: due-reminders
+    name: Nhắc hạn
+    cron: "30 7 * * *"
+    script: |                             # runs with no model turn
+      rows = json.loads(tools.workspace_read(path="data/deadlines.json"))
+      for row in rows:
+          if row["days_left"] <= 3:
+              print(row["title"], "- còn", row["days_left"], "ngày")
+    then_prompt: Viết một tin nhắc ngắn.  # one turn, only when the script printed something
 memory_consolidate: "30 3 * * 1"            # every Monday, rewrite MEMORY.md from the daily notes
 ```
 
@@ -119,6 +128,8 @@ any text was shown — and at most once; the next turn starts on the usual route
 own file sets it, and running out of steps or budget never moves a turn.
 
 A `prompt` job opens a new conversation and runs as if the user had sent a message; a `command` job only runs the shell.
+A `script` job runs a script with the tools the agent's scripts may call and opens no turn; with `then_prompt`, a script
+that printed something hands it to one turn, which is delivered as a `prompt` job's is.
 The result of a `prompt` job is sent to the Telegram chat (if there is a bot, see below) with a first line `[Agent name]`;
 a `MEDIA:` line becomes an image taken from that agent's workspace, a `FILE:` line becomes an attached file
 (`pdf`, `csv`, `md`, `txt`, `xlsx`, `json`, `zip`, up to 20 MB) — images get recompressed, so charts are
@@ -249,15 +260,24 @@ To keep the prompt small, a server's tools are `deferred` unless the file says o
 model is not told of them on every call, and finds them with `tool_search`, which loads the best
 matches for the rest of the conversation. A tool listed under `read_only` (and not `hidden`)
 can also be called from `tool_script`, however far it is let in: the model writes a short
-Python-like script that makes up to 25 read-only calls and only what it prints comes back, so a
+Python-like script that makes up to 25 calls and only what it prints comes back, so a
 job that needs one tool twenty times does not pay for twenty answers in context. Letting a tool
 in as `codemode` (set per tool with `tool_exposure`) names it, with its parameters, in the
-description of `tool_script`; the others are found with `tool_search` as usual. A script may
-call only tools that read and ask nobody; anything that
-writes ends the script with a line saying to call it directly, where the approval gate sees it.
+description of `tool_script`; the others are found with `tool_search` as usual.
+
+A script may call only tools that read and ask nobody, unless the agent's file says
+`script_calls: gated`. Then it may call the tools that change things too, and each such call
+meets the approval gate before it runs: what would run unasked runs, and what a person would be
+asked about ends the script with a line saying to call it directly. A script never waits for a
+person. Any script can keep JSON values between runs (`store`, `load`) and ask the agent's own
+model a small question (`llm.classify`, `llm.summarise`); under `gated` it can also hand a task
+to another agent and write a canvas. A schedule can run a script with no model turn: give the
+row `script:` in place of `prompt:` or `command:`, and `then_prompt:` to hand what the script
+printed to one turn.
 The script runs in a process of its own with an empty environment and limits on memory, CPU and
 time, and on macOS inside a sandbox with no network and no writes.
-Details: [docs/tools.md](docs/tools.md#máy-chủ-mcp).
+Details: [docs/tools.md](docs/tools.md#gọi-tool-từ-script) and
+[docs/tools.md](docs/tools.md#máy-chủ-mcp).
 
 ## Canvas
 
@@ -433,7 +453,8 @@ they appear on screen:
 - **Chi phí** (costs): today and the last seven days on the viewer's calendar, then spend, tokens
   and the share of the prompt served from cache, by agent / model / day, and by purpose
   (**Theo mục đích**): every model call is on the ledger, including the side calls for titles,
-  summaries, image and PDF reading, voice transcription, memory consolidation and the wiki.
+  summaries, image and PDF reading, voice transcription, memory consolidation, the wiki and what
+  a script asks a model itself.
 - **Ghi nhớ** (memory — split further into **Về bạn**, **Của agent**, **Wiki**, **Tìm** and
   **Đề xuất**): a proposal shows the lines it drops beside those it adds, or the exact fact it
   touches, before it is approved.

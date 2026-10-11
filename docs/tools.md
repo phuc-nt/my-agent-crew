@@ -916,7 +916,10 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
     - lệnh `shell_run` khớp `shell_deny_patterns`: câu trả lời nêu mẫu và dặn đừng tìm đường
       khác mà nói rõ với người dùng, như khi gọi trực tiếp;
     - script không chạy trong lượt nào, hay cuộc trò chuyện của lượt không còn: không có luật
-      của ai để xét, nên lời gọi có ghi không chạy.
+      của ai để xét, nên lời gọi có ghi không chạy;
+    - agent không còn giữ tool đó lúc lời gọi tới (máy chủ MCP của nó vừa bị đăng xuất hay rớt
+      kết nối trong khi script chạy): không có tool nào để xét, nên lời gọi không chạy
+      ("… không chạy: agent không còn giữ tool này nên không duyệt được.").
 
     Không câu nào lặp lại lệnh hay tham số của lời gọi: lệnh có thể chứa bí mật, mà câu trả lời
     được lưu cùng run. Chỉ mẫu trong danh sách của chủ được nêu. Lời từ chối được quyết trước
@@ -927,7 +930,13 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
     một lời gọi tới tool không chỉ đọc thì chạy từng lời gọi một, đúng thứ tự đã viết, vì lời
     gọi sau có thể dựa vào cái lời gọi trước để lại; kết quả vẫn là một list theo thứ tự đó, và
     một lời gọi lỗi (lệnh thoát với mã khác 0) vẫn chỉ là phần tử `ok: False` của nó, các lời
-    gọi sau vẫn chạy. Lô chỉ có lời gọi đọc thì chạy cùng lúc như ở agent khác.
+    gọi sau vẫn chạy. Trong lô chạy từng lời gọi một đó, **mỗi lời gọi sau lời gọi đầu được cổng
+    xét lại ngay trước khi tới lượt nó**, như một lời gọi script viết trên dòng riêng: cái lời
+    gọi trước để lại có thể đổi phán quyết (một liên kết vừa tạo làm đường dẫn của lệnh sau trỏ
+    ra chỗ khác), và người dùng có thể rút lại quyền tự chủ giữa lô. Lời gọi bị từ chối lúc đó
+    thì script dừng tại đó: các lời gọi trước nó đã chạy và giữ nguyên, các lời gọi sau nó không
+    chạy (chúng vẫn đã được tính vào trần lời gọi của lượt, vì trần được lấy cho cả lô từ đầu).
+    Lô chỉ có lời gọi đọc thì chạy cùng lúc như ở agent khác.
   - **Ghi canvas từ script.** `artifact_create`, `artifact_edit`, `artifact_rewrite` và
     `artifact_import` không cần duyệt khi gọi trực tiếp, nên cổng cho chúng chạy trong script ở
     mọi cuộc trò chuyện, autonomous hay không. Canvas script tạo ra **là đúng canvas một lời gọi
@@ -1254,7 +1263,8 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
   (khoá `script`) thay cho một prompt: cùng bộ máy, cùng giới hạn, cùng những tool mà
   `script_calls` của agent cho script gọi. Không lượt nào của agent được mở, nên model chỉ được
   gọi ở hai chỗ: khi chính script hỏi bằng `llm.classify` / `llm.summarise` (bullet "Script tự hỏi
-  model"), và khi script in ra gì đó mà lịch có `then_prompt`. Script của job không thuộc cuộc
+  model"), và khi script in ra gì đó mà lịch có `then_prompt` (cái in ra tới lượt đó trong hai
+  dòng đánh dấu, là dữ liệu chứ không phải chỉ dẫn). Script của job không thuộc cuộc
   trò chuyện nào, không bao giờ chờ người và không giao việc cho agent khác. Xem
   [agents.md](agents.md#job-chạy-script).
 - **Giữ lại giữa các lần chạy (`store` / `load`).** Script chạy xong là quên hết: lần sau nó không
@@ -1281,7 +1291,10 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
     hạn, hết giờ, bị dừng, hay tiến trình con chết thì **không giữ gì**: kho y như lúc nó bắt đầu.
     Với script có ghi (`script_calls: gated`) điều đó có một mặt trái: script đã ghi qua tool rồi
     mới hỏng thì việc ghi đã xảy ra mà sổ thì chưa, nên đừng lấy `store` làm bằng chứng duy nhất
-    rằng một việc chưa làm.
+    rằng một việc chưa làm. Còn script chỉ đọc thì được chạy lại sau restart (bullet "Sau
+    restart"): script bị cắt **sau** khi đã chạy xong và giữ xong, nhưng **trước** khi câu trả
+    lời của nó được lưu, sẽ chạy lại trên chính những gì nó vừa giữ. Một bộ đếm giữ kiểu đó có
+    thể đếm lần chạy ấy hai lần, và lần hỏi model trong script bị trả tiền hai lần.
   - **Giới hạn.** Khoá dài tối đa 200 ký tự; một giá trị, viết thành JSON, tối đa 65.536 ký tự;
     một kho (xem "Giữ ở đâu") chứa tối đa 262.144 ký tự, tính cả khoá lẫn giá trị. Kho được đo
     theo cái nó sẽ chứa **sau** lần ghi: ghi đè một khoá thì chỗ của giá trị cũ được trả lại, bỏ

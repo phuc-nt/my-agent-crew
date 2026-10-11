@@ -404,7 +404,8 @@ chỉ ghi step đó; **job script** chạy một script của `tool_script` mà 
 khi chính script hỏi nó bằng `llm.`): run của nó không gắn
 cuộc trò chuyện nào và có đúng một step `tool_script`, cổng duyệt coi nó là việc không ai trông
 nên không gì chờ người, và chỉ khi script chạy xong, có in ra gì đó và lịch có `then_prompt` thì
-một lượt mới được mở như job prompt mở, mang `then_prompt` và cái script in ra (chi tiết ở
+một lượt mới được mở như job prompt mở, mang `then_prompt` và cái script in ra, đặt giữa hai dòng
+đánh dấu có số tạo riêng cho tin đó kèm một câu nói đó là dữ liệu chứ không phải chỉ dẫn (chi tiết ở
 [agents.md](agents.md#job-chạy-script)); **job consolidate**, thêm bởi một cron `memory_consolidate`, đề xuất viết
 lại `MEMORY.md` của agent bằng một lần gọi model (master gọi thêm một lần để xem lại fact người
 dùng) và không mở cuộc trò chuyện nào, nên không gửi gì cả. Tick là 20 s; `POST /api/jobs/{id}/run` khởi động một job ngay lập tức và

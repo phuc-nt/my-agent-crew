@@ -47,8 +47,13 @@ my-agent-crew: một tiến trình Python, một tệp SQLite, một thư mục 
 - Tool từ máy chủ MCP qua HTTP, giao cho từng agent: tool nào cũng hỏi trước trừ khi chủ ghi nó
   là chỉ đọc; `tool_search` để agent tìm rồi mới nạp tool. Xem [tools.md](tools.md#máy-chủ-mcp).
 - `tool_script` ở mọi agent giữ ít nhất một tool chỉ đọc, có sẵn hay của máy chủ MCP: agent viết
-  một đoạn script gọi nối các tool chỉ đọc trong một bước, và chỉ phần script in ra mới vào ngữ
-  cảnh. Xem [tools.md](tools.md#gọi-tool-từ-script).
+  một đoạn script gọi nối các tool trong một bước, và chỉ phần script in ra mới vào ngữ cảnh.
+  Mặc định script chỉ gọi tool chỉ đọc; agent khai `script_calls: gated` thì script gọi được cả
+  tool đổi trạng thái, mỗi lời gọi qua cổng duyệt trước khi chạy, và script không bao giờ chờ
+  người. Script giữ được giá trị giữa các lần chạy (`store`, `load`), hỏi được model của agent
+  (`llm.classify`, `llm.summarise`), và ở chế độ `gated` giao được việc cho agent khác, ghi được
+  canvas. Một lịch chạy được thẳng một script, không mở lượt model nào. Xem
+  [tools.md](tools.md#gọi-tool-từ-script).
 - Vault wiki trong trí nhớ agent: trang theo chủ đề có nguồn và liên kết `[[...]]`, dựng lại từ ghi chú.
 - `shell_network: false`: sandbox hệ điều hành cho agent giữ dữ liệu không được rời máy.
 - Kit `.agents/` kiểu Claude Code: lệnh, agent, skill, hook.

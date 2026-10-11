@@ -224,6 +224,20 @@ giữa lúc ghi không thể để lại một profile không còn parse đượ
 mang tới (prompt hay script của một lịch) được viết thành khối (`prompt: |`), mỗi dòng một dòng
 trong tệp. Chuỗi có ký tự mà khối không chở nguyên vẹn được (tab, `\r`, ký tự không in ra) vẫn
 được viết trong ngoặc kép; viết kiểu nào thì lần khởi động sau cũng đọc lại đúng chuỗi đã lưu.
+Không dòng nào của tệp bị ngắt cho vừa bề rộng: chuỗi dài nằm trọn trên một dòng, dài bao nhiêu
+cũng vậy (một dòng dài mà người viết tay đã tự ngắt sẽ được viết lại liền một dòng ở lần lưu
+đầu tiên có khoá đó). Chuỗi một dòng mà bộ đọc lúc khởi động hiểu thành thứ khác (`No`, `on` là
+đúng/sai; `1:30` là một số) được viết trong ngoặc kép.
+
+**Tệp sắp ghi được đọc lại trước khi ghi.** Lần lưu viết tệp bằng một thư viện YAML (ruamel),
+còn lúc khởi động server đọc bằng thư viện khác (PyYAML), hai bên theo hai phiên bản YAML. Trước
+khi ghi hay đổi gì ở agent đang chạy, server đọc tệp sắp ghi bằng đúng bộ đọc của lúc khởi động
+và so với tệp hiện có, cũng đọc bằng bộ đó, sau khi đặt các khoá vừa sửa. Khoá nào đọc lại ra
+khác thì lần lưu là 422 nêu tên các khoá đó ("Chưa lưu: tệp ghi ra sẽ được đọc lại khác với nội
+dung vừa sửa (…)."), tệp và agent đang chạy giữ nguyên. Tệp hiện có mà bộ đọc lúc khởi động không
+đọc nổi cũng là 422, kèm lỗi của bộ đọc: sửa thẳng tệp rồi lưu lại. Vì cả hai vế đều do một bộ
+đọc đọc, thứ người viết tay mà hai thư viện hiểu khác nhau (`enabled: no`, `max_steps: 010`)
+không chặn lần lưu nào; nó vẫn được đọc theo cách của lúc khởi động như trước giờ.
 
 **Kiểm tra hợp lệ bắt đầu bằng cùng đoạn code đọc tệp viết tay**, chạy
 *trước* khi ghi bất cứ gì. Profile mà server sẽ từ chối khởi động là 422 và
@@ -747,8 +761,15 @@ job prompt gọi một script shell trong workspace.)
   `script`, không kèm cuộc trò chuyện nào.
 - **`then_prompt`.** Script chạy xong **và** in ra thứ gì đó không trống thì crew mở một lượt như
   job prompt mở: cuộc trò chuyện autonomous mới, `skills` và `approval_ttl_seconds` của lịch áp
-  cho nó. Tin mở lượt là `then_prompt`, một dòng trống, rồi cái script in ra (cắt theo
-  `tool_output_chars` của agent). Run của lượt đó là kết quả của job: nó là `last_run` của job,
+  cho nó. Tin mở lượt là `then_prompt`, rồi một câu nói rằng phần bên dưới là những gì script
+  của lịch in ra và là **dữ liệu** để làm theo lời dặn ở trên chứ không phải chỉ dẫn, rồi cái
+  script in ra (cắt theo `tool_output_chars` của agent) nằm giữa hai dòng đánh dấu
+  `<<<SCRIPT_IN_RA <số>` và `SCRIPT_IN_RA <số>>>>`. Số đó được tạo riêng cho từng tin, sau khi
+  script đã chạy xong, nên không gì script in ra viết được dòng đóng. Cái script in ra là cái
+  tool của nó đọc về (tiêu đề một thư, nội dung một trang), và lượt này không ai trông: hàng
+  rào giữ cho nó không đứng ngang hàng với lời dặn của chủ. Nó **không ràng buộc** được model;
+  `then_prompt` vẫn nên nói rõ việc cần làm với dữ liệu, và việc gì không được để dữ liệu sai
+  khiến thì đừng trao tool cho agent đó. Run của lượt đó là kết quả của job: nó là `last_run` của job,
   và câu trả lời cuối của nó được gửi đi theo đúng luật của job prompt (kể cả luật "chỉ trả lời
   `OK` thì không gửi"). Script không in gì, hỏng, hoặc lịch không có `then_prompt` thì không
   lượt nào được mở và không gì được gửi.
