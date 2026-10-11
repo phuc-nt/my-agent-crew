@@ -8,6 +8,9 @@ call is worse than not answering."""
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import Any
 
 from my_agent_crew import texts
@@ -17,6 +20,21 @@ from my_agent_crew.tools.output_spill import READ_TOOL, Spill
 from my_agent_crew.tools.registry import Tool, ToolError
 
 DEFAULT_READ_CHARS = 8000
+
+# How much one answer may hold while a caller that takes more than a turn is reading: a
+# script cuts down what it reads itself. Nothing (0) for a call the model makes.
+_room: ContextVar[int] = ContextVar("output_read_room", default=0)
+
+
+@contextmanager
+def reading_up_to(chars: int) -> Iterator[None]:
+    """While this holds, an answer is sized to `chars` and not to the agent's cap, and a
+    segment is as long as fits unless a shorter one is asked for."""
+    token = _room.set(chars)
+    try:
+        yield
+    finally:
+        _room.reset(token)
 
 
 def _int(value: Any, default: int) -> int:
@@ -56,8 +74,9 @@ def build_output_read_tool(store: Store, spill: Spill, cap: int) -> Tool:
         widest = texts.TOOL_OUTPUT_READ_HEADER.format(
             source=source, offset=total, end=total, total=total
         ) + texts.TOOL_OUTPUT_READ_MORE.format(remaining=total, id=call_id, next_offset=total)
-        room = max(cap - len(widest), 1)
-        size = min(max(_int(args.get("limit"), DEFAULT_READ_CHARS), 1), room)
+        own = _room.get()
+        room = max((own or cap) - len(widest), 1)
+        size = min(max(_int(args.get("limit"), room if own else DEFAULT_READ_CHARS), 1), room)
         end = min(offset + size, total)
         header = texts.TOOL_OUTPUT_READ_HEADER.format(
             source=source, offset=offset, end=end, total=total

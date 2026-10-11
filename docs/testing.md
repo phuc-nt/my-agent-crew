@@ -1366,7 +1366,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     đầu ra ngắn, ghi lỗi thì vẫn trả kết quả, `tool_output_read` không tự spill dù trần rộng
     hay hẹp, trần quá hẹp cho dòng trỏ thì chỉ rút gọn, ghi chú của hook sau không đổi); `tests/test_tool_output_read.py` (đọc từng đoạn, nhãn nguồn, tệp thắng
     bản DB, hết thì báo, offset âm hoặc quá cuối bị kẹp vào văn bản, id của cuộc khác, id trùng
-    bị từ chối, vừa trần registry);
+    bị từ chối, vừa trần registry; model không nêu độ dài thì nhận một đoạn 8.000 ký tự dù trần
+    rộng; người gọi cầm được nhiều hơn thì trong lúc nó đọc đoạn dài vừa đúng phần nó cầm, kể cả
+    hai dòng chỉ đường, xin dài hơn cũng chỉ được vậy, xin ngắn hơn thì ngắn hơn, và lần đọc
+    sau đó lại theo trần của agent);
     `tests/test_message_tool_results.py` (`MessageStore.tool_results`);
     `tests/test_output_read_wiring.py` (agent có hoặc không có tool trong `tools:` thì có hoặc
     không có spill, stub trong prompt nêu id đúng khi có tool, vòng lặp thật đọc lại đoạn giữa
@@ -5290,8 +5293,11 @@ những gì nó in ra mới quay về cho model ([tools.md](tools.md#gọi-tool-
     thì tới nguyên và không giữ gì; mỗi câu trả lời dài của một script được giữ dưới một số
     riêng, các câu trả lời dài của một lô cũng vậy, và script khác của cùng lượt giữ riêng phần
     mình; agent không đọc lại được thì chỉ bị cắt, không giữ gì; script không bị chỉ sang một
-    tool nó không gọi được; lỗi dài bị cắt chứ không giữ; cái `tool_output_read` trả về không bao
-    giờ được giữ lần nữa; không ghi được thì cắt và không chỉ đi đâu; ngoài một lượt thì không giữ
+    tool nó không gọi được; lỗi dài bị cắt chứ không giữ; script đọc hết một câu trả lời một
+    triệu ký tự bằng năm lần đọc tiếp ở agent có trần 8.000 và các đoạn ghép lại đúng chỗ; đoạn
+    `tool_output_read` trả cho script vừa phần script cầm, còn dòng chỉ đường ở cuối, không nêu
+    độ dài thì dài hết mức, và không được giữ lần nữa; trong một lượt, lời đọc tiếp của chính
+    model sau script vẫn theo trần của agent; không ghi được thì cắt và không chỉ đi đâu; ngoài một lượt thì không giữ
     gì; trong một lượt thì giữ dưới id lời gọi của chính model; câu trả lời dài mang nửa ký tự
     được giữ và đọc với nửa ấy đã đánh dấu, script chạy tiếp và giữ đủ các lời gọi; lời gọi hỏng
     ở ngoài tool chỉ hỏng riêng nó, bằng lời script bắt được, các lời gọi cạnh nó vẫn được trả

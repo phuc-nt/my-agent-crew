@@ -115,7 +115,9 @@ vào `<home>/spill/<conversation>/<sha256(call id)[:32]>.txt` (tối đa 5 MB) r
 bản rút ngắn một dòng nêu số ký tự và id lời gọi. `tool_output_read` (`id`, `offset`, `limit`,
 đều tính bằng ký tự) trả bản gốc theo từng đoạn; mỗi đoạn có dòng đầu ghi nguồn và khoảng đã
 đọc, và dòng cuối nêu `offset` tiếp theo hoặc báo đã hết. Đoạn luôn vừa trần đầu ra, vì chính
-đầu ra của tool này không bao giờ bị ghi ra tệp.
+đầu ra của tool này không bao giờ bị ghi ra tệp. Không nêu `limit` thì một đoạn dài 8.000 ký tự
+(hoặc ngắn hơn nếu trần của agent hẹp hơn). Khi người gọi là một script thì đoạn được tính theo
+phần script cầm được (200.000 ký tự) thay cho trần của agent, xem "Gọi tool từ script".
 
 - **Chỉ trong cuộc trò chuyện hiện tại**, kể cả với master: id do model gõ nên không được
   quyết định đọc dữ liệu của ai. Id không có, hoặc trùng giữa hai kết quả, bị từ chối thay vì
@@ -892,11 +894,15 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
   cách đọc tiếp: `[còn N ký tự, đọc tiếp bằng tools.tool_output_read(id="<id lời gọi
   script>.<số>", offset=200000)]`. `<số>` là số thứ tự lời gọi mà script đã thực hiện (bắt đầu từ
   1), nên hai câu trả lời dài của một script, kể cả trong cùng một lô, không đè lên nhau, và hai
-  script của cùng một lượt cũng không. Script đọc tiếp ngay trong chính nó, từng đoạn một. Bản
-  đầy đủ chỉ được giữ khi lời gọi thành công, agent có `tool_output_read`, script đang chạy trong
-  một lượt và việc ghi xuống đĩa thành công; không thì câu trả lời bị cắt còn 200.000 ký tự như
-  trước và không chỉ đi đâu. Kết quả của chính `tool_output_read` không bao giờ được giữ lại lần
-  nữa.
+  script của cùng một lượt cũng không. Script đọc tiếp ngay trong chính nó, từng đoạn một. **Mỗi
+  đoạn dài bằng phần script cầm được**: cả dòng đầu, đoạn chữ và dòng chỉ đường cuối vừa trong
+  200.000 ký tự, bất kể `tool_output_chars` của agent là bao nhiêu; không nêu `limit` thì đoạn
+  dài hết mức đó, nêu `limit` nhỏ hơn thì ngắn hơn. Một câu trả lời một triệu ký tự vì thế cần
+  thêm năm lời gọi để đọc hết, không phải hơn một trăm. Lời gọi `tool_output_read` do chính model
+  thực hiện vẫn theo trần của agent như cũ. Bản đầy đủ chỉ được giữ khi lời gọi thành công, agent
+  có `tool_output_read`, script đang chạy trong một lượt và việc ghi xuống đĩa thành công; không
+  thì câu trả lời bị cắt còn 200.000 ký tự như trước và không chỉ đi đâu. Cái `tool_output_read`
+  trả cho script đã được tính cho vừa nên không bao giờ bị cắt và không được giữ lại lần nữa.
 - **Chạy ở đâu.** Trong một tiến trình con riêng (`python -I -S -B`) với **môi trường rỗng**: không
   biến môi trường nào, nên không khoá nào. Nó chỉ nói chuyện với server qua stdin/stdout, mỗi dòng
   một JSON, và chính server là bên chạy tool. Trên macOS tiến trình đó nằm trong một sandbox riêng
@@ -975,6 +981,7 @@ Giới hạn nằm trong code, không cấu hình nào nới được:
 | đầu ra in ra, phần model nhận được | 60.000 ký tự |
 | một câu trả lời của tool, phần script nhận được | 200.000 ký tự |
 | một câu trả lời của tool, phần được giữ lại để đọc tiếp | 5 MB |
+| một đoạn script đọc tiếp bằng `tool_output_read` | 200.000 ký tự, kể cả hai dòng chỉ đường |
 | tham số của một lời gọi tool | 100.000 ký tự |
 | hàm gọi lồng nhau | 40 tầng |
 | số nguyên | 256 bit |

@@ -13,7 +13,7 @@ from my_agent_crew import texts
 from my_agent_crew.agent.turn_context import set_tool_call_id, set_turn_conversation
 from my_agent_crew.llm.types import Message
 from my_agent_crew.store import Store
-from my_agent_crew.tools.output_read import build_output_read_tool
+from my_agent_crew.tools.output_read import build_output_read_tool, reading_up_to
 from my_agent_crew.tools.output_spill import Spill
 from my_agent_crew.tools.registry import ToolError, ToolRegistry
 
@@ -182,6 +182,54 @@ async def test_one_read_never_exceeds_the_registry_cap_even_when_asked_for_more(
 
     assert result.ok and len(result.output) <= 1000
     assert result.shaped_kind == "none" and "offset=" in result.output
+
+
+async def test_a_read_the_model_asks_no_length_for_is_a_fixed_segment_at_a_wide_cap(
+    store: Store, spill: Spill
+):
+    """An agent handed far more than a segment is not handed all of it unasked."""
+    conv = store.create()
+    spill.write(conv.id, "c1", "y" * 50_000)
+    set_turn_conversation(conv.id)
+
+    out = await _read(store, spill, cap=20_000)({"id": "c1"})
+
+    assert "0-8000/50000" in out and out.count("y") == 8000
+
+
+async def test_a_caller_that_holds_more_reads_in_segments_of_its_own_size_while_it_reads(
+    store: Store, spill: Spill
+):
+    """A script holds far more of one answer than a turn is handed. While it reads, a
+    segment fills what it holds with its signposts, unless a shorter one is asked for; a
+    read made after it is held to the agent's cap again."""
+    text = "".join(f"{n:09d}\n" for n in range(6_000))
+    conv = store.create()
+    spill.write(conv.id, "c1", text)
+    set_turn_conversation(conv.id)
+    run = _read(store, spill)
+
+    with reading_up_to(50_000):
+        as_fits = await run({"id": "c1"})
+        asked_more = await run({"id": "c1", "limit": 90_000})
+        asked_less = await run({"id": "c1", "limit": 300})
+    after = await run({"id": "c1"})
+
+    def answer(end: int, offset: int = 0, left: int | None = None) -> str:
+        return (
+            texts.TOOL_OUTPUT_READ_HEADER.format(
+                source=texts.TOOL_OUTPUT_SOURCE_ORIGINAL, offset=offset, end=end, total=60_000
+            )
+            + text[offset:end]
+            + texts.TOOL_OUTPUT_READ_MORE.format(
+                remaining=60_000 - end if left is None else left, id="c1", next_offset=end
+            )
+        )
+
+    signposts = len(answer(60_000, offset=60_000, left=60_000))  # the widest this text can need
+    assert as_fits == asked_more == answer(50_000 - signposts) and len(as_fits) <= 50_000
+    assert asked_less == answer(300)
+    assert after == answer(CAP - signposts) and len(after) <= CAP
 
 
 async def test_the_tool_needs_no_approval_and_may_run_alongside_others(store: Store, spill: Spill):
