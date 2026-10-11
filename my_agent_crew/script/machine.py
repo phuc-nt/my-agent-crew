@@ -17,12 +17,12 @@ from my_agent_crew.script.expressions import EXPRESSIONS
 from my_agent_crew.script.limits import (
     MAX_DEPTH,
     MAX_ERROR_CHARS,
-    MAX_OUTPUT_CHARS,
     Budget,
     Halt,
     ScriptError,
 )
 from my_agent_crew.script.operators import describe, render
+from my_agent_crew.script.printed import Printed
 from my_agent_crew.script.statements import CAUGHT, STATEMENTS
 from my_agent_crew.script.values import Builtin, Env, Function, Return, kind_name
 
@@ -75,8 +75,7 @@ class Machine:
         self.call_tools = call_tools
         self.budget = Budget()
         self.globals = Env()
-        self.out: list[str] = []
-        self.printed = 0
+        self.printed = Printed()
         self.line = 1
         # The error an `except` is dealing with, for a bare `raise` to raise again.
         self.handling: Exception | None = None
@@ -121,13 +120,7 @@ class Machine:
             self.budget.depth -= 1
 
     def write(self, text: str) -> None:
-        """Keeps what the script printed, up to the most it may: the rest is not kept, and
-        the script ends there, so a loop that prints without end is not left running."""
-        room = MAX_OUTPUT_CHARS - self.printed
-        self.out.append(text[:room])
-        self.printed += min(len(text), room)
-        if len(text) > room:
-            raise Halt(t.SCRIPT_TOO_MUCH_OUTPUT.format(most=MAX_OUTPUT_CHARS))
+        self.printed.write(text)
 
     def run(self, tree: ast.Module) -> None:
         """The whole script. A bare expression on its last line is shown, as a prompt
@@ -167,4 +160,4 @@ def run(source: str, call_tool: CallTool, ask: Ask, call_tools: CallTools) -> di
     except MemoryError:
         error = t.SCRIPT_HALTED.format(line=machine.line, reason=t.SCRIPT_OUT_OF_ROOM)
     said = None if error is None else error[:MAX_ERROR_CHARS]
-    return {"ok": error is None, "output": "".join(machine.out), "error": said}
+    return {"ok": error is None, "output": machine.printed.text(), "error": said}
