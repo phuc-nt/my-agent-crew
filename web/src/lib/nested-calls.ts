@@ -20,7 +20,9 @@ interface CarriedWork {
   printed_chars?: number | null;
 }
 
-/** One call heard twice says the same thing both times, whichever way it came. */
+/** One call heard twice says the same thing both times, whichever way it came. Whether it
+ *  went through the approval gate is left out of the comparison: it is absent on one
+ *  hearing and false on the other as easily as not, and a call taken for two is paid twice. */
 function sameCall(a: NestedToolCall, b: NestedToolCall): boolean {
   return (
     a.name === b.name &&
@@ -88,7 +90,9 @@ function isCall(value: unknown): value is NestedToolCall {
     typeof call.output === "string" &&
     typeof call.ms === "number" &&
     (call.cost_usd === null || typeof call.cost_usd === "number") &&
-    typeof call.metered === "boolean"
+    typeof call.metered === "boolean" &&
+    // Kept only by a result stored since scripts could make gated calls.
+    (call.gated === undefined || typeof call.gated === "boolean")
   );
 }
 

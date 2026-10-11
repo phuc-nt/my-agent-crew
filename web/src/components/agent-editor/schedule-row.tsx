@@ -1,9 +1,11 @@
 import { type MouseEvent, useRef } from "react";
-import { type RowProblems, type ScheduleRow, usesCommand, usesEvery } from "../../hooks/agent-draft-checks";
+import type { RowProblems } from "../../hooks/agent-draft-checks";
+import { type ScheduleRow, usesCommand, usesEvery, usesScript } from "../../hooks/schedule-row-shape";
 import { vi } from "../../i18n/vi";
 import { cronText, everyText } from "../../lib/cron-text";
 import { TextField } from "./fields";
 import { Choice, SkillPicker } from "./schedule-parts";
+import { ScheduleScriptAction } from "./schedule-script-action";
 
 interface Props {
   row: ScheduleRow;
@@ -33,13 +35,18 @@ const ACTIONS = [
 /**
  * One schedule: when it runs, what it does, and whether it is on.
  *
- * The parser takes exactly one of cron / every and exactly one of prompt / command, so
- * each pair is one choice with one box rather than two boxes that can both be filled.
+ * The parser takes exactly one of cron / every and, of the two actions this form writes,
+ * exactly one of prompt / command, so each pair is one choice with one box rather than
+ * two boxes that can both be filled.
  * Switching sets the other key to null: the row keeps the declared shape, and a row the
  * person never touched still compares equal to the file and is not counted as a change.
  * What the switched-away box held is kept for the life of the row and comes back with it,
  * so a mis-tap is undone by tapping back rather than by retyping. A command carries no
  * skills; a prompt's come back with the prompt.
+ *
+ * A row that runs a script is the third action, and the one this form does not write: it
+ * is shown in place of the choice, so no tap turns it into a prompt or a command, and the
+ * choice of an ordinary row has no third side to turn it into a script.
  */
 export function ScheduleRowEditor(props: Props) {
   const { row, position, problems, skills, readOnly, onChange, onRemove } = props;
@@ -139,30 +146,36 @@ export function ScheduleRowEditor(props: Props) {
       />
 
       <span className="field-label">{vi.editor.scheduleAction}</span>
-      <Choice
-        label={vi.editor.scheduleAction}
-        value={command ? "command" : "prompt"}
-        options={ACTIONS}
-        disabled={readOnly}
-        onPick={pickAction}
-      />
-      <TextField
-        label={command ? vi.editor.scheduleCommand : vi.editor.schedulePrompt}
-        value={(command ? row.command : row.prompt) ?? ""}
-        error={problems?.action}
-        mono={command}
-        rows={command ? 2 : 3}
-        disabled={readOnly}
-        onChange={(text) => onChange(command ? { command: text } : { prompt: text })}
-      />
-      {/* Skills are attached to the conversation a prompt opens; a command has none. */}
-      {!command && (
-        <SkillPicker
-          available={skills}
-          chosen={row.skills}
-          disabled={readOnly}
-          onChange={(chosen) => onChange({ skills: chosen })}
-        />
+      {usesScript(row) ? (
+        <ScheduleScriptAction script={row.script ?? ""} thenPrompt={row.then_prompt} />
+      ) : (
+        <>
+          <Choice
+            label={vi.editor.scheduleAction}
+            value={command ? "command" : "prompt"}
+            options={ACTIONS}
+            disabled={readOnly}
+            onPick={pickAction}
+          />
+          <TextField
+            label={command ? vi.editor.scheduleCommand : vi.editor.schedulePrompt}
+            value={(command ? row.command : row.prompt) ?? ""}
+            error={problems?.action}
+            mono={command}
+            rows={command ? 2 : 3}
+            disabled={readOnly}
+            onChange={(text) => onChange(command ? { command: text } : { prompt: text })}
+          />
+          {/* Skills are attached to the conversation a prompt opens; a command has none. */}
+          {!command && (
+            <SkillPicker
+              available={skills}
+              chosen={row.skills}
+              disabled={readOnly}
+              onChange={(chosen) => onChange({ skills: chosen })}
+            />
+          )}
+        </>
       )}
     </li>
   );

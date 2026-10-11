@@ -10,7 +10,9 @@ import type { ScheduleInfo, TelegramBlock } from "../api/types";
 
 type Declared = Omit<ScheduleInfo, "kind">;
 
-const SCHEDULE_KEYS = new Set(["id", "name", "cron", "every", "prompt", "command", "enabled", "skills", "approval_ttl_seconds"]);
+const SCHEDULE_KEYS = new Set([
+  "id", "name", "cron", "every", "prompt", "command", "script", "then_prompt", "enabled", "skills", "approval_ttl_seconds",
+]);
 
 type Read<T> = { ok: T } | { error: string };
 
@@ -43,8 +45,13 @@ export function readSchedules(value: unknown): Read<Declared[]> {
     if (unknown.length > 0) return { error: `schedule has unknown keys ${JSON.stringify(unknown)}` };
     if (Boolean(raw.cron) === Boolean(raw.every))
       return { error: "schedule needs exactly one of cron / every" };
-    if (Boolean(raw.prompt) === Boolean(raw.command))
-      return { error: "schedule needs exactly one of prompt / command" };
+    // A job nudges the agent, runs a command or runs a script: one of the three, never two.
+    if ([raw.prompt, raw.command, raw.script].filter(Boolean).length !== 1)
+      return { error: "schedule needs exactly one of prompt / command / script" };
+    // The prompt a script's output goes on with; beside a prompt or a command it has
+    // nothing to go on with, and a form that sent one there has mixed two rows up.
+    if (raw.then_prompt !== undefined && raw.then_prompt !== null && !raw.script)
+      return { error: "schedule takes then_prompt only beside script" };
     const id = String(raw.id || `job-${index}`);
     // `profile_edit.validated`: the scheduler keys jobs by id, so a second one would
     // replace the first without a word.
@@ -58,6 +65,8 @@ export function readSchedules(value: unknown): Read<Declared[]> {
       every: (raw.every as string | undefined) ?? null,
       prompt: (raw.prompt as string | undefined) ?? null,
       command: (raw.command as string | undefined) ?? null,
+      script: (raw.script as string | undefined) ?? null,
+      then_prompt: (raw.then_prompt as string | undefined) ?? null,
       enabled: raw.enabled === undefined ? true : Boolean(raw.enabled),
       skills: ((raw.skills as unknown[] | undefined) ?? []).map(String),
       approval_ttl_seconds: ttl.ok,
@@ -95,7 +104,7 @@ export function applyAgentPatch<T extends object>(agent: T, patch: Record<string
     if ("error" in read) return read;
     const declared = (agent as { declared?: object }).declared ?? {};
     next.declared = { ...declared, schedules: read.ok };
-    next.schedules = read.ok.map((row) => ({ ...row, kind: row.command ? "command" : "prompt" }));
+    next.schedules = read.ok.map((row) => ({ ...row, kind: row.script ? "script" : row.command ? "command" : "prompt" }));
   }
   // The list the file now writes; a null clears the key, which reads back as no list.
   if ("tools" in patch) next.declared = { ...(next.declared as object), tools: patch.tools ?? [] };

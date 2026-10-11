@@ -25,6 +25,7 @@ from my_agent_crew.store.models import Conversation
 from my_agent_crew.store.queue import QueueStore
 from my_agent_crew.store.runs import RunStore
 from my_agent_crew.store.schema import apply_schema
+from my_agent_crew.store.script_store import ScriptStore, conversation_namespace
 from my_agent_crew.store.search import SearchStore
 from my_agent_crew.store.side_calls import SideCallStore
 from my_agent_crew.store.spend import Spending
@@ -59,6 +60,7 @@ class Store(ConversationLookups, Forks, MessageLog, Spending):
         self.created_schedules = CreatedSchedulesStore(self._conn, self._lock)
         self.artifact_links = ArtifactLinks(self._conn, self._lock)
         self.artifacts = ArtifactStore(self._conn, self._lock, self.artifact_links)
+        self.script_store = ScriptStore(self._conn, self._lock)
 
     def close(self) -> None:
         self._conn.close()
@@ -164,6 +166,9 @@ class Store(ConversationLookups, Forks, MessageLog, Spending):
                 for table in OWNED_BY_CONVERSATION:
                     sql = f"DELETE FROM {table} WHERE conversation_id = ?"
                     self._conn.execute(sql, (conv_id,))
+                # What its scripts kept goes with it: nothing else is ever kept under its id.
+                kept = conversation_namespace(conv_id)
+                self._conn.execute("DELETE FROM script_store WHERE namespace = ?", (kept,))
                 # A fork's header links back here; once this conversation is gone that link
                 # must go too, or it would point at an id that no longer exists.
                 self._conn.execute(

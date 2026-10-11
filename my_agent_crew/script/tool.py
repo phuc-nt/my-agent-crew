@@ -23,23 +23,31 @@ change things too. Each such call is put to the approval gate before it runs (`g
 script still asks nobody, and ends on a call a person would be asked about. What such a script
 did before a restart cut it cannot be told from the log, since a call it made is kept only
 with its result: it is closed as cut and never run again, whatever it had called.
+
+What a script keeps for a later run (`store`, `load`) is written once, when it ended well
+(`store_session.py`). A script cut while it ran kept nothing, and is run again as if for the
+first time; one cut after it ended and before its answer was saved is run again over what it
+had kept.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from functools import partial
 from typing import TYPE_CHECKING, Any
 
 from my_agent_crew import texts_script as t
 from my_agent_crew.mcp.config import CODEMODE
 from my_agent_crew.mcp.tools import McpTool
 from my_agent_crew.script.gate import script_gate
+from my_agent_crew.script.kept import nowhere
 from my_agent_crew.script.limits import MAX_BATCH, MAX_CALLS, MAX_SOURCE_CHARS
 from my_agent_crew.script.nested import Gate, ScriptRun
 from my_agent_crew.script.runner import run_script
 from my_agent_crew.script.scope import SCRIPT_TOOL, callable_tools, writes_too
 from my_agent_crew.script.signature import call_line, signature
+from my_agent_crew.script.store_session import Kept, turn_kept
 from my_agent_crew.tools.registry import Tool, ToolError, ToolRegistry
 from my_agent_crew.tools.result import ToolResult
 
@@ -84,14 +92,46 @@ def _description(builtins: Sequence[Tool], scripted: Sequence[McpTool], gated: b
     )
 
 
+async def run_source(
+    source: str, held: ToolRegistry, gate: Gate | None = None, kept: Kept | None = None
+) -> tuple[ToolResult, str]:
+    """Runs one script against the tools in `held`, and hands back how it ended beside what
+    it printed, which the result holds only mixed with the rest. The one way a script is
+    run: a turn's `tool_script` comes here, and so does the script of a schedule
+    (`scheduler/script_job.py`). What it wrote with `store` is kept in `kept` once it ended
+    well, and never otherwise; when even then none of it could be kept, the script failed."""
+    made = ScriptRun(held, gate, keep=kept.answer if kept is not None else nowhere)
+    outcome = await run_script(source, made.answer, lookup=made.lookup, call_many=made.answer_many)
+    printed = said = outcome.output.rstrip()
+    if outcome.error:
+        said = f"{said}\n{outcome.error}" if said else outcome.error
+    lost = kept.commit() if kept is not None and outcome.ok else None
+    if lost:
+        said = f"{said}\n{lost}" if said else lost
+    ok = outcome.ok and not lost
+    if not ok:
+        said = f"{t.SCRIPT_FAILED}\n{said}".rstrip()
+    result = ToolResult(
+        ok=ok,
+        output=said or t.SCRIPT_NO_OUTPUT,
+        calls=tuple(made.calls),
+        received_chars=made.received,
+        printed_chars=len(printed),
+    )
+    return result, printed
+
+
 def script_tool(
     registry: Callable[[], ToolRegistry],
     scripted: Sequence[McpTool] = (),
     gate: Gate | None = None,
+    keeper: Callable[[], Kept | None] | None = None,
 ) -> Tool:
     """One agent's `tool_script`. `registry` hands back the agent's tools as they are when
     a script runs; `scripted` are the MCP tools it is told it may call from one. With a
     `gate`, its scripts call the tools that change things too, each put to the gate first.
+    `keeper` says, as a script begins, where that one keeps what it stores; without one a
+    script has nowhere.
     """
     gated = gate is not None
 
@@ -101,23 +141,8 @@ def script_tool(
             raise ToolError(t.SCRIPT_NO_SOURCE)
         if len(source) > MAX_SOURCE_CHARS:
             raise ToolError(t.SCRIPT_TOO_LONG.format(most=MAX_SOURCE_CHARS))
-        made = ScriptRun(registry(), gate)
-        outcome = await run_script(
-            source, made.answer, lookup=made.lookup, call_many=made.answer_many
-        )
-        said = outcome.output.rstrip()
-        printed = len(said)
-        if outcome.error:
-            said = f"{said}\n{outcome.error}" if said else outcome.error
-        if not outcome.ok:
-            said = f"{t.SCRIPT_FAILED}\n{said}".rstrip()
-        return ToolResult(
-            ok=outcome.ok,
-            output=said or t.SCRIPT_NO_OUTPUT,
-            calls=tuple(made.calls),
-            received_chars=made.received,
-            printed_chars=printed,
-        )
+        kept = keeper() if keeper is not None else None
+        return (await run_source(source, registry(), gate, kept))[0]
 
     own = [tool for tool in callable_tools(registry(), gated) if not isinstance(tool, McpTool)]
     return ScriptTool(
@@ -138,4 +163,5 @@ def hand_script(deps: AgentDeps, scripted: Sequence[McpTool] = ()) -> None:
     gate = script_gate(deps) if writes_too(deps.settings) else None
     if scripted or callable_tools(deps.tools, gate is not None):
         # Read when a script runs, not now: the registry is replaced on the next hand-out.
-        deps.tools.register(script_tool(lambda: deps.tools, scripted, gate))
+        keeper = partial(turn_kept, deps)
+        deps.tools.register(script_tool(lambda: deps.tools, scripted, gate, keeper))

@@ -82,6 +82,11 @@ CREATE TABLE IF NOT EXISTS canvas_focus (
     selection TEXT NOT NULL DEFAULT '', noted INTEGER NOT NULL DEFAULT 0,
     updated_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS script_store (
+    agent_id TEXT NOT NULL, namespace TEXT NOT NULL, key TEXT NOT NULL,
+    value_json TEXT NOT NULL, updated_at TEXT NOT NULL,
+    PRIMARY KEY (agent_id, namespace, key)
+);
 """
 
 # (table, column, definition) added after the table first shipped.

@@ -13,7 +13,8 @@ would pass it is ended there, and the turn with it.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
 
@@ -64,6 +65,19 @@ def nested_budget() -> NestedBudget | None:
 def set_nested_sink(sink: Sink | None) -> None:
     """Set inside the task that carries one call out, so it is that call's alone."""
     _sink.set(sink)
+
+
+@contextmanager
+def outside_a_turn(sink: Sink) -> Iterator[None]:
+    """For a script that no turn runs, a schedule's: its calls are told to `sink` and
+    counted against no turn, whatever the turn before it in this task left set. Both are
+    put back when it is over."""
+    told, counted = _sink.set(sink), _budget.set(None)
+    try:
+        yield
+    finally:
+        _budget.reset(counted)
+        _sink.reset(told)
 
 
 def note_nested_call(call: NestedCall) -> None:

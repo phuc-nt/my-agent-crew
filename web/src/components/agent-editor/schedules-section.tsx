@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { blankSchedule, type ScheduleRow } from "../../hooks/agent-draft-checks";
+import { blankSchedule, type ScheduleRow } from "../../hooks/schedule-row-shape";
 import type { AgentDraft } from "../../hooks/use-agent-draft";
 import { vi } from "../../i18n/vi";
 import { TextField } from "./fields";

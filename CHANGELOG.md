@@ -34,6 +34,49 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   again, since nothing says what it had written. The master's roster says of such an agent that
   its scripts call the tools that write. Any other value of the key stops the crew from starting
   and is a 422 through the API.
+- A script can keep a thing from one run to the next. `store(key, value)` keeps a JSON value,
+  `store(key, None)` drops the key and `load(key)` reads it back, or gives `None` when nothing
+  is kept under it. The two are names of the script like `print`, not tools: they are none of
+  the 25 calls or the 40 lookups, are not on the run card and are not put to the approval gate,
+  so an agent whose scripts only read keeps things too. A script reads its own writes while it
+  runs, and they are written only when it ends well, all of them at once: one that failed, was
+  ended by the gate or a limit, ran out of time or was stopped keeps nothing. Where a value is
+  kept is the server's to say and never the script's: the script of a schedule keeps under
+  `job:<schedule id>` and so does the turn a job opens, a prompt job's too; any other turn,
+  the one a person takes up in that conversation among them, keeps under
+  `conv:<conversation id>`. Each place is one agent's own, and a script with neither a job nor
+  a conversation is told there is nowhere to keep it, which it can catch. Deleting a
+  conversation deletes what its scripts kept.
+  A key is at most 200 characters, a value 65,536 as the JSON it is kept as, and one such place
+  262,144 for its keys and values together, measured as it would stand after the write. Over
+  any of them, or a value JSON cannot write (a set, NaN, a dict whose keys are not text), is a
+  mistake the script can catch, and that write is not made. The place is measured again when
+  the writes are made; if another run has filled it since, none of them is made and the script
+  is told so as one that failed. `GET /api/agents/{id}/script-store` shows what an agent's
+  scripts keep, by place: each key with the beginning of its value, its length and when it was
+  written. Nothing writes or deletes through the API. The values live in a new table,
+  `script_store`, made when the server starts; no table that was there changes.
+- A schedule can run a script instead of asking the model. A row of `schedules` in `agent.yaml`
+  takes `script` (the source, checked when the file is read as a turn's script is before it
+  runs) in place of `prompt` or `command`, and exactly one of the three; `then_prompt` may stand
+  beside `script` and nowhere else. When the job is due the script runs with what `tool_script`
+  runs with for that agent (the same tools by `script_calls`, the same limits), whether or not
+  the agent holds `tool_script`, and no model is asked. Nobody is there to be asked either: the
+  approval gate treats the job as an autonomous conversation, so a command on
+  `shell_ask_patterns` or `shell_deny_patterns`, or a tool with a reason of its own to ask, ends
+  the script there, unrun, and nothing waits. The job is a run with no conversation and one
+  `tool_script` step holding the calls it made, `done` or `error`, summed up by the end of what
+  it printed or of the error, and the calls that paid a model are charged to it. A tool that
+  works through a conversation has none there and says so. With `then_prompt`, a script that
+  ended well and printed something opens one turn the way a prompt job does: the model reads
+  `then_prompt`, a blank line and what was printed (cut to `tool_output_chars`), and its answer
+  is delivered by the rules of a prompt job. A script that printed nothing costs no model call
+  and tells nobody. What the script kept with `store` is written before that turn opens, and
+  the turn's own scripts read and keep under the same `job:<schedule id>`. A schedule row, as
+  the API reads and writes it and as `GET /api/jobs` lists it, always carries `script` and
+  `then_prompt` (`null` when unused) and says `kind: "script"`; a row that names none or two of
+  the three, or a script that could not run, stops the crew from starting and is a 422 through
+  the API. `schedule_create` still makes prompt jobs only.
 
 ## [0.14.0] — 2026-10-11
 

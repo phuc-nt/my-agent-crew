@@ -24,9 +24,17 @@ export function ScriptCalls({ calls }: { calls: NestedToolCall[] }) {
         {calls.map((call, index) => (
           // A script may make the very same call twice; only its place tells the two apart.
           <li key={index} className="script-call" data-testid="script-call" data-ok={call.ok}>
-            <span className="script-call-head">
+            <span className={call.gated ? "script-call-head gated" : "script-call-head"}>
               <code className="script-call-name">{call.name}</code>
               {!call.ok && <span className="step-state failed">{vi.toolFailed}</span>}
+              {/* It changed something and the approval gate let it through. Said in words
+                  and on the call itself: the step of the script shows one state for all
+                  of its calls, and cannot say which of them wrote. */}
+              {call.gated && (
+                <span className="step-state gated" data-testid="script-call-gated">
+                  {vi.scriptCallGated}
+                </span>
+              )}
               <span className="step-time tabular">{vi.stepDuration(call.ms)}</span>
             </span>
             <span className="script-call-line">{summarizeArguments(call.arguments) || "—"}</span>

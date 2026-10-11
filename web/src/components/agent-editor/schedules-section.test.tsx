@@ -2,7 +2,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi as vitest } from "vitest";
 import type { AgentInfo } from "../../api/types";
-import type { ScheduleRow } from "../../hooks/agent-draft-checks";
+import type { ScheduleRow } from "../../hooks/schedule-row-shape";
 import { vi } from "../../i18n/vi";
 import { FakeBackend, fakeAgent } from "../../test/fake-backend";
 import { SCHEDULES_RESTART_REASON } from "../../test/schedule-contract";

@@ -20,6 +20,9 @@ export interface NestedToolCall {
   /** Read only when `metered`: what the call paid a model, null when no price came with it. */
   cost_usd: number | null;
   metered: boolean;
+  /** The call changed something and the approval gate let it through. Absent on a call
+   * that changed nothing, and on every call kept from before the gate reached scripts. */
+  gated?: boolean;
 }
 
 export type RunStep =

@@ -1,9 +1,11 @@
 """What one scheduled job actually does, once the clock has decided it is due.
 
-Three kinds, told apart by the schedule: a prompt job opens a fresh autonomous
+Four kinds, told apart by the schedule: a prompt job opens a fresh autonomous
 conversation and runs one turn; a command job runs a shell command with no model at all;
-a consolidate job rewrites the agent's `MEMORY.md`. Each ends as a run in the activity
-hub, which is how every one of them becomes visible in the UI.
+a script job runs a script as `tool_script` would, and opens such a turn only when the
+script printed something to hand on (`script_job.py`); a consolidate job rewrites the
+agent's `MEMORY.md`. Each ends as a run in the activity hub, which is how every one of
+them becomes visible in the UI.
 """
 
 from __future__ import annotations
@@ -51,12 +53,18 @@ class Job:
         }
 
 
+def ending(text: str) -> str:
+    """The end of what a job with no model said, which is what its run is summed up by."""
+    return text.strip()[-160:]
+
+
 def prompt_skills(job: Job, skills: Sequence[Skill]) -> list[str]:
     """A job runs with nobody watching, so a skill it names in the prompt is attached even
     when the schedule forgot to list it: the alternative is a run that guesses syntax until
-    it hits the step cap."""
+    it hits the step cap. The prompt of a script job is the one its output is handed to."""
     attached = list(job.schedule.skills)
-    for name in mentioned_skills(job.schedule.prompt, skills):
+    said = job.schedule.prompt or job.schedule.then_prompt or ""
+    for name in mentioned_skills(said, skills):
         if name not in attached:
             attached.append(name)
     return attached
@@ -76,6 +84,14 @@ def nothing_to_report(job: Job, run: RunRecord, deps: AgentDeps) -> bool:
 
 
 async def run_prompt(job: Job, deps: AgentDeps, hub: ActivityHub, title: str) -> RunRecord:
+    return await open_turn(job, deps, hub, title, job.schedule.prompt)
+
+
+async def open_turn(
+    job: Job, deps: AgentDeps, hub: ActivityHub, title: str, message: str | None
+) -> RunRecord:
+    """One turn nobody watches, in a conversation opened for it, and the run it left. What
+    a prompt job is; a script job opens one the same way for what its script printed."""
     conv = deps.store.create(
         title=title,
         autonomous=True,
@@ -84,7 +100,7 @@ async def run_prompt(job: Job, deps: AgentDeps, hub: ActivityHub, title: str) ->
         skills=prompt_skills(job, deps.skills),
         approval_ttl_seconds=job.schedule.approval_ttl_seconds,
     )
-    events = run_turn(deps, conv.id, job.schedule.prompt, source=JOB)
+    events = run_turn(deps, conv.id, message, source=JOB)
     async for _ in tracked(hub, events, job.agent_id, JOB_SOURCE + job.id, conv.title, conv.id):
         pass
     run = next((r for r in hub.recent(50) if r.conversation_id == conv.id), None)
@@ -102,7 +118,7 @@ async def run_command(job: Job, deps: AgentDeps, hub: ActivityHub, title: str) -
     hub.record(
         run, ToolResultEvent("cmd", "shell_run", ok, output or f"exit {code}"), time.monotonic()
     )
-    hub.finish(run, status=DONE if ok else FAILED, summary=(output or "").strip()[-160:])
+    hub.finish(run, status=DONE if ok else FAILED, summary=ending(output or ""))
     return run
 
 

@@ -520,6 +520,11 @@ export const vi = {
     scheduleAction: "Làm gì",
     schedulePrompt: "Nhắc agent",
     scheduleCommand: "Lệnh shell",
+    // A job that runs a script with no model call. It is written by hand in the file: the
+    // form names it, shows it and says where it is changed, and offers no box to type in.
+    scheduleScript: "Script",
+    scheduleScriptHint: "Nội dung script sửa trong tệp agent.yaml, không sửa được ở đây.",
+    scheduleThenPrompt: "Nhắc agent khi script in ra kết quả",
     scheduleSkillsEmpty: "Agent này chưa có kỹ năng nào để gắn.",
     // A row not named yet goes by its place in the list: "Xoá lịch số 2".
     scheduleUnnamed: (position: number) => `số ${position}`,
@@ -730,6 +735,9 @@ export const vi = {
   // model never read. Counted in calls, since a script may call one tool many times.
   scriptCalls: (count: number, failed: number) =>
     failed > 0 ? `Script đã gọi công cụ ${count} lần · ${failed} lần lỗi` : `Script đã gọi công cụ ${count} lần`,
+  // On a call that changed something and was let through by the approval gate. Said in
+  // words beside the call's name, so nobody has to tell it from a colour.
+  scriptCallGated: "qua cổng duyệt",
   // Under those calls once the script ended: what the calls handed the script, none of which
   // the model read, against what the script printed (of which the model reads what the
   // agent's cap on a tool's result lets through). A dash stands for a number nobody counted,
@@ -841,7 +849,11 @@ export const vi = {
   jobHistoryEmpty: "Lịch này chưa chạy lần nào.",
   jobKindPrompt: "nhắc agent",
   jobKindCommand: "lệnh shell",
+  jobKindScript: "chạy script",
   jobKindConsolidate: "cô đọng bộ nhớ",
+  // Under a script job's source: the prompt a turn is opened with when the script printed
+  // something, and with nothing printed no model is called at all.
+  jobThenPrompt: "Có kết quả thì nhắc agent",
   jobSkills: "Kỹ năng gắn sẵn",
   jobRow: {
     edit: "Sửa lịch",

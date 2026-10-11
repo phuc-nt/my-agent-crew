@@ -340,6 +340,23 @@
   grid-column: 3;
 }
 
+/* A call let through the approval gate says so between the word for a failure and the
+   time, in a column of its own: both words can stand on one call, and the time still
+   keeps the last column. Only such a row has the fourth column, so every other row is
+   laid out as it was. */
+.script-call-head.gated {
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+}
+
+.script-call-head.gated .step-time {
+  grid-column: 4;
+}
+
+.script-call-head.gated .step-state.gated {
+  grid-column: 3;
+  color: var(--text-secondary);
+}
+
 .script-call-name {
   min-width: 0;
   font-size: var(--text-xs);

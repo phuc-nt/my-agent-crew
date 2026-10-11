@@ -5466,6 +5466,99 @@ khi chạy; phần đó có mục riêng ở dưới.
     chỉ nêu tool đọc, agent chỉ có tool ghi không được giao script, khoá được thừa hưởng, giá
     trị nào cũng nạp, thiếu khoá coi là bật, trình sửa không biết khoá, dấu luôn hay không bao
     giờ được ghi, roster đánh dấu sai agent hay sai câu) đều bị test bắt.
+- **Script giữ lại giữa các lần chạy (`store` / `load`)**:
+  - pytest: `tests/test_script_store.py` (script đọc lại được điều chính nó vừa ghi, và không gì
+    vào bảng trước khi nó chạy xong; cái đã giữ còn đó cho script sau của cùng cuộc trò chuyện;
+    `store(khoá, None)` bỏ khoá, khoá chưa từng có cũng không sao; script hỏng vì một lỗi không
+    ai bắt hay bị dừng ở lời gọi nó không được gọi thì giá trị mới và khoá nó vừa bỏ đều không
+    được ghi; script hết giờ hay bị dừng giữa chừng không giữ gì; lần chạy xong sau mà làm chỗ
+    giữ quá mức thì không cái nào của nó được giữ, kể cả cái đứng riêng thì vừa, và kết quả là
+    script lỗi nói rõ điều đó; hai cuộc trò chuyện của một agent giữ riêng; hai agent có job
+    cùng tên không đọc được của nhau; lượt của cuộc trò chuyện do job mở giữ dưới lịch của job;
+    lượt người tiếp lời trong cuộc ấy giữ dưới chính cuộc trò chuyện; script chạy ngoài mọi cuộc
+    trò chuyện được báo là không có chỗ giữ, bắt được và chạy tiếp; model được kể hai tên, rằng
+    khoá chưa có thì đọc ra None và rằng chỉ giữ khi script xong không lỗi, ở cả hai chế độ
+    `script_calls`).
+  - pytest: `tests/test_script_limits.py` (khoá là chuỗi không rỗng, dài đúng tới mức và không
+    hơn, kể cả khi bỏ khoá; giá trị dài đúng tới mức và không hơn, giá trị quá dài không được
+    giữ và script đọc lại giá trị có trước đó; giá trị được đo theo JSON nó được lưu thành, tính
+    theo ký tự: một chữ có dấu là một, một dấu xuống dòng là hai; set, NaN, vô cực và dict có
+    khoá không phải chuỗi là lỗi script bắt được, không ghi gì; cái JSON viết được thì đọc lại y
+    như đã ghi, riêng tuple thành list; một chỗ giữ chứa khoá và giá trị đúng tới mức, đo theo
+    cái nó sẽ chứa sau lần ghi, nên ghi đè hay bỏ khoá thì trả lại chỗ; chỗ đã đầy vẫn bỏ được
+    khoá; chỗ khác và agent khác không lấy gì của chỗ này; cái không giữ được bị từ chối ngay
+    trong tiến trình chạy script, trước khi hỏi server; server đo lại mọi thứ tiến trình gửi lên
+    và tự từ chối cái làm đầy chỗ; `store` nhận đúng một khoá và một giá trị, `load` đúng một
+    khoá; `store` không trả gì và `load` khoá chưa có trả None; giữ và đọc lại nhiều hơn cả số
+    lời gọi lẫn số lần tra cứu vẫn không lấy gì của hai trần đó).
+  - pytest: `tests/test_api_script_store.py` (agent chưa giữ gì thì danh sách rỗng; mỗi chỗ giữ
+    kèm tổng số ký tự, mỗi giá trị kèm số ký tự của nó và giờ ghi theo UTC, xếp theo chỗ rồi
+    theo khoá; giá trị dài chỉ hiện phần đầu kèm độ dài thật; agent chỉ thấy cái script của
+    chính nó giữ; agent không có thì 404; không động từ nào ghi được qua địa chỉ này; cái script
+    của một lượt giữ thì hiện ra, và mất theo khi xoá cuộc trò chuyện).
+  - pytest: `tests/test_store.py` (xoá một cuộc trò chuyện xoá cả chỗ giữ của nó, của agent nào
+    cũng vậy, và không đụng chỗ của cuộc khác hay của job; lần xoá hỏng giữa chừng thì cái đã
+    giữ còn nguyên, vì xoá trong cùng một giao dịch).
+  - Kiểm chứng đột biến: tám sửa đổi (ghi cả khi script không xong, không đo lại trong giao dịch
+    ghi, xoá cuộc trò chuyện để lại cái đã giữ, nhận dict có khoá là số, tính `load` là một lần
+    tra cứu, lượt của cuộc trò chuyện do job mở giữ dưới cuộc trò chuyện, lời mô tả không nói
+    khi nào thì giữ, lời mô tả không nói khoá chưa có thì đọc ra gì) đều bị test bắt.
+- **Lịch chạy script (`script`, `then_prompt`)**:
+  - pytest: `tests/test_schedule_script_rows.py` (dòng có `script` là job script, không mang
+    `prompt` hay `command`, và ô trống mà form gửi kèm không được giữ; `then_prompt` vắng hay
+    `null` đều là không có; dòng không chạy script vẫn mang hai khoá, để trống; một dòng làm
+    đúng một trong ba việc, không thiếu không thừa; `then_prompt` chỉ đứng cạnh `script`, là
+    chuỗi có chữ hoặc không có; `script` là chuỗi có nội dung, dài đúng tới mức của script một
+    lượt và không hơn; script không chạy được bị từ chối bằng chính lời của bước kiểm trước khi
+    chạy; dòng không có `id` được gọi theo vị trí; hai câu lỗi mà trình sửa trên web tự kiểm
+    trùng từng chữ với câu server nói; qua API, dòng mà tệp sẽ bị từ chối thì 422 trước khi
+    ghi, script không chạy được cũng vậy; dòng script gửi lại y như đã đọc thì được ghi y như
+    cũ, có hay không có `then_prompt`; script người viết tay thành một khối trong tệp vẫn là
+    script đó sau khi lưu một dòng khác; `GET /api/jobs` cho biết job script bằng chính script
+    của nó, và dòng nào cũng mang đủ `script`, `then_prompt`).
+  - pytest: `tests/test_script_job.py` (job script là một run chỉ có một step `tool_script`,
+    không gọi model, không có cuộc trò chuyện, không gửi cho ai, và lời gọi tính tiền được tính
+    vào run; step ấy được lưu y như step script của một lượt, cùng khoá, các lời gọi ở cùng một
+    chỗ; chạy được cả ở agent không giữ `tool_script`; tool cần cuộc trò chuyện thì báo lỗi
+    script bắt được và không cuộc nào bị dựng ra; tóm tắt của run là phần cuối của cái script
+    in ra, còn step giữ phần đầu như mọi step; job tới giờ thì đồng hồ chạy nó, một lần; script
+    không in gì, hay chỉ in khoảng trắng, không mở lượt và không báo ai dù có `then_prompt`;
+    không có `then_prompt` thì in gì cũng không mở lượt; có cả hai thì model nhận đúng một lượt,
+    tin nhắn là `then_prompt`, một dòng trống rồi cái đã in, lượt mở như job prompt mở, câu trả
+    lời được gửi đi và run của lượt là run của job; `then_prompt` viết thành khối trong tệp vẫn
+    cách cái đã in đúng một dòng trống; lượt nhận skill của lịch và skill mà prompt nêu; lượt
+    chỉ trả lời OK thì không gửi; cái in ra dài hơn mức của một kết quả tool thì bị cắt trước
+    khi model đọc; script hỏng là run `error`, tóm tắt là phần cuối của lỗi, không mở lượt; lỗi
+    dài cũng tóm bằng phần cuối; script không chạy nổi thì job hỏng, run chỉ nêu loại lỗi, và
+    job sau vẫn chạy; job bị dừng giữa lúc script chạy không để lại run đang chạy và lần sau
+    lại chạy được; script của job giữ dưới lịch từ sáng này sang sáng sau; script hỏng không
+    giữ gì; cái script giữ có sẵn cho lượt nó mở, và cái lượt ấy giữ có sẵn cho lần chạy sau;
+    script không in gì vẫn giữ cái nó ghi).
+  - pytest: `tests/test_script_job_gate.py` (lệnh mà không ai phải được hỏi thì chạy trong job,
+    có trong danh sách cho phép hay không; lệnh khớp danh sách hỏi, kể cả khi cũng khớp danh
+    sách cho phép, hay lệnh bị cấm thì script của job dừng ngay ở đó, không chạy, script không
+    bắt được, không gì chờ ai và lời từ chối không lặp lại lệnh; lý do hỏi của riêng một tool
+    cũng làm script dừng và không được lặp lại; tool phải hỏi trước mà không có lý do riêng thì
+    chạy, như trong lượt do job mở; job của agent mà script chỉ được đọc bị từ chối đúng cái
+    lượt của nó bị từ chối; job script không đọc được gì của lượt mà job trước nó để lại: không
+    cuộc trò chuyện, id lời gọi của riêng nó, không tính vào lượt nào; lượt của job chạy sau
+    một job script là của riêng nó, trần lời gọi lồng còn nguyên; job script kết thúc thế nào
+    thì cũng trả lại nguyên những gì tác vụ đang chạy theo).
+  - pytest: `tests/test_approval_ttl.py::test_the_web_editor_and_the_server_agree_on_what_a_schedule_row_holds`
+    (danh sách khoá của một dòng lịch mà trình sửa trên web giữ trùng với danh sách của server,
+    nay gồm cả `script` và `then_prompt`, dù trình sửa viết danh sách ấy trên mấy dòng),
+    `tests/test_api_agents_edit.py` (dòng lịch đọc qua API mang hai khoá đó, để trống).
+  - Kiểm chứng đột biến: hai mươi ba sửa đổi, hai mươi hai trong đó (job chạy trong bối cảnh
+    của lượt trước, tính vào trần của lượt trước, để lại cuộc trò chuyện, nguồn, id lời gọi, độ
+    sâu, trần hay nơi nhận sự kiện của nó cho việc chạy sau; cổng coi job là có người duyệt,
+    cổng cho qua mọi lời gọi, job của agent chỉ đọc được trao cổng; job giữ ở chỗ mà lượt nó mở
+    không đọc; mở lượt cho script hỏng; đưa cái in ra cho model mà không cắt, đưa cả dấu xuống
+    dòng cuối của `then_prompt`; job bị dừng để lại run đang chạy; tóm tắt của run hỏng lấy từ
+    cái đã in; lượt của job script không được gửi đi; `then_prompt` đứng cạnh việc nào cũng
+    được, một dòng làm hai việc, script không được kiểm khi ghi, `prompt` được giữ cạnh
+    `script`) đều bị test bắt. Sửa đổi còn lại, mở lượt cả khi script chỉ in khoảng trắng,
+    không đổi được hành vi nào: cái script in ra đã được bỏ khoảng trắng cuối trước khi tới chỗ
+    đó, nên chuỗi chỉ có khoảng trắng tới nơi đã là chuỗi rỗng.
 - **web: lời gọi của script trên thẻ run, thẻ tool trong khung chat và bản xuất Markdown**:
   - vitest: `components/script-calls.test.tsx` (dòng tóm tắt nói có bao nhiêu lời gọi, và bao nhiêu
     lần lỗi chỉ khi có; danh sách gấp lại cho tới khi bấm và gấp lại ở lần bấm sau; mỗi lời gọi một

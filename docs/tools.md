@@ -1044,6 +1044,89 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
   vốn đã gọi lại được, nên script bị cắt giữa chừng được chạy lại từ đầu. Riêng agent
   `script_calls: gated` thì không: script bị cắt của nó được đóng lại chứ không chạy lại (bullet
   "Script gọi cả tool ghi").
+- **Chạy theo lịch, không gọi model.** Một lịch trong `agent.yaml` có thể chạy thẳng một script
+  (khoá `script`) thay cho một prompt: cùng bộ máy, cùng giới hạn, cùng những tool mà
+  `script_calls` của agent cho script gọi, và không lần gọi model nào trừ khi script in ra gì đó
+  và lịch có `then_prompt`. Script của job không thuộc cuộc trò chuyện nào và không bao giờ chờ
+  người. Xem [agents.md](agents.md#job-chạy-script).
+- **Giữ lại giữa các lần chạy (`store` / `load`).** Script chạy xong là quên hết: lần sau nó không
+  biết lần trước đã thấy gì, đã báo việc nào. Hai tên dùng thẳng như `print`, không qua `tools.`:
+  `store(khoá, giá_trị)` giữ một giá trị dưới một khoá, `store(khoá, None)` bỏ khoá đó, và
+  `load(khoá)` trả lại giá trị đang giữ, hoặc `None` khi khoá chưa giữ gì.
+
+  ```python
+  pages = ["trang-a", "trang-b", "trang-c"]  # id các trang, lấy từ một lời gọi trước đó
+  seen = load("seen") or []  # lần đầu chưa giữ gì: load trả None
+  fresh = [page for page in pages if page not in seen]
+  print(len(fresh), "trang mới:", ", ".join(fresh))
+  store("seen", seen + fresh)
+  ```
+
+  - **Giữ được gì.** Dữ liệu JSON: chuỗi, số, `True`/`False`, `None`, list, và dict có khoá là
+    chuỗi. Tuple được giữ như list và đọc lại là list. Set, `NaN`, vô cực và dict có khoá không
+    phải chuỗi thì bị từ chối: JSON chỉ có khoá là chuỗi, nên khoá `3` giữ lại sẽ đọc ra thành
+    `"3"`, và `3 in seen` hôm nay đúng thì mai sai. Khoá của `store`/`load` là một chuỗi không
+    rỗng.
+  - **Chỉ giữ khi script chạy xong.** Trong lúc script chạy không gì được ghi vào bảng, dù `load`
+    vẫn thấy những gì chính script đó vừa `store`. Script chạy đến hết thì mọi lần ghi của nó được
+    áp **một lần, cùng một lúc**. Script gặp lỗi không bắt, bị từ chối một lời gọi, chạm một giới
+    hạn, hết giờ, bị dừng, hay tiến trình con chết thì **không giữ gì**: kho y như lúc nó bắt đầu.
+    Với script có ghi (`script_calls: gated`) điều đó có một mặt trái: script đã ghi qua tool rồi
+    mới hỏng thì việc ghi đã xảy ra mà sổ thì chưa, nên đừng lấy `store` làm bằng chứng duy nhất
+    rằng một việc chưa làm.
+  - **Giới hạn.** Khoá dài tối đa 200 ký tự; một giá trị, viết thành JSON, tối đa 65.536 ký tự;
+    một kho (xem "Giữ ở đâu") chứa tối đa 262.144 ký tự, tính cả khoá lẫn giá trị. Kho được đo
+    theo cái nó sẽ chứa **sau** lần ghi: ghi đè một khoá thì chỗ của giá trị cũ được trả lại, bỏ
+    một khoá cũng vậy, nên kho đã đầy vẫn bỏ bớt được. Đo theo ký tự của JSON được giữ: một chữ
+    có dấu là một ký tự, còn một dấu xuống dòng trong chuỗi là hai (`\n`). Quá mức là **lỗi
+    script bắt được** bằng `try/except`, nêu kích thước và mức ("kho đầy: ghi thêm thì kho chứa
+    … ký tự (khoá và giá trị), quá 262144. Xoá bớt bằng store(khoá, None) hoặc lưu gọn hơn."),
+    lần ghi đó không được nhận và giá trị trước đó của khoá còn nguyên. Kho được **đo lại lúc
+    áp**: hai lần chạy cùng ghi vào một kho mà gộp lại không còn vừa thì lần xong sau không giữ
+    được gì, và kết quả của nó là một script hỏng, kết thúc bằng "Script chạy xong nhưng KHÔNG
+    giữ được gì bằng store: … Chạy lại script.". Hai lần chạy cùng ghi một khoá mà vẫn vừa thì
+    lần áp sau thắng.
+  - **Không phải lời gọi tool.** `store` và `load` không tính vào 25 lời gọi hay 40 lần tra của
+    script, không tính vào trần lời gọi của lượt, không qua cổng duyệt và không hiện trong danh
+    sách lời gọi trên thẻ run. Script của agent `script_calls: read_only` vẫn `store` được: đó
+    là sổ riêng của script, không phải dữ liệu trong workspace.
+  - **Giữ ở đâu.** Script nêu khoá, không bao giờ nêu chỗ. Server chọn kho theo việc script đang
+    chạy cho:
+    - script của một job chạy script ([agents.md](agents.md#job-chạy-script)): kho
+      `job:<id của lịch>`;
+    - script trong lượt mà một job mở ra (lượt của job prompt, lượt `then_prompt` của job
+      script): cũng kho `job:<id của lịch>` đó, nên job và lượt nó mở đọc và ghi chung một chỗ;
+    - script trong mọi lượt khác: kho `conv:<id cuộc trò chuyện>`, **bị xoá cùng cuộc trò
+      chuyện** (`DELETE /api/conversations/{id}`);
+    - script không thuộc cuộc trò chuyện nào và không thuộc job nào: không có kho, `store` và
+      `load` là lỗi bắt được ("không có chỗ để giữ: script này không chạy trong cuộc trò chuyện
+      hay job nào, nên store và load không dùng được ở đây.").
+
+    Ai đó tiếp lời trong cuộc trò chuyện một job đã mở thì lượt ấy là của người: script của nó
+    giữ ở `conv:` của cuộc trò chuyện. Kho nào cũng là của riêng một agent: hai agent có cùng
+    tên kho, cùng khoá vẫn không đọc được của nhau, và không cấu hình nào cho đọc chéo.
+
+    `id` của một lịch không khai thì là `job-<vị trí trong danh sách>`
+    ([agents.md](agents.md#lịch)): chèn hay bỏ một lịch phía trên là job chuyển sang kho khác.
+    Lịch nào có script cần nhớ thì khai `id`. Đổi `id` thì kho bắt đầu trống, còn kho cũ nằm lại
+    trong bảng.
+  - **Sau restart.** Script bị cắt khi đang chạy chưa giữ gì. Bị cắt đúng vào lúc đã áp xong mà
+    kết quả chưa kịp lưu thì script của một lượt được chạy lại (bullet "Sau restart" ở trên)
+    **trên những gì nó vừa giữ**, còn script của job chạy tiếp từ đó ở lần tới hạn sau. Vì vậy
+    hãy viết sao cho chạy hai lần không sai: ghi lại cả danh sách, đừng cộng dồn một con số.
+  - **Xem được gì.** `GET /api/agents/{id}/script-store` trả mọi kho của một agent, chỉ để đọc:
+
+    ```
+    {"namespaces": [{"namespace": "job:due-reminders", "chars": 15,
+                     "entries": [{"key": "told", "preview": "[\"a1\",\"b2\"]", "chars": 11,
+                                  "updated_at": "2026-01-05T00:30:02+00:00"}]}]}
+    ```
+
+    Kho xếp theo tên, khoá xếp theo tên. `chars` của kho là số mà giới hạn đếm (khoá và giá
+    trị); `chars` của một khoá là độ dài JSON của giá trị; `preview` là 200 ký tự đầu của JSON
+    đó, thêm "…" khi bị cắt; `updated_at` là giờ UTC. Agent chưa giữ gì thì `namespaces` rỗng,
+    agent không có thì 404. **Không có route nào ghi hay xoá**: giá trị chỉ đổi khi một script
+    chạy xong.
 
 Giới hạn nằm trong code, không cấu hình nào nới được:
 
@@ -1069,14 +1152,18 @@ Giới hạn nằm trong code, không cấu hình nào nới được:
 | tham số của một lời gọi tool | 100.000 ký tự |
 | hàm gọi lồng nhau | 40 tầng |
 | số nguyên | 256 bit |
+| khoá của `store` / `load` | 200 ký tự |
+| một giá trị `store` giữ, viết thành JSON | 65.536 ký tự |
+| một kho của `store`, cả khoá lẫn giá trị | 262.144 ký tự |
 
 Chạm một giới hạn thì script dừng và không bắt được; câu trả lời gồm phần đã in kèm lý do, viết
 cho model biết phải làm khác đi thế nào ("Xử lý ít dữ liệu hơn hoặc bỏ vòng lặp thừa."). Ba dòng
 về đầu ra và câu trả lời là ngoại lệ: quá mức thì phần thừa bị bỏ hoặc để dành, script vẫn chạy
-tiếp (xem hai bullet "In ra quá 60.000 ký tự" và "Câu trả lời dài hơn 200.000 ký tự"). Riêng khi
-tiến trình con bị dừng từ bên ngoài (hết CPU, chạy một mạch quá 60 giây, hết tổng thời gian) hoặc
-tự chết thì phần đã in mất theo nó và chỉ còn lý do; các lời gọi đã chạy vẫn được ghi trên thẻ
-run.
+tiếp (xem hai bullet "In ra quá 60.000 ký tự" và "Câu trả lời dài hơn 200.000 ký tự"). Ba dòng
+về `store` cũng là ngoại lệ: quá mức là lỗi script bắt được, và lần ghi đó không được nhận
+(bullet "Giữ lại giữa các lần chạy"). Riêng khi tiến trình con bị dừng từ bên ngoài (hết CPU,
+chạy một mạch quá 60 giây, hết tổng thời gian) hoặc tự chết thì phần đã in mất theo nó và chỉ
+còn lý do; các lời gọi đã chạy vẫn được ghi trên thẻ run.
 
 Script không chạy được đến hết, dù vì lý do gì (không đọc được, bị từ chối trước khi chạy, gặp
 lỗi không bắt, chạm giới hạn, tiến trình con bị dừng), thì câu trả lời mở đầu bằng một dòng riêng
@@ -1093,6 +1180,9 @@ Vài điều chưa làm, nêu ra để không ai phải đoán:
   tham số 25 lần vẫn chạy đủ 25 lần. Bộ phát hiện lặp chỉ nhìn chính lời gọi `tool_script`.
 - Câu trả lời dài của một tool trong script không được tóm tắt: script nhận phần đầu và tự đọc
   tiếp phần sau.
+- Kho `job:` của một lịch đã xoá hay đã đổi `id` không được dọn: nó nằm lại trong bảng và vẫn
+  hiện ở `GET /api/agents/{id}/script-store`. Ngoài chính script (`store(khoá, None)`) chưa có
+  đường nào bỏ một khoá.
 
 ### Xác thực
 

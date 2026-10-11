@@ -8,6 +8,8 @@ travels in a context variable that `run_turn` sets for the turn.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import TYPE_CHECKING
 
@@ -71,6 +73,26 @@ def set_tool_call_id(call_id: str) -> None:
 
 def tool_call_id() -> str:
     return _tool_call_id.get()
+
+
+@contextmanager
+def job_context(call_id: str) -> Iterator[None]:
+    """What a schedule's script goes by while it runs: a job's work, with no conversation
+    of its own, under a call id of its own. A script is no turn, and its tools read where
+    they are called from all the same. Jobs run one after another in one task, where the
+    turn of the job before left its own conversation and call id behind: a script must
+    read none of that, and what was there is put back when it is over."""
+    source, conversation = _turn_source.set(JOB), _turn_conversation_id.set("")
+    depth, call = _turn_depth.set(0), _tool_call_id.set(call_id)
+    canvases = _canvas_writes.set({})
+    try:
+        yield
+    finally:
+        _canvas_writes.reset(canvases)
+        _tool_call_id.reset(call)
+        _turn_depth.reset(depth)
+        _turn_conversation_id.reset(conversation)
+        _turn_source.reset(source)
 
 
 def normalize_source(source: str) -> str:
