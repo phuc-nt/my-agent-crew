@@ -694,7 +694,7 @@ những tool hiếm khi dùng. Mức mở nói mỗi tool được đưa tới m
 | --- | --- |
 | `direct` | tool được khai ở mọi lượt, như tool có sẵn |
 | `deferred` (mặc định) | không khai sẵn và không nằm trong danh sách tool của system prompt; agent tìm và nạp bằng `tool_search` khi cần |
-| `codemode` | không khai sẵn, tìm và nạp như `deferred`; nếu tool cũng nằm trong `read_only` thì lời mô tả của `tool_script` nêu tên và tham số của nó |
+| `codemode` | không khai sẵn, tìm và nạp như `deferred`; nếu tool cũng nằm trong `read_only` thì lời mô tả của `tool_script` nêu tên và tham số của nó, chừng nào còn dòng trong trần 30 |
 | `hidden` | không giao cho agent nào; vẫn hiện ở Kết nối để chủ biết máy chủ có nó |
 
 Tool không khai sẵn vẫn chạy khi được gọi đúng tên, qua cùng cổng duyệt. Tool nằm trong
@@ -762,10 +762,15 @@ for page in pages:
 print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
 ```
 
-- **Ai được giao.** Agent giữ ít nhất một tool MCP **nằm trong `read_only` và không `hidden`** thì
-  được giao `tool_script`, đứng ngay sau `tool_search`. Như `tool_search`, nó đến cùng máy chủ:
-  không theo danh sách cho phép `tools`, không theo `mode`, và mất đi khi agent không còn tool nào
-  như thế. Crew không ghi `read_only` cho tool nào thì không agent nào có nó.
+- **Ai được giao.** Mọi agent giữ **ít nhất một tool script gọi được** (xem bullet kế tiếp): một
+  tool có sẵn chỉ đọc, hoặc một tool MCP nằm trong `read_only` và không `hidden`. Agent không cần
+  bật máy chủ MCP nào: chỉ cần `workspace_read` là script của nó đã có việc để làm. Như
+  `tool_search`, `tool_script` **không** theo danh sách cho phép `tools` và không theo `mode`; nó
+  theo những gì hai thứ đó để lại cho agent đọc. Một agent mà `tools:` chỉ có `workspace_write`,
+  và không máy chủ nào giao cho nó một tool chỉ đọc, thì không có `tool_script`. Tool đứng sau các
+  tool có sẵn, sau `delegate` và sau `tool_search` nếu agent có, trước các tool MCP. Mỗi lần máy
+  chủ MCP nối, ngắt hay đổi danh sách tool, agent được giao lại `tool_script` ở đúng chỗ đó với
+  lời mô tả mới.
 - **Script gọi được gì.** Chỉ những tool chỉ đọc và không hỏi ai, trong số tool agent đang giữ:
   - tool có sẵn tự khai là gọi lại được sau restart: `workspace_read`, `workspace_list`,
     `workspace_grep`, `workspace_glob`, `fetch_url`, `web_search`, `memory_search`,
@@ -778,12 +783,18 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
     đó hay không, không quyết định script có gọi được nó hay không: chủ đã khẳng định tool chỉ đọc
     thì không cần thêm một lần cho phép riêng.
 
-  Lời mô tả của `tool_script` nêu nhóm tool có sẵn, những tool MCP ở mức `codemode`, một đoạn nói
-  script tra tool ra sao và một đoạn dạy gọi theo lô kèm ví dụ. Mỗi tool MCP là một dòng gồm tên, các tham số theo tên và kiểu
-  (`query: string, limit?: integer`) và một câu mô tả, tối đa 30 tool và 12 tham số mỗi tool. Tool
-  MCP còn lại mà script gọi được (mức khác, hoặc quá 30) chỉ được đếm trong một dòng "và N công
-  cụ nữa"; script tra chúng bằng `tools.search` và `tools.describe` (bullet kế tiếp). Model muốn
-  tự gọi trực tiếp một tool như thế thì nạp nó bằng `tool_search`.
+  Lời mô tả của `tool_script` nêu **từng tool** script gọi được, một dòng mỗi tool, rồi một đoạn
+  nói script tra tool ra sao và một đoạn dạy gọi theo lô kèm ví dụ. Tool có sẵn của agent đứng
+  trước, mỗi dòng là tên và các tham số theo tên và kiểu
+  (`workspace_read(path: string, offset?: integer, limit?: integer)`), không kèm mô tả: tool đó
+  đã được khai cho model ở cùng lượt. Sau đó là những tool MCP ở mức `codemode`, mỗi dòng có thêm
+  một câu mô tả, vì model chưa từng thấy chúng. Cả hai nhóm dùng chung **một trần 30 dòng**, tool
+  có sẵn được xếp trước, mỗi tool tối đa 12 tham số. Những tool script gọi được mà không có dòng
+  nào (tool MCP ở mức khác, hoặc phần vượt trần của cả hai nhóm) được đếm chung trong một dòng
+  cuối "và N công cụ nữa, tìm bằng tools.search"; script tra chúng bằng `tools.search` và
+  `tools.describe` (bullet kế tiếp). Model muốn tự gọi trực tiếp một tool MCP như thế thì nạp nó
+  bằng `tool_search`. Với agent mặc định (không máy chủ MCP nào) lời mô tả dài khoảng 2.600 ký
+  tự, trong đó 13 dòng tool.
 - **Tra cứu tool trong script.** Script chưa rõ tên hay tham số của một tool thì hỏi ngay trong
   script, trước khi gọi, thay vì đoán rồi chạy lại:
   - `tools.names()` trả list tên mọi tool script gọi được, theo thứ tự agent giữ chúng;
@@ -1074,11 +1085,13 @@ số quá lớn); tên quá dài được cắt bớt khi hiện.
   dõi như vậy trong chốc lát.
 - **Công cụ.** Tool MCP nằm trong bảng cùng các tool khác, kèm nhãn `MCP <máy chủ>` và mức mở.
   Ô của agent chưa bật máy chủ mang dấu `◇` ("agent chưa bật máy chủ MCP này"), không bao giờ
-  được giải thích bằng danh sách cho phép, khoá hay chế độ. `tool_search` và `tool_script` có
-  nhãn "đi kèm MCP"; ô của agent không giữ tool đó mang dấu `·` ("agent không có công cụ MCP
-  nào cần tới công cụ này"). Bảng được
-  đọc lại mỗi lần mở mục này, và ngay khi danh sách tool của một máy chủ đổi trong lúc đang mở,
-  nên nó luôn cho thấy ai đang giữ gì sau khi sửa một agent hay đăng xuất một máy chủ.
+  được giải thích bằng danh sách cho phép, khoá hay chế độ. `tool_search` có nhãn "đi kèm MCP";
+  ô của agent không giữ nó mang dấu `·` ("agent không có công cụ MCP nào cần tới công cụ này").
+  `tool_script` có nhãn "đi kèm công cụ đọc"; ô của agent không giữ nó mang dấu `∅` ("agent không
+  giữ công cụ chỉ đọc nào để script gọi"). Hai dấu này chỉ có trong chú giải khi bảng có tool
+  mang nhãn tương ứng. Bảng được đọc lại mỗi lần mở mục này, và ngay khi danh sách tool của một
+  máy chủ đổi trong lúc đang mở, nên nó luôn cho thấy ai đang giữ gì sau khi sửa một agent hay
+  đăng xuất một máy chủ.
 - **Trình sửa agent.** Mục Công cụ có ô chọn máy chủ; danh sách cho phép ở trên nó không liệt kê
   tool MCP và cũng không liệt kê `tool_search` hay `tool_script`.
 
@@ -1112,9 +1125,12 @@ những tool phần còn lại của đội vẫn dùng. `agents` là ai giữ n
 "cố vấn có thực sự sửa được tệp không"; `optional` đánh dấu tool chỉ tồn tại khi
 khoá hoặc tuyến của nó được cấu hình (`image_read`). Tool của một máy chủ MCP có thêm `server` và
 `exposure`, chỉ được liệt kê khi có agent bật máy chủ đó, và tool `hidden` không bao giờ có mặt
-(xem [Máy chủ MCP](#máy-chủ-mcp)). Dòng của `tool_search` và của `tool_script` mang
-`with_mcp: true`: agent giữ chúng nhờ các tool MCP của nó, không nhờ danh sách cho phép (xem
-[Tìm và nạp tool](#tìm-và-nạp-tool) và [Gọi tool từ script](#gọi-tool-từ-script)).
+(xem [Máy chủ MCP](#máy-chủ-mcp)). Hai dòng không theo danh sách cho phép của agent nào. Dòng của
+`tool_search` mang `with_mcp: true`: agent giữ nó nhờ các tool MCP phải tìm (xem
+[Tìm và nạp tool](#tìm-và-nạp-tool)). Dòng của `tool_script` mang `with_reads: true`: agent giữ
+nó nhờ các tool chỉ đọc của mình, có sẵn hay MCP, nên `agents` của dòng này thường là cả đội (xem
+[Gọi tool từ script](#gọi-tool-từ-script)). Lời mô tả của `tool_script` khác nhau theo agent, vì
+nó nêu tool của chính agent đó; dòng này mang lời mô tả của agent đầu tiên giữ nó.
 
 Endpoint `/prompt` trả về system prompt đầy đủ như đã lắp cho agent (hữu ích để
 debug agent thấy gì, hoặc cho người dùng xem agent biết gì). Trường `opening` (kèm

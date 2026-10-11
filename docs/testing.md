@@ -5119,8 +5119,9 @@ giao `tool_search` để tìm bằng vài từ khoá; tool tìm thấy được 
 
 ## Gọi tool từ script (`tool_script`)
 
-Agent giữ một tool MCP nằm trong `read_only` và không `hidden` được giao `tool_script`. Model
-viết một đoạn script ngắn; script chạy trong một tiến trình con, tự gọi các tool chỉ đọc, và chỉ
+Agent giữ ít nhất một tool script gọi được (một tool có sẵn chỉ đọc, hoặc một tool MCP nằm trong
+`read_only` và không `hidden`) được giao `tool_script`, có máy chủ MCP hay không. Model viết một
+đoạn script ngắn; script chạy trong một tiến trình con, tự gọi các tool chỉ đọc, và chỉ
 những gì nó in ra mới quay về cho model ([tools.md](tools.md#gọi-tool-từ-script)).
 
 - **Ngôn ngữ: giống Python ở đâu, khác ở đâu**:
@@ -5196,11 +5197,14 @@ những gì nó in ra mới quay về cho model ([tools.md](tools.md#gọi-tool-
     thì không; script không chạy xong, dù bị dừng, gặp lỗi, không đọc được, bị từ chối, hết giờ,
     hết CPU hay tiến trình con chết, đều nói "Script không chạy xong." trên một dòng riêng trước
     mọi thứ khác, còn script chạy xong thì không, kể cả khi chính nó in câu đó;
-    `tool_script` không hỏi ai và được gọi lại sau restart; lời mô tả nêu tên các tool mở cho
-    script (`codemode`), mỗi tool của máy chủ một dòng với tham số theo tên và kiểu, ba mươi tool
-    đầu và mười hai tham số đầu, tham số có tên không phải một từ thường thì bỏ, schema hình gì
-    cũng đọc được; tool ở mức mở khác, và tool ngoài ba mươi cái được nêu, được đếm chung trong
-    một dòng "và N công cụ nữa" mà vẫn gọi được; script báo số ký tự các lời gọi đã trả cho nó
+    `tool_script` không hỏi ai, được gọi lại sau restart và mang `with_reads` chứ không mang
+    `with_mcp`; lời mô tả nêu tool có sẵn của agent trước, mỗi tool một dòng với tham số theo tên
+    và kiểu mà không kèm mô tả, rồi tới các tool mở cho script (`codemode`), mỗi tool của máy chủ
+    một dòng có thêm một câu mô tả; hai nhóm chung một trần ba mươi dòng, tool có sẵn tính trước,
+    mười hai tham số đầu, tham số có tên không phải một từ thường thì bỏ, schema hình gì cũng đọc
+    được; agent có hơn ba mươi tool có sẵn thì được nói còn bao nhiêu; tool ở mức mở khác, và
+    tool ngoài ba mươi dòng của cả hai nhóm, được đếm chung một lần trong một dòng "và N công cụ
+    nữa" mà vẫn gọi được; script báo số ký tự các lời gọi đã trả cho nó
     và số ký tự nó in ra; script không gọi gì thì nhận không; lời gọi hỏng cũng tính vào cái
     script nhận; tên không có thì không có câu trả lời nào để đếm; script hỏng chỉ tính cái nó
     in trước khi hỏng).
@@ -5311,14 +5315,33 @@ những gì nó in ra mới quay về cho model ([tools.md](tools.md#gọi-tool-
     trừ khi một script đặt nó; nhánh rẽ chép theo; bản ghi quỹ đạo của run chỉ nói cái model đã
     đọc, còn lời gọi nằm ở step của run).
 - **Ai được giao `tool_script`**:
-  - pytest: `tests/test_script_tool.py` (agent có tool chủ ghi chỉ đọc, ở mức mở nào cũng được,
-    được giao nó, sau `tool_search` và trước các tool của máy chủ, lời mô tả chỉ nêu tool script
-    gọi được; không có tool nào như thế (không `read_only`, hay `read_only` mà ẩn) thì không
-    giao, dù có tool mở `codemode`; agent không nêu máy chủ nào thì không giao; giao lại không
-    lặp; hết tool chỉ đọc thì thu về; script của agent đọc được tệp của agent và máy chủ của
-    agent; lượt được uỷ thác giữ bản sao danh sách tool lúc nó bắt đầu, còn script của nó chỉ gọi
-    được cái agent đang giữ), `tests/test_api_mcp.py` (agent có tool chỉ đọc giữ luôn
-    `tool_script` trên API).
+  - pytest: `tests/test_script_handout.py` (agent không nêu máy chủ nào được dựng với
+    `tool_script` đứng cuối, và script của nó gọi các tool có sẵn chỉ đọc; tool không theo danh
+    sách `tools:` và không theo `mode`: agent chỉ có `workspace_read` vẫn có nó ở cả hai chế độ;
+    agent không có tool nào script gọi được (chỉ ghi, chỉ hỏi, hay chỉ `progress_note`) thì được
+    dựng không có nó; script của agent không máy chủ đọc được tệp của agent; lời mô tả nêu từng
+    tool có sẵn theo thứ tự agent giữ, kèm tham số; đội giữ `tool_script` ở cuối, sau `delegate`,
+    cả khi nối lại, và lời mô tả không nêu `delegate`; script gọi cái agent đang giữ sau khi đội
+    nối lại chứ không phải lúc được dựng; máy chủ tới rồi đi thì lời mô tả đổi còn chỗ đứng thì
+    không, và máy chủ không với tới được trả lời mô tả về đúng như lúc chưa có nó; agent chỉ ghi
+    giữ `tool_script` chừng nào một tool của máy chủ còn chỉ đọc, và mất nó khi chủ bỏ
+    `read_only`; master được kể agent nào viết script như mọi tool khác, và agent mất hết tool
+    đọc thì được liệt kê không có nó), `tests/test_script_tool.py` (agent có tool chủ ghi chỉ
+    đọc, ở mức mở nào cũng được, giữ nó sau `tool_search` và trước các tool của máy chủ; máy chủ
+    không có tool nào script gọi được, hay agent không nêu máy chủ nào, thì agent vẫn giữ nó cho
+    tool có sẵn của mình; giao lại không lặp; chủ thôi ghi một tool là chỉ đọc thì lời mô tả thôi
+    nêu nó; script của agent đọc được tệp của agent và máy chủ của agent; lượt được uỷ thác giữ
+    bản sao danh sách tool lúc nó bắt đầu, còn script của nó chỉ gọi được cái agent đang giữ),
+    `tests/test_api_mcp.py` (agent không nêu máy chủ nào giữ `tool_script` trên API; lời mô tả
+    của agent có máy chủ nêu tool máy chủ đó mở cho script), `tests/test_mcp_tools.py` (một lần
+    nối dựng lại hộp đồ của mỗi agent giữ `tool_script` đúng một lần, còn agent không có gì để
+    thu về thì giữ nguyên hộp đồ), `tests/test_mcp_tool_search.py`,
+    `tests/test_mcp_tool_search_turns.py`, `tests/test_mcp_turns.py` (thứ tự khai cho model: tool
+    có sẵn, `tool_search`, `tool_script`, rồi tool của máy chủ; máy chủ đi thì `tool_script` ở
+    lại), `tests/test_crew_roster.py` (roster kể `tool_script` trong dòng Công cụ),
+    `tests/test_agent_templates.py` (agent dựng từ mẫu có danh sách `tools:` riêng vẫn có
+    `tool_script` ở cuối, ngoài những tool danh sách ấy nêu), `tests/test_tool_replay.py` (`tool_script` nằm trong số tool được gọi lại sau
+    restart).
 - **Trong một lượt**:
   - pytest: `tests/test_script_turns.py` (script chạy không hỏi ai và model chỉ đọc cái nó in; run
     giữ từng lời gọi của script; step của tool mang `calls` và tính tiền những lời gọi có trả cho
@@ -5378,20 +5401,27 @@ những gì nó in ra mới quay về cho model ([tools.md](tools.md#gọi-tool-
     danh sách, thẳng cột với nó, và xuống dòng trong thẻ khi con số dài trên điện thoại; trên thẻ
     tool trong khung chat các lời gọi được liệt kê dần, được đếm khi có kết quả và còn đó sau khi
     tải lại trang; danh sách và dòng đếm vừa thẻ dù tên hay câu trả lời dài tới đâu).
-- **web: `tool_script` ở bảng Công cụ và màn Kết nối**:
+- **web: `tool_script` ở bảng Công cụ, trình sửa agent và màn Kết nối**:
   - vitest: `components/tools-matrix.test.tsx` (tool mở cho script được nói là tìm như các tool
     khác và được lời mô tả của `tool_script` nêu tên khi nó chỉ đọc; chỉ agent có tool chỉ đọc giữ
-    `tool_script`, dù nó còn tìm được gì khác; ô đó không bị giải thích bằng danh sách cho phép,
-    khoá hay chế độ; nó mang cùng nhãn với `tool_search`, và lời giải thích của nhãn nói khi nào
-    agent giữ mỗi cái; chú giải có một dòng chung cho tool đi kèm MCP),
-    `components/mcp-servers-card.test.tsx` (tool mở cho script được nói là được `tool_script` nêu
-    tên khi chủ ghi nó chỉ đọc), `test/fake-mcp.test.ts` (máy chủ giả của test giao `tool_script`
-    đúng luật của server: cho agent có tool chỉ đọc ở mức mở nào cũng được, không cho agent chỉ có
-    tool hỏi trước dù tool ấy mở cho script, nêu người giữ theo thứ tự tên dù máy chủ nào mở
-    trước, không cho tool ẩn hay máy chủ không ai dùng).
+    `tool_script`, dù nó còn tìm được gì khác; ô của agent không giữ nó mang dấu `∅` và không bị
+    giải thích bằng danh sách cho phép, khoá, chế độ hay máy chủ; nó mang nhãn riêng "đi kèm công
+    cụ đọc", lời giải thích của nhãn nói khi nào agent giữ nó, và `tool_search` không mang nhãn
+    ấy; chú giải có một dòng riêng cho dấu `∅`, cả ở crew không có máy chủ nào, và chỉ khi bảng
+    có `tool_script`), `components/agent-editor/tools-section.test.tsx` (danh sách cho phép không
+    liệt kê `tool_script` cho agent đọc bằng tool của chính nó, và bật danh sách lên thì không
+    gửi tên đó), `components/mcp-servers-card.test.tsx` (tool mở cho script được nói là được
+    `tool_script` nêu tên khi chủ ghi nó chỉ đọc), `test/fake-mcp.test.ts` (máy chủ giả của test
+    giao `tool_script` đúng luật của server: cho agent có một tool có sẵn chỉ đọc dù không máy chủ
+    nào, từng tool trong bốn tool đọc đều được tính; cho agent có tool chỉ đọc của máy chủ ở mức
+    mở nào cũng được; không cho agent chỉ có tool hỏi trước dù tool ấy mở cho script; nêu mỗi
+    agent một lần, theo thứ tự tên, dù nó đọc bằng tool của mình, qua máy chủ hay cả hai; không
+    biết tool có sẵn nào khi chưa được trao đội; không cho tool ẩn hay máy chủ không ai dùng).
   - Playwright: `mcp-servers.spec.ts` (bảng Công cụ có dòng `tool_script` với agent mà máy chủ của
-    nó có một tool chỉ đọc, và ô "không có tool nào cần tới" ở agent chỉ có tool hỏi trước dù tool
-    ấy mở cho script).
+    nó có một tool chỉ đọc, và ô `∅` ở agent chỉ có tool hỏi trước dù tool ấy mở cho script; agent
+    đọc bằng tool của chính nó, không máy chủ nào, cũng có dòng `tool_script` với nhãn của nó,
+    chú giải khi đó không nói gì về máy chủ, và trang của agent không đưa `tool_script` vào danh
+    sách để tích; trên điện thoại 390px nhãn của dòng `tool_script` không bị ép).
 - Kiểm chứng đột biến: sáu trăm bốn mươi sáu sửa đổi ở server. Chín mươi ở chính tool (mở cho
   script một tool hỏi trước, có lý do hỏi, không gọi lại được, hay một trong bốn tool nói thay
   agent; mở tool của máy chủ thiếu `read_only` hay thiếu `codemode`; lời gọi không được phép không
@@ -5565,6 +5595,27 @@ những gì nó in ra mới quay về cho model ([tools.md](tools.md#gọi-tool-
   `storedWork`: bỏ nó thì `workOf` ngay sau vẫn xét đúng điều ấy. Bốn sửa đổi ở CSS qua
   Playwright, đều bị bắt (dòng đếm không xuống dòng, hiển thị nối dòng, đứng ở cột đầu của lưới,
   hay sát mép trên ở thẻ trong khung chat).
+- Luật giao `tool_script` cho mọi agent có tool đọc: năm mươi bảy sửa đổi, đều bị bắt ngay vòng
+  đầu. Ba mươi lăm ở server: hai mươi bốn ở `script/tool.py` (quay về luật cũ chỉ giao khi máy chủ
+  có tool chỉ đọc; giao cho mọi agent; bỏ qua tool của máy chủ khi xét; đọc hộp đồ lúc dựng thay
+  vì lúc script chạy; quên tool của máy chủ trong lời mô tả; tool có sẵn chỉ nêu tên hay kèm cả
+  mô tả; bỏ trần của tool có sẵn hay đặt nó ở hai mươi chín; tool của máy chủ có trần riêng hay
+  trần lệch một; dòng "và N công cụ nữa" quên tool có sẵn, quên tool của máy chủ, đếm theo tool
+  đã mở, đứng sai nhóm, hay chỉ hiện khi có dòng của máy chủ; nêu mọi tool của máy chủ thay vì
+  tool `codemode`; mang `with_mcp`, không mang dấu nào, hay là một tool thường; tool của máy chủ
+  lẫn vào nhóm có sẵn; nhóm có sẵn nêu cả tool script không gọi được; không gọi lại được sau
+  restart), tám ở `mcp/handout.py` (không giao lại sau khi thu về; giao lại mà quên tool của máy
+  chủ hay tính mọi tool của máy chủ; không thu bản cũ về; không thu `tool_search` về; đặt
+  `tool_script` sau tool của máy chủ hay trước `tool_search`), một ở `server/agent_assembly.py`
+  (agent được dựng không có nó) và hai ở `texts_script.py` (tiêu đề của nhóm có sẵn, dòng đếm).
+  Hai mươi hai ở web qua vitest: hai ở `components/agent-editor/tools-section.tsx` (danh sách cho
+  phép liệt kê `tool_script` hay `tool_search`), mười một ở `components/tools-matrix.tsx` (ô
+  không có nghĩa riêng, mang nghĩa của `tool_search` hay ngược lại; dấu trùng với dấu của
+  `tool_search`; dòng chú giải hiện ở mọi crew hay theo `tool_search`; mất nhãn, nhãn hiện cả ở
+  `tool_search`, nhãn và lời giải thích mang chữ của `tool_search`), tám ở `test/fake-mcp.ts`
+  (máy chủ giả đánh dấu sai, không biết agent đọc bằng tool của mình, coi mọi agent hay mọi tool
+  là đọc, đòi mọi tool đều đọc, quên agent đọc qua máy chủ, đổi thứ tự hai dòng, không xếp tên
+  agent) và một ở `i18n/vi.ts` (chữ của dòng chú giải).
 
 ## Master được kể mỗi agent đang có gì
 

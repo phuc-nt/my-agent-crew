@@ -125,9 +125,14 @@ chúng qua streamable HTTP, và mỗi tool vào sổ đăng ký dưới tên `mc
 qua cùng cổng duyệt: mọi tool MCP hỏi trước khi chạy, trừ những tool chủ ghi là chỉ đọc. Mặc định
 chúng không được khai sẵn cho model: agent tìm bằng `tool_search`, tool tìm thấy được khai từ lời
 gọi model kế tiếp, và cái đã nạp được đọc lại từ chính hội thoại nên còn nguyên sau restart.
-Agent giữ một tool MCP chủ ghi là chỉ đọc (`read_only`, không `hidden`) thì có thêm `tool_script`:
-gói `script/` chạy đoạn script của model trong một tiến trình con, script gọi các tool chỉ đọc qua
-chính server, và chỉ phần nó in ra mới quay về model; từng lời gọi được ghi vào step của run.
+
+Agent giữ ít nhất một tool script gọi được thì có thêm `tool_script`: một tool có sẵn chỉ đọc, hay
+một tool MCP chủ ghi là chỉ đọc (`read_only`, không `hidden`). Nó không cần máy chủ MCP nào và
+không theo `tools` hay `mode`: `server/agent_assembly.py` giao nó lúc dựng agent, và mỗi lần giao
+tool MCP (`mcp/handout.py`) nó được giao lại với lời mô tả mới, đứng sau tool có sẵn, `delegate` và
+`tool_search`. Gói `script/` chạy đoạn script của model trong một tiến trình con, script gọi các
+tool chỉ đọc qua chính server, và chỉ phần nó in ra mới quay về model; từng lời gọi được ghi vào
+step của run.
 Chưa rõ tên hay tham số của một tool thì script tra bằng `tools.names`, `tools.search` và
 `tools.describe`: những lời tra đó chỉ hỏi tiến trình giữ tool, không chạy tool nào và không
 phải một lời gọi. Nhiều lời gọi không cần nhau thì script gộp một lô bằng `tools.batch`: server

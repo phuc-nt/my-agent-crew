@@ -314,7 +314,7 @@ lần lắp system prompt (tức là trước mỗi lần gọi model, không l�
   · Dịch vụ ngoài (MCP): notion (đọc và ghi) — Sổ ghi chú của người dùng
   · Kỹ năng: như của bạn, thêm: goodreads (Tra sách trên Goodreads), gws (Lịch và thư Google)
   · Việc tự chạy theo lịch: Bản tin sáng, Tổng kết tuần
-  · Công cụ: như của bạn, thêm: tool_search, tool_script
+  · Công cụ: như của bạn, thêm: tool_search
   · Mô hình: deepseek-v4-flash; khi bí thì tự chuyển sang deepseek-v4-pro
 ```
 
@@ -323,7 +323,7 @@ lần lắp system prompt (tức là trước mỗi lần gọi model, không l�
 | Dịch vụ ngoài (MCP) | khoá `mcp` của agent, đối chiếu với tool MCP nó đang cầm và trạng thái kết nối | xem bảng dưới |
 | Kỹ năng | các skill agent nạp được | skill master không có thì kèm mô tả, cắt còn 80 ký tự; skill cần một lệnh máy này không có thì mang `[thiếu: …]` đứng trước mô tả, như trong mục lục skill của chính agent đó |
 | Việc tự chạy theo lịch | job của agent trong bộ lập lịch, cả job khai trong `agent.yaml` lẫn job tạo từ chat | chỉ job đang bật; bỏ job gom trí nhớ, vì agent nào cũng có |
-| Công cụ | tool trong hộp đồ của agent | bỏ `delegate` (lượt được giao việc không bao giờ cầm nó) và tool MCP (đã có dòng dịch vụ) |
+| Công cụ | tool trong hộp đồ của agent | bỏ `delegate` (lượt được giao việc không bao giờ cầm nó) và tool MCP (đã có dòng dịch vụ); `tool_search` và `tool_script` được kể như mọi tool khác |
 | Mô hình | tuyến đầu trong `routes` | kèm model của `escalation_route` khi tuyến đó dùng được |
 
 Một máy chủ MCP được kể theo đúng thứ agent với tới lúc đó. Trạng thái kết nối được xét trước,
@@ -346,7 +346,10 @@ hỏi trước khi chạy.
 
 Tên kỹ năng và tên công cụ được kể so với của chính master ("như của bạn", "thêm: …", "không có:
 …") khi số tên khác nhau không quá một nửa số tên phải kể; khác nhiều hơn thì kể cả danh sách.
-Loại nào agent không có thì không có dòng. Tên job và tên skill được gộp khoảng trắng về một
+Loại nào agent không có thì không có dòng. `tool_script` có ở mọi agent giữ ít nhất một tool chỉ
+đọc ([tools.md](tools.md#gọi-tool-từ-script)), nên thường nó nằm trong "như của bạn"; tên nó chỉ
+hiện ra khi master và agent khác nhau ở đúng điểm đó, ví dụ một master chỉ còn tool ghi đọc thấy
+`thêm: …, tool_script` ở agent còn đọc được. Tên job và tên skill được gộp khoảng trắng về một
 dòng trước khi kể: tên job do một cuộc chat đặt, và một tên có xuống dòng sẽ đọc như một dòng
 roster không ai viết. Khi có ít nhất một dòng như thế, roster kết thúc bằng
 một lời dặn: các dòng này là điều đang đúng, đáng tin hơn mô tả và hơn điều master từng nói trong

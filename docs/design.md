@@ -240,9 +240,12 @@ any platform ──POST /api/inbound (JSON, sync)─────┴─▶ Inboun
   thành script cho `tool_script`: script gọi tool và chỉ phần nó in ra mới vào ngữ cảnh. Script
   chỉ gọi được thứ chỉ đọc và không hỏi ai (tool có sẵn tự khai gọi lại được, và tool MCP chủ
   ghi `read_only` mà không ẩn), nên nó không bao giờ đứng chờ duyệt và mọi lời gọi có
-  ghi vẫn qua cổng duyệt. Ngôn ngữ là một phần của Python do chính crew thông dịch, không
-  `eval`, không import, không đọc thuộc tính; script chạy trong một tiến trình con với môi
-  trường rỗng và các giới hạn cứng, trên macOS trong sandbox không mạng, không ghi, không fork.
+  ghi vẫn qua cổng duyệt. Cũng vì thế agent nào giữ ít nhất một tool như vậy đều có
+  `tool_script`, không cần máy chủ MCP nào và không theo `tools` hay `mode`: đọc mười tệp rồi
+  lọc lấy vài dòng cũng là việc của script. Ngôn ngữ là một phần của Python do chính crew thông
+  dịch, không `eval`, không import, không đọc thuộc tính; script chạy trong một tiến trình con
+  với môi trường rỗng và các giới hạn cứng, trên macOS trong sandbox không mạng, không ghi,
+  không fork.
 - **Chi phí trung thực.** Mỗi message assistant lưu `cost_usd` hoặc `None`. Cuộc trò chuyện giữ
   `spent_usd` và `unknown_cost_calls`; `cost_cap_usd` dừng trước lần gọi model kế tiếp
   (0 = không giới hạn). Mọi lần gọi model nằm ngoài vòng lặp lượt — đặt tiêu đề, tóm tắt
