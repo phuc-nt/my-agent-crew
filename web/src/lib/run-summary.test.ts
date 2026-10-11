@@ -12,6 +12,14 @@ describe("run summary codes", () => {
     expect(runSummaryText(fakeRun({ status: "error", summary: "interrupted" }))).toBe(vi.runInterrupted);
   });
 
+  it("says calls, not tool calls, of what a turn's scripts ran out of", () => {
+    // What a script asks a model, and a task it hands to another agent, are counted with
+    // its tool calls, so a run that stopped on ten askings did not run out of tool calls.
+    const line = runSummaryText(fakeRun({ status: "halted", summary: "nested_calls" }));
+    expect(line).toContain("lời gọi");
+    expect(line).not.toContain("công cụ");
+  });
+
   it("leaves prose, and a code under a status that never writes it, as written", () => {
     expect(runSummaryText(fakeRun({ status: "done", summary: "Xong." }))).toBe("Xong.");
     expect(runSummaryText(fakeRun({ status: "done", summary: "budget" }))).toBe("budget");

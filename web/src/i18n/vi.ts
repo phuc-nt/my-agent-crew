@@ -232,7 +232,7 @@ export const vi = {
   haltedBudgetLifted: "Đã lưu trần mới — gửi lại tin nhắn để agent làm tiếp.",
   haltedMaxSteps: "Đã dừng vì vượt số bước tối đa trong một lượt.",
   haltedLoop: "Đã dừng vì agent gọi lại y hệt một lệnh nhiều lần liên tiếp.",
-  haltedNestedCalls: "Đã dừng vì script dùng hết số lời gọi công cụ của một lượt.",
+  haltedNestedCalls: "Đã dừng vì script dùng hết số lời gọi của một lượt.",
   runInterrupted: "Bị ngắt giữa chừng: máy chủ khởi động lại hoặc kết nối bị đóng.",
   errorPrefix: "Lỗi: ",
   stopped: "Đã dừng lượt này.",
