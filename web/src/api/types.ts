@@ -152,7 +152,8 @@ export type AgentEvent =
        *  server older than the bundle. */
       calls?: NestedToolCall[];
       /** Counted for a script that ran, null for every other tool: the characters its calls
-       *  handed back to it, and the characters of what it printed that went to the model. */
+       *  handed back to it, and the characters it printed, counted before the agent's cap
+       *  on a tool's result shortens what the model reads of them. */
       received_chars?: number | null;
       printed_chars?: number | null;
     }

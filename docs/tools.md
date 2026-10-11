@@ -875,11 +875,18 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
   `global`, `yield`, hay đọc thuộc tính (`x.y` không kèm lời gọi). Script được xét cả đoạn trước
   khi chạy: dùng thứ không có thì bị từ chối kèm số dòng, không chạy nửa chừng. Giá trị của biểu
   thức ở dòng cuối cũng được in, như ở dấu nhắc Python.
-- **In ra quá 60.000 ký tự.** Script không bị dừng vì in nhiều. Model nhận 45.000 ký tự đầu và
-  phần cuối, nơi thường có tổng hay kết luận, nối bằng một dòng nói rõ đã bỏ bao nhiêu: `…[script
-  in ra N ký tự, bỏ M ký tự ở giữa. Chỉ in phần cần, đã gộp hoặc lọc.]…`. Cả đoạn không bao giờ
-  dài quá 60.000 ký tự, và tiến trình con cũng chỉ giữ chừng đó dù script in bao nhiêu. Vòng lặp
-  in mãi không dừng thì vẫn bị chặn bởi số bước tính toán.
+- **In ra quá 60.000 ký tự.** Script không bị dừng vì in nhiều. Kết quả của script giữ 45.000
+  ký tự đầu và phần cuối, nơi thường có tổng hay kết luận, nối bằng một dòng nói rõ đã bỏ bao
+  nhiêu: `…[script in ra N ký tự, bỏ M ký tự ở giữa. Chỉ in phần cần, đã gộp hoặc lọc.]…`. Cả
+  đoạn không bao giờ dài quá 60.000 ký tự, và tiến trình con cũng chỉ giữ chừng đó dù script in
+  bao nhiêu. Vòng lặp in mãi không dừng thì vẫn bị chặn bởi số bước tính toán.
+- **Trần đầu ra của agent vẫn áp lên kết quả của script.** Kết quả của `tool_script` là một kết
+  quả tool như mọi kết quả khác: dài hơn `tool_output_chars` của agent (mặc định 8.000 ký tự)
+  thì nó được rút ngắn theo ba cách ở đầu trang (JSON giữ cấu trúc; chữ khác được model tóm tắt
+  phần giữa, có tính tiền dưới mục đích `tool_summary`; còn lại thì cắt), và bản đầy đủ được để
+  dành cho `tool_output_read` nếu agent có tool ấy. Với trần mặc định, script in 30.000 ký tự
+  thì model đọc 8.000; kiểu giữ đầu và cuối ở bullet trên chỉ tới nguyên vẹn model khi agent đặt
+  `tool_output_chars` từ 60.000 trở lên. Đó là thêm một lý do để script chỉ in phần đã lọc.
 - **Kết quả của tool trong script.** `tools.TÊN(tham_số=giá_trị)` hoặc `tools.TÊN({...})` trả về
   chữ của kết quả (là JSON thì `json.loads`). Script nhận tới 200.000 ký tự của mỗi câu trả lời,
   nhiều hơn hẳn trần của một lượt, vì nó có mặt là để cắt câu trả lời xuống. Tool lỗi thì ném lỗi,
@@ -932,7 +939,9 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
   gọi lần thứ hai.
 - **Hai số đo.** Script xong, dù chạy hết hay gặp lỗi, thì thẻ có thêm một dòng như "Nhận 184.220
   ký tự từ 12 lời gọi, trả về 640 ký tự": số ký tự các tool đã trả cho script (sau khi cắt) và số
-  ký tự script in ra cho model (chưa kể dòng lý do khi script dừng). Đó là thước đo `tool_script`
+  ký tự script in ra (chưa kể dòng lý do khi script dừng). Số sau đếm cái script in, trước khi
+  trần đầu ra của agent áp lên: script in nhiều hơn `tool_output_chars` thì model đọc ít hơn con
+  số này. Đó là thước đo `tool_script`
   có đáng dùng không: nhận nhiều, trả về ít là đúng việc của nó. Số nào server chưa đếm (run ghi
   trước khi có tính năng này) hiện là "—". Script còn chạy, đang chờ, hay bị dừng cùng lượt thì
   chưa có dòng này.
@@ -983,7 +992,7 @@ Giới hạn nằm trong code, không cấu hình nào nới được:
 | bộ nhớ đang giữ | 256 MB |
 | một giá trị | 8.000.000 phần tử hoặc ký tự |
 | lời gọi tool của mọi script trong một lượt | `max_steps` × 10 |
-| đầu ra in ra, phần model nhận được | 60.000 ký tự |
+| đầu ra in ra, phần giữ làm kết quả của script | 60.000 ký tự (sau đó tới trần `tool_output_chars` của agent) |
 | một câu trả lời của tool, phần script nhận được | 200.000 ký tự |
 | một câu trả lời của tool, phần được giữ lại để đọc tiếp | 5 MB |
 | một đoạn script đọc tiếp bằng `tool_output_read` | 200.000 ký tự, kể cả hai dòng chỉ đường |

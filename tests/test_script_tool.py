@@ -696,6 +696,8 @@ async def test_what_a_script_prints_is_cut_to_the_agents_cap_with_its_calls_kept
     assert result.ok and len(result.output) <= 1000
     assert (result.shaped_kind, result.original_chars) == ("cut", 5000)
     assert [call.name for call in result.calls] == ["rows_read"]
+    # The measure is what the script printed, not the part of it the cap let through.
+    assert result.printed_chars == 5000
 
 
 @pytest.mark.parametrize(
