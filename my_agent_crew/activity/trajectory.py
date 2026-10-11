@@ -117,8 +117,8 @@ def _message(stored: StoredMessage) -> dict[str, Any]:
         "cost_usd": stored.cost_usd,
         "created_at": stored.created_at,
     }
-    if stored.context:
-        data["context"] = stored.context
+    if stored.canvas_note:
+        data["context"] = stored.canvas_note
     # What the model read in front of the message, as it read it.
     if told := render(stored.turn_notes):
         data["turn_notes"] = told

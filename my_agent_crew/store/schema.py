@@ -126,7 +126,8 @@ ADDED_COLUMNS = (
     ("memory_proposals", "reasons", "TEXT NOT NULL DEFAULT ''"),
     # A system note attached to a person's message (what changed on a canvas since the agent
     # last looked, the passage they selected), sent to the model ahead of `content` but kept
-    # apart from it, so search and the chat bubble show only what the person wrote.
+    # apart from it, so search and the chat bubble show only what the person wrote. On a
+    # script's result it holds what the script called, as JSON, which no model is sent.
     ("messages", "context", "TEXT NOT NULL DEFAULT ''"),
     # What a message that opens a turn tells of the agent's memory that changed since the
     # conversation was last told (`agent/turn_notes.py`), as JSON; '' on a message nobody

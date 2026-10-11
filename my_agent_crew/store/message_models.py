@@ -25,12 +25,20 @@ class StoredMessage:
     completion_tokens: int | None = None
     reasoning_tokens: int | None = None
     cached_tokens: int | None = None
-    # The canvas note stored with a person's message: what changed in the conversation's
-    # canvases since the agent last heard. The model reads it in front of the message.
+    # Kept beside the content. On a person's message, the canvas note: what changed in the
+    # conversation's canvases since the agent last heard, read by the model in front of the
+    # message (`canvas_note`). On a script's result, what it called and its two measures,
+    # as JSON, which the chat card lists and the model is never sent.
     context: str = ""
     # What the message tells of the agent's memory that changed since the conversation was
     # last told, as JSON (`agent/turn_notes.py`). Read by the model, not sent to the web.
     turn_notes: str = ""
+
+    @property
+    def canvas_note(self) -> str:
+        """Only a person's message has one: what any other keeps in `context` is not for
+        the model."""
+        return self.context if self.message.role == "user" else ""
 
     def to_dict(self) -> dict[str, Any]:
         m = self.message

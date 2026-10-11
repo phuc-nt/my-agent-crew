@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -44,3 +45,13 @@ class ToolResultEvent:
     calls: list[dict[str, Any]] = field(default_factory=list)
     received_chars: int | None = None
     printed_chars: int | None = None
+
+    def stored_context(self) -> str:
+        """What a script's stored result keeps beside its output, as JSON: the calls it
+        made and its two measures. The chat card lists them after a reload, when the run
+        that showed them may be gone; the model is never sent them. Empty for every other
+        tool."""
+        if not self.calls and self.received_chars is None and self.printed_chars is None:
+            return ""
+        measures = {"received_chars": self.received_chars, "printed_chars": self.printed_chars}
+        return json.dumps({"calls": self.calls} | measures, ensure_ascii=False)

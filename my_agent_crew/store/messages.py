@@ -78,10 +78,12 @@ class MessageStore:
         note_source: str | None = None,
         request_ids: Sequence[str] = (),
         turn_notes: Callable[[], str] | None = None,
+        context: str = "",
     ) -> StoredMessage:
         """Raises KeyError for an unknown conversation, with nothing written. A person's
         message from `note_source` is stored with its canvas note; the loop's own notes to
-        the model pass no source and get none. `request_ids` name the sends this message
+        the model pass no source and get none, and a script's result passes what it called
+        as `context`. `request_ids` name the sends this message
         came from, remembered in the same commit: a message is in the log exactly when its
         send is known to have been taken. `turn_notes` builds what the message tells of the
         agent's memory (`agent/turn_notes.py`)."""
@@ -96,8 +98,7 @@ class MessageStore:
             note = self._built("canvas note", conv_id, canvas)
             told = self._built("turn notes", conv_id, turn_notes) or ""
             try:
-                context = note.text if note is not None else ""
-                values += [context, told, conv_id]
+                values += [note.text if note is not None else context, told, conv_id]
                 rows = self._conn.execute(_INSERT, values).fetchall()
                 if not rows:
                     raise KeyError(conv_id)
