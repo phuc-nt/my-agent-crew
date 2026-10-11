@@ -1,6 +1,15 @@
+import json
+
 import pytest
 
+from my_agent_crew.llm.types import Message
+from my_agent_crew.store import Store
+from my_agent_crew.tools.output_shaping import whole_characters
 from my_agent_crew.tools.registry import MAX_OUTPUT_CHARS, Tool, ToolError, ToolRegistry
+from my_agent_crew.tools.result import ToolResult
+
+# What a server that cut its text between the two code units of an emoji sends.
+HALF = json.loads('"\\ud83d"')
 
 
 def tool(name="t", run=None, requires_approval=False) -> Tool:
@@ -143,3 +152,40 @@ async def test_a_reply_a_tool_sets_survives_the_shaping_of_its_output():
 
     result = await ToolRegistry([tool(run=relaying)]).execute("t", {})
     assert len(result.output) <= MAX_OUTPUT_CHARS and result.reply == answer
+
+
+@pytest.mark.parametrize("answered", ["text", "result"])
+async def test_half_a_character_in_an_answer_is_marked_and_the_answer_can_be_stored(answered):
+    """A row cannot hold half of an emoji, so the turn that stored the answer broke on it."""
+    said = f"trước {HALF} sau 😀 ổn"
+
+    async def answer(args):
+        return said if answered == "text" else ToolResult(ok=True, output=said, metered=True)
+
+    result = await ToolRegistry([tool(run=answer)]).execute("t", {})
+
+    assert (result.ok, result.output) == (True, "trước \ufffd sau 😀 ổn")
+    assert result.metered is (answered == "result")
+    store = Store(":memory:")
+    conv = store.create()
+    store.append(conv.id, Message(role="tool", content=result.output, tool_call_id="c1", name="t"))
+    assert store.history(conv.id)[-1].message.content == result.output
+
+
+async def test_half_a_character_in_a_tools_own_failure_is_marked_too():
+    async def boom(args):
+        raise ToolError(f"không đọc được {HALF}")
+
+    result = await ToolRegistry([tool(run=boom)]).execute("t", {})
+
+    assert (result.ok, result.output) == (False, "Công cụ lỗi: không đọc được \ufffd")
+
+
+def test_only_half_characters_are_replaced_and_each_by_one_mark():
+    whole = "tiếng Việt, 日本語, 😀 và \ufffd có sẵn"
+
+    assert whole_characters(whole) == whole
+    assert whole_characters(f"{HALF}a{HALF}{HALF}") == "\ufffda\ufffd\ufffd"
+    low = json.loads('"\\ude00"')
+    assert whole_characters(f"a{low}") == "a\ufffd"
+    whole_characters(f"{HALF}{low}").encode("utf-8")  # two halves side by side still encode

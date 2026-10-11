@@ -191,3 +191,16 @@ async def test_the_after_hook_note_still_caps_a_spilled_output_exactly_as_before
     # pointer line instead of a plain cut note); that step's own capping is unaffected —
     # both land at the same final length once the note is folded in and re-capped.
     assert len(with_spill.output) == len(without_spill.output)
+
+
+async def test_a_long_output_with_half_a_character_is_kept_with_the_half_marked(spill: Spill):
+    """Half of an emoji has no bytes to write: the output was lost and the call raised."""
+    half = "\ud83d"
+
+    async def big(args: dict) -> str:
+        return "x" * 20000 + half + "y"
+
+    result = await ToolRegistry([tool(run=big)], limit=2000, spill=spill).execute("t", {})
+
+    assert result.ok and READ_TOOL in result.output and result.original_chars == 20002
+    assert spill.read("conv1", "call1") == "x" * 20000 + "\ufffd" + "y"

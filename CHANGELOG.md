@@ -26,7 +26,8 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   time, each through the agent's own hooks as a call made alone is) and returns a list with one
   answer per call, in the order they were written: `{"ok": true, "output": ...}` or
   `{"ok": false, "error": ...}`. One call that fails is its own answer and spoils none of the
-  others. Each call of a batch is one of the 25, and the run card lists them in written order.
+  others, and so is one that breaks outside its tool (an answer that could not be kept, say),
+  alone or in a batch: the script is told `Công cụ lỗi: <kind of error>` and goes on. Each call of a batch is one of the 25, and the run card lists them in written order.
   A script ended while a batch is under way (its clock ran out, the turn was stopped) keeps the
   calls that had ended, where they were written.
   A batch asked for the wrong way (empty, longer than 10 or than the calls left, an element that
@@ -69,7 +70,6 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   the limit. It runs on, and the model reads the first 45,000 characters and the last ones
   around a line saying how much was printed and how much was left out, never more than 60,000
   in all. A script that prints without end is still stopped by its steps.
-
 - A script (`tool_script`) may now call every MCP tool the owner lists under `read_only` and does
   not hide, however far the tool is let in. Until now such a tool also had to be set to
   `codemode`, which made letting a script in a second decision on top of saying the tool only
@@ -85,6 +85,10 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   `skill_read`, …) or a server's tool listed under `read_only` and not hidden. Like
   `tool_search` it follows neither the agent's `tools:` list nor its `mode`; an agent left with
   nothing a script may call (say `tools: [workspace_write]` and no server) does not have it.
+  `artifact_read` only reads and is still not a script's to call: reading a canvas to its end is
+  what tells `artifact_rewrite` the agent has seen the version the person last saved, and a
+  script hands the model only what it printed. A script that calls it ends with a line saying
+  to call it directly; `artifact_list` is a script's to call.
   It stands after the agent's own tools, `delegate` and `tool_search`, ahead of the servers'
   tools, and is handed again with a fresh description whenever a server connects, drops or
   changes. The description names the agent's own tools first, one line each with their
@@ -106,13 +110,12 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ### Fixed
 
-- A script can no longer make a canvas count as read. Reading a canvas to its end is what tells
-  `artifact_rewrite` that the agent has seen the version the person last saved, and a script
-  that paged through one moved that mark although the model was handed only what the script
-  printed, so a rewrite right after went over the person's edit. `artifact_read` is now one of
-  the tools a script may not call: the script ends with a line saying to call it directly, and
-  the rewrite is refused until the agent has read the canvas itself. `artifact_list` is still a
-  script's to call.
+- A tool's answer holding half of a character no longer breaks the turn that reads it. A server
+  that cuts its text between the two code units of an emoji sends one half (a lone surrogate),
+  which no database row, file or request to a model can carry: storing the result raised, and
+  an answer long enough to be kept for reading back raised before it was kept. Each half is now
+  replaced by U+FFFD where a tool's answer comes in, in the tool's own error message too, and
+  the rest of the answer is left as it was.
 
 ## [0.13.0] — 2026-10-07
 
