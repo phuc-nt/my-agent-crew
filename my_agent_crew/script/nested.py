@@ -31,6 +31,7 @@ from my_agent_crew.script.discovery import discover
 from my_agent_crew.script.fit import fit
 from my_agent_crew.script.kept import KINDS, nowhere
 from my_agent_crew.script.limits import MAX_PARALLEL, RAW_LIMIT
+from my_agent_crew.script.one_by_one import one_by_one
 from my_agent_crew.script.replies import Answer, Calls, Lookup
 from my_agent_crew.script.scope import callable_tools, only_reads, unknown_tool, why_not
 from my_agent_crew.script.signature import call_line, misfits
@@ -104,8 +105,9 @@ class ScriptRun:
         with the reason and the rest as not made. So does a call past what the scripts
         of the turn may make between them: a batch that does not fit whole is not made.
         A batch with a call that changes things is made one call at a time, as written:
-        what one such call leaves behind the next may count on. Tasks handed to other
-        agents are no such calls, and fewer of them are handed on at the same moment."""
+        what one such call leaves behind the next may count on, and is judged by
+        (`one_by_one.py`). Tasks handed to other agents are no such calls, and fewer of
+        them are handed on at the same moment."""
         tools = [self.held.get(name) for name, _ in calls]
         refusals = [
             self._refusal(tool, arguments)
@@ -139,10 +141,7 @@ class ScriptRun:
             numbers.append(self.made)
         asked = list(zip(tools, calls, numbers, strict=True))
         if any(tool is not None and not only_reads(tool) for tool in tools):
-            return [
-                await one(tool, name, arguments, number)
-                for tool, (name, arguments), number in asked
-            ]
+            return await one_by_one(asked, self._refusal, one)
         async with asyncio.TaskGroup() as group:
             runs = [
                 group.create_task(one(tool, name, arguments, number))

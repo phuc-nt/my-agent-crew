@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import replace
 from datetime import datetime
+from pathlib import Path
 from textwrap import dedent
 from typing import Any
 
@@ -18,6 +19,7 @@ import pytest
 from my_agent_crew import texts_script as t
 from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.agent.nested_calls import NestedBudget, start_nested_budget
+from my_agent_crew.agent.tool_gate import ASK, RUN, verdict
 from my_agent_crew.agent.turn_context import set_turn_conversation
 from my_agent_crew.script import tool as script_module
 from my_agent_crew.script.replies import Answer
@@ -280,6 +282,32 @@ async def test_what_the_person_allows_is_read_anew_for_each_call(deps_factory):
     # What ran before the script ended is kept all the same.
     assert shell.ran == ["ls"]
     assert [call.name for call in result.calls] == [SHELL_TOOL_NAME, "autonomy_off"]
+
+
+async def test_a_tool_the_agent_no_longer_holds_is_not_run_on_the_scripts_say_so(deps_factory):
+    """A script goes on holding the tools it began with. One the agent has lost meanwhile,
+    as a server signed out leaves it, is one the gate knows nothing of, and of such a tool
+    it says run: the script is ended there instead."""
+    notes = Reads("mcp__notes__write", "đã ghi", requires_approval=True)
+    deps, _ = agent(deps_factory, notes.tool)
+    conv = conversation(deps)
+
+    async def lose(arguments: dict[str, Any]) -> str:
+        deps.tools = deps.tools.without("mcp__notes__write")
+        return "đã mất"
+
+    deps.tools.register(Tool("notes_lost", "Làm mất tool ghi.", SCHEMA, lose, replay_safe=True))
+    source = """
+        print(tools.mcp__notes__write())
+        print(tools.notes_lost())
+        print(tools.mcp__notes__write())
+        """
+
+    result = await ran(deps, conv, source)
+
+    reason = t.SCRIPT_GATE_GONE.format(name="mcp__notes__write")
+    assert (result.ok, result.output) == (False, unfinished("đã ghi\nđã mất", halted(4, reason)))
+    assert len(notes.asked) == 1
 
 
 # --- what is never a script's, and what never meets the gate ---
@@ -552,3 +580,102 @@ async def test_the_commands_of_a_batch_run_in_the_order_written_each_answered_on
         (SHELL_TOOL_NAME, True),
         (SHELL_TOOL_NAME, True),
     ]
+
+
+async def test_each_call_of_a_batch_that_changes_things_is_judged_again_as_its_turn_comes(
+    deps_factory,
+):
+    """Autonomy taken back by the second call of a batch holds for the third, as it does for
+    calls written one after another: what ran is kept, and nothing runs after."""
+    rows = Reads("rows_read")
+    deps, shell = agent(deps_factory, rows.tool)
+    conv = conversation(deps)
+
+    async def take_back(arguments: dict[str, Any]) -> str:
+        deps.store.update(conv.id, autonomous=False)
+        return "đã thu lại"
+
+    deps.tools.register(Tool("autonomy_off", "Thu lại quyền tự chủ.", SCHEMA, take_back))
+    calls = (
+        one(SHELL_TOOL_NAME, command="ls"),
+        one("autonomy_off"),
+        one(SHELL_TOOL_NAME, command="ls -la"),
+        one("rows_read"),
+    )
+    source = f"""
+        print("trước")
+        try:
+            tools.batch([{", ".join(calls)}])
+        except Exception:
+            print("bắt được")
+        print("sau")
+        """
+
+    result = await ran(deps, conv, source)
+
+    reason = ASKS.format(name=SHELL_TOOL_NAME)
+    assert (result.ok, result.output) == (False, unfinished("trước", halted(4, reason)))
+    assert (shell.ran, rows.asked) == (["ls"], [])
+    assert [call.name for call in result.calls] == [SHELL_TOOL_NAME, "autonomy_off"]
+
+
+async def test_a_call_refused_as_its_turn_comes_is_answered_with_why_and_the_rest_as_not_made(
+    monkeypatch, deps_factory
+):
+    rows = Reads("rows_read")
+    deps, shell = agent(deps_factory, rows.tool)
+    conv = conversation(deps)
+
+    async def take_back(arguments: dict[str, Any]) -> str:
+        deps.store.update(conv.id, autonomous=False)
+        return "đã thu lại"
+
+    deps.tools.register(Tool("autonomy_off", "Thu lại quyền tự chủ.", SCHEMA, take_back))
+    calls = [
+        (SHELL_TOOL_NAME, {"command": "ls"}),
+        ("autonomy_off", {}),
+        (SHELL_TOOL_NAME, {"command": "ls -la"}),
+        ("rows_read", {}),
+        (SHELL_TOOL_NAME, {"command": "git status"}),
+    ]
+
+    answers = await answers_to(monkeypatch, deps, conv, calls)
+
+    skipped = Answer(False, t.SCRIPT_BATCH_NOT_RUN)
+    assert answers == [
+        Answer(True, "đã chạy 1"),
+        Answer(True, "đã thu lại"),
+        Answer(False, ASKS.format(name=SHELL_TOOL_NAME), halt=True),
+        skipped,
+        # Routine by the agent's own list, and still not made: the script ended above.
+        skipped,
+    ]
+    assert (shell.ran, rows.asked) == (["ls"], [])
+
+
+async def test_what_a_call_of_a_batch_left_behind_is_there_when_the_next_is_judged(
+    deps_factory, tmp_path
+):
+    """A command on the ask list is let run unasked when all it touches is under the temp
+    directory. The call before it makes the path it names a link to somewhere else: judged
+    with the batch it would be let run, and judged as its turn comes it is not."""
+    elsewhere = Path.home()  # outside every temp directory, and only ever pointed at
+    deps, shell = agent(deps_factory, shell_ask_patterns=("rm -rf",), shell_allow_patterns=())
+    link = tmp_path / "x"
+    delete = f"rm -rf {link}/sub"
+    lists = dict(deps=deps, name=SHELL_TOOL_NAME)
+
+    async def linked(arguments: dict[str, Any]) -> str:
+        link.symlink_to(elsewhere)  # what the command of that call would have done
+        return "đã nối"
+
+    deps.tools.register(Tool("link_make", "Nối đường dẫn.", SCHEMA, linked))
+    conv = conversation(deps)
+    assert verdict(conv=conv, arguments={"command": delete}, **lists) == RUN
+
+    result = await ran(deps, conv, batch(one("link_make"), one(SHELL_TOOL_NAME, command=delete)))
+
+    assert verdict(conv=conv, arguments={"command": delete}, **lists) == ASK
+    reason = ASK_LIST.format(name=SHELL_TOOL_NAME, pattern="rm -rf")
+    assert (result.ok, result.output) == (False, unfinished(halted(1, reason)))
+    assert shell.ran == [] and [call.name for call in result.calls] == ["link_make"]
