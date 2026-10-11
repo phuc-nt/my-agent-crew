@@ -12,11 +12,10 @@ from typing import Any
 
 from my_agent_crew import texts_script as t
 from my_agent_crew.script import tool as script_module
-from my_agent_crew.script.limits import MAX_BATCH, MAX_PARALLEL
+from my_agent_crew.script.limits import MAX_BATCH, MAX_PARALLEL, RAW_LIMIT
 from my_agent_crew.script.replies import Answer
 from my_agent_crew.script.runner import Outcome
 from my_agent_crew.script.scope import SCRIPT_TOOL, unknown_tool, why_not
-from my_agent_crew.script.tool import RAW_LIMIT
 from my_agent_crew.texts import TOOL_FAILED
 from my_agent_crew.texts_kit import TOOL_BLOCKED_BY_HOOK
 from my_agent_crew.tools.registry import Tool, ToolError

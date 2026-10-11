@@ -41,6 +41,9 @@ MAX_LOOKUPS = 40
 # The longest text a lookup is asked with: a tool's name, a few words to search by.
 MAX_LOOKUP_CHARS = 1_000
 MAX_OUTPUT_CHARS = 60_000
+# The most of one tool's answer a script is handed. Far above what a turn is, because the
+# script is there to cut it down.
+RAW_LIMIT = 200_000
 MAX_ARGUMENT_CHARS = 100_000
 # The most of an error's own words that is kept: one may carry a whole text of the script's.
 MAX_ERROR_CHARS = 2_000
