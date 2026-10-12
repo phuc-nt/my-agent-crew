@@ -6053,7 +6053,12 @@ khi chạy; phần đó có mục riêng ở dưới.
     lần cài `force` đè lên agent đang chạy vẫn là `needs_restart: true`, `live` rỗng, và đồng hồ
     chưa có job nào của tệp mới; tệp sửa tay của agent đang chạy lên đồng hồ khi một khoá ở Kết
     nối được lưu; giờ của `memory_consolidate` theo cùng quy tắc, và gỡ khoá ấy thì job và công
-    tắc của nó đi theo);
+    tắc của nó đi theo; lần lưu mà tệp không ghi được là 422 mang lý do của hệ điều hành, còn
+    agent đang chạy, các dòng job, công tắc tạm dừng và giờ chạy vẫn như trước; agent tạo mới mà
+    tệp không ghi được không vào đội; lần sửa mà bước dựng agent từ chối không ghi gì vào tệp;
+    mỗi thay đổi về việc đội có những job nào (lưu, tạo, xoá agent, cài template, `reload`, lưu
+    một khoá ở Kết nối) làm luồng activity phát đúng một payload `jobs`, còn lần lưu bị từ chối
+    và lần `reload` không đem ai vào thì không phát gì);
     `tests/test_api_agents_edit.py::test_no_save_asks_for_a_restart_and_a_save_of_schedules_no_more_than_another`
     (`restart_required` là danh sách rỗng ở mọi lần lưu). Kiểm chứng đột biến: hai mươi ba sửa
     đổi (dòng đổi giờ giữ mốc cũ, xoá mốc của dòng bị bỏ, giữ công tắc của dòng bị bỏ, xoá công tắc
@@ -6063,6 +6068,9 @@ khi chạy; phần đó có mục riêng ở dưới.
     giữa nhịp, xét lại cả job mà agent đã rời đội, chỉ xét lại dòng bị bỏ, đánh dấu dòng bị bỏ qua
     như đã xét, lần lưu, lần nhận agent hay lần lưu ở Kết nối không báo đồng hồ, lần cài vẫn đòi
     khởi động lại vì có lịch, lần cài không bao giờ đòi, lần lưu vẫn nêu một lý do khởi động lại)
+    đều bị test bắt. Sáu sửa đổi nữa ở thứ tự của lần lưu và ở tín hiệu cho trang (đồng hồ đọc
+    lại lịch mà không báo luồng, agent rời đội mà không báo luồng, ghi tệp trước khi dựng agent,
+    ghi tệp sau khi nối, ghi tệp sau khi nối nhưng trước khi đồng hồ đọc lại, không ghi tệp) cũng
     đều bị test bắt. Một sửa đổi không ép được bằng test: sửa bảng tại chỗ thay vì đặt bảng mới
     chỉ hỏng khi hai luồng chạm nhau.
   - vitest: `hooks/use-agent-draft.test.ts` (lần lưu đổi lịch được nói là có hiệu lực ngay khi

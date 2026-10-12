@@ -144,8 +144,9 @@ class ActivityHub(CutRuns):
         self._watchers.broadcast({"type": "conversation", "conversation": conversation})
 
     def publish_jobs(self) -> None:
-        """Tells watchers the job list is no longer what they read when a run ended: the
-        failures in a row a job is in are counted and told after its run is over."""
+        """Tells watchers the job list is no longer what they read. The failures in a row a
+        job is in are counted and told after its run is over, and an agent that was saved,
+        one that joined and one that left change which jobs there are with no run at all."""
         self._watchers.broadcast({"type": "jobs"})
 
     def publish_artifact(self, artifact: dict[str, Any], conversation_ids: list[str]) -> None:

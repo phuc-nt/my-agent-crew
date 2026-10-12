@@ -56,16 +56,18 @@ class Scheduler:
 
     def forget_agent(self, agent_id: str) -> None:
         """An agent that leaves the crew takes its jobs off the clock with it, and what was
-        counted of their failures. Called on the event loop, as `tick()` is."""
+        counted of their failures; a page open on the list is told to read it again."""
         self._jobs.forget_agent(agent_id)
         self._streaks.forget_agent(agent_id)
+        self._hub.publish_jobs()
 
     def reload_profiles(self) -> None:
-        """Puts on the clock what the crew's files state now, with no restart: called when
-        an agent joined the crew or was saved, on the event loop as `tick()` is. A job no
-        file states any more leaves no count of failures to one later made under its id."""
+        """Puts on the clock what the crew's files state now, with no restart, and has every
+        page open on the list read it again: called when an agent joined the crew or was
+        saved. A job no file states any more leaves no count of failures to its id."""
         for job_id in self._jobs.reload():
             self._streaks.forget(job_id)
+        self._hub.publish_jobs()
 
     def describe(self) -> list[dict[str, Any]]:
         now = self._clock()

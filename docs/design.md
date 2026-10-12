@@ -375,8 +375,9 @@ cuộc trò chuyện, trạng thái, các step (lần gọi model kèm chi phí,
 và một tóm tắt. Run đang chạy được giữ trong bộ nhớ và phát dạng SSE trên `/api/activity/stream`
 (`snapshot` khi kết nối, rồi các frame `run` và `event`); run đã xong được đọc từ SQLite. Cùng luồng ấy
 còn mang `conversation` và `artifact`, mỗi frame kèm bản ghi vừa đổi, và `jobs`, không kèm gì:
-nó chỉ báo rằng danh sách job đã khác lúc run kết thúc ([channels.md](channels.md), bullet "Lịch
-hỏng mãi thì không nhắn mãi").
+nó chỉ báo rằng danh sách job đã khác lần đọc trước, vì chuỗi hỏng của một job vừa được đếm xong,
+vì đồng hồ vừa đọc lại lịch của đội, hay vì một agent vừa rời đội ([channels.md](channels.md),
+bullet "Lịch hỏng mãi thì không nhắn mãi" và các bullet sau nó).
 Khi server khởi động, run còn đánh dấu đang chạy bị đóng là `error` với tóm tắt
 `interrupted`; run mới nhất chưa từng được nối của mỗi cuộc trò chuyện được trao lại để
 server nối tiếp đúng một lần (mục "Lượt bị restart cắt được nối lại một lần" ở trên), và

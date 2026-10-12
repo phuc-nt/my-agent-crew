@@ -334,6 +334,12 @@ Với job script, dòng đầu là `Lịch "<tên lịch>" gặp lỗi khi chạ
   đóng), luồng `GET /api/activity/stream` phát một sự kiện tên `jobs`, payload chỉ là
   `{"type": "jobs"}`. Nó không mang dòng nào: ai nghe thì đọc lại `GET /api/jobs`. Run kết thúc
   `done` của một job không ở trong chuỗi nào thì không có sự kiện này.
+- Cùng sự kiện ấy được phát mỗi khi đồng hồ đọc lại lịch của đội (một agent được lưu, được tạo,
+  được cài hay được `POST /api/agents/reload` đem vào, một khoá hay tuyến mô hình chung được lưu
+  ở Quản lý → Kết nối) và khi một agent rời đội, dù lần ấy có đổi dòng nào hay không. Nhờ vậy
+  trang đang mở ở một tab khác thấy dòng lịch vừa lưu mà không tải lại. Lần lưu bị từ chối không
+  phát gì. Hai thay đổi không được phát: công tắc tạm dừng của một job, và việc xoá một lịch tạo
+  từ chat; tab khác thấy chúng ở lần đọc lại kế tiếp (một run kết thúc, luồng được nối lại).
 - Trên web, Quản lý → Lịch chạy nói chuỗi ấy thành một câu dưới lần chạy gần nhất của job, chừng
   nào job còn trong chuỗi: `Hỏng 3 lần liên tiếp từ Hôm qua 07:00. Đã báo Telegram lúc 07:01; còn
   hỏng thì nhắc lại sau 13:01.` Khi chưa tin nào tới nơi, nửa sau là `Chưa báo được qua Telegram;
