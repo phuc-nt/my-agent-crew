@@ -502,6 +502,21 @@ tên một test thì sửa dòng của nó trong cùng commit.
     home", không đọc `~`, đọc `~` cả ở tên persona, không gộp `..`, không nhận đường dẫn thật,
     không nhận chuỗi tệp đang ghi, để giá trị không duyệt qua được ném lỗi, bỏ tên persona và bỏ
     thư mục `skills` mà lúc khởi động đọc khi tệp không nêu) đều bị test bắt.
+- **Sau một lần lưu, đội đang chạy là đội mà lần khởi động kế sẽ dựng, từng trường một**
+  - pytest: `tests/test_api_agents_save_matches_start.py` (trên một home có kit của đội và kit
+    riêng của một agent, mỗi kit một lệnh, một thư mục kỹ năng và một hook, master không ghi
+    `name`, cả hai tệp viết tay `max_steps: 010` và `enabled: no`: sau từng kiểu lưu (sửa master,
+    đặt tên rồi bỏ tên master, sửa agent, tạo agent, tạo rồi sửa, xoá, ghi persona, chép thư mục
+    vào rồi nạp lại, cài mẫu, lưu khoá, lưu rồi gỡ khoá, lưu tuyến model, và hai chuỗi trộn các
+    kiểu ấy) đọc home lại từ đầu bằng `load_profiles` rồi so với đội đang chạy theo mọi trường
+    lấy từ `dataclasses.fields`, riêng `settings` so từng trường; master mang tên tệp ghi, tệp
+    không ghi thì mang tên mặc định); `tests/test_api_agents_edit_path_spelling.py` (một từ mà
+    thư viện ghi tệp đọc khác lúc khởi động, `workspace: no`, `skills_dirs: [no]`,
+    `persona_files: [0o10]`, không chặn lần lưu về khoá khác dù cách đọc kia trỏ vào một liên
+    kết ra ngoài home). Kiểm chứng đột biến: năm sửa đổi (bỏ bước cộng kit ở đường lưu, đường
+    lưu đọc tệp không qua hàm chung nên master mang tên `default`, bỏ tên mặc định của master ở
+    hàm chung, để tên mặc định đè tên tệp ghi, xét cách viết đường dẫn theo cách đọc của thư
+    viện ghi tệp) đều bị test bắt.
 - **Hồ sơ agent sai hình dạng bị từ chối bằng 422 nêu tên khoá, không bao giờ là 500**
   - pytest: `tests/test_profile_wrong_shapes.py` (đi hết mọi khoá của hồ sơ, mọi trường của một
     dòng lịch thuộc cả ba loại và mọi trường của `telegram`, lấy từ chính bảng khoá của mã, nhân

@@ -155,6 +155,18 @@ def parse_profile(
     )
 
 
+def read_profile(
+    agent_id: str, agent_dir: Path, raw: dict[str, Any], settings: Settings
+) -> AgentProfile:
+    """What an agent's file, once read, makes of the agent. The start goes through here for
+    every file and a save from the web for the file it is about to write, so the two cannot
+    read one file two ways. The master goes by the default's name when its file gives
+    none, and not by its id."""
+    if agent_id == DEFAULT_AGENT_ID:
+        raw = {"name": default_profile(settings).name} | raw
+    return parse_profile(agent_id, agent_dir, raw, settings)
+
+
 def load_master_profile(settings: Settings) -> AgentProfile:
     """The default agent, read from `MY_AGENT_HOME/agent.yaml` when the person wrote one.
     Its workspace and skills default to the home's own, the same places the settings
@@ -163,8 +175,7 @@ def load_master_profile(settings: Settings) -> AgentProfile:
     if not manifest.is_file():
         return default_profile(settings)
     raw = yaml.safe_load(manifest.read_text(encoding="utf-8")) or {}
-    raw.setdefault("name", default_profile(settings).name)
-    return parse_profile(DEFAULT_AGENT_ID, settings.home, raw, settings)
+    return read_profile(DEFAULT_AGENT_ID, settings.home, raw, settings)
 
 
 def load_yaml_profiles(settings: Settings) -> list[AgentProfile]:
@@ -184,5 +195,5 @@ def load_yaml_profiles(settings: Settings) -> list[AgentProfile]:
         if agent_dir.name == DEFAULT_AGENT_ID:
             raise ValueError(f"agent id {DEFAULT_AGENT_ID!r} is reserved")
         raw = yaml.safe_load(manifest.read_text(encoding="utf-8")) or {}
-        profiles.append(parse_profile(agent_dir.name, agent_dir.resolve(), raw, settings))
+        profiles.append(read_profile(agent_dir.name, agent_dir.resolve(), raw, settings))
     return profiles

@@ -372,6 +372,14 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   declares is unticked in the agent editor. Its row goes with the tick; a keyboard that was on it
   now goes to the row that took its place, else to the last row, else to the radio that is on
   above the tools.
+- The agent that runs after a save from the web is the agent the next start brings up, in every
+  field. `PATCH /api/agents/{id}` and `POST /api/agents` built the running agent from its file
+  alone and left out what a start adds once the file is read: the skill folders, commands and
+  hooks of the crew's kit and of the agent's own (`.agents/`, `.claude/`, `.opencode/`). An agent
+  edited or made from the web ran without them until a restart, or until a key or the model
+  routes were saved. A master whose `agent.yaml` gives no `name` ran under the name `default`
+  after any save, where a start calls it by the default's name. A start and a save now read a
+  file through one function and add the kits through one.
 
 ## [0.15.0] — 2026-10-12
 
