@@ -34,7 +34,7 @@ def _read_capped(path: Path) -> str | None:
 
 def _persona(path: Path) -> str | None:
     """A persona file's text; a kit's agent markdown carries a front matter the model
-    need not read, so only the body is kept. An opening block that is not YAML is no
+    need not read, so only the body is kept. An opening block that cannot be read is no
     front matter: the file is read as written, where every turn of the agent used to
     fail on it."""
     text = _read_capped(path)

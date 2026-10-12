@@ -485,23 +485,45 @@ tên một test thì sửa dòng của nó trong cùng commit.
     thành 422, không kiểm mã, không kiểm tên mẫu, không chặn mã của master, `landing` bỏ
     sót kỹ năng dùng chung, dòng lệnh không in lý do, cho từng agent vào đội ngay khi dựng
     xong) đều bị test bắt.
-- **`agent.yaml` hỏng cú pháp bị từ chối kèm tên tệp; front matter không phải YAML chỉ làm mất
+- **`agent.yaml` hỏng cú pháp bị từ chối kèm tên tệp; front matter không đọc được chỉ làm mất
   đúng tệp đó**
   - pytest: `tests/test_manifest_that_does_not_parse.py` (tệp của master và tệp của một
     agent: `load_profiles` ném `ValueError` mở đầu bằng câu của tệp hỏng, có đường dẫn tệp
     và dòng, cột của trình đọc; `reload` là 422 nêu tệp, không ai vào đội, sửa xong thì
     vào; lưu tuyến model bên cạnh tệp như thế là 409 nêu tệp, `config.yaml` và tuyến đang
-    chạy giữ nguyên); `tests/test_front_matter_that_does_not_parse.py` (trình đọc front
+    chạy giữ nguyên); `tests/test_front_matter_that_does_not_parse.py` (tệp mẫu là một danh
+    sách bỏ ngỏ, thứ không cách đọc nào nhận; trình đọc front
     matter ném `ValueError`; agent của kit, lệnh của kit, skill dạng tệp và skill dạng thư
     mục: tệp hỏng bị bỏ ra, log nêu đường dẫn, tệp lành bên cạnh vẫn được nạp; front matter
     của skill là một dòng chữ, một danh sách hay một số thì skill không có mô tả, mang tên
     tệp; với mỗi loại trong ba loại, đội đang chạy `reload` được, cài mẫu được và khởi động
-    lại được; persona mở đầu bằng một khối không phải YAML được đọc nguyên văn, persona có
+    lại được; persona mở đầu bằng một khối không đọc được thì được đọc nguyên văn, persona có
     front matter thì chỉ giữ phần thân). Kiểm chứng đột biến: mười sửa đổi (đọc tệp không
     bắt lỗi, bỏ tên tệp khỏi câu, để lỗi của trình đọc front matter đi qua, không bỏ lệnh,
     không ghi log lệnh, persona không được đọc nguyên văn, không bỏ skill, không ghi log
     skill, hỏi khoá của một front matter không có khoá, không bỏ agent của kit) đều bị test
     bắt.
+- **Dòng front matter có dấu hai chấm thứ hai được lấy nguyên văn làm chữ; khối YAML đọc được
+  thì vẫn đúng như YAML đọc**
+  - pytest: `tests/test_front_matter_with_a_second_colon.py` (`description: Use when: the
+    tests fail` đến nguyên văn ở trình đọc, ở agent của kit, lệnh của kit, skill dạng tệp và
+    skill dạng thư mục, và không dòng log nào nêu tệp; persona có khối như thế chỉ giữ phần
+    thân; giá trị kết thúc bằng dấu hai chấm, có tab sau dấu hai chấm, có chữ tiếng Việt và
+    emoji, có dấu nháy kép và dấu gạch chéo ngược, mở đầu bằng `--`, có ba dấu hai chấm đều
+    đến đúng từng ký tự; khoảng trắng cuối dòng không thuộc về chữ; phần sau dấu `#` thuộc về
+    chữ; khối YAML đọc được giữ `true`, số, danh sách, giá trị trong nháy và bỏ ghi chú đúng
+    như YAML; dòng có dạng đó nằm trong một giá trị trong nháy trải nhiều dòng không bị đọc
+    lần hai khi YAML đọc được cả khối; bên cạnh một dòng được lấy làm chữ, các dòng khác giữ
+    đúng kiểu YAML cho, kể cả dòng có dấu hai chấm chỉ nằm trong ghi chú; khoá lồng, giá trị
+    hai dòng, mục danh sách, khoá trong nháy, khoá có dấu hai chấm, giá trị mở đầu bằng từng
+    ký hiệu của YAML và khối còn hỏng ở dòng khác vẫn là `ValueError`; lỗi nêu dòng còn
+    vướng chứ không nêu dòng đã đọc được). Kiểm chứng đột biến: mười bảy sửa đổi (đọc lần
+    hai trước lần YAML, chỉ đọc lần hai, không đọc lần hai, ném lỗi của lần đọc đầu, bỏ kiểm
+    ký hiệu ở giá trị, bỏ kiểm ký hiệu ở khoá, tính cả dấu hai chấm trong ghi chú, bỏ ghi chú
+    khỏi chữ, viết chữ thành mã ASCII, bọc nháy mà không thoát ký tự, bọc nháy mọi giá trị,
+    coi `-` luôn là ký hiệu, không bao giờ coi `-` là ký hiệu, đọc cả khoá thụt đầu dòng,
+    không tính dấu hai chấm cuối dòng, skill chỉ đọc bằng YAML, kit chỉ đọc bằng YAML) đều
+    bị test bắt.
 - **Đường dẫn một lần sửa đưa vào phải nằm dưới home; đường dẫn agent đang chạy với thì để nguyên**
   - pytest: `tests/test_api_agents_edit.py`
     ("test_a_persona_file_outside_the_home_is_refused",

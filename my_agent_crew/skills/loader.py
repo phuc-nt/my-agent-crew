@@ -13,6 +13,7 @@ from typing import Any
 
 import yaml
 
+from my_agent_crew.front_matter import read_front_matter
 from my_agent_crew.texts import SKILL_LOCATION, SKILL_MISSING_BINS
 
 logger = logging.getLogger(__name__)
@@ -68,7 +69,7 @@ def parse_skill(text: str, fallback_name: str) -> Skill:
         _, _, rest = text.partition("---\n")
         front, sep, body = rest.partition("\n---")
         if sep:
-            stated = yaml.safe_load(front)
+            stated = read_front_matter(front)
             meta = stated if isinstance(stated, dict) else {}
             body = body.lstrip("\n")
     return Skill(
@@ -116,7 +117,7 @@ def _skill_files(directory: Path) -> list[tuple[Path, str, Path | None]]:
 
 def load_skills(*dirs: Path, which: Which = shutil.which) -> list[Skill]:
     """Later directories override earlier ones by name, so a home skill can shadow a builtin.
-    A file whose front matter is not YAML is left out and named in the log: it used to
+    A file whose front matter cannot be read is left out and named in the log: it used to
     stop the start of every agent that reads the directory."""
     by_name: dict[str, Skill] = {}
     for directory in dirs:

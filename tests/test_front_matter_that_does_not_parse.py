@@ -20,8 +20,9 @@ from my_agent_crew.config import load_settings
 from my_agent_crew.server import build_runtime, create_app
 from my_agent_crew.skills.loader import load_skills, parse_skill
 
-# The shape a description takes in many a kit: a second colon on the line is not YAML.
-ODD = "---\nname: odd\ndescription: Use when: the tests fail\n---\nYou fix tests.\n"
+# A list left open. Neither reading takes it: the second one only knows a line with a
+# second colon (`test_front_matter_with_a_second_colon.py`).
+ODD = "---\nname: odd\ntools: [Read, Grep\n---\nYou fix tests.\n"
 GOOD = "---\nname: good\ndescription: Reads code.\n---\nYou read code.\n"
 INSTALL = "/api/agents/install"
 
