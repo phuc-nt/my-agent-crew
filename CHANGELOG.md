@@ -11,6 +11,8 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+## [0.17.0] — 2026-10-13
+
 ### Added
 
 - A tool of an MCP server whose parameters are too long is no longer left out when the length is
@@ -2675,6 +2677,7 @@ restarting the process.
 
 - One agent, `run_turn` loop with a tool approval gate, web UI, memory on disk.
 
+[0.17.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.17.0
 [0.16.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.16.0
 [0.15.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.15.0
 [0.14.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.14.0
