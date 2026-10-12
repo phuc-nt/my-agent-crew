@@ -208,6 +208,33 @@ def test_nothing_moved_after_a_save_changes_where_the_saved_file_points(
     assert aim.followed_by(read_again(runtime)) == aim.real
 
 
+@pytest.mark.parametrize(
+    ("held_as", "sent_as"), [("workspace", "skills_dirs"), ("skills_dirs", "workspace")]
+)
+def test_a_spelling_the_file_holds_for_one_kind_is_a_new_one_for_another(
+    start, tmp_path: Path, held_as, sent_as
+) -> None:
+    """One tree outside the home is the agent's workspace and a folder its skills are read
+    from. The file reaches it through a link for one of the two, and by the path itself
+    for the other: the link is the owner's spelling of the one, and of that one alone."""
+    tree = tmp_path / "outside" / "repo"
+    tree.mkdir(parents=True)
+    tree = tree.resolve()
+    alias = tmp_path / "alias"
+    alias.symlink_to(tree)
+    written = {held_as: str(alias), sent_as: str(tree)}
+    manifest = f"workspace: {written['workspace']}\nskills_dirs:\n  - {written['skills_dirs']}\n"
+    client, runtime, file = start(manifest)
+
+    sent = str(alias) if sent_as == "workspace" else [str(alias)]
+    reply = patch(client, **{sent_as: sent}, max_steps=41)
+
+    assert reply.status_code == 422
+    assert f" {tree}" in reply.json()["detail"].replace(str(alias), "")
+    assert file.read_text(encoding="utf-8") == manifest
+    assert runtime.deps_for("coder").agent.settings.max_steps != 41
+
+
 def unasked(aim: Aim, agent_dir: Path) -> str:
     """The agent's own folder holds a link, under the name the start reads unasked, to
     what the owner keeps elsewhere."""
