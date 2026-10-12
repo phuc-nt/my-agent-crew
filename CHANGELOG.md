@@ -32,7 +32,16 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   `tool_script`, `tool_search` and a server's `mcp__…` tools come by what the agent holds and the
   servers under `mcp`, whether listed or not; `workspace_edit`, `workspace_grep` and
   `workspace_glob` come with `mode: work`; `delegate` is not given to an agent that hands work to
-  nobody. A name no tool carries is still `tools lists unknown tool …`, word for word.
+  nobody. A name no tool carries is still `tools lists unknown tool …`, word for word. The same
+  judge now answers whoever edits the list: `GET /api/agents`, `GET /api/agents/{id}` and the
+  answer to a save carry `listable_tools`, the sorted names a `tools:` list can bring that agent
+  as it runs now (every tool made for it before the list is matched, so by its `mode`, with
+  `image_read` only where the machine has a vision route it can use; and `delegate` where the
+  agent hands work out). `tool_script`, `tool_search` and a server's tools are never among them.
+  The names do not shrink to what the agent's own list holds, and a save that changes `mode` or
+  `delegates` answers with the new ones. A name is told there exactly when a list holding it
+  earns no warning, bar `image_read` on a machine with no vision route, which is neither told nor
+  warned of.
 
 ## [0.15.0] — 2026-10-12
 

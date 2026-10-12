@@ -12,7 +12,7 @@ import httpx
 from my_agent_crew.agents import AgentProfile
 from my_agent_crew.llm.metered_chain import MeteredChain
 from my_agent_crew.llm.provider import ProviderChain
-from my_agent_crew.server.tool_list_names import Reason, listed_elsewhere
+from my_agent_crew.server.tool_list_names import Reason, listable, listed_elsewhere
 from my_agent_crew.skills import Skill
 from my_agent_crew.store import Store
 from my_agent_crew.tools import Tool, ToolRegistry
@@ -78,7 +78,22 @@ def build_tools(
     vision: ProviderChain | None = None,
     chain: ProviderChain | None = None,
 ) -> ToolRegistry:
-    """`vision` is the chain pictures go to; without one no agent can read images.
+    """The agent's tools alone, for a caller that asks nothing about its list."""
+    return assemble(profile, client, store, skills, extra, vision, chain)[0]
+
+
+def assemble(
+    profile: AgentProfile,
+    client: httpx.AsyncClient,
+    store: Store,
+    skills: Sequence[Skill],
+    extra: Sequence[Tool] = (),
+    vision: ProviderChain | None = None,
+    chain: ProviderChain | None = None,
+) -> tuple[ToolRegistry, tuple[str, ...]]:
+    """The agent's tools, and the names a `tools:` list can bring it (`listable`).
+
+    `vision` is the chain pictures go to; without one no agent can read images.
 
     `chain` is the agent's own route chain, used to summarise the middle of an over-cap
     text output. Without one the output is cut instead, which is what every caller that
@@ -168,4 +183,5 @@ def build_tools(
     summariser = None
     if chain is not None:
         summariser = chain_summariser(MeteredChain(chain, store, profile.id, "tool_summary"))
-    return ToolRegistry(kept, limit, hooks, summariser, spill if can_reread else None)
+    registry = ToolRegistry(kept, limit, hooks, summariser, spill if can_reread else None)
+    return registry, listable((tool.name for tool in tools), why)

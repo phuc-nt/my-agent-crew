@@ -70,6 +70,9 @@ def _describe(rt: Runtime, deps: AgentDeps) -> dict[str, Any]:
         "schedules": [_sendable(s) for s in deps.agent.schedules if not s.consolidate],
         "tools": list(deps.agent.tools),
     }
+    # The names a `tools:` list can bring this agent as it runs now, judged where the
+    # start's warning is: an editor offers these and no other, and keeps no rule of its own.
+    data["listable_tools"] = list(deps.listable_tools)
     # Whether an edit would be accepted, so a UI can say so before the person fills in a
     # form the write route is going to refuse. It answers the same question
     # `check_editable` does, from the same fact: a kit agent has no manifest to patch.
