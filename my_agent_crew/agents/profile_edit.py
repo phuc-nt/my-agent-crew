@@ -19,6 +19,7 @@ from typing import Any
 from my_agent_crew import texts
 from my_agent_crew.agent_ids import is_agent_id
 from my_agent_crew.agents.profile import PROFILE_KEYS, AgentProfile, Schedule
+from my_agent_crew.agents.profile_edit_paths import PATH_KEYS
 from my_agent_crew.agents.profile_write import as_written
 from my_agent_crew.agents.profile_yaml import parse_profile
 from my_agent_crew.config import Route, Settings
@@ -30,14 +31,6 @@ RESTART_KEYS = {
     "schedules": texts.RESTART_REASON_SCHEDULES,
     "memory_consolidate": texts.RESTART_REASON_SCHEDULES,
 }
-# Keys naming a path on disk. A profile read from a file may point anywhere — a kit
-# names its markdown by absolute path, and `agent add --workspace` aims an agent at a
-# repo elsewhere on purpose. An edit arriving over HTTP is not that: whoever reaches
-# this port would otherwise pick any readable file as a persona (its text goes to the
-# model on the next turn) or aim the workspace tools at the source tree. So the check
-# lives here, on the edit path, rather than in the parser both of those share, and is
-# about what the edit brings: a path the agent already runs with stays where it is.
-PATH_KEYS = ("persona_files", "skills_dirs", "workspace")
 
 
 def check_agent_id(agent_id: str) -> None:
@@ -45,34 +38,6 @@ def check_agent_id(agent_id: str) -> None:
     that are safe in each rather than escaped at every use."""
     if not is_agent_id(agent_id):
         raise ValueError(texts.AGENT_ID_INVALID)
-
-
-def check_inside_home(
-    profile: AgentProfile, home: Path, before: AgentProfile | None = None
-) -> None:
-    """Every path an edit brings has to stay under the crew home.
-
-    `before` is the agent as it runs now. A path it already runs with is not the edit's:
-    the file was written by hand to point there, and a save that leaves it where it is
-    gives whoever reaches this port nothing new. Each kind is measured against its own
-    kind and no other, so a workspace elsewhere makes neither that folder a place skills
-    are loaded from nor a file under it a persona. A new agent has none: all it names is
-    the edit's.
-    """
-    home = home.resolve()
-    held = _paths(before) if before else ((), (), ())
-    for brought, kept in zip(_paths(profile), held, strict=True):
-        known = {path.resolve() for path in kept}
-        for path in brought:
-            resolved = path.resolve()
-            if not resolved.is_relative_to(home) and resolved not in known:
-                raise ValueError(texts.PATH_OUTSIDE_HOME.format(path=str(path)))
-
-
-def _paths(profile: AgentProfile) -> tuple[Sequence[Path], ...]:
-    """A profile's paths, a kind at a time: the workspace, skills folders, persona files."""
-    personas = [profile.dir / name for name in profile.persona_files]
-    return (profile.workspace,), profile.skills_dirs, personas
 
 
 def route_text(value: Any) -> Any:

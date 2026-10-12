@@ -23,13 +23,9 @@ from pydantic import BaseModel
 from my_agent_crew import texts
 from my_agent_crew.agents import DEFAULT_AGENT_ID
 from my_agent_crew.agents.profile import AgentProfile
-from my_agent_crew.agents.profile_edit import (
-    check_agent_id,
-    check_inside_home,
-    restart_reasons,
-    validated,
-)
-from my_agent_crew.agents.profile_read_back import check_read_back
+from my_agent_crew.agents.profile_edit import check_agent_id, restart_reasons, validated
+from my_agent_crew.agents.profile_edit_paths import check_inside_home, check_spelling
+from my_agent_crew.agents.profile_read_back import check_read_back, read_now, read_to_be
 from my_agent_crew.agents.profile_write import create_agent_dir, trash_agent, write_raw
 from my_agent_crew.server.agent_assembly import escalation_problem
 from my_agent_crew.server.agent_edit_common import (
@@ -70,7 +66,8 @@ def save(
 ) -> AgentProfile:
     """Validate, then wire, then write — in that order, so a refused edit leaves both the
     file and the running crew as they were. `before` is the agent as it runs now, which
-    an edit's schedules and paths are measured against; a new agent has none.
+    an edit's schedules and paths are measured against; a new agent has none. A path that
+    passes is then judged by how the file to be spells it (`profile_edit_paths.py`).
 
     Wiring before writing is what makes that true. Building the agent is the step that
     can still fail on a profile that parsed cleanly — an unusable route, a directory that
@@ -83,10 +80,12 @@ def save(
     leave it an escalation route no turn could move to; a file that already holds such a
     route loads with it unused, and does not hold up a save about something else.
     """
+    manifest, home = manifest_path(rt, agent_id), rt.settings.home
     try:
         profile = validated(agent_id, agent_dir, raw, rt.settings, before)
-        check_read_back(manifest_path(rt, agent_id), raw, edited)
-        check_inside_home(profile, rt.settings.home, before)
+        check_read_back(manifest, raw, edited)
+        check_inside_home(profile, home, before)
+        check_spelling(agent_dir, home, read_now(manifest), read_to_be(raw))
         problem = escalation_problem(profile.settings, rt.providers)
         if problem and ROUTE_KEYS & set(edited):
             raise ValueError(problem)
@@ -107,7 +106,7 @@ def save(
         raise HTTPException(409, str(exc)) from exc
     except (ValueError, OSError) as exc:
         raise HTTPException(422, str(exc)) from exc
-    write_raw(manifest_path(rt, agent_id), raw)
+    write_raw(manifest, raw)
     return profile
 
 
