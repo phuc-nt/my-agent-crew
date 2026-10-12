@@ -4,9 +4,10 @@ import { vi } from "../i18n/vi";
 import { type HeldRun, heldAt, withHeld } from "../lib/run-order";
 import { runSummaryText } from "../lib/run-summary";
 import { markSeen, seenKey } from "../lib/seen-runs";
+import { icon, label } from "./attention-label";
 import { AttentionRow } from "./attention-row";
 import { formatClock } from "./run-timeline";
-import { Icon, type IconName } from "./ui/icon";
+import { Icon } from "./ui/icon";
 
 interface Props {
   runs: RunInfo[];
@@ -24,26 +25,6 @@ interface Props {
   /** Failures not yet read, listed in another section — the same promise the other way. */
   failedElsewhere?: number;
   onOpenFailed?: () => void;
-}
-
-/** A run pauses for two unrelated reasons, and only one of them is a permission request.
- *  The open question step is what tells them apart: a tool approval never writes one. */
-function isAsking(run: RunInfo): boolean {
-  return run.steps.some((step) => step.kind === "question" && step.duration_ms === null);
-}
-
-function label(run: RunInfo, agent: string): string {
-  if (run.status === "awaiting_approval") {
-    return isAsking(run) ? vi.attentionAsking(agent) : vi.attentionAwaiting(agent);
-  }
-  if (run.status === "error") return vi.attentionFailed(agent);
-  return vi.attentionHalted(agent);
-}
-
-/** The shape of the ask, so a question, a permission and a failure differ before they are read. */
-function icon(run: RunInfo): IconName {
-  if (run.status === "awaiting_approval") return isAsking(run) ? "help" : "approvals";
-  return "alert";
 }
 
 const noop = () => undefined;
