@@ -99,6 +99,47 @@ describe("the message a script job handed on", () => {
   });
 });
 
+describe("characters nobody would see in what a script printed", () => {
+  // A right-to-left override and a zero-width space, as a tool hands them on from a web page.
+  const SLY = "đơn \u202Egnp.exe\u200B mới";
+  const SHOWN = "đơn [U+202E]gnp.exe[U+200B] mới";
+  const RAW = /[\u202E\u200B]/;
+
+  it("are written out as their code points in a text that is open, and again each time it is opened", async () => {
+    thread([user(handedOn(PROMPT, SLY))]);
+    const block = screen.getByTestId("script-printed");
+    const toggle = within(block).getByRole("button", { name: vi.scriptHandoff.toggle(1) });
+
+    expect(within(block).getByTestId("script-printed-text").textContent).toBe(SHOWN);
+    expect(block.textContent).not.toMatch(RAW);
+    await userEvent.click(toggle);
+    expect(block.textContent).not.toMatch(RAW);
+    await userEvent.click(toggle);
+    expect(within(block).getByTestId("script-printed-text").textContent).toBe(SHOWN);
+  });
+
+  it("are drawn nowhere while a long text is folded, and written out once it is opened", async () => {
+    thread([user(handedOn(PROMPT, `${LONG}\n${SLY}`))]);
+    const block = screen.getByTestId("script-printed");
+    // The text is as long as it is stored, not as long as it is drawn.
+    const toggle = within(block).getByRole("button", { name: vi.scriptHandoff.toggle(41) });
+
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(block.textContent).not.toMatch(RAW);
+    await userEvent.click(toggle);
+    expect(within(block).getByTestId("script-printed-text").textContent).toBe(`${LONG}\n${SHOWN}`);
+    expect(block.textContent).not.toMatch(RAW);
+  });
+
+  // 795 characters stored, and 802 once the one mark is written out: still short.
+  it("do not make a text long by the room their marks take", () => {
+    thread([user(handedOn(PROMPT, `${"x".repeat(794)}\u200B`))]);
+
+    expect(screen.getByRole("button", { name: vi.scriptHandoff.toggle(1) })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByTestId("script-printed-text").textContent).toBe(`${"x".repeat(794)}[U+200B]`);
+  });
+});
+
 describe("a message that is not exactly one handed on", () => {
   it.each(lookalikes(PROMPT, PRINTED))("is drawn as the plain message it is: %s", (_, text) => {
     thread([user(text)]);

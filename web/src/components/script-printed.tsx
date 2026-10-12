@@ -1,5 +1,6 @@
 import { useId, useState } from "react";
 import { vi } from "../i18n/vi";
+import { showHiddenChars } from "../lib/hidden-chars";
 import { isLongPrinted, printedLines } from "../lib/script-handoff";
 
 /**
@@ -8,7 +9,10 @@ import { isLongPrinted, printedLines } from "../lib/script-handoff";
  * Under the bubble and not in it, as the note a message carried from a canvas is: the
  * bubble's colour is the person's own words, here the schedule's prompt, and this is
  * whatever the script's tools handed it. It is shown as the text it is, in the type of a
- * terminal, wrapped, in a box that scrolls on its own past a height.
+ * terminal, wrapped, in a box that scrolls on its own past a height. A script prints what
+ * its tools read from wherever they read, so the characters nobody would see in it (the ones
+ * that turn a line around, the ones with no width) are written out as their code points;
+ * how long the text is, is still counted on the text as it is stored.
  *
  * Open while it reads at a glance. A long one stays folded behind its label, which says how
  * long it is, so that a morning's report does not bury the thread it opens.
@@ -30,7 +34,7 @@ export function ScriptPrinted({ text }: { text: string }) {
       {open && (
         // In the tab order, so a text taller than its box can be scrolled without a mouse.
         <pre className="script-printed-text" id={bodyId} data-testid="script-printed-text" tabIndex={0}>
-          {text}
+          {showHiddenChars(text)}
         </pre>
       )}
       <p className="script-printed-note">{vi.scriptHandoff.asData}</p>
