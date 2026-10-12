@@ -28,21 +28,20 @@ function bare(name: string): RegistryTool {
  * that rule. A name the form's list holds that the server does not report is shown apart
  * and stays where the person put it: it may be a tool the machine cannot run today.
  *
- * An agent that is not saved yet has no such report. It is offered every tool of the
- * catalogue that the catalogue itself does not mark as handed outside any list.
+ * A server older than that report sends none, and it is the one serving this page from an
+ * update until its restart. Its agents are offered what the page offered before the report:
+ * every tool of the catalogue that the catalogue itself does not mark as handed outside any
+ * list. The form's type also allows no agent at all, which reads the same way.
  */
 export function allowList(tools: RegistryTool[], agent: AgentInfo | null, draft: AgentPatch): AllowList {
-  if (agent === null) {
-    const rows = tools.filter((tool) => !tool.server && !tool.with_mcp && !tool.with_reads);
-    return { rows, stray: [], start: rows.map((tool) => tool.name) };
-  }
-  const listable = agent.listable_tools;
+  const unmarked = () => tools.filter((tool) => !tool.server && !tool.with_mcp && !tool.with_reads);
+  const listable = agent?.listable_tools ?? unmarked().map((tool) => tool.name);
   const described = new Map(tools.map((tool) => [tool.name, tool]));
   const rows = listable.map((name) => described.get(name) ?? bare(name));
   const stray = [...new Set(draft.tools ?? [])].filter((name) => !listable.includes(name));
 
-  const listed = agent.declared.tools;
-  const held = listable.filter((name) => agent.tools.includes(name));
+  const listed = agent?.declared.tools ?? [];
+  const held = listable.filter((name) => agent?.tools.includes(name));
   // The list the file has, as it is written, when this session set it aside: going back to
   // it is no change. Else what the agent holds today, so that switching the list on takes
   // nothing away and adds no name; else, when it holds none of them, every row.
