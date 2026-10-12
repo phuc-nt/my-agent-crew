@@ -1,6 +1,7 @@
 import type { McpServerInfo, McpStatus, RegistryTool } from "../../api/types";
 import type { AgentDraft } from "../../hooks/use-agent-draft";
 import { vi } from "../../i18n/vi";
+import { ScriptControls } from "./script-controls";
 
 interface Props {
   form: AgentDraft;
@@ -119,6 +120,8 @@ export function ToolsSection({ form, readOnly, tools, mcpServers }: Props) {
           ))}
         </ul>
       )}
+
+      <ScriptControls form={form} readOnly={readOnly} />
     </section>
   );
 }

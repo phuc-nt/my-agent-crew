@@ -14,6 +14,9 @@ const SCHEDULE_KEYS = new Set([
   "id", "name", "cron", "every", "prompt", "command", "script", "then_prompt", "enabled", "skills", "approval_ttl_seconds",
 ]);
 
+/** The values `script_calls` takes in an agent's file. */
+const SCRIPT_CALLS = ["none", "read_only", "gated"];
+
 type Read<T> = { ok: T } | { error: string };
 
 /** `approval_ttl.parse_approval_ttl`: whole seconds from a minute to half a day, or absent. */
@@ -110,6 +113,19 @@ export function applyAgentPatch<T extends object>(agent: T, patch: Record<string
   if ("tools" in patch) next.declared = { ...(next.declared as object), tools: patch.tools ?? [] };
   // A null clears the key: no server at all, as the profile reads once the key is gone.
   if ("mcp" in patch) next.mcp = patch.mcp ?? [];
+  // The two script switches take their own values and nothing else: a label or a string
+  // standing in for the boolean is refused. A null clears the key, which reads back as
+  // what the crew runs an agent as when its file says neither.
+  if ("script_calls" in patch) {
+    if (patch.script_calls !== null && !SCRIPT_CALLS.includes(patch.script_calls as string))
+      return { error: "script_calls must be none, read_only or gated" };
+    next.script_calls = patch.script_calls ?? "read_only";
+  }
+  if ("script_llm" in patch) {
+    if (patch.script_llm !== null && typeof patch.script_llm !== "boolean")
+      return { error: "script_llm must be true or false" };
+    next.script_llm = patch.script_llm ?? true;
+  }
   // A null clears the key, and a cleared consolidation reads back as no cron at all.
   if ("memory_consolidate" in patch) next.memory_consolidate = patch.memory_consolidate ?? "";
   // While consolidation is on its job runs as `memory-consolidate` beside the rows.

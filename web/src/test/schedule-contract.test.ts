@@ -103,3 +103,26 @@ describe("what the double declares back", () => {
     expect(fakeAgent.declared.schedules).toEqual([]);
   });
 });
+
+describe("the two script switches, as the double reads them", () => {
+  it("takes each value the file takes, and answers with it", () => {
+    for (const value of ["none", "read_only", "gated"])
+      expect(applyAgentPatch(fakeAgent, { script_calls: value })).toMatchObject({ ok: { script_calls: value } });
+    for (const value of [true, false])
+      expect(applyAgentPatch(fakeAgent, { script_llm: value })).toMatchObject({ ok: { script_llm: value } });
+  });
+
+  it("refuses anything else: a label, another case, a string for the boolean", () => {
+    for (const value of ["Gated", "off", "", true, 1])
+      expect(applyAgentPatch(fakeAgent, { script_calls: value })).toEqual({ error: "script_calls must be none, read_only or gated" });
+    for (const value of ["false", "no", 0, "none"])
+      expect(applyAgentPatch(fakeAgent, { script_llm: value })).toEqual({ error: "script_llm must be true or false" });
+  });
+
+  it("reads a cleared key back as what the crew runs an agent as", () => {
+    const set = { ...fakeAgent, script_calls: "gated" as const, script_llm: false };
+    expect(applyAgentPatch(set, { script_calls: null, script_llm: null })).toMatchObject({ ok: { script_calls: "read_only", script_llm: true } });
+    // A patch that names neither leaves both as they were.
+    expect(applyAgentPatch(set, { name: "Khác" })).toMatchObject({ ok: { script_calls: "gated", script_llm: false } });
+  });
+});
