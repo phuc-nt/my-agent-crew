@@ -35,7 +35,8 @@ RESTART_KEYS = {
 # repo elsewhere on purpose. An edit arriving over HTTP is not that: whoever reaches
 # this port would otherwise pick any readable file as a persona (its text goes to the
 # model on the next turn) or aim the workspace tools at the source tree. So the check
-# lives here, on the edit path, rather than in the parser both of those share.
+# lives here, on the edit path, rather than in the parser both of those share, and is
+# about what the edit brings: a path the agent already runs with stays where it is.
 PATH_KEYS = ("persona_files", "skills_dirs", "workspace")
 
 
@@ -46,14 +47,32 @@ def check_agent_id(agent_id: str) -> None:
         raise ValueError(texts.AGENT_ID_INVALID)
 
 
-def check_inside_home(profile: AgentProfile, home: Path) -> None:
-    """Every path an edit set has to stay under the crew home."""
+def check_inside_home(
+    profile: AgentProfile, home: Path, before: AgentProfile | None = None
+) -> None:
+    """Every path an edit brings has to stay under the crew home.
+
+    `before` is the agent as it runs now. A path it already runs with is not the edit's:
+    the file was written by hand to point there, and a save that leaves it where it is
+    gives whoever reaches this port nothing new. Each kind is measured against its own
+    kind and no other, so a workspace elsewhere makes neither that folder a place skills
+    are loaded from nor a file under it a persona. A new agent has none: all it names is
+    the edit's.
+    """
     home = home.resolve()
-    candidates = [profile.workspace, *profile.skills_dirs]
-    candidates += [profile.dir / name for name in profile.persona_files]
-    for path in candidates:
-        if not path.resolve().is_relative_to(home):
-            raise ValueError(texts.PATH_OUTSIDE_HOME.format(path=str(path)))
+    held = _paths(before) if before else ((), (), ())
+    for brought, kept in zip(_paths(profile), held, strict=True):
+        known = {path.resolve() for path in kept}
+        for path in brought:
+            resolved = path.resolve()
+            if not resolved.is_relative_to(home) and resolved not in known:
+                raise ValueError(texts.PATH_OUTSIDE_HOME.format(path=str(path)))
+
+
+def _paths(profile: AgentProfile) -> tuple[Sequence[Path], ...]:
+    """A profile's paths, a kind at a time: the workspace, skills folders, persona files."""
+    personas = [profile.dir / name for name in profile.persona_files]
+    return (profile.workspace,), profile.skills_dirs, personas
 
 
 def route_text(value: Any) -> Any:

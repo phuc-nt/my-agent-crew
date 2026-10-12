@@ -258,13 +258,26 @@ trả 500 và, chừng nào lịch đó còn bật, tick nào của đồng hồ
 hai lịch trùng mã thì lịch sau âm thầm thay lịch trước. Lịch mà lần sửa không đụng tới thì
 không bị kiểm tra lại, nên một tệp viết tay như thế không chặn việc đổi tên, tuyến hay tool.
 
-**Đường dẫn trong một lần sửa phải nằm dưới home của đội.** `workspace`, `skills_dirs` và
+**Đường dẫn một lần sửa đưa vào phải nằm dưới home của đội.** `workspace`, `skills_dirs` và
 `persona_files` được kiểm tra sau khi phân giải, nên `~`, đường dẫn tuyệt đối hoặc đủ `..` để
 ra khỏi home là 422. Tệp persona được đọc vào system prompt và đi tới
 model ở lượt kế tiếp, còn workspace là phạm vi của mọi tool tệp — không cái nào
 nên là thứ mà một request có thể nhắm tới bất cứ đâu trên máy. Kiểm tra này chỉ áp cho
 đường sửa này: kit gọi tên markdown của nó bằng đường dẫn tuyệt đối, và `agent add --workspace`
 cố ý trỏ một agent tới repo ở nơi khác, cả hai vẫn hoạt động.
+
+Đường dẫn ngoài home mà agent **đang chạy với** thì không phải của lần sửa: tệp viết tay đã trỏ
+tới đó, và một lần lưu để nguyên nó không cho người gọi thêm được gì. Agent như vậy vẫn sửa được
+mọi khoá khác qua web và API, và gửi lại đúng đường dẫn ấy (viết cách nào cũng được, miễn phân
+giải ra cùng một chỗ) cũng được nhận. Phép so đi theo từng loại, loại nào so với loại nấy:
+`workspace` với workspace đang chạy, từng mục `skills_dirs` với các thư mục skill đang chạy,
+từng tệp persona với các tệp persona đang chạy. Một workspace ngoài home không làm thư mục ấy
+thành thư mục skill được nhận, cũng không làm tệp nằm dưới nó thành tệp persona được nhận. Đổi
+một workspace ngoài home sang chỗ khác ngoài home (kể cả thư mục cha hay thư mục con của nó) là
+422; đổi vào trong home thì được, và sau đó không đổi ngược ra được nữa. Agent mới tạo chưa chạy
+với gì, nên mọi đường dẫn của nó phải nằm dưới home, kể cả khi một agent khác đang làm việc ở
+chính chỗ đó. Phép so lấy agent đang chạy, không lấy tệp: đường dẫn ngoài home vừa viết tay vào
+tệp mà chưa khởi động lại thì chưa được tính, lần lưu qua web lúc đó bị từ chối kèm đường dẫn ấy.
 
 **Cả hai danh sách mẫu shell phải là danh sách.** Một chuỗi trần thì duyệt qua được, nên
 `shell_ask_patterns: "rm"` nếu không sẽ thành các mẫu `r` và `m` và hàng rào

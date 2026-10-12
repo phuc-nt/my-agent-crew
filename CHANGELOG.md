@@ -11,6 +11,19 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+### Fixed
+
+- An agent whose hand-written `agent.yaml` keeps a path outside the crew home can be edited from
+  the web and the API again. Every `PATCH /api/agents/{id}` on such an agent (one that
+  `agent add --workspace` aimed at a repo elsewhere, or whose file names a persona or a skills
+  folder outside the home) answered 422 naming that path, whatever key the edit was about. The
+  check now measures what the edit brings: a path outside the home is refused unless the running
+  agent already has it, each kind against its own kind (the workspace against the workspace, a
+  skills folder against the skills folders, a persona file against the persona files), so a
+  workspace elsewhere vouches for no skills folder and no persona file. Moving an outside
+  workspace to another place outside the home is still refused, moving it into the home is
+  accepted, and a new agent still may name no path outside the home.
+
 ## [0.15.0] — 2026-10-12
 
 ### Added

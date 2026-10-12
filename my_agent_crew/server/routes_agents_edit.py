@@ -70,7 +70,7 @@ def save(
 ) -> AgentProfile:
     """Validate, then wire, then write — in that order, so a refused edit leaves both the
     file and the running crew as they were. `before` is the agent as it runs now, which
-    an edit's schedules are measured against; a new agent has none.
+    an edit's schedules and paths are measured against; a new agent has none.
 
     Wiring before writing is what makes that true. Building the agent is the step that
     can still fail on a profile that parsed cleanly — an unusable route, a directory that
@@ -86,7 +86,7 @@ def save(
     try:
         profile = validated(agent_id, agent_dir, raw, rt.settings, before)
         check_read_back(manifest_path(rt, agent_id), raw, edited)
-        check_inside_home(profile, rt.settings.home)
+        check_inside_home(profile, rt.settings.home, before)
         problem = escalation_problem(profile.settings, rt.providers)
         if problem and ROUTE_KEYS & set(edited):
             raise ValueError(problem)
