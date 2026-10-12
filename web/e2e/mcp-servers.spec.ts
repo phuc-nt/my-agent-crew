@@ -401,7 +401,7 @@ test.describe("on a phone", () => {
   // A folded tool carries one badge more and the two sizes after it. Beside a name this
   // long they go onto the next line of the tool's head rather than widening the card.
   test("a tool whose parameters were folded says so with both sizes, within the screen", async ({ page }) => {
-    const folded = mcpTool("notion", QUERY, { description: LONG, read_only_hint: true, folded: { from: 83073, to: 21255 } });
+    const folded = mcpTool("notion", QUERY, { description: LONG, read_only_hint: true, folded: { from: 83073, to: 21825 } });
     const mcp = new FakeMcp([mcpServer({ tools: [...TOOLS, folded] })]);
     await mockApi(page, { agents: [{ ...master, mcp: ["notion"] }, coachAgent], mcp });
     await page.goto("/#/manage/connections");
@@ -410,13 +410,13 @@ test.describe("on a phone", () => {
 
     const tool = row(page).getByTestId(`mcp-tool-${QUERY}`);
     await expect(tool.getByText("đã gộp tham số")).toBeVisible();
-    await expect(tool.getByText("83.073 → 21.255 ký tự")).toBeVisible();
+    await expect(tool.getByText("83.073 → 21.825 ký tự")).toBeVisible();
     // Only that tool: the two beside it went through whole.
     await expect(row(page).getByText("đã gộp tham số")).toHaveCount(1);
     await expect(row(page).getByText(/ký tự/)).toHaveCount(1);
 
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
-    const box = (await tool.getByText("83.073 → 21.255 ký tự").boundingBox())!;
+    const box = (await tool.getByText("83.073 → 21.825 ký tự").boundingBox())!;
     expect(box.x).toBeGreaterThanOrEqual(0);
     expect(box.x + box.width).toBeLessThanOrEqual(390);
     expect(await spills(page, '[data-testid="mcp-card"]')).toEqual([]);

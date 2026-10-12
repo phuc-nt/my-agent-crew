@@ -55,8 +55,11 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   the job list again on it, so a row moves from "Đang báo qua Telegram." to when the owner was
   told with no other run ending, and a page open in another tab shows a schedule saved in this
   one; of two reads of the list that are out at once, the page now shows the one it asked for
-  last. A job's pause switch and the removal of a schedule made in chat are not sent. A page on
-  an older bundle does not listen for the event and is not disturbed by it.
+  last. A pause switch moved and a schedule made in chat deleted on that page are shown from the
+  server's answer and then read again, so a read that was out meanwhile cannot put the row back
+  as it was. A job's pause switch and the removal of a schedule made in chat are not sent: another
+  tab sees them at its next read. A page on an older bundle does not listen for the event and is
+  not disturbed by it.
 
 ### Changed
 
@@ -93,8 +96,9 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   `POST /api/agents/install` is true only when an agent that was written did not join the
   running crew (a file forced over an agent that runs), no longer whenever the template states a
   schedule. On the web, the "restart to apply" banner of the agent editor is gone: a save that
-  changed the schedules says "Đã lưu. Thay đổi lịch chạy có hiệu lực ngay, không cần khởi động lại.",
-  and Lịch chạy shows the new rows without a reload of the page.
+  changed the schedules says "Đã lưu. Thay đổi lịch chạy có hiệu lực ngay, không cần khởi động lại."
+  until a field of the form is changed again or the form is reset, and Lịch chạy shows the new
+  rows without a reload of the page.
 - A save whose file cannot be written changes nothing. The order of a save is now validate,
   build, write, then swap: `agent.yaml` is written once the agent is built and before the
   running crew takes it. A write the system refuses (a full disk, a file that cannot be

@@ -77,15 +77,26 @@ export function useCrew(): CrewController {
     [refreshJobs],
   );
 
-  const setJobEnabled = useCallback(async (jobId: string, enabled: boolean) => {
-    const updated = await api.setJobEnabled(jobId, enabled);
-    setJobs((current) => current?.map((job) => (job.id === updated.id ? updated : job)) ?? null);
-  }, []);
+  // A switch moved and a row deleted are shown at once, from the server's answer. A read
+  // that was out meanwhile may hold the list as it was before, so the list is read again:
+  // that read is the one asked for last, and the older answer is dropped when it lands.
+  const setJobEnabled = useCallback(
+    async (jobId: string, enabled: boolean) => {
+      const updated = await api.setJobEnabled(jobId, enabled);
+      setJobs((current) => current?.map((job) => (job.id === updated.id ? updated : job)) ?? null);
+      await refreshJobs();
+    },
+    [refreshJobs],
+  );
 
-  const deleteJob = useCallback(async (jobId: string) => {
-    await api.deleteJob(jobId);
-    setJobs((current) => current?.filter((job) => job.id !== jobId) ?? null);
-  }, []);
+  const deleteJob = useCallback(
+    async (jobId: string) => {
+      await api.deleteJob(jobId);
+      setJobs((current) => current?.filter((job) => job.id !== jobId) ?? null);
+      await refreshJobs();
+    },
+    [refreshJobs],
+  );
 
   const agentName = useCallback(
     (id: string) => agents.find((a) => a.id === id)?.name ?? id,

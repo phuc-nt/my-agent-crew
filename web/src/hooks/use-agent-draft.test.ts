@@ -470,6 +470,50 @@ describe("useAgentDraft", () => {
     expect(result.current.scheduleLive).toBe(false);
   });
 
+  // "Đã lưu." speaks of the form as the save left it. Beside a field changed since, it
+  // would be read as saying that change is saved and on the clock too.
+  it("takes the note back as soon as a field is changed again", async () => {
+    const backend = new FakeBackend();
+    backend.agents = [fakeAgent];
+    vitest.stubGlobal("fetch", backend.fetch);
+    const { result } = renderHook(() => useAgentDraft(fakeAgent));
+
+    act(() => {
+      result.current.set("schedules", nightly);
+    });
+    await act(async () => {
+      await result.current.save();
+    });
+    expect(result.current.scheduleLive).toBe(true);
+
+    act(() => {
+      result.current.set("name", "Tên khác");
+    });
+
+    expect(result.current.scheduleLive).toBe(false);
+  });
+
+  it("takes the note back when the form is put back to what the file holds", async () => {
+    const backend = new FakeBackend();
+    backend.agents = [fakeAgent];
+    vitest.stubGlobal("fetch", backend.fetch);
+    const { result } = renderHook(() => useAgentDraft(fakeAgent));
+
+    act(() => {
+      result.current.set("schedules", nightly);
+    });
+    await act(async () => {
+      await result.current.save();
+    });
+    expect(result.current.scheduleLive).toBe(true);
+
+    act(() => {
+      result.current.reset();
+    });
+
+    expect(result.current.scheduleLive).toBe(false);
+  });
+
   it("drops the note about one agent's schedules when another agent is opened", async () => {
     const agent1 = { ...fakeAgent, id: "agent1", name: "Agent 1" };
     const agent2 = { ...fakeAgent, id: "agent2", name: "Agent 2" };
