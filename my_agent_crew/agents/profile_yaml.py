@@ -11,10 +11,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 from my_agent_crew.agents.approval_ttl import parse_approval_ttl
 from my_agent_crew.agents.channels import parse_telegram
+from my_agent_crew.agents.manifest_read import read_manifest
 from my_agent_crew.agents.profile import (
     ASSISTANT,
     DEFAULT_AGENT_ID,
@@ -174,7 +173,7 @@ def load_master_profile(settings: Settings) -> AgentProfile:
     manifest = settings.home / MASTER_MANIFEST
     if not manifest.is_file():
         return default_profile(settings)
-    raw = yaml.safe_load(manifest.read_text(encoding="utf-8")) or {}
+    raw = read_manifest(manifest)
     return read_profile(DEFAULT_AGENT_ID, settings.home, raw, settings)
 
 
@@ -194,6 +193,6 @@ def load_yaml_profiles(settings: Settings) -> list[AgentProfile]:
             continue
         if agent_dir.name == DEFAULT_AGENT_ID:
             raise ValueError(f"agent id {DEFAULT_AGENT_ID!r} is reserved")
-        raw = yaml.safe_load(manifest.read_text(encoding="utf-8")) or {}
+        raw = read_manifest(manifest)
         profiles.append(read_profile(agent_dir.name, agent_dir.resolve(), raw, settings))
     return profiles

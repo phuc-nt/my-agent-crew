@@ -66,6 +66,9 @@ def _add(args: argparse.Namespace) -> int:
     except FileExistsError as exc:
         print(f"{exc.args[0]} đã có rồi. Dùng --force để ghi đè.")
         return 1
+    except ValueError as exc:
+        print(exc)
+        return 1
     print(f"đã tạo {agent_dir}")
     if peers:
         print(f"kèm theo đồng đội mà agent này giao việc: {', '.join(peers)}")
