@@ -401,7 +401,9 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
       return route.fulfill({ status: 200, contentType: "text/event-stream", body: sse(options.stream ?? [{ type: "snapshot", runs: options.runs ?? [] }]) });
     if (path === "/stats")
       return json(options.stats ?? { runs: 0, model_calls: 0, spent_usd: 0, unknown_cost_calls: 0, by_agent: {}, by_model: {}, by_day: {}, days: [], models: [], purposes: [] });
-    if (path === "/jobs") return json(options.jobs ?? []);
+    // Like the server, every row says whether its job is in a streak of failures: null
+    // unless the spec put one on the row.
+    if (path === "/jobs") return json((options.jobs ?? []).map((row) => ({ failing: null, ...row })));
     if (path === "/approvals") return json([]);
     if (path === "/messages/search") {
       const needle = fold((url.searchParams.get("q") ?? "").trim());

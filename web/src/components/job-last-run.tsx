@@ -1,6 +1,6 @@
-import type { JobInfo, RunStatus } from "../api/types";
+import type { JobFailing, JobInfo, RunStatus } from "../api/types";
 import { vi } from "../i18n/vi";
-import { timeAgo } from "../lib/relative-time";
+import { dayClock, timeAgo } from "../lib/relative-time";
 import { AtClock } from "./job-clock";
 import { formatDateTime } from "./run-timeline";
 
@@ -63,6 +63,22 @@ export function JobLastRun({ job, now, onOpenRun }: Props) {
       ) : (
         <span>{vi.jobNever}</span>
       )}
+      {job.failing && <FailingStreak failing={job.failing} now={now} />}
     </div>
+  );
+}
+
+/** A job that keeps failing, in a sentence under its last run: one failed run reads the
+ *  same on the badge above as a job that has been down for a week, and whether the owner
+ *  was told about it is on no other page. */
+function FailingStreak({ failing, now }: { failing: JobFailing; now: Date }) {
+  const t = vi.jobRow;
+  const told = failing.told_at
+    ? t.streakTold(dayClock(failing.told_at, now), failing.next_notice_at && dayClock(failing.next_notice_at, now))
+    : t.streakUntold;
+  return (
+    <p className="job-failing" data-testid="job-failing">
+      {t.streak(failing.count, dayClock(failing.since, now))} {told}
+    </p>
   );
 }

@@ -30,6 +30,18 @@ export type ActivityPayload =
   // A canvas changed: its summary or its deletion, never its text.
   | ArtifactEvent;
 
+/** A job whose runs keep ending in an error, and what the owner was told about it. */
+export interface JobFailing {
+  /** Runs in a row that failed, the latest included: one at least. */
+  count: number;
+  /** When the first run of the streak started. */
+  since: string;
+  /** When the owner was last told over Telegram; null while no notice has got through. */
+  told_at: string | null;
+  /** The earliest a failure is told again; null along with `told_at`. */
+  next_notice_at: string | null;
+}
+
 export interface JobInfo extends ScheduleInfo {
   schedule_id: string;
   agent_id: string;
@@ -41,6 +53,9 @@ export interface JobInfo extends ScheduleInfo {
   /** "profile" came from `agent.yaml` and needs a restart to change; "chat" was proposed
    *  by the agent and approved by a person, and can be deleted from here. */
   origin: "profile" | "chat";
+  /** Set while the job is in a streak of failed runs. A server from before the streak was
+   *  counted leaves the key out, which reads as no streak. */
+  failing?: JobFailing | null;
 }
 
 /** Calls, tokens and cost added up from the message log for one bucket. */
