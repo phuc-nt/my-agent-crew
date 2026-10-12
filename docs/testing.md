@@ -426,6 +426,21 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `tests/test_api_agents_edit.py::test_a_schedule_cannot_take_the_consolidation_jobs_id`,
     `tests/test_api_agents_edit.py::test_a_saved_schedule_comes_back_in_the_shape_it_can_be_resent_in`,
     `tests/test_api_agents_edit.py::test_clearing_memory_consolidation_removes_the_key`
+- **Đường dẫn một lần sửa đưa vào phải nằm dưới home; đường dẫn agent đang chạy với thì để nguyên**
+  - pytest: `tests/test_api_agents_edit.py`
+    ("test_a_persona_file_outside_the_home_is_refused",
+    "test_a_workspace_outside_the_home_is_refused",
+    "test_a_skills_dir_outside_the_home_is_refused": ba lời từ chối gốc);
+    `tests/test_api_agents_edit_outside_paths.py` (agent có tệp viết tay giữ `workspace` ngoài
+    home: sửa `script_calls`, `max_steps` hay `description` là 200, có hiệu lực ngay, tệp chỉ thêm
+    đúng dòng ấy và workspace vẫn là cây chủ đã chọn; gửi lại đúng workspace ấy, kể cả viết vòng
+    qua `..`, cùng một khoá khác là 200; đổi sang một cây khác ngoài home, sang thư mục cha hay
+    thư mục con là 422, tệp và agent đang chạy không đổi; đổi vào trong home thì được và không
+    đổi ngược ra được; thư mục skill ngoài home và tệp persona ngoài home mà tệp đã ghi: khoá khác
+    lưu được, gửi lại được, thêm cái thứ hai ngoài home là 422 và chữ của tệp thứ hai không vào
+    system prompt; loại này không bảo lãnh cho loại kia: workspace ngoài home không thành thư mục
+    skill hay tệp persona, thư mục skill không thành workspace, tệp persona không thành thư mục
+    skill hay workspace; tạo agent mới trỏ tới chỗ một agent khác đang làm việc ngoài home là 422)
 - **Danh sách công cụ của agent mở từ những gì tệp viết, không từ những gì agent đang giữ**
   - pytest: `tests/test_api_agents_declared.py::test_the_tools_an_agent_holds_are_not_what_its_file_lists`,
     `tests/test_api_agents_declared.py::test_a_save_answers_with_the_tools_the_file_now_lists`,
