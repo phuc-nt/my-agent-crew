@@ -1,14 +1,21 @@
 import { useCallback, useState } from "react";
 import type { AgentInfo, RunInfo } from "../api/types";
 import { useMemory } from "../hooks/use-memory";
+import { useRoute } from "../hooks/use-route";
 import { vi } from "../i18n/vi";
 import { MemoryAgentSection } from "./memory-agent-section";
 import { MemoryProposalsSection } from "./memory-proposals-section";
 import { MemorySearchSection } from "./memory-search-section";
 import { MemoryUserSection } from "./memory-user-section";
+import { ScriptStoreSection } from "./script-store-section";
 import { WikiSection } from "./wiki-section";
 
-type Section = "user" | "agents" | "wiki" | "search" | "proposals";
+type Section = "user" | "agents" | "wiki" | "scripts" | "search" | "proposals";
+
+/** What the address says after `#/manage/memory/` when it opens the script store, with the
+ *  agent's id after it: a namespace's owner is found from a job or a run, so the screen
+ *  that shows what its scripts keep is one a link can name. */
+const SCRIPTS_PARAM = "scripts";
 
 interface Props {
   agents: AgentInfo[];
@@ -24,14 +31,32 @@ const SECTIONS: { id: Section; label: string }[] = [
   { id: "user", label: vi.memory.user },
   { id: "agents", label: vi.memory.agents },
   { id: "wiki", label: vi.wiki.tab },
+  { id: "scripts", label: vi.scriptStore.tab },
   { id: "search", label: vi.memory.search },
   { id: "proposals", label: vi.memory.proposals },
 ];
 
 /** Everything the crew remembers, in the same four scopes the agents read it in. */
 export function MemoryPanel(props: Props) {
-  const [section, setSection] = useState<Section>("user");
+  const [chosen, setSection] = useState<Section>("user");
   const [agentId, setAgentId] = useState(props.agentId);
+  const { route, navigate } = useRoute();
+  // The script store is the one tab the address names; the others live in the panel alone.
+  const linked = route.kind === "manage" && route.section === "memory" && route.param === SCRIPTS_PARAM ? route : null;
+  const section: Section = linked ? "scripts" : chosen;
+  // An agent the address names is the one shown while the crew has it; the crew may not
+  // have been read yet, and a name is not turned away before it has.
+  const named = linked?.focus;
+  const storeAgentId = named && (props.agents.length === 0 || props.agents.some((a) => a.id === named)) ? named : agentId;
+  const openStore = (id: string) => navigate({ kind: "manage", section: "memory", param: SCRIPTS_PARAM, focus: id });
+  const open = (next: Section) => {
+    if (next === "scripts") return openStore(storeAgentId);
+    setSection(next);
+    if (!linked) return;
+    // Leaving the store by a tab: the agent looked at there is the one the next tab shows.
+    setAgentId(storeAgentId);
+    navigate({ kind: "manage", section: "memory" });
+  };
   const memory = useMemory(agentId, props.pendingProposals);
   const { refreshAgent, refreshProposals } = memory;
   // A consolidation proposes a rewrite and may have written notes; both are re-read.
@@ -50,7 +75,7 @@ export function MemoryPanel(props: Props) {
             role="tab"
             aria-selected={section === s.id}
             className={section === s.id ? "active" : ""}
-            onClick={() => setSection(s.id)}
+            onClick={() => open(s.id)}
           >
             {s.label}
             {s.id === "proposals" && props.pendingProposals > 0 && (
@@ -92,6 +117,9 @@ export function MemoryPanel(props: Props) {
           onReadNote={memory.readNote}
           onSaveNote={memory.saveNote}
         />
+      )}
+      {section === "scripts" && (
+        <ScriptStoreSection agents={props.agents} agentId={storeAgentId} onSelectAgent={openStore} />
       )}
       {section === "search" && (
         <MemorySearchSection
