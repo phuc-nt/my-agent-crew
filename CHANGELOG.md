@@ -449,6 +449,15 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   Each now answers in the words a broken file gets elsewhere, with the path of the file in front
   of the parser's line and column (422 on a reload and an install, 409 on a key or the routes
   with nothing saved), and the start stops on the same sentence.
+- A markdown file whose front matter is not YAML costs that one file. A description with a
+  second colon in it (`description: Use when: the tests fail`) is the usual case. One such file
+  among the home's skills, or the agents or commands of its kit, stopped the start of the whole
+  crew with the parser's own error, and a persona file that opens with such a block failed
+  every turn of its agent. An agent, a command or a skill in such a file is now left out and
+  named in the log while the rest load, and a persona is read as written, block and all. A
+  skill whose front matter parses but states no keys (a line of plain words between the two
+  `---`) stopped the start the same way and is now a skill with no description, by its file
+  name.
 
 ## [0.15.0] — 2026-10-12
 

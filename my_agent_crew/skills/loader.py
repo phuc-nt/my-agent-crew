@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import logging
 import shutil
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
@@ -13,6 +14,8 @@ from typing import Any
 import yaml
 
 from my_agent_crew.texts import SKILL_LOCATION, SKILL_MISSING_BINS
+
+logger = logging.getLogger(__name__)
 
 BUILTIN_DIR = Path(__file__).parent / "builtin"
 FOLDER_MANIFEST = "SKILL.md"
@@ -65,7 +68,8 @@ def parse_skill(text: str, fallback_name: str) -> Skill:
         _, _, rest = text.partition("---\n")
         front, sep, body = rest.partition("\n---")
         if sep:
-            meta = yaml.safe_load(front) or {}
+            stated = yaml.safe_load(front)
+            meta = stated if isinstance(stated, dict) else {}
             body = body.lstrip("\n")
     return Skill(
         name=str(meta.get("name") or fallback_name),
@@ -111,13 +115,19 @@ def _skill_files(directory: Path) -> list[tuple[Path, str, Path | None]]:
 
 
 def load_skills(*dirs: Path, which: Which = shutil.which) -> list[Skill]:
-    """Later directories override earlier ones by name, so a home skill can shadow a builtin."""
+    """Later directories override earlier ones by name, so a home skill can shadow a builtin.
+    A file whose front matter is not YAML is left out and named in the log: it used to
+    stop the start of every agent that reads the directory."""
     by_name: dict[str, Skill] = {}
     for directory in dirs:
         if not directory.is_dir():
             continue
         for path, fallback, folder in _skill_files(directory):
-            skill = parse_skill(path.read_text(encoding="utf-8"), fallback)
+            try:
+                skill = parse_skill(path.read_text(encoding="utf-8"), fallback)
+            except yaml.YAMLError as exc:
+                logger.warning("skill %s skipped: %s", path, exc)
+                continue
             if folder is not None:
                 location = str(folder.resolve())
                 skill = replace(

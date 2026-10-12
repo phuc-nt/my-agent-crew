@@ -81,14 +81,20 @@ def _markdown_files(root: Path, names: tuple[str, ...], recursive: bool) -> Iter
 
 
 def split_front_matter(text: str) -> tuple[dict[str, Any], str]:
-    """`---` yaml `---` body, the shape every harness uses for its markdown files."""
+    """`---` yaml `---` body, the shape every harness uses for its markdown files. A
+    front matter that is not YAML is a ValueError: each reader says what a file it
+    cannot read costs (an agent or a command left out, a persona read as written),
+    where the parser's own error went past all of them and stopped the start."""
     if not text.startswith("---"):
         return {}, text.strip()
     _, _, rest = text.partition("---\n")
     front, sep, body = rest.partition("\n---")
     if not sep:
         return {}, text.strip()
-    meta = yaml.safe_load(front) or {}
+    try:
+        meta = yaml.safe_load(front) or {}
+    except yaml.YAMLError as exc:
+        raise ValueError(f"front matter is not YAML: {exc}") from exc
     return (meta if isinstance(meta, dict) else {}), body.strip()
 
 
