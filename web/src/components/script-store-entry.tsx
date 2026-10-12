@@ -1,6 +1,6 @@
 import { useId, useState } from "react";
 import { ApiError } from "../api/client";
-import type { ScriptStoreEntry } from "../api/script-store";
+import type { ScriptStoreEntry, ScriptStoreValue } from "../api/script-store";
 import { vi } from "../i18n/vi";
 import { errorText } from "../lib/error-text";
 import { showHiddenChars } from "../lib/hidden-chars";
@@ -13,16 +13,22 @@ interface Props {
   entry: ScriptStoreEntry;
   /** Why the server refused to delete this key, when it just did. */
   refused: string | null;
-  /** Reads the whole value. */
-  onRead(): Promise<string>;
+  /** Reads the whole value, with when it was written. */
+  onRead(): Promise<ScriptStoreValue>;
   /** The server answered that the key is no longer there. */
   onGone(): void;
   /** Asked for; the list asks the person before anything goes. */
   onDelete(): void;
 }
 
-/** What the box under the key holds, and which writing of the key it was asked for. */
-type Shown = { stamp: string } & ({ state: "reading" } | { state: "read"; text: string } | { state: "failed"; why: string });
+/** What the box under the key holds. `row` is the writing of the key the list showed when
+ *  the value was asked for; a value that was read says which writing it is itself (`stamp`),
+ *  a later one than the row's when the key was written in between. */
+type Shown = { row: string } & (
+  | { state: "reading" }
+  | { state: "read"; text: string; stamp: string }
+  | { state: "failed"; why: string }
+);
 
 /**
  * One key a script kept: its name, how its value opens, how long the value is and when it
@@ -37,23 +43,26 @@ export function ScriptStoreEntryRow({ entry, refused, onRead, onGone, onDelete }
   const [shown, setShown] = useState<Shown | null>(null);
   const boxId = useId();
   const key = showHiddenChars(entry.key);
-  // A value read before the key was written again is no longer the key's value.
-  const box = shown?.stamp === entry.updated_at ? shown : null;
+  // The box is the key's while the row is the writing it was asked under, or the writing
+  // the value says it is once the list has caught up with it. A row that moved on to any
+  // other writing has a value nobody read: one read before it is no longer the key's.
+  const written = shown === null ? [] : shown.state === "read" ? [shown.row, shown.stamp] : [shown.row];
+  const box = written.includes(entry.updated_at) ? shown : null;
 
   const read = async () => {
-    const stamp = entry.updated_at;
+    const row = entry.updated_at;
     /** Only the read still waited for fills the box: a person may have closed it since. */
-    const settle = (next: Shown) => setShown((was) => (was?.stamp === stamp && was.state === "reading" ? next : was));
-    setShown({ stamp, state: "reading" });
+    const settle = (next: Shown) => setShown((was) => (was?.row === row && was.state === "reading" ? next : was));
+    setShown({ row, state: "reading" });
     try {
-      const text = await onRead();
-      settle({ stamp, state: "read", text });
+      const value = await onRead();
+      settle({ row, state: "read", text: value.text, stamp: value.updated_at });
     } catch (error) {
       if (error instanceof ApiError && error.status === 404) {
         setShown(null);
         onGone();
       } else {
-        settle({ stamp, state: "failed", why: errorText(error) });
+        settle({ row, state: "failed", why: errorText(error) });
       }
     }
   };

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { type ScriptStoreInfo, scriptStoreApi } from "../api/script-store";
+import { type ScriptStoreInfo, type ScriptStoreValue, scriptStoreApi } from "../api/script-store";
 
 export interface ScriptStoreController {
   /** What the agent's scripts keep; null until it has been read once. */
@@ -8,8 +8,10 @@ export interface ScriptStoreController {
   failed: unknown;
   /** Reads the list again. */
   refresh(): Promise<void>;
-  /** One key's value, whole. Rejects with the request's error; a 404 means the key is gone. */
-  value(namespace: string, key: string): Promise<string>;
+  /** One key's value, whole, with how long it is and when it was written. Rejects with the
+   *  request's error; a 404 means the key is gone. A value written since the list was read
+   *  has the list read again, so the row beside the value is that same writing's. */
+  value(namespace: string, key: string): Promise<ScriptStoreValue>;
   /** Deletes one key, or the whole namespace when no key is named, and answers how many rows
    *  the server took out. Rejects with the request's error, having changed nothing. */
   remove(namespace: string, key?: string): Promise<number>;
@@ -66,9 +68,26 @@ export function useScriptStore(agentId: string): ScriptStoreController {
     };
   }, [refresh]);
 
+  /** The list on screen, for an answer that lands between two renders; nothing once the
+   *  screen closed. */
+  const onScreen = useRef<ScriptStoreInfo | null>(null);
+  useEffect(() => {
+    onScreen.current = store;
+    return () => {
+      onScreen.current = null;
+    };
+  }, [store]);
+
   const value = useCallback(
-    async (namespace: string, key: string) => (await scriptStoreApi.value(agentId, namespace, key)).text,
-    [agentId],
+    async (namespace: string, key: string) => {
+      const read = await scriptStoreApi.value(agentId, namespace, key);
+      const row = onScreen.current?.namespaces.find((held) => held.namespace === namespace)?.entries.find((entry) => entry.key === key);
+      // Written again since the list was read: the row's size and time, the namespace's size
+      // and its bar are still the earlier writing's, and only the list brings the new ones.
+      if (row !== undefined && (row.chars !== read.chars || row.updated_at !== read.updated_at)) void refresh();
+      return read;
+    },
+    [agentId, refresh],
   );
 
   const drop = useCallback(

@@ -1,4 +1,4 @@
-import type { ScriptStoreEntry, ScriptStoreNamespace } from "../api/script-store";
+import type { ScriptStoreEntry, ScriptStoreNamespace, ScriptStoreValue } from "../api/script-store";
 import { vi } from "../i18n/vi";
 import { showHiddenChars } from "../lib/hidden-chars";
 import { namespaceFill, namespaceWords } from "../lib/script-store-namespace";
@@ -21,7 +21,7 @@ interface Props {
   /** The most a namespace holds; absent when the server names none. */
   limit: number | undefined;
   refused: RefusedDelete | null;
-  onRead(key: string): Promise<string>;
+  onRead(key: string): Promise<ScriptStoreValue>;
   onGone(entry: ScriptStoreEntry, at: number): void;
   /** One key when an entry is named, every key of the namespace otherwise. `where` is how
    *  a sentence names the namespace, for the question asked first and the line that says
