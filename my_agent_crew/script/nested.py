@@ -79,6 +79,12 @@ class ScriptRun:
         kept the moment it ends: a script cut short mid-batch still made the calls it made."""
         return [self.ended[number] for number in sorted(self.ended)]
 
+    @property
+    def handed_on_spent(self) -> float:
+        """What the conversations its tasks opened spent, of the tasks that came back so far.
+        Its own conversation is charged that once, when the script ends, and owes it till then."""
+        return sum(call.child_spent_usd for call in self.calls)
+
     def lookup(self, kind: str, arguments: dict[str, Any]) -> Any:
         if kind in KINDS:
             return self.keep(kind, arguments)

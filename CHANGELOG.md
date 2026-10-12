@@ -100,8 +100,10 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   ones a script made, so a script went on asking, up to its ten, past the cost cap. Each asking
   is now refused before it is made or counted, and the script ends there ("cuộc trò chuyện đã
   chạm trần chi phí, script không hỏi model thêm được."), which it cannot catch. The askings
-  before it were paid and stay on the run card. The script of a schedule runs in no conversation,
-  so only its ten askings bound it.
+  before it were paid and stay on the run card. What the tasks the script handed on have spent
+  counts as spent there from the moment each comes back, though the conversation is charged it
+  only when the script ends: a script whose task took the conversation to its cap asks no model
+  after. The script of a schedule runs in no conversation, so only its ten askings bound it.
 - The refusal past the eight tasks a conversation may hand on no longer promises the next turn.
   It said a turn hands on at most eight and to hand the task on at the next one; the count is the
   conversation's, tasks handed on by a script among them, so the next turn was refused in the

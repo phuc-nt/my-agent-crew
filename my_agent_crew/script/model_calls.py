@@ -10,7 +10,9 @@ and is told to the turn the moment it ends, which is where its cost reaches the 
 conversation (`agent/nested_calls.py`). The ledger hears of it as a side call made for a
 script (`llm/metered_chain.py`). It is never one the approval gate is asked about: it changes
 nothing. It is a call of a model all the same, so none is made once the conversation has spent
-the most it may: the script ends there, as the turn does before a call of its own.
+the most it may: the script ends there, as the turn does before a call of its own. What the
+tasks the script handed on have spent by then counts as spent, though the conversation is
+charged it only when the script ends.
 """
 
 from __future__ import annotations
@@ -59,15 +61,20 @@ class AgentsModel:
 
     deps: AgentDeps
 
-    def out_of_money(self) -> bool:
+    def out_of_money(self, owed: float) -> bool:
         """Whether the conversation the script runs in has spent the most it may, read as
-        the turn reads it before each call of its own (`agent/loop.py`). The script of a
-        schedule runs in none, and a conversation deleted meanwhile holds nobody to it."""
+        the turn reads it before each call of its own (`agent/loop.py`). `owed` is spent
+        too: what the tasks this script handed on spent, which the conversation is charged
+        only when the script ends (`agent/tool_calls.py`). The script of a schedule runs in
+        none, and a conversation deleted meanwhile holds nobody to it."""
         conv_id = turn_conversation_id()
+        if not conv_id:
+            return False
         try:
-            return bool(conv_id) and self.deps.store.get(conv_id).over_budget
+            conv = self.deps.store.get(conv_id)
         except KeyError:
             return False
+        return replace(conv, spent_usd=conv.spent_usd + owed).over_budget
 
     async def __call__(self, asked: Sequence[Message]) -> tuple[str, float | None]:
         deps = self.deps
@@ -125,7 +132,7 @@ class ModelCalls:
             raise ScriptError(words.LLM_NOT_HERE)
         if self.asked >= limits.MAX_LLM_CALLS:
             raise Halt(words.LLM_TOO_MANY_CALLS.format(most=limits.MAX_LLM_CALLS))
-        if isinstance(self.ask, AgentsModel) and self.ask.out_of_money():
+        if isinstance(self.ask, AgentsModel) and self.ask.out_of_money(self.run.handed_on_spent):
             raise Halt(words.LLM_OVER_BUDGET.format(reason=HALT_REASONS["budget"]))
         budget = nested_budget()
         if budget is not None and not budget.take(1):

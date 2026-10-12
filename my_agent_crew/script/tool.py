@@ -129,7 +129,7 @@ async def run_source(
         calls=tuple(made.calls),
         received_chars=made.received,
         printed_chars=len(printed),
-        child_spent_usd=sum(call.child_spent_usd for call in made.calls),
+        child_spent_usd=made.handed_on_spent,
     )
     return Ran(result, printed, ended_by)
 

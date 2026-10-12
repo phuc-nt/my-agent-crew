@@ -5843,6 +5843,20 @@ khi chạy; phần đó có mục riêng ở dưới.
     vì tiền không được đếm vào số lần hỏi, số lời gọi của script hay trần của lượt, và `try` của
     script không bắt được; cuộc trò chuyện bị xoá trong lúc script chạy không phải là lý do từ
     chối).
+  - pytest: `tests/test_script_asks_after_handing_on.py` (tiền các việc script đã giao được tính là
+    đã tiêu khi xét trần trước một lần hỏi model, dù cuộc trò chuyện chỉ được cộng lúc script xong:
+    qua `delegate` thật, việc giao đưa cuộc trò chuyện vượt trần thì lần hỏi sau đó bị từ chối bằng
+    đúng câu của trần chi phí, `try` của script không bắt được, model của agent không được hỏi thêm
+    lần nào, sổ cái không có lời gọi phụ nào và lượt dừng vì `budget`; tiền cuộc trò chuyện đã tiêu
+    và tiền việc giao được cộng lại, chạm đúng trần là hết; hai việc giao lần lượt hay cùng một
+    `tools.batch` đều được cộng với nhau; một việc được tính từ lúc nó trả kết quả, nên lần hỏi
+    trước nó vẫn chạy và được trả tiền, lần hỏi sau nó thì không; còn tiền thì script hỏi được và
+    mỗi khoản vào cuộc trò chuyện đúng một lần; cuộc trò chuyện không đặt trần thì hỏi được dù việc
+    giao tiêu bao nhiêu; tiền script trước của cùng lượt đã giao không bị script sau tính hai lần;
+    lần hỏi bị từ chối vì tiền việc giao không được đếm vào số lần hỏi, số lời gọi của script hay
+    trần của lượt, và không tốn gì). Việc giao ở phần lớn các ca là một tool `delegate` thế chỗ, trả
+    về số tiền test đặt. Kiểm chứng đột biến: ba sửa đổi (không tính tiền việc giao, chỉ tính tiền
+    việc giao mà bỏ tiền cuộc trò chuyện đã tiêu, lấy việc tốn nhất thay cho tổng) đều bị test bắt.
   - pytest: `tests/test_script_model_answers.py` (câu trả lời nêu đúng một nhãn thì thành nhãn
     đó: viết hoa khác, cách chữ khác, dấu gõ rời, bọc trong ngoặc kép, chữ đậm, dấu code hay kèm
     dấu chấm, hoặc là nhãn duy nhất đứng trong một câu; câu trả lời là trọn một nhãn thì là nhãn
