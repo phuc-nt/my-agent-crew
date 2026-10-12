@@ -380,6 +380,14 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   routes were saved. A master whose `agent.yaml` gives no `name` ran under the name `default`
   after any save, where a start calls it by the default's name. A start and a save now read a
   file through one function and add the kits through one.
+- A removed agent's schedules leave the clock with it. After `DELETE /api/agents/{id}` the jobs
+  its `agent.yaml` stated stayed on the clock: each time one came due the tick raised, and the
+  jobs after it in that tick waited for the next. The jobs the agent was given in chat and the
+  switch flipped on any job of its stayed in the database. Once an agent was made under the same
+  id, all of them were that agent's: the jobs ran again, as it, switched as the one before left
+  them. A removal now takes the three with it at once (the run history stays), an agent made
+  under the id starts with none of them, and a job that comes due with no agent in the crew is
+  left out with one log line while the rest of the tick runs.
 
 ## [0.15.0] — 2026-10-12
 

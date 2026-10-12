@@ -172,14 +172,14 @@ class Runtime:
         self.wire_delegation()
 
     def remove_agent(self, agent_id: str) -> None:
-        """Drop an agent from the running crew. Conversations that named it stay put and
-        fall back to the default agent, which is why this does not touch the store."""
-        # The peer map is reached through the default agent, so it is taken before the
-        # pop rather than after: dropping the default first would leave nothing to read
-        # it from.
+        """Drop an agent from the running crew, and its jobs from the clock. Conversations
+        that named it stay put and fall back to the default agent; nothing else is kept."""
+        # The peer map is reached through the default agent, so it is taken before the pop
+        # rather than after: dropping the default first would leave nothing to read it from.
         peers = self.default.peers if isinstance(self.default.peers, dict) else {}
         self.agents.pop(agent_id, None)
         peers.pop(agent_id, None)
+        self.scheduler.forget_agent(agent_id)
         self.wire_delegation()
 
     def deps_for_conversation(self, conv_id: str) -> AgentDeps:

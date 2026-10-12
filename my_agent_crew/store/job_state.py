@@ -38,3 +38,16 @@ class JobStateStore:
         with self._lock:
             self._conn.execute("DELETE FROM job_state WHERE job_id = ?", (job_id,))
             self._conn.commit()
+
+    def forget_agent(self, agent_id: str) -> None:
+        """Drops every switch flipped on a job of one agent's, which goes when the agent
+        does: a job that an agent later made under the id states by the same name would
+        start paused, or running, by a choice made for another's. A job is the agent's by
+        the id and the `/` after it, read as text: `coder` takes nothing of `coder-two`,
+        and an `_` in an id stands for itself, which `LIKE` would not have it do."""
+        prefix = f"{agent_id}/"
+        with self._lock:
+            self._conn.execute(
+                "DELETE FROM job_state WHERE substr(job_id, 1, ?) = ?", (len(prefix), prefix)
+            )
+            self._conn.commit()

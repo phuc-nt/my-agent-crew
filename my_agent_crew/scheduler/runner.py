@@ -15,6 +15,7 @@ from my_agent_crew.activity import ActivityHub
 from my_agent_crew.agent.approval_expiry import expire_overdue
 from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.agents.schedule import DELIVERED
+from my_agent_crew.scheduler import agent_jobs
 from my_agent_crew.scheduler.created import chat_jobs
 from my_agent_crew.scheduler.cron import due_between
 from my_agent_crew.scheduler.describe import describe_job
@@ -42,22 +43,17 @@ class Scheduler:
         self._clock = clock
         self._deliver, self._notify = deliver, notify
         self._store = next(iter(agents.values())).store if agents else None
-        # Profile schedules only: `agent.yaml` cannot change without a restart, so these
-        # never need rebuilding. Chat-created jobs are never kept here — `_table` reads
-        # them fresh from the store on every call instead, since a person approving or
-        # deleting one runs on a FastAPI thread-pool thread while `tick()` runs on the
-        # event loop, and an in-memory dict updated from both would race.
-        self._profile_jobs: dict[str, Job] = {}
-        self._last: dict[str, datetime] = {}
+        # Profile schedules only, as the files stated them at the start: an edit of them
+        # asks for a restart, so these are never rebuilt, only dropped with their agent.
+        # Chat-created jobs are never kept here — `_table` reads them fresh from the store
+        # on every call instead, since a person approving or deleting one runs on a FastAPI
+        # thread-pool thread while `tick()` runs on the event loop, and an in-memory dict
+        # updated from both would race.
+        self._profile_jobs = agent_jobs.profile_jobs(agents)
+        self._last = dict.fromkeys(self._profile_jobs, clock())
         self._task: asyncio.Task[None] | None = None
         self._running: set[str] = set()
         self._background: set[asyncio.Task[Any]] = set()
-        started = clock()
-        for agent_id, deps in agents.items():
-            for schedule in deps.agent.schedules:
-                job = Job(id=f"{agent_id}/{schedule.id}", agent_id=agent_id, schedule=schedule)
-                self._profile_jobs[job.id] = job
-                self._last[job.id] = started
 
     # --- inspection ----------------------------------------------------------------------
 
@@ -80,22 +76,19 @@ class Scheduler:
     def jobs(self) -> list[Job]:
         return list(self._table().values())
 
+    def forget_agent(self, agent_id: str) -> None:
+        """An agent that leaves the crew takes its jobs off the clock with it. Called on the
+        event loop, as `tick()` is."""
+        agent_jobs.forget_agent(self._profile_jobs, self._store, agent_id)
+
     def describe(self) -> list[dict[str, Any]]:
         now = self._clock()
         out = []
         for job in self._table().values():
             # Asked per job: a weekly job's last run sits far behind a busy crew's week.
             last_run = next(iter(self._hub.recent(1, source=JOB_SOURCE + job.id)), None)
-            out.append(
-                describe_job(
-                    job,
-                    self._last[job.id],
-                    now,
-                    self._override(job),
-                    last_run,
-                    job.id in self._running,
-                )
-            )
+            last, running = self._last[job.id], job.id in self._running
+            out.append(describe_job(job, last, now, self._override(job), last_run, running))
         return out
 
     # --- switching -----------------------------------------------------------------------
@@ -131,7 +124,13 @@ class Scheduler:
         results = []
         for job in self.due(now):
             self._last[job.id] = now
-            results.append(await self.run_job(job.id))
+            if job.agent_id in self._agents:
+                results.append(await self.run_job(job.id))
+                continue
+            # Its agent left while an earlier job of this tick ran, or by a way that took no
+            # job along. Told of once: the job goes with the line, and the tick goes on.
+            logger.warning("job %s: agent %s is not in the crew, job dropped", job.id, job.agent_id)
+            self._profile_jobs.pop(job.id, None)
         return results
 
     def start(self) -> None:
@@ -182,9 +181,10 @@ class Scheduler:
     async def deliver_run(self, job: Job, run: RunRecord) -> None:
         """Pushes the job's answer to the agent's channel; a failed send is logged, not
         raised, because the run itself already succeeded."""
-        if self._deliver is None or run.conversation_id is None:
+        deps = self._agents.get(job.agent_id)
+        if self._deliver is None or run.conversation_id is None or deps is None:
             return
-        if nothing_to_report(job, run, self._agents[job.agent_id]):
+        if nothing_to_report(job, run, deps):
             logger.info("job %s: nothing to report, not delivered", job.id)
             return
         try:
