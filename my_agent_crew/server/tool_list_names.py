@@ -1,0 +1,51 @@
+"""What to say of a name in an agent's `tools:` list that no tool built with it carries.
+
+The list chooses among the tools assembly builds. A name it cannot match there may still
+be a real tool: `delegate` is handed once every agent exists, and the list is what keeps
+it; the script tool, `tool_search` and a server's tools come by what the agent holds and
+the servers it names, whatever the list says; some tools come with the work mode. Only a
+name none of this explains is one nobody knows, and that keeps the wording it always had.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable, Collection
+
+from my_agent_crew.agents import AgentProfile
+from my_agent_crew.agents.roster import DELEGATE_TOOL_NAME
+from my_agent_crew.mcp.tool_search import SEARCH_TOOL
+from my_agent_crew.mcp.tools import PREFIX
+from my_agent_crew.script.scope import SCRIPT_TOOL
+
+# The name is honoured later, by whoever hands the tool: there is nothing to say.
+HONOURED = ""
+NOBODY_TO_HAND_TO = (
+    "which this agent is not given: it hands work to nobody "
+    "(the master, a work agent and an agent that names `delegates` do)"
+)
+NOT_THE_LISTS = "which the list does not decide: "
+SCRIPT = NOT_THE_LISTS + (
+    "an agent holds it when it holds a tool a script may call, unless `script_calls` is `none`"
+)
+SEARCH = NOT_THE_LISTS + "it comes with the servers named under `mcp`"
+SERVER_TOOL = NOT_THE_LISTS + "a server's tools come with the servers named under `mcp`"
+WORK_ONLY = "which only an agent with `mode: work` holds"
+
+
+Reason = Callable[[str], str | None]
+
+
+def listed_elsewhere(profile: AgentProfile, work_only: Collection[str]) -> Reason:
+    """Why a name the list holds is not among the tools built with the agent: nothing to
+    say when it is honoured later, the reason when the list cannot bring it, and `None`
+    for a name no tool carries. `work_only` names the tools the work mode brings."""
+    fixed = {SCRIPT_TOOL: SCRIPT, SEARCH_TOOL: SEARCH, **dict.fromkeys(work_only, WORK_ONLY)}
+
+    def why(name: str) -> str | None:
+        if name == DELEGATE_TOOL_NAME:
+            return HONOURED if profile.hands_work_out else NOBODY_TO_HAND_TO
+        if name.startswith(PREFIX):
+            return SERVER_TOOL
+        return fixed.get(name)
+
+    return why

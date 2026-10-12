@@ -98,6 +98,12 @@ class AgentProfile:
         return self.id == DEFAULT_AGENT_ID
 
     @property
+    def hands_work_out(self) -> bool:
+        """The master and every work agent hand work out, as does any agent that names
+        `delegates`. Whether a `tools:` list leaves it the tool is `Runtime.delegates`."""
+        return self.is_master or self.is_work or bool(self.delegates)
+
+    @property
     def shell_write_dirs(self) -> tuple[Path, ...]:
         return tuple((self.workspace / p).resolve() for p in self.settings.shell_write_paths)
 

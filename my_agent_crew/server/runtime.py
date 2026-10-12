@@ -112,7 +112,7 @@ class Runtime:
         profile = deps.agent
         if profile.tools and DELEGATE_TOOL_NAME not in profile.tools:
             return False
-        return profile.is_master or profile.is_work or bool(profile.delegates)
+        return profile.hands_work_out
 
     def wire_delegation(self) -> None:
         """Agents that delegate get the tool once every agent exists — it holds the
