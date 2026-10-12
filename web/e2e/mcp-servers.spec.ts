@@ -294,6 +294,8 @@ test("an agent is handed a server in its editor, and a server the file dropped h
   // A click, not `uncheck`: the row goes with its tick, so there is no box left to read.
   await old.getByRole("checkbox").click();
   await expect(old).toHaveCount(0);
+  // The keyboard that was on it is on the last row left, not back at the top of the page.
+  await expect(notion.getByRole("checkbox")).toBeFocused();
   const patch = page.waitForRequest((r) => r.method() === "PATCH" && /\/api\/agents\/coach$/.test(r.url()));
   await editor.getByRole("button", SAVE).click();
   expect((await patch).postDataJSON()).toEqual({ profile: { mcp: ["notion"] } });
