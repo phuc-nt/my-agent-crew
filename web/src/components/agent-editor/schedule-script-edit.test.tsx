@@ -53,7 +53,7 @@ describe("a schedule's script, written in the form", () => {
     await userEvent.type(row.getByLabelText(t.scheduleScript), "if True:{enter}    print(1)");
     await save();
 
-    await waitFor(() => expect(screen.getByTestId("restart-banner")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId("schedule-live")).toBeInTheDocument());
     expect(sent()).toEqual([{ id: "orders", name: "Đồng bộ", cron: "40 6 * * *", script: "if True:\n    print(1)", enabled: true, skills: [] }]);
     expect(backend.agents[0].declared.schedules[0]).toMatchObject({ id: "orders", prompt: null, command: null, then_prompt: null });
     expect(row.getByLabelText(t.scheduleScript)).toHaveValue("if True:\n    print(1)");
@@ -128,7 +128,7 @@ describe("a schedule's script, written in the form", () => {
     await userEvent.clear(row.getByLabelText(t.scheduleThenPrompt));
     await save();
 
-    await waitFor(() => expect(screen.getByTestId("restart-banner")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId("schedule-live")).toBeInTheDocument());
     expect(sent()).toEqual([{ id: "sync", name: "Đồng bộ đơn", cron: "40 6 * * *", script: "print(1)\n", enabled: true, skills: [] }]);
     expect(backend.agents[0].declared.schedules[0].then_prompt).toBeNull();
     expect(screen.getByRole("button", { name: t.save })).toBeDisabled();

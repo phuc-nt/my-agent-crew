@@ -57,7 +57,7 @@ function open(...schedules: ScheduleRow[]) {
 async function saved(): Promise<Record<string, unknown>[]> {
   await userEvent.click(screen.getByRole("button", { name: vi.editor.save }));
   // Shown only once the save was taken: a refused row leaves an error in its place.
-  await waitFor(() => expect(screen.getByTestId("restart-banner")).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByTestId("schedule-live")).toBeInTheDocument());
   const patch = backend.requests.find((r) => r.method === "PATCH");
   return (patch?.body as { profile: { schedules: Record<string, unknown>[] } }).profile.schedules;
 }

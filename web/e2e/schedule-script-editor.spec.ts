@@ -71,7 +71,9 @@ for (const viewport of VIEWPORTS) {
       { id: "brief", name: "Bản tin sáng", cron: "0 7 * * *", prompt: "Tóm tắt", enabled: true, skills: ["goodreads"] },
       { id: "orders", name: "Đồng bộ đơn", cron: "40 6 * * *", script: SCRIPT, then_prompt: THEN, enabled: true, skills: [] },
     ]);
-    await expect(page.getByTestId("restart-banner")).toBeVisible();
+    // The scheduler has the script from the save on; the note fits the screen it is on.
+    await expect(page.getByTestId("schedule-live")).toBeVisible();
+    expect(await pageWidth(page)).toBeLessThanOrEqual(viewport.width);
 
     // Reloading shows what the server kept: the script as typed, under the id typed for it.
     await page.reload();
@@ -125,7 +127,8 @@ test("a script the server refuses is said in its own words, and nothing typed is
   await expect(page.getByTestId("agent-editor").getByText(t.saveFailed(refusal))).toBeVisible();
   await expect(script).toHaveValue("print(1)\nimport os\n");
   await expect(save(page)).toBeEnabled();
-  await expect(page.getByTestId("restart-banner")).toHaveCount(0);
+  // Nothing was saved, so nothing is said to be live.
+  await expect(page.getByTestId("schedule-live")).toHaveCount(0);
 });
 
 test("a script left empty, or grown past the parser's bound, holds the save and says why", async ({ page }) => {

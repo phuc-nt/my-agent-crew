@@ -30,6 +30,9 @@ export interface ManageProps {
   /** Re-reads the crew after a profile is written, created or removed, and after a save on
    *  the connections page, which the server answers by building the crew again. */
   onReloadCrew: () => Promise<void> | void;
+  /** Re-reads the jobs list after a profile is written, created or removed: a saved
+   *  schedule is live at once, and that list is where its row and next run show. */
+  onReloadJobs: () => Promise<void> | void;
   onNavigate: (section: ManageSection) => void;
   /** Reads the activity list again after a request was settled from the approvals page. */
   onReloadActivity?: () => void;

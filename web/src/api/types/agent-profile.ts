@@ -88,7 +88,8 @@ export interface InstallRequest {
 export interface InstallResult {
   installed: string[];
   live: string[];
-  /** A schedule only starts at boot. */
+  /** An agent in `installed` is missing from `live`: it could not join the running crew
+   *  and will be there after a restart. */
   needs_restart: boolean;
 }
 
@@ -129,10 +130,11 @@ export interface AgentPatch {
 }
 
 /**
- * What a write to an agent's profile produced: the agent as it is now, and why the next
- * boot still has something to pick up. Each entry of `restart_required` is a whole
- * sentence the server wrote for the owner, to be shown as it is; an empty list means the
- * edit is fully live already.
+ * What a write to an agent's profile produced: the agent as it is now. Every edit is live
+ * once it is saved, schedules included, so `restart_required` is always empty now. The key
+ * is kept for pages loaded from an older bundle, which read it; a server from before
+ * schedules went live still names a reason there, and a save it answers is not said to be
+ * live.
  */
 export interface AgentSaved {
   profile: AgentInfo;

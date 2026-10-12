@@ -32,8 +32,8 @@ test("a way out for a stuck turn is set on an agent, held while it is no way out
   await editor.getByRole("button", SAVE).click();
   expect((await patch).postDataJSON()).toEqual({ profile: { escalation_route: { provider: "fake", model: "big" } } });
   await expect(editor.getByRole("button", SAVE)).toBeDisabled();
-  // A route takes effect on the agent's next turn: nothing asks for a restart.
-  await expect(editor.getByTestId("restart-banner")).toHaveCount(0);
+  // A route is no schedule: the note that a saved schedule is live says nothing here.
+  await expect(editor.getByTestId("schedule-live")).toHaveCount(0);
 
   // Reloading shows what the server kept.
   await page.reload();

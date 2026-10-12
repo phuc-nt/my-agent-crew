@@ -185,14 +185,14 @@ test("the routes every agent falls back on are edited and saved", async ({ page 
   await expect(page.getByTestId("routes").getByLabel("Mô hình").nth(1)).toHaveValue("second");
 });
 
-test("a schedule is added from the jobs list through the agent's editor", async ({ page }) => {
+test("a schedule added from the jobs list through the agent's editor is on the list at once", async ({ page }) => {
   const { kind: _kind, ...briefRow } = coachAgent.schedules[0];
   const coach = { ...coachAgent, declared: { delegates: [], schedules: [briefRow], tools: [] } };
   const briefJob = { ...coachAgent.schedules[0], id: "coach/brief", schedule_id: "brief", agent_id: "coach", next_run: null, last_run: null, running: false, paused: false };
-  // What the scheduler serves. It builds the list at boot, so it changes only on a restart.
-  const jobs: object[] = [briefJob];
-  await mockApi(page, { agents: [master, coach], jobs });
+  // What the scheduler serves: it takes a saved schedule up with the save.
+  await mockApi(page, { agents: [master, coach], jobs: [briefJob] });
   await page.goto("/#/manage/jobs");
+  await expect(page.getByTestId("job")).toHaveCount(1);
 
   await page.getByTestId("job").getByRole("button", { name: "Sửa lịch Bản tin sáng" }).click();
   // The job rides along so the editor's back link returns to its row.
@@ -216,15 +216,22 @@ test("a schedule is added from the jobs list through the agent's editor", async 
     { id: "brief", name: "Bản tin sáng", cron: "0 7 * * *", prompt: "Tóm tắt", enabled: true, skills: ["goodreads"] },
     { name: "Dọn rác", every: "30m", command: "echo dọn", enabled: true, skills: [] },
   ]);
-  await expect(editor.getByTestId("restart-banner")).toBeVisible();
+  await expect(editor.getByTestId("schedule-live")).toHaveText("Đã lưu. Lịch chạy mới có hiệu lực ngay, không cần khởi động lại.");
+  // Nothing on the page asks for the restart a schedule used to wait for.
+  await expect(page.getByTestId("restart-banner")).toHaveCount(0);
+  await expect(page.getByText("Cần khởi động lại", { exact: true })).toHaveCount(0);
   await expect(editor.getByRole("button", { name: "Lưu", exact: true })).toBeDisabled();
 
-  // The restart the banner asks for: the scheduler comes back with the new row in its list.
-  jobs.push({ ...briefJob, id: "coach/job-1", schedule_id: "job-1", name: "Dọn rác", kind: "command", cron: null, every: "30m", prompt: null, command: "echo dọn", skills: [] });
-  await page.goto("/#/manage/jobs");
-  await page.reload();
-  await expect(page.getByTestId("job").filter({ hasText: "Dọn rác" })).toContainText("Mỗi 30 phút");
-  await expect(page.getByTestId("job").filter({ hasText: "Dọn rác" })).toContainText("30m");
+  // Back to the row the editor was opened from, in the document the save was made in: a
+  // page loaded again would have read the list whatever the save did.
+  await page.evaluate(() => document.documentElement.setAttribute("data-kept", "yes"));
+  await editor.getByRole("button", { name: "← Lịch chạy" }).click();
+  await expect(page).toHaveURL(/#\/manage\/jobs\/coach%2Fbrief$/);
+  await expect(page.getByTestId("job")).toHaveCount(2);
+  const added = page.getByTestId("job").filter({ hasText: "Dọn rác" });
+  await expect(added).toContainText("Mỗi 30 phút");
+  await expect(added).toContainText("30m");
+  await expect(page.locator("html")).toHaveAttribute("data-kept", "yes");
 });
 
 test("a job reads its schedule in words, shows its last run, and a failure is counted on the nav", async ({ page }) => {

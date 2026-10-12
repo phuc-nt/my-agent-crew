@@ -25,8 +25,8 @@ export interface AgentDraft {
   problems: DraftProblems;
   saving: boolean;
   error: string | null;
-  /** Why the crew has to be restarted for the last save to fully take effect. */
-  restartRequired: string[];
+  /** The last save changed when the agent runs, and the running crew has taken it up. */
+  scheduleLive: boolean;
   set: <K extends DraftKey>(key: K, value: AgentPatch[K]) => void;
   reset: () => void;
   save: () => Promise<boolean>;
@@ -54,7 +54,7 @@ export function useAgentDraft(
   const [draft, setDraft] = useState<AgentPatch>(() => (agent ? toDraft(agent) : {}));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [restartRequired, setRestartRequired] = useState<string[]>([]);
+  const [scheduleLive, setScheduleLive] = useState(false);
   // Set by a save refused for a box still empty, so that box is named from then on.
   const [reveal, setReveal] = useState(false);
 
@@ -64,7 +64,7 @@ export function useAgentDraft(
     setOriginal(agent);
     setDraft(agent ? toDraft(agent) : {});
     setError(null);
-    setRestartRequired([]);
+    setScheduleLive(false);
   }, [agent?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const base = useMemo(() => (original ? toDraft(original) : {}), [original]);
@@ -116,7 +116,8 @@ export function useAgentDraft(
     setSaving(true);
     setError(null);
     try {
-      const saved = await api.patchAgent(original.id, toPatch(draft, dirty));
+      const patch = toPatch(draft, dirty);
+      const saved = await api.patchAgent(original.id, patch);
       // The answer is the agent as the list reports it, `declared` included, so the
       // form restarts from what the file now says rather than from what was typed. A
       // server still running older code answers without it, which left the form nothing
@@ -124,7 +125,10 @@ export function useAgentDraft(
       const profile = saved.profile.declared ? saved.profile : await listed(original.id);
       setOriginal(profile);
       setDraft(toDraft(profile));
-      setRestartRequired(saved.restart_required);
+      // The scheduler takes a saved schedule up at once and answers with no reason to
+      // restart. A server from before it did still names one, and is not said to be live.
+      const timed = "schedules" in patch || "memory_consolidate" in patch;
+      setScheduleLive(timed && !saved.restart_required?.length);
       onSaved?.(profile);
       return true;
     } catch (e) {
@@ -132,11 +136,13 @@ export function useAgentDraft(
       // among several good ones, and clearing the form would make the person retype all
       // of them to find out which.
       setError(errorText(e));
+      // "Saved" beside the reason a save was refused would speak for the wrong one.
+      setScheduleLive(false);
       return false;
     } finally {
       setSaving(false);
     }
   }, [dirty, draft, onSaved, original, problems]);
 
-  return { original, draft, dirty, problems, saving, error, restartRequired, set, reset, save };
+  return { original, draft, dirty, problems, saving, error, scheduleLive, set, reset, save };
 }

@@ -37,6 +37,7 @@ function screenAt(section: ManageSection) {
       onEditAgent={() => undefined}
       onReplayRun={() => undefined}
       onReloadCrew={() => undefined}
+      onReloadJobs={() => undefined}
       onNavigate={() => undefined}
       onBackToChat={() => undefined}
       onOpenConversation={() => undefined}

@@ -69,7 +69,7 @@ describe("what an agent's scripts may call", () => {
     expect(patches()).toEqual([{ profile: { script_calls: "gated" } }]);
   });
 
-  it.each(["none", "gated"] as const)("saves %s as the one key that changed, with no restart asked", async (value) => {
+  it.each(["none", "gated"] as const)("saves %s as the one key that changed, with no word about schedules", async (value) => {
     open(fakeAgent);
 
     await userEvent.selectOptions(calls(), value);
@@ -80,7 +80,7 @@ describe("what an agent's scripts may call", () => {
     expect(patches()).toEqual([{ profile: { script_calls: value } }]);
     // The answer to the save is what the form is rebuilt from.
     expect(calls()).toHaveValue(value);
-    expect(screen.queryByTestId("restart-banner")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("schedule-live")).not.toBeInTheDocument();
   });
 
   it("is still what the editor shows when the agent is opened again", async () => {
@@ -172,7 +172,7 @@ describe("whether an agent's scripts may ask a model", () => {
     await saved();
     expect(patches()).toEqual([{ profile: { script_llm: false } }]);
     expect(llm()).not.toBeChecked();
-    expect(screen.queryByTestId("restart-banner")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("schedule-live")).not.toBeInTheDocument();
   });
 
   it("says what it costs and that a schedule's script is covered, as its description", () => {

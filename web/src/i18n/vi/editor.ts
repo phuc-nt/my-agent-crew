@@ -11,9 +11,9 @@ export const viEditor = {
     dirty: (n: number) => `${n} thay đổi chưa lưu`,
     clean: "Chưa có thay đổi",
     saveFailed: (message: string) => `Không lưu được: ${message}`,
-    restartTitle: "Cần khởi động lại",
-    // Each reason is a whole sentence the server wrote for the owner, shown as it is.
-    restartBody: (reasons: string[]) => `Đã lưu. ${reasons.join(" ")}`,
+    // After a save that changed when the agent runs: a schedule used to wait for a restart,
+    // so the person is told this one does not.
+    scheduleLive: "Đã lưu. Lịch chạy mới có hiệu lực ngay, không cần khởi động lại.",
     sectionIdentity: "Nhận dạng",
     sectionModel: "Mô hình",
     sectionPersona: "Tính cách",

@@ -40,7 +40,7 @@ function open() {
 /** Saves, and returns the one row that was sent once the server has answered. */
 async function saved(): Promise<Record<string, unknown>> {
   await userEvent.click(screen.getByRole("button", { name: t.save }));
-  await waitFor(() => expect(screen.getByTestId("restart-banner")).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByTestId("schedule-live")).toBeInTheDocument());
   const patch = backend.requests.find((r) => r.method === "PATCH");
   return (patch?.body as { profile: { schedules: Record<string, unknown>[] } }).profile.schedules[0];
 }

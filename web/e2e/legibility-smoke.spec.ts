@@ -157,7 +157,8 @@ test("a manage notice stacks its parts while a chat notice keeps its icon beside
   await mockApi(page);
   await page.goto("/");
   await expect(page.getByRole("main")).toBeVisible();
-  await probe(page, `<div class="notice warn restart-banner"><strong>Cần khởi động lại</strong><div>Lý do</div></div>`);
+  // What the crew page says after an install an agent could not join the crew from.
+  await probe(page, `<div class="notice ok manage-probe">Đã cài coder.<div class="muted">Agent mới chưa vào được đội.</div></div>`);
   // The chat's notices sit straight under its main column, so this one goes in bare.
   await page.evaluate(() => {
     const notice = document.createElement("div");
@@ -166,7 +167,7 @@ test("a manage notice stacks its parts while a chat notice keeps its icon beside
     document.querySelector("main")?.prepend(notice);
   });
 
-  expect(await page.locator(".probe .restart-banner").evaluate((el) => getComputedStyle(el).display)).toBe("block");
+  expect(await page.locator(".probe .manage-probe").evaluate((el) => getComputedStyle(el).display)).toBe("block");
   expect(await page.locator("main > .chat-probe").evaluate((el) => getComputedStyle(el).display)).toBe("flex");
 });
 

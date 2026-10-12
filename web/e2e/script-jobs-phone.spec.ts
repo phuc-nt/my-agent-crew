@@ -114,7 +114,8 @@ test("a script row in the editor is typed in where it stands, and what is typed 
     { id: "brief", name: "Bản tin sáng", cron: "0 7 * * *", prompt: "Tóm tắt", enabled: true, skills: ["goodreads"] },
   ]);
   // Taken by the parser's rules, and a reload reads back what the file now holds.
-  await expect(editor.getByTestId("restart-banner")).toBeVisible();
+  await expect(editor.getByTestId("schedule-live")).toBeVisible();
+  expect(await pageWidth(page)).toBeLessThanOrEqual(390);
   await page.reload();
   await expect(page.getByTestId("schedule-row").nth(0).getByLabel(vi.editor.scheduleScript, { exact: true })).toHaveValue(SOURCE + ADDED);
 });

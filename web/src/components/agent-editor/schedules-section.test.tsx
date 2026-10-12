@@ -5,7 +5,6 @@ import type { AgentInfo } from "../../api/types";
 import type { ScheduleRow } from "../../hooks/schedule-row-shape";
 import { vi } from "../../i18n/vi";
 import { FakeBackend, fakeAgent } from "../../test/fake-backend";
-import { SCHEDULES_RESTART_REASON } from "../../test/schedule-contract";
 import { AgentEditor } from "./agent-editor";
 
 let backend: FakeBackend;
@@ -74,7 +73,7 @@ describe("the schedules part of the agent editor", () => {
     await userEvent.type(row.getByLabelText(vi.editor.schedulePrompt), "Tóm tắt tin");
     await save();
 
-    await waitFor(() => expect(screen.getByTestId("restart-banner")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId("schedule-live")).toBeInTheDocument());
     expect(sentProfile().schedules).toEqual([
       { name: "Bản tin", cron: "0 7 * * *", prompt: "Tóm tắt tin", enabled: true, skills: [] },
     ]);
@@ -85,33 +84,35 @@ describe("the schedules part of the agent editor", () => {
     expect(screen.getByText(vi.editor.clean)).toBeInTheDocument();
   });
 
-  // The server says why in a whole sentence of its own. Taken for the name of a changed
-  // key, that sentence once landed in the middle of another one, full stop and all, which
-  // then asked for the restart a second time.
-  it("tells the person why a restart is needed in the server's own sentence", async () => {
+  // The scheduler takes a saved schedule up at once. A save here used to ask for a restart,
+  // which is what a person who has saved one before still expects, so the form says in so
+  // many words that this one needs none.
+  it("says a saved schedule runs from now on, and asks for no restart", async () => {
     open();
+    expect(screen.queryByTestId("schedule-live")).not.toBeInTheDocument();
     const row = await addRow();
     await userEvent.type(row.getByLabelText(vi.editor.scheduleCron), "0 7 * * *");
     await userEvent.type(row.getByLabelText(vi.editor.schedulePrompt), "Tóm tắt tin");
+    // Typed, not saved: nothing is live yet.
+    expect(screen.queryByTestId("schedule-live")).not.toBeInTheDocument();
     await save();
 
-    const banner = within(await screen.findByTestId("restart-banner"));
-    expect(banner.getByText("Cần khởi động lại")).toBeInTheDocument();
-    expect(
-      banner.getByText("Đã lưu. Thay đổi lịch chạy chỉ có hiệu lực sau khi khởi động lại máy chủ."),
-    ).toBeInTheDocument();
+    const note = await screen.findByTestId("schedule-live");
+    expect(note.textContent).toBe("Đã lưu. Lịch chạy mới có hiệu lực ngay, không cần khởi động lại.");
+    // Read out when it appears, as the answer to the press on Save.
+    expect(note).toHaveAttribute("role", "status");
+    expect(screen.queryByText("Cần khởi động lại")).not.toBeInTheDocument();
+    expect(screen.queryByText(/sau khi khởi động lại/)).not.toBeInTheDocument();
   });
 
-  // The clock keeps the jobs it started with, so a removed one runs on until the restart:
-  // the banner is as true for it, and its sentence once spoke of a "new" schedule.
-  it("asks for the restart after a schedule is removed, in words that fit a removal", async () => {
+  // A removed schedule stops with the save as well: the scheduler drops its job at once.
+  it("says the same after a schedule is removed", async () => {
     open(declaring(brief));
     await userEvent.click(await screen.findByRole("button", { name: vi.editor.scheduleRemove("Bản tin sáng") }));
     await save();
 
-    const banner = within(await screen.findByTestId("restart-banner"));
-    expect(banner.getByText(`Đã lưu. ${SCHEDULES_RESTART_REASON}`)).toBeInTheDocument();
-    expect(banner.queryByText(/mới/)).not.toBeInTheDocument();
+    const note = await screen.findByTestId("schedule-live");
+    expect(note.textContent).toBe(vi.editor.scheduleLive);
     expect(sentProfile().schedules).toEqual([]);
   });
 
@@ -218,7 +219,7 @@ describe("the schedules part of the agent editor", () => {
     await userEvent.type(evening, " muộn");
     await save();
 
-    await waitFor(() => expect(screen.getByTestId("restart-banner")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId("schedule-live")).toBeInTheDocument());
     const [kept, edited] = sentProfile().schedules as Record<string, unknown>[];
     expect(kept.approval_ttl_seconds).toBe(7200);
     expect(edited.name).toBe("Tối muộn");
@@ -377,6 +378,8 @@ describe("the schedules part of the agent editor", () => {
     await waitFor(() => expect(screen.getByText(vi.editor.clean)).toBeInTheDocument());
     expect(sentProfile()).toEqual({ memory_consolidate: null });
     expect(screen.getByLabelText(vi.editor.memoryConsolidate)).toHaveValue("");
+    // The memory pass is a job on the same clock, and stops with the save as a row would.
+    expect(screen.getByTestId("schedule-live").textContent).toBe(vi.editor.scheduleLive);
   });
 
   it("brings the schedules into view when opened from the jobs list", () => {

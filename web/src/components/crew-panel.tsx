@@ -25,8 +25,8 @@ type Notice = { kind: "ok"; text: string; restart: boolean } | { kind: "error"; 
 /**
  * The team behind the master: who is in it, what each member does, and the bundled
  * profiles that can join with one click. Installing writes the profile to the home
- * directory and the server picks it up at once; only schedules wait for a restart,
- * which the notice says.
+ * directory and the server picks it up at once, schedules included; the notice says so
+ * when an agent could not join the running crew and waits for a restart.
  */
 export function CrewPanel({
   agents,

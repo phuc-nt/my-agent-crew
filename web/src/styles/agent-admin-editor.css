@@ -96,10 +96,6 @@
   border-color: color-mix(in srgb, var(--danger) 40%, var(--border));
 }
 
-.restart-banner {
-  border-radius: var(--radius-sm);
-}
-
 .persona-tabs button.active {
   background: var(--accent-soft);
   font-weight: 600;

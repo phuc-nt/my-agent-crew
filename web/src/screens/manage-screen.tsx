@@ -57,10 +57,12 @@ export function ManageScreen(props: ManageProps) {
     else if (onTools) void refreshRegistry();
   }, [onTools, stand, refreshRegistry]);
   // An agent that is written, made or removed changes who uses a server, which the list of
-  // servers says on the connections page: it is read again along with the crew.
+  // servers says on the connections page: it is read again along with the crew. So are the
+  // jobs, since the scheduler takes up what the profile now says without a restart.
   const crewChanged = () => {
     void onReloadCrew();
     void mcpCrewChanged();
+    void props.onReloadJobs();
   };
   const editing = props.agents.find((a) => a.id === props.editingAgentId) ?? null;
   const pendingProposals = props.stats?.pending_proposals ?? 0;

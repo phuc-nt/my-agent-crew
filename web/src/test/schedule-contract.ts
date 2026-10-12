@@ -43,14 +43,25 @@ function readTtl(value: unknown, where: string): Read<number | null> {
   return { ok: value };
 }
 
-/** `texts.RESTART_REASON_SCHEDULES`, word for word: the server's reason for a restart. */
-export const SCHEDULES_RESTART_REASON = "Thay đổi lịch chạy chỉ có hiệu lực sau khi khởi động lại máy chủ.";
-
-/** What a save answers in `restart_required`. Only the scheduler is built once, at boot, so
- *  only the two keys it reads ask for a restart — taking a job away as much as adding one,
- *  since the clock keeps the jobs it started with. A bot is rebuilt live. */
-export function restartRequired(patch: Record<string, unknown>): string[] {
-  return "schedules" in patch || "memory_consolidate" in patch ? [SCHEDULES_RESTART_REASON] : [];
+/**
+ * The jobs list once an agent's schedules were saved. The scheduler takes the rows up at
+ * once, so the list follows the file: a job of origin `profile` for every row the agent now
+ * declares, a row it already had kept in its place with its last run and its pause, and one
+ * no longer declared gone. A job made from chat, the memory pass and the jobs of other
+ * agents are not the rows' to move.
+ */
+export function jobsAfterSave<J extends object>(jobs: J[], agent: { id: string; schedules: ScheduleInfo[] }): J[] {
+  type Row = Record<string, unknown>;
+  const own = (job: Row) => job.agent_id === agent.id && job.origin !== "chat" && job.kind !== "consolidate";
+  const rows: Row[] = agent.schedules.map((row) => {
+    const id = `${agent.id}/${row.id}`;
+    const before = (jobs as Row[]).find((job) => job.id === id);
+    const fresh = { next_run: null, last_run: null, running: false, paused: false, failing: null };
+    return { ...fresh, ...before, ...row, id, schedule_id: row.id, agent_id: agent.id, origin: "profile" };
+  });
+  const kept = (jobs as Row[]).flatMap((job) => (own(job) ? rows.filter((row) => row.id === job.id) : [job]));
+  const added = rows.filter((row) => !(jobs as Row[]).some((job) => job.id === row.id));
+  return [...kept, ...added] as J[];
 }
 
 /** The rows a patch's `schedules` stands for, as `declared.schedules` reports them. */
