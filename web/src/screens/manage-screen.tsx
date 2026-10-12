@@ -55,8 +55,9 @@ interface Props {
   onEditAgent: (agentId: string | null) => void;
   /** Opens or closes a single run by rewriting the route, so Back leaves it. */
   onReplayRun: (runId: string | null, fromJob?: string) => void;
-  /** Re-reads the crew after a profile is written, created or removed. */
-  onReloadCrew: () => void;
+  /** Re-reads the crew after a profile is written, created or removed, and after a save on
+   *  the connections page, which the server answers by building the crew again. */
+  onReloadCrew: () => Promise<void> | void;
   onNavigate: (section: ManageSection) => void;
   /** Reads the activity list again after a request was settled from the approvals page. */
   onReloadActivity?: () => void;
@@ -136,11 +137,19 @@ export function ManageScreen(props: Props) {
   const mcp = useMcpServers();
   const { refresh: refreshRegistry } = registry;
   const { keysChanged: mcpKeysChanged, crewChanged: mcpCrewChanged } = mcp;
-  // A saved key can build a provider or a search backend, and bring up an MCP server
-  // whose header reads it; the registry and the server list show which.
+  // A save on the connections page is applied to the crew that is running: the server builds
+  // it again. A key can build a provider or a search backend, and with it a tool an agent
+  // did not hold; the routes every agent falls back on are the routes of each agent that
+  // names none. An agent's editor works from the crew this page holds, so the crew is read
+  // again along with the registry, which shows what was built.
+  const { onReloadCrew } = props;
+  const rebuilt = useCallback(async () => {
+    await Promise.all([refreshRegistry(), onReloadCrew()]);
+  }, [refreshRegistry, onReloadCrew]);
+  // A key can also bring up an MCP server whose header reads it: the list of servers says so.
   const keysChanged = useCallback(async () => {
-    await Promise.all([refreshRegistry(), mcpKeysChanged()]);
-  }, [refreshRegistry, mcpKeysChanged]);
+    await Promise.all([rebuilt(), mcpKeysChanged()]);
+  }, [rebuilt, mcpKeysChanged]);
   const credentials = useCredentials(keysChanged);
   // Who holds which tool changes on the other pages: an agent is edited, made or removed,
   // a server is signed out of or tried again. So the grid is read again each time it is
@@ -156,7 +165,7 @@ export function ManageScreen(props: Props) {
   // An agent that is written, made or removed changes who uses a server, which the list of
   // servers says on the connections page: it is read again along with the crew.
   const crewChanged = () => {
-    props.onReloadCrew();
+    void onReloadCrew();
     void mcpCrewChanged();
   };
   const editing = props.agents.find((a) => a.id === props.editingAgentId) ?? null;
@@ -438,7 +447,7 @@ export function ManageScreen(props: Props) {
                 connections={registry.connections}
                 credentials={credentials}
                 mcp={mcp}
-                onChanged={registry.refresh}
+                onChanged={rebuilt}
               />
             ) : (
               <p className="muted">{registry.error ?? vi.manage.loading}</p>
