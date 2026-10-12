@@ -1,128 +1,22 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type UIEvent } from "react";
-import type { AgentInfo, Conversation, InstallResult, JobInfo, SettingsInfo, StatsInfo, TemplateInfo } from "../api/types";
 import type { RunInfo } from "../api/types";
-import { AgentEditor } from "../components/agent-editor/agent-editor";
-import { ApprovalHistory } from "../components/approval-history";
-import { AttentionCenter } from "../components/attention-center";
-import { CanvasSection } from "../components/canvas/canvas-section";
-import { LivePreviewSetting } from "../components/canvas/live-preview-setting";
 import { ConnectionNotice } from "../components/connection-notice";
-import { ConnectionsPanel } from "../components/connections-panel";
-import { CrewPanel } from "../components/crew-panel";
-import { EmptyState } from "../components/empty-state";
 import { ErrorBoundary } from "../components/error-boundary";
 import { failingJobs } from "../components/job-last-run";
-import { JobsPanel } from "../components/jobs-panel";
-import { MemoryPanel } from "../components/memory-panel";
-import { RecentRunsLog } from "../components/recent-runs-log";
-import { RunReplay } from "../components/run-replay";
-import { RunGroupCard } from "../components/run-timeline";
-import { SettingsPanel } from "../components/settings-panel";
-import { StatsPanel } from "../components/stats-panel";
-import { ToolsMatrix } from "../components/tools-matrix";
-import { Brand } from "../components/ui/brand-mark";
-import { Icon, type IconName } from "../components/ui/icon";
 import { useCredentials } from "../hooks/use-credentials";
 import { standing, useMcpServers } from "../hooks/use-mcp-servers";
 import { useRegistry } from "../hooks/use-registry";
 import type { ManageSection } from "../hooks/use-route";
 import { vi } from "../i18n/vi";
 import { waitingKey } from "../lib/run-progress";
-import { parentConversationId, runGroups } from "../state/activity-reducer";
+import { parentConversationId } from "../state/activity-reducer";
+import { crewPages } from "./manage/crew-pages";
+import { LABELS, ManageNav } from "./manage/manage-nav";
+import type { ManageProps } from "./manage/manage-props";
+import { systemPages } from "./manage/system-pages";
+import { watchPages } from "./manage/watch-pages";
 
-interface Props {
-  section: ManageSection;
-  runs: RunInfo[];
-  liveRuns: RunInfo[];
-  attention: RunInfo[];
-  jobs: JobInfo[] | null;
-  stats: StatsInfo | null;
-  settings: SettingsInfo | null;
-  /** The build this page runs and the one the server runs, shown under Settings. */
-  versions?: { page: string | null; server: string | null };
-  agents: AgentInfo[];
-  agentId: string;
-  agentName: (id: string) => string;
-  master: AgentInfo | null;
-  templates: TemplateInfo[];
-  liveByAgent: Record<string, number>;
-  onInstall: (template: string) => Promise<InstallResult>;
-  /** The agent whose editor is open, when the URL names one. */
-  editingAgentId?: string;
-  /** The run shown on its own, when the URL names one. */
-  replayRunId?: string;
-  /** Opens or closes the editor by rewriting the route, so Back leaves it. */
-  onEditAgent: (agentId: string | null) => void;
-  /** Opens or closes a single run by rewriting the route, so Back leaves it. */
-  onReplayRun: (runId: string | null, fromJob?: string) => void;
-  /** Re-reads the crew after a profile is written, created or removed, and after a save on
-   *  the connections page, which the server answers by building the crew again. */
-  onReloadCrew: () => Promise<void> | void;
-  onNavigate: (section: ManageSection) => void;
-  /** Reads the activity list again after a request was settled from the approvals page. */
-  onReloadActivity?: () => void;
-  /** Leaving the manage screen: back to the chat, opening a conversation if one is named. */
-  onBackToChat: () => void;
-  onOpenConversation: (conversationId: string) => void;
-  onRunJob: (jobId: string) => void;
-  onToggleJob: (jobId: string, enabled: boolean) => void;
-  onDeleteJob: (jobId: string) => void;
-  /** The part of the open editor to bring into view, when the URL names one. */
-  editFocus?: string;
-  /** Opens an agent's editor on its schedules, from a row in the jobs list. */
-  onEditSchedules?: (agentId: string, fromJob: string) => void;
-  /** The row of the jobs list to bring into view, when the URL names one. */
-  focusJob?: string;
-  /** What the URL names under the canvas section; the section decides whether it is a canvas's id. */
-  canvasId?: string;
-  /** Opens a canvas on its own page, or the library for none, by rewriting the route. */
-  onOpenCanvas: (canvasId: string | null) => void;
-  /** The conversations this tab has listed, for the names of those a canvas is used in. */
-  conversations: Conversation[];
-  /** The job whose row the open editor or run was reached from: its back link returns there. */
-  fromJob?: string;
-  /** The live stream the pages follow; absent leaves out the notice of a drop. */
-  connection?: { connected: boolean; connecting: boolean; onRetry: () => void };
-}
-
-const LABELS: Record<ManageSection, string> = {
-  activity: vi.activity,
-  approvals: vi.approvalsTab,
-  crew: vi.crew.tab,
-  tools: vi.manage.tools,
-  jobs: vi.jobs,
-  memory: vi.memory.tab,
-  canvas: vi.canvas.tab,
-  costs: vi.costs,
-  connections: vi.manage.connections,
-  settings: vi.settings,
-};
-
-/** An icon per section, so the list can be scanned by shape before it is read. */
-const ICONS: Record<ManageSection, IconName> = {
-  activity: "activity",
-  approvals: "approvals",
-  costs: "coins",
-  crew: "users",
-  tools: "wrench",
-  jobs: "clock",
-  memory: "book",
-  canvas: "document",
-  connections: "plug",
-  settings: "sliders",
-};
-
-/**
- * The sections in three groups rather than one list of ten: what to keep an eye on,
- * who is on the team and what they can do, and how the install is wired. Grouped, the
- * section a person wants is found by its kind first — "is this about the team?" — which
- * is how the question arrives, instead of by reading the list top to bottom.
- */
-export const NAV_GROUPS: { key: keyof typeof vi.manage.groups; sections: ManageSection[] }[] = [
-  { key: "watch", sections: ["activity", "approvals", "costs"] },
-  { key: "crew", sections: ["crew", "tools", "jobs", "memory", "canvas"] },
-  { key: "system", sections: ["connections", "settings"] },
-];
+export { NAV_GROUPS } from "./manage/manage-nav";
 
 /**
  * Everything about the crew rather than about one conversation: what is running, what
@@ -132,7 +26,7 @@ export const NAV_GROUPS: { key: keyof typeof vi.manage.groups; sections: ManageS
  * about the conversation you are in — keeping it next to the thread made the crew's
  * work and the conversation's work look like the same thing.
  */
-export function ManageScreen(props: Props) {
+export function ManageScreen(props: ManageProps) {
   const registry = useRegistry();
   const mcp = useMcpServers();
   const { refresh: refreshRegistry } = registry;
@@ -198,13 +92,6 @@ export function ManageScreen(props: Props) {
     return owner ? owner.title || props.agentName(owner.agent_id) : null;
   };
 
-  // The number alone is ambiguous once an entry can carry two, so each says what it counts.
-  const count = (n: number, tone: string, says: string) => (
-    <span className={`badge ${tone}`}>
-      {` ${n}`}
-      <span className="sr-only"> {says}</span>
-    </span>
-  );
   // A paused run is still live, but it is waiting on a person rather than running: it is
   // counted on Duyệt, and counting it here too would call one request two things at once.
   const running = props.liveRuns.filter((r) => r.status === "running").length;
@@ -234,237 +121,32 @@ export function ManageScreen(props: Props) {
     shown.current.inView =
       pill.left >= box.left - 1 && pill.right <= box.right + 1 && pill.top >= box.top - 1 && pill.bottom <= box.bottom + 1;
   };
-  const badge = (section: ManageSection) => {
-    if (section === "activity")
-      return (
-        <>
-          {running > 0 && count(running, "live", vi.manage.liveBadge)}
-          {failed.length > 0 && count(failed.length, "warn", vi.manage.failedBadge)}
-        </>
-      );
-    if (section === "approvals" && awaiting.length > 0) return count(awaiting.length, "warn", vi.manage.waitingBadge);
-    if (section === "memory" && pendingProposals > 0)
-      return <span className="badge warn"> {pendingProposals}</span>;
-    // Only a failure earns a count here: a schedule that ran fine or never ran yet is
-    // not something to go and look at.
-    if (section === "jobs" && failing > 0)
-      return (
-        <span className="badge danger" title={vi.jobRow.failing(failing)} data-testid="jobs-failing">
-          {/* A bare red number reads as "1" to a screen reader; the sentence says what of. */}
-          <span aria-hidden="true">{failing}</span>
-          <span className="sr-only">{vi.jobRow.failing(failing)}</span>
-        </span>
-      );
-    return null;
-  };
 
   return (
     <div className="manage-layout" data-testid="manage-screen">
-      <nav className="manage-nav" aria-label={vi.manage.nav} onScroll={onNavScroll}>
-        <div className="manage-nav-head">
-          <Brand />
-        </div>
-        <button type="button" className="ghost back-to-chat" onClick={props.onBackToChat}>
-          {vi.manage.backToChat}
-        </button>
-        <div className="manage-nav-groups" onScroll={onNavScroll}>
-          {NAV_GROUPS.map((group) => (
-            <div className="manage-nav-group" key={group.key}>
-              <p className="manage-nav-label">{vi.manage.groups[group.key]}</p>
-              <ul>
-                {group.sections.map((section) => (
-                  <li key={section}>
-                    <button
-                      type="button"
-                      className={section === props.section ? "active" : ""}
-                      aria-current={section === props.section ? "page" : undefined}
-                      ref={section === props.section ? active : undefined}
-                      onClick={() => props.onNavigate(section)}
-                    >
-                      <Icon name={ICONS[section]} />
-                      <span className="manage-nav-name">{LABELS[section]}</span>
-                      {badge(section)}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-      </nav>
+      <ManageNav
+        section={props.section}
+        onNavigate={props.onNavigate}
+        onBackToChat={props.onBackToChat}
+        active={active}
+        onNavScroll={onNavScroll}
+        running={running}
+        failed={failed}
+        awaiting={awaiting}
+        pendingProposals={pendingProposals}
+        failing={failing}
+      />
       <main className="manage-body" aria-label={vi.manage.label}>
         <h2 className="manage-title">{LABELS[props.section]}</h2>
         {props.connection && <ConnectionNotice {...props.connection} />}
         {/* One boundary per page, keyed by it: a section that breaks leaves the nav
             standing, and choosing any other page is enough to leave the failure behind. */}
         <ErrorBoundary key={`${props.section}/${props.replayRunId ?? props.editingAgentId ?? ""}`}>
-          {props.section === "activity" && props.replayRunId !== undefined && (
-            <RunReplay
-              runId={props.replayRunId}
-              known={props.runs}
-              agentName={props.agentName}
-              onBack={() => props.onReplayRun(null)}
-              backLabel={props.fromJob ? vi.jobRow.back : undefined}
-              onOpenConversation={props.onOpenConversation}
-            />
-          )}
-          {props.section === "activity" && props.replayRunId === undefined && (
-            <>
-              <AttentionCenter
-                runs={failed}
-                parentTitle={parentTitle}
-                agentName={props.agentName}
-                onOpenConversation={props.onOpenConversation}
-                waitingElsewhere={awaiting.length}
-                onOpenWaiting={() => props.onNavigate("approvals")}
-              />
-              <h3>{vi.liveNow}</h3>
-              {live.length === 0 ? (
-                <EmptyState icon="activity" says={vi.nothingLive} />
-              ) : (
-                runGroups(live).map((group) => (
-                  <RunGroupCard
-                    key={group.run.id}
-                    group={group}
-                    agentName={props.agentName}
-                    expanded
-                    onOpenConversation={props.onOpenConversation}
-                    onOpenRun={props.onReplayRun}
-                  />
-                ))
-              )}
-              <h3>{vi.recentRuns}</h3>
-              <RecentRunsLog
-                streamed={recent}
-                agents={props.agents}
-                agentName={props.agentName}
-                onOpenConversation={props.onOpenConversation}
-                onOpenRun={props.onReplayRun}
-                onBackToChat={props.onBackToChat}
-              />
-            </>
-          )}
-          {props.section === "approvals" && (
-            <>
-              {/* What waits comes first and is decided here; the ledger of what was
-                  decided before sits under it. */}
-              <AttentionCenter
-                runs={awaiting}
-                inline
-                parentTitle={parentTitle}
-                agentName={props.agentName}
-                onOpenConversation={props.onOpenConversation}
-                onReload={reloadAfterRow}
-                failedElsewhere={failed.length}
-                onOpenFailed={() => props.onNavigate("activity")}
-              />
-              <h3>{vi.approvalHistory}</h3>
-              <ApprovalHistory
-                agentName={props.agentName}
-                onOpenConversation={props.onOpenConversation}
-                refreshKey={approvalsKey}
-              />
-            </>
-          )}
-          {/* A link to an agent that is gone says so rather than quietly showing the list:
-              the person followed a URL and deserves to know it no longer resolves. The crew
-              still has to have finished loading for "gone" to mean anything. */}
-          {props.section === "crew" &&
-            props.editingAgentId !== undefined &&
-            editing === null &&
-            props.agents.length > 0 && (
-              <div className="notice error" role="status" data-testid="agent-not-found">
-                {vi.editor.notFound(props.editingAgentId)}
-              </div>
-            )}
-          {props.section === "crew" &&
-            (editing ? (
-              <AgentEditor
-                agent={editing}
-                agents={props.agents}
-                tools={registry.tools}
-                mcpServers={mcp.servers}
-                providers={registry.connections?.providers.map((p) => p.name) ?? []}
-                onBack={() => props.onEditAgent(null)}
-                fromJob={props.fromJob}
-                onChanged={crewChanged}
-                focus={props.editFocus}
-              />
-            ) : (
-              <CrewPanel
-                agents={props.agents}
-                master={props.master}
-                templates={props.templates}
-                liveByAgent={props.liveByAgent}
-                onInstall={props.onInstall}
-                onEdit={(id) => props.onEditAgent(id)}
-                onCreated={(id) => {
-                  crewChanged();
-                  props.onEditAgent(id);
-                }}
-              />
-            ))}
-          {props.section === "tools" && <ToolsMatrix tools={registry.tools} agents={props.agents} />}
-          {props.section === "jobs" && (
-            <JobsPanel
-              jobs={props.jobs}
-              agentName={props.agentName}
-              onRunNow={props.onRunJob}
-              onToggle={props.onToggleJob}
-              onDelete={props.onDeleteJob}
-              onOpenConversation={props.onOpenConversation}
-              onOpenRun={props.onReplayRun}
-              onEditSchedules={props.onEditSchedules}
-              focusJob={props.focusJob}
-              onOpenCrew={() => props.onNavigate("crew")}
-            />
-          )}
-          {props.section === "memory" && (
-            <MemoryPanel
-              agents={props.agents}
-              agentId={props.agentId}
-              pendingProposals={pendingProposals}
-              agentName={props.agentName}
-              runs={props.runs}
-            />
-          )}
-          {props.section === "canvas" && (
-            <CanvasSection
-              connected={props.connection?.connected ?? true}
-              agentName={props.agentName}
-              canvasId={props.canvasId}
-              onOpenCanvas={props.onOpenCanvas}
-              conversations={props.conversations}
-              onOpenConversation={props.onOpenConversation}
-            />
-          )}
-          {props.section === "costs" && (
-            <StatsPanel stats={props.stats} agentName={props.agentName} />
-          )}
-          {props.section === "connections" &&
-            (registry.connections ? (
-              <ConnectionsPanel
-                connections={registry.connections}
-                credentials={credentials}
-                mcp={mcp}
-                onChanged={rebuilt}
-              />
-            ) : (
-              <p className="muted">{registry.error ?? vi.manage.loading}</p>
-            ))}
-          {props.section === "settings" && (
-            <>
-              {/* The one thing here the person sets, and for this device alone, comes before the
-                  machine's configuration, which is read on this page and changed elsewhere. */}
-              <LivePreviewSetting />
-              <SettingsPanel
-                settings={props.settings}
-                agents={props.agents}
-                onNavigate={props.onNavigate}
-                versions={props.versions}
-              />
-            </>
-          )}
+          {/* The pages are functions called here, not components: what they read is read in
+              this render, outside the boundary, and each page keeps its place under it. */}
+          {watchPages(props, { failed, awaiting, live, recent, parentTitle, reloadAfterRow, approvalsKey })}
+          {crewPages(props, { editing, registry, mcp, crewChanged, pendingProposals })}
+          {systemPages(props, { registry, credentials, mcp, rebuilt })}
         </ErrorBoundary>
       </main>
     </div>
