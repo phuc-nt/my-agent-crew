@@ -1,14 +1,17 @@
 """What an agent's scripts have kept, as a person is shown it:
 `GET /api/agents/<id>/script-store`.
 
-Reading only. A value gets there from a script that ended well and from nowhere else, so no
-verb on this address writes one; the rows are put in here as a script's end puts them, and
-once by a script a turn really ran. How a script keeps is in `test_script_store.py`.
+A value gets there from a script that ended well and from nowhere else, so no verb on this
+address writes one; the rows are put in here as a script's end puts them, and once by a
+script a turn really ran. How a script keeps is in `test_script_store.py`; reading one value
+whole and forgetting what is kept are in `test_api_script_store_edit.py`.
 """
 
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -16,29 +19,63 @@ import pytest
 from fastapi.testclient import TestClient
 
 from my_agent_crew.config import load_settings
+from my_agent_crew.script import limits
 from my_agent_crew.server import build_runtime, create_app
 from my_agent_crew.server.routes_script_store import PREVIEW_CHARS
+from my_agent_crew.server.runtime import Runtime
 from tests.test_server_api import parse_sse
 
 ADDRESS = "/api/agents/{agent}/script-store"
 ROOM = 100_000
+# The one schedule the coach declares, and what it is called.
+DUE, DUE_NAME = "due", "Sách sắp đến hạn"
+COACH = f"""\
+name: Coach
+routes: [fake:echo]
+schedules:
+  - id: {DUE}
+    name: {DUE_NAME}
+    cron: '0 7 * * *'
+    prompt: kiểm sách
+"""
+# What a place nothing is known of is told as, beside what it is and whose.
+GONE = {"title": None, "orphan": True}
+
+
+@contextmanager
+def serving(home: Path) -> Iterator[tuple[TestClient, Runtime]]:
+    """A home of the master and a coach with one schedule, served as the web is."""
+    coach = home / "agents" / "coach"
+    coach.mkdir(parents=True)
+    (coach / "agent.yaml").write_text(COACH)
+    env = {"MY_AGENT_HOME": str(home), "MY_AGENT_ROUTES": "fake:echo"}
+    runtime = build_runtime(load_settings(env=env))
+    with TestClient(create_app(runtime, schedule=False), base_url="http://127.0.0.1") as client:
+        yield client, runtime
 
 
 @pytest.fixture
-def crew(tmp_path: Path):
-    coach = tmp_path / "agents" / "coach"
-    coach.mkdir(parents=True)
-    (coach / "agent.yaml").write_text("name: Coach\nroutes: [fake:echo]\n")
-    env = {"MY_AGENT_HOME": str(tmp_path), "MY_AGENT_ROUTES": "fake:echo"}
-    runtime = build_runtime(load_settings(env=env))
-    with TestClient(create_app(runtime, schedule=False), base_url="http://127.0.0.1") as client:
-        yield client, runtime.deps_for("default").store.script_store
+def house(tmp_path: Path):
+    with serving(tmp_path) as served:
+        yield served
+
+
+@pytest.fixture
+def crew(house):
+    client, runtime = house
+    return client, runtime.store.script_store
 
 
 def shown(client: TestClient, agent: str = "default") -> list[dict]:
     answer = client.get(ADDRESS.format(agent=agent))
-    assert answer.status_code == 200 and list(answer.json()) == ["namespaces"]
+    assert answer.status_code == 200 and set(answer.json()) == {"limit_chars", "namespaces"}
     return answer.json()["namespaces"]
+
+
+def place(client: TestClient, namespace: str, agent: str = "default") -> dict:
+    """What one place is told as: all but what it holds."""
+    [found] = [told for told in shown(client, agent) if told["namespace"] == namespace]
+    return {name: said for name, said in found.items() if name not in ("chars", "entries")}
 
 
 def test_an_agent_that_kept_nothing_is_shown_nothing(crew):
@@ -61,11 +98,17 @@ def test_each_place_is_shown_with_its_size_and_each_value_with_its_own(crew):
     assert places == [
         {
             "namespace": "conv:c1",
+            "kind": "conv",
+            "ref": "c1",
+            **GONE,
             "chars": len("told") + len(told),
             "entries": [{"key": "told", "preview": told, "chars": len(told)}],
         },
         {
             "namespace": "job:due",
+            "kind": "job",
+            "ref": "due",
+            **GONE,
             "chars": len("seen") + len(seen) + len("a") + 1,
             "entries": [
                 {"key": "a", "preview": "1", "chars": 1},
@@ -112,7 +155,112 @@ def test_an_agent_nobody_knows_is_not_found(crew):
     assert (answer.status_code, answer.json()) == (404, {"detail": "agent not found"})
 
 
-@pytest.mark.parametrize("verb", ["post", "put", "patch", "delete"])
+def test_the_most_a_place_may_hold_is_told_once_beside_them(crew):
+    client, table = crew
+
+    before = client.get(ADDRESS.format(agent="default")).json()
+    assert table.apply("default", "job:due", {"n": "1"}, ROOM)
+    after = client.get(ADDRESS.format(agent="coach")).json()
+
+    # The limit of each place, which a place's own size is measured against: the one a
+    # script's `store` is held to, whoever the agent is and whatever it kept.
+    assert before == {"limit_chars": limits.MAX_STORE_TOTAL_CHARS, "namespaces": []}
+    assert after["limit_chars"] == limits.MAX_STORE_TOTAL_CHARS == 262_144
+
+
+def test_what_a_schedule_kept_is_told_by_the_schedules_name(crew):
+    client, table = crew
+    assert table.apply("coach", f"job:{DUE}", {"n": "1"}, ROOM)
+
+    told = place(client, f"job:{DUE}", "coach")
+
+    assert told == {
+        "namespace": f"job:{DUE}",
+        "kind": "job",
+        "ref": DUE,
+        "title": DUE_NAME,
+        "orphan": False,
+    }
+
+
+def test_a_schedule_of_another_agents_names_nothing_of_this_ones(crew):
+    client, table = crew
+    # The coach declares `due`; the master, whose scripts kept this, never did.
+    assert table.apply("default", f"job:{DUE}", {"n": "1"}, ROOM)
+
+    assert place(client, f"job:{DUE}") == {
+        "namespace": f"job:{DUE}",
+        "kind": "job",
+        "ref": DUE,
+        **GONE,
+    }
+
+
+def test_a_schedule_made_in_a_chat_names_what_its_turns_kept_until_it_is_removed(house):
+    client, runtime = house
+    row = {"agent_id": "default", "name": "Nhắc uống nước", "cron": "0 9 * * *", "every": None}
+    made = runtime.store.created_schedules.add(
+        {**row, "prompt": "p", "skills": [], "created_by_conversation": "c1"}, cap=20
+    )
+    namespace = f"job:{made.id}"
+    assert runtime.store.script_store.apply("default", namespace, {"n": "1"}, ROOM)
+
+    while_there = place(client, namespace)
+    assert client.delete(f"/api/jobs/default/{made.id}").status_code == 204
+    once_gone = place(client, namespace)
+
+    known = {"namespace": namespace, "kind": "job", "ref": made.id}
+    assert while_there == {**known, "title": "Nhắc uống nước", "orphan": False}
+    # What it kept outlives it, with nothing left to read it: told as left behind.
+    assert once_gone == {**known, **GONE}
+
+
+def test_what_a_conversation_kept_is_told_by_the_conversations_title(house):
+    client, runtime = house
+    conv = client.post("/api/conversations", json={"title": "Sách tháng mười"}).json()["id"]
+    assert runtime.store.script_store.apply("default", f"conv:{conv}", {"n": "1"}, ROOM)
+    assert runtime.store.script_store.apply("default", "conv:gone", {"n": "1"}, ROOM)
+
+    there, gone = place(client, f"conv:{conv}"), place(client, "conv:gone")
+
+    assert there == {
+        "namespace": f"conv:{conv}",
+        "kind": "conv",
+        "ref": conv,
+        "title": "Sách tháng mười",
+        "orphan": False,
+    }
+    assert gone == {"namespace": "conv:gone", "kind": "conv", "ref": "gone", **GONE}
+
+
+def test_a_title_of_nothing_but_space_is_told_as_none_and_its_place_is_not_left_behind(house):
+    client, runtime = house
+    conv = runtime.store.create(title=" \n", agent_id="default")
+    assert runtime.store.script_store.apply("default", f"conv:{conv.id}", {"n": "1"}, ROOM)
+
+    told = place(client, f"conv:{conv.id}")
+
+    assert (told["title"], told["orphan"]) == (None, False)
+
+
+@pytest.mark.parametrize("namespace", ["misc", "jobs:due", "job", "conv", "Job:due", " conv:c1"])
+def test_a_place_of_neither_kind_is_told_as_it_is_stored(crew, namespace):
+    client, table = crew
+    assert table.apply("coach", namespace, {"n": "1"}, ROOM)
+
+    told = place(client, namespace, "coach")
+
+    # Nothing it could be left behind by: no schedule and no conversation is asked after.
+    assert told == {
+        "namespace": namespace,
+        "kind": "other",
+        "ref": namespace,
+        "title": None,
+        "orphan": False,
+    }
+
+
+@pytest.mark.parametrize("verb", ["post", "put", "patch"])
 def test_no_verb_on_the_address_writes(crew, verb):
     client, table = crew
     assert table.apply("default", "job:due", {"n": "1"}, ROOM)
