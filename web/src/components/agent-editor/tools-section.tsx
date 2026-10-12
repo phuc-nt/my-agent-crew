@@ -1,6 +1,7 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useRef } from "react";
 import type { McpServerInfo, McpStatus, RegistryTool } from "../../api/types";
 import type { AgentDraft } from "../../hooks/use-agent-draft";
+import { useFocusAfterRowLeft } from "../../hooks/use-focus-after-row-left";
 import { vi } from "../../i18n/vi";
 import { ScriptControls } from "./script-controls";
 import { allowList } from "./tool-allow-list";
@@ -34,9 +35,10 @@ const STATUS_TONE: Record<McpStatus, string> = { connected: "ok", idle: "warn", 
  * mode or to whom it hands work is to be saved before the tools are chosen: a line under
  * the picker says so while the form holds one.
  *
- * Such a name has no row to stay in once it is unticked, which leaves a keyboard that was
- * on it nowhere. It goes to the row that took its place, else to the last row; and to
- * "every tool" when that was the last name, since an empty list is no list.
+ * Such a name has no row to stay in once it is unticked, and neither has an MCP server the
+ * file no longer declares, which leaves a keyboard that was on it nowhere. It goes to the
+ * row that took its place, else to the last row of that list, else to the radio that is on:
+ * "every tool" when the last name went, since an empty list is no list.
  */
 export function ToolsSection({ form, readOnly, tools, mcpServers }: Props) {
   const strayMark = useId();
@@ -47,15 +49,12 @@ export function ToolsSection({ form, readOnly, tools, mcpServers }: Props) {
   const restricted = picked.length > 0;
   const unsaved = form.dirty.includes("mode") || form.dirty.includes("delegates");
   const rows = useRef<HTMLUListElement>(null);
-  const every = useRef<HTMLInputElement>(null);
-  /** Where among the picker's boxes the row a person just unticked away stood. */
-  const [left, setLeft] = useState<{ at: number } | null>(null);
-  useEffect(() => {
-    if (left === null || document.activeElement !== document.body) return;
-    const boxes = rows.current?.querySelectorAll<HTMLInputElement>("input") ?? [];
-    const next = boxes[Math.min(left.at, boxes.length - 1)];
-    (next && !next.disabled ? next : every.current)?.focus();
-  }, [left]);
+  const serverRows = useRef<HTMLUListElement>(null);
+  const modes = useRef<HTMLDivElement>(null);
+  /** The radio that is on: the one a Tab into the pair lands on. */
+  const mode = () => modes.current?.querySelector<HTMLInputElement>("input:checked");
+  const toolLeft = useFocusAfterRowLeft(rows, mode);
+  const serverLeft = useFocusAfterRowLeft(serverRows, mode);
   const servers = form.draft.mcp ?? [];
   // A name the file no longer declares keeps its row: the server refuses every save that
   // still carries it, and a row is the only thing a person can untick.
@@ -69,10 +68,9 @@ export function ToolsSection({ form, readOnly, tools, mcpServers }: Props) {
   return (
     <section className="editor-section" data-testid="section-tools">
       <h3>{vi.editor.sectionTools}</h3>
-      <div className="field check-field">
+      <div className="field check-field" ref={modes}>
         <label>
           <input
-            ref={every}
             type="radio"
             name="tools-mode"
             checked={!restricted}
@@ -122,7 +120,7 @@ export function ToolsSection({ form, readOnly, tools, mcpServers }: Props) {
                 aria-describedby={`${strayMark}-${at}`}
                 onChange={() => {
                   toggle(name);
-                  setLeft({ at: own.length + at });
+                  toolLeft(own.length + at);
                 }}
               />
               <code>{name}</code>
@@ -144,7 +142,7 @@ export function ToolsSection({ form, readOnly, tools, mcpServers }: Props) {
       {mcpServers.length === 0 && gone.length === 0 ? (
         <p className="muted">{vi.editor.mcpNone}</p>
       ) : (
-        <ul className="tool-picker" data-testid="mcp-picker">
+        <ul className="tool-picker" data-testid="mcp-picker" ref={serverRows}>
           {mcpServers.map((server) => (
             <li key={server.name}>
               <label>
@@ -161,10 +159,18 @@ export function ToolsSection({ form, readOnly, tools, mcpServers }: Props) {
               {server.tools.length > 0 && <div className="muted">{vi.mcp.tools(server.tools.length)}</div>}
             </li>
           ))}
-          {gone.map((name) => (
+          {gone.map((name, at) => (
             <li key={name}>
               <label>
-                <input type="checkbox" checked disabled={readOnly} onChange={() => toggleServer(name)} />
+                <input
+                  type="checkbox"
+                  checked
+                  disabled={readOnly}
+                  onChange={() => {
+                    toggleServer(name);
+                    serverLeft(mcpServers.length + at);
+                  }}
+                />
                 <code>{name}</code>
               </label>
               <div className="warn-text">{vi.editor.mcpGone}</div>
