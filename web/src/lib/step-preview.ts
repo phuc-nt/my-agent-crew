@@ -13,6 +13,14 @@ const FAILED_TAIL_CHARS = 400;
 /** The longest text a failed step is ever kept at: a reason this long is read whole. */
 export const FAILED_KEPT_CHARS = FAILED_HEAD_CHARS + 1 + FAILED_TAIL_CHARS;
 
+/**
+ * A run of what Python's `str.split()` parts a text at, every character `str.isspace` is
+ * true of: the server sets a reason's whitespace to single spaces with it. JavaScript's
+ * `\s` is another set. It leaves out the separators U+001C to U+001F and the next line
+ * U+0085, and takes in U+FEFF, which Python keeps as part of a word.
+ */
+const SERVER_SPACE = /[\u0009-\u000D\u001C-\u0020\u0085\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000]+/;
+
 export function preview(text: string): string {
   return text.length > PREVIEW_CHARS ? `${text.slice(0, PREVIEW_CHARS)}…` : text;
 }
@@ -23,12 +31,13 @@ export function preview(text: string): string {
  * A call that went through keeps a glimpse: the row already says it worked. A call that
  * failed keeps its reason, because the reason is what the row is for, and a refusal ends
  * with what to do instead: the end is kept ahead of the middle. The server measures a
- * reason after setting its whitespace to single spaces, and counts characters rather than
- * UTF-16 units, so both are done here for the cut to fall in the same place.
+ * reason after setting its whitespace to single spaces, by its own account of what
+ * whitespace is, and counts characters rather than UTF-16 units. All three are done here
+ * for the cut to fall in the same place.
  */
 export function toolOutputPreview(text: string, ok: boolean): string {
   if (ok) return preview(text);
-  const flat = text.split(/\s+/).filter((word) => word !== "").join(" ");
+  const flat = text.split(SERVER_SPACE).filter((word) => word !== "").join(" ");
   const chars = Array.from(flat);
   if (chars.length <= FAILED_CHARS) return flat;
   return `${chars.slice(0, FAILED_HEAD_CHARS).join("")}…${chars.slice(-FAILED_TAIL_CHARS).join("")}`;
