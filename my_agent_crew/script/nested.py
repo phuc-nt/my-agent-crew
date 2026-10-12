@@ -103,7 +103,8 @@ class ScriptRun:
         answered in the order given. One call the script may not make ends the script, so
         then none is made: every call is answered all the same, the one that is refused
         with the reason and the rest as not made. So does a call past what the scripts
-        of the turn may make between them: a batch that does not fit whole is not made.
+        of the turn may make between them: a batch that does not fit whole is not made,
+        and of one cut short the calls that never began are given back to them.
         A batch with a call that changes things is made one call at a time, as written:
         what one such call leaves behind the next may count on, and is judged by
         (`one_by_one.py`). Tasks handed to other agents are no such calls, and fewer of
@@ -124,7 +125,7 @@ class ScriptRun:
         if budget is not None and not budget.take(known):
             spent = t.SCRIPT_TURN_CALLS_SPENT.format(most=budget.limit)
             return [Answer(False, spent, halt=True) for _ in calls]
-        room, handing = asyncio.Semaphore(MAX_PARALLEL), handing_room()
+        room, handing, begun = asyncio.Semaphore(MAX_PARALLEL), handing_room(), []
 
         async def one(
             tool: Tool | None, name: str, arguments: dict[str, Any], number: int
@@ -133,6 +134,7 @@ class ScriptRun:
                 # A slip of the script's, and one it can catch: the name it meant is likely near.
                 return Answer(False, unknown_tool(name, self._callable()))
             async with in_turn(tool, handing), room:
+                begun.append(number)
                 return await self._execute(tool, name, arguments, number)
 
         numbers = []  # given as written, before any call begins
@@ -140,14 +142,19 @@ class ScriptRun:
             self.made += tool is not None
             numbers.append(self.made)
         asked = list(zip(tools, calls, numbers, strict=True))
-        if any(tool is not None and not only_reads(tool) for tool in tools):
-            return await one_by_one(asked, self._refusal, one)
-        async with asyncio.TaskGroup() as group:
-            runs = [
-                group.create_task(one(tool, name, arguments, number))
-                for tool, (name, arguments), number in asked
-            ]
-        return [run.result() for run in runs]
+        try:
+            if any(tool is not None and not only_reads(tool) for tool in tools):
+                return await one_by_one(asked, self._refusal, one)
+            async with asyncio.TaskGroup() as group:
+                runs = [
+                    group.create_task(one(tool, name, arguments, number))
+                    for tool, (name, arguments), number in asked
+                ]
+            return [run.result() for run in runs]
+        finally:
+            # Refused as its turn came, or the script ended first: not made, so not counted.
+            if budget is not None:
+                budget.give_back(known - len(begun))
 
     async def _execute(
         self, tool: Tool, name: str, arguments: dict[str, Any], number: int

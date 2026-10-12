@@ -18,7 +18,11 @@ import pytest
 
 from my_agent_crew import texts_script as t
 from my_agent_crew.agent.loop import AgentDeps
-from my_agent_crew.agent.nested_calls import NestedBudget, start_nested_budget
+from my_agent_crew.agent.nested_calls import (
+    NESTED_CALLS_PER_STEP,
+    NestedBudget,
+    start_nested_budget,
+)
 from my_agent_crew.agent.tool_gate import ASK, RUN, verdict
 from my_agent_crew.agent.turn_context import set_turn_conversation
 from my_agent_crew.script import tool as script_module
@@ -651,6 +655,50 @@ async def test_a_call_refused_as_its_turn_comes_is_answered_with_why_and_the_res
         skipped,
     ]
     assert (shell.ran, rows.asked) == (["ls"], [])
+
+
+async def test_the_calls_a_batch_did_not_make_are_left_for_the_next_script_of_the_turn(
+    deps_factory,
+):
+    """A batch is counted whole before its first call is made. Ended by a call refused as its
+    turn came, it made two of its calls: the refused one and those written after it are given
+    back, as a call refused at first look takes none, and a name that is no tool's was never
+    counted. The next script of the turn then makes all the turn has left."""
+    rows = Reads("rows_read")
+    deps, shell = agent(deps_factory, rows.tool)
+    conv = conversation(deps)
+
+    async def take_back(arguments: dict[str, Any]) -> str:
+        deps.store.update(conv.id, autonomous=False)
+        return "đã thu lại"
+
+    deps.tools.register(Tool("autonomy_off", "Thu lại quyền tự chủ.", SCHEMA, take_back))
+    stopped = batch(
+        one(SHELL_TOOL_NAME, command="ls"),
+        one("autonomy_off"),
+        one(SHELL_TOOL_NAME, command="ls -la"),
+        one("nowhere"),
+        one("rows_read"),
+        one(SHELL_TOOL_NAME, command="git status"),
+    )
+    left = NESTED_CALLS_PER_STEP - 2
+    rest = f"for n in range({left}):\n    tools.rows_read()\nprint('đọc xong')"
+
+    async def turn() -> tuple[ToolResult, tuple[int, bool], ToolResult, NestedBudget]:
+        set_turn_conversation(conv.id)
+        budget = start_nested_budget(1)
+        first = await deps.tools.execute(SCRIPT_TOOL, {"script": stopped})
+        after = (budget.used, budget.spent)
+        return first, after, await deps.tools.execute(SCRIPT_TOOL, {"script": rest}), budget
+
+    first, after, second, budget = await asyncio.create_task(turn())
+
+    assert not first.ok and ASKS.format(name=SHELL_TOOL_NAME) in first.output
+    assert [call.name for call in first.calls] == [SHELL_TOOL_NAME, "autonomy_off"]
+    assert after == (2, False)
+    assert (second.ok, second.output) == (True, "đọc xong")
+    assert (budget.used, budget.spent) == (NESTED_CALLS_PER_STEP, False)
+    assert (shell.ran, len(rows.asked)) == (["ls"], left)
 
 
 async def test_what_a_call_of_a_batch_left_behind_is_there_when_the_next_is_judged(
