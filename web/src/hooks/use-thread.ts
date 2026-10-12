@@ -1,59 +1,17 @@
 import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState } from "react";
-import type { MessageCanvas } from "../api/artifact-types";
-import { api, ApiError } from "../api/client";
-import type { AgentEvent, ConversationDetail, StopResult } from "../api/types";
+import { api } from "../api/client";
+import type { AgentEvent, ConversationDetail } from "../api/types";
 import { turnErrorText } from "../lib/error-text";
 import { sendNames, timesSaid } from "../lib/send-names";
-import type { SendResult } from "../lib/send-result";
-import { endsTurn } from "../lib/turn-end";
-import { emptyThread, threadReducer, type ThreadState } from "../state/thread-reducer";
+import { emptyThread, threadReducer } from "../state/thread-reducer";
+import type { ThreadController } from "./thread-controller";
 import { withdrawDraft } from "./use-draft";
 import { useThreadSend } from "./use-thread-send";
+import { useThreadStop } from "./use-thread-stop";
+import { useThreadTurn } from "./use-thread-turn";
+import { useThreadWatch } from "./use-thread-watch";
 
-/** How long Stop waits on the server before giving up and cutting the stream locally
- *  anyway. A `setTimeout` rather than `AbortSignal.timeout`, so a test can drive it with
- *  fake timers instead of waiting out a real three seconds. */
-const STOP_WAIT_MS = 3000;
-
-export interface ThreadController {
-  state: ThreadState;
-  detail: ConversationDetail | null;
-  /** Sends `text` and says how that went the moment the server says anything — see
-   *  `SendResult` — while the turn it starts goes on after that. Found busy, this tab's own
-   *  stream or one this tab did not start, the message queues instead. `canvas` is the one
-   *  open in this tab, which the server takes as the conversation's; left out, it keeps its own. */
-  send: (text: string, canvas?: MessageCanvas) => Promise<SendResult>;
-  /** `always` also whitelists the tool for the rest of this conversation. */
-  decide: (approve: boolean, always?: boolean) => Promise<void>;
-  /** Reply to a question the agent asked. Only a question row accepts this. */
-  answer: (text: string) => Promise<void>;
-  /** Tells the server to end the turn and hand back every message still queued, then cuts
-   *  this tab's stream of a turn that was ended; resolves with the cleared texts, oldest
-   *  first, so the caller can put them back in the composer. `externalRunning` says whether a
-   *  turn is known to be going somewhere this tab cannot reach, for the notice it may show. */
-  stop: (externalRunning?: boolean) => Promise<string[]>;
-  /** Reads along with the turn under way here, whoever started it, unless this tab is
-   *  reading one already. Resolves once it has no more to read, false when there was nothing:
-   *  the server had no turn under way, or could not be asked. */
-  watch: () => Promise<boolean>;
-  /** The turn on screen is one this tab reads along with, not one it started. */
-  watching: boolean;
-  reload: () => Promise<void>;
-  /** Loads again now, or once this tab's turn is over: a load mid-turn would drop it. */
-  reloadWhenIdle: () => void;
-  /** Marks calls no run will answer any more as stopped; a no-op while a turn runs. */
-  settle: () => void;
-  /** The person put away a canvas being written: none comes up by itself for the rest of the turn. */
-  mutePreviews: () => void;
-  /** Counts the times a run turned out not to be read by a stream this tab started: a
-   *  decision refused as already taken elsewhere, a turn joined by watching, a stream lost
-   *  while its turn went on, a stream that closed before its turn's last word. Whatever run
-   *  was put down to this tab then is not its own. */
-  unowned: number;
-  /** Counts the Stops the server answered by ending the turn. The run going here then is
-   *  over, though the activity stream says so only once the turn has let go of its work. */
-  stops: number;
-}
+export type { ThreadController } from "./thread-controller";
 
 /** Owns one conversation: loads its history, streams turns, resolves approvals. */
 export function useThread(conversationId: string | null): ThreadController {
@@ -148,81 +106,17 @@ export function useThread(conversationId: string | null): ThreadController {
     dispatch({ type: "event", event });
   }, []);
 
-  /** Runs a turn on a stream this tab starts. `turnless` is asked once the stream has closed,
-   *  and says the server answered with no turn on it: the message was only put in line, or
-   *  the decision was refused. */
-  const runTurn = useCallback(
-    async (
-      run: (onEvent: (e: AgentEvent) => void, signal: AbortSignal) => Promise<void>,
-      describe: (error: unknown) => string = turnErrorText,
-      turnless: () => boolean = () => false,
-    ) => {
-      const controller = new AbortController();
-      watchRef.current?.abort(); // one stream feeds the thread: this one takes over
-      abortRef.current = controller;
-      turns.current += 1;
-      dispatch({ type: "turn_started" });
-      const said = { last: false };
-      // An aborted stream is one this tab stopped reading — Stop, or another conversation
-      // opened — so nothing it still delivers may land in the thread on screen. The turn
-      // itself is the server's: only Stop ends it.
-      const emit = (event: AgentEvent) => {
-        if (controller.signal.aborted) return;
-        said.last ||= endsTurn(event);
-        onEvent(event);
-      };
-      try {
-        await run(emit, controller.signal);
-        if (controller.signal.aborted) return;
-        dispatch({ type: "turn_finished" });
-        // A stream that closed before its turn's last word says nothing of the turn: a
-        // server told to go ends its streams so and the next one carries the turn on, or
-        // the turn was stopped elsewhere. Its run is this tab's no more, so the server is
-        // asked about it, as it is of any run this tab does not read.
-        if (!said.last && !turnless()) setUnowned((n) => n + 1);
-      } catch (error) {
-        if (controller.signal.aborted) return;
-        dispatch({ type: "failed", message: describe(error) });
-        // What failed is this tab's reading. A turn the server did start goes on without it.
-        setUnowned((n) => n + 1);
-      } finally {
-        if (abortRef.current === controller) abortRef.current = null;
-      }
-    },
-    [onEvent],
-  );
-
-  /** Carries out a decision. A 409 means someone got there first — another tab, Telegram
-   *  or the expiry sweep — which is not the conversation being busy: saying so would send
-   *  the person to wait for something already over. The thread is read again to show how
-   *  far it has got, which also covers any load owed, and then says the request was
-   *  handled; a run resumed elsewhere may still be going, so nothing is settled. */
-  const decisionTurn = useCallback(
-    async (run: (onEvent: (e: AgentEvent) => void, signal: AbortSignal) => Promise<void>) => {
-      const opening = opened.current;
-      let handled = false;
-      await runTurn(
-        async (emit, signal) => {
-          try {
-            await run(emit, signal);
-          } catch (error) {
-            if (!(error instanceof ApiError && error.status === 409)) throw error;
-            if (opening !== opened.current) return;
-            handled = true;
-            setOwed(false);
-            setUnowned((n) => n + 1);
-          }
-        },
-        undefined,
-        // The refusal is counted above, where a Stop pressed meanwhile cannot leave it out.
-        () => handled,
-      );
-      if (!handled) return;
-      await reload();
-      if (opening === opened.current) dispatch({ type: "handled" });
-    },
-    [runTurn, reload],
-  );
+  const { runTurn, decisionTurn } = useThreadTurn({
+    abortRef,
+    watchRef,
+    turns,
+    opened,
+    dispatch,
+    onEvent,
+    reload,
+    setOwed,
+    setUnowned,
+  });
 
   const send = useThreadSend({ conversationId, busy: state.busy, dispatch, runTurn, queueing: queueingRef, names, said });
 
@@ -248,97 +142,9 @@ export function useThread(conversationId: string | null): ThreadController {
     [conversationId, decisionTurn, state.pending],
   );
 
-  const watch = useCallback(async () => {
-    if (!conversationId) return false;
-    if (abortRef.current && !abortRef.current.signal.aborted) return true;
-    const controller = new AbortController();
-    abortRef.current = watchRef.current = controller;
-    let attached = false;
-    try {
-      const found = await api.watchTurn(
-        conversationId,
-        (event) => {
-          if (controller.signal.aborted) return;
-          if (event.type === "watching" && !attached) {
-            attached = true;
-            setWatching(true);
-            setUnowned((n) => n + 1);
-          }
-          onEvent(event);
-        },
-        controller.signal,
-      );
-      return found || controller.signal.aborted;
-    } catch {
-      // The view of the turn was lost, not the turn: nothing here to tell the person.
-      return attached || controller.signal.aborted;
-    } finally {
-      // However the stream ended, nothing more of the turn reaches this tab through it. One
-      // ended without a last event was stopped elsewhere, or lost: its calls stop spinning.
-      if (attached && !controller.signal.aborted) dispatch({ type: "turn_finished" });
-      if (abortRef.current === controller) abortRef.current = null;
-      if (watchRef.current === controller) {
-        watchRef.current = null;
-        setWatching(false);
-      }
-    }
-  }, [conversationId, onEvent]);
+  const watch = useThreadWatch({ conversationId, abortRef, watchRef, dispatch, onEvent, setWatching, setUnowned });
 
-  /**
-   * Stop. The server is told first — it alone knows the queue and whether the turn is its
-   * to end — and only then is this tab's stream cut, so a fast reply never races the abort
-   * into unwinding before `queue_cleared` and `turn_stopped`/`elsewhere` are both decided
-   * from the same server answer.
-   *
-   * A turn this tab only watches is cut when the server ended it. One the server could not
-   * end — a bot's, a job's — goes on, and so does the watching, under a note saying so.
-   *
-   * A server that errors or does not answer within `STOP_WAIT_MS` still leaves the local
-   * stream cut: the person asked to stop, and a slow or unreachable server is not a reason to
-   * keep this tab's view of the turn running. The run is no longer put down to this tab, so
-   * a turn found still going is watched again. The chips stay in that case — they are still
-   * sitting on the server, unconfirmed — so pressing Stop again is exactly the right next
-   * move, and `waiting.length > 0` is what keeps the button around for it.
-   */
-  const stop = useCallback(
-    async (externalRunning = false) => {
-      if (stoppingRef.current) return [];
-      stoppingRef.current = true;
-      try {
-        if (!conversationId) return [];
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), STOP_WAIT_MS);
-        let result: StopResult | null = null;
-        try {
-          result = await api.stopConversation(conversationId, controller.signal);
-        } catch {
-          result = null;
-        } finally {
-          clearTimeout(timer);
-        }
-        const reading = abortRef.current?.signal.aborted ? null : abortRef.current;
-        const watched = reading !== null && reading === watchRef.current;
-        if (result) {
-          dispatch({ type: "queue_cleared" });
-          if (result.cancelled || (reading !== null && !watched)) {
-            reading?.abort();
-            dispatch({ type: "turn_stopped" });
-            if (result.cancelled) setStops((n) => n + 1);
-          } else if (watched || externalRunning) dispatch({ type: "elsewhere" });
-          return result.cleared.map((c) => c.text);
-        }
-        reading?.abort();
-        if (reading !== null) {
-          dispatch({ type: "turn_stopped" });
-          setUnowned((n) => n + 1);
-        }
-        return [];
-      } finally {
-        stoppingRef.current = false;
-      }
-    },
-    [conversationId],
-  );
+  const stop = useThreadStop({ conversationId, abortRef, watchRef, stoppingRef, dispatch, setStops, setUnowned });
 
   const settle = useCallback(() => dispatch({ type: "settled" }), []);
   const mutePreviews = useCallback(() => dispatch({ type: "previews_muted" }), []);
