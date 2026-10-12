@@ -16,11 +16,13 @@ from fastapi.testclient import TestClient
 from my_agent_crew import texts_mcp as t
 from my_agent_crew.config import load_settings
 from my_agent_crew.env_file import env_path, read_env
+from my_agent_crew.mcp.schema_fold import fold
 from my_agent_crew.server.app import create_app
 from my_agent_crew.server.runtime import Runtime
 from my_agent_crew.server.runtime_build import build_runtime
 from my_agent_crew.texts_credentials import CROSS_SITE_REQUEST
-from tests.mcp_fakes import AUTH, MCP_URL, REDIRECT, FakeMcp, public
+from tests.mcp_fakes import AUTH, MCP_URL, REDIRECT, TOOLS, FakeMcp, public
+from tests.mcp_schema_fakes import chars, parameters
 
 ACCESS, REFRESH, CLIENT, ISSUER = (
     "MCP_NOTION_ACCESS_TOKEN",
@@ -123,6 +125,23 @@ def test_a_server_is_listed_as_it_stands_before_and_after_it_is_tried(crew_with)
         ("create-page", True),
     ]
     assert "the-key-itself" not in reply.text
+
+
+def test_a_tool_told_to_the_model_folded_says_so_on_its_row(crew_with) -> None:
+    schema = parameters()
+    wide = {"name": "query", "description": "Rows that pass.", "inputSchema": schema}
+    crew = crew_with(NOTION, FakeMcp([wide, *TOOLS]))
+
+    [tried] = crew.client.post("/api/mcp/notion/reconnect").json()["servers"]
+    row = crew.server()
+
+    assert row == tried and row["skipped"] == []
+    assert [(tool["remote"], tool["folded"]) for tool in row["tools"]] == [
+        ("query", {"from": chars(schema), "to": chars(fold(schema))}),
+        ("search", None),
+        ("create-page", None),
+    ]
+    assert chars(schema) > 50_000 > chars(fold(schema))
 
 
 @pytest.mark.parametrize(

@@ -679,10 +679,42 @@ log lúc khởi động và không chặn những sửa đổi khác của agent
   tên này: nếu hai máy chủ chung một tên, lời cho phép dành cho tool của máy chủ này sẽ áp sang
   tool của máy chủ kia.
 - **Giới hạn.** Crew chỉ nhận của một máy chủ tới một mức: tool có tên dài quá 128 ký tự, hoặc
-  có phần tham số lớn quá 50.000 ký tự JSON (hay lồng sâu tới mức không viết lại được), bị bỏ
-  và được nêu tên ở Kết nối như tool trùng tên; log của server ghi lý do của từng cái. Máy chủ
-  liệt kê quá 1.000 tool thì không tool nào của nó được nhận: nó ở trạng thái không kết nối
-  được, kèm đúng lý do đó. Một câu trả lời lớn hơn 4 MB bị từ chối.
+  có phần tham số lớn quá 50.000 ký tự JSON kể cả sau khi đã gấp (bullet kế tiếp), hay lồng sâu
+  tới mức không viết lại được, bị bỏ và được nêu tên ở Kết nối như tool trùng tên; log của server
+  ghi lý do của từng cái. Máy chủ liệt kê quá 1.000 tool thì không tool nào của nó được nhận: nó
+  ở trạng thái không kết nối được, kèm đúng lý do đó. Một câu trả lời lớn hơn 4 MB bị từ chối.
+- **Gấp phần tham số.** Phần tham số của một tool lớn quá 50.000 ký tự thường là vì máy chủ viết
+  lại nguyên một đoạn ở mọi chỗ đoạn ấy được dùng. Trước khi bỏ một tool như thế, crew thử gấp
+  phần tham số của nó: đoạn schema nào đứng từ hai chỗ trở lên được viết một lần trong `$defs` ở
+  gốc, dưới tên `shared1`, `shared2`, … theo thứ tự đoạn ấy xuất hiện lần đầu, và mỗi chỗ nó
+  từng đứng thành `{"$ref": "#/$defs/shared1"}`. Mức 50.000 ký tự khi đó được hỏi ở bản đã gấp:
+  vừa thì tool được nhận, vẫn quá thì tool bị bỏ và được nêu tên như ở bullet trên.
+  - Bản đã gấp nói đúng điều bản máy chủ viết. Chỉ một schema trọn vẹn, ở chỗ JSON Schema đặt
+    một schema, mới được dời đi: thành viên của `anyOf`, `oneOf`, `allOf`, `prefixItems`; thứ
+    đứng sau `items`, `additionalProperties`, `not`, `if`, `then`, `else`, `contains`,
+    `propertyNames`; và từng giá trị trong `properties`, `patternProperties`, `dependentSchemas`,
+    `$defs`, `definitions`. Bản thân các bảng tên ấy không bao giờ bị dời, và mọi thứ nằm dưới
+    `enum`, `const`, `default`, `examples` hay `required` cũng vậy. Một tham số tên là `items`
+    hay `properties` vẫn là một tham số. Đoạn nào dời đi mà không làm cả phần tham số ngắn lại
+    thì ở nguyên chỗ. Tên mới không bao giờ trùng một tên phần tham số đã có trong `$defs`, hay
+    một tên nó đã trỏ tới.
+  - Gấp xong, crew mở bản đã gấp ra lại và so với bản máy chủ viết từng ký tự. Lệch một ký tự thì
+    bản gấp không được dùng và tool bị bỏ như trước.
+  - Crew không thử gấp một phần tham số tự đặt tên cho mình (`$id`, `$anchor`, `$dynamicRef`,
+    `$dynamicAnchor`, `$recursiveRef`, `$recursiveAnchor` ở bất cứ đâu trong nó), một phần tham
+    số có `$ref` không phải dạng `#/$defs/<tên>` hay `#/definitions/<tên>`, một phần tham số dài
+    quá 500.000 ký tự, hay lồng sâu tới mức không đi hết được. Những tool đó bị bỏ như trước.
+    `$ref` máy chủ tự viết thì được để nguyên, không bao giờ được mở ra.
+  - Phần tham số vừa mức thì không bao giờ bị gấp, dù nó lặp nhiều tới đâu: model được nói đúng
+    từng ký tự máy chủ viết.
+  - Chỉ model được nói bản đã gấp. `tool_search`, `tools.search`, `tools.describe` và dòng cách
+    gọi trong lời mô tả của `tool_script` vẫn đọc bản máy chủ viết, nên một tool được gấp vẫn
+    tìm được theo tên tham số và vẫn được tả với đủ kiểu của từng tham số. Crew không đem tham số
+    của một lời gọi ra đối chiếu với schema trước khi gửi, nên lời gọi tới máy chủ y như khi
+    không gấp.
+  - Mỗi tool được gấp là một dòng log mức info nêu máy chủ, tool và số ký tự trước, sau khi gấp.
+    Ở `GET /api/mcp`, dòng của tool đó mang hai con số ấy trong `folded`
+    ([API và màn hình](#api-và-màn-hình)).
 - **Duyệt.** Mọi tool MCP hỏi trước khi chạy, trừ những tool chủ ghi vào `read_only`. Máy chủ có
   thể tự nhận một tool chỉ đọc (`readOnlyHint`); lời đó được **hiện** bên cạnh tool và không
   quyết định gì, vì bên nói ra chính là bên đang được tin. Cổng duyệt, `autonomous` và
@@ -1665,7 +1697,8 @@ khởi động lại, hay phiên hết hạn) thì lời gọi kế tiếp tự 
 GET    /api/mcp                    → {"servers": [{"name", "url", "description", "status", "error",
                                        "exposure", "signed_in", "uses_key", "env", "agents",
                                        "skipped", "tools": [{"name", "remote", "description",
-                                       "exposure", "requires_approval", "read_only_hint"}]}]}
+                                       "exposure", "requires_approval", "read_only_hint",
+                                       "folded"}]}]}
 POST   /api/mcp/{name}/reconnect   → cùng danh sách, sau khi thử lại máy chủ đó
 POST   /api/mcp/{name}/login       → {"authorize_url"}; 409 kèm lý do khi không đăng nhập được
 DELETE /api/mcp/{name}/login       → cùng danh sách, sau khi đăng xuất
@@ -1675,7 +1708,10 @@ GET    /api/mcp/oauth/callback     → máy chủ đăng nhập trả người d
 Tên không có trong `config.yaml` là 404. Danh sách không bao giờ mang giá trị header hay token;
 `env` chỉ là **tên** các biến mà header đọc. `url` là địa chỉ đúng như `config.yaml` viết.
 `skipped` là tên những tool máy chủ có liệt kê mà crew không nhận (trùng tên, tên quá dài, tham
-số quá lớn); tên quá dài được cắt bớt khi hiện.
+số quá lớn kể cả sau khi gấp); tên quá dài được cắt bớt khi hiện. `folded` của một tool là `null`
+khi model được nói phần tham số đúng như máy chủ viết, và là `{"from": <số ký tự máy chủ viết>,
+"to": <số ký tự sau khi gấp>}` khi model được nói bản đã gấp
+([Gấp phần tham số](#tên-duyệt-và-gọi-lại)).
 
 - **Kết nối.** Thẻ **Máy chủ MCP** có một dòng cho mỗi máy chủ: trạng thái, địa chỉ, lý do hỏng,
   agent nào đang bật nó, các tool (mức mở, có hỏi trước không, máy chủ có tự nhận chỉ đọc không)
