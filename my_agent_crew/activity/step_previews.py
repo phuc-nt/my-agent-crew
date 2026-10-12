@@ -17,9 +17,32 @@ PREVIEW_KEYS = 12
 LEFT_OUT_KEY = "…"
 
 
+# A call that failed is read by whoever has to put it right, and what to do about it is
+# often the last thing it said: a refusal ends on the way round it, a call that did not fit
+# on how the tool is called. So it is kept whole up to `FAILURE_CHARS`, and past that by its
+# head and its tail.
+FAILURE_CHARS = 600
+FAILURE_HEAD = 200
+FAILURE_TAIL = FAILURE_CHARS - FAILURE_HEAD
+CUT = "…"
+
+
 def preview(text: str) -> str:
     text = " ".join(text.split())
-    return text if len(text) <= PREVIEW_CHARS else text[:PREVIEW_CHARS] + "…"
+    return text if len(text) <= PREVIEW_CHARS else text[:PREVIEW_CHARS] + CUT
+
+
+def failure_preview(text: str) -> str:
+    """What is kept of what a failed call said: one line, as any preview is."""
+    text = " ".join(text.split())
+    if len(text) <= FAILURE_CHARS:
+        return text
+    return text[:FAILURE_HEAD] + CUT + text[-FAILURE_TAIL:]
+
+
+def outcome_preview(text: str, ok: bool) -> str:
+    """What a step keeps of what its call said: a glance at one that went well."""
+    return preview(text) if ok else failure_preview(text)
 
 
 def _argument_value(value: Any) -> Any:

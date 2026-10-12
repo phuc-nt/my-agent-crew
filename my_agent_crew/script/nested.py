@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from my_agent_crew import texts_script as t
-from my_agent_crew.activity.step_previews import argument_preview, preview
+from my_agent_crew.activity.step_previews import argument_preview, outcome_preview
 from my_agent_crew.agent.nested_calls import nested_budget, note_nested_call
 from my_agent_crew.script.delegation import (
     handing_room,
@@ -172,7 +172,7 @@ class ScriptRun:
             name=name,
             arguments=argument_preview(arguments),
             ok=result.ok,
-            output=preview(output),
+            output=outcome_preview(output, result.ok),
             ms=int((time.monotonic() - started) * 1000),
             cost_usd=result.cost_usd if result.metered else None,
             metered=result.metered,
