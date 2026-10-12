@@ -345,6 +345,12 @@ rơi về master. Nó từ chối (409) với master, và với agent mà một 
 vẫn nêu tên trong `delegates` — xoá nó sẽ để profile kia không hợp lệ và server
 không khởi động được lần sau.
 
+**Lịch của agent bị xoá đi cùng nó, ngay lúc xoá.** Job khai trong `agent.yaml` của nó rời đồng
+hồ, lịch nó được tạo từ chat (bảng `created_schedules`) và công tắc bật/tắt của từng job của nó
+(bảng `job_state`) bị xoá khỏi database; lịch sử run giữ nguyên. Agent tạo sau này dưới cùng id
+không nhận lại job nào trong đó. Job đến giờ mà agent của nó không còn trong đội thì bị bỏ qua
+kèm một dòng log, các job khác của nhịp ấy vẫn chạy.
+
 **`restart_required` chỉ bao giờ nói về lịch.** Tuyến, tool, persona, tên, ngân sách,
 giao việc và cả khối `telegram` đều được dựng lại trực tiếp — bot được dựng lại ngay khi
 lưu. Chỉ đồng hồ được dựng một lần lúc boot, nên đổi `schedules` hoặc `memory_consolidate`

@@ -5847,6 +5847,26 @@ khi chạy; phần đó có mục riêng ở dưới.
     và hai agent nay xoá ở một bên rồi đếm lại bên kia), và job script chỉ báo các lời gọi của
     nó khi script đã xong, hoặc báo lời gọi nào cũng là lời gọi đầu
     (`tests/test_script_job.py::test_the_calls_of_a_jobs_script_are_listed_and_charged_as_each_ends`).
+- **Agent bị xoá mang lịch của nó đi cùng; job đến giờ mà không còn agent thì bị bỏ qua**:
+  - pytest: `tests/test_scheduler_agent_removed.py` (trên một home có master, hai agent yaml mà
+    id của agent ở lại bắt đầu bằng id của agent bị xoá và hai job trùng tên, cùng một agent
+    của kit: xoá agent thì job khai trong tệp của nó rời đồng hồ và `GET /api/jobs` ngay, lịch
+    tạo từ chat và mọi công tắc bật/tắt của job của nó mất khỏi database, của agent kia còn
+    nguyên, chạy tay job ấy là 404; id được so như chữ, nên `a_b` không lấy gì của `axb`,
+    `A_B`, `a_b-two` hay `a_`; job đến giờ mà agent không còn trong đội thì bị bỏ qua, job đứng
+    sau nó trong nhịp vẫn chạy, và qua hai nhịp chỉ có một dòng log nêu tên job; agent bị xoá
+    giữa lúc một job trước đó của nhịp đang chạy cũng không chặn job nào, với agent yaml bị xoá
+    qua API cũng như với agent của kit rời đội khi đang giữ một lịch từ chat; agent của kit
+    không xoá được qua API (409) và giữ nguyên lịch và công tắc của nó; nạp lại sau khi thư mục
+    của một agent bị dời đi không để lại trên đồng hồ job nào của agent không còn trong đội; kết
+    quả của một run mà agent đã rời đội không được gửi cho ai và không ném lỗi; agent tạo lại
+    dưới id vừa xoá không có job nào trên đồng hồ, không dòng nào trong database, và nhịp kế chỉ
+    chạy job của các agent khác). Kiểm chứng đột biến: mười lăm sửa đổi (xoá agent không báo
+    đồng hồ, không bỏ job khai trong tệp, không xoá lịch từ chat, không xoá công tắc, chọn job
+    theo chữ đầu của id thay vì theo agent, xoá lịch từ chat không kèm điều kiện, so id bằng
+    `LIKE` ở cả hai bảng, bỏ dấu `/` sau id, bỏ phép kiểm ở nhịp, giữ job trên đồng hồ sau khi
+    đã báo, hạ dòng log xuống mức gỡ lỗi, và hai sửa đổi để lần gửi kết quả tra thẳng agent)
+    đều bị test bắt.
 - **Tóm tắt của run do lịch chạy: chỗ cắt có dấu, script hỏng tóm bằng thứ đã làm nó dừng**:
   - pytest: `tests/test_job_run_summary.py` (chữ không quá 160 ký tự thì tóm tắt là cả chữ ấy,
     không dấu gì; dài hơn thì là 160 ký tự cuối đứng sau dấu `…`, 161 ký tự; job `command` nói

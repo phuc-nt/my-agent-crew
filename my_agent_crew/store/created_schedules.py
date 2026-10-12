@@ -114,6 +114,17 @@ class CreatedSchedulesStore:
             self._conn.commit()
         return cur.rowcount > 0
 
+    def forget_agent(self, agent_id: str) -> int:
+        """Drops every row of one agent's, which go when the agent does. The scheduler shows
+        none of them while no agent holds the id, and an agent later made under it would be
+        given them as its own."""
+        with self._lock:
+            cur = self._conn.execute(
+                "DELETE FROM created_schedules WHERE agent_id = ?", (agent_id,)
+            )
+            self._conn.commit()
+        return cur.rowcount
+
     def count(self, agent_id: str) -> int:
         with self._lock:
             [(count,)] = self._conn.execute(
