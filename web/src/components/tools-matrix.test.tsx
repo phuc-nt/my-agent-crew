@@ -417,7 +417,7 @@ describe("ToolsMatrix", () => {
       expect(badge).toHaveClass("badge");
       expect(badge).toHaveAttribute(
         "title",
-        "Không thuộc danh sách công cụ của agent. Agent có tool_script khi giữ ít nhất một công cụ chỉ đọc, kể cả công cụ MCP nằm trong read_only (không ẩn).",
+        "Không thuộc danh sách công cụ của agent. Agent có tool_script khi giữ ít nhất một công cụ chỉ đọc, kể cả công cụ MCP nằm trong read_only (không ẩn), trừ khi agent được đặt “Không dùng script”.",
       );
       expect(scripting.queryByText(vi.tools.withMcp)).not.toBeInTheDocument();
       // The search keeps the one it had, and no longer speaks for the script.

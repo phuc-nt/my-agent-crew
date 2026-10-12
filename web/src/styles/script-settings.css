@@ -1,0 +1,10 @@
+/*
+ * What the crew's screens say of scripts.
+ *
+ * The grid's mark for an agent whose file takes the script tool away reads as the other
+ * marks of a choice do: quiet, since nothing is wrong.
+ */
+.matrix td.cell.script-off,
+.legend-mark.script-off {
+  color: var(--muted);
+}

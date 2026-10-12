@@ -10,8 +10,9 @@ interface Props {
  * problems: two are the person's own choice, one needs a key, one needs a mode change,
  * a tool of an MCP server comes with the server or not at all, the search for such tools
  * is held only while one of them has to be found, and the script tool only while the
- * agent has a tool that only reads for a script to call. */
-type Cell = "on" | "excluded" | "missing-key" | "work-mode" | "mcp-off" | "mcp-none" | "no-reads";
+ * agent has a tool that only reads for a script to call, unless its file takes the tool
+ * away, which is a choice and not a lack. */
+type Cell = "on" | "excluded" | "missing-key" | "work-mode" | "mcp-off" | "mcp-none" | "no-reads" | "script-off";
 
 const MARK: Record<Cell, string> = {
   on: "✓",
@@ -21,6 +22,7 @@ const MARK: Record<Cell, string> = {
   "mcp-off": "◇",
   "mcp-none": "·",
   "no-reads": "∅",
+  "script-off": "⊘",
 };
 
 const TITLE: Record<Cell, string> = {
@@ -31,13 +33,15 @@ const TITLE: Record<Cell, string> = {
   "mcp-off": vi.tools.legendMcpOff,
   "mcp-none": vi.tools.legendMcpNone,
   "no-reads": vi.tools.legendNoReads,
+  "script-off": vi.tools.legendScriptOff,
 };
 
-/** A mark only some crews can meet, and the tools that bring it. */
-const ONLY_WITH: Partial<Record<Cell, (tool: RegistryTool) => boolean>> = {
+/** A mark only some crews can meet: the tools that bring it, and the agents it takes. */
+const ONLY_WITH: Partial<Record<Cell, (tool: RegistryTool, agents: AgentInfo[]) => boolean>> = {
   "mcp-off": (tool) => Boolean(tool.server),
   "mcp-none": (tool) => Boolean(tool.with_mcp),
   "no-reads": (tool) => Boolean(tool.with_reads),
+  "script-off": (tool, agents) => Boolean(tool.with_reads) && agents.some((agent) => agent.script_calls === "none"),
 };
 
 /**
@@ -54,8 +58,9 @@ function cellFor(tool: RegistryTool, agent: AgentInfo): Cell {
   if (tool.server) return "mcp-off";
   // Nor over the search for them, which is missing only where no tool of a server needs it.
   if (tool.with_mcp) return "mcp-none";
-  // Nor over the script tool, which is missing only where a script would have nothing to call.
-  if (tool.with_reads) return "no-reads";
+  // Nor over the script tool, which is missing where the agent's file takes it away
+  // (`script_calls: none`), and otherwise only where a script would have nothing to call.
+  if (tool.with_reads) return agent.script_calls === "none" ? "script-off" : "no-reads";
   // What the file lists, not what the agent holds: every agent holds something, and an
   // agent that lists nothing has excluded nothing.
   const listed = agent.declared.tools;
@@ -81,7 +86,7 @@ export function ToolsMatrix({ tools, agents }: Props) {
   // A mark nobody can meet is not worth a line of legend.
   const legend = (Object.keys(MARK) as Cell[]).filter((cell) => {
     const brings = ONLY_WITH[cell];
-    return !brings || tools.some(brings);
+    return !brings || tools.some((tool) => brings(tool, agents));
   });
 
   if (tools.length === 0) return <p className="muted">{vi.tools.empty}</p>;
