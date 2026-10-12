@@ -75,7 +75,10 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   an agent later given the same id starts with nothing. Removing an agent stops nothing it is doing,
   so a script it is still running, or one a turn that outlives it begins later, runs to its end and
   keeps nothing: it is answered as a script that failed, with a line saying the agent it ran for was
-  removed. That holds when another agent was given the id before the script ended. A save of the
+  removed. That holds when another agent was given the id before the script ended. Such a script
+  reads nothing under the id either: a `load` it first makes after the removal is answered with
+  nothing, whoever has the id by then, and the script ends on the same line whether it stored or
+  only loaded; what it had read before the removal it goes on reading. A save of the
   agent is no removal. A `namespace` or a `key` named twice, in a reading of one value or in a
   forgetting, is a 422 that names it: nothing is read or forgotten by a guess at which was meant.
 - The agent editor on the web sets `script_calls` and `script_llm`. Its tools part ends with a
