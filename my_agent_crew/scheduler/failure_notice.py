@@ -17,6 +17,7 @@ on, failed or not, as a prompt job's is (`runner.py`). A job that runs a command
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 
@@ -30,6 +31,9 @@ logger = logging.getLogger(__name__)
 # Says a text to an agent's channel, under that agent's name: whether there was one to say
 # it to.
 Notify = Callable[[str, str], Awaitable[bool]]
+# How long the clock waits for the message to be said. It runs the jobs one after another,
+# so a chat that never answers would otherwise keep every later job of every agent waiting.
+NOTICE_TIMEOUT_SECONDS = 60.0
 
 
 def _reason(run: RunRecord) -> str:
@@ -50,13 +54,15 @@ def failure_notice(job: Job, run: RunRecord) -> str | None:
 
 async def notify_failure(job: Job, run: RunRecord, notify: Notify | None) -> None:
     """Tells the agent's channel of a script job that failed. With no channel nothing is
-    said, and a message that could not be sent is logged and no more: the run is kept as it
-    ended either way, and the jobs due after this one still run."""
+    said, and a message that could not be sent, or was not said in time, is logged and no
+    more: the run is kept as it ended either way, and the jobs due after this one still
+    run."""
     text = failure_notice(job, run)
     if notify is None or text is None:
         return
     try:
-        sent = await notify(job.agent_id, text)
+        async with asyncio.timeout(NOTICE_TIMEOUT_SECONDS):
+            sent = await notify(job.agent_id, text)
     except Exception:
         logger.exception("job %s: failure notice not sent", job.id)
     else:
