@@ -548,6 +548,30 @@ export const vi = {
     deleteConfirm: "Xoá agent",
     deleted: (id: string, kept: string) => `Đã gỡ ${id}. Thư mục còn ở ${kept}.`,
     deleteFailed: (message: string) => `Không xoá được: ${message}`,
+    // What the agent's scripts may reach, and whether they may ask a model. Both take
+    // effect as they are saved.
+    sectionScript: "Script",
+    scriptHint:
+      "Script là đoạn mã agent tự viết để gọi nhiều công cụ trong một lần chạy (công cụ tool_script). Hai mục này có hiệu lực ngay khi lưu, không cần khởi động lại.",
+    scriptCalls: "Script gọi được gì",
+    scriptCallsOption: {
+      none: "Không dùng script",
+      read_only: "Chỉ công cụ đọc",
+      gated: "Cả công cụ thay đổi dữ liệu",
+    },
+    scriptCallsHint: {
+      none: "Agent không được trao tool_script. Script của một lịch chạy vẫn chạy, và chỉ đọc.",
+      read_only: "Script chỉ gọi được các công cụ đọc.",
+      gated:
+        "Script gọi được cả công cụ thay đổi dữ liệu, mỗi lời gọi đi qua cổng duyệt; lời gọi nào phải hỏi người thì script dừng ở đó. Nếu agent tự chủ, các lời gọi ấy chạy luôn, không ai được hỏi.",
+    },
+    // In place of the gated hint while the form has autonomy switched on: what the two
+    // settings mean together, for this agent.
+    scriptCallsGatedAutonomous:
+      "Agent này đang tự chủ nên script của nó thay đổi dữ liệu mà không ai được hỏi. Chỉ lệnh khớp mục “Lệnh vẫn phải hỏi” mới làm script dừng lại.",
+    scriptLlm: "Cho script hỏi mô hình",
+    scriptLlmHint:
+      "Đây là phần duy nhất của script tốn tiền: mỗi script hỏi mô hình tối đa 10 lần. Tắt thì script trong lượt và script của lịch chạy đều không hỏi được.",
   },
   welcomeTitleFor: (name: string) => `Xin chào! Tôi là ${name} — trợ lý đa năng của bạn.`,
   welcomeBody:

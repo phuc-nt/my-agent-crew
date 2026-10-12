@@ -296,6 +296,12 @@ export interface TelegramBlock {
  * backend's `agent/escalation.py`. */
 export type EscalationReason = "loop" | "error";
 
+/** What an agent's scripts may call. `none` takes the script tool away from the agent (a
+ * schedule's own script still runs, reading only); `read_only` lets a script call the tools
+ * that read; `gated` adds the tools that change things, each call through the approval
+ * gate. Must match the values `script_calls` takes in the backend's agent profile. */
+export type ScriptCalls = "none" | "read_only" | "gated";
+
 /** One agent profile as listed by GET /api/agents. */
 export interface AgentInfo {
   id: string;
@@ -350,6 +356,13 @@ export interface AgentInfo {
   commands: CommandInfo[];
   hooks: number;
   kits: string[];
+  /** What the agent's scripts may call. Absent from a server older than the key, which
+   * runs every agent as `read_only`. */
+  script_calls?: ScriptCalls;
+  /** Whether the agent's scripts, in a turn and in a scheduled job, may ask a model: the
+   * only part of a script that costs money. Absent from a server older than the key, which
+   * lets them. */
+  script_llm?: boolean;
 }
 
 export interface InstallRequest {
@@ -399,6 +412,8 @@ export interface AgentPatch {
   delegates?: string[] | null;
   tools?: string[] | null;
   mcp?: string[] | null;
+  script_calls?: ScriptCalls;
+  script_llm?: boolean;
 }
 
 /**

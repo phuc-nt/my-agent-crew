@@ -51,6 +51,9 @@ export const defaultAgent: AgentInfo = {
   commands: [],
   hooks: 0,
   kits: [],
+  // What the file reads as when it says neither: scripts read only, and may ask a model.
+  script_calls: "read_only",
+  script_llm: true,
 };
 
 export const devAgent = {

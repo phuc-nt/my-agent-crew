@@ -30,6 +30,8 @@ describe("useAgentDraft", () => {
       delegates: fakeAgent.delegates,
       tools: fakeAgent.declared.tools,
       mcp: fakeAgent.mcp,
+      script_calls: "read_only",
+      script_llm: true,
       schedules: fakeAgent.schedules,
       telegram: fakeAgent.telegram,
     });

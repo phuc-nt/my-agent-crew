@@ -10,33 +10,10 @@ import { api } from "../api/client";
 import type { AgentInfo, AgentPatch } from "../api/types";
 import { vi } from "../i18n/vi";
 import { type DraftProblems, draftProblems, hasProblems, toPatch } from "./agent-draft-checks";
+import { type DraftKey, EDITABLE, MODE_DEFAULTED, same, toDraft } from "./agent-draft-shape";
 import { errorText } from "../lib/error-text";
 
-/** The keys the form can change. `id`, `dir` and everything derived stay out of it. */
-export type DraftKey = keyof AgentPatch;
-
-const EDITABLE: DraftKey[] = [
-  "name",
-  "description",
-  "mode",
-  "workspace",
-  "routes",
-  "escalation_route",
-  "cost_cap_usd",
-  "max_steps",
-  "autonomous",
-  "shell_ask_patterns",
-  "tool_output_chars",
-  "memory_consolidate",
-  "delegates",
-  "tools",
-  "mcp",
-  "schedules",
-  "telegram",
-];
-
-/** The keys `mode: work` supplies a default for when the manifest stays silent. */
-const MODE_DEFAULTED: DraftKey[] = ["cost_cap_usd", "max_steps", "autonomous"];
+export type { DraftKey } from "./agent-draft-shape";
 
 export interface AgentDraft {
   /** The profile as the server last reported it; the baseline every diff is taken from. */
@@ -53,47 +30,6 @@ export interface AgentDraft {
   set: <K extends DraftKey>(key: K, value: AgentPatch[K]) => void;
   reset: () => void;
   save: () => Promise<boolean>;
-}
-
-/** Deep equality by serialisation: the values here are JSON already, and a route list or
- * a tool allow-list has to compare by content rather than by identity. */
-function same(a: unknown, b: unknown): boolean {
-  return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
-}
-
-/**
- * The form's starting point.
- *
- * `delegates` and `schedules` come from `declared` rather than from the effective
- * profile: the master with no delegates of its own reaches every agent, and writing that
- * computed list back would pin it to today's crew, leaving agents added later
- * unreachable. The consolidation job is likewise generated from `memory_consolidate`,
- * and saving it as an ordinary schedule would run it twice. `tools` is the same seam:
- * the profile reports what the agent holds, and saving that would turn an agent with no
- * allow-list into one capped at today's toolbox, naming tools no list gives.
- */
-function toDraft(agent: AgentInfo): AgentPatch {
-  return {
-    name: agent.name,
-    description: agent.description,
-    mode: agent.mode,
-    workspace: agent.workspace,
-    routes: agent.routes,
-    escalation_route: agent.escalation_route,
-    cost_cap_usd: agent.cost_cap_usd,
-    max_steps: agent.max_steps,
-    autonomous: agent.autonomous,
-    shell_ask_patterns: agent.shell_ask_patterns,
-    tool_output_chars: agent.tool_output_chars,
-    memory_consolidate: agent.memory_consolidate,
-    delegates: agent.declared.delegates,
-    tools: agent.declared.tools,
-    // A crew still running the code from before MCP reports none: an empty list, so that
-    // ticking a box and unticking it leaves nothing to save.
-    mcp: agent.mcp ?? [],
-    schedules: agent.declared.schedules,
-    telegram: agent.telegram,
-  };
 }
 
 /** The agent as the crew list reports it: the one read that always carries `declared`. */

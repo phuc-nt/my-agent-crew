@@ -57,6 +57,9 @@ export const fakeAgent: AgentInfo = {
   hooks: 0,
   kits: [],
   declared: { delegates: [], schedules: [], tools: [] },
+  // What the file reads as when it says neither: scripts read only, and may ask a model.
+  script_calls: "read_only",
+  script_llm: true,
 };
 
 export const coderTemplate: TemplateInfo = {
