@@ -45,8 +45,9 @@ describe("RunCard", () => {
     expect(steps[1]).toHaveTextContent(vi.toolFailed);
     expect(steps[1]).toHaveTextContent("20 ms");
     expect(steps[1]).toHaveTextContent("command=ls");
-    await userEvent.click(within(steps[1]).getByRole("button", { name: vi.showOutput }));
+    // A failed step says why without a press.
     expect(steps[1]).toHaveTextContent("no such dir");
+    expect(within(steps[1]).getByRole("button", { name: vi.hideOutput })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: vi.openConversation }));
     expect(open).toHaveBeenCalledWith("c1");
   });

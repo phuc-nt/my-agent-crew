@@ -10,6 +10,7 @@ import { formatUsd } from "./budget-indicator";
 import { RunProgressHeader } from "./run-progress-header";
 import { ScriptReport } from "./script-calls";
 import { summarizeArguments } from "./tool-args-detail";
+import { ToolOutput } from "./tool-output";
 
 export function formatClock(iso: string): string {
   const date = new Date(iso);
@@ -131,7 +132,6 @@ function showState(row: RunRow): boolean {
  * second symbol saying the same thing only competes with it.
  */
 function StepRow({ row, onOpenConversation }: { row: RunRow; onOpenConversation?: (conversationId: string) => void }) {
-  const [showOutput, setShowOutput] = useState(false);
   const { step } = row;
   // A note's duration is always zero — it is stamped and closed on the same clock. "0 ms"
   // on every note row is noise that says nothing about the work the note describes. A
@@ -222,14 +222,7 @@ function StepRow({ row, onOpenConversation }: { row: RunRow; onOpenConversation?
       {step.kind === "tool" && (
         <ScriptReport work={step} settled={step.ok !== null} onOpenConversation={onOpenConversation} />
       )}
-      {step.kind === "tool" && step.output && (
-        <>
-          <button type="button" className="link-button" onClick={() => setShowOutput((s) => !s)}>
-            {showOutput ? vi.hideOutput : vi.showOutput}
-          </button>
-          {showOutput && <pre className="tool-output">{step.output}</pre>}
-        </>
-      )}
+      {step.kind === "tool" && step.output && <ToolOutput text={step.output} failed={step.ok === false} />}
     </li>
   );
 }

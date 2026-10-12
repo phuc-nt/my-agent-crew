@@ -115,7 +115,9 @@ describe("which tool calls the thread draws as a canvas card", () => {
 
     expect(plainCard()).toHaveTextContent("old_text=cũ");
     expect(plainCard()).toHaveTextContent(vi.toolFailed);
-    expect(screen.getByRole("button", { name: vi.showOutput })).toBeInTheDocument();
+    // A failed call says why without a press, so the toggle is the one that folds it.
+    expect(plainCard()).toHaveTextContent("old_text not found");
+    expect(screen.getByRole("button", { name: vi.hideOutput })).toBeInTheDocument();
   });
 });
 
