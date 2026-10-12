@@ -54,7 +54,9 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   not), for a failed `command` job, for a run a server stop cut, or when there is no channel. A
   message that could not be sent, or was not sent within a minute, is logged
   (`job <id>: failure notice not sent`) and not tried again; the run stands as it ended and the
-  jobs due after it still run.
+  jobs due after it still run. The run of a failed script is summed up the same way, by the line
+  that ended it: on one line, its first 160 characters and an ellipsis when there is more, where
+  it was the last 160 characters of all the script had said, what it printed among them.
 - What scripts keep can be read whole and cleared out. `GET /api/agents/{id}/script-store` now
   says `limit_chars` at its root (262,144, the most each place may hold, which each place's
   `chars` is measured against), and each place says whose it is: `kind` (`job`, `conv`, or
@@ -74,7 +76,8 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   so a script it is still running, or one a turn that outlives it begins later, runs to its end and
   keeps nothing: it is answered as a script that failed, with a line saying the agent it ran for was
   removed. That holds when another agent was given the id before the script ended. A save of the
-  agent is no removal.
+  agent is no removal. A `namespace` or a `key` named twice, in a reading of one value or in a
+  forgetting, is a 422 that names it: nothing is read or forgotten by a guess at which was meant.
 - The agent editor on the web sets `script_calls` and `script_llm`. Its tools part ends with a
   "Script" section. "Script gọi được gì" is `script_calls`, one of "Không dùng script" (`none`),
   "Chỉ công cụ đọc" (`read_only`) and "Cả công cụ thay đổi dữ liệu" (`gated`), with a line under
@@ -303,6 +306,33 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   `delegates` answers with the new ones. A name is told there exactly when a list holding it
   earns no warning, bar `image_read` on a machine with no vision route, which is neither told nor
   warned of.
+- A run summed up by the end of a long text now shows that its start was cut. The run of a
+  `command` job, and of a script job that ran well, is summed up by the last 160 characters of
+  what was said, and a longer text lost its start with nothing to say so. Such a summary now
+  opens with an ellipsis, 161 characters in all; a text of 160 characters or fewer is kept whole,
+  as it was. A rewrite of memory or a wiki compile that failed is summed up by the start of its
+  error as one line, with an ellipsis where it was cut, where it was the first 160 characters as
+  they stood.
+- A profile of the wrong shape is refused, and no longer crashes whoever reads it. Some shapes
+  raised an error nobody reads as a bad profile: `persona_files` holding an entry that is no text
+  (`[1]`, `[["a"]]`, `[{"a": 1}]`) or a name longer than the disk gives a file, `schedules` that
+  is no list of mappings (`5`, `true`, `[5]`, `[[]]`), a schedule's `skills` that is no list, and
+  a `workspace` or a `skills_dirs` entry written `~somebody` where nobody is called that. `PATCH
+  /api/agents/{id}` and `POST /api/agents` answered 500 for each; a persona name too long was
+  written to the file first, and the agents could not be listed after. `POST /api/agents/reload`
+  answered 500 for such a file, or took a `persona_files` entry that is no text and brought up an
+  agent nobody could list. Each is now a 422 that names the agent and the key
+  (`agent coder: persona_files must be a list of names`,
+  `agent coder: schedules must be a list of mappings`,
+  `agent coder: workspace '~somebody/x' cannot be followed: …`), with nothing written and the
+  running agent as it was, and a file written by hand that way stops the start with the same
+  line.
+- An edit can no longer bring a schedule whose `prompt` or `command` is not a text. A number, a
+  list or a mapping there was saved, and the job failed when its time came. `PATCH
+  /api/agents/{id}` and `POST /api/agents` now answer 422
+  (`agent coder: schedule sang: prompt must be a non-empty string`). Only the rows an edit adds
+  or changes are judged, so a row the file already holds that way does not hold up a save about
+  something else.
 - What a conversation outside the sidebar has spent no longer stands still on the web. The sidebar
   lists the master's conversations; one of another agent, such as that of an agent a task was
   handed to, is opened from a run card or from "Cần bạn xử lý", and no row of the list is read
