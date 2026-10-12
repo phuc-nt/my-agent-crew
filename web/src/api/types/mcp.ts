@@ -40,6 +40,10 @@ export interface McpToolInfo {
   requires_approval: boolean;
   /** What the server says of its own tool. Shown, never what decides the approval. */
   read_only_hint: boolean;
+  /** Set when the tool's parameter schema was folded before the model was told of it: the
+   * schema's length in characters as the server sent it and as the model reads it. Null
+   * for a schema passed on whole; an older server leaves the key out, which reads the same. */
+  folded?: { from: number; to: number } | null;
 }
 
 /** One MCP server of `config.yaml` as GET /api/mcp reports it. No header value and no

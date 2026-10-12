@@ -397,6 +397,31 @@ test.describe("on a phone", () => {
     expect(await squeezedBadges(page, '[data-testid="mcp-card"]')).toEqual([]);
   });
 
+  // A folded tool carries one badge more and the two sizes after it. Beside a name this
+  // long they go onto the next line of the tool's head rather than widening the card.
+  test("a tool whose parameters were folded says so with both sizes, within the screen", async ({ page }) => {
+    const folded = mcpTool("notion", QUERY, { description: LONG, read_only_hint: true, folded: { from: 83073, to: 21255 } });
+    const mcp = new FakeMcp([mcpServer({ tools: [...TOOLS, folded] })]);
+    await mockApi(page, { agents: [{ ...master, mcp: ["notion"] }, coachAgent], mcp });
+    await page.goto("/#/manage/connections");
+    await page.getByTestId("mcp-card").scrollIntoViewIfNeeded();
+    await row(page).getByText(t.tools(3)).click();
+
+    const tool = row(page).getByTestId(`mcp-tool-${QUERY}`);
+    await expect(tool.getByText("đã gộp tham số")).toBeVisible();
+    await expect(tool.getByText("83.073 → 21.255 ký tự")).toBeVisible();
+    // Only that tool: the two beside it went through whole.
+    await expect(row(page).getByText("đã gộp tham số")).toHaveCount(1);
+    await expect(row(page).getByText(/ký tự/)).toHaveCount(1);
+
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    const box = (await tool.getByText("83.073 → 21.255 ký tự").boundingBox())!;
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(390);
+    expect(await spills(page, '[data-testid="mcp-card"]')).toEqual([]);
+    expect(await squeezedBadges(page, '[data-testid="mcp-card"]')).toEqual([]);
+  });
+
   test("the tools grid keeps the badges of a server's tools and of their search whole", async ({ page }) => {
     const connected = servers().map((server) => ({ ...server, status: "connected" as const }));
     // One tool more than the card's own test counts: read-only and opened for scripts.

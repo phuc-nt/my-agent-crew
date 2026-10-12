@@ -30,6 +30,14 @@ function ToolRow({ tool }: { tool: McpToolInfo }) {
             {t.saysReadOnly}
           </span>
         )}
+        {/* The model knows less of a folded tool than the server said, and by how much is
+            what tells a trimmed schema from a gutted one: the sizes are printed, not a title. */}
+        {tool.folded && (
+          <>
+            <span className="badge">{t.folded}</span>
+            <span className="muted">{t.foldedSizes(tool.folded.from, tool.folded.to)}</span>
+          </>
+        )}
       </div>
       {tool.description && <div className="muted">{tool.description}</div>}
     </li>

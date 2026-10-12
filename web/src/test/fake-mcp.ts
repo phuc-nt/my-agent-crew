@@ -26,6 +26,8 @@ export function mcpTool(server: string, remote: string, overrides: Partial<McpTo
     exposure: "deferred",
     requires_approval: true,
     read_only_hint: false,
+    // A schema short enough to be handed on whole, as nearly every tool's is.
+    folded: null,
     ...overrides,
   };
 }
