@@ -145,6 +145,7 @@ def build_agent_deps(
         profile=profile,
         escalation=escalation_chain(profile.settings, providers),
         listable_tools=listable,
+        kept_era=store.script_store.era(profile.id),
     )
     # Not one of the tools `tools:` and the mode choose among: it follows what they left the
     # agent to read. Here, and not with the others, since a script reads the agent's tools as

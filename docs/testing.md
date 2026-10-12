@@ -5635,6 +5635,19 @@ khi chạy; phần đó có mục riêng ở dưới.
     của agent khác còn nguyên, và agent mới mang cùng id bắt đầu trống; agent không xoá được, vì
     còn agent khác giao việc cho nó, vì là master, hay vì thư mục không dời đi được, thì giữ
     nguyên cái nó đã giữ).
+  - pytest: `tests/test_script_store_agent_removed.py` (script chạy xong êm thì giữ được cái nó ghi,
+    trong một lượt cũng như khi một lịch chạy nó; script đang chạy lúc agent bị gỡ thì không dòng
+    nào còn dưới id ấy, và nó được trả lời như script hỏng, kèm dòng nói agent đã bị gỡ; agent mới
+    được tạo cùng id trước khi script cũ xong thì bắt đầu trống, không nhận gì của script ấy, và tự
+    giữ được như mọi agent; script mà một lượt sống lâu hơn agent chạy sau lúc gỡ cũng không giữ
+    được gì, kể cả khi id đã có chủ mới; script không ghi gì thì xong êm như thường; gỡ một agent
+    không lấy gì của script agent khác đang chạy; lưu agent không phải là gỡ, script đang chạy lúc
+    lưu vẫn giữ được; ở bảng: lần ghi mang đời của một agent đã bị gỡ không ghi gì, bỏ khoá cũng là
+    ghi; mỗi lần gỡ một id cho một đời khác mọi đời trước, id khác không đổi; script được báo agent
+    đã bị gỡ chứ không phải kho đầy). Script ở đây chờ ở một công cụ chỉ trả lời khi test cho phép,
+    nên lần gỡ rơi đúng chỗ test đặt: sau khi script đã ghi, trước khi nó xong. Kiểm chứng đột biến:
+    năm sửa đổi (lần ghi không so đời, gỡ agent không đổi đời, lấy đời lúc script bắt đầu thay vì
+    lúc agent được dựng, agent được dựng không nhận đời hiện tại, luôn báo kho đầy) đều bị test bắt.
   - pytest: `tests/test_store.py` (xoá một cuộc trò chuyện xoá cả chỗ giữ của nó, của agent nào
     cũng vậy, và không đụng chỗ của cuộc khác hay của job; lần xoá hỏng giữa chừng thì cái đã
     giữ còn nguyên, vì xoá trong cùng một giao dịch).

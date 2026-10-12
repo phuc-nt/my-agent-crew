@@ -5,6 +5,10 @@ the conversation or the job a script ran for (`script/store_session.py` says whi
 agent never reads another's. Nothing is written while a script runs: what it wrote is applied
 once it ended well, all of it in one transaction, and only when the namespace then still
 holds no more than it may.
+
+An id outlives its agent: removing an agent stops nothing it is doing, and the id may be
+given to another. So each id has an era, which moves on when all its agent kept is dropped
+with it. A write names the era it was made in, and one of an era gone by is not written.
 """
 
 from __future__ import annotations
@@ -44,6 +48,15 @@ class ScriptStore:
     def __init__(self, conn: sqlite3.Connection, lock: threading.RLock):
         self._conn = conn
         self._lock = lock
+        # How many agents of each id were removed. In memory: no script outlives the server.
+        self._eras: dict[str, int] = {}
+
+    def era(self, agent_id: str) -> int:
+        """Which agent of that id this is. An agent takes it as it is put together and hands
+        it back with what its scripts wrote (`apply`), so what was put together for an agent
+        since removed writes nothing, whoever has the id by then."""
+        with self._lock:
+            return self._eras.get(agent_id, 0)
 
     def read(self, agent_id: str, namespace: str) -> dict[str, str]:
         """Every key of one namespace, with its value as JSON text."""
@@ -91,18 +104,34 @@ class ScriptStore:
 
     def forget_agent(self, agent_id: str) -> int:
         """Drops all one agent kept, which goes when the agent does: nobody is shown it
-        after, and an agent later given the same id would read it as its own."""
-        return self._drop("agent_id = ?", (agent_id,))
+        after, and an agent later given the same id would read it as its own. The id's era
+        moves on in the same hold of the lock, so a script the agent is still running writes
+        nothing when it ends."""
+        with self._lock:
+            self._eras[agent_id] = self._eras.get(agent_id, 0) + 1
+            return self._drop("agent_id = ?", (agent_id,))
 
     def apply(
-        self, agent_id: str, namespace: str, writes: Mapping[str, str | None], most: int
+        self,
+        agent_id: str,
+        namespace: str,
+        writes: Mapping[str, str | None],
+        most: int,
+        era: int | None = None,
     ) -> bool:
         """One script's writes, all of them or none; a value of None drops its key. False,
         with nothing written, when the namespace would then hold more than `most`. That is
         measured here, inside the transaction: another run may have written the namespace
-        since the script looked, and the table never holds one over its limit."""
+        since the script looked, and the table never holds one over its limit.
+
+        False too, with nothing written, when `era` is named and is not the id's now: the
+        agent the writes were made for was removed. It is looked at under the lock a removal
+        takes, so none falls between the look and the write. Without one nothing is asked:
+        that is for a write nobody made for an agent."""
         stamp = now_iso()
         with self._lock:
+            if era is not None and era != self._eras.get(agent_id, 0):
+                return False
             try:
                 for key, text in writes.items():
                     if text is None:

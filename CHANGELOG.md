@@ -67,8 +67,12 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   there is `{deleted: 0}` and no mistake, and `namespace` must be named, so no call forgets all
   an agent kept at once. No route writes a value: only a script that ended well does. A script
   running while its place is cleared goes by what it had read and writes back only the keys it
-  stored itself. Removing an agent (`DELETE /api/agents/{id}`) now drops what its scripts kept,
-  so an agent later given the same id starts with nothing.
+  stored itself. Removing an agent (`DELETE /api/agents/{id}`) now drops what its scripts kept, so
+  an agent later given the same id starts with nothing. Removing an agent stops nothing it is doing,
+  so a script it is still running, or one a turn that outlives it begins later, runs to its end and
+  keeps nothing: it is answered as a script that failed, with a line saying the agent it ran for was
+  removed. That holds when another agent was given the id before the script ended. A save of the
+  agent is no removal.
 
 ### Changed
 
