@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Any
 
 from my_agent_crew import texts_script as t
 from my_agent_crew import texts_script_llm as words
-from my_agent_crew.activity.step_previews import argument_preview, preview
+from my_agent_crew.activity.step_previews import argument_preview, failure_preview, preview
 from my_agent_crew.agent.nested_calls import nested_budget, note_nested_call
 from my_agent_crew.agents.profile_settings import REASONING_EFFORTS
 from my_agent_crew.llm.metered_chain import MeteredChain
@@ -131,7 +131,7 @@ class ModelCalls:
             name=f"{LLM}.{name}",
             arguments=argument_preview(asked),
             ok=not failed,
-            output=preview(shown if failed else answer),
+            output=failure_preview(shown) if failed else preview(answer),
             ms=int((time.monotonic() - started) * 1000),
             cost_usd=cost,
             metered=True,

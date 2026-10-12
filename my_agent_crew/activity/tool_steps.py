@@ -7,7 +7,7 @@ from typing import Any
 
 from my_agent_crew.activity.step_clock import close_step, instant, open_step
 from my_agent_crew.activity.step_lookup import CLOCK_KEY, find_tool_step, unanswered_tool_step
-from my_agent_crew.activity.step_previews import argument_preview, preview
+from my_agent_crew.activity.step_previews import argument_preview, outcome_preview
 from my_agent_crew.agent.tool_events import NestedCallEvent, ToolCallEvent, ToolResultEvent
 from my_agent_crew.store.runs import RunRecord
 from my_agent_crew.tools.progress_note import PROGRESS_NOTE_TOOL_NAME, note_text
@@ -78,7 +78,7 @@ def _close(run: RunRecord, event: ToolResultEvent, clock: float) -> None:
         open_step(run, {"kind": "tool", "name": event.name, "ok": None}, clock)
         step = run.steps[-1]
     step["ok"] = event.ok
-    step["output"] = preview(event.output)
+    step["output"] = outcome_preview(event.output, event.ok)
     if event.shaped_kind != "none":
         step["shaped"] = {"kind": event.shaped_kind, "original_chars": event.original_chars}
     if event.metered:  # a tool that paid a model is billed with the run, like a completion

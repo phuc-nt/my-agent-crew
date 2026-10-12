@@ -22,7 +22,7 @@ import pytest
 
 from my_agent_crew import texts_script as t
 from my_agent_crew.activity import ActivityHub
-from my_agent_crew.activity.step_previews import preview
+from my_agent_crew.activity.step_previews import failure_preview
 from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.agent.nested_calls import (
     NestedBudget,
@@ -123,7 +123,9 @@ async def test_a_command_the_gate_would_not_let_run_unasked_ends_the_jobs_script
     # Not a failure the script catches and carries on from: it ends where it asked.
     said = unfinished("trước", halted(3, why.format(name=SHELL_TOOL_NAME, pattern=pattern)))
     [step] = run.steps
-    assert (run.status, step["ok"], step["output"]) == (FAILED, False, preview(said))
+    # Kept whole, to the last sentence, which says what to do about it.
+    assert (run.status, step["ok"], step["output"]) == (FAILED, False, failure_preview(said))
+    assert step["output"] == said.replace("\n", " ")
     assert run.summary and said.endswith(run.summary)
     assert shell.ran == [] and not step.get("calls")
     # Nothing waits: there is no conversation for a yes to arrive in.
@@ -146,7 +148,7 @@ async def test_a_tools_own_reason_to_ask_ends_the_jobs_script_and_is_not_repeate
 
     # Nobody watching does not let it by: its reason outranks that, as for a direct call.
     said = unfinished(halted(1, ASKS.format(name="pay_send")))
-    assert (run.status, run.steps[0]["output"]) == (FAILED, preview(said))
+    assert (run.status, run.steps[0]["output"]) == (FAILED, failure_preview(said))
     assert pays.asked == [] and "chuyển cho" not in run.steps[0]["output"] + run.summary
 
 
@@ -174,7 +176,7 @@ async def test_the_job_of_an_agent_whose_scripts_only_read_is_refused_what_its_t
     reason = t.SCRIPT_ASKS_FIRST.format(name=SHELL_TOOL_NAME, instead="gọi trực tiếp")
     said = unfinished("trước", halted(3, reason))
     assert (in_turn.ok, in_turn.output) == (False, said)
-    assert (run.status, run.steps[0]["output"]) == (FAILED, preview(said))
+    assert (run.status, run.steps[0]["output"]) == (FAILED, failure_preview(said))
     assert shell.ran == []
 
 
