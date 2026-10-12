@@ -64,6 +64,36 @@ class ScriptStore:
             ).fetchall()
         return [KeptValue(*row) for row in rows]
 
+    def value(self, agent_id: str, namespace: str, key: str) -> KeptValue | None:
+        """One key of one namespace as it is kept, or None for a key that holds nothing."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT namespace, key, value_json, updated_at FROM script_store"
+                " WHERE agent_id = ? AND namespace = ? AND key = ?",
+                (agent_id, namespace, key),
+            ).fetchone()
+        return None if row is None else KeptValue(*row)
+
+    def _drop(self, where: str, named: tuple[str, ...]) -> int:
+        with self._lock:
+            gone = self._conn.execute(f"DELETE FROM script_store WHERE {where}", named).rowcount
+            self._conn.commit()
+        return gone
+
+    def forget(self, agent_id: str, namespace: str, key: str | None = None) -> int:
+        """Drops one key of a namespace, or all the namespace holds when no key is named:
+        how many rows went. The owner's doing and never a script's. A script running
+        meanwhile goes by what it saw when it first asked, and its end writes only the keys
+        it wrote itself (`apply`), so nothing it merely read comes back."""
+        if key is None:
+            return self._drop("agent_id = ? AND namespace = ?", (agent_id, namespace))
+        return self._drop("agent_id = ? AND namespace = ? AND key = ?", (agent_id, namespace, key))
+
+    def forget_agent(self, agent_id: str) -> int:
+        """Drops all one agent kept, which goes when the agent does: nobody is shown it
+        after, and an agent later given the same id would read it as its own."""
+        return self._drop("agent_id = ?", (agent_id,))
+
     def apply(
         self, agent_id: str, namespace: str, writes: Mapping[str, str | None], most: int
     ) -> bool:

@@ -169,6 +169,9 @@ async def delete_agent(agent_id: str, rt: Rt) -> dict[str, Any]:
         except OSError as exc:
             raise HTTPException(409, str(exc)) from exc
         rt.remove_agent(agent_id)
+        # What its scripts kept goes with it. Nobody is shown it once the agent is gone, and
+        # an agent later given this id would read it as its own.
+        rt.store.script_store.forget_agent(agent_id)
         if rt.channel is not None:
             rt.channel.use_agents(rt.agents)
     return {"removed": agent_id, "kept_at": str(trashed)}
