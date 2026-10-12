@@ -22,6 +22,8 @@ from my_agent_crew import texts_script as t
 from my_agent_crew.activity.step_previews import argument_preview, preview
 from my_agent_crew.agent.events import DoneEvent, HaltedEvent, ToolResultEvent
 from my_agent_crew.agent.loop import run_turn
+from my_agent_crew.agent.nested_calls import NestedBudget, start_nested_budget
+from my_agent_crew.agent.turn_context import set_turn_conversation
 from my_agent_crew.config import Route
 from my_agent_crew.llm.fake import ScriptedProvider, completion
 from my_agent_crew.llm.provider import AllRoutesFailed, ProviderChain, ProviderError
@@ -37,6 +39,7 @@ from my_agent_crew.script.scope import SCRIPT_TOOL
 from my_agent_crew.script.tool import hand_script, script_tool
 from my_agent_crew.store.runs import DONE
 from my_agent_crew.store.side_calls import PURPOSES
+from my_agent_crew.texts import HALT_REASONS
 from my_agent_crew.tools import Tool
 from my_agent_crew.tools.registry import MAX_OUTPUT_CHARS, ToolRegistry
 from my_agent_crew.tools.result import NestedCall
@@ -726,6 +729,129 @@ async def test_a_call_after_an_asking_finds_one_fewer_left_to_the_turn(deps_fact
         (t.SCRIPT_FAILED, "rác", t.SCRIPT_HALTED.format(line=4, reason=SPENT))
     )
     assert events[-1] == HaltedEvent(reason="nested_calls", spent_usd=pytest.approx(0.005))
+
+
+# --- what the conversation may spend ---
+
+OVER = "cuộc trò chuyện đã chạm trần chi phí, script không hỏi model thêm được."
+TWICE = """
+    print(llm.classify("mua ngay", ["rác", "thường"]))
+    print(llm.classify("họp lúc ba giờ", ["rác", "thường"]))
+    print("xong")
+    """
+
+
+def test_a_script_is_refused_for_the_money_in_the_words_the_turn_stops_on():
+    assert HALT_REASONS["budget"] in OVER
+
+
+async def test_a_script_asks_no_model_once_its_conversation_has_spent_all_it_may(deps_factory):
+    """A turn looks at what its conversation has spent before each call of a model it makes
+    itself. What a script asks is a call of a model too: the first took the conversation to
+    the most it may spend, so the second is not made, the script ends there, and the turn
+    stops on the money as it does after a call of its own."""
+    script = [
+        completion(tool_calls=[scripted(TWICE)]),
+        completion("rác", cost_usd=0.004),
+        completion("thường", cost_usd=0.004),
+        completion("Xong."),
+    ]
+    deps, _ = asking_turn(deps_factory, script)
+    conv = deps.store.create(cost_cap_usd=0.005)
+
+    events = await collect(run_turn(deps, conv.id, "lọc thư"))
+
+    [result] = [event for event in events if isinstance(event, ToolResultEvent)]
+    assert [call["name"] for call in result.calls] == ["llm.classify"]
+    assert (result.ok, result.output) == (
+        False,
+        "\n".join((t.SCRIPT_FAILED, "rác", t.SCRIPT_HALTED.format(line=3, reason=OVER))),
+    )
+    assert events[-1] == HaltedEvent(reason="budget", spent_usd=pytest.approx(0.005))
+    # The turn's own call and the one asking: nothing was asked, or paid, after.
+    assert len(deps.chain.providers["scripted"].requests) == 2
+    assert [row[-1] for row in side_calls(deps.store)] == [0.004]
+    assert deps.store.get(conv.id).spent_usd == pytest.approx(0.005)
+
+
+async def test_a_script_asks_while_its_conversation_still_has_money_and_none_with_no_ceiling(
+    deps_factory,
+):
+    for cap, spent in ((0.006, 0.009), (0.0, 0.009)):
+        script = [
+            completion(tool_calls=[scripted(TWICE)]),
+            completion("rác", cost_usd=0.004),
+            completion("thường", cost_usd=0.004),
+            completion("Xong."),
+        ]
+        deps, _ = asking_turn(deps_factory, script)
+        conv = deps.store.create(cost_cap_usd=cap)
+
+        events = await collect(run_turn(deps, conv.id, "lọc thư"))
+
+        [result] = [event for event in events if isinstance(event, ToolResultEvent)]
+        assert (result.ok, result.output) == (True, "rác\nthường\nxong"), cap
+        assert deps.store.get(conv.id).spent_usd >= spent - 1e-9
+
+
+async def test_a_script_begun_with_nothing_left_to_spend_asks_no_model_at_all(deps_factory):
+    """The call that wrote the script took the conversation to the most it may spend. The
+    script still runs, as a tool asked for by that call does, and reads what it reads; the
+    model is another matter."""
+    source = """
+        tools.row_read()
+        print(llm.classify("mua ngay", ["rác", "thường"]))
+        """
+    script = [completion(tool_calls=[scripted(source)]), completion("rác", cost_usd=0.004)]
+    deps, read = asking_turn(deps_factory, script)
+    conv = deps.store.create(cost_cap_usd=0.001)
+
+    events = await collect(run_turn(deps, conv.id, "lọc thư"))
+
+    [result] = [event for event in events if isinstance(event, ToolResultEvent)]
+    assert len(read) == 1 and [call["name"] for call in result.calls] == ["row_read"]
+    assert (result.ok, result.output) == (
+        False,
+        f"{t.SCRIPT_FAILED}\n{t.SCRIPT_HALTED.format(line=3, reason=OVER)}",
+    )
+    assert events[-1] == HaltedEvent(reason="budget", spent_usd=pytest.approx(0.001))
+    assert len(deps.chain.providers["scripted"].requests) == 1 and side_calls(deps.store) == []
+
+
+async def test_an_asking_refused_for_the_money_is_no_call_the_script_made(deps_factory):
+    """Not made, so not counted: among what one script may ask, or among the calls the
+    scripts of the turn may make between them. No `except` of the script's catches it."""
+    deps, _ = asking_turn(deps_factory, [completion("rác")])
+    conv = deps.store.create(cost_cap_usd=0.25)
+    deps.store.add_spend(conv.id, 0.25)
+
+    async def turn() -> tuple[ModelCalls, NestedBudget]:
+        set_turn_conversation(conv.id)
+        budget = start_nested_budget(1)
+        calls = ModelCalls(ScriptRun(ToolRegistry([], MAX_OUTPUT_CHARS)), agents_model(deps))
+        with pytest.raises(Halt) as ended:
+            await calls.answer(dict(ASKED))
+        assert str(ended.value) == OVER
+        return calls, budget
+
+    calls, budget = await asyncio.create_task(turn())
+
+    assert (calls.asked, calls.run.made, calls.run.calls) == (0, 0, [])
+    assert (budget.used, budget.spent) == (0, False)
+    assert deps.chain.providers["scripted"].requests == []
+
+
+async def test_a_conversation_gone_while_its_script_ran_is_no_reason_to_refuse(deps_factory):
+    deps, _ = asking_turn(deps_factory, [completion("rác")])
+    conv = deps.store.create(cost_cap_usd=0.25)
+
+    async def turn() -> str:
+        set_turn_conversation(conv.id)
+        deps.store.delete(conv.id)
+        calls = ModelCalls(ScriptRun(ToolRegistry([], MAX_OUTPUT_CHARS)), agents_model(deps))
+        return await calls.answer(dict(ASKED))
+
+    assert await asyncio.create_task(turn()) == "rác"
 
 
 # --- in the script of a schedule ---
