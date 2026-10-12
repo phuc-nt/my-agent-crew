@@ -288,16 +288,34 @@ cố ý trỏ một agent tới repo ở nơi khác, cả hai vẫn hoạt độ
 
 Đường dẫn ngoài home mà agent **đang chạy với** thì không phải của lần sửa: tệp viết tay đã trỏ
 tới đó, và một lần lưu để nguyên nó không cho người gọi thêm được gì. Agent như vậy vẫn sửa được
-mọi khoá khác qua web và API, và gửi lại đúng đường dẫn ấy (viết cách nào cũng được, miễn phân
-giải ra cùng một chỗ) cũng được nhận. Phép so đi theo từng loại, loại nào so với loại nấy:
-`workspace` với workspace đang chạy, từng mục `skills_dirs` với các thư mục skill đang chạy,
-từng tệp persona với các tệp persona đang chạy. Một workspace ngoài home không làm thư mục ấy
-thành thư mục skill được nhận, cũng không làm tệp nằm dưới nó thành tệp persona được nhận. Đổi
-một workspace ngoài home sang chỗ khác ngoài home (kể cả thư mục cha hay thư mục con của nó) là
-422; đổi vào trong home thì được, và sau đó không đổi ngược ra được nữa. Agent mới tạo chưa chạy
-với gì, nên mọi đường dẫn của nó phải nằm dưới home, kể cả khi một agent khác đang làm việc ở
-chính chỗ đó. Phép so lấy agent đang chạy, không lấy tệp: đường dẫn ngoài home vừa viết tay vào
-tệp mà chưa khởi động lại thì chưa được tính, lần lưu qua web lúc đó bị từ chối kèm đường dẫn ấy.
+mọi khoá khác qua web và API, và gửi lại đúng đường dẫn ấy cũng được nhận, miễn là viết theo một
+trong hai cách nêu ở đoạn dưới. Phép so đi theo từng loại, loại nào so với loại nấy: `workspace`
+với workspace đang chạy, từng mục `skills_dirs` với các thư mục skill đang chạy, từng tệp
+persona với các tệp persona đang chạy. Một workspace ngoài home không làm thư mục ấy thành thư
+mục skill được nhận, cũng không làm tệp nằm dưới nó thành tệp persona được nhận. Đổi một
+workspace ngoài home sang chỗ khác ngoài home (kể cả thư mục cha hay thư mục con của nó) là 422;
+đổi vào trong home thì được, và sau đó không đổi ngược ra được nữa. Agent mới tạo chưa chạy với
+gì, nên mọi đường dẫn của nó phải nằm dưới home, kể cả khi một agent khác đang làm việc ở chính
+chỗ đó. Phép so lấy agent đang chạy, không lấy tệp: đường dẫn ngoài home vừa viết tay vào tệp mà
+chưa khởi động lại thì chưa được tính, lần lưu qua web lúc đó bị từ chối kèm đường dẫn ấy.
+
+**Đường dẫn ngoài home được viết như tệp đang viết, hoặc viết chính đường dẫn thật.** Tệp giữ nguyên
+chuỗi mà lần sửa gửi lên, và mỗi lần khởi động lại đi theo chuỗi ấy từ đầu. Một chuỗi tới được cây
+của agent qua một liên kết (symlink), hoặc bằng cách vào một thư mục rồi lùi ra bằng `..`, chỉ dẫn
+tới đó chừng nào liên kết hay thư mục ấy còn nằm yên, mà agent có shell thì dời được cả hai: lần
+khởi động sau sẽ theo chuỗi đã lưu tới một chỗ chưa lần sửa nào được xét. Vì vậy với một đường dẫn
+ngoài home, lần sửa chỉ gửi được một trong hai cách viết: đúng chuỗi tệp đang ghi cho cùng loại
+đường dẫn (chữ của chủ, lần lưu không ghi gì mới), hoặc chính đường dẫn thật, không còn liên kết hay
+`..` nào để theo. Cách viết khác là 422, và câu lỗi nêu đường dẫn nên ghi ("Đường dẫn … đi qua liên
+kết hoặc ..; hãy ghi đường dẫn thật: …"); server không tự viết lại hộ, tệp và agent đang chạy giữ
+nguyên. Tệp viết tay đã ghi sẵn một cách viết vòng thì vẫn lưu được mọi khoá khác, gửi lại đúng
+chuỗi ấy cũng được, và đổi nó sang đường dẫn thật cũng được. Loại nào xét theo loại nấy, như ở đoạn
+trên: chuỗi tệp ghi cho workspace không bảo lãnh cho một thư mục skill viết y như thế. Bỏ hẳn một
+khoá cũng được xét như vậy, theo cái tên mà lúc khởi động đọc thay vào (`workspace` cho workspace,
+`AGENTS.md`, `SOUL.md`, `IDENTITY.md`, `USER.md` cho tệp persona): tên ấy là một liên kết ra ngoài
+home thì lần bỏ khoá là 422. Ghi chính cái tên ấy vào tệp thì được, vì lúc khởi động đằng nào cũng
+theo nó; thư mục `skills` của agent cũng thế, nó được đọc dù tệp ghi gì. Đường dẫn nằm trong home
+thì xét như trước, viết cách nào cũng được.
 
 **Cả hai danh sách mẫu shell phải là danh sách.** Một chuỗi trần thì duyệt qua được, nên
 `shell_ask_patterns: "rm"` nếu không sẽ thành các mẫu `r` và `m` và hàng rào

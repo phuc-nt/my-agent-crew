@@ -137,7 +137,15 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   skills folder against the skills folders, a persona file against the persona files), so a
   workspace elsewhere vouches for no skills folder and no persona file. Moving an outside
   workspace to another place outside the home is still refused, moving it into the home is
-  accepted, and a new agent still may name no path outside the home.
+  accepted, and a new agent still may name no path outside the home. An edit spells such a path as
+  the file already spells it for that kind of path, or as the path itself with nothing left to
+  follow. The file keeps the text an edit sent and every start follows that text again, so one
+  that reaches the agent's tree through a link, or by going into a folder and back out with `..`,
+  would lead wherever the link or the folder is moved to afterwards: it is a 422 that names the
+  path to write ("Đường dẫn … đi qua liên kết hoặc ..; hãy ghi đường dẫn thật: …"), and nothing is
+  rewritten on the person's behalf. Taking a key out is judged the same way, by the name the start
+  then reads in its place. A hand-written file that spells its path through a link is still saved,
+  and a path inside the home is judged as before, however it is spelled.
 - A start no longer warns `tools lists unknown tool delegate` about an agent that lists `delegate`
   as the docs tell it to. Naming it is how an agent with a `tools:` list keeps handing work out,
   and the tool is handed once every agent exists, after the list was matched, so every such agent
