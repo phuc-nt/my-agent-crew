@@ -656,6 +656,27 @@ describe("who uses a server, on the manage screen", () => {
   });
 });
 
+// What the screen does after a key is written includes reading the crew, which the page
+// around the screen hands it. A page that draws again may hand a new function each time:
+// that is no reason to read the keys again.
+describe("the keys, on the manage screen", () => {
+  it("are read once, however often the page around the screen is drawn again", async () => {
+    const backend = new FakeBackend();
+    vitest.stubGlobal("fetch", backend.fetch);
+    const reads = () => backend.requests.filter((r) => r.method === "GET" && r.path === "/credentials").length;
+    const { rerender } = show("connections");
+    await waitFor(() => expect(reads()).toBe(1));
+
+    rerender({ onReloadCrew: () => undefined });
+    rerender({ onReloadCrew: async () => undefined });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(reads()).toBe(1);
+  });
+});
+
 // A section reachable by URL but missing from the grouped nav would be one nobody finds.
 it("puts every manage section in exactly one nav group", () => {
   const grouped = NAV_GROUPS.flatMap((group) => group.sections);

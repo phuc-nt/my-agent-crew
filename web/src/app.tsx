@@ -159,7 +159,7 @@ export function App() {
             connecting: activity.connecting,
             onRetry: activity.reconnect,
           }}
-          onReloadCrew={() => void crew.reload()}
+          onReloadCrew={crew.reload}
           onReloadActivity={() => void activity.refresh()}
           // Changing section drops the id in the URL: an id is only meaningful under
           // the section that opened it.
