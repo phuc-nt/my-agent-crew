@@ -580,6 +580,9 @@ export const vi = {
       "Không bắt buộc. Khi script in ra kết quả, một lượt được mở với lời nhắc này kèm phần đã in, và câu trả lời được gửi qua Telegram. Bỏ trống, hoặc script không in gì, thì không ai được báo.",
     scriptMissing: "Nhập script cần chạy.",
     scriptTooLong: (most: number) => `Script dài quá ${most.toLocaleString("vi-VN")} ký tự; rút gọn rồi mới lưu được.`,
+    // What the tool picker says of `delegate` while no agent holds it: the registry then
+    // has no row for it, and so no description of its own to show.
+    toolDelegate: "Giao một việc trọn vẹn cho agent khác và chờ kết quả.",
   },
   welcomeTitleFor: (name: string) => `Xin chào! Tôi là ${name} — trợ lý đa năng của bạn.`,
   welcomeBody:
