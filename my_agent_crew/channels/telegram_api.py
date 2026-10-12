@@ -115,8 +115,11 @@ class TelegramApi:
         timeout: float | None = None,
     ) -> Any:
         url = f"{self._base}/bot{self._token}/{method}"
+        # No limit named means the client's own. Handed on as it is, httpx reads None as "no
+        # limit at all", and a send on a line gone quiet would hold its caller for ever.
+        limit = httpx.USE_CLIENT_DEFAULT if timeout is None else timeout
         try:
-            response = await self._client.post(url, data=data, files=files, timeout=timeout)
+            response = await self._client.post(url, data=data, files=files, timeout=limit)
         except httpx.HTTPError as exc:
             raise TelegramError(f"{method}: {self.redact(str(exc))}") from exc
         try:
