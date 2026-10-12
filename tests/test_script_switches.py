@@ -25,7 +25,6 @@ from my_agent_crew import texts_script as t
 from my_agent_crew import texts_script_llm as asking
 from my_agent_crew.activity.step_previews import preview
 from my_agent_crew.agents import default_profile
-from my_agent_crew.agents.profile_edit import RESTART_KEYS
 from my_agent_crew.agents.profile_yaml import load_yaml_profiles, parse_profile
 from my_agent_crew.config import Settings, load_settings
 from my_agent_crew.llm.fake import EchoProvider, ScriptedProvider, completion
@@ -312,10 +311,6 @@ def script_tool_of(runtime):
 
 def patch(client, **profile):
     return client.patch("/api/agents/coder", json={"profile": profile})
-
-
-def test_neither_switch_waits_for_a_restart() -> None:
-    assert not {"script_calls", "script_llm"} & set(RESTART_KEYS)
 
 
 def test_the_editor_takes_the_script_tool_from_a_running_agent_and_hands_it_back(served):

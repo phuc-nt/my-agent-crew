@@ -428,11 +428,26 @@ giữa chừng để lại nửa sổ, một trạng thái mà không lần ch�
 trong cùng transaction với cuộc trò chuyện của nó (`Store.delete`). Chi tiết và giới hạn ở
 [tools.md](tools.md#gọi-tool-từ-script).
 
+**Lịch trong tệp theo đội đang chạy.** Job sinh từ `schedules` và `memory_consolidate` được đọc
+từ chính các agent đang chạy, và đọc lại mỗi khi đội đổi: một agent được lưu, được cài, được nhận
+vào đội, hay cả đội được dựng lại sau một lần lưu ở Kết nối (`Scheduler.reload_profiles`, gọi từ
+`server/runtime_crew.py` và `server/runtime_connections.py`). Vì vậy không lần lưu nào chờ khởi
+động lại, và `restart_required` của route sửa agent luôn rỗng. Bảng mới được đặt vào thay cho
+bảng cũ chứ không sửa tại chỗ, vì `describe()` chạy trong thread pool có thể đang đọc bảng cũ; cũng
+vì thế mốc "lần cuối" của một job đã bị bỏ không bị xoá. Mốc được xét theo giờ chứ không theo nội
+dung: dòng mới, dòng đổi `cron` hay `every` và dòng tệp vừa bật lại nhận mốc là lúc lưu, nên không
+giờ nào đã qua được chạy bù; dòng chỉ đổi việc nó làm giữ mốc, nên sửa một prompt không dời lần
+chạy kế tiếp. Dòng bị bỏ mất công tắc `job_state` và số lần hỏng đang đếm, để một dòng thêm lại
+dưới cùng id không thừa hưởng gì. Trong một nhịp, job tới hạn mà dòng của nó vừa được lưu hay bị
+bỏ khi một job trước nó đang chạy thì bị bỏ qua và nhịp sau xét lại: chạy nó theo dòng cũ là chạy
+thứ người dùng vừa sửa đi. Quy tắc đầy đủ ở
+[agents.md](agents.md#lịch-trong-tệp-lên-đồng-hồ-ngay-khi-lưu).
+
 **Lịch từ chat.** Bên cạnh lịch viết tay trong `agent.yaml`, tool `schedule_create`
 (`origin: "chat"` trên job, đối lập `origin: "profile"`) cho agent tự đề xuất một job prompt
 lặp lại; chi tiết tool ở [tools.md](tools.md#đề-xuất-lịch-chạy). Lịch loại này sống trong
 bảng `created_schedules`, không phải `agent.yaml`, vì yaml thuộc home mà phiên khác quản lý và
-đổi yaml cần restart — id có tiền tố `chat-` nên không bao giờ trùng id viết tay. `Scheduler`
+một tệp yaml ghi ngoài đường lưu của web thì đội đang chạy không đọc lại — id có tiền tố `chat-` nên không bao giờ trùng id viết tay. `Scheduler`
 không giữ một bảng job trong bộ nhớ cho nguồn này; nó dựng lại `{job từ profile} ∪ chat_jobs(DB)`
 mỗi lần `jobs()`, `describe()`, `due()` hay `get()` cần, vì bảng trong bộ nhớ phải được cập
 nhật cả từ tool (chạy trước khi `Runtime`/`Scheduler` tồn tại) lẫn từ route job (đồng bộ, chạy
@@ -442,7 +457,8 @@ mới là lúc scheduler thấy nó lần đầu, nên lần chạy rơi vào kh
 có thể bị lỡ; khởi động lại không làm mất lịch vì mọi thứ đã ở DB. Xoá qua
 `DELETE /api/jobs/{id:path}` bỏ dòng `created_schedules` và `job_state` liên quan, giữ nguyên
 lịch sử run, và không đi qua `Scheduler` để dòng mồ côi (agent gọi nó đã bị gỡ) vẫn xoá được;
-xoá một job có nguồn `profile` bị từ chối với 409, vì nó cần sửa yaml và restart thay vì xoá.
+xoá một job có nguồn `profile` bị từ chối với 409, vì nó là một dòng của `agent.yaml`: muốn bỏ
+thì lưu agent không còn dòng đó, còn gỡ riêng khỏi đồng hồ thì lần khởi động sau nó lại hiện ra.
 
 **Duyệt luôn luôn cho lịch chạy.** Tạo một lịch nghĩa là agent tự cho mình một lượt chạy
 trong tương lai không ai trông chừng — đúng loại việc mà duyệt tồn tại để chặn — nên

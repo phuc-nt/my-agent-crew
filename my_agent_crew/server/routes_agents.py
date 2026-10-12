@@ -103,8 +103,9 @@ def get_agent(agent_id: str, rt: Rt) -> dict[str, Any]:
 @router.post("/agents/install", status_code=201)
 async def install_agent(body: InstallRequest, rt: Rt) -> dict[str, Any]:
     """Writes the template (and the peers it names) into the home, then loads the new
-    profiles into the running crew so the master can delegate to them at once. Schedules
-    only start at boot, so an agent that has any reports `needs_restart`. Held under the
+    profiles into the running crew so the master can delegate to them at once, and their
+    schedules onto the clock. `needs_restart` is true only when an agent it wrote did not
+    join: one written over an agent that runs, or a crew that cannot grow. Held under the
     write lock, so a key saved at the same moment cannot swap the providers mid-build."""
     async with write_lock:
         return install(body, rt)

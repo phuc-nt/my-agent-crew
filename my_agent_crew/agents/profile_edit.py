@@ -25,13 +25,6 @@ from my_agent_crew.agents.schedule import COMMAND, PROMPT
 from my_agent_crew.config import Route, Settings
 from my_agent_crew.scheduler.cron import CronSpec, parse_every
 
-# What the scheduler reads once at startup and never again. The Telegram bridge is not
-# here: an edited `telegram` block rebuilds the bot on the spot.
-RESTART_KEYS = {
-    "schedules": texts.RESTART_REASON_SCHEDULES,
-    "memory_consolidate": texts.RESTART_REASON_SCHEDULES,
-}
-
 
 def check_agent_id(agent_id: str) -> None:
     """An id is a directory name and a URL segment both, so it is kept to the characters
@@ -145,26 +138,3 @@ def check_schedules(agent_id: str, schedules: Sequence[Schedule], kept: Sequence
             if doing and not isinstance(doing, str):
                 where = f"agent {agent_id}: schedule {schedule.id}"
                 raise ValueError(f"{where}: {action} must be a non-empty string")
-
-
-def restart_reasons(old: AgentProfile | None, new: AgentProfile) -> list[str]:
-    """What the person still has to restart for, in their own words.
-
-    Each reason is a whole sentence, and the agent editor shows it as it is, never as the
-    name of a key. Everything else about an agent — its routes, its tools, its persona,
-    who it may delegate to — is rebuilt live, so saying "restart" for those would train
-    people to ignore the one case where it is true.
-    """
-    reasons: list[str] = []
-    for key, reason in RESTART_KEYS.items():
-        before = getattr(old, key, None) if old else None
-        after = getattr(new, key)
-        # A new agent has nothing before it, and an agent with no schedules is the same
-        # as one that never had any: only something there now makes a restart worth
-        # asking for. Comparing None against an empty tuple would claim one every time
-        # an agent is created, and a notice that is always on is one nobody reads.
-        if not before and not after:
-            continue
-        if before != after and reason not in reasons:
-            reasons.append(reason)
-    return reasons

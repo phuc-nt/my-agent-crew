@@ -24,7 +24,7 @@ from my_agent_crew import texts
 from my_agent_crew.agents import DEFAULT_AGENT_ID
 from my_agent_crew.agents.kit import with_kits
 from my_agent_crew.agents.profile import AgentProfile
-from my_agent_crew.agents.profile_edit import check_agent_id, restart_reasons, validated
+from my_agent_crew.agents.profile_edit import check_agent_id, validated
 from my_agent_crew.agents.profile_edit_paths import check_inside_home, check_spelling
 from my_agent_crew.agents.profile_read_back import check_read_back, read_now, read_to_be
 from my_agent_crew.agents.profile_write import create_agent_dir, trash_agent, write_raw
@@ -45,6 +45,14 @@ from my_agent_crew.texts_mcp import MCP_AGENT_UNKNOWN_SERVER
 
 router = APIRouter(tags=["agents"])
 ROUTE_KEYS = {"routes", "escalation_route"}
+
+
+def nothing_to_restart_for() -> list[str]:
+    """What a save answers in `restart_required`: the sentences of what still waits for a
+    restart. There is none: all a save changes joins the running crew at once, the
+    schedules on the clock with the rest (`runtime_crew.py`). The key stays for the
+    clients that read it."""
+    return []
 
 
 class CreateRequest(BaseModel):
@@ -134,7 +142,7 @@ async def create_agent(body: CreateRequest, rt: Rt) -> dict[str, Any]:
         await sync_channel(rt, before)
     return {
         "profile": describe_listed(rt, rt.deps_for(profile.id)),
-        "restart_required": restart_reasons(None, profile),
+        "restart_required": nothing_to_restart_for(),
     }
 
 
@@ -152,7 +160,7 @@ async def patch_agent(agent_id: str, body: PatchRequest, rt: Rt) -> dict[str, An
         await sync_channel(rt, before)
     return {
         "profile": describe_listed(rt, rt.deps_for(profile.id)),
-        "restart_required": restart_reasons(old, profile),
+        "restart_required": nothing_to_restart_for(),
     }
 
 
