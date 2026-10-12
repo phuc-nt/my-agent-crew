@@ -1036,7 +1036,11 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
       nằm trên kết quả của script, nên cuộc trò chuyện cha được cộng **một lần**, lúc kết quả
       của script được ghi, dù script chạy hết hay hỏng sau đó. Đó không phải giá của lời gọi:
       `cost_usd` là `null` và `metered` là `false`, vì run của con đã tự ghi tiền của nó, và
-      run của cha không cộng nó lần nữa.
+      run của cha không cộng nó lần nữa. Cho tới lúc kết quả của script được ghi, cuộc trò
+      chuyện cha chưa hiện số tiền ấy. Lần hỏi `llm.` của chính script thì đã tính nó từ lúc
+      việc giao trả kết quả (bullet "Tính vào đâu" ở phần script tự hỏi model). Một việc script
+      giao sau thì chưa: con của nó thừa kế phần ngân sách còn lại theo số cha đang hiện, chưa
+      trừ tiền các việc script đã giao trước đó.
     - **`relay` không có nghĩa trong script.** Câu trả lời của con là dữ liệu của script, **không
       bao giờ thành câu trả lời của lượt**, dù script đặt `relay` thế nào. Model đọc cái script
       in ra rồi trả lời bằng lời của chính nó.
@@ -1114,7 +1118,12 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
     phép thì script **dừng** ở lời gọi `llm.` đó ("cuộc trò chuyện đã chạm trần chi phí, script
     không hỏi model thêm được."), không model nào được hỏi, và lần hỏi không thành đó không tính
     vào số nào. Các lần hỏi trước nó trong cùng script đã được trả tiền và vẫn nằm trên thẻ run.
-    Script của một job không chạy trong cuộc trò chuyện nào, nên ở đó chỉ có trần 10 lần.
+    Phần đã tiêu ở đây gồm cả tiền các việc chính script này đã giao và đã nhận lại kết quả
+    (`child_spent_usd`), dù cuộc trò chuyện chỉ được cộng số đó lúc kết quả của script được ghi:
+    một việc giao đưa cuộc trò chuyện tới trần thì script không hỏi model được nữa, kể cả khi
+    con số cuộc trò chuyện đang hiện còn dưới trần. Việc giao hết thời gian chờ không mang về số
+    tiền nào nên không được tính. Script của một job không chạy trong cuộc trò chuyện nào, nên ở
+    đó chỉ có trần 10 lần.
   - **Ai gọi model, bằng gì.** Server gọi, không phải tiến trình con: tiến trình con chỉ nhận về
     chuỗi kết quả, không khoá, không tên route, không số token. Lời gọi đi tới **route đầu tiên
     của chính agent** và chỉ route đó: không chuyển sang route dự phòng khi hỏng, không dùng
