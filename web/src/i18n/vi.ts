@@ -1017,6 +1017,8 @@ export const vi = {
     entryChars: (chars: number) => `${chars.toLocaleString("vi-VN")} ký tự`,
     view: "Xem giá trị",
     hide: "Ẩn giá trị",
+    // A key comes to the name of a button written out, whole and without quotes
+    // (`writtenName` in lib/quoted-name.ts): the same writing its row has.
     viewLabel: (key: string) => `Xem giá trị của khoá ${key}`,
     hideLabel: (key: string) => `Ẩn giá trị của khoá ${key}`,
     valueLabel: (key: string) => `Giá trị của khoá ${key}`,

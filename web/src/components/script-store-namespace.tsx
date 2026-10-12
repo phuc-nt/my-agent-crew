@@ -1,6 +1,6 @@
 import type { ScriptStoreEntry, ScriptStoreNamespace, ScriptStoreValue } from "../api/script-store";
 import { vi } from "../i18n/vi";
-import { showHiddenChars } from "../lib/hidden-chars";
+import { writtenName } from "../lib/quoted-name";
 import { namespaceFill, namespaceWords } from "../lib/script-store-namespace";
 import { ScriptStoreEntryRow } from "./script-store-entry";
 import { MetricBar } from "./ui/metric-card";
@@ -40,7 +40,7 @@ interface Props {
 export function ScriptStoreNamespaceCard({ agentId, namespace, limit, refused, onRead, onGone, onDelete }: Props) {
   const said = namespaceWords(agentId, namespace);
   const fill = namespaceFill(namespace.chars, limit);
-  const stored = showHiddenChars(namespace.namespace);
+  const stored = writtenName(namespace.namespace);
   const mine = refused?.namespace === namespace.namespace ? refused : null;
   return (
     <section className="script-store-namespace" data-testid="script-store-namespace" data-namespace={namespace.namespace}>

@@ -7,17 +7,16 @@
 import type { ScriptStoreNamespace } from "../api/script-store";
 import { routeHash } from "../hooks/use-route";
 import { vi } from "../i18n/vi";
-import { showHiddenChars } from "./hidden-chars";
-import { quotedName } from "./quoted-name";
+import { quotedName, writtenName } from "./quoted-name";
 
 export interface NamespaceWords {
   /** Whose runs it belongs to, as a word; null when the server did not say. */
   kind: string | null;
   /** The schedule's name or the conversation's title; its id when it has neither; the
-   *  stored name when the server said nothing more. */
+   *  stored name when the server said nothing more. Written out whole, as the heading has it. */
   name: string;
   /** How a sentence calls it: `lịch "Bản tin sáng"`, or the stored name between quotes. The
-   *  name in it is escaped and cut to length, so it cannot reshape the sentence around it. */
+   *  name in it is written the same way and cut to length, so it cannot reshape the sentence. */
   phrase: string;
   /** The job's row or the conversation, while there is one to open. */
   href: string | null;
@@ -30,11 +29,12 @@ export interface NamespaceWords {
 const { scriptStore: words } = vi;
 
 /**
- * A name is whatever a person or an agent typed, so the characters nobody would see in it
- * are written out. The address is built from the id as the server sent it.
+ * A name is whatever a person or an agent typed, so what nobody would see in it is written
+ * out (`writtenName`): two namespaces a page would draw alike read apart. The address is
+ * built from the id as the server sent it.
  */
 export function namespaceWords(agentId: string, namespace: ScriptStoreNamespace): NamespaceWords {
-  const stored = showHiddenChars(namespace.namespace);
+  const stored = writtenName(namespace.namespace);
   const orphan = namespace.orphan === true;
   const owned = namespace.kind === "job" || namespace.kind === "conv" ? namespace.kind : null;
   if (owned === null) {
@@ -53,7 +53,7 @@ export function namespaceWords(agentId: string, namespace: ScriptStoreNamespace)
           routeHash({ kind: "manage", section: "jobs", param: `${agentId}/${ref}` })
         : routeHash({ kind: "chat", conversationId: ref });
   const phrase = words.named[owned](quotedName(titled));
-  return { kind: words.kinds[owned], name: showHiddenChars(titled), phrase, href, orphan, orphanHint: words.orphanHint[owned] };
+  return { kind: words.kinds[owned], name: writtenName(titled), phrase, href, orphan, orphanHint: words.orphanHint[owned] };
 }
 
 /** `MetricBar` turns amber here and red at the limit; the sentence under it turns with it. */

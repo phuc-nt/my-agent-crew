@@ -57,14 +57,14 @@ describe("a key named in the delete question and in the line that follows", () =
     expect(deletes()).toEqual([`DELETE /agents/coach/script-store?${named("job:brief", key)}`]);
   });
 
-  it("keeps the spaces it ends with inside its quotes, and has what nobody would see written out", async () => {
+  it("has the spaces it ends with and what nobody would see written out between its quotes", async () => {
     backend.scriptStore.keep("coach", "job:brief", "seen\u200B  ", 1);
     mountStore(backend);
 
     await press("delete");
 
-    expect(asked()).toEqual(['Xoá khoá "seen[U+200B]  " của lịch "Bản tin sáng"? Không thể hoàn tác.']);
-    await waitFor(() => expect(said()).toBe('Đã xoá khoá "seen[U+200B]  ".'));
+    expect(asked()).toEqual(['Xoá khoá "seen[U+200B][U+0020][U+0020]" của lịch "Bản tin sáng"? Không thể hoàn tác.']);
+    await waitFor(() => expect(said()).toBe('Đã xoá khoá "seen[U+200B][U+0020][U+0020]".'));
   });
 
   it("is named the same way in the line that says it is gone", async () => {
@@ -113,14 +113,14 @@ describe("a schedule or a conversation named in the delete question and in the l
     await waitFor(() => expect(said()).toBe(`Đã xoá 1 khoá của cuộc trò chuyện "${"t".repeat(80)}…".`));
   });
 
-  it("is its stored name between quotes, as stored, when it is neither", async () => {
+  it("is its stored name between quotes, written out, when it is neither", async () => {
     backend.scriptStore.keep("coach", "kho\ncũ  ", "draft", 1);
     mountStore(backend);
 
     await press("delete-all");
 
-    expect(asked()).toEqual(['Xoá cả 1 khoá của "kho\\ncũ  "? Không thể hoàn tác.']);
-    await waitFor(() => expect(said()).toBe('Đã xoá 1 khoá của "kho\\ncũ  ".'));
+    expect(asked()).toEqual(['Xoá cả 1 khoá của "kho\\ncũ[U+0020][U+0020]"? Không thể hoàn tác.']);
+    await waitFor(() => expect(said()).toBe('Đã xoá 1 khoá của "kho\\ncũ[U+0020][U+0020]".'));
     expect(deletes()).toEqual([`DELETE /agents/coach/script-store?${named("kho\ncũ  ")}`]);
   });
 });
