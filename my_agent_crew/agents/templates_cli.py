@@ -15,6 +15,10 @@ from typing import Any
 
 import yaml
 
+from my_agent_crew import texts
+from my_agent_crew.agent_ids import is_agent_id
+from my_agent_crew.agents.profile import DEFAULT_AGENT_ID
+
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 SHARED_SKILLS = "_shared_skills"
 MANIFEST = "agent.yaml"
@@ -78,6 +82,22 @@ def _copy_tree(src: Path, dest: Path, force: bool) -> list[Path]:
     return written
 
 
+def landing(template: str, home: Path, agent_id: str) -> list[Path]:
+    """Every file adding a template under this id may write over: the agent's own, then
+    the shared skills. The peers it brings are whole folders that were not there, so
+    they are not listed."""
+    pairs = (
+        (TEMPLATES_DIR / template, home / "agents" / agent_id),
+        (TEMPLATES_DIR / SHARED_SKILLS, home / "skills"),
+    )
+    return [
+        dest / path.relative_to(src)
+        for src, dest in pairs
+        for path in sorted(src.rglob("*"))
+        if path.is_file()
+    ]
+
+
 def pin_workspace(manifest: Path, workspace: Path) -> None:
     """Rewrites only the `workspace:` line, so the comments a template ships with survive
     the install. A manifest without one gets the line appended."""
@@ -106,13 +126,22 @@ def add_template(
     share the master agent's workspace.
 
     Returns the agent directory and the ids of any peers added with it. Raises `KeyError`
-    for a name that is not a template and `FileExistsError` when the id is taken, so a
-    mistyped name never half-writes an agent.
+    for a name that is not a template, `ValueError` for an id no agent can go by and
+    `FileExistsError` when the id is taken, so a mistyped name never half-writes an agent.
     """
     source = TEMPLATES_DIR / template
-    if not (source / MANIFEST).is_file():
+    # Both names become a path segment. A template is one of the folders here by its
+    # plain name, and an id is a folder under the home's `agents`: one with a path in
+    # it read a template from elsewhere, or wrote the agent outside the home.
+    if not is_agent_id(template) or not (source / MANIFEST).is_file():
         raise KeyError(template)
-    agent_dir = home / "agents" / (agent_id or template)
+    name = agent_id or template
+    if not is_agent_id(name):
+        raise ValueError(texts.AGENT_ID_INVALID)
+    if name == DEFAULT_AGENT_ID:
+        # The master's file is the home's own; a folder by its id stops the next start.
+        raise ValueError(texts.AGENT_EXISTS.format(agent_id=name))
+    agent_dir = home / "agents" / name
     if agent_dir.exists() and not force:
         raise FileExistsError(agent_dir)
     _copy_tree(source, agent_dir, force)

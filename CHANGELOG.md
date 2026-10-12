@@ -424,6 +424,31 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   for bringing such a pair now names the agent too. Ids are compared as the texts they are,
   capitals apart. Two agents may each have a schedule of one id, as before: the clock knows a
   job by its agent and its id together.
+- An install that is refused leaves the home as it was. `POST /api/agents/install` wrote the
+  template first and read the crew afterwards, so a refusal could come after the write: beside an
+  `agent.yaml` the start cannot read it answered 500 and left the new folders, and a workspace
+  that is a file did the same. The id and the template were used as path segments unchecked: an
+  `agent_id` of `../../out` wrote the agent outside the home, `a/b` two folders deep in it, and a
+  `template` of `../templates/kongming` read a template from wherever that led. An `agent_id` of
+  `default`, or with `force` the id of an agent a kit brings, wrote a folder that stopped the
+  next start or took the id from its holder. Now everything the request names is checked and the
+  home read before a file is written: 422 for an id that is no agent id
+  (`Mã agent chỉ gồm chữ thường, số và dấu gạch ngang.`), for a home that cannot be read as a
+  crew, in a sentence naming the file, and for a workspace that cannot be a folder; 404 for a
+  template that is not one of the bundled ones by its plain name; 409 for the master's id and
+  for the id of an agent that runs with no `agent.yaml` of its own, whatever `force` says. When
+  what was written still cannot join the crew, the folders the install made are removed and each
+  file it wrote over holds what it held. `agent add` on the command line refuses the same ids
+  and template names and prints why.
+- `POST /api/agents/reload` takes in every folder copied in, or none. An agent whose workspace
+  cannot be a folder was a 500, and the folders read before it had joined the running crew by
+  then while the ones after it had not. It is now a 422 naming the path, with the crew as it was.
+- An `agent.yaml` that does not parse is refused by name. The start reads the file with one
+  library and the routes caught the error of another, so a syntax error in any agent's file was
+  a 500 on `POST /api/agents/reload`, on an install, and on saving a key or the model routes.
+  Each now answers in the words a broken file gets elsewhere, with the path of the file in front
+  of the parser's line and column (422 on a reload and an install, 409 on a key or the routes
+  with nothing saved), and the start stops on the same sentence.
 
 ## [0.15.0] — 2026-10-12
 

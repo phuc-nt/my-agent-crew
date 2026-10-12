@@ -11,16 +11,14 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from ruamel.yaml import YAMLError
 
 from my_agent_crew import texts
 from my_agent_crew.agent.prompt import system_prompt_for
 from my_agent_crew.agent.turn_notes import opening_block
-from my_agent_crew.agents import load_profiles
 from my_agent_crew.agents.profile import PERSONA_FILES
 from my_agent_crew.server.agent_edit_common import check_editable, existing, write_lock
+from my_agent_crew.server.agent_install import joined, read_crew
 from my_agent_crew.server.deps import Rt
-from my_agent_crew.server.runtime_build import check_delegates
 
 router = APIRouter(tags=["agents"])
 
@@ -90,17 +88,8 @@ async def reload_agents(rt: Rt) -> dict[str, Any]:
     """Pick up agents added on disk outside the web (a kit installed, a folder copied in)
     without a restart."""
     async with write_lock:
-        # Any file under the home can be the broken one, including a folder copied in by
-        # hand, so this says which rather than failing as a traceback.
         try:
-            profiles = load_profiles(rt.settings)
-            check_delegates(profiles)
-        except ValueError as exc:
-            raise HTTPException(422, str(exc)) from exc
-        except YAMLError as exc:
-            raise HTTPException(422, texts.MANIFEST_BROKEN.format(error=str(exc))) from exc
-        try:
-            added = rt.add_agents(profiles)
+            added = joined(rt, read_crew(rt))
         except RuntimeError as exc:
             raise HTTPException(409, str(exc)) from exc
     return {"added": added}

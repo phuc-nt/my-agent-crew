@@ -137,24 +137,23 @@ class Runtime:
         """Brings agents installed while the server runs into this runtime: deps built
         the same way as at startup, the shared peer map extended, every delegating agent's
         tool rebuilt. Channels and schedules are not started here; those need a restart.
-        Ids already present are skipped and not reported."""
+        Ids already present are skipped and not reported. Every newcomer is built before
+        any joins: one that cannot be built leaves the crew as it was."""
         if self.client is None:
             raise RuntimeError(texts.RUNTIME_CANNOT_GROW)
-        added: list[str] = []
         peers = self.default.peers if isinstance(self.default.peers, dict) else {}
-        for profile in profiles:
-            if profile.id in self.agents:
-                continue
-            deps = build_agent_deps(
-                profile, self.providers, self.client, self.store, self.settings.routes
-            )
+        fresh = [profile for profile in profiles if profile.id not in self.agents]
+        built = [
+            build_agent_deps(p, self.providers, self.client, self.store, self.settings.routes)
+            for p in fresh
+        ]
+        for profile, deps in zip(fresh, built, strict=True):
             deps.peers = peers
             self.agents[profile.id] = deps
             peers[profile.id] = profile
-            added.append(profile.id)
-        if added:
+        if fresh:
             self.wire_delegation()
-        return added
+        return [profile.id for profile in fresh]
 
     def replace_agent(self, profile: AgentProfile) -> None:
         """Swap in an edited profile without a restart. The deps are rebuilt, not patched:
