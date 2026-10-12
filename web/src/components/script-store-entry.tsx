@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { ApiError } from "../api/client";
 import type { ScriptStoreEntry, ScriptStoreValue } from "../api/script-store";
 import { vi } from "../i18n/vi";
@@ -41,6 +41,8 @@ type Shown = { row: string } & (
  */
 export function ScriptStoreEntryRow({ entry, refused, onRead, onGone, onDelete }: Props) {
   const [shown, setShown] = useState<Shown | null>(null);
+  /** Counts the reads asked for: of two under way at once, the later one is the key's. */
+  const reads = useRef(0);
   const boxId = useId();
   const key = showHiddenChars(entry.key);
   // The box is the key's while the row is the writing it was asked under, or the writing
@@ -51,20 +53,27 @@ export function ScriptStoreEntryRow({ entry, refused, onRead, onGone, onDelete }
 
   const read = async () => {
     const row = entry.updated_at;
-    /** Only the read still waited for fills the box: a person may have closed it since. */
-    const settle = (next: Shown) => setShown((was) => (was?.row === row && was.state === "reading" ? next : was));
+    reads.current += 1;
+    const mine = reads.current;
     setShown({ row, state: "reading" });
+    let answer: Shown | "gone";
     try {
       const value = await onRead();
-      settle({ row, state: "read", text: value.text, stamp: value.updated_at });
+      answer = { row, state: "read", text: value.text, stamp: value.updated_at };
     } catch (error) {
-      if (error instanceof ApiError && error.status === 404) {
-        setShown(null);
-        onGone();
-      } else {
-        settle({ row, state: "failed", why: errorText(error) });
-      }
+      answer = error instanceof ApiError && error.status === 404 ? "gone" : { row, state: "failed", why: errorText(error) };
     }
+    // A box closed and opened again before the server answered has two reads under way. The
+    // later one is what the person waits for: the earlier one says nothing, whenever it lands.
+    if (mine !== reads.current) return;
+    if (answer === "gone") {
+      setShown(null);
+      onGone();
+      return;
+    }
+    // Only a box still waiting is filled: a person may have closed it since.
+    const next = answer;
+    setShown((was) => (was?.row === row && was.state === "reading" ? next : was));
   };
 
   const pretty = box?.state === "read" ? prettyJson(box.text) : null;
