@@ -55,7 +55,7 @@ không bao giờ âm thầm vô hiệu một cài đặt.
 | `escalation_route` | một `provider:model` | trống: tắt | tuyến mà một lượt **bị kẹt** chuyển sang: khi lượt sắp bị dừng vì gọi y hệt một lệnh nhiều lần liên tiếp, hoặc khi mọi tuyến trong `routes` đều hỏng trước khi hiện chữ nào. Phần còn lại của lượt đó chạy trên tuyến này (cùng `reasoning` của agent), lượt sau quay về `routes`. Chỉ đặt cho từng agent: không có khoá toàn cục, không có biến môi trường và không agent nào thừa hưởng của agent khác. Tuyến trùng một tuyến trong `routes`, hay của provider chưa có khoá, không dùng được: lúc khởi động nó bị bỏ qua kèm một dòng cảnh báo trong log, còn lưu từ màn sửa agent thì bị từ chối (422). Sửa có hiệu lực từ lượt kế tiếp, không cần khởi động lại. Xem [Vòng lặp agent](system-architecture.md#23-vòng-lặp-agent) |
 | `reasoning` | `minimal`, `low`, `medium` hoặc `high` | trống | model nghĩ kỹ đến đâu, gửi lên OpenRouter thành `reasoning.effort` cho mọi tuyến của agent (kể cả tuyến dự phòng); trống thì để provider tự quyết. Model đang nghĩ thì web hiện "Agent đang suy nghĩ…", số token dùng để nghĩ lưu ở cột `reasoning_tokens` của `messages`, còn nội dung suy nghĩ không lưu. Ollama bỏ qua khoá này |
 | `workspace` | đường dẫn | `workspace` | sandbox cho `workspace_*` và `shell_run`; đường dẫn tương đối tính từ thư mục agent, `~` được mở rộng |
-| `persona_files` | danh sách tên tệp | `AGENTS.md, SOUL.md, IDENTITY.md, USER.md` | đọc từ thư mục agent vào system prompt mỗi lượt; tệp thiếu thì bỏ qua. Tệp mở đầu bằng front matter thì chỉ phần thân vào prompt; khối mở đầu không phải YAML thì cả tệp được đọc nguyên văn |
+| `persona_files` | danh sách tên tệp | `AGENTS.md, SOUL.md, IDENTITY.md, USER.md` | đọc từ thư mục agent vào system prompt mỗi lượt; tệp thiếu thì bỏ qua. Tệp mở đầu bằng front matter thì chỉ phần thân vào prompt; khối mở đầu không đọc được thì cả tệp được đọc nguyên văn (khối có dòng mang dấu hai chấm thứ hai vẫn đọc được, xem [Kit](#kit-agents-claude-opencode)) |
 | `persona_names` | chỉ đọc | — | danh sách tên tệp persona thực sự có mặt (trả về bởi `GET /api/agents/{id}` và `GET /api/agents/{id}/prompt`) |
 | `skills_dirs` | danh sách đường dẫn | `[]` | thư mục skill bổ sung; `<agent dir>/skills` luôn đứng đầu |
 | `cost_cap_usd` | số ≥ 0 | toàn cục | ngân sách mỗi cuộc trò chuyện, `0` = không giới hạn |
@@ -709,8 +709,25 @@ Mỗi phần ánh xạ sang gì:
 | `tools:` trong front matter đó | ánh xạ theo tên: `Bash`→`shell_run`, `Read`→`workspace_read`, `Write`, `Edit`/`MultiEdit`→`workspace_edit`, `Glob`, `Grep`, `LS`→`workspace_list`, `WebFetch`→`fetch_url`, `WebSearch`→`web_search`, `Task`/`Agent`→`delegate`; tên riêng của chúng tôi đi thẳng qua, tên chỉ có ở harness (`TaskCreate`, `NotebookEdit`) bị bỏ. Memory, `skill_read` và `image_read` luôn được giữ. Agent được phép sửa là `mode: work` trừ khi front matter nói khác |
 | `commands/**/*.md` (front matter `description`, thân là prompt) | một slash command `/name`, lồng thư mục thành `/dir:name`. `$ARGUMENTS` và `$1`…`$9` được điền từ tin nhắn, nếu không thì đối số được nối vào cuối. Chạy trong web chat và trên Telegram, nơi các lệnh có sẵn (`/new`, `/status`, …) giữ nguyên tên; prompt của master liệt kê chúng |
 | `skills/` (hoặc `skill/` của opencode) | thêm một thư mục skill sau thư mục riêng của agent |
-| front matter không phải YAML (hay gặp: `description: Use when: …`, dấu hai chấm thứ hai) | chỉ mất đúng tệp đó: agent, lệnh hay skill trong tệp bị bỏ ra và log nêu đường dẫn, các tệp khác vẫn nạp. Bọc mô tả trong dấu nháy là đọc được |
+| front matter có dòng mang dấu hai chấm thứ hai (`description: Use when: …`) | đọc được, mô tả đến nguyên văn; đoạn ngay dưới bảng nói dòng nào được đọc như thế |
+| front matter không đọc được | chỉ mất đúng tệp đó: agent, lệnh hay skill trong tệp bị bỏ ra và log nêu đường dẫn cùng chỗ còn vướng, các tệp khác vẫn nạp |
 | `settings.json` → `hooks.PreToolUse` / `hooks.PostToolUse`, các mục `type: command` | hook tool, xem bên dưới. Các loại hook và sự kiện khác bị bỏ qua |
+
+**Front matter có dấu hai chấm thứ hai.** Kit viết cho harness khác hay có dòng
+`description: Use when: the tests fail`. Dòng đó không phải YAML, vì dấu hai chấm thứ hai
+mở một cặp khoá ngay giữa một giá trị. Front matter luôn được đọc bằng YAML trước, và khối
+nào YAML đọc được thì kết quả đúng như YAML cho ra. Chỉ khi YAML từ chối, khối mới được đọc
+lần thứ hai: mỗi dòng dạng `khoá: giá trị` viết từ cột đầu, có giá trị là chữ trần mang
+`: ` ở giữa hay kết thúc bằng `:`, được lấy nguyên văn làm chữ cho đến hết dòng. Phần sau
+dấu `#` trên dòng đó cũng thuộc về chữ, vì `issue #12` thường là một phần của câu chứ không
+phải ghi chú; dòng mà dấu hai chấm chỉ nằm sau dấu `#` thì để nguyên, vì YAML vốn đọc được
+dòng ấy. Lần đọc thứ hai không đụng đến giá trị mở đầu bằng dấu nháy hay một ký hiệu của
+YAML (`[`, `{`, `|`, `>`, `&`, `*`, `!`, `%`, `@`, dấu huyền, hoặc `-` và `?` đứng trước
+dấu cách), khoá lồng dưới một khoá khác, giá trị trải nhiều dòng và mục của danh sách.
+Khối hỏng ở những chỗ đó vẫn bị từ chối, và lỗi trong log nêu chỗ còn vướng. Lần đọc thứ
+hai xét từng dòng và không theo dấu nháy của YAML: trong một khối đã bị từ chối, dòng có
+dạng trên nằm giữa một giá trị trong nháy trải nhiều dòng cũng bị lấy làm chữ. Cách đọc này
+dùng chung cho tệp agent, lệnh, skill và persona.
 
 **Hook** chạy lệnh với cùng JSON trên stdin mà các harness gửi:
 `hook_event_name`, `tool_name`, `tool_alias` (tên bên harness, `Bash` cho `shell_run`),
@@ -766,10 +783,11 @@ cliHelp: gws --help
 ---
 ```
 
-Front matter không phải YAML thì skill đó bị bỏ ra và log nêu đường dẫn tệp, các skill
-khác vẫn nạp. Lỗi hay gặp nhất là một mô tả có dấu hai chấm thứ hai
-(`description: Use when: …`): bọc mô tả trong dấu nháy là đọc được. Front matter đọc được
-mà không phải các cặp khoá (một dòng chữ, một danh sách) thì coi như không khai gì.
+Một mô tả có dấu hai chấm thứ hai (`description: Use when: …`) đọc được dù không phải
+YAML: dòng đó được lấy nguyên văn làm chữ, theo quy tắc ở mục
+[Kit](#kit-agents-claude-opencode). Front matter không đọc được thì skill đó bị bỏ ra và
+log nêu đường dẫn tệp, các skill khác vẫn nạp. Front matter đọc được mà không phải các cặp
+khoá (một dòng chữ, một danh sách) thì coi như không khai gì.
 
 Skill đến được prompt theo một trong ba đường:
 

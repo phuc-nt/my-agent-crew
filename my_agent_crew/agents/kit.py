@@ -21,6 +21,8 @@ from typing import TYPE_CHECKING, Any
 
 import yaml
 
+from my_agent_crew.front_matter import read_front_matter
+
 if TYPE_CHECKING:
     from my_agent_crew.agents.profile import AgentProfile
 
@@ -82,9 +84,10 @@ def _markdown_files(root: Path, names: tuple[str, ...], recursive: bool) -> Iter
 
 def split_front_matter(text: str) -> tuple[dict[str, Any], str]:
     """`---` yaml `---` body, the shape every harness uses for its markdown files. A
-    front matter that is not YAML is a ValueError: each reader says what a file it
-    cannot read costs (an agent or a command left out, a persona read as written),
-    where the parser's own error went past all of them and stopped the start."""
+    front matter that cannot be read (`front_matter.py` says what can) is a ValueError:
+    each reader says what a file it cannot read costs (an agent or a command left out, a
+    persona read as written), where the parser's own error went past all of them and
+    stopped the start."""
     if not text.startswith("---"):
         return {}, text.strip()
     _, _, rest = text.partition("---\n")
@@ -92,7 +95,7 @@ def split_front_matter(text: str) -> tuple[dict[str, Any], str]:
     if not sep:
         return {}, text.strip()
     try:
-        meta = yaml.safe_load(front) or {}
+        meta = read_front_matter(front) or {}
     except yaml.YAMLError as exc:
         raise ValueError(f"front matter is not YAML: {exc}") from exc
     return (meta if isinstance(meta, dict) else {}), body.strip()
