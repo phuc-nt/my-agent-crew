@@ -10,6 +10,8 @@ export interface AllowList {
   stray: string[];
   /** The list the picker holds once it is switched on. Empty only when there is no row. */
   start: string[];
+  /** `picked` with one more name ticked, in the order the form writes a list in. */
+  ticked: (picked: string[], name: string) => string[];
 }
 
 /** A row for a name the catalogue does not describe. The catalogue lists what some agent
@@ -48,5 +50,13 @@ export function allowList(tools: RegistryTool[], agent: AgentInfo | null, draft:
   // nothing away and adds no name; else, when it holds none of them, every row.
   const start = listed.length > 0 ? listed : held.length > 0 ? held : listable;
 
-  return { rows, stray, start };
+  // A name goes where the file's list has it, so that a tick taken off and put back is no
+  // change to save. A name that list never held follows the file's, in the rows' order.
+  const ticked = (picked: string[], name: string) => {
+    const now = [...picked, name];
+    const added = [...listable, ...now].filter((it) => now.includes(it) && !listed.includes(it));
+    return [...listed.filter((it) => now.includes(it)), ...new Set(added)];
+  };
+
+  return { rows, stray, start, ticked };
 }

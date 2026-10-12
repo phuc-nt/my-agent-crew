@@ -57,7 +57,8 @@ describe("the editor of an agent on a server that reports none of the keys this 
 
     await tick("ask_user");
 
-    expect(await saved()).toEqual([{ tools: ["web_search", "write_file", "ask_user"] }]);
+    // The file lists none: the names are written as the rows stand.
+    expect(await saved()).toEqual([{ tools: ["ask_user", "web_search", "write_file"] }]);
   });
 
   it("starts from every row for an agent that holds none of them", async () => {
