@@ -2,6 +2,7 @@ import type { McpServerInfo, McpStatus, RegistryTool } from "../../api/types";
 import type { AgentDraft } from "../../hooks/use-agent-draft";
 import { vi } from "../../i18n/vi";
 import { ScriptControls } from "./script-controls";
+import { allowList } from "./tool-allow-list";
 
 interface Props {
   form: AgentDraft;
@@ -23,10 +24,12 @@ const STATUS_TONE: Record<McpStatus, string> = { connected: "ok", idle: "warn", 
  * The tools of an MCP server are not in that list, and neither is the search that finds
  * them. They come with the server, which is switched on below, so the picker leaves them
  * out: ticking one would promise a say the allow-list does not have. The script tool is
- * left out for the same reason: it follows what the agent may read, not the list.
+ * left out for the same reason: it follows what the agent may read, not the list. Which
+ * names the list does have a say over, for this agent, is `allowList`'s to tell.
  */
 export function ToolsSection({ form, readOnly, tools, mcpServers }: Props) {
-  const own = tools.filter((tool) => !tool.server && !tool.with_mcp && !tool.with_reads);
+  const list = allowList(tools, form.original, form.draft);
+  const own = list.rows;
   const picked = form.draft.tools ?? [];
   const restricted = picked.length > 0;
   const servers = form.draft.mcp ?? [];
@@ -36,7 +39,9 @@ export function ToolsSection({ form, readOnly, tools, mcpServers }: Props) {
 
   const toggle = (name: string) => {
     const next = picked.includes(name) ? picked.filter((t) => t !== name) : [...picked, name];
-    form.set("tools", next);
+    // Only here, where the person changes the list, are the names it has no say over
+    // taken out of it: a save of anything else leaves the file's list as it is written.
+    form.set("tools", list.written(next));
   };
   const toggleServer = (name: string) =>
     form.set("mcp", servers.includes(name) ? servers.filter((s) => s !== name) : [...servers, name]);
@@ -63,7 +68,7 @@ export function ToolsSection({ form, readOnly, tools, mcpServers }: Props) {
             disabled={readOnly}
             // Switching on the allow-list with nothing ticked would save as "no
             // allow-list" again, so it starts from everything the agent holds today.
-            onChange={() => form.set("tools", own.map((t) => t.name))}
+            onChange={() => form.set("tools", list.start)}
           />
           <span>{vi.editor.toolsPick}</span>
         </label>
