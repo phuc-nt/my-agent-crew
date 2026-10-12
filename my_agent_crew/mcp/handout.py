@@ -3,9 +3,10 @@
 Every tool of those servers but the hidden ones. Ahead of them come `tool_search`, when
 some are not told up front, and `tool_script`, which an agent that reads holds with no
 server at all (`script/tool.py`): it is handed again here, so that it names the tools the
-servers hold now. Handing out starts by taking back what was handed before, so it can be
-done whenever a server or a profile changes: an agent is always left with what the servers
-hold now, each tool once and in the same place.
+servers hold now, and never to an agent whose file says it writes no script. Handing out
+starts by taking back what was handed before, so it can be done whenever a server or a
+profile changes: an agent is always left with what the servers hold now, each tool once
+and in the same place.
 """
 
 from __future__ import annotations

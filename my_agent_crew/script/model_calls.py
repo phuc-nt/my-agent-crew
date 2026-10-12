@@ -74,6 +74,12 @@ def agents_model(deps: AgentDeps) -> Ask:
     return ask
 
 
+def scripts_model(deps: AgentDeps) -> Ask | None:
+    """What the agent's scripts ask when they ask a model: its own, or none for an agent
+    whose file says its scripts ask no model (`script_llm: false`)."""
+    return agents_model(deps) if deps.settings.script_llm else None
+
+
 @dataclass
 class ModelCalls:
     """What one script asks a model, counted among the calls it makes (`run`)."""

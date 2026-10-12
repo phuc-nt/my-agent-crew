@@ -39,7 +39,7 @@ DEFAULT_TOOL_OUTPUT_CHARS = 8000
 # nobody answers must not hold a conversation (and a job's channel) forever.
 DEFAULT_APPROVAL_TTL_SECONDS = 600
 # What `Settings.script_calls` may say (`script/scope.py`).
-SCRIPT_READ_ONLY, SCRIPT_GATED = "read_only", "gated"
+SCRIPT_NONE, SCRIPT_READ_ONLY, SCRIPT_GATED = "none", "read_only", "gated"
 
 
 @dataclass(frozen=True)
@@ -87,8 +87,10 @@ class Settings:
     shell_write_paths: tuple[str, ...] = ()
     shell_deny_patterns: tuple[str, ...] = ()
     # What a script of the agent may call, per agent only: tools that only read, or also
-    # those that change things, each let through by the approval gate before it runs.
+    # those that change things, each let through by the approval gate before it runs; or
+    # nothing, for an agent handed no script tool. And whether its scripts may ask a model.
     script_calls: str = SCRIPT_READ_ONLY
+    script_llm: bool = True
     # Where `workspace_write`, `workspace_edit` and `artifact_export` may write, inside the
     # workspace. Empty means anywhere in it; set, a guessed path cannot scatter files
     # through a repo.

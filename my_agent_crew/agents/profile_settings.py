@@ -7,12 +7,14 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import Any
 
-from my_agent_crew.config import SCRIPT_GATED, SCRIPT_READ_ONLY, Route, Settings
+from my_agent_crew.config import SCRIPT_GATED, SCRIPT_NONE, SCRIPT_READ_ONLY, Route, Settings
 from my_agent_crew.config_parse import parse_routes
 
 # OpenRouter's `reasoning.effort` levels. Empty means the request says nothing and the
 # model thinks as much as its provider defaults to.
 REASONING_EFFORTS = ("minimal", "low", "medium", "high")
+# The words `script_calls` takes, from the least a script may do to the most.
+SCRIPT_CALLS = (SCRIPT_NONE, SCRIPT_READ_ONLY, SCRIPT_GATED)
 
 
 def names(raw: dict[str, Any], key: str, agent_id: str) -> tuple[str, ...]:
@@ -58,6 +60,7 @@ def settings_from(
         shell_write_paths=names(raw, "shell_write_paths", agent_id),
         shell_deny_patterns=names(raw, "shell_deny_patterns", agent_id),
         script_calls=script_calls(raw, agent_id),
+        script_llm=script_llm(raw, agent_id),
         write_paths=names(raw, "write_paths", agent_id),
     )
 
@@ -72,14 +75,32 @@ def shell_network(raw: dict[str, Any], agent_id: str) -> bool:
 
 
 def script_calls(raw: dict[str, Any], agent_id: str) -> str:
-    """What a script of the agent may call. Read from the agent's own file and never from
-    the settings it inherits: a script that changes things is on only where somebody
-    wrote so, and a value nobody knows is a mistake to be told of, not a default."""
+    """What a script of the agent may call, or that it is handed no script tool at all.
+    Read from the agent's own file and never from the settings it inherits: a script that
+    changes things is on only where somebody wrote so, and a value nobody knows is a
+    mistake to be told of, not a default."""
     value = raw.get("script_calls", SCRIPT_READ_ONLY)
-    if value not in (SCRIPT_READ_ONLY, SCRIPT_GATED):
+    known = f"agent {agent_id}: script_calls must be {', '.join(SCRIPT_CALLS[:-1])}"
+    known += f" or {SCRIPT_CALLS[-1]}"
+    if isinstance(value, bool):
+        # What switching the scripts off is first written as, and none of the three words.
         raise ValueError(
-            f"agent {agent_id}: script_calls must be {SCRIPT_READ_ONLY} or {SCRIPT_GATED}"
+            f"{known}, not a boolean (YAML reads a bare off, no, false, on, yes or true as"
+            f" one): write {SCRIPT_NONE} to hand the agent no tool_script, or the one of the"
+            " three meant"
         )
+    if value not in SCRIPT_CALLS:
+        raise ValueError(known)
+    return value
+
+
+def script_llm(raw: dict[str, Any], agent_id: str) -> bool:
+    """Whether a script of the agent may ask a model itself. From the agent's own file."""
+    value = raw.get("script_llm", True)
+    # Only a real YAML bool: `"false"` read as truthy would leave the scripts paying for
+    # a model on exactly the agent someone meant to stop.
+    if not isinstance(value, bool):
+        raise ValueError(f"agent {agent_id}: script_llm must be true or false")
     return value
 
 
